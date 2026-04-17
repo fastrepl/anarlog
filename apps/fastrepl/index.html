@@ -3,136 +3,143 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>fastrepl</title>
-    <meta name="description" content="Projects from fastrepl." />
+    <title>fastrepl — Independent Software Laboratory</title>
+    <meta name="description" content="A software laboratory from Korea and SF. We build tools, ship them, and open-source them." />
+    <meta name="theme-color" content="#f2f1ef" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap"
     />
     <link rel="stylesheet" href="./output.css" />
   </head>
-  <body class="min-h-screen bg-[color:var(--color-page)] text-[color:var(--color-fg)] font-sans antialiased">
-    <div class="mx-auto flex min-h-screen max-w-6xl flex-col px-6 py-10 sm:px-10 sm:py-16">
+  <body class="min-h-screen bg-page text-fg font-sans antialiased">
+    <div class="mx-auto flex min-h-screen max-w-2xl flex-col px-6 py-10 sm:px-8 sm:py-16 lg:max-w-3xl">
+
       <header class="flex items-center justify-between">
         <a href="/" class="font-mono text-sm tracking-tight">fastrepl</a>
-        <a
-          href="https://github.com/fastrepl/char"
-          target="_blank"
-          rel="noopener"
-          class="font-mono text-sm text-[color:var(--color-fg-muted)] hover:text-[color:var(--color-fg)]"
-        >
-          github ↗
-        </a>
+        <nav class="flex items-center gap-6 font-mono text-sm text-fg-muted">
+          <span class="hidden text-xs uppercase tracking-widest sm:inline">Seoul · SF</span>
+          <a
+            href="https://github.com/fastrepl/char"
+            target="_blank"
+            rel="noopener"
+            class="transition-colors hover:text-fg"
+          >GitHub ↗</a>
+        </nav>
       </header>
 
-      <main class="mt-24 flex-1 sm:mt-32">
-        <h1 class="font-mono text-3xl tracking-tight sm:text-5xl">
-          Projects from fastrepl.
-        </h1>
-        <p class="mt-6 max-w-2xl text-lg text-[color:var(--color-fg-muted)] sm:text-xl">
-          A small collection of things we build and ship.
-        </p>
+      <main class="flex-1">
+        <section class="mt-32 sm:mt-40">
+          <p class="font-mono text-xs uppercase tracking-widest text-fg-muted">Independent software laboratory</p>
+          <h1 class="mt-6 max-w-lg font-serif text-2xl leading-snug sm:text-3xl sm:leading-snug">
+            <em>A software laboratory from Korea&#8239;+&#8239;SF.</em>
+            We ship what we'd want to use.
+          </h1>
+        </section>
 
-        <div class="mt-16 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <a
-            href="https://char.com"
-            target="_blank"
-            rel="noopener"
-            class="group flex flex-col justify-between rounded-xs border border-[color:var(--color-border)] bg-[color:var(--color-surface)] p-8 transition hover:border-[color:var(--color-fg)]"
-          >
-            <div class="flex items-start justify-between">
-              <div>
-                <div class="font-mono text-xl tracking-tight">char</div>
-                <div class="mt-1 font-mono text-sm text-[color:var(--color-fg-muted)]">2025</div>
-              </div>
-              <span
-                class="font-mono text-sm text-[color:var(--color-fg-muted)] transition group-hover:text-[color:var(--color-fg)]"
-                >↗</span
-              >
-            </div>
-            <p class="mt-24 text-base text-[color:var(--color-fg-muted)]">
-              The meeting assistant you own.
-            </p>
-          </a>
+        <section class="mt-20 sm:mt-28">
+          <p class="font-mono text-xs uppercase tracking-widest text-fg-muted">Works</p>
 
-          <a
-            href="https://openbird.vercel.app"
-            target="_blank"
-            rel="noopener"
-            class="group flex flex-col justify-between rounded-xs border border-[color:var(--color-border)] bg-[color:var(--color-surface)] p-8 transition hover:border-[color:var(--color-fg)]"
-          >
-            <div class="flex items-start justify-between">
-              <div>
-                <div class="font-mono text-xl tracking-tight">openbird</div>
-                <div class="mt-1 font-mono text-sm text-[color:var(--color-fg-muted)]">2025</div>
-              </div>
-              <span
-                class="font-mono text-sm text-[color:var(--color-fg-muted)] transition group-hover:text-[color:var(--color-fg)]"
-                >↗</span
-              >
-            </div>
-            <p class="mt-24 text-base text-[color:var(--color-fg-muted)]">
-              —
-            </p>
-          </a>
+          <div class="mt-8">
+            <hr />
 
-          <a
-            href="https://unsigned.char.com"
-            target="_blank"
-            rel="noopener"
-            class="group flex flex-col justify-between rounded-xs border border-[color:var(--color-border)] bg-[color:var(--color-surface)] p-8 transition hover:border-[color:var(--color-fg)]"
-          >
-            <div class="flex items-start justify-between">
-              <div>
-                <div class="font-mono text-xl tracking-tight">unsigned</div>
-                <div class="mt-1 font-mono text-sm text-[color:var(--color-fg-muted)]">2025</div>
+            <a href="https://char.com" target="_blank" rel="noopener" class="group flex gap-4 py-8 sm:gap-6 sm:py-10">
+              <span class="w-6 shrink-0 font-mono text-sm text-fg-muted">01</span>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-baseline justify-between gap-4">
+                  <h2 class="font-serif text-xl decoration-1 underline-offset-4 group-hover:underline sm:text-2xl">char</h2>
+                  <div class="flex shrink-0 items-baseline gap-3">
+                    <span class="font-mono text-sm text-fg-muted">2025</span>
+                    <span class="text-fg-muted transition-colors group-hover:text-fg" aria-hidden="true">↗</span>
+                  </div>
+                </div>
+                <p class="mt-2 text-fg-muted">AI daily notes. Meetings, emails, the lot. Open source.</p>
+                <span class="mt-2 inline-block font-mono text-xs uppercase tracking-widest text-fg-muted">YC S25</span>
               </div>
-              <span
-                class="font-mono text-sm text-[color:var(--color-fg-muted)] transition group-hover:text-[color:var(--color-fg)]"
-                >↗</span
-              >
-            </div>
-            <p class="mt-24 text-base text-[color:var(--color-fg-muted)]">
-              —
-            </p>
-          </a>
+            </a>
 
-          <a
-            href="https://philo.so"
-            target="_blank"
-            rel="noopener"
-            class="group flex flex-col justify-between rounded-xs border border-[color:var(--color-border)] bg-[color:var(--color-surface)] p-8 transition hover:border-[color:var(--color-fg)]"
-          >
-            <div class="flex items-start justify-between">
-              <div>
-                <div class="font-mono text-xl tracking-tight">philo</div>
-                <div class="mt-1 font-mono text-sm text-[color:var(--color-fg-muted)]">2025</div>
+            <hr />
+
+            <a href="https://unsigned.char.com" target="_blank" rel="noopener" class="group flex gap-4 py-8 sm:gap-6 sm:py-10">
+              <span class="w-6 shrink-0 font-mono text-sm text-fg-muted">02</span>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-baseline justify-between gap-4">
+                  <h2 class="font-serif text-xl decoration-1 underline-offset-4 group-hover:underline sm:text-2xl">unsigned</h2>
+                  <div class="flex shrink-0 items-baseline gap-3">
+                    <span class="font-mono text-sm text-fg-muted">2025</span>
+                    <span class="text-fg-muted transition-colors group-hover:text-fg" aria-hidden="true">↗</span>
+                  </div>
+                </div>
+                <p class="mt-2 text-fg-muted">Free meeting notetaker. Nothing to sign up for.</p>
+                <span class="mt-2 inline-block font-mono text-xs uppercase tracking-widest text-fg-muted">No account needed</span>
               </div>
-              <span
-                class="font-mono text-sm text-[color:var(--color-fg-muted)] transition group-hover:text-[color:var(--color-fg)]"
-                >↗</span
-              >
-            </div>
-            <p class="mt-24 text-base text-[color:var(--color-fg-muted)]">
-              —
-            </p>
-          </a>
-        </div>
+            </a>
+
+            <hr />
+
+            <a href="https://openbird.vercel.app" target="_blank" rel="noopener" class="group flex gap-4 py-8 sm:gap-6 sm:py-10">
+              <span class="w-6 shrink-0 font-mono text-sm text-fg-muted">03</span>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-baseline justify-between gap-4">
+                  <h2 class="font-serif text-xl decoration-1 underline-offset-4 group-hover:underline sm:text-2xl">openbird</h2>
+                  <div class="flex shrink-0 items-baseline gap-3">
+                    <span class="font-mono text-sm text-fg-muted">2025</span>
+                    <span class="text-fg-muted transition-colors group-hover:text-fg" aria-hidden="true">↗</span>
+                  </div>
+                </div>
+                <p class="mt-2 text-fg-muted">An experiment in open communication.</p>
+              </div>
+            </a>
+
+            <hr />
+
+            <a href="https://philo.so" target="_blank" rel="noopener" class="group flex gap-4 py-8 sm:gap-6 sm:py-10">
+              <span class="w-6 shrink-0 font-mono text-sm text-fg-muted">04</span>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-baseline justify-between gap-4">
+                  <h2 class="font-serif text-xl decoration-1 underline-offset-4 group-hover:underline sm:text-2xl">philo</h2>
+                  <div class="flex shrink-0 items-baseline gap-3">
+                    <span class="font-mono text-sm text-fg-muted">2025</span>
+                    <span class="text-fg-muted transition-colors group-hover:text-fg" aria-hidden="true">↗</span>
+                  </div>
+                </div>
+                <p class="mt-2 text-fg-muted">A quiet place for ideas.</p>
+              </div>
+            </a>
+
+            <hr />
+
+            <article class="flex gap-4 py-8 opacity-60 sm:gap-6 sm:py-10">
+              <span class="w-6 shrink-0 font-mono text-sm text-fg-muted">05</span>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-baseline justify-between gap-4">
+                  <h2 class="font-serif text-xl sm:text-2xl">charm</h2>
+                  <span class="font-mono text-sm text-fg-muted">———</span>
+                </div>
+                <p class="mt-2 text-fg-muted">A dictation tool for people who talk to their computer.</p>
+                <span class="mt-2 inline-block font-mono text-xs uppercase tracking-widest text-fg-muted">In research</span>
+              </div>
+            </article>
+
+            <hr />
+          </div>
+        </section>
       </main>
 
-      <footer class="mt-24 flex items-center justify-between font-mono text-sm text-[color:var(--color-fg-muted)] sm:mt-32">
-        <span>© fastrepl</span>
-        <a
-          href="https://github.com/fastrepl/char"
-          target="_blank"
-          rel="noopener"
-          class="hover:text-[color:var(--color-fg)]"
-        >
-          github.com/fastrepl/char
-        </a>
+      <footer class="mt-24 border-t border-border pt-10 sm:mt-32">
+        <p class="font-mono text-xs uppercase tracking-widest text-fg-muted">Colophon</p>
+        <div class="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <span class="font-mono text-sm text-fg-muted">Copyright &copy; 2026 fastrepl</span>
+          <nav class="flex items-center gap-6 font-mono text-sm text-fg-muted">
+            <a href="https://github.com/fastrepl/char" target="_blank" rel="noopener" class="transition-colors hover:text-fg">GitHub ↗</a>
+            <a href="mailto:hello@fastrepl.com" class="transition-colors hover:text-fg">Talk to us ↗</a>
+          </nav>
+        </div>
+        <p class="mt-8 font-mono text-xs uppercase tracking-widest text-fg-muted">In production</p>
       </footer>
+
     </div>
   </body>
 </html>
