@@ -263,6 +263,49 @@ const nodes: Record<string, NodeSpec> = {
     },
   },
 
+  fileAttachment: {
+    group: "block",
+    atom: true,
+    attrs: {
+      attachmentId: { default: null },
+      name: { default: "" },
+      mimeType: { default: "" },
+      src: { default: null },
+      path: { default: null },
+      size: { default: null },
+    },
+    parseDOM: [
+      {
+        tag: 'div[data-type="file-attachment"]',
+        getAttrs(dom) {
+          const el = dom as HTMLElement;
+          return {
+            attachmentId: el.getAttribute("data-attachment-id"),
+            name: el.getAttribute("data-name"),
+            mimeType: el.getAttribute("data-mime-type"),
+            src: el.getAttribute("data-src"),
+            size: el.getAttribute("data-size")
+              ? Number(el.getAttribute("data-size"))
+              : null,
+          };
+        },
+      },
+    ],
+    toDOM(node) {
+      const attrs: Record<string, string> = {
+        "data-type": "file-attachment",
+      };
+      if (node.attrs.attachmentId) {
+        attrs["data-attachment-id"] = node.attrs.attachmentId;
+      }
+      if (node.attrs.name) attrs["data-name"] = node.attrs.name;
+      if (node.attrs.mimeType) attrs["data-mime-type"] = node.attrs.mimeType;
+      if (node.attrs.src) attrs["data-src"] = node.attrs.src;
+      if (node.attrs.size != null) attrs["data-size"] = String(node.attrs.size);
+      return ["div", attrs];
+    },
+  },
+
   "mention-@": {
     group: "inline",
     inline: true,
@@ -659,6 +702,59 @@ function clipPlugin(md: MarkdownIt) {
   );
 }
 
+function fileAttachmentPlugin(md: MarkdownIt) {
+  md.block.ruler.before(
+    "paragraph",
+    "file_attachment",
+    (
+      state: StateBlock,
+      startLine: number,
+      _endLine: number,
+      silent: boolean,
+    ) => {
+      const pos = state.bMarks[startLine] + state.tShift[startLine];
+      const max = state.eMarks[startLine];
+      const line = state.src.slice(pos, max);
+
+      // [name](asset://localhost/...) with balanced parens in the URL
+      if (!line.startsWith("[")) return false;
+
+      const closeBracket = line.indexOf("](");
+      if (closeBracket === -1) return false;
+
+      const name = line.slice(1, closeBracket);
+      if (name.includes("]")) return false;
+
+      const urlStart = closeBracket + 2;
+      const PREFIX = "asset://localhost/";
+      if (!line.startsWith(PREFIX, urlStart)) return false;
+
+      let depth = 1;
+      let i = urlStart;
+      while (i < line.length && depth > 0) {
+        if (line[i] === "(") depth++;
+        else if (line[i] === ")") depth--;
+        if (depth > 0) i++;
+      }
+      if (depth !== 0) return false;
+
+      // Must be the entire line (trailing whitespace OK)
+      if (line.slice(i + 1).trim() !== "") return false;
+
+      if (silent) return true;
+
+      const url = line.slice(urlStart, i);
+      const token = state.push("file_attachment", "", 0);
+      token.attrSet("name", name);
+      token.attrSet("src", url);
+      token.map = [startLine, startLine + 1];
+      token.content = line;
+      state.line = startLine + 1;
+      return true;
+    },
+  );
+}
+
 function mentionPlugin(md: MarkdownIt) {
   md.inline.ruler.before(
     "html_inline",
@@ -714,9 +810,8 @@ function emptyParagraphsPlugin(md: MarkdownIt) {
         // Leading: the entire gap before the first block is empty paragraphs.
         // Between blocks: one blank line is normal separation; the rest are
         // empty paragraphs.
-        const extras = prevEndLine === -1
-          ? token.map![0]
-          : token.map![0] - prevEndLine - 1;
+        const extras =
+          prevEndLine === -1 ? token.map![0] : token.map![0] - prevEndLine - 1;
         for (let i = 0; i < extras; i++) pushEmpty();
       }
 
@@ -785,7 +880,6 @@ function wrapBlockImages(doc: JSONContent): JSONContent {
   return { ...doc, content: out };
 }
 
-
 // ---------------------------------------------------------------------------
 // Parser
 // ---------------------------------------------------------------------------
@@ -802,6 +896,7 @@ function getParser(): MarkdownParser {
   md.use(highlightPlugin);
   md.use(taskListPlugin);
   md.use(clipPlugin);
+  md.use(fileAttachmentPlugin);
   md.use(mentionPlugin);
   md.use(emptyParagraphsPlugin);
 
@@ -865,6 +960,17 @@ function getParser(): MarkdownParser {
     clip: {
       node: "clip",
       getAttrs: (tok) => ({ src: tok.attrGet("src") }),
+    },
+    file_attachment: {
+      node: "fileAttachment",
+      getAttrs: (tok) => ({
+        attachmentId: null,
+        name: tok.attrGet("name") ?? "",
+        mimeType: "",
+        src: tok.attrGet("src"),
+        path: null,
+        size: null,
+      }),
     },
     mention: {
       node: "mention-@",
@@ -998,6 +1104,15 @@ function getSerializer(): MarkdownSerializer {
       clip(state, node) {
         const src = (node.attrs.src || "").replace(/"/g, "&quot;");
         state.write(`<Clip src="${src}" />`);
+        state.closeBlock(node);
+      },
+
+      fileAttachment(state, node) {
+        const name = node.attrs.name || "file";
+        const src = (node.attrs.src || "")
+          .replace(/\(/g, "%28")
+          .replace(/\)/g, "%29");
+        state.write(`[${name}](${src})`);
         state.closeBlock(node);
       },
 

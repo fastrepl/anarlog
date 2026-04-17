@@ -13,9 +13,12 @@ export function TagChip({ mappingId }: { mappingId: string }) {
     "tag_id",
     main.STORE_ID,
   ) as string | undefined;
-  const tagName = main.UI.useCell("tags", tagId ?? "", "name", main.STORE_ID) as
-    | string
-    | undefined;
+  const tagName = main.UI.useCell(
+    "tags",
+    tagId ?? "",
+    "name",
+    main.STORE_ID,
+  ) as string | undefined;
 
   if (!tagId || !tagName) {
     return null;

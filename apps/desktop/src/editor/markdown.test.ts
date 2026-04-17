@@ -374,3 +374,107 @@ describe("parseJsonContent", () => {
     expect(parseJsonContent(undefined)).toEqual(EMPTY_DOC);
   });
 });
+
+describe("fileAttachment round-trip", () => {
+  test("serializes fileAttachment node to markdown link", () => {
+    const md = json2md({
+      type: "doc",
+      content: [
+        {
+          type: "fileAttachment",
+          attrs: {
+            name: "report.pdf",
+            src: "asset://localhost/%2Fpath%2Freport.pdf",
+          },
+        },
+      ],
+    });
+    expect(md).toBe("[report.pdf](asset://localhost/%2Fpath%2Freport.pdf)");
+  });
+
+  test("parses markdown link with asset:// to fileAttachment", () => {
+    const json = md2json(
+      "[report.pdf](asset://localhost/%2Fpath%2Freport.pdf)",
+    );
+    const attachments = json.content!.filter(
+      (n) => n.type === "fileAttachment",
+    );
+    expect(attachments).toHaveLength(1);
+    expect(attachments[0].attrs?.name).toBe("report.pdf");
+    expect(attachments[0].attrs?.src).toBe(
+      "asset://localhost/%2Fpath%2Freport.pdf",
+    );
+  });
+
+  test("round-trips two file attachments without leaking URL tail", () => {
+    const doc: JSONContent = {
+      type: "doc",
+      content: [
+        {
+          type: "fileAttachment",
+          attrs: {
+            name: "CE2 The devil wears Prada script.pdf",
+            src: "asset://localhost/%2FUsers%2Fsungbin%2FLibrary%2FApplication%20Support%2Fcom.hyprnote.dev%2Fsessions%2Ff515cc6f%2Fattachments%2FCE2%20The%20devil%20wears%20Prada%20script%202.pdf",
+          },
+        },
+        {
+          type: "fileAttachment",
+          attrs: {
+            name: "2021-13630 조성빈 물리학 1 HW2.pdf",
+            src: "asset://localhost/%2FUsers%2Fsungbin%2FLibrary%2FApplication%20Support%2Fcom.hyprnote.dev%2Fsessions%2Ff515cc6f%2Fattachments%2F2021-13630%20%E1%84%8C%E1%85%A9%E1%84%89%E1%85%A5%E1%86%BC%E1%84%87%E1%85%B5%E1%86%AB%20%E1%84%86%E1%85%AE%E1%86%AF%E1%84%85%E1%85%B5%E1%84%92%E1%85%A1%E1%86%A8%201%20HW2.pdf",
+          },
+        },
+      ],
+    };
+
+    const md = json2md(doc);
+    const parsed = md2json(md);
+
+    const attachments = parsed.content!.filter(
+      (n) => n.type === "fileAttachment",
+    );
+    expect(attachments).toHaveLength(2);
+    expect(attachments[0].attrs?.name).toBe(
+      "CE2 The devil wears Prada script.pdf",
+    );
+    expect(attachments[1].attrs?.name).toBe(
+      "2021-13630 조성빈 물리학 1 HW2.pdf",
+    );
+    expect(attachments[0].attrs?.src).toBe(doc.content![0].attrs!.src);
+    expect(attachments[1].attrs?.src).toBe(doc.content![1].attrs!.src);
+
+    const leakedText = parsed
+      .content!.filter((n) => n.type === "paragraph")
+      .flatMap((p) => p.content ?? [])
+      .filter((n) => n.type === "text")
+      .map((n) => n.text)
+      .join("");
+    expect(leakedText).toBe("");
+  });
+
+  test("handles parentheses in filename via percent-encoding", () => {
+    const doc: JSONContent = {
+      type: "doc",
+      content: [
+        {
+          type: "fileAttachment",
+          attrs: {
+            name: "CE2 (Group 5) PPT.pdf",
+            src: "asset://localhost/%2Fpath%2FCE2%20(Group%205)%20PPT.pdf",
+          },
+        },
+      ],
+    };
+
+    const md = json2md(doc);
+    // Parens in URL must be encoded so the markdown link syntax is unambiguous.
+    expect(md).toContain("%28Group%205%29");
+
+    const parsed = md2json(md);
+    const attachments = parsed.content!.filter(
+      (n) => n.type === "fileAttachment",
+    );
+    expect(attachments).toHaveLength(1);
+    expect(attachments[0].attrs?.name).toBe("CE2 (Group 5) PPT.pdf");
+  });
+});

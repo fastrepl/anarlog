@@ -6,13 +6,13 @@ import {
   commands as fsSyncCommands,
 } from "@hypr/plugin-fs-sync";
 
-export type ImageUploadResult = AttachmentSaveResult & {
+export type FileUploadResult = AttachmentSaveResult & {
   url: string;
 };
 
-export function useImageUpload(sessionId: string) {
+export function useFileUpload(sessionId: string) {
   return useCallback(
-    async (file: File): Promise<ImageUploadResult> => {
+    async (file: File): Promise<FileUploadResult> => {
       const filename = file.name;
       const arrayBuffer = await file.arrayBuffer();
       const data = Array.from(new Uint8Array(arrayBuffer));

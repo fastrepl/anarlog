@@ -10,7 +10,7 @@ import {
   type PlaceholderFunction,
 } from "~/editor/session";
 import { useSearchEngine } from "~/search/contexts/engine";
-import { useImageUpload } from "~/shared/hooks/useImageUpload";
+import { useFileUpload } from "~/shared/hooks/useFileUpload";
 import * as main from "~/store/tinybase/store/main";
 
 export const RawEditor = forwardRef<
@@ -21,7 +21,7 @@ export const RawEditor = forwardRef<
   }
 >(({ sessionId, onNavigateToTitle }, ref) => {
   const rawMd = main.UI.useCell("sessions", sessionId, "raw_md", main.STORE_ID);
-  const onImageUpload = useImageUpload(sessionId);
+  const onFileUpload = useFileUpload(sessionId);
 
   const initialContent = useMemo<JSONContent>(
     () => parseJsonContent(rawMd as string),
@@ -119,7 +119,7 @@ export const RawEditor = forwardRef<
     [search, sessions, humans, organizations],
   );
 
-  const fileHandlerConfig = useMemo(() => ({ onImageUpload }), [onImageUpload]);
+  const fileHandlerConfig = useMemo(() => ({ onFileUpload }), [onFileUpload]);
 
   return (
     <NoteEditor

@@ -7,6 +7,7 @@ import {
   sessionNodeSpec,
   taskItemNodeSpec,
   taskListNodeSpec,
+  fileAttachmentNodeSpec,
 } from "../node-views";
 import { clipNodeSpec } from "../plugins";
 
@@ -122,6 +123,7 @@ const nodes: Record<string, NodeSpec> = {
   taskList: taskListNodeSpec,
   taskItem: taskItemNodeSpec,
   image: imageNodeSpec,
+  fileAttachment: fileAttachmentNodeSpec,
   appLink: appLinkNodeSpec,
   "mention-@": mentionNodeSpec,
   session: sessionNodeSpec,
@@ -199,8 +201,12 @@ const marks: Record<string, MarkSpec> = {
       {
         tag: "a[href]",
         getAttrs(dom) {
+          const href = (dom as HTMLElement).getAttribute("href");
+          if (href && href.startsWith("asset://")) {
+            return false;
+          }
           return {
-            href: (dom as HTMLElement).getAttribute("href"),
+            href,
             target: (dom as HTMLElement).getAttribute("target"),
           };
         },

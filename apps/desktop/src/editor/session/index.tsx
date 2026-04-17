@@ -33,6 +33,7 @@ import "@hypr/tiptap/styles.css";
 
 import {
   AppLinkView,
+  FileAttachmentView,
   MentionNodeView,
   ResizableImageView,
   SessionNodeView,
@@ -126,6 +127,7 @@ interface EditorProps {
 
 const nodeViews = {
   appLink: AppLinkView,
+  fileAttachment: FileAttachmentView,
   image: ResizableImageView,
   "mention-@": MentionNodeView,
   session: SessionNodeView,

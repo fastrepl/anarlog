@@ -7,7 +7,7 @@ import {
   type NoteEditorRef,
 } from "~/editor/session";
 import { useSearchEngine } from "~/search/contexts/engine";
-import { useImageUpload } from "~/shared/hooks/useImageUpload";
+import { useFileUpload } from "~/shared/hooks/useFileUpload";
 import * as main from "~/store/tinybase/store/main";
 
 export const EnhancedEditor = forwardRef<
@@ -18,7 +18,7 @@ export const EnhancedEditor = forwardRef<
     onNavigateToTitle?: (pixelWidth?: number) => void;
   }
 >(({ sessionId, enhancedNoteId, onNavigateToTitle }, ref) => {
-  const onImageUpload = useImageUpload(sessionId);
+  const onFileUpload = useFileUpload(sessionId);
   const content = main.UI.useCell(
     "enhanced_notes",
     enhancedNoteId,
@@ -91,7 +91,7 @@ export const EnhancedEditor = forwardRef<
     [search, sessions, humans, organizations],
   );
 
-  const fileHandlerConfig = useMemo(() => ({ onImageUpload }), [onImageUpload]);
+  const fileHandlerConfig = useMemo(() => ({ onFileUpload }), [onFileUpload]);
 
   return (
     <div className="h-full">
