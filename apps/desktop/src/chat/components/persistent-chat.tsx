@@ -152,7 +152,7 @@ export function PersistentChatPanel({
           transition={{ duration: 0.2 }}
         >
           <div
-            className="pointer-events-auto flex h-full items-end justify-center px-4 pb-4"
+            className="pointer-events-auto flex h-full min-h-0 items-end justify-center px-4 pb-4"
             onClick={(event) => {
               if (event.target === event.currentTarget) {
                 chat.sendEvent({ type: "CLOSE" });
@@ -161,8 +161,8 @@ export function PersistentChatPanel({
           >
             <motion.div
               className={cn([
-                "relative flex flex-col overflow-hidden",
-                "max-h-[70vh] w-full max-w-[640px]",
+                "relative flex min-h-0 flex-col overflow-hidden",
+                "max-h-[min(70vh,calc(100%_-_1rem))] w-full max-w-[640px]",
                 "rounded-2xl bg-white shadow-2xl",
                 "border border-neutral-200",
               ])}

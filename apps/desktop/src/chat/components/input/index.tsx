@@ -139,7 +139,10 @@ function Container({
 }) {
   return (
     <div
-      className={cn(["relative min-h-0 shrink", !isRightPanel && "px-2 pb-2"])}
+      className={cn([
+        "relative min-w-0 shrink-0",
+        !isRightPanel && "px-2 pb-2",
+      ])}
     >
       <div
         className={cn([
