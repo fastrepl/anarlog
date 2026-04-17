@@ -40,15 +40,15 @@ The subtle part: write down something that needs to be done, and Char keeps it a
 
 ### 2. Context capture
 
-Char captures the context around your day so you don't have to type it in:
+Char captures the context around your day so you don't have to type it in.
 
-- **Meetings** — listens directly to sounds coming in and out of your computer. No bots joining your calls. Transcripts, summaries, and action items flow into your daily note.
-- **Screen activity** — uses the macOS accessibility API and VLMs to understand what you're working on. What you've already done gets tracked automatically, so the agent doesn't make you do it twice.
-- **Emails and integrations** — triages inbound, pulls out what's actually actionable.
+- **Meetings** — listens directly to sounds coming in and out of your computer. No bots joining your calls. Transcripts, summaries, and action items flow into your daily note. Pick a template — bullet points, agenda-based, paragraph summary — or build your own. [Template gallery](https://char.com/templates).
+- **Computer activity** — uses the macOS accessibility API to track what you're working on across apps. What you've already done gets picked up automatically, so the agent doesn't make you do it twice.
+- **Calendars, contacts, and more** — already integrated with Apple Calendar, Google Calendar, Outlook Calendar, and Contacts. Coming soon: todos, knowledge bases (Notion, Obsidian), CRMs, and messengers.
 
 > **Just want a local-first, on-device AI meeting notetaker?** Check out [Unsigned Char](https://github.com/fastrepl/unsigned-char) — a free standalone notetaker with speaker identification. No daily notes, no task delegation. Just transcription and summaries, fully local.
 
-<!-- TODO: add context capture screenshot (meeting + screen activity) -->
+<img width="688" height="568" alt="Realtime transcript and summary" src="https://github.com/user-attachments/assets/e63ce73f-1a5f-49ce-a14d-dd8ba161e5bc" />
 
 ### 3. Proactive delegation
 
@@ -58,66 +58,25 @@ With Char, every action item — including the ones nested under your meeting no
 
 <img alt="Task delegation to AI agents and teammates" src=".github/readme/task-delegation.png" />
 
-## More
+## Bring your own AI
 
-### Realtime transcript
-
-While you stay engaged in the conversation, Char captures every detail so you don't have to type frantically.
-
-<img width="688" height="568" alt="Realtime transcript" src="https://github.com/user-attachments/assets/e63ce73f-1a5f-49ce-a14d-dd8ba161e5bc" />
-
-### From memos to summaries
-
-Once the meeting is over, Char crafts a personalized summary based on your memos — though memos aren't mandatory. Char will still produce great summaries without your notes.
-
-![offline enhancing-1](https://github.com/user-attachments/assets/13af787b-2f6e-4877-b90f-719edc45fb75)
-
-### Truly local
-
-Char runs fully offline. Set up LM Studio or Ollama to operate Char in air-gapped environments — no internet required.
-
-<img width="780" height="585" alt="no-wifi" src="https://github.com/user-attachments/assets/ecf08a9e-3b6c-4fb6-ab38-0bc572f54859" />
+Char works with whatever ASR and LLM you want. Run local models via Ollama or LM Studio, or plug in hosted providers (Gemini, Claude, Azure-hosted GPT, and more) for both transcription and reasoning. We democratize the choice — any model you want to use, Char will run on top of.
 
 > **Note on accounts:** During onboarding, Char creates an account so you can experience the full product — including cloud-powered transcription and summarization — at its best quality. All your notes, transcripts, and data are stored locally on your machine in a local SQLite database. If you prefer not to keep an account, you can request deletion anytime at [char.com/app/account](https://char.com/app/account). Char will continue to work fully offline with a local LLM.
 
-### Bring your own LLM
+<img width="912" height="712" alt="BYO AI settings" src="https://github.com/user-attachments/assets/a6552c99-acbc-4d47-9d21-7f1925989344" />
 
-Prefer something custom? Swap in your own language model:
+## AI chat
 
-- Run local models via Ollama or LM Studio
-- Use approved third-party APIs like Gemini, Claude, or Azure-hosted GPT
-- Stay compliant with whatever your org allows
+Ask follow-ups right inside your notes — "what were the action items?", "rewrite this in simpler language", "translate to Spanish".
 
-Char plays nice with whatever stack you're running.
-
-<img width="912" height="712" alt="BYO LLM settings" src="https://github.com/user-attachments/assets/a6552c99-acbc-4d47-9d21-7f1925989344" />
-
-### Note templates
-
-Prefer a certain style? Choose from predefined templates like bullet points, agenda-based, or paragraph summary. Or create your own.
-
-Check out our [template gallery](https://char.com/templates) and add your own [here](https://github.com/fastrepl/char/tree/main/apps/web/content/templates).
-
-### AI chat
-
-Ask follow-ups right inside your notes:
-
-- "What were the action items?"
-- "Rewrite this in simpler language"
-- "Translate to Spanish"
-
+<!-- TODO: replace with better AI chat visual -->
 <img width="959" height="712" alt="AI chat" src="https://github.com/user-attachments/assets/52b7dc14-906f-445f-91f9-b0089d40a495" />
-
-### Integrations
-
-- Apple Calendar, Contacts
-- Obsidian
-- Coming soon: Notion, Slack, Hubspot, Salesforce
-
-<img width="912" height="712" alt="Integrations" src="https://github.com/user-attachments/assets/ab559e54-fda5-4c8c-97d7-ba1b9d134cc8" />
 
 ## Where this is going
 
 When everyone on a team has their own daily note, those notes become a shared operating layer. Context flows between people automatically. Decisions leave a trail. Nothing falls through the cracks because the system remembers even when people don't.
 
 <img alt="Team operating layer — shared daily notes" src=".github/readme/team-operating-layer.png" />
+
+Read the full thinking: [The future of Char](https://johnjeong.com/essays/future-of-char) by John Jeong.
