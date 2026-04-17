@@ -19,7 +19,6 @@ One note per day. Context that compounds.
 - **Captures** meetings, emails, and screen activity — no bots, no audio leaves your device
 - **Extracts** action items from everything that happened today
 - **Delegates** tasks to AI agents (Claude, Cursor, Devin) or the right person on your team
-- **Open source** and local-first — markdown files, your data stays yours
 
 > *Week one it helps. Month one it knows you.*
 
