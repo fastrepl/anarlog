@@ -8,8 +8,8 @@ import {
 } from "./entities";
 import { extractContextRefsFromMessages } from "./refs";
 
-import { useChatStore } from "~/chat/hooks/chat-store";
 import type { HyprUIMessage } from "~/chat/types";
+import { useMainStore } from "~/session/hooks/storage";
 import type * as main from "~/store/tinybase/store/main";
 
 type Store = ReturnType<typeof main.UI.useStore>;
@@ -118,7 +118,7 @@ export function useChatContextPipeline({
   contextEntities: DisplayEntity[];
   pendingRefs: ContextRef[];
 } {
-  const store = useChatStore();
+  const store = useMainStore();
 
   const committedRefs = useMemo(
     () => extractContextRefsFromMessages(messages),

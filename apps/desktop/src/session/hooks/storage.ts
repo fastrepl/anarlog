@@ -22,6 +22,13 @@ export function useCurrentUserId(): string | undefined {
   return main.UI.useValue("user_id", main.STORE_ID) as string | undefined;
 }
 
+export function useAiLanguage(): string {
+  return (
+    (main.UI.useValue("ai_language", main.STORE_ID) as string | undefined) ??
+    "en"
+  );
+}
+
 // --- session row reads ----------------------------------------------------
 
 type SessionStringField =

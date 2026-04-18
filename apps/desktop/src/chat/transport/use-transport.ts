@@ -6,9 +6,9 @@ import { commands as templateCommands } from "@hypr/plugin-template";
 import { CustomChatTransport } from "./index";
 
 import { useLanguageModel } from "~/ai/hooks";
-import { useAiLanguage } from "~/chat/hooks/chat-store";
 import { useResolveContextRef } from "~/chat/hooks/context-renderers";
 import { useToolRegistry } from "~/contexts/tool";
+import { useAiLanguage } from "~/session/hooks/storage";
 
 export function useTransport(
   modelOverride?: LanguageModel,

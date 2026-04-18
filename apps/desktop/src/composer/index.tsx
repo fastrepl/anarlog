@@ -21,11 +21,11 @@ import {
 import { ChatSession } from "~/chat/components/session-provider";
 import { dedupeByKey, type ContextRef } from "~/chat/context/entities";
 import { useChatGroupTitle } from "~/chat/hooks/chat-groups";
-import { useCurrentUserId } from "~/chat/hooks/chat-store";
 import { useChatActions } from "~/chat/hooks/use-chat-actions";
 import { useShell } from "~/contexts/shell";
 import { ChatEditor, type ChatEditorHandle } from "~/editor/chat";
 import type { PlaceholderFunction } from "~/editor/plugins";
+import { useCurrentUserId } from "~/session/hooks/storage";
 
 export function ComposerScreen() {
   const { chat } = useShell();

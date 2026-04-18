@@ -9,9 +9,9 @@ import { ChatSession } from "./session-provider";
 import { useSessionTab } from "./use-session-tab";
 
 import { useLanguageModel } from "~/ai/hooks";
-import { useCurrentUserId } from "~/chat/hooks/chat-store";
 import { useChatActions } from "~/chat/hooks/use-chat-actions";
 import { useShell } from "~/contexts/shell";
+import { useCurrentUserId } from "~/session/hooks/storage";
 
 export function ChatView() {
   const { chat } = useShell();
