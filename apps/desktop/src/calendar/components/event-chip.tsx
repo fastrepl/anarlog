@@ -14,11 +14,11 @@ import {
   toTz,
   useCalendar,
   useEvent,
-  useGetOrCreateSessionForEventId,
   useTimelineEvent,
   useTimezone,
 } from "~/calendar/hooks";
 import { EventDisplay } from "~/session/components/outer-header/metadata";
+import { useGetOrCreateSessionForEvent } from "~/session/hooks/runtime";
 import { useTabs } from "~/store/zustand/tabs";
 
 function useCalendarColor(calendarId: string | null): string | null {
@@ -93,7 +93,7 @@ function EventPopoverContent({ eventId }: { eventId: string }) {
   const event = useEvent(eventId);
   const openNew = useTabs((state) => state.openNew);
   const eventRow = useTimelineEvent(eventId);
-  const getOrCreateSession = useGetOrCreateSessionForEventId();
+  const getOrCreateSession = useGetOrCreateSessionForEvent();
 
   const handleOpen = useCallback(() => {
     const title = eventRow?.title || "Untitled";

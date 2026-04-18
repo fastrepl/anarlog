@@ -29,39 +29,58 @@ const { fixture, resetFixture, setFixture } = vi.hoisted(() => {
   };
 });
 
-vi.mock("~/store/tinybase/store/main", () => ({
-  STORE_ID: "main",
-  INDEXES: {
-    transcriptBySession: "transcriptBySession",
-    enhancedNotesBySession: "enhancedNotesBySession",
-    sessionParticipantsBySession: "sessionParticipantsBySession",
-  },
-  QUERIES: {
-    sessionParticipantsWithDetails: "sessionParticipantsWithDetails",
-  },
-  UI: {
-    useCell: vi.fn(
-      (table: string, rowId: string, cell: string) =>
-        fixture.tables[table]?.[rowId]?.[cell],
-    ),
-    useSliceRowIds: vi.fn(
-      (index: string, sliceId: string) =>
-        fixture.slices[index]?.[sliceId] ?? [],
-    ),
-    useTable: vi.fn((table: string) => fixture.tables[table] ?? {}),
-    useResultTable: vi.fn((query: string) => fixture.results[query] ?? {}),
-    useStore: vi.fn(() => null),
-    useIndexes: vi.fn(() => null),
-    useValue: vi.fn(() => undefined),
-    useRowIds: vi.fn((table: string) =>
-      Object.keys(fixture.tables[table] ?? {}),
-    ),
-    useResultRow: vi.fn(() => ({})),
-    useSetPartialRowCallback: vi.fn(),
-    useSetCellCallback: vi.fn(),
-    useQueries: vi.fn(() => null),
-  },
-}));
+vi.mock("~/store/tinybase/store/main", () => {
+  const mockStore = {
+    getRow: (table: string, rowId: string) =>
+      fixture.tables[table]?.[rowId] ?? {},
+    hasRow: (table: string, rowId: string) =>
+      Boolean(fixture.tables[table]?.[rowId]),
+    getCell: (table: string, rowId: string, cell: string) =>
+      fixture.tables[table]?.[rowId]?.[cell],
+    forEachRow: (
+      table: string,
+      cb: (rowId: string, forEachCell: unknown) => void,
+    ) => {
+      for (const rowId of Object.keys(fixture.tables[table] ?? {})) {
+        cb(rowId, () => {});
+      }
+    },
+  };
+
+  return {
+    STORE_ID: "main",
+    INDEXES: {
+      transcriptBySession: "transcriptBySession",
+      enhancedNotesBySession: "enhancedNotesBySession",
+      sessionParticipantsBySession: "sessionParticipantsBySession",
+    },
+    QUERIES: {
+      sessionParticipantsWithDetails: "sessionParticipantsWithDetails",
+    },
+    UI: {
+      useCell: vi.fn(
+        (table: string, rowId: string, cell: string) =>
+          fixture.tables[table]?.[rowId]?.[cell],
+      ),
+      useSliceRowIds: vi.fn(
+        (index: string, sliceId: string) =>
+          fixture.slices[index]?.[sliceId] ?? [],
+      ),
+      useTable: vi.fn((table: string) => fixture.tables[table] ?? {}),
+      useResultTable: vi.fn((query: string) => fixture.results[query] ?? {}),
+      useStore: vi.fn(() => mockStore),
+      useIndexes: vi.fn(() => null),
+      useValue: vi.fn(() => undefined),
+      useRowIds: vi.fn((table: string) =>
+        Object.keys(fixture.tables[table] ?? {}),
+      ),
+      useResultRow: vi.fn(() => ({})),
+      useSetPartialRowCallback: vi.fn(),
+      useSetCellCallback: vi.fn(),
+      useQueries: vi.fn(() => null),
+    },
+  };
+});
 
 import {
   useSessionParticipantNames,

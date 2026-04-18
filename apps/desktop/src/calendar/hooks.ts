@@ -11,7 +11,6 @@ import { getSessionEvent } from "~/session/utils";
 import { useConfigValue } from "~/shared/config";
 import * as main from "~/store/tinybase/store/main";
 import type { Store } from "~/store/tinybase/store/main";
-import { getOrCreateSessionForEventId } from "~/store/tinybase/store/sessions";
 
 // Storage boundary for calendar/event reads and writes consumed by UI.
 // Keep return values plain TS objects so backend swaps stay transparent.
@@ -413,20 +412,6 @@ export type TimelineSession = {
   event: ReturnType<typeof getSessionEvent>;
   folderId: string;
 };
-
-export function useGetOrCreateSessionForEventId(): (
-  eventId: string,
-  title: string,
-) => string | null {
-  const store = main.UI.useStore(main.STORE_ID);
-  return useCallback(
-    (eventId, title) => {
-      if (!store) return null;
-      return getOrCreateSessionForEventId(store, eventId, title);
-    },
-    [store],
-  );
-}
 
 export function useTimelineSession(sessionId: string): TimelineSession | null {
   const row = main.UI.useResultRow(

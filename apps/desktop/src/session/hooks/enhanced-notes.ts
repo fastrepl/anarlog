@@ -96,48 +96,51 @@ export function useEditTabTitles(
   );
 }
 
+// Uses imperative store reads so that the returned callback identities stay
+// stable across enhanced_notes mutations. Chat tool registration depends on
+// this stability; subscribing to the whole table via useTable would churn
+// tool registration on every summary streaming tick.
 export function useSummaryEditRuntime(): {
   getSummaryCandidates: (sessionId: string) => SummaryEditCandidate[];
   getSummaryMarkdown: (enhancedNoteId: string) => string;
   applySummaryMarkdown: (enhancedNoteId: string, markdown: string) => void;
 } {
-  const enhancedNotes = main.UI.useTable("enhanced_notes", main.STORE_ID);
   const indexes = useMainIndexesInternal();
   const store = useMainStoreInternal();
 
   const getSummaryCandidates = useCallback(
     (sessionId: string) => {
-      if (!indexes) return [];
+      if (!indexes || !store) return [];
       return indexes
         .getSliceRowIds(main.INDEXES.enhancedNotesBySession, sessionId)
         .map((enhancedNoteId) => {
-          const row = enhancedNotes[enhancedNoteId];
+          const row = store.getRow("enhanced_notes", enhancedNoteId);
           return {
             enhancedNoteId,
             title:
-              typeof row?.title === "string" && row.title.trim()
+              typeof row.title === "string" && row.title.trim()
                 ? row.title
                 : "Summary",
             templateId:
-              typeof row?.template_id === "string" && row.template_id
+              typeof row.template_id === "string" && row.template_id
                 ? row.template_id
                 : undefined,
             position:
-              typeof row?.position === "number" ? row.position : undefined,
+              typeof row.position === "number" ? row.position : undefined,
           } satisfies SummaryEditCandidate;
         });
     },
-    [enhancedNotes, indexes],
+    [indexes, store],
   );
 
   const getSummaryMarkdown = useCallback(
     (enhancedNoteId: string) => {
-      const raw = enhancedNotes[enhancedNoteId]?.content;
+      const raw = store?.getCell("enhanced_notes", enhancedNoteId, "content");
       return json2md(
         parseJsonContent(typeof raw === "string" ? raw : undefined),
       );
     },
-    [enhancedNotes],
+    [store],
   );
 
   const applySummaryMarkdown = useCallback(
