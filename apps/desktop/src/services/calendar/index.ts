@@ -1,8 +1,10 @@
-import type { Queries } from "tinybase/with-schemas";
+import type {
+  CalendarProviderType,
+  ProviderConnectionIds,
+} from "@hypr/plugin-calendar";
 
-import type { CalendarProviderType } from "@hypr/plugin-calendar";
-
-import { createCtx, getProviderConnections, syncCalendars } from "./ctx";
+import type { Ctx } from "./ctx";
+import { getProviderConnections } from "./ctx";
 import {
   CalendarFetchError,
   fetchExistingEvents,
@@ -16,27 +18,34 @@ import {
   syncSessionParticipants,
 } from "./process";
 
-import type { Schemas, Store } from "~/store/tinybase/store/main";
-
 export const CALENDAR_SYNC_TASK_ID = "calendarSync";
 
+export interface CalendarSyncDependencies {
+  createCtx: (
+    provider: CalendarProviderType,
+    connectionId: string,
+  ) => Ctx | null;
+  syncCalendars: (
+    providerConnections: ProviderConnectionIds[],
+  ) => Promise<void>;
+}
+
 export async function syncCalendarEvents(
-  store: Store,
-  queries: Queries<Schemas>,
+  deps: CalendarSyncDependencies,
 ): Promise<void> {
   await Promise.all([
     new Promise((resolve) => setTimeout(resolve, 250)),
-    run(store, queries),
+    run(deps),
   ]);
 }
 
-async function run(store: Store, queries: Queries<Schemas>) {
+async function run(deps: CalendarSyncDependencies) {
   const providerConnections = await getProviderConnections();
-  await syncCalendars(store, providerConnections);
+  await deps.syncCalendars(providerConnections);
   for (const { provider, connection_ids } of providerConnections) {
     for (const connectionId of connection_ids) {
       try {
-        await runForConnection(store, queries, provider, connectionId);
+        await runForConnection(deps, provider, connectionId);
       } catch (error) {
         console.error(
           `[calendar-sync] Error syncing ${provider} (${connectionId}): ${error}`,
@@ -47,12 +56,11 @@ async function run(store: Store, queries: Queries<Schemas>) {
 }
 
 async function runForConnection(
-  store: Store,
-  queries: Queries<Schemas>,
+  deps: CalendarSyncDependencies,
   provider: CalendarProviderType,
   connectionId: string,
 ) {
-  const ctx = createCtx(store, queries, provider, connectionId);
+  const ctx = deps.createCtx(provider, connectionId);
   if (!ctx) {
     return;
   }

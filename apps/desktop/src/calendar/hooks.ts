@@ -5,9 +5,12 @@ import type { IgnoredEvent, IgnoredRecurringSeries } from "@hypr/store";
 import { safeParseDate } from "@hypr/utils";
 import { TZDate } from "@hypr/utils";
 
+import { syncCalendarEvents } from "~/services/calendar";
+import { createCtx, syncCalendars } from "~/services/calendar/ctx";
 import { getSessionEvent } from "~/session/utils";
 import { useConfigValue } from "~/shared/config";
 import * as main from "~/store/tinybase/store/main";
+import type { Store } from "~/store/tinybase/store/main";
 import { getOrCreateSessionForEventId } from "~/store/tinybase/store/sessions";
 
 // Storage boundary for calendar/event reads and writes consumed by UI.
@@ -102,6 +105,38 @@ export function useEnabledCalendars(): EnabledCalendar[] {
 }
 
 export const ENABLED_CALENDARS_QUERY = main.QUERIES.enabledCalendars;
+
+export function useSyncCalendarEvents(): () => Promise<void> {
+  const store = main.UI.useStore(main.STORE_ID);
+  const enabledCalendars = main.UI.useResultTable(
+    main.QUERIES.enabledCalendars,
+    main.STORE_ID,
+  );
+  const enabledCalendarIds = useMemo(
+    () => Object.keys(enabledCalendars ?? {}),
+    [enabledCalendars],
+  );
+
+  return useCallback(async () => {
+    if (!store) {
+      return;
+    }
+
+    await syncCalendarEvents({
+      syncCalendars: (providerConnections) =>
+        syncCalendars(store as Store, providerConnections),
+      createCtx: (provider, connectionId) =>
+        createCtx(
+          {
+            store: store as Store,
+            enabledCalendarIds,
+          },
+          provider,
+          connectionId,
+        ),
+    });
+  }, [enabledCalendarIds, store]);
+}
 
 export function useCalendarsByProvider(provider: string): Calendar[] {
   const table = main.UI.useTable("calendars", main.STORE_ID);

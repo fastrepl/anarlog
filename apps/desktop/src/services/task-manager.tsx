@@ -1,5 +1,4 @@
 import { useEffect, useRef } from "react";
-import type { Queries } from "tinybase/with-schemas";
 import {
   useScheduleTaskRun,
   useScheduleTaskRunCallback,
@@ -8,7 +7,7 @@ import {
 
 import { events as appleCalendarEvents } from "@hypr/plugin-calendar";
 
-import { CALENDAR_SYNC_TASK_ID, syncCalendarEvents } from "./calendar";
+import { CALENDAR_SYNC_TASK_ID } from "./calendar";
 import {
   checkEventNotifications,
   EVENT_NOTIFICATION_INTERVAL,
@@ -16,25 +15,23 @@ import {
   type NotifiedEventsMap,
 } from "./event-notification";
 
-import {
-  useMainQueriesInternal,
-  useMainStoreInternal,
-} from "~/session/hooks/internal";
-import type { Schemas, Store } from "~/store/tinybase/store/main";
+import { useSyncCalendarEvents } from "~/calendar/hooks";
+import { useMainStoreInternal } from "~/session/hooks/internal";
+import type { Store } from "~/store/tinybase/store/main";
 import * as settings from "~/store/tinybase/store/settings";
 
 const CALENDAR_SYNC_INTERVAL = 60 * 1000; // 60 sec
 
 export function TaskManager() {
   const store = useMainStoreInternal();
-  const queries = useMainQueriesInternal();
+  const syncCalendarEvents = useSyncCalendarEvents();
 
   const settingsStore = settings.UI.useStore(settings.STORE_ID);
   const notifiedEventsRef = useRef<NotifiedEventsMap>(new Map());
 
   useSetTask(CALENDAR_SYNC_TASK_ID, async () => {
-    await syncCalendarEvents(store as Store, queries as Queries<Schemas>);
-  }, [store, queries, settingsStore]);
+    await syncCalendarEvents();
+  }, [syncCalendarEvents]);
 
   useScheduleTaskRun(CALENDAR_SYNC_TASK_ID, undefined, 0, {
     repeatDelay: CALENDAR_SYNC_INTERVAL,

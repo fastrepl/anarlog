@@ -1,5 +1,3 @@
-import type { Queries } from "tinybase/with-schemas";
-
 import { commands as calendarCommands } from "@hypr/plugin-calendar";
 import type {
   CalendarListItem,
@@ -7,12 +5,11 @@ import type {
   ProviderConnectionIds,
 } from "@hypr/plugin-calendar";
 
-import { ENABLED_CALENDARS_QUERY } from "~/calendar/hooks";
 import {
   findCalendarByTrackingId,
   getCalendarTrackingKey,
 } from "~/calendar/utils";
-import type { Schemas, Store } from "~/store/tinybase/store/main";
+import type { Store } from "~/store/tinybase/store/main";
 
 // ---
 
@@ -29,19 +26,21 @@ export interface Ctx {
 
 // ---
 
+export interface CreateCtxInput {
+  store: Store;
+  enabledCalendarIds: Iterable<string>;
+}
+
 export function createCtx(
-  store: Store,
-  queries: Queries<Schemas>,
+  input: CreateCtxInput,
   provider: CalendarProviderType,
   connectionId: string,
 ): Ctx | null {
-  const resultTable = queries.getResultTable(ENABLED_CALENDARS_QUERY);
-
   const calendarIds = new Set<string>();
   const calendarTrackingIdToId = new Map<string, string>();
 
-  for (const calendarId of Object.keys(resultTable)) {
-    const calendar = store.getRow("calendars", calendarId);
+  for (const calendarId of input.enabledCalendarIds) {
+    const calendar = input.store.getRow("calendars", calendarId);
     if (
       calendar?.provider !== provider ||
       calendar?.connection_id !== connectionId
@@ -63,7 +62,7 @@ export function createCtx(
   //   return null;
   // }
 
-  const userId = store.getValue("user_id");
+  const userId = input.store.getValue("user_id");
   if (!userId) {
     return null;
   }
@@ -71,7 +70,7 @@ export function createCtx(
   const { from, to } = getRange();
 
   return {
-    store,
+    store: input.store,
     provider,
     connectionId,
     userId: String(userId),
