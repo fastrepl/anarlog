@@ -6,10 +6,10 @@ import type { ContactsSelection } from "@hypr/plugin-windows";
 
 import {
   type PinnedContactItem,
-  useAllHumans,
-  useAllOrganizations,
   useDeleteHuman,
   useDeleteOrganization,
+  useHumansByIds,
+  useOrganizationsByIds,
   useReorderPinnedContacts,
   useSortedVisibleHumanIds,
   useSortedVisibleOrganizationIds,
@@ -97,10 +97,6 @@ function ContactsList({
     [],
   );
 
-  const allHumans = useAllHumans();
-  const allOrgs = useAllOrganizations();
-  const reorderPinned = useReorderPinnedContacts();
-
   const alphabeticalHumanIds = useSortedVisibleHumanIds("name", false);
   const reverseAlphabeticalHumanIds = useSortedVisibleHumanIds("name", true);
   const newestHumanIds = useSortedVisibleHumanIds("created_at", true);
@@ -131,6 +127,10 @@ function ContactsList({
         : sortOption === "newest"
           ? newestOrgIds
           : oldestOrgIds;
+
+  const allHumans = useHumansByIds(sortedHumanIds);
+  const allOrgs = useOrganizationsByIds(sortedOrgIds);
+  const reorderPinned = useReorderPinnedContacts();
 
   const { pinnedHumanIds, unpinnedHumanIds } = useMemo(() => {
     const pinned = sortedHumanIds.filter((id) => allHumans[id]?.pinned);

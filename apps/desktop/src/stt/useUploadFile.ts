@@ -10,16 +10,13 @@ import {
   events as fsSyncEvents,
 } from "@hypr/plugin-fs-sync";
 import { commands as listener2Commands } from "@hypr/plugin-transcription";
-import type { TranscriptStorage } from "@hypr/store";
 
-import { estimateUploadedAudioSessionCreatedAt } from "./audio-note-date";
 import { useListener } from "./contexts";
 import { fromResult } from "./fromResult";
-import { ChannelProfile } from "./segment";
+import { useUploadTranscriptImport } from "./session-storage";
 import { isStoppedTranscriptionError, useRunBatch } from "./useRunBatch";
 
 import { getEnhancerService } from "~/services/enhancer";
-import { useCurrentUserId, useMainStore } from "~/session/hooks/storage";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 
 const AUDIO_EXTENSIONS = ["wav", "mp3", "ogg", "mp4", "m4a", "flac"];
@@ -33,8 +30,8 @@ export function useUploadFile(sessionId: string) {
   const updateBatchProgress = useListener((state) => state.updateBatchProgress);
   const clearBatchSession = useListener((state) => state.clearBatchSession);
 
-  const store = useMainStore();
-  const user_id = useCurrentUserId();
+  const { applyEstimatedAudioNoteDate, importSubtitleTokens } =
+    useUploadTranscriptImport(sessionId);
   const updateSessionTabState = useTabs((state) => state.updateSessionTabState);
   const sessionTab = useTabs((state) => {
     const found = state.tabs.find(
@@ -57,38 +54,6 @@ export function useUploadFile(sessionId: string) {
     }
   }, [sessionId, sessionTab, updateSessionTabState]);
 
-  const applyEstimatedAudioNoteDate = useCallback(
-    async (filePath: string) => {
-      try {
-        if (!store) {
-          return;
-        }
-
-        const eventJson = store.getCell("sessions", sessionId, "event_json");
-        if (typeof eventJson === "string" && eventJson.trim()) {
-          return;
-        }
-
-        const result = await fsSyncCommands.audioSourceMetadata(filePath);
-        if (result.status === "error") {
-          return;
-        }
-
-        const estimatedCreatedAt = estimateUploadedAudioSessionCreatedAt(
-          result.data,
-        );
-        if (!estimatedCreatedAt) {
-          return;
-        }
-
-        store.setCell("sessions", sessionId, "created_at", estimatedCreatedAt);
-      } catch (error) {
-        console.error("[upload] audio metadata inspection failed:", error);
-      }
-    },
-    [sessionId, store],
-  );
-
   const processFile = useCallback(
     (filePath: string, kind: "audio" | "transcript") => {
       const normalizedPath = filePath.toLowerCase();
@@ -105,36 +70,10 @@ export function useUploadFile(sessionId: string) {
           fromResult(listener2Commands.parseSubtitle(filePath)),
           Effect.tap((subtitle) =>
             Effect.sync(() => {
-              if (!store || subtitle.tokens.length === 0) {
+              if (subtitle.tokens.length === 0) {
                 return;
               }
-
-              const transcriptId = crypto.randomUUID();
-              const createdAt = new Date().toISOString();
-              const memoMd = store.getCell("sessions", sessionId, "raw_md");
-
-              const words = subtitle.tokens.map((token) => ({
-                id: crypto.randomUUID(),
-                transcript_id: transcriptId,
-                text: token.text,
-                start_ms: token.start_time,
-                end_ms: token.end_time,
-                channel: ChannelProfile.MixedCapture,
-                user_id: user_id ?? "",
-                created_at: new Date().toISOString(),
-              }));
-
-              const transcriptRow = {
-                session_id: sessionId,
-                user_id: user_id ?? "",
-                created_at: createdAt,
-                started_at: Date.now(),
-                words: JSON.stringify(words),
-                speaker_hints: "[]",
-                memo_md: typeof memoMd === "string" ? memoMd : "",
-              } satisfies TranscriptStorage;
-
-              store.setRow("transcripts", transcriptId, transcriptRow);
+              importSubtitleTokens(subtitle.tokens);
 
               void analyticsCommands.event({
                 event: "file_uploaded",
@@ -242,16 +181,15 @@ export function useUploadFile(sessionId: string) {
       clearBatchSession,
       handleBatchFailed,
       handleBatchStarted,
+      importSubtitleTokens,
       updateBatchProgress,
       queryClient,
       runBatch,
       sessionId,
       sessionTab,
-      store,
       triggerEnhance,
       applyEstimatedAudioNoteDate,
       updateSessionTabState,
-      user_id,
     ],
   );
 

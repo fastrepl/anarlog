@@ -9,14 +9,11 @@ import {
 import { cn } from "@hypr/utils";
 
 import {
-  SESSION_PARTICIPANTS_WITH_DETAILS_QUERY,
-  useMainQueries,
-  useMainStore,
-  useSessionParticipantMappingIds,
+  useAssignTranscriptSpeaker,
+  useSessionParticipantPeople,
   useTranscriptSessionId,
 } from "~/session/hooks/storage";
 import type { Segment } from "~/stt/live-segment";
-import { upsertSpeakerAssignment } from "~/stt/utils";
 
 export function SpeakerAssignPopover({
   segment,
@@ -30,26 +27,25 @@ export function SpeakerAssignPopover({
   label: string;
 }) {
   const [open, setOpen] = useState(false);
-  const store = useMainStore();
+  const assignSpeaker = useAssignTranscriptSpeaker();
   const isSelf = segment.key.channel === "DirectMic";
 
   const sessionId = useTranscriptSessionId(transcriptId);
 
   const handleAssign = useCallback(
     (humanId: string) => {
-      if (!store || segment.words.length === 0) return;
+      if (segment.words.length === 0) return;
       const anchorWordId = segment.words[0].id;
       if (!anchorWordId) return;
-      upsertSpeakerAssignment(
-        store,
+      assignSpeaker({
         transcriptId,
-        segment.key,
+        segmentKey: segment.key,
         humanId,
         anchorWordId,
-      );
+      });
       setOpen(false);
     },
-    [store, transcriptId, segment.key, segment.words],
+    [assignSpeaker, transcriptId, segment.key, segment.words],
   );
 
   if (isSelf) {
@@ -89,23 +85,11 @@ function ParticipantList({
   sessionId: string | undefined;
   onSelect: (humanId: string) => void;
 }) {
-  const queries = useMainQueries();
-  const mappingIds = useSessionParticipantMappingIds(sessionId ?? "");
+  const participantsBySession = useSessionParticipantPeople(sessionId ?? "");
 
   const participants = useMemo(() => {
-    if (!queries) return [];
-    return mappingIds
-      .map((mappingId) => {
-        const result = queries.getResultRow(
-          SESSION_PARTICIPANTS_WITH_DETAILS_QUERY,
-          mappingId,
-        );
-        if (!result?.human_id) return null;
-        const name = (result.human_name as string) || "";
-        return { id: result.human_id as string, name };
-      })
-      .filter((p): p is { id: string; name: string } => p !== null);
-  }, [mappingIds, queries]);
+    return participantsBySession;
+  }, [participantsBySession]);
 
   if (participants.length === 0) {
     return (

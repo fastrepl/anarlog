@@ -18,31 +18,25 @@ import {
 } from "@hypr/ui/components/ui/dropdown-menu";
 
 import { useBillingAccess } from "~/auth/billing";
-import {
-  useAllSessionIds,
-  useMainStore,
-  useSessionCell,
-} from "~/session/hooks/storage";
+import { useSessionFolderTree, useSessionCell } from "~/session/hooks/storage";
 import { sessionOps } from "~/store/tinybase/persister/session/ops";
 import { useListener } from "~/stt/contexts";
 
 function useFolders() {
-  const sessionIds = useAllSessionIds();
-  const store = useMainStore();
+  const { topLevel, byParent } = useSessionFolderTree();
 
   return useMemo(() => {
-    if (!store || !sessionIds) return {};
-
     const folders: Record<string, { name: string }> = {};
-    for (const id of sessionIds) {
-      const folderId = store.getCell("sessions", id, "folder_id") as string;
-      if (folderId && !folders[folderId]) {
+    const allFolders = [...topLevel, ...Object.values(byParent).flat()];
+
+    for (const folderId of allFolders) {
+      if (!folders[folderId]) {
         const parts = folderId.split("/");
         folders[folderId] = { name: parts[parts.length - 1] };
       }
     }
     return folders;
-  }, [sessionIds, store]);
+  }, [byParent, topLevel]);
 }
 
 export function SearchableFolderDropdown({

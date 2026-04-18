@@ -39,8 +39,8 @@ import { extractPlainText } from "~/search/contexts/engine/utils";
 import { getEnhancerService } from "~/services/enhancer";
 import { useHasTranscript } from "~/session/components/shared";
 import {
+  useDeleteEnhancedNote,
   useEnhancedNoteCell,
-  useMainStore,
   useSessionCell,
 } from "~/session/hooks/storage";
 import { useEnhancedNotes } from "~/session/hooks/useEnhancedNotes";
@@ -993,7 +993,7 @@ export function Header({
 }) {
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
   const isLiveProcessing = sessionMode === "active";
-  const store = useMainStore();
+  const deleteEnhancedNote = useDeleteEnhancedNote();
   const primaryEnhancedTabId = editorTabs.find(
     (view): view is Extract<EditorView, { type: "enhanced" }> =>
       view.type === "enhanced",
@@ -1028,7 +1028,7 @@ export function Header({
                               handleTabChange(previousView);
                             }
 
-                            store?.delRow("enhanced_notes", view.id);
+                            deleteEnhancedNote(view.id);
                           }
                         : undefined
                     }

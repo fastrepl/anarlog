@@ -2,16 +2,11 @@ import { Loader2Icon, TrashIcon } from "lucide-react";
 import { useCallback } from "react";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
-import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 import { DropdownMenuItem } from "@hypr/ui/components/ui/dropdown-menu";
 import { cn } from "@hypr/utils";
 
 import { useAudioPlayer } from "~/audio-player";
-import { useMainIndexes, useMainStore } from "~/session/hooks/storage";
-import {
-  captureSessionData,
-  deleteSessionCascade,
-} from "~/store/tinybase/store/deleteSession";
+import { useDeleteSessionsWithUndo } from "~/session/hooks/storage";
 import { useTabs } from "~/store/zustand/tabs";
 import { useUndoDelete } from "~/store/zustand/undo-delete";
 import { useListener } from "~/stt/contexts";
@@ -49,34 +44,22 @@ export function DeleteRecording({ sessionId }: { sessionId: string }) {
 }
 
 export function DeleteNote({ sessionId }: { sessionId: string }) {
-  const store = useMainStore();
-  const indexes = useMainIndexes();
+  const deleteSessionsWithUndo = useDeleteSessionsWithUndo();
   const invalidateResource = useTabs((state) => state.invalidateResource);
   const addDeletion = useUndoDelete((state) => state.addDeletion);
 
   const handleDeleteNote = useCallback(() => {
-    if (!store) {
-      return;
-    }
-
-    const capturedData = captureSessionData(store, indexes, sessionId);
-
-    invalidateResource("sessions", sessionId);
-    void deleteSessionCascade(store, indexes, sessionId, {
-      skipAudio: true,
+    deleteSessionsWithUndo({
+      sessionIds: [sessionId],
+      invalidateSessionResource: (id) => invalidateResource("sessions", id),
+      addDeletion,
     });
-
-    if (capturedData) {
-      addDeletion(capturedData, () => {
-        void fsSyncCommands.audioDelete(sessionId);
-      });
-    }
 
     void analyticsCommands.event({
       event: "session_deleted",
       includes_recording: true,
     });
-  }, [store, indexes, sessionId, invalidateResource, addDeletion]);
+  }, [sessionId, deleteSessionsWithUndo, invalidateResource, addDeletion]);
 
   return (
     <DropdownMenuItem

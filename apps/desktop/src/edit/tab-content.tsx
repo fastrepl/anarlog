@@ -4,7 +4,7 @@ import { useCallback, useMemo } from "react";
 import { useStrictModeUnmount } from "./hooks";
 
 import { usePendingEditStore } from "~/chat/tools/pending-edit-store";
-import { useMainStore } from "~/session/hooks/storage";
+import { useEditTabTitles } from "~/session/hooks/storage";
 import { StandardTabWrapper } from "~/shared/main";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 
@@ -14,17 +14,12 @@ export function TabContentEdit({ tab }: { tab: EditTab }) {
   const edit = usePendingEditStore((s) => s.edits.get(tab.requestId));
   const resolveEdit = usePendingEditStore((s) => s.resolveEdit);
 
-  const store = useMainStore();
-  const sessionTitle = useMemo(() => {
-    if (!store || !edit) return null;
-    const title = store.getCell("sessions", edit.sessionId, "title");
-    return typeof title === "string" && title.trim() ? title : null;
-  }, [store, edit]);
-  const summaryTitle = useMemo(() => {
-    if (!store || !edit) return null;
-    const title = store.getCell("enhanced_notes", edit.enhancedNoteId, "title");
-    return typeof title === "string" && title.trim() ? title : null;
-  }, [store, edit]);
+  const titles = useEditTabTitles(
+    edit?.sessionId ?? "",
+    edit?.enhancedNoteId ?? "",
+  );
+  const sessionTitle = edit ? titles.sessionTitle : null;
+  const summaryTitle = edit ? titles.summaryTitle : null;
 
   const declineOnUnmount = useCallback(() => {
     const still = usePendingEditStore.getState().edits.get(tab.requestId);

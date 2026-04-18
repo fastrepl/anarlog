@@ -7,18 +7,16 @@ import { ExportPDF } from "./export-pdf";
 const {
   useMutationMock,
   useTranscriptExportSegmentsMock,
-  useStoreMock,
-  useQueriesMock,
   useCellMock,
-  useSliceRowIdsMock,
+  useSessionParticipantNamesMock,
+  useTranscriptTimeRangeMock,
   useSessionEventMock,
 } = vi.hoisted(() => ({
   useMutationMock: vi.fn(),
   useTranscriptExportSegmentsMock: vi.fn(),
-  useStoreMock: vi.fn(),
-  useQueriesMock: vi.fn(),
   useCellMock: vi.fn(),
-  useSliceRowIdsMock: vi.fn(),
+  useSessionParticipantNamesMock: vi.fn(),
+  useTranscriptTimeRangeMock: vi.fn(),
   useSessionEventMock: vi.fn(),
 }));
 
@@ -82,13 +80,11 @@ vi.mock("~/session/components/note-input/transcript/export-data", () => ({
 }));
 
 vi.mock("~/session/hooks/storage", () => ({
-  SESSION_PARTICIPANTS_WITH_DETAILS_QUERY: "sessionParticipantsWithDetails",
   useEnhancedNoteCell: useCellMock,
-  useMainQueries: useQueriesMock,
-  useMainStore: useStoreMock,
   useSessionCell: useCellMock,
   useSessionEvent: useSessionEventMock,
-  useTranscriptIdsForSession: useSliceRowIdsMock,
+  useSessionParticipantNames: useSessionParticipantNamesMock,
+  useTranscriptTimeRange: useTranscriptTimeRangeMock,
 }));
 
 describe("ExportPDF", () => {
@@ -105,10 +101,12 @@ describe("ExportPDF", () => {
       data: [],
       isLoading: true,
     });
-    useStoreMock.mockReturnValue(null);
-    useQueriesMock.mockReturnValue(null);
     useCellMock.mockReturnValue(undefined);
-    useSliceRowIdsMock.mockReturnValue([]);
+    useSessionParticipantNamesMock.mockReturnValue([]);
+    useTranscriptTimeRangeMock.mockReturnValue({
+      startedAt: null,
+      endedAt: null,
+    });
     useSessionEventMock.mockReturnValue(null);
   });
 

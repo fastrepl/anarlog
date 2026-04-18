@@ -1,8 +1,5 @@
 import type { SearchFilters, SearchHit } from "~/search/contexts/engine/types";
-import type { MainIndexes, MainStore } from "~/session/hooks/storage";
-
-type Store = MainStore;
-type Indexes = MainIndexes;
+import type { SummaryEditCandidate } from "~/session/hooks/storage";
 
 export type ContactSearchResult = {
   id: string;
@@ -38,8 +35,10 @@ export interface ToolDependencies {
     query: string,
     limit: number,
   ) => Promise<CalendarEventSearchResult[]>;
-  getStore: () => Store | undefined;
-  getIndexes: () => Indexes | undefined;
+  getSessionSearchTimestamp: (sessionId: string) => number | undefined;
+  getSummaryCandidates: (sessionId: string) => SummaryEditCandidate[];
+  getSummaryMarkdown: (enhancedNoteId: string) => string;
+  applySummaryMarkdown: (enhancedNoteId: string, markdown: string) => void;
   getSessionId: () => string | undefined;
   getEnhancedNoteId: () => string | undefined;
   openEditTab: (requestId: string) => void;

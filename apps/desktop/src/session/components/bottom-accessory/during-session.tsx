@@ -5,24 +5,16 @@ import { cn } from "@hypr/utils";
 
 import { getSegmentColor } from "~/session/components/note-input/transcript/renderer/utils";
 import {
-  useCurrentUserId,
-  useHumansTable,
-  useMainStore,
-  useParticipantMappingsTable,
+  useTranscriptLabelContext,
+  useTranscriptRenderRequest,
+  useTranscriptSpeakerLabelManager,
   useTranscriptIdsForSession,
-  useTranscriptsTable,
 } from "~/session/hooks/storage";
 import { getLiveCaptureUiMode } from "~/store/zustand/listener/general-shared";
 import { useListener } from "~/stt/contexts";
 import { SegmentKeyUtils, type Segment } from "~/stt/live-segment";
-import {
-  buildRenderTranscriptRequestFromStore,
-  renderTranscriptSegments,
-} from "~/stt/render-transcript";
-import {
-  SpeakerLabelManager,
-  defaultRenderLabelContext,
-} from "~/stt/segment/shared";
+import { renderTranscriptSegments } from "~/stt/render-transcript";
+import { SpeakerLabelManager } from "~/stt/segment/shared";
 
 export function DuringSessionAccessory({
   sessionId,
@@ -57,7 +49,6 @@ function LiveTranscriptFooter({
   sessionId: string;
   isExpanded?: boolean;
 }) {
-  const store = useMainStore();
   const segments = useLiveTranscriptSegments(sessionId);
   const requestedLiveTranscription = useListener(
     (state) => state.live.requestedLiveTranscription,
@@ -65,10 +56,7 @@ function LiveTranscriptFooter({
   const liveTranscriptionActive = useListener(
     (state) => state.live.liveTranscriptionActive,
   );
-  const labelContext = useMemo(
-    () => (store ? defaultRenderLabelContext(store) : undefined),
-    [store],
-  );
+  const labelContext = useTranscriptLabelContext();
   const captureMode = getLiveCaptureUiMode({
     requestedLiveTranscription,
     liveTranscriptionActive,
@@ -81,13 +69,7 @@ function LiveTranscriptFooter({
           isFallbackFromLive: captureMode === "fallback_record_only",
         };
 
-  const speakerLabelManager = useMemo(() => {
-    if (!store) {
-      return new SpeakerLabelManager();
-    }
-
-    return SpeakerLabelManager.fromSegments(segments, labelContext);
-  }, [labelContext, segments, store]);
+  const speakerLabelManager = useTranscriptSpeakerLabelManager(segments);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const previewText = useMemo(() => getTranscriptPreview(segments), [segments]);
@@ -140,7 +122,7 @@ function LiveTranscriptContent({
   previewText: string | null;
   scrollRef: React.RefObject<HTMLDivElement | null>;
   segments: Segment[];
-  labelContext: ReturnType<typeof defaultRenderLabelContext> | undefined;
+  labelContext: ReturnType<typeof useTranscriptLabelContext>;
   speakerLabelManager: SpeakerLabelManager;
 }) {
   if (!isExpanded) {
@@ -191,28 +173,9 @@ function CollapsedFooterMessage({ message }: { message: string }) {
 }
 
 function useLiveTranscriptSegments(sessionId: string): Segment[] {
-  const store = useMainStore();
   const transcriptIds = useTranscriptIdsForSession(sessionId) ?? [];
-  const transcriptsTable = useTranscriptsTable();
-  const participantMappingsTable = useParticipantMappingsTable();
-  const humansTable = useHumansTable();
-  const selfHumanId = useCurrentUserId();
   const liveSegments = useListener((state) => state.liveSegments);
-
-  const request = useMemo(() => {
-    if (!store || transcriptIds.length === 0) {
-      return null;
-    }
-
-    return buildRenderTranscriptRequestFromStore(store, transcriptIds);
-  }, [
-    store,
-    transcriptIds,
-    transcriptsTable,
-    participantMappingsTable,
-    humansTable,
-    selfHumanId,
-  ]);
+  const request = useTranscriptRenderRequest(transcriptIds);
 
   const { data: renderedSegments = [] } = useQuery({
     queryKey: ["live-transcript-footer-segments", sessionId, request],

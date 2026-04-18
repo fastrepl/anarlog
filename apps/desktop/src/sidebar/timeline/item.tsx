@@ -21,19 +21,14 @@ import {
 import { useCalendar, useIgnoredEvents } from "~/calendar/hooks";
 import { SessionPreviewCard } from "~/session/components/session-preview-card";
 import {
-  useMainIndexes,
-  useMainStore,
+  useCreateSessionActions,
+  useDeleteSessionsWithUndo,
   useSessionCell,
 } from "~/session/hooks/storage";
 import { useIsSessionEnhancing } from "~/session/hooks/useEnhancedNotes";
 import { getSessionEvent } from "~/session/utils";
 import type { MenuItemDef } from "~/shared/hooks/useNativeContextMenu";
 import { InteractiveButton } from "~/shared/ui/interactive-button";
-import {
-  captureSessionData,
-  deleteSessionCascade,
-} from "~/store/tinybase/store/deleteSession";
-import { getOrCreateSessionForEventId } from "~/store/tinybase/store/sessions";
 import { useSessionTitle } from "~/store/zustand/live-title";
 import { type TabInput, useTabs } from "~/store/zustand/tabs";
 import { useTimelineSelection } from "~/store/zustand/timeline-selection";
@@ -169,7 +164,7 @@ const EventItem = memo(
     multiSelected: boolean;
     flatItemKeys: string[];
   }) => {
-    const store = useMainStore();
+    const { getOrCreateSessionForEvent } = useCreateSessionActions();
     const openCurrent = useTabs((state) => state.openCurrent);
     const openNew = useTabs((state) => state.openNew);
 
@@ -196,15 +191,18 @@ const EventItem = memo(
 
     const openEvent = useCallback(
       (openInNewTab: boolean) => {
-        if (!store || !eventId) {
+        if (!eventId) {
           return;
         }
 
-        const sessionId = getOrCreateSessionForEventId(store, eventId, title);
+        const sessionId = getOrCreateSessionForEvent(eventId, title);
+        if (!sessionId) {
+          return;
+        }
         const tab: TabInput = { id: sessionId, type: "sessions" };
         openInNewTab ? openNew(tab) : openCurrent(tab);
       },
-      [eventId, store, title, openCurrent, openNew],
+      [eventId, getOrCreateSessionForEvent, title, openCurrent, openNew],
     );
 
     const itemKey = `event-${item.id}`;
@@ -330,8 +328,7 @@ const SessionItem = memo(
     multiSelected: boolean;
     flatItemKeys: string[];
   }) => {
-    const store = useMainStore();
-    const indexes = useMainIndexes();
+    const deleteSessionsWithUndo = useDeleteSessionsWithUndo();
     const openCurrent = useTabs((state) => state.openCurrent);
     const openNew = useTabs((state) => state.openNew);
     const invalidateResource = useTabs((state) => state.invalidateResource);
@@ -387,32 +384,20 @@ const SessionItem = memo(
     }, [sessionId, openNew]);
 
     const handleDelete = useCallback(() => {
-      if (!store) {
-        return;
-      }
-
       if (sessionEvent?.tracking_id) {
         ignoreEvent(sessionEvent.tracking_id);
       }
 
-      const capturedData = captureSessionData(store, indexes, sessionId);
-
-      invalidateResource("sessions", sessionId);
-      void deleteSessionCascade(store, indexes, sessionId, {
-        skipAudio: true,
+      deleteSessionsWithUndo({
+        sessionIds: [sessionId],
+        invalidateSessionResource: (id) => invalidateResource("sessions", id),
+        addDeletion,
       });
-
-      if (capturedData) {
-        addDeletion(capturedData, () => {
-          void fsSyncCommands.audioDelete(sessionId);
-        });
-      }
     }, [
-      store,
-      indexes,
       sessionId,
       sessionEvent,
       ignoreEvent,
+      deleteSessionsWithUndo,
       invalidateResource,
       addDeletion,
     ]);

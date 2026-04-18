@@ -1,13 +1,7 @@
-import { useMainIndexes, useMainStore } from "~/session/hooks/storage";
-import { useDesktopTabLifecycle } from "~/shared/desktop-tab-lifecycle";
+import { useSessionTabLifecycle } from "~/session/hooks/storage";
 
 export function useMain2Lifecycle() {
-  const store = useMainStore();
-  const indexes = useMainIndexes();
-
-  useDesktopTabLifecycle({
-    store,
-    indexes,
+  useSessionTabLifecycle({
     onEmpty: null,
     onZeroTabs: null,
   });

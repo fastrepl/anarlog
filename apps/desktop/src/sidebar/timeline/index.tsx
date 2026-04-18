@@ -7,7 +7,6 @@ import {
   useState,
 } from "react";
 
-import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 import { Button } from "@hypr/ui/components/ui/button";
 import { cn, startOfDay } from "@hypr/utils";
 
@@ -34,17 +33,12 @@ import {
 
 import { useIgnoredEvents } from "~/calendar/hooks";
 import {
-  useMainIndexes,
-  useMainStore,
+  useDeleteSessionsWithUndo,
   useTimelineEventsTable,
   useTimelineSessionsTable,
 } from "~/session/hooks/storage";
 import { useConfigValue } from "~/shared/config";
 import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
-import {
-  captureSessionData,
-  deleteSessionCascade,
-} from "~/store/tinybase/store/deleteSession";
 import { useTabs } from "~/store/zustand/tabs";
 import { useTimelineSelection } from "~/store/zustand/timeline-selection";
 import { useUndoDelete } from "~/store/zustand/undo-delete";
@@ -132,13 +126,11 @@ export function TimelineView() {
     return currentTab?.type === "sessions" ? currentTab.id : undefined;
   }, [currentTab]);
 
-  const store = useMainStore();
-
   const selectedIds = useTimelineSelection((s) => s.selectedIds);
   const clearSelection = useTimelineSelection((s) => s.clear);
-  const indexes = useMainIndexes();
   const invalidateResource = useTabs((state) => state.invalidateResource);
   const addDeletion = useUndoDelete((state) => state.addDeletion);
+  const deleteSessionsWithUndo = useDeleteSessionsWithUndo();
 
   const flatItemKeys = useMemo(() => {
     const keys: string[] = [];
@@ -218,40 +210,24 @@ export function TimelineView() {
   }, [openNew]);
 
   const handleDeleteSelected = useCallback(() => {
-    if (!store || !indexes) {
-      return;
-    }
-
     const sessionIds = selectedIds
       .filter((key) => key.startsWith("session-"))
       .map((key) => key.replace("session-", ""));
 
     const batchId = sessionIds.length > 1 ? crypto.randomUUID() : undefined;
 
-    for (const sessionId of sessionIds) {
-      const capturedData = captureSessionData(store, indexes, sessionId);
-
-      invalidateResource("sessions", sessionId);
-      void deleteSessionCascade(store, indexes, sessionId, {
-        skipAudio: true,
-      });
-
-      if (capturedData) {
-        addDeletion(
-          capturedData,
-          () => {
-            void fsSyncCommands.audioDelete(sessionId);
-          },
-          batchId,
-        );
-      }
-    }
+    deleteSessionsWithUndo({
+      sessionIds,
+      invalidateSessionResource: (sessionId) =>
+        invalidateResource("sessions", sessionId),
+      addDeletion,
+      batchId,
+    });
 
     clearSelection();
   }, [
-    store,
-    indexes,
     selectedIds,
+    deleteSessionsWithUndo,
     invalidateResource,
     addDeletion,
     clearSelection,

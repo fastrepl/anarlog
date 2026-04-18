@@ -8,11 +8,7 @@ import {
 } from "@hypr/plugin-updater2";
 import { getCurrentWebviewWindowLabel } from "@hypr/plugin-windows";
 
-import { useMainStore } from "~/session/hooks/storage";
-import {
-  createSession,
-  getOrCreateSessionForEventId,
-} from "~/store/tinybase/store/sessions";
+import { useCreateSessionActions } from "~/session/hooks/storage";
 import * as settings from "~/store/tinybase/store/settings";
 import { useTabs } from "~/store/zustand/tabs";
 
@@ -62,34 +58,36 @@ function useUpdaterEvents() {
 }
 
 function useNotificationEvents() {
-  const store = useMainStore();
+  const { createSession, getOrCreateSessionForEvent } =
+    useCreateSessionActions();
   const settingsStore = settings.UI.useStore(settings.STORE_ID);
   const openNew = useTabs((state) => state.openNew);
   const pendingAutoStart = useRef<{ eventId: string | null } | null>(null);
-  const storeRef = useRef(store);
   const settingsStoreRef = useRef(settingsStore);
   const openNewRef = useRef(openNew);
 
   useEffect(() => {
-    storeRef.current = store;
     settingsStoreRef.current = settingsStore;
     openNewRef.current = openNew;
-  }, [store, settingsStore, openNew]);
+  }, [settingsStore, openNew]);
 
   useEffect(() => {
-    if (pendingAutoStart.current && store) {
+    if (pendingAutoStart.current) {
       const { eventId } = pendingAutoStart.current;
       pendingAutoStart.current = null;
       const sessionId = eventId
-        ? getOrCreateSessionForEventId(store, eventId)
-        : createSession(store);
+        ? (getOrCreateSessionForEvent(eventId) ?? null)
+        : createSession();
+      if (!sessionId) {
+        return;
+      }
       openNew({
         type: "sessions",
         id: sessionId,
         state: { view: null, autoStart: true },
       });
     }
-  }, [store, openNew]);
+  }, [createSession, getOrCreateSessionForEvent, openNew]);
 
   useEffect(() => {
     if (getCurrentWebviewWindowLabel() !== "main") {
@@ -109,23 +107,19 @@ function useNotificationEvents() {
             payload.source?.type === "calendar_event"
               ? payload.source.event_id
               : null;
-          const currentStore = storeRef.current;
-          if (!currentStore) {
+          const sessionId = eventId
+            ? getOrCreateSessionForEvent(eventId)
+            : createSession();
+          if (!sessionId) {
             pendingAutoStart.current = { eventId };
             return;
           }
-          const sessionId = eventId
-            ? getOrCreateSessionForEventId(currentStore, eventId)
-            : createSession(currentStore);
           openNewRef.current({
             type: "sessions",
             id: sessionId,
             state: { view: null, autoStart: true },
           });
         } else if (payload.type === "notification_option_selected") {
-          const currentStore = storeRef.current;
-          if (!currentStore) return;
-
           const selectedIndex = payload.selected_index;
           const eventIds =
             payload.source?.type === "mic_detected"
@@ -134,11 +128,9 @@ function useNotificationEvents() {
 
           const sessionId =
             selectedIndex < eventIds.length
-              ? getOrCreateSessionForEventId(
-                  currentStore,
-                  eventIds[selectedIndex],
-                )
-              : createSession(currentStore);
+              ? getOrCreateSessionForEvent(eventIds[selectedIndex])
+              : createSession();
+          if (!sessionId) return;
 
           openNewRef.current({
             type: "sessions",

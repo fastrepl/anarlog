@@ -1,9 +1,10 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import { TagChip } from "./chip";
 
 import {
-  useMainStore,
+  useAddSessionTag,
+  useSessionTagNameMap,
   useSessionTagMappingIds,
   useSessionTagMutations,
 } from "~/session/hooks/storage";
@@ -69,107 +70,17 @@ export function TagInput({ sessionId }: { sessionId: string }) {
 }
 
 function useSessionTags(sessionId: string) {
-  const store = useMainStore();
   const mappingIds = useSessionTagMappingIds(sessionId);
-
-  const existingTagIdsByName = useMemo(() => {
-    const byName = new Map<string, string>();
-    for (const mappingId of mappingIds) {
-      const tagId = store?.getCell("mapping_tag_session", mappingId, "tag_id");
-      if (typeof tagId !== "string" || !tagId) {
-        continue;
-      }
-
-      const tagName = store?.getCell("tags", tagId, "name");
-      if (typeof tagName !== "string") {
-        continue;
-      }
-
-      byName.set(tagName.toLowerCase(), tagId);
-    }
-    return byName;
-  }, [mappingIds, store]);
+  const existingTagIdsByName = useSessionTagNameMap(sessionId);
 
   return { mappingIds, existingTagIdsByName };
 }
 
 function useAddTag(
   sessionId: string,
-  existingTagIdsByName: Map<string, string>,
+  _existingTagIdsByName: Map<string, string>,
 ) {
-  const store = useMainStore();
-
-  return useCallback(
-    (name: string) => {
-      if (!store) {
-        return;
-      }
-      const userId = store.getValue("user_id") as string | undefined;
-      if (!userId) {
-        return;
-      }
-
-      const normalized = name.toLowerCase();
-      const existingTagId = existingTagIdsByName.get(normalized);
-
-      let tagId = existingTagId;
-      if (!tagId) {
-        let foundTagId: string | null = null;
-        store.forEachRow("tags", (rowId, _forEachCell) => {
-          if (foundTagId) {
-            return;
-          }
-
-          const tagName = store.getCell("tags", rowId, "name");
-          if (
-            typeof tagName === "string" &&
-            tagName.toLowerCase() === normalized
-          ) {
-            foundTagId = rowId;
-          }
-        });
-
-        tagId = foundTagId ?? crypto.randomUUID();
-        if (!foundTagId) {
-          store.setRow("tags", tagId, {
-            user_id: userId,
-            name,
-          });
-        }
-      }
-
-      let hasMapping = false;
-      store.forEachRow("mapping_tag_session", (_rowId, _forEachCell) => {
-        if (hasMapping) {
-          return;
-        }
-
-        const currentTagId = store.getCell(
-          "mapping_tag_session",
-          _rowId,
-          "tag_id",
-        );
-        const currentSessionId = store.getCell(
-          "mapping_tag_session",
-          _rowId,
-          "session_id",
-        );
-
-        if (currentSessionId === sessionId && currentTagId === tagId) {
-          hasMapping = true;
-        }
-      });
-
-      if (!hasMapping) {
-        store.setRow("mapping_tag_session", crypto.randomUUID(), {
-          user_id: userId,
-          session_id: sessionId,
-          tag_id: tagId,
-        });
-      }
-    },
-    [existingTagIdsByName, sessionId, store],
-  );
+  return useAddSessionTag(sessionId);
 }
 
 function normalizeTag(value: string): string {

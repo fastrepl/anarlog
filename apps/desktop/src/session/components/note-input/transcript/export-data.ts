@@ -1,20 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
 
 import type { TranscriptItem } from "@hypr/plugin-export";
+import type { RenderTranscriptRequest } from "@hypr/plugin-transcription";
 
 import {
-  useCurrentUserId,
-  useHumansTable,
-  useMainStore,
-  useParticipantMappingsTable,
+  useTranscriptRenderRequest,
   useTranscriptIdsForSession,
-  useTranscriptsTable,
 } from "~/session/hooks/storage";
-import {
-  buildRenderTranscriptRequestFromStore,
-  renderTranscriptSegments,
-} from "~/stt/render-transcript";
+import { renderTranscriptSegments } from "~/stt/render-transcript";
 
 export type TranscriptExportSegment = TranscriptItem & {
   start_ms: number;
@@ -22,9 +15,7 @@ export type TranscriptExportSegment = TranscriptItem & {
 };
 
 export async function buildTranscriptExportSegments(
-  request: NonNullable<
-    ReturnType<typeof buildRenderTranscriptRequestFromStore>
-  >,
+  request: RenderTranscriptRequest,
 ): Promise<TranscriptExportSegment[]> {
   const segments = await renderTranscriptSegments(request);
 
@@ -40,28 +31,8 @@ export function useTranscriptExportSegments(sessionId: string): {
   data: TranscriptExportSegment[];
   isLoading: boolean;
 } {
-  const store = useMainStore();
-  const transcriptsTable = useTranscriptsTable();
-  const participantMappingsTable = useParticipantMappingsTable();
-  const humansTable = useHumansTable();
-  const selfHumanId = useCurrentUserId();
-
   const transcriptIds = useTranscriptIdsForSession(sessionId) ?? [];
-
-  const request = useMemo(() => {
-    if (!store || transcriptIds.length === 0) {
-      return null;
-    }
-
-    return buildRenderTranscriptRequestFromStore(store, transcriptIds);
-  }, [
-    store,
-    transcriptIds,
-    transcriptsTable,
-    participantMappingsTable,
-    humansTable,
-    selfHumanId,
-  ]);
+  const request = useTranscriptRenderRequest(transcriptIds);
 
   const { data = [], isLoading } = useQuery({
     queryKey: ["transcript-export-segments", sessionId, request],

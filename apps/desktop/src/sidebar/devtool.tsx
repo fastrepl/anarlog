@@ -7,7 +7,7 @@ import {
 import { cn } from "@hypr/utils";
 
 import { getLatestVersion } from "~/changelog";
-import { useCurrentUserId, useMainStore } from "~/session/hooks/storage";
+import { useCreateCountdownTestSession } from "~/session/hooks/storage";
 import { useTabs } from "~/store/zustand/tabs";
 import { commands } from "~/types/tauri.gen";
 
@@ -188,38 +188,16 @@ function ToastsCard() {
 }
 
 function CountdownTestCard() {
-  const store = useMainStore();
-  const user_id = useCurrentUserId();
+  const createCountdownTestSession = useCreateCountdownTestSession();
   const openNew = useTabs((s) => s.openNew);
 
   const createWithCountdown = useCallback(
     (seconds: number, meetingLink?: string) => {
-      if (!store) return;
-      const sessionId = crypto.randomUUID();
-      const started_at = new Date(Date.now() + seconds * 1000).toISOString();
-      const event_json = JSON.stringify({
-        tracking_id: "devtool-test",
-        calendar_id: "devtool-test",
-        title: "Test Meeting",
-        started_at,
-        ended_at: new Date(
-          Date.now() + seconds * 1000 + 30 * 60 * 1000,
-        ).toISOString(),
-        is_all_day: false,
-        has_recurrence_rules: false,
-        ...(meetingLink && { meeting_link: meetingLink }),
-      });
-
-      store.setRow("sessions", sessionId, {
-        user_id: user_id ?? "",
-        created_at: new Date().toISOString(),
-        title: meetingLink ? "Countdown Test (Zoom)" : "Countdown Test",
-        event_json,
-      });
-
+      const sessionId = createCountdownTestSession(seconds, meetingLink);
+      if (!sessionId) return;
       openNew({ type: "sessions", id: sessionId });
     },
-    [store, user_id, openNew],
+    [createCountdownTestSession, openNew],
   );
 
   const btnClass = cn([
@@ -236,7 +214,6 @@ function CountdownTestCard() {
       <div className="flex flex-col gap-1.5">
         <button
           type="button"
-          disabled={!store}
           onClick={() => createWithCountdown(20)}
           className={btnClass}
         >
@@ -244,7 +221,6 @@ function CountdownTestCard() {
         </button>
         <button
           type="button"
-          disabled={!store}
           onClick={() => createWithCountdown(60)}
           className={btnClass}
         >
@@ -252,7 +228,6 @@ function CountdownTestCard() {
         </button>
         <button
           type="button"
-          disabled={!store}
           onClick={() => createWithCountdown(290)}
           className={btnClass}
         >
@@ -261,7 +236,6 @@ function CountdownTestCard() {
         <hr className="border-neutral-100" />
         <button
           type="button"
-          disabled={!store}
           onClick={() =>
             createWithCountdown(20, "https://zoom.us/j/1234567890")
           }
@@ -271,7 +245,6 @@ function CountdownTestCard() {
         </button>
         <button
           type="button"
-          disabled={!store}
           onClick={() =>
             createWithCountdown(60, "https://zoom.us/j/1234567890")
           }

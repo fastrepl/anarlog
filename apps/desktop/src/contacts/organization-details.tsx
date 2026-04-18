@@ -10,8 +10,7 @@ import { cn } from "@hypr/utils";
 import { getContactBgClass } from "./shared";
 
 import {
-  useAllHumans,
-  useHumansByOrg,
+  useOrganizationMembers,
   useOrganization,
   useOrganizationCell,
   useUpdateOrganizationStringCell,
@@ -25,8 +24,7 @@ export function OrganizationDetailsColumn({
   onPersonClick?: (personId: string) => void;
 }) {
   const selectedOrg = useOrganization(selectedOrganizationId);
-  const peopleInOrg = useHumansByOrg(selectedOrganizationId);
-  const allHumans = useAllHumans();
+  const peopleInOrg = useOrganizationMembers(selectedOrganizationId);
 
   return (
     <div className="flex flex-1 flex-col">
@@ -62,11 +60,8 @@ export function OrganizationDetailsColumn({
               <div className="overflow-y-auto" style={{ maxHeight: "55vh" }}>
                 {(peopleInOrg?.length ?? 0) > 0 ? (
                   <div className="grid grid-cols-3 gap-4">
-                    {peopleInOrg.map((humanId: string) => {
-                      const human = allHumans[humanId];
-                      if (!human) {
-                        return null;
-                      }
+                    {peopleInOrg.map((human) => {
+                      const humanId = human.id;
 
                       return (
                         <div

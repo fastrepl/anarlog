@@ -144,3 +144,22 @@ export function useDesktopTabLifecycle({
     );
   }, [indexes, registerOnClose, store]);
 }
+
+export function useSessionTabLifecycle({
+  store,
+  indexes,
+  onEmpty,
+  onZeroTabs,
+}: {
+  store: SessionStore | null | undefined;
+  indexes: SessionIndexes | null | undefined;
+  onEmpty?: (() => void) | null;
+  onZeroTabs?: (() => void) | null;
+}) {
+  useDesktopTabLifecycle({
+    store,
+    indexes,
+    onEmpty,
+    onZeroTabs,
+  });
+}

@@ -4,10 +4,8 @@ import { ParticipantChip } from "./chip";
 import { ParticipantDropdown } from "./dropdown";
 
 import {
-  SESSION_PARTICIPANTS_WITH_DETAILS_QUERY,
-  useAllHumanIds,
-  useMainQueries,
-  useMainStore,
+  useSearchableHumans,
+  useSessionParticipantHumanIds,
   useSessionParticipantMappingIds,
   useSessionParticipantMutations,
 } from "~/session/hooks/storage";
@@ -109,26 +107,12 @@ type Candidate = {
 };
 
 function useSessionParticipants(sessionId: string) {
-  const queries = useMainQueries();
   const mappingIds = useSessionParticipantMappingIds(sessionId);
+  const participantHumanIds = useSessionParticipantHumanIds(sessionId);
 
   const existingHumanIds = useMemo(() => {
-    if (!queries) {
-      return new Set<string>();
-    }
-
-    const ids = new Set<string>();
-    for (const mappingId of mappingIds) {
-      const result = queries.getResultRow(
-        SESSION_PARTICIPANTS_WITH_DETAILS_QUERY,
-        mappingId,
-      );
-      if (result?.human_id) {
-        ids.add(result.human_id as string);
-      }
-    }
-    return ids;
-  }, [mappingIds, queries]);
+    return new Set(participantHumanIds);
+  }, [participantHumanIds]);
 
   return { mappingIds, existingHumanIds };
 }
@@ -137,39 +121,18 @@ function useCandidateSearch(
   inputValue: string,
   existingHumanIds: Set<string>,
 ): Candidate[] {
-  const store = useMainStore();
-  const allHumanIds = useAllHumanIds();
+  const humans = useSearchableHumans(inputValue, existingHumanIds);
 
   return useMemo(() => {
-    const searchLower = inputValue.toLowerCase();
-    return allHumanIds
-      .filter((humanId: string) => !existingHumanIds.has(humanId))
-      .map((humanId: string) => {
-        const human = store?.getRow("humans", humanId);
-        if (!human) {
-          return null;
-        }
-
-        const name = (human.name || "") as string;
-        const email = (human.email || "") as string;
-        const nameMatch = name.toLowerCase().includes(searchLower);
-        const emailMatch = email.toLowerCase().includes(searchLower);
-
-        if (inputValue && !nameMatch && !emailMatch) {
-          return null;
-        }
-
-        return {
-          id: humanId,
-          name,
-          email,
-          orgId: human.org_id as string | undefined,
-          jobTitle: human.job_title as string | undefined,
-          isNew: false,
-        };
-      })
-      .filter((h): h is NonNullable<typeof h> => h !== null);
-  }, [inputValue, allHumanIds, existingHumanIds, store]);
+    return humans.map((human) => ({
+      id: human.id,
+      name: human.name,
+      email: human.email,
+      orgId: human.orgId,
+      jobTitle: human.jobTitle,
+      isNew: false,
+    }));
+  }, [humans]);
 }
 
 function useDropdownOptions(

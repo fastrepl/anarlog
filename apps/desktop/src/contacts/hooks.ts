@@ -131,6 +131,19 @@ export function useAllHumans(): Record<string, Human> {
   }, [table]);
 }
 
+export function useHumansByIds(ids: string[]): Record<string, Human> {
+  const table = main.UI.useTable("humans", main.STORE_ID);
+  return useMemo(() => {
+    const out: Record<string, Human> = {};
+    for (const id of ids) {
+      const row = table[id];
+      const human = readHuman(row as Record<string, unknown> | undefined, id);
+      if (human) out[id] = human;
+    }
+    return out;
+  }, [ids, table]);
+}
+
 export function useAllOrganizations(): Record<string, Organization> {
   const table = main.UI.useTable("organizations", main.STORE_ID);
   return useMemo(() => {
@@ -141,6 +154,24 @@ export function useAllOrganizations(): Record<string, Organization> {
     }
     return out;
   }, [table]);
+}
+
+export function useOrganizationsByIds(
+  ids: string[],
+): Record<string, Organization> {
+  const table = main.UI.useTable("organizations", main.STORE_ID);
+  return useMemo(() => {
+    const out: Record<string, Organization> = {};
+    for (const id of ids) {
+      const row = table[id];
+      const organization = readOrganization(
+        row as Record<string, unknown> | undefined,
+        id,
+      );
+      if (organization) out[id] = organization;
+    }
+    return out;
+  }, [ids, table]);
 }
 
 export function useVisibleOrganizationList(): Organization[] {
@@ -191,6 +222,21 @@ export function useHumansByOrg(orgId: string | null | undefined): string[] {
     main.INDEXES.humansByOrg,
     orgId ?? "",
     main.STORE_ID,
+  );
+}
+
+export function useOrganizationMembers(
+  orgId: string | null | undefined,
+): Human[] {
+  const humanIds = useHumansByOrg(orgId);
+  const humansById = useHumansByIds(humanIds);
+
+  return useMemo(
+    () =>
+      humanIds
+        .map((humanId) => humansById[humanId])
+        .filter((human): human is Human => Boolean(human)),
+    [humanIds, humansById],
   );
 }
 

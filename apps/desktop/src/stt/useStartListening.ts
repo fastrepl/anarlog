@@ -1,9 +1,9 @@
 import { useCallback, useRef } from "react";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
-import type { TranscriptStorage } from "@hypr/store";
 
 import { useListener } from "./contexts";
+import { useLiveTranscriptPersistence } from "./session-storage";
 import { useKeywords } from "./useKeywords";
 import {
   canRunBatchTranscription,
@@ -13,19 +13,12 @@ import {
 import { useSTTConnection } from "./useSTTConnection";
 
 import { getEnhancerService } from "~/services/enhancer";
-import {
-  useCurrentUserId,
-  useMainIndexes,
-  useMainStore,
-} from "~/session/hooks/storage";
-import { getSessionEventById } from "~/session/utils";
+import { useCurrentUserId } from "~/session/hooks/storage";
 import { useConfigValue } from "~/shared/config";
-import { id } from "~/shared/utils";
 import type {
   LiveTranscriptPersistCallback,
   OnStoppedCallback,
 } from "~/store/zustand/listener/transcript";
-import { applyLiveTranscriptDelta } from "~/stt/utils";
 
 export function getPostCaptureAction(
   details: {
@@ -47,8 +40,12 @@ export function getPostCaptureAction(
 
 export function useStartListening(sessionId: string) {
   const user_id = useCurrentUserId();
-  const store = useMainStore();
-  const indexes = useMainIndexes();
+  const {
+    participantHumanIds,
+    hasCalendarEvent,
+    persistDelta,
+    rollbackTranscript,
+  } = useLiveTranscriptPersistence(sessionId);
 
   const languages = useConfigValue("spoken_languages");
 
@@ -63,13 +60,8 @@ export function useStartListening(sessionId: string) {
   canRunBatchRef.current = canRunBatchTranscription(conn);
 
   const startListening = useCallback(async () => {
-    if (!store) {
-      return;
-    }
-
     let transcriptId: string | null = null;
     const startedAt = Date.now();
-    const memoMd = store.getCell("sessions", sessionId, "raw_md");
     const createdAt = new Date().toISOString();
 
     const onStopped: OnStoppedCallback = async (_sessionId, details) => {
@@ -105,46 +97,13 @@ export function useStartListening(sessionId: string) {
         return;
       }
 
-      if (!transcriptId) {
-        transcriptId = id();
-        const transcriptRow = {
-          session_id: sessionId,
-          user_id: user_id ?? "",
-          created_at: createdAt,
-          started_at: startedAt,
-          words: "[]",
-          speaker_hints: "[]",
-          memo_md: typeof memoMd === "string" ? memoMd : "",
-        } satisfies TranscriptStorage;
-
-        store.setRow("transcripts", transcriptId, transcriptRow);
-      }
-
-      store.transaction(() => {
-        applyLiveTranscriptDelta(store, transcriptId!, delta);
+      transcriptId = persistDelta({
+        currentTranscriptId: transcriptId,
+        startedAt,
+        createdAt,
+        delta,
       });
     };
-
-    const participantHumanIds: string[] = [];
-    store.forEachRow(
-      "mapping_session_participant",
-      (mappingId, _forEachCell) => {
-        const sid = store.getCell(
-          "mapping_session_participant",
-          mappingId,
-          "session_id",
-        );
-        if (sid !== sessionId) return;
-        const hid = store.getCell(
-          "mapping_session_participant",
-          mappingId,
-          "human_id",
-        );
-        if (typeof hid === "string" && hid) {
-          participantHumanIds.push(hid);
-        }
-      },
-    );
 
     const started = await start(
       {
@@ -165,15 +124,13 @@ export function useStartListening(sessionId: string) {
     );
 
     if (!started) {
-      if (transcriptId) {
-        store.delRow("transcripts", transcriptId);
-      }
+      rollbackTranscript(transcriptId);
       return;
     }
 
     void analyticsCommands.event({
       event: "session_started",
-      has_calendar_event: !!getSessionEventById(store, sessionId),
+      has_calendar_event: hasCalendarEvent,
       ...(conn
         ? {
             stt_provider: conn.provider,
@@ -181,7 +138,18 @@ export function useStartListening(sessionId: string) {
           }
         : {}),
     });
-  }, [conn, store, indexes, sessionId, start, keywords, user_id, languages]);
+  }, [
+    conn,
+    sessionId,
+    start,
+    keywords,
+    user_id,
+    languages,
+    participantHumanIds,
+    persistDelta,
+    rollbackTranscript,
+    hasCalendarEvent,
+  ]);
 
   return startListening;
 }

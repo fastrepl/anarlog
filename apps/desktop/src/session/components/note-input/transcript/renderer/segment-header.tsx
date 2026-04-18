@@ -5,10 +5,9 @@ import { cn } from "@hypr/utils";
 import { SpeakerAssignPopover } from "./speaker-assign";
 import { getTimestampRange, useSegmentColor } from "./utils";
 
-import { useMainStore } from "~/session/hooks/storage";
+import { useTranscriptLabelContext } from "~/session/hooks/storage";
 import type { Segment } from "~/stt/live-segment";
 import { SegmentKeyUtils, SpeakerLabelManager } from "~/stt/live-segment";
-import { defaultRenderLabelContext } from "~/stt/segment/shared";
 
 export function SegmentHeader({
   segment,
@@ -43,13 +42,12 @@ export function SegmentHeader({
 }
 
 function useSpeakerLabel(key: Segment["key"], manager?: SpeakerLabelManager) {
-  const store = useMainStore();
+  const labelContext = useTranscriptLabelContext();
 
   return useMemo(() => {
-    if (!store) {
+    if (!labelContext) {
       return SegmentKeyUtils.renderLabel(key, undefined, manager);
     }
-    const ctx = defaultRenderLabelContext(store);
-    return SegmentKeyUtils.renderLabel(key, ctx, manager);
-  }, [key, manager, store]);
+    return SegmentKeyUtils.renderLabel(key, labelContext, manager);
+  }, [key, labelContext, manager]);
 }

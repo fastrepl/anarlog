@@ -2,7 +2,7 @@ import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 import type { SessionContentData } from "@hypr/plugin-fs-sync";
 import type { SessionContext, Transcript } from "@hypr/plugin-template";
 
-import type { MainStore } from "~/session/hooks/storage";
+import type { Store as MainStore } from "~/store/tinybase/store/main";
 import {
   buildRenderTranscriptRequestFromFsTranscript,
   renderTranscriptSegments,

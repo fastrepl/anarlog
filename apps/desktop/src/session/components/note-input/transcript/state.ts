@@ -1,17 +1,13 @@
-import { useMemo } from "react";
-
 import type { DegradedError } from "@hypr/plugin-transcription";
 
 import { useAudioPlayer } from "~/audio-player";
 import {
-  useMainStore,
+  useTranscriptHasWords,
   useTranscriptIdsForSession,
-  useTranscriptsTable,
 } from "~/session/hooks/storage";
 import { getLiveCaptureUiMode } from "~/store/zustand/listener/general-shared";
 import { useListener } from "~/stt/contexts";
 import type { Segment } from "~/stt/live-segment";
-import { parseTranscriptWords } from "~/stt/utils";
 
 type ListeningStatus = "listening" | "finalizing";
 type BatchPhase = "importing" | "transcribing";
@@ -108,19 +104,8 @@ export function useTranscriptScreen({
 
 function useTranscriptContent(sessionId: string) {
   const transcriptIds = useTranscriptIdsForSession(sessionId) ?? [];
-  const transcriptsTable = useTranscriptsTable();
   const liveSegments = useListener((state) => state.liveSegments);
-  const store = useMainStore();
-
-  const hasTranscriptWords = useMemo(() => {
-    if (!store) {
-      return false;
-    }
-
-    return transcriptIds.some(
-      (transcriptId) => parseTranscriptWords(store, transcriptId).length > 0,
-    );
-  }, [store, transcriptIds, transcriptsTable]);
+  const hasTranscriptWords = useTranscriptHasWords(sessionId);
 
   return {
     transcriptIds,

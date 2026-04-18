@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 import { Kbd } from "@hypr/ui/components/ui/kbd";
 import { cn } from "@hypr/utils";
 
-import { useAllSessionIds, useMainStore } from "~/session/hooks/storage";
+import { useOpenNoteSessions } from "~/session/hooks/storage";
 import { useTabs } from "~/store/zustand/tabs";
 
 const MAX_RECENT_DISPLAY = 5;
@@ -30,29 +30,16 @@ export function OpenNoteDialog({ open, onOpenChange }: OpenNoteDialogProps) {
     (state) => state.recentlyOpenedSessionIds,
   );
 
-  const sessionIds = useAllSessionIds();
-  const store = useMainStore();
+  const sessions = useOpenNoteSessions();
 
-  const sessionsMap = useMemo(() => {
-    if (!store || !sessionIds) return new Map<string, Session>();
-
-    const map = new Map<string, Session>();
-    for (const id of sessionIds) {
-      map.set(id, {
-        id,
-        title: (store.getCell("sessions", id, "title") as string) || "Untitled",
-        createdAt: store.getCell("sessions", id, "created_at") as string,
-      });
-    }
-    return map;
-  }, [sessionIds, store]);
+  const sessionsMap = useMemo(
+    () => new Map(sessions.map((session) => [session.id, session])),
+    [sessions],
+  );
 
   const allSessionsSortedByDate = useMemo(() => {
-    return Array.from(sessionsMap.values()).sort((a, b) => {
-      if (!a.createdAt || !b.createdAt) return 0;
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    });
-  }, [sessionsMap]);
+    return sessions;
+  }, [sessions]);
 
   const recentSessions = useMemo(() => {
     return recentlyOpenedSessionIds

@@ -5,14 +5,11 @@ import { Badge } from "@hypr/ui/components/ui/badge";
 import { Button } from "@hypr/ui/components/ui/button";
 
 import {
-  TRANSCRIPT_BY_SESSION_INDEX,
-  useMainIndexes,
-  useMainStore,
   useParticipantSourceCell,
+  useRemoveSessionParticipant,
   useSessionParticipantDetails,
 } from "~/session/hooks/storage";
 import { useTabs } from "~/store/zustand/tabs/index";
-import { parseTranscriptHints, updateTranscriptHints } from "~/stt/utils";
 
 export function ParticipantChip({ mappingId }: { mappingId: string }) {
   const details = useParticipantDetails(mappingId);
@@ -88,24 +85,6 @@ function useParticipantDetails(mappingId: string) {
   };
 }
 
-function parseHumanIdFromHintValue(value: unknown): string | undefined {
-  let data = value;
-  if (typeof value === "string") {
-    try {
-      data = JSON.parse(value);
-    } catch {
-      return undefined;
-    }
-  }
-
-  if (data && typeof data === "object" && "human_id" in data) {
-    const humanId = (data as Record<string, unknown>).human_id;
-    return typeof humanId === "string" ? humanId : undefined;
-  }
-
-  return undefined;
-}
-
 function useRemoveParticipant({
   mappingId,
   assignedHumanId,
@@ -117,44 +96,9 @@ function useRemoveParticipant({
   sessionId: string | undefined;
   source: string | undefined;
 }) {
-  const store = useMainStore();
-  const indexes = useMainIndexes();
+  const removeParticipant = useRemoveSessionParticipant();
 
   return useCallback(() => {
-    if (!store) {
-      return;
-    }
-
-    if (assignedHumanId && sessionId && indexes) {
-      const transcriptIds = indexes.getSliceRowIds(
-        TRANSCRIPT_BY_SESSION_INDEX,
-        sessionId,
-      );
-
-      for (const transcriptId of transcriptIds) {
-        const hints = parseTranscriptHints(store, transcriptId);
-        if (hints.length === 0) continue;
-
-        const filteredHints = hints.filter((hint) => {
-          if (hint.type !== "user_speaker_assignment") {
-            return true;
-          }
-          const hintHumanId = parseHumanIdFromHintValue(hint.value);
-          return hintHumanId !== assignedHumanId;
-        });
-
-        if (filteredHints.length !== hints.length) {
-          updateTranscriptHints(store, transcriptId, filteredHints);
-        }
-      }
-    }
-
-    if (source === "auto") {
-      store.setPartialRow("mapping_session_participant", mappingId, {
-        source: "excluded",
-      });
-    } else {
-      store.delRow("mapping_session_participant", mappingId);
-    }
-  }, [store, indexes, mappingId, assignedHumanId, sessionId, source]);
+    removeParticipant({ mappingId, assignedHumanId, sessionId, source });
+  }, [removeParticipant, mappingId, assignedHumanId, sessionId, source]);
 }

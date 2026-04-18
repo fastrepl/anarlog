@@ -5,7 +5,7 @@ import { useShallow } from "zustand/shallow";
 import { events as detectEvents } from "@hypr/plugin-detect";
 import { commands as notificationCommands } from "@hypr/plugin-notification";
 
-import { type MainStore, useMainStore } from "~/session/hooks/storage";
+import { useNearbyEventsForMicPrompt } from "~/session/hooks/storage";
 import {
   createListenerStore,
   type ListenerStore,
@@ -56,43 +56,10 @@ export const useListener = <T,>(
   return useStore(store, useShallow(selector));
 };
 
-function getNearbyEvents(
-  tinybaseStore: MainStore,
-): { id: string; title: string }[] {
-  const now = Date.now();
-  const windowMs = 15 * 60 * 1000;
-  const results: { id: string; title: string; startedAt: number }[] = [];
-
-  tinybaseStore.forEachRow("events", (eventId, _forEachCell) => {
-    const event = tinybaseStore.getRow("events", eventId);
-    if (!event?.started_at) return;
-    if (event.is_all_day) return;
-
-    const startTime = new Date(String(event.started_at)).getTime();
-    if (isNaN(startTime)) return;
-
-    if (Math.abs(startTime - now) <= windowMs) {
-      results.push({
-        id: eventId,
-        title: String(event.title || "Untitled Event"),
-        startedAt: startTime,
-      });
-    }
-  });
-
-  results.sort((a, b) => a.startedAt - b.startedAt);
-  return results.map(({ id, title }) => ({ id, title }));
-}
-
 const useHandleDetectEvents = (store: ListenerStore) => {
   const stop = useStore(store, (state) => state.stop);
   const setMuted = useStore(store, (state) => state.setMuted);
-  const tinybaseStore = useMainStore();
-
-  const tinybaseStoreRef = useRef(tinybaseStore);
-  useEffect(() => {
-    tinybaseStoreRef.current = tinybaseStore;
-  }, [tinybaseStore]);
+  const getNearbyEvents = useNearbyEventsForMicPrompt();
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
@@ -105,10 +72,7 @@ const useHandleDetectEvents = (store: ListenerStore) => {
             return;
           }
 
-          const currentTinybaseStore = tinybaseStoreRef.current;
-          const nearbyEvents = currentTinybaseStore
-            ? getNearbyEvents(currentTinybaseStore)
-            : [];
+          const nearbyEvents = getNearbyEvents();
           const ignorableAppIds = getIgnorableAppIds(payload.apps);
 
           const options =
@@ -168,5 +132,5 @@ const useHandleDetectEvents = (store: ListenerStore) => {
       cancelled = true;
       unlisten?.();
     };
-  }, [stop, setMuted]);
+  }, [getNearbyEvents, stop, setMuted]);
 };

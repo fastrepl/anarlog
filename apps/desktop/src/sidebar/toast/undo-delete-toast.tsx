@@ -5,8 +5,7 @@ import { createPortal } from "react-dom";
 
 import { cn } from "@hypr/utils";
 
-import { useMainStore } from "~/session/hooks/storage";
-import { restoreSessionData } from "~/store/tinybase/store/deleteSession";
+import { useRestoreDeletedSessions } from "~/session/hooks/storage";
 import { useTabs } from "~/store/zustand/tabs";
 import { UNDO_TIMEOUT_MS, useUndoDelete } from "~/store/zustand/undo-delete";
 
@@ -63,7 +62,7 @@ function useToastGroups(): ToastGroup[] {
 }
 
 function useRestoreGroup() {
-  const store = useMainStore();
+  const restoreDeletedSessions = useRestoreDeletedSessions();
   const queryClient = useQueryClient();
   const pendingDeletions = useUndoDelete((state) => state.pendingDeletions);
   const clearDeletion = useUndoDelete((state) => state.clearDeletion);
@@ -72,35 +71,29 @@ function useRestoreGroup() {
 
   return useCallback(
     (group: ToastGroup) => {
-      if (!store) return;
-
-      for (const sessionId of group.sessionIds) {
-        const pending = pendingDeletions[sessionId];
-        if (!pending) continue;
-        restoreSessionData(store, pending.data);
-        void queryClient.invalidateQueries({
-          predicate: (query) =>
-            query.queryKey.length >= 2 &&
-            query.queryKey[0] === "audio" &&
-            query.queryKey[1] === sessionId,
-        });
-      }
-
-      if (group.sessionIds.length > 0) {
-        openCurrent({
-          type: "sessions",
-          id: group.sessionIds[0],
-        });
-      }
-
-      if (group.isBatch) {
-        clearBatch(group.key);
-      } else {
-        clearDeletion(group.sessionIds[0]);
-      }
+      restoreDeletedSessions({
+        sessionIds: group.sessionIds,
+        pendingDeletions,
+        clearDeletion,
+        clearBatch,
+        batchKey: group.isBatch ? group.key : undefined,
+        openSession: (sessionId) =>
+          openCurrent({
+            type: "sessions",
+            id: sessionId,
+          }),
+        invalidateAudioQueries: (sessionId) => {
+          void queryClient.invalidateQueries({
+            predicate: (query) =>
+              query.queryKey.length >= 2 &&
+              query.queryKey[0] === "audio" &&
+              query.queryKey[1] === sessionId,
+          });
+        },
+      });
     },
     [
-      store,
+      restoreDeletedSessions,
       pendingDeletions,
       openCurrent,
       clearDeletion,

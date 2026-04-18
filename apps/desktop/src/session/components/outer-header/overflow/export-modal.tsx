@@ -18,13 +18,11 @@ import { formatDate, formatDuration } from "./export-utils";
 import { json2md } from "~/editor/markdown";
 import { useTranscriptExportSegments } from "~/session/components/note-input/transcript/export-data";
 import {
-  SESSION_PARTICIPANTS_WITH_DETAILS_QUERY,
   useEnhancedNoteCell,
-  useMainQueries,
-  useMainStore,
+  useSessionParticipantNames,
   useSessionCell,
   useSessionEvent,
-  useTranscriptIdsForSession,
+  useTranscriptTimeRange,
 } from "~/session/hooks/storage";
 import type { EditorView } from "~/store/zustand/tabs/schema";
 
@@ -73,9 +71,6 @@ export function ExportModal({
   const [includeSummary, setIncludeSummary] = useState(true);
   const [includeTranscript, setIncludeTranscript] = useState(false);
 
-  const store = useMainStore();
-  const queries = useMainQueries();
-
   const sessionTitle = useSessionCell(sessionId, "title");
   const sessionCreatedAt = useSessionCell(sessionId, "created_at");
 
@@ -87,71 +82,23 @@ export function ExportModal({
   const enhancedNoteId = currentView.type === "enhanced" ? currentView.id : "";
   const enhancedNoteContent = useEnhancedNoteCell(enhancedNoteId, "content");
 
-  const participantNames = useMemo((): string[] => {
-    if (!queries) return [];
-
-    const names: string[] = [];
-    queries.forEachResultRow(
-      SESSION_PARTICIPANTS_WITH_DETAILS_QUERY,
-      (rowId) => {
-        const participantSessionId = queries.getResultCell(
-          SESSION_PARTICIPANTS_WITH_DETAILS_QUERY,
-          rowId,
-          "session_id",
-        );
-        if (participantSessionId === sessionId) {
-          const name = queries.getResultCell(
-            SESSION_PARTICIPANTS_WITH_DETAILS_QUERY,
-            rowId,
-            "human_name",
-          );
-          if (name && typeof name === "string") {
-            names.push(name);
-          }
-        }
-      },
-    );
-    return names;
-  }, [queries, sessionId]);
+  const participantNames = useSessionParticipantNames(sessionId);
 
   const { data: transcriptItems, isLoading: isTranscriptLoading } =
     useTranscriptExportSegments(sessionId);
 
-  const transcriptIds = useTranscriptIdsForSession(sessionId);
+  const transcriptRange = useTranscriptTimeRange(sessionId);
 
   const transcriptDuration = useMemo((): string | null => {
-    if (!store || !transcriptIds || transcriptIds.length === 0) {
+    if (
+      transcriptRange.startedAt === null ||
+      transcriptRange.endedAt === null
+    ) {
       return null;
     }
 
-    let minStartedAt: number | null = null;
-    let maxEndedAt: number | null = null;
-
-    for (const transcriptId of transcriptIds) {
-      const startedAt = store.getCell(
-        "transcripts",
-        transcriptId,
-        "started_at",
-      );
-      const endedAt = store.getCell("transcripts", transcriptId, "ended_at");
-
-      if (typeof startedAt === "number") {
-        if (minStartedAt === null || startedAt < minStartedAt) {
-          minStartedAt = startedAt;
-        }
-      }
-      if (typeof endedAt === "number") {
-        if (maxEndedAt === null || endedAt > maxEndedAt) {
-          maxEndedAt = endedAt;
-        }
-      }
-    }
-
-    if (minStartedAt !== null && maxEndedAt !== null) {
-      return formatDuration(minStartedAt, maxEndedAt);
-    }
-    return null;
-  }, [store, transcriptIds]);
+    return formatDuration(transcriptRange.startedAt, transcriptRange.endedAt);
+  }, [transcriptRange.endedAt, transcriptRange.startedAt]);
 
   const getMemoMd = (): string => {
     if (!rawMd) return "";

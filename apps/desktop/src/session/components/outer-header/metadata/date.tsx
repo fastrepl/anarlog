@@ -7,13 +7,13 @@ import { Input } from "@hypr/ui/components/ui/input";
 import { format, safeFormat, safeParseDate } from "@hypr/utils";
 
 import {
-  useSessionCell,
+  useSessionCellOptional,
   useSetSessionCreatedAt,
 } from "~/session/hooks/storage";
 
 export function DateEditor({ sessionId }: { sessionId: string }) {
   const [isEditing, setIsEditing] = useState(false);
-  const createdAt = useSessionCell(sessionId, "created_at");
+  const createdAt = useSessionCellOptional(sessionId, "created_at");
   const noteDate = safeFormat(
     createdAt ?? new Date(),
     "MMM d, yyyy h:mm a",

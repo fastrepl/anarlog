@@ -1,28 +1,14 @@
 import { useCallback } from "react";
 
 import type { TranscriptionParams } from "@hypr/plugin-transcription";
-import type { TranscriptStorage } from "@hypr/store";
 
 import { useListener } from "./contexts";
+import { useBatchTranscriptPersistence } from "./session-storage";
 import { useKeywords } from "./useKeywords";
 import { useSTTConnection } from "./useSTTConnection";
 
-import {
-  TRANSCRIPT_BY_SESSION_INDEX,
-  useCurrentUserId,
-  useMainIndexes,
-  useMainStore,
-} from "~/session/hooks/storage";
 import { useConfigValue } from "~/shared/config";
-import { id } from "~/shared/utils";
 import type { BatchPersistCallback } from "~/store/zustand/listener/transcript";
-import type { SpeakerHintWithId, WordWithId } from "~/stt/types";
-import {
-  parseTranscriptHints,
-  parseTranscriptWords,
-  updateTranscriptHints,
-  updateTranscriptWords,
-} from "~/stt/utils";
 
 type RunOptions = {
   handlePersist?: BatchPersistCallback;
@@ -85,9 +71,7 @@ export function isStoppedTranscriptionError(error: unknown) {
 }
 
 export const useRunBatch = (sessionId: string) => {
-  const store = useMainStore();
-  const indexes = useMainIndexes();
-  const user_id = useCurrentUserId();
+  const { buildPersist } = useBatchTranscriptPersistence(sessionId);
 
   const startTranscription = useListener((state) => state.startTranscription);
   const { conn } = useSTTConnection();
@@ -96,7 +80,7 @@ export const useRunBatch = (sessionId: string) => {
 
   return useCallback(
     async (filePath: string, options?: RunOptions) => {
-      if (!store || !conn || !startTranscription) {
+      if (!conn || !startTranscription) {
         throw new Error(
           "STT connection is not available. Please configure your speech-to-text provider.",
         );
@@ -113,115 +97,10 @@ export const useRunBatch = (sessionId: string) => {
         );
       }
 
-      const createdAt = new Date().toISOString();
-      const memoMd = store.getCell("sessions", sessionId, "raw_md");
-      let transcriptId: string | null = null;
-
       const handlePersist: BatchPersistCallback | undefined =
         options?.handlePersist;
 
-      const persist =
-        handlePersist ??
-        ((words, hints) => {
-          if (words.length === 0) {
-            return;
-          }
-
-          if (!transcriptId) {
-            transcriptId = id();
-            const currentTranscriptId = transcriptId;
-
-            const transcriptRow = {
-              session_id: sessionId,
-              user_id: user_id ?? "",
-              created_at: createdAt,
-              started_at: Date.now(),
-              words: "[]",
-              speaker_hints: "[]",
-              memo_md: typeof memoMd === "string" ? memoMd : "",
-            } satisfies TranscriptStorage;
-
-            store.transaction(() => {
-              const transcriptIds =
-                indexes?.getSliceRowIds(
-                  TRANSCRIPT_BY_SESSION_INDEX,
-                  sessionId,
-                ) ?? [];
-
-              for (const existingTranscriptId of transcriptIds) {
-                store.delRow("transcripts", existingTranscriptId);
-              }
-
-              store.setRow("transcripts", currentTranscriptId, transcriptRow);
-            });
-          }
-
-          const currentTranscriptId = transcriptId;
-          if (!currentTranscriptId) {
-            return;
-          }
-
-          const existingWords = parseTranscriptWords(
-            store,
-            currentTranscriptId,
-          );
-          const existingHints = parseTranscriptHints(
-            store,
-            currentTranscriptId,
-          );
-
-          const newWords: WordWithId[] = [];
-          const newWordIds: string[] = [];
-
-          words.forEach((word) => {
-            const wordId = id();
-
-            newWords.push({
-              id: wordId,
-              text: word.text,
-              start_ms: word.start_ms,
-              end_ms: word.end_ms,
-              channel: word.channel,
-            });
-
-            newWordIds.push(wordId);
-          });
-
-          const newHints: SpeakerHintWithId[] = [];
-
-          hints.forEach((hint) => {
-            if (hint.data.type !== "provider_speaker_index") {
-              return;
-            }
-
-            const wordId = newWordIds[hint.wordIndex];
-            const word = words[hint.wordIndex];
-
-            if (!wordId || !word) {
-              return;
-            }
-
-            newHints.push({
-              id: id(),
-              word_id: wordId,
-              type: "provider_speaker_index",
-              value: JSON.stringify({
-                provider: hint.data.provider ?? conn.provider,
-                channel: hint.data.channel ?? word.channel,
-                speaker_index: hint.data.speaker_index,
-              }),
-            });
-          });
-
-          updateTranscriptWords(store, currentTranscriptId, [
-            ...existingWords,
-            ...newWords,
-          ]);
-          updateTranscriptHints(store, currentTranscriptId, [
-            ...existingHints,
-            ...newHints,
-          ]);
-        });
+      const persist = buildPersist(conn.provider, handlePersist);
 
       const params: TranscriptionParams = {
         session_id: sessionId,
@@ -239,15 +118,6 @@ export const useRunBatch = (sessionId: string) => {
 
       await startTranscription(params, { handlePersist: persist });
     },
-    [
-      conn,
-      indexes,
-      keywords,
-      languages,
-      startTranscription,
-      sessionId,
-      store,
-      user_id,
-    ],
+    [conn, buildPersist, keywords, languages, startTranscription, sessionId],
   );
 };

@@ -4,10 +4,6 @@ import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 
 import { getEligibility } from "./eligibility";
 
-import {
-  ENHANCED_NOTES_BY_SESSION_INDEX,
-  TRANSCRIPT_BY_SESSION_INDEX,
-} from "~/session/hooks/storage";
 import type { Store as MainStore } from "~/store/tinybase/store/main";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 import type { TasksActions } from "~/store/zustand/ai-task/tasks";
@@ -31,7 +27,13 @@ type EnhancerEvent =
 
 type EnhancerDeps = {
   mainStore: MainStore;
-  indexes: { getSliceRowIds: (indexId: string, sliceId: string) => string[] };
+  childIndex?: {
+    transcriptIdsBySession: (sessionId: string) => string[];
+    enhancedNoteIdsBySession: (sessionId: string) => string[];
+  };
+  indexes?: {
+    getSliceRowIds: (indexId: string, sliceId: string) => string[];
+  };
   aiTaskStore: {
     getState: () => Pick<TasksActions, "generate" | "getState" | "reset">;
   };
@@ -219,16 +221,21 @@ export class EnhancerService {
   }
 
   private getTranscriptIds(sessionId: string): string[] {
-    return this.deps.indexes.getSliceRowIds(
-      TRANSCRIPT_BY_SESSION_INDEX,
-      sessionId,
+    if (this.deps.childIndex) {
+      return this.deps.childIndex.transcriptIdsBySession(sessionId);
+    }
+    return (
+      this.deps.indexes?.getSliceRowIds("transcriptBySession", sessionId) ?? []
     );
   }
 
   private getEnhancedNoteIds(sessionId: string): string[] {
-    return this.deps.indexes.getSliceRowIds(
-      ENHANCED_NOTES_BY_SESSION_INDEX,
-      sessionId,
+    if (this.deps.childIndex) {
+      return this.deps.childIndex.enhancedNoteIdsBySession(sessionId);
+    }
+    return (
+      this.deps.indexes?.getSliceRowIds("enhancedNotesBySession", sessionId) ??
+      []
     );
   }
 

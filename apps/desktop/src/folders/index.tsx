@@ -8,8 +8,7 @@ import { Section } from "./shared";
 
 import { useBillingAccess } from "~/auth/billing";
 import {
-  useAllSessionIds,
-  useMainStore,
+  useSessionFolderTree,
   useSession,
   useSessionIdsInFolder,
 } from "~/session/hooks/storage";
@@ -23,43 +22,7 @@ import { sessionOps } from "~/store/tinybase/persister/session/ops";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 
 function useFolderTree() {
-  const sessionIds = useAllSessionIds();
-  const store = useMainStore();
-
-  return useMemo(() => {
-    if (!store || !sessionIds)
-      return {
-        topLevel: [] as string[],
-        byParent: {} as Record<string, string[]>,
-      };
-
-    const allFolders = new Set<string>();
-    for (const id of sessionIds) {
-      const folderId = store.getCell("sessions", id, "folder_id") as string;
-      if (folderId) {
-        const parts = folderId.split("/");
-        for (let i = 1; i <= parts.length; i++) {
-          allFolders.add(parts.slice(0, i).join("/"));
-        }
-      }
-    }
-
-    const topLevel: string[] = [];
-    const byParent: Record<string, string[]> = {};
-
-    for (const folder of allFolders) {
-      const parts = folder.split("/");
-      if (parts.length === 1) {
-        topLevel.push(folder);
-      } else {
-        const parent = parts.slice(0, -1).join("/");
-        byParent[parent] = byParent[parent] || [];
-        byParent[parent].push(folder);
-      }
-    }
-
-    return { topLevel: topLevel.sort(), byParent };
-  }, [sessionIds, store]);
+  return useSessionFolderTree();
 }
 
 function useFolderName(folderId: string) {

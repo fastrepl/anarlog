@@ -19,7 +19,11 @@ import {
 import { cn } from "@hypr/utils";
 
 import { useTitleGenerating } from "~/ai/hooks";
-import { useMainStore, useUpdateSessionCell } from "~/session/hooks/storage";
+import {
+  useSessionCell,
+  useSessionTitleField,
+  useUpdateSessionCell,
+} from "~/session/hooks/storage";
 import { useLiveTitle } from "~/store/zustand/live-title";
 import { type Tab } from "~/store/zustand/tabs";
 
@@ -53,7 +57,7 @@ export const TitleInput = forwardRef<
       id: sessionId,
       state: { view },
     } = tab;
-    const store = useMainStore();
+    const storeTitle = useSessionCell(sessionId, "title");
     const isGenerating = useTitleGenerating(sessionId);
     const wasGenerating = usePrevious(isGenerating);
     const [showRevealAnimation, setShowRevealAnimation] = useState(false);
@@ -66,21 +70,18 @@ export const TitleInput = forwardRef<
 
     useEffect(() => {
       if (wasGenerating && !isGenerating) {
-        const title = store?.getCell("sessions", sessionId, "title") as
-          | string
-          | undefined;
-        setGeneratedTitle(title ?? null);
+        setGeneratedTitle(storeTitle || null);
         setShowRevealAnimation(true);
         const timer = setTimeout(() => {
           setShowRevealAnimation(false);
         }, 1000);
         return () => clearTimeout(timer);
       }
-    }, [wasGenerating, isGenerating, store, sessionId]);
+    }, [wasGenerating, isGenerating, storeTitle]);
 
     const getInitialTitle = useCallback(() => {
-      return (store?.getCell("sessions", sessionId, "title") as string) ?? "";
-    }, [store, sessionId]);
+      return storeTitle;
+    }, [storeTitle]);
 
     if (isGenerating) {
       return (
@@ -147,7 +148,7 @@ const TitleInputInner = memo(
       const [isTitleFocused, setIsTitleFocused] = useState(false);
       const isFocused = useRef(false);
       const internalRef = useRef<HTMLInputElement>(null);
-      const store = useMainStore();
+      const { value: currentTitle } = useSessionTitleField(sessionId);
       const setLiveTitle = useLiveTitle((s) => s.setTitle);
       const clearLiveTitle = useLiveTitle((s) => s.clearTitle);
 
@@ -236,24 +237,11 @@ const TitleInputInner = memo(
       );
 
       useEffect(() => {
-        if (!store) return;
-
-        const listenerId = store.addCellListener(
-          "sessions",
-          sessionId,
-          "title",
-          (_store, _tableId, _rowId, _cellId, newValue) => {
-            if (!isFocused.current) {
-              setLocalTitle((newValue as string) ?? "");
-              requestAnimationFrame(() => updateOverflowState());
-            }
-          },
-        );
-
-        return () => {
-          store.delListener(listenerId);
-        };
-      }, [store, sessionId, updateOverflowState]);
+        if (!isFocused.current) {
+          setLocalTitle(currentTitle);
+          requestAnimationFrame(() => updateOverflowState());
+        }
+      }, [currentTitle, updateOverflowState]);
 
       const setStoreTitle = useUpdateSessionCell(sessionId, "title");
 

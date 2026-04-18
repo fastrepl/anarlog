@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo } from "react";
+import { memo, useCallback, useEffect } from "react";
 
 import { cn } from "@hypr/utils";
 
@@ -13,12 +13,8 @@ import {
   useStableSegments,
 } from "./segment-hooks";
 
-import { useMainStore } from "~/session/hooks/storage";
+import { useTranscriptSpeakerLabelManager } from "~/session/hooks/storage";
 import type { Segment, SegmentWord } from "~/stt/live-segment";
-import {
-  defaultRenderLabelContext,
-  SpeakerLabelManager,
-} from "~/stt/segment/shared";
 
 export function RenderTranscript({
   scrollElement,
@@ -88,14 +84,7 @@ const SegmentsList = memo(
     startPlayback: () => void;
     audioExists: boolean;
   }) => {
-    const store = useMainStore();
-    const speakerLabelManager = useMemo(() => {
-      if (!store) {
-        return new SpeakerLabelManager();
-      }
-      const ctx = defaultRenderLabelContext(store);
-      return SpeakerLabelManager.fromSegments(segments, ctx);
-    }, [segments, store]);
+    const speakerLabelManager = useTranscriptSpeakerLabelManager(segments);
 
     const seekAndPlay = useCallback(
       (word: SegmentWord) => {
