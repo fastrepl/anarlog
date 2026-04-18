@@ -2,16 +2,8 @@ use serde::{Serialize, ser::Serializer};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("missing authorization header")]
-    MissingAuthHeader,
-    #[error("invalid authorization header")]
-    InvalidAuthHeader,
-    #[error("failed to fetch JWKS")]
-    JwksFetchFailed,
     #[error("invalid token")]
     InvalidToken,
-    #[error("missing entitlement: {0}")]
-    MissingEntitlement(String),
 }
 
 impl Serialize for Error {
@@ -22,3 +14,5 @@ impl Serialize for Error {
         serializer.serialize_str(self.to_string().as_ref())
     }
 }
+
+pub type Result<T> = std::result::Result<T, Error>;

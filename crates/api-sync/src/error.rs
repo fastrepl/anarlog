@@ -18,8 +18,8 @@ pub enum SyncError {
     Internal(String),
 }
 
-impl From<hypr_supabase_auth::Error> for SyncError {
-    fn from(err: hypr_supabase_auth::Error) -> Self {
+impl From<hypr_supabase_auth::server::Error> for SyncError {
+    fn from(err: hypr_supabase_auth::server::Error) -> Self {
         Self::Auth(err.to_string())
     }
 }

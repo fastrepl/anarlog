@@ -1,6 +1,9 @@
 use jsonwebtoken::{Algorithm, DecodingKey, Validation};
 
+mod error;
 mod jwks;
+pub use error::{Error, Result};
+
 use jwks::*;
 
 #[derive(Clone)]
@@ -27,28 +30,28 @@ impl SupabaseAuth {
             .or_else(|| auth_header.strip_prefix("token "))
     }
 
-    pub async fn verify_token(&self, token: &str) -> Result<crate::Claims, crate::Error> {
-        let header = jsonwebtoken::decode_header(token).map_err(|_| crate::Error::InvalidToken)?;
+    pub async fn verify_token(&self, token: &str) -> Result<crate::Claims> {
+        let header = jsonwebtoken::decode_header(token).map_err(|_| Error::InvalidToken)?;
 
         let jwks = self.jwks.get().await?;
 
-        let kid = header.kid.as_deref().ok_or(crate::Error::InvalidToken)?;
-        let jwk = jwks.find(kid).ok_or(crate::Error::InvalidToken)?;
+        let kid = header.kid.as_deref().ok_or(Error::InvalidToken)?;
+        let jwk = jwks.find(kid).ok_or(Error::InvalidToken)?;
 
         let algorithm = match jwk.common.key_algorithm {
             Some(jsonwebtoken::jwk::KeyAlgorithm::RS256) => Algorithm::RS256,
             Some(jsonwebtoken::jwk::KeyAlgorithm::ES256) => Algorithm::ES256,
-            _ => return Err(crate::Error::InvalidToken),
+            _ => return Err(Error::InvalidToken),
         };
 
-        let decoding_key = DecodingKey::from_jwk(jwk).map_err(|_| crate::Error::InvalidToken)?;
+        let decoding_key = DecodingKey::from_jwk(jwk).map_err(|_| Error::InvalidToken)?;
 
         let mut validation = Validation::new(algorithm);
         validation.validate_exp = true;
         validation.set_audience(&["authenticated"]);
 
         let token_data = jsonwebtoken::decode::<crate::Claims>(token, &decoding_key, &validation)
-            .map_err(|_| crate::Error::InvalidToken)?;
+            .map_err(|_| Error::InvalidToken)?;
 
         Ok(token_data.claims)
     }
@@ -57,11 +60,11 @@ impl SupabaseAuth {
         &self,
         token: &str,
         entitlement: &str,
-    ) -> Result<crate::Claims, crate::Error> {
+    ) -> Result<crate::Claims> {
         let claims = self.verify_token(token).await?;
 
         if !claims.entitlements.contains(&entitlement.to_string()) {
-            return Err(crate::Error::MissingEntitlement(entitlement.to_string()));
+            return Err(Error::MissingEntitlement(entitlement.to_string()));
         }
 
         Ok(claims)
@@ -71,7 +74,7 @@ impl SupabaseAuth {
         &self,
         token: &str,
         entitlements: &[&str],
-    ) -> Result<crate::Claims, crate::Error> {
+    ) -> Result<crate::Claims> {
         let claims = self.verify_token(token).await?;
 
         let has_any = entitlements
@@ -79,7 +82,7 @@ impl SupabaseAuth {
             .any(|e| claims.entitlements.contains(&e.to_string()));
 
         if !has_any {
-            return Err(crate::Error::MissingEntitlement(entitlements.join(" or ")));
+            return Err(Error::MissingEntitlement(entitlements.join(" or ")));
         }
 
         Ok(claims)

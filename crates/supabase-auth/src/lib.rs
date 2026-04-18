@@ -1,17 +1,15 @@
-// Supabase JWT authentication utilities.
-//
-// References:
-// - https://supabase.com/docs/guides/auth/jwts
-// - https://supabase.com/docs/guides/auth/signing-keys
+// Supabase authentication utilities.
 
-mod claims;
-pub use claims::*;
+pub mod claims;
+pub use claims::{Claims, SubscriptionStatus};
 
-mod error;
-pub use error::*;
+pub mod session;
 
 #[cfg(feature = "server")]
 pub mod server;
 
 #[cfg(feature = "client")]
 pub mod client;
+
+#[cfg(feature = "refresh")]
+pub mod refresh;

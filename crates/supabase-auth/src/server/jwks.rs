@@ -44,7 +44,7 @@ impl CachedJwks {
         }
     }
 
-    pub async fn get(&self) -> Result<JwkSet, crate::Error> {
+    pub async fn get(&self) -> super::Result<JwkSet> {
         {
             let cache = self.cache.read().await;
             if cache.is_valid() {
@@ -62,10 +62,10 @@ impl CachedJwks {
             .get(&self.url)
             .send()
             .await
-            .map_err(|_| crate::Error::JwksFetchFailed)?
+            .map_err(|_| super::Error::JwksFetchFailed)?
             .json()
             .await
-            .map_err(|_| crate::Error::JwksFetchFailed)?;
+            .map_err(|_| super::Error::JwksFetchFailed)?;
 
         cache.jwks = Some(jwks.clone());
         cache.fetched_at = Some(Instant::now());

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use hypr_supabase_auth::client::{session::find_session, store::AuthStore};
+use hypr_supabase_auth::{client::store::AuthStore, session::find_session};
 use hypr_template_support::AccountInfo;
 
 pub(crate) fn parse_account_info(

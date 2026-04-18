@@ -7,6 +7,7 @@ edition = "2024"
 default = []
 server = ["dep:reqwest", "dep:jsonwebtoken", "dep:tokio"]
 client = ["dep:hypr-storage"]
+refresh = ["dep:reqwest"]
 
 [dependencies]
 # always available
@@ -24,3 +25,7 @@ tokio = { workspace = true, optional = true }
 
 # client feature
 hypr-storage = { workspace = true, optional = true }
+
+[dev-dependencies]
+axum = { workspace = true }
+tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread"] }

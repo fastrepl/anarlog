@@ -1,6 +1,8 @@
 use chrono::{DateTime, Utc};
 
-use crate::error::Error;
+pub use error::{Error, Result};
+
+mod error;
 
 // https://docs.stripe.com/api/subscriptions/object#subscription_object-status
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
@@ -43,7 +45,7 @@ impl Claims {
         self.is_pro() || self.is_lite()
     }
 
-    pub fn decode_insecure(token: &str) -> Result<Self, Error> {
+    pub fn decode_insecure(token: &str) -> Result<Self> {
         use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 
         let parts: Vec<&str> = token.split('.').collect();

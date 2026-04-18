@@ -4,7 +4,7 @@ use axum::{
     middleware::Next,
     response::{IntoResponse, Response},
 };
-use hypr_supabase_auth::{Error as SupabaseAuthError, server::SupabaseAuth};
+use hypr_supabase_auth::server::{Error as SupabaseAuthError, SupabaseAuth};
 
 pub use hypr_supabase_auth::Claims;
 
