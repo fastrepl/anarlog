@@ -9,6 +9,10 @@ const {
   startMock,
   runBatchMock,
   useListenerMock,
+  useCellMock,
+  useSliceRowIdsMock,
+  useTableMock,
+  useResultTableMock,
   useValuesMock,
   useStoreMock,
   useIndexesMock,
@@ -18,6 +22,10 @@ const {
   startMock: vi.fn(),
   runBatchMock: vi.fn(),
   useListenerMock: vi.fn(),
+  useCellMock: vi.fn(() => ""),
+  useSliceRowIdsMock: vi.fn(() => []),
+  useTableMock: vi.fn(() => ({})),
+  useResultTableMock: vi.fn(() => ({})),
   useValuesMock: vi.fn(),
   useStoreMock: vi.fn(),
   useIndexesMock: vi.fn(),
@@ -61,6 +69,7 @@ vi.mock("~/services/enhancer", () => ({
 }));
 
 vi.mock("~/session/utils", () => ({
+  getSessionEvent: vi.fn(() => null),
   getSessionEventById: vi.fn(() => null),
 }));
 
@@ -76,9 +85,17 @@ vi.mock("~/store/tinybase/store/main", () => ({
   STORE_ID: "main",
   INDEXES: {
     transcriptBySession: "transcriptBySession",
+    sessionParticipantsBySession: "sessionParticipantsBySession",
+  },
+  QUERIES: {
+    sessionParticipantsWithDetails: "sessionParticipantsWithDetails",
   },
   UI: {
     useValues: useValuesMock,
+    useCell: useCellMock,
+    useSliceRowIds: useSliceRowIdsMock,
+    useTable: useTableMock,
+    useResultTable: useResultTableMock,
     useValue: (key: string) => {
       if (key === "user_id") {
         const values = useValuesMock();
@@ -150,6 +167,10 @@ describe("useStartListening", () => {
         start: startMock,
       }),
     );
+    useCellMock.mockReturnValue("");
+    useSliceRowIdsMock.mockReturnValue([]);
+    useTableMock.mockReturnValue({});
+    useResultTableMock.mockReturnValue({});
     useValuesMock.mockReturnValue({ user_id: "user-1" });
     useIndexesMock.mockReturnValue(null);
     useConfigValueMock.mockReturnValue([]);

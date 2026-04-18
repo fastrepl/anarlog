@@ -8,8 +8,8 @@ import {
 } from "./entities";
 import { extractContextRefsFromMessages } from "./refs";
 
-import { useDisplayEntityRenderer } from "~/chat/hooks/context-renderers";
 import type { HyprUIMessage } from "~/chat/types";
+import { useDisplayEntityRenderer } from "~/session/hooks/storage";
 
 type UseChatContextPipelineParams = {
   messages: HyprUIMessage[];

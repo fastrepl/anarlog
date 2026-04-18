@@ -6,7 +6,7 @@
     "dev": "NODE_OPTIONS='--max-old-space-size=8192' VITE_APP_URL=\"http://localhost:3000\" VITE_API_URL=\"http://localhost:3001\" dotenvx run --ignore MISSING_ENV_FILE -f ../../.env.supabase -f .env -- vite dev --port 3000",
     "build": "NODE_OPTIONS='--max-old-space-size=8192' vite build && cp public/sitemap.xml dist/client/sitemap.xml && pagefind --site ./dist/client",
     "serve": "vite preview",
-    "test": "playwright test",
+    "test": "node --test",
     "typecheck": "tsc --project tsconfig.json --noEmit",
     "gen:agents": "node scripts/gen-agents.js"
   },
@@ -91,14 +91,12 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@argos-ci/playwright": "^6.6.1",
     "@content-collections/core": "^0.15.0",
     "@content-collections/mdx": "^0.2.2",
     "@content-collections/vite": "^0.3.0",
     "@dotenvx/dotenvx": "^1.61.0",
     "@hypr/plugin-auth": "workspace:*",
     "@hypr/plugin-deeplink2": "workspace:*",
-    "@playwright/test": "^1.59.1",
     "@tailwindcss/typography": "^0.5.19",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2",

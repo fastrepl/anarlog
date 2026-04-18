@@ -1,6 +1,6 @@
 import { Node as PMNode } from "prosemirror-model";
 import type { EditorView } from "prosemirror-view";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 
 import { parseJsonContent } from "~/editor/markdown";
 import { type JSONContent, schema } from "~/editor/session";
@@ -324,10 +324,18 @@ export function useDailyNoteEditorRuntime(date: string): {
     [updateDailyNoteContent],
   );
 
-  return {
-    initializeContent,
-    syncLinkedSessionsInView,
-    syncSessionNodeTitles,
-    persistDailyNote,
-  };
+  return useMemo(
+    () => ({
+      initializeContent,
+      syncLinkedSessionsInView,
+      syncSessionNodeTitles,
+      persistDailyNote,
+    }),
+    [
+      initializeContent,
+      syncLinkedSessionsInView,
+      syncSessionNodeTitles,
+      persistDailyNote,
+    ],
+  );
 }

@@ -106,7 +106,7 @@ function EnhancerInit() {
   templateIdRef.current = selectedTemplateId;
 
   useEffect(() => {
-    if (!persistedStore || !aiTaskStore) return;
+    if (!persistedStore || !aiTaskStore || !childIndex) return;
 
     const service = initEnhancerService({
       mainStore: persistedStore,

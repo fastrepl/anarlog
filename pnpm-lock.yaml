@@ -1165,9 +1165,6 @@ importers:
         specifier: ^4.3.6
         version: 4.3.6
     devDependencies:
-      '@argos-ci/playwright':
-        specifier: ^6.6.1
-        version: 6.6.1
       '@content-collections/core':
         specifier: ^0.15.0
         version: 0.15.0(typescript@5.9.3)
@@ -1186,9 +1183,6 @@ importers:
       '@hypr/plugin-deeplink2':
         specifier: workspace:*
         version: link:../../plugins/deeplink2
-      '@playwright/test':
-        specifier: ^1.59.1
-        version: 1.59.1
       '@tailwindcss/typography':
         specifier: ^0.5.19
         version: 0.5.19(tailwindcss@4.2.2)
@@ -2327,26 +2321,6 @@ packages:
 
   '@antfu/install-pkg@1.1.0':
     resolution: {integrity: sha512-MGQsmw10ZyI+EJo45CdSER4zEb+p31LpDAFp2Z3gkSd1yqVZGi0Ebx++YTEMonJy4oChEMLsxZ64j8FH6sSqtQ==}
-
-  '@argos-ci/api-client@0.17.0':
-    resolution: {integrity: sha512-z74ZdqT46+sirGlJUXXn1vhZZshUU50bRLfeVCeHilEf585N8GG7demF4vtY+dp226jGqSf+CkgBfg/O48AxAA==}
-    engines: {node: '>=20.0.0'}
-
-  '@argos-ci/browser@5.1.3':
-    resolution: {integrity: sha512-2acfqcb7A2VNqm43bBk90PleBV+qCwO68FNmoGn28zs3d10G3W3/ZkqtoYUY3ycWclWQ/KYxH8SdHQfz4iB3ow==}
-    engines: {node: '>=20.0.0'}
-
-  '@argos-ci/core@5.2.0':
-    resolution: {integrity: sha512-DUTcNf8VFtlZj2h2qH1GP7lvDiaX4v+rZs/SQA2uAQp4J6Oapl40D90O4Hum8XZt1kaKC5BrxeDAohomH/plkA==}
-    engines: {node: '>=20.0.0'}
-
-  '@argos-ci/playwright@6.6.1':
-    resolution: {integrity: sha512-GdNeCDjBX0vozgDg7jYzBY0iSQobjmNgOXjCpHQl8k8ZuwgAQ+oklfWx45uu4L1Sa6aZ8NmR6UCABTPCESXSJA==}
-    engines: {node: '>=20.0.0'}
-
-  '@argos-ci/util@3.4.0':
-    resolution: {integrity: sha512-rPa8xu6k0TkK1V4CIapcx2x/ncB7dvGa0adXCkflQf+rZZvZaVI3jCVXR57bCZn+S5AWndj4+A/7pX5xV9krvQ==}
-    engines: {node: '>=20.0.0'}
 
   '@asamuzakjp/css-color@3.2.0':
     resolution: {integrity: sha512-K1A6z8tS3XsmCMM86xoWdn7Fkdn9m6RSVtocUrJYIwZnFVkng/PvkEoWtOWmP+Scc6saYWHWZYbndEEXxl24jw==}
@@ -11048,10 +11022,6 @@ packages:
   convert-source-map@2.0.0:
     resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
 
-  convict@6.2.5:
-    resolution: {integrity: sha512-JtXpxqDqJ8P0UwEHwhxLzCIXQy97vlYBZR222Sbzb1q1Erex9ASrztJ29SyhWFQjod1AeFBaPzEEC8YvtZMIYg==}
-    engines: {node: '>=6'}
-
   cookie-es@1.2.3:
     resolution: {integrity: sha512-lXVyvUvrNXblMqzIRrxHb57UUVmqsSWlxqt3XIjCkUP0wDAf6uicO6KMbEgYrMNtEvWgWHwe42CKxPu9MYAnWw==}
 
@@ -15513,12 +15483,6 @@ packages:
       zod:
         optional: true
 
-  openapi-fetch@0.17.0:
-    resolution: {integrity: sha512-PsbZR1wAPcG91eEthKhN+Zn92FMHxv+/faECIwjXdxfTODGSGegYv0sc1Olz+HYPvKOuoXfp+0pA2XVt2cI0Ig==}
-
-  openapi-typescript-helpers@0.1.0:
-    resolution: {integrity: sha512-OKTGPthhivLw/fHz6c3OPtg72vi86qaMlqbJuVJ23qOvQ+53uw1n7HdmkJFibloF7QEjDrDkzJiOJuockM/ljw==}
-
   optionator@0.9.4:
     resolution: {integrity: sha512-6IpQ7mKUxRcZNLIObR0hz7lxsapSSIYNZJwXPGeF0mTVqGKFIXj1DQcMoT22S3ROcLyY/rz0PWaWZ9ayWmad9g==}
     engines: {node: '>= 0.8.0'}
@@ -19568,40 +19532,6 @@ snapshots:
     dependencies:
       package-manager-detector: 1.6.0
       tinyexec: 1.1.1
-
-  '@argos-ci/api-client@0.17.0':
-    dependencies:
-      debug: 4.4.3(supports-color@8.1.1)
-      openapi-fetch: 0.17.0
-    transitivePeerDependencies:
-      - supports-color
-
-  '@argos-ci/browser@5.1.3': {}
-
-  '@argos-ci/core@5.2.0':
-    dependencies:
-      '@argos-ci/api-client': 0.17.0
-      '@argos-ci/util': 3.4.0
-      convict: 6.2.5
-      debug: 4.4.3(supports-color@8.1.1)
-      fast-glob: 3.3.3
-      mime-types: 3.0.2
-      sharp: 0.34.5
-      tmp: 0.2.5
-    transitivePeerDependencies:
-      - supports-color
-
-  '@argos-ci/playwright@6.6.1':
-    dependencies:
-      '@argos-ci/browser': 5.1.3
-      '@argos-ci/core': 5.2.0
-      '@argos-ci/util': 3.4.0
-      chalk: 5.6.2
-      debug: 4.4.3(supports-color@8.1.1)
-    transitivePeerDependencies:
-      - supports-color
-
-  '@argos-ci/util@3.4.0': {}
 
   '@asamuzakjp/css-color@3.2.0':
     dependencies:
@@ -26241,9 +26171,7 @@ snapshots:
       metro-runtime: 0.83.5
     transitivePeerDependencies:
       - '@babel/core'
-      - bufferutil
       - supports-color
-      - utf-8-validate
     optional: true
 
   '@react-native/normalize-colors@0.74.89': {}
@@ -30534,11 +30462,6 @@ snapshots:
   convert-source-map@1.9.0: {}
 
   convert-source-map@2.0.0: {}
-
-  convict@6.2.5:
-    dependencies:
-      lodash.clonedeep: 4.5.0
-      yargs-parser: 20.2.9
 
   cookie-es@1.2.3: {}
 
@@ -36380,12 +36303,6 @@ snapshots:
     optionalDependencies:
       ws: 8.20.0
       zod: 4.3.6
-
-  openapi-fetch@0.17.0:
-    dependencies:
-      openapi-typescript-helpers: 0.1.0
-
-  openapi-typescript-helpers@0.1.0: {}
 
   optionator@0.9.4:
     dependencies:

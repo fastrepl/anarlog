@@ -5,11 +5,13 @@ import { ListenerProvider } from "./contexts";
 
 import { createListenerStore } from "~/store/zustand/listener";
 
-const { listenMock, showNotificationMock, useStoreMock } = vi.hoisted(() => ({
-  listenMock: vi.fn(),
-  showNotificationMock: vi.fn(),
-  useStoreMock: vi.fn(() => null),
-}));
+const { listenMock, showNotificationMock, useStoreMock, useTableMock } =
+  vi.hoisted(() => ({
+    listenMock: vi.fn(),
+    showNotificationMock: vi.fn(),
+    useStoreMock: vi.fn(() => null),
+    useTableMock: vi.fn(() => ({})),
+  }));
 
 vi.mock("@hypr/plugin-detect", () => ({
   events: {
@@ -29,6 +31,7 @@ vi.mock("~/store/tinybase/store/main", () => ({
   STORE_ID: "test-store",
   UI: {
     useStore: useStoreMock,
+    useTable: useTableMock,
   },
 }));
 
@@ -37,7 +40,9 @@ describe("ListenerProvider detect events", () => {
     listenMock.mockReset();
     showNotificationMock.mockReset();
     useStoreMock.mockReset();
+    useTableMock.mockReset();
     useStoreMock.mockReturnValue(null);
+    useTableMock.mockReturnValue({});
     listenMock.mockResolvedValue(() => {});
   });
 

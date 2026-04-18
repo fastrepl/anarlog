@@ -1545,10 +1545,12 @@ export function useResolveContextRef(): (
   );
 }
 
-export function useEnhancerSessionIndex(): {
-  transcriptIdsBySession: (sessionId: string) => string[];
-  enhancedNoteIdsBySession: (sessionId: string) => string[];
-} {
+export function useEnhancerSessionIndex():
+  | {
+      transcriptIdsBySession: (sessionId: string) => string[];
+      enhancedNoteIdsBySession: (sessionId: string) => string[];
+    }
+  | undefined {
   const indexes = useMainIndexes();
 
   const transcriptIdsBySession = useCallback(
@@ -1563,7 +1565,11 @@ export function useEnhancerSessionIndex(): {
     [indexes],
   );
 
-  return { transcriptIdsBySession, enhancedNoteIdsBySession };
+  return useMemo(() => {
+    if (!indexes) return undefined;
+
+    return { transcriptIdsBySession, enhancedNoteIdsBySession };
+  }, [indexes, transcriptIdsBySession, enhancedNoteIdsBySession]);
 }
 
 // --- imperative helpers for non-hook callsites ----------------------------

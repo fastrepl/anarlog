@@ -1,7 +1,7 @@
 /// <reference types="vitest" />
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
-import { defineConfig, type UserConfig } from "vite";
+import { defineConfig, type PluginOption, type UserConfig } from "vite";
 
 import { relayShim } from "@hypr/plugin-relay/vite";
 
@@ -10,43 +10,48 @@ import { changelog } from "./plugins/changelog";
 const host = process.env.TAURI_DEV_HOST;
 
 // https://vite.dev/config/
-export default defineConfig(() => ({
-  plugins: [
-    relayShim(),
-    changelog(),
-    tanstackRouter({ target: "react", autoCodeSplitting: false }),
-    react(),
-  ],
-  resolve: {
-    tsconfigPaths: true,
-    alias:
-      process.env.NODE_ENV === "development"
-        ? {
-            "@tauri-apps/plugin-updater": "/src/shared/mock-updater.ts",
-          }
-        : {},
-    dedupe: [
-      "@codemirror/state",
-      "@codemirror/view",
-      "@codemirror/autocomplete",
-      "@codemirror/language",
-      "@codemirror/lint",
-      "@codemirror/lang-jinja",
-      "codemirror-readonly-ranges",
-      "@uiw/react-codemirror",
-    ],
-  },
-  test: {
-    reporters: "default",
-    environment: "jsdom",
-    setupFiles: ["./src/test-setup.ts"],
-    onConsoleLog: (_, type) => {
-      return type === "stderr";
+export default defineConfig(() => {
+  const isTest = process.env.VITEST === "true";
+
+  return {
+    plugins: [
+      relayShim(),
+      changelog(),
+      !isTest && tanstackRouter({ target: "react", autoCodeSplitting: false }),
+      react(),
+    ].filter(Boolean) as PluginOption[],
+    resolve: {
+      tsconfigPaths: true,
+      alias:
+        process.env.NODE_ENV === "development"
+          ? {
+              "@tauri-apps/plugin-updater": "/src/shared/mock-updater.ts",
+            }
+          : {},
+      dedupe: [
+        "@codemirror/state",
+        "@codemirror/view",
+        "@codemirror/autocomplete",
+        "@codemirror/language",
+        "@codemirror/lint",
+        "@codemirror/lang-jinja",
+        "codemirror-readonly-ranges",
+        "@uiw/react-codemirror",
+      ],
     },
-    exclude: ["**/node_modules/**", "**/src-tauri/**"],
-  },
-  ...tauri,
-}));
+    test: {
+      reporters: "default",
+      environment: "jsdom",
+      maxWorkers: 1,
+      setupFiles: ["./src/test-setup.ts"],
+      onConsoleLog: (_, type) => {
+        return type === "stderr";
+      },
+      exclude: ["**/node_modules/**", "**/src-tauri/**"],
+    },
+    ...tauri,
+  };
+});
 
 // https://v2.tauri.app/start/frontend/vite/#update-vite-configuration
 const tauri: UserConfig = {
