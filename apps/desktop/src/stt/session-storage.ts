@@ -5,14 +5,14 @@ import type { TranscriptStorage } from "@hypr/store";
 
 import { estimateUploadedAudioSessionCreatedAt } from "./audio-note-date";
 
+import { useCurrentUserId } from "~/session/hooks/globals";
+import { useMainStoreInternal } from "~/session/hooks/internal";
+import { useSessionParticipantHumanIds } from "~/session/hooks/participants";
 import {
-  useCurrentUserId,
-  useMainStore,
   useSessionCellOptional,
   useSessionEvent,
-  useSessionParticipantHumanIds,
-  useTranscriptIdsForSession,
-} from "~/session/hooks/storage";
+} from "~/session/hooks/sessions";
+import { useTranscriptIdsForSession } from "~/session/hooks/transcripts";
 import { id } from "~/shared/utils";
 import type {
   LiveTranscriptPersistCallback,
@@ -38,7 +38,7 @@ export function useLiveTranscriptPersistence(sessionId: string): {
   }) => string | null;
   rollbackTranscript: (transcriptId: string | null) => void;
 } {
-  const store = useMainStore();
+  const store = useMainStoreInternal();
   const userId = useCurrentUserId();
   const memoMd = useSessionCellOptional(sessionId, "raw_md");
   const participantHumanIds = useSessionParticipantHumanIds(sessionId);
@@ -108,7 +108,7 @@ export function useBatchTranscriptPersistence(sessionId: string): {
     handlePersist?: BatchPersistCallback,
   ) => BatchPersistCallback;
 } {
-  const store = useMainStore();
+  const store = useMainStoreInternal();
   const userId = useCurrentUserId();
   const memoMd = useSessionCellOptional(sessionId, "raw_md");
   const transcriptIdsForSession = useTranscriptIdsForSession(sessionId);
@@ -226,7 +226,7 @@ export function useUploadTranscriptImport(sessionId: string): {
     tokens: Array<{ text: string; start_time: number; end_time: number }>,
   ) => void;
 } {
-  const store = useMainStore();
+  const store = useMainStoreInternal();
   const userId = useCurrentUserId();
   const rawMd = useSessionCellOptional(sessionId, "raw_md");
   const event = useSessionEvent(sessionId);

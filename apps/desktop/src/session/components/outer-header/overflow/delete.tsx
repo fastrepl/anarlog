@@ -6,7 +6,7 @@ import { DropdownMenuItem } from "@hypr/ui/components/ui/dropdown-menu";
 import { cn } from "@hypr/utils";
 
 import { useAudioPlayer } from "~/audio-player";
-import { useDeleteSessionsWithUndo } from "~/session/hooks/storage";
+import { useDeleteSessionsWithUndo } from "~/session/hooks/runtime";
 import { useTabs } from "~/store/zustand/tabs";
 import { useUndoDelete } from "~/store/zustand/undo-delete";
 import { useListener } from "~/stt/contexts";

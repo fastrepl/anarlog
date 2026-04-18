@@ -8,35 +8,40 @@ export type Human = {
   id: string;
   name: string;
   email: string;
-  org_id: string;
-  job_title: string;
-  linkedin_username: string;
+  orgId: string;
+  jobTitle: string;
+  linkedinUsername: string;
   memo: string;
   pinned: boolean;
-  pin_order: number;
-  created_at: string;
-  user_id: string;
+  pinOrder: number;
+  createdAt: string;
+  userId: string;
 };
 
 export type Organization = {
   id: string;
   name: string;
   pinned: boolean;
-  pin_order: number;
-  created_at: string;
-  user_id: string;
+  pinOrder: number;
+  createdAt: string;
+  userId: string;
 };
 
-type HumanStringField = Exclude<keyof Human, "id" | "pinned" | "pin_order">;
-type OrganizationStringField = Exclude<
-  keyof Organization,
-  "id" | "pinned" | "pin_order"
->;
+type HumanStringField =
+  | "name"
+  | "email"
+  | "org_id"
+  | "job_title"
+  | "linkedin_username"
+  | "memo"
+  | "created_at"
+  | "user_id";
+type OrganizationStringField = "name" | "created_at" | "user_id";
 
 export type PersonSession = {
   id: string;
   title: string;
-  created_at: string;
+  createdAt: string;
 };
 
 export type PersonDuplicate = {
@@ -63,14 +68,14 @@ function readHuman(
     id,
     name: String(row.name ?? ""),
     email: String(row.email ?? ""),
-    org_id: String(row.org_id ?? ""),
-    job_title: String(row.job_title ?? ""),
-    linkedin_username: String(row.linkedin_username ?? ""),
+    orgId: String(row.org_id ?? ""),
+    jobTitle: String(row.job_title ?? ""),
+    linkedinUsername: String(row.linkedin_username ?? ""),
     memo: String(row.memo ?? ""),
     pinned: Boolean(row.pinned),
-    pin_order: Number(row.pin_order ?? 0),
-    created_at: String(row.created_at ?? ""),
-    user_id: String(row.user_id ?? ""),
+    pinOrder: Number(row.pin_order ?? 0),
+    createdAt: String(row.created_at ?? ""),
+    userId: String(row.user_id ?? ""),
   };
 }
 
@@ -83,9 +88,9 @@ function readOrganization(
     id,
     name: String(row.name ?? ""),
     pinned: Boolean(row.pinned),
-    pin_order: Number(row.pin_order ?? 0),
-    created_at: String(row.created_at ?? ""),
-    user_id: String(row.user_id ?? ""),
+    pinOrder: Number(row.pin_order ?? 0),
+    createdAt: String(row.created_at ?? ""),
+    userId: String(row.user_id ?? ""),
   };
 }
 
@@ -270,7 +275,7 @@ export function usePersonSessions(
       out.push({
         id: sessionId,
         title: String(session.title ?? ""),
-        created_at: String(session.created_at ?? ""),
+        createdAt: String(session.created_at ?? ""),
       });
     }
     return out;

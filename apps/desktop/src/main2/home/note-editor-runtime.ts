@@ -15,11 +15,8 @@ import {
   normalizeTaskContent,
   type TaskSource,
 } from "~/editor/tasks";
-import {
-  type MainStore,
-  useMainStore,
-  useUpdateDailyNoteContent,
-} from "~/session/hooks/storage";
+import { useUpdateDailyNoteContent } from "~/session/hooks/daily-notes";
+import { type MainStore, useMainStoreInternal } from "~/session/hooks/internal";
 import {
   findSessionByEventId,
   findSessionByTrackingId,
@@ -173,7 +170,7 @@ export function useDailyNoteEditorRuntime(date: string): {
   syncSessionNodeTitles: (input: JSONContent) => void;
   persistDailyNote: (input: JSONContent) => void;
 } {
-  const store = useMainStore();
+  const store = useMainStoreInternal();
   const updateDailyNoteContent = useUpdateDailyNoteContent(date);
 
   const initializeContent = useCallback(

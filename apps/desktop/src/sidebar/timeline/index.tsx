@@ -33,10 +33,10 @@ import {
 
 import { useIgnoredEvents } from "~/calendar/hooks";
 import {
-  useDeleteSessionsWithUndo,
-  useTimelineEventsTable,
-  useTimelineSessionsTable,
-} from "~/session/hooks/storage";
+  useTimelineEventMap,
+  useTimelineSessionMap,
+} from "~/session/hooks/queries";
+import { useDeleteSessionsWithUndo } from "~/session/hooks/runtime";
 import { useConfigValue } from "~/shared/config";
 import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
 import { useTabs } from "~/store/zustand/tabs";
@@ -67,10 +67,15 @@ export function TimelineView() {
         ...bucket,
         items: bucket.items.filter((item) => {
           if (item.type !== "event") return true;
-          return !isIgnored(
-            item.data.tracking_id_event,
-            item.data.recurrence_series_id,
-          );
+          const trackingId =
+            "trackingIdEvent" in item.data
+              ? item.data.trackingIdEvent
+              : item.data.tracking_id_event;
+          const recurrenceSeriesId =
+            "recurrenceSeriesId" in item.data
+              ? item.data.recurrenceSeriesId
+              : item.data.recurrence_series_id;
+          return !isIgnored(trackingId, recurrenceSeriesId);
         }),
       }))
       .filter((bucket) => bucket.items.length > 0);
@@ -82,10 +87,17 @@ export function TimelineView() {
     }
 
     return Object.fromEntries(
-      Object.entries(timelineEventsTable).filter(
-        ([, item]) =>
-          !isIgnored(item.tracking_id_event, item.recurrence_series_id),
-      ),
+      Object.entries(timelineEventsTable).filter(([, item]) => {
+        const trackingId =
+          "trackingIdEvent" in item
+            ? item.trackingIdEvent
+            : item.tracking_id_event;
+        const recurrenceSeriesId =
+          "recurrenceSeriesId" in item
+            ? item.recurrenceSeriesId
+            : item.recurrence_series_id;
+        return !isIgnored(trackingId, recurrenceSeriesId);
+      }),
     );
   }, [timelineEventsTable, showIgnored, isIgnored]);
 
@@ -530,8 +542,8 @@ function useTimelineTables(): {
   timelineEventsTable: TimelineEventsTable;
   timelineSessionsTable: TimelineSessionsTable;
 } {
-  const timelineEventsTable = useTimelineEventsTable();
-  const timelineSessionsTable = useTimelineSessionsTable();
+  const timelineEventsTable = useTimelineEventMap();
+  const timelineSessionsTable = useTimelineSessionMap();
 
   return { timelineEventsTable, timelineSessionsTable };
 }

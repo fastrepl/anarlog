@@ -46,9 +46,9 @@ export function useOAuthCalendarSelection(config: CalendarProvider) {
     const sourceMap = new Map<string, string>();
 
     for (const cal of providerCalendars) {
-      // HACK: derive connection_id -> source mapping from calendar entries
-      if (cal.source && cal.connection_id) {
-        sourceMap.set(cal.connection_id, cal.source);
+      // HACK: derive connectionId -> source mapping from calendar entries
+      if (cal.source && cal.connectionId) {
+        sourceMap.set(cal.connectionId, cal.source);
       }
     }
 
@@ -58,8 +58,8 @@ export function useOAuthCalendarSelection(config: CalendarProvider) {
           if (cal.source) {
             return cal.source;
           }
-          if (cal.connection_id) {
-            return sourceMap.get(cal.connection_id);
+          if (cal.connectionId) {
+            return sourceMap.get(cal.connectionId);
           }
           return undefined;
         })
@@ -74,7 +74,7 @@ export function useOAuthCalendarSelection(config: CalendarProvider) {
     >();
 
     for (const cal of providerCalendars) {
-      const connectionId = cal.connection_id || undefined;
+      const connectionId = cal.connectionId || undefined;
       const source =
         cal.source ||
         (connectionId ? sourceMap.get(connectionId) : undefined) ||

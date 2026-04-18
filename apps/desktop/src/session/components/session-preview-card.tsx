@@ -13,11 +13,8 @@ import { isValidContent, json2md } from "~/editor/markdown";
 import { parseImageMetadata } from "~/editor/node-views/image-view";
 import { extractPlainText } from "~/search/contexts/engine/utils";
 import { streamdownComponents } from "~/session/components/streamdown";
-import {
-  useExportSessionParticipantsTable,
-  useSessionCell,
-  useSessionParticipantMappingIds,
-} from "~/session/hooks/storage";
+import { useSessionParticipantNames } from "~/session/hooks/participants";
+import { useSessionCell } from "~/session/hooks/sessions";
 import {
   useEnhancedNote,
   useEnhancedNotes,
@@ -125,7 +122,7 @@ function useSessionPreviewData(sessionId: string) {
   const createdAt = useSessionCell(sessionId, "created_at");
   const eventJson = useSessionCell(sessionId, "event_json");
 
-  const participantMappingIds = useSessionParticipantMappingIds(sessionId);
+  const participantNames = useSessionParticipantNames(sessionId);
 
   const enhancedNoteIds = useEnhancedNotes(sessionId);
   const firstEnhancedNoteId = enhancedNoteIds?.[0];
@@ -192,7 +189,7 @@ function useSessionPreviewData(sessionId: string) {
     previewPlainText,
     previewLabel,
     dateDisplay,
-    participantMappingIds,
+    participantNames,
   };
 }
 
@@ -228,26 +225,9 @@ function useCursorFollow(axis: "x" | "y") {
   return { triggerRef, handleMouseMove, handleMouseLeave, style };
 }
 
-function useParticipantNames(mappingIds: string[]) {
-  const allResults = useExportSessionParticipantsTable();
-
-  return useMemo(() => {
-    const names: string[] = [];
-    for (const id of mappingIds) {
-      const row = allResults[id];
-      if (!row) continue;
-      const name = (row.human_name as string) || "Unknown";
-      names.push(name);
-    }
-    return names;
-  }, [mappingIds, allResults]);
-}
-
 const MAX_VISIBLE_PARTICIPANTS = 3;
 
-function ParticipantsList({ mappingIds }: { mappingIds: string[] }) {
-  const names = useParticipantNames(mappingIds);
-
+function ParticipantsList({ names }: { names: string[] }) {
   if (names.length === 0) return null;
 
   const visible = names.slice(0, MAX_VISIBLE_PARTICIPANTS);
@@ -279,7 +259,7 @@ export function SessionPreviewCard({
     previewMarkdown,
     previewPlainText,
     dateDisplay,
-    participantMappingIds,
+    participantNames,
   } = useSessionPreviewData(sessionId);
   const previewHasImage =
     !!previewMarkdown && MARKDOWN_IMAGE_REGEX.test(previewMarkdown);
@@ -342,7 +322,7 @@ export function SessionPreviewCard({
           )}
 
           <div className="text-sm font-medium">{title || "Untitled"}</div>
-          <ParticipantsList mappingIds={participantMappingIds} />
+          <ParticipantsList names={participantNames} />
 
           {previewMarkdown || previewPlainText ? (
             <div className="mt-1 flex max-h-32 flex-col overflow-hidden mask-[linear-gradient(to_bottom,black_60%,transparent)] text-neutral-600">

@@ -11,7 +11,7 @@ import {
   useSessionFolderTree,
   useSession,
   useSessionIdsInFolder,
-} from "~/session/hooks/storage";
+} from "~/session/hooks/sessions";
 import { StandardTabWrapper } from "~/shared/main";
 import { type TabItem, TabItemBase } from "~/shared/tabs";
 import {

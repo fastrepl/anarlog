@@ -4,7 +4,7 @@ import { Button } from "@hypr/ui/components/ui/button";
 
 import { useAITask } from "~/ai/contexts";
 import { useLanguageModel } from "~/ai/hooks";
-import { useEnhancedNoteCell } from "~/session/hooks/storage";
+import { useEnhancedNoteCell } from "~/session/hooks/enhanced-notes";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 
 export function EnhanceError({

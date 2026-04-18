@@ -137,8 +137,8 @@ function ContactsList({
     const unpinned = sortedHumanIds.filter((id) => !allHumans[id]?.pinned);
 
     const sortedPinned = [...pinned].sort((a, b) => {
-      const orderA = allHumans[a]?.pin_order ?? Infinity;
-      const orderB = allHumans[b]?.pin_order ?? Infinity;
+      const orderA = allHumans[a]?.pinOrder ?? Infinity;
+      const orderB = allHumans[b]?.pinOrder ?? Infinity;
       return orderA - orderB;
     });
 
@@ -150,8 +150,8 @@ function ContactsList({
     const unpinned = sortedOrgIds.filter((id) => !allOrgs[id]?.pinned);
 
     const sortedPinned = [...pinned].sort((a, b) => {
-      const orderA = allOrgs[a]?.pin_order ?? Infinity;
-      const orderB = allOrgs[b]?.pin_order ?? Infinity;
+      const orderA = allOrgs[a]?.pinOrder ?? Infinity;
+      const orderB = allOrgs[b]?.pinOrder ?? Infinity;
       return orderA - orderB;
     });
 
@@ -179,15 +179,15 @@ function ContactsList({
       ...pinnedHumanIds.filter(filterHuman).map((id) => ({
         kind: "person" as const,
         id,
-        pin_order: allHumans[id]?.pin_order ?? Infinity,
+        pinOrder: allHumans[id]?.pinOrder ?? Infinity,
       })),
       ...pinnedOrgIds.filter(filterOrg).map((id) => ({
         kind: "organization" as const,
         id,
-        pin_order: allOrgs[id]?.pin_order ?? Infinity,
+        pinOrder: allOrgs[id]?.pinOrder ?? Infinity,
       })),
     ]
-      .sort((a, b) => a.pin_order - b.pin_order)
+      .sort((a, b) => a.pinOrder - b.pinOrder)
       .map(({ kind, id }) => ({ kind, id }));
 
     const unpinnedOrgs: PinnedContactItem[] = unpinnedOrgIds

@@ -13,10 +13,8 @@ import {
 import { ImportPreview } from "./import-preview";
 import { SourceItem } from "./source-item";
 
-import {
-  useApplyImportedData,
-  useCurrentUserId,
-} from "~/session/hooks/storage";
+import { useCurrentUserId } from "~/session/hooks/globals";
+import { useApplyImportedData } from "~/session/hooks/runtime";
 import { StyledStreamdown } from "~/settings/ai/shared";
 
 type DryRunResult = {

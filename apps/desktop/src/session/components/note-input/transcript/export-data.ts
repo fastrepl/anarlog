@@ -6,7 +6,7 @@ import type { RenderTranscriptRequest } from "@hypr/plugin-transcription";
 import {
   useTranscriptRenderRequest,
   useTranscriptIdsForSession,
-} from "~/session/hooks/storage";
+} from "~/session/hooks/transcripts";
 import { renderTranscriptSegments } from "~/stt/render-transcript";
 
 export type TranscriptExportSegment = TranscriptItem & {

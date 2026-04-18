@@ -41,8 +41,8 @@ import { useHasTranscript } from "~/session/components/shared";
 import {
   useDeleteEnhancedNote,
   useEnhancedNoteCell,
-  useSessionCell,
-} from "~/session/hooks/storage";
+} from "~/session/hooks/enhanced-notes";
+import { useSessionCell } from "~/session/hooks/sessions";
 import { useEnhancedNotes } from "~/session/hooks/useEnhancedNotes";
 import { useEnsureDefaultSummary } from "~/session/hooks/useEnhancedNotes";
 import {

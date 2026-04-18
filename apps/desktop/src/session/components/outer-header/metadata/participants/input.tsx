@@ -8,7 +8,7 @@ import {
   useSessionParticipantHumanIds,
   useSessionParticipantMappingIds,
   useSessionParticipantMutations,
-} from "~/session/hooks/storage";
+} from "~/session/hooks/participants";
 import { useAutoCloser } from "~/shared/hooks/useAutoCloser";
 
 export function ParticipantInput({ sessionId }: { sessionId: string }) {

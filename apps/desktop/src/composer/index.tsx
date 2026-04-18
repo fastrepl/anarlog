@@ -25,7 +25,7 @@ import { useChatActions } from "~/chat/hooks/use-chat-actions";
 import { useShell } from "~/contexts/shell";
 import { ChatEditor, type ChatEditorHandle } from "~/editor/chat";
 import type { PlaceholderFunction } from "~/editor/plugins";
-import { useCurrentUserId } from "~/session/hooks/storage";
+import { useCurrentUserId } from "~/session/hooks/globals";
 
 export function ComposerScreen() {
   const { chat } = useShell();

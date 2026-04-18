@@ -8,7 +8,7 @@ import { StreamingView } from "./streaming";
 import { useAITaskTask } from "~/ai/hooks";
 import { useLLMConnectionStatus } from "~/ai/hooks";
 import type { NoteEditorRef } from "~/editor/session";
-import { useEnhancedNoteCell } from "~/session/hooks/storage";
+import { useEnhancedNoteCell } from "~/session/hooks/enhanced-notes";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 
 export const Enhanced = forwardRef<

@@ -4,7 +4,7 @@ import { useCallback, useMemo } from "react";
 import { useStrictModeUnmount } from "./hooks";
 
 import { usePendingEditStore } from "~/chat/tools/pending-edit-store";
-import { useEditTabTitles } from "~/session/hooks/storage";
+import { useEditTabTitles } from "~/session/hooks/enhanced-notes";
 import { StandardTabWrapper } from "~/shared/main";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 

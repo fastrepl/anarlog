@@ -7,7 +7,7 @@ import {
 import { cn } from "@hypr/utils";
 
 import { getLatestVersion } from "~/changelog";
-import { useCreateCountdownTestSession } from "~/session/hooks/storage";
+import { useCreateCountdownTestSession } from "~/session/hooks/runtime";
 import { useTabs } from "~/store/zustand/tabs";
 import { commands } from "~/types/tauri.gen";
 

@@ -16,14 +16,15 @@ import {
   type NotifiedEventsMap,
 } from "./event-notification";
 
-import { useCalendarSyncRuntime } from "~/session/hooks/storage";
 import type { Schemas, Store } from "~/store/tinybase/store/main";
+import * as main from "~/store/tinybase/store/main";
 import * as settings from "~/store/tinybase/store/settings";
 
 const CALENDAR_SYNC_INTERVAL = 60 * 1000; // 60 sec
 
 export function TaskManager() {
-  const { store, queries } = useCalendarSyncRuntime();
+  const store = main.UI.useStore(main.STORE_ID);
+  const queries = main.UI.useQueries(main.STORE_ID);
 
   const settingsStore = settings.UI.useStore(settings.STORE_ID);
   const notifiedEventsRef = useRef<NotifiedEventsMap>(new Map());

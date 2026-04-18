@@ -1,4 +1,4 @@
-import { useSessionEvent } from "~/session/hooks/storage";
+import { useSessionEvent } from "~/session/hooks/sessions";
 
 export type RemoteMeeting = {
   type: "zoom" | "google-meet" | "webex" | "teams";

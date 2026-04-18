@@ -11,7 +11,7 @@ import { getCurrentWebviewWindowLabel } from "@hypr/plugin-windows";
 import {
   useCreateSession,
   useGetOrCreateSessionForEvent,
-} from "~/session/hooks/storage";
+} from "~/session/hooks/runtime";
 import * as settings from "~/store/tinybase/store/settings";
 import { useTabs } from "~/store/zustand/tabs";
 

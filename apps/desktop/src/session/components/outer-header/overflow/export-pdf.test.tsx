@@ -79,11 +79,20 @@ vi.mock("~/session/components/note-input/transcript/export-data", () => ({
   useTranscriptExportSegments: useTranscriptExportSegmentsMock,
 }));
 
-vi.mock("~/session/hooks/storage", () => ({
+vi.mock("~/session/hooks/enhanced-notes", () => ({
   useEnhancedNoteCell: useCellMock,
+}));
+
+vi.mock("~/session/hooks/participants", () => ({
+  useSessionParticipantNames: useSessionParticipantNamesMock,
+}));
+
+vi.mock("~/session/hooks/sessions", () => ({
   useSessionCell: useCellMock,
   useSessionEvent: useSessionEventMock,
-  useSessionParticipantNames: useSessionParticipantNamesMock,
+}));
+
+vi.mock("~/session/hooks/transcripts", () => ({
   useTranscriptTimeRange: useTranscriptTimeRangeMock,
 }));
 

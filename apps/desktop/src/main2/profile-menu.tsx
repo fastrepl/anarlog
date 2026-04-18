@@ -16,7 +16,7 @@ import { cn } from "@hypr/utils";
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing";
 import { useHumanCell } from "~/contacts/hooks";
-import { useCurrentUserId } from "~/session/hooks/storage";
+import { useCurrentUserId } from "~/session/hooks/globals";
 import { useAutoCloser } from "~/shared/hooks/useAutoCloser";
 import { AuthSection } from "~/sidebar/profile/auth";
 import { MenuItem, ProfileFacehash } from "~/sidebar/profile/shared";

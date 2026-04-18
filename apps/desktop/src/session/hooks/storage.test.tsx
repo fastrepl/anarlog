@@ -1,13 +1,33 @@
 import { renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { useCellMock, useSliceRowIdsMock, useTableMock, useResultTableMock } =
-  vi.hoisted(() => ({
-    useCellMock: vi.fn(),
-    useSliceRowIdsMock: vi.fn<() => string[]>(() => []),
-    useTableMock: vi.fn(() => ({})),
-    useResultTableMock: vi.fn(() => ({})),
-  }));
+type BoundaryFixture = {
+  tables: Record<string, Record<string, Record<string, unknown>>>;
+  results: Record<string, Record<string, Record<string, unknown>>>;
+  slices: Record<string, Record<string, string[]>>;
+};
+
+const { fixture, resetFixture, setFixture } = vi.hoisted(() => {
+  const fixture: BoundaryFixture = {
+    tables: {},
+    results: {},
+    slices: {},
+  };
+
+  return {
+    fixture,
+    resetFixture: () => {
+      fixture.tables = {};
+      fixture.results = {};
+      fixture.slices = {};
+    },
+    setFixture: (next: Partial<BoundaryFixture>) => {
+      fixture.tables = next.tables ?? {};
+      fixture.results = next.results ?? {};
+      fixture.slices = next.slices ?? {};
+    },
+  };
+});
 
 vi.mock("~/store/tinybase/store/main", () => ({
   STORE_ID: "main",
@@ -20,14 +40,22 @@ vi.mock("~/store/tinybase/store/main", () => ({
     sessionParticipantsWithDetails: "sessionParticipantsWithDetails",
   },
   UI: {
-    useCell: useCellMock,
-    useSliceRowIds: useSliceRowIdsMock,
-    useTable: useTableMock,
-    useResultTable: useResultTableMock,
+    useCell: vi.fn(
+      (table: string, rowId: string, cell: string) =>
+        fixture.tables[table]?.[rowId]?.[cell],
+    ),
+    useSliceRowIds: vi.fn(
+      (index: string, sliceId: string) =>
+        fixture.slices[index]?.[sliceId] ?? [],
+    ),
+    useTable: vi.fn((table: string) => fixture.tables[table] ?? {}),
+    useResultTable: vi.fn((query: string) => fixture.results[query] ?? {}),
     useStore: vi.fn(() => null),
     useIndexes: vi.fn(() => null),
     useValue: vi.fn(() => undefined),
-    useRowIds: vi.fn(() => []),
+    useRowIds: vi.fn((table: string) =>
+      Object.keys(fixture.tables[table] ?? {}),
+    ),
     useResultRow: vi.fn(() => ({})),
     useSetPartialRowCallback: vi.fn(),
     useSetCellCallback: vi.fn(),
@@ -36,24 +64,18 @@ vi.mock("~/store/tinybase/store/main", () => ({
 }));
 
 import {
-  useSearchableHumans,
-  useSessionCell,
-  useSessionCellOptional,
   useSessionParticipantNames,
-  useSessionSearchTimestampLookup,
-} from "./storage";
+  useSearchableHumans,
+} from "./participants";
+import { useSessionSearchTimestampLookup } from "./search";
+import { useSessionCell, useSessionCellOptional } from "./sessions";
 
-describe("session storage boundary hooks", () => {
+describe("session hook boundaries", () => {
   beforeEach(() => {
-    useCellMock.mockReset();
-    useSliceRowIdsMock.mockReset();
-    useTableMock.mockReset();
-    useResultTableMock.mockReset();
+    resetFixture();
   });
 
   it("preserves optional session cell semantics for missing values", () => {
-    useCellMock.mockReturnValue(undefined);
-
     const optionalResult = renderHook(() =>
       useSessionCellOptional("session-1", "created_at"),
     );
@@ -66,21 +88,31 @@ describe("session storage boundary hooks", () => {
   });
 
   it("returns participant names for non-excluded mappings", () => {
-    useSliceRowIdsMock.mockReturnValue(["map-1", "map-2"]);
-    useTableMock.mockReturnValue({
-      "map-1": { source: "manual" },
-      "map-2": { source: "excluded" },
-    });
-    useResultTableMock.mockReturnValue({
-      "map-1": {
-        human_id: "human-1",
-        session_id: "session-1",
-        human_name: "Alice",
+    setFixture({
+      tables: {
+        mapping_session_participant: {
+          "map-1": { source: "manual" },
+          "map-2": { source: "excluded" },
+        },
       },
-      "map-2": {
-        human_id: "human-2",
-        session_id: "session-1",
-        human_name: "Bob",
+      results: {
+        sessionParticipantsWithDetails: {
+          "map-1": {
+            human_id: "human-1",
+            session_id: "session-1",
+            human_name: "Alice",
+          },
+          "map-2": {
+            human_id: "human-2",
+            session_id: "session-1",
+            human_name: "Bob",
+          },
+        },
+      },
+      slices: {
+        sessionParticipantsBySession: {
+          "session-1": ["map-1", "map-2"],
+        },
       },
     });
 
@@ -89,9 +121,13 @@ describe("session storage boundary hooks", () => {
   });
 
   it("filters humans by search text and excluded ids", () => {
-    useTableMock.mockReturnValue({
-      "human-1": { name: "Alice", email: "alice@acme.com" },
-      "human-2": { name: "Bob", email: "bob@acme.com" },
+    setFixture({
+      tables: {
+        humans: {
+          "human-1": { name: "Alice", email: "alice@acme.com" },
+          "human-2": { name: "Bob", email: "bob@acme.com" },
+        },
+      },
     });
 
     const excluded = new Set<string>(["human-2"]);
@@ -109,21 +145,25 @@ describe("session storage boundary hooks", () => {
   });
 
   it("prefers event start timestamps and falls back to created_at", () => {
-    useTableMock.mockReturnValue({
-      "session-event": {
-        created_at: "2024-01-01T00:00:00Z",
-        event_json: JSON.stringify({
-          started_at: "2024-01-15T10:00:00Z",
-        }),
-      },
-      "session-plain": {
-        created_at: "2024-02-01T00:00:00Z",
-      },
-      "session-invalid-event": {
-        created_at: "2024-03-01T00:00:00Z",
-        event_json: JSON.stringify({
-          started_at: "not-a-date",
-        }),
+    setFixture({
+      tables: {
+        sessions: {
+          "session-event": {
+            created_at: "2024-01-01T00:00:00Z",
+            event_json: JSON.stringify({
+              started_at: "2024-01-15T10:00:00Z",
+            }),
+          },
+          "session-plain": {
+            created_at: "2024-02-01T00:00:00Z",
+          },
+          "session-invalid-event": {
+            created_at: "2024-03-01T00:00:00Z",
+            event_json: JSON.stringify({
+              started_at: "not-a-date",
+            }),
+          },
+        },
       },
     });
 

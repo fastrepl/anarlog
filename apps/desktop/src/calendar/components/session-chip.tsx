@@ -21,8 +21,8 @@ export function SessionChip({ sessionId }: { sessionId: string }) {
     return null;
   }
 
-  const createdAt = session.created_at
-    ? format(toTz(session.created_at, tz), "h:mm a")
+  const createdAt = session.createdAt
+    ? format(toTz(session.createdAt, tz), "h:mm a")
     : null;
 
   return (
@@ -70,8 +70,8 @@ function SessionPopoverContent({ sessionId }: { sessionId: string }) {
     return null;
   }
 
-  const createdAt = session.created_at
-    ? format(toTz(session.created_at, tz), "MMM d, yyyy h:mm a")
+  const createdAt = session.createdAt
+    ? format(toTz(session.createdAt, tz), "MMM d, yyyy h:mm a")
     : null;
 
   return (

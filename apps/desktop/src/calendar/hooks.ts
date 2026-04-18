@@ -5,6 +5,7 @@ import type { IgnoredEvent, IgnoredRecurringSeries } from "@hypr/store";
 import { safeParseDate } from "@hypr/utils";
 import { TZDate } from "@hypr/utils";
 
+import { getSessionEvent } from "~/session/utils";
 import { useConfigValue } from "~/shared/config";
 import * as main from "~/store/tinybase/store/main";
 import { getOrCreateSessionForEventId } from "~/store/tinybase/store/sessions";
@@ -55,14 +56,14 @@ export function useWeekStartsOn(): 0 | 1 {
 
 export type Calendar = {
   id: string;
-  tracking_id_calendar: string;
+  trackingIdCalendar: string;
   name: string;
   enabled: boolean;
   provider: string;
   source: string;
   color: string;
-  connection_id: string;
-  created_at: string;
+  connectionId: string;
+  createdAt: string;
 };
 
 export function useCalendar(id: string | null | undefined): Calendar | null {
@@ -72,14 +73,14 @@ export function useCalendar(id: string | null | undefined): Calendar | null {
     if (!row || Object.keys(row).length === 0) return null;
     return {
       id,
-      tracking_id_calendar: row.tracking_id_calendar ?? "",
+      trackingIdCalendar: row.tracking_id_calendar ?? "",
       name: row.name ?? "",
       enabled: row.enabled ?? false,
       provider: row.provider ?? "",
       source: row.source ?? "",
       color: row.color ?? "",
-      connection_id: row.connection_id ?? "",
-      created_at: row.created_at ?? "",
+      connectionId: row.connection_id ?? "",
+      createdAt: row.created_at ?? "",
     };
   }, [id, row]);
 }
@@ -110,14 +111,14 @@ export function useCalendarsByProvider(provider: string): Calendar[] {
       if (row.provider !== provider) continue;
       out.push({
         id,
-        tracking_id_calendar: (row.tracking_id_calendar as string) ?? "",
+        trackingIdCalendar: (row.tracking_id_calendar as string) ?? "",
         name: (row.name as string) ?? "",
         enabled: (row.enabled as boolean) ?? false,
         provider: (row.provider as string) ?? "",
         source: (row.source as string) ?? "",
         color: (row.color as string) ?? "",
-        connection_id: (row.connection_id as string) ?? "",
-        created_at: (row.created_at as string) ?? "",
+        connectionId: (row.connection_id as string) ?? "",
+        createdAt: (row.created_at as string) ?? "",
       });
     }
     return out;
@@ -339,13 +340,13 @@ export function useIgnoredEvents() {
 export type TimelineEvent = {
   id: string;
   title: string;
-  started_at: string;
-  ended_at: string;
-  calendar_id: string;
-  tracking_id_event: string;
-  has_recurrence_rules: boolean;
-  recurrence_series_id: string;
-  is_all_day: boolean;
+  startedAt: string;
+  endedAt: string;
+  calendarId: string;
+  trackingIdEvent: string;
+  hasRecurrenceRules: boolean;
+  recurrenceSeriesId: string;
+  isAllDay: boolean;
 };
 
 export function useTimelineEvent(eventId: string): TimelineEvent | null {
@@ -359,13 +360,13 @@ export function useTimelineEvent(eventId: string): TimelineEvent | null {
     return {
       id: eventId,
       title: (row.title as string) ?? "",
-      started_at: (row.started_at as string) ?? "",
-      ended_at: (row.ended_at as string) ?? "",
-      calendar_id: (row.calendar_id as string) ?? "",
-      tracking_id_event: (row.tracking_id_event as string) ?? "",
-      has_recurrence_rules: (row.has_recurrence_rules as boolean) ?? false,
-      recurrence_series_id: (row.recurrence_series_id as string) ?? "",
-      is_all_day: (row.is_all_day as boolean) ?? false,
+      startedAt: (row.started_at as string) ?? "",
+      endedAt: (row.ended_at as string) ?? "",
+      calendarId: (row.calendar_id as string) ?? "",
+      trackingIdEvent: (row.tracking_id_event as string) ?? "",
+      hasRecurrenceRules: (row.has_recurrence_rules as boolean) ?? false,
+      recurrenceSeriesId: (row.recurrence_series_id as string) ?? "",
+      isAllDay: (row.is_all_day as boolean) ?? false,
     };
   }, [eventId, row]);
 }
@@ -373,9 +374,9 @@ export function useTimelineEvent(eventId: string): TimelineEvent | null {
 export type TimelineSession = {
   id: string;
   title: string;
-  created_at: string;
-  event_json: string;
-  folder_id: string;
+  createdAt: string;
+  event: ReturnType<typeof getSessionEvent>;
+  folderId: string;
 };
 
 export function useGetOrCreateSessionForEventId(): (
@@ -403,9 +404,12 @@ export function useTimelineSession(sessionId: string): TimelineSession | null {
     return {
       id: sessionId,
       title: (row.title as string) ?? "",
-      created_at: (row.created_at as string) ?? "",
-      event_json: (row.event_json as string) ?? "",
-      folder_id: (row.folder_id as string) ?? "",
+      createdAt: (row.created_at as string) ?? "",
+      event: getSessionEvent({
+        event_json:
+          typeof row.event_json === "string" ? row.event_json : undefined,
+      }),
+      folderId: (row.folder_id as string) ?? "",
     };
   }, [sessionId, row]);
 }

@@ -15,7 +15,7 @@ import {
 } from "@hypr/ui/components/ui/tooltip";
 
 import { useBillingAccess } from "~/auth/billing";
-import { useSessionCell } from "~/session/hooks/storage";
+import { useSessionCell } from "~/session/hooks/sessions";
 import { FolderBreadcrumb } from "~/shared/ui/folder-breadcrumb";
 import { useTabs } from "~/store/zustand/tabs";
 

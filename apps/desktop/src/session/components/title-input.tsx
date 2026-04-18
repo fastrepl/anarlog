@@ -19,7 +19,7 @@ import {
 import { cn } from "@hypr/utils";
 
 import { useTitleGenerating } from "~/ai/hooks";
-import { useSessionCell, useUpdateSessionCell } from "~/session/hooks/storage";
+import { useSessionCell, useUpdateSessionCell } from "~/session/hooks/sessions";
 import { useLiveTitle } from "~/store/zustand/live-title";
 import { type Tab } from "~/store/zustand/tabs";
 

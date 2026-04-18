@@ -2,16 +2,10 @@ import { useMemo } from "react";
 
 import type { MentionConfig } from "~/editor/widgets";
 import { useSearchEngine } from "~/search/contexts/engine";
-import {
-  useExportTimelineSessions,
-  useExportVisibleHumans,
-  useExportVisibleOrganizations,
-} from "~/session/hooks/storage";
+import { useMentionableEntities } from "~/session/hooks/queries";
 
 export function useMentionConfig(): MentionConfig {
-  const sessions = useExportTimelineSessions();
-  const humans = useExportVisibleHumans();
-  const organizations = useExportVisibleOrganizations();
+  const entities = useMentionableEntities();
   const { search } = useSearchEngine();
 
   return useMemo(
@@ -35,29 +29,12 @@ export function useMentionConfig(): MentionConfig {
             });
           }
         } else {
-          Object.entries(sessions).forEach(([rowId, row]) => {
-            const title = row.title as string | undefined;
-            if (title) {
-              results.push({ id: rowId, type: "session", label: title });
-            }
-          });
-          Object.entries(humans).forEach(([rowId, row]) => {
-            const name = row.name as string | undefined;
-            if (name) {
-              results.push({ id: rowId, type: "human", label: name });
-            }
-          });
-          Object.entries(organizations).forEach(([rowId, row]) => {
-            const name = row.name as string | undefined;
-            if (name) {
-              results.push({ id: rowId, type: "organization", label: name });
-            }
-          });
+          results.push(...entities);
         }
 
         return results.slice(0, 5);
       },
     }),
-    [sessions, humans, organizations, search],
+    [entities, search],
   );
 }

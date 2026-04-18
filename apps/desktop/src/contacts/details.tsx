@@ -194,9 +194,9 @@ export function DetailsColumn({
                           {session.title || "Untitled Note"}
                         </span>
                       </div>
-                      {session.created_at && (
+                      {session.createdAt && (
                         <div className="mt-1 text-xs text-neutral-500">
-                          {new Date(session.created_at).toLocaleDateString()}
+                          {new Date(session.createdAt).toLocaleDateString()}
                         </div>
                       )}
                     </button>

@@ -7,8 +7,8 @@ import { CustomChatTransport } from "./index";
 
 import { useLanguageModel } from "~/ai/hooks";
 import { useToolRegistry } from "~/contexts/tool";
-import { useResolveContextRef } from "~/session/hooks/storage";
-import { useAiLanguage } from "~/session/hooks/storage";
+import { useAiLanguage } from "~/session/hooks/globals";
+import { useResolveContextRef } from "~/session/hooks/runtime";
 
 export function useTransport(
   modelOverride?: LanguageModel,

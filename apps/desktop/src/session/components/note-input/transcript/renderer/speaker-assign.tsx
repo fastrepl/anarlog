@@ -8,11 +8,11 @@ import {
 } from "@hypr/ui/components/ui/popover";
 import { cn } from "@hypr/utils";
 
+import { useSessionParticipantPeople } from "~/session/hooks/participants";
 import {
   useAssignTranscriptSpeaker,
-  useSessionParticipantPeople,
   useTranscriptSessionId,
-} from "~/session/hooks/storage";
+} from "~/session/hooks/transcripts";
 import type { Segment } from "~/stt/live-segment";
 
 export function SpeakerAssignPopover({

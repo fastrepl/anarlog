@@ -1,5 +1,5 @@
 import type { SearchFilters, SearchHit } from "~/search/contexts/engine/types";
-import type { SummaryEditCandidate } from "~/session/hooks/storage";
+import type { SummaryEditCandidate } from "~/session/hooks/enhanced-notes";
 
 export type ContactSearchResult = {
   id: string;

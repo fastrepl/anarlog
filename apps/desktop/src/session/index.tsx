@@ -15,7 +15,7 @@ import { SessionPreviewCard } from "./components/session-preview-card";
 import { SessionSurface } from "./components/session-surface";
 import { useCurrentNoteTab, useHasTranscript } from "./components/shared";
 import { TitleInput, type TitleInputHandle } from "./components/title-input";
-import { useSessionCell } from "./hooks/storage";
+import { useSessionCell } from "./hooks/sessions";
 import { useAutoEnhance } from "./hooks/useAutoEnhance";
 import { useIsSessionEnhancing } from "./hooks/useEnhancedNotes";
 import { getSessionTabStatus } from "./tab-visual-state";

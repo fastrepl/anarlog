@@ -8,7 +8,7 @@ import {
   useParticipantSourceCell,
   useRemoveSessionParticipant,
   useSessionParticipantDetails,
-} from "~/session/hooks/storage";
+} from "~/session/hooks/participants";
 import { useTabs } from "~/store/zustand/tabs/index";
 
 export function ParticipantChip({ mappingId }: { mappingId: string }) {
@@ -73,14 +73,14 @@ function useParticipantDetails(mappingId: string) {
 
   return {
     mappingId,
-    humanId: details.human_id,
-    humanName: details.human_name || "",
-    humanEmail: details.human_email,
-    humanJobTitle: details.human_job_title,
-    humanLinkedinUsername: details.human_linkedin_username,
-    orgId: details.org_id,
-    orgName: details.org_name,
-    sessionId: details.session_id,
+    humanId: details.humanId,
+    humanName: details.humanName || "",
+    humanEmail: details.humanEmail,
+    humanJobTitle: details.humanJobTitle,
+    humanLinkedinUsername: details.humanLinkedinUsername,
+    orgId: details.orgId,
+    orgName: details.orgName,
+    sessionId: details.sessionId,
     source: source || undefined,
   };
 }

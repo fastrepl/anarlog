@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-import { useSessionEvent } from "~/session/hooks/storage";
+import { useSessionEvent } from "~/session/hooks/sessions";
 
 const FIVE_MINUTES = 5 * 60 * 1000;
 

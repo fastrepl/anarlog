@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 
 import { cn } from "@hypr/utils";
 
-import { useRestoreDeletedSessions } from "~/session/hooks/storage";
+import { useRestoreDeletedSessions } from "~/session/hooks/runtime";
 import { useTabs } from "~/store/zustand/tabs";
 import { UNDO_TIMEOUT_MS, useUndoDelete } from "~/store/zustand/undo-delete";
 

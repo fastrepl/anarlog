@@ -29,17 +29,17 @@ function useCalendarColor(calendarId: string | null): string | null {
 export function EventChip({ eventId }: { eventId: string }) {
   const tz = useTimezone();
   const event = useTimelineEvent(eventId);
-  const calendarColor = useCalendarColor(event?.calendar_id ?? null);
+  const calendarColor = useCalendarColor(event?.calendarId ?? null);
 
   if (!event || !event.title) {
     return null;
   }
 
-  const isAllDay = event.is_all_day;
+  const isAllDay = event.isAllDay;
   const color = calendarColor ?? "#888";
 
-  const startedAt = event.started_at
-    ? format(toTz(event.started_at, tz), "h:mm a")
+  const startedAt = event.startedAt
+    ? format(toTz(event.startedAt, tz), "h:mm a")
     : null;
 
   return (

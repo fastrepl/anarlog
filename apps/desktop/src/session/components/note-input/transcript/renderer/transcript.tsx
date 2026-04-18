@@ -13,7 +13,7 @@ import {
   useStableSegments,
 } from "./segment-hooks";
 
-import { useTranscriptSpeakerLabelManager } from "~/session/hooks/storage";
+import { useTranscriptSpeakerLabelManager } from "~/session/hooks/transcripts";
 import type { Segment, SegmentWord } from "~/stt/live-segment";
 
 export function RenderTranscript({

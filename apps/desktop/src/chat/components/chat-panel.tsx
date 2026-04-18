@@ -11,7 +11,7 @@ import { useSessionTab } from "./use-session-tab";
 import { useLanguageModel } from "~/ai/hooks";
 import { useChatActions } from "~/chat/hooks/use-chat-actions";
 import { useShell } from "~/contexts/shell";
-import { useCurrentUserId } from "~/session/hooks/storage";
+import { useCurrentUserId } from "~/session/hooks/globals";
 
 export function ChatView() {
   const { chat } = useShell();

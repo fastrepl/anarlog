@@ -5,7 +5,7 @@ import { cn } from "@hypr/utils";
 import { SpeakerAssignPopover } from "./speaker-assign";
 import { getTimestampRange, useSegmentColor } from "./utils";
 
-import { useTranscriptLabelContext } from "~/session/hooks/storage";
+import { useTranscriptLabelContext } from "~/session/hooks/transcripts";
 import type { Segment } from "~/stt/live-segment";
 import { SegmentKeyUtils, SpeakerLabelManager } from "~/stt/live-segment";
 

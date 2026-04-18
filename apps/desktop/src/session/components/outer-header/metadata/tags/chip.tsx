@@ -7,7 +7,7 @@ import {
   useSessionTagMutations,
   useTagMappingCell,
   useTagName,
-} from "~/session/hooks/storage";
+} from "~/session/hooks/tags";
 
 export function TagChip({ mappingId }: { mappingId: string }) {
   const tagId = useTagMappingCell(mappingId, "tag_id");

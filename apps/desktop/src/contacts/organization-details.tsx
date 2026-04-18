@@ -94,9 +94,9 @@ export function OrganizationDetailsColumn({
                               <div className="truncate text-sm font-semibold">
                                 {human.name || human.email || "Unnamed"}
                               </div>
-                              {human.job_title && (
+                              {human.jobTitle && (
                                 <div className="mt-1 truncate text-xs text-neutral-500">
-                                  {human.job_title}
+                                  {human.jobTitle}
                                 </div>
                               )}
                             </div>
@@ -117,13 +117,13 @@ export function OrganizationDetailsColumn({
                                   <Mail />
                                 </Button>
                               )}
-                              {human.linkedin_username && (
+                              {human.linkedinUsername && (
                                 <Button
                                   variant="ghost"
                                   size="icon"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    const v = human.linkedin_username;
+                                    const v = human.linkedinUsername;
                                     const href = /^https?:\/\//i.test(v)
                                       ? v
                                       : `https://www.linkedin.com/in/${v.replace(/^@/, "")}`;

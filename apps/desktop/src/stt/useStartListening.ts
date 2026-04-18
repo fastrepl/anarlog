@@ -13,7 +13,7 @@ import {
 import { useSTTConnection } from "./useSTTConnection";
 
 import { getEnhancerService } from "~/services/enhancer";
-import { useCurrentUserId } from "~/session/hooks/storage";
+import { useCurrentUserId } from "~/session/hooks/globals";
 import { useConfigValue } from "~/shared/config";
 import type {
   LiveTranscriptPersistCallback,

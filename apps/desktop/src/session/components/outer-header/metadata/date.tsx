@@ -9,7 +9,7 @@ import { format, safeFormat, safeParseDate } from "@hypr/utils";
 import {
   useSessionCellOptional,
   useSetSessionCreatedAt,
-} from "~/session/hooks/storage";
+} from "~/session/hooks/sessions";
 
 export function DateEditor({ sessionId }: { sessionId: string }) {
   const [isEditing, setIsEditing] = useState(false);

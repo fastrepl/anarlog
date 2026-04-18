@@ -15,13 +15,10 @@ import { DropdownMenuItem } from "@hypr/ui/components/ui/dropdown-menu";
 import { formatDate, formatDuration } from "./export-utils";
 
 import { json2md } from "~/editor/markdown";
-import {
-  useEnhancedNoteCell,
-  useSessionParticipantNames,
-  useSessionCell,
-  useSessionEvent,
-  useTranscriptTimeRange,
-} from "~/session/hooks/storage";
+import { useEnhancedNoteCell } from "~/session/hooks/enhanced-notes";
+import { useSessionParticipantNames } from "~/session/hooks/participants";
+import { useSessionCell, useSessionEvent } from "~/session/hooks/sessions";
+import { useTranscriptTimeRange } from "~/session/hooks/transcripts";
 import type { EditorView } from "~/store/zustand/tabs/schema";
 
 export function ExportPDF({

@@ -7,14 +7,14 @@ import { buildChatTools } from "~/chat/tools";
 import { useRegisterTools } from "~/contexts/tool";
 import { useSearchEngine } from "~/search/contexts/engine";
 import { initEnhancerService } from "~/services/enhancer";
+import { useSummaryEditRuntime } from "~/session/hooks/enhanced-notes";
+import { useEnhancerSessionIndex } from "~/session/hooks/runtime";
 import {
   useCalendarEventSearchIndex,
   useContactSearchIndex,
-  useEnhancerSessionIndex,
   useSessionSearchTimestampLookup,
-  useSessionTabLifecycle,
-  useSummaryEditRuntime,
-} from "~/session/hooks/storage";
+} from "~/session/hooks/search";
+import { useSessionTabLifecycle } from "~/session/hooks/sessions";
 import * as settings from "~/store/tinybase/store/settings";
 import { useTabs } from "~/store/zustand/tabs";
 

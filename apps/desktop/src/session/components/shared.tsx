@@ -5,7 +5,7 @@ import { Button } from "@hypr/ui/components/ui/button";
 import { computeCurrentNoteTab } from "./compute-note-tab";
 
 import { useAITaskTask } from "~/ai/hooks";
-import { useTranscriptIdsForSession } from "~/session/hooks/storage";
+import { useTranscriptIdsForSession } from "~/session/hooks/transcripts";
 import { useEnhancedNotes } from "~/session/hooks/useEnhancedNotes";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 import type { Tab } from "~/store/zustand/tabs/schema";

@@ -21,7 +21,7 @@ import {
 import { DateEditor } from "./date";
 import { ParticipantsDisplay } from "./participants";
 
-import { useSessionCell, useSessionEvent } from "~/session/hooks/storage";
+import { useSessionCell, useSessionEvent } from "~/session/hooks/sessions";
 import { useConfigValue } from "~/shared/config";
 
 export function MetadataButton({ sessionId }: { sessionId: string }) {

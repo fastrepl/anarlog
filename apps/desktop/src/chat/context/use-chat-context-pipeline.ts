@@ -9,7 +9,7 @@ import {
 import { extractContextRefsFromMessages } from "./refs";
 
 import type { HyprUIMessage } from "~/chat/types";
-import { useDisplayEntityRenderer } from "~/session/hooks/storage";
+import { useDisplayEntityRenderer } from "~/session/hooks/runtime";
 
 type UseChatContextPipelineParams = {
   messages: HyprUIMessage[];

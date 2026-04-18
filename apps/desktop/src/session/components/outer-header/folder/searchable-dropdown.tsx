@@ -18,7 +18,7 @@ import {
 } from "@hypr/ui/components/ui/dropdown-menu";
 
 import { useBillingAccess } from "~/auth/billing";
-import { useSessionFolderTree, useSessionCell } from "~/session/hooks/storage";
+import { useSessionCell, useSessionFolderTree } from "~/session/hooks/sessions";
 import { sessionOps } from "~/store/tinybase/persister/session/ops";
 import { useListener } from "~/stt/contexts";
 

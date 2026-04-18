@@ -4,7 +4,7 @@ import { useAudioPlayer } from "~/audio-player";
 import {
   useTranscriptHasWords,
   useTranscriptIdsForSession,
-} from "~/session/hooks/storage";
+} from "~/session/hooks/transcripts";
 import { getLiveCaptureUiMode } from "~/store/zustand/listener/general-shared";
 import { useListener } from "~/stt/contexts";
 import type { Segment } from "~/stt/live-segment";

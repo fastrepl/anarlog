@@ -8,30 +8,36 @@ import {
   TZDate,
 } from "@hypr/utils";
 
+import type {
+  TimelineEventDto,
+  TimelineSessionDto,
+} from "~/session/hooks/queries";
 import { getSessionEvent } from "~/session/utils";
 
 function toTZ(date: Date, timezone?: string): Date {
   return timezone ? new TZDate(date, timezone) : date;
 }
 
-// comes from QUERIES.timelineEvents
-export type TimelineEventRow = {
+type LegacyTimelineEventRow = {
   title?: string | null;
   started_at?: string | null;
   ended_at?: string | null;
   calendar_id?: string | null;
   tracking_id_event?: string | null;
-  has_recurrence_rules: boolean;
+  has_recurrence_rules?: boolean;
   recurrence_series_id?: string | null;
+  is_all_day?: boolean;
 };
 
-// comes from QUERIES.timelineSessions
-export type TimelineSessionRow = {
+type LegacyTimelineSessionRow = {
   title?: string | null;
   created_at?: string | null;
   event_json?: string | null;
   folder_id?: string | null;
 };
+
+export type TimelineEventRow = TimelineEventDto | LegacyTimelineEventRow;
+export type TimelineSessionRow = TimelineSessionDto | LegacyTimelineSessionRow;
 
 export type TimelineEventsTable =
   | Record<string, TimelineEventRow>
@@ -66,6 +72,35 @@ export type TimelineIndicatorPlacement =
   | { type: "inside"; index: number; progress: number }
   | { type: "before"; index: number }
   | { type: "after" };
+
+function getEventStartedAt(row: TimelineEventRow): string | null | undefined {
+  return "startedAt" in row ? row.startedAt : row.started_at;
+}
+
+function getEventEndedAt(row: TimelineEventRow): string | null | undefined {
+  return "endedAt" in row ? row.endedAt : row.ended_at;
+}
+
+function getEventTrackingId(row: TimelineEventRow): string {
+  const value =
+    "trackingIdEvent" in row ? row.trackingIdEvent : row.tracking_id_event;
+  return value ?? "";
+}
+
+function getSessionCreatedAt(
+  row: TimelineSessionRow,
+): string | null | undefined {
+  return "createdAt" in row ? row.createdAt : row.created_at;
+}
+
+function getSessionEventFromRow(row: TimelineSessionRow) {
+  return "event" in row
+    ? row.event
+    : getSessionEvent({
+        event_json:
+          typeof row.event_json === "string" ? row.event_json : undefined,
+      });
+}
 
 export function getBucketInfo(
   date: Date,
@@ -196,14 +231,16 @@ export function getItemTimeRange(item: TimelineItem): {
 } {
   if (item.type === "event") {
     return {
-      start: safeParseDate(item.data.started_at),
-      end: safeParseDate(item.data.ended_at),
+      start: safeParseDate(getEventStartedAt(item.data)),
+      end: safeParseDate(getEventEndedAt(item.data)),
     };
   }
 
-  const sessionEvent = getSessionEvent(item.data);
+  const sessionEvent = getSessionEventFromRow(item.data);
   return {
-    start: safeParseDate(sessionEvent?.started_at ?? item.data.created_at),
+    start: safeParseDate(
+      sessionEvent?.started_at ?? getSessionCreatedAt(item.data),
+    ),
     end: safeParseDate(sessionEvent?.ended_at),
   };
 }
@@ -298,7 +335,8 @@ export function filterTimelineTablesUpToTomorrow({
       ? Object.fromEntries(
           Object.entries(timelineEventsTable).filter(([, row]) =>
             isAtOrBeforeTomorrow(
-              safeParseDate(row.started_at) ?? safeParseDate(row.ended_at),
+              safeParseDate(getEventStartedAt(row)) ??
+                safeParseDate(getEventEndedAt(row)),
               timezone,
             ),
           ),
@@ -308,7 +346,10 @@ export function filterTimelineTablesUpToTomorrow({
       ? Object.fromEntries(
           Object.entries(timelineSessionsTable).filter(([, row]) =>
             isAtOrBeforeTomorrow(
-              safeParseDate(getSessionEvent(row)?.started_at ?? row.created_at),
+              safeParseDate(
+                getSessionEventFromRow(row)?.started_at ??
+                  getSessionCreatedAt(row),
+              ),
               timezone,
             ),
           ),
@@ -330,7 +371,9 @@ export function hasTimelineItemsAfterTomorrow({
     timelineSessionsTable &&
     Object.values(timelineSessionsTable).some((row) =>
       isAfterTomorrow(
-        safeParseDate(getSessionEvent(row)?.started_at ?? row.created_at),
+        safeParseDate(
+          getSessionEventFromRow(row)?.started_at ?? getSessionCreatedAt(row),
+        ),
         timezone,
       ),
     )
@@ -342,7 +385,8 @@ export function hasTimelineItemsAfterTomorrow({
     timelineEventsTable &&
     Object.values(timelineEventsTable).some((row) =>
       isAfterTomorrow(
-        safeParseDate(row.started_at) ?? safeParseDate(row.ended_at),
+        safeParseDate(getEventStartedAt(row)) ??
+          safeParseDate(getEventEndedAt(row)),
         timezone,
       ),
     )
@@ -353,12 +397,8 @@ export function hasTimelineItemsAfterTomorrow({
   return false;
 }
 
-function getEventTrackingId(row: TimelineEventRow): string {
-  return row.tracking_id_event ?? "";
-}
-
 function getSessionTrackingId(row: TimelineSessionRow): string {
-  const event = getSessionEvent(row);
+  const event = getSessionEventFromRow(row);
   if (!event) return "";
   return event.tracking_id;
 }
@@ -377,9 +417,8 @@ export function buildTimelineBuckets({
 
   if (timelineSessionsTable) {
     Object.entries(timelineSessionsTable).forEach(([sessionId, row]) => {
-      const sessionEvent = getSessionEvent(row);
       const startTime = safeParseDate(
-        sessionEvent?.started_at ?? row.created_at,
+        getSessionEventFromRow(row)?.started_at ?? getSessionCreatedAt(row),
       );
 
       if (!startTime) {
@@ -404,8 +443,8 @@ export function buildTimelineBuckets({
       if (trackingId && seenEventKeys.has(trackingId)) {
         return;
       }
-      const eventStartTime = safeParseDate(row.started_at);
-      const eventEndTime = safeParseDate(row.ended_at);
+      const eventStartTime = safeParseDate(getEventStartedAt(row));
+      const eventEndTime = safeParseDate(getEventEndedAt(row));
       const timeToCheck = eventEndTime || eventStartTime;
       if (!timeToCheck) {
         return;

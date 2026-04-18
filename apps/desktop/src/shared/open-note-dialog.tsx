@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 import { Kbd } from "@hypr/ui/components/ui/kbd";
 import { cn } from "@hypr/utils";
 
-import { useOpenNoteSessions } from "~/session/hooks/storage";
+import { useOpenNoteSessions } from "~/session/hooks/sessions";
 import { useTabs } from "~/store/zustand/tabs";
 
 const MAX_RECENT_DISPLAY = 5;

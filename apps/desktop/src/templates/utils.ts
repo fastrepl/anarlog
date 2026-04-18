@@ -10,7 +10,7 @@ import {
 } from "./queries";
 
 import { useHumanCell } from "~/contacts/hooks";
-import { useCurrentUserId } from "~/session/hooks/storage";
+import { useCurrentUserId } from "~/session/hooks/globals";
 import { useWebResources } from "~/shared/ui/resource-list";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 

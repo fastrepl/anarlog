@@ -30,7 +30,7 @@ vi.mock("@hypr/utils", () => ({
   safeFormat: safeFormatMock,
 }));
 
-vi.mock("~/session/hooks/storage", () => ({
+vi.mock("~/session/hooks/sessions", () => ({
   useSessionCellOptional: useSessionCellOptionalMock,
   useSetSessionCreatedAt: vi.fn(() => vi.fn()),
 }));

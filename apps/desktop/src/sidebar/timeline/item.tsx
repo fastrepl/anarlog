@@ -23,8 +23,8 @@ import { SessionPreviewCard } from "~/session/components/session-preview-card";
 import {
   useDeleteSessionsWithUndo,
   useGetOrCreateSessionForEvent,
-  useSessionCell,
-} from "~/session/hooks/storage";
+} from "~/session/hooks/runtime";
+import { useSessionCell } from "~/session/hooks/sessions";
 import { useIsSessionEnhancing } from "~/session/hooks/useEnhancedNotes";
 import { getSessionEvent } from "~/session/utils";
 import type { MenuItemDef } from "~/shared/hooks/useNativeContextMenu";
@@ -169,10 +169,19 @@ const EventItem = memo(
     const openNew = useTabs((state) => state.openNew);
 
     const eventId = item.id;
-    const trackingIdEvent = item.data.tracking_id_event;
+    const trackingIdEvent =
+      "trackingIdEvent" in item.data
+        ? item.data.trackingIdEvent
+        : item.data.tracking_id_event;
     const title = item.data.title || "Untitled";
-    const calendarId = item.data.calendar_id ?? null;
-    const recurrenceSeriesId = item.data.recurrence_series_id;
+    const calendarId =
+      "calendarId" in item.data
+        ? (item.data.calendarId ?? null)
+        : (item.data.calendar_id ?? null);
+    const recurrenceSeriesId =
+      "recurrenceSeriesId" in item.data
+        ? item.data.recurrenceSeriesId
+        : item.data.recurrence_series_id;
 
     const {
       isIgnored,
@@ -185,8 +194,13 @@ const EventItem = memo(
     const ignored = isIgnored(trackingIdEvent, recurrenceSeriesId);
 
     const displayTime = useMemo(
-      () => formatDisplayTime(item.data.started_at, precision, timezone),
-      [item.data.started_at, precision, timezone],
+      () =>
+        formatDisplayTime(
+          "startedAt" in item.data ? item.data.startedAt : item.data.started_at,
+          precision,
+          timezone,
+        ),
+      [item.data, precision, timezone],
     );
 
     const openEvent = useCallback(
@@ -346,21 +360,21 @@ const SessionItem = memo(
     const showSpinner =
       !selected && (isFinalizing || isEnhancing || isBatching);
 
-    const sessionEvent = useMemo(
-      () => getSessionEvent(item.data),
-      [item.data.event_json],
-    );
+    const sessionEvent =
+      "event" in item.data ? item.data.event : getSessionEvent(item.data);
+    const sessionCreatedAt =
+      "createdAt" in item.data ? item.data.createdAt : item.data.created_at;
 
     const calendarId = sessionEvent?.calendar_id ?? null;
 
     const displayTime = useMemo(
       () =>
         formatDisplayTime(
-          sessionEvent?.started_at ?? item.data.created_at,
+          sessionEvent?.started_at ?? sessionCreatedAt,
           precision,
           timezone,
         ),
-      [sessionEvent?.started_at, item.data.created_at, precision, timezone],
+      [sessionEvent?.started_at, sessionCreatedAt, precision, timezone],
     );
     const muted = isTimelineItemInFuture(item);
 

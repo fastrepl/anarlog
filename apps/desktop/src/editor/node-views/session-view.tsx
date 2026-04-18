@@ -18,7 +18,7 @@ import { TaskCheckbox } from "./task-checkbox";
 
 import { toTz, useTimezone } from "~/calendar/hooks";
 import { useLinkedItemOpenBehavior } from "~/editor/session/linked-item-open-behavior";
-import { useSessionCell } from "~/session/hooks/storage";
+import { useSessionCell } from "~/session/hooks/sessions";
 import { getSessionEvent } from "~/session/utils";
 import { useTabs } from "~/store/zustand/tabs";
 import { useListener } from "~/stt/contexts";

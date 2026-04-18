@@ -10,7 +10,7 @@ import retextStringify from "retext-stringify";
 import { unified } from "unified";
 import type { VFile } from "vfile";
 
-import { useSessionCell } from "~/session/hooks/storage";
+import { useSessionCell } from "~/session/hooks/sessions";
 
 export function useKeywords(sessionId: string) {
   const rawMd = useSessionCell(sessionId, "raw_md");

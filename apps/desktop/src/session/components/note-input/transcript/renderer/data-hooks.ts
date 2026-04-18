@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   useTranscriptOffsetMs,
   useTranscriptRenderRequest,
-} from "~/session/hooks/storage";
+} from "~/session/hooks/transcripts";
 import type { Segment } from "~/stt/live-segment";
 import { renderTranscriptSegments } from "~/stt/render-transcript";
 

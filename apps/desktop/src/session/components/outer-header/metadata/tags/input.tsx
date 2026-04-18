@@ -7,7 +7,7 @@ import {
   useSessionTagNameMap,
   useSessionTagMappingIds,
   useSessionTagMutations,
-} from "~/session/hooks/storage";
+} from "~/session/hooks/tags";
 
 export function TagInput({ sessionId }: { sessionId: string }) {
   const [inputValue, setInputValue] = useState("");

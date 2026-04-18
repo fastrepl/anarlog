@@ -5,7 +5,7 @@ import { useShallow } from "zustand/shallow";
 import { events as detectEvents } from "@hypr/plugin-detect";
 import { commands as notificationCommands } from "@hypr/plugin-notification";
 
-import { useNearbyEventsForMicPrompt } from "~/session/hooks/storage";
+import { useNearbyEventsForMicPrompt } from "~/session/hooks/runtime";
 import {
   createListenerStore,
   type ListenerStore,
