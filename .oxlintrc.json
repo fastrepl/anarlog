@@ -24,13 +24,29 @@
     {
       "files": [
         "apps/desktop/src/store/tinybase/**",
-        "apps/desktop/src/**/hooks/**",
-        "apps/desktop/src/**/hooks.ts",
-        "apps/desktop/src/**/hooks.tsx",
         "apps/desktop/src/**/*.test.ts",
         "apps/desktop/src/**/*.test.tsx",
         "apps/desktop/src/**/*.spec.ts",
         "apps/desktop/src/**/*.spec.tsx"
+      ],
+      "rules": {
+        "hypr/no-raw-tinybase": "off"
+      }
+    },
+    {
+      "files": [
+        "apps/desktop/src/session/hooks/storage.ts",
+        "apps/desktop/src/session/hooks/useEnhancedNotes.ts",
+        "apps/desktop/src/calendar/hooks.ts",
+        "apps/desktop/src/contacts/hooks.ts",
+        "apps/desktop/src/chat_shortcuts/hooks.ts",
+        "apps/desktop/src/chat/hooks/useCreateChatMessage.ts",
+        "apps/desktop/src/chat/hooks/use-chat-actions.ts",
+        "apps/desktop/src/chat/hooks/persisted-messages.ts",
+        "apps/desktop/src/chat/hooks/chat-messages.ts",
+        "apps/desktop/src/chat/hooks/chat-groups.ts",
+        "apps/desktop/src/settings/memory/hooks.ts",
+        "apps/desktop/src/tasks/hooks.tsx"
       ],
       "rules": {
         "hypr/no-raw-tinybase": "off"
