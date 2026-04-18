@@ -1,15 +1,27 @@
 use crate::client::{ExaClient, parse_response};
-use crate::common_derives;
-use crate::types::{Category, ContentsRequest, SearchResult, SearchType};
+use crate::types::{
+    Category, ContentsRequest, CostDollars, SearchOutput, SearchResponseType, SearchResult,
+    SearchType,
+};
 
-common_derives! {
+crate::float_derives! {
     #[serde(rename_all = "camelCase")]
     pub struct SearchRequest {
         pub query: String,
         #[serde(skip_serializing_if = "Option::is_none")]
+        pub additional_queries: Option<Vec<String>>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub stream: Option<bool>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub output_schema: Option<serde_json::Value>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub system_prompt: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         pub r#type: Option<SearchType>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub category: Option<Category>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub user_location: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub num_results: Option<u32>,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -29,6 +41,8 @@ common_derives! {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub exclude_text: Option<Vec<String>>,
         #[serde(skip_serializing_if = "Option::is_none")]
+        pub moderation: Option<bool>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         pub contents: Option<ContentsRequest>,
     }
 }
@@ -36,7 +50,17 @@ common_derives! {
 crate::float_derives! {
     #[serde(rename_all = "camelCase")]
     pub struct SearchResponse {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub request_id: Option<String>,
         pub results: Vec<SearchResult>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub search_type: Option<SearchResponseType>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub context: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub output: Option<SearchOutput>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub cost_dollars: Option<CostDollars>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub autoprompt_string: Option<String>,
     }

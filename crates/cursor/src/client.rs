@@ -38,10 +38,14 @@ impl CursorClientBuilder {
 
         let client = self.client.unwrap_or_else(reqwest::Client::new);
 
-        let api_base = self
+        let mut api_base: url::Url = self
             .api_base
             .unwrap_or_else(|| "https://api.cursor.com".to_string())
             .parse()?;
+        if !api_base.path().ends_with('/') {
+            let path = format!("{}/", api_base.path());
+            api_base.set_path(&path);
+        }
 
         Ok(CursorClient {
             client,
@@ -151,7 +155,9 @@ impl CursorClient {
     }
 
     fn endpoint(&self, path: &str) -> Result<url::Url, Error> {
-        self.api_base.join(path).map_err(Error::from)
+        self.api_base
+            .join(path.trim_start_matches('/'))
+            .map_err(Error::from)
     }
 
     async fn send<T>(&self, request: reqwest::RequestBuilder) -> Result<T, Error>
@@ -178,5 +184,28 @@ impl CursorClient {
             status: status.as_u16(),
             message,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::CursorClient;
+
+    #[test]
+    fn endpoint_uses_default_api_base() {
+        let client = CursorClient::builder().api_key("test").build().unwrap();
+        let url = client.endpoint("/v0/agents").unwrap();
+        assert_eq!(url.as_str(), "https://api.cursor.com/v0/agents");
+    }
+
+    #[test]
+    fn endpoint_preserves_path_prefix() {
+        let client = CursorClient::builder()
+            .api_key("test")
+            .api_base("https://example.com/proxy")
+            .build()
+            .unwrap();
+        let url = client.endpoint("/v0/agents").unwrap();
+        assert_eq!(url.as_str(), "https://example.com/proxy/v0/agents");
     }
 }

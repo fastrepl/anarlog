@@ -9,6 +9,8 @@ pub enum AgentStatus {
     Failed,
     Stopped,
     Deleting,
+    #[serde(other)]
+    Unknown,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -16,6 +18,8 @@ pub enum AgentStatus {
 pub enum ConversationMessageType {
     UserMessage,
     AssistantMessage,
+    #[serde(other)]
+    Unknown,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -51,7 +55,16 @@ pub struct AgentSource {
     pub pr_url: Option<String>,
 }
 
-pub type AgentSourceInput = AgentSource;
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentSourceInput {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repository: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub r#ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pr_url: Option<String>,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -72,7 +85,20 @@ pub struct AgentTarget {
     pub auto_branch: Option<bool>,
 }
 
-pub type AgentTargetInput = AgentTarget;
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentTargetInput {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub branch_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auto_create_pr: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub open_as_cursor_github_app: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub skip_reviewer_request: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auto_branch: Option<bool>,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

@@ -1,11 +1,12 @@
 use crate::client::{ExaClient, parse_response};
-use crate::common_derives;
-use crate::types::SearchResult;
+use crate::types::{ContentStatus, CostDollars, SearchResult};
 
-common_derives! {
+crate::float_derives! {
     #[serde(rename_all = "camelCase")]
     pub struct GetContentsRequest {
         pub urls: Vec<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub ids: Option<Vec<String>>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub text: Option<crate::types::TextRequest>,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -17,14 +18,30 @@ common_derives! {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub livecrawl_timeout: Option<u32>,
         #[serde(skip_serializing_if = "Option::is_none")]
-        pub max_age_hours: Option<u32>,
+        pub max_age_hours: Option<i32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub subpages: Option<u32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub subpage_target: Option<crate::types::SubpageTarget>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub extras: Option<crate::types::ExtrasRequest>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub context: Option<crate::types::ContextRequest>,
     }
 }
 
 crate::float_derives! {
     #[serde(rename_all = "camelCase")]
     pub struct GetContentsResponse {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub request_id: Option<String>,
         pub results: Vec<SearchResult>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub context: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub statuses: Option<Vec<ContentStatus>>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub cost_dollars: Option<CostDollars>,
     }
 }
 

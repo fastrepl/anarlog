@@ -21,6 +21,18 @@ mod tests {
     }
 
     #[test]
+    fn agent_status_deserialization_accepts_unknown_variants() {
+        let parsed: AgentStatus = serde_json::from_str("\"PAUSED\"").unwrap();
+        assert_eq!(parsed, AgentStatus::Unknown);
+    }
+
+    #[test]
+    fn conversation_message_type_deserialization_accepts_unknown_variants() {
+        let parsed: ConversationMessageType = serde_json::from_str("\"tool_message\"").unwrap();
+        assert_eq!(parsed, ConversationMessageType::Unknown);
+    }
+
+    #[test]
     fn launch_agent_request_serialization_omits_empty_fields() {
         let value = serde_json::to_value(LaunchAgentRequest {
             prompt: PromptInput {
@@ -34,8 +46,6 @@ mod tests {
                 pr_url: None,
             },
             target: Some(AgentTargetInput {
-                url: None,
-                pr_url: None,
                 auto_create_pr: Some(true),
                 open_as_cursor_github_app: None,
                 skip_reviewer_request: None,
@@ -54,5 +64,8 @@ mod tests {
         assert_eq!(value["target"]["autoCreatePr"], true);
         assert!(value.get("model").is_none());
         assert!(value["target"].get("openAsCursorGithubApp").is_none());
+        assert!(value["target"].get("url").is_none());
+        assert!(value["target"].get("prUrl").is_none());
+        assert!(value["source"].get("prUrl").is_none());
     }
 }

@@ -16,3 +16,6 @@ cargo install \
   --locked \
   --bin claw \
   --force
+
+npm install -g @googleworkspace/cli
+npm install -g char

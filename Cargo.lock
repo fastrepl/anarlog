@@ -700,6 +700,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "api-claw"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "chrono",
+ "exedev",
+ "rand_core 0.6.4",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "ssh-key",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "api-client"
 version = "0.1.0"
 dependencies = [
@@ -3645,8 +3662,12 @@ name = "claw"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "axum 0.8.9",
+ "serde",
+ "serde_json",
  "supabase-auth",
  "tokio",
+ "tower 0.5.3",
  "tracing",
  "tracing-subscriber",
  "zeroclaw-api",
@@ -5326,6 +5347,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "url",
+ "wiremock",
 ]
 
 [[package]]
@@ -6070,6 +6092,7 @@ name = "exedev"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
+ "chrono",
  "rand_core 0.6.4",
  "reqwest 0.13.2",
  "serde",

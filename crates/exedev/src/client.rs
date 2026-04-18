@@ -2,14 +2,20 @@ use serde::de::DeserializeOwned;
 
 use crate::token::{Exe0Token, NAMESPACE_API};
 
+pub const DEFAULT_API_BASE: &str = "https://exe.dev";
+
 #[derive(Default)]
 pub struct ExedevClientBuilder {
     api_base: Option<String>,
     token: Option<String>,
     signing_key: Option<String>,
     permissions: Option<serde_json::Value>,
+    http: Option<reqwest::Client>,
 }
 
+/// Thin HTTPS client for `POST https://exe.dev/exec`.
+///
+/// Clone is cheap: the underlying `reqwest::Client` is an `Arc`.
 #[derive(Clone)]
 pub struct ExedevClient {
     pub(crate) client: reqwest::Client,
@@ -20,6 +26,10 @@ pub struct ExedevClient {
 impl ExedevClient {
     pub fn builder() -> ExedevClientBuilder {
         ExedevClientBuilder::default()
+    }
+
+    pub fn api_base(&self) -> &url::Url {
+        &self.api_base
     }
 }
 
@@ -34,6 +44,7 @@ impl ExedevClientBuilder {
         self
     }
 
+    /// Raw OpenSSH PEM private key used to mint an exe0 token at build time.
     pub fn signing_key(mut self, signing_key: impl Into<String>) -> Self {
         self.signing_key = Some(signing_key.into());
         self
@@ -42,16 +53,23 @@ impl ExedevClientBuilder {
     /// Permissions JSON used when minting an exe0 token from a signing key.
     ///
     /// The server's default `cmds` list does not include `rm`, `stat`, `rename`,
-    /// `tag`, or `resize`; pass an explicit `cmds` array if the caller needs them.
+    /// `tag`, `resize`, `restart`, or `share` subcommands; pass an explicit
+    /// `cmds` array if the caller needs them.
     pub fn permissions(mut self, permissions: serde_json::Value) -> Self {
         self.permissions = Some(permissions);
+        self
+    }
+
+    /// Provide a pre-configured reqwest client (e.g. with custom timeouts).
+    pub fn http_client(mut self, http: reqwest::Client) -> Self {
+        self.http = Some(http);
         self
     }
 
     pub fn build(self) -> Result<ExedevClient, crate::Error> {
         let api_base = self
             .api_base
-            .unwrap_or_else(|| "https://exe.dev".to_string());
+            .unwrap_or_else(|| DEFAULT_API_BASE.to_string());
         let api_base: url::Url = api_base.parse().map_err(|_| crate::Error::InvalidApiBase)?;
 
         let token = match (self.token, self.signing_key, self.permissions) {
@@ -62,7 +80,10 @@ impl ExedevClientBuilder {
             _ => return Err(crate::Error::MissingToken),
         };
 
-        let client = reqwest::Client::builder().build()?;
+        let client = match self.http {
+            Some(c) => c,
+            None => reqwest::Client::builder().build()?,
+        };
         Ok(ExedevClient {
             client,
             api_base,
@@ -72,6 +93,10 @@ impl ExedevClientBuilder {
 }
 
 impl ExedevClient {
+    /// Execute a raw command string against `/exec` and return the text body.
+    ///
+    /// Callers generally want the typed helpers in `commands`; use this only
+    /// as an escape hatch for commands the SDK has not yet wrapped.
     pub async fn exec_raw(&self, command: &str) -> Result<String, crate::Error> {
         let mut url = self.api_base.clone();
         url.set_path("/exec");
@@ -100,6 +125,6 @@ pub(crate) async fn parse_text(response: reqwest::Response) -> Result<String, cr
     if status.is_success() {
         Ok(body)
     } else {
-        Err(crate::Error::Api(status.as_u16(), body))
+        Err(crate::Error::from_status(status.as_u16(), body))
     }
 }

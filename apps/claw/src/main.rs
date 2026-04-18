@@ -1,4 +1,7 @@
 mod config;
+mod http;
+
+use std::net::SocketAddr;
 
 use anyhow::Result;
 
@@ -13,8 +16,26 @@ async fn main() -> Result<()> {
         "claw starting"
     );
 
+    let http_addr = control_plane_addr();
+
+    tokio::try_join!(
+        http::serve(http_addr, http::ControlPlaneState::default()),
+        start_channels(cfg),
+    )?;
+    Ok(())
+}
+
+async fn start_channels(cfg: zeroclaw_config::schema::Config) -> Result<()> {
     zeroclaw_channels::orchestrator::start_channels(cfg).await?;
     Ok(())
+}
+
+fn control_plane_addr() -> SocketAddr {
+    let port: u16 = std::env::var("CLAW_HTTP_PORT")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(8080);
+    SocketAddr::from(([0, 0, 0, 0], port))
 }
 
 fn init_logging() {

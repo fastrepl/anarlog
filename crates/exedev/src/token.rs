@@ -1,13 +1,19 @@
 use base64::{Engine, engine::general_purpose::STANDARD, engine::general_purpose::URL_SAFE_NO_PAD};
+use serde::{Deserialize, Serialize};
 use ssh_key::{HashAlg, LineEnding, PrivateKey};
 
 pub const NAMESPACE_API: &str = "v0@exe.dev";
+
+pub fn namespace_vm(vm_name: &str) -> String {
+    format!("v0@{vm_name}.exe.xyz")
+}
 
 const MAX_TOKEN_BYTES: usize = 8 * 1024;
 const MIN_TIMESTAMP: i64 = 946_684_800;
 const MAX_TIMESTAMP: i64 = 4_102_444_800;
 const ALLOWED_TOP_LEVEL: &[&str] = &["exp", "nbf", "cmds", "ctx"];
 
+#[derive(Clone)]
 pub struct Exe0Token(String);
 
 impl std::fmt::Debug for Exe0Token {
@@ -85,12 +91,97 @@ impl Exe0Token {
         Ok(Self(format!("exe0.{payload_b64}.{sig_b64}")))
     }
 
+    pub fn mint_for_api(
+        permissions: &serde_json::Value,
+        signing_key_pem: &str,
+    ) -> Result<Self, crate::Error> {
+        Self::mint(permissions, signing_key_pem, NAMESPACE_API)
+    }
+
+    pub fn mint_for_vm(
+        vm_name: &str,
+        permissions: &serde_json::Value,
+        signing_key_pem: &str,
+    ) -> Result<Self, crate::Error> {
+        Self::mint(permissions, signing_key_pem, &namespace_vm(vm_name))
+    }
+
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
     pub fn into_string(self) -> String {
         self.0
+    }
+}
+
+/// Short, opaque token that acts as a handle to an `exe0` token.
+///
+/// Obtained via `ExedevClient::exe0_to_exe1`; the server validates the exe0 on
+/// every request, so revoking the exe0 (or its signing key) revokes the exe1.
+#[derive(Clone)]
+pub struct Exe1Token(String);
+
+impl std::fmt::Debug for Exe1Token {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("Exe1Token").field(&"<redacted>").finish()
+    }
+}
+
+impl Exe1Token {
+    pub fn new(raw: impl Into<String>) -> Self {
+        Self(raw.into())
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn into_string(self) -> String {
+        self.0
+    }
+}
+
+/// Typed permissions shared across helpers. `Default` produces `{}` (server-defaults).
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct Permissions {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub exp: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub nbf: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cmds: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ctx: Option<serde_json::Value>,
+}
+
+impl Permissions {
+    pub fn with_exp(mut self, exp: i64) -> Self {
+        self.exp = Some(exp);
+        self
+    }
+
+    pub fn with_nbf(mut self, nbf: i64) -> Self {
+        self.nbf = Some(nbf);
+        self
+    }
+
+    pub fn with_cmds<I, S>(mut self, cmds: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.cmds = Some(cmds.into_iter().map(Into::into).collect());
+        self
+    }
+
+    pub fn with_ctx<C: Serialize>(mut self, ctx: &C) -> Result<Self, crate::Error> {
+        self.ctx = Some(serde_json::to_value(ctx)?);
+        Ok(self)
+    }
+
+    pub fn to_json(&self) -> Result<serde_json::Value, crate::Error> {
+        Ok(serde_json::to_value(self)?)
     }
 }
 
@@ -176,5 +267,37 @@ mod tests {
         let payload = URL_SAFE_NO_PAD.decode(parts[1]).unwrap();
         assert_eq!(payload, payload_bytes);
         let _sig_bytes = URL_SAFE_NO_PAD.decode(parts[2]).unwrap();
+    }
+
+    #[test]
+    fn namespace_vm_format() {
+        assert_eq!(namespace_vm("claw-ab12"), "v0@claw-ab12.exe.xyz");
+    }
+
+    #[test]
+    fn mint_for_vm_uses_vm_namespace() {
+        let pem = gen_key();
+        let perms = serde_json::json!({ "exp": 1_922_918_400i64 });
+
+        let api_token = Exe0Token::mint_for_api(&perms, &pem).unwrap();
+        let vm_token = Exe0Token::mint_for_vm("claw-abc", &perms, &pem).unwrap();
+
+        let api_parts: Vec<&str> = api_token.as_str().split('.').collect();
+        let vm_parts: Vec<&str> = vm_token.as_str().split('.').collect();
+
+        // same payload, different signature (namespace differs)
+        assert_eq!(api_parts[1], vm_parts[1]);
+        assert_ne!(api_parts[2], vm_parts[2]);
+    }
+
+    #[test]
+    fn permissions_builder() {
+        let p = Permissions::default()
+            .with_exp(1_922_918_400)
+            .with_cmds(["ls", "new"]);
+        let v = p.to_json().unwrap();
+        assert_eq!(v["exp"], 1_922_918_400);
+        assert_eq!(v["cmds"], serde_json::json!(["ls", "new"]));
+        assert!(v.get("nbf").is_none());
     }
 }

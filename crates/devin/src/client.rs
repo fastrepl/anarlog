@@ -1,14 +1,20 @@
-use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, HeaderMap, HeaderValue};
+use std::time::Duration;
+
+use reqwest::header::{ACCEPT, CONTENT_TYPE, HeaderMap, HeaderValue};
 
 use crate::{
     CursorPage, Error, ListSessionMessagesRequest, ListSessionsRequest, Session, SessionMessage,
 };
+
+const DEFAULT_API_BASE: &str = "https://api.devin.ai/";
+const DEFAULT_TIMEOUT: Duration = Duration::from_secs(60);
 
 #[derive(Default)]
 pub struct DevinClientBuilder {
     api_key: Option<String>,
     api_base: Option<String>,
     client: Option<reqwest::Client>,
+    timeout: Option<Duration>,
 }
 
 impl DevinClientBuilder {
@@ -27,30 +33,41 @@ impl DevinClientBuilder {
         self
     }
 
+    pub fn timeout(mut self, timeout: Duration) -> Self {
+        self.timeout = Some(timeout);
+        self
+    }
+
     pub fn build(self) -> Result<DevinClient, Error> {
         let api_key = self.api_key.ok_or(Error::MissingApiKey)?;
-        let mut headers = HeaderMap::new();
 
-        let mut auth_value = HeaderValue::from_str(&format!("Bearer {api_key}"))
+        let _ = HeaderValue::from_str(&format!("Bearer {api_key}"))
             .map_err(|_| Error::InvalidApiKey)?;
-        auth_value.set_sensitive(true);
-        headers.insert(AUTHORIZATION, auth_value);
-        headers.insert(ACCEPT, HeaderValue::from_static("application/json"));
-        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
 
         let client = match self.client {
             Some(client) => client,
-            None => reqwest::Client::builder()
-                .default_headers(headers)
-                .build()?,
+            None => {
+                let mut headers = HeaderMap::new();
+                headers.insert(ACCEPT, HeaderValue::from_static("application/json"));
+                headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+
+                reqwest::Client::builder()
+                    .default_headers(headers)
+                    .timeout(self.timeout.unwrap_or(DEFAULT_TIMEOUT))
+                    .build()?
+            }
         };
 
-        let api_base = self
+        let raw_base = self
             .api_base
-            .unwrap_or_else(|| "https://api.devin.ai".to_string())
-            .parse()?;
+            .unwrap_or_else(|| DEFAULT_API_BASE.to_string());
+        let api_base = normalize_base(&raw_base)?;
 
-        Ok(DevinClient { client, api_base })
+        Ok(DevinClient {
+            client,
+            api_base,
+            api_key,
+        })
     }
 }
 
@@ -58,6 +75,7 @@ impl DevinClientBuilder {
 pub struct DevinClient {
     client: reqwest::Client,
     api_base: url::Url,
+    api_key: String,
 }
 
 impl DevinClient {
@@ -74,7 +92,7 @@ impl DevinClient {
         org_id: &str,
         req: ListSessionsRequest,
     ) -> Result<CursorPage<Session>, Error> {
-        let mut url = self.endpoint(&format!("/v3/organizations/{org_id}/sessions"))?;
+        let mut url = self.endpoint(&format!("v3/organizations/{org_id}/sessions"))?;
         {
             let mut pairs = url.query_pairs_mut();
 
@@ -111,9 +129,7 @@ impl DevinClient {
             }
             if let Some(origins) = req.origins.as_ref() {
                 for origin in origins {
-                    let value = serde_json::to_string(origin)
-                        .expect("serializing SessionOrigin should not fail");
-                    pairs.append_pair("origins", value.trim_matches('"'));
+                    pairs.append_pair("origins", origin.as_str());
                 }
             }
             if let Some(schedule_id) = req.schedule_id.as_deref() {
@@ -135,7 +151,7 @@ impl DevinClient {
     }
 
     pub async fn get_session(&self, org_id: &str, devin_id: &str) -> Result<Session, Error> {
-        let url = self.endpoint(&format!("/v3/organizations/{org_id}/sessions/{devin_id}"))?;
+        let url = self.endpoint(&format!("v3/organizations/{org_id}/sessions/{devin_id}"))?;
         self.send(self.client.get(url)).await
     }
 
@@ -146,7 +162,7 @@ impl DevinClient {
         req: ListSessionMessagesRequest,
     ) -> Result<CursorPage<SessionMessage>, Error> {
         let mut url = self.endpoint(&format!(
-            "/v3/organizations/{org_id}/sessions/{devin_id}/messages"
+            "v3/organizations/{org_id}/sessions/{devin_id}/messages"
         ))?;
         {
             let mut pairs = url.query_pairs_mut();
@@ -167,7 +183,7 @@ impl DevinClient {
         devin_id: &str,
         archive: bool,
     ) -> Result<Session, Error> {
-        let mut url = self.endpoint(&format!("/v3/organizations/{org_id}/sessions/{devin_id}"))?;
+        let mut url = self.endpoint(&format!("v3/organizations/{org_id}/sessions/{devin_id}"))?;
         if archive {
             url.query_pairs_mut().append_pair("archive", "true");
         }
@@ -177,12 +193,16 @@ impl DevinClient {
 
     pub async fn archive_session(&self, org_id: &str, devin_id: &str) -> Result<Session, Error> {
         let url = self.endpoint(&format!(
-            "/v3/organizations/{org_id}/sessions/{devin_id}/archive"
+            "v3/organizations/{org_id}/sessions/{devin_id}/archive"
         ))?;
         self.send(self.client.post(url)).await
     }
 
     fn endpoint(&self, path: &str) -> Result<url::Url, Error> {
+        debug_assert!(
+            !path.starts_with('/'),
+            "endpoint paths must be relative to api_base",
+        );
         self.api_base.join(path).map_err(Error::from)
     }
 
@@ -190,7 +210,7 @@ impl DevinClient {
     where
         T: serde::de::DeserializeOwned,
     {
-        let response = request.send().await?;
+        let response = request.bearer_auth(&self.api_key).send().await?;
         let status = response.status();
 
         if status.is_success() {
@@ -202,5 +222,52 @@ impl DevinClient {
             status: status.as_u16(),
             message,
         })
+    }
+}
+
+fn normalize_base(raw: &str) -> Result<url::Url, Error> {
+    let normalized = if raw.ends_with('/') {
+        raw.to_string()
+    } else {
+        format!("{raw}/")
+    };
+    Ok(normalized.parse()?)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn normalize_base_adds_trailing_slash() {
+        let url = normalize_base("https://api.devin.ai").unwrap();
+        assert_eq!(url.as_str(), "https://api.devin.ai/");
+    }
+
+    #[test]
+    fn normalize_base_preserves_trailing_slash() {
+        let url = normalize_base("https://api.devin.ai/").unwrap();
+        assert_eq!(url.as_str(), "https://api.devin.ai/");
+    }
+
+    #[test]
+    fn normalize_base_with_path_prefix_no_trailing_slash() {
+        let url = normalize_base("https://gateway.corp/devin").unwrap();
+        assert_eq!(url.as_str(), "https://gateway.corp/devin/");
+    }
+
+    #[test]
+    fn endpoint_appends_to_prefixed_base() {
+        let client = DevinClient::builder()
+            .api_key("secret")
+            .api_base("https://gateway.corp/devin")
+            .build()
+            .unwrap();
+
+        let url = client.endpoint("v3/organizations/org_1/sessions").unwrap();
+        assert_eq!(
+            url.as_str(),
+            "https://gateway.corp/devin/v3/organizations/org_1/sessions",
+        );
     }
 }

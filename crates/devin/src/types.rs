@@ -11,6 +11,8 @@ pub enum SessionStatus {
     Error,
     Suspended,
     Resuming,
+    #[serde(other)]
+    Unknown,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -29,6 +31,8 @@ pub enum SessionStatusDetail {
     PaymentDeclined,
     OrgUsageLimitExceeded,
     Error,
+    #[serde(other)]
+    Unknown,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -43,11 +47,40 @@ pub enum SessionOrigin {
     Scheduled,
     Cli,
     Other,
+    #[serde(other)]
+    Unknown,
+}
+
+impl SessionOrigin {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Webapp => "webapp",
+            Self::Slack => "slack",
+            Self::Teams => "teams",
+            Self::Api => "api",
+            Self::Linear => "linear",
+            Self::Jira => "jira",
+            Self::Scheduled => "scheduled",
+            Self::Cli => "cli",
+            Self::Other => "other",
+            Self::Unknown => "unknown",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SessionMessageSource {
+    Devin,
+    User,
+    #[serde(other)]
+    Unknown,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SessionPullRequest {
-    pub pr_state: String,
+    #[serde(default)]
+    pub pr_state: Option<String>,
     pub pr_url: String,
 }
 
@@ -127,7 +160,7 @@ pub struct SessionMessage {
     pub created_at: i64,
     pub event_id: String,
     pub message: String,
-    pub source: String,
+    pub source: SessionMessageSource,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

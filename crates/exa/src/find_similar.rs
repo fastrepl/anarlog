@@ -1,8 +1,7 @@
 use crate::client::{ExaClient, parse_response};
-use crate::common_derives;
 use crate::types::{ContentsRequest, SearchResult};
 
-common_derives! {
+crate::float_derives! {
     #[serde(rename_all = "camelCase")]
     pub struct FindSimilarRequest {
         pub url: String,
