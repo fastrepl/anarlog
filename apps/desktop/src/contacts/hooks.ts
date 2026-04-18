@@ -2,6 +2,8 @@ import { useCallback, useMemo } from "react";
 
 import * as main from "~/store/tinybase/store/main";
 
+// Storage boundary for contacts-domain consumers. Expose normalized DTOs and
+// callback-style mutations so consumer components stay storage-agnostic.
 export type Human = {
   id: string;
   name: string;

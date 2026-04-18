@@ -1,8 +1,8 @@
 import type { SearchFilters, SearchHit } from "~/search/contexts/engine/types";
-import type * as main from "~/store/tinybase/store/main";
+import type { MainIndexes, MainStore } from "~/session/hooks/storage";
 
-type Store = NonNullable<ReturnType<typeof main.UI.useStore>>;
-type Indexes = NonNullable<ReturnType<typeof main.UI.useIndexes>>;
+type Store = MainStore;
+type Indexes = MainIndexes;
 
 export type ContactSearchResult = {
   id: string;

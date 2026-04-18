@@ -2,6 +2,7 @@ import { useMemo } from "react";
 
 import * as main from "~/store/tinybase/store/main";
 
+// Storage boundary for chat-group selection metadata used by UI.
 export type ChatGroup = {
   id: string;
   title: string;

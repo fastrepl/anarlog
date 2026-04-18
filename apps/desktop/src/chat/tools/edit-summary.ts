@@ -5,11 +5,11 @@ import type { ToolDependencies } from "./types";
 
 import { usePendingEditStore } from "~/chat/tools/pending-edit-store";
 import { json2md, md2json, parseJsonContent } from "~/editor/markdown";
-import { ENHANCED_NOTES_BY_SESSION_INDEX } from "~/session/hooks/storage";
+import {
+  ENHANCED_NOTES_BY_SESSION_INDEX,
+  type MainStore,
+} from "~/session/hooks/storage";
 import { id } from "~/shared/utils";
-import type * as main from "~/store/tinybase/store/main";
-
-type Store = NonNullable<ReturnType<typeof main.UI.useStore>>;
 
 type SummaryCandidate = {
   enhancedNoteId: string;
@@ -19,7 +19,7 @@ type SummaryCandidate = {
 };
 
 function listSummaryCandidates(
-  store: Store,
+  store: MainStore,
   noteIds: string[],
 ): SummaryCandidate[] {
   return noteIds.map((enhancedNoteId) => {

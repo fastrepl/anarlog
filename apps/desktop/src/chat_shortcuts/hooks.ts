@@ -4,6 +4,8 @@ import type { ChatShortcut } from "@hypr/store";
 
 import * as main from "~/store/tinybase/store/main";
 
+// Storage boundary for chat-shortcut reads and mutations used by UI.
+// Hook signatures are backend-neutral to support seamless storage swaps.
 export type UserShortcut = ChatShortcut & { id: string };
 
 export function useChatShortcuts(): UserShortcut[] {

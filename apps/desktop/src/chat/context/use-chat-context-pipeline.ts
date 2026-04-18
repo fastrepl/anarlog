@@ -8,99 +8,8 @@ import {
 } from "./entities";
 import { extractContextRefsFromMessages } from "./refs";
 
+import { useDisplayEntityRenderer } from "~/chat/hooks/context-renderers";
 import type { HyprUIMessage } from "~/chat/types";
-import { useMainStore } from "~/session/hooks/storage";
-import type * as main from "~/store/tinybase/store/main";
-
-type Store = ReturnType<typeof main.UI.useStore>;
-
-function getSessionDisplayData(
-  store: Store,
-  sessionId: string,
-): { title: string | null; date: string | null } {
-  if (!store) {
-    return { title: null, date: null };
-  }
-  const row = store.getRow("sessions", sessionId);
-  return {
-    title: typeof row.title === "string" && row.title.trim() ? row.title : null,
-    date:
-      typeof row.created_at === "string" && row.created_at.trim()
-        ? row.created_at
-        : null,
-  };
-}
-
-function getHumanDisplayData(
-  store: Store,
-  humanId: string,
-): {
-  name: string | null;
-  email: string | null;
-  organizationName: string | null;
-} {
-  if (!store) {
-    return { name: null, email: null, organizationName: null };
-  }
-
-  const row = store.getRow("humans", humanId);
-  const orgId = typeof row.org_id === "string" ? row.org_id : null;
-  const organization =
-    orgId && store.hasRow("organizations", orgId)
-      ? store.getRow("organizations", orgId)
-      : {};
-
-  return {
-    name: typeof row.name === "string" && row.name.trim() ? row.name : null,
-    email: typeof row.email === "string" && row.email.trim() ? row.email : null,
-    organizationName:
-      typeof organization.name === "string" && organization.name.trim()
-        ? organization.name
-        : null,
-  };
-}
-
-function getOrganizationDisplayData(
-  store: Store,
-  organizationId: string,
-): { name: string | null } {
-  if (!store) {
-    return { name: null };
-  }
-
-  const row = store.getRow("organizations", organizationId);
-  return {
-    name: typeof row.name === "string" && row.name.trim() ? row.name : null,
-  };
-}
-
-function toDisplayEntity(
-  ref: ContextRef,
-  store: Store,
-  removable: boolean,
-): ContextEntity {
-  if (ref.kind === "session") {
-    return {
-      ...ref,
-      ...getSessionDisplayData(store, ref.sessionId),
-      removable,
-    };
-  }
-
-  if (ref.kind === "human") {
-    return {
-      ...ref,
-      ...getHumanDisplayData(store, ref.humanId),
-      removable,
-    };
-  }
-
-  return {
-    ...ref,
-    ...getOrganizationDisplayData(store, ref.organizationId),
-    removable,
-  };
-}
 
 type UseChatContextPipelineParams = {
   messages: HyprUIMessage[];
@@ -118,7 +27,7 @@ export function useChatContextPipeline({
   contextEntities: DisplayEntity[];
   pendingRefs: ContextRef[];
 } {
-  const store = useMainStore();
+  const toDisplayEntity = useDisplayEntityRenderer();
 
   const committedRefs = useMemo(
     () => extractContextRefsFromMessages(messages),
@@ -146,17 +55,15 @@ export function useChatContextPipeline({
   }, [currentSessionId, pendingManualRefs]);
 
   const committedEntities = useMemo(
-    () => committedRefs.map((ref) => toDisplayEntity(ref, store, false)),
-    [committedRefs, store],
+    () => committedRefs.map((ref) => toDisplayEntity(ref, false)),
+    [committedRefs, toDisplayEntity],
   );
 
   // Pending manual refs are removable; pending auto-current is not.
   const pendingEntities = useMemo(
     () =>
-      pendingRefs.map((ref) =>
-        toDisplayEntity(ref, store, ref.source === "manual"),
-      ),
-    [pendingRefs, store],
+      pendingRefs.map((ref) => toDisplayEntity(ref, ref.source === "manual")),
+    [pendingRefs, toDisplayEntity],
   );
 
   const rawEntities = useMemo(

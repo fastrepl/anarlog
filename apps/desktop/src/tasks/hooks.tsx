@@ -15,6 +15,8 @@ import {
 import { DEFAULT_USER_ID } from "~/shared/utils";
 import * as main from "~/store/tinybase/store/main";
 
+// Storage boundary for task records. Consumers use TaskStorage and task hooks
+// so backing storage can change without touching editor/session UIs.
 type Listener = () => void;
 type TaskStore = NonNullable<ReturnType<typeof main.UI.useStore>>;
 type TaskIndexes = NonNullable<ReturnType<typeof main.UI.useIndexes>>;

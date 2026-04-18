@@ -9,6 +9,8 @@ import { useConfigValue } from "~/shared/config";
 import * as main from "~/store/tinybase/store/main";
 import { getOrCreateSessionForEventId } from "~/store/tinybase/store/sessions";
 
+// Storage boundary for calendar/event reads and writes consumed by UI.
+// Keep return values plain TS objects so backend swaps stay transparent.
 export function useTimezone() {
   return useConfigValue("timezone") || undefined;
 }

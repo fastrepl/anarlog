@@ -11,6 +11,8 @@ import {
 import type { HyprUIMessage } from "~/chat/types";
 import * as main from "~/store/tinybase/store/main";
 
+// Storage boundary for chat-message persistence/visibility behavior.
+// Consumers should depend on these hooks rather than storage internals.
 export function useGetVisibleChatMessages() {
   const store = main.UI.useStore(main.STORE_ID);
   return useCallback(

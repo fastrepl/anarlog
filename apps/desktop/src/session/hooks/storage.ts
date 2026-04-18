@@ -5,6 +5,9 @@ import type { SessionEvent } from "@hypr/store";
 import { getSessionEvent } from "~/session/utils";
 import * as main from "~/store/tinybase/store/main";
 
+// Storage boundary for session-domain consumers. Keep exported types/hooks
+// storage-agnostic so internals can move from TinyBase to SQLite without
+// changing call sites.
 export type MainStore = NonNullable<ReturnType<typeof main.UI.useStore>>;
 export type MainIndexes = NonNullable<ReturnType<typeof main.UI.useIndexes>>;
 

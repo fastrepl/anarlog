@@ -2,7 +2,7 @@ import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 import type { SessionContentData } from "@hypr/plugin-fs-sync";
 import type { SessionContext, Transcript } from "@hypr/plugin-template";
 
-import type * as main from "~/store/tinybase/store/main";
+import type { MainStore } from "~/session/hooks/storage";
 import {
   buildRenderTranscriptRequestFromFsTranscript,
   renderTranscriptSegments,
@@ -26,7 +26,7 @@ function extractEventName(event: unknown): string | null {
 
 async function buildTranscript(
   transcriptData: SessionContentData["transcript"],
-  store: ReturnType<typeof main.UI.useStore>,
+  store: MainStore | undefined,
   sessionId: string,
 ): Promise<Transcript | null> {
   const transcripts = transcriptData?.transcripts ?? [];
@@ -63,7 +63,7 @@ async function buildTranscript(
 }
 
 export async function hydrateSessionContextFromFs(
-  store: ReturnType<typeof main.UI.useStore>,
+  store: MainStore | undefined,
   sessionId: string,
 ): Promise<SessionContext | null> {
   const result = await fsSyncCommands.loadSessionContent(sessionId);

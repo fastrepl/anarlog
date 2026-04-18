@@ -1,5 +1,7 @@
 import * as main from "~/store/tinybase/store/main";
 
+// Storage boundary for memory/vocabulary UI. Keep this API independent from
+// the underlying persistence implementation.
 export type VocabItem = {
   rowId: string;
   text: string;
