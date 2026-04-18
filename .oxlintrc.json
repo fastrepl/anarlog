@@ -36,6 +36,15 @@
     {
       "files": [
         "apps/desktop/src/session/hooks/storage.ts",
+        "apps/desktop/src/session/hooks/internal.ts",
+        "apps/desktop/src/session/hooks/queries.ts",
+        "apps/desktop/src/session/hooks/sessions.ts",
+        "apps/desktop/src/session/hooks/participants.ts",
+        "apps/desktop/src/session/hooks/tags.ts",
+        "apps/desktop/src/session/hooks/search.ts",
+        "apps/desktop/src/session/hooks/transcripts.ts",
+        "apps/desktop/src/session/hooks/runtime.ts",
+        "apps/desktop/src/session/hooks/enhanced-notes.ts",
         "apps/desktop/src/session/hooks/useEnhancedNotes.ts",
         "apps/desktop/src/calendar/hooks.ts",
         "apps/desktop/src/contacts/hooks.ts",
