@@ -7,9 +7,23 @@ import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { allArticles } from "content-collections";
-import { VideoIcon } from "lucide-react";
-import { AnimatePresence, motion, useInView } from "motion/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Mail, PencilLine, VideoIcon, SquareCheck } from "lucide-react";
+import {
+  AnimatePresence,
+  motion,
+  useInView,
+  useMotionValue,
+  useMotionValueEvent,
+  useScroll,
+  useTransform,
+} from "motion/react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { cn } from "@hypr/utils";
 
@@ -29,6 +43,7 @@ import { LogoCloud } from "@/components/logo-cloud";
 import { FAQ, FAQItem } from "@/components/mdx-shared";
 import { NotebookGrid } from "@/components/notebook-grid";
 import { SocialCard } from "@/components/social-card";
+import { GitHubStarsSticker, YCombinatorSticker } from "@/components/stickers";
 import { TimelineRecallMock } from "@/components/timeline-recall-mock";
 import { VideoModal } from "@/components/video-modal";
 import { addContact } from "@/functions/loops";
@@ -149,7 +164,7 @@ function Component() {
           heroInputRef={heroInputRef}
         />
         <LogoSection />
-        <DailyNotesSection />
+        <ManifestoSection />
         <RecordYourDaySection />
         <SummariseMeetingsSection />
         <ExecuteTasksSection />
@@ -249,21 +264,65 @@ function HeroSection({
           id="hero"
           className="isolate flex w-full overflow-visible pt-10 text-left"
         >
-          <div className="border-brand-bright items-left relative z-10 flex min-h-[80vh] w-full flex-col content-between rounded-lg border md:flex-col">
-            <div className="flex flex-col justify-between px-4 pt-8 pb-8 md:h-1/2 md:px-6 md:pt-12 md:pr-8 md:pb-12 md:pl-12">
-              <div className="flex flex-col gap-2">
+          <div className="border-brand-bright items-left relative z-10 flex min-h-[88vh] w-full flex-col content-between rounded-lg border md:flex-row">
+            <div className="flex flex-col justify-between px-4 pt-8 pb-8 md:w-1/2 md:px-6 md:pt-12 md:pr-8 md:pb-12 md:pl-12">
+              <div className="flex flex-col">
                 <AnnouncementBanner />
                 <h1
-                  className="text-color break-words"
+                  className="text-color mb-6 break-words"
                   style={{
                     fontSize: "clamp(1.5rem, 2rem + 3.2vw, 3.2rem)",
                   }}
                 >
-                  AI daily notes <br /> that remember and act
+                  AI daily notes <br /> that remember and act
                 </h1>
-                <p className="font-regular text-color text-base leading-relaxed break-words sm:text-xl">
-                  Char captures every meeting without a bot and keeps data on
-                  your device.
+                <p className="font-regular text-color mb-6 max-w-md text-base leading-8 break-words sm:text-xl">
+                  Char records your meetings without bots, pulls action items
+                  from your{" "}
+                  <span className="inline-flex items-center gap-1">
+                    <Mail
+                      strokeWidth={2.5}
+                      className="size-4 rotate-[-2deg] text-blue-500"
+                    />{" "}
+                    emails
+                  </span>
+                  , and builds a{" "}
+                  <span className="inline-flex items-center gap-1">
+                    <PencilLine className="size-4 rotate-[3deg] text-blue-500" />{" "}
+                    daily note
+                  </span>{" "}
+                  with everything you need to do.
+                </p>
+                <p className="font-regular text-color mb-4 max-w-md text-base leading-8 break-words sm:text-xl">
+                  You review it,{" "}
+                  <span className="inline-flex items-center gap-1">
+                    <SquareCheck
+                      strokeWidth={2.5}
+                      className="size-4 rotate-[-4deg] text-blue-500"
+                    />{" "}
+                    tick what's done
+                  </span>
+                  , and hand off the rest to AI agents like{" "}
+                  <span className="inline-flex items-center gap-1">
+                    <img
+                      src="/icons/claude.svg"
+                      alt=""
+                      className="size-4 shrink-0 rotate-[4deg] object-contain"
+                      aria-hidden
+                    />
+                    Claude
+                  </span>{" "}
+                  or{" "}
+                  <span className="inline-flex items-center gap-1">
+                    <img
+                      src="/icons/cursor.svg"
+                      alt=""
+                      className="h-4 w-auto max-w-[1.125rem] shrink-0 rotate-[2deg] object-contain"
+                      aria-hidden
+                    />
+                    Cursor
+                  </span>
+                  .
                 </p>
                 {heroCTA.showInput ? (
                   <form
@@ -367,72 +426,51 @@ function HeroSection({
                   <>
                     <div className="mt-4 flex w-full flex-col items-stretch gap-4 lg:flex-row lg:items-start">
                       <DownloadButton />
-                      <GithubStars />
                     </div>
                   </>
                 )}
               </div>
             </div>
 
-            <div className="relative hidden w-full shrink-0 self-stretch overflow-hidden p-8 md:block md:h-1/2">
-              <NotebookGrid />
+            <div className="relative hidden w-full shrink-0 self-stretch overflow-hidden p-4 md:block md:w-1/2">
+              <div className="border-color-bright bg-lined-notebook-bright relative h-full w-full border">
+                <YCombinatorSticker className="absolute top-2 right-4 rotate-[-5deg]" />
+                <GitHubStarsSticker className="absolute top-8 right-10 -translate-x-5/5 rotate-[2deg]" />
 
-              <a
-                href="https://www.ycombinator.com/companies/char"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="surface shadow-ring absolute top-10 left-10 z-10 flex rotate-[-5deg] items-center gap-3 rounded-xl py-2 pr-4 pl-2 transition-transform hover:scale-105 hover:rotate-[0deg]"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 18 18"
-                  className="size-10 shrink-0"
-                >
-                  <path
-                    d="M 0 18 L 18 18 L 18 0 L 0 0 Z"
-                    fill="rgb(251,101,30)"
-                  />
-                  <path
-                    d="M 9.731 9.894 L 9.731 13.894 L 8.212 13.894 L 8.212 9.894 L 4.337 4.106 L 6.187 4.106 L 8.977 8.381 L 11.756 4.106 L 13.607 4.106 Z"
-                    fill="rgb(255,255,255)"
-                  />
-                </svg>
-                <div className="flex flex-col">
-                  <span className="text-xs text-stone-400">Backed by</span>
-                  <span className="text-sm font-semibold text-stone-700">
-                    Y Combinator
-                  </span>
+                <div className="absolute right-1/2 bottom-0 flex translate-x-1/2 justify-end p-2">
+                  <DailyNoteMock />
                 </div>
-              </a>
-
-              <div className="absolute right-0 bottom-0 flex h-3/5 justify-end p-10 transition-transform duration-200 hover:scale-105">
-                <div
-                  className="group surface border-color-brand relative overflow-hidden rounded-xl border shadow-xl"
-                  style={{ aspectRatio: "16/9" }}
-                >
-                  <MuxPlayer
-                    playbackId={MUX_PLAYBACK_ID}
-                    autoPlay="muted"
-                    muted
-                    loop
-                    playsInline
-                    className="pointer-events-none h-full w-full object-cover"
-                    style={{ "--controls": "none" } as MuxCSSProperties}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => onVideoExpand(MUX_PLAYBACK_ID)}
-                    className="absolute inset-0 flex items-end justify-end p-3 transition-transform duration-200 hover:scale-105"
-                    aria-label="Open product demo video"
-                  >
-                    <div className="flex size-10 items-center justify-center rounded-full bg-white/90 shadow-lg transition-transform group-hover:scale-120">
-                      <Icon
-                        icon="mdi:play"
-                        className="text-color ml-0.5 text-lg"
+                {false && (
+                  <div className="absolute right-0 bottom-0 flex h-3/5 justify-end p-10 transition-transform duration-200 hover:scale-105">
+                    <div
+                      className="group surface border-color-brand relative overflow-hidden rounded-xl border shadow-xl"
+                      style={{ aspectRatio: "16/9" }}
+                    >
+                      <MuxPlayer
+                        playbackId={MUX_PLAYBACK_ID}
+                        autoPlay="muted"
+                        muted
+                        loop
+                        playsInline
+                        className="pointer-events-none h-full w-full object-cover"
+                        style={{ "--controls": "none" } as MuxCSSProperties}
                       />
+                      <button
+                        type="button"
+                        onClick={() => onVideoExpand(MUX_PLAYBACK_ID)}
+                        className="absolute inset-0 flex items-end justify-end p-3 transition-transform duration-200 hover:scale-105"
+                        aria-label="Open product demo video"
+                      >
+                        <div className="flex size-10 items-center justify-center rounded-full bg-white/90 shadow-lg transition-transform group-hover:scale-120">
+                          <Icon
+                            icon="mdi:play"
+                            className="text-color ml-0.5 text-lg"
+                          />
+                        </div>
+                      </button>
                     </div>
-                  </button>
-                </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -2748,39 +2786,301 @@ function BlogSection() {
   );
 }
 
-function DailyNotesSection() {
+type ScrollEffect = "opacity" | "blur" | "blurUp";
+
+function ScrollRevealWord({
+  progress,
+  range,
+  effect,
+  children,
+}: {
+  progress: ReturnType<typeof useMotionValue<number>>;
+  range: [number, number];
+  effect: ScrollEffect;
+  children: React.ReactNode;
+}) {
+  const [rangeStart, rangeEnd] = range;
+  const adjustedStart = Math.max(0, rangeStart - 0.05);
+
+  const opacity = useTransform(progress, [adjustedStart, rangeEnd], [0.15, 1]);
+  const filter = useTransform(
+    progress,
+    [adjustedStart, rangeEnd],
+    ["blur(4px)", "blur(0px)"],
+  );
+  const y = useTransform(progress, [adjustedStart, rangeEnd], [5, 0]);
+
+  const style = useMemo(() => {
+    if (effect === "opacity") return { opacity };
+    if (effect === "blur") return { opacity, filter };
+    if (effect === "blurUp") {
+      return { opacity, filter, y, display: "inline-block" as const };
+    }
+    return {};
+  }, [effect, opacity, filter, y]);
+
+  return <motion.span style={style}>{children}</motion.span>;
+}
+
+function ScrollRevealParagraph({
+  children,
+  effect = "blur",
+  className,
+}: {
+  children: React.ReactNode;
+  effect?: ScrollEffect;
+  className?: string;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: containerRef,
+    offset: ["start 0.8", "end 0.8"],
+  });
+
+  const ratchetedProgress = useMotionValue(0);
+
+  useMotionValueEvent(scrollYProgress, "change", (latest) => {
+    if (latest > ratchetedProgress.get()) {
+      ratchetedProgress.set(latest);
+    }
+  });
+
+  const extractText = (node: React.ReactNode): string => {
+    if (typeof node === "string") return node;
+    if (typeof node === "number") return String(node);
+    if (Array.isArray(node)) return node.map(extractText).join(" ");
+    if (React.isValidElement(node)) {
+      const element = node as React.ReactElement<{
+        children?: React.ReactNode;
+      }>;
+      if (element.props.children) return extractText(element.props.children);
+    }
+    return "";
+  };
+
+  const allText = extractText(children);
+  const allWords = allText.split(/\s+/).filter((w) => w.length > 0);
+  const wordCount = allWords.length;
+
+  let globalWordIndex = 0;
+
+  const processNode = (node: React.ReactNode): React.ReactNode => {
+    if (typeof node === "string") {
+      const words = node.split(/(\s+)/);
+      return words.map((segment, i) => {
+        if (segment.trim().length === 0) return segment;
+
+        const currentWordIndex = globalWordIndex;
+        globalWordIndex++;
+
+        const start = currentWordIndex / wordCount;
+        const end = (currentWordIndex + 1) / wordCount;
+
+        return (
+          <ScrollRevealWord
+            key={`word-${currentWordIndex}-${i}`}
+            progress={ratchetedProgress}
+            range={[start, end]}
+            effect={effect}
+          >
+            {segment}
+          </ScrollRevealWord>
+        );
+      });
+    }
+
+    if (React.isValidElement(node)) {
+      const element = node as React.ReactElement<{
+        children?: React.ReactNode;
+        style?: React.CSSProperties;
+      }>;
+
+      if (element.type === "img") {
+        const neighborIndex = Math.max(0, globalWordIndex - 1);
+        const start = neighborIndex / wordCount;
+        const end = (neighborIndex + 1) / wordCount;
+
+        return (
+          <ScrollRevealWord
+            key={`img-${neighborIndex}`}
+            progress={ratchetedProgress}
+            range={[start, end]}
+            effect={effect}
+          >
+            {element}
+          </ScrollRevealWord>
+        );
+      }
+
+      if (element.props.style?.backgroundImage) {
+        const innerText = extractText(element);
+        const innerWords = innerText.split(/\s+/).filter((w) => w.length > 0);
+        const startIndex = globalWordIndex;
+        globalWordIndex += innerWords.length;
+        const start = startIndex / wordCount;
+        const end = (startIndex + innerWords.length) / wordCount;
+
+        return (
+          <ScrollRevealWord
+            key={`bg-${startIndex}`}
+            progress={ratchetedProgress}
+            range={[start, end]}
+            effect={effect}
+          >
+            {element}
+          </ScrollRevealWord>
+        );
+      }
+
+      return React.cloneElement(element, {
+        ...element.props,
+        children: React.Children.map(element.props.children, processNode),
+      });
+    }
+
+    if (Array.isArray(node)) {
+      return node.map((child, i) => (
+        <React.Fragment key={i}>{processNode(child)}</React.Fragment>
+      ));
+    }
+
+    return node;
+  };
+
   return (
-    <section id="daily-notes" className="px-4 pt-8 pb-12 md:pb-24">
-      <div className="mx-auto flex max-w-2xl flex-col gap-8">
+    <div ref={containerRef} className={className}>
+      {processNode(children)}
+    </div>
+  );
+}
+
+function ManifestoSection() {
+  const paragraphClass =
+    "font-sans text-xl leading-relaxed text-fg md:text-3xl lg:text-3xl";
+  const paragraphSpacing = "mt-4 md:mt-6 lg:mt-8";
+  return (
+    <section className="mx-auto flex w-full max-w-3xl flex-col px-4 pt-12 pb-12 text-left md:pt-16 md:pb-16 lg:pt-20 lg:pb-20">
+      <p className={paragraphClass}>
+        We believe in the power of notetaking, not notetakers. Meetings should
+        be moments of presence, not passive attendance.{" "}
+        <img
+          src="/handdrawing/sleeping.svg"
+          alt="Presence"
+          className="inline-block size-8 md:size-10 lg:size-12"
+        />
+      </p>
+      <ScrollRevealParagraph effect="blur">
+        <p className={cn([paragraphClass, paragraphSpacing])}>
+          AI changes it. Instead of{" "}
+          <span
+            style={{
+              backgroundImage: "url(/handdrawing/scribbling.svg)",
+              backgroundSize: "contain",
+              backgroundPosition: "bottom",
+              backgroundRepeat: "no-repeat",
+            }}
+          >
+            {" "}
+            scribbling{" "}
+          </span>{" "}
+          notes, it gives us the power to be present.
+        </p>
+        <p className={cn([paragraphClass, paragraphSpacing])}>
+          But we give it control over our meetings. What happens with all our
+          calls and chats then? Services sunset{" "}
+          <span>
+            <img
+              src="/handdrawing/sunset.svg"
+              alt="Sunset"
+              className="inline-block size-8 md:size-10 lg:size-12"
+            />
+          </span>{" "}
+          constantly, models change, progress is unstoppable.
+        </p>
+        <p className={cn([paragraphClass, paragraphSpacing])}>
+          We believe in owning your data, doesn't matter where it lives. More
+          <span
+            style={{
+              backgroundImage: "url(/handdrawing/important.svg)",
+              backgroundSize: "contain",
+              backgroundPosition: "center",
+              backgroundRepeat: "no-repeat",
+            }}
+          >
+            {" "}
+            important{" "}
+          </span>{" "}
+          is what you bring from every meeting, every call, every chat.
+        </p>
+        <p className={cn([paragraphClass, paragraphSpacing])}>
+          <span>
+            <img
+              src="/handdrawing/bracket-left.svg"
+              alt="bracket left"
+              className="inline-block size-8 md:h-10 lg:h-12"
+            />
+            Char
+            <img
+              src="/handdrawing/bracket-right.svg"
+              alt="bracket right"
+              className="inline-block size-8 md:h-10 lg:h-12"
+            />
+          </span>{" "}
+          exists to preserve what makes us human: conversations that spark
+          ideas, collaborations that move work forward. We build tools that
+          amplify human agency, not replace it.
+        </p>
+        <p className={cn([paragraphClass, paragraphSpacing])}>
+          No ghost bots. No silent note lurkers. Just people,{" "}
+          <span>
+            thinking{" "}
+            <img
+              src="/handdrawing/thinking.svg"
+              alt="thinking"
+              className="inline-block size-8 md:size-10 lg:size-12"
+            />{" "}
+          </span>
+          together.
+        </p>
+      </ScrollRevealParagraph>
+
+      <div className="mt-12 flex w-full flex-col items-start gap-8 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex flex-col gap-4">
-          <p className="text-color-secondary font-mono text-xs tracking-widest uppercase opacity-50">
-            Daily notes
-          </p>
-          <h2 className="text-color font-mono text-3xl leading-relaxed tracking-wide md:text-4xl">
-            Collect your day
-          </h2>
+          <div className="mb-4 flex gap-2">
+            <Image
+              src="/api/assets/team/john.png"
+              alt="John Jeong"
+              width={32}
+              height={32}
+              className="rounded-full border border-neutral-200 object-cover"
+            />
+            <Image
+              src="/api/assets/team/yujong.png"
+              alt="Yujong Lee"
+              width={32}
+              height={32}
+              className="rounded-full border border-neutral-200 object-cover"
+            />
+          </div>
+
+          <div>
+            <p className="font-serif text-base font-medium text-neutral-600 italic">
+              Char
+            </p>
+            <p className="text-sm text-neutral-500">John Jeong, Yujong Lee</p>
+          </div>
+
+          <div>
+            <Image
+              src="/handdrawing/char-signature.svg"
+              alt="Char Signature"
+              width={124}
+              height={60}
+              layout="constrained"
+              className="object-contain opacity-80"
+            />
+          </div>
         </div>
-
-        <div className="flex flex-col gap-4">
-          <p className="text-color text-base leading-relaxed md:text-xl">
-            Char records your meetings without bots, pulls action items from
-            your emails, and builds a daily note with everything you need to do.
-          </p>
-          <p className="text-color text-base leading-relaxed md:text-xl">
-            You review it, tick what's done, and hand off the rest to AI agents
-            like Claude or Cursor.
-          </p>
-        </div>
-
-        <DailyNoteMock />
-
-        <Link
-          to="/product/daily-notes/"
-          className="text-color hover:text-color-secondary inline-flex items-center gap-1 self-start underline underline-offset-4 transition-colors"
-        >
-          Explore the daily note
-          <Icon icon="mdi:arrow-top-right" className="text-sm" />
-        </Link>
       </div>
     </section>
   );

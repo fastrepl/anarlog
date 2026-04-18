@@ -2,9 +2,14 @@ import { Icon } from "@iconify-icon/react";
 
 import { cn } from "@hypr/utils";
 
-export function DailyNoteMock() {
+export function DailyNoteMock({ className }: { className?: string }) {
   return (
-    <div className="border-color-brand overflow-hidden rounded-2xl border bg-stone-100 px-2 pb-2 shadow-xl">
+    <div
+      className={cn([
+        "border-color-brand flexflex-col overflow-hidden rounded-2xl border bg-stone-100 px-2 pb-2 shadow-xl transition-shadow duration-200 hover:shadow-2xl",
+        className,
+      ])}
+    >
       <div className="flex h-11 shrink-0 items-center gap-2 pl-2">
         <div className="flex gap-2">
           <div className="size-3 rounded-full bg-red-400" />
@@ -45,7 +50,7 @@ export function DailyNoteMock() {
         </div>
       </div>
 
-      <div className="scrollbar-hide surface border-color-brand h-[480px] overflow-y-hidden rounded-lg border px-8 pt-6 pb-8">
+      <div className="scrollbar-hide surface border-color-brand min-h-0 flex-1 overflow-y-hidden rounded-lg border px-8 pt-6 pb-8">
         <DayHeader label="April 17th" muted />
         <DaySeparator />
 

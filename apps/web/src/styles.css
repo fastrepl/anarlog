@@ -80,8 +80,8 @@
   /* ── Colors: greys ────────────────────────────── */
   --grey-900: oklch(0.3 0.0197 81.53);
   --grey-700: oklch(0.4922 0.0127 67.79);
-  --grey-600: oklch(0.6182 0.0018 67.8);
-  --grey-500: oklch(0.7782 0.0018 67.8);
+  --grey-600: oklch(0.6933 0.0018 68.29);
+  --grey-500: oklch(0.7485 0.0025 67.8);
   --grey-300: oklch(0.9213 0.0027 106.45);
   --grey-100: oklch(0.9558 0.0045 78.3);
 
@@ -98,7 +98,7 @@
   /* ── Colors: borders ─────────────────────────── */
   --color-border: var(--grey-500);
   --color-border-subtle: var(--grey-300);
-  --color-border-bright: oklch(0.5959 0.0333 78.6);
+  --color-border-bright: var(--grey-600);
   --color-border-active: oklch(0.9213 0.0027 106.45);
 
   /* ── Colors: brand ───────────────────────────── */
@@ -399,6 +399,16 @@
     transparent 23px,
     var(--color-border) 23px,
     var(--color-border) 24px
+  );
+}
+
+.bg-lined-notebook-bright {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent,
+    transparent 32px,
+    var(--color-border) 32px,
+    var(--color-border) 33px
   );
 }
 
