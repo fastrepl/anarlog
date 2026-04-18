@@ -43,3 +43,23 @@ hr {
   padding-right: 0.02em;
   color: var(--color-accent);
 }
+
+.pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.875rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-fg-muted);
+  border: 1px solid var(--color-border);
+  border-radius: 9999px;
+  transition: color 150ms ease, border-color 150ms ease;
+}
+
+.pill-btn:hover {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
