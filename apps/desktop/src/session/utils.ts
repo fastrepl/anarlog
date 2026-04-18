@@ -16,6 +16,26 @@ export function getSessionEvent(session: {
   }
 }
 
+export function getSessionSearchTimestamp(session: {
+  created_at?: unknown;
+  event_json?: string | null;
+}): number | undefined {
+  const startedAt = getSessionEvent(session)?.started_at;
+  if (typeof startedAt === "string" && startedAt) {
+    const parsedStartedAt = Date.parse(startedAt);
+    if (!Number.isNaN(parsedStartedAt)) {
+      return parsedStartedAt;
+    }
+  }
+
+  if (typeof session.created_at !== "string" || !session.created_at) {
+    return undefined;
+  }
+
+  const parsedCreatedAt = Date.parse(session.created_at);
+  return Number.isNaN(parsedCreatedAt) ? undefined : parsedCreatedAt;
+}
+
 export function getSessionEventById(
   store: Store,
   sessionId: string,

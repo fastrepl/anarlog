@@ -1,3 +1,5 @@
+import { getSessionSearchTimestamp as getSharedSessionSearchTimestamp } from "~/session/utils";
+
 const SPACE_REGEX = /\s+/g;
 
 interface TiptapNode {
@@ -113,16 +115,7 @@ export function toEpochMs(value: unknown): number {
 export function getSessionSearchTimestamp(
   row: Record<string, unknown>,
 ): number {
-  const event = safeParseJSON(row.event_json);
-
-  if (event && typeof event === "object") {
-    const startedAt = toEpochMs((event as { started_at?: unknown }).started_at);
-    if (startedAt > 0) {
-      return startedAt;
-    }
-  }
-
-  return toEpochMs(row.created_at);
+  return getSharedSessionSearchTimestamp(row) ?? 0;
 }
 
 export function toString(value: unknown): string {

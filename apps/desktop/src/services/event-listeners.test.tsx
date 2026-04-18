@@ -128,4 +128,63 @@ describe("EventListeners notification events", () => {
     );
     expect(openNewMock).not.toHaveBeenCalled();
   });
+
+  test("uses refreshed session actions after the store hydrates", async () => {
+    const store = { id: "main-store" };
+    let currentStore: unknown = null;
+
+    useMainStoreMock.mockImplementation(() => currentStore as never);
+
+    const view = render(<EventListeners />);
+
+    await vi.waitFor(() =>
+      expect(notificationListenMock).toHaveBeenCalledTimes(1),
+    );
+
+    const handler = notificationListenMock.mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf("function");
+
+    currentStore = store;
+    view.rerender(<EventListeners />);
+
+    handler({
+      payload: {
+        type: "notification_accept",
+        key: "calendar-1",
+        source: {
+          type: "calendar_event",
+          event_id: "event-1",
+        },
+      },
+    });
+
+    handler({
+      payload: {
+        type: "notification_option_selected",
+        key: "mic-1",
+        selected_index: 1,
+        source: {
+          type: "mic_detected",
+          event_ids: ["event-1"],
+        },
+      },
+    });
+
+    expect(getOrCreateSessionForEventIdMock).toHaveBeenCalledWith(
+      store,
+      "event-1",
+      undefined,
+    );
+    expect(createSessionMock).toHaveBeenCalledWith(store);
+    expect(openNewMock).toHaveBeenNthCalledWith(1, {
+      type: "sessions",
+      id: "session-event",
+      state: { view: null, autoStart: true },
+    });
+    expect(openNewMock).toHaveBeenNthCalledWith(2, {
+      type: "sessions",
+      id: "session-new",
+      state: { view: null, autoStart: true },
+    });
+  });
 });

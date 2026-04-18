@@ -21,8 +21,8 @@ import {
 import { useCalendar, useIgnoredEvents } from "~/calendar/hooks";
 import { SessionPreviewCard } from "~/session/components/session-preview-card";
 import {
-  useCreateSessionActions,
   useDeleteSessionsWithUndo,
+  useGetOrCreateSessionForEvent,
   useSessionCell,
 } from "~/session/hooks/storage";
 import { useIsSessionEnhancing } from "~/session/hooks/useEnhancedNotes";
@@ -164,7 +164,7 @@ const EventItem = memo(
     multiSelected: boolean;
     flatItemKeys: string[];
   }) => {
-    const { getOrCreateSessionForEvent } = useCreateSessionActions();
+    const getOrCreateSessionForEvent = useGetOrCreateSessionForEvent();
     const openCurrent = useTabs((state) => state.openCurrent);
     const openNew = useTabs((state) => state.openNew);
 

@@ -40,6 +40,7 @@ import {
   useSessionCell,
   useSessionCellOptional,
   useSessionParticipantNames,
+  useSessionSearchTimestampLookup,
 } from "./storage";
 
 describe("session storage boundary hooks", () => {
@@ -105,5 +106,37 @@ describe("session storage boundary hooks", () => {
         jobTitle: undefined,
       },
     ]);
+  });
+
+  it("prefers event start timestamps and falls back to created_at", () => {
+    useTableMock.mockReturnValue({
+      "session-event": {
+        created_at: "2024-01-01T00:00:00Z",
+        event_json: JSON.stringify({
+          started_at: "2024-01-15T10:00:00Z",
+        }),
+      },
+      "session-plain": {
+        created_at: "2024-02-01T00:00:00Z",
+      },
+      "session-invalid-event": {
+        created_at: "2024-03-01T00:00:00Z",
+        event_json: JSON.stringify({
+          started_at: "not-a-date",
+        }),
+      },
+    });
+
+    const result = renderHook(() => useSessionSearchTimestampLookup());
+
+    expect(result.result.current("session-event")).toBe(
+      Date.parse("2024-01-15T10:00:00Z"),
+    );
+    expect(result.result.current("session-plain")).toBe(
+      Date.parse("2024-02-01T00:00:00Z"),
+    );
+    expect(result.result.current("session-invalid-event")).toBe(
+      Date.parse("2024-03-01T00:00:00Z"),
+    );
   });
 });

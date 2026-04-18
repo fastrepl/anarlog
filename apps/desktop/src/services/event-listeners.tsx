@@ -8,7 +8,10 @@ import {
 } from "@hypr/plugin-updater2";
 import { getCurrentWebviewWindowLabel } from "@hypr/plugin-windows";
 
-import { useCreateSessionActions } from "~/session/hooks/storage";
+import {
+  useCreateSession,
+  useGetOrCreateSessionForEvent,
+} from "~/session/hooks/storage";
 import * as settings from "~/store/tinybase/store/settings";
 import { useTabs } from "~/store/zustand/tabs";
 
@@ -58,26 +61,28 @@ function useUpdaterEvents() {
 }
 
 function useNotificationEvents() {
-  const { createSession, getOrCreateSessionForEvent } =
-    useCreateSessionActions();
+  const createSession = useCreateSession();
+  const getOrCreateSessionForEvent = useGetOrCreateSessionForEvent();
   const settingsStore = settings.UI.useStore(settings.STORE_ID);
   const openNew = useTabs((state) => state.openNew);
   const pendingAutoStart = useRef<{ eventId: string | null } | null>(null);
+  const createSessionRef = useRef(createSession);
+  const getOrCreateSessionForEventRef = useRef(getOrCreateSessionForEvent);
   const settingsStoreRef = useRef(settingsStore);
   const openNewRef = useRef(openNew);
 
-  useEffect(() => {
-    settingsStoreRef.current = settingsStore;
-    openNewRef.current = openNew;
-  }, [settingsStore, openNew]);
+  createSessionRef.current = createSession;
+  getOrCreateSessionForEventRef.current = getOrCreateSessionForEvent;
+  settingsStoreRef.current = settingsStore;
+  openNewRef.current = openNew;
 
   useEffect(() => {
     if (pendingAutoStart.current) {
       const { eventId } = pendingAutoStart.current;
       pendingAutoStart.current = null;
       const sessionId = eventId
-        ? (getOrCreateSessionForEvent(eventId) ?? null)
-        : createSession();
+        ? (getOrCreateSessionForEventRef.current(eventId) ?? null)
+        : createSessionRef.current();
       if (!sessionId) {
         return;
       }
@@ -108,8 +113,8 @@ function useNotificationEvents() {
               ? payload.source.event_id
               : null;
           const sessionId = eventId
-            ? getOrCreateSessionForEvent(eventId)
-            : createSession();
+            ? getOrCreateSessionForEventRef.current(eventId)
+            : createSessionRef.current();
           if (!sessionId) {
             pendingAutoStart.current = { eventId };
             return;
@@ -125,12 +130,17 @@ function useNotificationEvents() {
             payload.source?.type === "mic_detected"
               ? (payload.source.event_ids ?? [])
               : [];
+          const eventId =
+            selectedIndex < eventIds.length ? eventIds[selectedIndex] : null;
 
           const sessionId =
-            selectedIndex < eventIds.length
-              ? getOrCreateSessionForEvent(eventIds[selectedIndex])
-              : createSession();
-          if (!sessionId) return;
+            eventId !== null
+              ? getOrCreateSessionForEventRef.current(eventId)
+              : createSessionRef.current();
+          if (!sessionId) {
+            pendingAutoStart.current = { eventId };
+            return;
+          }
 
           openNewRef.current({
             type: "sessions",

@@ -8,7 +8,7 @@ import type { ContextEntity, ContextRef } from "~/chat/context/entities";
 import { hydrateSessionContextFromFs } from "~/chat/context/session-context-hydrator";
 import type { ResolvedChatContext } from "~/chat/transport";
 import { json2md, md2json, parseJsonContent } from "~/editor/markdown";
-import { getSessionEvent } from "~/session/utils";
+import { getSessionEvent, getSessionSearchTimestamp } from "~/session/utils";
 import { useSessionTabLifecycle as useSharedSessionTabLifecycle } from "~/shared/desktop-tab-lifecycle";
 import {
   captureSessionData,
@@ -179,15 +179,6 @@ export function useSession(sessionId: string) {
     () => ({ title, rawMd, createdAt, event, folderId }),
     [title, rawMd, createdAt, event, folderId],
   );
-}
-
-export function useSessionTitleField(sessionId: string): {
-  value: string;
-  setValue: (value: string) => void;
-} {
-  const value = useSessionCell(sessionId, "title");
-  const setValue = useUpdateSessionCell(sessionId, "title");
-  return { value, setValue };
 }
 
 export function useOpenNoteSessions(): SessionListItem[] {
@@ -1335,14 +1326,8 @@ export function useSessionSearchTimestampLookup(): (
   const sessionsTable = main.UI.useTable("sessions", main.STORE_ID);
 
   return useCallback(
-    (sessionId: string) => {
-      const createdAt = sessionsTable[sessionId]?.created_at;
-      if (typeof createdAt !== "string" || !createdAt) {
-        return undefined;
-      }
-      const parsed = Date.parse(createdAt);
-      return Number.isNaN(parsed) ? undefined : parsed;
-    },
+    (sessionId: string) =>
+      getSessionSearchTimestamp(sessionsTable[sessionId] ?? {}),
     [sessionsTable],
   );
 }
@@ -1686,6 +1671,30 @@ export function useRestoreDeletedSessions(): (args: {
   );
 }
 
+export function useCreateSession(): () => string | null {
+  const store = useMainStore();
+
+  return useCallback(() => {
+    if (!store) return null;
+    return createSession(store);
+  }, [store]);
+}
+
+export function useGetOrCreateSessionForEvent(): (
+  eventId: string,
+  title?: string,
+) => string | null {
+  const store = useMainStore();
+
+  return useCallback(
+    (eventId: string, title?: string) => {
+      if (!store) return null;
+      return getOrCreateSessionForEventId(store, eventId, title);
+    },
+    [store],
+  );
+}
+
 export function useCreateSessionActions(): {
   createSession: () => string | null;
   getOrCreateSessionForEvent: (
@@ -1693,25 +1702,16 @@ export function useCreateSessionActions(): {
     title?: string,
   ) => string | null;
 } {
-  const store = useMainStore();
+  const createSession = useCreateSession();
+  const getOrCreateSessionForEvent = useGetOrCreateSessionForEvent();
 
-  const createSessionAction = useCallback(() => {
-    if (!store) return null;
-    return createSession(store);
-  }, [store]);
-
-  const getOrCreateSessionForEvent = useCallback(
-    (eventId: string, title?: string) => {
-      if (!store) return null;
-      return getOrCreateSessionForEventId(store, eventId, title);
-    },
-    [store],
+  return useMemo(
+    () => ({
+      createSession,
+      getOrCreateSessionForEvent,
+    }),
+    [createSession, getOrCreateSessionForEvent],
   );
-
-  return {
-    createSession: createSessionAction,
-    getOrCreateSessionForEvent,
-  };
 }
 
 export function useCreateCountdownTestSession(): (

@@ -19,11 +19,7 @@ import {
 import { cn } from "@hypr/utils";
 
 import { useTitleGenerating } from "~/ai/hooks";
-import {
-  useSessionCell,
-  useSessionTitleField,
-  useUpdateSessionCell,
-} from "~/session/hooks/storage";
+import { useSessionCell, useUpdateSessionCell } from "~/session/hooks/storage";
 import { useLiveTitle } from "~/store/zustand/live-title";
 import { type Tab } from "~/store/zustand/tabs";
 
@@ -148,7 +144,7 @@ const TitleInputInner = memo(
       const [isTitleFocused, setIsTitleFocused] = useState(false);
       const isFocused = useRef(false);
       const internalRef = useRef<HTMLInputElement>(null);
-      const { value: currentTitle } = useSessionTitleField(sessionId);
+      const currentTitle = useSessionCell(sessionId, "title");
       const setLiveTitle = useLiveTitle((s) => s.setTitle);
       const clearLiveTitle = useLiveTitle((s) => s.clearTitle);
 
