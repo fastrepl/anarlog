@@ -6,6 +6,8 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 
 import { format, parseISO, subDays } from "@hypr/utils";
 
+import { DateHeader } from "./date-header";
+
 import { useCalendarData } from "~/calendar/hooks";
 import { parseJsonContent } from "~/editor/markdown";
 import {
@@ -166,12 +168,21 @@ function isEditorTarget(target: EventTarget | null): boolean {
   );
 }
 
+function isInteractiveTarget(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLElement &&
+    target.closest("button, a, [role='button']") !== null
+  );
+}
+
 export function DailyNoteEditor({
   date,
   isToday,
+  muted,
 }: {
   date: string;
   isToday?: boolean;
+  muted?: boolean;
 }) {
   const store = main.UI.useStore(main.STORE_ID);
   const editorRef = useRef<NoteEditorRef>(null);
@@ -328,7 +339,7 @@ export function DailyNoteEditor({
 
   const handleContainerMouseDownCapture = useCallback(
     (event: React.MouseEvent) => {
-      if (isEditorTarget(event.target)) {
+      if (isEditorTarget(event.target) || isInteractiveTarget(event.target)) {
         return;
       }
 
@@ -340,7 +351,7 @@ export function DailyNoteEditor({
 
   const handleContainerClick = useCallback(
     (event: React.MouseEvent) => {
-      if (isEditorTarget(event.target)) {
+      if (isEditorTarget(event.target) || isInteractiveTarget(event.target)) {
         return;
       }
 
@@ -355,18 +366,21 @@ export function DailyNoteEditor({
 
   return (
     <div
-      className="main2-daily-note-editor flex-1 px-6"
+      className="group/daily-note flex flex-1 flex-col"
       onMouseDownCapture={handleContainerMouseDownCapture}
       onClick={handleContainerClick}
     >
-      <NoteEditor
-        ref={editorRef}
-        key={`daily-${date}`}
-        initialContent={initialContentRef.current}
-        handleChange={handleChange}
-        linkedItemOpenBehavior="new"
-        taskSource={taskSource}
-      />
+      <DateHeader date={date} muted={muted} />
+      <div className="main2-daily-note-editor flex-1 cursor-text px-6">
+        <NoteEditor
+          ref={editorRef}
+          key={`daily-${date}`}
+          initialContent={initialContentRef.current}
+          handleChange={handleChange}
+          linkedItemOpenBehavior="new"
+          taskSource={taskSource}
+        />
+      </div>
     </div>
   );
 }

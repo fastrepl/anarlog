@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
 import { dailyNoteSectionClassName } from "./constants";
-import { DateHeader } from "./date-header";
 import { DailyNoteEditor } from "./note-editor";
 
 export function LazyNote({ date, muted }: { date: string; muted?: boolean }) {
@@ -28,12 +27,7 @@ export function LazyNote({ date, muted }: { date: string; muted?: boolean }) {
 
   return (
     <div ref={ref} className={dailyNoteSectionClassName}>
-      {visible && (
-        <>
-          <DateHeader date={date} muted={muted} />
-          <DailyNoteEditor date={date} />
-        </>
-      )}
+      {visible && <DailyNoteEditor date={date} muted={muted} />}
     </div>
   );
 }

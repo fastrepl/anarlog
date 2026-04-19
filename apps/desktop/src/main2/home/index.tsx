@@ -71,7 +71,6 @@ export function Main2Home() {
             <div className="mx-6 border-t border-neutral-200" />
 
             <div ref={todayRef} className={dailyNoteSectionClassName}>
-              <DateHeader date={today} />
               <DailyNoteEditor date={today} isToday />
             </div>
 
