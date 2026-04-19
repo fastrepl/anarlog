@@ -10,9 +10,9 @@ use hypr_calendar_sync::{BoxError, SyncOutcome};
 use tauri::Manager;
 
 use crate::auth::{access_token, is_apple_authorized, require_access_token};
-use crate::sync_store::{
-    CalendarSyncSnapshot, CalendarSyncStore, JsonCalendarSyncStore, StoredCalendar, StoredEvent,
-    StoredParticipant, default_user_id,
+
+use super::store::{
+    CalendarSyncStore, StoredCalendar, StoredEvent, StoredParticipant, default_user_id,
 };
 
 #[derive(Clone)]
@@ -22,15 +22,8 @@ pub struct PluginCalendarSyncSource<R: tauri::Runtime> {
 }
 
 impl<R: tauri::Runtime> PluginCalendarSyncSource<R> {
-    pub fn new(app: tauri::AppHandle<R>) -> Self {
-        Self::with_store(app.clone(), JsonCalendarSyncStore::new(app))
-    }
-
-    pub fn with_store(app: tauri::AppHandle<R>, store: impl CalendarSyncStore) -> Self {
-        Self {
-            app,
-            store: Arc::new(store),
-        }
+    pub fn new(app: tauri::AppHandle<R>, store: Arc<dyn CalendarSyncStore>) -> Self {
+        Self { app, store }
     }
 
     async fn sync_once(
@@ -52,6 +45,8 @@ impl<R: tauri::Runtime> PluginCalendarSyncSource<R> {
             "calendar sync source: fetched provider connections"
         );
 
+        // Load a working copy outside the write lock so the provider fetches
+        // below don't block UI writes; we re-merge under the lock at save time.
         let snapshot = self.store.load_snapshot().await?;
         let mut calendars = snapshot.calendars;
         let mut events = snapshot.events;
@@ -60,9 +55,6 @@ impl<R: tauri::Runtime> PluginCalendarSyncSource<R> {
             events = events.len(),
             "calendar sync source: loaded snapshot"
         );
-
-        let original_calendars = calendars.clone();
-        let original_events = events.clone();
 
         for provider_connection_ids in &provider_connections {
             sync_calendars_for_provider(
@@ -96,25 +88,33 @@ impl<R: tauri::Runtime> PluginCalendarSyncSource<R> {
             }
         }
 
-        let calendars_changed = calendars != original_calendars;
-        let events_changed = events != original_events;
+        let data_changed = self
+            .store
+            .mutate(Box::new(move |current| {
+                // Preserve UI-written fields (today: `calendar.enabled`) that
+                // may have landed on disk during the fetch.
+                for (id, computed) in &mut calendars {
+                    if let Some(on_disk) = current.calendars.get(id) {
+                        computed.enabled = on_disk.enabled;
+                    }
+                }
 
-        if calendars_changed || events_changed {
-            self.store
-                .save_snapshot(CalendarSyncSnapshot { calendars, events })
-                .await?;
-            tracing::info!(
-                calendars_changed,
-                events_changed,
-                "calendar sync source: saved updated snapshot"
-            );
+                let changed = current.calendars != calendars || current.events != events;
+                if changed {
+                    current.calendars = std::mem::take(&mut calendars);
+                    current.events = std::mem::take(&mut events);
+                }
+                changed
+            }))
+            .await?;
+
+        if data_changed {
+            tracing::info!("calendar sync source: saved updated snapshot");
         } else {
             tracing::info!("calendar sync source: snapshot unchanged");
         }
 
-        Ok(SyncOutcome {
-            data_changed: calendars_changed || events_changed,
-        })
+        Ok(SyncOutcome { data_changed })
     }
 }
 
@@ -329,7 +329,6 @@ async fn sync_events_for_connection<R: tauri::Runtime>(
 
         if let Some(incoming) = incoming_by_tracking_id.get(&tracking_id) {
             let updated = StoredEvent {
-                id: existing.id.clone(),
                 user_id: existing.user_id.clone(),
                 created_at: existing.created_at.clone(),
                 tracking_id_event: Some(tracking_id.clone()),
@@ -367,9 +366,8 @@ async fn sync_events_for_connection<R: tauri::Runtime>(
 
         let row_id = new_id();
         events.insert(
-            row_id.clone(),
+            row_id,
             StoredEvent {
-                id: row_id,
                 user_id: default_user_id(),
                 created_at: now_iso(),
                 tracking_id_event: Some(incoming.tracking_id_event),

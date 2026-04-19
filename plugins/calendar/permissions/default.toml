@@ -11,4 +11,5 @@ permissions = [
     "allow-parse-meeting-link",
     "allow-request-calendar-sync",
     "allow-get-calendar-sync-status",
+    "allow-set-calendar-enabled",
 ]

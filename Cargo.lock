@@ -19002,6 +19002,7 @@ dependencies = [
  "tauri-plugin-auth",
  "tauri-plugin-permissions",
  "tauri-specta",
+ "tempfile",
  "thiserror 2.0.18",
  "tokio",
  "tracing",

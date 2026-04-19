@@ -415,10 +415,22 @@
           "markdownDescription": "Denies the request_calendar_sync command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-available-providers`\n- `allow-is-provider-enabled`\n- `allow-list-connection-ids`\n- `allow-list-calendars`\n- `allow-list-events`\n- `allow-open-calendar`\n- `allow-create-event`\n- `allow-parse-meeting-link`\n- `allow-request-calendar-sync`\n- `allow-get-calendar-sync-status`",
+          "description": "Enables the set_calendar_enabled command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-calendar-enabled",
+          "markdownDescription": "Enables the set_calendar_enabled command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_calendar_enabled command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-calendar-enabled",
+          "markdownDescription": "Denies the set_calendar_enabled command without any pre-configured scope."
+        },
+        {
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-available-providers`\n- `allow-is-provider-enabled`\n- `allow-list-connection-ids`\n- `allow-list-calendars`\n- `allow-list-events`\n- `allow-open-calendar`\n- `allow-create-event`\n- `allow-parse-meeting-link`\n- `allow-request-calendar-sync`\n- `allow-get-calendar-sync-status`\n- `allow-set-calendar-enabled`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-available-providers`\n- `allow-is-provider-enabled`\n- `allow-list-connection-ids`\n- `allow-list-calendars`\n- `allow-list-events`\n- `allow-open-calendar`\n- `allow-create-event`\n- `allow-parse-meeting-link`\n- `allow-request-calendar-sync`\n- `allow-get-calendar-sync-status`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-available-providers`\n- `allow-is-provider-enabled`\n- `allow-list-connection-ids`\n- `allow-list-calendars`\n- `allow-list-events`\n- `allow-open-calendar`\n- `allow-create-event`\n- `allow-parse-meeting-link`\n- `allow-request-calendar-sync`\n- `allow-get-calendar-sync-status`\n- `allow-set-calendar-enabled`"
         }
       ]
     }

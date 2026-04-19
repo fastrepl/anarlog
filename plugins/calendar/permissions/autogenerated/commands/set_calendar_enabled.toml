@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-set-calendar-enabled"
+description = "Enables the set_calendar_enabled command without any pre-configured scope."
+commands.allow = ["set_calendar_enabled"]
+
+[[permission]]
+identifier = "deny-set-calendar-enabled"
+description = "Denies the set_calendar_enabled command without any pre-configured scope."
+commands.deny = ["set_calendar_enabled"]

@@ -9,6 +9,7 @@ import {
   CalendarSelection,
 } from "~/calendar/components/calendar-selection";
 import type { CalendarProvider } from "~/calendar/components/shared";
+import { useSetCalendarEnabled } from "~/calendar/hooks";
 import * as main from "~/store/tinybase/store/main";
 
 export function OAuthCalendarSelection({
@@ -34,7 +35,7 @@ export function OAuthCalendarSelection({
 
 export function useOAuthCalendarSelection(config: CalendarProvider) {
   const queryClient = useQueryClient();
-  const store = main.UI.useStore(main.STORE_ID);
+  const setCalendarEnabled = useSetCalendarEnabled();
   const calendars = main.UI.useTable("calendars", main.STORE_ID);
   const { cancelDebouncedSync, status, scheduleDebouncedSync, scheduleSync } =
     useSync();
@@ -109,10 +110,12 @@ export function useOAuthCalendarSelection(config: CalendarProvider) {
 
   const handleToggle = useCallback(
     (calendar: CalendarItem, enabled: boolean) => {
-      store?.setPartialRow("calendars", calendar.id, { enabled });
+      void setCalendarEnabled(calendar.id, enabled).catch((error) => {
+        console.error("[oauth-calendar-selection] setCalendarEnabled:", error);
+      });
       scheduleDebouncedSync();
     },
-    [store, scheduleDebouncedSync],
+    [setCalendarEnabled, scheduleDebouncedSync],
   );
 
   const handleRefresh = useCallback(() => {

@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use hypr_calendar_interface::{
     CalendarEvent, CalendarListItem, CalendarProviderType, CreateEventInput, EventFilter,
 };
@@ -5,6 +7,7 @@ use tauri::Manager;
 
 use crate::auth::{access_token, is_apple_authorized, require_access_token};
 use crate::error::Error;
+use crate::sync::CalendarSyncStore;
 
 #[tauri::command]
 #[specta::specta]
@@ -123,4 +126,29 @@ pub fn get_calendar_sync_status<R: tauri::Runtime>(
 ) -> hypr_calendar_sync::SyncStatus {
     app.state::<hypr_calendar_sync::CalendarSyncHandle>()
         .status()
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn set_calendar_enabled<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    calendar_id: String,
+    enabled: bool,
+) -> Result<(), Error> {
+    let store = app.state::<Arc<dyn CalendarSyncStore>>().inner().clone();
+
+    store
+        .mutate(Box::new(move |snap| {
+            match snap.calendars.get_mut(&calendar_id) {
+                Some(cal) if cal.enabled != enabled => {
+                    cal.enabled = enabled;
+                    true
+                }
+                _ => false,
+            }
+        }))
+        .await
+        .map_err(|error| Error::Store(error.to_string()))?;
+
+    Ok(())
 }

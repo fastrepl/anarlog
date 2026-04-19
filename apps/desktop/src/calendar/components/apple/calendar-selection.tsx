@@ -7,6 +7,7 @@ import {
   type CalendarItem,
   CalendarSelection,
 } from "~/calendar/components/calendar-selection";
+import { useSetCalendarEnabled } from "~/calendar/hooks";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import * as main from "~/store/tinybase/store/main";
 
@@ -43,7 +44,7 @@ export function useAppleCalendarSelection() {
   const { cancelDebouncedSync, status, scheduleDebouncedSync, scheduleSync } =
     useSync();
 
-  const store = main.UI.useStore(main.STORE_ID);
+  const setCalendarEnabled = useSetCalendarEnabled();
   const calendars = main.UI.useTable("calendars", main.STORE_ID);
 
   const groups = useMemo((): CalendarGroup[] => {
@@ -77,10 +78,12 @@ export function useAppleCalendarSelection() {
 
   const handleToggle = useCallback(
     (calendar: CalendarItem, enabled: boolean) => {
-      store?.setPartialRow("calendars", calendar.id, { enabled });
+      void setCalendarEnabled(calendar.id, enabled).catch((error) => {
+        console.error("[apple-calendar-selection] setCalendarEnabled:", error);
+      });
       scheduleDebouncedSync();
     },
-    [store, scheduleDebouncedSync],
+    [setCalendarEnabled, scheduleDebouncedSync],
   );
 
   const handleRefresh = useCallback(() => {

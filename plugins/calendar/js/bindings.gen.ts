@@ -65,6 +65,14 @@ async requestCalendarSync(reason: SyncReason) : Promise<boolean> {
 },
 async getCalendarSyncStatus() : Promise<SyncStatus> {
     return await TAURI_INVOKE("plugin:calendar|get_calendar_sync_status");
+},
+async setCalendarEnabled(calendarId: string, enabled: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:calendar|set_calendar_enabled", { calendarId, enabled }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 

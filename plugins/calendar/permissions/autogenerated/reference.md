@@ -14,6 +14,7 @@ Default permissions for the plugin
 - `allow-parse-meeting-link`
 - `allow-request-calendar-sync`
 - `allow-get-calendar-sync-status`
+- `allow-set-calendar-enabled`
 
 ## Permission Table
 
@@ -280,6 +281,32 @@ Enables the request_calendar_sync command without any pre-configured scope.
 <td>
 
 Denies the request_calendar_sync command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`calendar:allow-set-calendar-enabled`
+
+</td>
+<td>
+
+Enables the set_calendar_enabled command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`calendar:deny-set-calendar-enabled`
+
+</td>
+<td>
+
+Denies the set_calendar_enabled command without any pre-configured scope.
 
 </td>
 </tr>

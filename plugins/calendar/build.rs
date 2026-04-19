@@ -7,6 +7,9 @@ const COMMANDS: &[&str] = &[
     "open_calendar",
     "create_event",
     "parse_meeting_link",
+    "request_calendar_sync",
+    "get_calendar_sync_status",
+    "set_calendar_enabled",
 ];
 
 fn main() {

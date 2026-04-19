@@ -55,6 +55,11 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     let unlisten: (() => void) | null = null;
+    // Guards the initial `getCalendarSyncStatus` prime from overwriting a
+    // fresher status that arrived via the event listener while the invoke
+    // was in flight — the Rust worker emits status changes from a separate
+    // thread, so cross-channel ordering with the invoke response is not
+    // guaranteed.
     let sawLiveEvent = false;
 
     const handleSyncEvent = ({ payload }: { payload: CalendarSyncEvent }) => {
@@ -84,6 +89,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
         unlisten = fn;
       } catch (error) {
         console.error(error);
+        return;
       }
 
       try {

@@ -3,8 +3,7 @@ mod commands;
 mod error;
 mod events;
 mod runtime;
-mod sync_source;
-mod sync_store;
+mod sync;
 
 pub use error::Error;
 pub use events::*;
@@ -30,6 +29,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::parse_meeting_link,
             commands::request_calendar_sync::<tauri::Wry>,
             commands::get_calendar_sync_status::<tauri::Wry>,
+            commands::set_calendar_enabled::<tauri::Wry>,
         ])
         .events(tauri_specta::collect_events![
             CalendarChangedEvent,
@@ -47,11 +47,23 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .setup(move |app, _api| {
             specta_builder.mount_events(app);
 
+            use std::sync::Arc;
             use tauri::Manager;
+
             app.manage(PluginConfig { api_base_url });
 
+            let store: Arc<dyn sync::CalendarSyncStore> = Arc::new(
+                sync::JsonCalendarSyncStore::for_app(app.app_handle()).map_err(
+                    |error| -> Box<dyn std::error::Error> {
+                        tracing::error!(%error, "failed to initialize calendar sync store");
+                        error.to_string().into()
+                    },
+                )?,
+            );
+            app.manage(store.clone());
+
             let handle = hypr_calendar_sync::start(
-                sync_source::PluginCalendarSyncSource::new(app.app_handle().clone()),
+                sync::PluginCalendarSyncSource::new(app.app_handle().clone(), store),
                 runtime::TauriCalendarSyncRuntime(app.app_handle().clone()),
                 hypr_calendar_sync::Config::every_minute(),
             );

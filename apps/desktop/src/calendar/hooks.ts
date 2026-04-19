@@ -1,6 +1,7 @@
 import { format } from "date-fns";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { commands as calendarCommands } from "@hypr/plugin-calendar";
 import { safeParseDate } from "@hypr/utils";
 import { TZDate } from "@hypr/utils";
 
@@ -79,6 +80,29 @@ export function useCalendar(id: string | null | undefined): Calendar | null {
       created_at: row.created_at ?? "",
     };
   }, [id, row]);
+}
+
+/**
+ * Toggle a calendar's `enabled` flag through the Rust plugin. The command is
+ * the single-writer path for `calendars.json` — never call
+ * `store.setPartialRow("calendars", ...)` directly, since the TinyBase
+ * persister for this table is load-only (see
+ * `apps/desktop/src/store/tinybase/persister/calendar/persister.ts`) and the
+ * Rust sync worker would clobber any UI-side writes on its next pass.
+ */
+export function useSetCalendarEnabled() {
+  return useCallback(
+    async (calendarId: string, enabled: boolean): Promise<void> => {
+      const result = await calendarCommands.setCalendarEnabled(
+        calendarId,
+        enabled,
+      );
+      if (result.status === "error") {
+        throw new Error(result.error);
+      }
+    },
+    [],
+  );
 }
 
 export type EnabledCalendar = { id: string; provider: string };
