@@ -22,6 +22,15 @@ export type ReconcileIncomingEvent = {
   is_all_day: boolean;
 };
 
+export type ReconcileSessionEventState =
+  | {
+      type: "observed";
+      event: ReconcileIncomingEvent;
+    }
+  | {
+      type: "deleted";
+    };
+
 export type IncomingParticipantState =
   | {
       type: "observed";

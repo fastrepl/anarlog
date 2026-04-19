@@ -4,6 +4,7 @@ use tokio::sync::mpsc;
 
 use crate::config::Config;
 use crate::handle::CalendarSyncHandle;
+use crate::panic_utils::panic_message;
 use crate::runtime::{CalendarSyncRuntime, SyncStatus};
 use crate::source::CalendarSyncSource;
 use crate::store::CalendarSyncStore;
@@ -42,7 +43,7 @@ where
 
             if let Err(payload) = result {
                 tracing::error!(
-                    panic = %panic_message(&payload),
+                    panic = %panic_message(payload.as_ref()),
                     "calendar sync worker thread panicked"
                 );
             }
@@ -50,14 +51,4 @@ where
         .expect("failed to spawn calendar sync worker thread");
 
     CalendarSyncHandle::new(tx, status)
-}
-
-fn panic_message(payload: &Box<dyn std::any::Any + Send>) -> String {
-    if let Some(message) = payload.downcast_ref::<&'static str>() {
-        (*message).to_string()
-    } else if let Some(message) = payload.downcast_ref::<String>() {
-        message.clone()
-    } else {
-        "unknown panic".to_string()
-    }
 }

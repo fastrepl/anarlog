@@ -8,6 +8,14 @@ use tauri::Manager;
 use crate::auth::{access_token, is_apple_authorized, require_access_token};
 use crate::error::Error;
 use crate::sync::JsonCalendarSyncStore;
+use crate::sync::json::CalendarSyncSnapshot;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SetCalendarEnabledOutcome {
+    Updated,
+    Unchanged,
+    NotFound,
+}
 
 #[tauri::command]
 #[specta::specta]
@@ -133,17 +141,93 @@ pub async fn set_calendar_enabled<R: tauri::Runtime>(
     enabled: bool,
 ) -> Result<(), Error> {
     let store = app.state::<Arc<JsonCalendarSyncStore>>().inner().clone();
-
-    store
-        .mutate(move |snap| match snap.calendars.get_mut(&calendar_id) {
-            Some(cal) if cal.enabled != enabled => {
-                cal.enabled = enabled;
-                true
-            }
-            _ => false,
+    let outcome = store
+        .mutate_with_result(|snap| {
+            let outcome = set_calendar_enabled_in_snapshot(snap, &calendar_id, enabled);
+            (
+                matches!(outcome, SetCalendarEnabledOutcome::Updated),
+                outcome,
+            )
         })
         .await
         .map_err(|error| Error::Store(error.to_string()))?;
 
-    Ok(())
+    match outcome {
+        SetCalendarEnabledOutcome::Updated | SetCalendarEnabledOutcome::Unchanged => Ok(()),
+        SetCalendarEnabledOutcome::NotFound => Err(Error::CalendarNotFound(calendar_id)),
+    }
+}
+
+fn set_calendar_enabled_in_snapshot(
+    snapshot: &mut CalendarSyncSnapshot,
+    calendar_id: &str,
+    enabled: bool,
+) -> SetCalendarEnabledOutcome {
+    let Some(calendar) = snapshot.calendars.get_mut(calendar_id) else {
+        return SetCalendarEnabledOutcome::NotFound;
+    };
+
+    if calendar.enabled == enabled {
+        return SetCalendarEnabledOutcome::Unchanged;
+    }
+
+    calendar.enabled = enabled;
+    SetCalendarEnabledOutcome::Updated
+}
+
+#[cfg(test)]
+mod tests {
+    use hypr_calendar_interface::CalendarProviderType;
+
+    use super::*;
+    use crate::sync::store::CalendarRecord;
+
+    #[test]
+    fn set_calendar_enabled_updates_existing_calendar() {
+        let mut snapshot = CalendarSyncSnapshot::default();
+        snapshot
+            .calendars
+            .insert("cal-1".to_string(), sample_calendar(false));
+
+        let outcome = set_calendar_enabled_in_snapshot(&mut snapshot, "cal-1", true);
+
+        assert_eq!(outcome, SetCalendarEnabledOutcome::Updated);
+        assert_eq!(snapshot.calendars.get("cal-1").unwrap().enabled, true);
+    }
+
+    #[test]
+    fn set_calendar_enabled_reports_missing_calendar() {
+        let mut snapshot = CalendarSyncSnapshot::default();
+
+        let outcome = set_calendar_enabled_in_snapshot(&mut snapshot, "missing", true);
+
+        assert_eq!(outcome, SetCalendarEnabledOutcome::NotFound);
+    }
+
+    #[test]
+    fn set_calendar_enabled_leaves_matching_value_unchanged() {
+        let mut snapshot = CalendarSyncSnapshot::default();
+        snapshot
+            .calendars
+            .insert("cal-1".to_string(), sample_calendar(true));
+
+        let outcome = set_calendar_enabled_in_snapshot(&mut snapshot, "cal-1", true);
+
+        assert_eq!(outcome, SetCalendarEnabledOutcome::Unchanged);
+        assert_eq!(snapshot.calendars.get("cal-1").unwrap().enabled, true);
+    }
+
+    fn sample_calendar(enabled: bool) -> CalendarRecord {
+        CalendarRecord {
+            user_id: "user-1".to_string(),
+            created_at: "2026-01-01T00:00:00Z".to_string(),
+            tracking_id_calendar: "tracking-cal-1".to_string(),
+            name: "Primary".to_string(),
+            enabled,
+            provider: CalendarProviderType::Google,
+            source: "test".to_string(),
+            color: "#4285f4".to_string(),
+            connection_id: "conn-1".to_string(),
+        }
+    }
 }

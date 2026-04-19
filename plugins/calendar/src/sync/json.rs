@@ -43,17 +43,18 @@ impl JsonCalendarSyncStore {
         self.read_snapshot().await
     }
 
-    pub async fn mutate<F>(&self, mutator: F) -> Result<bool, BoxError>
+    pub(crate) async fn mutate_with_result<F, T>(&self, mutator: F) -> Result<T, BoxError>
     where
-        F: FnOnce(&mut CalendarSyncSnapshot) -> bool + Send,
+        F: FnOnce(&mut CalendarSyncSnapshot) -> (bool, T) + Send,
+        T: Send,
     {
         let _guard = self.write_lock.lock().await;
         let mut snapshot = self.read_snapshot().await?;
-        let should_persist = mutator(&mut snapshot);
+        let (should_persist, result) = mutator(&mut snapshot);
         if should_persist {
             self.write_snapshot(&snapshot).await?;
         }
-        Ok(should_persist)
+        Ok(result)
     }
 
     async fn read_snapshot(&self) -> Result<CalendarSyncSnapshot, BoxError> {
@@ -603,10 +604,10 @@ mod tests {
         let store = JsonCalendarSyncStore::from_base_path(dir.path().to_path_buf());
 
         let persisted = store
-            .mutate(|snap| {
+            .mutate_with_result(|snap| {
                 snap.calendars
                     .insert("cal-1".to_string(), sample_calendar("cal-1"));
-                false
+                (false, false)
             })
             .await
             .unwrap();
@@ -723,9 +724,9 @@ mod tests {
                 for i in 0..PER_TASK {
                     let key = format!("task-{task_id}-cal-{i}");
                     store
-                        .mutate(move |snap| {
+                        .mutate_with_result(move |snap| {
                             snap.calendars.insert(key.clone(), sample_calendar(&key));
-                            true
+                            (true, ())
                         })
                         .await
                         .expect("mutate ok");
@@ -751,14 +752,14 @@ mod tests {
         let store = JsonCalendarSyncStore::from_base_path(dir.path().to_path_buf());
 
         store
-            .mutate(|snapshot| {
+            .mutate_with_result(|snapshot| {
                 snapshot
                     .calendars
                     .insert("cal-1".to_string(), sample_calendar("primary"));
                 snapshot
                     .events
                     .insert("event-1".to_string(), sample_event("cal-1"));
-                true
+                (true, ())
             })
             .await
             .unwrap();
@@ -863,7 +864,7 @@ mod tests {
             dir.path().to_path_buf(),
         ));
         store
-            .mutate(|snapshot| {
+            .mutate_with_result(|snapshot| {
                 snapshot.calendars.insert(
                     "cal-primary".to_string(),
                     CalendarRecord {
@@ -878,7 +879,7 @@ mod tests {
                         connection_id: "conn-1".to_string(),
                     },
                 );
-                true
+                (true, ())
             })
             .await
             .unwrap();

@@ -7,6 +7,7 @@ use futures_util::FutureExt;
 use tokio::sync::mpsc::{UnboundedReceiver, error::TryRecvError};
 use tokio::time::{Instant, sleep_until, timeout};
 
+use crate::panic_utils::panic_message;
 use crate::plan::{plan_calendars, plan_events};
 use crate::runtime::{CalendarSyncRuntime, CalendarSyncWorkerEvent, SyncStatus};
 use crate::source::{CalendarSyncSource, SyncOutcome};
@@ -132,7 +133,7 @@ where
         .await;
 
         if let Err(panic_payload) = outcome {
-            let panic_message = panic_message(&panic_payload);
+            let panic_message = panic_message(panic_payload.as_ref());
             tracing::error!(panic = %panic_message, "calendar sync panicked");
             self.safe_emit(CalendarSyncWorkerEvent::SyncFailed {
                 error: format!("calendar sync panicked: {panic_message}"),
@@ -183,7 +184,7 @@ where
     fn safe_emit(&self, event: CalendarSyncWorkerEvent) {
         if let Err(panic_payload) = catch_unwind(AssertUnwindSafe(|| self.runtime.emit(event))) {
             tracing::error!(
-                panic = %panic_message(&panic_payload),
+                panic = %panic_message(panic_payload.as_ref()),
                 "calendar sync runtime emit panicked"
             );
         }
@@ -195,16 +196,6 @@ fn sync_range() -> SyncRange {
     SyncRange {
         from: now - ChronoDuration::days(7),
         to: now + ChronoDuration::days(30),
-    }
-}
-
-fn panic_message(payload: &Box<dyn std::any::Any + Send>) -> String {
-    if let Some(message) = payload.downcast_ref::<&'static str>() {
-        (*message).to_string()
-    } else if let Some(message) = payload.downcast_ref::<String>() {
-        message.clone()
-    } else {
-        "unknown panic".to_string()
     }
 }
 

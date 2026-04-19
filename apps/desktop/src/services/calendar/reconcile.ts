@@ -7,7 +7,7 @@ import {
 import type {
   IncomingParticipants,
   ReconcileCtx,
-  ReconcileIncomingEvent,
+  ReconcileSessionEventState,
 } from "./types";
 
 import { getSessionEventById } from "~/session/utils";
@@ -15,7 +15,7 @@ import type { Store } from "~/store/tinybase/store/main";
 
 export function reconcileCalendarSessions(store: Store) {
   const ctx: ReconcileCtx = { store };
-  const incomingByTrackingId = new Map<string, ReconcileIncomingEvent>();
+  const incomingEventStates = new Map<string, ReconcileSessionEventState>();
   const incomingParticipants: IncomingParticipants = new Map();
 
   store.forEachRow("events", (eventId, _forEachCell) => {
@@ -26,18 +26,21 @@ export function reconcileCalendarSessions(store: Store) {
 
     const trackingId = String(event.tracking_id_event);
     const calendarId = String(event.calendar_id ?? "");
-    incomingByTrackingId.set(trackingId, {
-      tracking_id_event: trackingId,
-      calendar_id: calendarId,
-      title: asOptionalString(event.title),
-      started_at: asOptionalString(event.started_at),
-      ended_at: asOptionalString(event.ended_at),
-      location: asOptionalString(event.location),
-      meeting_link: asOptionalString(event.meeting_link),
-      description: asOptionalString(event.description),
-      recurrence_series_id: asOptionalString(event.recurrence_series_id),
-      has_recurrence_rules: Boolean(event.has_recurrence_rules),
-      is_all_day: Boolean(event.is_all_day),
+    incomingEventStates.set(trackingId, {
+      type: "observed",
+      event: {
+        tracking_id_event: trackingId,
+        calendar_id: calendarId,
+        title: asOptionalString(event.title),
+        started_at: asOptionalString(event.started_at),
+        ended_at: asOptionalString(event.ended_at),
+        location: asOptionalString(event.location),
+        meeting_link: asOptionalString(event.meeting_link),
+        description: asOptionalString(event.description),
+        recurrence_series_id: asOptionalString(event.recurrence_series_id),
+        has_recurrence_rules: Boolean(event.has_recurrence_rules),
+        is_all_day: Boolean(event.is_all_day),
+      },
     });
 
     incomingParticipants.set(trackingId, {
@@ -46,11 +49,9 @@ export function reconcileCalendarSessions(store: Store) {
     });
   });
 
-  reconcileSessionEmbeddedEvents(
-    store,
-    incomingByTrackingId,
-    incomingParticipants,
-  );
+  markDeletedSessionEvents(store, incomingEventStates, incomingParticipants);
+
+  reconcileSessionEmbeddedEvents(store, incomingEventStates);
 
   const participantsOut = syncSessionParticipants(ctx, {
     incomingParticipants,
@@ -60,8 +61,7 @@ export function reconcileCalendarSessions(store: Store) {
 
 function reconcileSessionEmbeddedEvents(
   store: Store,
-  incomingByTrackingId: Map<string, ReconcileIncomingEvent>,
-  incomingParticipants: IncomingParticipants,
+  incomingEventStates: Map<string, ReconcileSessionEventState>,
 ) {
   store.transaction(() => {
     store.forEachRow("sessions", (sessionId, _forEachCell) => {
@@ -69,17 +69,19 @@ function reconcileSessionEmbeddedEvents(
       if (!sessionEvent) return;
       if (!sessionEvent.tracking_id) return;
 
-      const incomingEvent = incomingByTrackingId.get(sessionEvent.tracking_id);
-      if (!incomingEvent) {
-        // During the TinyBase bridge, calendar-sync keeps out-of-range events
-        // in the cache, so a missing row is a positive delete.
-        store.setPartialRow("sessions", sessionId, {
-          event_json: "",
-        });
-        incomingParticipants.set(sessionEvent.tracking_id, { type: "deleted" });
+      const nextState = incomingEventStates.get(sessionEvent.tracking_id);
+      if (!nextState) {
         return;
       }
 
+      if (nextState.type === "deleted") {
+        store.setPartialRow("sessions", sessionId, {
+          event_json: "",
+        });
+        return;
+      }
+
+      const incomingEvent = nextState.event;
       store.setPartialRow("sessions", sessionId, {
         event_json: JSON.stringify({
           tracking_id: incomingEvent.tracking_id_event,
@@ -96,6 +98,27 @@ function reconcileSessionEmbeddedEvents(
         }),
       });
     });
+  });
+}
+
+function markDeletedSessionEvents(
+  store: Store,
+  incomingEventStates: Map<string, ReconcileSessionEventState>,
+  incomingParticipants: IncomingParticipants,
+) {
+  store.forEachRow("sessions", (sessionId, _forEachCell) => {
+    const sessionEvent = getSessionEventById(store, sessionId);
+    if (!sessionEvent?.tracking_id) {
+      return;
+    }
+    if (incomingEventStates.has(sessionEvent.tracking_id)) {
+      return;
+    }
+
+    // During the TinyBase bridge, calendar-sync keeps out-of-range events in
+    // the cache, so a missing row is a positive delete.
+    incomingEventStates.set(sessionEvent.tracking_id, { type: "deleted" });
+    incomingParticipants.set(sessionEvent.tracking_id, { type: "deleted" });
   });
 }
 

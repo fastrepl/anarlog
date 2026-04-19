@@ -2,6 +2,7 @@ mod bootstrap;
 mod config;
 mod error;
 mod handle;
+mod panic_utils;
 mod plan;
 mod runtime;
 mod source;
