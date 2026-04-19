@@ -51,8 +51,13 @@ pub fn plan_calendars<'a, C: PersistedCalendar>(
     requested_connections: &'a BTreeSet<ConnectionKey>,
     successful_calendar_connections: &'a BTreeSet<ConnectionKey>,
 ) -> CalendarPlan<'a> {
+    debug_assert!(incoming.iter().all(|calendar| {
+        successful_calendar_connections.contains(&calendar.key.connection_key())
+    }));
+
     let incoming_by_key: BTreeMap<_, _> =
         incoming.iter().map(|row| (row.key.clone(), row)).collect();
+    let existing_by_key: BTreeMap<_, _> = existing.iter().map(|row| (row.key(), row)).collect();
     let mut ops = Vec::new();
     let mut enabled_calendar_ids = BTreeSet::new();
     let mut enabled_calendar_keys = BTreeMap::new();
@@ -88,12 +93,8 @@ pub fn plan_calendars<'a, C: PersistedCalendar>(
         }
     }
 
-    for incoming_calendar in incoming {
-        if incoming_by_key.contains_key(&incoming_calendar.key)
-            && !existing
-                .iter()
-                .any(|calendar| calendar.key() == incoming_calendar.key)
-        {
+    for (key, incoming_calendar) in &incoming_by_key {
+        if !existing_by_key.contains_key(key) {
             ops.push(CalendarOp::Upsert {
                 existing_id: None,
                 incoming: incoming_calendar,
@@ -117,19 +118,26 @@ pub fn plan_events<'a, 'b, C: PersistedCalendar, E: PersistedEvent>(
     calendar_plan: &'b CalendarPlan<'a>,
     range: SyncRange,
 ) -> EventPlan<'a> {
+    debug_assert!(incoming.iter().all(|event| {
+        successful_event_connections.contains(&event.calendar_key.connection_key())
+    }));
+
     let existing_calendars_by_id: BTreeMap<_, _> = existing_calendars
         .iter()
         .map(|calendar| (calendar.id().to_string(), calendar))
         .collect();
-    let incoming_by_identity: BTreeMap<_, _> = incoming
-        .iter()
-        .map(|event| {
-            (
-                event_identity(&event.calendar_key, &event.tracking_id_event),
-                event,
-            )
-        })
-        .collect();
+    let mut incoming_by_identity = BTreeMap::new();
+    for event in incoming {
+        let identity = event_identity(&event.calendar_key, &event.tracking_id_event);
+        if incoming_by_identity.insert(identity, event).is_some() {
+            tracing::debug!(
+                provider = ?event.calendar_key.provider,
+                connection_id = %event.calendar_key.connection_id,
+                tracking_id_event = %event.tracking_id_event,
+                "collapsing duplicate incoming event identity"
+            );
+        }
+    }
 
     let mut ops = Vec::new();
     let mut handled_identities = BTreeSet::new();
@@ -186,11 +194,7 @@ pub fn plan_events<'a, 'b, C: PersistedCalendar, E: PersistedEvent>(
         });
     }
 
-    for incoming_event in incoming {
-        let identity = event_identity(
-            &incoming_event.calendar_key,
-            &incoming_event.tracking_id_event,
-        );
+    for (identity, incoming_event) in incoming_by_identity {
         if handled_identities.contains(&identity) {
             continue;
         }
@@ -435,6 +439,100 @@ mod tests {
             }
             other => panic!("expected insert, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn duplicate_incoming_identity_inserts_once() {
+        let calendars = vec![test_calendar("cal-john", "conn-john", "primary", true)];
+        let incoming_calendars = vec![test_incoming_calendar("conn-john", "primary")];
+        let requested_connections = BTreeSet::from([ConnectionKey::new(
+            CalendarProviderType::Google,
+            "conn-john",
+        )]);
+        let calendar_plan = plan_calendars(
+            &calendars,
+            &incoming_calendars,
+            &requested_connections,
+            &requested_connections,
+        );
+        let incoming = vec![
+            test_incoming_event("conn-john", "primary", "evt-1"),
+            IncomingEvent {
+                payload: EventPayload {
+                    title: Some("latest title wins".to_string()),
+                    ..EventPayload::default()
+                },
+                ..test_incoming_event("conn-john", "primary", "evt-1")
+            },
+        ];
+        let events = Vec::<TestEvent>::new();
+
+        let plan = plan_events(
+            &calendars,
+            &events,
+            &incoming,
+            &requested_connections,
+            &calendar_plan,
+            test_range(),
+        );
+
+        assert_eq!(plan.ops.len(), 1);
+        match &plan.ops[0] {
+            EventOp::Insert { incoming } => {
+                assert_eq!(incoming.calendar_key.connection_id, "conn-john");
+                assert_eq!(incoming.tracking_id_event, "evt-1");
+                assert_eq!(incoming.payload.title.as_deref(), Some("latest title wins"));
+            }
+            other => panic!("expected insert, got {other:?}"),
+        }
+    }
+
+    #[cfg(debug_assertions)]
+    #[test]
+    #[should_panic]
+    fn incoming_calendars_must_belong_to_successful_connections() {
+        let requested_connections = BTreeSet::from([ConnectionKey::new(
+            CalendarProviderType::Google,
+            "conn-john",
+        )]);
+
+        let existing = Vec::<TestCalendar>::new();
+
+        let _ = plan_calendars(
+            &existing,
+            &[test_incoming_calendar("conn-john", "primary")],
+            &requested_connections,
+            &BTreeSet::new(),
+        );
+    }
+
+    #[cfg(debug_assertions)]
+    #[test]
+    #[should_panic]
+    fn incoming_events_must_belong_to_successful_connections() {
+        let calendars = vec![test_calendar("cal-john", "conn-john", "primary", true)];
+        let requested_connections = BTreeSet::from([ConnectionKey::new(
+            CalendarProviderType::Google,
+            "conn-john",
+        )]);
+        let incoming_calendars = vec![test_incoming_calendar("conn-john", "primary")];
+        let calendar_plan = plan_calendars(
+            &calendars,
+            &incoming_calendars,
+            &requested_connections,
+            &requested_connections,
+        );
+
+        let events = Vec::<TestEvent>::new();
+
+        let _ = plan_events(
+            &calendars,
+            &events,
+            &[test_incoming_event("conn-john", "primary", "evt-1")],
+            &BTreeSet::new(),
+            &calendar_plan,
+            test_range(),
+        );
     }
 
     fn test_calendar(

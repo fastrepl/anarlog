@@ -58,7 +58,10 @@ describe("SyncProvider", () => {
     syncMocks.requestCalendarSync.mockReset();
     syncMocks.listen.mockReset();
     syncMocks.listen.mockImplementation(syncMocks.attach);
-    syncMocks.requestCalendarSync.mockResolvedValue("idle");
+    syncMocks.requestCalendarSync.mockResolvedValue({
+      status: "ok",
+      data: null,
+    });
     syncMocks.getCalendarSyncStatus.mockResolvedValue("idle");
   });
 

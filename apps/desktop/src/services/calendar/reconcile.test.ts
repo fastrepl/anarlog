@@ -86,4 +86,26 @@ describe("reconcileCalendarSessions", () => {
 
     expect(embeddedEvent.calendar_id).toBe("tracking-cal-2");
   });
+
+  test("clears session event_json when the backing synced event disappears", () => {
+    const store = createStore();
+
+    store.setValue("user_id", "user-1");
+    store.setRow("sessions", "session-1", {
+      user_id: "user-1",
+      created_at: "2026-04-15T00:00:00Z",
+      title: "Standup notes",
+      raw_md: "",
+      event_json: JSON.stringify(
+        makeSessionEvent({
+          tracking_id: "event-1",
+        }),
+      ),
+    });
+
+    reconcileCalendarSessions(store);
+
+    const session = store.getRow("sessions", "session-1");
+    expect(session?.event_json).toBe("");
+  });
 });

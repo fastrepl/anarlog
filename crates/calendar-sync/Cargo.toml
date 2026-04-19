@@ -9,7 +9,8 @@ futures-util = { workspace = true }
 hypr-calendar-interface = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 specta = { workspace = true, features = ["derive"] }
-tokio = { workspace = true, features = ["rt", "sync", "time"] }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt", "sync", "time"] }
 tracing = { workspace = true }
 
 [dev-dependencies]

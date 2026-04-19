@@ -1,5 +1,4 @@
-import type { Ctx } from "../../ctx";
-import type { EventParticipant } from "../../fetch/types";
+import type { IncomingParticipantState, ReconcileCtx } from "../../types";
 import type {
   HumanToCreate,
   ParticipantMappingToAdd,
@@ -12,7 +11,7 @@ import { id } from "~/shared/utils";
 import type { Store } from "~/store/tinybase/store/main";
 
 export function syncSessionParticipants(
-  ctx: Ctx,
+  ctx: ReconcileCtx,
   input: ParticipantsSyncInput,
 ): ParticipantsSyncOutput {
   const output: ParticipantsSyncOutput = {
@@ -24,7 +23,7 @@ export function syncSessionParticipants(
   const humansByEmail = buildHumansByEmailIndex(ctx.store);
   const humansToCreateMap = new Map<string, HumanToCreate>();
 
-  for (const [trackingId, participants] of input.incomingParticipants) {
+  for (const [trackingId, participantState] of input.incomingParticipants) {
     const sessionId = findSessionByTrackingId(ctx.store, trackingId);
     if (!sessionId) {
       continue;
@@ -33,7 +32,7 @@ export function syncSessionParticipants(
     const sessionOutput = computeSessionParticipantChanges(
       ctx.store,
       sessionId,
-      participants,
+      participantState,
       humansByEmail,
       humansToCreateMap,
     );
@@ -64,10 +63,12 @@ function buildHumansByEmailIndex(store: Store): Map<string, string> {
 function computeSessionParticipantChanges(
   store: Store,
   sessionId: string,
-  eventParticipants: EventParticipant[],
+  participantState: IncomingParticipantState,
   humansByEmail: Map<string, string>,
   humansToCreateMap: Map<string, HumanToCreate>,
 ): { toDelete: string[]; toAdd: ParticipantMappingToAdd[] } {
+  const eventParticipants =
+    participantState.type === "observed" ? participantState.participants : [];
   const eventHumanIds = new Set<string>();
   for (const participant of eventParticipants) {
     if (!participant.email) {

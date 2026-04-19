@@ -3,8 +3,8 @@ import type { Store } from "~/store/tinybase/store/main";
 
 export function createEventPersister(store: Store) {
   // Load-only: the Rust calendar-sync worker is the sole writer for
-  // `events.json`. See `plugins/calendar/src/sync_source.rs` and
-  // `plugins/calendar/src/sync_store.rs`.
+  // `events.json`. See `plugins/calendar/src/sync/source.rs` and
+  // `plugins/calendar/src/sync/json.rs`.
   return createJsonFilePersister(store, {
     tableName: "events",
     filename: "events.json",

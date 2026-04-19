@@ -3208,6 +3208,7 @@ dependencies = [
  "futures-util",
  "serde",
  "specta",
+ "thiserror 2.0.18",
  "tokio",
  "tracing",
 ]

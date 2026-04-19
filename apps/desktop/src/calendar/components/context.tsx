@@ -35,6 +35,10 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
   >("idle");
   const [isDebouncing, setIsDebouncing] = useState(false);
 
+  const logRequestSyncError = useCallback((error: string) => {
+    console.error(error);
+  }, []);
+
   const refreshWorkerStatus = useCallback(async () => {
     try {
       const nextStatus = await calendarCommands.getCalendarSyncStatus();
@@ -108,17 +112,25 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
       if (toggleSyncTimeoutRef.current) {
         clearTimeout(toggleSyncTimeoutRef.current);
         toggleSyncTimeoutRef.current = null;
-        void calendarCommands.requestCalendarSync().catch(console.error);
+        void calendarCommands
+          .requestCalendarSync()
+          .then((result) => {
+            if (result.status === "error") {
+              logRequestSyncError(result.error);
+            }
+          })
+          .catch(console.error);
       }
     };
-  }, []);
+  }, [logRequestSyncError]);
 
   const scheduleSync = useCallback(() => {
     setWorkerStatus((current) => (current === "idle" ? "scheduled" : current));
     void calendarCommands
       .requestCalendarSync()
-      .then((accepted) => {
-        if (!accepted) {
+      .then((result) => {
+        if (result.status === "error") {
+          logRequestSyncError(result.error);
           void refreshWorkerStatus();
         }
       })
@@ -126,7 +138,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
         console.error(error);
         void refreshWorkerStatus();
       });
-  }, [refreshWorkerStatus]);
+  }, [logRequestSyncError, refreshWorkerStatus]);
 
   const scheduleDebouncedSync = useCallback(() => {
     if (toggleSyncTimeoutRef.current) {

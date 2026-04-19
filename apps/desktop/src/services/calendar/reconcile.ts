@@ -1,22 +1,21 @@
-import type { CalendarProviderType } from "@hypr/plugin-calendar";
 import type { EventParticipant } from "@hypr/store";
 
-import type { Ctx } from "./ctx";
-import type { IncomingEvent, IncomingParticipants } from "./fetch/types";
 import {
   executeForParticipantsSync,
   syncSessionParticipants,
 } from "./process/participants";
+import type {
+  IncomingParticipants,
+  ReconcileCtx,
+  ReconcileIncomingEvent,
+} from "./types";
 
 import { getSessionEventById } from "~/session/utils";
 import type { Store } from "~/store/tinybase/store/main";
 
-const DEFAULT_PROVIDER = "apple" as CalendarProviderType;
-type ReconcileIncomingEvent = IncomingEvent & { calendar_id: string };
-
 export function reconcileCalendarSessions(store: Store) {
-  const ctx = createReconcileCtx(store);
-  const incoming: ReconcileIncomingEvent[] = [];
+  const ctx: ReconcileCtx = { store };
+  const incomingByTrackingId = new Map<string, ReconcileIncomingEvent>();
   const incomingParticipants: IncomingParticipants = new Map();
 
   store.forEachRow("events", (eventId, _forEachCell) => {
@@ -25,10 +24,10 @@ export function reconcileCalendarSessions(store: Store) {
       return;
     }
 
+    const trackingId = String(event.tracking_id_event);
     const calendarId = String(event.calendar_id ?? "");
-    incoming.push({
-      tracking_id_event: String(event.tracking_id_event),
-      tracking_id_calendar: calendarId,
+    incomingByTrackingId.set(trackingId, {
+      tracking_id_event: trackingId,
       calendar_id: calendarId,
       title: asOptionalString(event.title),
       started_at: asOptionalString(event.started_at),
@@ -41,13 +40,17 @@ export function reconcileCalendarSessions(store: Store) {
       is_all_day: Boolean(event.is_all_day),
     });
 
-    const participants = parseParticipants(event.participants_json);
-    if (participants.length > 0) {
-      incomingParticipants.set(String(event.tracking_id_event), participants);
-    }
+    incomingParticipants.set(trackingId, {
+      type: "observed",
+      participants: parseParticipants(event.participants_json),
+    });
   });
 
-  reconcileSessionEmbeddedEvents(store, incoming);
+  reconcileSessionEmbeddedEvents(
+    store,
+    incomingByTrackingId,
+    incomingParticipants,
+  );
 
   const participantsOut = syncSessionParticipants(ctx, {
     incomingParticipants,
@@ -55,44 +58,27 @@ export function reconcileCalendarSessions(store: Store) {
   executeForParticipantsSync(ctx, participantsOut);
 }
 
-function createReconcileCtx(store: Store): Ctx {
-  const calendarTrackingIdToId = new Map<string, string>();
-  store.forEachRow("calendars", (calendarId, _forEachCell) => {
-    const calendar = store.getRow("calendars", calendarId);
-    const trackingId = calendar?.tracking_id_calendar;
-    if (typeof trackingId === "string" && trackingId) {
-      calendarTrackingIdToId.set(trackingId, calendarId);
-    }
-  });
-
-  return {
-    store,
-    provider: DEFAULT_PROVIDER,
-    connectionId: "",
-    userId: String(store.getValue("user_id") ?? ""),
-    from: new Date(0),
-    to: new Date(0),
-    calendarIds: new Set(),
-    calendarTrackingIdToId,
-  };
-}
-
 function reconcileSessionEmbeddedEvents(
   store: Store,
-  incoming: ReconcileIncomingEvent[],
+  incomingByTrackingId: Map<string, ReconcileIncomingEvent>,
+  incomingParticipants: IncomingParticipants,
 ) {
-  const incomingByTrackingId = new Map<string, ReconcileIncomingEvent>();
-  for (const event of incoming) {
-    incomingByTrackingId.set(event.tracking_id_event, event);
-  }
-
   store.transaction(() => {
     store.forEachRow("sessions", (sessionId, _forEachCell) => {
       const sessionEvent = getSessionEventById(store, sessionId);
       if (!sessionEvent) return;
+      if (!sessionEvent.tracking_id) return;
 
       const incomingEvent = incomingByTrackingId.get(sessionEvent.tracking_id);
-      if (!incomingEvent) return;
+      if (!incomingEvent) {
+        // During the TinyBase bridge, calendar-sync keeps out-of-range events
+        // in the cache, so a missing row is a positive delete.
+        store.setPartialRow("sessions", sessionId, {
+          event_json: "",
+        });
+        incomingParticipants.set(sessionEvent.tracking_id, { type: "deleted" });
+        return;
+      }
 
       store.setPartialRow("sessions", sessionId, {
         event_json: JSON.stringify({

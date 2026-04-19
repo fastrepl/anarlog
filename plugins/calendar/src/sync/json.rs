@@ -40,7 +40,6 @@ impl JsonCalendarSyncStore {
     }
 
     pub async fn load_snapshot(&self) -> Result<CalendarSyncSnapshot, BoxError> {
-        let _guard = self.write_lock.lock().await;
         self.read_snapshot().await
     }
 
@@ -127,12 +126,9 @@ impl hypr_calendar_sync::CalendarSyncStore for JsonCalendarSyncStore {
         Box::pin(async move {
             let _guard = self.write_lock.lock().await;
             let mut snapshot = self.read_snapshot().await?;
-            let original = snapshot.clone();
-
-            apply_calendar_plan(&mut snapshot, calendar_plan);
-            apply_event_plan(&mut snapshot, event_plan);
-
-            let changed = snapshot != original;
+            let calendar_changed = apply_calendar_plan(&mut snapshot, calendar_plan);
+            let event_changed = apply_event_plan(&mut snapshot, event_plan);
+            let changed = calendar_changed || event_changed;
             if changed {
                 self.write_snapshot(&snapshot).await?;
             }
@@ -141,44 +137,47 @@ impl hypr_calendar_sync::CalendarSyncStore for JsonCalendarSyncStore {
     }
 }
 
-fn apply_calendar_plan(snapshot: &mut CalendarSyncSnapshot, plan: CalendarPlan<'_>) {
+fn apply_calendar_plan(snapshot: &mut CalendarSyncSnapshot, plan: CalendarPlan<'_>) -> bool {
+    let mut changed = false;
+
     for op in plan.ops {
         match op {
             CalendarOp::Delete { id } => {
-                snapshot.calendars.remove(&id);
+                changed |= snapshot.calendars.remove(&id).is_some();
             }
             CalendarOp::Upsert {
                 existing_id,
                 incoming,
             } => {
                 let row_id = existing_id.unwrap_or_else(new_id);
-                let existing = snapshot.calendars.get(&row_id).cloned();
-                snapshot.calendars.insert(
-                    row_id,
-                    CalendarRecord {
-                        user_id: existing
-                            .as_ref()
-                            .map(|row| row.user_id.clone())
-                            .unwrap_or_else(default_user_id),
-                        created_at: existing
-                            .as_ref()
-                            .map(|row| row.created_at.clone())
-                            .unwrap_or_else(now_iso),
-                        tracking_id_calendar: incoming.key.tracking_id.clone(),
-                        name: incoming.payload.name.clone(),
-                        enabled: existing.as_ref().map(|row| row.enabled).unwrap_or(false),
-                        provider: incoming.key.provider,
-                        source: incoming.payload.source.clone(),
-                        color: incoming.payload.color.clone(),
-                        connection_id: incoming.key.connection_id.clone(),
-                    },
-                );
+                let existing = snapshot.calendars.get(&row_id);
+                let next = CalendarRecord {
+                    user_id: existing
+                        .map(|row| row.user_id.clone())
+                        .unwrap_or_else(default_user_id),
+                    created_at: existing
+                        .map(|row| row.created_at.clone())
+                        .unwrap_or_else(now_iso),
+                    tracking_id_calendar: incoming.key.tracking_id.clone(),
+                    name: incoming.payload.name.clone(),
+                    enabled: existing.map(|row| row.enabled).unwrap_or(false),
+                    provider: incoming.key.provider,
+                    source: incoming.payload.source.clone(),
+                    color: incoming.payload.color.clone(),
+                    connection_id: incoming.key.connection_id.clone(),
+                };
+                if existing != Some(&next) {
+                    snapshot.calendars.insert(row_id, next);
+                    changed = true;
+                }
             }
         }
     }
+
+    changed
 }
 
-fn apply_event_plan(snapshot: &mut CalendarSyncSnapshot, plan: EventPlan<'_>) {
+fn apply_event_plan(snapshot: &mut CalendarSyncSnapshot, plan: EventPlan<'_>) -> bool {
     let calendar_ids_by_key = snapshot
         .calendars
         .iter()
@@ -193,96 +192,54 @@ fn apply_event_plan(snapshot: &mut CalendarSyncSnapshot, plan: EventPlan<'_>) {
             )
         })
         .collect::<BTreeMap<_, _>>();
+    let mut changed = false;
 
     for op in plan.ops {
         match op {
             EventOp::Delete { id } => {
-                snapshot.events.remove(&id);
+                changed |= snapshot.events.remove(&id).is_some();
             }
             EventOp::Update { id, incoming } => {
-                let existing = snapshot.events.get(&id).cloned();
-                let calendar_id = existing
-                    .as_ref()
-                    .map(|row| row.calendar_id.clone())
-                    .or_else(|| calendar_ids_by_key.get(&incoming.calendar_key).cloned());
-                let Some(calendar_id) = calendar_id else {
+                let Some(existing) = snapshot.events.get(&id).cloned() else {
+                    tracing::error!(
+                        event_id = %id,
+                        tracking_id_event = %incoming.tracking_id_event,
+                        "calendar sync update skipped because the persisted event row is missing"
+                    );
                     continue;
                 };
-                snapshot.events.insert(
-                    id,
-                    EventRecord {
-                        user_id: existing
-                            .as_ref()
-                            .map(|row| row.user_id.clone())
-                            .unwrap_or_else(default_user_id),
-                        created_at: existing
-                            .as_ref()
-                            .map(|row| row.created_at.clone())
-                            .unwrap_or_else(now_iso),
-                        tracking_id_event: Some(incoming.tracking_id_event.clone()),
-                        calendar_id,
-                        title: incoming.payload.title.clone().unwrap_or_default(),
-                        started_at: incoming.started_at.clone(),
-                        ended_at: incoming.ended_at.clone(),
-                        location: incoming.payload.location.clone(),
-                        meeting_link: incoming.payload.meeting_link.clone(),
-                        description: incoming.payload.description.clone(),
-                        note: existing.as_ref().and_then(|row| row.note.clone()),
-                        recurrence_series_id: incoming.recurrence_series_id.clone(),
-                        has_recurrence_rules: incoming.has_recurrence_rules,
-                        is_all_day: incoming.is_all_day,
-                        provider: incoming.calendar_key.provider,
-                        participants: incoming
-                            .participants
-                            .iter()
-                            .map(|participant| ParticipantRecord {
-                                name: participant.name.clone(),
-                                email: participant.email.clone(),
-                                is_organizer: participant.is_organizer,
-                                is_current_user: participant.is_current_user,
-                            })
-                            .collect(),
-                    },
+                let next = event_record_from_incoming(
+                    incoming,
+                    existing.calendar_id.clone(),
+                    Some(&existing),
                 );
+                if existing != next {
+                    snapshot.events.insert(id, next);
+                    changed = true;
+                }
             }
             EventOp::Insert { incoming } => {
                 let Some(calendar_id) = calendar_ids_by_key.get(&incoming.calendar_key).cloned()
                 else {
+                    tracing::error!(
+                        provider = ?incoming.calendar_key.provider,
+                        connection_id = %incoming.calendar_key.connection_id,
+                        tracking_id_calendar = %incoming.calendar_key.tracking_id,
+                        tracking_id_event = %incoming.tracking_id_event,
+                        "calendar sync insert skipped because the target calendar row is missing"
+                    );
                     continue;
                 };
                 snapshot.events.insert(
                     new_id(),
-                    EventRecord {
-                        user_id: default_user_id(),
-                        created_at: now_iso(),
-                        tracking_id_event: Some(incoming.tracking_id_event.clone()),
-                        calendar_id,
-                        title: incoming.payload.title.clone().unwrap_or_default(),
-                        started_at: incoming.started_at.clone(),
-                        ended_at: incoming.ended_at.clone(),
-                        location: incoming.payload.location.clone(),
-                        meeting_link: incoming.payload.meeting_link.clone(),
-                        description: incoming.payload.description.clone(),
-                        note: None,
-                        recurrence_series_id: incoming.recurrence_series_id.clone(),
-                        has_recurrence_rules: incoming.has_recurrence_rules,
-                        is_all_day: incoming.is_all_day,
-                        provider: incoming.calendar_key.provider,
-                        participants: incoming
-                            .participants
-                            .iter()
-                            .map(|participant| ParticipantRecord {
-                                name: participant.name.clone(),
-                                email: participant.email.clone(),
-                                is_organizer: participant.is_organizer,
-                                is_current_user: participant.is_current_user,
-                            })
-                            .collect(),
-                    },
+                    event_record_from_incoming(incoming, calendar_id, None),
                 );
+                changed = true;
             }
         }
     }
+
+    changed
 }
 
 async fn read_json_map<T>(path: &Path) -> Result<BTreeMap<String, T>, BoxError>
@@ -312,6 +269,10 @@ fn resolve_vault_base<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<Pa
     let settings_base = hypr_storage::global::compute_default_base(bundle_id)
         .ok_or_else(|| std::io::Error::other("settings base unavailable"))?;
     std::fs::create_dir_all(&settings_base)?;
+    // Calendar sync follows the same startup vault resolution as settings and
+    // legacy import: the global config lives under `settings_base`, and the
+    // default vault base is also `settings_base` until the user opts into a
+    // custom vault location.
     Ok(hypr_storage::vault::resolve_base(
         &settings_base,
         &settings_base,
@@ -324,6 +285,44 @@ fn now_iso() -> String {
 
 fn new_id() -> String {
     uuid::Uuid::new_v4().to_string()
+}
+
+fn event_record_from_incoming(
+    incoming: &hypr_calendar_sync::IncomingEvent,
+    calendar_id: String,
+    existing: Option<&EventRecord>,
+) -> EventRecord {
+    EventRecord {
+        user_id: existing
+            .map(|row| row.user_id.clone())
+            .unwrap_or_else(default_user_id),
+        created_at: existing
+            .map(|row| row.created_at.clone())
+            .unwrap_or_else(now_iso),
+        tracking_id_event: Some(incoming.tracking_id_event.clone()),
+        calendar_id,
+        title: incoming.payload.title.clone().unwrap_or_default(),
+        started_at: incoming.started_at.clone(),
+        ended_at: incoming.ended_at.clone(),
+        location: incoming.payload.location.clone(),
+        meeting_link: incoming.payload.meeting_link.clone(),
+        description: incoming.payload.description.clone(),
+        note: existing.and_then(|row| row.note.clone()),
+        recurrence_series_id: incoming.recurrence_series_id.clone(),
+        has_recurrence_rules: incoming.has_recurrence_rules,
+        is_all_day: incoming.is_all_day,
+        provider: incoming.calendar_key.provider,
+        participants: incoming
+            .participants
+            .iter()
+            .map(|participant| ParticipantRecord {
+                name: participant.name.clone(),
+                email: participant.email.clone(),
+                is_organizer: participant.is_organizer,
+                is_current_user: participant.is_current_user,
+            })
+            .collect(),
+    }
 }
 
 // On-disk shape note: the JSON files were historically written by the old TS
@@ -502,9 +501,19 @@ impl From<&EventRecord> for JsonEventRecord {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::{BTreeMap, BTreeSet};
+    use std::future::Future;
+    use std::pin::Pin;
     use std::sync::Arc;
+    use std::time::Duration;
 
     use hypr_calendar::CalendarProviderType;
+    use hypr_calendar_sync::{
+        BoxError, CalendarKey, CalendarPayload, CalendarSyncRuntime, CalendarSyncSource,
+        CalendarSyncWorkerEvent, ConnectionKey, EventPayload, IncomingCalendar, IncomingEvent,
+        IncomingParticipant, IncomingSnapshot, SyncRange,
+    };
+    use tokio::sync::Notify;
 
     use super::*;
 
@@ -519,6 +528,72 @@ mod tests {
             source: "apple".to_string(),
             color: "#888".to_string(),
             connection_id: "conn".to_string(),
+        }
+    }
+
+    fn sample_event(calendar_id: &str) -> EventRecord {
+        EventRecord {
+            user_id: default_user_id(),
+            created_at: "2026-04-15T00:00:00Z".to_string(),
+            tracking_id_event: Some("evt-1".to_string()),
+            calendar_id: calendar_id.to_string(),
+            title: "Standup".to_string(),
+            started_at: "2026-04-15T09:00:00Z".to_string(),
+            ended_at: Some("2026-04-15T09:30:00Z".to_string()),
+            location: Some("Room 1".to_string()),
+            meeting_link: Some("https://meet.google.com/abc-defg-hij".to_string()),
+            description: Some("Daily standup".to_string()),
+            note: Some("keep me".to_string()),
+            recurrence_series_id: None,
+            has_recurrence_rules: false,
+            is_all_day: false,
+            provider: CalendarProviderType::Google,
+            participants: vec![ParticipantRecord {
+                name: Some("Alice".to_string()),
+                email: Some("alice@example.com".to_string()),
+                is_organizer: true,
+                is_current_user: true,
+            }],
+        }
+    }
+
+    #[derive(Clone)]
+    struct StaticSource {
+        snapshot: IncomingSnapshot,
+    }
+
+    impl CalendarSyncSource for StaticSource {
+        fn fetch(
+            &self,
+            _range: SyncRange,
+        ) -> Pin<Box<dyn Future<Output = Result<IncomingSnapshot, BoxError>> + Send + '_>> {
+            let snapshot = self.snapshot.clone();
+            Box::pin(async move { Ok(snapshot) })
+        }
+    }
+
+    #[derive(Clone, Default)]
+    struct RecordingRuntime {
+        finished: Arc<Notify>,
+        failure: Arc<std::sync::Mutex<Option<String>>>,
+    }
+
+    impl RecordingRuntime {
+        fn failure(&self) -> Option<String> {
+            self.failure.lock().unwrap().clone()
+        }
+    }
+
+    impl CalendarSyncRuntime for RecordingRuntime {
+        fn emit(&self, event: CalendarSyncWorkerEvent) {
+            match event {
+                CalendarSyncWorkerEvent::SyncFinished { .. } => self.finished.notify_waiters(),
+                CalendarSyncWorkerEvent::SyncFailed { error } => {
+                    *self.failure.lock().unwrap() = Some(error);
+                    self.finished.notify_waiters();
+                }
+                _ => {}
+            }
         }
     }
 
@@ -668,5 +743,224 @@ mod tests {
             PER_TASK * 2,
             "all concurrent mutations must be preserved"
         );
+    }
+
+    #[tokio::test]
+    async fn apply_returns_false_for_noop_plans() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = JsonCalendarSyncStore::from_base_path(dir.path().to_path_buf());
+
+        store
+            .mutate(|snapshot| {
+                snapshot
+                    .calendars
+                    .insert("cal-1".to_string(), sample_calendar("primary"));
+                snapshot
+                    .events
+                    .insert("event-1".to_string(), sample_event("cal-1"));
+                true
+            })
+            .await
+            .unwrap();
+
+        let incoming_calendars = vec![IncomingCalendar {
+            key: CalendarKey::new(CalendarProviderType::Apple, "conn", "primary"),
+            payload: CalendarPayload {
+                name: "primary".to_string(),
+                source: "apple".to_string(),
+                color: "#888".to_string(),
+            },
+        }];
+        let incoming_events = vec![IncomingEvent {
+            calendar_key: CalendarKey::new(CalendarProviderType::Google, "conn-1", "primary"),
+            tracking_id_event: "evt-1".to_string(),
+            started_at: "2026-04-15T09:00:00Z".to_string(),
+            ended_at: Some("2026-04-15T09:30:00Z".to_string()),
+            recurrence_series_id: None,
+            has_recurrence_rules: false,
+            is_all_day: false,
+            participants: vec![IncomingParticipant {
+                name: Some("Alice".to_string()),
+                email: Some("alice@example.com".to_string()),
+                is_organizer: true,
+                is_current_user: true,
+            }],
+            payload: EventPayload {
+                title: Some("Standup".to_string()),
+                location: Some("Room 1".to_string()),
+                meeting_link: Some("https://meet.google.com/abc-defg-hij".to_string()),
+                description: Some("Daily standup".to_string()),
+            },
+        }];
+        let existing_calendars = vec![StoredCalendarRecord {
+            id: "cal-1".to_string(),
+            record: sample_calendar("primary"),
+        }];
+        let requested_calendar_connections =
+            BTreeSet::from([ConnectionKey::new(CalendarProviderType::Apple, "conn")]);
+        let calendar_plan = hypr_calendar_sync::plan_calendars(
+            &existing_calendars,
+            &incoming_calendars,
+            &requested_calendar_connections,
+            &requested_calendar_connections,
+        );
+        let existing_event_calendars = vec![StoredCalendarRecord {
+            id: "cal-1".to_string(),
+            record: CalendarRecord {
+                provider: CalendarProviderType::Google,
+                source: "google".to_string(),
+                color: "#4285f4".to_string(),
+                connection_id: "conn-1".to_string(),
+                ..sample_calendar("primary")
+            },
+        }];
+        let existing_events = vec![StoredEventRecord {
+            id: "event-1".to_string(),
+            record: sample_event("cal-1"),
+        }];
+        let successful_event_connections =
+            BTreeSet::from([ConnectionKey::new(CalendarProviderType::Google, "conn-1")]);
+        let existing_event_calendar_plan = hypr_calendar_sync::CalendarPlan {
+            ops: Vec::new(),
+            enabled_calendar_ids: BTreeSet::from(["cal-1".to_string()]),
+            enabled_calendar_keys: BTreeMap::from([(
+                CalendarKey::new(CalendarProviderType::Google, "conn-1", "primary"),
+                "cal-1".to_string(),
+            )]),
+            disabled_calendar_ids: BTreeSet::new(),
+        };
+        let event_plan = hypr_calendar_sync::plan_events(
+            &existing_event_calendars,
+            &existing_events,
+            &incoming_events,
+            &successful_event_connections,
+            &existing_event_calendar_plan,
+            SyncRange {
+                from: chrono::DateTime::parse_from_rfc3339("2026-04-01T00:00:00Z")
+                    .unwrap()
+                    .with_timezone(&chrono::Utc),
+                to: chrono::DateTime::parse_from_rfc3339("2026-04-30T23:59:59Z")
+                    .unwrap()
+                    .with_timezone(&chrono::Utc),
+            },
+        );
+
+        let changed = <JsonCalendarSyncStore as hypr_calendar_sync::CalendarSyncStore>::apply(
+            &store,
+            calendar_plan,
+            event_plan,
+        )
+        .await
+        .unwrap();
+
+        assert!(!changed, "noop plans should not rewrite the snapshot");
+    }
+
+    #[tokio::test]
+    async fn worker_persists_snapshot_end_to_end() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Arc::new(JsonCalendarSyncStore::from_base_path(
+            dir.path().to_path_buf(),
+        ));
+        store
+            .mutate(|snapshot| {
+                snapshot.calendars.insert(
+                    "cal-primary".to_string(),
+                    CalendarRecord {
+                        user_id: default_user_id(),
+                        created_at: "2026-04-15T00:00:00Z".to_string(),
+                        tracking_id_calendar: "primary".to_string(),
+                        name: "Primary".to_string(),
+                        enabled: true,
+                        provider: CalendarProviderType::Google,
+                        source: "old@example.com".to_string(),
+                        color: "#888".to_string(),
+                        connection_id: "conn-1".to_string(),
+                    },
+                );
+                true
+            })
+            .await
+            .unwrap();
+
+        let connection = ConnectionKey::new(CalendarProviderType::Google, "conn-1");
+        let runtime = RecordingRuntime::default();
+        let handle = hypr_calendar_sync::start(
+            StaticSource {
+                snapshot: IncomingSnapshot {
+                    requested_connections: BTreeSet::from([connection.clone()]),
+                    successful_calendar_connections: BTreeSet::from([connection.clone()]),
+                    successful_event_connections: BTreeSet::from([connection.clone()]),
+                    calendars: vec![IncomingCalendar {
+                        key: CalendarKey::new(CalendarProviderType::Google, "conn-1", "primary"),
+                        payload: CalendarPayload {
+                            name: "Primary Renamed".to_string(),
+                            source: "me@example.com".to_string(),
+                            color: "#4285f4".to_string(),
+                        },
+                    }],
+                    events: vec![IncomingEvent {
+                        calendar_key: CalendarKey::new(
+                            CalendarProviderType::Google,
+                            "conn-1",
+                            "primary",
+                        ),
+                        tracking_id_event: "evt-1".to_string(),
+                        started_at: "2026-04-15T09:00:00Z".to_string(),
+                        ended_at: Some("2026-04-15T09:30:00Z".to_string()),
+                        recurrence_series_id: None,
+                        has_recurrence_rules: false,
+                        is_all_day: false,
+                        participants: vec![IncomingParticipant {
+                            name: Some("Alice".to_string()),
+                            email: Some("alice@example.com".to_string()),
+                            is_organizer: true,
+                            is_current_user: true,
+                        }],
+                        payload: EventPayload {
+                            title: Some("Standup".to_string()),
+                            location: Some("Room 1".to_string()),
+                            meeting_link: Some("https://meet.google.com/abc-defg-hij".to_string()),
+                            description: Some("Daily standup".to_string()),
+                        },
+                    }],
+                },
+            },
+            store.clone(),
+            runtime.clone(),
+            hypr_calendar_sync::Config {
+                interval: Duration::from_secs(60 * 60),
+                sync_timeout: Duration::from_secs(5),
+            },
+        );
+
+        handle.request_sync().unwrap();
+        tokio::time::timeout(Duration::from_secs(5), runtime.finished.notified())
+            .await
+            .expect("worker should finish a requested sync");
+
+        assert_eq!(
+            runtime.failure(),
+            None,
+            "worker should not emit sync failures"
+        );
+
+        let snapshot = store.load_snapshot().await.unwrap();
+        let calendar = snapshot
+            .calendars
+            .get("cal-primary")
+            .expect("existing calendar row should be updated");
+        assert_eq!(calendar.name, "Primary Renamed");
+        assert_eq!(calendar.source, "me@example.com");
+
+        let event = snapshot
+            .events
+            .values()
+            .next()
+            .expect("worker should persist one event");
+        assert_eq!(event.calendar_id, "cal-primary");
+        assert_eq!(event.title, "Standup");
+        assert_eq!(event.note.as_deref(), None);
+        assert_eq!(event.participants.len(), 1);
     }
 }

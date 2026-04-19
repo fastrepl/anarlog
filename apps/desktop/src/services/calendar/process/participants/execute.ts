@@ -3,13 +3,13 @@ import type {
   MappingSessionParticipantStorage,
 } from "@hypr/store";
 
-import type { Ctx } from "../../ctx";
+import type { ReconcileCtx } from "../../types";
 import type { ParticipantsSyncOutput } from "./types";
 
 import { id } from "~/shared/utils";
 
 export function executeForParticipantsSync(
-  ctx: Ctx,
+  ctx: ReconcileCtx,
   out: ParticipantsSyncOutput,
 ): void {
   const userId = ctx.store.getValue("user_id");

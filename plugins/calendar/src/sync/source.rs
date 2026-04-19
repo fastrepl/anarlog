@@ -459,6 +459,26 @@ mod tests {
         assert_eq!(enabled_fetchable[0].id, "primary");
     }
 
+    #[test]
+    fn brand_new_calendar_stays_unfetchable_until_it_exists_in_snapshot() {
+        let provider = CalendarProviderType::Google;
+        let connection_id = "conn-1";
+        let empty_snapshot = CalendarSyncSnapshot::default();
+        let provider_calendars = vec![test_calendar_list_item(provider, "primary", "Primary")];
+
+        let fetchable = filter_fetchable_calendars(
+            provider,
+            connection_id,
+            &provider_calendars,
+            &enabled_calendar_keys(&empty_snapshot),
+        );
+
+        assert!(
+            fetchable.is_empty(),
+            "new calendars should not fetch events before the store has an enabled row"
+        );
+    }
+
     fn test_calendar_list_item(
         provider: CalendarProviderType,
         id: &str,

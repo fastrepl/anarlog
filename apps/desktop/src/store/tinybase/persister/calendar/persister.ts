@@ -5,7 +5,7 @@ export function createCalendarPersister(store: Store) {
   // Load-only: the Rust calendar-sync worker is the sole writer for
   // `calendars.json`. UI toggles go through `useSetCalendarEnabled` →
   // `calendarCommands.setCalendarEnabled` and arrive back here via the
-  // file-changed listener. See `plugins/calendar/src/sync_store.rs`.
+  // file-changed listener. See `plugins/calendar/src/sync/json.rs`.
   return createJsonFilePersister(store, {
     tableName: "calendars",
     filename: "calendars.json",

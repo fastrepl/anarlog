@@ -24,7 +24,11 @@ export function useDeeplinkHandler() {
       void queryClient.invalidateQueries({
         predicate: (query) => query.queryKey[0] === "integration-status",
       });
-      void calendarCommands.requestCalendarSync();
+      void calendarCommands.requestCalendarSync().then((result) => {
+        if (result.status === "error") {
+          console.error(result.error);
+        }
+      });
     };
 
     const unlisten = deeplink2Events.deepLinkEvent.listen(({ payload }) => {

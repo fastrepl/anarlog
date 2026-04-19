@@ -1,4 +1,4 @@
-import type { IncomingParticipants } from "../../fetch/types";
+import type { IncomingParticipants } from "../../types";
 
 export type ParticipantMappingId = string;
 
