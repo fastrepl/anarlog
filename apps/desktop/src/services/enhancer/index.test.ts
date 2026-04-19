@@ -225,6 +225,70 @@ describe("EnhancerService", () => {
       expect(result).toEqual({ type: "already_active", noteId: "note-1" });
       expect(aiTaskStore.getState().generate).not.toHaveBeenCalled();
     });
+
+    it("regenerates auto-enhance when the previous task has succeeded", () => {
+      const tables = createTables({
+        enhanced_notes: {
+          "note-1": {
+            session_id: "session-1",
+            template_id: undefined as any,
+          },
+        },
+      });
+      const aiTaskStore = createMockAITaskStore();
+      aiTaskStore.getState.mockReturnValue({
+        generate: vi.fn(),
+        getState: vi.fn().mockReturnValue({ status: "success" }),
+      });
+      const deps = createDeps({
+        mainStore: createMockStore(tables),
+        indexes: createMockIndexes(tables),
+        aiTaskStore,
+      });
+      const service = new EnhancerService(deps);
+
+      const result = service.enhance("session-1", { isAuto: true });
+      expect(result).toEqual({ type: "started", noteId: "note-1" });
+      expect(aiTaskStore.getState().generate).toHaveBeenCalled();
+    });
+
+    it("regenerates auto-enhance with a selected default template after previous success", () => {
+      const tables = createTables({
+        enhanced_notes: {
+          "note-1": {
+            session_id: "session-1",
+            template_id: "default-template",
+          },
+        },
+      });
+      const generate = vi.fn();
+      const aiTaskStore = createMockAITaskStore();
+      aiTaskStore.getState.mockReturnValue({
+        generate,
+        getState: vi.fn().mockReturnValue({ status: "success" }),
+      });
+      const deps = createDeps({
+        mainStore: createMockStore(tables),
+        indexes: createMockIndexes(tables),
+        aiTaskStore,
+        getSelectedTemplateId: () => "default-template",
+      });
+      const service = new EnhancerService(deps);
+
+      const result = service.enhance("session-1", { isAuto: true });
+      expect(result).toEqual({ type: "started", noteId: "note-1" });
+      expect(generate).toHaveBeenCalledWith(
+        "note-1-enhance",
+        expect.objectContaining({
+          taskType: "enhance",
+          args: {
+            sessionId: "session-1",
+            enhancedNoteId: "note-1",
+            templateId: "default-template",
+          },
+        }),
+      );
+    });
   });
 
   describe("checkEligibility()", () => {

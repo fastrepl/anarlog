@@ -192,7 +192,7 @@ export class EnhancerService {
     const existingTask = aiTaskStore.getState().getState(enhanceTaskId);
     if (
       existingTask?.status === "generating" ||
-      existingTask?.status === "success"
+      (existingTask?.status === "success" && !opts?.isAuto)
     ) {
       return { type: "already_active", noteId: enhancedNoteId };
     }
