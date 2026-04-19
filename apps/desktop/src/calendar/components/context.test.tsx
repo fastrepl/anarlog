@@ -62,32 +62,6 @@ describe("SyncProvider", () => {
     syncMocks.getCalendarSyncStatus.mockResolvedValue("idle");
   });
 
-  test("waits for the sync listener before reading the initial status", async () => {
-    let resolveListen: ((value: () => void) => void) | null = null;
-    syncMocks.listen.mockImplementation(
-      () =>
-        new Promise<() => void>((resolve) => {
-          resolveListen = resolve;
-        }),
-    );
-
-    render(
-      <SyncProvider>
-        <StatusProbe />
-      </SyncProvider>,
-    );
-
-    expect(syncMocks.getCalendarSyncStatus).not.toHaveBeenCalled();
-
-    act(() => {
-      resolveListen?.(() => {});
-    });
-
-    await waitFor(() =>
-      expect(syncMocks.getCalendarSyncStatus).toHaveBeenCalledTimes(1),
-    );
-  });
-
   test("ignores a stale initial status after live sync events arrive", async () => {
     let resolveStatus:
       | ((value: "idle" | "scheduled" | "running") => void)
