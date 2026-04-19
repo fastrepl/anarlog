@@ -84,7 +84,6 @@ describe("SyncProvider", () => {
     act(() => {
       syncMocks.emit({
         type: "syncStarted",
-        reasons: ["manual"],
       });
     });
 
@@ -95,7 +94,6 @@ describe("SyncProvider", () => {
     act(() => {
       syncMocks.emit({
         type: "syncFinished",
-        reasons: ["manual"],
         data_changed: false,
       });
     });

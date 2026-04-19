@@ -108,9 +108,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
       if (toggleSyncTimeoutRef.current) {
         clearTimeout(toggleSyncTimeoutRef.current);
         toggleSyncTimeoutRef.current = null;
-        void calendarCommands
-          .requestCalendarSync("manual")
-          .catch(console.error);
+        void calendarCommands.requestCalendarSync().catch(console.error);
       }
     };
   }, []);
@@ -118,7 +116,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
   const scheduleSync = useCallback(() => {
     setWorkerStatus((current) => (current === "idle" ? "scheduled" : current));
     void calendarCommands
-      .requestCalendarSync("manual")
+      .requestCalendarSync()
       .then((accepted) => {
         if (!accepted) {
           void refreshWorkerStatus();

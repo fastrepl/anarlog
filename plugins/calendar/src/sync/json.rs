@@ -9,7 +9,8 @@ use std::pin::Pin;
 use hypr_calendar_sync::BoxError;
 
 use super::store::{
-    CalendarSyncSnapshot, CalendarSyncStore, SnapshotMutator, StoredCalendar, StoredEvent,
+    CalendarRecord, CalendarSyncSnapshot, CalendarSyncStore, EventRecord, ParticipantRecord,
+    SnapshotMutator, default_user_id,
 };
 
 const CALENDARS_FILENAME: &str = "calendars.json";
@@ -34,18 +35,32 @@ impl JsonCalendarSyncStore {
 
     async fn read_snapshot(&self) -> Result<CalendarSyncSnapshot, BoxError> {
         let calendars =
-            read_json_map::<StoredCalendar>(&self.base_path.join(CALENDARS_FILENAME)).await?;
-        let events = read_json_map::<StoredEvent>(&self.base_path.join(EVENTS_FILENAME)).await?;
+            read_json_map::<JsonCalendarRecord>(&self.base_path.join(CALENDARS_FILENAME))
+                .await?
+                .into_iter()
+                .map(|(id, record)| (id, record.into()))
+                .collect();
+        let events = read_json_map::<JsonEventRecord>(&self.base_path.join(EVENTS_FILENAME))
+            .await?
+            .into_iter()
+            .map(|(id, record)| (id, record.into()))
+            .collect();
         Ok(CalendarSyncSnapshot { calendars, events })
     }
 
     async fn write_snapshot(&self, snapshot: &CalendarSyncSnapshot) -> Result<(), BoxError> {
-        write_json_map(
-            &self.base_path.join(CALENDARS_FILENAME),
-            &snapshot.calendars,
-        )
-        .await?;
-        write_json_map(&self.base_path.join(EVENTS_FILENAME), &snapshot.events).await?;
+        let calendars = snapshot
+            .calendars
+            .iter()
+            .map(|(id, record)| (id.clone(), JsonCalendarRecord::from(record)))
+            .collect();
+        let events = snapshot
+            .events
+            .iter()
+            .map(|(id, record)| (id.clone(), JsonEventRecord::from(record)))
+            .collect();
+        write_json_map(&self.base_path.join(CALENDARS_FILENAME), &calendars).await?;
+        write_json_map(&self.base_path.join(EVENTS_FILENAME), &events).await?;
         Ok(())
     }
 }
@@ -109,17 +124,190 @@ fn resolve_vault_base<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<Pa
     ))
 }
 
+// On-disk shape note: the JSON files were historically written by the old TS
+// persister, which omitted any field it never set (e.g. `source` on a Google
+// holidays calendar, `name` on a participant). Every field below — other than
+// `provider`, where a missing value means data corruption — is `#[serde(default)]`
+// so real user files still load. Do not relax this without a regression test.
+// See `tests::tolerates_legacy_ts_written_shape`.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+struct JsonCalendarRecord {
+    #[serde(default = "default_user_id")]
+    user_id: String,
+    #[serde(default)]
+    created_at: String,
+    #[serde(default)]
+    tracking_id_calendar: String,
+    #[serde(default)]
+    name: String,
+    #[serde(default)]
+    enabled: bool,
+    provider: hypr_calendar::CalendarProviderType,
+    #[serde(default)]
+    source: String,
+    #[serde(default)]
+    color: String,
+    #[serde(default)]
+    connection_id: String,
+}
+
+impl From<JsonCalendarRecord> for CalendarRecord {
+    fn from(value: JsonCalendarRecord) -> Self {
+        Self {
+            user_id: value.user_id,
+            created_at: value.created_at,
+            tracking_id_calendar: value.tracking_id_calendar,
+            name: value.name,
+            enabled: value.enabled,
+            provider: value.provider,
+            source: value.source,
+            color: value.color,
+            connection_id: value.connection_id,
+        }
+    }
+}
+
+impl From<&CalendarRecord> for JsonCalendarRecord {
+    fn from(value: &CalendarRecord) -> Self {
+        Self {
+            user_id: value.user_id.clone(),
+            created_at: value.created_at.clone(),
+            tracking_id_calendar: value.tracking_id_calendar.clone(),
+            name: value.name.clone(),
+            enabled: value.enabled,
+            provider: value.provider,
+            source: value.source.clone(),
+            color: value.color.clone(),
+            connection_id: value.connection_id.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+struct JsonParticipantRecord {
+    #[serde(default)]
+    name: Option<String>,
+    #[serde(default)]
+    email: Option<String>,
+    #[serde(default)]
+    is_organizer: bool,
+    #[serde(default)]
+    is_current_user: bool,
+}
+
+impl From<JsonParticipantRecord> for ParticipantRecord {
+    fn from(value: JsonParticipantRecord) -> Self {
+        Self {
+            name: value.name,
+            email: value.email,
+            is_organizer: value.is_organizer,
+            is_current_user: value.is_current_user,
+        }
+    }
+}
+
+impl From<&ParticipantRecord> for JsonParticipantRecord {
+    fn from(value: &ParticipantRecord) -> Self {
+        Self {
+            name: value.name.clone(),
+            email: value.email.clone(),
+            is_organizer: value.is_organizer,
+            is_current_user: value.is_current_user,
+        }
+    }
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+struct JsonEventRecord {
+    #[serde(default = "default_user_id")]
+    user_id: String,
+    #[serde(default)]
+    created_at: String,
+    #[serde(default)]
+    tracking_id_event: Option<String>,
+    #[serde(default)]
+    calendar_id: String,
+    #[serde(default)]
+    title: String,
+    #[serde(default)]
+    started_at: String,
+    #[serde(default)]
+    ended_at: Option<String>,
+    #[serde(default)]
+    location: Option<String>,
+    #[serde(default)]
+    meeting_link: Option<String>,
+    #[serde(default)]
+    description: Option<String>,
+    #[serde(default)]
+    note: Option<String>,
+    #[serde(default)]
+    recurrence_series_id: Option<String>,
+    #[serde(default)]
+    has_recurrence_rules: bool,
+    #[serde(default)]
+    is_all_day: bool,
+    provider: hypr_calendar::CalendarProviderType,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    participants: Vec<JsonParticipantRecord>,
+}
+
+impl From<JsonEventRecord> for EventRecord {
+    fn from(value: JsonEventRecord) -> Self {
+        Self {
+            user_id: value.user_id,
+            created_at: value.created_at,
+            tracking_id_event: value.tracking_id_event,
+            calendar_id: value.calendar_id,
+            title: value.title,
+            started_at: value.started_at,
+            ended_at: value.ended_at,
+            location: value.location,
+            meeting_link: value.meeting_link,
+            description: value.description,
+            note: value.note,
+            recurrence_series_id: value.recurrence_series_id,
+            has_recurrence_rules: value.has_recurrence_rules,
+            is_all_day: value.is_all_day,
+            provider: value.provider,
+            participants: value.participants.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+impl From<&EventRecord> for JsonEventRecord {
+    fn from(value: &EventRecord) -> Self {
+        Self {
+            user_id: value.user_id.clone(),
+            created_at: value.created_at.clone(),
+            tracking_id_event: value.tracking_id_event.clone(),
+            calendar_id: value.calendar_id.clone(),
+            title: value.title.clone(),
+            started_at: value.started_at.clone(),
+            ended_at: value.ended_at.clone(),
+            location: value.location.clone(),
+            meeting_link: value.meeting_link.clone(),
+            description: value.description.clone(),
+            note: value.note.clone(),
+            recurrence_series_id: value.recurrence_series_id.clone(),
+            has_recurrence_rules: value.has_recurrence_rules,
+            is_all_day: value.is_all_day,
+            provider: value.provider,
+            participants: value.participants.iter().map(Into::into).collect(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
 
     use hypr_calendar::CalendarProviderType;
 
-    use super::super::store::default_user_id;
     use super::*;
 
-    fn sample_calendar(name: &str) -> StoredCalendar {
-        StoredCalendar {
+    fn sample_calendar(name: &str) -> CalendarRecord {
+        CalendarRecord {
             user_id: default_user_id(),
             created_at: "2026-04-15T00:00:00Z".to_string(),
             tracking_id_calendar: name.to_string(),

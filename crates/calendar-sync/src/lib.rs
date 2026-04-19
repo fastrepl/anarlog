@@ -7,7 +7,7 @@ mod runtime;
 mod source;
 mod worker;
 
-pub use runtime::{CalendarSyncRuntime, CalendarSyncWorkerEvent, SyncReason, SyncStatus};
+pub use runtime::{CalendarSyncRuntime, CalendarSyncWorkerEvent, SyncStatus};
 pub use source::{BoxError, CalendarSyncSource, SyncOutcome};
 use worker::SyncWorker;
 
@@ -37,7 +37,7 @@ impl Config {
 
 #[derive(Clone)]
 pub struct CalendarSyncHandle {
-    tx: mpsc::UnboundedSender<SyncReason>,
+    tx: mpsc::UnboundedSender<()>,
     status: Arc<Mutex<SyncStatus>>,
 }
 
@@ -53,9 +53,9 @@ impl std::fmt::Display for RequestSyncError {
 impl std::error::Error for RequestSyncError {}
 
 impl CalendarSyncHandle {
-    pub fn request_sync(&self, reason: SyncReason) -> Result<(), RequestSyncError> {
-        tracing::info!(?reason, "calendar sync requested");
-        if let Err(error) = self.tx.send(reason) {
+    pub fn request_sync(&self) -> Result<(), RequestSyncError> {
+        tracing::info!("calendar sync requested");
+        if let Err(error) = self.tx.send(()) {
             tracing::error!(?error, "calendar sync worker is not accepting requests");
             return Err(RequestSyncError);
         }

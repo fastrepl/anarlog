@@ -78,8 +78,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             if matches!(event, tauri::RunEvent::Ready) {
                 use tauri::Manager;
                 if let Some(handle) = app.try_state::<hypr_calendar_sync::CalendarSyncHandle>() {
-                    if let Err(error) = handle.request_sync(hypr_calendar_sync::SyncReason::Startup)
-                    {
+                    if let Err(error) = handle.request_sync() {
                         tracing::error!(%error, "failed to queue startup calendar sync");
                     }
                 }

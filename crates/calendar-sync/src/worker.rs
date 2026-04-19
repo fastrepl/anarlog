@@ -6,14 +6,14 @@ use futures_util::FutureExt;
 use tokio::sync::mpsc::{UnboundedReceiver, error::TryRecvError};
 use tokio::time::{Instant, sleep_until, timeout};
 
-use crate::runtime::{CalendarSyncRuntime, CalendarSyncWorkerEvent, SyncReason, SyncStatus};
+use crate::runtime::{CalendarSyncRuntime, CalendarSyncWorkerEvent, SyncStatus};
 use crate::source::CalendarSyncSource;
 
 pub struct SyncWorker {
     source: Arc<dyn CalendarSyncSource>,
     runtime: Arc<dyn CalendarSyncRuntime>,
     status: Arc<Mutex<SyncStatus>>,
-    rx: UnboundedReceiver<SyncReason>,
+    rx: UnboundedReceiver<()>,
     interval: Duration,
     sync_timeout: Duration,
 }
@@ -23,7 +23,7 @@ impl SyncWorker {
         source: Arc<dyn CalendarSyncSource>,
         runtime: Arc<dyn CalendarSyncRuntime>,
         status: Arc<Mutex<SyncStatus>>,
-        rx: UnboundedReceiver<SyncReason>,
+        rx: UnboundedReceiver<()>,
         interval: Duration,
         sync_timeout: Duration,
     ) -> Self {
@@ -46,18 +46,18 @@ impl SyncWorker {
 
             tokio::select! {
                 biased;
-                maybe_reason = self.rx.recv() => {
-                    let Some(first_reason) = maybe_reason else {
+                maybe_request = self.rx.recv() => {
+                    let Some(()) = maybe_request else {
                         break;
                     };
 
                     self.set_status(SyncStatus::Scheduled);
-                    let reasons = self.drain_pending(first_reason);
-                    self.run_once(reasons).await;
+                    self.drain_pending();
+                    self.run_once().await;
                     last_attempt = Instant::now();
                 }
                 _ = sleep_until(next_interval) => {
-                    self.run_once(vec![SyncReason::Interval]).await;
+                    self.run_once().await;
                     last_attempt = Instant::now();
                 }
             }
@@ -66,55 +66,43 @@ impl SyncWorker {
         tracing::warn!("calendar sync worker stopped");
     }
 
-    fn drain_pending(&mut self, first_reason: SyncReason) -> Vec<SyncReason> {
-        let mut reasons = vec![first_reason];
-
+    fn drain_pending(&mut self) {
         loop {
             match self.rx.try_recv() {
-                Ok(reason) => push_unique(&mut reasons, reason),
+                Ok(()) => {}
                 Err(TryRecvError::Empty | TryRecvError::Disconnected) => break,
             }
         }
-
-        reasons
     }
 
-    async fn run_once(&self, reasons: Vec<SyncReason>) {
-        let panic_reasons = reasons.clone();
+    async fn run_once(&self) {
         let outcome = AssertUnwindSafe(async {
             self.set_status(SyncStatus::Running);
-            tracing::info!(?reasons, "calendar sync started");
-            self.safe_emit(CalendarSyncWorkerEvent::SyncStarted {
-                reasons: reasons.clone(),
-            });
+            tracing::info!("calendar sync started");
+            self.safe_emit(CalendarSyncWorkerEvent::SyncStarted);
 
-            match timeout(self.sync_timeout, self.source.sync(reasons.clone())).await {
+            match timeout(self.sync_timeout, self.source.sync()).await {
                 Ok(Ok(outcome)) => {
                     tracing::info!(
-                        ?reasons,
                         data_changed = outcome.data_changed,
                         "calendar sync finished"
                     );
                     self.safe_emit(CalendarSyncWorkerEvent::SyncFinished {
-                        reasons,
                         data_changed: outcome.data_changed,
                     });
                 }
                 Ok(Err(error)) => {
-                    tracing::error!(?reasons, error = %error, "calendar sync failed");
+                    tracing::error!(error = %error, "calendar sync failed");
                     self.safe_emit(CalendarSyncWorkerEvent::SyncFailed {
-                        reasons,
                         error: error.to_string(),
                     });
                 }
                 Err(_) => {
                     tracing::error!(
-                        ?reasons,
                         timeout_secs = self.sync_timeout.as_secs(),
                         "calendar sync timed out"
                     );
                     self.safe_emit(CalendarSyncWorkerEvent::SyncFailed {
-                        reasons,
                         error: format!(
                             "calendar sync timed out after {}s",
                             self.sync_timeout.as_secs()
@@ -128,9 +116,8 @@ impl SyncWorker {
 
         if let Err(panic_payload) = outcome {
             let panic_message = panic_message(&panic_payload);
-            tracing::error!(?panic_reasons, panic = %panic_message, "calendar sync panicked");
+            tracing::error!(panic = %panic_message, "calendar sync panicked");
             self.safe_emit(CalendarSyncWorkerEvent::SyncFailed {
-                reasons: panic_reasons,
                 error: format!("calendar sync panicked: {panic_message}"),
             });
         }
@@ -164,12 +151,6 @@ impl SyncWorker {
     }
 }
 
-fn push_unique(reasons: &mut Vec<SyncReason>, reason: SyncReason) {
-    if !reasons.contains(&reason) {
-        reasons.push(reason);
-    }
-}
-
 fn panic_message(payload: &Box<dyn std::any::Any + Send>) -> String {
     if let Some(message) = payload.downcast_ref::<&'static str>() {
         (*message).to_string()
@@ -198,7 +179,7 @@ mod tests {
 
     #[derive(Clone)]
     struct MockSource {
-        calls: Arc<Mutex<Vec<Vec<SyncReason>>>>,
+        calls: Arc<Mutex<usize>>,
         calls_changed: Arc<Notify>,
         block_first_call: Arc<AtomicBool>,
         release_first_call: Arc<Notify>,
@@ -207,20 +188,20 @@ mod tests {
     impl MockSource {
         fn new(block_first_call: bool) -> Self {
             Self {
-                calls: Arc::new(Mutex::new(Vec::new())),
+                calls: Arc::new(Mutex::new(0)),
                 calls_changed: Arc::new(Notify::new()),
                 block_first_call: Arc::new(AtomicBool::new(block_first_call)),
                 release_first_call: Arc::new(Notify::new()),
             }
         }
 
-        fn recorded_calls(&self) -> Vec<Vec<SyncReason>> {
-            self.calls.lock().unwrap().clone()
+        fn recorded_calls(&self) -> usize {
+            *self.calls.lock().unwrap()
         }
 
         async fn wait_for_calls(&self, count: usize) {
             loop {
-                if self.recorded_calls().len() >= count {
+                if self.recorded_calls() >= count {
                     return;
                 }
 
@@ -236,7 +217,6 @@ mod tests {
     impl CalendarSyncSource for MockSource {
         fn sync(
             &self,
-            reasons: Vec<SyncReason>,
         ) -> std::pin::Pin<
             Box<dyn std::future::Future<Output = Result<SyncOutcome, BoxError>> + Send + '_>,
         > {
@@ -246,7 +226,7 @@ mod tests {
             let release_first_call = self.release_first_call.clone();
 
             Box::pin(async move {
-                calls.lock().unwrap().push(reasons);
+                *calls.lock().unwrap() += 1;
                 calls_changed.notify_waiters();
 
                 if block_first_call.swap(false, Ordering::SeqCst) {
@@ -275,19 +255,19 @@ mod tests {
 
         tokio::time::advance(Duration::from_secs(30)).await;
         tokio::task::yield_now().await;
-        assert!(source.recorded_calls().is_empty());
+        assert_eq!(source.recorded_calls(), 0);
 
-        tx.send(SyncReason::Manual).unwrap();
+        tx.send(()).unwrap();
         source.wait_for_calls(1).await;
-        assert_eq!(source.recorded_calls(), vec![vec![SyncReason::Manual]]);
+        assert_eq!(source.recorded_calls(), 1);
 
         tokio::time::advance(Duration::from_secs(59)).await;
         tokio::task::yield_now().await;
-        assert_eq!(source.recorded_calls().len(), 1);
+        assert_eq!(source.recorded_calls(), 1);
 
         tokio::time::advance(Duration::from_secs(1)).await;
         source.wait_for_calls(2).await;
-        assert_eq!(source.recorded_calls()[1], vec![SyncReason::Interval]);
+        assert_eq!(source.recorded_calls(), 2);
 
         drop(tx);
         task.abort();
@@ -308,21 +288,16 @@ mod tests {
 
         let task = tokio::spawn(worker.run());
 
-        tx.send(SyncReason::Manual).unwrap();
+        tx.send(()).unwrap();
         source.wait_for_calls(1).await;
 
-        tx.send(SyncReason::Deeplink).unwrap();
-        tx.send(SyncReason::AppleCalendarChanged).unwrap();
-        tx.send(SyncReason::Deeplink).unwrap();
+        tx.send(()).unwrap();
+        tx.send(()).unwrap();
+        tx.send(()).unwrap();
         source.release_blocked_call();
         source.wait_for_calls(2).await;
 
-        let calls = source.recorded_calls();
-        assert_eq!(calls[0], vec![SyncReason::Manual]);
-        assert_eq!(
-            calls[1],
-            vec![SyncReason::Deeplink, SyncReason::AppleCalendarChanged]
-        );
+        assert_eq!(source.recorded_calls(), 2);
 
         drop(tx);
         task.abort();

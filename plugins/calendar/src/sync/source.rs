@@ -12,7 +12,7 @@ use tauri::Manager;
 use crate::auth::{access_token, is_apple_authorized, require_access_token};
 
 use super::store::{
-    CalendarSyncStore, StoredCalendar, StoredEvent, StoredParticipant, default_user_id,
+    CalendarRecord, CalendarSyncStore, EventRecord, ParticipantRecord, default_user_id,
 };
 
 #[derive(Clone)]
@@ -121,7 +121,6 @@ impl<R: tauri::Runtime> PluginCalendarSyncSource<R> {
 impl<R: tauri::Runtime> hypr_calendar_sync::CalendarSyncSource for PluginCalendarSyncSource<R> {
     fn sync(
         &self,
-        _reasons: Vec<hypr_calendar_sync::SyncReason>,
     ) -> Pin<
         Box<
             dyn Future<
@@ -138,8 +137,8 @@ async fn sync_calendars_for_provider<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     api_base_url: &str,
     provider_connection_ids: &hypr_calendar::ProviderConnectionIds,
-    calendars: &mut BTreeMap<String, StoredCalendar>,
-    events: &mut BTreeMap<String, StoredEvent>,
+    calendars: &mut BTreeMap<String, CalendarRecord>,
+    events: &mut BTreeMap<String, EventRecord>,
 ) {
     let mut per_connection = Vec::new();
     for connection_id in &provider_connection_ids.connection_ids {
@@ -234,7 +233,7 @@ async fn sync_calendars_for_provider<R: tauri::Runtime>(
 
             calendars.insert(
                 row_id,
-                StoredCalendar {
+                CalendarRecord {
                     user_id: default_user_id(),
                     created_at: existing
                         .as_ref()
@@ -258,8 +257,8 @@ async fn sync_events_for_connection<R: tauri::Runtime>(
     api_base_url: &str,
     provider: CalendarProviderType,
     connection_id: &str,
-    calendars: &BTreeMap<String, StoredCalendar>,
-    events: &mut BTreeMap<String, StoredEvent>,
+    calendars: &BTreeMap<String, CalendarRecord>,
+    events: &mut BTreeMap<String, EventRecord>,
 ) -> Result<(), BoxError> {
     let enabled_calendar_ids: BTreeSet<_> = calendars
         .iter()
@@ -328,7 +327,7 @@ async fn sync_events_for_connection<R: tauri::Runtime>(
         };
 
         if let Some(incoming) = incoming_by_tracking_id.get(&tracking_id) {
-            let updated = StoredEvent {
+            let updated = EventRecord {
                 user_id: existing.user_id.clone(),
                 created_at: existing.created_at.clone(),
                 tracking_id_event: Some(tracking_id.clone()),
@@ -367,7 +366,7 @@ async fn sync_events_for_connection<R: tauri::Runtime>(
         let row_id = new_id();
         events.insert(
             row_id,
-            StoredEvent {
+            EventRecord {
                 user_id: default_user_id(),
                 created_at: now_iso(),
                 tracking_id_event: Some(incoming.tracking_id_event),
@@ -421,7 +420,7 @@ async fn list_events<R: tauri::Runtime>(
 fn normalize_event(event: &CalendarEvent) -> IncomingEvent {
     let mut participants = Vec::new();
     if let Some(organizer) = &event.organizer {
-        participants.push(StoredParticipant {
+        participants.push(ParticipantRecord {
             name: organizer.name.clone(),
             email: organizer.email.clone(),
             is_organizer: true,
@@ -443,7 +442,7 @@ fn normalize_event(event: &CalendarEvent) -> IncomingEvent {
         }) {
             continue;
         }
-        participants.push(StoredParticipant {
+        participants.push(ParticipantRecord {
             name: attendee.name.clone(),
             email: attendee.email.clone(),
             is_organizer: false,
@@ -554,7 +553,7 @@ struct IncomingEvent {
     recurrence_series_id: Option<String>,
     has_recurrence_rules: bool,
     is_all_day: bool,
-    participants: Vec<StoredParticipant>,
+    participants: Vec<ParticipantRecord>,
 }
 
 #[derive(Debug, Clone, Copy)]

@@ -110,12 +110,9 @@ pub fn parse_meeting_link(text: String) -> Option<String> {
 
 #[tauri::command]
 #[specta::specta]
-pub fn request_calendar_sync<R: tauri::Runtime>(
-    app: tauri::AppHandle<R>,
-    reason: hypr_calendar_sync::SyncReason,
-) -> bool {
+pub fn request_calendar_sync<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> bool {
     app.state::<hypr_calendar_sync::CalendarSyncHandle>()
-        .request_sync(reason)
+        .request_sync()
         .is_ok()
 }
 

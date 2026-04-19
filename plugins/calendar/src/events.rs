@@ -9,17 +9,9 @@ pub enum CalendarSyncEvent {
         status: hypr_calendar_sync::SyncStatus,
     },
     #[serde(rename = "syncStarted")]
-    SyncStarted {
-        reasons: Vec<hypr_calendar_sync::SyncReason>,
-    },
+    SyncStarted,
     #[serde(rename = "syncFinished")]
-    SyncFinished {
-        reasons: Vec<hypr_calendar_sync::SyncReason>,
-        data_changed: bool,
-    },
+    SyncFinished { data_changed: bool },
     #[serde(rename = "syncFailed")]
-    SyncFailed {
-        reasons: Vec<hypr_calendar_sync::SyncReason>,
-        error: String,
-    },
+    SyncFailed { error: String },
 }

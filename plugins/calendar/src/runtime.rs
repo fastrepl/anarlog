@@ -11,9 +11,7 @@ impl<R: tauri::Runtime> CalendarRuntime for TauriCalendarRuntime<R> {
     fn emit_changed(&self) {
         let _ = CalendarChangedEvent.emit(&self.0);
         if let Some(handle) = self.0.try_state::<hypr_calendar_sync::CalendarSyncHandle>() {
-            if let Err(error) =
-                handle.request_sync(hypr_calendar_sync::SyncReason::AppleCalendarChanged)
-            {
+            if let Err(error) = handle.request_sync() {
                 tracing::error!(%error, "failed to queue calendar sync after Apple calendar change");
             }
         }
@@ -26,18 +24,14 @@ impl<R: tauri::Runtime> hypr_calendar_sync::CalendarSyncRuntime for TauriCalenda
             hypr_calendar_sync::CalendarSyncWorkerEvent::StatusChanged { status } => {
                 CalendarSyncEvent::StatusChanged { status }
             }
-            hypr_calendar_sync::CalendarSyncWorkerEvent::SyncStarted { reasons } => {
-                CalendarSyncEvent::SyncStarted { reasons }
+            hypr_calendar_sync::CalendarSyncWorkerEvent::SyncStarted => {
+                CalendarSyncEvent::SyncStarted
             }
-            hypr_calendar_sync::CalendarSyncWorkerEvent::SyncFinished {
-                reasons,
-                data_changed,
-            } => CalendarSyncEvent::SyncFinished {
-                reasons,
-                data_changed,
-            },
-            hypr_calendar_sync::CalendarSyncWorkerEvent::SyncFailed { reasons, error } => {
-                CalendarSyncEvent::SyncFailed { reasons, error }
+            hypr_calendar_sync::CalendarSyncWorkerEvent::SyncFinished { data_changed } => {
+                CalendarSyncEvent::SyncFinished { data_changed }
+            }
+            hypr_calendar_sync::CalendarSyncWorkerEvent::SyncFailed { error } => {
+                CalendarSyncEvent::SyncFailed { error }
             }
         };
         let _ = event.emit(&self.0);
