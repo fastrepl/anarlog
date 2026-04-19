@@ -52,7 +52,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
 
             app.manage(PluginConfig { api_base_url });
 
-            let store: Arc<dyn sync::CalendarSyncStore> = Arc::new(
+            let store = Arc::new(
                 sync::JsonCalendarSyncStore::for_app(app.app_handle()).map_err(
                     |error| -> Box<dyn std::error::Error> {
                         tracing::error!(%error, "failed to initialize calendar sync store");
@@ -63,7 +63,8 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             app.manage(store.clone());
 
             let handle = hypr_calendar_sync::start(
-                sync::PluginCalendarSyncSource::new(app.app_handle().clone(), store),
+                sync::PluginCalendarSyncSource::new(app.app_handle().clone(), store.clone()),
+                store.clone(),
                 runtime::TauriCalendarSyncRuntime(app.app_handle().clone()),
                 hypr_calendar_sync::Config::every_minute(),
             );

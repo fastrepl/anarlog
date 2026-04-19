@@ -3,12 +3,21 @@ use std::time::Duration;
 
 use tokio::sync::mpsc;
 
+mod plan;
 mod runtime;
 mod source;
+mod store;
+mod types;
 mod worker;
 
+pub use plan::{CalendarOp, CalendarPlan, EventOp, EventPlan, plan_calendars, plan_events};
 pub use runtime::{CalendarSyncRuntime, CalendarSyncWorkerEvent, SyncStatus};
-pub use source::{BoxError, CalendarSyncSource, SyncOutcome};
+pub use source::{BoxError, CalendarSyncSource, IncomingSnapshot, SyncOutcome};
+pub use store::CalendarSyncStore;
+pub use types::{
+    CalendarKey, CalendarPayload, ConnectionKey, EventPayload, IncomingCalendar, IncomingEvent,
+    IncomingParticipant, PersistedCalendar, PersistedEvent, SyncRange,
+};
 use worker::SyncWorker;
 
 #[derive(Clone)]
@@ -68,17 +77,19 @@ impl CalendarSyncHandle {
     }
 }
 
-pub fn start(
-    source: impl CalendarSyncSource,
-    runtime: impl CalendarSyncRuntime,
-    config: Config,
-) -> CalendarSyncHandle {
-    let source: Arc<dyn CalendarSyncSource> = Arc::new(source);
-    let runtime: Arc<dyn CalendarSyncRuntime> = Arc::new(runtime);
+pub fn start<S, T, R>(source: S, store: Arc<T>, runtime: R, config: Config) -> CalendarSyncHandle
+where
+    S: CalendarSyncSource,
+    T: CalendarSyncStore,
+    R: CalendarSyncRuntime,
+{
+    let source = Arc::new(source);
+    let runtime = Arc::new(runtime);
     let status = Arc::new(Mutex::new(SyncStatus::Idle));
     let (tx, rx) = mpsc::unbounded_channel();
     let worker = SyncWorker::new(
         source,
+        store,
         runtime,
         status.clone(),
         rx,

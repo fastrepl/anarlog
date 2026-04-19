@@ -1,36 +1,6 @@
-use std::collections::BTreeMap;
-use std::future::Future;
-use std::pin::Pin;
-
 use hypr_calendar_interface::CalendarProviderType;
-use hypr_calendar_sync::BoxError;
 
 const DEFAULT_USER_ID: &str = "00000000-0000-0000-0000-000000000000";
-
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct CalendarSyncSnapshot {
-    pub calendars: BTreeMap<String, CalendarRecord>,
-    pub events: BTreeMap<String, EventRecord>,
-}
-
-pub type SnapshotMutator = Box<dyn FnOnce(&mut CalendarSyncSnapshot) -> bool + Send + 'static>;
-
-/// Implementations must serialize `load_snapshot` and `mutate` against each
-/// other on the same instance, and re-read the authoritative state inside
-/// `mutate` so UI writes that land during a sync pass aren't clobbered.
-pub trait CalendarSyncStore: Send + Sync + 'static {
-    fn load_snapshot(
-        &self,
-    ) -> Pin<Box<dyn Future<Output = Result<CalendarSyncSnapshot, BoxError>> + Send + '_>>;
-
-    /// Atomically load → apply `mutator` → save-if-changed under a per-store
-    /// lock. The mutator returns `true` to persist, `false` to discard; the
-    /// outer bool reports whether a write actually happened.
-    fn mutate(
-        &self,
-        mutator: SnapshotMutator,
-    ) -> Pin<Box<dyn Future<Output = Result<bool, BoxError>> + Send + '_>>;
-}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CalendarRecord {
@@ -75,4 +45,56 @@ pub struct EventRecord {
 
 pub(crate) fn default_user_id() -> String {
     DEFAULT_USER_ID.to_string()
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StoredCalendarRecord {
+    pub id: String,
+    pub record: CalendarRecord,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StoredEventRecord {
+    pub id: String,
+    pub record: EventRecord,
+}
+
+impl hypr_calendar_sync::PersistedCalendar for StoredCalendarRecord {
+    fn id(&self) -> &str {
+        &self.id
+    }
+
+    fn key(&self) -> hypr_calendar_sync::CalendarKey {
+        hypr_calendar_sync::CalendarKey::new(
+            self.record.provider,
+            self.record.connection_id.clone(),
+            self.record.tracking_id_calendar.clone(),
+        )
+    }
+
+    fn enabled(&self) -> bool {
+        self.record.enabled
+    }
+}
+
+impl hypr_calendar_sync::PersistedEvent for StoredEventRecord {
+    fn id(&self) -> &str {
+        &self.id
+    }
+
+    fn tracking_id_event(&self) -> Option<&str> {
+        self.record.tracking_id_event.as_deref()
+    }
+
+    fn calendar_id(&self) -> &str {
+        &self.record.calendar_id
+    }
+
+    fn started_at(&self) -> &str {
+        &self.record.started_at
+    }
+
+    fn ended_at(&self) -> Option<&str> {
+        self.record.ended_at.as_deref()
+    }
 }

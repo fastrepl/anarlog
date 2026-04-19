@@ -4,7 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+chrono = { workspace = true }
 futures-util = { workspace = true }
+hypr-calendar-interface = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 specta = { workspace = true, features = ["derive"] }
 tokio = { workspace = true, features = ["rt", "sync", "time"] }

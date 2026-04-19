@@ -3203,6 +3203,8 @@ dependencies = [
 name = "calendar-sync"
 version = "0.1.0"
 dependencies = [
+ "calendar-interface",
+ "chrono",
  "futures-util",
  "serde",
  "specta",

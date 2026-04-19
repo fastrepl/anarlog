@@ -7,7 +7,7 @@ use tauri::Manager;
 
 use crate::auth::{access_token, is_apple_authorized, require_access_token};
 use crate::error::Error;
-use crate::sync::CalendarSyncStore;
+use crate::sync::JsonCalendarSyncStore;
 
 #[tauri::command]
 #[specta::specta]
@@ -132,18 +132,16 @@ pub async fn set_calendar_enabled<R: tauri::Runtime>(
     calendar_id: String,
     enabled: bool,
 ) -> Result<(), Error> {
-    let store = app.state::<Arc<dyn CalendarSyncStore>>().inner().clone();
+    let store = app.state::<Arc<JsonCalendarSyncStore>>().inner().clone();
 
     store
-        .mutate(Box::new(move |snap| {
-            match snap.calendars.get_mut(&calendar_id) {
-                Some(cal) if cal.enabled != enabled => {
-                    cal.enabled = enabled;
-                    true
-                }
-                _ => false,
+        .mutate(move |snap| match snap.calendars.get_mut(&calendar_id) {
+            Some(cal) if cal.enabled != enabled => {
+                cal.enabled = enabled;
+                true
             }
-        }))
+            _ => false,
+        })
         .await
         .map_err(|error| Error::Store(error.to_string()))?;
 

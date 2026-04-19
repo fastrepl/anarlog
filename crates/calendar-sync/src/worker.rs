@@ -2,26 +2,37 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use chrono::{Duration as ChronoDuration, Utc};
 use futures_util::FutureExt;
 use tokio::sync::mpsc::{UnboundedReceiver, error::TryRecvError};
 use tokio::time::{Instant, sleep_until, timeout};
 
+use crate::plan::{plan_calendars, plan_events};
 use crate::runtime::{CalendarSyncRuntime, CalendarSyncWorkerEvent, SyncStatus};
-use crate::source::CalendarSyncSource;
+use crate::source::{CalendarSyncSource, SyncOutcome};
+use crate::store::CalendarSyncStore;
+use crate::types::SyncRange;
 
-pub struct SyncWorker {
-    source: Arc<dyn CalendarSyncSource>,
-    runtime: Arc<dyn CalendarSyncRuntime>,
+pub struct SyncWorker<S, T, R> {
+    source: Arc<S>,
+    store: Arc<T>,
+    runtime: Arc<R>,
     status: Arc<Mutex<SyncStatus>>,
     rx: UnboundedReceiver<()>,
     interval: Duration,
     sync_timeout: Duration,
 }
 
-impl SyncWorker {
+impl<S, T, R> SyncWorker<S, T, R>
+where
+    S: CalendarSyncSource,
+    T: CalendarSyncStore,
+    R: CalendarSyncRuntime,
+{
     pub fn new(
-        source: Arc<dyn CalendarSyncSource>,
-        runtime: Arc<dyn CalendarSyncRuntime>,
+        source: Arc<S>,
+        store: Arc<T>,
+        runtime: Arc<R>,
         status: Arc<Mutex<SyncStatus>>,
         rx: UnboundedReceiver<()>,
         interval: Duration,
@@ -29,6 +40,7 @@ impl SyncWorker {
     ) -> Self {
         Self {
             source,
+            store,
             runtime,
             status,
             rx,
@@ -81,7 +93,7 @@ impl SyncWorker {
             tracing::info!("calendar sync started");
             self.safe_emit(CalendarSyncWorkerEvent::SyncStarted);
 
-            match timeout(self.sync_timeout, self.source.sync()).await {
+            match timeout(self.sync_timeout, self.sync_once()).await {
                 Ok(Ok(outcome)) => {
                     tracing::info!(
                         data_changed = outcome.data_changed,
@@ -125,6 +137,28 @@ impl SyncWorker {
         self.set_status(SyncStatus::Idle);
     }
 
+    async fn sync_once(&self) -> Result<SyncOutcome, crate::source::BoxError> {
+        let range = sync_range();
+        let snapshot = self.source.fetch(range).await?;
+        let (calendars, events) = self.store.read().await?;
+        let calendar_plan = plan_calendars(
+            &calendars,
+            &snapshot.calendars,
+            &snapshot.requested_connections,
+            &snapshot.successful_calendar_connections,
+        );
+        let event_plan = plan_events(
+            &calendars,
+            &events,
+            &snapshot.events,
+            &snapshot.successful_event_connections,
+            &calendar_plan,
+            range,
+        );
+        let data_changed = self.store.apply(calendar_plan, event_plan).await?;
+        Ok(SyncOutcome { data_changed })
+    }
+
     fn set_status(&self, next: SyncStatus) {
         let should_emit = {
             let mut status = self.status.lock().unwrap();
@@ -151,6 +185,14 @@ impl SyncWorker {
     }
 }
 
+fn sync_range() -> SyncRange {
+    let now = Utc::now();
+    SyncRange {
+        from: now - ChronoDuration::days(7),
+        to: now + ChronoDuration::days(30),
+    }
+}
+
 fn panic_message(payload: &Box<dyn std::any::Any + Send>) -> String {
     if let Some(message) = payload.downcast_ref::<&'static str>() {
         (*message).to_string()
@@ -168,7 +210,9 @@ mod tests {
     use tokio::sync::Notify;
 
     use super::*;
-    use crate::source::{BoxError, SyncOutcome};
+    use crate::plan::{CalendarPlan, EventPlan};
+    use crate::source::{BoxError, IncomingSnapshot};
+    use crate::types::{CalendarKey, PersistedCalendar, PersistedEvent};
 
     #[derive(Clone, Default)]
     struct MockRuntime;
@@ -215,10 +259,11 @@ mod tests {
     }
 
     impl CalendarSyncSource for MockSource {
-        fn sync(
+        fn fetch(
             &self,
+            _range: SyncRange,
         ) -> std::pin::Pin<
-            Box<dyn std::future::Future<Output = Result<SyncOutcome, BoxError>> + Send + '_>,
+            Box<dyn std::future::Future<Output = Result<IncomingSnapshot, BoxError>> + Send + '_>,
         > {
             let calls = self.calls.clone();
             let calls_changed = self.calls_changed.clone();
@@ -233,8 +278,90 @@ mod tests {
                     release_first_call.notified().await;
                 }
 
-                Ok(SyncOutcome::default())
+                Ok(IncomingSnapshot::default())
             })
+        }
+    }
+
+    #[derive(Clone, Default)]
+    struct MockStore;
+
+    #[derive(Clone)]
+    struct TestCalendar {
+        id: String,
+        key: CalendarKey,
+        enabled: bool,
+    }
+
+    impl PersistedCalendar for TestCalendar {
+        fn id(&self) -> &str {
+            &self.id
+        }
+
+        fn key(&self) -> CalendarKey {
+            self.key.clone()
+        }
+
+        fn enabled(&self) -> bool {
+            self.enabled
+        }
+    }
+
+    #[derive(Clone)]
+    struct TestEvent {
+        id: String,
+        tracking_id_event: Option<String>,
+        calendar_id: String,
+        started_at: String,
+        ended_at: Option<String>,
+    }
+
+    impl PersistedEvent for TestEvent {
+        fn id(&self) -> &str {
+            &self.id
+        }
+
+        fn tracking_id_event(&self) -> Option<&str> {
+            self.tracking_id_event.as_deref()
+        }
+
+        fn calendar_id(&self) -> &str {
+            &self.calendar_id
+        }
+
+        fn started_at(&self) -> &str {
+            &self.started_at
+        }
+
+        fn ended_at(&self) -> Option<&str> {
+            self.ended_at.as_deref()
+        }
+    }
+
+    impl CalendarSyncStore for MockStore {
+        type Calendar = TestCalendar;
+        type Event = TestEvent;
+
+        fn read(
+            &self,
+        ) -> std::pin::Pin<
+            Box<
+                dyn std::future::Future<
+                        Output = Result<(Vec<Self::Calendar>, Vec<Self::Event>), BoxError>,
+                    > + Send
+                    + '_,
+            >,
+        > {
+            Box::pin(async move { Ok((Vec::new(), Vec::new())) })
+        }
+
+        fn apply<'a>(
+            &'a self,
+            _calendar_plan: CalendarPlan<'a>,
+            _event_plan: EventPlan<'a>,
+        ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<bool, BoxError>> + Send + 'a>>
+        {
+            Box::pin(async move { Ok(false) })
         }
     }
 
@@ -244,6 +371,7 @@ mod tests {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
         let worker = SyncWorker::new(
             Arc::new(source.clone()),
+            Arc::new(MockStore),
             Arc::new(MockRuntime),
             Arc::new(Mutex::new(SyncStatus::Idle)),
             rx,
@@ -279,6 +407,7 @@ mod tests {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
         let worker = SyncWorker::new(
             Arc::new(source.clone()),
+            Arc::new(MockStore),
             Arc::new(MockRuntime),
             Arc::new(Mutex::new(SyncStatus::Idle)),
             rx,

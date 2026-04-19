@@ -1,20 +1,26 @@
-//! File-backed [`CalendarSyncStore`] impl: a JSON blob per table under a
-//! per-store [`tokio::sync::Mutex`].
+//! File-backed calendar sync store.
 
 use std::collections::BTreeMap;
 use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 
-use hypr_calendar_sync::BoxError;
+use chrono::Utc;
+use hypr_calendar_sync::{BoxError, CalendarOp, CalendarPlan, EventOp, EventPlan};
 
 use super::store::{
-    CalendarRecord, CalendarSyncSnapshot, CalendarSyncStore, EventRecord, ParticipantRecord,
-    SnapshotMutator, default_user_id,
+    CalendarRecord, EventRecord, ParticipantRecord, StoredCalendarRecord, StoredEventRecord,
+    default_user_id,
 };
 
 const CALENDARS_FILENAME: &str = "calendars.json";
 const EVENTS_FILENAME: &str = "events.json";
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct CalendarSyncSnapshot {
+    pub calendars: BTreeMap<String, CalendarRecord>,
+    pub events: BTreeMap<String, EventRecord>,
+}
 
 pub struct JsonCalendarSyncStore {
     base_path: PathBuf,
@@ -31,6 +37,24 @@ impl JsonCalendarSyncStore {
 
     pub fn for_app<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<Self, BoxError> {
         Ok(Self::from_base_path(resolve_vault_base(app)?))
+    }
+
+    pub async fn load_snapshot(&self) -> Result<CalendarSyncSnapshot, BoxError> {
+        let _guard = self.write_lock.lock().await;
+        self.read_snapshot().await
+    }
+
+    pub async fn mutate<F>(&self, mutator: F) -> Result<bool, BoxError>
+    where
+        F: FnOnce(&mut CalendarSyncSnapshot) -> bool + Send,
+    {
+        let _guard = self.write_lock.lock().await;
+        let mut snapshot = self.read_snapshot().await?;
+        let should_persist = mutator(&mut snapshot);
+        if should_persist {
+            self.write_snapshot(&snapshot).await?;
+        }
+        Ok(should_persist)
     }
 
     async fn read_snapshot(&self) -> Result<CalendarSyncSnapshot, BoxError> {
@@ -65,29 +89,199 @@ impl JsonCalendarSyncStore {
     }
 }
 
-impl CalendarSyncStore for JsonCalendarSyncStore {
-    fn load_snapshot(
+impl hypr_calendar_sync::CalendarSyncStore for JsonCalendarSyncStore {
+    type Calendar = StoredCalendarRecord;
+    type Event = StoredEventRecord;
+
+    fn read(
         &self,
-    ) -> Pin<Box<dyn Future<Output = Result<CalendarSyncSnapshot, BoxError>> + Send + '_>> {
+    ) -> Pin<
+        Box<
+            dyn Future<Output = Result<(Vec<Self::Calendar>, Vec<Self::Event>), BoxError>>
+                + Send
+                + '_,
+        >,
+    > {
         Box::pin(async move {
-            let _guard = self.write_lock.lock().await;
-            self.read_snapshot().await
+            let snapshot = self.load_snapshot().await?;
+            Ok((
+                snapshot
+                    .calendars
+                    .into_iter()
+                    .map(|(id, record)| StoredCalendarRecord { id, record })
+                    .collect(),
+                snapshot
+                    .events
+                    .into_iter()
+                    .map(|(id, record)| StoredEventRecord { id, record })
+                    .collect(),
+            ))
         })
     }
 
-    fn mutate(
-        &self,
-        mutator: SnapshotMutator,
-    ) -> Pin<Box<dyn Future<Output = Result<bool, BoxError>> + Send + '_>> {
+    fn apply<'a>(
+        &'a self,
+        calendar_plan: CalendarPlan<'a>,
+        event_plan: EventPlan<'a>,
+    ) -> Pin<Box<dyn Future<Output = Result<bool, BoxError>> + Send + 'a>> {
         Box::pin(async move {
             let _guard = self.write_lock.lock().await;
             let mut snapshot = self.read_snapshot().await?;
-            let should_persist = mutator(&mut snapshot);
-            if should_persist {
+            let original = snapshot.clone();
+
+            apply_calendar_plan(&mut snapshot, calendar_plan);
+            apply_event_plan(&mut snapshot, event_plan);
+
+            let changed = snapshot != original;
+            if changed {
                 self.write_snapshot(&snapshot).await?;
             }
-            Ok(should_persist)
+            Ok(changed)
         })
+    }
+}
+
+fn apply_calendar_plan(snapshot: &mut CalendarSyncSnapshot, plan: CalendarPlan<'_>) {
+    for op in plan.ops {
+        match op {
+            CalendarOp::Delete { id } => {
+                snapshot.calendars.remove(&id);
+            }
+            CalendarOp::Upsert {
+                existing_id,
+                incoming,
+            } => {
+                let row_id = existing_id.unwrap_or_else(new_id);
+                let existing = snapshot.calendars.get(&row_id).cloned();
+                snapshot.calendars.insert(
+                    row_id,
+                    CalendarRecord {
+                        user_id: existing
+                            .as_ref()
+                            .map(|row| row.user_id.clone())
+                            .unwrap_or_else(default_user_id),
+                        created_at: existing
+                            .as_ref()
+                            .map(|row| row.created_at.clone())
+                            .unwrap_or_else(now_iso),
+                        tracking_id_calendar: incoming.key.tracking_id.clone(),
+                        name: incoming.payload.name.clone(),
+                        enabled: existing.as_ref().map(|row| row.enabled).unwrap_or(false),
+                        provider: incoming.key.provider,
+                        source: incoming.payload.source.clone(),
+                        color: incoming.payload.color.clone(),
+                        connection_id: incoming.key.connection_id.clone(),
+                    },
+                );
+            }
+        }
+    }
+}
+
+fn apply_event_plan(snapshot: &mut CalendarSyncSnapshot, plan: EventPlan<'_>) {
+    let calendar_ids_by_key = snapshot
+        .calendars
+        .iter()
+        .map(|(id, record)| {
+            (
+                hypr_calendar_sync::CalendarKey::new(
+                    record.provider,
+                    record.connection_id.clone(),
+                    record.tracking_id_calendar.clone(),
+                ),
+                id.clone(),
+            )
+        })
+        .collect::<BTreeMap<_, _>>();
+
+    for op in plan.ops {
+        match op {
+            EventOp::Delete { id } => {
+                snapshot.events.remove(&id);
+            }
+            EventOp::Update { id, incoming } => {
+                let existing = snapshot.events.get(&id).cloned();
+                let calendar_id = existing
+                    .as_ref()
+                    .map(|row| row.calendar_id.clone())
+                    .or_else(|| calendar_ids_by_key.get(&incoming.calendar_key).cloned());
+                let Some(calendar_id) = calendar_id else {
+                    continue;
+                };
+                snapshot.events.insert(
+                    id,
+                    EventRecord {
+                        user_id: existing
+                            .as_ref()
+                            .map(|row| row.user_id.clone())
+                            .unwrap_or_else(default_user_id),
+                        created_at: existing
+                            .as_ref()
+                            .map(|row| row.created_at.clone())
+                            .unwrap_or_else(now_iso),
+                        tracking_id_event: Some(incoming.tracking_id_event.clone()),
+                        calendar_id,
+                        title: incoming.payload.title.clone().unwrap_or_default(),
+                        started_at: incoming.started_at.clone(),
+                        ended_at: incoming.ended_at.clone(),
+                        location: incoming.payload.location.clone(),
+                        meeting_link: incoming.payload.meeting_link.clone(),
+                        description: incoming.payload.description.clone(),
+                        note: existing.as_ref().and_then(|row| row.note.clone()),
+                        recurrence_series_id: incoming.recurrence_series_id.clone(),
+                        has_recurrence_rules: incoming.has_recurrence_rules,
+                        is_all_day: incoming.is_all_day,
+                        provider: incoming.calendar_key.provider,
+                        participants: incoming
+                            .participants
+                            .iter()
+                            .map(|participant| ParticipantRecord {
+                                name: participant.name.clone(),
+                                email: participant.email.clone(),
+                                is_organizer: participant.is_organizer,
+                                is_current_user: participant.is_current_user,
+                            })
+                            .collect(),
+                    },
+                );
+            }
+            EventOp::Insert { incoming } => {
+                let Some(calendar_id) = calendar_ids_by_key.get(&incoming.calendar_key).cloned()
+                else {
+                    continue;
+                };
+                snapshot.events.insert(
+                    new_id(),
+                    EventRecord {
+                        user_id: default_user_id(),
+                        created_at: now_iso(),
+                        tracking_id_event: Some(incoming.tracking_id_event.clone()),
+                        calendar_id,
+                        title: incoming.payload.title.clone().unwrap_or_default(),
+                        started_at: incoming.started_at.clone(),
+                        ended_at: incoming.ended_at.clone(),
+                        location: incoming.payload.location.clone(),
+                        meeting_link: incoming.payload.meeting_link.clone(),
+                        description: incoming.payload.description.clone(),
+                        note: None,
+                        recurrence_series_id: incoming.recurrence_series_id.clone(),
+                        has_recurrence_rules: incoming.has_recurrence_rules,
+                        is_all_day: incoming.is_all_day,
+                        provider: incoming.calendar_key.provider,
+                        participants: incoming
+                            .participants
+                            .iter()
+                            .map(|participant| ParticipantRecord {
+                                name: participant.name.clone(),
+                                email: participant.email.clone(),
+                                is_organizer: participant.is_organizer,
+                                is_current_user: participant.is_current_user,
+                            })
+                            .collect(),
+                    },
+                );
+            }
+        }
     }
 }
 
@@ -122,6 +316,14 @@ fn resolve_vault_base<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<Pa
         &settings_base,
         &settings_base,
     ))
+}
+
+fn now_iso() -> String {
+    Utc::now().to_rfc3339()
+}
+
+fn new_id() -> String {
+    uuid::Uuid::new_v4().to_string()
 }
 
 // On-disk shape note: the JSON files were historically written by the old TS
@@ -326,11 +528,11 @@ mod tests {
         let store = JsonCalendarSyncStore::from_base_path(dir.path().to_path_buf());
 
         let persisted = store
-            .mutate(Box::new(|snap| {
+            .mutate(|snap| {
                 snap.calendars
                     .insert("cal-1".to_string(), sample_calendar("cal-1"));
                 false
-            }))
+            })
             .await
             .unwrap();
 
@@ -446,10 +648,10 @@ mod tests {
                 for i in 0..PER_TASK {
                     let key = format!("task-{task_id}-cal-{i}");
                     store
-                        .mutate(Box::new(move |snap| {
+                        .mutate(move |snap| {
                             snap.calendars.insert(key.clone(), sample_calendar(&key));
                             true
-                        }))
+                        })
                         .await
                         .expect("mutate ok");
                 }
