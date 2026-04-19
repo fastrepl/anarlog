@@ -7,11 +7,17 @@ import {
   SearchIcon,
 } from "lucide-react";
 import { Reorder } from "motion/react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { useShallow } from "zustand/shallow";
 
 import { Button } from "@hypr/ui/components/ui/button";
+import { Kbd } from "@hypr/ui/components/ui/kbd";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@hypr/ui/components/ui/tooltip";
 import { cn } from "@hypr/utils";
 
 import { useShell } from "~/contexts/shell";
@@ -104,6 +110,8 @@ export function Main2Shell() {
 
   useMain2TabsShortcuts();
 
+  const { cmd } = useHeaderModifierKeys();
+
   const [openNoteDialogOpen, setOpenNoteDialogOpen] = useState(false);
   useHotkeys(
     "mod+k",
@@ -189,40 +197,90 @@ export function Main2Shell() {
             ])}
           >
             {isLinux && <TrafficLights className="mr-1" />}
-            <Button
-              onClick={handleHome}
-              variant="ghost"
-              size="icon"
-              className={cn([
-                "text-neutral-600",
-                isHomeActive &&
-                  "bg-neutral-200 text-neutral-900 hover:bg-neutral-200",
-              ])}
-              aria-pressed={isHomeActive}
-              title="Home"
-            >
-              <HouseIcon size={16} />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={handleHome}
+                  variant="ghost"
+                  size="icon"
+                  className={cn([
+                    "text-neutral-600",
+                    isHomeActive &&
+                      "bg-neutral-200 text-neutral-900 hover:bg-neutral-200",
+                  ])}
+                  aria-pressed={isHomeActive}
+                  aria-label="Home"
+                >
+                  <HouseIcon size={16} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <span>Home</span>
+              </TooltipContent>
+            </Tooltip>
+            <div className="relative">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    onClick={() => setOpenNoteDialogOpen(true)}
+                    variant="ghost"
+                    size="icon"
+                    className="text-neutral-600"
+                    aria-label="Search"
+                  >
+                    <SearchIcon size={16} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent
+                  side="bottom"
+                  className="flex items-center gap-2"
+                >
+                  <span>Search</span>
+                  <Kbd className="animate-kbd-press">⌘ K</Kbd>
+                </TooltipContent>
+              </Tooltip>
+              {cmd && (
+                <div className="pointer-events-none absolute top-full left-1/2 z-50 -translate-x-1/2 -translate-y-1/3">
+                  <Kbd className="animate-kbd-press">⌘ K</Kbd>
+                </div>
+              )}
+            </div>
             {!isHomeActive && (
               <>
-                <Button
-                  onClick={goBack}
-                  disabled={!canGoBack}
-                  variant="ghost"
-                  size="icon"
-                  className="text-neutral-600"
-                >
-                  <ArrowLeftIcon size={16} />
-                </Button>
-                <Button
-                  onClick={goNext}
-                  disabled={!canGoNext}
-                  variant="ghost"
-                  size="icon"
-                  className="text-neutral-600"
-                >
-                  <ArrowRightIcon size={16} />
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      onClick={goBack}
+                      disabled={!canGoBack}
+                      variant="ghost"
+                      size="icon"
+                      className="text-neutral-600"
+                      aria-label="Back"
+                    >
+                      <ArrowLeftIcon size={16} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <span>Back</span>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      onClick={goNext}
+                      disabled={!canGoNext}
+                      variant="ghost"
+                      size="icon"
+                      className="text-neutral-600"
+                      aria-label="Forward"
+                    >
+                      <ArrowRightIcon size={16} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <span>Forward</span>
+                  </TooltipContent>
+                </Tooltip>
               </>
             )}
           </div>
@@ -274,51 +332,63 @@ export function Main2Shell() {
 
           <div className="ml-auto flex shrink-0 items-center gap-2">
             {showAdHocButton && (
-              <Button
-                type="button"
-                onClick={handleAdHoc}
-                title="New ad-hoc session"
-                aria-label="New ad-hoc session"
-                variant="ghost"
-                size="icon"
-                className="group shrink-0"
-              >
-                <span className="relative h-3.5 w-3.5 overflow-hidden rounded-full border border-red-500/60 bg-linear-to-b from-red-400 to-red-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(127,29,29,0.14)] transition-[filter] group-hover:brightness-110">
-                  <span className="pointer-events-none absolute top-[1px] left-1/2 h-[22%] w-[68%] -translate-x-1/2 rounded-full bg-white/18" />
-                </span>
-              </Button>
+              <div className="relative">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      onClick={handleAdHoc}
+                      aria-label="New recording"
+                      variant="ghost"
+                      className="group shrink-0 gap-1.5 px-2 text-xs text-neutral-900"
+                    >
+                      <span className="size-3 rounded-full bg-red-500" />
+                      <span>New recording</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent
+                    side="bottom"
+                    className="flex items-center gap-2"
+                  >
+                    <span>New recording</span>
+                    <Kbd className="animate-kbd-press">⌘ ⇧ N</Kbd>
+                  </TooltipContent>
+                </Tooltip>
+                {cmd && (
+                  <div className="pointer-events-none absolute top-full left-1/2 z-50 -translate-x-1/2 -translate-y-1/2">
+                    <Kbd className="animate-kbd-press">⌘ ⇧ N</Kbd>
+                  </div>
+                )}
+              </div>
             )}
-            <Button
-              onClick={() => setOpenNoteDialogOpen(true)}
-              variant="ghost"
-              size="icon"
-              className="text-neutral-600"
-              title="Search (⌘K)"
-            >
-              <SearchIcon size={16} />
-            </Button>
-            <Button
-              onClick={handleChat}
-              variant="ghost"
-              size="icon"
-              className={cn([
-                "text-neutral-600",
-                isChatOpen &&
-                  "bg-neutral-200 text-neutral-900 hover:bg-neutral-200",
-              ])}
-              aria-label={isChatOpen ? "Close chat" : "Chat with notes"}
-              aria-pressed={isChatOpen}
-              title={isChatOpen ? "Close chat" : "Chat with notes"}
-            >
-              <img
-                src="/assets/char-chat-bubble.svg"
-                alt="Char"
-                className={cn([
-                  "size-[16px] shrink-0 object-contain opacity-65",
-                  isChatOpen && "opacity-100",
-                ])}
-              />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={handleChat}
+                  variant="ghost"
+                  size="icon"
+                  className={cn([
+                    "text-neutral-600",
+                    isChatOpen &&
+                      "bg-neutral-200 text-neutral-900 hover:bg-neutral-200",
+                  ])}
+                  aria-label={isChatOpen ? "Close chat" : "Chat with notes"}
+                  aria-pressed={isChatOpen}
+                >
+                  <img
+                    src="/assets/char-chat-bubble.svg"
+                    alt="Char"
+                    className={cn([
+                      "size-[16px] shrink-0 object-contain opacity-65",
+                      isChatOpen && "opacity-100",
+                    ])}
+                  />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <span>{isChatOpen ? "Close chat" : "Chat with notes"}</span>
+              </TooltipContent>
+            </Tooltip>
             <ProfileMenu />
           </div>
         </div>
@@ -339,4 +409,27 @@ export function Main2Shell() {
       </div>
     </MainShellScaffold>
   );
+}
+
+function useHeaderModifierKeys() {
+  const [state, setState] = useState({ meta: false, shift: false });
+
+  useEffect(() => {
+    const update = (e: KeyboardEvent) =>
+      setState({ meta: e.metaKey, shift: e.shiftKey });
+    const reset = () => setState({ meta: false, shift: false });
+    window.addEventListener("keydown", update);
+    window.addEventListener("keyup", update);
+    window.addEventListener("blur", reset);
+    return () => {
+      window.removeEventListener("keydown", update);
+      window.removeEventListener("keyup", update);
+      window.removeEventListener("blur", reset);
+    };
+  }, []);
+
+  return {
+    cmd: state.meta && !state.shift,
+    cmdShift: state.meta && state.shift,
+  };
 }
