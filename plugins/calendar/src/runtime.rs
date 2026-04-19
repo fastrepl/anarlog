@@ -10,10 +10,12 @@ pub struct TauriCalendarSyncRuntime<R: tauri::Runtime>(pub tauri::AppHandle<R>);
 impl<R: tauri::Runtime> CalendarRuntime for TauriCalendarRuntime<R> {
     fn emit_changed(&self) {
         let _ = CalendarChangedEvent.emit(&self.0);
-        if let Some(state) = self.0.try_state::<crate::CalendarSyncState>() {
-            state
-                .0
-                .request_sync(hypr_calendar_sync::SyncReason::AppleCalendarChanged);
+        if let Some(handle) = self.0.try_state::<hypr_calendar_sync::CalendarSyncHandle>() {
+            if let Err(error) =
+                handle.request_sync(hypr_calendar_sync::SyncReason::AppleCalendarChanged)
+            {
+                tracing::error!(%error, "failed to queue calendar sync after Apple calendar change");
+            }
         }
     }
 }

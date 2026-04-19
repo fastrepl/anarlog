@@ -4,11 +4,11 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-apalis = { workspace = true }
-apalis-cron = { workspace = true }
-chrono = { workspace = true }
-cron = "0.16"
+futures-util = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 specta = { workspace = true, features = ["derive"] }
-tokio = { workspace = true, features = ["rt", "sync"] }
+tokio = { workspace = true, features = ["rt", "sync", "time"] }
 tracing = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt", "sync", "test-util", "time"] }

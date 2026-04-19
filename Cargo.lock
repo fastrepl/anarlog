@@ -3203,10 +3203,7 @@ dependencies = [
 name = "calendar-sync"
 version = "0.1.0"
 dependencies = [
- "apalis",
- "apalis-cron",
- "chrono",
- "cron 0.16.0",
+ "futures-util",
  "serde",
  "specta",
  "tokio",

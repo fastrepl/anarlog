@@ -35,6 +35,16 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
   >("idle");
   const [isDebouncing, setIsDebouncing] = useState(false);
 
+  const refreshWorkerStatus = useCallback(async () => {
+    try {
+      const nextStatus = await calendarCommands.getCalendarSyncStatus();
+      setWorkerStatus(nextStatus);
+    } catch (error) {
+      console.error(error);
+      setWorkerStatus("idle");
+    }
+  }, []);
+
   const status: SyncStatus =
     workerStatus === "running"
       ? "syncing"
@@ -103,11 +113,16 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     setWorkerStatus((current) => (current === "idle" ? "scheduled" : current));
     void calendarCommands
       .requestCalendarSync("manual")
-      .then((nextStatus) => {
-        setWorkerStatus(nextStatus);
+      .then((accepted) => {
+        if (!accepted) {
+          void refreshWorkerStatus();
+        }
       })
-      .catch(console.error);
-  }, []);
+      .catch((error) => {
+        console.error(error);
+        void refreshWorkerStatus();
+      });
+  }, [refreshWorkerStatus]);
 
   const scheduleDebouncedSync = useCallback(() => {
     if (toggleSyncTimeoutRef.current) {

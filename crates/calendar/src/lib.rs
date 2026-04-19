@@ -8,7 +8,7 @@ pub use hypr_calendar_interface::{
     CalendarEvent, CalendarListItem, CalendarProviderType, CreateEventInput, EventFilter,
 };
 
-pub fn start(runtime: impl runtime::CalendarRuntime) {
+pub fn watch_apple_changes(runtime: impl runtime::CalendarRuntime) {
     #[cfg(target_os = "macos")]
     {
         use std::sync::Arc;

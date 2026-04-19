@@ -1,85 +1,114 @@
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
+
+use tokio::sync::mpsc;
+
 mod runtime;
 mod source;
 mod worker;
 
 pub use runtime::{CalendarSyncRuntime, CalendarSyncWorkerEvent, SyncReason, SyncStatus};
 pub use source::{BoxError, CalendarSyncSource, SyncOutcome};
-
-use std::future::Future;
-use std::pin::Pin;
-use std::str::FromStr;
-
-use apalis::prelude::*;
-use apalis_cron::CronStream;
-use chrono::Duration;
-use cron::Schedule;
-
-use worker::WorkerState;
+use worker::SyncWorker;
 
 #[derive(Clone)]
 pub struct Config {
-    pub schedule: Schedule,
+    pub interval: Duration,
     pub sync_timeout: Duration,
 }
 
 impl Config {
-    pub fn every_minute() -> Self {
+    pub fn every(interval: Duration) -> Self {
+        assert!(
+            !interval.is_zero(),
+            "calendar sync interval must be greater than zero"
+        );
+
         Self {
-            schedule: Schedule::from_str("0 * * * * *")
-                .expect("calendar sync schedule must be valid"),
-            sync_timeout: Duration::seconds(30),
+            interval,
+            sync_timeout: Duration::from_secs(30),
         }
+    }
+
+    pub fn every_minute() -> Self {
+        Self::every(Duration::from_secs(60))
     }
 }
 
 #[derive(Clone)]
 pub struct CalendarSyncHandle {
-    state: WorkerState,
+    tx: mpsc::UnboundedSender<SyncReason>,
+    status: Arc<Mutex<SyncStatus>>,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct RequestSyncError;
+
+impl std::fmt::Display for RequestSyncError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("calendar sync worker is not accepting requests")
+    }
+}
+
+impl std::error::Error for RequestSyncError {}
+
 impl CalendarSyncHandle {
-    pub fn request_sync(&self, reason: SyncReason) -> SyncStatus {
-        self.state.request_sync(reason)
+    pub fn request_sync(&self, reason: SyncReason) -> Result<(), RequestSyncError> {
+        tracing::info!(?reason, "calendar sync requested");
+        if let Err(error) = self.tx.send(reason) {
+            tracing::error!(?error, "calendar sync worker is not accepting requests");
+            return Err(RequestSyncError);
+        }
+
+        Ok(())
     }
 
     pub fn status(&self) -> SyncStatus {
-        self.state.status()
+        *self.status.lock().unwrap()
     }
 }
-
-pub type BoxedSyncTask = Pin<Box<dyn Future<Output = ()> + Send>>;
 
 pub fn start(
     source: impl CalendarSyncSource,
     runtime: impl CalendarSyncRuntime,
     config: Config,
-    spawn: impl Fn(BoxedSyncTask) + Send + Sync + 'static,
 ) -> CalendarSyncHandle {
-    let state = WorkerState::new(
+    let source: Arc<dyn CalendarSyncSource> = Arc::new(source);
+    let runtime: Arc<dyn CalendarSyncRuntime> = Arc::new(runtime);
+    let status = Arc::new(Mutex::new(SyncStatus::Idle));
+    let (tx, rx) = mpsc::unbounded_channel();
+    let worker = SyncWorker::new(
         source,
         runtime,
-        config
-            .sync_timeout
-            .to_std()
-            .expect("calendar sync timeout must be positive"),
+        status.clone(),
+        rx,
+        config.interval,
+        config.sync_timeout,
     );
-    let handle = CalendarSyncHandle {
-        state: state.clone(),
-    };
 
-    let cron_state = state;
-    let schedule = config.schedule;
-    spawn(Box::pin(async move {
-        let worker = WorkerBuilder::new("calendar-sync-worker")
-            .backend(CronStream::new(schedule))
-            .data(cron_state)
-            .build(worker::enqueue_interval_tick);
+    std::thread::Builder::new()
+        .name("calendar-sync-worker".to_string())
+        .spawn(move || {
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                let runtime = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .expect("failed to create calendar sync runtime");
+                runtime.block_on(worker.run());
+            }));
 
-        if let Err(error) = worker.run().await {
-            tracing::error!("calendar sync cron worker exited: {error}");
-        }
-    }));
+            if let Err(payload) = result {
+                let panic_message = if let Some(message) = payload.downcast_ref::<&'static str>() {
+                    (*message).to_string()
+                } else if let Some(message) = payload.downcast_ref::<String>() {
+                    message.clone()
+                } else {
+                    "unknown panic".to_string()
+                };
+                tracing::error!(panic = %panic_message, "calendar sync worker thread panicked");
+            }
+        })
+        .expect("failed to spawn calendar sync worker thread");
 
-    handle.request_sync(SyncReason::Startup);
-    handle
+    CalendarSyncHandle { tx, status }
 }

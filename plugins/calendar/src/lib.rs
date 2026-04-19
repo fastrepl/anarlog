@@ -14,8 +14,6 @@ pub(crate) struct PluginConfig {
     pub api_base_url: String,
 }
 
-pub(crate) struct CalendarSyncState(pub hypr_calendar_sync::CalendarSyncHandle);
-
 const PLUGIN_NAME: &str = "calendar";
 
 fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
@@ -56,14 +54,24 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
                 sync_source::PluginCalendarSyncSource::new(app.app_handle().clone()),
                 runtime::TauriCalendarSyncRuntime(app.app_handle().clone()),
                 hypr_calendar_sync::Config::every_minute(),
-                |task| {
-                    tauri::async_runtime::spawn(task);
-                },
             );
-            app.manage(CalendarSyncState(handle));
+            app.manage(handle);
 
-            hypr_calendar::start(runtime::TauriCalendarRuntime(app.app_handle().clone()));
+            hypr_calendar::watch_apple_changes(runtime::TauriCalendarRuntime(
+                app.app_handle().clone(),
+            ));
             Ok(())
+        })
+        .on_event(|app, event| {
+            if matches!(event, tauri::RunEvent::Ready) {
+                use tauri::Manager;
+                if let Some(handle) = app.try_state::<hypr_calendar_sync::CalendarSyncHandle>() {
+                    if let Err(error) = handle.request_sync(hypr_calendar_sync::SyncReason::Startup)
+                    {
+                        tracing::error!(%error, "failed to queue startup calendar sync");
+                    }
+                }
+            }
         })
         .build()
 }

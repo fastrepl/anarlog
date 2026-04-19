@@ -60,7 +60,7 @@ async createEvent(provider: CalendarProviderType, input: CreateEventInput) : Pro
 async parseMeetingLink(text: string) : Promise<string | null> {
     return await TAURI_INVOKE("plugin:calendar|parse_meeting_link", { text });
 },
-async requestCalendarSync(reason: SyncReason) : Promise<SyncStatus> {
+async requestCalendarSync(reason: SyncReason) : Promise<boolean> {
     return await TAURI_INVOKE("plugin:calendar|request_calendar_sync", { reason });
 },
 async getCalendarSyncStatus() : Promise<SyncStatus> {

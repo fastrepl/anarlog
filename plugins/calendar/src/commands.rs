@@ -110,10 +110,10 @@ pub fn parse_meeting_link(text: String) -> Option<String> {
 pub fn request_calendar_sync<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     reason: hypr_calendar_sync::SyncReason,
-) -> hypr_calendar_sync::SyncStatus {
-    app.state::<crate::CalendarSyncState>()
-        .0
+) -> bool {
+    app.state::<hypr_calendar_sync::CalendarSyncHandle>()
         .request_sync(reason)
+        .is_ok()
 }
 
 #[tauri::command]
@@ -121,5 +121,6 @@ pub fn request_calendar_sync<R: tauri::Runtime>(
 pub fn get_calendar_sync_status<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
 ) -> hypr_calendar_sync::SyncStatus {
-    app.state::<crate::CalendarSyncState>().0.status()
+    app.state::<hypr_calendar_sync::CalendarSyncHandle>()
+        .status()
 }
