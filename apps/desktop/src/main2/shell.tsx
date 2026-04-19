@@ -14,6 +14,7 @@ import { useShallow } from "zustand/shallow";
 import { Button } from "@hypr/ui/components/ui/button";
 import { cn } from "@hypr/utils";
 
+import { ChatToolbarControls } from "~/chat/components/toolbar-controls";
 import { useShell } from "~/contexts/shell";
 import { Main2Home } from "~/main2/home";
 import { ProfileMenu } from "~/main2/profile-menu";
@@ -24,6 +25,7 @@ import {
   MainShellScaffold,
   MainTabContent,
   MainTabItem,
+  useChatPanelToolbarWidth,
   useScrollActiveTabIntoView,
 } from "~/shared/main";
 import { OpenNoteDialog } from "~/shared/open-note-dialog";
@@ -93,6 +95,7 @@ export function Main2Shell() {
 
   const isHomeActive = currentTab === null;
   const isChatOpen = chat.mode === "RightPanelOpen";
+  const chatToolbarWidth = useChatPanelToolbarWidth(isChatOpen);
   const liveSessionId = useListener((state) => state.live.sessionId);
   const liveStatus = useListener((state) => state.live.status);
   const showAdHocButton = !(
@@ -271,54 +274,76 @@ export function Main2Shell() {
             </div>
           </div>
 
-          <div className="ml-auto flex shrink-0 items-center">
-            {showAdHocButton && (
+          <div
+            className={cn([
+              "ml-auto flex h-full min-w-0 items-center",
+              isChatOpen ? "justify-between gap-2" : "shrink-0",
+            ])}
+            style={
+              chatToolbarWidth !== null
+                ? { width: chatToolbarWidth }
+                : undefined
+            }
+          >
+            <div className="min-w-0">
+              {isChatOpen ? (
+                <ChatToolbarControls
+                  currentChatGroupId={chat.groupId}
+                  onNewChat={chat.startNewChat}
+                  onSelectChat={chat.selectChat}
+                />
+              ) : null}
+            </div>
+
+            <div className="flex shrink-0 items-center">
+              {showAdHocButton && (
+                <Button
+                  type="button"
+                  onClick={handleAdHoc}
+                  title="New ad-hoc session"
+                  aria-label="New ad-hoc session"
+                  variant="ghost"
+                  size="icon"
+                  className="group shrink-0"
+                >
+                  <span className="relative h-3.5 w-3.5 overflow-hidden rounded-full border border-red-500/60 bg-linear-to-b from-red-400 to-red-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(127,29,29,0.14)] transition-[filter] group-hover:brightness-110">
+                    <span className="pointer-events-none absolute top-[1px] left-1/2 h-[22%] w-[68%] -translate-x-1/2 rounded-full bg-white/18" />
+                  </span>
+                </Button>
+              )}
               <Button
-                type="button"
-                onClick={handleAdHoc}
-                title="New ad-hoc session"
-                aria-label="New ad-hoc session"
+                onClick={() => setOpenNoteDialogOpen(true)}
                 variant="ghost"
                 size="icon"
-                className="group shrink-0"
+                className="text-neutral-600"
+                title="Search (⌘K)"
               >
-                <span className="relative h-3.5 w-3.5 overflow-hidden rounded-full border border-red-500/60 bg-linear-to-b from-red-400 to-red-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(127,29,29,0.14)] transition-[filter] group-hover:brightness-110">
-                  <span className="pointer-events-none absolute top-[1px] left-1/2 h-[22%] w-[68%] -translate-x-1/2 rounded-full bg-white/18" />
-                </span>
+                <SearchIcon size={16} />
               </Button>
-            )}
-            <Button
-              onClick={() => setOpenNoteDialogOpen(true)}
-              variant="ghost"
-              size="icon"
-              className="text-neutral-600"
-              title="Search (⌘K)"
-            >
-              <SearchIcon size={16} />
-            </Button>
-            <Button
-              onClick={handleChat}
-              variant="ghost"
-              size="icon"
-              className={cn([
-                "text-neutral-600",
-                isChatOpen &&
-                  "bg-neutral-200 text-neutral-900 hover:bg-neutral-200",
-              ])}
-              aria-label={isChatOpen ? "Close chat" : "Chat with notes"}
-              aria-pressed={isChatOpen}
-              title={isChatOpen ? "Close chat" : "Chat with notes"}
-            >
-              <img
-                src="/assets/char-chat-bubble.svg"
-                alt="Char"
+              <Button
+                onClick={handleChat}
+                variant="ghost"
+                size="icon"
                 className={cn([
-                  "size-[16px] shrink-0 object-contain opacity-65",
-                  isChatOpen && "opacity-100",
+                  "text-neutral-600",
+                  isChatOpen &&
+                    "bg-neutral-200 text-neutral-900 hover:bg-neutral-200",
                 ])}
-              />
-            </Button>
-            <ProfileMenu />
+                aria-label={isChatOpen ? "Close chat" : "Chat with notes"}
+                aria-pressed={isChatOpen}
+                title={isChatOpen ? "Close chat" : "Chat with notes"}
+              >
+                <img
+                  src="/assets/char-chat-bubble.svg"
+                  alt="Char"
+                  className={cn([
+                    "size-[16px] shrink-0 object-contain opacity-65",
+                    isChatOpen && "opacity-100",
+                  ])}
+                />
+              </Button>
+              <ProfileMenu />
+            </div>
           </div>
         </div>
 
