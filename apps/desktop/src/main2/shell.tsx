@@ -215,7 +215,7 @@ export function Main2Shell() {
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="bottom">
-                <span>Home</span>
+                <span>Daily Notes</span>
               </TooltipContent>
             </Tooltip>
             <div className="relative">
@@ -350,7 +350,7 @@ export function Main2Shell() {
                     side="bottom"
                     className="flex items-center gap-2"
                   >
-                    <span>New recording</span>
+                    <span>Create new note</span>
                     <Kbd className="animate-kbd-press">⌘ ⇧ N</Kbd>
                   </TooltipContent>
                 </Tooltip>

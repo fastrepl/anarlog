@@ -11,6 +11,11 @@ import { useCallback, useEffect, useState } from "react";
 
 import { commands as openerCommands } from "@hypr/plugin-opener2";
 import { Kbd } from "@hypr/ui/components/ui/kbd";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@hypr/ui/components/ui/tooltip";
 import { cn } from "@hypr/utils";
 
 import { useAuth } from "~/auth";
@@ -198,35 +203,46 @@ function AvatarButton({
   const showFacehash = !profile.data || imgError;
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn([
-        "flex size-8 cursor-pointer items-center justify-center rounded-md",
-        "transition-colors duration-150",
-        "hover:bg-neutral-100",
-        isOpen && "bg-neutral-200 hover:bg-neutral-200",
-      ])}
-      title={displayName}
-    >
-      <div
-        className={cn([
-          "flex size-5 shrink-0 items-center justify-center",
-          "overflow-hidden rounded-full",
-          "border border-neutral-300",
-        ])}
-      >
-        {showFacehash ? (
-          <ProfileFacehash name={facehashName} size={20} showInitial={false} />
-        ) : (
-          <img
-            src={profile.data!}
-            alt="Profile"
-            className="h-full w-full rounded-full"
-            onError={() => setImgError(true)}
-          />
-        )}
-      </div>
-    </button>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          onClick={onClick}
+          aria-label={displayName}
+          className={cn([
+            "flex size-8 cursor-pointer items-center justify-center rounded-md",
+            "transition-colors duration-150",
+            "hover:bg-neutral-100",
+            isOpen && "bg-neutral-200 hover:bg-neutral-200",
+          ])}
+        >
+          <div
+            className={cn([
+              "flex size-5 shrink-0 items-center justify-center",
+              "overflow-hidden rounded-full",
+              "border border-neutral-300",
+            ])}
+          >
+            {showFacehash ? (
+              <ProfileFacehash
+                name={facehashName}
+                size={20}
+                showInitial={false}
+              />
+            ) : (
+              <img
+                src={profile.data!}
+                alt="Profile"
+                className="h-full w-full rounded-full"
+                onError={() => setImgError(true)}
+              />
+            )}
+          </div>
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">
+        <span>{displayName}</span>
+      </TooltipContent>
+    </Tooltip>
   );
 }
