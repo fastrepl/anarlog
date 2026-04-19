@@ -12,6 +12,5 @@ export function createEventPersister(store: Store) {
     jsonFields: {
       participants_json: "participants",
     },
-    readOnly: true,
   });
 }

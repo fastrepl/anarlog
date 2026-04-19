@@ -44,14 +44,6 @@ export function createJsonFilePersister<
     listenMode?: ListenMode;
     pollIntervalMs?: number;
     jsonFields?: JsonFieldMapping;
-    /**
-     * When true, this persister is load-only: it loads from disk and applies
-     * external file changes into TinyBase, but refuses to write back. Any
-     * attempted write is a programming error (there is another writer that
-     * owns the file) and will be logged loudly via the TinyBase error handler
-     * instead of silently dropping the change.
-     */
-    readOnly?: boolean;
   },
 ) {
   const {
@@ -61,28 +53,12 @@ export function createJsonFilePersister<
     listenMode = "poll",
     pollIntervalMs = 3000,
     jsonFields,
-    readOnly = false,
   } = options;
 
   return createCustomPersister(
     store,
     async () => loadContent(filename, tableName, label, jsonFields),
     async (_, changes) => {
-      if (readOnly) {
-        if (changes) {
-          const changedTables = extractChangedTables<Schemas>(changes);
-          if (
-            !changedTables ||
-            !changedTables[tableName as keyof ChangedTables]
-          ) {
-            return;
-          }
-        }
-        throw new Error(
-          `[${label}] read-only persister refuses to save table "${tableName}" — ` +
-            "another writer owns this file (see the 'readOnly' option).",
-        );
-      }
       await saveContent<Schemas, TName>(
         store,
         changes,

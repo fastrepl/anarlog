@@ -3,19 +3,20 @@ import type { EventParticipant } from "@hypr/store";
 
 import type { Ctx } from "./ctx";
 import type { IncomingEvent, IncomingParticipants } from "./fetch/types";
-import { syncSessionEmbeddedEvents } from "./process/events";
 import {
   executeForParticipantsSync,
   syncSessionParticipants,
 } from "./process/participants";
 
+import { getSessionEventById } from "~/session/utils";
 import type { Store } from "~/store/tinybase/store/main";
 
 const DEFAULT_PROVIDER = "apple" as CalendarProviderType;
+type ReconcileIncomingEvent = IncomingEvent & { calendar_id: string };
 
 export function reconcileCalendarSessions(store: Store) {
   const ctx = createReconcileCtx(store);
-  const incoming: IncomingEvent[] = [];
+  const incoming: ReconcileIncomingEvent[] = [];
   const incomingParticipants: IncomingParticipants = new Map();
 
   store.forEachRow("events", (eventId, _forEachCell) => {
@@ -25,13 +26,10 @@ export function reconcileCalendarSessions(store: Store) {
     }
 
     const calendarId = String(event.calendar_id ?? "");
-    if (calendarId) {
-      ctx.calendarTrackingIdToId.set(calendarId, calendarId);
-    }
-
     incoming.push({
       tracking_id_event: String(event.tracking_id_event),
       tracking_id_calendar: calendarId,
+      calendar_id: calendarId,
       title: asOptionalString(event.title),
       started_at: asOptionalString(event.started_at),
       ended_at: asOptionalString(event.ended_at),
@@ -49,7 +47,7 @@ export function reconcileCalendarSessions(store: Store) {
     }
   });
 
-  syncSessionEmbeddedEvents(ctx, incoming);
+  reconcileSessionEmbeddedEvents(store, incoming);
 
   const participantsOut = syncSessionParticipants(ctx, {
     incomingParticipants,
@@ -77,6 +75,42 @@ function createReconcileCtx(store: Store): Ctx {
     calendarIds: new Set(),
     calendarTrackingIdToId,
   };
+}
+
+function reconcileSessionEmbeddedEvents(
+  store: Store,
+  incoming: ReconcileIncomingEvent[],
+) {
+  const incomingByTrackingId = new Map<string, ReconcileIncomingEvent>();
+  for (const event of incoming) {
+    incomingByTrackingId.set(event.tracking_id_event, event);
+  }
+
+  store.transaction(() => {
+    store.forEachRow("sessions", (sessionId, _forEachCell) => {
+      const sessionEvent = getSessionEventById(store, sessionId);
+      if (!sessionEvent) return;
+
+      const incomingEvent = incomingByTrackingId.get(sessionEvent.tracking_id);
+      if (!incomingEvent) return;
+
+      store.setPartialRow("sessions", sessionId, {
+        event_json: JSON.stringify({
+          tracking_id: incomingEvent.tracking_id_event,
+          calendar_id: incomingEvent.calendar_id,
+          title: incomingEvent.title ?? "",
+          started_at: incomingEvent.started_at ?? "",
+          ended_at: incomingEvent.ended_at ?? "",
+          is_all_day: incomingEvent.is_all_day,
+          has_recurrence_rules: incomingEvent.has_recurrence_rules,
+          location: incomingEvent.location,
+          meeting_link: incomingEvent.meeting_link,
+          description: incomingEvent.description,
+          recurrence_series_id: incomingEvent.recurrence_series_id,
+        }),
+      });
+    });
+  });
 }
 
 function asOptionalString(value: unknown) {

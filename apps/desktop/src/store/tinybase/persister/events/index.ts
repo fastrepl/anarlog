@@ -1,6 +1,5 @@
 import * as _UI from "tinybase/ui-react/with-schemas";
 
-import { getCurrentWebviewWindowLabel } from "@hypr/plugin-windows";
 import { type Schemas } from "@hypr/store";
 
 import { createEventPersister } from "./persister";
@@ -14,11 +13,7 @@ export function useEventsPersister(store: Store) {
     store,
     async (store) => {
       const persister = createEventPersister(store as Store);
-      if (getCurrentWebviewWindowLabel() === "main") {
-        await persister.startAutoPersisting();
-      } else {
-        await persister.startAutoLoad();
-      }
+      await persister.startAutoLoad();
       return persister;
     },
     [],

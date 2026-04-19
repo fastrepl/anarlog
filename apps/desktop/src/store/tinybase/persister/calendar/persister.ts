@@ -10,6 +10,5 @@ export function createCalendarPersister(store: Store) {
     tableName: "calendars",
     filename: "calendars.json",
     label: "CalendarPersister",
-    readOnly: true,
   });
 }

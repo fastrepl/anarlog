@@ -27,15 +27,15 @@ function makeSessionEvent(overrides: Partial<SessionEvent> = {}): SessionEvent {
 }
 
 describe("reconcileCalendarSessions", () => {
-  test("keeps session calendar ids tied to the source event row when tracking ids overlap", () => {
+  test("keeps session calendar ids tied to the source event row when a row id matches another tracking id", () => {
     const store = createStore();
 
     store.setValue("user_id", "user-1");
 
-    store.setRow("calendars", "john-row", {
+    store.setRow("calendars", "tracking-cal-2", {
       user_id: "user-1",
       created_at: "2026-04-15T00:00:00Z",
-      tracking_id_calendar: "primary",
+      tracking_id_calendar: "tracking-cal-1",
       name: "John (Char)",
       enabled: true,
       provider: "google",
@@ -46,7 +46,7 @@ describe("reconcileCalendarSessions", () => {
     store.setRow("calendars", "gmail-row", {
       user_id: "user-1",
       created_at: "2026-04-15T00:00:00Z",
-      tracking_id_calendar: "primary",
+      tracking_id_calendar: "tracking-cal-2",
       name: "Personal",
       enabled: true,
       provider: "google",
@@ -59,7 +59,7 @@ describe("reconcileCalendarSessions", () => {
       user_id: "user-1",
       created_at: "2026-04-15T00:00:00Z",
       tracking_id_event: "event-1",
-      calendar_id: "john-row",
+      calendar_id: "tracking-cal-2",
       title: "Standup",
       started_at: "2026-04-15T09:00:00Z",
       ended_at: "2026-04-15T09:30:00Z",
@@ -84,6 +84,6 @@ describe("reconcileCalendarSessions", () => {
       String(session?.event_json ?? ""),
     ) as SessionEvent;
 
-    expect(embeddedEvent.calendar_id).toBe("john-row");
+    expect(embeddedEvent.calendar_id).toBe("tracking-cal-2");
   });
 });
