@@ -15,28 +15,18 @@ const CHAT_MIN_WIDTH_PX = 280;
 export function MainChatPanels({
   autoSaveId,
   isRightPanelOpen,
-  rightPanelMode,
   children,
 }: {
   autoSaveId: string;
   isRightPanelOpen: boolean;
-  rightPanelMode: string;
   children: React.ReactNode;
 }) {
-  const previousModeRef = useRef(rightPanelMode);
+  const previousOpenRef = useRef(isRightPanelOpen);
   const bodyPanelRef = useRef<ImperativePanelHandle>(null);
   const chatPanelContainerRef = useRef<HTMLDivElement>(null);
-  const bodyPanelContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const isOpeningRightPanel =
-      rightPanelMode === "RightPanelOpen" &&
-      previousModeRef.current !== "RightPanelOpen";
-    const isClosingRightPanel =
-      rightPanelMode !== "RightPanelOpen" &&
-      previousModeRef.current === "RightPanelOpen";
-
-    if (isOpeningRightPanel) {
+    if (isRightPanelOpen && !previousOpenRef.current) {
       if (bodyPanelRef.current) {
         const currentSize = bodyPanelRef.current.getSize();
         bodyPanelRef.current.resize(currentSize);
@@ -44,12 +34,12 @@ export function MainChatPanels({
       windowsCommands
         .windowExpandWidth(400, null, true, false)
         .catch(console.error);
-    } else if (isClosingRightPanel) {
+    } else if (!isRightPanelOpen && previousOpenRef.current) {
       windowsCommands.windowRestoreWidth().catch(console.error);
     }
 
-    previousModeRef.current = rightPanelMode;
-  }, [rightPanelMode]);
+    previousOpenRef.current = isRightPanelOpen;
+  }, [isRightPanelOpen]);
 
   return (
     <>
@@ -62,9 +52,7 @@ export function MainChatPanels({
           ref={bodyPanelRef}
           className="min-h-0 flex-1 overflow-hidden"
         >
-          <div ref={bodyPanelContainerRef} className="h-full min-h-0">
-            {children}
-          </div>
+          <div className="h-full min-h-0">{children}</div>
         </ResizablePanel>
         {isRightPanelOpen && (
           <>
@@ -85,10 +73,7 @@ export function MainChatPanels({
         )}
       </ResizablePanelGroup>
 
-      <PersistentChatPanel
-        panelContainerRef={chatPanelContainerRef}
-        floatingContainerRef={bodyPanelContainerRef}
-      />
+      <PersistentChatPanel panelContainerRef={chatPanelContainerRef} />
     </>
   );
 }

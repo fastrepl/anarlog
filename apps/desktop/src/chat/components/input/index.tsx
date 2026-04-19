@@ -41,8 +41,7 @@ export function ChatMessageInput({
   const editorRef = useRef<ChatEditorHandle>(null);
   const disabled =
     typeof disabledProp === "object" ? disabledProp.disabled : disabledProp;
-  const shouldFocus =
-    chat.mode === "FloatingOpen" || chat.mode === "RightPanelOpen";
+  const shouldFocus = chat.mode === "RightPanelOpen";
 
   const { hasContent, initialContent, handleEditorUpdate } = useDraftState({
     draftKey,
@@ -64,13 +63,7 @@ export function ChatMessageInput({
       hasContextBar={hasContextBar}
       isRightPanel={chat.mode === "RightPanelOpen"}
     >
-      <div
-        data-chat-message-input
-        className={cn([
-          "flex flex-col pt-3 pb-2",
-          chat.mode === "RightPanelOpen" ? "px-2" : "px-2",
-        ])}
-      >
+      <div data-chat-message-input className="flex flex-col px-2 pt-3 pb-2">
         <div className="mb-1 min-h-0 flex-1">
           <ChatEditor
             ref={editorRef}

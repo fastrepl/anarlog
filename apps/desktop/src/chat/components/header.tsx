@@ -2,10 +2,7 @@ import {
   ChevronDown,
   MessageCircle,
   PanelRightCloseIcon,
-  PanelRightIcon,
-  PictureInPicture2Icon,
   Plus,
-  X,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -16,7 +13,6 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@hypr/ui/components/ui/dropdown-menu";
-import { Kbd } from "@hypr/ui/components/ui/kbd";
 import {
   Tooltip,
   TooltipContent,
@@ -66,30 +62,7 @@ export function ChatHeader({
 
       <div className="flex shrink-0 items-center">
         <ChatActionButton
-          icon={
-            chat.mode === "RightPanelOpen" ? (
-              <PictureInPicture2Icon className="h-4 w-4" />
-            ) : (
-              <PanelRightIcon className="h-4 w-4" />
-            )
-          }
-          onClick={() => chat.sendEvent({ type: "SHIFT" })}
-          title={
-            chat.mode === "RightPanelOpen"
-              ? "Move to floating chat"
-              : "Dock to right panel"
-          }
-          shortcut="⌘ R"
-          isRightPanel={chat.mode === "RightPanelOpen"}
-        />
-        <ChatActionButton
-          icon={
-            chat.mode === "RightPanelOpen" ? (
-              <PanelRightCloseIcon className="h-4 w-4" />
-            ) : (
-              <X size={16} />
-            )
-          }
+          icon={<PanelRightCloseIcon className="h-4 w-4" />}
           onClick={handleClose}
           title="Close"
           isRightPanel={chat.mode === "RightPanelOpen"}
@@ -103,13 +76,11 @@ function ChatActionButton({
   icon,
   title,
   onClick,
-  shortcut,
   isRightPanel = false,
 }: {
   icon: React.ReactNode;
   title: string;
   onClick: () => void;
-  shortcut?: string;
   isRightPanel?: boolean;
 }) {
   return (
@@ -125,10 +96,7 @@ function ChatActionButton({
           {icon}
         </Button>
       </TooltipTrigger>
-      <TooltipContent side="bottom" className="flex items-center gap-2">
-        <span>{title}</span>
-        {shortcut && <Kbd>{shortcut}</Kbd>}
-      </TooltipContent>
+      <TooltipContent side="bottom">{title}</TooltipContent>
     </Tooltip>
   );
 }

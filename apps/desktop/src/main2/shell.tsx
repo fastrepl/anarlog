@@ -92,8 +92,7 @@ export function Main2Shell() {
   });
 
   const isHomeActive = currentTab === null;
-  const isChatOpen =
-    chat.mode === "FloatingOpen" || chat.mode === "RightPanelOpen";
+  const isChatOpen = chat.mode === "RightPanelOpen";
   const liveSessionId = useListener((state) => state.live.sessionId);
   const liveStatus = useListener((state) => state.live.status);
   const showAdHocButton = !(

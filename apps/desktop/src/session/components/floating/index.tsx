@@ -10,10 +10,8 @@ import { useListener } from "~/stt/contexts";
 
 export function FloatingActionButton({
   tab,
-  chatOpenMode = "floating",
 }: {
   tab: Extract<Tab, { type: "sessions" }>;
-  chatOpenMode?: "floating" | "right-panel";
 }) {
   const shouldShowListen = useShouldShowListeningFab(tab);
   const shouldShowChat = useShouldShowChatFab(tab);
@@ -24,11 +22,7 @@ export function FloatingActionButton({
 
   return (
     <div className="absolute bottom-4 left-1/2 z-20 -translate-x-1/2">
-      {shouldShowListen ? (
-        <ListenButton tab={tab} />
-      ) : (
-        <ChatCTA openMode={chatOpenMode} />
-      )}
+      {shouldShowListen ? <ListenButton tab={tab} /> : <ChatCTA />}
     </div>
   );
 }

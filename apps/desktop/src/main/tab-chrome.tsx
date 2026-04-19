@@ -281,8 +281,7 @@ export function ClassicMainTabChrome({ tabs }: { tabs: Tab[] }) {
 
 function TabChatButton({ shortcutLabel }: { shortcutLabel?: string }) {
   const { chat } = useShell();
-  const isChatOpen =
-    chat.mode === "FloatingOpen" || chat.mode === "RightPanelOpen";
+  const isChatOpen = chat.mode === "RightPanelOpen";
   const isTabbarSelected = isChatOpen;
 
   const { data: isChatEnabled } = useQuery({
