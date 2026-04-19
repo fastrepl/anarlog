@@ -1,7 +1,10 @@
+mod auth;
 mod commands;
 mod error;
 mod events;
 mod runtime;
+mod sync_source;
+mod sync_store;
 
 pub use error::Error;
 pub use events::*;
@@ -10,6 +13,8 @@ pub use hypr_calendar::ProviderConnectionIds;
 pub(crate) struct PluginConfig {
     pub api_base_url: String,
 }
+
+pub(crate) struct CalendarSyncState(pub hypr_calendar_sync::CalendarSyncHandle);
 
 const PLUGIN_NAME: &str = "calendar";
 
@@ -25,8 +30,13 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::open_calendar::<tauri::Wry>,
             commands::create_event::<tauri::Wry>,
             commands::parse_meeting_link,
+            commands::request_calendar_sync::<tauri::Wry>,
+            commands::get_calendar_sync_status::<tauri::Wry>,
         ])
-        .events(tauri_specta::collect_events![CalendarChangedEvent])
+        .events(tauri_specta::collect_events![
+            CalendarChangedEvent,
+            CalendarSyncEvent
+        ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }
 
@@ -39,10 +49,20 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .setup(move |app, _api| {
             specta_builder.mount_events(app);
 
-            hypr_calendar::start(runtime::TauriCalendarRuntime(app.app_handle().clone()));
-
             use tauri::Manager;
             app.manage(PluginConfig { api_base_url });
+
+            let handle = hypr_calendar_sync::start(
+                sync_source::PluginCalendarSyncSource::new(app.app_handle().clone()),
+                runtime::TauriCalendarSyncRuntime(app.app_handle().clone()),
+                hypr_calendar_sync::Config::every_minute(),
+                |task| {
+                    tauri::async_runtime::spawn(task);
+                },
+            );
+            app.manage(CalendarSyncState(handle));
+
+            hypr_calendar::start(runtime::TauriCalendarRuntime(app.app_handle().clone()));
             Ok(())
         })
         .build()

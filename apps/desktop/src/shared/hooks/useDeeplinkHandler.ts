@@ -1,24 +1,18 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { isTauri } from "@tauri-apps/api/core";
 import { useEffect } from "react";
-import { useScheduleTaskRunCallback } from "tinytick/ui-react";
 
+import { commands as calendarCommands } from "@hypr/plugin-calendar";
 import { events as deeplink2Events } from "@hypr/plugin-deeplink2";
 import { dismissInstruction } from "@hypr/plugin-windows";
 
 import { useAuth } from "~/auth";
-import { CALENDAR_SYNC_TASK_ID } from "~/services/calendar";
 import { useTabs } from "~/store/zustand/tabs";
 
 export function useDeeplinkHandler() {
   const auth = useAuth();
   const queryClient = useQueryClient();
   const openNew = useTabs((state) => state.openNew);
-  const scheduleCalendarSync = useScheduleTaskRunCallback(
-    CALENDAR_SYNC_TASK_ID,
-    undefined,
-    0,
-  );
 
   useEffect(() => {
     if (!isTauri()) {
@@ -30,7 +24,7 @@ export function useDeeplinkHandler() {
       void queryClient.invalidateQueries({
         predicate: (query) => query.queryKey[0] === "integration-status",
       });
-      scheduleCalendarSync();
+      void calendarCommands.requestCalendarSync("deeplink");
     };
 
     const unlisten = deeplink2Events.deepLinkEvent.listen(({ payload }) => {
@@ -76,5 +70,5 @@ export function useDeeplinkHandler() {
       }
       void unlisten.then((fn) => fn());
     };
-  }, [auth, openNew, queryClient, scheduleCalendarSync]);
+  }, [auth, openNew, queryClient]);
 }

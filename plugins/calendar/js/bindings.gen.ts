@@ -59,6 +59,12 @@ async createEvent(provider: CalendarProviderType, input: CreateEventInput) : Pro
 },
 async parseMeetingLink(text: string) : Promise<string | null> {
     return await TAURI_INVOKE("plugin:calendar|parse_meeting_link", { text });
+},
+async requestCalendarSync(reason: SyncReason) : Promise<SyncStatus> {
+    return await TAURI_INVOKE("plugin:calendar|request_calendar_sync", { reason });
+},
+async getCalendarSyncStatus() : Promise<SyncStatus> {
+    return await TAURI_INVOKE("plugin:calendar|get_calendar_sync_status");
 }
 }
 
@@ -66,9 +72,11 @@ async parseMeetingLink(text: string) : Promise<string | null> {
 
 
 export const events = __makeEvents__<{
-calendarChangedEvent: CalendarChangedEvent
+calendarChangedEvent: CalendarChangedEvent,
+calendarSyncEvent: CalendarSyncEvent
 }>({
-calendarChangedEvent: "plugin:calendar:calendar-changed-event"
+calendarChangedEvent: "plugin:calendar:calendar-changed-event",
+calendarSyncEvent: "plugin:calendar:calendar-sync-event"
 })
 
 /** user-defined constants **/
@@ -123,6 +131,7 @@ recurring_event_id: string | null;
 raw: string }
 export type CalendarListItem = { provider: CalendarProviderType; id: string; title: string; source: string | null; color: string | null; is_primary: boolean | null; can_edit: boolean | null; raw: string }
 export type CalendarProviderType = "apple" | "google" | "outlook"
+export type CalendarSyncEvent = { type: "statusChanged"; status: SyncStatus } | { type: "syncStarted"; reasons: SyncReason[] } | { type: "syncFinished"; reasons: SyncReason[]; data_changed: boolean } | { type: "syncFailed"; reasons: SyncReason[]; error: string }
 export type CreateEventInput = { calendar_tracking_id: string; title: string; started_at: string; ended_at: string; is_all_day: boolean | null; location: string | null; notes: string | null; url: string | null }
 export type EventAttendee = { name: string | null; 
 /**
@@ -161,6 +170,8 @@ email: string | null;
 is_current_user: boolean }
 export type EventStatus = "confirmed" | "tentative" | "cancelled"
 export type ProviderConnectionIds = { provider: CalendarProviderType; connection_ids: string[] }
+export type SyncReason = "startup" | "interval" | "appleCalendarChanged" | "manual" | "deeplink"
+export type SyncStatus = "idle" | "scheduled" | "running"
 
 /** tauri-specta globals **/
 

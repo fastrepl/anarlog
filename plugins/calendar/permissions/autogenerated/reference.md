@@ -12,6 +12,8 @@ Default permissions for the plugin
 - `allow-open-calendar`
 - `allow-create-event`
 - `allow-parse-meeting-link`
+- `allow-request-calendar-sync`
+- `allow-get-calendar-sync-status`
 
 ## Permission Table
 
@@ -70,6 +72,32 @@ Enables the create_event command without any pre-configured scope.
 <td>
 
 Denies the create_event command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`calendar:allow-get-calendar-sync-status`
+
+</td>
+<td>
+
+Enables the get_calendar_sync_status command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`calendar:deny-get-calendar-sync-status`
+
+</td>
+<td>
+
+Denies the get_calendar_sync_status command without any pre-configured scope.
 
 </td>
 </tr>
@@ -226,6 +254,32 @@ Enables the parse_meeting_link command without any pre-configured scope.
 <td>
 
 Denies the parse_meeting_link command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`calendar:allow-request-calendar-sync`
+
+</td>
+<td>
+
+Enables the request_calendar_sync command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`calendar:deny-request-calendar-sync`
+
+</td>
+<td>
+
+Denies the request_calendar_sync command without any pre-configured scope.
 
 </td>
 </tr>

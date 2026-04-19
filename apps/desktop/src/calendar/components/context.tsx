@@ -6,12 +6,12 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  useScheduleTaskRunCallback,
-  useTaskRunRunning,
-} from "tinytick/ui-react";
 
-import { CALENDAR_SYNC_TASK_ID } from "~/services/calendar";
+import {
+  commands as calendarCommands,
+  events as calendarEvents,
+  type CalendarSyncEvent,
+} from "@hypr/plugin-calendar";
 
 export const TOGGLE_SYNC_DEBOUNCE_MS = 5000;
 
@@ -27,47 +27,87 @@ interface SyncContextValue {
 const SyncContext = createContext<SyncContextValue | null>(null);
 
 export function SyncProvider({ children }: { children: React.ReactNode }) {
-  const scheduleEventSync = useScheduleTaskRunCallback(
-    CALENDAR_SYNC_TASK_ID,
-    undefined,
-    0,
-  );
   const toggleSyncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
-  const [pendingTaskRunId, setPendingTaskRunId] = useState<string | null>(null);
+  const [workerStatus, setWorkerStatus] = useState<
+    "idle" | "scheduled" | "running"
+  >("idle");
   const [isDebouncing, setIsDebouncing] = useState(false);
 
-  const isTaskRunning = useTaskRunRunning(pendingTaskRunId ?? "");
-  const isSyncing = pendingTaskRunId !== null && isTaskRunning === true;
-
-  const status: SyncStatus = isSyncing
-    ? "syncing"
-    : isDebouncing
-      ? "scheduled"
-      : "idle";
+  const status: SyncStatus =
+    workerStatus === "running"
+      ? "syncing"
+      : isDebouncing || workerStatus === "scheduled"
+        ? "scheduled"
+        : "idle";
 
   useEffect(() => {
-    if (pendingTaskRunId && isTaskRunning === false) {
-      setPendingTaskRunId(null);
-    }
-  }, [pendingTaskRunId, isTaskRunning]);
+    let cancelled = false;
+    let unlisten: (() => void) | null = null;
+    let sawLiveEvent = false;
 
-  useEffect(() => {
-    return () => {
-      if (toggleSyncTimeoutRef.current) {
-        clearTimeout(toggleSyncTimeoutRef.current);
-        scheduleEventSync();
+    const handleSyncEvent = ({ payload }: { payload: CalendarSyncEvent }) => {
+      sawLiveEvent = true;
+      switch (payload.type) {
+        case "statusChanged":
+          setWorkerStatus(payload.status);
+          break;
+        case "syncStarted":
+          setWorkerStatus("running");
+          break;
+        case "syncFinished":
+        case "syncFailed":
+          setWorkerStatus("idle");
+          break;
       }
     };
-  }, [scheduleEventSync]);
+
+    void (async () => {
+      try {
+        const fn =
+          await calendarEvents.calendarSyncEvent.listen(handleSyncEvent);
+        if (cancelled) {
+          fn();
+          return;
+        }
+        unlisten = fn;
+      } catch (error) {
+        console.error(error);
+      }
+
+      try {
+        const nextStatus = await calendarCommands.getCalendarSyncStatus();
+        if (!cancelled && !sawLiveEvent) {
+          setWorkerStatus(nextStatus);
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      unlisten?.();
+      if (toggleSyncTimeoutRef.current) {
+        clearTimeout(toggleSyncTimeoutRef.current);
+        toggleSyncTimeoutRef.current = null;
+        void calendarCommands
+          .requestCalendarSync("manual")
+          .catch(console.error);
+      }
+    };
+  }, []);
 
   const scheduleSync = useCallback(() => {
-    const taskRunId = scheduleEventSync();
-    if (taskRunId) {
-      setPendingTaskRunId(taskRunId);
-    }
-  }, [scheduleEventSync]);
+    setWorkerStatus((current) => (current === "idle" ? "scheduled" : current));
+    void calendarCommands
+      .requestCalendarSync("manual")
+      .then((nextStatus) => {
+        setWorkerStatus(nextStatus);
+      })
+      .catch(console.error);
+  }, []);
 
   const scheduleDebouncedSync = useCallback(() => {
     if (toggleSyncTimeoutRef.current) {

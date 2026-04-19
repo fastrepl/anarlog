@@ -3200,6 +3200,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "calendar-sync"
+version = "0.1.0"
+dependencies = [
+ "apalis",
+ "apalis-cron",
+ "chrono",
+ "cron 0.16.0",
+ "serde",
+ "specta",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "camino"
 version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -18979,15 +18993,22 @@ version = "0.1.0"
 dependencies = [
  "calendar",
  "calendar-interface",
+ "calendar-sync",
+ "chrono",
  "serde",
+ "serde_json",
  "specta",
  "specta-typescript",
+ "storage",
  "tauri",
  "tauri-plugin",
  "tauri-plugin-auth",
  "tauri-plugin-permissions",
  "tauri-specta",
  "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]

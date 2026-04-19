@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-request-calendar-sync"
+description = "Enables the request_calendar_sync command without any pre-configured scope."
+commands.allow = ["request_calendar_sync"]
+
+[[permission]]
+identifier = "deny-request-calendar-sync"
+description = "Denies the request_calendar_sync command without any pre-configured scope."
+commands.deny = ["request_calendar_sync"]

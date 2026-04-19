@@ -10,15 +10,22 @@ description = ""
 [dependencies]
 hypr-calendar = { workspace = true, features = ["specta"] }
 hypr-calendar-interface = { workspace = true }
+hypr-calendar-sync = { workspace = true }
+hypr-storage = { workspace = true }
 
 tauri = { workspace = true, features = ["test"] }
 tauri-plugin-auth = { workspace = true }
 tauri-plugin-permissions = { workspace = true }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }
 
+chrono = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
 specta = { workspace = true, features = ["chrono"] }
 thiserror = { workspace = true }
+tokio = { workspace = true, features = ["fs"] }
+tracing = { workspace = true }
+uuid = { workspace = true, features = ["v4"] }
 
 [build-dependencies]
 tauri-plugin = { workspace = true, features = ["build"] }

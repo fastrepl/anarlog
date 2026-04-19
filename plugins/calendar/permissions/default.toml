@@ -9,4 +9,6 @@ permissions = [
     "allow-open-calendar",
     "allow-create-event",
     "allow-parse-meeting-link",
+    "allow-request-calendar-sync",
+    "allow-get-calendar-sync-status",
 ]

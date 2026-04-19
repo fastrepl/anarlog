@@ -2,9 +2,8 @@ use hypr_calendar_interface::{
     CalendarEvent, CalendarListItem, CalendarProviderType, CreateEventInput, EventFilter,
 };
 use tauri::Manager;
-use tauri_plugin_auth::AuthPluginExt;
-use tauri_plugin_permissions::PermissionsPluginExt;
 
+use crate::auth::{access_token, is_apple_authorized, require_access_token};
 use crate::error::Error;
 
 #[tauri::command]
@@ -106,35 +105,21 @@ pub fn parse_meeting_link(text: String) -> Option<String> {
     hypr_calendar::parse_meeting_link(&text)
 }
 
-fn access_token<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Option<String> {
-    app.access_token().ok().flatten().filter(|t| !t.is_empty())
+#[tauri::command]
+#[specta::specta]
+pub fn request_calendar_sync<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    reason: hypr_calendar_sync::SyncReason,
+) -> hypr_calendar_sync::SyncStatus {
+    app.state::<crate::CalendarSyncState>()
+        .0
+        .request_sync(reason)
 }
 
-fn require_access_token<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<String, Error> {
-    let token = app.access_token().map_err(|e| Error::Auth(e.to_string()))?;
-    match token {
-        Some(t) if !t.is_empty() => Ok(t),
-        _ => Err(hypr_calendar::Error::NotAuthenticated.into()),
-    }
-}
-
-async fn is_apple_authorized<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<bool, Error> {
-    #[cfg(target_os = "macos")]
-    {
-        let status = app
-            .permissions()
-            .check(tauri_plugin_permissions::Permission::Calendar)
-            .await
-            .map_err(|e| hypr_calendar::Error::Api(e.to_string()))?;
-        Ok(matches!(
-            status,
-            tauri_plugin_permissions::PermissionStatus::Authorized
-        ))
-    }
-
-    #[cfg(not(target_os = "macos"))]
-    {
-        let _ = app;
-        Ok(false)
-    }
+#[tauri::command]
+#[specta::specta]
+pub fn get_calendar_sync_status<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> hypr_calendar_sync::SyncStatus {
+    app.state::<crate::CalendarSyncState>().0.status()
 }

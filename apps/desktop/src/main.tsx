@@ -6,11 +6,6 @@ import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { StrictMode, useMemo } from "react";
 import ReactDOM from "react-dom/client";
 import { Provider as TinyBaseProvider, useStores } from "tinybase/ui-react";
-import { createManager } from "tinytick";
-import {
-  Provider as TinyTickProvider,
-  useCreateManager,
-} from "tinytick/ui-react";
 
 import {
   getCurrentWebviewWindowLabel,
@@ -22,8 +17,9 @@ import "@hypr/ui/globals.css";
 import { createToolRegistry } from "./contexts/tool-registry/core";
 import { env } from "./env";
 import { routeTree } from "./routeTree.gen";
+import { CalendarSyncReconciler } from "./services/calendar-sync-reconciler";
 import { EventListeners } from "./services/event-listeners";
-import { TaskManager } from "./services/task-manager";
+import { EventNotificationManager } from "./services/event-notification-manager";
 import { ErrorComponent, NotFoundComponent } from "./shared/control";
 import {
   type Store,
@@ -99,24 +95,20 @@ if (env.VITE_SENTRY_DSN) {
   });
 }
 
-function AppWithTiny() {
-  const manager = useCreateManager(() => {
-    return createManager().start();
-  });
+function AppRoot() {
   const isMainWindow = getCurrentWebviewWindowLabel() === "main";
 
   return (
     <QueryClientProvider client={queryClient}>
-      <TinyTickProvider manager={manager}>
-        <TinyBaseProvider>
-          <StoreComponent />
-          <SettingsStoreComponent />
-          <App />
-          {isMainWindow ? <TaskManager /> : null}
-          {isMainWindow ? <EventListeners /> : null}
-          <Toaster />
-        </TinyBaseProvider>
-      </TinyTickProvider>
+      <TinyBaseProvider>
+        <StoreComponent />
+        <SettingsStoreComponent />
+        <App />
+        {isMainWindow ? <CalendarSyncReconciler /> : null}
+        {isMainWindow ? <EventNotificationManager /> : null}
+        {isMainWindow ? <EventListeners /> : null}
+        <Toaster />
+      </TinyBaseProvider>
     </QueryClientProvider>
   );
 }
@@ -128,7 +120,7 @@ if (!rootElement.innerHTML) {
   const root = ReactDOM.createRoot(rootElement);
   root.render(
     <StrictMode>
-      <AppWithTiny />
+      <AppRoot />
     </StrictMode>,
   );
 }

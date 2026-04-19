@@ -162,7 +162,6 @@
     "stopword": "^3.1.5",
     "streamdown": "^2.5.0",
     "tinybase": "^7.3.5",
-    "tinytick": "^1.2.8",
     "tlds": "^1.261.0",
     "unified": "^11.0.5",
     "usehooks-ts": "^3.1.1",

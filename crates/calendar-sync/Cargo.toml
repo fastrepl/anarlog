@@ -1,0 +1,14 @@
+[package]
+name = "calendar-sync"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+apalis = { workspace = true }
+apalis-cron = { workspace = true }
+chrono = { workspace = true }
+cron = "0.16"
+serde = { workspace = true, features = ["derive"] }
+specta = { workspace = true, features = ["derive"] }
+tokio = { workspace = true, features = ["rt", "sync"] }
+tracing = { workspace = true }
