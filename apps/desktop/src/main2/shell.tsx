@@ -110,7 +110,7 @@ export function Main2Shell() {
 
   useMain2TabsShortcuts();
 
-  const { cmd } = useHeaderModifierKeys();
+  const { cmd, cmdOrCmdShift } = useHeaderModifierKeys();
 
   const [openNoteDialogOpen, setOpenNoteDialogOpen] = useState(false);
   useHotkeys(
@@ -354,7 +354,7 @@ export function Main2Shell() {
                     <Kbd className="animate-kbd-press">⌘ ⇧ N</Kbd>
                   </TooltipContent>
                 </Tooltip>
-                {cmd && (
+                {cmdOrCmdShift && (
                   <div className="pointer-events-none absolute top-full left-1/2 z-50 -translate-x-1/2 -translate-y-1/2">
                     <Kbd className="animate-kbd-press">⌘ ⇧ N</Kbd>
                   </div>
@@ -430,6 +430,6 @@ function useHeaderModifierKeys() {
 
   return {
     cmd: state.meta && !state.shift,
-    cmdShift: state.meta && state.shift,
+    cmdOrCmdShift: state.meta,
   };
 }
