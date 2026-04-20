@@ -37,6 +37,8 @@ Char is the only tool on this list that handles the full meeting workflow in one
 
 **Summarization:** Configured separately. Point it at Ollama or LM Studio for offline, or add a key for OpenAI, Anthropic, or Gemini.
 
+**Storage:** Local filesystem
+
 #### What else
 
 Calendar integration (Apple, Google, Outlook) with auto-record on event start. AI chat over your transcripts. Code blocks, @mentions with backlinks. Export to Markdown, PDF, JSON, VTT, Org mode. 45+ languages. Record-only mode — capture now, transcribe later.
@@ -80,7 +82,7 @@ Scriberr is a team transcription service you deploy with Docker. Upload recordin
 
 Useful when you want one shared interface and don't need anything installed on individual machines.
 
-Setup
+#### Setup
 
 **Deploy:** Docker Compose. One container for the web UI, one for Whisper.cpp, optional Ollama sidecar.
 
@@ -90,20 +92,22 @@ Setup
 
 **Access control:** Basic auth or reverse proxy. Share the URL with your team.
 
-***Limitations***
+#### Limitations
 
 - Upload-only workflow — no real-time capture. You record elsewhere, then drop the file in.
 - Updates can be infrequent, documentation is thin.
 
-***Pricing***
+#### Pricing
 
 Free and open-source (MIT). Self-host only — no managed cloud option.
 
-**4. Vibe**
+### 4. Vibe
 
-Vibe does one thing: transcribe audio and video files using Whisper.cpp. Cross-platform desktop app with a clean UI. It also exposes a local API, which makes it useful as a transcription backend you can wire into other tools. If you don't need summarization, note-taking, or real-time capture, this is the simplest path.
+Vibe does one thing: transcribe audio and video files using Whisper.cpp. Cross-platform desktop app with a clean UI. It also exposes a local API, which makes it useful as a transcription backend you can wire into other tools. 
 
-***Setup***
+If you don't need summarization, note-taking, or real-time capture, this is the simplest path.
+
+### Setup
 
 **Install:** Download the desktop app for Windows, macOS, or Linux. No Docker, no server.
 
