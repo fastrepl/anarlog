@@ -2,6 +2,8 @@ import { useMotionValue, useSpring, useTransform } from "motion/react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { defaultRehypePlugins, Streamdown } from "streamdown";
 
+import { isValidContent, json2md } from "@hypr/editor/markdown";
+import { parseImageMetadata } from "@hypr/editor/node-views";
 import {
   HoverCard,
   HoverCardContent,
@@ -9,8 +11,6 @@ import {
 } from "@hypr/ui/components/ui/hover-card";
 import { cn, format, safeParseDate } from "@hypr/utils";
 
-import { isValidContent, json2md } from "~/editor/markdown";
-import { parseImageMetadata } from "~/editor/node-views/image-view";
 import { extractPlainText } from "~/search/contexts/engine/utils";
 import { streamdownComponents } from "~/session/components/streamdown";
 import {

@@ -1,20 +1,16 @@
 import { SquareIcon } from "lucide-react";
 import { useRef } from "react";
 
+import { ChatEditor, type ChatEditorHandle } from "@hypr/editor/chat";
+import type { PlaceholderFunction } from "@hypr/editor/plugins";
 import { Button } from "@hypr/ui/components/ui/button";
 import { cn } from "@hypr/utils";
 
-import {
-  useAutoFocusEditor,
-  useDraftState,
-  useMentionConfig,
-  useSubmit,
-} from "./hooks";
+import { useAutoFocusEditor, useDraftState, useSubmit } from "./hooks";
 
 import type { ContextRef } from "~/chat/context/entities";
 import { useShell } from "~/contexts/shell";
-import { ChatEditor, type ChatEditorHandle } from "~/editor/chat";
-import type { PlaceholderFunction } from "~/editor/plugins";
+import { useMentionConfig } from "~/editor-bridge/mention-config";
 
 export function ChatMessageInput({
   draftKey,

@@ -1,10 +1,9 @@
 import { createMergeableStore } from "tinybase/with-schemas";
 
+import { isValidContent, md2json } from "@hypr/editor/markdown";
 import { SCHEMA } from "@hypr/store";
 
 import type { Store } from "./main";
-
-import { isValidContent, md2json } from "~/editor/markdown";
 
 export type ImportResult =
   | { status: "success"; rowsImported: number; valuesImported: number }

@@ -1,12 +1,17 @@
-export { appLinkNodeSpec, AppLinkView } from "./app-link-view";
+export { appLinkNodeSpec } from "./app-link-spec";
 export { attachmentNodeSpec, AttachmentChipView } from "./attachment-view";
 export {
   fileAttachmentNodeSpec,
   FileAttachmentView,
 } from "./file-attachment-view";
-export { imageNodeSpec, ResizableImageView } from "./image-view";
+export {
+  imageNodeSpec,
+  parseImageMetadata,
+  ResizableImageView,
+} from "./image-view";
 export { mentionNodeSpec, MentionNodeView } from "./mention-view";
-export { sessionNodeSpec, SessionNodeView } from "./session-view";
+export { sessionNodeSpec } from "./session-spec";
+export { TaskCheckbox } from "./task-checkbox";
 export {
   taskItemNodeSpec,
   taskListNodeSpec,

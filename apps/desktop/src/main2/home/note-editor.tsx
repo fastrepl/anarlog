@@ -4,29 +4,31 @@ import { Node as PMNode } from "prosemirror-model";
 import type { EditorView } from "prosemirror-view";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 
-import { format, parseISO, subDays } from "@hypr/utils";
-
-import { DateHeader } from "./date-header";
-
-import { useCalendarData } from "~/calendar/hooks";
-import { parseJsonContent } from "~/editor/markdown";
+import {
+  getNodeTextContent,
+  mergeLinkedSessionsIntoContent,
+} from "@hypr/editor/daily";
+import { parseJsonContent } from "@hypr/editor/markdown";
 import {
   type JSONContent,
   NoteEditor,
   type NoteEditorRef,
   schema,
-} from "~/editor/session";
-import {
-  getNodeTextContent,
-  mergeLinkedSessionsIntoContent,
-} from "~/editor/session/linked-session-content";
-import { useTaskStorageOptional } from "~/editor/task-storage";
+} from "@hypr/editor/note";
+import { useTaskStorageOptional } from "@hypr/editor/task-storage";
 import {
   extractTasksFromContent,
   hydrateTaskContent,
   moveOpenTasksBetweenContents,
   normalizeTaskContent,
-} from "~/editor/tasks";
+} from "@hypr/editor/tasks";
+import { format, parseISO, subDays } from "@hypr/utils";
+
+import { DateHeader } from "./date-header";
+
+import { useCalendarData } from "~/calendar/hooks";
+import { AppLinkView } from "~/editor-bridge/app-link-view";
+import { SessionNodeView } from "~/editor-bridge/session-view";
 import {
   findSessionByEventId,
   findSessionByTrackingId,
@@ -37,6 +39,7 @@ import { getOrCreateSessionForEventId } from "~/store/tinybase/store/sessions";
 
 type Store = NonNullable<ReturnType<typeof main.UI.useStore>>;
 const emptyDoc: JSONContent = { type: "doc", content: [{ type: "paragraph" }] };
+const extraNodeViews = { appLink: AppLinkView, session: SessionNodeView };
 
 function getSessionTitle(store: Store, sessionId: string): string {
   const title = store.getCell("sessions", sessionId, "title");
@@ -379,6 +382,7 @@ export function DailyNoteEditor({
           handleChange={handleChange}
           linkedItemOpenBehavior="new"
           taskSource={taskSource}
+          extraNodeViews={extraNodeViews}
         />
       </div>
     </div>

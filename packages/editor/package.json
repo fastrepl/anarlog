@@ -1,0 +1,61 @@
+{
+  "name": "@hypr/editor",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./app-link": "./src/app-link/index.ts",
+    "./chat": "./src/chat/index.tsx",
+    "./daily": "./src/daily/index.ts",
+    "./markdown": "./src/markdown.ts",
+    "./node-views": "./src/node-views/index.ts",
+    "./note": "./src/note/index.tsx",
+    "./plugins": "./src/plugins/index.ts",
+    "./task-storage": "./src/task-storage.tsx",
+    "./tasks": "./src/tasks.ts",
+    "./widgets": "./src/widgets/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run --environment jsdom",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@floating-ui/dom": "^1.7.6",
+    "@handlewithcare/react-prosemirror": "^3.0.1",
+    "@hypr/plugin-opener2": "workspace:*",
+    "@hypr/store": "workspace:*",
+    "@hypr/tiptap": "workspace:^",
+    "@hypr/utils": "workspace:^",
+    "facehash": "^0.0.7",
+    "lucide-react": "^0.544.0",
+    "markdown-it": "^14.1.1",
+    "prosemirror-commands": "^1.7.1",
+    "prosemirror-dropcursor": "^1.8.2",
+    "prosemirror-gapcursor": "1.4.0",
+    "prosemirror-history": "^1.5.0",
+    "prosemirror-inputrules": "^1.5.1",
+    "prosemirror-keymap": "^1.2.3",
+    "prosemirror-markdown": "^1.13.4",
+    "prosemirror-model": "^1.25.4",
+    "prosemirror-schema-list": "^1.5.1",
+    "prosemirror-search": "^1.1.0",
+    "prosemirror-state": "^1.4.4",
+    "prosemirror-view": "^1.41.7",
+    "tlds": "^1.261.0",
+    "usehooks-ts": "^3.1.1"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.3.2",
+    "@types/markdown-it": "^14.1.2",
+    "@types/node": "^22.19.17",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "jsdom": "^26.1.0",
+    "typescript": "~5.8.3",
+    "vitest": "^4.1.4"
+  },
+  "peerDependencies": {
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3"
+  }
+}

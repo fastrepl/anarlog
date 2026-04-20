@@ -41,6 +41,7 @@
     "@hypr/db": "workspace:*",
     "@hypr/db-react": "workspace:*",
     "@hypr/db-tauri": "workspace:*",
+    "@hypr/editor": "workspace:^",
     "@hypr/plugin-activity-capture": "workspace:*",
     "@hypr/plugin-agent": "workspace:*",
     "@hypr/plugin-analytics": "workspace:*",
