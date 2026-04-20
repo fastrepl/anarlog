@@ -136,8 +136,28 @@ export const RawEditor = forwardRef<
   );
 });
 
-const Placeholder: PlaceholderFunction = ({ node, pos }) => {
-  if (node.type.name !== "paragraph") {
+const Placeholder: PlaceholderFunction = ({ node, pos, parent }) => {
+  const type = node.type.name;
+  const parentType = parent?.type.name;
+
+  if (type === "heading") {
+    const level = typeof node.attrs.level === "number" ? node.attrs.level : 1;
+    return `Heading ${level}`;
+  }
+
+  if (type === "codeBlock") {
+    return "Code";
+  }
+
+  if (type !== "paragraph") {
+    return "";
+  }
+
+  if (parentType === "listItem") return "List";
+  if (parentType === "taskItem") return "Task";
+  if (parentType === "blockquote") return "Quote";
+
+  if (parentType !== "doc") {
     return "";
   }
 

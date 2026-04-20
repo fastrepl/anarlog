@@ -5,6 +5,7 @@ import { Decoration, DecorationSet } from "prosemirror-view";
 export type PlaceholderFunction = (props: {
   node: PMNode;
   pos: number;
+  parent: PMNode | null;
   hasAnchor: boolean;
 }) => string;
 
@@ -16,7 +17,7 @@ export function placeholderPlugin(placeholder?: PlaceholderFunction) {
     props: {
       decorations(state) {
         const { doc, selection } = state;
-        const { anchor } = selection;
+        const { anchor, $anchor } = selection;
         const decorations: Decoration[] = [];
 
         const isEmptyDoc =
@@ -24,7 +25,7 @@ export function placeholderPlugin(placeholder?: PlaceholderFunction) {
           doc.firstChild!.isTextblock &&
           doc.firstChild!.content.size === 0;
 
-        doc.descendants((node, pos) => {
+        doc.descendants((node, pos, parent) => {
           const hasAnchor = anchor >= pos && anchor <= pos + node.nodeSize;
           const isEmpty = !node.isLeaf && node.content.size === 0;
 
@@ -33,7 +34,7 @@ export function placeholderPlugin(placeholder?: PlaceholderFunction) {
             if (isEmptyDoc) classes.push("is-editor-empty");
 
             const text = placeholder
-              ? placeholder({ node, pos, hasAnchor })
+              ? placeholder({ node, pos, parent, hasAnchor })
               : "";
 
             if (text) {
@@ -48,6 +49,35 @@ export function placeholderPlugin(placeholder?: PlaceholderFunction) {
 
           return false;
         });
+
+        if (placeholder && $anchor.depth > 1) {
+          const node = $anchor.parent;
+          if (!node.isLeaf && node.content.size === 0) {
+            const parent = $anchor.node($anchor.depth - 1);
+            const pos = $anchor.before($anchor.depth);
+            const text = placeholder({
+              node,
+              pos,
+              parent,
+              hasAnchor: true,
+            });
+
+            if (text) {
+              decorations.push(
+                Decoration.widget(
+                  pos + 1,
+                  () => {
+                    const span = document.createElement("span");
+                    span.className = "is-empty";
+                    span.setAttribute("data-placeholder", text);
+                    return span;
+                  },
+                  { side: 0, key: `placeholder-${pos}-${text}` },
+                ),
+              );
+            }
+          }
+        }
 
         return DecorationSet.create(doc, decorations);
       },

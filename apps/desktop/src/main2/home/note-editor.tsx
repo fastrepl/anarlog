@@ -14,6 +14,7 @@ import {
   type JSONContent,
   NoteEditor,
   type NoteEditorRef,
+  type PlaceholderFunction,
   schema,
 } from "~/editor/session";
 import {
@@ -37,6 +38,31 @@ import { getOrCreateSessionForEventId } from "~/store/tinybase/store/sessions";
 
 type Store = NonNullable<ReturnType<typeof main.UI.useStore>>;
 const emptyDoc: JSONContent = { type: "doc", content: [{ type: "paragraph" }] };
+
+const dailyPlaceholder: PlaceholderFunction = ({ node, pos, parent }) => {
+  const type = node.type.name;
+  const parentType = parent?.type.name;
+
+  if (type === "heading") {
+    const level = typeof node.attrs.level === "number" ? node.attrs.level : 1;
+    return `Heading ${level}`;
+  }
+
+  if (type === "codeBlock") {
+    return "Code";
+  }
+
+  if (type === "paragraph") {
+    if (parentType === "listItem") return "List";
+    if (parentType === "taskItem") return "Task";
+    if (parentType === "blockquote") return "Quote";
+    if (parentType === "doc" && pos === 0) {
+      return "Type anything or press / for commands and start your Daily Note...";
+    }
+  }
+
+  return "";
+};
 
 function getSessionTitle(store: Store, sessionId: string): string {
   const title = store.getCell("sessions", sessionId, "title");
@@ -378,6 +404,7 @@ export function DailyNoteEditor({
           initialContent={initialContentRef.current}
           handleChange={handleChange}
           linkedItemOpenBehavior="new"
+          placeholderComponent={dailyPlaceholder}
           taskSource={taskSource}
         />
       </div>

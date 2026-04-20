@@ -31,3 +31,7 @@
   background-repeat: no-repeat;
   background-size: contain;
 }
+
+.main2-daily-note-editor .ProseMirror .is-empty::before {
+  color: #b5b5b5;
+}
