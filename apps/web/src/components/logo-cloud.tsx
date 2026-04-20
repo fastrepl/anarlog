@@ -24,7 +24,7 @@ const LOGOS: Logo[][] = [
   ],
   [
     { src: "/icons/richmond_american.svg", alt: "Richmond American Logo" },
-    { src: "/icons/adobe.svg", alt: "Adobe Logo" },
+    { src: "/icons/adobe.svg", alt: "Adobe Logo", small: true },
   ],
   [
     { src: "/icons/wayfair.svg", alt: "Wayfair Logo" },
