@@ -37,13 +37,12 @@ Summarization is handled separately: connect Ollama or LM Studio for fully local
 
 What sets Char apart from every other tool on this list is that it's not just a transcription app. It has a built-in notepad where you take notes during the meeting, and the AI merges your manual notes with the full transcript into structured output using your chosen template. 
 
-With 45+ languages, calendar integration (Apple, Google, Outlook), AI chat over your transcripts, and a meeting countdown that auto-starts recording for calendar events, Char functions as a complete meeting workspace, not just a recorder. It has 8.3k GitHub stars.
+With 45+ languages, calendar integration (Apple, Google, Outlook), AI chat over your transcripts, and a meeting countdown that auto-starts recording for calendar events, Char functions as a complete meeting workspace, not just a recorder. 
 
-***How to self-host***
+#### How to self-host
 
-- Install via Homebrew: brew install char. Or clone the GPL-licensed repo from GitHub and build from source. GPL means you can audit every line and modify it for your org.
-- Transcription: select from 9 STT providers in Preferences. Two are fully on-device—Parakeet V3 (runs on Apple's Neural Processing Unit via the Cactus runtime) and Whisper Small (also Cactus). The remaining seven are cloud BYOK: paste your own API key, audio goes to that provider, Char never touches it.
-- Summarization: configure separately from transcription. Point Char at a local Ollama or LM Studio instance for fully offline summarization, or add an API key for OpenAI, Anthropic, or Google Gemini.
+- Brew install char. Or clone the GPL-licensed repo from GitHub and build from source. 
+- Choose your preferred STT and LLM provider
 - Storage: all transcripts, notes, and audio saved as plain Markdown and audio files on your local filesystem. No proprietary database. Syncs naturally with any file-based tool (Obsidian, iCloud, Git).
 - CLI available: brew install gives you a command-line interface alongside the GUI app.
 - Templates: create reusable templates for different meeting types. The AI uses your template to structure the merged output (your notes + transcript).
