@@ -27,11 +27,13 @@ Self-hosted AI meeting tools run on your infrastructure. Your servers, your devi
 
 #### 1. Char
 
-[Char](char.com) is the only tool on this list that handles the full meeting workflow in one app — capture, transcription, note-taking, summarization, and structured export. It ships with a built-in notepad where you write during the meeting, and the AI merges your manual notes with the transcript into structured output using your template. Notes are plain Markdown files on disk. Open them in Obsidian, VS Code, whatever. 8.3k GitHub stars.
+[Char](char.com) is the only tool on this list that handles the full meeting workflow in one app — capture, transcription, note-taking, summarization, and structured export. 
+
+It ships with a built-in notepad where you write during the meeting, and the AI merges your manual notes with the transcript into structured output using your template. Notes are plain Markdown files on disk. Open them in Obsidian, VS Code, whatever. 8.3k GitHub stars.
 
 #### Setup
 
-**Install:** brew install char, or clone the GPL repo and build from source.
+**Install:** brew install char, or clone the [GPL repo](https://github.com/fastrepl/char) and build from source.
 
 **Transcription:** Pick from 9 STT providers in Preferences. Two are fully on-device — Parakeet V3 (Apple Neural Engine via Cactus) and Whisper Small (also Cactus). The other seven are cloud BYOK: paste your API key, audio goes to that provider, Char never touches it.
 
@@ -80,7 +82,7 @@ Free and open-source (MIT). Pro plan at $10/month adds cloud features and priori
 
 ### 3. Scriberr
 
-Scriberr is a team transcription service you deploy with Docker. Upload recordings through the browser, get transcripts back from Whisper.cpp on your server. Optional Ollama sidecar for summarization. 
+[Scriberr](https://github.com/ClinicianFOCUS/Scriberr) is a team transcription service you deploy with Docker. Upload recordings through the browser, get transcripts back from Whisper.cpp on your server. Optional Ollama sidecar for summarization. 
 
 Useful when you want one shared interface and don't need anything installed on individual machines.
 
@@ -105,7 +107,7 @@ Free and open-source (MIT). Self-host only — no managed cloud option.
 
 ### 4. Vibe
 
-Vibe does one thing: transcribe audio and video files using Whisper.cpp. Cross-platform desktop app with a clean UI. It also exposes a local API, which makes it useful as a transcription backend you can wire into other tools. 
+[Vibe](https://thewh1teagle.github.io/vibe/) does one thing: transcribe audio and video files using Whisper.cpp. Cross-platform desktop app with a clean UI. It also exposes a local API, which makes it useful as a transcription backend you can wire into other tools. 
 
 If you don't need summarization, note-taking, or real-time capture, this is the simplest path.
 
@@ -128,7 +130,7 @@ Free and open-source (MIT).
 
 ### 5. Whishper
 
-Whishper is another Docker-deployed web UI for Whisper with drag-and-drop upload and subtitle generation (SRT, VTT). 
+[Whishper](https://whishper.net) is another Docker-deployed web UI for Whisper with drag-and-drop upload and subtitle generation (SRT, VTT). 
 
 It's built for teams that need a transcription service without any setup complexity. Automatic language detection across 90+ languages. 
 
