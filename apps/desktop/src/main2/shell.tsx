@@ -275,6 +275,7 @@ export function Main2Shell() {
           </div>
 
           <div
+            data-tauri-drag-region
             className={cn([
               "ml-auto flex h-full min-w-0 items-center",
               isChatOpen ? "justify-between gap-2" : "shrink-0",
@@ -285,7 +286,7 @@ export function Main2Shell() {
                 : undefined
             }
           >
-            <div className="min-w-0">
+            <div data-tauri-drag-region className="min-w-0">
               {isChatOpen ? (
                 <ChatToolbarControls
                   currentChatGroupId={chat.groupId}
@@ -295,7 +296,7 @@ export function Main2Shell() {
               ) : null}
             </div>
 
-            <div className="flex shrink-0 items-center">
+            <div data-tauri-drag-region className="flex shrink-0 items-center">
               {showAdHocButton && (
                 <Button
                   type="button"
