@@ -421,6 +421,21 @@ impl AdapterKind {
             .unwrap_or(Self::Deepgram)
     }
 
+    pub fn has_live_mode(&self) -> bool {
+        match self {
+            Self::AquaVoice | Self::Argmax | Self::OpenAI | Self::Pyannote | Self::Cactus => false,
+            Self::Soniox
+            | Self::Fireworks
+            | Self::Deepgram
+            | Self::AssemblyAI
+            | Self::Gladia
+            | Self::ElevenLabs
+            | Self::DashScope
+            | Self::Mistral
+            | Self::Hyprnote => true,
+        }
+    }
+
     pub fn language_support_live(
         &self,
         languages: &[hypr_language::Language],
@@ -716,6 +731,38 @@ mod tests {
                 AdapterKind::from_url_and_languages(url, &langs, *model),
                 *expected,
                 "url={url}, langs={langs:?}, model={model:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_has_live_mode() {
+        let live = [
+            AdapterKind::Deepgram,
+            AdapterKind::Soniox,
+            AdapterKind::AssemblyAI,
+            AdapterKind::Gladia,
+            AdapterKind::Fireworks,
+            AdapterKind::ElevenLabs,
+            AdapterKind::DashScope,
+            AdapterKind::Mistral,
+            AdapterKind::Hyprnote,
+        ];
+        for kind in live {
+            assert!(kind.has_live_mode(), "{kind:?} should support live mode");
+        }
+
+        let batch_only = [
+            AdapterKind::AquaVoice,
+            AdapterKind::Argmax,
+            AdapterKind::OpenAI,
+            AdapterKind::Pyannote,
+            AdapterKind::Cactus,
+        ];
+        for kind in batch_only {
+            assert!(
+                !kind.has_live_mode(),
+                "{kind:?} should not support live mode"
             );
         }
     }

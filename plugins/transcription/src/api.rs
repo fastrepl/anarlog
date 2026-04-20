@@ -27,13 +27,13 @@ pub struct CaptureParams {
 impl CaptureParams {
     fn default_transcription_mode(&self) -> listener::TranscriptionMode {
         let adapter_kind =
-            AdapterKind::from_url_and_languages(&self.base_url, &[], Some(&self.model));
+            AdapterKind::from_url_and_languages(&self.base_url, &self.languages, Some(&self.model));
 
-        if matches!(adapter_kind, AdapterKind::Argmax | AdapterKind::Cactus) {
+        if !adapter_kind.has_live_mode() {
             return listener::TranscriptionMode::Batch;
         }
 
-        if adapter_kind.is_supported_languages_live(&[], Some(&self.model)) {
+        if adapter_kind.is_supported_languages_live(&self.languages, Some(&self.model)) {
             listener::TranscriptionMode::Live
         } else {
             listener::TranscriptionMode::Batch
@@ -289,12 +289,21 @@ impl From<TranscriptionParams> for listener2::BatchParams {
 #[cfg(test)]
 mod tests {
     use super::CaptureParams;
+    use hypr_language::ISO639;
     use hypr_transcription_core::listener::TranscriptionMode;
 
     fn capture_params(base_url: &str, model: &str) -> CaptureParams {
+        capture_params_with_languages(base_url, model, vec![])
+    }
+
+    fn capture_params_with_languages(
+        base_url: &str,
+        model: &str,
+        languages: Vec<hypr_language::Language>,
+    ) -> CaptureParams {
         CaptureParams {
             session_id: "session-1".to_string(),
-            languages: vec![],
+            languages,
             onboarding: false,
             model: model.to_string(),
             base_url: base_url.to_string(),
@@ -313,6 +322,45 @@ mod tests {
     }
 
     #[test]
+    fn defaults_soniox_capture_to_live_mode_without_languages() {
+        let params = capture_params("https://api.soniox.com", "stt-rt-v4");
+
+        assert_eq!(params.default_transcription_mode(), TranscriptionMode::Live);
+    }
+
+    #[test]
+    fn defaults_soniox_capture_to_live_mode_with_selected_language() {
+        let params = capture_params_with_languages(
+            "https://api.soniox.com",
+            "stt-rt-v4",
+            vec![ISO639::Ko.into()],
+        );
+
+        assert_eq!(params.default_transcription_mode(), TranscriptionMode::Live);
+    }
+
+    #[test]
+    fn defaults_assemblyai_capture_to_live_mode_without_languages() {
+        let params = capture_params("https://api.assemblyai.com/v2", "");
+
+        assert_eq!(params.default_transcription_mode(), TranscriptionMode::Live);
+    }
+
+    #[test]
+    fn defaults_gladia_capture_to_live_mode_without_languages() {
+        let params = capture_params("https://api.gladia.io/v2", "");
+
+        assert_eq!(params.default_transcription_mode(), TranscriptionMode::Live);
+    }
+
+    #[test]
+    fn defaults_elevenlabs_capture_to_live_mode_without_languages() {
+        let params = capture_params("https://api.elevenlabs.io", "");
+
+        assert_eq!(params.default_transcription_mode(), TranscriptionMode::Live);
+    }
+
+    #[test]
     fn defaults_openai_capture_to_batch_mode() {
         let params = capture_params("https://api.openai.com/v1", "gpt-4o-transcribe");
 
@@ -325,6 +373,16 @@ mod tests {
     #[test]
     fn defaults_pyannote_capture_to_batch_mode() {
         let params = capture_params("https://api.pyannote.ai", "parakeet-tdt-0.6b-v3");
+
+        assert_eq!(
+            params.default_transcription_mode(),
+            TranscriptionMode::Batch
+        );
+    }
+
+    #[test]
+    fn defaults_local_argmax_capture_to_batch_mode() {
+        let params = capture_params("http://localhost:50060/v1", "parakeet-tdt-0.6b-v3");
 
         assert_eq!(
             params.default_transcription_mode(),

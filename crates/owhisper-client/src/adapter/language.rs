@@ -36,7 +36,9 @@ impl LanguageSupport {
                     }
                 }
             })
-            .unwrap_or(Self::NotSupported)
+            .unwrap_or(Self::Supported {
+                quality: LanguageQuality::NoData,
+            })
     }
 }
 
@@ -54,5 +56,20 @@ impl Ord for LanguageSupport {
             (Self::Supported { .. }, Self::NotSupported) => std::cmp::Ordering::Greater,
             (Self::Supported { quality: q1 }, Self::Supported { quality: q2 }) => q1.cmp(q2),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{LanguageQuality, LanguageSupport};
+
+    #[test]
+    fn min_of_empty_iter_is_supported_with_no_data() {
+        assert_eq!(
+            LanguageSupport::min(std::iter::empty()),
+            LanguageSupport::Supported {
+                quality: LanguageQuality::NoData,
+            }
+        );
     }
 }
