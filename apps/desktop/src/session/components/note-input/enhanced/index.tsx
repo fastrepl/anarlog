@@ -1,5 +1,7 @@
 import { forwardRef } from "react";
 
+import type { NoteEditorRef } from "@hypr/editor/note";
+
 import { ConfigError } from "./config-error";
 import { EnhancedEditor } from "./editor";
 import { EnhanceError } from "./enhance-error";
@@ -7,7 +9,6 @@ import { StreamingView } from "./streaming";
 
 import { useAITaskTask } from "~/ai/hooks";
 import { useLLMConnectionStatus } from "~/ai/hooks";
-import type { NoteEditorRef } from "~/editor/session";
 import * as main from "~/store/tinybase/store/main";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 

@@ -41,8 +41,7 @@ export function useSessionBottomAccessory({
   const canExpandLiveTranscript = isLive && liveCaptureMode === "live";
   const effectiveExpanded =
     isLive && !canExpandLiveTranscript ? false : isExpanded;
-  const isChatVisible =
-    chat.mode === "FloatingOpen" || chat.mode === "RightPanelOpen";
+  const isChatVisible = chat.mode === "RightPanelOpen";
 
   const prevLive = useRef(isLive);
   useEffect(() => {
@@ -113,15 +112,16 @@ export function useSessionBottomAccessory({
   }
 
   if (showPostSession) {
+    const hasAccessoryContent = isExpanded || isBatching;
     return {
-      bottomAccessory: (
+      bottomAccessory: hasAccessoryContent ? (
         <PostSessionAccessory
           sessionId={sessionId}
           hasAudio={hasAudio}
           hasTranscript={hasTranscript}
           isTranscriptExpanded={isExpanded}
         />
-      ),
+      ) : null,
       bottomBorderHandle: (
         <ExpandToggle
           isExpanded={isExpanded}

@@ -10,6 +10,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useState } from "react";
 
 import { commands as openerCommands } from "@hypr/plugin-opener2";
+import { Button } from "@hypr/ui/components/ui/button";
 import { Kbd } from "@hypr/ui/components/ui/kbd";
 import {
   Tooltip,
@@ -205,15 +206,15 @@ function AvatarButton({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <button
+        <Button
           type="button"
           onClick={onClick}
+          variant="ghost"
+          size="icon"
           aria-label={displayName}
           className={cn([
-            "flex size-8 cursor-pointer items-center justify-center rounded-md",
-            "transition-colors duration-150",
-            "hover:bg-neutral-100",
-            isOpen && "bg-neutral-200 hover:bg-neutral-200",
+            "text-neutral-600",
+            isOpen && "bg-neutral-200 text-neutral-900 hover:bg-neutral-200",
           ])}
         >
           <div
@@ -238,7 +239,7 @@ function AvatarButton({
               />
             )}
           </div>
-        </button>
+        </Button>
       </TooltipTrigger>
       <TooltipContent side="bottom">
         <span>{displayName}</span>

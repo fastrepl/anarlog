@@ -1,288 +1,36 @@
-import {
-  createContext,
-  useContext,
-  useMemo,
-  useSyncExternalStore,
-  type ReactNode,
-} from "react";
+import { useMemo } from "react";
 
-import type { JSONContent } from "./session";
-import { createTaskSourceKey, type TaskRecord, type TaskSource } from "./tasks";
+import type { JSONContent } from "@hypr/editor/note";
+import type { TaskStorage } from "@hypr/editor/task-storage";
+import {
+  createTaskSourceKey,
+  isSameTask,
+  type TaskRecord,
+  type TaskSource,
+} from "@hypr/editor/tasks";
 
 import { DEFAULT_USER_ID } from "~/shared/utils";
 import * as main from "~/store/tinybase/store/main";
 
-type Listener = () => void;
-type TaskStore = NonNullable<ReturnType<typeof main.UI.useStore>>;
-type TaskIndexes = NonNullable<ReturnType<typeof main.UI.useIndexes>>;
-
-export interface TaskStorage {
-  getTasksForSource: (source: TaskSource) => TaskRecord[];
-  subscribeSource: (source: TaskSource, listener: Listener) => () => void;
-  getTask: (taskId: string) => TaskRecord | null;
-  upsertTasksForSource: (source: TaskSource, tasks: TaskRecord[]) => void;
-  removeTasksForSource: (source: TaskSource, taskIds: string[]) => void;
-  moveTasksToSource: (
-    taskIds: string[],
-    nextSource: TaskSource,
-    insertionOrder: number,
-  ) => void;
-}
-
-const emptyTasks: TaskRecord[] = [];
-
-const TaskStorageContext = createContext<TaskStorage | null>(null);
-
-export function createInMemoryTaskStorage(): TaskStorage {
-  const tasksById = new Map<string, TaskRecord>();
-  const listenersBySource = new Map<string, Set<Listener>>();
-  const sourceSnapshots = new Map<string, TaskRecord[]>();
-
-  const emitSources = (sourceKeys: Iterable<string>) => {
-    for (const sourceKey of new Set(sourceKeys)) {
-      listenersBySource.get(sourceKey)?.forEach((listener) => listener());
-    }
-  };
-
-  const refreshSourceSnapshot = (source: TaskSource) => {
-    const sourceKey = createTaskSourceKey(source);
-    sourceSnapshots.set(
-      sourceKey,
-      [...tasksById.values()]
-        .filter(
-          (task) =>
-            task.sourceId === source.id && task.sourceType === source.type,
-        )
-        .sort((left, right) => left.sourceOrder - right.sourceOrder),
-    );
-  };
-
-  const getTasksForSource = (source: TaskSource): TaskRecord[] => {
-    const sourceKey = createTaskSourceKey(source);
-    const snapshot = sourceSnapshots.get(sourceKey);
-
-    if (snapshot) {
-      return snapshot;
-    }
-
-    refreshSourceSnapshot(source);
-    return sourceSnapshots.get(sourceKey) ?? emptyTasks;
-  };
-
-  return {
-    getTasksForSource,
-    subscribeSource(source, listener) {
-      const sourceKey = createTaskSourceKey(source);
-      const listeners = listenersBySource.get(sourceKey) ?? new Set<Listener>();
-      listeners.add(listener);
-      listenersBySource.set(sourceKey, listeners);
-
-      return () => {
-        listeners.delete(listener);
-        if (listeners.size === 0) {
-          listenersBySource.delete(sourceKey);
-        }
-      };
-    },
-    getTask(taskId) {
-      return tasksById.get(taskId) ?? null;
-    },
-    upsertTasksForSource(source, tasks) {
-      const sourceKey = createTaskSourceKey(source);
-      const affectedSources = new Set<string>([sourceKey]);
-      const nextTaskIds = new Set(tasks.map((task) => task.taskId));
-      let changed = false;
-
-      for (const [taskId, task] of tasksById.entries()) {
-        if (
-          task.sourceId === source.id &&
-          task.sourceType === source.type &&
-          !nextTaskIds.has(taskId)
-        ) {
-          tasksById.delete(taskId);
-          changed = true;
-        }
-      }
-
-      tasks.forEach((task) => {
-        const previousTask = tasksById.get(task.taskId);
-        if (previousTask) {
-          affectedSources.add(
-            createTaskSourceKey({
-              type: previousTask.sourceType,
-              id: previousTask.sourceId,
-            }),
-          );
-        }
-        if (!previousTask || !isSameTask(previousTask, task)) {
-          tasksById.set(task.taskId, task);
-          changed = true;
-        }
-      });
-
-      if (!changed) {
-        return;
-      }
-
-      affectedSources.forEach((nextSourceKey) => {
-        const [type, ...idParts] = nextSourceKey.split(":");
-        refreshSourceSnapshot({ type, id: idParts.join(":") });
-      });
-      emitSources(affectedSources);
-    },
-    removeTasksForSource(source, taskIds) {
-      const sourceKey = createTaskSourceKey(source);
-      const taskIdSet = new Set(taskIds);
-      let changed = false;
-
-      for (const [taskId, task] of tasksById.entries()) {
-        if (
-          taskIdSet.has(taskId) &&
-          task.sourceId === source.id &&
-          task.sourceType === source.type
-        ) {
-          tasksById.delete(taskId);
-          changed = true;
-        }
-      }
-
-      if (changed) {
-        refreshSourceSnapshot(source);
-        emitSources([sourceKey]);
-      }
-    },
-    moveTasksToSource(taskIds, nextSource, insertionOrder) {
-      const affectedSources = new Set<string>([
-        createTaskSourceKey(nextSource),
-      ]);
-      let changed = false;
-
-      taskIds.forEach((taskId, index) => {
-        const previousTask = tasksById.get(taskId);
-        if (!previousTask) {
-          return;
-        }
-
-        affectedSources.add(
-          createTaskSourceKey({
-            type: previousTask.sourceType,
-            id: previousTask.sourceId,
-          }),
-        );
-        const nextTask = {
-          ...previousTask,
-          sourceId: nextSource.id,
-          sourceType: nextSource.type,
-          sourceOrder: insertionOrder + index,
-        };
-        if (!isSameTask(previousTask, nextTask)) {
-          tasksById.set(taskId, nextTask);
-          changed = true;
-        }
-      });
-
-      if (!changed) {
-        return;
-      }
-
-      affectedSources.forEach((sourceKey) => {
-        const [type, ...idParts] = sourceKey.split(":");
-        refreshSourceSnapshot({ type, id: idParts.join(":") });
-      });
-      emitSources(affectedSources);
-    },
-  };
-}
-
-export function TaskStorageProvider({
-  storage,
-  children,
-}: {
-  storage?: TaskStorage;
-  children: ReactNode;
-}) {
+export function useStoreBackedTaskStorage(): TaskStorage | undefined {
   const store = main.UI.useStore(main.STORE_ID);
   const indexes = main.UI.useIndexes(main.STORE_ID);
-  const defaultStorage = useMemo(
+
+  return useMemo(
     () =>
       store && indexes
         ? createStoreBackedTaskStorage(store, indexes)
-        : createInMemoryTaskStorage(),
+        : undefined,
     [indexes, store],
   );
-
-  const value = useMemo(
-    () => storage ?? defaultStorage,
-    [defaultStorage, storage],
-  );
-
-  return (
-    <TaskStorageContext.Provider value={value}>
-      {children}
-    </TaskStorageContext.Provider>
-  );
 }
 
-export function useTaskStorageOptional(): TaskStorage | null {
-  return useContext(TaskStorageContext);
-}
+type TaskStore = NonNullable<ReturnType<typeof main.UI.useStore>>;
+type TaskIndexes = NonNullable<ReturnType<typeof main.UI.useIndexes>>;
 
-export function useTaskStorage(): TaskStorage {
-  const storage = useTaskStorageOptional();
-  if (!storage) {
-    throw new Error("useTaskStorage must be used within a TaskStorageProvider");
-  }
+const emptyTasks: TaskRecord[] = [];
 
-  return storage;
-}
-
-export function useTaskRecords(
-  source: TaskSource | null | undefined,
-): TaskRecord[] {
-  const storage = useTaskStorageOptional();
-
-  return useSyncExternalStore(
-    source && storage
-      ? (listener) => storage.subscribeSource(source, listener)
-      : subscribeNoop,
-    source && storage ? () => storage.getTasksForSource(source) : getEmptyTasks,
-    getEmptyTasks,
-  );
-}
-
-export function useTaskRecord(
-  source: TaskSource | null | undefined,
-  taskId: string | null | undefined,
-): TaskRecord | null {
-  const storage = useTaskStorageOptional();
-
-  return useSyncExternalStore(
-    source && storage
-      ? (listener) => storage.subscribeSource(source, listener)
-      : subscribeNoop,
-    source && taskId && storage
-      ? () => storage.getTask(taskId)
-      : getNullTaskRecord,
-    getNullTaskRecord,
-  );
-}
-
-export function setTaskRecord(store: TaskStore, task: TaskRecord): void {
-  store.setRow("tasks", task.taskId, {
-    user_id:
-      (store.getValue("user_id") as string | undefined) ?? DEFAULT_USER_ID,
-    task_id: task.taskId,
-    source_id: task.sourceId,
-    source_type: task.sourceType,
-    source_order: task.sourceOrder,
-    status: task.status,
-    text_preview: task.textPreview,
-    body_json: JSON.stringify(task.body),
-    due_date: task.dueDate ?? "",
-  });
-}
-
-function createStoreBackedTaskStorage(
+export function createStoreBackedTaskStorage(
   store: TaskStore,
   indexes: TaskIndexes,
 ): TaskStorage {
@@ -462,14 +210,12 @@ function createStoreBackedTaskStorage(
 
       store.transaction(() => {
         updates.forEach(({ taskId, currentTask, nextTask }) => {
-          if (currentTask) {
-            affectedSources.add(
-              createTaskSourceKey({
-                type: currentTask.sourceType,
-                id: currentTask.sourceId,
-              }),
-            );
-          }
+          affectedSources.add(
+            createTaskSourceKey({
+              type: currentTask.sourceType,
+              id: currentTask.sourceId,
+            }),
+          );
           store.setPartialRow("tasks", taskId, {
             source_id: nextTask.sourceId,
             source_type: nextTask.sourceType,
@@ -485,6 +231,21 @@ function createStoreBackedTaskStorage(
       });
     },
   };
+}
+
+function setTaskRecord(store: TaskStore, task: TaskRecord): void {
+  store.setRow("tasks", task.taskId, {
+    user_id:
+      (store.getValue("user_id") as string | undefined) ?? DEFAULT_USER_ID,
+    task_id: task.taskId,
+    source_id: task.sourceId,
+    source_type: task.sourceType,
+    source_order: task.sourceOrder,
+    status: task.status,
+    text_preview: task.textPreview,
+    body_json: JSON.stringify(task.body),
+    due_date: task.dueDate ?? "",
+  });
 }
 
 function getTaskRecordsForSource(
@@ -606,29 +367,4 @@ function getNodeText(node: JSONContent | undefined): string {
   }
 
   return (node.content ?? []).map((child) => getNodeText(child)).join(" ");
-}
-
-function isSameTask(left: TaskRecord, right: TaskRecord) {
-  return (
-    left.taskId === right.taskId &&
-    left.sourceId === right.sourceId &&
-    left.sourceType === right.sourceType &&
-    left.sourceOrder === right.sourceOrder &&
-    left.status === right.status &&
-    left.textPreview === right.textPreview &&
-    left.dueDate === right.dueDate &&
-    JSON.stringify(left.body) === JSON.stringify(right.body)
-  );
-}
-
-function subscribeNoop() {
-  return () => {};
-}
-
-function getEmptyTasks() {
-  return emptyTasks;
-}
-
-function getNullTaskRecord() {
-  return null;
 }

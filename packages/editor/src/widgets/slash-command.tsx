@@ -34,7 +34,7 @@ import { createPortal } from "react-dom";
 
 import { cn } from "@hypr/utils";
 
-import { schema } from "../session/schema";
+import { schema } from "../note/schema";
 import { createTaskItemAttrs } from "../tasks";
 
 // ---------------------------------------------------------------------------

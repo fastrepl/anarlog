@@ -1,6 +1,6 @@
-import { createTaskId, type TaskConfig } from ".";
+import { md2json } from "@hypr/editor/markdown";
 
-import { md2json } from "~/editor/markdown";
+import { createTaskId, type TaskConfig } from ".";
 
 const onSuccess: NonNullable<TaskConfig<"enhance">["onSuccess"]> = ({
   text,

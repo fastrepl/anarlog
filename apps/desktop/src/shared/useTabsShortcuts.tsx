@@ -232,7 +232,7 @@ export function useMainTabsShortcuts({ onModT }: { onModT: () => void }) {
 function isPersistentChatInputFocused(
   mode: ReturnType<typeof useShell>["chat"]["mode"],
 ) {
-  if (mode !== "FloatingOpen" && mode !== "RightPanelOpen") {
+  if (mode !== "RightPanelOpen") {
     return false;
   }
 

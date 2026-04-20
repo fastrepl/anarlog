@@ -20,6 +20,7 @@ import {
 } from "@hypr/ui/components/ui/tooltip";
 import { cn } from "@hypr/utils";
 
+import { ChatToolbarControls } from "~/chat/components/toolbar-controls";
 import { useShell } from "~/contexts/shell";
 import { Main2Home } from "~/main2/home";
 import { ProfileMenu } from "~/main2/profile-menu";
@@ -30,6 +31,7 @@ import {
   MainShellScaffold,
   MainTabContent,
   MainTabItem,
+  useChatPanelToolbarWidth,
   useScrollActiveTabIntoView,
 } from "~/shared/main";
 import { OpenNoteDialog } from "~/shared/open-note-dialog";
@@ -98,8 +100,8 @@ export function Main2Shell() {
   });
 
   const isHomeActive = currentTab === null;
-  const isChatOpen =
-    chat.mode === "FloatingOpen" || chat.mode === "RightPanelOpen";
+  const isChatOpen = chat.mode === "RightPanelOpen";
+  const chatToolbarWidth = useChatPanelToolbarWidth(isChatOpen);
   const liveSessionId = useListener((state) => state.live.sessionId);
   const liveStatus = useListener((state) => state.live.status);
   const showAdHocButton = !(
@@ -108,9 +110,11 @@ export function Main2Shell() {
     liveStatus === "active"
   );
 
+  const shortcutModifierLabel = currentPlatform === "macos" ? "⌘" : "Ctrl";
+
   useMain2TabsShortcuts();
 
-  const { cmd, cmdOrCmdShift } = useHeaderModifierKeys();
+  const { mod } = useHeaderModifierKeys();
 
   const [openNoteDialogOpen, setOpenNoteDialogOpen] = useState(false);
   useHotkeys(
@@ -188,11 +192,11 @@ export function Main2Shell() {
       <div className="flex h-full min-w-0 flex-1 flex-col">
         <div
           data-tauri-drag-region
-          className="flex h-10 w-full min-w-0 shrink-0 items-center gap-1 pr-1 pl-3"
+          className="flex h-10 w-full min-w-0 shrink-0 items-center gap-0 pr-1 pl-3"
         >
           <div
             className={cn([
-              "flex shrink-0 items-center gap-1",
+              "flex shrink-0 items-center gap-0",
               isLinux ? "mr-1" : !showSidebar && "pl-16",
             ])}
           >
@@ -236,12 +240,12 @@ export function Main2Shell() {
                   className="flex items-center gap-2"
                 >
                   <span>Search</span>
-                  <Kbd className="animate-kbd-press">⌘ K</Kbd>
+                  <Kbd className="animate-kbd-press">{`${shortcutModifierLabel} K`}</Kbd>
                 </TooltipContent>
               </Tooltip>
-              {cmd && (
+              {mod && (
                 <div className="pointer-events-none absolute top-full left-1/2 z-50 -translate-x-1/2 -translate-y-1/3">
-                  <Kbd className="animate-kbd-press">⌘ K</Kbd>
+                  <Kbd className="animate-kbd-press">{`${shortcutModifierLabel} K`}</Kbd>
                 </div>
               )}
             </div>
@@ -298,7 +302,7 @@ export function Main2Shell() {
                 axis="x"
                 values={tabs}
                 onReorder={reorder}
-                className="flex h-full w-max items-center gap-1"
+                className="flex h-full w-max items-center gap-0"
               >
                 {tabs.map((tab) => (
                   <Reorder.Item
@@ -330,9 +334,33 @@ export function Main2Shell() {
             </div>
           </div>
 
-          <div className="ml-auto flex shrink-0 items-center gap-2">
-            {showAdHocButton && (
-              <div className="relative">
+          <div
+            data-tauri-drag-region
+            className={cn([
+              "ml-auto flex h-full min-w-0 items-center",
+              isChatOpen ? "justify-between gap-2" : "shrink-0",
+            ])}
+            style={
+              chatToolbarWidth !== null
+                ? { width: chatToolbarWidth }
+                : undefined
+            }
+          >
+            <div data-tauri-drag-region className="min-w-0">
+              {isChatOpen ? (
+                <ChatToolbarControls
+                  currentChatGroupId={chat.groupId}
+                  onNewChat={chat.startNewChat}
+                  onSelectChat={chat.selectChat}
+                />
+              ) : null}
+            </div>
+
+            <div
+              data-tauri-drag-region
+              className="flex shrink-0 items-center gap-2"
+            >
+              {showAdHocButton && (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -346,50 +374,41 @@ export function Main2Shell() {
                       <span>New recording</span>
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent
-                    side="bottom"
-                    className="flex items-center gap-2"
-                  >
-                    <span>Create new note</span>
-                    <Kbd className="animate-kbd-press">⌘ ⇧ N</Kbd>
+                  <TooltipContent side="bottom">
+                    <span>Start a new recording</span>
                   </TooltipContent>
                 </Tooltip>
-                {cmdOrCmdShift && (
-                  <div className="pointer-events-none absolute top-full left-1/2 z-50 -translate-x-1/2 -translate-y-1/2">
-                    <Kbd className="animate-kbd-press">⌘ ⇧ N</Kbd>
-                  </div>
-                )}
-              </div>
-            )}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  onClick={handleChat}
-                  variant="ghost"
-                  size="icon"
-                  className={cn([
-                    "text-neutral-600",
-                    isChatOpen &&
-                      "bg-neutral-200 text-neutral-900 hover:bg-neutral-200",
-                  ])}
-                  aria-label={isChatOpen ? "Close chat" : "Chat with notes"}
-                  aria-pressed={isChatOpen}
-                >
-                  <img
-                    src="/assets/char-chat-bubble.svg"
-                    alt="Char"
+              )}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    onClick={handleChat}
+                    variant="ghost"
+                    size="icon"
                     className={cn([
-                      "size-[16px] shrink-0 object-contain opacity-65",
-                      isChatOpen && "opacity-100",
+                      "text-neutral-600",
+                      isChatOpen &&
+                        "bg-neutral-200 text-neutral-900 hover:bg-neutral-200",
                     ])}
-                  />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                <span>{isChatOpen ? "Close chat" : "Chat with notes"}</span>
-              </TooltipContent>
-            </Tooltip>
-            <ProfileMenu />
+                    aria-label={isChatOpen ? "Close chat" : "Chat with notes"}
+                    aria-pressed={isChatOpen}
+                  >
+                    <img
+                      src="/assets/char-chat-bubble.svg"
+                      alt="Char"
+                      className={cn([
+                        "size-[16px] shrink-0 object-contain opacity-65",
+                        isChatOpen && "opacity-100",
+                      ])}
+                    />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <span>{isChatOpen ? "Close chat" : "Chat with notes"}</span>
+                </TooltipContent>
+              </Tooltip>
+              <ProfileMenu />
+            </div>
           </div>
         </div>
 
@@ -412,12 +431,12 @@ export function Main2Shell() {
 }
 
 function useHeaderModifierKeys() {
-  const [state, setState] = useState({ meta: false, shift: false });
+  const [state, setState] = useState({ mod: false, shift: false });
 
   useEffect(() => {
     const update = (e: KeyboardEvent) =>
-      setState({ meta: e.metaKey, shift: e.shiftKey });
-    const reset = () => setState({ meta: false, shift: false });
+      setState({ mod: e.metaKey || e.ctrlKey, shift: e.shiftKey });
+    const reset = () => setState({ mod: false, shift: false });
     window.addEventListener("keydown", update);
     window.addEventListener("keyup", update);
     window.addEventListener("blur", reset);
@@ -429,7 +448,6 @@ function useHeaderModifierKeys() {
   }, []);
 
   return {
-    cmd: state.meta && !state.shift,
-    cmdOrCmdShift: state.meta,
+    mod: state.mod && !state.shift,
   };
 }

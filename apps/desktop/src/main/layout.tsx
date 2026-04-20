@@ -1,12 +1,14 @@
 import { useRouteContext } from "@tanstack/react-router";
 
+import { TaskStorageProvider } from "@hypr/editor/task-storage";
+
 import { ClassicMainServices } from "./lifecycle";
 
 import { AITaskProvider } from "~/ai/contexts";
 import { NotificationProvider } from "~/contexts/notifications";
 import { ShellProvider } from "~/contexts/shell";
 import { ToolRegistryProvider } from "~/contexts/tool";
-import { TaskStorageProvider } from "~/editor/task-storage";
+import { useStoreBackedTaskStorage } from "~/editor-bridge/task-storage";
 import { SearchEngineProvider } from "~/search/contexts/engine";
 import { SearchUIProvider } from "~/search/contexts/ui";
 
@@ -20,6 +22,7 @@ export function ClassicMainLayout({
   const { persistedStore, aiTaskStore, toolRegistry } = useRouteContext({
     from: "__root__",
   });
+  const taskStorage = useStoreBackedTaskStorage();
 
   if (!aiTaskStore) {
     return null;
@@ -27,7 +30,7 @@ export function ClassicMainLayout({
 
   return (
     <SearchEngineProvider store={persistedStore}>
-      <TaskStorageProvider>
+      <TaskStorageProvider storage={taskStorage}>
         <SearchUIProvider>
           <ShellProvider>
             <ToolRegistryProvider registry={toolRegistry}>

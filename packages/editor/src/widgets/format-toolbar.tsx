@@ -26,7 +26,7 @@ import { createPortal } from "react-dom";
 
 import { cn } from "@hypr/utils";
 
-import { schema } from "../session/schema";
+import { schema } from "../note/schema";
 
 function isMarkActive(state: EditorState, type: MarkType): boolean {
   const { from, $from, to, empty } = state.selection;

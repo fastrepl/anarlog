@@ -9,6 +9,7 @@ import {
 } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
+import type { NoteEditorRef } from "@hypr/editor/note";
 import { cn } from "@hypr/utils";
 
 import { Enhanced } from "./enhanced";
@@ -17,7 +18,6 @@ import { RawEditor } from "./raw";
 import { SearchBar } from "./search/bar";
 import { useSearch } from "./search/context";
 
-import type { NoteEditorRef } from "~/editor/session";
 import { useCaretNearBottom } from "~/session/components/caret-position-context";
 import { useCurrentNoteTab } from "~/session/components/shared";
 import { useScrollPreservation } from "~/shared/hooks/useScrollPreservation";

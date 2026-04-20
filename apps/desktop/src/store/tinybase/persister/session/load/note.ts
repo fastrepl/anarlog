@@ -1,8 +1,8 @@
+import { md2json } from "@hypr/editor/markdown";
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 
 import type { LoadedSessionData } from "./types";
 
-import { md2json } from "~/editor/markdown";
 import type { NoteFrontmatter } from "~/store/tinybase/persister/session/types";
 import { SESSION_MEMO_FILE } from "~/store/tinybase/persister/shared";
 

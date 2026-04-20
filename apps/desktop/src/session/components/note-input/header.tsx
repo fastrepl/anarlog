@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { json2md, parseJsonContent } from "@hypr/editor/markdown";
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 import {
   HoverCard,
@@ -34,7 +35,6 @@ import {
 
 import { useAITaskTask } from "~/ai/hooks";
 import { useLanguageModel, useLLMConnectionStatus } from "~/ai/hooks";
-import { json2md, parseJsonContent } from "~/editor/markdown";
 import { extractPlainText } from "~/search/contexts/engine/utils";
 import { getEnhancerService } from "~/services/enhancer";
 import { useHasTranscript } from "~/session/components/shared";

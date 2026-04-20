@@ -3,6 +3,7 @@ import { downloadDir, join } from "@tauri-apps/api/path";
 import { FileTextIcon, Loader2Icon } from "lucide-react";
 import { useMemo } from "react";
 
+import { json2md } from "@hypr/editor/markdown";
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 import {
   commands as exportCommands,
@@ -14,7 +15,6 @@ import { DropdownMenuItem } from "@hypr/ui/components/ui/dropdown-menu";
 
 import { formatDate, formatDuration } from "./export-utils";
 
-import { json2md } from "~/editor/markdown";
 import { useSessionEvent } from "~/store/tinybase/hooks";
 import * as main from "~/store/tinybase/store/main";
 import type { EditorView } from "~/store/zustand/tabs/schema";

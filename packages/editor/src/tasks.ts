@@ -1,8 +1,8 @@
 import type { TaskStatus } from "@hypr/store";
 
-import type { JSONContent } from "./session";
+import type { JSONContent } from "./note";
 
-import { id } from "~/shared/utils";
+const id = () => crypto.randomUUID() as string;
 
 export interface TaskSource {
   type: string;
@@ -121,6 +121,19 @@ export function isTaskDone(status: TaskStatus): boolean {
 
 export function createTaskSourceKey(source: TaskSource): string {
   return `${source.type}:${source.id}`;
+}
+
+export function isSameTask(left: TaskRecord, right: TaskRecord): boolean {
+  return (
+    left.taskId === right.taskId &&
+    left.sourceId === right.sourceId &&
+    left.sourceType === right.sourceType &&
+    left.sourceOrder === right.sourceOrder &&
+    left.status === right.status &&
+    left.textPreview === right.textPreview &&
+    left.dueDate === right.dueDate &&
+    JSON.stringify(left.body) === JSON.stringify(right.body)
+  );
 }
 
 export function normalizeTaskContent(

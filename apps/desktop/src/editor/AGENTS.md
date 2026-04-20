@@ -1,3 +1,0 @@
-- https://raw.githubusercontent.com/handlewithcarecollective/react-prosemirror/refs/heads/main/README.md
-- https://prosemirror.net/docs/ref
-- https://prosemirror.net/docs/guide

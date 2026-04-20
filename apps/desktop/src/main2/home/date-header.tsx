@@ -1,3 +1,5 @@
+import { cn } from "@hypr/utils";
+
 import { openDailySummaryTab } from "~/daily-summary";
 
 function ordinalSuffix(day: number): string {
@@ -41,11 +43,15 @@ export function DateHeader({
       <button
         type="button"
         onClick={() => openDailySummaryTab(date)}
-        className={
+        className={cn([
+          "hover:text-neutral-600",
           muted
-            ? "text-lg font-medium text-neutral-400 hover:text-neutral-600"
-            : "text-xl font-semibold text-neutral-900 hover:text-neutral-600"
-        }
+            ? [
+                "text-lg font-medium text-neutral-400",
+                "group-focus-within/daily-note:text-xl group-focus-within/daily-note:font-semibold group-focus-within/daily-note:text-neutral-900",
+              ]
+            : "text-xl font-semibold text-neutral-900",
+        ])}
       >
         {formatDateHeader(date)}
       </button>

@@ -36,20 +36,19 @@ export function PostSessionAccessory({
   isTranscriptExpanded: boolean;
 }) {
   const screen = useTranscriptScreen({ sessionId });
-  const hasTranscriptPanel = isTranscriptExpanded;
-  const timeline =
-    screen.kind === "running_batch" ? (
-      <BatchProgressTimeline sessionId={sessionId} screen={screen} />
-    ) : hasAudio ? (
-      <AudioPlayer.Timeline />
-    ) : null;
+  const isBatching = screen.kind === "running_batch";
+  const timeline = isBatching ? (
+    <BatchProgressTimeline sessionId={sessionId} screen={screen} />
+  ) : hasAudio && isTranscriptExpanded ? (
+    <AudioPlayer.Timeline />
+  ) : null;
 
-  if (!hasTranscriptPanel && !timeline) {
+  if (!isTranscriptExpanded && !timeline) {
     return null;
   }
 
   const shouldBalanceCollapsedTimeline =
-    !hasTranscriptPanel && Boolean(timeline);
+    !isTranscriptExpanded && Boolean(timeline);
 
   return (
     <div
@@ -65,7 +64,7 @@ export function PostSessionAccessory({
           className="pointer-events-none absolute top-[-4px] right-0 left-0 h-px bg-neutral-50"
         />
       ) : null}
-      {hasTranscriptPanel ? (
+      {isTranscriptExpanded ? (
         <TranscriptPanel
           sessionId={sessionId}
           screen={screen}
