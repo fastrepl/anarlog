@@ -126,26 +126,30 @@ Free and open-source (MIT).
 
 ### 5. Whishper
 
-Whishper is another Docker-deployed web UI for Whisper with drag-and-drop upload and subtitle generation (SRT, VTT). It's built for teams that need a transcription service without any setup complexity. Automatic language detection across 90+ languages. No summarization, no post-processing — you get the transcript and take it elsewhere.
+Whishper is another Docker-deployed web UI for Whisper with drag-and-drop upload and subtitle generation (SRT, VTT). 
 
-***Setup***
+It's built for teams that need a transcription service without any setup complexity. Automatic language detection across 90+ languages. 
+
+No summarization, no post-processing — you get the transcript and take it elsewhere.
+
+#### Setup
 
 **Deploy:** Docker Compose. Pull the image, set your Whisper model size (tiny through large-v3), start.
 
 **Interface:** Browser-based drag-and-drop. Share the URL with your team.
 
-***Limitations***
+#### Limitations
 
 - No editing or formatting tools — you get raw transcript output.
 - Less configurable than Scriberr if you need GPU tuning or Ollama integration.
 
-***Pricing***
+#### Pricing
 
 Free and open-source (MIT). Self-host only.
 
-**6. WhisperX**
+### 6. WhisperX
 
-WhisperX isn't a product — it's a research-grade transcription pipeline. It extends Whisper with forced alignment (word-level timestamps via wav2vec2) and speaker diarization (pyannote.audio). It's the only tool on this list that tells you exactly who said what and when, down to the word. If you're building a custom meeting intelligence stack, this is the engine.
+WhisperX is a research-grade transcription pipeline. It extends Whisper with forced alignment (word-level timestamps via wav2vec2) and speaker diarization (pyannote.audio). It's the only tool on this list that tells you exactly who said what and when, down to the word. If you're building a custom meeting intelligence stack, this is the engine.
 
 ***Setup***
 
