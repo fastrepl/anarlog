@@ -149,9 +149,11 @@ Free and open-source (MIT). Self-host only.
 
 ### 6. WhisperX
 
-WhisperX is a research-grade transcription pipeline. It extends Whisper with forced alignment (word-level timestamps via wav2vec2) and speaker diarization (pyannote.audio). It's the only tool on this list that tells you exactly who said what and when, down to the word. If you're building a custom meeting intelligence stack, this is the engine.
+WhisperX is a research-grade transcription pipeline. It extends Whisper with forced alignment (word-level timestamps via wav2vec2) and speaker diarization (pyannote.audio). 
 
-***Setup***
+It's the only tool on this list that tells you exactly who said what and when, down to the word. If you're building a custom meeting intelligence stack, this is the engine.
+
+#### Setup
 
 **Install:** pip install or Docker. Requires Python and a CUDA GPU for reasonable performance.
 
@@ -159,29 +161,17 @@ WhisperX is a research-grade transcription pipeline. It extends Whisper with for
 
 **I/O:** CLI-driven. Pipe audio in, get JSON/SRT/VTT out.
 
-***Limitations***
+#### Limitations
 
 - No UI. You build any interface yourself.
-- GPU effectively required — CPU inference is impractically slow for long recordings.
+- GPU effectively required because the CPU inference is impractically slow for long recordings.
 - BSD-4-Clause license has an advertising clause some legal teams flag.
 
-***Pricing***
+#### Pricing
 
 Free and open-source (BSD-4-Clause).
 
-**Which Self-Hosted AI Notetaker Should You Use?**
-
-If you want one app that records, transcribes, takes notes, and produces structured meeting output — Char. It's the only tool here where you don't need a second app to do something useful with the transcript.
-
-If you're on Windows and need real-time capture with local summarization, Meetily.
-
-If your team needs a shared transcription service in the browser, Scriberr gives you more control (GPU config, Ollama), Whishper gets you there faster.
-
-If you're building a custom pipeline and need word-level timestamps with speaker attribution, WhisperX is the engine — but you're writing the rest yourself.
-
-Vibe is the right call when all you need is fast local file transcription with no extras.
-
-**Which Self-Hosted AI Notetaker Should You Use?**
+## Which Self-Hosted AI Notetaker Should You Use?
 
 It depends on what you're optimizing for.
 
