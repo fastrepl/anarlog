@@ -23,106 +23,97 @@ Self-hosted AI meeting tools run on your infrastructure. Your servers, your devi
 | **WhisperX** | BSD-4       | CLI / Docker    | Whisper-based                                 | No                 | Free                           |
 
 
+**6 Best Self-Hosted AI Notetakers**
 
+**1. Char**
 
-## 6 Best Self-Hosted AI Notetakers: Detailed Reviews
+Char is the only tool on this list that handles the full meeting workflow in one app — capture, transcription, note-taking, summarization, and structured export. It ships with a built-in notepad where you write during the meeting, and the AI merges your manual notes with the transcript into structured output using your template. Notes are plain Markdown files on disk. Open them in Obsidian, VS Code, whatever. 8.3k GitHub stars.
 
-### 1. Char
+***Setup***
 
-[Char](https://char.com) is an open-source AI meeting notetaker built around a single idea: everything runs on your machine unless you choose otherwise. 
+**Install:** brew install char, or clone the GPL repo and build from source.
 
-It ships with two fully on-device speech-to-text engines—Parakeet V3 (accelerated on Apple's Neural Engine via Cactus) and Whisper Small (also via Cactus), plus seven cloud BYOK providers (Deepgram, AssemblyAI, ElevenLabs, OpenAI, Rev AI, Speechmatics, and Azure) for teams that want cloud accuracy with their own API keys. 
+**Transcription:** Pick from 9 STT providers in Preferences. Two are fully on-device — Parakeet V3 (Apple Neural Engine via Cactus) and Whisper Small (also Cactus). The other seven are cloud BYOK: paste your API key, audio goes to that provider, Char never touches it.
 
-Summarization is handled separately: connect Ollama or LM Studio for fully local LLM processing, or bring your own key for OpenAI, Anthropic, or Google Gemini. 
+**Summarization:** Configured separately. Point it at Ollama or LM Studio for offline, or add a key for OpenAI, Anthropic, or Gemini.
 
-What sets Char apart from every other tool on this list is that it's not just a transcription app. It has a built-in notepad where you take notes during the meeting, and the AI merges your manual notes with the full transcript into structured output using your chosen template. 
+**Storage:** Plain .md and audio files on your local filesystem. No proprietary database.
 
-With 45+ languages, calendar integration (Apple, Google, Outlook), AI chat over your transcripts, and a meeting countdown that auto-starts recording for calendar events, Char functions as a complete meeting workspace, not just a recorder. 
+***What else***
 
-#### How to self-host
+Calendar integration (Apple, Google, Outlook) with auto-record on event start. AI chat over your transcripts. Code blocks, @mentions with backlinks. Export to Markdown, PDF, JSON, VTT, Org mode. 45+ languages. Record-only mode — capture now, transcribe later.
 
-- Install via Homebrew: brew install char. Or clone the GPL-licensed repo from GitHub and build from source. GPL means you can audit every line and modify it for your org.
-- Transcription: select from 9 STT providers in Preferences. Two are fully on-device—Parakeet V3 (runs on Apple's Neural Processing Unit via the Cactus runtime) and Whisper Small (also Cactus). The remaining seven are cloud BYOK: paste your own API key, audio goes to that provider, Char never touches it.
-- Summarization: configure separately from transcription. Point Char at a local Ollama or LM Studio instance for fully offline summarization, or add an API key for OpenAI, Anthropic, or Google Gemini.
-- Storage: all transcripts, notes, and audio saved as plain Markdown and audio files on your local filesystem. No proprietary database. Syncs naturally with any file-based tool (Obsidian, iCloud, Git).
-- CLI available: brew install gives you a command-line interface alongside the GUI app.
-- Templates: create reusable templates for different meeting types. The AI uses your template to structure the merged output (your notes + transcript).
-- Record-only mode: capture audio now, transcribe later when you're ready or when you've switched to a different STT provider.
-- Meeting countdown: connects to Apple Calendar, Google Calendar, or Outlook and auto-starts recording when a calendar event begins.
-
-***Where it falls short***
+***Limitations***
 
 - macOS only. No Windows or Linux client.
-- On-device transcription quality depends on your hardware. Older Macs without a Neural Engine won't get Parakeet V3 acceleration.
-- No web UI for team sharing. It's a single-user desktop app—collaboration means sharing exported files.
+- On-device transcription quality scales with hardware — older Macs without a Neural Engine won't get Parakeet V3 acceleration.
+- Single-user desktop app. No web UI for team sharing — collaboration means sharing exported files.
 
 ***Pricing***
 
-Free for fully local use (on-device STT + local LLM). Cloud features (BYOK cloud STT, cloud LLM summarization, calendar sync) are available on paid plans at $8–$25/month.
+Free for fully local use (on-device STT + local LLM). Cloud features available at $8–$25/month.
 
 **2. Meetily**
 
-[Meetily](https://github.com/Zackriya-Solutions/meetily) is an open-source meeting assistant that captures system audio and microphone input in real time, transcribes with Whisper or Parakeet, and generates summaries using a local LLM through Ollama. It runs on Windows and macOS, with a desktop app that sits in your system tray and records meetings from any conferencing platform—Zoom, Google Meet, Teams, or anything else producing audio.
+Meetily is the Windows-friendly option. It captures system audio and mic input in real time, transcribes locally, and summarizes through Ollama — so you get the record → transcribe → summarize pipeline without leaving the app. It sits in your system tray and works with any conferencing platform producing audio.
 
-***How to self-host***
+***Setup***
 
-- Download the desktop app for Windows or macOS from GitHub releases, or build from source.
-- Transcription: Whisper or Parakeet running locally. Models download automatically on first run.
-- Summarization: Ollama integration for local LLM summaries. Configure your preferred model in settings.
-- Real-time capture: records system audio and mic input simultaneously. Works with any meeting platform.
-- Storage: transcripts and summaries saved locally.
+**Install:** Download the desktop app for Windows or macOS from GitHub releases, or build from source.
 
-***Where it falls short***
+**Transcription:** Whisper or Parakeet, running locally. Models download on first run.
 
-- No Linux support yet.
-- Speaker diarization is limited compared to dedicated pipelines like WhisperX.
-- No rich editor, no contacts, no templates on the free tier. The UI is recording-focused, not note-taking. For a detailed [full comparison](https://char.com/blog/char-vs-meetily/).
-- Early-stage project. Expect rough edges and incomplete documentation.
+**Summarization:** Ollama. Configure your preferred model in settings.
+
+***Limitations***
+
+- No Linux support.
+- Recording-focused UI. No rich editor, templates, or contact management on the free tier.
+- Early-stage project — expect rough edges and incomplete docs.
 
 ***Pricing***
 
-Free and open-source (MIT) for local use. Pro plan at $10/month adds cloud features and priority support.
+Free and open-source (MIT). Pro plan at $10/month adds cloud features and priority support.
 
 **3. Scriberr**
 
-[Scriberr](https://github.com/rishikanthc/Scriberr) is a self-hosted web app that gives your team a shared transcription interface in the browser. Upload audio or video, get a transcript powered by Whisper.cpp, then optionally summarize with a local LLM through Ollama. It's built for teams that want a central place to drop recordings and pull transcripts without installing anything on individual machines.
+Scriberr is a team transcription service you deploy with Docker. Upload recordings through the browser, get transcripts back from Whisper.cpp on your server. Optional Ollama sidecar for summarization. Useful when you want one shared interface and don't need anything installed on individual machines.
 
-***How to self-host***
+***Setup***
 
-- Deploy via Docker Compose. One container for the web UI, one for Whisper.cpp, optional Ollama sidecar for summarization.
-- Transcription: Whisper.cpp running on your server. Supports GPU acceleration with CUDA.
-- Summarization: Ollama integration for local LLM summaries. Configure which model to use in the web UI.
-- Storage: all files and transcripts stored on the host filesystem. No external database required beyond the included SQLite.
-- Access: browser-based. Share the URL with your team. Basic auth or reverse proxy for access control.
+**Deploy:** Docker Compose. One container for the web UI, one for Whisper.cpp, optional Ollama sidecar.
 
-***Where it falls short***
+**GPU:** CUDA acceleration supported for Whisper.cpp.
 
-- No real-time transcription. Upload-only workflow—you record elsewhere, then drop the file in.
-- No speaker diarization. Every word is attributed to a single stream.
-- Early-stage project. Updates can be infrequent, and documentation is thin.
-- No desktop or mobile app. Browser only.
+**Storage:** Host filesystem + SQLite. No external database.
+
+**Access control:** Basic auth or reverse proxy. Share the URL with your team.
+
+***Limitations***
+
+- Upload-only workflow — no real-time capture. You record elsewhere, then drop the file in.
+- Updates can be infrequent, documentation is thin.
 
 ***Pricing***
 
-Free and open-source (MIT). Self-host only—no managed cloud option.
+Free and open-source (MIT). Self-host only — no managed cloud option.
 
 **4. Vibe**
 
-[Vibe](https://github.com/thewh1teagle/vibe) is a cross-platform desktop app for transcribing audio and video files using Whisper.cpp. It runs on Windows, macOS, and Linux, with a clean UI that stays out of your way. No summarization built in—Vibe does one thing (transcription) and does it well. It also exposes an API, which makes it useful as a local transcription backend for other tools.
+Vibe does one thing: transcribe audio and video files using Whisper.cpp. Cross-platform desktop app with a clean UI. It also exposes a local API, which makes it useful as a transcription backend you can wire into other tools. If you don't need summarization, note-taking, or real-time capture, this is the simplest path.
 
-***How to self-host***
+***Setup***
 
-- Download the desktop app for Windows, macOS, or Linux. No Docker, no server setup.
-- Transcription: Whisper.cpp with automatic model downloading. Supports GPU acceleration on all platforms.
-- API mode: run Vibe as a local transcription server. Other apps can POST audio files and get transcripts back.
-- Storage: transcripts saved locally as text files. Choose your output format (TXT, SRT, VTT).
+**Install:** Download the desktop app for Windows, macOS, or Linux. No Docker, no server.
 
-***Where it falls short***
+**Models:** Whisper.cpp with automatic model download. GPU acceleration on all platforms.
 
-- No summarization. Transcription only—you need a separate tool or workflow for meeting notes.
-- No real-time capture. You transcribe pre-recorded files, not live audio.
-- No collaboration features. Single-user desktop app.
-- No speaker diarization out of the box.
+**API mode:** Run as a local transcription server. POST audio, get transcripts back (TXT, SRT, VTT).
+
+***Limitations***
+
+- Transcription only — no summarization, no note-taking features.
+- Single-user. No collaboration or sharing features.
 
 ***Pricing***
 
@@ -130,23 +121,18 @@ Free and open-source (MIT).
 
 **5. Whishper**
 
-[Whishper](https://github.com/pluja/whishper) is a self-hosted web UI for Whisper. Deploy it with Docker, upload audio files through the browser, get transcripts back. It focuses on making Whisper accessible to non-technical users on your team—no CLI required, no model management. If all you need is a simple internal transcription service, Whishper gets you there fast.
+Whishper is Scriberr's simpler cousin — a Docker-deployed web UI for Whisper with drag-and-drop upload and subtitle generation (SRT, VTT). It's built for teams that need a transcription service without any setup complexity. Automatic language detection across 90+ languages. No summarization, no post-processing — you get the transcript and take it elsewhere.
 
-***How to self-host***
+***Setup***
 
-- Docker Compose deployment. Pull the image, set your Whisper model size, start the stack.
-- Transcription: OpenAI Whisper running on your server. Configurable model size (tiny to large-v3).
-- Supports subtitle generation (SRT, VTT) alongside plain text transcripts.
-- Multi-language: automatic language detection or manual selection for 90+ languages.
-- Web UI with simple drag-and-drop upload.
+**Deploy:** Docker Compose. Pull the image, set your Whisper model size (tiny through large-v3), start.
 
-***Where it falls short***
+**Interface:** Browser-based drag-and-drop. Share the URL with your team.
 
-- No summarization at all. Transcription and subtitle generation only.
-- No real-time capture. Upload workflow only.
-- No speaker diarization.
-- No desktop or mobile app. Browser-based only.
-- Limited post-processing. You get the transcript, but editing and formatting happen elsewhere.
+***Limitations***
+
+- No editing or formatting tools — you get raw transcript output.
+- Less configurable than Scriberr if you need GPU tuning or Ollama integration.
 
 ***Pricing***
 
@@ -154,27 +140,37 @@ Free and open-source (MIT). Self-host only.
 
 **6. WhisperX**
 
-[WhisperX](https://github.com/m-bain/whisperX) is a research-grade transcription pipeline, not a product. It extends Whisper with forced alignment and speaker diarization, giving you word-level timestamps and per-speaker attribution. If you're building your own meeting intelligence stack—or need the highest accuracy transcription for a custom workflow—WhisperX is the engine you wire in.
+WhisperX isn't a product — it's a research-grade transcription pipeline. It extends Whisper with forced alignment (word-level timestamps via wav2vec2) and speaker diarization (pyannote.audio). It's the only tool on this list that tells you exactly who said what and when, down to the word. If you're building a custom meeting intelligence stack, this is the engine.
 
-***How to self-host***
+***Setup***
 
-- Install via pip or run in Docker. Requires Python and a CUDA-capable GPU for reasonable performance.
-- Transcription: Whisper-based with VAD (voice activity detection) pre-processing for better accuracy on long recordings.
-- Forced alignment: word-level timestamps using wav2vec2 models. Far more precise than base Whisper.
-- Speaker diarization: built-in via pyannote.audio. Requires a Hugging Face token for model access.
-- CLI-driven. Pipe audio in, get JSON/SRT/VTT out. No UI included.
+**Install:** pip install or Docker. Requires Python and a CUDA GPU for reasonable performance.
 
-***Where it falls short***
+**Diarization:** pyannote.audio models — requires accepting license terms on Hugging Face and providing a token.
 
-- No UI at all. Command-line only—you need to build any interface yourself.
-- No summarization. Transcription pipeline only.
-- GPU effectively required. CPU inference is impractically slow for long recordings.
-- Diarization setup is fiddly. Pyannote models require accepting license terms on Hugging Face.
-- BSD-4-Clause license has an advertising clause that some organizations flag during legal review.
+**I/O:** CLI-driven. Pipe audio in, get JSON/SRT/VTT out.
+
+***Limitations***
+
+- No UI. You build any interface yourself.
+- GPU effectively required — CPU inference is impractically slow for long recordings.
+- BSD-4-Clause license has an advertising clause some legal teams flag.
 
 ***Pricing***
 
 Free and open-source (BSD-4-Clause).
+
+**Which Self-Hosted AI Notetaker Should You Use?**
+
+If you want one app that records, transcribes, takes notes, and produces structured meeting output — Char. It's the only tool here where you don't need a second app to do something useful with the transcript.
+
+If you're on Windows and need real-time capture with local summarization, Meetily.
+
+If your team needs a shared transcription service in the browser, Scriberr gives you more control (GPU config, Ollama), Whishper gets you there faster.
+
+If you're building a custom pipeline and need word-level timestamps with speaker attribution, WhisperX is the engine — but you're writing the rest yourself.
+
+Vibe is the right call when all you need is fast local file transcription with no extras.
 
 **Which Self-Hosted AI Notetaker Should You Use?**
 
