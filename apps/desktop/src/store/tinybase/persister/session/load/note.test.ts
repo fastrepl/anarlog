@@ -12,7 +12,7 @@ const tiptapMocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@hypr/plugin-fs-sync", () => ({ commands: fsSyncMocks }));
-vi.mock("~/editor/markdown", () => tiptapMocks);
+vi.mock("@hypr/editor/markdown", () => tiptapMocks);
 
 describe("processMdFile", () => {
   let result: LoadedSessionData;

@@ -1,8 +1,8 @@
 import { sep } from "@tauri-apps/api/path";
 
+import { isValidContent, json2md } from "@hypr/editor/markdown";
 import type { ParsedDocument } from "@hypr/plugin-fs-sync";
 
-import { isValidContent, json2md } from "~/editor/markdown";
 import type { NoteFrontmatter } from "~/store/tinybase/persister/session/types";
 import {
   buildSessionPath,

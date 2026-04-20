@@ -8,6 +8,8 @@ import {
 import { useEffect, useRef } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
+import { ChatEditor, type ChatEditorHandle } from "@hypr/editor/chat";
+import type { PlaceholderFunction } from "@hypr/editor/plugins";
 import { commands as windowsCommands } from "@hypr/plugin-windows";
 import { cn } from "@hypr/utils";
 
@@ -15,15 +17,13 @@ import { useLanguageModel } from "~/ai/hooks";
 import {
   useAutoFocusEditor,
   useDraftState,
-  useMentionConfig,
   useSubmit,
 } from "~/chat/components/input/hooks";
 import { ChatSession } from "~/chat/components/session-provider";
 import { dedupeByKey, type ContextRef } from "~/chat/context/entities";
 import { useChatActions } from "~/chat/store/use-chat-actions";
 import { useShell } from "~/contexts/shell";
-import { ChatEditor, type ChatEditorHandle } from "~/editor/chat";
-import type { PlaceholderFunction } from "~/editor/plugins";
+import { useMentionConfig } from "~/editor-bridge/mention-config";
 import * as main from "~/store/tinybase/store/main";
 
 export function ComposerScreen() {

@@ -1,10 +1,11 @@
 import { tool } from "ai";
 import { z } from "zod";
 
+import { json2md, md2json, parseJsonContent } from "@hypr/editor/markdown";
+
 import type { ToolDependencies } from "./types";
 
 import { usePendingEditStore } from "~/chat/tools/pending-edit-store";
-import { json2md, md2json, parseJsonContent } from "~/editor/markdown";
 import { id } from "~/shared/utils";
 import * as main from "~/store/tinybase/store/main";
 

@@ -1,6 +1,5 @@
+import { parseImageMetadata } from "@hypr/editor/node-views";
 import { cn } from "@hypr/utils";
-
-import { parseImageMetadata } from "~/editor/node-views/image-view";
 
 const HEADING_SHARED = "text-gray-700 font-semibold text-sm mb-1 min-h-6";
 const HEADING_WITH_MARGIN = "mt-4 first:mt-0";

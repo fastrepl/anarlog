@@ -1,9 +1,4 @@
-import {
-  ChevronDown,
-  MessageCircle,
-  PanelRightCloseIcon,
-  Plus,
-} from "lucide-react";
+import { ChevronDown, MessageCircle, Plus } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@hypr/ui/components/ui/button";
@@ -20,54 +15,31 @@ import {
 } from "@hypr/ui/components/ui/tooltip";
 import { cn, formatDistanceToNow } from "@hypr/utils";
 
-import { useShell } from "~/contexts/shell";
 import * as main from "~/store/tinybase/store/main";
 
-export function ChatHeader({
+export function ChatToolbarControls({
   currentChatGroupId,
   onNewChat,
   onSelectChat,
-  handleClose,
 }: {
   currentChatGroupId: string | undefined;
   onNewChat: () => void;
   onSelectChat: (chatGroupId: string) => void;
-  handleClose: () => void;
 }) {
-  const { chat } = useShell();
-
   return (
     <div
-      data-tauri-drag-region={chat.mode === "RightPanelOpen"}
-      className={cn([
-        "flex h-9 items-center justify-between",
-        chat.mode !== "RightPanelOpen" && "px-1",
-      ])}
+      data-tauri-drag-region
+      className="flex h-full min-w-0 items-center gap-1"
     >
-      <div className="flex min-w-0 flex-1 items-center">
-        <div className="min-w-0 flex-1">
-          <ChatGroups
-            currentChatGroupId={currentChatGroupId}
-            onSelectChat={onSelectChat}
-            isRightPanel={chat.mode === "RightPanelOpen"}
-          />
-        </div>
-        <ChatActionButton
-          icon={<Plus size={16} />}
-          onClick={onNewChat}
-          title="New chat"
-          isRightPanel={chat.mode === "RightPanelOpen"}
-        />
-      </div>
-
-      <div className="flex shrink-0 items-center">
-        <ChatActionButton
-          icon={<PanelRightCloseIcon className="h-4 w-4" />}
-          onClick={handleClose}
-          title="Close"
-          isRightPanel={chat.mode === "RightPanelOpen"}
-        />
-      </div>
+      <ChatGroups
+        currentChatGroupId={currentChatGroupId}
+        onSelectChat={onSelectChat}
+      />
+      <ChatActionButton
+        icon={<Plus size={16} />}
+        onClick={onNewChat}
+        title="New chat"
+      />
     </div>
   );
 }
@@ -76,12 +48,10 @@ function ChatActionButton({
   icon,
   title,
   onClick,
-  isRightPanel = false,
 }: {
   icon: React.ReactNode;
   title: string;
   onClick: () => void;
-  isRightPanel?: boolean;
 }) {
   return (
     <Tooltip>
@@ -91,7 +61,7 @@ function ChatActionButton({
           title={title}
           size="icon"
           variant="ghost"
-          className={cn([isRightPanel && "rounded-none"])}
+          className="text-neutral-600"
         >
           {icon}
         </Button>
@@ -104,11 +74,9 @@ function ChatActionButton({
 function ChatGroups({
   currentChatGroupId,
   onSelectChat,
-  isRightPanel = false,
 }: {
   currentChatGroupId: string | undefined;
   onSelectChat: (chatGroupId: string) => void;
-  isRightPanel?: boolean;
 }) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
@@ -133,17 +101,10 @@ function ChatGroups({
         <Button
           variant="ghost"
           className={cn([
-            "group flex h-auto max-w-full min-w-0 justify-start gap-2 py-1.5",
-            isRightPanel ? "rounded-none px-0" : "px-2",
+            "group flex h-8 max-w-64 min-w-0 justify-start gap-2 px-2",
+            "text-neutral-700",
           ])}
         >
-          {!isRightPanel && (
-            <img
-              src="/assets/char-chat-bubble.svg"
-              alt="Char"
-              className="size-[13px] shrink-0 object-contain opacity-55 transition-opacity group-hover:opacity-75"
-            />
-          )}
           <h3 className="min-w-0 flex-1 truncate text-xs font-medium text-neutral-700">
             {currentChatTitle || "Ask Charlie anything"}
           </h3>

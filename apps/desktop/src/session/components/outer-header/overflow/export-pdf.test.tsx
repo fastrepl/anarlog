@@ -48,7 +48,7 @@ vi.mock("@hypr/plugin-opener2", () => ({
   commands: { revealItemInDir: vi.fn() },
 }));
 
-vi.mock("~/editor/markdown", () => ({
+vi.mock("@hypr/editor/markdown", () => ({
   json2md: vi.fn(() => ""),
 }));
 

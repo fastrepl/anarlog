@@ -1,3 +1,4 @@
+import { json2md } from "@hypr/editor/markdown";
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 import type {
   Event,
@@ -9,7 +10,6 @@ import type {
 
 import * as main from "./main";
 
-import { json2md } from "~/editor/markdown";
 import { findSessionByEventId } from "~/session/utils";
 import { DEFAULT_USER_ID } from "~/shared/utils";
 import { id } from "~/shared/utils";

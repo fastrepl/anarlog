@@ -1,6 +1,6 @@
+import type { JSONContent } from "../note";
 import type { TaskStatus } from "../tasks";
 import { createTaskStatusAttrs, getOptionalTaskStatus } from "../tasks";
-import type { JSONContent } from "./index";
 
 export function getNodeTextContent(node: JSONContent): string {
   if (typeof node.text === "string") {

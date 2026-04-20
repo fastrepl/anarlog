@@ -3,74 +3,23 @@ import {
   useEditorEventCallback,
 } from "@handlewithcare/react-prosemirror";
 import { format } from "date-fns";
-import type { NodeSpec } from "prosemirror-model";
 import { forwardRef, type ReactNode, useCallback, useMemo } from "react";
 
-import { cn, safeParseDate } from "@hypr/utils";
-
+import { TaskCheckbox } from "@hypr/editor/node-views";
+import { useLinkedItemOpenBehavior } from "@hypr/editor/note";
 import {
   createTaskStatusAttrs,
   getNextTaskStatus,
   getOptionalTaskStatus,
   normalizeTaskStatus,
-} from "../tasks";
-import { TaskCheckbox } from "./task-checkbox";
+} from "@hypr/editor/tasks";
+import { cn, safeParseDate } from "@hypr/utils";
 
 import { toTz, useTimezone } from "~/calendar/hooks";
-import { useLinkedItemOpenBehavior } from "~/editor/session/linked-item-open-behavior";
 import { getSessionEvent } from "~/session/utils";
 import * as main from "~/store/tinybase/store/main";
 import { useTabs } from "~/store/zustand/tabs";
 import { useListener } from "~/stt/contexts";
-
-export const sessionNodeSpec: NodeSpec = {
-  group: "block",
-  content: "paragraph",
-  marks: "",
-  defining: true,
-  isolating: true,
-  selectable: false,
-  attrs: {
-    sessionId: { default: null },
-    status: { default: null },
-    checked: { default: null },
-  },
-  parseDOM: [
-    {
-      tag: 'div[data-type="session"]',
-      getAttrs(dom) {
-        const el = dom as HTMLElement;
-        const status = getOptionalTaskStatus(
-          el.getAttribute("data-status"),
-          el.getAttribute("data-checked") === "true"
-            ? true
-            : el.getAttribute("data-checked") === "false"
-              ? false
-              : undefined,
-        );
-
-        return {
-          sessionId: el.getAttribute("data-session-id"),
-          status,
-          checked: status === null ? null : status === "done",
-        };
-      },
-    },
-  ],
-  toDOM(node) {
-    const status = getOptionalTaskStatus(node.attrs.status, node.attrs.checked);
-    return [
-      "div",
-      {
-        "data-type": "session",
-        "data-session-id": node.attrs.sessionId,
-        "data-status": status ?? undefined,
-        "data-checked": status ? String(status === "done") : undefined,
-      },
-      0,
-    ];
-  },
-};
 
 export const SessionNodeView = forwardRef<
   HTMLDivElement,
