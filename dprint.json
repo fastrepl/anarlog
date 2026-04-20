@@ -61,7 +61,7 @@
         ]
       },
       {
-        "command": "pnpm exec oxfmt --stdin-filepath {{file_path}}",
+        "command": "node_modules/.bin/oxfmt --stdin-filepath {{file_path}}",
         "exts": [
           "js",
           "ts",

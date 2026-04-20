@@ -412,6 +412,16 @@
   );
 }
 
+.bg-lined-notebook-dense {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent,
+    transparent 13px,
+    var(--color-border-subtle) 13px,
+    var(--color-border-subtle) 14px
+  );
+}
+
 .bg-dotted {
   background-image: radial-gradient(
     circle,

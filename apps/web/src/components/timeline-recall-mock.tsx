@@ -1,4 +1,5 @@
 import { motion } from "motion/react";
+import { Fragment } from "react";
 
 const timelineBlocks = [
   {
@@ -35,9 +36,9 @@ const timelineBlocks = [
 
 export function TimelineRecallMock() {
   return (
-    <div className="border-color-brand surface relative h-[420px] w-full overflow-hidden rounded-xl border shadow-xl">
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-12 bg-gradient-to-b from-white to-transparent" />
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-12 bg-gradient-to-t from-white to-transparent" />
+    <div className="relative h-[420px] w-full overflow-hidden">
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-24 bg-gradient-to-b from-[var(--color-page)] to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-24 bg-gradient-to-t from-[var(--color-page)] to-transparent" />
 
       <motion.div
         animate={{ y: ["0%", "-50%"] }}
@@ -45,7 +46,10 @@ export function TimelineRecallMock() {
         className="flex flex-col"
       >
         {[...timelineBlocks, ...timelineBlocks].map((block, i) => (
-          <TimelineBlock key={i} {...block} />
+          <Fragment key={i}>
+            <TimelineBlock {...block} />
+            <TimelineConnector />
+          </Fragment>
         ))}
       </motion.div>
     </div>
@@ -64,8 +68,8 @@ function TimelineBlock({
   bullets: string[];
 }) {
   return (
-    <div className="border-color-brand flex flex-col gap-2 border-b px-6 py-5">
-      <div className="font-mono text-xs tracking-wider text-neutral-500 uppercase">
+    <div className="border-color-brand surface bg-lined-notebook-dense flex flex-col gap-2 rounded-xl border px-6 py-5">
+      <div className="text-color-secondary font-mono text-xs tracking-wider uppercase">
         {time}
       </div>
       <h4 className="text-color text-base font-semibold">{title}</h4>
@@ -73,11 +77,19 @@ function TimelineBlock({
       <ul className="text-color-secondary flex flex-col gap-1 text-sm">
         {bullets.map((b) => (
           <li key={b} className="flex gap-2">
-            <span className="text-neutral-400">•</span>
+            <span className="text-color-muted">•</span>
             <span>{b}</span>
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+function TimelineConnector() {
+  return (
+    <div className="flex h-6 justify-center">
+      <div className="w-[1.5px] bg-[var(--color-border)]" />
     </div>
   );
 }

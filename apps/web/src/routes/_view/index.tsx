@@ -7,7 +7,19 @@ import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { allArticles } from "content-collections";
-import { Mail, PencilLine, VideoIcon, SquareCheck } from "lucide-react";
+import {
+  Mail,
+  PencilLine,
+  VideoIcon,
+  SquareCheck,
+  EyeClosed,
+  Shield,
+  BatteryFull,
+  Wrench,
+  Key,
+  Globe,
+  BotOff,
+} from "lucide-react";
 import {
   AnimatePresence,
   motion,
@@ -1552,6 +1564,19 @@ function CyclingChatGraphic() {
 }
 
 function MeetingBar({ animated = true }: { animated?: boolean }) {
+  const [seconds, setSeconds] = useState(42 * 60 + 17);
+
+  useEffect(() => {
+    if (!animated) return;
+    const id = setInterval(() => setSeconds((s) => s + 1), 1000);
+    return () => clearInterval(id);
+  }, [animated]);
+
+  const mm = Math.floor(seconds / 60)
+    .toString()
+    .padStart(2, "0");
+  const ss = (seconds % 60).toString().padStart(2, "0");
+
   return (
     <div className="flex w-full items-center justify-between rounded-full bg-stone-700 p-2 pl-6">
       <div className="flex items-center gap-3">
@@ -1565,7 +1590,9 @@ function MeetingBar({ animated = true }: { animated?: boolean }) {
           <span className="relative inline-flex size-3 rounded-full bg-red-500" />
         </div>
         <p className="text-sm text-white">Weekly Team Sync</p>
-        <span className="text-xs text-white/50">42:17</span>
+        <span className="font-mono text-xs text-white/50 tabular-nums">
+          {mm}:{ss}
+        </span>
       </div>
       <div className="flex items-center gap-2">
         <div className="flex items-center justify-center rounded-full px-2">
@@ -2834,7 +2861,7 @@ function ScrollRevealParagraph({
   const containerRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
     target: containerRef,
-    offset: ["start 0.8", "end 0.8"],
+    offset: ["start 0.5", "end 0.7"],
   });
 
   const ratchetedProgress = useMotionValue(0);
@@ -2956,38 +2983,150 @@ function ScrollRevealParagraph({
 
 function ManifestoSection() {
   const paragraphClass =
-    "font-sans text-xl leading-relaxed text-fg md:text-3xl lg:text-3xl";
-  const paragraphSpacing = "mt-4 md:mt-6 lg:mt-8";
+    "font-sans text-xl leading-relaxed text-fg md:text-2xl lg:text-2xl";
+  const paragraphSpacing = "mt-4 md:mt-6 lg:mt-12";
   return (
     <section className="mx-auto flex w-full max-w-3xl flex-col px-4 pt-12 pb-12 text-left md:pt-16 md:pb-16 lg:pt-20 lg:pb-20">
       <p className={paragraphClass}>
-        We believe in the power of notetaking, not notetakers. Meetings should
-        be moments of presence, not passive attendance.{" "}
-        <img
-          src="/handdrawing/sleeping.svg"
-          alt="Presence"
-          className="inline-block size-8 md:size-10 lg:size-12"
-        />
+        We started{" "}
+        <span>
+          <img
+            src="/handdrawing/bracket-left.svg"
+            alt="bracket left"
+            className="inline-block size-8 md:h-8"
+          />
+          Char
+          <img
+            src="/handdrawing/bracket-right.svg"
+            alt="bracket right"
+            className="inline-block size-8 md:h-8"
+          />
+        </span>{" "}
+        because we were drowning in our own days.{" "}
       </p>
       <ScrollRevealParagraph effect="blur">
         <p className={cn([paragraphClass, paragraphSpacing])}>
-          AI changes it. Instead of{" "}
-          <span
-            style={{
-              backgroundImage: "url(/handdrawing/scribbling.svg)",
-              backgroundSize: "contain",
-              backgroundPosition: "bottom",
-              backgroundRepeat: "no-repeat",
-            }}
-          >
-            {" "}
-            scribbling{" "}
-          </span>{" "}
-          notes, it gives us the power to be present.
+          Four meetings before lunch. Context scattered across five tools. A
+          task list that had become a monument to everything we weren't getting
+          done. The tools meant to help had become the problem — more structure,
+          more overhead, more of us managing the thing that was supposed to
+          manage us.
         </p>
         <p className={cn([paragraphClass, paragraphSpacing])}>
-          But we give it control over our meetings. What happens with all our
-          calls and chats then? Services sunset{" "}
+          Then{" "}
+          <span>
+            <img
+              src="/handdrawing/sparks-2.svg"
+              alt="sparks"
+              className="inline-block size-8"
+            />
+          </span>{" "}
+          AI{" "}
+          <span>
+            <img
+              src="/handdrawing/sparks.svg"
+              alt="sparks"
+              className="inline-block size-8"
+            />
+          </span>{" "}
+          arrived and the room got louder. Assistants to replace assistants.
+          Bots that speak for you. Agents that take the wheel. A thousand
+          services racing to do the thinking for you.{" "}
+          <span>
+            <img
+              src="/handdrawing/thinking.svg"
+              alt="thinking"
+              className="inline-block size-8"
+            />
+          </span>
+        </p>
+        <p className={cn([paragraphClass, paragraphSpacing])}>
+          We don't believe in that trade.{" "}
+          <span>
+            <img
+              src="/handdrawing/no.svg"
+              alt="bracket left"
+              className="inline-block size-8"
+            />
+          </span>
+        </p>
+        <p className={cn([paragraphClass, paragraphSpacing])}>
+          We believe{" "}
+          <span className="relative">
+            <div className="absolute top-0 left-1/2 inline-block h-12 w-full -translate-x-1/2">
+              <img
+                src="/handdrawing/line.svg"
+                alt="important"
+                className="inline-block h-full"
+              />
+            </div>{" "}
+            taste is the last moat.{" "}
+          </span>{" "}
+          AI is widening the gap between people with craft and people without
+          it, because LLMs drift toward the average. Someone still has to care.
+          Someone still has to have a point of view. The human doesn't disappear
+          — they become more necessary, and more rare.
+        </p>
+        <p className={cn([paragraphClass, paragraphSpacing])}>
+          We believe everyone is becoming a manager{" "}
+          <span>
+            <img
+              src="/handdrawing/pen.svg"
+              alt="manager"
+              className="inline-block size-8"
+            />
+          </span>
+          .
+          <span className="relative">
+            <div className="absolute top-0 left-1/2 inline-block inline-flex h-12 w-full -translate-x-1/2">
+              <img
+                src="/handdrawing/line.svg"
+                alt="important"
+                className="inline-block w-full"
+              />
+            </div>{" "}
+            You're already a.{" "}
+          </span>
+          You're running a fleet of agents whether you've named it that or not.
+          The question isn't whether to delegate — it's whether you'll stay in
+          command of what gets delegated, or drown in your own leverage.
+        </p>
+        <p className={cn([paragraphClass, paragraphSpacing])}>
+          We believe a daily note is enough.
+          <span className="relative">
+            <div className="absolute top-0 left-1/2 inline-block inline-flex h-12 w-full -translate-x-1/2">
+              <img
+                src="/handdrawing/scribbling.svg"
+                alt="important"
+                className="inline-block w-full"
+              />
+            </div>{" "}
+            One page.{" "}
+          </span>{" "}
+          Everything flows into it
+          <span>
+            <img
+              src="/handdrawing/arrow-right.svg"
+              alt="arrow right"
+              className="ml-1 inline-block size-8"
+            />
+          </span>{" "}
+          meetings, messages, the work you actually touched. Context stacks day
+          over day until the system knows you. Week one it helps. Month one it
+          remembers you better than you do.
+        </p>
+        <p className={cn([paragraphClass, paragraphSpacing])}>
+          We believe in ownership over convenience. Your memory belongs to you.
+          Plain files on your machine. No lock-in{" "}
+          <span>
+            <img
+              src="/handdrawing/no-lock-in.svg"
+              alt="lock"
+              className="inline-block size-8"
+            />
+          </span>
+          , no bots squatting in your calls, no audio leaving your device. When
+          the services of this era sunset{" "}
           <span>
             <img
               src="/handdrawing/sunset.svg"
@@ -2995,52 +3134,72 @@ function ManifestoSection() {
               className="inline-block size-8 md:size-10 lg:size-12"
             />
           </span>{" "}
-          constantly, models change, progress is unstoppable.
-        </p>
-        <p className={cn([paragraphClass, paragraphSpacing])}>
-          We believe in owning your data, doesn't matter where it lives. More
-          <span
-            style={{
-              backgroundImage: "url(/handdrawing/important.svg)",
-              backgroundSize: "contain",
-              backgroundPosition: "center",
-              backgroundRepeat: "no-repeat",
-            }}
-          >
-            {" "}
-            important{" "}
-          </span>{" "}
-          is what you bring from every meeting, every call, every chat.
+          — and they will — your notes remain.
         </p>
         <p className={cn([paragraphClass, paragraphSpacing])}>
           <span>
             <img
               src="/handdrawing/bracket-left.svg"
               alt="bracket left"
-              className="inline-block size-8 md:h-10 lg:h-12"
+              className="inline-block size-8"
             />
             Char
             <img
               src="/handdrawing/bracket-right.svg"
               alt="bracket right"
-              className="inline-block size-8 md:h-10 lg:h-12"
+              className="inline-block size-8"
             />
           </span>{" "}
-          exists to preserve what makes us human: conversations that spark
-          ideas, collaborations that move work forward. We build tools that
-          amplify human agency, not replace it.
+          exists to keep the human at the{" "}
+          <span className="relative">
+            <div className="absolute top-1/2 left-1/2 inline-block inline-flex h-12 w-32 -translate-x-1/2 -translate-y-1/2 flex-row items-center justify-between">
+              <img
+                src="/handdrawing/center-arrows-left.svg"
+                alt="important"
+                className="inline-block w-full"
+              />
+              <img
+                src="/handdrawing/center-arrows-right.svg"
+                alt="important"
+                className="inline-block w-full"
+              />
+            </div>{" "}
+            center{" "}
+          </span>{" "}
+          of an era that keeps trying to remove them. The daily note is the
+          operating surface. Agents handle throughput. You keep judgment, taste,
+          and the direction of the whole thing.
         </p>
         <p className={cn([paragraphClass, paragraphSpacing])}>
-          No ghost bots. No silent note lurkers. Just people,{" "}
+          No ghost bots{" "}
           <span>
-            thinking{" "}
+            <img
+              src="/handdrawing/ghost.svg"
+              alt="bot off"
+              className="inline-block size-8"
+            />
+          </span>{" "}
+          No silent lurkers{" "}
+          <span>
+            <img
+              src="/handdrawing/sleeping.svg"
+              alt="forget"
+              className="inline-block size-8"
+            />
+          </span>
+          . No tool that forgets you tomorrow. No agency outsourced by accident.
+        </p>
+        <p className={cn([paragraphClass, paragraphSpacing])}>
+          Just people, doing good work, with more room to{" "}
+          <span>
+            think{" "}
             <img
               src="/handdrawing/thinking.svg"
               alt="thinking"
-              className="inline-block size-8 md:size-10 lg:size-12"
-            />{" "}
+              className="inline-block size-8"
+            />
           </span>
-          together.
+          .
         </p>
       </ScrollRevealParagraph>
 
@@ -3050,23 +3209,16 @@ function ManifestoSection() {
             <Image
               src="/api/assets/team/john.png"
               alt="John Jeong"
-              width={32}
-              height={32}
-              className="rounded-full border border-neutral-200 object-cover"
+              className="size-12 rotate-[-6deg] rounded-md object-cover shadow-md md:size-14"
             />
             <Image
               src="/api/assets/team/yujong.png"
               alt="Yujong Lee"
-              width={32}
-              height={32}
-              className="rounded-full border border-neutral-200 object-cover"
+              className="size-12 rotate-4 rounded-md object-cover shadow-md md:size-14"
             />
           </div>
 
           <div>
-            <p className="font-serif text-base font-medium text-neutral-600 italic">
-              Char
-            </p>
             <p className="text-sm text-neutral-500">John Jeong, Yujong Lee</p>
           </div>
 
@@ -3092,7 +3244,7 @@ function RecordYourDaySection() {
       <h2 className="text-color border-color-brand mb-10 border-b pb-8 font-mono text-2xl tracking-wide md:text-4xl">
         <span className="mb-2 block">This is how Char gets your day done</span>
       </h2>
-      <div className="flex flex-col md:flex-row">
+      <div className="flex flex-col gap-8 md:flex-row md:items-start md:gap-16">
         <div className="flex flex-col gap-4 pt-10 pb-12 md:w-1/2 md:pt-16 md:pb-20">
           <p className="text-color-muted font-mono text-xs tracking-widest uppercase">
             Screen recording
@@ -3100,16 +3252,33 @@ function RecordYourDaySection() {
           <h2 className="text-color font-mono text-2xl tracking-wide md:text-4xl">
             Record your day
           </h2>
-          <p className="text-color-secondary text-base leading-relaxed md:text-lg">
+          <p className="text-color max-w-md text-base leading-relaxed md:text-lg">
             Char remembers your timeline and helps you get any information you
             want: emails, tasks, conversations.
           </p>
-          <p className="text-color-secondary mt-2 text-sm leading-relaxed">
-            — Ask Charlie anything, about day, contacts, meetings.
-          </p>
+
+          <div className="text-color-secondary mt-4 flex flex-col gap-4">
+            <div className="flex items-center gap-2 text-[8px] leading-relaxed">
+              <Shield className="size-4" />
+              <p className="text-sm">
+                Fully local recording and transcription. No data sent from your
+                device.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 leading-relaxed">
+              <BatteryFull className="size-4" />
+              <p className="text-sm">Energy efficient. No battery drain.</p>
+            </div>
+            <div className="flex items-center gap-2 leading-relaxed">
+              <EyeClosed className="size-4" />
+              <p className="text-sm">
+                Write and remember only what you give access to.
+              </p>
+            </div>
+          </div>
         </div>
 
-        <div className="bg-dotted-dark flex flex-col justify-center gap-4 p-6 md:w-1/2 md:p-10">
+        <div className="flex flex-col gap-4 md:w-1/2">
           <TimelineRecallMock />
         </div>
       </div>
@@ -3118,6 +3287,7 @@ function RecordYourDaySection() {
 }
 
 function SummariseMeetingsSection() {
+  const { ref, hasEnteredView } = useHasEnteredView<HTMLDivElement>(0.3);
   return (
     <section id="summarise-meetings" className="px-4 pt-8 pb-12 md:pb-24">
       <div className="flex flex-col gap-8 md:flex-row md:items-start md:gap-16">
@@ -3128,73 +3298,107 @@ function SummariseMeetingsSection() {
           <h2 className="text-color font-mono text-2xl tracking-wide md:text-4xl">
             Summarise and transcribe meetings
           </h2>
-          <p className="text-color-secondary text-base leading-relaxed md:text-lg">
+          <p className="text-color max-w-md text-base leading-relaxed md:text-lg">
             Char combines your meeting notes with transcripts to create a
             perfect summary.
           </p>
+          <div className="text-color-secondary mt-4 flex flex-col gap-4">
+            <div className="flex items-center gap-2 text-[8px] leading-relaxed">
+              <BotOff className="size-4" />
+              <p className="text-sm">
+                No bots on calls. Hidden during screen share.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 leading-relaxed">
+              <Globe className="size-4" />
+              <p className="text-sm">40+ languages supported</p>
+            </div>
+            <div className="flex items-center gap-2 leading-relaxed">
+              <Key className="size-4" />
+              <p className="text-sm">
+                Transcribe with your own key, local models or in Char cloud
+              </p>
+            </div>
+          </div>
           <Link
             to="/product/ai-notetaking/"
-            className="text-color hover:text-color-secondary mt-4 inline-flex items-center gap-1 self-start underline underline-offset-4 transition-colors"
+            className="text-color hover:text-color-secondary mt-4 inline-flex items-center underline underline-offset-4 transition-colors"
           >
-            Learn more about meeting notetaker
-            <Icon icon="mdi:arrow-top-right" className="text-sm" />
+            Explore how Char summarises meetings
           </Link>
         </div>
 
-        <div className="flex flex-col gap-4 md:w-1/2">
-          <MeetingBar animated={false} />
-          <SummaryPreview />
+        <div ref={ref} className="flex flex-col gap-4 md:w-1/2">
+          <MeetingBar animated={hasEnteredView} />
+          <SummaryPreview animate={hasEnteredView} />
         </div>
       </div>
     </section>
   );
 }
 
-function SummaryPreview() {
+function SummaryPreview({ animate = false }: { animate?: boolean }) {
+  const container = {
+    hidden: {},
+    visible: { transition: { staggerChildren: 0.12, delayChildren: 0.2 } },
+  };
+  const item = {
+    hidden: { opacity: 0, y: 8 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.4, ease: [0.4, 0, 0.2, 1] as const },
+    },
+  };
+
   return (
     <div className="border-color-brand surface overflow-hidden rounded-xl border shadow-xl">
-      <div className="border-color-brand bg-surface-subtle relative flex h-[38px] items-center gap-2 border-b px-4">
+      <div className="border-color-brand bg-surface-subtle relative flex h-[40px] items-center gap-2 border-b px-4">
         <div className="flex gap-2">
           <div className="size-3 rounded-full bg-red-400" />
           <div className="size-3 rounded-full bg-yellow-400" />
           <div className="size-3 rounded-full bg-green-400" />
         </div>
         <div className="absolute left-1/2 -translate-x-1/2">
-          <span className="text-fg-muted font-mono text-sm font-medium">
+          <span className="text-color-secondary font-mono text-sm font-medium">
             Char
           </span>
         </div>
       </div>
-      <div className="flex flex-col gap-4 p-6 text-sm">
-        <div className="flex flex-col gap-2">
-          <h4 className="text-color text-base font-semibold">
-            Mobile UI Update and API Adjustments
-          </h4>
-          <ul className="text-color flex list-disc flex-col gap-2 pl-5">
-            <li>
-              Sarah presented the new mobile UI update, which includes a
-              streamlined navigation bar and improved button placements for
-              better accessibility.
-            </li>
-            <li>
-              Ben confirmed that API adjustments are needed to support dynamic
-              UI changes, particularly for fetching personalized user data more
-              efficiently.
-            </li>
-          </ul>
-        </div>
-        <div className="flex flex-col gap-2">
-          <h4 className="text-color font-semibold">
-            New Dashboard – Urgent Priority
-          </h4>
-          <ul className="text-color flex list-disc flex-col gap-2 pl-5">
-            <li>
-              Alice emphasized that the new analytics dashboard must be
-              prioritized due to increasing stakeholder demand.
-            </li>
-          </ul>
-        </div>
-      </div>
+      <motion.div
+        variants={container}
+        initial="hidden"
+        animate={animate ? "visible" : "hidden"}
+        className="flex flex-col gap-4 p-6 text-sm"
+      >
+        <motion.h4
+          variants={item}
+          className="text-color text-base font-semibold"
+        >
+          Mobile UI Update and API Adjustments
+        </motion.h4>
+        <motion.ul className="text-color flex list-disc flex-col gap-2 pl-5">
+          <motion.li variants={item}>
+            Sarah presented the new mobile UI update, which includes a
+            streamlined navigation bar and improved button placements for better
+            accessibility.
+          </motion.li>
+          <motion.li variants={item}>
+            Ben confirmed that API adjustments are needed to support dynamic UI
+            changes, particularly for fetching personalized user data more
+            efficiently.
+          </motion.li>
+        </motion.ul>
+        <motion.h4 variants={item} className="text-color font-semibold">
+          New Dashboard – Urgent Priority
+        </motion.h4>
+        <motion.ul className="text-color flex list-disc flex-col gap-2 pl-5">
+          <motion.li variants={item}>
+            Alice emphasized that the new analytics dashboard must be
+            prioritized due to increasing stakeholder demand.
+          </motion.li>
+        </motion.ul>
+      </motion.div>
     </div>
   );
 }
@@ -3210,13 +3414,23 @@ function ExecuteTasksSection() {
           <h2 className="text-color font-mono text-2xl tracking-wide md:text-4xl">
             Ask questions, execute tasks
           </h2>
-          <p className="text-color-secondary text-base leading-relaxed md:text-lg">
+          <p className="text-color text-base leading-relaxed md:text-lg">
             Chat with Charlie to find decisions, pull context, and trigger the
-            follow-ups that usually slip — all grounded in your notes.
+            follow-ups that usually slip — all grounded in your notes. Or ask
+            about people, meeting and search across conversations.
           </p>
-          <p className="text-color-secondary mt-2 text-sm leading-relaxed">
-            — Hand off work to AI agents like Claude or Cursor.
-          </p>
+          <div className="text-color-secondary mt-4 flex flex-col gap-4">
+            <div className="flex items-center gap-2 text-[8px] leading-relaxed">
+              <Shield className="size-4" />
+              <p className="text-sm">Local models and API support</p>
+            </div>
+            <div className="flex items-center gap-2 leading-relaxed">
+              <Wrench className="size-4" />
+              <p className="text-sm">
+                Build in tools for Jira, Notion, Slack, Google Docs and more
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="flex flex-col gap-4 md:w-1/2">
@@ -3228,6 +3442,9 @@ function ExecuteTasksSection() {
 }
 
 function PrivateByDesignSection() {
+  const recordingIconRef = useRef<HTMLDivElement>(null);
+  const isRecordingIconInView = useInView(recordingIconRef, { amount: 0.5 });
+
   return (
     <section id="private-by-design" className="px-4 pt-8 pb-12 md:pb-24">
       <div className="border-color-brand relative rounded-lg md:border">
@@ -3240,12 +3457,6 @@ function PrivateByDesignSection() {
         <div className="flex snap-x snap-mandatory gap-8 overflow-x-auto pb-4 [scrollbar-width:none] md:grid md:grid-cols-2 md:gap-0 md:overflow-visible md:pb-0 md:*:min-h-[320px] md:*:py-4 lg:grid-cols-4">
           <div className="border-color-brand flex w-[85%] shrink-0 snap-start flex-col gap-2 p-8 md:w-auto md:shrink md:border-r md:border-b lg:border-b-0">
             <div className="flex h-32 items-center justify-start gap-2 select-none md:h-24 lg:h-32">
-              <img
-                src="/icons/file.webp"
-                alt=""
-                className="w-10 rotate-[3deg] object-contain md:w-7 lg:w-10"
-                draggable={false}
-              />
               <img
                 src="/icons/file.webp"
                 alt=""
@@ -3262,12 +3473,6 @@ function PrivateByDesignSection() {
                 src="/icons/file.webp"
                 alt=""
                 className="w-10 rotate-[6deg] object-contain md:w-7 lg:w-10"
-                draggable={false}
-              />
-              <img
-                src="/icons/file.webp"
-                alt=""
-                className="w-10 rotate-[-4deg] object-contain md:w-7 lg:w-10"
                 draggable={false}
               />
             </div>
@@ -3315,13 +3520,11 @@ function PrivateByDesignSection() {
               <div
                 className={cn([
                   "flex items-center gap-3 rounded-2xl py-2 pr-8 pl-2",
-                  "surface",
-                  "shadow-lg",
                   "border-color-brand border",
                 ])}
               >
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 md:size-9">
-                  <VideoIcon className="size-4 text-emerald-600 md:size-4 lg:size-5" />
+                <div className="border-color-brand flex size-9 shrink-0 items-center justify-center rounded-full border md:size-9">
+                  <VideoIcon className="text-color-secondary size-4 md:size-4 lg:size-5" />
                 </div>
                 <div className="flex flex-col gap-1">
                   <span className="text-sm font-medium text-stone-800 md:text-xs lg:text-sm">
@@ -3335,7 +3538,7 @@ function PrivateByDesignSection() {
             </div>
             <div className="flex min-h-0 flex-col justify-start gap-2 md:max-h-[200px]">
               <h4 className="text-color mb-2 text-base md:text-xl">
-                No bots on calls. Hidden during screen share.
+                No bots on calls.
               </h4>
               <p className="text-color-secondary text-base">
                 Char captures system audio, not bothers people on the call.
@@ -3345,21 +3548,61 @@ function PrivateByDesignSection() {
           </div>
 
           <div className="flex w-[85%] shrink-0 snap-start flex-col gap-2 p-8 md:w-auto md:shrink">
-            <div className="flex h-32 items-center select-none md:h-24 lg:h-32">
-              <div className="border-color-brand surface flex items-center gap-3 rounded-xl border px-4 py-3 shadow-lg">
-                <Icon
-                  icon="mdi:monitor-lock"
-                  className="text-2xl text-stone-700"
+            <div
+              ref={recordingIconRef}
+              className="flex h-32 items-center gap-4 select-none md:h-24 lg:h-32"
+            >
+              <motion.svg
+                viewBox="0 0 100 100"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                role="img"
+                aria-label="recording"
+                className="text-color-secondary inline-block size-8 md:size-10 lg:size-24"
+                animate={
+                  isRecordingIconInView ? { rotate: 360 } : { rotate: 0 }
+                }
+                transition={
+                  isRecordingIconInView
+                    ? {
+                        duration: 8,
+                        repeat: Infinity,
+                        ease: "linear",
+                        repeatType: "loop",
+                      }
+                    : { duration: 0 }
+                }
+              >
+                <circle cx="50" cy="50" r="42.5" stroke="currentColor" />
+                <circle cx="50" cy="50" r="10.5" stroke="currentColor" />
+                <circle cx="50" cy="50" r="4.5" stroke="currentColor" />
+                <rect
+                  x="45.5"
+                  y="12.5"
+                  width="9"
+                  height="23"
+                  rx="4.5"
+                  stroke="currentColor"
                 />
-                <div className="flex flex-col">
-                  <span className="text-xs text-stone-400">
-                    Screen activity
-                  </span>
-                  <span className="text-sm font-medium text-stone-800">
-                    Processed locally
-                  </span>
-                </div>
-              </div>
+                <rect
+                  x="80.6017"
+                  y="71.9771"
+                  width="23"
+                  height="9"
+                  rx="4.5"
+                  transform="rotate(-150 80.6017 71.9771)"
+                  stroke="currentColor"
+                />
+                <rect
+                  x="0.183013"
+                  y="-0.683013"
+                  width="23"
+                  height="9"
+                  rx="4.5"
+                  transform="matrix(0.866025 -0.5 -0.5 -0.866025 18.683 71.4771)"
+                  stroke="currentColor"
+                />
+              </motion.svg>
             </div>
             <div className="flex min-h-0 flex-col justify-start gap-2 md:max-h-[200px]">
               <h4 className="text-color mb-2 text-base md:text-xl">

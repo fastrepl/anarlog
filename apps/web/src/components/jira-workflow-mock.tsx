@@ -1,46 +1,39 @@
 import { Icon } from "@iconify-icon/react";
-import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useState } from "react";
+import { AnimatePresence, motion, useInView } from "motion/react";
+import { useEffect, useRef, useState } from "react";
 
 import { JiraToolCall } from "./ai-feature-panel";
 
-const CYCLE_MS = 6500;
-
 export function JiraWorkflowMock() {
+  const ref = useRef<HTMLDivElement>(null);
+  const isInView = useInView(ref, { amount: 0.3 });
   const [step, setStep] = useState(0);
-  const [loopKey, setLoopKey] = useState(0);
 
   useEffect(() => {
+    if (!isInView) {
+      return;
+    }
+
     setStep(0);
     const t1 = setTimeout(() => setStep(1), 400);
     const t2 = setTimeout(() => setStep(2), 1200);
     const t3 = setTimeout(() => setStep(3), 3800);
-    const restart = setTimeout(() => setLoopKey((k) => k + 1), CYCLE_MS);
+    const t4 = setTimeout(() => setStep(4), 4600);
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
       clearTimeout(t3);
-      clearTimeout(restart);
+      clearTimeout(t4);
     };
-  }, [loopKey]);
+  }, [isInView]);
 
   return (
-    <div className="border-color-brand surface flex w-full flex-col overflow-hidden rounded-xl border shadow-xl">
-      <div className="border-color-brand flex h-9 shrink-0 items-center border-b px-3">
-        <div className="flex items-center gap-2">
-          <Icon
-            icon="mdi:message-text-outline"
-            className="text-sm text-neutral-400"
-          />
-          <span className="text-xs font-medium text-neutral-700">Chat</span>
-        </div>
-      </div>
-
-      <div className="flex min-h-[340px] flex-col justify-end gap-3 p-3">
+    <div ref={ref} className="flex w-full flex-col overflow-hidden">
+      <div className="flex min-h-[340px] flex-col justify-end gap-3">
         <AnimatePresence mode="popLayout">
           {step >= 1 && (
             <motion.div
-              key={`q-${loopKey}`}
+              key="q"
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
@@ -56,18 +49,18 @@ export function JiraWorkflowMock() {
           )}
           {step >= 2 && (
             <motion.div
-              key={`tool-${loopKey}`}
+              key="tool"
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.2 }}
             >
-              <JiraToolCall loopKey={loopKey} />
+              <JiraToolCall loopKey={0} />
             </motion.div>
           )}
           {step >= 3 && (
             <motion.div
-              key={`a-${loopKey}`}
+              key="a"
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
@@ -83,15 +76,33 @@ export function JiraWorkflowMock() {
               </p>
             </motion.div>
           )}
+          {step >= 4 && (
+            <motion.div
+              key="ai"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.25, ease: "easeOut" }}
+              className="flex w-full justify-start"
+            >
+              <div className="max-w-[85%] rounded-t-xl rounded-br-xl border border-stone-200 bg-gradient-to-b from-white to-stone-100 px-4 py-3">
+                <p className="text-sm text-stone-700">
+                  Done — I pulled the bug context from today's standup notes,
+                  set priority to High, and tagged the mobile-app label so
+                  Sarah's team sees it in their next triage.
+                </p>
+              </div>
+            </motion.div>
+          )}
         </AnimatePresence>
       </div>
 
-      <div className="border-color-brand shrink-0 border-t px-3 py-2.5">
+      <div className="border-color-brand mt-4 shrink-0 rounded-xl border p-4">
         <div className="flex items-center justify-between">
           <span className="text-sm text-neutral-400">
-            Ask about your notes...
+            Ask Charlie anything...
           </span>
-          <div className="border-color-brand inline-flex h-7 items-center rounded-lg border px-2.5 text-xs font-medium text-neutral-300">
+          <div className="border-color-brand text-color-secondary inline-flex h-7 items-center rounded-lg border px-2.5 text-xs font-medium">
             <span>Send</span>
           </div>
         </div>
