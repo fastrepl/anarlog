@@ -16,7 +16,8 @@ pub struct Session {
     pub expires_in: Option<u64>,
     #[serde(default)]
     pub expires_at: Option<u64>,
-    pub user: SessionUser,
+    #[serde(default)]
+    pub user: Option<SessionUser>,
     #[serde(flatten)]
     pub extra: Map<String, Value>,
 }
@@ -195,9 +196,10 @@ mod tests {
     fn parses_user_fields() {
         let data = make_data("sb-auth-auth-token", SESSION_JSON);
         let session = find_session(&data).unwrap().unwrap();
-        assert_eq!(session.user.id, "818fe58f-afe9-42da-b288-f7d14213b6b4");
-        assert_eq!(session.user.email.as_deref(), Some("user@example.com"));
-        assert_eq!(session.user.aud.as_deref(), None);
+        let user = session.user.as_ref().unwrap();
+        assert_eq!(user.id, "818fe58f-afe9-42da-b288-f7d14213b6b4");
+        assert_eq!(user.email.as_deref(), Some("user@example.com"));
+        assert_eq!(user.aud.as_deref(), None);
     }
 
     #[cfg(feature = "client")]
@@ -205,7 +207,7 @@ mod tests {
     fn parses_user_metadata() {
         let data = make_data("sb-auth-auth-token", SESSION_JSON);
         let session = find_session(&data).unwrap().unwrap();
-        let meta = session.user.user_metadata.unwrap();
+        let meta = session.user.unwrap().user_metadata.unwrap();
         assert_eq!(meta.full_name.as_deref(), Some("Test User"));
         assert_eq!(meta.stripe_customer_id.as_deref(), Some("cus_test123"));
     }
@@ -223,7 +225,22 @@ mod tests {
         }"#;
         let data = make_data("sb-projectref-auth-token", json);
         let session = find_session(&data).unwrap().unwrap();
-        assert!(session.user.user_metadata.is_none());
+        assert!(session.user.unwrap().user_metadata.is_none());
+    }
+
+    #[cfg(feature = "client")]
+    #[test]
+    fn tolerates_missing_user() {
+        let json = r#"{
+            "access_token": "tok",
+            "token_type": "bearer",
+            "expires_in": 3600,
+            "expires_at": 9999999999,
+            "refresh_token": "r"
+        }"#;
+        let data = make_data("sb-projectref-auth-token", json);
+        let session = find_session(&data).unwrap().unwrap();
+        assert!(session.user.is_none());
     }
 
     #[cfg(feature = "client")]
@@ -301,5 +318,25 @@ mod tests {
             "tester"
         );
         assert_eq!(serialized["user"]["identities"][0]["custom_field"], true);
+    }
+
+    #[cfg(feature = "client")]
+    #[test]
+    fn roundtrips_without_user() {
+        let json = r#"{
+            "access_token": "tok",
+            "token_type": "bearer",
+            "expires_in": 3600,
+            "expires_at": 9999999999,
+            "refresh_token": "r",
+            "provider_token": "provider-tok"
+        }"#;
+
+        let data = make_data("sb-auth-auth-token", json);
+        let session = find_session(&data).unwrap().unwrap();
+        let serialized = serde_json::to_value(&session).unwrap();
+
+        assert!(serialized["user"].is_null());
+        assert_eq!(serialized["provider_token"], "provider-tok");
     }
 }

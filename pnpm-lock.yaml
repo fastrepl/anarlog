@@ -31128,7 +31128,7 @@ snapshots:
       graceful-fs: 4.2.11
       is-stream: 2.0.1
       lazystream: 1.0.1
-      lodash: 4.18.1
+      lodash: 4.17.23
       normalize-path: 3.0.0
       readable-stream: 4.7.0
 

@@ -18114,6 +18114,7 @@ name = "supabase-auth"
 version = "0.1.0"
 dependencies = [
  "axum 0.8.9",
+ "backon",
  "base64 0.22.1",
  "chrono",
  "jsonwebtoken",
@@ -18124,6 +18125,7 @@ dependencies = [
  "storage",
  "thiserror 2.0.18",
  "tokio",
+ "wiremock",
 ]
 
 [[package]]

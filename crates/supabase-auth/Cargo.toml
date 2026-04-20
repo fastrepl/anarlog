@@ -7,7 +7,7 @@ edition = "2024"
 default = []
 server = ["dep:reqwest", "dep:jsonwebtoken", "dep:tokio"]
 client = ["dep:hypr-storage"]
-refresh = ["dep:reqwest"]
+refresh = ["dep:reqwest", "dep:backon", "dep:tokio"]
 
 [dependencies]
 # always available
@@ -19,13 +19,15 @@ specta = { workspace = true, features = ["derive", "chrono"] }
 thiserror = { workspace = true }
 
 # server feature
+backon = { workspace = true, optional = true }
 jsonwebtoken = { workspace = true, optional = true }
 reqwest = { workspace = true, features = ["json"], optional = true }
-tokio = { workspace = true, optional = true }
+tokio = { workspace = true, features = ["sync"], optional = true }
 
 # client feature
 hypr-storage = { workspace = true, optional = true }
 
 [dev-dependencies]
 axum = { workspace = true }
-tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread"] }
+tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread", "time", "test-util"] }
+wiremock = { workspace = true }
