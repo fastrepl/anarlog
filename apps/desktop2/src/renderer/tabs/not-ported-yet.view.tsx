@@ -2,13 +2,7 @@ import { WrenchIcon } from "lucide-react";
 
 import { getStubTabLabel, type StubTabType } from "~/tabs/tabs.types";
 
-export function NotPortedYetView({
-  kind,
-  hint,
-}: {
-  kind: StubTabType;
-  hint?: string;
-}) {
+export function NotPortedYetView({ kind }: { kind: StubTabType }) {
   return (
     <div className="grid h-full place-content-center px-6">
       <div className="flex max-w-sm flex-col items-center gap-3 text-center">
@@ -16,7 +10,7 @@ export function NotPortedYetView({
           <WrenchIcon size={18} />
         </div>
         <div className="text-lg font-semibold text-neutral-900">
-          {getStubTabLabel(kind, hint)}
+          {getStubTabLabel(kind)}
         </div>
         <p className="text-sm text-neutral-500">
           This surface is not ported to `desktop2` yet.

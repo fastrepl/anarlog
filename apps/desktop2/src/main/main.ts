@@ -38,6 +38,7 @@ import {
   registerUpdaterHandlers,
   scheduleInitialUpdateCheck,
 } from "./updater.js";
+import { isAllowedExternalUrl } from "./url-allowlist.js";
 import { createMainWindow } from "./window.js";
 
 const liveQuerySubscriptions = new LiveQuerySubscriptionManager();
@@ -83,14 +84,8 @@ function registerDbHandlers() {
 
   ipcMain.handle(
     hyprIpcChannels.dbSubscribe,
-    (event, sql: string, params: unknown[]): DbSubscribeResult => {
-      const { channel, reactive } = liveQuerySubscriptions.start(
-        sql,
-        params,
-        event.sender,
-      );
-      return { channel, reactive };
-    },
+    (event, sql: string, params: unknown[]): DbSubscribeResult =>
+      liveQuerySubscriptions.start(sql, params, event.sender),
   );
 
   ipcMain.handle(
@@ -103,6 +98,9 @@ function registerDbHandlers() {
 
 function registerNativeHandlers() {
   ipcMain.handle(hyprIpcChannels.openExternal, async (_event, url: string) => {
+    if (!isAllowedExternalUrl(url)) {
+      throw new Error(`[desktop2] refusing to open disallowed URL: ${url}`);
+    }
     await electronShell.openExternal(url);
   });
 }

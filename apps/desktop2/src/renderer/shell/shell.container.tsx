@@ -1,15 +1,16 @@
 import { useMutation } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 
-import { desc, sessions } from "@hypr/db";
+import { sessions } from "@hypr/db";
 
 import { isMac } from "~/bridge";
 import { db, useDrizzleLiveQuery } from "~/db";
 import { OpenNoteDialogContainer } from "~/open-note-dialog";
 import { ProfileMenuContainer } from "~/profile-menu";
+import { sessionsListQuery, type SessionSummaryRow } from "~/sessions";
 import { ShellView } from "~/shell/shell.view";
 import {
-  getStubTabLabel,
+  getTabLabel,
   selectCanGoBack,
   selectCanGoNext,
   selectCurrentTab,
@@ -18,24 +19,6 @@ import {
   useTabsStore,
 } from "~/tabs";
 import { UpdateBannerContainer } from "~/update-banner";
-
-// Sessions query limited to fields we need for the tab strip. Using
-// `.$inferSelect` gives us the whole row type; the explicit select narrows
-// both payload and type.
-const sessionsListQuery = db
-  .select({
-    id: sessions.id,
-    title: sessions.title,
-    updatedAt: sessions.updatedAt,
-  })
-  .from(sessions)
-  .orderBy(desc(sessions.updatedAt), desc(sessions.id));
-
-type SessionSummaryRow = {
-  id: string;
-  title: string;
-  updatedAt: string;
-};
 
 export function ShellContainer({
   body,
@@ -58,26 +41,21 @@ export function ShellContainer({
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
 
-  useTabsShortcuts();
-
   const sessionsQuery =
     useDrizzleLiveQuery<SessionSummaryRow>(sessionsListQuery);
 
   const tabItems = useMemo(() => {
-    const titles = new Map(
-      (sessionsQuery.data ?? []).map((session) => [
-        session.id,
-        session.title || "Untitled session",
-      ]),
+    const sessionTitles = new Map(
+      (sessionsQuery.data ?? []).map((session) => [session.id, session.title]),
     );
 
     return tabs.map((tab) => ({
       tab,
       id: uniqueIdFromTab(tab),
-      title:
-        tab.type === "sessions"
-          ? (titles.get(tab.id) ?? "Untitled session")
-          : getStubTabLabel(tab.type),
+      title: getTabLabel(
+        tab,
+        tab.type === "sessions" ? sessionTitles.get(tab.id) : undefined,
+      ),
     }));
   }, [sessionsQuery.data, tabs]);
 
@@ -119,6 +97,10 @@ export function ShellContainer({
     onSuccess: (session) => {
       openNew({ type: "sessions", id: session.id });
     },
+  });
+
+  useTabsShortcuts({
+    onNewNote: () => createMutation.mutate(),
   });
 
   return (

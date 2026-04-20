@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { CHANNEL } from "./channel.js";
+import { isAllowedExternalUrl } from "./url-allowlist.js";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const DEV_URL = process.env.ELECTRON_RENDERER_URL;
@@ -49,8 +50,13 @@ export function createMainWindow(opts: MainWindowOptions = {}): BrowserWindow {
   });
 
   // External links open in the user's browser rather than a new Electron window.
+  // Gated through the same allowlist as the `hypr:openExternal` IPC so a
+  // compromised renderer can't reach `file://`, `javascript:`, or custom
+  // protocol handlers via `window.open` / `target="_blank"` either.
   window.webContents.setWindowOpenHandler(({ url }) => {
-    void shell.openExternal(url);
+    if (isAllowedExternalUrl(url)) {
+      void shell.openExternal(url);
+    }
     return { action: "deny" };
   });
 

@@ -11,7 +11,6 @@ import type { ReactNode } from "react";
  * `Main2Layout` land here when their underlying services port over, in this
  * order:
  *
- *   TaskStorageProvider        // ~/editor/hypr-task-storage singleton
  *   NotificationProvider       // port of ~/contexts/notifications
  *   SearchEngineProvider       // once search indexing is wired
  *   SearchUIProvider           // overlay / shortcut state
@@ -20,8 +19,9 @@ import type { ReactNode } from "react";
  *   AITaskProvider             // AI task queue, once ported
  *
  * The boundary rules of `apps/desktop2/AGENTS.md` still apply: nothing here
- * may import from `src/main/** or src/preload/**`. Providers must talk to Rust exclusively
- * through `~/bridge` + `@hypr/desktop2-contract`.
+ * may import from `src/main/**` or `src/preload/**`. Providers must talk to
+ * the Electron main process exclusively through `~/bridge` (which wraps
+ * `window.hypr`, typed by `src/shared/api.ts`).
  */
 export function AppProvidersView({ children }: { children: ReactNode }) {
   return <>{children}</>;

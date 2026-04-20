@@ -23,14 +23,14 @@ export function HomeContainer() {
   );
 
   const tomorrow = useMemo(() => {
-    const value = new Date();
+    const value = new Date(`${today}T00:00:00`);
     value.setDate(value.getDate() + 1);
     return format(value, "yyyy-MM-dd");
   }, [today]);
 
   const pastDates = useMemo(() => {
     return Array.from({ length: 30 }, (_, index) => {
-      const value = new Date();
+      const value = new Date(`${today}T00:00:00`);
       value.setDate(value.getDate() - (index + 1));
       return format(value, "yyyy-MM-dd");
     });

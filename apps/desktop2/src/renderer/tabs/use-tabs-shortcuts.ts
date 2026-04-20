@@ -6,7 +6,7 @@ import {
   selectCurrentTab,
   useTabsStore,
 } from "~/tabs/tabs.store";
-import { type Tab, uniqueIdFromTab } from "~/tabs/tabs.types";
+import { uniqueIdFromTab } from "~/tabs/tabs.types";
 
 const HOTKEY_OPTIONS = {
   preventDefault: true,
@@ -92,28 +92,28 @@ export function useTabsShortcuts(options: TabsShortcutsOptions = {}) {
 
   useHotkeys(
     "mod+shift+c",
-    () => openAndSelect(openNew, { type: "calendar" }),
+    () => openNew({ type: "calendar" }),
     HOTKEY_OPTIONS,
     [openNew],
   );
 
   useHotkeys(
     "mod+shift+o",
-    () => openAndSelect(openNew, { type: "contacts" }),
+    () => openNew({ type: "contacts" }),
     HOTKEY_OPTIONS,
     [openNew],
   );
 
   useHotkeys(
     "mod+shift+comma",
-    () => openAndSelect(openNew, { type: "settings" }),
+    () => openNew({ type: "settings" }),
     HOTKEY_OPTIONS,
     [openNew],
   );
 
   useHotkeys(
     "mod+shift+l",
-    () => openAndSelect(openNew, { type: "folders" }),
+    () => openNew({ type: "folders" }),
     HOTKEY_OPTIONS,
     [openNew],
   );
@@ -154,8 +154,4 @@ export function useTabsShortcuts(options: TabsShortcutsOptions = {}) {
     HOTKEY_OPTIONS,
     [canGoNext, goNext],
   );
-}
-
-function openAndSelect(openNew: (tab: Tab) => void, tab: Tab) {
-  openNew(tab);
 }

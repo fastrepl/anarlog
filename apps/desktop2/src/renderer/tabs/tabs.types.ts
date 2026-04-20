@@ -1,17 +1,9 @@
-export type StubTabType =
-  | "settings"
-  | "folders"
-  | "contacts"
-  | "calendar"
-  | "daily-summary";
+export type StubTabType = "settings" | "folders" | "contacts" | "calendar";
 
 export type Tab =
   | { type: "sessions"; id: string }
   | { type: "daily-summary"; date: string }
-  | { type: "settings" }
-  | { type: "folders" }
-  | { type: "contacts" }
-  | { type: "calendar" };
+  | { type: StubTabType };
 
 export function uniqueIdFromTab(tab: Tab): string {
   switch (tab.type) {
@@ -30,7 +22,7 @@ export function uniqueIdFromTab(tab: Tab): string {
   }
 }
 
-export function getStubTabLabel(type: StubTabType, hint?: string): string {
+export function getStubTabLabel(type: StubTabType): string {
   switch (type) {
     case "settings":
       return "Settings";
@@ -40,7 +32,23 @@ export function getStubTabLabel(type: StubTabType, hint?: string): string {
       return "Contacts";
     case "calendar":
       return "Calendar";
+  }
+}
+
+export function getDailySummaryLabel(date: string): string {
+  return `Daily Summary · ${date}`;
+}
+
+// Single entry point for "what should I call this tab?" used by the tab
+// strip and the "not ported yet" placeholder. Session titles come from the
+// DB, so the caller threads them in via `sessionTitle`.
+export function getTabLabel(tab: Tab, sessionTitle?: string | null): string {
+  switch (tab.type) {
+    case "sessions":
+      return sessionTitle || "Untitled session";
     case "daily-summary":
-      return hint ? `Daily Summary · ${hint}` : "Daily Summary";
+      return getDailySummaryLabel(tab.date);
+    default:
+      return getStubTabLabel(tab.type);
   }
 }

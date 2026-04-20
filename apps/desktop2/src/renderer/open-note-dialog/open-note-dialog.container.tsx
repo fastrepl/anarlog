@@ -1,28 +1,12 @@
 import { useMemo } from "react";
 
-import { desc, sessions } from "@hypr/db";
-
-import { db, useDrizzleLiveQuery } from "~/db";
+import { useDrizzleLiveQuery } from "~/db";
 import {
   OpenNoteDialogView,
   type OpenNoteDialogItem,
 } from "~/open-note-dialog/open-note-dialog.view";
+import { sessionsListQuery, type SessionSummaryRow } from "~/sessions";
 import { useTabsStore } from "~/tabs";
-
-type SessionSummaryRow = {
-  id: string;
-  title: string;
-  updatedAt: string;
-};
-
-const sessionsListQuery = db
-  .select({
-    id: sessions.id,
-    title: sessions.title,
-    updatedAt: sessions.updatedAt,
-  })
-  .from(sessions)
-  .orderBy(desc(sessions.updatedAt), desc(sessions.id));
 
 export function OpenNoteDialogContainer({
   open,

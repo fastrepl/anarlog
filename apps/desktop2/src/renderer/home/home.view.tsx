@@ -1,6 +1,7 @@
+import { dailyNoteSectionClassName } from "~/home/constants";
 import { DateHeaderView } from "~/home/date-header.view";
 import { TodayButtonView } from "~/home/today-button.view";
-import { StandardTabWrapperView } from "~/shared";
+import { StandardTabWrapperView } from "~/primitives";
 
 export function HomeView({
   today,
@@ -41,7 +42,7 @@ export function HomeView({
 
             <div className="mx-6 border-t border-neutral-200" />
 
-            <div ref={todayRef} className="flex min-h-[400px] flex-col">
+            <div ref={todayRef} className={dailyNoteSectionClassName}>
               <DateHeaderView
                 date={today}
                 onOpenDailySummary={onOpenDailySummary}

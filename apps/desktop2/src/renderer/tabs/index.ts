@@ -8,7 +8,9 @@ export {
   useTabsStore,
 } from "~/tabs/tabs.store";
 export {
+  getDailySummaryLabel,
   getStubTabLabel,
+  getTabLabel,
   type StubTabType,
   type Tab,
   uniqueIdFromTab,

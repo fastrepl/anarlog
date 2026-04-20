@@ -10,7 +10,7 @@ import { Button } from "@hypr/ui/components/ui/button";
 import { cn } from "@hypr/utils";
 
 import { TabItemView } from "~/tabs";
-import type { Tab } from "~/tabs/tabs.types";
+import { type Tab, uniqueIdFromTab } from "~/tabs/tabs.types";
 
 export function ShellView({
   tabItems,
@@ -136,7 +136,9 @@ export function ShellView({
                       <TabItemView
                         tab={tab}
                         selected={
-                          currentTab ? id === getTabId(currentTab) : false
+                          currentTab
+                            ? id === uniqueIdFromTab(currentTab)
+                            : false
                         }
                         title={title}
                         shortcutIndex={shortcutIndexes.get(id)}
@@ -206,8 +208,4 @@ export function ShellView({
       </div>
     </div>
   );
-}
-
-function getTabId(tab: Tab): string {
-  return tab.type === "sessions" ? `sessions-${tab.id}` : tab.type;
 }

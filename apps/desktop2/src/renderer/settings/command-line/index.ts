@@ -1,2 +1,2 @@
-export { CommandLineContainer } from "./command-line.container";
-export { CommandLineView } from "./command-line.view";
+export { CommandLineContainer } from "~/settings/command-line/command-line.container";
+export { CommandLineView } from "~/settings/command-line/command-line.view";

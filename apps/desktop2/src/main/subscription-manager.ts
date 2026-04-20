@@ -3,6 +3,8 @@ import { randomUUID } from "node:crypto";
 import type { QueryEvent } from "@hypr/db-runtime";
 import * as sdk from "@hypr/napi-sdk";
 
+import type { DbSubscribeResult } from "../shared/subscribe.js";
+
 // Ref-counted bridge between `sdk.subscribe(sql, params, cb)` and renderer
 // listeners. Mirrors `plugins/db/src/runtime.rs::PluginDbRuntime` on the
 // Tauri side — generic SQL + params, no per-entity query identity.
@@ -46,7 +48,7 @@ export class LiveQuerySubscriptionManager {
     sql: string,
     params: unknown[],
     sender: Electron.WebContents,
-  ): { subscriptionId: string; channel: string; reactive: boolean } {
+  ): DbSubscribeResult {
     const queryKey = buildLiveQueryKey(sql, params);
     const state = this.ensureQueryHandle(sql, params, queryKey);
 
@@ -65,7 +67,7 @@ export class LiveQuerySubscriptionManager {
     this.trackSenderLifetime(sender);
     this.addSubscriptionForSender(sender.id, subscriptionId);
 
-    return { subscriptionId, channel, reactive: state.reactive };
+    return { channel, reactive: state.reactive };
   }
 
   // Renderer-initiated teardown. The renderer only holds the private
@@ -76,7 +78,7 @@ export class LiveQuerySubscriptionManager {
     return this.stop(subscriptionId);
   }
 
-  stop(subscriptionId: string): boolean {
+  private stop(subscriptionId: string): boolean {
     const subscription = this.activeSubscriptions.get(subscriptionId);
     if (!subscription) return false;
 

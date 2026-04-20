@@ -1,10 +1,11 @@
-import tailwindcss from "@tailwindcss/vite";
-import react from "@vitejs/plugin-react";
 import { defineConfig } from "electron-vite";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 
-const rootDir = path.dirname(fileURLToPath(import.meta.url));
+import {
+  rendererAlias,
+  rendererPlugins,
+  rendererRoot,
+  rendererServerFs,
+} from "./renderer.vite.base";
 
 export default defineConfig({
   main: {
@@ -45,19 +46,15 @@ export default defineConfig({
     },
   },
   renderer: {
-    root: "src/renderer",
-    plugins: [tailwindcss(), react()],
+    root: rendererRoot,
+    plugins: rendererPlugins,
     resolve: {
-      alias: {
-        "~": path.join(rootDir, "src/renderer"),
-      },
+      alias: rendererAlias,
       preserveSymlinks: false,
     },
     server: {
       host: "127.0.0.1",
-      fs: {
-        allow: ["..", "../..", "../../.."],
-      },
+      fs: rendererServerFs,
     },
     build: {
       outDir: "../../dist/ui",

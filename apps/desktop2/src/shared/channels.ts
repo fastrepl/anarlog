@@ -2,6 +2,9 @@
 // import from this module so we never inline `"hypr:…"` string literals.
 // Channel namespacing mirrors the Tauri `plugin:db|…` command naming so the
 // two transports stay recognizable side by side.
+//
+// Updater channels live next to their event/snapshot types in `./updater.ts`
+// under `updaterIpcChannels`; don't mirror them here.
 export const hyprIpcChannels = {
   dbExecute: "hypr:db:execute",
   dbExecuteProxy: "hypr:db:executeProxy",
@@ -11,10 +14,6 @@ export const hyprIpcChannels = {
   embeddedCliCheck: "hypr:embeddedCli:check",
   embeddedCliInstall: "hypr:embeddedCli:install",
   embeddedCliUninstall: "hypr:embeddedCli:uninstall",
-  updaterCheck: "hypr:updater:check",
-  updaterInstall: "hypr:updater:install",
-  // Broadcast channel for push events from main → every renderer.
-  updaterEvent: "hypr:updater:event",
 } as const;
 
 export type HyprIpcChannel =
