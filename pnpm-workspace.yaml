@@ -8,3 +8,4 @@ packages:
 onlyBuiltDependencies:
   - supabase
   - "@infisical/cli"
+  - electron # postinstall downloads the Electron binary

@@ -7,10 +7,7 @@ pub(crate) fn prepare_binaries() -> Result<()> {
     let src_tauri = root_dir.join("apps/desktop/src-tauri");
     let binaries_dir = src_tauri.join("binaries");
 
-    let triple = match env::var("TAURI_ENV_TARGET_TRIPLE") {
-        Ok(v) => v,
-        Err(_) => rustc_host_triple()?,
-    };
+    let triple = resolve_triple()?;
     let ext = if triple.contains("windows") {
         ".exe"
     } else {
@@ -56,6 +53,59 @@ pub(crate) fn prepare_binaries() -> Result<()> {
 
     println!("prepare-binaries: binaries/char-cli-{triple}{ext}");
     Ok(())
+}
+
+/// Build just the embedded `char` CLI for the Electron PoC (`apps/desktop2`).
+///
+/// Unlike `prepare-binaries` this skips `chrome-native-host` (not wired into
+/// desktop2 yet) and drops the artifact under `apps/desktop2/binaries/` where
+/// `electron-builder.config.ts#mac.extraFiles` picks it up and
+/// `electron/src/paths.ts::embeddedCliPath()` resolves it in dev.
+pub(crate) fn prepare_desktop2_binaries() -> Result<()> {
+    let root_dir = crate::repo_root();
+    let desktop2 = root_dir.join("apps/desktop2");
+    let binaries_dir = desktop2.join("binaries");
+
+    let triple = resolve_triple()?;
+    let ext = if triple.contains("windows") {
+        ".exe"
+    } else {
+        ""
+    };
+    let cargo = env::var("CARGO").unwrap_or_else(|_| "cargo".to_owned());
+
+    let sh = Shell::new()?;
+    sh.change_dir(&root_dir);
+    cmd!(
+        sh,
+        "{cargo} build --release --target {triple} -p cli --features desktop-macos"
+    )
+    .run()?;
+
+    fs::create_dir_all(&binaries_dir).context("create apps/desktop2/binaries/")?;
+
+    // Cargo writes to the workspace target dir (not desktop2-local) — we live
+    // in a single workspace, so pick it up from `<repo>/target/<triple>/release`.
+    let src = root_dir
+        .join("target")
+        .join(&triple)
+        .join("release")
+        .join(format!("char{ext}"));
+    let dst = binaries_dir.join(format!("char-cli-{triple}{ext}"));
+    fs::copy(&src, &dst).with_context(|| format!("copy {} -> {}", src.display(), dst.display()))?;
+
+    println!("prepare-desktop2-binaries: apps/desktop2/binaries/char-cli-{triple}{ext}");
+    Ok(())
+}
+
+fn resolve_triple() -> Result<String> {
+    match env::var("TAURI_ENV_TARGET_TRIPLE")
+        .ok()
+        .or_else(|| env::var("CARGO_BUILD_TARGET").ok())
+    {
+        Some(v) if !v.is_empty() => Ok(v),
+        _ => rustc_host_triple(),
+    }
 }
 
 fn rustc_host_triple() -> Result<String> {

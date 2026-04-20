@@ -1,5 +1,54 @@
 import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
+export const sessions = sqliteTable(
+  "sessions",
+  {
+    id: text("id").primaryKey().notNull(),
+    title: text("title").notNull().default(""),
+    rawMd: text("raw_md").notNull().default(""),
+    folderId: text("folder_id").notNull().default(""),
+    eventJson: text("event_json").notNull().default(""),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [index("idx_sessions_updated_at").on(table.updatedAt)],
+);
+
+export const dailyNotes = sqliteTable(
+  "daily_notes",
+  {
+    date: text("date").primaryKey().notNull(),
+    content: text("content").notNull().default(""),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [index("idx_daily_notes_updated_at").on(table.updatedAt)],
+);
+
+export const tasks = sqliteTable(
+  "tasks",
+  {
+    id: text("id").primaryKey().notNull(),
+    sourceType: text("source_type").notNull().default(""),
+    sourceId: text("source_id").notNull().default(""),
+    sourceOrder: integer("source_order").notNull().default(0),
+    status: text("status").notNull().default("todo"),
+    textPreview: text("text_preview").notNull().default(""),
+    bodyJson: text("body_json").notNull().default("[]"),
+    dueDate: text("due_date"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("idx_tasks_source_order").on(
+      table.sourceType,
+      table.sourceId,
+      table.sourceOrder,
+    ),
+    index("idx_tasks_status").on(table.status),
+  ],
+);
+
 export const templates = sqliteTable("templates", {
   id: text("id").primaryKey(),
   title: text("title").notNull().default(""),

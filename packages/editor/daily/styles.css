@@ -1,0 +1,128 @@
+/* Daily-note editor styles. Scoped to `.hypr-daily-note-editor` so embedders
+   can `@import "@hypr/editor/daily/styles.css"` once and get sane defaults
+   without leaking onto the rest of the app. */
+
+.hypr-daily-note-editor {
+  outline: none;
+  min-height: 100%;
+  padding: 0;
+  line-height: 1.55;
+  color: rgb(23, 23, 23); /* neutral-900 */
+}
+
+.hypr-daily-note-editor > *:first-child {
+  margin-top: 0;
+}
+
+.hypr-daily-note-editor h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.hypr-daily-note-editor h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.hypr-daily-note-editor h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin-top: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+
+.hypr-daily-note-editor p {
+  margin: 0.25rem 0;
+}
+
+.hypr-daily-note-editor ul,
+.hypr-daily-note-editor ol {
+  padding-left: 1.25rem;
+  margin: 0.25rem 0;
+}
+
+.hypr-daily-note-editor ul {
+  list-style: disc;
+}
+
+.hypr-daily-note-editor ol {
+  list-style: decimal;
+}
+
+.hypr-daily-note-editor ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+}
+
+.hypr-daily-note-editor ul[data-type="taskList"] li {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+
+.hypr-daily-note-editor ul[data-type="taskList"] li > label {
+  margin-top: 0.35rem;
+  flex: 0 0 auto;
+}
+
+.hypr-daily-note-editor ul[data-type="taskList"] li > div {
+  flex: 1 1 auto;
+}
+
+.hypr-daily-note-editor ul[data-type="taskList"] input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.hypr-daily-note-editor blockquote {
+  border-left: 3px solid rgb(229, 229, 229); /* neutral-200 */
+  padding-left: 0.75rem;
+  color: rgb(82, 82, 82); /* neutral-600 */
+  margin: 0.5rem 0;
+}
+
+.hypr-daily-note-editor code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+  background: rgb(245, 245, 245); /* neutral-100 */
+  padding: 0.125rem 0.25rem;
+  border-radius: 4px;
+}
+
+.hypr-daily-note-editor pre {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: rgb(245, 245, 245);
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 0.5rem 0;
+}
+
+.hypr-daily-note-editor pre code {
+  background: transparent;
+  padding: 0;
+}
+
+.hypr-daily-note-editor a {
+  color: rgb(29, 78, 216); /* blue-700 */
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.hypr-daily-note-editor strong {
+  font-weight: 600;
+}
+
+/* Placeholder driven by `data-placeholder` on the root element. Tiptap can
+   also drive this via its Placeholder extension, but we keep it CSS-only so
+   the package doesn't need to bring in another extension. */
+.hypr-daily-note-editor p.is-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: rgb(163, 163, 163); /* neutral-400 */
+  float: left;
+  height: 0;
+  pointer-events: none;
+}

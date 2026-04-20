@@ -37,6 +37,7 @@ hypr-agent-core = { path = "crates/agent-core", package = "agent-core" }
 hypr-am = { path = "crates/am", package = "am" }
 hypr-amp = { path = "crates/amp", package = "amp" }
 hypr-analytics = { path = "crates/analytics", package = "analytics" }
+hypr-api = { path = "crates/hypr-api", package = "hypr-api" }
 hypr-api-agent = { path = "crates/api-agent", package = "api-agent" }
 hypr-api-auth = { path = "crates/api-auth", package = "api-auth" }
 hypr-api-bot = { path = "crates/api-bot", package = "api-bot" }
@@ -86,6 +87,7 @@ hypr-codex = { path = "crates/codex", package = "codex" }
 hypr-cursor = { path = "crates/cursor", package = "cursor" }
 hypr-data = { path = "crates/data", package = "data" }
 hypr-db-app = { path = "crates/db-app", package = "db-app" }
+hypr-db-app2 = { path = "crates/db-app2", package = "db-app2" }
 hypr-db-change = { path = "crates/db-change", package = "db-change" }
 hypr-db-cli = { path = "crates/db-cli", package = "db-cli" }
 hypr-db-core = { path = "crates/db-core", package = "db-core" }

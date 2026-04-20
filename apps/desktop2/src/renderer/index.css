@@ -1,0 +1,59 @@
+@import "tailwindcss";
+@import "@hypr/ui/globals.css";
+
+/* Scan the @hypr/ui component sources so their utility classes survive
+ * desktop2's own Tailwind v4 build even when they're referenced transitively.
+ */
+@source "../../../../packages/ui/src";
+
+/* Electron-only drag-region utilities. Mirror `data-tauri-drag-region` by
+ * letting the OS handle mouse-down inside the element as a window move, and
+ * opt buttons out of the drag so clicks still register (see
+ * https://www.electronjs.org/docs/latest/tutorial/window-customization#custom-draggable-regions).
+ */
+@utility drag {
+  -webkit-app-region: drag;
+}
+
+@utility no-drag {
+  -webkit-app-region: no-drag;
+}
+
+@layer base {
+  *,
+  ::after,
+  ::before {
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #root {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+  }
+
+  html,
+  body {
+    overflow: hidden;
+    overscroll-behavior: none;
+    user-select: none;
+  }
+
+  body {
+    font-family:
+      ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+      sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  input,
+  textarea,
+  [contenteditable="true"],
+  [contenteditable="true"] * {
+    user-select: text;
+  }
+}

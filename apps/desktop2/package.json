@@ -1,0 +1,61 @@
+{
+  "name": "@hypr/desktop2",
+  "productName": "Char 2",
+  "version": "0.0.1",
+  "description": "Hypr desktop client built on Electron (sessions migration PoC).",
+  "author": {
+    "name": "Fastrepl",
+    "email": "team@char.com",
+    "url": "https://char.com"
+  },
+  "homepage": "https://char.com",
+  "license": "UNLICENSED",
+  "private": true,
+  "type": "module",
+  "main": "dist/electron/main.js",
+  "scripts": {
+    "dev": "electron-vite dev --config electron.vite.config.ts",
+    "build:embedded-cli": "cargo xtask prepare-desktop2-binaries",
+    "build": "electron-vite build --config electron.vite.config.ts",
+    "check": "tsc -p tsconfig.renderer.json --noEmit && tsc -p tsconfig.main.json --noEmit",
+    "test": "vitest run --config vitest.config.ts --passWithNoTests",
+    "bundle": "pnpm build:embedded-cli && pnpm build && electron-builder --config electron-builder.config.ts"
+  },
+  "dependencies": {
+    "@hypr/db": "workspace:*",
+    "@hypr/db-electron": "workspace:*",
+    "@hypr/db-react": "workspace:*",
+    "@hypr/db-runtime": "workspace:*",
+    "@hypr/editor": "workspace:*",
+    "@hypr/napi-sdk": "workspace:*",
+    "@hypr/ui": "workspace:*",
+    "@hypr/utils": "workspace:*",
+    "@tanstack/react-query": "^5.99.0",
+    "@tanstack/react-router": "^1.168.19",
+    "cmdk": "1.1.1",
+    "drizzle-orm": "^0.44.2",
+    "electron-updater": "^6.8.3",
+    "lucide-react": "^0.544.0",
+    "motion": "^11.18.2",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "react-hotkeys-hook": "^4.6.2",
+    "zod": "^4.3.6",
+    "zustand": "^5.0.12"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.2.2",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^25.6.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "electron": "^41.2.1",
+    "electron-builder": "^26.8.1",
+    "electron-vite": "6.0.0-beta.1",
+    "tailwindcss": "^4.2.2",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.8",
+    "vitest": "^4.1.4"
+  }
+}

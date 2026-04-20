@@ -1,0 +1,294 @@
+# Electron CD for `@hypr/desktop2`.
+#
+# Contrasts with `desktop_cd.yaml` (Tauri):
+#   - no CrabNebula draft/upload/publish — distribution is a GitHub Release
+#     directly (ncipollo/release-action), same pattern as the Tauri workflow's
+#     final `release` job. Auto-update feed (`latest-mac.yml`) is intentionally
+#     not published yet; `electron-updater` wiring is a separate slice.
+#   - reuses `./.github/actions/apple_cert` to import the Developer ID cert
+#     (the composite is framework-agnostic).
+#   - `./.github/actions/macos_notarize_dmg` is NOT invoked — electron-builder
+#     notarizes + staples the outer `.dmg` via `mac.notarize: true` in
+#     `electron-builder.config.ts`.
+#   - no Rust sidecar and no Tauri bundler. Rust work is limited to
+#     `@hypr/napi-sdk` (NAPI) plus the embedded `char` CLI binary that is
+#     packaged into the Electron app bundle.
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: "Release channel"
+        required: true
+        type: choice
+        options:
+          - staging
+          - nightly
+          - stable
+      publish:
+        description: "Create GitHub release and tag (ignored for staging)"
+        type: boolean
+        default: true
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.channel }}
+  cancel-in-progress: true
+
+env:
+  RELEASE_CHANNEL: ${{ inputs.channel }}
+  NODE_OPTIONS: "--max-old-space-size=4096"
+
+jobs:
+  compute-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 0
+          fetch-tags: true
+      - run: |
+          git remote set-url origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+          git fetch --tags --force
+      - uses: ./.github/actions/doxxer_install
+      - id: version
+        run: |
+          if [[ "${{ inputs.channel }}" == "staging" ]]; then
+            VERSION=$(doxxer --config doxxer.desktop2.toml next dev)
+          elif [[ "${{ inputs.channel }}" == "nightly" ]]; then
+            LATEST_TAG=$(git tag -l 'desktop2_v*' --sort=-creatordate | head -n1)
+            if [[ "$LATEST_TAG" == *"-nightly"* ]]; then
+              VERSION=$(doxxer --config doxxer.desktop2.toml next prerelease)
+            else
+              VERSION=$(doxxer --config doxxer.desktop2.toml next pre-patch)
+            fi
+          elif [[ "${{ inputs.channel }}" == "stable" ]]; then
+            VERSION=$(doxxer --config doxxer.desktop2.toml next patch)
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Computed version: $VERSION"
+
+  build-macos:
+    needs: compute-version
+    permissions:
+      contents: write
+    runs-on: depot-macos-15
+    strategy:
+      fail-fast: true
+      # Staging builds only the host (arm64) arch to keep the iteration loop
+      # short. Stable/nightly ship both intel + silicon, matching desktop.
+      matrix:
+        include: ${{ inputs.channel == 'staging' && fromJSON('[{"target":"aarch64-apple-darwin","arch":"arm64","artifact_name":"silicon"}]') || fromJSON('[{"target":"aarch64-apple-darwin","arch":"arm64","artifact_name":"silicon"},{"target":"x86_64-apple-darwin","arch":"x64","artifact_name":"intel"}]') }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 0
+          fetch-tags: true
+          submodules: recursive
+
+      - uses: ./.github/actions/macos_tcc
+
+      - name: Stamp version into apps/desktop2/package.json
+        run: ./scripts/version.sh "./apps/desktop2/package.json" "${{ needs.compute-version.outputs.version }}"
+
+      - uses: ./.github/actions/rust_install
+        with:
+          platform: macos
+
+      - run: echo "SDKROOT=$(xcrun --sdk macosx --show-sdk-path)" >> $GITHUB_ENV
+
+      - uses: ./.github/actions/pnpm_install
+
+      # Builds `apps/cli` → `apps/desktop2/binaries/char-cli-<triple>`.
+      # `electron-builder.config.ts#mac.extraFiles` picks the matching triple
+      # by `process.arch` / `ELECTRON_BUILDER_ARCH` and drops it under
+      # `<App>.app/Contents/MacOS/char-cli` where the Developer ID identity
+      # co-signs it during the main packaging pass. Runtime resolver is
+      # `electron/src/paths.ts::embeddedCliPath()`.
+      - name: Build embedded `char` CLI for ${{ matrix.target }}
+        env:
+          TAURI_ENV_TARGET_TRIPLE: ${{ matrix.target }}
+        run: pnpm -F @hypr/desktop2 build:embedded-cli
+
+      - name: Build @hypr/desktop2 (UI + electron + NAPI for ${{ matrix.target }})
+        env:
+          # `napi build` respects `CARGO_BUILD_TARGET` (verified against
+          # @napi-rs/cli v3.6.2); this pins the NAPI `.node` to `matrix.target`
+          # so electron-builder doesn't pack the host-arch binary by accident.
+          # Turbo cascades via desktop2's `^build` dependency to @hypr/napi-sdk.
+          CARGO_BUILD_TARGET: ${{ matrix.target }}
+          # Channel drives appId / productName / userData via `channel.ts`;
+          # threaded into the build so any build-time codegen can read it too.
+          HYPR_CHANNEL: ${{ inputs.channel }}
+        run: pnpm turbo run build -F @hypr/desktop2
+
+      - uses: ./.github/actions/apple_cert
+        id: apple-cert
+        with:
+          apple-certificate: ${{ secrets.APPLE_CERTIFICATE }}
+          apple-certificate-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          keychain-password: ${{ secrets.KEYCHAIN_PASSWORD }}
+
+      - name: electron-builder — package + sign + notarize (${{ matrix.arch }})
+        working-directory: apps/desktop2
+        env:
+          # Channel selects appId / productName / executableName / icons /
+          # DMG background / artifactName in `electron-builder.config.ts`,
+          # and is stamped into the packaged `package.json` via
+          # `extraMetadata.hyprChannel` for `electron/src/channel.ts`.
+          HYPR_CHANNEL: ${{ inputs.channel }}
+          # Code signing: rely on keychain identity already imported by
+          # `apple_cert`. `CSC_NAME` pins the identity so electron-builder
+          # doesn't guess when multiple certs are present.
+          CSC_NAME: ${{ steps.apple-cert.outputs.cert-id }}
+          CSC_IDENTITY_AUTO_DISCOVERY: "true"
+          # Notarization via notarytool (`@electron/notarize`). `mac.notarize`
+          # in `electron-builder.config.ts` is gated on `CI=true && APPLE_ID`.
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Don't let electron-builder itself publish — we upload via the
+          # `release` job below, so local failures don't orphan GH releases.
+          GH_TOKEN: ""
+          # Pinned so `embeddedCliTriple()` in `electron-builder.config.ts`
+          # resolves to the exact binary built in the prior step, even though
+          # electron-builder is invoked once per arch.
+          ELECTRON_BUILDER_ARCH: ${{ matrix.arch }}
+        run: |
+          pnpm exec electron-builder \
+            --mac \
+            --${{ matrix.arch }} \
+            --config electron-builder.config.ts \
+            --publish never
+
+      - id: find-dmg
+        run: |
+          DMG_FILE=$(find apps/desktop2/release -maxdepth 1 -name "*.dmg" -type f | head -1)
+          if [[ -z "$DMG_FILE" ]]; then
+            echo "::error::No DMG found in apps/desktop2/release"
+            ls -la apps/desktop2/release || true
+            exit 1
+          fi
+          echo "path=$DMG_FILE" >> $GITHUB_OUTPUT
+          echo "name=$(basename "$DMG_FILE")" >> $GITHUB_OUTPUT
+
+      - name: Verify signature + notarization
+        run: |
+          codesign --verify --deep --strict --verbose=2 "${{ steps.find-dmg.outputs.path }}"
+          spctl -a -t open -vvv --context context:primary-signature "${{ steps.find-dmg.outputs.path }}"
+
+      # Upload name is channel-agnostic; the dmg inside keeps electron-builder's
+      # channel-prefixed `artifactName` (e.g. `char-nightly-<version>-<arch>.dmg`).
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dmg-${{ inputs.channel }}-${{ matrix.artifact_name }}
+          path: ${{ steps.find-dmg.outputs.path }}
+          retention-days: 7
+
+  create-tag:
+    if: ${{ inputs.channel != 'staging' && !cancelled() && needs.build-macos.result == 'success' }}
+    needs: [compute-version, build-macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mathieudutour/github-tag-action@v6.2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          custom_tag: desktop2_v${{ needs.compute-version.outputs.version }}
+          tag_prefix: ""
+
+  release:
+    if: ${{ inputs.channel != 'staging' && inputs.publish && !cancelled() && needs.build-macos.result == 'success' && needs.create-tag.result == 'success' }}
+    needs: [compute-version, build-macos, create-tag]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - run: git fetch --tags --force
+
+      # DMG filenames are channel-prefixed by `electron-builder.config.ts`'s
+      # per-channel `artifactName` (e.g. `char-nightly-<version>-arm64.dmg`).
+      # We flatten both arches into `./dist/` and upload to the release as-is.
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: dmg-${{ inputs.channel }}-*
+          merge-multiple: true
+          path: dist
+
+      - id: collect
+        run: |
+          set -euo pipefail
+          FILES=()
+          for f in dist/*.dmg; do
+            FILES+=("$f")
+          done
+          if [[ ${#FILES[@]} -eq 0 ]]; then
+            echo "::error::No DMGs found to release"
+            ls -la dist || true
+            exit 1
+          fi
+          printf 'files<<EOF\n%s\nEOF\n' "$(printf '%s\n' "${FILES[@]}")" >> "$GITHUB_OUTPUT"
+
+      - id: checksums
+        uses: ./.github/actions/generate_checksums
+        with:
+          files: ${{ steps.collect.outputs.files }}
+
+      - id: release-body
+        env:
+          CHANNEL: ${{ inputs.channel }}
+          VERSION: ${{ needs.compute-version.outputs.version }}
+        run: |
+          if [[ "$CHANNEL" != "nightly" ]]; then
+            echo "value=https://char.com/changelog/$VERSION" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          CURRENT_TAG="desktop2_v$VERSION"
+          PREV_TAG=""
+          LAST_TAG=""
+          LAST_NIGHTLY_TAG=""
+
+          while IFS= read -r tag; do
+            if [[ "$tag" == "$CURRENT_TAG" ]]; then
+              PREV_TAG="$LAST_NIGHTLY_TAG"
+              if [[ -z "$PREV_TAG" ]]; then
+                PREV_TAG="$LAST_TAG"
+              fi
+              break
+            fi
+
+            if [[ "$tag" == *"-nightly."* ]]; then
+              LAST_NIGHTLY_TAG="$tag"
+            fi
+
+            LAST_TAG="$tag"
+          done < <(git tag -l 'desktop2_v*' --sort=v:refname)
+
+          if [[ -n "$PREV_TAG" ]]; then
+            echo "value=https://github.com/${{ github.repository }}/compare/$PREV_TAG...$CURRENT_TAG" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=https://github.com/${{ github.repository }}/commits/${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: ncipollo/release-action@v1
+        with:
+          tag: desktop2_v${{ needs.compute-version.outputs.version }}
+          name: desktop2_v${{ needs.compute-version.outputs.version }}
+          body: ${{ steps.release-body.outputs.value }}
+          prerelease: ${{ inputs.channel == 'nightly' }}
+          makeLatest: ${{ inputs.channel == 'nightly' && 'false' || 'true' }}
+          # Artifact names are channel-prefixed by electron-builder itself
+          # (e.g. `char-nightly-<version>-<arch>.dmg`), so a glob is enough.
+          artifacts: "dist/*.dmg,dist/*.sha256"

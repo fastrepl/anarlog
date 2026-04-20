@@ -1,0 +1,47 @@
+{
+  "name": "@hypr/napi-sdk",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./src/generated/index.js",
+  "types": "./src/generated/index.d.ts",
+  "scripts": {
+    "artifacts": "napi artifacts",
+    "build:napi": "napi build --platform --release --esm --manifest-path ../../crates/hypr-napi/Cargo.toml --js index.js --dts index.d.ts --output-dir ./src/generated",
+    "build": "pnpm build:napi",
+    "check": "tsc -p tsconfig.generated.json --noEmit",
+    "prepublishOnly": "napi prepublish -t npm",
+    "universal": "napi universal"
+  },
+  "napi": {
+    "binaryName": "hypr-napi-sdk",
+    "targets": [
+      "x86_64-apple-darwin",
+      "aarch64-apple-darwin",
+      "x86_64-unknown-linux-gnu",
+      "x86_64-pc-windows-msvc"
+    ]
+  },
+  "files": [
+    "./src/generated/index.js",
+    "./src/generated/index.d.ts",
+    "./src/generated/*.node"
+  ],
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./src/generated/index.d.ts",
+        "default": "./src/generated/index.js"
+      },
+      "require": {
+        "types": "./src/generated/index.d.ts",
+        "default": "./src/generated/index.js"
+      }
+    }
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "^3.6.2",
+    "@types/node": "^25.6.0",
+    "typescript": "^6.0.3"
+  }
+}

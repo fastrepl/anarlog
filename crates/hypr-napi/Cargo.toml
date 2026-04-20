@@ -1,0 +1,17 @@
+[package]
+name = "hypr-napi"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+hypr-api = { workspace = true }
+napi = { version = "3", features = ["async", "serde-json"] }
+napi-derive = "3"
+serde_json = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt", "sync"] }
+
+[build-dependencies]
+napi-build = "2"

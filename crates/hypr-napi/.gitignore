@@ -1,0 +1,4 @@
+# napi-rs emits the native binary into `packages/napi-sdk/src/generated/` via
+# `.napi-rs.json#jsBinding.outputDir`, but some napi-rs subcommands (e.g.
+# `napi artifacts`) land artefacts in the crate root. Keep that out of git.
+*.node

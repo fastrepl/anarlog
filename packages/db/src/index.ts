@@ -19,4 +19,5 @@ export function createDb(client: DrizzleProxyClient) {
 }
 
 export * from "./schema";
+export * from "./zod";
 export { eq, and, or, desc, asc, sql, count, max, ne } from "drizzle-orm";
