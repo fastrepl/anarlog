@@ -82,7 +82,7 @@ export function DownloadButton({
           download
           onClick={handleClick}
           className={cn([
-            "group relative flex h-9 items-center justify-center overflow-hidden px-5 text-sm",
+            "group relative flex h-9 items-center justify-center overflow-hidden px-6 text-sm",
             "surface-dark rounded-full text-white",
           ])}
         >
@@ -109,7 +109,7 @@ export function DownloadButton({
         download
         onClick={handleClick}
         className={cn([
-          "group relative flex h-14 items-center justify-center overflow-hidden pr-8 pl-4",
+          "group relative flex h-14 items-center justify-center overflow-hidden pr-8 pl-8",
           "surface-dark rounded-full text-white",
         ])}
       >

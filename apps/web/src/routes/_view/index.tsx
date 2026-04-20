@@ -4,28 +4,41 @@ import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { allArticles } from "content-collections";
-import { VideoIcon } from "lucide-react";
-import { AnimatePresence, motion, useInView } from "motion/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Mail, PencilLine, VideoIcon, SquareCheck } from "lucide-react";
+import {
+  AnimatePresence,
+  motion,
+  useInView,
+  useMotionValue,
+  useMotionValueEvent,
+  useScroll,
+  useTransform,
+} from "motion/react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { cn } from "@hypr/utils";
 
-import { AcquisitionLinkGrid } from "@/components/acquisition-link-grid";
 import {
   ContactSearchToolCall,
   TranscriptToolCall,
 } from "@/components/ai-feature-panel";
-import { AppPreviewSection } from "@/components/app-preview";
 import { CTASection } from "@/components/cta-section";
+import { DailyNoteMock } from "@/components/daily-note-mock";
 import { DownloadButton } from "@/components/download-button";
 import { GitHubOpenSource } from "@/components/github-open-source";
-import { GithubStars } from "@/components/github-stars";
 import { Image } from "@/components/image";
+import { JiraWorkflowMock } from "@/components/jira-workflow-mock";
 import { LogoCloud } from "@/components/logo-cloud";
 import { FAQ, FAQItem } from "@/components/mdx-shared";
-import { NotebookGrid } from "@/components/notebook-grid";
 import { SocialCard } from "@/components/social-card";
-import { VideoModal } from "@/components/video-modal";
+import { GitHubStarsSticker, YCombinatorSticker } from "@/components/stickers";
+import { TimelineRecallMock } from "@/components/timeline-recall-mock";
 import { addContact } from "@/functions/loops";
 import { useHeroContext } from "@/hooks/use-hero-context";
 import { getHeroCTA, usePlatform } from "@/hooks/use-platform";
@@ -39,8 +52,6 @@ import {
 } from "@/lib/seo";
 
 import { AnnouncementBanner } from "./route";
-
-const MUX_PLAYBACK_ID = "1s01BC9LBwzygOUWk9Pdn011KuxvIQRMbTEfCpOypfdrw";
 
 const mainFeatures = [
   {
@@ -133,43 +144,32 @@ function useHasEnteredView<T extends Element>(
 }
 
 function Component() {
-  const [expandedVideo, setExpandedVideo] = useState<string | null>(null);
   const heroInputRef = useRef<HTMLInputElement>(null);
 
   return (
     <main className="min-h-screen flex-1 overflow-x-hidden px-2 md:px-8">
       <div className="">
-        <HeroSection
-          onVideoExpand={setExpandedVideo}
-          heroInputRef={heroInputRef}
-        />
+        <HeroSection heroInputRef={heroInputRef} />
         <LogoSection />
-        <HowItWorksSection />
-        <AppPreviewSection />
-        <AISection />
-        <GrowsWithYouSection />
+        <ManifestoSection />
+        <RecordYourDaySection />
+        <SummariseMeetingsSection />
+        <ExecuteTasksSection />
+        <PrivateByDesignSection />
         <SolutionsTabbar />
-        <ExplorePathsSection />
         <SocialTestimonialsSection />
         <GitHubOpenSource />
         <FAQSection />
         <BlogSection />
         <CTASection heroInputRef={heroInputRef} />
       </div>
-      <VideoModal
-        playbackId={expandedVideo || ""}
-        isOpen={expandedVideo !== null}
-        onClose={() => setExpandedVideo(null)}
-      />
     </main>
   );
 }
 
 function HeroSection({
-  onVideoExpand,
   heroInputRef,
 }: {
-  onVideoExpand: (id: string) => void;
   heroInputRef: React.RefObject<HTMLInputElement | null>;
 }) {
   const platform = usePlatform();
@@ -243,21 +243,65 @@ function HeroSection({
           id="hero"
           className="isolate flex w-full overflow-visible pt-10 text-left"
         >
-          <div className="border-brand-bright items-left relative z-10 flex min-h-[80vh] w-full flex-col content-between rounded-lg border md:flex-row">
-            <div className="flex flex-col justify-between px-4 pt-8 pb-8 md:w-3/5 md:px-6 md:pt-12 md:pr-8 md:pb-12 md:pl-12">
-              <div className="flex flex-col gap-2">
+          <div className="border-brand-bright items-left relative z-10 flex min-h-[88vh] w-full flex-col content-between rounded-lg border md:flex-row">
+            <div className="flex flex-col justify-between px-4 pt-8 pb-8 md:w-1/2 md:px-6 md:pt-12 md:pr-8 md:pb-12 md:pl-12">
+              <div className="flex flex-col">
                 <AnnouncementBanner />
                 <h1
-                  className="text-color break-words"
+                  className="text-color mb-6 break-words"
                   style={{
-                    fontSize: "clamp(1.5rem, 2rem + 3.2vw, 3.75rem)",
+                    fontSize: "clamp(1.5rem, 2rem + 3.2vw, 3.2rem)",
                   }}
                 >
-                  Meeting Notes <br /> You Own
+                  AI daily notes <br /> that remember and act
                 </h1>
-                <p className="font-regular text-color text-base leading-relaxed break-words sm:text-xl">
-                  Char captures every meeting without a bot and keeps data on
-                  your device.
+                <p className="font-regular text-color mb-6 max-w-md text-base leading-8 break-words sm:text-xl">
+                  Char records your meetings without bots, pulls action items
+                  from your{" "}
+                  <span className="inline-flex items-center gap-1">
+                    <Mail
+                      strokeWidth={2.5}
+                      className="size-4 rotate-[-2deg] text-blue-500"
+                    />{" "}
+                    emails
+                  </span>
+                  , and builds a{" "}
+                  <span className="inline-flex items-center gap-1">
+                    <PencilLine className="size-4 rotate-[3deg] text-blue-500" />{" "}
+                    daily note
+                  </span>{" "}
+                  with everything you need to do.
+                </p>
+                <p className="font-regular text-color mb-4 max-w-md text-base leading-8 break-words sm:text-xl">
+                  You review it,{" "}
+                  <span className="inline-flex items-center gap-1">
+                    <SquareCheck
+                      strokeWidth={2.5}
+                      className="size-4 rotate-[-4deg] text-blue-500"
+                    />{" "}
+                    tick what's done
+                  </span>
+                  , and hand off the rest to AI agents like{" "}
+                  <span className="inline-flex items-center gap-1">
+                    <img
+                      src="/icons/claude.svg"
+                      alt=""
+                      className="size-4 shrink-0 rotate-[4deg] object-contain"
+                      aria-hidden
+                    />
+                    Claude
+                  </span>{" "}
+                  or{" "}
+                  <span className="inline-flex items-center gap-1">
+                    <img
+                      src="/icons/cursor.svg"
+                      alt=""
+                      className="h-4 w-auto max-w-[1.125rem] shrink-0 rotate-[2deg] object-contain"
+                      aria-hidden
+                    />
+                    Cursor
+                  </span>
+                  .
                 </p>
                 {heroCTA.showInput ? (
                   <form
@@ -361,71 +405,19 @@ function HeroSection({
                   <>
                     <div className="mt-4 flex w-full flex-col items-stretch gap-4 lg:flex-row lg:items-start">
                       <DownloadButton />
-                      <GithubStars />
                     </div>
                   </>
                 )}
               </div>
             </div>
 
-            <div className="relative hidden w-full shrink-0 self-stretch overflow-hidden p-8 md:block md:w-2/5">
-              <NotebookGrid />
+            <div className="relative hidden w-full shrink-0 self-stretch overflow-hidden p-4 md:block md:w-1/2">
+              <div className="border-color-bright bg-lined-notebook-bright relative h-full w-full border">
+                <YCombinatorSticker className="absolute top-2 right-4 rotate-[-5deg]" />
+                <GitHubStarsSticker className="absolute top-8 right-10 -translate-x-5/5 rotate-[2deg]" />
 
-              <a
-                href="https://www.ycombinator.com/companies/char"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="surface shadow-ring absolute top-10 right-10 z-10 flex rotate-[-5deg] items-center gap-3 rounded-xl py-2 pr-4 pl-2 transition-transform hover:scale-105 hover:rotate-[0deg]"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 18 18"
-                  className="size-10 shrink-0"
-                >
-                  <path
-                    d="M 0 18 L 18 18 L 18 0 L 0 0 Z"
-                    fill="rgb(251,101,30)"
-                  />
-                  <path
-                    d="M 9.731 9.894 L 9.731 13.894 L 8.212 13.894 L 8.212 9.894 L 4.337 4.106 L 6.187 4.106 L 8.977 8.381 L 11.756 4.106 L 13.607 4.106 Z"
-                    fill="rgb(255,255,255)"
-                  />
-                </svg>
-                <div className="flex flex-col">
-                  <span className="text-xs text-stone-400">Backed by</span>
-                  <span className="text-sm font-semibold text-stone-700">
-                    Y Combinator
-                  </span>
-                </div>
-              </a>
-
-              <div className="absolute inset-x-0 bottom-0 flex justify-end p-10">
-                <div
-                  className="group surface border-color-brand relative w-4/5 overflow-hidden rounded-xl border shadow-xl"
-                  style={{ aspectRatio: "16/9" }}
-                >
-                  <MuxPlayer
-                    playbackId={MUX_PLAYBACK_ID}
-                    autoPlay="muted"
-                    muted
-                    loop
-                    playsInline
-                    className="pointer-events-none h-full w-full object-cover"
-                    style={{ "--controls": "none" } as any}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => onVideoExpand(MUX_PLAYBACK_ID)}
-                    className="absolute inset-0 flex items-end justify-end p-3 transition-transform duration-200 hover:scale-105"
-                    aria-label="Open product demo video"
-                  >
-                    <div className="flex size-10 items-center justify-center rounded-full bg-white/90 shadow-lg transition-transform group-hover:scale-120">
-                      <Icon
-                        icon="mdi:play"
-                        className="text-color ml-0.5 text-lg"
-                      />
-                    </div>
-                  </button>
+                <div className="absolute right-1/2 bottom-0 flex translate-x-1/2 justify-end p-2">
+                  <DailyNoteMock />
                 </div>
               </div>
             </div>
@@ -1819,133 +1811,6 @@ export function AISection() {
   );
 }
 
-export function GrowsWithYouSection() {
-  return (
-    <section id="grows-with-you" className="px-4 pt-8 pb-16">
-      <div className="surface border-color-brand mx-auto rounded-xl border">
-        <div className="items-left flex flex-col gap-2 px-8 pt-16 pb-8 text-left">
-          <h2 className="text-color font-mono text-2xl tracking-wide md:text-4xl">
-            Char grows with you
-          </h2>
-          <p className="text-md text-color-secondary max-w-2xl pb-4">
-            Add people from meetings in contacts, grow knowledge about your
-            chats and context of previous meetings
-          </p>
-          <Link
-            to="/product/mini-apps/"
-            className="text-md text-color-secondary hover:text-color flex items-center gap-1 underline"
-          >
-            Explore all features
-            <Icon icon="mdi:arrow-top-right" className="text-sm" />
-          </Link>
-        </div>
-
-        <div className="border-color-brand grid border-t md:grid-cols-2">
-          <div className="bg-lined-notebook border-color-brand flex flex-col border-b md:border-r md:border-b-0">
-            <div className="flex h-[240px] items-start px-8 pt-8">
-              <div className="surface border-color-brand w-full rounded-xl border p-4 md:max-w-4/5">
-                <div className="mb-3 flex items-center gap-3">
-                  <div className="flex size-10 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-500">
-                    S
-                  </div>
-                  <div>
-                    <p className="text-color text-sm font-medium">Sarah Chen</p>
-                    <p className="text-color-secondary text-xs">
-                      Product Lead · Acme Inc
-                    </p>
-                  </div>
-                </div>
-                <div className="text-color-secondary mb-2 text-xs">
-                  sarah@acme.com · +1 (415) 555-0123
-                </div>
-                <div className="border-color-brand bg-surface-subtle rounded border p-3">
-                  <p className="text-color mb-1 text-xs font-medium">
-                    Last conversation
-                  </p>
-                  <p className="text-color text-xs">
-                    Discussed Q2 roadmap priorities and timeline for the mobile
-                    redesign. Agreed to share updated specs by Friday.
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="px-8 pt-8 pb-8">
-              <h3 className="text-color mb-3 font-mono text-2xl leading-[1.3]">
-                Have your contacts in one place
-              </h3>
-              <p className="text-color-secondary mb-4 text-base leading-relaxed md:max-w-2/3">
-                Import contacts and watch them come alive with context once you
-                actually meet.
-              </p>
-              <ul className="flex flex-col gap-3">
-                <li className="flex items-start gap-3">
-                  <span className="text-md text-color">
-                    All your chats linked
-                  </span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="text-md text-color">
-                    Generate summaries from meetings
-                  </span>
-                </li>
-              </ul>
-            </div>
-          </div>
-          <div className="bg-grid flex flex-col">
-            <div className="flex h-[240px] items-center px-8 pt-8">
-              <div className="surface-subtle border-color-brand flex w-full items-center justify-between gap-4 rounded-2xl border p-4 md:max-w-4/5">
-                <div className="flex items-center gap-3">
-                  <Icon
-                    icon="mdi:calendar"
-                    className="text-color-secondary text-xl"
-                  />
-                  <div>
-                    <p className="text-color text-sm font-medium">
-                      Weekly Team Sync
-                    </p>
-                    <p className="text-color-secondary text-xs">
-                      Starting in 2 min
-                    </p>
-                  </div>
-                </div>
-                <button className="bg-brand-color shrink-0 rounded-full bg-stone-700 px-4 py-2 text-xs font-medium text-white shadow-md transition-shadow duration-200 hover:shadow-lg">
-                  Start listening
-                </button>
-              </div>
-            </div>
-            <div className="px-8 pt-8 pb-8">
-              <h3 className="text-color mb-3 font-mono text-2xl">
-                Work with your calendar
-              </h3>
-              <p className="text-color-secondary mb-4 text-base leading-relaxed">
-                Connect your calendar for intelligent meeting preparation and
-                automatic note organization.
-              </p>
-              <ul className="flex flex-col gap-3">
-                <li className="flex items-start gap-3">
-                  <span className="text-md text-color">
-                    Automatic meeting linking
-                  </span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="text-md text-color">
-                    Pre-meeting context and preparation
-                  </span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="text-md text-color">
-                    Timeline view with notes
-                  </span>
-                </li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 export function MainFeaturesSection({
   featuresScrollRef,
   selectedFeature,
@@ -2481,15 +2346,15 @@ const solutionColors: Record<
   string,
   { accent: string; bg: string; border: string }
 > = {
+  founders: {
+    accent: "oklch(0.62 0.17 42)",
+    bg: "#fff7ed",
+    border: "#fed7aa",
+  },
   developers: {
     accent: "oklch(0.55 0.2245 292.58)",
     bg: "#f5f3ff",
     border: "#ddd6fe",
-  },
-  enterprise: {
-    accent: "#374151",
-    bg: "#f9fafb",
-    border: "#d1d5db",
   },
   research: {
     accent: "oklch(0.5471 0.1899 264.38)",
@@ -2499,6 +2364,21 @@ const solutionColors: Record<
 };
 
 const solutionScenarios = [
+  {
+    id: "founders",
+    label: "Founders",
+    headline: "One source of truth for every conversation you run",
+    description:
+      "Investor calls, customer discovery, team 1:1s, board updates. Char captures it all with zero overhead and keeps the context you need to act.",
+    pills: [
+      "Multiple agendas",
+      "Investor & customer memory",
+      "Cross-context handoff",
+      "Agent-ready workflows",
+      "Your data, your rules",
+    ],
+    link: "/solution/founders",
+  },
   {
     id: "developers",
     label: "Developers",
@@ -2513,21 +2393,6 @@ const solutionScenarios = [
       "REST API",
     ],
     link: "/solution/engineering",
-  },
-  {
-    id: "enterprise",
-    label: "Enterprise",
-    headline: "Meeting AI configured for your organization",
-    description:
-      "Other AI note-takers ask you to trust their infrastructure, their models, and their policies. We built one where you control all three.",
-    pills: [
-      "Self-Hosted Deployment",
-      "Zero-Knowledge Security",
-      "Compliance Ready",
-      "Access Control",
-      "Open Source",
-    ],
-    link: "/enterprise",
   },
   {
     id: "research",
@@ -2679,60 +2544,6 @@ function SolutionsTabbar() {
   );
 }
 
-function ExplorePathsSection() {
-  return (
-    <AcquisitionLinkGrid
-      title="Explore Char by workflow, platform, or alternative"
-      description="These are the highest-intent paths on the site: team workflows, meeting platform guides, and direct comparisons against the tools people switch from."
-      className="px-4 pt-16 pb-8"
-      items={[
-        {
-          eyebrow: "Solutions",
-          title: "Browse team workflows",
-          description:
-            "Start with the use cases Char is already built around, from sales to research to developer-heavy teams.",
-          href: "/solutions/",
-        },
-        {
-          eyebrow: "Solutions",
-          title: "AI meeting notes for sales",
-          description:
-            "See how Char supports revenue teams with searchable notes, summaries, and fewer meeting follow-up gaps.",
-          href: "/solution/sales",
-        },
-        {
-          eyebrow: "Solutions",
-          title: "Char for developers",
-          description:
-            "Open source, local-first, and flexible enough for teams that want to inspect and extend the stack.",
-          href: "/solution/engineering",
-        },
-        {
-          eyebrow: "Integrations",
-          title: "Browse meeting platform guides",
-          description:
-            "See how Char works with Zoom, Google Meet, Microsoft Teams, and Webex without meeting bots.",
-          href: "/integrations/",
-        },
-        {
-          eyebrow: "Integrations",
-          title: "Zoom AI notetaker guide",
-          description:
-            "Read the Zoom-specific landing page for note capture, transcription, and bot-free workflows.",
-          href: "/integrations/zoom/notetaker",
-        },
-        {
-          eyebrow: "Comparisons",
-          title: "Compare Char vs Otter",
-          description:
-            "See the control, privacy, and workflow differences that make Char a stronger fit for high-agency teams.",
-          href: "/vs/otter",
-        },
-      ]}
-    />
-  );
-}
-
 function FAQSection() {
   return (
     <section id="faq" className="px-4 pt-16 pb-16">
@@ -2864,6 +2675,597 @@ function BlogSection() {
             </Link>
           );
         })}
+      </div>
+    </section>
+  );
+}
+
+type ScrollEffect = "opacity" | "blur" | "blurUp";
+
+function ScrollRevealWord({
+  progress,
+  range,
+  effect,
+  children,
+}: {
+  progress: ReturnType<typeof useMotionValue<number>>;
+  range: [number, number];
+  effect: ScrollEffect;
+  children: React.ReactNode;
+}) {
+  const [rangeStart, rangeEnd] = range;
+  const adjustedStart = Math.max(0, rangeStart - 0.05);
+
+  const opacity = useTransform(progress, [adjustedStart, rangeEnd], [0.15, 1]);
+  const filter = useTransform(
+    progress,
+    [adjustedStart, rangeEnd],
+    ["blur(4px)", "blur(0px)"],
+  );
+  const y = useTransform(progress, [adjustedStart, rangeEnd], [5, 0]);
+
+  const style = useMemo(() => {
+    if (effect === "opacity") return { opacity };
+    if (effect === "blur") return { opacity, filter };
+    if (effect === "blurUp") {
+      return { opacity, filter, y, display: "inline-block" as const };
+    }
+    return {};
+  }, [effect, opacity, filter, y]);
+
+  return <motion.span style={style}>{children}</motion.span>;
+}
+
+function ScrollRevealParagraph({
+  children,
+  effect = "blur",
+  className,
+}: {
+  children: React.ReactNode;
+  effect?: ScrollEffect;
+  className?: string;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: containerRef,
+    offset: ["start 0.8", "end 0.8"],
+  });
+
+  const ratchetedProgress = useMotionValue(0);
+
+  useMotionValueEvent(scrollYProgress, "change", (latest) => {
+    if (latest > ratchetedProgress.get()) {
+      ratchetedProgress.set(latest);
+    }
+  });
+
+  const extractText = (node: React.ReactNode): string => {
+    if (typeof node === "string") return node;
+    if (typeof node === "number") return String(node);
+    if (Array.isArray(node)) return node.map(extractText).join(" ");
+    if (React.isValidElement(node)) {
+      const element = node as React.ReactElement<{
+        children?: React.ReactNode;
+      }>;
+      if (element.props.children) return extractText(element.props.children);
+    }
+    return "";
+  };
+
+  const allText = extractText(children);
+  const allWords = allText.split(/\s+/).filter((w) => w.length > 0);
+  const wordCount = allWords.length;
+
+  let globalWordIndex = 0;
+
+  const processNode = (node: React.ReactNode): React.ReactNode => {
+    if (typeof node === "string") {
+      const words = node.split(/(\s+)/);
+      return words.map((segment, i) => {
+        if (segment.trim().length === 0) return segment;
+
+        const currentWordIndex = globalWordIndex;
+        globalWordIndex++;
+
+        const start = currentWordIndex / wordCount;
+        const end = (currentWordIndex + 1) / wordCount;
+
+        return (
+          <ScrollRevealWord
+            key={`word-${currentWordIndex}-${i}`}
+            progress={ratchetedProgress}
+            range={[start, end]}
+            effect={effect}
+          >
+            {segment}
+          </ScrollRevealWord>
+        );
+      });
+    }
+
+    if (React.isValidElement(node)) {
+      const element = node as React.ReactElement<{
+        children?: React.ReactNode;
+        style?: React.CSSProperties;
+      }>;
+
+      if (element.type === "img") {
+        const neighborIndex = Math.max(0, globalWordIndex - 1);
+        const start = neighborIndex / wordCount;
+        const end = (neighborIndex + 1) / wordCount;
+
+        return (
+          <ScrollRevealWord
+            key={`img-${neighborIndex}`}
+            progress={ratchetedProgress}
+            range={[start, end]}
+            effect={effect}
+          >
+            {element}
+          </ScrollRevealWord>
+        );
+      }
+
+      if (element.props.style?.backgroundImage) {
+        const innerText = extractText(element);
+        const innerWords = innerText.split(/\s+/).filter((w) => w.length > 0);
+        const startIndex = globalWordIndex;
+        globalWordIndex += innerWords.length;
+        const start = startIndex / wordCount;
+        const end = (startIndex + innerWords.length) / wordCount;
+
+        return (
+          <ScrollRevealWord
+            key={`bg-${startIndex}`}
+            progress={ratchetedProgress}
+            range={[start, end]}
+            effect={effect}
+          >
+            {element}
+          </ScrollRevealWord>
+        );
+      }
+
+      return React.cloneElement(element, {
+        ...element.props,
+        children: React.Children.map(element.props.children, processNode),
+      });
+    }
+
+    if (Array.isArray(node)) {
+      return node.map((child, i) => (
+        <React.Fragment key={i}>{processNode(child)}</React.Fragment>
+      ));
+    }
+
+    return node;
+  };
+
+  return (
+    <div ref={containerRef} className={className}>
+      {processNode(children)}
+    </div>
+  );
+}
+
+function ManifestoSection() {
+  const paragraphClass =
+    "font-sans text-xl leading-relaxed text-fg md:text-3xl lg:text-3xl";
+  const paragraphSpacing = "mt-4 md:mt-6 lg:mt-8";
+  return (
+    <section className="mx-auto flex w-full max-w-3xl flex-col px-4 pt-12 pb-12 text-left md:pt-16 md:pb-16 lg:pt-20 lg:pb-20">
+      <p className={paragraphClass}>
+        We believe in the power of notetaking, not notetakers. Meetings should
+        be moments of presence, not passive attendance.{" "}
+        <img
+          src="/handdrawing/sleeping.svg"
+          alt="Presence"
+          className="inline-block size-8 md:size-10 lg:size-12"
+        />
+      </p>
+      <ScrollRevealParagraph effect="blur">
+        <p className={cn([paragraphClass, paragraphSpacing])}>
+          AI changes it. Instead of{" "}
+          <span
+            style={{
+              backgroundImage: "url(/handdrawing/scribbling.svg)",
+              backgroundSize: "contain",
+              backgroundPosition: "bottom",
+              backgroundRepeat: "no-repeat",
+            }}
+          >
+            {" "}
+            scribbling{" "}
+          </span>{" "}
+          notes, it gives us the power to be present.
+        </p>
+        <p className={cn([paragraphClass, paragraphSpacing])}>
+          But we give it control over our meetings. What happens with all our
+          calls and chats then? Services sunset{" "}
+          <span>
+            <img
+              src="/handdrawing/sunset.svg"
+              alt="Sunset"
+              className="inline-block size-8 md:size-10 lg:size-12"
+            />
+          </span>{" "}
+          constantly, models change, progress is unstoppable.
+        </p>
+        <p className={cn([paragraphClass, paragraphSpacing])}>
+          We believe in owning your data, doesn't matter where it lives. More
+          <span
+            style={{
+              backgroundImage: "url(/handdrawing/important.svg)",
+              backgroundSize: "contain",
+              backgroundPosition: "center",
+              backgroundRepeat: "no-repeat",
+            }}
+          >
+            {" "}
+            important{" "}
+          </span>{" "}
+          is what you bring from every meeting, every call, every chat.
+        </p>
+        <p className={cn([paragraphClass, paragraphSpacing])}>
+          <span>
+            <img
+              src="/handdrawing/bracket-left.svg"
+              alt="bracket left"
+              className="inline-block size-8 md:h-10 lg:h-12"
+            />
+            Char
+            <img
+              src="/handdrawing/bracket-right.svg"
+              alt="bracket right"
+              className="inline-block size-8 md:h-10 lg:h-12"
+            />
+          </span>{" "}
+          exists to preserve what makes us human: conversations that spark
+          ideas, collaborations that move work forward. We build tools that
+          amplify human agency, not replace it.
+        </p>
+        <p className={cn([paragraphClass, paragraphSpacing])}>
+          No ghost bots. No silent note lurkers. Just people,{" "}
+          <span>
+            thinking{" "}
+            <img
+              src="/handdrawing/thinking.svg"
+              alt="thinking"
+              className="inline-block size-8 md:size-10 lg:size-12"
+            />{" "}
+          </span>
+          together.
+        </p>
+      </ScrollRevealParagraph>
+
+      <div className="mt-12 flex w-full flex-col items-start gap-8 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex flex-col gap-4">
+          <div className="mb-4 flex gap-2">
+            <Image
+              src="/api/assets/team/john.png"
+              alt="John Jeong"
+              width={32}
+              height={32}
+              className="rounded-full border border-neutral-200 object-cover"
+            />
+            <Image
+              src="/api/assets/team/yujong.png"
+              alt="Yujong Lee"
+              width={32}
+              height={32}
+              className="rounded-full border border-neutral-200 object-cover"
+            />
+          </div>
+
+          <div>
+            <p className="font-serif text-base font-medium text-neutral-600 italic">
+              Char
+            </p>
+            <p className="text-sm text-neutral-500">John Jeong, Yujong Lee</p>
+          </div>
+
+          <div>
+            <Image
+              src="/handdrawing/char-signature.svg"
+              alt="Char Signature"
+              width={124}
+              height={60}
+              layout="constrained"
+              className="object-contain opacity-80"
+            />
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function RecordYourDaySection() {
+  return (
+    <section id="record-your-day" className="px-4 pt-8 pb-12 md:pb-24">
+      <h2 className="text-color border-color-brand mb-10 border-b pb-8 font-mono text-2xl tracking-wide md:text-4xl">
+        <span className="mb-2 block">This is how Char gets your day done</span>
+      </h2>
+      <div className="flex flex-col md:flex-row">
+        <div className="flex flex-col gap-4 pt-10 pb-12 md:w-1/2 md:pt-16 md:pb-20">
+          <p className="text-color-muted font-mono text-xs tracking-widest uppercase">
+            Screen recording
+          </p>
+          <h2 className="text-color font-mono text-2xl tracking-wide md:text-4xl">
+            Record your day
+          </h2>
+          <p className="text-color-secondary text-base leading-relaxed md:text-lg">
+            Char remembers your timeline and helps you get any information you
+            want: emails, tasks, conversations.
+          </p>
+          <p className="text-color-secondary mt-2 text-sm leading-relaxed">
+            — Ask Charlie anything, about day, contacts, meetings.
+          </p>
+        </div>
+
+        <div className="bg-dotted-dark flex flex-col justify-center gap-4 p-6 md:w-1/2 md:p-10">
+          <TimelineRecallMock />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function SummariseMeetingsSection() {
+  return (
+    <section id="summarise-meetings" className="px-4 pt-8 pb-12 md:pb-24">
+      <div className="flex flex-col gap-8 md:flex-row md:items-start md:gap-16">
+        <div className="flex flex-col gap-4 md:w-1/2">
+          <p className="text-color-muted font-mono text-xs tracking-widest uppercase">
+            Collect meetings
+          </p>
+          <h2 className="text-color font-mono text-2xl tracking-wide md:text-4xl">
+            Summarise and transcribe meetings
+          </h2>
+          <p className="text-color-secondary text-base leading-relaxed md:text-lg">
+            Char combines your meeting notes with transcripts to create a
+            perfect summary.
+          </p>
+          <Link
+            to="/product/ai-notetaking/"
+            className="text-color hover:text-color-secondary mt-4 inline-flex items-center gap-1 self-start underline underline-offset-4 transition-colors"
+          >
+            Learn more about meeting notetaker
+            <Icon icon="mdi:arrow-top-right" className="text-sm" />
+          </Link>
+        </div>
+
+        <div className="flex flex-col gap-4 md:w-1/2">
+          <MeetingBar animated={false} />
+          <SummaryPreview />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function SummaryPreview() {
+  return (
+    <div className="border-color-brand surface overflow-hidden rounded-xl border shadow-xl">
+      <div className="border-color-brand bg-surface-subtle relative flex h-[38px] items-center gap-2 border-b px-4">
+        <div className="flex gap-2">
+          <div className="size-3 rounded-full bg-red-400" />
+          <div className="size-3 rounded-full bg-yellow-400" />
+          <div className="size-3 rounded-full bg-green-400" />
+        </div>
+        <div className="absolute left-1/2 -translate-x-1/2">
+          <span className="text-fg-muted font-mono text-sm font-medium">
+            Char
+          </span>
+        </div>
+      </div>
+      <div className="flex flex-col gap-4 p-6 text-sm">
+        <div className="flex flex-col gap-2">
+          <h4 className="text-color text-base font-semibold">
+            Mobile UI Update and API Adjustments
+          </h4>
+          <ul className="text-color flex list-disc flex-col gap-2 pl-5">
+            <li>
+              Sarah presented the new mobile UI update, which includes a
+              streamlined navigation bar and improved button placements for
+              better accessibility.
+            </li>
+            <li>
+              Ben confirmed that API adjustments are needed to support dynamic
+              UI changes, particularly for fetching personalized user data more
+              efficiently.
+            </li>
+          </ul>
+        </div>
+        <div className="flex flex-col gap-2">
+          <h4 className="text-color font-semibold">
+            New Dashboard – Urgent Priority
+          </h4>
+          <ul className="text-color flex list-disc flex-col gap-2 pl-5">
+            <li>
+              Alice emphasized that the new analytics dashboard must be
+              prioritized due to increasing stakeholder demand.
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ExecuteTasksSection() {
+  return (
+    <section id="execute-tasks" className="px-4 pt-8 pb-12 md:pb-24">
+      <div className="flex flex-col gap-8 md:flex-row md:items-start md:gap-16">
+        <div className="flex flex-col gap-4 md:w-1/2">
+          <p className="text-color-muted font-mono text-xs tracking-widest uppercase">
+            AI chat
+          </p>
+          <h2 className="text-color font-mono text-2xl tracking-wide md:text-4xl">
+            Ask questions, execute tasks
+          </h2>
+          <p className="text-color-secondary text-base leading-relaxed md:text-lg">
+            Chat with Charlie to find decisions, pull context, and trigger the
+            follow-ups that usually slip — all grounded in your notes.
+          </p>
+          <p className="text-color-secondary mt-2 text-sm leading-relaxed">
+            — Hand off work to AI agents like Claude or Cursor.
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-4 md:w-1/2">
+          <JiraWorkflowMock />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function PrivateByDesignSection() {
+  return (
+    <section id="private-by-design" className="px-4 pt-8 pb-12 md:pb-24">
+      <div className="border-color-brand relative rounded-lg md:border">
+        <div className="border-color-brand flex flex-col px-8 pt-8 pb-8 md:border-b">
+          <h2 className="text-color font-mono text-2xl tracking-wide md:text-4xl">
+            Private by design
+          </h2>
+        </div>
+
+        <div className="flex snap-x snap-mandatory gap-8 overflow-x-auto pb-4 [scrollbar-width:none] md:grid md:grid-cols-2 md:gap-0 md:overflow-visible md:pb-0 md:*:min-h-[320px] md:*:py-4 lg:grid-cols-4">
+          <div className="border-color-brand flex w-[85%] shrink-0 snap-start flex-col gap-2 p-8 md:w-auto md:shrink md:border-r md:border-b lg:border-b-0">
+            <div className="flex h-32 items-center justify-start gap-2 select-none md:h-24 lg:h-32">
+              <img
+                src="/icons/file.webp"
+                alt=""
+                className="w-10 rotate-[3deg] object-contain md:w-7 lg:w-10"
+                draggable={false}
+              />
+              <img
+                src="/icons/file.webp"
+                alt=""
+                className="w-10 rotate-[-5deg] object-contain md:w-7 lg:w-10"
+                draggable={false}
+              />
+              <img
+                src="/icons/folderchar.svg"
+                alt=""
+                className="w-14 object-contain md:w-10 lg:w-14"
+                draggable={false}
+              />
+              <img
+                src="/icons/file.webp"
+                alt=""
+                className="w-10 rotate-[6deg] object-contain md:w-7 lg:w-10"
+                draggable={false}
+              />
+              <img
+                src="/icons/file.webp"
+                alt=""
+                className="w-10 rotate-[-4deg] object-contain md:w-7 lg:w-10"
+                draggable={false}
+              />
+            </div>
+            <div className="flex min-h-0 flex-col justify-start gap-2 md:max-h-[200px]">
+              <h4 className="text-color mb-2 text-base md:text-xl">
+                Data always stays on your device
+              </h4>
+              <p className="text-color-secondary text-base">
+                Your privacy is our priority. We don't use it for training or
+                collecting any of your meeting content.
+              </p>
+            </div>
+          </div>
+
+          <div className="border-color-brand flex w-[85%] shrink-0 snap-start flex-col gap-2 p-8 md:w-auto md:shrink md:border-b lg:border-r lg:border-b-0">
+            <div className="flex h-32 items-center gap-4 select-none md:h-24 md:gap-3 lg:h-32 lg:gap-4">
+              <div
+                className={cn([
+                  "relative flex w-full items-center overflow-hidden rounded-lg",
+                  "border-color-brand border px-3 py-4",
+                ])}
+              >
+                <span className="font-mono text-base tracking-wider text-stone-300">
+                  sk-
+                </span>
+                <span className="text-base tracking-[0.2em] text-stone-400">
+                  ✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱
+                </span>
+                <div className="pointer-events-none absolute inset-y-0 right-0 w-24 bg-linear-to-l from-[var(--color-page)] to-transparent" />
+              </div>
+            </div>
+            <div className="flex min-h-0 flex-col justify-start gap-2 pb-8 md:max-h-[200px]">
+              <h4 className="text-color mb-2 text-base md:text-xl">
+                Bring Your Own Key or use local models
+              </h4>
+              <p className="text-color-secondary text-base">
+                Char supports all major speech-to-text providers and have the
+                best local models build in
+              </p>
+            </div>
+          </div>
+
+          <div className="border-color-brand flex w-[85%] shrink-0 snap-start flex-col gap-2 p-8 md:w-auto md:shrink md:border-r">
+            <div className="flex h-32 items-center select-none md:h-24 lg:h-32">
+              <div
+                className={cn([
+                  "flex items-center gap-3 rounded-2xl py-2 pr-8 pl-2",
+                  "surface",
+                  "shadow-lg",
+                  "border-color-brand border",
+                ])}
+              >
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 md:size-9">
+                  <VideoIcon className="size-4 text-emerald-600 md:size-4 lg:size-5" />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-sm font-medium text-stone-800 md:text-xs lg:text-sm">
+                    1-1 w/ Janice
+                  </span>
+                  <span className="md:text-md text-sm text-stone-400">
+                    3 participants
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="flex min-h-0 flex-col justify-start gap-2 md:max-h-[200px]">
+              <h4 className="text-color mb-2 text-base md:text-xl">
+                No bots on calls. Hidden during screen share.
+              </h4>
+              <p className="text-color-secondary text-base">
+                Char captures system audio, not bothers people on the call.
+                Works everywhere.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex w-[85%] shrink-0 snap-start flex-col gap-2 p-8 md:w-auto md:shrink">
+            <div className="flex h-32 items-center select-none md:h-24 lg:h-32">
+              <div className="border-color-brand surface flex items-center gap-3 rounded-xl border px-4 py-3 shadow-lg">
+                <Icon
+                  icon="mdi:monitor-lock"
+                  className="text-2xl text-stone-700"
+                />
+                <div className="flex flex-col">
+                  <span className="text-xs text-stone-400">
+                    Screen activity
+                  </span>
+                  <span className="text-sm font-medium text-stone-800">
+                    Processed locally
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="flex min-h-0 flex-col justify-start gap-2 md:max-h-[200px]">
+              <h4 className="text-color mb-2 text-base md:text-xl">
+                Screen recording stays on your device
+              </h4>
+              <p className="text-color-secondary text-base">
+                We record and analyse your screen locally. It never goes to the
+                cloud.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   );

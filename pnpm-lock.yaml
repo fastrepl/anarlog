@@ -6,6 +6,7 @@ settings:
 
 overrides:
   '@tiptap/extension-paragraph': 3.20.1
+  '@astrojs/internal-helpers': 0.8.0
   '@tiptap/extension-blockquote': 3.20.1
   '@tiptap/extension-bold': 3.20.1
   '@tiptap/extension-code': 3.20.1

@@ -44,16 +44,8 @@
       "@tiptap/extension-floating-menu": "3.20.1",
       "@tiptap/extensions": "3.20.1",
       "prosemirror-view": "1.41.7",
-      "lightningcss": "1.30.1"
-    },
-    "peerDependencyRules": {
-      "allowedVersions": {
-        "motion": "11",
-        "react": "19",
-        "@lobehub/ui": "3.4.0",
-        "unist-util-visit": "5",
-        "esbuild": "0.25"
-      }
+      "lightningcss": "1.30.1",
+      "@astrojs/internal-helpers": "0.8.0"
     }
   },
   "packageManager": "pnpm@10.33.0",
