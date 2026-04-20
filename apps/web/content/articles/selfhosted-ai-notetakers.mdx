@@ -58,24 +58,26 @@ Free for fully local use (on-device STT + local LLM). Cloud features available a
 
 ### 2. Meetily
 
-[Meetily](meetily.ai) is the Windows-friendly option. It captures system audio and mic input in real time, transcribes locally, and summarizes through Ollama. So you get the record → transcribe → summarize pipeline without leaving the app. 
+[Meetily](meetily.ai) captures system audio and mic input in real time, transcribes locally using Whisper or Parakeet, and summarizes through your choice of AI provider. 
 
-It sits in your system tray and works with any conferencing platform producing audio.
+It covers the full record → transcribe → summarize pipeline without leaving the app, and works with any conferencing platform that produces audio on your machine.
 
 #### Setup
 
-**Install:** Download the desktop app for Windows or macOS from GitHub releases, or build from source.
+**Install:** Download the desktop app for Windows or macOS from GitHub releases. Linux is supported but requires building from source.
 
-**Transcription:** Whisper or Parakeet, running locally. Models download on first run.
+**Transcription:** Whisper or Parakeet, running locally. GPU acceleration is automatic — Metal/CoreML on Apple Silicon, CUDA for NVIDIA, Vulkan for AMD/Intel.
 
-**Summarization:** Ollama. Configure your preferred model in settings.
+**Summarization:** Pluggable. Use Ollama for fully local processing, or bring your own API key for Claude, Groq, OpenRouter, or OpenAI.
 
-**Storgae:** Locally on disk
+**Storage:** Local SQLite database on disk.
 
 #### Limitations
 
-- No Linux support.
-- Recording-focused UI. No rich editor, templates, or contact management on the free tier.
+- No rich editor or note-taking interface — it's a transcription and summarization tool, not a writing workspace.
+- Linux requires building from source; no prebuilt installer.
+- Speaker diarization not yet available in the Community Edition.
+- Auto-meeting detection and calendar integration are Pro-only features.
 
 #### Pricing
 
