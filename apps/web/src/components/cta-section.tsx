@@ -5,8 +5,8 @@ import { GithubStars } from "@/components/github-stars";
 import { getPlatformCTA, usePlatform } from "@/hooks/use-platform";
 
 export function CTASection({
-  title = "Your meetings. Your data. Your control.",
-  description = "Start taking meeting notes with AI—without the lock-in",
+  title = "One daily note. Everything handled.",
+  description = "Meetings, emails, screen activity — all in one place. You decide what to do, agents handle the rest.",
   heroInputRef,
 }: {
   title?: string;

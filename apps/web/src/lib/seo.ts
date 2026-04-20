@@ -1,10 +1,10 @@
 export const CHAR_SITE_URL = "https://char.com";
 export const DEFAULT_OG_IMAGE_URL = `${CHAR_SITE_URL}/api/assets/blog/brand-assets/OG.png`;
-export const ROOT_TITLE = "Char - Meeting Notes You Own";
+export const ROOT_TITLE = "Char - AI Daily Notes That Remember and Act";
 export const ROOT_DESCRIPTION =
-  "Private, bot-free meeting notes that stay under your control. Char stores notes as files you own and lets you use local models, your own keys, or managed cloud AI.";
+  "Char records your meetings without bots, pulls action items from your emails, and builds a daily note with everything you need. Review it, hand off the rest to AI agents like Claude or Cursor. Local-first, open source, your data stays yours.";
 export const ROOT_KEYWORDS =
-  "private meeting notes, bot-free AI notes, local transcription, AI meeting notes, AI notetaker, meeting transcription, meeting summaries, BYOK AI, open source note taking, local AI";
+  "AI daily notes, daily note app, bot-free meeting notes, local transcription, AI notetaker, meeting summaries, screen recording AI, task delegation AI, BYOK AI, open source notes, local-first AI";
 
 type StructuredDataNode = Record<string, unknown>;
 

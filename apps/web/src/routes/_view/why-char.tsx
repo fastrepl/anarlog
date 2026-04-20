@@ -9,7 +9,7 @@ export const Route = createFileRoute("/_view/why-char")({
   component: Component,
   head: () => ({
     meta: [
-      { title: "Why Char - AI Meeting Notes You Actually Own" },
+      { title: "Why Char - The AI Daily Notes App You Actually Own" },
       {
         name: "description",
         content:

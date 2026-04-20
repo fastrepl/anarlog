@@ -43,11 +43,7 @@ type MenuGroup = {
 const featuresList: MenuItem[] = [
   { to: "/product/daily-notes", label: "Daily Notes" },
   { to: "/product/ai-notetaking", label: "AI Notetaking" },
-  { to: "/product/search", label: "Searchable Notes" },
-  { to: "/gallery?type=template", label: "Custom Templates" },
-  { to: "/product/markdown", label: "Markdown Files" },
   { to: "/product/flexible-ai", label: "Flexible AI" },
-  { to: "/opensource", label: "Open Source" },
 ];
 
 const solutionsList: MenuItem[] = featuredSolutionMenuItems;
@@ -624,142 +620,157 @@ function SolutionsIndexLink({
   );
 }
 
+type MenuVariant = "mobile" | "tablet" | "flyout";
+
+const MENU_TITLE_BASE =
+  "text-xs font-mono font-semibold tracking-wider text-color-secondary uppercase";
+
+type ProductMenuTheme = {
+  wrapper: string;
+  title: string;
+  list: (index: number) => string;
+  item: string;
+  decorateItem: boolean;
+  solutionsIndex: string;
+  decorateSolutionsIndex: boolean;
+  divider: string | null;
+};
+
+const PRODUCT_MENU_THEMES: Record<MenuVariant, ProductMenuTheme> = {
+  tablet: {
+    wrapper: "grid grid-cols-2 gap-x-4 px-4 py-2",
+    title: `mb-4 ${MENU_TITLE_BASE}`,
+    list: () => "flex flex-col",
+    item: "group flex items-center py-2 text-sm text-fg",
+    decorateItem: true,
+    solutionsIndex: "group text-fg mt-2 inline-flex py-2 text-sm font-medium",
+    decorateSolutionsIndex: true,
+    divider: null,
+  },
+  mobile: {
+    wrapper: "mt-3 ml-4 flex flex-col gap-4 border-l-2 border-neutral-200 pl-4",
+    title: `mb-2 ${MENU_TITLE_BASE}`,
+    list: (index) =>
+      index === 0 ? "flex flex-col gap-2 pb-4" : "flex flex-col gap-2",
+    item: "py-1 text-sm text-neutral-600 transition-colors hover:text-neutral-900",
+    decorateItem: false,
+    solutionsIndex:
+      "mt-2 inline-flex py-1 text-sm font-medium text-neutral-700 transition-colors hover:text-neutral-900",
+    decorateSolutionsIndex: false,
+    divider: null,
+  },
+  flyout: {
+    wrapper: "flex flex-col",
+    title: `px-3 pb-1 ${MENU_TITLE_BASE}`,
+    list: () => "flex flex-col",
+    item: "px-3 py-1.5 text-sm text-stone-700 transition-colors hover:bg-stone-50 hover:text-stone-950",
+    decorateItem: false,
+    solutionsIndex:
+      "mt-2 inline-flex px-3 py-1.5 text-sm font-medium text-stone-700 transition-colors hover:bg-stone-50 hover:text-stone-950",
+    decorateSolutionsIndex: false,
+    divider: "border-color-brand my-4 border-t",
+  },
+};
+
 function ProductMenuContent({
   variant,
   onItemClick,
 }: {
-  variant: "mobile" | "tablet" | "flyout";
+  variant: MenuVariant;
   onItemClick?: () => void;
 }) {
-  if (variant === "tablet") {
-    return (
-      <div className="grid grid-cols-2 gap-x-4 px-2 py-2">
-        {productGroups.map((group) => (
-          <MenuGroupLinks
-            key={group.title}
-            group={group}
-            titleClassName="mb-2 text-xs font-semibold tracking-wider text-fg-subtle uppercase"
-            listClassName="flex flex-col"
-            itemClassName="group flex items-center py-2 text-sm text-fg"
-            onItemClick={onItemClick}
-            decorateOnHover
-            footer={
-              group.title === "Solutions" ? (
-                <SolutionsIndexLink
-                  className="group text-fg mt-1 inline-flex py-2 text-sm font-medium"
-                  onClick={onItemClick}
-                  decorateOnHover
-                />
-              ) : null
-            }
-          />
-        ))}
-      </div>
-    );
-  }
-
-  if (variant === "mobile") {
-    return (
-      <div className="mt-3 ml-4 flex flex-col gap-4 border-l-2 border-neutral-200 pl-4">
-        {productGroups.map((group, index) => (
-          <MenuGroupLinks
-            key={group.title}
-            group={group}
-            titleClassName="mb-2 text-xs font-semibold tracking-wider text-neutral-400 uppercase"
-            listClassName={
-              index === 0 ? "flex flex-col gap-2 pb-4" : "flex flex-col gap-2"
-            }
-            itemClassName="py-1 text-sm text-neutral-600 transition-colors hover:text-neutral-900"
-            onItemClick={onItemClick}
-            footer={
-              group.title === "Solutions" ? (
-                <SolutionsIndexLink
-                  className="mt-2 inline-flex py-1 text-sm font-medium text-neutral-700 transition-colors hover:text-neutral-900"
-                  onClick={onItemClick}
-                />
-              ) : null
-            }
-          />
-        ))}
-      </div>
-    );
-  }
+  const theme = PRODUCT_MENU_THEMES[variant];
 
   return (
-    <div className="flex flex-col">
-      {productGroups.map((group, index) => (
-        <div key={group.title}>
-          {index > 0 ? (
-            <div className="border-color-brand my-1.5 border-t" />
-          ) : null}
+    <div className={theme.wrapper}>
+      {productGroups.map((group, index) => {
+        const groupNode = (
           <MenuGroupLinks
             group={group}
-            titleClassName="px-3 pb-1 text-xs font-medium tracking-wide text-fg-subtle uppercase"
-            listClassName="flex flex-col"
-            itemClassName="px-3 py-1.5 text-sm text-stone-700 transition-colors hover:bg-stone-50 hover:text-stone-950"
+            titleClassName={theme.title}
+            listClassName={theme.list(index)}
+            itemClassName={theme.item}
+            decorateOnHover={theme.decorateItem}
+            onItemClick={onItemClick}
             footer={
               group.title === "Solutions" ? (
-                <SolutionsIndexLink className="mt-1 inline-flex px-3 py-1.5 text-sm font-medium text-stone-700 transition-colors hover:bg-stone-50 hover:text-stone-950" />
+                <SolutionsIndexLink
+                  className={theme.solutionsIndex}
+                  onClick={onItemClick}
+                  decorateOnHover={theme.decorateSolutionsIndex}
+                />
               ) : null
             }
           />
-        </div>
-      ))}
+        );
+
+        if (theme.divider) {
+          return (
+            <div key={group.title}>
+              {index > 0 ? <div className={theme.divider} /> : null}
+              {groupNode}
+            </div>
+          );
+        }
+
+        return <div key={group.title}>{groupNode}</div>;
+      })}
     </div>
   );
 }
+
+type ResourcesMenuTheme = {
+  wrapper: string;
+  item: string;
+  iconClassName: string;
+  iconSize: number;
+  decorateItem: boolean;
+};
+
+const RESOURCES_MENU_THEMES: Record<MenuVariant, ResourcesMenuTheme> = {
+  tablet: {
+    wrapper: "px-3 py-2",
+    item: "group flex items-center gap-2 py-2 text-sm text-neutral-700",
+    iconClassName: "text-neutral-400",
+    iconSize: 16,
+    decorateItem: true,
+  },
+  mobile: {
+    wrapper: "mt-3 ml-4 flex flex-col gap-2 border-l-2 border-neutral-200 pl-4",
+    item: "text-fg flex items-center gap-2 py-1 text-sm transition-colors hover:text-neutral-900",
+    iconClassName: "text-neutral-400",
+    iconSize: 14,
+    decorateItem: false,
+  },
+  flyout: {
+    wrapper: "flex flex-col",
+    item: "text-fg flex items-center gap-2.5 px-3 py-1.5 text-sm transition-colors hover:bg-stone-50 hover:text-stone-950",
+    iconClassName: "shrink-0 text-fg-subtle",
+    iconSize: 15,
+    decorateItem: false,
+  },
+};
 
 function ResourcesMenuContent({
   variant,
   onItemClick,
 }: {
-  variant: "mobile" | "tablet" | "flyout";
+  variant: MenuVariant;
   onItemClick?: () => void;
 }) {
-  if (variant === "tablet") {
-    return (
-      <div className="px-3 py-2">
-        {resourcesList.map((item) => (
-          <MenuItemLink
-            key={item.to}
-            item={item}
-            onClick={onItemClick}
-            className="group flex items-center gap-2 py-2 text-sm text-neutral-700"
-            iconClassName="text-neutral-400"
-            iconSize={16}
-            decorateOnHover
-          />
-        ))}
-      </div>
-    );
-  }
-
-  if (variant === "mobile") {
-    return (
-      <div className="mt-3 ml-4 flex flex-col gap-2 border-l-2 border-neutral-200 pl-4">
-        {resourcesList.map((item) => (
-          <MenuItemLink
-            key={item.to}
-            item={item}
-            onClick={onItemClick}
-            className="text-fg flex items-center gap-2 py-1 text-sm transition-colors hover:text-neutral-900"
-            iconClassName="text-neutral-400"
-            iconSize={14}
-          />
-        ))}
-      </div>
-    );
-  }
+  const theme = RESOURCES_MENU_THEMES[variant];
 
   return (
-    <div className="flex flex-col">
+    <div className={theme.wrapper}>
       {resourcesList.map((item) => (
         <MenuItemLink
           key={item.to}
           item={item}
-          className="text-fg flex items-center gap-2.5 px-3 py-1.5 text-sm transition-colors hover:bg-stone-50 hover:text-stone-950"
-          iconClassName="shrink-0 text-fg-subtle"
-          iconSize={15}
+          onClick={onItemClick}
+          className={theme.item}
+          iconClassName={theme.iconClassName}
+          iconSize={theme.iconSize}
+          decorateOnHover={theme.decorateItem}
         />
       ))}
     </div>
@@ -847,12 +858,12 @@ function SidebarFlyout({
         {isOpen && (
           <motion.div
             className="absolute top-0 left-full z-[9999] pl-2"
-            initial={{ opacity: 0, x: 8 }}
-            animate={{ opacity: 1, x: 0 }}
+            initial={{ opacity: 0, x: 8, blur: 10 }}
+            animate={{ opacity: 1, x: 0, blur: 0 }}
             exit={{ opacity: 0, x: 8 }}
             transition={{ duration: 0.15, ease: "easeInOut" }}
           >
-            <div className="border-color-brand surface w-56 rounded-lg border py-2 shadow-lg">
+            <div className="border-color-brand surface w-56 rounded-lg border pt-4 pb-2 shadow-lg">
               {submenu === "product" ? (
                 <ProductMenuContent variant="flyout" />
               ) : (

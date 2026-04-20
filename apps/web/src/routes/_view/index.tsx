@@ -171,6 +171,9 @@ function Component() {
   return (
     <main className="min-h-screen flex-1 overflow-x-hidden px-2 md:px-8">
       <div className="">
+        <div className="flex pt-8 pb-2 md:pt-10 md:pb-3">
+          <AnnouncementBanner />
+        </div>
         <HeroSection
           onVideoExpand={setExpandedVideo}
           heroInputRef={heroInputRef}
@@ -274,12 +277,11 @@ function HeroSection({
       <div className="flex w-full flex-col text-left">
         <section
           id="hero"
-          className="isolate flex w-full overflow-visible pt-10 text-left"
+          className="isolate flex w-full overflow-visible text-left"
         >
           <div className="border-brand-bright items-left relative z-10 flex min-h-[88vh] w-full flex-col content-between rounded-lg border md:flex-row">
             <div className="flex flex-col justify-between px-4 pt-8 pb-8 md:w-1/2 md:px-6 md:pt-12 md:pr-8 md:pb-12 md:pl-12">
               <div className="flex flex-col">
-                <AnnouncementBanner />
                 <h1
                   className="text-color mb-6 break-words"
                   style={{
@@ -439,6 +441,9 @@ function HeroSection({
                     <div className="mt-4 flex w-full flex-col items-stretch gap-4 lg:flex-row lg:items-start">
                       <DownloadButton />
                     </div>
+                    <p className="text-color-secondary mt-2 text-sm">
+                      No credit card required
+                    </p>
                   </>
                 )}
               </div>
@@ -449,8 +454,8 @@ function HeroSection({
                 <YCombinatorSticker className="absolute top-2 right-4 rotate-[-5deg]" />
                 <GitHubStarsSticker className="absolute top-8 right-10 -translate-x-5/5 rotate-[2deg]" />
 
-                <div className="absolute right-1/2 bottom-0 flex translate-x-1/2 justify-end p-2">
-                  <DailyNoteMock />
+                <div className="absolute inset-x-0 bottom-0 flex h-[86%] justify-center p-2">
+                  <DailyNoteMock className="h-full w-full max-w-[480px]" />
                 </div>
                 {false && (
                   <div className="absolute right-0 bottom-0 flex h-3/5 justify-end p-10 transition-transform duration-200 hover:scale-105">
@@ -1120,13 +1125,13 @@ export function HowItWorksSection() {
             <div className="border-color-brand flex shrink-0 snap-start flex-col gap-2 p-8 md:w-auto md:shrink md:border-r">
               <div className="flex h-32 items-center justify-start gap-2 select-none md:h-24 lg:h-32">
                 <img
-                  src="/icons/file.webp"
+                  src="/icons/file-outline.svg"
                   alt=""
                   className="w-10 rotate-[3deg] object-contain md:w-7 lg:w-10"
                   draggable={false}
                 />
                 <img
-                  src="/icons/file.webp"
+                  src="/icons/file-outline.svg"
                   alt=""
                   className="w-10 rotate-[-5deg] object-contain md:w-7 lg:w-10"
                   draggable={false}
@@ -1138,13 +1143,13 @@ export function HowItWorksSection() {
                   draggable={false}
                 />
                 <img
-                  src="/icons/file.webp"
+                  src="/icons/file-outline.svg"
                   alt=""
                   className="w-10 rotate-[6deg] object-contain md:w-7 lg:w-10"
                   draggable={false}
                 />
                 <img
-                  src="/icons/file.webp"
+                  src="/icons/file-outline.svg"
                   alt=""
                   className="w-10 rotate-[-4deg] object-contain md:w-7 lg:w-10"
                   draggable={false}
@@ -1184,8 +1189,8 @@ export function HowItWorksSection() {
                   Bring Your Own Key or use local models
                 </h4>
                 <p className="text-color-secondary text-base">
-                  Char supports all major speech-to-text providers and have the
-                  best local models build in
+                  Char supports all major speech-to-text providers and has the
+                  best local models built in
                 </p>
               </div>
             </div>
@@ -1219,8 +1224,8 @@ export function HowItWorksSection() {
                   No bots on calls. Hidden during screen share.
                 </h4>
                 <p className="text-color-secondary text-base">
-                  Char captures system audio, not bothers people on the call.
-                  Works everywhere.
+                  Char captures system audio without bothering anyone on the
+                  call. Works everywhere.
                 </p>
               </div>
             </div>
@@ -3427,7 +3432,7 @@ function ExecuteTasksSection() {
             <div className="flex items-center gap-2 leading-relaxed">
               <Wrench className="size-4" />
               <p className="text-sm">
-                Build in tools for Jira, Notion, Slack, Google Docs and more
+                Built-in tools for Jira, Notion, Slack, Google Docs and more
               </p>
             </div>
           </div>
@@ -3456,24 +3461,18 @@ function PrivateByDesignSection() {
 
         <div className="flex snap-x snap-mandatory gap-8 overflow-x-auto pb-4 [scrollbar-width:none] md:grid md:grid-cols-2 md:gap-0 md:overflow-visible md:pb-0 md:*:min-h-[320px] md:*:py-4 lg:grid-cols-4">
           <div className="border-color-brand flex w-[85%] shrink-0 snap-start flex-col gap-2 p-8 md:w-auto md:shrink md:border-r md:border-b lg:border-b-0">
-            <div className="flex h-32 items-center justify-start gap-2 select-none md:h-24 lg:h-32">
-              <img
-                src="/icons/file.webp"
-                alt=""
-                className="w-10 rotate-[-5deg] object-contain md:w-7 lg:w-10"
-                draggable={false}
+            <div className="text-color-secondary flex h-32 items-center justify-start gap-3 select-none md:h-24 lg:h-32">
+              <span
+                aria-hidden="true"
+                className="inline-block aspect-[77/100] w-14 rotate-[-5deg] bg-current [mask-image:url(/icons/file-outline.svg)] [mask-size:contain] [mask-repeat:no-repeat] md:w-7 lg:w-10"
               />
-              <img
-                src="/icons/folderchar.svg"
-                alt=""
-                className="w-14 object-contain md:w-10 lg:w-14"
-                draggable={false}
+              <span
+                aria-hidden="true"
+                className="inline-block aspect-[127/106] w-16 bg-current [mask-image:url(/icons/Folder-outline.svg)] [mask-size:contain] [mask-repeat:no-repeat] md:w-10 lg:w-14"
               />
-              <img
-                src="/icons/file.webp"
-                alt=""
-                className="w-10 rotate-[6deg] object-contain md:w-7 lg:w-10"
-                draggable={false}
+              <span
+                aria-hidden="true"
+                className="inline-block aspect-[77/100] w-14 rotate-[6deg] bg-current [mask-image:url(/icons/file-outline.svg)] [mask-size:contain] [mask-repeat:no-repeat] md:w-7 lg:w-10"
               />
             </div>
             <div className="flex min-h-0 flex-col justify-start gap-2 md:max-h-[200px]">
@@ -3509,8 +3508,8 @@ function PrivateByDesignSection() {
                 Bring Your Own Key or use local models
               </h4>
               <p className="text-color-secondary text-base">
-                Char supports all major speech-to-text providers and have the
-                best local models build in
+                Char supports all major speech-to-text providers and has the
+                best local models built in
               </p>
             </div>
           </div>
@@ -3541,7 +3540,7 @@ function PrivateByDesignSection() {
                 No bots on calls.
               </h4>
               <p className="text-color-secondary text-base">
-                Char captures system audio, not bothers people on the call.
+                Char captures system audio without bothering anyone on the call.
                 Works everywhere.
               </p>
             </div>

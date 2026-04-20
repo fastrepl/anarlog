@@ -11,7 +11,7 @@ type Logo = {
 
 const LOGOS: Logo[][] = [
   [
-    { src: "/icons/databricks.svg", alt: "Databricks Logo" },
+    { src: "/icons/databricks.svg", alt: "Databricks Logo", small: true },
     { src: "/icons/amazon.svg", alt: "Amazon Logo" },
   ],
   [
