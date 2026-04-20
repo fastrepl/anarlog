@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef } from "react";
 
+import type { NoteEditorRef } from "@hypr/editor/note";
 import { Kbd } from "@hypr/ui/components/ui/kbd";
 import {
   Tooltip,
@@ -18,8 +19,6 @@ import {
 import { cn } from "@hypr/utils";
 
 import { useSearch } from "./context";
-
-import type { NoteEditorRef } from "~/editor/session";
 
 function ToggleButton({
   active,

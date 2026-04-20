@@ -1,32 +1,21 @@
-import { useCallback } from "react";
-
 import { useShell } from "~/contexts/shell";
 
 export function ChatCTA({
   label = "Ask about this session",
-  openMode = "remember",
 }: {
   label?: string;
-  openMode?: "remember" | "floating" | "right-panel";
 }) {
   const { chat } = useShell();
-  const isChatOpen =
-    chat.mode === "FloatingOpen" || chat.mode === "RightPanelOpen";
+  const isChatOpen = chat.mode === "RightPanelOpen";
 
-  const handleClick = useCallback(() => {
+  const handleClick = () => {
     if (isChatOpen) {
       chat.sendEvent({ type: "TOGGLE" });
       return;
     }
 
-    chat.sendEvent(
-      openMode === "floating"
-        ? { type: "OPEN_FLOATING" }
-        : openMode === "right-panel"
-          ? { type: "OPEN_RIGHT_PANEL" }
-          : { type: "OPEN" },
-    );
-  }, [chat, isChatOpen, openMode]);
+    chat.sendEvent({ type: "OPEN_RIGHT_PANEL" });
+  };
 
   if (isChatOpen) {
     return null;

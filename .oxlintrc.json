@@ -45,7 +45,7 @@
         "apps/desktop/src/composer/**",
         "apps/desktop/src/contacts/**",
         "apps/desktop/src/edit/**",
-        "apps/desktop/src/editor/**",
+        "apps/desktop/src/editor-bridge/**",
         "apps/desktop/src/folders/**",
         "apps/desktop/src/main.tsx",
         "apps/desktop/src/main/**",

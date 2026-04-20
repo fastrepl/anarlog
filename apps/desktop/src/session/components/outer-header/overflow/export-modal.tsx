@@ -3,6 +3,7 @@ import { downloadDir, join } from "@tauri-apps/api/path";
 import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 
+import { json2md } from "@hypr/editor/markdown";
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 import {
   commands as exportCommands,
@@ -15,7 +16,6 @@ import { cn } from "@hypr/utils";
 
 import { formatDate, formatDuration } from "./export-utils";
 
-import { json2md } from "~/editor/markdown";
 import { useTranscriptExportSegments } from "~/session/components/note-input/transcript/export-data";
 import { useSessionEvent } from "~/store/tinybase/hooks";
 import * as main from "~/store/tinybase/store/main";

@@ -1,6 +1,7 @@
 import type { Node } from "prosemirror-model";
 
-import type { AppLinkAttrs } from "~/editor/app-link";
+import type { AppLinkAttrs } from "@hypr/editor/app-link";
+
 import { id } from "~/shared/utils";
 import { type Tab, type TaskResource, useTabs } from "~/store/zustand/tabs";
 

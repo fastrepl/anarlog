@@ -4,27 +4,31 @@ import { Node as PMNode } from "prosemirror-model";
 import type { EditorView } from "prosemirror-view";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 
-import { format, parseISO, subDays } from "@hypr/utils";
-
-import { useCalendarData } from "~/calendar/hooks";
-import { parseJsonContent } from "~/editor/markdown";
+import {
+  getNodeTextContent,
+  mergeLinkedSessionsIntoContent,
+} from "@hypr/editor/daily";
+import { parseJsonContent } from "@hypr/editor/markdown";
 import {
   type JSONContent,
   NoteEditor,
   type NoteEditorRef,
   schema,
-} from "~/editor/session";
-import {
-  getNodeTextContent,
-  mergeLinkedSessionsIntoContent,
-} from "~/editor/session/linked-session-content";
-import { useTaskStorageOptional } from "~/editor/task-storage";
+} from "@hypr/editor/note";
+import { useTaskStorageOptional } from "@hypr/editor/task-storage";
 import {
   extractTasksFromContent,
   hydrateTaskContent,
   moveOpenTasksBetweenContents,
   normalizeTaskContent,
-} from "~/editor/tasks";
+} from "@hypr/editor/tasks";
+import { format, parseISO, subDays } from "@hypr/utils";
+
+import { DateHeader } from "./date-header";
+
+import { useCalendarData } from "~/calendar/hooks";
+import { AppLinkView } from "~/editor-bridge/app-link-view";
+import { SessionNodeView } from "~/editor-bridge/session-view";
 import {
   findSessionByEventId,
   findSessionByTrackingId,
@@ -35,6 +39,7 @@ import { getOrCreateSessionForEventId } from "~/store/tinybase/store/sessions";
 
 type Store = NonNullable<ReturnType<typeof main.UI.useStore>>;
 const emptyDoc: JSONContent = { type: "doc", content: [{ type: "paragraph" }] };
+const extraNodeViews = { appLink: AppLinkView, session: SessionNodeView };
 
 function getSessionTitle(store: Store, sessionId: string): string {
   const title = store.getCell("sessions", sessionId, "title");
@@ -166,12 +171,21 @@ function isEditorTarget(target: EventTarget | null): boolean {
   );
 }
 
+function isInteractiveTarget(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLElement &&
+    target.closest("button, a, [role='button']") !== null
+  );
+}
+
 export function DailyNoteEditor({
   date,
   isToday,
+  muted,
 }: {
   date: string;
   isToday?: boolean;
+  muted?: boolean;
 }) {
   const store = main.UI.useStore(main.STORE_ID);
   const editorRef = useRef<NoteEditorRef>(null);
@@ -328,7 +342,7 @@ export function DailyNoteEditor({
 
   const handleContainerMouseDownCapture = useCallback(
     (event: React.MouseEvent) => {
-      if (isEditorTarget(event.target)) {
+      if (isEditorTarget(event.target) || isInteractiveTarget(event.target)) {
         return;
       }
 
@@ -340,7 +354,7 @@ export function DailyNoteEditor({
 
   const handleContainerClick = useCallback(
     (event: React.MouseEvent) => {
-      if (isEditorTarget(event.target)) {
+      if (isEditorTarget(event.target) || isInteractiveTarget(event.target)) {
         return;
       }
 
@@ -355,18 +369,22 @@ export function DailyNoteEditor({
 
   return (
     <div
-      className="main2-daily-note-editor flex-1 px-6"
+      className="group/daily-note flex flex-1 flex-col"
       onMouseDownCapture={handleContainerMouseDownCapture}
       onClick={handleContainerClick}
     >
-      <NoteEditor
-        ref={editorRef}
-        key={`daily-${date}`}
-        initialContent={initialContentRef.current}
-        handleChange={handleChange}
-        linkedItemOpenBehavior="new"
-        taskSource={taskSource}
-      />
+      <DateHeader date={date} muted={muted} />
+      <div className="main2-daily-note-editor flex-1 cursor-text px-6">
+        <NoteEditor
+          ref={editorRef}
+          key={`daily-${date}`}
+          initialContent={initialContentRef.current}
+          handleChange={handleChange}
+          linkedItemOpenBehavior="new"
+          taskSource={taskSource}
+          extraNodeViews={extraNodeViews}
+        />
+      </div>
     </div>
   );
 }

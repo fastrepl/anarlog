@@ -61,7 +61,7 @@ vi.mock("~/store/zustand/tabs", () => ({
     }),
 }));
 
-vi.mock("~/editor/session/linked-item-open-behavior", () => ({
+vi.mock("@hypr/editor/note", () => ({
   useLinkedItemOpenBehavior: () => "current",
 }));
 

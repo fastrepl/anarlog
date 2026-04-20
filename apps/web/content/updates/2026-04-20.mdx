@@ -1,0 +1,49 @@
+---
+title: "Char Weekly: April 20, 2026"
+date: "2026-04-20"
+---
+
+Three stable releases this week — desktop v1.0.23, desktop v1.0.24, and CLI v1.0.16. Desktop picked up a redesigned transcript panel, a refreshed update flow, and a new STT provider. The CLI picked up Linux support and a new `db` command for working with desktop data.
+
+## Transcript panel redesign
+
+In desktop v1.0.23 the transcript panel toggle is now a labeled border tab that reads "Transcript" or "Live", replacing the chevron arrows. Pressing Escape collapses an expanded panel, and expanding the panel now automatically moves floating chat to the right side so the two no longer overlap. Enhanced note tabs now show the actual template name instead of generic labels like "Summary". A delete recording button was added to the post-session audio area.
+
+## AquaVoice as a new STT provider
+
+Desktop v1.0.23 adds AquaVoice as a speech-to-text provider, using the Avalon V1 model. It runs in batch mode only.
+
+## Update flow refresh
+
+Desktop v1.0.24 shows a download progress bar while an app update is downloading, and the update banner was refreshed with clearer "Update & Restart" and "Later" actions.
+
+## Calendar and navigation
+
+Connecting an OAuth calendar provider in v1.0.23 now returns you to the view you started from instead of always bouncing back to the calendar. The profile menu's calendar entry routes directly into the calendar settings tab. In v1.0.24, session rows in notes now show the event start time instead of the creation time.
+
+## UI polish and fixes
+
+Across v1.0.23 and v1.0.24:
+
+- The ad-hoc recording button is hidden when you're already viewing the active live session (v1.0.23)
+- Profile menu dividers were removed and tab bar height and spacing were refined (v1.0.23)
+- The help button in the profile menu now opens Discord (v1.0.24)
+- Editor focus issue fixed (v1.0.24)
+- Collapsed Live transcript handle now uses the correct neutral background (v1.0.24)
+- Profile avatar fallback no longer breaks when facehash data is missing (v1.0.24)
+- Template sections editor was simplified and cleaned up (v1.0.24)
+
+## CLI on Linux
+
+CLI v1.0.16 adds Linux as a supported target. `npm install -g char` now pulls prebuilt binaries for both `x86_64-unknown-linux-gnu` and `aarch64-unknown-linux-gnu` alongside the existing macOS builds.
+
+## New `char db` command
+
+CLI v1.0.16 adds a `db` subcommand for working with desktop SQLite data from the terminal. The first area it covers is templates, with `list`, `get`, `upsert`, and `delete` operations, and a `--base` flag to point at a specific vault directory.
+
+## Other CLI changes
+
+- The macOS-only `shortcut` subcommand was removed (v1.0.16)
+- Model download errors now report more useful information (v1.0.16)
+
+Full version details on the [changelog](/changelog).

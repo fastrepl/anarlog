@@ -20,7 +20,6 @@ export function MainShellBodyFrame({
       <MainChatPanels
         autoSaveId={autoSaveId}
         isRightPanelOpen={chat.mode === "RightPanelOpen"}
-        rightPanelMode={chat.mode}
       >
         {children}
       </MainChatPanels>

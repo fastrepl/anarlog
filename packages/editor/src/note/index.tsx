@@ -20,6 +20,7 @@ import {
 } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import {
+  type ComponentProps,
   forwardRef,
   useCallback,
   useEffect,
@@ -32,11 +33,9 @@ import { useDebounceCallback } from "usehooks-ts";
 import "@hypr/tiptap/styles.css";
 
 import {
-  AppLinkView,
   FileAttachmentView,
   MentionNodeView,
   ResizableImageView,
-  SessionNodeView,
   TaskItemView,
 } from "../node-views";
 import {
@@ -76,11 +75,13 @@ import { buildInputRules, buildKeymap } from "./keymap";
 import {
   LinkedItemOpenBehaviorContext,
   type LinkedItemOpenBehavior,
+  useLinkedItemOpenBehavior,
 } from "./linked-item-open-behavior";
 import { schema } from "./schema";
 
 export type { MentionConfig, FileHandlerConfig, PlaceholderFunction };
 export { schema };
+export { useLinkedItemOpenBehavior };
 
 export interface JSONContent {
   type?: string;
@@ -114,7 +115,11 @@ export interface NoteEditorRef {
   commands: EditorCommands;
 }
 
-interface EditorProps {
+type NodeViewComponents = NonNullable<
+  ComponentProps<typeof ProseMirror>["nodeViewComponents"]
+>;
+
+export interface NoteEditorProps {
   handleChange?: (content: JSONContent) => void;
   initialContent?: JSONContent;
   mentionConfig?: MentionConfig;
@@ -123,14 +128,13 @@ interface EditorProps {
   onNavigateToTitle?: (pixelWidth?: number) => void;
   linkedItemOpenBehavior?: LinkedItemOpenBehavior;
   taskSource?: TaskSource;
+  extraNodeViews?: NodeViewComponents;
 }
 
-const nodeViews = {
-  appLink: AppLinkView,
+const baseNodeViews = {
   fileAttachment: FileAttachmentView,
   image: ResizableImageView,
   "mention-@": MentionNodeView,
-  session: SessionNodeView,
   taskItem: TaskItemView,
 };
 
@@ -303,7 +307,7 @@ function EditorCommandsBridge({
   return null;
 }
 
-export const NoteEditor = forwardRef<NoteEditorRef, EditorProps>(
+export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
   function NoteEditor(props, ref) {
     const {
       handleChange,
@@ -314,6 +318,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, EditorProps>(
       onNavigateToTitle,
       linkedItemOpenBehavior = "current",
       taskSource,
+      extraNodeViews,
     } = props;
 
     const taskStorage = useTaskStorageOptional();
@@ -410,6 +415,10 @@ export const NoteEditor = forwardRef<NoteEditorRef, EditorProps>(
         mentionConfig,
         onNavigateToTitle,
       ],
+    );
+    const nodeViews = useMemo(
+      () => ({ ...baseNodeViews, ...extraNodeViews }),
+      [extraNodeViews],
     );
 
     const defaultState = useMemo(() => {

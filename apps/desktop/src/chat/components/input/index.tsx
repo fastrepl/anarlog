@@ -1,20 +1,16 @@
 import { SquareIcon } from "lucide-react";
 import { useRef } from "react";
 
+import { ChatEditor, type ChatEditorHandle } from "@hypr/editor/chat";
+import type { PlaceholderFunction } from "@hypr/editor/plugins";
 import { Button } from "@hypr/ui/components/ui/button";
 import { cn } from "@hypr/utils";
 
-import {
-  useAutoFocusEditor,
-  useDraftState,
-  useMentionConfig,
-  useSubmit,
-} from "./hooks";
+import { useAutoFocusEditor, useDraftState, useSubmit } from "./hooks";
 
 import type { ContextRef } from "~/chat/context/entities";
 import { useShell } from "~/contexts/shell";
-import { ChatEditor, type ChatEditorHandle } from "~/editor/chat";
-import type { PlaceholderFunction } from "~/editor/plugins";
+import { useMentionConfig } from "~/editor-bridge/mention-config";
 
 export function ChatMessageInput({
   draftKey,
@@ -41,8 +37,7 @@ export function ChatMessageInput({
   const editorRef = useRef<ChatEditorHandle>(null);
   const disabled =
     typeof disabledProp === "object" ? disabledProp.disabled : disabledProp;
-  const shouldFocus =
-    chat.mode === "FloatingOpen" || chat.mode === "RightPanelOpen";
+  const shouldFocus = chat.mode === "RightPanelOpen";
 
   const { hasContent, initialContent, handleEditorUpdate } = useDraftState({
     draftKey,
@@ -64,13 +59,7 @@ export function ChatMessageInput({
       hasContextBar={hasContextBar}
       isRightPanel={chat.mode === "RightPanelOpen"}
     >
-      <div
-        data-chat-message-input
-        className={cn([
-          "flex flex-col pt-3 pb-2",
-          chat.mode === "RightPanelOpen" ? "px-2" : "px-2",
-        ])}
-      >
+      <div data-chat-message-input className="flex flex-col px-2 pt-3 pb-2">
         <div className="mb-1 min-h-0 flex-1">
           <ChatEditor
             ref={editorRef}
@@ -139,7 +128,10 @@ function Container({
 }) {
   return (
     <div
-      className={cn(["relative min-h-0 shrink", !isRightPanel && "px-2 pb-2"])}
+      className={cn([
+        "relative min-w-0 shrink-0",
+        !isRightPanel && "px-2 pb-2",
+      ])}
     >
       <div
         className={cn([

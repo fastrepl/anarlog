@@ -4,7 +4,6 @@ import { cn } from "@hypr/utils";
 
 import { ChatBody } from "./body";
 import { ChatContent } from "./content";
-import { ChatHeader } from "./header";
 import { ChatSession } from "./session-provider";
 import { useSessionTab } from "./use-session-tab";
 
@@ -15,7 +14,7 @@ import * as main from "~/store/tinybase/store/main";
 
 export function ChatView() {
   const { chat } = useShell();
-  const { groupId, sessionId, setGroupId, startNewChat, selectChat } = chat;
+  const { groupId, sessionId, setGroupId } = chat;
 
   const { currentSessionId } = useSessionTab();
 
@@ -41,12 +40,6 @@ export function ChatView() {
         chat.mode !== "RightPanelOpen" && "bg-stone-50",
       ])}
     >
-      <ChatHeader
-        currentChatGroupId={groupId}
-        onNewChat={startNewChat}
-        onSelectChat={selectChat}
-        handleClose={() => chat.sendEvent({ type: "CLOSE" })}
-      />
       {user_id && (
         <ChatSession
           key={sessionId}
