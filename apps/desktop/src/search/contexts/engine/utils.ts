@@ -6,6 +6,28 @@ interface TiptapNode {
   text?: string;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function sanitizeTiptapNode(value: unknown): TiptapNode | null {
+  if (!isRecord(value) || typeof value.type !== "string") {
+    return null;
+  }
+
+  const content = Array.isArray(value.content)
+    ? value.content
+        .map((child) => sanitizeTiptapNode(child))
+        .filter((child): child is TiptapNode => child !== null)
+    : undefined;
+
+  return {
+    type: value.type,
+    ...(content ? { content } : {}),
+    ...(typeof value.text === "string" ? { text: value.text } : {}),
+  };
+}
+
 function isValidTiptapContent(content: unknown): content is TiptapNode {
   if (!content || typeof content !== "object") {
     return false;
@@ -36,8 +58,9 @@ export function extractPlainText(value: unknown): string {
 
   try {
     const parsed = JSON.parse(trimmed);
-    if (isValidTiptapContent(parsed)) {
-      const text = extractTextFromTiptapNode(parsed).trim();
+    const sanitized = sanitizeTiptapNode(parsed);
+    if (sanitized && isValidTiptapContent(sanitized)) {
+      const text = extractTextFromTiptapNode(sanitized).trim();
       return text.replace(SPACE_REGEX, " ");
     }
     return trimmed;

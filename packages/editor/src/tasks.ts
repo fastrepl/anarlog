@@ -263,6 +263,16 @@ export function moveOpenTasksBetweenContents(args: {
   };
 }
 
+function isContentNode(value: unknown): value is JSONContent {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function getValidContentChildren(
+  content: JSONContent[] | undefined,
+): JSONContent[] {
+  return (content ?? []).filter(isContentNode);
+}
+
 function hydrateNodeContent(
   node: JSONContent,
   sourceTasksById: ReadonlyMap<string, TaskRecord>,
@@ -311,18 +321,19 @@ function hydrateNode(
     return node;
   }
 
-  const nextContent = node.content
+  const contentChildren = getValidContentChildren(node.content);
+  const nextContent = contentChildren
     .map((child) => hydrateNode(child, sourceTasksById, usedTaskIds, getTask))
     .filter((child): child is JSONContent => child !== null);
   const changed = nextContent.some(
-    (child, index) => child !== node.content?.[index],
+    (child, index) => child !== contentChildren[index],
   );
 
   if (node.type === "taskList" && nextContent.length === 0) {
     return null;
   }
 
-  if (!changed && nextContent.length === node.content.length) {
+  if (!changed && contentChildren.length === node.content.length) {
     return node;
   }
 
@@ -358,18 +369,19 @@ function removeTaskNodes(
     return node;
   }
 
-  const nextContent = node.content
+  const contentChildren = getValidContentChildren(node.content);
+  const nextContent = contentChildren
     .map((child) => removeTaskNodes(child, taskIds))
     .filter((child): child is JSONContent => child !== null);
   const changed = nextContent.some(
-    (child, index) => child !== node.content?.[index],
+    (child, index) => child !== contentChildren[index],
   );
 
   if (node.type === "taskList" && nextContent.length === 0) {
     return null;
   }
 
-  if (!changed && nextContent.length === node.content.length) {
+  if (!changed && contentChildren.length === node.content.length) {
     return node;
   }
 
@@ -426,10 +438,14 @@ function normalizeNode(
   }
 
   if (node.content?.length) {
-    const normalizedChildren = node.content.map((child) =>
+    const contentChildren = getValidContentChildren(node.content);
+    const normalizedChildren = contentChildren.map((child) =>
       normalizeNode(child, seenTaskIds, seenTaskItemIds),
     );
-    if (normalizedChildren.some((child) => child.changed)) {
+    if (
+      contentChildren.length !== node.content.length ||
+      normalizedChildren.some((child) => child.changed)
+    ) {
       nextContent = normalizedChildren.map((child) => child.node);
       changed = true;
     }
@@ -453,13 +469,13 @@ function walkContent(
   node: JSONContent | undefined,
   visit: (node: JSONContent) => void,
 ) {
-  if (!node) {
+  if (!isContentNode(node)) {
     return;
   }
 
   visit(node);
 
-  for (const child of node.content ?? []) {
+  for (const child of getValidContentChildren(node.content)) {
     walkContent(child, visit);
   }
 }
@@ -473,7 +489,7 @@ function getNodeTextContent(node: JSONContent | undefined): string {
     return node.text;
   }
 
-  return (node.content ?? [])
+  return getValidContentChildren(node.content)
     .map((child) => getNodeTextContent(child))
     .join(" ")
     .replace(/\s+/g, " ")
@@ -481,7 +497,9 @@ function getNodeTextContent(node: JSONContent | undefined): string {
 }
 
 function getTaskItemTextContent(node: JSONContent): string {
-  const paragraph = node.content?.find((child) => child.type === "paragraph");
+  const paragraph = getValidContentChildren(node.content).find(
+    (child) => child.type === "paragraph",
+  );
   return getNodeTextContent(paragraph);
 }
 
@@ -512,7 +530,8 @@ function appendTaskItems(
 }
 
 function cloneContentArray(content: JSONContent[] | undefined): JSONContent[] {
-  return (
-    content?.map((node) => structuredClone(node)) ?? [{ type: "paragraph" }]
+  const cloned = getValidContentChildren(content).map((node) =>
+    structuredClone(node),
   );
+  return cloned.length > 0 ? cloned : [{ type: "paragraph" }];
 }

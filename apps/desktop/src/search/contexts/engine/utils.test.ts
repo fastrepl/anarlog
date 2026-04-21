@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { getSessionSearchTimestamp } from "./utils";
+import { extractPlainText, getSessionSearchTimestamp } from "./utils";
 
 describe("getSessionSearchTimestamp", () => {
   test("prefers embedded event started_at over session created_at", () => {
@@ -23,5 +23,32 @@ describe("getSessionSearchTimestamp", () => {
         }),
       }),
     ).toBe(Date.parse("2024-01-01T00:00:00Z"));
+  });
+});
+
+describe("extractPlainText", () => {
+  test("drops malformed nested tiptap nodes while preserving text", () => {
+    expect(
+      extractPlainText(
+        JSON.stringify({
+          type: "doc",
+          content: [
+            null,
+            {
+              type: "paragraph",
+              content: [
+                { type: "text", text: "hello" },
+                undefined,
+                { text: "ignored" },
+                {
+                  type: "text",
+                  text: "world",
+                },
+              ],
+            },
+          ],
+        }),
+      ),
+    ).toBe("hello world");
   });
 });

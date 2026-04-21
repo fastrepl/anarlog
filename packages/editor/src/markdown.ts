@@ -1187,6 +1187,61 @@ export interface JSONContent {
   text?: string;
 }
 
+function isJSONRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function sanitizeMarks(
+  marks: unknown,
+): { type: string; attrs?: Record<string, any> }[] | undefined {
+  if (!Array.isArray(marks)) {
+    return undefined;
+  }
+
+  const sanitized = marks
+    .map((mark) => {
+      if (!isJSONRecord(mark) || typeof mark.type !== "string") {
+        return null;
+      }
+
+      return {
+        type: mark.type,
+        ...(isJSONRecord(mark.attrs)
+          ? { attrs: mark.attrs as Record<string, any> }
+          : {}),
+      };
+    })
+    .filter(
+      (mark): mark is { type: string; attrs?: Record<string, any> } =>
+        mark !== null,
+    );
+
+  return sanitized.length > 0 ? sanitized : undefined;
+}
+
+function sanitizeJSONContentNode(value: unknown): JSONContent | null {
+  if (!isJSONRecord(value) || typeof value.type !== "string") {
+    return null;
+  }
+
+  const marks = sanitizeMarks(value.marks);
+  const content = Array.isArray(value.content)
+    ? value.content
+        .map((child) => sanitizeJSONContentNode(child))
+        .filter((child): child is JSONContent => child !== null)
+    : undefined;
+
+  return {
+    type: value.type,
+    ...(isJSONRecord(value.attrs)
+      ? { attrs: value.attrs as Record<string, any> }
+      : {}),
+    ...(content ? { content } : {}),
+    ...(marks ? { marks } : {}),
+    ...(typeof value.text === "string" ? { text: value.text } : {}),
+  };
+}
+
 export const EMPTY_DOC: JSONContent = {
   type: "doc",
   content: [{ type: "paragraph" }],
@@ -1206,7 +1261,18 @@ export function parseJsonContent(raw: string | undefined | null): JSONContent {
   }
   try {
     const parsed = JSON.parse(raw);
-    return isValidContent(parsed) ? parsed : EMPTY_DOC;
+    const sanitized = sanitizeJSONContentNode(parsed);
+    if (!sanitized || sanitized.type !== "doc") {
+      return EMPTY_DOC;
+    }
+
+    return {
+      type: "doc",
+      content:
+        sanitized.content && sanitized.content.length > 0
+          ? sanitized.content
+          : [{ type: "paragraph" }],
+    };
   } catch {
     return EMPTY_DOC;
   }

@@ -373,6 +373,67 @@ describe("parseJsonContent", () => {
     expect(parseJsonContent(null)).toEqual(EMPTY_DOC);
     expect(parseJsonContent(undefined)).toEqual(EMPTY_DOC);
   });
+
+  test("drops malformed nested nodes while preserving valid content", () => {
+    const raw = JSON.stringify({
+      type: "doc",
+      attrs: { ignored: true },
+      content: [
+        null,
+        {
+          type: "paragraph",
+          attrs: { align: "left" },
+          content: [
+            { type: "text", text: "hello" },
+            undefined,
+            { text: "missing type" },
+          ],
+        },
+        {
+          type: "taskList",
+          content: [
+            {
+              type: "taskItem",
+              attrs: { taskId: "task-1" },
+              content: [
+                {
+                  type: "paragraph",
+                  content: [null, { type: "text", text: "todo" }],
+                },
+              ],
+            },
+            null,
+          ],
+        },
+      ],
+    });
+
+    expect(parseJsonContent(raw)).toEqual({
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          attrs: { align: "left" },
+          content: [{ type: "text", text: "hello" }],
+        },
+        {
+          type: "taskList",
+          content: [
+            {
+              type: "taskItem",
+              attrs: { taskId: "task-1" },
+              content: [
+                {
+                  type: "paragraph",
+                  content: [{ type: "text", text: "todo" }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
 });
 
 describe("fileAttachment round-trip", () => {

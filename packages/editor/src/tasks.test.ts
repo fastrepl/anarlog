@@ -10,6 +10,57 @@ import {
 } from "./tasks";
 
 describe("task content", () => {
+  it("drops invalid nested children while normalizing task content", () => {
+    const content = normalizeTaskContent({
+      type: "doc",
+      content: [
+        null as any,
+        {
+          type: "taskList",
+          content: [
+            undefined as any,
+            {
+              type: "taskItem",
+              attrs: { checked: false, taskId: "task-1" },
+              content: [
+                null as any,
+                {
+                  type: "paragraph",
+                  content: [{ type: "text", text: "Recover me" }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(content).toEqual({
+      type: "doc",
+      content: [
+        {
+          type: "taskList",
+          content: [
+            {
+              type: "taskItem",
+              attrs: {
+                checked: false,
+                taskId: "task-1",
+                taskItemId: expect.any(String),
+              },
+              content: [
+                {
+                  type: "paragraph",
+                  content: [{ type: "text", text: "Recover me" }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
+
   it("assigns unique task ids and task item ids to missing and duplicated task items", () => {
     const content = normalizeTaskContent({
       type: "doc",
@@ -131,6 +182,47 @@ describe("task content", () => {
       },
       content: tasks[0]?.body,
     });
+  });
+
+  it("extracts tasks from malformed legacy content without crashing", () => {
+    const source = { type: "daily_note", id: "2026-04-06" };
+    const tasks = extractTasksFromContent(
+      {
+        type: "doc",
+        content: [
+          undefined as any,
+          {
+            type: "taskList",
+            content: [
+              null as any,
+              {
+                type: "taskItem",
+                attrs: { checked: false, taskId: "task-1" },
+                content: [
+                  undefined as any,
+                  {
+                    type: "paragraph",
+                    content: [{ type: "text", text: "Legacy task" }],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      } as any,
+      source,
+    );
+
+    expect(tasks).toMatchObject([
+      {
+        taskId: "task-1",
+        sourceId: source.id,
+        sourceType: source.type,
+        sourceOrder: 0,
+        status: "todo",
+        textPreview: "Legacy task",
+      },
+    ]);
   });
 
   it("preserves in-progress status when extracting and rebuilding tasks", () => {
