@@ -23,6 +23,7 @@ import {
 import { AnimatePresence, motion, useInView } from "motion/react";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
+import { useIsMobile } from "@hypr/ui/hooks/use-mobile";
 import { cn } from "@hypr/utils";
 
 import { AcquisitionLinkGrid } from "@/components/acquisition-link-grid";
@@ -265,12 +266,12 @@ function HeroSection({
           className="isolate flex w-full overflow-visible text-left"
         >
           <div className="border-brand-bright items-left relative z-10 flex min-h-[88vh] w-full flex-col content-between rounded-lg border md:flex-row">
-            <div className="flex flex-col justify-between px-4 pt-8 pb-8 md:w-1/2 md:px-6 md:pt-12 md:pr-8 md:pb-12 md:pl-12">
+            <div className="flex flex-col justify-between px-6 pt-8 pb-8 md:w-1/2 md:px-6 md:pt-12 md:pr-8 md:pb-12 md:pl-12">
               <div className="flex flex-col">
                 <h1
                   className="text-color mb-6 break-words"
                   style={{
-                    fontSize: "clamp(1.5rem, 2rem + 3.2vw, 3.2rem)",
+                    fontSize: "clamp(1.5rem, 1.5rem + 3.2vw, 3.2rem)",
                   }}
                 >
                   AI daily notes <br /> that remember and act
@@ -281,13 +282,13 @@ function HeroSection({
                   <span className="inline-flex items-center gap-1">
                     <Mail
                       strokeWidth={2.5}
-                      className="size-4 rotate-[-2deg] text-blue-500"
+                      className="size-3 rotate-[-2deg] text-blue-500 md:size-4"
                     />{" "}
                     emails
                   </span>
                   , and builds a{" "}
                   <span className="inline-flex items-center gap-1">
-                    <PencilLine className="size-4 rotate-[3deg] text-blue-500" />{" "}
+                    <PencilLine className="size-3 rotate-[3deg] text-blue-500 md:size-4" />{" "}
                     daily note
                   </span>{" "}
                   with everything you need to do.
@@ -297,7 +298,7 @@ function HeroSection({
                   <span className="inline-flex items-center gap-1">
                     <SquareCheck
                       strokeWidth={2.5}
-                      className="size-4 rotate-[-4deg] text-blue-500"
+                      className="size-3 rotate-[-4deg] text-blue-500 md:size-4"
                     />{" "}
                     tick what's done
                   </span>
@@ -306,7 +307,7 @@ function HeroSection({
                     <img
                       src="/icons/claude.svg"
                       alt=""
-                      className="size-4 shrink-0 rotate-[4deg] object-contain"
+                      className="size-3 shrink-0 rotate-[4deg] object-contain md:size-4"
                       aria-hidden
                     />
                     Claude
@@ -316,7 +317,7 @@ function HeroSection({
                     <img
                       src="/icons/cursor.svg"
                       alt=""
-                      className="h-4 w-auto max-w-[1.125rem] shrink-0 rotate-[2deg] object-contain"
+                      className="h-3 w-auto max-w-[1.125rem] shrink-0 rotate-[2deg] object-contain md:h-4"
                       aria-hidden
                     />
                     Cursor
@@ -426,7 +427,7 @@ function HeroSection({
                     <div className="mt-4 flex w-full flex-col items-stretch gap-4 lg:flex-row lg:items-start">
                       <DownloadButton />
                     </div>
-                    <p className="text-color-secondary mt-2 text-sm">
+                    <p className="text-color-secondary mt-2 text-center text-sm md:text-left">
                       No credit card required
                     </p>
                   </>
@@ -434,10 +435,10 @@ function HeroSection({
               </div>
             </div>
 
-            <div className="relative hidden w-full shrink-0 self-stretch overflow-hidden p-4 md:block md:w-1/2">
-              <div className="border-color-bright bg-lined-notebook-bright relative h-full w-full border">
-                <YCombinatorSticker className="absolute top-2 right-4 rotate-[-5deg]" />
-                <GitHubStarsSticker className="absolute top-8 right-10 -translate-x-5/5 rotate-[2deg]" />
+            <div className="relative w-full shrink-0 self-stretch overflow-hidden px-0 py-0 md:w-1/2 md:px-4 md:pt-4 md:pb-4">
+              <div className="border-color-bright bg-lined-notebook-bright relative h-[100svh] w-full border-0 md:h-full md:border">
+                <YCombinatorSticker className="absolute top-2 right-1 rotate-[-5deg] md:right-4" />
+                <GitHubStarsSticker className="absolute top-8 left-4 translate-x-1 rotate-[2deg]" />
 
                 <div className="absolute inset-x-0 bottom-0 flex h-[86%] justify-center p-2">
                   <DailyNoteMock className="h-full w-full max-w-[480px]" />
@@ -506,9 +507,9 @@ const testimonialAvatarUrls = {
 function SocialTestimonialsSection() {
   return (
     <section className="px-4 pt-16 pb-16">
-      <h2 className="text-color border-color-brand mb-10 border-b pb-8 font-mono text-2xl tracking-wide md:text-4xl">
-        <span className="mb-2 block">What people are saying</span>
-        <span className="text-color-secondary block font-sans text-sm font-normal tracking-normal md:text-base">
+      <h2 className="text-color border-color-brand mb-10 border-b pb-4 font-mono text-2xl tracking-wide md:pb-8 md:text-4xl">
+        What people are saying
+        <span className="text-color-secondary mt-2 block font-sans text-sm font-normal tracking-normal md:text-base">
           Char was formerly Hyprnote.{" "}
           <Link
             to="/blog/$slug/"
@@ -1084,8 +1085,8 @@ export function HowItWorksSection() {
 
         {/* features block */}
         <div className="border-color-brand relative rounded-lg md:border">
-          <div className="border-color-brand flex flex-col px-8 pt-8 pb-8 md:border-b">
-            <h2 className="text-color font-mono text-2xl tracking-wide md:text-2xl">
+          <div className="border-color-brand flex flex-col px-0 pt-8 pb-4 md:border-b md:px-8 md:pb-8">
+            <h2 className="text-color font-mono text-3xl tracking-wide md:text-2xl">
               Private by design
             </h2>
           </div>
@@ -1104,7 +1105,7 @@ export function HowItWorksSection() {
           <div
             ref={featureScrollRef}
             onScroll={handleFeatureScroll}
-            className="flex snap-x snap-mandatory gap-8 overflow-x-auto pb-4 [scrollbar-width:none] md:grid md:grid-cols-3 md:gap-0 md:overflow-visible md:pb-0 md:*:min-h-[320px] md:*:py-4"
+            className="flex snap-x snap-mandatory gap-1 overflow-x-auto pb-4 [scrollbar-width:none] md:grid md:grid-cols-3 md:gap-0 md:gap-8 md:overflow-visible md:pb-0 md:*:min-h-[320px] md:*:py-4"
           >
             {/* own your data */}
             <div className="border-color-brand flex shrink-0 snap-start flex-col gap-2 p-8 md:w-auto md:shrink md:border-r">
@@ -2485,11 +2486,12 @@ function SolutionsTabbar() {
   const active =
     solutionScenarios.find((s) => s.id === activeId) ?? solutionScenarios[0];
   const activeColor = solutionColors[active.id];
+  const isMobile = useIsMobile();
 
   return (
-    <section id="solutions" className="pb-24 pl-4 md:px-4">
-      <div className="mb-8 flex flex-col gap-2 pt-16">
-        <h2 className="text-color font-mono text-2xl tracking-wide md:text-4xl">
+    <section id="solutions" className="px-2 pb-8 md:px-4 md:pb-24">
+      <div className="mb-4 flex flex-col gap-2 pt-16 md:mb-8">
+        <h2 className="text-color font-mono text-3xl tracking-wide md:text-4xl">
           Build for every conversation
         </h2>
       </div>
@@ -2508,8 +2510,11 @@ function SolutionsTabbar() {
             : solutionScenarios.length - distance;
           const r = 14;
           const isFirst = i === 0;
+          const isLast = i === solutionScenarios.length - 1;
+          const useMirroredLast = isLast && isMobile;
           const maskCenter = `radial-gradient(${r}px at ${r}px 0, #0000 98%, #000 101%) calc(-1 * ${r}px) 100% / 100% ${r}px repeat-x, conic-gradient(#000 0 0) padding-box`;
           const maskRight = `radial-gradient(${r}px at 100% 0, #0000 98%, #000 101%) 100% 100% / ${r}px ${r}px no-repeat, conic-gradient(#000 0 0) padding-box`;
+          const maskLeft = `radial-gradient(${r}px at 0 0, #0000 98%, #000 101%) 0 100% / ${r}px ${r}px no-repeat, conic-gradient(#000 0 0) padding-box`;
 
           return (
             <button
@@ -2528,12 +2533,19 @@ function SolutionsTabbar() {
                       mask: maskRight,
                       WebkitMask: maskRight,
                     }
-                  : {
-                      borderInline: `${r}px solid transparent`,
-                      borderRadius: `${2 * r}px ${2 * r}px 0 0 / ${r}px`,
-                      mask: maskCenter,
-                      WebkitMask: maskCenter,
-                    }),
+                  : useMirroredLast
+                    ? {
+                        borderLeft: `${r}px solid transparent`,
+                        borderRadius: `${2 * r}px ${r}px 0 0 / ${r}px`,
+                        mask: maskLeft,
+                        WebkitMask: maskLeft,
+                      }
+                    : {
+                        borderInline: `${r}px solid transparent`,
+                        borderRadius: `${2 * r}px ${2 * r}px 0 0 / ${r}px`,
+                        mask: maskCenter,
+                        WebkitMask: maskCenter,
+                      }),
                 background: `${isActive ? c.accent : c.bg} border-box`,
                 color: isActive ? "#ffffff" : c.accent,
                 transition:
@@ -2566,11 +2578,29 @@ function SolutionsTabbar() {
             borderRadius: "0 0 12px 12px",
           }}
         />
+        {/* Last tab extension behind body (mobile only) */}
+        <div
+          className="absolute top-0 right-0 md:hidden"
+          style={{
+            width: 120,
+            height: 24,
+            zIndex: -1,
+            backgroundColor:
+              activeId === solutionScenarios[solutionScenarios.length - 1].id
+                ? solutionColors[
+                    solutionScenarios[solutionScenarios.length - 1].id
+                  ].accent
+                : solutionColors[
+                    solutionScenarios[solutionScenarios.length - 1].id
+                  ].bg,
+            borderRadius: "0 0 12px 12px",
+          }}
+        />
         <div
           style={{
             backgroundColor: activeColor.accent,
           }}
-          className="relative z-0 overflow-hidden rounded-l-xl md:rounded-xl"
+          className="relative z-0 overflow-hidden rounded-xl"
         >
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
@@ -2579,19 +2609,19 @@ function SolutionsTabbar() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.12 }}
-              className="flex h-[480px] flex-col gap-4 px-8 py-16"
+              className="flex flex-col gap-4 px-6 py-8 md:h-[480px] md:px-8 md:py-16"
             >
-              <h3 className="mb-2 max-w-2xl font-mono text-2xl leading-snug text-white md:text-3xl">
+              <h3 className="md:font-regular mb-0 max-w-2xl font-mono text-2xl leading-snug font-medium text-white md:mb-2 md:text-3xl">
                 {active.headline}
               </h3>
               <p className="max-w-2xl text-base leading-relaxed text-white">
                 {active.description}
               </p>
-              <div className="mt-4 flex flex-wrap gap-2">
+              <div className="mt-2 flex flex-wrap gap-1 md:mt-4 md:gap-2">
                 {active.pills.map((pill) => (
                   <span
                     key={pill}
-                    className="rounded-full border bg-white px-4 py-2 text-base font-medium"
+                    className="rounded-full border bg-white px-3 py-2 text-sm font-medium md:px-4 md:text-base"
                     style={{ color: activeColor.accent }}
                   >
                     {pill}
@@ -2600,7 +2630,7 @@ function SolutionsTabbar() {
               </div>
               <a
                 href={active.link}
-                className="mt-4 flex items-center gap-1 text-sm text-white underline underline-offset-2 hover:text-white/80"
+                className="mt-2 flex items-center gap-1 text-sm text-white underline underline-offset-2 hover:text-white/80 md:mt-4"
               >
                 Learn more
                 <Icon icon="mdi:arrow-top-right" className="text-sm" />
@@ -2669,9 +2699,9 @@ export function ExplorePathsSection() {
 
 function FAQSection() {
   return (
-    <section id="faq" className="px-4 pt-16 pb-16">
+    <section id="faq" className="px-4 py-8 md:px-16 md:py-16">
       <div className="mx-auto flex flex-col gap-4 md:flex-row md:gap-8">
-        <div className="mb-4 text-left md:mb-12">
+        <div className="mb-0 text-left md:mb-12">
           <h2 className="text-color mb-4 font-mono text-2xl tracking-wide md:text-4xl">
             Frequently Asked Questions
           </h2>
@@ -2726,12 +2756,12 @@ function BlogSection() {
   }
 
   return (
-    <section id="blog" className="py-16">
-      <div className="border-color-brand mb-12 border-b px-4 pb-8 text-left">
+    <section id="blog" className="py-8 md:py-16">
+      <div className="border-color-brand mb-8 border-b px-4 pb-8 text-left md:mb-12">
         <h2 className="text-color mb-2 font-mono text-2xl tracking-wide md:text-4xl">
           Latest from our blog
         </h2>
-        <p className="text-color-secondary font-base">
+        <p className="text-color-secondary text-base">
           Insights, updates, and stories from the Char team
         </p>
         <div className="mt-4 text-left">
@@ -2758,7 +2788,7 @@ function BlogSection() {
         </div>
       </div>
 
-      <div className="grid gap-4 px-4 md:grid-cols-3">
+      <div className="grid gap-4 px-2 md:grid-cols-3 md:px-4">
         {sortedArticles.map((article) => {
           return (
             <Link
@@ -2806,11 +2836,11 @@ function BlogSection() {
 function RecordYourDaySection() {
   return (
     <section id="record-your-day" className="px-4 pt-8 pb-12 md:pb-24">
-      <h2 className="text-color mb-10 pb-8 font-mono text-2xl tracking-wide md:text-6xl">
+      <h2 className="text-color mb-4 font-mono text-3xl tracking-wide md:mb-10 md:pb-8 md:text-6xl">
         Not let the Context Slip Through the Cracks
       </h2>
-      <div className="flex flex-col gap-8 md:flex-row md:items-start md:gap-16">
-        <div className="flex flex-col gap-4 pt-10 pb-12 md:w-1/2 md:pt-16 md:pb-20">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-8 md:gap-16">
+        <div className="flex flex-col gap-2 pt-10 pb-12 md:w-1/2 md:gap-4 md:pt-16 md:pb-20">
           <p className="text-color-muted font-mono text-xs tracking-widest uppercase">
             Screen recording
           </p>
@@ -3011,20 +3041,23 @@ function PrivateByDesignSection() {
   const isRecordingIconInView = useInView(recordingIconRef, { amount: 0.5 });
 
   return (
-    <section id="private-by-design" className="px-4 pt-8 pb-12 md:pb-24">
+    <section
+      id="private-by-design"
+      className="px-0 py-4 md:px-4 md:pt-8 md:pb-12 md:pb-24"
+    >
       <div className="border-color-brand relative rounded-lg md:border">
-        <div className="border-color-brand flex flex-col px-8 pt-8 pb-8 md:border-b">
+        <div className="border-color-brand flex flex-col px-4 pt-2 pb-0 md:border-b md:px-8 md:pt-8 md:pb-8">
           <h2 className="text-color font-mono text-2xl tracking-wide md:text-4xl">
             Private by design
           </h2>
         </div>
 
-        <div className="flex snap-x snap-mandatory gap-8 overflow-x-auto pb-4 [scrollbar-width:none] md:grid md:grid-cols-2 md:gap-0 md:overflow-visible md:pb-0 md:*:min-h-[320px] md:*:py-4 lg:grid-cols-4">
-          <div className="border-color-brand flex w-[85%] shrink-0 snap-start flex-col gap-2 p-8 md:w-auto md:shrink md:border-r md:border-b lg:border-b-0">
+        <div className="flex snap-x snap-mandatory gap-0 overflow-x-auto [scrollbar-width:none] md:grid md:grid-cols-2 md:gap-0 md:gap-8 md:overflow-visible md:pb-4 md:*:min-h-[320px] md:*:py-4 lg:grid-cols-4">
+          <div className="border-color-brand flex w-[80%] shrink-0 snap-start flex-col gap-2 p-8 md:w-auto md:shrink md:border-r md:border-b lg:border-b-0">
             <div className="text-color-secondary flex h-32 items-center justify-start gap-3 select-none md:h-24 lg:h-32">
               <span
                 aria-hidden="true"
-                className="inline-block aspect-[77/100] w-14 rotate-[-5deg] bg-current [mask-image:url(/icons/file-outline.svg)] [mask-size:contain] [mask-repeat:no-repeat] md:w-7 lg:w-10"
+                className="inline-block aspect-[77/100] w-12 rotate-[-5deg] bg-current [mask-image:url(/icons/file-outline.svg)] [mask-size:contain] [mask-repeat:no-repeat] md:w-7 lg:w-10"
               />
               <span
                 aria-hidden="true"
@@ -3032,11 +3065,11 @@ function PrivateByDesignSection() {
               />
               <span
                 aria-hidden="true"
-                className="inline-block aspect-[77/100] w-14 rotate-[6deg] bg-current [mask-image:url(/icons/file-outline.svg)] [mask-size:contain] [mask-repeat:no-repeat] md:w-7 lg:w-10"
+                className="inline-block aspect-[77/100] w-12 rotate-[6deg] bg-current [mask-image:url(/icons/file-outline.svg)] [mask-size:contain] [mask-repeat:no-repeat] md:w-7 lg:w-10"
               />
             </div>
             <div className="flex min-h-0 flex-col justify-start gap-2 md:max-h-[200px]">
-              <h4 className="text-color mb-2 text-base md:text-xl">
+              <h4 className="text-color mb-2 text-xl md:text-xl">
                 Data always stays on your device
               </h4>
               <p className="text-color-secondary text-base">
@@ -3046,7 +3079,7 @@ function PrivateByDesignSection() {
             </div>
           </div>
 
-          <div className="border-color-brand flex w-[85%] shrink-0 snap-start flex-col gap-2 p-8 md:w-auto md:shrink md:border-b lg:border-r lg:border-b-0">
+          <div className="border-color-brand flex w-[80%] shrink-0 snap-start flex-col gap-2 p-8 md:w-auto md:shrink md:border-b lg:border-r lg:border-b-0">
             <div className="flex h-32 items-center gap-4 select-none md:h-24 md:gap-3 lg:h-32 lg:gap-4">
               <div
                 className={cn([
@@ -3064,7 +3097,7 @@ function PrivateByDesignSection() {
               </div>
             </div>
             <div className="flex min-h-0 flex-col justify-start gap-2 pb-8 md:max-h-[200px]">
-              <h4 className="text-color mb-2 text-base md:text-xl">
+              <h4 className="text-color mb-2 text-xl">
                 Bring Your Own Key or use local models
               </h4>
               <p className="text-color-secondary text-base">
@@ -3074,7 +3107,7 @@ function PrivateByDesignSection() {
             </div>
           </div>
 
-          <div className="border-color-brand flex w-[85%] shrink-0 snap-start flex-col gap-2 p-8 md:w-auto md:shrink md:border-r">
+          <div className="border-color-brand flex w-[80%] shrink-0 snap-start flex-col gap-2 p-8 md:w-auto md:shrink md:border-r">
             <div className="flex h-32 items-center select-none md:h-24 lg:h-32">
               <div
                 className={cn([
@@ -3096,9 +3129,7 @@ function PrivateByDesignSection() {
               </div>
             </div>
             <div className="flex min-h-0 flex-col justify-start gap-2 md:max-h-[200px]">
-              <h4 className="text-color mb-2 text-base md:text-xl">
-                No bots on calls.
-              </h4>
+              <h4 className="text-color mb-2 text-xl">No bots on calls.</h4>
               <p className="text-color-secondary text-base">
                 Char captures system audio without bothering anyone on the call.
                 Works everywhere.
@@ -3106,7 +3137,7 @@ function PrivateByDesignSection() {
             </div>
           </div>
 
-          <div className="flex w-[85%] shrink-0 snap-start flex-col gap-2 p-8 md:w-auto md:shrink">
+          <div className="flex w-full shrink-0 snap-start flex-col gap-2 p-8 md:w-auto md:shrink">
             <div
               ref={recordingIconRef}
               className="flex h-32 items-center gap-4 select-none md:h-24 lg:h-32"
@@ -3117,7 +3148,7 @@ function PrivateByDesignSection() {
                 xmlns="http://www.w3.org/2000/svg"
                 role="img"
                 aria-label="recording"
-                className="text-color-secondary inline-block size-8 md:size-10 lg:size-24"
+                className="text-color-secondary inline-block size-20 lg:size-24"
                 animate={
                   isRecordingIconInView ? { rotate: 360 } : { rotate: 0 }
                 }
@@ -3164,7 +3195,7 @@ function PrivateByDesignSection() {
               </motion.svg>
             </div>
             <div className="flex min-h-0 flex-col justify-start gap-2 md:max-h-[200px]">
-              <h4 className="text-color mb-2 text-base md:text-xl">
+              <h4 className="text-color mb-2 text-xl">
                 Screen recording stays on your device
               </h4>
               <p className="text-color-secondary text-base">

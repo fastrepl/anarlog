@@ -109,7 +109,7 @@ function HighlightedBody({ text }: { text: string }) {
     <>
       {parts.map((part, i) =>
         HIGHLIGHT_TEST.test(part) ? (
-          <span key={i} className="text-fg font-semibold">
+          <span key={i} className="text-fg font-semibold opacity-100">
             {part}
           </span>
         ) : (
@@ -134,7 +134,7 @@ export function SocialCard(props: SocialCardProps) {
         }}
       >
         <div className="surface border-color-brand rounded-2xl rounded-bl-none border px-5 py-4">
-          <p className="text-color-secondary text-base leading-relaxed md:line-clamp-[20]">
+          <p className="text-color text-base leading-relaxed opacity-80 md:line-clamp-[20]">
             <HighlightedBody text={body} />
           </p>
         </div>

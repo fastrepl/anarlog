@@ -96,7 +96,7 @@ export function Footer() {
       <div
         className={`${maxWidthClass} laptop:px-0 relative z-10 mx-auto px-4 py-12 lg:py-32`}
       >
-        <div className="flex flex-col gap-12 lg:flex-row">
+        <div className="flex flex-col-reverse gap-12 lg:flex-row">
           <BrandSection currentYear={currentYear} />
           <LinksGrid />
         </div>

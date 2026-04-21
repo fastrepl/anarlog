@@ -46,8 +46,8 @@ export function CTASection({
 
   return (
     <section className="laptop:px-0 px-4 py-16">
-      <div className="flex flex-col items-center gap-6 text-center">
-        <h2 className="text-color font-mono text-2xl tracking-wide md:text-6xl">
+      <div className="flex flex-col items-center gap-4 text-center md:gap-6">
+        <h2 className="text-color font-mono text-4xl tracking-wide md:text-6xl">
           {title}
         </h2>
         <p className="text-color-secondary mx-auto max-w-2xl text-lg">

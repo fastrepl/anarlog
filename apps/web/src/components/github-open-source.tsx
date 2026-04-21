@@ -243,25 +243,25 @@ export function GitHubOpenSource() {
 
   return (
     <section id="opensource">
-      <div className="px-4 py-16">
+      <div className="px-4 py-12 md:py-16">
         <h2 className="text-fg border-color-brand mb-8 border-b pb-8 font-mono text-2xl tracking-wide md:text-4xl">
           Open source
         </h2>
         <div
           className={cn([
-            "flex flex-col items-center gap-6",
+            "flex flex-col items-start gap-6",
             "md:flex-row md:items-center md:justify-between md:gap-12",
           ])}
         >
-          <div className="flex flex-col items-center gap-4 md:items-start">
-            <p className="text-color-secondary max-w-md text-center text-base leading-relaxed md:text-left">
+          <div className="flex flex-col items-start gap-4">
+            <p className="text-color-secondary max-w-md text-start text-base leading-relaxed md:text-left">
               Char values privacy and community, so it's been transparent from
               day one.
             </p>
             <div
               className={cn([
-                "flex flex-col items-center gap-3",
-                "sm:flex-row md:items-start",
+                "flex flex-col items-start gap-3",
+                "flex-row md:items-start",
               ])}
             >
               <a
@@ -269,7 +269,7 @@ export function GitHubOpenSource() {
                 target="_blank"
                 rel="noopener noreferrer"
                 className={cn([
-                  "group inline-flex h-14 items-center justify-center gap-2 px-8",
+                  "group inline-flex h-14 items-center justify-center gap-2 px-4 md:px-8",
                   "text-fg border-color-brand rounded-full border",
                   "hover:scale-[102%] hover:bg-[var(--color-brand-dark)] hover:text-white active:scale-[96%]",
                   "cursor-pointer transition-[transform,background-color,color]",
@@ -281,7 +281,7 @@ export function GitHubOpenSource() {
               <Link
                 to="/opensource/"
                 className={cn([
-                  "inline-flex h-14 items-center justify-center px-8",
+                  "inline-flex h-14 items-center justify-center px-4 md:px-8",
                   "text-fg border-color-brand rounded-full border",
                   "hover:scale-[102%] hover:bg-[var(--color-brand-dark)] hover:text-white active:scale-[96%]",
                   "cursor-pointer transition-[transform,background-color,color]",
