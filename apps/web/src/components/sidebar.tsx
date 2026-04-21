@@ -63,7 +63,7 @@ const resourcesList: MenuItem[] = [
   { to: "/changelog/", label: "Changelog", icon: History },
   { to: "/company-handbook/", label: "Company Handbook", icon: Building2 },
   {
-    to: "https://discord.gg/hyprnote",
+    to: "https://discord.gg/atz8UzSRBM",
     label: "Community",
     icon: MessageCircle,
     external: true,
