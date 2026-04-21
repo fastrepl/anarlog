@@ -558,7 +558,7 @@ function MockDesktopApp() {
                   "flex h-10 cursor-pointer items-center justify-center gap-1.5 rounded-full px-4",
                   "bg-white shadow-lg hover:shadow-xl",
                   "border border-neutral-200",
-                  "transition-all duration-200 ease-out hover:scale-105",
+                  "transition-[transform,box-shadow] duration-200 ease-out hover:scale-105 active:scale-[96%]",
                 ])}
               >
                 <MessageCircleIcon size={16} className="text-neutral-600" />
@@ -655,7 +655,7 @@ function MockProfileSection() {
           "flex w-full cursor-pointer items-center gap-2.5 rounded-lg",
           "px-4 py-2",
           "text-left",
-          "transition-all duration-300",
+          "transition-colors duration-300",
           expanded ? "bg-neutral-200/50" : "hover:bg-neutral-200/50",
         ])}
       >

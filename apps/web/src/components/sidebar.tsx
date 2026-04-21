@@ -217,7 +217,7 @@ export function Sidebar() {
           <CTAButton platformCTA={platformCTA} mobile />
           <button
             onClick={() => setIsMobileOpen(!isMobileOpen)}
-            className="flex h-8 cursor-pointer items-center rounded-full bg-linear-to-t from-neutral-200 to-neutral-100 px-3 text-sm text-neutral-900 shadow-xs transition-all hover:scale-[102%] hover:shadow-md active:scale-[98%]"
+            className="flex h-8 cursor-pointer items-center rounded-full bg-linear-to-t from-neutral-200 to-neutral-100 px-3 text-sm text-neutral-900 shadow-xs transition-[transform,box-shadow] hover:scale-[102%] hover:shadow-md active:scale-[96%]"
             aria-label={isMobileOpen ? "Close menu" : "Open menu"}
           >
             {isMobileOpen ? (
@@ -485,7 +485,7 @@ function MobileMenuCTAs({
           href="/download/apple-silicon"
           download
           onClick={closeAllMenus}
-          className="block w-full rounded-lg bg-linear-to-t from-stone-600 to-stone-500 px-4 py-3 text-center text-sm text-white shadow-md transition-all active:scale-[98%]"
+          className="block w-full rounded-lg bg-linear-to-t from-stone-600 to-stone-500 px-4 py-3 text-center text-sm text-white shadow-md transition-transform active:scale-[96%]"
         >
           {platformCTA.label}
         </a>
@@ -493,7 +493,7 @@ function MobileMenuCTAs({
         <Link
           to="/"
           onClick={closeAllMenus}
-          className="block w-full rounded-lg bg-linear-to-t from-stone-600 to-stone-500 px-4 py-3 text-center text-sm text-white shadow-md transition-all active:scale-[98%]"
+          className="block w-full rounded-lg bg-linear-to-t from-stone-600 to-stone-500 px-4 py-3 text-center text-sm text-white shadow-md transition-transform active:scale-[96%]"
         >
           {platformCTA.label}
         </Link>
@@ -887,8 +887,8 @@ function CTAButton({
   mobile?: boolean;
 }) {
   const baseClass = mobile
-    ? "px-4 h-8 flex items-center text-sm bg-linear-to-t from-stone-600 to-stone-500 text-white rounded-full shadow-md active:scale-[98%] transition-all"
-    : "px-4 h-8 flex items-center text-sm bg-linear-to-t from-stone-600 to-stone-500 text-white rounded-full shadow-md hover:shadow-lg hover:scale-[102%] active:scale-[98%] transition-all";
+    ? "px-4 h-8 flex items-center text-sm bg-linear-to-t from-stone-600 to-stone-500 text-white rounded-full shadow-md active:scale-[96%] transition-transform"
+    : "px-4 h-8 flex items-center text-sm bg-linear-to-t from-stone-600 to-stone-500 text-white rounded-full shadow-md hover:shadow-lg hover:scale-[102%] active:scale-[96%] transition-[transform,box-shadow]";
 
   if (platformCTA.action === "download") {
     return (

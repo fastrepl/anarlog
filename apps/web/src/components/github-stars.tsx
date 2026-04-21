@@ -25,12 +25,12 @@ export function GithubStars() {
         className={cn([
           "group flex h-14 items-center justify-center px-8 text-base sm:text-lg",
           "border-color-bright text-fg rounded-full border",
-          "hover:scale-[102%] hover:bg-[var(--color-brand-dark)] hover:text-white active:scale-[98%]",
-          "cursor-pointer transition-all",
+          "hover:scale-[102%] hover:bg-[var(--color-brand-dark)] hover:text-white active:scale-[96%]",
+          "cursor-pointer transition-[transform,background-color,color]",
         ])}
       >
         <GitHubIcon className="size-5" />
-        <span className="ml-2">{render(starCount)} stars</span>
+        <span className="ml-2 tabular-nums">{render(starCount)} stars</span>
       </button>
     </a>
   );

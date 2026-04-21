@@ -349,7 +349,7 @@ function HeroSection({
                         <>
                           <div
                             className={cn([
-                              "items-left relative flex overflow-hidden rounded-full border-2 transition-all duration-200",
+                              "items-left relative flex overflow-hidden rounded-full border-2 transition-colors duration-200",
                               shake && "animate-shake border-color-brand",
                               !shake && mutation.isError && "border-red-500",
                               !shake &&
@@ -380,7 +380,7 @@ function HeroSection({
                               disabled={
                                 mutation.isPending || mutation.isSuccess
                               }
-                              className="absolute top-1 right-1 bottom-1 rounded-full bg-linear-to-t from-stone-600 to-stone-500 px-4 text-sm text-white shadow-md transition-all hover:scale-[102%] hover:shadow-lg active:scale-[98%] disabled:opacity-50 sm:px-6"
+                              className="absolute top-1 right-1 bottom-1 rounded-full bg-linear-to-t from-stone-600 to-stone-500 px-4 text-sm text-white shadow-md transition-[transform,box-shadow,opacity] hover:scale-[102%] hover:shadow-lg active:scale-[96%] disabled:opacity-50 sm:px-6"
                             >
                               {mutation.isPending
                                 ? "Sending..."
@@ -1731,7 +1731,7 @@ export function AISection() {
           {/* Block 0: Before meeting */}
           <div
             className={cn([
-              "flex cursor-pointer flex-col gap-2 border-l-2 pl-2 transition-all duration-200 md:pl-4",
+              "flex cursor-pointer flex-col gap-2 border-l-2 pl-2 transition-[border-color,opacity] duration-200 md:pl-4",
               activeBlock === 0
                 ? "md:border-l-stone-800"
                 : "opacity-50 hover:opacity-75 md:border-l-transparent",
@@ -1761,7 +1761,7 @@ export function AISection() {
           {/* Block 1: During meeting */}
           <div
             className={cn([
-              "flex cursor-pointer flex-col gap-2 border-l-2 pl-4 transition-all duration-200",
+              "flex cursor-pointer flex-col gap-2 border-l-2 pl-4 transition-[border-color,opacity] duration-200",
               activeBlock === 1
                 ? "md:border-l-stone-800"
                 : "md:border-l-transparent md:opacity-50 md:hover:opacity-75",
@@ -1791,7 +1791,7 @@ export function AISection() {
           {/* Block 2: After meeting */}
           <div
             className={cn([
-              "flex cursor-pointer flex-col gap-2 border-l-2 pl-4 transition-all duration-200",
+              "flex cursor-pointer flex-col gap-2 border-l-2 pl-4 transition-[border-color,opacity] duration-200",
               activeBlock === 2
                 ? "border-l-stone-800"
                 : "border-l-transparent opacity-50 hover:opacity-75",
@@ -2767,7 +2767,7 @@ function BlogSection() {
               params={{ slug: article.slug }}
               className="group block h-full"
             >
-              <article className="bg-surface border-color-brand flex h-full flex-col overflow-hidden rounded-md border p-4 transition-all duration-300 hover:shadow-lg">
+              <article className="bg-surface border-color-brand flex h-full flex-col overflow-hidden rounded-md border p-4 transition-shadow duration-300 hover:shadow-lg">
                 <div className="flex flex-1 flex-col px-2 pt-4">
                   <h3 className="text-color mb-4 line-clamp-2 font-mono text-2xl font-medium">
                     {article.display_title || article.meta_title}

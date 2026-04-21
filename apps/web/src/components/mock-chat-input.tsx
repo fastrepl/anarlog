@@ -59,7 +59,7 @@ export function MockChatInput({
   return (
     <div
       className={cn([
-        "border-color-brand surface flex flex-col overflow-hidden border shadow-lg transition-all duration-300 hover:shadow-2xl",
+        "border-color-brand surface flex flex-col overflow-hidden border shadow-lg transition-shadow duration-300 hover:shadow-2xl",
         "max-h-32 min-h-32 w-full max-w-lg rounded-xl p-3",
         className,
       ])}

@@ -23,7 +23,7 @@ export function NotFoundContent() {
 
           <Link
             to="/"
-            className="inline-flex items-center gap-2 rounded-full bg-linear-to-t from-stone-600 to-stone-500 px-5 py-2.5 text-sm font-medium text-white shadow-md transition-all hover:scale-[102%] hover:shadow-lg active:scale-[98%]"
+            className="inline-flex items-center gap-2 rounded-full bg-linear-to-t from-stone-600 to-stone-500 px-5 py-2.5 text-sm font-medium text-white shadow-md transition-[transform,box-shadow] hover:scale-[102%] hover:shadow-lg active:scale-[96%]"
           >
             <ArrowLeft size={14} />
             Back to home

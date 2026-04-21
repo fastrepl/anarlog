@@ -229,7 +229,7 @@ function LeftNav({
       <Logo />
       <Link
         to="/why-char/"
-        className="hidden text-sm text-neutral-600 decoration-dotted transition-all hover:text-neutral-800 hover:underline md:block"
+        className="hidden text-sm text-neutral-600 decoration-dotted transition-colors hover:text-neutral-800 hover:underline md:block"
       >
         Why Char
       </Link>
@@ -268,7 +268,7 @@ function DrawerButton({
           }
           docsDrawer.setIsOpen(!docsDrawer.isOpen);
         }}
-        className="flex h-8 cursor-pointer items-center rounded-full bg-linear-to-t from-neutral-200 to-neutral-100 px-3 text-sm text-neutral-900 shadow-xs transition-all hover:scale-[102%] hover:shadow-md active:scale-[98%] md:hidden"
+        className="flex h-8 cursor-pointer items-center rounded-full bg-linear-to-t from-neutral-200 to-neutral-100 px-3 text-sm text-neutral-900 shadow-xs transition-[transform,box-shadow] hover:scale-[102%] hover:shadow-md active:scale-[96%] md:hidden"
         aria-label={
           docsDrawer.isOpen ? "Close docs navigation" : "Open docs navigation"
         }
@@ -291,7 +291,7 @@ function DrawerButton({
           }
           handbookDrawer.setIsOpen(!handbookDrawer.isOpen);
         }}
-        className="flex h-8 cursor-pointer items-center rounded-full bg-linear-to-t from-neutral-200 to-neutral-100 px-3 text-sm text-neutral-900 shadow-xs transition-all hover:scale-[102%] hover:shadow-md active:scale-[98%] md:hidden"
+        className="flex h-8 cursor-pointer items-center rounded-full bg-linear-to-t from-neutral-200 to-neutral-100 px-3 text-sm text-neutral-900 shadow-xs transition-[transform,box-shadow] hover:scale-[102%] hover:shadow-md active:scale-[96%] md:hidden"
         aria-label={
           handbookDrawer.isOpen
             ? "Close handbook navigation"
@@ -334,7 +334,7 @@ function ProductDropdown({
       onMouseEnter={() => setIsProductOpen(true)}
       onMouseLeave={() => setIsProductOpen(false)}
     >
-      <button className="flex items-center gap-1 py-2 text-sm text-neutral-600 transition-all hover:text-neutral-800">
+      <button className="flex items-center gap-1 py-2 text-sm text-neutral-600 transition-colors hover:text-neutral-800">
         Product
         {isProductOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
       </button>
@@ -418,7 +418,7 @@ function ResourcesDropdown({
       onMouseEnter={() => setIsResourcesOpen(true)}
       onMouseLeave={() => setIsResourcesOpen(false)}
     >
-      <button className="flex items-center gap-1 py-2 text-sm text-neutral-600 transition-all hover:text-neutral-800">
+      <button className="flex items-center gap-1 py-2 text-sm text-neutral-600 transition-colors hover:text-neutral-800">
         Resources
         {isResourcesOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
       </button>
@@ -467,7 +467,7 @@ function NavLinks() {
   return (
     <Link
       to="/pricing/"
-      className="hidden text-sm text-neutral-600 decoration-dotted transition-all hover:text-neutral-800 hover:underline sm:block"
+      className="hidden text-sm text-neutral-600 decoration-dotted transition-colors hover:text-neutral-800 hover:underline sm:block"
     >
       Pricing
     </Link>
@@ -531,7 +531,7 @@ function MobileNav({
           }
           setIsMenuOpen(!isMenuOpen);
         }}
-        className="flex h-8 cursor-pointer items-center rounded-full bg-linear-to-t from-neutral-200 to-neutral-100 px-3 text-sm text-neutral-900 shadow-xs transition-all hover:scale-[102%] hover:shadow-md active:scale-[98%]"
+        className="flex h-8 cursor-pointer items-center rounded-full bg-linear-to-t from-neutral-200 to-neutral-100 px-3 text-sm text-neutral-900 shadow-xs transition-[transform,box-shadow] hover:scale-[102%] hover:shadow-md active:scale-[96%]"
         aria-label={isMenuOpen ? "Close menu" : "Open menu"}
         aria-expanded={isMenuOpen}
       >
@@ -555,8 +555,8 @@ function CTAButton({
   mobile?: boolean;
 }) {
   const baseClass = mobile
-    ? "px-4 h-8 flex items-center text-sm bg-linear-to-t from-stone-600 to-stone-500 text-white rounded-full shadow-md active:scale-[98%] transition-all"
-    : "px-4 h-8 flex items-center text-sm bg-linear-to-t from-stone-600 to-stone-500 text-white rounded-full shadow-md hover:shadow-lg hover:scale-[102%] active:scale-[98%] transition-all";
+    ? "px-4 h-8 flex items-center text-sm bg-linear-to-t from-stone-600 to-stone-500 text-white rounded-full shadow-md active:scale-[96%] transition-transform"
+    : "px-4 h-8 flex items-center text-sm bg-linear-to-t from-stone-600 to-stone-500 text-white rounded-full shadow-md hover:shadow-lg hover:scale-[102%] active:scale-[96%] transition-[transform,box-shadow]";
 
   if (mobile && platform === "mobile") {
     return (
@@ -905,7 +905,7 @@ function MobileMenuCTAs({
             setIsMenuOpen(false);
             scrollToHero();
           }}
-          className="block w-full rounded-lg bg-linear-to-t from-stone-600 to-stone-500 px-4 py-3 text-center text-sm text-white shadow-md transition-all active:scale-[98%]"
+          className="block w-full rounded-lg bg-linear-to-t from-stone-600 to-stone-500 px-4 py-3 text-center text-sm text-white shadow-md transition-transform active:scale-[96%]"
         >
           Get reminder
         </Link>
@@ -914,7 +914,7 @@ function MobileMenuCTAs({
           href="/download/apple-silicon"
           download
           onClick={() => setIsMenuOpen(false)}
-          className="block w-full rounded-lg bg-linear-to-t from-stone-600 to-stone-500 px-4 py-3 text-center text-sm text-white shadow-md transition-all active:scale-[98%]"
+          className="block w-full rounded-lg bg-linear-to-t from-stone-600 to-stone-500 px-4 py-3 text-center text-sm text-white shadow-md transition-transform active:scale-[96%]"
         >
           {platformCTA.label}
         </a>
@@ -926,7 +926,7 @@ function MobileMenuCTAs({
             setIsMenuOpen(false);
             scrollToHero();
           }}
-          className="block w-full rounded-lg bg-linear-to-t from-stone-600 to-stone-500 px-4 py-3 text-center text-sm text-white shadow-md transition-all active:scale-[98%]"
+          className="block w-full rounded-lg bg-linear-to-t from-stone-600 to-stone-500 px-4 py-3 text-center text-sm text-white shadow-md transition-transform active:scale-[96%]"
         >
           {platformCTA.label}
         </Link>

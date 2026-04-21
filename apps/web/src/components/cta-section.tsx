@@ -62,8 +62,8 @@ export function CTASection({
               className={cn([
                 "group flex h-12 items-center justify-center px-6 text-base sm:text-lg",
                 "rounded-full bg-linear-to-t from-stone-600 to-stone-500 text-white",
-                "shadow-md hover:scale-[102%] hover:shadow-lg active:scale-[98%]",
-                "transition-all",
+                "shadow-md hover:scale-[102%] hover:shadow-lg active:scale-[96%]",
+                "transition-[transform,box-shadow]",
               ])}
             >
               {getButtonLabel()}

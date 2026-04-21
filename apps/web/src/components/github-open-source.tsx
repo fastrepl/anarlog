@@ -41,7 +41,7 @@ function StatBadge({
       <p className="text-fg font-mono text-sm tracking-wide uppercase opacity-50">
         {type === "stars" ? "Stars" : "Forks"}
       </p>
-      <h3 className="text-fg text-right font-mono text-2xl font-medium">
+      <h3 className="text-fg text-right font-mono text-2xl font-medium tabular-nums">
         {renderCount(count)}
       </h3>
     </div>
@@ -271,8 +271,8 @@ export function GitHubOpenSource() {
                 className={cn([
                   "group inline-flex h-14 items-center justify-center gap-2 px-8",
                   "text-fg border-color-brand rounded-full border",
-                  "hover:scale-[102%] hover:bg-[var(--color-brand-dark)] hover:text-white active:scale-[98%]",
-                  "cursor-pointer transition-all",
+                  "hover:scale-[102%] hover:bg-[var(--color-brand-dark)] hover:text-white active:scale-[96%]",
+                  "cursor-pointer transition-[transform,background-color,color]",
                 ])}
               >
                 <Icon icon="mdi:github" className="text-lg" />
@@ -283,8 +283,8 @@ export function GitHubOpenSource() {
                 className={cn([
                   "inline-flex h-14 items-center justify-center px-8",
                   "text-fg border-color-brand rounded-full border",
-                  "hover:scale-[102%] hover:bg-[var(--color-brand-dark)] hover:text-white active:scale-[98%]",
-                  "cursor-pointer transition-all",
+                  "hover:scale-[102%] hover:bg-[var(--color-brand-dark)] hover:text-white active:scale-[96%]",
+                  "cursor-pointer transition-[transform,background-color,color]",
                 ])}
               >
                 Why Open source?

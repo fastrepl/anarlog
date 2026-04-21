@@ -428,7 +428,7 @@ export function DailyNoteMock({ className }: { className?: string }) {
             type="button"
             onClick={() => setActiveTab("home")}
             className={cn([
-              "ml-2 flex size-7 items-center justify-center rounded-md transition-colors",
+              "ml-2 flex size-7 items-center justify-center rounded-md transition-[background-color,color,scale] active:scale-[0.96]",
               activeTab === "home"
                 ? "border border-stone-400 bg-neutral-200/50 text-neutral-900"
                 : "text-neutral-700 hover:bg-neutral-100",
@@ -463,7 +463,7 @@ export function DailyNoteMock({ className }: { className?: string }) {
                 type="button"
                 onClick={() => setProfileOpen((v) => !v)}
                 className={cn([
-                  "flex size-7 cursor-pointer items-center justify-center overflow-hidden rounded-full bg-amber-100 transition-all",
+                  "flex size-7 cursor-pointer items-center justify-center overflow-hidden rounded-full bg-amber-100 transition-[box-shadow,scale] active:scale-[0.96]",
                   profileOpen && "ring-2 ring-stone-400 ring-offset-1",
                 ])}
               >
@@ -656,7 +656,7 @@ function MeetingView({ slug }: { slug: string }) {
               icon="mdi:calendar-blank-outline"
               className="shrink-0 text-xs"
             />
-            <span>{meeting.time}</span>
+            <span className="tabular-nums">{meeting.time}</span>
           </button>
           <button className="flex size-6 items-center justify-center text-neutral-600">
             <Icon icon="mdi:dots-horizontal" className="text-sm" />
@@ -734,7 +734,7 @@ function MeetingTab({
       role="button"
       onClick={onSelect}
       className={cn([
-        "flex h-7 w-[160px] shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border px-2 text-xs transition-colors",
+        "flex h-7 w-[160px] shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border px-2 text-xs transition-[background-color,border-color,color,scale] active:scale-[0.96]",
         active
           ? "border-stone-400 bg-neutral-200/50 text-neutral-900"
           : "border-transparent text-neutral-500 hover:bg-neutral-100",
@@ -810,7 +810,7 @@ function MeetingTaskRow({
     <div
       role="button"
       onClick={() => openMeeting?.(title)}
-      className="group flex cursor-pointer items-center gap-3 rounded-md py-1.5 pr-3 hover:bg-neutral-100/70"
+      className="group flex cursor-pointer items-center gap-3 rounded-md py-1.5 pr-3 transition-transform hover:bg-neutral-100/70 active:scale-[0.96]"
     >
       <TaskCheckbox done={done} />
       <Icon
@@ -825,7 +825,7 @@ function MeetingTaskRow({
       >
         {title}
       </span>
-      <span className="shrink-0 font-mono text-xs text-neutral-400">
+      <span className="shrink-0 font-mono text-xs text-neutral-400 tabular-nums">
         {time}
       </span>
     </div>

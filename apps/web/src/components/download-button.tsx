@@ -76,7 +76,7 @@ export function DownloadButton({
 
   if (variant === "compact") {
     return (
-      <div className="rounded-full bg-gradient-to-b from-gray-100 to-gray-700 shadow-sm transition-all hover:scale-[102%] hover:shadow-md active:scale-[98%]">
+      <div className="rounded-full bg-gradient-to-b from-gray-100 to-gray-700 shadow-sm transition-[transform,box-shadow] hover:scale-[102%] hover:shadow-md active:scale-[96%]">
         <a
           href={href}
           download
@@ -103,7 +103,7 @@ export function DownloadButton({
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-full bg-gradient-to-b from-gray-100 to-gray-700 shadow-md transition-all hover:scale-[102%] hover:shadow-xl active:scale-[98%]">
+    <div className="flex flex-col gap-2 rounded-full bg-gradient-to-b from-gray-100 to-gray-700 shadow-md transition-[transform,box-shadow] hover:scale-[102%] hover:shadow-xl active:scale-[96%]">
       <a
         href={href}
         download

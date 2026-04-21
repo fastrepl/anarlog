@@ -53,11 +53,11 @@ export function GitHubStarsSticker({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "group surface relative cursor-pointer rounded-full p-1 shadow-sm transition-transform hover:scale-105",
+        "group surface relative cursor-pointer rounded-full p-1 shadow-sm transition-transform hover:scale-105 active:scale-[96%]",
         className,
       )}
     >
-      <div className="absolute top-0 left-1/2 h-full w-1/5 -translate-x-1/3 bg-white/20 blur-sm transition-all duration-200 group-hover:w-5/5 group-hover:-translate-x-1/2 group-hover:bg-white/10"></div>
+      <div className="absolute top-0 left-1/2 h-full w-1/5 -translate-x-1/3 bg-white/20 blur-sm transition-[width,transform,background-color] duration-200 group-hover:w-5/5 group-hover:-translate-x-1/2 group-hover:bg-white/10"></div>
       <a
         href={`https://github.com/${GITHUB_ORG_REPO}`}
         target="_blank"

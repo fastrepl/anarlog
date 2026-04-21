@@ -181,6 +181,8 @@
     max-width: 100vw;
     font-family: var(--font-sans);
     background-color: var(--color-page);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   h1,
@@ -189,6 +191,7 @@
     font-weight: 500;
     letter-spacing: -0.02em;
     line-height: 1.3 !important;
+    text-wrap: balance;
   }
 
   h3,
@@ -205,6 +208,7 @@
   p {
     line-height: 1.5;
     font-size: 1.3rem;
+    text-wrap: pretty;
   }
 
   button,
