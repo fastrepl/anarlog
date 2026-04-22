@@ -19,6 +19,7 @@ import { useEffect, useState } from "react";
 
 import { cn } from "@hypr/utils";
 
+import { DownloadButton } from "@/components/download-button";
 import { SearchTrigger } from "@/components/search";
 import { getPlatformCTA, usePlatform } from "@/hooks/use-platform";
 import {
@@ -209,21 +210,25 @@ export function Sidebar() {
   return (
     <>
       {/* ===== MOBILE: top bar + dropdown menu (<md / <768px) ===== */}
-      <div className="fixed top-[var(--announcement-bar-h,0px)] right-0 left-0 z-50 flex h-14 items-center justify-between border-b border-neutral-100 bg-white/80 px-4 backdrop-blur-xs md:hidden">
+      <div className="border-color-subtle fixed top-[var(--announcement-bar-h,0px)] right-0 left-0 z-50 flex h-14 items-center justify-between border-b bg-[color:var(--color-surface-subtle)]/80 px-4 backdrop-blur-md md:hidden">
         <Link to="/">
-          <CharLogo className="text-fg h-5 w-auto" />
+          <CharLogo className="text-color h-5 w-auto" />
         </Link>
         <div className="flex items-center gap-3">
-          <CTAButton platformCTA={platformCTA} mobile />
+          {platformCTA.action === "download" ? (
+            <DownloadButton variant="compact" />
+          ) : (
+            <CTAButton platformCTA={platformCTA} mobile />
+          )}
           <button
             onClick={() => setIsMobileOpen(!isMobileOpen)}
-            className="flex h-8 cursor-pointer items-center rounded-full bg-linear-to-t from-neutral-200 to-neutral-100 px-3 text-sm text-neutral-900 shadow-xs transition-[transform,box-shadow] hover:scale-[102%] hover:shadow-md active:scale-[96%]"
+            className="text-color flex h-8 cursor-pointer items-center rounded-full bg-linear-to-t from-neutral-200 to-neutral-100 px-3 text-sm shadow-xs transition-[transform,box-shadow] hover:scale-[102%] hover:shadow-md active:scale-[96%]"
             aria-label={isMobileOpen ? "Close menu" : "Open menu"}
           >
             {isMobileOpen ? (
-              <X className="text-neutral-600" size={16} />
+              <X className="text-color-secondary" size={16} />
             ) : (
-              <Menu className="text-neutral-600" size={16} />
+              <Menu className="text-color-secondary" size={16} />
             )}
           </button>
         </div>
@@ -236,7 +241,7 @@ export function Sidebar() {
             className="fixed inset-0 z-40 md:hidden"
             onClick={() => setIsMobileOpen(false)}
           />
-          <div className="animate-in slide-in-from-top fixed top-[calc(theme(spacing.14)+var(--announcement-bar-h,0px))] right-0 left-0 z-50 max-h-[calc(100vh-56px-var(--announcement-bar-h,0px))] overflow-y-auto border-b border-neutral-100 bg-white/80 shadow-lg backdrop-blur-xs duration-300 md:hidden">
+          <div className="animate-in slide-in-from-top border-color-subtle fixed top-[calc(theme(spacing.14)+var(--announcement-bar-h,0px))] right-0 left-0 z-50 max-h-[calc(100vh-56px-var(--announcement-bar-h,0px))] overflow-y-auto border-b bg-[color:var(--color-surface-subtle)]/80 shadow-lg backdrop-blur-md duration-300 md:hidden">
             <nav className="mx-auto max-w-6xl px-4 py-6">
               <div className="flex flex-col gap-6">
                 <MobileMenuLinks
@@ -426,7 +431,7 @@ function MobileMenuLinks({
         onClick={closeAllMenus}
         className={cn(
           [
-            "block text-base text-neutral-700 decoration-dotted transition-colors hover:text-neutral-900",
+            "text-color hover:text-color block text-base decoration-dotted transition-colors",
           ],
           [MAIN_MENU_LINK_HOVER],
         )}
@@ -452,7 +457,7 @@ function MobileMenuLinks({
         onClick={closeAllMenus}
         className={cn(
           [
-            "block text-base text-neutral-700 decoration-dotted transition-colors hover:text-neutral-900",
+            "text-color hover:text-color block text-base decoration-dotted transition-colors",
           ],
           [MAIN_MENU_LINK_HOVER],
         )}
@@ -476,27 +481,47 @@ function MobileMenuCTAs({
         to="/auth/"
         search={{ flow: "web" }}
         onClick={closeAllMenus}
-        className="block w-full rounded-lg border border-neutral-200 bg-white px-4 py-3 text-center text-sm text-neutral-700 transition-colors hover:bg-neutral-50"
+        className="border-color-subtle surface text-color hover:surface-subtle block w-full rounded-lg border px-4 py-3 text-center text-sm transition-colors"
       >
         Get started
       </Link>
       {platformCTA.action === "download" ? (
-        <a
-          href="/download/apple-silicon"
-          download
-          onClick={closeAllMenus}
-          className="block w-full rounded-lg bg-linear-to-t from-stone-600 to-stone-500 px-4 py-3 text-center text-sm text-white shadow-md transition-transform active:scale-[96%]"
-        >
-          {platformCTA.label}
-        </a>
+        <div className="w-full rounded-lg bg-gradient-to-b from-gray-100 to-gray-700 shadow-md transition-transform active:scale-[96%]">
+          <a
+            href="/download/apple-silicon"
+            download
+            onClick={closeAllMenus}
+            className="surface-dark relative block w-full overflow-hidden rounded-lg px-4 py-3 text-center text-sm text-white"
+          >
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -top-4 left-1/2 h-full w-full -translate-x-1/2 opacity-40"
+              style={{
+                background:
+                  "radial-gradient(50% 100% at 50% 0%, white, transparent)",
+              }}
+            />
+            <span className="relative">{platformCTA.label}</span>
+          </a>
+        </div>
       ) : (
-        <Link
-          to="/"
-          onClick={closeAllMenus}
-          className="block w-full rounded-lg bg-linear-to-t from-stone-600 to-stone-500 px-4 py-3 text-center text-sm text-white shadow-md transition-transform active:scale-[96%]"
-        >
-          {platformCTA.label}
-        </Link>
+        <div className="w-full rounded-lg bg-gradient-to-b from-gray-100 to-gray-700 shadow-md transition-transform active:scale-[96%]">
+          <Link
+            to="/"
+            onClick={closeAllMenus}
+            className="surface-dark relative block w-full overflow-hidden rounded-lg px-4 py-3 text-center text-sm text-white"
+          >
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -top-4 left-1/2 h-full w-full -translate-x-1/2 opacity-40"
+              style={{
+                background:
+                  "radial-gradient(50% 100% at 50% 0%, white, transparent)",
+              }}
+            />
+            <span className="relative">{platformCTA.label}</span>
+          </Link>
+        </div>
       )}
     </div>
   );
@@ -648,14 +673,15 @@ const PRODUCT_MENU_THEMES: Record<MenuVariant, ProductMenuTheme> = {
     divider: null,
   },
   mobile: {
-    wrapper: "mt-3 ml-4 flex flex-col gap-4 border-l-2 border-neutral-200 pl-4",
+    wrapper:
+      "border-color-subtle mt-3 ml-4 flex flex-col gap-4 border-l-2 pl-4",
     title: `mb-2 ${MENU_TITLE_BASE}`,
     list: (index) =>
       index === 0 ? "flex flex-col gap-2 pb-4" : "flex flex-col gap-2",
-    item: "py-1 text-sm text-neutral-600 transition-colors hover:text-neutral-900",
+    item: "text-color py-1 text-sm transition-colors",
     decorateItem: false,
     solutionsIndex:
-      "mt-2 inline-flex py-1 text-sm font-medium text-neutral-700 transition-colors hover:text-neutral-900",
+      "text-color mt-2 inline-flex py-1 text-sm font-medium transition-colors",
     decorateSolutionsIndex: false,
     divider: null,
   },
@@ -736,9 +762,10 @@ const RESOURCES_MENU_THEMES: Record<MenuVariant, ResourcesMenuTheme> = {
     decorateItem: true,
   },
   mobile: {
-    wrapper: "mt-3 ml-4 flex flex-col gap-2 border-l-2 border-neutral-200 pl-4",
-    item: "text-fg flex items-center gap-2 py-1 text-sm transition-colors hover:text-neutral-900",
-    iconClassName: "text-neutral-400",
+    wrapper:
+      "border-color-subtle mt-3 ml-4 flex flex-col gap-2 border-l-2 pl-4",
+    item: "text-color flex items-center gap-2 py-1 text-sm transition-colors",
+    iconClassName: "text-color",
     iconSize: 14,
     decorateItem: false,
   },
@@ -794,7 +821,7 @@ function CollapsibleSection({
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
           [
-            "flex w-full items-center justify-between text-base text-neutral-700 decoration-dotted transition-colors hover:text-neutral-900",
+            "text-color hover:text-color flex w-full items-center justify-between text-base decoration-dotted transition-colors",
           ],
           [MAIN_MENU_LINK_HOVER],
         )}
