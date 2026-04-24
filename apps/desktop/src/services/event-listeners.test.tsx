@@ -13,6 +13,7 @@ const {
   openNewMock,
   createSessionMock,
   getOrCreateSessionForEventIdMock,
+  setTriggerAppIdsMock,
 } = vi.hoisted(() => ({
   notificationListenMock: vi.fn(),
   updaterListenMock: vi.fn(),
@@ -23,6 +24,7 @@ const {
   openNewMock: vi.fn(),
   createSessionMock: vi.fn(() => "session-new"),
   getOrCreateSessionForEventIdMock: vi.fn(() => "session-event"),
+  setTriggerAppIdsMock: vi.fn(),
 }));
 
 vi.mock("@hypr/plugin-notification", () => ({
@@ -72,6 +74,12 @@ vi.mock("~/store/zustand/tabs", () => ({
     selector({ openNew: openNewMock }),
 }));
 
+vi.mock("~/store/zustand/listener/instance", () => ({
+  listenerStore: {
+    getState: () => ({ setTriggerAppIds: setTriggerAppIdsMock }),
+  },
+}));
+
 describe("EventListeners notification events", () => {
   beforeEach(() => {
     notificationListenMock.mockReset();
@@ -83,6 +91,7 @@ describe("EventListeners notification events", () => {
     openNewMock.mockReset();
     createSessionMock.mockReset();
     getOrCreateSessionForEventIdMock.mockReset();
+    setTriggerAppIdsMock.mockReset();
 
     getCurrentWebviewWindowLabelMock.mockReturnValue("main");
     notificationListenMock.mockResolvedValue(() => {});
@@ -127,5 +136,121 @@ describe("EventListeners notification events", () => {
       JSON.stringify(["com.existing.app", "us.zoom.xos"]),
     );
     expect(openNewMock).not.toHaveBeenCalled();
+  });
+
+  test("notification_confirm with mic_detected source sets triggerAppIds (regression: #5120 confirm path)", async () => {
+    useMainStoreMock.mockReturnValue({} as never);
+
+    render(<EventListeners />);
+
+    await vi.waitFor(() =>
+      expect(notificationListenMock).toHaveBeenCalledTimes(1),
+    );
+
+    const handler = notificationListenMock.mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf("function");
+
+    handler({
+      payload: {
+        type: "notification_confirm",
+        source: {
+          type: "mic_detected",
+          app_names: ["Zoom"],
+          app_ids: ["us.zoom.xos"],
+          event_ids: [],
+        },
+      },
+    });
+
+    expect(setTriggerAppIdsMock).toHaveBeenCalledWith(["us.zoom.xos"]);
+    expect(openNewMock).toHaveBeenCalledTimes(1);
+  });
+
+  test("notification_option_selected with mic_detected source sets triggerAppIds", async () => {
+    useMainStoreMock.mockReturnValue({} as never);
+
+    render(<EventListeners />);
+
+    await vi.waitFor(() =>
+      expect(notificationListenMock).toHaveBeenCalledTimes(1),
+    );
+
+    const handler = notificationListenMock.mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf("function");
+
+    handler({
+      payload: {
+        type: "notification_option_selected",
+        selected_index: 0,
+        source: {
+          type: "mic_detected",
+          app_names: ["Zoom"],
+          app_ids: ["us.zoom.xos"],
+          event_ids: [],
+        },
+      },
+    });
+
+    expect(setTriggerAppIdsMock).toHaveBeenCalledWith(["us.zoom.xos"]);
+    expect(openNewMock).toHaveBeenCalledTimes(1);
+  });
+
+  test("notification_confirm with mic_detected source preserves triggerAppIds across pending-auto-start (regression: bugbot follow-up)", async () => {
+    useMainStoreMock.mockReturnValue(null);
+
+    const { rerender } = render(<EventListeners />);
+
+    await vi.waitFor(() =>
+      expect(notificationListenMock).toHaveBeenCalledTimes(1),
+    );
+
+    const handler = notificationListenMock.mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf("function");
+
+    handler({
+      payload: {
+        type: "notification_confirm",
+        source: {
+          type: "mic_detected",
+          app_names: ["Zoom"],
+          app_ids: ["us.zoom.xos"],
+          event_ids: [],
+        },
+      },
+    });
+
+    expect(setTriggerAppIdsMock).not.toHaveBeenCalled();
+    expect(openNewMock).not.toHaveBeenCalled();
+
+    useMainStoreMock.mockReturnValue({} as never);
+    rerender(<EventListeners />);
+
+    await vi.waitFor(() =>
+      expect(setTriggerAppIdsMock).toHaveBeenCalledWith(["us.zoom.xos"]),
+    );
+    expect(openNewMock).toHaveBeenCalledTimes(1);
+  });
+
+  test("notification_confirm with calendar_event source does not set triggerAppIds", async () => {
+    useMainStoreMock.mockReturnValue({} as never);
+
+    render(<EventListeners />);
+
+    await vi.waitFor(() =>
+      expect(notificationListenMock).toHaveBeenCalledTimes(1),
+    );
+
+    const handler = notificationListenMock.mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf("function");
+
+    handler({
+      payload: {
+        type: "notification_confirm",
+        source: { type: "calendar_event", event_id: "evt-1" },
+      },
+    });
+
+    expect(setTriggerAppIdsMock).not.toHaveBeenCalled();
+    expect(openNewMock).toHaveBeenCalledTimes(1);
   });
 });

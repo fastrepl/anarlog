@@ -144,7 +144,14 @@ const useHandleDetectEvents = (store: ListenerStore) => {
             icon: null,
           });
         } else if (payload.type === "micStopped") {
-          stop();
+          const trigger = store.getState().live.triggerAppIds;
+          if (
+            trigger &&
+            trigger.length > 0 &&
+            payload.apps.some((app) => trigger.includes(app.id))
+          ) {
+            stop();
+          }
         } else if (payload.type === "sleepStateChanged") {
           if (payload.value) {
             stop();

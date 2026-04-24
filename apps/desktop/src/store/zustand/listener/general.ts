@@ -37,6 +37,7 @@ export type GeneralActions = {
   ) => Promise<boolean>;
   stop: () => void;
   setMuted: (value: boolean) => void;
+  setTriggerAppIds: (appIds: string[] | null) => void;
   startTranscription: (
     params: TranscriptionParams,
     options?: { handlePersist?: BatchPersistCallback },
@@ -114,6 +115,11 @@ export const createGeneralSlice = <
         void listenerCommands.setMicMuted(value);
       }),
     );
+  },
+  setTriggerAppIds: (appIds) => {
+    setLiveState(set, (live) => {
+      live.triggerAppIds = appIds;
+    });
   },
   startTranscription: async (params, options) => {
     const sessionId = params.session_id;

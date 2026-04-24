@@ -14,6 +14,7 @@ import {
   getOrCreateSessionForEventId,
 } from "~/store/tinybase/store/sessions";
 import * as settings from "~/store/tinybase/store/settings";
+import { listenerStore } from "~/store/zustand/listener/instance";
 import { useTabs } from "~/store/zustand/tabs";
 
 function parseIgnoredPlatforms(value: unknown) {
@@ -65,7 +66,10 @@ function useNotificationEvents() {
   const store = main.UI.useStore(main.STORE_ID);
   const settingsStore = settings.UI.useStore(settings.STORE_ID);
   const openNew = useTabs((state) => state.openNew);
-  const pendingAutoStart = useRef<{ eventId: string | null } | null>(null);
+  const pendingAutoStart = useRef<{
+    eventId: string | null;
+    triggerAppIds: string[] | null;
+  } | null>(null);
   const storeRef = useRef(store);
   const settingsStoreRef = useRef(settingsStore);
   const openNewRef = useRef(openNew);
@@ -78,11 +82,16 @@ function useNotificationEvents() {
 
   useEffect(() => {
     if (pendingAutoStart.current && store) {
-      const { eventId } = pendingAutoStart.current;
+      const { eventId, triggerAppIds } = pendingAutoStart.current;
       pendingAutoStart.current = null;
       const sessionId = eventId
         ? getOrCreateSessionForEventId(store, eventId)
         : createSession(store);
+
+      if (triggerAppIds && triggerAppIds.length > 0) {
+        listenerStore.getState().setTriggerAppIds(triggerAppIds);
+      }
+
       openNew({
         type: "sessions",
         id: sessionId,
@@ -109,14 +118,23 @@ function useNotificationEvents() {
             payload.source?.type === "calendar_event"
               ? payload.source.event_id
               : null;
+          const triggerAppIds =
+            payload.source?.type === "mic_detected"
+              ? (payload.source.app_ids ?? null)
+              : null;
           const currentStore = storeRef.current;
           if (!currentStore) {
-            pendingAutoStart.current = { eventId };
+            pendingAutoStart.current = { eventId, triggerAppIds };
             return;
           }
           const sessionId = eventId
             ? getOrCreateSessionForEventId(currentStore, eventId)
             : createSession(currentStore);
+
+          if (triggerAppIds && triggerAppIds.length > 0) {
+            listenerStore.getState().setTriggerAppIds(triggerAppIds);
+          }
+
           openNewRef.current({
             type: "sessions",
             id: sessionId,
@@ -139,6 +157,15 @@ function useNotificationEvents() {
                   eventIds[selectedIndex],
                 )
               : createSession(currentStore);
+
+          if (payload.source?.type === "mic_detected") {
+            const triggerAppIds = payload.source.app_ids ?? [];
+            listenerStore
+              .getState()
+              .setTriggerAppIds(
+                triggerAppIds.length > 0 ? triggerAppIds : null,
+              );
+          }
 
           openNewRef.current({
             type: "sessions",

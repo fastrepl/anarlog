@@ -36,6 +36,7 @@ export type GeneralState = {
     requestedLiveTranscription: boolean | null;
     liveTranscriptionActive: boolean | null;
     finalizingBySession: Record<string, { startedAtMs: number }>;
+    triggerAppIds: string[] | null;
   };
 };
 
@@ -56,6 +57,7 @@ const initialLiveState: LiveState = {
   requestedLiveTranscription: null,
   liveTranscriptionActive: null,
   finalizingBySession: {},
+  triggerAppIds: null,
 };
 
 export const initialGeneralState: GeneralState = {
@@ -121,6 +123,7 @@ export const markLiveInactive = (live: LiveState, error: string | null) => {
   live.requestedLiveTranscription = null;
   live.liveTranscriptionActive = null;
   live.muted = initialLiveState.muted;
+  live.triggerAppIds = null;
 };
 
 export const markLiveStartFailed = (live: LiveState) => {
@@ -137,6 +140,7 @@ export const markLiveStartFailed = (live: LiveState) => {
   live.degraded = null;
   live.requestedLiveTranscription = null;
   live.liveTranscriptionActive = null;
+  live.triggerAppIds = null;
 };
 
 export const updateLiveProgress = (

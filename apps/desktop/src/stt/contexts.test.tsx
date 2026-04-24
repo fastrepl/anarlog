@@ -41,7 +41,7 @@ describe("ListenerProvider detect events", () => {
     listenMock.mockResolvedValue(() => {});
   });
 
-  test("stops listening when MicStopped arrives", async () => {
+  test("does not stop listening on MicStopped when no trigger apps are set (manual session — regression: #5120)", async () => {
     const store = createListenerStore();
     const stopSpy = vi.fn();
 
@@ -61,11 +61,70 @@ describe("ListenerProvider detect events", () => {
     handler({
       payload: {
         type: "micStopped",
-        apps: [],
+        apps: [
+          { id: "/opt/homebrew/bin/ffmpeg", name: "ffmpeg" },
+          { id: "us.zoom.xos", name: "Zoom" },
+        ],
+      },
+    });
+
+    expect(stopSpy).not.toHaveBeenCalled();
+  });
+
+  test("stops listening on MicStopped when a trigger app stops (auto-session — preserves Zoom end UX)", async () => {
+    const store = createListenerStore();
+    const stopSpy = vi.fn();
+
+    store.setState({ stop: stopSpy });
+    store.getState().setTriggerAppIds(["us.zoom.xos"]);
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+
+    const handler = listenMock.mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf("function");
+
+    handler({
+      payload: {
+        type: "micStopped",
+        apps: [{ id: "us.zoom.xos", name: "Zoom" }],
       },
     });
 
     expect(stopSpy).toHaveBeenCalledTimes(1);
+  });
+
+  test("does not stop on MicStopped when only a non-trigger app stops (auto-session — regression: #4846)", async () => {
+    const store = createListenerStore();
+    const stopSpy = vi.fn();
+
+    store.setState({ stop: stopSpy });
+    store.getState().setTriggerAppIds(["us.zoom.xos"]);
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+
+    const handler = listenMock.mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf("function");
+
+    handler({
+      payload: {
+        type: "micStopped",
+        apps: [{ id: "/opt/homebrew/bin/ffmpeg", name: "ffmpeg" }],
+      },
+    });
+
+    expect(stopSpy).not.toHaveBeenCalled();
   });
 
   test("passes ignorable app ids and footer metadata through mic-detected notifications", async () => {
