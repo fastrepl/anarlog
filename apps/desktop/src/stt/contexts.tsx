@@ -143,8 +143,6 @@ const useHandleDetectEvents = (store: ListenerStore) => {
             footer,
             icon: null,
           });
-        } else if (payload.type === "micStopped") {
-          stop();
         } else if (payload.type === "sleepStateChanged") {
           if (payload.value) {
             stop();
