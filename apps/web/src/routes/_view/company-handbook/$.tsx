@@ -1,6 +1,8 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { allHandbooks } from "content-collections";
 
+import { DEFAULT_OG_IMAGE_URL } from "@/lib/seo";
+
 import { HandbookLayout } from "./-components";
 import { handbookStructure } from "./-structure";
 
@@ -54,16 +56,6 @@ export const Route = createFileRoute("/_view/company-handbook/$")({
     const { doc } = loaderData;
     const url = `https://char.com/company-handbook/${doc.slug}`;
 
-    const params = new URLSearchParams({
-      type: "handbook",
-      title: doc.title,
-      section: doc.section,
-    });
-    if (doc.summary) {
-      params.set("description", doc.summary);
-    }
-    const ogImage = `/og?${params.toString()}`;
-
     return {
       meta: [
         { title: `${doc.title} - Company Handbook - Char` },
@@ -78,9 +70,9 @@ export const Route = createFileRoute("/_view/company-handbook/$")({
         },
         { property: "og:type", content: "article" },
         { property: "og:url", content: url },
-        { property: "og:image", content: ogImage },
+        { property: "og:image", content: DEFAULT_OG_IMAGE_URL },
         { name: "twitter:card", content: "summary_large_image" },
-        { name: "twitter:image", content: ogImage },
+        { name: "twitter:image", content: DEFAULT_OG_IMAGE_URL },
       ],
     };
   },

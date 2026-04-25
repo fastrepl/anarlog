@@ -12,6 +12,7 @@ import { defaultMDXComponents } from "@/components/mdx";
 import { useBlogToc } from "@/hooks/use-blog-toc";
 import {
   CHAR_SITE_URL,
+  DEFAULT_OG_IMAGE_URL,
   getBreadcrumbListJsonLd,
   getOrganizationJsonLd,
   getStructuredDataGraph,
@@ -59,9 +60,7 @@ export const Route = createFileRoute("/_view/blog/$slug")({
 
     const title = article.title ?? "";
     const metaDescription = article.meta_description ?? "";
-    const ogImage =
-      article.coverImage ||
-      `https://char.com/og?type=blog&title=${encodeURIComponent(title)}${article.author.length > 0 ? `&author=${encodeURIComponent(article.author.join(", "))}` : ""}${article.date ? `&date=${encodeURIComponent(new Date(article.date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }))}` : ""}&v=1`;
+    const ogImage = article.coverImage || DEFAULT_OG_IMAGE_URL;
 
     const structuredImage = ogImage.startsWith("http")
       ? ogImage
@@ -569,9 +568,7 @@ function TableOfContents({
 
 function RelatedArticleCard({ article }: { article: any }) {
   const title = article.title ?? "";
-  const ogImage =
-    article.coverImage ||
-    `https://char.com/og?type=blog&title=${encodeURIComponent(title)}${article.author ? `&author=${encodeURIComponent(article.author)}` : ""}${article.date ? `&date=${encodeURIComponent(new Date(article.date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }))}` : ""}&v=1`;
+  const ogImage = article.coverImage || DEFAULT_OG_IMAGE_URL;
 
   return (
     <Link

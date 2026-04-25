@@ -7,6 +7,7 @@ import { cn } from "@hypr/utils";
 
 import { DownloadButton } from "@/components/download-button";
 import { MDXLink } from "@/components/mdx";
+import { DEFAULT_OG_IMAGE_URL } from "@/lib/seo";
 
 type GalleryType = "template" | "shortcut";
 
@@ -40,9 +41,6 @@ export const Route = createFileRoute("/_view/gallery/$type/$slug")({
     const typeLabel = type === "template" ? "Template" : "Shortcut";
     const url = `https://char.com/gallery/${type}/${item.slug}`;
 
-    const ogType = type === "template" ? "templates" : "shortcuts";
-    const ogImageUrl = `https://char.com/og?type=${ogType}&title=${encodeURIComponent(item.title)}&category=${encodeURIComponent(item.category)}${item.description ? `&description=${encodeURIComponent(item.description)}` : ""}&v=1`;
-
     return {
       meta: [
         { title: `${item.title} - ${typeLabel} - Char` },
@@ -54,14 +52,14 @@ export const Route = createFileRoute("/_view/gallery/$type/$slug")({
         { property: "og:description", content: item.description },
         { property: "og:type", content: "article" },
         { property: "og:url", content: url },
-        { property: "og:image", content: ogImageUrl },
+        { property: "og:image", content: DEFAULT_OG_IMAGE_URL },
         { name: "twitter:card", content: "summary_large_image" },
         {
           name: "twitter:title",
           content: `${item.title} - ${typeLabel}`,
         },
         { name: "twitter:description", content: item.description },
-        { name: "twitter:image", content: ogImageUrl },
+        { name: "twitter:image", content: DEFAULT_OG_IMAGE_URL },
       ],
     };
   },

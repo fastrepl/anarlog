@@ -3,6 +3,7 @@ import { allDocs } from "content-collections";
 
 import {
   CHAR_SITE_URL,
+  DEFAULT_OG_IMAGE_URL,
   getBreadcrumbListJsonLd,
   getOrganizationJsonLd,
   getStructuredDataGraph,
@@ -58,7 +59,6 @@ export const Route = createFileRoute("/_view/docs/$")({
 
     const { doc } = loaderData;
     const url = `${CHAR_SITE_URL}/docs/${doc.slug}`;
-    const ogImageUrl = `${CHAR_SITE_URL}/og?type=docs&title=${encodeURIComponent(doc.title)}&section=${encodeURIComponent(doc.section)}${doc.summary ? `&description=${encodeURIComponent(doc.summary)}` : ""}&v=1`;
 
     return {
       links: [{ rel: "canonical", href: url }],
@@ -73,7 +73,7 @@ export const Route = createFileRoute("/_view/docs/$")({
                 name: doc.title,
                 description: doc.summary || doc.title,
                 url,
-                image: [ogImageUrl],
+                image: [DEFAULT_OG_IMAGE_URL],
                 about: {
                   "@type": "Thing",
                   name: doc.section,
@@ -107,7 +107,7 @@ export const Route = createFileRoute("/_view/docs/$")({
         },
         { property: "og:type", content: "article" },
         { property: "og:url", content: url },
-        { property: "og:image", content: ogImageUrl },
+        { property: "og:image", content: DEFAULT_OG_IMAGE_URL },
         { name: "twitter:card", content: "summary_large_image" },
         {
           name: "twitter:title",
@@ -117,7 +117,7 @@ export const Route = createFileRoute("/_view/docs/$")({
           name: "twitter:description",
           content: doc.summary || doc.title,
         },
-        { name: "twitter:image", content: ogImageUrl },
+        { name: "twitter:image", content: DEFAULT_OG_IMAGE_URL },
       ],
     };
   },

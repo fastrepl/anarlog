@@ -11,6 +11,7 @@ import {
   getChangelogList,
 } from "@/changelog";
 import { NotFoundContent } from "@/components/not-found";
+import { DEFAULT_OG_IMAGE_URL } from "@/lib/seo";
 import { getDownloadLinks, groupDownloadLinks } from "@/utils/download";
 
 export const Route = createFileRoute("/_view/changelog/$slug")({
@@ -44,7 +45,6 @@ export const Route = createFileRoute("/_view/changelog/$slug")({
     const title = `Version ${changelog.version} - Char Changelog`;
     const description = `Explore what's new in Char version ${changelog.version}.`;
     const url = `https://char.com/changelog/${changelog.slug}`;
-    const ogImageUrl = `https://char.com/og?type=changelog&version=${encodeURIComponent(changelog.version)}&v=1`;
 
     return {
       meta: [
@@ -54,7 +54,7 @@ export const Route = createFileRoute("/_view/changelog/$slug")({
         { property: "og:title", content: title },
         { property: "og:description", content: description },
         { property: "og:url", content: url },
-        { property: "og:image", content: ogImageUrl },
+        { property: "og:image", content: DEFAULT_OG_IMAGE_URL },
         { property: "og:image:width", content: "1200" },
         { property: "og:image:height", content: "630" },
         { name: "twitter:card", content: "summary_large_image" },
@@ -63,7 +63,7 @@ export const Route = createFileRoute("/_view/changelog/$slug")({
         { name: "twitter:title", content: title },
         { name: "twitter:description", content: description },
         { name: "twitter:url", content: url },
-        { name: "twitter:image", content: ogImageUrl },
+        { name: "twitter:image", content: DEFAULT_OG_IMAGE_URL },
       ],
     };
   },

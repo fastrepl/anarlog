@@ -1,5 +1,5 @@
 export const CHAR_SITE_URL = "https://char.com";
-export const DEFAULT_OG_IMAGE_URL = `${CHAR_SITE_URL}/api/assets/blog/brand-assets/OG.png`;
+export const DEFAULT_OG_IMAGE_URL = `${CHAR_SITE_URL}/og.jpg`;
 export const ROOT_TITLE = "Char - Meeting Notes You Own";
 export const ROOT_DESCRIPTION =
   "Private, bot-free meeting notes that stay under your control. Char stores notes as files you own and lets you use local models, your own keys, or managed cloud AI.";
