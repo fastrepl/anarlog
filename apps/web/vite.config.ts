@@ -1,4 +1,3 @@
-import contentCollections from "@content-collections/vite";
 import netlify from "@netlify/vite-plugin-tanstack-start";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
@@ -10,7 +9,6 @@ import { getSitemap } from "./src/utils/sitemap";
 
 const config = defineConfig(() => ({
   plugins: [
-    contentCollections(),
     tailwindcss(),
     tanstackStart({
       sitemap: {
@@ -21,16 +19,7 @@ const config = defineConfig(() => ({
         concurrency: 3,
         crawlLinks: true,
         autoStaticPathsDiscovery: true,
-        filter: ({ path }) => {
-          return (
-            path === "/" ||
-            path.startsWith("/blog") ||
-            path.startsWith("/docs") ||
-            path.startsWith("/pricing") ||
-            path.startsWith("/solution") ||
-            path.startsWith("/vs")
-          );
-        },
+        filter: ({ path }) => path === "/",
       },
     }),
     viteReact(),

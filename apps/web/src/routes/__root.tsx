@@ -6,12 +6,6 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 
-import { Toaster } from "@hypr/ui/components/ui/toast";
-
-import { ConsentAwareProviders } from "@/components/consent-aware-providers";
-import { NotFoundDocument } from "@/components/not-found";
-import { PrivacyConsentProvider } from "@/components/privacy-consent";
-import { getPrivacyConsentRegion } from "@/functions/privacy-consent";
 import {
   DEFAULT_OG_IMAGE_URL,
   ROOT_DESCRIPTION,
@@ -29,13 +23,7 @@ const FONT_STYLESHEETS = [
   "https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,100..900;1,9..144,100..900&display=swap",
 ] as const;
 
-const MICROSOFT_CLARITY_SCRIPT = `(function(c,l,a,r,i,t,y){try{if(l.location&&l.location.pathname.indexOf("/admin")===0){return;}var raw=c.localStorage&&c.localStorage.getItem("char_web_tracking_consent_v1");var consent=raw?JSON.parse(raw):null;var analytics=!!(consent&&consent.analytics===true);if(c.navigator&&c.navigator.globalPrivacyControl){analytics=false;}if(!analytics){return;}}catch(e){return;}c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};c[a]("consentv2",{ad_Storage:"denied",analytics_Storage:"granted"});t=l.createElement(r);t.id="microsoft-clarity-script";t.async=1;t.src="https://www.clarity.ms/tag/"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window, document, "clarity", "script", "wcjttoibok");`;
-
 export const Route = createRootRouteWithContext<RouterContext>()({
-  loader: async () => ({
-    privacyConsentRegion: await getPrivacyConsentRegion(),
-  }),
-  staleTime: 60 * 60 * 1000,
   head: () => ({
     meta: [
       { charSet: "utf-8" },
@@ -69,38 +57,14 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         content: DEFAULT_OG_IMAGE_URL,
       },
     ],
-    // Render-blocking stylesheets are placed directly in the shell JSX
-    // (RootDocument) before <HeadContent /> so the browser discovers them
-    // before TanStack Router's 70+ modulepreload links. Only non-blocking
-    // links belong here.
     links: [
       { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
       { rel: "icon", href: "/favicon.ico", sizes: "32x32" },
     ],
-    scripts: [
-      {
-        type: "text/javascript",
-        children: MICROSOFT_CLARITY_SCRIPT,
-      },
-    ],
   }),
-  component: RootApp,
+  component: Outlet,
   shellComponent: RootDocument,
-  notFoundComponent: NotFoundDocument,
 });
-
-function RootApp() {
-  const { queryClient } = Route.useRouteContext();
-  const { privacyConsentRegion } = Route.useLoaderData();
-
-  return (
-    <PrivacyConsentProvider region={privacyConsentRegion}>
-      <ConsentAwareProviders queryClient={queryClient}>
-        <Outlet />
-      </ConsentAwareProviders>
-    </PrivacyConsentProvider>
-  );
-}
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
@@ -120,7 +84,6 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         {children}
-        <Toaster position="bottom-right" />
         <Scripts />
       </body>
     </html>

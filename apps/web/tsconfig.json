@@ -1,9 +1,12 @@
 {
   "include": [
-    "src/**/*.ts",
-    "src/**/*.tsx",
-    "app.config.ts",
-    "content-collections.ts",
+    "src/router.tsx",
+    "src/routeTree.gen.ts",
+    "src/start.ts",
+    "src/routes/**/*.tsx",
+    "src/lib/brand-noise.ts",
+    "src/lib/seo.ts",
+    "src/utils/sitemap.ts",
     "vite.config.ts"
   ],
   "exclude": ["**/supabase/functions/**/*", "**/netlify/**/*"],
