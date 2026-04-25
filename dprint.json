@@ -40,10 +40,6 @@
         "command": "gofmt",
         "exts": [
           "go"
-        ],
-        "cacheKeyFiles": [
-          "go.mod",
-          "go.sum"
         ]
       },
       {
