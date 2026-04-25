@@ -1,34 +1,17 @@
 {
   "fill": {
-    "automatic-gradient": "srgb:0.94902,0.94118,0.92941,1.00000"
+    "automatic-gradient": "srgb:1.00000,0.92941,0.73333,1.00000"
   },
   "groups": [
     {
       "layers": [
         {
-          "fill-specializations": [
-            {
-              "value": {
-                "solid": "extended-gray:0.00000,1.00000"
-              }
-            },
-            {
-              "appearance": "dark",
-              "value": {
-                "solid": "srgb:0.94902,0.94118,0.92941,1.00000"
-              }
-            },
-            {
-              "appearance": "tinted",
-              "value": "automatic"
-            }
-          ],
-          "glass": true,
+          "glass": false,
           "hidden": false,
-          "image-name": "char logo icon black.svg",
-          "name": "char logo icon black",
+          "image-name": "icon.png",
+          "name": "icon",
           "position": {
-            "scale": 6.96,
+            "scale": 1,
             "translation-in-points": [
               0,
               0
@@ -38,11 +21,11 @@
       ],
       "shadow": {
         "kind": "neutral",
-        "opacity": 0.5
+        "opacity": 0
       },
       "translucency": {
-        "enabled": true,
-        "value": 0.5
+        "enabled": false,
+        "value": 0
       }
     }
   ],
