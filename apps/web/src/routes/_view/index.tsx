@@ -43,6 +43,10 @@ const promises = [
   "Built for meetings, calls, and interviews",
 ];
 
+const navItems = [
+  { label: "Blog", href: "/blog" },
+];
+
 export const Route = createFileRoute("/_view/")({
   component: Component,
   head: () => ({
@@ -72,12 +76,17 @@ function Component() {
           <img src="/favicon.svg" alt="" className="size-9" />
           <span className="font-mono text-lg font-medium">Char</span>
         </a>
-        <a
-          href="mailto:team@char.com"
-          className="rounded-full border border-neutral-200 bg-white px-4 py-2 font-mono text-sm text-neutral-700 transition hover:bg-neutral-50"
-        >
-          Contact
-        </a>
+        <nav className="flex items-center gap-1">
+          {navItems.map((item) => (
+            <a
+              key={item.href}
+              href={item.href}
+              className="rounded-full px-3 py-2 font-mono text-sm text-neutral-700 transition hover:bg-white"
+            >
+              {item.label}
+            </a>
+          ))}
+        </nav>
       </header>
 
       <section className="grid flex-1 items-center gap-10 py-14 lg:grid-cols-[minmax(0,1.02fr)_minmax(360px,0.78fr)] lg:py-20">

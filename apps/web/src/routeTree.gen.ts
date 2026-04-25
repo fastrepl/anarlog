@@ -11,6 +11,11 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ViewRouteRouteImport } from './routes/_view/route'
 import { Route as ViewIndexRouteImport } from './routes/_view/index'
+import { Route as ViewOssFriendsRouteImport } from './routes/_view/oss-friends'
+import { Route as ViewLegalIndexRouteImport } from './routes/_view/legal/index'
+import { Route as ViewBlogIndexRouteImport } from './routes/_view/blog/index'
+import { Route as ViewLegalSlugRouteImport } from './routes/_view/legal/$slug'
+import { Route as ViewBlogSlugRouteImport } from './routes/_view/blog/$slug'
 
 const ViewRouteRoute = ViewRouteRouteImport.update({
   id: '/_view',
@@ -21,24 +26,78 @@ const ViewIndexRoute = ViewIndexRouteImport.update({
   path: '/',
   getParentRoute: () => ViewRouteRoute,
 } as any)
+const ViewOssFriendsRoute = ViewOssFriendsRouteImport.update({
+  id: '/oss-friends',
+  path: '/oss-friends',
+  getParentRoute: () => ViewRouteRoute,
+} as any)
+const ViewLegalIndexRoute = ViewLegalIndexRouteImport.update({
+  id: '/legal/',
+  path: '/legal/',
+  getParentRoute: () => ViewRouteRoute,
+} as any)
+const ViewBlogIndexRoute = ViewBlogIndexRouteImport.update({
+  id: '/blog/',
+  path: '/blog/',
+  getParentRoute: () => ViewRouteRoute,
+} as any)
+const ViewLegalSlugRoute = ViewLegalSlugRouteImport.update({
+  id: '/legal/$slug',
+  path: '/legal/$slug',
+  getParentRoute: () => ViewRouteRoute,
+} as any)
+const ViewBlogSlugRoute = ViewBlogSlugRouteImport.update({
+  id: '/blog/$slug',
+  path: '/blog/$slug',
+  getParentRoute: () => ViewRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof ViewIndexRoute
+  '/oss-friends': typeof ViewOssFriendsRoute
+  '/blog/$slug': typeof ViewBlogSlugRoute
+  '/legal/$slug': typeof ViewLegalSlugRoute
+  '/blog/': typeof ViewBlogIndexRoute
+  '/legal/': typeof ViewLegalIndexRoute
 }
 export interface FileRoutesByTo {
+  '/oss-friends': typeof ViewOssFriendsRoute
   '/': typeof ViewIndexRoute
+  '/blog/$slug': typeof ViewBlogSlugRoute
+  '/legal/$slug': typeof ViewLegalSlugRoute
+  '/blog': typeof ViewBlogIndexRoute
+  '/legal': typeof ViewLegalIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_view': typeof ViewRouteRouteWithChildren
+  '/_view/oss-friends': typeof ViewOssFriendsRoute
   '/_view/': typeof ViewIndexRoute
+  '/_view/blog/$slug': typeof ViewBlogSlugRoute
+  '/_view/legal/$slug': typeof ViewLegalSlugRoute
+  '/_view/blog/': typeof ViewBlogIndexRoute
+  '/_view/legal/': typeof ViewLegalIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/oss-friends'
+    | '/blog/$slug'
+    | '/legal/$slug'
+    | '/blog/'
+    | '/legal/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/_view' | '/_view/'
+  to: '/oss-friends' | '/' | '/blog/$slug' | '/legal/$slug' | '/blog' | '/legal'
+  id:
+    | '__root__'
+    | '/_view'
+    | '/_view/oss-friends'
+    | '/_view/'
+    | '/_view/blog/$slug'
+    | '/_view/legal/$slug'
+    | '/_view/blog/'
+    | '/_view/legal/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -61,15 +120,60 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ViewIndexRouteImport
       parentRoute: typeof ViewRouteRoute
     }
+    '/_view/oss-friends': {
+      id: '/_view/oss-friends'
+      path: '/oss-friends'
+      fullPath: '/oss-friends'
+      preLoaderRoute: typeof ViewOssFriendsRouteImport
+      parentRoute: typeof ViewRouteRoute
+    }
+    '/_view/legal/': {
+      id: '/_view/legal/'
+      path: '/legal'
+      fullPath: '/legal/'
+      preLoaderRoute: typeof ViewLegalIndexRouteImport
+      parentRoute: typeof ViewRouteRoute
+    }
+    '/_view/blog/': {
+      id: '/_view/blog/'
+      path: '/blog'
+      fullPath: '/blog/'
+      preLoaderRoute: typeof ViewBlogIndexRouteImport
+      parentRoute: typeof ViewRouteRoute
+    }
+    '/_view/legal/$slug': {
+      id: '/_view/legal/$slug'
+      path: '/legal/$slug'
+      fullPath: '/legal/$slug'
+      preLoaderRoute: typeof ViewLegalSlugRouteImport
+      parentRoute: typeof ViewRouteRoute
+    }
+    '/_view/blog/$slug': {
+      id: '/_view/blog/$slug'
+      path: '/blog/$slug'
+      fullPath: '/blog/$slug'
+      preLoaderRoute: typeof ViewBlogSlugRouteImport
+      parentRoute: typeof ViewRouteRoute
+    }
   }
 }
 
 interface ViewRouteRouteChildren {
+  ViewOssFriendsRoute: typeof ViewOssFriendsRoute
   ViewIndexRoute: typeof ViewIndexRoute
+  ViewBlogSlugRoute: typeof ViewBlogSlugRoute
+  ViewLegalSlugRoute: typeof ViewLegalSlugRoute
+  ViewBlogIndexRoute: typeof ViewBlogIndexRoute
+  ViewLegalIndexRoute: typeof ViewLegalIndexRoute
 }
 
 const ViewRouteRouteChildren: ViewRouteRouteChildren = {
+  ViewOssFriendsRoute: ViewOssFriendsRoute,
   ViewIndexRoute: ViewIndexRoute,
+  ViewBlogSlugRoute: ViewBlogSlugRoute,
+  ViewLegalSlugRoute: ViewLegalSlugRoute,
+  ViewBlogIndexRoute: ViewBlogIndexRoute,
+  ViewLegalIndexRoute: ViewLegalIndexRoute,
 }
 
 const ViewRouteRouteWithChildren = ViewRouteRoute._addFileChildren(

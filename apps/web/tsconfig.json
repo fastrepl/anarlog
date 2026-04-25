@@ -6,7 +6,9 @@
     "src/routes/**/*.tsx",
     "src/lib/brand-noise.ts",
     "src/lib/seo.ts",
+    "src/scripts/versioning.ts",
     "src/utils/sitemap.ts",
+    "content-collections.ts",
     "vite.config.ts"
   ],
   "exclude": ["**/supabase/functions/**/*", "**/netlify/**/*"],
