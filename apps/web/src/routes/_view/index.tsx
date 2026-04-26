@@ -72,9 +72,8 @@ function Component() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-5 sm:px-6 lg:px-8">
       <header className="border-color-subtle flex items-center justify-between gap-4 border-b py-4">
-        <a href="/" className="text-color flex items-center gap-3">
-          <img src="/favicon.svg" alt="" className="size-9" />
-          <span className="font-mono text-lg font-medium">Char</span>
+        <a href="/" className="flex items-center">
+          <img src="/logo.svg" alt="Anarlog" className="h-9 w-auto" />
         </a>
         <nav className="flex items-center gap-1">
           {navItems.map((item) => (
