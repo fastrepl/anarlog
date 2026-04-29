@@ -6,7 +6,6 @@ edition = "2024"
 [dependencies]
 hypr-api-auth = { workspace = true }
 hypr-api-env = { workspace = true }
-hypr-chatwoot = { workspace = true }
 hypr-llm-proxy = { workspace = true }
 hypr-mcp = { workspace = true }
 hypr-openrouter = { workspace = true }

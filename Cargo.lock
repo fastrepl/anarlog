@@ -894,7 +894,6 @@ dependencies = [
  "async-stripe",
  "async-stripe-billing",
  "axum 0.8.9",
- "chatwoot",
  "futures-util",
  "jsonwebtoken",
  "llm-proxy",
@@ -3415,18 +3414,6 @@ dependencies = [
  "cfg-if",
  "encoding_rs",
  "memchr",
-]
-
-[[package]]
-name = "chatwoot"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "progenitor-client 0.13.0",
- "progenitor-utils",
- "reqwest 0.13.2",
- "serde",
- "serde_json",
 ]
 
 [[package]]

@@ -5,9 +5,6 @@ import { PostHogProvider } from "@/providers/posthog";
 
 import { usePrivacyConsent } from "./privacy-consent";
 
-const CHATWOOT_SNIPPET_ID = "chatwoot-snippet";
-const CHATWOOT_BASE_URL = "https://app.chatwoot.com";
-const CHATWOOT_WEBSITE_TOKEN = "FH1mNsxrXPZLcgi3Rfgrb13R";
 const GOOGLE_TAG_ID = "google-tag";
 const GOOGLE_ANALYTICS_ID = "G-4CDGPKJ8JB";
 const MICROSOFT_CLARITY_SCRIPT_ID = "microsoft-clarity-script";
@@ -56,43 +53,6 @@ function GoogleAnalyticsScript() {
     script.src = `https://www.googletagmanager.com/gtag/js?id=${GOOGLE_ANALYTICS_ID}`;
     script.async = true;
     document.head.appendChild(script);
-  });
-
-  return null;
-}
-
-type ChatwootWindow = Window &
-  typeof globalThis & {
-    chatwootSDK?: {
-      run: (config: { websiteToken: string; baseUrl: string }) => void;
-    };
-  };
-
-function ChatwootWidget() {
-  useMountEffect(() => {
-    if (
-      typeof document === "undefined" ||
-      import.meta.env.DEV ||
-      window.location.pathname.startsWith("/admin")
-    ) {
-      return;
-    }
-
-    if (document.getElementById(CHATWOOT_SNIPPET_ID)) {
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.id = CHATWOOT_SNIPPET_ID;
-    script.src = `${CHATWOOT_BASE_URL}/packs/js/sdk.js`;
-    script.async = true;
-    script.onload = () => {
-      (window as ChatwootWindow).chatwootSDK?.run({
-        websiteToken: CHATWOOT_WEBSITE_TOKEN,
-        baseUrl: CHATWOOT_BASE_URL,
-      });
-    };
-    document.body.appendChild(script);
   });
 
   return null;
@@ -181,7 +141,6 @@ export function ConsentAwareProviders({
           isReady={isReady}
         />
         {analyticsEnabled ? <GoogleAnalyticsScript /> : null}
-        {analyticsEnabled ? <ChatwootWidget /> : null}
       </QueryClientProvider>
     </PostHogProvider>
   );

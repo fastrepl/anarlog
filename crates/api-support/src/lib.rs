@@ -1,4 +1,3 @@
-mod chatwoot;
 mod config;
 mod env;
 mod error;
@@ -11,8 +10,6 @@ mod routes;
 mod state;
 
 pub use config::SupportConfig;
-pub use env::{
-    ChatwootEnv, GitHubAppEnv, OpenRouterEnv, StripeEnv, SupabaseEnv, SupportDatabaseEnv,
-};
+pub use env::{GitHubAppEnv, OpenRouterEnv, StripeEnv, SupabaseEnv, SupportDatabaseEnv};
 pub use openapi::openapi;
 pub use routes::router;

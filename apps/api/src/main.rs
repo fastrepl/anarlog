@@ -130,7 +130,6 @@ async fn app() -> Router {
         &env.support_database,
         &env.stripe,
         &env.supabase,
-        &env.chatwoot,
         auth_state_support.clone(),
     );
     let cactus_config = hypr_api_cactus::CactusProxyConfig {
