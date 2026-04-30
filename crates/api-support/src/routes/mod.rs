@@ -1,9 +1,6 @@
 pub(crate) mod feedback;
 
-use axum::{
-    Router,
-    routing::post,
-};
+use axum::{Router, routing::post};
 
 use crate::config::SupportConfig;
 use crate::mcp::mcp_service;
