@@ -20,7 +20,7 @@ Granola, rearranged.
 
 Download the latest release for your platform:
 
-→ [github.com/fastrepl/char/releases/latest](https://github.com/fastrepl/char/releases/latest)
+<a href="https://github.com/fastrepl/anarlog/releases/latest/download/hyprnote-macos-aarch64.dmg">Download for Apple Silicon</a> · <a href="https://github.com/fastrepl/anarlog/releases/latest/download/hyprnote-macos-x86_64.dmg">Download for Apple Intel</a>
 
 Open it. Join a meeting. anarlog records, transcribes locally, and saves your notes as markdown on disk. Bring your own LLM (OpenAI, Anthropic, Gemini, OpenRouter, Ollama, LM Studio, anything OpenAI-compatible).
 
