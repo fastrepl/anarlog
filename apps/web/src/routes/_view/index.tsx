@@ -463,10 +463,10 @@ function SocialTestimonialsSection() {
       <h2 className="text-color border-color-brand mb-10 border-b pb-8 font-mono text-2xl tracking-wide md:text-4xl">
         <span className="mb-2 block">What people are saying</span>
         <span className="text-color-secondary block font-sans text-sm font-normal tracking-normal md:text-base">
-          Char was formerly Hyprnote.{" "}
+          Anarlog was formerly Char (and Hyprnote before that).{" "}
           <Link
             to="/blog/$slug/"
-            params={{ slug: "hyprnote-is-now-char" }}
+            params={{ slug: "char-is-now-anarlog" }}
             className="text-color underline underline-offset-4 transition-opacity hover:opacity-70"
           >
             Read about the rename.

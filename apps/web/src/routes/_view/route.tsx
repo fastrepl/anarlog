@@ -315,7 +315,7 @@ export function AnnouncementBanner() {
   return (
     <Link
       to="/blog/$slug/"
-      params={{ slug: "hyprnote-is-now-char" }}
+      params={{ slug: "char-is-now-anarlog" }}
       className={cn([
         "relative inline-flex w-fit items-center gap-2 rounded-full",
         "bg-stone-800 px-4 py-1.5",
@@ -324,7 +324,7 @@ export function AnnouncementBanner() {
       ])}
     >
       <span>
-        Hyprnote is now <strong>Char</strong>.
+        Char is now <strong>Anarlog</strong>.
       </span>
       <button
         type="button"
