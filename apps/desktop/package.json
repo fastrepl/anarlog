@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:relay": "echo 'Make sure Char Staging app is running, then open http://localhost:1423' && vite",
+    "dev:relay": "echo 'Make sure Anarlog Staging app is running, then open http://localhost:1423' && vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "dotenvx run --ignore MISSING_ENV_FILE -f ../../.env.supabase -f .env -- tauri",

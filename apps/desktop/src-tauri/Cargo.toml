@@ -3,7 +3,7 @@ name = "desktop"
 version = "0.0.0"
 authors = ["you"]
 edition = "2024"
-description = "Char Desktop App"
+description = "Anarlog Desktop App"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Char",
-  "mainBinaryName": "char",
+  "productName": "Anarlog",
+  "mainBinaryName": "anarlog",
   "identifier": "com.hyprnote.stable",
   "plugins": {
     "deep-link": {

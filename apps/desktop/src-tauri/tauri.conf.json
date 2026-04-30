@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Char Dev",
-  "mainBinaryName": "char-dev",
+  "productName": "Anarlog Dev",
+  "mainBinaryName": "anarlog-dev",
   "identifier": "com.hyprnote.dev",
   "build": {
     "beforeDevCommand": "pnpm -F desktop dev",
@@ -39,9 +39,7 @@
     "resources": {
       "icons/stable/icon.icns": "icons/stable.icns",
       "icons/nightly/icon.icns": "icons/nightly.icns",
-      "icons/staging/icon.icns": "icons/staging.icns",
-      "icons/pro/icon.icns": "icons/pro.icns",
-      "resources/models/cactus/char-vlm/": "models/cactus/char-vlm/"
+      "icons/staging/icon.icns": "icons/staging.icns"
     },
     "macOS": {
       "minimumSystemVersion": "14.2",
