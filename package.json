@@ -2,8 +2,7 @@
   "scripts": {
     "fmt:check": "echo 'TODO'",
     "fmt": "dprint fmt",
-    "lint": "oxlint --type-aware || eslint",
-    "plugin:hello-world:install": "pnpm --dir examples/plugins/hello-world install:dev"
+    "lint": "oxlint --type-aware || eslint"
   },
   "devDependencies": {
     "@dotenvx/dotenvx": "^1.61.0",
