@@ -8,10 +8,6 @@ import {
   SettingsNotifications,
   SettingsPermissions,
 } from "./general";
-import { SettingsLab } from "./lab";
-import { AgentIntegrations } from "./lab/agent-integrations";
-import { DeveloperSettings } from "./lab/developer";
-import { SettingsTodo } from "./todo";
 
 import { LLM } from "~/settings/ai/llm";
 import { STT } from "~/settings/ai/stt";
@@ -71,18 +67,10 @@ function SettingsView({ tab }: { tab: Extract<Tab, { type: "settings" }> }) {
         return <SettingsNotifications />;
       case "permissions":
         return <SettingsPermissions />;
-      case "lab":
-        return <SettingsLab />;
-      case "agent":
-        return <AgentIntegrations />;
-      case "developer":
-        return <DeveloperSettings />;
       case "transcription":
         return <STT />;
       case "intelligence":
         return <LLM />;
-      case "todo":
-        return <SettingsTodo />;
     }
   };
 

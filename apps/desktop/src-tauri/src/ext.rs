@@ -117,21 +117,14 @@ impl<R: tauri::Runtime, T: tauri::Manager<R>> AppExt<R> for T {
 
     #[tracing::instrument(skip_all)]
     fn get_char_v1p1_preview(&self) -> Result<bool, String> {
-        if cfg!(feature = "new") {
-            return Ok(true);
-        }
-        let store = self.desktop_store()?;
-        store
-            .get(StoreKey::CharV1p1Preview)
-            .map(|opt| opt.unwrap_or(false))
-            .map_err(|e| e.to_string())
+        Ok(false)
     }
 
     #[tracing::instrument(skip_all)]
-    fn set_char_v1p1_preview(&self, v: bool) -> Result<(), String> {
+    fn set_char_v1p1_preview(&self, _v: bool) -> Result<(), String> {
         let store = self.desktop_store()?;
         store
-            .set(StoreKey::CharV1p1Preview, v)
+            .set(StoreKey::CharV1p1Preview, false)
             .map_err(|e| e.to_string())?;
         store.save().map_err(|e| e.to_string())
     }

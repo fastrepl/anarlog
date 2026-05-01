@@ -31,12 +31,8 @@ export type SettingsTab =
   | "app"
   | "notifications"
   | "permissions"
-  | "lab"
-  | "agent"
-  | "developer"
   | "transcription"
-  | "intelligence"
-  | "todo";
+  | "intelligence";
 
 export const normalizeSettingsTab = (
   tab: string | null | undefined,
@@ -45,12 +41,8 @@ export const normalizeSettingsTab = (
     case "app":
     case "notifications":
     case "permissions":
-    case "lab":
-    case "agent":
-    case "developer":
     case "transcription":
     case "intelligence":
-    case "todo":
       return tab;
     case "account":
     default:
@@ -173,10 +165,12 @@ export const getDefaultState = (tab: TabInput): Tab => {
       if (subtab === "calendar") {
         return { ...base, type: "calendar" };
       }
+      const settingsTab =
+        subtab === "account" ? "account" : normalizeSettingsTab(subtab);
       return {
         ...base,
         type: "settings",
-        state: { tab: (subtab as SettingsTab) ?? "app" },
+        state: { tab: settingsTab },
       };
     }
     case "onboarding":

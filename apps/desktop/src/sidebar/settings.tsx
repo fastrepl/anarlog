@@ -1,19 +1,13 @@
-import { useQuery } from "@tanstack/react-query";
-import { getIdentifier } from "@tauri-apps/api/app";
 import { platform } from "@tauri-apps/plugin-os";
 import {
   AudioLinesIcon,
   ArrowUpRightIcon,
   BellIcon,
   BookText,
-  BotIcon,
   CalendarIcon,
-  CodeIcon,
-  FlaskConical,
   LockIcon,
   SmartphoneIcon,
   SparklesIcon,
-  TicketIcon,
   UserIcon,
 } from "lucide-react";
 import { useCallback } from "react";
@@ -32,7 +26,7 @@ type SettingsNavItem =
 
 type SettingsNavGroup = { label: string; items: SettingsNavItem[] };
 
-function getBaseGroups(showLab: boolean): SettingsNavGroup[] {
+function getBaseGroups(): SettingsNavGroup[] {
   const aiItems: SettingsNavItem[] = [
     { id: "transcription", label: "Transcription", icon: AudioLinesIcon },
     { id: "intelligence", label: "Intelligence", icon: SparklesIcon },
@@ -57,18 +51,6 @@ function getBaseGroups(showLab: boolean): SettingsNavGroup[] {
       items: aiItems,
     },
   ];
-
-  if (showLab) {
-    groups.push({
-      label: "Lab",
-      items: [
-        { id: "lab", label: "General", icon: FlaskConical },
-        { id: "agent", label: "Agent", icon: BotIcon },
-        { id: "developer", label: "Developer", icon: CodeIcon },
-        { id: "todo", label: "Ticket", icon: TicketIcon },
-      ],
-    });
-  }
 
   return groups;
 }
@@ -100,15 +82,7 @@ export function SettingsNav() {
     openNew({ type: "calendar" });
   }, [openNew]);
 
-  const identifierQuery = useQuery({
-    queryKey: ["app-identifier"],
-    queryFn: () => getIdentifier(),
-    staleTime: Infinity,
-  });
-
-  const showLab = identifierQuery.data !== "com.hyprnote.stable";
-
-  const groups = getBaseGroups(showLab);
+  const groups = getBaseGroups();
   const isMacos = platform() === "macos";
   if (isMacos) {
     groups[0].items.push({

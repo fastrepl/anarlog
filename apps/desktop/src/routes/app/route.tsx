@@ -4,6 +4,7 @@ import { TooltipProvider } from "@hypr/ui/components/ui/tooltip";
 
 import {
   getOnboardingNeeded,
+  isExperimentalShellPath,
   isShellEntryPath,
   normalizeAppPath,
   resolveShellEntryPath,
@@ -26,6 +27,10 @@ export const Route = createFileRoute("/app")({
 
     if (onboardingNeeded && isShellEntryPath(pathname)) {
       throw redirect({ to: "/app/onboarding" });
+    }
+
+    if (!onboardingNeeded && isExperimentalShellPath(pathname)) {
+      throw redirect({ to: await resolveShellEntryPath() });
     }
   },
   component: Component,

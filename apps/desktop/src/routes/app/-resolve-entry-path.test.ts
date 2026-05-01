@@ -8,6 +8,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 
 import {
   getOnboardingNeeded,
+  isExperimentalShellPath,
   isShellEntryPath,
   normalizeAppPath,
   resolveAppEntryPath,
@@ -46,14 +47,15 @@ describe("app entry path resolution", () => {
     await expect(resolveAppEntryPath()).resolves.toBe("/app/onboarding");
   });
 
-  it("routes to main2 when onboarding is complete and the flag is on", async () => {
+  it("keeps classic main even when the old preview flag is on", async () => {
     vi.mocked(commands.getCharV1p1Preview).mockResolvedValue({
       status: "ok",
       data: true,
     });
 
-    await expect(resolveShellEntryPath()).resolves.toBe("/app/main2");
-    await expect(resolveAppEntryPath()).resolves.toBe("/app/main2");
+    await expect(resolveShellEntryPath()).resolves.toBe("/app/main");
+    await expect(resolveAppEntryPath()).resolves.toBe("/app/main");
+    expect(commands.getCharV1p1Preview).not.toHaveBeenCalled();
   });
 
   it("normalizes and identifies shell entry paths", () => {
@@ -61,6 +63,9 @@ describe("app entry path resolution", () => {
     expect(isShellEntryPath("/app")).toBe(true);
     expect(isShellEntryPath("/app/main/")).toBe(true);
     expect(isShellEntryPath("/app/main2")).toBe(true);
+    expect(isExperimentalShellPath("/app/main2/")).toBe(true);
+    expect(isExperimentalShellPath("/app/main2/sessions/session-1")).toBe(true);
+    expect(isExperimentalShellPath("/app/main")).toBe(false);
     expect(isShellEntryPath("/app/onboarding")).toBe(false);
   });
 });
