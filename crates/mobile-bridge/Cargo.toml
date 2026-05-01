@@ -1,0 +1,23 @@
+[package]
+name = "mobile-bridge"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["lib", "cdylib", "staticlib"]
+name = "mobile_bridge"
+
+[dependencies]
+hypr-db-app = { workspace = true }
+hypr-db-core = { workspace = true }
+hypr-db-execute = { workspace = true }
+hypr-db-migrate = { workspace = true }
+hypr-db-reactive = { workspace = true }
+
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "sync", "time"] }
+uniffi = { version = "0.31" }
+
+[dev-dependencies]
+tempfile = { workspace = true }

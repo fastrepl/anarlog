@@ -1,0 +1,11 @@
+[package]
+name = "mac"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+libc = "0.2"
+strum = { workspace = true, features = ["derive"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-core-graphics = { workspace = true, features = ["CGDirectDisplay", "CGError", "CGDisplayConfiguration", "libc"] }

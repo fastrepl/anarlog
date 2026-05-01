@@ -1,0 +1,11 @@
+inputs:
+  version:
+    required: false
+    default: "2.39.1"
+runs:
+  using: "composite"
+  steps:
+    - run: curl -sL https://sentry.io/get-cli/ | SENTRY_CLI_VERSION="${{ inputs.version }}" sh
+      shell: bash
+    - run: sentry-cli --version
+      shell: bash

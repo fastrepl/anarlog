@@ -1,0 +1,11 @@
+[package]
+name = "api-error"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+axum = { workspace = true }
+sentry = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+tracing = { workspace = true }
+utoipa = { workspace = true }

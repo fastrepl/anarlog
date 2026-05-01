@@ -1,0 +1,20 @@
+[package]
+name = "db-cli"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+hypr-db-app = { workspace = true }
+hypr-db-core = { workspace = true }
+hypr-db-migrate = { workspace = true }
+
+clap = { workspace = true, features = ["derive", "env"] }
+dirs = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sqlx = { workspace = true, features = ["runtime-tokio", "sqlite", "sqlite-unbundled", "macros"] }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

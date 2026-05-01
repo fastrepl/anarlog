@@ -1,0 +1,20 @@
+[package]
+name = "api-ticket"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+hypr-api-auth = { workspace = true }
+hypr-api-error = { workspace = true }
+hypr-api-nango = { workspace = true }
+hypr-github-issues = { workspace = true, features = ["utoipa"] }
+hypr-linear = { workspace = true }
+hypr-nango = { workspace = true }
+hypr-ticket-interface = { workspace = true, features = ["utoipa"] }
+
+axum = { workspace = true }
+utoipa = { workspace = true }
+
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

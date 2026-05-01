@@ -1,0 +1,2 @@
+{"direction":"server_to_client","timestamp_ms":50,"kind":{"type":"text"},"content":"{\"error_code\":503,\"error_message\":\"Cannot continue request (code 1). Please restart the request.\"}"}
+{"direction":"server_to_client","timestamp_ms":100,"kind":{"type":"close","code":1011,"reason":"server error"}}

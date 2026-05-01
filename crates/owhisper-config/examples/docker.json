@@ -1,0 +1,10 @@
+{
+  "$schema": "../../schema.json",
+  "models": [
+    {
+      "type": "whisper-cpp",
+      "id": "whisper-base",
+      "assets_dir": "/app/models/whisper-base"
+    }
+  ]
+}
