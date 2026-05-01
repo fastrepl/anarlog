@@ -26,3 +26,6 @@ internal
 # TypeScript incremental build cache
 *.tsbuildinfo
 
+# Agent scratch / reference material (not for commit)
+.tmp/
+
