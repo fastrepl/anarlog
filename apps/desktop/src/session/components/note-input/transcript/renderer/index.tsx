@@ -114,7 +114,8 @@ export function TranscriptViewer({
         data-transcript-container
         className={cn([
           "flex h-full flex-col gap-8 overflow-x-hidden overflow-y-auto",
-          "scrollbar-hide scroll-pb-32 pb-16",
+          "scrollbar-hide",
+          enablePlaybackControls ? "scroll-pb-32 pb-16" : "scroll-pb-4 pb-0",
         ])}
       >
         {transcriptEntries.map(({ transcriptId }, index) => (

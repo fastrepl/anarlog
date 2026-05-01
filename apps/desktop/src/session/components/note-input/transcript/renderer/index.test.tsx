@@ -93,7 +93,7 @@ describe("TranscriptViewer", () => {
       },
     ];
 
-    render(
+    const { container } = render(
       <TranscriptViewer
         transcriptIds={[]}
         liveSegments={liveSegments as never[]}
@@ -120,5 +120,10 @@ describe("TranscriptViewer", () => {
       expect.any(Function),
       expect.objectContaining({ enabled: false }),
     );
+    const transcriptContainer = container.querySelector(
+      "[data-transcript-container]",
+    );
+    expect(transcriptContainer?.classList.contains("pb-0")).toBe(true);
+    expect(transcriptContainer?.classList.contains("pb-16")).toBe(false);
   });
 });
