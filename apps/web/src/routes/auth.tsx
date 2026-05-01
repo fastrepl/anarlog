@@ -1,28 +1,45 @@
 import { Icon } from "@iconify-icon/react";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
-import { ArrowLeftIcon, MailIcon } from "lucide-react";
-import { motion } from "motion/react";
-import { useEffect, useRef, useState } from "react";
+import { ArrowLeftIcon, CheckIcon, CopyIcon, MailIcon } from "lucide-react";
+import { useRef, useState } from "react";
 import { z } from "zod";
 
 import { cn } from "@hypr/utils";
 
-import { CharLogo } from "@/components/sidebar";
 import {
   createDesktopSession,
   doAuth,
   doMagicLinkAuth,
   doPasswordSignIn,
   doPasswordSignUp,
+  exchangeOAuthCode,
+  exchangeOtpToken,
   fetchUser,
 } from "@/functions/auth";
 import { type DesktopScheme, flowSearchSchema } from "@/functions/desktop-flow";
+import { useMountEffect } from "@/hooks/useMountEffect";
 
 const commonSearch = {
   redirect: z.string().optional(),
   provider: z.enum(["github", "google"]).optional(),
   rra: z.boolean().optional(),
+  code: z.string().optional(),
+  token_hash: z.string().optional(),
+  type: z
+    .enum([
+      "email",
+      "recovery",
+      "magiclink",
+      "signup",
+      "invite",
+      "email_change",
+    ])
+    .optional(),
+  access_token: z.string().optional(),
+  refresh_token: z.string().optional(),
+  error: z.string().optional(),
+  error_description: z.string().optional(),
 };
 
 const validateSearch = flowSearchSchema(commonSearch);
@@ -34,32 +51,93 @@ export const Route = createFileRoute("/auth")({
     meta: [{ name: "robots", content: "noindex, nofollow" }],
   }),
   beforeLoad: async ({ search }) => {
-    const user = await fetchUser();
+    if (search.error) {
+      return { existingUser: null };
+    }
 
-    if (user) {
-      const shouldReauthWithProvider =
-        search.flow === "web" && !!search.provider;
+    if (search.flow === "web" && search.code) {
+      const result = await exchangeOAuthCode({
+        data: { code: search.code, flow: "web" },
+      });
 
-      if (search.flow === "web" && !shouldReauthWithProvider) {
-        throw redirect({ to: search.redirect || "/app/account/" } as any);
+      if (result.success) {
+        throw redirect({ to: "/" });
       }
 
-      if (search.flow === "desktop") {
-        const result = await createDesktopSession({
-          data: { email: user.email },
-        });
+      return { existingUser: null };
+    }
 
-        if (result) {
-          throw redirect({
-            to: "/callback/auth/",
-            search: {
-              flow: "desktop",
-              scheme: search.scheme ?? "hyprnote",
-              access_token: result.access_token,
-              refresh_token: result.refresh_token,
-            },
-          });
-        }
+    if (search.flow === "desktop" && search.code) {
+      const result = await exchangeOAuthCode({
+        data: { code: search.code, flow: "desktop" },
+      });
+
+      if (result.success) {
+        throw redirect({
+          to: "/auth/",
+          search: {
+            flow: "desktop",
+            scheme: search.scheme,
+            access_token: result.access_token,
+            refresh_token: result.refresh_token,
+          },
+        } as any);
+      }
+
+      return { existingUser: null };
+    }
+
+    if (search.token_hash && search.type) {
+      const result = await exchangeOtpToken({
+        data: {
+          token_hash: search.token_hash,
+          type: search.type,
+          flow: search.flow,
+        },
+      });
+
+      if (result.success && search.flow === "desktop") {
+        throw redirect({
+          to: "/auth/",
+          search: {
+            flow: "desktop",
+            scheme: search.scheme ?? "hyprnote",
+            access_token: result.access_token,
+            refresh_token: result.refresh_token,
+          },
+        } as any);
+      }
+
+      if (result.success) {
+        throw redirect({ to: "/" });
+      }
+    }
+
+    if (search.access_token && search.refresh_token) {
+      return { existingUser: null };
+    }
+
+    const user = await fetchUser();
+
+    if (user && search.flow === "web" && !search.provider) {
+      throw redirect({ to: "/" });
+    }
+
+    if (user && search.flow === "desktop") {
+      const result = await createDesktopSession({
+        data: { email: user.email },
+      });
+
+      if (result) {
+        throw redirect({
+          to: "/auth/",
+          search: {
+            flow: "desktop",
+            scheme: search.scheme ?? "hyprnote",
+            access_token: result.access_token,
+            refresh_token: result.refresh_token,
+          },
+        } as any);
       }
     }
 
@@ -68,83 +146,98 @@ export const Route = createFileRoute("/auth")({
 });
 
 type AuthView = "main" | "email";
+type EmailMode = "password" | "magic-link";
 
 function Component() {
-  const { flow, scheme, redirect, provider, rra } = Route.useSearch();
+  const search = Route.useSearch();
   const { existingUser } = Route.useRouteContext();
   const [view, setView] = useState<AuthView>("main");
 
-  if (existingUser && flow === "desktop") {
+  if (search.error) {
     return (
       <Container>
-        <Header />
-        <DesktopReauthView
-          email={existingUser.email}
-          scheme={scheme ?? "hyprnote"}
-        />
-      </Container>
-    );
-  }
-
-  if (existingUser && flow === "web" && provider) {
-    return (
-      <Container>
-        <Header />
-        <div className="flex flex-col gap-4 p-8">
-          <p className="text-fg-muted text-center text-sm">
-            Refreshing your {provider} access for admin actions.
+        <Header title="Sign-in failed" />
+        <div className="flex flex-col gap-4 px-8 pb-8">
+          <p className="text-center text-sm text-[#5d5549]">
+            {search.error_description?.replaceAll("+", " ") ||
+              "Something went wrong during sign-in."}
           </p>
-          <OAuthButton
-            flow={flow}
-            scheme={scheme}
-            redirect={redirect}
-            provider={provider}
-            rra={rra}
-            autoStart
-          />
+          <Link
+            to="/auth/"
+            search={{ flow: "web" }}
+            className="flex w-full items-center justify-center rounded-full bg-[#181613] px-4 py-2 font-sans text-white"
+          >
+            Try again
+          </Link>
         </div>
       </Container>
     );
   }
 
-  const showGoogle = !provider || provider === "google";
-  const showGithub = !provider || provider === "github";
-  const showEmail = !provider;
+  if (
+    search.flow === "desktop" &&
+    search.access_token &&
+    search.refresh_token
+  ) {
+    return (
+      <Container>
+        <Header title="Sign-in successful" />
+        <DesktopTokenView
+          scheme={search.scheme ?? "hyprnote"}
+          accessToken={search.access_token}
+          refreshToken={search.refresh_token}
+        />
+      </Container>
+    );
+  }
+
+  if (existingUser && search.flow === "desktop") {
+    return (
+      <Container>
+        <Header title="Welcome back" />
+        <DesktopReauthView
+          email={existingUser.email}
+          scheme={search.scheme ?? "hyprnote"}
+        />
+      </Container>
+    );
+  }
+
+  const showGoogle = !search.provider || search.provider === "google";
+  const showGithub = !search.provider || search.provider === "github";
+  const showEmail = !search.provider;
 
   return (
     <Container>
-      <Header />
+      <Header title="Welcome to Anarlog" />
       {view === "main" && (
         <>
           <div className="flex flex-col gap-2 px-8">
             {showGoogle && (
               <OAuthButton
-                flow={flow}
-                scheme={scheme}
-                redirect={redirect}
+                flow={search.flow}
+                scheme={search.scheme}
                 provider="google"
+                autoStart={!!existingUser && search.provider === "google"}
               />
             )}
             {showGithub && (
               <OAuthButton
-                flow={flow}
-                scheme={scheme}
-                redirect={redirect}
+                flow={search.flow}
+                scheme={search.scheme}
                 provider="github"
-                rra={rra}
+                rra={search.rra}
+                autoStart={!!existingUser && search.provider === "github"}
               />
             )}
             {showEmail && (
               <button
                 onClick={() => setView("email")}
                 className={cn([
-                  "w-full cursor-pointer px-4 py-2",
-                  "border-color-brand border",
-                  "text-fg rounded-full font-sans",
-                  "hover:bg-brand-dark/10",
+                  "flex w-full cursor-pointer items-center justify-center gap-3 px-4 py-2",
+                  "rounded-full border border-[#181613] font-sans text-[#181613]",
+                  "transition-colors hover:bg-[#181613]/10",
                   "focus:ring-2 focus:ring-stone-500 focus:ring-offset-2 focus:outline-hidden",
-                  "transition-colors",
-                  "flex items-center justify-center gap-3",
                 ])}
               >
                 <MailIcon className="size-4" />
@@ -157,9 +250,8 @@ function Component() {
       )}
       {view === "email" && (
         <EmailAuthView
-          flow={flow}
-          scheme={scheme}
-          redirect={redirect}
+          flow={search.flow}
+          scheme={search.scheme}
           onBack={() => setView("main")}
         />
       )}
@@ -168,52 +260,71 @@ function Component() {
 }
 
 function Container({ children }: { children: React.ReactNode }) {
-  const contentRef = useRef<HTMLDivElement>(null);
-  const [height, setHeight] = useState<number | "auto">("auto");
-
-  useEffect(() => {
-    const el = contentRef.current;
-    if (!el) return;
-    const observer = new ResizeObserver(([entry]) => {
-      setHeight(entry.contentRect.height);
-    });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
   return (
-    <div
-      className={cn([
-        "flex min-h-screen items-center justify-center",
-        "bg-page",
-        "bg-dotted-dark",
-      ])}
-    >
-      <div className="border-color-brand surface mx-auto w-md min-w-[320px] overflow-hidden rounded-xl border shadow-md">
-        <motion.div
-          animate={{ height }}
-          transition={{ duration: 0.3, ease: "easeInOut" }}
-        >
-          <div ref={contentRef}>{children}</div>
-        </motion.div>
+    <main className="flex min-h-screen items-center justify-center bg-[#f7f2e8] px-4 text-[#181613]">
+      <div className="mx-auto w-full max-w-md min-w-[320px] overflow-hidden rounded-lg border border-[#d3c6b1] bg-[#fffaf1] shadow-xl shadow-[#5b4f3d]/10">
+        {children}
+      </div>
+    </main>
+  );
+}
+
+function Header({ title }: { title: string }) {
+  return (
+    <div className="mb-8 text-center">
+      <div className="mx-auto mb-8 flex items-center justify-between border-b border-[#d3c6b1] p-8">
+        <Link to="/" aria-label="Anarlog home">
+          <img src="/logo.svg" alt="Anarlog" className="h-8 w-auto" />
+        </Link>
+        <h1 className="py-4 font-mono text-lg">{title}</h1>
       </div>
     </div>
   );
 }
 
-function Header() {
+function DesktopTokenView({
+  scheme,
+  accessToken,
+  refreshToken,
+}: {
+  scheme: DesktopScheme;
+  accessToken: string;
+  refreshToken: string;
+}) {
+  const [copied, setCopied] = useState(false);
+  const deeplink = `${scheme}://auth/callback?${new URLSearchParams({
+    access_token: accessToken,
+    refresh_token: refreshToken,
+  }).toString()}`;
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(deeplink);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
-    <div className="mb-8 text-center">
-      <div
-        className={cn([
-          "mx-auto mb-8 p-8",
-          "flex items-center justify-between",
-          "border-color-brand border-b",
-        ])}
+    <div className="flex flex-col gap-4 px-8 pb-8">
+      <p className="text-center text-sm text-[#5d5549]">
+        Click the button below to return to the desktop app.
+      </p>
+      <a
+        href={deeplink}
+        className="flex w-full items-center justify-center rounded-full bg-[#181613] px-4 py-2 font-sans text-white transition-colors hover:bg-[#373128]"
       >
-        <CharLogo compact className="text-fg h-10 w-auto" />
-        <h1 className="text-fg py-4 font-mono text-xl">Welcome to Char</h1>
-      </div>
+        Open Anarlog
+      </a>
+      <button
+        onClick={handleCopy}
+        className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full border border-[#d3c6b1] px-4 py-2 text-sm transition-colors hover:bg-[#181613]/10"
+      >
+        {copied ? (
+          <CheckIcon className="size-4" />
+        ) : (
+          <CopyIcon className="size-4" />
+        )}
+        {copied ? "Copied" : "Copy URL"}
+      </button>
     </div>
   );
 }
@@ -228,37 +339,38 @@ function DesktopReauthView({
   const retryMutation = useMutation({
     mutationFn: () => createDesktopSession({ data: { email } }),
     onSuccess: (result) => {
-      if (result) {
-        const params = new URLSearchParams();
-        params.set("flow", "desktop");
-        params.set("scheme", scheme);
-        params.set("access_token", result.access_token);
-        params.set("refresh_token", result.refresh_token);
-        window.location.href = `/callback/auth?${params.toString()}`;
+      if (!result) {
+        return;
       }
+
+      const params = new URLSearchParams();
+      params.set("flow", "desktop");
+      params.set("scheme", scheme);
+      params.set("access_token", result.access_token);
+      params.set("refresh_token", result.refresh_token);
+      window.location.href = `/auth?${params.toString()}`;
     },
   });
 
-  useEffect(() => {
+  useMountEffect(() => {
     retryMutation.mutate();
-  }, []);
+  });
 
   const hasRetryFailed =
     retryMutation.isError || (retryMutation.isSuccess && !retryMutation.data);
 
   return (
     <div className="flex flex-col gap-4 p-8">
-      {!hasRetryFailed && (
-        <div className="text-center">
-          <p className="text-neutral-600">Signing in as {email}...</p>
-        </div>
-      )}
-      {hasRetryFailed && (
+      {!hasRetryFailed ? (
+        <p className="text-center text-sm text-[#5d5549]">
+          Signing in as {email}...
+        </p>
+      ) : (
         <>
           <div className="text-center">
-            <p className="mb-1 text-neutral-600">Signed in as {email}</p>
-            <p className="text-sm text-neutral-400">
-              Sign in with your provider to continue to the app
+            <p className="mb-1 text-[#5d5549]">Signed in as {email}</p>
+            <p className="text-sm text-[#857a6a]">
+              Sign in with your provider to continue to the app.
             </p>
           </div>
           <div className="flex flex-col gap-2">
@@ -273,37 +385,19 @@ function DesktopReauthView({
 
 function LegalText() {
   return (
-    <p className="mt-4 px-8 pb-8 text-center text-xs text-neutral-500">
-      By signing up, you agree to our{" "}
-      <a
-        href="https://char.com/legal/terms"
-        className="underline hover:text-neutral-700"
-      >
-        Terms of Service
-      </a>{" "}
-      and{" "}
-      <a
-        href="https://char.com/legal/privacy"
-        className="underline hover:text-neutral-700"
-      >
-        Privacy Policy
-      </a>
-      .
+    <p className="mt-4 px-8 pb-8 text-center text-xs text-[#756b5d]">
+      By signing up, you agree to our terms and privacy policy.
     </p>
   );
 }
 
-type EmailMode = "password" | "magic-link";
-
 function EmailAuthView({
   flow,
   scheme,
-  redirect,
   onBack,
 }: {
   flow: "desktop" | "web";
   scheme?: DesktopScheme;
-  redirect?: string;
   onBack: () => void;
 }) {
   const [mode, setMode] = useState<EmailMode>("password");
@@ -312,20 +406,20 @@ function EmailAuthView({
     <div className="flex flex-col gap-4 px-8">
       <button
         onClick={onBack}
-        className="-mt-2 mb-1 flex items-center gap-1 self-start text-sm text-neutral-500 transition-colors hover:text-neutral-700"
+        className="-mt-2 mb-1 flex items-center gap-1 self-start text-sm text-[#756b5d] transition-colors hover:text-[#181613]"
       >
         <ArrowLeftIcon className="size-3.5" />
         Back
       </button>
 
-      <div className="flex gap-1 rounded-full bg-neutral-100 p-1">
+      <div className="flex gap-1 rounded-full bg-[#ede3d2] p-1">
         <button
           onClick={() => setMode("password")}
           className={cn([
             "flex-1 rounded-full py-1.5 font-sans text-sm font-medium transition-colors",
             mode === "password"
-              ? "bg-white text-neutral-900 shadow-sm"
-              : "text-neutral-500 hover:text-neutral-700",
+              ? "bg-white text-[#181613] shadow-sm"
+              : "text-[#756b5d] hover:text-[#181613]",
           ])}
         >
           Password
@@ -335,19 +429,18 @@ function EmailAuthView({
           className={cn([
             "flex-1 rounded-full py-1.5 font-sans text-sm font-medium transition-colors",
             mode === "magic-link"
-              ? "bg-white text-neutral-900 shadow-sm"
-              : "text-neutral-500 hover:text-neutral-700",
+              ? "bg-white text-[#181613] shadow-sm"
+              : "text-[#756b5d] hover:text-[#181613]",
           ])}
         >
           Magic Link
         </button>
       </div>
 
-      {mode === "password" && (
-        <PasswordForm flow={flow} scheme={scheme} redirect={redirect} />
-      )}
-      {mode === "magic-link" && (
-        <MagicLinkForm flow={flow} scheme={scheme} redirect={redirect} />
+      {mode === "password" ? (
+        <PasswordForm flow={flow} scheme={scheme} />
+      ) : (
+        <MagicLinkForm flow={flow} scheme={scheme} />
       )}
 
       <LegalText />
@@ -358,11 +451,9 @@ function EmailAuthView({
 function PasswordForm({
   flow,
   scheme,
-  redirect,
 }: {
   flow: "desktop" | "web";
   scheme?: DesktopScheme;
-  redirect?: string;
 }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -374,27 +465,20 @@ function PasswordForm({
   const signInMutation = useMutation({
     mutationFn: () =>
       doPasswordSignIn({
-        data: { email, password, flow, scheme, redirect },
+        data: { email, password, flow, scheme },
       }),
     onSuccess: (result) => {
       if (result && "error" in result && result.error) {
-        setErrorMessage(
-          (result as { error: boolean; message: string }).message,
-        );
+        setErrorMessage(result.message);
         return;
       }
-      if (
-        result &&
-        "success" in result &&
-        result.success &&
-        "access_token" in result
-      ) {
+
+      if (result?.success && "access_token" in result) {
         handlePasswordSuccess(
-          result.access_token as string,
-          result.refresh_token as string,
+          result.access_token,
+          result.refresh_token,
           flow,
           scheme,
-          redirect,
         );
       }
     },
@@ -403,29 +487,26 @@ function PasswordForm({
   const signUpMutation = useMutation({
     mutationFn: () =>
       doPasswordSignUp({
-        data: { email, password, flow, scheme, redirect },
+        data: { email, password, flow, scheme },
       }),
     onSuccess: (result) => {
       if (result && "error" in result && result.error) {
-        setErrorMessage(
-          (result as { error: boolean; message: string }).message,
-        );
+        setErrorMessage(result.message);
         return;
       }
-      if (result && "success" in result && result.success) {
-        if ("needsConfirmation" in result && result.needsConfirmation) {
-          setSubmitted(true);
-          return;
-        }
-        if ("access_token" in result) {
-          handlePasswordSuccess(
-            result.access_token as string,
-            result.refresh_token as string,
-            flow,
-            scheme,
-            redirect,
-          );
-        }
+
+      if (result?.success && "needsConfirmation" in result) {
+        setSubmitted(true);
+        return;
+      }
+
+      if (result?.success && "access_token" in result) {
+        handlePasswordSuccess(
+          result.access_token,
+          result.refresh_token,
+          flow,
+          scheme,
+        );
       }
     },
   });
@@ -436,27 +517,30 @@ function PasswordForm({
     e.preventDefault();
     setErrorMessage("");
 
-    if (isSignUp) {
-      if (password !== confirmPassword) {
-        setErrorMessage("Passwords do not match");
-        return;
-      }
-      if (password.length < 6) {
-        setErrorMessage("Password must be at least 6 characters");
-        return;
-      }
-      signUpMutation.mutate();
-    } else {
+    if (!isSignUp) {
       signInMutation.mutate();
+      return;
     }
+
+    if (password !== confirmPassword) {
+      setErrorMessage("Passwords do not match");
+      return;
+    }
+
+    if (password.length < 6) {
+      setErrorMessage("Password must be at least 6 characters");
+      return;
+    }
+
+    signUpMutation.mutate();
   };
 
   if (submitted) {
     return (
-      <div className="rounded-lg border border-stone-200 bg-stone-50 p-4 text-center">
-        <p className="font-medium text-stone-700">Check your email</p>
-        <p className="mt-1 text-sm text-stone-500">
-          We sent a confirmation link to {email}
+      <div className="rounded-lg border border-[#d3c6b1] bg-[#f7f2e8] p-4 text-center">
+        <p className="font-medium text-[#302b24]">Check your email</p>
+        <p className="mt-1 text-sm text-[#756b5d]">
+          We sent a confirmation link to {email}.
         </p>
       </div>
     );
@@ -464,135 +548,83 @@ function PasswordForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-      <input
+      <AuthInput
         type="email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         placeholder="Email"
         required
-        className={cn([
-          "w-full px-4 py-2",
-          "rounded-lg border border-neutral-300",
-          "text-fg placeholder:text-fg-muted",
-          "focus:ring-2 focus:ring-stone-500 focus:ring-offset-2 focus:outline-hidden",
-        ])}
       />
-      <input
+      <AuthInput
         type="password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         placeholder="Password"
         required
-        className={cn([
-          "w-full px-4 py-2",
-          "rounded-lg border border-neutral-300",
-          "text-fg placeholder:text-fg-muted",
-          "focus:ring-2 focus:ring-stone-500 focus:ring-offset-2 focus:outline-hidden",
-        ])}
       />
-      {isSignUp && (
-        <input
+      {isSignUp ? (
+        <AuthInput
           type="password"
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
           placeholder="Confirm password"
           required
-          className={cn([
-            "w-full px-4 py-2",
-            "rounded-lg border border-neutral-300",
-            "text-fg placeholder:text-fg-muted",
-            "focus:ring-2 focus:ring-stone-800 focus:ring-offset-2 focus:outline-hidden",
-          ])}
         />
-      )}
-      {errorMessage && (
-        <p className="text-center text-sm text-red-500">{errorMessage}</p>
-      )}
+      ) : null}
+      {errorMessage ? (
+        <p className="text-center text-sm text-red-600">{errorMessage}</p>
+      ) : null}
       <button
         type="submit"
         disabled={
           isPending || !email || !password || (isSignUp && !confirmPassword)
         }
         className={cn([
-          "w-full cursor-pointer px-4 py-2",
-          "font rounded-full font-sans",
+          "flex w-full cursor-pointer items-center justify-center gap-3 px-4 py-2",
+          "rounded-full font-sans transition-colors",
           "focus:ring-2 focus:ring-stone-500 focus:ring-offset-2 focus:outline-hidden",
           "disabled:cursor-not-allowed disabled:opacity-50",
-          "transition-colors",
-          "flex items-center justify-center gap-3",
           isSignUp
-            ? "border-color-border text-fg hover:bg-brand-dark/10 rounded-full border"
-            : "bg-fg hover:bg-fg/80 text-white",
+            ? "border border-[#d3c6b1] text-[#181613] hover:bg-[#181613]/10"
+            : "bg-[#181613] text-white hover:bg-[#373128]",
         ])}
       >
         {isPending ? "Loading..." : isSignUp ? "Create account" : "Sign in"}
       </button>
-      <div className="flex flex-col items-center gap-1">
-        <button
-          type="button"
-          onClick={() => {
-            setIsSignUp(!isSignUp);
-            setErrorMessage("");
-            setConfirmPassword("");
-          }}
-          className="text-fg-muted hover:text-fg font-sans text-sm transition-colors hover:underline"
-        >
-          {isSignUp
-            ? "Already have an account? Sign in"
-            : "Don't have an account? Sign up"}
-        </button>
-        {!isSignUp && (
-          <Link
-            to="/reset-password/"
-            className="text-fg-muted hover:text-fg text-sm transition-colors hover:underline"
-          >
-            Forgot password?
-          </Link>
-        )}
-      </div>
+      <button
+        type="button"
+        onClick={() => {
+          setIsSignUp(!isSignUp);
+          setErrorMessage("");
+          setConfirmPassword("");
+        }}
+        className="self-center text-sm text-[#756b5d] transition-colors hover:text-[#181613] hover:underline"
+      >
+        {isSignUp
+          ? "Already have an account? Sign in"
+          : "Don't have an account? Sign up"}
+      </button>
     </form>
   );
-}
-
-function handlePasswordSuccess(
-  accessToken: string,
-  refreshToken: string,
-  flow: "desktop" | "web",
-  scheme?: DesktopScheme,
-  redirectPath?: string,
-) {
-  if (flow === "desktop") {
-    const params = new URLSearchParams();
-    params.set("flow", "desktop");
-    if (scheme) params.set("scheme", scheme);
-    params.set("access_token", accessToken);
-    params.set("refresh_token", refreshToken);
-    window.location.href = `/callback/auth?${params.toString()}`;
-  } else {
-    window.location.href = redirectPath || "/app/account/";
-  }
 }
 
 function MagicLinkForm({
   flow,
   scheme,
-  redirect,
 }: {
   flow: "desktop" | "web";
   scheme?: DesktopScheme;
-  redirect?: string;
 }) {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
 
   const magicLinkMutation = useMutation({
-    mutationFn: (email: string) =>
+    mutationFn: (nextEmail: string) =>
       doMagicLinkAuth({
         data: {
-          email,
+          email: nextEmail,
           flow,
           scheme,
-          redirect,
         },
       }),
     onSuccess: (result) => {
@@ -604,10 +636,10 @@ function MagicLinkForm({
 
   if (submitted) {
     return (
-      <div className="rounded-lg border border-stone-200 bg-stone-50 p-4 text-center">
-        <p className="font-medium text-stone-700">Check your email</p>
-        <p className="mt-1 text-sm text-stone-500">
-          We sent a magic link to {email}
+      <div className="rounded-lg border border-[#d3c6b1] bg-[#f7f2e8] p-4 text-center">
+        <p className="font-medium text-[#302b24]">Check your email</p>
+        <p className="mt-1 text-sm text-[#756b5d]">
+          We sent a magic link to {email}.
         </p>
       </div>
     );
@@ -623,67 +655,88 @@ function MagicLinkForm({
       }}
       className="flex flex-col gap-3"
     >
-      <input
+      <AuthInput
         type="email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         placeholder="Enter your email"
         required
-        className={cn([
-          "w-full px-4 py-2",
-          "rounded-lg border border-neutral-300",
-          "text-neutral-700 placeholder:text-neutral-400",
-          "focus:ring-2 focus:ring-stone-500 focus:ring-offset-2 focus:outline-hidden",
-        ])}
       />
       <button
         type="submit"
         disabled={magicLinkMutation.isPending || !email}
         className={cn([
-          "w-full cursor-pointer px-4 py-2",
-          "border border-neutral-300",
-          "rounded-lg font-medium text-neutral-700",
-          "hover:bg-neutral-50",
+          "flex w-full cursor-pointer items-center justify-center gap-2 px-4 py-2",
+          "rounded-full border border-[#d3c6b1] font-medium text-[#181613]",
+          "transition-colors hover:bg-[#181613]/10",
           "focus:ring-2 focus:ring-stone-500 focus:ring-offset-2 focus:outline-hidden",
           "disabled:cursor-not-allowed disabled:opacity-50",
-          "transition-colors",
-          "flex items-center justify-center gap-2",
         ])}
       >
         {magicLinkMutation.isPending ? "Sending..." : "Send magic link"}
       </button>
-      {magicLinkMutation.isError && (
-        <p className="text-center text-sm text-red-500">
+      {magicLinkMutation.isError ? (
+        <p className="text-center text-sm text-red-600">
           Failed to send magic link. Please try again.
         </p>
-      )}
+      ) : null}
     </form>
   );
+}
+
+function AuthInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <input
+      {...props}
+      className={cn([
+        "w-full rounded-lg border border-[#d3c6b1] bg-white px-4 py-2",
+        "text-[#181613] placeholder:text-[#9b907f]",
+        "focus:ring-2 focus:ring-stone-500 focus:ring-offset-2 focus:outline-hidden",
+        props.className,
+      ])}
+    />
+  );
+}
+
+function handlePasswordSuccess(
+  accessToken: string,
+  refreshToken: string,
+  flow: "desktop" | "web",
+  scheme?: DesktopScheme,
+) {
+  if (flow === "desktop") {
+    const params = new URLSearchParams();
+    params.set("flow", "desktop");
+    if (scheme) params.set("scheme", scheme);
+    params.set("access_token", accessToken);
+    params.set("refresh_token", refreshToken);
+    window.location.href = `/auth?${params.toString()}`;
+    return;
+  }
+
+  window.location.href = "/";
 }
 
 function OAuthButton({
   flow,
   scheme,
-  redirect,
   provider,
   rra,
   autoStart = false,
 }: {
   flow: "desktop" | "web";
   scheme?: DesktopScheme;
-  redirect?: string;
   provider: "google" | "github";
   rra?: boolean;
   autoStart?: boolean;
 }) {
   const oauthMutation = useMutation({
-    mutationFn: (provider: "google" | "github") =>
+    mutationFn: (nextProvider: "google" | "github") =>
       doAuth({
         data: {
-          provider,
+          provider: nextProvider,
           flow,
           scheme,
-          redirect,
           rra,
         },
       }),
@@ -693,33 +746,29 @@ function OAuthButton({
       }
     },
   });
-  const { mutate, isPending } = oauthMutation;
   const hasAutoStartedRef = useRef(false);
 
-  useEffect(() => {
+  useMountEffect(() => {
     if (autoStart && !hasAutoStartedRef.current) {
       hasAutoStartedRef.current = true;
-      mutate(provider);
+      oauthMutation.mutate(provider);
     }
-  }, [autoStart, mutate, provider]);
+  });
 
   return (
     <button
-      onClick={() => mutate(provider)}
-      disabled={isPending}
+      onClick={() => oauthMutation.mutate(provider)}
+      disabled={oauthMutation.isPending}
       className={cn([
-        "w-full cursor-pointer px-4 py-2",
-        "border-color-brand border",
-        "text-fg rounded-full font-sans",
-        "hover:bg-brand-dark/10",
+        "flex w-full cursor-pointer items-center justify-center gap-3 px-4 py-2",
+        "rounded-full border border-[#181613] font-sans text-[#181613]",
+        "transition-colors hover:bg-[#181613]/10",
         "focus:ring-2 focus:ring-stone-500 focus:ring-offset-2 focus:outline-hidden",
         "disabled:cursor-not-allowed disabled:opacity-50",
-        "transition-colors",
-        "flex items-center justify-center gap-3",
       ])}
     >
-      {provider === "google" && <Icon icon="logos:google-icon" />}
-      {provider === "github" && <Icon icon="logos:github-icon" />}
+      {provider === "google" ? <Icon icon="logos:google-icon" /> : null}
+      {provider === "github" ? <Icon icon="logos:github-icon" /> : null}
       Sign in with {provider.charAt(0).toUpperCase() + provider.slice(1)}
     </button>
   );

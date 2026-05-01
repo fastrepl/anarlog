@@ -15,9 +15,7 @@ import { cn } from "@hypr/utils";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import type { PrivacyConsentRegion } from "@/lib/privacy-consent";
 
-const STORAGE_KEY = "char_web_tracking_consent_v1";
-const COOKIE_POLICY_PATH = "/legal/cookies/";
-const PRIVACY_POLICY_PATH = "/legal/privacy/";
+const STORAGE_KEY = "anarlog_web_tracking_consent_v1";
 const PRIMARY_ACTION_BUTTON_CLASS =
   "rounded-full border-0 surface-dark text-white shadow-md transition-all hover:scale-[102%] hover:shadow-lg active:scale-[98%]";
 const MUTED_ACTION_BUTTON_CLASS =
@@ -32,9 +30,7 @@ type ConsentState = {
 };
 
 function shouldHidePrivacyConsent(pathname: string) {
-  return ["/admin", "/auth", "/callback/auth"].some(
-    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
-  );
+  return pathname === "/auth" || pathname.startsWith("/auth/");
 }
 
 function useShouldHidePrivacyConsent() {
@@ -326,23 +322,6 @@ function CookieConsentBanner({
             <p className="text-fg text-sm leading-6">
               {bannerCopy.description}
             </p>
-            <p className="text-fg-muted text-xs leading-5">
-              See our{" "}
-              <a
-                href={COOKIE_POLICY_PATH}
-                className="underline decoration-dotted underline-offset-3"
-              >
-                Cookie Policy
-              </a>{" "}
-              and{" "}
-              <a
-                href={PRIVACY_POLICY_PATH}
-                className="underline decoration-dotted underline-offset-3"
-              >
-                Privacy Policy
-              </a>
-              .
-            </p>
           </div>
 
           <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
@@ -462,18 +441,6 @@ function CookiePreferencesDialog({
               off until that signal is turned off.
             </div>
           )}
-
-          <div className="text-sm leading-6 text-neutral-500">
-            For details, review our{" "}
-            <a
-              href={COOKIE_POLICY_PATH}
-              className="underline decoration-dotted underline-offset-3"
-              onClick={() => onOpenChange(false)}
-            >
-              Cookie Policy
-            </a>
-            .
-          </div>
 
           <DialogFooter>
             <Button

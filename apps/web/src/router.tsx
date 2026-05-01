@@ -21,7 +21,7 @@ export function getRouter() {
     Sentry.init({
       dsn: env.VITE_SENTRY_DSN,
       release: env.VITE_APP_VERSION
-        ? `hyprnote-web@${env.VITE_APP_VERSION}`
+        ? `anarlog-web@${env.VITE_APP_VERSION}`
         : undefined,
       sendDefaultPii: true,
       tracePropagationTargets: [],

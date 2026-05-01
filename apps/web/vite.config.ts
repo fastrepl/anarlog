@@ -1,4 +1,3 @@
-import contentCollections from "@content-collections/vite";
 import netlify from "@netlify/vite-plugin-tanstack-start";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
@@ -10,11 +9,10 @@ import { getSitemap } from "./src/utils/sitemap";
 
 const config = defineConfig(() => ({
   plugins: [
-    contentCollections(),
     tailwindcss(),
     tanstackStart({
       sitemap: {
-        host: "https://char.com",
+        host: "https://anarlog.com",
       },
       prerender: {
         enabled: true,
@@ -22,14 +20,7 @@ const config = defineConfig(() => ({
         crawlLinks: true,
         autoStaticPathsDiscovery: true,
         filter: ({ path }) => {
-          return (
-            path === "/" ||
-            path.startsWith("/blog") ||
-            path.startsWith("/docs") ||
-            path.startsWith("/pricing") ||
-            path.startsWith("/solution") ||
-            path.startsWith("/vs")
-          );
+          return path === "/";
         },
       },
     }),
@@ -42,12 +33,7 @@ const config = defineConfig(() => ({
         }),
   ],
   ssr: {
-    noExternal: [
-      "posthog-js",
-      "@posthog/react",
-      "react-tweet",
-      "@content-collections/mdx",
-    ],
+    noExternal: ["posthog-js", "@posthog/react", "react-tweet"],
   },
   resolve: {
     tsconfigPaths: true,

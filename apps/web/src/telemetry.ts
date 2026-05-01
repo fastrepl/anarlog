@@ -106,7 +106,7 @@ export function bootstrapBrowserTelemetry() {
       "deployment.environment": import.meta.env.DEV
         ? "development"
         : "production",
-      "service.namespace": "hyprnote",
+      "service.namespace": "anarlog",
     },
     sampleRate: env.VITE_OTEL_SAMPLE_RATE,
     serviceName: "web",

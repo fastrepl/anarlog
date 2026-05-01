@@ -175,7 +175,7 @@ export const doAuth = createServerFn({ method: "POST" })
     const { data: authData, error } = await supabase.auth.signInWithOAuth({
       provider: data.provider,
       options: {
-        redirectTo: `${env.VITE_APP_URL}/callback/auth?${params.toString()}`,
+        redirectTo: `${env.VITE_APP_URL}/auth?${params.toString()}`,
         scopes,
       },
     });
@@ -200,7 +200,7 @@ export const doMagicLinkAuth = createServerFn({ method: "POST" })
     const { error } = await supabase.auth.signInWithOtp({
       email: data.email,
       options: {
-        emailRedirectTo: `${env.VITE_APP_URL}/callback/auth?${params.toString()}`,
+        emailRedirectTo: `${env.VITE_APP_URL}/auth?${params.toString()}`,
       },
     });
 
@@ -277,7 +277,7 @@ export const doPasswordSignUp = createServerFn({ method: "POST" })
       email: data.email,
       password: data.password,
       options: {
-        emailRedirectTo: `${env.VITE_APP_URL}/callback/auth?${params.toString()}`,
+        emailRedirectTo: `${env.VITE_APP_URL}/auth?${params.toString()}`,
       },
     });
 
@@ -380,7 +380,7 @@ export const doPasswordResetRequest = createServerFn({ method: "POST" })
     const supabase = getSupabaseServerClient();
 
     const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
-      redirectTo: `${env.VITE_APP_URL}/callback/auth?flow=web&type=recovery`,
+      redirectTo: `${env.VITE_APP_URL}/auth?flow=web&type=recovery`,
     });
 
     if (error) {

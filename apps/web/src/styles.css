@@ -68,6 +68,9 @@
   --font-mono: "Geist Mono", ui-monospace, monospace;
   --font-serif: "Fraunces", Georgia, serif;
   --font-serif2: "Instrument Serif", serif;
+  --font-hand: "Caveat", cursive;
+  --font-signature: "Patrick Hand", cursive;
+  --font-crisp-serif: "Lora", Georgia, serif;
 
   /* ── Layout ──────────────────────────────────── */
   --breakpoint-laptop: 72rem;
@@ -218,12 +221,6 @@
 
   [id] {
     scroll-margin-top: 69px;
-  }
-
-  @media (max-width: 639px) {
-    [data-blog-article] [id] {
-      scroll-margin-top: 113px;
-    }
   }
 
   .prose code:not(pre code) {

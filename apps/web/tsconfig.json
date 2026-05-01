@@ -3,7 +3,6 @@
     "src/**/*.ts",
     "src/**/*.tsx",
     "app.config.ts",
-    "content-collections.ts",
     "vite.config.ts"
   ],
   "exclude": ["**/supabase/functions/**/*", "**/netlify/**/*"],
@@ -28,8 +27,7 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
     "paths": {
-      "@/*": ["./src/*"],
-      "content-collections": ["./.content-collections/generated"]
+      "@/*": ["./src/*"]
     }
   }
 }

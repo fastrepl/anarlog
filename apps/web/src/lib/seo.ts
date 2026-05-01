@@ -1,8 +1,8 @@
-export const CHAR_SITE_URL = "https://char.com";
+export const CHAR_SITE_URL = "https://anarlog.com";
 export const DEFAULT_OG_IMAGE_URL = `${CHAR_SITE_URL}/og.jpg`;
-export const ROOT_TITLE = "Char - Meeting Notes You Own";
+export const ROOT_TITLE = "Anarlog - Meeting Notes You Own";
 export const ROOT_DESCRIPTION =
-  "Private, bot-free meeting notes that stay under your control. Char stores notes as files you own and lets you use local models, your own keys, or managed cloud AI.";
+  "Private, bot-free meeting notes that stay under your control. Anarlog stores notes as files you own and works fully offline with on-device models or your own keys.";
 export const ROOT_KEYWORDS =
   "private meeting notes, bot-free AI notes, local transcription, AI meeting notes, AI notetaker, meeting transcription, meeting summaries, BYOK AI, open source note taking, local AI";
 
@@ -18,9 +18,9 @@ export function getStructuredDataGraph(nodes: StructuredDataNode[]) {
 export function getOrganizationJsonLd() {
   return {
     "@type": "Organization",
-    name: "Char",
+    name: "Anarlog",
     url: CHAR_SITE_URL,
-    logo: `${CHAR_SITE_URL}/favicon.svg`,
+    logo: `${CHAR_SITE_URL}/logo.svg`,
   };
 }
 
@@ -41,12 +41,12 @@ export function getSoftwareApplicationJsonLd({
 }) {
   return {
     "@type": "SoftwareApplication",
-    name: "Char",
+    name: "Anarlog",
     url,
     description,
     applicationCategory: "ProductivityApplication",
     operatingSystem: "macOS",
-    downloadUrl: `${CHAR_SITE_URL}/download`,
+    downloadUrl: CHAR_SITE_URL,
     publisher: getOrganizationJsonLd(),
     ...(featureList ? { featureList } : {}),
     ...(aggregateOffer
