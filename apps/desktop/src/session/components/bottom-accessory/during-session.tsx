@@ -1,13 +1,19 @@
-import { useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useMemo, useRef } from "react";
 
 import { cn } from "@hypr/utils";
 
 import { TranscriptViewer } from "~/session/components/note-input/transcript/renderer";
 import { TranscriptListeningState } from "~/session/components/note-input/transcript/screens/listening";
 import { useTranscriptScreen } from "~/session/components/note-input/transcript/state";
+import * as main from "~/store/tinybase/store/main";
 import { getLiveCaptureUiMode } from "~/store/zustand/listener/general-shared";
 import { useListener } from "~/stt/contexts";
 import type { Segment } from "~/stt/live-segment";
+import {
+  buildRenderTranscriptRequestFromStore,
+  renderTranscriptSegments,
+} from "~/stt/render-transcript";
 
 export function DuringSessionAccessory({
   sessionId,
@@ -43,6 +49,7 @@ function LiveTranscriptFooter({
   isExpanded?: boolean;
 }) {
   const screen = useTranscriptScreen({ sessionId });
+  const previewSegments = useLivePreviewSegments(sessionId, screen);
   const requestedLiveTranscription = useListener(
     (state) => state.live.requestedLiveTranscription,
   );
@@ -73,7 +80,11 @@ function LiveTranscriptFooter({
           <RecordOnlyFooter isFallbackFromLive={mode.isFallbackFromLive} />
         </div>
       ) : (
-        <LiveTranscriptContent isExpanded={isExpanded} screen={screen} />
+        <LiveTranscriptContent
+          isExpanded={isExpanded}
+          previewSegments={previewSegments}
+          screen={screen}
+        />
       )}
     </div>
   );
@@ -97,9 +108,11 @@ function RecordOnlyFooter({
 
 function LiveTranscriptContent({
   isExpanded,
+  previewSegments,
   screen,
 }: {
   isExpanded: boolean;
+  previewSegments: Segment[];
   screen: ReturnType<typeof useTranscriptScreen>;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -107,11 +120,7 @@ function LiveTranscriptContent({
   if (!isExpanded) {
     return (
       <CollapsedFooterMessage
-        message={
-          screen.kind === "ready"
-            ? (getTranscriptPreview(screen.liveSegments) ?? "Listening...")
-            : "Listening..."
-        }
+        message={getTranscriptPreview(previewSegments) ?? "Listening..."}
       />
     );
   }
@@ -136,6 +145,52 @@ function LiveTranscriptContent({
       </div>
     </div>
   );
+}
+
+function useLivePreviewSegments(
+  sessionId: string,
+  screen: ReturnType<typeof useTranscriptScreen>,
+): Segment[] {
+  const store = main.UI.useStore(main.STORE_ID);
+  const transcriptsTable = main.UI.useTable("transcripts", main.STORE_ID);
+  const participantMappingsTable = main.UI.useTable(
+    "mapping_session_participant",
+    main.STORE_ID,
+  );
+  const humansTable = main.UI.useTable("humans", main.STORE_ID);
+  const selfHumanId = main.UI.useValue("user_id", main.STORE_ID);
+  const transcriptIds = screen.kind === "ready" ? screen.transcriptIds : [];
+  const liveSegments = screen.kind === "ready" ? screen.liveSegments : [];
+
+  const request = useMemo(() => {
+    if (!store || transcriptIds.length === 0 || liveSegments.length > 0) {
+      return null;
+    }
+
+    return buildRenderTranscriptRequestFromStore(store, transcriptIds);
+  }, [
+    store,
+    transcriptIds,
+    liveSegments.length,
+    transcriptsTable,
+    participantMappingsTable,
+    humansTable,
+    selfHumanId,
+  ]);
+
+  const { data: renderedSegments = [] } = useQuery({
+    queryKey: ["live-transcript-footer-preview", sessionId, request],
+    queryFn: async () => {
+      if (!request) {
+        return [];
+      }
+
+      return renderTranscriptSegments(request);
+    },
+    enabled: !!request,
+  });
+
+  return liveSegments.length > 0 ? liveSegments : renderedSegments;
 }
 
 function CollapsedFooterMessage({ message }: { message: string }) {
