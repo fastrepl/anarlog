@@ -33,7 +33,7 @@ const TYPE_REPLACEMENTS: &[(&str, &str)] = &[
 fn main() {
     let src = concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../../apps/api/openapi.gen.json"
+        "/../../packages/api-client/openapi.gen.json"
     );
     println!("cargo:rerun-if-changed={src}");
 
