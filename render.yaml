@@ -35,15 +35,3 @@ services:
         sync: false
       - key: HONEYCOMB_API_ENDPOINT
         value: api.honeycomb.io:443
-
-  - type: web
-    name: hyprnote-api
-    runtime: docker
-    plan: starter
-    region: oregon
-    numInstances: 1
-    dockerfilePath: ./apps/api/Dockerfile
-    dockerContext: .
-    autoDeployTrigger: commit
-    healthCheckPath: /health
-    maxShutdownDelaySeconds: 30
