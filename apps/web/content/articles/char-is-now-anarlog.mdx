@@ -1,0 +1,63 @@
+---
+meta_title: "Char Is Now Anarlog"
+display_title: "Char Is Now Anarlog"
+meta_description: "Char is splitting in two. Anarlog is the open-source desktop app — free forever, fully local. Char remains the managed product for teams who want hosted transcription and integrations."
+author: "John Jeong"
+coverImage: "/api/assets/blog/announcement.jpg"
+featured: true
+category: "Founders' notes"
+date: "2026-05-03"
+---
+
+We're splitting Char into two products.
+
+- **Anarlog** is the open-source desktop app. Free forever, fully local, your data stays on your machine. The repo lives at [github.com/fastrepl/anarlog](https://github.com/fastrepl/anarlog).
+- **Char** stays as the managed product at [char.com](https://char.com) — for teams that want hosted transcription, calendar integrations, sync, and a CRM-style workflow without running anything themselves.
+
+If you've been following along, this is the second rename. The first one, [from Hyprnote to Char](/blog/hyprnote-is-now-char), corrected a name we never liked. This one is different. We're not renaming. We're separating two products that grew up inside one repo and started pulling in opposite directions.
+
+### why split
+
+A single brand can't carry both audiences. We tried. It confused everyone.
+
+The privacy-first crowd downloads the desktop app and immediately wants to know: is this really local, where are my files, can I run it offline, what models does it use. They don't want a cloud upsell on the homepage. They want a tool they can audit, fork, and run forever — with or without us.
+
+The managed-cloud customers want the opposite. They want it to just work. SSO, calendar integrations, shareable links, sync across devices, a paid plan with someone to call. They don't care about the source code. They care that the meeting notes show up in the right place, that the transcript is searchable, and that their team is on the same page.
+
+Trying to be both made the homepage a mess and the roadmap a fight. Every feature was a coin flip: does this serve the OSS user or the cloud customer? You can't ship with conviction when you're hedging on every decision.
+
+### why "anarlog"
+
+Analog for the feel — the tactile, file-system-first way notes used to work before the cloud ate everything. Plain markdown. Files you can `grep`. A folder you can back up.
+
+Anar for autonomy — your stack, your keys, your files. No account required. No telemetry you can't turn off. No "cloud sync" you didn't ask for.
+
+{/* TODO: John to confirm etymology framing */}
+
+We wanted a name that felt like the thing. Char was a good name for an AI notepad — direct, low-level, the raw building block. Anarlog is the version of that idea taken further. The notepad disappears. What's left is your files.
+
+### what changes for you
+
+- If you're using Char today and want to stay managed: nothing changes. char.com keeps running. Your account, your notes, your billing — same as before.
+- If you want to self-host or run fully local: download Anarlog at [anarlog.so](https://anarlog.so) or grab the source on [GitHub](https://github.com/fastrepl/anarlog).
+- The desktop app you have installed: it'll keep working. We'll ship a clean migration when the Anarlog desktop builds are stable.
+- Old links: `char.com/blog/*` now redirects to `anarlog.so/blog/*`. Other routes (download, pricing, login) stay on char.com for the managed product.
+- Your data — local notes, recordings, transcripts — none of it moves. Files on your disk are still files on your disk.
+
+### the journey
+
+Hyprnote was a name we grabbed in a hurry to ship. Char was the name we picked once we knew what the product was. Anarlog is the name we picked once we knew the product was actually two products.
+
+Each rename has been a sharper version of the same conviction: people deserve to own their notes. The first time, that conviction was an instinct. The second time, it was a thesis. This time, it's a product split — because the people who care most about ownership shouldn't have to share a brand with people who want a managed cloud.
+
+Both are valid. They just want different things. Now they get different things.
+
+### what's next
+
+Anarlog the desktop app is open source as of today. The repo is [github.com/fastrepl/anarlog](https://github.com/fastrepl/anarlog). Issues, PRs, forks — all welcome. We're shipping fast on the OSS side: better local model support, a cleaner plugin story, and a much smaller binary.
+
+Char keeps shipping at char.com. The team there is heads-down on the things managed customers actually ask for — calendar integrations, shareable links with view tracking, SSO, an admin console.
+
+If you've been waiting for a notepad you can fully own, this is it. Come build it with us.
+
+— John
