@@ -203,28 +203,51 @@ status = 301
 force = true
 
 # Domain migration: char.com -> anarlog.so (301 for SEO)
-# Char is shut down except for /blog/* and /legal/* which redirect to anarlog.so
 
 [[redirects]]
-from = "https://char.com/blog/*"
-to = "https://anarlog.so/blog/:splat"
+from = "https://char.com"
+to = "https://anarlog.so"
 status = 301
 force = true
 
 [[redirects]]
-from = "https://www.char.com/blog/*"
-to = "https://anarlog.so/blog/:splat"
+from = "https://www.char.com"
+to = "https://anarlog.so"
 status = 301
 force = true
 
 [[redirects]]
-from = "https://char.com/legal/*"
-to = "https://anarlog.so/legal/:splat"
+from = "http://char.com"
+to = "https://anarlog.so"
 status = 301
 force = true
 
 [[redirects]]
-from = "https://www.char.com/legal/*"
-to = "https://anarlog.so/legal/:splat"
+from = "http://www.char.com"
+to = "https://anarlog.so"
+status = 301
+force = true
+
+[[redirects]]
+from = "https://char.com/*"
+to = "https://anarlog.so/:splat"
+status = 301
+force = true
+
+[[redirects]]
+from = "https://www.char.com/*"
+to = "https://anarlog.so/:splat"
+status = 301
+force = true
+
+[[redirects]]
+from = "http://char.com/*"
+to = "https://anarlog.so/:splat"
+status = 301
+force = true
+
+[[redirects]]
+from = "http://www.char.com/*"
+to = "https://anarlog.so/:splat"
 status = 301
 force = true
