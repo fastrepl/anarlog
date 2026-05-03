@@ -4,7 +4,7 @@ CREATE TABLE daily_notes (
   body TEXT NOT NULL,
   user_id TEXT NOT NULL
 );
-CREATE TABLE daily_summaries (
+CREATE TABLE note_annotations (
   id TEXT PRIMARY KEY NOT NULL,
   daily_note_id TEXT NOT NULL,
   date TEXT NOT NULL,

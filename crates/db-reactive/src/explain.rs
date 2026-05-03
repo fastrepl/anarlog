@@ -167,11 +167,11 @@ mod tests {
         let db = test_db().await;
         let targets = extract_dependencies(
             db.pool(),
-            "SELECT ds.id FROM daily_summaries ds JOIN daily_notes dn ON ds.daily_note_id = dn.id",
+            "SELECT ds.id FROM note_annotations ds JOIN daily_notes dn ON ds.daily_note_id = dn.id",
         )
         .await
         .unwrap();
-        assert!(targets.contains(&DependencyTarget::Table("daily_summaries".to_string())));
+        assert!(targets.contains(&DependencyTarget::Table("note_annotations".to_string())));
         assert!(targets.contains(&DependencyTarget::Table("daily_notes".to_string())));
         assert_eq!(targets.len(), 2);
     }
@@ -198,14 +198,14 @@ mod tests {
             db.pool(),
             "SELECT id FROM daily_notes \
              WHERE EXISTS ( \
-               SELECT 1 FROM daily_summaries \
-               WHERE daily_summaries.daily_note_id = daily_notes.id \
+               SELECT 1 FROM note_annotations \
+               WHERE note_annotations.daily_note_id = daily_notes.id \
              )",
         )
         .await
         .unwrap();
         assert!(targets.contains(&DependencyTarget::Table("daily_notes".to_string())));
-        assert!(targets.contains(&DependencyTarget::Table("daily_summaries".to_string())));
+        assert!(targets.contains(&DependencyTarget::Table("note_annotations".to_string())));
         assert_eq!(targets.len(), 2);
     }
 
@@ -360,14 +360,14 @@ mod tests {
     #[test]
     fn build_alias_map_tracks_aliases_and_skips_sql_keywords() {
         let known_objects =
-            HashSet::from(["daily_notes".to_string(), "daily_summaries".to_string()]);
+            HashSet::from(["daily_notes".to_string(), "note_annotations".to_string()]);
 
         let aliases = build_alias_map(
-            "SELECT dn.id FROM daily_notes dn JOIN daily_summaries AS ds ON ds.daily_note_id = dn.id WHERE dn.date IS NOT NULL ORDER BY dn.id",
+            "SELECT dn.id FROM daily_notes dn JOIN note_annotations AS ds ON ds.daily_note_id = dn.id WHERE dn.date IS NOT NULL ORDER BY dn.id",
             &known_objects,
         );
         assert_eq!(aliases.get("dn"), Some(&"daily_notes".to_string()));
-        assert_eq!(aliases.get("ds"), Some(&"daily_summaries".to_string()));
+        assert_eq!(aliases.get("ds"), Some(&"note_annotations".to_string()));
 
         let no_aliases = build_alias_map("SELECT id FROM daily_notes ORDER BY id", &known_objects);
         assert!(no_aliases.is_empty());

@@ -21,7 +21,7 @@ pub enum AppCategory {
     Hyprnote,
     Dictation,
     IDE,
-    ScreenRecording,
+    RecordingTool,
     AIAssistant,
     Other,
 }
@@ -51,7 +51,7 @@ impl AppCategory {
                 "com.microsoft.VSCode",
                 "com.todesktop.230313mzl4w4u92",
             ],
-            Self::ScreenRecording => &[
+            Self::RecordingTool => &[
                 "so.cap.desktop",
                 "com.timpler.screenstudio",
                 "com.loom.desktop",
@@ -75,7 +75,7 @@ impl AppCategory {
             Self::Hyprnote,
             Self::Dictation,
             Self::IDE,
-            Self::ScreenRecording,
+            Self::RecordingTool,
             Self::AIAssistant,
             Self::Other,
         ]
@@ -226,7 +226,7 @@ mod tests {
         );
         assert_eq!(
             AppCategory::find_category("so.cap.desktop"),
-            Some(AppCategory::ScreenRecording)
+            Some(AppCategory::RecordingTool)
         );
         assert_eq!(
             AppCategory::find_category("com.openai.chat"),
@@ -244,7 +244,7 @@ mod tests {
         assert!(all.contains(&AppCategory::Hyprnote));
         assert!(all.contains(&AppCategory::Dictation));
         assert!(all.contains(&AppCategory::IDE));
-        assert!(all.contains(&AppCategory::ScreenRecording));
+        assert!(all.contains(&AppCategory::RecordingTool));
         assert!(all.contains(&AppCategory::AIAssistant));
         assert!(all.contains(&AppCategory::Other));
         assert_eq!(all.len(), 6);

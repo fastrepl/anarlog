@@ -4,8 +4,8 @@ use std::time::Duration;
 
 use common::{
     TestEvent, TestSink, expect_empty_result, expect_no_event, expect_result, insert_daily_note,
-    insert_daily_summary, next_result_rows, subscribe_all_daily_notes,
-    subscribe_all_daily_summaries, subscribe_daily_note_by_id, wait_for_stable_event_count,
+    insert_note_annotation, next_result_rows, subscribe_all_daily_notes,
+    subscribe_all_note_annotations, subscribe_daily_note_by_id, wait_for_stable_event_count,
 };
 use serde_json::json;
 
@@ -193,7 +193,7 @@ async fn unrelated_writes_do_not_trigger_refresh() {
     )
     .await;
 
-    insert_daily_summary(&pool, "summary-1", "note-seed", "2026-04-12").await;
+    insert_note_annotation(&pool, "summary-1", "note-seed", "2026-04-12").await;
 
     expect_no_event(&events, 1).await;
 }
@@ -249,7 +249,7 @@ async fn unrelated_unsubscribe_is_not_blocked_by_another_subscriptions_delivery(
     let blocked_registration = subscribe_all_daily_notes(&runtime, blocked_sink)
         .await
         .unwrap();
-    let other_registration = subscribe_all_daily_summaries(&runtime, other_sink)
+    let other_registration = subscribe_all_note_annotations(&runtime, other_sink)
         .await
         .unwrap();
 
@@ -268,7 +268,7 @@ async fn unrelated_unsubscribe_is_not_blocked_by_another_subscriptions_delivery(
     .expect("unsubscribe should not wait for another subscription's blocked send")
     .unwrap();
 
-    insert_daily_summary(
+    insert_note_annotation(
         &pool,
         "summary-after-unsub",
         "note-other-unsub",

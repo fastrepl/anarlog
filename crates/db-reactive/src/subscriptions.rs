@@ -545,12 +545,12 @@ mod tests {
             .await;
         let active = registry
             .register(
-                "SELECT id FROM daily_summaries".to_string(),
+                "SELECT id FROM note_annotations".to_string(),
                 vec![],
                 TestSink,
                 DependencyAnalysis::Reactive {
                     targets: HashSet::from([DependencyTarget::Table(
-                        "daily_summaries".to_string(),
+                        "note_annotations".to_string(),
                     )]),
                 },
             )
@@ -563,7 +563,7 @@ mod tests {
 
         assert_eq!(jobs.len(), 1);
         assert_eq!(jobs[0].watch_id, active_watch_id);
-        assert_eq!(jobs[0].sql, "SELECT id FROM daily_summaries");
+        assert_eq!(jobs[0].sql, "SELECT id FROM note_annotations");
         assert!(jobs[0].params.is_empty());
         assert_ne!(initializing.reactive_watch_id, Some(active_watch_id));
     }

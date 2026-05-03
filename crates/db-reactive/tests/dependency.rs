@@ -16,7 +16,7 @@ async fn reports_reactive_targets() {
 
     let registration = subscribe(
         &runtime,
-        "SELECT ds.id FROM daily_summaries ds JOIN daily_notes dn ON ds.daily_note_id = dn.id",
+        "SELECT ds.id FROM note_annotations ds JOIN daily_notes dn ON ds.daily_note_id = dn.id",
         Vec::new(),
         sink,
     )
@@ -33,7 +33,7 @@ async fn reports_reactive_targets() {
         DependencyAnalysis::Reactive {
             targets: HashSet::from([
                 DependencyTarget::Table("daily_notes".to_string()),
-                DependencyTarget::Table("daily_summaries".to_string()),
+                DependencyTarget::Table("note_annotations".to_string()),
             ]),
         }
     );

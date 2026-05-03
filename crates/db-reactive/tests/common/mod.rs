@@ -277,8 +277,8 @@ pub fn daily_note_by_id_sql() -> String {
     "SELECT id, date FROM daily_notes WHERE id = ?".to_string()
 }
 
-pub fn all_daily_summaries_sql() -> String {
-    "SELECT id, date FROM daily_summaries ORDER BY id".to_string()
+pub fn all_note_annotations_sql() -> String {
+    "SELECT id, date FROM note_annotations ORDER BY id".to_string()
 }
 
 pub async fn subscribe(
@@ -305,11 +305,11 @@ pub async fn subscribe_daily_note_by_id(
     subscribe(runtime, daily_note_by_id_sql(), vec![json!(id)], sink).await
 }
 
-pub async fn subscribe_all_daily_summaries(
+pub async fn subscribe_all_note_annotations(
     runtime: &TestRuntime,
     sink: TestSink,
 ) -> db_reactive::Result<SubscriptionRegistration> {
-    subscribe(runtime, all_daily_summaries_sql(), Vec::new(), sink).await
+    subscribe(runtime, all_note_annotations_sql(), Vec::new(), sink).await
 }
 
 pub async fn insert_daily_note(pool: &sqlx::SqlitePool, id: &str, date: &str, user_id: &str) {
@@ -323,14 +323,14 @@ pub async fn insert_daily_note(pool: &sqlx::SqlitePool, id: &str, date: &str, us
         .unwrap();
 }
 
-pub async fn insert_daily_summary(
+pub async fn insert_note_annotation(
     pool: &sqlx::SqlitePool,
     id: &str,
     daily_note_id: &str,
     date: &str,
 ) {
     sqlx::query(
-        "INSERT INTO daily_summaries (id, daily_note_id, date, content, timeline_json, topics_json, status, source_cursor_ms, source_fingerprint, generation_error, generated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO note_annotations (id, daily_note_id, date, content, timeline_json, topics_json, status, source_cursor_ms, source_fingerprint, generation_error, generated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(id)
     .bind(daily_note_id)
