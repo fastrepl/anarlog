@@ -95,6 +95,18 @@ function Component() {
               >
                 Download app
               </a>
+              <a
+                href="https://github.com/fastrepl/anarlog"
+                className="inline-flex items-center gap-2 rounded-full border border-[#d8d0c5] px-5 py-3 font-medium text-[#181613] transition-colors hover:border-[#b8aea0] hover:bg-[#f7f4ef]"
+              >
+                <img
+                  src="https://upload.wikimedia.org/wikipedia/commons/9/91/Octicons-mark-github.svg"
+                  alt=""
+                  className="size-4"
+                  aria-hidden="true"
+                />
+                GitHub
+              </a>
             </div>
           </section>
 
