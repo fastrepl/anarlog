@@ -2,6 +2,7 @@ import { Icon } from "@iconify-icon/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ChevronDown } from "lucide-react";
 
+import { getGitHubStars } from "@/functions/github";
 import {
   CHAR_SITE_URL,
   ROOT_DESCRIPTION,
@@ -57,6 +58,9 @@ const appleIntelDownloadUrl =
 
 export const Route = createFileRoute("/")({
   component: Component,
+  loader: async () => ({
+    githubStars: await getGitHubStars(),
+  }),
   head: () => ({
     links: [{ rel: "canonical", href: CHAR_SITE_URL }],
     scripts: [
@@ -77,6 +81,9 @@ export const Route = createFileRoute("/")({
 });
 
 function Component() {
+  const { githubStars } = Route.useLoaderData();
+  const formattedGithubStars = githubStars.toLocaleString("en-US");
+
   return (
     <main className="min-h-screen bg-white text-[#181613]">
       <div className="mx-auto w-full max-w-[700px] px-5 py-8 md:px-8 md:py-12">
@@ -107,7 +114,10 @@ function Component() {
                   className="size-4"
                   aria-hidden="true"
                 />
-                GitHub
+                <span>GitHub</span>
+                <span className="text-[#756b5d]">
+                  {formattedGithubStars} stars
+                </span>
               </a>
             </div>
           </section>
@@ -189,7 +199,7 @@ function DownloadButton() {
     <div className="relative inline-flex text-sm font-medium">
       <a
         href={appleSiliconDownloadUrl}
-        className="inline-flex items-center gap-2 rounded-l-full bg-[#181613] px-4 py-3 text-[13px] text-white transition-colors hover:bg-[#4f4940] sm:px-5 sm:text-sm"
+        className="inline-flex items-center gap-1.5 rounded-l-full bg-[#181613] px-4 py-3 text-[13px] text-white sm:px-5 sm:text-sm"
       >
         <Icon icon="simple-icons:apple" className="size-4" aria-hidden="true" />
         <span>Download for Apple Silicon</span>
@@ -197,7 +207,7 @@ function DownloadButton() {
       <details className="group">
         <summary
           aria-label="Choose download platform"
-          className="inline-flex h-full cursor-pointer list-none items-center rounded-r-full border-l border-white/20 bg-[#181613] px-3 py-3 text-white transition-colors hover:bg-[#4f4940] sm:px-4 [&::-webkit-details-marker]:hidden"
+          className="inline-flex h-full cursor-pointer list-none items-center rounded-r-full bg-[#181613] px-3 py-3 text-white sm:px-4 [&::-webkit-details-marker]:hidden"
         >
           <ChevronDown size={17} strokeWidth={2.2} aria-hidden="true" />
         </summary>
