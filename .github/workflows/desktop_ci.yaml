@@ -71,6 +71,7 @@ jobs:
             --exclude vad-masking \
             --exclude vad-chunking \
             --exclude onnx \
+            --exclude pyannote-local \
             --exclude llama \
             --exclude granola-cli \
             --exclude eval-cli \
@@ -82,6 +83,7 @@ jobs:
             --exclude frontmatter \
             --exclude audio \
             --exclude audio-device \
+            --exclude transcribe-whisper-local \
             --exclude device-monitor \
             --exclude cli \
             --exclude cactus-sys \
