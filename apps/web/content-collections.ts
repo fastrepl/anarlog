@@ -27,7 +27,6 @@ const articles = defineCollection({
         "Engineering",
         "Founders' notes",
         "Guides",
-        "Char Weekly",
       ])
       .optional(),
   }),
