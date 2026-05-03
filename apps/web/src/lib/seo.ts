@@ -1,4 +1,4 @@
-export const CHAR_SITE_URL = "https://anarlog.com";
+export const CHAR_SITE_URL = "https://anarlog.so";
 export const DEFAULT_OG_IMAGE_URL = `${CHAR_SITE_URL}/og.jpg`;
 export const ROOT_TITLE = "Anarlog - Meeting Notes You Own";
 export const ROOT_DESCRIPTION =

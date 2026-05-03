@@ -38,12 +38,12 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       { title: ROOT_TITLE },
       { name: "description", content: ROOT_DESCRIPTION },
       { name: "keywords", content: ROOT_KEYWORDS },
-      { name: "ai-sitemap", content: "https://anarlog.com/llms.txt" },
+      { name: "ai-sitemap", content: "https://anarlog.so/llms.txt" },
       { name: "ai-content", content: "public" },
       { property: "og:type", content: "website" },
       { property: "og:title", content: ROOT_TITLE },
       { property: "og:description", content: ROOT_DESCRIPTION },
-      { property: "og:url", content: "https://anarlog.com" },
+      { property: "og:url", content: "https://anarlog.so" },
       {
         property: "og:image",
         content: DEFAULT_OG_IMAGE_URL,
@@ -55,7 +55,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       { name: "twitter:creator", content: "@anarlog" },
       { name: "twitter:title", content: ROOT_TITLE },
       { name: "twitter:description", content: ROOT_DESCRIPTION },
-      { name: "twitter:url", content: "https://anarlog.com" },
+      { name: "twitter:url", content: "https://anarlog.so" },
       {
         name: "twitter:image",
         content: DEFAULT_OG_IMAGE_URL,

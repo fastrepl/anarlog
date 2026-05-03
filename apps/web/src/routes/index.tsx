@@ -96,10 +96,10 @@ function Component() {
                 Download app
               </a>
               <a
-                href="mailto:hello@anarlog.com"
+                href="mailto:hello@anarlog.so"
                 className="inline-flex items-center text-[#4f4940] hover:text-[#181613]"
               >
-                hello@anarlog.com
+                hello@anarlog.so
               </a>
             </div>
           </section>

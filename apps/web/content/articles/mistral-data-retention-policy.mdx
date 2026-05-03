@@ -1,0 +1,65 @@
+---
+meta_title: "Here's How Mistral Retains Your Data"
+meta_description: "Mistral is the only major EU-native AI provider in this series. That matters for GDPR compliance, data residency, and how your data is handled by default."
+author:
+  - "Harshika"
+featured: false
+category: "Guides"
+date: "2026-03-17"
+---
+
+We've been evaluating data retention policies of major AI providers and Mistral is the only provider headquartered in the European Union. That is not a minor detail. It means Mistral is natively subject to GDPR, stores your data in the EU by default, and was built from the ground up under stricter privacy regulation than any of the US-based alternatives.
+
+For teams evaluating AI providers on data governance grounds, that starting point matters.
+
+Here is how the policy works in practice.
+
+## What Mistral Stores by Default
+
+For API users, Mistral retains your inputs and outputs for 30 rolling days after the request is processed. This window exists for abuse monitoring. After 30 days, the data is deleted. It is not used to train Mistral's models unless you explicitly opt in.
+
+For free users of Le Chat, Mistral's consumer product, your conversations may be used for model improvement unless you opt out. You can do this by opening the Privacy menu in the Admin Console and disabling the toggle under Anonymous improvement data.
+
+Paid plans are handled differently. Users on Le Chat Team, Le Chat Enterprise, or any paid API plan have their data excluded from training by default. No opt-out required.
+
+Account metadata follows a separate schedule. Name and identity data is kept for 5 years after account termination. Email and phone number are retained for 1 year after account deletion. Technical data such as connection logs is kept for 1 rolling year.
+
+## Where Your Data Is Stored
+
+By default, all data is hosted within the European Union. Mistral [explicitly states](https://legal.mistral.ai/terms/privacy-policy) that it prioritizes EU-based infrastructure providers and applies GDPR-standard safeguards when any non-EU provider is involved.
+
+There is a US API endpoint available if you need it. Using it will route your data to US infrastructure. If EU residency matters for your use case, stick with the default endpoint and confirm with your Mistral account contact that your deployment is EU-only.
+
+## Is Zero Data Retention Applicable?
+
+ZDR is available on the API. When activated, Mistral does not retain your inputs or outputs beyond what is needed to return the result. The 30-day abuse monitoring window does not apply.
+
+One important limitation: Zero Data Retention is not available on Le Chat. Because the consumer product relies on stored conversation history to function, ZDR cannot be applied there. If ZDR is a requirement, you need to use the API directly.
+
+## Training Opt-Out in Plain Terms
+
+Free Le Chat users are opted in to training by default and can opt out via Privacy settings. Paid Le Chat and paid API users are opted out by default. ZDR API customers have no training risk because their data is never retained to begin with.
+
+If you are a paid API customer, you do not need to take any action to keep your data out of training pipelines. It is already excluded.
+
+## GDPR and Compliance
+
+As an EU company, Mistral operates under GDPR natively rather than as a compliance overlay. A Data Processing Addendum is available for all business customers. GDPR rights including access, correction, deletion, and portability can be exercised by contacting Mistral's privacy team directly.
+
+Mistral does not currently publish a HIPAA Business Associate Agreement. For US healthcare organizations that need HIPAA coverage, Mistral is not the right choice without confirming a BAA is available for your specific plan.
+
+## How Mistral Compares With Other AI Providers
+
+The structural difference between Mistral and the US-based providers is data residency by default. With [OpenAI](/blog/chatgpt-data-retention-policy/), [Anthropic](/blog/anthropic-data-retention-policy/), or Google, you are opting into EU data residency as an enterprise feature. With Mistral, EU residency is the baseline and US routing is the opt-in.
+
+For organizations in the EU or those operating under GDPR, that reversal is meaningful. It shifts the burden of compliance from your team to Mistral's default configuration.
+
+## Use Mistral API to Take Meeting Notes Through Anarlog
+
+[Anarlog](https://anarlog.so) is an open-source AI notepad for meetings that supports Mistral as one of its AI provider options. When you bring your own Mistral API key, your meeting data is handled under Mistral's API policy: 30-day retention for abuse monitoring, not used for training, stored in the EU by default.
+
+If you activate ZDR on your Mistral API account, that protection applies to requests made through Anarlog as well. Nothing is stored beyond the time needed to process the result.
+
+And if your data governance requirements change, or a different provider gets approved by your security team, you can switch inside Anarlog without changing how your notes are stored or structured. Your files stay on your device regardless.
+
+[Download Anarlog for macOS](https://anarlog.so/download/apple-silicon) and use the AI provider your security team actually trusts.

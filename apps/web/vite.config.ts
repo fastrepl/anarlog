@@ -1,3 +1,4 @@
+import contentCollections from "@content-collections/vite";
 import netlify from "@netlify/vite-plugin-tanstack-start";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
@@ -9,10 +10,11 @@ import { getSitemap } from "./src/utils/sitemap";
 
 const config = defineConfig(() => ({
   plugins: [
+    contentCollections(),
     tailwindcss(),
     tanstackStart({
       sitemap: {
-        host: "https://anarlog.com",
+        host: "https://anarlog.so",
       },
       prerender: {
         enabled: true,
@@ -20,7 +22,7 @@ const config = defineConfig(() => ({
         crawlLinks: true,
         autoStaticPathsDiscovery: true,
         filter: ({ path }) => {
-          return path === "/";
+          return path === "/" || path === "/blog" || path.startsWith("/blog/");
         },
       },
     }),
