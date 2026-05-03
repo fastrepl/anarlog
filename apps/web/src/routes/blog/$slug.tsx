@@ -30,9 +30,6 @@ export const Route = createFileRoute("/blog/$slug")({
         { property: "og:description", content: article.meta_description },
         { property: "og:url", content: url },
         { property: "og:type", content: "article" },
-        ...(article.coverImage
-          ? [{ property: "og:image", content: article.coverImage }]
-          : []),
       ],
     };
   },
@@ -69,14 +66,6 @@ function Component() {
           </time>
         </div>
       </header>
-
-      {article.coverImage && (
-        <img
-          src={article.coverImage}
-          alt={article.title}
-          className="mb-10 w-full rounded-md border border-neutral-200"
-        />
-      )}
 
       <article className="prose prose-stone prose-headings:font-mono prose-headings:text-stone-800 prose-a:text-stone-800 prose-a:underline hover:prose-a:text-stone-600 prose-img:rounded-md prose-img:border prose-img:border-neutral-200 max-w-none">
         <MDXContent code={article.mdx} components={mdxComponents} />

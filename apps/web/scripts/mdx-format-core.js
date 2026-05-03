@@ -7,7 +7,6 @@ export const ARTICLE_FIELD_ORDER = [
   "author",
   "created",
   "updated",
-  "coverImage",
   "featured",
   "category",
 ];

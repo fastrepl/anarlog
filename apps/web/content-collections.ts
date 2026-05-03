@@ -17,7 +17,6 @@ const articles = defineCollection({
     meta_description: z.string().default(""),
     author: z.union([z.string(), z.array(z.string())]),
     date: z.string(),
-    coverImage: z.string().optional(),
     featured: z.boolean().optional(),
     ready_for_review: z.boolean().default(false),
     category: z
