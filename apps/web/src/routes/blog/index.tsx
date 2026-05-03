@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { allArticles } from "content-collections";
 
+import { SiteFooter } from "@/components/site-footer";
 import { CHAR_SITE_URL } from "@/lib/seo";
 
 export const Route = createFileRoute("/blog/")({
@@ -26,51 +27,64 @@ function Component() {
   );
 
   return (
-    <main className="mx-auto max-w-3xl px-6 py-16">
-      <header className="mb-12 border-b border-neutral-200 pb-8">
-        <h1 className="mb-3 font-mono text-4xl text-stone-800">Blog</h1>
-        <p className="text-lg text-neutral-600">
-          Guides, comparisons, and engineering notes from the Anarlog team.
-        </p>
-      </header>
+    <main className="min-h-screen bg-white text-[#181613]">
+      <div className="mx-auto w-full max-w-[700px] px-5 py-8 md:px-8 md:py-12">
+        <header className="flex items-center justify-between gap-6">
+          <Link to="/" aria-label="Anarlog home">
+            <img src="/logo.svg" alt="Anarlog" className="h-9 w-auto" />
+          </Link>
+        </header>
 
-      <ul className="divide-y divide-neutral-100">
-        {sortedArticles.map((article) => (
-          <li key={article.slug}>
-            <Link
-              to="/blog/$slug/"
-              params={{ slug: article.slug }}
-              className="group block py-5 transition-colors hover:bg-stone-50/50"
-            >
-              <div className="flex flex-col gap-1">
-                <h2 className="font-mono text-lg text-stone-800 group-hover:text-stone-600">
-                  {article.title}
-                </h2>
-                {article.meta_description && (
-                  <p className="line-clamp-2 text-sm text-neutral-600">
-                    {article.meta_description}
-                  </p>
-                )}
-                <div className="mt-1 flex items-center gap-2 text-xs text-neutral-500">
-                  <span>
-                    {Array.isArray(article.author)
-                      ? article.author.join(", ")
-                      : article.author}
-                  </span>
-                  <span>·</span>
-                  <time dateTime={article.date}>
-                    {new Date(article.date).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
-                  </time>
-                </div>
-              </div>
-            </Link>
-          </li>
-        ))}
-      </ul>
+        <section className="pt-24 pb-16 md:pt-32">
+          <h1 className="font-hand text-6xl leading-[0.98] font-semibold tracking-normal text-balance md:text-8xl">
+            Blog
+          </h1>
+          <p className="mt-6 max-w-2xl text-xl leading-9 text-[#363029]">
+            Notes on private meetings, local files, open source, and AI you can
+            run on your own terms.
+          </p>
+        </section>
+
+        <ul className="grid gap-9">
+          {sortedArticles.map((article) => (
+            <li key={article.slug}>
+              <Link
+                to="/blog/$slug/"
+                params={{ slug: article.slug }}
+                className="group block"
+              >
+                <article className="grid gap-3 border-t border-[#eee8df] pt-6">
+                  <h2 className="text-xl leading-7 font-medium text-[#181613] group-hover:text-[#4f4940]">
+                    {article.title}
+                  </h2>
+                  {article.meta_description && (
+                    <p className="line-clamp-2 leading-7 text-[#4f4940]">
+                      {article.meta_description}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-2 text-xs text-[#756b5d]">
+                    <span>
+                      {Array.isArray(article.author)
+                        ? article.author.join(", ")
+                        : article.author}
+                    </span>
+                    <span>·</span>
+                    <time dateTime={article.date}>
+                      {new Date(article.date).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
+                    </time>
+                  </div>
+                </article>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <SiteFooter />
     </main>
   );
 }

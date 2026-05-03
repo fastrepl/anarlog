@@ -3,6 +3,7 @@ import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { type Article, allArticles } from "content-collections";
 
 import { mdxComponents } from "@/components/mdx-components";
+import { SiteFooter } from "@/components/site-footer";
 import { CHAR_SITE_URL } from "@/lib/seo";
 
 export const Route = createFileRoute("/blog/$slug")({
@@ -40,36 +41,59 @@ function Component() {
   const authors = Array.isArray(article.author)
     ? article.author.join(", ")
     : article.author;
+  const tldr = article.meta_description.trim();
 
   return (
-    <main className="mx-auto max-w-3xl px-6 py-16">
-      <Link
-        to="/blog/"
-        className="mb-8 inline-block text-sm text-neutral-500 hover:text-neutral-800"
-      >
-        ← Blog
-      </Link>
+    <main className="min-h-screen bg-white text-[#181613]">
+      <div className="mx-auto w-full max-w-[700px] px-5 py-8 md:px-8 md:py-12">
+        <header className="flex items-center justify-between gap-6">
+          <Link to="/" aria-label="Anarlog home">
+            <img src="/logo.svg" alt="Anarlog" className="h-9 w-auto" />
+          </Link>
+        </header>
 
-      <header className="mb-10">
-        <h1 className="mb-4 font-mono text-3xl leading-tight text-stone-800 sm:text-4xl">
-          {article.title}
-        </h1>
-        <div className="flex items-center gap-2 text-sm text-neutral-500">
-          <span>{authors}</span>
-          <span>·</span>
-          <time dateTime={article.date}>
-            {new Date(article.date).toLocaleDateString("en-US", {
-              month: "long",
-              day: "numeric",
-              year: "numeric",
-            })}
-          </time>
-        </div>
-      </header>
+        <Link
+          to="/blog/"
+          className="mt-16 inline-block text-sm text-[#756b5d] hover:text-[#181613]"
+        >
+          ← Blog
+        </Link>
 
-      <article className="prose prose-stone prose-headings:font-mono prose-headings:text-stone-800 prose-a:text-stone-800 prose-a:underline hover:prose-a:text-stone-600 prose-img:rounded-md prose-img:border prose-img:border-neutral-200 max-w-none">
-        <MDXContent code={article.mdx} components={mdxComponents} />
-      </article>
+        <header className="pt-10 pb-12">
+          <h1 className="font-hand text-5xl leading-[1.02] font-semibold tracking-normal text-balance md:text-7xl">
+            {article.title}
+          </h1>
+          <div className="mt-6 flex items-center gap-2 text-sm text-[#756b5d]">
+            <span>{authors}</span>
+            <span>·</span>
+            <time dateTime={article.date}>
+              {new Date(article.date).toLocaleDateString("en-US", {
+                month: "long",
+                day: "numeric",
+                year: "numeric",
+              })}
+            </time>
+          </div>
+        </header>
+
+        {tldr && (
+          <aside
+            aria-label="TLDR"
+            className="mb-12 border-y border-[#eee8df] py-5"
+          >
+            <p className="font-mono text-xs font-medium tracking-[0.14em] text-[#756b5d] uppercase">
+              TL;DR
+            </p>
+            <p className="mt-3 text-lg leading-8 text-[#363029]">{tldr}</p>
+          </aside>
+        )}
+
+        <article className="prose prose-stone prose-headings:font-hand prose-headings:font-semibold prose-headings:text-[#181613] prose-p:text-[#363029] prose-a:text-[#181613] prose-a:underline hover:prose-a:text-[#4f4940] prose-strong:text-[#181613] prose-li:text-[#363029] prose-img:rounded-md prose-img:border prose-img:border-[#eee8df] max-w-none">
+          <MDXContent code={article.mdx} components={mdxComponents} />
+        </article>
+      </div>
+
+      <SiteFooter />
     </main>
   );
 }
