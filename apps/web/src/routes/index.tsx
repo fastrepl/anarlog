@@ -1,4 +1,6 @@
+import { Icon } from "@iconify-icon/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { ChevronDown } from "lucide-react";
 
 import {
   CHAR_SITE_URL,
@@ -48,6 +50,11 @@ const principles = [
   },
 ];
 
+const appleSiliconDownloadUrl =
+  "https://cdn.crabnebula.app/download/fastrepl/hyprnote2/latest/platform/dmg-aarch64?channel=stable";
+const appleIntelDownloadUrl =
+  "https://cdn.crabnebula.app/download/fastrepl/hyprnote2/latest/platform/dmg-x86_64?channel=stable";
+
 export const Route = createFileRoute("/")({
   component: Component,
   head: () => ({
@@ -89,12 +96,7 @@ function Component() {
               care about privacy.
             </p>
             <div className="mt-8 flex flex-wrap gap-x-5 gap-y-3 text-sm">
-              <a
-                href="https://github.com/fastrepl/anarlog/releases/latest"
-                className="inline-flex rounded-full bg-[#181613] px-5 py-3 font-medium text-white transition-colors hover:bg-[#4f4940]"
-              >
-                Download app
-              </a>
+              <DownloadButton />
               <a
                 href="https://github.com/fastrepl/anarlog"
                 className="inline-flex items-center gap-2 rounded-full border border-[#d8d0c5] px-5 py-3 font-medium text-[#181613] transition-colors hover:border-[#b8aea0] hover:bg-[#f7f4ef]"
@@ -179,5 +181,64 @@ function Component() {
         </nav>
       </footer>
     </main>
+  );
+}
+
+function DownloadButton() {
+  return (
+    <div className="relative inline-flex text-sm font-medium">
+      <a
+        href={appleSiliconDownloadUrl}
+        className="inline-flex items-center gap-2 rounded-l-full bg-[#181613] px-4 py-3 text-[13px] text-white transition-colors hover:bg-[#4f4940] sm:px-5 sm:text-sm"
+      >
+        <Icon icon="simple-icons:apple" className="size-4" aria-hidden="true" />
+        <span>Download for Apple Silicon</span>
+      </a>
+      <details className="group">
+        <summary
+          aria-label="Choose download platform"
+          className="inline-flex h-full cursor-pointer list-none items-center rounded-r-full border-l border-white/20 bg-[#181613] px-3 py-3 text-white transition-colors hover:bg-[#4f4940] sm:px-4 [&::-webkit-details-marker]:hidden"
+        >
+          <ChevronDown size={17} strokeWidth={2.2} aria-hidden="true" />
+        </summary>
+        <div className="absolute top-[calc(100%+0.5rem)] left-0 z-10 w-80 max-w-[calc(100vw-2.5rem)] rounded-2xl border border-[#d8d0c5] bg-white p-2 shadow-[0_14px_40px_rgba(24,22,19,0.12)]">
+          <a
+            href={appleIntelDownloadUrl}
+            className="flex items-center gap-3 rounded-xl px-3 py-3 text-[#181613] transition-colors hover:bg-[#f7f4ef]"
+          >
+            <Icon
+              icon="simple-icons:apple"
+              className="size-5"
+              aria-hidden="true"
+            />
+            <span>Apple Intel</span>
+          </a>
+          <div
+            aria-disabled="true"
+            className="flex items-center gap-3 rounded-xl px-3 py-3 text-[#756b5d]"
+          >
+            <Icon
+              icon="simple-icons:windows"
+              className="size-5"
+              aria-hidden="true"
+            />
+            <span className="flex-1">Windows</span>
+            <span className="text-xs">Coming soon</span>
+          </div>
+          <div
+            aria-disabled="true"
+            className="flex items-center gap-3 rounded-xl px-3 py-3 text-[#756b5d]"
+          >
+            <Icon
+              icon="simple-icons:linux"
+              className="size-5"
+              aria-hidden="true"
+            />
+            <span className="flex-1">Linux</span>
+            <span className="text-xs">Coming soon</span>
+          </div>
+        </div>
+      </details>
+    </div>
   );
 }
