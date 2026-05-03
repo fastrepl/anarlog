@@ -237,7 +237,7 @@ function DownloadButton() {
     >
       <a
         href={appleSiliconDownloadUrl}
-        className="inline-flex items-center gap-1 rounded-l-full bg-[#181613] px-4 py-3 text-[13px] text-white sm:px-5 sm:text-sm"
+        className="inline-flex items-center gap-1 rounded-l-full bg-[#181613] py-3 pr-1 pl-4 text-[13px] text-white sm:pl-5 sm:text-sm"
       >
         <Icon icon="simple-icons:apple" className="size-4" aria-hidden="true" />
         <span>Download for Apple Silicon</span>
@@ -248,7 +248,7 @@ function DownloadButton() {
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={() => setOpen((prev) => !prev)}
-        className="inline-flex h-full cursor-pointer items-center rounded-r-full bg-[#181613] px-3 py-3 text-white sm:px-4"
+        className="inline-flex h-full cursor-pointer items-center rounded-r-full bg-[#181613] py-3 pr-3 pl-2 text-white"
       >
         <ChevronDown size={17} strokeWidth={2.2} aria-hidden="true" />
       </button>
