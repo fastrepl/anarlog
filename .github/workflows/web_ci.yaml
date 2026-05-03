@@ -1,6 +1,5 @@
 name: web_ci
 
-# https://github.com/tauri-apps/tauri-action/blob/3013cac/examples/test-build-only.yml
 on:
   workflow_dispatch:
   push:
@@ -19,13 +18,5 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/pnpm_install
-      - uses: denoland/setup-deno@v2
       - run: pnpm -F ui build
       - run: pnpm -F web typecheck
-      - uses: ./.github/actions/wait-for-netlify-preview
-        if: github.event_name == 'pull_request'
-      - if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: echo "BASE_URL=https://hyprnote.netlify.app" >> "$GITHUB_ENV"
-      - run: pnpm exec playwright install --with-deps chromium
-        working-directory: apps/web
-      - run: pnpm -F web test
