@@ -14,7 +14,7 @@ const manifestoLetter = [
   "Most AI tools ask you to move your memory into their ecosystem, their models, and their rules. We think meeting notes should move in the other direction: back to files, back to your disk, and back to software you can run fully offline.",
   "Files endure. Interfaces change. Your notes should survive us. AI should be available through on-device models or your own keys, not through a service you cannot inspect.",
   "Anarlog is our attempt to build that kind of meeting notepad.",
-  "John Jeong",
+  "John Jeong, Yujong Lee",
 ];
 
 const featureList = [
@@ -72,7 +72,7 @@ export const Route = createFileRoute("/")({
 function Component() {
   return (
     <main className="min-h-screen bg-white text-[#181613]">
-      <div className="mx-auto grid w-full max-w-6xl gap-10 px-5 py-8 md:grid-cols-[minmax(0,1fr)_22rem] md:px-8 md:py-12">
+      <div className="mx-auto w-full max-w-[700px] px-5 py-8 md:px-8 md:py-12">
         <div className="min-w-0">
           <header className="flex items-center justify-between gap-6">
             <Link to="/" aria-label="Anarlog home">
@@ -94,12 +94,6 @@ function Component() {
                 className="inline-flex rounded-full bg-[#181613] px-5 py-3 font-medium text-white transition-colors hover:bg-[#4f4940]"
               >
                 Download app
-              </a>
-              <a
-                href="mailto:hello@anarlog.so"
-                className="inline-flex items-center text-[#4f4940] hover:text-[#181613]"
-              >
-                hello@anarlog.so
               </a>
             </div>
           </section>
@@ -134,46 +128,30 @@ function Component() {
                 ))}
               </div>
               <div className="mt-10">
-                <p className="font-signature text-4xl leading-none font-normal">
+                <p className="font-signature text-3xl leading-none font-normal">
                   {manifestoLetter.at(-1)}
                 </p>
-                <p className="font-crisp-serif mt-3 text-lg leading-none font-normal text-[#4f4940]">
-                  Co-founder and CEO at fastrepl
+                <p className="font-crisp-serif mt-5 text-base leading-none font-normal text-[#4f4940]">
+                  Fastrepl, Inc.
                 </p>
               </div>
             </div>
           </section>
         </div>
-
-        <aside className="hidden pl-8 md:block">
-          <div className="sticky top-10">
-            <img src="/logo.svg" alt="Anarlog" className="mb-10 h-11 w-auto" />
-            <div className="py-6">
-              <p className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
-                Now
-              </p>
-              <p className="mt-4 text-lg leading-8">
-                Meeting notes without the meeting bot.
-              </p>
-            </div>
-            <div className="py-6">
-              <p className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
-                Default
-              </p>
-              <p className="mt-4 text-lg leading-8">
-                Fully offline files, open source foundations, on-device or
-                bring-your-own-key AI.
-              </p>
-            </div>
-          </div>
-        </aside>
       </div>
 
-      <footer className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-5 py-8 text-sm text-[#4f4940] md:flex-row md:items-center md:justify-between md:px-8">
-        <Link to="/" aria-label="Anarlog home">
+      <footer className="mx-auto grid w-full max-w-[700px] gap-5 px-5 py-8 text-sm text-[#4f4940] md:grid-cols-[1fr_auto_1fr] md:items-center md:px-8">
+        <Link
+          to="/"
+          aria-label="Anarlog home"
+          className="md:justify-self-start"
+        >
           <img src="/logo.svg" alt="Anarlog" className="h-9 w-auto" />
         </Link>
-        <nav className="flex flex-wrap gap-x-5 gap-y-2">
+        <p className="text-xs text-[#756b5d] md:justify-self-center">
+          Fastrepl © 2026
+        </p>
+        <nav className="flex flex-wrap gap-x-5 gap-y-2 md:justify-self-end">
           <a
             href="https://github.com/fastrepl/anarlog"
             className="hover:text-[#181613]"
