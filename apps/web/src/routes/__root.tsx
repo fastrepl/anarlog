@@ -40,6 +40,8 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       { name: "keywords", content: ROOT_KEYWORDS },
       { name: "ai-sitemap", content: "https://anarlog.so/llms.txt" },
       { name: "ai-content", content: "public" },
+      { name: "apple-mobile-web-app-title", content: "Anarlog" },
+      { name: "theme-color", content: "#ffe09d" },
       { property: "og:type", content: "website" },
       { property: "og:title", content: ROOT_TITLE },
       { property: "og:description", content: ROOT_DESCRIPTION },
@@ -66,8 +68,25 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     // before TanStack Router's 70+ modulepreload links. Only non-blocking
     // links belong here.
     links: [
-      { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
-      { rel: "icon", href: "/favicon.ico", sizes: "32x32" },
+      { rel: "icon", href: "/favicon.ico", sizes: "any" },
+      {
+        rel: "icon",
+        href: "/favicon-32x32.png",
+        type: "image/png",
+        sizes: "32x32",
+      },
+      {
+        rel: "icon",
+        href: "/favicon-16x16.png",
+        type: "image/png",
+        sizes: "16x16",
+      },
+      {
+        rel: "apple-touch-icon",
+        href: "/apple-touch-icon.png",
+        sizes: "180x180",
+      },
+      { rel: "manifest", href: "/manifest.json" },
     ],
   }),
   component: RootApp,
