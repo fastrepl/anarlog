@@ -4,8 +4,55 @@ on:
   push:
     branches:
       - main
-      - .github/workflows/fmt.yaml
+    paths:
+      - "**/*.css"
+      - "**/*.html"
+      - "**/*.jinja"
+      - "**/*.js"
+      - "**/*.json"
+      - "**/*.jsx"
+      - "**/*.md"
+      - "**/*.mdx"
+      - "**/*.mjs"
+      - "**/*.mts"
+      - "**/*.rs"
+      - "**/*.swift"
+      - "**/*.toml"
+      - "**/*.ts"
+      - "**/*.tsx"
+      - "**/*.wxl"
+      - "**/*.wxs"
+      - "**/*.yaml"
+      - "**/*.yml"
+      - "!**/*-lock.json"
+      - "!**/*-lock.yaml"
+      - dprint.json
+      - .oxfmtrc.json
   pull_request:
+    paths:
+      - "**/*.css"
+      - "**/*.html"
+      - "**/*.jinja"
+      - "**/*.js"
+      - "**/*.json"
+      - "**/*.jsx"
+      - "**/*.md"
+      - "**/*.mdx"
+      - "**/*.mjs"
+      - "**/*.mts"
+      - "**/*.rs"
+      - "**/*.swift"
+      - "**/*.toml"
+      - "**/*.ts"
+      - "**/*.tsx"
+      - "**/*.wxl"
+      - "**/*.wxs"
+      - "**/*.yaml"
+      - "**/*.yml"
+      - "!**/*-lock.json"
+      - "!**/*-lock.yaml"
+      - dprint.json
+      - .oxfmtrc.json
 jobs:
   fmt:
     runs-on: depot-ubuntu-24.04-4

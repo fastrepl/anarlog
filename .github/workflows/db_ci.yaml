@@ -6,9 +6,11 @@ on:
       - main
     paths:
       - supabase/**
+      - .github/workflows/db_ci.yaml
   pull_request:
     paths:
       - supabase/**
+      - .github/workflows/db_ci.yaml
 
 jobs:
   tests:

@@ -4,7 +4,21 @@ on:
   push:
     branches:
       - main
+    paths:
+      - apps/desktop/src/**
+      - apps/desktop/tsconfig*.json
+      - .oxlintrc.json
+      - eslint.config.js
+      - eslint-plugin-hypr.mjs
+      - .github/workflows/lint.yaml
   pull_request:
+    paths:
+      - apps/desktop/src/**
+      - apps/desktop/tsconfig*.json
+      - .oxlintrc.json
+      - eslint.config.js
+      - eslint-plugin-hypr.mjs
+      - .github/workflows/lint.yaml
 jobs:
   lint:
     runs-on: depot-ubuntu-24.04-4

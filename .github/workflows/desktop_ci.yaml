@@ -6,17 +6,61 @@ on:
       - main
     paths:
       - apps/desktop/**
+      - packages/api-client/**
+      - packages/changelog/**
+      - packages/codemirror/**
+      - packages/db/**
+      - packages/db-react/**
+      - packages/db-runtime/**
+      - packages/db-tauri/**
+      - packages/editor/**
+      - packages/pricing/**
+      - packages/store/**
+      - packages/supabase/**
+      - packages/tinybase-utils/**
+      - packages/tiptap/**
+      - packages/ui/**
+      - packages/utils/**
       - plugins/**
       - crates/**
       - Cargo.toml
       - Cargo.lock
+      - package.json
+      - pnpm-workspace.yaml
+      - turbo.json
+      - .github/workflows/desktop_ci.yaml
+      - .github/actions/pnpm_install/**
+      - .github/actions/install_desktop_deps/**
+      - .github/actions/rust_install/**
   pull_request:
     paths:
       - apps/desktop/**
+      - packages/api-client/**
+      - packages/changelog/**
+      - packages/codemirror/**
+      - packages/db/**
+      - packages/db-react/**
+      - packages/db-runtime/**
+      - packages/db-tauri/**
+      - packages/editor/**
+      - packages/pricing/**
+      - packages/store/**
+      - packages/supabase/**
+      - packages/tinybase-utils/**
+      - packages/tiptap/**
+      - packages/ui/**
+      - packages/utils/**
       - plugins/**
       - crates/**
       - Cargo.toml
       - Cargo.lock
+      - package.json
+      - pnpm-workspace.yaml
+      - turbo.json
+      - .github/workflows/desktop_ci.yaml
+      - .github/actions/pnpm_install/**
+      - .github/actions/install_desktop_deps/**
+      - .github/actions/rust_install/**
 jobs:
   desktop_ci:
     if: ${{ !startsWith(github.head_ref || '', 'blog/') }}

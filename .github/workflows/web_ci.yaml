@@ -7,11 +7,37 @@ on:
       - main
     paths:
       - apps/web/**
-      - packages/**
+      - packages/api-client/**
+      - packages/changelog/**
+      - packages/pricing/**
+      - packages/supabase/**
+      - packages/tiptap/**
+      - packages/ui/**
+      - packages/utils/**
+      - plugins/auth/**
+      - plugins/deeplink2/**
+      - package.json
+      - pnpm-workspace.yaml
+      - turbo.json
+      - .github/workflows/web_ci.yaml
+      - .github/actions/pnpm_install/**
   pull_request:
     paths:
       - apps/web/**
-      - packages/**
+      - packages/api-client/**
+      - packages/changelog/**
+      - packages/pricing/**
+      - packages/supabase/**
+      - packages/tiptap/**
+      - packages/ui/**
+      - packages/utils/**
+      - plugins/auth/**
+      - plugins/deeplink2/**
+      - package.json
+      - pnpm-workspace.yaml
+      - turbo.json
+      - .github/workflows/web_ci.yaml
+      - .github/actions/pnpm_install/**
 jobs:
   ci:
     runs-on: depot-ubuntu-24.04-4
