@@ -12,8 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as BlogIndexRouteImport } from './routes/blog/index'
-import { Route as BlogSlugRouteImport } from './routes/blog/$slug'
 import { Route as LegalSlugRouteImport } from './routes/legal/$slug'
+import { Route as BlogSlugRouteImport } from './routes/blog/$slug'
 import { Route as ApiAssetsSplatRouteImport } from './routes/api/assets.$'
 
 const AuthRoute = AuthRouteImport.update({
@@ -31,14 +31,14 @@ const BlogIndexRoute = BlogIndexRouteImport.update({
   path: '/blog/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const BlogSlugRoute = BlogSlugRouteImport.update({
-  id: '/blog/$slug',
-  path: '/blog/$slug',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const LegalSlugRoute = LegalSlugRouteImport.update({
   id: '/legal/$slug',
   path: '/legal/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BlogSlugRoute = BlogSlugRouteImport.update({
+  id: '/blog/$slug',
+  path: '/blog/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAssetsSplatRoute = ApiAssetsSplatRouteImport.update({
@@ -51,16 +51,16 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/blog/$slug': typeof BlogSlugRoute
-  '/blog/': typeof BlogIndexRoute
   '/legal/$slug': typeof LegalSlugRoute
+  '/blog/': typeof BlogIndexRoute
   '/api/assets/$': typeof ApiAssetsSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/blog/$slug': typeof BlogSlugRoute
-  '/blog': typeof BlogIndexRoute
   '/legal/$slug': typeof LegalSlugRoute
+  '/blog': typeof BlogIndexRoute
   '/api/assets/$': typeof ApiAssetsSplatRoute
 }
 export interface FileRoutesById {
@@ -68,24 +68,37 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/blog/$slug': typeof BlogSlugRoute
-  '/blog/': typeof BlogIndexRoute
   '/legal/$slug': typeof LegalSlugRoute
+  '/blog/': typeof BlogIndexRoute
   '/api/assets/$': typeof ApiAssetsSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/blog/$slug' | '/blog/' | '/legal/$slug' | '/api/assets/$'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/blog/$slug'
+    | '/legal/$slug'
+    | '/blog/'
+    | '/api/assets/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/blog/$slug' | '/blog' | '/legal/$slug' | '/api/assets/$'
-  id: '__root__' | '/' | '/auth' | '/blog/$slug' | '/blog/' | '/legal/$slug' | '/api/assets/$'
+  to: '/' | '/auth' | '/blog/$slug' | '/legal/$slug' | '/blog' | '/api/assets/$'
+  id:
+    | '__root__'
+    | '/'
+    | '/auth'
+    | '/blog/$slug'
+    | '/legal/$slug'
+    | '/blog/'
+    | '/api/assets/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
   BlogSlugRoute: typeof BlogSlugRoute
-  BlogIndexRoute: typeof BlogIndexRoute
   LegalSlugRoute: typeof LegalSlugRoute
+  BlogIndexRoute: typeof BlogIndexRoute
   ApiAssetsSplatRoute: typeof ApiAssetsSplatRoute
 }
 
@@ -112,18 +125,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BlogIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/blog/$slug': {
-      id: '/blog/$slug'
-      path: '/blog/$slug'
-      fullPath: '/blog/$slug'
-      preLoaderRoute: typeof BlogSlugRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/legal/$slug': {
       id: '/legal/$slug'
       path: '/legal/$slug'
       fullPath: '/legal/$slug'
       preLoaderRoute: typeof LegalSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/blog/$slug': {
+      id: '/blog/$slug'
+      path: '/blog/$slug'
+      fullPath: '/blog/$slug'
+      preLoaderRoute: typeof BlogSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/assets/$': {
@@ -140,8 +153,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
   BlogSlugRoute: BlogSlugRoute,
-  BlogIndexRoute: BlogIndexRoute,
   LegalSlugRoute: LegalSlugRoute,
+  BlogIndexRoute: BlogIndexRoute,
   ApiAssetsSplatRoute: ApiAssetsSplatRoute,
 }
 export const routeTree = rootRouteImport
