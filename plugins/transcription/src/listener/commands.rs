@@ -95,14 +95,16 @@ pub async fn is_supported_languages_live<R: tauri::Runtime>(
             .parse::<hypr_transcribe_soniqo::SoniqoModel>()
             .map_err(|e| e.to_string())?;
 
-        return Ok(model.supports_live() && model.supports_languages(&languages_parsed));
+        return Ok(model.supports_live_on_current_platform()
+            && model.supports_languages(&languages_parsed));
     }
 
     if provider == "hyprnote"
         && let Some(model) = model.as_deref()
         && let Ok(model) = model.parse::<hypr_transcribe_soniqo::SoniqoModel>()
     {
-        return Ok(model.supports_live() && model.supports_languages(&languages_parsed));
+        return Ok(model.supports_live_on_current_platform()
+            && model.supports_languages(&languages_parsed));
     }
 
     let adapter_kind =

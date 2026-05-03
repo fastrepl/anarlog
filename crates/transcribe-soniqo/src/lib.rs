@@ -90,6 +90,14 @@ impl SoniqoModel {
         matches!(self, Self::ParakeetStreaming)
     }
 
+    pub const fn is_available_on_current_platform(self) -> bool {
+        cfg!(all(target_os = "macos", target_arch = "aarch64"))
+    }
+
+    pub const fn supports_live_on_current_platform(self) -> bool {
+        self.supports_live() && self.is_available_on_current_platform()
+    }
+
     pub fn supports_language(self, language: &hypr_language::Language) -> bool {
         match self {
             Self::ParakeetStreaming | Self::ParakeetBatch => {
@@ -201,7 +209,7 @@ impl LivePartial {
 pub enum Error {
     #[error("unsupported Soniqo model: {0}")]
     UnsupportedModel(String),
-    #[error("Soniqo is only available on macOS")]
+    #[error("Soniqo is only available on macOS Apple Silicon")]
     UnsupportedPlatform,
     #[error("Soniqo bridge failed: {0}")]
     Bridge(String),
@@ -213,19 +221,31 @@ pub enum Error {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
+fn ensure_supported_platform(model: SoniqoModel) -> Result<()> {
+    if model.is_available_on_current_platform() {
+        Ok(())
+    } else {
+        Err(Error::UnsupportedPlatform)
+    }
+}
+
 pub fn model_cache_dir(model: SoniqoModel) -> Result<PathBuf> {
+    ensure_supported_platform(model)?;
     platform::model_cache_dir(model)
 }
 
 pub fn model_download_state(model: SoniqoModel) -> Result<ModelDownloadState> {
+    ensure_supported_platform(model)?;
     platform::model_download_state(model)
 }
 
 pub fn start_model_download(model: SoniqoModel) -> Result<()> {
+    ensure_supported_platform(model)?;
     platform::start_model_download(model)
 }
 
 pub fn reset_model(model: SoniqoModel) -> Result<()> {
+    ensure_supported_platform(model)?;
     platform::reset_model(model)
 }
 
@@ -253,6 +273,7 @@ pub fn transcribe_file(
     path: impl AsRef<Path>,
     language: Option<&str>,
 ) -> Result<FileTranscript> {
+    ensure_supported_platform(model)?;
     platform::transcribe_file(model, path.as_ref(), language.unwrap_or_default())
 }
 
@@ -263,6 +284,8 @@ pub struct LiveTranscriptionSession {
 
 impl LiveTranscriptionSession {
     pub fn start(model: SoniqoModel) -> Result<Self> {
+        ensure_supported_platform(model)?;
+
         if !model.supports_live() {
             return Err(Error::Bridge(format!(
                 "{} does not support realtime transcription",
@@ -672,6 +695,15 @@ mod tests {
         assert!(SoniqoModel::Omnilingual.supports_language(&french));
         assert!(SoniqoModel::Qwen3Small.supports_language(&french));
         assert!(SoniqoModel::Qwen3Large.supports_language(&french));
+    }
+
+    #[test]
+    fn live_support_is_gated_by_platform() {
+        assert_eq!(
+            SoniqoModel::ParakeetStreaming.supports_live_on_current_platform(),
+            cfg!(all(target_os = "macos", target_arch = "aarch64")),
+        );
+        assert!(!SoniqoModel::ParakeetBatch.supports_live_on_current_platform());
     }
 
     #[test]

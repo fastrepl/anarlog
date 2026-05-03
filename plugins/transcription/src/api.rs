@@ -31,7 +31,7 @@ impl CaptureParams {
                 .model
                 .parse::<hypr_transcribe_soniqo::SoniqoModel>()
                 .map(|model| {
-                    if model.supports_live() {
+                    if model.supports_live_on_current_platform() {
                         listener::TranscriptionMode::Live
                     } else {
                         listener::TranscriptionMode::Batch
@@ -418,10 +418,15 @@ mod tests {
     }
 
     #[test]
-    fn defaults_soniqo_streaming_capture_to_live_mode() {
+    fn defaults_soniqo_streaming_capture_to_platform_mode() {
         let params = capture_params("soniqo://local", "soniqo-parakeet-streaming");
+        let expected = if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
+            TranscriptionMode::Live
+        } else {
+            TranscriptionMode::Batch
+        };
 
-        assert_eq!(params.default_transcription_mode(), TranscriptionMode::Live);
+        assert_eq!(params.default_transcription_mode(), expected);
     }
 
     #[test]

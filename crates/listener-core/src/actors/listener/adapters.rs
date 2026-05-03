@@ -32,6 +32,12 @@ pub(super) async fn spawn_rx_task(
     ActorProcessingErr,
 > {
     if let Some(model) = soniqo_model_for_args(&args)? {
+        if !model.is_available_on_current_platform() {
+            return Err(actor_error(
+                "unsupported_platform: Soniqo realtime transcription requires macOS Apple Silicon",
+            ));
+        }
+
         if !model.supports_live() {
             return Err(actor_error(format!(
                 "provider_batch_only: {} only supports batch transcription",

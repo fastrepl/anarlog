@@ -255,7 +255,7 @@ impl LocalModel {
         let is_apple_silicon = cfg!(target_arch = "aarch64") && cfg!(target_os = "macos");
 
         match self {
-            LocalModel::Soniqo(_) => is_apple_silicon,
+            LocalModel::Soniqo(model) => model.is_available_on_current_platform(),
             LocalModel::Whisper(_) => is_macos,
             LocalModel::Am(_) => is_apple_silicon,
             LocalModel::Cactus(model) => {
