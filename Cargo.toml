@@ -123,6 +123,7 @@ hypr-ticket-interface = { path = "crates/ticket-interface", package = "ticket-in
 hypr-tiptap = { path = "crates/tiptap", package = "tiptap" }
 hypr-transcribe-cactus = { path = "crates/transcribe-cactus", package = "transcribe-cactus" }
 hypr-transcribe-core = { path = "crates/transcribe-core", package = "transcribe-core" }
+hypr-transcribe-soniqo = { path = "crates/transcribe-soniqo", package = "transcribe-soniqo" }
 hypr-transcribe-whisper-local = { path = "crates/transcribe-whisper-local", package = "transcribe-whisper-local" }
 hypr-transcript = { path = "crates/transcript", package = "transcript" }
 hypr-transcription-core = { path = "crates/transcription-core", package = "transcription-core" }

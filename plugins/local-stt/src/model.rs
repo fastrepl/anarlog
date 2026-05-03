@@ -1,6 +1,11 @@
-pub use hypr_local_model::{CactusSttModel, LocalModel, WhisperModel};
+pub use hypr_local_model::{CactusSttModel, LocalModel, SoniqoModel, WhisperModel};
 
-pub static SUPPORTED_MODELS: [LocalModel; 4] = [
+pub static SUPPORTED_MODELS: [LocalModel; 9] = [
+    LocalModel::Soniqo(SoniqoModel::ParakeetStreaming),
+    LocalModel::Soniqo(SoniqoModel::ParakeetBatch),
+    LocalModel::Soniqo(SoniqoModel::Omnilingual),
+    LocalModel::Soniqo(SoniqoModel::Qwen3Small),
+    LocalModel::Soniqo(SoniqoModel::Qwen3Large),
     LocalModel::Cactus(CactusSttModel::WhisperSmallInt8),
     LocalModel::Cactus(CactusSttModel::WhisperSmallInt8Apple),
     LocalModel::Cactus(CactusSttModel::ParakeetTdt0_6bV3Int8),
@@ -10,6 +15,7 @@ pub static SUPPORTED_MODELS: [LocalModel; 4] = [
 #[derive(serde::Serialize, serde::Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub enum SttModelType {
+    Soniqo,
     Cactus,
     Whispercpp,
     Argmax,
@@ -26,6 +32,13 @@ pub struct SttModelInfo {
 
 pub fn stt_model_info(model: &LocalModel) -> SttModelInfo {
     match model {
+        LocalModel::Soniqo(value) => SttModelInfo {
+            key: model.clone(),
+            display_name: value.display_name().to_string(),
+            description: value.description().to_string(),
+            size_bytes: value.size_bytes(),
+            model_type: SttModelType::Soniqo,
+        },
         LocalModel::Cactus(value) => SttModelInfo {
             key: model.clone(),
             display_name: value.display_name().to_string(),

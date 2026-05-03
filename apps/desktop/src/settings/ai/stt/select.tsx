@@ -337,9 +337,14 @@ function useConfiguredMapping(): Record<
 
   const cactusModels =
     supportedModels.data?.filter((m) => m.model_type === "cactus") ?? [];
+  const soniqoModels =
+    supportedModels.data?.filter((m) => m.model_type === "soniqo") ?? [];
 
   const cactusDownloaded = useQueries({
     queries: [...cactusModels.map((m) => sttModelQueries.isDownloaded(m.key))],
+  });
+  const soniqoDownloaded = useQueries({
+    queries: [...soniqoModels.map((m) => sttModelQueries.isDownloaded(m.key))],
   });
 
   return Object.fromEntries(
@@ -367,6 +372,17 @@ function useConfiguredMapping(): Record<
         ];
 
         if (isAppleSilicon) {
+          soniqoModels.forEach((model, i) => {
+            const isRecommended =
+              String(model.key) === "soniqo-parakeet-streaming";
+            models.push({
+              id: model.key,
+              isDownloaded: soniqoDownloaded[i]?.data ?? false,
+              displayName: model.display_name,
+              category: isRecommended ? "latest" : "experimental",
+            });
+          });
+
           const sorted = [...cactusModels].sort((a) =>
             String(a.key).includes("parakeet") ? -1 : 1,
           );

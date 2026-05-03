@@ -16,6 +16,7 @@ hypr-host = { workspace = true }
 hypr-language = { workspace = true }
 hypr-storage = { workspace = true }
 hypr-supervisor = { workspace = true }
+hypr-transcribe-soniqo = { workspace = true }
 hypr-transcript = { workspace = true }
 hypr-vad-masking = { workspace = true }
 

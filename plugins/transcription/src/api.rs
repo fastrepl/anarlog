@@ -26,6 +26,14 @@ pub struct CaptureParams {
 
 impl CaptureParams {
     fn default_transcription_mode(&self) -> listener::TranscriptionMode {
+        if let Ok(model) = self.model.parse::<hypr_transcribe_soniqo::SoniqoModel>() {
+            return if model.supports_live() {
+                listener::TranscriptionMode::Live
+            } else {
+                listener::TranscriptionMode::Batch
+            };
+        }
+
         let adapter_kind =
             AdapterKind::from_url_and_languages(&self.base_url, &self.languages, Some(&self.model));
 
@@ -396,6 +404,23 @@ mod tests {
             "http://localhost:50060/v1",
             "cactus-parakeet-tdt-0.6b-v3-int8",
         );
+
+        assert_eq!(
+            params.default_transcription_mode(),
+            TranscriptionMode::Batch
+        );
+    }
+
+    #[test]
+    fn defaults_soniqo_streaming_capture_to_live_mode() {
+        let params = capture_params("soniqo://local", "soniqo-parakeet-streaming");
+
+        assert_eq!(params.default_transcription_mode(), TranscriptionMode::Live);
+    }
+
+    #[test]
+    fn defaults_soniqo_batch_capture_to_batch_mode() {
+        let params = capture_params("soniqo://local", "soniqo-parakeet-batch");
 
         assert_eq!(
             params.default_transcription_mode(),

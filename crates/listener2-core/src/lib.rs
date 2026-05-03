@@ -21,7 +21,26 @@ pub fn is_supported_languages_batch(
     model: Option<&str>,
     languages: &[hypr_language::Language],
 ) -> std::result::Result<bool, String> {
-    if provider == "custom" || provider == "hyprnote" {
+    if provider == "custom" {
+        return Ok(true);
+    }
+
+    if provider == "soniqo" {
+        let model = model
+            .ok_or_else(|| "missing_model: soniqo".to_string())?
+            .parse::<hypr_transcribe_soniqo::SoniqoModel>()
+            .map_err(|e| e.to_string())?;
+
+        return Ok(model.supports_languages(languages));
+    }
+
+    if provider == "hyprnote" {
+        if let Some(model) =
+            model.and_then(|model| model.parse::<hypr_transcribe_soniqo::SoniqoModel>().ok())
+        {
+            return Ok(model.supports_languages(languages));
+        }
+
         return Ok(true);
     }
 
@@ -64,4 +83,47 @@ pub fn suggest_providers_for_languages_batch(languages: &[hypr_language::Languag
 
 pub fn list_documented_language_codes_batch() -> Vec<String> {
     owhisper_client::documented_language_codes_batch()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn soniqo_batch_rejects_non_english_for_parakeet() {
+        let languages = vec!["fr".parse().unwrap()];
+
+        assert_eq!(
+            is_supported_languages_batch("soniqo", Some("soniqo-parakeet-batch"), &languages)
+                .unwrap(),
+            false
+        );
+    }
+
+    #[test]
+    fn hyprnote_soniqo_batch_rejects_non_english_for_parakeet() {
+        let languages = vec!["fr".parse().unwrap()];
+
+        assert_eq!(
+            is_supported_languages_batch("hyprnote", Some("soniqo-parakeet-batch"), &languages)
+                .unwrap(),
+            false
+        );
+    }
+
+    #[test]
+    fn soniqo_batch_accepts_non_english_for_multilingual_models() {
+        let languages = vec!["fr".parse().unwrap()];
+
+        assert!(
+            is_supported_languages_batch("soniqo", Some("soniqo-omnilingual"), &languages).unwrap()
+        );
+    }
+
+    #[test]
+    fn hyprnote_non_soniqo_batch_keeps_existing_language_support() {
+        let languages = vec!["fr".parse().unwrap()];
+
+        assert!(is_supported_languages_batch("hyprnote", Some("cloud"), &languages).unwrap());
+    }
 }

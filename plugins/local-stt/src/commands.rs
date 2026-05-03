@@ -25,6 +25,21 @@ pub async fn cactus_models_dir<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
+pub async fn soniqo_model_dir<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    model: LocalModel,
+) -> Result<String, String> {
+    Ok(app
+        .local_stt()
+        .soniqo_model_dir(&model)
+        .await
+        .map_err(|e| e.to_string())?
+        .to_string_lossy()
+        .to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn list_supported_models() -> Result<Vec<SttModelInfo>, String> {
     Ok(SUPPORTED_MODELS
         .iter()

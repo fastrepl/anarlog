@@ -51,6 +51,7 @@ export function getBatchProvider(
   model: string,
 ): TranscriptionParams["provider"] | null {
   if (provider === "hyprnote") {
+    if (model.startsWith("soniqo-")) return "soniqo";
     if (model.startsWith("am-")) return "am";
     if (model.startsWith("cactus-")) return "cactus";
     return "hyprnote";

@@ -61,6 +61,12 @@ pub struct ListenerState {
 pub(super) enum ChannelSender {
     Single(tokio::sync::mpsc::Sender<MixedMessage<Bytes, ControlMessage>>),
     Dual(tokio::sync::mpsc::Sender<MixedMessage<(Bytes, Bytes), ControlMessage>>),
+    Soniqo(tokio::sync::mpsc::Sender<SoniqoAudioMsg>),
+}
+
+pub(super) enum SoniqoAudioMsg {
+    Single(hypr_transcribe_soniqo::TranscriptSource, Bytes),
+    Dual(Bytes, Bytes),
 }
 
 pub struct ListenerActor;
@@ -176,17 +182,31 @@ impl Actor for ListenerActor {
         let _guard = span.enter();
 
         match message {
-            ListenerMsg::AudioSingle(audio) => {
-                if let ChannelSender::Single(tx) = &state.tx {
+            ListenerMsg::AudioSingle(audio) => match &state.tx {
+                ChannelSender::Single(tx) => {
                     let _ = tx.try_send(MixedMessage::Audio(audio));
                 }
-            }
+                ChannelSender::Soniqo(tx) => {
+                    let source =
+                        if matches!(state.args.mode, crate::actors::ChannelMode::SpeakerOnly) {
+                            hypr_transcribe_soniqo::TranscriptSource::System
+                        } else {
+                            hypr_transcribe_soniqo::TranscriptSource::Microphone
+                        };
+                    let _ = tx.try_send(SoniqoAudioMsg::Single(source, audio));
+                }
+                ChannelSender::Dual(_) => {}
+            },
 
-            ListenerMsg::AudioDual(mic, spk) => {
-                if let ChannelSender::Dual(tx) = &state.tx {
+            ListenerMsg::AudioDual(mic, spk) => match &state.tx {
+                ChannelSender::Dual(tx) => {
                     let _ = tx.try_send(MixedMessage::Audio((mic, spk)));
                 }
-            }
+                ChannelSender::Soniqo(tx) => {
+                    let _ = tx.try_send(SoniqoAudioMsg::Dual(mic, spk));
+                }
+                ChannelSender::Single(_) => {}
+            },
 
             ListenerMsg::StreamResponse(mut response) => {
                 if let StreamResponse::ErrorResponse {

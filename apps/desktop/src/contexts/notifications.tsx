@@ -38,6 +38,11 @@ const MODEL_DISPLAY_NAMES: Partial<Record<LocalModel, string>> = {
   "am-parakeet-v2": "Parakeet v2",
   "am-parakeet-v3": "Parakeet v3",
   "am-whisper-large-v3": "Whisper Large v3",
+  "soniqo-parakeet-streaming": "Soniqo Parakeet Streaming",
+  "soniqo-parakeet-batch": "Soniqo Parakeet Batch",
+  "soniqo-omnilingual": "Soniqo Omnilingual",
+  "soniqo-qwen3-small": "Soniqo Qwen3 0.6B",
+  "soniqo-qwen3-large": "Soniqo Qwen3 1.7B",
   QuantizedTinyEn: "Whisper Tiny (English)",
   QuantizedSmallEn: "Whisper Small (English)",
 };

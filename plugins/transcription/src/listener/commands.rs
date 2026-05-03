@@ -87,6 +87,24 @@ pub async fn is_supported_languages_live<R: tauri::Runtime>(
         .map(|s| hypr_language::Language::from_str(s))
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| format!("unknown_language: {}", e))?;
+
+    if provider == "soniqo" {
+        let model = model
+            .as_deref()
+            .ok_or_else(|| "missing_model: soniqo".to_string())?
+            .parse::<hypr_transcribe_soniqo::SoniqoModel>()
+            .map_err(|e| e.to_string())?;
+
+        return Ok(model.supports_live() && model.supports_languages(&languages_parsed));
+    }
+
+    if provider == "hyprnote"
+        && let Some(model) = model.as_deref()
+        && let Ok(model) = model.parse::<hypr_transcribe_soniqo::SoniqoModel>()
+    {
+        return Ok(model.supports_live() && model.supports_languages(&languages_parsed));
+    }
+
     let adapter_kind =
         AdapterKind::from_str(&provider).map_err(|_| format!("unknown_provider: {}", provider))?;
 

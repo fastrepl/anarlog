@@ -110,10 +110,15 @@ function HyprProviderCard({
 
   const whispercppModels =
     supportedModels.data?.filter((m) => m.model_type === "whispercpp") ?? [];
+  const soniqoModels =
+    supportedModels.data?.filter((m) => m.model_type === "soniqo") ?? [];
   const cactusModels =
     supportedModels.data?.filter((m) => m.model_type === "cactus") ?? [];
 
-  const hasLocalModels = whispercppModels.length > 0 || cactusModels.length > 0;
+  const hasLocalModels =
+    soniqoModels.length > 0 ||
+    whispercppModels.length > 0 ||
+    cactusModels.length > 0;
 
   const providerDef = PROVIDERS.find((p) => p.id === providerId);
   const isConfigured = providerDef?.requirements.length === 0;
@@ -155,11 +160,19 @@ function HyprProviderCard({
                 <div className="flex-1 border-t border-dashed border-neutral-300" />
               </div>
 
-              <StyledStreamdown>
-                {
-                  "We intentionally **disable realtime transcription** for local models to ensure the best experience.\n\nAudio will be **batch processed** after recording is done."
-                }
-              </StyledStreamdown>
+              {soniqoModels.length > 0 && (
+                <>
+                  <ModelGroupLabel label="Soniqo" />
+                  {soniqoModels.map((model) => (
+                    <HyprProviderLocalRow
+                      key={model.key as string}
+                      model={model.key}
+                      displayName={model.display_name}
+                      description={model.description}
+                    />
+                  ))}
+                </>
+              )}
 
               {cactusModels.filter((m) => String(m.key).includes("parakeet"))
                 .length > 0 && (
@@ -531,7 +544,11 @@ function HyprProviderLocalRow({
   } = useLocalModelDownload(model, handleSelectModel);
 
   const handleOpen = () => {
-    void localSttCommands.modelsDir().then((result) => {
+    const resultPromise = String(model).startsWith("soniqo-")
+      ? localSttCommands.soniqoModelDir(model)
+      : localSttCommands.modelsDir();
+
+    void resultPromise.then((result) => {
       if (result.status === "ok") {
         void openerCommands.openPath(result.data, null);
       }
