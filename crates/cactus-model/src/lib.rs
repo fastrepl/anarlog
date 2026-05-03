@@ -344,12 +344,6 @@ pub enum CactusLlmModel {
     #[serde(rename = "cactus-qwen3-1.7b")]
     #[strum(serialize = "cactus-qwen3-1.7b")]
     Qwen3_1_7b,
-    #[serde(rename = "cactus-lfm2-vl-450m-apple")]
-    #[strum(serialize = "cactus-lfm2-vl-450m-apple")]
-    Lfm2Vl450mApple,
-    #[serde(rename = "cactus-lfm2.5-vl-1.6b-apple")]
-    #[strum(serialize = "cactus-lfm2.5-vl-1.6b-apple")]
-    Lfm2_5Vl1_6bApple,
 }
 
 impl CactusLlmModel {
@@ -362,16 +356,11 @@ impl CactusLlmModel {
             CactusLlmModel::Gemma3_1b,
             CactusLlmModel::Lfm2_5_1_2bInstruct,
             CactusLlmModel::Qwen3_1_7b,
-            CactusLlmModel::Lfm2Vl450mApple,
-            CactusLlmModel::Lfm2_5Vl1_6bApple,
         ]
     }
 
     pub fn is_apple(&self) -> bool {
-        matches!(
-            self,
-            CactusLlmModel::Lfm2Vl450mApple | CactusLlmModel::Lfm2_5Vl1_6bApple
-        )
+        false
     }
 
     pub fn asset_id(&self) -> &str {
@@ -383,8 +372,6 @@ impl CactusLlmModel {
             CactusLlmModel::Gemma3_1b => "cactus-gemma3-1b",
             CactusLlmModel::Lfm2_5_1_2bInstruct => "cactus-lfm2.5-1.2b-instruct",
             CactusLlmModel::Qwen3_1_7b => "cactus-qwen3-1.7b",
-            CactusLlmModel::Lfm2Vl450mApple => "cactus-lfm2-vl-450m-apple",
-            CactusLlmModel::Lfm2_5Vl1_6bApple => "cactus-lfm2.5-vl-1.6b-apple",
         }
     }
 
@@ -397,8 +384,6 @@ impl CactusLlmModel {
             CactusLlmModel::Gemma3_1b => "gemma3-1b",
             CactusLlmModel::Lfm2_5_1_2bInstruct => "lfm2.5-1.2b-instruct",
             CactusLlmModel::Qwen3_1_7b => "qwen3-1.7b",
-            CactusLlmModel::Lfm2Vl450mApple => "lfm2-vl-450m-apple",
-            CactusLlmModel::Lfm2_5Vl1_6bApple => "lfm2.5-vl-1.6b-apple",
         }
     }
 
@@ -407,12 +392,7 @@ impl CactusLlmModel {
     }
 
     pub fn source(&self) -> CactusModelSource {
-        match self {
-            CactusLlmModel::Lfm2Vl450mApple => CactusModelSource::BundledResource {
-                relative_path: "models/cactus/char-vlm/weight",
-            },
-            _ => CactusModelSource::Unavailable,
-        }
+        CactusModelSource::Unavailable
     }
 
     pub fn model_url(&self) -> Option<&str> {
@@ -430,12 +410,7 @@ impl CactusLlmModel {
     }
 
     pub fn description(&self) -> &str {
-        match self {
-            CactusLlmModel::Lfm2Vl450mApple | CactusLlmModel::Lfm2_5Vl1_6bApple => {
-                "Apple Neural Engine"
-            }
-            _ => "",
-        }
+        ""
     }
 
     pub fn display_name(&self) -> &str {
@@ -447,8 +422,6 @@ impl CactusLlmModel {
             CactusLlmModel::Gemma3_1b => "Gemma 3 (1B)",
             CactusLlmModel::Lfm2_5_1_2bInstruct => "LFM2.5 Instruct (1.2B)",
             CactusLlmModel::Qwen3_1_7b => "Qwen3 (1.7B)",
-            CactusLlmModel::Lfm2Vl450mApple => "LFM2 VL (450M, Apple NPU)",
-            CactusLlmModel::Lfm2_5Vl1_6bApple => "LFM2.5 VL (1.6B, Apple NPU)",
         }
     }
 }
@@ -548,16 +521,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn bundled_llm_uses_resource_source() {
-        assert_eq!(
-            CactusLlmModel::Lfm2Vl450mApple.source(),
-            CactusModelSource::BundledResource {
-                relative_path: "models/cactus/char-vlm/weight",
-            }
-        );
-    }
-
-    #[test]
     fn downloadable_stt_reports_source_metadata() {
         assert_eq!(
             CactusSttModel::WhisperSmallInt4.source(),
@@ -570,8 +533,8 @@ mod tests {
 
     #[test]
     fn bundled_models_do_not_expose_download_metadata() {
-        assert_eq!(CactusLlmModel::Lfm2Vl450mApple.model_url(), None);
-        assert_eq!(CactusLlmModel::Lfm2Vl450mApple.checksum(), None);
+        assert_eq!(CactusLlmModel::Gemma3_270m.model_url(), None);
+        assert_eq!(CactusLlmModel::Gemma3_270m.checksum(), None);
     }
 
     #[test]

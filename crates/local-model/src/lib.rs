@@ -209,8 +209,6 @@ impl LocalModel {
                 CactusLlmModel::Gemma3_1b => "cactus-gemma3-1b",
                 CactusLlmModel::Lfm2_5_1_2bInstruct => "cactus-lfm2.5-1.2b-instruct",
                 CactusLlmModel::Qwen3_1_7b => "cactus-qwen3-1.7b",
-                CactusLlmModel::Lfm2Vl450mApple => "cactus-lfm2-vl-450m-apple",
-                CactusLlmModel::Lfm2_5Vl1_6bApple => "cactus-lfm2.5-vl-1.6b-apple",
             },
         }
     }

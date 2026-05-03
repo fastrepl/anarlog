@@ -1,4 +1,4 @@
-use std::{collections::HashMap, future::Future, path::PathBuf, sync::Arc};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use tauri::{Manager, Runtime, ipc::Channel};
 
 use hypr_model_downloader::{DownloadableModel, ModelDownloadManager, ModelDownloaderRuntime};
@@ -167,14 +167,6 @@ impl<'a, R: Runtime, M: Manager<R>> LocalLlmExt<'a, R, M> {
     #[tracing::instrument(skip_all)]
     pub async fn list_custom_models(&self) -> Result<Vec<crate::CustomModelInfo>, crate::Error> {
         Ok(hypr_local_llm_core::list_custom_models()?)
-    }
-
-    pub fn start_server(&self) {
-        #[cfg(target_arch = "aarch64")]
-        {
-            let state = self.manager.state::<crate::SharedState>();
-            crate::spawn_llm_server(self.manager.app_handle(), state.inner().clone());
-        }
     }
 }
 
