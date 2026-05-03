@@ -63,6 +63,25 @@ const articles = defineCollection({
   },
 });
 
+const legal = defineCollection({
+  name: "legal",
+  directory: "content/legal",
+  include: "*.mdx",
+  schema: z.object({
+    title: z.string(),
+    summary: z.string().optional(),
+    date: z.string(),
+  }),
+  transform: async (document, context) => {
+    const mdx = await compileMDX(context, document, {
+      remarkPlugins: [remarkGfm],
+      rehypePlugins: [rehypeSlug],
+    });
+    const slug = document._meta.path.replace(/\.mdx$/, "");
+    return { ...document, mdx, slug };
+  },
+});
+
 export default defineConfig({
-  collections: [articles],
+  collections: [articles, legal],
 });
