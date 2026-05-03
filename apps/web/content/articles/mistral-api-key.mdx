@@ -41,13 +41,11 @@ The monthly cap of 1B tokens is genuinely generous for individual use. At typica
 
 Mistral charges per million tokens, counting both input (what you send) and output (what comes back). There's no subscription fee on the API side. You pay for what you use.
 
-
-| &nbsp;            | &nbsp;           | &nbsp;           |
+| &nbsp; | &nbsp; | &nbsp; |
 | ----------------- | ---------------- | ---------------- |
-| **Model**         | **Input**        | **Output**       |
+| **Model** | **Input** | **Output** |
 | Mistral Small 3.2 | $0.10 / M tokens | $0.30 / M tokens |
-| Mistral Large 3   | $0.50 / M tokens | $1.50 / M tokens |
-
+| Mistral Large 3 | $0.50 / M tokens | $1.50 / M tokens |
 
 To put those numbers in context: a million input tokens is roughly 750,000 words, or about 1,500 pages of text. At Mistral Small's rates, that costs ten cents. For most personal or small-team use, the monthly bill is negligible.
 
@@ -73,9 +71,9 @@ Test it with a curl call:
 
 ```bash
 curl https://api.mistral.ai/v1/chat/completions \
-  -H "Authorization: Bearer $MISTRAL_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{ "model": "mistral-small-latest", "messages": [{"role": "user", "content": "Hello"}] }'
+ -H "Authorization: Bearer $MISTRAL_API_KEY" \
+ -H "Content-Type: application/json" \
+ -d '{ "model": "mistral-small-latest", "messages": [{"role": "user", "content": "Hello"}] }'
 ```
 
 If you get a JSON response with a choices array back, the key is working. If you get a 401, double-check that the environment variable is set correctly in your current session.
@@ -86,7 +84,7 @@ For Python projects, the python-dotenv package is the standard way to load a .en
 from dotenv import load_dotenv
 import os
 
-load_dotenv()
+load_dotenv
 api_key = os.getenv("MISTRAL_API_KEY")
 ```
 

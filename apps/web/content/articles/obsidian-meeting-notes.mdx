@@ -61,7 +61,7 @@ Add this to the note:
 role: Engineering Lead
 company: Acme
 tags:
-  - person
+ - person
 ---
 ## About
 Engineering lead on the payments team. Reports to VP Eng.
@@ -82,7 +82,7 @@ date: "{{date:YYYY-MM-DD}}"
 type: meeting
 attendees:
 tags:
-  - meeting
+ - meeting
 ---
 # {{title}}
 **Attendees:**
@@ -105,11 +105,11 @@ Here's what a meeting note looks like after a meeting. The key habit: write name
 date: "2026-04-06"
 type: meeting
 attendees:
-  - "[[Sarah Chen]]"
-  - "[[James Park]]"
+ - "[[Sarah Chen]]"
+ - "[[James Park]]"
 tags:
-  - meeting
-  - payments
+ - meeting
+ - payments
 ---
 # 2026-04-06 Sprint Planning
 **Attendees:** [[Sarah Chen]], [[James Park]]
@@ -145,9 +145,9 @@ If you want a structured table view instead of backlinks, use a Base. The [Autom
 
 ```
 filters:
-  and:
-    - file.hasLink(this.file.name)
-    - 'type = "meeting"'
+ and:
+ - file.hasLink(this.file.name)
+ - 'type = "meeting"'
 ```
 
 Embed this Base in Sarah's person note and it renders a table of every meeting note that links to her, filterable and sortable. This uses Obsidian's built-in Bases feature — no community plugins needed.
@@ -241,7 +241,7 @@ It records via system audio. No bot joins your Zoom. No calendar permissions. An
 
 It transcribes in real time and generates structured summaries. Anarlog combines your notes with the full transcript and produces a summary using AI. The summary lands as a file on your computer.
 
-You choose the AI. Use a managed cloud option (see [Char](https://char.com)) if you want simplicity. Bring your own API keys from OpenAI, Deepgram, or Anthropic if your company already has them. Run models locally through Ollama or LM Studio if nothing leaves your machine. Your security team can audit the code. You're not trusting a black box with your meeting recordings.
+You choose the AI. Use a managed cloud option if you want simplicity. Bring your own API keys from OpenAI, Deepgram, or Anthropic if your company already has them. Run models locally through Ollama or LM Studio if nothing leaves your machine. Your security team can audit the code. You're not trusting a black box with your meeting recordings.
 
 There's no lock-in. Every file Anarlog produces is a file on your computer. Stop using Anarlog and every transcript is still there, in your vault, working. There's nothing to export because nothing was ever locked up.
 

@@ -32,25 +32,25 @@ I won't tell you "X is the best CMS." Instead, I'll show you what each category 
 Start by answering these questions instead:
 
 1. **Who is writing most of the content?**
-   - engineers only
-   - mixed team (engineers + PMs + marketing)
-   - non-technical people only
+ - engineers only
+ - mixed team (engineers + PMs + marketing)
+ - non-technical people only
 
 2. **What are you publishing?**
-   - technical blog
-   - product docs / API reference
-   - internal knowledge base
-   - marketing pages / landing pages
+ - technical blog
+ - product docs / API reference
+ - internal knowledge base
+ - marketing pages / landing pages
 
 3. **How often does content structure change?**
-   - almost never (simple posts, titles, tags)
-   - sometimes (new fields, types, locales)
-   - constantly (complex content models, multiple channels)
+ - almost never (simple posts, titles, tags)
+ - sometimes (new fields, types, locales)
+ - constantly (complex content models, multiple channels)
 
 4. **How long should your content survive?**
-   - 6 months?
-   - 2–3 years?
-   - 10+ years and multiple stack rewrites?
+ - 6 months?
+ - 2–3 years?
+ - 10+ years and multiple stack rewrites?
 
 Once you answer these, the CMS choice mostly falls out.
 
@@ -172,12 +172,12 @@ Use this when you want a **docs site ready tomorrow**, UX matters more than cont
 
 ## Summary: the four buckets at a glance
 
-| Bucket                 | Best For                                                   | Pros                                                                                 | Cons                                                                     | Examples                    |
+| Bucket | Best For | Pros | Cons | Examples |
 | ---------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ | --------------------------- |
-| **No CMS (Git + MDX)** | Technical teams, engineers writing content                 | Maximum portability, no vendor lock-in, diffable/reviewable, perfect IDE integration | No visual UI, non-technical users need training                          | Plain MDX in GitHub         |
-| **Git-Based CMS**      | Mixed teams needing visual UI while keeping content in Git | Content-as-code benefits + visual editing, portable files, non-engineers can edit    | Extra admin app to host, tied to their config models                     | Keystatic, TinaCMS, Decap   |
-| **Headless CMS**       | Multi-channel content platforms with complex workflows     | Powerful schema modeling, omnichannel delivery, great editorial UX, localization     | Infrastructure complexity, proprietary content structure, migration cost | Sanity, Payload             |
-| **Docs Platforms**     | Teams needing polished docs/KB sites fast                  | Fastest setup, beautiful out-of-box, low infra cost, non-tech friendly               | Limited portability, harder product integration, platform dependency     | GitBook, Notion, Confluence |
+| **No CMS (Git + MDX)** | Technical teams, engineers writing content | Maximum portability, no vendor lock-in, diffable/reviewable, perfect IDE integration | No visual UI, non-technical users need training | Plain MDX in GitHub |
+| **Git-Based CMS** | Mixed teams needing visual UI while keeping content in Git | Content-as-code benefits + visual editing, portable files, non-engineers can edit | Extra admin app to host, tied to their config models | Keystatic, TinaCMS, Decap |
+| **Headless CMS** | Multi-channel content platforms with complex workflows | Powerful schema modeling, omnichannel delivery, great editorial UX, localization | Infrastructure complexity, proprietary content structure, migration cost | Sanity, Payload |
+| **Docs Platforms** | Teams needing polished docs/KB sites fast | Fastest setup, beautiful out-of-box, low infra cost, non-tech friendly | Limited portability, harder product integration, platform dependency | GitBook, Notion, Confluence |
 
 ---
 
@@ -195,13 +195,13 @@ This is the category Anarlog's stack resembles: modern React/MDX frontend with c
 
 ## A simple decision matrix
 
-| Situation                                                          | Likely Best Choice                              |
+| Situation | Likely Best Choice |
 | ------------------------------------------------------------------ | ----------------------------------------------- |
-| Small, technical team, mostly engineers writing                    | **Git + MDX, no CMS**                           |
-| Technical team, but PMs/design/marketing need to edit copy         | **Git-based CMS** (Keystatic/Tina/etc.)         |
-| Product needs content across web, app, marketing, multiple locales | **Headless CMS** (Sanity, Payload, etc.)        |
-| You just need a docs/KB site ASAP                                  | **Docs platform** (GitBook, maybe Notion early) |
-| You want fine control over UI + MDX, but not heavy infra           | **Nextra or similar framework** on top of Git   |
+| Small, technical team, mostly engineers writing | **Git + MDX, no CMS** |
+| Technical team, but PMs/design/marketing need to edit copy | **Git-based CMS** (Keystatic/Tina/etc.) |
+| Product needs content across web, app, marketing, multiple locales | **Headless CMS** (Sanity, Payload, etc.) |
+| You just need a docs/KB site ASAP | **Docs platform** (GitBook, maybe Notion early) |
+| You want fine control over UI + MDX, but not heavy infra | **Nextra or similar framework** on top of Git |
 
 If you're not sure, default to Git + MDX now. Add a Git-based or headless CMS later only if reality forces you to.
 

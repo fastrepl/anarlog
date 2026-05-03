@@ -1,7 +1,7 @@
 ---
 meta_title: "Char Is Now Anarlog"
 display_title: "Char Is Now Anarlog"
-meta_description: "Char is splitting in two. Anarlog is the open-source desktop app — free forever, fully local. Char remains the managed product for teams who want hosted transcription and integrations."
+meta_description: "The AI meeting notetaker you've been using is now Anarlog — open source, MIT, free forever, fully local. Char is a different product now: an AI notepad that finishes your todos. Two names because they're two different products."
 author: "John Jeong"
 coverImage: "/api/assets/blog/announcement.jpg"
 featured: true
@@ -9,55 +9,73 @@ category: "Founders' notes"
 date: "2026-05-03"
 ---
 
-We're splitting Char into two products.
+The AI meeting notetaker you've been using is now **[Anarlog](https://github.com/fastrepl/anarlog)**. Same app, same files, same 8.3k⭐ on GitHub. New name, new license (MIT), and a clear single purpose: an open-source meeting notetaker that runs on your machine.
 
-- **Anarlog** is the open-source desktop app. Free forever, fully local, your data stays on your machine. The repo lives at [github.com/fastrepl/anarlog](https://github.com/fastrepl/anarlog).
-- **Char** stays as the managed product at [char.com](https://char.com) — for teams that want hosted transcription, calendar integrations, sync, and a CRM-style workflow without running anything themselves.
+The name **Char** still exists — but it's a different product now. Char is an AI notepad that finishes your todos. Different category, different audience, different bet. We'll get to it below.
 
-If you've been following along, this is the second rename. The first one, [from Hyprnote to Char](/blog/hyprnote-is-now-char), corrected a name we never liked. This one is different. We're not renaming. We're separating two products that grew up inside one repo and started pulling in opposite directions.
+If you're here for meeting notes — you're in the right place. anarlog.so is the new home. char.com/blog/\* redirects here.
 
-### why split
+### why two names
 
-A single brand can't carry both audiences. We tried. It confused everyone.
+Char (the meeting notetaker) and Char (the agentic todo notepad we've been building) were trying to live under one brand. They couldn't.
 
-The privacy-first crowd downloads the desktop app and immediately wants to know: is this really local, where are my files, can I run it offline, what models does it use. They don't want a cloud upsell on the homepage. They want a tool they can audit, fork, and run forever — with or without us.
+The meeting notetaker is finished software in the best sense — system audio capture, plain markdown files, your AI of choice, no bots in your calls. People love it because it's *focused*. They want a tool they can audit, fork, and run forever — with or without us.
 
-The managed-cloud customers want the opposite. They want it to just work. SSO, calendar integrations, shareable links, sync across devices, a paid plan with someone to call. They don't care about the source code. They care that the meeting notes show up in the right place, that the transcript is searchable, and that their team is on the same page.
+The new Char is the opposite of finished. It's a thesis: that your todo list should finish itself. Type a checkbox, an agent picks it up — researches, drafts, schedules — while you stay in command of what matters. It's a delegation product, not a transcription one. Different mechanic. Different problem. Different people.
 
-Trying to be both made the homepage a mess and the roadmap a fight. Every feature was a coin flip: does this serve the OSS user or the cloud customer? You can't ship with conviction when you're hedging on every decision.
+We tried to ship both as "Char." The homepage was a mess. The roadmap was a coin flip on every feature. Worst of all: people who came for the meeting notetaker kept getting confused by the agent stuff, and people interested in delegation kept asking "wait, do I have to take meeting notes?"
 
-### why "anarlog"
+Two products, two names. That's the whole story.
 
-Analog for the feel — the tactile, file-system-first way notes used to work before the cloud ate everything. Plain markdown. Files you can `grep`. A folder you can back up.
+### so what is anarlog
 
-Anar for autonomy — your stack, your keys, your files. No account required. No telemetry you can't turn off. No "cloud sync" you didn't ask for.
+It's the existing app. Renamed, relicensed (GPL → MIT), kept open source forever.
 
-{/* TODO: John to confirm etymology framing */}
+- Open source on GitHub: [github.com/fastrepl/anarlog](https://github.com/fastrepl/anarlog)
+- Free forever — there is no paid tier and there won't be
+- System audio capture (no bot joining your calls, no calendar permissions)
+- Plain markdown files on your device
+- BYOK or local models (Ollama, LM Studio) — your AI, your keys
+- 45+ languages, works with Zoom / Meet / Teams / phone / in-person
+- macOS and Linux. Windows is on the roadmap.
 
-We wanted a name that felt like the thing. Char was a good name for an AI notepad — direct, low-level, the raw building block. Anarlog is the version of that idea taken further. The notepad disappears. What's left is your files.
+If you're already running Char (the desktop app), it'll keep working. The next update will rename itself to Anarlog. Your local files don't move. Your stack doesn't change. We're keeping the pro AI models and the calendar integration in Anarlog through the migration window — nothing gets ripped out from under you.
 
-### what changes for you
+After the migration, Anarlog stays as a community-maintained OSS project. We'll keep it running. Patches, security fixes, the occasional feature. But the team's daily focus moves to the new Char.
 
-- If you're using Char today and want to stay managed: nothing changes. char.com keeps running. Your account, your notes, your billing — same as before.
-- If you want to self-host or run fully local: download Anarlog at [anarlog.so](https://anarlog.so) or grab the source on [GitHub](https://github.com/fastrepl/anarlog).
-- The desktop app you have installed: it'll keep working. We'll ship a clean migration when the Anarlog desktop builds are stable.
-- Old links: `char.com/blog/*` now redirects to `anarlog.so/blog/*`. Other routes (download, pricing, login) stay on char.com for the managed product.
-- Your data — local notes, recordings, transcripts — none of it moves. Files on your disk are still files on your disk.
+### so what is char now
+
+Char is the AI notepad that knows and works for you. **Your todos, on autopilot.**
+
+Type a checkbox in your daily note. An agent picks it up — researches a company before your call, drafts a follow-up email, schedules a meeting, books the flight. You stay in command of what matters. The work moves on its own. Char remembers your projects, contacts, and how you work, so week one it helps and month one it knows you.
+
+The category Char competes in isn't "meeting notetaker." It's the todo list — Things, Todoist, Notion — and the new wave of delegation agents (Yutori, AirJelly, Manus). Notetakers stop where the meeting ends. Char starts there: every action item becomes a checkbox that finishes itself.
+
+It's a different product. Private alpha right now, paid SaaS when it ships. Same company. Same conviction that humans deserve to stay in command of their own work. Different shape.
+
+If that sounds interesting, char.com is the place. If it doesn't — totally fine. Stay on Anarlog, take your meeting notes, own your files. We built it for you.
 
 ### the journey
 
-Hyprnote was a name we grabbed in a hurry to ship. Char was the name we picked once we knew what the product was. Anarlog is the name we picked once we knew the product was actually two products.
+If you've been following along, this is the second rename. The first one, [from Hyprnote to Char](/blog/hyprnote-is-now-char), corrected a name we never liked. This one is different. We're not renaming for fashion. We're separating two products that grew up inside one repo and started pulling in opposite directions.
 
-Each rename has been a sharper version of the same conviction: people deserve to own their notes. The first time, that conviction was an instinct. The second time, it was a thesis. This time, it's a product split — because the people who care most about ownership shouldn't have to share a brand with people who want a managed cloud.
+Each rename has been a sharper version of the same conviction: people deserve to own their work. The first time, that conviction was an instinct. The second time, it's a product split — because the people who care most about owning their meeting notes shouldn't have to share a brand with the people who want a notepad that delegates their day.
 
-Both are valid. They just want different things. Now they get different things.
+Both are valid. They want different things. Now they get different things.
 
-### what's next
+### why "anarlog"
 
-Anarlog the desktop app is open source as of today. The repo is [github.com/fastrepl/anarlog](https://github.com/fastrepl/anarlog). Issues, PRs, forks — all welcome. We're shipping fast on the OSS side: better local model support, a cleaner plugin story, and a much smaller binary.
+It's an anagram of *granola*. The product everyone keeps comparing us to — and the one we keep beating on the things that matter (no bots, local files, your stack). "Granola, rearranged." We liked the joke and the name stuck.
 
-Char keeps shipping at char.com. The team there is heads-down on the things managed customers actually ask for — calendar integrations, shareable links with view tracking, SSO, an admin console.
+It also reads as **anar + log** — anar for autonomy, log for the artifact. Your stack, your keys, your files. A log you keep, not one we host.
 
-If you've been waiting for a notepad you can fully own, this is it. Come build it with us.
+Both readings are true. Take whichever you like.
+
+### tl;dr
+
+- **Anarlog** = the meeting notetaker you've been using. OSS, free forever, MIT. [anarlog.so](https://anarlog.so) · [github.com/fastrepl/anarlog](https://github.com/fastrepl/anarlog)
+- **Char** = a new product. AI notepad that finishes your todos. Private alpha. [char.com](https://char.com)
+- Same team, same company (`fastrepl`, YC S25), same conviction.
+- Old `char.com/blog/*` links now redirect here. Your bookmarks still work.
 
 — John

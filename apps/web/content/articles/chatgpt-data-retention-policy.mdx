@@ -8,33 +8,33 @@ category: "Guides"
 date: "2026-03-10"
 ---
 
-In May 2025, a federal judge ordered OpenAI to preserve every ChatGPT conversation including the ones you deleted. Not just temporarily. Indefinitely, until further notice.  
+In May 2025, a federal judge ordered OpenAI to preserve every ChatGPT conversation including the ones you deleted. Not just temporarily. Indefinitely, until further notice. 
 
-Most users had no idea this happened. If you're evaluating AI providers before plugging one into your workflow, this is exactly the kind of detail that matters.  
+Most users had no idea this happened. If you're evaluating AI providers before plugging one into your workflow, this is exactly the kind of detail that matters. 
 
 Here's a full breakdown of OpenAI's data retention policy: what they keep, how long, and what you can actually do about it.
 
 ## What ChatGPT Stores Data by Default
 
-When you use ChatGPT on a free, Plus, Pro, or Team plan, your conversations are saved to your account automatically. They sit there indefinitely until you delete them.  
+When you use ChatGPT on a free, Plus, Pro, or Team plan, your conversations are saved to your account automatically. They sit there indefinitely until you delete them. 
 
-Once you delete a conversation, it disappears from your view immediately. But according to [OpenAI's own help documentation](https://help.openai.com/en/articles/8983778-chat-and-file-retention-policies-in-chatgpt), the data isn't actually removed from their servers for another 30 days and that's under normal circumstances.  
+Once you delete a conversation, it disappears from your view immediately. But according to [OpenAI's own help documentation](https://help.openai.com/en/articles/8983778-chat-and-file-retention-policies-in-chatgpt), the data isn't actually removed from their servers for another 30 days and that's under normal circumstances. 
 
 One thing most users don't realize: if you've enabled ChatGPT's Memory feature, stored memories are retained separately from your chat history. Deleting a conversation doesn't wipe the memories extracted from it. You have to clear those manually through Settings.
 
 ## The Court Order You Probably Missed
 
-In May 2025, a federal judge issued a preservation order requiring OpenAI to retain all ChatGPT user logs as part of the *New York Times* copyright lawsuit. The ruling was explicit: preserve and segregate all output log data that would otherwise be deleted. This includes conversations users had already removed.  
+In May 2025, a federal judge issued a preservation order requiring OpenAI to retain all ChatGPT user logs as part of the *New York Times* copyright lawsuit. The ruling was explicit: preserve and segregate all output log data that would otherwise be deleted. This includes conversations users had already removed. 
 
-[Bloomberg Law reported](https://news.bloomberglaw.com/ip-law/openai-must-turn-over-20-million-chatgpt-logs-judge-affirms) that by November 2025, the judge further ordered OpenAI to hand over 20 million de-identified ChatGPT logs to the Times and other news plaintiffs.  
+[Bloomberg Law reported](https://news.bloomberglaw.com/ip-law/openai-must-turn-over-20-million-chatgpt-logs-judge-affirms) that by November 2025, the judge further ordered OpenAI to hand over 20 million de-identified ChatGPT logs to the Times and other news plaintiffs. 
 
-The preservation order itself was lifted in late September 2025. OpenAI resumed normal deletion practices after that point. But conversations from the April–September 2025 window remain in secure storage pending the ongoing litigation.  
+The preservation order itself was lifted in late September 2025. OpenAI resumed normal deletion practices after that point. But conversations from the April–September 2025 window remain in secure storage pending the ongoing litigation. 
 
 OpenAI says access to that data is restricted to a small, audited legal and security team. The Times and other plaintiffs don't have open access—any disclosure goes through court-approved discovery procedures. Still, data you thought was gone is sitting in a server somewhere.
 
 ## The "Opt Out of Training" Setting and What It Actually Does
 
-ChatGPT uses your conversations to improve its models by default. You can turn this off: **Settings → Data Controls → toggle off "Improve model for everyone."**  
+ChatGPT uses your conversations to improve its models by default. You can turn this off: **Settings → Data Controls → toggle off "Improve model for everyone."** 
 
 Two important caveats:
 
@@ -65,17 +65,17 @@ Inputs and outputs are never logged. There's no retention period because there's
 
 ## What About GDPR and HIPAA?
 
-If you're in a regulated industry or dealing with sensitive data, the consumer-facing ChatGPT product is not the right tool. OpenAI has been explicit about this.  
+If you're in a regulated industry or dealing with sensitive data, the consumer-facing ChatGPT product is not the right tool. OpenAI has been explicit about this. 
 
-Standard ChatGPT (Free, Plus, Pro, Team) does not offer a Business Associate Agreement, which means it cannot be used with Protected Health Information under HIPAA. Using it with patient data is a compliance violation.  
+Standard ChatGPT (Free, Plus, Pro, Team) does not offer a Business Associate Agreement, which means it cannot be used with Protected Health Information under HIPAA. Using it with patient data is a compliance violation. 
 
-For GDPR, OpenAI offers a Data Processing Addendum (DPA) for ChatGPT Team, Enterprise, and API customers, not for consumer accounts. If you're in the EU and not on one of those plans, GDPR compliance is your own responsibility to figure out.  
+For GDPR, OpenAI offers a Data Processing Addendum (DPA) for ChatGPT Team, Enterprise, and API customers, not for consumer accounts. If you're in the EU and not on one of those plans, GDPR compliance is your own responsibility to figure out. 
 
 There's also a jurisdiction question worth flagging. Reddit's r/privacy community has noted that because OpenAI's servers are primarily US-based, data transferred from the EU to process through ChatGPT is subject to cross-border data transfer rules under GDPR. This has compliance implications for European organizations that aren't using a DPA.
 
 ## So What's the Practical Risk?
 
-For most individual users, the day-to-day risk is limited. OpenAI doesn't sell your conversations, and the data isn't publicly accessible.  
+For most individual users, the day-to-day risk is limited. OpenAI doesn't sell your conversations, and the data isn't publicly accessible. 
 
 The risk is more nuanced:
 
@@ -85,11 +85,11 @@ The risk is more nuanced:
 
 ## The OpenAI API Has Meaningfully Better Data Controls
 
-If you're building with OpenAI or using a tool that lets you bring your own API key, then the data situation is materially different from the consumer product.  
+If you're building with OpenAI or using a tool that lets you bring your own API key, then the data situation is materially different from the consumer product. 
 
-With the standard API, OpenAI retains inputs and outputs for 30 days for abuse monitoring, then deletes them. There's no default use of your data for model training. If you qualify for Zero Data Retention endpoints, OpenAI never logs your data at all.  
+With the standard API, OpenAI retains inputs and outputs for 30 days for abuse monitoring, then deletes them. There's no default use of your data for model training. If you qualify for Zero Data Retention endpoints, OpenAI never logs your data at all. 
 
-This is relevant if you're evaluating how OpenAI fits into a broader AI workflow where you want control over which provider sees what data.  
+This is relevant if you're evaluating how OpenAI fits into a broader AI workflow where you want control over which provider sees what data. 
 
 ## BTW, Your OpenAI API Key Works for Meeting Notes Too
 

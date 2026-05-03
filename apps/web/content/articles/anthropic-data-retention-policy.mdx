@@ -28,7 +28,7 @@ Incognito mode. Conversations in Claude's incognito mode are never used for mode
 
 ## The September 2025 Training Policy Change
 
-Anthropic's previous stance was clean: consumer chats would not be used for training. That was the explicit promise. In August 2025, that changed. [According to Anthropic's own announcement](https://www.anthropic.com/news/updates-to-our-consumer-terms), they introduced an opt-in toggle,  "You can help improve Claude", and gave users until September 28 to make their choice.
+Anthropic's previous stance was clean: consumer chats would not be used for training. That was the explicit promise. In August 2025, that changed. [According to Anthropic's own announcement](https://www.anthropic.com/news/updates-to-our-consumer-terms), they introduced an opt-in toggle, "You can help improve Claude", and gave users until September 28 to make their choice.
 
 If you opted in, Anthropic could retain your conversations in de-identified form for up to 5 years and use them for model training. If you opted out, nothing changed. There's still a 30-day retention, no training use.
 
@@ -72,17 +72,15 @@ This isn't about your personal data directly. But it's relevant context for how 
 
 ## How Claude.ai Compares to Using Claude Through Anarlog
 
-
-|                              |                                    |                                     |
+| | | |
 | ---------------------------- | ---------------------------------- | ----------------------------------- |
-|                              | **Claude.ai (Consumer)**           | **Anthropic API via Anarlog**          |
-| **Where notes are stored**   | Anthropic's servers                | Your device (plain markdown)        |
-| **Retention after deletion** | Up to 30 days on backend           | 7 days (API), then deleted          |
-| **Used for training**        | Yes — unless opted out (Sept 2025) | Never                               |
-| **If opted into training**   | Up to 5 years, de-identified       | Not applicable                      |
-| **HIPAA BAA available**      | No (consumer)                      | Yes (enterprise API)                |
-| **Can switch AI providers**  | No                                 | Yes — OpenAI, Mistral, local models |
-
+| | **Claude.ai (Consumer)** | **Anthropic API via Anarlog** |
+| **Where notes are stored** | Anthropic's servers | Your device (plain markdown) |
+| **Retention after deletion** | Up to 30 days on backend | 7 days (API), then deleted |
+| **Used for training** | Yes — unless opted out (Sept 2025) | Never |
+| **If opted into training** | Up to 5 years, de-identified | Not applicable |
+| **HIPAA BAA available** | No (consumer) | Yes (enterprise API) |
+| **Can switch AI providers** | No | Yes — OpenAI, Mistral, local models |
 
 [Anarlog](https://anarlog.so/) is an open-source AI notepad for meetings that lets you bring your own Anthropic API key. When you connect it, your meeting data goes through the API i.e. 7-day retention, never used for training, rather than through the consumer Claude.ai product where training opt-ins and longer retention windows apply.
 
