@@ -1,6 +1,7 @@
 import { Icon } from "@iconify-icon/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, ChevronDown } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 import { getGitHubStars } from "@/functions/github";
 import {
@@ -203,23 +204,59 @@ function Component() {
 }
 
 function DownloadButton() {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const onPointerDown = (event: MouseEvent | TouchEvent) => {
+      if (!containerRef.current) return;
+      if (!containerRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("touchstart", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("touchstart", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
   return (
-    <div className="relative inline-flex text-sm font-medium">
+    <div
+      ref={containerRef}
+      className="relative inline-flex text-sm font-medium"
+    >
       <a
         href={appleSiliconDownloadUrl}
-        className="inline-flex items-center gap-1.5 rounded-l-full bg-[#181613] px-4 py-3 text-[13px] text-white sm:px-5 sm:text-sm"
+        className="inline-flex items-center gap-1 rounded-l-full bg-[#181613] px-4 py-3 text-[13px] text-white sm:px-5 sm:text-sm"
       >
         <Icon icon="simple-icons:apple" className="size-4" aria-hidden="true" />
         <span>Download for Apple Silicon</span>
       </a>
-      <details className="group">
-        <summary
-          aria-label="Choose download platform"
-          className="inline-flex h-full cursor-pointer list-none items-center rounded-r-full bg-[#181613] px-3 py-3 text-white sm:px-4 [&::-webkit-details-marker]:hidden"
+      <button
+        type="button"
+        aria-label="Choose download platform"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        onClick={() => setOpen((prev) => !prev)}
+        className="inline-flex h-full cursor-pointer items-center rounded-r-full bg-[#181613] px-3 py-3 text-white sm:px-4"
+      >
+        <ChevronDown size={17} strokeWidth={2.2} aria-hidden="true" />
+      </button>
+      {open && (
+        <div
+          role="menu"
+          className="absolute top-[calc(100%+0.5rem)] left-0 z-10 w-80 max-w-[calc(100vw-2.5rem)] rounded-2xl border border-[#d8d0c5] bg-white p-2 shadow-[0_14px_40px_rgba(24,22,19,0.12)]"
         >
-          <ChevronDown size={17} strokeWidth={2.2} aria-hidden="true" />
-        </summary>
-        <div className="absolute top-[calc(100%+0.5rem)] left-0 z-10 w-80 max-w-[calc(100vw-2.5rem)] rounded-2xl border border-[#d8d0c5] bg-white p-2 shadow-[0_14px_40px_rgba(24,22,19,0.12)]">
           <a
             href={appleIntelDownloadUrl}
             className="flex items-center gap-3 rounded-xl px-3 py-3 text-[#181613] transition-colors hover:bg-[#f7f4ef]"
@@ -256,7 +293,7 @@ function DownloadButton() {
             <span className="text-xs">Coming soon</span>
           </div>
         </div>
-      </details>
+      )}
     </div>
   );
 }
