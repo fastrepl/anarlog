@@ -153,9 +153,6 @@ importers:
       '@hypr/editor':
         specifier: workspace:^
         version: link:../../packages/editor
-      '@hypr/plugin-activity-capture':
-        specifier: workspace:*
-        version: link:../../plugins/activity-capture
       '@hypr/plugin-agent':
         specifier: workspace:*
         version: link:../../plugins/agent
@@ -246,9 +243,6 @@ importers:
       '@hypr/plugin-relay':
         specifier: workspace:*
         version: link:../../plugins/relay
-      '@hypr/plugin-screen':
-        specifier: workspace:*
-        version: link:../../plugins/screen
       '@hypr/plugin-settings':
         specifier: workspace:*
         version: link:../../plugins/settings
@@ -1480,12 +1474,6 @@ importers:
         specifier: ^4.1.4
         version: 4.1.4(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(happy-dom@20.8.9)(jsdom@27.4.0(@noble/hashes@1.8.0))(vite@8.0.8(@types/node@25.6.0)(esbuild@0.27.7)(jiti@2.6.1)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3))
 
-  plugins/activity-capture:
-    dependencies:
-      '@tauri-apps/api':
-        specifier: ^2.10.1
-        version: 2.10.1
-
   plugins/agent:
     dependencies:
       '@tauri-apps/api':
@@ -1673,12 +1661,6 @@ importers:
         version: 2.10.1
 
   plugins/relay: {}
-
-  plugins/screen:
-    dependencies:
-      '@tauri-apps/api':
-        specifier: ^2.10.1
-        version: 2.10.1
 
   plugins/settings:
     dependencies:

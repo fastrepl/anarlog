@@ -1,6 +1,3 @@
-// https://github.com/insidegui/AudioCap/blob/93881a4/AudioCap/ProcessTap/AudioRecordingPermission.swift
-
-import CoreGraphics
 import Foundation
 import SwiftRs
 
@@ -26,24 +23,6 @@ public func _audio_capture_permission_status() -> Int {
   return result
 }
 
-@_cdecl("_screen_capture_permission_status")
-public func _screen_capture_permission_status() -> Int {
-  guard let apiHandle,
-    let funcSym = dlsym(apiHandle, "TCCAccessPreflight"),
-    let preflight = unsafeBitCast(funcSym, to: PreflightFuncType.self) as PreflightFuncType?
-  else {
-    return -1
-  }
-
-  let result = preflight("kTCCServiceScreenCapture" as CFString, nil)
-  return result
-}
-
-@_cdecl("_request_screen_capture_permission")
-public func _request_screen_capture_permission() -> Bool {
-  CGRequestScreenCaptureAccess()
-}
-
 @_cdecl("_reset_audio_capture_permission")
 public func _reset_audio_capture_permission(bundleId: SRString) -> Bool {
   guard let apiHandle,
@@ -55,19 +34,6 @@ public func _reset_audio_capture_permission(bundleId: SRString) -> Bool {
 
   let nsString = NSString(string: String(describing: bundleId))
   return reset("kTCCServiceAudioCapture" as CFString, nsString as CFString) == 0
-}
-
-@_cdecl("_reset_screen_capture_permission")
-public func _reset_screen_capture_permission(bundleId: SRString) -> Bool {
-  guard let apiHandle,
-    let funcSym = dlsym(apiHandle, "TCCAccessReset"),
-    let reset = unsafeBitCast(funcSym, to: ResetFuncType.self) as ResetFuncType?
-  else {
-    return false
-  }
-
-  let nsString = NSString(string: String(describing: bundleId))
-  return reset("kTCCServiceScreenCapture" as CFString, nsString as CFString) == 0
 }
 
 @_cdecl("_reset_microphone_permission")

@@ -22,10 +22,6 @@ export type StateBasicActions = {
     tab: Tab,
     state: Extract<Tab, { type: "settings" }>["state"],
   ) => void;
-  updateDailySummaryTabState: (
-    tab: Tab,
-    state: Extract<Tab, { type: "daily_summary" }>["state"],
-  ) => void;
 };
 
 export const createStateUpdaterSlice = <T extends BasicState & NavigationState>(
@@ -40,8 +36,6 @@ export const createStateUpdaterSlice = <T extends BasicState & NavigationState>(
     updateTabState(tab, "templates", state, get, set),
   updateSettingsTabState: (tab, state) =>
     updateTabState(tab, "settings", state, get, set),
-  updateDailySummaryTabState: (tab, state) =>
-    updateTabState(tab, "daily_summary", state, get, set),
 });
 
 const updateTabState = <T extends BasicState & NavigationState>(

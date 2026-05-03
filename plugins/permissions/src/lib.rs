@@ -89,8 +89,6 @@ mod test {
     permission_request_test!(test_request_microphone, Microphone);
     // cargo test --package tauri-plugin-permissions --lib -- test::test_request_system_audio --exact --nocapture
     permission_request_test!(test_request_system_audio, SystemAudio);
-    // cargo test --package tauri-plugin-permissions --lib -- test::test_request_screen_recording --exact --nocapture
-    permission_request_test!(test_request_screen_recording, ScreenRecording);
     // cargo test --package tauri-plugin-permissions --lib -- test::test_request_accessibility --exact --nocapture
     permission_request_test!(test_request_accessibility, Accessibility);
 
@@ -104,8 +102,6 @@ mod test {
     permission_reset_test!(test_reset_microphone, Microphone);
     // cargo test --package tauri-plugin-permissions --lib -- test::test_reset_system_audio --exact --nocapture
     permission_reset_test!(test_reset_system_audio, SystemAudio);
-    // cargo test --package tauri-plugin-permissions --lib -- test::test_reset_screen_recording --exact --nocapture
-    permission_reset_test!(test_reset_screen_recording, ScreenRecording);
     // cargo test --package tauri-plugin-permissions --lib -- test::test_reset_accessibility --exact --nocapture
     permission_reset_test!(test_reset_accessibility, Accessibility);
 }

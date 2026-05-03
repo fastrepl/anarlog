@@ -149,7 +149,6 @@ export function Permissions() {
   const reminders = usePermission("reminders");
   const mic = usePermission("microphone");
   const systemAudio = usePermission("systemAudio");
-  const screenRecording = usePermission("screenRecording");
   const accessibility = usePermission("accessibility");
   const inputMonitoring = usePermission("inputMonitoring");
 
@@ -187,15 +186,6 @@ export function Permissions() {
             onRequest={accessibility.request}
             onReset={accessibility.reset}
             onOpen={accessibility.open}
-          />
-          <PermissionRow
-            title="Screen recording"
-            description="Required to capture screenshots and on-screen context for vision and activity features"
-            status={screenRecording.status}
-            isPending={screenRecording.isPending}
-            onRequest={screenRecording.request}
-            onReset={screenRecording.reset}
-            onOpen={screenRecording.open}
           />
         </PermissionGroup>
 

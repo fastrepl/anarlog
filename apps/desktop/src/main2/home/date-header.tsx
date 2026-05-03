@@ -1,7 +1,5 @@
 import { cn } from "@hypr/utils";
 
-import { openDailySummaryTab } from "~/daily-summary";
-
 function ordinalSuffix(day: number): string {
   if (day >= 11 && day <= 13) return "th";
   switch (day % 10) {
@@ -40,11 +38,8 @@ export function DateHeader({
   const isToday = date === getTodayString();
   const content = (
     <>
-      <button
-        type="button"
-        onClick={() => openDailySummaryTab(date)}
+      <span
         className={cn([
-          "hover:text-neutral-600",
           muted
             ? [
                 "text-lg font-medium text-neutral-400",
@@ -54,7 +49,7 @@ export function DateHeader({
         ])}
       >
         {formatDateHeader(date)}
-      </button>
+      </span>
       {isToday && (
         <span className="rounded-full bg-neutral-900 px-2 py-0.5 text-xs font-medium text-white">
           Today

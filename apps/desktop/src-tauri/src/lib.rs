@@ -113,7 +113,6 @@ pub async fn main() {
         .plugin(tauri_plugin_analytics::init())
         .plugin(tauri_plugin_agent::init())
         .plugin(tauri_plugin_db::init(db.clone()))
-        .plugin(tauri_plugin_activity_capture::init())
         .plugin(tauri_plugin_bedrock::init())
         .plugin(tauri_plugin_importer::init())
         .plugin(tauri_plugin_calendar::init())
@@ -204,7 +203,6 @@ pub async fn main() {
         .on_window_event(tauri_plugin_windows::on_window_event)
         .setup(move |app| {
             let app_handle = app.handle().clone();
-            let app_clone = app_handle.clone();
 
             specta_builder.mount_events(&app_handle);
 
@@ -243,23 +241,6 @@ pub async fn main() {
                 supervisor::monitor_supervisor(handle, ctx.is_exiting.clone(), app_handle.clone());
             }
 
-            {
-                use tauri_plugin_activity_capture::ActivityCapturePluginExt;
-                // if app_handle.get_char_v1p1_preview().unwrap_or(false) {
-                if false {
-                    if let Err(e) = app_handle.activity_capture().start() {
-                        tracing::error!("failed to auto-start activity capture: {}", e);
-                    }
-                }
-            }
-
-            {
-                use tauri_plugin_local_llm::LocalLlmPluginExt;
-                if false {
-                    app_handle.local_llm().start_server();
-                }
-            }
-
             Ok(())
         })
         .build(context)
@@ -283,7 +264,6 @@ pub async fn main() {
                 let permissions = app_handle.permissions();
                 let _ = permissions.reset(Permission::Microphone).await;
                 let _ = permissions.reset(Permission::SystemAudio).await;
-                let _ = permissions.reset(Permission::ScreenRecording).await;
                 let _ = permissions.reset(Permission::Accessibility).await;
                 let _ = permissions.reset(Permission::Calendar).await;
                 let _ = permissions.reset(Permission::Reminders).await;

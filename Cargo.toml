@@ -23,10 +23,6 @@ exclude = [
 ]
 
 [workspace.dependencies]
-hypr-activity-capture = { path = "crates/activity-capture", package = "activity-capture" }
-hypr-activity-capture-interface = { path = "crates/activity-capture-interface", package = "activity-capture-interface" }
-hypr-activity-capture-macos = { path = "crates/activity-capture-macos", package = "activity-capture-macos" }
-hypr-activity-capture-windows = { path = "crates/activity-capture-windows", package = "activity-capture-windows" }
 hypr-aec = { path = "crates/aec", package = "aec" }
 hypr-afconvert = { path = "crates/afconvert", package = "afconvert" }
 hypr-agent-core = { path = "crates/agent-core", package = "agent-core" }
@@ -108,7 +104,6 @@ hypr-outlook-calendar = { path = "crates/outlook-calendar", package = "outlook-c
 hypr-pyannote-local = { path = "crates/pyannote-local", package = "pyannote-local" }
 hypr-resampler = { path = "crates/resampler", package = "resampler" }
 hypr-s3 = { path = "crates/s3", package = "s3" }
-hypr-screen-core = { path = "crates/screen-core", package = "screen-core" }
 hypr-shortcut-macos = { path = "crates/shortcut-macos", package = "shortcut-macos" }
 hypr-storage = { path = "crates/storage", package = "storage" }
 hypr-supabase-auth = { path = "crates/supabase-auth", package = "supabase-auth" }
@@ -164,7 +159,6 @@ tauri-plugin-store = "2.4"
 tauri-plugin-updater = "2.10"
 tauri-plugin-window-state = "2.4"
 
-tauri-plugin-activity-capture = { path = "plugins/activity-capture" }
 tauri-plugin-agent = { path = "plugins/agent" }
 tauri-plugin-analytics = { path = "plugins/analytics" }
 tauri-plugin-audio-priority = { path = "plugins/audio-priority" }
@@ -198,7 +192,6 @@ tauri-plugin-overlay = { path = "plugins/overlay" }
 tauri-plugin-path2 = { path = "plugins/path2" }
 tauri-plugin-permissions = { path = "plugins/permissions" }
 tauri-plugin-relay = { path = "plugins/relay" }
-tauri-plugin-screen = { path = "plugins/screen" }
 tauri-plugin-settings = { path = "plugins/settings" }
 tauri-plugin-sfx = { path = "plugins/sfx" }
 tauri-plugin-shortcut = { path = "plugins/shortcut" }
