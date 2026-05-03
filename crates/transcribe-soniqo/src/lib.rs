@@ -3,6 +3,12 @@ use std::str::FromStr;
 
 use owhisper_interface::{batch, stream};
 
+pub const LOCAL_BASE_URL: &str = "soniqo://local";
+
+pub fn is_local_base_url(base_url: &str) -> bool {
+    base_url.trim_end_matches('/') == LOCAL_BASE_URL
+}
+
 #[derive(
     Debug, Clone, Copy, serde::Serialize, serde::Deserialize, specta::Type, Eq, Hash, PartialEq,
 )]

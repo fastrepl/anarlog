@@ -31,7 +31,7 @@ pub(super) async fn spawn_rx_task(
     ),
     ActorProcessingErr,
 > {
-    if let Ok(model) = hypr_transcribe_soniqo::SoniqoModel::from_str(&args.model) {
+    if let Some(model) = soniqo_model_for_args(&args)? {
         if !model.supports_live() {
             return Err(actor_error(format!(
                 "provider_batch_only: {} only supports batch transcription",
@@ -87,6 +87,18 @@ pub(super) async fn spawn_rx_task(
     }, batch_only: [OpenAI, AquaVoice, Pyannote])?;
 
     Ok((result.0, result.1, result.2, adapter_kind.to_string()))
+}
+
+fn soniqo_model_for_args(
+    args: &ListenerArgs,
+) -> Result<Option<hypr_transcribe_soniqo::SoniqoModel>, ActorProcessingErr> {
+    if !hypr_transcribe_soniqo::is_local_base_url(&args.base_url) {
+        return Ok(None);
+    }
+
+    hypr_transcribe_soniqo::SoniqoModel::from_str(&args.model)
+        .map(Some)
+        .map_err(|e| actor_error(format!("soniqo_model_invalid: {e}")))
 }
 
 async fn spawn_soniqo_rx_task(
@@ -530,6 +542,38 @@ mod tests {
             participant_human_ids: vec![],
             self_human_id: None,
         }
+    }
+
+    #[test]
+    fn soniqo_model_detection_requires_local_base_url() {
+        let args = listener_args("https://api.deepgram.com/v1", "soniqo-parakeet-streaming");
+        assert_eq!(soniqo_model_for_args(&args).unwrap(), None);
+
+        let args = listener_args(
+            "https://api.deepgram.com/v1",
+            "aufklarer/Parakeet-EOU-120M-CoreML-INT8",
+        );
+        assert_eq!(soniqo_model_for_args(&args).unwrap(), None);
+    }
+
+    #[test]
+    fn soniqo_model_detection_accepts_local_base_url() {
+        let args = listener_args(
+            hypr_transcribe_soniqo::LOCAL_BASE_URL,
+            "soniqo-parakeet-streaming",
+        );
+
+        assert_eq!(
+            soniqo_model_for_args(&args).unwrap(),
+            Some(hypr_transcribe_soniqo::SoniqoModel::ParakeetStreaming)
+        );
+    }
+
+    #[test]
+    fn soniqo_model_detection_rejects_invalid_local_model() {
+        let args = listener_args(hypr_transcribe_soniqo::LOCAL_BASE_URL, "nova-3");
+
+        assert!(soniqo_model_for_args(&args).is_err());
     }
 
     #[test]

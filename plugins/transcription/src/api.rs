@@ -26,12 +26,18 @@ pub struct CaptureParams {
 
 impl CaptureParams {
     fn default_transcription_mode(&self) -> listener::TranscriptionMode {
-        if let Ok(model) = self.model.parse::<hypr_transcribe_soniqo::SoniqoModel>() {
-            return if model.supports_live() {
-                listener::TranscriptionMode::Live
-            } else {
-                listener::TranscriptionMode::Batch
-            };
+        if hypr_transcribe_soniqo::is_local_base_url(&self.base_url) {
+            return self
+                .model
+                .parse::<hypr_transcribe_soniqo::SoniqoModel>()
+                .map(|model| {
+                    if model.supports_live() {
+                        listener::TranscriptionMode::Live
+                    } else {
+                        listener::TranscriptionMode::Batch
+                    }
+                })
+                .unwrap_or(listener::TranscriptionMode::Batch);
         }
 
         let adapter_kind =
@@ -421,6 +427,26 @@ mod tests {
     #[test]
     fn defaults_soniqo_batch_capture_to_batch_mode() {
         let params = capture_params("soniqo://local", "soniqo-parakeet-batch");
+
+        assert_eq!(
+            params.default_transcription_mode(),
+            TranscriptionMode::Batch
+        );
+    }
+
+    #[test]
+    fn defaults_soniqo_model_on_non_soniqo_provider_from_provider_mode() {
+        let params = capture_params("https://api.openai.com/v1", "soniqo-parakeet-streaming");
+
+        assert_eq!(
+            params.default_transcription_mode(),
+            TranscriptionMode::Batch
+        );
+    }
+
+    #[test]
+    fn defaults_invalid_soniqo_local_model_to_batch_mode() {
+        let params = capture_params("soniqo://local", "nova-3");
 
         assert_eq!(
             params.default_transcription_mode(),

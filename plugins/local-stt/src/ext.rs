@@ -18,8 +18,6 @@ use crate::{
     types::DownloadProgressPayload,
 };
 
-const SONIQO_LOCAL_URL: &str = "soniqo://local";
-
 struct TauriModelRuntime<R: Runtime> {
     app_handle: tauri::AppHandle<R>,
 }
@@ -151,7 +149,7 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
                 .await
                 .map_err(|e| crate::Error::ServerStopFailed(e.to_string()))?;
 
-            return Ok(SONIQO_LOCAL_URL.to_string());
+            return Ok(hypr_transcribe_soniqo::LOCAL_BASE_URL.to_string());
         }
 
         let server_type = match &model {
@@ -265,7 +263,7 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
             let downloading = state.status == "downloading";
 
             return Ok(Some(ServerInfo {
-                url: downloaded.then(|| SONIQO_LOCAL_URL.to_string()),
+                url: downloaded.then(|| hypr_transcribe_soniqo::LOCAL_BASE_URL.to_string()),
                 status: if downloaded {
                     ServerStatus::Ready
                 } else if downloading {
