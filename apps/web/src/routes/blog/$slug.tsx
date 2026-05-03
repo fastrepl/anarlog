@@ -4,7 +4,7 @@ import { type Article, allArticles } from "content-collections";
 
 import { mdxComponents } from "@/components/mdx-components";
 import { SiteFooter } from "@/components/site-footer";
-import { CHAR_SITE_URL } from "@/lib/seo";
+import { ANARLOG_SITE_URL } from "@/lib/seo";
 
 export const Route = createFileRoute("/blog/$slug")({
   component: Component,
@@ -18,7 +18,7 @@ export const Route = createFileRoute("/blog/$slug")({
   head: ({ loaderData }) => {
     const article = loaderData?.article;
     if (!article) return {};
-    const url = `${CHAR_SITE_URL}/blog/${article.slug}`;
+    const url = `${ANARLOG_SITE_URL}/blog/${article.slug}`;
     return {
       links: [{ rel: "canonical", href: url }],
       meta: [

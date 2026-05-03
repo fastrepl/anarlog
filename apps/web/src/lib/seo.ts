@@ -1,5 +1,5 @@
-export const CHAR_SITE_URL = "https://anarlog.so";
-export const DEFAULT_OG_IMAGE_URL = `${CHAR_SITE_URL}/og.jpg`;
+export const ANARLOG_SITE_URL = "https://anarlog.so";
+export const DEFAULT_OG_IMAGE_URL = `${ANARLOG_SITE_URL}/og.jpg`;
 export const ROOT_TITLE = "Anarlog - Meeting Notes You Own";
 export const ROOT_DESCRIPTION =
   "Private, bot-free meeting notes that stay under your control. Anarlog stores notes as files you own and works fully offline with on-device models or your own keys.";
@@ -19,13 +19,13 @@ export function getOrganizationJsonLd() {
   return {
     "@type": "Organization",
     name: "Anarlog",
-    url: CHAR_SITE_URL,
-    logo: `${CHAR_SITE_URL}/logo.svg`,
+    url: ANARLOG_SITE_URL,
+    logo: `${ANARLOG_SITE_URL}/logo.svg`,
   };
 }
 
 export function getSoftwareApplicationJsonLd({
-  url = CHAR_SITE_URL,
+  url = ANARLOG_SITE_URL,
   description,
   featureList,
   aggregateOffer,
@@ -46,7 +46,7 @@ export function getSoftwareApplicationJsonLd({
     description,
     applicationCategory: "ProductivityApplication",
     operatingSystem: "macOS",
-    downloadUrl: CHAR_SITE_URL,
+    downloadUrl: ANARLOG_SITE_URL,
     publisher: getOrganizationJsonLd(),
     ...(featureList ? { featureList } : {}),
     ...(aggregateOffer

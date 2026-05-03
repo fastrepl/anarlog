@@ -3,7 +3,7 @@ import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { allLegals } from "content-collections";
 
 import { mdxComponents } from "@/components/mdx-components";
-import { CHAR_SITE_URL } from "@/lib/seo";
+import { ANARLOG_SITE_URL } from "@/lib/seo";
 
 export const Route = createFileRoute("/legal/$slug")({
   component: Component,
@@ -17,7 +17,7 @@ export const Route = createFileRoute("/legal/$slug")({
   head: ({ loaderData }) => {
     const doc = loaderData?.doc;
     if (!doc) return {};
-    const url = `${CHAR_SITE_URL}/legal/${doc.slug}`;
+    const url = `${ANARLOG_SITE_URL}/legal/${doc.slug}`;
     return {
       links: [{ rel: "canonical", href: url }],
       meta: [

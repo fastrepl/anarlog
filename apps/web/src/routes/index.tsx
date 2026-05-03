@@ -3,7 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ChevronDown } from "lucide-react";
 
 import {
-  CHAR_SITE_URL,
+  ANARLOG_SITE_URL,
   ROOT_DESCRIPTION,
   getOrganizationJsonLd,
   getSoftwareApplicationJsonLd,
@@ -58,7 +58,7 @@ const appleIntelDownloadUrl =
 export const Route = createFileRoute("/")({
   component: Component,
   head: () => ({
-    links: [{ rel: "canonical", href: CHAR_SITE_URL }],
+    links: [{ rel: "canonical", href: ANARLOG_SITE_URL }],
     scripts: [
       {
         type: "application/ld+json",

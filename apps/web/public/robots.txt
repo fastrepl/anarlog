@@ -37,4 +37,4 @@ Disallow: /press-kit
 # AI crawlers can find detailed content at /llms.txt
 
 # Sitemap location
-Sitemap: https://char.com/sitemap.xml
+Sitemap: https://anarlog.so/sitemap.xml
