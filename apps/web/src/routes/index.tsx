@@ -99,10 +99,10 @@ function Component() {
             <Link
               to="/blog/$slug/"
               params={{ slug: "char-is-now-anarlog" }}
-              className="mb-5 inline-flex max-w-full items-center gap-2 rounded-full border border-[#d8d0c5] px-5 py-3 text-base font-semibold text-[#756b5d] transition-colors hover:border-[#b8aea0] hover:bg-[#f7f4ef] hover:text-[#181613] sm:px-6 sm:text-xl"
+              className="mb-5 inline-flex max-w-full items-center gap-1.5 rounded-full border border-[#d8d0c5] px-2.5 py-1.5 text-[11px] leading-none font-semibold text-[#756b5d] transition-colors hover:border-[#b8aea0] hover:bg-[#f7f4ef] hover:text-[#181613]"
             >
               <span>Char is now Anarlog</span>
-              <ArrowRight size={20} strokeWidth={2.4} aria-hidden="true" />
+              <ArrowRight size={12} strokeWidth={2.4} aria-hidden="true" />
             </Link>
             <h1 className="font-hand max-w-3xl text-6xl leading-[0.98] font-semibold tracking-normal text-balance md:text-8xl">
               AI notepad for private meetings.
