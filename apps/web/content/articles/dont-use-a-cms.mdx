@@ -7,13 +7,13 @@ category: "Engineering"
 date: "2025-11-29"
 ---
 
-There's a recurring mistake I see early teams make: they pick a CMS way too early.
+Early teams keep making the same mistake: they pick a CMS way too early.
 
-They adopt one because it feels official, not because they need it or because their content is genuinely complicated. It's the same instinct that leads to setting up Jira before you have 5 engineers, or building a microservice before you have users. The structure feels mature and professional.
+They adopt one because it feels official, not because they need it or because their content is genuinely complicated. It's the same instinct that leads to Jira before you have 5 engineers, or microservices before you have users. The structure feels mature and professional.
 
 But it's unnecessary work that slows you down.
 
-This post is Part 4 of our publishing series, and it's probably the most direct one: don't use a CMS until you actually need one. Most teams don't, and you probably don't either.
+This post is Part 4 of our publishing series, and it's the most direct one: don't use a CMS until you actually need one. Most teams don't, and you probably don't either.
 
 ## 1. CMS complexity creeps up slowly and quietly
 
@@ -43,7 +43,7 @@ When you're small, content comes from whoever feels like writing that week: foun
 
 Early-stage content has one job: communicate clearly, ship quickly, correct later, and move on.
 
-A CMS inverts this. You spend time defining models, configuring schemas, deciding fields, arranging layouts, creating environments, and publishing through abstraction layers. You end up spending more time setting up the publishing pipeline than actually writing.
+A CMS inverts this. You spend time defining models, configuring schemas, arranging layouts, creating environments, and publishing through abstraction layers. You end up spending more time on the publishing pipeline than the writing.
 
 The best writing stacks make writing feel like thinking. A CMS makes it feel like filing a ticket.
 
@@ -51,13 +51,13 @@ The best writing stacks make writing feel like thinking. A CMS makes it feel lik
 
 You don't feel lock-in in Month 1. You feel it in Year 2 when you want to redesign the site, migrate to a new framework, or reduce technical debt—and you discover exports with weird block formats, "portable text" that isn't portable, HTML blobs with inline attributes, API rate limits, broken image references, and schema migrations that silently fail.
 
-That's when your CMS quietly tells you: "By the way, you can't leave."
+That's when your CMS quietly tells you "by the way, you can't leave".
 
 ## 6. Every CMS introduces a second reality
 
-A CMS creates two worlds: the content world (editor UI, schema models, drafts) and the code world (MDX, components, styling, deployment). You maintain a mental bridge between both, and every change travels across two systems.
+A CMS creates two worlds: the content world (editor UI, schema models, drafts) and the code world (MDX, components, styling, deployment). You maintain a mental bridge between them, and every change has to travel across two systems.
 
-Early teams can't absorb that cognitive cost. You need one world, not two.
+Early teams can't absorb that cost. You need one world, not two.
 
 ## 7. Git + MDX + IDE will take you much further than you think
 
@@ -86,7 +86,7 @@ A CMS is structure. Structure is stability. Stability is for late-stage companie
 
 Don't over-engineer your publishing stack. Don't imitate companies 100x your size. Don't install enterprise workflows into a tiny team.
 
-Just write and ship in the simplest system that respects your time. You can add complexity later. You cannot subtract it.
+Write and ship in the simplest system that respects your time. You can add complexity later. You can't subtract it.
 
 ---
 

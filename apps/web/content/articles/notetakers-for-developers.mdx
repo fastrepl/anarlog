@@ -8,11 +8,11 @@ category: "Comparisons"
 date: "2026-04-08"
 ---
 
-Most "best note-taking apps" articles are written for project managers and productivity influencers. They'll recommend Notion, show you a Kanban board screenshot, and call it a day. This isn't that article.
+Most "best note-taking apps" articles are written for project managers and productivity influencers. They recommend Notion, show you a Kanban board screenshot, and call it a day. This isn't that article.
 
-If you install tools through Homebrew, keep your dotfiles in a Git repo, and care whether your notes are stored as plain markdown or a proprietary blob, you have different requirements. You want local files you can grep. You want version control that isn't "page history (30 days)." You want a tool that doesn't require an account just to write a thought down.
+If you install tools through Homebrew, keep your dotfiles in a Git repo, and care whether your notes are stored as plain markdown or a proprietary blob, you have different requirements. You want local files you can grep. You want version control that isn't "page history (30 days)". You want a tool that doesn't require an account to write a thought down.
 
-I tested and researched these five tools across developer forums, Hacker News threads, Reddit discussions, and my own workflow. Each one covers a distinct use case. Here's what I found.
+I tested these tools across developer forums, Hacker News threads, Reddit discussions, and my own workflow. Each one covers a distinct use case. Here's what I found.
 
 ## How These Note-Taking Apps for Developers Compare
 
@@ -30,7 +30,7 @@ I tested and researched these five tools across developer forums, Hacker News th
 
 ### 1. Anarlog[a]
 
-[Anarlog](https://anarlog.so) is an open-source AI meeting note-taker that captures system audio directly from your computer, with no bot joining the call and no calendar permissions required. You jot notes in a built-in notepad while it transcribes in the background, then the AI merges both into a structured summary. Everything is stored on your device, and you can bring your own LLM: Ollama, LM Studio, OpenAI, Anthropic, etc.
+[Anarlog](https://anarlog.so) is an open-source AI meeting note-taker that captures system audio from your computer. No bot joins the call. No calendar permissions required. You jot notes in a built-in notepad while it transcribes in the background, and the AI merges both into a structured summary. Everything is stored on your device, and you can bring your own LLM: Ollama, LM Studio, OpenAI, Anthropic, etc.
 
 #### Why devs love it
 
@@ -40,7 +40,7 @@ I tested and researched these five tools across developer forums, Hacker News th
 - Export to Markdown, PDF (with a formatted cover page), JSON, VTT, and Org mode. You can point the storage directory at an Obsidian vault.
 - Record-only mode lets you capture audio now and transcribe it later. Meeting countdown auto-starts recording for calendar events.
 
-#### What’s the catch
+#### What's the catch
 
 - macOS only right now. Windows and Linux builds are planned for Q2 2026.
 - No mobile app. If you need to record a call from your phone, Anarlog can't help yet.
@@ -62,14 +62,14 @@ Free with no limits if you bring your own API key or run local models. For a dev
 - Your notes are just .md files on disk. Claude Code, VS Code, and grep all work on them directly. No API, no MCP, no export step.
 - The plugin ecosystem is enormous: Kanban boards, spaced repetition, Mermaid diagrams, Dataview queries, Git integration, and Vim keybindings.
 - Backlinks and graph view build a map of how your ideas connect over time. You don't organize upfront. You write, link with [[brackets]], and the structure emerges.
-- Canvas mode lets you spatially arrange notes and images on an infinite board for brainstorming architecture or planning sprints.
-- The app is fast. Startup is near-instant even with thousands of notes, which is more than most Electron apps can say.
+- Canvas mode lets you arrange notes and images on an infinite board for brainstorming architecture or planning sprints.
+- The app is fast. Startup is near-instant even with thousands of notes, which most Electron apps can't claim.
 
-#### What’s the catch
+#### What's the catch
 
 - Syncing across devices costs extra. Obsidian Sync starts at $4/month. Many devs use iCloud or Dropbox as a free workaround, but conflict resolution isn't as clean.
 - No real-time collaboration. You can share a vault via Sync, but it's not designed for two people editing the same note simultaneously.
-- The learning curve is real. New users often spend their first week configuring plugins instead of writing notes. The community calls this "plugin paralysis."
+- The learning curve is real. New users often spend their first week configuring plugins instead of writing notes. The community calls this "plugin paralysis".
 
 #### Cost
 
@@ -79,7 +79,7 @@ The core app is free forever, no account required. Obsidian Sync runs $5–10/mo
 
 ![how to use VS Code for notetaking](/api/assets/blog/articles/notetakers-for-developers/image-2.png "anarlog-editor-width=80")
 
-This isn't a product. It's a setup. You create a folder of .md files, open it in VS Code, and version-control it with Git.And if your team needs those markdown files published as shared docs, [GitBook](https://www.gitbook.com) syncs directly with your Git repo and renders them as a polished documentation site. Edit in VS Code, push to GitHub, GitBook handles the rest.
+This isn't a product. It's a setup. You create a folder of .md files, open it in VS Code, and version-control it with Git. If your team needs those markdown files published as shared docs, [GitBook](https://www.gitbook.com) syncs directly with your Git repo and renders them as a documentation site. Edit in VS Code, push to GitHub, GitBook handles the rest.
 
 #### Why devs love it
 
@@ -88,7 +88,7 @@ This isn't a product. It's a setup. You create a folder of .md files, open it in
 - Markdown All in One (5M+ installs) adds TOC generation, list continuation, and formatting shortcuts. markdownlint keeps your files consistent.
 - Side-by-side preview with Cmd+K V. IntelliSense autocompletes file links and headings. Drag-and-drop images just work.
 
-#### What’s the catch
+#### What's the catch
 
 - No mobile access. Your notes live on your laptop, period. Unless you set up something like GitHub Codespaces, you're stuck.
 - No backlinks, no graph view, no knowledge graph. Notes don't know about each other unless you manually link them in markdown.
@@ -96,7 +96,7 @@ This isn't a product. It's a setup. You create a folder of .md files, open it in
 
 #### Cost
 
-Free. VS Code is free. Git is free. A private GitHub repo is free. The only cost is the setup time and the discipline to commit regularly. Several devs automate the commit step with shell scripts or the GitDoc extension, which turns it into a fire-and-forget system.
+Free. VS Code is free, Git is free, a private GitHub repo is free. The only cost is setup time and the discipline to commit regularly. Several devs automate commits with shell scripts or the GitDoc extension, which turns it into a fire-and-forget system.
 
 ### 4. Joplin
 
@@ -111,11 +111,11 @@ Free. VS Code is free. Git is free. A private GitHub repo is free. The only cost
 - The terminal app (joplin) lets you manage notes entirely from the command line. It's the only mainstream note app that ships a TUI.
 - Web clipper for Chrome and Firefox. Evernote import tool that actually works. Markdown with notebook and tag organization.
 
-#### What’s the catch
+#### What's the catch
 
-- The desktop app is Electron and feels like it. It's functional, not fast. Opening a large notebook takes a noticeable beat compared to Obsidian or Apple Notes.
+- The desktop app is Electron and feels like it. Functional, not fast. Opening a large notebook takes a beat compared to Obsidian or Apple Notes.
 - No real-time collaboration. Joplin is a single-player tool. Sharing a note means exporting it.
-- The UI is honest but dated. If you care about visual polish, Joplin will feel utilitarian. The community calls it "function over form."
+- The UI is honest but dated. If you care about visual polish, Joplin will feel utilitarian. The community calls it "function over form".
 
 #### Cost
 
@@ -125,7 +125,7 @@ The app is free and open-source with no feature gates. Joplin Cloud is $5/month 
 
 ![logseq for notetaking](/api/assets/blog/articles/notetakers-for-developers/image-4.png "anarlog-editor-width=80")
 
-[Logseq](https://logseq.com) is an open-source, block-based outliner where every bullet point is a first-class object that can be linked, queried, and embedded anywhere in your knowledge graph. It stores notes as local Markdown or Org-mode files and uses daily journal pages as the main entry point. With 32,000+ GitHub stars and an AGPL license, it's one of the most actively developed PKM tools in the open-source ecosystem.
+[Logseq](https://logseq.com) is an open-source, block-based outliner where every bullet is a first-class object you can link, query, and embed anywhere in your graph. It stores notes as local Markdown or Org-mode files and uses daily journal pages as the entry point. With 32,000+ GitHub stars and an AGPL license, it's one of the most actively developed PKM tools in open source.
 
 #### Why devs love it
 
@@ -134,7 +134,7 @@ The app is free and open-source with no feature gates. Joplin Cloud is $5/month 
 - Built-in flashcards with spaced repetition. Add #card to any bullet and Logseq schedules reviews automatically. Useful for learning new frameworks or prepping for interviews.
 - PDF annotation with Zotero integration. Highlight a passage, and it links directly to your notes. Researchers and devs who read papers will recognize the value immediately.
 
-#### What’s the catch
+#### What's the catch
 
 - Mobile apps are the weak point. The iOS app has a history of crashes and slow loading. It works for quick capture, but extended editing on a phone is frustrating.
 - Sync has been Logseq's biggest friction point. The official Logseq Sync is still in beta. Without it, you're wiring up iCloud, Dropbox, or Git, all of which can cause conflicts if you're not careful.
@@ -157,7 +157,7 @@ Completely free with no feature limits for local use. Logseq Sync is $5/month (b
 - The editor is fast and modern: slash commands, nested collections, drag-and-drop, code blocks, embeds, and a clean reading experience that doesn't feel like a wiki from 2010.
 - REST API + webhooks + 20+ integrations including Slack, Zapier, and SSO via Google, Microsoft, or OIDC. If your team already has an identity provider, Outline slots right in.
 
-#### What’s not there yet
+#### What's not there yet
 
 - No mobile app. Outline works through a responsive web interface, which is functional but not the same as a native app for quick capture on the go.
 - Self-hosting requires Docker, Postgres, Redis, and an external auth provider (OIDC/OAuth). There's no built-in username/password login. If your team doesn't already run an identity provider, the setup is more involved.

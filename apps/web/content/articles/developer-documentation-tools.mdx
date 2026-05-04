@@ -7,13 +7,13 @@ category: "Engineering"
 date: "2025-12-02"
 ---
 
-Documentation is not the same thing as blogging.
+Documentation is not blogging.
 
-Docs are a product. People rely on them to unblock themselves, integrate with you, debug issues, and understand how your system actually works. So the tools you'd use for blog posts don't always work for docs.
+Docs are a product. People rely on them to unblock themselves, integrate with you, debug issues, and understand how your system actually works. The tools you'd use for blog posts don't always work for docs.
 
 Docs need structure, navigation, versioning, API examples, sidebars, and searchable knowledge. They also need to be maintainable by a real team — engineers, PMs, support, devrel — not just whoever has access to the CMS.
 
-This post breaks down what tools you should consider in 2026 if you're building developer documentation from scratch.
+This post breaks down what to consider in 2026 if you're building developer documentation from scratch.
 
 ## There are really only five kinds of docs systems
 
@@ -38,7 +38,7 @@ Each has a different cost model, maintenance profile, and failure mode.
 
 ## 1. Pure file-based docs (MDX) — the default for technical teams
 
-This includes Docusaurus, Nextra, MkDocs / Material for MkDocs, Astro + MDX, and TanStack Start + MDX. This is the modern "docs-as-code" standard.
+This includes Docusaurus, Nextra, MkDocs / Material for MkDocs, Astro + MDX, and TanStack Start + MDX. The modern "docs-as-code" standard.
 
 ### Pros
 
@@ -61,7 +61,7 @@ This includes Docusaurus, Nextra, MkDocs / Material for MkDocs, Astro + MDX, and
 
 Use this if you're a technical team that wants control without premature complexity. It works well if you don't have 15 PMs writing docs every day.
 
-For 80% of startups, file-based MDX docs will be the right answer. Vercel, Supabase, Clerk, Planetscale, PostHog, and most modern OSS projects use this approach.
+For 80% of startups, file-based MDX is the right answer. Vercel, Supabase, Clerk, Planetscale, PostHog, and most modern OSS projects use this approach.
 
 ## 2. Git-based CMS layer — best middle ground
 
@@ -106,7 +106,7 @@ Using Sanity, Payload, or Contentful to power docs.
 
 ### When to use it
 
-Use this if you're a larger organization with multiple products, multiple locales, and multiple teams updating docs. Think Stripe-level documentation needs. If you're under 100 employees, this is almost always unnecessary.
+Use this if you're a larger organization with multiple products, locales, and teams updating docs. Think Stripe-level documentation. If you're under 100 employees, this is almost always unnecessary.
 
 ## 4. Hosted docs platforms — fastest to deploy, most lock-in
 
@@ -134,7 +134,7 @@ Use this if you need docs fast, your team is mixed-technical, and you don't mind
 
 ## 5. Custom in-product docs — the future for some teams
 
-Many modern companies (Linear, Raycast, Warp, Replit) embed docs directly into their product or create heavily customized documentation systems with React/MDX component libraries, interactive playgrounds, copyable codeblocks, live components, search tied into product data, custom navigation patterns, and AI-assisted docs generation.
+Linear, Raycast, Warp, and Replit embed docs directly into their product or build heavily customized systems: React/MDX component libraries, interactive playgrounds, copyable codeblocks, live components, search tied into product data, custom navigation, AI-assisted docs generation.
 
 ### Pros
 
@@ -152,7 +152,7 @@ Many modern companies (Linear, Raycast, Warp, Replit) embed docs directly into t
 
 ### When to use it
 
-Use this if you're building a developer platform and your docs are part of your differentiation. This is the final evolution stage.
+Use this if you're building a developer platform and your docs are part of your differentiation.
 
 ## So… Which Should You Use in 2026?
 
@@ -164,7 +164,7 @@ Use this if you're building a developer platform and your docs are part of your 
 
 **If you need something live tomorrow:** use GitBook or Mintlify Cloud. Accept the lock-in for speed.
 
-**If your docs are part of your product:** build custom. This is where world-class developer tooling systems end up.
+**If your docs are part of your product:** build custom. That's where world-class developer tooling ends up.
 
 ## Things most teams don't realize about docs
 
@@ -174,7 +174,7 @@ Use this if you're building a developer platform and your docs are part of your 
 
 **Search matters more than design.** Your docs UI can be plain, but your search must be excellent. Algolia DocSearch, Pagefind, or a custom hybrid all work well.
 
-**Docs need to survive your future rewrites.** Your framework will change. Your content shouldn't break with it. This is why MDX in Git is the gold standard.
+**Docs need to survive your future rewrites.** Your framework will change. Your content shouldn't break with it. MDX in Git is the gold standard for that reason.
 
 ## What we're betting on at Anarlog
 

@@ -10,9 +10,9 @@ date: "2026-04-15"
 
 Anarlog and Meetily were both created in December 2024. Both are written in Rust. Both capture system audio without a bot. Both are open-source and local-first. 
 
-They look like the same product. They are not.
+They look like the same product. They aren't.
 
-Meetily is a private transcription recorder. It records, transcribes locally, and generates a summary. Anarlog is a meeting notepad. Its bet is that meetings are part of your workflow, not a separate activity. Transcription is one component of that.
+Meetily is a private transcription recorder. It records, transcribes locally, and generates a summary. Anarlog is a meeting notepad. The bet is that meetings are part of your workflow, not a separate activity. Transcription is one component.
 
 ## **TL;DR: Anarlog vs Meetily**
 
@@ -36,7 +36,7 @@ Meetily is a private transcription recorder. It records, transcribes locally, an
 
 ## **Similarities Between Anarlog and Meetily**
 
-Both tools were built as a direct reaction to cloud meeting tools like Otter and Fireflies. They share the same foundational decisions:
+Both tools were built in direct reaction to cloud meeting tools like Otter and Fireflies. They share the same foundational decisions:
 
 - System audio capture. No bot joins your call. No calendar permissions required.
 - 100% local processing available. Audio never has to leave your device.
@@ -45,23 +45,23 @@ Both tools were built as a direct reaction to cloud meeting tools like Otter and
 - Bot-free recording. No visible recording participant in your meetings.
 - Built in Rust.
 
-If your primary requirement is "no cloud, no bot, open-source," both tools satisfy it. The differences start after that.
+If your primary requirement is "no cloud, no bot, open-source", both tools satisfy it. The differences start after that.
 
 ## **Differences Between Anarlog and Meetily**
 
 ### **1. Platform support**
 
-Meetily runs on macOS and Windows. Anarlog runs on macOS and Linux. If you are on Windows, Meetily is your only option today. Anarlog has Windows on its roadmap but it is not available yet.
+Meetily runs on macOS and Windows. Anarlog runs on macOS and Linux. If you're on Windows, Meetily is your only option today. Anarlog has Windows on the roadmap but it's not available yet.
 
 ### **2. What each tool is built to do**
 
 Meetily is a recorder. Record, transcribe with Whisper or Parakeet via Ollama, get a summary. The product loop is short and intentional.
 
-Anarlog is a meeting notepad. It connects to your calendar (Google, Apple, Outlook), tracks your contacts, gives you a rich editor for notes, ships an AI assistant called Charlie that can edit your notes directly, and has daily notes in preview with task carry-forward. Meetings in Anarlog connect to the rest of your work. 
+Anarlog is a meeting notepad. It connects to your calendar (Google, Apple, Outlook), tracks contacts, gives you a rich editor for notes, ships an AI assistant called Charlie that edits your notes directly, and has daily notes in preview with task carry-forward. Meetings in Anarlog connect to the rest of your work. 
 
 ### **3. Taking notes during a meeting**
 
-Meetily is passive. You get a transcript and summary after the call. There is no editor.
+Meetily is passive. You get a transcript and summary after the call. No editor.
 
 Anarlog has a built-in editor. You write notes before the meeting starts: agenda items, context, things you need to close on. You take notes during the call. After the meeting, the AI folds your notes and the transcript into a structured summary. Your pre-meeting context shapes the output.
 

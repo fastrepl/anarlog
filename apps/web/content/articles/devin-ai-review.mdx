@@ -9,9 +9,7 @@ category: "Engineering"
 date: "2026-02-13"
 ---
 
-In the last two months, my two-person team spent over $5,000 running roughly 1,000 tasks in **[Devin](https://devin.ai/)**, the AI software engineer. We weren't spinning up 10 Claude Code instances to burn tokens as fast as possible. This is what actually happened when we integrated AI agents into our real-world workflow while building Anarlog.
-
-Here's what we learned.
+In the last two months, my two-person team spent over $5,000 running roughly 1,000 tasks in **[Devin](https://devin.ai/)**, the AI software engineer. We weren't spinning up 10 Claude Code instances to burn tokens. This is what actually happened when we integrated AI agents into our workflow while building Anarlog.
 
 ## Not a Reader? Watch the Video Instead
 
@@ -21,9 +19,9 @@ Here's what we learned.
 
 ## Running AI Agents Where Your Team Already Works
 
-The single most powerful decision we made was running Devin inside Slack, not our IDE.
+The best decision we made was running Devin inside Slack, not our IDE.
 
-Slack is where discussions already happen. We're already getting alerts from Zendesk, Sentry, and Discord. Launching an agent directly inside a thread where the problem is being discussed eliminates the friction of switching contexts.
+Slack is where discussions already happen. We already get alerts from Zendesk, Sentry, and Discord there. Launching an agent inside the thread where a problem is being discussed kills the friction of switching contexts.
 
 **Real example:** John, my co-founder, identified an issue with our AI prompts and tagged Devin to fix it. Devin fixed it, but the approach was non-optimal. Since AI prompting is something I work on, I jumped into the same thread with more context. Devin figured it out based on my additional input, finished the PR, and it got merged. We stayed in the same Slack thread the whole time, with no copy-pasting between tools.
 
@@ -33,23 +31,23 @@ The agent participates in the same Slack threads where we discuss the problem.
 
 ## AI Agents Enable Non-Technical Teams to Ship Code
 
-Having an agent accessible from Slack opened up tasks that don't necessarily require technical skills. For instance, understanding what we're tracking in analytics or making small adjustments to better understand user behavior.
+Having an agent accessible from Slack opened up tasks that don't require technical skills—understanding what we're tracking in analytics, or making small adjustments to better understand user behavior.
 
-John attached some PostHog docs and asked questions about what we're tracking and what we should be tracking long-term. Devin made the changes. Now both John and I know we have analytics updates—super helpful for staying aligned.
+John attached some PostHog docs and asked questions about what we're tracking and what we should be tracking long-term. Devin made the changes. Now both of us know we have analytics updates—helpful for staying aligned.
 
 Since we use GitHub as a CMS for Anarlog, we can even update landing pages or blog content directly from Slack. John attached a PDF from an internal discussion, and Devin updated our docs based on the actual conversation we had.
 
 ## Three Types of Tasks to Delegate to Devin AI
 
-As a small early-stage startup, there's always a lot going on. We're handling day-to-day work while thinking about what's next—new features, product direction, how the codebase should evolve. Dumping all of this into an async coding agent lets us explore solutions without blocking other work.
+As a small early-stage startup, there's always a lot going on. We're handling day-to-day work while thinking about new features, product direction, how the codebase should evolve. Dumping all of that into an async coding agent lets us explore solutions without blocking the work in front of us.
 
 ### Degree 1: Exploration (Not Shipping Anytime Soon)
 
-This is work that isn't planned for the immediate future. We're not going to ship it or even merge it right now, but exploring it helps us understand what the work would look like, how complex it is, and roughly how long it might take.
+Work we're not planning to ship soon. We won't merge it right now, but exploring it tells us what the work looks like, how complex it is, and roughly how long it might take.
 
 **Example:** Even though we're focusing on our macOS desktop app, we had ideas around building a Chrome extension. I asked Devin to research how to make a Chrome extension that works with a desktop app. We learned how 1Password does it and got a rough plan.
 
-Then we cloned the repository of a popular Chrome extension framework. Based on the docs and actual code examples, we implemented it to see how it would look. We didn't merge it, but it's useful to see how it'll look in the future.
+Then we cloned the repository of a popular Chrome extension framework. Using the docs and code examples, we implemented it to see how it would look. We didn't merge it, but the prototype is useful to have around.
 
 ### Degree 2: Preparation (Relevant, But Not Right Now)
 
@@ -63,7 +61,7 @@ We did research to see if there was any existing work on that. There was, so we 
 
 This is work we'll definitely look at, but spawning the agent right now lets us avoid context switching. Maybe we're traveling or about to go to sleep.
 
-**Example:** We needed to update test cases around our Tinybase utils—very relevant and important work. We asked Devin to clone the repo, inspect the codebase, and write the test cases.
+**Example:** We needed to update test cases around our Tinybase utils. We asked Devin to clone the repo, inspect the codebase, and write the test cases.
 
 One trick: we asked Devin to use the Claude CLI that we already installed on Devin's machine. This way we can offload some AI inference to our Anthropic account and use some credits.
 
@@ -71,11 +69,11 @@ One trick: we asked Devin to use the Claude CLI that we already installed on Dev
 
 ## Good Documentation Enables AI Agents to Ship Code Faster
 
-In Anarlog, we focus on supporting multiple providers for language and speech model inference as part of our open-source effort. Early on, we spent time designing and documenting flexible, clean interfaces. This worked well for future contributions and community involvement, and the same benefits apply when working with coding agents.
+In Anarlog, we support multiple providers for language and speech model inference as part of our open-source effort. Early on, we spent time designing and documenting clean interfaces. That paid off for community contributions, and the same benefits apply when working with coding agents.
 
 **Example: ElevenLabs Support**
 
-We support both WebSocket-based real-time transcription and file upload-based batch transcription. We had a very detailed prompt on how models should be handled, how language should be handled, and other API references in the docs.
+We support both WebSocket-based real-time transcription and file upload-based batch transcription. We had a detailed prompt on how models should be handled, how language should be handled, and other API references in the docs.
 
 Since we have end-to-end testing support in place, we sent the ElevenLabs API key as credentials (this can be passed in the prompt or through Infisical CLI). With all the documentation, test cases, and API key in place, Devin implemented it in almost one shot, and we safely merged it.
 
@@ -91,7 +89,7 @@ The pattern: good docs, clean interfaces, and test infrastructure make it possib
 
 ## Automating Code Maintenance with AI Agents
 
-Once a codebase reaches a certain size and age, maintenance work alone can consume significant engineering time and slow the team down. Coding agents let us offload much of that work.
+Once a codebase reaches a certain size and age, maintenance alone can eat most of your engineering time. Coding agents let us offload most of it.
 
 ### Single-Prompt Migrations
 
@@ -104,7 +102,7 @@ One common example is doing migrations that have clear documentation. In Anarlog
 
 Things can get more complicated and may require multiple PRs or concurrent work.
 
-A good example is applying Vercel's recent React best practices agent skills. We attached Vercel's React best practices document, and Devin figured out what changes should be done. Since there was a lot of isolatable work, we prompted Devin to do this concurrently by spawning concurrent Devin sessions.
+A good example: applying Vercel's recent React best practices agent skills. We attached Vercel's document, and Devin figured out what changes were needed. Since most of the work was isolatable, we prompted Devin to spawn concurrent sessions.
 
 One way to do this is to ask Devin to make actual API calls. But there's a better way: use the analyze-session task. This lets you spawn concurrent Devin sessions to run work concurrently and generate separate PRs per task.
 
@@ -112,15 +110,15 @@ One way to do this is to ask Devin to make actual API calls. But there's a bette
 
 Migrations and new guidelines don't happen every day, but pairing an agent with an automated linting tool can be applied daily.
 
-In Anarlog, we have a large Rust codebase, and since Cargo Clippy is pretty good, we set up a GitHub Action to run Cargo Clippy daily and spawn Devin to apply any fixes based on the output.
+We have a large Rust codebase, and Cargo Clippy is pretty good, so we set up a GitHub Action to run Clippy daily and spawn Devin to apply any fixes based on the output.
 
-This saves a lot of time applying these guidelines or Clippy warnings in an async manner, since running Clippy and Cargo check takes a long time.
+Clippy and Cargo check take a while to run, so doing this async saves us real time.
 
 ## When Devin Works and When It Doesn't
 
 If you're expecting AI agents to replace developers, you'll be disappointed. We're not there yet.
 
-But if you're looking to meaningfully extend what a small team can accomplish, it's absolutely worth it.
+If you're looking to extend what a small team can accomplish, it's worth the spend.
 
 **Devin AI is worth the investment when you:**
 
@@ -137,8 +135,8 @@ But if you're looking to meaningfully extend what a small team can accomplish, i
 - Want it to make architectural decisions
 - Need it to work in complete isolation without human oversight
 
-After 1,000 tasks, the pattern is clear: You're not buying code generation. You're buying the ability to delegate work and parallelize effort across your team.
+After 1,000 tasks, the pattern is clear. You're not buying code generation. You're buying the ability to delegate work and parallelize effort across your team.
 
-The best ROI came from tasks we could delegate async—exploration work at 2 AM, maintenance work during travel, migrations while focusing on core features. The agent didn't replace our judgment; it multiplied our capacity to act on it.
+The best ROI came from tasks we could delegate async—exploration at 2 AM, maintenance during travel, migrations while we focus on core features. The agent didn't replace our judgment. It multiplied our capacity to act on it.
 
-**Our recommendation:** Start with one well-defined use case (like automated linting or simple migrations), measure the time saved, then expand. Don't try to use it for everything on day one.
+**Our recommendation:** Start with one well-defined use case (automated linting, simple migrations), measure the time saved, then expand. Don't try to use it for everything on day one.

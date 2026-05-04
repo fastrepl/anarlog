@@ -11,11 +11,11 @@ date: "2025-11-28"
 
 If you're building a blog, docs, or a knowledge base in 2026, the options are overwhelming.
 
-Sanity or Payload? Nextra or GitBook? Git-based CMS like Keystatic? Or just raw MDX in GitHub with zero CMS at all?
+Sanity or Payload? Nextra or GitBook? Git-based CMS like Keystatic? Or raw MDX in GitHub with zero CMS at all?
 
-We went through the same decision for Anarlog. This post maps the territory so you don't have to burn as many cycles on it.
+We went through this for Anarlog. This post maps the territory so you don't have to burn the same cycles.
 
-I won't tell you "X is the best CMS." Instead, I'll show you what each category is good at, what it quietly locks you into, and when you probably don't need a CMS at all.
+I won't tell you "X is the best CMS". I'll show you what each category is good at, what it quietly locks you into, and when you probably don't need a CMS at all.
 
 **This is Part 3 of our publishing series.**
 
@@ -79,7 +79,7 @@ Cons:
 - No drag-and-drop media UI out of the box
 - No built-in content dashboard, workflows, or roles
 
-If your team is very technical and you're early-stage, this is almost always the correct default. You can always add a Git-based or headless CMS later without throwing anything away.
+If your team is technical and you're early-stage, this is the right default. You can add a Git-based or headless CMS later without throwing anything away.
 
 ## 2. Git-based CMS: "UI for your repo" (Keystatic & friends)
 
@@ -104,7 +104,7 @@ Cons:
 - You're tied into their config models and upgrade cycle
 - Not as "enterprise omnichannel" as big headless CMSs
 
-Use this when you like the Git + MDX approach but want PMs, designers, or marketing to tweak copy and metadata without opening an IDE.
+Use this when you like Git + MDX but want PMs, designers, or marketing to tweak copy and metadata without opening an IDE.
 
 ---
 
@@ -147,17 +147,17 @@ Sometimes you don't need a CMS. You need a **docs product**.
 
 ### GitBook
 
-GitBook positions itself as a documentation + knowledge base platform for technical teams, with a polished block-based editor, site customization options, and Git Sync that lets you connect to GitHub/GitLab for a docs-as-code workflow. [GitBook](https://gitbook.com/docs)
+GitBook is a documentation + knowledge base platform for technical teams, with a block-based editor, site customization, and Git Sync that lets you connect to GitHub/GitLab for a docs-as-code workflow. [GitBook](https://gitbook.com/docs)
 
-It works well if you want a hosted, beautiful docs site with search, navigation, versioning, and collaboration. It supports optional Git synchronization for teams that still want Markdown in repos.
+It works if you want a hosted docs site with search, navigation, versioning, and collaboration, and supports optional Git sync for teams that still want Markdown in repos.
 
-Notion, Confluence, and similar tools live in the same category but less focused on developers.
+Notion, Confluence, and similar tools live in the same category but are less focused on developers.
 
 Pros:
 
-- Fastest path to a polished docs or knowledge base
+- Fastest path to a docs or knowledge base
 - Low setup cost, almost no infrastructure
-- Very friendly for non-technical stakeholders
+- Friendly for non-technical stakeholders
 - Often have built-in AI-assisted search and summaries
 
 Cons:
@@ -183,11 +183,11 @@ Use this when you want a **docs site ready tomorrow**, UX matters more than cont
 
 ## 5. Special case: Nextra & friends (frameworks, not CMSs)
 
-Tools like **Nextra** are not CMS platforms but content-focused frameworks built on Next.js that make it easy to build docs and blog sites with Markdown/MDX and opinionated themes. [Nextra](https://nextra.site/docs)
+Tools like **Nextra** aren't CMS platforms. They're content-focused frameworks built on Next.js that make it easy to ship docs and blog sites with Markdown/MDX and opinionated themes. [Nextra](https://nextra.site/docs)
 
-Nextra gives you prebuilt docs/blog UI (sidebar, nav, search glue), MDX-first authoring, and works well for developer docs and personal blogs.
+Nextra gives you prebuilt docs/blog UI (sidebar, nav, search glue), MDX-first authoring, and works for developer docs and personal blogs.
 
-You still choose how to manage content: plain files, a Git-based CMS, a headless CMS feeding MDX remotely, etc.
+You still pick how to manage content: plain files, a Git-based CMS, a headless CMS feeding MDX remotely, etc.
 
 This is the category Anarlog's stack resembles: modern React/MDX frontend with content-first in Git.
 
@@ -203,7 +203,7 @@ This is the category Anarlog's stack resembles: modern React/MDX frontend with c
 | You just need a docs/KB site ASAP | **Docs platform** (GitBook, maybe Notion early) |
 | You want fine control over UI + MDX, but not heavy infra | **Nextra or similar framework** on top of Git |
 
-If you're not sure, default to Git + MDX now. Add a Git-based or headless CMS later only if reality forces you to.
+If you're not sure, default to Git + MDX. Add a Git-based or headless CMS later only if reality forces you to.
 
 Most teams overestimate how much CMS infrastructure they need in the first 2–3 years.
 

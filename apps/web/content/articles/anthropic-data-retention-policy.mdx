@@ -16,7 +16,7 @@ If you're evaluating AI providers right now, this is the context you need.
 
 ## What Does Claude Store by Default?
 
-For consumer accounts, that are Claude Free, Pro, and Max, conversations are saved to your account until you delete them. Once deleted, they're removed from your chat history immediately but remain on Anthropic's back-end systems for up to 30 days before being permanently deleted.
+For consumer accounts (Claude Free, Pro, and Max), conversations are saved to your account until you delete them. Once deleted, they're removed from your chat history immediately but stay on Anthropic's back-end systems for up to 30 days before being permanently deleted.
 
 That's the standard case. A few exceptions matter:
 
@@ -32,11 +32,11 @@ Anthropic's previous stance was clean: consumer chats would not be used for trai
 
 If you opted in, Anthropic could retain your conversations in de-identified form for up to 5 years and use them for model training. If you opted out, nothing changed. There's still a 30-day retention, no training use.
 
-The reaction was immediate. Security researchers and privacy advocates flagged it as a "privacy pivot." The opt-in training setting extends data retention from 30 days to 5 years, a 60x increase in how long your conversations can sit in Anthropic's training pipeline.
+The reaction was immediate. Security researchers and privacy advocates flagged it as a "privacy pivot". The opt-in training setting extends data retention from 30 days to 5 years — a 60x increase in how long your conversations can sit in Anthropic's training pipeline.
 
 ## How to Check and Change Your Settings
 
-To see where your account stands: Claude.ai → Settings → Privacy → "Improve Claude for everyone."
+To see where your account stands: Claude.ai → Settings → Privacy → "Improve Claude for everyone".
 
 If the toggle is on, your new conversations are eligible for training and retained for up to 5 years. Turning it off returns you to the 30-day retention standard.
 
@@ -48,7 +48,7 @@ The consumer product and the API have meaningfully different data policies, and 
 
 As of September 14, 2025, Anthropic reduced API log retention from 30 days to 7 days. API inputs and outputs are automatically deleted after 7 days. They are never used for model training.
 
-If your organization needs longer retention for auditing purposes, you can opt in to the 30-day window via your Data Processing Addendum. But the default is 7 days, which is stricter than most providers.
+If your organization needs longer retention for auditing, you can opt in to the 30-day window via your Data Processing Addendum. The default of 7 days is stricter than most providers.
 
 For enterprise API customers who qualify, Anthropic also offers a Zero Data Retention agreement. Under ZDR, inputs and outputs are not stored at all beyond what's needed to screen for abuse. One caveat: Anthropic still retains User Safety classifier results even under ZDR, to enforce their usage policy.
 
@@ -68,7 +68,7 @@ GDPR: Anthropic supports GDPR compliance for commercial customers through a Data
 
 In June 2025, [Reddit filed a lawsuit against Anthropic](https://ppc.land/reddit-files-lawsuit-against-anthropic-over-unauthorized-claude-ai-training/) alleging that Anthropic scraped more than 100,000 Reddit posts and comments without authorization to train Claude. Reddit presented evidence that Claude reproduced deleted Reddit posts with near-perfect accuracy.
 
-This isn't about your personal data directly. But it's relevant context for how Anthropic has approached training data acquisition, and it matters when evaluating whether a company's stated privacy values match their actual behavior.
+This isn't about your personal data directly. But it's context for how Anthropic has approached training data acquisition, and it matters when evaluating whether a company's stated privacy values match its behavior.
 
 ## How Claude.ai Compares to Using Claude Through Anarlog
 
@@ -86,6 +86,6 @@ This isn't about your personal data directly. But it's relevant context for how 
 
 And if Anthropic's policy trajectory gives you pause, you're not locked in. Anarlog supports OpenAI, Mistral, Google Gemini, and local models via Ollama. Your notes stay on your device regardless of which AI processes them. Switching providers doesn't mean starting over.
 
-That's what actual control looks like. It's not just a privacy toggle that defaults to whatever Anthropic decides next quarter.
+That's what actual control looks like — not a privacy toggle that defaults to whatever Anthropic decides next quarter.
 
 [Download Anarlog for macOS](https://anarlog.so/download/apple-silicon) and use the AI provider your security team actually trusts.

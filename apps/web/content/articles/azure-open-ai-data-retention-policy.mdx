@@ -10,7 +10,7 @@ date: "2026-03-19"
 
 Azure OpenAI runs the same underlying models as the consumer ChatGPT product. GPT-4o, GPT-4 Turbo, o1, and others are all available through both. But the data policy is not the same.
 
-When you access OpenAI's models through Microsoft Azure, your data stays within your Azure tenant, Microsoft does not use it to train any models, and you gain access to enterprise compliance frameworks that the consumer product does not offer. The models are identical. The data handling is not.
+When you access OpenAI's models through Microsoft Azure, your data stays within your Azure tenant, Microsoft does not use it to train any models, and you get enterprise compliance frameworks the consumer product does not offer. The models are identical. The data handling is not.
 
 Here is what that means in practice.
 
@@ -22,7 +22,7 @@ Your prompts and completions are retained for up to 30 days for abuse monitoring
 
 ## Who at Microsoft Can Actually See Your Data?
 
-Microsoft employs automated systems for abuse monitoring. Human reviewers can access flagged content, but only content that has been specifically flagged by the automated system, and only through Secure Access Workstations with Just-In-Time approval from team managers. It is not open-access review.
+Microsoft uses automated systems for abuse monitoring. Human reviewers can access flagged content, but only content the automated system has flagged, and only through Secure Access Workstations with Just-In-Time approval from team managers. It is not open-access review.
 
 This is a materially different setup from [Google Gemini's human review policy](https://anarlog.so/blog/google-gemini-data-retention-policy/#human-review-in-plain-terms), where reviewers can access conversations more broadly for quality evaluation.
 
@@ -46,7 +46,7 @@ For GDPR, Microsoft offers an EU Data Zone option that processes and stores your
 
 Both Azure OpenAI and [OpenAI's direct API](https://anarlog.so/blog/chatgpt-data-retention-policy/#the-openai-api-has-meaningfully-better-data-controls) offer enterprise-grade data controls including ZDR. The practical differences come down to infrastructure and compliance coverage.
 
-Azure OpenAI sits inside your existing Azure environment, which means it integrates with your Azure Active Directory, your private virtual networks, your logging infrastructure, and your existing Microsoft compliance agreements. If your organization is already on Azure, adding Azure OpenAI does not introduce a new vendor relationship.
+Azure OpenAI sits inside your existing Azure environment. It integrates with your Azure Active Directory, private virtual networks, logging infrastructure, and existing Microsoft compliance agreements. If your organization is already on Azure, adding Azure OpenAI does not introduce a new vendor relationship.
 
 ## What This Means for Your Evaluation
 
