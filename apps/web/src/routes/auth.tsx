@@ -292,10 +292,15 @@ function DesktopTokenView({
   refreshToken: string;
 }) {
   const [copied, setCopied] = useState(false);
+  const hasOpenedRef = useRef(false);
   const deeplink = `${scheme}://auth/callback?${new URLSearchParams({
     access_token: accessToken,
     refresh_token: refreshToken,
   }).toString()}`;
+
+  const handleOpen = () => {
+    window.location.href = deeplink;
+  };
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(deeplink);
@@ -303,13 +308,26 @@ function DesktopTokenView({
     window.setTimeout(() => setCopied(false), 2000);
   };
 
+  useMountEffect(() => {
+    if (hasOpenedRef.current) {
+      return;
+    }
+
+    hasOpenedRef.current = true;
+    handleOpen();
+  });
+
   return (
     <div className="flex flex-col gap-4 px-8 pb-8">
       <p className="text-center text-sm text-[#5d5549]">
-        Click the button below to return to the desktop app.
+        Anarlog should open automatically. If it does not, click the button
+        below to return to the desktop app.
       </p>
       <a
         href={deeplink}
+        onClick={() => {
+          hasOpenedRef.current = true;
+        }}
         className="flex w-full items-center justify-center rounded-full bg-[#181613] px-4 py-2 font-sans text-white transition-colors hover:bg-[#373128]"
       >
         Open Anarlog

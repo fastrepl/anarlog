@@ -1,8 +1,10 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { ArrowRight, ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { z } from "zod";
 
 import { SiteFooter } from "@/components/site-footer";
+import { desktopSchemeSchema } from "@/functions/desktop-flow";
 import { getGitHubStars } from "@/functions/github";
 import {
   ANARLOG_SITE_URL,
@@ -57,7 +59,54 @@ const appleSiliconDownloadUrl =
 const appleIntelDownloadUrl =
   "https://cdn.crabnebula.app/download/fastrepl/hyprnote2/latest/platform/dmg-x86_64?channel=stable";
 
+const authCallbackSearchSchema = z.object({
+  code: z.string().optional(),
+  token_hash: z.string().optional(),
+  type: z
+    .enum([
+      "email",
+      "recovery",
+      "magiclink",
+      "signup",
+      "invite",
+      "email_change",
+    ])
+    .optional()
+    .catch(undefined),
+  flow: z.enum(["desktop", "web"]).optional().catch("desktop"),
+  scheme: desktopSchemeSchema.optional().catch("hyprnote"),
+  redirect: z.string().optional(),
+  error: z.string().optional(),
+  error_description: z.string().optional(),
+});
+
 export const Route = createFileRoute("/")({
+  validateSearch: authCallbackSearchSchema,
+  beforeLoad: ({ search }) => {
+    const hasAuthCallback =
+      !!search.code || !!search.error || (!!search.token_hash && !!search.type);
+
+    if (!hasAuthCallback) {
+      return;
+    }
+
+    const flow = search.flow ?? "desktop";
+    const scheme = search.scheme ?? "hyprnote";
+
+    throw redirect({
+      to: "/auth/",
+      search: {
+        flow,
+        scheme,
+        code: search.code,
+        token_hash: search.token_hash,
+        type: search.type,
+        redirect: search.redirect,
+        error: search.error,
+        error_description: search.error_description,
+      } as any,
+    });
+  },
   component: Component,
   loader: async () => ({
     githubStars: await getGitHubStars(),
