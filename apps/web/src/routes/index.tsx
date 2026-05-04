@@ -217,7 +217,7 @@ function DownloadButton() {
         <img
           src="https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg"
           alt=""
-          className="size-4"
+          className="size-4 invert"
           aria-hidden="true"
         />
         <span>Download for Apple Silicon</span>
