@@ -1,4 +1,3 @@
-import { Icon } from "@iconify-icon/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -215,7 +214,12 @@ function DownloadButton() {
         href={appleSiliconDownloadUrl}
         className="inline-flex items-center gap-1 rounded-l-full bg-[#181613] py-3 pr-1 pl-4 text-[13px] text-white sm:pl-5 sm:text-sm"
       >
-        <Icon icon="simple-icons:apple" className="size-4" aria-hidden="true" />
+        <img
+          src="https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg"
+          alt=""
+          className="size-4"
+          aria-hidden="true"
+        />
         <span>Download for Apple Silicon</span>
       </a>
       <button
@@ -237,8 +241,9 @@ function DownloadButton() {
             href={appleIntelDownloadUrl}
             className="flex items-center gap-3 rounded-xl px-3 py-3 text-[#181613] transition-colors hover:bg-[#f7f4ef]"
           >
-            <Icon
-              icon="simple-icons:apple"
+            <img
+              src="https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg"
+              alt=""
               className="size-5"
               aria-hidden="true"
             />
@@ -248,8 +253,9 @@ function DownloadButton() {
             aria-disabled="true"
             className="flex items-center gap-3 rounded-xl px-3 py-3 text-[#756b5d]"
           >
-            <Icon
-              icon="simple-icons:windows"
+            <img
+              src="https://upload.wikimedia.org/wikipedia/commons/5/5f/Windows_logo_-_2012.svg"
+              alt=""
               className="size-5"
               aria-hidden="true"
             />
@@ -260,8 +266,9 @@ function DownloadButton() {
             aria-disabled="true"
             className="flex items-center gap-3 rounded-xl px-3 py-3 text-[#756b5d]"
           >
-            <Icon
-              icon="simple-icons:linux"
+            <img
+              src="https://upload.wikimedia.org/wikipedia/commons/3/35/Tux.svg"
+              alt=""
               className="size-5"
               aria-hidden="true"
             />
