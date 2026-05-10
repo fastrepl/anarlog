@@ -2,8 +2,8 @@ import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-import { env } from "@/env";
 import { isAdminEmail } from "@/functions/admin";
+import { getRequestAppOrigin } from "@/functions/app-origin";
 import { desktopSchemeSchema } from "@/functions/desktop-flow";
 import {
   getSupabaseAdminClient,
@@ -33,6 +33,9 @@ function buildAuthCallbackParams(data: {
   if (data.redirect) params.set("redirect", data.redirect);
   return params;
 }
+
+const buildAuthCallbackUrl = (params: URLSearchParams) =>
+  `${getRequestAppOrigin()}/callback/auth?${params.toString()}`;
 
 function tokenSuccess(session: {
   access_token: string;
@@ -175,7 +178,7 @@ export const doAuth = createServerFn({ method: "POST" })
     const { data: authData, error } = await supabase.auth.signInWithOAuth({
       provider: data.provider,
       options: {
-        redirectTo: `${env.VITE_APP_URL}/callback/auth?${params.toString()}`,
+        redirectTo: buildAuthCallbackUrl(params),
         scopes,
       },
     });
@@ -200,7 +203,7 @@ export const doMagicLinkAuth = createServerFn({ method: "POST" })
     const { error } = await supabase.auth.signInWithOtp({
       email: data.email,
       options: {
-        emailRedirectTo: `${env.VITE_APP_URL}/callback/auth?${params.toString()}`,
+        emailRedirectTo: buildAuthCallbackUrl(params),
       },
     });
 
@@ -277,7 +280,7 @@ export const doPasswordSignUp = createServerFn({ method: "POST" })
       email: data.email,
       password: data.password,
       options: {
-        emailRedirectTo: `${env.VITE_APP_URL}/callback/auth?${params.toString()}`,
+        emailRedirectTo: buildAuthCallbackUrl(params),
       },
     });
 
@@ -380,7 +383,7 @@ export const doPasswordResetRequest = createServerFn({ method: "POST" })
     const supabase = getSupabaseServerClient();
 
     const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
-      redirectTo: `${env.VITE_APP_URL}/callback/auth?flow=web&type=recovery`,
+      redirectTo: `${getRequestAppOrigin()}/callback/auth?flow=web&type=recovery`,
     });
 
     if (error) {

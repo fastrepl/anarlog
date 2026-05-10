@@ -10,6 +10,7 @@ import {
 import { createClient } from "@hypr/api-client/client";
 
 import { env, requireEnv } from "@/env";
+import { getRequestAppOrigin } from "@/functions/app-origin";
 import { desktopSchemeSchema } from "@/functions/desktop-flow";
 import { getStripeClient } from "@/functions/stripe";
 import { getSupabaseServerClient } from "@/functions/supabase";
@@ -59,11 +60,13 @@ const getStripeCustomerIdForUser = async (
 };
 
 const getBillingReturnUrl = (scheme?: z.infer<typeof desktopSchemeSchema>) => {
+  const appOrigin = getRequestAppOrigin();
+
   if (scheme) {
-    return `${env.VITE_APP_URL}/callback/billing?scheme=${scheme}`;
+    return `${appOrigin}/callback/billing?scheme=${scheme}`;
   }
 
-  return `${env.VITE_APP_URL}/app/account`;
+  return `${appOrigin}/app/account`;
 };
 
 const getTargetPriceId = ({
@@ -160,15 +163,16 @@ async function createCheckoutUrl({
   if (scheme) {
     successParams.set("scheme", scheme);
   }
+  const appOrigin = getRequestAppOrigin();
 
   const successUrl = scheme
     ? getBillingReturnUrl(scheme)
-    : `${env.VITE_APP_URL}/app/account?${successParams.toString()}`;
+    : `${appOrigin}/app/account?${successParams.toString()}`;
 
   const checkout = await stripe.checkout.sessions.create({
     customer: stripeCustomerId,
     success_url: successUrl,
-    cancel_url: `${env.VITE_APP_URL}/app/account`,
+    cancel_url: `${appOrigin}/app/account`,
     line_items: [
       {
         price: getTargetPriceId({ plan, period }),

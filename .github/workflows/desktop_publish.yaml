@@ -120,7 +120,7 @@ jobs:
           VERSION: ${{ needs.parse.outputs.version }}
         run: |
           if [[ "$CHANNEL" != "nightly" ]]; then
-            echo "value=https://char.com/changelog/$VERSION" >> "$GITHUB_OUTPUT"
+            echo "value=https://anarlog.so/changelog/$VERSION" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 

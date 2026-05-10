@@ -128,7 +128,7 @@ jobs:
           # https://v2.tauri.app/reference/environment-variables/
           CI: false
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CACTUS_CLOUD_API_BASE: "https://api.char.com/cactus"
+          CACTUS_CLOUD_API_BASE: "https://api.anarlog.so/cactus"
           POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
           VITE_POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
           SENTRY_DSN: ${{ secrets.SENTRY_DSN_HYPRNOTE_2 }}
@@ -143,8 +143,8 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-          VITE_APP_URL: "https://char.com"
-          VITE_API_URL: "https://api.char.com"
+          VITE_APP_URL: "https://anarlog.so"
+          VITE_API_URL: "https://api.anarlog.so"
           VITE_PRO_PRODUCT_ID: ${{ secrets.VITE_PRO_PRODUCT_ID }}
           VITE_APP_VERSION: ${{ needs.compute-version.outputs.version }}
       - id: find-dmg
@@ -284,7 +284,7 @@ jobs:
           VERSION: ${{ needs.compute-version.outputs.version }}
         run: |
           if [[ "$CHANNEL" != "nightly" ]]; then
-            echo "value=https://char.com/changelog/$VERSION" >> "$GITHUB_OUTPUT"
+            echo "value=https://anarlog.so/changelog/$VERSION" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
