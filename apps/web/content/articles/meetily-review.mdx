@@ -1,0 +1,139 @@
+---
+meta_title: "Meetily Review (2025): Is It the Best Local AI Meeting Tool?"
+meta_description: "An honest review of Meetily, the open-source local AI meeting assistant. What it does well, where it falls short, and who it is actually built for."
+author:
+  - "Harshika"
+featured: false
+category: "Guides"
+date: "2026-04-15"
+---
+
+Meetily is a [local AI meeting tool](https://char.com/blog/local-ai-meeting-notes/) launched in December 2024. It now has over 11,000 GitHub stars and more than 88,000 downloads. It runs on macOS and Windows. It transcribes your meetings locally, no cloud required.
+
+The pitch is simple: a private meeting recorder that works out of the box, costs nothing to start, and never sends your audio to a third-party server.
+
+This review covers what Meetily actually does, what it lacks, and whether it is worth using.
+
+## **Meetily at a Glance**
+
+
+|                   |                                                         |
+| ----------------- | ------------------------------------------------------- |
+|                   | **Meetily at a glance**                                 |
+| **Developer**     | Zackriya Solutions                                      |
+| **License**       | MIT                                                     |
+| **GitHub stars**  | [11,081](https://github.com/Zackriya-Solutions/meetily) |
+| **Platform**      | macOS, Windows (Linux: build from source)               |
+| **Free tier**     | Yes, full community edition. No account required.       |
+| **Pro price**     | $10/month or $120/year. 14-day free trial.              |
+| **Transcription** | Parakeet or Whisper, 100% local                         |
+| **Summaries**     | Ollama (local) or BYOK (Claude, Groq, OpenRouter)       |
+| **Storage**       | Local SQLite database                                   |
+| **Calendar**      | Not available                                           |
+| **Speaker ID**    | In development                                          |
+
+
+## **What Is Meetily?**
+
+Meetily is a desktop app for recording, transcribing, and summarizing meetings locally. It captures system audio directly from your device. No bot joins your call. No calendar permissions are required.
+
+It works with any conferencing tool that produces audio on your machine: Zoom, Google Meet, Microsoft Teams, Discord, and anything else. Because it reads system audio rather than joining as a participant, the people on your call never see a recording notification from Meetily.
+
+The codebase is MIT licensed and public on GitHub. The community edition is free with no feature restrictions. There is no account required to use it.
+
+## **How Does Meetily Work?**
+
+Meetily captures audio from your microphone and system output as separate channels. Transcription runs on your device using either Parakeet (the default) or Whisper Large V3. Both are open-source models that run entirely on local hardware.
+
+Parakeet is the faster option. It runs at roughly 4x the speed of Whisper with lower resource usage. GPU acceleration works on Apple Silicon via Metal, NVIDIA via CUDA, and AMD/Intel via Vulkan. On a modern Mac, transcription happens in real time without visible CPU strain.
+
+After the meeting, a local LLM generates the summary. By default this goes through Ollama, which means the entire loop, audio capture, transcription, and summarization, stays on your device. If you prefer a cloud model, you can connect your own API key for Claude, Groq, or OpenRouter. That choice is yours to make.
+
+Audio files and transcripts are stored in a local SQLite database on your device.
+
+## **Is Meetily Actually Private?**
+
+This matters more for Meetily than for most tools, so it is worth being specific.
+
+- **Transcription:** 100% local. Whisper or Parakeet runs on your hardware. Your audio never leaves your machine.
+- **Summaries:** Local by default via Ollama. If you connect a cloud LLM key, the transcript goes to that provider for summarization.
+- **Storage:** Local SQLite database on your device. No cloud sync, no server.
+- **Account:** Not required for the community edition. No email, no sign-in.
+
+## **Meetily Features**
+
+### **What the free community edition includes**
+
+- Real-time transcription with Parakeet or Whisper
+- AI-generated summaries and action item extraction
+- Works with Zoom, Meet, Teams, Discord, or any app with system audio
+- Export to Markdown
+- Local SQLite storage
+- No account, no subscription, no expiry
+
+### **What Pro adds ($10/month)**
+
+- Enhanced accuracy transcription models
+- Auto-meeting detection: starts recording when a meeting begins
+- Improved speaker diarization
+- PDF and DOCX export
+- Custom summarization templates
+- Priority support
+
+## **What Works Well in Meetily**
+
+**Windows support.** This is the single biggest practical advantage. Meetily is one of the only serious local-first meeting tools that runs on Windows. Char, Granola, Talat, and most others are macOS-only. If you or your team is on Windows, Meetily is the answer.
+
+**Zero setup for the free tier.** Download the app, open it, start a meeting. Ollama handles local summarization. You do not need an API key, an account, or any configuration to get a working transcript and summary.
+
+**Transcription speed.** Parakeet is fast. On Apple Silicon, it keeps up with live speech without lag. The output is clean enough for most use cases without any post-processing.
+
+**MIT license.** You can fork it, modify it, self-host it, or build on top of it with no restrictions. For teams with strict compliance requirements, this matters more than it sounds.
+
+**Genuinely free community tier.** It is not a trial and it is not crippled. The core functionality, record, transcribe, summarize, works without paying anything.
+
+## **Meetily Limitations**
+
+**No calendar integration.** Meetily does not connect to your calendar. There is no automatic meeting detection on the free tier, no participant context pulled from calendar events, and no way to organize recordings by event. You start and stop recording manually.
+
+**Summarization quality drops on long meetings.** The Meetily team document this themselves. Local LLMs via Ollama handle short focused calls well. On hour-long or multi-topic meetings, the output falls noticeably behind what cloud models produce. Worth testing before committing if you regularly run long calls.
+
+**No mobile app.** There is no iOS or Android client. You cannot review, search, or annotate meeting recordings from your phone.
+
+**Summaries are English-only for now.** Transcription works across languages via Whisper, but AI-generated summaries are currently English only. Multi-language summary support is on the roadmap but not yet shipped.
+
+**No search across meetings.** There is no way to query your meeting history. You cannot search for a decision, a name, or a topic across past sessions. Each meeting is self-contained.
+
+**No integrations.** Nothing pushes automatically to Notion, Slack, Salesforce, or anywhere else. You export a file and move it yourself. Fine for individuals, limiting for team workflows.
+
+**Linux requires building from source.** There is no pre-built Linux installer. Technical users can build from the repo, but it is not a one-step install.
+
+**No CLI or API.** There is no way to automate Meetily, query it from other tools, or plug it into a developer workflow. It is a standalone app.
+
+## **Meetily Pricing**
+
+The community edition is free and MIT licensed. No account required, no trial period, no feature restrictions on core functionality.
+
+Meetily Pro costs $10/month or $120/year. A 14-day free trial is available with no credit card required. Pro adds enhanced transcription models, auto-meeting detection, improved speaker diarization, and PDF/DOCX export.
+
+There is also an Enterprise tier with custom pricing for teams that need volume licensing, admin controls, and compliance support.
+
+At $10/month, Meetily Pro is priced competitively. Otter costs $16.99/month, Fireflies costs $18/month per user, and tl;dv starts at $29/month. The tradeoff is feature depth: those tools have integrations, CRM push, and search that Meetily does not.
+
+## **Who Should Use Meetily?**
+
+- Windows users who want local AI transcription. This is the clearest use case. Meetily is the best option on Windows.
+- Anyone who wants a local meeting recorder that works immediately with no configuration.
+- Teams that need an MIT-licensed codebase for compliance, auditing, or self-hosting.
+- People who want transcription only and have no need for calendar integration, contacts, or a rich editor.
+- Developers or researchers who want to build on top of local meeting transcription without cloud dependency.
+
+## **Meetily Review: Final Verdict**
+
+Meetily does what it says. Local transcription, local summaries, nothing leaving your machine. The community edition works out of the box. The Parakeet engine is fast. Windows support is real and maintained.
+
+The gaps are real. No calendar, summarization struggles on long calls, no search across sessions, no integrations, and no mobile app.
+
+If you want a focused local recorder and especially if you are on Windows, Meetily is the best option in its category. If you are on Mac and want meetings integrated into your broader workflow, with calendar context, a note editor, and developer tooling, [Char](https://char.com) covers that ground instead.
+
+Deciding between the two? Read our [Char vs Meetily](https://char.com/blog/char-vs-meetily/) comparison for a full head-to-head breakdown.
