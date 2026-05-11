@@ -298,32 +298,6 @@ function DownloadButton() {
             />
             <span>Apple Intel</span>
           </a>
-          <div
-            aria-disabled="true"
-            className="flex items-center gap-3 rounded-xl px-3 py-3 text-[#756b5d]"
-          >
-            <img
-              src="https://upload.wikimedia.org/wikipedia/commons/5/5f/Windows_logo_-_2012.svg"
-              alt=""
-              className="size-5"
-              aria-hidden="true"
-            />
-            <span className="flex-1">Windows</span>
-            <span className="text-xs">Coming soon</span>
-          </div>
-          <div
-            aria-disabled="true"
-            className="flex items-center gap-3 rounded-xl px-3 py-3 text-[#756b5d]"
-          >
-            <img
-              src="https://upload.wikimedia.org/wikipedia/commons/3/35/Tux.svg"
-              alt=""
-              className="size-5"
-              aria-hidden="true"
-            />
-            <span className="flex-1">Linux</span>
-            <span className="text-xs">Coming soon</span>
-          </div>
         </div>
       )}
     </div>
