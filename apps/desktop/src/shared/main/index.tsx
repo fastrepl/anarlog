@@ -11,7 +11,6 @@ export {
 export { MainShellScaffold } from "./shell-scaffold";
 export { MainTabItem } from "./tab-item";
 export { MainTabContent } from "./tab-content";
-export { useChatPanelToolbarWidth } from "./chat-panel-toolbar-width";
 export { useScrollActiveTabIntoView } from "./tab-scroll";
 
 export function StandardTabWrapper({

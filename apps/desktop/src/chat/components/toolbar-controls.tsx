@@ -27,10 +27,7 @@ export function ChatToolbarControls({
   onSelectChat: (chatGroupId: string) => void;
 }) {
   return (
-    <div
-      data-tauri-drag-region
-      className="flex h-full min-w-0 items-center gap-1"
-    >
+    <div className="flex h-full min-w-0 items-center gap-1">
       <ChatGroups
         currentChatGroupId={currentChatGroupId}
         onSelectChat={onSelectChat}
@@ -101,7 +98,7 @@ function ChatGroups({
         <Button
           variant="ghost"
           className={cn([
-            "group flex h-8 max-w-64 min-w-0 justify-start gap-2 px-2",
+            "group flex h-8 max-w-64 min-w-0 justify-start gap-2 pr-2 pl-1",
             "text-neutral-700",
           ])}
         >

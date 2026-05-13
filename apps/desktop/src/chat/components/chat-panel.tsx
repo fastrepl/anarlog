@@ -5,6 +5,7 @@ import { cn } from "@hypr/utils";
 import { ChatBody } from "./body";
 import { ChatContent } from "./content";
 import { ChatSession } from "./session-provider";
+import { ChatToolbarControls } from "./toolbar-controls";
 import { useSessionTab } from "./use-session-tab";
 
 import { useLanguageModel } from "~/ai/hooks";
@@ -40,6 +41,13 @@ export function ChatView() {
         chat.mode !== "RightPanelOpen" && "bg-stone-50",
       ])}
     >
+      <div className="flex h-10 shrink-0 items-center border-b border-neutral-100 pr-2 pl-0">
+        <ChatToolbarControls
+          currentChatGroupId={groupId}
+          onNewChat={chat.startNewChat}
+          onSelectChat={chat.selectChat}
+        />
+      </div>
       {user_id && (
         <ChatSession
           key={sessionId}

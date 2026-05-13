@@ -20,16 +20,12 @@ import {
 } from "@hypr/ui/components/ui/tooltip";
 import { cn } from "@hypr/utils";
 
-import { ChatToolbarControls } from "~/chat/components/toolbar-controls";
 import { useNotifications } from "~/contexts/notifications";
 import { useShell } from "~/contexts/shell";
 import { ClassicMainTabItem } from "~/main/tab-item";
 import { useClassicMainTabsShortcuts } from "~/main/useTabsShortcuts";
 import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
-import {
-  useChatPanelToolbarWidth,
-  useScrollActiveTabIntoView,
-} from "~/shared/main";
+import { useScrollActiveTabIntoView } from "~/shared/main";
 import { NotificationBadge } from "~/shared/ui/notification-badge";
 import { TrafficLights } from "~/shared/ui/traffic-lights";
 import { useNewNote, useNewNoteAndListen } from "~/shared/useNewNote";
@@ -38,9 +34,7 @@ import { type Tab, uniqueIdfromTab, useTabs } from "~/store/zustand/tabs";
 import { useListener } from "~/stt/contexts";
 
 export function ClassicMainTabChrome({ tabs }: { tabs: Tab[] }) {
-  const { chat, leftsidebar } = useShell();
-  const isChatOpen = chat.mode === "RightPanelOpen";
-  const chatToolbarWidth = useChatPanelToolbarWidth(isChatOpen);
+  const { leftsidebar } = useShell();
   const currentPlatform = platform();
   const isLinux = currentPlatform === "linux";
   const chatPanelShortcutLabel = currentPlatform === "macos" ? "⌘ J" : "Ctrl J";
@@ -277,24 +271,8 @@ export function ClassicMainTabChrome({ tabs }: { tabs: Tab[] }) {
         </Button>
 
         <div
-          className={cn([
-            "ml-auto flex h-full min-w-0 items-center",
-            isChatOpen ? "justify-between gap-2" : "gap-1",
-          ])}
-          style={
-            chatToolbarWidth !== null ? { width: chatToolbarWidth } : undefined
-          }
+          className={cn(["ml-auto flex h-full min-w-0 items-center", "gap-1"])}
         >
-          <div className="min-w-0">
-            {isChatOpen ? (
-              <ChatToolbarControls
-                currentChatGroupId={chat.groupId}
-                onNewChat={chat.startNewChat}
-                onSelectChat={chat.selectChat}
-              />
-            ) : null}
-          </div>
-
           <div className="flex shrink-0 items-center gap-1">
             <Update />
             <TabChatButton shortcutLabel={chatPanelShortcutLabel} />

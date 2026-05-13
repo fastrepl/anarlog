@@ -67,7 +67,7 @@ export function MainChatPanels({
               <div
                 ref={chatPanelContainerRef}
                 data-chat-panel-container
-                className="mx-2 -mb-1 h-[calc(100%+0.25rem)] min-h-0 overflow-hidden"
+                className="mr-1 -mb-1 ml-2 h-[calc(100%+0.25rem)] min-h-0 overflow-hidden"
               />
             </ResizablePanel>
           </>
