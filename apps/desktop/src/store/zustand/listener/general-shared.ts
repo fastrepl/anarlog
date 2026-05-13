@@ -17,6 +17,12 @@ export type LoadingPhase =
   | "connecting"
   | "connected";
 
+export type LiveStartBlockReason =
+  | "session_active"
+  | "session_finalizing"
+  | "another_session_active"
+  | "start_in_progress";
+
 export type LiveIntervalId = ReturnType<typeof setInterval>;
 
 export type GeneralState = {
@@ -35,7 +41,10 @@ export type GeneralState = {
     degraded: DegradedError | null;
     requestedLiveTranscription: boolean | null;
     liveTranscriptionActive: boolean | null;
-    finalizingBySession: Record<string, { startedAtMs: number }>;
+    finalizingBySession: Record<
+      string,
+      { startedAtMs: number; seconds: number }
+    >;
     triggerAppIds: string[] | null;
   };
 };
@@ -62,6 +71,40 @@ const initialLiveState: LiveState = {
 
 export const initialGeneralState: GeneralState = {
   live: initialLiveState,
+};
+
+export const getLiveStartBlockReason = (
+  live: Pick<
+    LiveState,
+    "status" | "loading" | "sessionId" | "finalizingBySession"
+  >,
+  targetSessionId: string,
+): LiveStartBlockReason | null => {
+  if (live.sessionId === targetSessionId) {
+    if (live.status === "active") {
+      return "session_active";
+    }
+    if (live.status === "finalizing") {
+      return "session_finalizing";
+    }
+    if (live.loading) {
+      return "start_in_progress";
+    }
+  }
+
+  if (live.finalizingBySession[targetSessionId]) {
+    return "session_finalizing";
+  }
+
+  if (live.status === "active") {
+    return "another_session_active";
+  }
+
+  if (live.status === "inactive" && live.loading) {
+    return "start_in_progress";
+  }
+
+  return null;
 };
 
 export const setLiveState = <T extends GeneralState>(
@@ -103,12 +146,13 @@ export const markLiveActive = (
 };
 
 export const markLiveFinalizing = (live: LiveState, sessionId: string) => {
+  const seconds = live.sessionId === sessionId ? live.seconds : 0;
   if (live.sessionId === sessionId) {
     live.status = "finalizing";
     live.loading = true;
     live.intervalId = undefined;
   }
-  live.finalizingBySession[sessionId] = { startedAtMs: Date.now() };
+  live.finalizingBySession[sessionId] = { startedAtMs: Date.now(), seconds };
 };
 
 export const markLiveInactive = (live: LiveState, error: string | null) => {

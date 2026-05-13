@@ -4,9 +4,7 @@ import { Button } from "@hypr/ui/components/ui/button";
 
 import { computeCurrentNoteTab } from "./compute-note-tab";
 
-import { useAITaskTask } from "~/ai/hooks";
 import * as main from "~/store/tinybase/store/main";
-import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 import type { Tab } from "~/store/zustand/tabs/schema";
 import { type EditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
@@ -57,11 +55,7 @@ export function useListenButtonState(sessionId: string) {
   const active = sessionMode === "active" || sessionMode === "finalizing";
   const batching = sessionMode === "running_batch";
 
-  const taskId = createTaskId(sessionId, "enhance");
-  const { status } = useAITaskTask(taskId, "enhance");
-  const generating = status === "generating";
-
-  const shouldRender = !active && !generating;
+  const shouldRender = !active;
   const isDisabled = batching;
 
   let warningMessage = "";

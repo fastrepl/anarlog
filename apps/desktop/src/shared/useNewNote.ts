@@ -68,7 +68,7 @@ export function useNewNoteAndListen({
   }));
 
   const handler = useCallback(() => {
-    if ((status === "active" || status === "finalizing") && liveSessionId) {
+    if (status === "active" && liveSessionId) {
       const ff = behavior === "new" ? openNew : openCurrent;
       ff({ type: "sessions", id: liveSessionId });
       return;

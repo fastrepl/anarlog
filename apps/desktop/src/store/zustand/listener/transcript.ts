@@ -48,6 +48,7 @@ export type TranscriptActions = {
   handleTranscriptDelta: (
     sessionId: string,
     delta: LiveTranscriptDelta,
+    options?: { updateLivePreview?: boolean },
   ) => void;
   handleTranscriptSegmentDelta: (delta: LiveTranscriptSegmentDelta) => void;
   takeOnStopped: (sessionId: string) => OnStoppedCallback | undefined;
@@ -92,18 +93,20 @@ export const createTranscriptSlice = <
       }),
     );
   },
-  handleTranscriptDelta: (sessionId, delta) => {
+  handleTranscriptDelta: (sessionId, delta, options) => {
     const handlePersist = get().handlePersistBySession[sessionId];
     const { wordsByChannel, hintsByChannel } = groupPartialsByChannel(
       delta.partials,
     );
 
-    set((state) =>
-      mutate(state, (draft) => {
-        draft.partialWordsByChannel = wordsByChannel;
-        draft.partialHintsByChannel = hintsByChannel;
-      }),
-    );
+    if (options?.updateLivePreview !== false) {
+      set((state) =>
+        mutate(state, (draft) => {
+          draft.partialWordsByChannel = wordsByChannel;
+          draft.partialHintsByChannel = hintsByChannel;
+        }),
+      );
+    }
 
     if (delta.new_words.length === 0 && delta.replaced_ids.length === 0) {
       return;

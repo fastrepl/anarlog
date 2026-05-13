@@ -13,6 +13,7 @@ import { startLiveSession, stopLiveSession } from "./general-live";
 import {
   type GeneralState,
   type SessionMode,
+  getLiveStartBlockReason,
   initialGeneralState,
   markLiveStartRequested,
   setLiveState,
@@ -43,6 +44,7 @@ export type GeneralActions = {
     options?: { handlePersist?: BatchPersistCallback },
   ) => Promise<void>;
   stopTranscription: (sessionId: string) => Promise<void>;
+  canStartLiveSession: (sessionId: string) => boolean;
   getSessionMode: (sessionId: string) => SessionMode;
 };
 
@@ -74,11 +76,9 @@ export const createGeneralSlice = <
       return false;
     }
 
-    const currentLive = get().live;
-    if (currentLive.loading || currentLive.status !== "inactive") {
-      console.warn(
-        "[listener] cannot start live session while another session is running",
-      );
+    const blockReason = getLiveStartBlockReason(get().live, targetSessionId);
+    if (blockReason) {
+      console.warn(`[listener] cannot start live session: ${blockReason}`);
       return false;
     }
 
@@ -155,6 +155,17 @@ export const createGeneralSlice = <
     }
 
     await listenerCommands.stopTranscription(sessionId).catch(console.error);
+  },
+  canStartLiveSession: (sessionId) => {
+    if (!sessionId) {
+      return false;
+    }
+
+    if (get().getSessionMode(sessionId) === "running_batch") {
+      return false;
+    }
+
+    return getLiveStartBlockReason(get().live, sessionId) === null;
   },
   getSessionMode: (sessionId) => {
     if (!sessionId) {

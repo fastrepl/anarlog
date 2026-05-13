@@ -110,7 +110,10 @@ export function TabContentNote({
 }: {
   tab: Extract<Tab, { type: "sessions" }>;
 }) {
-  const listenerStatus = useListener((state) => state.live.status);
+  const sessionMode = useListener((state) => state.getSessionMode(tab.id));
+  const canStartLiveSession = useListener((state) =>
+    state.canStartLiveSession(tab.id),
+  );
   const updateSessionTabState = useTabs((state) => state.updateSessionTabState);
   const { conn } = useSTTConnection();
   const startListening = useStartListening(tab.id);
@@ -126,7 +129,7 @@ export function TabContentNote({
       return;
     }
 
-    if (listenerStatus !== "inactive") {
+    if (!canStartLiveSession) {
       return;
     }
 
@@ -141,14 +144,14 @@ export function TabContentNote({
     tab.id,
     tab.state,
     tab.state.autoStart,
-    listenerStatus,
+    canStartLiveSession,
     conn,
     startListening,
     updateSessionTabState,
   ]);
 
   const { data: audioUrl } = useQuery({
-    enabled: listenerStatus === "inactive",
+    enabled: sessionMode !== "active" && sessionMode !== "finalizing",
     queryKey: ["audio", tab.id, "url"],
     queryFn: () => fsSyncCommands.audioPath(tab.id),
     select: (result) => {

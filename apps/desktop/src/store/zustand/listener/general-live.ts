@@ -135,7 +135,9 @@ const createSessionEventHandlers = <T extends LiveStore>(
 
     const currentLive = get().live;
     const stoppedSeconds =
-      currentLive.sessionId === targetSessionId ? currentLive.seconds : 0;
+      currentLive.sessionId === targetSessionId
+        ? currentLive.seconds
+        : (currentLive.finalizingBySession[targetSessionId]?.seconds ?? 0);
     const onStopped = get().takeOnStopped(targetSessionId);
     const unlisteners = currentLive.eventUnlistenersBySession[targetSessionId];
 
@@ -170,6 +172,10 @@ const createSessionEventHandlers = <T extends LiveStore>(
       return;
     }
 
+    if (get().live.sessionId !== targetSessionId) {
+      return;
+    }
+
     setLiveState(set, (live) => {
       updateLiveProgress(live, payload);
     });
@@ -180,6 +186,10 @@ const createSessionEventHandlers = <T extends LiveStore>(
     }
 
     if (payload.type === "audio_amplitude") {
+      if (get().live.sessionId !== targetSessionId) {
+        return;
+      }
+
       setLiveState(set, (live) => {
         updateLiveAmplitude(live, payload.mic, payload.speaker);
       });
@@ -190,11 +200,16 @@ const createSessionEventHandlers = <T extends LiveStore>(
       get().handleTranscriptDelta(
         targetSessionId,
         payload.delta as unknown as LiveTranscriptDelta,
+        { updateLivePreview: get().live.sessionId === targetSessionId },
       );
       return;
     }
 
     if (payload.type === "transcript_segment_delta") {
+      if (get().live.sessionId !== targetSessionId) {
+        return;
+      }
+
       get().handleTranscriptSegmentDelta(
         payload.delta as unknown as LiveTranscriptSegmentDelta,
       );
@@ -202,6 +217,10 @@ const createSessionEventHandlers = <T extends LiveStore>(
     }
 
     if (payload.type === "mic_muted") {
+      if (get().live.sessionId !== targetSessionId) {
+        return;
+      }
+
       setLiveState(set, (live) => {
         live.muted = payload.value;
       });

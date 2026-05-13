@@ -220,11 +220,42 @@ describe("General Listener Slice", () => {
     test("getSessionMode returns finalizing for non-active finalizing sessions", () => {
       store.setState((state) =>
         mutate(state, (draft) => {
-          draft.live.finalizingBySession["session-a"] = { startedAtMs: 123 };
+          draft.live.finalizingBySession["session-a"] = {
+            startedAtMs: 123,
+            seconds: 0,
+          };
         }),
       );
 
       expect(store.getState().getSessionMode("session-a")).toBe("finalizing");
+    });
+
+    test("canStartLiveSession allows new sessions while another session is finalizing", () => {
+      store.setState((state) =>
+        mutate(state, (draft) => {
+          draft.live.status = "finalizing";
+          draft.live.loading = true;
+          draft.live.sessionId = "session-a";
+          draft.live.finalizingBySession["session-a"] = {
+            startedAtMs: 123,
+            seconds: 0,
+          };
+        }),
+      );
+
+      expect(store.getState().canStartLiveSession("session-b")).toBe(true);
+      expect(store.getState().canStartLiveSession("session-a")).toBe(false);
+    });
+
+    test("canStartLiveSession blocks new sessions while another session is active", () => {
+      store.setState((state) =>
+        mutate(state, (draft) => {
+          draft.live.status = "active";
+          draft.live.sessionId = "session-a";
+        }),
+      );
+
+      expect(store.getState().canStartLiveSession("session-b")).toBe(false);
     });
 
     test("startTranscription rejects when the session is already running batch", async () => {

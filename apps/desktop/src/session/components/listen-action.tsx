@@ -14,7 +14,7 @@ export function ListenActionButton({ sessionId }: { sessionId: string }) {
   const { shouldRender, isDisabled, warningMessage } =
     useListenButtonState(sessionId);
   const { loading, stop } = useListener((state) => ({
-    loading: state.live.loading,
+    loading: state.live.loading && state.live.sessionId === sessionId,
     stop: state.stop,
   }));
   const startListening = useStartListening(sessionId);

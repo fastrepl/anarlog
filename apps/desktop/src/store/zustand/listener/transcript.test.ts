@@ -115,6 +115,37 @@ describe("transcript slice", () => {
     expect(store.getState().partialHintsByChannel).toEqual({});
   });
 
+  test("can persist deltas without replacing the active live preview", () => {
+    const persist = vi.fn();
+    store.getState().setTranscriptPersist("session-1", persist);
+    store.getState().handleTranscriptDelta("active-session", createDelta());
+
+    const delta: LiveTranscriptDelta = {
+      new_words: [
+        {
+          id: "word-1",
+          text: " background",
+          start_ms: 0,
+          end_ms: 100,
+          channel: 0,
+          state: "final",
+          speaker_index: null,
+        },
+      ],
+      replaced_ids: [],
+      partials: [],
+    };
+
+    store.getState().handleTranscriptDelta("session-1", delta, {
+      updateLivePreview: false,
+    });
+
+    expect(persist).toHaveBeenCalledWith(delta);
+    expect(
+      store.getState().partialWordsByChannel[0]?.map((word) => word.text),
+    ).toEqual([" hello"]);
+  });
+
   test("resetTranscript clears partial state and callbacks", () => {
     store.getState().setTranscriptPersist("session-1", vi.fn());
     store.getState().setOnStopped("session-1", vi.fn());

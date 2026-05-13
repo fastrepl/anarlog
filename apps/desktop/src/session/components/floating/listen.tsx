@@ -21,7 +21,9 @@ export function ListenButton({
   tab: Extract<Tab, { type: "sessions" }>;
 }) {
   const { shouldRender } = useListenButtonState(tab.id);
-  const loading = useListener((state) => state.live.loading);
+  const loading = useListener(
+    (state) => state.live.loading && state.live.sessionId === tab.id,
+  );
   const remote = useRemoteMeeting(tab.id);
   const countdown = useEventCountdown(tab.id);
 
