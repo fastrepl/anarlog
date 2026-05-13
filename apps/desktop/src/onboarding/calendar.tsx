@@ -390,7 +390,7 @@ function OutlookCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
       {!isSignedIn ? (
         <span className="grid items-center overflow-hidden">
           <span className="invisible col-start-1 row-start-1 flex items-center justify-center gap-3">
-            <OnboardingAnarlogIcon inverted />
+            <OnboardingAnarlogIcon />
             Sign in to Anarlog
           </span>
 
@@ -413,7 +413,7 @@ function OutlookCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
             animate={{ y: isHovered ? "0%" : "-150%" }}
             transition={{ type: "spring", bounce: 0.15, duration: 0.35 }}
           >
-            <OnboardingAnarlogIcon inverted />
+            <OnboardingAnarlogIcon />
             Sign in to Anarlog
           </motion.span>
         </span>
@@ -499,7 +499,7 @@ function GoogleCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
         {!isSignedIn ? (
           <span className="grid items-center overflow-hidden">
             <span className="invisible col-start-1 row-start-1 flex items-center justify-center gap-3">
-              <OnboardingAnarlogIcon inverted />
+              <OnboardingAnarlogIcon />
               Sign in to Anarlog
             </span>
 
@@ -522,7 +522,7 @@ function GoogleCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
               animate={{ y: isHovered ? "0%" : "-140%" }}
               transition={{ type: "spring", bounce: 0.15, duration: 0.35 }}
             >
-              <OnboardingAnarlogIcon inverted />
+              <OnboardingAnarlogIcon />
               Sign in to Anarlog
             </motion.span>
           </span>

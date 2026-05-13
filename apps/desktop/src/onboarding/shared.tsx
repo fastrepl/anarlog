@@ -162,20 +162,13 @@ export function OnboardingButton({
   );
 }
 
-export function OnboardingAnarlogIcon({
-  inverted = false,
-}: {
-  inverted?: boolean;
-}) {
+export function OnboardingAnarlogIcon() {
   return (
     <img
       src="/assets/anarlog-icon.png"
       alt=""
       aria-hidden="true"
-      className={cn([
-        "size-4 object-contain object-center",
-        inverted && "drop-shadow-[0_1px_1px_rgba(0,0,0,0.18)]",
-      ])}
+      className="size-4 object-contain object-center"
     />
   );
 }

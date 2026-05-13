@@ -48,7 +48,7 @@ export function BeforeLogin({ onContinue: _ }: { onContinue: () => void }) {
             }}
             className="flex items-center gap-2 px-8 py-3 text-base"
           >
-            <OnboardingAnarlogIcon inverted />
+            <OnboardingAnarlogIcon />
             Get started for free
           </OnboardingButton>
 
