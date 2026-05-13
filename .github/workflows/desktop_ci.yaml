@@ -78,8 +78,6 @@ jobs:
             --exclude onnx \
             --exclude pyannote-local \
             --exclude llama \
-            --exclude granola-cli \
-            --exclude eval-cli \
             --exclude tools \
             --exclude docs \
             --exclude bundle \
@@ -91,13 +89,13 @@ jobs:
             --exclude audio-device \
             --exclude transcribe-whisper-local \
             --exclude device-monitor \
-            --exclude cli \
             --exclude cactus-sys \
             --exclude cactus \
             --exclude transcribe-cactus \
             --exclude llm-cactus \
             --exclude local-llm-core \
             --exclude local-stt-server \
+            --exclude mobile-bridge \
             --exclude tauri-plugin-analytics\
             --exclude tauri-plugin-apple-calendar \
             --exclude tauri-plugin-audio-priority \
