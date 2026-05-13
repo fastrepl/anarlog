@@ -169,12 +169,12 @@ export function OnboardingAnarlogIcon({
 }) {
   return (
     <img
-      src="/assets/char-logo-icon-black.svg"
+      src="/assets/anarlog-icon.png"
       alt=""
       aria-hidden="true"
       className={cn([
-        "size-4 object-contain",
-        inverted && "brightness-0 invert",
+        "size-4 object-contain object-center",
+        inverted && "drop-shadow-[0_1px_1px_rgba(0,0,0,0.18)]",
       ])}
     />
   );

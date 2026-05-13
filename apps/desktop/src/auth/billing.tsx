@@ -7,6 +7,7 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
 } from "react";
 
 import { canStartTrial as canStartTrialApi } from "@hypr/api-client";
@@ -20,6 +21,8 @@ import {
   type SupabaseJwtPayload,
 } from "@hypr/supabase";
 
+import { TrialEndedDialog } from "../billing/trial-ended-dialog";
+import { TrialStartedDialog } from "../billing/trial-started-dialog";
 import { env } from "../env";
 import { configurePaidSettings } from "../shared/config/configure-paid-settings";
 import { buildWebAppUrl } from "../shared/utils";
@@ -52,6 +55,25 @@ type BillingContextValue = BillingInfo & {
 export type BillingAccess = BillingContextValue;
 
 const BillingContext = createContext<BillingContextValue | null>(null);
+
+const TRIAL_STARTED_SEEN_PREFIX = "anarlog:trial_started_seen:";
+const TRIAL_ENDED_SEEN_PREFIX = "anarlog:trial_ended_seen:";
+
+function readSeen(key: string): boolean {
+  try {
+    return localStorage.getItem(key) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function markSeen(key: string): void {
+  try {
+    localStorage.setItem(key, "1");
+  } catch {
+    // ignore — modal will just show again next session
+  }
+}
 
 export function BillingProvider({ children }: { children: ReactNode }) {
   const auth = useAuth();
@@ -128,6 +150,42 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     }
   }, [billing.isPaid, isReady, settingsStore]);
 
+  // Trial start / end edge detection
+  const [trialStartedOpen, setTrialStartedOpen] = useState(false);
+  const [trialEndedOpen, setTrialEndedOpen] = useState(false);
+  const prevIsTrialingRef = useRef(billing.isTrialing);
+
+  useEffect(() => {
+    const userId = auth?.session?.user.id;
+    if (!userId || !isReady) {
+      prevIsTrialingRef.current = billing.isTrialing;
+      return;
+    }
+
+    const wasTrialing = prevIsTrialingRef.current;
+    const isTrialing = billing.isTrialing;
+    prevIsTrialingRef.current = isTrialing;
+
+    // Trial just started
+    if (!wasTrialing && isTrialing) {
+      const key = TRIAL_STARTED_SEEN_PREFIX + userId;
+      if (!readSeen(key)) {
+        setTrialStartedOpen(true);
+        markSeen(key);
+      }
+      return;
+    }
+
+    // Trial just ended and user did not upgrade
+    if (wasTrialing && !isTrialing && !billing.isPaid) {
+      const key = TRIAL_ENDED_SEEN_PREFIX + userId;
+      if (!readSeen(key)) {
+        setTrialEndedOpen(true);
+        markSeen(key);
+      }
+    }
+  }, [auth?.session?.user.id, billing.isTrialing, billing.isPaid, isReady]);
+
   const value = useMemo<BillingContextValue>(
     () => ({
       ...billing,
@@ -139,7 +197,19 @@ export function BillingProvider({ children }: { children: ReactNode }) {
   );
 
   return (
-    <BillingContext.Provider value={value}>{children}</BillingContext.Provider>
+    <BillingContext.Provider value={value}>
+      {children}
+      <TrialStartedDialog
+        open={trialStartedOpen}
+        onOpenChange={setTrialStartedOpen}
+        trialDaysRemaining={billing.trialDaysRemaining}
+      />
+      <TrialEndedDialog
+        open={trialEndedOpen}
+        onOpenChange={setTrialEndedOpen}
+        onUpgrade={upgradeToPro}
+      />
+    </BillingContext.Provider>
   );
 }
 

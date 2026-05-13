@@ -225,11 +225,13 @@ const _PROVIDERS = [
     displayName: "AquaVoice",
     badge: "Batch only",
     icon: (
-      <img
-        src="/assets/aquavoice-black.png"
-        alt="AquaVoice"
-        className="size-4 rounded-xs"
-      />
+      <span className="flex size-4 items-center justify-center">
+        <img
+          src="/assets/aquavoice-black.png"
+          alt="AquaVoice"
+          className="size-3.5 rounded-xs object-contain object-center"
+        />
+      </span>
     ),
     baseUrl: "https://api.aquavoice.com/api/v1",
     models: ["avalon-v1-en"],

@@ -2,6 +2,8 @@ import type { ServerStatus } from "@hypr/plugin-local-stt";
 
 import type { DownloadProgress, ToastCondition, ToastType } from "./types";
 
+const ANARLOG_ICON_SRC = "/assets/anarlog-icon.png";
+
 type ToastRegistryEntry = {
   toast: ToastType;
   condition: ToastCondition;
@@ -141,9 +143,9 @@ export function createToastRegistry({
         id: "pro-requires-login",
         icon: (
           <img
-            src="/assets/hyprnote-pro.png"
+            src={ANARLOG_ICON_SRC}
             alt="Anarlog Pro"
-            className="size-5"
+            className="size-5 object-contain object-center"
           />
         ),
         title: "Sign in required",
@@ -166,9 +168,9 @@ export function createToastRegistry({
         id: "upgrade-to-pro",
         icon: (
           <img
-            src="/assets/hyprnote-pro.png"
+            src={ANARLOG_ICON_SRC}
             alt="Anarlog Pro"
-            className="size-5"
+            className="size-5 object-contain object-center"
           />
         ),
         title: "Keep the magic going",

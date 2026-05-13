@@ -61,9 +61,9 @@ export function ChatBodyEmpty({
         <div className="flex w-full flex-col">
           <div className="mb-2 flex items-center gap-2">
             <img
-              src="/assets/char-chat-bubble.svg"
+              src="/assets/anarlog-icon.png"
               alt="Anarlog"
-              className="size-4 object-contain"
+              className="size-4 object-contain object-center"
             />
             <span className="text-sm font-medium text-neutral-800">
               Charlie
@@ -93,9 +93,9 @@ export function ChatBodyEmpty({
       <div className="flex w-full flex-col">
         <div className="mb-2 flex items-center gap-2">
           <img
-            src="/assets/char-chat-bubble.svg"
+            src="/assets/anarlog-icon.png"
             alt="Anarlog"
-            className="size-4 object-contain"
+            className="size-4 object-contain object-center"
           />
           <span className="text-sm font-medium text-neutral-800">Charlie</span>
           <BetaChip />

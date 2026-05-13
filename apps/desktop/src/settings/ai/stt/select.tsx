@@ -31,7 +31,7 @@ import {
 
 import { useBillingAccess } from "~/auth/billing";
 import { useNotifications } from "~/contexts/notifications";
-import { providerRowId } from "~/settings/ai/shared";
+import { providerRowId, ProviderIconSlot } from "~/settings/ai/shared";
 import {
   getProviderSelectionBlockers,
   requiresEntitlement,
@@ -187,7 +187,7 @@ export function SelectProviderAndModel() {
                       >
                         <div className="flex flex-col gap-0.5">
                           <div className="flex items-center gap-2">
-                            {provider.icon}
+                            <ProviderIconSlot>{provider.icon}</ProviderIconSlot>
                             <span>{provider.displayName}</span>
                             {requiresPro ? (
                               <span className="rounded-full border border-neutral-200 px-2 py-0.5 text-[10px] tracking-wide text-neutral-500 uppercase">

@@ -64,9 +64,9 @@ function InstructionShell({
         <div className="flex w-full max-w-sm flex-col items-center gap-6 px-10 pb-10 text-center">
           <div className="flex h-14 w-14 items-center justify-center rounded-[20px] border border-stone-200/70 bg-white/90 shadow-[0_6px_18px_rgba(28,25,23,0.05)]">
             <img
-              src="/assets/char-logo-icon-black.svg"
+              src="/assets/anarlog-icon.png"
               alt=""
-              className="h-7 w-7"
+              className="h-7 w-7 object-contain object-center"
             />
           </div>
 

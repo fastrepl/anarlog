@@ -48,13 +48,23 @@ type ProviderConfig = {
   };
 };
 
+const ANARLOG_ICON_SRC = "/assets/anarlog-icon.png";
+
 export function AnarlogProviderIcon() {
   return (
     <img
-      src="/assets/char-logo-icon-black.svg"
+      src={ANARLOG_ICON_SRC}
       alt="Anarlog"
-      className="size-3.5 object-contain"
+      className="size-4 object-contain object-center"
     />
+  );
+}
+
+export function ProviderIconSlot({ children }: { children: ReactNode }) {
+  return (
+    <span className="flex size-5 shrink-0 items-center justify-center">
+      {children}
+    </span>
   );
 }
 
@@ -167,7 +177,7 @@ export function NonHyprProviderCard({
         ])}
       >
         <div className="flex items-center gap-2">
-          {config.icon}
+          <ProviderIconSlot>{config.icon}</ProviderIconSlot>
           <span>{config.displayName}</span>
           {config.badge && (
             <span className="rounded-full border border-neutral-300 px-2 text-xs font-light text-neutral-500">

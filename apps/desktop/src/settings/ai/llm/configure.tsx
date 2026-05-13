@@ -18,6 +18,7 @@ import {
   HyprCloudCTAButton,
   HyprProviderRow,
   NonHyprProviderCard,
+  ProviderIconSlot,
   StyledStreamdown,
 } from "~/settings/ai/shared";
 import * as settings from "~/store/tinybase/store/settings";
@@ -83,7 +84,7 @@ function HyprProviderCard({
     >
       <AccordionTrigger className="gap-2 px-4 capitalize hover:no-underline">
         <div className="flex items-center gap-2">
-          {icon}
+          <ProviderIconSlot>{icon}</ProviderIconSlot>
           <span>{providerName}</span>
           {badge && (
             <span className="rounded-full border border-neutral-300 px-2 text-xs font-light text-neutral-500">
