@@ -11,19 +11,12 @@ export async function getOnboardingNeeded(): Promise<boolean> {
   return result.status === "ok" && result.data;
 }
 
-export async function resolveShellEntryPath(): Promise<
-  "/app/main" | "/app/main2"
-> {
-  if (!isTauri()) {
-    return "/app/main";
-  }
-
-  const result = await commands.getCharV1p1Preview();
-  return result.status === "ok" && result.data ? "/app/main2" : "/app/main";
+export async function resolveShellEntryPath(): Promise<"/app/main"> {
+  return "/app/main";
 }
 
 export async function resolveAppEntryPath(): Promise<
-  "/app/main" | "/app/main2" | "/app/onboarding"
+  "/app/main" | "/app/onboarding"
 > {
   if (await getOnboardingNeeded()) {
     return "/app/onboarding";
@@ -42,9 +35,5 @@ export function normalizeAppPath(pathname: string): string {
 
 export function isShellEntryPath(pathname: string): boolean {
   const normalizedPath = normalizeAppPath(pathname);
-  return (
-    normalizedPath === "/app" ||
-    normalizedPath === "/app/main" ||
-    normalizedPath === "/app/main2"
-  );
+  return normalizedPath === "/app" || normalizedPath === "/app/main";
 }

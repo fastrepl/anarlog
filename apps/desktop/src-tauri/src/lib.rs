@@ -377,8 +377,6 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::set_pinned_tabs::<tauri::Wry>,
             commands::get_recently_opened_sessions::<tauri::Wry>,
             commands::set_recently_opened_sessions::<tauri::Wry>,
-            commands::get_char_v1p1_preview::<tauri::Wry>,
-            commands::set_char_v1p1_preview::<tauri::Wry>,
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }

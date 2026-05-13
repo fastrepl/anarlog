@@ -12,7 +12,7 @@ import {
 
 describe("desktop tab lifecycle", () => {
   describe("initializeDesktopTabs", () => {
-    it("restores pinned tabs and recent notes for main2 without opening a startup tab", async () => {
+    it("restores pinned tabs and recent notes without opening a startup tab", async () => {
       const tabs = [createSessionTab({ id: "restored-session" })];
       const openNew = vi.fn();
       const setRecentlyOpenedSessionIds = vi.fn();
@@ -39,7 +39,7 @@ describe("desktop tab lifecycle", () => {
       expect(openNew).not.toHaveBeenCalled();
     });
 
-    it("keeps main2 on home when startup has no restored tabs", async () => {
+    it("stays on home when startup has no restored tabs", async () => {
       const openNew = vi.fn();
 
       await initializeDesktopTabs({
