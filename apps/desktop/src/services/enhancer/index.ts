@@ -16,6 +16,10 @@ type EnhanceResult =
   | { type: "already_active"; noteId: string }
   | { type: "no_model" };
 
+type QueueEmptySummaryResult =
+  | { type: "queued" }
+  | { type: "summary_exists"; noteId: string };
+
 type EnhanceOpts = {
   isAuto?: boolean;
   templateId?: string;
@@ -40,6 +44,48 @@ type EnhancerDeps = {
 const UUID_TITLE_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ISO_TITLE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
+
+type TiptapNode = {
+  content?: TiptapNode[];
+  text?: string;
+};
+
+function hasTiptapText(node: TiptapNode): boolean {
+  if (typeof node.text === "string" && node.text.trim()) {
+    return true;
+  }
+
+  return node.content?.some(hasTiptapText) ?? false;
+}
+
+function hasSummaryContent(value: unknown): boolean {
+  if (typeof value !== "string") {
+    return false;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return false;
+  }
+
+  if (!trimmed.startsWith("{")) {
+    return true;
+  }
+
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      (parsed as { type?: unknown }).type === "doc"
+    ) {
+      return hasTiptapText(parsed);
+    }
+    return true;
+  } catch {
+    return true;
+  }
+}
 
 function shouldHydrateTemplateTitle(
   currentTitle: string | null | undefined,
@@ -124,6 +170,21 @@ export class EnhancerService {
     this.tryAutoEnhance(sessionId, 0);
   }
 
+  queueAutoEnhanceIfSummaryEmpty(sessionId: string): QueueEmptySummaryResult {
+    const templateId = this.deps.getSelectedTemplateId();
+    const existingNoteId = this.getMatchingEnhancedNoteId(
+      sessionId,
+      templateId,
+    );
+
+    if (existingNoteId && this.hasEnhancedNoteContent(existingNoteId)) {
+      return { type: "summary_exists", noteId: existingNoteId };
+    }
+
+    this.queueAutoEnhance(sessionId);
+    return { type: "queued" };
+  }
+
   private tryAutoEnhance(sessionId: string, attempt: number) {
     const eligibility = this.checkEligibility(sessionId);
     if (!eligibility.eligible) {
@@ -190,9 +251,12 @@ export class EnhancerService {
     const enhancedNoteId = this.ensureNote(sessionId, templateId);
     const enhanceTaskId = createTaskId(enhancedNoteId, "enhance");
     const existingTask = aiTaskStore.getState().getState(enhanceTaskId);
+    if (existingTask?.status === "generating") {
+      return { type: "already_active", noteId: enhancedNoteId };
+    }
     if (
-      existingTask?.status === "generating" ||
-      existingTask?.status === "success"
+      existingTask?.status === "success" &&
+      this.hasEnhancedNoteContent(enhancedNoteId)
     ) {
       return { type: "already_active", noteId: enhancedNoteId };
     }
@@ -234,12 +298,10 @@ export class EnhancerService {
     const normalizedTemplateId = templateId || undefined;
 
     const existingIds = this.getEnhancedNoteIds(sessionId);
-    const existingId = existingIds.find((id) => {
-      const tid = store.getCell("enhanced_notes", id, "template_id") as
-        | string
-        | undefined;
-      return (tid || undefined) === normalizedTemplateId;
-    });
+    const existingId = this.getMatchingEnhancedNoteId(
+      sessionId,
+      normalizedTemplateId,
+    );
     if (existingId) {
       if (normalizedTemplateId) {
         void this.hydrateTemplateTitle(existingId, normalizedTemplateId);
@@ -266,6 +328,27 @@ export class EnhancerService {
     }
 
     return enhancedNoteId;
+  }
+
+  private getMatchingEnhancedNoteId(
+    sessionId: string,
+    templateId?: string,
+  ): string | undefined {
+    const normalizedTemplateId = templateId || undefined;
+    const store = this.deps.mainStore;
+
+    return this.getEnhancedNoteIds(sessionId).find((id) => {
+      const tid = store.getCell("enhanced_notes", id, "template_id") as
+        | string
+        | undefined;
+      return (tid || undefined) === normalizedTemplateId;
+    });
+  }
+
+  private hasEnhancedNoteContent(enhancedNoteId: string): boolean {
+    return hasSummaryContent(
+      this.deps.mainStore.getCell("enhanced_notes", enhancedNoteId, "content"),
+    );
   }
 
   private async hydrateTemplateTitle(

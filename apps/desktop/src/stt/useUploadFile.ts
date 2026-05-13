@@ -57,6 +57,10 @@ export function useUploadFile(sessionId: string) {
     }
   }, [sessionId, sessionTab, updateSessionTabState]);
 
+  const triggerEnhanceIfSummaryEmpty = useCallback(() => {
+    getEnhancerService()?.queueAutoEnhanceIfSummaryEmpty(sessionId);
+  }, [sessionId]);
+
   const applyEstimatedAudioNoteDate = useCallback(
     async (filePath: string) => {
       try {
@@ -222,7 +226,7 @@ export function useUploadFile(sessionId: string) {
             catch: (error) => error,
           }),
         ),
-        Effect.tap(() => Effect.sync(() => triggerEnhance())),
+        Effect.tap(() => Effect.sync(() => triggerEnhanceIfSummaryEmpty())),
         Effect.catchAll((error: unknown) =>
           Effect.sync(() => {
             if (isStoppedTranscriptionError(error)) {
@@ -249,6 +253,7 @@ export function useUploadFile(sessionId: string) {
       sessionTab,
       store,
       triggerEnhance,
+      triggerEnhanceIfSummaryEmpty,
       applyEstimatedAudioNoteDate,
       updateSessionTabState,
       user_id,

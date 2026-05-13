@@ -93,7 +93,7 @@ export function useStartListening(sessionId: string) {
         return;
       }
 
-      getEnhancerService()?.queueAutoEnhance(sessionId);
+      getEnhancerService()?.queueAutoEnhanceIfSummaryEmpty(sessionId);
     };
 
     const handlePersist: LiveTranscriptPersistCallback = (delta) => {

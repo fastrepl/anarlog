@@ -5,7 +5,7 @@ import { getPostCaptureAction } from "./useStartListening";
 import { useStartListening } from "./useStartListening";
 
 const {
-  queueAutoEnhanceMock,
+  queueAutoEnhanceIfSummaryEmptyMock,
   startMock,
   runBatchMock,
   useListenerMock,
@@ -14,7 +14,7 @@ const {
   useIndexesMock,
   useConfigValueMock,
 } = vi.hoisted(() => ({
-  queueAutoEnhanceMock: vi.fn(),
+  queueAutoEnhanceIfSummaryEmptyMock: vi.fn(),
   startMock: vi.fn(),
   runBatchMock: vi.fn(),
   useListenerMock: vi.fn(),
@@ -56,7 +56,7 @@ vi.mock("./useSTTConnection", () => ({
 
 vi.mock("~/services/enhancer", () => ({
   getEnhancerService: vi.fn(() => ({
-    queueAutoEnhance: queueAutoEnhanceMock,
+    queueAutoEnhanceIfSummaryEmpty: queueAutoEnhanceIfSummaryEmptyMock,
   })),
 }));
 
@@ -177,6 +177,8 @@ describe("useStartListening", () => {
     });
 
     expect(runBatchMock).toHaveBeenCalledWith("/tmp/session.wav");
-    expect(queueAutoEnhanceMock).toHaveBeenCalledWith("session-1");
+    expect(queueAutoEnhanceIfSummaryEmptyMock).toHaveBeenCalledWith(
+      "session-1",
+    );
   });
 });

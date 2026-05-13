@@ -25,7 +25,10 @@ type Tables = Record<string, Record<string, Record<string, any>>>;
 
 function createTables(data?: {
   transcripts?: Record<string, { session_id: string; words: string }>;
-  enhanced_notes?: Record<string, { session_id: string; template_id?: string }>;
+  enhanced_notes?: Record<
+    string,
+    { session_id: string; template_id?: string; content?: string }
+  >;
   sessions?: Record<string, { title: string }>;
 }): Tables {
   return {
@@ -180,6 +183,7 @@ describe("EnhancerService", () => {
           "note-1": {
             session_id: "session-1",
             template_id: undefined as any,
+            content: "Generated summary",
           },
         },
       });
@@ -206,6 +210,7 @@ describe("EnhancerService", () => {
           "note-1": {
             session_id: "session-1",
             template_id: undefined as any,
+            content: "Generated summary",
           },
         },
       });
@@ -224,6 +229,91 @@ describe("EnhancerService", () => {
       const result = service.enhance("session-1");
       expect(result).toEqual({ type: "already_active", noteId: "note-1" });
       expect(aiTaskStore.getState().generate).not.toHaveBeenCalled();
+    });
+
+    it("starts generation when a succeeded task has empty summary content", () => {
+      const tables = createTables({
+        enhanced_notes: {
+          "note-1": {
+            session_id: "session-1",
+            template_id: undefined as any,
+            content: JSON.stringify({ type: "doc", content: [] }),
+          },
+        },
+      });
+      const aiTaskStore = createMockAITaskStore();
+      aiTaskStore.getState.mockReturnValue({
+        generate: vi.fn(),
+        getState: vi.fn().mockReturnValue({ status: "success" }),
+      });
+      const deps = createDeps({
+        mainStore: createMockStore(tables),
+        indexes: createMockIndexes(tables),
+        aiTaskStore,
+      });
+      const service = new EnhancerService(deps);
+
+      const result = service.enhance("session-1");
+      expect(result).toEqual({ type: "started", noteId: "note-1" });
+      expect(aiTaskStore.getState().generate).toHaveBeenCalled();
+    });
+  });
+
+  describe("queueAutoEnhanceIfSummaryEmpty()", () => {
+    it("skips auto-enhance when the matching summary already has content", () => {
+      const tables = createTables({
+        enhanced_notes: {
+          "note-1": {
+            session_id: "session-1",
+            template_id: undefined as any,
+            content: "Generated summary",
+          },
+        },
+      });
+      const aiTaskStore = createMockAITaskStore();
+      const deps = createDeps({
+        mainStore: createMockStore(tables),
+        indexes: createMockIndexes(tables),
+        aiTaskStore,
+      });
+      const service = new EnhancerService(deps);
+
+      const result = service.queueAutoEnhanceIfSummaryEmpty("session-1");
+      expect(result).toEqual({ type: "summary_exists", noteId: "note-1" });
+      expect(aiTaskStore.getState().generate).not.toHaveBeenCalled();
+      expect((service as any).activeAutoEnhance.has("session-1")).toBe(false);
+    });
+
+    it("queues auto-enhance when the matching summary is empty", () => {
+      const words = Array.from({ length: 10 }, (_, i) => ({
+        text: `word${i}`,
+      }));
+      const tables = createTables({
+        transcripts: {
+          "t-1": {
+            session_id: "session-1",
+            words: JSON.stringify(words),
+          },
+        },
+        enhanced_notes: {
+          "note-1": {
+            session_id: "session-1",
+            template_id: undefined as any,
+            content: "",
+          },
+        },
+      });
+      const aiTaskStore = createMockAITaskStore();
+      const deps = createDeps({
+        mainStore: createMockStore(tables),
+        indexes: createMockIndexes(tables),
+        aiTaskStore,
+      });
+      const service = new EnhancerService(deps);
+
+      const result = service.queueAutoEnhanceIfSummaryEmpty("session-1");
+      expect(result).toEqual({ type: "queued" });
+      expect(aiTaskStore.getState().generate).toHaveBeenCalled();
     });
   });
 
