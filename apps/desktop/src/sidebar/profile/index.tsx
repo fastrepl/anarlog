@@ -2,7 +2,6 @@ import { useQuery } from "@tanstack/react-query";
 import {
   CalendarIcon,
   ChevronUpIcon,
-  CircleHelp,
   FolderOpenIcon,
   SettingsIcon,
   UsersIcon,
@@ -11,7 +10,6 @@ import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useResizeObserver } from "usehooks-ts";
 
-import { commands as openerCommands } from "@hypr/plugin-opener2";
 import { Kbd } from "@hypr/ui/components/ui/kbd";
 import { cn } from "@hypr/utils";
 
@@ -120,11 +118,6 @@ export function ProfileSection({ onExpandChange }: ProfileSectionProps = {}) {
     setCurrentView("main");
   }, []);
 
-  const handleClickHelp = useCallback(() => {
-    void openerCommands.openUrl("https://char.com/discord", null);
-    closeMenu();
-  }, [closeMenu]);
-
   // const handleClickData = useCallback(() => {
   //   openNew({ type: "data" });
   //   closeMenu();
@@ -144,6 +137,7 @@ export function ProfileSection({ onExpandChange }: ProfileSectionProps = {}) {
             label: "Folders",
             onClick: handleClickFolders,
             badge: <Kbd className={kbdClass}>⌘ ⇧ L</Kbd>,
+            sectionBreakAfter: false,
           },
         ]
       : []),
@@ -152,23 +146,21 @@ export function ProfileSection({ onExpandChange }: ProfileSectionProps = {}) {
       label: "Contacts",
       onClick: handleClickContacts,
       badge: <Kbd className={kbdClass}>⌘ ⇧ O</Kbd>,
+      sectionBreakAfter: false,
     },
     {
       icon: CalendarIcon,
       label: "Calendar",
       onClick: handleClickCalendar,
       badge: <Kbd className={kbdClass}>⌘ ⇧ C</Kbd>,
+      sectionBreakAfter: isPro,
     },
     {
       icon: SettingsIcon,
       label: "Settings",
       onClick: handleClickSettings,
       badge: <Kbd className={kbdClass}>⌘ ,</Kbd>,
-    },
-    {
-      icon: CircleHelp,
-      label: "Help",
-      onClick: handleClickHelp,
+      sectionBreakAfter: !isAuthenticated,
     },
   ];
 
@@ -202,10 +194,10 @@ export function ProfileSection({ onExpandChange }: ProfileSectionProps = {}) {
                         onClick={handleClickNotifications}
                       />*/}
 
-                      {menuItems.map((item, index) => (
+                      {menuItems.map(({ sectionBreakAfter, ...item }) => (
                         <div key={item.label}>
                           <MenuItem {...item} />
-                          {(index === 2 || index === 4) && (
+                          {sectionBreakAfter && (
                             <div className="my-1 border-t border-neutral-100" />
                           )}
                         </div>
