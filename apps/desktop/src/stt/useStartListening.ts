@@ -21,6 +21,7 @@ import type {
   LiveTranscriptPersistCallback,
   OnStoppedCallback,
 } from "~/store/zustand/listener/transcript";
+import { getOnDeviceTranscriptionMode } from "~/stt/capabilities";
 import { applyLiveTranscriptDelta } from "~/stt/utils";
 
 export function getPostCaptureAction(
@@ -151,6 +152,10 @@ export function useStartListening(sessionId: string) {
         base_url: conn?.baseUrl ?? "",
         api_key: conn?.apiKey ?? "",
         keywords,
+        transcription_mode:
+          conn?.provider === "hyprnote" && conn.model !== "cloud"
+            ? getOnDeviceTranscriptionMode(conn.model)
+            : undefined,
         participant_human_ids: participantHumanIds,
         self_human_id: typeof user_id === "string" ? user_id : null,
       },

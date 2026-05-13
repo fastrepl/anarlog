@@ -120,9 +120,23 @@ describe("settingsPersister roundtrip", () => {
     const result = storeToSettings(store);
 
     const expected = { ...original, cactus: {} };
+    (expected.general as any).audio_retention = "none";
     // storeToSettings omits values that equal schema defaults
+    delete (expected as any).general.save_recordings;
     delete (expected as any).notification.event;
     expect(result).toEqual(expected);
+  });
+
+  test("migrates legacy recording retention booleans", () => {
+    const [, valuesFromSaveRecordings] = settingsToContent({
+      general: { save_recordings: false },
+    });
+    expect(valuesFromSaveRecordings.audio_retention).toBe("none");
+
+    const [, valuesFromRemoteAlias] = settingsToContent({
+      general: { saveAudioAfterMeeting: true },
+    });
+    expect(valuesFromRemoteAlias.audio_retention).toBe("oneMonth");
   });
 
   test("store -> settings -> store preserves all data", () => {
@@ -160,7 +174,7 @@ describe("settingsPersister roundtrip", () => {
       ignored_platforms: '["zoom"]',
       included_platforms: '["code"]',
       autostart: true,
-      save_recordings: false,
+      audio_retention: "none",
       telemetry_consent: false,
       ai_language: "en",
       spoken_languages: '["en","ko"]',
@@ -597,6 +611,7 @@ describe("createSettingsPersister e2e", () => {
     expect(settingsLoad).toHaveBeenCalled();
     expect(store.getValue("autostart")).toBe(true);
     expect(store.getValue("save_recordings")).toBe(true);
+    expect(store.getValue("audio_retention")).toBe("oneMonth");
 
     await persister.stopAutoPersisting();
     persister.destroy();

@@ -36,6 +36,11 @@ export const SETTINGS_MAPPING = {
       path: ["general", "save_recordings"],
       default: true as boolean,
     },
+    audio_retention: {
+      type: "string",
+      path: ["general", "audio_retention"],
+      default: "oneMonth" as string,
+    },
     notification_event: {
       type: "boolean",
       path: ["notification", "event"],
@@ -97,6 +102,11 @@ export const SETTINGS_MAPPING = {
     current_stt_model: {
       type: "string",
       path: ["ai", "current_stt_model"],
+    },
+    on_device_transcription_mode: {
+      type: "string",
+      path: ["ai", "on_device_transcription_mode"],
+      default: "realtime" as string,
     },
     cactus_cloud_handoff: {
       type: "boolean",

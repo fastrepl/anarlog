@@ -18,6 +18,13 @@ import {
   DialogTitle,
 } from "@hypr/ui/components/ui/dialog";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@hypr/ui/components/ui/select";
+import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -26,6 +33,37 @@ import { cn } from "@hypr/utils";
 
 import { displayPath } from "./path-utils";
 import { useChangeContentPathWizard } from "./use-storage-wizard";
+
+import { useConfigValue } from "~/shared/config";
+import * as settings from "~/store/tinybase/store/settings";
+
+const AUDIO_RETENTION_OPTIONS = [
+  {
+    value: "none",
+    label: "Don't save",
+    description: "Do not keep recordings after processing",
+  },
+  {
+    value: "oneDay",
+    label: "1 day",
+    description: "Expire recordings after one day",
+  },
+  {
+    value: "threeDays",
+    label: "3 days",
+    description: "Expire recordings after three days",
+  },
+  {
+    value: "oneWeek",
+    label: "1 week",
+    description: "Expire recordings after one week",
+  },
+  {
+    value: "oneMonth",
+    label: "1 month",
+    description: "Expire recordings after one month",
+  },
+];
 
 export function StorageSettingsView() {
   const queryClient = useQueryClient();
@@ -57,6 +95,7 @@ export function StorageSettingsView() {
     <div>
       <h2 className="mb-4 font-serif text-lg font-semibold">Storage</h2>
       <div className="flex flex-col gap-3">
+        <AudioRetentionRow />
         <StoragePathRow
           icon={FolderIcon}
           title="Content"
@@ -93,6 +132,46 @@ export function StorageSettingsView() {
           });
         }}
       />
+    </div>
+  );
+}
+
+function AudioRetentionRow() {
+  const audioRetention = useConfigValue("audio_retention") || "oneMonth";
+  const setAudioRetention = settings.UI.useSetValueCallback(
+    "audio_retention",
+    (value: string) => value,
+    [],
+    settings.STORE_ID,
+  );
+  const selectedOption =
+    AUDIO_RETENTION_OPTIONS.find((option) => option.value === audioRetention) ??
+    AUDIO_RETENTION_OPTIONS[AUDIO_RETENTION_OPTIONS.length - 1]!;
+
+  return (
+    <div className="flex items-center gap-3">
+      <div className="flex w-24 shrink-0 cursor-default items-center gap-2">
+        <Settings2Icon className="size-4 text-neutral-500" />
+        <span className="text-sm font-medium">Audio</span>
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm text-neutral-700">
+          Save audio after meeting
+        </p>
+        <p className="text-xs text-neutral-500">{selectedOption.description}</p>
+      </div>
+      <Select value={audioRetention} onValueChange={setAudioRetention}>
+        <SelectTrigger className="w-36 bg-white shadow-none focus:ring-0">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {AUDIO_RETENTION_OPTIONS.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }

@@ -22,6 +22,14 @@ async cactusModelsDir() : Promise<Result<string, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async soniqoModelDir(model: LocalModel) : Promise<Result<string, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:local-stt|soniqo_model_dir", { model }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async isModelDownloaded(model: LocalModel) : Promise<Result<boolean, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:local-stt|is_model_downloaded", { model }) };
@@ -125,12 +133,13 @@ export type CactusSttModel = "cactus-whisper-small-int4" | "cactus-whisper-small
 export type DownloadProgressPayload = { model: LocalModel; status: DownloadStatus }
 export type DownloadStatus = { downloading: number } | "completed" | { failed: string }
 export type GgufLlmModel = "Llama3p2_3bQ4" | "Gemma3_4bQ4" | "HyprLLM"
-export type LocalModel = CactusSttModel | WhisperModel | AmModel | GgufLlmModel | CactusLlmModel
+export type LocalModel = SoniqoModel | CactusSttModel | WhisperModel | AmModel | GgufLlmModel | CactusLlmModel
 export type ServerInfo = { url: string | null; status: ServerStatus; model: LocalModel | null }
 export type ServerStatus = "unreachable" | "loading" | "ready"
 export type ServerType = "internal" | "external"
+export type SoniqoModel = "soniqo-parakeet-streaming" | "soniqo-parakeet-batch" | "soniqo-omnilingual" | "soniqo-qwen3-small" | "soniqo-qwen3-large"
 export type SttModelInfo = { key: LocalModel; display_name: string; description: string; size_bytes: number; model_type: SttModelType }
-export type SttModelType = "cactus" | "whispercpp" | "argmax"
+export type SttModelType = "soniqo" | "cactus" | "whispercpp" | "argmax"
 export type WhisperModel = "QuantizedTiny" | "QuantizedTinyEn" | "QuantizedBase" | "QuantizedBaseEn" | "QuantizedSmall" | "QuantizedSmallEn" | "QuantizedLargeTurbo"
 
 /** tauri-specta globals **/

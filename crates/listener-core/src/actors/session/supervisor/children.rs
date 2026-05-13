@@ -113,6 +113,7 @@ pub(super) async fn spawn_listener(
             base_url: ctx.params.base_url.clone(),
             api_key: ctx.params.api_key.clone(),
             keywords: ctx.params.keywords.clone(),
+            transcription_mode: ctx.params.transcription_mode,
             mode,
             session_started_at: ctx.started_at_instant,
             session_started_at_unix: ctx.started_at_system,

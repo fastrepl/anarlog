@@ -156,6 +156,7 @@ export const valueSchemaForTinybase = {
   user_id: { type: "string" },
   autostart: { type: "boolean" },
   save_recordings: { type: "boolean" },
+  audio_retention: { type: "string" },
   notification_event: { type: "boolean" },
   notification_detect: { type: "boolean" },
   respect_dnd: { type: "boolean" },
@@ -171,4 +172,5 @@ export const valueSchemaForTinybase = {
   current_llm_model: { type: "string" },
   current_stt_provider: { type: "string" },
   current_stt_model: { type: "string" },
+  on_device_transcription_mode: { type: "string" },
 } as const satisfies InferTinyBaseSchema<typeof generalSchema>;

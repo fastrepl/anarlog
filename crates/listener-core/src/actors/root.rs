@@ -111,9 +111,10 @@ impl Actor for RootActor {
 
 async fn start_session_impl(
     root_cell: ActorCell,
-    params: SessionParams,
+    mut params: SessionParams,
     state: &mut RootState,
 ) -> Result<(), StartSessionError> {
+    params.transcription_mode = params.effective_transcription_mode();
     let session_id = params.session_id.clone();
     let span = session_span(&session_id);
 

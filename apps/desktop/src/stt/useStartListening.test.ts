@@ -13,6 +13,7 @@ const {
   useStoreMock,
   useIndexesMock,
   useConfigValueMock,
+  useSTTConnectionMock,
 } = vi.hoisted(() => ({
   queueAutoEnhanceIfSummaryEmptyMock: vi.fn(),
   startMock: vi.fn(),
@@ -22,6 +23,7 @@ const {
   useStoreMock: vi.fn(),
   useIndexesMock: vi.fn(),
   useConfigValueMock: vi.fn(),
+  useSTTConnectionMock: vi.fn(),
 }));
 
 vi.mock("./contexts", () => ({
@@ -44,14 +46,7 @@ vi.mock("./useRunBatch", () => ({
 }));
 
 vi.mock("./useSTTConnection", () => ({
-  useSTTConnection: vi.fn(() => ({
-    conn: {
-      provider: "hyprnote",
-      model: "am-test",
-      baseUrl: "http://localhost:8080",
-      apiKey: "",
-    },
-  })),
+  useSTTConnection: useSTTConnectionMock,
 }));
 
 vi.mock("~/services/enhancer", () => ({
@@ -146,6 +141,14 @@ describe("useStartListening", () => {
     useValuesMock.mockReturnValue({ user_id: "user-1" });
     useIndexesMock.mockReturnValue(null);
     useConfigValueMock.mockReturnValue([]);
+    useSTTConnectionMock.mockReturnValue({
+      conn: {
+        provider: "hyprnote",
+        model: "am-test",
+        baseUrl: "http://localhost:8080",
+        apiKey: "",
+      },
+    });
     useStoreMock.mockReturnValue({
       getCell: vi.fn(() => ""),
       forEachRow: vi.fn(),
@@ -180,5 +183,47 @@ describe("useStartListening", () => {
     expect(queueAutoEnhanceIfSummaryEmptyMock).toHaveBeenCalledWith(
       "session-1",
     );
+  });
+
+  test("forces batch transcription for batch-only local models with realtime stored", async () => {
+    useSTTConnectionMock.mockReturnValue({
+      conn: {
+        provider: "hyprnote",
+        model: "cactus-parakeet-tdt-0.6b-v3-int8",
+        baseUrl: "http://localhost:8080",
+        apiKey: "",
+      },
+    });
+
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    expect(startMock.mock.calls[0]?.[0]).toMatchObject({
+      transcription_mode: "batch",
+    });
+  });
+
+  test("uses live transcription for realtime local models", async () => {
+    useSTTConnectionMock.mockReturnValue({
+      conn: {
+        provider: "hyprnote",
+        model: "soniqo-parakeet-streaming",
+        baseUrl: "http://localhost:8080",
+        apiKey: "",
+      },
+    });
+
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    expect(startMock.mock.calls[0]?.[0]).toMatchObject({
+      transcription_mode: "live",
+    });
   });
 });

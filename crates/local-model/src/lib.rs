@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 pub use hypr_am::AmModel;
 pub use hypr_cactus_model::{CactusLlmModel, CactusModel, CactusModelSource, CactusSttModel};
 use hypr_model_downloader::{DownloadableModel, Error, extract_zip};
+pub use hypr_transcribe_soniqo::SoniqoModel;
 pub use hypr_whisper_local_model::WhisperModel;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type, Eq, Hash, PartialEq)]
@@ -78,6 +79,7 @@ pub enum LocalModelKind {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type, Eq, Hash, PartialEq)]
 #[serde(untagged)]
 pub enum LocalModel {
+    Soniqo(SoniqoModel),
     Cactus(CactusSttModel),
     Whisper(WhisperModel),
     Am(AmModel),
@@ -88,6 +90,7 @@ pub enum LocalModel {
 impl std::fmt::Display for LocalModel {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            LocalModel::Soniqo(model) => write!(f, "{model}"),
             LocalModel::Cactus(model) => write!(f, "{model}"),
             LocalModel::Whisper(model) => write!(f, "whisper-{model}"),
             LocalModel::Am(model) => write!(f, "am-{model}"),
@@ -99,7 +102,13 @@ impl std::fmt::Display for LocalModel {
 
 impl LocalModel {
     pub fn all() -> Vec<LocalModel> {
-        let mut models = vec![
+        let mut models = SoniqoModel::all()
+            .iter()
+            .copied()
+            .map(LocalModel::Soniqo)
+            .collect::<Vec<_>>();
+
+        models.extend([
             LocalModel::Whisper(WhisperModel::QuantizedTiny),
             LocalModel::Whisper(WhisperModel::QuantizedTinyEn),
             LocalModel::Whisper(WhisperModel::QuantizedBase),
@@ -110,7 +119,7 @@ impl LocalModel {
             LocalModel::Am(AmModel::ParakeetV2),
             LocalModel::Am(AmModel::ParakeetV3),
             LocalModel::Am(AmModel::WhisperLargeV3),
-        ];
+        ]);
 
         models.extend(
             CactusSttModel::all()
@@ -135,6 +144,7 @@ impl LocalModel {
 
     pub fn kind(&self) -> &'static str {
         match self {
+            LocalModel::Soniqo(_) => "stt-soniqo",
             LocalModel::Whisper(_) => "stt-whisper",
             LocalModel::Am(_) => "stt-am",
             LocalModel::Cactus(_) => "stt-cactus",
@@ -145,15 +155,17 @@ impl LocalModel {
 
     pub fn model_kind(&self) -> LocalModelKind {
         match self {
-            LocalModel::Whisper(_) | LocalModel::Am(_) | LocalModel::Cactus(_) => {
-                LocalModelKind::Stt
-            }
+            LocalModel::Soniqo(_)
+            | LocalModel::Whisper(_)
+            | LocalModel::Am(_)
+            | LocalModel::Cactus(_) => LocalModelKind::Stt,
             LocalModel::GgufLlm(_) | LocalModel::CactusLlm(_) => LocalModelKind::Llm,
         }
     }
 
     pub fn cli_name(&self) -> &'static str {
         match self {
+            LocalModel::Soniqo(model) => model.as_str(),
             LocalModel::Whisper(WhisperModel::QuantizedTiny) => "whisper-tiny",
             LocalModel::Whisper(WhisperModel::QuantizedTinyEn) => "whisper-tiny-en",
             LocalModel::Whisper(WhisperModel::QuantizedBase) => "whisper-base",
@@ -205,6 +217,7 @@ impl LocalModel {
 
     pub fn install_path(&self, models_base: &Path) -> PathBuf {
         match self {
+            LocalModel::Soniqo(model) => models_base.join("soniqo").join(model.as_str()),
             LocalModel::Whisper(model) => models_base.join("stt").join(model.file_name()),
             LocalModel::Am(model) => models_base.join("stt").join(model.model_dir()),
             LocalModel::Cactus(model) => models_base
@@ -219,6 +232,7 @@ impl LocalModel {
 
     pub fn display_name(&self) -> String {
         match self {
+            LocalModel::Soniqo(model) => model.display_name().to_string(),
             LocalModel::Whisper(model) => model.display_name().to_string(),
             LocalModel::Am(model) => model.display_name().to_string(),
             LocalModel::Cactus(model) => model.display_name().to_string(),
@@ -229,6 +243,7 @@ impl LocalModel {
 
     pub fn description(&self) -> String {
         match self {
+            LocalModel::Soniqo(model) => model.description().to_string(),
             LocalModel::Whisper(model) => model.description(),
             LocalModel::Am(model) => model.description().to_string(),
             LocalModel::Cactus(model) => model.description().to_string(),
@@ -242,6 +257,7 @@ impl LocalModel {
         let is_apple_silicon = cfg!(target_arch = "aarch64") && cfg!(target_os = "macos");
 
         match self {
+            LocalModel::Soniqo(model) => model.is_available_on_current_platform(),
             LocalModel::Whisper(_) => is_macos,
             LocalModel::Am(_) => is_apple_silicon,
             LocalModel::Cactus(model) => {
@@ -307,6 +323,7 @@ impl DownloadableModel for GgufLlmModel {
 impl DownloadableModel for LocalModel {
     fn download_key(&self) -> String {
         match self {
+            LocalModel::Soniqo(model) => format!("soniqo:{}", model.as_str()),
             LocalModel::Cactus(model) => {
                 format!("cactus:{}", CactusModel::Stt(model.clone()).asset_id())
             }
@@ -321,6 +338,7 @@ impl DownloadableModel for LocalModel {
 
     fn download_url(&self) -> Option<String> {
         match self {
+            LocalModel::Soniqo(_) => None,
             LocalModel::Cactus(model) => CactusModel::Stt(model.clone())
                 .model_url()
                 .map(ToString::to_string),
@@ -335,6 +353,7 @@ impl DownloadableModel for LocalModel {
 
     fn download_checksum(&self) -> Option<u32> {
         match self {
+            LocalModel::Soniqo(_) => None,
             LocalModel::Cactus(model) => CactusModel::Stt(model.clone()).checksum(),
             LocalModel::Whisper(model) => Some(model.checksum()),
             LocalModel::Am(model) => Some(model.tar_checksum()),
@@ -345,6 +364,7 @@ impl DownloadableModel for LocalModel {
 
     fn download_destination(&self, models_base: &Path) -> PathBuf {
         match self {
+            LocalModel::Soniqo(model) => models_base.join("soniqo").join(model.as_str()),
             LocalModel::Cactus(model) => models_base
                 .join("cactus")
                 .join(CactusModel::Stt(model.clone()).zip_name()),
@@ -361,6 +381,8 @@ impl DownloadableModel for LocalModel {
 
     fn is_downloaded(&self, models_base: &Path) -> Result<bool, Error> {
         match self {
+            LocalModel::Soniqo(model) => hypr_transcribe_soniqo::is_model_downloaded(*model)
+                .map_err(|e| Error::OperationFailed(e.to_string())),
             LocalModel::Cactus(model) => {
                 let model_dir = models_base
                     .join("cactus")
@@ -391,6 +413,9 @@ impl DownloadableModel for LocalModel {
 
     fn finalize_download(&self, downloaded_path: &Path, models_base: &Path) -> Result<(), Error> {
         match self {
+            LocalModel::Soniqo(_) => Err(Error::FinalizeFailed(
+                "Soniqo models are downloaded through the Soniqo bridge".to_string(),
+            )),
             LocalModel::Cactus(model) => {
                 let output_dir = models_base
                     .join("cactus")
@@ -418,6 +443,8 @@ impl DownloadableModel for LocalModel {
 
     fn delete_downloaded(&self, models_base: &Path) -> Result<(), Error> {
         match self {
+            LocalModel::Soniqo(model) => hypr_transcribe_soniqo::delete_model(*model)
+                .map_err(|e| Error::DeleteFailed(e.to_string())),
             LocalModel::Cactus(model) => {
                 let model_dir = models_base
                     .join("cactus")
@@ -463,5 +490,21 @@ impl DownloadableModel for LocalModel {
             self,
             LocalModel::Cactus(_) | LocalModel::Am(_) | LocalModel::CactusLlm(_)
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn soniqo_models_reject_generic_download_finalize() {
+        let model = LocalModel::Soniqo(SoniqoModel::ParakeetStreaming);
+
+        let error = model
+            .finalize_download(Path::new("download"), Path::new("models"))
+            .unwrap_err();
+
+        assert!(error.to_string().contains("Soniqo bridge"));
     }
 }

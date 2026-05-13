@@ -96,6 +96,20 @@ export const displayModelId = (model: string) => {
   return model;
 };
 
+export function formatModelSize(sizeBytes?: number) {
+  if (!sizeBytes) {
+    return null;
+  }
+
+  const unit = sizeBytes >= 1024 * 1024 * 1024 ? "GB" : "MB";
+  const value =
+    unit === "GB" ? sizeBytes / 1024 / 1024 / 1024 : sizeBytes / 1024 / 1024;
+
+  return `~${value.toLocaleString(undefined, {
+    maximumFractionDigits: value >= 10 ? 0 : 1,
+  })} ${unit}`;
+}
+
 const _PROVIDERS = [
   {
     disabled: false,

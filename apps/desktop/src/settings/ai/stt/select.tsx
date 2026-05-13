@@ -21,9 +21,11 @@ import { cn } from "@hypr/utils";
 
 import { useSttSettings } from "./context";
 import { HealthStatusIndicator, useConnectionHealth } from "./health";
+import { LocalModelBackendBadge, LocalModelLabel } from "./model-icon";
 import { getPreferredProviderModel } from "./selection";
 import {
   displayModelId,
+  formatModelSize,
   type ProviderId,
   PROVIDERS,
   sttModelQueries,
@@ -38,7 +40,10 @@ import {
 } from "~/settings/ai/shared/eligibility";
 import { useConfigValues } from "~/shared/config";
 import * as settings from "~/store/tinybase/store/settings";
-import { isLiveTranscriptionSupported } from "~/stt/capabilities";
+import {
+  isLiveTranscriptionSupported,
+  isRealtimeLocalModel,
+} from "~/stt/capabilities";
 
 export function SelectProviderAndModel() {
   const { current_stt_provider, current_stt_model, spoken_languages } =
@@ -53,6 +58,12 @@ export function SelectProviderAndModel() {
   const health = useConnectionHealth();
 
   const isConfigured = !!(current_stt_provider && current_stt_model);
+  const isOnDeviceModel =
+    current_stt_provider === "hyprnote" &&
+    !!current_stt_model &&
+    current_stt_model !== "cloud";
+  const useLiveOnDeviceModel =
+    isOnDeviceModel && isRealtimeLocalModel(current_stt_model);
   const hasError = isConfigured && health.status === "error";
   const liveSupport = useQuery({
     queryKey: ["stt-live-support", current_stt_provider, current_stt_model],
@@ -66,11 +77,15 @@ export function SelectProviderAndModel() {
       "stt-language-support",
       current_stt_provider,
       current_stt_model,
+      useLiveOnDeviceModel,
       liveSupport.data,
       spoken_languages,
     ],
     queryFn: async () => {
-      const result = liveSupport.data
+      const useLiveMode = isOnDeviceModel
+        ? useLiveOnDeviceModel && liveSupport.data
+        : liveSupport.data;
+      const result = useLiveMode
         ? await listenerCommands.isSupportedLanguagesLive(
             current_stt_provider!,
             current_stt_model ?? null,
@@ -303,6 +318,8 @@ type ModelEntry = {
   isDownloaded: boolean;
   displayName?: string;
   category?: ModelCategory;
+  sizeBytes?: number;
+  mode?: "realtime" | "batch";
 };
 
 function useConfiguredMapping(): Record<
@@ -335,11 +352,15 @@ function useConfiguredMapping(): Record<
     staleTime: Infinity,
   });
 
-  const cactusModels =
-    supportedModels.data?.filter((m) => m.model_type === "cactus") ?? [];
+  const localModels = supportedModels.data ?? [];
+  const cactusModels = localModels.filter((m) => m.model_type === "cactus");
+  const soniqoModels = localModels.filter((m) => m.model_type === "soniqo");
 
   const cactusDownloaded = useQueries({
     queries: [...cactusModels.map((m) => sttModelQueries.isDownloaded(m.key))],
+  });
+  const soniqoDownloaded = useQueries({
+    queries: [...soniqoModels.map((m) => sttModelQueries.isDownloaded(m.key))],
   });
 
   return Object.fromEntries(
@@ -367,17 +388,31 @@ function useConfiguredMapping(): Record<
         ];
 
         if (isAppleSilicon) {
+          soniqoModels.forEach((model, i) => {
+            models.push({
+              id: model.key,
+              isDownloaded: soniqoDownloaded[i]?.data ?? false,
+              displayName: model.display_name,
+              sizeBytes: model.size_bytes,
+              mode: isRealtimeLocalModel(String(model.key))
+                ? "realtime"
+                : "batch",
+              category: "latest",
+            });
+          });
+
           const sorted = [...cactusModels].sort((a) =>
             String(a.key).includes("parakeet") ? -1 : 1,
           );
           sorted.forEach((model) => {
             const i = cactusModels.indexOf(model);
-            const isRecommended = String(model.key).includes("parakeet");
             models.push({
               id: model.key,
               isDownloaded: cactusDownloaded[i]?.data ?? false,
               displayName: model.display_name,
-              category: isRecommended ? "latest" : "experimental",
+              sizeBytes: model.size_bytes,
+              mode: "batch",
+              category: "experimental",
             });
           });
         }
@@ -425,11 +460,39 @@ function ModelSelectItem({
   const billing = useBillingAccess();
 
   const label = model.displayName ?? displayModelId(model.id);
+  const sizeLabel = formatModelSize(model.sizeBytes);
+  const content = (
+    <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
+      <LocalModelLabel
+        model={model.id}
+        label={label}
+        className="min-w-0 flex-1"
+      />
+      <div className="flex shrink-0 items-center gap-2 text-[11px]">
+        <LocalModelBackendBadge model={model.id} />
+        {model.mode && (
+          <span
+            className={cn([
+              "rounded-md px-1.5 py-0.5 font-medium",
+              model.mode === "realtime"
+                ? "bg-sky-50 text-sky-700"
+                : "bg-neutral-100 text-neutral-600",
+            ])}
+          >
+            {model.mode === "realtime" ? "Realtime" : "Batch"}
+          </span>
+        )}
+        {sizeLabel && (
+          <span className="font-mono text-neutral-500">{sizeLabel}</span>
+        )}
+      </div>
+    </div>
+  );
 
   if (model.isDownloaded) {
     return (
       <SelectItem key={model.id} value={model.id}>
-        {label}
+        {content}
       </SelectItem>
     );
   }
@@ -461,7 +524,7 @@ function ModelSelectItem({
         "group",
       ])}
     >
-      <span className="text-neutral-400">{label}</span>
+      <div className="min-w-0 flex-1 text-neutral-400">{content}</div>
       {isDownloading ? (
         <span
           className={cn([

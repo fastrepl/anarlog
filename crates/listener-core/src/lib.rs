@@ -24,6 +24,12 @@ pub enum TranscriptionMode {
     Batch,
 }
 
+impl Default for TranscriptionMode {
+    fn default() -> Self {
+        Self::Live
+    }
+}
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(tag = "type")]

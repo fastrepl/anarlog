@@ -264,6 +264,7 @@ export const generalSchema = z.object({
   autostart: z.boolean().default(false),
   telemetry_consent: z.boolean().default(true),
   save_recordings: z.boolean().default(true),
+  audio_retention: z.string().default("oneMonth"),
   notification_event: z.boolean().default(true),
   notification_detect: z.boolean().default(true),
   respect_dnd: z.boolean().default(false),
@@ -280,6 +281,7 @@ export const generalSchema = z.object({
   current_llm_model: z.string().optional(),
   current_stt_provider: z.string().optional(),
   current_stt_model: z.string().optional(),
+  on_device_transcription_mode: z.string().default("realtime"),
   timezone: z.string().optional(),
   week_start: z.string().optional(),
 });
