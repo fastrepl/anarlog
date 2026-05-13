@@ -150,24 +150,17 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     }
   }, [billing.isPaid, isReady, settingsStore]);
 
-  // Trial start / end edge detection
   const [trialStartedOpen, setTrialStartedOpen] = useState(false);
   const [trialEndedOpen, setTrialEndedOpen] = useState(false);
-  const prevIsTrialingRef = useRef(billing.isTrialing);
+  const hasTrial = billing.trialEnd !== null;
 
   useEffect(() => {
     const userId = auth?.session?.user.id;
     if (!userId || !isReady) {
-      prevIsTrialingRef.current = billing.isTrialing;
       return;
     }
 
-    const wasTrialing = prevIsTrialingRef.current;
-    const isTrialing = billing.isTrialing;
-    prevIsTrialingRef.current = isTrialing;
-
-    // Trial just started
-    if (!wasTrialing && isTrialing) {
+    if (billing.isTrialing) {
       const key = TRIAL_STARTED_SEEN_PREFIX + userId;
       if (!readSeen(key)) {
         setTrialStartedOpen(true);
@@ -176,15 +169,20 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // Trial just ended and user did not upgrade
-    if (wasTrialing && !isTrialing && !billing.isPaid) {
+    if (hasTrial && !billing.isPaid) {
       const key = TRIAL_ENDED_SEEN_PREFIX + userId;
       if (!readSeen(key)) {
         setTrialEndedOpen(true);
         markSeen(key);
       }
     }
-  }, [auth?.session?.user.id, billing.isTrialing, billing.isPaid, isReady]);
+  }, [
+    auth?.session?.user.id,
+    billing.isTrialing,
+    hasTrial,
+    billing.isPaid,
+    isReady,
+  ]);
 
   const value = useMemo<BillingContextValue>(
     () => ({
