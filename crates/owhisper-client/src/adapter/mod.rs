@@ -455,9 +455,18 @@ impl AdapterKind {
             Self::ElevenLabs => ElevenLabsAdapter::language_support_live(languages),
             Self::DashScope => DashScopeAdapter::language_support_live(languages),
             Self::Argmax => ArgmaxAdapter::language_support_live(languages, model),
+            Self::Cactus => {
+                if CactusAdapter::is_supported_languages_live(languages, model) {
+                    LanguageSupport::Supported {
+                        quality: LanguageQuality::NoData,
+                    }
+                } else {
+                    LanguageSupport::NotSupported
+                }
+            }
             Self::Mistral => MistralAdapter::language_support_live(languages),
             Self::Pyannote => LanguageSupport::NotSupported,
-            Self::Hyprnote | Self::Cactus => LanguageSupport::Supported {
+            Self::Hyprnote => LanguageSupport::Supported {
                 quality: LanguageQuality::NoData,
             },
         }

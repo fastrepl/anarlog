@@ -18,6 +18,7 @@ pub struct SessionParams {
     pub session_id: String,
     pub languages: Vec<hypr_language::Language>,
     pub onboarding: bool,
+    #[serde(default)]
     pub transcription_mode: TranscriptionMode,
     pub model: String,
     pub base_url: String,
@@ -35,26 +36,21 @@ impl SessionParams {
             return TranscriptionMode::Batch;
         }
 
-        if let Some(model) =
-            hypr_transcribe_soniqo::local_model_from_request(&self.base_url, &self.model)
-        {
-            return if model.supports_live_on_current_platform() {
-                TranscriptionMode::Live
-            } else {
-                TranscriptionMode::Batch
-            };
-        }
-
         if hypr_transcribe_soniqo::is_local_base_url(&self.base_url) {
-            return TranscriptionMode::Batch;
+            return self
+                .model
+                .parse::<hypr_transcribe_soniqo::SoniqoModel>()
+                .map(|model| {
+                    if model.supports_live_on_current_platform() {
+                        TranscriptionMode::Live
+                    } else {
+                        TranscriptionMode::Batch
+                    }
+                })
+                .unwrap_or(TranscriptionMode::Batch);
         }
 
         TranscriptionMode::Live
-    }
-
-    pub fn uses_local_soniqo_live_model(&self) -> bool {
-        hypr_transcribe_soniqo::local_model_from_request(&self.base_url, &self.model)
-            .is_some_and(|model| model.supports_live())
     }
 }
 
@@ -117,44 +113,6 @@ mod tests {
             params.effective_transcription_mode(),
             TranscriptionMode::Batch
         );
-    }
-
-    #[test]
-    fn effective_mode_detects_soniqo_loopback_base_url() {
-        let params = session_params(
-            "http://localhost:50060/v1",
-            "soniqo-parakeet-streaming",
-            TranscriptionMode::Live,
-        );
-        let expected = if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
-            TranscriptionMode::Live
-        } else {
-            TranscriptionMode::Batch
-        };
-
-        assert_eq!(params.effective_transcription_mode(), expected);
-    }
-
-    #[test]
-    fn detects_local_soniqo_live_model() {
-        let params = session_params(
-            hypr_transcribe_soniqo::LOCAL_BASE_URL,
-            "soniqo-parakeet-streaming",
-            TranscriptionMode::Live,
-        );
-
-        assert!(params.uses_local_soniqo_live_model());
-    }
-
-    #[test]
-    fn rejects_soniqo_batch_model_as_live_model() {
-        let params = session_params(
-            hypr_transcribe_soniqo::LOCAL_BASE_URL,
-            "soniqo-parakeet-batch",
-            TranscriptionMode::Live,
-        );
-
-        assert!(!params.uses_local_soniqo_live_model());
     }
 
     #[test]

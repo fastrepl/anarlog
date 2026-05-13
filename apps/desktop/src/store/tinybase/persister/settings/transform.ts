@@ -1,5 +1,6 @@
 import type { Content } from "tinybase/with-schemas";
 
+import { normalizeAudioRetention } from "~/services/audio-retention-policy";
 import type { Schemas, Store } from "~/store/tinybase/store/settings";
 import { SETTINGS_MAPPING } from "~/store/tinybase/store/settings";
 
@@ -68,6 +69,23 @@ function fromStoreValue(key: string, value: unknown): unknown {
   return value;
 }
 
+function audioRetentionFromSettings(settings: unknown): string | undefined {
+  return (
+    normalizeAudioRetention(
+      getByPath(settings, ["general", "audio_retention"]),
+      undefined,
+    ) ??
+    normalizeAudioRetention(
+      getByPath(settings, ["general", "saveAudioAfterMeeting"]),
+      undefined,
+    ) ??
+    normalizeAudioRetention(
+      getByPath(settings, ["general", "save_recordings"]),
+      undefined,
+    )
+  );
+}
+
 function settingsToStoreValues(settings: unknown): Record<string, unknown> {
   const values: Record<string, unknown> = {};
   for (const [key, config] of Object.entries(SETTINGS_MAPPING.values)) {
@@ -78,7 +96,13 @@ function settingsToStoreValues(settings: unknown): Record<string, unknown> {
         value = getByPath(settings, ["general", "ai_language"]);
       } else if (key === "spoken_languages") {
         value = getByPath(settings, ["general", "spoken_languages"]);
+      } else if (key === "audio_retention") {
+        value = audioRetentionFromSettings(settings);
       }
+    }
+
+    if (key === "audio_retention") {
+      value = normalizeAudioRetention(value, undefined);
     }
 
     if (value !== undefined) {
@@ -140,6 +164,9 @@ export function storeValuesToSettings(
   for (const [key, config] of Object.entries(SETTINGS_MAPPING.values)) {
     const value = values[key];
     if (value === undefined) {
+      continue;
+    }
+    if (key === "save_recordings" && values.audio_retention !== undefined) {
       continue;
     }
     if ("default" in config && value === config.default) {

@@ -1,3 +1,4 @@
+use std::str::FromStr;
 use std::time::{Duration, UNIX_EPOCH};
 
 use bytes::Bytes;
@@ -12,7 +13,10 @@ use owhisper_interface::stream::Extra;
 use owhisper_interface::{ControlMessage, MixedMessage};
 
 use super::stream::process_stream;
-use super::{ChannelSender, DEVICE_FINGERPRINT_HEADER, ListenerArgs, ListenerMsg, actor_error};
+use super::{
+    ChannelSender, DEVICE_FINGERPRINT_HEADER, ListenerArgs, ListenerMsg, SoniqoAudioMsg,
+    actor_error,
+};
 use crate::SessionErrorEvent;
 
 pub(super) async fn spawn_rx_task(
@@ -27,6 +31,30 @@ pub(super) async fn spawn_rx_task(
     ),
     ActorProcessingErr,
 > {
+    if args.transcription_mode != crate::TranscriptionMode::Live {
+        return Err(actor_error(
+            "listener_batch_mode: live listener is disabled for batch transcription",
+        ));
+    }
+
+    if let Some(model) = soniqo_model_for_args(&args)? {
+        if !model.is_available_on_current_platform() {
+            return Err(actor_error(
+                "unsupported_platform: Soniqo realtime transcription requires macOS Apple Silicon",
+            ));
+        }
+
+        if !model.supports_live() {
+            return Err(actor_error(format!(
+                "provider_batch_only: {} only supports batch transcription",
+                model.as_str()
+            )));
+        }
+
+        let result = spawn_soniqo_rx_task(model, args, myself).await?;
+        return Ok((result.0, result.1, result.2, "soniqo".to_string()));
+    }
+
     let adapter_kind =
         AdapterKind::from_url_and_languages(&args.base_url, &args.languages, Some(&args.model));
     let is_dual = matches!(args.mode, crate::actors::ChannelMode::MicAndSpeaker);
@@ -596,6 +624,7 @@ mod tests {
             base_url: base_url.to_string(),
             api_key: String::new(),
             keywords: vec![],
+            transcription_mode: crate::TranscriptionMode::Live,
             mode: crate::actors::ChannelMode::MicOnly,
             session_started_at: Instant::now(),
             session_started_at_unix: SystemTime::now(),

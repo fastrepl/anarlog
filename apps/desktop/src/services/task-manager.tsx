@@ -8,6 +8,11 @@ import {
 
 import { events as appleCalendarEvents } from "@hypr/plugin-calendar";
 
+import {
+  AUDIO_RETENTION_INTERVAL,
+  AUDIO_RETENTION_TASK_ID,
+  cleanupExpiredAudio,
+} from "./audio-retention";
 import { CALENDAR_SYNC_TASK_ID, syncCalendarEvents } from "./calendar";
 import {
   checkEventNotifications,
@@ -66,6 +71,18 @@ export function TaskManager() {
 
   useScheduleTaskRun(EVENT_NOTIFICATION_TASK_ID, undefined, 0, {
     repeatDelay: EVENT_NOTIFICATION_INTERVAL,
+  });
+
+  useSetTask(AUDIO_RETENTION_TASK_ID, async () => {
+    if (!store || !settingsStore) return;
+    await cleanupExpiredAudio(
+      store as main.Store,
+      settingsStore as settings.Store,
+    );
+  }, [store, settingsStore]);
+
+  useScheduleTaskRun(AUDIO_RETENTION_TASK_ID, undefined, 0, {
+    repeatDelay: AUDIO_RETENTION_INTERVAL,
   });
 
   return null;

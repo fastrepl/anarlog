@@ -13,6 +13,7 @@ hypr-audio-utils = { workspace = true }
 hypr-denoise = { workspace = true, features = ["onnx"] }
 hypr-host = { workspace = true }
 hypr-language = { workspace = true }
+hypr-transcribe-soniqo = { workspace = true }
 
 bytes = { workspace = true }
 hound = { workspace = true }

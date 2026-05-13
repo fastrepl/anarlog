@@ -89,3 +89,61 @@ async fn run_direct_batch<A: BatchSttAdapter>(
     .instrument(span)
     .await
 }
+
+pub(super) async fn run_soniqo_batch(
+    params: BatchParams,
+    listen_params: owhisper_interface::ListenParams,
+) -> crate::Result<BatchRunOutput> {
+    let span = session_span(&params.session_id);
+
+    async {
+        let model = listen_params
+            .model
+            .as_deref()
+            .ok_or_else(|| crate::BatchFailure::DirectRequestFailed {
+                provider: "soniqo".to_string(),
+                message: "Missing Soniqo model.".to_string(),
+            })?
+            .parse::<hypr_transcribe_soniqo::SoniqoModel>()
+            .map_err(|e| crate::BatchFailure::DirectRequestFailed {
+                provider: "soniqo".to_string(),
+                message: e.to_string(),
+            })?;
+
+        let file_path = params.file_path.clone();
+        let language = listen_params
+            .languages
+            .first()
+            .map(hypr_language::Language::bcp47_code);
+
+        let transcribed = tokio::task::spawn_blocking(move || {
+            hypr_transcribe_soniqo::transcribe_file(model, file_path, language.as_deref())
+        })
+        .await
+        .map_err(|e| crate::BatchFailure::DirectRequestFailed {
+            provider: "soniqo".to_string(),
+            message: format!("Soniqo transcription task failed: {e}"),
+        })?
+        .map_err(|e| {
+            let raw_error = e.to_string();
+            crate::BatchFailure::DirectRequestFailed {
+                provider: "soniqo".to_string(),
+                message: format_user_friendly_error(&raw_error),
+            }
+        })?;
+
+        let response = hypr_transcribe_soniqo::batch_response_from_text(
+            model,
+            transcribed.text,
+            transcribed.duration_seconds,
+        );
+
+        Ok(BatchRunOutput {
+            session_id: params.session_id,
+            mode: BatchRunMode::Direct,
+            response,
+        })
+    }
+    .instrument(span)
+    .await
+}

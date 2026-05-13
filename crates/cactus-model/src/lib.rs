@@ -13,6 +13,19 @@ pub struct CactusServiceHealth {
     pub error: Option<String>,
 }
 
+const PARAKEET_TDT_V3_LANGUAGE_CODES: &[&str] = &[
+    "bg", "cs", "da", "de", "el", "en", "es", "et", "fi", "fr", "hr", "hu", "it", "lt", "lv", "mt",
+    "nl", "pl", "pt", "ro", "ru", "sk", "sl", "sv", "uk",
+];
+
+fn languages_from_codes(codes: &[&str]) -> Vec<hypr_language::Language> {
+    codes
+        .iter()
+        .filter_map(|code| code.parse::<hypr_language::ISO639>().ok())
+        .map(|iso| iso.into())
+        .collect()
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type)]
 pub enum CactusModelSource {
     Downloadable {
@@ -293,17 +306,39 @@ impl CactusSttModel {
         }
     }
 
+    pub fn model_size_bytes(&self) -> u64 {
+        match self {
+            CactusSttModel::WhisperSmallInt4 => 183_648_302,
+            CactusSttModel::WhisperSmallInt4Apple => 221_231_520,
+            CactusSttModel::WhisperSmallInt8 => 284_395_215,
+            CactusSttModel::WhisperSmallInt8Apple => 365_229_337,
+            CactusSttModel::WhisperMediumInt4 | CactusSttModel::WhisperMediumInt4Apple => 0,
+            CactusSttModel::WhisperMediumInt8 => 827_189_575,
+            CactusSttModel::WhisperMediumInt8Apple => 1_111_632_582,
+            CactusSttModel::ParakeetCtc0_6bInt4 => 409_526_897,
+            CactusSttModel::ParakeetCtc0_6bInt4Apple => 680_424_777,
+            CactusSttModel::ParakeetCtc0_6bInt8 => 680_288_614,
+            CactusSttModel::ParakeetCtc0_6bInt8Apple => 1_244_681_027,
+            CactusSttModel::ParakeetTdt0_6bV3Int4 => 430_744_371,
+            CactusSttModel::ParakeetTdt0_6bV3Int4Apple => 699_644_823,
+            CactusSttModel::ParakeetTdt0_6bV3Int8 => 706_097_687,
+            CactusSttModel::ParakeetTdt0_6bV3Int8Apple => 1_266_173_165,
+        }
+    }
+
     pub fn supported_languages(&self) -> Vec<hypr_language::Language> {
         match self {
             CactusSttModel::ParakeetCtc0_6bInt4
             | CactusSttModel::ParakeetCtc0_6bInt4Apple
             | CactusSttModel::ParakeetCtc0_6bInt8
-            | CactusSttModel::ParakeetCtc0_6bInt8Apple
-            | CactusSttModel::ParakeetTdt0_6bV3Int4
+            | CactusSttModel::ParakeetCtc0_6bInt8Apple => {
+                vec!["en".parse().unwrap()]
+            }
+            CactusSttModel::ParakeetTdt0_6bV3Int4
             | CactusSttModel::ParakeetTdt0_6bV3Int4Apple
             | CactusSttModel::ParakeetTdt0_6bV3Int8
             | CactusSttModel::ParakeetTdt0_6bV3Int8Apple => {
-                vec!["en".parse().unwrap()]
+                languages_from_codes(PARAKEET_TDT_V3_LANGUAGE_CODES)
             }
             _ => hypr_language::whisper_multilingual(),
         }

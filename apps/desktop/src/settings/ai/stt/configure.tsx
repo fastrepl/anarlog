@@ -24,7 +24,8 @@ import { Switch } from "@hypr/ui/components/ui/switch";
 import { cn } from "@hypr/utils";
 
 import { useSttSettings } from "./context";
-import { ProviderId, PROVIDERS } from "./shared";
+import { LocalModelBackendBadge, LocalModelLabel } from "./model-icon";
+import { formatModelSize, ProviderId, PROVIDERS } from "./shared";
 
 import { useBillingAccess } from "~/auth/billing";
 import {
@@ -109,12 +110,18 @@ function HyprProviderCard({
     staleTime: Infinity,
   });
 
-  const whispercppModels =
-    supportedModels.data?.filter((m) => m.model_type === "whispercpp") ?? [];
-  const cactusModels =
-    supportedModels.data?.filter((m) => m.model_type === "cactus") ?? [];
+  const localModels = supportedModels.data ?? [];
 
-  const hasLocalModels = whispercppModels.length > 0 || cactusModels.length > 0;
+  const whispercppModels = localModels.filter(
+    (m) => m.model_type === "whispercpp",
+  );
+  const cactusModels = localModels.filter((m) => m.model_type === "cactus");
+  const soniqoModels = localModels.filter((m) => m.model_type === "soniqo");
+
+  const hasLocalModels =
+    soniqoModels.length > 0 ||
+    whispercppModels.length > 0 ||
+    cactusModels.length > 0;
 
   const providerDef = PROVIDERS.find((p) => p.id === providerId);
   const isConfigured = providerDef?.requirements.length === 0;
@@ -158,39 +165,41 @@ function HyprProviderCard({
 
               <StyledStreamdown>
                 {
-                  "We intentionally **disable realtime transcription** for local models to ensure the best experience.\n\nAudio will be **batch processed** after recording is done."
+                  "Soniqo Parakeet Streaming supports **realtime transcription** on Apple Silicon.\n\nOther on-device models are **batch processed** after recording."
                 }
               </StyledStreamdown>
 
-              {cactusModels.filter((m) => String(m.key).includes("parakeet"))
-                .length > 0 && (
+              {soniqoModels.length > 0 && (
                 <>
                   <ModelGroupLabel label="Recommended" />
-                  {cactusModels
-                    .filter((m) => String(m.key).includes("parakeet"))
-                    .map((model) => (
-                      <CactusRow
-                        key={model.key as string}
-                        model={model.key}
-                        displayName={model.display_name}
-                      />
-                    ))}
+                  {soniqoModels.map((model) => (
+                    <ModeLocalModelRow
+                      key={model.key as string}
+                      model={model.key}
+                      displayName={model.display_name}
+                      sizeBytes={model.size_bytes}
+                      mode={
+                        String(model.key) === "soniqo-parakeet-streaming"
+                          ? "Realtime"
+                          : "Batch"
+                      }
+                    />
+                  ))}
                 </>
               )}
 
-              {cactusModels.filter((m) => !String(m.key).includes("parakeet"))
-                .length > 0 && (
+              {cactusModels.length > 0 && (
                 <>
-                  <ModelGroupLabel label="Others" />
-                  {cactusModels
-                    .filter((m) => !String(m.key).includes("parakeet"))
-                    .map((model) => (
-                      <CactusRow
-                        key={model.key as string}
-                        model={model.key}
-                        displayName={model.display_name}
-                      />
-                    ))}
+                  <ModelGroupLabel label="Cactus" />
+                  {cactusModels.map((model) => (
+                    <ModeLocalModelRow
+                      key={model.key as string}
+                      model={model.key}
+                      displayName={model.display_name}
+                      sizeBytes={model.size_bytes}
+                      mode="Batch"
+                    />
+                  ))}
                 </>
               )}
 
@@ -203,6 +212,7 @@ function HyprProviderCard({
                       model={model.key}
                       displayName={model.display_name}
                       description={model.description}
+                      sizeBytes={model.size_bytes}
                     />
                   ))}
                 </>
@@ -215,15 +225,20 @@ function HyprProviderCard({
   );
 }
 
-function CactusRow({
+function ModeLocalModelRow({
   model,
   displayName,
+  sizeBytes,
+  mode,
 }: {
   model: LocalModel;
   displayName: string;
+  sizeBytes?: number;
+  mode: "Realtime" | "Batch";
 }) {
   const handleSelectModel = useSafeSelectModel();
   const { shouldHighlightDownload } = useSttSettings();
+  const sizeLabel = formatModelSize(sizeBytes);
 
   const {
     progress,
@@ -237,7 +252,11 @@ function CactusRow({
   } = useLocalModelDownload(model, handleSelectModel);
 
   const handleOpen = () => {
-    void localSttCommands.cactusModelsDir().then((result) => {
+    const resultPromise = String(model).startsWith("soniqo-")
+      ? localSttCommands.soniqoModelDir(model)
+      : localSttCommands.cactusModelsDir();
+
+    void resultPromise.then((result) => {
       if (result.status === "ok") {
         void openerCommands.openPath(result.data, null);
       }
@@ -247,7 +266,30 @@ function CactusRow({
   return (
     <HyprProviderRow>
       <div className="flex-1">
-        <span className="text-sm font-medium">{displayName}</span>
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <LocalModelLabel
+            model={String(model)}
+            label={displayName}
+            className="min-w-0"
+            labelClassName="text-sm font-medium"
+          />
+          <LocalModelBackendBadge model={String(model)} />
+          <span
+            className={cn([
+              "rounded-md px-1.5 py-0.5 text-[11px] font-medium",
+              mode === "Realtime"
+                ? "bg-sky-50 text-sky-700"
+                : "bg-neutral-100 text-neutral-600",
+            ])}
+          >
+            {mode}
+          </span>
+          {sizeLabel && (
+            <span className="font-mono text-[11px] text-neutral-500">
+              {sizeLabel}
+            </span>
+          )}
+        </div>
         {hasError && errorMessage && (
           <p className="text-xs text-red-500">{errorMessage}</p>
         )}
@@ -512,13 +554,16 @@ function HyprProviderLocalRow({
   model,
   displayName,
   description,
+  sizeBytes,
 }: {
   model: LocalModel;
   displayName: string;
   description: string;
+  sizeBytes?: number;
 }) {
   const handleSelectModel = useSafeSelectModel();
   const { shouldHighlightDownload } = useSttSettings();
+  const sizeLabel = formatModelSize(sizeBytes);
 
   const {
     progress,
@@ -542,7 +587,20 @@ function HyprProviderLocalRow({
   return (
     <HyprProviderRow>
       <div className="flex-1">
-        <span className="text-sm font-medium">{displayName}</span>
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <LocalModelLabel
+            model={String(model)}
+            label={displayName}
+            className="min-w-0"
+            labelClassName="text-sm font-medium"
+          />
+          <LocalModelBackendBadge model={String(model)} />
+          {sizeLabel && (
+            <span className="font-mono text-[11px] text-neutral-500">
+              {sizeLabel}
+            </span>
+          )}
+        </div>
         {hasError && errorMessage ? (
           <p className="text-xs text-red-500">{errorMessage}</p>
         ) : (

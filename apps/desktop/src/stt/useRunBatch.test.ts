@@ -12,4 +12,10 @@ describe("getBatchProvider", () => {
   test("keeps openai mapped to the batch transcription provider", () => {
     expect(getBatchProvider("openai", "gpt-4o-transcribe")).toBe("openai");
   });
+
+  test("maps local soniqo models to soniqo batch provider", () => {
+    expect(getBatchProvider("hyprnote", "soniqo-parakeet-batch")).toBe(
+      "soniqo",
+    );
+  });
 });

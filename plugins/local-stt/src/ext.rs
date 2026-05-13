@@ -6,7 +6,7 @@ use tauri_specta::Event;
 use tauri::{Manager, Runtime};
 use tauri_plugin_sidecar2::Sidecar2PluginExt;
 
-use hypr_model_downloader::{ModelDownloadManager, ModelDownloaderRuntime};
+use hypr_model_downloader::{DownloadStatus, ModelDownloadManager, ModelDownloaderRuntime};
 
 #[cfg(feature = "whisper-cpp")]
 use crate::server::internal;
@@ -59,7 +59,10 @@ pub struct LocalStt<'a, R: Runtime, M: Manager<R>> {
 impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
     fn ensure_stt_model(model: &LocalModel) -> Result<(), crate::Error> {
         match model {
-            LocalModel::Am(_) | LocalModel::Whisper(_) | LocalModel::Cactus(_) => Ok(()),
+            LocalModel::Soniqo(_)
+            | LocalModel::Am(_)
+            | LocalModel::Whisper(_)
+            | LocalModel::Cactus(_) => Ok(()),
             LocalModel::GgufLlm(_) | LocalModel::CactusLlm(_) => {
                 Err(crate::Error::UnsupportedModelType)
             }
@@ -94,6 +97,20 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
             })
     }
 
+    pub async fn soniqo_model_dir(&self, model: &LocalModel) -> Result<PathBuf, crate::Error> {
+        match model {
+            LocalModel::Soniqo(model) => {
+                let model = *model;
+                run_soniqo_blocking(
+                    move || hypr_transcribe_soniqo::model_cache_dir(model),
+                    crate::Error::ServerStartFailed,
+                )
+                .await
+            }
+            _ => Err(crate::Error::UnsupportedModelType),
+        }
+    }
+
     pub async fn get_supervisor(&self) -> Result<supervisor::SupervisorRef, crate::Error> {
         let state = self.manager.state::<crate::SharedState>();
         let guard = state.lock().await;
@@ -105,6 +122,10 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
 
     pub async fn is_model_downloaded(&self, model: &LocalModel) -> Result<bool, crate::Error> {
         Self::ensure_stt_model(model)?;
+
+        if let LocalModel::Soniqo(model) = model {
+            return Ok(soniqo_download_state(*model).await?.status == "ready");
+        }
 
         let downloader = {
             let state = self.manager.state::<crate::SharedState>();
@@ -118,10 +139,23 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
     pub async fn start_server(&self, model: LocalModel) -> Result<String, crate::Error> {
         Self::ensure_stt_model(&model)?;
 
+        if let LocalModel::Soniqo(soniqo_model) = model {
+            if soniqo_download_state(soniqo_model).await?.status != "ready" {
+                return Err(crate::Error::ModelNotDownloaded);
+            }
+
+            let supervisor = self.get_supervisor().await?;
+            supervisor::stop_all_stt_servers(&supervisor)
+                .await
+                .map_err(|e| crate::Error::ServerStopFailed(e.to_string()))?;
+
+            return Ok(hypr_transcribe_soniqo::LOCAL_BASE_URL.to_string());
+        }
+
         let server_type = match &model {
             LocalModel::Am(_) => ServerType::External,
             LocalModel::Whisper(_) | LocalModel::Cactus(_) => ServerType::Internal,
-            LocalModel::GgufLlm(_) | LocalModel::CactusLlm(_) => {
+            LocalModel::Soniqo(_) | LocalModel::GgufLlm(_) | LocalModel::CactusLlm(_) => {
                 return Err(crate::Error::UnsupportedModelType);
             }
         };
@@ -223,10 +257,28 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
     ) -> Result<Option<ServerInfo>, crate::Error> {
         Self::ensure_stt_model(model)?;
 
+        if let LocalModel::Soniqo(soniqo_model) = model {
+            let state = soniqo_download_state(*soniqo_model).await?;
+            let downloaded = state.status == "ready";
+            let downloading = state.status == "downloading";
+
+            return Ok(Some(ServerInfo {
+                url: downloaded.then(|| hypr_transcribe_soniqo::LOCAL_BASE_URL.to_string()),
+                status: if downloaded {
+                    ServerStatus::Ready
+                } else if downloading {
+                    ServerStatus::Loading
+                } else {
+                    ServerStatus::Unreachable
+                },
+                model: Some(model.clone()),
+            }));
+        }
+
         let server_type = match model {
             LocalModel::Am(_) => ServerType::External,
             LocalModel::Whisper(_) | LocalModel::Cactus(_) => ServerType::Internal,
-            LocalModel::GgufLlm(_) | LocalModel::CactusLlm(_) => {
+            LocalModel::Soniqo(_) | LocalModel::GgufLlm(_) | LocalModel::CactusLlm(_) => {
                 return Err(crate::Error::UnsupportedModelType);
             }
         };
@@ -275,6 +327,17 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
     pub async fn download_model(&self, model: LocalModel) -> Result<(), crate::Error> {
         Self::ensure_stt_model(&model)?;
 
+        if let LocalModel::Soniqo(soniqo_model) = model.clone() {
+            run_soniqo_blocking(
+                move || hypr_transcribe_soniqo::start_model_download(soniqo_model),
+                crate::Error::ServerStartFailed,
+            )
+            .await?;
+
+            spawn_soniqo_progress_poller(self.manager.app_handle().clone(), model, soniqo_model);
+            return Ok(());
+        }
+
         let downloader = {
             let state = self.manager.state::<crate::SharedState>();
             let guard = state.lock().await;
@@ -288,6 +351,10 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
     pub async fn cancel_download(&self, model: LocalModel) -> Result<bool, crate::Error> {
         Self::ensure_stt_model(&model)?;
 
+        if matches!(model, LocalModel::Soniqo(_)) {
+            return Ok(false);
+        }
+
         let downloader = {
             let state = self.manager.state::<crate::SharedState>();
             let guard = state.lock().await;
@@ -299,6 +366,10 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
     #[tracing::instrument(skip_all)]
     pub async fn is_model_downloading(&self, model: &LocalModel) -> Result<bool, crate::Error> {
         Self::ensure_stt_model(model)?;
+
+        if let LocalModel::Soniqo(model) = model {
+            return Ok(soniqo_download_state(*model).await?.status == "downloading");
+        }
 
         let downloader = {
             let state = self.manager.state::<crate::SharedState>();
@@ -312,6 +383,15 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
     pub async fn delete_model(&self, model: &LocalModel) -> Result<(), crate::Error> {
         Self::ensure_stt_model(model)?;
 
+        if let LocalModel::Soniqo(model) = model {
+            let model = *model;
+            return run_soniqo_blocking(
+                move || hypr_transcribe_soniqo::delete_model(model),
+                crate::Error::ServerStopFailed,
+            )
+            .await;
+        }
+
         let downloader = {
             let state = self.manager.state::<crate::SharedState>();
             let guard = state.lock().await;
@@ -320,6 +400,80 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
         downloader.delete(model).await?;
         Ok(())
     }
+}
+
+async fn run_soniqo_blocking<T>(
+    task: impl FnOnce() -> hypr_transcribe_soniqo::Result<T> + Send + 'static,
+    map_error: fn(String) -> crate::Error,
+) -> Result<T, crate::Error>
+where
+    T: Send + 'static,
+{
+    tokio::task::spawn_blocking(task)
+        .await
+        .map_err(|e| map_error(e.to_string()))?
+        .map_err(|e| map_error(e.to_string()))
+}
+
+async fn soniqo_download_state(
+    model: hypr_transcribe_soniqo::SoniqoModel,
+) -> Result<hypr_transcribe_soniqo::ModelDownloadState, crate::Error> {
+    run_soniqo_blocking(
+        move || hypr_transcribe_soniqo::model_download_state(model),
+        crate::Error::ServerStartFailed,
+    )
+    .await
+}
+
+fn spawn_soniqo_progress_poller<R: Runtime>(
+    app_handle: tauri::AppHandle<R>,
+    model: LocalModel,
+    soniqo_model: hypr_transcribe_soniqo::SoniqoModel,
+) {
+    tokio::spawn(async move {
+        for _ in 0..7200 {
+            let status = tokio::task::spawn_blocking(move || {
+                hypr_transcribe_soniqo::model_download_state(soniqo_model)
+            })
+            .await;
+
+            let download_status = match status {
+                Ok(Ok(state)) => match state.status.as_str() {
+                    "ready" => DownloadStatus::Completed,
+                    "error" => DownloadStatus::Failed(
+                        state
+                            .error
+                            .unwrap_or_else(|| "Soniqo model download failed".to_string()),
+                    ),
+                    _ => DownloadStatus::Downloading(state.progress_percent.unwrap_or(0)),
+                },
+                Ok(Err(error)) => DownloadStatus::Failed(error.to_string()),
+                Err(error) => DownloadStatus::Failed(error.to_string()),
+            };
+
+            let should_stop = matches!(
+                download_status,
+                DownloadStatus::Completed | DownloadStatus::Failed(_)
+            );
+            let _ = DownloadProgressPayload {
+                model: model.clone(),
+                status: download_status,
+            }
+            .emit(&app_handle);
+
+            if should_stop {
+                return;
+            }
+
+            tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+        }
+
+        let _ = DownloadProgressPayload {
+            model,
+            status: DownloadStatus::Failed("Soniqo model download timed out".to_string()),
+        }
+        .emit(&app_handle);
+    });
 }
 
 pub trait LocalSttPluginExt<R: Runtime> {
