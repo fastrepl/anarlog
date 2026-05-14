@@ -12,6 +12,7 @@ const SONIQO_CUMULATIVE_PREFIX_MIN_TOKENS: usize = 4;
 const SONIQO_HISTORY_TOKEN_LIMIT: usize = 160;
 const SONIQO_REPEAT_MIN_TOKENS: usize = 4;
 const SONIQO_INTERNAL_REPEAT_MIN_TOKENS: usize = 6;
+const SONIQO_INTERNAL_REPEAT_MAX_EXTRA_TOKENS: usize = 3;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
@@ -312,8 +313,11 @@ impl SoniqoTranscriptNormalizer {
             return;
         }
 
-        let committed_overlap =
-            find_soniqo_committed_prefix(&current_tokens, &state.committed_tokens);
+        let committed_overlap = find_soniqo_history_prefix(
+            &current_tokens,
+            &state.committed_tokens,
+            SONIQO_REPEAT_MIN_TOKENS,
+        );
         if committed_overlap > 0 {
             drain_soniqo_prefix(alternative, &mut current_tokens, committed_overlap);
 
@@ -335,6 +339,7 @@ impl SoniqoTranscriptNormalizer {
             retime_words(&mut alternative.words, active_start_ms, current_end_ms);
             *start = active_start_ms as f64 / 1000.0;
             *duration = ((current_end_ms - active_start_ms).max(50)) as f64 / 1000.0;
+            state.active_start_ms = Some(active_start_ms);
         } else {
             let overlap = find_soniqo_overlap_prefix(&current_tokens, &state.active_tokens);
             if overlap > 0 {
@@ -347,8 +352,14 @@ impl SoniqoTranscriptNormalizer {
                 sync_soniqo_timing(start, duration, &alternative.words);
                 current_start_ms =
                     word_start_ms(alternative.words.first().expect("checked non-empty"));
+                state.active_start_ms = Some(current_start_ms);
+            } else if let Some(active_start_ms) = state.active_start_ms {
+                retime_words(&mut alternative.words, active_start_ms, current_end_ms);
+                *start = active_start_ms as f64 / 1000.0;
+                *duration = ((current_end_ms - active_start_ms).max(50)) as f64 / 1000.0;
+            } else {
+                state.active_start_ms = Some(current_start_ms);
             }
-            state.active_start_ms = Some(current_start_ms);
         }
 
         if *is_final {
@@ -407,50 +418,38 @@ fn find_soniqo_overlap_prefix(current_tokens: &[String], previous_tokens: &[Stri
     0
 }
 
-fn find_soniqo_committed_prefix(current_tokens: &[String], committed_tokens: &[String]) -> usize {
-    if current_tokens.len() < SONIQO_REPEAT_MIN_TOKENS
-        || committed_tokens.len() < SONIQO_REPEAT_MIN_TOKENS
-    {
-        return 0;
-    }
-
-    let max_overlap = committed_tokens.len().min(current_tokens.len());
-
-    for overlap in (SONIQO_REPEAT_MIN_TOKENS..=max_overlap).rev() {
-        let current_prefix = &current_tokens[..overlap];
-        if committed_tokens
-            .windows(overlap)
-            .any(|tokens| tokens == current_prefix)
-        {
-            return overlap;
-        }
-    }
-
-    0
-}
-
 fn find_soniqo_history_prefix(
     current_tokens: &[String],
     history_tokens: &[String],
     min_tokens: usize,
 ) -> usize {
+    find_soniqo_history_prefix_match(current_tokens, history_tokens, min_tokens)
+        .map(|(_, overlap)| overlap)
+        .unwrap_or(0)
+}
+
+fn find_soniqo_history_prefix_match(
+    current_tokens: &[String],
+    history_tokens: &[String],
+    min_tokens: usize,
+) -> Option<(usize, usize)> {
     if current_tokens.len() < min_tokens || history_tokens.len() < min_tokens {
-        return 0;
+        return None;
     }
 
     let max_overlap = history_tokens.len().min(current_tokens.len());
 
     for overlap in (min_tokens..=max_overlap).rev() {
         let current_prefix = &current_tokens[..overlap];
-        if history_tokens
+        if let Some(start) = history_tokens
             .windows(overlap)
-            .any(|tokens| tokens == current_prefix)
+            .position(|tokens| tokens == current_prefix)
         {
-            return overlap;
+            return Some((start, overlap));
         }
     }
 
-    0
+    None
 }
 
 fn is_soniqo_cumulative_update(previous_tokens: &[String], current_tokens: &[String]) -> bool {
@@ -494,6 +493,7 @@ fn collapse_soniqo_internal_repeats(
 ) {
     let mut next_words = Vec::with_capacity(alternative.words.len());
     let mut next_tokens = Vec::with_capacity(current_tokens.len());
+    let mut next_token_word_indexes = Vec::with_capacity(current_tokens.len());
     let word_tokens = alternative
         .words
         .iter()
@@ -508,18 +508,29 @@ fn collapse_soniqo_internal_repeats(
             continue;
         }
 
-        let overlap = find_soniqo_history_prefix(
+        let repeat = find_soniqo_history_prefix_match(
             &word_tokens[index..],
             &next_tokens,
             SONIQO_INTERNAL_REPEAT_MIN_TOKENS,
         );
 
-        if overlap > 0 {
-            index += overlap;
-            continue;
+        if let Some((history_start, overlap)) = repeat {
+            let history_gap = next_tokens.len() - history_start;
+            if history_gap <= overlap + SONIQO_INTERNAL_REPEAT_MAX_EXTRA_TOKENS {
+                let remove_from = next_token_word_indexes[history_start];
+                next_words.truncate(remove_from);
+                let rebuilt = rebuild_soniqo_token_index(&next_words);
+                next_tokens = rebuilt.0;
+                next_token_word_indexes = rebuilt.1;
+                continue;
+            } else {
+                index += overlap;
+                continue;
+            }
         }
 
         next_tokens.push(word_tokens[index].clone());
+        next_token_word_indexes.push(next_words.len());
         next_words.push(alternative.words[index].clone());
         index += 1;
     }
@@ -533,14 +544,55 @@ fn collapse_soniqo_internal_repeats(
     *current_tokens = normalize_tokens_for_overlap(&alternative.words);
 }
 
+fn rebuild_soniqo_token_index(words: &[Word]) -> (Vec<String>, Vec<usize>) {
+    let mut tokens = Vec::new();
+    let mut word_indexes = Vec::new();
+
+    for (index, word) in words.iter().enumerate() {
+        let token = normalize_word_token(word);
+        if token.is_empty() {
+            continue;
+        }
+
+        tokens.push(token);
+        word_indexes.push(index);
+    }
+
+    (tokens, word_indexes)
+}
+
 fn drain_soniqo_prefix(
     alternative: &mut Alternatives,
     current_tokens: &mut Vec<String>,
     count: usize,
 ) {
-    alternative.words.drain(..count);
-    current_tokens.drain(..count);
+    if count == 0 {
+        return;
+    }
+
+    let mut drained_tokens = 0;
+    let mut drained_words = 0;
+
+    for word in &alternative.words {
+        drained_words += 1;
+
+        if !normalize_word_token(word).is_empty() {
+            drained_tokens += 1;
+            if drained_tokens == count {
+                break;
+            }
+        }
+    }
+
+    while drained_words < alternative.words.len()
+        && normalize_word_token(&alternative.words[drained_words]).is_empty()
+    {
+        drained_words += 1;
+    }
+
+    alternative.words.drain(..drained_words);
     alternative.transcript = transcript_from_words(&alternative.words);
+    *current_tokens = normalize_tokens_for_overlap(&alternative.words);
 }
 
 fn extend_soniqo_committed_tokens(committed_tokens: &mut Vec<String>, tokens: Vec<String>) {
@@ -878,6 +930,35 @@ mod tests {
     }
 
     #[test]
+    fn soniqo_prefix_drain_counts_normalized_tokens_not_words() {
+        let mut alternative = Alternatives {
+            transcript: ", the need now".to_string(),
+            words: vec![
+                word(",", 0.60, 0.62),
+                word("the", 0.62, 0.70),
+                word("need", 0.70, 0.80),
+                word("now", 0.80, 0.90),
+            ],
+            confidence: 1.0,
+            languages: vec![],
+        };
+        let mut current_tokens = normalize_tokens_for_overlap(&alternative.words);
+
+        drain_soniqo_prefix(&mut alternative, &mut current_tokens, 2);
+
+        assert_eq!(alternative.transcript, "now");
+        assert_eq!(
+            alternative
+                .words
+                .iter()
+                .map(|word| word.word.as_str())
+                .collect::<Vec<_>>(),
+            vec!["now"],
+        );
+        assert_eq!(current_tokens, vec!["now"]);
+    }
+
+    #[test]
     fn soniqo_normalizer_drops_repeated_committed_history() {
         let mut normalizer = SoniqoTranscriptNormalizer::default();
         let repeated = "and it tested if you feel";
@@ -992,6 +1073,38 @@ mod tests {
     }
 
     #[test]
+    fn soniqo_normalizer_keeps_newer_near_adjacent_internal_rewrite() {
+        let mut normalizer = SoniqoTranscriptNormalizer::default();
+        let looped = concat!(
+            "and something an example i think that should give you pause the big signat ",
+            "and something an example i think that should give you pause the big signature ",
+            "success so far is certainly alpha fold and of course alph ",
+            "and something an example i think that should give you pause the big signature ",
+            "success so far is certainly alpha fold and of course alph actually isn't about ai",
+        );
+
+        let mut response = transcript_response_at(
+            looped,
+            words_from_text(looped, 11.0, 13.0),
+            false,
+            0,
+            11.0,
+            13.0,
+        );
+        normalizer.normalize(&mut response);
+
+        let StreamResponse::TranscriptResponse { channel, .. } = response else {
+            panic!("expected transcript response");
+        };
+        let transcript = &channel.alternatives[0].transcript;
+
+        assert_eq!(transcript.matches("and something an example").count(), 1);
+        assert!(!transcript.contains("big signat and something"));
+        assert!(transcript.contains("big signature success so far is certainly alpha fold"));
+        assert!(transcript.contains("actually isn't about ai"));
+    }
+
+    #[test]
     fn soniqo_engine_replaces_cumulative_live_partials() {
         let mut engine = LiveTranscriptEngine::new("soniqo", &[], None);
 
@@ -1016,6 +1129,37 @@ mod tests {
 
         assert_eq!(segment_delta.upserts.len(), 1);
         assert_eq!(segment_delta.upserts[0].text, "see the need");
+    }
+
+    #[test]
+    fn soniqo_engine_replaces_rewritten_live_partial_snapshots() {
+        let mut engine = LiveTranscriptEngine::new("soniqo", &[], None);
+
+        let first_text = "i've come up with that if you";
+        let first = transcript_response_at(
+            first_text,
+            words_from_text(first_text, 0.0, 0.25),
+            false,
+            0,
+            0.0,
+            0.25,
+        );
+        engine.process(&first).expect("first update");
+
+        let second_text = "i come up with that if you're much smarter actually";
+        let second = transcript_response_at(
+            second_text,
+            words_from_text(second_text, 0.25, 0.25),
+            false,
+            0,
+            0.25,
+            0.25,
+        );
+        let update = engine.process(&second).expect("second update");
+        let segment_delta = update.segment_delta.expect("segment delta");
+
+        assert_eq!(segment_delta.upserts.len(), 1);
+        assert_eq!(segment_delta.upserts[0].text, second_text);
     }
 
     #[test]
