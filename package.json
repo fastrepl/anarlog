@@ -22,41 +22,7 @@
   "lint-staged": {
     "*.{ts,tsx,js,jsx,json,css,md}": "dprint fmt"
   },
-  "pnpm": {
-    "patchedDependencies": {
-      "@tiptap/extension-paragraph@3.20.1": "patches/@tiptap__extension-paragraph@3.20.1.patch"
-    },
-    "overrides": {
-      "@tiptap/extension-paragraph": "3.20.1",
-      "@tiptap/extension-blockquote": "3.20.1",
-      "@tiptap/extension-bold": "3.20.1",
-      "@tiptap/extension-code": "3.20.1",
-      "@tiptap/extension-code-block": "3.20.1",
-      "@tiptap/extension-document": "3.20.1",
-      "@tiptap/extension-hard-break": "3.20.1",
-      "@tiptap/extension-heading": "3.20.1",
-      "@tiptap/extension-horizontal-rule": "3.20.1",
-      "@tiptap/extension-italic": "3.20.1",
-      "@tiptap/extension-text": "3.20.1",
-      "@tiptap/extension-strike": "3.20.1",
-      "@tiptap/extension-list": "3.20.1",
-      "@tiptap/extension-bubble-menu": "3.20.1",
-      "@tiptap/extension-floating-menu": "3.20.1",
-      "@tiptap/extensions": "3.20.1",
-      "prosemirror-view": "1.41.7",
-      "lightningcss": "1.30.1"
-    },
-    "peerDependencyRules": {
-      "allowedVersions": {
-        "motion": "11",
-        "react": "19",
-        "@lobehub/ui": "3.4.0",
-        "unist-util-visit": "5",
-        "esbuild": "0.25"
-      }
-    }
-  },
-  "packageManager": "pnpm@10.33.0",
+  "packageManager": "pnpm@11.1.1",
   "engines": {
     "node": ">=22"
   }
