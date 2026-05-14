@@ -35,7 +35,7 @@ pub struct SttModelInfo {
     pub key: LocalModel,
     pub display_name: String,
     pub description: String,
-    pub size_bytes: u64,
+    pub size_bytes: Option<u64>,
     pub model_type: SttModelType,
 }
 
@@ -45,7 +45,7 @@ pub fn stt_model_info(model: &LocalModel) -> SttModelInfo {
             key: model.clone(),
             display_name: value.display_name().to_string(),
             description: value.description().to_string(),
-            size_bytes: value.size_bytes(),
+            size_bytes: Some(value.size_bytes()),
             model_type: SttModelType::Soniqo,
         },
         LocalModel::Cactus(value) => SttModelInfo {
@@ -59,14 +59,14 @@ pub fn stt_model_info(model: &LocalModel) -> SttModelInfo {
             key: model.clone(),
             display_name: value.display_name().to_string(),
             description: value.description(),
-            size_bytes: value.model_size_bytes(),
+            size_bytes: Some(value.model_size_bytes()),
             model_type: SttModelType::Whispercpp,
         },
         LocalModel::Am(value) => SttModelInfo {
             key: model.clone(),
             display_name: value.display_name().to_string(),
             description: value.description().to_string(),
-            size_bytes: value.model_size_bytes(),
+            size_bytes: Some(value.model_size_bytes()),
             model_type: SttModelType::Argmax,
         },
         LocalModel::GgufLlm(_) | LocalModel::CactusLlm(_) => unreachable!(),
@@ -98,7 +98,7 @@ mod tests {
             assert_eq!(info.key, LocalModel::Soniqo(*model));
             assert_eq!(info.display_name, model.display_name());
             assert_eq!(info.description, model.description());
-            assert_eq!(info.size_bytes, model.size_bytes());
+            assert_eq!(info.size_bytes, Some(model.size_bytes()));
             assert!(matches!(info.model_type, SttModelType::Soniqo));
         }
     }

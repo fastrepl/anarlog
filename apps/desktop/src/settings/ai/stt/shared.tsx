@@ -96,7 +96,7 @@ export const displayModelId = (model: string) => {
   return model;
 };
 
-export function formatModelSize(sizeBytes?: number) {
+export function formatModelSize(sizeBytes?: number | null) {
   if (!sizeBytes) {
     return null;
   }

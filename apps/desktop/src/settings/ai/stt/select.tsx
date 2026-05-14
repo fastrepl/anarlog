@@ -318,7 +318,7 @@ type ModelEntry = {
   isDownloaded: boolean;
   displayName?: string;
   category?: ModelCategory;
-  sizeBytes?: number;
+  sizeBytes?: number | null;
   mode?: "realtime" | "batch";
 };
 

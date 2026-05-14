@@ -305,13 +305,15 @@ impl SoniqoTranscriptNormalizer {
         let channel_idx = channel_index.first().copied().unwrap_or_default();
         let state = self.channels.entry(channel_idx).or_default();
         let mut current_tokens = normalize_tokens_for_overlap(&alternative.words);
-        let mut current_start_ms = (*start * 1000.0).round() as i64;
-        let mut current_end_ms = ((*start + *duration) * 1000.0).round() as i64;
 
         collapse_soniqo_internal_repeats(alternative, &mut current_tokens);
         if alternative.words.is_empty() {
             return;
         }
+        sync_soniqo_timing(start, duration, &alternative.words);
+        let mut current_start_ms =
+            word_start_ms(alternative.words.first().expect("checked non-empty"));
+        let mut current_end_ms = word_end_ms(alternative.words.last().expect("checked non-empty"));
 
         let committed_overlap = find_soniqo_history_prefix(
             &current_tokens,
@@ -343,9 +345,18 @@ impl SoniqoTranscriptNormalizer {
         } else {
             let overlap = find_soniqo_overlap_prefix(&current_tokens, &state.active_tokens);
             if overlap > 0 {
+                let overlapped_tokens = current_tokens.clone();
+                let overlapped_start_ms = current_start_ms;
                 drain_soniqo_prefix(alternative, &mut current_tokens, overlap);
 
                 if alternative.words.is_empty() {
+                    if *is_final {
+                        state.active_start_ms = None;
+                        state.active_tokens.clear();
+                    } else {
+                        state.active_start_ms = Some(overlapped_start_ms);
+                        state.active_tokens = overlapped_tokens;
+                    }
                     return;
                 }
 
@@ -930,6 +941,44 @@ mod tests {
     }
 
     #[test]
+    fn soniqo_normalizer_updates_active_tokens_when_overlap_drains_partial() {
+        let mut normalizer = SoniqoTranscriptNormalizer::default();
+
+        let mut first = transcript_response_at(
+            "see the need",
+            vec![
+                word("see", 0.0, 0.20),
+                word("the", 0.20, 0.40),
+                word("need", 0.40, 0.60),
+            ],
+            false,
+            0,
+            0.0,
+            0.60,
+        );
+        normalizer.normalize(&mut first);
+
+        let mut second = transcript_response_at(
+            "the need",
+            vec![word("the", 0.60, 0.70), word("need", 0.70, 0.80)],
+            false,
+            0,
+            0.60,
+            0.20,
+        );
+        normalizer.normalize(&mut second);
+
+        let StreamResponse::TranscriptResponse { channel, .. } = second else {
+            panic!("expected transcript response");
+        };
+        assert!(channel.alternatives[0].words.is_empty());
+
+        let state = normalizer.channels.get(&0).expect("channel state");
+        assert_eq!(state.active_tokens, vec!["the", "need"]);
+        assert_eq!(state.active_start_ms, Some(600));
+    }
+
+    #[test]
     fn soniqo_prefix_drain_counts_normalized_tokens_not_words() {
         let mut alternative = Alternatives {
             transcript: ", the need now".to_string(),
@@ -1093,11 +1142,19 @@ mod tests {
         );
         normalizer.normalize(&mut response);
 
-        let StreamResponse::TranscriptResponse { channel, .. } = response else {
+        let StreamResponse::TranscriptResponse {
+            start,
+            duration,
+            channel,
+            ..
+        } = response
+        else {
             panic!("expected transcript response");
         };
         let transcript = &channel.alternatives[0].transcript;
 
+        assert!(start > 11.0);
+        assert!(duration < 13.0);
         assert_eq!(transcript.matches("and something an example").count(), 1);
         assert!(!transcript.contains("big signat and something"));
         assert!(transcript.contains("big signature success so far is certainly alpha fold"));

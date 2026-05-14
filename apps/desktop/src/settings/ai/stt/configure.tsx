@@ -233,7 +233,7 @@ function ModeLocalModelRow({
 }: {
   model: LocalModel;
   displayName: string;
-  sizeBytes?: number;
+  sizeBytes?: number | null;
   mode: "Realtime" | "Batch";
 }) {
   const handleSelectModel = useSafeSelectModel();
@@ -559,7 +559,7 @@ function HyprProviderLocalRow({
   model: LocalModel;
   displayName: string;
   description: string;
-  sizeBytes?: number;
+  sizeBytes?: number | null;
 }) {
   const handleSelectModel = useSafeSelectModel();
   const { shouldHighlightDownload } = useSttSettings();
