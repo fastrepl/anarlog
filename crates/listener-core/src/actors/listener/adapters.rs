@@ -101,6 +101,306 @@ pub(super) async fn spawn_rx_task(
     Ok((result.0, result.1, result.2, adapter_kind.to_string()))
 }
 
+fn soniqo_model_for_args(
+    args: &ListenerArgs,
+) -> Result<Option<hypr_transcribe_soniqo::SoniqoModel>, ActorProcessingErr> {
+    if let Some(model) =
+        hypr_transcribe_soniqo::local_model_from_request(&args.base_url, &args.model)
+    {
+        return Ok(Some(model));
+    }
+
+    if hypr_transcribe_soniqo::is_local_base_url(&args.base_url) {
+        return hypr_transcribe_soniqo::SoniqoModel::from_str(&args.model)
+            .map(Some)
+            .map_err(|e| actor_error(format!("soniqo_model_invalid: {e}")));
+    }
+
+    Ok(None)
+}
+
+async fn spawn_soniqo_rx_task(
+    model: hypr_transcribe_soniqo::SoniqoModel,
+    args: ListenerArgs,
+    myself: ActorRef<ListenerMsg>,
+) -> Result<
+    (
+        ChannelSender,
+        tokio::task::JoinHandle<()>,
+        tokio::sync::oneshot::Sender<()>,
+    ),
+    ActorProcessingErr,
+> {
+    let (shutdown_tx, mut shutdown_rx) = tokio::sync::oneshot::channel::<()>();
+    let (session_offset_secs, extra) = build_extra(&args);
+    let (tx, mut rx) = tokio::sync::mpsc::channel::<SoniqoAudioMsg>(32);
+
+    let session = tokio::task::spawn_blocking(move || {
+        hypr_transcribe_soniqo::LiveTranscriptionSession::start(model)
+    })
+    .await
+    .map_err(|e| actor_error(format!("soniqo_live_start_join_failed: {e}")))?
+    .map_err(|e| actor_error(format!("soniqo_live_start_failed: {e}")))?;
+
+    let rx_task = tokio::spawn(async move {
+        let mut session = session;
+        let mut mic_buffer = Vec::<f32>::new();
+        let mut spk_buffer = Vec::<f32>::new();
+        let mut mic_cursor = 0.0;
+        let mut spk_cursor = 0.0;
+        let mut interval = tokio::time::interval(Duration::from_millis(250));
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+
+        loop {
+            tokio::select! {
+                _ = &mut shutdown_rx => {
+                    break;
+                }
+                maybe_msg = rx.recv() => {
+                    let Some(msg) = maybe_msg else {
+                        break;
+                    };
+
+                    match msg {
+                        SoniqoAudioMsg::Single(source, audio) => {
+                            match source {
+                                hypr_transcribe_soniqo::TranscriptSource::Microphone => {
+                                    mic_buffer.extend(i16_bytes_to_f32(&audio));
+                                }
+                                hypr_transcribe_soniqo::TranscriptSource::System => {
+                                    spk_buffer.extend(i16_bytes_to_f32(&audio));
+                                }
+                            }
+                        }
+                        SoniqoAudioMsg::Dual(mic, spk) => {
+                            mic_buffer.extend(i16_bytes_to_f32(&mic));
+                            spk_buffer.extend(i16_bytes_to_f32(&spk));
+                        }
+                    }
+                }
+                _ = interval.tick() => {
+                    if !mic_buffer.is_empty() {
+                        let samples = std::mem::take(&mut mic_buffer);
+                        let duration = samples.len() as f64 / super::super::SAMPLE_RATE as f64;
+                        let start = mic_cursor;
+                        mic_cursor += duration;
+
+                        match flush_soniqo_source(
+                            session,
+                            model,
+                            hypr_transcribe_soniqo::TranscriptSource::Microphone,
+                            samples,
+                            start,
+                            duration,
+                            myself.clone(),
+                            session_offset_secs,
+                            extra.clone(),
+                        )
+                        .await
+                        {
+                            Ok(next_session) => session = next_session,
+                            Err(error) => {
+                                let _ = myself.cast(ListenerMsg::StreamError(error));
+                                return;
+                            }
+                        }
+                    }
+
+                    if !spk_buffer.is_empty() {
+                        let samples = std::mem::take(&mut spk_buffer);
+                        let duration = samples.len() as f64 / super::super::SAMPLE_RATE as f64;
+                        let start = spk_cursor;
+                        spk_cursor += duration;
+
+                        match flush_soniqo_source(
+                            session,
+                            model,
+                            hypr_transcribe_soniqo::TranscriptSource::System,
+                            samples,
+                            start,
+                            duration,
+                            myself.clone(),
+                            session_offset_secs,
+                            extra.clone(),
+                        )
+                        .await
+                        {
+                            Ok(next_session) => session = next_session,
+                            Err(error) => {
+                                let _ = myself.cast(ListenerMsg::StreamError(error));
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if !mic_buffer.is_empty() {
+            let samples = std::mem::take(&mut mic_buffer);
+            let duration = samples.len() as f64 / super::super::SAMPLE_RATE as f64;
+            let start = mic_cursor;
+            mic_cursor += duration;
+            match flush_soniqo_source(
+                session,
+                model,
+                hypr_transcribe_soniqo::TranscriptSource::Microphone,
+                samples,
+                start,
+                duration,
+                myself.clone(),
+                session_offset_secs,
+                extra.clone(),
+            )
+            .await
+            {
+                Ok(next_session) => session = next_session,
+                Err(error) => {
+                    tracing::warn!(%error, "soniqo_final_mic_flush_failed");
+                    return;
+                }
+            }
+        }
+
+        if !spk_buffer.is_empty() {
+            let samples = std::mem::take(&mut spk_buffer);
+            let duration = samples.len() as f64 / super::super::SAMPLE_RATE as f64;
+            let start = spk_cursor;
+            spk_cursor += duration;
+            match flush_soniqo_source(
+                session,
+                model,
+                hypr_transcribe_soniqo::TranscriptSource::System,
+                samples,
+                start,
+                duration,
+                myself.clone(),
+                session_offset_secs,
+                extra.clone(),
+            )
+            .await
+            {
+                Ok(next_session) => session = next_session,
+                Err(error) => {
+                    tracing::warn!(%error, "soniqo_final_system_flush_failed");
+                    return;
+                }
+            }
+        }
+
+        match finalize_soniqo_source(
+            session,
+            model,
+            hypr_transcribe_soniqo::TranscriptSource::Microphone,
+            mic_cursor,
+            myself.clone(),
+            session_offset_secs,
+            extra.clone(),
+        )
+        .await
+        {
+            Ok(next_session) => session = next_session,
+            Err(error) => {
+                tracing::warn!(%error, "soniqo_final_mic_finalize_failed");
+                return;
+            }
+        }
+
+        match finalize_soniqo_source(
+            session,
+            model,
+            hypr_transcribe_soniqo::TranscriptSource::System,
+            spk_cursor,
+            myself,
+            session_offset_secs,
+            extra,
+        )
+        .await
+        {
+            Ok(next_session) => session = next_session,
+            Err(error) => {
+                tracing::warn!(%error, "soniqo_final_system_finalize_failed");
+                return;
+            }
+        }
+
+        let _ = tokio::task::spawn_blocking(move || session.stop()).await;
+    });
+
+    Ok((ChannelSender::Soniqo(tx), rx_task, shutdown_tx))
+}
+
+async fn flush_soniqo_source(
+    session: hypr_transcribe_soniqo::LiveTranscriptionSession,
+    model: hypr_transcribe_soniqo::SoniqoModel,
+    source: hypr_transcribe_soniqo::TranscriptSource,
+    samples: Vec<f32>,
+    start: f64,
+    duration: f64,
+    myself: ActorRef<ListenerMsg>,
+    session_offset_secs: f64,
+    extra: Extra,
+) -> Result<hypr_transcribe_soniqo::LiveTranscriptionSession, String> {
+    let joined = tokio::task::spawn_blocking(move || {
+        let mut session = session;
+        let result = session.append(source, &samples);
+        (session, result)
+    })
+    .await
+    .map_err(|e| format!("soniqo_live_append_join_failed: {e}"))?;
+
+    let (session, partials) = joined;
+    let partials = partials.map_err(|e| format!("soniqo_live_append_failed: {e}"))?;
+
+    for partial in partials {
+        let mut response = partial.into_stream_response(model, start, duration);
+        response.apply_offset(session_offset_secs);
+        response.set_extra(&extra);
+
+        let _ = myself.cast(ListenerMsg::StreamResponse(response));
+    }
+
+    Ok(session)
+}
+
+async fn finalize_soniqo_source(
+    session: hypr_transcribe_soniqo::LiveTranscriptionSession,
+    model: hypr_transcribe_soniqo::SoniqoModel,
+    source: hypr_transcribe_soniqo::TranscriptSource,
+    start: f64,
+    myself: ActorRef<ListenerMsg>,
+    session_offset_secs: f64,
+    extra: Extra,
+) -> Result<hypr_transcribe_soniqo::LiveTranscriptionSession, String> {
+    let joined = tokio::task::spawn_blocking(move || {
+        let mut session = session;
+        let result = session.finalize(source);
+        (session, result)
+    })
+    .await
+    .map_err(|e| format!("soniqo_live_finalize_join_failed: {e}"))?;
+
+    let (session, partials) = joined;
+    let partials = partials.map_err(|e| format!("soniqo_live_finalize_failed: {e}"))?;
+
+    for partial in partials {
+        let mut response = partial.into_stream_response(model, start, 0.05);
+        response.apply_offset(session_offset_secs);
+        response.set_extra(&extra);
+
+        let _ = myself.cast(ListenerMsg::StreamResponse(response));
+    }
+
+    Ok(session)
+}
+
+fn i16_bytes_to_f32(bytes: &Bytes) -> Vec<f32> {
+    bytes
+        .chunks_exact(2)
+        .map(|chunk| i16::from_le_bytes([chunk[0], chunk[1]]) as f32 / i16::MAX as f32)
+        .collect()
+}
+
 fn build_listen_params(args: &ListenerArgs) -> owhisper_interface::ListenParams {
     let adapter_kind =
         AdapterKind::from_url_and_languages(&args.base_url, &args.languages, Some(&args.model));
