@@ -1,9 +1,16 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { executeProxy, subscribe } from "@hypr/plugin-db";
 
-import { getTemplateById, useUserTemplate, useUserTemplates } from "./queries";
+import {
+  getTemplateById,
+  useCreateTemplate,
+  useUserTemplate,
+  useUserTemplates,
+} from "./queries";
 
 type SubscribeOptions<T> = {
   onData: (rows: T[]) => void;
@@ -13,6 +20,23 @@ type SubscribeOptions<T> = {
 describe("template queries", () => {
   const executeProxyMock = vi.mocked(executeProxy);
   const subscribeMock = vi.mocked(subscribe);
+
+  function createWrapper() {
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        mutations: { retry: false },
+        queries: { retry: false },
+      },
+    });
+
+    return function Wrapper({ children }: { children: ReactNode }) {
+      return (
+        <QueryClientProvider client={queryClient}>
+          {children}
+        </QueryClientProvider>
+      );
+    };
+  }
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -111,5 +135,32 @@ describe("template queries", () => {
       targets: ["engineering"],
       sections: [{ title: "Notes", description: "Capture updates" }],
     });
+  });
+
+  it("creates a template row through the SQLite proxy", async () => {
+    const { result } = renderHook(() => useCreateTemplate(), {
+      wrapper: createWrapper(),
+    });
+
+    let createdId: string | undefined;
+    await act(async () => {
+      createdId = await result.current({
+        title: "New Template",
+        description: "",
+        sections: [],
+      });
+    });
+
+    expect(createdId).toEqual(expect.any(String));
+    expect(executeProxyMock).toHaveBeenCalledWith(
+      expect.stringContaining('insert into "templates"'),
+      [createdId, "New Template", "", 0, null, "[]"],
+      "run",
+    );
+    expect(executeProxyMock).toHaveBeenCalledWith(
+      expect.stringContaining("strftime('%Y-%m-%dT%H:%M:%SZ', 'now')"),
+      expect.any(Array),
+      "run",
+    );
   });
 });

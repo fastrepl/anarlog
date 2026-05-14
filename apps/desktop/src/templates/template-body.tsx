@@ -19,6 +19,7 @@ export function TemplateView({
     selectedWebTemplate,
     setSelectedMineId,
     createTemplate,
+    createDefaultTemplate,
     deleteTemplate,
     toggleTemplateFavorite,
   } = useTemplateTab(tab);
@@ -96,6 +97,7 @@ export function TemplateView({
         isWebMode={isWebMode}
         selectedMineTemplate={selectedMineTemplate}
         selectedWebTemplate={selectedWebTemplate}
+        handleCreateTemplate={createDefaultTemplate}
         handleDeleteTemplate={handleDeleteTemplate}
         handleDuplicateTemplate={handleDuplicateTemplate}
         handleCloneTemplate={handleCloneTemplate}

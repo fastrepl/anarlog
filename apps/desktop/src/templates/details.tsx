@@ -1,4 +1,4 @@
-import { HeartIcon, MoreHorizontalIcon } from "lucide-react";
+import { HeartIcon, MoreHorizontalIcon, PlusIcon } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@hypr/ui/components/ui/button";
@@ -26,6 +26,7 @@ export function TemplateDetailsColumn({
   isWebMode,
   selectedMineTemplate,
   selectedWebTemplate,
+  handleCreateTemplate,
   handleDeleteTemplate,
   handleDuplicateTemplate,
   handleCloneTemplate,
@@ -35,6 +36,7 @@ export function TemplateDetailsColumn({
   isWebMode: boolean;
   selectedMineTemplate: UserTemplate | null;
   selectedWebTemplate: WebTemplate | null;
+  handleCreateTemplate: () => void;
   handleDeleteTemplate: (id: string) => void;
   handleDuplicateTemplate: (id: string) => void;
   handleCloneTemplate: (template: UserTemplateDraft) => void;
@@ -56,7 +58,7 @@ export function TemplateDetailsColumn({
   }
 
   if (!selectedMineTemplate) {
-    return <ResourceDetailEmpty message="No templates yet" />;
+    return <TemplateDetailEmpty onCreate={handleCreateTemplate} />;
   }
 
   return (
@@ -66,6 +68,24 @@ export function TemplateDetailsColumn({
       handleDeleteTemplate={handleDeleteTemplate}
       handleDuplicateTemplate={handleDuplicateTemplate}
     />
+  );
+}
+
+function TemplateDetailEmpty({ onCreate }: { onCreate: () => void }) {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-3">
+      <p className="text-sm text-neutral-500">No templates yet</p>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        onClick={onCreate}
+        className="gap-2"
+      >
+        <PlusIcon className="size-4" />
+        Create template
+      </Button>
+    </div>
   );
 }
 

@@ -39,21 +39,10 @@ export function TemplatesSidebarContent({
     setSelectedMineId,
     setSelectedWebIndex,
     createTemplate,
+    createDefaultTemplate,
     deleteTemplate,
     toggleTemplateFavorite,
   } = useTemplateTab(tab);
-
-  const handleCreateTemplate = useCallback(async () => {
-    const id = await createTemplate({
-      title: "New Template",
-      description: "",
-      sections: [],
-    });
-
-    if (id) {
-      setSelectedMineId(id);
-    }
-  }, [createTemplate, setSelectedMineId]);
 
   const handleDuplicateTemplate = useCallback(
     async (template: UserTemplate) => {
@@ -338,7 +327,7 @@ export function TemplatesSidebarContent({
               size="icon"
               variant="ghost"
               className="text-neutral-600 hover:text-black"
-              onClick={handleCreateTemplate}
+              onClick={createDefaultTemplate}
             >
               <Plus size={16} />
             </Button>
@@ -394,7 +383,7 @@ export function TemplatesSidebarContent({
             </p>
             {!search && (
               <button
-                onClick={handleCreateTemplate}
+                onClick={createDefaultTemplate}
                 className="mt-3 text-sm text-neutral-600 underline hover:text-neutral-800"
               >
                 Create my first template

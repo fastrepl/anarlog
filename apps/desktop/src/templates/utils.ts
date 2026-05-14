@@ -29,9 +29,9 @@ export function resolveTemplateTabSelection({
   const hasUserTemplates = userTemplates.length > 0;
   const hasWebTemplates = webTemplates.length > 0;
 
-  let effectiveIsWebMode = isWebMode ?? !hasUserTemplates;
+  let effectiveIsWebMode = isWebMode ?? (hasWebTemplates && !hasUserTemplates);
 
-  if (effectiveIsWebMode && !hasWebTemplates && hasUserTemplates) {
+  if (effectiveIsWebMode && !hasWebTemplates) {
     effectiveIsWebMode = false;
   }
 
@@ -140,6 +140,20 @@ export function useTemplateTab(tab: Extract<Tab, { type: "templates" }>) {
     [updateTabState, tab],
   );
 
+  const createDefaultTemplate = useCallback(async () => {
+    const id = await createTemplate({
+      title: "New Template",
+      description: "",
+      sections: [],
+    });
+
+    if (id) {
+      setSelectedMineId(id);
+    }
+
+    return id;
+  }, [createTemplate, setSelectedMineId]);
+
   return {
     userTemplates,
     webTemplates,
@@ -151,6 +165,7 @@ export function useTemplateTab(tab: Extract<Tab, { type: "templates" }>) {
     setSelectedMineId,
     setSelectedWebIndex,
     createTemplate,
+    createDefaultTemplate,
     deleteTemplate,
     toggleTemplateFavorite,
   };
