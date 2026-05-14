@@ -5,7 +5,7 @@ use hypr_transcript::{
     TranscriptDelta, TranscriptProcessor, build_segments, channel_assignments_for_participants,
     normalize_rendered_segment_words, segment_options_for_participants, stable_segment_id,
 };
-use owhisper_interface::stream::{StreamResponse, Word};
+use owhisper_interface::stream::{Alternatives, StreamResponse, Word};
 
 const CACTUS_OVERLAP_MAX_GAP_MS: i64 = 500;
 
@@ -184,22 +184,24 @@ impl RenderedSegmentState {
 #[derive(Default)]
 enum TranscriptNormalizer {
     Cactus(CactusTranscriptNormalizer),
+    Soniqo(SoniqoTranscriptNormalizer),
     #[default]
     Passthrough,
 }
 
 impl TranscriptNormalizer {
     fn for_provider(provider_name: &str) -> Self {
-        if provider_name == "cactus" {
-            Self::Cactus(CactusTranscriptNormalizer::default())
-        } else {
-            Self::Passthrough
+        match provider_name {
+            "cactus" => Self::Cactus(CactusTranscriptNormalizer::default()),
+            "soniqo" => Self::Soniqo(SoniqoTranscriptNormalizer::default()),
+            _ => Self::Passthrough,
         }
     }
 
     fn normalize(&mut self, response: &mut StreamResponse) {
         match self {
             Self::Cactus(normalizer) => normalizer.normalize(response),
+            Self::Soniqo(normalizer) => normalizer.normalize(response),
             Self::Passthrough => {}
         }
     }
@@ -214,6 +216,18 @@ struct CactusTranscriptNormalizer {
 struct CactusChannelState {
     last_final_tokens: Vec<String>,
     last_final_end_ms: i64,
+}
+
+#[derive(Default)]
+struct SoniqoTranscriptNormalizer {
+    channels: BTreeMap<i32, SoniqoChannelState>,
+}
+
+#[derive(Default)]
+struct SoniqoChannelState {
+    active_start_ms: Option<i64>,
+    active_tokens: Vec<String>,
+    committed_tokens: Vec<String>,
 }
 
 impl CactusTranscriptNormalizer {
@@ -255,6 +269,87 @@ impl CactusTranscriptNormalizer {
     }
 }
 
+impl SoniqoTranscriptNormalizer {
+    fn normalize(&mut self, response: &mut StreamResponse) {
+        let StreamResponse::TranscriptResponse {
+            start,
+            duration,
+            channel,
+            channel_index,
+            is_final,
+            ..
+        } = response
+        else {
+            return;
+        };
+
+        let Some(alternative) = channel.alternatives.first_mut() else {
+            return;
+        };
+        if alternative.words.is_empty() {
+            return;
+        }
+
+        let channel_idx = channel_index.first().copied().unwrap_or_default();
+        let state = self.channels.entry(channel_idx).or_default();
+        let mut current_tokens = normalize_tokens_for_overlap(&alternative.words);
+        let mut current_start_ms = (*start * 1000.0).round() as i64;
+        let mut current_end_ms = ((*start + *duration) * 1000.0).round() as i64;
+
+        collapse_soniqo_internal_repeats(alternative, &mut current_tokens);
+        if alternative.words.is_empty() {
+            return;
+        }
+
+        let committed_overlap =
+            find_soniqo_committed_prefix(&current_tokens, &state.committed_tokens);
+        if committed_overlap > 0 {
+            drain_soniqo_prefix(alternative, &mut current_tokens, committed_overlap);
+
+            if alternative.words.is_empty() {
+                if *is_final {
+                    state.active_start_ms = None;
+                    state.active_tokens.clear();
+                }
+                return;
+            }
+
+            sync_soniqo_timing(start, duration, &alternative.words);
+            current_start_ms = word_start_ms(alternative.words.first().expect("checked non-empty"));
+            current_end_ms = word_end_ms(alternative.words.last().expect("checked non-empty"));
+        }
+
+        if is_soniqo_cumulative_update(&state.active_tokens, &current_tokens) {
+            let active_start_ms = state.active_start_ms.unwrap_or(current_start_ms);
+            retime_words(&mut alternative.words, active_start_ms, current_end_ms);
+            *start = active_start_ms as f64 / 1000.0;
+            *duration = ((current_end_ms - active_start_ms).max(50)) as f64 / 1000.0;
+        } else {
+            let overlap = find_soniqo_overlap_prefix(&current_tokens, &state.active_tokens);
+            if overlap > 0 {
+                drain_soniqo_prefix(alternative, &mut current_tokens, overlap);
+
+                if alternative.words.is_empty() {
+                    return;
+                }
+
+                sync_soniqo_timing(start, duration, &alternative.words);
+                current_start_ms =
+                    word_start_ms(alternative.words.first().expect("checked non-empty"));
+            }
+            state.active_start_ms = Some(current_start_ms);
+        }
+
+        if *is_final {
+            extend_soniqo_committed_tokens(&mut state.committed_tokens, current_tokens);
+            state.active_start_ms = None;
+            state.active_tokens.clear();
+        } else {
+            state.active_tokens = current_tokens;
+        }
+    }
+}
+
 fn find_cactus_overlap_prefix(
     words: &[Word],
     last_final_tokens: &[String],
@@ -288,6 +383,41 @@ fn normalize_tokens_for_overlap(words: &[Word]) -> Vec<String> {
         .map(normalize_word_token)
         .filter(|token| !token.is_empty())
         .collect()
+}
+
+fn retime_words(words: &mut [Word], start_ms: i64, end_ms: i64) {
+    let count = words.len();
+    if count == 0 {
+        return;
+    }
+
+    let duration_ms = (end_ms - start_ms).max(50);
+
+    for (index, word) in words.iter_mut().enumerate() {
+        let word_start_ms = start_ms + (index as i64 * duration_ms / count as i64);
+        let word_end_ms = if index + 1 == count {
+            (start_ms + duration_ms - 50).max(word_start_ms + 50)
+        } else {
+            start_ms + ((index + 1) as i64 * duration_ms / count as i64)
+        };
+
+        word.start = word_start_ms as f64 / 1000.0;
+        word.end = word_end_ms as f64 / 1000.0;
+    }
+}
+
+fn transcript_from_words(words: &[Word]) -> String {
+    words
+        .iter()
+        .map(|word| {
+            word.punctuated_word
+                .as_deref()
+                .unwrap_or(word.word.as_str())
+                .trim()
+        })
+        .filter(|word| !word.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 fn build_live_segments(
@@ -358,9 +488,20 @@ mod tests {
         is_final: bool,
         channel_idx: i32,
     ) -> StreamResponse {
+        transcript_response_at(transcript, words, is_final, channel_idx, 0.0, 0.0)
+    }
+
+    fn transcript_response_at(
+        transcript: &str,
+        words: Vec<Word>,
+        is_final: bool,
+        channel_idx: i32,
+        start: f64,
+        duration: f64,
+    ) -> StreamResponse {
         StreamResponse::TranscriptResponse {
-            start: 0.0,
-            duration: 0.0,
+            start,
+            duration,
             is_final,
             speech_final: is_final,
             from_finalize: false,
@@ -396,6 +537,21 @@ mod tests {
             punctuated_word: Some(text.to_string()),
             language: None,
         }
+    }
+
+    fn words_from_text(text: &str, start: f64, duration: f64) -> Vec<Word> {
+        let parts = text.split_whitespace().collect::<Vec<_>>();
+        let count = parts.len();
+
+        parts
+            .into_iter()
+            .enumerate()
+            .map(|(index, part)| {
+                let word_start = start + (index as f64 / count as f64) * duration;
+                let word_end = start + ((index + 1) as f64 / count as f64) * duration;
+                word(part, word_start, word_end)
+            })
+            .collect()
     }
 
     #[test]
