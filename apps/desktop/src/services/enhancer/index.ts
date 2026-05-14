@@ -355,7 +355,14 @@ export class EnhancerService {
     enhancedNoteId: string,
     templateId: string,
   ): Promise<void> {
-    const template = await getTemplateById(templateId);
+    let template: Awaited<ReturnType<typeof getTemplateById>>;
+    try {
+      template = await getTemplateById(templateId);
+    } catch (error) {
+      console.error("[enhancer] failed to hydrate template title", error);
+      return;
+    }
+
     const title = template?.title?.trim();
     if (!title) {
       return;

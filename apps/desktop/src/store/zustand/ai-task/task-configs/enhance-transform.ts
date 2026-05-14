@@ -43,7 +43,7 @@ async function transformArgs(
   const { sessionId, templateId } = args;
 
   const sessionContext = getSessionContext(sessionId, store);
-  const templateRecord = templateId ? await getTemplateById(templateId) : null;
+  const templateRecord = await loadTemplate(templateId);
   const template = templateRecord
     ? {
         title: templateRecord.title,
@@ -66,6 +66,19 @@ async function transformArgs(
     postMeetingMemo: sessionContext.postMeetingMemo,
     transcripts: formatTranscripts(segments, sessionContext.transcriptsMeta),
   };
+}
+
+async function loadTemplate(templateId: string | undefined) {
+  if (!templateId) {
+    return null;
+  }
+
+  try {
+    return await getTemplateById(templateId);
+  } catch (error) {
+    console.error("[enhance] failed to load template", error);
+    return null;
+  }
 }
 
 function formatTranscripts(
