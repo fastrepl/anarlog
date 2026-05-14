@@ -1,4 +1,5 @@
 import { cleanup, render, screen } from "@testing-library/react";
+import * as React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { resizeMock } = vi.hoisted(() => ({
@@ -98,9 +99,50 @@ describe("StandardTabWrapper", () => {
       </StandardTabWrapper>,
     );
 
-    expect(screen.queryByTestId("panel-group")).toBeNull();
+    expect(screen.getByTestId("panel-group").dataset.direction).toBe(
+      "vertical",
+    );
     expect(screen.queryByTestId("resize-handle")).toBeNull();
+    expect(screen.getAllByTestId("panel")).toHaveLength(1);
+    expect(screen.getByTestId("panel").dataset.defaultSize).toBe("100");
     expect(screen.getByTestId("bottom-area")).toBeTruthy();
     expect(resizeMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps main content mounted when expandable bottom content toggles", () => {
+    const mountMock = vi.fn();
+
+    class MainArea extends React.Component {
+      componentDidMount() {
+        mountMock();
+      }
+
+      render() {
+        return <div data-testid="main-area" />;
+      }
+    }
+
+    const { rerender } = render(
+      <StandardTabWrapper
+        afterBorder={<div data-testid="bottom-area" />}
+        afterBorderResizable
+        bottomBorderHandle={<button>Live</button>}
+      >
+        <MainArea />
+      </StandardTabWrapper>,
+    );
+
+    rerender(
+      <StandardTabWrapper
+        afterBorder={<div data-testid="bottom-area" />}
+        afterBorderExpanded
+        afterBorderResizable
+        bottomBorderHandle={<button>Live</button>}
+      >
+        <MainArea />
+      </StandardTabWrapper>,
+    );
+
+    expect(mountMock).toHaveBeenCalledTimes(1);
   });
 });

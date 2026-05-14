@@ -57,7 +57,7 @@ export function StandardTabWrapper({
   const mainPanel = (
     <MainPanel
       bottomBorderHandle={bottomBorderHandle}
-      fill={useResizableAfterBorder}
+      fill
       floatingButton={floatingButton}
       mergeAfterBorder={mergeAfterBorder}
       noBorder={noBorder}
@@ -67,46 +67,44 @@ export function StandardTabWrapper({
     </MainPanel>
   );
 
-  if (useResizableAfterBorder) {
-    return (
-      <ResizablePanelGroup direction="vertical" className="h-full">
+  return (
+    <div className="flex h-full flex-col">
+      <ResizablePanelGroup direction="vertical" className="min-h-0 flex-1">
         <ResizablePanel
-          defaultSize={100 - afterBorderSize}
+          defaultSize={useResizableAfterBorder ? 100 - afterBorderSize : 100}
           minSize={35}
           className="min-h-0"
         >
           {mainPanel}
         </ResizablePanel>
-        <ResizableHandle
-          disabled={!afterBorderExpanded}
-          className={cn([
-            "z-10 bg-transparent",
-            !afterBorderExpanded && "pointer-events-none",
-          ])}
-        />
-        <ResizablePanel
-          ref={afterBorderPanelRef}
-          defaultSize={afterBorderSize}
-          minSize={afterBorderExpanded ? 10 : 6}
-          maxSize={60}
-          className="min-h-0 overflow-hidden"
-        >
-          <AfterBorderContent
-            bottomBorderHandle={bottomBorderHandle}
-            fill={afterBorderExpanded}
-            mergeAfterBorder={mergeAfterBorder}
-          >
-            {afterBorder}
-          </AfterBorderContent>
-        </ResizablePanel>
+        {useResizableAfterBorder ? (
+          <>
+            <ResizableHandle
+              disabled={!afterBorderExpanded}
+              className={cn([
+                "z-10 bg-transparent",
+                !afterBorderExpanded && "pointer-events-none",
+              ])}
+            />
+            <ResizablePanel
+              ref={afterBorderPanelRef}
+              defaultSize={afterBorderSize}
+              minSize={afterBorderExpanded ? 10 : 6}
+              maxSize={60}
+              className="min-h-0 overflow-hidden"
+            >
+              <AfterBorderContent
+                bottomBorderHandle={bottomBorderHandle}
+                fill={afterBorderExpanded}
+                mergeAfterBorder={mergeAfterBorder}
+              >
+                {afterBorder}
+              </AfterBorderContent>
+            </ResizablePanel>
+          </>
+        ) : null}
       </ResizablePanelGroup>
-    );
-  }
-
-  return (
-    <div className="flex h-full flex-col">
-      {mainPanel}
-      {afterBorder ? (
+      {afterBorder && !useResizableAfterBorder ? (
         <AfterBorderContent
           bottomBorderHandle={bottomBorderHandle}
           mergeAfterBorder={mergeAfterBorder}
