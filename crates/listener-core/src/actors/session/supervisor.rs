@@ -94,14 +94,18 @@ impl Actor for SessionActor {
                     children::attach_listener_to_source(state).await;
                 }
                 Err(error) => {
-                    tracing::warn!(?error, "listener_spawn_failed_falling_back_to_batch");
-                    enter_batch_fallback(
-                        state,
+                    tracing::warn!(?error, "listener_spawn_failed");
+                    let degraded = if should_stop_on_listener_failure(state) {
+                        DegradedError::StreamError {
+                            message: error.to_string(),
+                        }
+                    } else {
                         DegradedError::UpstreamUnavailable {
                             message: mode::classify_connection_failure(&state.ctx.params.base_url),
-                        },
-                    )
-                    .await;
+                        }
+                    };
+
+                    handle_listener_failure(&myself, state, degraded).await;
                 }
             }
 
@@ -149,10 +153,14 @@ impl Actor for SessionActor {
             SupervisionEvent::ActorTerminated(cell, _, reason) => {
                 match children::identify_child(state, &cell) {
                     Some(ChildKind::Listener) => {
-                        tracing::info!(?reason, "listener_terminated_falling_back_to_batch");
+                        tracing::info!(?reason, "listener_terminated");
                         state.listener_cell = None;
-                        enter_batch_fallback(state, mode::parse_degraded_reason(reason.as_ref()))
-                            .await;
+                        handle_listener_failure(
+                            &myself,
+                            state,
+                            mode::parse_degraded_reason(reason.as_ref()),
+                        )
+                        .await;
                     }
                     Some(ChildKind::Source) => {
                         tracing::info!(?reason, "source_terminated_attempting_restart");
@@ -187,9 +195,10 @@ impl Actor for SessionActor {
             SupervisionEvent::ActorFailed(cell, error) => {
                 match children::identify_child(state, &cell) {
                     Some(ChildKind::Listener) => {
-                        tracing::info!(?error, "listener_failed_falling_back_to_batch");
+                        tracing::info!(?error, "listener_failed");
                         state.listener_cell = None;
-                        enter_batch_fallback(
+                        handle_listener_failure(
+                            &myself,
                             state,
                             DegradedError::StreamError {
                                 message: format!("{:?}", error),
@@ -244,6 +253,34 @@ async fn enter_batch_fallback(state: &mut SessionState, degraded: DegradedError)
     state.mode.enter_batch_fallback();
     children::attach_listener_to_source(state).await;
     emit_active_lifecycle_event(state, Some(degraded)).await;
+}
+
+async fn handle_listener_failure(
+    myself: &ActorRef<SessionMsg>,
+    state: &mut SessionState,
+    degraded: DegradedError,
+) {
+    if should_stop_on_listener_failure(state) {
+        tracing::warn!("soniqo_listener_failed_stopping_session");
+        stop_after_listener_failure(myself, state, degraded).await;
+    } else {
+        enter_batch_fallback(state, degraded).await;
+    }
+}
+
+fn should_stop_on_listener_failure(state: &SessionState) -> bool {
+    state.ctx.params.uses_local_soniqo_live_model()
+}
+
+async fn stop_after_listener_failure(
+    myself: &ActorRef<SessionMsg>,
+    state: &mut SessionState,
+    degraded: DegradedError,
+) {
+    state.shutting_down = true;
+    children::shutdown_children(state, "listener_failure").await;
+    let reason = serde_json::to_string(&degraded).ok();
+    myself.stop(reason);
 }
 
 async fn meltdown(myself: ActorRef<SessionMsg>, state: &mut SessionState) {
@@ -380,6 +417,36 @@ mod tests {
             started_at_instant: Instant::now(),
             started_at_system: SystemTime::now(),
         }
+    }
+
+    fn test_state(ctx: SessionContext) -> SessionState {
+        SessionState {
+            ctx,
+            source_cell: None,
+            listener_cell: None,
+            recorder_cell: None,
+            source_restarts: RestartTracker::new(),
+            recorder_restarts: RestartTracker::new(),
+            mode: SessionModeState::new(TranscriptionMode::Live),
+            shutting_down: false,
+        }
+    }
+
+    #[test]
+    fn local_soniqo_live_listener_failure_stops_session() {
+        let mut ctx = test_ctx();
+        ctx.params.base_url = hypr_transcribe_soniqo::LOCAL_BASE_URL.to_string();
+        ctx.params.model = "soniqo-parakeet-streaming".to_string();
+        let state = test_state(ctx);
+
+        assert!(should_stop_on_listener_failure(&state));
+    }
+
+    #[test]
+    fn non_soniqo_listener_failure_enters_batch_fallback() {
+        let state = test_state(test_ctx());
+
+        assert!(!should_stop_on_listener_failure(&state));
     }
 
     #[tokio::test]

@@ -29,6 +29,35 @@ pub struct SessionParams {
     pub self_human_id: Option<String>,
 }
 
+impl SessionParams {
+    pub fn effective_transcription_mode(&self) -> TranscriptionMode {
+        if self.transcription_mode == TranscriptionMode::Batch {
+            return TranscriptionMode::Batch;
+        }
+
+        if let Some(model) =
+            hypr_transcribe_soniqo::local_model_from_request(&self.base_url, &self.model)
+        {
+            return if model.supports_live_on_current_platform() {
+                TranscriptionMode::Live
+            } else {
+                TranscriptionMode::Batch
+            };
+        }
+
+        if hypr_transcribe_soniqo::is_local_base_url(&self.base_url) {
+            return TranscriptionMode::Batch;
+        }
+
+        TranscriptionMode::Live
+    }
+
+    pub fn uses_local_soniqo_live_model(&self) -> bool {
+        hypr_transcribe_soniqo::local_model_from_request(&self.base_url, &self.model)
+            .is_some_and(|model| model.supports_live())
+    }
+}
+
 #[derive(Clone)]
 pub struct SessionContext {
     pub runtime: Arc<dyn ListenerRuntime>,
@@ -41,4 +70,135 @@ pub struct SessionContext {
 
 pub fn session_supervisor_name(session_id: &str) -> String {
     format!("{}{}", SESSION_SUPERVISOR_PREFIX, session_id)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn session_params(base_url: &str, model: &str, mode: TranscriptionMode) -> SessionParams {
+        SessionParams {
+            session_id: "session".to_string(),
+            languages: vec![],
+            onboarding: false,
+            transcription_mode: mode,
+            model: model.to_string(),
+            base_url: base_url.to_string(),
+            api_key: String::new(),
+            keywords: vec![],
+            participant_human_ids: vec![],
+            self_human_id: None,
+        }
+    }
+
+    #[test]
+    fn effective_mode_keeps_explicit_batch() {
+        let params = session_params(
+            hypr_transcribe_soniqo::LOCAL_BASE_URL,
+            "soniqo-parakeet-streaming",
+            TranscriptionMode::Batch,
+        );
+
+        assert_eq!(
+            params.effective_transcription_mode(),
+            TranscriptionMode::Batch
+        );
+    }
+
+    #[test]
+    fn effective_mode_forces_soniqo_batch_models_to_batch() {
+        let params = session_params(
+            hypr_transcribe_soniqo::LOCAL_BASE_URL,
+            "soniqo-parakeet-batch",
+            TranscriptionMode::Live,
+        );
+
+        assert_eq!(
+            params.effective_transcription_mode(),
+            TranscriptionMode::Batch
+        );
+    }
+
+    #[test]
+    fn effective_mode_detects_soniqo_loopback_base_url() {
+        let params = session_params(
+            "http://localhost:50060/v1",
+            "soniqo-parakeet-streaming",
+            TranscriptionMode::Live,
+        );
+        let expected = if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
+            TranscriptionMode::Live
+        } else {
+            TranscriptionMode::Batch
+        };
+
+        assert_eq!(params.effective_transcription_mode(), expected);
+    }
+
+    #[test]
+    fn detects_local_soniqo_live_model() {
+        let params = session_params(
+            hypr_transcribe_soniqo::LOCAL_BASE_URL,
+            "soniqo-parakeet-streaming",
+            TranscriptionMode::Live,
+        );
+
+        assert!(params.uses_local_soniqo_live_model());
+    }
+
+    #[test]
+    fn rejects_soniqo_batch_model_as_live_model() {
+        let params = session_params(
+            hypr_transcribe_soniqo::LOCAL_BASE_URL,
+            "soniqo-parakeet-batch",
+            TranscriptionMode::Live,
+        );
+
+        assert!(!params.uses_local_soniqo_live_model());
+    }
+
+    #[test]
+    fn effective_mode_defaults_invalid_soniqo_model_to_batch() {
+        let params = session_params(
+            hypr_transcribe_soniqo::LOCAL_BASE_URL,
+            "missing-model",
+            TranscriptionMode::Live,
+        );
+
+        assert_eq!(
+            params.effective_transcription_mode(),
+            TranscriptionMode::Batch
+        );
+    }
+
+    #[test]
+    fn effective_mode_keeps_non_soniqo_live() {
+        let params = session_params(
+            "https://api.deepgram.com/v1",
+            "nova-3-general",
+            TranscriptionMode::Live,
+        );
+
+        assert_eq!(
+            params.effective_transcription_mode(),
+            TranscriptionMode::Live
+        );
+    }
+
+    #[test]
+    fn deserializes_missing_transcription_mode_as_live() {
+        let value = serde_json::json!({
+            "session_id": "session",
+            "languages": [],
+            "onboarding": false,
+            "model": "nova-3-general",
+            "base_url": "https://api.deepgram.com/v1",
+            "api_key": "test-key",
+            "keywords": [],
+        });
+
+        let params: SessionParams = serde_json::from_value(value).unwrap();
+
+        assert_eq!(params.transcription_mode, TranscriptionMode::Live);
+    }
 }
