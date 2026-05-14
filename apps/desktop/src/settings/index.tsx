@@ -9,7 +9,6 @@ import {
   SettingsNotifications,
   SettingsPermissions,
 } from "./general";
-import { SettingsLab } from "./lab";
 import { SettingsTodo } from "./todo";
 
 import { LLM } from "~/settings/ai/llm";
@@ -72,8 +71,6 @@ function SettingsView({ tab }: { tab: Extract<Tab, { type: "settings" }> }) {
         return <SettingsNotifications />;
       case "permissions":
         return <SettingsPermissions />;
-      case "lab":
-        return <SettingsLab />;
       case "transcription":
         return <STT />;
       case "intelligence":
