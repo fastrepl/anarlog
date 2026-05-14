@@ -1,3 +1,5 @@
+import { MessageCircle } from "lucide-react";
+
 import { useShell } from "~/contexts/shell";
 
 export function ChatCTA({
@@ -27,11 +29,7 @@ export function ChatCTA({
       onClick={handleClick}
       className="flex items-center gap-2 rounded-full border-2 border-stone-600 bg-stone-800 px-4 py-2 text-sm text-white shadow-[0_4px_14px_rgba(87,83,78,0.4)] transition-colors hover:bg-stone-700"
     >
-      <img
-        src="/assets/anarlog-icon.png"
-        alt=""
-        className="size-4 shrink-0 object-contain object-center"
-      />
+      <MessageCircle className="size-4 shrink-0" aria-hidden="true" />
       <span>{label}</span>
     </button>
   );
