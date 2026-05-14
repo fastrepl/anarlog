@@ -3,6 +3,7 @@ import { platform } from "@tauri-apps/plugin-os";
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
+  MessageCircleIcon,
   PanelLeftOpenIcon,
   PlusIcon,
 } from "lucide-react";
@@ -286,7 +287,6 @@ export function ClassicMainTabChrome({ tabs }: { tabs: Tab[] }) {
 function TabChatButton({ shortcutLabel }: { shortcutLabel?: string }) {
   const { chat } = useShell();
   const isChatOpen = chat.mode === "RightPanelOpen";
-  const isTabbarSelected = isChatOpen;
 
   const { data: isChatEnabled } = useQuery({
     refetchInterval: 10_000,
@@ -300,14 +300,13 @@ function TabChatButton({ shortcutLabel }: { shortcutLabel?: string }) {
     },
   });
 
-  if (!isChatEnabled) {
+  if (!isChatEnabled || isChatOpen) {
     return null;
   }
 
-  const buttonTitle = isTabbarSelected ? "Close chat" : "Chat with notes";
+  const buttonTitle = "Chat with notes";
 
-  const handleClick = () =>
-    chat.sendEvent(isTabbarSelected ? { type: "TOGGLE" } : { type: "OPEN" });
+  const handleClick = () => chat.sendEvent({ type: "OPEN" });
 
   return (
     <Tooltip>
@@ -316,22 +315,13 @@ function TabChatButton({ shortcutLabel }: { shortcutLabel?: string }) {
           onClick={handleClick}
           variant="ghost"
           size="icon"
-          className={cn([
-            "text-neutral-600",
-            isTabbarSelected &&
-              "bg-neutral-200 text-neutral-900 hover:bg-neutral-200",
-          ])}
+          className="text-neutral-600"
           aria-label={buttonTitle}
-          aria-pressed={isTabbarSelected}
           title={buttonTitle}
         >
-          <img
-            src="/assets/anarlog-icon.png"
-            alt="Anarlog"
-            className={cn([
-              "size-[16px] shrink-0 object-contain object-center opacity-80",
-              isTabbarSelected && "opacity-100",
-            ])}
+          <MessageCircleIcon
+            aria-hidden="true"
+            className="size-4 shrink-0 opacity-80"
           />
         </Button>
       </TooltipTrigger>

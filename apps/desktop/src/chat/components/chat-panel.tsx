@@ -1,3 +1,4 @@
+import { platform } from "@tauri-apps/plugin-os";
 import { useCallback } from "react";
 
 import { cn } from "@hypr/utils";
@@ -16,6 +17,8 @@ import * as main from "~/store/tinybase/store/main";
 export function ChatView() {
   const { chat } = useShell();
   const { groupId, sessionId, setGroupId } = chat;
+  const currentPlatform = platform();
+  const chatPanelShortcutLabel = currentPlatform === "macos" ? "⌘ J" : "Ctrl J";
 
   const { currentSessionId } = useSessionTab();
 
@@ -41,11 +44,13 @@ export function ChatView() {
         chat.mode !== "RightPanelOpen" && "bg-stone-50",
       ])}
     >
-      <div className="flex h-10 shrink-0 items-center border-b border-neutral-100 pr-2 pl-0">
+      <div className="flex h-10 shrink-0 items-center border-b border-neutral-100 pr-0 pl-0">
         <ChatToolbarControls
           currentChatGroupId={groupId}
           onNewChat={chat.startNewChat}
           onSelectChat={chat.selectChat}
+          onCloseChat={() => chat.sendEvent({ type: "CLOSE" })}
+          shortcutLabel={chatPanelShortcutLabel}
         />
       </div>
       {user_id && (

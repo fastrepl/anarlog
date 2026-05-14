@@ -1,6 +1,7 @@
 import {
   ListChecksIcon,
   MailIcon,
+  MessageCircleIcon,
   SearchIcon,
   SparklesIcon,
 } from "lucide-react";
@@ -60,18 +61,15 @@ export function ChatBodyEmpty({
       <div className="flex justify-start py-2 pb-1">
         <div className="flex w-full flex-col">
           <div className="mb-2 flex items-center gap-2">
-            <img
-              src="/assets/anarlog-icon.png"
-              alt="Anarlog"
-              className="size-4 object-contain object-center"
-            />
+            <MessageCircleIcon className="size-4 text-neutral-500" />
             <span className="text-sm font-medium text-neutral-800">
-              Charlie
+              Anarlog AI
             </span>
             <BetaChip />
           </div>
           <p className="mb-2 text-sm text-neutral-700">
-            Hi, I'm Charlie. Set up a language model and I'll be ready to help.
+            Hi, I'm Anarlog AI. Set up a language model and I'll be ready to
+            help.
           </p>
           <button
             onClick={handleGoToSettings}
@@ -92,17 +90,15 @@ export function ChatBodyEmpty({
     <div className="flex justify-start pb-1">
       <div className="flex w-full flex-col">
         <div className="mb-2 flex items-center gap-2">
-          <img
-            src="/assets/anarlog-icon.png"
-            alt="Anarlog"
-            className="size-4 object-contain object-center"
-          />
-          <span className="text-sm font-medium text-neutral-800">Charlie</span>
+          <MessageCircleIcon className="size-4 text-neutral-500" />
+          <span className="text-sm font-medium text-neutral-800">
+            Anarlog AI
+          </span>
           <BetaChip />
         </div>
         <p className="mb-2 text-sm text-neutral-700">
-          Hi, I'm Charlie. I can help you pull context from your notes, find key
-          decisions, and draft what comes next.
+          Hi, I'm Anarlog AI. I can help you pull context from your notes, find
+          key decisions, and draft what comes next.
         </p>
         {hasContext && (
           <div className="flex flex-wrap gap-1.5">

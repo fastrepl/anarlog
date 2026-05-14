@@ -19,36 +19,53 @@ import * as main from "~/store/tinybase/store/main";
 
 export function ChatToolbarControls({
   currentChatGroupId,
+  onCloseChat,
   onNewChat,
   onSelectChat,
+  shortcutLabel,
 }: {
   currentChatGroupId: string | undefined;
+  onCloseChat: () => void;
   onNewChat: () => void;
   onSelectChat: (chatGroupId: string) => void;
+  shortcutLabel?: string;
 }) {
   return (
-    <div className="flex h-full min-w-0 items-center gap-1">
-      <ChatGroups
-        currentChatGroupId={currentChatGroupId}
-        onSelectChat={onSelectChat}
-      />
+    <div className="relative flex h-full w-full min-w-0 items-center">
+      <div className="flex min-w-0 items-center gap-1 pr-8">
+        <ChatGroups
+          currentChatGroupId={currentChatGroupId}
+          onSelectChat={onSelectChat}
+        />
+        <ChatActionButton
+          icon={<Plus size={16} />}
+          onClick={onNewChat}
+          title="New chat"
+        />
+      </div>
       <ChatActionButton
-        icon={<Plus size={16} />}
-        onClick={onNewChat}
-        title="New chat"
+        icon={<MessageCircle size={16} />}
+        onClick={onCloseChat}
+        title="Close chat"
+        shortcutLabel={shortcutLabel}
+        className="absolute top-1/2 right-0 -translate-y-1/2 bg-neutral-100 text-neutral-900 hover:bg-neutral-100"
       />
     </div>
   );
 }
 
 function ChatActionButton({
+  className,
   icon,
   title,
   onClick,
+  shortcutLabel,
 }: {
+  className?: string;
   icon: React.ReactNode;
   title: string;
   onClick: () => void;
+  shortcutLabel?: string;
 }) {
   return (
     <Tooltip>
@@ -58,12 +75,19 @@ function ChatActionButton({
           title={title}
           size="icon"
           variant="ghost"
-          className="text-neutral-600"
+          className={cn(["text-neutral-600", className])}
         >
           {icon}
         </Button>
       </TooltipTrigger>
-      <TooltipContent side="bottom">{title}</TooltipContent>
+      <TooltipContent side="bottom" className="flex items-center gap-2">
+        <span>{title}</span>
+        {shortcutLabel && (
+          <span className="rounded border border-neutral-200 bg-neutral-50 px-1 py-0.5 text-[10px] text-neutral-500">
+            {shortcutLabel}
+          </span>
+        )}
+      </TooltipContent>
     </Tooltip>
   );
 }
@@ -98,12 +122,12 @@ function ChatGroups({
         <Button
           variant="ghost"
           className={cn([
-            "group flex h-8 max-w-64 min-w-0 justify-start gap-2 pr-2 pl-1",
+            "group flex h-8 max-w-64 min-w-0 justify-start gap-2 px-0 py-0",
             "text-neutral-700",
           ])}
         >
           <h3 className="min-w-0 flex-1 truncate text-xs font-medium text-neutral-700">
-            {currentChatTitle || "Ask Charlie anything"}
+            {currentChatTitle || "Ask Anarlog AI anything"}
           </h3>
           <ChevronDown
             className={cn([

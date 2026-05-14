@@ -99,7 +99,7 @@ export function ComposerScreen() {
               }
               onStop={sessionProps.stop}
               onSendMessage={sendMessage}
-              title={currentTitle || "Ask Charlie anything"}
+              title={currentTitle || "Ask Anarlog AI anything"}
             />
           ) : (
             <ComposerSettingsCard />
@@ -300,7 +300,7 @@ function ComposerInput({
 
 const composerPlaceholder: PlaceholderFunction = ({ node, pos }) => {
   if (node.type.name === "paragraph" && pos === 0) {
-    return "Message Charlie";
+    return "Message Anarlog AI";
   }
 
   return "";
