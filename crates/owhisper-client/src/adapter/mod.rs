@@ -277,10 +277,19 @@ pub(crate) fn host_matches(base_url: &str, predicate: impl Fn(&str) -> bool) -> 
         .unwrap_or(false)
 }
 
-fn is_hyprnote_cloud(base_url: &str) -> bool {
-    host_matches(base_url, |h| {
-        h.contains("hyprnote.com") || h.contains("char.com")
+const HYPRNOTE_PROXY_DOMAINS: &[&str] = &["hyprnote.com", "char.com", "anarlog.so"];
+
+fn is_hyprnote_cloud_host(host: &str) -> bool {
+    HYPRNOTE_PROXY_DOMAINS.iter().any(|domain| {
+        host == *domain
+            || host
+                .strip_suffix(domain)
+                .is_some_and(|prefix| prefix.ends_with('.'))
     })
+}
+
+fn is_hyprnote_cloud(base_url: &str) -> bool {
+    host_matches(base_url, is_hyprnote_cloud_host)
 }
 
 fn is_hyprnote_local_proxy(base_url: &str) -> bool {
@@ -359,7 +368,7 @@ pub fn build_proxy_ws_url(api_base: &str) -> Option<(url::Url, Vec<(String, Stri
     let parsed: url::Url = api_base.parse().ok()?;
     let host = parsed.host_str()?;
 
-    if !host.contains("hyprnote.com") && !is_local_host(host) {
+    if !is_hyprnote_cloud_host(host) && !is_local_host(host) {
         return None;
     }
 
@@ -662,9 +671,12 @@ mod tests {
         assert!(is_hyprnote_proxy("https://api.hyprnote.com"));
         assert!(is_hyprnote_proxy("https://api.char.com/stt"));
         assert!(is_hyprnote_proxy("https://api.char.com"));
+        assert!(is_hyprnote_proxy("https://api.anarlog.so/stt"));
+        assert!(is_hyprnote_proxy("https://api.anarlog.so"));
         assert!(is_hyprnote_proxy("http://localhost:3001/stt"));
         assert!(is_hyprnote_proxy("http://127.0.0.1:3001/stt"));
 
+        assert!(!is_hyprnote_proxy("https://notchar.com/stt"));
         assert!(!is_hyprnote_proxy("https://api.deepgram.com"));
         assert!(!is_hyprnote_proxy("http://localhost:50060/v1"));
     }
@@ -694,6 +706,12 @@ mod tests {
             (
                 "https://api.hyprnote.com/stt",
                 &[En],
+                Some("cloud"),
+                AdapterKind::Hyprnote,
+            ),
+            (
+                "https://api.anarlog.so/stt",
+                &[En, Ko],
                 Some("cloud"),
                 AdapterKind::Hyprnote,
             ),
@@ -833,6 +851,20 @@ mod tests {
                 )),
             ),
             (
+                "https://api.char.com/stt?provider=deepgram",
+                Some((
+                    "wss://api.char.com/stt/listen",
+                    vec![("provider", "deepgram")],
+                )),
+            ),
+            (
+                "https://api.anarlog.so/stt?provider=hyprnote",
+                Some((
+                    "wss://api.anarlog.so/stt/listen",
+                    vec![("provider", "hyprnote")],
+                )),
+            ),
+            (
                 "https://api.hyprnote.com/stt/listen?provider=deepgram",
                 Some((
                     "wss://api.hyprnote.com/stt/listen",
@@ -902,6 +934,7 @@ mod tests {
         let proxy_urls = &[
             "https://api.hyprnote.com/stt",
             "https://api.char.com/stt",
+            "https://api.anarlog.so/stt",
             "http://localhost:3001/stt",
             "http://127.0.0.1:3001/stt",
         ];
