@@ -13,19 +13,6 @@ pub struct CactusServiceHealth {
     pub error: Option<String>,
 }
 
-const PARAKEET_TDT_V3_LANGUAGE_CODES: &[&str] = &[
-    "bg", "cs", "da", "de", "el", "en", "es", "et", "fi", "fr", "hr", "hu", "it", "lt", "lv", "mt",
-    "nl", "pl", "pt", "ro", "ru", "sk", "sl", "sv", "uk",
-];
-
-fn languages_from_codes(codes: &[&str]) -> Vec<hypr_language::Language> {
-    codes
-        .iter()
-        .filter_map(|code| code.parse::<hypr_language::ISO639>().ok())
-        .map(|iso| iso.into())
-        .collect()
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type)]
 pub enum CactusModelSource {
     Downloadable {
@@ -338,7 +325,7 @@ impl CactusSttModel {
             | CactusSttModel::ParakeetTdt0_6bV3Int4Apple
             | CactusSttModel::ParakeetTdt0_6bV3Int8
             | CactusSttModel::ParakeetTdt0_6bV3Int8Apple => {
-                languages_from_codes(PARAKEET_TDT_V3_LANGUAGE_CODES)
+                hypr_language::parakeet_tdt_v3_languages()
             }
             _ => hypr_language::whisper_multilingual(),
         }

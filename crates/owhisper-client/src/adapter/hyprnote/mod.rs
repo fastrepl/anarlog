@@ -2,7 +2,6 @@ mod batch;
 mod live;
 
 use super::{LanguageQuality, LanguageSupport};
-use crate::adapter::argmax::PARAKEET_V3_LANGS;
 
 #[derive(Clone, Default)]
 pub struct HyprnoteAdapter;
@@ -75,7 +74,7 @@ fn soniqo_language_support(
 fn parakeet_language_support(languages: &[hypr_language::Language]) -> LanguageSupport {
     if languages
         .iter()
-        .all(|language| PARAKEET_V3_LANGS.contains(&language.iso639().code()))
+        .all(hypr_language::is_parakeet_tdt_v3_language)
     {
         LanguageSupport::Supported {
             quality: LanguageQuality::NoData,

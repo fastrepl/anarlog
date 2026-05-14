@@ -1,8 +1,4 @@
-// https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3
-pub const PARAKEET_V3_LANGS: &[&str] = &[
-    "bg", "cs", "da", "de", "el", "en", "es", "et", "fi", "fr", "hr", "hu", "it", "lt", "lv", "mt",
-    "nl", "pl", "pt", "ro", "ru", "sk", "sl", "sv", "uk",
-];
+pub use hypr_language::PARAKEET_TDT_V3_LANGUAGE_CODES as PARAKEET_V3_LANGS;
 
 #[derive(
     Debug,
@@ -65,11 +61,7 @@ impl AmModel {
 
         match self {
             AmModel::ParakeetV2 => vec![ISO639::En.into()],
-            AmModel::ParakeetV3 => PARAKEET_V3_LANGS
-                .iter()
-                .filter_map(|code| code.parse::<ISO639>().ok())
-                .map(|iso| iso.into())
-                .collect(),
+            AmModel::ParakeetV3 => hypr_language::parakeet_tdt_v3_languages(),
             AmModel::WhisperLargeV3 => hypr_language::whisper_multilingual(),
         }
     }

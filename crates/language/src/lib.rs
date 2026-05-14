@@ -13,6 +13,11 @@ use std::str::FromStr;
 
 pub use codes_iso_639::part_1::LanguageCode as ISO639;
 
+pub const PARAKEET_TDT_V3_LANGUAGE_CODES: &[&str] = &[
+    "bg", "cs", "da", "de", "el", "en", "es", "et", "fi", "fr", "hr", "hu", "it", "lt", "lv", "mt",
+    "nl", "pl", "pt", "ro", "ru", "sk", "sl", "sv", "uk",
+];
+
 #[derive(Debug, Clone, PartialEq, schemars::JsonSchema)]
 pub struct Language {
     #[schemars(
@@ -255,6 +260,18 @@ pub fn whisper_multilingual() -> Vec<Language> {
     .collect()
 }
 
+pub fn parakeet_tdt_v3_languages() -> Vec<Language> {
+    PARAKEET_TDT_V3_LANGUAGE_CODES
+        .iter()
+        .filter_map(|code| code.parse::<ISO639>().ok())
+        .map(Language::from)
+        .collect()
+}
+
+pub fn is_parakeet_tdt_v3_language(language: &Language) -> bool {
+    PARAKEET_TDT_V3_LANGUAGE_CODES.contains(&language.iso639_code())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -322,5 +339,15 @@ mod tests {
         assert_eq!(lang.iso639(), ISO639::En);
         assert_eq!(lang.region(), None);
         assert_eq!(lang.bcp47_code(), "en");
+    }
+
+    #[test]
+    fn test_parakeet_tdt_v3_language_support() {
+        let english_us: Language = "en-US".parse().unwrap();
+        let korean: Language = "ko".parse().unwrap();
+
+        assert_eq!(parakeet_tdt_v3_languages().len(), 25);
+        assert!(is_parakeet_tdt_v3_language(&english_us));
+        assert!(!is_parakeet_tdt_v3_language(&korean));
     }
 }
