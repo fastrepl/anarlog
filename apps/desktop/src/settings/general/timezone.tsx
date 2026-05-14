@@ -68,7 +68,8 @@ export function TimezoneSelector() {
         options={options}
         placeholder="Select timezone"
         searchPlaceholder="Search timezone..."
-        className="w-40"
+        className="w-48"
+        dropdownClassName="w-72"
       />
     </div>
   );

@@ -32,6 +32,7 @@ interface SearchableSelectProps {
   searchPlaceholder?: string;
   emptyMessage?: string;
   className?: string;
+  dropdownClassName?: string;
 }
 
 const filterFunction = (value: string, search: string) => {
@@ -51,6 +52,7 @@ export function SearchableSelect({
   searchPlaceholder = "Search...",
   emptyMessage = "No results found.",
   className,
+  dropdownClassName,
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -96,7 +98,12 @@ export function SearchableSelect({
       <PopoverContent
         variant="app"
         align="start"
-        style={{ width: "var(--radix-popover-trigger-width)" }}
+        className={dropdownClassName}
+        style={{
+          width: dropdownClassName
+            ? undefined
+            : "var(--radix-popover-trigger-width)",
+        }}
       >
         <AppFloatingPanel className="overflow-hidden">
           <Command

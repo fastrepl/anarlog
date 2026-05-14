@@ -54,7 +54,7 @@ export function MainLanguageView({
         options={options}
         placeholder="Select language"
         searchPlaceholder="Search language..."
-        className="w-40"
+        className="w-48"
       />
     </div>
   );
