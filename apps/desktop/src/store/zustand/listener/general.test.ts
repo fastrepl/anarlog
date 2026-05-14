@@ -144,6 +144,49 @@ describe("General Listener Slice", () => {
       expect(store.getState().batchPreview[sessionId]).toBeUndefined();
     });
 
+    test("handleBatchResponse persists text-only batch transcripts", () => {
+      const sessionId = "session-text-only-batch";
+      const { handleBatchStarted, handleBatchResponse, setBatchPersist } =
+        store.getState();
+      let persistedWords: Array<{
+        text: string;
+        start_ms: number;
+        end_ms: number;
+        channel: number;
+      }> = [];
+
+      handleBatchStarted(sessionId);
+      setBatchPersist(sessionId, (words) => {
+        persistedWords = words;
+      });
+
+      handleBatchResponse(sessionId, {
+        metadata: {},
+        results: {
+          channels: [
+            {
+              alternatives: [
+                {
+                  transcript: "Hello world from OpenAI.",
+                  confidence: 1,
+                  words: [],
+                },
+              ],
+            },
+          ],
+        },
+      });
+
+      expect(persistedWords).toEqual([
+        { text: " Hello", start_ms: 0, end_ms: 400, channel: 0 },
+        { text: " world", start_ms: 400, end_ms: 800, channel: 0 },
+        { text: " from", start_ms: 800, end_ms: 1200, channel: 0 },
+        { text: " OpenAI.", start_ms: 1200, end_ms: 1600, channel: 0 },
+      ]);
+      expect(store.getState().batch[sessionId]).toBeUndefined();
+      expect(store.getState().batchPreview[sessionId]).toBeUndefined();
+    });
+
     test("handleBatchFailed preserves batch error for UI surfaces", () => {
       const sessionId = "session-batch-error";
       const { handleBatchFailed, getSessionMode } = store.getState();

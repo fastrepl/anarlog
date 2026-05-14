@@ -11,6 +11,8 @@ import { transformWordEntries } from "./utils";
 
 import { type RuntimeSpeakerHint, type WordLike } from "~/stt/segment";
 
+const APPROX_TEXT_WORD_DURATION_MS = 400;
+
 export type BatchPhase = "importing" | "transcribing";
 export type BatchTerminalReason = "failed" | "timed_out" | "stopped";
 
@@ -279,7 +281,14 @@ function transformBatch(
 
   response.results.channels.forEach((channel, channelIndex) => {
     const alternative = channel.alternatives[0];
-    if (!alternative || !alternative.words || !alternative.words.length) {
+    if (!alternative) {
+      return;
+    }
+
+    if (!alternative.words || !alternative.words.length) {
+      allWords.push(
+        ...synthesizeWordsFromTranscript(alternative.transcript, channelIndex),
+      );
       return;
     }
 
@@ -300,6 +309,33 @@ function transformBatch(
   });
 
   return [allWords, allHints];
+}
+
+function synthesizeWordsFromTranscript(
+  transcript: string,
+  channel: number,
+): WordLike[] {
+  const words: WordLike[] = [];
+  let previousEnd = 0;
+
+  for (const match of transcript.matchAll(/\S+/g)) {
+    const token = match[0];
+    const tokenStart = match.index ?? previousEnd;
+    const prefix =
+      words.length === 0 ? " " : transcript.slice(previousEnd, tokenStart);
+    const startMs = words.length * APPROX_TEXT_WORD_DURATION_MS;
+
+    words.push({
+      text: `${prefix}${token}`,
+      start_ms: startMs,
+      end_ms: startMs + APPROX_TEXT_WORD_DURATION_MS,
+      channel,
+    });
+
+    previousEnd = tokenStart + token.length;
+  }
+
+  return words;
 }
 
 function mergeBatchPreview(
