@@ -33,6 +33,7 @@ pub struct TranscriptProcessor {
     channels: BTreeMap<i32, ChannelState>,
     pending_corrections: HashMap<u64, Vec<String>>,
     next_job_id: u64,
+    finalize_partials: bool,
 }
 
 struct ParsedStreamResponse<'a> {
@@ -60,7 +61,15 @@ impl TranscriptProcessor {
             channels: BTreeMap::new(),
             pending_corrections: HashMap::new(),
             next_job_id: 1,
+            finalize_partials: true,
         }
+    }
+
+    /// Disable this for providers whose partials are UI snapshots rather than
+    /// commit-worthy transcript words.
+    pub fn with_partial_finalization(mut self, finalize_partials: bool) -> Self {
+        self.finalize_partials = finalize_partials;
+        self
     }
 
     pub fn process(&mut self, response: &StreamResponse) -> Option<TranscriptDelta> {
@@ -82,7 +91,8 @@ impl TranscriptProcessor {
                 WordState::Final
             };
 
-            let new_words = channel_state.apply_final(raw_words, word_state);
+            let new_words =
+                channel_state.apply_final(raw_words, word_state, self.finalize_partials);
 
             let replaced_ids = if parsed.correction.is_corrected_job() {
                 self.resolve_job(parsed.correction.cloud_job_id)
@@ -147,7 +157,11 @@ impl TranscriptProcessor {
         let mut new_words = vec![];
 
         for state in self.channels.values_mut() {
-            new_words.extend(state.drain());
+            if self.finalize_partials {
+                new_words.extend(state.drain());
+            } else {
+                new_words.extend(state.drain_final_words());
+            }
         }
 
         self.channels.clear();
@@ -341,5 +355,43 @@ mod tests {
         assert_eq!(snapshot.partials[0].speaker_index, Some(4));
         assert_eq!(snapshot.partials[1].speaker_index, None);
         assert_eq!(snapshot.partials[2].speaker_index, Some(7));
+    }
+
+    #[test]
+    fn flush_can_discard_partials_without_losing_held_finals() {
+        let mut processor = TranscriptProcessor::new().with_partial_finalization(false);
+        let channel = processor
+            .channels
+            .entry(0)
+            .or_insert_with(ChannelState::new);
+
+        channel.apply_partial(vec![RawWord {
+            text: " repeated".to_string(),
+            start_ms: 0,
+            end_ms: 100,
+            channel: 0,
+            speaker: None,
+        }]);
+        channel.apply_final(
+            vec![RawWord {
+                text: " final".to_string(),
+                start_ms: 1_000,
+                end_ms: 1_100,
+                channel: 0,
+                speaker: None,
+            }],
+            WordState::Final,
+            false,
+        );
+
+        let delta = processor.flush();
+        let text = delta
+            .new_words
+            .iter()
+            .map(|word| word.text.as_str())
+            .collect::<String>();
+
+        assert_eq!(text, " final");
+        assert!(delta.partials.is_empty());
     }
 }

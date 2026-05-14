@@ -8,6 +8,10 @@ use hypr_transcript::{
 use owhisper_interface::stream::{Alternatives, StreamResponse, Word};
 
 const CACTUS_OVERLAP_MAX_GAP_MS: i64 = 500;
+const SONIQO_CUMULATIVE_PREFIX_MIN_TOKENS: usize = 4;
+const SONIQO_HISTORY_TOKEN_LIMIT: usize = 160;
+const SONIQO_REPEAT_MIN_TOKENS: usize = 4;
+const SONIQO_INTERNAL_REPEAT_MIN_TOKENS: usize = 6;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
@@ -76,9 +80,12 @@ impl LiveTranscriptEngine {
         let segment_options =
             segment_options_for_participants(participant_human_ids, self_human_id);
 
+        let normalizer = TranscriptNormalizer::for_provider(provider_name);
+
         Self {
-            processor: TranscriptProcessor::new(),
-            normalizer: TranscriptNormalizer::for_provider(provider_name),
+            processor: TranscriptProcessor::new()
+                .with_partial_finalization(normalizer.finalize_partials()),
+            normalizer,
             rendered_segments: RenderedSegmentState {
                 channel_assignments,
                 segment_options: Some(segment_options),
@@ -100,11 +107,11 @@ impl LiveTranscriptEngine {
 
     pub fn flush(&mut self) -> Option<LiveTranscriptUpdate> {
         let transcript_delta: LiveTranscriptDelta = self.processor.flush().into();
-        if transcript_delta.is_empty() {
+        let segment_delta = self.rendered_segments.apply_delta(&transcript_delta);
+        if transcript_delta.is_empty() && segment_delta.is_none() {
             return None;
         }
 
-        let segment_delta = self.rendered_segments.apply_delta(&transcript_delta);
         Some(LiveTranscriptUpdate {
             transcript_delta,
             segment_delta,
@@ -204,6 +211,10 @@ impl TranscriptNormalizer {
             Self::Soniqo(normalizer) => normalizer.normalize(response),
             Self::Passthrough => {}
         }
+    }
+
+    fn finalize_partials(&self) -> bool {
+        !matches!(self, Self::Soniqo(_))
     }
 }
 
@@ -375,6 +386,178 @@ fn find_cactus_overlap_prefix(
     }
 
     0
+}
+
+fn find_soniqo_overlap_prefix(current_tokens: &[String], previous_tokens: &[String]) -> usize {
+    if current_tokens.is_empty() || previous_tokens.is_empty() {
+        return 0;
+    }
+
+    let max_overlap = previous_tokens.len().min(current_tokens.len());
+
+    for overlap in (1..=max_overlap).rev() {
+        let previous_suffix = &previous_tokens[previous_tokens.len() - overlap..];
+        let current_prefix = &current_tokens[..overlap];
+
+        if previous_suffix == current_prefix {
+            return overlap;
+        }
+    }
+
+    0
+}
+
+fn find_soniqo_committed_prefix(current_tokens: &[String], committed_tokens: &[String]) -> usize {
+    if current_tokens.len() < SONIQO_REPEAT_MIN_TOKENS
+        || committed_tokens.len() < SONIQO_REPEAT_MIN_TOKENS
+    {
+        return 0;
+    }
+
+    let max_overlap = committed_tokens.len().min(current_tokens.len());
+
+    for overlap in (SONIQO_REPEAT_MIN_TOKENS..=max_overlap).rev() {
+        let current_prefix = &current_tokens[..overlap];
+        if committed_tokens
+            .windows(overlap)
+            .any(|tokens| tokens == current_prefix)
+        {
+            return overlap;
+        }
+    }
+
+    0
+}
+
+fn find_soniqo_history_prefix(
+    current_tokens: &[String],
+    history_tokens: &[String],
+    min_tokens: usize,
+) -> usize {
+    if current_tokens.len() < min_tokens || history_tokens.len() < min_tokens {
+        return 0;
+    }
+
+    let max_overlap = history_tokens.len().min(current_tokens.len());
+
+    for overlap in (min_tokens..=max_overlap).rev() {
+        let current_prefix = &current_tokens[..overlap];
+        if history_tokens
+            .windows(overlap)
+            .any(|tokens| tokens == current_prefix)
+        {
+            return overlap;
+        }
+    }
+
+    0
+}
+
+fn is_soniqo_cumulative_update(previous_tokens: &[String], current_tokens: &[String]) -> bool {
+    if previous_tokens.is_empty() || current_tokens.is_empty() {
+        return false;
+    }
+
+    if current_tokens.starts_with(previous_tokens) || previous_tokens.starts_with(current_tokens) {
+        return true;
+    }
+
+    let common_prefix_len = common_prefix_len(previous_tokens, current_tokens);
+    let shorter_len = previous_tokens.len().min(current_tokens.len());
+    if common_prefix_len < SONIQO_CUMULATIVE_PREFIX_MIN_TOKENS
+        || common_prefix_len + 1 < shorter_len
+    {
+        return false;
+    }
+
+    match (
+        previous_tokens.get(common_prefix_len),
+        current_tokens.get(common_prefix_len),
+    ) {
+        (Some(previous), Some(current)) => {
+            previous.starts_with(current) || current.starts_with(previous)
+        }
+        _ => true,
+    }
+}
+
+fn common_prefix_len(left: &[String], right: &[String]) -> usize {
+    left.iter()
+        .zip(right)
+        .take_while(|(left, right)| left == right)
+        .count()
+}
+
+fn collapse_soniqo_internal_repeats(
+    alternative: &mut Alternatives,
+    current_tokens: &mut Vec<String>,
+) {
+    let mut next_words = Vec::with_capacity(alternative.words.len());
+    let mut next_tokens = Vec::with_capacity(current_tokens.len());
+    let word_tokens = alternative
+        .words
+        .iter()
+        .map(normalize_word_token)
+        .collect::<Vec<_>>();
+    let mut index = 0;
+
+    while index < alternative.words.len() {
+        if word_tokens[index].is_empty() {
+            next_words.push(alternative.words[index].clone());
+            index += 1;
+            continue;
+        }
+
+        let overlap = find_soniqo_history_prefix(
+            &word_tokens[index..],
+            &next_tokens,
+            SONIQO_INTERNAL_REPEAT_MIN_TOKENS,
+        );
+
+        if overlap > 0 {
+            index += overlap;
+            continue;
+        }
+
+        next_tokens.push(word_tokens[index].clone());
+        next_words.push(alternative.words[index].clone());
+        index += 1;
+    }
+
+    if next_words.len() == alternative.words.len() {
+        return;
+    }
+
+    alternative.words = next_words;
+    alternative.transcript = transcript_from_words(&alternative.words);
+    *current_tokens = normalize_tokens_for_overlap(&alternative.words);
+}
+
+fn drain_soniqo_prefix(
+    alternative: &mut Alternatives,
+    current_tokens: &mut Vec<String>,
+    count: usize,
+) {
+    alternative.words.drain(..count);
+    current_tokens.drain(..count);
+    alternative.transcript = transcript_from_words(&alternative.words);
+}
+
+fn extend_soniqo_committed_tokens(committed_tokens: &mut Vec<String>, tokens: Vec<String>) {
+    committed_tokens.extend(tokens);
+
+    if committed_tokens.len() > SONIQO_HISTORY_TOKEN_LIMIT {
+        committed_tokens.drain(..committed_tokens.len() - SONIQO_HISTORY_TOKEN_LIMIT);
+    }
+}
+
+fn sync_soniqo_timing(start: &mut f64, duration: &mut f64, words: &[Word]) {
+    let (Some(first), Some(last)) = (words.first(), words.last()) else {
+        return;
+    };
+
+    *start = first.start;
+    *duration = (last.end - first.start).max(0.05);
 }
 
 fn normalize_tokens_for_overlap(words: &[Word]) -> Vec<String> {
@@ -603,6 +786,331 @@ mod tests {
         let words = &channel.alternatives[0].words;
         assert_eq!(words.len(), 2);
         assert_eq!(words[0].word, "Mark");
+    }
+
+    #[test]
+    fn soniqo_normalizer_retimes_cumulative_partials() {
+        let mut normalizer = SoniqoTranscriptNormalizer::default();
+
+        let mut first =
+            transcript_response_at("see", vec![word("see", 0.0, 0.25)], false, 0, 0.0, 0.25);
+        normalizer.normalize(&mut first);
+
+        let mut second = transcript_response_at(
+            "see the need",
+            vec![
+                word("see", 0.25, 0.33),
+                word("the", 0.33, 0.41),
+                word("need", 0.41, 0.50),
+            ],
+            false,
+            0,
+            0.25,
+            0.25,
+        );
+        normalizer.normalize(&mut second);
+
+        let StreamResponse::TranscriptResponse {
+            start,
+            duration,
+            channel,
+            ..
+        } = second
+        else {
+            panic!("expected transcript response");
+        };
+        let words = &channel.alternatives[0].words;
+
+        assert_eq!(start, 0.0);
+        assert_eq!(duration, 0.5);
+        assert_eq!(words.len(), 3);
+        assert_eq!(words[0].word, "see");
+        assert_eq!(words[0].start, 0.0);
+        assert_eq!(words[2].end, 0.45);
+    }
+
+    #[test]
+    fn soniqo_normalizer_trims_sliding_overlap() {
+        let mut normalizer = SoniqoTranscriptNormalizer::default();
+
+        let mut first = transcript_response_at(
+            "see the need",
+            vec![
+                word("see", 0.0, 0.20),
+                word("the", 0.20, 0.40),
+                word("need", 0.40, 0.60),
+            ],
+            false,
+            0,
+            0.0,
+            0.60,
+        );
+        normalizer.normalize(&mut first);
+
+        let mut second = transcript_response_at(
+            "the need now",
+            vec![
+                word("the", 0.60, 0.70),
+                word("need", 0.70, 0.80),
+                word("now", 0.80, 0.90),
+            ],
+            false,
+            0,
+            0.60,
+            0.30,
+        );
+        normalizer.normalize(&mut second);
+
+        let StreamResponse::TranscriptResponse { channel, .. } = second else {
+            panic!("expected transcript response");
+        };
+        let alternative = &channel.alternatives[0];
+
+        assert_eq!(alternative.transcript, "now");
+        assert_eq!(
+            alternative
+                .words
+                .iter()
+                .map(|word| word.word.as_str())
+                .collect::<Vec<_>>(),
+            vec!["now"],
+        );
+    }
+
+    #[test]
+    fn soniqo_normalizer_drops_repeated_committed_history() {
+        let mut normalizer = SoniqoTranscriptNormalizer::default();
+        let repeated = "and it tested if you feel";
+
+        let mut first = transcript_response_at(
+            repeated,
+            words_from_text(repeated, 0.0, 1.0),
+            true,
+            0,
+            0.0,
+            1.0,
+        );
+        normalizer.normalize(&mut first);
+
+        let mut second = transcript_response_at(
+            repeated,
+            words_from_text(repeated, 10.0, 1.0),
+            true,
+            0,
+            10.0,
+            1.0,
+        );
+        normalizer.normalize(&mut second);
+
+        let StreamResponse::TranscriptResponse { channel, .. } = second else {
+            panic!("expected transcript response");
+        };
+        let alternative = &channel.alternatives[0];
+
+        assert!(alternative.words.is_empty());
+        assert_eq!(alternative.transcript, "");
+    }
+
+    #[test]
+    fn soniqo_normalizer_trims_repeated_committed_prefix_from_later_update() {
+        let mut normalizer = SoniqoTranscriptNormalizer::default();
+        let repeated = "and it tested if you feel";
+        let filler = "centralized online url for";
+        let repeated_with_tail = "and it tested if you feel like new material";
+
+        let mut first = transcript_response_at(
+            repeated,
+            words_from_text(repeated, 0.0, 1.0),
+            true,
+            0,
+            0.0,
+            1.0,
+        );
+        normalizer.normalize(&mut first);
+
+        let mut second =
+            transcript_response_at(filler, words_from_text(filler, 2.0, 1.0), true, 0, 2.0, 1.0);
+        normalizer.normalize(&mut second);
+
+        let mut third = transcript_response_at(
+            repeated_with_tail,
+            words_from_text(repeated_with_tail, 10.0, 1.0),
+            false,
+            0,
+            10.0,
+            1.0,
+        );
+        normalizer.normalize(&mut third);
+
+        let StreamResponse::TranscriptResponse { channel, .. } = third else {
+            panic!("expected transcript response");
+        };
+        let alternative = &channel.alternatives[0];
+
+        assert_eq!(alternative.transcript, "like new material");
+        assert_eq!(
+            alternative
+                .words
+                .iter()
+                .map(|word| word.word.as_str())
+                .collect::<Vec<_>>(),
+            vec!["like", "new", "material"],
+        );
+    }
+
+    #[test]
+    fn soniqo_normalizer_collapses_internal_partial_loop() {
+        let mut normalizer = SoniqoTranscriptNormalizer::default();
+        let looped = concat!(
+            "yeah but but there's super valuable information in there right ",
+            "it's just like it's a little bit like extracting it out of this like junior develop ",
+            "yeah but but there's super valuable information in there right ",
+            "it's just like it's a little bit like extracting it out of this like junior developer's ",
+            "kind of like private freak out it's it's a very difficult problem set because ",
+            "it's so you know yeah but but there's super valuable information in there right ",
+            "it's just like it's a little bit like extracting it out of this like junior developer's ",
+            "kind of like private freak out it's it's a very"
+        );
+
+        let mut response = transcript_response_at(
+            looped,
+            words_from_text(looped, 0.0, 10.0),
+            false,
+            0,
+            0.0,
+            10.0,
+        );
+        normalizer.normalize(&mut response);
+
+        let StreamResponse::TranscriptResponse { channel, .. } = response else {
+            panic!("expected transcript response");
+        };
+        let transcript = &channel.alternatives[0].transcript;
+
+        assert_eq!(transcript.matches("yeah but but").count(), 1);
+        assert!(transcript.contains("private freak out"));
+    }
+
+    #[test]
+    fn soniqo_engine_replaces_cumulative_live_partials() {
+        let mut engine = LiveTranscriptEngine::new("soniqo", &[], None);
+
+        let first =
+            transcript_response_at("see", vec![word("see", 0.0, 0.25)], false, 0, 0.0, 0.25);
+        engine.process(&first).expect("first update");
+
+        let second = transcript_response_at(
+            "see the need",
+            vec![
+                word("see", 0.25, 0.33),
+                word("the", 0.33, 0.41),
+                word("need", 0.41, 0.50),
+            ],
+            false,
+            0,
+            0.25,
+            0.25,
+        );
+        let update = engine.process(&second).expect("second update");
+        let segment_delta = update.segment_delta.expect("segment delta");
+
+        assert_eq!(segment_delta.upserts.len(), 1);
+        assert_eq!(segment_delta.upserts[0].text, "see the need");
+    }
+
+    #[test]
+    fn soniqo_engine_does_not_persist_repeated_final_history() {
+        let mut engine = LiveTranscriptEngine::new("soniqo", &[], None);
+        let repeated = "and it tested if you feel";
+
+        let first = transcript_response_at(
+            repeated,
+            words_from_text(repeated, 0.0, 1.0),
+            true,
+            0,
+            0.0,
+            1.0,
+        );
+        let first_update = engine.process(&first).expect("first update");
+
+        let second = transcript_response_at(
+            repeated,
+            words_from_text(repeated, 10.0, 1.0),
+            true,
+            0,
+            10.0,
+            1.0,
+        );
+        assert!(engine.process(&second).is_none());
+
+        let flush_update = engine.flush().expect("flush update");
+        let final_text = first_update
+            .transcript_delta
+            .new_words
+            .iter()
+            .chain(flush_update.transcript_delta.new_words.iter())
+            .map(|word| word.text.as_str())
+            .collect::<String>();
+
+        assert_eq!(final_text.trim(), repeated);
+    }
+
+    #[test]
+    fn soniqo_engine_does_not_persist_internal_partial_loop() {
+        let mut engine = LiveTranscriptEngine::new("soniqo", &[], None);
+        let looped = concat!(
+            "yeah but but there's super valuable information in there right ",
+            "it's just like it's a little bit like extracting it out of this like junior develop ",
+            "yeah but but there's super valuable information in there right ",
+            "it's just like it's a little bit like extracting it out of this like junior developer's ",
+            "kind of like private freak out it's it's a very difficult problem set because ",
+            "it's so you know yeah but but there's super valuable information in there right ",
+            "it's just like it's a little bit like extracting it out of this like junior developer's ",
+            "kind of like private freak out it's it's a very"
+        );
+        let response = transcript_response_at(
+            looped,
+            words_from_text(looped, 0.0, 10.0),
+            false,
+            0,
+            0.0,
+            10.0,
+        );
+
+        engine.process(&response).expect("partial update");
+        let flush_update = engine.flush().expect("flush update");
+        let segment_delta = flush_update.segment_delta.expect("segment delta");
+
+        assert!(flush_update.transcript_delta.new_words.is_empty());
+        assert!(flush_update.transcript_delta.partials.is_empty());
+        assert!(segment_delta.upserts.is_empty());
+        assert!(!segment_delta.removed_ids.is_empty());
+    }
+
+    #[test]
+    fn soniqo_engine_persists_model_final_words_on_flush() {
+        let mut engine = LiveTranscriptEngine::new("soniqo", &[], None);
+        let response = transcript_response_at(
+            "hello world",
+            words_from_text("hello world", 0.0, 1.0),
+            true,
+            0,
+            0.0,
+            1.0,
+        );
+
+        let first_update = engine.process(&response).expect("first update");
+        let flush_update = engine.flush().expect("flush update");
+        let final_text = first_update
+            .transcript_delta
+            .new_words
+            .iter()
+            .chain(flush_update.transcript_delta.new_words.iter())
+            .map(|word| word.text.as_str())
+            .collect::<String>();
+
+        assert_eq!(final_text.trim(), "hello world");
+        assert!(flush_update.transcript_delta.partials.is_empty());
     }
 
     #[test]
