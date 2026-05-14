@@ -466,9 +466,7 @@ impl AdapterKind {
             }
             Self::Mistral => MistralAdapter::language_support_live(languages),
             Self::Pyannote => LanguageSupport::NotSupported,
-            Self::Hyprnote => LanguageSupport::Supported {
-                quality: LanguageQuality::NoData,
-            },
+            Self::Hyprnote => HyprnoteAdapter::language_support_live(languages, model),
         }
     }
 
@@ -493,7 +491,8 @@ impl AdapterKind {
             Self::Argmax => ArgmaxAdapter::language_support_batch(languages, model),
             Self::Mistral => MistralAdapter::language_support_batch(languages),
             Self::Pyannote => PyannoteAdapter::language_support_batch(languages, model),
-            Self::Hyprnote | Self::Cactus => LanguageSupport::Supported {
+            Self::Hyprnote => HyprnoteAdapter::language_support_batch(languages, model),
+            Self::Cactus => LanguageSupport::Supported {
                 quality: LanguageQuality::NoData,
             },
         }
@@ -882,7 +881,7 @@ mod tests {
     }
 
     #[test]
-    fn test_hyprnote_adapter_supports_all_languages() {
+    fn test_hyprnote_cloud_adapter_supports_all_languages() {
         use hypr_language::ISO639::*;
 
         let combos: &[&[hypr_language::ISO639]] =
@@ -895,6 +894,37 @@ mod tests {
                 "Hyprnote adapter should support all languages: {langs:?}"
             );
         }
+    }
+
+    #[test]
+    fn test_hyprnote_soniqo_live_limits_parakeet_languages() {
+        use hypr_language::ISO639::*;
+
+        let fr: Vec<hypr_language::Language> = vec![Fr.into()];
+        let ko: Vec<hypr_language::Language> = vec![Ko.into()];
+
+        assert!(
+            AdapterKind::Hyprnote
+                .is_supported_languages_live(&fr, Some("soniqo-parakeet-streaming"))
+        );
+        assert!(
+            !AdapterKind::Hyprnote
+                .is_supported_languages_live(&ko, Some("soniqo-parakeet-streaming"))
+        );
+    }
+
+    #[test]
+    fn test_hyprnote_soniqo_live_rejects_batch_only_models() {
+        use hypr_language::ISO639::*;
+
+        let fr: Vec<hypr_language::Language> = vec![Fr.into()];
+
+        assert!(
+            !AdapterKind::Hyprnote.is_supported_languages_live(&fr, Some("soniqo-parakeet-batch"))
+        );
+        assert!(
+            !AdapterKind::Hyprnote.is_supported_languages_live(&fr, Some("soniqo-qwen3-small"))
+        );
     }
 
     #[test]

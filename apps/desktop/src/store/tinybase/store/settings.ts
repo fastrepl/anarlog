@@ -103,11 +103,6 @@ export const SETTINGS_MAPPING = {
       type: "string",
       path: ["ai", "current_stt_model"],
     },
-    on_device_transcription_mode: {
-      type: "string",
-      path: ["ai", "on_device_transcription_mode"],
-      default: "realtime" as string,
-    },
     cactus_cloud_handoff: {
       type: "boolean",
       path: ["cactus", "cloud_handoff"],

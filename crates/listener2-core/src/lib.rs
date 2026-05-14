@@ -16,6 +16,46 @@ use std::str::FromStr;
 
 use owhisper_client::AdapterKind;
 
+pub fn is_supported_languages_live(
+    provider: &str,
+    model: Option<&str>,
+    languages: &[hypr_language::Language],
+) -> std::result::Result<bool, String> {
+    if provider == "custom" {
+        return Ok(true);
+    }
+
+    if provider == "soniqo" {
+        let model = model
+            .ok_or_else(|| "missing_model: soniqo".to_string())?
+            .parse::<hypr_transcribe_soniqo::SoniqoModel>()
+            .map_err(|e| e.to_string())?;
+
+        return Ok(model.supports_live_on_current_platform() && model.supports_languages(languages));
+    }
+
+    if provider == "hyprnote"
+        && let Some(model) = model
+        && model != "cloud"
+    {
+        if let Ok(model) = model.parse::<hypr_transcribe_soniqo::SoniqoModel>() {
+            return Ok(
+                model.supports_live_on_current_platform() && model.supports_languages(languages)
+            );
+        }
+
+        if model.starts_with("am-") || model.starts_with("whisper-") || model.starts_with("cactus-")
+        {
+            return Ok(false);
+        }
+    }
+
+    let adapter_kind =
+        AdapterKind::from_str(provider).map_err(|_| format!("unknown_provider: {}", provider))?;
+
+    Ok(adapter_kind.is_supported_languages_live(languages, model))
+}
+
 pub fn is_supported_languages_batch(
     provider: &str,
     model: Option<&str>,
@@ -125,5 +165,35 @@ mod tests {
         let languages = vec!["fr".parse().unwrap()];
 
         assert!(is_supported_languages_batch("hyprnote", Some("cloud"), &languages).unwrap());
+    }
+
+    #[test]
+    fn hyprnote_soniqo_live_rejects_unsupported_parakeet_languages() {
+        let languages = vec!["ko".parse().unwrap()];
+
+        assert_eq!(
+            is_supported_languages_live("hyprnote", Some("soniqo-parakeet-streaming"), &languages)
+                .unwrap(),
+            false
+        );
+    }
+
+    #[test]
+    fn hyprnote_soniqo_live_respects_platform_support() {
+        let languages = vec!["fr".parse().unwrap()];
+        let expected = cfg!(all(target_os = "macos", target_arch = "aarch64"));
+
+        assert_eq!(
+            is_supported_languages_live("hyprnote", Some("soniqo-parakeet-streaming"), &languages)
+                .unwrap(),
+            expected
+        );
+    }
+
+    #[test]
+    fn hyprnote_cloud_live_keeps_existing_language_support() {
+        let languages = vec!["ko".parse().unwrap()];
+
+        assert!(is_supported_languages_live("hyprnote", Some("cloud"), &languages).unwrap());
     }
 }
