@@ -8,6 +8,7 @@ use hypr_transcript::{
 use owhisper_interface::stream::{Alternatives, StreamResponse, Word};
 
 const CACTUS_OVERLAP_MAX_GAP_MS: i64 = 500;
+const SONIQO_CUMULATIVE_PREFIX_MIN_TOKENS: usize = 4;
 const SONIQO_HISTORY_TOKEN_LIMIT: usize = 160;
 const SONIQO_REPEAT_MIN_TOKENS: usize = 4;
 const SONIQO_INTERNAL_REPEAT_MIN_TOKENS: usize = 6;
@@ -79,9 +80,12 @@ impl LiveTranscriptEngine {
         let segment_options =
             segment_options_for_participants(participant_human_ids, self_human_id);
 
+        let normalizer = TranscriptNormalizer::for_provider(provider_name);
+
         Self {
-            processor: TranscriptProcessor::new(),
-            normalizer: TranscriptNormalizer::for_provider(provider_name),
+            processor: TranscriptProcessor::new()
+                .with_partial_finalization(normalizer.finalize_partials()),
+            normalizer,
             rendered_segments: RenderedSegmentState {
                 channel_assignments,
                 segment_options: Some(segment_options),
@@ -103,11 +107,11 @@ impl LiveTranscriptEngine {
 
     pub fn flush(&mut self) -> Option<LiveTranscriptUpdate> {
         let transcript_delta: LiveTranscriptDelta = self.processor.flush().into();
-        if transcript_delta.is_empty() {
+        let segment_delta = self.rendered_segments.apply_delta(&transcript_delta);
+        if transcript_delta.is_empty() && segment_delta.is_none() {
             return None;
         }
 
-        let segment_delta = self.rendered_segments.apply_delta(&transcript_delta);
         Some(LiveTranscriptUpdate {
             transcript_delta,
             segment_delta,
@@ -207,6 +211,10 @@ impl TranscriptNormalizer {
             Self::Soniqo(normalizer) => normalizer.normalize(response),
             Self::Passthrough => {}
         }
+    }
+
+    fn finalize_partials(&self) -> bool {
+        !matches!(self, Self::Soniqo(_))
     }
 }
 
@@ -450,7 +458,34 @@ fn is_soniqo_cumulative_update(previous_tokens: &[String], current_tokens: &[Str
         return false;
     }
 
-    current_tokens.starts_with(previous_tokens) || previous_tokens.starts_with(current_tokens)
+    if current_tokens.starts_with(previous_tokens) || previous_tokens.starts_with(current_tokens) {
+        return true;
+    }
+
+    let common_prefix_len = common_prefix_len(previous_tokens, current_tokens);
+    let shorter_len = previous_tokens.len().min(current_tokens.len());
+    if common_prefix_len < SONIQO_CUMULATIVE_PREFIX_MIN_TOKENS
+        || common_prefix_len + 1 < shorter_len
+    {
+        return false;
+    }
+
+    match (
+        previous_tokens.get(common_prefix_len),
+        current_tokens.get(common_prefix_len),
+    ) {
+        (Some(previous), Some(current)) => {
+            previous.starts_with(current) || current.starts_with(previous)
+        }
+        _ => true,
+    }
+}
+
+fn common_prefix_len(left: &[String], right: &[String]) -> usize {
+    left.iter()
+        .zip(right)
+        .take_while(|(left, right)| left == right)
+        .count()
 }
 
 fn collapse_soniqo_internal_repeats(
@@ -1044,15 +1079,38 @@ mod tests {
 
         engine.process(&response).expect("partial update");
         let flush_update = engine.flush().expect("flush update");
-        let final_text = flush_update
+        let segment_delta = flush_update.segment_delta.expect("segment delta");
+
+        assert!(flush_update.transcript_delta.new_words.is_empty());
+        assert!(flush_update.transcript_delta.partials.is_empty());
+        assert!(segment_delta.upserts.is_empty());
+        assert!(!segment_delta.removed_ids.is_empty());
+    }
+
+    #[test]
+    fn soniqo_engine_persists_model_final_words_on_flush() {
+        let mut engine = LiveTranscriptEngine::new("soniqo", &[], None);
+        let response = transcript_response_at(
+            "hello world",
+            words_from_text("hello world", 0.0, 1.0),
+            true,
+            0,
+            0.0,
+            1.0,
+        );
+
+        let first_update = engine.process(&response).expect("first update");
+        let flush_update = engine.flush().expect("flush update");
+        let final_text = first_update
             .transcript_delta
             .new_words
             .iter()
+            .chain(flush_update.transcript_delta.new_words.iter())
             .map(|word| word.text.as_str())
             .collect::<String>();
 
-        assert_eq!(final_text.matches("yeah but but").count(), 1);
-        assert!(final_text.contains("private freak out"));
+        assert_eq!(final_text.trim(), "hello world");
+        assert!(flush_update.transcript_delta.partials.is_empty());
     }
 
     #[test]

@@ -18,12 +18,14 @@ impl ChannelState {
 
     /// Process a confirmed final batch.
     ///
-    /// Partials that end before this batch starts are promoted to final.
+    /// When partial finalization is enabled, partials that end before this
+    /// batch starts are promoted to final.
     /// Partials overlapping the final range are dropped.
     pub(super) fn apply_final(
         &mut self,
         words: Vec<RawWord>,
         state: WordState,
+        finalize_partials: bool,
     ) -> Vec<FinalizedWord> {
         let new_words = dedup(words, self.watermark);
         if new_words.is_empty() {
@@ -33,9 +35,12 @@ impl ChannelState {
         let final_start = new_words.first().map_or(0, |w| w.start_ms);
         let final_end = new_words.last().map_or(0, |w| w.end_ms);
 
-        let (pre_final, rest): (Vec<_>, Vec<_>) = std::mem::take(&mut self.partials)
-            .into_iter()
-            .partition(|w| w.end_ms <= final_start);
+        let partials = std::mem::take(&mut self.partials);
+        let (pre_final, rest): (Vec<_>, Vec<_>) = if finalize_partials {
+            partials.into_iter().partition(|w| w.end_ms <= final_start)
+        } else {
+            (Vec::new(), partials)
+        };
 
         self.partials = rest
             .into_iter()
@@ -82,6 +87,12 @@ impl ChannelState {
     pub(super) fn drain(&mut self) -> Vec<FinalizedWord> {
         let mut raw: Vec<RawWord> = self.held.take().into_iter().collect();
         raw.extend(std::mem::take(&mut self.partials));
+        finalize_words(raw, WordState::Final)
+    }
+
+    pub(super) fn drain_final_words(&mut self) -> Vec<FinalizedWord> {
+        let raw: Vec<RawWord> = self.held.take().into_iter().collect();
+        self.partials.clear();
         finalize_words(raw, WordState::Final)
     }
 
