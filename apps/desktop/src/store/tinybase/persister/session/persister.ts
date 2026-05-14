@@ -1,6 +1,10 @@
 import type { Schemas } from "@hypr/store";
 
-import { getChangedSessionIds, parseSessionIdFromPath } from "./changes";
+import {
+  getChangedSessionIds,
+  getSessionSaveScope,
+  parseSessionIdFromPath,
+} from "./changes";
 import {
   loadAllSessionData,
   type LoadedSessionData,
@@ -32,6 +36,7 @@ export function createSessionPersister(store: Store) {
     loadSingle: loadSingleSession,
     save: (store, tables, dataDir, changedTables) => {
       let changedSessionIds: Set<string> | undefined;
+      const saveScope = getSessionSaveScope(changedTables);
 
       if (changedTables) {
         const changeResult = getChangedSessionIds(tables, changedTables);
@@ -46,23 +51,15 @@ export function createSessionPersister(store: Store) {
         }
       }
 
-      const sessionOps = buildSessionSaveOps(
-        store,
-        tables,
-        dataDir,
-        changedSessionIds,
-      );
-      const transcriptOps = buildTranscriptSaveOps(
-        tables,
-        dataDir,
-        changedSessionIds,
-      );
-      const noteOps = buildNoteSaveOps(
-        store,
-        tables,
-        dataDir,
-        changedSessionIds,
-      );
+      const sessionOps = saveScope.session
+        ? buildSessionSaveOps(store, tables, dataDir, changedSessionIds)
+        : [];
+      const transcriptOps = saveScope.transcript
+        ? buildTranscriptSaveOps(tables, dataDir, changedSessionIds)
+        : [];
+      const noteOps = saveScope.note
+        ? buildNoteSaveOps(store, tables, dataDir, changedSessionIds)
+        : [];
 
       return {
         operations: [...sessionOps, ...transcriptOps, ...noteOps],

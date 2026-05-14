@@ -24,12 +24,8 @@ export function buildTranscriptSaveOps(
   const ctx: BuildContext = { tables, dataDir, changedSessionIds };
 
   const transcriptsBySession = groupTranscriptsBySession(ctx);
-  const sessionsToProcess = filterByChangedSessions(
-    transcriptsBySession,
-    changedSessionIds,
-  );
 
-  return buildOperations(ctx, sessionsToProcess);
+  return buildOperations(ctx, [...transcriptsBySession]);
 }
 
 function groupTranscriptsBySession(
@@ -40,6 +36,12 @@ function groupTranscriptsBySession(
 
   for (const transcript of iterateTableRows(tables, "transcripts")) {
     if (!transcript.session_id) continue;
+    if (
+      ctx.changedSessionIds &&
+      !ctx.changedSessionIds.has(transcript.session_id)
+    ) {
+      continue;
+    }
 
     const data: TranscriptWithData = {
       id: transcript.id,
@@ -61,15 +63,6 @@ function groupTranscriptsBySession(
   }
 
   return grouped;
-}
-
-function filterByChangedSessions(
-  transcriptsBySession: Map<string, TranscriptWithData[]>,
-  changedSessionIds?: Set<string>,
-): Array<[string, TranscriptWithData[]]> {
-  const entries = [...transcriptsBySession];
-  if (!changedSessionIds) return entries;
-  return entries.filter(([id]) => changedSessionIds.has(id));
 }
 
 function buildOperations(

@@ -1,6 +1,10 @@
 import { describe, expect, test } from "vitest";
 
-import { getChangedSessionIds, parseSessionIdFromPath } from "./changes";
+import {
+  getChangedSessionIds,
+  getSessionSaveScope,
+  parseSessionIdFromPath,
+} from "./changes";
 
 import type {
   ChangedTables,
@@ -71,6 +75,82 @@ describe("parseSessionIdFromPath", () => {
   });
 });
 
+describe("getSessionSaveScope", () => {
+  test("saves every session artifact for a full save", () => {
+    expect(getSessionSaveScope()).toEqual({
+      session: true,
+      transcript: true,
+      note: true,
+    });
+  });
+
+  test("limits transcript-only changes to transcript output", () => {
+    expect(
+      getSessionSaveScope({
+        transcripts: { "transcript-1": {} },
+      }),
+    ).toEqual({
+      session: false,
+      transcript: true,
+      note: false,
+    });
+  });
+
+  test("limits raw note changes to note output", () => {
+    expect(
+      getSessionSaveScope({
+        sessions: {
+          "session-1": [{ raw_md: ["{}", "stamp"] }],
+        },
+      }),
+    ).toEqual({
+      session: false,
+      transcript: false,
+      note: true,
+    });
+  });
+
+  test("limits title changes to session metadata output", () => {
+    expect(
+      getSessionSaveScope({
+        sessions: {
+          "session-1": [{ title: ["Weekly sync", "stamp"] }],
+        },
+      }),
+    ).toEqual({
+      session: true,
+      transcript: false,
+      note: false,
+    });
+  });
+
+  test("saves all artifacts when the session folder changes", () => {
+    expect(
+      getSessionSaveScope({
+        sessions: {
+          "session-1": [{ folder_id: ["work", "stamp"] }],
+        },
+      }),
+    ).toEqual({
+      session: true,
+      transcript: true,
+      note: true,
+    });
+  });
+
+  test("treats unknown session row changes conservatively", () => {
+    expect(
+      getSessionSaveScope({
+        sessions: { "session-1": {} },
+      }),
+    ).toEqual({
+      session: true,
+      transcript: true,
+      note: true,
+    });
+  });
+});
+
 describe("getChangedSessionIds", () => {
   describe("direct session changes", () => {
     test("adds changed session ids directly", () => {
@@ -118,6 +198,40 @@ describe("getChangedSessionIds", () => {
 
       expect(result?.changedSessionIds).toEqual(new Set());
       expect(result?.hasUnresolvedDeletions).toBe(true);
+    });
+  });
+
+  describe("tag changes", () => {
+    test("resolves session id from tag mapping", () => {
+      const tables: TablesContent = {
+        mapping_tag_session: {
+          "mapping-1": { tag_id: "tag-1", session_id: "session-1" },
+        },
+      };
+      const changedTables: ChangedTables = {
+        tags: { "tag-1": {} },
+      };
+
+      const result = getChangedSessionIds(tables, changedTables);
+
+      expect(result?.changedSessionIds).toEqual(new Set(["session-1"]));
+      expect(result?.hasUnresolvedDeletions).toBe(false);
+    });
+
+    test("resolves session id from tag mapping changes", () => {
+      const tables: TablesContent = {
+        mapping_tag_session: {
+          "mapping-1": { tag_id: "tag-1", session_id: "session-1" },
+        },
+      };
+      const changedTables: ChangedTables = {
+        mapping_tag_session: { "mapping-1": {} },
+      };
+
+      const result = getChangedSessionIds(tables, changedTables);
+
+      expect(result?.changedSessionIds).toEqual(new Set(["session-1"]));
+      expect(result?.hasUnresolvedDeletions).toBe(false);
     });
   });
 
