@@ -32,20 +32,18 @@ impl CaptureParams {
             return listener::TranscriptionMode::Batch;
         }
 
-        if hypr_transcribe_soniqo::is_local_base_url(&self.base_url) {
-            let mode = self
-                .model
-                .parse::<hypr_transcribe_soniqo::SoniqoModel>()
-                .map(|model| {
-                    if model.supports_live_on_current_platform() {
-                        listener::TranscriptionMode::Live
-                    } else {
-                        listener::TranscriptionMode::Batch
-                    }
-                })
-                .unwrap_or(listener::TranscriptionMode::Batch);
+        if let Some(model) =
+            hypr_transcribe_soniqo::local_model_from_request(&self.base_url, &self.model)
+        {
+            return if model.supports_live_on_current_platform() {
+                listener::TranscriptionMode::Live
+            } else {
+                listener::TranscriptionMode::Batch
+            };
+        }
 
-            return mode;
+        if hypr_transcribe_soniqo::is_local_base_url(&self.base_url) {
+            return listener::TranscriptionMode::Batch;
         }
 
         let adapter_kind =
@@ -439,6 +437,18 @@ mod tests {
     #[test]
     fn defaults_soniqo_streaming_capture_to_platform_mode() {
         let params = capture_params("soniqo://local", "soniqo-parakeet-streaming");
+        let expected = if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
+            TranscriptionMode::Live
+        } else {
+            TranscriptionMode::Batch
+        };
+
+        assert_eq!(params.default_transcription_mode(), expected);
+    }
+
+    #[test]
+    fn defaults_soniqo_streaming_with_loopback_base_to_platform_mode() {
+        let params = capture_params("http://localhost:50060/v1", "soniqo-parakeet-streaming");
         let expected = if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
             TranscriptionMode::Live
         } else {

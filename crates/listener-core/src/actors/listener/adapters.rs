@@ -674,4 +674,21 @@ mod tests {
         assert!(!custom_query.contains_key("speaker_labels"));
         assert!(!custom_query.contains_key("max_speakers"));
     }
+
+    #[test]
+    fn soniqo_model_for_args_accepts_loopback_base_url() {
+        let args = listener_args("http://localhost:50060/v1", "soniqo-parakeet-streaming");
+
+        assert_eq!(
+            soniqo_model_for_args(&args).unwrap(),
+            Some(hypr_transcribe_soniqo::SoniqoModel::ParakeetStreaming)
+        );
+    }
+
+    #[test]
+    fn soniqo_model_for_args_ignores_loopback_non_soniqo_model() {
+        let args = listener_args("http://localhost:50060/v1", "cactus-whisper-small-int8");
+
+        assert_eq!(soniqo_model_for_args(&args).unwrap(), None);
+    }
 }
