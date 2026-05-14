@@ -96,6 +96,7 @@ export function useSessionBottomAccessory({
           sessionId={sessionId}
           isFinalizing={isFinalizing}
           isExpanded={effectiveExpanded}
+          fillHeight={effectiveExpanded && !isFinalizing}
         />
       ),
       bottomBorderHandle:
@@ -105,6 +106,7 @@ export function useSessionBottomAccessory({
             onToggle={() => setIsExpanded((v) => !v)}
             label="Live"
             collapsedClassName="bg-neutral-50"
+            expandedClassName="bg-neutral-50"
           />
         ) : null,
       bottomAccessoryState,
@@ -112,7 +114,7 @@ export function useSessionBottomAccessory({
   }
 
   if (showPostSession) {
-    const hasAccessoryContent = isExpanded || isBatching;
+    const hasAccessoryContent = isExpanded || isBatching || hasAudio;
     return {
       bottomAccessory: hasAccessoryContent ? (
         <PostSessionAccessory
@@ -120,6 +122,7 @@ export function useSessionBottomAccessory({
           hasAudio={hasAudio}
           hasTranscript={hasTranscript}
           isTranscriptExpanded={isExpanded}
+          fillHeight={isExpanded}
         />
       ) : null,
       bottomBorderHandle: (

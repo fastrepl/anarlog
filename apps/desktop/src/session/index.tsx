@@ -234,6 +234,12 @@ function TabContentNoteInner({
     bottomAccessoryState?.expanded === true &&
     (bottomAccessoryState.mode === "playback" ||
       bottomAccessoryState.mode === "transcript_only");
+  const canResizeTranscriptSurface =
+    bottomAccessoryState?.mode === "live" ||
+    bottomAccessoryState?.mode === "playback" ||
+    bottomAccessoryState?.mode === "transcript_only";
+  const resizeTranscriptSurface =
+    bottomAccessoryState?.expanded === true && canResizeTranscriptSurface;
 
   return (
     <SessionSurface
@@ -249,6 +255,8 @@ function TabContentNoteInner({
         />
       }
       afterBorder={bottomAccessory}
+      afterBorderExpanded={resizeTranscriptSurface}
+      afterBorderResizable={canResizeTranscriptSurface}
       bottomBorderHandle={bottomBorderHandle}
       mergeAfterBorder={mergeTranscriptSurface}
       floatingButton={<FloatingActionButton tab={tab} />}

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useRef } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
 
 import { cn } from "@hypr/utils";
 
@@ -19,10 +19,12 @@ import {
 
 export function DuringSessionAccessory({
   sessionId,
+  fillHeight = false,
   isFinalizing = false,
   isExpanded = false,
 }: {
   sessionId: string;
+  fillHeight?: boolean;
   isFinalizing?: boolean;
   isExpanded?: boolean;
 }) {
@@ -40,14 +42,22 @@ export function DuringSessionAccessory({
     );
   }
 
-  return <LiveTranscriptFooter sessionId={sessionId} isExpanded={isExpanded} />;
+  return (
+    <LiveTranscriptFooter
+      sessionId={sessionId}
+      fillHeight={fillHeight}
+      isExpanded={isExpanded}
+    />
+  );
 }
 
 function LiveTranscriptFooter({
   sessionId,
+  fillHeight,
   isExpanded = false,
 }: {
   sessionId: string;
+  fillHeight: boolean;
   isExpanded?: boolean;
 }) {
   const store = main.UI.useStore(main.STORE_ID);
@@ -86,12 +96,18 @@ function LiveTranscriptFooter({
   const previewText = useMemo(() => getTranscriptPreview(segments), [segments]);
 
   return (
-    <div className="w-full select-none">
-      <div className="rounded-xl bg-neutral-50">
+    <div className={cn(["w-full select-none", fillHeight && "h-full min-h-0"])}>
+      <div
+        className={cn([
+          "rounded-xl bg-neutral-50",
+          fillHeight && "h-full min-h-0",
+        ])}
+      >
         {mode.kind === "record_only" ? (
           <RecordOnlyFooter isFallbackFromLive={mode.isFallbackFromLive} />
         ) : (
           <LiveTranscriptContent
+            fillHeight={fillHeight}
             isExpanded={isExpanded}
             previewText={previewText}
             scrollRef={scrollRef}
@@ -122,6 +138,7 @@ function RecordOnlyFooter({
 }
 
 function LiveTranscriptContent({
+  fillHeight,
   isExpanded,
   previewText,
   scrollRef,
@@ -129,6 +146,7 @@ function LiveTranscriptContent({
   labelContext,
   speakerLabelManager,
 }: {
+  fillHeight: boolean;
   isExpanded: boolean;
   previewText: string | null;
   scrollRef: React.RefObject<HTMLDivElement | null>;
@@ -136,6 +154,20 @@ function LiveTranscriptContent({
   labelContext: ReturnType<typeof defaultRenderLabelContext> | undefined;
   speakerLabelManager: SpeakerLabelManager;
 }) {
+  const scrollKey = getLiveTranscriptScrollKey(segments);
+  const shouldPinToBottomRef = useRef(true);
+
+  useLayoutEffect(() => {
+    if (!isExpanded) {
+      shouldPinToBottomRef.current = true;
+      return;
+    }
+
+    if (shouldPinToBottomRef.current) {
+      pinLiveTranscriptToBottom(scrollRef);
+    }
+  }, [isExpanded, scrollKey, scrollRef]);
+
   if (!isExpanded) {
     return <CollapsedFooterMessage message={previewText ?? "Listening..."} />;
   }
@@ -143,7 +175,19 @@ function LiveTranscriptContent({
   return (
     <div
       ref={scrollRef}
-      className="flex max-h-[180px] flex-col gap-1 overflow-y-auto px-3 pt-2 pb-2.5"
+      data-live-transcript-scroll
+      onScroll={() => {
+        const element = scrollRef.current;
+        if (!element) {
+          return;
+        }
+
+        shouldPinToBottomRef.current = isLiveTranscriptPinnedToBottom(element);
+      }}
+      className={cn([
+        "flex flex-col gap-1 overflow-y-auto px-3 pt-2 pb-2.5",
+        fillHeight ? "h-full min-h-0" : "max-h-[180px]",
+      ])}
     >
       {segments.length === 0 ? (
         <span className="py-4 text-center text-xs text-neutral-400">
@@ -163,6 +207,26 @@ function LiveTranscriptContent({
         ))
       )}
     </div>
+  );
+}
+
+function pinLiveTranscriptToBottom(
+  scrollRef: React.RefObject<HTMLDivElement | null>,
+) {
+  const element = scrollRef.current;
+  if (!element) {
+    return;
+  }
+
+  element.scrollTop = element.scrollHeight;
+}
+
+const LIVE_TRANSCRIPT_BOTTOM_THRESHOLD_PX = 24;
+
+function isLiveTranscriptPinnedToBottom(element: HTMLDivElement) {
+  return (
+    element.scrollHeight - element.clientHeight - element.scrollTop <=
+    LIVE_TRANSCRIPT_BOTTOM_THRESHOLD_PX
   );
 }
 
@@ -232,6 +296,24 @@ function useLiveTranscriptSegments(sessionId: string): Segment[] {
   }, [liveSegments, renderedSegments]);
 }
 
+function getLiveTranscriptScrollKey(segments: Segment[]): string {
+  const lastSegment = segments[segments.length - 1];
+  const lastWord = lastSegment?.words[lastSegment.words.length - 1];
+
+  if (!lastSegment || !lastWord) {
+    return String(segments.length);
+  }
+
+  return [
+    segments.length,
+    lastSegment.words.length,
+    getSegmentIdentity(lastSegment, segments.length - 1),
+    lastWord.id ?? "",
+    lastWord.text,
+    lastWord.end_ms,
+  ].join(":");
+}
+
 function getSegmentIdentity(segment: Segment, fallbackIndex: number): string {
   const firstWord = segment.words[0];
   const lastWord = segment.words[segment.words.length - 1];
@@ -280,15 +362,16 @@ function TranscriptSegmentRow({
   const color = getSegmentColor(segment.key);
 
   return (
-    <div className="grid min-w-0 grid-cols-[92px_1fr] items-start gap-x-3">
+    <div className="grid min-w-0 grid-cols-[92px_minmax(0,1fr)] items-start gap-x-3">
       <span
-        className="mt-0.5 inline-flex min-h-5 items-center justify-start rounded-full px-2 text-[11px] font-medium whitespace-nowrap"
+        className="mt-0.5 flex min-h-5 max-w-full min-w-0 items-center justify-start rounded-full px-2 text-[11px] font-medium"
+        title={label}
         style={{
           backgroundColor: `${color}1A`,
           color,
         }}
       >
-        {label}
+        <span className="min-w-0 truncate">{label}</span>
       </span>
       <span className="min-w-0 text-xs leading-5 text-neutral-700">
         {getSegmentText(segment)}

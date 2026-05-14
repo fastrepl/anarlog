@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PostSessionAccessory } from "./post-session";
@@ -95,6 +101,7 @@ vi.mock("~/stt/useUploadFile", () => ({
 
 describe("PostSessionAccessory", () => {
   beforeEach(() => {
+    cleanup();
     vi.clearAllMocks();
 
     audioPathMock.mockResolvedValue({
@@ -162,5 +169,36 @@ describe("PostSessionAccessory", () => {
     await waitFor(() => {
       expect(runBatchMock).toHaveBeenCalledWith("/tmp/session.wav");
     });
+  });
+
+  it("keeps the audio timeline visible while the transcript panel is collapsed", () => {
+    render(
+      <PostSessionAccessory
+        sessionId="session-1"
+        hasAudio
+        hasTranscript
+        isTranscriptExpanded={false}
+      />,
+    );
+
+    expect(screen.getByTestId("timeline")).toBeTruthy();
+    expect(screen.queryByTestId("transcript")).toBeNull();
+  });
+
+  it("lets expanded transcript content fill the resizable bottom panel", () => {
+    render(
+      <PostSessionAccessory
+        sessionId="session-1"
+        hasAudio
+        hasTranscript
+        isTranscriptExpanded
+        fillHeight
+      />,
+    );
+
+    const scrollArea = screen.getByTestId("transcript").parentElement;
+    expect(scrollArea?.className).toContain("flex-1");
+    expect(scrollArea?.className).not.toContain("h-[300px]");
+    expect(scrollArea?.parentElement?.className).toContain("flex-1");
   });
 });

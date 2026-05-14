@@ -30,17 +30,19 @@ export function PostSessionAccessory({
   hasAudio,
   hasTranscript,
   isTranscriptExpanded,
+  fillHeight = false,
 }: {
   sessionId: string;
   hasAudio: boolean;
   hasTranscript: boolean;
   isTranscriptExpanded: boolean;
+  fillHeight?: boolean;
 }) {
   const screen = useTranscriptScreen({ sessionId });
   const isBatching = screen.kind === "running_batch";
   const timeline = isBatching ? (
     <BatchProgressTimeline sessionId={sessionId} screen={screen} />
-  ) : hasAudio && isTranscriptExpanded ? (
+  ) : hasAudio ? (
     <AudioPlayer.Timeline />
   ) : null;
 
@@ -54,7 +56,8 @@ export function PostSessionAccessory({
   return (
     <div
       className={cn([
-        "flex flex-col",
+        "flex min-h-0 flex-col",
+        fillHeight && "h-full",
         isTranscriptExpanded && "gap-1",
         shouldBalanceCollapsedTimeline && "relative -mt-[6px] pb-1",
       ])}
@@ -72,6 +75,7 @@ export function PostSessionAccessory({
           hasAudio={hasAudio}
           hasTranscript={hasTranscript}
           isExpanded={isTranscriptExpanded}
+          fillHeight={fillHeight}
         />
       ) : null}
       {timeline}
@@ -85,12 +89,14 @@ function TranscriptPanel({
   hasAudio,
   hasTranscript,
   isExpanded,
+  fillHeight,
 }: {
   sessionId: string;
   screen: ReturnType<typeof useTranscriptScreen>;
   hasAudio: boolean;
   hasTranscript: boolean;
   isExpanded: boolean;
+  fillHeight: boolean;
 }) {
   if (screen.kind === "running_batch") {
     return (
@@ -99,13 +105,18 @@ function TranscriptPanel({
         screen={screen}
         hasTranscript={hasTranscript}
         isExpanded={isExpanded}
+        fillHeight={fillHeight}
       />
     );
   }
 
   if (hasTranscript) {
     return (
-      <TranscriptReadyPanel sessionId={sessionId} isExpanded={isExpanded} />
+      <TranscriptReadyPanel
+        sessionId={sessionId}
+        isExpanded={isExpanded}
+        fillHeight={fillHeight}
+      />
     );
   }
 
@@ -114,6 +125,7 @@ function TranscriptPanel({
       sessionId={sessionId}
       hasAudio={hasAudio}
       isExpanded={isExpanded}
+      fillHeight={fillHeight}
     />
   );
 }
@@ -146,6 +158,7 @@ function BatchingTranscriptPanel({
   screen,
   hasTranscript,
   isExpanded,
+  fillHeight,
 }: {
   sessionId: string;
   screen: {
@@ -155,6 +168,7 @@ function BatchingTranscriptPanel({
   };
   hasTranscript: boolean;
   isExpanded: boolean;
+  fillHeight: boolean;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const stopTranscription = useListener((state) => state.stopTranscription);
@@ -170,8 +184,8 @@ function BatchingTranscriptPanel({
   }
 
   return (
-    <TranscriptCard>
-      <div className="flex items-center justify-between px-3 py-1.5">
+    <TranscriptCard fillHeight={fillHeight}>
+      <div className="flex shrink-0 items-center justify-between px-3 py-1.5">
         <span className="text-xs font-medium text-neutral-500">Transcript</span>
         <div className="flex items-center gap-1 px-1 py-0.5">
           <Spinner size={10} />
@@ -190,11 +204,16 @@ function BatchingTranscriptPanel({
       </div>
 
       {hasTranscript ? (
-        <div className="h-[300px] overflow-y-auto px-3">
+        <TranscriptScrollArea fillHeight={fillHeight}>
           <Transcript sessionId={sessionId} scrollRef={scrollRef} />
-        </div>
+        </TranscriptScrollArea>
       ) : (
-        <div className="flex h-[120px] flex-col items-center justify-center gap-2">
+        <div
+          className={cn([
+            "flex flex-col items-center justify-center gap-2",
+            fillHeight ? "min-h-0 flex-1" : "h-[120px]",
+          ])}
+        >
           <Spinner size={24} />
           {typeof percentage === "number" && percentage > 0 && (
             <p className="text-xl font-medium text-neutral-500 tabular-nums">
@@ -305,9 +324,11 @@ function StopTranscriptionButton({
 function TranscriptReadyPanel({
   sessionId,
   isExpanded,
+  fillHeight,
 }: {
   sessionId: string;
   isExpanded: boolean;
+  fillHeight: boolean;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const regenerate = useRegenerateTranscript(sessionId);
@@ -319,8 +340,8 @@ function TranscriptReadyPanel({
   }
 
   return (
-    <TranscriptCard>
-      <div className="flex items-center justify-between px-3 py-1.5">
+    <TranscriptCard fillHeight={fillHeight}>
+      <div className="flex shrink-0 items-center justify-between px-3 py-1.5">
         <div className="flex items-center gap-1">
           <Tooltip>
             <TooltipTrigger asChild>
@@ -376,9 +397,9 @@ function TranscriptReadyPanel({
         ) : null}
       </div>
 
-      <div className="h-[300px] overflow-y-auto px-3">
+      <TranscriptScrollArea fillHeight={fillHeight}>
         <Transcript sessionId={sessionId} scrollRef={scrollRef} />
-      </div>
+      </TranscriptScrollArea>
     </TranscriptCard>
   );
 }
@@ -387,10 +408,12 @@ function TranscriptEmptyPanel({
   sessionId,
   hasAudio,
   isExpanded,
+  fillHeight,
 }: {
   sessionId: string;
   hasAudio: boolean;
   isExpanded: boolean;
+  fillHeight: boolean;
 }) {
   const screen = useTranscriptScreen({ sessionId });
   const { uploadAudio } = useUploadFile(sessionId);
@@ -403,8 +426,8 @@ function TranscriptEmptyPanel({
   }
 
   return (
-    <TranscriptCard>
-      <div className="flex items-center justify-between px-4 py-3">
+    <TranscriptCard fillHeight={fillHeight}>
+      <div className="flex min-h-0 flex-1 items-center justify-between px-4 py-3">
         {error ? (
           <span className="text-xs text-red-500">{error}</span>
         ) : (
@@ -437,9 +460,39 @@ function TranscriptEmptyPanel({
   );
 }
 
-function TranscriptCard({ children }: { children: ReactNode }) {
+function TranscriptScrollArea({
+  children,
+  fillHeight,
+}: {
+  children: ReactNode;
+  fillHeight: boolean;
+}) {
   return (
-    <div className="overflow-hidden rounded-b-xl border-x border-b border-neutral-200 bg-white">
+    <div
+      className={cn([
+        "overflow-y-auto px-3",
+        fillHeight ? "min-h-0 flex-1" : "h-[300px]",
+      ])}
+    >
+      {children}
+    </div>
+  );
+}
+
+function TranscriptCard({
+  children,
+  fillHeight = false,
+}: {
+  children: ReactNode;
+  fillHeight?: boolean;
+}) {
+  return (
+    <div
+      className={cn([
+        "overflow-hidden rounded-b-xl border-x border-b border-neutral-200 bg-white",
+        fillHeight && "flex min-h-0 flex-1 flex-col",
+      ])}
+    >
       {children}
     </div>
   );

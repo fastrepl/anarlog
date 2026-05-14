@@ -146,4 +146,63 @@ describe("useSessionBottomAccessory", () => {
     });
     expect(hoisted.hotkeys.get("esc")?.options?.enabled).toBe(false);
   });
+
+  it("keeps the playback accessory mounted while the transcript panel is collapsed", () => {
+    const { result } = renderHook(() =>
+      useSessionBottomAccessory({
+        sessionId: "session-1",
+        sessionMode: "inactive",
+        audioUrl: "file:///session.wav",
+        hasTranscript: true,
+      }),
+    );
+
+    expect(result.current.bottomAccessoryState).toEqual({
+      mode: "playback",
+      expanded: false,
+    });
+    expect(result.current.bottomAccessory).not.toBeNull();
+  });
+
+  it("keeps the expanded live handle on neutral 50", () => {
+    const { result } = renderHook(() =>
+      useSessionBottomAccessory({
+        sessionId: "session-1",
+        sessionMode: "active",
+        audioUrl: null,
+        hasTranscript: false,
+      }),
+    );
+
+    const toggle = result.current.bottomBorderHandle;
+    expect(
+      isValidElement<{
+        expandedClassName?: string;
+        isExpanded: boolean;
+        label?: string;
+        onToggle: () => void;
+      }>(toggle),
+    ).toBe(true);
+    if (
+      !isValidElement<{
+        expandedClassName?: string;
+        label?: string;
+        onToggle: () => void;
+      }>(toggle)
+    ) {
+      return;
+    }
+
+    expect(toggle.props.label).toBe("Live");
+    expect(toggle.props.expandedClassName).toBe("bg-neutral-50");
+
+    act(() => {
+      toggle.props.onToggle();
+    });
+
+    expect(result.current.bottomAccessoryState).toEqual({
+      mode: "live",
+      expanded: true,
+    });
+  });
 });

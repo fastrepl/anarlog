@@ -1,0 +1,106 @@
+import { cleanup, render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const { resizeMock } = vi.hoisted(() => ({
+  resizeMock: vi.fn(),
+}));
+
+vi.mock("@hypr/ui/components/ui/resizable", async () => {
+  const React = await vi.importActual<typeof import("react")>("react");
+  return {
+    ResizablePanelGroup: ({
+      children,
+      direction,
+    }: {
+      children: React.ReactNode;
+      direction: string;
+    }) => (
+      <div data-direction={direction} data-testid="panel-group">
+        {children}
+      </div>
+    ),
+    ResizablePanel: React.forwardRef<
+      { resize: (size: number) => void },
+      {
+        children: React.ReactNode;
+        defaultSize?: number;
+        maxSize?: number;
+        minSize?: number;
+      }
+    >(function ResizablePanel(
+      { children, defaultSize, maxSize, minSize },
+      ref,
+    ) {
+      React.useImperativeHandle(ref, () => ({
+        resize: resizeMock,
+      }));
+
+      return (
+        <div
+          data-default-size={defaultSize}
+          data-max-size={maxSize}
+          data-min-size={minSize}
+          data-testid="panel"
+        >
+          {children}
+        </div>
+      );
+    }),
+    ResizableHandle: ({ disabled }: { disabled?: boolean }) => (
+      <div
+        data-disabled={disabled ? "true" : "false"}
+        data-testid="resize-handle"
+      />
+    ),
+  };
+});
+
+import { StandardTabWrapper } from "./index";
+
+describe("StandardTabWrapper", () => {
+  beforeEach(() => {
+    cleanup();
+    resizeMock.mockClear();
+  });
+
+  it("renders a vertical resizable split for expandable bottom content", () => {
+    render(
+      <StandardTabWrapper
+        afterBorder={<div data-testid="bottom-area" />}
+        afterBorderExpanded
+        afterBorderResizable
+        bottomBorderHandle={<button>Live</button>}
+      >
+        <div data-testid="main-area" />
+      </StandardTabWrapper>,
+    );
+
+    expect(screen.getByTestId("panel-group").dataset.direction).toBe(
+      "vertical",
+    );
+    expect(screen.getByTestId("resize-handle").dataset.disabled).toBe("false");
+
+    const panels = screen.getAllByTestId("panel");
+    expect(panels[0]?.dataset.defaultSize).toBe("78");
+    expect(panels[1]?.dataset.defaultSize).toBe("22");
+    expect(panels[1]?.dataset.maxSize).toBe("60");
+    expect(resizeMock).toHaveBeenCalledWith(22);
+  });
+
+  it("sizes collapsed bottom content to its row instead of reserving split space", () => {
+    render(
+      <StandardTabWrapper
+        afterBorder={<div data-testid="bottom-area" />}
+        afterBorderResizable
+        bottomBorderHandle={<button>Live</button>}
+      >
+        <div data-testid="main-area" />
+      </StandardTabWrapper>,
+    );
+
+    expect(screen.queryByTestId("panel-group")).toBeNull();
+    expect(screen.queryByTestId("resize-handle")).toBeNull();
+    expect(screen.getByTestId("bottom-area")).toBeTruthy();
+    expect(resizeMock).not.toHaveBeenCalled();
+  });
+});
