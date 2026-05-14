@@ -5,6 +5,7 @@ import { cn } from "@hypr/utils";
 import {
   SettingsAccount,
   SettingsApp,
+  SettingsData,
   SettingsNotifications,
   SettingsPermissions,
 } from "./general";
@@ -65,6 +66,8 @@ function SettingsView({ tab }: { tab: Extract<Tab, { type: "settings" }> }) {
         return <SettingsAccount />;
       case "app":
         return <SettingsApp />;
+      case "data":
+        return <SettingsData />;
       case "notifications":
         return <SettingsNotifications />;
       case "permissions":

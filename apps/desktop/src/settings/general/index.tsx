@@ -169,13 +169,16 @@ export function SettingsApp() {
           </form.Field>
         </div>
       </div>
+    </div>
+  );
+}
 
+export function SettingsData() {
+  return (
+    <div className="flex flex-col gap-8">
+      <SettingsPageTitle title="Data" />
       <StorageSettingsView />
-
-      <div>
-        <h2 className="mb-4 font-serif text-lg font-semibold">Data</h2>
-        <Data />
-      </div>
+      <Data />
     </div>
   );
 }

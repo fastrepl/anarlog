@@ -1,5 +1,3 @@
-import { useQuery } from "@tanstack/react-query";
-import { getIdentifier } from "@tauri-apps/api/app";
 import { platform } from "@tauri-apps/plugin-os";
 import {
   AudioLinesIcon,
@@ -7,7 +5,7 @@ import {
   BellIcon,
   BookText,
   CalendarIcon,
-  FlaskConical,
+  DatabaseIcon,
   LockIcon,
   SmartphoneIcon,
   SparklesIcon,
@@ -29,7 +27,7 @@ type SettingsNavItem =
 
 type SettingsNavGroup = { label: string; items: SettingsNavItem[] };
 
-function getBaseGroups(showLab: boolean): SettingsNavGroup[] {
+function getBaseGroups(): SettingsNavGroup[] {
   const aiItems: SettingsNavItem[] = [
     { id: "transcription", label: "Transcription", icon: AudioLinesIcon },
     { id: "intelligence", label: "Intelligence", icon: SparklesIcon },
@@ -40,11 +38,12 @@ function getBaseGroups(showLab: boolean): SettingsNavGroup[] {
     },
   ];
 
-  const groups: SettingsNavGroup[] = [
+  return [
     {
       label: "General",
       items: [
         { id: "app", label: "App", icon: SmartphoneIcon },
+        { id: "data", label: "Data", icon: DatabaseIcon },
         { id: "account", label: "Account", icon: UserIcon },
         { id: "notifications", label: "Notifications", icon: BellIcon },
       ],
@@ -54,15 +53,6 @@ function getBaseGroups(showLab: boolean): SettingsNavGroup[] {
       items: aiItems,
     },
   ];
-
-  if (showLab) {
-    groups.push({
-      label: "Lab",
-      items: [{ id: "lab", label: "Preview", icon: FlaskConical }],
-    });
-  }
-
-  return groups;
 }
 
 export function SettingsNav() {
@@ -92,15 +82,7 @@ export function SettingsNav() {
     openNew({ type: "calendar" });
   }, [openNew]);
 
-  const identifierQuery = useQuery({
-    queryKey: ["app-identifier"],
-    queryFn: () => getIdentifier(),
-    staleTime: Infinity,
-  });
-
-  const showLab = identifierQuery.data !== "com.hyprnote.stable";
-
-  const groups = getBaseGroups(showLab);
+  const groups = getBaseGroups();
   const isMacos = platform() === "macos";
   if (isMacos) {
     groups[0].items.push({
