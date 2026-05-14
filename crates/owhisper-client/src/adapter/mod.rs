@@ -44,6 +44,7 @@ use std::collections::{BTreeSet, HashSet};
 use std::future::Future;
 use std::path::Path;
 use std::pin::Pin;
+use std::str::FromStr;
 
 use hypr_ws_client::client::Message;
 use owhisper_interface::ListenParams;
@@ -64,35 +65,60 @@ pub type StreamingBatchEvent = BatchStreamEvent;
 pub type StreamingBatchStream =
     Pin<Box<dyn futures_util::Stream<Item = Result<BatchStreamEvent, Error>> + Send>>;
 
+fn canonical_menu_language_code(code: &str) -> Option<String> {
+    let language = code
+        .split(['-', '_'])
+        .next()
+        .filter(|part| !part.is_empty())?
+        .to_lowercase();
+    let language = match language.as_str() {
+        "jw" => "jv",
+        _ => language.as_str(),
+    };
+
+    hypr_language::ISO639::from_str(language)
+        .ok()
+        .map(|code| code.code().to_string())
+}
+
+fn simple_documented_language_codes(codes: impl IntoIterator<Item = &'static str>) -> Vec<String> {
+    let set: BTreeSet<String> = codes
+        .into_iter()
+        .filter_map(canonical_menu_language_code)
+        .collect();
+
+    set.into_iter().collect()
+}
+
 pub fn documented_language_codes_live() -> Vec<String> {
-    let mut set: BTreeSet<&'static str> = BTreeSet::new();
+    let mut codes = Vec::new();
 
-    set.extend(deepgram::documented_language_codes());
-    set.extend(soniox::documented_language_codes().iter().copied());
-    set.extend(gladia::documented_language_codes().iter().copied());
-    set.extend(assemblyai::documented_language_codes_live().iter().copied());
-    set.extend(elevenlabs::documented_language_codes());
-    set.extend(argmax::PARAKEET_V3_LANGS.iter().copied());
+    codes.extend(deepgram::documented_language_codes());
+    codes.extend(soniox::documented_language_codes().iter().copied());
+    codes.extend(gladia::documented_language_codes().iter().copied());
+    codes.extend(assemblyai::documented_language_codes_live().iter().copied());
+    codes.extend(elevenlabs::documented_language_codes());
+    codes.extend(argmax::PARAKEET_V3_LANGS.iter().copied());
 
-    set.into_iter().map(str::to_string).collect()
+    simple_documented_language_codes(codes)
 }
 
 pub fn documented_language_codes_batch() -> Vec<String> {
-    let mut set: BTreeSet<&'static str> = BTreeSet::new();
+    let mut codes = Vec::new();
 
-    set.extend(deepgram::documented_language_codes());
-    set.extend(soniox::documented_language_codes().iter().copied());
-    set.extend(gladia::documented_language_codes().iter().copied());
-    set.extend(
+    codes.extend(deepgram::documented_language_codes());
+    codes.extend(soniox::documented_language_codes().iter().copied());
+    codes.extend(gladia::documented_language_codes().iter().copied());
+    codes.extend(
         assemblyai::documented_language_codes_batch()
             .iter()
             .copied(),
     );
-    set.extend(elevenlabs::documented_language_codes());
-    set.extend(argmax::PARAKEET_V3_LANGS.iter().copied());
-    set.extend(pyannote::documented_language_codes());
+    codes.extend(elevenlabs::documented_language_codes());
+    codes.extend(argmax::PARAKEET_V3_LANGS.iter().copied());
+    codes.extend(pyannote::documented_language_codes());
 
-    set.into_iter().map(str::to_string).collect()
+    simple_documented_language_codes(codes)
 }
 
 pub trait RealtimeSttAdapter: Clone + Default + Send + Sync + 'static {
@@ -604,6 +630,30 @@ mod tests {
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].iso639(), ISO639::En);
         assert_eq!(result[0].region(), None);
+    }
+
+    #[test]
+    fn test_simple_documented_language_codes_collapses_variants() {
+        let result = simple_documented_language_codes(["zh", "zh-CN", "zh-Hans", "en-US", "en-GB"]);
+
+        assert_eq!(result, vec!["en".to_string(), "zh".to_string()]);
+    }
+
+    #[test]
+    fn test_simple_documented_language_codes_canonicalizes_aliases() {
+        let result = simple_documented_language_codes(["jw", "jv"]);
+
+        assert_eq!(result, vec!["jv".to_string()]);
+    }
+
+    #[test]
+    fn test_documented_language_codes_are_menu_safe() {
+        let result = documented_language_codes_live();
+
+        assert!(result.contains(&"en".to_string()));
+        assert!(result.contains(&"zh".to_string()));
+        assert!(result.iter().all(|code| !code.contains("-")));
+        assert!(!result.contains(&"jw".to_string()));
     }
 
     #[test]

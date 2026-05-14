@@ -5,35 +5,7 @@ import { Badge } from "@hypr/ui/components/ui/badge";
 import { Button } from "@hypr/ui/components/ui/button";
 import { cn } from "@hypr/utils";
 
-import { getLanguageDisplayName } from "./language";
-
-function hasRegionVariant(langCode: string): boolean {
-  return langCode.includes("-");
-}
-
-function getBaseLanguage(langCode: string): string {
-  return langCode.split("-")[0];
-}
-
-function isLanguageDisabled(
-  langCode: string,
-  selectedLanguages: string[],
-): boolean {
-  const base = getBaseLanguage(langCode);
-  const isVariant = hasRegionVariant(langCode);
-
-  for (const selected of selectedLanguages) {
-    const selectedBase = getBaseLanguage(selected);
-    if (selectedBase !== base) continue;
-
-    if (isVariant) {
-      return selected === base || hasRegionVariant(selected);
-    } else {
-      return hasRegionVariant(selected);
-    }
-  }
-  return false;
-}
+import { getBaseLanguageCode, getBaseLanguageDisplayName } from "./language";
 
 interface SpokenLanguagesViewProps {
   value: string[];
@@ -50,23 +22,54 @@ export function SpokenLanguagesView({
   const [languageInputFocused, setLanguageInputFocused] = useState(false);
   const [languageSelectedIndex, setLanguageSelectedIndex] = useState(-1);
 
+  const supportedLanguageCodes = useMemo(() => {
+    const seen = new Set<string>();
+    const codes: string[] = [];
+
+    for (const langCode of supportedLanguages) {
+      const baseCode = getBaseLanguageCode(langCode);
+      if (seen.has(baseCode)) continue;
+      seen.add(baseCode);
+      codes.push(baseCode);
+    }
+
+    return codes;
+  }, [supportedLanguages]);
+
+  const selectedLanguageCodes = useMemo(() => {
+    const seen = new Set<string>();
+    const codes: string[] = [];
+
+    for (const langCode of value) {
+      const baseCode = getBaseLanguageCode(langCode);
+      if (seen.has(baseCode)) continue;
+      seen.add(baseCode);
+      codes.push(baseCode);
+    }
+
+    return codes;
+  }, [value]);
+
   const filteredLanguages = useMemo(() => {
     if (!languageSearchQuery.trim()) {
       return [];
     }
     const query = languageSearchQuery.toLowerCase();
-    return supportedLanguages.filter((langCode) => {
-      if (value.includes(langCode)) return false;
-      if (isLanguageDisabled(langCode, value)) return false;
-      const langName = getLanguageDisplayName(langCode);
+    return supportedLanguageCodes.filter((langCode) => {
+      if (selectedLanguageCodes.includes(langCode)) return false;
+      const langName = getBaseLanguageDisplayName(langCode);
       return langName.toLowerCase().includes(query);
     });
-  }, [languageSearchQuery, value, supportedLanguages]);
+  }, [languageSearchQuery, selectedLanguageCodes, supportedLanguageCodes]);
 
   const handleLanguageKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Backspace" && !languageSearchQuery && value.length > 0) {
+    if (
+      e.key === "Backspace" &&
+      !languageSearchQuery &&
+      selectedLanguageCodes.length > 0
+    ) {
       e.preventDefault();
-      onChange(value.slice(0, -1));
+      onChange(selectedLanguageCodes.slice(0, -1));
       return;
     }
 
@@ -89,7 +92,7 @@ export function SpokenLanguagesView({
         languageSelectedIndex < filteredLanguages.length
       ) {
         const selectedCode = filteredLanguages[languageSelectedIndex];
-        onChange([...value, selectedCode]);
+        onChange([...selectedLanguageCodes, selectedCode]);
         setLanguageSearchQuery("");
         setLanguageSelectedIndex(-1);
       }
@@ -116,13 +119,13 @@ export function SpokenLanguagesView({
             document.getElementById("language-search-input")?.focus()
           }
         >
-          {value.map((code) => (
+          {selectedLanguageCodes.map((code) => (
             <Badge
               key={code}
               variant="secondary"
               className="bg-muted flex items-center gap-1 px-2 py-0.5 text-xs"
             >
-              {getLanguageDisplayName(code)}
+              {getBaseLanguageDisplayName(code)}
               <Button
                 type="button"
                 variant="ghost"
@@ -130,14 +133,14 @@ export function SpokenLanguagesView({
                 className="ml-0.5 h-3 w-3 p-0 hover:bg-transparent"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onChange(value.filter((c) => c !== code));
+                  onChange(selectedLanguageCodes.filter((c) => c !== code));
                 }}
               >
                 <X className="h-2.5 w-2.5" />
               </Button>
             </Badge>
           ))}
-          {value.length === 0 && (
+          {selectedLanguageCodes.length === 0 && (
             <Search className="size-4 shrink-0 text-neutral-700" />
           )}
           <input
@@ -161,7 +164,9 @@ export function SpokenLanguagesView({
                 : undefined
             }
             aria-label="Add spoken language"
-            placeholder={value.length === 0 ? "Add language" : ""}
+            placeholder={
+              selectedLanguageCodes.length === 0 ? "Add language" : ""
+            }
             className="min-w-[120px] flex-1 bg-transparent text-sm placeholder:text-neutral-500 focus:outline-hidden"
           />
         </div>
@@ -181,7 +186,7 @@ export function SpokenLanguagesView({
                   role="option"
                   aria-selected={languageSelectedIndex === index}
                   onClick={() => {
-                    onChange([...value, langCode]);
+                    onChange([...selectedLanguageCodes, langCode]);
                     setLanguageSearchQuery("");
                     setLanguageSelectedIndex(-1);
                   }}
@@ -195,7 +200,7 @@ export function SpokenLanguagesView({
                   ])}
                 >
                   <span className="truncate font-medium">
-                    {getLanguageDisplayName(langCode)}
+                    {getBaseLanguageDisplayName(langCode)}
                   </span>
                 </button>
               ))
