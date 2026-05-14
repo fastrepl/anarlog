@@ -4,6 +4,7 @@ use std::str::FromStr;
 use crate::listener::ListenerPluginExt;
 use crate::{CaptureParams, CaptureState};
 use hypr_transcript::{RenderTranscriptRequest, RenderedTranscriptSegment};
+use hypr_transcription_core::listener2 as listener2_core;
 
 #[tauri::command]
 #[specta::specta]
@@ -88,36 +89,7 @@ pub async fn is_supported_languages_live<R: tauri::Runtime>(
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| format!("unknown_language: {}", e))?;
 
-    if provider == "soniqo" {
-        let model = model
-            .as_deref()
-            .ok_or_else(|| "missing_model: soniqo".to_string())?
-            .parse::<hypr_transcribe_soniqo::SoniqoModel>()
-            .map_err(|e| e.to_string())?;
-
-        return Ok(model.supports_live_on_current_platform()
-            && model.supports_languages(&languages_parsed));
-    }
-
-    if provider == "hyprnote"
-        && let Some(model) = model.as_deref()
-        && model != "cloud"
-    {
-        if let Ok(model) = model.parse::<hypr_transcribe_soniqo::SoniqoModel>() {
-            return Ok(model.supports_live_on_current_platform()
-                && model.supports_languages(&languages_parsed));
-        }
-
-        if model.starts_with("am-") || model.starts_with("whisper-") || model.starts_with("cactus-")
-        {
-            return Ok(false);
-        }
-    }
-
-    let adapter_kind =
-        AdapterKind::from_str(&provider).map_err(|_| format!("unknown_provider: {}", provider))?;
-
-    Ok(adapter_kind.is_supported_languages_live(&languages_parsed, model.as_deref()))
+    listener2_core::is_supported_languages_live(&provider, model.as_deref(), &languages_parsed)
 }
 
 #[tauri::command]
