@@ -136,6 +136,8 @@ function Component() {
 
   return (
     <main className="min-h-screen bg-white text-[#181613]">
+      <AnnouncementBanner />
+
       <div className="mx-auto w-full max-w-[700px] px-5 py-8 md:px-8 md:py-12">
         <div className="min-w-0">
           <header className="flex items-center justify-between gap-6">
@@ -145,14 +147,6 @@ function Component() {
           </header>
 
           <section className="pt-24 pb-16 md:pt-32">
-            <Link
-              to="/blog/$slug/"
-              params={{ slug: "char-is-now-anarlog" }}
-              className="mb-5 inline-flex max-w-full items-center gap-1.5 rounded-full border border-[#d8d0c5] px-2.5 py-1.5 text-[11px] leading-none font-semibold text-[#756b5d] transition-colors hover:border-[#b8aea0] hover:bg-[#f7f4ef] hover:text-[#181613]"
-            >
-              <span>Char is now Anarlog</span>
-              <ArrowRight size={12} strokeWidth={2.4} aria-hidden="true" />
-            </Link>
             <h1 className="font-hand max-w-3xl text-6xl leading-[0.98] font-semibold tracking-normal text-balance md:text-8xl">
               AI notepad for private meetings.
             </h1>
@@ -224,6 +218,27 @@ function Component() {
 
       <SiteFooter />
     </main>
+  );
+}
+
+function AnnouncementBanner() {
+  return (
+    <Link
+      to="/blog/$slug/"
+      params={{ slug: "char-is-now-anarlog" }}
+      className="border-color-subtle bg-surface-subtle group hover:bg-page block border-b transition-colors"
+      aria-label="Read about Char becoming Anarlog"
+    >
+      <span className="text-color mx-auto flex min-h-10 w-full max-w-[700px] items-center justify-center gap-2 px-5 py-2 text-center text-sm font-medium md:px-8">
+        <span>Char is now Anarlog</span>
+        <ArrowRight
+          size={16}
+          strokeWidth={2.2}
+          className="shrink-0 transition-transform group-hover:translate-x-0.5"
+          aria-hidden="true"
+        />
+      </span>
+    </Link>
   );
 }
 
