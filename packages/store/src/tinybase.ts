@@ -156,6 +156,7 @@ export const valueSchemaForTinybase = {
   user_id: { type: "string" },
   autostart: { type: "boolean" },
   auto_stop_meetings: { type: "boolean" },
+  auto_start_scheduled_meetings: { type: "boolean" },
   save_recordings: { type: "boolean" },
   audio_retention: { type: "string" },
   notification_event: { type: "boolean" },

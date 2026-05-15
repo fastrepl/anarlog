@@ -23,6 +23,7 @@ export function useEventCountdown(
 
     const eventStart = new Date(startedAt).getTime();
     let fired = false;
+    let armed = false;
 
     let interval: ReturnType<typeof setInterval>;
 
@@ -32,7 +33,7 @@ export function useEventCountdown(
       if (diff <= 0) {
         setLabel(null);
         clearInterval(interval);
-        if (!fired) {
+        if (armed && !fired) {
           fired = true;
           onExpireRef.current?.();
         }
@@ -44,6 +45,7 @@ export function useEventCountdown(
         return;
       }
 
+      armed = true;
       const totalSeconds = Math.floor(diff / 1000);
       const mins = Math.floor(totalSeconds / 60);
       const secs = totalSeconds % 60;

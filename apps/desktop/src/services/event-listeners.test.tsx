@@ -1,5 +1,5 @@
 import { render } from "@testing-library/react";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { EventListeners } from "./event-listeners";
 
@@ -100,6 +100,10 @@ describe("EventListeners notification events", () => {
     getOrCreateSessionForEventIdMock.mockReturnValue("session-event");
     useMainStoreMock.mockReturnValue(null);
     useSettingsStoreMock.mockReturnValue(null);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   test("stores mic-detected footer actions as ignored platforms", async () => {
@@ -231,8 +235,17 @@ describe("EventListeners notification events", () => {
     expect(openNewMock).toHaveBeenCalledTimes(1);
   });
 
-  test("notification_confirm with calendar_event source does not set triggerAppIds", async () => {
-    useMainStoreMock.mockReturnValue({} as never);
+  test("notification_confirm with upcoming calendar_event opens notes without auto-start", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(
+      new Date("2026-05-15T12:00:00.000Z").getTime(),
+    );
+    useMainStoreMock.mockReturnValue({
+      getRow: vi.fn((table: string, rowId: string) =>
+        table === "events" && rowId === "evt-1"
+          ? { started_at: "2026-05-15T12:02:00.000Z" }
+          : undefined,
+      ),
+    } as never);
 
     render(<EventListeners />);
 
@@ -251,6 +264,45 @@ describe("EventListeners notification events", () => {
     });
 
     expect(setTriggerAppIdsMock).not.toHaveBeenCalled();
-    expect(openNewMock).toHaveBeenCalledTimes(1);
+    expect(openNewMock).toHaveBeenCalledWith({
+      type: "sessions",
+      id: "session-event",
+      state: { view: null, autoStart: null },
+    });
+  });
+
+  test("notification_confirm with started calendar_event starts listening", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(
+      new Date("2026-05-15T12:02:00.000Z").getTime(),
+    );
+    useMainStoreMock.mockReturnValue({
+      getRow: vi.fn((table: string, rowId: string) =>
+        table === "events" && rowId === "evt-1"
+          ? { started_at: "2026-05-15T12:00:00.000Z" }
+          : undefined,
+      ),
+    } as never);
+
+    render(<EventListeners />);
+
+    await vi.waitFor(() =>
+      expect(notificationListenMock).toHaveBeenCalledTimes(1),
+    );
+
+    const handler = notificationListenMock.mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf("function");
+
+    handler({
+      payload: {
+        type: "notification_confirm",
+        source: { type: "calendar_event", event_id: "evt-1" },
+      },
+    });
+
+    expect(openNewMock).toHaveBeenCalledWith({
+      type: "sessions",
+      id: "session-event",
+      state: { view: null, autoStart: true },
+    });
   });
 });

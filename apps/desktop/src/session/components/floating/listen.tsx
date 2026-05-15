@@ -12,7 +12,9 @@ import {
   type RemoteMeeting,
   useRemoteMeeting,
 } from "~/session/hooks/useRemoteMeeting";
+import { useConfigValue } from "~/shared/config";
 import type { Tab } from "~/store/zustand/tabs";
+import { useTabs } from "~/store/zustand/tabs";
 import { useListener } from "~/stt/contexts";
 
 export function ListenButton({
@@ -24,8 +26,29 @@ export function ListenButton({
   const loading = useListener(
     (state) => state.live.loading && state.live.sessionId === tab.id,
   );
+  const canStartLiveSession = useListener((state) =>
+    state.canStartLiveSession(tab.id),
+  );
+  const autoStartScheduledMeetings = useConfigValue(
+    "auto_start_scheduled_meetings",
+  );
+  const updateSessionTabState = useTabs((state) => state.updateSessionTabState);
   const remote = useRemoteMeeting(tab.id);
-  const countdown = useEventCountdown(tab.id);
+  const handleCountdownExpire = useCallback(() => {
+    if (!autoStartScheduledMeetings || !canStartLiveSession) {
+      return;
+    }
+
+    updateSessionTabState(tab, { ...tab.state, autoStart: true });
+  }, [
+    autoStartScheduledMeetings,
+    canStartLiveSession,
+    tab,
+    updateSessionTabState,
+  ]);
+  const countdown = useEventCountdown(tab.id, {
+    onExpire: handleCountdownExpire,
+  });
 
   if (loading) {
     return <ListenActionButton sessionId={tab.id} />;

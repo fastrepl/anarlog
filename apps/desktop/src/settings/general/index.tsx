@@ -24,6 +24,7 @@ import * as settings from "~/store/tinybase/store/settings";
 function useSettingsForm() {
   const value = useConfigValues([
     "autostart",
+    "auto_start_scheduled_meetings",
     "auto_stop_meetings",
     "notification_detect",
     "telemetry_consent",
@@ -59,6 +60,7 @@ function useSettingsForm() {
   const form = useForm({
     defaultValues: {
       autostart: value.autostart,
+      auto_start_scheduled_meetings: value.auto_start_scheduled_meetings,
       auto_stop_meetings: value.auto_stop_meetings,
       notification_detect: value.notification_detect,
       telemetry_consent: value.telemetry_consent,
@@ -88,6 +90,7 @@ function useSettingsForm() {
       void analyticsCommands.event({
         event: "settings_changed",
         autostart: value.autostart,
+        auto_start_scheduled_meetings: value.auto_start_scheduled_meetings,
         auto_stop_meetings: value.auto_stop_meetings,
         notification_detect: value.notification_detect,
         telemetry_consent: value.telemetry_consent,
@@ -123,34 +126,47 @@ export function SettingsApp() {
     <div className="flex flex-col gap-8">
       <form.Field name="autostart">
         {(autostartField) => (
-          <form.Field name="auto_stop_meetings">
-            {(autoStopMeetingsField) => (
-              <form.Field name="telemetry_consent">
-                {(telemetryConsentField) => (
-                  <AppSettingsView
-                    autostart={{
-                      title: "Start Anarlog at login",
-                      description: "Always ready without manually launching.",
-                      value: autostartField.state.value,
-                      onChange: (val) => autostartField.handleChange(val),
-                    }}
-                    autoStopMeetings={{
-                      title: "Stop when meeting ends",
-                      description:
-                        "Automatically stop listening when the meeting app releases the microphone.",
-                      value: autoStopMeetingsField.state.value,
-                      onChange: (val) =>
-                        autoStopMeetingsField.handleChange(val),
-                    }}
-                    telemetryConsent={{
-                      title: "Share usage data",
-                      description:
-                        "Send anonymous usage analytics to help improve Anarlog.",
-                      value: telemetryConsentField.state.value,
-                      onChange: (val) =>
-                        telemetryConsentField.handleChange(val),
-                    }}
-                  />
+          <form.Field name="auto_start_scheduled_meetings">
+            {(autoStartScheduledMeetingsField) => (
+              <form.Field name="auto_stop_meetings">
+                {(autoStopMeetingsField) => (
+                  <form.Field name="telemetry_consent">
+                    {(telemetryConsentField) => (
+                      <AppSettingsView
+                        autostart={{
+                          title: "Start Anarlog at login",
+                          description:
+                            "Always ready without manually launching.",
+                          value: autostartField.state.value,
+                          onChange: (val) => autostartField.handleChange(val),
+                        }}
+                        autoStartScheduledMeetings={{
+                          title: "Start when meeting begins",
+                          description:
+                            "Automatically start listening when an event-backed note reaches its scheduled start time.",
+                          value: autoStartScheduledMeetingsField.state.value,
+                          onChange: (val) =>
+                            autoStartScheduledMeetingsField.handleChange(val),
+                        }}
+                        autoStopMeetings={{
+                          title: "Stop when meeting ends",
+                          description:
+                            "Automatically stop listening when the meeting app releases the microphone.",
+                          value: autoStopMeetingsField.state.value,
+                          onChange: (val) =>
+                            autoStopMeetingsField.handleChange(val),
+                        }}
+                        telemetryConsent={{
+                          title: "Share usage data",
+                          description:
+                            "Send anonymous usage analytics to help improve Anarlog.",
+                          value: telemetryConsentField.state.value,
+                          onChange: (val) =>
+                            telemetryConsentField.handleChange(val),
+                        }}
+                      />
+                    )}
+                  </form.Field>
                 )}
               </form.Field>
             )}

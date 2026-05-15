@@ -17,6 +17,8 @@ import * as settings from "~/store/tinybase/store/settings";
 import { listenerStore } from "~/store/zustand/listener/instance";
 import { useTabs } from "~/store/zustand/tabs";
 
+type MainStore = NonNullable<ReturnType<typeof main.UI.useStore>>;
+
 function parseIgnoredPlatforms(value: unknown) {
   if (typeof value !== "string") {
     return [];
@@ -32,6 +34,28 @@ function parseIgnoredPlatforms(value: unknown) {
   } catch {
     return [];
   }
+}
+
+function shouldAutoStartNotificationSession(
+  store: MainStore,
+  eventId: string | null,
+  triggerAppIds: string[] | null,
+): boolean {
+  if (triggerAppIds && triggerAppIds.length > 0) {
+    return true;
+  }
+
+  if (!eventId) {
+    return true;
+  }
+
+  const startedAt = store.getRow("events", eventId)?.started_at;
+  if (!startedAt) {
+    return false;
+  }
+
+  const startTime = new Date(String(startedAt)).getTime();
+  return !Number.isNaN(startTime) && startTime <= Date.now();
 }
 
 function useUpdaterEvents() {
@@ -91,11 +115,16 @@ function useNotificationEvents() {
       if (triggerAppIds && triggerAppIds.length > 0) {
         listenerStore.getState().setTriggerAppIds(triggerAppIds);
       }
+      const autoStart = shouldAutoStartNotificationSession(
+        store,
+        eventId,
+        triggerAppIds,
+      );
 
       openNew({
         type: "sessions",
         id: sessionId,
-        state: { view: null, autoStart: true },
+        state: { view: null, autoStart: autoStart ? true : null },
       });
     }
   }, [store, openNew]);
@@ -134,11 +163,16 @@ function useNotificationEvents() {
           if (triggerAppIds && triggerAppIds.length > 0) {
             listenerStore.getState().setTriggerAppIds(triggerAppIds);
           }
+          const autoStart = shouldAutoStartNotificationSession(
+            currentStore,
+            eventId,
+            triggerAppIds,
+          );
 
           openNewRef.current({
             type: "sessions",
             id: sessionId,
-            state: { view: null, autoStart: true },
+            state: { view: null, autoStart: autoStart ? true : null },
           });
         } else if (payload.type === "notification_option_selected") {
           const currentStore = storeRef.current;
