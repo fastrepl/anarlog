@@ -262,6 +262,7 @@ export const providerSpeakerIndexSchema = z.object({
 export const generalSchema = z.object({
   user_id: z.string(),
   autostart: z.boolean().default(false),
+  auto_stop_meetings: z.boolean().default(true),
   telemetry_consent: z.boolean().default(true),
   save_recordings: z.boolean().default(true),
   audio_retention: z.string().default("oneMonth"),

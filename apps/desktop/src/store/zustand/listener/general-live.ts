@@ -67,6 +67,19 @@ const startSessionEffect = (params: CaptureParams) =>
 
 const stopSessionEffect = () => fromResult(listenerCommands.stopCapture());
 
+function getAutoStopTriggerAppIds(
+  appIds: string[] | null,
+  bundleId: string,
+): string[] {
+  return [
+    ...new Set(
+      (appIds ?? []).filter(
+        (id) => id && id !== bundleId && !id.startsWith("pid:"),
+      ),
+    ),
+  ];
+}
+
 const clearLiveInterval = (intervalId?: LiveIntervalId) => {
   if (intervalId) {
     clearInterval(intervalId);
@@ -262,6 +275,15 @@ export const startLiveSession = <T extends LiveStore>(
 
     const sessionPath = buildSessionPath(dataDirPath, targetSessionId);
     const app_meeting = micUsingApps?.[0] ?? null;
+    const triggerAppIds = getAutoStopTriggerAppIds(micUsingApps, bundleId);
+
+    if (triggerAppIds.length > 0) {
+      setLiveState(set, (live) => {
+        if (live.sessionId === targetSessionId) {
+          live.triggerAppIds = triggerAppIds;
+        }
+      });
+    }
 
     yield* Effect.tryPromise({
       try: () =>

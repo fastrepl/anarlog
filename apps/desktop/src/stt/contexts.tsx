@@ -2,16 +2,21 @@ import React, { createContext, useContext, useEffect, useRef } from "react";
 import { useStore } from "zustand";
 import { useShallow } from "zustand/shallow";
 
-import { events as detectEvents } from "@hypr/plugin-detect";
+import {
+  commands as detectCommands,
+  events as detectEvents,
+} from "@hypr/plugin-detect";
 import { commands as notificationCommands } from "@hypr/plugin-notification";
 
 import * as main from "~/store/tinybase/store/main";
+import * as settings from "~/store/tinybase/store/settings";
 import {
   createListenerStore,
   type ListenerStore,
 } from "~/store/zustand/listener";
 
 const ListenerContext = createContext<ListenerStore | null>(null);
+export const AUTO_STOP_CONFIRM_DELAY_MS = 5_000;
 
 function getIgnorableAppIds(apps: { id: string }[]) {
   return [
@@ -88,15 +93,49 @@ const useHandleDetectEvents = (store: ListenerStore) => {
   const stop = useStore(store, (state) => state.stop);
   const setMuted = useStore(store, (state) => state.setMuted);
   const tinybaseStore = main.UI.useStore(main.STORE_ID);
+  const settingsStore = settings.UI.useStore(settings.STORE_ID);
 
   const tinybaseStoreRef = useRef(tinybaseStore);
+  const settingsStoreRef = useRef(settingsStore);
+  const pendingAutoStopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     tinybaseStoreRef.current = tinybaseStore;
-  }, [tinybaseStore]);
+    settingsStoreRef.current = settingsStore;
+  }, [tinybaseStore, settingsStore]);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
     let cancelled = false;
+    const clearPendingAutoStop = () => {
+      if (pendingAutoStopRef.current) {
+        clearTimeout(pendingAutoStopRef.current);
+        pendingAutoStopRef.current = null;
+      }
+    };
+
+    const confirmAutoStop = async (stoppedTriggerAppIds: string[]) => {
+      if (store.getState().live.status !== "active") {
+        return;
+      }
+
+      const currentTrigger = store.getState().live.triggerAppIds;
+      if (
+        !currentTrigger ||
+        !stoppedTriggerAppIds.some((id) => currentTrigger.includes(id))
+      ) {
+        return;
+      }
+
+      const result = await detectCommands.listMicUsingApplications();
+      if (result.status === "ok") {
+        const activeAppIds = new Set(result.data.map((app) => app.id));
+        if (stoppedTriggerAppIds.some((id) => activeAppIds.has(id))) {
+          return;
+        }
+      }
+
+      stop();
+    };
 
     detectEvents.detectEvent
       .listen(({ payload }) => {
@@ -144,16 +183,27 @@ const useHandleDetectEvents = (store: ListenerStore) => {
             icon: null,
           });
         } else if (payload.type === "micStopped") {
+          const autoStopEnabled =
+            settingsStoreRef.current?.getValue("auto_stop_meetings") !== false;
+          if (!autoStopEnabled) {
+            return;
+          }
+
           const trigger = store.getState().live.triggerAppIds;
-          if (
-            trigger &&
-            trigger.length > 0 &&
-            payload.apps.some((app) => trigger.includes(app.id))
-          ) {
-            stop();
+          const stoppedTriggerAppIds =
+            trigger?.filter((id) =>
+              payload.apps.some((app) => app.id === id),
+            ) ?? [];
+          if (stoppedTriggerAppIds.length > 0) {
+            clearPendingAutoStop();
+            pendingAutoStopRef.current = setTimeout(() => {
+              pendingAutoStopRef.current = null;
+              void confirmAutoStop(stoppedTriggerAppIds);
+            }, AUTO_STOP_CONFIRM_DELAY_MS);
           }
         } else if (payload.type === "sleepStateChanged") {
           if (payload.value) {
+            clearPendingAutoStop();
             stop();
           }
         } else if (payload.type === "micMuted") {
@@ -173,7 +223,8 @@ const useHandleDetectEvents = (store: ListenerStore) => {
 
     return () => {
       cancelled = true;
+      clearPendingAutoStop();
       unlisten?.();
     };
-  }, [stop, setMuted]);
+  }, [stop, setMuted, store]);
 };
