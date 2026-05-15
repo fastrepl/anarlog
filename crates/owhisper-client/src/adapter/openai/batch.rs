@@ -20,6 +20,7 @@ use super::OpenAIAdapter;
 
 const DEFAULT_API_BASE: &str = "https://api.openai.com/v1";
 const OPENAI_PROGRESS_CAP: f64 = 0.99;
+const SYNTHETIC_WORD_SECONDS: f64 = 0.4;
 
 impl BatchSttAdapter for OpenAIAdapter {
     fn provider_name(&self) -> &'static str {
@@ -271,11 +272,7 @@ impl<S> OpenAISseParserState<S> {
             }
             ParsedTranscriptionStreamEvent::TextDone { text, usage, .. } => {
                 Some(Ok(BatchStreamEvent::Result {
-                    response: build_batch_response(
-                        text.trim().to_string(),
-                        Vec::new(),
-                        transcription_usage_metadata(usage),
-                    ),
+                    response: convert_text_response(text.trim().to_string(), usage),
                 }))
             }
         }
@@ -330,18 +327,96 @@ fn transcription_usage_metadata(usage: Option<TranscriptionUsage>) -> serde_json
     }
 }
 
+fn text_response_metadata(
+    usage: Option<TranscriptionUsage>,
+    duration: Option<f64>,
+) -> serde_json::Value {
+    let mut metadata = transcription_usage_metadata(usage);
+
+    if let Some(duration) = duration {
+        if let Some(object) = metadata.as_object_mut() {
+            object.insert("duration".to_string(), serde_json::json!(duration));
+        }
+    }
+
+    metadata
+}
+
 fn strip_punctuation(s: &str) -> String {
     s.trim_matches(|c: char| c.is_ascii_punctuation())
         .to_string()
 }
 
+fn usage_duration_seconds(usage: Option<&TranscriptionUsage>) -> Option<f64> {
+    let seconds = match usage {
+        Some(TranscriptionUsage::Duration(duration)) => duration.seconds,
+        _ => return None,
+    };
+
+    seconds.is_finite().then_some(seconds).filter(|s| *s > 0.0)
+}
+
+fn estimate_text_duration(transcript: &str) -> f64 {
+    let word_count = transcript.split_whitespace().count();
+    word_count as f64 * SYNTHETIC_WORD_SECONDS
+}
+
+fn synthesize_words(transcript: &str, duration: f64, channel: i32) -> Vec<Word> {
+    let tokens = transcript.split_whitespace().collect::<Vec<_>>();
+    if tokens.is_empty() {
+        return Vec::new();
+    }
+
+    let duration = if duration.is_finite() && duration > 0.0 {
+        duration
+    } else {
+        estimate_text_duration(transcript)
+    };
+    let word_duration = duration / tokens.len() as f64;
+
+    tokens
+        .iter()
+        .enumerate()
+        .map(|(index, token)| {
+            let normalized = strip_punctuation(token);
+            let start = word_duration * index as f64;
+            let end = if index + 1 == tokens.len() {
+                duration
+            } else {
+                word_duration * (index + 1) as f64
+            };
+
+            Word {
+                word: if normalized.is_empty() {
+                    (*token).to_string()
+                } else {
+                    normalized
+                },
+                start,
+                end,
+                confidence: 1.0,
+                channel,
+                speaker: None,
+                punctuated_word: Some((*token).to_string()),
+            }
+        })
+        .collect()
+}
+
+fn convert_text_response(transcript: String, usage: Option<TranscriptionUsage>) -> BatchResponse {
+    let usage_duration = usage_duration_seconds(usage.as_ref());
+    let duration = usage_duration.unwrap_or_else(|| estimate_text_duration(&transcript));
+    let words = synthesize_words(&transcript, duration, 0);
+    let metadata = text_response_metadata(usage, usage_duration);
+
+    build_batch_response(transcript, words, metadata)
+}
+
 fn convert_response(response: CreateTranscriptionResponse) -> BatchResponse {
     match response {
-        CreateTranscriptionResponse::Standard(response) => build_batch_response(
-            response.text.trim().to_string(),
-            Vec::new(),
-            serde_json::json!({}),
-        ),
+        CreateTranscriptionResponse::Standard(response) => {
+            convert_text_response(response.text.trim().to_string(), response.usage)
+        }
         CreateTranscriptionResponse::Verbose(response) => {
             let words = response
                 .words
@@ -556,6 +631,12 @@ mod tests {
             response.results.channels[0].alternatives[0].transcript,
             "hello world"
         );
+        let words = &response.results.channels[0].alternatives[0].words;
+        assert_eq!(words.len(), 2);
+        assert_eq!(words[0].word, "hello");
+        assert_eq!(words[1].word, "world");
+        assert_eq!(words[0].start, 0.0);
+        assert!(words[1].end > words[0].end);
         assert_eq!(response.metadata["usage"]["type"], "tokens");
     }
 
@@ -594,6 +675,37 @@ mod tests {
         assert!(first > 0.0);
         assert!(second >= first);
         assert!(capped <= OPENAI_PROGRESS_CAP);
+    }
+
+    #[test]
+    fn convert_standard_response_synthesizes_words_from_text() {
+        let response: CreateTranscriptionResponse = serde_json::from_str(
+            r#"{
+                "text": " hello, world! ",
+                "usage": {
+                    "type": "duration",
+                    "seconds": 2.0
+                }
+            }"#,
+        )
+        .expect("parse standard response");
+
+        let batch = convert_response(response);
+        let alternative = &batch.results.channels[0].alternatives[0];
+        let words = &alternative.words;
+
+        assert_eq!(alternative.transcript, "hello, world!");
+        assert_eq!(words.len(), 2);
+        assert_eq!(words[0].word, "hello");
+        assert_eq!(words[0].punctuated_word.as_deref(), Some("hello,"));
+        assert_eq!(words[0].start, 0.0);
+        assert_eq!(words[0].end, 1.0);
+        assert_eq!(words[1].word, "world");
+        assert_eq!(words[1].punctuated_word.as_deref(), Some("world!"));
+        assert_eq!(words[1].start, 1.0);
+        assert_eq!(words[1].end, 2.0);
+        assert_eq!(batch.metadata["usage"]["type"], "duration");
+        assert_eq!(batch.metadata["duration"], 2.0);
     }
 
     #[test]
