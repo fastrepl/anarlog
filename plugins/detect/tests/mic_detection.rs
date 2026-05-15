@@ -166,10 +166,12 @@ async fn test_full_scenario_zoom_and_dictation() {
     );
 
     h.mic_stopped(aqua_voice());
-    assert!(
-        h.take_events().is_empty(),
-        "dictation app stop should be filtered"
-    );
+    let events = h.take_events();
+    assert_eq!(events.len(), 1, "dictation app stop should emit MicStopped");
+    assert!(matches!(
+        &events[0],
+        DetectEvent::MicStopped { apps } if apps[0].id == "com.electron.aqua-voice"
+    ));
 
     h.advance_secs(15).await;
     let events = h.take_events();
@@ -359,7 +361,7 @@ async fn test_detect_disabled_mid_flight_suppresses_mic_detected() {
 }
 
 #[tokio::test(start_paused = true)]
-async fn test_mic_stopped_with_detect_disabled_cancels_timers() {
+async fn test_mic_stopped_with_detect_disabled_cancels_timers_and_emits() {
     let h = Harness::new();
 
     h.mic_started(zoom());
@@ -368,7 +370,16 @@ async fn test_mic_stopped_with_detect_disabled_cancels_timers() {
     h.advance_secs(3).await;
     h.env.set_detect_enabled(false);
     h.mic_stopped(zoom());
-    h.take_events();
+    let events = h.take_events();
+    assert_eq!(
+        events.len(),
+        1,
+        "MicStopped should emit even when notification detect is disabled"
+    );
+    assert!(matches!(
+        &events[0],
+        DetectEvent::MicStopped { apps } if apps[0].id == "us.zoom.xos"
+    ));
 
     h.env.set_detect_enabled(true);
 
@@ -417,7 +428,7 @@ async fn test_mic_started_with_detect_disabled_is_noop() {
 }
 
 #[tokio::test(start_paused = true)]
-async fn test_dnd_suppresses_mic_stopped_notification() {
+async fn test_dnd_does_not_suppress_mic_stopped_event() {
     let h = Harness::new();
 
     h.mic_started(zoom());
@@ -431,10 +442,16 @@ async fn test_dnd_suppresses_mic_stopped_notification() {
     h.env.set_dnd(true);
 
     h.mic_stopped(zoom());
-    assert!(
-        h.take_events().is_empty(),
-        "MicStopped should be suppressed by DnD"
+    let events = h.take_events();
+    assert_eq!(
+        events.len(),
+        1,
+        "MicStopped should emit while DnD is enabled"
     );
+    assert!(matches!(
+        &events[0],
+        DetectEvent::MicStopped { apps } if apps[0].id == "us.zoom.xos"
+    ));
 }
 
 #[tokio::test(start_paused = true)]

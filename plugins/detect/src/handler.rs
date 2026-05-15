@@ -5,7 +5,6 @@ use crate::{
     DetectEvent, ProcessorState,
     env::{Env, TauriEnv},
     mic_usage_tracker,
-    policy::{MicEventType, PolicyContext},
 };
 
 pub fn setup<R: Runtime>(app: &AppHandle<R>) -> Result<(), Box<dyn std::error::Error>> {
@@ -43,13 +42,6 @@ pub fn handle_detect_event<E: Env>(
             handle_mic_started(env, state, apps);
         }
         hypr_detect::DetectEvent::MicStopped(apps) => {
-            if !env.is_detect_enabled() {
-                let mut guard = state.lock().unwrap_or_else(|e| e.into_inner());
-                for app in &apps {
-                    guard.mic_usage_tracker.cancel_app(&app.id);
-                }
-                return;
-            }
             handle_mic_stopped(env, state, apps);
         }
         #[cfg(all(target_os = "macos", feature = "zoom"))]
@@ -103,31 +95,13 @@ fn handle_mic_stopped<E: Env>(
     state: &ProcessorState,
     apps: Vec<hypr_detect::InstalledApp>,
 ) {
-    let is_dnd = env.is_do_not_disturb();
-
-    let policy_result = {
+    {
         let mut guard = state.lock().unwrap_or_else(|e| e.into_inner());
 
         for app in &apps {
             guard.mic_usage_tracker.cancel_app(&app.id);
         }
-
-        let ctx = PolicyContext {
-            apps: &apps,
-            is_dnd,
-            event_type: MicEventType::Stopped,
-        };
-        guard.policy.evaluate(&ctx)
-    };
-
-    match policy_result {
-        Ok(result) => {
-            env.emit(DetectEvent::MicStopped {
-                apps: result.filtered_apps,
-            });
-        }
-        Err(reason) => {
-            tracing::info!(?reason, "skip_mic_stopped");
-        }
     }
+
+    env.emit(DetectEvent::MicStopped { apps });
 }
