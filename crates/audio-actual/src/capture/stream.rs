@@ -24,6 +24,10 @@ pub(crate) type ChunkStream =
 
 const AUDIO_SYNC_PROBE_ENV: &str = "AUDIO_SYNC_PROBE";
 const AEC_MAX_REFERENCE_LAG_MS: u32 = 100;
+const AEC_MIN_REFERENCE_RMS: f32 = 1e-4;
+const AEC_MIN_MIC_RMS: f32 = 1e-4;
+const AEC_MIN_REFERENCE_CORRELATION: f32 = 0.12;
+const AEC_MAX_LINEAR_GAIN: f32 = 1.25;
 
 struct CaptureStreamInner {
     inner: ReceiverStream<Result<CaptureFrame, Error>>,
@@ -439,12 +443,58 @@ fn build_aec() -> Option<AEC> {
 fn process_aec(aec: &mut Option<AEC>, mic: &[f32], speaker: &[f32]) -> Option<Arc<[f32]>> {
     let processor = aec.as_mut()?;
     match processor.process_streaming(mic, speaker) {
-        Ok(processed) => Some(Arc::<[f32]>::from(processed)),
+        Ok(processed) => Some(Arc::<[f32]>::from(cancel_linear_echo(
+            mic, speaker, processed,
+        ))),
         Err(error) => {
             tracing::warn!(error.message = ?error, "aec_failed");
             None
         }
     }
+}
+
+fn cancel_linear_echo(mic: &[f32], speaker: &[f32], processed: Vec<f32>) -> Vec<f32> {
+    let len = mic.len().min(speaker.len()).min(processed.len());
+    if len == 0 {
+        return processed;
+    }
+
+    let mut mic_energy = 0.0;
+    let mut speaker_energy = 0.0;
+    let mut cross_energy = 0.0;
+    for idx in 0..len {
+        let mic_sample = mic[idx];
+        let speaker_sample = speaker[idx];
+        mic_energy += mic_sample * mic_sample;
+        speaker_energy += speaker_sample * speaker_sample;
+        cross_energy += mic_sample * speaker_sample;
+    }
+
+    let len_f32 = len as f32;
+    let mic_rms = (mic_energy / len_f32).sqrt();
+    let speaker_rms = (speaker_energy / len_f32).sqrt();
+    if mic_rms < AEC_MIN_MIC_RMS || speaker_rms < AEC_MIN_REFERENCE_RMS {
+        return processed;
+    }
+
+    let correlation = cross_energy.abs() / (mic_energy * speaker_energy).sqrt().max(1e-6);
+    if correlation < AEC_MIN_REFERENCE_CORRELATION {
+        return processed;
+    }
+
+    let gain =
+        (cross_energy / speaker_energy.max(1e-6)).clamp(-AEC_MAX_LINEAR_GAIN, AEC_MAX_LINEAR_GAIN);
+    let mut output = Vec::with_capacity(processed.len());
+    output.extend(
+        mic.iter()
+            .zip(speaker)
+            .take(len)
+            .map(|(mic_sample, speaker_sample)| {
+                (mic_sample - gain * speaker_sample).clamp(-1.0, 1.0)
+            }),
+    );
+    output.extend_from_slice(&processed[len..]);
+    output
 }
 
 #[cfg(test)]
@@ -496,5 +546,38 @@ mod tests {
 
         assert_eq!(first, vec![0.0, 0.0, 1.0]);
         assert_eq!(second, vec![2.0]);
+    }
+
+    #[test]
+    fn cancel_linear_echo_subtracts_correlated_reference() {
+        let speaker = [0.2, -0.4, 0.6, -0.8];
+        let mic = speaker.map(|sample| sample * 0.5);
+        let processed = vec![0.9; speaker.len()];
+
+        let output = cancel_linear_echo(&mic, &speaker, processed);
+
+        assert!(output.iter().all(|sample| sample.abs() < 1e-5));
+    }
+
+    #[test]
+    fn cancel_linear_echo_keeps_processed_when_reference_is_silent() {
+        let mic = [0.2, -0.4, 0.6, -0.8];
+        let speaker = [0.0; 4];
+        let processed = vec![0.1, 0.2, 0.3, 0.4];
+
+        let output = cancel_linear_echo(&mic, &speaker, processed.clone());
+
+        assert_eq!(output, processed);
+    }
+
+    #[test]
+    fn cancel_linear_echo_keeps_processed_when_uncorrelated() {
+        let mic = [0.5, 0.5, -0.5, -0.5];
+        let speaker = [0.5, -0.5, 0.5, -0.5];
+        let processed = vec![0.1, 0.2, 0.3, 0.4];
+
+        let output = cancel_linear_echo(&mic, &speaker, processed.clone());
+
+        assert_eq!(output, processed);
     }
 }
