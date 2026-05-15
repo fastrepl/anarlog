@@ -152,13 +152,15 @@ impl Actor for ListenerActor {
         }
 
         if let Some(update) = state.transcript.flush() {
-            state
-                .args
-                .runtime
-                .emit_data(SessionDataEvent::TranscriptDelta {
-                    session_id: state.args.session_id.clone(),
-                    delta: Box::new(update.transcript_delta),
-                });
+            if !update.transcript_delta.is_empty() {
+                state
+                    .args
+                    .runtime
+                    .emit_data(SessionDataEvent::TranscriptDelta {
+                        session_id: state.args.session_id.clone(),
+                        delta: Box::new(update.transcript_delta),
+                    });
+            }
             if let Some(segment_delta) = update.segment_delta {
                 state
                     .args

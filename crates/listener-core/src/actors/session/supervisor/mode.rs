@@ -11,16 +11,19 @@ pub(super) struct SessionModeState {
 }
 
 impl SessionModeState {
-    pub(super) fn new(requested_transcription_mode: TranscriptionMode) -> Self {
+    pub(super) fn new(
+        requested_transcription_mode: TranscriptionMode,
+        current_transcription_mode: TranscriptionMode,
+    ) -> Self {
         Self {
             requested_transcription_mode,
-            current_transcription_mode: requested_transcription_mode,
-            listener_buffering_enabled: requested_transcription_mode == TranscriptionMode::Live,
+            current_transcription_mode,
+            listener_buffering_enabled: current_transcription_mode == TranscriptionMode::Live,
         }
     }
 
     pub(super) fn should_spawn_listener(&self) -> bool {
-        self.requested_transcription_mode == TranscriptionMode::Live
+        self.current_transcription_mode == TranscriptionMode::Live
     }
 
     pub(super) fn on_listener_attached(&mut self) {
@@ -100,7 +103,7 @@ mod tests {
 
     #[test]
     fn batch_mode_starts_with_dropped_listener_routing() {
-        let state = SessionModeState::new(TranscriptionMode::Batch);
+        let state = SessionModeState::new(TranscriptionMode::Batch, TranscriptionMode::Batch);
         assert!(matches!(
             state.listener_routing(None),
             ListenerRouting::Dropped
@@ -109,7 +112,7 @@ mod tests {
 
     #[test]
     fn entering_batch_fallback_disables_buffering() {
-        let mut state = SessionModeState::new(TranscriptionMode::Live);
+        let mut state = SessionModeState::new(TranscriptionMode::Live, TranscriptionMode::Live);
         state.enter_batch_fallback();
 
         assert_eq!(state.current_transcription_mode, TranscriptionMode::Batch);
@@ -117,5 +120,23 @@ mod tests {
             state.listener_routing(None),
             ListenerRouting::Dropped
         ));
+    }
+
+    #[test]
+    fn effective_batch_preserves_requested_live_in_active_event() {
+        let state = SessionModeState::new(TranscriptionMode::Live, TranscriptionMode::Batch);
+        let event = state.active_event("session".to_string(), None);
+
+        assert!(!state.should_spawn_listener());
+        let SessionLifecycleEvent::Active {
+            requested_transcription_mode,
+            current_transcription_mode,
+            ..
+        } = event
+        else {
+            panic!("expected active event");
+        };
+        assert_eq!(requested_transcription_mode, TranscriptionMode::Live);
+        assert_eq!(current_transcription_mode, TranscriptionMode::Batch);
     }
 }

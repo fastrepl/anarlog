@@ -43,7 +43,10 @@ impl Actor for SessionActor {
         let span = session_span(&session_id);
 
         async {
-            let mode = SessionModeState::new(ctx.params.transcription_mode);
+            let mode = SessionModeState::new(
+                ctx.requested_transcription_mode,
+                ctx.params.transcription_mode,
+            );
             let recorder_cell = Some(
                 children::spawn_recorder(myself.get_cell(), &ctx)
                     .await
@@ -277,6 +280,7 @@ async fn stop_after_listener_failure(
     state: &mut SessionState,
     degraded: DegradedError,
 ) {
+    emit_active_lifecycle_event(state, Some(degraded.clone())).await;
     state.shutting_down = true;
     children::shutdown_children(state, "listener_failure").await;
     let reason = serde_json::to_string(&degraded).ok();
@@ -397,10 +401,54 @@ mod tests {
         }
     }
 
+    struct SessionStopProbe;
+
+    #[ractor::async_trait]
+    impl Actor for SessionStopProbe {
+        type Msg = SessionMsg;
+        type State = ();
+        type Arguments = ();
+
+        async fn pre_start(
+            &self,
+            _myself: ActorRef<Self::Msg>,
+            _args: Self::Arguments,
+        ) -> Result<Self::State, ActorProcessingErr> {
+            Ok(())
+        }
+    }
+
+    struct RecordingRuntime {
+        lifecycle_events: std::sync::Mutex<Vec<crate::SessionLifecycleEvent>>,
+    }
+
+    impl hypr_storage::StorageRuntime for RecordingRuntime {
+        fn global_base(&self) -> Result<PathBuf, hypr_storage::Error> {
+            Ok(std::env::temp_dir())
+        }
+
+        fn vault_base(&self) -> Result<PathBuf, hypr_storage::Error> {
+            Ok(std::env::temp_dir())
+        }
+    }
+
+    impl ListenerRuntime for RecordingRuntime {
+        fn emit_lifecycle(&self, event: crate::SessionLifecycleEvent) {
+            self.lifecycle_events.lock().unwrap().push(event);
+        }
+
+        fn emit_progress(&self, _event: SessionProgressEvent) {}
+
+        fn emit_error(&self, _event: SessionErrorEvent) {}
+
+        fn emit_data(&self, _event: SessionDataEvent) {}
+    }
+
     fn test_ctx() -> SessionContext {
         SessionContext {
             runtime: Arc::new(TestRuntime),
             audio: Arc::new(TestRuntime),
+            requested_transcription_mode: crate::TranscriptionMode::Live,
             params: SessionParams {
                 session_id: "session".to_string(),
                 languages: vec![],
@@ -427,7 +475,7 @@ mod tests {
             recorder_cell: None,
             source_restarts: RestartTracker::new(),
             recorder_restarts: RestartTracker::new(),
-            mode: SessionModeState::new(TranscriptionMode::Live),
+            mode: SessionModeState::new(TranscriptionMode::Live, TranscriptionMode::Live),
             shutting_down: false,
         }
     }
@@ -447,6 +495,43 @@ mod tests {
         let state = test_state(test_ctx());
 
         assert!(!should_stop_on_listener_failure(&state));
+    }
+
+    #[tokio::test]
+    async fn stop_after_listener_failure_emits_degraded_active_event() {
+        let runtime = Arc::new(RecordingRuntime {
+            lifecycle_events: std::sync::Mutex::new(vec![]),
+        });
+        let mut ctx = test_ctx();
+        ctx.runtime = runtime.clone();
+        let mut state = test_state(ctx);
+        let (actor_ref, handle) = Actor::spawn(None, SessionStopProbe, ()).await.unwrap();
+
+        stop_after_listener_failure(
+            &actor_ref,
+            &mut state,
+            DegradedError::StreamError {
+                message: "listener failed".to_string(),
+            },
+        )
+        .await;
+
+        let events = runtime.lifecycle_events.lock().unwrap();
+        let Some(crate::SessionLifecycleEvent::Active {
+            requested_transcription_mode,
+            current_transcription_mode,
+            error: Some(DegradedError::StreamError { message }),
+            ..
+        }) = events.first()
+        else {
+            panic!("expected degraded active event");
+        };
+        assert_eq!(*requested_transcription_mode, TranscriptionMode::Live);
+        assert_eq!(*current_transcription_mode, TranscriptionMode::Live);
+        assert_eq!(message, "listener failed");
+
+        drop(events);
+        let _ = handle.await;
     }
 
     #[tokio::test]
@@ -490,7 +575,7 @@ mod tests {
             recorder_cell: Some(recorder_ref.get_cell()),
             source_restarts: RestartTracker::new(),
             recorder_restarts: RestartTracker::new(),
-            mode: SessionModeState::new(TranscriptionMode::Live),
+            mode: SessionModeState::new(TranscriptionMode::Live, TranscriptionMode::Live),
             shutting_down: false,
         };
 

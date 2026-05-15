@@ -116,6 +116,7 @@ async fn start_session_impl(
     mut params: SessionParams,
     state: &mut RootState,
 ) -> Result<(), StartSessionError> {
+    let requested_transcription_mode = params.transcription_mode;
     params.transcription_mode = params.effective_transcription_mode();
     let session_id = params.session_id.clone();
     let span = session_span(&session_id);
@@ -147,6 +148,7 @@ async fn start_session_impl(
         let ctx = SessionContext {
             runtime: state.runtime.clone(),
             audio: state.audio.clone(),
+            requested_transcription_mode,
             params: params.clone(),
             app_dir,
             started_at_instant: Instant::now(),
@@ -167,7 +169,7 @@ async fn start_session_impl(
 
                 let evt = SessionLifecycleEvent::Active {
                     session_id: params.session_id,
-                    requested_transcription_mode: params.transcription_mode,
+                    requested_transcription_mode,
                     current_transcription_mode: params.transcription_mode,
                     error: None,
                 };

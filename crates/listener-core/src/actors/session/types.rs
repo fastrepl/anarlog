@@ -63,6 +63,7 @@ impl SessionParams {
 pub struct SessionContext {
     pub runtime: Arc<dyn ListenerRuntime>,
     pub audio: Arc<dyn AudioProvider>,
+    pub requested_transcription_mode: TranscriptionMode,
     pub params: SessionParams,
     pub app_dir: PathBuf,
     pub started_at_instant: Instant,
