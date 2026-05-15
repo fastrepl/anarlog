@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
@@ -22,6 +23,7 @@ pub(crate) type ChunkStream =
     Pin<Box<dyn Stream<Item = Result<Vec<f32>, hypr_resampler::Error>> + Send>>;
 
 const AUDIO_SYNC_PROBE_ENV: &str = "AUDIO_SYNC_PROBE";
+const AEC_MAX_REFERENCE_LAG_MS: u32 = 100;
 
 struct CaptureStreamInner {
     inner: ReceiverStream<Result<CaptureFrame, Error>>,
@@ -132,7 +134,11 @@ async fn run_dual_loop(
 ) {
     let mut joiner = Joiner::new();
     let mut aec = if enable_aec { build_aec() } else { None };
-    let mut sync_probe = ObserveOnlySyncProbe::from_env(sample_rate);
+    let mut aec_reference = if aec.is_some() {
+        Some(AecReferenceAligner::new(sample_rate))
+    } else {
+        None
+    };
 
     loop {
         let result = tokio::select! {
@@ -150,10 +156,11 @@ async fn run_dual_loop(
                 while let Some((raw_mic, raw_speaker)) = joiner.pop_pair() {
                     let raw_mic = Arc::<[f32]>::from(raw_mic);
                     let raw_speaker = Arc::<[f32]>::from(raw_speaker);
-                    if let Some(probe) = &mut sync_probe {
-                        probe.observe(&raw_mic, &raw_speaker);
-                    }
-                    let aec_mic = process_aec(&mut aec, &raw_mic, &raw_speaker);
+                    let aec_reference_speaker = aec_reference
+                        .as_mut()
+                        .map(|aligner| aligner.align(&raw_speaker, &raw_mic))
+                        .unwrap_or_else(|| Arc::clone(&raw_speaker));
+                    let aec_mic = process_aec(&mut aec, &raw_mic, &aec_reference_speaker);
                     if tx
                         .send(Ok(CaptureFrame {
                             raw_mic,
@@ -176,39 +183,85 @@ async fn run_dual_loop(
     }
 }
 
-struct ObserveOnlySyncProbe {
+struct AecReferenceAligner {
     probe: SyncProbe,
+    delay_line: SampleDelayLine,
+    last_delay_samples: usize,
     last_logged_state: Option<SyncProbeState>,
     last_logged_stable_lag_samples: Option<isize>,
+    log_probe_events: bool,
 }
 
-impl ObserveOnlySyncProbe {
-    fn from_env(sample_rate: u32) -> Option<Self> {
-        if std::env::var(AUDIO_SYNC_PROBE_ENV).ok().as_deref() != Some("1") {
-            return None;
-        }
+impl AecReferenceAligner {
+    fn new(sample_rate: u32) -> Self {
+        let max_lag_samples = ((sample_rate as usize) * (AEC_MAX_REFERENCE_LAG_MS as usize)) / 1000;
+        let mut config = SyncProbeConfig::new(sample_rate);
+        config.max_lag_samples = max_lag_samples.max(config.max_lag_samples);
+        let max_delay_samples = config.max_lag_samples;
 
-        Some(Self {
-            probe: SyncProbe::new(SyncProbeConfig::new(sample_rate)),
+        Self {
+            probe: SyncProbe::new(config),
+            delay_line: SampleDelayLine::new(max_delay_samples),
+            last_delay_samples: 0,
             last_logged_state: None,
             last_logged_stable_lag_samples: None,
-        })
+            log_probe_events: std::env::var(AUDIO_SYNC_PROBE_ENV).ok().as_deref() == Some("1"),
+        }
     }
 
-    fn observe(&mut self, raw_mic: &[f32], raw_speaker: &[f32]) {
+    fn align(&mut self, raw_speaker: &[f32], raw_mic: &[f32]) -> Arc<[f32]> {
         let observed = catch_unwind(AssertUnwindSafe(|| {
             self.probe.observe(raw_speaker, raw_mic)
         }));
-        let Some(event) = (match observed {
+        let event = match observed {
             Ok(event) => event,
             Err(_) => {
                 tracing::error!("audio_sync_probe_panicked");
-                return;
+                None
             }
-        }) else {
-            return;
         };
 
+        if let Some(event) = event {
+            self.update_delay(&event);
+            if self.log_probe_events {
+                self.log_probe_event(event);
+            }
+        }
+
+        Arc::<[f32]>::from(
+            self.delay_line
+                .process(raw_speaker, self.last_delay_samples),
+        )
+    }
+
+    fn update_delay(&mut self, event: &SyncProbeEvent) {
+        let snapshot = event.snapshot();
+        let next_delay = if matches!(
+            snapshot.state,
+            SyncProbeState::Locked | SyncProbeState::Holdover
+        ) {
+            snapshot
+                .stable_lag_samples
+                .filter(|lag| *lag > 0)
+                .map(|lag| lag as usize)
+                .unwrap_or(0)
+        } else {
+            0
+        };
+
+        if next_delay != self.last_delay_samples {
+            tracing::info!(
+                previous_delay_samples = self.last_delay_samples,
+                delay_samples = next_delay,
+                delay_ms = next_delay as f32 / self.probe.config().sample_rate as f32 * 1000.0,
+                state = ?snapshot.state,
+                "aec_reference_delay_changed"
+            );
+            self.last_delay_samples = next_delay;
+        }
+    }
+
+    fn log_probe_event(&mut self, event: SyncProbeEvent) {
         let snapshot = event.snapshot();
         let should_log = self.last_logged_state != Some(snapshot.state)
             || self.last_logged_stable_lag_samples != snapshot.stable_lag_samples;
@@ -261,6 +314,43 @@ impl ObserveOnlySyncProbe {
 
         self.last_logged_state = Some(snapshot.state);
         self.last_logged_stable_lag_samples = snapshot.stable_lag_samples;
+    }
+}
+
+struct SampleDelayLine {
+    history: VecDeque<f32>,
+    max_delay_samples: usize,
+}
+
+impl SampleDelayLine {
+    fn new(max_delay_samples: usize) -> Self {
+        Self {
+            history: VecDeque::with_capacity(max_delay_samples + 1),
+            max_delay_samples,
+        }
+    }
+
+    fn process(&mut self, input: &[f32], delay_samples: usize) -> Vec<f32> {
+        let delay_samples = delay_samples.min(self.max_delay_samples);
+        let mut output = Vec::with_capacity(input.len());
+
+        for &sample in input {
+            self.history.push_back(sample);
+            let delayed = self
+                .history
+                .len()
+                .checked_sub(delay_samples + 1)
+                .and_then(|idx| self.history.get(idx))
+                .copied()
+                .unwrap_or(0.0);
+            output.push(delayed);
+
+            while self.history.len() > self.max_delay_samples + 1 {
+                self.history.pop_front();
+            }
+        }
+
+        output
     }
 }
 
@@ -375,5 +465,36 @@ mod tests {
 
         let processed = process_aec(&mut aec, &mic, &speaker);
         assert_eq!(processed.as_ref().map(|data| data.len()), Some(160));
+    }
+
+    #[test]
+    fn sample_delay_line_outputs_current_samples_with_zero_delay() {
+        let mut delay = SampleDelayLine::new(4);
+
+        let output = delay.process(&[1.0, 2.0, 3.0], 0);
+
+        assert_eq!(output, vec![1.0, 2.0, 3.0]);
+    }
+
+    #[test]
+    fn sample_delay_line_outputs_delayed_samples() {
+        let mut delay = SampleDelayLine::new(4);
+
+        let first = delay.process(&[1.0, 2.0, 3.0], 2);
+        let second = delay.process(&[4.0, 5.0], 2);
+
+        assert_eq!(first, vec![0.0, 0.0, 1.0]);
+        assert_eq!(second, vec![2.0, 3.0]);
+    }
+
+    #[test]
+    fn sample_delay_line_clamps_to_max_delay() {
+        let mut delay = SampleDelayLine::new(2);
+
+        let first = delay.process(&[1.0, 2.0, 3.0], 10);
+        let second = delay.process(&[4.0], 10);
+
+        assert_eq!(first, vec![0.0, 0.0, 1.0]);
+        assert_eq!(second, vec![2.0]);
     }
 }
