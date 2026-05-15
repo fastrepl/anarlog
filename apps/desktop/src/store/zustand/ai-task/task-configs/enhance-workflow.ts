@@ -21,6 +21,10 @@ import { normalizeBulletPoints } from "~/store/zustand/ai-task/shared/transform_
 import { withEarlyValidationRetry } from "~/store/zustand/ai-task/shared/validate";
 import { assertCanonicalTemplateSections } from "~/templates/codec";
 
+const AI_GENERATION_MAX_RETRIES = 4;
+const TEMPLATE_MAX_OUTPUT_TOKENS = 2048;
+const SUMMARY_MAX_OUTPUT_TOKENS = 8192;
+
 export const enhanceWorkflow: Pick<
   TaskConfig<"enhance">,
   "executeWorkflow" | "transforms"
@@ -194,6 +198,8 @@ async function generateStructuredOutput<T extends z.ZodTypeAny>(params: {
       temperature: 0,
       output: Output.object({ schema }),
       abortSignal: signal,
+      maxRetries: AI_GENERATION_MAX_RETRIES,
+      maxOutputTokens: TEMPLATE_MAX_OUTPUT_TOKENS,
       prompt,
     });
 
@@ -208,6 +214,8 @@ async function generateStructuredOutput<T extends z.ZodTypeAny>(params: {
         model,
         temperature: 0,
         abortSignal: signal,
+        maxRetries: AI_GENERATION_MAX_RETRIES,
+        maxOutputTokens: TEMPLATE_MAX_OUTPUT_TOKENS,
         prompt,
       });
 
@@ -262,6 +270,8 @@ IMPORTANT: Previous attempt failed. ${previousFeedback}`;
           system,
           prompt: enhancedPrompt,
           abortSignal: combinedController.signal,
+          maxRetries: AI_GENERATION_MAX_RETRIES,
+          maxOutputTokens: SUMMARY_MAX_OUTPUT_TOKENS,
         });
         return result.fullStream;
       } finally {

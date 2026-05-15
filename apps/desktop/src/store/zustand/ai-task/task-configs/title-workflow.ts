@@ -6,6 +6,9 @@ import type { TaskArgsMapTransformed, TaskConfig } from ".";
 
 import type { Store } from "~/store/tinybase/store/main";
 
+const AI_GENERATION_MAX_RETRIES = 4;
+const TITLE_MAX_OUTPUT_TOKENS = 128;
+
 export const titleWorkflow: Pick<
   TaskConfig<"title">,
   "executeWorkflow" | "transforms"
@@ -35,6 +38,8 @@ async function* executeWorkflow(params: {
     system,
     prompt,
     abortSignal: signal,
+    maxRetries: AI_GENERATION_MAX_RETRIES,
+    maxOutputTokens: TITLE_MAX_OUTPUT_TOKENS,
   });
 
   for await (const chunk of result.textStream) {

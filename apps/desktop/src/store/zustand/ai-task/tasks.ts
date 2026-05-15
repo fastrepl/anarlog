@@ -1,4 +1,4 @@
-import type { LanguageModel } from "ai";
+import { APICallError, type LanguageModel } from "ai";
 import { create as mutate } from "mutative";
 import type { StoreApi } from "zustand";
 
@@ -277,24 +277,29 @@ export const createTasksSlice = <T extends TasksState & TasksActions>(
   },
 });
 
-function extractUnderlyingError(err: unknown): Error {
+export function extractUnderlyingError(err: unknown): Error {
   if (!(err instanceof Error)) {
     return new Error(String(err));
   }
 
+  let error = err;
+
   if (err.name === "AI_RetryError") {
     if ("cause" in err && err.cause instanceof Error) {
-      return err.cause;
+      error = err.cause;
+      return normalizeTaskError(error);
     }
 
     if ("lastError" in err && err.lastError instanceof Error) {
-      return err.lastError;
+      error = err.lastError;
+      return normalizeTaskError(error);
     }
 
     if ("errors" in err && Array.isArray((err as any).errors)) {
       const errors = (err as any).errors;
       if (errors.length > 0 && errors[errors.length - 1] instanceof Error) {
-        return errors[errors.length - 1];
+        error = errors[errors.length - 1];
+        return normalizeTaskError(error);
       }
     }
 
@@ -303,9 +308,57 @@ function extractUnderlyingError(err: unknown): Error {
       const underlyingMessage = match[1];
       const underlyingError = new Error(underlyingMessage);
       underlyingError.name = "AI_ProviderError";
-      return underlyingError;
+      return normalizeTaskError(underlyingError);
     }
   }
 
-  return err;
+  return normalizeTaskError(error);
+}
+
+const TRANSIENT_AI_ERROR_MESSAGE =
+  "The AI model is overloaded right now. Wait a moment, then retry.";
+
+const TRANSIENT_AI_ERROR_PATTERNS = [
+  "overload",
+  "rate limit",
+  "rate_limit",
+  "too many requests",
+  "429",
+  "timeout",
+  "timed out",
+  "temporarily unavailable",
+  "service unavailable",
+  "502",
+  "503",
+  "504",
+];
+
+function normalizeTaskError(error: Error): Error {
+  if (!isTransientAIError(error)) {
+    return error;
+  }
+
+  const normalized = new Error(TRANSIENT_AI_ERROR_MESSAGE);
+  normalized.name = error.name;
+  return normalized;
+}
+
+function isTransientAIError(error: Error): boolean {
+  if (APICallError.isInstance(error)) {
+    if (error.statusCode === 409) {
+      return false;
+    }
+
+    return (
+      error.isRetryable ||
+      error.statusCode === 429 ||
+      error.statusCode === 408 ||
+      (typeof error.statusCode === "number" && error.statusCode >= 500)
+    );
+  }
+
+  const message = error.message.toLowerCase();
+  return TRANSIENT_AI_ERROR_PATTERNS.some((pattern) =>
+    message.includes(pattern),
+  );
 }
