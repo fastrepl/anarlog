@@ -6,7 +6,8 @@ use owhisper_interface::batch::{
     Results as BatchResults, Word as BatchWord,
 };
 
-use super::SonioxAdapter;
+use super::{SonioxAdapter, words};
+use crate::adapter::parsing::ms_to_secs_opt;
 use crate::adapter::{BatchFuture, BatchSttAdapter, ClientWithMiddleware, MIXED_CAPTURE_CHANNEL};
 use crate::error::Error;
 
@@ -103,17 +104,17 @@ impl SonioxAdapter {
     }
 
     fn to_batch_response(transcript: soniox::TranscriptResponse) -> BatchResponse {
-        let words: Vec<BatchWord> = transcript
-            .tokens
-            .iter()
-            .map(|token| BatchWord {
-                word: token.text.clone(),
-                start: token.start_ms.unwrap_or(0) as f64 / 1000.0,
-                end: token.end_ms.unwrap_or(0) as f64 / 1000.0,
-                confidence: token.confidence.unwrap_or(1.0),
+        let tokens = transcript.tokens.iter().collect::<Vec<_>>();
+        let words: Vec<BatchWord> = words::build_token_words(&tokens)
+            .into_iter()
+            .map(|word| BatchWord {
+                word: word.text.clone(),
+                start: ms_to_secs_opt(word.start_ms),
+                end: ms_to_secs_opt(word.end_ms),
+                confidence: word.confidence,
                 channel: MIXED_CAPTURE_CHANNEL,
-                speaker: token.speaker.as_ref().and_then(|s| s.as_usize()),
-                punctuated_word: Some(token.text.clone()),
+                speaker: word.speaker.and_then(|speaker| speaker.try_into().ok()),
+                punctuated_word: Some(word.text),
             })
             .collect();
 
@@ -186,7 +187,7 @@ mod tests {
                     language: Some("en".to_string()),
                 },
                 soniox::Token {
-                    text: "there".to_string(),
+                    text: " there".to_string(),
                     start_ms: Some(400),
                     end_ms: Some(900),
                     confidence: Some(0.8),
@@ -200,10 +201,112 @@ mod tests {
         let batch = SonioxAdapter::to_batch_response(transcript);
         let words = &batch.results.channels[0].alternatives[0].words;
 
+        assert_eq!(words.len(), 2);
+        assert_eq!(words[0].word, "hello");
         assert_eq!(words[0].channel, MIXED_CAPTURE_CHANNEL);
         assert_eq!(words[0].speaker, Some(0));
+        assert_eq!(words[1].word, "there");
         assert_eq!(words[1].channel, MIXED_CAPTURE_CHANNEL);
         assert_eq!(words[1].speaker, Some(1));
+    }
+
+    #[test]
+    fn subword_tokens_are_grouped_into_batch_words() {
+        let transcript = soniox::TranscriptResponse {
+            text: "What would it require?".to_string(),
+            tokens: vec![
+                soniox::Token {
+                    text: "Wh".to_string(),
+                    start_ms: Some(0),
+                    end_ms: Some(40),
+                    confidence: Some(0.9),
+                    is_final: Some(true),
+                    speaker: None,
+                    language: Some("en".to_string()),
+                },
+                soniox::Token {
+                    text: "at".to_string(),
+                    start_ms: Some(40),
+                    end_ms: Some(80),
+                    confidence: Some(0.8),
+                    is_final: Some(true),
+                    speaker: None,
+                    language: Some("en".to_string()),
+                },
+                soniox::Token {
+                    text: " would".to_string(),
+                    start_ms: Some(120),
+                    end_ms: Some(240),
+                    confidence: Some(0.95),
+                    is_final: Some(true),
+                    speaker: None,
+                    language: Some("en".to_string()),
+                },
+                soniox::Token {
+                    text: " it".to_string(),
+                    start_ms: Some(260),
+                    end_ms: Some(300),
+                    confidence: Some(0.95),
+                    is_final: Some(true),
+                    speaker: None,
+                    language: Some("en".to_string()),
+                },
+                soniox::Token {
+                    text: " re".to_string(),
+                    start_ms: Some(320),
+                    end_ms: Some(360),
+                    confidence: Some(0.9),
+                    is_final: Some(true),
+                    speaker: None,
+                    language: Some("en".to_string()),
+                },
+                soniox::Token {
+                    text: "qu".to_string(),
+                    start_ms: Some(360),
+                    end_ms: Some(400),
+                    confidence: Some(0.8),
+                    is_final: Some(true),
+                    speaker: None,
+                    language: Some("en".to_string()),
+                },
+                soniox::Token {
+                    text: "ire".to_string(),
+                    start_ms: Some(400),
+                    end_ms: Some(480),
+                    confidence: Some(0.7),
+                    is_final: Some(true),
+                    speaker: None,
+                    language: Some("en".to_string()),
+                },
+                soniox::Token {
+                    text: "?".to_string(),
+                    start_ms: Some(480),
+                    end_ms: Some(500),
+                    confidence: Some(1.0),
+                    is_final: Some(true),
+                    speaker: None,
+                    language: Some("en".to_string()),
+                },
+            ],
+        };
+
+        let batch = SonioxAdapter::to_batch_response(transcript);
+        let alternative = &batch.results.channels[0].alternatives[0];
+        let words = &alternative.words;
+
+        assert_eq!(alternative.transcript, "What would it require?");
+        assert_eq!(
+            words
+                .iter()
+                .map(|word| word.word.as_str())
+                .collect::<Vec<_>>(),
+            vec!["What", "would", "it", "require?"]
+        );
+        assert_eq!(words[0].start, 0.0);
+        assert_eq!(words[0].end, 0.08);
+        assert_eq!(words[3].start, 0.32);
+        assert_eq!(words[3].end, 0.5);
+        assert_eq!(words[3].punctuated_word.as_deref(), Some("require?"));
     }
 
     #[tokio::test]

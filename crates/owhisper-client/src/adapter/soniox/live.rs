@@ -3,7 +3,7 @@ use owhisper_interface::ListenParams;
 use owhisper_interface::stream::{Alternatives, Channel, Metadata, StreamResponse};
 use serde::Serialize;
 
-use super::SonioxAdapter;
+use super::{SonioxAdapter, words};
 use crate::adapter::RealtimeSttAdapter;
 use crate::adapter::parsing::{WordBuilder, calculate_time_span, ms_to_secs_opt};
 
@@ -230,70 +230,16 @@ impl SonioxAdapter {
 }
 
 fn build_words(tokens: &[&soniox::Token]) -> Vec<owhisper_interface::stream::Word> {
-    #[derive(Default)]
-    struct PendingWord {
-        text: String,
-        start_ms: Option<u64>,
-        end_ms: Option<u64>,
-        speaker: Option<i32>,
-        language: Option<String>,
-        confidence_sum: f64,
-        confidence_count: u32,
-    }
-
-    impl PendingWord {
-        fn push_token(&mut self, token: &soniox::Token, text: &str) {
-            if self.start_ms.is_none() {
-                self.start_ms = token.start_ms;
-            }
-            self.end_ms = token.end_ms.or(self.end_ms);
-            self.text.push_str(text);
-
-            if self.speaker.is_none() {
-                self.speaker = token.speaker.as_ref().and_then(|speaker| speaker.as_i32());
-            }
-            if self.language.is_none() {
-                self.language = token.language.clone();
-            }
-
-            self.confidence_sum += token.confidence.unwrap_or(1.0);
-            self.confidence_count += 1;
-        }
-
-        fn build(self) -> Option<owhisper_interface::stream::Word> {
-            if self.text.is_empty() {
-                return None;
-            }
-
-            let confidence = if self.confidence_count == 0 {
-                1.0
-            } else {
-                self.confidence_sum / f64::from(self.confidence_count)
-            };
-
-            Some(
-                WordBuilder::new(self.text)
-                    .start(ms_to_secs_opt(self.start_ms))
-                    .end(ms_to_secs_opt(self.end_ms))
-                    .confidence(confidence)
-                    .speaker(self.speaker)
-                    .language(self.language)
-                    .build(),
-            )
-        }
-    }
-
-    token_groups_from_refs(tokens)
+    words::build_token_words(tokens)
         .into_iter()
-        .filter_map(|group| {
-            let mut pending = PendingWord::default();
-            for token in group {
-                let trimmed = token.text.trim();
-                if !trimmed.is_empty() {
-                    pending.push_token(token, trimmed);
-                }
-            }
-            pending.build()
+        .map(|word| {
+            WordBuilder::new(word.text)
+                .start(ms_to_secs_opt(word.start_ms))
+                .end(ms_to_secs_opt(word.end_ms))
+                .confidence(word.confidence)
+                .speaker(word.speaker)
+                .language(word.language)
+                .build()
         })
         .collect()
 }
@@ -301,73 +247,7 @@ fn build_words(tokens: &[&soniox::Token]) -> Vec<owhisper_interface::stream::Wor
 fn partition_tokens_by_word_finality(
     tokens: &[soniox::Token],
 ) -> (Vec<&soniox::Token>, Vec<&soniox::Token>) {
-    let mut final_tokens = Vec::new();
-    let mut non_final_tokens = Vec::new();
-    for group in token_groups_from_values(tokens) {
-        if group.iter().all(|token| token.is_final.unwrap_or(true)) {
-            final_tokens.extend(group);
-        } else {
-            non_final_tokens.extend(group);
-        }
-    }
-
-    (final_tokens, non_final_tokens)
-}
-
-fn token_groups_from_refs<'a>(tokens: &[&'a soniox::Token]) -> Vec<Vec<&'a soniox::Token>> {
-    let mut groups = Vec::new();
-    let mut current = Vec::new();
-    let mut current_has_content = false;
-
-    let flush = |groups: &mut Vec<Vec<&'a soniox::Token>>, current: &mut Vec<&'a soniox::Token>| {
-        if !current.is_empty() {
-            groups.push(std::mem::take(current));
-        }
-    };
-
-    for token in tokens {
-        let has_content = !token.text.trim().is_empty();
-        let starts_with_ws = token.text.chars().next().is_some_and(char::is_whitespace);
-
-        if starts_with_ws && current_has_content {
-            flush(&mut groups, &mut current);
-            current_has_content = false;
-        }
-
-        current.push(*token);
-        current_has_content |= has_content;
-    }
-
-    flush(&mut groups, &mut current);
-    groups
-}
-
-fn token_groups_from_values<'a>(tokens: &'a [soniox::Token]) -> Vec<Vec<&'a soniox::Token>> {
-    let mut groups = Vec::new();
-    let mut current = Vec::new();
-    let mut current_has_content = false;
-
-    let flush = |groups: &mut Vec<Vec<&'a soniox::Token>>, current: &mut Vec<&'a soniox::Token>| {
-        if !current.is_empty() {
-            groups.push(std::mem::take(current));
-        }
-    };
-
-    for token in tokens {
-        let has_content = !token.text.trim().is_empty();
-        let starts_with_ws = token.text.chars().next().is_some_and(char::is_whitespace);
-
-        if starts_with_ws && current_has_content {
-            flush(&mut groups, &mut current);
-            current_has_content = false;
-        }
-
-        current.push(token);
-        current_has_content |= has_content;
-    }
-
-    flush(&mut groups, &mut current);
-    groups
+    words::partition_tokens_by_word_finality(tokens)
 }
 
 #[cfg(test)]

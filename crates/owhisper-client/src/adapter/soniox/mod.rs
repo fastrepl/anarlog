@@ -3,6 +3,7 @@ mod callback;
 pub mod error;
 mod language;
 mod live;
+mod words;
 
 use super::LanguageSupport;
 
