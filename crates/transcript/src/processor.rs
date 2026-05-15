@@ -34,6 +34,7 @@ pub struct TranscriptProcessor {
     pending_corrections: HashMap<u64, Vec<String>>,
     next_job_id: u64,
     finalize_partials: bool,
+    flush_partials: bool,
 }
 
 struct ParsedStreamResponse<'a> {
@@ -62,6 +63,7 @@ impl TranscriptProcessor {
             pending_corrections: HashMap::new(),
             next_job_id: 1,
             finalize_partials: true,
+            flush_partials: true,
         }
     }
 
@@ -69,6 +71,13 @@ impl TranscriptProcessor {
     /// commit-worthy transcript words.
     pub fn with_partial_finalization(mut self, finalize_partials: bool) -> Self {
         self.finalize_partials = finalize_partials;
+        self.flush_partials = finalize_partials;
+        self
+    }
+
+    /// Control whether remaining partials are committed when the session ends.
+    pub fn with_flush_partial_finalization(mut self, flush_partials: bool) -> Self {
+        self.flush_partials = flush_partials;
         self
     }
 
@@ -157,7 +166,7 @@ impl TranscriptProcessor {
         let mut new_words = vec![];
 
         for state in self.channels.values_mut() {
-            if self.finalize_partials {
+            if self.flush_partials {
                 new_words.extend(state.drain());
             } else {
                 new_words.extend(state.drain_final_words());
@@ -392,6 +401,35 @@ mod tests {
             .collect::<String>();
 
         assert_eq!(text, " final");
+        assert!(delta.partials.is_empty());
+    }
+
+    #[test]
+    fn flush_can_commit_partials_when_live_finalization_is_disabled() {
+        let mut processor = TranscriptProcessor::new()
+            .with_partial_finalization(false)
+            .with_flush_partial_finalization(true);
+        let channel = processor
+            .channels
+            .entry(0)
+            .or_insert_with(ChannelState::new);
+
+        channel.apply_partial(vec![RawWord {
+            text: " tail".to_string(),
+            start_ms: 0,
+            end_ms: 100,
+            channel: 0,
+            speaker: None,
+        }]);
+
+        let delta = processor.flush();
+        let text = delta
+            .new_words
+            .iter()
+            .map(|word| word.text.as_str())
+            .collect::<String>();
+
+        assert_eq!(text, " tail");
         assert!(delta.partials.is_empty());
     }
 }

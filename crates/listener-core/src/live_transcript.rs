@@ -85,7 +85,8 @@ impl LiveTranscriptEngine {
 
         Self {
             processor: TranscriptProcessor::new()
-                .with_partial_finalization(normalizer.finalize_partials()),
+                .with_partial_finalization(normalizer.finalize_partials())
+                .with_flush_partial_finalization(normalizer.flush_partials()),
             normalizer,
             rendered_segments: RenderedSegmentState {
                 channel_assignments,
@@ -216,6 +217,10 @@ impl TranscriptNormalizer {
 
     fn finalize_partials(&self) -> bool {
         !matches!(self, Self::Soniqo(_))
+    }
+
+    fn flush_partials(&self) -> bool {
+        true
     }
 }
 
@@ -1257,7 +1262,7 @@ mod tests {
     }
 
     #[test]
-    fn soniqo_engine_does_not_persist_internal_partial_loop() {
+    fn soniqo_engine_persists_remaining_partial_without_internal_loop() {
         let mut engine = LiveTranscriptEngine::new("soniqo", &[], None);
         let looped = concat!(
             "yeah but but there's super valuable information in there right ",
@@ -1281,11 +1286,43 @@ mod tests {
         engine.process(&response).expect("partial update");
         let flush_update = engine.flush().expect("flush update");
         let segment_delta = flush_update.segment_delta.expect("segment delta");
+        let final_text = flush_update
+            .transcript_delta
+            .new_words
+            .iter()
+            .map(|word| word.text.as_str())
+            .collect::<String>();
 
-        assert!(flush_update.transcript_delta.new_words.is_empty());
+        assert!(!flush_update.transcript_delta.new_words.is_empty());
         assert!(flush_update.transcript_delta.partials.is_empty());
-        assert!(segment_delta.upserts.is_empty());
-        assert!(!segment_delta.removed_ids.is_empty());
+        assert_eq!(final_text.matches("yeah but but").count(), 1);
+        assert!(final_text.contains("private freak out"));
+        assert!(!segment_delta.upserts.is_empty());
+    }
+
+    #[test]
+    fn soniqo_engine_persists_unfinalized_live_tail_on_flush() {
+        let mut engine = LiveTranscriptEngine::new("soniqo", &[], None);
+        let response = transcript_response_at(
+            "visible final tail",
+            words_from_text("visible final tail", 10.0, 1.0),
+            false,
+            0,
+            10.0,
+            1.0,
+        );
+
+        engine.process(&response).expect("partial update");
+        let flush_update = engine.flush().expect("flush update");
+        let final_text = flush_update
+            .transcript_delta
+            .new_words
+            .iter()
+            .map(|word| word.text.as_str())
+            .collect::<String>();
+
+        assert_eq!(final_text.trim(), "visible final tail");
+        assert!(flush_update.transcript_delta.partials.is_empty());
     }
 
     #[test]
