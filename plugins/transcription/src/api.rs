@@ -35,7 +35,9 @@ impl CaptureParams {
         if let Some(model) =
             hypr_transcribe_soniqo::local_model_from_request(&self.base_url, &self.model)
         {
-            return if model.supports_live_on_current_platform() {
+            return if model.supports_live_on_current_platform()
+                && model.supports_languages(&self.languages)
+            {
                 listener::TranscriptionMode::Live
             } else {
                 listener::TranscriptionMode::Batch
@@ -467,6 +469,20 @@ mod tests {
         };
 
         assert_eq!(params.default_transcription_mode(), expected);
+    }
+
+    #[test]
+    fn defaults_soniqo_streaming_with_unsupported_language_to_batch_mode() {
+        let params = capture_params_with_languages(
+            "soniqo://local",
+            "soniqo-parakeet-streaming",
+            vec![ISO639::Ko.into()],
+        );
+
+        assert_eq!(
+            params.default_transcription_mode(),
+            TranscriptionMode::Batch
+        );
     }
 
     #[test]

@@ -51,6 +51,14 @@ pub(super) async fn spawn_rx_task(
             )));
         }
 
+        if !model.supports_languages(&args.languages) {
+            return Err(actor_error(format!(
+                "unsupported_language: {} does not support all requested spoken languages ({})",
+                model.as_str(),
+                format_languages(&args.languages)
+            )));
+        }
+
         let result = spawn_soniqo_rx_task(model, args, myself).await?;
         return Ok((result.0, result.1, result.2, "soniqo".to_string()));
     }
@@ -442,6 +450,18 @@ fn assemblyai_expected_speakers(args: &ListenerArgs) -> Option<u32> {
     (participants.len() > 1).then_some(participants.len() as u32)
 }
 
+fn format_languages(languages: &[hypr_language::Language]) -> String {
+    if languages.is_empty() {
+        return "none".to_string();
+    }
+
+    languages
+        .iter()
+        .map(hypr_language::Language::bcp47_code)
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
 fn build_extra(args: &ListenerArgs) -> (f64, Extra) {
     let session_offset_secs = args.session_started_at.elapsed().as_secs_f64();
     let started_unix_millis = args
@@ -690,5 +710,12 @@ mod tests {
         let args = listener_args("http://localhost:50060/v1", "cactus-whisper-small-int8");
 
         assert_eq!(soniqo_model_for_args(&args).unwrap(), None);
+    }
+
+    #[test]
+    fn format_languages_uses_bcp47_codes() {
+        let languages = vec!["en-US".parse().unwrap(), hypr_language::ISO639::Fr.into()];
+
+        assert_eq!(format_languages(&languages), "en-US, fr");
     }
 }

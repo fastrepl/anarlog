@@ -39,7 +39,9 @@ impl SessionParams {
         if let Some(model) =
             hypr_transcribe_soniqo::local_model_from_request(&self.base_url, &self.model)
         {
-            return if model.supports_live_on_current_platform() {
+            return if model.supports_live_on_current_platform()
+                && model.supports_languages(&self.languages)
+            {
                 TranscriptionMode::Live
             } else {
                 TranscriptionMode::Batch
@@ -135,6 +137,21 @@ mod tests {
         };
 
         assert_eq!(params.effective_transcription_mode(), expected);
+    }
+
+    #[test]
+    fn effective_mode_rejects_soniqo_live_for_unsupported_language() {
+        let mut params = session_params(
+            hypr_transcribe_soniqo::LOCAL_BASE_URL,
+            "soniqo-parakeet-streaming",
+            TranscriptionMode::Live,
+        );
+        params.languages = vec![hypr_language::ISO639::Ko.into()];
+
+        assert_eq!(
+            params.effective_transcription_mode(),
+            TranscriptionMode::Batch
+        );
     }
 
     #[test]
