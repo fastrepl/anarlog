@@ -5,15 +5,21 @@ import { Badge } from "@hypr/ui/components/ui/badge";
 import { Button } from "@hypr/ui/components/ui/button";
 import { cn } from "@hypr/utils";
 
-import { getBaseLanguageCode, getBaseLanguageDisplayName } from "./language";
+import {
+  getAdditionalSpokenLanguages,
+  getBaseLanguageCode,
+  getBaseLanguageDisplayName,
+} from "./language";
 
 interface SpokenLanguagesViewProps {
+  mainLanguage: string;
   value: string[];
   onChange: (value: string[]) => void;
   supportedLanguages: readonly string[];
 }
 
 export function SpokenLanguagesView({
+  mainLanguage,
   value,
   onChange,
   supportedLanguages,
@@ -36,19 +42,11 @@ export function SpokenLanguagesView({
     return codes;
   }, [supportedLanguages]);
 
-  const selectedLanguageCodes = useMemo(() => {
-    const seen = new Set<string>();
-    const codes: string[] = [];
-
-    for (const langCode of value) {
-      const baseCode = getBaseLanguageCode(langCode);
-      if (seen.has(baseCode)) continue;
-      seen.add(baseCode);
-      codes.push(baseCode);
-    }
-
-    return codes;
-  }, [value]);
+  const mainLanguageCode = getBaseLanguageCode(mainLanguage);
+  const selectedLanguageCodes = useMemo(
+    () => getAdditionalSpokenLanguages(mainLanguage, value),
+    [mainLanguage, value],
+  );
 
   const filteredLanguages = useMemo(() => {
     if (!languageSearchQuery.trim()) {
@@ -56,11 +54,17 @@ export function SpokenLanguagesView({
     }
     const query = languageSearchQuery.toLowerCase();
     return supportedLanguageCodes.filter((langCode) => {
+      if (langCode === mainLanguageCode) return false;
       if (selectedLanguageCodes.includes(langCode)) return false;
       const langName = getBaseLanguageDisplayName(langCode);
       return langName.toLowerCase().includes(query);
     });
-  }, [languageSearchQuery, selectedLanguageCodes, supportedLanguageCodes]);
+  }, [
+    languageSearchQuery,
+    mainLanguageCode,
+    selectedLanguageCodes,
+    supportedLanguageCodes,
+  ]);
 
   const handleLanguageKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (
@@ -105,9 +109,9 @@ export function SpokenLanguagesView({
 
   return (
     <div>
-      <h3 className="mb-1 text-sm font-medium">Spoken languages</h3>
+      <h3 className="mb-1 text-sm font-medium">Additional spoken languages</h3>
       <p className="mb-3 text-xs text-neutral-600">
-        Add other languages you use other than the main language
+        The main language is always included for transcription
       </p>
       <div className="relative">
         <div

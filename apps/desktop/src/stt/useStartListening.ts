@@ -21,7 +21,10 @@ import type {
   LiveTranscriptPersistCallback,
   OnStoppedCallback,
 } from "~/store/zustand/listener/transcript";
-import { getOnDeviceTranscriptionMode } from "~/stt/capabilities";
+import {
+  getLiveTranscriptionConfig,
+  getTranscriptionLanguages,
+} from "~/stt/capabilities";
 import { applyLiveTranscriptDelta } from "~/stt/utils";
 
 export function getPostCaptureAction(
@@ -47,7 +50,8 @@ export function useStartListening(sessionId: string) {
   const store = main.UI.useStore(main.STORE_ID);
   const indexes = main.UI.useIndexes(main.STORE_ID);
 
-  const languages = useConfigValue("spoken_languages");
+  const aiLanguage = useConfigValue("ai_language");
+  const spokenLanguages = useConfigValue("spoken_languages");
 
   const start = useListener((state) => state.start);
   const { conn } = useSTTConnection();
@@ -143,19 +147,23 @@ export function useStartListening(sessionId: string) {
       },
     );
 
+    const languages = getTranscriptionLanguages(aiLanguage, spokenLanguages);
+    const liveTranscriptionConfig = await getLiveTranscriptionConfig({
+      provider: conn?.provider,
+      model: conn?.model,
+      languages,
+    });
+
     const started = await start(
       {
         session_id: sessionId,
-        languages,
+        languages: liveTranscriptionConfig.languages,
         onboarding: false,
         model: conn?.model ?? "",
         base_url: conn?.baseUrl ?? "",
         api_key: conn?.apiKey ?? "",
         keywords,
-        transcription_mode:
-          conn?.provider === "hyprnote" && conn.model !== "cloud"
-            ? getOnDeviceTranscriptionMode(conn.model)
-            : undefined,
+        transcription_mode: liveTranscriptionConfig.transcriptionMode,
         participant_human_ids: participantHumanIds,
         self_human_id: typeof user_id === "string" ? user_id : null,
       },
@@ -182,7 +190,17 @@ export function useStartListening(sessionId: string) {
           }
         : {}),
     });
-  }, [conn, store, indexes, sessionId, start, keywords, user_id, languages]);
+  }, [
+    aiLanguage,
+    conn,
+    store,
+    indexes,
+    sessionId,
+    start,
+    keywords,
+    user_id,
+    spokenLanguages,
+  ]);
 
   return startListening;
 }

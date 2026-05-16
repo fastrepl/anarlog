@@ -11,6 +11,7 @@ import { useConfigValue } from "~/shared/config";
 import { id } from "~/shared/utils";
 import * as main from "~/store/tinybase/store/main";
 import type { BatchPersistCallback } from "~/store/zustand/listener/transcript";
+import { getTranscriptionLanguages } from "~/stt/capabilities";
 import type { SpeakerHintWithId, WordWithId } from "~/stt/types";
 import {
   parseTranscriptHints,
@@ -88,7 +89,8 @@ export const useRunBatch = (sessionId: string) => {
   const startTranscription = useListener((state) => state.startTranscription);
   const { conn } = useSTTConnection();
   const keywords = useKeywords(sessionId);
-  const languages = useConfigValue("spoken_languages");
+  const aiLanguage = useConfigValue("ai_language");
+  const spokenLanguages = useConfigValue("spoken_languages");
 
   return useCallback(
     async (filePath: string, options?: RunOptions) => {
@@ -227,7 +229,9 @@ export const useRunBatch = (sessionId: string) => {
         base_url: options?.baseUrl ?? conn.baseUrl,
         api_key: options?.apiKey ?? conn.apiKey,
         keywords: options?.keywords ?? keywords ?? [],
-        languages: options?.languages ?? languages ?? [],
+        languages:
+          options?.languages ??
+          getTranscriptionLanguages(aiLanguage, spokenLanguages),
         num_speakers: options?.numSpeakers,
         min_speakers: options?.minSpeakers,
         max_speakers: options?.maxSpeakers,
@@ -237,9 +241,10 @@ export const useRunBatch = (sessionId: string) => {
     },
     [
       conn,
+      aiLanguage,
       indexes,
       keywords,
-      languages,
+      spokenLanguages,
       startTranscription,
       sessionId,
       store,

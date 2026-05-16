@@ -14,6 +14,7 @@ const {
   useIndexesMock,
   useConfigValueMock,
   useSTTConnectionMock,
+  isSupportedLanguagesLiveMock,
 } = vi.hoisted(() => ({
   queueAutoEnhanceIfSummaryEmptyMock: vi.fn(),
   startMock: vi.fn(),
@@ -24,6 +25,13 @@ const {
   useIndexesMock: vi.fn(),
   useConfigValueMock: vi.fn(),
   useSTTConnectionMock: vi.fn(),
+  isSupportedLanguagesLiveMock: vi.fn(),
+}));
+
+vi.mock("@hypr/plugin-transcription", () => ({
+  commands: {
+    isSupportedLanguagesLive: isSupportedLanguagesLiveMock,
+  },
 }));
 
 vi.mock("./contexts", () => ({
@@ -140,7 +148,9 @@ describe("useStartListening", () => {
     );
     useValuesMock.mockReturnValue({ user_id: "user-1" });
     useIndexesMock.mockReturnValue(null);
-    useConfigValueMock.mockReturnValue([]);
+    useConfigValueMock.mockImplementation((key) =>
+      key === "ai_language" ? "en" : [],
+    );
     useSTTConnectionMock.mockReturnValue({
       conn: {
         provider: "hyprnote",
@@ -158,6 +168,10 @@ describe("useStartListening", () => {
     });
     startMock.mockResolvedValue(true);
     runBatchMock.mockResolvedValue(undefined);
+    isSupportedLanguagesLiveMock.mockResolvedValue({
+      status: "ok",
+      data: true,
+    });
   });
 
   test("runs batch transcription after record-only capture stops", async () => {
@@ -224,6 +238,63 @@ describe("useStartListening", () => {
 
     expect(startMock.mock.calls[0]?.[0]).toMatchObject({
       transcription_mode: "live",
+    });
+  });
+
+  test("keeps realtime local transcription live by filtering unsupported extra spoken languages", async () => {
+    useConfigValueMock.mockImplementation((key) =>
+      key === "ai_language" ? "en" : ["ko"],
+    );
+    useSTTConnectionMock.mockReturnValue({
+      conn: {
+        provider: "hyprnote",
+        model: "soniqo-parakeet-streaming",
+        baseUrl: "http://localhost:8080",
+        apiKey: "",
+      },
+    });
+
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    expect(startMock.mock.calls[0]?.[0]).toMatchObject({
+      languages: ["en"],
+      transcription_mode: "live",
+    });
+  });
+
+  test("uses the main language for Deepgram live capture when extras are unsupported", async () => {
+    useConfigValueMock.mockImplementation((key) =>
+      key === "ai_language" ? "en" : ["ko"],
+    );
+    useSTTConnectionMock.mockReturnValue({
+      conn: {
+        provider: "deepgram",
+        model: "nova-3-general",
+        baseUrl: "https://api.deepgram.com/v1/listen",
+        apiKey: "test-key",
+      },
+    });
+    isSupportedLanguagesLiveMock.mockImplementation(
+      (_provider, _model, languages) =>
+        Promise.resolve({
+          status: "ok",
+          data: languages.length === 1 && languages[0] === "en",
+        }),
+    );
+
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    expect(startMock.mock.calls[0]?.[0]).toMatchObject({
+      languages: ["en"],
+      transcription_mode: undefined,
     });
   });
 });

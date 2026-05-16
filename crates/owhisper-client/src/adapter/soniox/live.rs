@@ -79,7 +79,7 @@ impl RealtimeSttAdapter for SonioxAdapter {
             audio_format: "pcm_s16le",
             num_channels: channels,
             sample_rate: params.sample_rate,
-            language_hints_strict: !language_hints.is_empty(),
+            language_hints_strict: language_hints.len() == 1,
             language_hints,
             enable_endpoint_detection: true,
             enable_speaker_diarization: true,
@@ -324,7 +324,11 @@ mod tests {
         assert_eq!(hints.len(), 2);
         assert_eq!(hints[0].as_str().unwrap(), "en");
         assert_eq!(hints[1].as_str().unwrap(), "ko");
-        assert_eq!(json["language_hints_strict"].as_bool().unwrap(), true);
+        assert!(
+            json.get("language_hints_strict").is_none()
+                || !json["language_hints_strict"].as_bool().unwrap_or(false),
+            "Multiple language hints should not enable strict restriction"
+        );
     }
 
     #[test]
@@ -368,7 +372,11 @@ mod tests {
         assert_eq!(hints[0].as_str().unwrap(), "en");
         assert_eq!(hints[1].as_str().unwrap(), "es");
         assert_eq!(hints[2].as_str().unwrap(), "fr");
-        assert_eq!(json["language_hints_strict"].as_bool().unwrap(), true);
+        assert!(
+            json.get("language_hints_strict").is_none()
+                || !json["language_hints_strict"].as_bool().unwrap_or(false),
+            "Multiple language hints should not enable strict restriction"
+        );
     }
 
     macro_rules! single_test {

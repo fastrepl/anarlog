@@ -8,6 +8,7 @@ import type { General, GeneralStorage } from "@hypr/store";
 
 export { SettingsAccount } from "./account";
 import { AppSettingsView } from "./app-settings";
+import { getAdditionalSpokenLanguages } from "./language";
 import { MainLanguageView } from "./main-language";
 import { NotificationSettingsView } from "./notification";
 import { Permissions } from "./permissions";
@@ -65,7 +66,10 @@ function useSettingsForm() {
       notification_detect: value.notification_detect,
       telemetry_consent: value.telemetry_consent,
       ai_language: value.ai_language,
-      spoken_languages: value.spoken_languages,
+      spoken_languages: getAdditionalSpokenLanguages(
+        value.ai_language,
+        value.spoken_languages,
+      ),
     },
     listeners: {
       onChange: ({ formApi }) => {
@@ -79,9 +83,17 @@ function useSettingsForm() {
       },
     },
     onSubmit: ({ value }) => {
-      setPartialValues(value);
+      const normalizedValue = {
+        ...value,
+        spoken_languages: getAdditionalSpokenLanguages(
+          value.ai_language,
+          value.spoken_languages,
+        ),
+      };
 
-      if (value.autostart) {
+      setPartialValues(normalizedValue);
+
+      if (normalizedValue.autostart) {
         void enable();
       } else {
         void disable();
@@ -89,15 +101,16 @@ function useSettingsForm() {
 
       void analyticsCommands.event({
         event: "settings_changed",
-        autostart: value.autostart,
-        auto_start_scheduled_meetings: value.auto_start_scheduled_meetings,
-        auto_stop_meetings: value.auto_stop_meetings,
-        notification_detect: value.notification_detect,
-        telemetry_consent: value.telemetry_consent,
+        autostart: normalizedValue.autostart,
+        auto_start_scheduled_meetings:
+          normalizedValue.auto_start_scheduled_meetings,
+        auto_stop_meetings: normalizedValue.auto_stop_meetings,
+        notification_detect: normalizedValue.notification_detect,
+        telemetry_consent: normalizedValue.telemetry_consent,
       });
       void analyticsCommands.setProperties({
         set: {
-          telemetry_opt_out: value.telemetry_consent === false,
+          telemetry_opt_out: normalizedValue.telemetry_consent === false,
         },
       });
     },
@@ -183,7 +196,16 @@ export function SettingsApp() {
             {(field) => (
               <MainLanguageView
                 value={field.state.value}
-                onChange={(val) => field.handleChange(val)}
+                onChange={(val) => {
+                  field.handleChange(val);
+                  form.setFieldValue(
+                    "spoken_languages",
+                    getAdditionalSpokenLanguages(
+                      val,
+                      form.state.values.spoken_languages,
+                    ),
+                  );
+                }}
                 supportedLanguages={supportedLanguages}
               />
             )}
@@ -193,8 +215,16 @@ export function SettingsApp() {
           <form.Field name="spoken_languages">
             {(field) => (
               <SpokenLanguagesView
+                mainLanguage={form.state.values.ai_language}
                 value={field.state.value}
-                onChange={(val) => field.handleChange(val)}
+                onChange={(val) =>
+                  field.handleChange(
+                    getAdditionalSpokenLanguages(
+                      form.state.values.ai_language,
+                      val,
+                    ),
+                  )
+                }
                 supportedLanguages={supportedLanguages}
               />
             )}
