@@ -154,7 +154,7 @@ function ChangelogHeader({
   date: string | null;
 }) {
   const formattedDate = date ? safeFormat(date, "MMM d, yyyy") : null;
-  const webUrl = `https://char.com/changelog/${version}`;
+  const webUrl = `https://anarlog.so/changelog/${version}`;
 
   return (
     <div className="w-full pt-1">

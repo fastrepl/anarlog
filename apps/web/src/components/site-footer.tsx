@@ -14,6 +14,9 @@ export function SiteFooter() {
         <Link to="/blog/" className="hover:text-[#181613]">
           Blog
         </Link>
+        <Link to="/changelog/" className="hover:text-[#181613]">
+          Changelog
+        </Link>
         <a href="mailto:founders@fastrepl.com" className="hover:text-[#181613]">
           Contact
         </a>

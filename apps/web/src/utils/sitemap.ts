@@ -18,8 +18,21 @@ function getArticleSlugs(): string[] {
   }
 }
 
+function getChangelogVersions(): string[] {
+  const dir = path.resolve(process.cwd(), "../../packages/changelog/content");
+  try {
+    return fs
+      .readdirSync(dir)
+      .filter((f) => f.endsWith(".md"))
+      .map((f) => f.replace(/\.md$/, ""));
+  } catch {
+    return [];
+  }
+}
+
 export function getSitemap(): Sitemap<TRoutes> {
   const slugs = getArticleSlugs();
+  const changelogVersions = getChangelogVersions();
 
   return {
     siteUrl: "https://anarlog.so",
@@ -34,6 +47,15 @@ export function getSitemap(): Sitemap<TRoutes> {
         priority: 0.8,
         changeFrequency: "weekly",
       },
+      "/changelog/": {
+        priority: 0.7,
+        changeFrequency: "weekly",
+      },
+      "/changelog/$version": changelogVersions.map((version) => ({
+        path: `/changelog/${version}`,
+        priority: 0.5,
+        changeFrequency: "monthly" as const,
+      })),
       "/blog/$slug": slugs.map((slug) => ({
         path: `/blog/${slug}`,
         priority: 0.6,

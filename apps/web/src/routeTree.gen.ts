@@ -15,8 +15,10 @@ import { Route as FoundersRouteImport } from './routes/founders'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ViewRouteRouteImport } from './routes/_view/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ChangelogIndexRouteImport } from './routes/changelog/index'
 import { Route as BlogIndexRouteImport } from './routes/blog/index'
 import { Route as LegalSlugRouteImport } from './routes/legal/$slug'
+import { Route as ChangelogVersionRouteImport } from './routes/changelog/$version'
 import { Route as BlogSlugRouteImport } from './routes/blog/$slug'
 import { Route as ApiTemplatesRouteImport } from './routes/api/templates'
 import { Route as ApiShortcutsRouteImport } from './routes/api/shortcuts'
@@ -103,6 +105,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ChangelogIndexRoute = ChangelogIndexRouteImport.update({
+  id: '/changelog/',
+  path: '/changelog/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BlogIndexRoute = BlogIndexRouteImport.update({
   id: '/blog/',
   path: '/blog/',
@@ -111,6 +118,11 @@ const BlogIndexRoute = BlogIndexRouteImport.update({
 const LegalSlugRoute = LegalSlugRouteImport.update({
   id: '/legal/$slug',
   path: '/legal/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChangelogVersionRoute = ChangelogVersionRouteImport.update({
+  id: '/changelog/$version',
+  path: '/changelog/$version',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BlogSlugRoute = BlogSlugRouteImport.update({
@@ -415,8 +427,10 @@ export interface FileRoutesByFullPath {
   '/api/shortcuts': typeof ApiShortcutsRoute
   '/api/templates': typeof ApiTemplatesRoute
   '/blog/$slug': typeof BlogSlugRoute
+  '/changelog/$version': typeof ChangelogVersionRoute
   '/legal/$slug': typeof LegalSlugRoute
   '/blog/': typeof BlogIndexRoute
+  '/changelog/': typeof ChangelogIndexRoute
   '/app/account': typeof ViewAppAccountRoute
   '/app/checkout': typeof ViewAppCheckoutRoute
   '/app/integration': typeof ViewAppIntegrationRoute
@@ -479,8 +493,10 @@ export interface FileRoutesByTo {
   '/api/shortcuts': typeof ApiShortcutsRoute
   '/api/templates': typeof ApiTemplatesRoute
   '/blog/$slug': typeof BlogSlugRoute
+  '/changelog/$version': typeof ChangelogVersionRoute
   '/legal/$slug': typeof LegalSlugRoute
   '/blog': typeof BlogIndexRoute
+  '/changelog': typeof ChangelogIndexRoute
   '/app/account': typeof ViewAppAccountRoute
   '/app/checkout': typeof ViewAppCheckoutRoute
   '/app/integration': typeof ViewAppIntegrationRoute
@@ -546,8 +562,10 @@ export interface FileRoutesById {
   '/api/shortcuts': typeof ApiShortcutsRoute
   '/api/templates': typeof ApiTemplatesRoute
   '/blog/$slug': typeof BlogSlugRoute
+  '/changelog/$version': typeof ChangelogVersionRoute
   '/legal/$slug': typeof LegalSlugRoute
   '/blog/': typeof BlogIndexRoute
+  '/changelog/': typeof ChangelogIndexRoute
   '/_view/app/account': typeof ViewAppAccountRoute
   '/_view/app/checkout': typeof ViewAppCheckoutRoute
   '/_view/app/integration': typeof ViewAppIntegrationRoute
@@ -613,8 +631,10 @@ export interface FileRouteTypes {
     | '/api/shortcuts'
     | '/api/templates'
     | '/blog/$slug'
+    | '/changelog/$version'
     | '/legal/$slug'
     | '/blog/'
+    | '/changelog/'
     | '/app/account'
     | '/app/checkout'
     | '/app/integration'
@@ -677,8 +697,10 @@ export interface FileRouteTypes {
     | '/api/shortcuts'
     | '/api/templates'
     | '/blog/$slug'
+    | '/changelog/$version'
     | '/legal/$slug'
     | '/blog'
+    | '/changelog'
     | '/app/account'
     | '/app/checkout'
     | '/app/integration'
@@ -743,8 +765,10 @@ export interface FileRouteTypes {
     | '/api/shortcuts'
     | '/api/templates'
     | '/blog/$slug'
+    | '/changelog/$version'
     | '/legal/$slug'
     | '/blog/'
+    | '/changelog/'
     | '/_view/app/account'
     | '/_view/app/checkout'
     | '/_view/app/integration'
@@ -808,8 +832,10 @@ export interface RootRouteChildren {
   ApiShortcutsRoute: typeof ApiShortcutsRoute
   ApiTemplatesRoute: typeof ApiTemplatesRoute
   BlogSlugRoute: typeof BlogSlugRoute
+  ChangelogVersionRoute: typeof ChangelogVersionRoute
   LegalSlugRoute: typeof LegalSlugRoute
   BlogIndexRoute: typeof BlogIndexRoute
+  ChangelogIndexRoute: typeof ChangelogIndexRoute
   ApiAssetsSplatRoute: typeof ApiAssetsSplatRoute
   ApiTweetIdRoute: typeof ApiTweetIdRoute
   ApiWebhooksSlackInteractiveRoute: typeof ApiWebhooksSlackInteractiveRoute
@@ -890,6 +916,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/changelog/': {
+      id: '/changelog/'
+      path: '/changelog'
+      fullPath: '/changelog/'
+      preLoaderRoute: typeof ChangelogIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/blog/': {
       id: '/blog/'
       path: '/blog'
@@ -902,6 +935,13 @@ declare module '@tanstack/react-router' {
       path: '/legal/$slug'
       fullPath: '/legal/$slug'
       preLoaderRoute: typeof LegalSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/changelog/$version': {
+      id: '/changelog/$version'
+      path: '/changelog/$version'
+      fullPath: '/changelog/$version'
+      preLoaderRoute: typeof ChangelogVersionRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/blog/$slug': {
@@ -1366,8 +1406,10 @@ const rootRouteChildren: RootRouteChildren = {
   ApiShortcutsRoute: ApiShortcutsRoute,
   ApiTemplatesRoute: ApiTemplatesRoute,
   BlogSlugRoute: BlogSlugRoute,
+  ChangelogVersionRoute: ChangelogVersionRoute,
   LegalSlugRoute: LegalSlugRoute,
   BlogIndexRoute: BlogIndexRoute,
+  ChangelogIndexRoute: ChangelogIndexRoute,
   ApiAssetsSplatRoute: ApiAssetsSplatRoute,
   ApiTweetIdRoute: ApiTweetIdRoute,
   ApiWebhooksSlackInteractiveRoute: ApiWebhooksSlackInteractiveRoute,
