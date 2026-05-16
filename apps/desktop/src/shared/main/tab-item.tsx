@@ -3,7 +3,6 @@ import { TabItemChangelog } from "~/changelog";
 import { TabItemContact } from "~/contacts";
 import { TabItemHuman } from "~/contacts/humans";
 import { TabItemEdit } from "~/edit";
-import { TabItemFolder } from "~/folders";
 import { TabItemOnboarding } from "~/onboarding";
 import { TabItemNote } from "~/session";
 import { TabItemSettings } from "~/settings";
@@ -51,20 +50,6 @@ export function MainTabItem({
         handleUnpinThis={handleUnpinThis}
         pendingCloseConfirmationTab={pendingCloseConfirmationTab}
         setPendingCloseConfirmationTab={setPendingCloseConfirmationTab}
-      />
-    );
-  }
-  if (tab.type === "folders") {
-    return (
-      <TabItemFolder
-        tab={tab}
-        tabIndex={tabIndex}
-        handleCloseThis={handleClose}
-        handleSelectThis={handleSelect}
-        handleCloseOthers={handleCloseOthers}
-        handleCloseAll={handleCloseAll}
-        handlePinThis={handlePinThis}
-        handleUnpinThis={handleUnpinThis}
       />
     );
   }

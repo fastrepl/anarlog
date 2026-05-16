@@ -1,4 +1,3 @@
-import { FolderChain } from "./folder";
 import { ListenButton } from "./listen";
 import { MetadataButton } from "./metadata";
 import { OverflowButton } from "./overflow";
@@ -14,11 +13,7 @@ export function OuterHeader({
 }) {
   return (
     <div className="w-full pt-1">
-      <div className="flex items-center gap-2">
-        <div className="min-w-0 flex-1">
-          <FolderChain sessionId={sessionId} />
-        </div>
-
+      <div className="flex items-center justify-end">
         <div className="flex shrink-0 items-center">
           <ListenButton sessionId={sessionId} />
           <MetadataButton sessionId={sessionId} />

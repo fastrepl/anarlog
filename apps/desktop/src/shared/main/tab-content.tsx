@@ -3,7 +3,6 @@ import { TabContentChangelog } from "~/changelog";
 import { TabContentContact } from "~/contacts";
 import { TabContentHuman } from "~/contacts/humans";
 import { TabContentEdit } from "~/edit";
-import { TabContentFolder } from "~/folders";
 import { TabContentOnboarding } from "~/onboarding";
 import { TabContentNote } from "~/session";
 import { TabContentSettings } from "~/settings";
@@ -14,9 +13,6 @@ import { TabContentTemplate } from "~/templates";
 export function MainTabContent({ tab }: { tab: Tab }) {
   if (tab.type === "sessions") {
     return <TabContentNote tab={tab} />;
-  }
-  if (tab.type === "folders") {
-    return <TabContentFolder tab={tab} />;
   }
   if (tab.type === "humans") {
     return <TabContentHuman tab={tab} />;

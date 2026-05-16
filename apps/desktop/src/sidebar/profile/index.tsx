@@ -2,7 +2,6 @@ import { useQuery } from "@tanstack/react-query";
 import {
   CalendarIcon,
   ChevronUpIcon,
-  FolderOpenIcon,
   SettingsIcon,
   UsersIcon,
 } from "lucide-react";
@@ -18,7 +17,6 @@ import { NotificationsMenuContent } from "./notification";
 import { MenuItem, ProfileFacehash } from "./shared";
 
 import { useAuth } from "~/auth";
-import { useBillingAccess } from "~/auth/billing";
 import { useAutoCloser } from "~/shared/hooks/useAutoCloser";
 import * as main from "~/store/tinybase/store/main";
 import { useTabs } from "~/store/zustand/tabs";
@@ -36,7 +34,6 @@ export function ProfileSection({ onExpandChange }: ProfileSectionProps = {}) {
   const mainViewRef = useRef<HTMLDivElement | null>(null);
   const openNew = useTabs((state) => state.openNew);
   const auth = useAuth();
-  const { isPro } = useBillingAccess();
 
   const isAuthenticated = !!auth?.session;
 
@@ -90,11 +87,6 @@ export function ProfileSection({ onExpandChange }: ProfileSectionProps = {}) {
     closeMenu();
   }, [openNew, closeMenu]);
 
-  const handleClickFolders = useCallback(() => {
-    openNew({ type: "folders", id: null });
-    closeMenu();
-  }, [openNew, closeMenu]);
-
   const handleClickCalendar = useCallback(() => {
     openNew({ type: "calendar" });
     closeMenu();
@@ -130,17 +122,6 @@ export function ProfileSection({ onExpandChange }: ProfileSectionProps = {}) {
   ]);
 
   const menuItems = [
-    ...(isPro
-      ? [
-          {
-            icon: FolderOpenIcon,
-            label: "Folders",
-            onClick: handleClickFolders,
-            badge: <Kbd className={kbdClass}>⌘ ⇧ L</Kbd>,
-            sectionBreakAfter: false,
-          },
-        ]
-      : []),
     {
       icon: UsersIcon,
       label: "Contacts",
@@ -153,7 +134,7 @@ export function ProfileSection({ onExpandChange }: ProfileSectionProps = {}) {
       label: "Calendar",
       onClick: handleClickCalendar,
       badge: <Kbd className={kbdClass}>⌘ ⇧ C</Kbd>,
-      sectionBreakAfter: isPro,
+      sectionBreakAfter: false,
     },
     {
       icon: SettingsIcon,

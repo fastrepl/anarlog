@@ -1,21 +1,15 @@
 import { Icon } from "@iconify-icon/react";
 import { useMutation } from "@tanstack/react-query";
-import { FolderIcon, Link2Icon, Loader2Icon } from "lucide-react";
+import { Link2Icon, Loader2Icon } from "lucide-react";
 
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
-import {
-  DropdownMenuItem,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-} from "@hypr/ui/components/ui/dropdown-menu";
+import { DropdownMenuItem } from "@hypr/ui/components/ui/dropdown-menu";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@hypr/ui/components/ui/tooltip";
-
-import { SearchableFolderSubmenuContent } from "~/session/components/outer-header/folder/searchable-dropdown";
 
 export function Copy() {
   return (
@@ -34,24 +28,6 @@ export function Copy() {
         <span>Coming soon</span>
       </TooltipContent>
     </Tooltip>
-  );
-}
-
-export function Folder({
-  sessionId,
-  setOpen,
-}: {
-  sessionId: string;
-  setOpen?: (open: boolean) => void;
-}) {
-  return (
-    <DropdownMenuSub>
-      <DropdownMenuSubTrigger className="cursor-pointer">
-        <FolderIcon />
-        <span>Move to</span>
-      </DropdownMenuSubTrigger>
-      <SearchableFolderSubmenuContent sessionId={sessionId} setOpen={setOpen} />
-    </DropdownMenuSub>
   );
 }
 

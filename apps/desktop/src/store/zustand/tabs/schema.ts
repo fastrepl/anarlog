@@ -19,11 +19,15 @@ export type {
 
 export type TabInput = Exclude<
   WindowsTabInput,
-  { type: "extension" } | { type: "extensions" }
+  { type: "extension" } | { type: "extensions" } | { type: "folders" }
 >;
 
 export const isTabInputSupported = (tab: WindowsTabInput): tab is TabInput => {
-  return tab.type !== "extension" && tab.type !== "extensions";
+  return (
+    tab.type !== "extension" &&
+    tab.type !== "extensions" &&
+    tab.type !== "folders"
+  );
 };
 
 export type SettingsTab =
@@ -109,7 +113,6 @@ export type Tab =
       id: string;
     })
   | (BaseTab & { type: "organizations"; id: string })
-  | (BaseTab & { type: "folders"; id: string | null })
   | (BaseTab & { type: "empty" })
   | (BaseTab & { type: "calendar" })
   | (BaseTab & {
@@ -168,8 +171,6 @@ export const getDefaultState = (tab: TabInput): Tab => {
       return { ...base, type: "humans", id: tab.id };
     case "organizations":
       return { ...base, type: "organizations", id: tab.id };
-    case "folders":
-      return { ...base, type: "folders", id: tab.id };
     case "empty":
       return { ...base, type: "empty" };
     case "calendar":
@@ -213,8 +214,6 @@ export const uniqueIdfromTab = (tab: Tab): string => {
       return `contacts`;
     case "templates":
       return `templates`;
-    case "folders":
-      return `folders-${tab.id ?? "all"}`;
     case "empty":
       return `empty-${tab.slotId}`;
     case "calendar":

@@ -132,7 +132,6 @@ export const MARKETING_PLAN_TIERS: MarketingPlanData[] = [
       { label: "Change Playback Rates", included: false },
       { label: "Integrations", included: false },
       { label: "Advanced Templates", included: false },
-      { label: "Folders View", included: false },
       { label: "Cloud Sync", included: false },
       { label: "Shareable Links", included: false },
     ],
@@ -157,7 +156,6 @@ export const MARKETING_PLAN_TIERS: MarketingPlanData[] = [
           "Google Calendar is available now. Additional integrations are in progress.",
       },
       { label: "Advanced Templates", included: "partial" },
-      { label: "Folders View", included: "partial" },
       {
         label: "Connect to OpenClaw",
         included: "partial",

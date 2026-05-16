@@ -14,10 +14,9 @@ import {
 import { DeleteNote, DeleteRecording } from "./delete";
 import { ExportModal } from "./export-modal";
 import { Listening } from "./listening";
-import { Copy, Folder, ShowInFinder } from "./misc";
+import { Copy, ShowInFinder } from "./misc";
 
 import { useAudioPlayer } from "~/audio-player";
-import { useBillingAccess } from "~/auth/billing";
 import { useHasTranscript } from "~/session/components/shared";
 import type { EditorView } from "~/store/zustand/tabs/schema";
 
@@ -32,7 +31,6 @@ export function OverflowButton({
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const hasTranscript = useHasTranscript(sessionId);
   const { audioExists } = useAudioPlayer();
-  const { isPro } = useBillingAccess();
   const openExportModal = () => {
     setOpen(false);
     requestAnimationFrame(() => setIsExportModalOpen(true));
@@ -53,7 +51,6 @@ export function OverflowButton({
         <DropdownMenuContent variant="app" align="end" className="w-56">
           <AppFloatingPanel className="overflow-hidden p-1">
             <Copy />
-            {isPro && <Folder sessionId={sessionId} setOpen={setOpen} />}
             <DropdownMenuItem
               onClick={openExportModal}
               className="cursor-pointer"
