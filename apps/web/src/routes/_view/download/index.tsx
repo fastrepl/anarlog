@@ -1,6 +1,5 @@
 import { Icon } from "@iconify-icon/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
 
 import { cn } from "@hypr/utils";
 
@@ -71,14 +70,12 @@ function Component() {
                   iconName="simple-icons:apple"
                   spec="macOS 14.2+ (Apple Silicon)"
                   downloadUrl="/download/apple-silicon"
-                  nightlyDownloadUrl="/download/nightly/apple-silicon"
                   platform="macos-apple-silicon"
                 />
                 <DownloadCard
                   iconName="simple-icons:apple"
                   spec="macOS 14.2+ (Intel)"
                   downloadUrl="/download/apple-intel"
-                  nightlyDownloadUrl="/download/nightly/apple-intel"
                   platform="macos-intel"
                 />
               </div>
@@ -96,21 +93,18 @@ function DownloadCard({
   iconName,
   spec,
   downloadUrl,
-  nightlyDownloadUrl,
   platform,
 }: {
   iconName: string;
   spec: string;
   downloadUrl: string;
-  nightlyDownloadUrl: string;
   platform: string;
 }) {
   const { track } = useAnalytics();
-  const [isNightly, setIsNightly] = useState(false);
 
   const handleClick = () => {
     track("download_clicked", {
-      platform: isNightly ? `${platform}-nightly` : platform,
+      platform,
       spec,
       source: "download_page",
     });
@@ -120,9 +114,7 @@ function DownloadCard({
     <div
       className={cn([
         "flex flex-col items-center rounded-xs border p-6 transition-all duration-200",
-        isNightly
-          ? ["border-blue-200 bg-blue-50/50"]
-          : ["border-neutral-100 bg-white hover:bg-stone-50"],
+        "border-neutral-100 bg-white hover:bg-stone-50",
       ])}
     >
       <Icon icon={iconName} className="text-color mb-4 text-5xl" />
@@ -130,32 +122,21 @@ function DownloadCard({
 
       <div className="group/tooltip relative w-full">
         <a
-          href={isNightly ? nightlyDownloadUrl : downloadUrl}
+          href={downloadUrl}
           download
           onClick={handleClick}
           className={cn([
             "group flex h-11 w-full items-center justify-center gap-2 rounded-full px-4 text-base font-medium shadow-md transition-all hover:scale-[102%] hover:shadow-lg active:scale-[98%]",
-            isNightly
-              ? ["bg-linear-to-b from-[#03BCF1] to-[#127FE5] text-white"]
-              : ["bg-linear-to-t from-stone-600 to-stone-500 text-white"],
+            "bg-linear-to-t from-stone-600 to-stone-500 text-white",
           ])}
         >
-          {isNightly ? "Download Nightly" : "Download"}
+          Download
           <Icon
             icon="ph:arrow-circle-right"
             className="text-xl transition-transform group-hover:translate-x-1"
           />
         </a>
       </div>
-
-      <button
-        onClick={() => setIsNightly(!isNightly)}
-        className="mt-3 cursor-pointer text-xs text-neutral-400 transition-colors hover:text-neutral-600"
-      >
-        {isNightly
-          ? "It might be less stable though."
-          : "Want to get faster updates?"}
-      </button>
     </div>
   );
 }

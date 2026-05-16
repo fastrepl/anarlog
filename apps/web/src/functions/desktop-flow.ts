@@ -3,10 +3,8 @@ import { z } from "zod";
 export const DESKTOP_SCHEMES = [
   "hypr",
   "hyprnote",
-  "hyprnote-nightly",
   "hyprnote-staging",
   "char",
-  "char-nightly",
   "char-staging",
 ] as const;
 

@@ -41,45 +41,27 @@ jobs:
           reaction: eyes
       - id: resolve
         run: |
-          if [ "${{ inputs.channel }}" == "stable" ]; then
-            NIGHTLY_TAG=$(git tag -l 'desktop_v*-nightly.*' --sort=-v:refname | head -n1)
-            if [ -z "$NIGHTLY_TAG" ]; then
-              echo "resolved=false" >> $GITHUB_OUTPUT
-              echo "error=No nightly release tag found" >> $GITHUB_OUTPUT
-              exit 0
-            fi
+          PR_DATA=$(gh api repos/$REPO/pulls/${{ inputs.issue_number }} 2>/dev/null) || {
+            echo "resolved=false" >> $GITHUB_OUTPUT
+            echo "error=Not a pull request or PR not found" >> $GITHUB_OUTPUT
+            exit 0
+          }
 
-            TAG_SHA=$(git rev-list -n 1 "$NIGHTLY_TAG")
-            TEMP_BRANCH="release-temp-${TAG_SHA:0:8}"
-
-            GH_TOKEN=${{ secrets.YUJONGLEE_GITHUB_TOKEN_REPO }} gh api repos/$REPO/git/refs -f ref="refs/heads/$TEMP_BRANCH" -f sha="$TAG_SHA"
-
-            echo "resolved=true" >> $GITHUB_OUTPUT
-            echo "target_sha=$TAG_SHA" >> $GITHUB_OUTPUT
-            echo "branch=$TEMP_BRANCH" >> $GITHUB_OUTPUT
-          else
-            PR_DATA=$(gh api repos/$REPO/pulls/${{ inputs.issue_number }} 2>/dev/null) || {
-              echo "resolved=false" >> $GITHUB_OUTPUT
-              echo "error=Not a pull request or PR not found" >> $GITHUB_OUTPUT
-              exit 0
-            }
-
-            MERGED=$(echo "$PR_DATA" | jq -r '.merged')
-            if [ "$MERGED" != "true" ]; then
-              echo "resolved=false" >> $GITHUB_OUTPUT
-              echo "error=PR must be merged first" >> $GITHUB_OUTPUT
-              exit 0
-            fi
-
-            MERGE_SHA=$(echo "$PR_DATA" | jq -r '.merge_commit_sha')
-            TEMP_BRANCH="release-temp-${MERGE_SHA:0:8}"
-
-            GH_TOKEN=${{ secrets.YUJONGLEE_GITHUB_TOKEN_REPO }} gh api repos/$REPO/git/refs -f ref="refs/heads/$TEMP_BRANCH" -f sha="$MERGE_SHA"
-
-            echo "resolved=true" >> $GITHUB_OUTPUT
-            echo "target_sha=$MERGE_SHA" >> $GITHUB_OUTPUT
-            echo "branch=$TEMP_BRANCH" >> $GITHUB_OUTPUT
+          MERGED=$(echo "$PR_DATA" | jq -r '.merged')
+          if [ "$MERGED" != "true" ]; then
+            echo "resolved=false" >> $GITHUB_OUTPUT
+            echo "error=PR must be merged first" >> $GITHUB_OUTPUT
+            exit 0
           fi
+
+          MERGE_SHA=$(echo "$PR_DATA" | jq -r '.merge_commit_sha')
+          TEMP_BRANCH="release-temp-${MERGE_SHA:0:8}"
+
+          GH_TOKEN=${{ secrets.YUJONGLEE_GITHUB_TOKEN_REPO }} gh api repos/$REPO/git/refs -f ref="refs/heads/$TEMP_BRANCH" -f sha="$MERGE_SHA"
+
+          echo "resolved=true" >> $GITHUB_OUTPUT
+          echo "target_sha=$MERGE_SHA" >> $GITHUB_OUTPUT
+          echo "branch=$TEMP_BRANCH" >> $GITHUB_OUTPUT
       - if: steps.resolve.outputs.resolved == 'true'
         id: trigger
         uses: ./.github/actions/trigger-workflow

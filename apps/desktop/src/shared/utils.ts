@@ -12,7 +12,6 @@ export const getScheme = async (): Promise<string> => {
   const id = await getIdentifier();
   const schemes: Record<string, string> = {
     "com.hyprnote.stable": "hyprnote",
-    "com.hyprnote.nightly": "hyprnote-nightly",
     "com.hyprnote.staging": "hyprnote-staging",
     "com.hyprnote.dev": "hypr",
   };

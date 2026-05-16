@@ -6,7 +6,7 @@ inputs:
     description: "Version to download"
     required: true
   channel:
-    description: "Release channel (stable, nightly)"
+    description: "Release channel (stable)"
     required: true
   platform:
     description: "Public platform (dmg-aarch64, dmg-x86_64, appimage-x86_64, debian-x86_64, appimage-aarch64, debian-aarch64)"

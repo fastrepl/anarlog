@@ -21,34 +21,6 @@ jobs:
           user: ${{ github.event.comment.user.login }}
           allowed-users: yujonglee|ComputelessComputer|goranmoomin|elstua
 
-  parse-nightly-options:
-    needs: check-permission
-    if: needs.check-permission.outputs.allowed == 'true' && contains(github.event.comment.body, '/nightly')
-    runs-on: ubuntu-latest
-    outputs:
-      publish: ${{ steps.parse.outputs.publish }}
-    steps:
-      - id: parse
-        env:
-          COMMENT: ${{ github.event.comment.body }}
-        run: |
-          PUBLISH="true"
-          if [[ "$COMMENT" =~ --no-publish ]]; then
-            PUBLISH="false"
-          fi
-          echo "publish=$PUBLISH" >> $GITHUB_OUTPUT
-
-  handle-nightly:
-    needs: [check-permission, parse-nightly-options]
-    if: needs.check-permission.outputs.allowed == 'true' && contains(github.event.comment.body, '/nightly')
-    uses: ./.github/workflows/handle_release.yaml
-    with:
-      channel: nightly
-      publish: ${{ needs.parse-nightly-options.outputs.publish == 'true' }}
-      issue_number: ${{ github.event.issue.number }}
-      comment_id: ${{ github.event.comment.id }}
-    secrets: inherit
-
   parse-stable-options:
     needs: check-permission
     if: needs.check-permission.outputs.allowed == 'true' && contains(github.event.comment.body, '/stable')
@@ -122,10 +94,10 @@ jobs:
         env:
           COMMENT: ${{ github.event.comment.body }}
         run: |
-          if [[ "$COMMENT" =~ /changelog[[:space:]]+(nightly|stable)($|[[:space:]]) ]]; then
+          if [[ "$COMMENT" =~ /changelog[[:space:]]+(stable)($|[[:space:]]) ]]; then
             echo "channel=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
           else
-            echo "channel=nightly" >> $GITHUB_OUTPUT
+            echo "channel=stable" >> $GITHUB_OUTPUT
           fi
 
   handle-changelog:

@@ -7,7 +7,7 @@ pub async fn open_desktop_db(identifier: &str) -> Arc<Db> {
 
     let db_path = match identifier {
         "com.hyprnote.dev" => None,
-        "com.hyprnote.stable" | "com.hyprnote.nightly" => Some(base.join("hyprnote")),
+        "com.hyprnote.stable" => Some(base.join("hyprnote")),
         _ => Some(base.join(identifier)),
     }
     .map(|dir| {

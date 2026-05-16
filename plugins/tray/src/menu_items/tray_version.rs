@@ -11,7 +11,6 @@ impl TrayVersion {
     fn get_channel(app_name: &str) -> &'static str {
         match app_name {
             "Char" | "Hyprnote" => "stable",
-            "Char Nightly" | "Hyprnote Nightly" => "nightly",
             "Char Staging" | "Hyprnote Staging" => "staging",
             _ => "dev",
         }

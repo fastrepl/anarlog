@@ -2,7 +2,7 @@ name: Run Desktop E2E Tests (Linux)
 description: Run WebDriver E2E tests for the desktop application on Linux
 inputs:
   channel:
-    description: Release channel (staging, nightly, or stable)
+    description: Release channel (staging or stable)
     required: true
   target_triple:
     description: Rust target triple for the build
@@ -21,8 +21,6 @@ runs:
         # Determine binary name based on channel
         if [[ "${{ inputs.channel }}" == "staging" ]]; then
           BINARY_NAME="hyprnote-staging"
-        elif [[ "${{ inputs.channel }}" == "nightly" ]]; then
-          BINARY_NAME="hyprnote-nightly"
         else
           BINARY_NAME="hyprnote"
         fi

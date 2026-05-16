@@ -6,7 +6,6 @@ on:
         required: true
         type: choice
         options:
-          - nightly
           - stable
   workflow_call:
     inputs:
@@ -47,20 +46,9 @@ jobs:
       - uses: ./.github/actions/doxxer_install
       - id: version
         run: |
-          if [ "${{ inputs.channel }}" = "nightly" ]; then
-            LATEST_TAG=$(git tag -l 'desktop_v*' --sort=-v:refname | head -n1)
-            if [[ "$LATEST_TAG" == *"-nightly"* ]]; then
-              VERSION=$(doxxer --config doxxer.desktop.toml next prerelease)
-            else
-              VERSION=$(doxxer --config doxxer.desktop.toml next pre-patch)
-            fi
-            PREV=$(git tag -l 'desktop_v*-nightly.*' --sort=-v:refname | head -n1)
-            CURRENT="HEAD"
-          else
-            VERSION=$(doxxer --config doxxer.desktop.toml next patch)
-            PREV=$(git tag -l 'desktop_v*' --sort=-v:refname | grep -v 'nightly' | head -n1)
-            CURRENT=$(git tag -l 'desktop_v*-nightly.*' --sort=-v:refname | head -n1)
-          fi
+          VERSION=$(doxxer --config doxxer.desktop.toml next patch)
+          PREV=$(git tag -l 'desktop_v*' --sort=-v:refname | grep -E '^desktop_v[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)
+          CURRENT="HEAD"
 
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "current=$CURRENT" >> $GITHUB_OUTPUT

@@ -14,9 +14,7 @@ function getLatestVersion(): string | null {
     const files = readdirSync(changelogDir).filter(
       (f) => f.endsWith(".md") && /^\d/.test(f),
     );
-    const versions = files
-      .map((f) => f.replace(".md", ""))
-      .filter((v) => !v.includes("nightly"));
+    const versions = files.map((f) => f.replace(".md", ""));
     versions.sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
     return versions[0] || null;
   } catch {

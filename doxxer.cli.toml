@@ -3,16 +3,6 @@ filter.tag = "^cli_v"
 [output]
 format = "plain"
 
-[next.prerelease]
-prerelease.identifier = "nightly"
-prerelease.template = "{identifier}.{inc}"
-build_metadata.template = ""
-
-[next.pre-patch]
-prerelease.identifier = "nightly"
-prerelease.template = "{identifier}.{inc}"
-build_metadata.template = ""
-
 [next.patch]
 increment = 1
 

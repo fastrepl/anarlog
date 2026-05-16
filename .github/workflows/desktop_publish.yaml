@@ -2,7 +2,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to publish (e.g., 1.0.2 or 1.0.2-nightly.15)"
+        description: "Version to publish (e.g., 1.0.2)"
         required: true
         type: string
 
@@ -19,13 +19,8 @@ jobs:
       - id: parse
         run: |
           VERSION="${{ inputs.version }}"
-          if [[ "$VERSION" == *"-nightly"* ]]; then
-            CHANNEL="nightly"
-          else
-            CHANNEL="stable"
-          fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "channel=$CHANNEL" >> $GITHUB_OUTPUT
+          echo "channel=stable" >> $GITHUB_OUTPUT
 
   cn-publish:
     needs: parse
@@ -115,48 +110,15 @@ jobs:
             char-macos-aarch64.dmg
             char-macos-x86_64.dmg
       - id: release-body
-        env:
-          CHANNEL: ${{ needs.parse.outputs.channel }}
-          VERSION: ${{ needs.parse.outputs.version }}
         run: |
-          if [[ "$CHANNEL" != "nightly" ]]; then
-            echo "value=https://anarlog.so/changelog/$VERSION" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          CURRENT_TAG="desktop_v$VERSION"
-          PREV_TAG=""
-          LAST_TAG=""
-          LAST_NIGHTLY_TAG=""
-
-          while IFS= read -r tag; do
-            if [[ "$tag" == "$CURRENT_TAG" ]]; then
-              PREV_TAG="$LAST_NIGHTLY_TAG"
-              if [[ -z "$PREV_TAG" ]]; then
-                PREV_TAG="$LAST_TAG"
-              fi
-              break
-            fi
-
-            if [[ "$tag" == *"-nightly."* ]]; then
-              LAST_NIGHTLY_TAG="$tag"
-            fi
-
-            LAST_TAG="$tag"
-          done < <(git tag -l 'desktop_v*' --sort=v:refname)
-
-          if [[ -n "$PREV_TAG" ]]; then
-            echo "value=https://github.com/${{ github.repository }}/compare/$PREV_TAG...$CURRENT_TAG" >> "$GITHUB_OUTPUT"
-          else
-            echo "value=https://github.com/${{ github.repository }}/commits/${{ github.sha }}" >> "$GITHUB_OUTPUT"
-          fi
+          echo "value=https://anarlog.so/changelog/${{ needs.parse.outputs.version }}" >> "$GITHUB_OUTPUT"
       - uses: ncipollo/release-action@v1
         with:
           tag: desktop_v${{ needs.parse.outputs.version }}
           name: desktop_v${{ needs.parse.outputs.version }}
           body: ${{ steps.release-body.outputs.value }}
-          prerelease: ${{ needs.parse.outputs.channel == 'nightly' }}
+          prerelease: false
           artifacts: char-macos-aarch64.dmg,char-macos-x86_64.dmg,${{ steps.checksums.outputs.checksum_files }}
           allowUpdates: true
-          makeLatest: ${{ needs.parse.outputs.channel == 'nightly' && 'false' || 'true' }}
+          makeLatest: true
           replacesArtifacts: true

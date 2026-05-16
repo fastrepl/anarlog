@@ -73,13 +73,6 @@ import { Route as ApiAdminContentDeleteRouteImport } from './routes/api/admin/co
 import { Route as ApiAdminContentCreateRouteImport } from './routes/api/admin/content/create'
 import { Route as ApiAdminContentAuditRouteImport } from './routes/api/admin/content/audit'
 import { Route as ApiAdminBlogUploadImageRouteImport } from './routes/api/admin/blog/upload-image'
-import { Route as ViewDownloadNightlyWindowsRouteImport } from './routes/_view/download/nightly/windows'
-import { Route as ViewDownloadNightlyLinuxDebAarch64RouteImport } from './routes/_view/download/nightly/linux-deb-aarch64'
-import { Route as ViewDownloadNightlyLinuxDebRouteImport } from './routes/_view/download/nightly/linux-deb'
-import { Route as ViewDownloadNightlyLinuxAppimageAarch64RouteImport } from './routes/_view/download/nightly/linux-appimage-aarch64'
-import { Route as ViewDownloadNightlyLinuxAppimageRouteImport } from './routes/_view/download/nightly/linux-appimage'
-import { Route as ViewDownloadNightlyAppleSiliconRouteImport } from './routes/_view/download/nightly/apple-silicon'
-import { Route as ViewDownloadNightlyAppleIntelRouteImport } from './routes/_view/download/nightly/apple-intel'
 
 const UpdatePasswordRoute = UpdatePasswordRouteImport.update({
   id: '/update-password',
@@ -409,48 +402,6 @@ const ApiAdminBlogUploadImageRoute = ApiAdminBlogUploadImageRouteImport.update({
   path: '/api/admin/blog/upload-image',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ViewDownloadNightlyWindowsRoute =
-  ViewDownloadNightlyWindowsRouteImport.update({
-    id: '/download/nightly/windows',
-    path: '/download/nightly/windows',
-    getParentRoute: () => ViewRouteRoute,
-  } as any)
-const ViewDownloadNightlyLinuxDebAarch64Route =
-  ViewDownloadNightlyLinuxDebAarch64RouteImport.update({
-    id: '/download/nightly/linux-deb-aarch64',
-    path: '/download/nightly/linux-deb-aarch64',
-    getParentRoute: () => ViewRouteRoute,
-  } as any)
-const ViewDownloadNightlyLinuxDebRoute =
-  ViewDownloadNightlyLinuxDebRouteImport.update({
-    id: '/download/nightly/linux-deb',
-    path: '/download/nightly/linux-deb',
-    getParentRoute: () => ViewRouteRoute,
-  } as any)
-const ViewDownloadNightlyLinuxAppimageAarch64Route =
-  ViewDownloadNightlyLinuxAppimageAarch64RouteImport.update({
-    id: '/download/nightly/linux-appimage-aarch64',
-    path: '/download/nightly/linux-appimage-aarch64',
-    getParentRoute: () => ViewRouteRoute,
-  } as any)
-const ViewDownloadNightlyLinuxAppimageRoute =
-  ViewDownloadNightlyLinuxAppimageRouteImport.update({
-    id: '/download/nightly/linux-appimage',
-    path: '/download/nightly/linux-appimage',
-    getParentRoute: () => ViewRouteRoute,
-  } as any)
-const ViewDownloadNightlyAppleSiliconRoute =
-  ViewDownloadNightlyAppleSiliconRouteImport.update({
-    id: '/download/nightly/apple-silicon',
-    path: '/download/nightly/apple-silicon',
-    getParentRoute: () => ViewRouteRoute,
-  } as any)
-const ViewDownloadNightlyAppleIntelRoute =
-  ViewDownloadNightlyAppleIntelRouteImport.update({
-    id: '/download/nightly/apple-intel',
-    path: '/download/nightly/apple-intel',
-    getParentRoute: () => ViewRouteRoute,
-  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -485,13 +436,6 @@ export interface FileRoutesByFullPath {
   '/api/webhooks/slack-interactive': typeof ApiWebhooksSlackInteractiveRoute
   '/app/': typeof ViewAppIndexRoute
   '/download/': typeof ViewDownloadIndexRoute
-  '/download/nightly/apple-intel': typeof ViewDownloadNightlyAppleIntelRoute
-  '/download/nightly/apple-silicon': typeof ViewDownloadNightlyAppleSiliconRoute
-  '/download/nightly/linux-appimage': typeof ViewDownloadNightlyLinuxAppimageRoute
-  '/download/nightly/linux-appimage-aarch64': typeof ViewDownloadNightlyLinuxAppimageAarch64Route
-  '/download/nightly/linux-deb': typeof ViewDownloadNightlyLinuxDebRoute
-  '/download/nightly/linux-deb-aarch64': typeof ViewDownloadNightlyLinuxDebAarch64Route
-  '/download/nightly/windows': typeof ViewDownloadNightlyWindowsRoute
   '/api/admin/blog/upload-image': typeof ApiAdminBlogUploadImageRoute
   '/api/admin/content/audit': typeof ApiAdminContentAuditRoute
   '/api/admin/content/create': typeof ApiAdminContentCreateRoute
@@ -556,13 +500,6 @@ export interface FileRoutesByTo {
   '/api/webhooks/slack-interactive': typeof ApiWebhooksSlackInteractiveRoute
   '/app': typeof ViewAppIndexRoute
   '/download': typeof ViewDownloadIndexRoute
-  '/download/nightly/apple-intel': typeof ViewDownloadNightlyAppleIntelRoute
-  '/download/nightly/apple-silicon': typeof ViewDownloadNightlyAppleSiliconRoute
-  '/download/nightly/linux-appimage': typeof ViewDownloadNightlyLinuxAppimageRoute
-  '/download/nightly/linux-appimage-aarch64': typeof ViewDownloadNightlyLinuxAppimageAarch64Route
-  '/download/nightly/linux-deb': typeof ViewDownloadNightlyLinuxDebRoute
-  '/download/nightly/linux-deb-aarch64': typeof ViewDownloadNightlyLinuxDebAarch64Route
-  '/download/nightly/windows': typeof ViewDownloadNightlyWindowsRoute
   '/api/admin/blog/upload-image': typeof ApiAdminBlogUploadImageRoute
   '/api/admin/content/audit': typeof ApiAdminContentAuditRoute
   '/api/admin/content/create': typeof ApiAdminContentCreateRoute
@@ -630,13 +567,6 @@ export interface FileRoutesById {
   '/api/webhooks/slack-interactive': typeof ApiWebhooksSlackInteractiveRoute
   '/_view/app/': typeof ViewAppIndexRoute
   '/_view/download/': typeof ViewDownloadIndexRoute
-  '/_view/download/nightly/apple-intel': typeof ViewDownloadNightlyAppleIntelRoute
-  '/_view/download/nightly/apple-silicon': typeof ViewDownloadNightlyAppleSiliconRoute
-  '/_view/download/nightly/linux-appimage': typeof ViewDownloadNightlyLinuxAppimageRoute
-  '/_view/download/nightly/linux-appimage-aarch64': typeof ViewDownloadNightlyLinuxAppimageAarch64Route
-  '/_view/download/nightly/linux-deb': typeof ViewDownloadNightlyLinuxDebRoute
-  '/_view/download/nightly/linux-deb-aarch64': typeof ViewDownloadNightlyLinuxDebAarch64Route
-  '/_view/download/nightly/windows': typeof ViewDownloadNightlyWindowsRoute
   '/api/admin/blog/upload-image': typeof ApiAdminBlogUploadImageRoute
   '/api/admin/content/audit': typeof ApiAdminContentAuditRoute
   '/api/admin/content/create': typeof ApiAdminContentCreateRoute
@@ -704,13 +634,6 @@ export interface FileRouteTypes {
     | '/api/webhooks/slack-interactive'
     | '/app/'
     | '/download/'
-    | '/download/nightly/apple-intel'
-    | '/download/nightly/apple-silicon'
-    | '/download/nightly/linux-appimage'
-    | '/download/nightly/linux-appimage-aarch64'
-    | '/download/nightly/linux-deb'
-    | '/download/nightly/linux-deb-aarch64'
-    | '/download/nightly/windows'
     | '/api/admin/blog/upload-image'
     | '/api/admin/content/audit'
     | '/api/admin/content/create'
@@ -775,13 +698,6 @@ export interface FileRouteTypes {
     | '/api/webhooks/slack-interactive'
     | '/app'
     | '/download'
-    | '/download/nightly/apple-intel'
-    | '/download/nightly/apple-silicon'
-    | '/download/nightly/linux-appimage'
-    | '/download/nightly/linux-appimage-aarch64'
-    | '/download/nightly/linux-deb'
-    | '/download/nightly/linux-deb-aarch64'
-    | '/download/nightly/windows'
     | '/api/admin/blog/upload-image'
     | '/api/admin/content/audit'
     | '/api/admin/content/create'
@@ -848,13 +764,6 @@ export interface FileRouteTypes {
     | '/api/webhooks/slack-interactive'
     | '/_view/app/'
     | '/_view/download/'
-    | '/_view/download/nightly/apple-intel'
-    | '/_view/download/nightly/apple-silicon'
-    | '/_view/download/nightly/linux-appimage'
-    | '/_view/download/nightly/linux-appimage-aarch64'
-    | '/_view/download/nightly/linux-deb'
-    | '/_view/download/nightly/linux-deb-aarch64'
-    | '/_view/download/nightly/windows'
     | '/api/admin/blog/upload-image'
     | '/api/admin/content/audit'
     | '/api/admin/content/create'
@@ -1387,55 +1296,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminBlogUploadImageRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_view/download/nightly/windows': {
-      id: '/_view/download/nightly/windows'
-      path: '/download/nightly/windows'
-      fullPath: '/download/nightly/windows'
-      preLoaderRoute: typeof ViewDownloadNightlyWindowsRouteImport
-      parentRoute: typeof ViewRouteRoute
-    }
-    '/_view/download/nightly/linux-deb-aarch64': {
-      id: '/_view/download/nightly/linux-deb-aarch64'
-      path: '/download/nightly/linux-deb-aarch64'
-      fullPath: '/download/nightly/linux-deb-aarch64'
-      preLoaderRoute: typeof ViewDownloadNightlyLinuxDebAarch64RouteImport
-      parentRoute: typeof ViewRouteRoute
-    }
-    '/_view/download/nightly/linux-deb': {
-      id: '/_view/download/nightly/linux-deb'
-      path: '/download/nightly/linux-deb'
-      fullPath: '/download/nightly/linux-deb'
-      preLoaderRoute: typeof ViewDownloadNightlyLinuxDebRouteImport
-      parentRoute: typeof ViewRouteRoute
-    }
-    '/_view/download/nightly/linux-appimage-aarch64': {
-      id: '/_view/download/nightly/linux-appimage-aarch64'
-      path: '/download/nightly/linux-appimage-aarch64'
-      fullPath: '/download/nightly/linux-appimage-aarch64'
-      preLoaderRoute: typeof ViewDownloadNightlyLinuxAppimageAarch64RouteImport
-      parentRoute: typeof ViewRouteRoute
-    }
-    '/_view/download/nightly/linux-appimage': {
-      id: '/_view/download/nightly/linux-appimage'
-      path: '/download/nightly/linux-appimage'
-      fullPath: '/download/nightly/linux-appimage'
-      preLoaderRoute: typeof ViewDownloadNightlyLinuxAppimageRouteImport
-      parentRoute: typeof ViewRouteRoute
-    }
-    '/_view/download/nightly/apple-silicon': {
-      id: '/_view/download/nightly/apple-silicon'
-      path: '/download/nightly/apple-silicon'
-      fullPath: '/download/nightly/apple-silicon'
-      preLoaderRoute: typeof ViewDownloadNightlyAppleSiliconRouteImport
-      parentRoute: typeof ViewRouteRoute
-    }
-    '/_view/download/nightly/apple-intel': {
-      id: '/_view/download/nightly/apple-intel'
-      path: '/download/nightly/apple-intel'
-      fullPath: '/download/nightly/apple-intel'
-      preLoaderRoute: typeof ViewDownloadNightlyAppleIntelRouteImport
-      parentRoute: typeof ViewRouteRoute
-    }
   }
 }
 
@@ -1474,13 +1334,6 @@ interface ViewRouteRouteChildren {
   ViewDownloadLinuxDebRoute: typeof ViewDownloadLinuxDebRoute
   ViewDownloadWindowsRoute: typeof ViewDownloadWindowsRoute
   ViewDownloadIndexRoute: typeof ViewDownloadIndexRoute
-  ViewDownloadNightlyAppleIntelRoute: typeof ViewDownloadNightlyAppleIntelRoute
-  ViewDownloadNightlyAppleSiliconRoute: typeof ViewDownloadNightlyAppleSiliconRoute
-  ViewDownloadNightlyLinuxAppimageRoute: typeof ViewDownloadNightlyLinuxAppimageRoute
-  ViewDownloadNightlyLinuxAppimageAarch64Route: typeof ViewDownloadNightlyLinuxAppimageAarch64Route
-  ViewDownloadNightlyLinuxDebRoute: typeof ViewDownloadNightlyLinuxDebRoute
-  ViewDownloadNightlyLinuxDebAarch64Route: typeof ViewDownloadNightlyLinuxDebAarch64Route
-  ViewDownloadNightlyWindowsRoute: typeof ViewDownloadNightlyWindowsRoute
 }
 
 const ViewRouteRouteChildren: ViewRouteRouteChildren = {
@@ -1496,15 +1349,6 @@ const ViewRouteRouteChildren: ViewRouteRouteChildren = {
   ViewDownloadLinuxDebRoute: ViewDownloadLinuxDebRoute,
   ViewDownloadWindowsRoute: ViewDownloadWindowsRoute,
   ViewDownloadIndexRoute: ViewDownloadIndexRoute,
-  ViewDownloadNightlyAppleIntelRoute: ViewDownloadNightlyAppleIntelRoute,
-  ViewDownloadNightlyAppleSiliconRoute: ViewDownloadNightlyAppleSiliconRoute,
-  ViewDownloadNightlyLinuxAppimageRoute: ViewDownloadNightlyLinuxAppimageRoute,
-  ViewDownloadNightlyLinuxAppimageAarch64Route:
-    ViewDownloadNightlyLinuxAppimageAarch64Route,
-  ViewDownloadNightlyLinuxDebRoute: ViewDownloadNightlyLinuxDebRoute,
-  ViewDownloadNightlyLinuxDebAarch64Route:
-    ViewDownloadNightlyLinuxDebAarch64Route,
-  ViewDownloadNightlyWindowsRoute: ViewDownloadNightlyWindowsRoute,
 }
 
 const ViewRouteRouteWithChildren = ViewRouteRoute._addFileChildren(

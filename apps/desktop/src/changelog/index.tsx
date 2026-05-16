@@ -79,11 +79,7 @@ export function TabContentChangelog({
 
         <div className="relative mt-4 min-h-0 flex-1 overflow-hidden">
           <div className="scroll-fade-y h-full overflow-y-auto px-3 pb-4">
-            <ChangelogBody
-              version={current}
-              content={content}
-              loading={loading}
-            />
+            <ChangelogBody content={content} loading={loading} />
           </div>
         </div>
       </div>
@@ -113,11 +109,9 @@ function ExternalLink({
 }
 
 function ChangelogBody({
-  version,
   content,
   loading,
 }: {
-  version: string;
   content: string | null;
   loading: boolean;
 }) {
@@ -147,29 +141,9 @@ function ChangelogBody({
     );
   }
 
-  if (isNightly(version)) {
-    return (
-      <p className="text-neutral-500">
-        This is a nightly build. See the{" "}
-        <ExternalLink href={githubReleaseUrl(version)}>
-          GitHub release
-        </ExternalLink>{" "}
-        for details.
-      </p>
-    );
-  }
-
   return (
     <p className="text-neutral-500">No changelog available for this version.</p>
   );
-}
-
-function isNightly(version: string) {
-  return version.includes("nightly");
-}
-
-function githubReleaseUrl(version: string) {
-  return `https://github.com/fastrepl/char/releases/tag/desktop_v${version}`;
 }
 
 function ChangelogHeader({
@@ -180,9 +154,7 @@ function ChangelogHeader({
   date: string | null;
 }) {
   const formattedDate = date ? safeFormat(date, "MMM d, yyyy") : null;
-  const webUrl = isNightly(version)
-    ? githubReleaseUrl(version)
-    : `https://char.com/changelog/${version}`;
+  const webUrl = `https://char.com/changelog/${version}`;
 
   return (
     <div className="w-full pt-1">

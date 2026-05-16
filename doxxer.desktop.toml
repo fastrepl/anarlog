@@ -7,20 +7,6 @@ format = "plain"
 prerelease.template = "{pre}.dev.{distance}"
 build_metadata.template = "{hash}"
 
-[next.prerelease]
-prerelease.identifier = "nightly"
-prerelease.template = "{identifier}.{inc}"
-build_metadata.template = ""
-
-[next.pre-patch]
-prerelease.identifier = "nightly"
-prerelease.template = "{identifier}.{inc}"
-build_metadata.template = ""
-
-[next.pre-major]
-prerelease.identifier = "nightly"
-prerelease.template = "{identifier}.{inc}"
-
 [next.patch]
 increment = 1
 

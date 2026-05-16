@@ -11,7 +11,6 @@ on:
         type: choice
         options:
           - stable
-          - nightly
       publish:
         description: "Publish to CrabNebula after upload"
         required: true

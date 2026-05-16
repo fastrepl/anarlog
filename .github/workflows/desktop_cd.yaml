@@ -8,7 +8,6 @@ on:
         type: choice
         options:
           - staging
-          - nightly
           - stable
       publish:
         description: "Publish to Crabnebula and create GitHub release (ignored for staging)"
@@ -43,13 +42,6 @@ jobs:
         run: |
           if [[ "${{ inputs.channel }}" == "staging" ]]; then
             VERSION=$(doxxer --config doxxer.desktop.toml next dev)
-          elif [[ "${{ inputs.channel }}" == "nightly" ]]; then
-            LATEST_TAG=$(git tag -l 'desktop_v*' --sort=-creatordate | head -n1)
-            if [[ "$LATEST_TAG" == *"-nightly"* ]]; then
-              VERSION=$(doxxer --config doxxer.desktop.toml next prerelease)
-            else
-              VERSION=$(doxxer --config doxxer.desktop.toml next pre-patch)
-            fi
           elif [[ "${{ inputs.channel }}" == "stable" ]]; then
             VERSION=$(doxxer --config doxxer.desktop.toml next patch)
           fi
@@ -277,46 +269,13 @@ jobs:
           fi
           echo "list=$ARTIFACTS" >> $GITHUB_OUTPUT
       - id: release-body
-        env:
-          CHANNEL: ${{ inputs.channel }}
-          VERSION: ${{ needs.compute-version.outputs.version }}
         run: |
-          if [[ "$CHANNEL" != "nightly" ]]; then
-            echo "value=https://anarlog.so/changelog/$VERSION" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          CURRENT_TAG="desktop_v$VERSION"
-          PREV_TAG=""
-          LAST_TAG=""
-          LAST_NIGHTLY_TAG=""
-
-          while IFS= read -r tag; do
-            if [[ "$tag" == "$CURRENT_TAG" ]]; then
-              PREV_TAG="$LAST_NIGHTLY_TAG"
-              if [[ -z "$PREV_TAG" ]]; then
-                PREV_TAG="$LAST_TAG"
-              fi
-              break
-            fi
-
-            if [[ "$tag" == *"-nightly."* ]]; then
-              LAST_NIGHTLY_TAG="$tag"
-            fi
-
-            LAST_TAG="$tag"
-          done < <(git tag -l 'desktop_v*' --sort=v:refname)
-
-          if [[ -n "$PREV_TAG" ]]; then
-            echo "value=https://github.com/${{ github.repository }}/compare/$PREV_TAG...$CURRENT_TAG" >> "$GITHUB_OUTPUT"
-          else
-            echo "value=https://github.com/${{ github.repository }}/commits/${{ github.sha }}" >> "$GITHUB_OUTPUT"
-          fi
+          echo "value=https://anarlog.so/changelog/${{ needs.compute-version.outputs.version }}" >> "$GITHUB_OUTPUT"
       - uses: ncipollo/release-action@v1
         with:
           tag: desktop_v${{ needs.compute-version.outputs.version }}
           name: desktop_v${{ needs.compute-version.outputs.version }}
           body: ${{ steps.release-body.outputs.value }}
-          prerelease: ${{ inputs.channel == 'nightly' }}
-          makeLatest: ${{ inputs.channel == 'nightly' && 'false' || 'true' }}
+          prerelease: false
+          makeLatest: true
           artifacts: ${{ steps.artifacts.outputs.list }}
