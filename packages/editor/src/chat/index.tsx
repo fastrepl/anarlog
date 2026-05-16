@@ -29,8 +29,10 @@ import { forwardRef, useImperativeHandle, useMemo, useRef } from "react";
 import "@hypr/tiptap/styles.css";
 import { cn } from "@hypr/utils";
 
+import { EditorErrorBoundary } from "../editor-error-boundary";
 import { AttachmentChipView, MentionNodeView } from "../node-views";
 import { type PlaceholderFunction, placeholderPlugin } from "../plugins";
+import { dispatchEditorTransaction } from "../transaction-guard";
 import {
   type MentionConfig,
   MentionSuggestion,
@@ -256,29 +258,33 @@ export const ChatEditor = forwardRef<ChatEditorHandle, ChatEditorProps>(
     }, []);
 
     return (
-      <ProseMirror
-        defaultState={defaultState}
-        nodeViewComponents={nodeViews}
-        dispatchTransaction={function (this: EditorView, tr) {
-          const newState = this.state.apply(tr);
-          this.updateState(newState);
-          if (tr.docChanged) {
-            onUpdateRef.current?.(newState.doc.toJSON() as JSONContent);
-          }
-        }}
-        attributes={{
-          spellcheck: "false",
-          autocomplete: "off",
-          autocorrect: "off",
-          autocapitalize: "off",
-          role: "textbox",
-          class: cn(className, "tiptap"),
-        }}
-      >
-        <ProseMirrorDoc />
-        <ViewCapture viewRef={viewRef} />
-        {mentionConfig && <MentionSuggestion config={mentionConfig} />}
-      </ProseMirror>
+      <EditorErrorBoundary>
+        <ProseMirror
+          defaultState={defaultState}
+          nodeViewComponents={nodeViews}
+          dispatchTransaction={function (this: EditorView, tr) {
+            dispatchEditorTransaction({
+              view: this,
+              transaction: tr,
+              onDocChanged: (view) => {
+                onUpdateRef.current?.(view.state.doc.toJSON() as JSONContent);
+              },
+            });
+          }}
+          attributes={{
+            spellcheck: "false",
+            autocomplete: "off",
+            autocorrect: "off",
+            autocapitalize: "off",
+            role: "textbox",
+            class: cn(className, "tiptap"),
+          }}
+        >
+          <ProseMirrorDoc />
+          <ViewCapture viewRef={viewRef} />
+          {mentionConfig && <MentionSuggestion config={mentionConfig} />}
+        </ProseMirror>
+      </EditorErrorBoundary>
     );
   },
 );

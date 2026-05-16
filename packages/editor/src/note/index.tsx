@@ -32,6 +32,7 @@ import { useDebounceCallback } from "usehooks-ts";
 
 import "@hypr/tiptap/styles.css";
 
+import { EditorErrorBoundary } from "../editor-error-boundary";
 import {
   FileAttachmentView,
   MentionNodeView,
@@ -64,6 +65,7 @@ import {
   normalizeTaskContent,
   type TaskSource,
 } from "../tasks";
+import { dispatchEditorTransaction } from "../transaction-guard";
 import {
   FormatToolbar,
   type MentionConfig,
@@ -471,33 +473,37 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
     return (
       <TaskSourceProvider source={taskSource ?? null}>
         <LinkedItemOpenBehaviorContext.Provider value={linkedItemOpenBehavior}>
-          <ProseMirror
-            defaultState={defaultState}
-            nodeViewComponents={nodeViews}
-            dispatchTransaction={function (this: EditorView, tr: Transaction) {
-              const { state: newState, transactions } =
-                this.state.applyTransaction(tr);
-              this.updateState(newState);
-              if (transactions.some((transaction) => transaction.docChanged)) {
-                onUpdate(this);
-              }
-            }}
-            attributes={{
-              spellcheck: "false",
-              autocomplete: "off",
-              autocorrect: "off",
-              autocapitalize: "off",
-              role: "textbox",
-              class: "tiptap",
-            }}
-          >
-            <ProseMirrorDoc />
-            <ViewCapture viewRef={viewRef} onViewReady={onViewReady} />
-            <EditorCommandsBridge commandsRef={commandsRef} />
-            <FormatToolbar />
-            <SlashCommandMenu />
-            {mentionConfig && <MentionSuggestion config={mentionConfig} />}
-          </ProseMirror>
+          <EditorErrorBoundary>
+            <ProseMirror
+              defaultState={defaultState}
+              nodeViewComponents={nodeViews}
+              dispatchTransaction={function (
+                this: EditorView,
+                tr: Transaction,
+              ) {
+                dispatchEditorTransaction({
+                  view: this,
+                  transaction: tr,
+                  onDocChanged: () => onUpdate(this),
+                });
+              }}
+              attributes={{
+                spellcheck: "false",
+                autocomplete: "off",
+                autocorrect: "off",
+                autocapitalize: "off",
+                role: "textbox",
+                class: "tiptap",
+              }}
+            >
+              <ProseMirrorDoc />
+              <ViewCapture viewRef={viewRef} onViewReady={onViewReady} />
+              <EditorCommandsBridge commandsRef={commandsRef} />
+              <FormatToolbar />
+              <SlashCommandMenu />
+              {mentionConfig && <MentionSuggestion config={mentionConfig} />}
+            </ProseMirror>
+          </EditorErrorBoundary>
         </LinkedItemOpenBehaviorContext.Provider>
       </TaskSourceProvider>
     );
