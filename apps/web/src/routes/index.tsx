@@ -109,7 +109,7 @@ export const Route = createFileRoute("/")({
   },
   component: Component,
   loader: async () => ({
-    githubStars: (await getGitHubStats()).stars ?? 0,
+    githubStars: (await getGitHubStats()).stars ?? 8466,
   }),
   head: () => ({
     links: [{ rel: "canonical", href: ANARLOG_SITE_URL }],
@@ -226,11 +226,11 @@ function AnnouncementBanner() {
     <Link
       to="/blog/$slug/"
       params={{ slug: "char-is-now-anarlog" }}
-      className="border-color-subtle bg-surface-subtle group hover:bg-page block border-b transition-colors"
+      className="border-color-subtle group block border-b bg-neutral-50"
       aria-label="Read about Char becoming Anarlog"
     >
       <span className="text-color mx-auto flex min-h-10 w-full max-w-[700px] items-center justify-center gap-2 px-5 py-2 text-center text-sm font-medium md:px-8">
-        <span>Char is now Anarlog</span>
+        <span>Announcement: Char is now Anarlog</span>
         <ArrowRight
           size={16}
           strokeWidth={2.2}

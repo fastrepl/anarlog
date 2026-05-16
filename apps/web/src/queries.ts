@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getGitHubStats, getStargazers } from "./functions/github";
 
 const ORG_REPO = "fastrepl/char";
-const LAST_SEEN_STARS = 8173;
+const LAST_SEEN_STARS = 8466;
 const LAST_SEEN_FORKS = 582;
 
 export function useGitHubStats() {
