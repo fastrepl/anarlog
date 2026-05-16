@@ -243,15 +243,20 @@ function TabContentNoteInner({
 
   return (
     <SessionSurface
-      header={<OuterHeader sessionId={tab.id} currentView={currentView} />}
-      title={
-        <TitleInput
-          ref={titleInputRef}
-          tab={tab}
-          onTransferContentToEditor={handleTransferContentToEditor}
-          onFocusEditorAtStart={handleFocusEditorAtStart}
-          onFocusEditorAtPixelWidth={handleFocusEditorAtPixelWidth}
-          onGenerateTitle={hasTranscript ? generateTitle : undefined}
+      header={
+        <OuterHeader
+          sessionId={tab.id}
+          currentView={currentView}
+          title={
+            <TitleInput
+              ref={titleInputRef}
+              tab={tab}
+              onTransferContentToEditor={handleTransferContentToEditor}
+              onFocusEditorAtStart={handleFocusEditorAtStart}
+              onFocusEditorAtPixelWidth={handleFocusEditorAtPixelWidth}
+              onGenerateTitle={hasTranscript ? generateTitle : undefined}
+            />
+          }
         />
       }
       afterBorder={bottomAccessory}

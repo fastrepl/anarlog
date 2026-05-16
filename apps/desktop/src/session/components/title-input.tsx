@@ -84,8 +84,8 @@ export const TitleInput = forwardRef<
 
     if (isGenerating) {
       return (
-        <div className="flex h-[28px] w-full items-center">
-          <span className="text-muted-foreground animate-pulse text-xl font-semibold">
+        <div className="flex h-8 w-full items-center">
+          <span className="text-muted-foreground animate-pulse text-sm font-semibold">
             Generating title...
           </span>
         </div>
@@ -94,8 +94,8 @@ export const TitleInput = forwardRef<
 
     if (showRevealAnimation && generatedTitle) {
       return (
-        <div className="flex h-[28px] w-full items-center overflow-hidden">
-          <span className="animate-reveal-left text-xl font-semibold whitespace-nowrap">
+        <div className="flex h-8 w-full items-center overflow-hidden">
+          <span className="animate-reveal-left text-sm font-semibold whitespace-nowrap">
             {generatedTitle}
           </span>
         </div>
@@ -350,10 +350,10 @@ const TitleInputInner = memo(
             className={cn([
               "min-w-0 flex-1 transition-opacity duration-200",
               "border-none bg-transparent focus:outline-hidden",
-              "placeholder:text-muted-foreground text-xl font-semibold",
+              "placeholder:text-muted-foreground text-sm font-semibold",
             ])}
           />
-          {onGenerateTitle && (
+          {onGenerateTitle && !localTitle.trim() && (
             <GenerateButton onGenerateTitle={onGenerateTitle} />
           )}
         </div>
