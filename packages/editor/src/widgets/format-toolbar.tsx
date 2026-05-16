@@ -108,8 +108,8 @@ export function FormatToolbar() {
     <div
       ref={toolbarRef}
       className={cn([
-        "absolute z-[9999] flex items-center gap-0.5 rounded-lg bg-white p-1",
-        "shadow-[0_0_0_1px_rgba(0,0,0,0.05),0_6px_12px_-3px_rgba(0,0,0,0.08)]",
+        "absolute z-[9999] flex items-center gap-0.5 rounded-lg border border-neutral-200 bg-white/95 p-1",
+        "shadow-[0_10px_30px_-14px_rgba(0,0,0,0.35),0_4px_12px_-6px_rgba(0,0,0,0.18)] backdrop-blur-sm",
       ])}
       style={{ top: 0, left: 0 }}
       onMouseDown={(e) => e.preventDefault()}
