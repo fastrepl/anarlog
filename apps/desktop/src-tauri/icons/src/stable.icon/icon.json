@@ -1,31 +1,25 @@
 {
-  "fill": {
-    "automatic-gradient": "srgb:1.00000,0.92941,0.73333,1.00000"
-  },
+  "fill": "automatic",
   "groups": [
     {
       "layers": [
         {
-          "glass": false,
+          "blend-mode": "normal",
+          "fill": "automatic",
           "hidden": false,
-          "image-name": "icon.png",
-          "name": "icon",
-          "position": {
-            "scale": 1,
-            "translation-in-points": [
-              0,
-              0
-            ]
-          }
+          "image-name": "icon.jpg",
+          "name": "icon"
         }
       ],
+      "lighting": "individual",
+      "opacity": 1,
       "shadow": {
         "kind": "neutral",
-        "opacity": 0
+        "opacity": 0.5
       },
       "translucency": {
-        "enabled": false,
-        "value": 0
+        "enabled": true,
+        "value": 0.5
       }
     }
   ],
