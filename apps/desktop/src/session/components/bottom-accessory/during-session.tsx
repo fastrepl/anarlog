@@ -7,7 +7,11 @@ import { getSegmentColor } from "~/session/components/note-input/transcript/rend
 import * as main from "~/store/tinybase/store/main";
 import { getLiveCaptureUiMode } from "~/store/zustand/listener/general-shared";
 import { useListener } from "~/stt/contexts";
-import { SegmentKeyUtils, type Segment } from "~/stt/live-segment";
+import {
+  mergeRenderedAndLiveSegments,
+  SegmentKeyUtils,
+  type Segment,
+} from "~/stt/live-segment";
 import {
   buildRenderTranscriptRequestFromStore,
   renderTranscriptSegments,
@@ -292,7 +296,7 @@ function useLiveTranscriptSegments(sessionId: string): Segment[] {
   });
 
   return useMemo(() => {
-    return liveSegments.length > 0 ? liveSegments : renderedSegments;
+    return mergeRenderedAndLiveSegments(renderedSegments, liveSegments);
   }, [liveSegments, renderedSegments]);
 }
 

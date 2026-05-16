@@ -14,7 +14,11 @@ import {
 } from "./segment-hooks";
 
 import * as main from "~/store/tinybase/store/main";
-import type { Segment, SegmentWord } from "~/stt/live-segment";
+import {
+  mergeRenderedAndLiveSegments,
+  type Segment,
+  type SegmentWord,
+} from "~/stt/live-segment";
 import {
   defaultRenderLabelContext,
   SpeakerLabelManager,
@@ -42,9 +46,11 @@ export function RenderTranscript({
   audioExists: boolean;
 }) {
   const storedSegments = useRenderedTranscriptSegments(transcriptId);
-  const segments = useStableSegments(
-    liveSegments.length > 0 ? liveSegments : storedSegments,
+  const mergedSegments = useMemo(
+    () => mergeRenderedAndLiveSegments(storedSegments, liveSegments),
+    [liveSegments, storedSegments],
   );
+  const segments = useStableSegments(mergedSegments);
   const offsetMs = useTranscriptOffset(transcriptId);
 
   if (segments.length === 0) {

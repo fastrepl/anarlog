@@ -134,3 +134,38 @@ export const SegmentKeyUtils = {
       : `Speaker ${channelLabel}`;
   },
 };
+
+export function mergeRenderedAndLiveSegments(
+  renderedSegments: Segment[],
+  liveSegments: Segment[],
+): Segment[] {
+  if (liveSegments.length === 0) {
+    return renderedSegments;
+  }
+
+  if (renderedSegments.length === 0) {
+    return liveSegments;
+  }
+
+  const liveSegmentIds = new Set(
+    liveSegments
+      .map((segment) => segment.id)
+      .filter((id): id is string => typeof id === "string" && id.length > 0),
+  );
+  const liveWordIds = new Set(
+    liveSegments.flatMap((segment) =>
+      segment.words
+        .map((word) => word.id)
+        .filter((id): id is string => typeof id === "string" && id.length > 0),
+    ),
+  );
+  const renderedOnlySegments = renderedSegments.filter((segment) => {
+    if (segment.id && liveSegmentIds.has(segment.id)) {
+      return false;
+    }
+
+    return !segment.words.some((word) => word.id && liveWordIds.has(word.id));
+  });
+
+  return [...renderedOnlySegments, ...liveSegments];
+}

@@ -121,6 +121,30 @@ describe("DuringSessionAccessory", () => {
     expect(getLiveTranscriptScrollViewport().scrollTop).toBe(800);
   });
 
+  it("keeps rendered transcript history visible while resumed live segments stream", () => {
+    useQueryMock.mockReturnValue({
+      data: [segment("Earlier saved transcript.", 0)],
+    });
+    liveSegments = [segment("New live words.", 500)];
+
+    render(<DuringSessionAccessory sessionId="session-1" isExpanded />);
+
+    expect(screen.getByText("Earlier saved transcript.")).toBeTruthy();
+    expect(screen.getByText("New live words.")).toBeTruthy();
+  });
+
+  it("does not duplicate rendered segments already represented by live segments", () => {
+    const sharedSegment = segment("Shared live words.", 0);
+    useQueryMock.mockReturnValue({
+      data: [sharedSegment],
+    });
+    liveSegments = [sharedSegment];
+
+    render(<DuringSessionAccessory sessionId="session-1" isExpanded />);
+
+    expect(screen.getAllByText("Shared live words.")).toHaveLength(1);
+  });
+
   it("truncates long speaker labels inside the chip", () => {
     const label = "Alexandria Catherine Montgomery";
 
