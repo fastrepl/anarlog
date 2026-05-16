@@ -253,20 +253,13 @@ impl LocalModel {
     }
 
     pub fn is_available_on_current_platform(&self) -> bool {
-        let is_macos = cfg!(target_os = "macos");
         let is_apple_silicon = cfg!(target_arch = "aarch64") && cfg!(target_os = "macos");
 
         match self {
             LocalModel::Soniqo(model) => model.is_available_on_current_platform(),
-            LocalModel::Whisper(_) => is_macos,
+            LocalModel::Whisper(_) => is_apple_silicon,
             LocalModel::Am(_) => is_apple_silicon,
-            LocalModel::Cactus(model) => {
-                if model.is_apple() {
-                    is_apple_silicon
-                } else {
-                    !is_apple_silicon
-                }
-            }
+            LocalModel::Cactus(model) => model.is_apple() && is_apple_silicon,
             LocalModel::GgufLlm(_) => cfg!(target_arch = "aarch64"),
             LocalModel::CactusLlm(model) => {
                 if model.is_apple() {

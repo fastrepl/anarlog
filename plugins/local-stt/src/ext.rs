@@ -62,7 +62,13 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
             LocalModel::Soniqo(_)
             | LocalModel::Am(_)
             | LocalModel::Whisper(_)
-            | LocalModel::Cactus(_) => Ok(()),
+            | LocalModel::Cactus(_) => {
+                if model.is_available_on_current_platform() {
+                    Ok(())
+                } else {
+                    Err(crate::Error::UnsupportedPlatform)
+                }
+            }
             LocalModel::GgufLlm(_) | LocalModel::CactusLlm(_) => {
                 Err(crate::Error::UnsupportedModelType)
             }

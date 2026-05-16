@@ -26,6 +26,8 @@ pub enum Error {
     AmApiKeyNotSet,
     #[error("Internal server only supports Whisper models")]
     UnsupportedModelType,
+    #[error("On-device transcription is only available on Apple Silicon")]
+    UnsupportedPlatform,
     #[error("Model delete failed: {0}")]
     ModelDeleteFailed(String),
     #[error("Model unpack failed: {0}")]

@@ -1,6 +1,7 @@
 #[cfg(target_os = "macos")]
 use std::{
     collections::BTreeSet,
+    env,
     path::{Path, PathBuf},
     process::Command,
 };
@@ -41,9 +42,22 @@ fn swift_bin_path() -> Option<PathBuf> {
     (!path.is_empty()).then(|| PathBuf::from(path))
 }
 
+#[cfg(target_os = "macos")]
+fn target_is_macos_apple_silicon() -> bool {
+    env::var("CARGO_CFG_TARGET_OS").is_ok_and(|value| value == "macos")
+        && env::var("CARGO_CFG_TARGET_ARCH").is_ok_and(|value| value == "aarch64")
+}
+
 fn main() {
     #[cfg(target_os = "macos")]
     {
+        if !target_is_macos_apple_silicon() {
+            println!(
+                "cargo:warning=Soniqo speech-swift linking is only available on macOS Apple Silicon"
+            );
+            return;
+        }
+
         swift_rs::SwiftLinker::new("15.0")
             .with_package("soniqo-swift", "./swift-lib/")
             .link();
@@ -59,6 +73,8 @@ fn main() {
 
     #[cfg(not(target_os = "macos"))]
     {
-        println!("cargo:warning=Soniqo speech-swift linking is only available on macOS");
+        println!(
+            "cargo:warning=Soniqo speech-swift linking is only available on macOS Apple Silicon"
+        );
     }
 }

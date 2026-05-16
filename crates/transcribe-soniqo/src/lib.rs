@@ -194,6 +194,7 @@ pub enum TranscriptSource {
 }
 
 impl TranscriptSource {
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
     const fn as_str(self) -> &'static str {
         match self {
             Self::Microphone => "microphone",
@@ -503,7 +504,7 @@ fn split_words(text: &str) -> Vec<&str> {
         .collect()
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 mod platform {
     use super::*;
     use swift_rs::{Bool, SRData, SRString, swift};
@@ -676,7 +677,7 @@ mod platform {
     }
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
 mod platform {
     use super::*;
 
