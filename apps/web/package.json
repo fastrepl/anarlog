@@ -7,8 +7,7 @@
     "build": "NODE_OPTIONS='--max-old-space-size=8192' vite build && cp public/sitemap.xml dist/client/sitemap.xml && pagefind --site ./dist/client",
     "serve": "vite preview",
     "test": "node --test",
-    "typecheck": "tsc --project tsconfig.json --noEmit",
-    "gen:agents": "node scripts/gen-agents.js"
+    "typecheck": "tsc --project tsconfig.json --noEmit"
   },
   "dependencies": {
     "@chenglou/pretext": "^0.0.4",
