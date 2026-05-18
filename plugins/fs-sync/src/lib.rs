@@ -22,6 +22,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::delete_folder::<tauri::Wry>,
             commands::audio_exist::<tauri::Wry>,
             commands::audio_delete::<tauri::Wry>,
+            commands::audio_delete_orphaned_expired::<tauri::Wry>,
             commands::audio_import::<tauri::Wry>,
             commands::audio_source_metadata,
             commands::audio_path::<tauri::Wry>,

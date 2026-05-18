@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import type { Queries } from "tinybase/with-schemas";
 import {
@@ -27,6 +28,7 @@ import * as settings from "~/store/tinybase/store/settings";
 const CALENDAR_SYNC_INTERVAL = 60 * 1000; // 60 sec
 
 export function TaskManager() {
+  const queryClient = useQueryClient();
   const store = main.UI.useStore(main.STORE_ID);
   const queries = main.UI.useQueries(main.STORE_ID);
 
@@ -75,11 +77,19 @@ export function TaskManager() {
 
   useSetTask(AUDIO_RETENTION_TASK_ID, async () => {
     if (!store || !settingsStore) return;
-    await cleanupExpiredAudio(
+    const deletedSessionIds = await cleanupExpiredAudio(
       store as main.Store,
       settingsStore as settings.Store,
     );
-  }, [store, settingsStore]);
+    for (const sessionId of deletedSessionIds) {
+      void queryClient.invalidateQueries({
+        queryKey: ["audio", sessionId, "exist"],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["audio", sessionId, "url"],
+      });
+    }
+  }, [store, settingsStore, queryClient]);
 
   useScheduleTaskRun(AUDIO_RETENTION_TASK_ID, undefined, 0, {
     repeatDelay: AUDIO_RETENTION_INTERVAL,

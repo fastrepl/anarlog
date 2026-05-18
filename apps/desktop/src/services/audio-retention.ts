@@ -48,8 +48,12 @@ export async function cleanupExpiredAudio(
     settingsStore.getValue("audio_retention"),
   );
   const deletes: Promise<void>[] = [];
+  const knownSessionIds: string[] = [];
+  const deletedSessionIds: string[] = [];
 
   store.forEachRow("sessions", (sessionId, _forEachCell) => {
+    knownSessionIds.push(sessionId);
+
     if (listenerStore.getState().getSessionMode(sessionId) !== "inactive") {
       return;
     }
@@ -68,7 +72,10 @@ export async function cleanupExpiredAudio(
               sessionId,
               error: result.error,
             });
+            return;
           }
+
+          deletedSessionIds.push(sessionId);
         })
         .catch((error) => {
           console.error("[audio-retention] failed to delete audio", {
@@ -80,4 +87,26 @@ export async function cleanupExpiredAudio(
   });
 
   await Promise.all(deletes);
+
+  try {
+    const orphanedResult = await fsSyncCommands.audioDeleteOrphanedExpired(
+      knownSessionIds,
+      AUDIO_RETENTION_DURATION_MS[policy],
+      nowMs,
+    );
+
+    if (orphanedResult.status === "error") {
+      console.error("[audio-retention] failed to delete orphaned audio", {
+        error: orphanedResult.error,
+      });
+    } else {
+      deletedSessionIds.push(...orphanedResult.data);
+    }
+  } catch (error) {
+    console.error("[audio-retention] failed to delete orphaned audio", {
+      error,
+    });
+  }
+
+  return deletedSessionIds;
 }

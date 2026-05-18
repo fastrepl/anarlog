@@ -202,6 +202,27 @@ pub(crate) async fn audio_delete<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
+pub(crate) async fn audio_delete_orphaned_expired<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    known_session_ids: Vec<String>,
+    retention_ms: u64,
+    now_ms: u64,
+) -> Result<Vec<String>, String> {
+    let base = app.settings().vault_base().map_err(|e| e.to_string())?;
+    let sessions_dir = base.join("sessions").into_std_path_buf();
+    spawn_blocking!({
+        crate::audio::delete_orphaned_expired(
+            &sessions_dir,
+            &known_session_ids,
+            retention_ms,
+            now_ms,
+        )
+        .map_err(|e| e.to_string())
+    })
+}
+
+#[tauri::command]
+#[specta::specta]
 pub(crate) async fn audio_import<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     session_id: String,
