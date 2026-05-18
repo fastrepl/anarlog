@@ -53,9 +53,21 @@ struct TranscriptRequest<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     diarization: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    diarization_config: Option<DiarizationConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     custom_vocabulary: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     name_consistency: Option<bool>,
+}
+
+#[derive(Debug, PartialEq, Serialize)]
+struct DiarizationConfig {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    number_of_speakers: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    min_speakers: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    max_speakers: Option<u32>,
 }
 
 #[derive(Debug, Serialize)]
@@ -226,6 +238,7 @@ impl GladiaAdapter {
             model,
             language_config,
             diarization: Some(true),
+            diarization_config: Self::diarization_config(params),
             custom_vocabulary,
             name_consistency: Some(true),
         };
@@ -297,6 +310,19 @@ impl GladiaAdapter {
         .await
     }
 
+    fn diarization_config(params: &ListenParams) -> Option<DiarizationConfig> {
+        let config = DiarizationConfig {
+            number_of_speakers: params.num_speakers,
+            min_speakers: params.min_speakers,
+            max_speakers: params.max_speakers,
+        };
+
+        (config.number_of_speakers.is_some()
+            || config.min_speakers.is_some()
+            || config.max_speakers.is_some())
+        .then_some(config)
+    }
+
     fn convert_to_batch_response(response: TranscriptResponse) -> BatchResponse {
         let result = response.result.unwrap_or_default();
         let transcription = result.transcription.unwrap_or_default();
@@ -356,6 +382,33 @@ impl GladiaAdapter {
 mod tests {
     use super::*;
     use crate::http_client::create_client;
+
+    #[test]
+    fn diarization_config_uses_speaker_count_hints() {
+        let params = ListenParams {
+            num_speakers: Some(3),
+            min_speakers: Some(2),
+            max_speakers: Some(4),
+            ..Default::default()
+        };
+
+        assert_eq!(
+            GladiaAdapter::diarization_config(&params),
+            Some(DiarizationConfig {
+                number_of_speakers: Some(3),
+                min_speakers: Some(2),
+                max_speakers: Some(4),
+            })
+        );
+    }
+
+    #[test]
+    fn diarization_config_is_omitted_without_speaker_hints() {
+        assert_eq!(
+            GladiaAdapter::diarization_config(&ListenParams::default()),
+            None
+        );
+    }
 
     #[tokio::test]
     #[ignore]

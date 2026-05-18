@@ -46,6 +46,16 @@ impl RealtimeSttAdapter for HyprnoteAdapter {
                 query.append_pair("keyword", keyword);
             }
 
+            if let Some(num_speakers) = params.num_speakers {
+                query.append_pair("num_speakers", &num_speakers.to_string());
+            }
+            if let Some(min_speakers) = params.min_speakers {
+                query.append_pair("min_speakers", &min_speakers.to_string());
+            }
+            if let Some(max_speakers) = params.max_speakers {
+                query.append_pair("max_speakers", &max_speakers.to_string());
+            }
+
             if let Some(custom) = &params.custom_query {
                 for (key, value) in custom {
                     query.append_pair(key, value);
@@ -135,6 +145,24 @@ mod tests {
 
         assert!(url_str.contains("keyword=Hyprnote"));
         assert!(url_str.contains("keyword=transcription"));
+    }
+
+    #[test]
+    fn test_url_with_speaker_counts() {
+        let adapter = HyprnoteAdapter::default();
+        let params = owhisper_interface::ListenParams {
+            num_speakers: Some(3),
+            min_speakers: Some(2),
+            max_speakers: Some(4),
+            ..Default::default()
+        };
+
+        let url = adapter.build_ws_url(API_BASE, &params, 1);
+        let url_str = url.as_str();
+
+        assert!(url_str.contains("num_speakers=3"));
+        assert!(url_str.contains("min_speakers=2"));
+        assert!(url_str.contains("max_speakers=4"));
     }
 
     #[test]

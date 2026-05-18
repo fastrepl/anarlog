@@ -57,18 +57,13 @@ impl RealtimeSttAdapter for AssemblyAIAdapter {
                 query_pairs.append_pair("max_turn_silence", max_silence);
             }
 
-            if matches!(resolved_model, ResolvedLiveModel::U3RtPro)
-                && let Some(custom) = &params.custom_query
-            {
-                if custom
-                    .get("speaker_labels")
-                    .is_some_and(|value| value == "true")
-                {
+            if matches!(resolved_model, ResolvedLiveModel::U3RtPro) {
+                if Self::streaming_speaker_labels_enabled(params) {
                     query_pairs.append_pair("speaker_labels", "true");
                 }
 
-                if let Some(max_speakers) = custom.get("max_speakers") {
-                    query_pairs.append_pair("max_speakers", max_speakers);
+                if let Some(max_speakers) = Self::streaming_max_speakers(params) {
+                    query_pairs.append_pair("max_speakers", &max_speakers.to_string());
                 }
             }
 
@@ -232,6 +227,27 @@ impl AssemblyAIAdapter {
         }
     }
 
+    fn streaming_speaker_labels_enabled(params: &ListenParams) -> bool {
+        params.num_speakers.is_some()
+            || params.min_speakers.is_some()
+            || params.max_speakers.is_some()
+            || params
+                .custom_query
+                .as_ref()
+                .and_then(|custom| custom.get("speaker_labels"))
+                .is_some_and(|value| value == "true")
+    }
+
+    fn streaming_max_speakers(params: &ListenParams) -> Option<u32> {
+        params.max_speakers.or(params.num_speakers).or_else(|| {
+            params
+                .custom_query
+                .as_ref()
+                .and_then(|custom| custom.get("max_speakers"))
+                .and_then(|value| value.parse().ok())
+        })
+    }
+
     fn parse_speaker_label(label: Option<&str>) -> Option<i32> {
         let label = label?.trim();
         if label.is_empty() || label.eq_ignore_ascii_case("unknown") {
@@ -339,8 +355,6 @@ impl ResolvedLiveModel {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
     use hypr_language::ISO639;
     use owhisper_interface::ListenParams;
     use owhisper_interface::stream::StreamResponse;
@@ -424,10 +438,7 @@ mod tests {
             API_BASE,
             &owhisper_interface::ListenParams {
                 model: Some("u3-rt-pro".to_string()),
-                custom_query: Some(HashMap::from([
-                    ("speaker_labels".to_string(), "true".to_string()),
-                    ("max_speakers".to_string(), "3".to_string()),
-                ])),
+                num_speakers: Some(3),
                 ..Default::default()
             },
             1,
@@ -439,14 +450,28 @@ mod tests {
     }
 
     #[test]
-    fn test_whisper_fallback_omits_streaming_diarization_hints() {
+    fn test_streaming_min_speakers_enables_diarization() {
         let url = AssemblyAIAdapter.build_ws_url(
             API_BASE,
             &owhisper_interface::ListenParams {
-                custom_query: Some(HashMap::from([
-                    ("speaker_labels".to_string(), "true".to_string()),
-                    ("max_speakers".to_string(), "3".to_string()),
-                ])),
+                model: Some("u3-rt-pro".to_string()),
+                min_speakers: Some(2),
+                ..Default::default()
+            },
+            1,
+        );
+
+        let query = url.query().expect("query string");
+        assert!(query.contains("speaker_labels=true"));
+        assert!(!query.contains("max_speakers"));
+    }
+
+    #[test]
+    fn test_streaming_diarization_hints_skip_whisper_fallback() {
+        let url = AssemblyAIAdapter.build_ws_url(
+            API_BASE,
+            &owhisper_interface::ListenParams {
+                num_speakers: Some(3),
                 languages: vec![ISO639::Ko.into()],
                 ..Default::default()
             },
@@ -455,8 +480,8 @@ mod tests {
 
         let query = url.query().expect("query string");
         assert!(query.contains("speech_model=whisper-rt"));
-        assert!(!query.contains("speaker_labels=true"));
-        assert!(!query.contains("max_speakers=3"));
+        assert!(!query.contains("speaker_labels"));
+        assert!(!query.contains("max_speakers"));
     }
 
     #[test]

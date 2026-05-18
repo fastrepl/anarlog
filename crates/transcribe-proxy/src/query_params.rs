@@ -89,6 +89,12 @@ impl QueryParams {
             })
             .unwrap_or_default()
     }
+
+    pub fn parse_optional_u32(&self, key: &str) -> Option<u32> {
+        self.get_first(key)
+            .and_then(|value| value.parse::<u32>().ok())
+            .filter(|value| *value > 0)
+    }
 }
 
 impl Deref for QueryParams {
@@ -276,5 +282,15 @@ mod tests {
         assert_eq!(languages.len(), 2);
         assert_eq!(languages[0].iso639(), ISO639::En);
         assert_eq!(languages[1].iso639(), ISO639::Ko);
+    }
+
+    #[test]
+    fn parse_optional_u32_ignores_missing_invalid_and_zero_values() {
+        let params = parse_query("?num_speakers=3&min_speakers=0&max_speakers=nope");
+
+        assert_eq!(params.parse_optional_u32("num_speakers"), Some(3));
+        assert_eq!(params.parse_optional_u32("min_speakers"), None);
+        assert_eq!(params.parse_optional_u32("max_speakers"), None);
+        assert_eq!(params.parse_optional_u32("missing"), None);
     }
 }

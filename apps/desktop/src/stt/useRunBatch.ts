@@ -32,6 +32,8 @@ type RunOptions = {
   maxSpeakers?: number;
 };
 
+type Store = NonNullable<ReturnType<typeof main.UI.useStore>>;
+
 const DIRECT_BATCH_PROVIDERS: Set<TranscriptionParams["provider"]> = new Set([
   "deepgram",
   "soniox",
@@ -81,6 +83,38 @@ export function isStoppedTranscriptionError(error: unknown) {
   );
 }
 
+export function getSessionSpeakerCount(
+  store: Store,
+  sessionId: string,
+  selfHumanId?: string | null,
+): number | undefined {
+  const humanIds = new Set<string>();
+
+  store.forEachRow("mapping_session_participant", (mappingId, _forEachCell) => {
+    const sid = store.getCell(
+      "mapping_session_participant",
+      mappingId,
+      "session_id",
+    );
+    if (sid !== sessionId) return;
+
+    const humanId = store.getCell(
+      "mapping_session_participant",
+      mappingId,
+      "human_id",
+    );
+    if (typeof humanId === "string" && humanId) {
+      humanIds.add(humanId);
+    }
+  });
+
+  if (typeof selfHumanId === "string" && selfHumanId) {
+    humanIds.add(selfHumanId);
+  }
+
+  return humanIds.size > 1 ? humanIds.size : undefined;
+}
+
 export const useRunBatch = (sessionId: string) => {
   const store = main.UI.useStore(main.STORE_ID);
   const indexes = main.UI.useIndexes(main.STORE_ID);
@@ -114,6 +148,12 @@ export const useRunBatch = (sessionId: string) => {
       const createdAt = new Date().toISOString();
       const memoMd = store.getCell("sessions", sessionId, "raw_md");
       let transcriptId: string | null = null;
+      const inferredNumSpeakers =
+        options?.numSpeakers === undefined &&
+        options?.minSpeakers === undefined &&
+        options?.maxSpeakers === undefined
+          ? getSessionSpeakerCount(store, sessionId, user_id)
+          : undefined;
 
       const handlePersist: BatchPersistCallback | undefined =
         options?.handlePersist;
@@ -232,7 +272,7 @@ export const useRunBatch = (sessionId: string) => {
         languages:
           options?.languages ??
           getTranscriptionLanguages(aiLanguage, spokenLanguages),
-        num_speakers: options?.numSpeakers,
+        num_speakers: options?.numSpeakers ?? inferredNumSpeakers,
         min_speakers: options?.minSpeakers,
         max_speakers: options?.maxSpeakers,
       };

@@ -56,6 +56,15 @@ async fn do_transcribe_file(
         for kw in &params.keywords {
             q.append_pair("keyword", kw);
         }
+        if let Some(num_speakers) = params.num_speakers {
+            q.append_pair("num_speakers", &num_speakers.to_string());
+        }
+        if let Some(min_speakers) = params.min_speakers {
+            q.append_pair("min_speakers", &min_speakers.to_string());
+        }
+        if let Some(max_speakers) = params.max_speakers {
+            q.append_pair("max_speakers", &max_speakers.to_string());
+        }
         if let Some(custom) = &params.custom_query {
             for (key, value) in custom {
                 q.append_pair(key, value);

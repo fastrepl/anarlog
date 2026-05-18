@@ -86,6 +86,10 @@ impl ElevenLabsAdapter {
             .text("diarize", "true")
             .text("timestamps_granularity", "word");
 
+        if let Some(num_speakers) = Self::num_speakers_hint(params) {
+            form = form.text("num_speakers", num_speakers.to_string());
+        }
+
         if let Some(lang) = params.languages.first() {
             form = form.text("language_code", lang.iso639().code().to_string());
         }
@@ -114,6 +118,10 @@ impl ElevenLabsAdapter {
         tracing::info!("transcript fetched successfully from ElevenLabs");
 
         Ok(Self::convert_to_batch_response(transcript))
+    }
+
+    fn num_speakers_hint(params: &ListenParams) -> Option<u32> {
+        params.num_speakers.or(params.max_speakers)
     }
 
     fn convert_to_batch_response(response: TranscriptResponse) -> BatchResponse {
@@ -163,6 +171,26 @@ impl ElevenLabsAdapter {
 mod tests {
     use super::*;
     use crate::http_client::create_client;
+
+    #[test]
+    fn num_speakers_hint_prefers_exact_count_then_max() {
+        let exact = ListenParams {
+            num_speakers: Some(3),
+            max_speakers: Some(5),
+            ..Default::default()
+        };
+        let ranged = ListenParams {
+            max_speakers: Some(5),
+            ..Default::default()
+        };
+
+        assert_eq!(ElevenLabsAdapter::num_speakers_hint(&exact), Some(3));
+        assert_eq!(ElevenLabsAdapter::num_speakers_hint(&ranged), Some(5));
+        assert_eq!(
+            ElevenLabsAdapter::num_speakers_hint(&ListenParams::default()),
+            None
+        );
+    }
 
     #[test]
     fn speaker_labeled_words_use_mixed_capture_channel() {

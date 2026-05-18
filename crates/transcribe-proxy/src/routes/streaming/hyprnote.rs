@@ -24,6 +24,9 @@ fn build_listen_params(params: &QueryParams) -> ListenParams {
         sample_rate: parse_param(params, "sample_rate", 16000),
         channels: parse_param(params, "channels", 1),
         keywords: params.parse_keywords(),
+        num_speakers: params.parse_optional_u32("num_speakers"),
+        min_speakers: params.parse_optional_u32("min_speakers"),
+        max_speakers: params.parse_optional_u32("max_speakers"),
         ..Default::default()
     })
 }
@@ -291,6 +294,29 @@ mod tests {
         assert_eq!(listen_params.languages[0].iso639(), ISO639::En);
         assert_eq!(listen_params.sample_rate, 16000);
         assert_eq!(listen_params.channels, 1);
+    }
+
+    #[test]
+    fn test_build_listen_params_with_speaker_counts() {
+        let mut params = QueryParams::default();
+        params.insert(
+            "num_speakers".to_string(),
+            QueryValue::Single("3".to_string()),
+        );
+        params.insert(
+            "min_speakers".to_string(),
+            QueryValue::Single("2".to_string()),
+        );
+        params.insert(
+            "max_speakers".to_string(),
+            QueryValue::Single("4".to_string()),
+        );
+
+        let listen_params = build_listen_params(&params);
+
+        assert_eq!(listen_params.num_speakers, Some(3));
+        assert_eq!(listen_params.min_speakers, Some(2));
+        assert_eq!(listen_params.max_speakers, Some(4));
     }
 
     #[test]

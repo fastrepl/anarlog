@@ -16,6 +16,15 @@ pub struct CommonListenParams {
     /// Keyword boosting. Comma-separated or repeated query params
     #[allow(dead_code)]
     keywords: Option<String>,
+    /// Expected exact number of speakers, when supported by the selected provider
+    #[allow(dead_code)]
+    num_speakers: Option<u32>,
+    /// Minimum expected number of speakers, when supported by the selected provider
+    #[allow(dead_code)]
+    min_speakers: Option<u32>,
+    /// Maximum expected number of speakers, when supported by the selected provider
+    #[allow(dead_code)]
+    max_speakers: Option<u32>,
 }
 
 #[derive(utoipa::IntoParams)]

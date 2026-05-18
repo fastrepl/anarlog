@@ -410,32 +410,25 @@ fn i16_bytes_to_f32(bytes: &Bytes) -> Vec<f32> {
 }
 
 fn build_listen_params(args: &ListenerArgs) -> owhisper_interface::ListenParams {
-    let adapter_kind =
-        AdapterKind::from_url_and_languages(&args.base_url, &args.languages, Some(&args.model));
     let redemption_time_ms = if args.onboarding { "60" } else { "400" };
-    let mut custom_query = std::collections::HashMap::from([(
+    let custom_query = std::collections::HashMap::from([(
         "redemption_time_ms".to_string(),
         redemption_time_ms.to_string(),
     )]);
-
-    if adapter_kind == AdapterKind::AssemblyAI
-        && let Some(expected_speakers) = assemblyai_expected_speakers(args)
-    {
-        custom_query.insert("speaker_labels".to_string(), "true".to_string());
-        custom_query.insert("max_speakers".to_string(), expected_speakers.to_string());
-    }
+    let num_speakers = expected_speakers(args);
 
     owhisper_interface::ListenParams {
         model: Some(args.model.clone()),
         languages: args.languages.clone(),
         sample_rate: super::super::SAMPLE_RATE,
         keywords: args.keywords.clone(),
+        num_speakers,
         custom_query: Some(custom_query),
         ..Default::default()
     }
 }
 
-fn assemblyai_expected_speakers(args: &ListenerArgs) -> Option<u32> {
+fn expected_speakers(args: &ListenerArgs) -> Option<u32> {
     let mut participants = args.participant_human_ids.clone();
 
     if let Some(self_human_id) = &args.self_human_id
@@ -655,16 +648,16 @@ mod tests {
     }
 
     #[test]
-    fn assemblyai_expected_speakers_counts_distinct_participants() {
+    fn expected_speakers_counts_distinct_participants() {
         let mut args = listener_args("https://api.assemblyai.com", "u3-rt-pro");
         args.participant_human_ids = vec!["remote".to_string(), "self".to_string()];
         args.self_human_id = Some("self".to_string());
 
-        assert_eq!(assemblyai_expected_speakers(&args), Some(2));
+        assert_eq!(expected_speakers(&args), Some(2));
     }
 
     #[test]
-    fn build_listen_params_adds_assemblyai_diarization_hints() {
+    fn build_listen_params_sets_num_speakers_without_assemblyai_custom_query() {
         let mut args = listener_args("https://api.assemblyai.com", "u3-rt-pro");
         args.participant_human_ids = vec!["remote".to_string()];
         args.self_human_id = Some("self".to_string());
@@ -672,14 +665,9 @@ mod tests {
         let params = build_listen_params(&args);
         let custom_query = params.custom_query.expect("custom query");
 
-        assert_eq!(
-            custom_query.get("speaker_labels").map(String::as_str),
-            Some("true")
-        );
-        assert_eq!(
-            custom_query.get("max_speakers").map(String::as_str),
-            Some("2")
-        );
+        assert_eq!(params.num_speakers, Some(2));
+        assert!(!custom_query.contains_key("speaker_labels"));
+        assert!(!custom_query.contains_key("max_speakers"));
     }
 
     #[test]
@@ -691,6 +679,7 @@ mod tests {
         let params = build_listen_params(&args);
         let custom_query = params.custom_query.expect("custom query");
 
+        assert_eq!(params.num_speakers, Some(2));
         assert!(!custom_query.contains_key("speaker_labels"));
         assert!(!custom_query.contains_key("max_speakers"));
     }
