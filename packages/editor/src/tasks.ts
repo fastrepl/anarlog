@@ -105,14 +105,7 @@ export function createTaskItemAttrs(
 }
 
 export function getNextTaskStatus(status: TaskStatus): TaskStatus {
-  switch (status) {
-    case "todo":
-      return "in_progress";
-    case "in_progress":
-      return "done";
-    case "done":
-      return "todo";
-  }
+  return status === "done" ? "todo" : "done";
 }
 
 export function isTaskDone(status: TaskStatus): boolean {

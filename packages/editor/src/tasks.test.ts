@@ -4,12 +4,19 @@ import { createInMemoryTaskStorage } from "./task-storage";
 import {
   createTaskItemNode,
   extractTasksFromContent,
+  getNextTaskStatus,
   hydrateTaskContent,
   moveOpenTasksBetweenContents,
   normalizeTaskContent,
 } from "./tasks";
 
 describe("task content", () => {
+  it("toggles task status through the simple checked state", () => {
+    expect(getNextTaskStatus("todo")).toBe("done");
+    expect(getNextTaskStatus("in_progress")).toBe("done");
+    expect(getNextTaskStatus("done")).toBe("todo");
+  });
+
   it("assigns unique task ids and task item ids to missing and duplicated task items", () => {
     const content = normalizeTaskContent({
       type: "doc",

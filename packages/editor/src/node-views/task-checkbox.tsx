@@ -1,7 +1,3 @@
-import { CheckIcon, MinusIcon } from "lucide-react";
-
-import { cn } from "@hypr/utils";
-
 import type { TaskStatus } from "../tasks";
 
 type TaskCheckboxProps = {
@@ -17,8 +13,7 @@ export function TaskCheckbox({
   isSelected = false,
   onToggle,
 }: TaskCheckboxProps) {
-  const ariaChecked =
-    status === "done" ? true : status === "in_progress" ? "mixed" : false;
+  const checked = status === "done";
 
   return (
     <label
@@ -26,12 +21,11 @@ export function TaskCheckbox({
       contentEditable={false}
       suppressContentEditableWarning
     >
-      <button
-        type="button"
-        role="checkbox"
-        aria-checked={ariaChecked}
+      <input
+        type="checkbox"
         className="task-checkbox"
-        data-status={status}
+        checked={checked}
+        readOnly
         data-interactive={isInteractive ? "true" : "false"}
         data-selected={isSelected ? "true" : undefined}
         onClick={(event) => {
@@ -46,20 +40,7 @@ export function TaskCheckbox({
           event.preventDefault();
           event.stopPropagation();
         }}
-      >
-        <span
-          className={cn([
-            "pointer-events-none flex size-full items-center justify-center text-white",
-            status === "todo" && "text-transparent",
-          ])}
-        >
-          {status === "done" ? (
-            <CheckIcon size={12} strokeWidth={3} />
-          ) : status === "in_progress" ? (
-            <MinusIcon size={12} strokeWidth={3} />
-          ) : null}
-        </span>
-      </button>
+      />
     </label>
   );
 }

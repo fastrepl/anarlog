@@ -22,19 +22,10 @@ vi.mock("@handlewithcare/react-prosemirror", () => ({
   }),
 }));
 
-vi.mock("../task-source", () => ({
-  useTaskSourceOptional: () => null,
-}));
-
-vi.mock("../task-storage", () => ({
-  useTaskRecord: () => null,
-  useTaskStorageOptional: () => null,
-}));
-
 import { TaskItemView } from "./task-item-view";
 
 describe("TaskItemView", () => {
-  it("advances the task status when the checkbox is clicked", () => {
+  it("toggles the task status when the checkbox is clicked", () => {
     hoisted.transaction.setNodeMarkup.mockImplementation(
       (_pos, _type, attrs) => ({ attrs }),
     );
@@ -67,16 +58,16 @@ describe("TaskItemView", () => {
       4,
       undefined,
       {
-        status: "in_progress",
-        checked: false,
+        status: "done",
+        checked: true,
         taskId: null,
         taskItemId: null,
       },
     );
     expect(hoisted.view.dispatch).toHaveBeenCalledWith({
       attrs: {
-        status: "in_progress",
-        checked: false,
+        status: "done",
+        checked: true,
         taskId: null,
         taskItemId: null,
       },

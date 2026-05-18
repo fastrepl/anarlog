@@ -10,22 +10,16 @@
     align-items: center;
   }
 
-  .task-checkbox {
+  input.task-checkbox {
     appearance: none;
     -webkit-appearance: none;
     width: 18px;
     height: 18px;
-    border: 1.5px solid #000000;
+    border: 2px solid #ccc;
     border-radius: 4px;
-    background: transparent;
-    padding: 0;
     margin: 0;
     transition: all 0.2s ease;
     position: relative;
-    margin-top: 1px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
 
     &[data-interactive="true"] {
       cursor: pointer;
@@ -40,42 +34,31 @@
       box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
     }
 
-    &[data-status="done"],
     &:checked {
       background-color: #3b82f6;
       border-color: #3b82f6;
     }
 
-    &[data-status="in_progress"] {
-      background-color: #f59e0b;
-      border-color: #f59e0b;
+    &:checked::after {
+      content: "";
+      position: absolute;
+      left: 4.5px;
+      top: 1px;
+      width: 5px;
+      height: 10px;
+      border: solid white;
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg);
     }
 
-    &:focus,
-    &:focus-visible {
+    &:focus {
       outline: none;
       box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
     }
 
-    &[data-interactive="true"]:hover:not([data-status="done"]):not([data-status="in_progress"]) {
+    &[data-interactive="true"]:hover:not(:checked) {
       border-color: #9ca3af;
     }
-  }
-
-  input.task-checkbox:checked::after {
-    content: "";
-    position: absolute;
-    left: 4.5px;
-    top: 1px;
-    width: 5px;
-    height: 10px;
-    border: solid white;
-    border-width: 0 2px 2px 0;
-    transform: rotate(45deg);
-  }
-
-  input.task-checkbox[data-interactive="true"]:hover:not(:checked) {
-    border-color: #9ca3af;
   }
 
   /* task list */
@@ -89,13 +72,17 @@
     }
 
     li {
-      align-items: flex-start;
+      align-items: center;
       display: flex;
       margin-bottom: 0.25rem;
 
       > div {
         flex: 1 1 auto;
         margin-top: 0;
+
+        > p {
+          margin: 0;
+        }
       }
     }
 

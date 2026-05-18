@@ -1,8 +1,13 @@
-import { EditorState, Selection, type Transaction } from "prosemirror-state";
+import {
+  EditorState,
+  Selection,
+  TextSelection,
+  type Transaction,
+} from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { describe, expect, it } from "vitest";
 
-import { buildInputRules } from "./keymap";
+import { buildInputRules, buildKeymap } from "./keymap";
 import { schema } from "./schema";
 
 describe("buildInputRules", () => {
@@ -69,3 +74,208 @@ describe("buildInputRules", () => {
     });
   });
 });
+
+describe("buildKeymap", () => {
+  it("merges task item text backward without changing the list structure", () => {
+    const doc = schema.node("doc", null, [
+      schema.node("taskList", null, [
+        schema.node(
+          "taskItem",
+          {
+            status: "todo",
+            checked: false,
+            taskId: "task-1",
+            taskItemId: "task-item-1",
+          },
+          [schema.node("paragraph", null, [schema.text("one")])],
+        ),
+        schema.node(
+          "taskItem",
+          {
+            status: "todo",
+            checked: false,
+            taskId: "task-2",
+            taskItemId: "task-item-2",
+          },
+          [schema.node("paragraph", null, [schema.text("two")])],
+        ),
+      ]),
+    ]);
+    const { state } = runBackspaceAtTextStart(doc, "two");
+
+    expect(state.doc.toJSON()).toEqual({
+      type: "doc",
+      content: [
+        {
+          type: "taskList",
+          content: [
+            {
+              type: "taskItem",
+              attrs: {
+                status: "todo",
+                checked: false,
+                taskId: "task-1",
+                taskItemId: "task-item-1",
+              },
+              content: [
+                {
+                  type: "paragraph",
+                  content: [{ type: "text", text: "onetwo" }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("keeps the first task item separate from a previous bullet list", () => {
+    const doc = schema.node("doc", null, [
+      schema.node("bulletList", null, [
+        schema.node("listItem", null, [
+          schema.node("paragraph", null, [schema.text("one")]),
+        ]),
+      ]),
+      schema.node("taskList", null, [
+        schema.node(
+          "taskItem",
+          {
+            status: "todo",
+            checked: false,
+            taskId: "task-1",
+            taskItemId: "task-item-1",
+          },
+          [schema.node("paragraph", null, [schema.text("two")])],
+        ),
+      ]),
+    ]);
+    const { state } = runBackspaceAtTextStart(doc, "two");
+
+    expect(state.doc.toJSON()).toEqual(doc.toJSON());
+  });
+
+  it("joins later task item paragraphs within the same task item", () => {
+    const doc = schema.node("doc", null, [
+      schema.node("taskList", null, [
+        schema.node(
+          "taskItem",
+          {
+            status: "todo",
+            checked: false,
+            taskId: "task-1",
+            taskItemId: "task-item-1",
+          },
+          [schema.node("paragraph", null, [schema.text("one")])],
+        ),
+        schema.node(
+          "taskItem",
+          {
+            status: "todo",
+            checked: false,
+            taskId: "task-2",
+            taskItemId: "task-item-2",
+          },
+          [
+            schema.node("paragraph", null, [schema.text("two")]),
+            schema.node("paragraph", null, [schema.text("three")]),
+          ],
+        ),
+      ]),
+    ]);
+    const { state } = runBackspaceAtTextStart(doc, "three", true);
+
+    expect(state.doc.toJSON()).toEqual({
+      type: "doc",
+      content: [
+        {
+          type: "taskList",
+          content: [
+            {
+              type: "taskItem",
+              attrs: {
+                status: "todo",
+                checked: false,
+                taskId: "task-1",
+                taskItemId: "task-item-1",
+              },
+              content: [
+                {
+                  type: "paragraph",
+                  content: [{ type: "text", text: "one" }],
+                },
+              ],
+            },
+            {
+              type: "taskItem",
+              attrs: {
+                status: "todo",
+                checked: false,
+                taskId: "task-2",
+                taskItemId: "task-item-2",
+              },
+              content: [
+                {
+                  type: "paragraph",
+                  content: [{ type: "text", text: "twothree" }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
+});
+
+function runBackspaceAtTextStart(
+  doc: ReturnType<typeof schema.node>,
+  text: string,
+  isEndOfTextblock = false,
+) {
+  const keymap = buildKeymap();
+  const textPos = getTextStartPos(doc, text);
+  let state = EditorState.create({
+    schema,
+    doc,
+    selection: TextSelection.create(doc, textPos),
+    plugins: [keymap],
+  });
+  const view = {
+    get state() {
+      return state;
+    },
+    dispatch(tr: Transaction) {
+      state = state.apply(tr);
+    },
+    endOfTextblock: () => isEndOfTextblock,
+  } as Pick<EditorView, "dispatch" | "endOfTextblock" | "state"> as EditorView;
+  const handleKeyDown = keymap.props.handleKeyDown;
+
+  const handled = handleKeyDown?.(
+    view,
+    new KeyboardEvent("keydown", { key: "Backspace" }),
+  );
+
+  expect(handled).toBe(true);
+  return { state };
+}
+
+function getTextStartPos(doc: ReturnType<typeof schema.node>, text: string) {
+  let textPos = -1;
+
+  doc.descendants((node, pos) => {
+    if (node.isText && node.text === text) {
+      textPos = pos;
+      return false;
+    }
+
+    return undefined;
+  });
+
+  if (textPos === -1) {
+    throw new Error(`Missing text node: ${text}`);
+  }
+
+  return textPos;
+}

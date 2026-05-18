@@ -68,7 +68,7 @@ vi.mock("@hypr/editor/note", () => ({
 import { SessionNodeView } from "./session-view";
 
 describe("SessionNodeView", () => {
-  it("cycles the linked session status when clicked", () => {
+  it("toggles the linked session status when clicked", () => {
     hoisted.transaction.setNodeMarkup.mockImplementation(
       (_pos, _type, attrs) => ({ attrs }),
     );

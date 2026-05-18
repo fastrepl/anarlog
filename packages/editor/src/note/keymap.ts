@@ -35,6 +35,7 @@ import {
   TextSelection,
   type Command,
   type EditorState,
+  type Transaction,
 } from "prosemirror-state";
 
 import { createTaskItemAttrs } from "../tasks";
@@ -161,6 +162,101 @@ function moveListItem(direction: "up" | "down"): Command {
     }
     return true;
   };
+}
+
+function joinTaskItemBackward(
+  state: EditorState,
+  dispatch?: (tr: Transaction) => void,
+) {
+  const { selection } = state;
+  const { $from } = selection;
+
+  if (!selection.empty || $from.parentOffset !== 0) {
+    return false;
+  }
+
+  let itemDepth = -1;
+  for (let depth = $from.depth; depth > 0; depth--) {
+    if ($from.node(depth).type === schema.nodes.taskItem) {
+      itemDepth = depth;
+      break;
+    }
+  }
+
+  if (itemDepth === -1 || $from.parent.type !== schema.nodes.paragraph) {
+    return false;
+  }
+
+  const list = $from.node(itemDepth - 1);
+  if (list.type !== schema.nodes.taskList) {
+    return false;
+  }
+
+  if ($from.index(itemDepth) !== 0) {
+    return false;
+  }
+
+  const itemIndex = $from.index(itemDepth - 1);
+  const currentItem = list.child(itemIndex);
+  if (itemIndex === 0) {
+    return currentItem.firstChild?.content.size ? true : false;
+  }
+
+  const previousItem = list.child(itemIndex - 1);
+  const previousParagraphIndex = previousItem.childCount - 1;
+  const previousParagraph = previousItem.child(previousParagraphIndex);
+  const currentParagraph = currentItem.firstChild;
+
+  if (
+    previousParagraph.type !== schema.nodes.paragraph ||
+    currentParagraph?.type !== schema.nodes.paragraph
+  ) {
+    return false;
+  }
+
+  if (!dispatch) {
+    return true;
+  }
+
+  const mergedParagraph = previousParagraph.type.create(
+    previousParagraph.attrs,
+    previousParagraph.content.append(currentParagraph.content),
+    previousParagraph.marks,
+  );
+
+  const mergedPreviousContent = [
+    ...Array.from({ length: previousParagraphIndex }, (_, index) =>
+      previousItem.child(index),
+    ),
+    mergedParagraph,
+    ...Array.from({ length: currentItem.childCount - 1 }, (_, index) =>
+      currentItem.child(index + 1),
+    ),
+  ];
+  const mergedPreviousItem = previousItem.type.create(
+    previousItem.attrs,
+    Fragment.from(mergedPreviousContent),
+    previousItem.marks,
+  );
+
+  const currentStart = $from.before(itemDepth);
+  const currentEnd = $from.after(itemDepth);
+  const previousStart = currentStart - previousItem.nodeSize;
+  let paragraphOffset = 0;
+  for (let index = 0; index < previousParagraphIndex; index++) {
+    paragraphOffset += previousItem.child(index).nodeSize;
+  }
+  const selectionPos =
+    previousStart + 1 + paragraphOffset + 1 + previousParagraph.content.size;
+
+  const tr = state.tr.replaceWith(
+    previousStart,
+    currentEnd,
+    mergedPreviousItem,
+  );
+  tr.setSelection(TextSelection.create(tr.doc, selectionPos));
+  dispatch(tr.scrollIntoView());
+  return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -376,6 +472,7 @@ export function buildKeymap(onNavigateToTitle?: (pixelWidth?: number) => void) {
       return false;
     },
     revertBlockToParagraph,
+    joinTaskItemBackward,
     joinBackward,
     selectNodeBackward,
   );

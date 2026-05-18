@@ -68,4 +68,27 @@ describe("task item node view", () => {
     expect(checkboxWrapper).not.toBeNull();
     expect(checkboxWrapper?.getAttribute("contenteditable")).toBeNull();
   });
+
+  test("uses shared task checkbox styling hooks", () => {
+    const editor = createEditor();
+    const taskItemNode = editor.state.doc.firstChild?.firstChild;
+
+    expect(taskItemNode).not.toBeNull();
+
+    const nodeView = editor.extensionManager.nodeViews.taskItem(
+      taskItemNode!,
+      {} as any,
+      () => 1,
+      [] as any,
+      {} as any,
+    );
+    const checkboxWrapper = nodeView.dom.querySelector("label");
+    const checkbox = nodeView.dom.querySelector("input[type='checkbox']");
+
+    expect(checkboxWrapper?.classList.contains("task-checkbox-label")).toBe(
+      true,
+    );
+    expect(checkbox?.classList.contains("task-checkbox")).toBe(true);
+    expect(checkbox?.getAttribute("data-interactive")).toBe("true");
+  });
 });

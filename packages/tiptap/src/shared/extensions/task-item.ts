@@ -16,12 +16,21 @@ const TaskItem = BaseTaskItem.extend({
           this.options.a11y?.checkboxLabel?.(currentNode, checkbox.checked) ||
           `Task item checkbox for ${currentNode.textContent || "empty task item"}`;
       };
+      const updateInteractivity = () => {
+        checkbox.dataset.interactive =
+          editor.isEditable || this.options.onReadOnlyChecked
+            ? "true"
+            : "false";
+      };
 
       updateA11Y(node);
+      updateInteractivity();
 
       // Chrome can fail to paint full-document selections across task items when
       // the checkbox wrapper is marked contenteditable="false".
       checkbox.type = "checkbox";
+      checkbox.className = "task-checkbox";
+      checkboxWrapper.className = "task-checkbox-label";
       checkbox.addEventListener("mousedown", (event) => event.preventDefault());
       checkbox.addEventListener("change", (event) => {
         if (!editor.isEditable && !this.options.onReadOnlyChecked) {
@@ -87,6 +96,7 @@ const TaskItem = BaseTaskItem.extend({
           listItem.dataset.checked = updatedNode.attrs.checked;
           checkbox.checked = updatedNode.attrs.checked;
           updateA11Y(updatedNode);
+          updateInteractivity();
 
           const extensionAttributes = editor.extensionManager.attributes;
           const newHTMLAttributes = getRenderedAttributes(

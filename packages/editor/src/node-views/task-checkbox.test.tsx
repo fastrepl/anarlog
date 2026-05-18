@@ -14,22 +14,27 @@ describe("TaskCheckbox", () => {
     expect(onToggle).toHaveBeenCalledTimes(1);
   });
 
-  it("exposes the mixed state for in-progress tasks", () => {
-    const view = render(<TaskCheckbox status="in_progress" />);
+  it("renders as checked only for done tasks", () => {
+    const done = render(<TaskCheckbox status="done" />);
 
     expect(
-      view.container
-        .querySelector('[role="checkbox"]')
-        ?.getAttribute("aria-checked"),
-    ).toBe("mixed");
+      (done.container.querySelector("input") as HTMLInputElement).checked,
+    ).toBe(true);
+    done.unmount();
+
+    const inProgress = render(<TaskCheckbox status="in_progress" />);
+
+    expect(
+      (inProgress.container.querySelector("input") as HTMLInputElement).checked,
+    ).toBe(false);
   });
 
   it("does not call onToggle when read-only", () => {
     const view = render(<TaskCheckbox status="done" />);
 
     const checkbox = view.container.querySelector(
-      '[role="checkbox"]',
-    ) as HTMLButtonElement | null;
+      'input[type="checkbox"]',
+    ) as HTMLInputElement | null;
 
     expect(checkbox).not.toBeNull();
     if (!checkbox) {
