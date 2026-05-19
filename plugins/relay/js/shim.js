@@ -137,7 +137,8 @@
   // ---------------------------------------------------------------------------
 
   var env = detectPlatform();
-  var relay = createRelayConnection(1423);
+  var relayPort = Number("__RELAY_PORT__") || 1423;
+  var relay = createRelayConnection(relayPort);
 
   // -- window.__TAURI_INTERNALS__ -------------------------------------------
 
