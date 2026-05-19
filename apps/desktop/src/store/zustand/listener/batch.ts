@@ -7,7 +7,7 @@ import type {
 } from "@hypr/plugin-transcription";
 
 import type { BatchPersistCallback } from "./transcript";
-import { transformWordEntries } from "./utils";
+import { transformWordEntries, type WordEntry } from "./utils";
 
 import { type RuntimeSpeakerHint, type WordLike } from "~/stt/segment";
 
@@ -39,7 +39,7 @@ export type BatchState = {
 export type BatchActions = {
   handleBatchStarted: (sessionId: string, phase?: BatchPhase) => void;
   handleBatchCompleted: (sessionId: string) => void;
-  handleBatchResponse: (sessionId: string, response: BatchResponse) => void;
+  handleBatchResponse: (sessionId: string, response: BatchResponse) => boolean;
   handleBatchResponseStreamed: (
     sessionId: string,
     event: BatchStreamEvent,
@@ -56,6 +56,9 @@ export type BatchActions = {
   setBatchPersist: (sessionId: string, callback: BatchPersistCallback) => void;
   clearBatchPersist: (sessionId: string) => void;
 };
+
+export const EMPTY_BATCH_TRANSCRIPT_ERROR =
+  "No speech was detected in the audio.";
 
 export const createBatchSlice = <T extends BatchState>(
   set: StoreApi<T>["setState"],
@@ -112,7 +115,7 @@ export const createBatchSlice = <T extends BatchState>(
 
     const [words, hints] = transformBatch(response);
     if (!words.length) {
-      return;
+      return false;
     }
 
     persist?.(words, hints, { mode: "replace" });
@@ -130,6 +133,8 @@ export const createBatchSlice = <T extends BatchState>(
         batchPreview: restPreview,
       };
     });
+
+    return true;
   },
 
   handleBatchResponseStreamed: (sessionId, event) => {
@@ -284,12 +289,21 @@ function transformBatch(
 
   response.results.channels.forEach((channel, channelIndex) => {
     const alternative = channel.alternatives[0];
-    if (!alternative || !alternative.words || !alternative.words.length) {
+    if (!alternative) {
       return;
     }
 
-    const [words, hints] = transformWordEntries(
+    const wordEntries = wordEntriesFromTranscript(
       alternative.words,
+      alternative.transcript,
+      {
+        channel: channelIndex,
+        durationSeconds: getBatchDurationSeconds(response),
+      },
+    );
+
+    const [words, hints] = transformWordEntries(
+      wordEntries,
       alternative.transcript,
       channelIndex,
     );
@@ -357,8 +371,18 @@ function mergeBatchPreview(
     return preview;
   }
 
-  const [incomingWords, incomingHints] = transformWordEntries(
+  const wordEntries = wordEntriesFromTranscript(
     alternative.words,
+    alternative.transcript,
+    {
+      channel: channelIndex,
+      startSeconds: response.start,
+      durationSeconds: response.duration,
+    },
+  );
+
+  const [incomingWords, incomingHints] = transformWordEntries(
+    wordEntries,
     alternative.transcript,
     channelIndex,
   );
@@ -439,4 +463,57 @@ function getBatchStreamPercentage(event: BatchStreamEvent): number {
     case "error":
       return 0;
   }
+}
+
+function wordEntriesFromTranscript(
+  entries: WordEntry[] | null | undefined,
+  transcript: string,
+  {
+    channel,
+    startSeconds = 0,
+    durationSeconds,
+  }: {
+    channel: number;
+    startSeconds?: number;
+    durationSeconds?: number;
+  },
+): WordEntry[] {
+  if (entries?.length || !transcript.trim()) {
+    return entries ?? [];
+  }
+
+  const tokens = transcript.trim().split(/\s+/).filter(Boolean);
+  if (!tokens.length) {
+    return [];
+  }
+
+  const duration = Math.max(
+    durationSeconds && Number.isFinite(durationSeconds)
+      ? durationSeconds
+      : tokens.length * 0.4,
+    tokens.length * 0.05,
+  );
+
+  return tokens.map((token, index) => ({
+    word: token,
+    punctuated_word: token,
+    start: startSeconds + (index / tokens.length) * duration,
+    end: startSeconds + ((index + 1) / tokens.length) * duration,
+    channel,
+    speaker: null,
+  }));
+}
+
+function getBatchDurationSeconds(response: BatchResponse): number | undefined {
+  const metadata = response.metadata;
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return undefined;
+  }
+
+  const duration = (metadata as Record<string, unknown>).duration;
+  return typeof duration === "number" &&
+    Number.isFinite(duration) &&
+    duration > 0
+    ? duration
+    : undefined;
 }

@@ -216,6 +216,115 @@ describe("General Listener Slice", () => {
       );
     });
 
+    test("handleBatchResponse persists transcript-only batch responses", () => {
+      const sessionId = "session-transcript-only-batch";
+      const persist = vi.fn();
+      const { handleBatchStarted, handleBatchResponse, setBatchPersist } =
+        store.getState();
+
+      handleBatchStarted(sessionId);
+      setBatchPersist(sessionId, persist);
+
+      expect(
+        handleBatchResponse(sessionId, {
+          metadata: { duration: 2 },
+          results: {
+            channels: [
+              {
+                alternatives: [
+                  {
+                    transcript: "hello world",
+                    confidence: 0.9,
+                    words: [],
+                  },
+                ],
+              },
+            ],
+          },
+        }),
+      ).toBe(true);
+
+      expect(persist).toHaveBeenCalledWith(
+        [
+          {
+            text: " hello",
+            start_ms: 0,
+            end_ms: 1000,
+            channel: 0,
+          },
+          {
+            text: " world",
+            start_ms: 1000,
+            end_ms: 2000,
+            channel: 0,
+          },
+        ],
+        [],
+        { mode: "replace" },
+      );
+      expect(store.getState().batch[sessionId]).toBeUndefined();
+    });
+
+    test("handleBatchResponseStreamed persists transcript-only segment responses", () => {
+      const sessionId = "session-transcript-only-stream";
+      const persist = vi.fn();
+      const { handleBatchResponseStreamed, setBatchPersist } = store.getState();
+
+      setBatchPersist(sessionId, persist);
+
+      handleBatchResponseStreamed(sessionId, {
+        type: "segment",
+        percentage: 0.5,
+        response: {
+          type: "Results",
+          start: 4,
+          duration: 2,
+          is_final: true,
+          speech_final: true,
+          from_finalize: false,
+          channel: {
+            alternatives: [
+              {
+                transcript: "hello world",
+                languages: [],
+                words: [],
+                confidence: 0.9,
+              },
+            ],
+          },
+          metadata: {
+            request_id: "test-request",
+            model_info: {
+              name: "test-model",
+              version: "1.0",
+              arch: "test-arch",
+            },
+            model_uuid: "test-uuid",
+          },
+          channel_index: [1],
+        },
+      });
+
+      expect(persist).toHaveBeenCalledWith(
+        [
+          {
+            text: " hello",
+            start_ms: 4000,
+            end_ms: 5000,
+            channel: 1,
+          },
+          {
+            text: " world",
+            start_ms: 5000,
+            end_ms: 6000,
+            channel: 1,
+          },
+        ],
+        [],
+        { mode: "replace" },
+      );
+    });
+
     test("handleBatchFailed preserves batch error for UI surfaces", () => {
       const sessionId = "session-batch-error";
       const { handleBatchFailed, getSessionMode } = store.getState();

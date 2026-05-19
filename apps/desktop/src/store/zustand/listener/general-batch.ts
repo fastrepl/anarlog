@@ -7,7 +7,11 @@ import {
   events as transcriptionEvents,
 } from "@hypr/plugin-transcription";
 
-import type { BatchActions, BatchState } from "./batch";
+import {
+  EMPTY_BATCH_TRANSCRIPT_ERROR,
+  type BatchActions,
+  type BatchState,
+} from "./batch";
 
 type BatchStore = BatchActions & BatchState;
 
@@ -39,6 +43,7 @@ export const runBatchSession = async <T extends BatchStore>(
       response: Parameters<BatchStore["handleBatchResponse"]>[1];
     },
     resolve: () => void,
+    reject: (reason?: unknown) => void,
   ) => {
     if (settled) {
       return;
@@ -47,7 +52,10 @@ export const runBatchSession = async <T extends BatchStore>(
     settled = true;
 
     try {
-      get().handleBatchResponse(sessionId, output.response);
+      const handled = get().handleBatchResponse(sessionId, output.response);
+      if (handled === false) {
+        throw new Error(EMPTY_BATCH_TRANSCRIPT_ERROR);
+      }
       cleanup();
     } catch (error) {
       console.error("[runBatch] error handling batch response", error);
@@ -55,7 +63,8 @@ export const runBatchSession = async <T extends BatchStore>(
         error instanceof Error ? error.message : String(error);
       get().handleBatchFailed(sessionId, errorMessage);
       cleanup(false);
-      throw error;
+      reject(error);
+      return;
     }
 
     resolve();
@@ -121,6 +130,7 @@ export const runBatchSession = async <T extends BatchStore>(
               response: payload.response,
             },
             resolve,
+            reject,
           );
           return;
         }

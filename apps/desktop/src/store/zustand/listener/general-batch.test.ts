@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
+import { EMPTY_BATCH_TRANSCRIPT_ERROR } from "./batch";
 import { runBatchSession } from "./general-batch";
 
 const { listenMock, startTranscriptionMock } = vi.hoisted(() => ({
@@ -211,6 +212,91 @@ describe("runBatchSession", () => {
       results: { channels: [] },
     });
     expect(handleBatchFailed).not.toHaveBeenCalled();
+  });
+
+  test("rejects completed responses that have no transcribed words", async () => {
+    const handleBatchStarted = vi.fn();
+    const handleBatchResponse = vi.fn(() => false);
+    const handleBatchCompleted = vi.fn();
+    const clearBatchPersist = vi.fn();
+    const clearBatchSession = vi.fn();
+    const handleBatchResponseStreamed = vi.fn();
+    const handleBatchFailed = vi.fn();
+    const handleBatchStopped = vi.fn();
+    const updateBatchProgress = vi.fn();
+    const setBatchPersist = vi.fn();
+
+    let handler:
+      | ((event: {
+          payload: {
+            type: string;
+            session_id: string;
+            response?: unknown;
+            mode?: "direct" | "streamed";
+          };
+        }) => void)
+      | undefined;
+
+    listenMock.mockImplementation(async (cb) => {
+      handler = cb;
+      return vi.fn();
+    });
+
+    startTranscriptionMock.mockImplementation(async () => {
+      queueMicrotask(() => {
+        handler?.({
+          payload: {
+            type: "completed",
+            session_id: "session-1",
+            mode: "direct",
+            response: {
+              metadata: null,
+              results: { channels: [] },
+            },
+          },
+        });
+      });
+
+      return {
+        status: "ok",
+        data: null,
+      };
+    });
+
+    await expect(
+      runBatchSession(
+        () => ({
+          batch: {},
+          batchPreview: {},
+          batchPersist: {},
+          handleBatchStarted,
+          handleBatchResponse,
+          handleBatchCompleted,
+          clearBatchPersist,
+          clearBatchSession,
+          handleBatchResponseStreamed,
+          handleBatchFailed,
+          handleBatchStopped,
+          updateBatchProgress,
+          setBatchPersist,
+        }),
+        "session-1",
+        {
+          session_id: "session-1",
+          provider: "hyprnote",
+          file_path: "/tmp/session.wav",
+          base_url: "",
+          api_key: "",
+        },
+      ),
+    ).rejects.toThrow(EMPTY_BATCH_TRANSCRIPT_ERROR);
+
+    expect(handleBatchFailed).toHaveBeenCalledWith(
+      "session-1",
+      EMPTY_BATCH_TRANSCRIPT_ERROR,
+    );
+    expect(clearBatchPersist).toHaveBeenCalledWith("session-1");
+    expect(clearBatchSession).not.toHaveBeenCalled();
   });
 
   test("rejects when the transcription is stopped", async () => {
