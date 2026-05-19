@@ -115,7 +115,7 @@ export const createBatchSlice = <T extends BatchState>(
       return;
     }
 
-    persist?.(words, hints);
+    persist?.(words, hints, { mode: "replace" });
 
     set((state) => {
       if (!state.batch[sessionId]) {
@@ -135,6 +135,17 @@ export const createBatchSlice = <T extends BatchState>(
   handleBatchResponseStreamed: (sessionId, event) => {
     const percentage = getBatchStreamPercentage(event);
     const isComplete = event.type === "result" || event.type === "terminal";
+    const currentPreview = get().batchPreview[sessionId] ?? {
+      wordsByChannel: {},
+      hintsByChannel: {},
+    };
+    const nextPreview = mergeBatchPreview(currentPreview, event);
+    const persist = get().batchPersist[sessionId];
+    const [words, hints] = flattenBatchPreview(nextPreview);
+
+    if (event.type === "segment" && words.length > 0) {
+      persist?.(words, hints, { mode: "replace" });
+    }
 
     set((state) => ({
       ...state,
@@ -151,13 +162,7 @@ export const createBatchSlice = <T extends BatchState>(
       },
       batchPreview: {
         ...state.batchPreview,
-        [sessionId]: mergeBatchPreview(
-          state.batchPreview[sessionId] ?? {
-            wordsByChannel: {},
-            hintsByChannel: {},
-          },
-          event,
-        ),
+        [sessionId]: nextPreview,
       },
     }));
   },
@@ -298,6 +303,34 @@ function transformBatch(
     allWords.push(...words);
     wordOffset += words.length;
   });
+
+  return [allWords, allHints];
+}
+
+function flattenBatchPreview(preview: {
+  wordsByChannel: Record<number, WordLike[]>;
+  hintsByChannel: Record<number, RuntimeSpeakerHint[]>;
+}): [WordLike[], RuntimeSpeakerHint[]] {
+  const allWords: WordLike[] = [];
+  const allHints: RuntimeSpeakerHint[] = [];
+  let wordOffset = 0;
+
+  Object.keys(preview.wordsByChannel)
+    .map(Number)
+    .sort((a, b) => a - b)
+    .forEach((channel) => {
+      const words = preview.wordsByChannel[channel] ?? [];
+      const hints = preview.hintsByChannel[channel] ?? [];
+
+      hints.forEach((hint) => {
+        allHints.push({
+          ...hint,
+          wordIndex: hint.wordIndex + wordOffset,
+        });
+      });
+      allWords.push(...words);
+      wordOffset += words.length;
+    });
 
   return [allWords, allHints];
 }

@@ -14,6 +14,7 @@ type WordsByChannel = Record<number, WordLike[]>;
 export type BatchPersistCallback = (
   words: WordLike[],
   hints: RuntimeSpeakerHint[],
+  options?: { mode?: "append" | "replace" },
 ) => void;
 
 export type LiveTranscriptPersistCallback = (

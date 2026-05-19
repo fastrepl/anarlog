@@ -160,7 +160,7 @@ export const useRunBatch = (sessionId: string) => {
 
       const persist =
         handlePersist ??
-        ((words, hints) => {
+        ((words, hints, persistOptions) => {
           if (words.length === 0) {
             return;
           }
@@ -199,14 +199,13 @@ export const useRunBatch = (sessionId: string) => {
             return;
           }
 
-          const existingWords = parseTranscriptWords(
-            store,
-            currentTranscriptId,
-          );
-          const existingHints = parseTranscriptHints(
-            store,
-            currentTranscriptId,
-          );
+          const shouldReplace = persistOptions?.mode === "replace";
+          const existingWords = shouldReplace
+            ? []
+            : parseTranscriptWords(store, currentTranscriptId);
+          const existingHints = shouldReplace
+            ? []
+            : parseTranscriptHints(store, currentTranscriptId);
 
           const newWords: WordWithId[] = [];
           const newWordIds: string[] = [];
@@ -251,14 +250,25 @@ export const useRunBatch = (sessionId: string) => {
             });
           });
 
-          updateTranscriptWords(store, currentTranscriptId, [
-            ...existingWords,
-            ...newWords,
-          ]);
-          updateTranscriptHints(store, currentTranscriptId, [
-            ...existingHints,
-            ...newHints,
-          ]);
+          store.transaction(() => {
+            updateTranscriptWords(store, currentTranscriptId, [
+              ...existingWords,
+              ...newWords,
+            ]);
+            updateTranscriptHints(store, currentTranscriptId, [
+              ...existingHints,
+              ...newHints,
+            ]);
+          });
+
+          void import("~/store/tinybase/store/save")
+            .then(({ save }) => save())
+            .catch((error) => {
+              console.error(
+                "[runBatch] failed to save streamed transcript",
+                error,
+              );
+            });
         });
 
       const params: TranscriptionParams = {

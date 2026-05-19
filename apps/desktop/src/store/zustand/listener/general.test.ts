@@ -1,5 +1,5 @@
 import { create as mutate } from "mutative";
-import { beforeEach, describe, expect, test } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { createListenerStore } from ".";
 import { getLiveCaptureUiMode } from "./general-shared";
@@ -142,6 +142,78 @@ describe("General Listener Slice", () => {
       clearBatchSession(sessionId);
       expect(store.getState().batch[sessionId]).toBeUndefined();
       expect(store.getState().batchPreview[sessionId]).toBeUndefined();
+    });
+
+    test("handleBatchResponseStreamed persists streamed transcript snapshots", () => {
+      const sessionId = "session-streamed-persist";
+      const persist = vi.fn();
+      const { handleBatchResponseStreamed, setBatchPersist } = store.getState();
+
+      setBatchPersist(sessionId, persist);
+
+      handleBatchResponseStreamed(sessionId, {
+        type: "segment",
+        percentage: 0.5,
+        response: {
+          type: "Results",
+          start: 0,
+          duration: 5,
+          is_final: false,
+          speech_final: false,
+          from_finalize: false,
+          channel: {
+            alternatives: [
+              {
+                transcript: "hello",
+                languages: [],
+                words: [
+                  {
+                    word: "hello",
+                    punctuated_word: "hello",
+                    start: 0,
+                    end: 0.5,
+                    confidence: 0.9,
+                    speaker: 1,
+                    language: null,
+                  },
+                ],
+                confidence: 0.9,
+              },
+            ],
+          },
+          metadata: {
+            request_id: "test-request",
+            model_info: {
+              name: "test-model",
+              version: "1.0",
+              arch: "test-arch",
+            },
+            model_uuid: "test-uuid",
+          },
+          channel_index: [0],
+        },
+      });
+
+      expect(persist).toHaveBeenCalledWith(
+        [
+          {
+            text: " hello",
+            start_ms: 0,
+            end_ms: 500,
+            channel: 0,
+          },
+        ],
+        [
+          {
+            wordIndex: 0,
+            data: {
+              type: "provider_speaker_index",
+              speaker_index: 1,
+            },
+          },
+        ],
+        { mode: "replace" },
+      );
     });
 
     test("handleBatchFailed preserves batch error for UI surfaces", () => {
