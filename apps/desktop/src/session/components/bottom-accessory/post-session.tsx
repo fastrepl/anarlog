@@ -103,7 +103,6 @@ function TranscriptPanel({
       <BatchingTranscriptPanel
         sessionId={sessionId}
         screen={screen}
-        hasTranscript={hasTranscript}
         isExpanded={isExpanded}
         fillHeight={fillHeight}
       />
@@ -156,7 +155,6 @@ function useRegenerateTranscript(sessionId: string) {
 function BatchingTranscriptPanel({
   sessionId,
   screen,
-  hasTranscript,
   isExpanded,
   fillHeight,
 }: {
@@ -166,11 +164,9 @@ function BatchingTranscriptPanel({
     percentage?: number;
     phase?: "importing" | "transcribing";
   };
-  hasTranscript: boolean;
   isExpanded: boolean;
   fillHeight: boolean;
 }) {
-  const scrollRef = useRef<HTMLDivElement>(null);
   const stopTranscription = useListener((state) => state.stopTranscription);
   const handleStop = useCallback(() => {
     void stopTranscription(sessionId);
@@ -203,27 +199,77 @@ function BatchingTranscriptPanel({
         </div>
       </div>
 
-      {hasTranscript ? (
-        <TranscriptScrollArea fillHeight={fillHeight}>
-          <Transcript sessionId={sessionId} scrollRef={scrollRef} />
-        </TranscriptScrollArea>
-      ) : (
-        <div
-          className={cn([
-            "flex flex-col items-center justify-center gap-2",
-            fillHeight ? "min-h-0 flex-1" : "h-[120px]",
-          ])}
-        >
-          <Spinner size={24} />
-          {typeof percentage === "number" && percentage > 0 && (
-            <p className="text-xl font-medium text-neutral-500 tabular-nums">
-              {Math.round(percentage * 100)}%
-            </p>
-          )}
-          <p className="text-sm text-neutral-400">{phaseLabel}</p>
-        </div>
-      )}
+      <BatchTranscriptSkeleton fillHeight={fillHeight} />
     </TranscriptCard>
+  );
+}
+
+function BatchTranscriptSkeleton({ fillHeight }: { fillHeight: boolean }) {
+  const rows = [
+    {
+      speaker: "w-16",
+      time: "w-8",
+      lines: ["w-[74%]", "w-[54%]"],
+    },
+    {
+      speaker: "w-12",
+      time: "w-10",
+      lines: ["w-[62%]", "w-[82%]", "w-[38%]"],
+    },
+    {
+      speaker: "w-20",
+      time: "w-8",
+      lines: ["w-[70%]", "w-[48%]"],
+    },
+  ] as const;
+
+  return (
+    <div
+      aria-hidden
+      data-testid="transcript-skeleton"
+      className={cn([
+        "flex overflow-hidden px-6 py-4",
+        fillHeight ? "min-h-0 flex-1 items-center" : "h-[178px] items-start",
+      ])}
+    >
+      <div className="w-full max-w-[940px] space-y-7">
+        {rows.map((row, index) => (
+          <div
+            key={index}
+            className="grid grid-cols-[72px_minmax(0,1fr)] gap-4"
+          >
+            <div className="space-y-2 pt-0.5">
+              <div
+                className={cn([
+                  "h-2.5 rounded-full bg-neutral-200/80",
+                  "animate-pulse",
+                  row.speaker,
+                ])}
+              />
+              <div
+                className={cn([
+                  "h-1.5 rounded-full bg-neutral-100",
+                  "animate-pulse",
+                  row.time,
+                ])}
+              />
+            </div>
+            <div className="space-y-2 pt-0.5">
+              {row.lines.map((lineWidth, lineIndex) => (
+                <div
+                  key={lineIndex}
+                  className={cn([
+                    "h-2.5 rounded-full bg-neutral-100",
+                    "animate-pulse",
+                    lineWidth,
+                  ])}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 

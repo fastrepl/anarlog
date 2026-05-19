@@ -201,4 +201,27 @@ describe("PostSessionAccessory", () => {
     expect(scrollArea?.className).not.toContain("h-[300px]");
     expect(scrollArea?.parentElement?.className).toContain("flex-1");
   });
+
+  it("shows transcript skeletons instead of duplicating batch progress in the body", () => {
+    useTranscriptScreenMock.mockReturnValue({
+      kind: "running_batch",
+      percentage: 0.25,
+      phase: "transcribing",
+    });
+
+    render(
+      <PostSessionAccessory
+        sessionId="session-1"
+        hasAudio
+        hasTranscript
+        isTranscriptExpanded
+      />,
+    );
+
+    expect(screen.getByText("Transcript")).toBeTruthy();
+    expect(screen.getAllByText("Transcribing...")).toHaveLength(1);
+    expect(screen.getAllByTestId("spinner")).toHaveLength(1);
+    expect(screen.getByTestId("transcript-skeleton")).toBeTruthy();
+    expect(screen.queryByTestId("transcript")).toBeNull();
+  });
 });
