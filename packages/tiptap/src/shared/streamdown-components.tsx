@@ -7,17 +7,17 @@ const HEADING_WITH_MARGIN = "mt-4 first:mt-0";
 
 export const streamdownComponents = {
   h1: (props: React.HTMLAttributes<HTMLHeadingElement>) => (
-    <h1 className={cn([HEADING_SHARED, HEADING_WITH_MARGIN, "text-xl"])}>
+    <h3 className={cn([HEADING_SHARED, HEADING_WITH_MARGIN, "text-base"])}>
       {props.children as React.ReactNode}
-    </h1>
+    </h3>
   ),
   h2: (props: React.HTMLAttributes<HTMLHeadingElement>) => (
-    <h2 className={cn([HEADING_SHARED, HEADING_WITH_MARGIN, "text-lg"])}>
+    <h2 className={cn([HEADING_SHARED, HEADING_WITH_MARGIN, "text-sm"])}>
       {props.children as React.ReactNode}
     </h2>
   ),
   h3: (props: React.HTMLAttributes<HTMLHeadingElement>) => (
-    <h3 className={cn([HEADING_SHARED, HEADING_WITH_MARGIN, "text-base"])}>
+    <h3 className={cn([HEADING_SHARED, HEADING_WITH_MARGIN, "text-sm"])}>
       {props.children as React.ReactNode}
     </h3>
   ),
