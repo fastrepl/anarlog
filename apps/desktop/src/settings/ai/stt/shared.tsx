@@ -149,7 +149,7 @@ const _PROVIDERS = [
     disabled: false,
     id: "assemblyai",
     displayName: "AssemblyAI",
-    badge: "Beta",
+    badge: null,
     icon: <AssemblyAI size={12} />,
     baseUrl: "https://api.assemblyai.com",
     models: ["universal-3-pro"],
@@ -169,7 +169,7 @@ const _PROVIDERS = [
     disabled: false,
     id: "gladia",
     displayName: "Gladia",
-    badge: "Beta",
+    badge: null,
     icon: (
       <img
         src="/assets/gladia.jpeg"
@@ -201,7 +201,7 @@ const _PROVIDERS = [
     disabled: false,
     id: "elevenlabs",
     displayName: "ElevenLabs",
-    badge: "Beta",
+    badge: null,
     icon: <ElevenLabs size={16} />,
     baseUrl: "https://api.elevenlabs.io",
     models: ["scribe_v2"],
@@ -211,7 +211,7 @@ const _PROVIDERS = [
     disabled: false,
     id: "mistral",
     displayName: "Mistral",
-    badge: "Beta",
+    badge: null,
     icon: <Mistral size={16} />,
     baseUrl: "https://api.mistral.ai/v1",
     models: ["voxtral-mini-2602"],
