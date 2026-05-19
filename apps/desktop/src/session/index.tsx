@@ -15,6 +15,7 @@ import { SessionPreviewCard } from "./components/session-preview-card";
 import { SessionSurface } from "./components/session-surface";
 import { useCurrentNoteTab, useHasTranscript } from "./components/shared";
 import { TitleInput, type TitleInputHandle } from "./components/title-input";
+import { getNextFloatingButtonHidden } from "./floating-scroll-state";
 import { useAutoEnhance } from "./hooks/useAutoEnhance";
 import { useIsSessionEnhancing } from "./hooks/useEnhancedNotes";
 import { getSessionTabStatus } from "./tab-visual-state";
@@ -182,10 +183,26 @@ function TabContentNoteInner({
 }) {
   const titleInputRef = React.useRef<TitleInputHandle>(null);
   const noteInputRef = React.useRef<NoteInputHandle>(null);
+  const noteScrollRef = React.useRef({
+    viewKey: "",
+    scrollTop: 0,
+  });
 
   const currentView = useCurrentNoteTab(tab);
+  const currentViewKey =
+    currentView.type === "enhanced"
+      ? `enhanced-${currentView.id}`
+      : currentView.type;
   const { generateTitle } = useTitleGeneration(tab);
   const hasTranscript = useHasTranscript(tab.id);
+  const [floatingButtonScrollState, setFloatingButtonScrollState] =
+    React.useState({
+      viewKey: currentViewKey,
+      hidden: false,
+    });
+  const floatingButtonHidden =
+    floatingButtonScrollState.viewKey === currentViewKey &&
+    floatingButtonScrollState.hidden;
 
   const sessionId = tab.id;
   const { skipReason } = useAutoEnhance(tab);
@@ -223,6 +240,40 @@ function TabContentNoteInner({
       noteInputRef.current?.focusAtPixelWidth(pixelWidth);
     },
     [],
+  );
+
+  const handleNoteScroll = React.useCallback(
+    (event: React.UIEvent<HTMLDivElement>) => {
+      const scrollTop = event.currentTarget.scrollTop;
+      const scrollHeight = event.currentTarget.scrollHeight;
+      const clientHeight = event.currentTarget.clientHeight;
+      const lastScroll =
+        noteScrollRef.current.viewKey === currentViewKey
+          ? noteScrollRef.current.scrollTop
+          : scrollTop;
+      const delta = scrollTop - lastScroll;
+
+      noteScrollRef.current = {
+        viewKey: currentViewKey,
+        scrollTop,
+      };
+
+      setFloatingButtonScrollState((state) => {
+        const hidden = getNextFloatingButtonHidden({
+          currentHidden:
+            state.viewKey === currentViewKey ? state.hidden : false,
+          delta,
+          scrollTop,
+          scrollHeight,
+          clientHeight,
+        });
+
+        return state.viewKey === currentViewKey && state.hidden === hidden
+          ? state
+          : { viewKey: currentViewKey, hidden };
+      });
+    },
+    [currentViewKey],
   );
 
   useSessionStatusBanner({
@@ -264,12 +315,15 @@ function TabContentNoteInner({
       afterBorderResizable={canResizeTranscriptSurface}
       bottomBorderHandle={bottomBorderHandle}
       mergeAfterBorder={mergeTranscriptSurface}
-      floatingButton={<FloatingActionButton tab={tab} />}
+      floatingButton={
+        <FloatingActionButton hidden={floatingButtonHidden} tab={tab} />
+      }
     >
       <NoteInput
         ref={noteInputRef}
         tab={tab}
         onNavigateToTitle={handleNavigateToTitle}
+        onScroll={handleNoteScroll}
       />
     </SessionSurface>
   );

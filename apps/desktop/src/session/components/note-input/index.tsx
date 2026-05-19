@@ -1,6 +1,7 @@
 import type { EditorView } from "prosemirror-view";
 import {
   forwardRef,
+  type UIEventHandler,
   useCallback,
   useEffect,
   useImperativeHandle,
@@ -37,8 +38,9 @@ export const NoteInput = forwardRef<
   {
     tab: Extract<Tab, { type: "sessions" }>;
     onNavigateToTitle?: (pixelWidth?: number) => void;
+    onScroll?: UIEventHandler<HTMLDivElement>;
   }
->(({ tab, onNavigateToTitle }, ref) => {
+>(({ tab, onNavigateToTitle, onScroll }, ref) => {
   const editorTabs = useEditorTabs({ sessionId: tab.id });
   const updateSessionTabState = useTabs((state) => state.updateSessionTabState);
   const internalEditorRef = useRef<NoteEditorRef>(null);
@@ -150,6 +152,7 @@ export const NoteInput = forwardRef<
             setContainer(node);
           }}
           onClick={handleContainerClick}
+          onScroll={onScroll}
           className={cn([
             "h-full px-3",
             "scroll-fade-y overflow-auto",

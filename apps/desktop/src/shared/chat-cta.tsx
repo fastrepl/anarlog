@@ -1,5 +1,7 @@
 import { MessageCircle } from "lucide-react";
 
+import { cn } from "@hypr/utils";
+
 import { useShell } from "~/contexts/shell";
 
 export function ChatCTA({
@@ -27,10 +29,14 @@ export function ChatCTA({
     <button
       type="button"
       onClick={handleClick}
-      className="flex items-center gap-2 rounded-full border-2 border-stone-600 bg-stone-800 px-4 py-2 text-sm text-white shadow-[0_4px_14px_rgba(87,83,78,0.4)] transition-colors hover:bg-stone-700"
+      className={cn([
+        "inline-flex max-w-full items-center gap-2 rounded-full border-2 border-stone-600 bg-stone-800",
+        "px-4 py-2 text-sm text-white shadow-[0_4px_14px_rgba(87,83,78,0.4)]",
+        "transition-colors hover:bg-stone-700",
+      ])}
     >
       <MessageCircle className="size-4 shrink-0" aria-hidden="true" />
-      <span>{label}</span>
+      <span className="min-w-0 truncate">{label}</span>
     </button>
   );
 }
