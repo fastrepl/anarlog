@@ -1,6 +1,6 @@
 import { TabItemEmpty } from "./empty";
 
-import { MainTabItem } from "~/shared/main";
+import { MainTabItem } from "~/shared/main/tab-item";
 import { type Tab } from "~/store/zustand/tabs";
 
 export function ClassicMainTabItem({

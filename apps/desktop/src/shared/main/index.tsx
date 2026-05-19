@@ -19,8 +19,6 @@ export {
   useSessionStatusBanner,
 } from "./session-status-banner";
 export { MainShellScaffold } from "./shell-scaffold";
-export { MainTabItem } from "./tab-item";
-export { MainTabContent } from "./tab-content";
 export { useScrollActiveTabIntoView } from "./tab-scroll";
 
 export function StandardTabWrapper({
