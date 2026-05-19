@@ -55,7 +55,7 @@ export function AnarlogProviderIcon() {
     <img
       src={ANARLOG_ICON_SRC}
       alt="Anarlog"
-      className="size-4 object-contain object-center"
+      className="size-4 object-contain object-center [clip-path:inset(6%_round_18%)]"
     />
   );
 }

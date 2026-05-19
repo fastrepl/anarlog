@@ -136,26 +136,30 @@ export function LocalModelLabel({
 
   return (
     <div className={cn(["flex min-w-0 items-center gap-2", className])}>
-      {icon && (
+      {icon?.imageSrc ? (
+        <img
+          title={icon.title}
+          aria-label={icon.title}
+          src={icon.imageSrc}
+          alt=""
+          className={cn([
+            "shrink-0 object-contain object-center",
+            icon.imageClassName,
+            "size-5",
+          ])}
+        />
+      ) : icon ? (
         <span
           title={icon.title}
           aria-label={icon.title}
           className={cn([
-            "inline-flex size-5 shrink-0 items-center justify-center overflow-hidden rounded-md border text-[10px] leading-none font-semibold",
+            "inline-flex size-5 shrink-0 items-center justify-center overflow-hidden rounded-md text-[10px] leading-none font-semibold",
             icon.className,
           ])}
         >
-          {icon.imageSrc ? (
-            <img
-              src={icon.imageSrc}
-              alt=""
-              className={cn([icon.imageClassName ?? "size-4 object-contain"])}
-            />
-          ) : (
-            icon.label
-          )}
+          {icon.label}
         </span>
-      )}
+      ) : null}
       <span className={cn(["min-w-0 truncate", labelClassName])}>{label}</span>
     </div>
   );

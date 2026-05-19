@@ -1,6 +1,12 @@
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { arch } from "@tauri-apps/plugin-os";
-import { Check, FolderOpen, Loader2, Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  Check,
+  FolderOpen,
+  Loader2,
+  Trash2,
+} from "lucide-react";
 import { useRef } from "react";
 
 import {
@@ -18,11 +24,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@hypr/ui/components/ui/select";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@hypr/ui/components/ui/tooltip";
 import { cn } from "@hypr/utils";
 
 import { useSttSettings } from "./context";
@@ -52,70 +53,24 @@ import {
 } from "~/stt/capabilities";
 
 export function SelectProviderAndModel() {
-  const { current_stt_provider, current_stt_model, spoken_languages } =
-    useConfigValues([
-      "current_stt_provider",
-      "current_stt_model",
-      "spoken_languages",
-    ] as const);
+  const { current_stt_provider, current_stt_model } = useConfigValues([
+    "current_stt_provider",
+    "current_stt_model",
+  ] as const);
   const billing = useBillingAccess();
-  const configuredProviders = useConfiguredMapping();
+  const configuredProviders = useConfiguredMapping(current_stt_model);
   const { startDownload, startTrial } = useSttSettings();
   const health = useConnectionHealth();
 
   const isConfigured = !!(current_stt_provider && current_stt_model);
-  const isOnDeviceModel =
-    current_stt_provider === "hyprnote" &&
-    !!current_stt_model &&
-    current_stt_model !== "cloud";
-  const useLiveOnDeviceModel =
-    isOnDeviceModel && isRealtimeLocalModel(current_stt_model);
   const hasError = isConfigured && health.status === "error";
-  const liveSupport = useQuery({
-    queryKey: ["stt-live-support", current_stt_provider, current_stt_model],
-    queryFn: () =>
-      isLiveTranscriptionSupported(current_stt_provider, current_stt_model),
-    enabled: isConfigured,
-  });
-
-  const languageSupport = useQuery({
-    queryKey: [
-      "stt-language-support",
-      current_stt_provider,
-      current_stt_model,
-      useLiveOnDeviceModel,
-      liveSupport.data,
-      spoken_languages,
-    ],
-    queryFn: async () => {
-      const useLiveMode = isOnDeviceModel
-        ? useLiveOnDeviceModel && liveSupport.data
-        : liveSupport.data;
-      const result = useLiveMode
-        ? await listenerCommands.isSupportedLanguagesLive(
-            current_stt_provider!,
-            current_stt_model ?? null,
-            spoken_languages ?? [],
-          )
-        : await listenerCommands.isSupportedLanguagesBatch(
-            current_stt_provider!,
-            current_stt_model ?? null,
-            spoken_languages ?? [],
-          );
-      return result.status === "ok" ? result.data : true;
-    },
-    enabled:
-      isConfigured &&
-      liveSupport.data !== undefined &&
-      !!spoken_languages?.length,
-  });
-
-  const hasLanguageWarning =
-    isConfigured && languageSupport.data === false && !hasError;
   const selectedProvider = current_stt_provider as ProviderId | undefined;
   const selectedModels = selectedProvider
     ? (configuredProviders[selectedProvider]?.models ?? [])
     : [];
+  const selectedModel = selectedModels.find(
+    (model) => model.id === current_stt_model,
+  );
 
   const handleSelectProvider = settings.UI.useSetValueCallback(
     "current_stt_provider",
@@ -169,14 +124,6 @@ export function SelectProviderAndModel() {
   };
   return (
     <div className="flex flex-col gap-4">
-      {hasLanguageWarning && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
-          <span className="text-sm text-amber-600">
-            Selected model may not support all your spoken languages.
-          </span>
-        </div>
-      )}
-
       {!isConfigured && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
           <span className="text-sm text-red-600">
@@ -265,7 +212,11 @@ export function SelectProviderAndModel() {
                   isConfigured && "[&>svg:last-child]:hidden",
                 ])}
               >
-                <SelectValue placeholder="Select a model" />
+                <SelectValue placeholder="Select a model">
+                  {selectedModel ? (
+                    <ModelSelectedValue model={selectedModel} />
+                  ) : undefined}
+                </SelectValue>
                 {isConfigured && <HealthStatusIndicator />}
                 {isConfigured && health.status === "success" && (
                   <Check className="-mr-1 h-4 w-4 shrink-0 text-green-600" />
@@ -304,6 +255,82 @@ export function SelectProviderAndModel() {
   );
 }
 
+export function TranscriptionLanguageWarningBanner() {
+  const hasLanguageWarning = useHasLanguageWarning();
+
+  if (!hasLanguageWarning) {
+    return null;
+  }
+
+  return (
+    <div className="-mx-6 -mt-3 mb-6 border-b border-amber-200 bg-amber-50 px-6 py-3">
+      <span className="flex items-center justify-center gap-2 text-center text-sm text-amber-600">
+        <AlertTriangle className="size-4 shrink-0" />
+        Selected model may not support all your spoken languages.
+      </span>
+    </div>
+  );
+}
+
+function useHasLanguageWarning() {
+  const { current_stt_provider, current_stt_model, spoken_languages } =
+    useConfigValues([
+      "current_stt_provider",
+      "current_stt_model",
+      "spoken_languages",
+    ] as const);
+  const health = useConnectionHealth();
+
+  const isConfigured = !!(current_stt_provider && current_stt_model);
+  const isOnDeviceModel =
+    current_stt_provider === "hyprnote" &&
+    !!current_stt_model &&
+    current_stt_model !== "cloud";
+  const useLiveOnDeviceModel =
+    isOnDeviceModel && isRealtimeLocalModel(current_stt_model);
+  const hasError = isConfigured && health.status === "error";
+  const liveSupport = useQuery({
+    queryKey: ["stt-live-support", current_stt_provider, current_stt_model],
+    queryFn: () =>
+      isLiveTranscriptionSupported(current_stt_provider, current_stt_model),
+    enabled: isConfigured,
+  });
+
+  const languageSupport = useQuery({
+    queryKey: [
+      "stt-language-support",
+      current_stt_provider,
+      current_stt_model,
+      useLiveOnDeviceModel,
+      liveSupport.data,
+      spoken_languages,
+    ],
+    queryFn: async () => {
+      const useLiveMode = isOnDeviceModel
+        ? useLiveOnDeviceModel && liveSupport.data
+        : liveSupport.data;
+      const result = useLiveMode
+        ? await listenerCommands.isSupportedLanguagesLive(
+            current_stt_provider!,
+            current_stt_model ?? null,
+            spoken_languages ?? [],
+          )
+        : await listenerCommands.isSupportedLanguagesBatch(
+            current_stt_provider!,
+            current_stt_model ?? null,
+            spoken_languages ?? [],
+          );
+      return result.status === "ok" ? result.data : true;
+    },
+    enabled:
+      isConfigured &&
+      liveSupport.data !== undefined &&
+      !!spoken_languages?.length,
+  });
+
+  return isConfigured && languageSupport.data === false && !hasError;
+}
+
 type ModelCategory = "latest" | "deprecated" | null;
 type ModelEntry = {
   id: string;
@@ -327,7 +354,7 @@ function getModelCategoryLabel(category?: ModelCategory) {
   return null;
 }
 
-function useConfiguredMapping(): Record<
+function useConfiguredMapping(currentModel?: string): Record<
   ProviderId,
   {
     configured: boolean;
@@ -359,10 +386,15 @@ function useConfiguredMapping(): Record<
 
   const localModels = supportedModels.data ?? [];
   const cactusModels = localModels.filter((m) => m.model_type === "cactus");
+  const visibleCactusModels = cactusModels.filter(
+    (m) => m.key === currentModel,
+  );
   const soniqoModels = localModels.filter((m) => m.model_type === "soniqo");
 
   const cactusDownloaded = useQueries({
-    queries: [...cactusModels.map((m) => sttModelQueries.isDownloaded(m.key))],
+    queries: [
+      ...visibleCactusModels.map((m) => sttModelQueries.isDownloaded(m.key)),
+    ],
   });
   const soniqoDownloaded = useQueries({
     queries: [...soniqoModels.map((m) => sttModelQueries.isDownloaded(m.key))],
@@ -406,11 +438,11 @@ function useConfiguredMapping(): Record<
             });
           });
 
-          const sorted = [...cactusModels].sort((a) =>
+          const sorted = [...visibleCactusModels].sort((a) =>
             String(a.key).includes("parakeet") ? -1 : 1,
           );
           sorted.forEach((model) => {
-            const i = cactusModels.indexOf(model);
+            const i = visibleCactusModels.indexOf(model);
             models.push({
               id: model.key,
               isDownloaded: cactusDownloaded[i]?.data ?? false,
@@ -463,13 +495,18 @@ function ModelSelectItem({
   const { activeDownloads } = useNotifications();
   const downloadInfo = activeDownloads.find((d) => d.model === model.id);
   const isDownloading = !!downloadInfo;
-  const billing = useBillingAccess();
 
   const label = model.displayName ?? displayModelId(model.id);
   const sizeLabel = formatModelSize(model.sizeBytes);
   const showLocalActions = model.isDownloaded && isLocalModelId(model.id);
+  const isDeprecated = model.status === "deprecated";
   const content = (
-    <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
+    <div
+      className={cn([
+        "flex min-w-0 flex-1 items-center justify-between gap-3",
+        isDeprecated && "opacity-60",
+      ])}
+    >
       <LocalModelLabel
         model={model.id}
         label={label}
@@ -494,7 +531,7 @@ function ModelSelectItem({
             {model.mode === "realtime" ? "Realtime" : "Batch"}
           </span>
         )}
-        {sizeLabel && (
+        {!model.isDownloaded && sizeLabel && (
           <span className="font-mono text-neutral-500">{sizeLabel}</span>
         )}
       </div>
@@ -507,7 +544,10 @@ function ModelSelectItem({
         <SelectItem
           key={model.id}
           value={model.id}
-          className={showLocalActions ? "pr-24" : undefined}
+          className={cn([
+            showLocalActions && "pr-20",
+            isDeprecated && "text-neutral-400 focus:text-neutral-500",
+          ])}
         >
           {content}
         </SelectItem>
@@ -530,10 +570,6 @@ function ModelSelectItem({
       onDownload();
     }
   };
-
-  const cloudButtonLabel = billing.canStartTrial.data
-    ? "Free Trial"
-    : "Upgrade";
 
   return (
     <div
@@ -560,19 +596,33 @@ function ModelSelectItem({
       ) : (
         <button
           className={cn([
-            "rounded-full px-2 py-0.5 text-[11px] font-medium",
+            "rounded-full px-2 text-[11px] font-medium",
             "opacity-0 group-hover:opacity-100",
             "transition-all duration-150",
             isCloud
-              ? "bg-linear-to-t from-stone-600 to-stone-500 text-white shadow-xs hover:shadow-md"
-              : "bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900 shadow-xs hover:shadow-md",
+              ? "bg-linear-to-t from-stone-600 to-stone-500 py-1 text-white shadow-xs hover:shadow-md"
+              : "bg-linear-to-t from-neutral-200 to-neutral-100 py-0.5 text-neutral-900 shadow-xs hover:shadow-md",
           ])}
           onClick={handleAction}
         >
-          {isCloud ? cloudButtonLabel : "Download"}
+          {isCloud ? "Upgrade to use" : "Download"}
         </button>
       )}
     </div>
+  );
+}
+
+function ModelSelectedValue({ model }: { model: ModelEntry }) {
+  return (
+    <LocalModelLabel
+      model={model.id}
+      label={model.displayName ?? displayModelId(model.id)}
+      className={cn([
+        "min-w-0 flex-1",
+        model.status === "deprecated" && "opacity-60",
+      ])}
+      labelClassName={cn([model.status === "deprecated" && "text-neutral-400"])}
+    />
   );
 }
 
@@ -618,47 +668,45 @@ function LocalModelDropdownActions({ model }: { model: LocalModel }) {
   };
 
   return (
-    <div className="absolute top-1/2 right-8 flex -translate-y-1/2 items-center gap-1">
-      <Tooltip delayDuration={100}>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            aria-label="Show in Finder"
-            className={cn([
-              "flex size-6 items-center justify-center rounded-md",
-              "text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900",
-            ])}
-            onPointerDown={stopSelect}
-            onClick={(event) => {
-              stopSelect(event);
-              handleOpen();
-            }}
-          >
-            <FolderOpen className="size-3.5" />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="left">Show in Finder</TooltipContent>
-      </Tooltip>
-      <Tooltip delayDuration={100}>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            aria-label="Delete model"
-            className={cn([
-              "flex size-6 items-center justify-center rounded-md",
-              "text-red-500 hover:bg-red-50 hover:text-red-600",
-            ])}
-            onPointerDown={stopSelect}
-            onClick={(event) => {
-              stopSelect(event);
-              handleDelete();
-            }}
-          >
-            <Trash2 className="size-3.5" />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="left">Delete model</TooltipContent>
-      </Tooltip>
+    <div
+      className={cn([
+        "absolute top-0 right-1 bottom-0 z-10 flex items-center justify-end gap-1 pl-6",
+        "via-accent/95 to-accent bg-linear-to-r from-transparent",
+        "pointer-events-none opacity-0 transition-opacity duration-150",
+        "group-hover/model-row:pointer-events-auto group-hover/model-row:opacity-100",
+        "group-focus-within/model-row:pointer-events-auto group-focus-within/model-row:opacity-100",
+      ])}
+    >
+      <button
+        type="button"
+        aria-label="Show in Finder"
+        className={cn([
+          "flex size-6 items-center justify-center rounded-md",
+          "text-neutral-500 hover:text-neutral-900",
+        ])}
+        onPointerDown={stopSelect}
+        onClick={(event) => {
+          stopSelect(event);
+          handleOpen();
+        }}
+      >
+        <FolderOpen className="size-3.5" />
+      </button>
+      <button
+        type="button"
+        aria-label="Delete model"
+        className={cn([
+          "flex size-6 items-center justify-center rounded-md",
+          "text-red-500 hover:text-red-600",
+        ])}
+        onPointerDown={stopSelect}
+        onClick={(event) => {
+          stopSelect(event);
+          handleDelete();
+        }}
+      >
+        <Trash2 className="size-3.5" />
+      </button>
     </div>
   );
 }
