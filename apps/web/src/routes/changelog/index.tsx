@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 
 import { SiteFooter } from "@/components/site-footer";
 import { changelogEntries, formatChangelogDate } from "@/lib/changelog";
+import { getEntrySummary } from "@/lib/changelog-summary";
 import { ANARLOG_SITE_URL } from "@/lib/seo";
 
 export const Route = createFileRoute("/changelog/")({
@@ -69,7 +70,7 @@ function Component() {
                     )}
                   </header>
                   <p className="leading-7 text-[#4f4940]">
-                    {entry.summary ?? getEntrySummary(entry.content)}
+                    {getEntrySummary(entry.summary ?? entry.content)}
                   </p>
                   <Link
                     to="/changelog/$version/"
@@ -91,16 +92,5 @@ function Component() {
 
       <SiteFooter />
     </main>
-  );
-}
-
-function getEntrySummary(content: string) {
-  return (
-    content
-      .split("\n")
-      .map((line) => line.trim())
-      .find(
-        (line) => line && !line.startsWith("#") && !line.startsWith("!["),
-      ) ?? "See what changed in this release."
   );
 }
