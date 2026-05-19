@@ -1,5 +1,9 @@
+import { AnimatePresence, motion } from "motion/react";
+import type { CSSProperties } from "react";
+
 import { cn } from "@hypr/utils";
 
+import { useCaretPosition } from "../caret-position-context";
 import { ListenButton } from "./listen";
 
 import {
@@ -12,36 +16,72 @@ import { useListener } from "~/stt/contexts";
 
 export function FloatingActionButton({
   hidden = false,
+  skipReason = null,
   tab,
 }: {
   hidden?: boolean;
+  skipReason?: string | null;
   tab: Extract<Tab, { type: "sessions" }>;
 }) {
   const shouldShowListen = useShouldShowListeningFab(tab);
   const shouldShowChat = useShouldShowChatFab(tab);
+  const isCaretNearBottom = useCaretPosition()?.isCaretNearBottom ?? false;
+  const showSkipReason = !!skipReason;
+  const showAction = shouldShowListen || shouldShowChat;
+  const tuckAction =
+    !showSkipReason &&
+    ((shouldShowListen && isCaretNearBottom) || (shouldShowChat && hidden));
 
-  if (!shouldShowListen && !shouldShowChat) {
+  if (!showSkipReason && !showAction) {
     return null;
   }
 
   return (
     <div
       className={cn([
-        "absolute bottom-0 left-1/2 z-20 h-14 w-96 max-w-[calc(100%-2rem)] -translate-x-1/2",
-        hidden ? "group pointer-events-auto" : "pointer-events-none",
+        "absolute bottom-0 left-1/2 z-20 flex h-14 max-w-[calc(100%-2rem)] -translate-x-1/2 items-end justify-center pb-4",
+        tuckAction ? "group pointer-events-auto" : "pointer-events-none",
       ])}
     >
-      <div
-        aria-hidden={hidden}
-        className={cn([
-          "absolute bottom-4 left-1/2 -translate-x-1/2 transition-[opacity,visibility,transform] duration-150",
-          hidden
-            ? "pointer-events-none visible translate-y-[calc(100%+0.5rem)] opacity-100 group-hover:pointer-events-auto group-hover:translate-y-0"
-            : "pointer-events-auto visible translate-y-0 opacity-100",
-        ])}
-      >
-        {shouldShowListen ? <ListenButton tab={tab} /> : <ChatCTA />}
-      </div>
+      <AnimatePresence mode="wait" initial={false}>
+        {showSkipReason ? (
+          <motion.div
+            key={skipReason}
+            role="status"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+            className="max-w-full translate-y-0 text-center text-sm whitespace-nowrap text-red-400"
+          >
+            {skipReason}
+          </motion.div>
+        ) : (
+          <motion.div
+            key={shouldShowListen ? "listen" : "chat"}
+            aria-hidden={tuckAction}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            style={
+              {
+                "--floating-fab-tuck-offset": tuckAction
+                  ? "calc(100% - 0.5rem + 18px)"
+                  : "0px",
+              } as CSSProperties
+            }
+            className={cn([
+              "max-w-full translate-y-[var(--floating-fab-tuck-offset)] transition-transform duration-200 ease-out",
+              tuckAction
+                ? "pointer-events-none visible group-hover:pointer-events-auto group-hover:translate-y-0"
+                : "pointer-events-auto visible",
+            ])}
+          >
+            {shouldShowListen ? <ListenButton tab={tab} /> : <ChatCTA />}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

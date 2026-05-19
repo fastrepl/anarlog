@@ -22,7 +22,6 @@ import { getSessionTabStatus } from "./tab-visual-state";
 
 import { useTitleGeneration } from "~/ai/hooks";
 import * as AudioPlayer from "~/audio-player";
-import { useSessionStatusBanner } from "~/shared/main";
 import { type TabItem, TabItemBase } from "~/shared/tabs";
 import * as main from "~/store/tinybase/store/main";
 import { useSessionTitle } from "~/store/zustand/live-title";
@@ -276,11 +275,6 @@ function TabContentNoteInner({
     [currentViewKey],
   );
 
-  useSessionStatusBanner({
-    skipReason,
-    bottomAccessoryState,
-  });
-
   const mergeTranscriptSurface =
     bottomAccessoryState?.expanded === true &&
     (bottomAccessoryState.mode === "playback" ||
@@ -316,7 +310,11 @@ function TabContentNoteInner({
       bottomBorderHandle={bottomBorderHandle}
       mergeAfterBorder={mergeTranscriptSurface}
       floatingButton={
-        <FloatingActionButton hidden={floatingButtonHidden} tab={tab} />
+        <FloatingActionButton
+          hidden={floatingButtonHidden}
+          skipReason={skipReason}
+          tab={tab}
+        />
       }
     >
       <NoteInput
