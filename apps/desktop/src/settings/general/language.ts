@@ -1,8 +1,11 @@
-const displayNames = new Intl.DisplayNames(["en"], { type: "language" });
+const displayNamesByLocale = new Map<string, Intl.DisplayNames>();
 
-export function getBaseLanguageDisplayName(code: string): string {
+export function getBaseLanguageDisplayName(
+  code: string,
+  displayLocale = "en",
+): string {
   const { language } = parseLocale(code);
-  return displayNames.of(language) ?? code;
+  return getDisplayNames(displayLocale).of(language) ?? code;
 }
 
 export function getBaseLanguageCode(code: string): string {
@@ -39,4 +42,26 @@ export function parseLocale(code: string): {
 } {
   const locale = new Intl.Locale(code);
   return { language: locale.language, region: locale.region };
+}
+
+function getDisplayNames(displayLocale: string) {
+  const locale = getValidDisplayLocale(displayLocale);
+  const existing = displayNamesByLocale.get(locale);
+
+  if (existing) {
+    return existing;
+  }
+
+  const displayNames = new Intl.DisplayNames([locale], { type: "language" });
+  displayNamesByLocale.set(locale, displayNames);
+
+  return displayNames;
+}
+
+function getValidDisplayLocale(displayLocale: string) {
+  try {
+    return new Intl.Locale(displayLocale).toString();
+  } catch {
+    return "en";
+  }
 }

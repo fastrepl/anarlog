@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Search, X } from "lucide-react";
 import { useMemo, useState } from "react";
 
@@ -24,6 +25,7 @@ export function SpokenLanguagesView({
   onChange,
   supportedLanguages,
 }: SpokenLanguagesViewProps) {
+  const { i18n, t } = useLingui();
   const [languageSearchQuery, setLanguageSearchQuery] = useState("");
   const [languageInputFocused, setLanguageInputFocused] = useState(false);
   const [languageSelectedIndex, setLanguageSelectedIndex] = useState(-1);
@@ -56,10 +58,11 @@ export function SpokenLanguagesView({
     return supportedLanguageCodes.filter((langCode) => {
       if (langCode === mainLanguageCode) return false;
       if (selectedLanguageCodes.includes(langCode)) return false;
-      const langName = getBaseLanguageDisplayName(langCode);
+      const langName = getBaseLanguageDisplayName(langCode, i18n.locale);
       return langName.toLowerCase().includes(query);
     });
   }, [
+    i18n.locale,
     languageSearchQuery,
     mainLanguageCode,
     selectedLanguageCodes,
@@ -109,9 +112,11 @@ export function SpokenLanguagesView({
 
   return (
     <div>
-      <h3 className="mb-1 text-sm font-medium">Additional spoken languages</h3>
+      <h3 className="mb-1 text-sm font-medium">
+        <Trans>Additional spoken languages</Trans>
+      </h3>
       <p className="mb-3 text-xs text-neutral-600">
-        The main language is always included for transcription
+        <Trans>The main language is always included for transcription</Trans>
       </p>
       <div className="relative">
         <div
@@ -129,7 +134,7 @@ export function SpokenLanguagesView({
               variant="secondary"
               className="bg-muted flex items-center gap-1 px-2 py-0.5 text-xs"
             >
-              {getBaseLanguageDisplayName(code)}
+              {getBaseLanguageDisplayName(code, i18n.locale)}
               <Button
                 type="button"
                 variant="ghost"
@@ -167,9 +172,9 @@ export function SpokenLanguagesView({
                 ? `language-option-${languageSelectedIndex}`
                 : undefined
             }
-            aria-label="Add spoken language"
+            aria-label={t`Add spoken language`}
             placeholder={
-              selectedLanguageCodes.length === 0 ? "Add language" : ""
+              selectedLanguageCodes.length === 0 ? t`Add language` : ""
             }
             className="min-w-[120px] flex-1 bg-transparent text-sm placeholder:text-neutral-500 focus:outline-hidden"
           />
@@ -204,13 +209,13 @@ export function SpokenLanguagesView({
                   ])}
                 >
                   <span className="truncate font-medium">
-                    {getBaseLanguageDisplayName(langCode)}
+                    {getBaseLanguageDisplayName(langCode, i18n.locale)}
                   </span>
                 </button>
               ))
             ) : (
               <div className="px-3 py-2 text-center text-sm text-neutral-500">
-                No matching languages found
+                <Trans>No matching languages found</Trans>
               </div>
             )}
           </div>

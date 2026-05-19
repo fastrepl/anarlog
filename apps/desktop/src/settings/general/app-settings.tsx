@@ -1,3 +1,5 @@
+import { Trans } from "@lingui/react/macro";
+
 import { Switch } from "@hypr/ui/components/ui/switch";
 
 interface SettingItem {
@@ -22,7 +24,9 @@ export function AppSettingsView({
 }: AppSettingsViewProps) {
   return (
     <div>
-      <h2 className="mb-4 font-serif text-lg font-semibold">App</h2>
+      <h2 className="mb-4 font-serif text-lg font-semibold">
+        <Trans>App</Trans>
+      </h2>
       <div className="flex flex-col gap-4">
         <SettingRow
           title={autostart.title}

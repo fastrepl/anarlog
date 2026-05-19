@@ -11,6 +11,8 @@
     "tauri": "dotenvx run --ignore MISSING_ENV_FILE -f ../../.env.supabase -f .env -- tauri",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "i18n:extract": "lingui extract",
+    "i18n:compile": "lingui compile",
     "tauri:dev": "dotenvx run --ignore MISSING_ENV_FILE -f ../../.env.supabase -f .env -- tauri dev --no-watch --features dev",
     "tauri:build": "tauri build"
   },
@@ -92,6 +94,8 @@
     "@hypr/utils": "workspace:^",
     "@iconify-icon/react": "^3.0.3",
     "@lezer/highlight": "^1.2.3",
+    "@lingui/core": "^6.0.1",
+    "@lingui/react": "^6.0.1",
     "@lmstudio/sdk": "^1.5.0",
     "@lobehub/icons": "^3.0.2",
     "@openrouter/ai-sdk-provider": "^2.5.1",
@@ -174,6 +178,9 @@
   "devDependencies": {
     "@dotenvx/dotenvx": "^1.61.0",
     "@faker-js/faker": "^10.4.0",
+    "@lingui/babel-plugin-lingui-macro": "^6.0.1",
+    "@lingui/cli": "^6.0.1",
+    "@lingui/vite-plugin": "^6.0.1",
     "@tanstack/react-router-devtools": "^1.166.13",
     "@tanstack/router-plugin": "^1.167.19",
     "@tauri-apps/cli": "^2.10.1",

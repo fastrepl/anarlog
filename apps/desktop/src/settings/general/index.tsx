@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useForm } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 import { disable, enable } from "@tauri-apps/plugin-autostart";
@@ -120,6 +121,7 @@ function useSettingsForm() {
 }
 
 export function SettingsApp() {
+  const { t } = useLingui();
   const { form } = useSettingsForm();
 
   const supportedLanguagesQuery = useQuery({
@@ -147,32 +149,28 @@ export function SettingsApp() {
                     {(telemetryConsentField) => (
                       <AppSettingsView
                         autostart={{
-                          title: "Start Anarlog at login",
-                          description:
-                            "Always ready without manually launching.",
+                          title: t`Start Anarlog at login`,
+                          description: t`Always ready without manually launching.`,
                           value: autostartField.state.value,
                           onChange: (val) => autostartField.handleChange(val),
                         }}
                         autoStartScheduledMeetings={{
-                          title: "Start when meeting begins",
-                          description:
-                            "Automatically start listening when an event-backed note reaches its scheduled start time.",
+                          title: t`Start when meeting begins`,
+                          description: t`Automatically start listening when an event-backed note reaches its scheduled start time.`,
                           value: autoStartScheduledMeetingsField.state.value,
                           onChange: (val) =>
                             autoStartScheduledMeetingsField.handleChange(val),
                         }}
                         autoStopMeetings={{
-                          title: "Stop when meeting ends",
-                          description:
-                            "Automatically stop listening when the meeting app releases the microphone.",
+                          title: t`Stop when meeting ends`,
+                          description: t`Automatically stop listening when the meeting app releases the microphone.`,
                           value: autoStopMeetingsField.state.value,
                           onChange: (val) =>
                             autoStopMeetingsField.handleChange(val),
                         }}
                         telemetryConsent={{
-                          title: "Share usage data",
-                          description:
-                            "Send anonymous usage analytics to help improve Anarlog.",
+                          title: t`Share usage data`,
+                          description: t`Send anonymous usage analytics to help improve Anarlog.`,
                           value: telemetryConsentField.state.value,
                           onChange: (val) =>
                             telemetryConsentField.handleChange(val),
@@ -189,7 +187,7 @@ export function SettingsApp() {
 
       <div>
         <h2 className="mb-4 font-serif text-lg font-semibold">
-          Language & Region
+          <Trans>Language &amp; Region</Trans>
         </h2>
         <div className="flex flex-col gap-6">
           <form.Field name="ai_language">
@@ -236,9 +234,11 @@ export function SettingsApp() {
 }
 
 export function SettingsData() {
+  const { t } = useLingui();
+
   return (
     <div className="flex flex-col gap-8">
-      <SettingsPageTitle title="Data" />
+      <SettingsPageTitle title={t`Data`} />
       <StorageSettingsView />
       <Data />
     </div>
@@ -246,9 +246,11 @@ export function SettingsData() {
 }
 
 export function SettingsNotifications() {
+  const { t } = useLingui();
+
   return (
     <div className="flex flex-col gap-6">
-      <SettingsPageTitle title="Notifications" />
+      <SettingsPageTitle title={t`Notifications`} />
       <NotificationSettingsView />
     </div>
   );

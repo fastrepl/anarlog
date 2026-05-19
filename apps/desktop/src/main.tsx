@@ -21,6 +21,7 @@ import "@hypr/ui/globals.css";
 
 import { createToolRegistry } from "./contexts/tool-registry/core";
 import { env } from "./env";
+import { AppI18nProvider } from "./i18n/provider";
 import { routeTree } from "./routeTree.gen";
 import { EventListeners } from "./services/event-listeners";
 import { TaskManager } from "./services/task-manager";
@@ -72,16 +73,18 @@ function App() {
   }
 
   return (
-    <RouterProvider
-      router={router}
-      context={{
-        persistedStore: store,
-        internalStore: store,
-        listenerStore,
-        aiTaskStore,
-        toolRegistry,
-      }}
-    />
+    <AppI18nProvider>
+      <RouterProvider
+        router={router}
+        context={{
+          persistedStore: store,
+          internalStore: store,
+          listenerStore,
+          aiTaskStore,
+          toolRegistry,
+        }}
+      />
+    </AppI18nProvider>
   );
 }
 

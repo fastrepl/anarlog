@@ -1,0 +1,97 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-05-19 13:42+0900\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: ja\n"
+
+#: src/settings/general/spoken-languages.tsx:177
+msgid "Add language"
+msgstr "言語を追加"
+
+#: src/settings/general/spoken-languages.tsx:175
+msgid "Add spoken language"
+msgstr "音声言語を追加"
+
+#: src/settings/general/spoken-languages.tsx:116
+msgid "Additional spoken languages"
+msgstr "追加の音声言語"
+
+#: src/settings/general/index.tsx:154
+msgid "Always ready without manually launching."
+msgstr "手動で起動しなくても常に準備できます。"
+
+#: src/settings/general/app-settings.tsx:28
+msgid "App"
+msgstr "アプリ"
+
+#: src/settings/general/index.tsx:161
+msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
+msgstr "予定に紐づいたノートが開始時刻になると、自動的にリスニングを開始します。"
+
+#: src/settings/general/index.tsx:169
+msgid "Automatically stop listening when the meeting app releases the microphone."
+msgstr "会議アプリがマイクを解放すると、自動的にリスニングを停止します。"
+
+#: src/settings/general/index.tsx:245
+msgid "Data"
+msgstr "データ"
+
+#: src/settings/general/index.tsx:194
+msgid "Language & Region"
+msgstr "言語と地域"
+
+#: src/settings/general/main-language.tsx:53
+msgid "Language for summaries, chats, and AI-generated responses"
+msgstr "要約、チャット、AI生成応答に使用する言語"
+
+#: src/settings/general/main-language.tsx:50
+msgid "Main language"
+msgstr "メイン言語"
+
+#: src/settings/general/main-language.tsx:62
+#: src/settings/general/spoken-languages.tsx:218
+msgid "No matching languages found"
+msgstr "一致する言語が見つかりません"
+
+#: src/settings/general/index.tsx:257
+msgid "Notifications"
+msgstr "通知"
+
+#: src/settings/general/main-language.tsx:61
+msgid "Search language..."
+msgstr "言語を検索..."
+
+#: src/settings/general/main-language.tsx:60
+msgid "Select language"
+msgstr "言語を選択"
+
+#: src/settings/general/index.tsx:177
+msgid "Send anonymous usage analytics to help improve Anarlog."
+msgstr "Anarlog の改善に役立てるため、匿名の使用状況データを送信します。"
+
+#: src/settings/index.tsx:36
+msgid "Settings"
+msgstr "設定"
+
+#: src/settings/general/index.tsx:175
+msgid "Share usage data"
+msgstr "使用状況データを共有"
+
+#: src/settings/general/index.tsx:152
+msgid "Start Anarlog at login"
+msgstr "ログイン時に Anarlog を起動"
+
+#: src/settings/general/index.tsx:159
+msgid "Start when meeting begins"
+msgstr "会議開始時に開始"
+
+#: src/settings/general/index.tsx:167
+msgid "Stop when meeting ends"
+msgstr "会議終了時に停止"
+
+#: src/settings/general/spoken-languages.tsx:119
+msgid "The main language is always included for transcription"
+msgstr "メイン言語は文字起こしに常に含まれます"

@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useMemo } from "react";
 
 import { getBaseLanguageDisplayName, parseLocale } from "./language";
@@ -15,6 +16,8 @@ export function MainLanguageView({
   onChange: (value: string) => void;
   supportedLanguages: readonly string[];
 }) {
+  const { i18n, t } = useLingui();
+
   const deduped = useMemo(() => {
     const map = new Map<string, string>();
     for (const code of supportedLanguages) {
@@ -35,25 +38,30 @@ export function MainLanguageView({
     () =>
       [...deduped.values()].map((code) => ({
         value: code,
-        label: getBaseLanguageDisplayName(code),
+        label: getBaseLanguageDisplayName(code, i18n.locale),
       })),
-    [deduped],
+    [deduped, i18n.locale],
   );
 
   return (
     <div className="flex flex-row items-center justify-between">
       <div>
-        <h3 className="mb-1 text-sm font-medium">Main language</h3>
+        <h3 className="mb-1 text-sm font-medium">
+          <Trans>Main language</Trans>
+        </h3>
         <p className="text-xs text-neutral-600">
-          Language for summaries, chats, and AI-generated responses
+          <Trans>
+            Language for summaries, chats, and AI-generated responses
+          </Trans>
         </p>
       </div>
       <SearchableSelect
         value={normalizedValue}
         onChange={onChange}
         options={options}
-        placeholder="Select language"
-        searchPlaceholder="Search language..."
+        placeholder={t`Select language`}
+        searchPlaceholder={t`Search language...`}
+        emptyMessage={t`No matching languages found`}
         className="w-48"
       />
     </div>

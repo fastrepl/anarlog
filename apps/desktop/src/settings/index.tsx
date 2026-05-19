@@ -1,3 +1,4 @@
+import { useLingui } from "@lingui/react/macro";
 import { SettingsIcon } from "lucide-react";
 
 import { cn } from "@hypr/utils";
@@ -27,10 +28,12 @@ export const TabItemSettings: TabItem<Extract<Tab, { type: "settings" }>> = ({
   handlePinThis,
   handleUnpinThis,
 }) => {
+  const { t } = useLingui();
+
   return (
     <TabItemBase
       icon={<SettingsIcon className="h-4 w-4" />}
-      title={"Settings"}
+      title={t`Settings`}
       selected={tab.active}
       pinned={tab.pinned}
       tabIndex={tabIndex}
