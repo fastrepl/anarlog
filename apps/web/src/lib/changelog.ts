@@ -12,12 +12,13 @@ const rawEntries = import.meta.glob(
 export const changelogEntries = Object.entries(rawEntries)
   .map(([filePath, raw]) => {
     const version = filePath.split("/").pop()?.replace(/\.md$/, "") ?? "";
-    const { content, date } = processContent(raw);
+    const { content, date, summary } = processContent(raw);
 
     return {
       version,
       content,
       date: normalizeDate(date),
+      summary,
     };
   })
   .filter((entry) => entry.version)

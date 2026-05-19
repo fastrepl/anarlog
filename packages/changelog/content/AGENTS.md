@@ -2,6 +2,14 @@
 
 - Read through the commits, and most of the diffs, but only keep the desktop-related thing to the changelog.
 - All changelogs should "worth reading" for app users. No internal changes or infra updates.
+- Each changelog must include `date` and `summary` frontmatter. `summary` is shown on the web changelog index, so keep it to one concise, plain-text, user-facing sentence with no markdown or custom tags.
+
+```md
+---
+date: "YYYY-MM-DD"
+summary: "One concise, user-facing sentence for the changelog index preview."
+---
+```
 
 # Scripts
 

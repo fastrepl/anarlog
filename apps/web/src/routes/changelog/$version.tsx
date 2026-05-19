@@ -20,13 +20,16 @@ export const Route = createFileRoute("/changelog/$version")({
     if (!entry) return {};
 
     const url = `${ANARLOG_SITE_URL}/changelog/${entry.version}`;
+    const description =
+      entry.summary ?? `Release notes for Anarlog v${entry.version}.`;
+
     return {
       links: [{ rel: "canonical", href: url }],
       meta: [
         { title: `Anarlog v${entry.version} Changelog` },
         {
           name: "description",
-          content: `Release notes for Anarlog v${entry.version}.`,
+          content: description,
         },
         {
           property: "og:title",
@@ -34,7 +37,7 @@ export const Route = createFileRoute("/changelog/$version")({
         },
         {
           property: "og:description",
-          content: `Release notes for Anarlog v${entry.version}.`,
+          content: description,
         },
         { property: "og:url", content: url },
       ],

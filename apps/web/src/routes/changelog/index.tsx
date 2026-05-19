@@ -69,7 +69,7 @@ function Component() {
                     )}
                   </header>
                   <p className="leading-7 text-[#4f4940]">
-                    {getEntrySummary(entry.content)}
+                    {entry.summary ?? getEntrySummary(entry.content)}
                   </p>
                   <Link
                     to="/changelog/$version/"

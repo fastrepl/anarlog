@@ -10,3 +10,17 @@ doxxer --config doxxer.desktop.toml
 ```
 
 Create the new markdown file in `packages/changelog/content` for that version.
+
+Each changelog file must start with frontmatter that includes both `date` and
+`summary`:
+
+```md
+---
+date: "YYYY-MM-DD"
+summary: "One concise, user-facing sentence for the changelog index preview."
+---
+```
+
+Keep `summary` plain text. Do not use markdown or custom tags in it. The web
+changelog index renders this field directly, so it should describe the release
+at a glance without leaking implementation details.
