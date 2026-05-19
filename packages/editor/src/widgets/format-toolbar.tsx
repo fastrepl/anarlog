@@ -109,7 +109,7 @@ export function FormatToolbar() {
       ref={toolbarRef}
       className={cn([
         "absolute z-[9999] flex items-center gap-0.5 rounded-lg border border-neutral-200 bg-white/95 p-1",
-        "shadow-[0_10px_30px_-14px_rgba(0,0,0,0.35),0_4px_12px_-6px_rgba(0,0,0,0.18)] backdrop-blur-sm",
+        "shadow-[0_2px_8px_rgba(0,0,0,0.08),0_18px_42px_-16px_rgba(0,0,0,0.34)] backdrop-blur-sm",
       ])}
       style={{ top: 0, left: 0 }}
       onMouseDown={(e) => e.preventDefault()}

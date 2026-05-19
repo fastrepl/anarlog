@@ -355,9 +355,9 @@ export function SlashCommandMenu() {
     <div
       ref={popupRef}
       className={cn([
-        "absolute z-[9999] max-h-80 max-w-[280px] min-w-[220px]",
-        "overflow-y-auto rounded-lg bg-white p-1",
-        "shadow-[0_0_0_1px_rgba(0,0,0,0.05),0_6px_12px_-3px_rgba(0,0,0,0.08)]",
+        "absolute z-[9999] max-h-80 w-[280px]",
+        "overflow-y-auto rounded-lg border border-neutral-200 bg-white/95 p-1",
+        "shadow-[0_2px_8px_rgba(0,0,0,0.08),0_18px_42px_-16px_rgba(0,0,0,0.34)] backdrop-blur-sm",
       ])}
       style={{ top: 0, left: 0 }}
     >
