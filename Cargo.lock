@@ -10643,6 +10643,7 @@ name = "listener2-core"
 version = "0.1.0"
 dependencies = [
  "aspasia",
+ "audio-chunking",
  "audio-utils",
  "bytes",
  "denoise",
@@ -10658,10 +10659,12 @@ dependencies = [
  "specta",
  "strum 0.28.0",
  "tauri-specta",
+ "tempfile",
  "thiserror 2.0.18",
  "tokio",
  "tokio-stream",
  "tracing",
+ "transcribe-core",
  "transcribe-soniqo",
 ]
 

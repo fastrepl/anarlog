@@ -404,20 +404,54 @@ pub fn batch_response_from_text(
     text: String,
     duration_seconds: f64,
 ) -> batch::Response {
-    let duration_seconds = duration_seconds.max(0.05);
-    let metadata = metadata_json(model, duration_seconds, 1);
-    let words = batch_words_from_text(&text, duration_seconds, 0);
+    batch_response_from_channels(
+        model,
+        vec![FileTranscript {
+            text,
+            duration_seconds,
+        }],
+    )
+}
+
+pub fn batch_response_from_channels(
+    model: SoniqoModel,
+    channels: Vec<FileTranscript>,
+) -> batch::Response {
+    let channels = if channels.is_empty() {
+        vec![FileTranscript {
+            text: String::new(),
+            duration_seconds: 0.05,
+        }]
+    } else {
+        channels
+    };
+    let duration_seconds = channels
+        .iter()
+        .map(|channel| channel.duration_seconds)
+        .fold(0.05, f64::max);
+    let metadata = metadata_json(model, duration_seconds, channels.len() as u32);
 
     batch::Response {
         metadata,
         results: batch::Results {
-            channels: vec![batch::Channel {
-                alternatives: vec![batch::Alternatives {
-                    transcript: text,
-                    confidence: 1.0,
-                    words,
-                }],
-            }],
+            channels: channels
+                .into_iter()
+                .enumerate()
+                .map(|(channel_index, channel)| {
+                    let duration = channel.duration_seconds.max(0.05);
+                    batch::Channel {
+                        alternatives: vec![batch::Alternatives {
+                            words: batch_words_from_text(
+                                &channel.text,
+                                duration,
+                                channel_index as i32,
+                            ),
+                            transcript: channel.text,
+                            confidence: 1.0,
+                        }],
+                    }
+                })
+                .collect(),
         },
     }
 }
@@ -786,6 +820,43 @@ mod tests {
         assert_eq!(response.results.channels[0].alternatives[0].words.len(), 2);
         assert_eq!(response.metadata["model_info"]["arch"], "soniqo");
         assert_eq!(response.metadata["duration"], 2.0);
+    }
+
+    #[test]
+    fn batch_response_preserves_channel_indexes() {
+        let response = batch_response_from_channels(
+            SoniqoModel::Omnilingual,
+            vec![
+                FileTranscript {
+                    text: "mic words".to_string(),
+                    duration_seconds: 2.0,
+                },
+                FileTranscript {
+                    text: "speaker words".to_string(),
+                    duration_seconds: 3.0,
+                },
+            ],
+        );
+
+        assert_eq!(response.metadata["channels"], 2);
+        assert_eq!(response.metadata["duration"], 3.0);
+        assert_eq!(response.results.channels.len(), 2);
+        assert_eq!(
+            response.results.channels[0].alternatives[0].transcript,
+            "mic words"
+        );
+        assert_eq!(
+            response.results.channels[1].alternatives[0].transcript,
+            "speaker words"
+        );
+        assert_eq!(
+            response.results.channels[0].alternatives[0].words[0].channel,
+            0
+        );
+        assert_eq!(
+            response.results.channels[1].alternatives[0].words[0].channel,
+            1
+        );
     }
 
     #[test]
