@@ -71,10 +71,10 @@ export function useCaretNearBottom({
 
       const { from } = view.state.selection;
       const coords = view.coordsAtPos(from);
+      const containerRect = container.getBoundingClientRect();
+      const distanceFromEditorBottom = containerRect.bottom - coords.bottom;
 
-      const distanceFromViewportBottom = window.innerHeight - coords.bottom;
-
-      setCaretNearBottom(distanceFromViewportBottom < BOTTOM_THRESHOLD);
+      setCaretNearBottom(distanceFromEditorBottom < BOTTOM_THRESHOLD);
     };
 
     const handleBlur = () => setCaretNearBottom(false);
