@@ -198,6 +198,14 @@ function ProviderAccordionItem({
     },
     [canAddAccount, provider.nangoIntegrationId, returnTo],
   );
+  const handleUpgradeToPro = useCallback(
+    (event: MouseEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
+      upgradeToPro();
+    },
+    [upgradeToPro],
+  );
   const providerMenuItems = useMemo(
     () =>
       canAddAccount
@@ -234,7 +242,7 @@ function ProviderAccordionItem({
         onContextMenu={
           providerMenuItems.length > 0 ? showProviderMenu : undefined
         }
-        className="group grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-1 rounded-md hover:bg-neutral-50"
+        className="group/row relative grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-1 rounded-md hover:bg-neutral-50"
       >
         <AccordionHeader
           className={cn(["min-w-0", requiresPro && "opacity-60"])}
@@ -245,14 +253,22 @@ function ProviderAccordionItem({
           >
             <div className="flex min-w-0 items-center gap-2">
               {provider.icon}
-              <span className="text-sm font-medium">
-                {provider.displayName}
-              </span>
-              {provider.badge && (
-                <span className={getProviderBadgeClassName(provider.badge)}>
-                  {provider.badge}
+              <span
+                className={cn([
+                  "flex min-w-0 items-center gap-2 transition-opacity duration-150",
+                  requiresPro &&
+                    "group-focus-within/row:opacity-0 group-hover/row:opacity-0",
+                ])}
+              >
+                <span className="truncate text-sm font-medium">
+                  {provider.displayName}
                 </span>
-              )}
+                {provider.badge && (
+                  <span className={getProviderBadgeClassName(provider.badge)}>
+                    {provider.badge}
+                  </span>
+                )}
+              </span>
             </div>
           </AccordionTriggerPrimitive>
         </AccordionHeader>
@@ -260,8 +276,9 @@ function ProviderAccordionItem({
         {requiresPro ? (
           <button
             type="button"
-            onClick={upgradeToPro}
-            className="shrink-0 rounded-full border-2 border-stone-600 bg-stone-800 px-3 py-1 text-xs font-medium text-white shadow-[0_4px_14px_rgba(87,83,78,0.18)] transition-all duration-200 hover:bg-stone-700"
+            onClick={handleUpgradeToPro}
+            className="pointer-events-none absolute top-1/2 right-1 z-10 shrink-0 translate-x-1 -translate-y-1/2 rounded-full border-2 border-stone-600 bg-stone-800 px-3 py-1 text-xs font-medium text-white opacity-0 shadow-[0_4px_14px_rgba(87,83,78,0.18)] transition-all duration-150 group-focus-within/row:pointer-events-auto group-focus-within/row:translate-x-0 group-focus-within/row:opacity-100 group-hover/row:pointer-events-auto group-hover/row:translate-x-0 group-hover/row:opacity-100 hover:bg-stone-700 focus-visible:ring-2 focus-visible:ring-stone-500 focus-visible:outline-none"
+            aria-label={`Upgrade to Pro for ${provider.displayName}`}
           >
             Upgrade to Pro
           </button>
@@ -279,7 +296,7 @@ function ProviderAccordionItem({
         {!requiresPro && (
           <ChevronDown
             className={cn([
-              "size-4 shrink-0 text-neutral-500 opacity-0 transition-all duration-200 group-hover:opacity-100 focus-within:opacity-100",
+              "size-4 shrink-0 text-neutral-500 opacity-0 transition-all duration-200 group-focus-within/row:opacity-100 group-hover/row:opacity-100",
               "group-data-[state=open]/provider:rotate-180",
             ])}
           />
