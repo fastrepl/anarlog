@@ -6,6 +6,12 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "X-Generator: @lingui/cli\n"
 "Language: en\n"
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Plural-Forms: \n"
 
 #: src/settings/general/spoken-languages.tsx:177
 msgid "Add language"
@@ -19,7 +25,7 @@ msgstr "Add spoken language"
 msgid "Additional spoken languages"
 msgstr "Additional spoken languages"
 
-#: src/settings/general/index.tsx:154
+#: src/settings/general/index.tsx:153
 msgid "Always ready without manually launching."
 msgstr "Always ready without manually launching."
 
@@ -27,19 +33,19 @@ msgstr "Always ready without manually launching."
 msgid "App"
 msgstr "App"
 
-#: src/settings/general/index.tsx:161
+#: src/settings/general/index.tsx:159
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Automatically start listening when an event-backed note reaches its scheduled start time."
 
-#: src/settings/general/index.tsx:169
+#: src/settings/general/index.tsx:166
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Automatically stop listening when the meeting app releases the microphone."
 
-#: src/settings/general/index.tsx:245
+#: src/settings/general/index.tsx:241
 msgid "Data"
 msgstr "Data"
 
-#: src/settings/general/index.tsx:194
+#: src/settings/general/index.tsx:190
 msgid "Language & Region"
 msgstr "Language & Region"
 
@@ -51,24 +57,24 @@ msgstr "Language for summaries, chats, and AI-generated responses"
 msgid "Main language"
 msgstr "Main language"
 
-#: src/settings/general/main-language.tsx:62
+#: src/settings/general/main-language.tsx:64
 #: src/settings/general/spoken-languages.tsx:218
 msgid "No matching languages found"
 msgstr "No matching languages found"
 
-#: src/settings/general/index.tsx:257
+#: src/settings/general/index.tsx:253
 msgid "Notifications"
 msgstr "Notifications"
 
-#: src/settings/general/main-language.tsx:61
+#: src/settings/general/main-language.tsx:63
 msgid "Search language..."
 msgstr "Search language..."
 
-#: src/settings/general/main-language.tsx:60
+#: src/settings/general/main-language.tsx:62
 msgid "Select language"
 msgstr "Select language"
 
-#: src/settings/general/index.tsx:177
+#: src/settings/general/index.tsx:173
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Send anonymous usage analytics to help improve Anarlog."
 
@@ -76,7 +82,7 @@ msgstr "Send anonymous usage analytics to help improve Anarlog."
 msgid "Settings"
 msgstr "Settings"
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/index.tsx:172
 msgid "Share usage data"
 msgstr "Share usage data"
 
@@ -84,11 +90,11 @@ msgstr "Share usage data"
 msgid "Start Anarlog at login"
 msgstr "Start Anarlog at login"
 
-#: src/settings/general/index.tsx:159
+#: src/settings/general/index.tsx:158
 msgid "Start when meeting begins"
 msgstr "Start when meeting begins"
 
-#: src/settings/general/index.tsx:167
+#: src/settings/general/index.tsx:165
 msgid "Stop when meeting ends"
 msgstr "Stop when meeting ends"
 

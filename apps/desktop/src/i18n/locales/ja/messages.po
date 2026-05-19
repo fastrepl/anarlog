@@ -6,6 +6,12 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "X-Generator: @lingui/cli\n"
 "Language: ja\n"
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Plural-Forms: \n"
 
 #: src/settings/general/spoken-languages.tsx:177
 msgid "Add language"
@@ -19,7 +25,7 @@ msgstr "音声言語を追加"
 msgid "Additional spoken languages"
 msgstr "追加の音声言語"
 
-#: src/settings/general/index.tsx:154
+#: src/settings/general/index.tsx:153
 msgid "Always ready without manually launching."
 msgstr "手動で起動しなくても常に準備できます。"
 
@@ -27,19 +33,19 @@ msgstr "手動で起動しなくても常に準備できます。"
 msgid "App"
 msgstr "アプリ"
 
-#: src/settings/general/index.tsx:161
+#: src/settings/general/index.tsx:159
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "予定に紐づいたノートが開始時刻になると、自動的にリスニングを開始します。"
 
-#: src/settings/general/index.tsx:169
+#: src/settings/general/index.tsx:166
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "会議アプリがマイクを解放すると、自動的にリスニングを停止します。"
 
-#: src/settings/general/index.tsx:245
+#: src/settings/general/index.tsx:241
 msgid "Data"
 msgstr "データ"
 
-#: src/settings/general/index.tsx:194
+#: src/settings/general/index.tsx:190
 msgid "Language & Region"
 msgstr "言語と地域"
 
@@ -51,24 +57,24 @@ msgstr "要約、チャット、AI生成応答に使用する言語"
 msgid "Main language"
 msgstr "メイン言語"
 
-#: src/settings/general/main-language.tsx:62
+#: src/settings/general/main-language.tsx:64
 #: src/settings/general/spoken-languages.tsx:218
 msgid "No matching languages found"
 msgstr "一致する言語が見つかりません"
 
-#: src/settings/general/index.tsx:257
+#: src/settings/general/index.tsx:253
 msgid "Notifications"
 msgstr "通知"
 
-#: src/settings/general/main-language.tsx:61
+#: src/settings/general/main-language.tsx:63
 msgid "Search language..."
 msgstr "言語を検索..."
 
-#: src/settings/general/main-language.tsx:60
+#: src/settings/general/main-language.tsx:62
 msgid "Select language"
 msgstr "言語を選択"
 
-#: src/settings/general/index.tsx:177
+#: src/settings/general/index.tsx:173
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Anarlog の改善に役立てるため、匿名の使用状況データを送信します。"
 
@@ -76,7 +82,7 @@ msgstr "Anarlog の改善に役立てるため、匿名の使用状況データ�
 msgid "Settings"
 msgstr "設定"
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/index.tsx:172
 msgid "Share usage data"
 msgstr "使用状況データを共有"
 
@@ -84,11 +90,11 @@ msgstr "使用状況データを共有"
 msgid "Start Anarlog at login"
 msgstr "ログイン時に Anarlog を起動"
 
-#: src/settings/general/index.tsx:159
+#: src/settings/general/index.tsx:158
 msgid "Start when meeting begins"
 msgstr "会議開始時に開始"
 
-#: src/settings/general/index.tsx:167
+#: src/settings/general/index.tsx:165
 msgid "Stop when meeting ends"
 msgstr "会議終了時に停止"
 

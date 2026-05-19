@@ -5,6 +5,7 @@ on:
     branches:
       - main
     paths:
+      - .github/workflows/desktop_ci.yaml
       - apps/desktop/**
       - plugins/**
       - crates/**
@@ -12,6 +13,7 @@ on:
       - Cargo.lock
   pull_request:
     paths:
+      - .github/workflows/desktop_ci.yaml
       - apps/desktop/**
       - plugins/**
       - crates/**
@@ -40,6 +42,7 @@ jobs:
       - run: pnpm -F ui build
       - run: pnpm -F desktop typecheck
       - run: pnpm -F desktop test
+      - run: pnpm -F desktop i18n:check
       - uses: ./.github/actions/install_desktop_deps
         with:
           target: ${{ matrix.platform }}
