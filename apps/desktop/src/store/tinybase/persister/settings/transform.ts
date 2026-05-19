@@ -170,7 +170,13 @@ export function storeValuesToSettings(
       continue;
     }
     if ("default" in config && value === config.default) {
-      continue;
+      const isClearedSpokenLanguages =
+        key === "spoken_languages" &&
+        (languageDefaults?.spoken_languages?.length ?? 0) > 0;
+
+      if (!isClearedSpokenLanguages) {
+        continue;
+      }
     }
     if (languageDefaults) {
       if (

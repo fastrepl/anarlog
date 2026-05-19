@@ -463,6 +463,30 @@ describe("settingsPersister roundtrip", () => {
     expect(result.language).toEqual({});
   });
 
+  test("storeValuesToSettings preserves explicitly cleared spoken languages", () => {
+    const [tables, values] = settingsToContent({
+      language: {
+        ai_language: "ko",
+        spoken_languages: [],
+      },
+    });
+    const store = createMergeableStore()
+      .setTablesSchema(SCHEMA.table)
+      .setValuesSchema(SCHEMA.value);
+    store.setTables(tables);
+    store.setValues(values);
+
+    const storeValues = store.getValues();
+    const result = storeValuesToSettings(
+      storeValues as Record<string, unknown>,
+      { ai_language: "ko", spoken_languages: ["ko", "en"] },
+    );
+
+    expect(result.language).toEqual({
+      spoken_languages: [],
+    });
+  });
+
   test("storeValuesToSettings keeps language values differing from OS locale defaults", () => {
     const [tables, values] = settingsToContent({
       language: {
