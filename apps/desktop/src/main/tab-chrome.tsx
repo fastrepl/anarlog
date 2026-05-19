@@ -3,7 +3,9 @@ import { platform } from "@tauri-apps/plugin-os";
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
+  AxeIcon,
   MessageCircleIcon,
+  PanelLeftCloseIcon,
   PanelLeftOpenIcon,
   PlusIcon,
 } from "lucide-react";
@@ -33,6 +35,7 @@ import { useNewNote, useNewNoteAndListen } from "~/shared/useNewNote";
 import { Update } from "~/sidebar/update";
 import { type Tab, uniqueIdfromTab, useTabs } from "~/store/zustand/tabs";
 import { useListener } from "~/stt/contexts";
+import { commands as tauriCommands } from "~/types/tauri.gen";
 
 export function ClassicMainTabChrome({ tabs }: { tabs: Tab[] }) {
   const { leftsidebar } = useShell();
@@ -42,7 +45,7 @@ export function ClassicMainTabChrome({ tabs }: { tabs: Tab[] }) {
   const notifications = useNotifications();
   const currentTab = useTabs((state) => state.currentTab);
   const isOnboarding = currentTab?.type === "onboarding";
-  const isSidebarHidden = isOnboarding || !leftsidebar.expanded;
+  const showSidebarToggle = !isOnboarding && !leftsidebar.locked;
   const {
     select,
     close,
@@ -120,27 +123,36 @@ export function ClassicMainTabChrome({ tabs }: { tabs: Tab[] }) {
   const setTabRef = useScrollActiveTabIntoView(regularTabs);
   useClassicMainTabsShortcuts();
 
+  const { data: showDevtoolButton = false } = useQuery({
+    queryKey: ["show_devtool"],
+    queryFn: () => tauriCommands.showDevtool(),
+  });
+
   return (
     <div
       data-tauri-drag-region
       className={cn([
         "flex h-10 w-full items-center",
-        isSidebarHidden && (isLinux ? "pl-3" : "pl-20"),
+        isLinux ? "pl-3" : "pl-[72px]",
       ])}
       data-testid="main-tab-chrome"
     >
-      {isSidebarHidden && isLinux && <TrafficLights className="mr-2" />}
-      {!leftsidebar.expanded && !isOnboarding && (
-        <div className="relative">
+      {isLinux && <TrafficLights className="mr-2" />}
+      {showSidebarToggle && (
+        <div className="relative shrink-0">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 size="icon"
                 variant="ghost"
                 className="shrink-0"
-                onClick={() => leftsidebar.setExpanded(true)}
+                onClick={leftsidebar.toggleExpanded}
               >
-                <PanelLeftOpenIcon size={16} className="text-neutral-600" />
+                {leftsidebar.expanded ? (
+                  <PanelLeftCloseIcon size={16} className="text-neutral-600" />
+                ) : (
+                  <PanelLeftOpenIcon size={16} className="text-neutral-600" />
+                )}
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="flex items-center gap-2">
@@ -148,8 +160,16 @@ export function ClassicMainTabChrome({ tabs }: { tabs: Tab[] }) {
               <Kbd className="animate-kbd-press">⌘ \</Kbd>
             </TooltipContent>
           </Tooltip>
-          <NotificationBadge show={notifications.shouldShowBadge} />
+          <NotificationBadge
+            show={!leftsidebar.expanded && notifications.shouldShowBadge}
+          />
         </div>
+      )}
+
+      {!isOnboarding && leftsidebar.expanded && showDevtoolButton && (
+        <Button size="icon" variant="ghost" onClick={leftsidebar.toggleDevtool}>
+          <AxeIcon size={16} />
+        </Button>
       )}
 
       {!isOnboarding && (

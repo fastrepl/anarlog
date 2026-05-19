@@ -1,16 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
-import { platform } from "@tauri-apps/plugin-os";
-import { AxeIcon, PanelLeftCloseIcon } from "lucide-react";
 import { lazy, Suspense, useState } from "react";
-
-import { Button } from "@hypr/ui/components/ui/button";
-import { Kbd } from "@hypr/ui/components/ui/kbd";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@hypr/ui/components/ui/tooltip";
-import { cn } from "@hypr/utils";
 
 import { CalendarNav } from "./calendar";
 import { ContactsNav } from "./contacts";
@@ -24,9 +12,7 @@ import { ToastArea } from "./toast";
 import { useShell } from "~/contexts/shell";
 import { SearchResults } from "~/search/components/sidebar";
 import { useSearch } from "~/search/contexts/ui";
-import { TrafficLights } from "~/shared/ui/traffic-lights";
 import { useTabs } from "~/store/zustand/tabs";
-import { commands } from "~/types/tauri.gen";
 
 const DevtoolView = lazy(() =>
   import("./devtool").then((m) => ({ default: m.DevtoolView })),
@@ -37,12 +23,6 @@ export function LeftSidebar() {
   const { query } = useSearch();
   const currentTab = useTabs((state) => state.currentTab);
   const [isProfileExpanded, setIsProfileExpanded] = useState(false);
-  const isLinux = platform() === "linux";
-
-  const { data: showDevtoolButton = false } = useQuery({
-    queryKey: ["show_devtool"],
-    queryFn: () => commands.showDevtool(),
-  });
 
   const isSettingsMode = currentTab?.type === "settings";
   const isCalendarMode = currentTab?.type === "calendar";
@@ -50,52 +30,10 @@ export function LeftSidebar() {
   const isTemplatesMode = currentTab?.type === "templates";
   const isSpecialMode =
     isSettingsMode || isCalendarMode || isContactsMode || isTemplatesMode;
-  const showCollapseButton = !isSpecialMode;
   const showSearchResults = !isSpecialMode && query.trim() !== "";
 
   return (
-    <div className="flex h-full w-70 shrink-0 flex-col gap-1 overflow-hidden">
-      <header
-        data-tauri-drag-region
-        className={cn([
-          "flex flex-row items-center",
-          "h-10 w-full",
-          isLinux ? "justify-between pl-3" : "justify-end pl-20",
-          "shrink-0",
-        ])}
-      >
-        {isLinux && <TrafficLights />}
-        <div className="flex items-center">
-          {showDevtoolButton && (
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={leftsidebar.toggleDevtool}
-            >
-              <AxeIcon size={16} />
-            </Button>
-          )}
-          {showCollapseButton && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  disabled={leftsidebar.locked}
-                  onClick={leftsidebar.toggleExpanded}
-                >
-                  <PanelLeftCloseIcon size={16} />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="flex items-center gap-2">
-                <span>Toggle sidebar</span>
-                <Kbd className="animate-kbd-press">⌘ \</Kbd>
-              </TooltipContent>
-            </Tooltip>
-          )}
-        </div>
-      </header>
-
+    <div className="flex h-full w-70 shrink-0 flex-col gap-1 overflow-hidden pt-1">
       {!isSpecialMode && <SidebarSearchInput />}
 
       <div className="flex flex-1 flex-col gap-1 overflow-hidden">

@@ -1,5 +1,6 @@
 import { useShallow } from "zustand/shallow";
 
+import { ClassicMainSidebar } from "./shell-sidebar";
 import { ClassicMainTabChrome } from "./tab-chrome";
 import { ClassicMainTabContent } from "./tab-content";
 
@@ -18,13 +19,16 @@ export function ClassicMainBody() {
   }
 
   return (
-    <div className="relative flex h-full flex-1 flex-col">
+    <div className="relative flex h-full min-w-0 flex-1 flex-col">
       <ClassicMainTabChrome tabs={tabs} />
-      <div className="min-h-0 flex-1 overflow-auto">
-        <ClassicMainTabContent
-          key={uniqueIdfromTab(currentTab)}
-          tab={currentTab as Tab}
-        />
+      <div className="flex min-h-0 min-w-0 flex-1 gap-1">
+        <ClassicMainSidebar />
+        <div className="min-h-0 min-w-0 flex-1 overflow-auto">
+          <ClassicMainTabContent
+            key={uniqueIdfromTab(currentTab)}
+            tab={currentTab as Tab}
+          />
+        </div>
       </div>
     </div>
   );
