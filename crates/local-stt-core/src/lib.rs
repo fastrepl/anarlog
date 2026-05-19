@@ -3,9 +3,6 @@ pub use hypr_local_model::{AmModel, CactusSttModel, LocalModel, SoniqoModel, Whi
 pub static SUPPORTED_MODELS: &[LocalModel] = &[
     LocalModel::Soniqo(SoniqoModel::ParakeetStreaming),
     LocalModel::Soniqo(SoniqoModel::ParakeetBatch),
-    LocalModel::Soniqo(SoniqoModel::Omnilingual),
-    LocalModel::Soniqo(SoniqoModel::Qwen3Small),
-    LocalModel::Soniqo(SoniqoModel::Qwen3Large),
     LocalModel::Am(AmModel::ParakeetV2),
     LocalModel::Am(AmModel::ParakeetV3),
     LocalModel::Am(AmModel::WhisperLargeV3),
@@ -87,7 +84,7 @@ mod tests {
             })
             .collect::<Vec<_>>();
 
-        assert_eq!(supported_soniqo_models, SoniqoModel::all());
+        assert_eq!(supported_soniqo_models, SoniqoModel::selectable());
     }
 
     #[test]

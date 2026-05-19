@@ -64,14 +64,22 @@ pub enum SoniqoModel {
 }
 
 impl SoniqoModel {
+    const ALL: &'static [Self] = &[
+        Self::ParakeetStreaming,
+        Self::ParakeetBatch,
+        Self::Omnilingual,
+        Self::Qwen3Small,
+        Self::Qwen3Large,
+    ];
+
+    const SELECTABLE: &'static [Self] = &[Self::ParakeetStreaming, Self::ParakeetBatch];
+
     pub const fn all() -> &'static [Self] {
-        &[
-            Self::ParakeetStreaming,
-            Self::ParakeetBatch,
-            Self::Omnilingual,
-            Self::Qwen3Small,
-            Self::Qwen3Large,
-        ]
+        Self::ALL
+    }
+
+    pub const fn selectable() -> &'static [Self] {
+        Self::SELECTABLE
     }
 
     pub const fn as_str(self) -> &'static str {
@@ -162,7 +170,7 @@ impl FromStr for SoniqoModel {
     type Err = Error;
 
     fn from_str(value: &str) -> Result<Self> {
-        Self::all()
+        Self::ALL
             .iter()
             .copied()
             .find(|model| value == model.as_str() || value == model.repo())
@@ -768,6 +776,28 @@ mod tests {
         assert_eq!(
             "soniqo-parakeet-streaming".parse::<SoniqoModel>().unwrap(),
             SoniqoModel::ParakeetStreaming
+        );
+    }
+
+    #[test]
+    fn all_includes_every_model_variant() {
+        assert_eq!(
+            SoniqoModel::all(),
+            &[
+                SoniqoModel::ParakeetStreaming,
+                SoniqoModel::ParakeetBatch,
+                SoniqoModel::Omnilingual,
+                SoniqoModel::Qwen3Small,
+                SoniqoModel::Qwen3Large,
+            ]
+        );
+    }
+
+    #[test]
+    fn selectable_includes_advertised_models() {
+        assert_eq!(
+            SoniqoModel::selectable(),
+            &[SoniqoModel::ParakeetStreaming, SoniqoModel::ParakeetBatch]
         );
     }
 
