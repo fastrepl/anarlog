@@ -1,7 +1,12 @@
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-import { AUTO_STOP_CONFIRM_DELAY_MS, ListenerProvider } from "./contexts";
+import {
+  AUTO_STOP_BROWSER_CONFIRM_DELAY_MS,
+  AUTO_STOP_BROWSER_CALENDAR_CONFIRM_DELAY_MS,
+  AUTO_STOP_CONFIRM_DELAY_MS,
+  ListenerProvider,
+} from "./contexts";
 
 import { createListenerStore } from "~/store/zustand/listener";
 
@@ -50,10 +55,36 @@ vi.mock("~/store/tinybase/store/settings", () => ({
   },
 }));
 
-function setStoreActive(store: ReturnType<typeof createListenerStore>) {
+function setStoreActive(
+  store: ReturnType<typeof createListenerStore>,
+  sessionId = "session-1",
+) {
   store.setState((state) => ({
-    live: { ...state.live, status: "active" },
+    live: { ...state.live, sessionId, status: "active" },
   }));
+}
+
+function mockSessionEventStore(event: {
+  started_at: string;
+  ended_at: string;
+  is_all_day?: boolean;
+}) {
+  return {
+    getRow: vi.fn((table: string, rowId: string) =>
+      table === "sessions" && rowId === "session-1"
+        ? {
+            event_json: JSON.stringify({
+              tracking_id: "tracking-1",
+              calendar_id: "calendar-1",
+              title: "Design sync",
+              has_recurrence_rules: false,
+              ...event,
+            }),
+          }
+        : undefined,
+    ),
+    forEachRow: vi.fn(),
+  };
 }
 
 describe("ListenerProvider detect events", () => {
@@ -283,6 +314,215 @@ describe("ListenerProvider detect events", () => {
         icon: null,
       }),
     );
+  });
+
+  test("records trigger app ids from micDetected while already listening", async () => {
+    const store = createListenerStore();
+
+    setStoreActive(store);
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+
+    const handler = listenMock.mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf("function");
+
+    handler({
+      payload: {
+        type: "micDetected",
+        key: "mic-1",
+        apps: [
+          { id: "pid:42", name: "Chrome Helper" },
+          { id: "com.google.Chrome", name: "Google Chrome" },
+        ],
+        duration_secs: 15,
+      },
+    });
+
+    expect(showNotificationMock).not.toHaveBeenCalled();
+    expect(store.getState().live.triggerAppIds).toEqual(["com.google.Chrome"]);
+  });
+
+  test("auto-stops after a trigger app learned during active listening stops", async () => {
+    const store = createListenerStore();
+    const stopSpy = vi.fn();
+
+    store.setState({ stop: stopSpy });
+    setStoreActive(store);
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+
+    const handler = listenMock.mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf("function");
+
+    vi.useFakeTimers();
+    listMicUsingApplicationsMock.mockClear();
+
+    handler({
+      payload: {
+        type: "micDetected",
+        key: "mic-1",
+        apps: [{ id: "us.zoom.xos", name: "Zoom" }],
+        duration_secs: 15,
+      },
+    });
+
+    handler({
+      payload: {
+        type: "micStopped",
+        apps: [{ id: "us.zoom.xos", name: "Zoom" }],
+      },
+    });
+
+    await vi.advanceTimersByTimeAsync(AUTO_STOP_CONFIRM_DELAY_MS);
+
+    expect(listMicUsingApplicationsMock).toHaveBeenCalledTimes(1);
+    expect(stopSpy).toHaveBeenCalledTimes(1);
+  });
+
+  test("uses a longer auto-stop grace period for browser meeting triggers", async () => {
+    const store = createListenerStore();
+    const stopSpy = vi.fn();
+
+    store.setState({ stop: stopSpy });
+    store.getState().setTriggerAppIds(["com.google.Chrome"]);
+    setStoreActive(store);
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+
+    const handler = listenMock.mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf("function");
+
+    vi.useFakeTimers();
+
+    handler({
+      payload: {
+        type: "micStopped",
+        apps: [{ id: "com.google.Chrome", name: "Google Chrome" }],
+      },
+    });
+
+    await vi.advanceTimersByTimeAsync(AUTO_STOP_CONFIRM_DELAY_MS);
+    expect(stopSpy).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(
+      AUTO_STOP_BROWSER_CONFIRM_DELAY_MS - AUTO_STOP_CONFIRM_DELAY_MS,
+    );
+    expect(stopSpy).toHaveBeenCalledTimes(1);
+  });
+
+  test("uses calendar context to extend browser auto-stop during an active scheduled meeting", async () => {
+    const store = createListenerStore();
+    const stopSpy = vi.fn();
+    const now = new Date("2026-05-19T10:05:00.000Z");
+
+    store.setState({ stop: stopSpy });
+    store.getState().setTriggerAppIds(["com.google.Chrome"]);
+    setStoreActive(store);
+    (useStoreMock as any).mockReturnValue(
+      mockSessionEventStore({
+        started_at: "2026-05-19T10:00:00.000Z",
+        ended_at: "2026-05-19T10:30:00.000Z",
+      }),
+    );
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+
+    const handler = listenMock.mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf("function");
+
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+    listMicUsingApplicationsMock.mockClear();
+
+    handler({
+      payload: {
+        type: "micStopped",
+        apps: [{ id: "com.google.Chrome", name: "Google Chrome" }],
+      },
+    });
+
+    await vi.advanceTimersByTimeAsync(AUTO_STOP_BROWSER_CONFIRM_DELAY_MS);
+    expect(stopSpy).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(
+      AUTO_STOP_BROWSER_CALENDAR_CONFIRM_DELAY_MS -
+        AUTO_STOP_BROWSER_CONFIRM_DELAY_MS,
+    );
+
+    expect(listMicUsingApplicationsMock).toHaveBeenCalledTimes(1);
+    expect(stopSpy).toHaveBeenCalledTimes(1);
+  });
+
+  test("cancels pending auto-stop when a browser trigger restarts", async () => {
+    const store = createListenerStore();
+    const stopSpy = vi.fn();
+
+    store.setState({ stop: stopSpy });
+    store.getState().setTriggerAppIds(["com.google.Chrome"]);
+    setStoreActive(store);
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+
+    const handler = listenMock.mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf("function");
+
+    vi.useFakeTimers();
+    listMicUsingApplicationsMock.mockClear();
+
+    handler({
+      payload: {
+        type: "micStopped",
+        apps: [{ id: "com.google.Chrome", name: "Google Chrome" }],
+      },
+    });
+
+    await vi.advanceTimersByTimeAsync(AUTO_STOP_CONFIRM_DELAY_MS);
+
+    handler({
+      payload: {
+        type: "micDetected",
+        key: "mic-1",
+        apps: [{ id: "com.google.Chrome", name: "Google Chrome" }],
+        duration_secs: 15,
+      },
+    });
+
+    await vi.advanceTimersByTimeAsync(
+      AUTO_STOP_BROWSER_CONFIRM_DELAY_MS - AUTO_STOP_CONFIRM_DELAY_MS,
+    );
+
+    expect(listMicUsingApplicationsMock).not.toHaveBeenCalled();
+    expect(stopSpy).not.toHaveBeenCalled();
   });
 
   test("stops listening when sleep starts", async () => {

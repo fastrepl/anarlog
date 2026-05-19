@@ -8,6 +8,7 @@ import {
 } from "@hypr/plugin-detect";
 import { commands as notificationCommands } from "@hypr/plugin-notification";
 
+import { getSessionEventById } from "~/session/utils";
 import * as main from "~/store/tinybase/store/main";
 import * as settings from "~/store/tinybase/store/settings";
 import {
@@ -17,6 +18,26 @@ import {
 
 const ListenerContext = createContext<ListenerStore | null>(null);
 export const AUTO_STOP_CONFIRM_DELAY_MS = 5_000;
+export const AUTO_STOP_BROWSER_CONFIRM_DELAY_MS = 30_000;
+export const AUTO_STOP_BROWSER_CALENDAR_CONFIRM_DELAY_MS = 10 * 60_000;
+export const AUTO_STOP_CALENDAR_END_BUFFER_MS = 2 * 60_000;
+export const AUTO_STOP_CALENDAR_EARLY_START_BUFFER_MS = 5 * 60_000;
+
+const BROWSER_MEETING_APP_IDS = new Set([
+  "app.zen-browser.zen",
+  "com.apple.Safari",
+  "com.brave.Browser",
+  "com.google.Chrome",
+  "com.google.Chrome.canary",
+  "com.microsoft.edgemac",
+  "com.microsoft.edgemac.Canary",
+  "com.operasoftware.Opera",
+  "com.vivaldi.Vivaldi",
+  "company.thebrowser.Browser",
+  "org.mozilla.firefox",
+]);
+
+type MainStore = NonNullable<ReturnType<typeof main.UI.useStore>>;
 
 function getIgnorableAppIds(apps: { id: string }[]) {
   return [
@@ -24,6 +45,72 @@ function getIgnorableAppIds(apps: { id: string }[]) {
       apps.map((app) => app.id).filter((id) => id && !id.startsWith("pid:")),
     ),
   ];
+}
+
+function parseEventTimeMs(value: string | undefined): number | null {
+  if (!value) {
+    return null;
+  }
+
+  const ms = new Date(value).getTime();
+  return Number.isNaN(ms) ? null : ms;
+}
+
+function getCalendarAwareBrowserDelayMs({
+  tinybaseStore,
+  sessionId,
+  nowMs,
+}: {
+  tinybaseStore: MainStore | null | undefined;
+  sessionId: string | null;
+  nowMs: number;
+}): number | null {
+  if (!tinybaseStore || !sessionId) {
+    return null;
+  }
+
+  const event = getSessionEventById(tinybaseStore, sessionId);
+  if (!event || event.is_all_day) {
+    return null;
+  }
+
+  const endMs = parseEventTimeMs(event.ended_at);
+  if (!endMs) {
+    return null;
+  }
+
+  const startMs = parseEventTimeMs(event.started_at);
+  if (startMs && nowMs < startMs - AUTO_STOP_CALENDAR_EARLY_START_BUFFER_MS) {
+    return null;
+  }
+
+  const guardUntilMs = endMs + AUTO_STOP_CALENDAR_END_BUFFER_MS;
+  if (guardUntilMs <= nowMs) {
+    return null;
+  }
+
+  return Math.min(
+    Math.max(guardUntilMs - nowMs, AUTO_STOP_BROWSER_CONFIRM_DELAY_MS),
+    AUTO_STOP_BROWSER_CALENDAR_CONFIRM_DELAY_MS,
+  );
+}
+
+function getAutoStopConfirmDelayMs(
+  appIds: string[],
+  options: {
+    tinybaseStore: MainStore | null | undefined;
+    sessionId: string | null;
+    nowMs: number;
+  },
+) {
+  if (!appIds.some((id) => BROWSER_MEETING_APP_IDS.has(id))) {
+    return AUTO_STOP_CONFIRM_DELAY_MS;
+  }
+
+  return (
+    getCalendarAwareBrowserDelayMs(options) ??
+    AUTO_STOP_BROWSER_CONFIRM_DELAY_MS
+  );
 }
 
 export const ListenerProvider = ({
@@ -140,7 +227,18 @@ const useHandleDetectEvents = (store: ListenerStore) => {
     detectEvents.detectEvent
       .listen(({ payload }) => {
         if (payload.type === "micDetected") {
+          const appIds = getIgnorableAppIds(payload.apps);
+
           if (store.getState().live.status === "active") {
+            if (appIds.length > 0) {
+              const currentTrigger = store.getState().live.triggerAppIds ?? [];
+              if (appIds.some((id) => currentTrigger.includes(id))) {
+                clearPendingAutoStop();
+              }
+              store
+                .getState()
+                .setTriggerAppIds([...new Set([...currentTrigger, ...appIds])]);
+            }
             return;
           }
 
@@ -148,15 +246,14 @@ const useHandleDetectEvents = (store: ListenerStore) => {
           const nearbyEvents = currentTinybaseStore
             ? getNearbyEvents(currentTinybaseStore)
             : [];
-          const ignorableAppIds = getIgnorableAppIds(payload.apps);
 
           const options =
             nearbyEvents.length > 0 ? nearbyEvents.map((e) => e.title) : null;
           const footer =
-            ignorableAppIds.length > 0
+            appIds.length > 0
               ? {
                   text:
-                    ignorableAppIds.length === 1
+                    appIds.length === 1
                       ? "Ignore this app?"
                       : "Ignore these apps?",
                   actionLabel: "Yes",
@@ -171,7 +268,7 @@ const useHandleDetectEvents = (store: ListenerStore) => {
             source: {
               type: "mic_detected",
               app_names: payload.apps.map((a) => a.name),
-              app_ids: ignorableAppIds,
+              app_ids: appIds,
               event_ids: nearbyEvents.map((e) => e.id),
             },
             start_time: null,
@@ -196,10 +293,19 @@ const useHandleDetectEvents = (store: ListenerStore) => {
             ) ?? [];
           if (stoppedTriggerAppIds.length > 0) {
             clearPendingAutoStop();
+            const confirmDelayMs = getAutoStopConfirmDelayMs(
+              stoppedTriggerAppIds,
+              {
+                tinybaseStore: tinybaseStoreRef.current,
+                sessionId: store.getState().live.sessionId,
+                nowMs: Date.now(),
+              },
+            );
+
             pendingAutoStopRef.current = setTimeout(() => {
               pendingAutoStopRef.current = null;
               void confirmAutoStop(stoppedTriggerAppIds);
-            }, AUTO_STOP_CONFIRM_DELAY_MS);
+            }, confirmDelayMs);
           }
         } else if (payload.type === "sleepStateChanged") {
           if (payload.value) {
