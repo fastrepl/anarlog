@@ -47,8 +47,15 @@ vi.mock("@hypr/ui/components/ui/resizable", async () => {
         </div>
       );
     }),
-    ResizableHandle: ({ disabled }: { disabled?: boolean }) => (
+    ResizableHandle: ({
+      className,
+      disabled,
+    }: {
+      className?: string;
+      disabled?: boolean;
+    }) => (
       <div
+        data-class-name={className}
         data-disabled={disabled ? "true" : "false"}
         data-testid="resize-handle"
       />
@@ -80,6 +87,9 @@ describe("StandardTabWrapper", () => {
       "vertical",
     );
     expect(screen.getByTestId("resize-handle").dataset.disabled).toBe("false");
+    expect(screen.getByTestId("resize-handle").dataset.className).toContain(
+      "data-[panel-group-direction=vertical]:-mb-px",
+    );
 
     const panels = screen.getAllByTestId("panel");
     expect(panels[0]?.dataset.defaultSize).toBe("78");

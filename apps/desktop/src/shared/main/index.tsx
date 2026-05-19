@@ -80,7 +80,7 @@ export function StandardTabWrapper({
             <ResizableHandle
               disabled={!afterBorderExpanded}
               className={cn([
-                "z-10 !bg-transparent",
+                "z-10 !bg-transparent data-[panel-group-direction=vertical]:-mb-px",
                 !afterBorderExpanded && "pointer-events-none",
               ])}
             />
