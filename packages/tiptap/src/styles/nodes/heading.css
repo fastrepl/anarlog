@@ -7,11 +7,36 @@
   h6 {
     color: #374151;
     font-weight: 600;
-    font-size: 1.25rem;
     margin-top: 0;
     margin-bottom: 0.25rem;
     min-height: 1.5rem;
     position: relative;
+  }
+
+  h1 {
+    font-size: 1.75rem;
+    line-height: 2.125rem;
+  }
+
+  h2 {
+    font-size: 1.5rem;
+    line-height: 1.875rem;
+  }
+
+  h3 {
+    font-size: 1.25rem;
+    line-height: 1.625rem;
+  }
+
+  h4 {
+    font-size: 1.125rem;
+    line-height: 1.5rem;
+  }
+
+  h5,
+  h6 {
+    font-size: 1rem;
+    line-height: 1.375rem;
   }
 
   :not(:first-child) {
