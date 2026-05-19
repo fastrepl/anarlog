@@ -62,6 +62,17 @@ private enum SpeechModelKind: String, CaseIterable {
     self == .parakeetStreaming
   }
 
+  var fileTranscriptionChunkSeconds: Double? {
+    switch self {
+    case .parakeetStreaming, .qwen3Small, .qwen3Large:
+      return nil
+    case .parakeetBatch:
+      return 25
+    case .omnilingual:
+      return 35
+    }
+  }
+
   func cacheDirectoryURL() throws -> URL {
     try HuggingFaceDownloader.getCacheDirectory(for: repo)
   }
@@ -228,8 +239,58 @@ private enum LoadedSpeechModel {
     case .omnilingual(let model):
       return try model.transcribeAudio(audio, sampleRate: sampleRate)
     case .qwen3(let model):
-      return model.transcribe(audio: audio, sampleRate: sampleRate, language: languageHint)
+      return transcribeQwen3Audio(
+        model: model,
+        audio: audio,
+        sampleRate: sampleRate,
+        language: languageHint
+      )
     }
+  }
+
+  private func transcribeQwen3Audio(
+    model: Qwen3ASRModel,
+    audio: [Float],
+    sampleRate: Int,
+    language: String?
+  ) -> String {
+    let minimumSamples = max(sampleRate, 1)
+    guard audio.count >= minimumSamples else {
+      return ""
+    }
+
+    let chunkSamples = max(sampleRate * 30, minimumSamples)
+    guard audio.count > chunkSamples else {
+      return model.transcribe(audio: audio, sampleRate: sampleRate, language: language)
+    }
+
+    var chunks: [String] = []
+    var offset = 0
+
+    while offset < audio.count {
+      var end = min(offset + chunkSamples, audio.count)
+      let trailingSamples = audio.count - end
+      if trailingSamples > 0 && trailingSamples < minimumSamples {
+        end = audio.count
+      }
+      defer {
+        offset = end
+      }
+
+      let text = autoreleasepool {
+        model.transcribe(
+          audio: Array(audio[offset..<end]),
+          sampleRate: sampleRate,
+          language: language
+        )
+      }
+      let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+      if !trimmed.isEmpty {
+        chunks.append(trimmed)
+      }
+    }
+
+    return chunks.joined(separator: " ")
   }
 }
 
@@ -499,7 +560,9 @@ private actor SoniqoBridge {
       let url = URL(fileURLWithPath: audioPath)
       let audio = try AudioFileLoader.load(url: url, targetSampleRate: 16000)
       let model = try await ensureModelLoaded(kind)
-      let text = try model.transcribe(
+      let text = try transcribeFileAudio(
+        model: model,
+        kind: kind,
         audio: audio,
         sampleRate: 16000,
         language: trimmedLanguage.isEmpty ? nil : trimmedLanguage
@@ -521,6 +584,44 @@ private actor SoniqoBridge {
         )
       )
     }
+  }
+
+  private func transcribeFileAudio(
+    model: LoadedSpeechModel,
+    kind: SpeechModelKind,
+    audio: [Float],
+    sampleRate: Int,
+    language: String?
+  ) throws -> String {
+    guard let chunkSeconds = kind.fileTranscriptionChunkSeconds else {
+      return try model.transcribe(audio: audio, sampleRate: sampleRate, language: language)
+    }
+
+    let chunkSampleCount = max(sampleRate, Int(Double(sampleRate) * chunkSeconds))
+    guard audio.count > chunkSampleCount else {
+      return try model.transcribe(audio: audio, sampleRate: sampleRate, language: language)
+    }
+
+    var chunks: [String] = []
+    var start = 0
+
+    while start < audio.count {
+      let end = min(audio.count, start + chunkSampleCount)
+      let text = try autoreleasepool {
+        try model.transcribe(
+          audio: Array(audio[start..<end]),
+          sampleRate: sampleRate,
+          language: language
+        )
+      }
+      let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+      if !trimmed.isEmpty {
+        chunks.append(trimmed)
+      }
+      start = end
+    }
+
+    return chunks.joined(separator: " ")
   }
 
   private func ensureModelLoaded(_ kind: SpeechModelKind) async throws -> LoadedSpeechModel {
