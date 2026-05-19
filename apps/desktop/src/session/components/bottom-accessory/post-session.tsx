@@ -232,13 +232,13 @@ function BatchTranscriptSkeleton({ fillHeight }: { fillHeight: boolean }) {
         fillHeight ? "min-h-0 flex-1 items-center" : "h-[178px] items-start",
       ])}
     >
-      <div className="w-full max-w-[940px] space-y-7">
+      <div className="w-full max-w-[940px] space-y-8">
         {rows.map((row, index) => (
           <div
             key={index}
             className="grid grid-cols-[72px_minmax(0,1fr)] gap-4"
           >
-            <div className="space-y-2 pt-0.5">
+            <div className="space-y-3 pt-0.5">
               <div
                 className={cn([
                   "h-2.5 rounded-full bg-neutral-200/80",
@@ -254,7 +254,7 @@ function BatchTranscriptSkeleton({ fillHeight }: { fillHeight: boolean }) {
                 ])}
               />
             </div>
-            <div className="space-y-2 pt-0.5">
+            <div className="space-y-3 pt-0.5">
               {row.lines.map((lineWidth, lineIndex) => (
                 <div
                   key={lineIndex}
