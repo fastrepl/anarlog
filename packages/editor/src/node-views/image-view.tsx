@@ -8,6 +8,8 @@ import { forwardRef, useCallback, useRef, useState } from "react";
 
 import { cn } from "@hypr/utils";
 
+import { getSafeNodePos } from "./error-boundary";
+
 const MIN_IMAGE_WIDTH = 15;
 const MAX_IMAGE_WIDTH = 100;
 const DEFAULT_IMAGE_WIDTH = 80;
@@ -92,7 +94,9 @@ export const ResizableImageView = forwardRef<
   const updateAttributes = useEditorEventCallback(
     (view, attrs: Record<string, unknown>) => {
       if (!view) return;
-      const pos = getPos();
+      const pos = getSafeNodePos(getPos);
+      if (pos === null) return;
+
       const tr = view.state.tr.setNodeMarkup(pos, undefined, {
         ...node.attrs,
         ...attrs,
@@ -104,10 +108,12 @@ export const ResizableImageView = forwardRef<
   // to detect whether a nodeview is selected:
   // see: https://discuss.prosemirror.net/t/is-this-the-right-way-to-determine-if-a-nodeview-is-selected/2208/2
   // also: https://github.com/handlewithcarecollective/react-prosemirror/issues/161
-  const pos = getPos();
+  const pos = getSafeNodePos(getPos);
   const { selection } = useEditorState();
   const isSelected =
-    pos >= selection.from && pos + node.nodeSize <= selection.to;
+    pos !== null &&
+    pos >= selection.from &&
+    pos + node.nodeSize <= selection.to;
 
   // we register all resize event handlers during resize start and unregister them on resize end.
   // all drag state lives inside this callback scope.

@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const hoisted = vi.hoisted(() => {
   const transaction = {
@@ -25,11 +25,19 @@ vi.mock("@handlewithcare/react-prosemirror", () => ({
 import { TaskItemView } from "./task-item-view";
 
 describe("TaskItemView", () => {
+  beforeEach(() => {
+    hoisted.transaction.setNodeMarkup.mockClear();
+    hoisted.view.dispatch.mockClear();
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
   it("toggles the task status when the checkbox is clicked", () => {
     hoisted.transaction.setNodeMarkup.mockImplementation(
       (_pos, _type, attrs) => ({ attrs }),
     );
-    hoisted.view.dispatch.mockClear();
 
     render(
       <TaskItemView
@@ -72,5 +80,37 @@ describe("TaskItemView", () => {
         taskItemId: null,
       },
     });
+  });
+
+  it("renders when ProseMirror no longer has a node position", () => {
+    expect(() =>
+      render(
+        <TaskItemView
+          nodeProps={
+            {
+              node: {
+                attrs: {
+                  status: "todo",
+                  checked: false,
+                  taskId: null,
+                  taskItemId: null,
+                },
+                nodeSize: 2,
+              },
+              getPos: () => {
+                throw new Error("detached node");
+              },
+            } as any
+          }
+        >
+          <p>All hands</p>
+        </TaskItemView>,
+      ),
+    ).not.toThrow();
+
+    fireEvent.click(screen.getByRole("checkbox"));
+
+    expect(hoisted.transaction.setNodeMarkup).not.toHaveBeenCalled();
+    expect(hoisted.view.dispatch).not.toHaveBeenCalled();
   });
 });

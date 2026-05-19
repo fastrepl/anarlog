@@ -6,6 +6,8 @@ import { FileIcon, XIcon } from "lucide-react";
 import type { NodeSpec } from "prosemirror-model";
 import { forwardRef } from "react";
 
+import { getSafeNodePos } from "./error-boundary";
+
 export const attachmentNodeSpec: NodeSpec = {
   group: "inline",
   inline: true,
@@ -58,7 +60,9 @@ export const AttachmentChipView = forwardRef<
 
   const handleRemove = useEditorEventCallback((view) => {
     if (!view) return;
-    const pos = getPos();
+    const pos = getSafeNodePos(getPos);
+    if (pos === null) return;
+
     view.dispatch(view.state.tr.delete(pos, pos + node.nodeSize));
     view.focus();
   });

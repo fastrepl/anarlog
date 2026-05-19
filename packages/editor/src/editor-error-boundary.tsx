@@ -1,12 +1,17 @@
-import { Component, type ErrorInfo, type ReactNode } from "react";
+import { Component, Fragment, type ErrorInfo, type ReactNode } from "react";
 
 type EditorErrorBoundaryProps = {
   children: ReactNode;
+  resetKey?: string;
 };
 
 type EditorErrorBoundaryState = {
   hasError: boolean;
+  recoveryAttempts: number;
+  recoveryKey: number;
 };
+
+const MAX_AUTO_RECOVERY_ATTEMPTS = 1;
 
 export class EditorErrorBoundary extends Component<
   EditorErrorBoundaryProps,
@@ -14,29 +19,68 @@ export class EditorErrorBoundary extends Component<
 > {
   constructor(props: EditorErrorBoundaryProps) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, recoveryAttempts: 0, recoveryKey: 0 };
   }
 
-  static getDerivedStateFromError(): EditorErrorBoundaryState {
+  static getDerivedStateFromError(): Partial<EditorErrorBoundaryState> {
     return { hasError: true };
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error("Editor render failed", error, info);
+
+    if (this.state.recoveryAttempts < MAX_AUTO_RECOVERY_ATTEMPTS) {
+      this.setState((state) => ({
+        hasError: false,
+        recoveryAttempts: state.recoveryAttempts + 1,
+        recoveryKey: state.recoveryKey + 1,
+      }));
+    }
   }
+
+  componentDidUpdate(prevProps: EditorErrorBoundaryProps) {
+    if (prevProps.resetKey === this.props.resetKey) {
+      return;
+    }
+
+    this.setState((state) => ({
+      hasError: false,
+      recoveryAttempts: 0,
+      recoveryKey: state.recoveryKey + 1,
+    }));
+  }
+
+  private retry = () => {
+    this.setState((state) => ({
+      hasError: false,
+      recoveryAttempts: 0,
+      recoveryKey: state.recoveryKey + 1,
+    }));
+  };
 
   render() {
     if (this.state.hasError) {
       return (
         <div
           role="alert"
-          className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-600"
+          className="flex items-center justify-between gap-3 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-600"
         >
-          The editor hit an error. Your recording is still running.
+          <span>
+            The editor failed to render. Your recording is still running.
+          </span>
+          <button
+            type="button"
+            onClick={this.retry}
+            className="shrink-0 rounded-md border border-neutral-200 bg-white px-2 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-100"
+          >
+            Reload editor
+          </button>
         </div>
       );
     }
 
-    return this.props.children;
+    return (
+      <Fragment key={this.state.recoveryKey}>{this.props.children}</Fragment>
+    );
   }
 }

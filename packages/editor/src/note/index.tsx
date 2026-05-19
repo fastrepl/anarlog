@@ -35,9 +35,11 @@ import "@hypr/tiptap/styles.css";
 import { EditorErrorBoundary } from "../editor-error-boundary";
 import {
   FileAttachmentView,
+  getNodeViewFallbackTag,
   MentionNodeView,
   ResizableImageView,
   TaskItemView,
+  withNodeViewErrorBoundary,
 } from "../node-views";
 import {
   appLinkPastePlugin,
@@ -134,11 +136,36 @@ export interface NoteEditorProps {
 }
 
 const baseNodeViews = {
-  fileAttachment: FileAttachmentView,
-  image: ResizableImageView,
-  "mention-@": MentionNodeView,
-  taskItem: TaskItemView,
+  fileAttachment: withNodeViewErrorBoundary<HTMLDivElement>(
+    FileAttachmentView,
+    { name: "fileAttachment" },
+  ),
+  image: withNodeViewErrorBoundary<HTMLDivElement>(ResizableImageView, {
+    name: "image",
+  }),
+  "mention-@": withNodeViewErrorBoundary<HTMLElement>(MentionNodeView, {
+    name: "mention-@",
+  }),
+  taskItem: withNodeViewErrorBoundary<HTMLLIElement>(TaskItemView, {
+    name: "taskItem",
+  }),
 };
+
+function wrapNodeViewComponents(nodeViews?: NodeViewComponents) {
+  if (!nodeViews) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(nodeViews).map(([name, Component]) => [
+      name,
+      withNodeViewErrorBoundary(Component, {
+        fallbackTag: getNodeViewFallbackTag(name),
+        name,
+      }),
+    ]),
+  ) as NodeViewComponents;
+}
 
 function ViewCapture({
   viewRef,
@@ -419,7 +446,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
       ],
     );
     const nodeViews = useMemo(
-      () => ({ ...baseNodeViews, ...extraNodeViews }),
+      () => ({ ...baseNodeViews, ...wrapNodeViewComponents(extraNodeViews) }),
       [extraNodeViews],
     );
 
@@ -473,7 +500,11 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
     return (
       <TaskSourceProvider source={taskSource ?? null}>
         <LinkedItemOpenBehaviorContext.Provider value={linkedItemOpenBehavior}>
-          <EditorErrorBoundary>
+          <EditorErrorBoundary
+            resetKey={
+              taskSource ? `${taskSource.type}:${taskSource.id}` : "note"
+            }
+          >
             <ProseMirror
               defaultState={defaultState}
               nodeViewComponents={nodeViews}

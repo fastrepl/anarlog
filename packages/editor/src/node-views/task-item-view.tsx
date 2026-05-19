@@ -11,6 +11,7 @@ import {
   getNextTaskStatus,
   normalizeTaskStatus,
 } from "../tasks";
+import { getSafeNodePos } from "./error-boundary";
 import { TaskCheckbox } from "./task-checkbox";
 
 export const taskListNodeSpec: NodeSpec = {
@@ -72,14 +73,18 @@ export const TaskItemView = forwardRef<
   const status = normalizeTaskStatus(node.attrs.status, node.attrs.checked);
   const taskId = node.attrs.taskId as string | null;
 
-  const pos = getPos();
+  const pos = getSafeNodePos(getPos);
   const { selection } = useEditorState();
   const isSelected =
-    pos >= selection.from && pos + node.nodeSize <= selection.to - 1;
+    pos !== null &&
+    pos >= selection.from &&
+    pos + node.nodeSize <= selection.to - 1;
 
   const handleToggle = useEditorEventCallback((view) => {
     if (!view) return;
-    const pos = getPos();
+    const pos = getSafeNodePos(getPos);
+    if (pos === null) return;
+
     const nextStatus = getNextTaskStatus(status);
     const tr = view.state.tr.setNodeMarkup(pos, undefined, {
       ...node.attrs,

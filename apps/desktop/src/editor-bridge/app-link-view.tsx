@@ -12,6 +12,7 @@ import {
   type GitHubAttrs,
   type AppLinkAttrs,
 } from "@hypr/editor/app-link";
+import { getSafeNodePos } from "@hypr/editor/node-views";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
 import { commands as todoCommands } from "@hypr/plugin-todo";
 import { cn } from "@hypr/utils";
@@ -104,10 +105,12 @@ export const AppLinkView = forwardRef<HTMLSpanElement, NodeViewComponentProps>(
         attrs.repo &&
         attrs.number
       ) {
-        const pos = nodeProps.getPos();
-        const resources = collectSiblingResources(view.state.doc, pos);
-        openTaskTab(resources);
-        return;
+        const pos = getSafeNodePos(nodeProps.getPos);
+        if (pos !== null) {
+          const resources = collectSiblingResources(view.state.doc, pos);
+          openTaskTab(resources);
+          return;
+        }
       }
 
       await openerCommands.openUrl(href, null);

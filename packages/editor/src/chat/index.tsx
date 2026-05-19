@@ -30,7 +30,11 @@ import "@hypr/tiptap/styles.css";
 import { cn } from "@hypr/utils";
 
 import { EditorErrorBoundary } from "../editor-error-boundary";
-import { AttachmentChipView, MentionNodeView } from "../node-views";
+import {
+  AttachmentChipView,
+  MentionNodeView,
+  withNodeViewErrorBoundary,
+} from "../node-views";
 import { type PlaceholderFunction, placeholderPlugin } from "../plugins";
 import { dispatchEditorTransaction } from "../transaction-guard";
 import {
@@ -68,8 +72,12 @@ interface ChatEditorProps {
 }
 
 const nodeViews = {
-  "mention-@": MentionNodeView,
-  attachment: AttachmentChipView,
+  "mention-@": withNodeViewErrorBoundary<HTMLElement>(MentionNodeView, {
+    name: "mention-@",
+  }),
+  attachment: withNodeViewErrorBoundary<HTMLSpanElement>(AttachmentChipView, {
+    name: "attachment",
+  }),
 };
 
 function ViewCapture({

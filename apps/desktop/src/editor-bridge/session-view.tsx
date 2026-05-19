@@ -5,7 +5,7 @@ import {
 import { format } from "date-fns";
 import { forwardRef, type ReactNode, useCallback, useMemo } from "react";
 
-import { TaskCheckbox } from "@hypr/editor/node-views";
+import { getSafeNodePos, TaskCheckbox } from "@hypr/editor/node-views";
 import { useLinkedItemOpenBehavior } from "@hypr/editor/note";
 import {
   createTaskStatusAttrs,
@@ -91,7 +91,9 @@ export const SessionNodeView = forwardRef<
 
   const handleToggle = useEditorEventCallback((view) => {
     if (!view) return;
-    const pos = getPos();
+    const pos = getSafeNodePos(getPos);
+    if (pos === null) return;
+
     const nextStatus = getNextTaskStatus(status);
     const tr = view.state.tr.setNodeMarkup(pos, undefined, {
       ...node.attrs,
