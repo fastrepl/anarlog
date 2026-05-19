@@ -39,6 +39,36 @@ export function sessionAudioExpired(
   return nowMs >= createdAtMs + AUDIO_RETENTION_DURATION_MS[policy];
 }
 
+function sessionHasTranscriptWords(store: main.Store, sessionId: string) {
+  let hasWords = false;
+
+  store.forEachRow("transcripts", (transcriptId, _forEachCell) => {
+    if (hasWords) {
+      return;
+    }
+
+    if (
+      store.getCell("transcripts", transcriptId, "session_id") !== sessionId
+    ) {
+      return;
+    }
+
+    const wordsJson = store.getCell("transcripts", transcriptId, "words");
+    if (typeof wordsJson !== "string" || !wordsJson) {
+      return;
+    }
+
+    try {
+      const words = JSON.parse(wordsJson);
+      hasWords = Array.isArray(words) && words.length > 0;
+    } catch {
+      hasWords = false;
+    }
+  });
+
+  return hasWords;
+}
+
 export async function cleanupExpiredAudio(
   store: main.Store,
   settingsStore: settings.Store,
@@ -55,6 +85,10 @@ export async function cleanupExpiredAudio(
     knownSessionIds.push(sessionId);
 
     if (listenerStore.getState().getSessionMode(sessionId) !== "inactive") {
+      return;
+    }
+
+    if (policy === "none" && !sessionHasTranscriptWords(store, sessionId)) {
       return;
     }
 

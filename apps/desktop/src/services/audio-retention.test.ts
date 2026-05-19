@@ -149,4 +149,39 @@ describe("audio retention", () => {
     );
     expect(deleted).toEqual(["expired", "orphan"]);
   });
+
+  test("keeps unsaved audio when retention is none until transcript words exist", async () => {
+    const now = Date.parse("2026-05-13T00:00:00.000Z");
+    const store = createMainStore();
+    const settingsStore = createSettingsStore();
+
+    settingsStore.setValue("audio_retention", "none");
+    store.setRow("sessions", "unprocessed", {
+      user_id: "user",
+      created_at: "2026-05-13T00:00:00.000Z",
+      title: "",
+      raw_md: "",
+    });
+    store.setRow("sessions", "processed", {
+      user_id: "user",
+      created_at: "2026-05-13T00:00:00.000Z",
+      title: "",
+      raw_md: "",
+    });
+    store.setRow("transcripts", "processed-transcript", {
+      user_id: "user",
+      created_at: "2026-05-13T00:00:00.000Z",
+      session_id: "processed",
+      started_at: now,
+      words: JSON.stringify([{ text: " saved" }]),
+      speaker_hints: "[]",
+      memo_md: "",
+    });
+
+    const deleted = await cleanupExpiredAudio(store, settingsStore, now);
+
+    expect(audioDeleteMock).toHaveBeenCalledTimes(1);
+    expect(audioDeleteMock).toHaveBeenCalledWith("processed");
+    expect(deleted).toEqual(["processed"]);
+  });
 });
