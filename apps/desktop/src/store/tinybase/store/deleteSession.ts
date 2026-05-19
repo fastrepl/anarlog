@@ -8,6 +8,27 @@ import type { DeletedSessionData } from "~/store/zustand/undo-delete";
 type Store = NonNullable<ReturnType<typeof main.UI.useStore>>;
 type Indexes = NonNullable<ReturnType<typeof main.UI.useIndexes>>;
 
+export async function finalizeSessionDeletion(
+  sessionId: string,
+): Promise<void> {
+  try {
+    const result = await fsSyncCommands.deleteSessionFolder(sessionId);
+    if (result.status !== "error") {
+      return;
+    }
+
+    console.error("[delete-session] failed to delete session folder", {
+      sessionId,
+      error: result.error,
+    });
+  } catch (error) {
+    console.error("[delete-session] failed to delete session folder", {
+      sessionId,
+      error,
+    });
+  }
+}
+
 function deleteByIndex(
   store: Store,
   indexes: Indexes,
@@ -197,7 +218,7 @@ export function deleteSessionCascade(
   store: Store,
   indexes: ReturnType<typeof main.UI.useIndexes>,
   sessionId: string,
-  options?: { skipAudio?: boolean },
+  options?: { deferFilesystemDelete?: boolean },
 ): void {
   if (!indexes) {
     store.delRow("sessions", sessionId);
@@ -238,7 +259,7 @@ export function deleteSessionCascade(
     });
   }
 
-  if (!options?.skipAudio) {
-    void fsSyncCommands.audioDelete(sessionId);
+  if (!options?.deferFilesystemDelete) {
+    void finalizeSessionDeletion(sessionId);
   }
 }

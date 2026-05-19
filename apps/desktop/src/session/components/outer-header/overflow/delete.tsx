@@ -2,7 +2,6 @@ import { Loader2Icon, TrashIcon } from "lucide-react";
 import { useCallback } from "react";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
-import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 import { DropdownMenuItem } from "@hypr/ui/components/ui/dropdown-menu";
 import { cn } from "@hypr/utils";
 
@@ -10,6 +9,7 @@ import { useAudioPlayer } from "~/audio-player";
 import {
   captureSessionData,
   deleteSessionCascade,
+  finalizeSessionDeletion,
 } from "~/store/tinybase/store/deleteSession";
 import * as main from "~/store/tinybase/store/main";
 import { useTabs } from "~/store/zustand/tabs";
@@ -63,12 +63,12 @@ export function DeleteNote({ sessionId }: { sessionId: string }) {
 
     invalidateResource("sessions", sessionId);
     void deleteSessionCascade(store, indexes, sessionId, {
-      skipAudio: true,
+      deferFilesystemDelete: true,
     });
 
     if (capturedData) {
       addDeletion(capturedData, () => {
-        void fsSyncCommands.audioDelete(sessionId);
+        void finalizeSessionDeletion(sessionId);
       });
     }
 

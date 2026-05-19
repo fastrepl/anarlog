@@ -7,7 +7,6 @@ import {
   useState,
 } from "react";
 
-import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 import { Button } from "@hypr/ui/components/ui/button";
 import { cn, startOfDay } from "@hypr/utils";
 
@@ -38,6 +37,7 @@ import { useIgnoredEvents } from "~/store/tinybase/hooks";
 import {
   captureSessionData,
   deleteSessionCascade,
+  finalizeSessionDeletion,
 } from "~/store/tinybase/store/deleteSession";
 import * as main from "~/store/tinybase/store/main";
 import { useTabs } from "~/store/zustand/tabs";
@@ -228,14 +228,14 @@ export function TimelineView() {
 
       invalidateResource("sessions", sessionId);
       void deleteSessionCascade(store, indexes, sessionId, {
-        skipAudio: true,
+        deferFilesystemDelete: true,
       });
 
       if (capturedData) {
         addDeletion(
           capturedData,
           () => {
-            void fsSyncCommands.audioDelete(sessionId);
+            void finalizeSessionDeletion(sessionId);
           },
           batchId,
         );

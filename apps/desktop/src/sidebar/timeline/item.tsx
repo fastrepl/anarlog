@@ -27,6 +27,7 @@ import { useIgnoredEvents } from "~/store/tinybase/hooks";
 import {
   captureSessionData,
   deleteSessionCascade,
+  finalizeSessionDeletion,
 } from "~/store/tinybase/store/deleteSession";
 import * as main from "~/store/tinybase/store/main";
 import { getOrCreateSessionForEventId } from "~/store/tinybase/store/sessions";
@@ -400,12 +401,12 @@ const SessionItem = memo(
 
       invalidateResource("sessions", sessionId);
       void deleteSessionCascade(store, indexes, sessionId, {
-        skipAudio: true,
+        deferFilesystemDelete: true,
       });
 
       if (capturedData) {
         addDeletion(capturedData, () => {
-          void fsSyncCommands.audioDelete(sessionId);
+          void finalizeSessionDeletion(sessionId);
         });
       }
     }, [
