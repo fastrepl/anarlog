@@ -131,7 +131,7 @@ function RecordOnlyFooter({
   isFallbackFromLive: boolean;
 }) {
   return (
-    <div className="flex min-h-8 items-center justify-center px-4">
+    <div className="flex items-center justify-center px-4 py-1">
       <p className="text-[11px] leading-none text-neutral-400">
         {isFallbackFromLive
           ? "Live transcription stopped. Transcript will be created after you stop."
@@ -238,7 +238,7 @@ function CollapsedFooterMessage({ message }: { message: string }) {
   return (
     <div
       className={cn([
-        "flex min-h-12 items-center gap-2 p-2",
+        "flex min-h-9 items-center gap-2 px-2 py-1",
         "w-full max-w-full",
       ])}
     >
