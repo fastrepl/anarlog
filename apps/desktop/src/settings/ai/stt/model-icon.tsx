@@ -9,9 +9,20 @@ type ModelIconSpec = {
 };
 
 const MODEL_ICON_ASSET_BASE = "/assets/model-icons";
+const ANARLOG_ICON_SRC = "/assets/anarlog-icon.png";
 
 export function getLocalModelIcon(model: string): ModelIconSpec | null {
   const value = model.toLowerCase();
+
+  if (value === "cloud") {
+    return {
+      label: "A",
+      title: "Anarlog Pro",
+      className: "border-neutral-200 bg-white text-neutral-700",
+      imageSrc: ANARLOG_ICON_SRC,
+      imageClassName: "size-4 object-contain",
+    };
+  }
 
   if (value.includes("qwen")) {
     return {

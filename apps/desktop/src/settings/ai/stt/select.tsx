@@ -1,12 +1,13 @@
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { arch } from "@tauri-apps/plugin-os";
-import { Check, Loader2 } from "lucide-react";
+import { Check, FolderOpen, Loader2, Trash2 } from "lucide-react";
 import { useRef } from "react";
 
 import {
   commands as localSttCommands,
   type LocalModel,
 } from "@hypr/plugin-local-stt";
+import { commands as openerCommands } from "@hypr/plugin-opener2";
 import { commands as listenerCommands } from "@hypr/plugin-transcription";
 import type { AIProviderStorage } from "@hypr/store";
 import { Input } from "@hypr/ui/components/ui/input";
@@ -17,6 +18,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@hypr/ui/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@hypr/ui/components/ui/tooltip";
 import { cn } from "@hypr/utils";
 
 import { useSttSettings } from "./context";
@@ -162,149 +168,135 @@ export function SelectProviderAndModel() {
     handleSelectModel(model);
   };
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-4">
+      {hasLanguageWarning && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+          <span className="text-sm text-amber-600">
+            Selected model may not support all your spoken languages.
+          </span>
+        </div>
+      )}
+
+      {!isConfigured && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+          <span className="text-sm text-red-600">
+            <strong className="font-medium">Transcription model</strong> is
+            needed to make Anarlog listen to your conversations.
+          </span>
+        </div>
+      )}
+
+      {hasError && health.message && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+          <span className="text-sm text-red-600">{health.message}</span>
+        </div>
+      )}
+
       <h3 className="text-md font-serif font-semibold">Model being used</h3>
-      <div
-        className={cn([
-          "flex flex-col gap-4",
-          "rounded-xl border border-neutral-200 p-4",
-          !isConfigured || hasError
-            ? "bg-red-50"
-            : hasLanguageWarning
-              ? "bg-amber-50"
-              : "bg-neutral-50",
-        ])}
-      >
-        <div className="flex flex-row items-center gap-4">
-          <div className="min-w-0 flex-2" data-stt-provider-selector>
-            <Select
-              value={current_stt_provider || ""}
-              onValueChange={handleProviderChange}
-            >
-              <SelectTrigger className="bg-white shadow-none focus:ring-0">
-                <SelectValue placeholder="Select a provider" />
-              </SelectTrigger>
-              <SelectContent>
-                {PROVIDERS.filter(({ disabled }) => !disabled).map(
-                  (provider) => {
-                    const configured =
-                      configuredProviders[provider.id]?.configured ?? false;
-                    const requiresPro = requiresEntitlement(
-                      provider.requirements,
-                      "pro",
-                    );
-                    const locked = requiresPro && !billing.isPaid;
-                    return (
-                      <SelectItem
-                        key={provider.id}
-                        value={provider.id}
-                        disabled={provider.disabled || !configured || locked}
-                      >
-                        <div className="flex flex-col gap-0.5">
-                          <div className="flex items-center gap-2">
-                            <ProviderIconSlot>{provider.icon}</ProviderIconSlot>
-                            <span>{provider.displayName}</span>
-                            {requiresPro ? (
-                              <span className="rounded-full border border-neutral-200 px-2 py-0.5 text-[10px] tracking-wide text-neutral-500 uppercase">
-                                Pro
-                              </span>
-                            ) : null}
-                          </div>
-                          {locked ? (
-                            <span className="text-[11px] text-neutral-500">
-                              Upgrade to Pro to use this provider.
-                            </span>
-                          ) : null}
-                        </div>
-                      </SelectItem>
-                    );
-                  },
-                )}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <span className="text-neutral-500">/</span>
-
-          {current_stt_provider === "custom" ? (
-            <div className="min-w-0 flex-3">
-              <Input
-                value={current_stt_model || ""}
-                onChange={(event) => handleModelChange(event.target.value)}
-                className="text-xs"
-                placeholder="Enter a model identifier"
-              />
-            </div>
-          ) : (
-            <div className="min-w-0 flex-3">
-              <Select
-                value={current_stt_model || ""}
-                onValueChange={handleModelChange}
-                disabled={selectedModels.length === 0}
-              >
-                <SelectTrigger
-                  className={cn([
-                    "bg-white text-left shadow-none focus:ring-0",
-                    "[&>span]:flex [&>span]:w-full [&>span]:items-center [&>span]:justify-between [&>span]:gap-2",
-                    isConfigured && "[&>svg:last-child]:hidden",
-                  ])}
-                >
-                  <SelectValue placeholder="Select a model" />
-                  {isConfigured && <HealthStatusIndicator />}
-                  {isConfigured && health.status === "success" && (
-                    <Check className="-mr-1 h-4 w-4 shrink-0 text-green-600" />
-                  )}
-                </SelectTrigger>
-                <SelectContent>
-                  {selectedModels.map((model, i) => {
-                    const prevCategory =
-                      i > 0 ? selectedModels[i - 1].category : null;
-                    const showHeader =
-                      model.category && model.category !== prevCategory;
-                    return (
-                      <span key={model.id}>
-                        {showHeader && (
-                          <div className="px-2 pt-2 pb-1 text-[11px] font-medium tracking-wide text-neutral-400 uppercase">
-                            {model.category === "experimental"
-                              ? "Others"
-                              : "Recommended"}
-                          </div>
-                        )}
-                        <ModelSelectItem
-                          model={model}
-                          onDownload={() =>
-                            startDownload(model.id as LocalModel)
-                          }
-                          onStartTrial={startTrial}
-                        />
-                      </span>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+      <div className="flex flex-row items-center gap-4">
+        <div className="min-w-0 flex-2" data-stt-provider-selector>
+          <Select
+            value={current_stt_provider || ""}
+            onValueChange={handleProviderChange}
+          >
+            <SelectTrigger className="bg-white shadow-none focus:ring-0">
+              <SelectValue placeholder="Select a provider" />
+            </SelectTrigger>
+            <SelectContent>
+              {PROVIDERS.filter(({ disabled }) => !disabled).map((provider) => {
+                const configured =
+                  configuredProviders[provider.id]?.configured ?? false;
+                const requiresPro = requiresEntitlement(
+                  provider.requirements,
+                  "pro",
+                );
+                const locked = requiresPro && !billing.isPaid;
+                return (
+                  <SelectItem
+                    key={provider.id}
+                    value={provider.id}
+                    disabled={provider.disabled || !configured || locked}
+                  >
+                    <div className="flex flex-col gap-0.5">
+                      <div className="flex items-center gap-2">
+                        <ProviderIconSlot>{provider.icon}</ProviderIconSlot>
+                        <span>{provider.displayName}</span>
+                        {requiresPro ? (
+                          <span className="rounded-full border border-neutral-200 px-2 py-0.5 text-[10px] tracking-wide text-neutral-500 uppercase">
+                            Pro
+                          </span>
+                        ) : null}
+                      </div>
+                      {locked ? (
+                        <span className="text-[11px] text-neutral-500">
+                          Upgrade to Pro to use this provider.
+                        </span>
+                      ) : null}
+                    </div>
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
         </div>
 
-        {!isConfigured && (
-          <div className="flex items-center gap-2 border-t border-red-200 pt-2">
-            <span className="text-sm text-red-600">
-              <strong className="font-medium">Transcription model</strong> is
-              needed to make Anarlog listen to your conversations.
-            </span>
-          </div>
-        )}
+        <span className="text-neutral-500">/</span>
 
-        {hasError && health.message && (
-          <div className="flex items-center gap-2 border-t border-red-200 pt-2">
-            <span className="text-sm text-red-600">{health.message}</span>
+        {current_stt_provider === "custom" ? (
+          <div className="min-w-0 flex-3">
+            <Input
+              value={current_stt_model || ""}
+              onChange={(event) => handleModelChange(event.target.value)}
+              className="text-xs"
+              placeholder="Enter a model identifier"
+            />
           </div>
-        )}
-        {hasLanguageWarning && (
-          <div className="flex items-center gap-2 border-t border-amber-200 pt-2">
-            <span className="text-sm text-amber-600">
-              Selected model may not support all your spoken languages.
-            </span>
+        ) : (
+          <div className="min-w-0 flex-3">
+            <Select
+              value={current_stt_model || ""}
+              onValueChange={handleModelChange}
+              disabled={selectedModels.length === 0}
+            >
+              <SelectTrigger
+                className={cn([
+                  "bg-white text-left shadow-none focus:ring-0",
+                  "[&>span]:flex [&>span]:w-full [&>span]:items-center [&>span]:justify-between [&>span]:gap-2",
+                  isConfigured && "[&>svg:last-child]:hidden",
+                ])}
+              >
+                <SelectValue placeholder="Select a model" />
+                {isConfigured && <HealthStatusIndicator />}
+                {isConfigured && health.status === "success" && (
+                  <Check className="-mr-1 h-4 w-4 shrink-0 text-green-600" />
+                )}
+              </SelectTrigger>
+              <SelectContent align="end">
+                {selectedModels.map((model, i) => {
+                  const prevCategory =
+                    i > 0 ? selectedModels[i - 1].category : null;
+                  const showHeader =
+                    model.category && model.category !== prevCategory;
+                  const categoryLabel = showHeader
+                    ? getModelCategoryLabel(model.category)
+                    : null;
+                  return (
+                    <span key={model.id}>
+                      {categoryLabel && (
+                        <div className="px-2 pt-2 pb-1 text-[11px] font-medium tracking-wide text-neutral-400 uppercase">
+                          {categoryLabel}
+                        </div>
+                      )}
+                      <ModelSelectItem
+                        model={model}
+                        onDownload={() => startDownload(model.id as LocalModel)}
+                        onStartTrial={startTrial}
+                      />
+                    </span>
+                  );
+                })}
+              </SelectContent>
+            </Select>
           </div>
         )}
       </div>
@@ -312,7 +304,7 @@ export function SelectProviderAndModel() {
   );
 }
 
-type ModelCategory = "latest" | "experimental" | null;
+type ModelCategory = "latest" | "deprecated" | null;
 type ModelEntry = {
   id: string;
   isDownloaded: boolean;
@@ -320,7 +312,20 @@ type ModelEntry = {
   category?: ModelCategory;
   sizeBytes?: number | null;
   mode?: "realtime" | "batch";
+  status?: "deprecated";
 };
+
+function getModelCategoryLabel(category?: ModelCategory) {
+  if (category === "latest") {
+    return "Recommended";
+  }
+
+  if (category === "deprecated") {
+    return "Cactus (Deprecated)";
+  }
+
+  return null;
+}
 
 function useConfiguredMapping(): Record<
   ProviderId,
@@ -412,7 +417,8 @@ function useConfiguredMapping(): Record<
               displayName: model.display_name,
               sizeBytes: model.size_bytes,
               mode: "batch",
-              category: "experimental",
+              category: "deprecated",
+              status: "deprecated",
             });
           });
         }
@@ -461,6 +467,7 @@ function ModelSelectItem({
 
   const label = model.displayName ?? displayModelId(model.id);
   const sizeLabel = formatModelSize(model.sizeBytes);
+  const showLocalActions = model.isDownloaded && isLocalModelId(model.id);
   const content = (
     <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
       <LocalModelLabel
@@ -470,6 +477,11 @@ function ModelSelectItem({
       />
       <div className="flex shrink-0 items-center gap-2 text-[11px]">
         <LocalModelBackendBadge model={model.id} />
+        {model.status === "deprecated" && (
+          <span className="rounded-md bg-amber-50 px-1.5 py-0.5 font-medium text-amber-700">
+            Deprecated
+          </span>
+        )}
         {model.mode && (
           <span
             className={cn([
@@ -491,9 +503,18 @@ function ModelSelectItem({
 
   if (model.isDownloaded) {
     return (
-      <SelectItem key={model.id} value={model.id}>
-        {content}
-      </SelectItem>
+      <div className="group/model-row relative">
+        <SelectItem
+          key={model.id}
+          value={model.id}
+          className={showLocalActions ? "pr-24" : undefined}
+        >
+          {content}
+        </SelectItem>
+        {showLocalActions && (
+          <LocalModelDropdownActions model={model.id as LocalModel} />
+        )}
+      </div>
     );
   }
 
@@ -551,6 +572,93 @@ function ModelSelectItem({
           {isCloud ? cloudButtonLabel : "Download"}
         </button>
       )}
+    </div>
+  );
+}
+
+function isLocalModelId(model: string): model is LocalModel {
+  return (
+    model.startsWith("soniqo-") ||
+    model.startsWith("cactus-") ||
+    model.startsWith("am-") ||
+    model.startsWith("Quantized")
+  );
+}
+
+function LocalModelDropdownActions({ model }: { model: LocalModel }) {
+  const queryClient = useQueryClient();
+
+  const stopSelect = (event: React.SyntheticEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  const handleOpen = () => {
+    const resultPromise = String(model).startsWith("soniqo-")
+      ? localSttCommands.soniqoModelDir(model)
+      : String(model).startsWith("cactus-")
+        ? localSttCommands.cactusModelsDir()
+        : localSttCommands.modelsDir();
+
+    void resultPromise.then((result) => {
+      if (result.status === "ok") {
+        void openerCommands.openPath(result.data, null);
+      }
+    });
+  };
+
+  const handleDelete = () => {
+    void localSttCommands.deleteModel(model).then((result) => {
+      if (result.status === "ok") {
+        void queryClient.invalidateQueries({
+          queryKey: sttModelQueries.isDownloaded(model).queryKey,
+        });
+      }
+    });
+  };
+
+  return (
+    <div className="absolute top-1/2 right-8 flex -translate-y-1/2 items-center gap-1">
+      <Tooltip delayDuration={100}>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            aria-label="Show in Finder"
+            className={cn([
+              "flex size-6 items-center justify-center rounded-md",
+              "text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900",
+            ])}
+            onPointerDown={stopSelect}
+            onClick={(event) => {
+              stopSelect(event);
+              handleOpen();
+            }}
+          >
+            <FolderOpen className="size-3.5" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="left">Show in Finder</TooltipContent>
+      </Tooltip>
+      <Tooltip delayDuration={100}>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            aria-label="Delete model"
+            className={cn([
+              "flex size-6 items-center justify-center rounded-md",
+              "text-red-500 hover:bg-red-50 hover:text-red-600",
+            ])}
+            onPointerDown={stopSelect}
+            onClick={(event) => {
+              stopSelect(event);
+              handleDelete();
+            }}
+          >
+            <Trash2 className="size-3.5" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="left">Delete model</TooltipContent>
+      </Tooltip>
     </div>
   );
 }
