@@ -223,22 +223,24 @@ function Component() {
 
 function AnnouncementBanner() {
   return (
-    <Link
-      to="/blog/$slug/"
-      params={{ slug: "char-is-now-anarlog" }}
-      className="border-color-subtle group block border-b bg-neutral-50"
-      aria-label="Read about Char becoming Anarlog"
-    >
-      <span className="text-color mx-auto flex min-h-10 w-full max-w-[700px] items-center justify-center gap-2 px-5 py-2 text-center text-sm font-medium md:px-8">
-        <span>Announcement: Char is now Anarlog</span>
+    <div className="flex justify-center px-5 pt-6 md:pt-8">
+      <a
+        href="https://v2.char.com"
+        className="border-color-subtle text-color group inline-flex max-w-full items-center justify-center gap-2 rounded-full border bg-white px-4 py-2 text-center text-sm font-medium shadow-sm transition-colors hover:bg-neutral-50 md:px-5"
+        aria-label="Visit Char v2"
+      >
+        <span className="min-w-0">
+          We're working on something else.{" "}
+          <span className="whitespace-nowrap">Check it out</span>
+        </span>
         <ArrowRight
           size={16}
           strokeWidth={2.2}
           className="shrink-0 transition-transform group-hover:translate-x-0.5"
           aria-hidden="true"
         />
-      </span>
-    </Link>
+      </a>
+    </div>
   );
 }
 
