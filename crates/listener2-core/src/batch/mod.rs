@@ -133,6 +133,28 @@ pub async fn run_batch(
     result
 }
 
+pub fn expects_progressive_batch(params: &BatchParams) -> bool {
+    match params.provider {
+        BatchProvider::Am => {
+            let listen_params = owhisper_interface::ListenParams {
+                model: params.model.clone(),
+                languages: params.languages.clone(),
+                ..Default::default()
+            };
+
+            supports_progressive_batch(
+                resolve_batch_adapter_kind(params, &listen_params),
+                listen_params.model.as_deref(),
+            )
+        }
+        BatchProvider::WhisperLocal | BatchProvider::Cactus => true,
+        BatchProvider::OpenAI => {
+            OpenAIAdapter::supports_progressive_batch_model(params.model.as_deref())
+        }
+        _ => false,
+    }
+}
+
 async fn run_batch_inner(
     runtime: Arc<dyn BatchRuntime>,
     params: BatchParams,
@@ -398,5 +420,26 @@ mod tests {
             adapter_kind,
             Some("gpt-4o-transcribe-diarize"),
         ));
+    }
+
+    #[test]
+    fn cloud_hyprnote_batch_is_not_progressive() {
+        let params = batch_params(BatchProvider::Hyprnote, "https://api.char.com/stt");
+
+        assert!(!expects_progressive_batch(&params));
+    }
+
+    #[test]
+    fn cloud_am_batch_is_not_progressive() {
+        let params = batch_params(BatchProvider::Am, "https://api.char.com/stt");
+
+        assert!(!expects_progressive_batch(&params));
+    }
+
+    #[test]
+    fn local_am_batch_is_progressive() {
+        let params = batch_params(BatchProvider::Am, "http://localhost:50060/v1");
+
+        assert!(expects_progressive_batch(&params));
     }
 }

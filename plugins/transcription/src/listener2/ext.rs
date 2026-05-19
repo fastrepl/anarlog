@@ -33,6 +33,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener2<'a, R, M> {
             .inner()
             .clone();
         let session_id = params.session_id.clone();
+        let idle_timeout = batch_idle_timeout(&params);
 
         {
             let mut sessions = registry
@@ -124,7 +125,16 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener2<'a, R, M> {
             return Ok(());
         }
 
-        spawn_idle_timeout_monitor(app, registry, session_id, control, abort_handle);
+        if let Some(idle_timeout) = idle_timeout {
+            spawn_idle_timeout_monitor(
+                app,
+                registry,
+                session_id,
+                control,
+                abort_handle,
+                idle_timeout,
+            );
+        }
 
         Ok(())
     }
@@ -326,18 +336,25 @@ fn stop_batch_session(
     }
 }
 
+fn batch_idle_timeout(params: &TranscriptionParams) -> Option<Duration> {
+    let batch_params: core::BatchParams = params.clone().into();
+
+    core::expects_progressive_batch(&batch_params).then_some(BATCH_IDLE_TIMEOUT)
+}
+
 fn spawn_idle_timeout_monitor(
     app: tauri::AppHandle,
     registry: Arc<BatchSessionRegistry>,
     session_id: String,
     control: Arc<BatchSessionControl>,
     abort_handle: tokio::task::AbortHandle,
+    idle_timeout: Duration,
 ) -> JoinHandle<()> {
     let mut activity_rx = control.last_activity_tx.subscribe();
 
     tokio::spawn(async move {
         loop {
-            let deadline = *activity_rx.borrow() + BATCH_IDLE_TIMEOUT;
+            let deadline = *activity_rx.borrow() + idle_timeout;
             let sleep = tokio::time::sleep_until(tokio::time::Instant::from_std(deadline));
             tokio::pin!(sleep);
 
@@ -352,7 +369,10 @@ fn spawn_idle_timeout_monitor(
                     let _ = TranscriptionEvent::Failed {
                         session_id: session_id.clone(),
                         code: core::BatchErrorCode::TimedOut,
-                        error: "Transcription timed out after 60 seconds without progress.".to_string(),
+                        error: format!(
+                            "Transcription timed out after {} seconds without progress.",
+                            idle_timeout.as_secs()
+                        ),
                     }
                     .emit(&app);
                     abort_handle.abort();
@@ -379,6 +399,26 @@ mod tests {
             last_activity_tx,
             terminal_state: std::sync::Mutex::new(BatchTerminalState::Running),
         })
+    }
+
+    fn transcription_params(
+        provider: core::BatchProvider,
+        base_url: &str,
+        model: Option<&str>,
+    ) -> TranscriptionParams {
+        TranscriptionParams {
+            session_id: "session-1".to_string(),
+            provider,
+            file_path: "/tmp/audio.wav".to_string(),
+            model: model.map(ToOwned::to_owned),
+            base_url: base_url.to_string(),
+            api_key: "key".to_string(),
+            languages: vec![hypr_language::ISO639::En.into()],
+            keywords: vec![],
+            num_speakers: None,
+            min_speakers: None,
+            max_speakers: None,
+        }
     }
 
     #[test]
@@ -430,5 +470,32 @@ mod tests {
                 .expect("batch session registry poisoned")
                 .contains_key("session-1")
         );
+    }
+
+    #[test]
+    fn batch_idle_timeout_skips_direct_cloud_batch() {
+        let params = transcription_params(
+            core::BatchProvider::Hyprnote,
+            "https://api.char.com/stt",
+            None,
+        );
+
+        assert_eq!(batch_idle_timeout(&params), None);
+    }
+
+    #[test]
+    fn batch_idle_timeout_skips_cloud_am_batch() {
+        let params =
+            transcription_params(core::BatchProvider::Am, "https://api.char.com/stt", None);
+
+        assert_eq!(batch_idle_timeout(&params), None);
+    }
+
+    #[test]
+    fn batch_idle_timeout_applies_to_local_am_batch() {
+        let params =
+            transcription_params(core::BatchProvider::Am, "http://localhost:50060/v1", None);
+
+        assert_eq!(batch_idle_timeout(&params), Some(BATCH_IDLE_TIMEOUT));
     }
 }
