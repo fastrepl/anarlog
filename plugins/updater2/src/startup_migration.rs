@@ -9,6 +9,10 @@ const SKIP_STARTUP_MIGRATION_ARG: &str = "--updater2-skip-startup-migration=1";
 pub(crate) fn maybe_schedule_legacy_bundle_rename_on_launch<R: tauri::Runtime>(
     _app: &tauri::AppHandle<R>,
 ) -> Result<bool, crate::Error> {
+    if cfg!(debug_assertions) {
+        return Ok(false);
+    }
+
     let args = std::env::args_os().collect::<Vec<_>>();
     if should_skip_startup_migration(&args) {
         return Ok(false);

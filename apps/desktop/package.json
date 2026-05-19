@@ -182,6 +182,7 @@
     "@lingui/babel-plugin-lingui-macro": "^6.0.1",
     "@lingui/cli": "^6.0.1",
     "@lingui/vite-plugin": "^6.0.1",
+    "@rolldown/plugin-babel": "^0.2.3",
     "@tanstack/react-router-devtools": "^1.166.13",
     "@tanstack/router-plugin": "^1.167.19",
     "@tauri-apps/cli": "^2.10.1",

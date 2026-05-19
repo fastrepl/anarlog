@@ -1,5 +1,7 @@
 /// <reference types="vitest" />
-import { lingui } from "@lingui/vite-plugin";
+
+import { lingui, linguiTransformerBabelPreset } from "@lingui/vite-plugin";
+import babel from "@rolldown/plugin-babel";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type UserConfig } from "vite";
@@ -16,12 +18,11 @@ export default defineConfig(() => ({
     relayShim(),
     changelog(),
     tanstackRouter({ target: "react", autoCodeSplitting: false }),
-    react({
-      babel: {
-        plugins: ["@lingui/babel-plugin-lingui-macro"],
-      },
-    }),
+    react(),
     lingui(),
+    babel({
+      presets: [linguiTransformerBabelPreset()],
+    }),
   ],
   resolve: {
     tsconfigPaths: true,
