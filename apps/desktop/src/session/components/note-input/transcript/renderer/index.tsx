@@ -78,6 +78,7 @@ export function TranscriptViewer({
 
   usePlaybackAutoScroll(containerRef, deferredCurrentMs, isPlaying);
   const shouldAutoScroll = currentActive && autoScrollEnabled;
+  const shouldScrollLastTranscriptToEnd = currentActive && isAtBottom;
   useAutoScroll(
     containerRef,
     [transcriptIds, liveSegments, shouldAutoScroll],
@@ -107,7 +108,7 @@ export function TranscriptViewer({
             <RenderTranscript
               scrollElement={scrollElement}
               isLastTranscript={index === transcriptIds.length - 1}
-              isAtBottom={isAtBottom}
+              shouldScrollToEnd={shouldScrollLastTranscriptToEnd}
               transcriptId={transcriptId}
               liveSegments={
                 index === transcriptIds.length - 1 && currentActive

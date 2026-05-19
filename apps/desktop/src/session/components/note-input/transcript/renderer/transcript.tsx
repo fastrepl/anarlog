@@ -27,7 +27,7 @@ import {
 export function RenderTranscript({
   scrollElement,
   isLastTranscript,
-  isAtBottom,
+  shouldScrollToEnd,
   transcriptId,
   liveSegments,
   currentMs,
@@ -37,7 +37,7 @@ export function RenderTranscript({
 }: {
   scrollElement: HTMLDivElement | null;
   isLastTranscript: boolean;
-  isAtBottom: boolean;
+  shouldScrollToEnd: boolean;
   transcriptId: string;
   liveSegments: Segment[];
   currentMs: number;
@@ -63,7 +63,7 @@ export function RenderTranscript({
       scrollElement={scrollElement}
       transcriptId={transcriptId}
       offsetMs={offsetMs}
-      shouldScrollToEnd={isLastTranscript && isAtBottom}
+      shouldScrollToEnd={isLastTranscript && shouldScrollToEnd}
       currentMs={currentMs}
       seek={seek}
       startPlayback={startPlayback}
