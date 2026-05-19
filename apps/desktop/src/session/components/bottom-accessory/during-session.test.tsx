@@ -62,6 +62,22 @@ describe("DuringSessionAccessory", () => {
     });
   });
 
+  it("does not render a footer while recording for batch transcription", () => {
+    useListenerMock.mockImplementation((selector) =>
+      selector({
+        live: {
+          requestedLiveTranscription: false,
+          liveTranscriptionActive: false,
+        },
+        liveSegments,
+      }),
+    );
+
+    const view = render(<DuringSessionAccessory sessionId="session-1" />);
+
+    expect(view.container.firstChild).toBeNull();
+  });
+
   it("lets manual scrolling override expanded live transcript bottom pinning", () => {
     const view = render(
       <DuringSessionAccessory sessionId="session-1" isExpanded />,

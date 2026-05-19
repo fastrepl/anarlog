@@ -12,6 +12,10 @@ const hoisted = vi.hoisted(() => ({
       };
     }
   >(),
+  live: {
+    requestedLiveTranscription: true as boolean | null,
+    liveTranscriptionActive: true as boolean | null,
+  },
 }));
 
 vi.mock("react-hotkeys-hook", () => ({
@@ -44,10 +48,7 @@ vi.mock("~/stt/contexts", () => ({
     }) => unknown,
   ) =>
     selector({
-      live: {
-        requestedLiveTranscription: true,
-        liveTranscriptionActive: true,
-      },
+      live: hoisted.live,
     }),
 }));
 
@@ -64,6 +65,8 @@ import { useSessionBottomAccessory } from "./index";
 describe("useSessionBottomAccessory", () => {
   beforeEach(() => {
     hoisted.hotkeys.clear();
+    hoisted.live.requestedLiveTranscription = true;
+    hoisted.live.liveTranscriptionActive = true;
     useShellMock.mockReturnValue({
       chat: {
         mode: "Closed",
@@ -160,6 +163,82 @@ describe("useSessionBottomAccessory", () => {
     expect(result.current.bottomAccessoryState).toEqual({
       mode: "playback",
       expanded: false,
+    });
+    expect(result.current.bottomAccessory).not.toBeNull();
+  });
+
+  it("hides the bottom accessory while recording for batch transcription", () => {
+    hoisted.live.requestedLiveTranscription = false;
+    hoisted.live.liveTranscriptionActive = false;
+
+    const { result } = renderHook(() =>
+      useSessionBottomAccessory({
+        sessionId: "session-1",
+        sessionMode: "active",
+        audioUrl: null,
+        hasTranscript: false,
+      }),
+    );
+
+    expect(result.current.bottomAccessoryState).toBeNull();
+    expect(result.current.bottomAccessory).toBeNull();
+    expect(result.current.bottomBorderHandle).toBeNull();
+  });
+
+  it("keeps batch progress visible while batch transcription is running", () => {
+    const { result } = renderHook(() =>
+      useSessionBottomAccessory({
+        sessionId: "session-1",
+        sessionMode: "running_batch",
+        audioUrl: "file:///session.wav",
+        hasTranscript: true,
+      }),
+    );
+
+    expect(result.current.bottomAccessoryState).toEqual({
+      mode: "playback",
+      expanded: false,
+    });
+    expect(result.current.bottomAccessory).not.toBeNull();
+    expect(result.current.bottomBorderHandle).not.toBeNull();
+  });
+
+  it("keeps the transcript panel expanded when regeneration starts", () => {
+    const { result, rerender } = renderHook(
+      ({ sessionMode }: { sessionMode: string }) =>
+        useSessionBottomAccessory({
+          sessionId: "session-1",
+          sessionMode,
+          audioUrl: "file:///session.wav",
+          hasTranscript: true,
+        }),
+      {
+        initialProps: {
+          sessionMode: "inactive",
+        },
+      },
+    );
+
+    const toggle = result.current.bottomBorderHandle;
+    expect(isValidElement<{ onToggle: () => void }>(toggle)).toBe(true);
+    if (!isValidElement<{ onToggle: () => void }>(toggle)) {
+      return;
+    }
+
+    act(() => {
+      toggle.props.onToggle();
+    });
+
+    expect(result.current.bottomAccessoryState).toEqual({
+      mode: "playback",
+      expanded: true,
+    });
+
+    rerender({ sessionMode: "running_batch" });
+
+    expect(result.current.bottomAccessoryState).toEqual({
+      mode: "playback",
+      expanded: true,
     });
     expect(result.current.bottomAccessory).not.toBeNull();
   });

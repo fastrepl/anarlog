@@ -64,29 +64,45 @@ function LiveTranscriptFooter({
   fillHeight: boolean;
   isExpanded?: boolean;
 }) {
-  const store = main.UI.useStore(main.STORE_ID);
-  const segments = useLiveTranscriptSegments(sessionId);
   const requestedLiveTranscription = useListener(
     (state) => state.live.requestedLiveTranscription,
   );
   const liveTranscriptionActive = useListener(
     (state) => state.live.liveTranscriptionActive,
   );
-  const labelContext = useMemo(
-    () => (store ? defaultRenderLabelContext(store) : undefined),
-    [store],
-  );
   const captureMode = getLiveCaptureUiMode({
     requestedLiveTranscription,
     liveTranscriptionActive,
   });
-  const mode =
-    captureMode === "live"
-      ? { kind: "live" as const }
-      : {
-          kind: "record_only" as const,
-          isFallbackFromLive: captureMode === "fallback_record_only",
-        };
+
+  if (captureMode !== "live") {
+    return null;
+  }
+
+  return (
+    <LiveTranscriptFooterContent
+      sessionId={sessionId}
+      fillHeight={fillHeight}
+      isExpanded={isExpanded}
+    />
+  );
+}
+
+function LiveTranscriptFooterContent({
+  sessionId,
+  fillHeight,
+  isExpanded = false,
+}: {
+  sessionId: string;
+  fillHeight: boolean;
+  isExpanded?: boolean;
+}) {
+  const store = main.UI.useStore(main.STORE_ID);
+  const segments = useLiveTranscriptSegments(sessionId);
+  const labelContext = useMemo(
+    () => (store ? defaultRenderLabelContext(store) : undefined),
+    [store],
+  );
 
   const speakerLabelManager = useMemo(() => {
     if (!store) {
@@ -107,36 +123,16 @@ function LiveTranscriptFooter({
           fillHeight && "h-full min-h-0",
         ])}
       >
-        {mode.kind === "record_only" ? (
-          <RecordOnlyFooter isFallbackFromLive={mode.isFallbackFromLive} />
-        ) : (
-          <LiveTranscriptContent
-            fillHeight={fillHeight}
-            isExpanded={isExpanded}
-            previewText={previewText}
-            scrollRef={scrollRef}
-            segments={segments}
-            labelContext={labelContext}
-            speakerLabelManager={speakerLabelManager}
-          />
-        )}
+        <LiveTranscriptContent
+          fillHeight={fillHeight}
+          isExpanded={isExpanded}
+          previewText={previewText}
+          scrollRef={scrollRef}
+          segments={segments}
+          labelContext={labelContext}
+          speakerLabelManager={speakerLabelManager}
+        />
       </div>
-    </div>
-  );
-}
-
-function RecordOnlyFooter({
-  isFallbackFromLive,
-}: {
-  isFallbackFromLive: boolean;
-}) {
-  return (
-    <div className="flex items-center justify-center px-4 py-1">
-      <p className="text-[11px] leading-none text-neutral-400">
-        {isFallbackFromLive
-          ? "Live transcription stopped. Transcript will be created after you stop."
-          : "Recording only. Transcript will be created after you stop."}
-      </p>
     </div>
   );
 }

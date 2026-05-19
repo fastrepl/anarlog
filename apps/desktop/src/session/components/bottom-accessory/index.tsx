@@ -32,13 +32,14 @@ export function useSessionBottomAccessory({
   const [isExpanded, setIsExpanded] = useState(false);
   const isLive = sessionMode === "active";
   const isFinalizing = sessionMode === "finalizing";
-  const isBatching = sessionMode === "running_batch";
-  const isInactive = sessionMode === "inactive" || isBatching;
-  const hasAudio = Boolean(audioUrl) && isInactive;
+  const isInactive = sessionMode === "inactive";
+  const isRunningBatch = sessionMode === "running_batch";
+  const hasAudio = Boolean(audioUrl) && (isInactive || isRunningBatch);
   const live = useListener((state) => state.live);
   const { chat } = useShell();
   const liveCaptureMode = getLiveCaptureUiMode(live);
-  const canExpandLiveTranscript = isLive && liveCaptureMode === "live";
+  const showLiveAccessory = isLive && liveCaptureMode === "live";
+  const canExpandLiveTranscript = showLiveAccessory;
   const effectiveExpanded =
     isLive && !canExpandLiveTranscript ? false : isExpanded;
   const isChatVisible = chat.mode === "RightPanelOpen";
@@ -58,7 +59,7 @@ export function useSessionBottomAccessory({
   }, [isLive, canExpandLiveTranscript, isExpanded]);
 
   const showPostSession =
-    isInactive && (isBatching || hasAudio || hasTranscript);
+    (isInactive && (hasAudio || hasTranscript)) || isRunningBatch;
 
   useHotkeys(
     "esc",
@@ -74,22 +75,23 @@ export function useSessionBottomAccessory({
     [showPostSession, isExpanded, isChatVisible],
   );
 
-  const mode: NonNullable<BottomAccessoryState>["mode"] | null = isLive
-    ? "live"
-    : isFinalizing
-      ? "finalizing"
-      : showPostSession
-        ? hasAudio
-          ? "playback"
-          : "transcript_only"
-        : null;
+  const mode: NonNullable<BottomAccessoryState>["mode"] | null =
+    showLiveAccessory
+      ? "live"
+      : isFinalizing
+        ? "finalizing"
+        : showPostSession
+          ? hasAudio || isRunningBatch
+            ? "playback"
+            : "transcript_only"
+          : null;
 
   const bottomAccessoryState: BottomAccessoryState = useMemo(
     () => (mode ? { mode, expanded: effectiveExpanded } : null),
     [effectiveExpanded, mode],
   );
 
-  if (isLive || isFinalizing) {
+  if (showLiveAccessory || isFinalizing) {
     return {
       bottomAccessory: (
         <DuringSessionAccessory
@@ -114,7 +116,7 @@ export function useSessionBottomAccessory({
   }
 
   if (showPostSession) {
-    const hasAccessoryContent = isExpanded || isBatching || hasAudio;
+    const hasAccessoryContent = isExpanded || hasAudio || isRunningBatch;
     return {
       bottomAccessory: hasAccessoryContent ? (
         <PostSessionAccessory
