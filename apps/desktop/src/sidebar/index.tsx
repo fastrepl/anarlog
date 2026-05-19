@@ -33,7 +33,7 @@ export function LeftSidebar() {
   const showSearchResults = !isSpecialMode && query.trim() !== "";
 
   return (
-    <div className="flex h-full w-70 shrink-0 flex-col gap-1 overflow-hidden pt-1">
+    <div className="flex h-full w-[200px] shrink-0 flex-col gap-1 overflow-hidden pt-1">
       {!isSpecialMode && <SidebarSearchInput />}
 
       <div className="flex flex-1 flex-col gap-1 overflow-hidden">
