@@ -116,10 +116,7 @@ pub(super) async fn run_soniqo_batch(
             })?;
 
         let file_path = params.file_path.clone();
-        let language = listen_params
-            .languages
-            .first()
-            .map(hypr_language::Language::bcp47_code);
+        let language = soniqo_language_hint(&listen_params.languages);
 
         let transcribed = tokio::task::spawn_blocking(move || {
             transcribe_soniqo_file(model, &file_path, language.as_deref())
@@ -223,6 +220,12 @@ fn transcribe_soniqo_samples(
     hypr_transcribe_soniqo::transcribe_file(model, file.path(), language).map_err(|e| e.to_string())
 }
 
+fn soniqo_language_hint(languages: &[hypr_language::Language]) -> Option<String> {
+    languages
+        .first()
+        .map(|language| language.iso639().code().to_string())
+}
+
 fn collapse_identical_channels(channels: Vec<Vec<f32>>) -> Vec<Vec<f32>> {
     if channels.len() != 2 || !channels_are_effectively_identical(&channels[0], &channels[1]) {
         return channels;
@@ -268,5 +271,27 @@ mod tests {
         let channels = collapse_identical_channels(vec![vec![0.1, 0.2], vec![0.9, 0.8]]);
 
         assert_eq!(channels, vec![vec![0.1, 0.2], vec![0.9, 0.8]]);
+    }
+
+    #[test]
+    fn soniqo_batch_uses_iso_language_hint() {
+        let params = BatchParams {
+            session_id: "session".to_string(),
+            provider: super::super::BatchProvider::Soniqo,
+            file_path: "/tmp/audio.wav".to_string(),
+            model: Some("soniqo-qwen3-small".to_string()),
+            base_url: "soniqo://local".to_string(),
+            api_key: String::new(),
+            languages: vec!["en-US".parse().unwrap()],
+            keywords: vec![],
+            num_speakers: None,
+            min_speakers: None,
+            max_speakers: None,
+        };
+
+        assert_eq!(
+            soniqo_language_hint(&params.languages).as_deref(),
+            Some("en")
+        );
     }
 }

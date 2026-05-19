@@ -255,23 +255,28 @@ private enum LoadedSpeechModel {
     language: String?
   ) -> String {
     let minimumSamples = max(sampleRate, 1)
-    guard audio.count >= minimumSamples else {
+    guard !audio.isEmpty else {
       return ""
     }
 
+    let preparedAudio =
+      audio.count < minimumSamples
+      ? audio + [Float](repeating: 0, count: minimumSamples - audio.count)
+      : audio
+
     let chunkSamples = max(sampleRate * 30, minimumSamples)
-    guard audio.count > chunkSamples else {
-      return model.transcribe(audio: audio, sampleRate: sampleRate, language: language)
+    guard preparedAudio.count > chunkSamples else {
+      return model.transcribe(audio: preparedAudio, sampleRate: sampleRate, language: language)
     }
 
     var chunks: [String] = []
     var offset = 0
 
-    while offset < audio.count {
-      var end = min(offset + chunkSamples, audio.count)
-      let trailingSamples = audio.count - end
+    while offset < preparedAudio.count {
+      var end = min(offset + chunkSamples, preparedAudio.count)
+      let trailingSamples = preparedAudio.count - end
       if trailingSamples > 0 && trailingSamples < minimumSamples {
-        end = audio.count
+        end = preparedAudio.count
       }
       defer {
         offset = end
@@ -279,7 +284,7 @@ private enum LoadedSpeechModel {
 
       let text = autoreleasepool {
         model.transcribe(
-          audio: Array(audio[offset..<end]),
+          audio: Array(preparedAudio[offset..<end]),
           sampleRate: sampleRate,
           language: language
         )
