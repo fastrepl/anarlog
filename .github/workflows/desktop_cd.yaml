@@ -109,11 +109,14 @@ jobs:
           apple-certificate-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           keychain-password: ${{ secrets.KEYCHAIN_PASSWORD }}
       - run: |
-          FEATURES_FLAG=""
-          if [[ "${{ inputs.channel }}" == "staging" ]]; then
-            FEATURES_FLAG="--features devtools"
+          BUILD_ARGS=(--target "${{ matrix.target }}" --config "${{ env.TAURI_CONF_PATH }}" --verbose)
+          if [[ "${{ matrix.target }}" == "x86_64-apple-darwin" ]]; then
+            BUILD_ARGS+=(--config ./src-tauri/tauri.conf.macos-intel.json)
           fi
-          pnpm -F desktop tauri build --target ${{ matrix.target }} --config ${{ env.TAURI_CONF_PATH }} --verbose $FEATURES_FLAG
+          if [[ "${{ inputs.channel }}" == "staging" ]]; then
+            BUILD_ARGS+=(--features devtools)
+          fi
+          pnpm -F desktop tauri build "${BUILD_ARGS[@]}"
         env:
           # https://v2.tauri.app/reference/environment-variables/
           CI: false
