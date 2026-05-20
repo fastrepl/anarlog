@@ -228,17 +228,16 @@ function BatchTranscriptSkeleton({ fillHeight }: { fillHeight: boolean }) {
       aria-hidden
       data-testid="transcript-skeleton"
       className={cn([
-        "flex overflow-hidden px-6 py-4",
-        fillHeight ? "min-h-0 flex-1 items-center" : "h-[178px] items-start",
+        "flex flex-col overflow-hidden px-6 py-4",
+        fillHeight
+          ? "min-h-0 flex-1 justify-center"
+          : "h-[178px] justify-start",
       ])}
     >
-      <div className="w-full max-w-[940px] space-y-8">
+      <div className="flex w-full max-w-[940px] flex-col gap-8">
         {rows.map((row, index) => (
-          <div
-            key={index}
-            className="grid grid-cols-[72px_minmax(0,1fr)] gap-4"
-          >
-            <div className="space-y-3 pt-0.5">
+          <div key={index} className="flex gap-4">
+            <div className="flex w-[72px] shrink-0 flex-col gap-3 pt-0.5">
               <div
                 className={cn([
                   "h-2.5 rounded-full bg-neutral-200/80",
@@ -254,7 +253,7 @@ function BatchTranscriptSkeleton({ fillHeight }: { fillHeight: boolean }) {
                 ])}
               />
             </div>
-            <div className="space-y-3 pt-0.5">
+            <div className="flex min-w-0 flex-1 flex-col gap-3 pt-0.5">
               {row.lines.map((lineWidth, lineIndex) => (
                 <div
                   key={lineIndex}
