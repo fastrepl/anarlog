@@ -131,12 +131,30 @@ extension NotificationManager {
       footerRow.spacing = 8
       footerRow.translatesAutoresizingMaskIntoConstraints = false
 
+      let footerTextStack = NSStackView()
+      footerTextStack.orientation = .horizontal
+      footerTextStack.alignment = .centerY
+      footerTextStack.distribution = .fill
+      footerTextStack.spacing = 4
+      footerTextStack.translatesAutoresizingMaskIntoConstraints = false
+      footerTextStack.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+
+      if let footerIconView = createNotificationIconView(
+        for: footer.icon, fallbackToDefault: false
+      ) {
+        footerIconView.widthAnchor.constraint(equalToConstant: 14).isActive = true
+        footerIconView.heightAnchor.constraint(equalToConstant: 14).isActive = true
+        footerIconView.setContentHuggingPriority(.required, for: .horizontal)
+        footerTextStack.addArrangedSubview(footerIconView)
+      }
+
       let footerLabel = NSTextField(labelWithString: footer.text)
       footerLabel.font = NSFont.systemFont(ofSize: 10, weight: .medium)
       footerLabel.textColor = NSColor.secondaryLabelColor
       footerLabel.lineBreakMode = .byTruncatingTail
       footerLabel.maximumNumberOfLines = 1
       footerLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+      footerTextStack.addArrangedSubview(footerLabel)
 
       let footerButton = compactFooterButton()
       footerButton.title = footer.actionLabel
@@ -145,7 +163,7 @@ extension NotificationManager {
       }
       footerButton.setContentHuggingPriority(.required, for: .horizontal)
 
-      footerRow.addArrangedSubview(footerLabel)
+      footerRow.addArrangedSubview(footerTextStack)
       footerRow.addArrangedSubview(footerButton)
 
       root.addSubview(divider)

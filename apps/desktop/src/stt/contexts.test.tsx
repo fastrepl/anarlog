@@ -308,8 +308,12 @@ describe("ListenerProvider detect events", () => {
           event_ids: [],
         },
         footer: {
-          text: "Ignore this app?",
+          text: "Ignore Zoom?",
           actionLabel: "Yes",
+          icon: {
+            type: "bundle_id",
+            bundle_id: "us.zoom.xos",
+          },
         },
         icon: null,
       }),

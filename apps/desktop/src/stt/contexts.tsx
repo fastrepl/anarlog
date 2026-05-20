@@ -6,7 +6,10 @@ import {
   commands as detectCommands,
   events as detectEvents,
 } from "@hypr/plugin-detect";
-import { commands as notificationCommands } from "@hypr/plugin-notification";
+import {
+  commands as notificationCommands,
+  type NotificationIcon,
+} from "@hypr/plugin-notification";
 
 import { getSessionEventById } from "~/session/utils";
 import * as main from "~/store/tinybase/store/main";
@@ -39,12 +42,49 @@ const BROWSER_MEETING_APP_IDS = new Set([
 
 type MainStore = NonNullable<ReturnType<typeof main.UI.useStore>>;
 
-function getIgnorableAppIds(apps: { id: string }[]) {
-  return [
-    ...new Set(
-      apps.map((app) => app.id).filter((id) => id && !id.startsWith("pid:")),
-    ),
-  ];
+function getIgnorableApps(apps: { id: string; name: string }[]) {
+  const seen = new Set<string>();
+
+  return apps.filter((app) => {
+    if (!app.id || app.id.startsWith("pid:") || seen.has(app.id)) {
+      return false;
+    }
+
+    seen.add(app.id);
+    return true;
+  });
+}
+
+function getNotificationIconForAppId(appId: string): NotificationIcon | null {
+  if (!appId || appId.startsWith("pid:")) {
+    return null;
+  }
+
+  if (appId.startsWith("/") || appId.startsWith("~/")) {
+    return { type: "path", path: appId };
+  }
+
+  return { type: "bundle_id", bundle_id: appId };
+}
+
+function getIgnoreAppsFooterText(apps: { name: string }[]) {
+  const firstName = apps[0]?.name.trim();
+
+  if (apps.length === 1) {
+    return firstName ? `Ignore ${firstName}?` : "Ignore this app?";
+  }
+
+  if (!firstName) {
+    return "Ignore these apps?";
+  }
+
+  const secondName = apps[1]?.name.trim();
+  if (apps.length === 2 && secondName) {
+    return `Ignore ${firstName} and ${secondName}?`;
+  }
+
+  const otherAppCount = apps.length - 1;
+  return `Ignore ${firstName} and ${otherAppCount} other app${otherAppCount === 1 ? "" : "s"}?`;
 }
 
 function parseEventTimeMs(value: string | undefined): number | null {
@@ -227,7 +267,8 @@ const useHandleDetectEvents = (store: ListenerStore) => {
     detectEvents.detectEvent
       .listen(({ payload }) => {
         if (payload.type === "micDetected") {
-          const appIds = getIgnorableAppIds(payload.apps);
+          const ignorableApps = getIgnorableApps(payload.apps);
+          const appIds = ignorableApps.map((app) => app.id);
 
           if (store.getState().live.status === "active") {
             if (appIds.length > 0) {
@@ -250,13 +291,11 @@ const useHandleDetectEvents = (store: ListenerStore) => {
           const options =
             nearbyEvents.length > 0 ? nearbyEvents.map((e) => e.title) : null;
           const footer =
-            appIds.length > 0
+            ignorableApps.length > 0
               ? {
-                  text:
-                    appIds.length === 1
-                      ? "Ignore this app?"
-                      : "Ignore these apps?",
+                  text: getIgnoreAppsFooterText(ignorableApps),
                   actionLabel: "Yes",
+                  icon: getNotificationIconForAppId(ignorableApps[0]!.id),
                 }
               : null;
 

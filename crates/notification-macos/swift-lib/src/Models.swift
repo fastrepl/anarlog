@@ -15,6 +15,7 @@ struct EventDetails: Codable {
 struct NotificationFooter: Codable {
   let text: String
   let actionLabel: String
+  let icon: NotificationIcon?
 }
 
 enum NotificationIconAsset: Codable {

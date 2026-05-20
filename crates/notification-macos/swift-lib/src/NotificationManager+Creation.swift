@@ -196,20 +196,24 @@ extension NotificationManager {
     return compositeImage
   }
 
-  func resolveNotificationIcon(_ icon: NotificationIcon?) -> NSImage? {
+  func resolveNotificationIcon(_ icon: NotificationIcon?, fallbackToDefault: Bool = true)
+    -> NSImage?
+  {
+    let fallbackIcon = fallbackToDefault ? defaultNotificationIcon() : nil
+
     guard let icon else {
-      return defaultNotificationIcon()
+      return fallbackIcon
     }
 
     switch icon {
     case .hidden:
       return nil
     case .bundleId(let bundleId):
-      return resolveNotificationBundleIcon(bundleId) ?? defaultNotificationIcon()
+      return resolveNotificationBundleIcon(bundleId) ?? fallbackIcon
     case .path(let path):
-      return resolveNotificationPathIcon(path) ?? defaultNotificationIcon()
+      return resolveNotificationPathIcon(path) ?? fallbackIcon
     case .overlay(let base, let badge):
-      guard let baseImage = resolveNotificationIconAsset(base) ?? defaultNotificationIcon() else {
+      guard let baseImage = resolveNotificationIconAsset(base) ?? fallbackIcon else {
         return nil
       }
       guard let badgeImage = resolveNotificationIconAsset(badge) else {
@@ -220,7 +224,15 @@ extension NotificationManager {
   }
 
   func createNotificationIconView(for payload: NotificationPayload) -> NSImageView? {
-    guard let image = resolveNotificationIcon(payload.icon) else {
+    createNotificationIconView(for: payload.icon, fallbackToDefault: true)
+  }
+
+  func createNotificationIconView(
+    for icon: NotificationIcon?, fallbackToDefault: Bool
+  ) -> NSImageView? {
+    let image = resolveNotificationIcon(icon, fallbackToDefault: fallbackToDefault)
+
+    guard let image else {
       return nil
     }
 

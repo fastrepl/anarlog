@@ -26,8 +26,9 @@ fn main() {
             })
             .action_label("Open")
             .footer(NotificationFooter {
-                text: "Ignore reminders like this?".to_string(),
+                text: "Ignore Slack?".to_string(),
                 action_label: "YES".to_string(),
+                icon: NotificationIcon::from_app_id("com.tinyspeck.slackmacgap"),
             })
             .build();
 

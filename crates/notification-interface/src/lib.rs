@@ -94,6 +94,7 @@ pub struct EventDetails {
 pub struct NotificationFooter {
     pub text: String,
     pub action_label: String,
+    pub icon: Option<NotificationIcon>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
@@ -381,6 +382,7 @@ mod tests {
             .footer(NotificationFooter {
                 text: "Ignore this app?".to_string(),
                 action_label: "YES".to_string(),
+                icon: None,
             })
             .build();
 
