@@ -23,6 +23,7 @@ import {
   defaultRenderLabelContext,
   SpeakerLabelManager,
 } from "~/stt/segment/shared";
+import { isTranscriptWordSeekable } from "~/stt/timing";
 
 export function RenderTranscript({
   scrollElement,
@@ -105,7 +106,7 @@ const SegmentsList = memo(
 
     const seekAndPlay = useCallback(
       (word: SegmentWord) => {
-        if (audioExists) {
+        if (audioExists && isTranscriptWordSeekable(word)) {
           seek((offsetMs + word.start_ms) / 1000);
           startPlayback();
         }

@@ -1,4 +1,9 @@
 import type { RuntimeSpeakerHint, WordLike } from "~/stt/segment";
+import {
+  createTranscriptTimingMetadata,
+  type TranscriptTimingSource,
+  type TranscriptWordMetadata,
+} from "~/stt/timing";
 
 export function fixSpacingForWords(
   words: string[],
@@ -36,12 +41,16 @@ export type WordEntry = {
   end: number;
   channel?: number;
   speaker?: number | null;
+  metadata?: TranscriptWordMetadata | null;
 };
 
 export function transformWordEntries(
   wordEntries: WordEntry[] | null | undefined,
   transcript: string,
   channel: number,
+  options: {
+    timingSource?: TranscriptTimingSource;
+  } = {},
 ): [WordLike[], RuntimeSpeakerHint[]] {
   const words: WordLike[] = [];
   const hints: RuntimeSpeakerHint[] = [];
@@ -61,6 +70,10 @@ export function transformWordEntries(
       start_ms: Math.round(word.start * 1000),
       end_ms: Math.round(word.end * 1000),
       channel: typeof word.channel === "number" ? word.channel : channel,
+      metadata: createTranscriptTimingMetadata(
+        options.timingSource ?? "provider_word",
+        word.metadata,
+      ),
     });
 
     if (typeof word.speaker === "number") {

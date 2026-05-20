@@ -6,6 +6,8 @@ import type {
   SegmentWord as BoundSegmentWord,
 } from "@hypr/plugin-transcription";
 
+import type { TranscriptWordMetadata } from "~/stt/timing";
+
 export enum ChannelProfile {
   DirectMic = 0,
   RemoteParty = 1,
@@ -17,6 +19,7 @@ export type WordLike = {
   start_ms: number;
   end_ms: number;
   channel: ChannelProfile;
+  metadata?: TranscriptWordMetadata | null;
 };
 
 export type PartialWord = WordLike;
@@ -41,8 +44,18 @@ export type RenderLabelContext = {
 };
 
 export type SegmentKey = BoundSegmentKey;
-export type SegmentWord = BoundSegmentWord;
-export type Segment = LiveTranscriptSegment | RenderedTranscriptSegment;
+export type SegmentWord = BoundSegmentWord & {
+  metadata?: TranscriptWordMetadata | null;
+};
+type SegmentWithWordMetadata<T extends { words: BoundSegmentWord[] }> = Omit<
+  T,
+  "words"
+> & {
+  words: SegmentWord[];
+};
+export type Segment =
+  | SegmentWithWordMetadata<LiveTranscriptSegment>
+  | SegmentWithWordMetadata<RenderedTranscriptSegment>;
 export type SegmentChannelProfile = BoundChannelProfile;
 
 export class SpeakerLabelManager {

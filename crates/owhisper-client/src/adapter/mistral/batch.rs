@@ -150,66 +150,72 @@ fn strip_punctuation(s: &str) -> String {
 }
 
 fn convert_response(response: MistralBatchResponse) -> BatchResponse {
-    let words: Vec<Word> = if !response.words.is_empty() {
-        response
-            .words
-            .into_iter()
-            .map(|w| {
-                let normalized = strip_punctuation(&w.word);
-                Word {
-                    word: if normalized.is_empty() {
-                        w.word.clone()
-                    } else {
-                        normalized
-                    },
-                    start: w.start,
-                    end: w.end,
-                    confidence: 1.0,
-                    channel: 0,
-                    speaker: None,
-                    punctuated_word: Some(w.word),
-                }
-            })
-            .collect()
+    let (words, timing_source): (Vec<Word>, &str) = if !response.words.is_empty() {
+        (
+            response
+                .words
+                .into_iter()
+                .map(|w| {
+                    let normalized = strip_punctuation(&w.word);
+                    Word {
+                        word: if normalized.is_empty() {
+                            w.word.clone()
+                        } else {
+                            normalized
+                        },
+                        start: w.start,
+                        end: w.end,
+                        confidence: 1.0,
+                        channel: 0,
+                        speaker: None,
+                        punctuated_word: Some(w.word),
+                    }
+                })
+                .collect(),
+            "provider_word",
+        )
     } else if !response.segments.is_empty() {
-        response
-            .segments
-            .iter()
-            .flat_map(|segment| {
-                let seg_duration = segment.end - segment.start;
-                let segment_words: Vec<&str> = segment.text.split_whitespace().collect();
-                let word_count = segment_words.len();
-                if word_count == 0 {
-                    return vec![];
-                }
-                let word_duration = seg_duration / word_count as f64;
+        (
+            response
+                .segments
+                .iter()
+                .flat_map(|segment| {
+                    let seg_duration = segment.end - segment.start;
+                    let segment_words: Vec<&str> = segment.text.split_whitespace().collect();
+                    let word_count = segment_words.len();
+                    if word_count == 0 {
+                        return vec![];
+                    }
+                    let word_duration = seg_duration / word_count as f64;
 
-                segment_words
-                    .into_iter()
-                    .enumerate()
-                    .map(|(i, w)| {
-                        let word_start = segment.start + (i as f64 * word_duration);
-                        let word_end = word_start + word_duration;
-                        let normalized = strip_punctuation(w);
-                        Word {
-                            word: if normalized.is_empty() {
-                                w.to_string()
-                            } else {
-                                normalized
-                            },
-                            start: word_start,
-                            end: word_end,
-                            confidence: 1.0,
-                            channel: 0,
-                            speaker: None,
-                            punctuated_word: Some(w.to_string()),
-                        }
-                    })
-                    .collect::<Vec<_>>()
-            })
-            .collect()
+                    segment_words
+                        .into_iter()
+                        .enumerate()
+                        .map(|(i, w)| {
+                            let word_start = segment.start + (i as f64 * word_duration);
+                            let word_end = word_start + word_duration;
+                            let normalized = strip_punctuation(w);
+                            Word {
+                                word: if normalized.is_empty() {
+                                    w.to_string()
+                                } else {
+                                    normalized
+                                },
+                                start: word_start,
+                                end: word_end,
+                                confidence: 1.0,
+                                channel: 0,
+                                speaker: None,
+                                punctuated_word: Some(w.to_string()),
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .collect(),
+            "provider_segment_interpolated",
+        )
     } else {
-        Vec::new()
+        (Vec::new(), "synthetic_text")
     };
 
     let alternatives = Alternatives {
@@ -224,6 +230,7 @@ fn convert_response(response: MistralBatchResponse) -> BatchResponse {
 
     let metadata = serde_json::json!({
         "language": response.language,
+        "timing_source": timing_source,
     });
 
     BatchResponse {
@@ -239,6 +246,29 @@ mod tests {
     use super::*;
     use crate::adapter::BatchSttAdapter;
     use crate::http_client::create_client;
+
+    #[test]
+    fn convert_response_marks_segment_interpolated_words() {
+        let response = convert_response(MistralBatchResponse {
+            model: Some("voxtral-mini-latest".to_string()),
+            language: Some("en".to_string()),
+            text: "hello world".to_string(),
+            words: Vec::new(),
+            segments: vec![MistralSegment {
+                text: "hello world".to_string(),
+                start: 1.0,
+                end: 3.0,
+            }],
+        });
+
+        let alternative = &response.results.channels[0].alternatives[0];
+
+        assert_eq!(alternative.words.len(), 2);
+        assert_eq!(
+            response.metadata["timing_source"],
+            "provider_segment_interpolated"
+        );
+    }
 
     #[tokio::test]
     #[ignore]

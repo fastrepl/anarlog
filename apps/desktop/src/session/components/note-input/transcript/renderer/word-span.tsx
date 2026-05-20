@@ -7,6 +7,7 @@ import type { HighlightSegment } from "./utils";
 import { useSearch } from "~/session/components/note-input/search/context";
 import { createHighlightSegments } from "~/session/components/note-input/search/matching";
 import type { SegmentWord } from "~/stt/live-segment";
+import { isTranscriptWordSeekable } from "~/stt/timing";
 
 interface WordSpanProps {
   word: SegmentWord;
@@ -29,18 +30,19 @@ export function WordSpan(props: WordSpanProps) {
     highlights.segments,
     highlights.isActive,
   );
+  const canSeek = props.audioExists && isTranscriptWordSeekable(props.word);
   const className = useMemo(
     () =>
       cn([
-        props.audioExists && "cursor-pointer hover:bg-neutral-200/60",
+        canSeek && "cursor-pointer hover:bg-neutral-200/60",
         !props.word.is_final && ["opacity-60", "italic"],
       ]),
-    [props.audioExists, props.word.is_final],
+    [canSeek, props.word.is_final],
   );
 
   return (
     <span
-      onClick={() => props.onClickWord(props.word)}
+      onClick={() => canSeek && props.onClickWord(props.word)}
       className={className}
       data-word-id={props.word.id}
     >

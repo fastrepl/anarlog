@@ -205,4 +205,67 @@ describe("buildRenderTranscriptRequestFromStore", () => {
       humans: [],
     });
   });
+
+  it("reattaches word metadata after Rust renders transcript segments", async () => {
+    renderTranscriptSegmentsCommand.mockResolvedValue({
+      status: "ok",
+      data: [
+        {
+          id: "segment-1",
+          key: {
+            channel: "DirectMic",
+            speaker_index: null,
+            speaker_human_id: null,
+          },
+          speaker_label: "You",
+          start_ms: 10,
+          end_ms: 20,
+          text: "hello",
+          words: [
+            {
+              id: "word-1",
+              text: "hello",
+              start_ms: 10,
+              end_ms: 20,
+              channel: "DirectMic",
+              is_final: true,
+            },
+          ],
+        },
+      ],
+    });
+
+    const segments = await renderTranscriptSegments({
+      transcripts: [
+        {
+          started_at: 1_000,
+          words: [
+            {
+              id: "word-1",
+              text: " hello",
+              start_ms: 10,
+              end_ms: 20,
+              channel: 0,
+              speaker_index: null,
+              metadata: {
+                timing: {
+                  source: "synthetic_text",
+                },
+              },
+            } as never,
+          ],
+          assignments: [],
+        },
+      ],
+      participant_human_ids: [],
+      self_human_id: null,
+      humans: [],
+    });
+
+    expect(segments[0]?.words[0]?.metadata).toEqual({
+      timing: {
+        source: "synthetic_text",
+      },
+    });
+  });
 });

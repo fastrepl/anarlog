@@ -136,6 +136,11 @@ describe("General Listener Slice", () => {
           start_ms: 0,
           end_ms: 500,
           channel: 0,
+          metadata: {
+            timing: {
+              source: "provider_word",
+            },
+          },
         },
       ]);
 
@@ -201,6 +206,11 @@ describe("General Listener Slice", () => {
             start_ms: 0,
             end_ms: 500,
             channel: 0,
+            metadata: {
+              timing: {
+                source: "provider_word",
+              },
+            },
           },
         ],
         [
@@ -227,7 +237,7 @@ describe("General Listener Slice", () => {
 
       expect(
         handleBatchResponse(sessionId, {
-          metadata: { duration: 2 },
+          metadata: { duration: 2, timing_source: "provider_word" },
           results: {
             channels: [
               {
@@ -251,12 +261,22 @@ describe("General Listener Slice", () => {
             start_ms: 0,
             end_ms: 1000,
             channel: 0,
+            metadata: {
+              timing: {
+                source: "synthetic_text",
+              },
+            },
           },
           {
             text: " world",
             start_ms: 1000,
             end_ms: 2000,
             channel: 0,
+            metadata: {
+              timing: {
+                source: "synthetic_text",
+              },
+            },
           },
         ],
         [],
@@ -312,12 +332,22 @@ describe("General Listener Slice", () => {
             start_ms: 4000,
             end_ms: 5000,
             channel: 1,
+            metadata: {
+              timing: {
+                source: "provider_segment_interpolated",
+              },
+            },
           },
           {
             text: " world",
             start_ms: 5000,
             end_ms: 6000,
             channel: 1,
+            metadata: {
+              timing: {
+                source: "provider_segment_interpolated",
+              },
+            },
           },
         ],
         [],

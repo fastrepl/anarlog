@@ -219,6 +219,9 @@ export const useRunBatch = (sessionId: string) => {
               start_ms: word.start_ms,
               end_ms: word.end_ms,
               channel: word.channel,
+              metadata: word.metadata
+                ? JSON.stringify(word.metadata)
+                : undefined,
             });
 
             newWordIds.push(wordId);

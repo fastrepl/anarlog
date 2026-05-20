@@ -12,7 +12,16 @@ import type {
 } from "@hypr/plugin-transcription";
 
 import type * as main from "~/store/tinybase/store/main";
+import type { SegmentWord } from "~/stt/live-segment";
+import type { TranscriptWordMetadata } from "~/stt/timing";
 import { parseTranscriptHints, parseTranscriptWords } from "~/stt/utils";
+
+export type RenderedTranscriptSegmentWithWordMetadata = Omit<
+  RenderedTranscriptSegment,
+  "words"
+> & {
+  words: SegmentWord[];
+};
 
 type TranscriptRow = {
   started_at?: number | null;
@@ -22,6 +31,7 @@ type TranscriptRow = {
     start_ms?: number | null;
     end_ms?: number | null;
     channel?: number | null;
+    metadata?: unknown;
   }> | null;
   speaker_hints?: Array<
     TranscriptSpeakerHint | { word_id?: string; type?: string; value?: unknown }
@@ -35,15 +45,16 @@ type RenderTranscriptRequestHumans = {
 
 export async function renderTranscriptSegments(
   request: RenderTranscriptRequest,
-): Promise<RenderedTranscriptSegment[]> {
-  const result = await listenerCommands.renderTranscriptSegments(
-    normalizeRenderTranscriptRequest(request),
-  );
+): Promise<RenderedTranscriptSegmentWithWordMetadata[]> {
+  const normalizedRequest = normalizeRenderTranscriptRequest(request);
+  const metadataByWordId = collectWordMetadataById(normalizedRequest);
+  const result =
+    await listenerCommands.renderTranscriptSegments(normalizedRequest);
   if (result.status === "error") {
     throw new Error(result.error);
   }
 
-  return result.data;
+  return attachWordMetadata(result.data, metadataByWordId);
 }
 
 export function buildRenderTranscriptRequestFromStore(
@@ -105,14 +116,19 @@ function buildRenderTranscriptRequest(
       }
 
       wordIndexById.set(word.id, words.length);
-      words.push({
+      const metadata = normalizeWordMetadata(word.metadata);
+      const renderWord: RenderTranscriptInput["words"][number] & {
+        metadata?: TranscriptWordMetadata;
+      } = {
         id: word.id,
         text: word.text,
         start_ms: word.start_ms,
         end_ms: word.end_ms,
         channel: typeof word.channel === "number" ? word.channel : 0,
         speaker_index: null,
-      });
+        ...(metadata ? { metadata } : {}),
+      };
+      words.push(renderWord);
     }
 
     for (const hint of transcript.speaker_hints ?? []) {
@@ -323,6 +339,67 @@ function normalizeRenderTranscriptRequest(
       })),
     })),
   };
+}
+
+function collectWordMetadataById(
+  request: RenderTranscriptRequest,
+): Map<string, TranscriptWordMetadata> {
+  const metadataByWordId = new Map<string, TranscriptWordMetadata>();
+
+  for (const transcript of request.transcripts) {
+    for (const word of transcript.words) {
+      const metadata = normalizeWordMetadata(
+        (word as { metadata?: unknown }).metadata,
+      );
+      if (metadata) {
+        metadataByWordId.set(word.id, metadata);
+      }
+    }
+  }
+
+  return metadataByWordId;
+}
+
+function attachWordMetadata(
+  segments: RenderedTranscriptSegment[],
+  metadataByWordId: Map<string, TranscriptWordMetadata>,
+): RenderedTranscriptSegmentWithWordMetadata[] {
+  if (metadataByWordId.size === 0) {
+    return segments as RenderedTranscriptSegmentWithWordMetadata[];
+  }
+
+  return segments.map((segment) => ({
+    ...segment,
+    words: segment.words.map((word) =>
+      attachMetadataToWord(word, metadataByWordId),
+    ),
+  }));
+}
+
+function attachMetadataToWord(
+  word: RenderedTranscriptSegment["words"][number],
+  metadataByWordId: Map<string, TranscriptWordMetadata>,
+): SegmentWord {
+  if (!word.id) {
+    return word;
+  }
+
+  const metadata = metadataByWordId.get(word.id);
+  return metadata ? { ...word, metadata } : word;
+}
+
+function normalizeWordMetadata(value: unknown): TranscriptWordMetadata | null {
+  if (typeof value === "string") {
+    try {
+      return normalizeWordMetadata(JSON.parse(value));
+    } catch {
+      return null;
+    }
+  }
+
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as TranscriptWordMetadata)
+    : null;
 }
 
 function normalizeTranscriptMs(value: number): number {

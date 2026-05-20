@@ -1,6 +1,7 @@
 import { useMemo, useRef } from "react";
 
 import type { Segment } from "~/stt/live-segment";
+import { getTranscriptTimingSource } from "~/stt/timing";
 
 export function useStableSegments(segments: Segment[]): Segment[] {
   const cacheRef = useRef<Map<string, Segment>>(new Map());
@@ -54,7 +55,8 @@ function segmentsEqual(a: Segment, b: Segment) {
       aw.start_ms !== bw.start_ms ||
       aw.end_ms !== bw.end_ms ||
       aw.channel !== bw.channel ||
-      aw.is_final !== bw.is_final
+      aw.is_final !== bw.is_final ||
+      getTranscriptTimingSource(aw) !== getTranscriptTimingSource(bw)
     ) {
       return false;
     }

@@ -10,6 +10,11 @@ import type { BatchPersistCallback } from "./transcript";
 import { transformWordEntries, type WordEntry } from "./utils";
 
 import { type RuntimeSpeakerHint, type WordLike } from "~/stt/segment";
+import {
+  createTranscriptTimingMetadata,
+  getValidTimingSource,
+  type TranscriptTimingSource,
+} from "~/stt/timing";
 
 export type BatchPhase = "importing" | "transcribing";
 export type BatchTerminalReason = "failed" | "timed_out" | "stopped";
@@ -293,12 +298,18 @@ function transformBatch(
       return;
     }
 
+    const timingSource = getWordTimingSourceForBatchResponse(
+      response,
+      Boolean(alternative.words?.length),
+      "synthetic_text",
+    );
     const wordEntries = wordEntriesFromTranscript(
       alternative.words,
       alternative.transcript,
       {
         channel: channelIndex,
         durationSeconds: getBatchDurationSeconds(response),
+        timingSource,
       },
     );
 
@@ -306,6 +317,7 @@ function transformBatch(
       wordEntries,
       alternative.transcript,
       channelIndex,
+      { timingSource },
     );
 
     hints.forEach((hint) => {
@@ -371,6 +383,11 @@ function mergeBatchPreview(
     return preview;
   }
 
+  const timingSource = getWordTimingSourceForBatchResponse(
+    response,
+    Boolean(alternative.words?.length),
+    "provider_segment_interpolated",
+  );
   const wordEntries = wordEntriesFromTranscript(
     alternative.words,
     alternative.transcript,
@@ -378,6 +395,7 @@ function mergeBatchPreview(
       channel: channelIndex,
       startSeconds: response.start,
       durationSeconds: response.duration,
+      timingSource,
     },
   );
 
@@ -385,6 +403,7 @@ function mergeBatchPreview(
     wordEntries,
     alternative.transcript,
     channelIndex,
+    { timingSource },
   );
   if (incomingWords.length === 0) {
     return preview;
@@ -472,14 +491,23 @@ function wordEntriesFromTranscript(
     channel,
     startSeconds = 0,
     durationSeconds,
+    timingSource,
   }: {
     channel: number;
     startSeconds?: number;
     durationSeconds?: number;
+    timingSource: TranscriptTimingSource;
   },
 ): WordEntry[] {
-  if (entries?.length || !transcript.trim()) {
-    return entries ?? [];
+  if (entries?.length) {
+    return entries.map((entry) => ({
+      ...entry,
+      metadata: createTranscriptTimingMetadata(timingSource, entry.metadata),
+    }));
+  }
+
+  if (!transcript.trim()) {
+    return [];
   }
 
   const tokens = transcript.trim().split(/\s+/).filter(Boolean);
@@ -501,7 +529,42 @@ function wordEntriesFromTranscript(
     end: startSeconds + ((index + 1) / tokens.length) * duration,
     channel,
     speaker: null,
+    metadata: createTranscriptTimingMetadata(timingSource),
   }));
+}
+
+function getWordTimingSourceForBatchResponse(
+  response: { metadata?: unknown },
+  hasProviderWords: boolean,
+  fallbackWithoutWords: TranscriptTimingSource,
+): TranscriptTimingSource {
+  if (!hasProviderWords) {
+    return fallbackWithoutWords;
+  }
+
+  const explicitSource = getBatchResponseTimingSource(response);
+  if (explicitSource) {
+    return explicitSource;
+  }
+
+  return "provider_word";
+}
+
+function getBatchResponseTimingSource(response: {
+  metadata?: unknown;
+}): TranscriptTimingSource | undefined {
+  const metadata = response.metadata;
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return undefined;
+  }
+
+  const record = metadata as Record<string, unknown>;
+  const timing = record.timing;
+  if (timing && typeof timing === "object" && !Array.isArray(timing)) {
+    return getValidTimingSource((timing as Record<string, unknown>).source);
+  }
+
+  return getValidTimingSource(record.timing_source);
 }
 
 function getBatchDurationSeconds(response: BatchResponse): number | undefined {
