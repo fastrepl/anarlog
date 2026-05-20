@@ -74,9 +74,9 @@ fn should_skip_startup_migration(args: &[OsString]) -> bool {
 
 fn legacy_target_app_path(current_app_path: &Path) -> Option<PathBuf> {
     let target_name = match current_app_path.file_name().and_then(|name| name.to_str()) {
-        Some("Hyprnote.app") => "Char.app",
-        Some("Hyprnote Nightly.app") => "Char Nightly.app",
-        Some("Hyprnote Staging.app") => "Char Staging.app",
+        Some("Hyprnote.app") | Some("Char.app") => "Anarlog.app",
+        Some("Hyprnote Nightly.app") | Some("Char Nightly.app") => "Anarlog Nightly.app",
+        Some("Hyprnote Staging.app") | Some("Char Staging.app") => "Anarlog Staging.app",
         _ => return None,
     };
 
@@ -202,16 +202,25 @@ mod tests {
     use super::*;
 
     #[test]
-    fn maps_legacy_bundle_names_to_char_names() {
+    fn maps_legacy_bundle_names_to_anarlog_names() {
         let cases = [
-            ("/Applications/Hyprnote.app", "/Applications/Char.app"),
+            ("/Applications/Hyprnote.app", "/Applications/Anarlog.app"),
+            ("/Applications/Char.app", "/Applications/Anarlog.app"),
             (
                 "/Applications/Hyprnote Nightly.app",
+                "/Applications/Anarlog Nightly.app",
+            ),
+            (
                 "/Applications/Char Nightly.app",
+                "/Applications/Anarlog Nightly.app",
             ),
             (
                 "/Applications/Hyprnote Staging.app",
+                "/Applications/Anarlog Staging.app",
+            ),
+            (
                 "/Applications/Char Staging.app",
+                "/Applications/Anarlog Staging.app",
             ),
         ];
 
@@ -226,9 +235,9 @@ mod tests {
     #[test]
     fn ignores_non_legacy_bundle_names() {
         for path in [
-            "/Applications/Char.app",
-            "/Applications/Char Nightly.app",
-            "/Applications/Char Staging.app",
+            "/Applications/Anarlog.app",
+            "/Applications/Anarlog Nightly.app",
+            "/Applications/Anarlog Staging.app",
         ] {
             assert_eq!(legacy_target_app_path(Path::new(path)), None);
         }
@@ -271,7 +280,7 @@ mod tests {
         let command = build_bundle_rename_command(
             4242,
             Path::new("/Applications/Hyprnote Nightly.app"),
-            Path::new("/Applications/Char Nightly.app"),
+            Path::new("/Applications/Anarlog Nightly.app"),
             &relaunch_args,
         );
         let args = command
@@ -279,7 +288,7 @@ mod tests {
             .map(|arg| arg.to_string_lossy().to_string())
             .collect::<Vec<_>>();
 
-        assert!(args[1].contains("if [ -e '/Applications/Char Nightly.app' ]; then"));
+        assert!(args[1].contains("if [ -e '/Applications/Anarlog Nightly.app' ]; then"));
         assert!(args[1].contains("return 1"));
     }
 
@@ -292,7 +301,7 @@ mod tests {
         let command = build_bundle_rename_command(
             4242,
             Path::new("/Applications/Hyprnote Nightly.app"),
-            Path::new("/Applications/Char Nightly.app"),
+            Path::new("/Applications/Anarlog Nightly.app"),
             &relaunch_args,
         );
         let args = command
@@ -309,11 +318,11 @@ mod tests {
 
     #[test]
     fn current_bundle_path_from_executable_uses_bundle_root() {
-        let executable = Path::new("/Applications/Char.app/Contents/MacOS/char");
+        let executable = Path::new("/Applications/Anarlog.app/Contents/MacOS/anarlog");
 
         let bundle = current_app_bundle_path_from_executable(executable).unwrap();
 
-        assert_eq!(bundle, PathBuf::from("/Applications/Char.app"));
+        assert_eq!(bundle, PathBuf::from("/Applications/Anarlog.app"));
     }
 
     #[test]
@@ -325,7 +334,7 @@ mod tests {
         let command = build_bundle_rename_command(
             4242,
             Path::new("/Applications/Hyprnote Nightly.app"),
-            Path::new("/Applications/Char Nightly.app"),
+            Path::new("/Applications/Anarlog Nightly.app"),
             &relaunch_args,
         );
         let args = command
@@ -337,10 +346,10 @@ mod tests {
         assert_eq!(args[0], "-c");
         assert!(args[1].contains(r#"while kill -0 "$1" 2>/dev/null; do sleep 0.1; done;"#));
         assert!(args[1].contains(
-            "mv -f '/Applications/Hyprnote Nightly.app' '/Applications/Char Nightly.app'"
+            "mv -f '/Applications/Hyprnote Nightly.app' '/Applications/Anarlog Nightly.app'"
         ));
         assert!(args[1].contains(
-            "open -n '/Applications/Char Nightly.app' --args '--onboarding=123' '--updater2-skip-startup-migration=1'"
+            "open -n '/Applications/Anarlog Nightly.app' --args '--onboarding=123' '--updater2-skip-startup-migration=1'"
         ));
         assert_eq!(&args[2..], ["sh", "4242"]);
     }
@@ -352,8 +361,8 @@ mod tests {
         )]);
         let command = build_bundle_rename_command(
             4242,
-            Path::new("/Applications/Hyprnote.app"),
             Path::new("/Applications/Char.app"),
+            Path::new("/Applications/Anarlog.app"),
             &relaunch_args,
         );
         let args = command
@@ -361,9 +370,9 @@ mod tests {
             .map(|arg| arg.to_string_lossy().to_string())
             .collect::<Vec<_>>();
 
-        assert!(args[1].contains("mv -f '/Applications/Hyprnote.app' '/Applications/Char.app'"));
+        assert!(args[1].contains("mv -f '/Applications/Char.app' '/Applications/Anarlog.app'"));
         assert!(args[1].contains(
-            "open -n '/Applications/Char.app' --args '--updater2-skip-startup-migration=1'"
+            "open -n '/Applications/Anarlog.app' --args '--updater2-skip-startup-migration=1'"
         ));
     }
 }

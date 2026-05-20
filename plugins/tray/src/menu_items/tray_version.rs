@@ -10,8 +10,8 @@ pub struct TrayVersion;
 impl TrayVersion {
     fn get_channel(app_name: &str) -> &'static str {
         match app_name {
-            "Char" | "Hyprnote" => "stable",
-            "Char Staging" | "Hyprnote Staging" => "staging",
+            "Anarlog" | "Char" | "Hyprnote" => "stable",
+            "Anarlog Staging" | "Char Staging" | "Hyprnote Staging" => "staging",
             _ => "dev",
         }
     }

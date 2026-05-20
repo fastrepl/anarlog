@@ -98,7 +98,7 @@ impl AppWindow {
 impl WindowImpl for AppWindow {
     fn title(&self) -> String {
         match self {
-            Self::Main => "Char".into(),
+            Self::Main => "Anarlog".into(),
             Self::Composer => "Composer".into(),
         }
     }
