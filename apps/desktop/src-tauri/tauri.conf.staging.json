@@ -21,7 +21,7 @@
     ],
     "macOS": {
       "files": {
-        "MacOS/mlx.metallib": "resources/mlx.metallib",
+        "Resources/mlx-swift_Cmlx.bundle/default.metallib": "resources/mlx.metallib",
         "Resources/AppIcon.incs": "resources/stable/AppIcon.icns",
         "Resources/Assets.car": "resources/stable/Assets.car"
       },
