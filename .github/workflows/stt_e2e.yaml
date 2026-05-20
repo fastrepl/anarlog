@@ -87,7 +87,7 @@ jobs:
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             echo 'providers=["${{ inputs.provider }}"]' >> $GITHUB_OUTPUT
           else
-            echo "providers=${{ needs.detect-changes.outputs.providers }}" >> $GITHUB_OUTPUT
+            printf 'providers=%s\n' '${{ needs.detect-changes.outputs.providers }}' >> "$GITHUB_OUTPUT"
           fi
 
   direct-provider-batch-e2e:
