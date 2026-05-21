@@ -229,10 +229,7 @@ function AnnouncementBanner() {
         className="border-color-subtle text-color group inline-flex max-w-full items-center justify-center gap-2 rounded-full border bg-white px-4 py-2 text-center text-sm font-medium shadow-sm transition-colors hover:bg-neutral-50 md:px-5"
         aria-label="Visit Char v2"
       >
-        <span className="min-w-0">
-          We're working on something else.{" "}
-          <span className="whitespace-nowrap">Check it out</span>
-        </span>
+        <span className="min-w-0">We're working on something cool</span>
         <ArrowRight
           size={16}
           strokeWidth={2.2}
