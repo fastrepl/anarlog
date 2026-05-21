@@ -259,6 +259,30 @@ mod tests {
         assert!(query.contains("multichannel=true"));
     }
 
+    #[test]
+    fn batch_url_restricts_detect_language_for_unsupported_multi_language() {
+        let params = ListenParams {
+            languages: vec![
+                hypr_language::ISO639::En.into(),
+                hypr_language::ISO639::Pl.into(),
+            ],
+            ..Default::default()
+        };
+
+        let url = build_batch_url(
+            "https://api.deepgram.com/v1",
+            &params,
+            &DeepgramLanguageStrategy,
+            &DeepgramKeywordStrategy,
+        );
+
+        let query = url.query().unwrap_or_default();
+        assert!(query.contains("detect_language=en"));
+        assert!(query.contains("detect_language=pl"));
+        assert!(!query.contains("detect_language=true"));
+        assert!(!query.contains("language=multi"));
+    }
+
     #[tokio::test]
     #[ignore]
     async fn test_deepgram_batch_transcription() {

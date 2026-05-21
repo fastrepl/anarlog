@@ -162,6 +162,10 @@ impl DeepgramAdapter {
         Self::language_support_batch(languages, model).is_supported()
     }
 
+    pub fn supports_batch_language_detection(languages: &[hypr_language::Language]) -> bool {
+        !languages.is_empty() && languages.iter().all(language::supports_language_detection)
+    }
+
     fn can_use_multi(languages: &[hypr_language::Language]) -> bool {
         language::can_use_multi(DeepgramModel::Nova3General.as_ref(), languages)
             || language::can_use_multi(DeepgramModel::Nova2General.as_ref(), languages)
@@ -396,6 +400,15 @@ mod tests {
                 iso_codes
             );
         }
+    }
+
+    #[test]
+    fn test_supports_batch_language_detection() {
+        let en_pl: Vec<Language> = vec![ISO639::En.into(), ISO639::Pl.into()];
+        assert!(DeepgramAdapter::supports_batch_language_detection(&en_pl));
+
+        let en_ar: Vec<Language> = vec![ISO639::En.into(), ISO639::Ar.into()];
+        assert!(!DeepgramAdapter::supports_batch_language_detection(&en_ar));
     }
 
     #[test]

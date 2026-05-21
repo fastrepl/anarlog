@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
+use std::time::Duration;
 
 pub const API_HOST: &str = "https://api.soniox.com";
+const TRANSCRIPTION_POLL_INTERVAL: Duration = Duration::from_secs(2);
+const TRANSCRIPTION_MAX_POLLS: usize = 1800;
 
 #[derive(Debug)]
 pub struct Error {
@@ -319,8 +322,6 @@ pub async fn wait_for_completion(
     transcription_id: &str,
     api_key: &str,
 ) -> Result<(), Error> {
-    use std::time::Duration;
-
     #[derive(Deserialize)]
     struct StatusResponse {
         status: String,
@@ -330,7 +331,7 @@ pub async fn wait_for_completion(
 
     let url = format!("{API_HOST}/v1/transcriptions/{transcription_id}");
 
-    for _ in 0..300 {
+    for _ in 0..TRANSCRIPTION_MAX_POLLS {
         let response = client
             .get(&url)
             .header("Authorization", format!("Bearer {api_key}"))
@@ -369,7 +370,7 @@ pub async fn wait_for_completion(
                 });
             }
             "queued" | "processing" => {
-                tokio::time::sleep(Duration::from_secs(2)).await;
+                tokio::time::sleep(TRANSCRIPTION_POLL_INTERVAL).await;
             }
             unknown => {
                 return Err(Error {
@@ -381,7 +382,23 @@ pub async fn wait_for_completion(
     }
 
     Err(Error {
-        message: "transcription timed out".to_string(),
+        message: format!(
+            "transcription timed out after {} seconds",
+            TRANSCRIPTION_POLL_INTERVAL.as_secs() * TRANSCRIPTION_MAX_POLLS as u64
+        ),
         is_retryable: false,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn soniox_polling_allows_long_batch_jobs() {
+        assert_eq!(
+            TRANSCRIPTION_POLL_INTERVAL.as_secs() * TRANSCRIPTION_MAX_POLLS as u64,
+            3600
+        );
+    }
 }

@@ -105,7 +105,9 @@ pub(super) async fn handle_hyprnote_batch(
     body: Bytes,
     content_type: &str,
 ) -> Response {
-    let provider_chain = state.resolve_hyprnote_provider_chain_for_mode(RoutingMode::Batch, params);
+    let mut provider_chain =
+        state.resolve_hyprnote_provider_chain_for_mode(RoutingMode::Batch, params);
+    append_deepgram_batch_detection_fallback(state, &mut provider_chain, &listen_params);
 
     if provider_chain.is_empty() {
         return (
@@ -211,6 +213,25 @@ pub(super) async fn handle_hyprnote_batch(
         })),
     )
         .into_response()
+}
+
+fn append_deepgram_batch_detection_fallback(
+    state: &AppState,
+    provider_chain: &mut Vec<SelectedProvider>,
+    listen_params: &ListenParams,
+) {
+    if listen_params.languages.len() <= 1
+        || provider_chain
+            .iter()
+            .any(|selected| selected.provider() == Provider::Deepgram)
+        || !DeepgramAdapter::supports_batch_language_detection(&listen_params.languages)
+    {
+        return;
+    }
+
+    if let Ok(selected) = state.selector.select(Some(Provider::Deepgram)) {
+        provider_chain.push(selected);
+    }
 }
 
 pub(super) async fn transcribe_with_retry(

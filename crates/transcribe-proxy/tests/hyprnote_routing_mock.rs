@@ -99,6 +99,33 @@ async fn batch_cloud_model_resolved_for_deepgram() {
 }
 
 #[tokio::test]
+async fn batch_en_pl_uses_deepgram_detection_fallback_when_soniox_unavailable() {
+    let batch = start_mock_batch_upstream().await;
+    let upstream_url = batch_upstream_url(batch.addr);
+    let proxy = start_proxy(Some(&upstream_url), None).await;
+
+    send_batch(proxy, "model=cloud&language=en&language=pl").await;
+    let query = wait_for_first_batch_query(&batch, TIMEOUT).await;
+
+    assert!(
+        query.contains("detect_language=en"),
+        "should restrict Deepgram detection to English: {query}"
+    );
+    assert!(
+        query.contains("detect_language=pl"),
+        "should restrict Deepgram detection to Polish: {query}"
+    );
+    assert!(
+        !query.contains("detect_language=true"),
+        "should not fall back to unrestricted language detection: {query}"
+    );
+    assert!(
+        !query.contains("language=multi"),
+        "Polish is not in Deepgram's multi-language model set: {query}"
+    );
+}
+
+#[tokio::test]
 async fn batch_explicit_model_preserved_for_deepgram() {
     let batch = start_mock_batch_upstream().await;
     let upstream_url = batch_upstream_url(batch.addr);
