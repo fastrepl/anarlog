@@ -31,6 +31,7 @@ import {
 import { useDebounceCallback } from "usehooks-ts";
 
 import "@hypr/tiptap/styles.css";
+import { cn } from "@hypr/utils";
 
 import { EditorErrorBoundary } from "../editor-error-boundary";
 import {
@@ -124,6 +125,7 @@ type NodeViewComponents = NonNullable<
 >;
 
 export interface NoteEditorProps {
+  className?: string;
   handleChange?: (content: JSONContent) => void;
   initialContent?: JSONContent;
   mentionConfig?: MentionConfig;
@@ -340,6 +342,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
   function NoteEditor(props, ref) {
     const {
       handleChange,
+      className,
       initialContent,
       mentionConfig,
       placeholderComponent,
@@ -524,7 +527,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
                 autocorrect: "off",
                 autocapitalize: "off",
                 role: "textbox",
-                class: "tiptap",
+                class: cn(["tiptap", className]),
               }}
             >
               <ProseMirrorDoc />
