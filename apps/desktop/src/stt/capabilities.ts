@@ -8,33 +8,7 @@ type LiveTranscriptionConfig = {
   transcriptionMode?: TranscriptionMode;
 };
 
-const SONIQO_PARAKEET_LANGUAGE_CODES = new Set([
-  "bg",
-  "cs",
-  "da",
-  "de",
-  "el",
-  "en",
-  "es",
-  "et",
-  "fi",
-  "fr",
-  "hr",
-  "hu",
-  "it",
-  "lt",
-  "lv",
-  "mt",
-  "nl",
-  "pl",
-  "pt",
-  "ro",
-  "ru",
-  "sk",
-  "sl",
-  "sv",
-  "uk",
-]);
+const SONIQO_STREAMING_LANGUAGE_CODES = new Set(["en"]);
 
 export function isRealtimeLocalModel(model?: string | null) {
   return model === "soniqo-parakeet-streaming";
@@ -97,8 +71,22 @@ export function getOnDeviceTranscriptionConfig(
     };
   }
 
+  const primaryLanguage = languages[0];
+  const primaryLanguageSupported =
+    !primaryLanguage ||
+    SONIQO_STREAMING_LANGUAGE_CODES.has(baseLanguageCode(primaryLanguage));
+
+  // The Soniqo streaming session API does not accept a language hint, so keep
+  // non-English primary languages on batch instead of relying on live auto-detect.
+  if (!primaryLanguageSupported) {
+    return {
+      languages: [...languages],
+      transcriptionMode: "batch",
+    };
+  }
+
   const supportedLiveLanguages = languages.filter((language) =>
-    SONIQO_PARAKEET_LANGUAGE_CODES.has(baseLanguageCode(language)),
+    SONIQO_STREAMING_LANGUAGE_CODES.has(baseLanguageCode(language)),
   );
 
   if (languages.length > 0 && supportedLiveLanguages.length === 0) {

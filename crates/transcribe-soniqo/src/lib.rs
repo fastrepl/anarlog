@@ -4,6 +4,8 @@ use std::str::FromStr;
 use owhisper_interface::{batch, stream};
 
 pub const LOCAL_BASE_URL: &str = "soniqo://local";
+const SYNTHETIC_BATCH_WORD_SECONDS: f64 = 0.4;
+const MIN_SYNTHETIC_DURATION_SECONDS: f64 = 0.05;
 
 pub fn is_local_base_url(base_url: &str) -> bool {
     base_url.trim_end_matches('/') == LOCAL_BASE_URL
@@ -385,7 +387,8 @@ pub fn stream_response_from_text(
     is_final: bool,
     channel_index: &[i32],
 ) -> stream::StreamResponse {
-    let duration = duration.max(0.05);
+    let text = normalize_transcript_text(&text);
+    let duration = duration.max(MIN_SYNTHETIC_DURATION_SECONDS);
     let words = stream_words_from_text(&text, start, duration);
 
     stream::StreamResponse::TranscriptResponse {
@@ -446,15 +449,16 @@ pub fn batch_response_from_channels(
                 .into_iter()
                 .enumerate()
                 .map(|(channel_index, channel)| {
-                    let duration = channel.duration_seconds.max(0.05);
+                    let transcript = normalize_transcript_text(&channel.text);
+                    let synthetic_duration = synthetic_text_duration(&transcript);
                     batch::Channel {
                         alternatives: vec![batch::Alternatives {
                             words: batch_words_from_text(
-                                &channel.text,
-                                duration,
+                                &transcript,
+                                synthetic_duration,
                                 channel_index as i32,
                             ),
-                            transcript: channel.text,
+                            transcript,
                             confidence: 1.0,
                         }],
                     }
@@ -481,6 +485,10 @@ fn metadata_json(model: SoniqoModel, duration_seconds: f64, channels: u32) -> se
     if let Some(object) = value.as_object_mut() {
         object.insert("duration".to_string(), serde_json::json!(duration_seconds));
         object.insert("channels".to_string(), serde_json::json!(channels));
+        object.insert(
+            "timing_source".to_string(),
+            serde_json::json!("synthetic_text"),
+        );
     }
     value
 }
@@ -544,6 +552,19 @@ fn split_words(text: &str) -> Vec<&str> {
     text.split_whitespace()
         .filter(|word| !word.is_empty())
         .collect()
+}
+
+fn normalize_transcript_text(text: &str) -> String {
+    split_words(text).join(" ")
+}
+
+fn synthetic_text_duration(text: &str) -> f64 {
+    let word_count = split_words(text).len();
+    if word_count == 0 {
+        MIN_SYNTHETIC_DURATION_SECONDS
+    } else {
+        (word_count as f64 * SYNTHETIC_BATCH_WORD_SECONDS).max(MIN_SYNTHETIC_DURATION_SECONDS)
+    }
 }
 
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
@@ -850,6 +871,7 @@ mod tests {
         assert_eq!(response.results.channels[0].alternatives[0].words.len(), 2);
         assert_eq!(response.metadata["model_info"]["arch"], "soniqo");
         assert_eq!(response.metadata["duration"], 2.0);
+        assert_eq!(response.metadata["timing_source"], "synthetic_text");
     }
 
     #[test]
@@ -886,6 +908,42 @@ mod tests {
         assert_eq!(
             response.results.channels[1].alternatives[0].words[0].channel,
             1
+        );
+    }
+
+    #[test]
+    fn batch_response_uses_compact_synthetic_word_timing() {
+        let response = batch_response_from_text(
+            SoniqoModel::ParakeetBatch,
+            "one two three four".to_string(),
+            120.0,
+        );
+        let words = &response.results.channels[0].alternatives[0].words;
+
+        assert_eq!(words[0].start, 0.0);
+        assert_eq!(words[0].end, SYNTHETIC_BATCH_WORD_SECONDS);
+        assert_eq!(words[3].end, 4.0 * SYNTHETIC_BATCH_WORD_SECONDS);
+        assert!(words[3].end < 3.0);
+        assert_eq!(response.metadata["duration"], 120.0);
+    }
+
+    #[test]
+    fn batch_response_normalizes_internal_whitespace() {
+        let response = batch_response_from_text(
+            SoniqoModel::ParakeetBatch,
+            "eins zwei\n drei\tvier".to_string(),
+            4.0,
+        );
+        let alternative = &response.results.channels[0].alternatives[0];
+
+        assert_eq!(alternative.transcript, "eins zwei drei vier");
+        assert_eq!(
+            alternative
+                .words
+                .iter()
+                .map(|word| word.word.as_str())
+                .collect::<Vec<_>>(),
+            vec!["eins", "zwei", "drei", "vier"]
         );
     }
 

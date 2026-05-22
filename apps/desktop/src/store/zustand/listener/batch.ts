@@ -64,6 +64,8 @@ export type BatchActions = {
 
 export const EMPTY_BATCH_TRANSCRIPT_ERROR =
   "No speech was detected in the audio.";
+const SYNTHETIC_TEXT_WORD_SECONDS = 0.4;
+const MIN_SYNTHETIC_TEXT_WORD_SECONDS = 0.05;
 
 export const createBatchSlice = <T extends BatchState>(
   set: StoreApi<T>["setState"],
@@ -149,11 +151,11 @@ export const createBatchSlice = <T extends BatchState>(
       wordsByChannel: {},
       hintsByChannel: {},
     };
-    const nextPreview = mergeBatchPreview(currentPreview, event);
     const persist = get().batchPersist[sessionId];
-    const [words, hints] = flattenBatchPreview(nextPreview);
+    const result = batchPreviewResult(currentPreview, event);
+    const { nextPreview, words, hints } = result;
 
-    if (event.type === "segment" && words.length > 0) {
+    if (result.shouldPersist && words.length > 0) {
       persist?.(words, hints, { mode: "replace" });
     }
 
@@ -285,6 +287,42 @@ export const createBatchSlice = <T extends BatchState>(
   },
 });
 
+function batchPreviewResult(
+  currentPreview: {
+    wordsByChannel: Record<number, WordLike[]>;
+    hintsByChannel: Record<number, RuntimeSpeakerHint[]>;
+  },
+  event: BatchStreamEvent,
+): {
+  nextPreview: {
+    wordsByChannel: Record<number, WordLike[]>;
+    hintsByChannel: Record<number, RuntimeSpeakerHint[]>;
+  };
+  words: WordLike[];
+  hints: RuntimeSpeakerHint[];
+  shouldPersist: boolean;
+} {
+  if (event.type === "result") {
+    const [words, hints] = transformBatch(event.response);
+    return {
+      nextPreview: batchPreviewFromWords(words, hints),
+      words,
+      hints,
+      shouldPersist: true,
+    };
+  }
+
+  const nextPreview = mergeBatchPreview(currentPreview, event);
+  const [words, hints] = flattenBatchPreview(nextPreview);
+
+  return {
+    nextPreview,
+    words,
+    hints,
+    shouldPersist: event.type === "segment",
+  };
+}
+
 function transformBatch(
   response: BatchResponse,
 ): [WordLike[], RuntimeSpeakerHint[]] {
@@ -359,6 +397,49 @@ function flattenBatchPreview(preview: {
     });
 
   return [allWords, allHints];
+}
+
+function batchPreviewFromWords(
+  words: WordLike[],
+  hints: RuntimeSpeakerHint[],
+): {
+  wordsByChannel: Record<number, WordLike[]>;
+  hintsByChannel: Record<number, RuntimeSpeakerHint[]>;
+} {
+  const wordsByChannel: Record<number, WordLike[]> = {};
+  const hintsByChannel: Record<number, RuntimeSpeakerHint[]> = {};
+  const channelIndexByWordIndex = new Map<
+    number,
+    { channel: number; wordIndex: number }
+  >();
+
+  words.forEach((word, wordIndex) => {
+    const channelWords = wordsByChannel[word.channel] ?? [];
+    if (!(word.channel in wordsByChannel)) {
+      wordsByChannel[word.channel] = channelWords;
+      hintsByChannel[word.channel] = [];
+    }
+
+    channelIndexByWordIndex.set(wordIndex, {
+      channel: word.channel,
+      wordIndex: channelWords.length,
+    });
+    channelWords.push(word);
+  });
+
+  hints.forEach((hint) => {
+    const target = channelIndexByWordIndex.get(hint.wordIndex);
+    if (!target) {
+      return;
+    }
+
+    hintsByChannel[target.channel]!.push({
+      ...hint,
+      wordIndex: target.wordIndex,
+    });
+  });
+
+  return { wordsByChannel, hintsByChannel };
 }
 
 function mergeBatchPreview(
@@ -515,12 +596,15 @@ function wordEntriesFromTranscript(
     return [];
   }
 
-  const duration = Math.max(
-    durationSeconds && Number.isFinite(durationSeconds)
-      ? durationSeconds
-      : tokens.length * 0.4,
-    tokens.length * 0.05,
-  );
+  const duration =
+    timingSource === "synthetic_text"
+      ? tokens.length * SYNTHETIC_TEXT_WORD_SECONDS
+      : Math.max(
+          durationSeconds && Number.isFinite(durationSeconds)
+            ? durationSeconds
+            : tokens.length * SYNTHETIC_TEXT_WORD_SECONDS,
+          tokens.length * MIN_SYNTHETIC_TEXT_WORD_SECONDS,
+        );
 
   return tokens.map((token, index) => ({
     word: token,

@@ -237,7 +237,7 @@ describe("General Listener Slice", () => {
 
       expect(
         handleBatchResponse(sessionId, {
-          metadata: { duration: 2, timing_source: "provider_word" },
+          metadata: { duration: 120, timing_source: "provider_word" },
           results: {
             channels: [
               {
@@ -259,7 +259,7 @@ describe("General Listener Slice", () => {
           {
             text: " hello",
             start_ms: 0,
-            end_ms: 1000,
+            end_ms: 400,
             channel: 0,
             metadata: {
               timing: {
@@ -269,8 +269,8 @@ describe("General Listener Slice", () => {
           },
           {
             text: " world",
-            start_ms: 1000,
-            end_ms: 2000,
+            start_ms: 400,
+            end_ms: 800,
             channel: 0,
             metadata: {
               timing: {
@@ -283,6 +283,111 @@ describe("General Listener Slice", () => {
         { mode: "replace" },
       );
       expect(store.getState().batch[sessionId]).toBeUndefined();
+    });
+
+    test("handleBatchResponseStreamed replaces preview with transcript-only result", () => {
+      const sessionId = "session-transcript-only-result";
+      const persist = vi.fn();
+      const { handleBatchResponseStreamed, setBatchPersist } = store.getState();
+
+      setBatchPersist(sessionId, persist);
+
+      handleBatchResponseStreamed(sessionId, {
+        type: "segment",
+        percentage: 0.5,
+        response: {
+          type: "Results",
+          start: 0,
+          duration: 120,
+          is_final: true,
+          speech_final: true,
+          from_finalize: false,
+          channel: {
+            alternatives: [
+              {
+                transcript: "partial",
+                languages: [],
+                words: [],
+                confidence: 0.9,
+              },
+            ],
+          },
+          metadata: {
+            request_id: "test-request",
+            model_info: {
+              name: "test-model",
+              version: "1.0",
+              arch: "test-arch",
+            },
+            model_uuid: "test-uuid",
+          },
+          channel_index: [0],
+        },
+      });
+
+      handleBatchResponseStreamed(sessionId, {
+        type: "result",
+        response: {
+          metadata: { duration: 120, timing_source: "synthetic_text" },
+          results: {
+            channels: [
+              {
+                alternatives: [
+                  {
+                    transcript: "final transcript survived",
+                    confidence: 0.9,
+                    words: [],
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      });
+
+      const finalWords = [
+        {
+          text: " final",
+          start_ms: 0,
+          end_ms: 400,
+          channel: 0,
+          metadata: {
+            timing: {
+              source: "synthetic_text",
+            },
+          },
+        },
+        {
+          text: " transcript",
+          start_ms: 400,
+          end_ms: 800,
+          channel: 0,
+          metadata: {
+            timing: {
+              source: "synthetic_text",
+            },
+          },
+        },
+        {
+          text: " survived",
+          start_ms: 800,
+          end_ms: 1200,
+          channel: 0,
+          metadata: {
+            timing: {
+              source: "synthetic_text",
+            },
+          },
+        },
+      ];
+
+      expect(persist).toHaveBeenLastCalledWith(finalWords, [], {
+        mode: "replace",
+      });
+      expect(
+        store.getState().batchPreview[sessionId]?.wordsByChannel[0],
+      ).toEqual(finalWords);
+      expect(store.getState().batch[sessionId]?.isComplete).toBe(true);
     });
 
     test("handleBatchResponseStreamed persists transcript-only segment responses", () => {
