@@ -2,6 +2,10 @@ import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
+import { startTrial as startTrialApi } from "@hypr/api-client";
+import { createClient } from "@hypr/api-client/client";
+
+import { env } from "@/env";
 import { isAdminEmail } from "@/functions/admin";
 import { getRequestAppOrigin } from "@/functions/app-origin";
 import { desktopSchemeSchema } from "@/functions/desktop-flow";
@@ -98,6 +102,41 @@ function toMutationTokenResponse(result: FlowTokenResult) {
     access_token: result.access_token,
     refresh_token: result.refresh_token,
   };
+}
+
+async function tryStartTrial(
+  result: FlowTokenResult,
+  context: string,
+): Promise<void> {
+  if (!result.ok) {
+    return;
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 2500);
+
+  try {
+    const client = createClient({
+      baseUrl: env.VITE_API_URL,
+      headers: {
+        Authorization: `Bearer ${result.access_token}`,
+      },
+    });
+
+    const { error } = await startTrialApi({
+      client,
+      query: { interval: "monthly" },
+      signal: controller.signal,
+    });
+
+    if (error) {
+      console.error(`[auth:${context}] start_trial failed:`, error);
+    }
+  } catch (e) {
+    console.error(`[auth:${context}] start_trial failed:`, e);
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 async function upsertAdminGithubTokenIfNeeded(
@@ -262,6 +301,7 @@ export const exchangeOAuthCode = createServerFn({ method: "POST" })
       flow: data.flow,
       session: authData.session,
     });
+    await tryStartTrial(tokens, "oauth");
     return toSuccessTokenResponse(tokens);
   });
 
@@ -294,6 +334,7 @@ export const doPasswordSignUp = createServerFn({ method: "POST" })
         session: authData.session,
         email: data.email,
       });
+      await tryStartTrial(tokens, "password_signup");
       return toMutationTokenResponse(tokens);
     }
 
@@ -328,6 +369,7 @@ export const doPasswordSignIn = createServerFn({ method: "POST" })
       session: authData.session,
       email: data.email,
     });
+    await tryStartTrial(tokens, "password_signin");
     return toMutationTokenResponse(tokens);
   });
 
@@ -366,12 +408,21 @@ export const exchangeOtpToken = createServerFn({ method: "POST" })
       flow,
       session: authData.session,
     });
+    if (data.type !== "recovery" && data.type !== "email_change") {
+      await tryStartTrial(tokens, "otp");
+    }
     return toSuccessTokenResponse(tokens);
   });
 
 export const createDesktopSession = createServerFn({ method: "POST" })
   .inputValidator(z.object({ email: z.string().email() }))
-  .handler(async ({ data }) => mintDesktopSessionFromEmail(data.email));
+  .handler(async ({ data }) => {
+    const session = await mintDesktopSessionFromEmail(data.email);
+    if (session) {
+      await tryStartTrial(tokenSuccess(session), "desktop_session");
+    }
+    return session;
+  });
 
 export const doPasswordResetRequest = createServerFn({ method: "POST" })
   .inputValidator(
