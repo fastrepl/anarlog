@@ -371,6 +371,7 @@ export function TimelineView() {
                 "rounded-full bg-white hover:bg-neutral-50",
                 "border border-neutral-200 text-neutral-700",
                 "flex items-center gap-1",
+                "px-3",
                 "shadow-xs",
               ])}
               variant="outline"
