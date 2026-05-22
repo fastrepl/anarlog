@@ -30,9 +30,10 @@ export function TrialEndedDialog({
             Your Pro trial has ended
           </DialogTitle>
           <DialogDescription className="max-w-[260px] text-center text-[13px] leading-[1.36] text-neutral-800">
-            You're back on the free plan. Your notes and recordings are safe —
-            you can still capture and edit them locally. Upgrade to Pro to keep
-            cloud AI, longer recordings, and premium templates.
+            You're back on the free plan. Your notes and recordings are safe.
+            You can keep using free local transcription forever, but it will be
+            significantly less accurate than Pro cloud transcription. Upgrade to
+            Pro to keep cloud AI, longer recordings, and premium templates.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="grid grid-cols-2 gap-2 px-4 pt-4 pb-4 sm:grid-cols-2 sm:justify-normal">
