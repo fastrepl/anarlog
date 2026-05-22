@@ -147,11 +147,24 @@ function useNotificationEvents() {
             payload.source?.type === "calendar_event"
               ? payload.source.event_id
               : null;
+          const sourceSessionId =
+            payload.source?.type === "session"
+              ? payload.source.session_id
+              : null;
           const triggerAppIds =
             payload.source?.type === "mic_detected"
               ? (payload.source.app_ids ?? null)
               : null;
           const currentStore = storeRef.current;
+          if (sourceSessionId) {
+            openNewRef.current({
+              type: "sessions",
+              id: sourceSessionId,
+              state: { view: null, autoStart: null },
+            });
+            return;
+          }
+
           if (!currentStore) {
             pendingAutoStart.current = { eventId, triggerAppIds };
             return;

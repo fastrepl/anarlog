@@ -3,9 +3,31 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import { EMPTY_BATCH_TRANSCRIPT_ERROR } from "./batch";
 import { runBatchSession } from "./general-batch";
 
-const { listenMock, startTranscriptionMock } = vi.hoisted(() => ({
+const {
+  isFocusedMock,
+  isVisibleMock,
+  listenMock,
+  showNotificationMock,
+  startTranscriptionMock,
+} = vi.hoisted(() => ({
+  isFocusedMock: vi.fn(),
+  isVisibleMock: vi.fn(),
   listenMock: vi.fn(),
+  showNotificationMock: vi.fn(),
   startTranscriptionMock: vi.fn(),
+}));
+
+vi.mock("@tauri-apps/api/window", () => ({
+  getCurrentWindow: () => ({
+    isFocused: isFocusedMock,
+    isVisible: isVisibleMock,
+  }),
+}));
+
+vi.mock("@hypr/plugin-notification", () => ({
+  commands: {
+    showNotification: showNotificationMock,
+  },
 }));
 
 vi.mock("@hypr/plugin-transcription", () => ({
@@ -22,6 +44,9 @@ vi.mock("@hypr/plugin-transcription", () => ({
 describe("runBatchSession", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    isFocusedMock.mockResolvedValue(true);
+    isVisibleMock.mockResolvedValue(true);
+    showNotificationMock.mockResolvedValue({ status: "ok", data: null });
   });
 
   test("resolves from the completed event and persists the response", async () => {
@@ -110,6 +135,97 @@ describe("runBatchSession", () => {
     expect(clearBatchSession).toHaveBeenCalledWith("session-1");
     expect(handleBatchFailed).not.toHaveBeenCalled();
     expect(handleBatchResponseStreamed).not.toHaveBeenCalled();
+    expect(showNotificationMock).not.toHaveBeenCalled();
+  });
+
+  test("shows a completion notification when the window is not focused", async () => {
+    isFocusedMock.mockResolvedValue(false);
+
+    const handleBatchStarted = vi.fn();
+    const handleBatchResponse = vi.fn();
+    const handleBatchCompleted = vi.fn();
+    const clearBatchPersist = vi.fn();
+    const clearBatchSession = vi.fn();
+    const handleBatchResponseStreamed = vi.fn();
+    const handleBatchFailed = vi.fn();
+    const handleBatchStopped = vi.fn();
+    const updateBatchProgress = vi.fn();
+    const setBatchPersist = vi.fn();
+
+    let handler:
+      | ((event: {
+          payload: {
+            type: string;
+            session_id: string;
+            response?: unknown;
+            mode?: "direct" | "streamed";
+          };
+        }) => void)
+      | undefined;
+
+    listenMock.mockImplementation(async (cb) => {
+      handler = cb;
+      return vi.fn();
+    });
+
+    startTranscriptionMock.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          queueMicrotask(() => {
+            handler?.({
+              payload: {
+                type: "completed",
+                session_id: "session-1",
+                mode: "streamed",
+                response: {
+                  metadata: null,
+                  results: { channels: [] },
+                },
+              },
+            });
+            resolve({
+              status: "ok",
+              data: null,
+            });
+          });
+        }),
+    );
+
+    await runBatchSession(
+      () => ({
+        batch: {},
+        batchPreview: {},
+        batchPersist: {},
+        handleBatchStarted,
+        handleBatchResponse,
+        handleBatchCompleted,
+        clearBatchPersist,
+        clearBatchSession,
+        handleBatchResponseStreamed,
+        handleBatchFailed,
+        handleBatchStopped,
+        updateBatchProgress,
+        setBatchPersist,
+      }),
+      "session-1",
+      {
+        session_id: "session-1",
+        provider: "hyprnote",
+        file_path: "/tmp/session.wav",
+        base_url: "",
+        api_key: "",
+      },
+    );
+
+    expect(showNotificationMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: "batch-completed-session-1",
+        title: "Transcription complete",
+        message: "Your transcript is ready.",
+        action_label: "Open Anarlog",
+        source: { type: "session", session_id: "session-1" },
+      }),
+    );
   });
 
   test("forwards streamed progress events before completion", async () => {

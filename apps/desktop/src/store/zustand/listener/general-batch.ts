@@ -1,5 +1,7 @@
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { StoreApi } from "zustand";
 
+import { commands as notificationCommands } from "@hypr/plugin-notification";
 import {
   type BatchErrorCode,
   type TranscriptionParams,
@@ -14,6 +16,56 @@ import {
 } from "./batch";
 
 type BatchStore = BatchActions & BatchState;
+
+async function shouldNotifyBatchCompleted() {
+  try {
+    const window = getCurrentWindow();
+    const [focused, visible] = await Promise.all([
+      window.isFocused(),
+      window.isVisible(),
+    ]);
+
+    return !focused || !visible;
+  } catch (error) {
+    console.error("[runBatch] failed to inspect window state", error);
+    return true;
+  }
+}
+
+export async function showBatchCompletedNotification(
+  sessionId: string,
+  options?: { force?: boolean },
+) {
+  if (!options?.force && !(await shouldNotifyBatchCompleted())) {
+    return;
+  }
+
+  try {
+    const result = await notificationCommands.showNotification({
+      key: `batch-completed-${sessionId}`,
+      title: "Transcription complete",
+      message: "Your transcript is ready.",
+      timeout: null,
+      source: { type: "session", session_id: sessionId },
+      start_time: null,
+      participants: null,
+      event_details: null,
+      action_label: "Open Anarlog",
+      options: null,
+      footer: null,
+      icon: null,
+    });
+
+    if (result.status === "error") {
+      console.error(
+        "[runBatch] failed to show completion notification",
+        result.error,
+      );
+    }
+  } catch (error) {
+    console.error("[runBatch] failed to show completion notification", error);
+  }
+}
 
 export const runBatchSession = async <T extends BatchStore>(
   get: StoreApi<T>["getState"],
@@ -173,4 +225,6 @@ export const runBatchSession = async <T extends BatchStore>(
         rejectFailure(error, reject);
       });
   });
+
+  await showBatchCompletedNotification(sessionId);
 };

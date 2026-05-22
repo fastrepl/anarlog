@@ -46,7 +46,7 @@ export type NotificationEvent = { type: "notification_confirm"; key: string; sou
 export type NotificationFooter = { text: string; actionLabel: string; icon: NotificationIcon | null }
 export type NotificationIcon = { type: "hidden" } | { type: "bundle_id"; bundle_id: string } | { type: "path"; path: string } | { type: "overlay"; base: NotificationIconAsset; badge: NotificationIconAsset }
 export type NotificationIconAsset = { type: "app_icon" } | { type: "calendar" } | { type: "bundle_id"; bundle_id: string } | { type: "path"; path: string }
-export type NotificationSource = { type: "calendar_event"; event_id: string } | { type: "mic_detected"; app_names: string[]; app_ids?: string[]; event_ids?: string[] }
+export type NotificationSource = { type: "calendar_event"; event_id: string } | { type: "session"; session_id: string } | { type: "mic_detected"; app_names: string[]; app_ids?: string[]; event_ids?: string[] }
 export type Participant = { name: string | null; email: string; status: ParticipantStatus }
 export type ParticipantStatus = "Accepted" | "Maybe" | "Declined"
 

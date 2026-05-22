@@ -131,11 +131,13 @@ enum NotificationIcon: Codable {
 
 enum NotificationSource: Codable {
   case calendarEvent(eventId: String)
+  case session(sessionId: String)
   case micDetected(appNames: [String], appIds: [String], eventIds: [String])
 
   private enum CodingKeys: String, CodingKey {
     case type
     case eventId = "event_id"
+    case sessionId = "session_id"
     case appNames = "app_names"
     case appIds = "app_ids"
     case eventIds = "event_ids"
@@ -143,6 +145,7 @@ enum NotificationSource: Codable {
 
   private enum SourceType: String, Codable {
     case calendarEvent = "calendar_event"
+    case session = "session"
     case micDetected = "mic_detected"
   }
 
@@ -152,6 +155,8 @@ enum NotificationSource: Codable {
     switch try container.decode(SourceType.self, forKey: .type) {
     case .calendarEvent:
       self = .calendarEvent(eventId: try container.decode(String.self, forKey: .eventId))
+    case .session:
+      self = .session(sessionId: try container.decode(String.self, forKey: .sessionId))
     case .micDetected:
       self = .micDetected(
         appNames: try container.decode([String].self, forKey: .appNames),
@@ -168,6 +173,9 @@ enum NotificationSource: Codable {
     case .calendarEvent(let eventId):
       try container.encode(SourceType.calendarEvent, forKey: .type)
       try container.encode(eventId, forKey: .eventId)
+    case .session(let sessionId):
+      try container.encode(SourceType.session, forKey: .type)
+      try container.encode(sessionId, forKey: .sessionId)
     case .micDetected(let appNames, let appIds, let eventIds):
       try container.encode(SourceType.micDetected, forKey: .type)
       try container.encode(appNames, forKey: .appNames)

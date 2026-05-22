@@ -142,6 +142,34 @@ describe("EventListeners notification events", () => {
     expect(openNewMock).not.toHaveBeenCalled();
   });
 
+  test("notification_confirm with session source opens that session", async () => {
+    useMainStoreMock.mockReturnValue(null);
+
+    render(<EventListeners />);
+
+    await vi.waitFor(() =>
+      expect(notificationListenMock).toHaveBeenCalledTimes(1),
+    );
+
+    const handler = notificationListenMock.mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf("function");
+
+    handler({
+      payload: {
+        type: "notification_confirm",
+        key: "batch-completed-session-1",
+        source: { type: "session", session_id: "session-1" },
+      },
+    });
+
+    expect(createSessionMock).not.toHaveBeenCalled();
+    expect(openNewMock).toHaveBeenCalledWith({
+      type: "sessions",
+      id: "session-1",
+      state: { view: null, autoStart: null },
+    });
+  });
+
   test("notification_confirm with mic_detected source sets triggerAppIds (regression: #5120 confirm path)", async () => {
     useMainStoreMock.mockReturnValue({} as never);
 

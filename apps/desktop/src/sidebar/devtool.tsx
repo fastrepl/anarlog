@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 
+import { commands as notificationCommands } from "@hypr/plugin-notification";
 import {
   commands as windowsCommands,
   openUrlWithInstruction,
@@ -11,6 +12,7 @@ import { TrialEndedDialog } from "~/billing/trial-ended-dialog";
 import { TrialStartedDialog } from "~/billing/trial-started-dialog";
 import { getLatestVersion } from "~/changelog";
 import * as main from "~/store/tinybase/store/main";
+import { showBatchCompletedNotification } from "~/store/zustand/listener/general-batch";
 import { useTabs } from "~/store/zustand/tabs";
 import { commands } from "~/types/tauri.gen";
 
@@ -20,6 +22,7 @@ export function DevtoolView() {
       <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-1 py-2">
         <NavigationCard />
         <ToastsCard />
+        <NotificationsCard />
         <BillingCard />
         <CountdownTestCard />
         <ErrorTestCard />
@@ -185,6 +188,173 @@ function ToastsCard() {
           ])}
         >
           Reset All Dismissed
+        </button>
+      </div>
+    </DevtoolCard>
+  );
+}
+
+function NotificationsCard() {
+  const store = main.UI.useStore(main.STORE_ID) as main.Store | undefined;
+  const { user_id } = main.UI.useValues(main.STORE_ID);
+
+  const showCalendarNotification = useCallback(async () => {
+    const eventId = `devtool-event-${crypto.randomUUID()}`;
+    const startedAt = new Date(Date.now() + 5 * 60 * 1000);
+    const endedAt = new Date(startedAt.getTime() + 30 * 60 * 1000);
+
+    store?.setRow("events", eventId, {
+      user_id: user_id ?? "",
+      created_at: new Date().toISOString(),
+      tracking_id_event: eventId,
+      calendar_id: "devtool-calendar",
+      title: "Devtool design sync",
+      started_at: startedAt.toISOString(),
+      ended_at: endedAt.toISOString(),
+      location: "Conference Room",
+      meeting_link: "https://zoom.us/j/1234567890",
+      description: "Notification test event",
+      note: "",
+      recurrence_series_id: "",
+      has_recurrence_rules: false,
+      is_all_day: false,
+      provider: "google",
+      participants_json: JSON.stringify([
+        {
+          name: "Ada Lovelace",
+          email: "ada@example.com",
+          status: "accepted",
+        },
+      ]),
+    });
+
+    await notificationCommands.showNotification({
+      key: `devtool-calendar-${eventId}`,
+      title: "Devtool design sync",
+      message: "Starting in 5 minutes",
+      timeout: null,
+      source: { type: "calendar_event", event_id: eventId },
+      start_time: Math.floor(startedAt.getTime() / 1000),
+      participants: [
+        {
+          name: "Ada Lovelace",
+          email: "ada@example.com",
+          status: "Accepted",
+        },
+      ],
+      event_details: {
+        what: "Devtool design sync",
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        location: "Conference Room",
+      },
+      action_label: "Open notes",
+      options: null,
+      footer: null,
+      icon: null,
+    });
+  }, [store, user_id]);
+
+  const showMicDetectedNotification = useCallback(async () => {
+    await notificationCommands.showNotification({
+      key: `devtool-mic-${crypto.randomUUID()}`,
+      title: "Are you in a meeting?",
+      message: "",
+      timeout: { secs: 15, nanos: 0 },
+      source: {
+        type: "mic_detected",
+        app_names: ["Zoom"],
+        app_ids: ["us.zoom.xos"],
+        event_ids: [],
+      },
+      start_time: null,
+      participants: null,
+      event_details: null,
+      action_label: null,
+      options: null,
+      footer: null,
+      icon: null,
+    });
+  }, []);
+
+  const showMicDetectedOptionsNotification = useCallback(async () => {
+    await notificationCommands.showNotification({
+      key: `devtool-mic-options-${crypto.randomUUID()}`,
+      title: "Are you in a meeting?",
+      message: "",
+      timeout: { secs: 15, nanos: 0 },
+      source: {
+        type: "mic_detected",
+        app_names: ["Zoom", "Google Chrome"],
+        app_ids: ["us.zoom.xos", "com.google.Chrome"],
+        event_ids: [],
+      },
+      start_time: null,
+      participants: null,
+      event_details: null,
+      action_label: null,
+      options: ["Design sync", "Customer call"],
+      footer: {
+        text: "Ignore Zoom and Chrome?",
+        actionLabel: "Yes",
+        icon: { type: "bundle_id", bundle_id: "us.zoom.xos" },
+      },
+      icon: null,
+    });
+  }, []);
+
+  const showBatchNotification = useCallback(async () => {
+    await showBatchCompletedNotification("devtool", { force: true });
+  }, []);
+
+  const clearNotifications = useCallback(async () => {
+    await notificationCommands.clearNotifications();
+  }, []);
+
+  const btnClass = cn([
+    "w-full rounded-md px-2.5 py-1.5",
+    "text-left text-xs font-medium",
+    "border border-neutral-200 text-neutral-700",
+    "cursor-pointer transition-colors",
+    "hover:border-neutral-300 hover:bg-neutral-50",
+  ]);
+
+  return (
+    <DevtoolCard title="Notifications">
+      <div className="flex flex-col gap-1.5">
+        <button
+          type="button"
+          onClick={() => void showCalendarNotification()}
+          className={btnClass}
+        >
+          Calendar event
+        </button>
+        <button
+          type="button"
+          onClick={() => void showMicDetectedNotification()}
+          className={btnClass}
+        >
+          Mic detected
+        </button>
+        <button
+          type="button"
+          onClick={() => void showMicDetectedOptionsNotification()}
+          className={btnClass}
+        >
+          Mic detected with options
+        </button>
+        <button
+          type="button"
+          onClick={() => void showBatchNotification()}
+          className={btnClass}
+        >
+          Batch transcription complete
+        </button>
+        <button
+          type="button"
+          onClick={() => void clearNotifications()}
+          className={btnClass}
+        >
+          Clear notifications
         </button>
       </div>
     </DevtoolCard>
