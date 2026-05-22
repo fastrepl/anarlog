@@ -1,6 +1,9 @@
 on:
   workflow_dispatch:
 
+env:
+  INFISICAL_ENV: prod
+
 jobs:
   compute-version:
     runs-on: ubuntu-latest
@@ -37,7 +40,7 @@ jobs:
 
           infisical export \
             --token="$INFISICAL_TOKEN" \
-            --env=dev \
+            --env="$INFISICAL_ENV" \
             --projectId="$INFISICAL_PROJECT_ID" \
             --path="/ai" \
             --format=json \

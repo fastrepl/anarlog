@@ -60,8 +60,21 @@ pub fn env() -> &'static Env {
 
         let _ = dotenvy::from_path(repo_root.join(".env.supabase"));
         let _ = dotenvy::from_path(manifest_dir.join(".env"));
-        envy::from_env().unwrap_or_else(|error| panic!("{}", format_env_error(error)))
+        let env: Env =
+            envy::from_env().unwrap_or_else(|error| panic!("{}", format_env_error(error)));
+        validate_env(&env);
+        env
     })
+}
+
+fn validate_env(env: &Env) {
+    if !cfg!(debug_assertions) && is_stripe_test_key(&env.stripe.stripe_secret_key) {
+        panic!("Failed to load environment: STRIPE_SECRET_KEY must be a live key in production");
+    }
+}
+
+fn is_stripe_test_key(key: &str) -> bool {
+    key.starts_with("sk_test_") || key.starts_with("rk_test_")
 }
 
 fn format_env_error(error: EnvyError) -> String {
