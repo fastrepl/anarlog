@@ -18,12 +18,19 @@ type Store = NonNullable<ReturnType<typeof main.UI.useStore>>;
 
 export function createSession(store: Store, title?: string): string {
   const sessionId = id();
-  store.setRow("sessions", sessionId, {
-    title: title ?? "",
-    created_at: new Date().toISOString(),
-    raw_md: "",
-    user_id: DEFAULT_USER_ID,
+  const userId = getCurrentUserId(store);
+
+  store.transaction(() => {
+    store.setRow("sessions", sessionId, {
+      title: title ?? "",
+      created_at: new Date().toISOString(),
+      raw_md: "",
+      user_id: userId,
+    });
+
+    addCurrentUserParticipant(store, sessionId, userId);
   });
+
   void analyticsCommands.event({
     event: "note_created",
     has_event_id: false,
@@ -71,7 +78,7 @@ export function getOrCreateSessionForEventId(
     title: title ?? sessionEvent.title,
     created_at: new Date().toISOString(),
     raw_md: "",
-    user_id: DEFAULT_USER_ID,
+    user_id: getCurrentUserId(store),
   });
 
   createParticipantsFromEvent(store, sessionId, event);
@@ -132,10 +139,15 @@ export function isSessionEmpty(store: Store, sessionId: string): boolean {
     return false;
   }
 
+  const currentUserId = getCurrentUserId(store);
   let hasManualParticipant = false;
   store.forEachRow("mapping_session_participant", (rowId, _forEachCell) => {
     const row = store.getRow("mapping_session_participant", rowId);
-    if (row?.session_id === sessionId && row.source !== "auto") {
+    if (
+      row?.session_id === sessionId &&
+      row.source !== "auto" &&
+      row.human_id !== currentUserId
+    ) {
       hasManualParticipant = true;
     }
   });
@@ -157,6 +169,58 @@ export function isSessionEmpty(store: Store, sessionId: string): boolean {
   return true;
 }
 
+function getCurrentUserId(store: Store): string {
+  const userId = store.getValue("user_id");
+  return typeof userId === "string" && userId ? userId : DEFAULT_USER_ID;
+}
+
+function ensureCurrentUserHuman(store: Store, userId: string): void {
+  if (store.hasRow("humans", userId)) {
+    return;
+  }
+
+  store.setRow("humans", userId, {
+    user_id: userId,
+    name: "",
+    email: "",
+    org_id: "",
+    job_title: "",
+    linkedin_username: "",
+    memo: "",
+    pinned: false,
+  } satisfies HumanStorage);
+}
+
+function addCurrentUserParticipant(
+  store: Store,
+  sessionId: string,
+  userId: string,
+): void {
+  let hasCurrentUserParticipant = false;
+  store.forEachRow("mapping_session_participant", (rowId, _forEachCell) => {
+    const row = store.getRow("mapping_session_participant", rowId);
+    if (
+      row?.session_id === sessionId &&
+      row.human_id === userId &&
+      row.source !== "excluded"
+    ) {
+      hasCurrentUserParticipant = true;
+    }
+  });
+
+  if (hasCurrentUserParticipant) {
+    return;
+  }
+
+  ensureCurrentUserHuman(store, userId);
+  store.setRow("mapping_session_participant", id(), {
+    user_id: userId,
+    session_id: sessionId,
+    human_id: userId,
+    source: "manual",
+  } satisfies MappingSessionParticipantStorage);
+}
+
 function createParticipantsFromEvent(
   store: Store,
   sessionId: string,
@@ -173,6 +237,7 @@ function createParticipantsFromEvent(
 
   if (!Array.isArray(participants) || participants.length === 0) return;
 
+  const userId = getCurrentUserId(store);
   const humansByEmail = new Map<string, string>();
   store.forEachRow("humans", (humanId, _forEachCell) => {
     const human = store.getRow("humans", humanId);
@@ -191,7 +256,7 @@ function createParticipantsFromEvent(
     if (!humanId) {
       humanId = id();
       store.setRow("humans", humanId, {
-        user_id: DEFAULT_USER_ID,
+        user_id: userId,
         name: participant.name || participant.email,
         email: participant.email,
         org_id: "",
@@ -204,7 +269,7 @@ function createParticipantsFromEvent(
     }
 
     store.setRow("mapping_session_participant", id(), {
-      user_id: DEFAULT_USER_ID,
+      user_id: userId,
       session_id: sessionId,
       human_id: humanId,
       source: "auto",
