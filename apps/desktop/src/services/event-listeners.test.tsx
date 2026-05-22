@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { EventListeners } from "./event-listeners";
 
+import { createAutoStopEndedNotificationKey } from "~/stt/auto-stop-notification";
+
 const {
   notificationListenMock,
   updaterListenMock,
@@ -14,6 +16,8 @@ const {
   createSessionMock,
   getOrCreateSessionForEventIdMock,
   setTriggerAppIdsMock,
+  stopMock,
+  getListenerStateMock,
 } = vi.hoisted(() => ({
   notificationListenMock: vi.fn(),
   updaterListenMock: vi.fn(),
@@ -25,6 +29,8 @@ const {
   createSessionMock: vi.fn(() => "session-new"),
   getOrCreateSessionForEventIdMock: vi.fn(() => "session-event"),
   setTriggerAppIdsMock: vi.fn(),
+  stopMock: vi.fn(),
+  getListenerStateMock: vi.fn(),
 }));
 
 vi.mock("@hypr/plugin-notification", () => ({
@@ -76,7 +82,7 @@ vi.mock("~/store/zustand/tabs", () => ({
 
 vi.mock("~/store/zustand/listener/instance", () => ({
   listenerStore: {
-    getState: () => ({ setTriggerAppIds: setTriggerAppIdsMock }),
+    getState: getListenerStateMock,
   },
 }));
 
@@ -92,6 +98,8 @@ describe("EventListeners notification events", () => {
     createSessionMock.mockReset();
     getOrCreateSessionForEventIdMock.mockReset();
     setTriggerAppIdsMock.mockReset();
+    stopMock.mockReset();
+    getListenerStateMock.mockReset();
 
     getCurrentWebviewWindowLabelMock.mockReturnValue("main");
     notificationListenMock.mockResolvedValue(() => {});
@@ -100,6 +108,11 @@ describe("EventListeners notification events", () => {
     getOrCreateSessionForEventIdMock.mockReturnValue("session-event");
     useMainStoreMock.mockReturnValue(null);
     useSettingsStoreMock.mockReturnValue(null);
+    getListenerStateMock.mockReturnValue({
+      setTriggerAppIds: setTriggerAppIdsMock,
+      stop: stopMock,
+      live: { status: "active", sessionId: "session-1" },
+    });
   });
 
   afterEach(() => {
@@ -139,6 +152,56 @@ describe("EventListeners notification events", () => {
       "ignored_platforms",
       JSON.stringify(["com.existing.app", "us.zoom.xos"]),
     );
+    expect(openNewMock).not.toHaveBeenCalled();
+  });
+
+  test("notification_accept with auto-stop prompt stops the active session", async () => {
+    useMainStoreMock.mockReturnValue({} as never);
+
+    render(<EventListeners />);
+
+    await vi.waitFor(() =>
+      expect(notificationListenMock).toHaveBeenCalledTimes(1),
+    );
+
+    const handler = notificationListenMock.mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf("function");
+
+    handler({
+      payload: {
+        type: "notification_accept",
+        key: createAutoStopEndedNotificationKey("session-1"),
+        source: null,
+      },
+    });
+
+    expect(stopMock).toHaveBeenCalledTimes(1);
+    expect(createSessionMock).not.toHaveBeenCalled();
+    expect(openNewMock).not.toHaveBeenCalled();
+  });
+
+  test("notification_confirm with auto-stop prompt ignores collapsed body click", async () => {
+    useMainStoreMock.mockReturnValue({} as never);
+
+    render(<EventListeners />);
+
+    await vi.waitFor(() =>
+      expect(notificationListenMock).toHaveBeenCalledTimes(1),
+    );
+
+    const handler = notificationListenMock.mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf("function");
+
+    handler({
+      payload: {
+        type: "notification_confirm",
+        key: createAutoStopEndedNotificationKey("session-1"),
+        source: null,
+      },
+    });
+
+    expect(stopMock).not.toHaveBeenCalled();
+    expect(createSessionMock).not.toHaveBeenCalled();
     expect(openNewMock).not.toHaveBeenCalled();
   });
 

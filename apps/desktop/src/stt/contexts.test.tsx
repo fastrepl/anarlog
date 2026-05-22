@@ -1,9 +1,9 @@
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
+import { parseAutoStopEndedNotificationKey } from "./auto-stop-notification";
 import {
-  AUTO_STOP_BROWSER_CONFIRM_DELAY_MS,
-  AUTO_STOP_BROWSER_CALENDAR_CONFIRM_DELAY_MS,
+  AUTO_STOP_CALENDAR_EARLY_END_THRESHOLD_MS,
   AUTO_STOP_CONFIRM_DELAY_MS,
   ListenerProvider,
 } from "./contexts";
@@ -395,7 +395,7 @@ describe("ListenerProvider detect events", () => {
     expect(stopSpy).toHaveBeenCalledTimes(1);
   });
 
-  test("uses a longer auto-stop grace period for browser meeting triggers", async () => {
+  test("uses the standard auto-stop grace period for browser meeting triggers without calendar context", async () => {
     const store = createListenerStore();
     const stopSpy = vi.fn();
 
@@ -424,15 +424,10 @@ describe("ListenerProvider detect events", () => {
     });
 
     await vi.advanceTimersByTimeAsync(AUTO_STOP_CONFIRM_DELAY_MS);
-    expect(stopSpy).not.toHaveBeenCalled();
-
-    await vi.advanceTimersByTimeAsync(
-      AUTO_STOP_BROWSER_CONFIRM_DELAY_MS - AUTO_STOP_CONFIRM_DELAY_MS,
-    );
     expect(stopSpy).toHaveBeenCalledTimes(1);
   });
 
-  test("uses calendar context to extend browser auto-stop during an active scheduled meeting", async () => {
+  test("asks before stopping when a browser meeting stops well before the scheduled end", async () => {
     const store = createListenerStore();
     const stopSpy = vi.fn();
     const now = new Date("2026-05-19T10:05:00.000Z");
@@ -469,16 +464,76 @@ describe("ListenerProvider detect events", () => {
       },
     });
 
-    await vi.advanceTimersByTimeAsync(AUTO_STOP_BROWSER_CONFIRM_DELAY_MS);
-    expect(stopSpy).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(AUTO_STOP_CONFIRM_DELAY_MS);
 
-    await vi.advanceTimersByTimeAsync(
-      AUTO_STOP_BROWSER_CALENDAR_CONFIRM_DELAY_MS -
-        AUTO_STOP_BROWSER_CONFIRM_DELAY_MS,
+    expect(listMicUsingApplicationsMock).toHaveBeenCalledTimes(1);
+    expect(stopSpy).not.toHaveBeenCalled();
+    const notification = showNotificationMock.mock.calls[0]?.[0];
+    expect(parseAutoStopEndedNotificationKey(notification.key)).toBe(
+      "session-1",
     );
+    expect(notification).toEqual({
+      key: expect.stringContaining("auto-stop-ended:session-1"),
+      title: "Did your meeting end?",
+      message:
+        "Google Chrome stopped using the microphone before the scheduled end time.",
+      timeout: { secs: 60, nanos: 0 },
+      source: null,
+      start_time: null,
+      participants: null,
+      event_details: null,
+      action_label: "Stop recording",
+      options: null,
+      footer: null,
+      icon: { type: "bundle_id", bundle_id: "com.google.Chrome" },
+    });
+  });
+
+  test("auto-stops browser meetings inside the scheduled end window", async () => {
+    const store = createListenerStore();
+    const stopSpy = vi.fn();
+    const endedAtMs = new Date("2026-05-19T10:30:00.000Z").getTime();
+    const now = new Date(
+      endedAtMs - AUTO_STOP_CALENDAR_EARLY_END_THRESHOLD_MS + 1,
+    );
+
+    store.setState({ stop: stopSpy });
+    store.getState().setTriggerAppIds(["com.google.Chrome"]);
+    setStoreActive(store);
+    (useStoreMock as any).mockReturnValue(
+      mockSessionEventStore({
+        started_at: "2026-05-19T10:00:00.000Z",
+        ended_at: "2026-05-19T10:30:00.000Z",
+      }),
+    );
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+
+    const handler = listenMock.mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf("function");
+
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+    listMicUsingApplicationsMock.mockClear();
+
+    handler({
+      payload: {
+        type: "micStopped",
+        apps: [{ id: "com.google.Chrome", name: "Google Chrome" }],
+      },
+    });
+
+    await vi.advanceTimersByTimeAsync(AUTO_STOP_CONFIRM_DELAY_MS);
 
     expect(listMicUsingApplicationsMock).toHaveBeenCalledTimes(1);
     expect(stopSpy).toHaveBeenCalledTimes(1);
+    expect(showNotificationMock).not.toHaveBeenCalled();
   });
 
   test("cancels pending auto-stop when a browser trigger restarts", async () => {
@@ -510,7 +565,7 @@ describe("ListenerProvider detect events", () => {
       },
     });
 
-    await vi.advanceTimersByTimeAsync(AUTO_STOP_CONFIRM_DELAY_MS);
+    await vi.advanceTimersByTimeAsync(AUTO_STOP_CONFIRM_DELAY_MS - 1);
 
     handler({
       payload: {
@@ -521,9 +576,7 @@ describe("ListenerProvider detect events", () => {
       },
     });
 
-    await vi.advanceTimersByTimeAsync(
-      AUTO_STOP_BROWSER_CONFIRM_DELAY_MS - AUTO_STOP_CONFIRM_DELAY_MS,
-    );
+    await vi.advanceTimersByTimeAsync(1);
 
     expect(listMicUsingApplicationsMock).not.toHaveBeenCalled();
     expect(stopSpy).not.toHaveBeenCalled();
