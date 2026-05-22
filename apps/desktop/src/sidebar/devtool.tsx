@@ -13,7 +13,9 @@ import { TrialStartedDialog } from "~/billing/trial-started-dialog";
 import { getLatestVersion } from "~/changelog";
 import * as main from "~/store/tinybase/store/main";
 import { showBatchCompletedNotification } from "~/store/zustand/listener/general-batch";
+import { listenerStore } from "~/store/zustand/listener/instance";
 import { useTabs } from "~/store/zustand/tabs";
+import { createAutoStopEndedNotificationKey } from "~/stt/auto-stop-notification";
 import { commands } from "~/types/tauri.gen";
 
 export function DevtoolView() {
@@ -302,6 +304,28 @@ function NotificationsCard() {
     });
   }, []);
 
+  const showAutoStopConfirmationNotification = useCallback(async () => {
+    const sessionId =
+      listenerStore.getState().live.sessionId ??
+      `devtool-${crypto.randomUUID()}`;
+
+    await notificationCommands.showNotification({
+      key: createAutoStopEndedNotificationKey(sessionId),
+      title: "Did your meeting end?",
+      message:
+        "Google Chrome stopped using the microphone before the scheduled end time.",
+      timeout: { secs: 60, nanos: 0 },
+      source: null,
+      start_time: null,
+      participants: null,
+      event_details: null,
+      action_label: "Stop recording",
+      options: null,
+      footer: null,
+      icon: { type: "bundle_id", bundle_id: "com.google.Chrome" },
+    });
+  }, []);
+
   const showBatchNotification = useCallback(async () => {
     await showBatchCompletedNotification("devtool", { force: true });
   }, []);
@@ -341,6 +365,13 @@ function NotificationsCard() {
           className={btnClass}
         >
           Mic detected with options
+        </button>
+        <button
+          type="button"
+          onClick={() => void showAutoStopConfirmationNotification()}
+          className={btnClass}
+        >
+          Auto-stop confirmation
         </button>
         <button
           type="button"
