@@ -11,6 +11,8 @@ import {
   type NotificationIcon,
 } from "@hypr/plugin-notification";
 
+import { createAutoStopEndedNotificationKey } from "./auto-stop-notification";
+
 import { getSessionEventById } from "~/session/utils";
 import * as main from "~/store/tinybase/store/main";
 import * as settings from "~/store/tinybase/store/settings";
@@ -21,9 +23,7 @@ import {
 
 const ListenerContext = createContext<ListenerStore | null>(null);
 export const AUTO_STOP_CONFIRM_DELAY_MS = 5_000;
-export const AUTO_STOP_BROWSER_CONFIRM_DELAY_MS = 30_000;
-export const AUTO_STOP_BROWSER_CALENDAR_CONFIRM_DELAY_MS = 10 * 60_000;
-export const AUTO_STOP_CALENDAR_END_BUFFER_MS = 2 * 60_000;
+export const AUTO_STOP_CALENDAR_EARLY_END_THRESHOLD_MS = 3 * 60_000;
 export const AUTO_STOP_CALENDAR_EARLY_START_BUFFER_MS = 5 * 60_000;
 
 const BROWSER_MEETING_APP_IDS = new Set([
@@ -96,61 +96,88 @@ function parseEventTimeMs(value: string | undefined): number | null {
   return Number.isNaN(ms) ? null : ms;
 }
 
-function getCalendarAwareBrowserDelayMs({
+function shouldPromptBeforeAutoStopping({
+  appIds,
   tinybaseStore,
   sessionId,
   nowMs,
 }: {
+  appIds: string[];
   tinybaseStore: MainStore | null | undefined;
   sessionId: string | null;
   nowMs: number;
-}): number | null {
+}) {
+  if (!appIds.some((id) => BROWSER_MEETING_APP_IDS.has(id))) {
+    return false;
+  }
+
   if (!tinybaseStore || !sessionId) {
-    return null;
+    return false;
   }
 
   const event = getSessionEventById(tinybaseStore, sessionId);
   if (!event || event.is_all_day) {
-    return null;
+    return false;
   }
 
   const endMs = parseEventTimeMs(event.ended_at);
   if (!endMs) {
-    return null;
+    return false;
   }
 
   const startMs = parseEventTimeMs(event.started_at);
   if (startMs && nowMs < startMs - AUTO_STOP_CALENDAR_EARLY_START_BUFFER_MS) {
-    return null;
+    return false;
   }
 
-  const guardUntilMs = endMs + AUTO_STOP_CALENDAR_END_BUFFER_MS;
-  if (guardUntilMs <= nowMs) {
-    return null;
-  }
+  return nowMs < endMs - AUTO_STOP_CALENDAR_EARLY_END_THRESHOLD_MS;
+}
 
-  return Math.min(
-    Math.max(guardUntilMs - nowMs, AUTO_STOP_BROWSER_CONFIRM_DELAY_MS),
-    AUTO_STOP_BROWSER_CALENDAR_CONFIRM_DELAY_MS,
+function getPrimaryStoppedApp(
+  stoppedTriggerAppIds: string[],
+  stoppedApps: { id: string; name: string }[],
+) {
+  return (
+    stoppedApps.find(
+      (app) =>
+        stoppedTriggerAppIds.includes(app.id) &&
+        BROWSER_MEETING_APP_IDS.has(app.id),
+    ) ??
+    stoppedApps.find((app) => stoppedTriggerAppIds.includes(app.id)) ??
+    null
   );
 }
 
-function getAutoStopConfirmDelayMs(
-  appIds: string[],
-  options: {
-    tinybaseStore: MainStore | null | undefined;
-    sessionId: string | null;
-    nowMs: number;
-  },
-) {
-  if (!appIds.some((id) => BROWSER_MEETING_APP_IDS.has(id))) {
-    return AUTO_STOP_CONFIRM_DELAY_MS;
-  }
+function getStoppedAppLabel(app: { name: string } | null) {
+  const name = app?.name.trim();
+  return name || "The meeting app";
+}
 
-  return (
-    getCalendarAwareBrowserDelayMs(options) ??
-    AUTO_STOP_BROWSER_CONFIRM_DELAY_MS
-  );
+function showMeetingEndedPrompt({
+  sessionId,
+  stoppedTriggerAppIds,
+  stoppedApps,
+}: {
+  sessionId: string;
+  stoppedTriggerAppIds: string[];
+  stoppedApps: { id: string; name: string }[];
+}) {
+  const app = getPrimaryStoppedApp(stoppedTriggerAppIds, stoppedApps);
+
+  void notificationCommands.showNotification({
+    key: createAutoStopEndedNotificationKey(sessionId),
+    title: "Did your meeting end?",
+    message: `${getStoppedAppLabel(app)} stopped using the microphone before the scheduled end time.`,
+    timeout: { secs: 60, nanos: 0 },
+    source: null,
+    start_time: null,
+    participants: null,
+    event_details: null,
+    action_label: "Stop recording",
+    options: null,
+    footer: null,
+    icon: app ? getNotificationIconForAppId(app.id) : null,
+  });
 }
 
 export const ListenerProvider = ({
@@ -240,12 +267,16 @@ const useHandleDetectEvents = (store: ListenerStore) => {
       }
     };
 
-    const confirmAutoStop = async (stoppedTriggerAppIds: string[]) => {
-      if (store.getState().live.status !== "active") {
+    const confirmAutoStop = async (
+      stoppedTriggerAppIds: string[],
+      stoppedApps: { id: string; name: string }[],
+    ) => {
+      const live = store.getState().live;
+      if (live.status !== "active") {
         return;
       }
 
-      const currentTrigger = store.getState().live.triggerAppIds;
+      const currentTrigger = live.triggerAppIds;
       if (
         !currentTrigger ||
         !stoppedTriggerAppIds.some((id) => currentTrigger.includes(id))
@@ -259,6 +290,25 @@ const useHandleDetectEvents = (store: ListenerStore) => {
         if (stoppedTriggerAppIds.some((id) => activeAppIds.has(id))) {
           return;
         }
+      }
+
+      const sessionId = store.getState().live.sessionId;
+      if (
+        shouldPromptBeforeAutoStopping({
+          appIds: stoppedTriggerAppIds,
+          tinybaseStore: tinybaseStoreRef.current,
+          sessionId,
+          nowMs: Date.now(),
+        })
+      ) {
+        if (sessionId) {
+          showMeetingEndedPrompt({
+            sessionId,
+            stoppedTriggerAppIds,
+            stoppedApps,
+          });
+        }
+        return;
       }
 
       stop();
@@ -332,19 +382,11 @@ const useHandleDetectEvents = (store: ListenerStore) => {
             ) ?? [];
           if (stoppedTriggerAppIds.length > 0) {
             clearPendingAutoStop();
-            const confirmDelayMs = getAutoStopConfirmDelayMs(
-              stoppedTriggerAppIds,
-              {
-                tinybaseStore: tinybaseStoreRef.current,
-                sessionId: store.getState().live.sessionId,
-                nowMs: Date.now(),
-              },
-            );
 
             pendingAutoStopRef.current = setTimeout(() => {
               pendingAutoStopRef.current = null;
-              void confirmAutoStop(stoppedTriggerAppIds);
-            }, confirmDelayMs);
+              void confirmAutoStop(stoppedTriggerAppIds, payload.apps);
+            }, AUTO_STOP_CONFIRM_DELAY_MS);
           }
         } else if (payload.type === "sleepStateChanged") {
           if (payload.value) {

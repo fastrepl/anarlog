@@ -16,6 +16,7 @@ import {
 import * as settings from "~/store/tinybase/store/settings";
 import { listenerStore } from "~/store/zustand/listener/instance";
 import { useTabs } from "~/store/zustand/tabs";
+import { parseAutoStopEndedNotificationKey } from "~/stt/auto-stop-notification";
 
 type MainStore = NonNullable<ReturnType<typeof main.UI.useStore>>;
 
@@ -56,6 +57,23 @@ function shouldAutoStartNotificationSession(
 
   const startTime = new Date(String(startedAt)).getTime();
   return !Number.isNaN(startTime) && startTime <= Date.now();
+}
+
+function handleAutoStopEndedNotification(key: string): boolean {
+  const sessionId = parseAutoStopEndedNotificationKey(key);
+  if (!sessionId) {
+    return false;
+  }
+
+  const listenerState = listenerStore.getState();
+  if (
+    listenerState.live.status === "active" &&
+    listenerState.live.sessionId === sessionId
+  ) {
+    listenerState.stop();
+  }
+
+  return true;
 }
 
 function useUpdaterEvents() {
@@ -143,6 +161,10 @@ function useNotificationEvents() {
           payload.type === "notification_confirm" ||
           payload.type === "notification_accept"
         ) {
+          if (handleAutoStopEndedNotification(payload.key)) {
+            return;
+          }
+
           const eventId =
             payload.source?.type === "calendar_event"
               ? payload.source.event_id
