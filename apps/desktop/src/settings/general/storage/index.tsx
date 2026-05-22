@@ -93,7 +93,7 @@ export function StorageSettingsView() {
 
   return (
     <div>
-      <h2 className="mb-4 font-serif text-lg font-semibold">Storage</h2>
+      <h2 className="mb-4 font-sans text-lg font-semibold">Storage</h2>
       <div className="flex flex-col gap-3">
         <AudioRetentionRow />
         <StoragePathRow

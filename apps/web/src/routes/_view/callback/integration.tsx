@@ -109,7 +109,7 @@ function Component() {
       <div className="flex min-h-screen items-center justify-center p-6">
         <div className="flex w-full max-w-md flex-col gap-8 text-center">
           <div className="flex flex-col gap-3">
-            <h1 className="font-serif text-3xl tracking-tight text-stone-700">
+            <h1 className="font-sans text-3xl tracking-tight text-stone-700">
               {isSuccess ? "Connection successful" : "Connection failed"}
             </h1>
             <p className="text-neutral-600">

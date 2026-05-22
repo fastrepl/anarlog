@@ -74,7 +74,7 @@ function InstructionShell({
             <div className="text-[10px] font-medium tracking-[0.22em] text-stone-400 uppercase">
               Browser step required
             </div>
-            <h2 className="font-serif text-[22px] leading-[1.15] font-semibold text-stone-900 sm:text-[28px]">
+            <h2 className="font-sans text-[22px] leading-[1.15] font-semibold text-stone-900 sm:text-[28px]">
               {title}
             </h2>
             <p className="text-sm leading-6 text-stone-500">{description}</p>

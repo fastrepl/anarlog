@@ -36,7 +36,7 @@ function Component() {
         </header>
 
         <section className="pt-24 pb-16 md:pt-32">
-          <h1 className="font-hand text-6xl leading-[0.98] font-semibold tracking-normal text-balance text-black md:text-8xl">
+          <h1 className="font-sans text-6xl leading-[0.98] font-semibold tracking-normal text-balance text-black md:text-8xl">
             Blog
           </h1>
           <p className="mt-6 max-w-2xl text-xl leading-9 text-[#363029]">
@@ -54,7 +54,7 @@ function Component() {
                 className="group block"
               >
                 <article className="grid gap-3 border-t border-[#eee8df] pt-6">
-                  <h2 className="font-hand text-3xl leading-[1.05] font-semibold tracking-normal text-balance text-[#756b5d] group-hover:text-[#4f4940]">
+                  <h2 className="font-sans text-3xl leading-[1.05] font-semibold tracking-normal text-balance text-[#756b5d] group-hover:text-[#4f4940]">
                     {article.title}
                   </h2>
                   {article.meta_description && (

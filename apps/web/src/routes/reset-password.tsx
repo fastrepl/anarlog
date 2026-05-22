@@ -67,7 +67,7 @@ function Component() {
               ])}
             />
           </div>
-          <h1 className="mb-2 font-serif text-3xl text-stone-800">
+          <h1 className="mb-2 font-sans text-3xl text-stone-800">
             Reset your password
           </h1>
           <p className="text-sm text-neutral-500">

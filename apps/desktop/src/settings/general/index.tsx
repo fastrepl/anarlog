@@ -186,7 +186,7 @@ export function SettingsApp() {
       </form.Field>
 
       <div>
-        <h2 className="mb-4 font-serif text-lg font-semibold">
+        <h2 className="mb-4 font-sans text-lg font-semibold">
           <Trans>Language &amp; Region</Trans>
         </h2>
         <div className="flex flex-col gap-6">

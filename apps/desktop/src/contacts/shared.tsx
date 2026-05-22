@@ -113,7 +113,7 @@ export function ColumnHeader({
   return (
     <div className="@container">
       <div className="flex h-12 min-w-0 items-center justify-between py-2 pr-1 pl-3">
-        <h3 className="font-serif text-sm font-medium select-none">{title}</h3>
+        <h3 className="font-sans text-sm font-medium select-none">{title}</h3>
         <div className="flex shrink-0 items-center">
           {sortOption && setSortOption && (
             <div className="hidden @[220px]:block">

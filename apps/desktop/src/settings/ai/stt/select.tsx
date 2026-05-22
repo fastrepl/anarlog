@@ -139,7 +139,7 @@ export function SelectProviderAndModel() {
         </div>
       )}
 
-      <h3 className="text-md font-serif font-semibold">Model being used</h3>
+      <h3 className="text-md font-sans font-semibold">Model being used</h3>
       <div className="flex flex-row items-center gap-4">
         <div className="min-w-0 flex-2" data-stt-provider-selector>
           <Select

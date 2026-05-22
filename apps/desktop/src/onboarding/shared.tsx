@@ -75,7 +75,7 @@ export function OnboardingSection({
                 "transition-all duration-300",
                 isCompleted
                   ? "text-sm font-normal text-neutral-300"
-                  : "mb-2 font-serif text-2xl font-semibold text-neutral-900",
+                  : "mb-2 font-sans text-2xl font-semibold text-neutral-900",
               ])}
             >
               {isCompleted ? (completedTitle ?? title) : title}

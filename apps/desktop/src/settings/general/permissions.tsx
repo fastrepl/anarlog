@@ -155,7 +155,7 @@ export function Permissions() {
 
   return (
     <div>
-      <h2 className="mb-6 font-serif text-lg font-semibold">Permissions</h2>
+      <h2 className="mb-6 font-sans text-lg font-semibold">Permissions</h2>
       <div className="flex flex-col gap-8">
         <PermissionGroup title="Audio">
           <PermissionRow

@@ -65,7 +65,7 @@ function Component() {
         </Link>
 
         <header className="pt-10 pb-12">
-          <h1 className="font-hand text-5xl leading-[1.02] font-semibold tracking-normal text-balance text-black md:text-7xl">
+          <h1 className="font-sans text-5xl leading-[1.02] font-semibold tracking-normal text-balance text-black md:text-7xl">
             v{entry.version}
           </h1>
           {entry.date && (

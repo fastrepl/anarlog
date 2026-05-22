@@ -1,59 +1,3 @@
-@font-face {
-  font-family: "Redaction";
-  src: url("/fonts/Redaction-Regular.otf") format("opentype");
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Redaction";
-  src: url("/fonts/Redaction35-Regular.otf") format("opentype");
-  font-weight: 350;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Redaction";
-  src: url("/fonts/Redaction70-Regular.otf") format("opentype");
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "SF Pro";
-  src: url("/fonts/SF-Pro-Text-Regular.otf") format("opentype");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "SF Pro";
-  src: url("/fonts/SF-Pro-Text-Medium.otf") format("opentype");
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "SF Pro";
-  src: url("/fonts/SF-Pro-Text-Semibold.otf") format("opentype");
-  font-weight: 600;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "SF Pro";
-  src: url("/fonts/SF-Pro-Text-Bold.otf") format("opentype");
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
 @import "tailwindcss";
 @import "tailwind-scrollbar-hide/v4";
 @plugin "@tailwindcss/typography";
@@ -64,13 +8,11 @@
 
 @theme {
   /* ── Typography ──────────────────────────────── */
-  --font-sans: "Geist", system-ui, -apple-system, sans-serif;
-  --font-mono: "Geist Mono", ui-monospace, monospace;
-  --font-serif: "Fraunces", Georgia, serif;
-  --font-serif2: "Instrument Serif", serif;
-  --font-hand: "Caveat", cursive;
-  --font-signature: "Patrick Hand", cursive;
-  --font-crisp-serif: "Lora", Georgia, serif;
+  --font-sans:
+    system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono:
+    ui-monospace, "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono",
+    Menlo, monospace;
 
   /* ── Layout ──────────────────────────────────── */
   --breakpoint-laptop: 72rem;
@@ -188,7 +130,7 @@
 
   h1,
   h2 {
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-weight: 500;
     letter-spacing: -0.02em;
     line-height: 1.3 !important;
@@ -215,7 +157,7 @@
   [type="button"],
   [type="submit"],
   [type="reset"] {
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     cursor: pointer;
   }
 
@@ -501,7 +443,7 @@
   :where(h2):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
   margin-top: 4rem;
   margin-bottom: 1.25rem;
-  font-family: var(--font-hand);
+  font-family: var(--font-sans);
   font-size: 2.25rem;
   font-weight: 600;
   line-height: 1.05 !important;
@@ -513,7 +455,7 @@
   :where(h3):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
   margin-top: 3.5rem;
   margin-bottom: 1rem;
-  font-family: var(--font-hand);
+  font-family: var(--font-sans);
   font-size: 1.875rem;
   font-weight: 600;
   line-height: 1.05;
@@ -525,7 +467,7 @@
   :where(h4):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
   margin-top: 2.5rem;
   margin-bottom: 0.75rem;
-  font-family: var(--font-hand);
+  font-family: var(--font-sans);
   font-size: 1.5rem;
   font-weight: 600;
   line-height: 1.1;

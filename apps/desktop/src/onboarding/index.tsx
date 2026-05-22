@@ -214,7 +214,7 @@ function OnboardingScreenContent({
             headerClassName,
           ])}
         >
-          <h1 className="font-serif text-3xl font-semibold text-neutral-900">
+          <h1 className="font-sans text-3xl font-semibold text-neutral-900">
             Welcome to Anarlog
           </h1>
           <button

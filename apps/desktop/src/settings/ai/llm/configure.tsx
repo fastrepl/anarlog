@@ -28,7 +28,7 @@ export function ConfigureProviders() {
 
   return (
     <div className="flex flex-col gap-3">
-      <h3 className="text-md font-serif font-semibold">Configure Providers</h3>
+      <h3 className="text-md font-sans font-semibold">Configure Providers</h3>
       <Accordion
         type="single"
         collapsible

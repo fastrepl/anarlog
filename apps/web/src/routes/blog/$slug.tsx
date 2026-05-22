@@ -60,7 +60,7 @@ function Component() {
         </Link>
 
         <header className="pt-10 pb-12">
-          <h1 className="font-hand text-5xl leading-[1.02] font-semibold tracking-normal text-balance text-black md:text-7xl">
+          <h1 className="font-sans text-5xl leading-[1.02] font-semibold tracking-normal text-balance text-black md:text-7xl">
             {article.title}
           </h1>
           <div className="mt-6 flex items-center gap-2 text-sm text-[#756b5d]">
@@ -81,16 +81,16 @@ function Component() {
             aria-label="TLDR"
             className="mb-12 border-y border-[#eee8df] py-5"
           >
-            <p className="font-hand text-xl font-semibold tracking-normal text-[#756b5d]">
+            <p className="font-sans text-xl font-semibold tracking-normal text-[#756b5d]">
               TL;DR
             </p>
-            <p className="font-hand mt-3 text-2xl leading-8 font-semibold text-[#363029]">
+            <p className="mt-3 font-sans text-2xl leading-8 font-semibold text-[#363029]">
               {tldr}
             </p>
           </aside>
         )}
 
-        <article className="blog-prose prose prose-stone prose-headings:font-hand prose-headings:font-semibold prose-headings:text-[#756b5d] prose-p:text-[#363029] prose-a:text-[#181613] prose-a:underline hover:prose-a:text-[#4f4940] prose-strong:text-[#181613] prose-li:text-[#363029] prose-img:rounded-md prose-img:border prose-img:border-[#eee8df] max-w-none">
+        <article className="blog-prose prose prose-stone prose-headings:font-sans prose-headings:font-semibold prose-headings:text-[#756b5d] prose-p:text-[#363029] prose-a:text-[#181613] prose-a:underline hover:prose-a:text-[#4f4940] prose-strong:text-[#181613] prose-li:text-[#363029] prose-img:rounded-md prose-img:border prose-img:border-[#eee8df] max-w-none">
           <MDXContent code={article.mdx} components={mdxComponents} />
         </article>
       </div>

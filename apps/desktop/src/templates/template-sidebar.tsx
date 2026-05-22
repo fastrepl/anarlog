@@ -293,7 +293,7 @@ export function TemplatesSidebarContent({
     <div className="flex h-full w-full flex-col overflow-hidden">
       <div>
         <div className="flex h-12 items-center justify-between py-2 pr-1 pl-3">
-          <h3 className="font-serif text-sm font-medium">Templates</h3>
+          <h3 className="font-sans text-sm font-medium">Templates</h3>
           <div className="flex items-center">
             {userTemplates.length > 1 && (
               <DropdownMenu>

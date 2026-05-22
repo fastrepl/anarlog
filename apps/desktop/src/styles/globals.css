@@ -1,5 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=Lora:wght@400;500;600;700&display=swap")
-  layer(base);
 @import "./scrollbar.css" layer(base);
 @import "./scrollbar.utilities.css";
 
@@ -10,8 +8,8 @@
 @source "../../../../packages/tiptap/src";
 
 @theme {
-  --font-serif: Lora, Georgia, serif;
-  --font-sans: SF Pro, system-ui, -apple-system, sans-serif;
+  --font-sans:
+    system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 
   --animate-shimmer: shimmer 2s infinite;
   --animate-reveal-left: reveal-left 0.5s ease-out forwards;
@@ -102,36 +100,6 @@
   }
 }
 
-@layer base {
-  @font-face {
-    font-family: "SF Pro";
-    src: url("/fonts/SF-Pro-Text-Regular.otf") format("opentype");
-    font-weight: 400;
-    font-style: normal;
-  }
-
-  @font-face {
-    font-family: "SF Pro";
-    src: url("/fonts/SF-Pro-Text-Medium.otf") format("opentype");
-    font-weight: 500;
-    font-style: normal;
-  }
-
-  @font-face {
-    font-family: "SF Pro";
-    src: url("/fonts/SF-Pro-Text-Semibold.otf") format("opentype");
-    font-weight: 600;
-    font-style: normal;
-  }
-
-  @font-face {
-    font-family: "SF Pro";
-    src: url("/fonts/SF-Pro-Text-Bold.otf") format("opentype");
-    font-weight: 700;
-    font-style: normal;
-  }
-}
-
 @layer utilities {
   /* https://www.joshwcomeau.com/css/custom-css-reset/ */
 
@@ -202,6 +170,7 @@
     height: 100vh;
     width: 100vw;
     overflow-y: hidden;
+    font-family: var(--font-sans);
 
     user-select: none;
     overscroll-behavior: none;

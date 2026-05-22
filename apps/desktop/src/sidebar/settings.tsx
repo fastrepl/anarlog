@@ -101,7 +101,7 @@ export function SettingsNav() {
   return (
     <div className="flex h-full w-full flex-col overflow-hidden">
       <div className="flex h-12 items-center py-2 pr-1 pl-3">
-        <h3 className="font-serif text-sm font-medium">Settings</h3>
+        <h3 className="font-sans text-sm font-medium">Settings</h3>
       </div>
       <div className="scrollbar-hide flex-1 overflow-y-auto">
         <div className="flex flex-col gap-4 pb-2">

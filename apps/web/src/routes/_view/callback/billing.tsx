@@ -51,7 +51,7 @@ function Component() {
     <div className="flex min-h-screen items-center justify-center bg-linear-to-b from-white via-stone-50/20 to-white p-6">
       <div className="flex w-full max-w-md flex-col gap-8 text-center">
         <div className="flex flex-col gap-3">
-          <h1 className="font-serif text-3xl tracking-tight text-stone-700">
+          <h1 className="font-sans text-3xl tracking-tight text-stone-700">
             Returning to Anarlog
           </h1>
           <p className="text-neutral-600">

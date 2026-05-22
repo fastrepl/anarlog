@@ -169,7 +169,7 @@ export function SelectProviderAndModel() {
 
   return (
     <div className="flex flex-col gap-3">
-      <h3 className="text-md font-serif font-semibold">Model being used</h3>
+      <h3 className="text-md font-sans font-semibold">Model being used</h3>
       <div
         className={cn([
           "flex flex-col gap-4",

@@ -120,7 +120,7 @@ export function ConnectFlow() {
   return (
     <IntegrationPageLayout>
       <div className="flex flex-col gap-3">
-        <h1 className="font-serif text-3xl tracking-tight text-stone-700">
+        <h1 className="font-sans text-3xl tracking-tight text-stone-700">
           Connect {display.name}
         </h1>
         <p className="text-neutral-600">

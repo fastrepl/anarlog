@@ -21,7 +21,7 @@ export function UpgradePrompt({
     <IntegrationPageLayout>
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-center gap-2">
-          <h1 className="font-serif text-3xl tracking-tight text-stone-700">
+          <h1 className="font-sans text-3xl tracking-tight text-stone-700">
             {display.name}
           </h1>
           <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">

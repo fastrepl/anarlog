@@ -93,7 +93,7 @@ export function SettingsAccount() {
       return (
         <div className="flex flex-col gap-8">
           <div>
-            <h2 className="mb-4 font-serif text-lg font-semibold">Account</h2>
+            <h2 className="mb-4 font-sans text-lg font-semibold">Account</h2>
             <Container
               title="Finish sign-in"
               description="Complete the sign-in flow in your browser, then come back here if Anarlog does not reconnect automatically."
@@ -118,7 +118,7 @@ export function SettingsAccount() {
         <section className="pb-4">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 flex-1 flex-col gap-4">
-              <h2 className="font-serif text-lg font-semibold">Account</h2>
+              <h2 className="font-sans text-lg font-semibold">Account</h2>
               <div className="flex flex-col gap-2">
                 <h3 className="text-sm font-medium">Sign in to Anarlog</h3>
                 <div className="text-sm text-neutral-600">
@@ -150,7 +150,7 @@ export function SettingsAccount() {
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h2 className="mb-4 font-serif text-lg font-semibold">Account</h2>
+        <h2 className="mb-4 font-sans text-lg font-semibold">Account</h2>
         <Container
           title="Your Account"
           description={auth.session?.user.email ?? "Signed in"}
@@ -380,7 +380,7 @@ function PlanBillingSection({
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="font-serif text-lg font-semibold">Plan & Billing</h2>
+        <h2 className="font-sans text-lg font-semibold">Plan & Billing</h2>
         {isPaid && (
           <button
             type="button"
@@ -456,7 +456,7 @@ function GuestPlanSection({ onSignIn }: { onSignIn: () => Promise<void> }) {
   return (
     <section className="border-t border-neutral-100 pt-6">
       <div className="mb-4 flex flex-col gap-1">
-        <h2 className="font-serif text-lg font-semibold">Plans</h2>
+        <h2 className="font-sans text-lg font-semibold">Plans</h2>
         <p className="text-sm text-neutral-600">
           Compare Free, Lite, and Pro before you sign in.
         </p>
@@ -518,7 +518,7 @@ function PlanTierList({
                 ])}
               >
                 <div className="mb-2 flex items-center gap-2">
-                  <span className="font-serif text-base font-medium text-stone-800">
+                  <span className="font-sans text-base font-medium text-stone-800">
                     {tier.name}
                   </span>
                   {isCurrent && (
@@ -529,7 +529,7 @@ function PlanTierList({
                 </div>
 
                 <div className="mb-2">
-                  <span className="font-serif text-xl text-stone-700">
+                  <span className="font-sans text-xl text-stone-700">
                     {tier.price}
                   </span>
                   {tier.period && (
