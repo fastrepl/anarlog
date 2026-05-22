@@ -86,6 +86,14 @@ common_event_derives! {
     }
 }
 
+common_event_derives! {
+    pub struct FloatingBarStop {}
+}
+
+common_event_derives! {
+    pub struct FloatingBarOpenMain {}
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

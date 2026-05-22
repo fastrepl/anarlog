@@ -119,6 +119,11 @@ type TabItemBaseProps = {
   tabIndex?: number;
   showCloseConfirmation?: boolean;
   onCloseConfirmationChange?: (show: boolean) => void;
+  hoverAction?: {
+    icon: React.ReactNode;
+    label: string;
+    onClick: () => void;
+  };
 } & {
   handleCloseThis: () => void;
   handleSelectThis: () => void;
@@ -145,6 +150,7 @@ export function TabItemBase({
   tabIndex,
   showCloseConfirmation = false,
   onCloseConfirmationChange,
+  hoverAction,
   handleCloseThis,
   handleSelectThis,
   handleCloseOthers,
@@ -260,6 +266,12 @@ export function TabItemBase({
     : [];
 
   const showShortcut = isCmdPressed && tabIndex !== undefined;
+  const showHoverControls = isHovered || isConfirmationOpen;
+  const actionSlotClassName = showShortcut
+    ? "flex h-5 min-w-fit items-center justify-end"
+    : hoverAction
+      ? "h-4 w-9"
+      : "h-4 w-4";
 
   const indicatorDot =
     status === "listening" ? (
@@ -300,15 +312,14 @@ export function TabItemBase({
         <div
           className={cn([
             "relative shrink-0 overflow-visible",
-            showShortcut
-              ? "flex h-5 min-w-fit items-center justify-end"
-              : "h-4 w-4",
+            actionSlotClassName,
           ])}
         >
           <div
             className={cn([
               "absolute inset-0 flex items-center justify-center transition-opacity duration-200",
-              showShortcut || ((isHovered || isConfirmationOpen) && allowClose)
+              showShortcut ||
+              (showHoverControls && (allowClose || !!hoverAction))
                 ? "opacity-0"
                 : "opacity-100",
             ])}
@@ -328,13 +339,39 @@ export function TabItemBase({
               </button>
             )}
           </div>
+          {hoverAction && (
+            <div
+              className={cn([
+                "absolute top-0 left-0 flex h-4 w-4 items-center justify-center transition-opacity duration-200",
+                showShortcut || !showHoverControls
+                  ? "pointer-events-none opacity-0"
+                  : "pointer-events-auto opacity-100",
+              ])}
+            >
+              <button
+                type="button"
+                aria-label={hoverAction.label}
+                title={hoverAction.label}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  hoverAction.onClick();
+                }}
+                className={cn([
+                  "flex items-center justify-center transition-colors",
+                  colors.hover[selected ? "selected" : "unselected"],
+                ])}
+              >
+                {hoverAction.icon}
+              </button>
+            </div>
+          )}
           {allowClose && (
             <div
               className={cn([
-                "absolute inset-0 flex items-center justify-center transition-opacity duration-200",
-                showShortcut || !(isHovered || isConfirmationOpen)
-                  ? "opacity-0"
-                  : "opacity-100",
+                "absolute top-0 right-0 flex h-4 w-4 items-center justify-center transition-opacity duration-200",
+                showShortcut || !showHoverControls
+                  ? "pointer-events-none opacity-0"
+                  : "pointer-events-auto opacity-100",
               ])}
             >
               <button

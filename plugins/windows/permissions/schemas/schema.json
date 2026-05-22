@@ -295,6 +295,42 @@
       "type": "string",
       "oneOf": [
         {
+          "description": "Enables the floating_bar_hide command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-floating-bar-hide",
+          "markdownDescription": "Enables the floating_bar_hide command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the floating_bar_hide command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-floating-bar-hide",
+          "markdownDescription": "Denies the floating_bar_hide command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the floating_bar_show command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-floating-bar-show",
+          "markdownDescription": "Enables the floating_bar_show command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the floating_bar_show command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-floating-bar-show",
+          "markdownDescription": "Denies the floating_bar_show command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the floating_bar_update command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-floating-bar-update",
+          "markdownDescription": "Enables the floating_bar_update command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the floating_bar_update command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-floating-bar-update",
+          "markdownDescription": "Denies the floating_bar_update command without any pre-configured scope."
+        },
+        {
           "description": "Enables the remove_fake_window command without any pre-configured scope.",
           "type": "string",
           "const": "allow-remove-fake-window",
@@ -379,6 +415,18 @@
           "markdownDescription": "Denies the window_is_exists command without any pre-configured scope."
         },
         {
+          "description": "Enables the window_is_occluded command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-window-is-occluded",
+          "markdownDescription": "Enables the window_is_occluded command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the window_is_occluded command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-window-is-occluded",
+          "markdownDescription": "Denies the window_is_occluded command without any pre-configured scope."
+        },
+        {
           "description": "Enables the window_navigate command without any pre-configured scope.",
           "type": "string",
           "const": "allow-window-navigate",
@@ -451,10 +499,10 @@
           "markdownDescription": "Denies the window_show command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-window-show`\n- `allow-window-hide`\n- `allow-window-destroy`\n- `allow-window-navigate`\n- `allow-window-emit-navigate`\n- `allow-window-is-exists`\n- `allow-window-set-frame-animated`\n- `allow-window-save-frame`\n- `allow-window-restore-frame-animated`\n- `allow-window-expand-width`\n- `allow-window-restore-width`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-window-show`\n- `allow-window-hide`\n- `allow-window-destroy`\n- `allow-window-navigate`\n- `allow-window-emit-navigate`\n- `allow-window-is-exists`\n- `allow-window-is-occluded`\n- `allow-window-set-frame-animated`\n- `allow-window-save-frame`\n- `allow-window-restore-frame-animated`\n- `allow-window-expand-width`\n- `allow-window-restore-width`\n- `allow-floating-bar-show`\n- `allow-floating-bar-hide`\n- `allow-floating-bar-update`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-window-show`\n- `allow-window-hide`\n- `allow-window-destroy`\n- `allow-window-navigate`\n- `allow-window-emit-navigate`\n- `allow-window-is-exists`\n- `allow-window-set-frame-animated`\n- `allow-window-save-frame`\n- `allow-window-restore-frame-animated`\n- `allow-window-expand-width`\n- `allow-window-restore-width`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-window-show`\n- `allow-window-hide`\n- `allow-window-destroy`\n- `allow-window-navigate`\n- `allow-window-emit-navigate`\n- `allow-window-is-exists`\n- `allow-window-is-occluded`\n- `allow-window-set-frame-animated`\n- `allow-window-save-frame`\n- `allow-window-restore-frame-animated`\n- `allow-window-expand-width`\n- `allow-window-restore-width`\n- `allow-floating-bar-show`\n- `allow-floating-bar-hide`\n- `allow-floating-bar-update`"
         }
       ]
     }

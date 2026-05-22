@@ -7,6 +7,8 @@ pub enum AppWindow {
     Main,
     #[serde(rename = "composer")]
     Composer,
+    #[serde(rename = "floating")]
+    Floating,
 }
 
 impl std::fmt::Display for AppWindow {
@@ -14,6 +16,7 @@ impl std::fmt::Display for AppWindow {
         match self {
             Self::Main => write!(f, "main"),
             Self::Composer => write!(f, "composer"),
+            Self::Floating => write!(f, "floating"),
         }
     }
 }
@@ -25,6 +28,7 @@ impl std::str::FromStr for AppWindow {
         match s {
             "main" => return Ok(Self::Main),
             "composer" => return Ok(Self::Composer),
+            "floating" => return Ok(Self::Floating),
             _ => {}
         }
 
@@ -100,6 +104,7 @@ impl WindowImpl for AppWindow {
         match self {
             Self::Main => "Anarlog".into(),
             Self::Composer => "Composer".into(),
+            Self::Floating => "Meeting Float".into(),
         }
     }
 
@@ -130,6 +135,25 @@ impl WindowImpl for AppWindow {
                 window.set_size(LogicalSize::new(
                     crate::window::composer::WIDTH,
                     crate::window::composer::HEIGHT,
+                ))?;
+                window
+            }
+            Self::Floating => {
+                let builder = self
+                    .window_builder(app, "/floating")
+                    .maximizable(false)
+                    .minimizable(false)
+                    .resizable(false)
+                    .decorations(false)
+                    .transparent(true)
+                    .always_on_top(true)
+                    .skip_taskbar(true)
+                    .shadow(false)
+                    .background_color(tauri::window::Color(0, 0, 0, 0));
+                let window = builder.build()?;
+                window.set_size(LogicalSize::new(
+                    crate::window::floating::COLLAPSED_WIDTH,
+                    crate::window::floating::COLLAPSED_HEIGHT,
                 ))?;
                 window
             }

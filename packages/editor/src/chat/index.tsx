@@ -280,10 +280,10 @@ export const ChatEditor = forwardRef<ChatEditorHandle, ChatEditorProps>(
             });
           }}
           attributes={{
-            spellcheck: "false",
-            autocomplete: "off",
-            autocorrect: "off",
-            autocapitalize: "off",
+            spellCheck: "false",
+            autoComplete: "off",
+            autoCorrect: "off",
+            autoCapitalize: "off",
             role: "textbox",
             class: cn(className, "tiptap"),
           }}

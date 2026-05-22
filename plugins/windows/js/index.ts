@@ -8,6 +8,7 @@ type UUID = `${string}-${string}-${string}-${string}-${string}`;
 export type WindowLabel =
   | "main"
   | "composer"
+  | "floating"
   | `note-${UUID}`
   | "calendar"
   | "settings";

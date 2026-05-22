@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-floating-bar-show"
+description = "Enables the floating_bar_show command without any pre-configured scope."
+commands.allow = ["floating_bar_show"]
+
+[[permission]]
+identifier = "deny-floating-bar-show"
+description = "Denies the floating_bar_show command without any pre-configured scope."
+commands.deny = ["floating_bar_show"]

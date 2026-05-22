@@ -135,6 +135,7 @@ export interface NoteEditorProps {
   linkedItemOpenBehavior?: LinkedItemOpenBehavior;
   taskSource?: TaskSource;
   extraNodeViews?: NodeViewComponents;
+  showFormatToolbar?: boolean;
 }
 
 const baseNodeViews = {
@@ -152,6 +153,13 @@ const baseNodeViews = {
     name: "taskItem",
   }),
 };
+
+function isSameContent(
+  left: JSONContent | undefined,
+  right: JSONContent | undefined,
+) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
 
 function wrapNodeViewComponents(nodeViews?: NodeViewComponents) {
   if (!nodeViews) {
@@ -351,6 +359,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
       linkedItemOpenBehavior = "current",
       taskSource,
       extraNodeViews,
+      showFormatToolbar = true,
     } = props;
 
     const taskStorage = useTaskStorageOptional();
@@ -412,8 +421,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
       [taskSource, taskStorage],
     );
 
-    const onUpdate = useDebounceCallback((view: EditorView) => {
-      const content = view.state.doc.toJSON() as JSONContent;
+    const onUpdate = useDebounceCallback((content: JSONContent) => {
       syncTasks(content);
       if (!handleChange) {
         return;
@@ -470,7 +478,6 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
       const view = viewRef.current;
       if (!view) return;
       if (previousContentRef.current === reconciledInitialContent) return;
-      previousContentRef.current = reconciledInitialContent;
 
       if (
         !reconciledInitialContent ||
@@ -479,23 +486,33 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
         return;
       }
 
-      if (!view.hasFocus()) {
-        try {
-          const doc = PMNode.fromJSON(schema, reconciledInitialContent);
-          const state = EditorState.create({
-            doc,
-            plugins: view.state.plugins,
-          });
-          view.updateState(state);
-        } catch {
-          // invalid content
-        }
+      const currentContent = view.state.doc.toJSON() as JSONContent;
+      if (isSameContent(currentContent, reconciledInitialContent)) {
+        previousContentRef.current = reconciledInitialContent;
+        return;
+      }
+
+      if (view.hasFocus()) {
+        previousContentRef.current = reconciledInitialContent;
+        return;
+      }
+
+      try {
+        const doc = PMNode.fromJSON(schema, reconciledInitialContent);
+        const state = EditorState.create({
+          doc,
+          plugins: view.state.plugins,
+        });
+        view.updateState(state);
+        previousContentRef.current = reconciledInitialContent;
+      } catch {
+        // invalid content
       }
     }, [reconciledInitialContent]);
 
     const onViewReady = useCallback(
       (view: EditorView) => {
-        onUpdate(view);
+        onUpdate(view.state.doc.toJSON() as JSONContent);
       },
       [onUpdate],
     );
@@ -518,14 +535,15 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
                 dispatchEditorTransaction({
                   view: this,
                   transaction: tr,
-                  onDocChanged: () => onUpdate(this),
+                  onDocChanged: () =>
+                    onUpdate(this.state.doc.toJSON() as JSONContent),
                 });
               }}
               attributes={{
-                spellcheck: "false",
-                autocomplete: "off",
-                autocorrect: "off",
-                autocapitalize: "off",
+                spellCheck: "false",
+                autoComplete: "off",
+                autoCorrect: "off",
+                autoCapitalize: "off",
                 role: "textbox",
                 class: cn(["tiptap", className]),
               }}
@@ -533,7 +551,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
               <ProseMirrorDoc />
               <ViewCapture viewRef={viewRef} onViewReady={onViewReady} />
               <EditorCommandsBridge commandsRef={commandsRef} />
-              <FormatToolbar />
+              {showFormatToolbar && <FormatToolbar />}
               <SlashCommandMenu />
               {mentionConfig && <MentionSuggestion config={mentionConfig} />}
             </ProseMirror>

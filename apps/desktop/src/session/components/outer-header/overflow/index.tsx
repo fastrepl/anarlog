@@ -1,4 +1,8 @@
-import { FileTextIcon, MoreHorizontalIcon } from "lucide-react";
+import {
+  FileTextIcon,
+  MoreHorizontalIcon,
+  PictureInPicture2Icon,
+} from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@hypr/ui/components/ui/button";
@@ -17,8 +21,10 @@ import { Listening } from "./listening";
 import { Copy, ShowInFinder } from "./misc";
 
 import { useAudioPlayer } from "~/audio-player";
+import { openFloatingMeetingPanel } from "~/meeting-float/host";
 import { useHasTranscript } from "~/session/components/shared";
 import type { EditorView } from "~/store/zustand/tabs/schema";
+import { useListener } from "~/stt/contexts";
 
 export function OverflowButton({
   sessionId,
@@ -31,9 +37,16 @@ export function OverflowButton({
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const hasTranscript = useHasTranscript(sessionId);
   const { audioExists } = useAudioPlayer();
+  const sessionMode = useListener((state) => state.getSessionMode(sessionId));
+  const canOpenFloatingPanel =
+    sessionMode === "active" || sessionMode === "finalizing";
   const openExportModal = () => {
     setOpen(false);
     requestAnimationFrame(() => setIsExportModalOpen(true));
+  };
+  const handleOpenFloatingPanel = () => {
+    setOpen(false);
+    void openFloatingMeetingPanel(sessionId);
   };
 
   return (
@@ -60,6 +73,15 @@ export function OverflowButton({
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <Listening sessionId={sessionId} hasTranscript={hasTranscript} />
+            {canOpenFloatingPanel && (
+              <DropdownMenuItem
+                onClick={handleOpenFloatingPanel}
+                className="cursor-pointer"
+              >
+                <PictureInPicture2Icon />
+                <span>Open floating panel</span>
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
             <ShowInFinder sessionId={sessionId} />
             {audioExists && <DropdownMenuSeparator />}

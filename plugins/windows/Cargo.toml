@@ -10,13 +10,19 @@ description = ""
 [build-dependencies]
 tauri-plugin = { workspace = true, features = ["build"] }
 
+[target.'cfg(target_os = "macos")'.build-dependencies]
+swift-rs = { workspace = true, features = ["build"] }
+
 [dev-dependencies]
 specta-typescript = { workspace = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = { workspace = true }
 objc2-app-kit = { workspace = true, features = ["NSWindow", "NSColor", "NSScreen"] }
+objc2-core-foundation = { workspace = true, features = ["CFArray", "CFDictionary", "CFNumber"] }
+objc2-core-graphics = { workspace = true, features = ["CGGeometry", "CGWindow"] }
 objc2-foundation = { workspace = true }
+swift-rs = { workspace = true }
 tauri-nspanel = { git = "https://github.com/ahkohd/tauri-nspanel", branch = "v2.1" }
 
 [dependencies]

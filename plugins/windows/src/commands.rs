@@ -357,10 +357,46 @@ pub async fn window_restore_width(
 
 #[tauri::command]
 #[specta::specta]
+pub async fn floating_bar_show() -> Result<(), String> {
+    crate::window::floating_bar::show().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn floating_bar_hide() -> Result<(), String> {
+    crate::window::floating_bar::hide().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn floating_bar_update(
+    state: crate::window::floating_bar::FloatingBarState,
+) -> Result<(), String> {
+    crate::window::floating_bar::update(state).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn window_is_exists(
     app: tauri::AppHandle<tauri::Wry>,
     window: AppWindow,
 ) -> Result<bool, String> {
     let exists = app.windows().is_exists(window).map_err(|e| e.to_string())?;
     Ok(exists)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn window_is_occluded(
+    app: tauri::AppHandle<tauri::Wry>,
+    window: AppWindow,
+) -> Result<bool, String> {
+    let occluded = app
+        .windows()
+        .is_occluded(window)
+        .map_err(|e| e.to_string())?;
+    Ok(occluded)
 }

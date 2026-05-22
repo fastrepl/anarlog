@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { StickyNoteIcon } from "lucide-react";
+import { PictureInPicture2Icon, StickyNoteIcon } from "lucide-react";
 import React, { useCallback, useEffect, useRef } from "react";
 
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
@@ -22,6 +22,7 @@ import { getSessionTabStatus } from "./tab-visual-state";
 
 import { useTitleGeneration } from "~/ai/hooks";
 import * as AudioPlayer from "~/audio-player";
+import { openFloatingMeetingPanel } from "~/meeting-float/host";
 import { type TabItem, TabItemBase } from "~/shared/tabs";
 import * as main from "~/store/tinybase/store/main";
 import { useSessionTitle } from "~/store/zustand/live-title";
@@ -82,6 +83,9 @@ export const TabItemNote: TabItem<Extract<Tab, { type: "sessions" }>> = ({
     }
     handleCloseThis(tab);
   }, [isActive, stop, tab, handleCloseThis]);
+  const handleOpenFloatingPanel = useCallback(() => {
+    void openFloatingMeetingPanel(tab.id);
+  }, [tab.id]);
 
   return (
     <SessionPreviewCard sessionId={tab.id} side="bottom" enabled={!tab.active}>
@@ -92,6 +96,15 @@ export const TabItemNote: TabItem<Extract<Tab, { type: "sessions" }>> = ({
         status={status}
         pinned={tab.pinned}
         tabIndex={tabIndex}
+        hoverAction={
+          isActive
+            ? {
+                icon: <PictureInPicture2Icon size={14} />,
+                label: "Open floating panel",
+                onClick: handleOpenFloatingPanel,
+              }
+            : undefined
+        }
         showCloseConfirmation={showCloseConfirmation}
         onCloseConfirmationChange={handleCloseConfirmationChange}
         handleCloseThis={handleCloseWithStop}

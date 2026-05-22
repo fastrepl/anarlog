@@ -10,11 +10,15 @@ Default permissions for the plugin
 - `allow-window-navigate`
 - `allow-window-emit-navigate`
 - `allow-window-is-exists`
+- `allow-window-is-occluded`
 - `allow-window-set-frame-animated`
 - `allow-window-save-frame`
 - `allow-window-restore-frame-animated`
 - `allow-window-expand-width`
 - `allow-window-restore-width`
+- `allow-floating-bar-show`
+- `allow-floating-bar-hide`
+- `allow-floating-bar-update`
 
 ## Permission Table
 
@@ -24,6 +28,84 @@ Default permissions for the plugin
 <th>Description</th>
 </tr>
 
+
+<tr>
+<td>
+
+`windows:allow-floating-bar-hide`
+
+</td>
+<td>
+
+Enables the floating_bar_hide command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`windows:deny-floating-bar-hide`
+
+</td>
+<td>
+
+Denies the floating_bar_hide command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`windows:allow-floating-bar-show`
+
+</td>
+<td>
+
+Enables the floating_bar_show command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`windows:deny-floating-bar-show`
+
+</td>
+<td>
+
+Denies the floating_bar_show command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`windows:allow-floating-bar-update`
+
+</td>
+<td>
+
+Enables the floating_bar_update command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`windows:deny-floating-bar-update`
+
+</td>
+<td>
+
+Denies the floating_bar_update command without any pre-configured scope.
+
+</td>
+</tr>
 
 <tr>
 <td>
@@ -203,6 +285,32 @@ Enables the window_is_exists command without any pre-configured scope.
 <td>
 
 Denies the window_is_exists command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`windows:allow-window-is-occluded`
+
+</td>
+<td>
+
+Enables the window_is_occluded command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`windows:deny-window-is-occluded`
+
+</td>
+<td>
+
+Denies the window_is_occluded command without any pre-configured scope.
 
 </td>
 </tr>

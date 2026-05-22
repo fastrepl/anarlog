@@ -1,4 +1,6 @@
 pub(crate) mod composer;
+pub(crate) mod floating;
+pub(crate) mod floating_bar;
 mod v1;
 
 pub type AppWindow = v1::AppWindow;
