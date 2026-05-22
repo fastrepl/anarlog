@@ -100,7 +100,7 @@ function RemoteMeetingButton({ remote }: { remote: RemoteMeeting }) {
   return (
     <FloatingButton
       onClick={handleJoin}
-      className="h-10 justify-center gap-2 border-neutral-200 bg-white px-3 text-neutral-800 shadow-[0_4px_14px_rgba(0,0,0,0.1)] hover:bg-neutral-100 lg:px-4"
+      className="h-10 justify-center gap-2 border-neutral-200 bg-white px-4 text-neutral-800 shadow-[0_4px_14px_rgba(0,0,0,0.1)] hover:bg-neutral-100"
     >
       <span>Join</span>
       {icon}

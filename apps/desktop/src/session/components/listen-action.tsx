@@ -48,7 +48,7 @@ export function ListenActionButton({ sessionId }: { sessionId: string }) {
         <FloatingButton
           onClick={startListening}
           disabled={isDisabled}
-          className="justify-center gap-2 border-stone-600 bg-stone-800 pr-8 pl-3 text-white shadow-[0_4px_14px_rgba(87,83,78,0.4)] hover:bg-stone-700 lg:pr-10 lg:pl-4"
+          className="w-[148px] justify-start gap-2 border-stone-600 bg-stone-800 pr-7 pl-3 text-white shadow-[0_4px_14px_rgba(87,83,78,0.4)] hover:bg-stone-700"
           tooltip={
             warningMessage
               ? {
@@ -66,7 +66,7 @@ export function ListenActionButton({ sessionId }: { sessionId: string }) {
               : undefined
           }
         >
-          <span className="flex items-center gap-2 pl-3">
+          <span className="flex items-center gap-1.5">
             <RecordingIcon /> Start listening
           </span>
         </FloatingButton>
