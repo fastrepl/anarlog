@@ -17,6 +17,7 @@ import * as settings from "~/store/tinybase/store/settings";
 import { listenerStore } from "~/store/zustand/listener/instance";
 import { useTabs } from "~/store/zustand/tabs";
 import { parseAutoStopEndedNotificationKey } from "~/stt/auto-stop-notification";
+import { parseBatchCompletedNotificationKey } from "~/stt/batch-completed-notification";
 
 type MainStore = NonNullable<ReturnType<typeof main.UI.useStore>>;
 
@@ -179,7 +180,7 @@ function useNotificationEvents() {
           const sourceSessionId =
             payload.source?.type === "session"
               ? payload.source.session_id
-              : null;
+              : parseBatchCompletedNotificationKey(payload.key);
           const triggerAppIds =
             payload.source?.type === "mic_detected"
               ? (payload.source.app_ids ?? null)

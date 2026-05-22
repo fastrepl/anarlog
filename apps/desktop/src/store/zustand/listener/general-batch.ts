@@ -15,6 +15,8 @@ import {
   type BatchState,
 } from "./batch";
 
+import { createBatchCompletedNotificationKey } from "~/stt/batch-completed-notification";
+
 type BatchStore = BatchActions & BatchState;
 
 async function shouldNotifyBatchCompleted() {
@@ -42,7 +44,7 @@ export async function showBatchCompletedNotification(
 
   try {
     const result = await notificationCommands.showNotification({
-      key: `batch-completed-${sessionId}`,
+      key: createBatchCompletedNotificationKey(sessionId),
       title: "Transcription complete",
       message: "Your transcript is ready.",
       timeout: null,

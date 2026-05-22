@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { EventListeners } from "./event-listeners";
 
 import { createAutoStopEndedNotificationKey } from "~/stt/auto-stop-notification";
+import { createBatchCompletedNotificationKey } from "~/stt/batch-completed-notification";
 
 const {
   notificationListenMock,
@@ -222,6 +223,34 @@ describe("EventListeners notification events", () => {
         type: "notification_confirm",
         key: "batch-completed-session-1",
         source: { type: "session", session_id: "session-1" },
+      },
+    });
+
+    expect(createSessionMock).not.toHaveBeenCalled();
+    expect(openNewMock).toHaveBeenCalledWith({
+      type: "sessions",
+      id: "session-1",
+      state: { view: null, autoStart: null },
+    });
+  });
+
+  test("notification_confirm with batch key opens that session without source", async () => {
+    useMainStoreMock.mockReturnValue({} as never);
+
+    render(<EventListeners />);
+
+    await vi.waitFor(() =>
+      expect(notificationListenMock).toHaveBeenCalledTimes(1),
+    );
+
+    const handler = notificationListenMock.mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf("function");
+
+    handler({
+      payload: {
+        type: "notification_confirm",
+        key: createBatchCompletedNotificationKey("session-1"),
+        source: null,
       },
     });
 

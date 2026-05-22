@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { EMPTY_BATCH_TRANSCRIPT_ERROR } from "./batch";
-import { runBatchSession } from "./general-batch";
+import {
+  runBatchSession,
+  showBatchCompletedNotification,
+} from "./general-batch";
+
+import { parseBatchCompletedNotificationKey } from "~/stt/batch-completed-notification";
 
 const {
   isFocusedMock,
@@ -217,15 +222,30 @@ describe("runBatchSession", () => {
       },
     );
 
-    expect(showNotificationMock).toHaveBeenCalledWith(
+    const notification = showNotificationMock.mock.calls[0]?.[0];
+    expect(notification).toEqual(
       expect.objectContaining({
-        key: "batch-completed-session-1",
         title: "Transcription complete",
         message: "Your transcript is ready.",
         action_label: "Open Anarlog",
         source: { type: "session", session_id: "session-1" },
       }),
     );
+    expect(parseBatchCompletedNotificationKey(notification.key)).toBe(
+      "session-1",
+    );
+  });
+
+  test("uses a fresh notification key for each batch completion", async () => {
+    await showBatchCompletedNotification("session-1", { force: true });
+    await showBatchCompletedNotification("session-1", { force: true });
+
+    const firstKey = showNotificationMock.mock.calls[0]?.[0].key;
+    const secondKey = showNotificationMock.mock.calls[1]?.[0].key;
+
+    expect(parseBatchCompletedNotificationKey(firstKey)).toBe("session-1");
+    expect(parseBatchCompletedNotificationKey(secondKey)).toBe("session-1");
+    expect(firstKey).not.toBe(secondKey);
   });
 
   test("forwards streamed progress events before completion", async () => {
