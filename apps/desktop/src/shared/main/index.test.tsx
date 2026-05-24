@@ -24,12 +24,13 @@ vi.mock("@hypr/ui/components/ui/resizable", async () => {
       { resize: (size: number) => void },
       {
         children: React.ReactNode;
+        className?: string;
         defaultSize?: number;
         maxSize?: number;
         minSize?: number;
       }
     >(function ResizablePanel(
-      { children, defaultSize, maxSize, minSize },
+      { children, className, defaultSize, maxSize, minSize },
       ref,
     ) {
       React.useImperativeHandle(ref, () => ({
@@ -39,6 +40,7 @@ vi.mock("@hypr/ui/components/ui/resizable", async () => {
       return (
         <div
           data-default-size={defaultSize}
+          data-class-name={className}
           data-max-size={maxSize}
           data-min-size={minSize}
           data-testid="panel"
@@ -94,8 +96,27 @@ describe("StandardTabWrapper", () => {
     const panels = screen.getAllByTestId("panel");
     expect(panels[0]?.dataset.defaultSize).toBe("78");
     expect(panels[1]?.dataset.defaultSize).toBe("22");
+    expect(panels[1]?.dataset.className).toContain("min-h-[96px]");
     expect(panels[1]?.dataset.maxSize).toBe("60");
     expect(resizeMock).toHaveBeenCalledWith(22);
+  });
+
+  it("removes the resize spacer when bottom content is merged with the main surface", () => {
+    render(
+      <StandardTabWrapper
+        afterBorder={<div data-testid="bottom-area" />}
+        afterBorderExpanded
+        afterBorderResizable
+        bottomBorderHandle={<button>Transcript</button>}
+        mergeAfterBorder
+      >
+        <div data-testid="main-area" />
+      </StandardTabWrapper>,
+    );
+
+    expect(screen.getByTestId("resize-handle").dataset.className).toContain(
+      "data-[panel-group-direction=vertical]:h-0",
+    );
   });
 
   it("sizes collapsed bottom content to its row instead of reserving split space", () => {

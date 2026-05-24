@@ -50,24 +50,8 @@ export function PostSessionAccessory({
     return null;
   }
 
-  const shouldBalanceCollapsedTimeline =
-    !isTranscriptExpanded && Boolean(timeline);
-
   return (
-    <div
-      className={cn([
-        "flex min-h-0 flex-col",
-        fillHeight && "h-full",
-        isTranscriptExpanded && "gap-1",
-        shouldBalanceCollapsedTimeline && "relative -mt-[6px] pb-1",
-      ])}
-    >
-      {shouldBalanceCollapsedTimeline ? (
-        <div
-          aria-hidden
-          className="pointer-events-none absolute top-[-4px] right-0 left-0 h-px bg-neutral-50"
-        />
-      ) : null}
+    <div className={cn(["flex min-h-0 flex-col", fillHeight && "h-full"])}>
       {isTranscriptExpanded ? (
         <TranscriptPanel
           sessionId={sessionId}
@@ -78,8 +62,14 @@ export function PostSessionAccessory({
           fillHeight={fillHeight}
         />
       ) : null}
-      {timeline}
+      {timeline ? <TimelineSlot>{timeline}</TimelineSlot> : null}
     </div>
+  );
+}
+
+function TimelineSlot({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex h-14 w-full shrink-0 items-center">{children}</div>
   );
 }
 
@@ -534,8 +524,8 @@ function TranscriptCard({
   return (
     <div
       className={cn([
-        "overflow-hidden rounded-b-xl border-x border-b border-neutral-200 bg-white",
-        fillHeight && "flex min-h-0 flex-1 flex-col",
+        "min-h-[96px] overflow-hidden rounded-b-xl border-x border-b border-neutral-200 bg-white",
+        fillHeight && "flex flex-1 flex-col",
       ])}
     >
       {children}

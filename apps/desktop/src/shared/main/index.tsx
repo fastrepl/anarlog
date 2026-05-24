@@ -80,7 +80,10 @@ export function StandardTabWrapper({
             <ResizableHandle
               disabled={!afterBorderExpanded}
               className={cn([
-                "z-10 !bg-transparent data-[panel-group-direction=vertical]:-mb-px",
+                "z-10 !bg-transparent",
+                mergeAfterBorder
+                  ? "data-[panel-group-direction=vertical]:h-0"
+                  : "data-[panel-group-direction=vertical]:-mb-px",
                 !afterBorderExpanded && "pointer-events-none",
               ])}
             />
@@ -89,7 +92,7 @@ export function StandardTabWrapper({
               defaultSize={afterBorderSize}
               minSize={afterBorderExpanded ? 10 : 6}
               maxSize={60}
-              className="min-h-0 overflow-hidden"
+              className="min-h-[96px] overflow-hidden"
             >
               <AfterBorderContent
                 bottomBorderHandle={bottomBorderHandle}

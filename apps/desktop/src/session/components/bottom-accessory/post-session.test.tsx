@@ -185,6 +185,37 @@ describe("PostSessionAccessory", () => {
     expect(screen.queryByTestId("transcript")).toBeNull();
   });
 
+  it("keeps the audio timeline slot height stable between collapsed and expanded states", () => {
+    const { unmount } = render(
+      <PostSessionAccessory
+        sessionId="session-1"
+        hasAudio
+        hasTranscript
+        isTranscriptExpanded={false}
+      />,
+    );
+
+    const collapsedSlotClassName =
+      screen.getByTestId("timeline").parentElement?.className;
+    expect(collapsedSlotClassName).toContain("h-14");
+
+    unmount();
+
+    render(
+      <PostSessionAccessory
+        sessionId="session-1"
+        hasAudio
+        hasTranscript
+        isTranscriptExpanded
+        fillHeight
+      />,
+    );
+
+    expect(screen.getByTestId("timeline").parentElement?.className).toBe(
+      collapsedSlotClassName,
+    );
+  });
+
   it("lets expanded transcript content fill the resizable bottom panel", () => {
     render(
       <PostSessionAccessory
@@ -200,6 +231,7 @@ describe("PostSessionAccessory", () => {
     expect(scrollArea?.className).toContain("flex-1");
     expect(scrollArea?.className).not.toContain("h-[300px]");
     expect(scrollArea?.parentElement?.className).toContain("flex-1");
+    expect(scrollArea?.parentElement?.className).toContain("min-h-[96px]");
   });
 
   it("shows transcript skeletons instead of duplicating batch progress in the body", () => {
