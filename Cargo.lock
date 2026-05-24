@@ -4856,6 +4856,7 @@ dependencies = [
  "serde_json",
  "specta",
  "specta-typescript",
+ "storage",
  "strum 0.28.0",
  "supervisor",
  "tauri",

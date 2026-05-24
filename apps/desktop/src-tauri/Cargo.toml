@@ -89,6 +89,7 @@ hypr-audio-actual = { workspace = true }
 hypr-audio-mock = { workspace = true, optional = true }
 hypr-db-core = { workspace = true }
 hypr-host = { workspace = true }
+hypr-storage = { workspace = true }
 hypr-supervisor = { workspace = true }
 
 dirs = { workspace = true }
