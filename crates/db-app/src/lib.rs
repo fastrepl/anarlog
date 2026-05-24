@@ -27,6 +27,11 @@ pub const APP_MIGRATION_STEPS: &[hypr_db_migrate::MigrationStep] = &[
         scope: hypr_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260414120000_calendars_events.sql"),
     },
+    hypr_db_migrate::MigrationStep {
+        id: "20260524000000_default_templates",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260524000000_default_templates.sql"),
+    },
 ];
 
 pub fn schema() -> hypr_db_migrate::DbSchema {
@@ -53,6 +58,28 @@ mod tests {
         .await
         .unwrap();
         hypr_db_migrate::migrate(&db, schema()).await.unwrap();
+        db
+    }
+
+    async fn test_db_without_default_templates() -> Db {
+        let db = Db::open(hypr_db_core::DbOpenOptions {
+            storage: hypr_db_core::DbStorage::Memory,
+            cloudsync_enabled: false,
+            journal_mode_wal: true,
+            foreign_keys: true,
+            max_connections: Some(1),
+        })
+        .await
+        .unwrap();
+        hypr_db_migrate::migrate(
+            &db,
+            hypr_db_migrate::DbSchema {
+                steps: &APP_MIGRATION_STEPS[..2],
+                validate_cloudsync_table: cloudsync_alter_guard_required,
+            },
+        )
+        .await
+        .unwrap();
         db
     }
 
@@ -235,8 +262,82 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn migrations_seed_default_templates_without_overwriting_existing_rows() {
+        let db = Db::connect_memory_plain().await.unwrap();
+        hypr_db_migrate::migrate(
+            &db,
+            hypr_db_migrate::DbSchema {
+                steps: &APP_MIGRATION_STEPS[..1],
+                validate_cloudsync_table: cloudsync_alter_guard_required,
+            },
+        )
+        .await
+        .unwrap();
+
+        upsert_template(
+            db.pool(),
+            UpsertTemplate {
+                id: "default-daily-standup",
+                title: "Custom Standup",
+                description: "Keep user edit",
+                pinned: true,
+                pin_order: Some(1),
+                category: Some("Custom"),
+                targets_json: Some("[\"Team\"]"),
+                sections_json: "[{\"title\":\"Custom\",\"description\":\"Keep\"}]",
+            },
+        )
+        .await
+        .unwrap();
+
+        hypr_db_migrate::migrate(&db, schema()).await.unwrap();
+
+        let rows = list_templates(db.pool()).await.unwrap();
+        assert_eq!(rows.len(), 17);
+        assert_eq!(
+            rows.iter().map(|row| row.id.as_str()).collect::<Vec<_>>(),
+            vec![
+                "default-board-meeting",
+                "default-brainstorming-session",
+                "default-client-kickoff",
+                "default-customer-discovery",
+                "default-daily-standup",
+                "default-executive-briefing",
+                "default-incident-postmortem",
+                "default-investor-pitch",
+                "default-lecture-notes",
+                "default-one-on-one-meeting",
+                "default-performance-review",
+                "default-product-roadmap-review",
+                "default-project-kickoff",
+                "default-sales-discovery-call",
+                "default-sprint-planning",
+                "default-sprint-retrospective",
+                "default-technical-design-review",
+            ]
+        );
+
+        let custom_row = get_template(db.pool(), "default-daily-standup")
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(custom_row.title, "Custom Standup");
+        assert_eq!(custom_row.description, "Keep user edit");
+
+        let seeded_row = get_template(db.pool(), "default-sales-discovery-call")
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(seeded_row.title, "Sales Discovery Call");
+        assert_eq!(
+            seeded_row.targets_json.as_deref(),
+            Some("[\"Account Executive\",\"Sales Rep\",\"BDR\"]")
+        );
+    }
+
+    #[tokio::test]
     async fn list_templates_returns_all_ordered_by_id() {
-        let db = test_db().await;
+        let db = test_db_without_default_templates().await;
 
         upsert_template(
             db.pool(),
@@ -278,7 +379,7 @@ mod tests {
 
     #[tokio::test]
     async fn template_upsert_replaces_existing_row_by_id() {
-        let db = test_db().await;
+        let db = test_db_without_default_templates().await;
 
         upsert_template(
             db.pool(),

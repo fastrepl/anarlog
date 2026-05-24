@@ -176,7 +176,8 @@ mod test {
 
         runtime
             .subscribe(
-                "SELECT id, title FROM templates ORDER BY id".to_string(),
+                "SELECT id, title FROM templates WHERE id = 'missing-template' ORDER BY id"
+                    .to_string(),
                 vec![],
                 runtime::QueryEventChannel::new(channel),
             )

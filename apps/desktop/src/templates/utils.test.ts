@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import type { WebTemplate } from "./codec";
 import type { UserTemplate } from "./queries";
-import { resolveTemplateTabSelection } from "./utils";
+import {
+  filterWebTemplatesAgainstUserTemplates,
+  resolveTemplateTabSelection,
+} from "./utils";
 
 const userTemplate: UserTemplate = {
   id: "template-1",
@@ -70,5 +73,42 @@ describe("resolveTemplateTabSelection", () => {
       selectedWebIndex: null,
       selectedWebTemplate: null,
     });
+  });
+});
+
+describe("filterWebTemplatesAgainstUserTemplates", () => {
+  it("drops web templates that already exist locally by title", () => {
+    const duplicateWebTemplate = {
+      ...webTemplate,
+      slug: "daily-standup",
+      title: "Daily Standup",
+    };
+    const uniqueWebTemplate = {
+      ...webTemplate,
+      slug: "sales-discovery-call",
+      title: "Sales Discovery Call",
+    };
+
+    expect(
+      filterWebTemplatesAgainstUserTemplates({
+        userTemplates: [{ ...userTemplate, title: "daily standup" }],
+        webTemplates: [duplicateWebTemplate, uniqueWebTemplate],
+      }),
+    ).toEqual([uniqueWebTemplate]);
+  });
+
+  it("normalizes punctuation when matching template titles", () => {
+    const duplicateWebTemplate = {
+      ...webTemplate,
+      slug: "one-on-one-meeting",
+      title: "1:1 Meeting",
+    };
+
+    expect(
+      filterWebTemplatesAgainstUserTemplates({
+        userTemplates: [{ ...userTemplate, title: "1 1 meeting" }],
+        webTemplates: [duplicateWebTemplate],
+      }),
+    ).toEqual([]);
   });
 });

@@ -94,6 +94,30 @@ export function getTemplateCreatorLabel({
   return format === "short" ? `by ${name}` : `Created by ${name}`;
 }
 
+export function filterWebTemplatesAgainstUserTemplates({
+  userTemplates,
+  webTemplates,
+}: {
+  userTemplates: Array<{ title?: string | null }>;
+  webTemplates: WebTemplate[];
+}) {
+  const userTemplateTitles = new Set(
+    userTemplates.flatMap((template) => {
+      const title = normalizeTemplateTitle(template.title);
+      return title ? [title] : [];
+    }),
+  );
+
+  if (userTemplateTitles.size === 0) {
+    return webTemplates;
+  }
+
+  return webTemplates.filter((template) => {
+    const title = normalizeTemplateTitle(template.title);
+    return !title || !userTemplateTitles.has(title);
+  });
+}
+
 export function useTemplateTab(tab: Extract<Tab, { type: "templates" }>) {
   const updateTabState = useTabs((state) => state.updateTemplatesTabState);
   const userTemplates = useUserTemplates();
@@ -103,8 +127,12 @@ export function useTemplateTab(tab: Extract<Tab, { type: "templates" }>) {
   const { data: rawWebTemplates = [], isLoading: isWebLoading } =
     useWebResources<Record<string, unknown>>("templates");
   const webTemplates = useMemo(
-    () => parseWebTemplates(rawWebTemplates),
-    [rawWebTemplates],
+    () =>
+      filterWebTemplatesAgainstUserTemplates({
+        userTemplates,
+        webTemplates: parseWebTemplates(rawWebTemplates),
+      }),
+    [rawWebTemplates, userTemplates],
   );
 
   const { isWebMode, selectedMineId, selectedWebIndex, selectedWebTemplate } =
@@ -169,4 +197,12 @@ export function useTemplateTab(tab: Extract<Tab, { type: "templates" }>) {
     deleteTemplate,
     toggleTemplateFavorite,
   };
+}
+
+function normalizeTemplateTitle(value: string | null | undefined) {
+  return (value ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }

@@ -14,7 +14,11 @@ export {
   useUserTemplates,
 } from "./queries";
 export type { UserTemplate, UserTemplateDraft } from "./queries";
-export { getTemplateCreatorLabel, useTemplateCreatorName } from "./utils";
+export {
+  filterWebTemplatesAgainstUserTemplates,
+  getTemplateCreatorLabel,
+  useTemplateCreatorName,
+} from "./utils";
 export { TemplatesSidebarContent } from "./template-sidebar";
 
 export const TabItemTemplate: TabItem<Extract<Tab, { type: "templates" }>> = ({

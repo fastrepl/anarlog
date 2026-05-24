@@ -28,19 +28,24 @@ function validateSections(
   {
     allowBareStrings,
     requireDescription,
+    allowBlankDrafts = false,
   }: {
     allowBareStrings: boolean;
     requireDescription: boolean;
+    allowBlankDrafts?: boolean;
   },
 ): TemplateSection[] {
   if (!Array.isArray(value)) {
     return templateDataError(context, "sections must be an array");
   }
 
-  return value.map((section, index) => {
+  return value.flatMap((section, index) => {
     if (allowBareStrings && typeof section === "string") {
       const title = section.trim();
       if (!title) {
+        if (allowBlankDrafts) {
+          return [];
+        }
         return templateDataError(
           context,
           `sections[${index}] must not be an empty string`,
@@ -71,13 +76,20 @@ function validateSections(
           `sections[${index}].description must be a string`,
         );
       }
-      return { title: next.title, description: next.description };
+      const title = next.title.trim();
+      if (!title && !allowBlankDrafts) {
+        return templateDataError(
+          context,
+          `sections[${index}].title must be a non-empty string`,
+        );
+      }
+      return { title, description: next.description };
     }
 
-    if (typeof next.title !== "string" || !next.title.trim()) {
+    if (typeof next.title !== "string") {
       return templateDataError(
         context,
-        `sections[${index}].title must be a non-empty string`,
+        `sections[${index}].title must be a string`,
       );
     }
 
@@ -91,9 +103,23 @@ function validateSections(
       );
     }
 
+    const title = next.title.trim();
+    const description =
+      typeof next.description === "string" ? next.description : "";
+
+    if (!title) {
+      if (allowBlankDrafts) {
+        return { title, description };
+      }
+      return templateDataError(
+        context,
+        `sections[${index}].title must be a non-empty string`,
+      );
+    }
+
     return {
-      title: allowBareStrings ? next.title.trim() : next.title,
-      description: typeof next.description === "string" ? next.description : "",
+      title,
+      description,
     };
   });
 }
@@ -142,6 +168,7 @@ export function assertCanonicalTemplateSections(
   return validateSections(value, context, {
     allowBareStrings: false,
     requireDescription: true,
+    allowBlankDrafts: true,
   });
 }
 
@@ -157,12 +184,21 @@ export function parseStoredTemplateSections(
   templateId: string,
 ): TemplateSection[] {
   const context = `template ${templateId} sections_json`;
-  const parsed =
-    typeof value === "string" ? parseJsonText(value, context) : value;
-  return validateSections(parsed, context, {
-    allowBareStrings: true,
-    requireDescription: false,
-  });
+  try {
+    const parsed =
+      typeof value === "string" ? parseJsonText(value, context) : value;
+    return validateSections(parsed, context, {
+      allowBareStrings: true,
+      requireDescription: false,
+      allowBlankDrafts: true,
+    });
+  } catch (error) {
+    console.error(
+      "[templates] dropping invalid stored template sections",
+      error,
+    );
+    return [];
+  }
 }
 
 export function parseStoredTemplateTargets(
@@ -174,9 +210,17 @@ export function parseStoredTemplateTargets(
   }
 
   const context = `template ${templateId} targets_json`;
-  const parsed =
-    typeof value === "string" ? parseJsonText(value, context) : value;
-  return validateTargets(parsed, context, { lenient: true });
+  try {
+    const parsed =
+      typeof value === "string" ? parseJsonText(value, context) : value;
+    return validateTargets(parsed, context, { lenient: true });
+  } catch (error) {
+    console.error(
+      "[templates] dropping invalid stored template targets",
+      error,
+    );
+    return undefined;
+  }
 }
 
 export function parseWebTemplates(

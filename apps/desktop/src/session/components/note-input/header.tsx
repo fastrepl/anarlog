@@ -51,6 +51,7 @@ import { type Tab, useTabs } from "~/store/zustand/tabs";
 import { type EditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
 import {
+  filterWebTemplatesAgainstUserTemplates,
   getTemplateCreatorLabel,
   parseWebTemplates,
   useCreateTemplate,
@@ -515,8 +516,12 @@ function CreateOtherFormatButton({
     isLoading: isSuggestedTemplatesLoading,
   } = useWebResources<Record<string, unknown>>("templates");
   const suggestedTemplates = useMemo(
-    () => parseWebTemplates(rawSuggestedTemplates),
-    [rawSuggestedTemplates],
+    () =>
+      filterWebTemplatesAgainstUserTemplates({
+        userTemplates,
+        webTemplates: parseWebTemplates(rawSuggestedTemplates),
+      }),
+    [rawSuggestedTemplates, userTemplates],
   );
   const openTemplatesTab = useOpenTemplatesTab();
 
@@ -788,6 +793,15 @@ function CreateOtherFormatButton({
             ? "Loading suggestions..."
             : "No suggested templates yet",
         },
+        ...(libraryTemplates.length > 0
+          ? [
+              {
+                key: "library",
+                title: "Templates",
+                items: libraryTemplates,
+              },
+            ]
+          : []),
       ];
     }
 

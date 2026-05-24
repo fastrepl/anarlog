@@ -107,6 +107,53 @@ describe("template queries", () => {
     });
   });
 
+  it("keeps live template rows visible when stored template JSON is invalid", async () => {
+    const subscriptions: Array<SubscribeOptions<Record<string, unknown>>> = [];
+
+    subscribeMock.mockImplementation(async (_sql, _params, options) => {
+      subscriptions.push(options);
+      return async () => {};
+    });
+
+    const { result } = renderHook(() => useUserTemplates());
+
+    await waitFor(() => {
+      expect(subscribeMock).toHaveBeenCalledTimes(1);
+    });
+
+    act(() => {
+      subscriptions[0]?.onData([
+        {
+          id: "template-1",
+          title: "Draft Template",
+          description: "",
+          pinned: false,
+          pin_order: null,
+          category: null,
+          targets_json: "{",
+          sections_json: '[{"title":"","description":""}]',
+          created_at: "2026-04-14T00:00:00Z",
+          updated_at: "2026-04-14T00:00:00Z",
+        },
+      ]);
+    });
+
+    await waitFor(() => {
+      expect(result.current).toEqual([
+        {
+          id: "template-1",
+          title: "Draft Template",
+          description: "",
+          pinned: false,
+          pinOrder: undefined,
+          category: undefined,
+          targets: undefined,
+          sections: [{ title: "", description: "" }],
+        },
+      ]);
+    });
+  });
+
   it("keeps execute-path reads working with Drizzle-mapped rows", async () => {
     executeProxyMock.mockResolvedValue({
       rows: [

@@ -31,6 +31,28 @@ describe("parseStoredTemplateSections", () => {
       parseStoredTemplateSections('[{"title":"Updates"}]', "template-1"),
     ).toEqual([{ title: "Updates", description: "" }]);
   });
+
+  it("preserves blank draft sections from SQLite", () => {
+    expect(
+      parseStoredTemplateSections(
+        '[{"title":"","description":""}]',
+        "template-1",
+      ),
+    ).toEqual([{ title: "", description: "" }]);
+  });
+
+  it("preserves described draft sections with blank titles from SQLite", () => {
+    expect(
+      parseStoredTemplateSections(
+        '[{"title":"","description":"Capture decisions"}]',
+        "template-1",
+      ),
+    ).toEqual([{ title: "", description: "Capture decisions" }]);
+  });
+
+  it("returns empty sections for invalid stored JSON", () => {
+    expect(parseStoredTemplateSections("{", "template-1")).toEqual([]);
+  });
 });
 
 describe("parseStoredTemplateTargets", () => {
@@ -38,6 +60,10 @@ describe("parseStoredTemplateTargets", () => {
     expect(parseStoredTemplateTargets('"Manager"', "template-1")).toEqual([
       "Manager",
     ]);
+  });
+
+  it("returns undefined for invalid stored target JSON", () => {
+    expect(parseStoredTemplateTargets("{", "template-1")).toBeUndefined();
   });
 });
 
@@ -93,5 +119,23 @@ describe("assertCanonicalTemplateSections", () => {
     expect(() =>
       assertCanonicalTemplateSections(["Manager"], "enhance render"),
     ).toThrow(/enhance render/);
+  });
+
+  it("keeps blank draft rows before saving", () => {
+    expect(
+      assertCanonicalTemplateSections(
+        [{ title: "", description: "" }],
+        "template form",
+      ),
+    ).toEqual([{ title: "", description: "" }]);
+  });
+
+  it("keeps described draft rows with blank section names", () => {
+    expect(
+      assertCanonicalTemplateSections(
+        [{ title: "", description: "Capture decisions" }],
+        "template form",
+      ),
+    ).toEqual([{ title: "", description: "Capture decisions" }]);
   });
 });
