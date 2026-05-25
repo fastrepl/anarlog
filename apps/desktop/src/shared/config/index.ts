@@ -27,10 +27,23 @@ export function useConfigValue<K extends SettingsValueKey>(
   key: K,
 ): ConfigValueType<K> {
   const storedValue = settings.UI.useValue(key, settings.STORE_ID);
+  const hasStoredValue = settings.UI.useHasValue(key, settings.STORE_ID);
+  const legacySaveRecordings = settings.UI.useValue(
+    "save_recordings",
+    settings.STORE_ID,
+  );
   const mapping = settings.SETTINGS_MAPPING.values[key];
   const defaultValue = "default" in mapping ? mapping.default : undefined;
 
-  if (storedValue !== undefined) {
+  if (
+    key === "audio_retention" &&
+    legacySaveRecordings === false &&
+    !hasStoredValue
+  ) {
+    return "none" as ConfigValueType<K>;
+  }
+
+  if (hasStoredValue) {
     if (
       key === "ignored_platforms" ||
       key === "included_platforms" ||

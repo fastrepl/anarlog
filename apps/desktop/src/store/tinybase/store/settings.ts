@@ -50,6 +50,7 @@ export const SETTINGS_MAPPING = {
       type: "string",
       path: ["general", "audio_retention"],
       default: "oneMonth" as string,
+      schemaDefault: false,
     },
     notification_event: {
       type: "boolean",
@@ -162,11 +163,14 @@ type ValueMapping = {
   type: ValueType;
   path: readonly [string, string];
   default?: boolean | string | number;
+  schemaDefault?: boolean;
 };
 
 type DeriveValuesSchema<T extends Record<string, ValueMapping>> = {
   [K in keyof T]: T[K] extends { default: infer D }
-    ? { type: T[K]["type"]; default: D }
+    ? T[K] extends { schemaDefault: false }
+      ? { type: T[K]["type"] }
+      : { type: T[K]["type"]; default: D }
     : { type: T[K]["type"] };
 };
 
@@ -174,7 +178,8 @@ export const SCHEMA = {
   value: Object.fromEntries(
     Object.entries(SETTINGS_MAPPING.values).map(([key, config]) => [
       key,
-      "default" in config
+      "default" in config &&
+      !("schemaDefault" in config && config.schemaDefault === false)
         ? { type: config.type, default: config.default }
         : { type: config.type },
     ]),

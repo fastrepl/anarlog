@@ -184,4 +184,67 @@ describe("audio retention", () => {
     expect(audioDeleteMock).toHaveBeenCalledWith("processed");
     expect(deleted).toEqual(["processed"]);
   });
+
+  test("uses legacy save_recordings when audio_retention is missing", async () => {
+    const now = Date.parse("2026-05-13T00:00:00.000Z");
+    const store = createMainStore();
+    const settingsStore = createSettingsStore();
+
+    settingsStore.setValue("save_recordings", false);
+    store.setRow("sessions", "processed", {
+      user_id: "user",
+      created_at: "2026-05-13T00:00:00.000Z",
+      title: "",
+      raw_md: "",
+    });
+    store.setRow("transcripts", "processed-transcript", {
+      user_id: "user",
+      created_at: "2026-05-13T00:00:00.000Z",
+      session_id: "processed",
+      started_at: now,
+      words: JSON.stringify([{ text: " saved" }]),
+      speaker_hints: "[]",
+      memo_md: "",
+    });
+
+    const deleted = await cleanupExpiredAudio(store, settingsStore, now);
+
+    expect(audioDeleteMock).toHaveBeenCalledTimes(1);
+    expect(audioDeleteMock).toHaveBeenCalledWith("processed");
+    expect(deleted).toEqual(["processed"]);
+  });
+
+  test("prefers explicit audio_retention over legacy save_recordings", async () => {
+    const now = Date.parse("2026-05-13T00:00:00.000Z");
+    const store = createMainStore();
+    const settingsStore = createSettingsStore();
+
+    settingsStore.setValue("save_recordings", false);
+    settingsStore.setValue("audio_retention", "oneMonth");
+    store.setRow("sessions", "fresh", {
+      user_id: "user",
+      created_at: "2026-05-01T00:00:00.000Z",
+      title: "",
+      raw_md: "",
+    });
+    store.setRow("transcripts", "fresh-transcript", {
+      user_id: "user",
+      created_at: "2026-05-13T00:00:00.000Z",
+      session_id: "fresh",
+      started_at: now,
+      words: JSON.stringify([{ text: " saved" }]),
+      speaker_hints: "[]",
+      memo_md: "",
+    });
+
+    const deleted = await cleanupExpiredAudio(store, settingsStore, now);
+
+    expect(audioDeleteMock).not.toHaveBeenCalled();
+    expect(audioDeleteOrphanedExpiredMock).toHaveBeenCalledWith(
+      ["fresh"],
+      30 * 24 * 60 * 60 * 1000,
+      now,
+    );
+    expect(deleted).toEqual([]);
+  });
 });

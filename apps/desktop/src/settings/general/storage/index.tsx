@@ -138,9 +138,11 @@ export function StorageSettingsView() {
 
 function AudioRetentionRow() {
   const audioRetention = useConfigValue("audio_retention") || "oneMonth";
-  const setAudioRetention = settings.UI.useSetValueCallback(
-    "audio_retention",
-    (value: string) => value,
+  const setAudioRetention = settings.UI.useSetPartialValuesCallback(
+    (value: string) => ({
+      audio_retention: value,
+      save_recordings: value !== "none",
+    }),
     [],
     settings.STORE_ID,
   );

@@ -39,6 +39,20 @@ export function sessionAudioExpired(
   return nowMs >= createdAtMs + AUDIO_RETENTION_DURATION_MS[policy];
 }
 
+function getAudioRetentionPolicy(settingsStore: settings.Store) {
+  const hasAudioRetention = settingsStore.hasValue("audio_retention");
+  const policy = normalizeAudioRetentionPolicy(
+    settingsStore.getValue("audio_retention"),
+  );
+  const saveRecordings = settingsStore.getValue("save_recordings");
+
+  if (!hasAudioRetention && saveRecordings === false) {
+    return "none";
+  }
+
+  return policy;
+}
+
 function sessionHasTranscriptWords(store: main.Store, sessionId: string) {
   let hasWords = false;
 
@@ -74,9 +88,7 @@ export async function cleanupExpiredAudio(
   settingsStore: settings.Store,
   nowMs = Date.now(),
 ) {
-  const policy = normalizeAudioRetentionPolicy(
-    settingsStore.getValue("audio_retention"),
-  );
+  const policy = getAudioRetentionPolicy(settingsStore);
   const deletes: Promise<void>[] = [];
   const knownSessionIds: string[] = [];
   const deletedSessionIds: string[] = [];
