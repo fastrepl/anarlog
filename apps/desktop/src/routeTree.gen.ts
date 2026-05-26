@@ -9,7 +9,6 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as FloatingRouteImport } from './routes/floating'
 import { Route as AppRouteRouteImport } from './routes/app/route'
 import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as AppOnboardingRouteImport } from './routes/app/onboarding'
@@ -18,11 +17,6 @@ import { Route as AppComposerRouteImport } from './routes/app/composer'
 import { Route as AppMainLayoutRouteImport } from './routes/app/main/_layout'
 import { Route as AppMainLayoutIndexRouteImport } from './routes/app/main/_layout.index'
 
-const FloatingRoute = FloatingRouteImport.update({
-  id: '/floating',
-  path: '/floating',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AppRouteRoute = AppRouteRouteImport.update({
   id: '/app',
   path: '/app',
@@ -61,7 +55,6 @@ const AppMainLayoutIndexRoute = AppMainLayoutIndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/app': typeof AppRouteRouteWithChildren
-  '/floating': typeof FloatingRoute
   '/app/composer': typeof AppComposerRoute
   '/app/instruction': typeof AppInstructionRoute
   '/app/onboarding': typeof AppOnboardingRoute
@@ -70,7 +63,6 @@ export interface FileRoutesByFullPath {
   '/app/main/': typeof AppMainLayoutIndexRoute
 }
 export interface FileRoutesByTo {
-  '/floating': typeof FloatingRoute
   '/app/composer': typeof AppComposerRoute
   '/app/instruction': typeof AppInstructionRoute
   '/app/onboarding': typeof AppOnboardingRoute
@@ -80,7 +72,6 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/app': typeof AppRouteRouteWithChildren
-  '/floating': typeof FloatingRoute
   '/app/composer': typeof AppComposerRoute
   '/app/instruction': typeof AppInstructionRoute
   '/app/onboarding': typeof AppOnboardingRoute
@@ -92,7 +83,6 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/app'
-    | '/floating'
     | '/app/composer'
     | '/app/instruction'
     | '/app/onboarding'
@@ -101,7 +91,6 @@ export interface FileRouteTypes {
     | '/app/main/'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/floating'
     | '/app/composer'
     | '/app/instruction'
     | '/app/onboarding'
@@ -110,7 +99,6 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/app'
-    | '/floating'
     | '/app/composer'
     | '/app/instruction'
     | '/app/onboarding'
@@ -121,18 +109,10 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AppRouteRoute: typeof AppRouteRouteWithChildren
-  FloatingRoute: typeof FloatingRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/floating': {
-      id: '/floating'
-      path: '/floating'
-      fullPath: '/floating'
-      preLoaderRoute: typeof FloatingRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/app': {
       id: '/app'
       path: '/app'
@@ -219,7 +199,6 @@ const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   AppRouteRoute: AppRouteRouteWithChildren,
-  FloatingRoute: FloatingRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

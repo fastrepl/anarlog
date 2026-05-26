@@ -4,366 +4,231 @@
 
 /** user-defined commands **/
 
+
 export const commands = {
-  async windowShow(window: AppWindow): Promise<Result<null, string>> {
+async windowShow(window: AppWindow) : Promise<Result<null, string>> {
     try {
-      return {
-        status: "ok",
-        data: await TAURI_INVOKE("plugin:windows|window_show", { window }),
-      };
-    } catch (e) {
-      if (e instanceof Error) throw e;
-      else return { status: "error", error: e as any };
-    }
-  },
-  async windowHide(window: AppWindow): Promise<Result<null, string>> {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:windows|window_show", { window }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async windowHide(window: AppWindow) : Promise<Result<null, string>> {
     try {
-      return {
-        status: "ok",
-        data: await TAURI_INVOKE("plugin:windows|window_hide", { window }),
-      };
-    } catch (e) {
-      if (e instanceof Error) throw e;
-      else return { status: "error", error: e as any };
-    }
-  },
-  async windowDestroy(window: AppWindow): Promise<Result<null, string>> {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:windows|window_hide", { window }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async windowDestroy(window: AppWindow) : Promise<Result<null, string>> {
     try {
-      return {
-        status: "ok",
-        data: await TAURI_INVOKE("plugin:windows|window_destroy", { window }),
-      };
-    } catch (e) {
-      if (e instanceof Error) throw e;
-      else return { status: "error", error: e as any };
-    }
-  },
-  async windowNavigate(
-    window: AppWindow,
-    path: string,
-  ): Promise<Result<null, string>> {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:windows|window_destroy", { window }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async windowNavigate(window: AppWindow, path: string) : Promise<Result<null, string>> {
     try {
-      return {
-        status: "ok",
-        data: await TAURI_INVOKE("plugin:windows|window_navigate", {
-          window,
-          path,
-        }),
-      };
-    } catch (e) {
-      if (e instanceof Error) throw e;
-      else return { status: "error", error: e as any };
-    }
-  },
-  async windowEmitNavigate(
-    window: AppWindow,
-    event: Navigate,
-  ): Promise<Result<null, string>> {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:windows|window_navigate", { window, path }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async windowEmitNavigate(window: AppWindow, event: Navigate) : Promise<Result<null, string>> {
     try {
-      return {
-        status: "ok",
-        data: await TAURI_INVOKE("plugin:windows|window_emit_navigate", {
-          window,
-          event,
-        }),
-      };
-    } catch (e) {
-      if (e instanceof Error) throw e;
-      else return { status: "error", error: e as any };
-    }
-  },
-  async windowIsExists(window: AppWindow): Promise<Result<boolean, string>> {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:windows|window_emit_navigate", { window, event }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async windowIsExists(window: AppWindow) : Promise<Result<boolean, string>> {
     try {
-      return {
-        status: "ok",
-        data: await TAURI_INVOKE("plugin:windows|window_is_exists", { window }),
-      };
-    } catch (e) {
-      if (e instanceof Error) throw e;
-      else return { status: "error", error: e as any };
-    }
-  },
-  async windowIsOccluded(window: AppWindow): Promise<Result<boolean, string>> {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:windows|window_is_exists", { window }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async windowIsOccluded(window: AppWindow) : Promise<Result<boolean, string>> {
     try {
-      return {
-        status: "ok",
-        data: await TAURI_INVOKE("plugin:windows|window_is_occluded", {
-          window,
-        }),
-      };
-    } catch (e) {
-      if (e instanceof Error) throw e;
-      else return { status: "error", error: e as any };
-    }
-  },
-  async windowSetFrameAnimated(
-    window: AppWindow,
-    anchor: Anchor,
-    width: number,
-    height: number,
-  ): Promise<Result<null, string>> {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:windows|window_is_occluded", { window }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async windowSetFrameAnimated(window: AppWindow, anchor: Anchor, width: number, height: number) : Promise<Result<null, string>> {
     try {
-      return {
-        status: "ok",
-        data: await TAURI_INVOKE("plugin:windows|window_set_frame_animated", {
-          window,
-          anchor,
-          width,
-          height,
-        }),
-      };
-    } catch (e) {
-      if (e instanceof Error) throw e;
-      else return { status: "error", error: e as any };
-    }
-  },
-  async windowSaveFrame(window: AppWindow): Promise<Result<null, string>> {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:windows|window_set_frame_animated", { window, anchor, width, height }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async windowSaveFrame(window: AppWindow) : Promise<Result<null, string>> {
     try {
-      return {
-        status: "ok",
-        data: await TAURI_INVOKE("plugin:windows|window_save_frame", {
-          window,
-        }),
-      };
-    } catch (e) {
-      if (e instanceof Error) throw e;
-      else return { status: "error", error: e as any };
-    }
-  },
-  async windowRestoreFrameAnimated(
-    window: AppWindow,
-  ): Promise<Result<null, string>> {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:windows|window_save_frame", { window }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async windowRestoreFrameAnimated(window: AppWindow) : Promise<Result<null, string>> {
     try {
-      return {
-        status: "ok",
-        data: await TAURI_INVOKE(
-          "plugin:windows|window_restore_frame_animated",
-          { window },
-        ),
-      };
-    } catch (e) {
-      if (e instanceof Error) throw e;
-      else return { status: "error", error: e as any };
-    }
-  },
-  async windowExpandWidth(
-    expansionPx: number,
-    maxCurrentWidth: number | null,
-    checkMonitorSpace: boolean,
-    expandLeft: boolean,
-  ): Promise<Result<null, string>> {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:windows|window_restore_frame_animated", { window }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async windowExpandWidth(expansionPx: number, maxCurrentWidth: number | null, checkMonitorSpace: boolean, expandLeft: boolean) : Promise<Result<null, string>> {
     try {
-      return {
-        status: "ok",
-        data: await TAURI_INVOKE("plugin:windows|window_expand_width", {
-          expansionPx,
-          maxCurrentWidth,
-          checkMonitorSpace,
-          expandLeft,
-        }),
-      };
-    } catch (e) {
-      if (e instanceof Error) throw e;
-      else return { status: "error", error: e as any };
-    }
-  },
-  async windowRestoreWidth(): Promise<Result<null, string>> {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:windows|window_expand_width", { expansionPx, maxCurrentWidth, checkMonitorSpace, expandLeft }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async windowRestoreWidth() : Promise<Result<null, string>> {
     try {
-      return {
-        status: "ok",
-        data: await TAURI_INVOKE("plugin:windows|window_restore_width"),
-      };
-    } catch (e) {
-      if (e instanceof Error) throw e;
-      else return { status: "error", error: e as any };
-    }
-  },
-  async floatingBarShow(): Promise<Result<null, string>> {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:windows|window_restore_width") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async floatingBarShow() : Promise<Result<null, string>> {
     try {
-      return {
-        status: "ok",
-        data: await TAURI_INVOKE("plugin:windows|floating_bar_show"),
-      };
-    } catch (e) {
-      if (e instanceof Error) throw e;
-      else return { status: "error", error: e as any };
-    }
-  },
-  async floatingBarHide(): Promise<Result<null, string>> {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:windows|floating_bar_show") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async floatingBarHide() : Promise<Result<null, string>> {
     try {
-      return {
-        status: "ok",
-        data: await TAURI_INVOKE("plugin:windows|floating_bar_hide"),
-      };
-    } catch (e) {
-      if (e instanceof Error) throw e;
-      else return { status: "error", error: e as any };
-    }
-  },
-  async floatingBarUpdate(
-    state: FloatingBarState,
-  ): Promise<Result<null, string>> {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:windows|floating_bar_hide") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async floatingBarUpdate(state: FloatingBarState) : Promise<Result<null, string>> {
     try {
-      return {
-        status: "ok",
-        data: await TAURI_INVOKE("plugin:windows|floating_bar_update", {
-          state,
-        }),
-      };
-    } catch (e) {
-      if (e instanceof Error) throw e;
-      else return { status: "error", error: e as any };
-    }
-  },
-};
+    return { status: "ok", data: await TAURI_INVOKE("plugin:windows|floating_bar_update", { state }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+}
+}
 
 /** user-defined events **/
 
+
 export const events = __makeEvents__<{
-  floatingBarOpenMain: FloatingBarOpenMain;
-  floatingBarStop: FloatingBarStop;
-  navigate: Navigate;
-  openTab: OpenTab;
-  visibilityEvent: VisibilityEvent;
-  windowDestroyed: WindowDestroyed;
+floatingBarOpenMain: FloatingBarOpenMain,
+floatingBarStop: FloatingBarStop,
+navigate: Navigate,
+openTab: OpenTab,
+visibilityEvent: VisibilityEvent,
+windowDestroyed: WindowDestroyed
 }>({
-  floatingBarOpenMain: "plugin:windows:floating-bar-open-main",
-  floatingBarStop: "plugin:windows:floating-bar-stop",
-  navigate: "plugin:windows:navigate",
-  openTab: "plugin:windows:open-tab",
-  visibilityEvent: "plugin:windows:visibility-event",
-  windowDestroyed: "plugin:windows:window-destroyed",
-});
+floatingBarOpenMain: "plugin:windows:floating-bar-open-main",
+floatingBarStop: "plugin:windows:floating-bar-stop",
+navigate: "plugin:windows:navigate",
+openTab: "plugin:windows:open-tab",
+visibilityEvent: "plugin:windows:visibility-event",
+windowDestroyed: "plugin:windows:window-destroyed"
+})
 
 /** user-defined constants **/
 
+
+
 /** user-defined types **/
 
-export type Anchor =
-  | "TopRight"
-  | "TopLeft"
-  | "BottomRight"
-  | "BottomLeft"
-  | "Center";
-export type AppWindow =
-  | { type: "main" }
-  | { type: "composer" }
-  | { type: "floating" };
-export type ChangelogState = { previous: string | null; current: string };
-export type ContactsSelection =
-  | { type: "person"; id: string }
-  | { type: "organization"; id: string };
-export type ContactsState = { selected: ContactsSelection | null };
-export type EditorView =
-  | { type: "raw" }
-  | { type: "transcript" }
-  | { type: "enhanced"; id: string }
-  | { type: "attachments" };
-export type ExtensionsState = { selectedExtension: string | null };
-export type FloatingBarOpenMain = Record<string, never>;
-export type FloatingBarState = { amplitude: number; degraded: boolean };
-export type FloatingBarStop = Record<string, never>;
-export type JsonValue =
-  | null
-  | boolean
-  | number
-  | string
-  | JsonValue[]
-  | Partial<{ [key in string]: JsonValue }>;
-export type Navigate = {
-  path: string;
-  search: Partial<{ [key in string]: JsonValue }> | null;
-};
-export type OpenTab = { tab: TabInput };
-export type SessionsState = {
-  view: EditorView | null;
-  autoStart: boolean | null;
-};
-export type SettingsState = { tab: string | null };
-export type TabInput =
-  | { type: "sessions"; id: string; state?: SessionsState | null }
-  | { type: "contacts"; state?: ContactsState | null }
-  | { type: "templates"; state?: TemplatesState | null }
-  | { type: "extensions"; state?: ExtensionsState | null }
-  | { type: "humans"; id: string }
-  | { type: "organizations"; id: string }
-  | { type: "folders"; id: string | null }
-  | { type: "empty" }
-  | {
-      type: "extension";
-      extensionId: string;
-      state?: Partial<{ [key in string]: JsonValue }> | null;
-    }
-  | { type: "calendar" }
-  | { type: "changelog"; state: ChangelogState }
-  | { type: "settings"; state?: SettingsState | null }
-  | { type: "onboarding" }
-  | { type: "edit"; requestId: string };
-export type TemplatesState = {
-  showHomepage: boolean | null;
-  isWebMode: boolean | null;
-  selectedMineId: string | null;
-  selectedWebIndex: number | null;
-};
-export type VisibilityEvent = { window: AppWindow; visible: boolean };
-export type WindowDestroyed = { window: AppWindow };
+export type Anchor = "TopRight" | "TopLeft" | "BottomRight" | "BottomLeft" | "Center"
+export type AppWindow = { type: "main" } | { type: "composer" }
+export type ChangelogState = { previous: string | null; current: string }
+export type ContactsSelection = { type: "person"; id: string } | { type: "organization"; id: string }
+export type ContactsState = { selected: ContactsSelection | null }
+export type EditorView = { type: "raw" } | { type: "transcript" } | { type: "enhanced"; id: string } | { type: "attachments" }
+export type ExtensionsState = { selectedExtension: string | null }
+export type FloatingBarOpenMain = Record<string, never>
+export type FloatingBarState = { amplitude: number; degraded: boolean }
+export type FloatingBarStop = Record<string, never>
+export type JsonValue = null | boolean | number | string | JsonValue[] | Partial<{ [key in string]: JsonValue }>
+export type Navigate = { path: string; search: Partial<{ [key in string]: JsonValue }> | null }
+export type OpenTab = { tab: TabInput }
+export type SessionsState = { view: EditorView | null; autoStart: boolean | null }
+export type SettingsState = { tab: string | null }
+export type TabInput = { type: "sessions"; id: string; state?: SessionsState | null } | { type: "contacts"; state?: ContactsState | null } | { type: "templates"; state?: TemplatesState | null } | { type: "extensions"; state?: ExtensionsState | null } | { type: "humans"; id: string } | { type: "organizations"; id: string } | { type: "folders"; id: string | null } | { type: "empty" } | { type: "extension"; extensionId: string; state?: Partial<{ [key in string]: JsonValue }> | null } | { type: "calendar" } | { type: "changelog"; state: ChangelogState } | { type: "settings"; state?: SettingsState | null } | { type: "onboarding" } | { type: "edit"; requestId: string }
+export type TemplatesState = { showHomepage: boolean | null; isWebMode: boolean | null; selectedMineId: string | null; selectedWebIndex: number | null }
+export type VisibilityEvent = { window: AppWindow; visible: boolean }
+export type WindowDestroyed = { window: AppWindow }
 
 /** tauri-specta globals **/
 
 import {
-  invoke as TAURI_INVOKE,
-  Channel as TAURI_CHANNEL,
+	invoke as TAURI_INVOKE,
+	Channel as TAURI_CHANNEL,
 } from "@tauri-apps/api/core";
 import * as TAURI_API_EVENT from "@tauri-apps/api/event";
 import { type WebviewWindow as __WebviewWindow__ } from "@tauri-apps/api/webviewWindow";
 
 type __EventObj__<T> = {
-  listen: (
-    cb: TAURI_API_EVENT.EventCallback<T>,
-  ) => ReturnType<typeof TAURI_API_EVENT.listen<T>>;
-  once: (
-    cb: TAURI_API_EVENT.EventCallback<T>,
-  ) => ReturnType<typeof TAURI_API_EVENT.once<T>>;
-  emit: null extends T
-    ? (payload?: T) => ReturnType<typeof TAURI_API_EVENT.emit>
-    : (payload: T) => ReturnType<typeof TAURI_API_EVENT.emit>;
+	listen: (
+		cb: TAURI_API_EVENT.EventCallback<T>,
+	) => ReturnType<typeof TAURI_API_EVENT.listen<T>>;
+	once: (
+		cb: TAURI_API_EVENT.EventCallback<T>,
+	) => ReturnType<typeof TAURI_API_EVENT.once<T>>;
+	emit: null extends T
+		? (payload?: T) => ReturnType<typeof TAURI_API_EVENT.emit>
+		: (payload: T) => ReturnType<typeof TAURI_API_EVENT.emit>;
 };
 
 export type Result<T, E> =
-  | { status: "ok"; data: T }
-  | { status: "error"; error: E };
+	| { status: "ok"; data: T }
+	| { status: "error"; error: E };
 
 function __makeEvents__<T extends Record<string, any>>(
-  mappings: Record<keyof T, string>,
+	mappings: Record<keyof T, string>,
 ) {
-  return new Proxy(
-    {} as unknown as {
-      [K in keyof T]: __EventObj__<T[K]> & {
-        (handle: __WebviewWindow__): __EventObj__<T[K]>;
-      };
-    },
-    {
-      get: (_, event) => {
-        const name = mappings[event as keyof T];
+	return new Proxy(
+		{} as unknown as {
+			[K in keyof T]: __EventObj__<T[K]> & {
+				(handle: __WebviewWindow__): __EventObj__<T[K]>;
+			};
+		},
+		{
+			get: (_, event) => {
+				const name = mappings[event as keyof T];
 
-        return new Proxy((() => {}) as any, {
-          apply: (_, __, [window]: [__WebviewWindow__]) => ({
-            listen: (arg: any) => window.listen(name, arg),
-            once: (arg: any) => window.once(name, arg),
-            emit: (arg: any) => window.emit(name, arg),
-          }),
-          get: (_, command: keyof __EventObj__<any>) => {
-            switch (command) {
-              case "listen":
-                return (arg: any) => TAURI_API_EVENT.listen(name, arg);
-              case "once":
-                return (arg: any) => TAURI_API_EVENT.once(name, arg);
-              case "emit":
-                return (arg: any) => TAURI_API_EVENT.emit(name, arg);
-            }
-          },
-        });
-      },
-    },
-  );
+				return new Proxy((() => {}) as any, {
+					apply: (_, __, [window]: [__WebviewWindow__]) => ({
+						listen: (arg: any) => window.listen(name, arg),
+						once: (arg: any) => window.once(name, arg),
+						emit: (arg: any) => window.emit(name, arg),
+					}),
+					get: (_, command: keyof __EventObj__<any>) => {
+						switch (command) {
+							case "listen":
+								return (arg: any) => TAURI_API_EVENT.listen(name, arg);
+							case "once":
+								return (arg: any) => TAURI_API_EVENT.once(name, arg);
+							case "emit":
+								return (arg: any) => TAURI_API_EVENT.emit(name, arg);
+						}
+					},
+				});
+			},
+		},
+	);
 }

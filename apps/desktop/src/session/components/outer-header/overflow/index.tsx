@@ -23,6 +23,7 @@ import { Copy, ShowInFinder } from "./misc";
 import { useAudioPlayer } from "~/audio-player";
 import { openFloatingMeetingPanel } from "~/meeting-float/host";
 import { useHasTranscript } from "~/session/components/shared";
+import { useConfigValue } from "~/shared/config";
 import type { EditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
 
@@ -38,15 +39,20 @@ export function OverflowButton({
   const hasTranscript = useHasTranscript(sessionId);
   const { audioExists } = useAudioPlayer();
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
+  const floatingBarEnabled = useConfigValue("floating_bar_enabled");
   const canOpenFloatingPanel =
-    sessionMode === "active" || sessionMode === "finalizing";
+    floatingBarEnabled &&
+    (sessionMode === "active" || sessionMode === "finalizing");
   const openExportModal = () => {
     setOpen(false);
     requestAnimationFrame(() => setIsExportModalOpen(true));
   };
   const handleOpenFloatingPanel = () => {
     setOpen(false);
-    void openFloatingMeetingPanel(sessionId);
+    void openFloatingMeetingPanel({
+      sessionId,
+      enabled: floatingBarEnabled,
+    });
   };
 
   return (

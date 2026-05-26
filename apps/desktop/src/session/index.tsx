@@ -23,6 +23,7 @@ import { getSessionTabStatus } from "./tab-visual-state";
 import { useTitleGeneration } from "~/ai/hooks";
 import * as AudioPlayer from "~/audio-player";
 import { openFloatingMeetingPanel } from "~/meeting-float/host";
+import { useConfigValue } from "~/shared/config";
 import { type TabItem, TabItemBase } from "~/shared/tabs";
 import * as main from "~/store/tinybase/store/main";
 import { useSessionTitle } from "~/store/zustand/live-title";
@@ -55,6 +56,7 @@ export const TabItemNote: TabItem<Extract<Tab, { type: "sessions" }>> = ({
   const sessionMode = useListener((state) => state.getSessionMode(tab.id));
   const stop = useListener((state) => state.stop);
   const degraded = useListener((state) => state.live.degraded);
+  const floatingBarEnabled = useConfigValue("floating_bar_enabled");
   const isEnhancing = useIsSessionEnhancing(tab.id);
   const status = getSessionTabStatus(
     sessionMode,
@@ -84,8 +86,11 @@ export const TabItemNote: TabItem<Extract<Tab, { type: "sessions" }>> = ({
     handleCloseThis(tab);
   }, [isActive, stop, tab, handleCloseThis]);
   const handleOpenFloatingPanel = useCallback(() => {
-    void openFloatingMeetingPanel(tab.id);
-  }, [tab.id]);
+    void openFloatingMeetingPanel({
+      sessionId: tab.id,
+      enabled: floatingBarEnabled,
+    });
+  }, [floatingBarEnabled, tab.id]);
 
   return (
     <SessionPreviewCard sessionId={tab.id} side="bottom" enabled={!tab.active}>
@@ -97,7 +102,7 @@ export const TabItemNote: TabItem<Extract<Tab, { type: "sessions" }>> = ({
         pinned={tab.pinned}
         tabIndex={tabIndex}
         hoverAction={
-          isActive
+          isActive && floatingBarEnabled
             ? {
                 icon: <PictureInPicture2Icon size={14} />,
                 label: "Open floating panel",

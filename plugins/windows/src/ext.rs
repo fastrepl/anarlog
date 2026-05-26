@@ -204,16 +204,6 @@ impl AppWindow {
             return Ok(());
         }
 
-        if matches!(self, Self::Floating) {
-            crate::window::floating::hide(app)?;
-            let _ = events::VisibilityEvent {
-                window: self.clone(),
-                visible: false,
-            }
-            .emit(app);
-            return Ok(());
-        }
-
         if let Some(window) = self.get(app) {
             window.hide()?;
             let _ = events::VisibilityEvent {
@@ -268,14 +258,6 @@ impl AppWindow {
             };
         }
 
-        if matches!(self, Self::Floating) {
-            return if self.get(app).is_some() {
-                crate::window::floating::show(app).map(Some)
-            } else {
-                Ok(None)
-            };
-        }
-
         if let Some(window) = self.get(app) {
             window.show()?;
             window.set_focus()?;
@@ -287,15 +269,10 @@ impl AppWindow {
     fn finalize_show(&self, window: &WebviewWindow) -> Result<(), crate::Error> {
         use tauri_plugin_window_state::{StateFlags, WindowExt};
 
-        let _ = self;
-        if !matches!(self, Self::Floating) {
-            let _ = window.restore_state(StateFlags::SIZE);
-        }
+        let _ = window.restore_state(StateFlags::SIZE);
 
         window.show()?;
-        if !matches!(self, Self::Floating) {
-            window.set_focus()?;
-        }
+        window.set_focus()?;
 
         Ok(())
     }
@@ -308,18 +285,6 @@ impl AppWindow {
 
         if matches!(self, Self::Composer) {
             let window = crate::window::composer::show(app)?;
-
-            let _ = events::VisibilityEvent {
-                window: self.clone(),
-                visible: true,
-            }
-            .emit(app);
-
-            return Ok(window);
-        }
-
-        if matches!(self, Self::Floating) {
-            let window = crate::window::floating::show(app)?;
 
             let _ = events::VisibilityEvent {
                 window: self.clone(),
@@ -359,28 +324,6 @@ impl AppWindow {
 
         if matches!(self, Self::Composer) {
             let window = crate::window::composer::show(app)?;
-
-            let _ = events::VisibilityEvent {
-                window: self.clone(),
-                visible: true,
-            }
-            .emit(app);
-
-            return Ok(window);
-        }
-
-        if matches!(self, Self::Floating) {
-            let ready_rx = if self.get(app).is_none() {
-                app.try_state::<WindowReadyState>()
-                    .map(|state| state.register(self.label()))
-            } else {
-                None
-            };
-            let window = crate::window::floating::show(app)?;
-
-            if let Some(rx) = ready_rx {
-                let _ = tokio::time::timeout(std::time::Duration::from_secs(2), rx).await;
-            }
 
             let _ = events::VisibilityEvent {
                 window: self.clone(),

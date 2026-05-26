@@ -25,27 +25,27 @@ msgstr "음성 언어 추가"
 msgid "Additional spoken languages"
 msgstr "추가 음성 언어"
 
-#: src/settings/general/index.tsx:153
+#: src/settings/general/index.tsx:158
 msgid "Always ready without manually launching."
 msgstr "수동으로 실행하지 않아도 항상 준비됩니다."
 
-#: src/settings/general/app-settings.tsx:28
+#: src/settings/general/app-settings.tsx:30
 msgid "App"
 msgstr "앱"
 
-#: src/settings/general/index.tsx:159
+#: src/settings/general/index.tsx:165
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "일정에 연결된 노트의 시작 시간이 되면 자동으로 듣기를 시작합니다."
 
-#: src/settings/general/index.tsx:166
+#: src/settings/general/index.tsx:175
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "회의 앱이 마이크를 해제하면 자동으로 듣기를 중지합니다."
 
-#: src/settings/general/index.tsx:241
+#: src/settings/general/index.tsx:259
 msgid "Data"
 msgstr "데이터"
 
-#: src/settings/general/index.tsx:190
+#: src/settings/general/index.tsx:208
 msgid "Language & Region"
 msgstr "언어 및 지역"
 
@@ -62,7 +62,7 @@ msgstr "기본 언어"
 msgid "No matching languages found"
 msgstr "일치하는 언어를 찾을 수 없습니다"
 
-#: src/settings/general/index.tsx:253
+#: src/settings/general/index.tsx:271
 msgid "Notifications"
 msgstr "알림"
 
@@ -74,7 +74,7 @@ msgstr "언어 검색..."
 msgid "Select language"
 msgstr "언어 선택"
 
-#: src/settings/general/index.tsx:173
+#: src/settings/general/index.tsx:189
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Anarlog 개선을 위해 익명 사용 분석을 보냅니다."
 
@@ -82,19 +82,27 @@ msgstr "Anarlog 개선을 위해 익명 사용 분석을 보냅니다."
 msgid "Settings"
 msgstr "설정"
 
-#: src/settings/general/index.tsx:172
+#: src/settings/general/index.tsx:188
 msgid "Share usage data"
 msgstr "사용 데이터 공유"
 
-#: src/settings/general/index.tsx:152
+#: src/settings/general/index.tsx:181
+msgid "Show floating bar"
+msgstr ""
+
+#: src/settings/general/index.tsx:182
+msgid "Show the compact floating control while listening."
+msgstr ""
+
+#: src/settings/general/index.tsx:157
 msgid "Start Anarlog at login"
 msgstr "로그인 시 Anarlog 시작"
 
-#: src/settings/general/index.tsx:158
+#: src/settings/general/index.tsx:164
 msgid "Start when meeting begins"
 msgstr "회의 시작 시 시작"
 
-#: src/settings/general/index.tsx:165
+#: src/settings/general/index.tsx:174
 msgid "Stop when meeting ends"
 msgstr "회의 종료 시 중지"
 

@@ -28,6 +28,7 @@ function useSettingsForm() {
     "autostart",
     "auto_start_scheduled_meetings",
     "auto_stop_meetings",
+    "floating_bar_enabled",
     "notification_detect",
     "telemetry_consent",
     "ai_language",
@@ -64,6 +65,7 @@ function useSettingsForm() {
       autostart: value.autostart,
       auto_start_scheduled_meetings: value.auto_start_scheduled_meetings,
       auto_stop_meetings: value.auto_stop_meetings,
+      floating_bar_enabled: value.floating_bar_enabled,
       notification_detect: value.notification_detect,
       telemetry_consent: value.telemetry_consent,
       ai_language: value.ai_language,
@@ -106,6 +108,7 @@ function useSettingsForm() {
         auto_start_scheduled_meetings:
           normalizedValue.auto_start_scheduled_meetings,
         auto_stop_meetings: normalizedValue.auto_stop_meetings,
+        floating_bar_enabled: normalizedValue.floating_bar_enabled,
         notification_detect: normalizedValue.notification_detect,
         telemetry_consent: normalizedValue.telemetry_consent,
       });
@@ -145,37 +148,52 @@ export function SettingsApp() {
             {(autoStartScheduledMeetingsField) => (
               <form.Field name="auto_stop_meetings">
                 {(autoStopMeetingsField) => (
-                  <form.Field name="telemetry_consent">
-                    {(telemetryConsentField) => (
-                      <AppSettingsView
-                        autostart={{
-                          title: t`Start Anarlog at login`,
-                          description: t`Always ready without manually launching.`,
-                          value: autostartField.state.value,
-                          onChange: (val) => autostartField.handleChange(val),
-                        }}
-                        autoStartScheduledMeetings={{
-                          title: t`Start when meeting begins`,
-                          description: t`Automatically start listening when an event-backed note reaches its scheduled start time.`,
-                          value: autoStartScheduledMeetingsField.state.value,
-                          onChange: (val) =>
-                            autoStartScheduledMeetingsField.handleChange(val),
-                        }}
-                        autoStopMeetings={{
-                          title: t`Stop when meeting ends`,
-                          description: t`Automatically stop listening when the meeting app releases the microphone.`,
-                          value: autoStopMeetingsField.state.value,
-                          onChange: (val) =>
-                            autoStopMeetingsField.handleChange(val),
-                        }}
-                        telemetryConsent={{
-                          title: t`Share usage data`,
-                          description: t`Send anonymous usage analytics to help improve Anarlog.`,
-                          value: telemetryConsentField.state.value,
-                          onChange: (val) =>
-                            telemetryConsentField.handleChange(val),
-                        }}
-                      />
+                  <form.Field name="floating_bar_enabled">
+                    {(floatingBarEnabledField) => (
+                      <form.Field name="telemetry_consent">
+                        {(telemetryConsentField) => (
+                          <AppSettingsView
+                            autostart={{
+                              title: t`Start Anarlog at login`,
+                              description: t`Always ready without manually launching.`,
+                              value: autostartField.state.value,
+                              onChange: (val) =>
+                                autostartField.handleChange(val),
+                            }}
+                            autoStartScheduledMeetings={{
+                              title: t`Start when meeting begins`,
+                              description: t`Automatically start listening when an event-backed note reaches its scheduled start time.`,
+                              value:
+                                autoStartScheduledMeetingsField.state.value,
+                              onChange: (val) =>
+                                autoStartScheduledMeetingsField.handleChange(
+                                  val,
+                                ),
+                            }}
+                            autoStopMeetings={{
+                              title: t`Stop when meeting ends`,
+                              description: t`Automatically stop listening when the meeting app releases the microphone.`,
+                              value: autoStopMeetingsField.state.value,
+                              onChange: (val) =>
+                                autoStopMeetingsField.handleChange(val),
+                            }}
+                            floatingBar={{
+                              title: t`Show floating bar`,
+                              description: t`Show the compact floating control while listening.`,
+                              value: floatingBarEnabledField.state.value,
+                              onChange: (val) =>
+                                floatingBarEnabledField.handleChange(val),
+                            }}
+                            telemetryConsent={{
+                              title: t`Share usage data`,
+                              description: t`Send anonymous usage analytics to help improve Anarlog.`,
+                              value: telemetryConsentField.state.value,
+                              onChange: (val) =>
+                                telemetryConsentField.handleChange(val),
+                            }}
+                          />
+                        )}
+                      </form.Field>
                     )}
                   </form.Field>
                 )}

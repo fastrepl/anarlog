@@ -92,7 +92,7 @@ final class FloatingBarManager {
 
     let frame = screen.visibleFrame
     let x = frame.maxX - FloatingBarLayout.containerWidth - FloatingBarLayout.screenMargin
-    let y = frame.minY + FloatingBarLayout.screenMargin
+    let y = frame.midY - FloatingBarLayout.containerHeight / 2
     panel.setFrameOrigin(NSPoint(x: x, y: y))
     activeScreenId = screenId
   }

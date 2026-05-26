@@ -3,19 +3,9 @@ import {
   events as windowsEvents,
 } from "@hypr/plugin-windows";
 
+import { useConfigValue } from "~/shared/config";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { listenerStore } from "~/store/zustand/listener/instance";
-
-const FLOATING_WINDOW = { type: "floating" } as const;
-
-export const FLOATING_MEETING_PANEL_MARGIN = 4;
-
-const FLOATING_MEETING_PANEL_PANE_SIZE = { width: 116, height: 40 } as const;
-
-export const FLOATING_MEETING_PANEL_SIZE = withPanelMargin(
-  FLOATING_MEETING_PANEL_PANE_SIZE,
-  FLOATING_MEETING_PANEL_MARGIN,
-);
 
 type ListenerState = ReturnType<typeof listenerStore.getState>;
 type FloatingRouteState = {
@@ -25,6 +15,24 @@ type FloatingRouteState = {
 };
 
 export function FloatingMeetingWindowHost() {
+  const floatingBarEnabled = useConfigValue("floating_bar_enabled");
+
+  if (!floatingBarEnabled) {
+    return <FloatingMeetingWindowDisabled />;
+  }
+
+  return <FloatingMeetingWindowSync />;
+}
+
+function FloatingMeetingWindowDisabled() {
+  useMountEffect(() => {
+    void hideFloatingMeetingPanel();
+  });
+
+  return null;
+}
+
+function FloatingMeetingWindowSync() {
   useMountEffect(() => {
     let routeState = getFloatingRouteState(listenerStore.getState());
     let syncQueued = false;
@@ -33,7 +41,13 @@ export function FloatingMeetingWindowHost() {
     let nativeCommandsUnavailable = false;
     const unlisteners: Array<() => void> = [];
 
+    const shouldContinue = () => !cancelled;
+
     const sync = async () => {
+      if (!shouldContinue()) {
+        return;
+      }
+
       if (nativeCommandsUnavailable && routeState) {
         return;
       }
@@ -41,7 +55,13 @@ export function FloatingMeetingWindowHost() {
       const nextShownSessionId = await syncFloatingMeetingWindow(
         routeState,
         shownSessionId,
+        shouldContinue,
       );
+      if (!shouldContinue()) {
+        await hideFloatingMeetingPanel();
+        return;
+      }
+
       if (nextShownSessionId === "unavailable") {
         nativeCommandsUnavailable = true;
         return;
@@ -158,7 +178,12 @@ function isSameFloatingRouteState(
 async function syncFloatingMeetingWindow(
   routeState: FloatingRouteState | null,
   shownSessionId: string | null,
+  shouldContinue: () => boolean,
 ): Promise<string | null | "unavailable"> {
+  if (!shouldContinue()) {
+    return null;
+  }
+
   if (!routeState) {
     await hideFloatingMeetingPanel();
     return null;
@@ -167,16 +192,32 @@ async function syncFloatingMeetingWindow(
   const ready = await showFloatingMeetingWindow(
     routeState,
     shownSessionId !== routeState.sessionId,
+    shouldContinue,
   );
+  if (!shouldContinue()) {
+    await hideFloatingMeetingPanel();
+    return null;
+  }
+
   return ready ? routeState.sessionId : "unavailable";
 }
 
 async function showFloatingMeetingWindow(
   routeState: FloatingRouteState,
   shouldShow: boolean,
+  shouldContinue: () => boolean = () => true,
 ): Promise<boolean> {
+  if (!shouldContinue()) {
+    return false;
+  }
+
   if (shouldShow) {
     const showResult = await windowsCommands.floatingBarShow();
+    if (!shouldContinue()) {
+      await hideFloatingMeetingPanel();
+      return false;
+    }
+
     if (showResult.status === "error") {
       console.error("Failed to show floating meeting panel:", showResult.error);
       return false;
@@ -187,6 +228,11 @@ async function showFloatingMeetingWindow(
     amplitude: routeState.amplitude,
     degraded: routeState.degraded,
   });
+  if (!shouldContinue()) {
+    await hideFloatingMeetingPanel();
+    return false;
+  }
+
   if (updateResult.status === "error") {
     console.error(
       "Failed to update floating meeting panel:",
@@ -198,7 +244,18 @@ async function showFloatingMeetingWindow(
   return true;
 }
 
-export async function openFloatingMeetingPanel(sessionId?: string) {
+export async function openFloatingMeetingPanel({
+  sessionId,
+  enabled,
+}: {
+  sessionId?: string;
+  enabled: boolean;
+}) {
+  if (!enabled) {
+    await hideFloatingMeetingPanel();
+    return;
+  }
+
   const routeState = getFloatingRouteState(listenerStore.getState(), sessionId);
 
   if (!routeState) {
@@ -213,28 +270,4 @@ export async function hideFloatingMeetingPanel() {
   if (result.status === "error") {
     console.error("Failed to hide floating meeting panel:", result.error);
   }
-}
-
-export async function resizeFloatingMeetingPanel() {
-  const size = FLOATING_MEETING_PANEL_SIZE;
-  const result = await windowsCommands.windowSetFrameAnimated(
-    FLOATING_WINDOW,
-    "BottomRight",
-    size.width,
-    size.height,
-  );
-
-  if (result.status === "error") {
-    console.error("Failed to resize floating meeting panel:", result.error);
-  }
-}
-
-function withPanelMargin(
-  size: { width: number; height: number },
-  margin: number,
-) {
-  return {
-    width: size.width + margin * 2,
-    height: size.height + margin * 2,
-  };
 }

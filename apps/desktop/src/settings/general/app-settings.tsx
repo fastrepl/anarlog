@@ -13,6 +13,7 @@ interface AppSettingsViewProps {
   autostart: SettingItem;
   autoStartScheduledMeetings: SettingItem;
   autoStopMeetings: SettingItem;
+  floatingBar: SettingItem;
   telemetryConsent: SettingItem;
 }
 
@@ -20,6 +21,7 @@ export function AppSettingsView({
   autostart,
   autoStartScheduledMeetings,
   autoStopMeetings,
+  floatingBar,
   telemetryConsent,
 }: AppSettingsViewProps) {
   return (
@@ -45,6 +47,12 @@ export function AppSettingsView({
           description={autoStopMeetings.description}
           checked={autoStopMeetings.value}
           onChange={autoStopMeetings.onChange}
+        />
+        <SettingRow
+          title={floatingBar.title}
+          description={floatingBar.description}
+          checked={floatingBar.value}
+          onChange={floatingBar.onChange}
         />
         <SettingRow
           title={telemetryConsent.title}
