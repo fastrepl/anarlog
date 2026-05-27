@@ -33,7 +33,7 @@ export const DEFAULT_RESULT: ListModelsResult = {
 };
 export const REQUEST_TIMEOUT = "5 seconds";
 
-export const commonIgnoreKeywords = [
+const commonIgnoreKeywords = [
   "embed",
   "sora",
   "tts",

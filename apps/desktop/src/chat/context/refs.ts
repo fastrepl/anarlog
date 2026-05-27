@@ -8,7 +8,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 const validSources: ReadonlySet<string> = new Set(CONTEXT_ENTITY_SOURCES);
 
-export function isContextRef(value: unknown): value is ContextRef {
+function isContextRef(value: unknown): value is ContextRef {
   if (!isRecord(value) || typeof value.key !== "string") {
     return false;
   }
@@ -35,7 +35,7 @@ export function isContextRef(value: unknown): value is ContextRef {
   return false;
 }
 
-export function getContextRefs(metadata: unknown): ContextRef[] {
+function getContextRefs(metadata: unknown): ContextRef[] {
   if (!isRecord(metadata) || !Array.isArray(metadata.contextRefs)) {
     return [];
   }

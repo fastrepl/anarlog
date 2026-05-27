@@ -1,4 +1,4 @@
-import { useCallback, useRef } from "react";
+import { useCallback } from "react";
 
 import { useCreateChatMessage } from "./useCreateChatMessage";
 
@@ -72,21 +72,4 @@ export function useChatActions({
   );
 
   return { handleSendMessage };
-}
-
-export function useStableSessionId(groupId: string | undefined) {
-  const sessionIdRef = useRef<string>(groupId ?? id());
-  const lastGroupIdRef = useRef<string | undefined>(groupId);
-
-  if (groupId !== lastGroupIdRef.current) {
-    const isFirstGroupCreation =
-      lastGroupIdRef.current === undefined && groupId !== undefined;
-    lastGroupIdRef.current = groupId;
-
-    if (!isFirstGroupCreation) {
-      sessionIdRef.current = groupId ?? id();
-    }
-  }
-
-  return sessionIdRef.current;
 }

@@ -173,16 +173,6 @@ export function OnboardingAnarlogIcon() {
   );
 }
 
-export function Divider({ text }: { text: string }) {
-  return (
-    <div className="flex items-center gap-3">
-      <div className="h-px flex-1 bg-neutral-200" />
-      <span className="text-sm text-neutral-500">{text}</span>
-      <div className="h-px flex-1 bg-neutral-200" />
-    </div>
-  );
-}
-
 export function StepRow({
   status,
   label,

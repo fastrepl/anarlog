@@ -85,9 +85,6 @@ importers:
       '@ai-sdk/google-vertex':
         specifier: ^4.0.108
         version: 4.0.108(zod@4.3.6)
-      '@ai-sdk/mcp':
-        specifier: ^1.0.36
-        version: 1.0.36(zod@4.3.6)
       '@ai-sdk/mistral':
         specifier: ^3.0.30
         version: 3.0.30(zod@4.3.6)
@@ -157,9 +154,6 @@ importers:
       '@hypr/plugin-analytics':
         specifier: workspace:*
         version: link:../../plugins/analytics
-      '@hypr/plugin-audio-priority':
-        specifier: workspace:*
-        version: link:../../plugins/audio-priority
       '@hypr/plugin-auth':
         specifier: workspace:*
         version: link:../../plugins/auth
@@ -217,9 +211,6 @@ importers:
       '@hypr/plugin-misc':
         specifier: workspace:*
         version: link:../../plugins/misc
-      '@hypr/plugin-network':
-        specifier: workspace:*
-        version: link:../../plugins/network
       '@hypr/plugin-notification':
         specifier: workspace:*
         version: link:../../plugins/notification
@@ -2002,12 +1993,6 @@ packages:
 
   '@ai-sdk/google@3.0.62':
     resolution: {integrity: sha512-cC9HAjR5WZxjqGyEJrJqFTlVqyPE9UOFmmGdf5dINaimgfPmzqXYN1qTYEJ+1knbyTVsNMub0KAF5SOqqtO8IQ==}
-    engines: {node: '>=18'}
-    peerDependencies:
-      zod: ^3.25.76 || ^4.1.8
-
-  '@ai-sdk/mcp@1.0.36':
-    resolution: {integrity: sha512-THQKwlknp7OU2ViLPfIU7W01XvDRM2eqH+4UULQgP64AopnwI9mGqqJeGIx2l/pxUu9yIDQtW9YtYM8kHm2CQg==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -13214,10 +13199,6 @@ packages:
     resolution: {integrity: sha512-r34yH/GlQpKZbU1BvFFqOjhISRo1MNx1tWYsYvmj6KIRHSPMT2+yHOEb1SG6NMvRoHRF0a07kCOox/9yakl1vg==}
     hasBin: true
 
-  pkce-challenge@5.0.1:
-    resolution: {integrity: sha512-wQ0b/W4Fr01qtpHlqSqspcj3EhBvimsdh0KlHhH8HRZnMsEa0ea2fTULOXOS9ccQr3om+GcGRk4e+isrZWV8qQ==}
-    engines: {node: '>=16.20.0'}
-
   pkg-types@1.3.1:
     resolution: {integrity: sha512-/Jm5M4RvtBFVkKWRu2BLUTNP8/M2a+UwuAX+ae4770q1qVGtfjG+WTCupoZixokjmHiry8uI+dlY8KXYV5HVVQ==}
 
@@ -16016,13 +15997,6 @@ snapshots:
     dependencies:
       '@ai-sdk/provider': 3.0.8
       '@ai-sdk/provider-utils': 4.0.23(zod@4.3.6)
-      zod: 4.3.6
-
-  '@ai-sdk/mcp@1.0.36(zod@4.3.6)':
-    dependencies:
-      '@ai-sdk/provider': 3.0.8
-      '@ai-sdk/provider-utils': 4.0.23(zod@4.3.6)
-      pkce-challenge: 5.0.1
       zod: 4.3.6
 
   '@ai-sdk/mistral@3.0.30(zod@4.3.6)':
@@ -29413,8 +29387,6 @@ snapshots:
       safe-stable-stringify: 2.5.0
       sonic-boom: 4.2.1
       thread-stream: 4.0.0
-
-  pkce-challenge@5.0.1: {}
 
   pkg-types@1.3.1:
     dependencies:

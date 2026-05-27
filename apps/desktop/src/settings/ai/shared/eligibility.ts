@@ -87,27 +87,3 @@ export type EligibilityBlocker =
   | { code: "missing_config"; fields: Array<"base_url" | "api_key"> }
   | { code: "model_not_downloaded"; modelId: string }
   | { code: "unsupported_platform"; required: "apple_silicon" };
-
-export type EligibilityAction =
-  | { kind: "sign_in" }
-  | { kind: "upgrade_to_pro" }
-  | { kind: "open_provider_settings"; providerId: string }
-  | { kind: "download_model"; modelId: string };
-
-export function getActionForBlocker(
-  blocker: EligibilityBlocker,
-  providerId?: string,
-): EligibilityAction | null {
-  switch (blocker.code) {
-    case "requires_auth":
-      return { kind: "sign_in" };
-    case "requires_entitlement":
-      return { kind: "upgrade_to_pro" };
-    case "missing_config":
-      return providerId ? { kind: "open_provider_settings", providerId } : null;
-    case "model_not_downloaded":
-      return { kind: "download_model", modelId: blocker.modelId };
-    default:
-      return null;
-  }
-}

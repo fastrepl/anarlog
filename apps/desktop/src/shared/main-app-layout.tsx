@@ -8,7 +8,6 @@ import { useNewNote } from "./useNewNote";
 
 import { AuthProvider } from "~/auth";
 import { BillingProvider } from "~/auth/billing";
-import { NetworkProvider } from "~/contexts/network";
 import { UndoDeleteToast } from "~/sidebar/toast/undo-delete-toast";
 import { isTabInputSupported, useTabs } from "~/store/zustand/tabs";
 
@@ -18,9 +17,7 @@ export default function MainAppLayout() {
   return (
     <AuthProvider>
       <BillingProvider>
-        <NetworkProvider>
-          <MainAppContent />
-        </NetworkProvider>
+        <MainAppContent />
       </BillingProvider>
     </AuthProvider>
   );

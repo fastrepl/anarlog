@@ -37,7 +37,7 @@ export function normalizeChatMessageStatus(status: unknown): ChatMessageStatus {
   return "ready";
 }
 
-export function extractTextContent(parts: HyprUIMessage["parts"]) {
+function extractTextContent(parts: HyprUIMessage["parts"]) {
   return parts
     .filter((part): part is Extract<typeof part, { type: "text" }> => {
       return part.type === "text";

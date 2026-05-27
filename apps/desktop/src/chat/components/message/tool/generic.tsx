@@ -1,13 +1,6 @@
 import { WrenchIcon } from "lucide-react";
 
-import {
-  ToolCard,
-  ToolCardApproval,
-  ToolCardBody,
-  ToolCardHeader,
-  useToolApproval,
-  useToolState,
-} from "./shared";
+import { useToolState } from "./shared";
 
 import { Disclosure } from "~/chat/components/message/shared";
 import { extractMcpOutputText } from "~/chat/mcp/mcp-output-parser";
@@ -42,30 +35,8 @@ export function ToolGeneric({ part }: { part: Record<string, unknown> }) {
     part.toolName ??
       (typeof part.type === "string" ? part.type.replace("tool-", "") : "tool"),
   );
-  const { running, failed } = useToolState(part as { state: string });
+  const { failed } = useToolState(part as { state: string });
   const done = (part.state as string) === "output-available";
-  const awaitingApproval = useToolApproval(running);
-
-  if (awaitingApproval) {
-    return (
-      <ToolCard>
-        <ToolCardHeader
-          icon={<WrenchIcon />}
-          running={running}
-          awaitingApproval
-          failed={false}
-          done={false}
-          label={`${formatToolName(toolName)} — review needed`}
-        />
-        {part.input ? (
-          <ToolCardBody>
-            <InputDisplay input={part.input} />
-          </ToolCardBody>
-        ) : null}
-        <ToolCardApproval />
-      </ToolCard>
-    );
-  }
 
   if (done || failed) {
     const outputText = done ? formatOutputText(part.output) : null;

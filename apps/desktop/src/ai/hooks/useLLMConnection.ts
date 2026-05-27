@@ -220,23 +220,6 @@ const resolveLLMConnection = (params: {
   };
 };
 
-export const useFeedbackLanguageModel = (): LanguageModelV3 => {
-  const { session } = useAuth();
-
-  const accessTokenRef = useRef(session?.access_token);
-  accessTokenRef.current = session?.access_token;
-
-  return useMemo(() => {
-    const baseUrl = new URL("/support/llm", env.VITE_API_URL).toString();
-    const provider = createOpenRouter({
-      fetch: createAuthFetch(tauriFetch, () => accessTokenRef.current),
-      baseURL: baseUrl,
-      apiKey: session?.access_token ?? "CANT_BE_EMPTY",
-    });
-    return wrapWithThinkingMiddleware(provider.chat("unused"));
-  }, []);
-};
-
 const wrapWithThinkingMiddleware = (
   model: LanguageModelV3,
 ): LanguageModelV3 => {

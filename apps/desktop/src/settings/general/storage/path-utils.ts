@@ -1,8 +1,8 @@
-export function tildify(path: string, home: string) {
+function tildify(path: string, home: string) {
   return path.startsWith(home + "/") ? "~" + path.slice(home.length) : path;
 }
 
-export function shortenPath(path: string, maxLength = 48): string {
+function shortenPath(path: string, maxLength = 48): string {
   if (path.length <= maxLength) return path;
   const short = path.slice(path.length - maxLength);
   const slash = short.indexOf("/");

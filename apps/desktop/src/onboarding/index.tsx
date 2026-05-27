@@ -78,7 +78,7 @@ export function TabContentOnboarding({
   return <OnboardingScreen onFinish={handleFinish} />;
 }
 
-export function OnboardingScreen({ onFinish }: { onFinish: () => void }) {
+function OnboardingScreen({ onFinish }: { onFinish: () => void }) {
   return (
     <OnboardingScreenContent
       onFinish={onFinish}

@@ -13,11 +13,7 @@ import type { ReactNode } from "react";
 
 import { env } from "~/env";
 import { AnarlogProviderIcon } from "~/settings/ai/shared";
-import {
-  type ProviderRequirement,
-  requiresConfigField,
-  requiresEntitlement,
-} from "~/settings/ai/shared/eligibility";
+import { type ProviderRequirement } from "~/settings/ai/shared/eligibility";
 import { sortProviders } from "~/settings/ai/shared/sort-providers";
 
 type Provider = {
@@ -158,15 +154,3 @@ const _PROVIDERS = [
 
 export const PROVIDERS = sortProviders(_PROVIDERS);
 export type ProviderId = (typeof _PROVIDERS)[number]["id"];
-
-export const llmProviderRequiresPro = (providerId: ProviderId) => {
-  const provider = PROVIDERS.find((p) => p.id === providerId);
-  return provider ? requiresEntitlement(provider.requirements, "pro") : false;
-};
-
-export const llmProviderRequiresApiKey = (providerId: ProviderId) => {
-  const provider = PROVIDERS.find((p) => p.id === providerId);
-  return provider
-    ? requiresConfigField(provider.requirements, "api_key")
-    : false;
-};
