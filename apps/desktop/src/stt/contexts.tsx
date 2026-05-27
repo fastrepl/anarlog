@@ -320,7 +320,12 @@ const useHandleDetectEvents = (store: ListenerStore) => {
           const ignorableApps = getIgnorableApps(payload.apps);
           const appIds = ignorableApps.map((app) => app.id);
 
-          if (store.getState().live.status === "active") {
+          const live = store.getState().live;
+          const shouldCaptureTriggerApps =
+            live.status === "active" ||
+            (live.status === "inactive" && live.loading && !!live.sessionId);
+
+          if (shouldCaptureTriggerApps) {
             if (appIds.length > 0) {
               const currentTrigger = store.getState().live.triggerAppIds ?? [];
               if (appIds.some((id) => currentTrigger.includes(id))) {

@@ -352,6 +352,45 @@ describe("ListenerProvider detect events", () => {
     expect(store.getState().live.triggerAppIds).toEqual(["com.google.Chrome"]);
   });
 
+  test("records trigger app ids from micDetected while listening is starting", async () => {
+    const store = createListenerStore();
+
+    store.setState((state) => ({
+      live: {
+        ...state.live,
+        loading: true,
+        sessionId: "session-1",
+        status: "inactive",
+      },
+    }));
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+
+    const handler = listenMock.mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf("function");
+
+    handler({
+      payload: {
+        type: "micDetected",
+        key: "mic-1",
+        apps: [
+          { id: "pid:42", name: "Chrome Helper" },
+          { id: "com.google.Chrome", name: "Google Chrome" },
+        ],
+        duration_secs: 15,
+      },
+    });
+
+    expect(showNotificationMock).not.toHaveBeenCalled();
+    expect(store.getState().live.triggerAppIds).toEqual(["com.google.Chrome"]);
+  });
+
   test("auto-stops after a trigger app learned during active listening stops", async () => {
     const store = createListenerStore();
     const stopSpy = vi.fn();
