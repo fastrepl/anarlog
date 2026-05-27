@@ -32,6 +32,7 @@ import { useScrollActiveTabIntoView } from "~/shared/main";
 import { NotificationBadge } from "~/shared/ui/notification-badge";
 import { TrafficLights } from "~/shared/ui/traffic-lights";
 import { useNewNote, useNewNoteAndListen } from "~/shared/useNewNote";
+import { ProfileMenu } from "~/sidebar/profile";
 import { Update } from "~/sidebar/update";
 import { type Tab, uniqueIdfromTab, useTabs } from "~/store/zustand/tabs";
 import { useListener } from "~/stt/contexts";
@@ -138,6 +139,7 @@ export function ClassicMainTabChrome({ tabs }: { tabs: Tab[] }) {
       data-testid="main-tab-chrome"
     >
       {isLinux && <TrafficLights className="mr-2" />}
+      {!isOnboarding && <ProfileMenu />}
       {showSidebarToggle && (
         <div className="relative shrink-0">
           <Tooltip>

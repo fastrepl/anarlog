@@ -1,19 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
-import {
-  CalendarIcon,
-  ChevronUpIcon,
-  SettingsIcon,
-  UsersIcon,
-} from "lucide-react";
+import { CalendarIcon, SettingsIcon, UsersIcon } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useResizeObserver } from "usehooks-ts";
+import { useCallback, useState } from "react";
 
 import { Kbd } from "@hypr/ui/components/ui/kbd";
 import { cn } from "@hypr/utils";
 
 import { AuthSection } from "./auth";
-import { NotificationsMenuContent } from "./notification";
 import { MenuItem, ProfileFacehash } from "./shared";
 
 import { useAuth } from "~/auth";
@@ -21,17 +14,8 @@ import { useAutoCloser } from "~/shared/hooks/useAutoCloser";
 import * as main from "~/store/tinybase/store/main";
 import { useTabs } from "~/store/zustand/tabs";
 
-type ProfileView = "main" | "notifications";
-
-type ProfileSectionProps = {
-  onExpandChange?: (expanded: boolean) => void;
-};
-
-export function ProfileSection({ onExpandChange }: ProfileSectionProps = {}) {
+export function ProfileMenu() {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [currentView, setCurrentView] = useState<ProfileView>("main");
-  const [mainViewHeight, setMainViewHeight] = useState<number | null>(null);
-  const mainViewRef = useRef<HTMLDivElement | null>(null);
   const openNew = useTabs((state) => state.openNew);
   const auth = useAuth();
 
@@ -40,42 +24,6 @@ export function ProfileSection({ onExpandChange }: ProfileSectionProps = {}) {
   const closeMenu = useCallback(() => {
     setIsExpanded(false);
   }, []);
-
-  useEffect(() => {
-    onExpandChange?.(isExpanded);
-  }, [isExpanded, onExpandChange]);
-
-  useEffect(() => {
-    if (!isExpanded && currentView !== "main") {
-      const timer = setTimeout(() => {
-        setCurrentView("main");
-      }, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [isExpanded, currentView]);
-
-  useEffect(() => {
-    if (!isExpanded) {
-      setMainViewHeight(null);
-    }
-  }, [isExpanded]);
-
-  const handleMainViewResize = useCallback(
-    ({ height }: { width?: number; height?: number }) => {
-      if (!isExpanded || currentView !== "main") {
-        return;
-      }
-      if (height && height > 0) {
-        setMainViewHeight(height);
-      }
-    },
-    [isExpanded, currentView],
-  );
-
-  useResizeObserver({
-    ref: mainViewRef as React.RefObject<HTMLDivElement>,
-    onResize: handleMainViewResize,
-  });
 
   const profileRef = useAutoCloser(closeMenu, {
     esc: isExpanded,
@@ -102,19 +50,6 @@ export function ProfileSection({ onExpandChange }: ProfileSectionProps = {}) {
     closeMenu();
   }, [openNew, closeMenu]);
 
-  // const handleClickNotifications = useCallback(() => {
-  //   setCurrentView("notifications");
-  // }, []);
-
-  const handleBackToMain = useCallback(() => {
-    setCurrentView("main");
-  }, []);
-
-  // const handleClickData = useCallback(() => {
-  //   openNew({ type: "data" });
-  //   closeMenu();
-  // }, [openNew, closeMenu]);
-
   const kbdClass = cn([
     "transition-all duration-100",
     "group-hover:-translate-y-0.5 group-hover:shadow-[0_2px_0_0_rgba(0,0,0,0.15),inset_0_1px_0_0_rgba(255,255,255,0.8)]",
@@ -124,101 +59,60 @@ export function ProfileSection({ onExpandChange }: ProfileSectionProps = {}) {
   const menuItems = [
     {
       icon: UsersIcon,
-      label: "Contacts",
+      label: "People",
       onClick: handleClickContacts,
       badge: <Kbd className={kbdClass}>⌘ ⇧ O</Kbd>,
-      sectionBreakAfter: false,
     },
     {
       icon: CalendarIcon,
       label: "Calendar",
       onClick: handleClickCalendar,
       badge: <Kbd className={kbdClass}>⌘ ⇧ C</Kbd>,
-      sectionBreakAfter: false,
     },
     {
       icon: SettingsIcon,
       label: "Settings",
       onClick: handleClickSettings,
       badge: <Kbd className={kbdClass}>⌘ ,</Kbd>,
-      sectionBreakAfter: !isAuthenticated,
     },
   ];
 
   return (
-    <div ref={profileRef} className="relative">
+    <div
+      ref={profileRef}
+      className="relative z-50 mr-1 flex h-full shrink-0 items-center"
+      data-tauri-drag-region="false"
+    >
+      <ProfileButton
+        isExpanded={isExpanded}
+        onClick={() => setIsExpanded((expanded) => !expanded)}
+      />
+
       <AnimatePresence>
         {isExpanded && (
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            transition={{ duration: 0.2, ease: "easeInOut" }}
-            className="absolute right-0 bottom-full left-0 mb-1"
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.16, ease: "easeInOut" }}
+            className="absolute top-full left-0 mt-1 w-56"
+            data-tauri-drag-region="false"
           >
-            <div className="overflow-hidden rounded-xl border bg-white shadow-xs">
+            <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-[0_10px_30px_rgba(0,0,0,0.14)]">
               <div className="py-1">
-                <AnimatePresence mode="wait">
-                  {currentView === "main" ? (
-                    <motion.div
-                      key="main"
-                      initial={{ x: 0, opacity: 0 }}
-                      animate={{ x: 0, opacity: 1 }}
-                      exit={{ x: 0, opacity: 0 }}
-                      transition={{
-                        duration: 0.2,
-                        ease: "easeInOut",
-                      }}
-                      ref={mainViewRef}
-                    >
-                      {/*<NotificationsMenuHeader
-                        onClick={handleClickNotifications}
-                      />*/}
+                {menuItems.map((item) => (
+                  <MenuItem key={item.label} {...item} />
+                ))}
 
-                      {menuItems.map(({ sectionBreakAfter, ...item }) => (
-                        <div key={item.label}>
-                          <MenuItem {...item} />
-                          {sectionBreakAfter && (
-                            <div className="my-1 border-t border-neutral-100" />
-                          )}
-                        </div>
-                      ))}
-
-                      <AuthSection
-                        isAuthenticated={isAuthenticated}
-                        onClose={closeMenu}
-                      />
-                    </motion.div>
-                  ) : (
-                    <motion.div
-                      key="notifications"
-                      initial={{ x: 20, opacity: 0 }}
-                      animate={{ x: 0, opacity: 1 }}
-                      exit={{ x: 20, opacity: 0 }}
-                      transition={{
-                        duration: 0.2,
-                        ease: "easeInOut",
-                      }}
-                      style={
-                        mainViewHeight ? { height: mainViewHeight } : undefined
-                      }
-                    >
-                      <NotificationsMenuContent onBack={handleBackToMain} />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                <AuthSection
+                  isAuthenticated={isAuthenticated}
+                  onClose={closeMenu}
+                />
               </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
-
-      <div className="overflow-hidden">
-        <ProfileButton
-          isExpanded={isExpanded}
-          onClick={() => setIsExpanded(!isExpanded)}
-        />
-      </div>
     </div>
   );
 }
@@ -232,7 +126,7 @@ function ProfileButton({
 }) {
   const auth = useAuth();
   const name = useMyName(auth?.session?.user.email);
-  const [imgError, setImgError] = useState(false);
+  const [failedAvatarUrl, setFailedAvatarUrl] = useState<string | null>(null);
 
   const profile = useQuery({
     queryKey: ["profile"],
@@ -243,52 +137,49 @@ function ProfileButton({
   });
 
   const facehashName = name;
-
-  useEffect(() => {
-    setImgError(false);
-  }, [profile.data]);
-
-  const showFacehash = !profile.data || imgError;
+  const avatarUrl = profile.data ?? null;
+  const validAvatarUrl =
+    avatarUrl && failedAvatarUrl !== avatarUrl ? avatarUrl : null;
 
   return (
     <button
+      type="button"
+      data-tauri-drag-region="false"
+      aria-label="Open profile menu"
+      aria-expanded={isExpanded}
       className={cn([
-        "flex w-full cursor-pointer items-center gap-2.5 rounded-lg",
-        "px-4 py-2",
-        "text-left",
-        "transition-all duration-300",
-        "hover:bg-neutral-200/50",
-        isExpanded && "border-neutral-300 bg-neutral-200/50",
+        "flex size-8 cursor-pointer items-center justify-center rounded-lg",
+        "bg-neutral-200/70 p-1 shadow-xs ring-1 ring-neutral-200",
+        "transition-colors duration-150",
+        "hover:bg-neutral-300/70",
+        isExpanded && "bg-neutral-300/70",
       ])}
       onClick={onClick}
     >
       <div
         className={cn([
-          "flex size-8 shrink-0 items-center justify-center",
-          "overflow-hidden rounded-full",
+          "flex size-6 shrink-0 items-center justify-center",
+          "overflow-hidden rounded-md",
           "shadow-xs",
           "transition-transform duration-300",
         ])}
       >
-        {showFacehash ? (
-          <ProfileFacehash name={facehashName} size={32} />
-        ) : (
+        {validAvatarUrl ? (
           <img
-            src={profile.data!}
+            key={validAvatarUrl}
+            src={validAvatarUrl}
             alt="Profile"
-            className="h-full w-full rounded-full"
-            onError={() => setImgError(true)}
+            className="h-full w-full rounded-md"
+            onError={() => setFailedAvatarUrl(validAvatarUrl)}
+          />
+        ) : (
+          <ProfileFacehash
+            name={facehashName}
+            size={24}
+            className="rounded-md"
           />
         )}
       </div>
-      <div className="min-w-0 flex-1 truncate text-sm text-black">{name}</div>
-      <ChevronUpIcon
-        className={cn([
-          "h-4 w-4",
-          "transition-transform duration-300",
-          isExpanded ? "rotate-180 text-neutral-500" : "text-neutral-400",
-        ])}
-      />
     </button>
   );
 }
