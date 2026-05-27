@@ -13,14 +13,10 @@ import { useConfigValues } from "~/shared/config";
 import { useTabs } from "~/store/zustand/tabs";
 import { useToastAction } from "~/store/zustand/toast-action";
 
-export function ToastArea({
-  isProfileExpanded,
-}: {
-  isProfileExpanded: boolean;
-}) {
+export function ToastArea() {
   const auth = useAuth();
   const { dismissToast, isDismissed } = useDismissedToasts();
-  const shouldShowToast = useShouldShowToast(isProfileExpanded);
+  const shouldShowToast = useShouldShowToast();
   const {
     hasActiveDownload,
     downloadProgress,
@@ -167,7 +163,7 @@ export function ToastArea({
   );
 }
 
-function useShouldShowToast(isProfileExpanded: boolean) {
+function useShouldShowToast() {
   const TOAST_CHECK_DELAY_MS = 500;
 
   const [showToast, setShowToast] = useState(false);
@@ -180,5 +176,5 @@ function useShouldShowToast(isProfileExpanded: boolean) {
     return () => clearTimeout(timer);
   }, []);
 
-  return !isProfileExpanded && showToast;
+  return showToast;
 }

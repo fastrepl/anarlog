@@ -8,7 +8,6 @@ const hoisted = vi.hoisted(() => ({
 
 const { setExpanded, setLocked } = hoisted;
 
-let mockQuery = "";
 let mockCurrentTab: {
   type: "settings" | "empty" | "onboarding" | "calendar";
 } | null = { type: "empty" };
@@ -21,12 +20,6 @@ const mockLeftSidebar = {
 vi.mock("~/contexts/shell", () => ({
   useShell: () => ({
     leftsidebar: mockLeftSidebar,
-  }),
-}));
-
-vi.mock("~/search/contexts/ui", () => ({
-  useSearch: () => ({
-    query: mockQuery,
   }),
 }));
 
@@ -44,7 +37,6 @@ import { ClassicMainSidebar } from "~/main/shell-sidebar";
 
 describe("ClassicMainSidebar", () => {
   beforeEach(() => {
-    mockQuery = "";
     mockCurrentTab = { type: "empty" };
     mockLeftSidebar.expanded = false;
     setExpanded.mockClear();
@@ -65,17 +57,5 @@ describe("ClassicMainSidebar", () => {
 
     expect(setLocked).toHaveBeenLastCalledWith(false);
     expect(setExpanded).toHaveBeenLastCalledWith(false);
-  });
-
-  it("expands the sidebar when search starts from an empty query", () => {
-    const { rerender } = render(<ClassicMainSidebar />);
-
-    setExpanded.mockClear();
-
-    mockQuery = "meeting";
-
-    rerender(<ClassicMainSidebar />);
-
-    expect(setExpanded).toHaveBeenCalledWith(true);
   });
 });

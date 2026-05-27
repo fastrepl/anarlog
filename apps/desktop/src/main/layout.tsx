@@ -10,7 +10,7 @@ import { ShellProvider } from "~/contexts/shell";
 import { ToolRegistryProvider } from "~/contexts/tool";
 import { useStoreBackedTaskStorage } from "~/editor-bridge/task-storage";
 import { SearchEngineProvider } from "~/search/contexts/engine";
-import { SearchUIProvider } from "~/search/contexts/ui";
+import { OpenNoteDialogProvider } from "~/shared/open-note-dialog";
 
 export function ClassicMainLayout({
   children,
@@ -31,7 +31,7 @@ export function ClassicMainLayout({
   return (
     <SearchEngineProvider store={persistedStore}>
       <TaskStorageProvider storage={taskStorage}>
-        <SearchUIProvider>
+        <OpenNoteDialogProvider>
           <ShellProvider>
             <ToolRegistryProvider registry={toolRegistry}>
               <AITaskProvider store={aiTaskStore}>
@@ -42,7 +42,7 @@ export function ClassicMainLayout({
               </AITaskProvider>
             </ToolRegistryProvider>
           </ShellProvider>
-        </SearchUIProvider>
+        </OpenNoteDialogProvider>
       </TaskStorageProvider>
     </SearchEngineProvider>
   );

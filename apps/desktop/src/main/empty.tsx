@@ -1,12 +1,10 @@
 import { AppWindowIcon } from "lucide-react";
-import { useCallback, useState } from "react";
-import { useHotkeys } from "react-hotkeys-hook";
+import { useCallback } from "react";
 
 import { Kbd } from "@hypr/ui/components/ui/kbd";
 import { cn } from "@hypr/utils";
 
 import { StandardTabWrapper } from "~/shared/main";
-import { OpenNoteDialog } from "~/shared/open-note-dialog";
 import { type TabItem, TabItemBase } from "~/shared/tabs";
 import { useNewNote, useNewNoteAndListen } from "~/shared/useNewNote";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
@@ -55,7 +53,6 @@ function EmptyView() {
   const newNote = useNewNote({ behavior: "current" });
   const newNoteAndListen = useNewNoteAndListen({ behavior: "current" });
   const openCurrent = useTabs((state) => state.openCurrent);
-  const [openNoteDialogOpen, setOpenNoteDialogOpen] = useState(false);
 
   const openCalendar = useCallback(
     () => openCurrent({ type: "calendar" }),
@@ -69,12 +66,6 @@ function EmptyView() {
     () => openCurrent({ type: "settings" }),
     [openCurrent],
   );
-  useHotkeys(
-    "mod+o",
-    () => setOpenNoteDialogOpen(true),
-    { preventDefault: true, enableOnFormTags: true },
-    [setOpenNoteDialogOpen],
-  );
 
   return (
     <div className="mb-12 flex h-full flex-col items-center justify-center gap-6 text-neutral-600">
@@ -84,11 +75,6 @@ function EmptyView() {
           label="Start Recording"
           shortcut={["⌘", "⇧", "N"]}
           onClick={newNoteAndListen}
-        />
-        <ActionItem
-          label="Open Note"
-          shortcut={["⌘", "O"]}
-          onClick={() => setOpenNoteDialogOpen(true)}
         />
         <div className="my-1 h-px bg-neutral-200" />
         <ActionItem
@@ -108,10 +94,6 @@ function EmptyView() {
           onClick={openSettings}
         />
       </div>
-      <OpenNoteDialog
-        open={openNoteDialogOpen}
-        onOpenChange={setOpenNoteDialogOpen}
-      />
     </div>
   );
 }

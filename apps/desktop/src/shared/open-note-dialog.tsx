@@ -1,7 +1,14 @@
 import { Command as CommandPrimitive } from "cmdk";
 import { FileTextIcon, SearchIcon } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
+import { useHotkeys } from "react-hotkeys-hook";
 
 import { Kbd } from "@hypr/ui/components/ui/kbd";
 import { cn } from "@hypr/utils";
@@ -16,15 +23,59 @@ interface OpenNoteDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+type OpenNoteDialogContextValue = {
+  open: () => void;
+};
+
 type Session = {
   id: string;
   title: string;
   createdAt: string;
 };
 
+const OpenNoteDialogContext = createContext<OpenNoteDialogContextValue | null>(
+  null,
+);
+
+export function OpenNoteDialogProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const openDialog = useCallback(() => {
+    setOpen(true);
+  }, []);
+
+  useHotkeys("mod+k", openDialog, {
+    preventDefault: true,
+    enableOnFormTags: true,
+    enableOnContentEditable: true,
+  });
+
+  const value = useMemo(() => ({ open: openDialog }), [openDialog]);
+
+  return (
+    <OpenNoteDialogContext.Provider value={value}>
+      {children}
+      <OpenNoteDialog open={open} onOpenChange={setOpen} />
+    </OpenNoteDialogContext.Provider>
+  );
+}
+
+export function useOpenNoteDialog() {
+  const context = useContext(OpenNoteDialogContext);
+  if (!context) {
+    throw new Error(
+      "useOpenNoteDialog must be used within OpenNoteDialogProvider",
+    );
+  }
+  return context;
+}
+
 export function OpenNoteDialog({ open, onOpenChange }: OpenNoteDialogProps) {
   const [query, setQuery] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
   const openCurrent = useTabs((state) => state.openCurrent);
   const recentlyOpenedSessionIds = useTabs(
     (state) => state.recentlyOpenedSessionIds,
@@ -88,27 +139,26 @@ export function OpenNoteDialog({ open, onOpenChange }: OpenNoteDialogProps) {
   const hasAnyResults =
     filteredRecentSessions.length > 0 || filteredOtherSessions.length > 0;
 
-  useEffect(() => {
-    if (open) {
-      const timer = setTimeout(() => {
-        inputRef.current?.focus();
-      }, 10);
-      return () => clearTimeout(timer);
-    }
-  }, [open]);
+  const handleOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      if (!nextOpen) {
+        setQuery("");
+      }
+      onOpenChange(nextOpen);
+    },
+    [onOpenChange],
+  );
 
-  useEffect(() => {
-    if (!open) {
-      setQuery("");
-    }
-  }, [open]);
+  const focusInput = useCallback((node: HTMLInputElement | null) => {
+    node?.focus();
+  }, []);
 
   const handleSelect = useCallback(
     (sessionId: string) => {
-      onOpenChange(false);
+      handleOpenChange(false);
       openCurrent({ type: "sessions", id: sessionId });
     },
-    [onOpenChange, openCurrent],
+    [handleOpenChange, openCurrent],
   );
 
   if (!open) return null;
@@ -116,7 +166,7 @@ export function OpenNoteDialog({ open, onOpenChange }: OpenNoteDialogProps) {
   return createPortal(
     <div
       className="fixed inset-0 z-50 bg-black/20 backdrop-blur-xs"
-      onClick={() => onOpenChange(false)}
+      onClick={() => handleOpenChange(false)}
     >
       <div
         data-tauri-drag-region
@@ -137,14 +187,14 @@ export function OpenNoteDialog({ open, onOpenChange }: OpenNoteDialogProps) {
             className="flex flex-col"
             onKeyDown={(e) => {
               if (e.key === "Escape") {
-                onOpenChange(false);
+                handleOpenChange(false);
               }
             }}
           >
             <div className="flex items-center gap-3 border-b border-neutral-200/60 px-4 py-3">
               <SearchIcon className="h-4 w-4 shrink-0 text-neutral-400" />
               <CommandPrimitive.Input
-                ref={inputRef}
+                ref={focusInput}
                 value={query}
                 onValueChange={setQuery}
                 placeholder="Find a note..."
@@ -154,7 +204,7 @@ export function OpenNoteDialog({ open, onOpenChange }: OpenNoteDialogProps) {
                 ])}
               />
               <button
-                onClick={() => onOpenChange(false)}
+                onClick={() => handleOpenChange(false)}
                 className={cn([
                   "h-5 w-5 rounded-full",
                   "flex items-center justify-center",
