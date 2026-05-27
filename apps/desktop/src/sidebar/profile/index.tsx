@@ -98,7 +98,7 @@ export function ProfileMenu() {
             className="absolute top-full left-0 mt-1 w-56"
             data-tauri-drag-region="false"
           >
-            <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-[0_10px_30px_rgba(0,0,0,0.14)]">
+            <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-[0_10px_30px_rgba(0,0,0,0.14)]">
               <div className="py-1">
                 {menuItems.map((item) => (
                   <MenuItem key={item.label} {...item} />
@@ -148,17 +148,17 @@ function ProfileButton({
       aria-label="Open profile menu"
       aria-expanded={isExpanded}
       className={cn([
-        "flex size-8 cursor-pointer items-center justify-center rounded-lg",
-        "bg-neutral-200/70 p-1 shadow-xs ring-1 ring-neutral-200",
+        "flex size-7 cursor-pointer items-center justify-center rounded-lg",
+        "border border-transparent bg-transparent p-1",
         "transition-colors duration-150",
-        "hover:bg-neutral-300/70",
-        isExpanded && "bg-neutral-300/70",
+        "hover:border-neutral-200 hover:bg-neutral-200/70",
+        isExpanded && "border-neutral-200 bg-neutral-200/70",
       ])}
       onClick={onClick}
     >
       <div
         className={cn([
-          "flex size-6 shrink-0 items-center justify-center",
+          "flex size-[18px] shrink-0 items-center justify-center",
           "overflow-hidden rounded-md",
           "shadow-xs",
           "transition-transform duration-300",
@@ -175,7 +175,7 @@ function ProfileButton({
         ) : (
           <ProfileFacehash
             name={facehashName}
-            size={24}
+            size={18}
             className="rounded-md"
           />
         )}
