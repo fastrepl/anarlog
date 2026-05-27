@@ -51,16 +51,27 @@ export function PostSessionAccessory({
   }
 
   return (
-    <div className={cn(["flex min-h-0 flex-col", fillHeight && "h-full"])}>
+    <div
+      className={cn([
+        "flex min-h-0 flex-col",
+        fillHeight && "h-full overflow-hidden",
+      ])}
+    >
       {isTranscriptExpanded ? (
-        <TranscriptPanel
-          sessionId={sessionId}
-          screen={screen}
-          hasAudio={hasAudio}
-          hasTranscript={hasTranscript}
-          isExpanded={isTranscriptExpanded}
-          fillHeight={fillHeight}
-        />
+        <div
+          className={cn([
+            fillHeight ? "min-h-0 flex-1 overflow-hidden" : "shrink-0",
+          ])}
+        >
+          <TranscriptPanel
+            sessionId={sessionId}
+            screen={screen}
+            hasAudio={hasAudio}
+            hasTranscript={hasTranscript}
+            isExpanded={isTranscriptExpanded}
+            fillHeight={fillHeight}
+          />
+        </div>
       ) : null}
       {timeline ? <TimelineSlot>{timeline}</TimelineSlot> : null}
     </div>
@@ -524,8 +535,8 @@ function TranscriptCard({
   return (
     <div
       className={cn([
-        "min-h-[96px] overflow-hidden rounded-b-xl border-x border-b border-neutral-200 bg-white",
-        fillHeight && "flex flex-1 flex-col",
+        "overflow-hidden rounded-b-xl border-x border-b border-neutral-200 bg-white",
+        fillHeight ? "flex h-full min-h-0 flex-col" : "min-h-[96px]",
       ])}
     >
       {children}

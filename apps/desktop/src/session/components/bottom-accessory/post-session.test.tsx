@@ -230,8 +230,14 @@ describe("PostSessionAccessory", () => {
     const scrollArea = screen.getByTestId("transcript").parentElement;
     expect(scrollArea?.className).toContain("flex-1");
     expect(scrollArea?.className).not.toContain("h-[300px]");
-    expect(scrollArea?.parentElement?.className).toContain("flex-1");
-    expect(scrollArea?.parentElement?.className).toContain("min-h-[96px]");
+
+    const transcriptCard = scrollArea?.parentElement;
+    const transcriptSlot = transcriptCard?.parentElement;
+    expect(transcriptCard?.className).toContain("h-full");
+    expect(transcriptCard?.className).toContain("min-h-0");
+    expect(transcriptCard?.className).not.toContain("min-h-[96px]");
+    expect(transcriptSlot?.className).toContain("flex-1");
+    expect(transcriptSlot?.className).toContain("min-h-0");
   });
 
   it("shows transcript skeletons instead of duplicating batch progress in the body", () => {
