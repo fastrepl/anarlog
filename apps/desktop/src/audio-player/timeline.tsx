@@ -99,16 +99,22 @@ export function Timeline() {
           onClick={handleClick}
           className={cn([
             "flex items-center justify-center",
-            "h-8 w-8 rounded-full",
+            "h-7 w-7 rounded-full",
             "border border-neutral-200 bg-white",
             "transition-all hover:scale-110 hover:bg-neutral-100",
             "shrink-0 shadow-xs select-none",
           ])}
         >
           {state === "playing" ? (
-            <Pause className="h-4 w-4 text-neutral-900" fill="currentColor" />
+            <Pause
+              className="h-3.5 w-3.5 text-neutral-900"
+              fill="currentColor"
+            />
           ) : (
-            <Play className="h-4 w-4 text-neutral-900" fill="currentColor" />
+            <Play
+              className="h-3.5 w-3.5 text-neutral-900"
+              fill="currentColor"
+            />
           )}
         </button>
       }
@@ -170,7 +176,7 @@ export function Timeline() {
         <div
           ref={registerContainer}
           className="min-w-0 flex-1"
-          style={{ minHeight: "30px", width: "100%" }}
+          style={{ minHeight: "24px", width: "100%" }}
         />
       }
     />

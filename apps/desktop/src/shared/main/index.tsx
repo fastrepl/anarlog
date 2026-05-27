@@ -92,7 +92,10 @@ export function StandardTabWrapper({
               defaultSize={afterBorderSize}
               minSize={afterBorderExpanded ? 10 : 6}
               maxSize={60}
-              className="min-h-[96px] overflow-hidden"
+              className={cn([
+                "overflow-hidden",
+                mergeAfterBorder ? "min-h-[154px]" : "min-h-[96px]",
+              ])}
             >
               <AfterBorderContent
                 bottomBorderHandle={bottomBorderHandle}
@@ -182,7 +185,7 @@ function AfterBorderContent({
   return (
     <div
       className={cn([
-        !mergeAfterBorder && (bottomBorderHandle ? "pt-[10px]" : "mt-1"),
+        !mergeAfterBorder && (bottomBorderHandle ? "pt-1.5" : "mt-1"),
         fill && "flex h-full min-h-0 flex-col overflow-hidden",
       ])}
     >

@@ -60,7 +60,7 @@ export function PostSessionAccessory({
       {isTranscriptExpanded ? (
         <div
           className={cn([
-            fillHeight ? "min-h-0 flex-1 overflow-hidden" : "shrink-0",
+            fillHeight ? "min-h-[114px] flex-1 overflow-hidden" : "shrink-0",
           ])}
         >
           <TranscriptPanel
@@ -80,7 +80,7 @@ export function PostSessionAccessory({
 
 function TimelineSlot({ children }: { children: ReactNode }) {
   return (
-    <div className="flex h-14 w-full shrink-0 items-center">{children}</div>
+    <div className="flex h-10 w-full shrink-0 items-center">{children}</div>
   );
 }
 
@@ -301,12 +301,12 @@ function BatchProgressTimeline({
       leading={
         <div
           className={cn([
-            "flex h-8 w-8 items-center justify-center rounded-full",
+            "flex h-7 w-7 items-center justify-center rounded-full",
             "border border-neutral-200 bg-white shadow-xs",
             "shrink-0",
           ])}
         >
-          <Spinner size={14} />
+          <Spinner size={12} />
         </div>
       }
       meta={
@@ -318,8 +318,8 @@ function BatchProgressTimeline({
         </AudioPlayer.TimelineMeta>
       }
       main={
-        <div className="flex h-[30px] items-center">
-          <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-neutral-200/80">
+        <div className="flex h-6 items-center">
+          <div className="relative h-2 w-full overflow-hidden rounded-full bg-neutral-200/80">
             <div
               className="absolute inset-y-0 left-0 rounded-full bg-neutral-400 transition-[width] duration-300 ease-out"
               style={{ width: `${Math.max(progress * 100, 8)}%` }}
@@ -536,7 +536,7 @@ function TranscriptCard({
     <div
       className={cn([
         "overflow-hidden rounded-b-xl border-x border-b border-neutral-200 bg-white",
-        fillHeight ? "flex h-full min-h-0 flex-col" : "min-h-[96px]",
+        fillHeight ? "flex h-full min-h-[114px] flex-col" : "min-h-[96px]",
       ])}
     >
       {children}

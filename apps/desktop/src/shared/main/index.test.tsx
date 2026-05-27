@@ -117,6 +117,9 @@ describe("StandardTabWrapper", () => {
     expect(screen.getByTestId("resize-handle").dataset.className).toContain(
       "data-[panel-group-direction=vertical]:h-0",
     );
+
+    const panels = screen.getAllByTestId("panel");
+    expect(panels[1]?.dataset.className).toContain("min-h-[154px]");
   });
 
   it("sizes collapsed bottom content to its row instead of reserving split space", () => {

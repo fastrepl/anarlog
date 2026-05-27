@@ -36,7 +36,7 @@ export function DuringSessionAccessory({
     return (
       <div className="relative w-full pt-1 select-none">
         <div className="rounded-xl bg-neutral-50">
-          <div className="flex min-h-12 items-center gap-2 p-2">
+          <div className="flex min-h-9 items-center gap-2 px-2 py-1">
             <div className="min-w-0 flex-1">
               <span className="text-xs text-neutral-400">Finalizing...</span>
             </div>
@@ -234,7 +234,7 @@ function CollapsedFooterMessage({ message }: { message: string }) {
   return (
     <div
       className={cn([
-        "flex min-h-9 items-center gap-2 px-2 py-1",
+        "flex min-h-7 items-center gap-2 px-2 py-0.5",
         "w-full max-w-full",
       ])}
     >

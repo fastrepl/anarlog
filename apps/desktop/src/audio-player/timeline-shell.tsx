@@ -26,7 +26,12 @@ export function TimelineShell({
       className="w-full rounded-xl bg-neutral-50 select-none"
       onContextMenu={onContextMenu}
     >
-      <div className={cn(["flex items-center gap-2 p-2", "w-full max-w-full"])}>
+      <div
+        className={cn([
+          "flex items-center gap-2 px-2 py-1",
+          "w-full max-w-full",
+        ])}
+      >
         {leading}
         {meta}
         <div className="min-w-0 flex-1">{main}</div>

@@ -197,7 +197,7 @@ describe("PostSessionAccessory", () => {
 
     const collapsedSlotClassName =
       screen.getByTestId("timeline").parentElement?.className;
-    expect(collapsedSlotClassName).toContain("h-14");
+    expect(collapsedSlotClassName).toContain("h-10");
 
     unmount();
 
@@ -234,10 +234,10 @@ describe("PostSessionAccessory", () => {
     const transcriptCard = scrollArea?.parentElement;
     const transcriptSlot = transcriptCard?.parentElement;
     expect(transcriptCard?.className).toContain("h-full");
-    expect(transcriptCard?.className).toContain("min-h-0");
+    expect(transcriptCard?.className).toContain("min-h-[114px]");
     expect(transcriptCard?.className).not.toContain("min-h-[96px]");
     expect(transcriptSlot?.className).toContain("flex-1");
-    expect(transcriptSlot?.className).toContain("min-h-0");
+    expect(transcriptSlot?.className).toContain("min-h-[114px]");
   });
 
   it("shows transcript skeletons instead of duplicating batch progress in the body", () => {
