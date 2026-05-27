@@ -35,7 +35,10 @@ struct FloatingBarView: View {
       .buttonStyle(.plain)
 
       Button(action: { performClick(RustBridge.stopListening) }) {
-        CircularClickArea(onHoverChange: { isBarsHovered = $0 }) {
+        CircularClickArea(
+          hoverFill: accentColor.opacity(0.16),
+          onHoverChange: { isBarsHovered = $0 }
+        ) {
           Group {
             if isBarsHovered {
               Rectangle()
@@ -77,12 +80,15 @@ struct FloatingBarView: View {
   }
 
   private var accentColor: Color {
-    model.degraded
-      ? Color(red: 0.96, green: 0.62, blue: 0.04) : Color(red: 1, green: 0.2, blue: 0.23)
+    model.degraded ? Color(red: 0.96, green: 0.62, blue: 0.04) : normalAccentColor
   }
 
   private var stopColor: Color {
-    Color(red: 1, green: 0.2, blue: 0.23)
+    normalAccentColor
+  }
+
+  private var normalAccentColor: Color {
+    Color(red: 1, green: 0.45, blue: 0.48)
   }
 
   private var dragClickSuppressor: some Gesture {
@@ -112,14 +118,17 @@ struct FloatingBarView: View {
 
 private struct CircularClickArea<Content: View>: View {
   private let content: () -> Content
+  private let hoverFill: Color
   private let onHoverChange: (Bool) -> Void
   @State private var isHovered = false
 
   init(
+    hoverFill: Color = Color.white.opacity(0.08),
     onHoverChange: @escaping (Bool) -> Void = { _ in },
     @ViewBuilder content: @escaping () -> Content
   ) {
     self.content = content
+    self.hoverFill = hoverFill
     self.onHoverChange = onHoverChange
   }
 
@@ -132,7 +141,7 @@ private struct CircularClickArea<Content: View>: View {
       .contentShape(Circle())
       .background(
         Circle()
-          .fill(isHovered ? Color.white.opacity(0.08) : Color.clear)
+          .fill(isHovered ? hoverFill : Color.clear)
       )
       .onHover { hovered in
         isHovered = hovered
