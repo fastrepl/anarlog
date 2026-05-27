@@ -19,5 +19,9 @@ export function ClassicMainSidebar() {
     return null;
   }
 
-  return <LeftSidebar />;
+  if (leftsidebar.showDevtool || hasCustomSidebar) {
+    return <LeftSidebar />;
+  }
+
+  return null;
 }

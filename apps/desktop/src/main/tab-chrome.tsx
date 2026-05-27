@@ -7,6 +7,8 @@ import {
   MessageCircleIcon,
   PanelLeftCloseIcon,
   PanelLeftOpenIcon,
+  PanelTopCloseIcon,
+  PanelTopOpenIcon,
   PlusIcon,
 } from "lucide-react";
 import { Reorder } from "motion/react";
@@ -34,6 +36,7 @@ import { TrafficLights } from "~/shared/ui/traffic-lights";
 import { useNewNote, useNewNoteAndListen } from "~/shared/useNewNote";
 import { ProfileMenu } from "~/sidebar/profile";
 import { Update } from "~/sidebar/update";
+import { hasCustomSidebarTab } from "~/sidebar/use-custom-sidebar";
 import { type Tab, uniqueIdfromTab, useTabs } from "~/store/zustand/tabs";
 import { useListener } from "~/stt/contexts";
 import { commands as tauriCommands } from "~/types/tauri.gen";
@@ -47,6 +50,10 @@ export function ClassicMainTabChrome({ tabs }: { tabs: Tab[] }) {
   const currentTab = useTabs((state) => state.currentTab);
   const isOnboarding = currentTab?.type === "onboarding";
   const showSidebarToggle = !isOnboarding && !leftsidebar.locked;
+  const togglesTopTimeline =
+    currentTab !== null &&
+    !hasCustomSidebarTab(currentTab) &&
+    !leftsidebar.showDevtool;
   const {
     select,
     close,
@@ -150,15 +157,21 @@ export function ClassicMainTabChrome({ tabs }: { tabs: Tab[] }) {
                 className="shrink-0"
                 onClick={leftsidebar.toggleExpanded}
               >
-                {leftsidebar.expanded ? (
+                {leftsidebar.expanded && togglesTopTimeline ? (
+                  <PanelTopCloseIcon size={16} className="text-neutral-600" />
+                ) : leftsidebar.expanded ? (
                   <PanelLeftCloseIcon size={16} className="text-neutral-600" />
+                ) : togglesTopTimeline ? (
+                  <PanelTopOpenIcon size={16} className="text-neutral-600" />
                 ) : (
                   <PanelLeftOpenIcon size={16} className="text-neutral-600" />
                 )}
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="flex items-center gap-2">
-              <span>Toggle sidebar</span>
+              <span>
+                {togglesTopTimeline ? "Toggle timeline" : "Toggle sidebar"}
+              </span>
               <Kbd className="animate-kbd-press">⌘ \</Kbd>
             </TooltipContent>
           </Tooltip>

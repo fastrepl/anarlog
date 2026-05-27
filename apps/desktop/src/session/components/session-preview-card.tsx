@@ -257,7 +257,9 @@ function useParticipantNames(mappingIds: string[]) {
     for (const id of mappingIds) {
       const row = allResults[id];
       if (!row) continue;
-      const name = (row.human_name as string) || "Unknown";
+      const name = ((row.human_name as string | undefined) || "").trim();
+      if (!name) continue;
+
       names.push(name);
     }
     return names;

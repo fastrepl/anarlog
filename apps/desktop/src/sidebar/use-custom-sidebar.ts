@@ -24,23 +24,44 @@ export function useCustomSidebarEffect(
 ) {
   const savedExpandedRef = useRef<boolean | null>(null);
   const wasActiveRef = useRef(false);
+  const leftsidebarRef = useRef(leftsidebar);
+  const restoreExpandedOnExitRef = useRef(restoreExpandedOnExit);
+
+  leftsidebarRef.current = leftsidebar;
+  restoreExpandedOnExitRef.current = restoreExpandedOnExit;
+
+  const releaseCustomSidebar = () => {
+    if (!wasActiveRef.current) {
+      return;
+    }
+
+    const currentLeftSidebar = leftsidebarRef.current;
+
+    currentLeftSidebar.setLocked(false);
+    if (restoreExpandedOnExitRef.current && savedExpandedRef.current !== null) {
+      currentLeftSidebar.setExpanded(savedExpandedRef.current);
+    } else if (!restoreExpandedOnExitRef.current) {
+      currentLeftSidebar.setExpanded(false);
+    }
+
+    savedExpandedRef.current = null;
+    wasActiveRef.current = false;
+  };
 
   useEffect(() => {
     if (active && !wasActiveRef.current) {
-      savedExpandedRef.current = leftsidebar.expanded;
-      if (!leftsidebar.expanded) {
-        leftsidebar.setExpanded(true);
+      const currentLeftSidebar = leftsidebarRef.current;
+
+      savedExpandedRef.current = currentLeftSidebar.expanded;
+      if (!currentLeftSidebar.expanded) {
+        currentLeftSidebar.setExpanded(true);
       }
-      leftsidebar.setLocked(true);
+      currentLeftSidebar.setLocked(true);
+      wasActiveRef.current = true;
     } else if (!active && wasActiveRef.current) {
-      leftsidebar.setLocked(false);
-      if (restoreExpandedOnExit && savedExpandedRef.current !== null) {
-        leftsidebar.setExpanded(savedExpandedRef.current);
-      } else if (!restoreExpandedOnExit) {
-        leftsidebar.setExpanded(false);
-      }
-      savedExpandedRef.current = null;
+      releaseCustomSidebar();
     }
-    wasActiveRef.current = active;
-  }, [active, leftsidebar, restoreExpandedOnExit]);
+
+    return releaseCustomSidebar;
+  }, [active]);
 }

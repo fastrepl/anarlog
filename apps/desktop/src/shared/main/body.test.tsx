@@ -15,6 +15,23 @@ vi.mock("~/main/shell-sidebar", () => ({
   ClassicMainSidebar: () => <div data-testid="main-sidebar" />,
 }));
 
+vi.mock("~/main/top-meeting-timeline", () => ({
+  TopMeetingTimeline: () => <div data-testid="top-meeting-timeline" />,
+}));
+
+vi.mock("~/contexts/shell", () => ({
+  useShell: () => ({
+    leftsidebar: {
+      expanded: true,
+      showDevtool: false,
+    },
+  }),
+}));
+
+vi.mock("~/sidebar/toast", () => ({
+  ToastArea: () => <div data-testid="toast-area" />,
+}));
+
 vi.mock("~/store/zustand/tabs", () => ({
   uniqueIdfromTab: vi.fn(() => "empty-slot"),
   useTabs: vi.fn((selector: (state: unknown) => unknown) =>
@@ -37,6 +54,7 @@ describe("ClassicMainBody", () => {
     render(<ClassicMainBody />);
 
     expect(screen.getByTestId("main-tab-chrome")).toBeTruthy();
+    expect(screen.getByTestId("top-meeting-timeline")).toBeTruthy();
     expect(screen.getByTestId("main-sidebar")).toBeTruthy();
     expect(screen.getByTestId("main-tab-content").textContent).toContain(
       "empty",

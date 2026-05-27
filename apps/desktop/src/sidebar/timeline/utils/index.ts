@@ -23,6 +23,7 @@ export type TimelineEventRow = {
   tracking_id_event?: string | null;
   has_recurrence_rules: boolean;
   recurrence_series_id?: string | null;
+  is_all_day?: boolean | null;
 };
 
 // comes from QUERIES.timelineSessions

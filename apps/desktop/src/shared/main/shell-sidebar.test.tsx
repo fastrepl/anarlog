@@ -58,4 +58,18 @@ describe("ClassicMainSidebar", () => {
     expect(setLocked).toHaveBeenLastCalledWith(false);
     expect(setExpanded).toHaveBeenLastCalledWith(false);
   });
+
+  it("unlocks the custom sidebar when unmounted while active", () => {
+    mockCurrentTab = { type: "calendar" };
+
+    const { unmount } = render(<ClassicMainSidebar />);
+
+    expect(setExpanded).toHaveBeenCalledWith(true);
+    expect(setLocked).toHaveBeenCalledWith(true);
+
+    unmount();
+
+    expect(setLocked).toHaveBeenLastCalledWith(false);
+    expect(setExpanded).toHaveBeenLastCalledWith(false);
+  });
 });
