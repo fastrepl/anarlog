@@ -22,7 +22,7 @@ export function AuthSection({
   }
 
   return (
-    <div className="px-3 pt-2 pb-1">
+    <div className="px-3 pt-2 pb-3">
       <button
         onClick={handleOpenSettings}
         className="flex h-10 w-full items-center justify-center gap-2 rounded-full border-2 border-stone-600 bg-stone-800 text-sm font-medium text-white shadow-[0_4px_14px_rgba(87,83,78,0.4)] transition-all duration-200 hover:bg-stone-700"
