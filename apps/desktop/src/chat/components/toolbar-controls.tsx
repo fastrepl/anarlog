@@ -122,7 +122,7 @@ function ChatGroups({
         <Button
           variant="ghost"
           className={cn([
-            "group flex h-8 max-w-64 min-w-0 justify-start gap-2 px-0 py-0",
+            "group -ml-2 flex h-8 max-w-64 min-w-0 justify-start gap-2 px-2 py-0",
             "text-neutral-700",
           ])}
         >

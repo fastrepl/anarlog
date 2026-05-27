@@ -11,6 +11,8 @@ import {
 import { PersistentChatPanel } from "~/chat/components/persistent-chat";
 
 const CHAT_MIN_WIDTH_PX = 280;
+const CHAT_EXPANSION_WIDTH_PX = 400;
+const CHAT_REPLACE_MIN_WINDOW_WIDTH_PX = 720;
 
 export function MainChatPanels({
   autoSaveId,
@@ -32,7 +34,12 @@ export function MainChatPanels({
         bodyPanelRef.current.resize(currentSize);
       }
       windowsCommands
-        .windowExpandWidth(400, null, true, false)
+        .windowExpandWidth(
+          CHAT_EXPANSION_WIDTH_PX,
+          CHAT_REPLACE_MIN_WINDOW_WIDTH_PX,
+          true,
+          false,
+        )
         .catch(console.error);
     } else if (!isRightPanelOpen && previousOpenRef.current) {
       windowsCommands.windowRestoreWidth().catch(console.error);

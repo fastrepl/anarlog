@@ -53,6 +53,7 @@ export function ChatMessageInput({
   });
   useAutoFocusEditor({ editorRef, disabled, shouldFocus });
   const mentionConfig = useMentionConfig();
+  const isSendDisabled = Boolean(disabled) || !hasContent;
 
   return (
     <Container
@@ -86,25 +87,24 @@ export function ChatMessageInput({
           ) : (
             <button
               onClick={handleSubmit}
-              disabled={disabled}
+              disabled={isSendDisabled}
               className={cn([
                 "inline-flex h-7 items-center gap-1.5 rounded-lg pr-1.5 pl-2.5 text-xs font-medium transition-all duration-100",
                 "border",
-                disabled
+                isSendDisabled
                   ? "cursor-default border-neutral-200 text-neutral-300"
                   : [
                       "border-stone-600 bg-stone-800 text-white",
                       "hover:bg-stone-700",
                       "active:scale-[0.97] active:bg-stone-600",
                     ],
-                !hasContent && !disabled && "opacity-50",
               ])}
             >
               Send
               <span
                 className={cn([
                   "font-mono text-xs",
-                  disabled ? "text-neutral-300" : "text-stone-400",
+                  isSendDisabled ? "text-neutral-300" : "text-stone-400",
                 ])}
               >
                 ⌘ ↩
