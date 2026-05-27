@@ -1,4 +1,4 @@
-> **Note:** We're now working primarily on **[char](https://v2.char.com)** — a new productivity-focused product that's where most of our active development goes. **anarlog** stays open-source, MIT-licensed, and maintained. The cross-link to char lives here so you know where the team's attention is. Same team, different bets.
+> **Note:** The team is now building **[char](https://char.com)**. **anarlog** remains open-source, MIT-licensed, and maintained as the local-first meeting notetaker in this repo.
 
 ![anarlog](https://repository-images.githubusercontent.com/900550981/a4267a9f-414b-4c36-965c-419313ce2417)
 
@@ -10,7 +10,7 @@
 
 # anarlog
 
-The open-source AI meeting notetaker. Local-first. Privacy-first. Yours to fork.
+An open-source AI meeting notetaker that is local-first, privacy-first, and yours to fork.
 
 Granola, rearranged.
 
@@ -20,29 +20,29 @@ Download the latest release for your platform:
 
 → [github.com/fastrepl/anarlog/releases/latest](https://github.com/fastrepl/anarlog/releases/latest)
 
-Open it. Join a meeting. anarlog records, transcribes locally, and saves your notes as markdown on disk. Bring your own LLM (OpenAI, Anthropic, Gemini, OpenRouter, Ollama, LM Studio, anything OpenAI-compatible).
+Open it and join a meeting. anarlog records, transcribes locally, and saves your notes as markdown on disk. Bring your own LLM: OpenAI, Anthropic, Gemini, OpenRouter, Ollama, LM Studio, or anything OpenAI-compatible.
 
-Self-host? Clone the repo, build, run.
+To self-host, clone the repo, build it, and run it.
 
 ## Why use it
 
-- **Your data, your disk.** Every meeting is a `.md` file. `cat` it. Grep it. Sync it via Dropbox / iCloud / Syncthing / git. There is no cloud lock-in because there is no cloud.
-- **Local transcription.** On-device speech models. Audio never leaves your machine.
-- **Bring your own AI.** Plug in any LLM provider. No vendor we picked for you.
-- **Open source, MIT.** Fork it. Sell it. Self-host it. We mean it.
-- **No accounts. No tracking. No "free tier."** Just the app.
+- **Your data, your disk.** Every meeting is a `.md` file you can inspect, search, and sync through Dropbox, iCloud, Syncthing, or git. No cloud backend means no cloud lock-in.
+- **Local transcription.** Transcription runs on-device, so audio never leaves your machine.
+- **Bring your own AI.** Use any LLM provider, including OpenAI-compatible services and local models.
+- **Open source, MIT.** Fork it, sell it, or self-host it.
+- **No accounts or tracking.** There is no hosted account model.
 
 ## Name history
 
-**anarlog** started as **Hyprnote**, then briefly carried the **char** name.
+**anarlog** started as **Hyprnote**, then briefly used the **char** name.
 
-We later split the work into two projects. **char** is the team's current productivity product, where most active development happens. **anarlog** is this open-source, local-first meeting notetaker.
+We later split the work into two projects. **[char](https://char.com)** is the team's current productivity app. **anarlog** is this open-source, local-first meeting notetaker.
 
-That means this repository is not the current char codebase, and anarlog is not being retired. It keeps the original open-source path: MIT-licensed, forkable, self-hostable, and built for people who want local notes they control.
+This repository is not the current char codebase, and anarlog is not being retired. It keeps the open-source path: MIT-licensed, forkable, self-hostable, and built for local notes you control.
 
 If you came here from Granola, welcome. If you came here from Hyprnote, welcome back.
 
-Either way: it's yours.
+Either way, it's yours.
 
 ---
 
