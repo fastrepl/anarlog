@@ -341,7 +341,6 @@ const SessionTimelineBar = memo(
   ({ item, timezone }: { item: MeetingTimelineEntry; timezone?: string }) => {
     const store = main.UI.useStore(main.STORE_ID);
     const indexes = main.UI.useIndexes(main.STORE_ID);
-    const openCurrent = useTabs((state) => state.openCurrent);
     const openNew = useTabs((state) => state.openNew);
     const invalidateResource = useTabs((state) => state.invalidateResource);
     const addDeletion = useUndoDelete((state) => state.addDeletion);
@@ -367,19 +366,7 @@ const SessionTimelineBar = memo(
       [sessionRow?.event_json],
     );
 
-    const handleClick = useCallback(
-      (event: MouseEvent<HTMLButtonElement>) => {
-        if (event.metaKey || event.ctrlKey) {
-          openNew({ id: item.id, type: "sessions" });
-          return;
-        }
-
-        openCurrent({ id: item.id, type: "sessions" });
-      },
-      [item.id, openCurrent, openNew],
-    );
-
-    const handleOpenNewTab = useCallback(() => {
+    const openSession = useCallback(() => {
       openNew({ id: item.id, type: "sessions" });
     }, [item.id, openNew]);
 
@@ -426,7 +413,7 @@ const SessionTimelineBar = memo(
         {
           id: "open-new-tab",
           text: "Open in New Tab",
-          action: handleOpenNewTab,
+          action: openSession,
         },
         {
           id: "show",
@@ -440,7 +427,7 @@ const SessionTimelineBar = memo(
           action: handleDelete,
         },
       ],
-      [handleOpenNewTab, handleShowInFinder, handleDelete],
+      [openSession, handleShowInFinder, handleDelete],
     );
 
     return (
@@ -451,7 +438,7 @@ const SessionTimelineBar = memo(
             title={title || item.title || "Untitled"}
             timezone={timezone}
             showSpinner={showSpinner}
-            onClick={handleClick}
+            onClick={openSession}
             contextMenu={contextMenu}
           />
         </SessionPreviewCard>
@@ -463,38 +450,23 @@ const SessionTimelineBar = memo(
 const EventTimelineBar = memo(
   ({ item, timezone }: { item: MeetingTimelineEntry; timezone?: string }) => {
     const store = main.UI.useStore(main.STORE_ID);
-    const openCurrent = useTabs((state) => state.openCurrent);
     const openNew = useTabs((state) => state.openNew);
     const { ignoreEvent, ignoreSeries } = useIgnoredEvents();
 
-    const openEvent = useCallback(
-      (openInNewTab: boolean) => {
-        if (!store) {
-          return;
-        }
+    const openEvent = useCallback(() => {
+      if (!store) {
+        return;
+      }
 
-        const sessionId = getOrCreateSessionForEventId(
-          store,
-          item.id,
-          item.title,
-        );
-        const tab = { id: sessionId, type: "sessions" } as const;
+      const sessionId = getOrCreateSessionForEventId(
+        store,
+        item.id,
+        item.title,
+      );
+      const tab = { id: sessionId, type: "sessions" } as const;
 
-        openInNewTab ? openNew(tab) : openCurrent(tab);
-      },
-      [item.id, item.title, openCurrent, openNew, store],
-    );
-
-    const handleClick = useCallback(
-      (event: MouseEvent<HTMLButtonElement>) => {
-        openEvent(event.metaKey || event.ctrlKey);
-      },
-      [openEvent],
-    );
-
-    const handleOpenNewTab = useCallback(() => {
-      openEvent(true);
-    }, [openEvent]);
+      openNew(tab);
+    }, [item.id, item.title, openNew, store]);
 
     const handleIgnore = useCallback(() => {
       if (!item.trackingId) {
@@ -517,7 +489,7 @@ const EventTimelineBar = memo(
         {
           id: "open-new-tab",
           text: "Open in New Tab",
-          action: handleOpenNewTab,
+          action: openEvent,
         },
         { separator: true },
         {
@@ -536,12 +508,7 @@ const EventTimelineBar = memo(
       }
 
       return menu;
-    }, [
-      handleOpenNewTab,
-      handleIgnore,
-      handleIgnoreSeries,
-      item.recurrenceSeriesId,
-    ]);
+    }, [openEvent, handleIgnore, handleIgnoreSeries, item.recurrenceSeriesId]);
 
     return (
       <TimelineCarouselCard item={item}>
@@ -549,7 +516,7 @@ const EventTimelineBar = memo(
           item={item}
           title={item.title || "Untitled"}
           timezone={timezone}
-          onClick={handleClick}
+          onClick={openEvent}
           contextMenu={contextMenu}
         />
       </TimelineCarouselCard>
