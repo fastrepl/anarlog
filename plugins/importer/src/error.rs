@@ -21,6 +21,12 @@ pub enum Error {
     #[error("import source not available: {0}")]
     SourceNotAvailable(String),
 
+    #[error("{operation} timed out after {seconds} seconds")]
+    Timeout {
+        operation: &'static str,
+        seconds: u64,
+    },
+
     #[error("tauri error: {0}")]
     Tauri(#[from] tauri::Error),
 

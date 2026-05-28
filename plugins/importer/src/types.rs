@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 pub use hypr_importer_core::ir::{
-    Collection, EnhancedNote, Human, Organization, Session, SessionParticipant, Tag, TagMapping,
-    Template, TemplateSection, Transcript, Word,
+    Collection, CollectionStats, EnhancedNote, Human, Organization, Session, SessionParticipant,
+    Tag, TagMapping, Template, TemplateSection, Transcript, Word,
 };
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, specta::Type, PartialEq, Eq, Hash)]
@@ -147,14 +147,20 @@ pub struct ImportStats {
 
 impl ImportStats {
     pub fn from_data(data: &Collection) -> Self {
+        CollectionStats::from_collection(data).into()
+    }
+}
+
+impl From<CollectionStats> for ImportStats {
+    fn from(stats: CollectionStats) -> Self {
         Self {
-            sessions_count: data.sessions.len(),
-            transcripts_count: data.transcripts.len(),
-            humans_count: data.humans.len(),
-            organizations_count: data.organizations.len(),
-            participants_count: data.participants.len(),
-            templates_count: data.templates.len(),
-            enhanced_notes_count: data.enhanced_notes.len(),
+            sessions_count: stats.sessions_count,
+            transcripts_count: stats.transcripts_count,
+            humans_count: stats.humans_count,
+            organizations_count: stats.organizations_count,
+            participants_count: stats.participants_count,
+            templates_count: stats.templates_count,
+            enhanced_notes_count: stats.enhanced_notes_count,
         }
     }
 }

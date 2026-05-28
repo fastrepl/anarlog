@@ -18,6 +18,31 @@ pub struct Collection {
     pub tag_mappings: Vec<TagMapping>,
 }
 
+#[derive(Debug, Clone, Copy, Default, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+pub struct CollectionStats {
+    pub sessions_count: usize,
+    pub transcripts_count: usize,
+    pub humans_count: usize,
+    pub organizations_count: usize,
+    pub participants_count: usize,
+    pub templates_count: usize,
+    pub enhanced_notes_count: usize,
+}
+
+impl CollectionStats {
+    pub fn from_collection(data: &Collection) -> Self {
+        Self {
+            sessions_count: data.sessions.len(),
+            transcripts_count: data.transcripts.len(),
+            humans_count: data.humans.len(),
+            organizations_count: data.organizations.len(),
+            participants_count: data.participants.len(),
+            templates_count: data.templates.len(),
+            enhanced_notes_count: data.enhanced_notes.len(),
+        }
+    }
+}
+
 impl std::fmt::Display for Collection {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "sessions: {}", self.sessions.len())?;

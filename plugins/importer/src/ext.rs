@@ -56,8 +56,7 @@ impl<R: tauri::Runtime> Importer<R> {
             return Err(crate::Error::SourceNotAvailable(source.name.clone()));
         }
 
-        let data = crate::sources::import_all(source).await?;
-        Ok(ImportStats::from_data(&data))
+        crate::sources::import_stats(source).await
     }
 }
 

@@ -63,12 +63,20 @@ impl Session {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.enhanced_memo_html
-            .as_ref()
-            .is_none_or(|s| is_html_empty(s))
-            && is_html_empty(&self.raw_memo_html)
-            && self.words.is_empty()
+        is_session_content_empty(
+            &self.raw_memo_html,
+            self.enhanced_memo_html.as_deref(),
+            self.words.is_empty(),
+        )
     }
+}
+
+pub fn is_session_content_empty(
+    raw_memo_html: &str,
+    enhanced_memo_html: Option<&str>,
+    words_is_empty: bool,
+) -> bool {
+    enhanced_memo_html.is_none_or(is_html_empty) && is_html_empty(raw_memo_html) && words_is_empty
 }
 
 fn is_html_empty(html: &str) -> bool {
