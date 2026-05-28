@@ -147,7 +147,7 @@ function Component() {
           </header>
 
           <section className="pt-24 pb-16 md:pt-32">
-            <h1 className="max-w-3xl font-sans text-6xl leading-[0.98] font-semibold tracking-normal text-balance md:text-8xl">
+            <h1 className="font-hand max-w-3xl text-6xl leading-[0.98] font-semibold tracking-normal text-balance md:text-8xl">
               AI notepad for private meetings.
             </h1>
             <p className="mt-6 max-w-2xl text-xl leading-9 text-[#363029]">
@@ -175,7 +175,7 @@ function Component() {
           </section>
 
           <section className="py-10">
-            <h2 className="font-sans text-3xl leading-none font-semibold text-[#756b5d]">
+            <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
               Why Anarlog exists
             </h2>
             <ul className="mt-6 grid gap-8">
@@ -194,7 +194,7 @@ function Component() {
           </section>
 
           <section id="manifesto" className="py-10">
-            <h2 className="font-sans text-3xl leading-none font-semibold text-[#756b5d]">
+            <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
               Manifesto
             </h2>
             <div className="mt-7 max-w-3xl">
@@ -204,7 +204,7 @@ function Component() {
                 ))}
               </div>
               <div className="mt-10">
-                <p className="font-sans text-3xl leading-none font-normal">
+                <p className="font-signature text-3xl leading-none font-normal">
                   {manifestoLetter.at(-1)}
                 </p>
                 <p className="mt-5 font-sans text-base leading-none font-normal text-[#4f4940]">

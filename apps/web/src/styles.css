@@ -13,6 +13,8 @@
   --font-mono:
     ui-monospace, "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono",
     Menlo, monospace;
+  --font-hand: "Caveat", cursive;
+  --font-signature: "Patrick Hand", cursive;
 
   /* ── Layout ──────────────────────────────────── */
   --breakpoint-laptop: 72rem;

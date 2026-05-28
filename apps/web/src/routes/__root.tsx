@@ -23,6 +23,10 @@ interface RouterContext {
   queryClient: QueryClient;
 }
 
+const FONT_STYLESHEETS = [
+  "https://fonts.googleapis.com/css2?family=Caveat:wght@400..700&family=Patrick+Hand&display=swap",
+] as const;
+
 export const Route = createRootRouteWithContext<RouterContext>()({
   head: () => ({
     meta: [
@@ -104,6 +108,15 @@ function RootDocument({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
+        {FONT_STYLESHEETS.map((href) => (
+          <link key={href} rel="stylesheet" href={href} />
+        ))}
         <link rel="stylesheet" href={appCss} />
         <HeadContent />
       </head>
