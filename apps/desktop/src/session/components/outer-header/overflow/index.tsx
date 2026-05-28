@@ -1,4 +1,5 @@
 import {
+  AudioLinesIcon,
   FileTextIcon,
   MoreHorizontalIcon,
   PictureInPicture2Icon,
@@ -26,6 +27,7 @@ import { useHasTranscript } from "~/session/components/shared";
 import { useConfigValue } from "~/shared/config";
 import type { EditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
+import { useUploadFile } from "~/stt/useUploadFile";
 
 export function OverflowButton({
   sessionId,
@@ -37,6 +39,7 @@ export function OverflowButton({
   const [open, setOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const hasTranscript = useHasTranscript(sessionId);
+  const { uploadAudio, uploadTranscript } = useUploadFile(sessionId);
   const { audioExists } = useAudioPlayer();
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
   const floatingBarEnabled = useConfigValue("floating_bar_enabled");
@@ -46,6 +49,14 @@ export function OverflowButton({
   const openExportModal = () => {
     setOpen(false);
     requestAnimationFrame(() => setIsExportModalOpen(true));
+  };
+  const handleUploadAudio = () => {
+    setOpen(false);
+    uploadAudio();
+  };
+  const handleUploadTranscript = () => {
+    setOpen(false);
+    uploadTranscript();
   };
   const handleOpenFloatingPanel = () => {
     setOpen(false);
@@ -79,6 +90,20 @@ export function OverflowButton({
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <Listening sessionId={sessionId} hasTranscript={hasTranscript} />
+            <DropdownMenuItem
+              onClick={handleUploadAudio}
+              className="cursor-pointer"
+            >
+              <AudioLinesIcon />
+              <span>Upload audio</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={handleUploadTranscript}
+              className="cursor-pointer"
+            >
+              <FileTextIcon />
+              <span>Upload transcript</span>
+            </DropdownMenuItem>
             {canOpenFloatingPanel && (
               <DropdownMenuItem
                 onClick={handleOpenFloatingPanel}
