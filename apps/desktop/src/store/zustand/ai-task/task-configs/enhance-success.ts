@@ -2,6 +2,8 @@ import { md2json } from "@hypr/editor/markdown";
 
 import { createTaskId, type TaskConfig } from ".";
 
+import { hasLiveSessionTitleDraft } from "~/store/zustand/live-title";
+
 const onSuccess: NonNullable<TaskConfig<"enhance">["onSuccess"]> = ({
   text,
   args,
@@ -27,7 +29,7 @@ const onSuccess: NonNullable<TaskConfig<"enhance">["onSuccess"]> = ({
   const currentTitle = store.getCell("sessions", args.sessionId, "title");
   const trimmedTitle =
     typeof currentTitle === "string" ? currentTitle.trim() : "";
-  if (trimmedTitle) {
+  if (trimmedTitle || hasLiveSessionTitleDraft(args.sessionId)) {
     return;
   }
 

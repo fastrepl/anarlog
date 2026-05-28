@@ -1,5 +1,7 @@
 import type { TaskConfig } from ".";
 
+import { hasLiveSessionTitleDraft } from "~/store/zustand/live-title";
+
 const onSuccess: NonNullable<TaskConfig<"title">["onSuccess"]> = ({
   text,
   args,
@@ -11,6 +13,15 @@ const onSuccess: NonNullable<TaskConfig<"title">["onSuccess"]> = ({
 
   const trimmed = text.trim();
   if (!trimmed || trimmed === "<EMPTY>") {
+    return;
+  }
+
+  const currentTitle = store.getCell("sessions", args.sessionId, "title");
+  if (typeof currentTitle === "string" && currentTitle.trim()) {
+    return;
+  }
+
+  if (hasLiveSessionTitleDraft(args.sessionId)) {
     return;
   }
 

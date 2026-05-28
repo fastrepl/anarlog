@@ -1,8 +1,10 @@
 import type { LanguageModel } from "ai";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { TaskConfig } from ".";
 import { enhanceSuccess } from "./enhance-success";
+
+import { useLiveTitle } from "~/store/zustand/live-title";
 
 type EnhanceSuccessParams = Parameters<
   NonNullable<TaskConfig<"enhance">["onSuccess"]>
@@ -35,6 +37,10 @@ function createParams(
 }
 
 describe("enhanceSuccess.onSuccess", () => {
+  beforeEach(() => {
+    useLiveTitle.setState({ titles: {} });
+  });
+
   it("persists enhanced note content as TipTap JSON string", async () => {
     const params = createParams();
 
@@ -77,6 +83,16 @@ describe("enhanceSuccess.onSuccess", () => {
     } as unknown as EnhanceSuccessParams["store"];
     const startTask = vi.fn().mockResolvedValue(undefined);
     const params = createParams({ store, startTask });
+
+    await enhanceSuccess.onSuccess?.(params);
+
+    expect(startTask).not.toHaveBeenCalled();
+  });
+
+  it("does not start title generation while the title is being edited", async () => {
+    useLiveTitle.getState().setTitle("session-1", "Custom title");
+    const startTask = vi.fn().mockResolvedValue(undefined);
+    const params = createParams({ startTask });
 
     await enhanceSuccess.onSuccess?.(params);
 

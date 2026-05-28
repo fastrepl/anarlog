@@ -17,6 +17,13 @@ export const useLiveTitle = create<LiveTitleState>((set) => ({
     }),
 }));
 
+export function hasLiveSessionTitleDraft(sessionId: string): boolean {
+  return Object.prototype.hasOwnProperty.call(
+    useLiveTitle.getState().titles,
+    sessionId,
+  );
+}
+
 export function useSessionTitle(
   sessionId: string,
   storeTitle: string | undefined,
