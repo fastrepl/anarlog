@@ -267,7 +267,7 @@ export const generalSchema = z.object({
   floating_bar_enabled: z.boolean().default(true),
   telemetry_consent: z.boolean().default(true),
   save_recordings: z.boolean().default(true),
-  audio_retention: z.string().default("oneMonth"),
+  audio_retention: z.string().default("forever"),
   notification_event: z.boolean().default(true),
   notification_detect: z.boolean().default(true),
   respect_dnd: z.boolean().default(false),

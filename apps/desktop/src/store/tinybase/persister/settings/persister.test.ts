@@ -136,7 +136,7 @@ describe("settingsPersister roundtrip", () => {
     const [, valuesFromRemoteAlias] = settingsToContent({
       general: { saveAudioAfterMeeting: true },
     });
-    expect(valuesFromRemoteAlias.audio_retention).toBe("oneMonth");
+    expect(valuesFromRemoteAlias.audio_retention).toBe("forever");
   });
 
   test("store -> settings -> store preserves all data", () => {
@@ -639,7 +639,7 @@ describe("createSettingsPersister e2e", () => {
     expect(settingsLoad).toHaveBeenCalled();
     expect(store.getValue("autostart")).toBe(true);
     expect(store.getValue("save_recordings")).toBe(true);
-    expect(store.getValue("audio_retention")).toBe("oneMonth");
+    expect(store.getValue("audio_retention")).toBe("forever");
 
     await persister.stopAutoPersisting();
     persister.destroy();

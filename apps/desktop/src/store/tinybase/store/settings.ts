@@ -54,7 +54,7 @@ export const SETTINGS_MAPPING = {
     audio_retention: {
       type: "string",
       path: ["general", "audio_retention"],
-      default: "oneMonth" as string,
+      default: "forever" as string,
       schemaDefault: false,
     },
     notification_event: {

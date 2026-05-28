@@ -61,14 +61,22 @@ describe("audio retention", () => {
   test("normalizes current and legacy values", () => {
     expect(normalizeAudioRetention("none")).toBe("none");
     expect(normalizeAudioRetention("oneWeek")).toBe("oneWeek");
+    expect(normalizeAudioRetention("forever")).toBe("forever");
     expect(normalizeAudioRetention(false)).toBe("none");
-    expect(normalizeAudioRetention(true)).toBe("oneMonth");
-    expect(normalizeAudioRetention("invalid")).toBe("oneMonth");
+    expect(normalizeAudioRetention(true)).toBe("forever");
+    expect(normalizeAudioRetention("invalid")).toBe("forever");
     expect(normalizeAudioRetention("invalid", undefined)).toBeUndefined();
   });
 
   test("expires immediately when retention is none", () => {
     expect(sessionAudioExpired("not-a-date", "none")).toBe(true);
+  });
+
+  test("never expires when retention is forever", () => {
+    expect(sessionAudioExpired("2026-01-01T00:00:00.000Z", "forever")).toBe(
+      false,
+    );
+    expect(sessionAudioExpired("not-a-date", "forever")).toBe(false);
   });
 
   test("expires after the selected retention window", () => {
@@ -183,6 +191,26 @@ describe("audio retention", () => {
     expect(audioDeleteMock).toHaveBeenCalledTimes(1);
     expect(audioDeleteMock).toHaveBeenCalledWith("processed");
     expect(deleted).toEqual(["processed"]);
+  });
+
+  test("does not delete session or orphaned audio when retention is forever", async () => {
+    const now = Date.parse("2026-05-13T00:00:00.000Z");
+    const store = createMainStore();
+    const settingsStore = createSettingsStore();
+
+    settingsStore.setValue("audio_retention", "forever");
+    store.setRow("sessions", "old", {
+      user_id: "user",
+      created_at: "2026-01-01T00:00:00.000Z",
+      title: "",
+      raw_md: "",
+    });
+
+    const deleted = await cleanupExpiredAudio(store, settingsStore, now);
+
+    expect(audioDeleteMock).not.toHaveBeenCalled();
+    expect(audioDeleteOrphanedExpiredMock).not.toHaveBeenCalled();
+    expect(deleted).toEqual([]);
   });
 
   test("uses legacy save_recordings when audio_retention is missing", async () => {

@@ -39,7 +39,7 @@ describe("useConfigValue", () => {
     expect(result.current).toBe("none");
   });
 
-  test("keeps explicit default audio retention over legacy save_recordings", () => {
+  test("keeps explicit audio retention over legacy save_recordings", () => {
     const { result } = renderHook(() => useConfigValue("audio_retention"), {
       wrapper: createWrapper({
         save_recordings: false,

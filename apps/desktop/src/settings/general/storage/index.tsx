@@ -63,6 +63,11 @@ const AUDIO_RETENTION_OPTIONS = [
     label: "1 month",
     description: "Expire recordings after one month",
   },
+  {
+    value: "forever",
+    label: "Forever",
+    description: "Keep recordings until manually deleted",
+  },
 ];
 
 export function StorageSettingsView() {
@@ -137,7 +142,7 @@ export function StorageSettingsView() {
 }
 
 function AudioRetentionRow() {
-  const audioRetention = useConfigValue("audio_retention") || "oneMonth";
+  const audioRetention = useConfigValue("audio_retention") || "forever";
   const setAudioRetention = settings.UI.useSetPartialValuesCallback(
     (value: string) => ({
       audio_retention: value,

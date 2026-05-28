@@ -4,6 +4,7 @@ import {
   AUDIO_RETENTION_DURATION_MS,
   normalizeAudioRetention as normalizeAudioRetentionPolicy,
   type AudioRetentionPolicy,
+  type ExpiringAudioRetentionPolicy,
 } from "./audio-retention-policy";
 
 import type * as main from "~/store/tinybase/store/main";
@@ -23,6 +24,10 @@ export function sessionAudioExpired(
   policy: AudioRetentionPolicy,
   nowMs = Date.now(),
 ) {
+  if (policy === "forever") {
+    return false;
+  }
+
   if (policy === "none") {
     return true;
   }
@@ -83,12 +88,20 @@ function sessionHasTranscriptWords(store: main.Store, sessionId: string) {
   return hasWords;
 }
 
+function audioRetentionDurationMs(policy: ExpiringAudioRetentionPolicy) {
+  return AUDIO_RETENTION_DURATION_MS[policy];
+}
+
 export async function cleanupExpiredAudio(
   store: main.Store,
   settingsStore: settings.Store,
   nowMs = Date.now(),
 ) {
   const policy = getAudioRetentionPolicy(settingsStore);
+  if (policy === "forever") {
+    return [];
+  }
+
   const deletes: Promise<void>[] = [];
   const knownSessionIds: string[] = [];
   const deletedSessionIds: string[] = [];
@@ -137,7 +150,7 @@ export async function cleanupExpiredAudio(
   try {
     const orphanedResult = await fsSyncCommands.audioDeleteOrphanedExpired(
       knownSessionIds,
-      AUDIO_RETENTION_DURATION_MS[policy],
+      audioRetentionDurationMs(policy),
       nowMs,
     );
 
