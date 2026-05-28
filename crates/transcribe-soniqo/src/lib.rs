@@ -146,6 +146,13 @@ impl SoniqoModel {
         self.supports_live() && self.is_available_on_current_platform()
     }
 
+    pub const fn batch_model(self) -> Self {
+        match self {
+            Self::ParakeetStreaming => Self::ParakeetBatch,
+            model => model,
+        }
+    }
+
     pub fn supports_language(self, language: &hypr_language::Language) -> bool {
         match self {
             Self::ParakeetStreaming | Self::ParakeetBatch => {
@@ -857,6 +864,18 @@ mod tests {
             cfg!(all(target_os = "macos", target_arch = "aarch64")),
         );
         assert!(!SoniqoModel::ParakeetBatch.supports_live_on_current_platform());
+    }
+
+    #[test]
+    fn streaming_model_uses_batch_model_for_file_transcription() {
+        assert_eq!(
+            SoniqoModel::ParakeetStreaming.batch_model(),
+            SoniqoModel::ParakeetBatch
+        );
+        assert_eq!(
+            SoniqoModel::ParakeetBatch.batch_model(),
+            SoniqoModel::ParakeetBatch
+        );
     }
 
     #[test]

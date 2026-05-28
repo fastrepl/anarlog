@@ -113,7 +113,8 @@ pub(super) async fn run_soniqo_batch(
             .map_err(|e| crate::BatchFailure::DirectRequestFailed {
                 provider: "soniqo".to_string(),
                 message: e.to_string(),
-            })?;
+            })?
+            .batch_model();
 
         let file_path = params.file_path.clone();
         let language = listen_params

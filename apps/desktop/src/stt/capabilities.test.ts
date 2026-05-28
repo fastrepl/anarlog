@@ -38,10 +38,10 @@ describe("getOnDeviceTranscriptionMode", () => {
     ).toBe("batch");
   });
 
-  test("falls back to batch when realtime local model has no supported language", () => {
+  test("keeps live mode when realtime local model has no Soniqo-supported language", () => {
     expect(
       getOnDeviceTranscriptionMode("soniqo-parakeet-streaming", ["ko"]),
-    ).toBe("batch");
+    ).toBe("live");
   });
 
   test("falls back to batch for non-English Soniqo streaming languages", () => {
@@ -67,6 +67,15 @@ describe("getOnDeviceTranscriptionConfig", () => {
     ).toEqual({
       languages: ["de", "en"],
       transcriptionMode: "batch",
+    });
+  });
+
+  test("drops unsupported Soniqo language hints instead of forcing batch", () => {
+    expect(
+      getOnDeviceTranscriptionConfig("soniqo-parakeet-streaming", ["ko"]),
+    ).toEqual({
+      languages: [],
+      transcriptionMode: "live",
     });
   });
 });
