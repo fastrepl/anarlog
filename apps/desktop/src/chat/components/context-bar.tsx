@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { ChevronDownIcon, PlusIcon, XIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -12,14 +13,75 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@hypr/ui/components/ui/tooltip";
-import { cn } from "@hypr/utils";
+import { cn, safeParseDate } from "@hypr/utils";
 
 import type { ContextRef } from "~/chat/context/entities";
 import { type ContextChipProps, renderChip } from "~/chat/context/registry";
 import type { DisplayEntity } from "~/chat/context/use-chat-context-pipeline";
 import { useShell } from "~/contexts/shell";
 import { useSearchEngine } from "~/search/contexts/engine";
+import { getSessionEvent } from "~/session/utils";
+import * as main from "~/store/tinybase/store/main";
 import { useTabs } from "~/store/zustand/tabs";
+
+const MAX_SESSION_PICKER_RESULTS = 8;
+
+type SessionPickerItem = {
+  id: string;
+  title: string;
+  dateLabel: string | null;
+  timestamp: number | null;
+};
+
+type MainStore = ReturnType<typeof main.UI.useStore>;
+
+function getSessionTimestamp(row: {
+  created_at?: unknown;
+  event_json?: unknown;
+}): number | null {
+  const event =
+    typeof row.event_json === "string"
+      ? getSessionEvent({ event_json: row.event_json })
+      : null;
+  const date = safeParseDate(event?.started_at ?? row.created_at);
+  return date ? date.getTime() : null;
+}
+
+function toSessionPickerItem(
+  store: MainStore,
+  sessionId: string,
+): SessionPickerItem | null {
+  if (!store?.hasRow("sessions", sessionId)) {
+    return null;
+  }
+
+  const row = store.getRow("sessions", sessionId);
+  const title = typeof row.title === "string" ? row.title.trim() : "";
+  const timestamp = getSessionTimestamp(row);
+
+  if (!title && timestamp === null) {
+    return null;
+  }
+
+  return {
+    id: sessionId,
+    title: title || "Untitled",
+    timestamp,
+    dateLabel: timestamp ? new Date(timestamp).toLocaleDateString() : null,
+  };
+}
+
+function sortByNewestSession(
+  a: SessionPickerItem,
+  b: SessionPickerItem,
+): number {
+  const aTime = a.timestamp ?? Number.NEGATIVE_INFINITY;
+  const bTime = b.timestamp ?? Number.NEGATIVE_INFINITY;
+  if (aTime === bTime) {
+    return a.title.localeCompare(b.title);
+  }
+  return bTime - aTime;
+}
 
 function useOverflow(
   ref: React.RefObject<HTMLDivElement | null>,
@@ -192,25 +254,34 @@ function SessionPicker({
   onClose: () => void;
 }) {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<
-    Array<{ id: string; title: string; created_at: number }>
-  >([]);
+  const normalizedQuery = query.trim();
   const { search } = useSearchEngine();
+  const store = main.UI.useStore(main.STORE_ID);
+  const sessionIds = main.UI.useRowIds("sessions", main.STORE_ID);
 
-  useEffect(() => {
-    search(query, { created_at: undefined }).then((hits) => {
-      setResults(
-        hits
-          .filter((h) => h.document.type === "session")
-          .slice(0, 8)
-          .map((h) => ({
-            id: h.document.id,
-            title: h.document.title,
-            created_at: h.document.created_at,
-          })),
-      );
-    });
-  }, [query, search]);
+  const searchResults = useQuery({
+    queryKey: ["chat-session-picker", normalizedQuery],
+    enabled: normalizedQuery.length > 0,
+    queryFn: () => search(normalizedQuery, { created_at: undefined }),
+  });
+
+  const recentSessions = useMemo(() => {
+    return sessionIds
+      .map((sessionId) => toSessionPickerItem(store, sessionId))
+      .filter((item): item is SessionPickerItem => item !== null)
+      .sort(sortByNewestSession)
+      .slice(0, MAX_SESSION_PICKER_RESULTS);
+  }, [sessionIds, store]);
+
+  const matchingSessions = useMemo(() => {
+    return (searchResults.data ?? [])
+      .filter((hit) => hit.document.type === "session")
+      .map((hit) => toSessionPickerItem(store, hit.document.id))
+      .filter((item): item is SessionPickerItem => item !== null)
+      .slice(0, MAX_SESSION_PICKER_RESULTS);
+  }, [searchResults.data, store]);
+
+  const results = normalizedQuery ? matchingSessions : recentSessions;
 
   return (
     <div className="flex flex-col gap-2">
@@ -237,13 +308,13 @@ function SessionPicker({
               {result.title || "Untitled"}
             </span>
             <span className="text-[10px] text-neutral-400">
-              {new Date(result.created_at).toLocaleDateString()}
+              {result.dateLabel ?? "Unknown date"}
             </span>
           </button>
         ))}
         {results.length === 0 && (
           <span className="px-2 py-1.5 text-xs text-neutral-400">
-            No sessions found
+            {searchResults.isFetching ? "Searching..." : "No sessions found"}
           </span>
         )}
       </div>
