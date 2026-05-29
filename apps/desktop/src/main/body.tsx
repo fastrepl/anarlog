@@ -55,7 +55,7 @@ export function ClassicMainBody() {
     !leftsidebar.showDevtool &&
     !hasCustomSidebar &&
     !isOnboarding;
-  const showCalendarChromeBack = currentTab?.type === "calendar";
+  const showLeftSurfaceChromeBack = hasLeftSurfaceCustomSidebar;
   const enableMainAreaTopDrag =
     showSidebarTimeline || hasLeftSurfaceCustomSidebar;
   const mainAreaTopDrag = useMainAreaTopWindowDrag(enableMainAreaTopDrag);
