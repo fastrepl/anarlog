@@ -1,5 +1,5 @@
 import { format } from "date-fns";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 
 import { Button } from "@hypr/ui/components/ui/button";
 import {
@@ -12,7 +12,11 @@ import { cn } from "@hypr/utils";
 
 import { toTz, useCalendar, useTimezone } from "~/calendar/hooks";
 import { EventDisplay } from "~/session/components/outer-header/metadata";
-import { useEvent } from "~/store/tinybase/hooks";
+import {
+  type MenuItemDef,
+  useNativeContextMenu,
+} from "~/shared/hooks/useNativeContextMenu";
+import { useEvent, useIgnoredEvents } from "~/store/tinybase/hooks";
 import * as main from "~/store/tinybase/store/main";
 import { getOrCreateSessionForEventId } from "~/store/tinybase/store/sessions";
 import { useTabs } from "~/store/zustand/tabs";
@@ -24,6 +28,9 @@ function useCalendarColor(calendarId: string | null): string | null {
 
 export function EventChip({ eventId }: { eventId: string }) {
   const tz = useTimezone();
+  const store = main.UI.useStore(main.STORE_ID);
+  const openNew = useTabs((state) => state.openNew);
+  const { ignoreEvent, ignoreSeries } = useIgnoredEvents();
   const event = main.UI.useResultRow(
     main.QUERIES.timelineEvents,
     eventId,
@@ -32,17 +39,71 @@ export function EventChip({ eventId }: { eventId: string }) {
   const calendarColor = useCalendarColor(
     (event?.calendar_id as string) ?? null,
   );
-
-  if (!event || !event.title) {
-    return null;
-  }
-
-  const isAllDay = !!event.is_all_day;
+  const title = event?.title as string | undefined;
+  const trackingId = event?.tracking_id_event as string | undefined;
+  const recurrenceSeriesId = event?.recurrence_series_id as string | undefined;
+  const isAllDay = !!event?.is_all_day;
   const color = calendarColor ?? "#888";
 
-  const startedAt = event.started_at
+  const startedAt = event?.started_at
     ? format(toTz(event.started_at as string, tz), "h:mm a")
     : null;
+
+  const handleOpenNewTab = useCallback(() => {
+    if (!store || !title) {
+      return;
+    }
+
+    const sessionId = getOrCreateSessionForEventId(store, eventId, title);
+    openNew({ type: "sessions", id: sessionId });
+  }, [store, eventId, title, openNew]);
+
+  const handleIgnore = useCallback(() => {
+    if (!trackingId) {
+      return;
+    }
+
+    ignoreEvent(trackingId);
+  }, [trackingId, ignoreEvent]);
+
+  const handleIgnoreSeries = useCallback(() => {
+    if (!recurrenceSeriesId) {
+      return;
+    }
+
+    ignoreSeries(recurrenceSeriesId);
+  }, [recurrenceSeriesId, ignoreSeries]);
+
+  const contextMenu = useMemo<MenuItemDef[]>(() => {
+    const menu: MenuItemDef[] = [
+      {
+        id: "open-new-tab",
+        text: "Open in New Tab",
+        action: handleOpenNewTab,
+      },
+      { separator: true },
+      {
+        id: "ignore",
+        text: recurrenceSeriesId ? "Delete This Event" : "Delete Event",
+        action: handleIgnore,
+      },
+    ];
+
+    if (recurrenceSeriesId) {
+      menu.push({
+        id: "ignore-series",
+        text: "Delete All Recurring Events",
+        action: handleIgnoreSeries,
+      });
+    }
+
+    return menu;
+  }, [recurrenceSeriesId, handleOpenNewTab, handleIgnore, handleIgnoreSeries]);
+  const showContextMenu = useNativeContextMenu(contextMenu);
+
+  if (!event || !title) {
+    return null;
+  }
 
   return (
     <Popover>
@@ -51,24 +112,26 @@ export function EventChip({ eventId }: { eventId: string }) {
           <button
             className={cn([
               "w-full truncate rounded px-1.5 py-0.5 text-left text-xs leading-tight text-white",
-              "cursor-pointer hover:opacity-80",
+              "cursor-pointer select-none hover:opacity-80",
             ])}
             style={{ backgroundColor: color }}
+            onContextMenu={showContextMenu}
           >
-            {event.title as string}
+            {title}
           </button>
         ) : (
           <button
             className={cn([
               "flex w-full items-center gap-1 rounded pl-0.5 text-left text-xs leading-tight",
-              "cursor-pointer hover:opacity-80",
+              "cursor-pointer select-none hover:opacity-80",
             ])}
+            onContextMenu={showContextMenu}
           >
             <div
               className="w-[2.5px] shrink-0 self-stretch rounded-full"
               style={{ backgroundColor: color }}
             />
-            <span className="truncate">{event.title as string}</span>
+            <span className="truncate">{title}</span>
             {startedAt && (
               <span className="ml-auto shrink-0 font-mono text-neutral-400">
                 {startedAt}

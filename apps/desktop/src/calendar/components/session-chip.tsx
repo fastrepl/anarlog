@@ -1,6 +1,8 @@
 import { format } from "date-fns";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 
+import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
+import { commands as openerCommands } from "@hypr/plugin-opener2";
 import { Button } from "@hypr/ui/components/ui/button";
 import {
   AppFloatingPanel,
@@ -11,24 +13,111 @@ import {
 import { cn } from "@hypr/utils";
 
 import { toTz, useTimezone } from "~/calendar/hooks";
+import { getSessionEvent } from "~/session/utils";
+import {
+  type MenuItemDef,
+  useNativeContextMenu,
+} from "~/shared/hooks/useNativeContextMenu";
+import { useIgnoredEvents } from "~/store/tinybase/hooks";
+import {
+  captureSessionData,
+  deleteSessionCascade,
+  finalizeSessionDeletion,
+} from "~/store/tinybase/store/deleteSession";
 import * as main from "~/store/tinybase/store/main";
 import { useTabs } from "~/store/zustand/tabs";
+import { useUndoDelete } from "~/store/zustand/undo-delete";
 
 export function SessionChip({ sessionId }: { sessionId: string }) {
   const tz = useTimezone();
+  const store = main.UI.useStore(main.STORE_ID);
+  const indexes = main.UI.useIndexes(main.STORE_ID);
+  const openNew = useTabs((state) => state.openNew);
+  const invalidateResource = useTabs((state) => state.invalidateResource);
+  const addDeletion = useUndoDelete((state) => state.addDeletion);
+  const { ignoreEvent } = useIgnoredEvents();
   const session = main.UI.useResultRow(
     main.QUERIES.timelineSessions,
     sessionId,
     main.STORE_ID,
   );
-
-  if (!session || !session.title) {
-    return null;
-  }
-
-  const createdAt = session.created_at
+  const title = session?.title as string | undefined;
+  const eventJson = session?.event_json as string | null | undefined;
+  const createdAt = session?.created_at
     ? format(toTz(session.created_at as string, tz), "h:mm a")
     : null;
+
+  const handleOpenNewTab = useCallback(() => {
+    openNew({ type: "sessions", id: sessionId });
+  }, [openNew, sessionId]);
+
+  const handleShowInFinder = useCallback(async () => {
+    const result = await fsSyncCommands.sessionDir(sessionId);
+    if (result.status === "ok") {
+      await openerCommands.openPath(result.data, null);
+    }
+  }, [sessionId]);
+
+  const handleDelete = useCallback(() => {
+    if (!store) {
+      return;
+    }
+
+    const sessionEvent = getSessionEvent({
+      event_json: eventJson,
+    });
+    if (sessionEvent?.tracking_id) {
+      ignoreEvent(sessionEvent.tracking_id);
+    }
+
+    const capturedData = captureSessionData(store, indexes, sessionId);
+
+    invalidateResource("sessions", sessionId);
+    void deleteSessionCascade(store, indexes, sessionId, {
+      deferFilesystemDelete: true,
+    });
+
+    if (capturedData) {
+      addDeletion(capturedData, () => {
+        void finalizeSessionDeletion(sessionId);
+      });
+    }
+  }, [
+    store,
+    indexes,
+    sessionId,
+    eventJson,
+    ignoreEvent,
+    invalidateResource,
+    addDeletion,
+  ]);
+
+  const contextMenu = useMemo<MenuItemDef[]>(
+    () => [
+      {
+        id: "open-new-tab",
+        text: "Open in New Tab",
+        action: handleOpenNewTab,
+      },
+      {
+        id: "show",
+        text: "Show in Finder",
+        action: handleShowInFinder,
+      },
+      { separator: true },
+      {
+        id: "delete",
+        text: "Delete Note",
+        action: handleDelete,
+      },
+    ],
+    [handleOpenNewTab, handleShowInFinder, handleDelete],
+  );
+  const showContextMenu = useNativeContextMenu(contextMenu);
+
+  if (!session || !title) {
+    return null;
+  }
 
   return (
     <Popover>
@@ -36,11 +125,12 @@ export function SessionChip({ sessionId }: { sessionId: string }) {
         <button
           className={cn([
             "flex w-full items-center gap-1 rounded pl-0.5 text-left text-xs leading-tight",
-            "cursor-pointer hover:opacity-80",
+            "cursor-pointer select-none hover:opacity-80",
           ])}
+          onContextMenu={showContextMenu}
         >
           <div className="w-[4px] shrink-0 self-stretch rounded-full border border-neutral-300 bg-transparent" />
-          <span className="truncate">{session.title as string}</span>
+          <span className="truncate">{title}</span>
           {createdAt && (
             <span className="ml-auto shrink-0 font-mono text-neutral-400">
               {createdAt}

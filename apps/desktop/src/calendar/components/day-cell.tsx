@@ -96,7 +96,7 @@ export function DayCell({
     <div
       className={cn([
         "border-r border-b border-r-neutral-200 border-b-neutral-100",
-        "flex min-w-0 flex-col p-1.5",
+        "flex min-w-0 flex-col p-1.5 select-none",
         (day.getDay() === 0 || day.getDay() === 6) && "bg-neutral-50",
       ])}
     >
