@@ -50,10 +50,10 @@ export function ChatView({
     >
       <div
         className={cn([
-          "flex h-10 shrink-0 items-center pr-0 pl-0",
+          "flex shrink-0 items-center pr-0 pl-0",
           isFloating
-            ? "border-b border-stone-700"
-            : "border-b border-neutral-100",
+            ? "h-11 border-b border-stone-700/80"
+            : "h-10 border-b border-neutral-100",
         ])}
       >
         <ChatToolbarControls
