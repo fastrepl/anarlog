@@ -175,29 +175,32 @@ describe("ClassicMainBody", () => {
     expect(mocks.goNext).toHaveBeenCalledTimes(1);
   });
 
-  it("runs the escape shortcut from the calendar left chrome back button", () => {
-    mocks.currentTab = {
-      active: true,
-      pinned: false,
-      slotId: "slot-1",
-      type: "calendar",
-    };
+  it.each(["calendar", "settings", "contacts"])(
+    "runs the escape shortcut from the %s left chrome back button",
+    (type) => {
+      mocks.currentTab = {
+        active: true,
+        pinned: false,
+        slotId: "slot-1",
+        type,
+      };
 
-    render(<ClassicMainBody />);
+      render(<ClassicMainBody />);
 
-    const backButton = screen.getByRole("button", { name: "Go back" });
-    const topArea = backButton.parentElement?.parentElement;
+      const backButton = screen.getByRole("button", { name: "Go back" });
+      const topArea = backButton.parentElement?.parentElement;
 
-    fireEvent.click(backButton);
+      fireEvent.click(backButton);
 
-    expect(screen.queryByTestId("top-meeting-timeline")).toBeNull();
-    expect(screen.queryByRole("button", { name: "Go forward" })).toBeNull();
-    expect(backButton.hasAttribute("disabled")).toBe(false);
-    expect(topArea?.className).toContain("h-12");
-    expect(topArea?.className).toContain("absolute");
-    expect(mocks.goBack).not.toHaveBeenCalled();
-    expect(mocks.runEscapeShortcut).toHaveBeenCalledTimes(1);
-  });
+      expect(screen.queryByTestId("top-meeting-timeline")).toBeNull();
+      expect(screen.queryByRole("button", { name: "Go forward" })).toBeNull();
+      expect(backButton.hasAttribute("disabled")).toBe(false);
+      expect(topArea?.className).toContain("h-12");
+      expect(topArea?.className).toContain("absolute");
+      expect(mocks.goBack).not.toHaveBeenCalled();
+      expect(mocks.runEscapeShortcut).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it("starts window dragging from the top 48px of the main area in sidebar timeline mode", () => {
     mocks.sidebarTimelineEnabled = true;
