@@ -89,6 +89,35 @@ export function PersistentChatPanel({
     return null;
   }
 
+  const panelMotion = isExpanded
+    ? {
+        initial: { opacity: 0, scale: 0.985, filter: "blur(4px)" },
+        animate: { opacity: 1, scale: 1, filter: "blur(0px)" },
+        exit: { opacity: 0, scale: 0.99, filter: "blur(3px)" },
+      }
+    : {
+        initial: { y: 24, opacity: 0, scale: 0.96, filter: "blur(6px)" },
+        animate: { y: 0, opacity: 1, scale: 1, filter: "blur(0px)" },
+        exit: { y: 18, opacity: 0, scale: 0.97, filter: "blur(4px)" },
+      };
+  const panelTransition = {
+    opacity: { duration: 0.18, ease: [0.22, 1, 0.36, 1] },
+    scale: { duration: 0.24, ease: [0.22, 1, 0.36, 1] },
+    y: { duration: 0.28, ease: [0.22, 1, 0.36, 1] },
+    filter: { duration: 0.16, ease: "easeOut" },
+  };
+  const panelStyle = isExpanded
+    ? { transformOrigin: "center" }
+    : {
+        width: "min(640px, calc(100% - 2rem))",
+        height: "min(560px, calc(100% - 1rem))",
+        minWidth: "min(360px, calc(100% - 2rem))",
+        minHeight: "min(320px, calc(100% - 1rem))",
+        maxWidth: "calc(100% - 2rem)",
+        maxHeight: "calc(100% - 1rem)",
+        transformOrigin: "bottom center",
+      };
+
   return (
     <AnimatePresence>
       {isVisible && (
@@ -135,22 +164,11 @@ export function PersistentChatPanel({
                       "shadow-[0_4px_28px_rgba(87,83,78,0.45)]",
                     ],
               ])}
-              style={
-                isExpanded
-                  ? undefined
-                  : {
-                      width: "min(640px, calc(100% - 2rem))",
-                      height: "min(560px, calc(100% - 1rem))",
-                      minWidth: "min(360px, calc(100% - 2rem))",
-                      minHeight: "min(320px, calc(100% - 1rem))",
-                      maxWidth: "calc(100% - 2rem)",
-                      maxHeight: "calc(100% - 1rem)",
-                    }
-              }
-              initial={{ y: 40, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 40, opacity: 0 }}
-              transition={{ duration: 0.25, ease: [0.32, 0.72, 0, 1] }}
+              style={panelStyle}
+              initial={panelMotion.initial}
+              animate={panelMotion.animate}
+              exit={panelMotion.exit}
+              transition={panelTransition}
             >
               <ChatView
                 isExpanded={isExpanded}
