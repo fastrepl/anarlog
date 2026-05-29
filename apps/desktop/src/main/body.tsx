@@ -55,6 +55,7 @@ export function ClassicMainBody() {
     !leftsidebar.showDevtool &&
     !hasCustomSidebar &&
     !isOnboarding;
+  const showCalendarChromeBack = currentTab?.type === "calendar";
   const enableMainAreaTopDrag =
     showSidebarTimeline || hasLeftSurfaceCustomSidebar;
   const mainAreaTopDrag = useMainAreaTopWindowDrag(enableMainAreaTopDrag);
@@ -98,6 +99,25 @@ export function ClassicMainBody() {
           </div>
         </div>
       )}
+      {showCalendarChromeBack && hasLeftSurfaceCustomSidebar ? (
+        <div
+          data-tauri-drag-region
+          className="absolute top-0 left-0 z-50 h-12 w-[200px]"
+        >
+          <div
+            data-tauri-drag-region
+            className="flex h-full min-w-0 items-start pt-[9px] pl-[76px]"
+          >
+            <SidebarTimelineChromeButton
+              ariaLabel="Go back"
+              disabled={!canGoBack}
+              onClick={goBack}
+            >
+              <ArrowLeftIcon size={14} />
+            </SidebarTimelineChromeButton>
+          </div>
+        </div>
+      ) : null}
       <div className="flex min-h-0 min-w-0 flex-1 gap-1">
         <ClassicMainSidebar />
         <div

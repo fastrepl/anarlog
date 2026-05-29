@@ -15,6 +15,12 @@ const mocks = vi.hoisted(() => ({
   startDragging: vi.fn().mockResolvedValue(undefined),
   canGoBack: false,
   canGoNext: false,
+  currentTab: {
+    active: true,
+    pinned: false,
+    slotId: "slot-1",
+    type: "empty",
+  },
   sidebarTimelineEnabled: false,
 }));
 
@@ -68,12 +74,7 @@ vi.mock("~/store/zustand/tabs", () => ({
   useTabs: vi.fn((selector: (state: unknown) => unknown) =>
     selector({
       tabs: [{ active: true, pinned: false, slotId: "slot-1", type: "empty" }],
-      currentTab: {
-        active: true,
-        pinned: false,
-        slotId: "slot-1",
-        type: "empty",
-      },
+      currentTab: mocks.currentTab,
       canGoBack: mocks.canGoBack,
       canGoNext: mocks.canGoNext,
       goBack: mocks.goBack,
@@ -94,6 +95,12 @@ describe("ClassicMainBody", () => {
     mocks.startDragging.mockClear();
     mocks.canGoBack = false;
     mocks.canGoNext = false;
+    mocks.currentTab = {
+      active: true,
+      pinned: false,
+      slotId: "slot-1",
+      type: "empty",
+    };
     mocks.sidebarTimelineEnabled = false;
   });
 
@@ -162,6 +169,30 @@ describe("ClassicMainBody", () => {
     expect(mocks.openNew).not.toHaveBeenCalled();
     expect(mocks.goBack).toHaveBeenCalledTimes(1);
     expect(mocks.goNext).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows a back navigation button in calendar left chrome", () => {
+    mocks.currentTab = {
+      active: true,
+      pinned: false,
+      slotId: "slot-1",
+      type: "calendar",
+    };
+    mocks.canGoBack = true;
+
+    render(<ClassicMainBody />);
+
+    const backButton = screen.getByRole("button", { name: "Go back" });
+    const topArea = backButton.parentElement?.parentElement;
+
+    fireEvent.click(backButton);
+
+    expect(screen.queryByTestId("top-meeting-timeline")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Go forward" })).toBeNull();
+    expect(backButton.hasAttribute("disabled")).toBe(false);
+    expect(topArea?.className).toContain("h-12");
+    expect(topArea?.className).toContain("absolute");
+    expect(mocks.goBack).toHaveBeenCalledTimes(1);
   });
 
   it("starts window dragging from the top 48px of the main area in sidebar timeline mode", () => {
