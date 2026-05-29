@@ -61,7 +61,10 @@ function EmptyView() {
   );
 
   return (
-    <div className="mb-12 flex h-full flex-col items-center justify-center gap-6 text-neutral-600">
+    <div
+      data-tauri-drag-region
+      className="flex h-full flex-col items-center justify-center gap-6 text-neutral-600"
+    >
       <div className="flex min-w-[280px] flex-col gap-1 text-center">
         <ActionItem label="New Note" shortcut={["⌘", "N"]} onClick={newNote} />
         <ActionItem
@@ -94,6 +97,7 @@ function ActionItem({
   return (
     <button
       onClick={onClick}
+      data-tauri-drag-region="false"
       className={cn([
         "group",
         "flex items-center justify-between gap-8",
