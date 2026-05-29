@@ -48,6 +48,7 @@ import {
 } from "./meeting-timeline-recordings";
 
 import { SessionPreviewCard } from "~/session/components/session-preview-card";
+import { useDeleteSession } from "~/session/hooks/useDeleteSession";
 import { useIsSessionEnhancing } from "~/session/hooks/useEnhancedNotes";
 import { getSessionEvent } from "~/session/utils";
 import { useConfigValue } from "~/shared/config";
@@ -64,16 +65,10 @@ import type {
   TimelineSessionsTable,
 } from "~/sidebar/timeline/utils";
 import { useIgnoredEvents } from "~/store/tinybase/hooks";
-import {
-  captureSessionData,
-  deleteSessionCascade,
-  finalizeSessionDeletion,
-} from "~/store/tinybase/store/deleteSession";
 import * as main from "~/store/tinybase/store/main";
 import { getOrCreateSessionForEventId } from "~/store/tinybase/store/sessions";
 import { useSessionTitle } from "~/store/zustand/live-title";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
-import { useUndoDelete } from "~/store/zustand/undo-delete";
 import { useListener } from "~/stt/contexts";
 
 const TIMELINE_HEIGHT = 44;
@@ -531,12 +526,8 @@ function TopCurrentTimeIndicator({
 
 const SessionTimelineBar = memo(
   ({ item, timezone }: { item: MeetingTimelineEntry; timezone?: string }) => {
-    const store = main.UI.useStore(main.STORE_ID);
-    const indexes = main.UI.useIndexes(main.STORE_ID);
     const openNew = useTabs((state) => state.openNew);
-    const invalidateResource = useTabs((state) => state.invalidateResource);
-    const addDeletion = useUndoDelete((state) => state.addDeletion);
-    const { ignoreEvent } = useIgnoredEvents();
+    const deleteSession = useDeleteSession();
     const sessionRow = main.UI.useRow("sessions", item.id, main.STORE_ID) as
       | TimelineSessionRow
       | undefined;
@@ -568,35 +559,8 @@ const SessionTimelineBar = memo(
     }, [item.id, openNew]);
 
     const handleDelete = useCallback(() => {
-      if (!store) {
-        return;
-      }
-
-      if (sessionEvent?.tracking_id) {
-        ignoreEvent(sessionEvent.tracking_id);
-      }
-
-      const capturedData = captureSessionData(store, indexes, item.id);
-
-      invalidateResource("sessions", item.id);
-      void deleteSessionCascade(store, indexes, item.id, {
-        deferFilesystemDelete: true,
-      });
-
-      if (capturedData) {
-        addDeletion(capturedData, () => {
-          void finalizeSessionDeletion(item.id);
-        });
-      }
-    }, [
-      store,
-      indexes,
-      item.id,
-      sessionEvent,
-      ignoreEvent,
-      invalidateResource,
-      addDeletion,
-    ]);
+      deleteSession(item.id, sessionEvent?.tracking_id);
+    }, [deleteSession, item.id, sessionEvent]);
 
     const handleShowInFinder = useCallback(async () => {
       const result = await fsSyncCommands.sessionDir(item.id);

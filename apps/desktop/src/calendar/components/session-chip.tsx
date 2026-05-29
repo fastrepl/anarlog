@@ -13,29 +13,19 @@ import {
 import { cn } from "@hypr/utils";
 
 import { toTz, useTimezone } from "~/calendar/hooks";
+import { useDeleteSession } from "~/session/hooks/useDeleteSession";
 import { getSessionEvent } from "~/session/utils";
 import {
   type MenuItemDef,
   useNativeContextMenu,
 } from "~/shared/hooks/useNativeContextMenu";
-import { useIgnoredEvents } from "~/store/tinybase/hooks";
-import {
-  captureSessionData,
-  deleteSessionCascade,
-  finalizeSessionDeletion,
-} from "~/store/tinybase/store/deleteSession";
 import * as main from "~/store/tinybase/store/main";
 import { useTabs } from "~/store/zustand/tabs";
-import { useUndoDelete } from "~/store/zustand/undo-delete";
 
 export function SessionChip({ sessionId }: { sessionId: string }) {
   const tz = useTimezone();
-  const store = main.UI.useStore(main.STORE_ID);
-  const indexes = main.UI.useIndexes(main.STORE_ID);
   const openNew = useTabs((state) => state.openNew);
-  const invalidateResource = useTabs((state) => state.invalidateResource);
-  const addDeletion = useUndoDelete((state) => state.addDeletion);
-  const { ignoreEvent } = useIgnoredEvents();
+  const deleteSession = useDeleteSession();
   const session = main.UI.useResultRow(
     main.QUERIES.timelineSessions,
     sessionId,
@@ -59,38 +49,9 @@ export function SessionChip({ sessionId }: { sessionId: string }) {
   }, [sessionId]);
 
   const handleDelete = useCallback(() => {
-    if (!store) {
-      return;
-    }
-
-    const sessionEvent = getSessionEvent({
-      event_json: eventJson,
-    });
-    if (sessionEvent?.tracking_id) {
-      ignoreEvent(sessionEvent.tracking_id);
-    }
-
-    const capturedData = captureSessionData(store, indexes, sessionId);
-
-    invalidateResource("sessions", sessionId);
-    void deleteSessionCascade(store, indexes, sessionId, {
-      deferFilesystemDelete: true,
-    });
-
-    if (capturedData) {
-      addDeletion(capturedData, () => {
-        void finalizeSessionDeletion(sessionId);
-      });
-    }
-  }, [
-    store,
-    indexes,
-    sessionId,
-    eventJson,
-    ignoreEvent,
-    invalidateResource,
-    addDeletion,
-  ]);
+    const sessionEvent = getSessionEvent({ event_json: eventJson });
+    deleteSession(sessionId, sessionEvent?.tracking_id);
+  }, [deleteSession, sessionId, eventJson]);
 
   const contextMenu = useMemo<MenuItemDef[]>(
     () => [
