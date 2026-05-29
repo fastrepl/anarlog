@@ -1,5 +1,7 @@
 import { processContent } from "@hypr/changelog";
 
+import { getChangelogVersionFromPath } from "./changelog-path";
+
 const rawEntries = import.meta.glob(
   "../../../../packages/changelog/content/*.md",
   {
@@ -10,18 +12,21 @@ const rawEntries = import.meta.glob(
 ) as Record<string, string>;
 
 export const changelogEntries = Object.entries(rawEntries)
-  .map(([filePath, raw]) => {
-    const version = filePath.split("/").pop()?.replace(/\.md$/, "") ?? "";
+  .flatMap(([filePath, raw]) => {
+    const version = getChangelogVersionFromPath(filePath);
+    if (!version) return [];
+
     const { content, date, summary } = processContent(raw);
 
-    return {
-      version,
-      content,
-      date: normalizeDate(date),
-      summary,
-    };
+    return [
+      {
+        version,
+        content,
+        date: normalizeDate(date),
+        summary,
+      },
+    ];
   })
-  .filter((entry) => entry.version)
   .sort((a, b) => compareVersionsDesc(a.version, b.version));
 
 export function getChangelogEntry(version: string) {
