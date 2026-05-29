@@ -7,6 +7,7 @@ import {
   format,
   isSameMonth,
   startOfMonth,
+  startOfDay,
   startOfWeek,
   subMonths,
 } from "date-fns";
@@ -66,7 +67,7 @@ export function CalendarView() {
   const weekStartsOn = useWeekStartsOn();
   const weekOpts = useMemo(() => ({ weekStartsOn }), [weekStartsOn]);
   const [currentMonth, setCurrentMonth] = useState(now);
-  const [weekStart, setWeekStart] = useState(() => startOfWeek(now, weekOpts));
+  const [visibleStart, setVisibleStart] = useState(() => startOfDay(now));
   const containerRef = useRef<HTMLDivElement>(null);
   const cols = useVisibleCols(containerRef);
   const calendarData = useCalendarData();
@@ -81,7 +82,7 @@ export function CalendarView() {
     if (isMonthView) {
       setCurrentMonth((m) => subMonths(m, 1));
     } else {
-      setWeekStart((d) => addDays(d, -cols));
+      setVisibleStart((d) => addDays(d, -cols));
     }
   }, [isMonthView, cols]);
 
@@ -89,14 +90,14 @@ export function CalendarView() {
     if (isMonthView) {
       setCurrentMonth((m) => addMonths(m, 1));
     } else {
-      setWeekStart((d) => addDays(d, cols));
+      setVisibleStart((d) => addDays(d, cols));
     }
   }, [isMonthView, cols]);
 
   const goToToday = useCallback(() => {
     setCurrentMonth(now);
-    setWeekStart(startOfWeek(now, weekOpts));
-  }, [now, weekOpts]);
+    setVisibleStart(startOfDay(now));
+  }, [now]);
 
   const days = useMemo(() => {
     if (isMonthView) {
@@ -108,10 +109,10 @@ export function CalendarView() {
     }
 
     return eachDayOfInterval({
-      start: weekStart,
-      end: addDays(weekStart, cols - 1),
+      start: visibleStart,
+      end: addDays(visibleStart, cols - 1),
     });
-  }, [currentMonth, isMonthView, cols, weekStart, weekOpts]);
+  }, [currentMonth, isMonthView, cols, visibleStart, weekOpts]);
 
   const visibleHeaders = useMemo(() => {
     if (isMonthView) {
