@@ -49,9 +49,11 @@ import {
   SearchQuery,
   clearMarksOnEnterPlugin,
   clipPastePlugin,
+  ensureImageTrailingParagraphs,
   fileHandlerPlugin,
   getSearchState,
   hashtagPlugin,
+  imageTrailingParagraphPlugin,
   linkBoundaryGuardPlugin,
   placeholderPlugin,
   searchPlugin,
@@ -368,20 +370,24 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
       [initialContent],
     );
     const reconciledInitialContent = useMemo(() => {
-      if (!normalizedInitialContent || !taskSource || !taskStorage) {
+      if (!normalizedInitialContent) {
         return normalizedInitialContent;
       }
 
-      const sourceTasks = taskStorage.getTasksForSource(taskSource);
-      if (sourceTasks.length === 0) {
-        return normalizedInitialContent;
-      }
+      const hydrated =
+        taskSource && taskStorage
+          ? (() => {
+              const sourceTasks = taskStorage.getTasksForSource(taskSource);
+              if (sourceTasks.length === 0) return normalizedInitialContent;
+              return hydrateTaskContent({
+                content: normalizedInitialContent,
+                sourceTasks,
+                getTask: taskStorage.getTask,
+              });
+            })()
+          : normalizedInitialContent;
 
-      return hydrateTaskContent({
-        content: normalizedInitialContent,
-        sourceTasks,
-        getTask: taskStorage.getTask,
-      });
+      return ensureImageTrailingParagraphs(hydrated);
     }, [normalizedInitialContent, taskSource, taskStorage]);
     const previousContentRef = useRef<JSONContent | undefined>(
       reconciledInitialContent,
@@ -440,6 +446,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
         dropCursor(),
         gapCursor(),
         hashtagPlugin(),
+        imageTrailingParagraphPlugin(),
         searchPlugin(),
         placeholderPlugin(placeholderComponent),
         clearMarksOnEnterPlugin(),

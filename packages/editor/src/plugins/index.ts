@@ -10,6 +10,10 @@ export {
 } from "./clip-paste";
 export { type FileHandlerConfig, fileHandlerPlugin } from "./file-handler";
 export { findHashtags, hashtagPlugin, hashtagPluginKey } from "./hashtag";
+export {
+  ensureImageTrailingParagraphs,
+  imageTrailingParagraphPlugin,
+} from "./image-trailing-paragraph";
 export { linkBoundaryGuardPlugin } from "./link-boundary-guard";
 export {
   type PlaceholderFunction,
