@@ -195,8 +195,14 @@ export function DetailsColumn({
     <div className="flex h-full flex-1 flex-col">
       {selectedPersonData && selectedHumanId ? (
         <>
-          <div className="flex items-center justify-center border-b border-neutral-200 py-6">
-            <div className={cn(["rounded-full", bgClass])}>
+          <div
+            data-tauri-drag-region
+            className="flex items-center justify-center border-b border-neutral-200 py-6"
+          >
+            <div
+              data-tauri-drag-region="false"
+              className={cn(["rounded-full", bgClass])}
+            >
               <Facehash
                 name={facehashName}
                 size={64}

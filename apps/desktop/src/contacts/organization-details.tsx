@@ -36,7 +36,10 @@ export function OrganizationDetailsColumn({
     <div className="flex flex-1 flex-col">
       {selectedOrgData && selectedOrganizationId ? (
         <>
-          <div className="flex items-center justify-center border-b border-neutral-200 py-6">
+          <div
+            data-tauri-drag-region
+            className="flex items-center justify-center border-b border-neutral-200 py-6"
+          >
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-neutral-200">
               <Building2 className="h-8 w-8 text-neutral-600" />
             </div>

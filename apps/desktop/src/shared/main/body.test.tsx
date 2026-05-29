@@ -11,9 +11,21 @@ const mocks = vi.hoisted(() => ({
   openNew: vi.fn(),
   goBack: vi.fn(),
   goNext: vi.fn(),
+  isTauri: vi.fn(() => true),
+  startDragging: vi.fn().mockResolvedValue(undefined),
   canGoBack: false,
   canGoNext: false,
   sidebarTimelineEnabled: false,
+}));
+
+vi.mock("@tauri-apps/api/core", () => ({
+  isTauri: mocks.isTauri,
+}));
+
+vi.mock("@tauri-apps/api/window", () => ({
+  getCurrentWindow: () => ({
+    startDragging: mocks.startDragging,
+  }),
 }));
 
 vi.mock("~/main/useTabsShortcuts", () => ({
@@ -78,6 +90,8 @@ describe("ClassicMainBody", () => {
     mocks.openNew.mockClear();
     mocks.goBack.mockClear();
     mocks.goNext.mockClear();
+    mocks.isTauri.mockReturnValue(true);
+    mocks.startDragging.mockClear();
     mocks.canGoBack = false;
     mocks.canGoNext = false;
     mocks.sidebarTimelineEnabled = false;
@@ -153,6 +167,70 @@ describe("ClassicMainBody", () => {
     expect(mocks.openNew).toHaveBeenCalledWith({ type: "calendar" });
     expect(mocks.goBack).toHaveBeenCalledTimes(1);
     expect(mocks.goNext).toHaveBeenCalledTimes(1);
+  });
+
+  it("starts window dragging from the top 48px of the main area in sidebar timeline mode", () => {
+    mocks.sidebarTimelineEnabled = true;
+
+    render(<ClassicMainBody />);
+
+    const mainContent = screen.getByTestId("main-tab-content");
+
+    fireEvent.pointerDown(mainContent, {
+      button: 0,
+      clientX: 12,
+      clientY: 12,
+      pointerId: 1,
+    });
+    fireEvent.pointerMove(mainContent, {
+      clientX: 20,
+      clientY: 12,
+      pointerId: 1,
+    });
+
+    expect(mocks.startDragging).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not start window dragging below the main area drag strip", () => {
+    mocks.sidebarTimelineEnabled = true;
+
+    render(<ClassicMainBody />);
+
+    const mainContent = screen.getByTestId("main-tab-content");
+
+    fireEvent.pointerDown(mainContent, {
+      button: 0,
+      clientX: 12,
+      clientY: 56,
+      pointerId: 1,
+    });
+    fireEvent.pointerMove(mainContent, {
+      clientX: 20,
+      clientY: 56,
+      pointerId: 1,
+    });
+
+    expect(mocks.startDragging).not.toHaveBeenCalled();
+  });
+
+  it("does not add main area dragging when the top timeline owns the titlebar", () => {
+    render(<ClassicMainBody />);
+
+    const mainContent = screen.getByTestId("main-tab-content");
+
+    fireEvent.pointerDown(mainContent, {
+      button: 0,
+      clientX: 12,
+      clientY: 12,
+      pointerId: 1,
+    });
+    fireEvent.pointerMove(mainContent, {
+      clientX: 20,
+      clientY: 12,
+      pointerId: 1,
+    });
+
+    expect(mocks.startDragging).not.toHaveBeenCalled();
   });
 
   it("renders the shell while the initial tab is still loading", async () => {
