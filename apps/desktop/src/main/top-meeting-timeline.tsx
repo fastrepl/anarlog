@@ -77,7 +77,7 @@ import { useUndoDelete } from "~/store/zustand/undo-delete";
 import { useListener } from "~/stt/contexts";
 
 const TIMELINE_HEIGHT = 44;
-const TIMELINE_CAROUSEL_CARD_WIDTH = 188;
+const TIMELINE_CAROUSEL_CARD_WIDTH = 160;
 const TIMELINE_CAROUSEL_PADDING = 0;
 const TIMELINE_CAROUSEL_GAP = 4;
 const TIMELINE_PAST_DAYS = 6;
