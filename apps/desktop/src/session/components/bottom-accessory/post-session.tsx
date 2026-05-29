@@ -530,7 +530,7 @@ function TranscriptCard({
   return (
     <div
       className={cn([
-        "overflow-hidden rounded-b-xl border-x border-b border-neutral-200 bg-white",
+        "overflow-hidden rounded-b-xl border border-neutral-200 bg-white",
         fillHeight && "flex h-full flex-col",
         fillHeight && reserveMinHeight && "min-h-[114px]",
         !fillHeight && reserveMinHeight && "min-h-[96px]",

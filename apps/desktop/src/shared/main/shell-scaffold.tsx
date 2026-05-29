@@ -35,6 +35,7 @@ export function MainShellScaffold({
           resolvedMainSurfaceChrome === "left" && [
             "[&_[data-chat-floating-anchor]]:rounded-l-xl",
             "[&_[data-chat-floating-anchor]]:rounded-r-none",
+            "[&_[data-chat-floating-anchor][data-main-has-after-border]]:rounded-bl-none",
             "[&_[data-chat-floating-anchor]]:border-y-0",
             "[&_[data-chat-floating-anchor]]:border-r-0",
             "[&_[data-chat-floating-anchor]]:border-l",

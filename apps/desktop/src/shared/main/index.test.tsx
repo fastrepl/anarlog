@@ -92,6 +92,11 @@ describe("StandardTabWrapper", () => {
     expect(screen.getByTestId("resize-handle").dataset.className).toContain(
       "data-[panel-group-direction=vertical]:-mb-px",
     );
+    expect(
+      document
+        .querySelector("[data-chat-floating-anchor]")
+        ?.hasAttribute("data-main-has-after-border"),
+    ).toBe(true);
 
     const panels = screen.getAllByTestId("panel");
     expect(panels[0]?.dataset.defaultSize).toBe("78");

@@ -237,6 +237,8 @@ describe("PostSessionAccessory", () => {
 
     const transcriptCard = scrollArea?.parentElement;
     const transcriptSlot = transcriptCard?.parentElement;
+    expect(transcriptCard?.className).toContain("rounded-b-xl");
+    expect(transcriptCard?.className).toContain("border");
     expect(transcriptCard?.className).toContain("h-full");
     expect(transcriptCard?.className).toContain("min-h-[114px]");
     expect(transcriptCard?.className).not.toContain("min-h-[96px]");

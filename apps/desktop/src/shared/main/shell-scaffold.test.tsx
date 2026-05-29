@@ -68,6 +68,9 @@ describe("MainShellScaffold", () => {
       "[&_[data-chat-floating-anchor]]:rounded-r-none",
     );
     expect(shell.className).toContain(
+      "[&_[data-chat-floating-anchor][data-main-has-after-border]]:rounded-bl-none",
+    );
+    expect(shell.className).toContain(
       "[&_[data-chat-floating-anchor]]:border-y-0",
     );
     expect(shell.className).toContain(

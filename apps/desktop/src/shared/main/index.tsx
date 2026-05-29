@@ -146,6 +146,7 @@ function MainPanel({
     >
       <div
         data-chat-floating-anchor
+        data-main-has-after-border={afterBorder ? "" : undefined}
         className={cn([
           "relative flex min-h-0 flex-1 flex-col overflow-hidden bg-white",
           mergeAfterBorder && afterBorder
