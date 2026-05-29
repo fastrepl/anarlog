@@ -1,6 +1,7 @@
 import {
   AudioLinesIcon,
-  FileTextIcon,
+  FileDownIcon,
+  FileUpIcon,
   MoreHorizontalIcon,
   PictureInPicture2Icon,
 } from "lucide-react";
@@ -19,7 +20,7 @@ import {
 import { DeleteNote, DeleteRecording } from "./delete";
 import { ExportModal } from "./export-modal";
 import { Listening } from "./listening";
-import { Copy, ShowInFinder } from "./misc";
+import { ShowInFinder } from "./misc";
 
 import { useAudioPlayer } from "~/audio-player";
 import { openFloatingMeetingPanel } from "~/meeting-float/host";
@@ -80,12 +81,11 @@ export function OverflowButton({
         </DropdownMenuTrigger>
         <DropdownMenuContent variant="app" align="end" className="w-56">
           <AppFloatingPanel className="overflow-hidden p-1">
-            <Copy />
             <DropdownMenuItem
               onClick={openExportModal}
               className="cursor-pointer"
             >
-              <FileTextIcon />
+              <FileDownIcon />
               <span>Export</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
@@ -101,7 +101,7 @@ export function OverflowButton({
               onClick={handleUploadTranscript}
               className="cursor-pointer"
             >
-              <FileTextIcon />
+              <FileUpIcon />
               <span>Upload transcript</span>
             </DropdownMenuItem>
             {canOpenFloatingPanel && (
