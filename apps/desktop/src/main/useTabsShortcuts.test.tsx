@@ -40,38 +40,32 @@ vi.mock("~/shared/useNewNote", () => ({
   useNewNoteAndListen: () => vi.fn(),
 }));
 
-vi.mock("~/store/zustand/tabs", () => ({
-  useTabs: (
-    selector: (state: {
-      clearSelection: () => void;
-      close: () => void;
-      currentTab: typeof hoisted.currentTab;
-      openCurrent: typeof hoisted.openCurrent;
-      openNew: typeof hoisted.openNew;
-      restoreLastClosedTab: () => void;
-      select: typeof hoisted.select;
-      selectNext: () => void;
-      selectPrev: () => void;
-      setPendingCloseConfirmationTab: () => void;
-      tabs: typeof hoisted.tabs;
-      unpin: () => void;
-    }) => unknown,
-  ) =>
-    selector({
-      tabs: hoisted.tabs,
-      currentTab: hoisted.currentTab,
-      clearSelection: vi.fn(),
-      close: vi.fn(),
-      select: hoisted.select,
-      selectNext: vi.fn(),
-      selectPrev: vi.fn(),
-      restoreLastClosedTab: vi.fn(),
-      openNew: hoisted.openNew,
-      openCurrent: hoisted.openCurrent,
-      unpin: vi.fn(),
-      setPendingCloseConfirmationTab: vi.fn(),
-    }),
-}));
+vi.mock("~/store/zustand/tabs", () => {
+  const getTabsState = () => ({
+    tabs: hoisted.tabs,
+    currentTab: hoisted.currentTab,
+    clearSelection: vi.fn(),
+    close: vi.fn(),
+    select: hoisted.select,
+    selectNext: vi.fn(),
+    selectPrev: vi.fn(),
+    restoreLastClosedTab: vi.fn(),
+    openNew: hoisted.openNew,
+    openCurrent: hoisted.openCurrent,
+    unpin: vi.fn(),
+    setPendingCloseConfirmationTab: vi.fn(),
+  });
+
+  const useTabs = ((
+    selector: (state: ReturnType<typeof getTabsState>) => unknown,
+  ) => selector(getTabsState())) as ((
+    selector: (state: ReturnType<typeof getTabsState>) => unknown,
+  ) => unknown) & { getState: typeof getTabsState };
+
+  useTabs.getState = getTabsState;
+
+  return { useTabs };
+});
 
 vi.mock("~/stt/contexts", () => ({
   useListener: (
@@ -138,6 +132,26 @@ describe("useClassicMainTabsShortcuts", () => {
     };
 
     const { result } = renderHook(() => useClassicMainTabsShortcuts());
+
+    result.current.runEscapeShortcut();
+
+    expect(hoisted.openCurrent).toHaveBeenCalledWith({ type: "empty" });
+  });
+
+  it("uses the latest tab state when the returned escape action runs", () => {
+    hoisted.currentTab = {
+      active: true,
+      slotId: "slot-home",
+      type: "empty",
+    };
+
+    const { result } = renderHook(() => useClassicMainTabsShortcuts());
+
+    hoisted.currentTab = {
+      active: true,
+      slotId: "slot-session",
+      type: "sessions",
+    };
 
     result.current.runEscapeShortcut();
 
