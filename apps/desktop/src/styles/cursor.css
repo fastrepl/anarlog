@@ -1,0 +1,117 @@
+@layer base {
+  *,
+  *::before,
+  *::after {
+    cursor: default !important;
+  }
+
+  :where([contenteditable="true"]),
+  :where([contenteditable="true"] *) {
+    cursor: text !important;
+  }
+
+  :where([contenteditable="true"] [contenteditable="false"]),
+  :where([contenteditable="true"] [contenteditable="false"] *),
+  :where([contenteditable="true"] button),
+  :where([contenteditable="true"] button *),
+  :where([contenteditable="true"] input[type="button"]),
+  :where([contenteditable="true"] input[type="checkbox"]),
+  :where([contenteditable="true"] input[type="color"]),
+  :where([contenteditable="true"] input[type="file"]),
+  :where([contenteditable="true"] input[type="image"]),
+  :where([contenteditable="true"] input[type="radio"]),
+  :where([contenteditable="true"] input[type="range"]),
+  :where([contenteditable="true"] input[type="reset"]),
+  :where([contenteditable="true"] input[type="submit"]),
+  :where([contenteditable="true"] select),
+  :where([contenteditable="true"] select *) {
+    cursor: default !important;
+  }
+
+  :where(input:not([type])),
+  :where(input[type="date"]),
+  :where(input[type="datetime-local"]),
+  :where(input[type="email"]),
+  :where(input[type="month"]),
+  :where(input[type="number"]),
+  :where(input[type="password"]),
+  :where(input[type="search"]),
+  :where(input[type="tel"]),
+  :where(input[type="text"]),
+  :where(input[type="time"]),
+  :where(input[type="url"]),
+  :where(input[type="week"]),
+  :where(textarea),
+  :where(.cursor-text) {
+    cursor: text !important;
+  }
+
+  :where(.cursor-not-allowed),
+  :where(.cursor-not-allowed *),
+  :where(.cursor-not-allowed)::before,
+  :where(.cursor-not-allowed)::after,
+  :where(.cursor-not-allowed *)::before,
+  :where(.cursor-not-allowed *)::after,
+  :where(.disabled\:cursor-not-allowed:disabled),
+  :where(.disabled\:cursor-not-allowed:disabled *),
+  :where(.disabled\:cursor-not-allowed:disabled)::before,
+  :where(.disabled\:cursor-not-allowed:disabled)::after,
+  :where(.disabled\:cursor-not-allowed:disabled *)::before,
+  :where(.disabled\:cursor-not-allowed:disabled *)::after {
+    cursor: not-allowed !important;
+  }
+
+  :where(.cursor-col-resize),
+  :where(.cursor-col-resize *),
+  :where(.cursor-col-resize)::before,
+  :where(.cursor-col-resize)::after,
+  :where(.cursor-col-resize *)::before,
+  :where(.cursor-col-resize *)::after,
+  :where(.ProseMirror.resize-cursor),
+  :where(.ProseMirror.resize-cursor *),
+  :where(.ProseMirror.resize-cursor)::before,
+  :where(.ProseMirror.resize-cursor)::after,
+  :where(.ProseMirror.resize-cursor *)::before,
+  :where(.ProseMirror.resize-cursor *)::after {
+    cursor: col-resize !important;
+  }
+
+  :where(.cursor-col-resize[data-panel-group-direction="vertical"]),
+  :where(.cursor-col-resize[data-panel-group-direction="vertical"] *),
+  :where(.cursor-col-resize[data-panel-group-direction="vertical"])::before,
+  :where(.cursor-col-resize[data-panel-group-direction="vertical"])::after,
+  :where(.cursor-col-resize[data-panel-group-direction="vertical"] *)::before,
+  :where(.cursor-col-resize[data-panel-group-direction="vertical"] *)::after,
+  :where(.cursor-row-resize),
+  :where(.cursor-row-resize *),
+  :where(.cursor-row-resize)::before,
+  :where(.cursor-row-resize)::after,
+  :where(.cursor-row-resize *)::before,
+  :where(.cursor-row-resize *)::after {
+    cursor: row-resize !important;
+  }
+
+  :where(.cursor-ew-resize, .cursor-ew-resize *),
+  :where(.cursor-ew-resize, .cursor-ew-resize *)::before,
+  :where(.cursor-ew-resize, .cursor-ew-resize *)::after {
+    cursor: ew-resize !important;
+  }
+
+  :where(.cursor-nwse-resize, .cursor-nwse-resize *),
+  :where(.cursor-nwse-resize, .cursor-nwse-resize *)::before,
+  :where(.cursor-nwse-resize, .cursor-nwse-resize *)::after {
+    cursor: nwse-resize !important;
+  }
+
+  :where(.cursor-nesw-resize, .cursor-nesw-resize *),
+  :where(.cursor-nesw-resize, .cursor-nesw-resize *)::before,
+  :where(.cursor-nesw-resize, .cursor-nesw-resize *)::after {
+    cursor: nesw-resize !important;
+  }
+
+  :where(.cursor-move, .cursor-move *),
+  :where(.cursor-move, .cursor-move *)::before,
+  :where(.cursor-move, .cursor-move *)::after {
+    cursor: move !important;
+  }
+}

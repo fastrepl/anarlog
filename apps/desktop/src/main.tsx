@@ -1,4 +1,5 @@
 import "./styles/globals.css";
+import "./styles/cursor.css";
 
 import * as Sentry from "@sentry/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
