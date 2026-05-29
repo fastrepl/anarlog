@@ -176,11 +176,13 @@ function ResizableImageNodeView({
     draftWidth !== null ? `${draftWidth}px` : `${editorWidth}%`;
 
   return (
-    <NodeViewWrapper className="relative overflow-visible select-none [&_*::selection]:bg-transparent [&::selection]:bg-transparent">
+    <NodeViewWrapper
+      className="relative w-fit max-w-full overflow-visible select-none [&_*::selection]:bg-transparent [&::selection]:bg-transparent"
+      style={imageWidth ? { width: imageWidth } : undefined}
+    >
       <div
         ref={containerRef}
-        className="relative inline-block w-fit max-w-full overflow-visible"
-        style={imageWidth ? { width: imageWidth } : undefined}
+        className="relative block w-full max-w-full overflow-visible"
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
@@ -190,7 +192,7 @@ function ResizableImageNodeView({
           alt={node.attrs.alt || ""}
           title={stripEditorWidthFromTitle(node.attrs.title)}
           className={cn([
-            "tiptap-image max-w-full rounded-md bg-white transition-[box-shadow,border-color] select-none",
+            "tiptap-image pointer-events-auto max-w-full rounded-md bg-white transition-[box-shadow,border-color] select-none",
             isSelected
               ? "ring-2 ring-blue-500 ring-offset-2 ring-offset-white"
               : "",
@@ -215,7 +217,7 @@ function ResizableImageNodeView({
               type="button"
               aria-label="Resize image from left"
               onPointerDown={(event) => handleResizeStart("left", event)}
-              className="absolute top-1/2 left-1 z-20 flex h-14 w-4 -translate-y-1/2 cursor-ew-resize items-center justify-center rounded-full border border-neutral-300 bg-white/95 shadow-sm backdrop-blur-sm"
+              className="pointer-events-auto absolute top-1/2 left-1 z-20 flex h-14 w-4 -translate-y-1/2 cursor-ew-resize items-center justify-center rounded-full border border-neutral-300 bg-white/95 shadow-sm backdrop-blur-sm"
             >
               <span className="h-8 w-1 rounded-full bg-neutral-400" />
             </button>
@@ -223,7 +225,7 @@ function ResizableImageNodeView({
               type="button"
               aria-label="Resize image from right"
               onPointerDown={(event) => handleResizeStart("right", event)}
-              className="absolute top-1/2 right-1 z-20 flex h-14 w-4 -translate-y-1/2 cursor-ew-resize items-center justify-center rounded-full border border-neutral-300 bg-white/95 shadow-sm backdrop-blur-sm"
+              className="pointer-events-auto absolute top-1/2 right-1 z-20 flex h-14 w-4 -translate-y-1/2 cursor-ew-resize items-center justify-center rounded-full border border-neutral-300 bg-white/95 shadow-sm backdrop-blur-sm"
             >
               <span className="h-8 w-1 rounded-full bg-neutral-400" />
             </button>
@@ -286,7 +288,9 @@ export const AttachmentImage = Image.extend({
   },
 
   addNodeView() {
-    return ReactNodeViewRenderer(ResizableImageNodeView);
+    return ReactNodeViewRenderer(ResizableImageNodeView, {
+      className: "pointer-events-none",
+    });
   },
 
   parseMarkdown: (token: { href?: string; text?: string; title?: string }) => {
