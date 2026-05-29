@@ -1,26 +1,46 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  windowShow: vi.fn(() => Promise.resolve({ status: "ok" })),
+  chatMode: "FloatingClosed" as "FloatingClosed" | "ModalOpen",
+  sendEvent: vi.fn(),
 }));
 
-vi.mock("@hypr/plugin-windows", () => ({
-  commands: {
-    windowShow: mocks.windowShow,
-  },
+vi.mock("~/contexts/shell", () => ({
+  useShell: () => ({
+    chat: {
+      mode: mocks.chatMode,
+      sendEvent: mocks.sendEvent,
+    },
+  }),
 }));
 
 import { ChatCTA } from "./chat-cta";
 
 describe("ChatCTA", () => {
-  it("opens the composer window", () => {
+  beforeEach(() => {
+    cleanup();
+    mocks.chatMode = "FloatingClosed";
+    mocks.sendEvent.mockClear();
+  });
+
+  it("opens the chat modal", () => {
     render(<ChatCTA />);
 
     fireEvent.click(
       screen.getByRole("button", { name: "Ask Anarlog anything" }),
     );
 
-    expect(mocks.windowShow).toHaveBeenCalledWith({ type: "composer" });
+    expect(mocks.sendEvent).toHaveBeenCalledWith({ type: "OPEN" });
+  });
+
+  it("hides while the chat modal is open", () => {
+    mocks.chatMode = "ModalOpen";
+
+    render(<ChatCTA />);
+
+    expect(
+      screen.queryByRole("button", { name: "Ask Anarlog anything" }),
+    ).toBeNull();
   });
 });

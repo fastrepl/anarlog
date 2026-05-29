@@ -40,7 +40,7 @@ vi.mock("@hypr/ui/components/ui/tooltip", () => ({
 vi.mock("~/contexts/shell", () => ({
   useShell: () => ({
     chat: {
-      mode: "RightPanelOpen",
+      mode: "ModalOpen",
     },
   }),
 }));

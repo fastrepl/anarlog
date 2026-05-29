@@ -22,12 +22,6 @@ vi.mock("~/shared/useNewNote", () => ({
   useNewNoteAndListen: () => vi.fn(),
 }));
 
-vi.mock("@hypr/plugin-windows", () => ({
-  commands: {
-    windowShow: vi.fn(() => Promise.resolve({ status: "ok" })),
-  },
-}));
-
 vi.mock("~/contexts/shell", () => ({
   useShell: () => ({
     chat: {

@@ -73,7 +73,7 @@ export function useMainTabsShortcuts({ onModT }: { onModT: () => void }) {
         }
 
         const { chat, openHome } = escapeShortcutRef.current;
-        if (chat.mode === "RightPanelOpen") {
+        if (chat.mode === "FloatingOpen") {
           chat.sendEvent({ type: "CLOSE" });
           return;
         }
@@ -235,7 +235,7 @@ export function useMainTabsShortcuts({ onModT }: { onModT: () => void }) {
 function isPersistentChatInputFocused(
   mode: ReturnType<typeof useShell>["chat"]["mode"],
 ) {
-  if (mode !== "RightPanelOpen") {
+  if (mode !== "FloatingOpen") {
     return false;
   }
 

@@ -120,7 +120,7 @@ describe("useSessionBottomAccessory", () => {
   it("defers transcript escape handling while chat is open", () => {
     useShellMock.mockReturnValue({
       chat: {
-        mode: "RightPanelOpen",
+        mode: "ModalOpen",
       },
     });
 

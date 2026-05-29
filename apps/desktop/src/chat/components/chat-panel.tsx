@@ -1,8 +1,6 @@
 import { platform } from "@tauri-apps/plugin-os";
 import { useCallback } from "react";
 
-import { cn } from "@hypr/utils";
-
 import { ChatBody } from "./body";
 import { ChatContent } from "./content";
 import { ChatSession } from "./session-provider";
@@ -38,12 +36,7 @@ export function ChatView() {
   });
 
   return (
-    <div
-      className={cn([
-        "flex h-full min-h-0 flex-col overflow-hidden",
-        chat.mode !== "RightPanelOpen" && "bg-stone-50",
-      ])}
-    >
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-stone-50">
       <div className="flex h-10 shrink-0 items-center border-b border-neutral-100 pr-0 pl-0">
         <ChatToolbarControls
           currentChatGroupId={groupId}

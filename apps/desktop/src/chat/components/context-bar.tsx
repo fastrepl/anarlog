@@ -18,7 +18,6 @@ import { cn, safeParseDate } from "@hypr/utils";
 import type { ContextRef } from "~/chat/context/entities";
 import { type ContextChipProps, renderChip } from "~/chat/context/registry";
 import type { DisplayEntity } from "~/chat/context/use-chat-context-pipeline";
-import { useShell } from "~/contexts/shell";
 import { useSearchEngine } from "~/search/contexts/engine";
 import { getSessionEvent } from "~/session/utils";
 import * as main from "~/store/tinybase/store/main";
@@ -353,7 +352,6 @@ export function ContextBar({
   onRemoveEntity?: (key: string) => void;
   onAddEntity?: (ref: ContextRef) => void;
 }) {
-  const { chat } = useShell();
   const chips = useMemo(
     () =>
       entities
@@ -376,7 +374,7 @@ export function ContextBar({
     <div
       className={cn([
         "shrink-0 rounded-t-xl border-t border-r border-l border-neutral-200 bg-white",
-        chat.mode !== "RightPanelOpen" && "mx-2",
+        "mx-2",
       ])}
     >
       <div className="flex items-start gap-1.5 px-2 py-2">

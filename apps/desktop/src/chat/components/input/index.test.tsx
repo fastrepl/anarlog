@@ -42,7 +42,7 @@ vi.mock("@hypr/plugin-analytics", () => ({
 vi.mock("~/contexts/shell", () => ({
   useShell: () => ({
     chat: {
-      mode: "RightPanelOpen",
+      mode: "ModalOpen",
     },
   }),
 }));

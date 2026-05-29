@@ -57,7 +57,7 @@ export function TabContentChangelog({
 
   useEffect(() => {
     leftsidebar.setExpanded(false);
-    if (chat.mode === "RightPanelOpen") {
+    if (chat.mode === "FloatingOpen") {
       chat.sendEvent({ type: "CLOSE" });
     }
   }, []);

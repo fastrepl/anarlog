@@ -37,7 +37,7 @@ export function ChatMessageInput({
   const editorRef = useRef<ChatEditorHandle>(null);
   const disabled =
     typeof disabledProp === "object" ? disabledProp.disabled : disabledProp;
-  const shouldFocus = chat.mode === "RightPanelOpen";
+  const shouldFocus = chat.mode === "FloatingOpen";
 
   const { hasContent, initialContent, handleEditorUpdate } = useDraftState({
     draftKey,
@@ -56,10 +56,7 @@ export function ChatMessageInput({
   const isSendDisabled = Boolean(disabled) || !hasContent;
 
   return (
-    <Container
-      hasContextBar={hasContextBar}
-      isRightPanel={chat.mode === "RightPanelOpen"}
-    >
+    <Container hasContextBar={hasContextBar}>
       <div data-chat-message-input className="flex flex-col px-2 pt-3 pb-2">
         <div className="mb-1 min-h-0 flex-1">
           <ChatEditor
@@ -120,29 +117,16 @@ export function ChatMessageInput({
 function Container({
   children,
   hasContextBar,
-  isRightPanel = false,
 }: {
   children: React.ReactNode;
   hasContextBar?: boolean;
-  isRightPanel?: boolean;
 }) {
   return (
-    <div
-      className={cn([
-        "relative min-w-0 shrink-0",
-        !isRightPanel && "px-2 pb-2",
-      ])}
-    >
+    <div className="relative min-w-0 shrink-0 px-2 pb-2">
       <div
         className={cn([
           "flex max-h-full flex-col border border-neutral-200 bg-white",
-          isRightPanel
-            ? hasContextBar
-              ? "rounded-t-none rounded-b-none"
-              : "rounded-t-xl rounded-b-none"
-            : hasContextBar
-              ? "rounded-t-none rounded-b-xl"
-              : "rounded-xl",
+          hasContextBar ? "rounded-t-none rounded-b-xl" : "rounded-xl",
           hasContextBar && "border-t-0",
         ])}
       >

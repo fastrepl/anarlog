@@ -1,16 +1,24 @@
 import { MessageCircle } from "lucide-react";
 
-import { commands as windowsCommands } from "@hypr/plugin-windows";
 import { cn } from "@hypr/utils";
+
+import { useShell } from "~/contexts/shell";
 
 export function ChatCTA({
   label = "Ask Anarlog anything",
 }: {
   label?: string;
 }) {
+  const { chat } = useShell();
+  const isChatOpen = chat.mode === "FloatingOpen";
+
   const handleClick = () => {
-    windowsCommands.windowShow({ type: "composer" }).catch(console.error);
+    chat.sendEvent({ type: "OPEN" });
   };
+
+  if (isChatOpen) {
+    return null;
+  }
 
   return (
     <button

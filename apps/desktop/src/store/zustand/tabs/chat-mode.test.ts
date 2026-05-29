@@ -12,25 +12,20 @@ describe("Chat Mode", () => {
     expect(useTabs.getState().chatMode).toBe("FloatingClosed");
   });
 
-  test("TOGGLE from FloatingClosed → RightPanelOpen", () => {
+  test("TOGGLE from FloatingClosed to ModalOpen", () => {
     useTabs.getState().transitionChatMode({ type: "TOGGLE" });
-    expect(useTabs.getState().chatMode).toBe("RightPanelOpen");
+    expect(useTabs.getState().chatMode).toBe("ModalOpen");
   });
 
-  test("TOGGLE from RightPanelOpen → FloatingClosed", () => {
+  test("TOGGLE from ModalOpen to FloatingClosed", () => {
     useTabs.getState().transitionChatMode({ type: "TOGGLE" });
     useTabs.getState().transitionChatMode({ type: "TOGGLE" });
     expect(useTabs.getState().chatMode).toBe("FloatingClosed");
   });
 
-  test("OPEN from FloatingClosed → RightPanelOpen", () => {
+  test("OPEN from FloatingClosed to ModalOpen", () => {
     useTabs.getState().transitionChatMode({ type: "OPEN" });
-    expect(useTabs.getState().chatMode).toBe("RightPanelOpen");
-  });
-
-  test("OPEN_RIGHT_PANEL from FloatingClosed → RightPanelOpen", () => {
-    useTabs.getState().transitionChatMode({ type: "OPEN_RIGHT_PANEL" });
-    expect(useTabs.getState().chatMode).toBe("RightPanelOpen");
+    expect(useTabs.getState().chatMode).toBe("ModalOpen");
   });
 
   test("no-op when event is irrelevant for current state", () => {
@@ -42,21 +37,21 @@ describe("Chat Mode", () => {
     const session = createSessionTab();
     useTabs.getState().openNew(session);
     useTabs.getState().transitionChatMode({ type: "OPEN" });
-    expect(useTabs.getState().chatMode).toBe("RightPanelOpen");
+    expect(useTabs.getState().chatMode).toBe("ModalOpen");
 
     const sessionTab = useTabs
       .getState()
       .tabs.find((t) => t.type === "sessions")!;
     useTabs.getState().close(sessionTab);
-    expect(useTabs.getState().chatMode).toBe("RightPanelOpen");
+    expect(useTabs.getState().chatMode).toBe("ModalOpen");
   });
 
-  test("closeAll leaves the right panel chat mode unchanged", () => {
+  test("closeAll leaves the modal chat mode unchanged", () => {
     const session = createSessionTab();
     useTabs.getState().openNew(session);
     useTabs.getState().transitionChatMode({ type: "OPEN" });
 
     useTabs.getState().closeAll();
-    expect(useTabs.getState().chatMode).toBe("RightPanelOpen");
+    expect(useTabs.getState().chatMode).toBe("ModalOpen");
   });
 });
