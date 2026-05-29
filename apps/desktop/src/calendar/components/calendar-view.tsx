@@ -177,6 +177,7 @@ export function CalendarView() {
             className={cn([
               "text-center text-xs font-medium",
               "py-2",
+              i < visibleHeaders.length - 1 && "border-r border-r-neutral-200",
               day === "Sat" || day === "Sun"
                 ? "text-neutral-400"
                 : "text-neutral-900",
