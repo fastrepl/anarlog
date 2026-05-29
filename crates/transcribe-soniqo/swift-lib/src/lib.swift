@@ -17,6 +17,10 @@ private enum SoniqoBridgeError: LocalizedError {
   }
 }
 
+private let soniqoFileTranscriptionSampleRate = 16_000
+private let parakeetBatchMinimumChunkSeconds = 5.0
+private let parakeetBatchMaximumChunkSeconds = 30.0
+
 private enum SpeechModelKind: String, CaseIterable {
   case parakeetStreaming = "soniqo-parakeet-streaming"
   case parakeetBatch = "soniqo-parakeet-batch"
@@ -70,6 +74,24 @@ private enum SpeechModelKind: String, CaseIterable {
       return 25
     case .omnilingual:
       return 35
+    }
+  }
+
+  var minimumFileTranscriptionChunkSeconds: Double? {
+    switch self {
+    case .parakeetBatch:
+      return parakeetBatchMinimumChunkSeconds
+    case .parakeetStreaming, .omnilingual, .qwen3Small, .qwen3Large:
+      return nil
+    }
+  }
+
+  var maximumFileTranscriptionChunkSeconds: Double? {
+    switch self {
+    case .parakeetBatch:
+      return parakeetBatchMaximumChunkSeconds
+    case .parakeetStreaming, .omnilingual, .qwen3Small, .qwen3Large:
+      return nil
     }
   }
 
@@ -558,20 +580,23 @@ private actor SoniqoBridge {
 
       let trimmedLanguage = language.trimmingCharacters(in: .whitespacesAndNewlines)
       let url = URL(fileURLWithPath: audioPath)
-      let audio = try AudioFileLoader.load(url: url, targetSampleRate: 16000)
+      let audio = try AudioFileLoader.load(
+        url: url,
+        targetSampleRate: soniqoFileTranscriptionSampleRate
+      )
       let model = try await ensureModelLoaded(kind)
       let text = try transcribeFileAudio(
         model: model,
         kind: kind,
         audio: audio,
-        sampleRate: 16000,
+        sampleRate: soniqoFileTranscriptionSampleRate,
         language: trimmedLanguage.isEmpty ? nil : trimmedLanguage
       )
 
       return encodeJSON(
         FileTranscriptionPayload(
           text: text,
-          durationSeconds: Double(audio.count) / 16000.0,
+          durationSeconds: Double(audio.count) / Double(soniqoFileTranscriptionSampleRate),
           error: nil
         )
       )
@@ -593,23 +618,54 @@ private actor SoniqoBridge {
     sampleRate: Int,
     language: String?
   ) throws -> String {
-    guard let chunkSeconds = kind.fileTranscriptionChunkSeconds else {
-      return try model.transcribe(audio: audio, sampleRate: sampleRate, language: language)
+    guard !audio.isEmpty else {
+      return ""
     }
 
-    let chunkSampleCount = max(sampleRate, Int(Double(sampleRate) * chunkSeconds))
-    guard audio.count > chunkSampleCount else {
-      return try model.transcribe(audio: audio, sampleRate: sampleRate, language: language)
+    guard let chunkSeconds = kind.fileTranscriptionChunkSeconds else {
+      return try transcribeFileAudioChunk(
+        model: model,
+        kind: kind,
+        audio: audio,
+        sampleRate: sampleRate,
+        language: language
+      )
+    }
+
+    let chunkSampleCount = max(sampleRate, Int((Double(sampleRate) * chunkSeconds).rounded(.up)))
+    let minimumTrailingSamples =
+      kind.minimumFileTranscriptionChunkSeconds.map {
+        max(sampleRate, Int((Double(sampleRate) * $0).rounded(.up)))
+      } ?? 0
+    let maximumChunkSamples =
+      kind.maximumFileTranscriptionChunkSeconds.map {
+        max(chunkSampleCount, Int((Double(sampleRate) * $0).rounded(.up)))
+      } ?? chunkSampleCount
+    let ranges = fileTranscriptionChunkRanges(
+      sampleCount: audio.count,
+      preferredChunkSamples: chunkSampleCount,
+      minimumTrailingSamples: minimumTrailingSamples,
+      maximumChunkSamples: maximumChunkSamples
+    )
+
+    guard ranges.count > 1 else {
+      return try transcribeFileAudioChunk(
+        model: model,
+        kind: kind,
+        audio: audio,
+        sampleRate: sampleRate,
+        language: language
+      )
     }
 
     var chunks: [String] = []
-    var start = 0
 
-    while start < audio.count {
-      let end = min(audio.count, start + chunkSampleCount)
+    for range in ranges {
       let text = try autoreleasepool {
-        try model.transcribe(
-          audio: Array(audio[start..<end]),
+        try transcribeFileAudioChunk(
+          model: model,
+          kind: kind,
+          audio: Array(audio[range]),
           sampleRate: sampleRate,
           language: language
         )
@@ -618,10 +674,86 @@ private actor SoniqoBridge {
       if !trimmed.isEmpty {
         chunks.append(trimmed)
       }
-      start = end
     }
 
     return chunks.joined(separator: " ")
+  }
+
+  private func transcribeFileAudioChunk(
+    model: LoadedSpeechModel,
+    kind: SpeechModelKind,
+    audio: [Float],
+    sampleRate: Int,
+    language: String?
+  ) throws -> String {
+    let normalizedAudio = normalizedFileTranscriptionAudio(
+      kind: kind,
+      audio: audio,
+      sampleRate: sampleRate
+    )
+    return try model.transcribe(audio: normalizedAudio, sampleRate: sampleRate, language: language)
+  }
+
+  private func normalizedFileTranscriptionAudio(
+    kind: SpeechModelKind,
+    audio: [Float],
+    sampleRate: Int
+  ) -> [Float] {
+    guard kind == .parakeetBatch else {
+      return audio
+    }
+
+    let minimumSamples = max(
+      sampleRate,
+      Int((Double(sampleRate) * parakeetBatchMinimumChunkSeconds).rounded(.up))
+    )
+    guard audio.count < minimumSamples else {
+      return audio
+    }
+
+    var padded = audio
+    padded.append(contentsOf: repeatElement(Float.zero, count: minimumSamples - audio.count))
+    return padded
+  }
+
+  private func fileTranscriptionChunkRanges(
+    sampleCount: Int,
+    preferredChunkSamples: Int,
+    minimumTrailingSamples: Int,
+    maximumChunkSamples: Int
+  ) -> [Range<Int>] {
+    guard sampleCount > preferredChunkSamples else {
+      return [0..<sampleCount]
+    }
+
+    var ranges: [Range<Int>] = []
+    var start = 0
+
+    while start < sampleCount {
+      let end = min(sampleCount, start + preferredChunkSamples)
+      ranges.append(start..<end)
+      start = end
+    }
+
+    guard minimumTrailingSamples > 0, ranges.count >= 2, let trailingRange = ranges.last else {
+      return ranges
+    }
+
+    let trailingSamples = trailingRange.upperBound - trailingRange.lowerBound
+    guard trailingSamples < minimumTrailingSamples else {
+      return ranges
+    }
+
+    let previousIndex = ranges.count - 2
+    let previousRange = ranges[previousIndex]
+    let mergedSamples = trailingRange.upperBound - previousRange.lowerBound
+    guard mergedSamples <= maximumChunkSamples else {
+      return ranges
+    }
+
+    ranges.removeLast()
+    ranges[previousIndex] = previousRange.lowerBound..<trailingRange.upperBound
+    return ranges
   }
 
   private func ensureModelLoaded(_ kind: SpeechModelKind) async throws -> LoadedSpeechModel {
