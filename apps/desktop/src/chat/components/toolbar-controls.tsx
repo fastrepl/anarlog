@@ -1,4 +1,10 @@
-import { ChevronDown, MessageCircle, Plus } from "lucide-react";
+import {
+  ChevronDown,
+  Maximize2,
+  MessageCircle,
+  Minimize2,
+  Plus,
+} from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@hypr/ui/components/ui/button";
@@ -19,24 +25,24 @@ import * as main from "~/store/tinybase/store/main";
 
 export function ChatToolbarControls({
   currentChatGroupId,
-  onCloseChat,
+  isExpanded = false,
   onNewChat,
   onSelectChat,
-  shortcutLabel,
+  onToggleExpanded,
   surface = "light",
 }: {
   currentChatGroupId: string | undefined;
-  onCloseChat: () => void;
+  isExpanded?: boolean;
   onNewChat: () => void;
   onSelectChat: (chatGroupId: string) => void;
-  shortcutLabel?: string;
+  onToggleExpanded?: () => void;
   surface?: "light" | "dark";
 }) {
   const isDark = surface === "dark";
 
   return (
     <div className="relative flex h-full w-full min-w-0 items-center">
-      <div className="flex min-w-0 items-center gap-1 pr-8">
+      <div className="flex min-w-0 items-center gap-1 pr-8 pl-3">
         <ChatGroups
           currentChatGroupId={currentChatGroupId}
           onSelectChat={onSelectChat}
@@ -54,10 +60,9 @@ export function ChatToolbarControls({
         />
       </div>
       <ChatActionButton
-        icon={<MessageCircle size={16} />}
-        onClick={onCloseChat}
-        title="Close chat"
-        shortcutLabel={shortcutLabel}
+        icon={isExpanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+        onClick={onToggleExpanded ?? (() => {})}
+        title={isExpanded ? "Collapse chat" : "Expand chat"}
         className={cn([
           "absolute top-1/2 right-0 -translate-y-1/2",
           isDark
@@ -74,13 +79,11 @@ function ChatActionButton({
   icon,
   title,
   onClick,
-  shortcutLabel,
 }: {
   className?: string;
   icon: React.ReactNode;
   title: string;
   onClick: () => void;
-  shortcutLabel?: string;
 }) {
   return (
     <Tooltip>
@@ -95,14 +98,7 @@ function ChatActionButton({
           {icon}
         </Button>
       </TooltipTrigger>
-      <TooltipContent side="bottom" className="flex items-center gap-2">
-        <span>{title}</span>
-        {shortcutLabel && (
-          <span className="rounded border border-neutral-200 bg-neutral-50 px-1 py-0.5 text-[10px] text-neutral-500">
-            {shortcutLabel}
-          </span>
-        )}
-      </TooltipContent>
+      <TooltipContent side="bottom">{title}</TooltipContent>
     </Tooltip>
   );
 }
@@ -140,7 +136,7 @@ function ChatGroups({
         <Button
           variant="ghost"
           className={cn([
-            "group -ml-2 flex h-8 max-w-64 min-w-0 justify-start gap-2 px-2 py-0",
+            "group flex h-8 max-w-64 min-w-0 justify-start gap-2 px-2 py-0",
             isDark
               ? "text-stone-100 hover:bg-stone-700 hover:text-white"
               : "text-neutral-700",

@@ -18,6 +18,7 @@ export function PersistentChatPanel({
 
   const [hasBeenOpened, setHasBeenOpened] = useState(false);
   const [containerRect, setContainerRect] = useState<DOMRect | null>(null);
+  const [isExpanded, setIsExpanded] = useState(false);
   const observerRef = useRef<ResizeObserver | null>(null);
 
   const getActiveContainer = () => {
@@ -109,26 +110,52 @@ export function PersistentChatPanel({
           transition={{ duration: 0.2 }}
         >
           <div
-            className="pointer-events-auto flex h-full min-h-0 items-end justify-center px-4 pb-4"
+            className={cn([
+              "pointer-events-auto flex h-full min-h-0",
+              isExpanded
+                ? "items-stretch justify-center p-0"
+                : "items-end justify-center px-4 pb-4",
+            ])}
             onClick={(event) => {
-              if (event.target === event.currentTarget) {
+              if (!isExpanded && event.target === event.currentTarget) {
                 chat.sendEvent({ type: "CLOSE" });
               }
             }}
           >
             <motion.div
+              data-chat-panel
+              data-chat-size={isExpanded ? "expanded" : "floating"}
               className={cn([
                 "relative flex min-h-0 flex-col overflow-hidden",
-                "max-h-[min(70vh,calc(100%_-_1rem))] w-full max-w-[640px]",
-                "rounded-2xl border-2 border-stone-600 bg-stone-800 text-white",
-                "shadow-[0_4px_28px_rgba(87,83,78,0.45)]",
+                "bg-stone-800 text-white",
+                isExpanded
+                  ? "h-full w-full rounded-none border-0"
+                  : [
+                      "resize rounded-2xl border-2 border-stone-600",
+                      "shadow-[0_4px_28px_rgba(87,83,78,0.45)]",
+                    ],
               ])}
+              style={
+                isExpanded
+                  ? undefined
+                  : {
+                      width: "min(640px, calc(100% - 2rem))",
+                      height: "min(560px, calc(100% - 1rem))",
+                      minWidth: "min(360px, calc(100% - 2rem))",
+                      minHeight: "min(320px, calc(100% - 1rem))",
+                      maxWidth: "calc(100% - 2rem)",
+                      maxHeight: "calc(100% - 1rem)",
+                    }
+              }
               initial={{ y: 40, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 40, opacity: 0 }}
               transition={{ duration: 0.25, ease: [0.32, 0.72, 0, 1] }}
             >
-              <ChatView />
+              <ChatView
+                isExpanded={isExpanded}
+                onToggleExpanded={() => setIsExpanded((value) => !value)}
+              />
             </motion.div>
           </div>
         </motion.div>
