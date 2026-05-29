@@ -6,6 +6,7 @@ use tracing::Instrument;
 
 use crate::DegradedError;
 use crate::actors::session::types::{SessionContext, session_span, session_supervisor_name};
+use owhisper_client::AdapterKind;
 
 use self::children::{ChildKind, RESTART_BUDGET};
 use self::mode::SessionModeState;
@@ -264,7 +265,7 @@ async fn handle_listener_failure(
     degraded: DegradedError,
 ) {
     if should_stop_on_listener_failure(state) {
-        tracing::warn!("soniqo_listener_failed_stopping_session");
+        tracing::warn!("listener_failed_stopping_session");
         stop_after_listener_failure(myself, state, degraded).await;
     } else {
         enter_batch_fallback(state, degraded).await;
@@ -273,6 +274,14 @@ async fn handle_listener_failure(
 
 fn should_stop_on_listener_failure(state: &SessionState) -> bool {
     state.ctx.params.uses_local_soniqo_live_model()
+        || matches!(
+            AdapterKind::from_url_and_languages(
+                &state.ctx.params.base_url,
+                &state.ctx.params.languages,
+                Some(&state.ctx.params.model),
+            ),
+            AdapterKind::Soniox
+        )
 }
 
 async fn stop_after_listener_failure(
@@ -488,6 +497,26 @@ mod tests {
         let state = test_state(ctx);
 
         assert!(should_stop_on_listener_failure(&state));
+    }
+
+    #[test]
+    fn direct_soniox_listener_failure_stops_session() {
+        let mut ctx = test_ctx();
+        ctx.params.base_url = "https://api.soniox.com".to_string();
+        ctx.params.model = "stt-v4".to_string();
+        let state = test_state(ctx);
+
+        assert!(should_stop_on_listener_failure(&state));
+    }
+
+    #[test]
+    fn hyprnote_proxy_soniox_listener_failure_enters_batch_fallback() {
+        let mut ctx = test_ctx();
+        ctx.params.base_url = "https://api.hyprnote.com/stt?provider=soniox".to_string();
+        ctx.params.model = "cloud".to_string();
+        let state = test_state(ctx);
+
+        assert!(!should_stop_on_listener_failure(&state));
     }
 
     #[test]
