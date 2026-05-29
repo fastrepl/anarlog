@@ -76,6 +76,14 @@ function getProviderAccordionKey(
     .join("|");
 }
 
+function ProviderIcon({ provider }: { provider: CalendarProvider }) {
+  return (
+    <span className="flex size-5 shrink-0 items-center justify-center">
+      {provider.icon}
+    </span>
+  );
+}
+
 export function CalendarSidebarContent({
   returnTo = "calendar",
 }: {
@@ -118,7 +126,7 @@ export function CalendarSidebarContent({
             key={provider.id}
             className="flex items-center gap-2 border-b border-neutral-100 py-3 opacity-50 last:border-none"
           >
-            {provider.icon}
+            <ProviderIcon provider={provider} />
             <span className="text-sm font-medium">{provider.displayName}</span>
             {provider.badge && (
               <span className={getProviderBadgeClassName(provider.badge)}>
@@ -232,6 +240,7 @@ function ProviderAccordionItem({
     ],
   );
   const showProviderMenu = useNativeContextMenu(providerMenuItems);
+  const hasAddAccountButton = canAddAccount && !requiresPro;
 
   return (
     <AccordionItem
@@ -242,7 +251,12 @@ function ProviderAccordionItem({
         onContextMenu={
           providerMenuItems.length > 0 ? showProviderMenu : undefined
         }
-        className="group/row relative grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-1 rounded-md hover:bg-neutral-50"
+        className={cn([
+          "group/row relative grid items-center gap-1 rounded-md hover:bg-neutral-50",
+          hasAddAccountButton
+            ? "grid-cols-[minmax(0,1fr)_auto_auto]"
+            : "grid-cols-[minmax(0,1fr)_auto]",
+        ])}
       >
         <AccordionHeader
           className={cn(["min-w-0", requiresPro && "opacity-60"])}
@@ -252,7 +266,7 @@ function ProviderAccordionItem({
             onClick={handleTriggerClick}
           >
             <div className="flex min-w-0 items-center gap-2">
-              {provider.icon}
+              <ProviderIcon provider={provider} />
               <span
                 className={cn([
                   "flex min-w-0 items-center gap-2 transition-opacity duration-150",
@@ -282,7 +296,7 @@ function ProviderAccordionItem({
           >
             Upgrade to Pro
           </button>
-        ) : canAddAccount ? (
+        ) : hasAddAccountButton ? (
           <button
             type="button"
             onClick={handleAddAccount}
