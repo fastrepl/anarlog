@@ -84,7 +84,7 @@ describe("LeftSidebar", () => {
       screen
         .getByTestId("timeline-view")
         .getAttribute("data-show-open-calendar-button"),
-    ).toBe("false");
+    ).toBe("true");
     expect(
       screen.getByTestId("timeline-view").getAttribute("data-top-chrome-inset"),
     ).toBe("true");

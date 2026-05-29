@@ -18,25 +18,32 @@ export function useAnchor() {
     );
   }, []);
 
-  const scrollToAnchor = useCallback(() => {
-    const container = containerRef.current;
-    if (!container || !anchorNode) {
-      return;
-    }
+  const scrollToAnchor = useCallback(
+    (options?: { behavior?: ScrollBehavior; viewportRatio?: number }) => {
+      const container = containerRef.current;
+      if (!container || !anchorNode) {
+        return;
+      }
 
-    const containerRect = container.getBoundingClientRect();
-    const anchorRect = anchorNode.getBoundingClientRect();
-    const anchorCenter =
-      anchorRect.top -
-      containerRect.top +
-      container.scrollTop +
-      anchorRect.height / 2;
-    const targetScrollTop = Math.max(
-      anchorCenter - container.clientHeight / 2,
-      0,
-    );
-    container.scrollTo({ top: targetScrollTop, behavior: "smooth" });
-  }, [anchorNode]);
+      const containerRect = container.getBoundingClientRect();
+      const anchorRect = anchorNode.getBoundingClientRect();
+      const anchorCenter =
+        anchorRect.top -
+        containerRect.top +
+        container.scrollTop +
+        anchorRect.height / 2;
+      const viewportRatio = options?.viewportRatio ?? 0.5;
+      const targetScrollTop = Math.max(
+        anchorCenter - container.clientHeight * viewportRatio,
+        0,
+      );
+      container.scrollTo({
+        top: targetScrollTop,
+        behavior: options?.behavior ?? "smooth",
+      });
+    },
+    [anchorNode],
+  );
 
   useEffect(() => {
     const container = containerRef.current;
@@ -79,7 +86,10 @@ export function useAutoScrollToAnchor({
   anchorNode,
   deps = [],
 }: {
-  scrollFn: () => void;
+  scrollFn: (options?: {
+    behavior?: ScrollBehavior;
+    viewportRatio?: number;
+  }) => void;
   isVisible: boolean;
   anchorNode: HTMLDivElement | null;
   deps?: DependencyList;
@@ -94,7 +104,7 @@ export function useAutoScrollToAnchor({
 
     hasInitialScrolledRef.current = true;
     requestAnimationFrame(() => {
-      scrollFn();
+      scrollFn({ behavior: "auto", viewportRatio: 0.15 });
     });
   }, [anchorNode, scrollFn]);
 

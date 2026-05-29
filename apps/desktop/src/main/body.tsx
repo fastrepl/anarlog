@@ -1,6 +1,6 @@
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { ArrowLeftIcon, ArrowRightIcon, CalendarDaysIcon } from "lucide-react";
+import { ArrowLeftIcon, ArrowRightIcon } from "lucide-react";
 import { type MouseEvent, type PointerEvent, useCallback, useRef } from "react";
 
 import { cn } from "@hypr/utils";
@@ -29,7 +29,6 @@ type MainAreaWindowDragStart = {
 export function ClassicMainBody() {
   const { leftsidebar } = useShell();
   const currentTab = useTabs((state) => state.currentTab);
-  const openNew = useTabs((state) => state.openNew);
   const goBack = useTabs((state) => state.goBack);
   const goNext = useTabs((state) => state.goNext);
   const canGoBack = useTabs((state) => state.canGoBack);
@@ -59,9 +58,6 @@ export function ClassicMainBody() {
   const enableMainAreaTopDrag =
     showSidebarTimeline || hasLeftSurfaceCustomSidebar;
   const mainAreaTopDrag = useMainAreaTopWindowDrag(enableMainAreaTopDrag);
-  const openCalendar = () => {
-    openNew({ type: "calendar" });
-  };
 
   return (
     <div className="relative flex h-full min-w-0 flex-1 flex-col">
@@ -79,7 +75,6 @@ export function ClassicMainBody() {
               canGoNext={canGoNext}
               onBack={goBack}
               onForward={goNext}
-              onOpenCalendar={openCalendar}
             />
           </div>
         </div>
@@ -244,22 +239,14 @@ function SidebarTimelineChrome({
   canGoNext,
   onBack,
   onForward,
-  onOpenCalendar,
 }: {
   canGoBack: boolean;
   canGoNext: boolean;
   onBack: () => void;
   onForward: () => void;
-  onOpenCalendar: () => void;
 }) {
   return (
     <div className="flex items-center gap-1">
-      <SidebarTimelineChromeButton
-        ariaLabel="Open calendar"
-        onClick={onOpenCalendar}
-      >
-        <CalendarDaysIcon size={14} />
-      </SidebarTimelineChromeButton>
       <SidebarTimelineChromeButton
         ariaLabel="Go back"
         disabled={!canGoBack}

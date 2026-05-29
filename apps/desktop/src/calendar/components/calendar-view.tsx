@@ -127,7 +127,7 @@ export function CalendarView() {
         data-tauri-drag-region
         className={cn([
           "flex items-center justify-between",
-          "h-12 border-b border-neutral-200 py-2 pr-1 pl-3 select-none",
+          "h-12 border-b border-neutral-200 py-2 pr-3 pl-3 select-none",
         ])}
       >
         <div className="flex items-center gap-2">
@@ -140,11 +140,11 @@ export function CalendarView() {
           </h2>
           <CalendarSyncHeaderControls />
         </div>
-        <ButtonGroup data-tauri-drag-region="false">
+        <ButtonGroup data-tauri-drag-region="false" className="rounded-full">
           <Button
             variant="outline"
             size="icon"
-            className="shadow-none"
+            className="rounded-l-full shadow-none"
             onClick={goToPrev}
           >
             <ChevronLeftIcon className="h-4 w-4" />
@@ -160,7 +160,7 @@ export function CalendarView() {
           <Button
             variant="outline"
             size="icon"
-            className="shadow-none"
+            className="rounded-r-full shadow-none"
             onClick={goToNext}
           >
             <ChevronRightIcon className="h-4 w-4" />

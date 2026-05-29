@@ -129,16 +129,12 @@ describe("ClassicMainBody", () => {
     expect(screen.queryByTestId("top-meeting-timeline")).toBeNull();
     expect(screen.queryByTestId("toast-area")).toBeNull();
     const sidebar = screen.getByTestId("main-sidebar");
-    const calendarButton = screen.getByRole("button", {
-      name: "Open calendar",
-    });
-    const topArea = calendarButton.parentElement?.parentElement?.parentElement;
+    const backButton = screen.getByRole("button", { name: "Go back" });
+    const topArea = backButton.parentElement?.parentElement?.parentElement;
 
     expect(sidebar).toBeTruthy();
-    expect(calendarButton).toBeTruthy();
-    expect(
-      screen.getByRole("button", { name: "Go back" }).hasAttribute("disabled"),
-    ).toBe(true);
+    expect(screen.queryByRole("button", { name: "Open calendar" })).toBeNull();
+    expect(backButton.hasAttribute("disabled")).toBe(true);
     expect(
       screen
         .getByRole("button", { name: "Go forward" })
@@ -146,25 +142,24 @@ describe("ClassicMainBody", () => {
     ).toBe(true);
     expect(topArea?.className).toContain("h-12");
     expect(topArea?.className).toContain("absolute");
-    expect(calendarButton.parentElement?.parentElement?.className).toContain(
+    expect(backButton.parentElement?.parentElement?.className).toContain(
       "pt-[9px]",
     );
     expect(sidebar.parentElement?.className).toContain("flex min-h-0");
     expect(sidebar.parentElement?.className).not.toContain("pt-12");
   });
 
-  it("opens calendar and navigates history from the sidebar timeline chrome", () => {
+  it("navigates history from the sidebar timeline chrome", () => {
     mocks.sidebarTimelineEnabled = true;
     mocks.canGoBack = true;
     mocks.canGoNext = true;
 
     render(<ClassicMainBody />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Open calendar" }));
     fireEvent.click(screen.getByRole("button", { name: "Go back" }));
     fireEvent.click(screen.getByRole("button", { name: "Go forward" }));
 
-    expect(mocks.openNew).toHaveBeenCalledWith({ type: "calendar" });
+    expect(mocks.openNew).not.toHaveBeenCalled();
     expect(mocks.goBack).toHaveBeenCalledTimes(1);
     expect(mocks.goNext).toHaveBeenCalledTimes(1);
   });

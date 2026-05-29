@@ -130,6 +130,9 @@ export function TimelineView({
     [visibleTimelineEventsTable, timelineSessionsTable, timezone],
   );
 
+  const reserveOpenCalendarChipSpace =
+    topChromeInset && showOpenCalendarButton && hasMoreFutureItems;
+
   const hasToday = useMemo(
     () => buckets.some((bucket) => bucket.label === "Today"),
     [buckets],
@@ -329,7 +332,14 @@ export function TimelineView({
         {(topChromeInset || hasMoreFutureItems) && (
           <div
             aria-hidden
-            className={cn([topChromeInset ? "h-12" : "h-10", "shrink-0"])}
+            className={cn([
+              topChromeInset
+                ? reserveOpenCalendarChipSpace
+                  ? "h-20"
+                  : "h-12"
+                : "h-10",
+              "shrink-0",
+            ])}
           />
         )}
         {buckets.map((bucket, index) => {
