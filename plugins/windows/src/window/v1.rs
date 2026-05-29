@@ -66,9 +66,9 @@ impl AppWindow {
                 };
 
                 if major >= 26 && cfg!(debug_assertions) {
-                    22.0
+                    25.0
                 } else {
-                    16.0
+                    19.0
                 }
             };
 
