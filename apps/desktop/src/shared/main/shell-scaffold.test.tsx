@@ -39,6 +39,12 @@ describe("MainShellScaffold", () => {
     expect(shell.className).not.toContain("px-1");
     expect(shell.className).not.toContain("pb-1");
     expect(shell.className).toContain(
+      "[&_[data-chat-floating-anchor]]:rounded-t-xl",
+    );
+    expect(shell.className).toContain(
+      "[&_[data-chat-floating-anchor]]:rounded-b-none",
+    );
+    expect(shell.className).toContain(
       "[&_[data-chat-floating-anchor]]:border-x-0",
     );
     expect(shell.className).toContain(
