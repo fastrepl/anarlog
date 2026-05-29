@@ -59,7 +59,7 @@ msgstr "기본 언어"
 
 #: src/settings/general/app-settings.tsx:59
 msgid "Meetings"
-msgstr ""
+msgstr "회의"
 
 #: src/settings/general/main-language.tsx:64
 #: src/settings/general/spoken-languages.tsx:218
@@ -100,7 +100,7 @@ msgstr "듣는 동안 작은 플로팅 컨트롤을 표시합니다."
 
 #: src/settings/general/index.tsx:193
 msgid "Show timeline in sidebar"
-msgstr ""
+msgstr "사이드바에 타임라인 표시"
 
 #: src/settings/general/index.tsx:162
 msgid "Start Anarlog at login"
