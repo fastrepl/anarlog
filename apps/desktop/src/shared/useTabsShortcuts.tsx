@@ -58,8 +58,17 @@ export function useMainTabsShortcuts({ onModT }: { onModT: () => void }) {
     openCurrent({ type: "empty" });
   }, [currentTab, openCurrent, select, tabs]);
 
-  const escapeShortcutRef = useRef({ chat, openHome });
-  escapeShortcutRef.current = { chat, openHome };
+  const runEscapeShortcut = useCallback(() => {
+    if (chat.mode === "FloatingOpen") {
+      chat.sendEvent({ type: "CLOSE" });
+      return;
+    }
+
+    openHome();
+  }, [chat, openHome]);
+
+  const escapeShortcutRef = useRef(runEscapeShortcut);
+  escapeShortcutRef.current = runEscapeShortcut;
 
   useMountEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -72,13 +81,7 @@ export function useMainTabsShortcuts({ onModT }: { onModT: () => void }) {
           return;
         }
 
-        const { chat, openHome } = escapeShortcutRef.current;
-        if (chat.mode === "FloatingOpen") {
-          chat.sendEvent({ type: "CLOSE" });
-          return;
-        }
-
-        openHome();
+        escapeShortcutRef.current();
       });
     };
 
@@ -229,7 +232,7 @@ export function useMainTabsShortcuts({ onModT }: { onModT: () => void }) {
     [newNoteAndListen],
   );
 
-  return {};
+  return { runEscapeShortcut };
 }
 
 function isPersistentChatInputFocused(

@@ -130,6 +130,20 @@ describe("useClassicMainTabsShortcuts", () => {
     expect(hoisted.openCurrent).toHaveBeenCalledWith({ type: "empty" });
   });
 
+  it("returns the escape shortcut action", () => {
+    hoisted.currentTab = {
+      active: true,
+      slotId: "slot-session",
+      type: "sessions",
+    };
+
+    const { result } = renderHook(() => useClassicMainTabsShortcuts());
+
+    result.current.runEscapeShortcut();
+
+    expect(hoisted.openCurrent).toHaveBeenCalledWith({ type: "empty" });
+  });
+
   it("opens the home view even when the editor stops escape propagation", () => {
     hoisted.currentTab = {
       active: true,

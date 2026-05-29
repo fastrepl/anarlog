@@ -34,7 +34,7 @@ export function ClassicMainBody() {
   const canGoBack = useTabs((state) => state.canGoBack);
   const canGoNext = useTabs((state) => state.canGoNext);
   const sidebarTimelineEnabled = useConfigValue("sidebar_timeline_enabled");
-  useClassicMainTabsShortcuts();
+  const { runEscapeShortcut } = useClassicMainTabsShortcuts();
 
   const isOnboarding = currentTab?.type === "onboarding";
   const hasCustomSidebar = hasCustomSidebarTab(currentTab);
@@ -110,8 +110,7 @@ export function ClassicMainBody() {
           >
             <SidebarTimelineChromeButton
               ariaLabel="Go back"
-              disabled={!canGoBack}
-              onClick={goBack}
+              onClick={runEscapeShortcut}
             >
               <ArrowLeftIcon size={14} />
             </SidebarTimelineChromeButton>

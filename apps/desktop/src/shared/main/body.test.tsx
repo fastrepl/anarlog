@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   openNew: vi.fn(),
   goBack: vi.fn(),
   goNext: vi.fn(),
+  runEscapeShortcut: vi.fn(),
   isTauri: vi.fn(() => true),
   startDragging: vi.fn().mockResolvedValue(undefined),
   canGoBack: false,
@@ -35,7 +36,9 @@ vi.mock("@tauri-apps/api/window", () => ({
 }));
 
 vi.mock("~/main/useTabsShortcuts", () => ({
-  useClassicMainTabsShortcuts: vi.fn(),
+  useClassicMainTabsShortcuts: vi.fn(() => ({
+    runEscapeShortcut: mocks.runEscapeShortcut,
+  })),
 }));
 
 vi.mock("~/main/tab-content", () => ({
@@ -91,6 +94,7 @@ describe("ClassicMainBody", () => {
     mocks.openNew.mockClear();
     mocks.goBack.mockClear();
     mocks.goNext.mockClear();
+    mocks.runEscapeShortcut.mockClear();
     mocks.isTauri.mockReturnValue(true);
     mocks.startDragging.mockClear();
     mocks.canGoBack = false;
@@ -171,14 +175,13 @@ describe("ClassicMainBody", () => {
     expect(mocks.goNext).toHaveBeenCalledTimes(1);
   });
 
-  it("shows a back navigation button in calendar left chrome", () => {
+  it("runs the escape shortcut from the calendar left chrome back button", () => {
     mocks.currentTab = {
       active: true,
       pinned: false,
       slotId: "slot-1",
       type: "calendar",
     };
-    mocks.canGoBack = true;
 
     render(<ClassicMainBody />);
 
@@ -192,7 +195,8 @@ describe("ClassicMainBody", () => {
     expect(backButton.hasAttribute("disabled")).toBe(false);
     expect(topArea?.className).toContain("h-12");
     expect(topArea?.className).toContain("absolute");
-    expect(mocks.goBack).toHaveBeenCalledTimes(1);
+    expect(mocks.goBack).not.toHaveBeenCalled();
+    expect(mocks.runEscapeShortcut).toHaveBeenCalledTimes(1);
   });
 
   it("starts window dragging from the top 48px of the main area in sidebar timeline mode", () => {
