@@ -120,7 +120,8 @@ export function PersistentChatPanel({
               className={cn([
                 "relative flex min-h-0 flex-col overflow-hidden",
                 "max-h-[min(70vh,calc(100%_-_1rem))] w-full max-w-[640px]",
-                "rounded-2xl border border-neutral-200 bg-white shadow-2xl",
+                "rounded-2xl border-2 border-stone-600 bg-stone-800 text-white",
+                "shadow-[0_4px_28px_rgba(87,83,78,0.45)]",
               ])}
               initial={{ y: 40, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}

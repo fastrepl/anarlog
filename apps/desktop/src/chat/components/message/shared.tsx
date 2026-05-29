@@ -3,6 +3,8 @@ import { type ReactNode } from "react";
 
 import { cn } from "@hypr/utils";
 
+import { useShell } from "~/contexts/shell";
+
 export function MessageContainer({
   align = "start",
   children,
@@ -31,14 +33,23 @@ export function MessageBubble({
   withActionButton?: boolean;
   children: ReactNode;
 }) {
+  const { chat } = useShell();
+  const isFloating = chat.mode === "FloatingOpen";
+
   return (
     <div
       className={cn([
         "select-text-deep text-sm",
         variant === "user" &&
           "w-fit max-w-full rounded-2xl bg-blue-100 px-3 py-1 text-neutral-800 [&_p]:[text-wrap:wrap]",
-        variant === "assistant" && "text-neutral-800",
-        variant === "loading" && "text-neutral-800",
+        variant === "assistant" &&
+          (isFloating
+            ? "rounded-2xl bg-white/95 px-3 py-1 text-neutral-800"
+            : "text-neutral-800"),
+        variant === "loading" &&
+          (isFloating
+            ? "w-fit rounded-2xl bg-white/95 px-3 py-1 text-neutral-800"
+            : "text-neutral-800"),
         variant === "error" &&
           "rounded-2xl border border-red-200 bg-red-50 px-3 py-1 text-red-600",
         withActionButton && "group relative",

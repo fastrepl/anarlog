@@ -1,6 +1,8 @@
 import { platform } from "@tauri-apps/plugin-os";
 import { useCallback } from "react";
 
+import { cn } from "@hypr/utils";
+
 import { ChatBody } from "./body";
 import { ChatContent } from "./content";
 import { ChatSession } from "./session-provider";
@@ -15,6 +17,7 @@ import * as main from "~/store/tinybase/store/main";
 export function ChatView() {
   const { chat } = useShell();
   const { groupId, sessionId, setGroupId } = chat;
+  const isFloating = chat.mode === "FloatingOpen";
   const currentPlatform = platform();
   const chatPanelShortcutLabel = currentPlatform === "macos" ? "⌘ J" : "Ctrl J";
 
@@ -36,14 +39,27 @@ export function ChatView() {
   });
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-stone-50">
-      <div className="flex h-10 shrink-0 items-center border-b border-neutral-100 pr-0 pl-0">
+    <div
+      className={cn([
+        "flex h-full min-h-0 flex-col overflow-hidden",
+        isFloating ? "bg-stone-800 text-white" : "bg-stone-50",
+      ])}
+    >
+      <div
+        className={cn([
+          "flex h-10 shrink-0 items-center pr-0 pl-0",
+          isFloating
+            ? "border-b border-stone-700"
+            : "border-b border-neutral-100",
+        ])}
+      >
         <ChatToolbarControls
           currentChatGroupId={groupId}
           onNewChat={chat.startNewChat}
           onSelectChat={chat.selectChat}
           onCloseChat={() => chat.sendEvent({ type: "CLOSE" })}
           shortcutLabel={chatPanelShortcutLabel}
+          surface={isFloating ? "dark" : "light"}
         />
       </div>
       {user_id && (

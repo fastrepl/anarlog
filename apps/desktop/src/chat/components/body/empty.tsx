@@ -10,6 +10,7 @@ import { useCallback } from "react";
 import { cn } from "@hypr/utils";
 
 import type { ContextRef } from "~/chat/context/entities";
+import { useShell } from "~/contexts/shell";
 import { useTabs } from "~/store/zustand/tabs";
 
 const SUGGESTIONS = [
@@ -43,7 +44,9 @@ export function ChatBodyEmpty({
     contextRefs?: ContextRef[],
   ) => void;
 }) {
+  const { chat } = useShell();
   const openNew = useTabs((state) => state.openNew);
+  const isFloating = chat.mode === "FloatingOpen";
 
   const handleGoToSettings = useCallback(() => {
     openNew({ type: "settings", state: { tab: "intelligence" } });
@@ -61,13 +64,28 @@ export function ChatBodyEmpty({
       <div className="flex justify-start py-2 pb-1">
         <div className="flex w-full flex-col">
           <div className="mb-2 flex items-center gap-2">
-            <MessageCircleIcon className="size-4 text-neutral-500" />
-            <span className="text-sm font-medium text-neutral-800">
+            <MessageCircleIcon
+              className={cn([
+                "size-4",
+                isFloating ? "text-stone-300" : "text-neutral-500",
+              ])}
+            />
+            <span
+              className={cn([
+                "text-sm font-medium",
+                isFloating ? "text-white" : "text-neutral-800",
+              ])}
+            >
               Anarlog AI
             </span>
             <BetaChip />
           </div>
-          <p className="mb-2 text-sm text-neutral-700">
+          <p
+            className={cn([
+              "mb-2 text-sm",
+              isFloating ? "text-stone-200" : "text-neutral-700",
+            ])}
+          >
             Hi, I'm Anarlog AI. Set up a language model and I'll be ready to
             help.
           </p>
@@ -90,13 +108,28 @@ export function ChatBodyEmpty({
     <div className="flex justify-start pb-1">
       <div className="flex w-full flex-col">
         <div className="mb-2 flex items-center gap-2">
-          <MessageCircleIcon className="size-4 text-neutral-500" />
-          <span className="text-sm font-medium text-neutral-800">
+          <MessageCircleIcon
+            className={cn([
+              "size-4",
+              isFloating ? "text-stone-300" : "text-neutral-500",
+            ])}
+          />
+          <span
+            className={cn([
+              "text-sm font-medium",
+              isFloating ? "text-white" : "text-neutral-800",
+            ])}
+          >
             Anarlog AI
           </span>
           <BetaChip />
         </div>
-        <p className="mb-2 text-sm text-neutral-700">
+        <p
+          className={cn([
+            "mb-2 text-sm",
+            isFloating ? "text-stone-200" : "text-neutral-700",
+          ])}
+        >
           Hi, I'm Anarlog AI. I can help you pull context from your notes, find
           key decisions, and draft what comes next.
         </p>
@@ -107,8 +140,11 @@ export function ChatBodyEmpty({
                 key={label}
                 onClick={() => handleSuggestionClick(prompt)}
                 className={cn([
-                  "inline-flex items-center gap-1 rounded-full border border-neutral-300 bg-white px-2 py-1 text-[11px] text-neutral-700",
-                  "transition-colors hover:bg-neutral-100",
+                  "inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px]",
+                  isFloating
+                    ? "border-stone-600 bg-stone-700 text-stone-100 hover:bg-stone-600"
+                    : "border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-100",
+                  "transition-colors",
                 ])}
               >
                 <Icon size={12} />

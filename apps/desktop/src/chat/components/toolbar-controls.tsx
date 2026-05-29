@@ -23,24 +23,34 @@ export function ChatToolbarControls({
   onNewChat,
   onSelectChat,
   shortcutLabel,
+  surface = "light",
 }: {
   currentChatGroupId: string | undefined;
   onCloseChat: () => void;
   onNewChat: () => void;
   onSelectChat: (chatGroupId: string) => void;
   shortcutLabel?: string;
+  surface?: "light" | "dark";
 }) {
+  const isDark = surface === "dark";
+
   return (
     <div className="relative flex h-full w-full min-w-0 items-center">
       <div className="flex min-w-0 items-center gap-1 pr-8">
         <ChatGroups
           currentChatGroupId={currentChatGroupId}
           onSelectChat={onSelectChat}
+          surface={surface}
         />
         <ChatActionButton
           icon={<Plus size={16} />}
           onClick={onNewChat}
           title="New chat"
+          className={
+            isDark
+              ? "text-stone-300 hover:bg-stone-700 hover:text-white"
+              : undefined
+          }
         />
       </div>
       <ChatActionButton
@@ -48,7 +58,12 @@ export function ChatToolbarControls({
         onClick={onCloseChat}
         title="Close chat"
         shortcutLabel={shortcutLabel}
-        className="absolute top-1/2 right-0 -translate-y-1/2 bg-neutral-100 text-neutral-900 hover:bg-neutral-100"
+        className={cn([
+          "absolute top-1/2 right-0 -translate-y-1/2",
+          isDark
+            ? "bg-stone-700 text-white hover:bg-stone-600"
+            : "bg-neutral-100 text-neutral-900 hover:bg-neutral-100",
+        ])}
       />
     </div>
   );
@@ -95,11 +110,14 @@ function ChatActionButton({
 function ChatGroups({
   currentChatGroupId,
   onSelectChat,
+  surface = "light",
 }: {
   currentChatGroupId: string | undefined;
   onSelectChat: (chatGroupId: string) => void;
+  surface?: "light" | "dark";
 }) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const isDark = surface === "dark";
 
   const currentChatTitle = main.UI.useCell(
     "chat_groups",
@@ -123,15 +141,23 @@ function ChatGroups({
           variant="ghost"
           className={cn([
             "group -ml-2 flex h-8 max-w-64 min-w-0 justify-start gap-2 px-2 py-0",
-            "text-neutral-700",
+            isDark
+              ? "text-stone-100 hover:bg-stone-700 hover:text-white"
+              : "text-neutral-700",
           ])}
         >
-          <h3 className="min-w-0 flex-1 truncate text-xs font-medium text-neutral-700">
+          <h3
+            className={cn([
+              "min-w-0 flex-1 truncate text-xs font-medium",
+              isDark ? "text-stone-100" : "text-neutral-700",
+            ])}
+          >
             {currentChatTitle || "Ask Anarlog AI anything"}
           </h3>
           <ChevronDown
             className={cn([
-              "h-3.5 w-3.5 shrink-0 text-neutral-400 transition-transform duration-200",
+              "h-3.5 w-3.5 shrink-0 transition-transform duration-200",
+              isDark ? "text-stone-300" : "text-neutral-400",
               isDropdownOpen && "rotate-180",
             ])}
           />
