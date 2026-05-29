@@ -9,8 +9,18 @@ const CUSTOM_SIDEBAR_TYPES: Tab["type"][] = [
   "templates",
 ];
 
+const LEFT_SURFACE_CUSTOM_SIDEBAR_TYPES: Tab["type"][] = [
+  "calendar",
+  "settings",
+  "contacts",
+];
+
 export function hasCustomSidebarTab(tab: Tab | null): boolean {
   return tab !== null && CUSTOM_SIDEBAR_TYPES.includes(tab.type);
+}
+
+export function hasLeftSurfaceCustomSidebarTab(tab: Tab | null): boolean {
+  return tab !== null && LEFT_SURFACE_CUSTOM_SIDEBAR_TYPES.includes(tab.type);
 }
 
 export function useCustomSidebarEffect(

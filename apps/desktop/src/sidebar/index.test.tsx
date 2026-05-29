@@ -28,12 +28,15 @@ vi.mock("~/store/zustand/tabs", () => ({
 vi.mock("~/sidebar/timeline", () => ({
   TimelineView: ({
     showOpenCalendarButton = true,
+    topChromeInset = false,
   }: {
     showOpenCalendarButton?: boolean;
+    topChromeInset?: boolean;
   }) => (
     <div
       data-testid="timeline-view"
       data-show-open-calendar-button={String(showOpenCalendarButton)}
+      data-top-chrome-inset={String(topChromeInset)}
     />
   ),
 }));
@@ -82,6 +85,9 @@ describe("LeftSidebar", () => {
         .getByTestId("timeline-view")
         .getAttribute("data-show-open-calendar-button"),
     ).toBe("false");
+    expect(
+      screen.getByTestId("timeline-view").getAttribute("data-top-chrome-inset"),
+    ).toBe("true");
     expect(container.firstElementChild?.className).toContain("pt-0");
   });
 

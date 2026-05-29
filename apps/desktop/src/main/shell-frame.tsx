@@ -3,7 +3,10 @@ import { ClassicMainBody } from "./body";
 import { useShell } from "~/contexts/shell";
 import { useConfigValue } from "~/shared/config";
 import { MainShellBodyFrame, MainShellScaffold } from "~/shared/main";
-import { hasCustomSidebarTab } from "~/sidebar/use-custom-sidebar";
+import {
+  hasCustomSidebarTab,
+  hasLeftSurfaceCustomSidebarTab,
+} from "~/sidebar/use-custom-sidebar";
 import { useTabs } from "~/store/zustand/tabs";
 
 export function ClassicMainShellFrame() {
@@ -13,6 +16,8 @@ export function ClassicMainShellFrame() {
 
   const isOnboarding = currentTab?.type === "onboarding";
   const hasCustomSidebar = hasCustomSidebarTab(currentTab);
+  const hasLeftSurfaceCustomSidebar =
+    hasLeftSurfaceCustomSidebarTab(currentTab);
   const showSidebarTimeline =
     sidebarTimelineEnabled &&
     leftsidebar.expanded &&
@@ -25,9 +30,14 @@ export function ClassicMainShellFrame() {
     !leftsidebar.showDevtool &&
     !hasCustomSidebar &&
     !isOnboarding;
+  const mainSurfaceChrome = showSidebarTimeline || hasLeftSurfaceCustomSidebar
+    ? "left"
+    : showTopTimeline
+      ? "top"
+      : "default";
 
   return (
-    <MainShellScaffold edgeToEdge={showTopTimeline}>
+    <MainShellScaffold mainSurfaceChrome={mainSurfaceChrome}>
       <MainShellBodyFrame>
         <ClassicMainBody />
       </MainShellBodyFrame>

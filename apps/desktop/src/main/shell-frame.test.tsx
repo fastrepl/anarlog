@@ -21,12 +21,15 @@ vi.mock("~/shared/main", () => ({
   MainShellScaffold: ({
     children,
     edgeToEdge,
+    mainSurfaceChrome,
   }: {
     children: React.ReactNode;
     edgeToEdge?: boolean;
+    mainSurfaceChrome?: "default" | "top" | "left";
   }) => (
     <div
       data-edge-to-edge={String(edgeToEdge)}
+      data-main-surface-chrome={mainSurfaceChrome}
       data-testid="main-shell-scaffold"
     >
       {children}
@@ -64,17 +67,17 @@ describe("ClassicMainShellFrame", () => {
     mocks.sidebarTimelineEnabled = false;
   });
 
-  it("removes shell padding in top timeline mode", () => {
+  it("uses top-edge main surface chrome in top timeline mode", () => {
     render(<ClassicMainShellFrame />);
 
     expect(
       screen
         .getByTestId("main-shell-scaffold")
-        .getAttribute("data-edge-to-edge"),
-    ).toBe("true");
+        .getAttribute("data-main-surface-chrome"),
+    ).toBe("top");
   });
 
-  it("keeps shell padding in sidebar timeline mode", () => {
+  it("uses left-edge main surface chrome in sidebar timeline mode", () => {
     mocks.sidebarTimelineEnabled = true;
 
     render(<ClassicMainShellFrame />);
@@ -82,11 +85,11 @@ describe("ClassicMainShellFrame", () => {
     expect(
       screen
         .getByTestId("main-shell-scaffold")
-        .getAttribute("data-edge-to-edge"),
-    ).toBe("false");
+        .getAttribute("data-main-surface-chrome"),
+    ).toBe("left");
   });
 
-  it("keeps shell padding for custom sidebar tabs", () => {
+  it("uses default main surface chrome for custom sidebar tabs", () => {
     mocks.currentTab = { type: "settings" };
 
     render(<ClassicMainShellFrame />);
@@ -94,7 +97,7 @@ describe("ClassicMainShellFrame", () => {
     expect(
       screen
         .getByTestId("main-shell-scaffold")
-        .getAttribute("data-edge-to-edge"),
-    ).toBe("false");
+        .getAttribute("data-main-surface-chrome"),
+    ).toBe("default");
   });
 });

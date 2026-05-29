@@ -1,4 +1,9 @@
-import { CalendarDaysIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react";
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  CalendarDaysIcon,
+  SunIcon,
+} from "lucide-react";
 import {
   type ReactNode,
   useCallback,
@@ -46,8 +51,10 @@ import { useUndoDelete } from "~/store/zustand/undo-delete";
 
 export function TimelineView({
   showOpenCalendarButton = true,
+  topChromeInset = false,
 }: {
   showOpenCalendarButton?: boolean;
+  topChromeInset?: boolean;
 } = {}) {
   const timezone = useConfigValue("timezone") || undefined;
   const { timelineEventsTable, timelineSessionsTable } = useTimelineTables();
@@ -302,7 +309,12 @@ export function TimelineView({
           "rounded-xl",
         ])}
       >
-        {hasMoreFutureItems && <div aria-hidden className="h-10 shrink-0" />}
+        {(topChromeInset || hasMoreFutureItems) && (
+          <div
+            aria-hidden
+            className={cn([topChromeInset ? "h-12" : "h-10", "shrink-0"])}
+          />
+        )}
         {buckets.map((bucket, index) => {
           const isToday = bucket.label === "Today";
           const shouldRenderIndicatorBefore =
@@ -367,8 +379,20 @@ export function TimelineView({
           )}
       </div>
 
+      {topChromeInset && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 z-[15] h-12 bg-neutral-50"
+        />
+      )}
+
       {(showOpenCalendarChip || (!isTodayVisible && isScrolledPastToday)) && (
-        <div className="absolute top-2 left-1/2 z-20 flex -translate-x-1/2 transform flex-col items-center gap-2">
+        <div
+          className={cn([
+            "absolute left-1/2 z-20 flex -translate-x-1/2 transform flex-col items-center gap-2",
+            topChromeInset ? "top-12" : "top-2",
+          ])}
+        >
           {showOpenCalendarChip && (
             <Button
               onClick={handleOpenCalendar}
@@ -387,42 +411,53 @@ export function TimelineView({
             </Button>
           )}
           {!isTodayVisible && isScrolledPastToday && (
-            <Button
-              onClick={scrollToToday}
-              size="sm"
-              className={cn([
-                "rounded-full bg-white hover:bg-neutral-50",
-                "border border-neutral-200 text-neutral-700",
-                "flex items-center gap-1",
-                "shadow-xs",
-              ])}
-              variant="outline"
-            >
-              <ChevronUpIcon size={12} />
-              <span className="text-xs">Go back to now</span>
-            </Button>
+            <TimelineNowChip direction="up" onClick={scrollToToday} />
           )}
         </div>
       )}
 
       {!isTodayVisible && !isScrolledPastToday && (
-        <Button
+        <TimelineNowChip
           onClick={scrollToToday}
-          size="sm"
+          direction="down"
           className={cn([
             "absolute bottom-2 left-1/2 -translate-x-1/2 transform",
-            "rounded-full bg-white hover:bg-neutral-50",
-            "border border-neutral-200 text-neutral-700",
-            "z-20 flex items-center gap-1",
-            "shadow-xs",
+            "z-20",
           ])}
-          variant="outline"
-        >
-          <ChevronDownIcon size={12} />
-          <span className="text-xs">Go back to now</span>
-        </Button>
+        />
       )}
     </div>
+  );
+}
+
+function TimelineNowChip({
+  className,
+  direction,
+  onClick,
+}: {
+  className?: string;
+  direction: "up" | "down";
+  onClick: () => void;
+}) {
+  const DirectionIcon = direction === "up" ? ArrowUpIcon : ArrowDownIcon;
+
+  return (
+    <button
+      type="button"
+      aria-label="Go back to now"
+      className={cn([
+        "flex h-6 items-center gap-1 rounded-full border border-neutral-200 bg-white/95 px-2.5 text-xs font-semibold text-neutral-900 shadow-md backdrop-blur",
+        "transition-colors hover:border-neutral-300 hover:bg-white hover:text-neutral-950",
+        "focus-visible:ring-2 focus-visible:ring-neutral-900 focus-visible:outline-hidden",
+        className,
+      ])}
+      onClick={onClick}
+    >
+      {direction === "up" ? <DirectionIcon size={12} /> : null}
+      <SunIcon size={13} className="shrink-0 text-yellow-400" />
+      <span>Now</span>
+      {direction === "down" ? <DirectionIcon size={12} /> : null}
+    </button>
   );
 }
 

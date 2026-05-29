@@ -53,7 +53,10 @@ export function LeftSidebar() {
           ) : isTemplatesMode ? (
             <TemplatesNav />
           ) : (
-            <TimelineView showOpenCalendarButton={!isTimelineSidebarLayout} />
+            <TimelineView
+              showOpenCalendarButton={!isTimelineSidebarLayout}
+              topChromeInset={isTimelineSidebarLayout}
+            />
           )}
           {!leftsidebar.showDevtool && !isSpecialMode && <ToastArea />}
         </div>

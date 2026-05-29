@@ -13,7 +13,7 @@ describe("MainShellScaffold", () => {
     cleanup();
   });
 
-  it("keeps default outer padding", () => {
+  it("keeps only the left outer padding by default", () => {
     render(
       <MainShellScaffold>
         <div />
@@ -22,11 +22,12 @@ describe("MainShellScaffold", () => {
 
     const shell = screen.getByTestId("main-app-shell");
 
-    expect(shell.className).toContain("px-1");
-    expect(shell.className).toContain("pb-1");
+    expect(shell.className).toContain("pl-1");
+    expect(shell.className).not.toContain("px-1");
+    expect(shell.className).not.toContain("pb-1");
   });
 
-  it("removes outer padding when edge-to-edge", () => {
+  it("removes outer padding for the top-edge main surface", () => {
     render(
       <MainShellScaffold edgeToEdge>
         <div />
@@ -45,6 +46,35 @@ describe("MainShellScaffold", () => {
     );
     expect(shell.className).toContain(
       "[&_[data-chat-floating-anchor]]:border-t",
+    );
+  });
+
+  it("keeps only left chrome for the left-edge main surface", () => {
+    render(
+      <MainShellScaffold mainSurfaceChrome="left">
+        <div />
+      </MainShellScaffold>,
+    );
+
+    const shell = screen.getByTestId("main-app-shell");
+
+    expect(shell.className).toContain("pl-1");
+    expect(shell.className).not.toContain("pb-1");
+    expect(shell.className).not.toContain("px-1");
+    expect(shell.className).toContain(
+      "[&_[data-chat-floating-anchor]]:rounded-l-xl",
+    );
+    expect(shell.className).toContain(
+      "[&_[data-chat-floating-anchor]]:rounded-r-none",
+    );
+    expect(shell.className).toContain(
+      "[&_[data-chat-floating-anchor]]:border-y-0",
+    );
+    expect(shell.className).toContain(
+      "[&_[data-chat-floating-anchor]]:border-r-0",
+    );
+    expect(shell.className).toContain(
+      "[&_[data-chat-floating-anchor]]:border-l",
     );
   });
 });
