@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use std::time::Instant;
 
 use owhisper_interface::{batch, stream};
 
@@ -330,7 +331,54 @@ pub fn transcribe_file(
     language: Option<&str>,
 ) -> Result<FileTranscript> {
     ensure_supported_platform(model)?;
-    platform::transcribe_file(model, path.as_ref(), language.unwrap_or_default())
+
+    let path = path.as_ref();
+    let language = language.unwrap_or_default();
+    let language_label = if language.is_empty() {
+        "auto"
+    } else {
+        language
+    };
+    let file_extension = path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .unwrap_or_default();
+    let started_at = Instant::now();
+
+    tracing::info!(
+        hyprnote.stt.provider.name = "soniqo",
+        hyprnote.stt.model = %model,
+        hyprnote.stt.language = %language_label,
+        file.extension = %file_extension,
+        "soniqo_native_file_transcription_start"
+    );
+
+    let result = platform::transcribe_file(model, path, language);
+    let elapsed_ms = started_at.elapsed().as_millis() as u64;
+
+    match &result {
+        Ok(transcript) => {
+            tracing::info!(
+                hyprnote.stt.provider.name = "soniqo",
+                hyprnote.stt.model = %model,
+                elapsed_ms,
+                transcript.duration_seconds = transcript.duration_seconds,
+                transcript.text_chars = transcript.text.chars().count(),
+                "soniqo_native_file_transcription_completed"
+            );
+        }
+        Err(error) => {
+            tracing::error!(
+                hyprnote.stt.provider.name = "soniqo",
+                hyprnote.stt.model = %model,
+                elapsed_ms,
+                error = %error,
+                "soniqo_native_file_transcription_failed"
+            );
+        }
+    }
+
+    result
 }
 
 pub struct LiveTranscriptionSession {

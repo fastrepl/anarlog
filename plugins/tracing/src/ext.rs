@@ -55,12 +55,8 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Tracing<'a, R, M> {
             }
 
             if let Ok(content) = std::fs::read_to_string(log_path) {
-                let lines_needed = TARGET_LINES.saturating_sub(collected.len()) + TARGET_LINES;
-                let lines: Vec<String> = content
-                    .lines()
-                    .take(lines_needed)
-                    .map(|s| s.to_string())
-                    .collect();
+                let lines_needed = TARGET_LINES.saturating_sub(collected.len());
+                let lines = tail_lines(&content, lines_needed);
                 let mut new_collected = lines;
                 new_collected.extend(collected);
                 collected = new_collected;
@@ -74,6 +70,21 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Tracing<'a, R, M> {
         let start = collected.len().saturating_sub(TARGET_LINES);
         Ok(Some(collected[start..].join("\n")))
     }
+}
+
+fn tail_lines(content: &str, max_lines: usize) -> Vec<String> {
+    if max_lines == 0 {
+        return Vec::new();
+    }
+
+    let mut lines: Vec<_> = content
+        .lines()
+        .rev()
+        .take(max_lines)
+        .map(str::to_string)
+        .collect();
+    lines.reverse();
+    lines
 }
 
 pub trait TracingPluginExt<R: tauri::Runtime> {
@@ -141,6 +152,21 @@ pub const JS_INIT_SCRIPT: &str = r#"
 #[cfg(test)]
 mod tests {
     use rquickjs::{Context, Runtime};
+
+    #[test]
+    fn tail_lines_returns_recent_lines() {
+        let content = "line 1\nline 2\nline 3\nline 4";
+
+        assert_eq!(
+            super::tail_lines(content, 2),
+            vec!["line 3".to_string(), "line 4".to_string()]
+        );
+    }
+
+    #[test]
+    fn tail_lines_handles_zero_limit() {
+        assert!(super::tail_lines("line 1\nline 2", 0).is_empty());
+    }
 
     fn setup_runtime() -> (Runtime, Context) {
         let runtime = Runtime::new().unwrap();

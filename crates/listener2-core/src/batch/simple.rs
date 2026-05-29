@@ -1,3 +1,6 @@
+use std::path::Path;
+use std::time::Instant;
+
 use owhisper_client::{
     AdapterKind, AquaVoiceAdapter, ArgmaxAdapter, AssemblyAIAdapter, BatchSttAdapter,
     DeepgramAdapter, ElevenLabsAdapter, FireworksAdapter, GladiaAdapter, HyprnoteAdapter,
@@ -117,23 +120,64 @@ pub(super) async fn run_soniqo_batch(
             .batch_model();
 
         let file_path = params.file_path.clone();
+        let file_extension = Path::new(&file_path)
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .unwrap_or_default()
+            .to_string();
         let language = listen_params
             .languages
             .first()
             .map(hypr_language::Language::bcp47_code);
+        let language_label = language.as_deref().unwrap_or("auto").to_string();
+        let started_at = Instant::now();
+
+        tracing::info!(
+            hyprnote.stt.provider.name = "soniqo",
+            hyprnote.stt.model = %model,
+            hyprnote.stt.language = %language_label,
+            file.extension = %file_extension,
+            "soniqo_batch_start"
+        );
 
         let transcribed = tokio::task::spawn_blocking(move || {
             transcribe_soniqo_file(model, &file_path, language.as_deref())
         })
         .await
-        .map_err(|e| crate::BatchFailure::DirectRequestFailed {
-            provider: "soniqo".to_string(),
-            message: format!("Soniqo transcription task failed: {e}"),
+        .map_err(|e| {
+            tracing::error!(
+                hyprnote.stt.provider.name = "soniqo",
+                hyprnote.stt.model = %model,
+                error = %e,
+                "soniqo_batch_task_join_failed"
+            );
+            crate::BatchFailure::DirectRequestFailed {
+                provider: "soniqo".to_string(),
+                message: format!("Soniqo transcription task failed: {e}"),
+            }
         })?
-        .map_err(|e| crate::BatchFailure::DirectRequestFailed {
-            provider: "soniqo".to_string(),
-            message: format_user_friendly_error(&e),
+        .map_err(|e| {
+            let message = format_user_friendly_error(&e);
+            tracing::error!(
+                hyprnote.stt.provider.name = "soniqo",
+                hyprnote.stt.model = %model,
+                error = %e,
+                hyprnote.error.user_message = %message,
+                "soniqo_batch_failed"
+            );
+            crate::BatchFailure::DirectRequestFailed {
+                provider: "soniqo".to_string(),
+                message,
+            }
         })?;
+
+        tracing::info!(
+            hyprnote.stt.provider.name = "soniqo",
+            hyprnote.stt.model = %model,
+            elapsed_ms = started_at.elapsed().as_millis() as u64,
+            transcript.channel_count = transcribed.len(),
+            "soniqo_batch_completed"
+        );
 
         let response = hypr_transcribe_soniqo::batch_response_from_channels(model, transcribed);
 
@@ -154,36 +198,127 @@ fn transcribe_soniqo_file(
 ) -> std::result::Result<Vec<hypr_transcribe_soniqo::FileTranscript>, String> {
     let source = hypr_audio_utils::source_from_path(file_path).map_err(|e| e.to_string())?;
     let channel_count = u16::from(source.channels()).max(1) as usize;
+    let sample_rate = u32::from(source.sample_rate());
+    let duration_ms = source
+        .total_duration()
+        .map(|duration| duration.as_millis().min(u128::from(u64::MAX)) as u64);
+
+    tracing::info!(
+        hyprnote.stt.provider.name = "soniqo",
+        hyprnote.stt.model = %model,
+        hyprnote.stt.language = %language.unwrap_or("auto"),
+        audio.channel_count = channel_count,
+        audio.sample_rate_hz = sample_rate,
+        audio.duration_ms = duration_ms.unwrap_or_default(),
+        audio.duration_known = duration_ms.is_some(),
+        "soniqo_audio_file_loaded"
+    );
 
     if channel_count <= 1 {
+        tracing::info!(
+            hyprnote.stt.provider.name = "soniqo",
+            hyprnote.stt.model = %model,
+            "soniqo_single_channel_native_inference_start"
+        );
         return hypr_transcribe_soniqo::transcribe_file(model, file_path, language)
             .map(|transcript| vec![transcript])
             .map_err(|e| e.to_string());
     }
 
+    let resample_started_at = Instant::now();
     let samples =
         hypr_audio_utils::resample_audio(source, TARGET_SAMPLE_RATE).map_err(|e| e.to_string())?;
+    tracing::info!(
+        hyprnote.stt.provider.name = "soniqo",
+        hyprnote.stt.model = %model,
+        elapsed_ms = resample_started_at.elapsed().as_millis() as u64,
+        audio.source_sample_rate_hz = sample_rate,
+        audio.target_sample_rate_hz = TARGET_SAMPLE_RATE,
+        audio.resampled_sample_count = samples.len(),
+        "soniqo_audio_resampled"
+    );
+
     let channel_samples =
         collapse_identical_channels(split_resampled_channels(&samples, channel_count));
+    tracing::info!(
+        hyprnote.stt.provider.name = "soniqo",
+        hyprnote.stt.model = %model,
+        audio.source_channel_count = channel_count,
+        audio.transcribed_channel_count = channel_samples.len(),
+        "soniqo_channels_prepared"
+    );
 
     channel_samples
         .into_iter()
-        .map(|samples| transcribe_soniqo_channel(model, &samples, language))
+        .enumerate()
+        .map(|(channel_index, samples)| {
+            transcribe_soniqo_channel(model, channel_index, &samples, language)
+        })
         .collect()
 }
 
 fn transcribe_soniqo_channel(
     model: hypr_transcribe_soniqo::SoniqoModel,
+    channel_index: usize,
     samples: &[f32],
     language: Option<&str>,
 ) -> std::result::Result<hypr_transcribe_soniqo::FileTranscript, String> {
     let duration_seconds = channel_duration_sec(samples);
     let chunks =
         chunk_channel_audio::<hypr_audio_chunking::Error>(samples).map_err(|e| e.to_string())?;
+    tracing::info!(
+        hyprnote.stt.provider.name = "soniqo",
+        hyprnote.stt.model = %model,
+        channel.index = channel_index,
+        channel.duration_seconds = duration_seconds,
+        channel.sample_count = samples.len(),
+        chunk.count = chunks.len(),
+        "soniqo_channel_chunked"
+    );
+
     let mut texts = Vec::new();
 
-    for chunk in chunks {
-        let text = transcribe_soniqo_samples(model, &chunk.samples, language)?.text;
+    for (chunk_index, chunk) in chunks.into_iter().enumerate() {
+        let chunk_duration_ms =
+            (chunk.sample_end - chunk.sample_start) * 1000 / TARGET_SAMPLE_RATE as usize;
+        let chunk_started_at = Instant::now();
+        tracing::info!(
+            hyprnote.stt.provider.name = "soniqo",
+            hyprnote.stt.model = %model,
+            channel.index = channel_index,
+            chunk.index = chunk_index,
+            chunk.sample_start = chunk.sample_start,
+            chunk.sample_end = chunk.sample_end,
+            chunk.sample_count = chunk.samples.len(),
+            chunk.duration_ms = chunk_duration_ms,
+            "soniqo_chunk_native_inference_start"
+        );
+
+        let text = transcribe_soniqo_samples(model, &chunk.samples, language)
+            .map_err(|e| {
+                tracing::error!(
+                    hyprnote.stt.provider.name = "soniqo",
+                    hyprnote.stt.model = %model,
+                    channel.index = channel_index,
+                    chunk.index = chunk_index,
+                    elapsed_ms = chunk_started_at.elapsed().as_millis() as u64,
+                    error = %e,
+                    "soniqo_chunk_native_inference_failed"
+                );
+                e
+            })?
+            .text;
+
+        tracing::info!(
+            hyprnote.stt.provider.name = "soniqo",
+            hyprnote.stt.model = %model,
+            channel.index = channel_index,
+            chunk.index = chunk_index,
+            elapsed_ms = chunk_started_at.elapsed().as_millis() as u64,
+            transcript.text_chars = text.chars().count(),
+            "soniqo_chunk_native_inference_completed"
+        );
+
         let text = text.trim();
         if !text.is_empty() {
             texts.push(text.to_string());
