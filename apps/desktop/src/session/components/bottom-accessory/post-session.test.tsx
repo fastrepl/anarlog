@@ -93,12 +93,6 @@ vi.mock("~/stt/useRunBatch", () => ({
   isStoppedTranscriptionError: vi.fn(() => false),
 }));
 
-vi.mock("~/stt/useUploadFile", () => ({
-  useUploadFile: vi.fn(() => ({
-    uploadAudio: vi.fn(),
-  })),
-}));
-
 describe("PostSessionAccessory", () => {
   beforeEach(() => {
     cleanup();
@@ -147,7 +141,7 @@ describe("PostSessionAccessory", () => {
     expect(handleBatchFailedMock).not.toHaveBeenCalled();
   });
 
-  it("shows Generate button in empty panel when audio is present but screen state is not 'empty'", async () => {
+  it("shows Regenerate button without upload or reserved height in empty panel", async () => {
     useTranscriptScreenMock.mockReturnValue({
       kind: "ready",
       transcriptIds: [],
@@ -161,10 +155,20 @@ describe("PostSessionAccessory", () => {
         hasAudio
         hasTranscript={false}
         isTranscriptExpanded
+        fillHeight
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /Generate/ }));
+    const noTranscript = screen.getByText("No transcript yet");
+    const transcriptCard = noTranscript.parentElement?.parentElement;
+    const transcriptSlot = transcriptCard?.parentElement;
+    expect(transcriptCard?.className).not.toContain("min-h-[114px]");
+    expect(transcriptCard?.className).not.toContain("min-h-[96px]");
+    expect(transcriptSlot?.className).not.toContain("min-h-[114px]");
+    expect(transcriptSlot?.className).toContain("shrink-0");
+    expect(screen.queryByRole("button", { name: "Upload audio" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: /Regenerate/ }));
 
     await waitFor(() => {
       expect(runBatchMock).toHaveBeenCalledWith("/tmp/session.wav");

@@ -23,7 +23,6 @@ import { Transcript } from "~/session/components/note-input/transcript";
 import { useTranscriptScreen } from "~/session/components/note-input/transcript/state";
 import { useListener } from "~/stt/contexts";
 import { isStoppedTranscriptionError, useRunBatch } from "~/stt/useRunBatch";
-import { useUploadFile } from "~/stt/useUploadFile";
 
 export function PostSessionAccessory({
   sessionId,
@@ -40,6 +39,7 @@ export function PostSessionAccessory({
 }) {
   const screen = useTranscriptScreen({ sessionId });
   const isBatching = screen.kind === "running_batch";
+  const shouldFillTranscriptPanel = fillHeight && (hasTranscript || isBatching);
   const timeline = isBatching ? (
     <BatchProgressTimeline sessionId={sessionId} screen={screen} />
   ) : hasAudio ? (
@@ -60,7 +60,9 @@ export function PostSessionAccessory({
       {isTranscriptExpanded ? (
         <div
           className={cn([
-            fillHeight ? "min-h-[114px] flex-1 overflow-hidden" : "shrink-0",
+            shouldFillTranscriptPanel
+              ? "min-h-[114px] flex-1 overflow-hidden"
+              : "shrink-0",
           ])}
         >
           <TranscriptPanel
@@ -69,7 +71,7 @@ export function PostSessionAccessory({
             hasAudio={hasAudio}
             hasTranscript={hasTranscript}
             isExpanded={isTranscriptExpanded}
-            fillHeight={fillHeight}
+            fillHeight={shouldFillTranscriptPanel}
           />
         </div>
       ) : null}
@@ -462,7 +464,6 @@ function TranscriptEmptyPanel({
   fillHeight: boolean;
 }) {
   const screen = useTranscriptScreen({ sessionId });
-  const { uploadAudio } = useUploadFile(sessionId);
   const regenerate = useRegenerateTranscript(sessionId);
 
   const error = screen.kind === "empty" ? screen.error : null;
@@ -472,7 +473,7 @@ function TranscriptEmptyPanel({
   }
 
   return (
-    <TranscriptCard fillHeight={fillHeight}>
+    <TranscriptCard fillHeight={fillHeight} reserveMinHeight={false}>
       <div className="flex min-h-0 flex-1 items-center justify-between px-4 py-3">
         {error ? (
           <span className="text-xs text-red-500">{error}</span>
@@ -489,17 +490,9 @@ function TranscriptEmptyPanel({
               onClick={regenerate}
             >
               <RefreshCw size={12} />
-              Generate
+              Regenerate
             </Button>
           )}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 text-xs text-neutral-500"
-            onClick={uploadAudio}
-          >
-            Upload audio
-          </Button>
         </div>
       </div>
     </TranscriptCard>
@@ -528,15 +521,19 @@ function TranscriptScrollArea({
 function TranscriptCard({
   children,
   fillHeight = false,
+  reserveMinHeight = true,
 }: {
   children: ReactNode;
   fillHeight?: boolean;
+  reserveMinHeight?: boolean;
 }) {
   return (
     <div
       className={cn([
         "overflow-hidden rounded-b-xl border-x border-b border-neutral-200 bg-white",
-        fillHeight ? "flex h-full min-h-[114px] flex-col" : "min-h-[96px]",
+        fillHeight && "flex h-full flex-col",
+        fillHeight && reserveMinHeight && "min-h-[114px]",
+        !fillHeight && reserveMinHeight && "min-h-[96px]",
       ])}
     >
       {children}
