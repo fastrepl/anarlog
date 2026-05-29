@@ -9,12 +9,22 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   createNewMeeting: vi.fn(),
+  liveSessionId: null as string | null,
   openNew: vi.fn(),
   startDragging: vi.fn().mockResolvedValue(undefined),
   stopListening: vi.fn(),
   sessionModes: {} as Record<string, string>,
   timelineEventsTable: {},
   timelineSessionsTable: {},
+  timelineTranscriptsTable: {} as Record<
+    string,
+    {
+      ended_at?: number | null;
+      session_id?: string | null;
+      started_at?: number | null;
+      words?: string | null;
+    }
+  >,
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({
@@ -89,7 +99,8 @@ vi.mock("~/store/tinybase/store/main", () => ({
     },
     useRow: () => undefined,
     useStore: () => undefined,
-    useTable: () => ({}),
+    useTable: (table: string) =>
+      table === "transcripts" ? mocks.timelineTranscriptsTable : {},
   },
 }));
 
@@ -124,6 +135,7 @@ vi.mock("~/stt/contexts", () => ({
         mocks.sessionModes[sessionId] ?? "inactive",
       live: {
         amplitude: { mic: 0.5, speaker: 0.25 },
+        sessionId: mocks.liveSessionId,
       },
       stop: mocks.stopListening,
     }),
@@ -132,6 +144,7 @@ vi.mock("~/stt/contexts", () => ({
 
 import {
   formatTimelineStartLabel,
+  getTimelineCarouselNowDirection,
   TopMeetingTimeline,
 } from "~/main/top-meeting-timeline";
 
@@ -141,13 +154,16 @@ describe("TopMeetingTimeline", () => {
     mocks.openNew.mockClear();
     mocks.startDragging.mockClear();
     mocks.stopListening.mockClear();
+    mocks.liveSessionId = null;
     mocks.sessionModes = {};
     mocks.timelineEventsTable = {};
     mocks.timelineSessionsTable = {};
+    mocks.timelineTranscriptsTable = {};
   });
 
   afterEach(() => {
     cleanup();
+    vi.useRealTimers();
   });
 
   it("keeps timeline clicks working when the pointer does not drag", () => {
@@ -220,6 +236,7 @@ describe("TopMeetingTimeline", () => {
 
   it("shows active meetings as red with a stop suffix", () => {
     const start = new Date();
+    mocks.liveSessionId = "session-1";
     mocks.sessionModes = { "session-1": "active" };
     mocks.timelineSessionsTable = {
       "session-1": {
@@ -289,5 +306,167 @@ describe("TopMeetingTimeline", () => {
     expect(spinnerSuffix.className).toContain("text-white/70");
     expect(screen.getAllByTestId("timeline-spinner")).toHaveLength(1);
     expect(within(cardButton!).queryByTestId("timeline-spinner")).toBeNull();
+  });
+
+  it("shows the current time marker inside active timeline blocks", () => {
+    const now = new Date("2026-05-29T15:00:00.000Z");
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+
+    mocks.timelineEventsTable = {
+      "event-1": {
+        calendar_id: null,
+        ended_at: new Date(now.getTime() + 60 * 60 * 1000).toISOString(),
+        has_recurrence_rules: false,
+        started_at: new Date(now.getTime() - 60 * 60 * 1000).toISOString(),
+        title: "Active Event",
+      },
+    };
+
+    render(<TopMeetingTimeline currentTab={null} />);
+
+    expect(screen.getByTestId("top-timeline-now-indicator").style.left).toBe(
+      "94px",
+    );
+  });
+
+  it("uses the recording end for completed sessions linked to calendar events", () => {
+    const now = new Date("2026-05-29T11:30:00.000Z");
+    const recordingStart = new Date("2026-05-29T10:00:00.000Z");
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+
+    mocks.timelineSessionsTable = {
+      "session-1": {
+        created_at: recordingStart.toISOString(),
+        event_json: JSON.stringify({
+          calendar_id: null,
+          ended_at: new Date("2026-05-29T11:00:00.000Z").toISOString(),
+          started_at: recordingStart.toISOString(),
+          title: "Long-running sync",
+        }),
+        title: "Long-running sync",
+      },
+    };
+    mocks.timelineTranscriptsTable = {
+      "transcript-1": {
+        ended_at: new Date("2026-05-29T13:00:00.000Z").getTime(),
+        session_id: "session-1",
+        started_at: recordingStart.getTime(),
+      },
+    };
+
+    render(<TopMeetingTimeline currentTab={null} />);
+
+    const card = screen
+      .getByText("Long-running sync")
+      .closest("[data-timeline-start-ms]") as HTMLDivElement | null;
+    const cardWidth = Number.parseFloat(card?.style.width ?? "");
+    const indicatorX = Number.parseFloat(
+      screen.getByTestId("top-timeline-now-indicator").style.left,
+    );
+
+    expect(indicatorX).toBe(cardWidth / 2);
+  });
+
+  it("places the current time marker between open-ended notes and future meetings", () => {
+    const now = new Date("2026-05-29T15:41:00.000Z");
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+
+    mocks.timelineSessionsTable = {
+      "session-1": {
+        created_at: new Date("2026-05-29T15:28:00.000Z").toISOString(),
+        event_json: "",
+        title: "Untitled",
+      },
+    };
+    mocks.timelineEventsTable = {
+      "event-1": {
+        calendar_id: null,
+        ended_at: new Date("2026-05-29T18:00:00.000Z").toISOString(),
+        has_recurrence_rules: false,
+        started_at: new Date("2026-05-29T17:30:00.000Z").toISOString(),
+        title: "Design sync",
+      },
+    };
+
+    render(<TopMeetingTimeline currentTab={null} />);
+
+    expect(screen.getByTestId("top-timeline-now-indicator").style.left).toBe(
+      "190px",
+    );
+  });
+
+  it("places the current time marker at the edge of active ad-hoc meetings", () => {
+    const now = new Date("2026-05-29T15:41:00.000Z");
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+
+    mocks.liveSessionId = "session-1";
+    mocks.sessionModes = { "session-1": "active" };
+    mocks.timelineSessionsTable = {
+      "session-1": {
+        created_at: new Date("2026-05-29T15:28:00.000Z").toISOString(),
+        event_json: "",
+        title: "Live Ad-hoc",
+      },
+    };
+
+    render(<TopMeetingTimeline currentTab={null} />);
+
+    expect(screen.getByTestId("top-timeline-now-indicator").style.left).toBe(
+      "188px",
+    );
+  });
+
+  it("shows the now chip on the left when the current time marker is behind the viewport", () => {
+    expect(
+      getTimelineCarouselNowDirection({
+        nowX: 190,
+        scrollLeft: 250,
+        viewportWidth: 100,
+      }),
+    ).toBe("left");
+  });
+
+  it("scrolls the now chip to the current time marker", () => {
+    const now = new Date("2026-05-29T15:41:00.000Z");
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+
+    mocks.timelineSessionsTable = {
+      "session-1": {
+        created_at: new Date("2026-05-29T15:28:00.000Z").toISOString(),
+        event_json: "",
+        title: "Untitled",
+      },
+    };
+    mocks.timelineEventsTable = {
+      "event-1": {
+        calendar_id: null,
+        ended_at: new Date("2026-05-29T18:00:00.000Z").toISOString(),
+        has_recurrence_rules: false,
+        started_at: new Date("2026-05-29T17:30:00.000Z").toISOString(),
+        title: "Design sync",
+      },
+    };
+
+    render(<TopMeetingTimeline currentTab={null} />);
+
+    const indicator = screen.getByTestId("top-timeline-now-indicator");
+    const scrollContainer = indicator.parentElement?.parentElement;
+    expect(scrollContainer).toBeTruthy();
+
+    Object.defineProperty(scrollContainer, "clientWidth", {
+      configurable: true,
+      value: 100,
+    });
+    scrollContainer!.scrollLeft = 250;
+    fireEvent.scroll(scrollContainer!);
+
+    fireEvent.click(screen.getByRole("button", { name: "Now" }));
+
+    expect(scrollContainer!.scrollLeft).toBe(140);
   });
 });
