@@ -13,6 +13,7 @@ const LEFT_SURFACE_CUSTOM_SIDEBAR_TYPES: Tab["type"][] = [
   "calendar",
   "settings",
   "contacts",
+  "templates",
 ];
 
 export function hasCustomSidebarTab(tab: Tab | null): boolean {

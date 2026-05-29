@@ -175,7 +175,7 @@ describe("ClassicMainBody", () => {
     expect(mocks.goNext).toHaveBeenCalledTimes(1);
   });
 
-  it.each(["calendar", "settings", "contacts"])(
+  it.each(["calendar", "settings", "contacts", "templates"])(
     "runs the escape shortcut from the %s left chrome back button",
     (type) => {
       mocks.currentTab = {
