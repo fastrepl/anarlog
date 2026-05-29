@@ -65,6 +65,7 @@ export function TimelineView({
   });
   const [showIgnored, setShowIgnored] = useState(false);
   const [isScrolledToTop, setIsScrolledToTop] = useState(true);
+  const [isScrolledToBottom, setIsScrolledToBottom] = useState(true);
 
   const { isIgnored } = useIgnoredEvents();
   const openNew = useTabs((state) => state.openNew);
@@ -174,7 +175,12 @@ export function TimelineView({
     }
 
     const updateScrollPosition = () => {
+      const maxScrollTop = Math.max(
+        0,
+        container.scrollHeight - container.clientHeight,
+      );
       setIsScrolledToTop(container.scrollTop <= 12);
+      setIsScrolledToBottom(maxScrollTop - container.scrollTop <= 12);
     };
 
     updateScrollPosition();
@@ -185,7 +191,14 @@ export function TimelineView({
     return () => {
       container.removeEventListener("scroll", updateScrollPosition);
     };
-  }, [containerRef]);
+  }, [containerRef, buckets.length, flatItemKeys.length]);
+
+  const scrollFadeMask = useMemo(() => {
+    const topFadeEnd = isScrolledToTop ? "0px" : "28px";
+    const bottomFadeStart = isScrolledToBottom ? "100%" : "calc(100% - 28px)";
+
+    return `linear-gradient(to bottom, transparent 0, #000 ${topFadeEnd}, #000 ${bottomFadeStart}, transparent 100%)`;
+  }, [isScrolledToTop, isScrolledToBottom]);
 
   const todayBucketLength = useMemo(() => {
     const b = buckets.find((bucket) => bucket.label === "Today");
@@ -308,6 +321,10 @@ export function TimelineView({
           "scrollbar-hide flex h-full flex-col overflow-y-auto",
           "rounded-xl",
         ])}
+        style={{
+          WebkitMaskImage: scrollFadeMask,
+          maskImage: scrollFadeMask,
+        }}
       >
         {(topChromeInset || hasMoreFutureItems) && (
           <div
@@ -382,7 +399,12 @@ export function TimelineView({
       {topChromeInset && (
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 z-[15] h-12 bg-neutral-50"
+          className={cn([
+            "pointer-events-none absolute inset-x-0 top-0 z-[15]",
+            isScrolledToTop
+              ? "h-12 bg-neutral-50"
+              : "h-20 bg-linear-to-b from-neutral-50 via-neutral-50/95 via-55% to-neutral-50/0",
+          ])}
         />
       )}
 
