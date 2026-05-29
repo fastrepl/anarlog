@@ -1,5 +1,7 @@
 import { useHotkeys } from "react-hotkeys-hook";
 
+import { commands as windowsCommands } from "@hypr/plugin-windows";
+
 import { useChatContext } from "./chat-context";
 
 import { useTabs } from "~/store/zustand/tabs";
@@ -26,7 +28,7 @@ export function useChatMode() {
       enableOnFormTags: true,
       enableOnContentEditable: true,
     },
-    [transitionChatMode],
+    [],
   );
 
   return {
