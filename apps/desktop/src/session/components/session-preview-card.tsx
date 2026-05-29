@@ -357,7 +357,7 @@ export function SessionPreviewCard({
         side={side}
         sideOffset={8}
         followStyle={style}
-        className={cn(["w-72 pb-0!", "pointer-events-none"])}
+        className={cn(["w-[228px] pb-0!", "pointer-events-none"])}
       >
         <div className="flex flex-col gap-1">
           {dateDisplay && (
