@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("~/main/tab-chrome", () => ({
@@ -61,7 +61,7 @@ describe("ClassicMainBody", () => {
     );
   });
 
-  it("returns nothing when there is no current tab", async () => {
+  it("renders shell chrome while the initial tab is still loading", async () => {
     const { useTabs } = await import("~/store/zustand/tabs");
 
     vi.mocked(useTabs).mockImplementationOnce(((
@@ -73,7 +73,10 @@ describe("ClassicMainBody", () => {
       })) as typeof useTabs);
 
     const { container } = render(<ClassicMainBody />);
+    const view = within(container);
 
-    expect(container.firstChild).toBeNull();
+    expect(view.getByTestId("main-tab-chrome")).toBeTruthy();
+    expect(view.getByTestId("top-meeting-timeline")).toBeTruthy();
+    expect(view.queryByTestId("main-tab-content")).toBeNull();
   });
 });

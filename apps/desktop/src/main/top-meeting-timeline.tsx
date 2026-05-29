@@ -73,6 +73,8 @@ const TIMELINE_HEIGHT = 44;
 const TIMELINE_CAROUSEL_CARD_WIDTH = 188;
 const TIMELINE_CAROUSEL_PADDING = 0;
 const TIMELINE_CAROUSEL_GAP = 4;
+const TIMELINE_PAST_DAYS = 6;
+const TIMELINE_FUTURE_DAYS = 1;
 type TodayChipDirection = "left" | "right";
 
 export function TopMeetingTimeline({ currentTab }: { currentTab: Tab | null }) {
@@ -98,6 +100,16 @@ export function TopMeetingTimeline({ currentTab }: { currentTab: Tab | null }) {
   ) as TimelineTranscriptsTable;
 
   const { isIgnored } = useIgnoredEvents();
+  const today = getTimelineDayStart(new Date(), timezone);
+  const todayMs = today.getTime();
+  const timelineStart = useMemo(
+    () => addDays(new Date(todayMs), -TIMELINE_PAST_DAYS),
+    [todayMs],
+  );
+  const timelineEnd = useMemo(
+    () => addDays(new Date(todayMs), TIMELINE_FUTURE_DAYS + 1),
+    [todayMs],
+  );
 
   const sessionRecordingRanges = useMemo(
     () => buildSessionRecordingRanges(transcriptsTable),
@@ -133,24 +145,47 @@ export function TopMeetingTimeline({ currentTab }: { currentTab: Tab | null }) {
     [entries, selectedSessionId],
   );
 
-  const todayMs = getTimelineDayStart(new Date(), timezone).getTime();
   const [todayChipDirection, setTodayChipDirection] =
     useState<TodayChipDirection | null>(null);
   const createNewMeeting = useNewNoteAndListen({ behavior: "current" });
   const openNew = useTabs((state) => state.openNew);
 
   const renderItems = useMemo(
-    () => buildTimelineRenderItems(entries),
-    [entries],
+    () =>
+      buildTimelineRenderItems(entries, {
+        startInclusive: timelineStart,
+        endExclusive: timelineEnd,
+      }),
+    [entries, timelineStart, timelineEnd],
+  );
+  const hasHiddenPastItems = useMemo(
+    () => hasTimelineEntriesBefore(entries, timelineStart),
+    [entries, timelineStart],
+  );
+  const hasHiddenFutureItems = useMemo(
+    () => hasTimelineEntriesAfter(entries, timelineEnd),
+    [entries, timelineEnd],
   );
   const carouselItems = useMemo(
     () =>
       buildTimelineCarouselItems({
         renderItems,
         currentDate: new Date(todayMs),
+        startInclusive: timelineStart,
+        endExclusive: timelineEnd,
+        hasHiddenPastItems,
+        hasHiddenFutureItems,
         timezone,
       }),
-    [renderItems, todayMs, timezone],
+    [
+      renderItems,
+      todayMs,
+      timelineStart,
+      timelineEnd,
+      hasHiddenPastItems,
+      hasHiddenFutureItems,
+      timezone,
+    ],
   );
   const carouselWidth = getTimelineCarouselWidth(carouselItems);
   const openCalendar = useCallback(
@@ -318,8 +353,8 @@ export function TopMeetingTimeline({ currentTab }: { currentTab: Tab | null }) {
           <button
             type="button"
             className={cn([
-              "absolute top-1/2 z-40 flex h-6 -translate-y-1/2 items-center gap-1 rounded-full border border-neutral-200 bg-white/95 px-2.5 text-xs font-medium text-neutral-700 shadow-xs backdrop-blur",
-              "transition-colors hover:border-neutral-300 hover:bg-white hover:text-neutral-900",
+              "absolute top-1/2 z-40 flex h-6 -translate-y-1/2 items-center gap-1 rounded-full border border-neutral-300 bg-neutral-200 px-2.5 text-xs font-semibold text-neutral-900 shadow-md",
+              "transition-colors hover:border-neutral-400 hover:bg-neutral-300 hover:text-neutral-950",
               "focus-visible:ring-2 focus-visible:ring-neutral-900 focus-visible:outline-hidden",
               todayChipDirection === "left" ? "left-3" : "right-3",
             ])}
@@ -724,7 +759,9 @@ function TimelineCardButton({
             <Spinner size={12} />
           </span>
         ) : null}
-        {item.calendarId ? <CalendarDot calendarId={item.calendarId} /> : null}
+        {item.type === "session" && item.calendarId ? (
+          <CalendarDot calendarId={item.calendarId} />
+        ) : null}
         <FadedTimelineLabel className="min-w-0 flex-1 text-xs font-semibold">
           {title}
         </FadedTimelineLabel>
@@ -735,8 +772,25 @@ function TimelineCardButton({
 
 function buildTimelineRenderItems(
   items: MeetingTimelineEntry[],
+  range: {
+    startInclusive: Date;
+    endExclusive: Date;
+  },
 ): TimelineRenderItem[] {
+  const startInclusiveMs = range.startInclusive.getTime();
+  const endExclusiveMs = range.endExclusive.getTime();
+
   return [...items]
+    .filter((item) => {
+      if (item.selected) {
+        return true;
+      }
+
+      const startMs = item.start.getTime();
+      const endMs = normalizeEndMs(item.start, item.end);
+
+      return startMs < endExclusiveMs && endMs >= startInclusiveMs;
+    })
     .sort((a, b) => {
       const startDiff = a.start.getTime() - b.start.getTime();
       if (startDiff !== 0) {
@@ -756,24 +810,21 @@ function buildTimelineRenderItems(
 function buildTimelineCarouselItems({
   renderItems,
   currentDate,
+  startInclusive,
+  endExclusive,
+  hasHiddenPastItems,
+  hasHiddenFutureItems,
   timezone,
 }: {
   renderItems: TimelineRenderItem[];
   currentDate: Date;
+  startInclusive: Date;
+  endExclusive: Date;
+  hasHiddenPastItems: boolean;
+  hasHiddenFutureItems: boolean;
   timezone?: string;
 }): TimelineCarouselItem[] {
-  const startInclusive = getTimelineDayStart(currentDate, timezone);
-  const endExclusive = addDays(startInclusive, 2);
-  const items: TimelineCarouselItem[] = renderItems.filter((item) => {
-    const startMs = getTimelineCarouselItemStart(item).getTime();
-    const beforeEnd = startMs < endExclusive.getTime();
-
-    if (item.item.type === "session") {
-      return beforeEnd || item.item.selected;
-    }
-
-    return startMs >= startInclusive.getTime() && beforeEnd;
-  });
+  const items: TimelineCarouselItem[] = [...renderItems];
   const hasToday = items.some((item) =>
     isSameTimelineDay(
       getTimelineCarouselItemStart(item),
@@ -795,28 +846,51 @@ function buildTimelineCarouselItems({
       getTimelineCarouselItemStart(a).getTime() -
       getTimelineCarouselItemStart(b).getTime(),
   );
-  const hasHiddenFutureItems = renderItems.some((item) => {
-    if (item.item.selected) {
-      return false;
-    }
 
-    return (
-      getTimelineCarouselItemStart(item).getTime() >= endExclusive.getTime()
-    );
-  });
+  const result: TimelineCarouselItem[] = hasHiddenPastItems
+    ? [
+        {
+          kind: "open-calendar",
+          id: `open-calendar-${startInclusive.getTime()}`,
+          start: startInclusive,
+        },
+        ...sortedItems,
+      ]
+    : sortedItems;
 
-  if (!hasHiddenFutureItems) {
-    return sortedItems;
-  }
-
-  return [
-    ...sortedItems,
-    {
+  if (hasHiddenFutureItems) {
+    result.push({
       kind: "open-calendar",
       id: `open-calendar-${endExclusive.getTime()}`,
       start: endExclusive,
-    },
-  ];
+    });
+  }
+
+  return result;
+}
+
+function hasTimelineEntriesBefore(
+  entries: MeetingTimelineEntry[],
+  startInclusive: Date,
+): boolean {
+  const startInclusiveMs = startInclusive.getTime();
+
+  return entries.some(
+    (entry) =>
+      !entry.selected &&
+      normalizeEndMs(entry.start, entry.end) < startInclusiveMs,
+  );
+}
+
+function hasTimelineEntriesAfter(
+  entries: MeetingTimelineEntry[],
+  endExclusive: Date,
+): boolean {
+  const endExclusiveMs = endExclusive.getTime();
+
+  return entries.some(
+    (entry) => !entry.selected && entry.start.getTime() >= endExclusiveMs,
+  );
 }
 
 function getTimelineCarouselWidth(items: TimelineCarouselItem[]): number {

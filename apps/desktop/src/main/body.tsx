@@ -19,11 +19,7 @@ export function ClassicMainBody() {
     })),
   );
 
-  if (!currentTab) {
-    return null;
-  }
-
-  const isOnboarding = currentTab.type === "onboarding";
+  const isOnboarding = currentTab?.type === "onboarding";
   const hasCustomSidebar = hasCustomSidebarTab(currentTab);
   const showTopTimeline =
     leftsidebar.expanded &&
@@ -40,10 +36,12 @@ export function ClassicMainBody() {
       <div className="flex min-h-0 min-w-0 flex-1 gap-1">
         <ClassicMainSidebar />
         <div className="min-h-0 min-w-0 flex-1 overflow-auto">
-          <ClassicMainTabContent
-            key={uniqueIdfromTab(currentTab)}
-            tab={currentTab as Tab}
-          />
+          {currentTab ? (
+            <ClassicMainTabContent
+              key={uniqueIdfromTab(currentTab)}
+              tab={currentTab as Tab}
+            />
+          ) : null}
         </div>
       </div>
       {showFloatingToast ? (

@@ -197,8 +197,10 @@ export async function syncCalendars(
 const getRange = () => {
   const now = new Date();
   const from = new Date(now);
-  from.setDate(from.getDate() - 7);
+  from.setHours(0, 0, 0, 0);
+  from.setDate(from.getDate() - 6);
   const to = new Date(now);
-  to.setDate(to.getDate() + 30);
+  to.setHours(0, 0, 0, 0);
+  to.setDate(to.getDate() + 2);
   return { from, to };
 };
