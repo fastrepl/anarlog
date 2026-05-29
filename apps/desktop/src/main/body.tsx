@@ -13,7 +13,10 @@ import { useClassicMainTabsShortcuts } from "./useTabsShortcuts";
 import { useShell } from "~/contexts/shell";
 import { useConfigValue } from "~/shared/config";
 import { ToastArea } from "~/sidebar/toast";
-import { hasCustomSidebarTab } from "~/sidebar/use-custom-sidebar";
+import {
+  hasCustomSidebarTab,
+  hasLeftSurfaceCustomSidebarTab,
+} from "~/sidebar/use-custom-sidebar";
 import { type Tab, uniqueIdfromTab, useTabs } from "~/store/zustand/tabs";
 
 const MAIN_AREA_TOP_DRAG_HEIGHT_PX = 48;
@@ -38,6 +41,8 @@ export function ClassicMainBody() {
 
   const isOnboarding = currentTab?.type === "onboarding";
   const hasCustomSidebar = hasCustomSidebarTab(currentTab);
+  const hasLeftSurfaceCustomSidebar =
+    hasLeftSurfaceCustomSidebarTab(currentTab);
   const showSidebarTimeline =
     sidebarTimelineEnabled &&
     leftsidebar.expanded &&
@@ -79,6 +84,11 @@ export function ClassicMainBody() {
             />
           </div>
         </div>
+      ) : hasLeftSurfaceCustomSidebar ? (
+        <div
+          data-tauri-drag-region
+          className="absolute top-0 left-0 z-40 h-10 w-[200px]"
+        />
       ) : (
         <div
           data-tauri-drag-region
@@ -99,7 +109,7 @@ export function ClassicMainBody() {
           </div>
         </div>
       )}
-      {showCalendarChromeBack && hasLeftSurfaceCustomSidebar ? (
+      {showLeftSurfaceChromeBack ? (
         <div
           data-tauri-drag-region
           className="absolute top-0 left-0 z-50 h-12 w-[200px]"
