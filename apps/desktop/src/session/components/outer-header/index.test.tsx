@@ -94,6 +94,32 @@ describe("OuterHeader", () => {
     expect(mocks.stopListening).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps the session header at 48px tall", () => {
+    const { container } = render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "raw" } as EditorView}
+        title={<span>Session title</span>}
+      />,
+    );
+
+    expect(container.firstElementChild?.className).toContain("h-12");
+  });
+
+  it("keeps the header content row full width", () => {
+    const { container } = render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "raw" } as EditorView}
+        title={<span>Session title</span>}
+      />,
+    );
+
+    expect(container.firstElementChild?.firstElementChild?.className).toContain(
+      "w-full",
+    );
+  });
+
   it("keeps the dedicated stop button hidden outside sidebar timeline mode", () => {
     mocks.sidebarTimelineEnabled = false;
     mocks.sessionModes = { "session-1": "active" };
