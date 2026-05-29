@@ -27,7 +27,8 @@ export function MainShellScaffold({
           "flex h-full gap-1 overflow-hidden bg-stone-50",
           resolvedMainSurfaceChrome !== "top" && "pl-1",
           resolvedMainSurfaceChrome === "top" && [
-            "[&_[data-chat-floating-anchor]]:rounded-none",
+            "[&_[data-chat-floating-anchor]]:rounded-t-xl",
+            "[&_[data-chat-floating-anchor]]:rounded-b-none",
             "[&_[data-chat-floating-anchor]]:border-x-0",
             "[&_[data-chat-floating-anchor]]:border-t",
             "[&_[data-chat-floating-anchor]]:border-b-0",
