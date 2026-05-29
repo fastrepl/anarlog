@@ -7,6 +7,7 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@hypr/ui/components/ui/resizable";
+import { cn } from "@hypr/utils";
 
 import { PersistentChatPanel } from "~/chat/components/persistent-chat";
 
@@ -16,10 +17,12 @@ const CHAT_REPLACE_MIN_WINDOW_WIDTH_PX = 720;
 
 export function MainChatPanels({
   autoSaveId,
+  edgeToEdge = false,
   isRightPanelOpen,
   children,
 }: {
   autoSaveId: string;
+  edgeToEdge?: boolean;
   isRightPanelOpen: boolean;
   children: React.ReactNode;
 }) {
@@ -57,7 +60,10 @@ export function MainChatPanels({
       >
         <ResizablePanel
           ref={bodyPanelRef}
-          className="min-h-0 flex-1 overflow-hidden"
+          className={cn([
+            "min-h-0 flex-1 overflow-hidden",
+            edgeToEdge && isRightPanelOpen && "border-r border-neutral-200",
+          ])}
         >
           <div className="h-full min-h-0">{children}</div>
         </ResizablePanel>

@@ -424,6 +424,7 @@ describe("settingsPersister roundtrip", () => {
       general: {
         autostart: true,
         floating_bar_enabled: false,
+        sidebar_timeline_enabled: true,
         save_recordings: true,
       },
       notification: {
@@ -441,6 +442,7 @@ describe("settingsPersister roundtrip", () => {
     expect(result.general).toEqual({
       autostart: true,
       floating_bar_enabled: false,
+      sidebar_timeline_enabled: true,
     });
     expect(result.notification).toEqual({ event: false });
   });

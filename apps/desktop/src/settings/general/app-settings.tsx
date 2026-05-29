@@ -14,6 +14,7 @@ interface AppSettingsViewProps {
   autoStartScheduledMeetings: SettingItem;
   autoStopMeetings: SettingItem;
   floatingBar: SettingItem;
+  sidebarTimeline: SettingItem;
   telemetryConsent: SettingItem;
 }
 
@@ -22,45 +23,62 @@ export function AppSettingsView({
   autoStartScheduledMeetings,
   autoStopMeetings,
   floatingBar,
+  sidebarTimeline,
   telemetryConsent,
 }: AppSettingsViewProps) {
   return (
-    <div>
-      <h2 className="mb-4 font-sans text-lg font-semibold">
-        <Trans>App</Trans>
-      </h2>
-      <div className="flex flex-col gap-4">
-        <SettingRow
-          title={autostart.title}
-          description={autostart.description}
-          checked={autostart.value}
-          onChange={autostart.onChange}
-        />
-        <SettingRow
-          title={autoStartScheduledMeetings.title}
-          description={autoStartScheduledMeetings.description}
-          checked={autoStartScheduledMeetings.value}
-          onChange={autoStartScheduledMeetings.onChange}
-        />
-        <SettingRow
-          title={autoStopMeetings.title}
-          description={autoStopMeetings.description}
-          checked={autoStopMeetings.value}
-          onChange={autoStopMeetings.onChange}
-        />
-        <SettingRow
-          title={floatingBar.title}
-          description={floatingBar.description}
-          checked={floatingBar.value}
-          onChange={floatingBar.onChange}
-        />
-        <SettingRow
-          title={telemetryConsent.title}
-          description={telemetryConsent.description}
-          checked={telemetryConsent.value}
-          onChange={telemetryConsent.onChange}
-        />
-      </div>
+    <div className="flex flex-col gap-8">
+      <section>
+        <h2 className="mb-4 font-sans text-lg font-semibold">
+          <Trans>App</Trans>
+        </h2>
+        <div className="flex flex-col gap-4">
+          <SettingRow
+            title={autostart.title}
+            description={autostart.description}
+            checked={autostart.value}
+            onChange={autostart.onChange}
+          />
+          <SettingRow
+            title={sidebarTimeline.title}
+            description={sidebarTimeline.description}
+            checked={sidebarTimeline.value}
+            onChange={sidebarTimeline.onChange}
+          />
+          <SettingRow
+            title={telemetryConsent.title}
+            description={telemetryConsent.description}
+            checked={telemetryConsent.value}
+            onChange={telemetryConsent.onChange}
+          />
+        </div>
+      </section>
+
+      <section>
+        <h2 className="mb-4 font-sans text-lg font-semibold">
+          <Trans>Meetings</Trans>
+        </h2>
+        <div className="flex flex-col gap-4">
+          <SettingRow
+            title={autoStartScheduledMeetings.title}
+            description={autoStartScheduledMeetings.description}
+            checked={autoStartScheduledMeetings.value}
+            onChange={autoStartScheduledMeetings.onChange}
+          />
+          <SettingRow
+            title={autoStopMeetings.title}
+            description={autoStopMeetings.description}
+            checked={autoStopMeetings.value}
+            onChange={autoStopMeetings.onChange}
+          />
+          <SettingRow
+            title={floatingBar.title}
+            description={floatingBar.description}
+            checked={floatingBar.value}
+            onChange={floatingBar.onChange}
+          />
+        </div>
+      </section>
     </div>
   );
 }

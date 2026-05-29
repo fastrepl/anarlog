@@ -4,25 +4,14 @@ import {
   SessionStatusBannerProvider,
 } from "./session-status-banner";
 
-import { useShell } from "~/contexts/shell";
-
 export function MainShellBodyFrame({
-  autoSaveId,
   children,
 }: {
-  autoSaveId: string;
   children: React.ReactNode;
 }) {
-  const { chat } = useShell();
-
   return (
     <SessionStatusBannerProvider>
-      <MainChatPanels
-        autoSaveId={autoSaveId}
-        isRightPanelOpen={chat.mode === "RightPanelOpen"}
-      >
-        {children}
-      </MainChatPanels>
+      <MainChatPanels>{children}</MainChatPanels>
       <MainSessionStatusBannerHost />
     </SessionStatusBannerProvider>
   );

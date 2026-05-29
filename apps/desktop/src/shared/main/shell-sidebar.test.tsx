@@ -1,7 +1,8 @@
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const hoisted = vi.hoisted(() => ({
+  sidebarTimelineEnabled: false,
   setExpanded: vi.fn(),
   setLocked: vi.fn(),
 }));
@@ -33,12 +34,17 @@ vi.mock("~/sidebar", () => ({
   LeftSidebar: () => <div data-testid="left-sidebar" />,
 }));
 
+vi.mock("~/shared/config", () => ({
+  useConfigValue: () => hoisted.sidebarTimelineEnabled,
+}));
+
 import { ClassicMainSidebar } from "~/main/shell-sidebar";
 
 describe("ClassicMainSidebar", () => {
   beforeEach(() => {
     mockCurrentTab = { type: "empty" };
     mockLeftSidebar.expanded = false;
+    hoisted.sidebarTimelineEnabled = false;
     setExpanded.mockClear();
     setLocked.mockClear();
   });
@@ -71,5 +77,14 @@ describe("ClassicMainSidebar", () => {
 
     expect(setLocked).toHaveBeenLastCalledWith(false);
     expect(setExpanded).toHaveBeenLastCalledWith(false);
+  });
+
+  it("renders the default timeline sidebar when the setting is enabled", () => {
+    mockLeftSidebar.expanded = true;
+    hoisted.sidebarTimelineEnabled = true;
+
+    render(<ClassicMainSidebar />);
+
+    expect(screen.getByTestId("left-sidebar")).toBeTruthy();
   });
 });

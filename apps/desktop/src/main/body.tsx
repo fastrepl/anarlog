@@ -1,3 +1,5 @@
+import { ArrowLeftIcon, ArrowRightIcon, CalendarDaysIcon } from "lucide-react";
+
 import { cn } from "@hypr/utils";
 
 import { ClassicMainSidebar } from "./shell-sidebar";
@@ -6,6 +8,7 @@ import { TopMeetingTimeline } from "./top-meeting-timeline";
 import { useClassicMainTabsShortcuts } from "./useTabsShortcuts";
 
 import { useShell } from "~/contexts/shell";
+import { useConfigValue } from "~/shared/config";
 import { ToastArea } from "~/sidebar/toast";
 import { hasCustomSidebarTab } from "~/sidebar/use-custom-sidebar";
 import { type Tab, uniqueIdfromTab, useTabs } from "~/store/zustand/tabs";
@@ -13,35 +16,77 @@ import { type Tab, uniqueIdfromTab, useTabs } from "~/store/zustand/tabs";
 export function ClassicMainBody() {
   const { leftsidebar } = useShell();
   const currentTab = useTabs((state) => state.currentTab);
+  const openNew = useTabs((state) => state.openNew);
+  const goBack = useTabs((state) => state.goBack);
+  const goNext = useTabs((state) => state.goNext);
+  const canGoBack = useTabs((state) => state.canGoBack);
+  const canGoNext = useTabs((state) => state.canGoNext);
+  const sidebarTimelineEnabled = useConfigValue("sidebar_timeline_enabled");
   useClassicMainTabsShortcuts();
 
   const isOnboarding = currentTab?.type === "onboarding";
   const hasCustomSidebar = hasCustomSidebarTab(currentTab);
-  const showTopTimeline =
+  const showSidebarTimeline =
+    sidebarTimelineEnabled &&
     leftsidebar.expanded &&
     !leftsidebar.showDevtool &&
     !hasCustomSidebar &&
     !isOnboarding;
+  const showTopTimeline =
+    leftsidebar.expanded &&
+    !showSidebarTimeline &&
+    !leftsidebar.showDevtool &&
+    !hasCustomSidebar &&
+    !isOnboarding;
   const showFloatingToast =
-    !leftsidebar.showDevtool && !hasCustomSidebar && !isOnboarding;
+    !showSidebarTimeline &&
+    !leftsidebar.showDevtool &&
+    !hasCustomSidebar &&
+    !isOnboarding;
+  const openCalendar = () => {
+    openNew({ type: "calendar" });
+  };
 
   return (
     <div className="relative flex h-full min-w-0 flex-1 flex-col">
-      <div
-        data-tauri-drag-region
-        className={cn(["relative shrink-0", showTopTimeline ? "h-12" : "h-10"])}
-      >
+      {showSidebarTimeline ? (
         <div
           data-tauri-drag-region
-          className="flex h-full min-w-0 items-start pt-1 pl-[76px]"
+          className="absolute top-0 left-0 z-40 h-12 w-[200px]"
         >
-          {showTopTimeline ? (
-            <div className="min-w-0 flex-1">
-              <TopMeetingTimeline currentTab={currentTab} />
-            </div>
-          ) : null}
+          <div
+            data-tauri-drag-region
+            className="flex h-full min-w-0 items-start pt-[9px] pl-[76px]"
+          >
+            <SidebarTimelineChrome
+              canGoBack={canGoBack}
+              canGoNext={canGoNext}
+              onBack={goBack}
+              onForward={goNext}
+              onOpenCalendar={openCalendar}
+            />
+          </div>
         </div>
-      </div>
+      ) : (
+        <div
+          data-tauri-drag-region
+          className={cn([
+            "relative shrink-0",
+            showTopTimeline ? "h-12" : "h-10",
+          ])}
+        >
+          <div
+            data-tauri-drag-region
+            className="flex h-full min-w-0 items-start pt-1 pl-[76px]"
+          >
+            {showTopTimeline ? (
+              <div className="min-w-0 flex-1">
+                <TopMeetingTimeline currentTab={currentTab} />
+              </div>
+            ) : null}
+          </div>
+        </div>
+      )}
       <div className="flex min-h-0 min-w-0 flex-1 gap-1">
         <ClassicMainSidebar />
         <div className="min-h-0 min-w-0 flex-1 overflow-auto">
@@ -59,5 +104,74 @@ export function ClassicMainBody() {
         </div>
       ) : null}
     </div>
+  );
+}
+
+function SidebarTimelineChrome({
+  canGoBack,
+  canGoNext,
+  onBack,
+  onForward,
+  onOpenCalendar,
+}: {
+  canGoBack: boolean;
+  canGoNext: boolean;
+  onBack: () => void;
+  onForward: () => void;
+  onOpenCalendar: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      <SidebarTimelineChromeButton
+        ariaLabel="Open calendar"
+        onClick={onOpenCalendar}
+      >
+        <CalendarDaysIcon size={14} />
+      </SidebarTimelineChromeButton>
+      <SidebarTimelineChromeButton
+        ariaLabel="Go back"
+        disabled={!canGoBack}
+        onClick={onBack}
+      >
+        <ArrowLeftIcon size={14} />
+      </SidebarTimelineChromeButton>
+      <SidebarTimelineChromeButton
+        ariaLabel="Go forward"
+        disabled={!canGoNext}
+        onClick={onForward}
+      >
+        <ArrowRightIcon size={14} />
+      </SidebarTimelineChromeButton>
+    </div>
+  );
+}
+
+function SidebarTimelineChromeButton({
+  ariaLabel,
+  children,
+  disabled = false,
+  onClick,
+}: {
+  ariaLabel: string;
+  children: React.ReactNode;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={ariaLabel}
+      data-tauri-drag-region="false"
+      disabled={disabled}
+      className={cn([
+        "flex size-7 items-center justify-center rounded-full",
+        "text-neutral-700 transition-colors hover:bg-neutral-100 hover:text-neutral-900",
+        "focus-visible:ring-2 focus-visible:ring-neutral-900 focus-visible:outline-hidden",
+        "disabled:text-neutral-300 disabled:hover:bg-transparent disabled:hover:text-neutral-300",
+      ])}
+      onClick={onClick}
+    >
+      {children}
+    </button>
   );
 }

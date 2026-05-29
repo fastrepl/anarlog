@@ -44,7 +44,11 @@ import { useTabs } from "~/store/zustand/tabs";
 import { useTimelineSelection } from "~/store/zustand/timeline-selection";
 import { useUndoDelete } from "~/store/zustand/undo-delete";
 
-export function TimelineView() {
+export function TimelineView({
+  showOpenCalendarButton = true,
+}: {
+  showOpenCalendarButton?: boolean;
+} = {}) {
   const timezone = useConfigValue("timezone") || undefined;
   const { timelineEventsTable, timelineSessionsTable } = useTimelineTables();
   const allBuckets = useTimelineData({
@@ -90,8 +94,9 @@ export function TimelineView() {
     );
   }, [timelineEventsTable, showIgnored, isIgnored]);
 
-  const showOpenCalendarButton = useMemo(
+  const showOpenCalendarChip = useMemo(
     () =>
+      showOpenCalendarButton &&
       isScrolledToTop &&
       hasTimelineItemsAfterTomorrow({
         timelineEventsTable: visibleTimelineEventsTable,
@@ -103,6 +108,7 @@ export function TimelineView() {
       visibleTimelineEventsTable,
       timelineSessionsTable,
       timezone,
+      showOpenCalendarButton,
     ],
   );
 
@@ -361,9 +367,9 @@ export function TimelineView() {
           )}
       </div>
 
-      {(showOpenCalendarButton || (!isTodayVisible && isScrolledPastToday)) && (
+      {(showOpenCalendarChip || (!isTodayVisible && isScrolledPastToday)) && (
         <div className="absolute top-2 left-1/2 z-20 flex -translate-x-1/2 transform flex-col items-center gap-2">
-          {showOpenCalendarButton && (
+          {showOpenCalendarChip && (
             <Button
               onClick={handleOpenCalendar}
               size="sm"

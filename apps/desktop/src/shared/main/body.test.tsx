@@ -1,5 +1,20 @@
-import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({
+  openNew: vi.fn(),
+  goBack: vi.fn(),
+  goNext: vi.fn(),
+  canGoBack: false,
+  canGoNext: false,
+  sidebarTimelineEnabled: false,
+}));
 
 vi.mock("~/main/useTabsShortcuts", () => ({
   useClassicMainTabsShortcuts: vi.fn(),
@@ -28,6 +43,10 @@ vi.mock("~/contexts/shell", () => ({
   }),
 }));
 
+vi.mock("~/shared/config", () => ({
+  useConfigValue: () => mocks.sidebarTimelineEnabled,
+}));
+
 vi.mock("~/sidebar/toast", () => ({
   ToastArea: () => <div data-testid="toast-area" />,
 }));
@@ -43,6 +62,11 @@ vi.mock("~/store/zustand/tabs", () => ({
         slotId: "slot-1",
         type: "empty",
       },
+      canGoBack: mocks.canGoBack,
+      canGoNext: mocks.canGoNext,
+      goBack: mocks.goBack,
+      goNext: mocks.goNext,
+      openNew: mocks.openNew,
     }),
   ),
 }));
@@ -50,6 +74,19 @@ vi.mock("~/store/zustand/tabs", () => ({
 import { ClassicMainBody } from "~/main/body";
 
 describe("ClassicMainBody", () => {
+  beforeEach(() => {
+    mocks.openNew.mockClear();
+    mocks.goBack.mockClear();
+    mocks.goNext.mockClear();
+    mocks.canGoBack = false;
+    mocks.canGoNext = false;
+    mocks.sidebarTimelineEnabled = false;
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
   it("renders the shell and current tab content", () => {
     render(<ClassicMainBody />);
 
@@ -68,6 +105,54 @@ describe("ClassicMainBody", () => {
     expect(screen.getByTestId("main-tab-content").textContent).toContain(
       "empty",
     );
+  });
+
+  it("hides the top timeline when the sidebar timeline is enabled", () => {
+    mocks.sidebarTimelineEnabled = true;
+
+    render(<ClassicMainBody />);
+
+    expect(screen.queryByTestId("top-meeting-timeline")).toBeNull();
+    expect(screen.queryByTestId("toast-area")).toBeNull();
+    const sidebar = screen.getByTestId("main-sidebar");
+    const calendarButton = screen.getByRole("button", {
+      name: "Open calendar",
+    });
+    const topArea = calendarButton.parentElement?.parentElement?.parentElement;
+
+    expect(sidebar).toBeTruthy();
+    expect(calendarButton).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Go back" }).hasAttribute("disabled"),
+    ).toBe(true);
+    expect(
+      screen
+        .getByRole("button", { name: "Go forward" })
+        .hasAttribute("disabled"),
+    ).toBe(true);
+    expect(topArea?.className).toContain("h-12");
+    expect(topArea?.className).toContain("absolute");
+    expect(calendarButton.parentElement?.parentElement?.className).toContain(
+      "pt-[9px]",
+    );
+    expect(sidebar.parentElement?.className).toContain("flex min-h-0");
+    expect(sidebar.parentElement?.className).not.toContain("pt-12");
+  });
+
+  it("opens calendar and navigates history from the sidebar timeline chrome", () => {
+    mocks.sidebarTimelineEnabled = true;
+    mocks.canGoBack = true;
+    mocks.canGoNext = true;
+
+    render(<ClassicMainBody />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open calendar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Go back" }));
+    fireEvent.click(screen.getByRole("button", { name: "Go forward" }));
+
+    expect(mocks.openNew).toHaveBeenCalledWith({ type: "calendar" });
+    expect(mocks.goBack).toHaveBeenCalledTimes(1);
+    expect(mocks.goNext).toHaveBeenCalledTimes(1);
   });
 
   it("renders the shell while the initial tab is still loading", async () => {

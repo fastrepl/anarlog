@@ -1,0 +1,98 @@
+import { render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({
+  currentTab: { type: "empty" } as { type: string } | null,
+  showDevtool: false,
+  sidebarTimelineEnabled: false,
+}));
+
+vi.mock("~/contexts/shell", () => ({
+  useShell: () => ({
+    leftsidebar: {
+      showDevtool: mocks.showDevtool,
+    },
+  }),
+}));
+
+vi.mock("~/shared/config", () => ({
+  useConfigValue: () => mocks.sidebarTimelineEnabled,
+}));
+
+vi.mock("~/store/zustand/tabs", () => ({
+  useTabs: (
+    selector: (state: { currentTab: typeof mocks.currentTab }) => unknown,
+  ) => selector({ currentTab: mocks.currentTab }),
+}));
+
+vi.mock("~/sidebar/timeline", () => ({
+  TimelineView: ({
+    showOpenCalendarButton = true,
+  }: {
+    showOpenCalendarButton?: boolean;
+  }) => (
+    <div
+      data-testid="timeline-view"
+      data-show-open-calendar-button={String(showOpenCalendarButton)}
+    />
+  ),
+}));
+
+vi.mock("~/sidebar/toast", () => ({
+  ToastArea: () => <div data-testid="toast-area" />,
+}));
+
+vi.mock("~/sidebar/calendar", () => ({
+  CalendarNav: () => <div data-testid="calendar-nav" />,
+}));
+
+vi.mock("~/sidebar/contacts", () => ({
+  ContactsNav: () => <div data-testid="contacts-nav" />,
+}));
+
+vi.mock("~/sidebar/settings", () => ({
+  SettingsNav: () => <div data-testid="settings-nav" />,
+}));
+
+vi.mock("~/sidebar/templates", () => ({
+  TemplatesNav: () => <div data-testid="templates-nav" />,
+}));
+
+vi.mock("~/sidebar/devtool", () => ({
+  DevtoolView: () => <div data-testid="devtool-view" />,
+}));
+
+import { LeftSidebar } from "./index";
+
+describe("LeftSidebar", () => {
+  beforeEach(() => {
+    mocks.currentTab = { type: "empty" };
+    mocks.showDevtool = false;
+    mocks.sidebarTimelineEnabled = false;
+  });
+
+  it("uses the timeline layout without a duplicate sidebar top offset", () => {
+    mocks.sidebarTimelineEnabled = true;
+
+    const { container } = render(<LeftSidebar />);
+
+    expect(screen.getByTestId("timeline-view")).toBeTruthy();
+    expect(
+      screen
+        .getByTestId("timeline-view")
+        .getAttribute("data-show-open-calendar-button"),
+    ).toBe("false");
+    expect(container.firstElementChild?.className).toContain("pt-0");
+  });
+
+  it("keeps compact top padding for custom sidebar modes", () => {
+    mocks.sidebarTimelineEnabled = true;
+    mocks.currentTab = { type: "settings" };
+
+    const { container } = render(<LeftSidebar />);
+
+    expect(screen.getByTestId("settings-nav")).toBeTruthy();
+    expect(container.firstElementChild?.className).toContain("pt-1");
+    expect(container.firstElementChild?.className).not.toContain("pt-0");
+  });
+});

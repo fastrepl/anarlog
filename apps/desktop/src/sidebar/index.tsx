@@ -1,5 +1,7 @@
 import { lazy, Suspense } from "react";
 
+import { cn } from "@hypr/utils";
+
 import { CalendarNav } from "./calendar";
 import { ContactsNav } from "./contacts";
 import { SettingsNav } from "./settings";
@@ -8,6 +10,7 @@ import { TimelineView } from "./timeline";
 import { ToastArea } from "./toast";
 
 import { useShell } from "~/contexts/shell";
+import { useConfigValue } from "~/shared/config";
 import { useTabs } from "~/store/zustand/tabs";
 
 const DevtoolView = lazy(() =>
@@ -17,6 +20,7 @@ const DevtoolView = lazy(() =>
 export function LeftSidebar() {
   const { leftsidebar } = useShell();
   const currentTab = useTabs((state) => state.currentTab);
+  const sidebarTimelineEnabled = useConfigValue("sidebar_timeline_enabled");
 
   const isSettingsMode = currentTab?.type === "settings";
   const isCalendarMode = currentTab?.type === "calendar";
@@ -24,9 +28,16 @@ export function LeftSidebar() {
   const isTemplatesMode = currentTab?.type === "templates";
   const isSpecialMode =
     isSettingsMode || isCalendarMode || isContactsMode || isTemplatesMode;
+  const isTimelineSidebarLayout =
+    sidebarTimelineEnabled && !leftsidebar.showDevtool && !isSpecialMode;
 
   return (
-    <div className="flex h-full w-[200px] shrink-0 flex-col gap-1 overflow-hidden pt-1">
+    <div
+      className={cn([
+        "flex h-full w-[200px] shrink-0 flex-col gap-1 overflow-hidden",
+        isTimelineSidebarLayout ? "pt-0" : "pt-1",
+      ])}
+    >
       <div className="flex flex-1 flex-col gap-1 overflow-hidden">
         <div className="relative min-h-0 flex-1 overflow-hidden">
           {leftsidebar.showDevtool ? (
@@ -42,7 +53,7 @@ export function LeftSidebar() {
           ) : isTemplatesMode ? (
             <TemplatesNav />
           ) : (
-            <TimelineView />
+            <TimelineView showOpenCalendarButton={!isTimelineSidebarLayout} />
           )}
           {!leftsidebar.showDevtool && !isSpecialMode && <ToastArea />}
         </div>

@@ -173,7 +173,6 @@ const EventItem = memo(
     const eventId = item.id;
     const trackingIdEvent = item.data.tracking_id_event;
     const title = item.data.title || "Untitled";
-    const calendarId = item.data.calendar_id ?? null;
     const recurrenceSeriesId = item.data.recurrence_series_id;
 
     const {
@@ -297,7 +296,7 @@ const EventItem = memo(
       <ItemBase
         title={title}
         displayTime={displayTime}
-        calendarId={calendarId}
+        calendarId={null}
         selected={selected}
         ignored={ignored}
         muted={muted}
