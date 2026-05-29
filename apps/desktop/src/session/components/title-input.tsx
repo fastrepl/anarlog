@@ -19,6 +19,7 @@ import {
 import { cn } from "@hypr/utils";
 
 import { useTitleGenerating } from "~/ai/hooks";
+import { useMainEscapeShortcutAction } from "~/shared/useTabsShortcuts";
 import * as main from "~/store/tinybase/store/main";
 import { useLiveTitle } from "~/store/zustand/live-title";
 import { type Tab } from "~/store/zustand/tabs";
@@ -150,6 +151,7 @@ const TitleInputInner = memo(
       const store = main.UI.useStore(main.STORE_ID);
       const setLiveTitle = useLiveTitle((s) => s.setTitle);
       const clearLiveTitle = useLiveTitle((s) => s.clearTitle);
+      const runEscapeShortcut = useMainEscapeShortcutAction();
 
       const updateOverflowState = useCallback(
         (node?: HTMLInputElement | null) => {
@@ -264,6 +266,13 @@ const TitleInputInner = memo(
       );
 
       const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          e.stopPropagation();
+          runEscapeShortcut();
+          return;
+        }
+
         if (e.key === "ArrowUp") {
           e.preventDefault();
           return;

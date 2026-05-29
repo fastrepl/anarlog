@@ -164,6 +164,81 @@ describe("useClassicMainTabsShortcuts", () => {
     expect(hoisted.openCurrent).toHaveBeenCalledWith({ type: "empty" });
   });
 
+  it("opens the home view when the editor prevents default escape handling", () => {
+    hoisted.currentTab = {
+      active: true,
+      slotId: "slot-session",
+      type: "sessions",
+    };
+    const editor = document.createElement("div");
+    editor.className = "ProseMirror";
+    editor.contentEditable = "true";
+    editor.addEventListener("keydown", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    });
+    document.body.append(editor);
+
+    renderHook(() => useClassicMainTabsShortcuts());
+
+    dispatchEscape(editor);
+    vi.runOnlyPendingTimers();
+    editor.remove();
+
+    expect(hoisted.openCurrent).toHaveBeenCalledWith({ type: "empty" });
+  });
+
+  it("does not rerun escape when a focused target handles it directly", () => {
+    hoisted.currentTab = {
+      active: true,
+      slotId: "slot-session",
+      type: "sessions",
+    };
+    const { result } = renderHook(() => useClassicMainTabsShortcuts());
+    const target = document.createElement("input");
+    target.addEventListener("keydown", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      result.current.runEscapeShortcut();
+    });
+    document.body.append(target);
+
+    dispatchEscape(target);
+    vi.runOnlyPendingTimers();
+    target.remove();
+
+    expect(hoisted.openCurrent).toHaveBeenCalledWith({ type: "empty" });
+    expect(hoisted.openCurrent).toHaveBeenCalledTimes(1);
+  });
+
+  it("lets editor escape consumers handle the key before opening home", () => {
+    hoisted.currentTab = {
+      active: true,
+      slotId: "slot-session",
+      type: "sessions",
+    };
+    const editor = document.createElement("div");
+    editor.className = "ProseMirror";
+    editor.contentEditable = "true";
+    editor.addEventListener("keydown", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    });
+    const menu = document.createElement("div");
+    menu.dataset.editorEscapeConsumer = "true";
+    document.body.append(editor, menu);
+
+    renderHook(() => useClassicMainTabsShortcuts());
+
+    dispatchEscape(editor);
+    vi.runOnlyPendingTimers();
+    editor.remove();
+    menu.remove();
+
+    expect(hoisted.openCurrent).not.toHaveBeenCalled();
+    expect(hoisted.select).not.toHaveBeenCalled();
+  });
+
   it("selects an existing home tab on escape", () => {
     const homeTab = {
       active: false,

@@ -208,6 +208,7 @@ export function MentionSuggestion({ config }: { config: MentionConfig }) {
   return createPortal(
     <div
       ref={popupRef}
+      data-editor-escape-consumer
       className="mention-container"
       style={{ position: "absolute", top: 0, left: 0, zIndex: 9999 }}
     >

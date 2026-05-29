@@ -355,6 +355,7 @@ export function SlashCommandMenu() {
   return createPortal(
     <div
       ref={popupRef}
+      data-editor-escape-consumer
       className={cn([
         "absolute z-[9999] max-h-80 w-[280px]",
         "overflow-y-auto rounded-lg border border-neutral-200 bg-white/95 p-1",
