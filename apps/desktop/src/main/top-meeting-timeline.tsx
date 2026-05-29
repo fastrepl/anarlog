@@ -6,6 +6,7 @@ import {
   CalendarIcon,
   PlusIcon,
   SquareIcon,
+  SunIcon,
 } from "lucide-react";
 import {
   memo,
@@ -55,6 +56,7 @@ import {
   useNativeContextMenu,
 } from "~/shared/hooks/useNativeContextMenu";
 import { useNewNoteAndListen } from "~/shared/useNewNote";
+import { useCurrentTimeMs } from "~/sidebar/timeline/realtime";
 import type {
   TimelineEventRow,
   TimelineEventsTable,
@@ -115,6 +117,7 @@ export function TopMeetingTimeline({ currentTab }: { currentTab: Tab | null }) {
   ) as TimelineTranscriptsTable;
 
   const { isIgnored } = useIgnoredEvents();
+  const liveSessionId = useListener((state) => state.live.sessionId);
   const today = getTimelineDayStart(new Date(), timezone);
   const todayMs = today.getTime();
   const timelineStart = useMemo(
@@ -125,6 +128,7 @@ export function TopMeetingTimeline({ currentTab }: { currentTab: Tab | null }) {
     () => addDays(new Date(todayMs), TIMELINE_FUTURE_DAYS + 1),
     [todayMs],
   );
+  const currentTimeMs = useCurrentTimeMs();
 
   const sessionRecordingRanges = useMemo(
     () => buildSessionRecordingRanges(transcriptsTable),
@@ -138,6 +142,8 @@ export function TopMeetingTimeline({ currentTab }: { currentTab: Tab | null }) {
         timelineSessionsTable,
         sessionRecordingRanges,
         selectedSessionId,
+        liveSessionId,
+        now: currentTimeMs,
         isIgnored,
       }),
     [
@@ -145,6 +151,8 @@ export function TopMeetingTimeline({ currentTab }: { currentTab: Tab | null }) {
       timelineSessionsTable,
       sessionRecordingRanges,
       selectedSessionId,
+      liveSessionId,
+      currentTimeMs,
       isIgnored,
     ],
   );
@@ -203,6 +211,11 @@ export function TopMeetingTimeline({ currentTab }: { currentTab: Tab | null }) {
     ],
   );
   const carouselWidth = getTimelineCarouselWidth(carouselItems);
+  const nowIndicatorX = useMemo(
+    () =>
+      getTimelineCarouselNowX(carouselItems, new Date(currentTimeMs), timezone),
+    [carouselItems, currentTimeMs, timezone],
+  );
   const openCalendar = useCallback(
     () => openNew({ type: "calendar" }),
     [openNew],
@@ -216,19 +229,25 @@ export function TopMeetingTimeline({ currentTab }: { currentTab: Tab | null }) {
 
   const updateTodayChipFromScroll = useCallback(
     (node: HTMLDivElement) => {
-      const nextDirection = getTimelineCarouselDateDirection({
-        items: carouselItems,
-        date: new Date(todayMs),
-        timezone,
-        scrollLeft: node.scrollLeft,
-        viewportWidth: node.clientWidth,
-      });
+      const nextDirection =
+        getTimelineCarouselNowDirection({
+          nowX: nowIndicatorX,
+          scrollLeft: node.scrollLeft,
+          viewportWidth: node.clientWidth,
+        }) ??
+        getTimelineCarouselDateDirection({
+          items: carouselItems,
+          date: new Date(todayMs),
+          timezone,
+          scrollLeft: node.scrollLeft,
+          viewportWidth: node.clientWidth,
+        });
 
       setTodayChipDirection((previousDirection) =>
         previousDirection === nextDirection ? previousDirection : nextDirection,
       );
     },
-    [carouselItems, todayMs, timezone],
+    [carouselItems, nowIndicatorX, todayMs, timezone],
   );
 
   const handleWheel = useCallback(
@@ -298,14 +317,18 @@ export function TopMeetingTimeline({ currentTab }: { currentTab: Tab | null }) {
       return;
     }
 
-    const todayLeft = getTimelineCarouselDateX(
-      carouselItems,
-      new Date(todayMs),
-      timezone,
-    );
+    const todayLeft =
+      nowIndicatorX ??
+      getTimelineCarouselDateX(carouselItems, new Date(todayMs), timezone);
     node.scrollLeft = Math.max(0, todayLeft - node.clientWidth * 0.5);
     updateTodayChipFromScroll(node);
-  }, [carouselItems, todayMs, timezone, updateTodayChipFromScroll]);
+  }, [
+    carouselItems,
+    nowIndicatorX,
+    todayMs,
+    timezone,
+    updateTodayChipFromScroll,
+  ]);
 
   const handleTimelineContextMenu = useCallback<
     MouseEventHandler<HTMLDivElement>
@@ -407,12 +430,19 @@ export function TopMeetingTimeline({ currentTab }: { currentTab: Tab | null }) {
           style={{ height: TIMELINE_HEIGHT }}
         >
           <div
-            className="flex h-full min-w-full items-start gap-1"
+            className="group/timeline-strip relative flex h-full min-w-full items-start gap-1"
             onContextMenu={handleTimelineContextMenu}
             style={{
               width: carouselWidth,
             }}
           >
+            {nowIndicatorX !== null ? (
+              <TopCurrentTimeIndicator
+                currentTimeMs={currentTimeMs}
+                left={nowIndicatorX}
+                timezone={timezone}
+              />
+            ) : null}
             {carouselItems.map((renderItem) =>
               renderItem.kind === "create-meeting" ? (
                 <TimelineCreateMeetingCard
@@ -447,20 +477,53 @@ export function TopMeetingTimeline({ currentTab }: { currentTab: Tab | null }) {
           <button
             type="button"
             className={cn([
-              "absolute top-1/2 z-40 flex h-6 -translate-y-1/2 items-center gap-1 rounded-full border border-neutral-300 bg-neutral-200 px-2.5 text-xs font-semibold text-neutral-900 shadow-md",
-              "transition-colors hover:border-neutral-400 hover:bg-neutral-300 hover:text-neutral-950",
+              "absolute top-1/2 z-40 flex h-6 -translate-y-1/2 items-center gap-1 rounded-full border border-neutral-200 bg-white/95 px-2.5 text-xs font-semibold text-neutral-900 shadow-md backdrop-blur",
+              "transition-colors hover:border-neutral-300 hover:bg-white hover:text-neutral-950",
               "focus-visible:ring-2 focus-visible:ring-neutral-900 focus-visible:outline-hidden",
               todayChipDirection === "left" ? "left-3" : "right-3",
             ])}
             onClick={handleGoToToday}
           >
             {todayChipDirection === "left" ? <ArrowLeftIcon size={12} /> : null}
-            <span>Today</span>
+            <SunIcon size={13} className="shrink-0 text-yellow-400" />
+            <span>Now</span>
             {todayChipDirection === "right" ? (
               <ArrowRightIcon size={12} />
             ) : null}
           </button>
         ) : null}
+      </div>
+    </div>
+  );
+}
+
+function TopCurrentTimeIndicator({
+  currentTimeMs,
+  left,
+  timezone,
+}: {
+  currentTimeMs: number;
+  left: number;
+  timezone?: string;
+}) {
+  const label = useMemo(() => {
+    const now = timezone
+      ? new TZDate(new Date(currentTimeMs), timezone)
+      : new Date(currentTimeMs);
+    return format(now, "h:mm a").toUpperCase();
+  }, [currentTimeMs, timezone]);
+
+  return (
+    <div
+      aria-hidden
+      data-testid="top-timeline-now-indicator"
+      className="pointer-events-none absolute top-0 bottom-0 z-40 w-0"
+      style={{ left }}
+    >
+      <div className="absolute top-0 bottom-1 left-0 w-px -translate-x-1/2 bg-red-500/90 shadow-[0_0_0_1px_rgba(255,255,255,0.85)]" />
+      <div className="absolute top-0 left-0 size-1.5 -translate-x-1/2 rounded-full bg-red-500 shadow-[0_0_0_1px_rgba(255,255,255,0.95)]" />
+      <div className="absolute top-1/2 left-0 -translate-x-1/2 -translate-y-1/2 rounded-full bg-red-500 px-2 py-1 font-mono text-[10px] leading-none font-semibold whitespace-nowrap text-white opacity-0 shadow-xs transition-opacity group-hover/timeline-strip:opacity-100">
+        {label}
       </div>
     </div>
   );
@@ -700,7 +763,7 @@ function TimelineCarouselCard({
       data-timeline-start-ms={item.start.getTime()}
       className={cn([
         "group/timeline-card relative shrink-0 snap-start",
-        "transition-transform focus-within:z-30 focus-within:scale-[1.02] hover:z-30 hover:scale-[1.02]",
+        "origin-top transition-transform focus-within:z-30 focus-within:scale-[1.02] hover:z-30 hover:scale-[1.02]",
         item.selected && "z-20",
       ])}
       style={{ width: TIMELINE_CAROUSEL_CARD_WIDTH }}
@@ -869,9 +932,6 @@ function TimelineCardButton({
         ])}
       >
         <span className="flex min-w-0 items-center gap-1.5">
-          {item.type === "session" && item.calendarId ? (
-            <CalendarDot calendarId={item.calendarId} />
-          ) : null}
           <FadedTimelineLabel className="min-w-0 flex-1 text-xs font-semibold">
             {title}
           </FadedTimelineLabel>
@@ -1129,6 +1189,77 @@ function getTimelineCarouselDateX(
   return getTimelineCarouselX(items, date.getTime());
 }
 
+function getTimelineCarouselNowX(
+  items: TimelineCarouselItem[],
+  current: Date,
+  timezone?: string,
+): number | null {
+  const currentMs = current.getTime();
+  const positionedItems = getPositionedTimelineCarouselItems(items);
+
+  for (const positioned of positionedItems) {
+    if (positioned.item.kind !== "item") {
+      continue;
+    }
+
+    const startMs = positioned.item.item.start.getTime();
+    const end = positioned.item.item.end;
+    const endMs = end?.getTime();
+
+    if (endMs && startMs <= currentMs && currentMs <= endMs) {
+      if (endMs <= startMs) {
+        return positioned.right;
+      }
+
+      const progress = (currentMs - startMs) / (endMs - startMs);
+      return (
+        positioned.left + positioned.width * Math.min(Math.max(progress, 0), 1)
+      );
+    }
+  }
+
+  const todayItems = positionedItems.filter((positioned) =>
+    isSameTimelineDay(
+      getTimelineCarouselItemStart(positioned.item),
+      current,
+      timezone,
+    ),
+  );
+
+  if (todayItems.length === 0) {
+    return null;
+  }
+
+  const nextItem = todayItems.find(
+    (positioned) =>
+      getTimelineCarouselItemStart(positioned.item).getTime() > currentMs,
+  );
+  let previousItem: (typeof todayItems)[number] | undefined;
+  for (const positioned of todayItems) {
+    if (getTimelineCarouselItemStart(positioned.item).getTime() <= currentMs) {
+      previousItem = positioned;
+    }
+  }
+
+  if (previousItem && nextItem) {
+    return previousItem.right + (nextItem.left - previousItem.right) / 2;
+  }
+
+  if (nextItem) {
+    return nextItem.left;
+  }
+
+  if (!previousItem) {
+    return null;
+  }
+
+  if (previousItem.item.kind !== "item") {
+    return previousItem.left + previousItem.width / 2;
+  }
+
+  return previousItem.right;
+}
+
 function getTimelineCarouselDateDirection({
   items,
   date,
@@ -1162,6 +1293,32 @@ function getTimelineCarouselDateDirection({
   return null;
 }
 
+export function getTimelineCarouselNowDirection({
+  nowX,
+  scrollLeft,
+  viewportWidth,
+}: {
+  nowX: number | null;
+  scrollLeft: number;
+  viewportWidth: number;
+}): TodayChipDirection | null {
+  if (nowX === null) {
+    return null;
+  }
+
+  const viewportRight = scrollLeft + viewportWidth;
+
+  if (nowX < scrollLeft) {
+    return "left";
+  }
+
+  if (nowX > viewportRight) {
+    return "right";
+  }
+
+  return null;
+}
+
 function getTimelineCarouselDateRange(
   items: TimelineCarouselItem[],
   date: Date,
@@ -1187,6 +1344,25 @@ function getTimelineCarouselDateRange(
   }
 
   return range;
+}
+
+function getPositionedTimelineCarouselItems(
+  items: TimelineCarouselItem[],
+): Array<{
+  item: TimelineCarouselItem;
+  left: number;
+  right: number;
+  width: number;
+}> {
+  let left = TIMELINE_CAROUSEL_PADDING;
+
+  return items.map((item) => {
+    const width = getTimelineCarouselItemWidth(item);
+    const right = left + width;
+    const positionedItem = { item, left, right, width };
+    left = right + TIMELINE_CAROUSEL_GAP;
+    return positionedItem;
+  });
 }
 
 function getTimelineCarouselAnchorKey(
@@ -1227,30 +1403,21 @@ function isSameTimelineDay(
   return format(firstDate, "yyyy-MM-dd") === format(secondDate, "yyyy-MM-dd");
 }
 
-function CalendarDot({ calendarId }: { calendarId: string }) {
-  const calendar = main.UI.useRow("calendars", calendarId, main.STORE_ID);
-  const color = calendar?.color ? String(calendar.color) : "#888";
-
-  return (
-    <span
-      aria-hidden
-      className="size-2 shrink-0 rounded-full opacity-70"
-      style={{ backgroundColor: color }}
-    />
-  );
-}
-
 function buildMeetingTimelineEntries({
   timelineEventsTable,
   timelineSessionsTable,
   sessionRecordingRanges,
   selectedSessionId,
+  liveSessionId,
+  now,
   isIgnored,
 }: {
   timelineEventsTable: TimelineEventsTable;
   timelineSessionsTable: TimelineSessionsTable;
   sessionRecordingRanges: ReadonlyMap<string, SessionRecordingRange>;
   selectedSessionId: string | null;
+  liveSessionId: string | null;
+  now: number;
   isIgnored: (
     trackingId?: string | null,
     recurrenceSeriesId?: string | null,
@@ -1258,7 +1425,6 @@ function buildMeetingTimelineEntries({
 }): MeetingTimelineEntry[] {
   const entries: MeetingTimelineEntry[] = [];
   const sessionTrackingIds = new Set<string>();
-  const now = Date.now();
 
   if (timelineSessionsTable) {
     Object.entries(timelineSessionsTable).forEach(([sessionId, row]) => {
@@ -1267,6 +1433,7 @@ function buildMeetingTimelineEntries({
         row,
         recordingRange: sessionRecordingRanges.get(sessionId),
         selected: selectedSessionId === sessionId,
+        isLive: liveSessionId === sessionId,
         now,
       });
 
@@ -1315,12 +1482,14 @@ function getSessionTimelineEntry({
   row,
   recordingRange,
   selected,
+  isLive,
   now,
 }: {
   sessionId: string;
   row: TimelineSessionRow;
   recordingRange?: SessionRecordingRange;
   selected: boolean;
+  isLive: boolean;
   now: number;
 }): MeetingTimelineEntry | null {
   const event = getSessionEvent(row);
@@ -1331,7 +1500,9 @@ function getSessionTimelineEntry({
     return null;
   }
 
-  const end = recordingRange?.end ?? safeParseDate(event?.ended_at);
+  const eventEnd = safeParseDate(event?.ended_at);
+  const end =
+    eventEnd ?? (isLive ? new Date(now) : (recordingRange?.end ?? null));
 
   return {
     id: sessionId,

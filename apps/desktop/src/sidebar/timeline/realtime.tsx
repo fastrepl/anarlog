@@ -5,6 +5,10 @@ import { TZDate, format, safeParseDate } from "@hypr/utils";
 import type { TimelineEventsTable, TimelineSessionsTable } from "./utils";
 
 import { getSessionEvent } from "~/session/utils";
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
+
+const MINUTE_MS = 60_000;
+const CURRENT_TIME_TICK_OFFSET_MS = 100;
 
 export const CurrentTimeIndicator = forwardRef<
   HTMLDivElement,
@@ -48,19 +52,53 @@ export const CurrentTimeIndicator = forwardRef<
 export function useCurrentTimeMs() {
   const [now, setNow] = useState(() => new Date().getTime());
 
-  useEffect(() => {
-    const update = () => {
-      const now = new Date().getTime();
-      setNow(now);
+  useMountEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+    const clearUpdate = () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = undefined;
+      }
     };
 
-    update();
+    const scheduleUpdate = () => {
+      clearUpdate();
+      timeoutId = setTimeout(update, getCurrentTimeTickDelay(Date.now()));
+    };
 
-    const interval = setInterval(update, 60_000);
-    return () => clearInterval(interval);
-  }, []);
+    const update = () => {
+      setNow(Date.now());
+      scheduleUpdate();
+    };
+
+    const sync = () => {
+      update();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        sync();
+      }
+    };
+
+    sync();
+    window.addEventListener("focus", sync);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      clearUpdate();
+      window.removeEventListener("focus", sync);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  });
 
   return now;
+}
+
+function getCurrentTimeTickDelay(nowMs: number): number {
+  const msIntoMinute = nowMs % MINUTE_MS;
+  return MINUTE_MS - msIntoMinute + CURRENT_TIME_TICK_OFFSET_MS;
 }
 
 export function useSmartCurrentTime(
