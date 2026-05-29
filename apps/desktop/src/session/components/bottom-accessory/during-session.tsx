@@ -14,6 +14,7 @@ import {
 } from "~/stt/live-segment";
 import {
   buildRenderTranscriptRequestFromStore,
+  getRenderTranscriptRequestKey,
   renderTranscriptSegments,
 } from "~/stt/render-transcript";
 import {
@@ -278,9 +279,13 @@ function useLiveTranscriptSegments(sessionId: string): Segment[] {
     humansTable,
     selfHumanId,
   ]);
+  const requestKey = useMemo(
+    () => getRenderTranscriptRequestKey(request),
+    [request],
+  );
 
   const { data: renderedSegments = [] } = useQuery({
-    queryKey: ["live-transcript-footer-segments", sessionId, request],
+    queryKey: ["live-transcript-footer-segments", sessionId, requestKey],
     queryFn: async () => {
       if (!request) {
         return [];
@@ -289,6 +294,7 @@ function useLiveTranscriptSegments(sessionId: string): Segment[] {
       return renderTranscriptSegments(request);
     },
     enabled: !!request,
+    gcTime: 0,
   });
 
   return useMemo(() => {

@@ -6,6 +6,7 @@ import type { TranscriptItem } from "@hypr/plugin-export";
 import * as main from "~/store/tinybase/store/main";
 import {
   buildRenderTranscriptRequestFromStore,
+  getRenderTranscriptRequestKey,
   renderTranscriptSegments,
 } from "~/stt/render-transcript";
 
@@ -63,9 +64,13 @@ export function useTranscriptExportSegments(sessionId: string): {
     humansTable,
     selfHumanId,
   ]);
+  const requestKey = useMemo(
+    () => getRenderTranscriptRequestKey(request),
+    [request],
+  );
 
   const { data = [], isLoading } = useQuery({
-    queryKey: ["transcript-export-segments", sessionId, request],
+    queryKey: ["transcript-export-segments", sessionId, requestKey],
     queryFn: async () => {
       if (!request) {
         return [];
@@ -73,6 +78,7 @@ export function useTranscriptExportSegments(sessionId: string): {
       return buildTranscriptExportSegments(request);
     },
     enabled: !!request,
+    gcTime: 0,
   });
 
   return { data, isLoading };

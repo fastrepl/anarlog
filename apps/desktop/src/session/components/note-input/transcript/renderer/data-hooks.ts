@@ -5,6 +5,7 @@ import * as main from "~/store/tinybase/store/main";
 import type { Segment } from "~/stt/live-segment";
 import {
   buildRenderTranscriptRequestFromStore,
+  getRenderTranscriptRequestKey,
   renderTranscriptSegments,
 } from "~/stt/render-transcript";
 
@@ -32,9 +33,13 @@ export function useRenderedTranscriptSegments(transcriptId: string): Segment[] {
     humansTable,
     selfHumanId,
   ]);
+  const requestKey = useMemo(
+    () => getRenderTranscriptRequestKey(request),
+    [request],
+  );
 
   const { data = [] } = useQuery({
-    queryKey: ["rendered-transcript-segments", transcriptId, request],
+    queryKey: ["rendered-transcript-segments", transcriptId, requestKey],
     queryFn: async () => {
       if (!request) {
         return [];
@@ -43,6 +48,7 @@ export function useRenderedTranscriptSegments(transcriptId: string): Segment[] {
       return renderTranscriptSegments(request);
     },
     enabled: !!request,
+    gcTime: 0,
   });
 
   return data;

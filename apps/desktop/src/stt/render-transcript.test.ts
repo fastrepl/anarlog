@@ -12,6 +12,7 @@ vi.mock("@hypr/plugin-transcription", () => ({
 
 import {
   buildRenderTranscriptRequestFromStore,
+  getRenderTranscriptRequestKey,
   renderTranscriptSegments,
 } from "./render-transcript";
 
@@ -267,5 +268,70 @@ describe("buildRenderTranscriptRequestFromStore", () => {
         source: "synthetic_text",
       },
     });
+  });
+});
+
+describe("getRenderTranscriptRequestKey", () => {
+  it("keeps large transcript payloads out of query keys", () => {
+    const request = buildRenderTranscriptRequestFromStore(
+      createStore() as never,
+      ["late", "early"],
+    );
+
+    expect(getRenderTranscriptRequestKey(request)).toMatch(/^\d+:\d+:\d+:/);
+  });
+
+  it("changes when rendered transcript inputs change", () => {
+    const request = buildRenderTranscriptRequestFromStore(
+      createStore() as never,
+      ["late", "early"],
+    );
+    const changedRequest = {
+      ...request!,
+      transcripts: request!.transcripts.map((transcript, index) =>
+        index === 0
+          ? {
+              ...transcript,
+              words: transcript.words.map((word, wordIndex) =>
+                wordIndex === 0 ? { ...word, text: " changed" } : word,
+              ),
+            }
+          : transcript,
+      ),
+    };
+
+    expect(getRenderTranscriptRequestKey(changedRequest)).not.toBe(
+      getRenderTranscriptRequestKey(request),
+    );
+  });
+
+  it("changes when speaker assignments change", () => {
+    const request = buildRenderTranscriptRequestFromStore(
+      createStore() as never,
+      ["late", "early"],
+    );
+    const changedRequest = {
+      ...request!,
+      transcripts: request!.transcripts.map((transcript, index) =>
+        index === 0
+          ? {
+              ...transcript,
+              assignments: [
+                {
+                  human_id: "third",
+                  scope: {
+                    kind: "channel",
+                    channel: "RemoteParty",
+                  },
+                } as const,
+              ],
+            }
+          : transcript,
+      ),
+    };
+
+    expect(getRenderTranscriptRequestKey(changedRequest)).not.toBe(
+      getRenderTranscriptRequestKey(request),
+    );
   });
 });

@@ -57,6 +57,88 @@ export async function renderTranscriptSegments(
   return attachWordMetadata(result.data, metadataByWordId);
 }
 
+export function getRenderTranscriptRequestKey(
+  request: RenderTranscriptRequest | null | undefined,
+): string {
+  if (!request) {
+    return "empty";
+  }
+
+  let hash = 2_166_136_261;
+  let wordCount = 0;
+  let assignmentCount = 0;
+
+  const writeString = (value: string) => {
+    for (let index = 0; index < value.length; index += 1) {
+      hash = Math.imul(hash ^ value.charCodeAt(index), 16_777_619) >>> 0;
+    }
+    hash = Math.imul(hash ^ 31, 16_777_619) >>> 0;
+  };
+
+  const writeValue = (value: unknown) => {
+    if (value == null) {
+      writeString("");
+      return;
+    }
+
+    if (typeof value === "object") {
+      try {
+        writeString(JSON.stringify(value));
+      } catch {
+        writeString("[object]");
+      }
+      return;
+    }
+
+    writeString(String(value));
+  };
+
+  writeValue(request.self_human_id);
+
+  for (const humanId of request.participant_human_ids) {
+    writeValue(humanId);
+  }
+
+  for (const human of request.humans) {
+    writeValue(human.human_id);
+    writeValue(human.name);
+  }
+
+  for (const transcript of request.transcripts) {
+    writeValue(transcript.started_at);
+    wordCount += transcript.words.length;
+    assignmentCount += transcript.assignments.length;
+
+    for (const word of transcript.words) {
+      writeValue(word.id);
+      writeValue(word.text);
+      writeValue(word.start_ms);
+      writeValue(word.end_ms);
+      writeValue(word.channel);
+      writeValue(word.speaker_index);
+      writeValue((word as { metadata?: unknown }).metadata);
+    }
+
+    for (const assignment of transcript.assignments) {
+      writeValue(assignment.human_id);
+      writeValue(assignment.scope.kind);
+      writeValue(assignment.scope.channel);
+      writeValue(
+        "speaker_index" in assignment.scope
+          ? assignment.scope.speaker_index
+          : null,
+      );
+    }
+  }
+
+  return [
+    request.transcripts.length,
+    wordCount,
+    assignmentCount,
+    hash.toString(36),
+  ].join(":");
+}
+
 export function buildRenderTranscriptRequestFromStore(
   store: NonNullable<ReturnType<typeof main.UI.useStore>>,
   transcriptIds: string[],
