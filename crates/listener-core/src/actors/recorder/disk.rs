@@ -152,9 +152,10 @@ fn prepare_existing_audio_state(
     ogg_path: &Path,
     wav_path: &Path,
 ) -> Result<bool, ActorProcessingErr> {
-    if encoded_path.exists() && !wav_path.exists() {
-        hypr_mp3::decode_to_wav(encoded_path, wav_path).map_err(into_actor_err)?;
+    if encoded_path.exists() {
+        decode_mp3_to_wav(encoded_path, wav_path)?;
         std::fs::remove_file(encoded_path)?;
+        return Ok(wav_is_stereo(wav_path)?);
     }
 
     if ogg_path.exists() {
@@ -169,11 +170,30 @@ fn prepare_existing_audio_state(
     }
 
     if wav_path.exists() {
-        let reader = hound::WavReader::open(wav_path)?;
-        return Ok(reader.spec().channels == 2);
+        return Ok(wav_is_stereo(wav_path)?);
     }
 
     Ok(true)
+}
+
+fn decode_mp3_to_wav(encoded_path: &Path, wav_path: &Path) -> Result<(), ActorProcessingErr> {
+    let tmp_path = wav_path.with_extension("wav.tmp");
+    if tmp_path.exists() {
+        std::fs::remove_file(&tmp_path)?;
+    }
+
+    hypr_mp3::decode_to_wav(encoded_path, &tmp_path).map_err(into_actor_err)?;
+
+    if wav_path.exists() {
+        std::fs::remove_file(wav_path)?;
+    }
+    std::fs::rename(tmp_path, wav_path)?;
+    Ok(())
+}
+
+fn wav_is_stereo(wav_path: &Path) -> Result<bool, hound::Error> {
+    let reader = hound::WavReader::open(wav_path)?;
+    Ok(reader.spec().channels == 2)
 }
 
 fn is_debug_mode() -> bool {
@@ -272,6 +292,8 @@ fn sync_dir(path: &Path) {
 mod tests {
     use tempfile::tempdir;
 
+    use crate::actors::SAMPLE_RATE;
+
     use super::*;
 
     #[test]
@@ -292,6 +314,26 @@ mod tests {
     }
 
     #[test]
+    fn create_disk_sink_prefers_existing_mp3_over_stale_wav() {
+        let dir = tempdir().unwrap();
+        let session_dir = dir.path().join("session");
+        std::fs::create_dir_all(&session_dir).unwrap();
+        let encoded_path = session_dir.join(FINAL_AUDIO_FILE);
+        let wav_path = session_dir.join(WAV_FILE);
+        std::fs::copy(hypr_data::english_1::AUDIO_MP3_PATH, &encoded_path).unwrap();
+        write_test_wav(&wav_path, 128);
+        let original_frames = decoded_frame_count(&encoded_path);
+
+        let mut sink = create_disk_sink(&session_dir).unwrap();
+        write_single(&mut sink, &vec![0.0; SAMPLE_RATE as usize]).unwrap();
+        finalize_disk_sink(&mut sink).unwrap();
+
+        assert!(!wav_path.exists());
+        assert!(encoded_path.exists());
+        assert!(decoded_frame_count(&encoded_path) > original_frames);
+    }
+
+    #[test]
     fn create_disk_sink_keeps_legacy_wav_for_append() {
         let dir = tempdir().unwrap();
         let session_dir = dir.path().join("session");
@@ -302,5 +344,27 @@ mod tests {
 
         assert!(session_dir.join(WAV_FILE).exists());
         assert!(!session_dir.join(FINAL_AUDIO_FILE).exists());
+    }
+
+    fn decoded_frame_count(path: &Path) -> usize {
+        use hypr_audio_utils::Source;
+
+        let source = hypr_audio_utils::source_from_path(path).unwrap();
+        let channels = u16::from(source.channels()).max(1) as usize;
+        source.count() / channels
+    }
+
+    fn write_test_wav(path: &Path, frames: usize) {
+        let spec = hound::WavSpec {
+            channels: 1,
+            sample_rate: SAMPLE_RATE,
+            bits_per_sample: 32,
+            sample_format: hound::SampleFormat::Float,
+        };
+        let mut writer = hound::WavWriter::create(path, spec).unwrap();
+        for _ in 0..frames {
+            writer.write_sample(0.0f32).unwrap();
+        }
+        writer.finalize().unwrap();
     }
 }

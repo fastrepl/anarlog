@@ -8,11 +8,12 @@ use crate::runtime::{AudioImportEvent, AudioImportRuntime};
 use chrono::{DateTime, Utc};
 
 const AUDIO_FORMATS: [&str; 3] = ["audio.mp3", "audio.wav", "audio.ogg"];
-const AUDIO_ARTIFACTS: [&str; 6] = [
+const AUDIO_ARTIFACTS: [&str; 7] = [
     "audio.mp3",
     "audio.wav",
     "audio.ogg",
     "audio.mp3.tmp",
+    "audio.wav.tmp",
     "audio_mic.wav",
     "audio_spk.wav",
 ];
