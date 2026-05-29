@@ -77,7 +77,7 @@ export function useMainTabsShortcuts({ onModT }: { onModT: () => void }) {
       }
 
       window.setTimeout(() => {
-        if (event.defaultPrevented) {
+        if (shouldSkipEscapeShortcut(event)) {
           return;
         }
 
@@ -233,6 +233,33 @@ export function useMainTabsShortcuts({ onModT }: { onModT: () => void }) {
   );
 
   return { runEscapeShortcut };
+}
+
+function shouldSkipEscapeShortcut(event: KeyboardEvent) {
+  if (!event.defaultPrevented) {
+    return false;
+  }
+
+  if (isMainEscapeTarget(event.target)) {
+    return false;
+  }
+
+  if (!isFromProseMirrorEditor(event.target)) {
+    return true;
+  }
+
+  return document.querySelector("[data-editor-escape-consumer]") !== null;
+}
+
+function isMainEscapeTarget(target: EventTarget | null) {
+  return (
+    target instanceof Element &&
+    target.closest("[data-main-escape-target]") !== null
+  );
+}
+
+function isFromProseMirrorEditor(target: EventTarget | null) {
+  return target instanceof Element && target.closest(".ProseMirror") !== null;
 }
 
 function isPersistentChatInputFocused(
