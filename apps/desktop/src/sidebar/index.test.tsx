@@ -91,14 +91,15 @@ describe("LeftSidebar", () => {
     expect(container.firstElementChild?.className).toContain("pt-0");
   });
 
-  it("keeps compact top padding for custom sidebar modes", () => {
+  it("keeps custom sidebar modes below the window chrome", () => {
     mocks.sidebarTimelineEnabled = true;
     mocks.currentTab = { type: "settings" };
 
     const { container } = render(<LeftSidebar />);
+    const classList = container.firstElementChild?.className.split(" ") ?? [];
 
     expect(screen.getByTestId("settings-nav")).toBeTruthy();
-    expect(container.firstElementChild?.className).toContain("pt-1");
-    expect(container.firstElementChild?.className).not.toContain("pt-0");
+    expect(classList).toContain("pt-11");
+    expect(classList).not.toContain("pt-0");
   });
 });

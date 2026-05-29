@@ -12,6 +12,8 @@ import {
   DropdownMenuTrigger,
 } from "@hypr/ui/components/ui/dropdown-menu";
 
+import { CustomSidebarHeader } from "~/sidebar/custom-sidebar-header";
+
 const COLOR_PALETTES = [
   "bg-amber-50",
   "bg-rose-50",
@@ -112,8 +114,7 @@ export function ColumnHeader({
 
   return (
     <div className="@container">
-      <div className="flex h-12 min-w-0 items-center justify-between py-2 pr-1 pl-3">
-        <h3 className="font-sans text-sm font-medium select-none">{title}</h3>
+      <CustomSidebarHeader title={title}>
         <div className="flex shrink-0 items-center">
           {sortOption && setSortOption && (
             <div className="hidden @[220px]:block">
@@ -127,7 +128,7 @@ export function ColumnHeader({
             <Plus size={16} />
           </Button>
         </div>
-      </div>
+      </CustomSidebarHeader>
       {onSearchChange && (
         <div className="px-2 pb-2">
           <div className="flex h-8 items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-200/50 px-3 transition-colors focus-within:bg-neutral-200">
