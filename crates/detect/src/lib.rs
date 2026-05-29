@@ -16,6 +16,9 @@ pub use error::Error;
 
 pub use utils::BackgroundTask;
 
+mod disclosure;
+pub use disclosure::send_meeting_disclosure;
+
 #[cfg(all(
     target_os = "macos",
     feature = "zoom",

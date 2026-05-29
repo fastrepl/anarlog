@@ -4,6 +4,7 @@ import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 import type { TranscriptStorage } from "@hypr/store";
 
 import { useListener } from "./contexts";
+import { sendMeetingDisclosure } from "./disclosure";
 import { useKeywords } from "./useKeywords";
 import {
   canRunBatchTranscription,
@@ -52,8 +53,13 @@ export function useStartListening(sessionId: string) {
 
   const aiLanguage = useConfigValue("ai_language");
   const spokenLanguages = useConfigValue("spoken_languages");
+  const autoDiscloseRecording = useConfigValue("auto_disclose_recording");
 
   const start = useListener((state) => state.start);
+  const dismissMeetingDisclosure = useListener(
+    (state) => state.dismissMeetingDisclosure,
+  );
+  const triggerAppIds = useListener((state) => state.live.triggerAppIds);
   const { conn } = useSTTConnection();
   const runBatch = useRunBatch(sessionId);
 
@@ -180,6 +186,14 @@ export function useStartListening(sessionId: string) {
       return;
     }
 
+    if (autoDiscloseRecording) {
+      void sendMeetingDisclosure(triggerAppIds).then((disclosed) => {
+        if (disclosed) {
+          dismissMeetingDisclosure(sessionId);
+        }
+      });
+    }
+
     void analyticsCommands.event({
       event: "session_started",
       has_calendar_event: !!getSessionEventById(store, sessionId),
@@ -197,9 +211,12 @@ export function useStartListening(sessionId: string) {
     indexes,
     sessionId,
     start,
+    dismissMeetingDisclosure,
     keywords,
     user_id,
     spokenLanguages,
+    autoDiscloseRecording,
+    triggerAppIds,
   ]);
 
   return startListening;

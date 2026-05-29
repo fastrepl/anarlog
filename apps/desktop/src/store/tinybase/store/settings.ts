@@ -41,6 +41,11 @@ export const SETTINGS_MAPPING = {
       path: ["general", "auto_start_scheduled_meetings"],
       default: true as boolean,
     },
+    auto_disclose_recording: {
+      type: "boolean",
+      path: ["general", "auto_disclose_recording"],
+      default: false as boolean,
+    },
     floating_bar_enabled: {
       type: "boolean",
       path: ["general", "floating_bar_enabled"],

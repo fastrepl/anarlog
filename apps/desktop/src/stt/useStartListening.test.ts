@@ -7,6 +7,7 @@ import { useStartListening } from "./useStartListening";
 const {
   queueAutoEnhanceIfSummaryEmptyMock,
   startMock,
+  dismissMeetingDisclosureMock,
   runBatchMock,
   useListenerMock,
   useValuesMock,
@@ -18,6 +19,7 @@ const {
 } = vi.hoisted(() => ({
   queueAutoEnhanceIfSummaryEmptyMock: vi.fn(),
   startMock: vi.fn(),
+  dismissMeetingDisclosureMock: vi.fn(),
   runBatchMock: vi.fn(),
   useListenerMock: vi.fn(),
   useValuesMock: vi.fn(),
@@ -87,6 +89,22 @@ vi.mock("~/store/tinybase/store/main", () => ({
   },
 }));
 
+function mockConfigValue({
+  spokenLanguages = [],
+}: { spokenLanguages?: string[] } = {}) {
+  useConfigValueMock.mockImplementation((key) => {
+    if (key === "ai_language") {
+      return "en";
+    }
+
+    if (key === "auto_disclose_recording") {
+      return false;
+    }
+
+    return spokenLanguages;
+  });
+}
+
 describe("getPostCaptureAction", () => {
   test("runs batch then enhance after record-only capture finishes when audio is available", () => {
     expect(
@@ -144,13 +162,15 @@ describe("useStartListening", () => {
     useListenerMock.mockImplementation((selector) =>
       selector({
         start: startMock,
+        dismissMeetingDisclosure: dismissMeetingDisclosureMock,
+        live: {
+          triggerAppIds: null,
+        },
       }),
     );
     useValuesMock.mockReturnValue({ user_id: "user-1" });
     useIndexesMock.mockReturnValue(null);
-    useConfigValueMock.mockImplementation((key) =>
-      key === "ai_language" ? "en" : [],
-    );
+    mockConfigValue();
     useSTTConnectionMock.mockReturnValue({
       conn: {
         provider: "hyprnote",
@@ -242,9 +262,7 @@ describe("useStartListening", () => {
   });
 
   test("keeps realtime local transcription live by filtering unsupported extra spoken languages", async () => {
-    useConfigValueMock.mockImplementation((key) =>
-      key === "ai_language" ? "en" : ["ko"],
-    );
+    mockConfigValue({ spokenLanguages: ["ko"] });
     useSTTConnectionMock.mockReturnValue({
       conn: {
         provider: "hyprnote",
@@ -267,9 +285,7 @@ describe("useStartListening", () => {
   });
 
   test("uses the main language for Deepgram live capture when extras are unsupported", async () => {
-    useConfigValueMock.mockImplementation((key) =>
-      key === "ai_language" ? "en" : ["ko"],
-    );
+    mockConfigValue({ spokenLanguages: ["ko"] });
     useSTTConnectionMock.mockReturnValue({
       conn: {
         provider: "deepgram",

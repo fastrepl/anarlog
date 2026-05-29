@@ -25,27 +25,31 @@ msgstr "音声言語を追加"
 msgid "Additional spoken languages"
 msgstr "追加の音声言語"
 
-#: src/settings/general/index.tsx:158
+#: src/settings/general/index.tsx:163
 msgid "Always ready without manually launching."
 msgstr "手動で起動しなくても常に準備できます。"
 
-#: src/settings/general/app-settings.tsx:30
+#: src/settings/general/app-settings.tsx:32
 msgid "App"
 msgstr "アプリ"
 
-#: src/settings/general/index.tsx:165
+#: src/settings/general/index.tsx:170
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "予定に紐づいたノートが開始時刻になると、自動的にリスニングを開始します。"
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/index.tsx:180
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "会議アプリがマイクを解放すると、自動的にリスニングを停止します。"
 
-#: src/settings/general/index.tsx:259
+#: src/settings/general/index.tsx:275
 msgid "Data"
 msgstr "データ"
 
-#: src/settings/general/index.tsx:208
+#: src/settings/general/index.tsx:186
+msgid "Disclose recording in chat"
+msgstr ""
+
+#: src/settings/general/index.tsx:224
 msgid "Language & Region"
 msgstr "言語と地域"
 
@@ -62,7 +66,7 @@ msgstr "メイン言語"
 msgid "No matching languages found"
 msgstr "一致する言語が見つかりません"
 
-#: src/settings/general/index.tsx:271
+#: src/settings/general/index.tsx:287
 msgid "Notifications"
 msgstr "通知"
 
@@ -74,7 +78,7 @@ msgstr "言語を検索..."
 msgid "Select language"
 msgstr "言語を選択"
 
-#: src/settings/general/index.tsx:189
+#: src/settings/general/index.tsx:203
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Anarlog の改善に役立てるため、匿名の使用状況データを送信します。"
 
@@ -82,30 +86,34 @@ msgstr "Anarlog の改善に役立てるため、匿名の使用状況データ�
 msgid "Settings"
 msgstr "設定"
 
-#: src/settings/general/index.tsx:188
+#: src/settings/general/index.tsx:202
 msgid "Share usage data"
 msgstr "使用状況データを共有"
 
-#: src/settings/general/index.tsx:181
+#: src/settings/general/index.tsx:195
 msgid "Show floating bar"
 msgstr ""
 
-#: src/settings/general/index.tsx:182
+#: src/settings/general/index.tsx:196
 msgid "Show the compact floating control while listening."
 msgstr ""
 
-#: src/settings/general/index.tsx:157
+#: src/settings/general/index.tsx:162
 msgid "Start Anarlog at login"
 msgstr "ログイン時に Anarlog を起動"
 
-#: src/settings/general/index.tsx:164
+#: src/settings/general/index.tsx:169
 msgid "Start when meeting begins"
 msgstr "会議開始時に開始"
 
-#: src/settings/general/index.tsx:174
+#: src/settings/general/index.tsx:179
 msgid "Stop when meeting ends"
 msgstr "会議終了時に停止"
 
 #: src/settings/general/spoken-languages.tsx:119
 msgid "The main language is always included for transcription"
 msgstr "メイン言語は文字起こしに常に含まれます"
+
+#: src/settings/general/index.tsx:187
+msgid "When listening starts, post a short recording notice in Zoom, Google Meet, or Microsoft Teams chat."
+msgstr ""

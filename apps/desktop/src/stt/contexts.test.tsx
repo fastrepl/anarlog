@@ -173,6 +173,41 @@ describe("ListenerProvider detect events", () => {
     expect(stopSpy).toHaveBeenCalledTimes(1);
   });
 
+  test("auto-stops Microsoft Teams when its microphone trigger stops", async () => {
+    const store = createListenerStore();
+    const stopSpy = vi.fn();
+
+    store.setState({ stop: stopSpy });
+    store.getState().setTriggerAppIds(["com.microsoft.teams2"]);
+    setStoreActive(store);
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+
+    const handler = listenMock.mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf("function");
+
+    vi.useFakeTimers();
+    listMicUsingApplicationsMock.mockClear();
+
+    handler({
+      payload: {
+        type: "micStopped",
+        apps: [{ id: "com.microsoft.teams2", name: "Microsoft Teams" }],
+      },
+    });
+
+    await vi.advanceTimersByTimeAsync(AUTO_STOP_CONFIRM_DELAY_MS);
+
+    expect(listMicUsingApplicationsMock).toHaveBeenCalledTimes(1);
+    expect(stopSpy).toHaveBeenCalledTimes(1);
+  });
+
   test("does not stop when a trigger app resumes during the auto-stop grace period", async () => {
     const store = createListenerStore();
     const stopSpy = vi.fn();

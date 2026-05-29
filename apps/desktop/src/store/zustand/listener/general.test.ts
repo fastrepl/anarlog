@@ -19,8 +19,19 @@ describe("General Listener Slice", () => {
       expect(state.live.amplitude).toEqual({ mic: 0, speaker: 0 });
       expect(state.live.seconds).toBe(0);
       expect(state.live.eventUnlistenersBySession).toEqual({});
+      expect(state.live.disclosureDismissedSessionIds).toEqual({});
       expect(state.live.intervalId).toBeUndefined();
       expect(state.batch).toEqual({});
+    });
+  });
+
+  describe("Meeting Disclosure", () => {
+    test("tracks dismissed disclosure sessions", () => {
+      store.getState().dismissMeetingDisclosure("session-123");
+
+      expect(store.getState().live.disclosureDismissedSessionIds).toEqual({
+        "session-123": true,
+      });
     });
   });
 

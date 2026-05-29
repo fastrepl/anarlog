@@ -46,6 +46,7 @@ export type GeneralState = {
       { startedAtMs: number; seconds: number }
     >;
     triggerAppIds: string[] | null;
+    disclosureDismissedSessionIds: Record<string, boolean>;
   };
 };
 
@@ -67,6 +68,7 @@ const initialLiveState: LiveState = {
   liveTranscriptionActive: null,
   finalizingBySession: {},
   triggerAppIds: null,
+  disclosureDismissedSessionIds: {},
 };
 
 export const initialGeneralState: GeneralState = {
@@ -124,6 +126,7 @@ export const markLiveStartRequested = (live: LiveState, sessionId: string) => {
   live.sessionId = sessionId;
   live.requestedLiveTranscription = null;
   live.liveTranscriptionActive = null;
+  delete live.disclosureDismissedSessionIds[sessionId];
 };
 
 export const markLiveActive = (
@@ -143,6 +146,7 @@ export const markLiveActive = (
   live.degraded = degraded;
   live.requestedLiveTranscription = requestedLiveTranscription;
   live.liveTranscriptionActive = liveTranscriptionActive;
+  delete live.disclosureDismissedSessionIds[sessionId];
 };
 
 export const markLiveFinalizing = (live: LiveState, sessionId: string) => {
@@ -168,6 +172,7 @@ export const markLiveInactive = (live: LiveState, error: string | null) => {
   live.liveTranscriptionActive = null;
   live.muted = initialLiveState.muted;
   live.triggerAppIds = null;
+  live.disclosureDismissedSessionIds = {};
 };
 
 export const markLiveStartFailed = (live: LiveState) => {
@@ -185,6 +190,7 @@ export const markLiveStartFailed = (live: LiveState) => {
   live.requestedLiveTranscription = null;
   live.liveTranscriptionActive = null;
   live.triggerAppIds = null;
+  live.disclosureDismissedSessionIds = {};
 };
 
 export const updateLiveProgress = (

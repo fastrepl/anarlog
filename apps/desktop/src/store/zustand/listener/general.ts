@@ -39,6 +39,7 @@ export type GeneralActions = {
   stop: () => void;
   setMuted: (value: boolean) => void;
   setTriggerAppIds: (appIds: string[] | null) => void;
+  dismissMeetingDisclosure: (sessionId: string) => void;
   startTranscription: (
     params: TranscriptionParams,
     options?: { handlePersist?: BatchPersistCallback },
@@ -119,6 +120,11 @@ export const createGeneralSlice = <
   setTriggerAppIds: (appIds) => {
     setLiveState(set, (live) => {
       live.triggerAppIds = appIds;
+    });
+  },
+  dismissMeetingDisclosure: (sessionId) => {
+    setLiveState(set, (live) => {
+      live.disclosureDismissedSessionIds[sessionId] = true;
     });
   },
   startTranscription: async (params, options) => {

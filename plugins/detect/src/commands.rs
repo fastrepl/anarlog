@@ -64,6 +64,20 @@ pub(crate) async fn set_mic_active_threshold<R: tauri::Runtime>(
     Ok(())
 }
 
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn send_meeting_disclosure<R: tauri::Runtime>(
+    _app: tauri::AppHandle<R>,
+    app_ids: Option<Vec<String>>,
+    message: String,
+) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        hypr_detect::send_meeting_disclosure(app_ids, message)
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
 #[cfg(target_os = "macos")]
 #[tauri::command]
 #[specta::specta]
