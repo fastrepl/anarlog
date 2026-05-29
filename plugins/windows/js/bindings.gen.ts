@@ -132,6 +132,7 @@ async floatingBarUpdate(state: FloatingBarState) : Promise<Result<null, string>>
 
 
 export const events = __makeEvents__<{
+floatingBarDisclose: FloatingBarDisclose,
 floatingBarOpenMain: FloatingBarOpenMain,
 floatingBarStop: FloatingBarStop,
 navigate: Navigate,
@@ -139,6 +140,7 @@ openTab: OpenTab,
 visibilityEvent: VisibilityEvent,
 windowDestroyed: WindowDestroyed
 }>({
+floatingBarDisclose: "plugin:windows:floating-bar-disclose",
 floatingBarOpenMain: "plugin:windows:floating-bar-open-main",
 floatingBarStop: "plugin:windows:floating-bar-stop",
 navigate: "plugin:windows:navigate",
@@ -160,8 +162,9 @@ export type ContactsSelection = { type: "person"; id: string } | { type: "organi
 export type ContactsState = { selected: ContactsSelection | null }
 export type EditorView = { type: "raw" } | { type: "transcript" } | { type: "enhanced"; id: string } | { type: "attachments" }
 export type ExtensionsState = { selectedExtension: string | null }
+export type FloatingBarDisclose = Record<string, never>
 export type FloatingBarOpenMain = Record<string, never>
-export type FloatingBarState = { amplitude: number; degraded: boolean }
+export type FloatingBarState = { amplitude: number; degraded: boolean; disclosureVisible: boolean }
 export type FloatingBarStop = Record<string, never>
 export type JsonValue = null | boolean | number | string | JsonValue[] | Partial<{ [key in string]: JsonValue }>
 export type Navigate = { path: string; search: Partial<{ [key in string]: JsonValue }> | null }

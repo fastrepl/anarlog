@@ -1,10 +1,4 @@
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { FloatingActionButton } from "./index";
@@ -21,11 +15,6 @@ const hoisted = vi.hoisted(() => ({
   hasTranscript: true,
   isCaretNearBottom: false,
   sessionMode: "inactive",
-  liveSessionId: null as string | null,
-  liveSeconds: 0,
-  disclosureDismissedSessionIds: {} as Record<string, boolean>,
-  dismissMeetingDisclosure: vi.fn(),
-  sendMeetingDisclosure: vi.fn(),
 }));
 
 vi.mock("./listen", () => ({
@@ -49,33 +38,11 @@ vi.mock("../caret-position-context", () => ({
 
 vi.mock("~/stt/contexts", () => ({
   useListener: (
-    selector: (state: {
-      getSessionMode: () => string;
-      live: {
-        sessionId: string | null;
-        seconds: number;
-        triggerAppIds: string[] | null;
-        disclosureDismissedSessionIds: Record<string, boolean>;
-      };
-      dismissMeetingDisclosure: (sessionId: string) => void;
-    }) => unknown,
+    selector: (state: { getSessionMode: () => string }) => unknown,
   ) =>
     selector({
       getSessionMode: () => hoisted.sessionMode,
-      live: {
-        sessionId: hoisted.liveSessionId,
-        seconds: hoisted.liveSeconds,
-        triggerAppIds: ["us.zoom.xos"],
-        disclosureDismissedSessionIds: hoisted.disclosureDismissedSessionIds,
-      },
-      dismissMeetingDisclosure: hoisted.dismissMeetingDisclosure,
     }),
-}));
-
-vi.mock("@hypr/plugin-detect", () => ({
-  commands: {
-    sendMeetingDisclosure: hoisted.sendMeetingDisclosure,
-  },
 }));
 
 describe("FloatingActionButton", () => {
@@ -93,15 +60,6 @@ describe("FloatingActionButton", () => {
     hoisted.hasTranscript = true;
     hoisted.isCaretNearBottom = false;
     hoisted.sessionMode = "inactive";
-    hoisted.liveSessionId = null;
-    hoisted.liveSeconds = 0;
-    hoisted.disclosureDismissedSessionIds = {};
-    hoisted.dismissMeetingDisclosure.mockClear();
-    hoisted.sendMeetingDisclosure.mockReset();
-    hoisted.sendMeetingDisclosure.mockResolvedValue({
-      status: "ok",
-      data: null,
-    });
   });
 
   afterEach(() => {
@@ -175,71 +133,15 @@ describe("FloatingActionButton", () => {
     );
   });
 
-  it("shows disclosure FAB during the first five minutes of active listening", () => {
+  it("does not show a disclosure FAB during active listening", () => {
     hoisted.sessionMode = "active";
-    hoisted.liveSessionId = "session-1";
-    hoisted.liveSeconds = 20;
 
     render(<FloatingActionButton tab={tab} />);
 
-    expect(screen.queryByRole("button", { name: "Disclose" })).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "Disclose" })).toBeNull();
     expect(
       screen.queryByRole("button", { name: "Ask Anarlog anything" }),
     ).toBeNull();
-  });
-
-  it("hides disclosure FAB after five minutes or dismissal", () => {
-    hoisted.sessionMode = "active";
-    hoisted.liveSessionId = "session-1";
-    hoisted.liveSeconds = 300;
-
-    render(<FloatingActionButton tab={tab} />);
-
-    expect(screen.queryByRole("button", { name: "Disclose" })).toBeNull();
-
-    cleanup();
-    hoisted.liveSeconds = 20;
-    hoisted.disclosureDismissedSessionIds = { "session-1": true };
-
-    render(<FloatingActionButton tab={tab} />);
-
-    expect(screen.queryByRole("button", { name: "Disclose" })).toBeNull();
-  });
-
-  it("dismisses disclosure surfaces after the FAB posts successfully", async () => {
-    hoisted.sessionMode = "active";
-    hoisted.liveSessionId = "session-1";
-    hoisted.liveSeconds = 20;
-
-    render(<FloatingActionButton tab={tab} />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Disclose" }));
-
-    expect(hoisted.dismissMeetingDisclosure).not.toHaveBeenCalled();
-    await waitFor(() =>
-      expect(hoisted.dismissMeetingDisclosure).toHaveBeenCalledWith(
-        "session-1",
-      ),
-    );
-  });
-
-  it("keeps disclosure surfaces available when posting fails", async () => {
-    hoisted.sendMeetingDisclosure.mockResolvedValue({
-      status: "error",
-      error: "chat input not found",
-    });
-    hoisted.sessionMode = "active";
-    hoisted.liveSessionId = "session-1";
-    hoisted.liveSeconds = 20;
-
-    render(<FloatingActionButton tab={tab} />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Disclose" }));
-
-    await waitFor(() =>
-      expect(hoisted.sendMeetingDisclosure).toHaveBeenCalled(),
-    );
-    expect(hoisted.dismissMeetingDisclosure).not.toHaveBeenCalled();
   });
 
   it("shows a skip reason in the FAB slot instead of the chat FAB", () => {

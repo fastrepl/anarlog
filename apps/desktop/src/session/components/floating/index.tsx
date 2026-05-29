@@ -4,10 +4,6 @@ import type { CSSProperties } from "react";
 import { cn } from "@hypr/utils";
 
 import { useCaretPosition } from "../caret-position-context";
-import {
-  FloatingDisclosureButton,
-  shouldShowMeetingDisclosureAction,
-} from "../disclosure-action";
 import { ListenButton } from "./listen";
 
 import {
@@ -29,10 +25,9 @@ export function FloatingActionButton({
 }) {
   const shouldShowListen = useShouldShowListeningFab(tab);
   const shouldShowChat = useShouldShowChatFab(tab);
-  const shouldShowDisclosure = useShouldShowDisclosureFab(tab);
   const isCaretNearBottom = useCaretPosition()?.isCaretNearBottom ?? false;
   const showSkipReason = !!skipReason;
-  const showAction = shouldShowDisclosure || shouldShowListen || shouldShowChat;
+  const showAction = shouldShowListen || shouldShowChat;
   const tuckAction =
     !showSkipReason &&
     ((shouldShowListen && isCaretNearBottom) || (shouldShowChat && hidden));
@@ -63,13 +58,7 @@ export function FloatingActionButton({
           </motion.div>
         ) : (
           <motion.div
-            key={
-              shouldShowDisclosure
-                ? "disclosure"
-                : shouldShowListen
-                  ? "listen"
-                  : "chat"
-            }
+            key={shouldShowListen ? "listen" : "chat"}
             aria-hidden={tuckAction}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -89,29 +78,11 @@ export function FloatingActionButton({
                 : "pointer-events-auto visible",
             ])}
           >
-            {shouldShowDisclosure ? (
-              <FloatingDisclosureButton sessionId={tab.id} />
-            ) : shouldShowListen ? (
-              <ListenButton tab={tab} />
-            ) : (
-              <ChatCTA />
-            )}
+            {shouldShowListen ? <ListenButton tab={tab} /> : <ChatCTA />}
           </motion.div>
         )}
       </AnimatePresence>
     </div>
-  );
-}
-
-function useShouldShowDisclosureFab(tab: Extract<Tab, { type: "sessions" }>) {
-  return useListener((state) =>
-    shouldShowMeetingDisclosureAction({
-      mode: state.getSessionMode(tab.id),
-      liveSessionId: state.live.sessionId,
-      sessionId: tab.id,
-      seconds: state.live.seconds,
-      dismissed: !!state.live.disclosureDismissedSessionIds[tab.id],
-    }),
   );
 }
 

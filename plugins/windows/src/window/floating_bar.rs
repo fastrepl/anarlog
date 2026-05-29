@@ -7,6 +7,7 @@ use crate::Error;
 pub struct FloatingBarState {
     pub amplitude: f64,
     pub degraded: bool,
+    pub disclosure_visible: bool,
 }
 
 #[cfg(target_os = "macos")]
@@ -70,6 +71,13 @@ mod platform {
     pub extern "C" fn rust_on_floating_bar_open_main() {
         if let Some(app) = APP_HANDLE.get() {
             let _ = crate::events::FloatingBarOpenMain {}.emit(app);
+        }
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn rust_on_floating_bar_disclose() {
+        if let Some(app) = APP_HANDLE.get() {
+            let _ = crate::events::FloatingBarDisclose {}.emit(app);
         }
     }
 }

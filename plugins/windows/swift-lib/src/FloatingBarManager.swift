@@ -31,10 +31,12 @@ final class FloatingBarManager {
         x: 0,
         y: 0,
         width: FloatingBarLayout.containerWidth,
-        height: FloatingBarLayout.containerHeight)
+        height: FloatingBarLayout.containerHeight(
+          disclosureVisible: self.model.disclosureVisible))
       hostingView.autoresizingMask = [.width, .height]
 
       panel.contentView = hostingView
+      self.resize(panel, disclosureVisible: self.model.disclosureVisible)
       self.position(panel, force: true)
       panel.orderFrontRegardless()
       self.panel = panel
@@ -57,6 +59,10 @@ final class FloatingBarManager {
       guard let self else { return }
       self.model.degraded = state.degraded
       self.model.amplitude = min(max(state.amplitude, 0), 1)
+      self.model.disclosureVisible = state.disclosureVisible
+      if let panel = self.panel {
+        self.resize(panel, disclosureVisible: state.disclosureVisible)
+      }
     }
   }
 
@@ -66,7 +72,8 @@ final class FloatingBarManager {
         x: 0,
         y: 0,
         width: FloatingBarLayout.containerWidth,
-        height: FloatingBarLayout.containerHeight),
+        height: FloatingBarLayout.containerHeight(
+          disclosureVisible: model.disclosureVisible)),
       styleMask: [.borderless, .nonactivatingPanel],
       backing: .buffered,
       defer: false
@@ -83,6 +90,21 @@ final class FloatingBarManager {
     return panel
   }
 
+  private func resize(_ panel: NSPanel, disclosureVisible: Bool) {
+    let size = NSSize(
+      width: FloatingBarLayout.containerWidth,
+      height: FloatingBarLayout.containerHeight(disclosureVisible: disclosureVisible)
+    )
+
+    if panel.frame.size == size {
+      return
+    }
+
+    panel.setContentSize(size)
+    panel.contentView?.frame = NSRect(origin: .zero, size: size)
+    position(panel, force: true)
+  }
+
   private func position(_ panel: NSPanel, force: Bool = false) {
     let screen = activeScreen()
     let screenId = displayId(for: screen)
@@ -92,7 +114,7 @@ final class FloatingBarManager {
 
     let frame = screen.visibleFrame
     let x = frame.maxX - FloatingBarLayout.containerWidth - FloatingBarLayout.screenMargin
-    let y = frame.midY - FloatingBarLayout.containerHeight / 2
+    let y = frame.midY - panel.frame.height / 2
     panel.setFrameOrigin(NSPoint(x: x, y: y))
     activeScreenId = screenId
   }

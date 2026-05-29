@@ -11,9 +11,17 @@ enum FloatingBarLayout {
   static let clickAreaGap: CGFloat = 0
   static let pillPadding: CGFloat = 2
   static let pillWidth: CGFloat = clickAreaSize + pillPadding * 2
-  static let pillHeight: CGFloat = clickAreaSize * 2 + clickAreaGap + pillPadding * 2
+  static func pillHeight(disclosureVisible: Bool) -> CGFloat {
+    let clickAreaCount: CGFloat = disclosureVisible ? 3 : 2
+    let gapCount = max(clickAreaCount - 1, 0)
+    return clickAreaSize * clickAreaCount + clickAreaGap * gapCount + pillPadding * 2
+  }
+
   static let containerWidth: CGFloat = pillWidth + inset * 2
-  static let containerHeight: CGFloat = pillHeight + inset * 2
+  static func containerHeight(disclosureVisible: Bool) -> CGFloat {
+    pillHeight(disclosureVisible: disclosureVisible) + inset * 2
+  }
+
   static let dragClickThreshold: CGFloat = 4
 }
 
@@ -33,6 +41,19 @@ struct FloatingBarView: View {
         }
       }
       .buttonStyle(.plain)
+
+      if model.disclosureVisible {
+        Button(action: { performClick(RustBridge.discloseRecording) }) {
+          CircularClickArea(hoverFill: normalAccentColor.opacity(0.16)) {
+            Image(systemName: "exclamationmark.bubble")
+              .font(.system(size: 15, weight: .semibold))
+              .foregroundStyle(normalAccentColor)
+          }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Disclose recording in meeting chat")
+        .help("Disclose recording in meeting chat")
+      }
 
       Button(action: { performClick(RustBridge.stopListening) }) {
         CircularClickArea(
@@ -60,7 +81,10 @@ struct FloatingBarView: View {
       .buttonStyle(.plain)
     }
     .padding(FloatingBarLayout.pillPadding)
-    .frame(width: FloatingBarLayout.pillWidth, height: FloatingBarLayout.pillHeight)
+    .frame(
+      width: FloatingBarLayout.pillWidth,
+      height: FloatingBarLayout.pillHeight(disclosureVisible: model.disclosureVisible)
+    )
     .contentShape(Capsule(style: .continuous))
     .simultaneousGesture(dragClickSuppressor)
     .background(

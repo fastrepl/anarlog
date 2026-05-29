@@ -6,12 +6,18 @@ import {
 import { useConfigValue } from "~/shared/config";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { listenerStore } from "~/store/zustand/listener/instance";
+import {
+  DISCLOSURE_VISIBLE_SECONDS,
+  sendMeetingDisclosure,
+} from "~/stt/disclosure";
 
 type ListenerState = ReturnType<typeof listenerStore.getState>;
 type FloatingRouteState = {
   sessionId: string;
   amplitude: number;
   degraded: boolean;
+  disclosureVisible: boolean;
+  triggerAppIds: string[] | null;
 };
 
 export function FloatingMeetingWindowHost() {
@@ -113,6 +119,33 @@ function FloatingMeetingWindowSync() {
         unlisteners.push(unlisten);
       });
 
+    windowsEvents.floatingBarDisclose
+      .listen(() => {
+        const state = listenerStore.getState();
+        const currentRouteState = getFloatingRouteState(state);
+        if (!currentRouteState?.disclosureVisible) {
+          return;
+        }
+
+        void sendMeetingDisclosure(currentRouteState.triggerAppIds).then(
+          (disclosed) => {
+            if (disclosed) {
+              listenerStore
+                .getState()
+                .dismissMeetingDisclosure(currentRouteState.sessionId);
+            }
+          },
+        );
+      })
+      .then((unlisten) => {
+        if (cancelled) {
+          unlisten();
+          return;
+        }
+
+        unlisteners.push(unlisten);
+      });
+
     scheduleSync();
 
     const unsubscribe = listenerStore.subscribe((state, previousState) => {
@@ -161,6 +194,11 @@ function getFloatingRouteState(
       1,
     ),
     degraded: Boolean(state.live.degraded),
+    disclosureVisible:
+      state.live.status === "active" &&
+      state.live.seconds < DISCLOSURE_VISIBLE_SECONDS &&
+      !state.live.disclosureDismissedSessionIds[state.live.sessionId],
+    triggerAppIds: state.live.triggerAppIds,
   };
 }
 
@@ -171,7 +209,9 @@ function isSameFloatingRouteState(
   return (
     left?.sessionId === right?.sessionId &&
     left?.amplitude === right?.amplitude &&
-    left?.degraded === right?.degraded
+    left?.degraded === right?.degraded &&
+    left?.disclosureVisible === right?.disclosureVisible &&
+    left?.triggerAppIds?.join("\0") === right?.triggerAppIds?.join("\0")
   );
 }
 
@@ -227,6 +267,7 @@ async function showFloatingMeetingWindow(
   const updateResult = await windowsCommands.floatingBarUpdate({
     amplitude: routeState.amplitude,
     degraded: routeState.degraded,
+    disclosureVisible: routeState.disclosureVisible,
   });
   if (!shouldContinue()) {
     await hideFloatingMeetingPanel();
