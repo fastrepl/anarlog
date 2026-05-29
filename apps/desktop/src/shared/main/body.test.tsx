@@ -1,8 +1,8 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("~/main/tab-chrome", () => ({
-  ClassicMainTabChrome: () => <div data-testid="main-tab-chrome" />,
+vi.mock("~/main/useTabsShortcuts", () => ({
+  useClassicMainTabsShortcuts: vi.fn(),
 }));
 
 vi.mock("~/main/tab-content", () => ({
@@ -11,12 +11,12 @@ vi.mock("~/main/tab-content", () => ({
   ),
 }));
 
-vi.mock("~/main/shell-sidebar", () => ({
-  ClassicMainSidebar: () => <div data-testid="main-sidebar" />,
-}));
-
 vi.mock("~/main/top-meeting-timeline", () => ({
   TopMeetingTimeline: () => <div data-testid="top-meeting-timeline" />,
+}));
+
+vi.mock("~/main/shell-sidebar", () => ({
+  ClassicMainSidebar: () => <div data-testid="main-sidebar" />,
 }));
 
 vi.mock("~/contexts/shell", () => ({
@@ -50,18 +50,27 @@ vi.mock("~/store/zustand/tabs", () => ({
 import { ClassicMainBody } from "~/main/body";
 
 describe("ClassicMainBody", () => {
-  it("renders the extracted tab chrome and current tab content", () => {
+  it("renders the shell and current tab content", () => {
     render(<ClassicMainBody />);
 
-    expect(screen.getByTestId("main-tab-chrome")).toBeTruthy();
-    expect(screen.getByTestId("top-meeting-timeline")).toBeTruthy();
+    const timeline = screen.getByTestId("top-meeting-timeline");
+    const timelineRow = timeline.parentElement?.parentElement;
+    const topArea = timelineRow?.parentElement;
+
+    expect(timeline).toBeTruthy();
+    expect(timelineRow?.className).toContain("pl-[76px]");
+    expect(timelineRow?.className).toContain("pt-1");
+    expect(timelineRow?.hasAttribute("data-tauri-drag-region")).toBe(true);
+    expect(timeline.parentElement?.className).toContain("flex-1");
+    expect(topArea?.className).toContain("h-12");
+    expect(topArea?.hasAttribute("data-tauri-drag-region")).toBe(true);
     expect(screen.getByTestId("main-sidebar")).toBeTruthy();
     expect(screen.getByTestId("main-tab-content").textContent).toContain(
       "empty",
     );
   });
 
-  it("renders shell chrome while the initial tab is still loading", async () => {
+  it("renders the shell while the initial tab is still loading", async () => {
     const { useTabs } = await import("~/store/zustand/tabs");
 
     vi.mocked(useTabs).mockImplementationOnce(((
@@ -75,7 +84,7 @@ describe("ClassicMainBody", () => {
     const { container } = render(<ClassicMainBody />);
     const view = within(container);
 
-    expect(view.getByTestId("main-tab-chrome")).toBeTruthy();
+    expect(view.getByTestId("main-sidebar")).toBeTruthy();
     expect(view.getByTestId("top-meeting-timeline")).toBeTruthy();
     expect(view.queryByTestId("main-tab-content")).toBeNull();
   });

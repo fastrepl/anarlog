@@ -1,7 +1,9 @@
+import { useCallback, useRef } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { useShallow } from "zustand/shallow";
 
 import { useShell } from "~/contexts/shell";
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { useNewNote, useNewNoteAndListen } from "~/shared/useNewNote";
 import { useTabs } from "~/store/zustand/tabs";
 import { useListener } from "~/stt/contexts";
@@ -16,6 +18,7 @@ export function useMainTabsShortcuts({ onModT }: { onModT: () => void }) {
     selectPrev,
     restoreLastClosedTab,
     openNew,
+    openCurrent,
     unpin,
     setPendingCloseConfirmationTab,
   } = useTabs(
@@ -28,6 +31,7 @@ export function useMainTabsShortcuts({ onModT }: { onModT: () => void }) {
       selectPrev: state.selectPrev,
       restoreLastClosedTab: state.restoreLastClosedTab,
       openNew: state.openNew,
+      openCurrent: state.openCurrent,
       unpin: state.unpin,
       setPendingCloseConfirmationTab: state.setPendingCloseConfirmationTab,
     })),
@@ -39,6 +43,50 @@ export function useMainTabsShortcuts({ onModT }: { onModT: () => void }) {
 
   const newNote = useNewNote();
   const newNoteCurrent = useNewNote({ behavior: "current" });
+
+  const openHome = useCallback(() => {
+    if (currentTab?.type === "onboarding" || currentTab?.type === "empty") {
+      return;
+    }
+
+    const existingHomeTab = tabs.find((tab) => tab.type === "empty");
+    if (existingHomeTab) {
+      select(existingHomeTab);
+      return;
+    }
+
+    openCurrent({ type: "empty" });
+  }, [currentTab, openCurrent, select, tabs]);
+
+  const escapeShortcutRef = useRef({ chat, openHome });
+  escapeShortcutRef.current = { chat, openHome };
+
+  useMountEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      window.setTimeout(() => {
+        if (event.defaultPrevented) {
+          return;
+        }
+
+        const { chat, openHome } = escapeShortcutRef.current;
+        if (chat.mode === "RightPanelOpen") {
+          chat.sendEvent({ type: "CLOSE" });
+          return;
+        }
+
+        openHome();
+      });
+    };
+
+    window.addEventListener("keydown", handleKeyDown, { capture: true });
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown, { capture: true });
+    };
+  });
 
   useHotkeys(
     "mod+n",

@@ -288,6 +288,7 @@ export function SlashCommandMenu() {
     if (!active || items.length === 0) return false;
 
     if (event.key === "Escape") {
+      event.preventDefault();
       if (slashState) {
         setDismissedFrom(slashState.from);
       }

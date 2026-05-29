@@ -1,9 +1,9 @@
-import { useShallow } from "zustand/shallow";
+import { cn } from "@hypr/utils";
 
 import { ClassicMainSidebar } from "./shell-sidebar";
-import { ClassicMainTabChrome } from "./tab-chrome";
 import { ClassicMainTabContent } from "./tab-content";
 import { TopMeetingTimeline } from "./top-meeting-timeline";
+import { useClassicMainTabsShortcuts } from "./useTabsShortcuts";
 
 import { useShell } from "~/contexts/shell";
 import { ToastArea } from "~/sidebar/toast";
@@ -12,12 +12,8 @@ import { type Tab, uniqueIdfromTab, useTabs } from "~/store/zustand/tabs";
 
 export function ClassicMainBody() {
   const { leftsidebar } = useShell();
-  const { tabs, currentTab } = useTabs(
-    useShallow((state) => ({
-      tabs: state.tabs,
-      currentTab: state.currentTab,
-    })),
-  );
+  const currentTab = useTabs((state) => state.currentTab);
+  useClassicMainTabsShortcuts();
 
   const isOnboarding = currentTab?.type === "onboarding";
   const hasCustomSidebar = hasCustomSidebarTab(currentTab);
@@ -31,8 +27,21 @@ export function ClassicMainBody() {
 
   return (
     <div className="relative flex h-full min-w-0 flex-1 flex-col">
-      <ClassicMainTabChrome tabs={tabs} />
-      {showTopTimeline ? <TopMeetingTimeline currentTab={currentTab} /> : null}
+      <div
+        data-tauri-drag-region
+        className={cn(["relative shrink-0", showTopTimeline ? "h-12" : "h-10"])}
+      >
+        <div
+          data-tauri-drag-region
+          className="flex h-full min-w-0 items-start pt-1 pl-[76px]"
+        >
+          {showTopTimeline ? (
+            <div className="min-w-0 flex-1">
+              <TopMeetingTimeline currentTab={currentTab} />
+            </div>
+          ) : null}
+        </div>
+      </div>
       <div className="flex min-h-0 min-w-0 flex-1 gap-1">
         <ClassicMainSidebar />
         <div className="min-h-0 min-w-0 flex-1 overflow-auto">

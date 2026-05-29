@@ -1,14 +1,18 @@
+import { isTauri } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
   CalendarIcon,
   PlusIcon,
+  SquareIcon,
 } from "lucide-react";
 import {
   memo,
   type CSSProperties,
   type MouseEvent,
   type MouseEventHandler,
+  type PointerEvent,
   type ReactNode,
   type UIEvent,
   useCallback,
@@ -19,6 +23,7 @@ import {
 
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
+import { DancingSticks } from "@hypr/ui/components/ui/dancing-sticks";
 import { Spinner } from "@hypr/ui/components/ui/spinner";
 import {
   addDays,
@@ -75,13 +80,23 @@ const TIMELINE_CAROUSEL_PADDING = 0;
 const TIMELINE_CAROUSEL_GAP = 4;
 const TIMELINE_PAST_DAYS = 6;
 const TIMELINE_FUTURE_DAYS = 1;
+const TIMELINE_WINDOW_DRAG_THRESHOLD_PX = 5;
 type TodayChipDirection = "left" | "right";
+
+type TimelineWindowDragStart = {
+  pointerId: number;
+  clientX: number;
+  clientY: number;
+  dragging: boolean;
+};
 
 export function TopMeetingTimeline({ currentTab }: { currentTab: Tab | null }) {
   const timezone = useConfigValue("timezone") || undefined;
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const detachWheelListenerRef = useRef<(() => void) | null>(null);
   const appliedScrollAnchorRef = useRef<string | null>(null);
+  const windowDragStartRef = useRef<TimelineWindowDragStart | null>(null);
+  const suppressNextClickRef = useRef(false);
 
   const selectedSessionId =
     currentTab?.type === "sessions" ? currentTab.id : null;
@@ -299,8 +314,87 @@ export function TopMeetingTimeline({ currentTab }: { currentTab: Tab | null }) {
     event.stopPropagation();
   }, []);
 
+  const handleTimelinePointerDown = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      suppressNextClickRef.current = false;
+
+      if (event.button !== 0) {
+        windowDragStartRef.current = null;
+        return;
+      }
+
+      windowDragStartRef.current = {
+        pointerId: event.pointerId,
+        clientX: event.clientX,
+        clientY: event.clientY,
+        dragging: false,
+      };
+    },
+    [],
+  );
+
+  const handleTimelinePointerMove = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      const dragStart = windowDragStartRef.current;
+
+      if (
+        !dragStart ||
+        dragStart.dragging ||
+        dragStart.pointerId !== event.pointerId ||
+        !isTimelineWindowDrag(dragStart, event)
+      ) {
+        return;
+      }
+
+      dragStart.dragging = true;
+      suppressNextClickRef.current = true;
+      event.preventDefault();
+
+      if (isTauri()) {
+        void getCurrentWindow()
+          .startDragging()
+          .catch(() => {});
+      }
+    },
+    [],
+  );
+
+  const handleTimelinePointerEnd = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      const dragStart = windowDragStartRef.current;
+
+      if (!dragStart || dragStart.pointerId !== event.pointerId) {
+        return;
+      }
+
+      windowDragStartRef.current = null;
+    },
+    [],
+  );
+
+  const handleTimelineClickCapture = useCallback(
+    (event: MouseEvent<HTMLDivElement>) => {
+      if (!suppressNextClickRef.current) {
+        return;
+      }
+
+      suppressNextClickRef.current = false;
+      event.preventDefault();
+      event.stopPropagation();
+    },
+    [],
+  );
+
   return (
-    <div className="min-w-0 shrink-0">
+    <div
+      data-tauri-drag-region
+      className="min-w-0 shrink-0 select-none"
+      onPointerDown={handleTimelinePointerDown}
+      onPointerMove={handleTimelinePointerMove}
+      onPointerUp={handleTimelinePointerEnd}
+      onPointerCancel={handleTimelinePointerEnd}
+      onClickCapture={handleTimelineClickCapture}
+    >
       <div className="relative">
         <div
           ref={setScrollContainer}
@@ -390,8 +484,13 @@ const SessionTimelineBar = memo(
       main.STORE_ID,
     ) as string | undefined;
     const title = useSessionTitle(item.id, storeTitle);
-    const sessionMode = useListener((state) => state.getSessionMode(item.id));
+    const { sessionMode, stop, amplitude } = useListener((state) => ({
+      sessionMode: state.getSessionMode(item.id),
+      stop: state.stop,
+      amplitude: state.live.amplitude,
+    }));
     const isEnhancing = useIsSessionEnhancing(item.id);
+    const isLive = sessionMode === "active";
     const showSpinner =
       sessionMode === "finalizing" ||
       sessionMode === "running_batch" ||
@@ -472,8 +571,14 @@ const SessionTimelineBar = memo(
             item={item}
             title={title || item.title || "Untitled"}
             timezone={timezone}
+            isLive={isLive}
+            amplitude={Math.max(
+              0.25,
+              Math.min(Math.hypot(amplitude.mic, amplitude.speaker), 1),
+            )}
             showSpinner={showSpinner}
             onClick={openSession}
+            onStop={stop}
             contextMenu={contextMenu}
           />
         </SessionPreviewCard>
@@ -698,15 +803,21 @@ function TimelineCardButton({
   item,
   title,
   timezone,
+  isLive,
+  amplitude,
   showSpinner,
   onClick,
+  onStop,
   contextMenu,
 }: {
   item: MeetingTimelineEntry;
   title: string;
   timezone?: string;
+  isLive?: boolean;
+  amplitude?: number;
   showSpinner?: boolean;
   onClick: (event: MouseEvent<HTMLButtonElement>) => void;
+  onStop?: () => void;
   contextMenu?: MenuItemDef[];
 }) {
   const showContextMenu = useNativeContextMenu(contextMenu ?? []);
@@ -722,51 +833,104 @@ function TimelineCardButton({
     },
     [contextMenu, showContextMenu],
   );
-  const rangeLabel = formatDateTimeRange(
-    item.start,
-    new Date(normalizeEndMs(item.start, item.end)),
-    timezone,
+  const handleStopClick = useCallback<MouseEventHandler<HTMLButtonElement>>(
+    (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      onStop?.();
+    },
+    [onStop],
   );
+  const startLabel = formatTimelineStartLabel(item.start, timezone);
+  const showLiveStop = item.type === "session" && isLive && onStop;
+  const showSuffixSpinner =
+    item.type === "session" && !!showSpinner && !showLiveStop;
+  const showSuffix = showLiveStop || showSuffixSpinner;
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      onContextMenu={handleContextMenu}
-      className={cn([
-        "flex h-10 w-full flex-col justify-center rounded-md border px-2 text-left shadow-xs",
-        "transition-colors hover:border-neutral-700 focus-visible:ring-2 focus-visible:ring-neutral-900 focus-visible:outline-hidden",
-        item.type === "session" &&
-          (item.selected
-            ? "border-neutral-900 bg-neutral-900 text-white hover:bg-neutral-800"
-            : "border-neutral-300 bg-white text-neutral-800 hover:bg-neutral-50"),
-        item.type === "event" &&
-          "border-dashed border-neutral-300 bg-white/80 text-neutral-600 hover:bg-white",
-        item.muted && !item.selected && "opacity-60",
-      ])}
-    >
-      <FadedTimelineLabel
+    <div className="group/live-timeline-card relative h-10 w-full">
+      <button
+        type="button"
+        onClick={onClick}
+        onContextMenu={handleContextMenu}
         className={cn([
-          "font-mono text-[10px]",
-          item.selected ? "text-white/65" : "text-neutral-500",
+          "flex h-10 w-full flex-col justify-center rounded-md border py-0 pl-2 text-left shadow-xs",
+          showSuffix ? "pr-8" : "pr-2",
+          "transition-colors hover:border-neutral-700 focus-visible:ring-2 focus-visible:ring-neutral-900 focus-visible:outline-hidden",
+          item.type === "session" &&
+            (showLiveStop
+              ? "border-red-500 bg-red-500 text-white hover:border-red-600 hover:bg-red-600"
+              : item.selected
+                ? "border-neutral-900 bg-neutral-900 text-white hover:bg-neutral-800"
+                : "border-neutral-300 bg-white text-neutral-800 hover:bg-neutral-50"),
+          item.type === "event" &&
+            "border-dashed border-neutral-300 bg-white/80 text-neutral-600 hover:bg-white",
+          item.muted && !item.selected && !showLiveStop && "opacity-60",
         ])}
       >
-        {rangeLabel}
-      </FadedTimelineLabel>
-      <span className="flex min-w-0 items-center gap-1.5">
-        {showSpinner ? (
-          <span className="shrink-0">
-            <Spinner size={12} />
-          </span>
-        ) : null}
-        {item.type === "session" && item.calendarId ? (
-          <CalendarDot calendarId={item.calendarId} />
-        ) : null}
-        <FadedTimelineLabel className="min-w-0 flex-1 text-xs font-semibold">
-          {title}
+        <span className="flex min-w-0 items-center gap-1.5">
+          {item.type === "session" && item.calendarId ? (
+            <CalendarDot calendarId={item.calendarId} />
+          ) : null}
+          <FadedTimelineLabel className="min-w-0 flex-1 text-xs font-semibold">
+            {title}
+          </FadedTimelineLabel>
+        </span>
+        <FadedTimelineLabel
+          className={cn([
+            "font-mono text-[10px]",
+            item.selected || showLiveStop
+              ? "text-white/65"
+              : "text-neutral-500",
+          ])}
+        >
+          {startLabel}
         </FadedTimelineLabel>
-      </span>
-    </button>
+      </button>
+      {showSuffixSpinner ? (
+        <span
+          role="status"
+          aria-label="Loading timeline item"
+          className={cn([
+            "absolute top-1/2 right-2 flex size-5 -translate-y-1/2 items-center justify-center",
+            item.selected ? "text-white/70" : "text-neutral-500",
+          ])}
+        >
+          <Spinner size={12} />
+        </span>
+      ) : showLiveStop ? (
+        <button
+          type="button"
+          aria-label="Stop listening"
+          onClick={handleStopClick}
+          className={cn([
+            "absolute top-1/2 right-2 flex size-5 -translate-y-1/2 items-center justify-center rounded-sm",
+            "text-white/80 transition-colors hover:bg-white/15 hover:text-white",
+            "focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:outline-hidden",
+          ])}
+        >
+          <span
+            aria-hidden
+            className="flex items-center justify-center group-hover/live-timeline-card:hidden"
+          >
+            <DancingSticks
+              amplitude={amplitude ?? 0.25}
+              color="currentColor"
+              height={14}
+              width={13}
+              stickWidth={2}
+              gap={2}
+            />
+          </span>
+          <span
+            aria-hidden
+            className="hidden items-center justify-center group-hover/live-timeline-card:flex"
+          >
+            <SquareIcon size={10} className="fill-current" />
+          </span>
+        </button>
+      ) : null}
+    </div>
   );
 }
 
@@ -907,6 +1071,19 @@ function getTimelineCarouselWidth(items: TimelineCarouselItem[]): number {
     TIMELINE_CAROUSEL_PADDING * 2 +
     contentWidth +
     TIMELINE_CAROUSEL_GAP * Math.max(0, items.length - 1)
+  );
+}
+
+export function isTimelineWindowDrag(
+  start: { clientX: number; clientY: number },
+  current: { clientX: number; clientY: number },
+): boolean {
+  const deltaX = current.clientX - start.clientX;
+  const deltaY = current.clientY - start.clientY;
+
+  return (
+    deltaX * deltaX + deltaY * deltaY >=
+    TIMELINE_WINDOW_DRAG_THRESHOLD_PX * TIMELINE_WINDOW_DRAG_THRESHOLD_PX
   );
 }
 
@@ -1206,39 +1383,12 @@ function getEventTimelineEntry({
   };
 }
 
-function formatTimeRange(start: Date, end: Date, timezone?: string): string {
-  const displayStart = timezone ? new TZDate(start, timezone) : start;
-  const displayEnd = timezone ? new TZDate(end, timezone) : end;
-  const startMeridiem = format(displayStart, "a");
-  const endMeridiem = format(displayEnd, "a");
-
-  if (startMeridiem === endMeridiem) {
-    return `${format(displayStart, "h:mm")}-${format(displayEnd, "h:mm a")}`;
-  }
-
-  return `${format(displayStart, "h:mm a")}-${format(displayEnd, "h:mm a")}`;
-}
-
-function formatCompactDateTime(date: Date, timezone?: string): string {
-  const displayDate = timezone ? new TZDate(date, timezone) : date;
-  return `${formatRelativeTimelineDay(date, timezone)} ${format(displayDate, "h:mm a")}`;
-}
-
-function formatDateTimeRange(
-  start: Date,
-  end: Date,
+export function formatTimelineStartLabel(
+  date: Date,
   timezone?: string,
 ): string {
-  const displayStart = timezone ? new TZDate(start, timezone) : start;
-  const displayEnd = timezone ? new TZDate(end, timezone) : end;
-  const sameDay =
-    format(displayStart, "yyyy-MM-dd") === format(displayEnd, "yyyy-MM-dd");
-
-  if (sameDay) {
-    return `${formatRelativeTimelineDay(start, timezone)} ${formatTimeRange(start, end, timezone)}`;
-  }
-
-  return `${formatCompactDateTime(start, timezone)}-${formatCompactDateTime(end, timezone)}`;
+  const displayDate = timezone ? new TZDate(date, timezone) : date;
+  return `${formatRelativeTimelineDay(date, timezone)} ${format(displayDate, "h:mm a")}`;
 }
 
 function formatRelativeTimelineDay(date: Date, timezone?: string): string {

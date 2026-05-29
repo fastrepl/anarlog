@@ -123,6 +123,7 @@ export function MentionSuggestion({ config }: { config: MentionConfig }) {
     if (!active || items.length === 0) return false;
 
     if (event.key === "Escape") {
+      event.preventDefault();
       if (mentionState) setDismissedFrom(mentionState.from);
       return true;
     }
