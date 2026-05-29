@@ -1,129 +1,32 @@
 import { useQuery } from "@tanstack/react-query";
-import { CalendarIcon, SettingsIcon, UsersIcon } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useState } from "react";
 
-import { Kbd } from "@hypr/ui/components/ui/kbd";
 import { cn } from "@hypr/utils";
 
-import { AuthSection } from "./auth";
-import { MenuItem, ProfileFacehash } from "./shared";
+import { ProfileFacehash } from "./shared";
 
 import { useAuth } from "~/auth";
-import { useAutoCloser } from "~/shared/hooks/useAutoCloser";
 import * as main from "~/store/tinybase/store/main";
 import { useTabs } from "~/store/zustand/tabs";
 
 export function ProfileMenu() {
-  const [isExpanded, setIsExpanded] = useState(false);
   const openNew = useTabs((state) => state.openNew);
-  const auth = useAuth();
-
-  const isAuthenticated = !!auth?.session;
-
-  const closeMenu = useCallback(() => {
-    setIsExpanded(false);
-  }, []);
-
-  const profileRef = useAutoCloser(closeMenu, {
-    esc: isExpanded,
-    outside: isExpanded,
-  });
 
   const handleClickSettings = useCallback(() => {
     openNew({ type: "settings" });
-    closeMenu();
-  }, [openNew, closeMenu]);
-
-  const handleClickCalendar = useCallback(() => {
-    openNew({ type: "calendar" });
-    closeMenu();
-  }, [openNew, closeMenu]);
-
-  const handleClickContacts = useCallback(() => {
-    openNew({
-      type: "contacts",
-      state: {
-        selected: null,
-      },
-    });
-    closeMenu();
-  }, [openNew, closeMenu]);
-
-  const kbdClass = cn([
-    "transition-all duration-100",
-    "group-hover:-translate-y-0.5 group-hover:shadow-[0_2px_0_0_rgba(0,0,0,0.15),inset_0_1px_0_0_rgba(255,255,255,0.8)]",
-    "group-active:translate-y-0.5 group-active:shadow-none",
-  ]);
-
-  const menuItems = [
-    {
-      icon: UsersIcon,
-      label: "People",
-      onClick: handleClickContacts,
-      badge: <Kbd className={kbdClass}>⌘ ⇧ O</Kbd>,
-    },
-    {
-      icon: CalendarIcon,
-      label: "Calendar",
-      onClick: handleClickCalendar,
-      badge: <Kbd className={kbdClass}>⌘ ⇧ C</Kbd>,
-    },
-    {
-      icon: SettingsIcon,
-      label: "Settings",
-      onClick: handleClickSettings,
-      badge: <Kbd className={kbdClass}>⌘ ,</Kbd>,
-    },
-  ];
+  }, [openNew]);
 
   return (
     <div
-      ref={profileRef}
       className="relative z-50 mr-1 flex h-full shrink-0 items-center"
       data-tauri-drag-region="false"
     >
-      <ProfileButton
-        isExpanded={isExpanded}
-        onClick={() => setIsExpanded((expanded) => !expanded)}
-      />
-
-      <AnimatePresence>
-        {isExpanded && (
-          <motion.div
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.16, ease: "easeInOut" }}
-            className="absolute top-full left-0 mt-1 w-56"
-            data-tauri-drag-region="false"
-          >
-            <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-[0_10px_30px_rgba(0,0,0,0.14)]">
-              <div className="py-1">
-                {menuItems.map((item) => (
-                  <MenuItem key={item.label} {...item} />
-                ))}
-
-                <AuthSection
-                  isAuthenticated={isAuthenticated}
-                  onClose={closeMenu}
-                />
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <ProfileButton onClick={handleClickSettings} />
     </div>
   );
 }
 
-function ProfileButton({
-  isExpanded,
-  onClick,
-}: {
-  isExpanded: boolean;
-  onClick: () => void;
-}) {
+function ProfileButton({ onClick }: { onClick: () => void }) {
   const auth = useAuth();
   const name = useMyName(auth?.session?.user.email);
   const [failedAvatarUrl, setFailedAvatarUrl] = useState<string | null>(null);
@@ -145,14 +48,12 @@ function ProfileButton({
     <button
       type="button"
       data-tauri-drag-region="false"
-      aria-label="Open profile menu"
-      aria-expanded={isExpanded}
+      aria-label="Open settings"
       className={cn([
         "flex size-7 cursor-pointer items-center justify-center rounded-lg",
         "border border-transparent bg-transparent p-1",
         "transition-colors duration-150",
         "hover:border-neutral-200 hover:bg-neutral-200/70",
-        isExpanded && "border-neutral-200 bg-neutral-200/70",
       ])}
       onClick={onClick}
     >

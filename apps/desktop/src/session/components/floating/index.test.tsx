@@ -70,7 +70,7 @@ describe("FloatingActionButton", () => {
     render(<FloatingActionButton tab={tab} />);
 
     expect(
-      screen.queryByRole("button", { name: "Ask about this session" }),
+      screen.queryByRole("button", { name: "Ask Anarlog anything" }),
     ).not.toBeNull();
   });
 
