@@ -315,7 +315,7 @@ describe("TopMeetingTimeline", () => {
     render(<TopMeetingTimeline currentTab={null} />);
 
     expect(screen.getByTestId("top-timeline-now-indicator").style.left).toBe(
-      "94px",
+      "80px",
     );
   });
 
@@ -344,7 +344,7 @@ describe("TopMeetingTimeline", () => {
     render(<TopMeetingTimeline currentTab={null} />);
 
     expect(screen.getByTestId("top-timeline-now-indicator").style.left).toBe(
-      "190px",
+      "162px",
     );
   });
 
@@ -366,7 +366,7 @@ describe("TopMeetingTimeline", () => {
     render(<TopMeetingTimeline currentTab={null} />);
 
     expect(screen.getByTestId("top-timeline-now-indicator").style.left).toBe(
-      "188px",
+      "160px",
     );
   });
 
@@ -417,6 +417,6 @@ describe("TopMeetingTimeline", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Now" }));
 
-    expect(scrollContainer!.scrollLeft).toBe(140);
+    expect(scrollContainer!.scrollLeft).toBe(112);
   });
 });
