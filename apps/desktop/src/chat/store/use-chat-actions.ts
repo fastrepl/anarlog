@@ -1,7 +1,9 @@
 import { useCallback } from "react";
 
+import { createFallbackChatTitle, generateChatTitle } from "./chat-title";
 import { useCreateChatMessage } from "./useCreateChatMessage";
 
+import { useLanguageModel } from "~/ai/hooks";
 import type { ContextRef } from "~/chat/context/entities";
 import type { HyprUIMessage } from "~/chat/types";
 import { id } from "~/shared/utils";
@@ -15,6 +17,8 @@ export function useChatActions({
   onGroupCreated: (newGroupId: string) => void;
 }) {
   const { user_id } = main.UI.useValues(main.STORE_ID);
+  const store = main.UI.useStore(main.STORE_ID);
+  const titleModel = useLanguageModel("title");
 
   const createChatGroup = main.UI.useSetRowCallback(
     "chat_groups",
@@ -28,7 +32,52 @@ export function useChatActions({
     main.STORE_ID,
   );
 
+  const setChatGroupTitle = main.UI.useSetCellCallback(
+    "chat_groups",
+    (p: { groupId: string; title: string }) => p.groupId,
+    "title",
+    (p: { groupId: string; title: string }) => p.title,
+    [],
+    main.STORE_ID,
+  );
+
   const createChatMessage = useCreateChatMessage();
+
+  const queueChatTitleGeneration = useCallback(
+    (params: {
+      groupId: string;
+      fallbackTitle: string;
+      initialRequest: string;
+    }) => {
+      const { groupId, fallbackTitle, initialRequest } = params;
+
+      if (!titleModel || !initialRequest.trim()) {
+        return;
+      }
+
+      void generateChatTitle({
+        model: titleModel,
+        initialRequest,
+      })
+        .then((title) => {
+          if (!title) {
+            return;
+          }
+
+          const currentTitle = store?.getCell("chat_groups", groupId, "title");
+
+          if (currentTitle !== fallbackTitle) {
+            return;
+          }
+
+          setChatGroupTitle({ groupId, title });
+        })
+        .catch((error) => {
+          console.error("Failed to generate chat title", error);
+        });
+    },
+    [setChatGroupTitle, store, titleModel],
+  );
 
   const handleSendMessage = useCallback(
     (
@@ -52,9 +101,14 @@ export function useChatActions({
       let currentGroupId = groupId;
       if (!currentGroupId) {
         currentGroupId = id();
-        const title = content.slice(0, 50) + (content.length > 50 ? "..." : "");
-        createChatGroup({ groupId: currentGroupId, title });
+        const fallbackTitle = createFallbackChatTitle(content);
+        createChatGroup({ groupId: currentGroupId, title: fallbackTitle });
         onGroupCreated(currentGroupId);
+        queueChatTitleGeneration({
+          groupId: currentGroupId,
+          fallbackTitle,
+          initialRequest: content,
+        });
       }
 
       createChatMessage({
@@ -68,7 +122,13 @@ export function useChatActions({
 
       sendMessage(uiMessage);
     },
-    [groupId, createChatGroup, createChatMessage, onGroupCreated],
+    [
+      groupId,
+      createChatGroup,
+      createChatMessage,
+      onGroupCreated,
+      queueChatTitleGeneration,
+    ],
   );
 
   return { handleSendMessage };
