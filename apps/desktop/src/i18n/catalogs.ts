@@ -1,15 +1,23 @@
 import { setupI18n, type Messages } from "@lingui/core";
 
-import type { DisplayLocale } from "./locales";
-import { messages as enMessages } from "./locales/en/messages";
-import { messages as jaMessages } from "./locales/ja/messages";
-import { messages as koMessages } from "./locales/ko/messages";
+import { type DisplayLocale, SUPPORTED_DISPLAY_LOCALES } from "./locales";
 
-const catalogs: Record<DisplayLocale, Messages> = {
-  en: enMessages,
-  ko: koMessages,
-  ja: jaMessages,
-};
+const catalogModules = import.meta.glob<{ messages: Messages }>(
+  "./locales/*/messages.ts",
+  { eager: true },
+);
+
+const catalogs = SUPPORTED_DISPLAY_LOCALES.reduce(
+  (acc, locale) => {
+    const mod = catalogModules[`./locales/${locale}/messages.ts`];
+    if (!mod) {
+      throw new Error(`Missing i18n catalog for ${locale}`);
+    }
+    acc[locale] = mod.messages;
+    return acc;
+  },
+  {} as Record<DisplayLocale, Messages>,
+);
 
 export function createI18n(locale: DisplayLocale) {
   const i18n = setupI18n();

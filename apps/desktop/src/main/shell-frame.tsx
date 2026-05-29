@@ -30,11 +30,12 @@ export function ClassicMainShellFrame() {
     !leftsidebar.showDevtool &&
     !hasCustomSidebar &&
     !isOnboarding;
-  const mainSurfaceChrome = showSidebarTimeline || hasLeftSurfaceCustomSidebar
-    ? "left"
-    : showTopTimeline
-      ? "top"
-      : "default";
+  const mainSurfaceChrome =
+    showSidebarTimeline || hasLeftSurfaceCustomSidebar
+      ? "left"
+      : showTopTimeline
+        ? "top"
+        : "default";
 
   return (
     <MainShellScaffold mainSurfaceChrome={mainSurfaceChrome}>

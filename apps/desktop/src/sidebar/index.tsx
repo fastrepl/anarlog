@@ -11,6 +11,7 @@ import { ToastArea } from "./toast";
 
 import { useShell } from "~/contexts/shell";
 import { useConfigValue } from "~/shared/config";
+import { hasLeftSurfaceCustomSidebarTab } from "~/sidebar/use-custom-sidebar";
 import { useTabs } from "~/store/zustand/tabs";
 
 const DevtoolView = lazy(() =>
@@ -28,6 +29,8 @@ export function LeftSidebar() {
   const isTemplatesMode = currentTab?.type === "templates";
   const isSpecialMode =
     isSettingsMode || isCalendarMode || isContactsMode || isTemplatesMode;
+  const hasLeftSurfaceCustomSidebar =
+    hasLeftSurfaceCustomSidebarTab(currentTab);
   const isTimelineSidebarLayout =
     sidebarTimelineEnabled && !leftsidebar.showDevtool && !isSpecialMode;
 
@@ -35,7 +38,11 @@ export function LeftSidebar() {
     <div
       className={cn([
         "flex h-full w-[200px] shrink-0 flex-col gap-1 overflow-hidden",
-        isTimelineSidebarLayout ? "pt-0" : "pt-1",
+        isTimelineSidebarLayout
+          ? "pt-0"
+          : hasLeftSurfaceCustomSidebar
+            ? "pt-11"
+            : "pt-1",
       ])}
     >
       <div className="flex flex-1 flex-col gap-1 overflow-hidden">

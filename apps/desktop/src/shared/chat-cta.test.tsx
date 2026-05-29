@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  chatMode: "FloatingClosed" as "FloatingClosed" | "ModalOpen",
+  chatMode: "FloatingClosed" as "FloatingClosed" | "FloatingOpen",
   sendEvent: vi.fn(),
 }));
 
@@ -35,7 +35,7 @@ describe("ChatCTA", () => {
   });
 
   it("hides while the chat modal is open", () => {
-    mocks.chatMode = "ModalOpen";
+    mocks.chatMode = "FloatingOpen";
 
     render(<ChatCTA />);
 

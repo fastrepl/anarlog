@@ -1,8 +1,10 @@
 import { defineConfig } from "@lingui/cli";
 
+import { SUPPORTED_DISPLAY_LOCALES } from "./src/i18n/locales";
+
 export default defineConfig({
   sourceLocale: "en",
-  locales: ["en", "ko", "ja"],
+  locales: [...SUPPORTED_DISPLAY_LOCALES],
   compileNamespace: "ts",
   fallbackLocales: {
     default: "en",

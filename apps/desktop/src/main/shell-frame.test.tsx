@@ -89,15 +89,18 @@ describe("ClassicMainShellFrame", () => {
     ).toBe("left");
   });
 
-  it("uses default main surface chrome for custom sidebar tabs", () => {
-    mocks.currentTab = { type: "settings" };
+  it.each(["settings", "calendar", "contacts", "templates"])(
+    "uses left-edge main surface chrome for %s tabs",
+    (type) => {
+      mocks.currentTab = { type };
 
-    render(<ClassicMainShellFrame />);
+      render(<ClassicMainShellFrame />);
 
-    expect(
-      screen
-        .getByTestId("main-shell-scaffold")
-        .getAttribute("data-main-surface-chrome"),
-    ).toBe("default");
-  });
+      expect(
+        screen
+          .getByTestId("main-shell-scaffold")
+          .getAttribute("data-main-surface-chrome"),
+      ).toBe("left");
+    },
+  );
 });
