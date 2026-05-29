@@ -30,7 +30,8 @@ export function FloatingActionButton({
   const showAction = shouldShowListen || shouldShowChat;
   const tuckAction =
     !showSkipReason &&
-    ((shouldShowListen && isCaretNearBottom) || (shouldShowChat && hidden));
+    showAction &&
+    (isCaretNearBottom || (shouldShowChat && hidden));
 
   if (!showSkipReason && !showAction) {
     return null;

@@ -106,6 +106,24 @@ describe("FloatingActionButton", () => {
     expect(wrapper?.className).toContain("group-hover:translate-y-0");
   });
 
+  it("tucks the chat FAB near the editor caret and reveals it from the hover zone", () => {
+    hoisted.isCaretNearBottom = true;
+
+    render(<FloatingActionButton tab={tab} />);
+
+    const wrapper = screen.getByText("Ask Anarlog anything").parentElement;
+    const hoverZone = wrapper?.parentElement;
+
+    expect(hoverZone?.className).toContain("group");
+    expect(hoverZone?.className).toContain("pointer-events-auto");
+    expect(wrapper?.getAttribute("aria-hidden")).toBe("true");
+    expect(wrapper?.style.getPropertyValue("--floating-fab-tuck-offset")).toBe(
+      "calc(100% - 0.5rem + 18px)",
+    );
+    expect(wrapper?.className).toContain("group-hover:pointer-events-auto");
+    expect(wrapper?.className).toContain("group-hover:translate-y-0");
+  });
+
   it("tucks the listen FAB near the editor caret instead of scroll state", () => {
     hoisted.hasTranscript = false;
     hoisted.isCaretNearBottom = true;
