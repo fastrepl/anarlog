@@ -445,7 +445,7 @@
   :where(h2):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
   margin-top: 4rem;
   margin-bottom: 1.25rem;
-  font-family: var(--font-sans);
+  font-family: var(--font-hand);
   font-size: 2.25rem;
   font-weight: 600;
   line-height: 1.05 !important;
@@ -457,7 +457,7 @@
   :where(h3):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
   margin-top: 3.5rem;
   margin-bottom: 1rem;
-  font-family: var(--font-sans);
+  font-family: var(--font-hand);
   font-size: 1.875rem;
   font-weight: 600;
   line-height: 1.05;
@@ -469,7 +469,7 @@
   :where(h4):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
   margin-top: 2.5rem;
   margin-bottom: 0.75rem;
-  font-family: var(--font-sans);
+  font-family: var(--font-hand);
   font-size: 1.5rem;
   font-weight: 600;
   line-height: 1.1;
