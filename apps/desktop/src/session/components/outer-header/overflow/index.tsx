@@ -1,7 +1,7 @@
 import {
   AudioLinesIcon,
   FileDownIcon,
-  FileUpIcon,
+  FileTextIcon,
   MoreHorizontalIcon,
   PictureInPicture2Icon,
 } from "lucide-react";
@@ -101,7 +101,7 @@ export function OverflowButton({
               onClick={handleUploadTranscript}
               className="cursor-pointer"
             >
-              <FileUpIcon />
+              <FileTextIcon />
               <span>Upload transcript</span>
             </DropdownMenuItem>
             {canOpenFloatingPanel && (
