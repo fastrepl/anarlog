@@ -10,6 +10,7 @@ import {
   SmartphoneIcon,
   SparklesIcon,
   UserIcon,
+  UsersIcon,
 } from "lucide-react";
 import { useCallback } from "react";
 
@@ -20,7 +21,7 @@ import { type SettingsTab, useTabs } from "~/store/zustand/tabs";
 type SettingsNavItem =
   | { id: SettingsTab; label: string; icon: typeof SmartphoneIcon }
   | {
-      action: "open-templates" | "open-calendar";
+      action: "open-templates" | "open-calendar" | "open-contacts";
       label: string;
       icon: typeof SmartphoneIcon;
     };
@@ -82,6 +83,10 @@ export function SettingsNav() {
     openNew({ type: "calendar" });
   }, [openNew]);
 
+  const handleOpenContacts = useCallback(() => {
+    openNew({ type: "contacts", state: { selected: null } });
+  }, [openNew]);
+
   const groups = getBaseGroups();
   const isMacos = platform() === "macos";
   if (isMacos) {
@@ -96,6 +101,11 @@ export function SettingsNav() {
     action: "open-calendar",
     label: "Calendar",
     icon: CalendarIcon,
+  });
+  groups[0].items.push({
+    action: "open-contacts",
+    label: "Contacts",
+    icon: UsersIcon,
   });
 
   return (
@@ -120,8 +130,10 @@ export function SettingsNav() {
                       if (!isSettingsItem) {
                         if (item.action === "open-templates") {
                           handleOpenTemplates();
-                        } else {
+                        } else if (item.action === "open-calendar") {
                           handleOpenCalendar();
+                        } else {
+                          handleOpenContacts();
                         }
                         return;
                       }

@@ -61,13 +61,11 @@ export function ProfileMenu() {
       icon: UsersIcon,
       label: "People",
       onClick: handleClickContacts,
-      badge: <Kbd className={kbdClass}>⌘ ⇧ O</Kbd>,
     },
     {
       icon: CalendarIcon,
       label: "Calendar",
       onClick: handleClickCalendar,
-      badge: <Kbd className={kbdClass}>⌘ ⇧ C</Kbd>,
     },
     {
       icon: SettingsIcon,

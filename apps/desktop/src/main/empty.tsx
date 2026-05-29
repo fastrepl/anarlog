@@ -54,14 +54,6 @@ function EmptyView() {
   const newNoteAndListen = useNewNoteAndListen({ behavior: "current" });
   const openCurrent = useTabs((state) => state.openCurrent);
 
-  const openCalendar = useCallback(
-    () => openCurrent({ type: "calendar" }),
-    [openCurrent],
-  );
-  const openContacts = useCallback(
-    () => openCurrent({ type: "contacts" }),
-    [openCurrent],
-  );
   const openSettings = useCallback(
     () => openCurrent({ type: "settings" }),
     [openCurrent],
@@ -75,17 +67,6 @@ function EmptyView() {
           label="Start Recording"
           shortcut={["⌘", "⇧", "N"]}
           onClick={newNoteAndListen}
-        />
-        <div className="my-1 h-px bg-neutral-200" />
-        <ActionItem
-          label="Contacts"
-          shortcut={["⌘", "⇧", "O"]}
-          onClick={openContacts}
-        />
-        <ActionItem
-          label="Calendar"
-          shortcut={["⌘", "⇧", "C"]}
-          onClick={openCalendar}
         />
         <div className="my-1 h-px bg-neutral-200" />
         <ActionItem

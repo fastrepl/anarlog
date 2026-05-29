@@ -158,32 +158,6 @@ export function useMainTabsShortcuts({ onModT }: { onModT: () => void }) {
   );
 
   useHotkeys(
-    "mod+shift+c",
-    () => openNew({ type: "calendar" }),
-    {
-      preventDefault: true,
-      enableOnFormTags: true,
-      enableOnContentEditable: true,
-    },
-    [openNew],
-  );
-
-  useHotkeys(
-    "mod+shift+o",
-    () =>
-      openNew({
-        type: "contacts",
-        state: { selected: null },
-      }),
-    {
-      preventDefault: true,
-      enableOnFormTags: true,
-      enableOnContentEditable: true,
-    },
-    [openNew],
-  );
-
-  useHotkeys(
     "mod+shift+comma",
     () => openNew({ type: "settings", state: { tab: "transcription" } }),
     {
