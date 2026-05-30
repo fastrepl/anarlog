@@ -180,6 +180,7 @@ impl<S: QueryEventSink> LiveQueryRuntime<S> {
             return;
         };
 
+        let activation_seq = self.change_notifier.current_seq();
         let latest_dependency_seq = match analysis {
             DependencyAnalysis::Reactive { targets } => self
                 .catalog
@@ -190,9 +191,10 @@ impl<S: QueryEventSink> LiveQueryRuntime<S> {
                 .unwrap_or(baseline_seq),
             DependencyAnalysis::NonReactive { .. } => baseline_seq,
         };
+        let ignore_through_seq = latest_dependency_seq.max(activation_seq);
 
         self.subscriptions
-            .activate(watch_id, latest_dependency_seq)
+            .activate(watch_id, ignore_through_seq)
             .await;
 
         if latest_dependency_seq > baseline_seq {
