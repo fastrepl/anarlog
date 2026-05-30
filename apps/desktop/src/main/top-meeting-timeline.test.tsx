@@ -398,7 +398,7 @@ describe("TopMeetingTimeline", () => {
     );
   });
 
-  it("places the current time marker at the edge of active ad-hoc meetings", () => {
+  it("hides the current time marker during active ad-hoc meetings", () => {
     const now = new Date("2026-05-29T15:41:00.000Z");
     vi.useFakeTimers();
     vi.setSystemTime(now);
@@ -415,9 +415,7 @@ describe("TopMeetingTimeline", () => {
 
     render(<TopMeetingTimeline currentTab={null} />);
 
-    expect(screen.getByTestId("top-timeline-now-indicator").style.left).toBe(
-      "160px",
-    );
+    expect(screen.queryByTestId("top-timeline-now-indicator")).toBeNull();
   });
 
   it("shows the now chip on the left when the current time marker is behind the viewport", () => {

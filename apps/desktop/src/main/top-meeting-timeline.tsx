@@ -211,6 +211,7 @@ export function TopMeetingTimeline({ currentTab }: { currentTab: Tab | null }) {
       getTimelineCarouselNowX(carouselItems, new Date(currentTimeMs), timezone),
     [carouselItems, currentTimeMs, timezone],
   );
+  const showNowIndicator = nowIndicatorX !== null && !liveSessionId;
   const openCalendar = useCallback(
     () => openNew({ type: "calendar" }),
     [openNew],
@@ -431,7 +432,7 @@ export function TopMeetingTimeline({ currentTab }: { currentTab: Tab | null }) {
               width: carouselWidth,
             }}
           >
-            {nowIndicatorX !== null ? (
+            {showNowIndicator ? (
               <TopCurrentTimeIndicator
                 currentTimeMs={currentTimeMs}
                 left={nowIndicatorX}
