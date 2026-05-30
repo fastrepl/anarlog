@@ -97,6 +97,11 @@ describe("StandardTabWrapper", () => {
         .querySelector("[data-chat-floating-anchor]")
         ?.hasAttribute("data-main-has-after-border"),
     ).toBe(true);
+    expect(
+      document
+        .querySelector("[data-chat-floating-anchor]")
+        ?.hasAttribute("data-main-show-after-border-divider"),
+    ).toBe(true);
 
     const panels = screen.getAllByTestId("panel");
     expect(panels[0]?.dataset.defaultSize).toBe("78");
@@ -122,6 +127,16 @@ describe("StandardTabWrapper", () => {
     expect(screen.getByTestId("resize-handle").dataset.className).toContain(
       "data-[panel-group-direction=vertical]:h-0",
     );
+    expect(
+      document
+        .querySelector("[data-chat-floating-anchor]")
+        ?.hasAttribute("data-main-has-after-border"),
+    ).toBe(true);
+    expect(
+      document
+        .querySelector("[data-chat-floating-anchor]")
+        ?.hasAttribute("data-main-show-after-border-divider"),
+    ).toBe(true);
 
     const panels = screen.getAllByTestId("panel");
     expect(panels[1]?.dataset.className).toContain("min-h-[154px]");

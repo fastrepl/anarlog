@@ -78,6 +78,15 @@ describe("DuringSessionAccessory", () => {
     expect(view.container.firstChild).toBeNull();
   });
 
+  it("balances collapsed live transcript bottom padding with the top handle spacing", () => {
+    render(<DuringSessionAccessory sessionId="session-1" />);
+
+    const message = screen.getByText("All right, let's see.");
+    const row = message.parentElement?.parentElement;
+    expect(row?.className).toContain("pt-0.5");
+    expect(row?.className).toContain("pb-2");
+  });
+
   it("lets manual scrolling override expanded live transcript bottom pinning", () => {
     const view = render(
       <DuringSessionAccessory sessionId="session-1" isExpanded />,

@@ -202,6 +202,7 @@ describe("PostSessionAccessory", () => {
     const collapsedSlotClassName =
       screen.getByTestId("timeline").parentElement?.className;
     expect(collapsedSlotClassName).toContain("h-10");
+    expect(collapsedSlotClassName).toContain("-mt-1.5");
 
     unmount();
 
@@ -215,9 +216,10 @@ describe("PostSessionAccessory", () => {
       />,
     );
 
-    expect(screen.getByTestId("timeline").parentElement?.className).toBe(
-      collapsedSlotClassName,
-    );
+    const expandedSlotClassName =
+      screen.getByTestId("timeline").parentElement?.className;
+    expect(expandedSlotClassName).toContain("h-10");
+    expect(expandedSlotClassName).not.toContain("-mt-1.5");
   });
 
   it("lets expanded transcript content fill the resizable bottom panel", () => {

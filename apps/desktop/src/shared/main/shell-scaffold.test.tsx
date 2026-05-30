@@ -51,6 +51,15 @@ describe("MainShellScaffold", () => {
       "[&_[data-chat-floating-anchor]]:border-b-0",
     );
     expect(shell.className).toContain(
+      "[&_[data-chat-floating-anchor][data-main-show-after-border-divider]]:!border-b",
+    );
+    expect(shell.className).toContain(
+      "[&_[data-main-after-border-content][data-main-after-border-merged]_[data-session-transcript-card]]:border-x-0",
+    );
+    expect(shell.className).toContain(
+      "[&_[data-main-after-border-content][data-main-after-border-merged]_[data-session-transcript-card]]:border-t-0",
+    );
+    expect(shell.className).toContain(
       "[&_[data-chat-floating-anchor]]:border-t",
     );
   });
@@ -80,10 +89,16 @@ describe("MainShellScaffold", () => {
       "[&_[data-chat-floating-anchor]]:border-y-0",
     );
     expect(shell.className).toContain(
+      "[&_[data-chat-floating-anchor][data-main-show-after-border-divider]]:!border-b",
+    );
+    expect(shell.className).toContain(
       "[&_[data-chat-floating-anchor]]:border-r-0",
     );
     expect(shell.className).toContain(
       "[&_[data-chat-floating-anchor]]:border-l",
+    );
+    expect(shell.className).toContain(
+      "[&_[data-main-after-border-content][data-main-after-border-merged]_[data-session-transcript-card]]:border-t-0",
     );
   });
 });

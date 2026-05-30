@@ -28,6 +28,7 @@ export function ExpandToggle({
         "relative flex h-5 items-center justify-center gap-1",
         hasLabel ? "px-3" : "w-10",
         "rounded-t-[10px] rounded-b-none border-x border-t border-neutral-200",
+        "after:pointer-events-none after:absolute after:right-px after:-bottom-px after:left-px after:h-0.5 after:bg-inherit after:content-['']",
         "text-neutral-400",
         isExpanded
           ? (expandedClassName ?? "bg-white")

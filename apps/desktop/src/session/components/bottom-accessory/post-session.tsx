@@ -75,14 +75,29 @@ export function PostSessionAccessory({
           />
         </div>
       ) : null}
-      {timeline ? <TimelineSlot>{timeline}</TimelineSlot> : null}
+      {timeline ? (
+        <TimelineSlot flushTop={!isTranscriptExpanded}>{timeline}</TimelineSlot>
+      ) : null}
     </div>
   );
 }
 
-function TimelineSlot({ children }: { children: ReactNode }) {
+function TimelineSlot({
+  children,
+  flushTop = false,
+}: {
+  children: ReactNode;
+  flushTop?: boolean;
+}) {
   return (
-    <div className="flex h-10 w-full shrink-0 items-center">{children}</div>
+    <div
+      className={cn([
+        "flex h-10 w-full shrink-0 items-center",
+        flushTop && "-mt-1.5",
+      ])}
+    >
+      {children}
+    </div>
   );
 }
 
@@ -529,6 +544,7 @@ function TranscriptCard({
 }) {
   return (
     <div
+      data-session-transcript-card
       className={cn([
         "overflow-hidden rounded-b-xl border border-neutral-200 bg-white",
         fillHeight && "flex h-full flex-col",

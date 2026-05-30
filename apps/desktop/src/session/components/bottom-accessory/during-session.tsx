@@ -235,7 +235,7 @@ function CollapsedFooterMessage({ message }: { message: string }) {
   return (
     <div
       className={cn([
-        "flex min-h-7 items-center gap-2 px-2 py-0.5",
+        "flex min-h-7 items-center gap-2 px-2 pt-0.5 pb-2",
         "w-full max-w-full",
       ])}
     >

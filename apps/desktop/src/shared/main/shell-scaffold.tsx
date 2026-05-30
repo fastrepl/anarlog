@@ -32,14 +32,19 @@ export function MainShellScaffold({
             "[&_[data-chat-floating-anchor]]:border-x-0",
             "[&_[data-chat-floating-anchor]]:border-t",
             "[&_[data-chat-floating-anchor]]:border-b-0",
+            "[&_[data-chat-floating-anchor][data-main-show-after-border-divider]]:!border-b",
+            "[&_[data-main-after-border-content][data-main-after-border-merged]_[data-session-transcript-card]]:border-x-0",
+            "[&_[data-main-after-border-content][data-main-after-border-merged]_[data-session-transcript-card]]:border-t-0",
           ],
           resolvedMainSurfaceChrome === "left" && [
             "[&_[data-chat-floating-anchor]]:rounded-l-xl",
             "[&_[data-chat-floating-anchor]]:rounded-r-none",
             "[&_[data-chat-floating-anchor][data-main-has-after-border]]:rounded-bl-none",
             "[&_[data-chat-floating-anchor]]:border-y-0",
+            "[&_[data-chat-floating-anchor][data-main-show-after-border-divider]]:!border-b",
             "[&_[data-chat-floating-anchor]]:border-r-0",
             "[&_[data-chat-floating-anchor]]:border-l",
+            "[&_[data-main-after-border-content][data-main-after-border-merged]_[data-session-transcript-card]]:border-t-0",
           ],
         ])}
         data-testid="main-app-shell"

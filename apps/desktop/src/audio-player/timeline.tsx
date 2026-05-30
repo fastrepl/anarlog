@@ -175,7 +175,7 @@ export function Timeline() {
       main={
         <div
           ref={registerContainer}
-          className="h-6 min-w-0 flex-1 -translate-y-px"
+          className="h-6 min-w-0 flex-1"
           style={{ width: "100%" }}
         />
       }

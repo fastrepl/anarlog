@@ -301,8 +301,15 @@ function TabContentNoteInner({
     bottomAccessoryState?.mode === "live" ||
     bottomAccessoryState?.mode === "playback" ||
     bottomAccessoryState?.mode === "transcript_only";
+  const hasResizableTranscriptSurface =
+    bottomAccessoryState?.mode === "live" ||
+    bottomAccessoryState?.mode === "transcript_only" ||
+    (bottomAccessoryState?.mode === "playback" &&
+      (hasTranscript || sessionMode === "running_batch"));
   const resizeTranscriptSurface =
-    bottomAccessoryState?.expanded === true && canResizeTranscriptSurface;
+    bottomAccessoryState?.expanded === true &&
+    canResizeTranscriptSurface &&
+    hasResizableTranscriptSurface;
 
   return (
     <SessionSurface

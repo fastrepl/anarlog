@@ -147,6 +147,7 @@ function MainPanel({
       <div
         data-chat-floating-anchor
         data-main-has-after-border={afterBorder ? "" : undefined}
+        data-main-show-after-border-divider={afterBorder ? "" : undefined}
         className={cn([
           "relative flex min-h-0 flex-1 flex-col overflow-hidden bg-white",
           mergeAfterBorder && afterBorder
@@ -185,6 +186,8 @@ function AfterBorderContent({
 }) {
   return (
     <div
+      data-main-after-border-content
+      data-main-after-border-merged={mergeAfterBorder ? "" : undefined}
       className={cn([
         !mergeAfterBorder && (bottomBorderHandle ? "pt-1.5" : "mt-1"),
         fill && "flex h-full min-h-0 flex-col overflow-hidden",
