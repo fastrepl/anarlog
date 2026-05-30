@@ -52,8 +52,18 @@ export function useMainTabsShortcuts({ onModT }: { onModT: () => void }) {
         return;
       }
 
+      const fromProseMirrorEditor = isFromProseMirrorEditor(event.target);
+      const hadEditorEscapeConsumer =
+        fromProseMirrorEditor &&
+        document.querySelector("[data-editor-escape-consumer]") !== null;
+
       window.setTimeout(() => {
-        if (shouldSkipEscapeShortcut(event)) {
+        if (
+          shouldSkipEscapeShortcut(event, {
+            fromProseMirrorEditor,
+            hadEditorEscapeConsumer,
+          })
+        ) {
           return;
         }
 
@@ -236,16 +246,22 @@ export function useMainEscapeShortcutAction() {
   }, [chat.mode, chat.sendEvent]);
 }
 
-function shouldSkipEscapeShortcut(event: KeyboardEvent) {
+function shouldSkipEscapeShortcut(
+  event: KeyboardEvent,
+  {
+    fromProseMirrorEditor,
+    hadEditorEscapeConsumer,
+  }: { fromProseMirrorEditor: boolean; hadEditorEscapeConsumer: boolean },
+) {
   if (!event.defaultPrevented) {
     return false;
   }
 
-  if (!isFromProseMirrorEditor(event.target)) {
+  if (!fromProseMirrorEditor) {
     return true;
   }
 
-  return document.querySelector("[data-editor-escape-consumer]") !== null;
+  return hadEditorEscapeConsumer;
 }
 
 function isFromProseMirrorEditor(target: EventTarget | null) {

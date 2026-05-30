@@ -253,6 +253,34 @@ describe("useClassicMainTabsShortcuts", () => {
     expect(hoisted.select).not.toHaveBeenCalled();
   });
 
+  it("does not open home when an editor escape consumer unmounts before the shortcut runs", () => {
+    hoisted.currentTab = {
+      active: true,
+      slotId: "slot-session",
+      type: "sessions",
+    };
+    const editor = document.createElement("div");
+    editor.className = "ProseMirror";
+    editor.contentEditable = "true";
+    const menu = document.createElement("div");
+    menu.dataset.editorEscapeConsumer = "true";
+    editor.addEventListener("keydown", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      menu.remove();
+    });
+    document.body.append(editor, menu);
+
+    renderHook(() => useClassicMainTabsShortcuts());
+
+    dispatchEscape(editor);
+    vi.runOnlyPendingTimers();
+    editor.remove();
+
+    expect(hoisted.openCurrent).not.toHaveBeenCalled();
+    expect(hoisted.select).not.toHaveBeenCalled();
+  });
+
   it("selects an existing home tab on escape", () => {
     const homeTab = {
       active: false,
