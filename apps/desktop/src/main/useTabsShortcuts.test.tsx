@@ -225,6 +225,31 @@ describe("useClassicMainTabsShortcuts", () => {
     expect(hoisted.openCurrent).toHaveBeenCalledTimes(1);
   });
 
+  it("does not duplicate chat close when a focused target handles escape directly", () => {
+    hoisted.chatMode = "FloatingOpen";
+    hoisted.currentTab = {
+      active: true,
+      slotId: "slot-session",
+      type: "sessions",
+    };
+    const { result } = renderHook(() => useClassicMainTabsShortcuts());
+    const target = document.createElement("input");
+    target.addEventListener("keydown", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      result.current.runEscapeShortcut();
+    });
+    document.body.append(target);
+
+    dispatchEscape(target);
+    vi.runOnlyPendingTimers();
+    target.remove();
+
+    expect(hoisted.sendEvent).toHaveBeenCalledWith({ type: "CLOSE" });
+    expect(hoisted.sendEvent).toHaveBeenCalledTimes(1);
+    expect(hoisted.openCurrent).not.toHaveBeenCalled();
+  });
+
   it("lets editor escape consumers handle the key before opening home", () => {
     hoisted.currentTab = {
       active: true,
