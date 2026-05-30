@@ -15,109 +15,109 @@ msgstr ""
 
 #: src/settings/general/spoken-languages.tsx:177
 msgid "Add language"
-msgstr "Add language"
+msgstr "ഭാഷ ചേർക്കുക"
 
 #: src/settings/general/spoken-languages.tsx:175
 msgid "Add spoken language"
-msgstr "Add spoken language"
+msgstr "സംസാരിക്കുന്ന ഭാഷ ചേർക്കുക"
 
 #: src/settings/general/spoken-languages.tsx:116
 msgid "Additional spoken languages"
-msgstr "Additional spoken languages"
+msgstr "കൂടുതൽ സംസാരിക്കുന്ന ഭാഷകൾ"
 
-#: src/settings/general/index.tsx:163
+#: src/settings/general/index.tsx:151
 msgid "Always ready without manually launching."
-msgstr "Always ready without manually launching."
+msgstr "സ്വയം ലോഞ്ച് ചെയ്യാതെ എപ്പോഴും തയ്യാറാണ്."
 
 #: src/settings/general/app-settings.tsx:33
 msgid "App"
-msgstr "App"
+msgstr "ആപ്പ്"
 
-#: src/settings/general/index.tsx:170
+#: src/settings/general/index.tsx:158
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
-msgstr "Automatically start listening when an event-backed note reaches its scheduled start time."
+msgstr "ഒരു ഇവൻ്റ് പിന്തുണയുള്ള കുറിപ്പ് ഷെഡ്യൂൾ ചെയ്ത ആരംഭ സമയത്തിൽ എത്തുമ്പോൾ സ്വയമേവ കേൾക്കാൻ ആരംഭിക്കുക."
 
-#: src/settings/general/index.tsx:180
+#: src/settings/general/index.tsx:168
 msgid "Automatically stop listening when the meeting app releases the microphone."
-msgstr "Automatically stop listening when the meeting app releases the microphone."
+msgstr "മീറ്റിംഗ് ആപ്പ് മൈക്രോഫോൺ റിലീസ് ചെയ്യുമ്പോൾ കേൾക്കുന്നത് സ്വയമേവ നിർത്തുക."
 
-#: src/settings/general/index.tsx:276
+#: src/settings/general/index.tsx:264
 msgid "Data"
-msgstr "Data"
+msgstr "ഡാറ്റ"
 
-#: src/settings/general/index.tsx:225
+#: src/settings/general/index.tsx:213
 msgid "Language & Region"
-msgstr "Language & Region"
+msgstr "ഭാഷയും പ്രദേശവും"
 
 #: src/settings/general/main-language.tsx:53
 msgid "Language for summaries, chats, and AI-generated responses"
-msgstr "Language for summaries, chats, and AI-generated responses"
+msgstr "സംഗ്രഹങ്ങൾ, ചാറ്റുകൾ, AI സൃഷ്ടിച്ച പ്രതികരണങ്ങൾ എന്നിവയ്ക്കുള്ള ഭാഷ"
 
 #: src/settings/general/main-language.tsx:50
 msgid "Main language"
-msgstr "Main language"
+msgstr "പ്രധാന ഭാഷ"
 
 #: src/settings/general/app-settings.tsx:59
 msgid "Meetings"
-msgstr "Meetings"
+msgstr "മീറ്റിംഗുകൾ"
 
 #: src/settings/general/main-language.tsx:64
 #: src/settings/general/spoken-languages.tsx:218
 msgid "No matching languages found"
-msgstr "No matching languages found"
+msgstr "പൊരുത്തമുള്ള ഭാഷകളൊന്നും കണ്ടെത്തിയില്ല"
 
-#: src/settings/general/index.tsx:288
+#: src/settings/general/index.tsx:276
 msgid "Notifications"
-msgstr "Notifications"
+msgstr "അറിയിപ്പുകൾ"
 
 #: src/settings/general/main-language.tsx:63
 msgid "Search language..."
-msgstr "Search language..."
+msgstr "ഭാഷ തിരയുക..."
 
 #: src/settings/general/main-language.tsx:62
 msgid "Select language"
-msgstr "Select language"
+msgstr "ഭാഷ തിരഞ്ഞെടുക്കുക"
 
-#: src/settings/general/index.tsx:204
+#: src/settings/general/index.tsx:192
 msgid "Send anonymous usage analytics to help improve Anarlog."
-msgstr "Send anonymous usage analytics to help improve Anarlog."
+msgstr "അനാർലോഗ് മെച്ചപ്പെടുത്താൻ സഹായിക്കുന്നതിന് അജ്ഞാത ഉപയോഗ അനലിറ്റിക്‌സ് അയയ്‌ക്കുക."
 
 #: src/settings/index.tsx:36
 msgid "Settings"
-msgstr "Settings"
+msgstr "ക്രമീകരണങ്ങൾ"
 
-#: src/settings/general/index.tsx:203
+#: src/settings/general/index.tsx:191
 msgid "Share usage data"
-msgstr "Share usage data"
+msgstr "ഉപയോഗ ഡാറ്റ പങ്കിടുക"
 
-#: src/settings/general/index.tsx:186
+#: src/settings/general/index.tsx:174
 msgid "Show floating bar"
-msgstr "Show floating bar"
+msgstr "ഫ്ലോട്ടിംഗ് ബാർ കാണിക്കുക"
 
-#: src/settings/general/index.tsx:187
+#: src/settings/general/index.tsx:175
 msgid "Show the compact floating control while listening."
-msgstr "Show the compact floating control while listening."
+msgstr "ശ്രവിക്കുന്ന സമയത്ത് ഒതുക്കമുള്ള ഫ്ലോട്ടിംഗ് നിയന്ത്രണം കാണിക്കുക."
 
-#: src/settings/general/index.tsx:193
+#: src/settings/general/index.tsx:181
 msgid "Show timeline in sidebar"
-msgstr "Show timeline in sidebar"
+msgstr "സൈഡ്‌ബാറിൽ ടൈംലൈൻ കാണിക്കുക"
 
-#: src/settings/general/index.tsx:162
+#: src/settings/general/index.tsx:150
 msgid "Start Anarlog at login"
-msgstr "Start Anarlog at login"
+msgstr "ലോഗിൻ ചെയ്യുമ്പോൾ അനർലോഗ് ആരംഭിക്കുക"
 
-#: src/settings/general/index.tsx:169
+#: src/settings/general/index.tsx:157
 msgid "Start when meeting begins"
-msgstr "Start when meeting begins"
+msgstr "മീറ്റിംഗ് ആരംഭിക്കുമ്പോൾ ആരംഭിക്കുക"
 
-#: src/settings/general/index.tsx:179
+#: src/settings/general/index.tsx:167
 msgid "Stop when meeting ends"
-msgstr "Stop when meeting ends"
+msgstr "മീറ്റിംഗ് അവസാനിക്കുമ്പോൾ നിർത്തുക"
 
 #: src/settings/general/spoken-languages.tsx:119
 msgid "The main language is always included for transcription"
-msgstr "The main language is always included for transcription"
+msgstr "ട്രാൻസ്ക്രിപ്ഷനായി പ്രധാന ഭാഷ എപ്പോഴും ഉൾപ്പെടുത്തിയിട്ടുണ്ട്"
 
-#: src/settings/general/index.tsx:194
+#: src/settings/general/index.tsx:182
 msgid "Use the left sidebar timeline instead of the top timeline."
-msgstr "Use the left sidebar timeline instead of the top timeline."
+msgstr "മുകളിലെ ടൈംലൈനിന് പകരം ഇടത് സൈഡ്‌ബാർ ടൈംലൈൻ ഉപയോഗിക്കുക."

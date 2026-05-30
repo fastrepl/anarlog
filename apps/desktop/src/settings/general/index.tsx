@@ -1,15 +1,16 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { useForm } from "@tanstack/react-form";
-import { useQuery } from "@tanstack/react-query";
 import { disable, enable } from "@tauri-apps/plugin-autostart";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
-import { commands as listenerCommands } from "@hypr/plugin-transcription";
 import type { General, GeneralStorage } from "@hypr/store";
 
 export { SettingsAccount } from "./account";
 import { AppSettingsView } from "./app-settings";
-import { getAdditionalSpokenLanguages } from "./language";
+import {
+  CORE_TRANSCRIPTION_LANGUAGE_CODES,
+  getAdditionalSpokenLanguages,
+} from "./language";
 import { MainLanguageView } from "./main-language";
 import { NotificationSettingsView } from "./notification";
 import { Permissions } from "./permissions";
@@ -130,19 +131,6 @@ export function SettingsApp() {
   const { t } = useLingui();
   const { form } = useSettingsForm();
 
-  const supportedLanguagesQuery = useQuery({
-    queryKey: ["documented-language-codes", "live"],
-    queryFn: async () => {
-      const result = await listenerCommands.listDocumentedLanguageCodesLive();
-      if (result.status === "error") {
-        throw new Error(result.error);
-      }
-      return result.data;
-    },
-    staleTime: Infinity,
-  });
-  const supportedLanguages = supportedLanguagesQuery.data ?? ["en"];
-
   return (
     <div className="flex flex-col gap-8">
       <form.Field name="autostart">
@@ -239,7 +227,7 @@ export function SettingsApp() {
                     ),
                   );
                 }}
-                supportedLanguages={supportedLanguages}
+                supportedLanguages={CORE_TRANSCRIPTION_LANGUAGE_CODES}
               />
             )}
           </form.Field>
@@ -258,7 +246,7 @@ export function SettingsApp() {
                     ),
                   )
                 }
-                supportedLanguages={supportedLanguages}
+                supportedLanguages={CORE_TRANSCRIPTION_LANGUAGE_CODES}
               />
             )}
           </form.Field>

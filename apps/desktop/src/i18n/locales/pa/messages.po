@@ -15,109 +15,109 @@ msgstr ""
 
 #: src/settings/general/spoken-languages.tsx:177
 msgid "Add language"
-msgstr "Add language"
+msgstr "ਭਾਸ਼ਾ ਜੋੜੋ"
 
 #: src/settings/general/spoken-languages.tsx:175
 msgid "Add spoken language"
-msgstr "Add spoken language"
+msgstr "ਬੋਲੀ ਜਾਣ ਵਾਲੀ ਭਾਸ਼ਾ ਸ਼ਾਮਲ ਕਰੋ"
 
 #: src/settings/general/spoken-languages.tsx:116
 msgid "Additional spoken languages"
-msgstr "Additional spoken languages"
+msgstr "ਵਧੀਕ ਬੋਲੀਆਂ ਜਾਣ ਵਾਲੀਆਂ ਭਾਸ਼ਾਵਾਂ"
 
-#: src/settings/general/index.tsx:163
+#: src/settings/general/index.tsx:151
 msgid "Always ready without manually launching."
-msgstr "Always ready without manually launching."
+msgstr "ਹੱਥੀਂ ਲਾਂਚ ਕੀਤੇ ਬਿਨਾਂ ਹਮੇਸ਼ਾ ਤਿਆਰ।"
 
 #: src/settings/general/app-settings.tsx:33
 msgid "App"
-msgstr "App"
+msgstr "ਐਪ"
 
-#: src/settings/general/index.tsx:170
+#: src/settings/general/index.tsx:158
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
-msgstr "Automatically start listening when an event-backed note reaches its scheduled start time."
+msgstr "ਜਦੋਂ ਕੋਈ ਇਵੈਂਟ-ਬੈਕਡ ਨੋਟ ਆਪਣੇ ਨਿਰਧਾਰਤ ਸ਼ੁਰੂਆਤੀ ਸਮੇਂ 'ਤੇ ਪਹੁੰਚਦਾ ਹੈ ਤਾਂ ਆਪਣੇ ਆਪ ਸੁਣਨਾ ਸ਼ੁਰੂ ਕਰੋ।"
 
-#: src/settings/general/index.tsx:180
+#: src/settings/general/index.tsx:168
 msgid "Automatically stop listening when the meeting app releases the microphone."
-msgstr "Automatically stop listening when the meeting app releases the microphone."
+msgstr "ਮੀਟਿੰਗ ਐਪ ਮਾਈਕ੍ਰੋਫ਼ੋਨ ਨੂੰ ਰਿਲੀਜ਼ ਕਰਨ 'ਤੇ ਸਵੈਚਲਿਤ ਤੌਰ 'ਤੇ ਸੁਣਨਾ ਬੰਦ ਕਰੋ।"
 
-#: src/settings/general/index.tsx:276
+#: src/settings/general/index.tsx:264
 msgid "Data"
-msgstr "Data"
+msgstr "ਡਾਟਾ"
 
-#: src/settings/general/index.tsx:225
+#: src/settings/general/index.tsx:213
 msgid "Language & Region"
-msgstr "Language & Region"
+msgstr "ਭਾਸ਼ਾ ਅਤੇ ਖੇਤਰ"
 
 #: src/settings/general/main-language.tsx:53
 msgid "Language for summaries, chats, and AI-generated responses"
-msgstr "Language for summaries, chats, and AI-generated responses"
+msgstr "ਸਾਰਾਂ, ਚੈਟਾਂ, ਅਤੇ AI ਦੁਆਰਾ ਤਿਆਰ ਕੀਤੇ ਜਵਾਬਾਂ ਲਈ ਭਾਸ਼ਾ"
 
 #: src/settings/general/main-language.tsx:50
 msgid "Main language"
-msgstr "Main language"
+msgstr "ਮੁੱਖ ਭਾਸ਼ਾ"
 
 #: src/settings/general/app-settings.tsx:59
 msgid "Meetings"
-msgstr "Meetings"
+msgstr "ਮੀਟਿੰਗਾਂ"
 
 #: src/settings/general/main-language.tsx:64
 #: src/settings/general/spoken-languages.tsx:218
 msgid "No matching languages found"
-msgstr "No matching languages found"
+msgstr "ਕੋਈ ਮੇਲ ਖਾਂਦੀ ਭਾਸ਼ਾ ਨਹੀਂ ਮਿਲੀ"
 
-#: src/settings/general/index.tsx:288
+#: src/settings/general/index.tsx:276
 msgid "Notifications"
-msgstr "Notifications"
+msgstr "ਸੂਚਨਾਵਾਂ"
 
 #: src/settings/general/main-language.tsx:63
 msgid "Search language..."
-msgstr "Search language..."
+msgstr "ਭਾਸ਼ਾ ਖੋਜੋ..."
 
 #: src/settings/general/main-language.tsx:62
 msgid "Select language"
-msgstr "Select language"
+msgstr "ਭਾਸ਼ਾ ਚੁਣੋ"
 
-#: src/settings/general/index.tsx:204
+#: src/settings/general/index.tsx:192
 msgid "Send anonymous usage analytics to help improve Anarlog."
-msgstr "Send anonymous usage analytics to help improve Anarlog."
+msgstr "ਐਨਾਰਲੌਗ ਨੂੰ ਬਿਹਤਰ ਬਣਾਉਣ ਵਿੱਚ ਮਦਦ ਲਈ ਅਗਿਆਤ ਵਰਤੋਂ ਵਿਸ਼ਲੇਸ਼ਣ ਭੇਜੋ।"
 
 #: src/settings/index.tsx:36
 msgid "Settings"
-msgstr "Settings"
+msgstr "ਸੈਟਿੰਗਾਂ"
 
-#: src/settings/general/index.tsx:203
+#: src/settings/general/index.tsx:191
 msgid "Share usage data"
-msgstr "Share usage data"
+msgstr "ਵਰਤੋਂ ਡੇਟਾ ਸਾਂਝਾ ਕਰੋ"
 
-#: src/settings/general/index.tsx:186
+#: src/settings/general/index.tsx:174
 msgid "Show floating bar"
-msgstr "Show floating bar"
+msgstr "ਫਲੋਟਿੰਗ ਬਾਰ ਦਿਖਾਓ"
 
-#: src/settings/general/index.tsx:187
+#: src/settings/general/index.tsx:175
 msgid "Show the compact floating control while listening."
-msgstr "Show the compact floating control while listening."
+msgstr "ਸੁਣਦੇ ਸਮੇਂ ਸੰਖੇਪ ਫਲੋਟਿੰਗ ਕੰਟਰੋਲ ਦਿਖਾਓ।"
 
-#: src/settings/general/index.tsx:193
+#: src/settings/general/index.tsx:181
 msgid "Show timeline in sidebar"
-msgstr "Show timeline in sidebar"
+msgstr "ਸਾਈਡਬਾਰ ਵਿੱਚ ਟਾਈਮਲਾਈਨ ਦਿਖਾਓ"
 
-#: src/settings/general/index.tsx:162
+#: src/settings/general/index.tsx:150
 msgid "Start Anarlog at login"
-msgstr "Start Anarlog at login"
+msgstr "ਲੌਗਇਨ 'ਤੇ ਐਨਾਰਲੌਗ ਸ਼ੁਰੂ ਕਰੋ"
 
-#: src/settings/general/index.tsx:169
+#: src/settings/general/index.tsx:157
 msgid "Start when meeting begins"
-msgstr "Start when meeting begins"
+msgstr "ਮੀਟਿੰਗ ਸ਼ੁਰੂ ਹੋਣ 'ਤੇ ਸ਼ੁਰੂ ਕਰੋ"
 
-#: src/settings/general/index.tsx:179
+#: src/settings/general/index.tsx:167
 msgid "Stop when meeting ends"
-msgstr "Stop when meeting ends"
+msgstr "ਮੀਟਿੰਗ ਖਤਮ ਹੋਣ 'ਤੇ ਰੋਕੋ"
 
 #: src/settings/general/spoken-languages.tsx:119
 msgid "The main language is always included for transcription"
-msgstr "The main language is always included for transcription"
+msgstr "ਮੁੱਖ ਭਾਸ਼ਾ ਹਮੇਸ਼ਾ ਟ੍ਰਾਂਸਕ੍ਰਿਪਸ਼ਨ ਲਈ ਸ਼ਾਮਲ ਕੀਤੀ ਜਾਂਦੀ ਹੈ"
 
-#: src/settings/general/index.tsx:194
+#: src/settings/general/index.tsx:182
 msgid "Use the left sidebar timeline instead of the top timeline."
-msgstr "Use the left sidebar timeline instead of the top timeline."
+msgstr "ਟੌਪ ਟਾਈਮਲਾਈਨ ਦੀ ਬਜਾਏ ਖੱਬੀ ਸਾਈਡਬਾਰ ਟਾਈਮਲਾਈਨ ਦੀ ਵਰਤੋਂ ਕਰੋ।"

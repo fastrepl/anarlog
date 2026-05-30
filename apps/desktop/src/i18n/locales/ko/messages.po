@@ -25,7 +25,7 @@ msgstr "음성 언어 추가"
 msgid "Additional spoken languages"
 msgstr "추가 음성 언어"
 
-#: src/settings/general/index.tsx:163
+#: src/settings/general/index.tsx:151
 msgid "Always ready without manually launching."
 msgstr "수동으로 실행하지 않아도 항상 준비됩니다."
 
@@ -33,19 +33,19 @@ msgstr "수동으로 실행하지 않아도 항상 준비됩니다."
 msgid "App"
 msgstr "앱"
 
-#: src/settings/general/index.tsx:170
+#: src/settings/general/index.tsx:158
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "일정에 연결된 노트의 시작 시간이 되면 자동으로 듣기를 시작합니다."
 
-#: src/settings/general/index.tsx:180
+#: src/settings/general/index.tsx:168
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "회의 앱이 마이크를 해제하면 자동으로 듣기를 중지합니다."
 
-#: src/settings/general/index.tsx:276
+#: src/settings/general/index.tsx:264
 msgid "Data"
 msgstr "데이터"
 
-#: src/settings/general/index.tsx:225
+#: src/settings/general/index.tsx:213
 msgid "Language & Region"
 msgstr "언어 및 지역"
 
@@ -66,7 +66,7 @@ msgstr "회의"
 msgid "No matching languages found"
 msgstr "일치하는 언어를 찾을 수 없습니다"
 
-#: src/settings/general/index.tsx:288
+#: src/settings/general/index.tsx:276
 msgid "Notifications"
 msgstr "알림"
 
@@ -78,7 +78,7 @@ msgstr "언어 검색..."
 msgid "Select language"
 msgstr "언어 선택"
 
-#: src/settings/general/index.tsx:204
+#: src/settings/general/index.tsx:192
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Anarlog 개선을 위해 익명 사용 분석을 보냅니다."
 
@@ -86,31 +86,31 @@ msgstr "Anarlog 개선을 위해 익명 사용 분석을 보냅니다."
 msgid "Settings"
 msgstr "설정"
 
-#: src/settings/general/index.tsx:203
+#: src/settings/general/index.tsx:191
 msgid "Share usage data"
 msgstr "사용 데이터 공유"
 
-#: src/settings/general/index.tsx:186
+#: src/settings/general/index.tsx:174
 msgid "Show floating bar"
 msgstr "플로팅 바 표시"
 
-#: src/settings/general/index.tsx:187
+#: src/settings/general/index.tsx:175
 msgid "Show the compact floating control while listening."
 msgstr "듣는 동안 작은 플로팅 컨트롤을 표시합니다."
 
-#: src/settings/general/index.tsx:193
+#: src/settings/general/index.tsx:181
 msgid "Show timeline in sidebar"
 msgstr "사이드바에 타임라인 표시"
 
-#: src/settings/general/index.tsx:162
+#: src/settings/general/index.tsx:150
 msgid "Start Anarlog at login"
 msgstr "로그인 시 Anarlog 시작"
 
-#: src/settings/general/index.tsx:169
+#: src/settings/general/index.tsx:157
 msgid "Start when meeting begins"
 msgstr "회의 시작 시 시작"
 
-#: src/settings/general/index.tsx:179
+#: src/settings/general/index.tsx:167
 msgid "Stop when meeting ends"
 msgstr "회의 종료 시 중지"
 
@@ -118,6 +118,6 @@ msgstr "회의 종료 시 중지"
 msgid "The main language is always included for transcription"
 msgstr "기본 언어는 전사에 항상 포함됩니다"
 
-#: src/settings/general/index.tsx:194
+#: src/settings/general/index.tsx:182
 msgid "Use the left sidebar timeline instead of the top timeline."
 msgstr "상단 타임라인 대신 왼쪽 사이드바 타임라인을 사용합니다."

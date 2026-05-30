@@ -15,109 +15,109 @@ msgstr ""
 
 #: src/settings/general/spoken-languages.tsx:177
 msgid "Add language"
-msgstr "Add language"
+msgstr "Ampio fiteny"
 
 #: src/settings/general/spoken-languages.tsx:175
 msgid "Add spoken language"
-msgstr "Add spoken language"
+msgstr "Ampio fiteny ampiasaina"
 
 #: src/settings/general/spoken-languages.tsx:116
 msgid "Additional spoken languages"
-msgstr "Additional spoken languages"
+msgstr "Fiteny ampiasaina fanampiny"
 
-#: src/settings/general/index.tsx:163
+#: src/settings/general/index.tsx:151
 msgid "Always ready without manually launching."
-msgstr "Always ready without manually launching."
+msgstr "Vonona foana nefa tsy alefa amin'ny tanana."
 
 #: src/settings/general/app-settings.tsx:33
 msgid "App"
 msgstr "App"
 
-#: src/settings/general/index.tsx:170
+#: src/settings/general/index.tsx:158
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
-msgstr "Automatically start listening when an event-backed note reaches its scheduled start time."
+msgstr "Manomboka mihaino ho azy rehefa tonga amin'ny ora voatondro hanombohana ny naoty tohanan'ny hetsika."
 
-#: src/settings/general/index.tsx:180
+#: src/settings/general/index.tsx:168
 msgid "Automatically stop listening when the meeting app releases the microphone."
-msgstr "Automatically stop listening when the meeting app releases the microphone."
+msgstr "Atsaharo ho azy ny fihainoana rehefa mamoaka ny mikrô ny fampiharana fivoriana."
 
-#: src/settings/general/index.tsx:276
+#: src/settings/general/index.tsx:264
 msgid "Data"
-msgstr "Data"
+msgstr "NY FANAZAVANA"
 
-#: src/settings/general/index.tsx:225
+#: src/settings/general/index.tsx:213
 msgid "Language & Region"
-msgstr "Language & Region"
+msgstr "Fiteny & Faritra"
 
 #: src/settings/general/main-language.tsx:53
 msgid "Language for summaries, chats, and AI-generated responses"
-msgstr "Language for summaries, chats, and AI-generated responses"
+msgstr "Fiteny ho an'ny famintinana, resadresaka, ary valiny azo avy amin'ny AI"
 
 #: src/settings/general/main-language.tsx:50
 msgid "Main language"
-msgstr "Main language"
+msgstr "Fiteny fototra"
 
 #: src/settings/general/app-settings.tsx:59
 msgid "Meetings"
-msgstr "Meetings"
+msgstr "Fihaonana"
 
 #: src/settings/general/main-language.tsx:64
 #: src/settings/general/spoken-languages.tsx:218
 msgid "No matching languages found"
-msgstr "No matching languages found"
+msgstr "Tsy misy fiteny mifanandrify hita"
 
-#: src/settings/general/index.tsx:288
+#: src/settings/general/index.tsx:276
 msgid "Notifications"
-msgstr "Notifications"
+msgstr "Fampandrenesana"
 
 #: src/settings/general/main-language.tsx:63
 msgid "Search language..."
-msgstr "Search language..."
+msgstr "Fiteny fikarohana..."
 
 #: src/settings/general/main-language.tsx:62
 msgid "Select language"
-msgstr "Select language"
+msgstr "Misafidiana fiteny"
 
-#: src/settings/general/index.tsx:204
+#: src/settings/general/index.tsx:192
 msgid "Send anonymous usage analytics to help improve Anarlog."
-msgstr "Send anonymous usage analytics to help improve Anarlog."
+msgstr "Mandefa fanadihadiana momba ny fampiasana tsy mitonona anarana hanampy amin'ny fanatsarana Anarlog."
 
 #: src/settings/index.tsx:36
 msgid "Settings"
-msgstr "Settings"
+msgstr "Fikirana"
 
-#: src/settings/general/index.tsx:203
+#: src/settings/general/index.tsx:191
 msgid "Share usage data"
-msgstr "Share usage data"
+msgstr "Mizara angona fampiasana"
 
-#: src/settings/general/index.tsx:186
+#: src/settings/general/index.tsx:174
 msgid "Show floating bar"
-msgstr "Show floating bar"
+msgstr "Asehoy ny bara mitsingevana"
 
-#: src/settings/general/index.tsx:187
+#: src/settings/general/index.tsx:175
 msgid "Show the compact floating control while listening."
-msgstr "Show the compact floating control while listening."
+msgstr "Asehoy ny fanaraha-maso mitsingevana kanto eo am-pihainoana."
 
-#: src/settings/general/index.tsx:193
+#: src/settings/general/index.tsx:181
 msgid "Show timeline in sidebar"
-msgstr "Show timeline in sidebar"
+msgstr "Asehoy eo amin'ny sisin'ny sisiny ny zotram-potoana"
 
-#: src/settings/general/index.tsx:162
+#: src/settings/general/index.tsx:150
 msgid "Start Anarlog at login"
-msgstr "Start Anarlog at login"
+msgstr "Atombohy Anarlog amin'ny fidirana"
 
-#: src/settings/general/index.tsx:169
+#: src/settings/general/index.tsx:157
 msgid "Start when meeting begins"
-msgstr "Start when meeting begins"
+msgstr "Atombohy rehefa manomboka ny fivoriana"
 
-#: src/settings/general/index.tsx:179
+#: src/settings/general/index.tsx:167
 msgid "Stop when meeting ends"
-msgstr "Stop when meeting ends"
+msgstr "Atsaharo rehefa tapitra ny fivoriana"
 
 #: src/settings/general/spoken-languages.tsx:119
 msgid "The main language is always included for transcription"
-msgstr "The main language is always included for transcription"
+msgstr "Ampidirina foana ny fiteny fototra ho an'ny fandikana"
 
-#: src/settings/general/index.tsx:194
+#: src/settings/general/index.tsx:182
 msgid "Use the left sidebar timeline instead of the top timeline."
-msgstr "Use the left sidebar timeline instead of the top timeline."
+msgstr "Ampiasao ny tsipika ankavia ankavia fa tsy ny tsipika ambony."

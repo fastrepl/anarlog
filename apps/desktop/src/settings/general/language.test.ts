@@ -1,6 +1,9 @@
 import { describe, expect, test } from "vitest";
 
-import { getAdditionalSpokenLanguages } from "./language";
+import {
+  CORE_TRANSCRIPTION_LANGUAGE_CODES,
+  getAdditionalSpokenLanguages,
+} from "./language";
 
 describe("getAdditionalSpokenLanguages", () => {
   test("removes the main language from stored spoken languages", () => {
@@ -18,5 +21,17 @@ describe("getAdditionalSpokenLanguages", () => {
       "ko",
       "ja",
     ]);
+  });
+});
+
+describe("CORE_TRANSCRIPTION_LANGUAGE_CODES", () => {
+  test("uses languages supported by both Deepgram and Soniox", () => {
+    expect(CORE_TRANSCRIPTION_LANGUAGE_CODES).toContain("en");
+    expect(CORE_TRANSCRIPTION_LANGUAGE_CODES).toContain("zh");
+    expect(CORE_TRANSCRIPTION_LANGUAGE_CODES).toContain("sr");
+
+    expect(CORE_TRANSCRIPTION_LANGUAGE_CODES).not.toContain("af");
+    expect(CORE_TRANSCRIPTION_LANGUAGE_CODES).not.toContain("az");
+    expect(CORE_TRANSCRIPTION_LANGUAGE_CODES).not.toContain("sq");
   });
 });
