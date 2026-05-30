@@ -1,22 +1,19 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  chatMode: "FloatingClosed" as "FloatingClosed" | "ModalOpen",
-  sendEvent: vi.fn(),
+  persistentChatPanel: vi.fn(),
 }));
 
-vi.mock("~/contexts/shell", () => ({
-  useShell: () => ({
-    chat: {
-      mode: mocks.chatMode,
-      sendEvent: mocks.sendEvent,
-    },
-  }),
-}));
-
-vi.mock("~/chat/components/chat-panel", () => ({
-  ChatView: () => <div data-testid="chat-modal-content" />,
+vi.mock("~/chat/components/persistent-chat", () => ({
+  PersistentChatPanel: ({
+    floatingContainerRef,
+  }: {
+    floatingContainerRef: { current: HTMLDivElement | null };
+  }) => {
+    mocks.persistentChatPanel(floatingContainerRef);
+    return <div data-testid="persistent-chat-panel" />;
+  },
 }));
 
 import { MainChatPanels } from "./chat-panels";
@@ -24,11 +21,10 @@ import { MainChatPanels } from "./chat-panels";
 describe("MainChatPanels", () => {
   beforeEach(() => {
     cleanup();
-    mocks.chatMode = "FloatingClosed";
-    mocks.sendEvent.mockClear();
+    mocks.persistentChatPanel.mockClear();
   });
 
-  it("renders the main content without a side chat panel", () => {
+  it("renders the main content and persistent floating chat host", () => {
     render(
       <MainChatPanels>
         <div data-testid="main-content" />
@@ -36,38 +32,13 @@ describe("MainChatPanels", () => {
     );
 
     expect(screen.getByTestId("main-content")).toBeTruthy();
+    expect(screen.getByTestId("persistent-chat-panel")).toBeTruthy();
+    expect(mocks.persistentChatPanel).toHaveBeenCalledTimes(1);
+    expect(mocks.persistentChatPanel.mock.calls[0]?.[0].current).toBeInstanceOf(
+      HTMLDivElement,
+    );
     expect(screen.queryByTestId("resize-handle")).toBeNull();
     expect(screen.queryByTestId("panel")).toBeNull();
     expect(screen.queryByRole("dialog")).toBeNull();
-  });
-
-  it("renders the chat modal inside the main area", () => {
-    mocks.chatMode = "ModalOpen";
-
-    render(
-      <MainChatPanels>
-        <div data-testid="main-content" />
-      </MainChatPanels>,
-    );
-
-    expect(screen.getByTestId("main-content")).toBeTruthy();
-    expect(screen.getByRole("dialog", { name: "Ask Anarlog AI" })).toBeTruthy();
-    expect(screen.getByTestId("chat-modal-content")).toBeTruthy();
-    expect(screen.queryByTestId("resize-handle")).toBeNull();
-    expect(screen.queryByTestId("panel")).toBeNull();
-  });
-
-  it("closes the chat modal from the backdrop", () => {
-    mocks.chatMode = "ModalOpen";
-
-    render(
-      <MainChatPanels>
-        <div data-testid="main-content" />
-      </MainChatPanels>,
-    );
-
-    fireEvent.click(screen.getByRole("dialog", { name: "Ask Anarlog AI" }));
-
-    expect(mocks.sendEvent).toHaveBeenCalledWith({ type: "CLOSE" });
   });
 });

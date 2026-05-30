@@ -2,7 +2,7 @@ import { cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const hoisted = vi.hoisted(() => ({
-  chatMode: "FloatingClosed" as "FloatingClosed" | "ModalOpen",
+  chatMode: "FloatingClosed" as "FloatingClosed" | "FloatingOpen",
   currentTab: null as null | { active: boolean; slotId: string; type: string },
   handlers: new Map<string, (event?: { defaultPrevented: boolean }) => void>(),
   openCurrent: vi.fn(),
@@ -186,8 +186,8 @@ describe("useClassicMainTabsShortcuts", () => {
     expect(hoisted.openCurrent).not.toHaveBeenCalled();
   });
 
-  it("closes the chat modal before going home on escape", () => {
-    hoisted.chatMode = "ModalOpen";
+  it("closes the floating chat before going home on escape", () => {
+    hoisted.chatMode = "FloatingOpen";
     hoisted.currentTab = {
       active: true,
       slotId: "slot-session",

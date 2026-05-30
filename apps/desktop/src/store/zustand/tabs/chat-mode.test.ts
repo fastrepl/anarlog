@@ -12,20 +12,20 @@ describe("Chat Mode", () => {
     expect(useTabs.getState().chatMode).toBe("FloatingClosed");
   });
 
-  test("TOGGLE from FloatingClosed to ModalOpen", () => {
+  test("TOGGLE from FloatingClosed to FloatingOpen", () => {
     useTabs.getState().transitionChatMode({ type: "TOGGLE" });
-    expect(useTabs.getState().chatMode).toBe("ModalOpen");
+    expect(useTabs.getState().chatMode).toBe("FloatingOpen");
   });
 
-  test("TOGGLE from ModalOpen to FloatingClosed", () => {
+  test("TOGGLE from FloatingOpen to FloatingClosed", () => {
     useTabs.getState().transitionChatMode({ type: "TOGGLE" });
     useTabs.getState().transitionChatMode({ type: "TOGGLE" });
     expect(useTabs.getState().chatMode).toBe("FloatingClosed");
   });
 
-  test("OPEN from FloatingClosed to ModalOpen", () => {
+  test("OPEN from FloatingClosed to FloatingOpen", () => {
     useTabs.getState().transitionChatMode({ type: "OPEN" });
-    expect(useTabs.getState().chatMode).toBe("ModalOpen");
+    expect(useTabs.getState().chatMode).toBe("FloatingOpen");
   });
 
   test("no-op when event is irrelevant for current state", () => {
@@ -37,21 +37,21 @@ describe("Chat Mode", () => {
     const session = createSessionTab();
     useTabs.getState().openNew(session);
     useTabs.getState().transitionChatMode({ type: "OPEN" });
-    expect(useTabs.getState().chatMode).toBe("ModalOpen");
+    expect(useTabs.getState().chatMode).toBe("FloatingOpen");
 
     const sessionTab = useTabs
       .getState()
       .tabs.find((t) => t.type === "sessions")!;
     useTabs.getState().close(sessionTab);
-    expect(useTabs.getState().chatMode).toBe("ModalOpen");
+    expect(useTabs.getState().chatMode).toBe("FloatingOpen");
   });
 
-  test("closeAll leaves the modal chat mode unchanged", () => {
+  test("closeAll leaves the floating chat mode unchanged", () => {
     const session = createSessionTab();
     useTabs.getState().openNew(session);
     useTabs.getState().transitionChatMode({ type: "OPEN" });
 
     useTabs.getState().closeAll();
-    expect(useTabs.getState().chatMode).toBe("ModalOpen");
+    expect(useTabs.getState().chatMode).toBe("FloatingOpen");
   });
 });
