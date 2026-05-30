@@ -1,0 +1,123 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-05-19 13:42+0900\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: zh\n"
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Plural-Forms: \n"
+
+#: src/settings/general/spoken-languages.tsx:177
+msgid "Add language"
+msgstr "添加语言"
+
+#: src/settings/general/spoken-languages.tsx:175
+msgid "Add spoken language"
+msgstr "添加口语语言"
+
+#: src/settings/general/spoken-languages.tsx:116
+msgid "Additional spoken languages"
+msgstr "其他口语语言"
+
+#: src/settings/general/index.tsx:163
+msgid "Always ready without manually launching."
+msgstr "无需手动启动，随时就绪。"
+
+#: src/settings/general/app-settings.tsx:33
+msgid "App"
+msgstr "应用"
+
+#: src/settings/general/index.tsx:170
+msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
+msgstr "当关联日程的笔记到达预定开始时间时，自动开始聆听。"
+
+#: src/settings/general/index.tsx:180
+msgid "Automatically stop listening when the meeting app releases the microphone."
+msgstr "当会议应用释放麦克风时，自动停止聆听。"
+
+#: src/settings/general/index.tsx:276
+msgid "Data"
+msgstr "数据"
+
+#: src/settings/general/index.tsx:225
+msgid "Language & Region"
+msgstr "语言和地区"
+
+#: src/settings/general/main-language.tsx:53
+msgid "Language for summaries, chats, and AI-generated responses"
+msgstr "摘要、聊天和 AI 生成回复使用的语言"
+
+#: src/settings/general/main-language.tsx:50
+msgid "Main language"
+msgstr "主要语言"
+
+#: src/settings/general/app-settings.tsx:59
+msgid "Meetings"
+msgstr "会议"
+
+#: src/settings/general/main-language.tsx:64
+#: src/settings/general/spoken-languages.tsx:218
+msgid "No matching languages found"
+msgstr "未找到匹配的语言"
+
+#: src/settings/general/index.tsx:288
+msgid "Notifications"
+msgstr "通知"
+
+#: src/settings/general/main-language.tsx:63
+msgid "Search language..."
+msgstr "搜索语言..."
+
+#: src/settings/general/main-language.tsx:62
+msgid "Select language"
+msgstr "选择语言"
+
+#: src/settings/general/index.tsx:204
+msgid "Send anonymous usage analytics to help improve Anarlog."
+msgstr "发送匿名使用分析，帮助改进 Anarlog。"
+
+#: src/settings/index.tsx:36
+msgid "Settings"
+msgstr "设置"
+
+#: src/settings/general/index.tsx:203
+msgid "Share usage data"
+msgstr "分享使用数据"
+
+#: src/settings/general/index.tsx:186
+msgid "Show floating bar"
+msgstr "显示浮动栏"
+
+#: src/settings/general/index.tsx:187
+msgid "Show the compact floating control while listening."
+msgstr "聆听时显示紧凑的浮动控件。"
+
+#: src/settings/general/index.tsx:193
+msgid "Show timeline in sidebar"
+msgstr "在侧边栏显示时间线"
+
+#: src/settings/general/index.tsx:162
+msgid "Start Anarlog at login"
+msgstr "登录时启动 Anarlog"
+
+#: src/settings/general/index.tsx:169
+msgid "Start when meeting begins"
+msgstr "会议开始时启动"
+
+#: src/settings/general/index.tsx:179
+msgid "Stop when meeting ends"
+msgstr "会议结束时停止"
+
+#: src/settings/general/spoken-languages.tsx:119
+msgid "The main language is always included for transcription"
+msgstr "主要语言始终包含在转录中"
+
+#: src/settings/general/index.tsx:194
+msgid "Use the left sidebar timeline instead of the top timeline."
+msgstr "使用左侧边栏时间线，而不是顶部时间线。"

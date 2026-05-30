@@ -4,11 +4,12 @@ import { resolveDisplayLocale } from "./locales";
 
 describe("resolveDisplayLocale", () => {
   test("uses exact supported locales", () => {
-    expect(resolveDisplayLocale("ko")).toBe("ko");
+    expect(resolveDisplayLocale("es")).toBe("es");
   });
 
   test("uses base language for regional variants", () => {
-    expect(resolveDisplayLocale("ja-JP")).toBe("ja");
+    expect(resolveDisplayLocale("pt-BR")).toBe("pt");
+    expect(resolveDisplayLocale("zh-Hans")).toBe("zh");
   });
 
   test("falls back to English for unsupported languages", () => {

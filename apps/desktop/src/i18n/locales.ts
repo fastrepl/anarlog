@@ -1,6 +1,16 @@
 export const SOURCE_LOCALE = "en";
 
-export const SUPPORTED_DISPLAY_LOCALES = ["en", "ko", "ja"] as const;
+export const SUPPORTED_DISPLAY_LOCALES = [
+  "en",
+  "de",
+  "es",
+  "fr",
+  "it",
+  "ja",
+  "ko",
+  "pt",
+  "zh",
+] as const;
 
 export type DisplayLocale = (typeof SUPPORTED_DISPLAY_LOCALES)[number];
 

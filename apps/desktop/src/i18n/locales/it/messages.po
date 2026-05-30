@@ -1,0 +1,123 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-05-19 13:42+0900\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: it\n"
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Plural-Forms: \n"
+
+#: src/settings/general/spoken-languages.tsx:177
+msgid "Add language"
+msgstr "Aggiungi lingua"
+
+#: src/settings/general/spoken-languages.tsx:175
+msgid "Add spoken language"
+msgstr "Aggiungi lingua parlata"
+
+#: src/settings/general/spoken-languages.tsx:116
+msgid "Additional spoken languages"
+msgstr "Lingue parlate aggiuntive"
+
+#: src/settings/general/index.tsx:163
+msgid "Always ready without manually launching."
+msgstr "Sempre disponibile senza avvio manuale."
+
+#: src/settings/general/app-settings.tsx:33
+msgid "App"
+msgstr "App"
+
+#: src/settings/general/index.tsx:170
+msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
+msgstr "Avvia automaticamente l'ascolto quando una nota collegata a un evento raggiunge l'orario di inizio programmato."
+
+#: src/settings/general/index.tsx:180
+msgid "Automatically stop listening when the meeting app releases the microphone."
+msgstr "Interrompi automaticamente l'ascolto quando l'app per riunioni rilascia il microfono."
+
+#: src/settings/general/index.tsx:276
+msgid "Data"
+msgstr "Dati"
+
+#: src/settings/general/index.tsx:225
+msgid "Language & Region"
+msgstr "Lingua e regione"
+
+#: src/settings/general/main-language.tsx:53
+msgid "Language for summaries, chats, and AI-generated responses"
+msgstr "Lingua per riepiloghi, chat e risposte generate dall'IA"
+
+#: src/settings/general/main-language.tsx:50
+msgid "Main language"
+msgstr "Lingua principale"
+
+#: src/settings/general/app-settings.tsx:59
+msgid "Meetings"
+msgstr "Riunioni"
+
+#: src/settings/general/main-language.tsx:64
+#: src/settings/general/spoken-languages.tsx:218
+msgid "No matching languages found"
+msgstr "Nessuna lingua corrispondente trovata"
+
+#: src/settings/general/index.tsx:288
+msgid "Notifications"
+msgstr "Notifiche"
+
+#: src/settings/general/main-language.tsx:63
+msgid "Search language..."
+msgstr "Cerca lingua..."
+
+#: src/settings/general/main-language.tsx:62
+msgid "Select language"
+msgstr "Seleziona lingua"
+
+#: src/settings/general/index.tsx:204
+msgid "Send anonymous usage analytics to help improve Anarlog."
+msgstr "Invia analisi anonime sull'utilizzo per aiutare a migliorare Anarlog."
+
+#: src/settings/index.tsx:36
+msgid "Settings"
+msgstr "Impostazioni"
+
+#: src/settings/general/index.tsx:203
+msgid "Share usage data"
+msgstr "Condividi dati di utilizzo"
+
+#: src/settings/general/index.tsx:186
+msgid "Show floating bar"
+msgstr "Mostra barra flottante"
+
+#: src/settings/general/index.tsx:187
+msgid "Show the compact floating control while listening."
+msgstr "Mostra il controllo flottante compatto durante l'ascolto."
+
+#: src/settings/general/index.tsx:193
+msgid "Show timeline in sidebar"
+msgstr "Mostra sequenza temporale nella barra laterale"
+
+#: src/settings/general/index.tsx:162
+msgid "Start Anarlog at login"
+msgstr "Avvia Anarlog all'accesso"
+
+#: src/settings/general/index.tsx:169
+msgid "Start when meeting begins"
+msgstr "Avvia all'inizio della riunione"
+
+#: src/settings/general/index.tsx:179
+msgid "Stop when meeting ends"
+msgstr "Interrompi alla fine della riunione"
+
+#: src/settings/general/spoken-languages.tsx:119
+msgid "The main language is always included for transcription"
+msgstr "La lingua principale è sempre inclusa per la trascrizione"
+
+#: src/settings/general/index.tsx:194
+msgid "Use the left sidebar timeline instead of the top timeline."
+msgstr "Usa la sequenza temporale nella barra laterale sinistra invece di quella superiore."
