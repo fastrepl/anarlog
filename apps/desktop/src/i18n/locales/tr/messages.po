@@ -25,27 +25,27 @@ msgstr "Konuşulan dili ekle"
 msgid "Additional spoken languages"
 msgstr "Ek konuşulan diller"
 
-#: src/settings/general/index.tsx:151
+#: src/settings/general/index.tsx:157
 msgid "Always ready without manually launching."
 msgstr "Manuel olarak başlatmaya gerek kalmadan her zaman hazır."
 
-#: src/settings/general/app-settings.tsx:33
+#: src/settings/general/app-settings.tsx:35
 msgid "App"
 msgstr "Uygulama"
 
-#: src/settings/general/index.tsx:158
+#: src/settings/general/index.tsx:164
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Etkinlik destekli not, planlanan başlangıç saatine ulaştığında otomatik olarak dinlemeye başlayın."
 
-#: src/settings/general/index.tsx:168
+#: src/settings/general/index.tsx:175
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Toplantı uygulaması mikrofonu bıraktığında dinleme otomatik olarak durdurulur."
 
-#: src/settings/general/index.tsx:264
+#: src/settings/general/index.tsx:287
 msgid "Data"
 msgstr "Veriler"
 
-#: src/settings/general/index.tsx:213
+#: src/settings/general/index.tsx:236
 msgid "Language & Region"
 msgstr "Dil ve Bölge"
 
@@ -57,7 +57,7 @@ msgstr "Özetler, sohbetler ve yapay zeka tarafından oluşturulan yanıtlar iç
 msgid "Main language"
 msgstr "Ana dil"
 
-#: src/settings/general/app-settings.tsx:59
+#: src/settings/general/app-settings.tsx:67
 msgid "Meetings"
 msgstr "Toplantılar"
 
@@ -66,7 +66,7 @@ msgstr "Toplantılar"
 msgid "No matching languages found"
 msgstr "Eşleşen dil bulunamadı"
 
-#: src/settings/general/index.tsx:276
+#: src/settings/general/index.tsx:299
 msgid "Notifications"
 msgstr "Bildirimler"
 
@@ -78,7 +78,7 @@ msgstr "Dil ara..."
 msgid "Select language"
 msgstr "Dil seçin"
 
-#: src/settings/general/index.tsx:192
+#: src/settings/general/index.tsx:213
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Anarlog'un iyileştirilmesine yardımcı olmak için anonim kullanım analizleri gönderin."
 
@@ -86,31 +86,39 @@ msgstr "Anarlog'un iyileştirilmesine yardımcı olmak için anonim kullanım an
 msgid "Settings"
 msgstr "Ayarlar"
 
-#: src/settings/general/index.tsx:191
+#: src/settings/general/index.tsx:212
 msgid "Share usage data"
 msgstr "Kullanım verilerini paylaşın"
 
-#: src/settings/general/index.tsx:174
+#: src/settings/general/index.tsx:201
+msgid "Show Devtools panel"
+msgstr ""
+
+#: src/settings/general/index.tsx:181
 msgid "Show floating bar"
 msgstr "Kayan çubuğu göster"
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/index.tsx:182
 msgid "Show the compact floating control while listening."
 msgstr "Dinlerken kompakt değişken kontrolü gösterin."
 
-#: src/settings/general/index.tsx:181
+#: src/settings/general/index.tsx:202
+msgid "Show the native floating control panel."
+msgstr ""
+
+#: src/settings/general/index.tsx:191
 msgid "Show timeline in sidebar"
 msgstr "Kenar çubuğunda zaman çizelgesini göster"
 
-#: src/settings/general/index.tsx:150
+#: src/settings/general/index.tsx:156
 msgid "Start Anarlog at login"
 msgstr "Giriş sırasında Anarlog'u başlatın"
 
-#: src/settings/general/index.tsx:157
+#: src/settings/general/index.tsx:163
 msgid "Start when meeting begins"
 msgstr "Toplantı başladığında başla"
 
-#: src/settings/general/index.tsx:167
+#: src/settings/general/index.tsx:174
 msgid "Stop when meeting ends"
 msgstr "Toplantı sona erdiğinde dur"
 
@@ -118,6 +126,6 @@ msgstr "Toplantı sona erdiğinde dur"
 msgid "The main language is always included for transcription"
 msgstr "Çeviri yazıya her zaman ana dil dahil edilir"
 
-#: src/settings/general/index.tsx:182
+#: src/settings/general/index.tsx:192
 msgid "Use the left sidebar timeline instead of the top timeline."
 msgstr "Üstteki zaman çizelgesi yerine sol kenar çubuğu zaman çizelgesini kullanın."

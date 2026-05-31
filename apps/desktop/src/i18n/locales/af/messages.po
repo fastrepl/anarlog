@@ -25,27 +25,27 @@ msgstr "Voeg gesproke taal by"
 msgid "Additional spoken languages"
 msgstr "Bykomende gesproke tale"
 
-#: src/settings/general/index.tsx:151
+#: src/settings/general/index.tsx:157
 msgid "Always ready without manually launching."
 msgstr "Altyd gereed sonder om handmatig te begin."
 
-#: src/settings/general/app-settings.tsx:33
+#: src/settings/general/app-settings.tsx:35
 msgid "App"
 msgstr "Toepassing"
 
-#: src/settings/general/index.tsx:158
+#: src/settings/general/index.tsx:164
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Begin outomaties luister wanneer 'n gebeurtenis-gesteunde noot sy geskeduleerde begintyd bereik."
 
-#: src/settings/general/index.tsx:168
+#: src/settings/general/index.tsx:175
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Hou outomaties op om te luister wanneer die vergaderingprogram die mikrofoon vrystel."
 
-#: src/settings/general/index.tsx:264
+#: src/settings/general/index.tsx:287
 msgid "Data"
 msgstr "Data"
 
-#: src/settings/general/index.tsx:213
+#: src/settings/general/index.tsx:236
 msgid "Language & Region"
 msgstr "Taal en streek"
 
@@ -57,7 +57,7 @@ msgstr "Taal vir opsommings, kletse en KI-gegenereerde antwoorde"
 msgid "Main language"
 msgstr "Hooftaal"
 
-#: src/settings/general/app-settings.tsx:59
+#: src/settings/general/app-settings.tsx:67
 msgid "Meetings"
 msgstr "Vergaderings"
 
@@ -66,7 +66,7 @@ msgstr "Vergaderings"
 msgid "No matching languages found"
 msgstr "Geen passende tale gevind nie"
 
-#: src/settings/general/index.tsx:276
+#: src/settings/general/index.tsx:299
 msgid "Notifications"
 msgstr "Kennisgewings"
 
@@ -78,7 +78,7 @@ msgstr "Soek taal..."
 msgid "Select language"
 msgstr "Kies taal"
 
-#: src/settings/general/index.tsx:192
+#: src/settings/general/index.tsx:213
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Stuur anonieme gebruikontledings om Anarlog te help verbeter."
 
@@ -86,31 +86,39 @@ msgstr "Stuur anonieme gebruikontledings om Anarlog te help verbeter."
 msgid "Settings"
 msgstr "Instellings"
 
-#: src/settings/general/index.tsx:191
+#: src/settings/general/index.tsx:212
 msgid "Share usage data"
 msgstr "Deel gebruiksdata"
 
-#: src/settings/general/index.tsx:174
+#: src/settings/general/index.tsx:201
+msgid "Show Devtools panel"
+msgstr ""
+
+#: src/settings/general/index.tsx:181
 msgid "Show floating bar"
 msgstr "Wys drywende balk"
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/index.tsx:182
 msgid "Show the compact floating control while listening."
 msgstr "Wys die kompakte drywende beheer terwyl jy luister."
 
-#: src/settings/general/index.tsx:181
+#: src/settings/general/index.tsx:202
+msgid "Show the native floating control panel."
+msgstr ""
+
+#: src/settings/general/index.tsx:191
 msgid "Show timeline in sidebar"
 msgstr "Wys tydlyn in sybalk"
 
-#: src/settings/general/index.tsx:150
+#: src/settings/general/index.tsx:156
 msgid "Start Anarlog at login"
 msgstr "Begin Anarlog by aanmelding"
 
-#: src/settings/general/index.tsx:157
+#: src/settings/general/index.tsx:163
 msgid "Start when meeting begins"
 msgstr "Begin wanneer vergadering begin"
 
-#: src/settings/general/index.tsx:167
+#: src/settings/general/index.tsx:174
 msgid "Stop when meeting ends"
 msgstr "Stop wanneer vergadering eindig"
 
@@ -118,6 +126,6 @@ msgstr "Stop wanneer vergadering eindig"
 msgid "The main language is always included for transcription"
 msgstr "Die hooftaal is altyd ingesluit vir transkripsie"
 
-#: src/settings/general/index.tsx:182
+#: src/settings/general/index.tsx:192
 msgid "Use the left sidebar timeline instead of the top timeline."
 msgstr "Gebruik die linkerkantbalk-tydlyn in plaas van die boonste tydlyn."

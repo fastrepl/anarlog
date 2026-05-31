@@ -25,27 +25,27 @@ msgstr "பேசும் மொழியைச் சேர்"
 msgid "Additional spoken languages"
 msgstr "கூடுதல் பேசும் மொழிகள்"
 
-#: src/settings/general/index.tsx:151
+#: src/settings/general/index.tsx:157
 msgid "Always ready without manually launching."
 msgstr "கைமுறையாகத் தொடங்காமல் எப்போதும் தயார்."
 
-#: src/settings/general/app-settings.tsx:33
+#: src/settings/general/app-settings.tsx:35
 msgid "App"
 msgstr "பயன்பாடு"
 
-#: src/settings/general/index.tsx:158
+#: src/settings/general/index.tsx:164
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "நிகழ்வு ஆதரவுக் குறிப்பு அதன் திட்டமிடப்பட்ட தொடக்க நேரத்தை அடையும் போது தானாகவே கேட்கத் தொடங்கும்."
 
-#: src/settings/general/index.tsx:168
+#: src/settings/general/index.tsx:175
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "மீட்டிங் ஆப்ஸ் மைக்ரோஃபோனை வெளியிடும் போது தானாகவே கேட்பதை நிறுத்துங்கள்."
 
-#: src/settings/general/index.tsx:264
+#: src/settings/general/index.tsx:287
 msgid "Data"
 msgstr "தரவு"
 
-#: src/settings/general/index.tsx:213
+#: src/settings/general/index.tsx:236
 msgid "Language & Region"
 msgstr "மொழி & பகுதி"
 
@@ -57,7 +57,7 @@ msgstr "சுருக்கங்கள், அரட்டைகள் மற
 msgid "Main language"
 msgstr "முக்கிய மொழி"
 
-#: src/settings/general/app-settings.tsx:59
+#: src/settings/general/app-settings.tsx:67
 msgid "Meetings"
 msgstr "கூட்டங்கள்"
 
@@ -66,7 +66,7 @@ msgstr "கூட்டங்கள்"
 msgid "No matching languages found"
 msgstr "பொருந்தும் மொழிகள் எதுவும் இல்லை"
 
-#: src/settings/general/index.tsx:276
+#: src/settings/general/index.tsx:299
 msgid "Notifications"
 msgstr "அறிவிப்புகள்"
 
@@ -78,7 +78,7 @@ msgstr "தேடல் மொழி..."
 msgid "Select language"
 msgstr "மொழியைத் தேர்ந்தெடு"
 
-#: src/settings/general/index.tsx:192
+#: src/settings/general/index.tsx:213
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Anarlog ஐ மேம்படுத்த உதவ அநாமதேய பயன்பாட்டு பகுப்பாய்வுகளை அனுப்பவும்."
 
@@ -86,31 +86,39 @@ msgstr "Anarlog ஐ மேம்படுத்த உதவ அநாமதே�
 msgid "Settings"
 msgstr "அமைப்புகள்"
 
-#: src/settings/general/index.tsx:191
+#: src/settings/general/index.tsx:212
 msgid "Share usage data"
 msgstr "பயன்பாட்டுத் தரவைப் பகிரவும்"
 
-#: src/settings/general/index.tsx:174
+#: src/settings/general/index.tsx:201
+msgid "Show Devtools panel"
+msgstr ""
+
+#: src/settings/general/index.tsx:181
 msgid "Show floating bar"
 msgstr "மிதக்கும் பட்டியைக் காட்டு"
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/index.tsx:182
 msgid "Show the compact floating control while listening."
 msgstr "கேட்கும்போது சிறிய மிதக்கும் கட்டுப்பாட்டைக் காட்டு."
 
-#: src/settings/general/index.tsx:181
+#: src/settings/general/index.tsx:202
+msgid "Show the native floating control panel."
+msgstr ""
+
+#: src/settings/general/index.tsx:191
 msgid "Show timeline in sidebar"
 msgstr "பக்கப்பட்டியில் காலவரிசையைக் காட்டு"
 
-#: src/settings/general/index.tsx:150
+#: src/settings/general/index.tsx:156
 msgid "Start Anarlog at login"
 msgstr "உள்நுழைவில் Anarlog ஐத் தொடங்கவும்"
 
-#: src/settings/general/index.tsx:157
+#: src/settings/general/index.tsx:163
 msgid "Start when meeting begins"
 msgstr "மீட்டிங் தொடங்கும் போது தொடங்கவும்"
 
-#: src/settings/general/index.tsx:167
+#: src/settings/general/index.tsx:174
 msgid "Stop when meeting ends"
 msgstr "சந்திப்பு முடிந்ததும் நிறுத்து"
 
@@ -118,6 +126,6 @@ msgstr "சந்திப்பு முடிந்ததும் நிற�
 msgid "The main language is always included for transcription"
 msgstr "பிரதான மொழி எப்போதும் டிரான்ஸ்கிரிப்ஷனுக்கு சேர்க்கப்படும்"
 
-#: src/settings/general/index.tsx:182
+#: src/settings/general/index.tsx:192
 msgid "Use the left sidebar timeline instead of the top timeline."
 msgstr "மேல் காலவரிசைக்குப் பதிலாக இடது பக்கப்பட்டி காலவரிசையைப் பயன்படுத்தவும்."

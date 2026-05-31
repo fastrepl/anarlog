@@ -25,27 +25,27 @@ msgstr "Lisage kõnekeel"
 msgid "Additional spoken languages"
 msgstr "Täiendavad kõnekeeled"
 
-#: src/settings/general/index.tsx:151
+#: src/settings/general/index.tsx:157
 msgid "Always ready without manually launching."
 msgstr "Alati valmis ilma käsitsi käivitamata."
 
-#: src/settings/general/app-settings.tsx:33
+#: src/settings/general/app-settings.tsx:35
 msgid "App"
 msgstr "Rakendus"
 
-#: src/settings/general/index.tsx:158
+#: src/settings/general/index.tsx:164
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Alustage automaatselt kuulamist, kui sündmusega tagatud noot jõuab oma kavandatud algusaega."
 
-#: src/settings/general/index.tsx:168
+#: src/settings/general/index.tsx:175
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Lõpetage kuulamine automaatselt, kui koosolekurakendus mikrofoni vabastab."
 
-#: src/settings/general/index.tsx:264
+#: src/settings/general/index.tsx:287
 msgid "Data"
 msgstr "Andmed"
 
-#: src/settings/general/index.tsx:213
+#: src/settings/general/index.tsx:236
 msgid "Language & Region"
 msgstr "Keel ja piirkond"
 
@@ -57,7 +57,7 @@ msgstr "Kokkuvõtete, vestluste ja tehisintellekti loodud vastuste keel"
 msgid "Main language"
 msgstr "Põhikeel"
 
-#: src/settings/general/app-settings.tsx:59
+#: src/settings/general/app-settings.tsx:67
 msgid "Meetings"
 msgstr "Koosolekud"
 
@@ -66,7 +66,7 @@ msgstr "Koosolekud"
 msgid "No matching languages found"
 msgstr "Sobivaid keeli ei leitud"
 
-#: src/settings/general/index.tsx:276
+#: src/settings/general/index.tsx:299
 msgid "Notifications"
 msgstr "Märguanded"
 
@@ -78,7 +78,7 @@ msgstr "Otsingukeel..."
 msgid "Select language"
 msgstr "Valige keel"
 
-#: src/settings/general/index.tsx:192
+#: src/settings/general/index.tsx:213
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Saatke anonüümseid kasutusanalüüse, et aidata Anarlogi täiustada."
 
@@ -86,31 +86,39 @@ msgstr "Saatke anonüümseid kasutusanalüüse, et aidata Anarlogi täiustada."
 msgid "Settings"
 msgstr "Seaded"
 
-#: src/settings/general/index.tsx:191
+#: src/settings/general/index.tsx:212
 msgid "Share usage data"
 msgstr "Kasutusandmete jagamine"
 
-#: src/settings/general/index.tsx:174
+#: src/settings/general/index.tsx:201
+msgid "Show Devtools panel"
+msgstr ""
+
+#: src/settings/general/index.tsx:181
 msgid "Show floating bar"
 msgstr "Kuva ujuv riba"
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/index.tsx:182
 msgid "Show the compact floating control while listening."
 msgstr "Kuulamise ajal kompaktse ujuva juhtelemendi kuvamine."
 
-#: src/settings/general/index.tsx:181
+#: src/settings/general/index.tsx:202
+msgid "Show the native floating control panel."
+msgstr ""
+
+#: src/settings/general/index.tsx:191
 msgid "Show timeline in sidebar"
 msgstr "Ajaskaala kuvamine külgribal"
 
-#: src/settings/general/index.tsx:150
+#: src/settings/general/index.tsx:156
 msgid "Start Anarlog at login"
 msgstr "Käivitage sisselogimisel Anarlog"
 
-#: src/settings/general/index.tsx:157
+#: src/settings/general/index.tsx:163
 msgid "Start when meeting begins"
 msgstr "Alusta koosoleku alguses"
 
-#: src/settings/general/index.tsx:167
+#: src/settings/general/index.tsx:174
 msgid "Stop when meeting ends"
 msgstr "Peatage koosoleku lõppedes"
 
@@ -118,6 +126,6 @@ msgstr "Peatage koosoleku lõppedes"
 msgid "The main language is always included for transcription"
 msgstr "Põhikeel on alati transkriptsiooni jaoks kaasas"
 
-#: src/settings/general/index.tsx:182
+#: src/settings/general/index.tsx:192
 msgid "Use the left sidebar timeline instead of the top timeline."
 msgstr "Kasutage ülemise ajaskaala asemel vasakpoolset külgriba ajaskaala."

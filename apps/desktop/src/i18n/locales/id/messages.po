@@ -25,27 +25,27 @@ msgstr "Tambahkan bahasa lisan"
 msgid "Additional spoken languages"
 msgstr "Bahasa lisan tambahan"
 
-#: src/settings/general/index.tsx:151
+#: src/settings/general/index.tsx:157
 msgid "Always ready without manually launching."
 msgstr "Selalu siap tanpa meluncurkan secara manual."
 
-#: src/settings/general/app-settings.tsx:33
+#: src/settings/general/app-settings.tsx:35
 msgid "App"
 msgstr "Aplikasi"
 
-#: src/settings/general/index.tsx:158
+#: src/settings/general/index.tsx:164
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Secara otomatis mulai mendengarkan ketika catatan yang didukung acara mencapai waktu mulai yang dijadwalkan."
 
-#: src/settings/general/index.tsx:168
+#: src/settings/general/index.tsx:175
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Secara otomatis berhenti mendengarkan saat aplikasi rapat melepaskan mikrofon."
 
-#: src/settings/general/index.tsx:264
+#: src/settings/general/index.tsx:287
 msgid "Data"
 msgstr "Data"
 
-#: src/settings/general/index.tsx:213
+#: src/settings/general/index.tsx:236
 msgid "Language & Region"
 msgstr "Bahasa & Wilayah"
 
@@ -57,7 +57,7 @@ msgstr "Bahasa untuk ringkasan, chat, dan respons yang dihasilkan AI"
 msgid "Main language"
 msgstr "Bahasa utama"
 
-#: src/settings/general/app-settings.tsx:59
+#: src/settings/general/app-settings.tsx:67
 msgid "Meetings"
 msgstr "Rapat"
 
@@ -66,7 +66,7 @@ msgstr "Rapat"
 msgid "No matching languages found"
 msgstr "Tidak ditemukan bahasa yang cocok"
 
-#: src/settings/general/index.tsx:276
+#: src/settings/general/index.tsx:299
 msgid "Notifications"
 msgstr "Pemberitahuan"
 
@@ -78,7 +78,7 @@ msgstr "Bahasa penelusuran..."
 msgid "Select language"
 msgstr "Pilih bahasa"
 
-#: src/settings/general/index.tsx:192
+#: src/settings/general/index.tsx:213
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Kirim analisis penggunaan anonim untuk membantu meningkatkan Anarlog."
 
@@ -86,31 +86,39 @@ msgstr "Kirim analisis penggunaan anonim untuk membantu meningkatkan Anarlog."
 msgid "Settings"
 msgstr "Pengaturan"
 
-#: src/settings/general/index.tsx:191
+#: src/settings/general/index.tsx:212
 msgid "Share usage data"
 msgstr "Bagikan data penggunaan"
 
-#: src/settings/general/index.tsx:174
+#: src/settings/general/index.tsx:201
+msgid "Show Devtools panel"
+msgstr ""
+
+#: src/settings/general/index.tsx:181
 msgid "Show floating bar"
 msgstr "Tampilkan bilah mengambang"
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/index.tsx:182
 msgid "Show the compact floating control while listening."
 msgstr "Tampilkan kontrol mengambang ringkas sambil mendengarkan."
 
-#: src/settings/general/index.tsx:181
+#: src/settings/general/index.tsx:202
+msgid "Show the native floating control panel."
+msgstr ""
+
+#: src/settings/general/index.tsx:191
 msgid "Show timeline in sidebar"
 msgstr "Tampilkan garis waktu di sidebar"
 
-#: src/settings/general/index.tsx:150
+#: src/settings/general/index.tsx:156
 msgid "Start Anarlog at login"
 msgstr "Mulai Anarlog saat login"
 
-#: src/settings/general/index.tsx:157
+#: src/settings/general/index.tsx:163
 msgid "Start when meeting begins"
 msgstr "Mulai saat rapat dimulai"
 
-#: src/settings/general/index.tsx:167
+#: src/settings/general/index.tsx:174
 msgid "Stop when meeting ends"
 msgstr "Berhenti ketika rapat berakhir"
 
@@ -118,6 +126,6 @@ msgstr "Berhenti ketika rapat berakhir"
 msgid "The main language is always included for transcription"
 msgstr "Bahasa utama selalu disertakan untuk transkripsi"
 
-#: src/settings/general/index.tsx:182
+#: src/settings/general/index.tsx:192
 msgid "Use the left sidebar timeline instead of the top timeline."
 msgstr "Gunakan timeline sidebar kiri, bukan timeline atas."

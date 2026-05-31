@@ -25,27 +25,27 @@ msgstr "Linguam vocalem addere"
 msgid "Additional spoken languages"
 msgstr "Additional linguas vocales"
 
-#: src/settings/general/index.tsx:151
+#: src/settings/general/index.tsx:157
 msgid "Always ready without manually launching."
 msgstr "Semper sine manually deductis."
 
-#: src/settings/general/app-settings.tsx:33
+#: src/settings/general/app-settings.tsx:35
 msgid "App"
 msgstr "App"
 
-#: src/settings/general/index.tsx:158
+#: src/settings/general/index.tsx:164
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Automatarie audire incipit cum res lippus notae attingit ad tempus initium horarium."
 
-#: src/settings/general/index.tsx:168
+#: src/settings/general/index.tsx:175
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Automatarie auscultare desinunt cum conventus app tortor ligulam remittit."
 
-#: src/settings/general/index.tsx:264
+#: src/settings/general/index.tsx:287
 msgid "Data"
 msgstr "Data"
 
-#: src/settings/general/index.tsx:213
+#: src/settings/general/index.tsx:236
 msgid "Language & Region"
 msgstr "Lingua & Regio"
 
@@ -57,7 +57,7 @@ msgstr "Lingua pro summariis, confabulationibus, et responsis generatis AI"
 msgid "Main language"
 msgstr "Lingua principalis"
 
-#: src/settings/general/app-settings.tsx:59
+#: src/settings/general/app-settings.tsx:67
 msgid "Meetings"
 msgstr "Placitum"
 
@@ -66,7 +66,7 @@ msgstr "Placitum"
 msgid "No matching languages found"
 msgstr "Non inventae linguae matching"
 
-#: src/settings/general/index.tsx:276
+#: src/settings/general/index.tsx:299
 msgid "Notifications"
 msgstr "Notificationes"
 
@@ -78,7 +78,7 @@ msgstr "Quaerere linguam..."
 msgid "Select language"
 msgstr "Linguam selectam"
 
-#: src/settings/general/index.tsx:192
+#: src/settings/general/index.tsx:213
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Analytica usus anonymi mitte ad meliorem Anarlogum adiuvandum."
 
@@ -86,31 +86,39 @@ msgstr "Analytica usus anonymi mitte ad meliorem Anarlogum adiuvandum."
 msgid "Settings"
 msgstr "Optiones"
 
-#: src/settings/general/index.tsx:191
+#: src/settings/general/index.tsx:212
 msgid "Share usage data"
 msgstr "Phare usus data"
 
-#: src/settings/general/index.tsx:174
+#: src/settings/general/index.tsx:201
+msgid "Show Devtools panel"
+msgstr ""
+
+#: src/settings/general/index.tsx:181
 msgid "Show floating bar"
 msgstr "Ostende vectem nare"
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/index.tsx:182
 msgid "Show the compact floating control while listening."
 msgstr "Monstrare pactionem fluitantem imperium audiendo."
 
-#: src/settings/general/index.tsx:181
+#: src/settings/general/index.tsx:202
+msgid "Show the native floating control panel."
+msgstr ""
+
+#: src/settings/general/index.tsx:191
 msgid "Show timeline in sidebar"
 msgstr "Indicem temporis in barra laterali monstra"
 
-#: src/settings/general/index.tsx:150
+#: src/settings/general/index.tsx:156
 msgid "Start Anarlog at login"
 msgstr "Incipit Anarlog in login"
 
-#: src/settings/general/index.tsx:157
+#: src/settings/general/index.tsx:163
 msgid "Start when meeting begins"
 msgstr "Committitur cum conventu incipit"
 
-#: src/settings/general/index.tsx:167
+#: src/settings/general/index.tsx:174
 msgid "Stop when meeting ends"
 msgstr "Desine cum fines conventum"
 
@@ -118,6 +126,6 @@ msgstr "Desine cum fines conventum"
 msgid "The main language is always included for transcription"
 msgstr "Praecipua lingua semper includitur in transcriptione"
 
-#: src/settings/general/index.tsx:182
+#: src/settings/general/index.tsx:192
 msgid "Use the left sidebar timeline instead of the top timeline."
 msgstr "Utere parte sinistra timeline pro summo timeline."

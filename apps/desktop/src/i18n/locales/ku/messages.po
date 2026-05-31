@@ -25,27 +25,27 @@ msgstr "Zimanê axaftinê lê zêde bike"
 msgid "Additional spoken languages"
 msgstr "Zimanên axaftinê yên zêde"
 
-#: src/settings/general/index.tsx:151
+#: src/settings/general/index.tsx:157
 msgid "Always ready without manually launching."
 msgstr "Bêyî destpêkirina bi destan her dem amade ye."
 
-#: src/settings/general/app-settings.tsx:33
+#: src/settings/general/app-settings.tsx:35
 msgid "App"
 msgstr "App"
 
-#: src/settings/general/index.tsx:158
+#: src/settings/general/index.tsx:164
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Dema ku notek bi piştgiriya bûyerê digihîje dema xweya destpêkê ya plansazkirî, bixweber dest bi guhdarkirinê bike."
 
-#: src/settings/general/index.tsx:168
+#: src/settings/general/index.tsx:175
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Dema sepana civînê mîkrofonê berdide, bixweber guhdarîkirinê rawestîne."
 
-#: src/settings/general/index.tsx:264
+#: src/settings/general/index.tsx:287
 msgid "Data"
 msgstr "Daneyên"
 
-#: src/settings/general/index.tsx:213
+#: src/settings/general/index.tsx:236
 msgid "Language & Region"
 msgstr "Ziman û Herêm"
 
@@ -57,7 +57,7 @@ msgstr "Ziman ji bo kurtasî, sohbet û bersivên ku ji hêla AI-ê ve hatî ç�
 msgid "Main language"
 msgstr "Zimanê sereke"
 
-#: src/settings/general/app-settings.tsx:59
+#: src/settings/general/app-settings.tsx:67
 msgid "Meetings"
 msgstr "Hevdîtin"
 
@@ -66,7 +66,7 @@ msgstr "Hevdîtin"
 msgid "No matching languages found"
 msgstr "Zimanên lihevhatî nehatin dîtin"
 
-#: src/settings/general/index.tsx:276
+#: src/settings/general/index.tsx:299
 msgid "Notifications"
 msgstr "Agahdar"
 
@@ -78,7 +78,7 @@ msgstr "Zimanê gerînê..."
 msgid "Select language"
 msgstr "Ziman hilbijêre"
 
-#: src/settings/general/index.tsx:192
+#: src/settings/general/index.tsx:213
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Analîzên karanîna nenas bişîne da ku alîkariya baştirkirina Anarlog bike."
 
@@ -86,31 +86,39 @@ msgstr "Analîzên karanîna nenas bişîne da ku alîkariya baştirkirina Anarl
 msgid "Settings"
 msgstr "Mîheng"
 
-#: src/settings/general/index.tsx:191
+#: src/settings/general/index.tsx:212
 msgid "Share usage data"
 msgstr "Daneyên bikaranînê parve bikin"
 
-#: src/settings/general/index.tsx:174
+#: src/settings/general/index.tsx:201
+msgid "Show Devtools panel"
+msgstr ""
+
+#: src/settings/general/index.tsx:181
 msgid "Show floating bar"
 msgstr "Barika herikîn nîşan bide"
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/index.tsx:182
 msgid "Show the compact floating control while listening."
 msgstr "Dema ku guhdarî dike, kontrolê ya kompakt nîşan bide."
 
-#: src/settings/general/index.tsx:181
+#: src/settings/general/index.tsx:202
+msgid "Show the native floating control panel."
+msgstr ""
+
+#: src/settings/general/index.tsx:191
 msgid "Show timeline in sidebar"
 msgstr "Xeta demê li kêlekê nîşan bide"
 
-#: src/settings/general/index.tsx:150
+#: src/settings/general/index.tsx:156
 msgid "Start Anarlog at login"
 msgstr "Di têketinê de Anarlogê dest pê bike"
 
-#: src/settings/general/index.tsx:157
+#: src/settings/general/index.tsx:163
 msgid "Start when meeting begins"
 msgstr "Dema civîn dest pê dike"
 
-#: src/settings/general/index.tsx:167
+#: src/settings/general/index.tsx:174
 msgid "Stop when meeting ends"
 msgstr "Dema civîn biqede raweste"
 
@@ -118,6 +126,6 @@ msgstr "Dema civîn biqede raweste"
 msgid "The main language is always included for transcription"
 msgstr "Zimanê sereke her tim ji bo transkripsiyonê tê de"
 
-#: src/settings/general/index.tsx:182
+#: src/settings/general/index.tsx:192
 msgid "Use the left sidebar timeline instead of the top timeline."
 msgstr "Li şûna rêzika jorîn rêzika kêleka çepê bikar bînin."

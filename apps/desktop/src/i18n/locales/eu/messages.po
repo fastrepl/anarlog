@@ -25,27 +25,27 @@ msgstr "Gehitu ahozko hizkuntza"
 msgid "Additional spoken languages"
 msgstr "Ahozko hizkuntza gehigarriak"
 
-#: src/settings/general/index.tsx:151
+#: src/settings/general/index.tsx:157
 msgid "Always ready without manually launching."
 msgstr "Beti prest eskuz abiarazi gabe."
 
-#: src/settings/general/app-settings.tsx:33
+#: src/settings/general/app-settings.tsx:35
 msgid "App"
 msgstr "Aplikazioa"
 
-#: src/settings/general/index.tsx:158
+#: src/settings/general/index.tsx:164
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Hasi automatikoki entzuten gertaerak babestutako ohar bat programatutako hasiera-orura iristen denean."
 
-#: src/settings/general/index.tsx:168
+#: src/settings/general/index.tsx:175
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Utzi automatikoki entzuteari bilera-aplikazioak mikrofonoa askatzen duenean."
 
-#: src/settings/general/index.tsx:264
+#: src/settings/general/index.tsx:287
 msgid "Data"
 msgstr "Datuak"
 
-#: src/settings/general/index.tsx:213
+#: src/settings/general/index.tsx:236
 msgid "Language & Region"
 msgstr "Hizkuntza eta eskualdea"
 
@@ -57,7 +57,7 @@ msgstr "Laburpenetarako, txatetarako eta AI bidez sortutako erantzunetarako hizk
 msgid "Main language"
 msgstr "Hizkuntza nagusia"
 
-#: src/settings/general/app-settings.tsx:59
+#: src/settings/general/app-settings.tsx:67
 msgid "Meetings"
 msgstr "Bilkurak"
 
@@ -66,7 +66,7 @@ msgstr "Bilkurak"
 msgid "No matching languages found"
 msgstr "Ez da bat datorren hizkuntzarik aurkitu"
 
-#: src/settings/general/index.tsx:276
+#: src/settings/general/index.tsx:299
 msgid "Notifications"
 msgstr "Jakinarazpenak"
 
@@ -78,7 +78,7 @@ msgstr "Bilatu hizkuntza..."
 msgid "Select language"
 msgstr "Hautatu hizkuntza"
 
-#: src/settings/general/index.tsx:192
+#: src/settings/general/index.tsx:213
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Bidali erabilera-analisi anonimoak Anarlog hobetzen laguntzeko."
 
@@ -86,31 +86,39 @@ msgstr "Bidali erabilera-analisi anonimoak Anarlog hobetzen laguntzeko."
 msgid "Settings"
 msgstr "Ezarpenak"
 
-#: src/settings/general/index.tsx:191
+#: src/settings/general/index.tsx:212
 msgid "Share usage data"
 msgstr "Partekatu erabilera datuak"
 
-#: src/settings/general/index.tsx:174
+#: src/settings/general/index.tsx:201
+msgid "Show Devtools panel"
+msgstr ""
+
+#: src/settings/general/index.tsx:181
 msgid "Show floating bar"
 msgstr "Erakutsi barra mugikorra"
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/index.tsx:182
 msgid "Show the compact floating control while listening."
 msgstr "Erakutsi kontrol mugikor trinkoa entzuten duzun bitartean."
 
-#: src/settings/general/index.tsx:181
+#: src/settings/general/index.tsx:202
+msgid "Show the native floating control panel."
+msgstr ""
+
+#: src/settings/general/index.tsx:191
 msgid "Show timeline in sidebar"
 msgstr "Erakutsi denbora-lerroa alboko barran"
 
-#: src/settings/general/index.tsx:150
+#: src/settings/general/index.tsx:156
 msgid "Start Anarlog at login"
 msgstr "Hasi Anarlog saioa hasten denean"
 
-#: src/settings/general/index.tsx:157
+#: src/settings/general/index.tsx:163
 msgid "Start when meeting begins"
 msgstr "Hasi bilera hasten denean"
 
-#: src/settings/general/index.tsx:167
+#: src/settings/general/index.tsx:174
 msgid "Stop when meeting ends"
 msgstr "Gelditu bilera amaitzen denean"
 
@@ -118,6 +126,6 @@ msgstr "Gelditu bilera amaitzen denean"
 msgid "The main language is always included for transcription"
 msgstr "Hizkuntza nagusia beti sartzen da transkripzioa egiteko"
 
-#: src/settings/general/index.tsx:182
+#: src/settings/general/index.tsx:192
 msgid "Use the left sidebar timeline instead of the top timeline."
 msgstr "Erabili ezkerreko alboko barrako denbora-lerroa goiko kronologiaren ordez."

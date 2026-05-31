@@ -25,27 +25,27 @@ msgstr "Wedzera mutauro unotaurwa"
 msgid "Additional spoken languages"
 msgstr "Mitauro inowedzerwa"
 
-#: src/settings/general/index.tsx:151
+#: src/settings/general/index.tsx:157
 msgid "Always ready without manually launching."
 msgstr "Yagara yakagadzirira pasina kuvhura nemaoko."
 
-#: src/settings/general/app-settings.tsx:33
+#: src/settings/general/app-settings.tsx:35
 msgid "App"
 msgstr "App"
 
-#: src/settings/general/index.tsx:158
+#: src/settings/general/index.tsx:164
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Chibva watanga kuteerera kana chinyorwa chinotsigirwa nechiitiko chasvika panguva yayakarongwa kutanga."
 
-#: src/settings/general/index.tsx:168
+#: src/settings/general/index.tsx:175
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Misa kuteerera kana purogiramu yemusangano yaburitsa maikorofoni."
 
-#: src/settings/general/index.tsx:264
+#: src/settings/general/index.tsx:287
 msgid "Data"
 msgstr "Data"
 
-#: src/settings/general/index.tsx:213
+#: src/settings/general/index.tsx:236
 msgid "Language & Region"
 msgstr "Mutauro & Nharaunda"
 
@@ -57,7 +57,7 @@ msgstr "Mutauro wepfupiso, chats, nemhinduro dzakagadzirwa neAI"
 msgid "Main language"
 msgstr "Mutauro mukuru"
 
-#: src/settings/general/app-settings.tsx:59
+#: src/settings/general/app-settings.tsx:67
 msgid "Meetings"
 msgstr "Misangano"
 
@@ -66,7 +66,7 @@ msgstr "Misangano"
 msgid "No matching languages found"
 msgstr "Hapana mitauro inoenderana yawanikwa"
 
-#: src/settings/general/index.tsx:276
+#: src/settings/general/index.tsx:299
 msgid "Notifications"
 msgstr "Zviziviso"
 
@@ -78,7 +78,7 @@ msgstr "Tsvaga mutauro..."
 msgid "Select language"
 msgstr "Sarudza mutauro"
 
-#: src/settings/general/index.tsx:192
+#: src/settings/general/index.tsx:213
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Tumira ma analytics asingazivikanwe kuti ubatsire kunatsiridza Anarlog."
 
@@ -86,31 +86,39 @@ msgstr "Tumira ma analytics asingazivikanwe kuti ubatsire kunatsiridza Anarlog."
 msgid "Settings"
 msgstr "Settings"
 
-#: src/settings/general/index.tsx:191
+#: src/settings/general/index.tsx:212
 msgid "Share usage data"
 msgstr "Goverana data rekushandisa"
 
-#: src/settings/general/index.tsx:174
+#: src/settings/general/index.tsx:201
+msgid "Show Devtools panel"
+msgstr ""
+
+#: src/settings/general/index.tsx:181
 msgid "Show floating bar"
 msgstr "Ratidza bara rinoyangarara"
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/index.tsx:182
 msgid "Show the compact floating control while listening."
 msgstr "Ratidza chibatiso chinoyangarara uchiteerera."
 
-#: src/settings/general/index.tsx:181
+#: src/settings/general/index.tsx:202
+msgid "Show the native floating control panel."
+msgstr ""
+
+#: src/settings/general/index.tsx:191
 msgid "Show timeline in sidebar"
 msgstr "Ratidza nguva mubhara rekudivi"
 
-#: src/settings/general/index.tsx:150
+#: src/settings/general/index.tsx:156
 msgid "Start Anarlog at login"
 msgstr "Tanga Anarlog paunopinda"
 
-#: src/settings/general/index.tsx:157
+#: src/settings/general/index.tsx:163
 msgid "Start when meeting begins"
 msgstr "Tanga kana musangano watanga"
 
-#: src/settings/general/index.tsx:167
+#: src/settings/general/index.tsx:174
 msgid "Stop when meeting ends"
 msgstr "Mira kana musangano wapera"
 
@@ -118,6 +126,6 @@ msgstr "Mira kana musangano wapera"
 msgid "The main language is always included for transcription"
 msgstr "Mutauro mukuru unogara uchisanganisirwa pakunyora"
 
-#: src/settings/general/index.tsx:182
+#: src/settings/general/index.tsx:192
 msgid "Use the left sidebar timeline instead of the top timeline."
 msgstr "Shandisa nguva yebhari yekuruboshwe pane yenguva yepamusoro."

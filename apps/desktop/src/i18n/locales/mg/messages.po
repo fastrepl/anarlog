@@ -25,27 +25,27 @@ msgstr "Ampio fiteny ampiasaina"
 msgid "Additional spoken languages"
 msgstr "Fiteny ampiasaina fanampiny"
 
-#: src/settings/general/index.tsx:151
+#: src/settings/general/index.tsx:157
 msgid "Always ready without manually launching."
 msgstr "Vonona foana nefa tsy alefa amin'ny tanana."
 
-#: src/settings/general/app-settings.tsx:33
+#: src/settings/general/app-settings.tsx:35
 msgid "App"
 msgstr "App"
 
-#: src/settings/general/index.tsx:158
+#: src/settings/general/index.tsx:164
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Manomboka mihaino ho azy rehefa tonga amin'ny ora voatondro hanombohana ny naoty tohanan'ny hetsika."
 
-#: src/settings/general/index.tsx:168
+#: src/settings/general/index.tsx:175
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Atsaharo ho azy ny fihainoana rehefa mamoaka ny mikrô ny fampiharana fivoriana."
 
-#: src/settings/general/index.tsx:264
+#: src/settings/general/index.tsx:287
 msgid "Data"
 msgstr "NY FANAZAVANA"
 
-#: src/settings/general/index.tsx:213
+#: src/settings/general/index.tsx:236
 msgid "Language & Region"
 msgstr "Fiteny & Faritra"
 
@@ -57,7 +57,7 @@ msgstr "Fiteny ho an'ny famintinana, resadresaka, ary valiny azo avy amin'ny AI"
 msgid "Main language"
 msgstr "Fiteny fototra"
 
-#: src/settings/general/app-settings.tsx:59
+#: src/settings/general/app-settings.tsx:67
 msgid "Meetings"
 msgstr "Fihaonana"
 
@@ -66,7 +66,7 @@ msgstr "Fihaonana"
 msgid "No matching languages found"
 msgstr "Tsy misy fiteny mifanandrify hita"
 
-#: src/settings/general/index.tsx:276
+#: src/settings/general/index.tsx:299
 msgid "Notifications"
 msgstr "Fampandrenesana"
 
@@ -78,7 +78,7 @@ msgstr "Fiteny fikarohana..."
 msgid "Select language"
 msgstr "Misafidiana fiteny"
 
-#: src/settings/general/index.tsx:192
+#: src/settings/general/index.tsx:213
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Mandefa fanadihadiana momba ny fampiasana tsy mitonona anarana hanampy amin'ny fanatsarana Anarlog."
 
@@ -86,31 +86,39 @@ msgstr "Mandefa fanadihadiana momba ny fampiasana tsy mitonona anarana hanampy a
 msgid "Settings"
 msgstr "Fikirana"
 
-#: src/settings/general/index.tsx:191
+#: src/settings/general/index.tsx:212
 msgid "Share usage data"
 msgstr "Mizara angona fampiasana"
 
-#: src/settings/general/index.tsx:174
+#: src/settings/general/index.tsx:201
+msgid "Show Devtools panel"
+msgstr ""
+
+#: src/settings/general/index.tsx:181
 msgid "Show floating bar"
 msgstr "Asehoy ny bara mitsingevana"
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/index.tsx:182
 msgid "Show the compact floating control while listening."
 msgstr "Asehoy ny fanaraha-maso mitsingevana kanto eo am-pihainoana."
 
-#: src/settings/general/index.tsx:181
+#: src/settings/general/index.tsx:202
+msgid "Show the native floating control panel."
+msgstr ""
+
+#: src/settings/general/index.tsx:191
 msgid "Show timeline in sidebar"
 msgstr "Asehoy eo amin'ny sisin'ny sisiny ny zotram-potoana"
 
-#: src/settings/general/index.tsx:150
+#: src/settings/general/index.tsx:156
 msgid "Start Anarlog at login"
 msgstr "Atombohy Anarlog amin'ny fidirana"
 
-#: src/settings/general/index.tsx:157
+#: src/settings/general/index.tsx:163
 msgid "Start when meeting begins"
 msgstr "Atombohy rehefa manomboka ny fivoriana"
 
-#: src/settings/general/index.tsx:167
+#: src/settings/general/index.tsx:174
 msgid "Stop when meeting ends"
 msgstr "Atsaharo rehefa tapitra ny fivoriana"
 
@@ -118,6 +126,6 @@ msgstr "Atsaharo rehefa tapitra ny fivoriana"
 msgid "The main language is always included for transcription"
 msgstr "Ampidirina foana ny fiteny fototra ho an'ny fandikana"
 
-#: src/settings/general/index.tsx:182
+#: src/settings/general/index.tsx:192
 msgid "Use the left sidebar timeline instead of the top timeline."
 msgstr "Ampiasao ny tsipika ankavia ankavia fa tsy ny tsipika ambony."

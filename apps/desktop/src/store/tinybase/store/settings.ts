@@ -46,6 +46,11 @@ export const SETTINGS_MAPPING = {
       path: ["general", "floating_bar_enabled"],
       default: true as boolean,
     },
+    devtools_control_panel_enabled: {
+      type: "boolean",
+      path: ["general", "devtools_control_panel_enabled"],
+      default: false as boolean,
+    },
     sidebar_timeline_enabled: {
       type: "boolean",
       path: ["general", "sidebar_timeline_enabled"],

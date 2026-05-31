@@ -25,27 +25,27 @@ msgstr "Adăugați limba vorbită"
 msgid "Additional spoken languages"
 msgstr "Limbi vorbite suplimentare"
 
-#: src/settings/general/index.tsx:151
+#: src/settings/general/index.tsx:157
 msgid "Always ready without manually launching."
 msgstr "Întotdeauna gata fără lansare manuală."
 
-#: src/settings/general/app-settings.tsx:33
+#: src/settings/general/app-settings.tsx:35
 msgid "App"
 msgstr "Aplicație"
 
-#: src/settings/general/index.tsx:158
+#: src/settings/general/index.tsx:164
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Începe automat ascultarea când o notă susținută de un eveniment atinge ora de începere programată."
 
-#: src/settings/general/index.tsx:168
+#: src/settings/general/index.tsx:175
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Opriți automat ascultarea când aplicația pentru întâlniri eliberează microfonul."
 
-#: src/settings/general/index.tsx:264
+#: src/settings/general/index.tsx:287
 msgid "Data"
 msgstr "Date"
 
-#: src/settings/general/index.tsx:213
+#: src/settings/general/index.tsx:236
 msgid "Language & Region"
 msgstr "Limbă și regiune"
 
@@ -57,7 +57,7 @@ msgstr "Limba pentru rezumate, chaturi și răspunsuri generate de AI"
 msgid "Main language"
 msgstr "Limba principală"
 
-#: src/settings/general/app-settings.tsx:59
+#: src/settings/general/app-settings.tsx:67
 msgid "Meetings"
 msgstr "Întâlniri"
 
@@ -66,7 +66,7 @@ msgstr "Întâlniri"
 msgid "No matching languages found"
 msgstr "Nu s-au găsit limbi care se potrivesc"
 
-#: src/settings/general/index.tsx:276
+#: src/settings/general/index.tsx:299
 msgid "Notifications"
 msgstr "Notificări"
 
@@ -78,7 +78,7 @@ msgstr "Căutați limba..."
 msgid "Select language"
 msgstr "Selectați limba"
 
-#: src/settings/general/index.tsx:192
+#: src/settings/general/index.tsx:213
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Trimiteți analize anonime de utilizare pentru a ajuta la îmbunătățirea Anarlog."
 
@@ -86,31 +86,39 @@ msgstr "Trimiteți analize anonime de utilizare pentru a ajuta la îmbunătăți
 msgid "Settings"
 msgstr "Setări"
 
-#: src/settings/general/index.tsx:191
+#: src/settings/general/index.tsx:212
 msgid "Share usage data"
 msgstr "Partajați datele de utilizare"
 
-#: src/settings/general/index.tsx:174
+#: src/settings/general/index.tsx:201
+msgid "Show Devtools panel"
+msgstr ""
+
+#: src/settings/general/index.tsx:181
 msgid "Show floating bar"
 msgstr "Afișați bara plutitoare"
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/index.tsx:182
 msgid "Show the compact floating control while listening."
 msgstr "Afișați controlul flotant compact în timp ce ascultați."
 
-#: src/settings/general/index.tsx:181
+#: src/settings/general/index.tsx:202
+msgid "Show the native floating control panel."
+msgstr ""
+
+#: src/settings/general/index.tsx:191
 msgid "Show timeline in sidebar"
 msgstr "Afișați cronologia în bara laterală"
 
-#: src/settings/general/index.tsx:150
+#: src/settings/general/index.tsx:156
 msgid "Start Anarlog at login"
 msgstr "Porniți Anarlog la conectare"
 
-#: src/settings/general/index.tsx:157
+#: src/settings/general/index.tsx:163
 msgid "Start when meeting begins"
 msgstr "Începe când începe întâlnirea"
 
-#: src/settings/general/index.tsx:167
+#: src/settings/general/index.tsx:174
 msgid "Stop when meeting ends"
 msgstr "Opriți când întâlnirea se încheie"
 
@@ -118,6 +126,6 @@ msgstr "Opriți când întâlnirea se încheie"
 msgid "The main language is always included for transcription"
 msgstr "Limba principală este întotdeauna inclusă pentru transcriere"
 
-#: src/settings/general/index.tsx:182
+#: src/settings/general/index.tsx:192
 msgid "Use the left sidebar timeline instead of the top timeline."
 msgstr "Folosiți cronologia din bara laterală din stânga în loc de cronologia de sus."

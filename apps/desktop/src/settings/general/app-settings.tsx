@@ -14,6 +14,7 @@ interface AppSettingsViewProps {
   autoStartScheduledMeetings: SettingItem;
   autoStopMeetings: SettingItem;
   floatingBar: SettingItem;
+  devtoolsControlPanel: SettingItem;
   sidebarTimeline: SettingItem;
   telemetryConsent: SettingItem;
 }
@@ -23,6 +24,7 @@ export function AppSettingsView({
   autoStartScheduledMeetings,
   autoStopMeetings,
   floatingBar,
+  devtoolsControlPanel,
   sidebarTimeline,
   telemetryConsent,
 }: AppSettingsViewProps) {
@@ -44,6 +46,12 @@ export function AppSettingsView({
             description={sidebarTimeline.description}
             checked={sidebarTimeline.value}
             onChange={sidebarTimeline.onChange}
+          />
+          <SettingRow
+            title={devtoolsControlPanel.title}
+            description={devtoolsControlPanel.description}
+            checked={devtoolsControlPanel.value}
+            onChange={devtoolsControlPanel.onChange}
           />
           <SettingRow
             title={telemetryConsent.title}
@@ -100,7 +108,7 @@ function SettingRow({
         <h3 className="mb-1 text-sm font-medium">{title}</h3>
         <p className="text-xs text-neutral-600">{description}</p>
       </div>
-      <Switch checked={checked} onCheckedChange={onChange} />
+      <Switch checked={checked} onCheckedChange={onChange} aria-label={title} />
     </div>
   );
 }

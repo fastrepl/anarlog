@@ -25,27 +25,27 @@ msgstr "بولی جانے والی زبان شامل کریں"
 msgid "Additional spoken languages"
 msgstr "اضافی بولی جانے والی زبانیں"
 
-#: src/settings/general/index.tsx:151
+#: src/settings/general/index.tsx:157
 msgid "Always ready without manually launching."
 msgstr "دستی طور پر لانچ کیے بغیر ہمیشہ تیار۔"
 
-#: src/settings/general/app-settings.tsx:33
+#: src/settings/general/app-settings.tsx:35
 msgid "App"
 msgstr "ایپ"
 
-#: src/settings/general/index.tsx:158
+#: src/settings/general/index.tsx:164
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "ایونٹ کی حمایت یافتہ نوٹ اپنے مقررہ وقت پر پہنچنے پر خود بخود سننا شروع کر دیں۔"
 
-#: src/settings/general/index.tsx:168
+#: src/settings/general/index.tsx:175
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "جب میٹنگ ایپ مائکروفون جاری کرتی ہے تو خود بخود سننا بند کر دیں۔"
 
-#: src/settings/general/index.tsx:264
+#: src/settings/general/index.tsx:287
 msgid "Data"
 msgstr "ڈیٹا"
 
-#: src/settings/general/index.tsx:213
+#: src/settings/general/index.tsx:236
 msgid "Language & Region"
 msgstr "زبان اور علاقہ"
 
@@ -57,7 +57,7 @@ msgstr "خلاصوں، چیٹس، اور AI سے تیار کردہ جوابات 
 msgid "Main language"
 msgstr "مرکزی زبان"
 
-#: src/settings/general/app-settings.tsx:59
+#: src/settings/general/app-settings.tsx:67
 msgid "Meetings"
 msgstr "میٹنگز"
 
@@ -66,7 +66,7 @@ msgstr "میٹنگز"
 msgid "No matching languages found"
 msgstr "کوئی مماثل زبانیں نہیں ملی"
 
-#: src/settings/general/index.tsx:276
+#: src/settings/general/index.tsx:299
 msgid "Notifications"
 msgstr "اطلاعات"
 
@@ -78,7 +78,7 @@ msgstr "تلاش زبان..."
 msgid "Select language"
 msgstr "زبان منتخب کریں"
 
-#: src/settings/general/index.tsx:192
+#: src/settings/general/index.tsx:213
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "انارلاگ کو بہتر بنانے میں مدد کے لیے گمنام استعمال کے تجزیات بھیجیں۔"
 
@@ -86,31 +86,39 @@ msgstr "انارلاگ کو بہتر بنانے میں مدد کے لیے گمن
 msgid "Settings"
 msgstr "ترتیبات"
 
-#: src/settings/general/index.tsx:191
+#: src/settings/general/index.tsx:212
 msgid "Share usage data"
 msgstr "استعمال کا ڈیٹا شیئر کریں"
 
-#: src/settings/general/index.tsx:174
+#: src/settings/general/index.tsx:201
+msgid "Show Devtools panel"
+msgstr ""
+
+#: src/settings/general/index.tsx:181
 msgid "Show floating bar"
 msgstr "تیرتی بار دکھائیں"
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/index.tsx:182
 msgid "Show the compact floating control while listening."
 msgstr "سنتے وقت کمپیکٹ فلوٹنگ کنٹرول دکھائیں۔"
 
-#: src/settings/general/index.tsx:181
+#: src/settings/general/index.tsx:202
+msgid "Show the native floating control panel."
+msgstr ""
+
+#: src/settings/general/index.tsx:191
 msgid "Show timeline in sidebar"
 msgstr "سائیڈ بار میں ٹائم لائن دکھائیں"
 
-#: src/settings/general/index.tsx:150
+#: src/settings/general/index.tsx:156
 msgid "Start Anarlog at login"
 msgstr "لاگ ان پر Anarlog شروع کریں"
 
-#: src/settings/general/index.tsx:157
+#: src/settings/general/index.tsx:163
 msgid "Start when meeting begins"
 msgstr "میٹنگ شروع ہونے پر شروع کریں"
 
-#: src/settings/general/index.tsx:167
+#: src/settings/general/index.tsx:174
 msgid "Stop when meeting ends"
 msgstr "میٹنگ ختم ہونے پر رکیں"
 
@@ -118,6 +126,6 @@ msgstr "میٹنگ ختم ہونے پر رکیں"
 msgid "The main language is always included for transcription"
 msgstr "نقل کے لیے مرکزی زبان ہمیشہ شامل کی جاتی ہے"
 
-#: src/settings/general/index.tsx:182
+#: src/settings/general/index.tsx:192
 msgid "Use the left sidebar timeline instead of the top timeline."
 msgstr "سب سے اوپر کی ٹائم لائن کے بجائے بائیں سائڈبار ٹائم لائن کا استعمال کریں۔"

@@ -11,6 +11,8 @@ import { useBillingAccess } from "~/auth/billing";
 import { TrialEndedDialog } from "~/billing/trial-ended-dialog";
 import { TrialStartedDialog } from "~/billing/trial-started-dialog";
 import { getLatestVersion } from "~/changelog";
+import { Toast } from "~/sidebar/toast/component";
+import type { ToastType } from "~/sidebar/toast/types";
 import * as main from "~/store/tinybase/store/main";
 import { showBatchCompletedNotification } from "~/store/zustand/listener/general-batch";
 import { listenerStore } from "~/store/zustand/listener/instance";
@@ -37,17 +39,19 @@ function DevtoolCard({
   title,
   children,
   maxHeight,
+  overflowVisible = false,
 }: {
   title: string;
   children: React.ReactNode;
   maxHeight?: string;
+  overflowVisible?: boolean;
 }) {
   return (
     <div
       className={cn([
         "rounded-lg border border-neutral-200 bg-white",
         "shadow-xs",
-        "overflow-hidden",
+        overflowVisible ? "overflow-visible" : "overflow-hidden",
         "shrink-0",
       ])}
     >
@@ -57,7 +61,10 @@ function DevtoolCard({
         </h2>
       </div>
       <div
-        className="overflow-y-auto p-2"
+        className={cn([
+          maxHeight ? "overflow-y-auto" : "overflow-visible",
+          "p-2",
+        ])}
         style={maxHeight ? { maxHeight } : undefined}
       >
         {children}
@@ -171,23 +178,60 @@ function NavigationCard() {
 }
 
 function ToastsCard() {
+  const [previewId, setPreviewId] = useState<ToastPreviewId>("missing-llm");
+
   const handleResetDismissed = useCallback(async () => {
     await commands.setDismissedToasts([]);
   }, []);
 
+  const preview =
+    TOAST_PREVIEWS.find((item) => item.id === previewId) ?? TOAST_PREVIEWS[0];
+
+  const btnClass = cn([
+    "w-full rounded-md px-2.5 py-1.5",
+    "text-left text-xs font-medium",
+    "border border-neutral-200 text-neutral-700",
+    "cursor-pointer transition-colors",
+    "hover:border-neutral-300 hover:bg-neutral-50",
+  ]);
+
   return (
-    <DevtoolCard title="Toasts">
+    <DevtoolCard title="Toasts" overflowVisible>
       <div className="flex flex-col gap-1.5">
+        <label className="flex flex-col gap-1">
+          <span className="text-xs font-medium text-neutral-600">
+            Preview toast
+          </span>
+          <select
+            value={preview.id}
+            onChange={(event) =>
+              setPreviewId(event.currentTarget.value as ToastPreviewId)
+            }
+            className={cn([
+              "w-full rounded-md px-2.5 py-1.5",
+              "border border-neutral-200 bg-white",
+              "text-xs font-medium text-neutral-700",
+              "cursor-pointer transition-colors",
+              "hover:border-neutral-300 hover:bg-neutral-50",
+            ])}
+          >
+            {TOAST_PREVIEWS.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="-mx-1 overflow-visible">
+          <Toast
+            toast={preview.toast}
+            onDismiss={preview.toast.dismissible ? noop : undefined}
+          />
+        </div>
         <button
           type="button"
           onClick={() => void handleResetDismissed()}
-          className={cn([
-            "w-full rounded-md px-2.5 py-1.5",
-            "text-left text-xs font-medium",
-            "border border-neutral-200 text-neutral-700",
-            "cursor-pointer transition-colors",
-            "hover:border-neutral-300 hover:bg-neutral-50",
-          ])}
+          className={btnClass}
         >
           Reset All Dismissed
         </button>
@@ -195,6 +239,73 @@ function ToastsCard() {
     </DevtoolCard>
   );
 }
+
+type ToastPreviewId =
+  | "missing-llm"
+  | "missing-stt"
+  | "stt-unavailable"
+  | "download"
+  | "pro";
+
+const noop = () => {};
+
+const TOAST_PREVIEWS: {
+  id: ToastPreviewId;
+  label: string;
+  toast: ToastType;
+}[] = [
+  {
+    id: "missing-llm",
+    label: "Language model",
+    toast: {
+      id: "missing-llm-preview",
+      description: "Language model needed",
+      dismissible: true,
+      primaryAction: { label: "Add", onClick: noop },
+    },
+  },
+  {
+    id: "missing-stt",
+    label: "Transcription model",
+    toast: {
+      id: "missing-stt-preview",
+      description: "Transcription model needed",
+      dismissible: false,
+      primaryAction: { label: "Add", onClick: noop },
+    },
+  },
+  {
+    id: "stt-unavailable",
+    label: "Transcription error",
+    toast: {
+      id: "stt-unavailable-preview",
+      description: "Transcription unavailable",
+      dismissible: true,
+      variant: "error",
+      primaryAction: { label: "Settings", onClick: noop },
+    },
+  },
+  {
+    id: "download",
+    label: "Download",
+    toast: {
+      id: "download-preview",
+      description: "Downloading model",
+      dismissible: false,
+      progress: 42,
+    },
+  },
+  {
+    id: "pro",
+    label: "Pro",
+    toast: {
+      id: "pro-preview",
+      description: "Pro features available",
+      dismissible: true,
+      primaryAction: { label: "Upgrade", onClick: noop },
+    },
+  },
+];
 
 function NotificationsCard() {
   const store = main.UI.useStore(main.STORE_ID) as main.Store | undefined;
