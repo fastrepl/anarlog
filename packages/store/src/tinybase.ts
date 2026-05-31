@@ -158,7 +158,6 @@ export const valueSchemaForTinybase = {
   auto_stop_meetings: { type: "boolean" },
   auto_start_scheduled_meetings: { type: "boolean" },
   floating_bar_enabled: { type: "boolean" },
-  devtools_control_panel_enabled: { type: "boolean" },
   sidebar_timeline_enabled: { type: "boolean" },
   save_recordings: { type: "boolean" },
   audio_retention: { type: "string" },

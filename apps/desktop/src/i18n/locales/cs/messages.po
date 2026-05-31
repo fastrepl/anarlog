@@ -25,27 +25,27 @@ msgstr "Přidat mluvený jazyk"
 msgid "Additional spoken languages"
 msgstr "Další mluvené jazyky"
 
-#: src/settings/general/index.tsx:158
+#: src/settings/general/index.tsx:152
 msgid "Always ready without manually launching."
 msgstr "Vždy připraven bez ručního spouštění."
 
-#: src/settings/general/index.tsx:140
+#: src/settings/general/index.tsx:136
 msgid "App"
 msgstr "Aplikace"
 
-#: src/settings/general/index.tsx:165
+#: src/settings/general/index.tsx:159
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Automaticky začít poslouchat, když poznámka podporovaná událostí dosáhne svého plánovaného času zahájení."
 
-#: src/settings/general/index.tsx:176
+#: src/settings/general/index.tsx:169
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Automaticky přestat poslouchat, když schůzková aplikace uvolní mikrofon."
 
-#: src/settings/general/index.tsx:288
+#: src/settings/general/index.tsx:265
 msgid "Data"
 msgstr "Data"
 
-#: src/settings/general/index.tsx:237
+#: src/settings/general/index.tsx:214
 msgid "Language & Region"
 msgstr "Jazyk a oblast"
 
@@ -57,7 +57,7 @@ msgstr "Jazyk pro shrnutí, chaty a odpovědi generované umělou inteligencí"
 msgid "Main language"
 msgstr "Hlavní jazyk"
 
-#: src/settings/general/app-settings.tsx:64
+#: src/settings/general/app-settings.tsx:56
 msgid "Meetings"
 msgstr "Schůzky"
 
@@ -66,7 +66,7 @@ msgstr "Schůzky"
 msgid "No matching languages found"
 msgstr "Nebyly nalezeny žádné odpovídající jazyky"
 
-#: src/settings/general/index.tsx:300
+#: src/settings/general/index.tsx:277
 msgid "Notifications"
 msgstr "Oznámení"
 
@@ -78,43 +78,35 @@ msgstr "Jazyk vyhledávání..."
 msgid "Select language"
 msgstr "Vyberte jazyk"
 
-#: src/settings/general/index.tsx:214
+#: src/settings/general/index.tsx:193
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Posílejte anonymní analýzy využití, které pomohou zlepšit Anarlog."
 
-#: src/settings/general/index.tsx:213
+#: src/settings/general/index.tsx:192
 msgid "Share usage data"
 msgstr "Sdílet údaje o využití"
 
-#: src/settings/general/index.tsx:202
-msgid "Show Devtools panel"
-msgstr ""
-
-#: src/settings/general/index.tsx:182
+#: src/settings/general/index.tsx:175
 msgid "Show floating bar"
 msgstr "Zobrazit plovoucí lištu"
 
-#: src/settings/general/index.tsx:183
+#: src/settings/general/index.tsx:176
 msgid "Show the compact floating control while listening."
 msgstr "Při poslechu ukažte kompaktní plovoucí ovládání."
 
-#: src/settings/general/index.tsx:203
-msgid "Show the native floating control panel."
-msgstr ""
-
-#: src/settings/general/index.tsx:192
+#: src/settings/general/index.tsx:182
 msgid "Show timeline in sidebar"
 msgstr "Zobrazit časovou osu na postranním panelu"
 
-#: src/settings/general/index.tsx:157
+#: src/settings/general/index.tsx:151
 msgid "Start Anarlog at login"
 msgstr "Spustit Anarlog při přihlášení"
 
-#: src/settings/general/index.tsx:164
+#: src/settings/general/index.tsx:158
 msgid "Start when meeting begins"
 msgstr "Začít při zahájení schůzky"
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/index.tsx:168
 msgid "Stop when meeting ends"
 msgstr "Zastavit, když schůzka skončí"
 
@@ -122,6 +114,6 @@ msgstr "Zastavit, když schůzka skončí"
 msgid "The main language is always included for transcription"
 msgstr "Pro přepis je vždy zahrnut hlavní jazyk"
 
-#: src/settings/general/index.tsx:193
+#: src/settings/general/index.tsx:183
 msgid "Use the left sidebar timeline instead of the top timeline."
 msgstr "Namísto horní časové osy použijte levou časovou osu."

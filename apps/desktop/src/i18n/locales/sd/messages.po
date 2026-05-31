@@ -25,27 +25,27 @@ msgstr "ڳالهائيندڙ ٻولي شامل ڪريو"
 msgid "Additional spoken languages"
 msgstr "اضافي ڳالهائيندڙ ٻوليون"
 
-#: src/settings/general/index.tsx:158
+#: src/settings/general/index.tsx:152
 msgid "Always ready without manually launching."
 msgstr "دستي طور تي لانچ ڪرڻ کان سواءِ هميشه تيار."
 
-#: src/settings/general/index.tsx:140
+#: src/settings/general/index.tsx:136
 msgid "App"
 msgstr "ايپ"
 
-#: src/settings/general/index.tsx:165
+#: src/settings/general/index.tsx:159
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "خود بخود ٻڌڻ شروع ڪريو جڏھن ھڪڙي واقعي جي پٺڀرائي نوٽ پنھنجي مقرر ڪيل وقت تي پھچي."
 
-#: src/settings/general/index.tsx:176
+#: src/settings/general/index.tsx:169
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "خود بخود ٻڌڻ بند ڪريو جڏھن ميٽنگ ايپ مائڪروفون جاري ڪري ٿي."
 
-#: src/settings/general/index.tsx:288
+#: src/settings/general/index.tsx:265
 msgid "Data"
 msgstr "ڊيٽا"
 
-#: src/settings/general/index.tsx:237
+#: src/settings/general/index.tsx:214
 msgid "Language & Region"
 msgstr "ٻولي ۽ علائقو"
 
@@ -57,7 +57,7 @@ msgstr "خلاصو، چيٽ، ۽ AI جي ٺاهيل جوابن لاءِ ٻولي
 msgid "Main language"
 msgstr "مکيه ٻولي"
 
-#: src/settings/general/app-settings.tsx:64
+#: src/settings/general/app-settings.tsx:56
 msgid "Meetings"
 msgstr "ملاقات"
 
@@ -66,7 +66,7 @@ msgstr "ملاقات"
 msgid "No matching languages found"
 msgstr "ڪابه ملندڙ ٻوليون نه مليون"
 
-#: src/settings/general/index.tsx:300
+#: src/settings/general/index.tsx:277
 msgid "Notifications"
 msgstr "اطلاعات"
 
@@ -78,43 +78,35 @@ msgstr "ٻولي ڳولھيو..."
 msgid "Select language"
 msgstr "ٻولي چونڊيو"
 
-#: src/settings/general/index.tsx:214
+#: src/settings/general/index.tsx:193
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "انارلاگ کي بهتر ڪرڻ ۾ مدد لاءِ گمنام استعمال جا تجزيا موڪليو."
 
-#: src/settings/general/index.tsx:213
+#: src/settings/general/index.tsx:192
 msgid "Share usage data"
 msgstr "استعمال ڊيٽا حصيداري ڪريو"
 
-#: src/settings/general/index.tsx:202
-msgid "Show Devtools panel"
-msgstr ""
-
-#: src/settings/general/index.tsx:182
+#: src/settings/general/index.tsx:175
 msgid "Show floating bar"
 msgstr "سچل بار ڏيکاريو"
 
-#: src/settings/general/index.tsx:183
+#: src/settings/general/index.tsx:176
 msgid "Show the compact floating control while listening."
 msgstr "ٻڌڻ دوران ڪمپيڪٽ سچل ڪنٽرول ڏيکاريو."
 
-#: src/settings/general/index.tsx:203
-msgid "Show the native floating control panel."
-msgstr ""
-
-#: src/settings/general/index.tsx:192
+#: src/settings/general/index.tsx:182
 msgid "Show timeline in sidebar"
 msgstr "سائيڊبار ۾ ٽائم لائن ڏيکاريو"
 
-#: src/settings/general/index.tsx:157
+#: src/settings/general/index.tsx:151
 msgid "Start Anarlog at login"
 msgstr "لاگ ان تي Anarlog شروع ڪريو"
 
-#: src/settings/general/index.tsx:164
+#: src/settings/general/index.tsx:158
 msgid "Start when meeting begins"
 msgstr "شروع ڪريو جڏهن ميٽنگ شروع ٿئي"
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/index.tsx:168
 msgid "Stop when meeting ends"
 msgstr "جڏهن ميٽنگ ختم ٿئي ته روڪيو"
 
@@ -122,6 +114,6 @@ msgstr "جڏهن ميٽنگ ختم ٿئي ته روڪيو"
 msgid "The main language is always included for transcription"
 msgstr "مکيه ٻولي هميشه ٽرانسپشن لاءِ شامل ڪئي ويندي آهي"
 
-#: src/settings/general/index.tsx:193
+#: src/settings/general/index.tsx:183
 msgid "Use the left sidebar timeline instead of the top timeline."
 msgstr "مٿين ٽائم لائن جي بدران کاٻي سائڊبار ٽائم لائن استعمال ڪريو."

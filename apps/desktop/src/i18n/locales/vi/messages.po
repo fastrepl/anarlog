@@ -25,27 +25,27 @@ msgstr "Thêm ngôn ngữ nói"
 msgid "Additional spoken languages"
 msgstr "Ngôn ngữ nói bổ sung"
 
-#: src/settings/general/index.tsx:158
+#: src/settings/general/index.tsx:152
 msgid "Always ready without manually launching."
 msgstr "Luôn sẵn sàng mà không cần khởi chạy thủ công."
 
-#: src/settings/general/index.tsx:140
+#: src/settings/general/index.tsx:136
 msgid "App"
 msgstr "Ứng dụng"
 
-#: src/settings/general/index.tsx:165
+#: src/settings/general/index.tsx:159
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Tự động bắt đầu nghe khi ghi chú dựa trên sự kiện đạt đến thời gian bắt đầu đã lên lịch."
 
-#: src/settings/general/index.tsx:176
+#: src/settings/general/index.tsx:169
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Tự động ngừng nghe khi ứng dụng cuộc họp nhả micrô."
 
-#: src/settings/general/index.tsx:288
+#: src/settings/general/index.tsx:265
 msgid "Data"
 msgstr "Dữ liệu"
 
-#: src/settings/general/index.tsx:237
+#: src/settings/general/index.tsx:214
 msgid "Language & Region"
 msgstr "Ngôn ngữ & Khu vực"
 
@@ -57,7 +57,7 @@ msgstr "Ngôn ngữ tóm tắt, trò chuyện và phản hồi do AI tạo"
 msgid "Main language"
 msgstr "Ngôn ngữ chính"
 
-#: src/settings/general/app-settings.tsx:64
+#: src/settings/general/app-settings.tsx:56
 msgid "Meetings"
 msgstr "Cuộc họp"
 
@@ -66,7 +66,7 @@ msgstr "Cuộc họp"
 msgid "No matching languages found"
 msgstr "Không tìm thấy ngôn ngữ phù hợp"
 
-#: src/settings/general/index.tsx:300
+#: src/settings/general/index.tsx:277
 msgid "Notifications"
 msgstr "Thông báo"
 
@@ -78,43 +78,35 @@ msgstr "Ngôn ngữ tìm kiếm..."
 msgid "Select language"
 msgstr "Chọn ngôn ngữ"
 
-#: src/settings/general/index.tsx:214
+#: src/settings/general/index.tsx:193
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Gửi phân tích sử dụng ẩn danh để giúp cải thiện Anarlog."
 
-#: src/settings/general/index.tsx:213
+#: src/settings/general/index.tsx:192
 msgid "Share usage data"
 msgstr "Chia sẻ dữ liệu sử dụng"
 
-#: src/settings/general/index.tsx:202
-msgid "Show Devtools panel"
-msgstr ""
-
-#: src/settings/general/index.tsx:182
+#: src/settings/general/index.tsx:175
 msgid "Show floating bar"
 msgstr "Hiển thị thanh nổi"
 
-#: src/settings/general/index.tsx:183
+#: src/settings/general/index.tsx:176
 msgid "Show the compact floating control while listening."
 msgstr "Hiển thị điều khiển nổi nhỏ gọn trong khi nghe."
 
-#: src/settings/general/index.tsx:203
-msgid "Show the native floating control panel."
-msgstr ""
-
-#: src/settings/general/index.tsx:192
+#: src/settings/general/index.tsx:182
 msgid "Show timeline in sidebar"
 msgstr "Hiển thị dòng thời gian ở thanh bên"
 
-#: src/settings/general/index.tsx:157
+#: src/settings/general/index.tsx:151
 msgid "Start Anarlog at login"
 msgstr "Bắt đầu Anarlog khi đăng nhập"
 
-#: src/settings/general/index.tsx:164
+#: src/settings/general/index.tsx:158
 msgid "Start when meeting begins"
 msgstr "Bắt đầu khi cuộc họp bắt đầu"
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/index.tsx:168
 msgid "Stop when meeting ends"
 msgstr "Dừng khi cuộc họp kết thúc"
 
@@ -122,6 +114,6 @@ msgstr "Dừng khi cuộc họp kết thúc"
 msgid "The main language is always included for transcription"
 msgstr "Ngôn ngữ chính luôn được đưa vào để phiên âm"
 
-#: src/settings/general/index.tsx:193
+#: src/settings/general/index.tsx:183
 msgid "Use the left sidebar timeline instead of the top timeline."
 msgstr "Sử dụng dòng thời gian ở thanh bên trái thay vì dòng thời gian trên cùng."

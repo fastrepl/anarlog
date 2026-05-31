@@ -25,27 +25,27 @@ msgstr "Ouzhpennañ ar yezh komzet"
 msgid "Additional spoken languages"
 msgstr "Yezhoù komzet ouzhpenn"
 
-#: src/settings/general/index.tsx:158
+#: src/settings/general/index.tsx:152
 msgid "Always ready without manually launching."
 msgstr "Prest atav hep loc'hañ dre zorn."
 
-#: src/settings/general/index.tsx:140
+#: src/settings/general/index.tsx:136
 msgid "App"
 msgstr "Arload"
 
-#: src/settings/general/index.tsx:165
+#: src/settings/general/index.tsx:159
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Kregiñ a ra ar selaou ent emgefre pa erru un notenn skoret gant un darvoud d'an eur loc'hañ rakwelet."
 
-#: src/settings/general/index.tsx:176
+#: src/settings/general/index.tsx:169
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Paouez da selaou ent emgefre pa vo laosket ar mikro gant an arload emvod."
 
-#: src/settings/general/index.tsx:288
+#: src/settings/general/index.tsx:265
 msgid "Data"
 msgstr "Roadennoù"
 
-#: src/settings/general/index.tsx:237
+#: src/settings/general/index.tsx:214
 msgid "Language & Region"
 msgstr "Yezh & Rannvro"
 
@@ -57,7 +57,7 @@ msgstr "Yezh evit an diverrañ, ar flapañ hag ar respontoù krouet gant IA"
 msgid "Main language"
 msgstr "Yezh pennañ"
 
-#: src/settings/general/app-settings.tsx:64
+#: src/settings/general/app-settings.tsx:56
 msgid "Meetings"
 msgstr "Emvodoù"
 
@@ -66,7 +66,7 @@ msgstr "Emvodoù"
 msgid "No matching languages found"
 msgstr "N'eus bet kavet yezh ebet a glot"
 
-#: src/settings/general/index.tsx:300
+#: src/settings/general/index.tsx:277
 msgid "Notifications"
 msgstr "Kemennadennoù"
 
@@ -78,43 +78,35 @@ msgstr "Klask yezh..."
 msgid "Select language"
 msgstr "Dibab yezh"
 
-#: src/settings/general/index.tsx:214
+#: src/settings/general/index.tsx:193
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Kas dielfennadurioù implij dizanv evit sikour da wellaat Anarlog."
 
-#: src/settings/general/index.tsx:213
+#: src/settings/general/index.tsx:192
 msgid "Share usage data"
 msgstr "Rannañ roadennoù implij"
 
-#: src/settings/general/index.tsx:202
-msgid "Show Devtools panel"
-msgstr ""
-
-#: src/settings/general/index.tsx:182
+#: src/settings/general/index.tsx:175
 msgid "Show floating bar"
 msgstr "Diskouez ar varrenn o nijal"
 
-#: src/settings/general/index.tsx:183
+#: src/settings/general/index.tsx:176
 msgid "Show the compact floating control while listening."
 msgstr "Diskouez ar c'hontroll neuial bihan e-pad ma selaouer."
 
-#: src/settings/general/index.tsx:203
-msgid "Show the native floating control panel."
-msgstr ""
-
-#: src/settings/general/index.tsx:192
+#: src/settings/general/index.tsx:182
 msgid "Show timeline in sidebar"
 msgstr "Diskouez al linenn amzer er varrenn gostez"
 
-#: src/settings/general/index.tsx:157
+#: src/settings/general/index.tsx:151
 msgid "Start Anarlog at login"
 msgstr "Kregiñ gant an Anarlog pa vez kevreet"
 
-#: src/settings/general/index.tsx:164
+#: src/settings/general/index.tsx:158
 msgid "Start when meeting begins"
 msgstr "Kregiñ pa grogo an emvod"
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/index.tsx:168
 msgid "Stop when meeting ends"
 msgstr "Paouez pa vo echu an emvod"
 
@@ -122,6 +114,6 @@ msgstr "Paouez pa vo echu an emvod"
 msgid "The main language is always included for transcription"
 msgstr "Lakaet e vez atav ar yezh pennañ evit an treuzskrivadur"
 
-#: src/settings/general/index.tsx:193
+#: src/settings/general/index.tsx:183
 msgid "Use the left sidebar timeline instead of the top timeline."
 msgstr "Arverit ar varrenn gostez a-gleiz e-lec'h al linenn amzer uhelañ."

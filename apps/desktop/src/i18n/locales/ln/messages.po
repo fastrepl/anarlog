@@ -25,27 +25,27 @@ msgstr "Bakisa monoko oyo balobaka"
 msgid "Additional spoken languages"
 msgstr "Minoko ya kobakisa oyo balobaka"
 
-#: src/settings/general/index.tsx:158
+#: src/settings/general/index.tsx:152
 msgid "Always ready without manually launching."
 msgstr "Ezali ntango nyonso prêt sans lancement manuellement."
 
-#: src/settings/general/index.tsx:140
+#: src/settings/general/index.tsx:136
 msgid "App"
 msgstr "Esaleli"
 
-#: src/settings/general/index.tsx:165
+#: src/settings/general/index.tsx:159
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Banda koyoka na ndenge ya automatique tango note oyo esimbami na likambo ekomi na ngonga na yango ya kobanda oyo esengelaki."
 
-#: src/settings/general/index.tsx:176
+#: src/settings/general/index.tsx:169
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Tika koyoka na ndenge ya automatique tango appli ya likita ebimisaka micro."
 
-#: src/settings/general/index.tsx:288
+#: src/settings/general/index.tsx:265
 msgid "Data"
 msgstr "Ba données"
 
-#: src/settings/general/index.tsx:237
+#: src/settings/general/index.tsx:214
 msgid "Language & Region"
 msgstr "Monoko & Etuka"
 
@@ -57,7 +57,7 @@ msgstr "Monoko mpo na bokuse, masolo, mpe biyano oyo esalemi na AI"
 msgid "Main language"
 msgstr "Monoko ya monene"
 
-#: src/settings/general/app-settings.tsx:64
+#: src/settings/general/app-settings.tsx:56
 msgid "Meetings"
 msgstr "Makita"
 
@@ -66,7 +66,7 @@ msgstr "Makita"
 msgid "No matching languages found"
 msgstr "Minoko oyo ekokani ezwami te"
 
-#: src/settings/general/index.tsx:300
+#: src/settings/general/index.tsx:277
 msgid "Notifications"
 msgstr "Mayebisi"
 
@@ -78,43 +78,35 @@ msgstr "Boluka monoko..."
 msgid "Select language"
 msgstr "Pona monoko"
 
-#: src/settings/general/index.tsx:214
+#: src/settings/general/index.tsx:193
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Tinda ba analyses ya usage anonyme mpo na kosunga kobongisa Anarlog."
 
-#: src/settings/general/index.tsx:213
+#: src/settings/general/index.tsx:192
 msgid "Share usage data"
 msgstr "Kabola ba données ya bosaleli"
 
-#: src/settings/general/index.tsx:202
-msgid "Show Devtools panel"
-msgstr ""
-
-#: src/settings/general/index.tsx:182
+#: src/settings/general/index.tsx:175
 msgid "Show floating bar"
 msgstr "Lakisa barre oyo ezali kopumbwa"
 
-#: src/settings/general/index.tsx:183
+#: src/settings/general/index.tsx:176
 msgid "Show the compact floating control while listening."
 msgstr "Lakisa contrôle flottante compact tango ozali koyoka."
 
-#: src/settings/general/index.tsx:203
-msgid "Show the native floating control panel."
-msgstr ""
-
-#: src/settings/general/index.tsx:192
+#: src/settings/general/index.tsx:182
 msgid "Show timeline in sidebar"
 msgstr "Lakisa molongo ya ntango na barre ya mopanzi"
 
-#: src/settings/general/index.tsx:157
+#: src/settings/general/index.tsx:151
 msgid "Start Anarlog at login"
 msgstr "Banda Anarlog na bokoti"
 
-#: src/settings/general/index.tsx:164
+#: src/settings/general/index.tsx:158
 msgid "Start when meeting begins"
 msgstr "Banda tango likita ekobanda"
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/index.tsx:168
 msgid "Stop when meeting ends"
 msgstr "Tika tango likita ekosila"
 
@@ -122,6 +114,6 @@ msgstr "Tika tango likita ekosila"
 msgid "The main language is always included for transcription"
 msgstr "Monoko ya monene ekotisami ntango nyonso mpo na bokomi"
 
-#: src/settings/general/index.tsx:193
+#: src/settings/general/index.tsx:183
 msgid "Use the left sidebar timeline instead of the top timeline."
 msgstr "Salelá molongo ya ntango ya mopanzi ya lobɔkɔ ya mwasi na esika ya molongo ya ntango ya likoló."

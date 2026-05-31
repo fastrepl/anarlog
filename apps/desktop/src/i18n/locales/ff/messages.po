@@ -25,27 +25,27 @@ msgstr "Ɓeydu ɗemngal haalteengal"
 msgid "Additional spoken languages"
 msgstr "Ɗemɗe kaaleteeɗe ɓeydaaɗe"
 
-#: src/settings/general/index.tsx:158
+#: src/settings/general/index.tsx:152
 msgid "Always ready without manually launching."
 msgstr "Ko hesɗi sahaa kala tawa aɗa uddita e junngo."
 
-#: src/settings/general/index.tsx:140
+#: src/settings/general/index.tsx:136
 msgid "App"
 msgstr "Kuutorgal"
 
-#: src/settings/general/index.tsx:165
+#: src/settings/general/index.tsx:159
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Fuɗɗoo heɗaade otomatik so winndannde ballitoore kewu yettiima waktu mum puɗɗorɗo."
 
-#: src/settings/general/index.tsx:176
+#: src/settings/general/index.tsx:169
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Woppu heɗtaade otomatik so app pottital ngal yaltinii mikroo."
 
-#: src/settings/general/index.tsx:288
+#: src/settings/general/index.tsx:265
 msgid "Data"
 msgstr "Dowlaaji"
 
-#: src/settings/general/index.tsx:237
+#: src/settings/general/index.tsx:214
 msgid "Language & Region"
 msgstr "Ɗemngal e Diiwaan"
 
@@ -57,7 +57,7 @@ msgstr "Ɗemngal ngam ciimtol, yeewtere, e jaabawuuli AI"
 msgid "Main language"
 msgstr "Ɗemngal mawngal"
 
-#: src/settings/general/app-settings.tsx:64
+#: src/settings/general/app-settings.tsx:56
 msgid "Meetings"
 msgstr "Kawrital"
 
@@ -66,7 +66,7 @@ msgstr "Kawrital"
 msgid "No matching languages found"
 msgstr "Ɗemɗe nannduɗe alaa tawaa"
 
-#: src/settings/general/index.tsx:300
+#: src/settings/general/index.tsx:277
 msgid "Notifications"
 msgstr "Noddaango"
 
@@ -78,43 +78,35 @@ msgstr "Ɗemngal njiylawu..."
 msgid "Select language"
 msgstr "Suɓo ɗemngal"
 
-#: src/settings/general/index.tsx:214
+#: src/settings/general/index.tsx:193
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Neldu ƴeewndo kuutoragol ngol anndaaka ngam wallitde moƴƴinde Anarlog."
 
-#: src/settings/general/index.tsx:213
+#: src/settings/general/index.tsx:192
 msgid "Share usage data"
 msgstr "Renndinde dokke kuutoragol"
 
-#: src/settings/general/index.tsx:202
-msgid "Show Devtools panel"
-msgstr ""
-
-#: src/settings/general/index.tsx:182
+#: src/settings/general/index.tsx:175
 msgid "Show floating bar"
 msgstr "Hollit barme ɓuuɓɗo"
 
-#: src/settings/general/index.tsx:183
+#: src/settings/general/index.tsx:176
 msgid "Show the compact floating control while listening."
 msgstr "Hollit jokkorgal ɓuuɓngal compact nde aɗa nana."
 
-#: src/settings/general/index.tsx:203
-msgid "Show the native floating control panel."
-msgstr ""
-
-#: src/settings/general/index.tsx:192
+#: src/settings/general/index.tsx:182
 msgid "Show timeline in sidebar"
 msgstr "Hollit doggol waktuuji e nder doggol bannge"
 
-#: src/settings/general/index.tsx:157
+#: src/settings/general/index.tsx:151
 msgid "Start Anarlog at login"
 msgstr "Fuɗɗo Anarlog e naatgol"
 
-#: src/settings/general/index.tsx:164
+#: src/settings/general/index.tsx:158
 msgid "Start when meeting begins"
 msgstr "Fuɗɗo so batu fuɗɗiima"
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/index.tsx:168
 msgid "Stop when meeting ends"
 msgstr "Darto so batu nguu gasii"
 
@@ -122,6 +114,6 @@ msgstr "Darto so batu nguu gasii"
 msgid "The main language is always included for transcription"
 msgstr "Ɗemngal mawngal ina heen sahaa kala ngam winndude"
 
-#: src/settings/general/index.tsx:193
+#: src/settings/general/index.tsx:183
 msgid "Use the left sidebar timeline instead of the top timeline."
 msgstr "Hutoro doggol waktuuji bannge nano ngol e nokku doggol waktuuji dow ngol."

@@ -13,7 +13,6 @@ import { TrialEndedDialog } from "~/billing/trial-ended-dialog";
 import { TrialStartedDialog } from "~/billing/trial-started-dialog";
 import { getLatestVersion } from "~/changelog";
 import { useDevtoolsStore, useDevtoolsUserId } from "~/devtools-panel/hooks";
-import { useConfigValue } from "~/shared/config";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import {
   type DevtoolsToastPreview,
@@ -54,10 +53,8 @@ type DevtoolsPanelAction =
   | "error:trigger";
 
 export function DevtoolsFloatingPanelHost() {
-  const devtoolsPanelEnabled = useConfigValue("devtools_control_panel_enabled");
   const isMainWindow = getCurrentWebviewWindowLabel() === "main";
-  const shouldShow =
-    isMainWindow && (forceDevtoolsPanel || devtoolsPanelEnabled);
+  const shouldShow = isMainWindow && forceDevtoolsPanel;
 
   if (!isMainWindow) {
     return null;

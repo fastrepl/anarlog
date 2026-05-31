@@ -25,27 +25,27 @@ msgstr "Fi ede sisọ kun"
 msgid "Additional spoken languages"
 msgstr "Awọn ede ti a sọ ni afikun"
 
-#: src/settings/general/index.tsx:158
+#: src/settings/general/index.tsx:152
 msgid "Always ready without manually launching."
 msgstr "Ṣetan nigbagbogbo lai ṣe ifilọlẹ pẹlu ọwọ."
 
-#: src/settings/general/index.tsx:140
+#: src/settings/general/index.tsx:136
 msgid "App"
 msgstr "Ohun elo"
 
-#: src/settings/general/index.tsx:165
+#: src/settings/general/index.tsx:159
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Bẹrẹ gbigbọ ni aladaaṣe nigbati akọsilẹ ti o ṣe atilẹyin iṣẹlẹ ba de akoko ibẹrẹ ti a ṣeto."
 
-#: src/settings/general/index.tsx:176
+#: src/settings/general/index.tsx:169
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Da gbigbọran duro ni aladaaṣe nigbati app ipade ba tu gbohungbohun silẹ."
 
-#: src/settings/general/index.tsx:288
+#: src/settings/general/index.tsx:265
 msgid "Data"
 msgstr "Data"
 
-#: src/settings/general/index.tsx:237
+#: src/settings/general/index.tsx:214
 msgid "Language & Region"
 msgstr "Ede & Ekun"
 
@@ -57,7 +57,7 @@ msgstr "Ede fun awọn akojọpọ, awọn ibaraẹnisọrọ, ati awọn idahun
 msgid "Main language"
 msgstr "Ede akọkọ"
 
-#: src/settings/general/app-settings.tsx:64
+#: src/settings/general/app-settings.tsx:56
 msgid "Meetings"
 msgstr "Awọn ipade"
 
@@ -66,7 +66,7 @@ msgstr "Awọn ipade"
 msgid "No matching languages found"
 msgstr "Ko si awọn ede ti o baamu ti a rii"
 
-#: src/settings/general/index.tsx:300
+#: src/settings/general/index.tsx:277
 msgid "Notifications"
 msgstr "Awọn iwifunni"
 
@@ -78,43 +78,35 @@ msgstr "Ede wa..."
 msgid "Select language"
 msgstr "Yan ede"
 
-#: src/settings/general/index.tsx:214
+#: src/settings/general/index.tsx:193
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Firanṣẹ atupale lilo ailorukọ lati ṣe iranlọwọ ilọsiwaju Anarlog."
 
-#: src/settings/general/index.tsx:213
+#: src/settings/general/index.tsx:192
 msgid "Share usage data"
 msgstr "Pin data lilo"
 
-#: src/settings/general/index.tsx:202
-msgid "Show Devtools panel"
-msgstr ""
-
-#: src/settings/general/index.tsx:182
+#: src/settings/general/index.tsx:175
 msgid "Show floating bar"
 msgstr "Fi ọpa lilefoofo han"
 
-#: src/settings/general/index.tsx:183
+#: src/settings/general/index.tsx:176
 msgid "Show the compact floating control while listening."
 msgstr "Ṣafihan iṣakoso lilefoofo iwapọ lakoko gbigbọ."
 
-#: src/settings/general/index.tsx:203
-msgid "Show the native floating control panel."
-msgstr ""
-
-#: src/settings/general/index.tsx:192
+#: src/settings/general/index.tsx:182
 msgid "Show timeline in sidebar"
 msgstr "Fi aago han ni ẹgbẹ ẹgbẹ"
 
-#: src/settings/general/index.tsx:157
+#: src/settings/general/index.tsx:151
 msgid "Start Anarlog at login"
 msgstr "Bẹrẹ Anarlog ni wiwọle"
 
-#: src/settings/general/index.tsx:164
+#: src/settings/general/index.tsx:158
 msgid "Start when meeting begins"
 msgstr "Bẹrẹ nigbati ipade ba bẹrẹ"
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/index.tsx:168
 msgid "Stop when meeting ends"
 msgstr "Duro nigbati ipade ba pari"
 
@@ -122,6 +114,6 @@ msgstr "Duro nigbati ipade ba pari"
 msgid "The main language is always included for transcription"
 msgstr "Ede akọkọ wa nigbagbogbo fun kikọ silẹ"
 
-#: src/settings/general/index.tsx:193
+#: src/settings/general/index.tsx:183
 msgid "Use the left sidebar timeline instead of the top timeline."
 msgstr "Lo aago ẹgbẹ ẹgbẹ osi dipo aago oke."

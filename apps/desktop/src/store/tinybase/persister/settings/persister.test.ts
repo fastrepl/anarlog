@@ -423,7 +423,6 @@ describe("settingsPersister roundtrip", () => {
     const [tables, values] = settingsToContent({
       general: {
         autostart: true,
-        devtools_control_panel_enabled: true,
         floating_bar_enabled: false,
         sidebar_timeline_enabled: true,
         save_recordings: true,
@@ -442,7 +441,6 @@ describe("settingsPersister roundtrip", () => {
 
     expect(result.general).toEqual({
       autostart: true,
-      devtools_control_panel_enabled: true,
       floating_bar_enabled: false,
       sidebar_timeline_enabled: true,
     });
