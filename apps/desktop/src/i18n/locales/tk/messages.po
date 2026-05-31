@@ -25,27 +25,27 @@ msgstr "Gepleşik dilini goşuň"
 msgid "Additional spoken languages"
 msgstr "Goşmaça gürleýän diller"
 
-#: src/settings/general/index.tsx:157
+#: src/settings/general/index.tsx:158
 msgid "Always ready without manually launching."
 msgstr "El bilen işlemezden elmydama taýýar."
 
-#: src/settings/general/app-settings.tsx:35
+#: src/settings/general/index.tsx:140
 msgid "App"
 msgstr "programma"
 
-#: src/settings/general/index.tsx:164
+#: src/settings/general/index.tsx:165
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Wakany goldaýan bellik bellenen başlangyç wagtyna ýetende awtomatiki diňläp başlaň."
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/index.tsx:176
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Duşuşyk programmasy mikrofony çykaranda awtomatiki diňlemegi bes ediň."
 
-#: src/settings/general/index.tsx:287
+#: src/settings/general/index.tsx:288
 msgid "Data"
 msgstr "Maglumatlar"
 
-#: src/settings/general/index.tsx:236
+#: src/settings/general/index.tsx:237
 msgid "Language & Region"
 msgstr "Dil we sebit"
 
@@ -57,7 +57,7 @@ msgstr "Gysgaça mazmunlar, söhbetdeşlikler we AI tarapyndan döredilen jogapl
 msgid "Main language"
 msgstr "Esasy dil"
 
-#: src/settings/general/app-settings.tsx:67
+#: src/settings/general/app-settings.tsx:64
 msgid "Meetings"
 msgstr "Duşuşyklar"
 
@@ -66,7 +66,7 @@ msgstr "Duşuşyklar"
 msgid "No matching languages found"
 msgstr "Gabat gelýän diller tapylmady"
 
-#: src/settings/general/index.tsx:299
+#: src/settings/general/index.tsx:300
 msgid "Notifications"
 msgstr "Duýduryşlar"
 
@@ -78,7 +78,7 @@ msgstr "Gözleg dili ..."
 msgid "Select language"
 msgstr "Dil saýlaň"
 
-#: src/settings/general/index.tsx:213
+#: src/settings/general/index.tsx:214
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Anarlogy gowulaşdyrmak üçin anonim ulanyş analitikasyny iberiň."
 
@@ -86,39 +86,39 @@ msgstr "Anarlogy gowulaşdyrmak üçin anonim ulanyş analitikasyny iberiň."
 msgid "Settings"
 msgstr "Sazlamalar"
 
-#: src/settings/general/index.tsx:212
+#: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "Ulanyş maglumatlaryny paýlaşyň"
 
-#: src/settings/general/index.tsx:201
+#: src/settings/general/index.tsx:202
 msgid "Show Devtools panel"
 msgstr ""
 
-#: src/settings/general/index.tsx:181
+#: src/settings/general/index.tsx:182
 msgid "Show floating bar"
 msgstr "floüzýän paneli görkez"
 
-#: src/settings/general/index.tsx:182
+#: src/settings/general/index.tsx:183
 msgid "Show the compact floating control while listening."
 msgstr "Diňlän wagtyňyz ykjam ýüzýän dolandyryşy görkeziň."
 
-#: src/settings/general/index.tsx:202
+#: src/settings/general/index.tsx:203
 msgid "Show the native floating control panel."
 msgstr ""
 
-#: src/settings/general/index.tsx:191
+#: src/settings/general/index.tsx:192
 msgid "Show timeline in sidebar"
 msgstr "Wagt görkezijisini gapdal panelde görkeziň"
 
-#: src/settings/general/index.tsx:156
+#: src/settings/general/index.tsx:157
 msgid "Start Anarlog at login"
 msgstr "Anarlogy girişden başlaň"
 
-#: src/settings/general/index.tsx:163
+#: src/settings/general/index.tsx:164
 msgid "Start when meeting begins"
 msgstr "Duşuşyk başlanda başlaň"
 
-#: src/settings/general/index.tsx:174
+#: src/settings/general/index.tsx:175
 msgid "Stop when meeting ends"
 msgstr "Duşuşyk gutaranda duruň"
 
@@ -126,6 +126,6 @@ msgstr "Duşuşyk gutaranda duruň"
 msgid "The main language is always included for transcription"
 msgstr "Esasy dil elmydama transkripsiýa üçin goşulýar"
 
-#: src/settings/general/index.tsx:192
+#: src/settings/general/index.tsx:193
 msgid "Use the left sidebar timeline instead of the top timeline."
 msgstr "timeokarky wagt çyzgysynyň ýerine çep gapdal çyzgysyny ulanyň."

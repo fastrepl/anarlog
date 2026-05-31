@@ -25,27 +25,27 @@ msgstr "Tambahake basa lisan"
 msgid "Additional spoken languages"
 msgstr "Basa lisan tambahan"
 
-#: src/settings/general/index.tsx:157
+#: src/settings/general/index.tsx:158
 msgid "Always ready without manually launching."
 msgstr "Tansah siyap tanpa diluncurake kanthi manual."
 
-#: src/settings/general/app-settings.tsx:35
+#: src/settings/general/index.tsx:140
 msgid "App"
 msgstr "Aplikasi"
 
-#: src/settings/general/index.tsx:164
+#: src/settings/general/index.tsx:165
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Miwiti kanthi otomatis ngrungokake nalika cathetan sing didhukung acara tekan wektu wiwitan sing dijadwalake."
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/index.tsx:176
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Otomatis mandheg ngrungokake nalika aplikasi rapat ngeculake mikropon."
 
-#: src/settings/general/index.tsx:287
+#: src/settings/general/index.tsx:288
 msgid "Data"
 msgstr "data"
 
-#: src/settings/general/index.tsx:236
+#: src/settings/general/index.tsx:237
 msgid "Language & Region"
 msgstr "Basa & Wilayah"
 
@@ -57,7 +57,7 @@ msgstr "Basa kanggo ringkesan, obrolan, lan tanggapan sing digawe AI"
 msgid "Main language"
 msgstr "Basa utama"
 
-#: src/settings/general/app-settings.tsx:67
+#: src/settings/general/app-settings.tsx:64
 msgid "Meetings"
 msgstr "Patemon"
 
@@ -66,7 +66,7 @@ msgstr "Patemon"
 msgid "No matching languages found"
 msgstr "Ora ditemokake basa sing cocog"
 
-#: src/settings/general/index.tsx:299
+#: src/settings/general/index.tsx:300
 msgid "Notifications"
 msgstr "Kabar"
 
@@ -78,7 +78,7 @@ msgstr "Telusuri basa..."
 msgid "Select language"
 msgstr "Pilih basa"
 
-#: src/settings/general/index.tsx:213
+#: src/settings/general/index.tsx:214
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Kirim analisis panggunaan anonim kanggo mbantu nambah Anarlog."
 
@@ -86,39 +86,39 @@ msgstr "Kirim analisis panggunaan anonim kanggo mbantu nambah Anarlog."
 msgid "Settings"
 msgstr "Setelan"
 
-#: src/settings/general/index.tsx:212
+#: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "Nuduhake data panggunaan"
 
-#: src/settings/general/index.tsx:201
+#: src/settings/general/index.tsx:202
 msgid "Show Devtools panel"
 msgstr ""
 
-#: src/settings/general/index.tsx:181
+#: src/settings/general/index.tsx:182
 msgid "Show floating bar"
 msgstr "Tampilake bar ngambang"
 
-#: src/settings/general/index.tsx:182
+#: src/settings/general/index.tsx:183
 msgid "Show the compact floating control while listening."
 msgstr "Tampilake kontrol ngambang kompak nalika ngrungokake."
 
-#: src/settings/general/index.tsx:202
+#: src/settings/general/index.tsx:203
 msgid "Show the native floating control panel."
 msgstr ""
 
-#: src/settings/general/index.tsx:191
+#: src/settings/general/index.tsx:192
 msgid "Show timeline in sidebar"
 msgstr "Tampilake garis wektu ing sidebar"
 
-#: src/settings/general/index.tsx:156
+#: src/settings/general/index.tsx:157
 msgid "Start Anarlog at login"
 msgstr "Mulai Anarlog nalika mlebu"
 
-#: src/settings/general/index.tsx:163
+#: src/settings/general/index.tsx:164
 msgid "Start when meeting begins"
 msgstr "Miwiti nalika rapat diwiwiti"
 
-#: src/settings/general/index.tsx:174
+#: src/settings/general/index.tsx:175
 msgid "Stop when meeting ends"
 msgstr "Mandheg nalika rapat rampung"
 
@@ -126,6 +126,6 @@ msgstr "Mandheg nalika rapat rampung"
 msgid "The main language is always included for transcription"
 msgstr "Basa utama mesthi kalebu kanggo transkripsi"
 
-#: src/settings/general/index.tsx:192
+#: src/settings/general/index.tsx:193
 msgid "Use the left sidebar timeline instead of the top timeline."
 msgstr "Gunakake garis wektu sidebar kiwa tinimbang garis wektu ndhuwur."

@@ -25,27 +25,27 @@ msgstr "Legg talumál til"
 msgid "Additional spoken languages"
 msgstr "Eyka talumál"
 
-#: src/settings/general/index.tsx:157
+#: src/settings/general/index.tsx:158
 msgid "Always ready without manually launching."
 msgstr "Altíð klárur uttan at seta í gongd manuelt."
 
-#: src/settings/general/app-settings.tsx:35
+#: src/settings/general/index.tsx:140
 msgid "App"
 msgstr "Forrit"
 
-#: src/settings/general/index.tsx:164
+#: src/settings/general/index.tsx:165
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Byrja sjálvvirkandi at lurta, tá ein hendingarstuðlaður notur nær sína ásettu byrjanartíð."
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/index.tsx:176
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Sjálvvirkandi steðga við at lurta, tá møtiappin sleppur mikrofonini."
 
-#: src/settings/general/index.tsx:287
+#: src/settings/general/index.tsx:288
 msgid "Data"
 msgstr "Dátur"
 
-#: src/settings/general/index.tsx:236
+#: src/settings/general/index.tsx:237
 msgid "Language & Region"
 msgstr "Mál og øki"
 
@@ -57,7 +57,7 @@ msgstr "Mál til samandráttir, kjak og AI-genererað svar"
 msgid "Main language"
 msgstr "Høvuðsmál"
 
-#: src/settings/general/app-settings.tsx:67
+#: src/settings/general/app-settings.tsx:64
 msgid "Meetings"
 msgstr "Fundir"
 
@@ -66,7 +66,7 @@ msgstr "Fundir"
 msgid "No matching languages found"
 msgstr "Einki samsvarandi mál er funnið"
 
-#: src/settings/general/index.tsx:299
+#: src/settings/general/index.tsx:300
 msgid "Notifications"
 msgstr "Fráboðanir"
 
@@ -78,7 +78,7 @@ msgstr "Leitimál..."
 msgid "Select language"
 msgstr "Vel mál"
 
-#: src/settings/general/index.tsx:213
+#: src/settings/general/index.tsx:214
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Send dulnevndar nýtslugreiningar fyri at hjálpa til við at betra um Anarlog."
 
@@ -86,39 +86,39 @@ msgstr "Send dulnevndar nýtslugreiningar fyri at hjálpa til við at betra um A
 msgid "Settings"
 msgstr "Innstillingar"
 
-#: src/settings/general/index.tsx:212
+#: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "Deil nýtsludátur"
 
-#: src/settings/general/index.tsx:201
+#: src/settings/general/index.tsx:202
 msgid "Show Devtools panel"
 msgstr ""
 
-#: src/settings/general/index.tsx:181
+#: src/settings/general/index.tsx:182
 msgid "Show floating bar"
 msgstr "Vís flótandi striku"
 
-#: src/settings/general/index.tsx:182
+#: src/settings/general/index.tsx:183
 msgid "Show the compact floating control while listening."
 msgstr "Vís kompaktu flótandi stýringina, meðan tú lurtar."
 
-#: src/settings/general/index.tsx:202
+#: src/settings/general/index.tsx:203
 msgid "Show the native floating control panel."
 msgstr ""
 
-#: src/settings/general/index.tsx:191
+#: src/settings/general/index.tsx:192
 msgid "Show timeline in sidebar"
 msgstr "Vís tíðarlinju í síðulinjuni"
 
-#: src/settings/general/index.tsx:156
+#: src/settings/general/index.tsx:157
 msgid "Start Anarlog at login"
 msgstr "Byrja Anarlog við innritan"
 
-#: src/settings/general/index.tsx:163
+#: src/settings/general/index.tsx:164
 msgid "Start when meeting begins"
 msgstr "Byrja tá møtið byrjar"
 
-#: src/settings/general/index.tsx:174
+#: src/settings/general/index.tsx:175
 msgid "Stop when meeting ends"
 msgstr "Steðga á, tá ið fundurin endar"
 
@@ -126,6 +126,6 @@ msgstr "Steðga á, tá ið fundurin endar"
 msgid "The main language is always included for transcription"
 msgstr "Høvuðsmálið er altíð við til umskriving"
 
-#: src/settings/general/index.tsx:192
+#: src/settings/general/index.tsx:193
 msgid "Use the left sidebar timeline instead of the top timeline."
 msgstr "Brúka vinstru síðulinju ístaðin fyri ovastu tíðarlinjuna."

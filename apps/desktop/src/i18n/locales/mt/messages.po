@@ -25,27 +25,27 @@ msgstr "Żid il-lingwa mitkellma"
 msgid "Additional spoken languages"
 msgstr "Lingwi mitkellma addizzjonali"
 
-#: src/settings/general/index.tsx:157
+#: src/settings/general/index.tsx:158
 msgid "Always ready without manually launching."
 msgstr "Dejjem lest mingħajr tnedija manwalment."
 
-#: src/settings/general/app-settings.tsx:35
+#: src/settings/general/index.tsx:140
 msgid "App"
 msgstr "App"
 
-#: src/settings/general/index.tsx:164
+#: src/settings/general/index.tsx:165
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Ibda tisma' awtomatikament meta nota sostnuta minn avveniment tilħaq il-ħin tal-bidu skedat tagħha."
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/index.tsx:176
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Awtomatikament tieqaf tisma' meta l-app tal-laqgħa toħroġ il-mikrofonu."
 
-#: src/settings/general/index.tsx:287
+#: src/settings/general/index.tsx:288
 msgid "Data"
 msgstr "Dejta"
 
-#: src/settings/general/index.tsx:236
+#: src/settings/general/index.tsx:237
 msgid "Language & Region"
 msgstr "Lingwa u Reġjun"
 
@@ -57,7 +57,7 @@ msgstr "Lingwa għal sommarji, chats, u tweġibiet iġġenerati mill-AI"
 msgid "Main language"
 msgstr "Lingwa prinċipali"
 
-#: src/settings/general/app-settings.tsx:67
+#: src/settings/general/app-settings.tsx:64
 msgid "Meetings"
 msgstr "Laqgħat"
 
@@ -66,7 +66,7 @@ msgstr "Laqgħat"
 msgid "No matching languages found"
 msgstr "L-ebda lingwa li taqbel ma nstabet"
 
-#: src/settings/general/index.tsx:299
+#: src/settings/general/index.tsx:300
 msgid "Notifications"
 msgstr "Notifiki"
 
@@ -78,7 +78,7 @@ msgstr "Fittex fil-lingwa..."
 msgid "Select language"
 msgstr "Agħżel il-lingwa"
 
-#: src/settings/general/index.tsx:213
+#: src/settings/general/index.tsx:214
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Ibgħat analiżi tal-użu anonima biex tgħin ittejjeb Anarlog."
 
@@ -86,39 +86,39 @@ msgstr "Ibgħat analiżi tal-użu anonima biex tgħin ittejjeb Anarlog."
 msgid "Settings"
 msgstr "Settings"
 
-#: src/settings/general/index.tsx:212
+#: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "Aqsam id-dejta tal-użu"
 
-#: src/settings/general/index.tsx:201
+#: src/settings/general/index.tsx:202
 msgid "Show Devtools panel"
 msgstr ""
 
-#: src/settings/general/index.tsx:181
+#: src/settings/general/index.tsx:182
 msgid "Show floating bar"
 msgstr "Uri bar floating"
 
-#: src/settings/general/index.tsx:182
+#: src/settings/general/index.tsx:183
 msgid "Show the compact floating control while listening."
 msgstr "Uri l-kontroll kompatt f'wiċċ l-ilma waqt li tisma'."
 
-#: src/settings/general/index.tsx:202
+#: src/settings/general/index.tsx:203
 msgid "Show the native floating control panel."
 msgstr ""
 
-#: src/settings/general/index.tsx:191
+#: src/settings/general/index.tsx:192
 msgid "Show timeline in sidebar"
 msgstr "Uri l-kronoloġija fil-bar tal-ġenb"
 
-#: src/settings/general/index.tsx:156
+#: src/settings/general/index.tsx:157
 msgid "Start Anarlog at login"
 msgstr "Ibda Anarlog mal-login"
 
-#: src/settings/general/index.tsx:163
+#: src/settings/general/index.tsx:164
 msgid "Start when meeting begins"
 msgstr "Ibda meta tibda l-laqgħa"
 
-#: src/settings/general/index.tsx:174
+#: src/settings/general/index.tsx:175
 msgid "Stop when meeting ends"
 msgstr "Ieqaf meta tintemm il-laqgħa"
 
@@ -126,6 +126,6 @@ msgstr "Ieqaf meta tintemm il-laqgħa"
 msgid "The main language is always included for transcription"
 msgstr "Il-lingwa ewlenija hija dejjem inkluża għat-traskrizzjoni"
 
-#: src/settings/general/index.tsx:192
+#: src/settings/general/index.tsx:193
 msgid "Use the left sidebar timeline instead of the top timeline."
 msgstr "Uża l-linja tal-ħin tal-bar tal-ġenb tax-xellug minflok il-kronoloġija ta' fuq."

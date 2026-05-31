@@ -25,27 +25,27 @@ msgstr "Dodaj govorjeni jezik"
 msgid "Additional spoken languages"
 msgstr "Dodatni govorjeni jeziki"
 
-#: src/settings/general/index.tsx:157
+#: src/settings/general/index.tsx:158
 msgid "Always ready without manually launching."
 msgstr "Vedno pripravljen brez ročnega zagona."
 
-#: src/settings/general/app-settings.tsx:35
+#: src/settings/general/index.tsx:140
 msgid "App"
 msgstr "Aplikacija"
 
-#: src/settings/general/index.tsx:164
+#: src/settings/general/index.tsx:165
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Samodejno začni poslušati, ko beležka, podprta z dogodkom, doseže načrtovani začetni čas."
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/index.tsx:176
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Samodejno prenehajte poslušati, ko aplikacija za srečanja sprosti mikrofon."
 
-#: src/settings/general/index.tsx:287
+#: src/settings/general/index.tsx:288
 msgid "Data"
 msgstr "Podatki"
 
-#: src/settings/general/index.tsx:236
+#: src/settings/general/index.tsx:237
 msgid "Language & Region"
 msgstr "Jezik in regija"
 
@@ -57,7 +57,7 @@ msgstr "Jezik za povzetke, klepete in odgovore, ustvarjene z umetno inteligenco"
 msgid "Main language"
 msgstr "Glavni jezik"
 
-#: src/settings/general/app-settings.tsx:67
+#: src/settings/general/app-settings.tsx:64
 msgid "Meetings"
 msgstr "Sestanki"
 
@@ -66,7 +66,7 @@ msgstr "Sestanki"
 msgid "No matching languages found"
 msgstr "Ni ustreznih jezikov"
 
-#: src/settings/general/index.tsx:299
+#: src/settings/general/index.tsx:300
 msgid "Notifications"
 msgstr "Obvestila"
 
@@ -78,7 +78,7 @@ msgstr "Jezik iskanja ..."
 msgid "Select language"
 msgstr "Izberite jezik"
 
-#: src/settings/general/index.tsx:213
+#: src/settings/general/index.tsx:214
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Pošljite anonimno analizo uporabe za pomoč pri izboljšanju Anarloga."
 
@@ -86,39 +86,39 @@ msgstr "Pošljite anonimno analizo uporabe za pomoč pri izboljšanju Anarloga."
 msgid "Settings"
 msgstr "Nastavitve"
 
-#: src/settings/general/index.tsx:212
+#: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "Skupna raba podatkov o uporabi"
 
-#: src/settings/general/index.tsx:201
+#: src/settings/general/index.tsx:202
 msgid "Show Devtools panel"
 msgstr ""
 
-#: src/settings/general/index.tsx:181
+#: src/settings/general/index.tsx:182
 msgid "Show floating bar"
 msgstr "Prikaži plavajočo vrstico"
 
-#: src/settings/general/index.tsx:182
+#: src/settings/general/index.tsx:183
 msgid "Show the compact floating control while listening."
 msgstr "Prikažite kompaktni lebdeči kontrolnik med poslušanjem."
 
-#: src/settings/general/index.tsx:202
+#: src/settings/general/index.tsx:203
 msgid "Show the native floating control panel."
 msgstr ""
 
-#: src/settings/general/index.tsx:191
+#: src/settings/general/index.tsx:192
 msgid "Show timeline in sidebar"
 msgstr "Pokaži časovnico v stranski vrstici"
 
-#: src/settings/general/index.tsx:156
+#: src/settings/general/index.tsx:157
 msgid "Start Anarlog at login"
 msgstr "Zaženi Anarlog ob prijavi"
 
-#: src/settings/general/index.tsx:163
+#: src/settings/general/index.tsx:164
 msgid "Start when meeting begins"
 msgstr "Začni, ko se sestanek začne"
 
-#: src/settings/general/index.tsx:174
+#: src/settings/general/index.tsx:175
 msgid "Stop when meeting ends"
 msgstr "Ustavite se, ko se sestanek konča"
 
@@ -126,6 +126,6 @@ msgstr "Ustavite se, ko se sestanek konča"
 msgid "The main language is always included for transcription"
 msgstr "Glavni jezik je vedno vključen v prepis"
 
-#: src/settings/general/index.tsx:192
+#: src/settings/general/index.tsx:193
 msgid "Use the left sidebar timeline instead of the top timeline."
 msgstr "Uporabite levo stransko časovnico namesto zgornje časovnice."

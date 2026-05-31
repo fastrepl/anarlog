@@ -25,27 +25,27 @@ msgstr "Ajoute lang ki pale"
 msgid "Additional spoken languages"
 msgstr "Anplis lang ki pale"
 
-#: src/settings/general/index.tsx:157
+#: src/settings/general/index.tsx:158
 msgid "Always ready without manually launching."
 msgstr "Toujou pare san yo pa lanse manyèlman."
 
-#: src/settings/general/app-settings.tsx:35
+#: src/settings/general/index.tsx:140
 msgid "App"
 msgstr "Aplikasyon"
 
-#: src/settings/general/index.tsx:164
+#: src/settings/general/index.tsx:165
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Otomatikman kòmanse koute lè yon nòt ki apiye yon evènman rive nan lè kòmanse pwograme li a."
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/index.tsx:176
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Otomatikman sispann koute lè aplikasyon reyinyon an lage mikwofòn la."
 
-#: src/settings/general/index.tsx:287
+#: src/settings/general/index.tsx:288
 msgid "Data"
 msgstr "Done"
 
-#: src/settings/general/index.tsx:236
+#: src/settings/general/index.tsx:237
 msgid "Language & Region"
 msgstr "Lang ak Rejyon"
 
@@ -57,7 +57,7 @@ msgstr "Lang pou rezime, chat, ak repons AI te pwodwi"
 msgid "Main language"
 msgstr "Lang prensipal"
 
-#: src/settings/general/app-settings.tsx:67
+#: src/settings/general/app-settings.tsx:64
 msgid "Meetings"
 msgstr "Reyinyon"
 
@@ -66,7 +66,7 @@ msgstr "Reyinyon"
 msgid "No matching languages found"
 msgstr "Okenn lang pa jwenn"
 
-#: src/settings/general/index.tsx:299
+#: src/settings/general/index.tsx:300
 msgid "Notifications"
 msgstr "Notifikasyon"
 
@@ -78,7 +78,7 @@ msgstr "Rechèch lang..."
 msgid "Select language"
 msgstr "Chwazi lang"
 
-#: src/settings/general/index.tsx:213
+#: src/settings/general/index.tsx:214
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Voye analiz itilizasyon anonim pou ede amelyore Anarlog."
 
@@ -86,39 +86,39 @@ msgstr "Voye analiz itilizasyon anonim pou ede amelyore Anarlog."
 msgid "Settings"
 msgstr "Anviwònman"
 
-#: src/settings/general/index.tsx:212
+#: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "Pataje done itilizasyon"
 
-#: src/settings/general/index.tsx:201
+#: src/settings/general/index.tsx:202
 msgid "Show Devtools panel"
 msgstr ""
 
-#: src/settings/general/index.tsx:181
+#: src/settings/general/index.tsx:182
 msgid "Show floating bar"
 msgstr "Montre ba k ap flote"
 
-#: src/settings/general/index.tsx:182
+#: src/settings/general/index.tsx:183
 msgid "Show the compact floating control while listening."
 msgstr "Montre kontwòl k ap flote kontra a pandan w ap koute."
 
-#: src/settings/general/index.tsx:202
+#: src/settings/general/index.tsx:203
 msgid "Show the native floating control panel."
 msgstr ""
 
-#: src/settings/general/index.tsx:191
+#: src/settings/general/index.tsx:192
 msgid "Show timeline in sidebar"
 msgstr "Montre delè nan kad koté"
 
-#: src/settings/general/index.tsx:156
+#: src/settings/general/index.tsx:157
 msgid "Start Anarlog at login"
 msgstr "Kòmanse Anarlog lè w konekte"
 
-#: src/settings/general/index.tsx:163
+#: src/settings/general/index.tsx:164
 msgid "Start when meeting begins"
 msgstr "Kòmanse lè reyinyon an kòmanse"
 
-#: src/settings/general/index.tsx:174
+#: src/settings/general/index.tsx:175
 msgid "Stop when meeting ends"
 msgstr "Sispann lè reyinyon an fini"
 
@@ -126,6 +126,6 @@ msgstr "Sispann lè reyinyon an fini"
 msgid "The main language is always included for transcription"
 msgstr "Lang prensipal la toujou enkli pou transkripsyon"
 
-#: src/settings/general/index.tsx:192
+#: src/settings/general/index.tsx:193
 msgid "Use the left sidebar timeline instead of the top timeline."
 msgstr "Sèvi ak kalandriye ba bò gòch la olye pou yo delè anlè a."

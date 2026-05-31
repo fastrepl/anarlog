@@ -31,9 +31,6 @@ export function AppSettingsView({
   return (
     <div className="flex flex-col gap-8">
       <section>
-        <h2 className="mb-4 font-sans text-lg font-semibold">
-          <Trans>App</Trans>
-        </h2>
         <div className="flex flex-col gap-4">
           <SettingRow
             title={autostart.title}

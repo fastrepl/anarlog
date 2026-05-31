@@ -154,81 +154,78 @@ export function Permissions() {
   const inputMonitoring = usePermission("inputMonitoring");
 
   return (
-    <div>
-      <h2 className="mb-6 font-sans text-lg font-semibold">Permissions</h2>
-      <div className="flex flex-col gap-8">
-        <PermissionGroup title="Audio">
-          <PermissionRow
-            title="Microphone"
-            description="Required to record your voice during meetings and calls"
-            status={mic.status}
-            isPending={mic.isPending}
-            onRequest={mic.request}
-            onReset={mic.reset}
-            onOpen={mic.open}
-          />
-          <PermissionRow
-            title="System audio"
-            description="Required to capture other participants' voices in meetings"
-            status={systemAudio.status}
-            isPending={systemAudio.isPending}
-            onRequest={systemAudio.request}
-            onReset={systemAudio.reset}
-            onOpen={systemAudio.open}
-          />
-        </PermissionGroup>
+    <div className="flex flex-col gap-8">
+      <PermissionGroup title="Audio">
+        <PermissionRow
+          title="Microphone"
+          description="Required to record your voice during meetings and calls"
+          status={mic.status}
+          isPending={mic.isPending}
+          onRequest={mic.request}
+          onReset={mic.reset}
+          onOpen={mic.open}
+        />
+        <PermissionRow
+          title="System audio"
+          description="Required to capture other participants' voices in meetings"
+          status={systemAudio.status}
+          isPending={systemAudio.isPending}
+          onRequest={systemAudio.request}
+          onReset={systemAudio.reset}
+          onOpen={systemAudio.open}
+        />
+      </PermissionGroup>
 
-        <PermissionGroup title="Dailynote">
-          <PermissionRow
-            title="Accessibility"
-            description="Required to detect meeting apps and sync mute status"
-            status={accessibility.status}
-            isPending={accessibility.isPending}
-            onRequest={accessibility.request}
-            onReset={accessibility.reset}
-            onOpen={accessibility.open}
-          />
-          <PermissionRow
-            title="Screen recording"
-            description="Required to capture screenshots and on-screen context for vision and activity features"
-            status={screenRecording.status}
-            isPending={screenRecording.isPending}
-            onRequest={screenRecording.request}
-            onReset={screenRecording.reset}
-            onOpen={screenRecording.open}
-          />
-        </PermissionGroup>
+      <PermissionGroup title="Dailynote">
+        <PermissionRow
+          title="Accessibility"
+          description="Required to detect meeting apps and sync mute status"
+          status={accessibility.status}
+          isPending={accessibility.isPending}
+          onRequest={accessibility.request}
+          onReset={accessibility.reset}
+          onOpen={accessibility.open}
+        />
+        <PermissionRow
+          title="Screen recording"
+          description="Required to capture screenshots and on-screen context for vision and activity features"
+          status={screenRecording.status}
+          isPending={screenRecording.isPending}
+          onRequest={screenRecording.request}
+          onReset={screenRecording.reset}
+          onOpen={screenRecording.open}
+        />
+      </PermissionGroup>
 
-        <PermissionGroup title="Others">
-          <PermissionRow
-            title="Calendar"
-            description="Required to sync Apple Calendar events into Anarlog"
-            status={calendar.status}
-            isPending={calendar.isPending}
-            onRequest={calendar.request}
-            onReset={calendar.reset}
-            onOpen={calendar.open}
-          />
-          <PermissionRow
-            title="Reminders"
-            description="Required to sync Apple Reminders into Anarlog"
-            status={reminders.status}
-            isPending={reminders.isPending}
-            onRequest={reminders.request}
-            onReset={reminders.reset}
-            onOpen={reminders.open}
-          />
-          <PermissionRow
-            title="Input monitoring"
-            description="Required to listen for global dictation hotkeys"
-            status={inputMonitoring.status}
-            isPending={inputMonitoring.isPending}
-            onRequest={inputMonitoring.request}
-            onReset={inputMonitoring.reset}
-            onOpen={inputMonitoring.open}
-          />
-        </PermissionGroup>
-      </div>
+      <PermissionGroup title="Others">
+        <PermissionRow
+          title="Calendar"
+          description="Required to sync Apple Calendar events into Anarlog"
+          status={calendar.status}
+          isPending={calendar.isPending}
+          onRequest={calendar.request}
+          onReset={calendar.reset}
+          onOpen={calendar.open}
+        />
+        <PermissionRow
+          title="Reminders"
+          description="Required to sync Apple Reminders into Anarlog"
+          status={reminders.status}
+          isPending={reminders.isPending}
+          onRequest={reminders.request}
+          onReset={reminders.reset}
+          onOpen={reminders.open}
+        />
+        <PermissionRow
+          title="Input monitoring"
+          description="Required to listen for global dictation hotkeys"
+          status={inputMonitoring.status}
+          isPending={inputMonitoring.isPending}
+          onRequest={inputMonitoring.request}
+          onReset={inputMonitoring.reset}
+          onOpen={inputMonitoring.open}
+        />
+      </PermissionGroup>
     </div>
   );
 }

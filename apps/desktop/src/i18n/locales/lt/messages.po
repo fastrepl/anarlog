@@ -25,27 +25,27 @@ msgstr "Pridėti šnekamąją kalbą"
 msgid "Additional spoken languages"
 msgstr "Papildomos šnekamosios kalbos"
 
-#: src/settings/general/index.tsx:157
+#: src/settings/general/index.tsx:158
 msgid "Always ready without manually launching."
 msgstr "Visada paruoštas nepaleidus rankiniu būdu."
 
-#: src/settings/general/app-settings.tsx:35
+#: src/settings/general/index.tsx:140
 msgid "App"
 msgstr "Programa"
 
-#: src/settings/general/index.tsx:164
+#: src/settings/general/index.tsx:165
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Automatiškai pradėkite klausytis, kai įvykiu paremta pastaba pasiekia suplanuotą pradžios laiką."
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/index.tsx:176
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Automatiškai sustabdyti klausymą, kai susitikimo programa atleidžia mikrofoną."
 
-#: src/settings/general/index.tsx:287
+#: src/settings/general/index.tsx:288
 msgid "Data"
 msgstr "Duomenys"
 
-#: src/settings/general/index.tsx:236
+#: src/settings/general/index.tsx:237
 msgid "Language & Region"
 msgstr "Kalba ir regionas"
 
@@ -57,7 +57,7 @@ msgstr "Suvestinių, pokalbių ir dirbtinio intelekto sugeneruotų atsakymų kal
 msgid "Main language"
 msgstr "Pagrindinė kalba"
 
-#: src/settings/general/app-settings.tsx:67
+#: src/settings/general/app-settings.tsx:64
 msgid "Meetings"
 msgstr "Susitikimai"
 
@@ -66,7 +66,7 @@ msgstr "Susitikimai"
 msgid "No matching languages found"
 msgstr "Nerasta atitinkančių kalbų"
 
-#: src/settings/general/index.tsx:299
+#: src/settings/general/index.tsx:300
 msgid "Notifications"
 msgstr "Pranešimai"
 
@@ -78,7 +78,7 @@ msgstr "Paieškos kalba..."
 msgid "Select language"
 msgstr "Pasirinkite kalbą"
 
-#: src/settings/general/index.tsx:213
+#: src/settings/general/index.tsx:214
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Siųskite anoniminę naudojimo analizę, kad padėtumėte tobulinti „Anarlog“."
 
@@ -86,39 +86,39 @@ msgstr "Siųskite anoniminę naudojimo analizę, kad padėtumėte tobulinti „A
 msgid "Settings"
 msgstr "Nustatymai"
 
-#: src/settings/general/index.tsx:212
+#: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "Bendrinti naudojimo duomenis"
 
-#: src/settings/general/index.tsx:201
+#: src/settings/general/index.tsx:202
 msgid "Show Devtools panel"
 msgstr ""
 
-#: src/settings/general/index.tsx:181
+#: src/settings/general/index.tsx:182
 msgid "Show floating bar"
 msgstr "Rodyti slankią juostą"
 
-#: src/settings/general/index.tsx:182
+#: src/settings/general/index.tsx:183
 msgid "Show the compact floating control while listening."
 msgstr "Klausydami rodykite kompaktišką slankiojantį valdiklį."
 
-#: src/settings/general/index.tsx:202
+#: src/settings/general/index.tsx:203
 msgid "Show the native floating control panel."
 msgstr ""
 
-#: src/settings/general/index.tsx:191
+#: src/settings/general/index.tsx:192
 msgid "Show timeline in sidebar"
 msgstr "Rodyti laiko juostą šoninėje juostoje"
 
-#: src/settings/general/index.tsx:156
+#: src/settings/general/index.tsx:157
 msgid "Start Anarlog at login"
 msgstr "Prisijungę paleiskite Anarlog"
 
-#: src/settings/general/index.tsx:163
+#: src/settings/general/index.tsx:164
 msgid "Start when meeting begins"
 msgstr "Pradėkite susitikimo pradžioje"
 
-#: src/settings/general/index.tsx:174
+#: src/settings/general/index.tsx:175
 msgid "Stop when meeting ends"
 msgstr "Sustabdykite susitikimui pasibaigus"
 
@@ -126,6 +126,6 @@ msgstr "Sustabdykite susitikimui pasibaigus"
 msgid "The main language is always included for transcription"
 msgstr "Pagrindinė kalba visada įtraukiama transkripcijai"
 
-#: src/settings/general/index.tsx:192
+#: src/settings/general/index.tsx:193
 msgid "Use the left sidebar timeline instead of the top timeline."
 msgstr "Naudokite kairiąją šoninės juostos laiko juostą, o ne viršutinę laiko juostą."

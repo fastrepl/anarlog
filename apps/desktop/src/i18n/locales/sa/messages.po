@@ -25,27 +25,27 @@ msgstr "भाषितभाषा योजयतु"
 msgid "Additional spoken languages"
 msgstr "अतिरिक्तभाष्यभाषा"
 
-#: src/settings/general/index.tsx:157
+#: src/settings/general/index.tsx:158
 msgid "Always ready without manually launching."
 msgstr "हस्तेन प्रक्षेपणं विना सर्वदा सज्जम्।"
 
-#: src/settings/general/app-settings.tsx:35
+#: src/settings/general/index.tsx:140
 msgid "App"
 msgstr "अनुप्रयोग"
 
-#: src/settings/general/index.tsx:164
+#: src/settings/general/index.tsx:165
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "यदा घटना-समर्थित-टिप्पणी स्वस्य निर्धारित-प्रारम्भसमयं प्राप्नोति तदा स्वयमेव श्रोतुं आरभत ।"
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/index.tsx:176
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "यदा सभा-अनुप्रयोगः माइक्रोफोनं मुक्तं करोति तदा स्वयमेव श्रवणं स्थगयति ।"
 
-#: src/settings/general/index.tsx:287
+#: src/settings/general/index.tsx:288
 msgid "Data"
 msgstr "दत्तांश"
 
-#: src/settings/general/index.tsx:236
+#: src/settings/general/index.tsx:237
 msgid "Language & Region"
 msgstr "भाषा एवं क्षेत्र"
 
@@ -57,7 +57,7 @@ msgstr "सारांशानां, गपशपानां, एआइ-ज�
 msgid "Main language"
 msgstr "मुख्यभाषा"
 
-#: src/settings/general/app-settings.tsx:67
+#: src/settings/general/app-settings.tsx:64
 msgid "Meetings"
 msgstr "समागमाः"
 
@@ -66,7 +66,7 @@ msgstr "समागमाः"
 msgid "No matching languages found"
 msgstr "न सङ्गतभाषा लभ्यते"
 
-#: src/settings/general/index.tsx:299
+#: src/settings/general/index.tsx:300
 msgid "Notifications"
 msgstr "सूचना"
 
@@ -78,7 +78,7 @@ msgstr "भाषां अन्वेष्टुम्..."
 msgid "Select language"
 msgstr "भाषां चिनोतु"
 
-#: src/settings/general/index.tsx:213
+#: src/settings/general/index.tsx:214
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Anarlog इत्यस्य उन्नयनार्थं सहायतार्थं अनामिकं उपयोगविश्लेषणं प्रेषयन्तु ।"
 
@@ -86,39 +86,39 @@ msgstr "Anarlog इत्यस्य उन्नयनार्थं सह�
 msgid "Settings"
 msgstr "सेटिंग्स्"
 
-#: src/settings/general/index.tsx:212
+#: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "उपयोगदत्तांशं साझां कुर्वन्तु"
 
-#: src/settings/general/index.tsx:201
+#: src/settings/general/index.tsx:202
 msgid "Show Devtools panel"
 msgstr ""
 
-#: src/settings/general/index.tsx:181
+#: src/settings/general/index.tsx:182
 msgid "Show floating bar"
 msgstr "प्लवमानं पट्टिकां दर्शयतु"
 
-#: src/settings/general/index.tsx:182
+#: src/settings/general/index.tsx:183
 msgid "Show the compact floating control while listening."
 msgstr "श्रवणकाले संकुचितं प्लवमानं नियन्त्रणं दर्शयतु।"
 
-#: src/settings/general/index.tsx:202
+#: src/settings/general/index.tsx:203
 msgid "Show the native floating control panel."
 msgstr ""
 
-#: src/settings/general/index.tsx:191
+#: src/settings/general/index.tsx:192
 msgid "Show timeline in sidebar"
 msgstr "पार्श्वपट्टिकायां समयरेखां दर्शयतु"
 
-#: src/settings/general/index.tsx:156
+#: src/settings/general/index.tsx:157
 msgid "Start Anarlog at login"
 msgstr "प्रवेशसमये Anarlog आरभत"
 
-#: src/settings/general/index.tsx:163
+#: src/settings/general/index.tsx:164
 msgid "Start when meeting begins"
 msgstr "समागमस्य आरम्भे आरभत"
 
-#: src/settings/general/index.tsx:174
+#: src/settings/general/index.tsx:175
 msgid "Stop when meeting ends"
 msgstr "समागमस्य समाप्तेः समये स्थगयतु"
 
@@ -126,6 +126,6 @@ msgstr "समागमस्य समाप्तेः समये स्थ
 msgid "The main language is always included for transcription"
 msgstr "प्रतिलेखनार्थं मुख्यभाषा सर्वदा समाविष्टा भवति"
 
-#: src/settings/general/index.tsx:192
+#: src/settings/general/index.tsx:193
 msgid "Use the left sidebar timeline instead of the top timeline."
 msgstr "ऊर्ध्वसमयरेखायाः स्थाने वामपार्श्वपट्टिकाकालरेखायाः उपयोगं कुर्वन्तु ।"

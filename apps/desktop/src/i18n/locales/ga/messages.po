@@ -25,27 +25,27 @@ msgstr "Cuir teanga labhartha leis"
 msgid "Additional spoken languages"
 msgstr "Teangacha breise labhartha"
 
-#: src/settings/general/index.tsx:157
+#: src/settings/general/index.tsx:158
 msgid "Always ready without manually launching."
 msgstr "Bí réidh i gcónaí gan é a sheoladh de láimh."
 
-#: src/settings/general/app-settings.tsx:35
+#: src/settings/general/index.tsx:140
 msgid "App"
 msgstr "Aip"
 
-#: src/settings/general/index.tsx:164
+#: src/settings/general/index.tsx:165
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Cuir tús leis an éisteacht go huathoibríoch nuair a shroicheann nóta le tacaíocht imeachta a am tosaithe sceidealaithe."
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/index.tsx:176
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Stop go huathoibríoch den éisteacht nuair a scaoileann an aip cruinnithe an micreafón."
 
-#: src/settings/general/index.tsx:287
+#: src/settings/general/index.tsx:288
 msgid "Data"
 msgstr "Sonraí"
 
-#: src/settings/general/index.tsx:236
+#: src/settings/general/index.tsx:237
 msgid "Language & Region"
 msgstr "Teanga & Réigiún"
 
@@ -57,7 +57,7 @@ msgstr "Teanga le haghaidh achoimrí, comhráite, agus freagraí a ghintear le A
 msgid "Main language"
 msgstr "Príomhtheanga"
 
-#: src/settings/general/app-settings.tsx:67
+#: src/settings/general/app-settings.tsx:64
 msgid "Meetings"
 msgstr "Cruinnithe"
 
@@ -66,7 +66,7 @@ msgstr "Cruinnithe"
 msgid "No matching languages found"
 msgstr "Níor aimsíodh aon teanga chomhoiriúnach"
 
-#: src/settings/general/index.tsx:299
+#: src/settings/general/index.tsx:300
 msgid "Notifications"
 msgstr "Fógraí"
 
@@ -78,7 +78,7 @@ msgstr "Teanga chuardaigh..."
 msgid "Select language"
 msgstr "Roghnaigh teanga"
 
-#: src/settings/general/index.tsx:213
+#: src/settings/general/index.tsx:214
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Seol anailísí úsáide gan ainm chun cabhrú leis an Anarlog a fheabhsú."
 
@@ -86,39 +86,39 @@ msgstr "Seol anailísí úsáide gan ainm chun cabhrú leis an Anarlog a fheabhs
 msgid "Settings"
 msgstr "Socruithe"
 
-#: src/settings/general/index.tsx:212
+#: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "Comhroinn sonraí úsáide"
 
-#: src/settings/general/index.tsx:201
+#: src/settings/general/index.tsx:202
 msgid "Show Devtools panel"
 msgstr ""
 
-#: src/settings/general/index.tsx:181
+#: src/settings/general/index.tsx:182
 msgid "Show floating bar"
 msgstr "Taispeáin barra ar snámh"
 
-#: src/settings/general/index.tsx:182
+#: src/settings/general/index.tsx:183
 msgid "Show the compact floating control while listening."
 msgstr "Taispeáin an dlúthrialtán ar snámh agus tú ag éisteacht."
 
-#: src/settings/general/index.tsx:202
+#: src/settings/general/index.tsx:203
 msgid "Show the native floating control panel."
 msgstr ""
 
-#: src/settings/general/index.tsx:191
+#: src/settings/general/index.tsx:192
 msgid "Show timeline in sidebar"
 msgstr "Taispeáin amlíne sa bharra taoibh"
 
-#: src/settings/general/index.tsx:156
+#: src/settings/general/index.tsx:157
 msgid "Start Anarlog at login"
 msgstr "Tosaigh Anarlog ag logáil isteach"
 
-#: src/settings/general/index.tsx:163
+#: src/settings/general/index.tsx:164
 msgid "Start when meeting begins"
 msgstr "Tosaigh nuair a thosaíonn an cruinniú"
 
-#: src/settings/general/index.tsx:174
+#: src/settings/general/index.tsx:175
 msgid "Stop when meeting ends"
 msgstr "Stop nuair a thagann deireadh leis an gcruinniú"
 
@@ -126,6 +126,6 @@ msgstr "Stop nuair a thagann deireadh leis an gcruinniú"
 msgid "The main language is always included for transcription"
 msgstr "Cuirtear an phríomhtheanga san áireamh le tras-scríobh i gcónaí"
 
-#: src/settings/general/index.tsx:192
+#: src/settings/general/index.tsx:193
 msgid "Use the left sidebar timeline instead of the top timeline."
 msgstr "Úsáid amlíne an bharra taoibh ar chlé in ionad na huaslíne ama."

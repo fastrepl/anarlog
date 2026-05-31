@@ -25,27 +25,27 @@ msgstr "Danışıq dili əlavə edin"
 msgid "Additional spoken languages"
 msgstr "Əlavə danışıq dilləri"
 
-#: src/settings/general/index.tsx:157
+#: src/settings/general/index.tsx:158
 msgid "Always ready without manually launching."
 msgstr "Əl ilə işə salmadan həmişə hazırdır."
 
-#: src/settings/general/app-settings.tsx:35
+#: src/settings/general/index.tsx:140
 msgid "App"
 msgstr "Tətbiq"
 
-#: src/settings/general/index.tsx:164
+#: src/settings/general/index.tsx:165
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Tədbirlə dəstəklənən qeyd planlaşdırılan başlama vaxtına çatdıqda avtomatik olaraq dinləməyə başlayın."
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/index.tsx:176
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Görüş proqramı mikrofonu buraxdıqda avtomatik olaraq dinləməni dayandırın."
 
-#: src/settings/general/index.tsx:287
+#: src/settings/general/index.tsx:288
 msgid "Data"
 msgstr "Data"
 
-#: src/settings/general/index.tsx:236
+#: src/settings/general/index.tsx:237
 msgid "Language & Region"
 msgstr "Dil və Region"
 
@@ -57,7 +57,7 @@ msgstr "Xülasələr, söhbətlər və AI tərəfindən yaradılan cavablar üç
 msgid "Main language"
 msgstr "Əsas dil"
 
-#: src/settings/general/app-settings.tsx:67
+#: src/settings/general/app-settings.tsx:64
 msgid "Meetings"
 msgstr "Görüşlər"
 
@@ -66,7 +66,7 @@ msgstr "Görüşlər"
 msgid "No matching languages found"
 msgstr "Uyğun dil tapılmadı"
 
-#: src/settings/general/index.tsx:299
+#: src/settings/general/index.tsx:300
 msgid "Notifications"
 msgstr "Bildirişlər"
 
@@ -78,7 +78,7 @@ msgstr "Dil axtarın..."
 msgid "Select language"
 msgstr "Dil seçin"
 
-#: src/settings/general/index.tsx:213
+#: src/settings/general/index.tsx:214
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Anarloqu təkmilləşdirməyə kömək etmək üçün anonim istifadə analitikasını göndərin."
 
@@ -86,39 +86,39 @@ msgstr "Anarloqu təkmilləşdirməyə kömək etmək üçün anonim istifadə a
 msgid "Settings"
 msgstr "Parametrlər"
 
-#: src/settings/general/index.tsx:212
+#: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "İstifadə datasını paylaşın"
 
-#: src/settings/general/index.tsx:201
+#: src/settings/general/index.tsx:202
 msgid "Show Devtools panel"
 msgstr ""
 
-#: src/settings/general/index.tsx:181
+#: src/settings/general/index.tsx:182
 msgid "Show floating bar"
 msgstr "Üzən çubuğu göstər"
 
-#: src/settings/general/index.tsx:182
+#: src/settings/general/index.tsx:183
 msgid "Show the compact floating control while listening."
 msgstr "Qulaq asarkən kompakt üzən idarəetməni göstərin."
 
-#: src/settings/general/index.tsx:202
+#: src/settings/general/index.tsx:203
 msgid "Show the native floating control panel."
 msgstr ""
 
-#: src/settings/general/index.tsx:191
+#: src/settings/general/index.tsx:192
 msgid "Show timeline in sidebar"
 msgstr "Taymlayn kənar paneldə göstər"
 
-#: src/settings/general/index.tsx:156
+#: src/settings/general/index.tsx:157
 msgid "Start Anarlog at login"
 msgstr "Giriş zamanı Analoqu başladın"
 
-#: src/settings/general/index.tsx:163
+#: src/settings/general/index.tsx:164
 msgid "Start when meeting begins"
 msgstr "Görüş başlayanda başlayın"
 
-#: src/settings/general/index.tsx:174
+#: src/settings/general/index.tsx:175
 msgid "Stop when meeting ends"
 msgstr "Görüş bitəndə dayandırın"
 
@@ -126,6 +126,6 @@ msgstr "Görüş bitəndə dayandırın"
 msgid "The main language is always included for transcription"
 msgstr "Əsas dil həmişə transkripsiya üçün daxil edilir"
 
-#: src/settings/general/index.tsx:192
+#: src/settings/general/index.tsx:193
 msgid "Use the left sidebar timeline instead of the top timeline."
 msgstr "Üst qrafiki yerinə sol kənar panel taymlaynını istifadə edin."

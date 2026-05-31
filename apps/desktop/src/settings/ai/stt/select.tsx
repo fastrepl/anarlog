@@ -263,7 +263,7 @@ export function TranscriptionLanguageWarningBanner() {
   }
 
   return (
-    <div className="-mx-6 -mt-3 mb-6 border-b border-amber-200 bg-amber-50 px-6 py-3">
+    <div className="-mx-6 -mt-6 mb-6 border-b border-amber-200 bg-amber-50 px-6 py-3">
       <span className="flex items-center justify-center gap-2 text-center text-sm text-amber-600">
         <AlertTriangle className="size-4 shrink-0" />
         Selected model may not support all your spoken languages.

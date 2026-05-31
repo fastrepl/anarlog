@@ -25,27 +25,27 @@ msgstr "Προσθήκη προφορικής γλώσσας"
 msgid "Additional spoken languages"
 msgstr "Πρόσθετες ομιλούμενες γλώσσες"
 
-#: src/settings/general/index.tsx:157
+#: src/settings/general/index.tsx:158
 msgid "Always ready without manually launching."
 msgstr "Πάντα έτοιμο χωρίς μη αυτόματη εκκίνηση."
 
-#: src/settings/general/app-settings.tsx:35
+#: src/settings/general/index.tsx:140
 msgid "App"
 msgstr "Εφαρμογή"
 
-#: src/settings/general/index.tsx:164
+#: src/settings/general/index.tsx:165
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Αυτόματη έναρξη ακρόασης όταν μια σημείωση που υποστηρίζεται από συμβάν φτάσει στην προγραμματισμένη ώρα έναρξης."
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/index.tsx:176
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Διακόψτε αυτόματα την ακρόαση όταν η εφαρμογή σύσκεψης απελευθερώσει το μικρόφωνο."
 
-#: src/settings/general/index.tsx:287
+#: src/settings/general/index.tsx:288
 msgid "Data"
 msgstr "Δεδομένα"
 
-#: src/settings/general/index.tsx:236
+#: src/settings/general/index.tsx:237
 msgid "Language & Region"
 msgstr "Γλώσσα και περιοχή"
 
@@ -57,7 +57,7 @@ msgstr "Γλώσσα για περιλήψεις, συνομιλίες και α
 msgid "Main language"
 msgstr "Κύρια γλώσσα"
 
-#: src/settings/general/app-settings.tsx:67
+#: src/settings/general/app-settings.tsx:64
 msgid "Meetings"
 msgstr "Συναντήσεις"
 
@@ -66,7 +66,7 @@ msgstr "Συναντήσεις"
 msgid "No matching languages found"
 msgstr "Δεν βρέθηκαν γλώσσες που να ταιριάζουν"
 
-#: src/settings/general/index.tsx:299
+#: src/settings/general/index.tsx:300
 msgid "Notifications"
 msgstr "Ειδοποιήσεις"
 
@@ -78,7 +78,7 @@ msgstr "Αναζήτηση γλώσσας..."
 msgid "Select language"
 msgstr "Επιλογή γλώσσας"
 
-#: src/settings/general/index.tsx:213
+#: src/settings/general/index.tsx:214
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Στείλτε ανώνυμα αναλυτικά στοιχεία χρήσης για να συμβάλετε στη βελτίωση του Anarlog."
 
@@ -86,39 +86,39 @@ msgstr "Στείλτε ανώνυμα αναλυτικά στοιχεία χρή
 msgid "Settings"
 msgstr "Ρυθμίσεις"
 
-#: src/settings/general/index.tsx:212
+#: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "Κοινή χρήση δεδομένων χρήσης"
 
-#: src/settings/general/index.tsx:201
+#: src/settings/general/index.tsx:202
 msgid "Show Devtools panel"
 msgstr ""
 
-#: src/settings/general/index.tsx:181
+#: src/settings/general/index.tsx:182
 msgid "Show floating bar"
 msgstr "Εμφάνιση αιωρούμενης γραμμής"
 
-#: src/settings/general/index.tsx:182
+#: src/settings/general/index.tsx:183
 msgid "Show the compact floating control while listening."
 msgstr "Εμφάνιση του συμπαγούς αιωρούμενου χειριστηρίου κατά την ακρόαση."
 
-#: src/settings/general/index.tsx:202
+#: src/settings/general/index.tsx:203
 msgid "Show the native floating control panel."
 msgstr ""
 
-#: src/settings/general/index.tsx:191
+#: src/settings/general/index.tsx:192
 msgid "Show timeline in sidebar"
 msgstr "Εμφάνιση χρονολογίου στην πλαϊνή γραμμή"
 
-#: src/settings/general/index.tsx:156
+#: src/settings/general/index.tsx:157
 msgid "Start Anarlog at login"
 msgstr "Ξεκινήστε το Anarlog κατά τη σύνδεση"
 
-#: src/settings/general/index.tsx:163
+#: src/settings/general/index.tsx:164
 msgid "Start when meeting begins"
 msgstr "Ξεκινήστε όταν ξεκινά η σύσκεψη"
 
-#: src/settings/general/index.tsx:174
+#: src/settings/general/index.tsx:175
 msgid "Stop when meeting ends"
 msgstr "Διακοπή όταν τελειώσει η σύσκεψη"
 
@@ -126,6 +126,6 @@ msgstr "Διακοπή όταν τελειώσει η σύσκεψη"
 msgid "The main language is always included for transcription"
 msgstr "Η κύρια γλώσσα περιλαμβάνεται πάντα για μεταγραφή"
 
-#: src/settings/general/index.tsx:192
+#: src/settings/general/index.tsx:193
 msgid "Use the left sidebar timeline instead of the top timeline."
 msgstr "Χρησιμοποιήστε την αριστερή πλαϊνή γραμμή χρόνου αντί για την επάνω γραμμή χρόνου."

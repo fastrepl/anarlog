@@ -26,6 +26,7 @@ import { cn } from "@hypr/utils";
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing";
 import { env } from "~/env";
+import { SettingsPageTitle } from "~/settings/page-title";
 import { waitForBillingUpdate } from "~/shared/billing";
 import { buildWebAppUrl } from "~/shared/utils";
 const ACCOUNT_FEATURE = {
@@ -80,33 +81,31 @@ export function SettingsAccount() {
     if (isPending) {
       return (
         <div className="flex flex-col gap-8">
-          <div>
-            <h2 className="mb-4 font-sans text-lg font-semibold">Account</h2>
-            <Container
-              title="Finish sign-in"
-              description="Complete the sign-in flow in your browser, then come back here if Anarlog does not reconnect automatically."
-              action={
-                <Button onClick={handleSignIn} variant="outline">
-                  Reopen sign-in page
-                </Button>
-              }
-            >
-              <p className="text-xs text-neutral-500">
-                If the browser does not reopen Anarlog, use the paste-link
-                fallback in the sign-in instruction window.
-              </p>
-            </Container>
-          </div>
+          <SettingsPageTitle title="Account" />
+          <Container
+            title="Finish sign-in"
+            description="Complete the sign-in flow in your browser, then come back here if Anarlog does not reconnect automatically."
+            action={
+              <Button onClick={handleSignIn} variant="outline">
+                Reopen sign-in page
+              </Button>
+            }
+          >
+            <p className="text-xs text-neutral-500">
+              If the browser does not reopen Anarlog, use the paste-link
+              fallback in the sign-in instruction window.
+            </p>
+          </Container>
         </div>
       );
     }
 
     return (
       <div className="flex flex-col gap-8">
+        <SettingsPageTitle title="Account" />
         <section className="pb-4">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 flex-1 flex-col gap-4">
-              <h2 className="font-sans text-lg font-semibold">Account</h2>
               <div className="flex flex-col gap-2">
                 <h3 className="text-sm font-medium">Sign in to Anarlog</h3>
                 <div className="text-sm text-neutral-600">
@@ -137,25 +136,23 @@ export function SettingsAccount() {
 
   return (
     <div className="flex flex-col gap-8">
-      <div>
-        <h2 className="mb-4 font-sans text-lg font-semibold">Account</h2>
-        <Container
-          title="Your Account"
-          description={auth.session?.user.email ?? "Signed in"}
-          action={
-            <Button
-              variant="outline"
-              onClick={() => signOutMutation.mutate()}
-              disabled={signOutMutation.isPending}
-              className={cn([
-                "border-red-200 text-red-700 hover:border-red-300 hover:bg-red-50 hover:text-red-800",
-              ])}
-            >
-              {signOutMutation.isPending ? "Signing out..." : "Sign out"}
-            </Button>
-          }
-        />
-      </div>
+      <SettingsPageTitle title="Account" />
+      <Container
+        title="Your Account"
+        description={auth.session?.user.email ?? "Signed in"}
+        action={
+          <Button
+            variant="outline"
+            onClick={() => signOutMutation.mutate()}
+            disabled={signOutMutation.isPending}
+            className={cn([
+              "border-red-200 text-red-700 hover:border-red-300 hover:bg-red-50 hover:text-red-800",
+            ])}
+          >
+            {signOutMutation.isPending ? "Signing out..." : "Sign out"}
+          </Button>
+        }
+      />
 
       <PlanBillingSection
         currentTier={currentTier}

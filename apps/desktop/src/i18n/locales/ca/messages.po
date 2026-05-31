@@ -25,27 +25,27 @@ msgstr "Afegeix un idioma parlat"
 msgid "Additional spoken languages"
 msgstr "Idiomes parlats addicionals"
 
-#: src/settings/general/index.tsx:157
+#: src/settings/general/index.tsx:158
 msgid "Always ready without manually launching."
 msgstr "Sempre a punt sense iniciar-lo manualment."
 
-#: src/settings/general/app-settings.tsx:35
+#: src/settings/general/index.tsx:140
 msgid "App"
 msgstr "Aplicació"
 
-#: src/settings/general/index.tsx:164
+#: src/settings/general/index.tsx:165
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Comença a escoltar automàticament quan una nota amb el suport d'un esdeveniment arriba a l'hora d'inici programada."
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/index.tsx:176
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Deixa d'escoltar automàticament quan l'aplicació de reunió alliberi el micròfon."
 
-#: src/settings/general/index.tsx:287
+#: src/settings/general/index.tsx:288
 msgid "Data"
 msgstr "Dades"
 
-#: src/settings/general/index.tsx:236
+#: src/settings/general/index.tsx:237
 msgid "Language & Region"
 msgstr "Idioma i regió"
 
@@ -57,7 +57,7 @@ msgstr "Idioma per a resums, xats i respostes generades per IA"
 msgid "Main language"
 msgstr "Idioma principal"
 
-#: src/settings/general/app-settings.tsx:67
+#: src/settings/general/app-settings.tsx:64
 msgid "Meetings"
 msgstr "Reunions"
 
@@ -66,7 +66,7 @@ msgstr "Reunions"
 msgid "No matching languages found"
 msgstr "No s'han trobat idiomes coincidents"
 
-#: src/settings/general/index.tsx:299
+#: src/settings/general/index.tsx:300
 msgid "Notifications"
 msgstr "Notificacions"
 
@@ -78,7 +78,7 @@ msgstr "Cerca l'idioma..."
 msgid "Select language"
 msgstr "Seleccioneu l'idioma"
 
-#: src/settings/general/index.tsx:213
+#: src/settings/general/index.tsx:214
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Envieu analítiques d'ús anònimes per ajudar a millorar Anarlog."
 
@@ -86,39 +86,39 @@ msgstr "Envieu analítiques d'ús anònimes per ajudar a millorar Anarlog."
 msgid "Settings"
 msgstr "Configuració"
 
-#: src/settings/general/index.tsx:212
+#: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "Comparteix les dades d'ús"
 
-#: src/settings/general/index.tsx:201
+#: src/settings/general/index.tsx:202
 msgid "Show Devtools panel"
 msgstr ""
 
-#: src/settings/general/index.tsx:181
+#: src/settings/general/index.tsx:182
 msgid "Show floating bar"
 msgstr "Mostra la barra flotant"
 
-#: src/settings/general/index.tsx:182
+#: src/settings/general/index.tsx:183
 msgid "Show the compact floating control while listening."
 msgstr "Mostra el control flotant compacte mentre escoltes."
 
-#: src/settings/general/index.tsx:202
+#: src/settings/general/index.tsx:203
 msgid "Show the native floating control panel."
 msgstr ""
 
-#: src/settings/general/index.tsx:191
+#: src/settings/general/index.tsx:192
 msgid "Show timeline in sidebar"
 msgstr "Mostra la línia de temps a la barra lateral"
 
-#: src/settings/general/index.tsx:156
+#: src/settings/general/index.tsx:157
 msgid "Start Anarlog at login"
 msgstr "Inicieu Anarlog en iniciar sessió"
 
-#: src/settings/general/index.tsx:163
+#: src/settings/general/index.tsx:164
 msgid "Start when meeting begins"
 msgstr "Comenceu quan comenci la reunió"
 
-#: src/settings/general/index.tsx:174
+#: src/settings/general/index.tsx:175
 msgid "Stop when meeting ends"
 msgstr "Atura't quan acabi la reunió"
 
@@ -126,6 +126,6 @@ msgstr "Atura't quan acabi la reunió"
 msgid "The main language is always included for transcription"
 msgstr "L'idioma principal sempre s'inclou per a la transcripció"
 
-#: src/settings/general/index.tsx:192
+#: src/settings/general/index.tsx:193
 msgid "Use the left sidebar timeline instead of the top timeline."
 msgstr "Utilitzeu la línia de temps de la barra lateral esquerra en lloc de la línia de temps superior."

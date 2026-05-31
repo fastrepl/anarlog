@@ -25,27 +25,27 @@ msgstr "د ویل شوي ژبه اضافه کړئ"
 msgid "Additional spoken languages"
 msgstr "اضافي خبرې شوي ژبې"
 
-#: src/settings/general/index.tsx:157
+#: src/settings/general/index.tsx:158
 msgid "Always ready without manually launching."
 msgstr "د لاسي پیل کولو پرته تل چمتو وي."
 
-#: src/settings/general/app-settings.tsx:35
+#: src/settings/general/index.tsx:140
 msgid "App"
 msgstr "ایپ"
 
-#: src/settings/general/index.tsx:164
+#: src/settings/general/index.tsx:165
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "په اوتومات ډول اوریدل پیل کړئ کله چې د پیښې ملاتړ شوی یادداشت خپل ټاکل شوي پیل وخت ته ورسیږي."
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/index.tsx:176
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "کله چې د ناستې ایپ مایکروفون خوشې کوي په اوتومات ډول اوریدل بند کړئ."
 
-#: src/settings/general/index.tsx:287
+#: src/settings/general/index.tsx:288
 msgid "Data"
 msgstr "ډاټا"
 
-#: src/settings/general/index.tsx:236
+#: src/settings/general/index.tsx:237
 msgid "Language & Region"
 msgstr "ژبه او سیمه"
 
@@ -57,7 +57,7 @@ msgstr "د لنډیزونو، چیټونو، او د AI لخوا تولید شو
 msgid "Main language"
 msgstr "اصلي ژبه"
 
-#: src/settings/general/app-settings.tsx:67
+#: src/settings/general/app-settings.tsx:64
 msgid "Meetings"
 msgstr "غونډې"
 
@@ -66,7 +66,7 @@ msgstr "غونډې"
 msgid "No matching languages found"
 msgstr "هیڅ ورته ژبه ونه موندل شوه"
 
-#: src/settings/general/index.tsx:299
+#: src/settings/general/index.tsx:300
 msgid "Notifications"
 msgstr "اطلاعات"
 
@@ -78,7 +78,7 @@ msgstr "د ژبې لټون..."
 msgid "Select language"
 msgstr "ژبه وټاکئ"
 
-#: src/settings/general/index.tsx:213
+#: src/settings/general/index.tsx:214
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "د انارلوګ په ښه کولو کې د مرستې لپاره د نامعلوم کارونې تحلیلونه واستوئ."
 
@@ -86,39 +86,39 @@ msgstr "د انارلوګ په ښه کولو کې د مرستې لپاره د ن
 msgid "Settings"
 msgstr "ترتیبات"
 
-#: src/settings/general/index.tsx:212
+#: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "د کارونې ډاټا شریک کړئ"
 
-#: src/settings/general/index.tsx:201
+#: src/settings/general/index.tsx:202
 msgid "Show Devtools panel"
 msgstr ""
 
-#: src/settings/general/index.tsx:181
+#: src/settings/general/index.tsx:182
 msgid "Show floating bar"
 msgstr "مړونکی بار وښایاست"
 
-#: src/settings/general/index.tsx:182
+#: src/settings/general/index.tsx:183
 msgid "Show the compact floating control while listening."
 msgstr "د اوریدلو پر مهال د کمپیکٹ فلوټینګ کنټرول وښایاست."
 
-#: src/settings/general/index.tsx:202
+#: src/settings/general/index.tsx:203
 msgid "Show the native floating control panel."
 msgstr ""
 
-#: src/settings/general/index.tsx:191
+#: src/settings/general/index.tsx:192
 msgid "Show timeline in sidebar"
 msgstr "مهال ویش په سائډبار کې ښکاره کړئ"
 
-#: src/settings/general/index.tsx:156
+#: src/settings/general/index.tsx:157
 msgid "Start Anarlog at login"
 msgstr "په ننوتلو کې انارلوګ پیل کړئ"
 
-#: src/settings/general/index.tsx:163
+#: src/settings/general/index.tsx:164
 msgid "Start when meeting begins"
 msgstr "کله چې ناسته پیل شي پیل کړئ"
 
-#: src/settings/general/index.tsx:174
+#: src/settings/general/index.tsx:175
 msgid "Stop when meeting ends"
 msgstr "کله چې ناسته پای ته ورسیږي ودروئ"
 
@@ -126,6 +126,6 @@ msgstr "کله چې ناسته پای ته ورسیږي ودروئ"
 msgid "The main language is always included for transcription"
 msgstr "اصلي ژبه تل د لیږد لپاره شامله ده"
 
-#: src/settings/general/index.tsx:192
+#: src/settings/general/index.tsx:193
 msgid "Use the left sidebar timeline instead of the top timeline."
 msgstr "د پورتنۍ مهال ویش پر ځای د کیڼ اړخ بار مهال ویش وکاروئ."

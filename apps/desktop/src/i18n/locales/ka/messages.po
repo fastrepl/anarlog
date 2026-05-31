@@ -25,27 +25,27 @@ msgstr "სალაპარაკო ენის დამატება"
 msgid "Additional spoken languages"
 msgstr "დამატებითი სალაპარაკო ენები"
 
-#: src/settings/general/index.tsx:157
+#: src/settings/general/index.tsx:158
 msgid "Always ready without manually launching."
 msgstr "ყოველთვის მზადაა ხელით გაშვების გარეშე."
 
-#: src/settings/general/app-settings.tsx:35
+#: src/settings/general/index.tsx:140
 msgid "App"
 msgstr "აპი"
 
-#: src/settings/general/index.tsx:164
+#: src/settings/general/index.tsx:165
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "ავტომატურად დაიწყეთ მოსმენა, როდესაც ღონისძიებაზე მხარდაჭერილი ჩანიშვნა მიაღწევს დაგეგმილ დაწყების დროს."
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/index.tsx:176
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "ავტომატურად შეწყვიტოს მოსმენა, როდესაც შეხვედრის აპი გამოუშვებს მიკროფონს."
 
-#: src/settings/general/index.tsx:287
+#: src/settings/general/index.tsx:288
 msgid "Data"
 msgstr "მონაცემები"
 
-#: src/settings/general/index.tsx:236
+#: src/settings/general/index.tsx:237
 msgid "Language & Region"
 msgstr "ენა და რეგიონი"
 
@@ -57,7 +57,7 @@ msgstr "ენა შეჯამებისთვის, ჩეთების
 msgid "Main language"
 msgstr "მთავარი ენა"
 
-#: src/settings/general/app-settings.tsx:67
+#: src/settings/general/app-settings.tsx:64
 msgid "Meetings"
 msgstr "შეხვედრები"
 
@@ -66,7 +66,7 @@ msgstr "შეხვედრები"
 msgid "No matching languages found"
 msgstr "შესაბამისი ენები ვერ მოიძებნა"
 
-#: src/settings/general/index.tsx:299
+#: src/settings/general/index.tsx:300
 msgid "Notifications"
 msgstr "შეტყობინებები"
 
@@ -78,7 +78,7 @@ msgstr "ენის ძიება..."
 msgid "Select language"
 msgstr "აირჩიეთ ენა"
 
-#: src/settings/general/index.tsx:213
+#: src/settings/general/index.tsx:214
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "ანონიმური გამოყენების ანალიტიკის გაგზავნა Anarlog-ის გასაუმჯობესებლად."
 
@@ -86,39 +86,39 @@ msgstr "ანონიმური გამოყენების ანა�
 msgid "Settings"
 msgstr "პარამეტრები"
 
-#: src/settings/general/index.tsx:212
+#: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "გამოყენების მონაცემების გაზიარება"
 
-#: src/settings/general/index.tsx:201
+#: src/settings/general/index.tsx:202
 msgid "Show Devtools panel"
 msgstr ""
 
-#: src/settings/general/index.tsx:181
+#: src/settings/general/index.tsx:182
 msgid "Show floating bar"
 msgstr "მცურავი ზოლის ჩვენება"
 
-#: src/settings/general/index.tsx:182
+#: src/settings/general/index.tsx:183
 msgid "Show the compact floating control while listening."
 msgstr "კომპაქტური მცურავი მართვის ჩვენება მოსმენისას."
 
-#: src/settings/general/index.tsx:202
+#: src/settings/general/index.tsx:203
 msgid "Show the native floating control panel."
 msgstr ""
 
-#: src/settings/general/index.tsx:191
+#: src/settings/general/index.tsx:192
 msgid "Show timeline in sidebar"
 msgstr "გვერდითა ზოლში ვადების ჩვენება"
 
-#: src/settings/general/index.tsx:156
+#: src/settings/general/index.tsx:157
 msgid "Start Anarlog at login"
 msgstr "დაიწყეთ Anarlog შესვლისას"
 
-#: src/settings/general/index.tsx:163
+#: src/settings/general/index.tsx:164
 msgid "Start when meeting begins"
 msgstr "დაიწყეთ შეხვედრის დაწყებისთანავე"
 
-#: src/settings/general/index.tsx:174
+#: src/settings/general/index.tsx:175
 msgid "Stop when meeting ends"
 msgstr "შეჩერება შეხვედრის დასრულებისას"
 
@@ -126,6 +126,6 @@ msgstr "შეჩერება შეხვედრის დასრულ�
 msgid "The main language is always included for transcription"
 msgstr "მთავარი ენა ყოველთვის შედის ტრანსკრიფციისთვის"
 
-#: src/settings/general/index.tsx:192
+#: src/settings/general/index.tsx:193
 msgid "Use the left sidebar timeline instead of the top timeline."
 msgstr "გამოიყენეთ მარცხენა გვერდითი ზოლის ქრონოლოგია ზედა ქრონოლოგიის ნაცვლად."

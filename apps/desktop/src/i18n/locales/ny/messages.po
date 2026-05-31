@@ -25,27 +25,27 @@ msgstr "Onjezani chilankhulo"
 msgid "Additional spoken languages"
 msgstr "Zilankhulo zina zoyankhulidwa"
 
-#: src/settings/general/index.tsx:157
+#: src/settings/general/index.tsx:158
 msgid "Always ready without manually launching."
 msgstr "Zimakhala zokonzeka nthawi zonse osatsegula pamanja."
 
-#: src/settings/general/app-settings.tsx:35
+#: src/settings/general/index.tsx:140
 msgid "App"
 msgstr "Mapulogalamu"
 
-#: src/settings/general/index.tsx:164
+#: src/settings/general/index.tsx:165
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Yambani kumvetsera mwachisawawa cholembedwa chotsatira chochitika chikafika nthawi yake yoyambira."
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/index.tsx:176
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Siyani kumvetsera basi pulogalamu yamsonkhano ikatulutsa cholankhulira."
 
-#: src/settings/general/index.tsx:287
+#: src/settings/general/index.tsx:288
 msgid "Data"
 msgstr "Zambiri"
 
-#: src/settings/general/index.tsx:236
+#: src/settings/general/index.tsx:237
 msgid "Language & Region"
 msgstr "Chinenero & Chigawo"
 
@@ -57,7 +57,7 @@ msgstr "Chiyankhulo chachidule, macheza, ndi mayankho opangidwa ndi AI"
 msgid "Main language"
 msgstr "Chiyankhulo chachikulu"
 
-#: src/settings/general/app-settings.tsx:67
+#: src/settings/general/app-settings.tsx:64
 msgid "Meetings"
 msgstr "Misonkhano"
 
@@ -66,7 +66,7 @@ msgstr "Misonkhano"
 msgid "No matching languages found"
 msgstr "Palibe zilankhulo zofananira zomwe zapezeka"
 
-#: src/settings/general/index.tsx:299
+#: src/settings/general/index.tsx:300
 msgid "Notifications"
 msgstr "Zidziwitso"
 
@@ -78,7 +78,7 @@ msgstr "Sakani chilankhulo..."
 msgid "Select language"
 msgstr "Sankhani chinenero"
 
-#: src/settings/general/index.tsx:213
+#: src/settings/general/index.tsx:214
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Tumizani zowerengera zomwe simukuzitchula kuti zithandizire kukonza Anarlog."
 
@@ -86,39 +86,39 @@ msgstr "Tumizani zowerengera zomwe simukuzitchula kuti zithandizire kukonza Anar
 msgid "Settings"
 msgstr "Zokonda"
 
-#: src/settings/general/index.tsx:212
+#: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "Gawani zogwiritsa ntchito"
 
-#: src/settings/general/index.tsx:201
+#: src/settings/general/index.tsx:202
 msgid "Show Devtools panel"
 msgstr ""
 
-#: src/settings/general/index.tsx:181
+#: src/settings/general/index.tsx:182
 msgid "Show floating bar"
 msgstr "Onetsani mipiringidzo yoyandama"
 
-#: src/settings/general/index.tsx:182
+#: src/settings/general/index.tsx:183
 msgid "Show the compact floating control while listening."
 msgstr "Onetsani chowongolera choyandama uku mukumvetsera."
 
-#: src/settings/general/index.tsx:202
+#: src/settings/general/index.tsx:203
 msgid "Show the native floating control panel."
 msgstr ""
 
-#: src/settings/general/index.tsx:191
+#: src/settings/general/index.tsx:192
 msgid "Show timeline in sidebar"
 msgstr "Onetsani nthawi muzambali"
 
-#: src/settings/general/index.tsx:156
+#: src/settings/general/index.tsx:157
 msgid "Start Anarlog at login"
 msgstr "Yambitsani Anarlog polowera"
 
-#: src/settings/general/index.tsx:163
+#: src/settings/general/index.tsx:164
 msgid "Start when meeting begins"
 msgstr "Yambani msonkhano ukayamba"
 
-#: src/settings/general/index.tsx:174
+#: src/settings/general/index.tsx:175
 msgid "Stop when meeting ends"
 msgstr "Imani msonkhano ukatha"
 
@@ -126,6 +126,6 @@ msgstr "Imani msonkhano ukatha"
 msgid "The main language is always included for transcription"
 msgstr "Chiyankhulo chachikulu chimaphatikizidwa nthawi zonse kuti chilembedwe"
 
-#: src/settings/general/index.tsx:192
+#: src/settings/general/index.tsx:193
 msgid "Use the left sidebar timeline instead of the top timeline."
 msgstr "Gwiritsani ntchito mzere wanthawi yakumanzere m'malo mwa nthawi yapamwamba."

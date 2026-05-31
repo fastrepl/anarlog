@@ -25,27 +25,27 @@ msgstr "Pievienojiet runāto valodu"
 msgid "Additional spoken languages"
 msgstr "Papildu runātās valodas"
 
-#: src/settings/general/index.tsx:157
+#: src/settings/general/index.tsx:158
 msgid "Always ready without manually launching."
 msgstr "Vienmēr gatavs bez manuālas palaišanas."
 
-#: src/settings/general/app-settings.tsx:35
+#: src/settings/general/index.tsx:140
 msgid "App"
 msgstr "Lietotne"
 
-#: src/settings/general/index.tsx:164
+#: src/settings/general/index.tsx:165
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Automātiski sāciet klausīties, kad ar notikumu nodrošināta piezīme sasniedz ieplānoto sākuma laiku."
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/index.tsx:176
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Automātiski pārtraukt klausīšanos, kad sapulces lietotne atbrīvo mikrofonu."
 
-#: src/settings/general/index.tsx:287
+#: src/settings/general/index.tsx:288
 msgid "Data"
 msgstr "Dati"
 
-#: src/settings/general/index.tsx:236
+#: src/settings/general/index.tsx:237
 msgid "Language & Region"
 msgstr "Valoda un reģions"
 
@@ -57,7 +57,7 @@ msgstr "Kopsavilkumu, tērzēšanas un AI ģenerētu atbilžu valoda"
 msgid "Main language"
 msgstr "Galvenā valoda"
 
-#: src/settings/general/app-settings.tsx:67
+#: src/settings/general/app-settings.tsx:64
 msgid "Meetings"
 msgstr "Sapulces"
 
@@ -66,7 +66,7 @@ msgstr "Sapulces"
 msgid "No matching languages found"
 msgstr "Nav atrasta neviena atbilstoša valoda"
 
-#: src/settings/general/index.tsx:299
+#: src/settings/general/index.tsx:300
 msgid "Notifications"
 msgstr "Paziņojumi"
 
@@ -78,7 +78,7 @@ msgstr "Meklēšanas valoda..."
 msgid "Select language"
 msgstr "Atlasiet valodu"
 
-#: src/settings/general/index.tsx:213
+#: src/settings/general/index.tsx:214
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Nosūtiet anonīmu lietojuma analīzi, lai palīdzētu uzlabot Anarlog."
 
@@ -86,39 +86,39 @@ msgstr "Nosūtiet anonīmu lietojuma analīzi, lai palīdzētu uzlabot Anarlog."
 msgid "Settings"
 msgstr "Iestatījumi"
 
-#: src/settings/general/index.tsx:212
+#: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "Kopīgojiet lietojuma datus"
 
-#: src/settings/general/index.tsx:201
+#: src/settings/general/index.tsx:202
 msgid "Show Devtools panel"
 msgstr ""
 
-#: src/settings/general/index.tsx:181
+#: src/settings/general/index.tsx:182
 msgid "Show floating bar"
 msgstr "Rādīt peldošo joslu"
 
-#: src/settings/general/index.tsx:182
+#: src/settings/general/index.tsx:183
 msgid "Show the compact floating control while listening."
 msgstr "Klausīšanās laikā parādiet kompakto peldošo vadību."
 
-#: src/settings/general/index.tsx:202
+#: src/settings/general/index.tsx:203
 msgid "Show the native floating control panel."
 msgstr ""
 
-#: src/settings/general/index.tsx:191
+#: src/settings/general/index.tsx:192
 msgid "Show timeline in sidebar"
 msgstr "Rādīt laika skalu sānjoslā"
 
-#: src/settings/general/index.tsx:156
+#: src/settings/general/index.tsx:157
 msgid "Start Anarlog at login"
 msgstr "Sāciet Anarlog pie pieteikšanās"
 
-#: src/settings/general/index.tsx:163
+#: src/settings/general/index.tsx:164
 msgid "Start when meeting begins"
 msgstr "Sāciet, kad sākas sapulce"
 
-#: src/settings/general/index.tsx:174
+#: src/settings/general/index.tsx:175
 msgid "Stop when meeting ends"
 msgstr "Pārtraukt, kad sapulce beidzas"
 
@@ -126,6 +126,6 @@ msgstr "Pārtraukt, kad sapulce beidzas"
 msgid "The main language is always included for transcription"
 msgstr "Transkripcijai vienmēr tiek iekļauta galvenā valoda"
 
-#: src/settings/general/index.tsx:192
+#: src/settings/general/index.tsx:193
 msgid "Use the left sidebar timeline instead of the top timeline."
 msgstr "Izmantojiet kreisās sānjoslas laika skalu, nevis augšējo laika skalu."

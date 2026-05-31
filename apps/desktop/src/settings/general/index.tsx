@@ -137,6 +137,7 @@ export function SettingsApp() {
 
   return (
     <div className="flex flex-col gap-8">
+      <SettingsPageTitle title={t`App`} />
       <form.Field name="autostart">
         {(autostartField) => (
           <form.Field name="auto_start_scheduled_meetings">
@@ -305,6 +306,7 @@ export function SettingsNotifications() {
 export function SettingsPermissions() {
   return (
     <div className="flex flex-col gap-8">
+      <SettingsPageTitle title="Permissions" />
       <Permissions />
     </div>
   );
