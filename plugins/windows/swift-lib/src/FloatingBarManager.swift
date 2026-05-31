@@ -6,7 +6,7 @@ final class FloatingBarManager {
 
   private var panel: NSPanel?
   private let model = FloatingBarViewModel()
-  private var activeScreenId: CGDirectDisplayID?
+  private let placement = FloatingPanelPositionController()
   private var displayChangeObserver: Any?
   private var followActiveScreenTimer: Timer?
 
@@ -48,7 +48,7 @@ final class FloatingBarManager {
       self.stopFollowingActiveScreen()
       panel.orderOut(nil)
       self.panel = nil
-      self.activeScreenId = nil
+      self.placement.resetActiveScreen()
     }
   }
 
@@ -80,54 +80,17 @@ final class FloatingBarManager {
     panel.hasShadow = false
     panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
     panel.isMovableByWindowBackground = true
+    panel.delegate = placement
     return panel
   }
 
   private func position(_ panel: NSPanel, force: Bool = false) {
-    let screen = activeScreen()
-    let screenId = displayId(for: screen)
-    if !force, screenId == activeScreenId {
-      return
+    placement.position(panel, force: force) { screen in
+      let frame = screen.visibleFrame
+      let x = frame.maxX - FloatingBarLayout.containerWidth - FloatingBarLayout.screenMargin
+      let y = frame.midY - FloatingBarLayout.containerHeight / 2
+      return NSPoint(x: x, y: y)
     }
-
-    let frame = screen.visibleFrame
-    let x = frame.maxX - FloatingBarLayout.containerWidth - FloatingBarLayout.screenMargin
-    let y = frame.midY - FloatingBarLayout.containerHeight / 2
-    panel.setFrameOrigin(NSPoint(x: x, y: y))
-    activeScreenId = screenId
-  }
-
-  private func activeScreen() -> NSScreen {
-    let mouse = NSEvent.mouseLocation
-    let screens = NSScreen.screens
-
-    if let exactScreen = screens.first(where: { $0.frame.contains(mouse) }) {
-      return exactScreen
-    }
-
-    if let activeScreenId,
-      let currentScreen = screens.first(where: { displayId(for: $0) == activeScreenId }),
-      currentScreen.frame.insetBy(dx: -80, dy: -80).contains(mouse)
-    {
-      return currentScreen
-    }
-
-    return screens.min { left, right in
-      distanceSquared(from: mouse, to: left.frame) < distanceSquared(from: mouse, to: right.frame)
-    } ?? NSScreen.main ?? screens.first!
-  }
-
-  private func displayId(for screen: NSScreen) -> CGDirectDisplayID? {
-    let key = NSDeviceDescriptionKey("NSScreenNumber")
-    return (screen.deviceDescription[key] as? NSNumber).map { CGDirectDisplayID($0.uint32Value) }
-  }
-
-  private func distanceSquared(from point: NSPoint, to rect: NSRect) -> CGFloat {
-    let clampedX = min(max(point.x, rect.minX), rect.maxX)
-    let clampedY = min(max(point.y, rect.minY), rect.maxY)
-    let dx = point.x - clampedX
-    let dy = point.y - clampedY
-    return dx * dx + dy * dy
   }
 
   private func startFollowingActiveScreen() {
