@@ -485,7 +485,7 @@ function PlanTierList({
   return (
     <div ref={containerRef}>
       {isWide ? (
-        <div className="grid grid-cols-3 gap-px border-t border-neutral-100">
+        <div className="grid grid-cols-3 divide-x divide-neutral-100 border-t border-neutral-100">
           {PLAN_TIERS.map((tier) => {
             const isCurrent = tier.id === currentTier;
             const action = getActionForTier(
