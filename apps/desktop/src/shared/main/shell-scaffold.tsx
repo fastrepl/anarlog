@@ -45,6 +45,8 @@ export function MainShellScaffold({
             "[&_[data-chat-floating-anchor]]:border-r-0",
             "[&_[data-chat-floating-anchor]]:border-l",
             "[&_[data-main-after-border-content][data-main-after-border-merged]_[data-session-transcript-card]]:border-t-0",
+            "[&_[data-main-after-border-content][data-main-after-border-merged]_[data-session-transcript-card]]:border-r-0",
+            "[&_[data-main-after-border-content][data-main-after-border-merged]_[data-session-transcript-card]]:rounded-br-none",
           ],
         ])}
         data-testid="main-app-shell"

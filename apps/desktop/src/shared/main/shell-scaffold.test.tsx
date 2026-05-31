@@ -100,5 +100,11 @@ describe("MainShellScaffold", () => {
     expect(shell.className).toContain(
       "[&_[data-main-after-border-content][data-main-after-border-merged]_[data-session-transcript-card]]:border-t-0",
     );
+    expect(shell.className).toContain(
+      "[&_[data-main-after-border-content][data-main-after-border-merged]_[data-session-transcript-card]]:border-r-0",
+    );
+    expect(shell.className).toContain(
+      "[&_[data-main-after-border-content][data-main-after-border-merged]_[data-session-transcript-card]]:rounded-br-none",
+    );
   });
 });
