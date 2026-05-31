@@ -31,10 +31,8 @@ export function TrialStartedDialog({
           <DialogTitle className="text-[13px] leading-5 font-semibold tracking-normal text-neutral-900">
             Your Pro trial just started
           </DialogTitle>
-          <DialogDescription className="max-w-[260px] text-center text-[13px] leading-[1.36] text-neutral-800">
-            You have {days} {days === 1 ? "day" : "days"} of full Pro access —
-            unlimited cloud AI, longer recordings, and every premium template.
-            No payment needed during the trial.
+          <DialogDescription className="w-full text-center text-[13px] leading-[1.36] text-neutral-800">
+            Your {days}-day Pro trial starts now. No payment needed.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="px-4 pt-4 pb-4 sm:justify-center">
