@@ -506,9 +506,9 @@ function PlanTierList({
                   <span className="font-sans text-base font-medium text-stone-800">
                     {tier.name}
                   </span>
-                  {isCurrent && (
+                  {isCurrent && isTrialing && (
                     <span className="rounded-full bg-stone-600 px-2 py-0.5 text-[10px] font-medium tracking-wide text-white uppercase">
-                      {isTrialing ? "Trial" : "Current"}
+                      Trial
                     </span>
                   )}
                 </div>
@@ -552,25 +552,30 @@ function PlanTierList({
               <div
                 key={tier.id}
                 className={cn([
-                  "flex items-center justify-between border-b border-neutral-100 py-2.5 last:border-b-0",
+                  "border-b border-neutral-100 py-3 last:border-b-0",
                   isCurrent && "-mx-2 rounded-md bg-stone-50/60 px-2",
                 ])}
               >
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-stone-800">
-                    {tier.name}
-                  </span>
-                  <span className="text-sm text-neutral-500">
-                    {tier.price}
-                    {tier.period}
-                  </span>
-                  {isCurrent && (
-                    <span className="rounded-full bg-stone-600 px-1.5 py-px text-[10px] font-medium tracking-wide text-white uppercase">
-                      {isTrialing ? "Trial" : "Current"}
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="text-sm font-medium text-stone-800">
+                      {tier.name}
                     </span>
-                  )}
+                    <span className="text-sm text-neutral-500">
+                      {tier.price}
+                      {tier.period}
+                    </span>
+                    {isCurrent && isTrialing && (
+                      <span className="rounded-full bg-stone-600 px-1.5 py-px text-[10px] font-medium tracking-wide text-white uppercase">
+                        Trial
+                      </span>
+                    )}
+                  </div>
+                  <div className="shrink-0">{renderAction(action, true)}</div>
                 </div>
-                <div className="shrink-0">{renderAction(action, true)}</div>
+                <div className="mt-2">
+                  <PlanFeatureList features={tier.features} dense />
+                </div>
               </div>
             );
           })}
