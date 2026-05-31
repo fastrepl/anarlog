@@ -182,6 +182,49 @@ describe("ClassicMainBody", () => {
     expect(sidebar.parentElement?.className).not.toContain("pt-12");
   });
 
+  it("hides timeline chrome for changelog tabs without collapsing the sidebar state", () => {
+    mocks.currentTab = {
+      active: true,
+      pinned: false,
+      slotId: "slot-1",
+      type: "changelog",
+    };
+
+    const { container } = render(<ClassicMainBody />);
+    const body = container.firstElementChild;
+    const topArea = body?.firstElementChild;
+
+    expect(screen.queryByTestId("top-meeting-timeline")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Go back" })).toBeNull();
+    expect(topArea?.className).toContain("h-10");
+    expect(screen.getByTestId("main-tab-content").textContent).toContain(
+      "changelog",
+    );
+  });
+
+  it("keeps sidebar timeline chrome for changelog tabs in sidebar timeline mode", () => {
+    mocks.currentTab = {
+      active: true,
+      pinned: false,
+      slotId: "slot-1",
+      type: "changelog",
+    };
+    mocks.sidebarTimelineEnabled = true;
+
+    render(<ClassicMainBody />);
+
+    const backButton = screen.getByRole("button", { name: "Go back" });
+    const topArea = backButton.parentElement?.parentElement?.parentElement;
+
+    expect(screen.queryByTestId("top-meeting-timeline")).toBeNull();
+    expect(backButton.hasAttribute("disabled")).toBe(true);
+    expect(topArea?.className).toContain("h-12");
+    expect(topArea?.className).toContain("absolute");
+    expect(screen.getByTestId("main-tab-content").textContent).toContain(
+      "changelog",
+    );
+  });
+
   it("navigates history from the sidebar timeline chrome", () => {
     mocks.sidebarTimelineEnabled = true;
     mocks.canGoBack = true;

@@ -104,6 +104,32 @@ describe("ClassicMainShellFrame", () => {
     ).toBe("left");
   });
 
+  it("uses top-edge main surface chrome for changelog tabs", () => {
+    mocks.currentTab = { type: "changelog" };
+    mocks.leftsidebar.expanded = false;
+
+    render(<ClassicMainShellFrame />);
+
+    expect(
+      screen
+        .getByTestId("main-shell-scaffold")
+        .getAttribute("data-main-surface-chrome"),
+    ).toBe("top");
+  });
+
+  it("keeps left-edge main surface chrome for changelog tabs in sidebar timeline mode", () => {
+    mocks.currentTab = { type: "changelog" };
+    mocks.sidebarTimelineEnabled = true;
+
+    render(<ClassicMainShellFrame />);
+
+    expect(
+      screen
+        .getByTestId("main-shell-scaffold")
+        .getAttribute("data-main-surface-chrome"),
+    ).toBe("left");
+  });
+
   it("uses the full shell surface for onboarding", () => {
     mocks.currentTab = { type: "onboarding" };
 

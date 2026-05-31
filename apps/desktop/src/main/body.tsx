@@ -39,6 +39,7 @@ export function ClassicMainBody() {
   const { runEscapeShortcut } = useClassicMainTabsShortcuts();
 
   const isOnboarding = currentTab?.type === "onboarding";
+  const isChangelog = currentTab?.type === "changelog";
   const hasCustomSidebar = hasCustomSidebarTab(currentTab);
   const hasLeftSurfaceCustomSidebar =
     hasLeftSurfaceCustomSidebarTab(currentTab);
@@ -51,6 +52,7 @@ export function ClassicMainBody() {
     leftsidebar.expanded &&
     !showSidebarTimeline &&
     !hasCustomSidebar &&
+    !isChangelog &&
     !isOnboarding;
   const showLeftSurfaceChromeBack = hasLeftSurfaceCustomSidebar;
   const enableMainAreaTopDrag =

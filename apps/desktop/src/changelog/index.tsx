@@ -1,23 +1,15 @@
-import { CalendarIcon, ExternalLinkIcon } from "lucide-react";
-import { useEffect } from "react";
+import { XIcon } from "lucide-react";
 
 import { ChangelogContent } from "@hypr/changelog";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@hypr/ui/components/ui/breadcrumb";
 import { Button } from "@hypr/ui/components/ui/button";
-import { safeFormat } from "@hypr/utils";
 
 import { useChangelogContent } from "./data";
 
 import { useShell } from "~/contexts/shell";
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { StandardTabWrapper } from "~/shared/main";
-import { type Tab } from "~/store/zustand/tabs";
+import { type Tab, useTabs } from "~/store/zustand/tabs";
 
 export { getLatestVersion } from "./data";
 
@@ -27,31 +19,25 @@ export function TabContentChangelog({
   tab: Extract<Tab, { type: "changelog" }>;
 }) {
   const { current } = tab.state;
-  const { leftsidebar, chat } = useShell();
+  const { chat } = useShell();
+  const close = useTabs((state) => state.close);
 
-  useEffect(() => {
-    leftsidebar.setExpanded(false);
+  useMountEffect(() => {
     if (chat.mode === "FloatingOpen") {
       chat.sendEvent({ type: "CLOSE" });
     }
-  }, []);
+  });
 
-  const { content, date, loading } = useChangelogContent(current);
+  const { content, loading } = useChangelogContent(current);
 
   return (
     <StandardTabWrapper>
       <div className="flex h-full flex-col">
-        <div className="shrink-0 pr-1 pl-2">
-          <ChangelogHeader version={current} date={date} />
+        <div className="shrink-0 pr-1 pl-3">
+          <ChangelogHeader version={current} onClose={() => close(tab)} />
         </div>
 
-        <div className="mt-2 shrink-0 px-3">
-          <h1 className="text-xl font-semibold text-neutral-900">
-            What's new in {current}?
-          </h1>
-        </div>
-
-        <div className="relative mt-4 min-h-0 flex-1 overflow-hidden">
+        <div className="relative mt-2 min-h-0 flex-1 overflow-hidden">
           <div className="scroll-fade-y h-full overflow-y-auto px-3 pb-4">
             <ChangelogBody content={content} loading={loading} />
           </div>
@@ -122,50 +108,30 @@ function ChangelogBody({
 
 function ChangelogHeader({
   version,
-  date,
+  onClose,
 }: {
   version: string;
-  date: string | null;
+  onClose: () => void;
 }) {
-  const formattedDate = date ? safeFormat(date, "MMM d, yyyy") : null;
-  const webUrl = `https://anarlog.so/changelog/${version}`;
-
   return (
-    <div className="w-full pt-1">
-      <div className="flex items-center gap-2">
+    <div className="flex h-12 w-full items-center">
+      <div className="flex w-full min-w-0 items-center justify-between gap-0">
         <div className="min-w-0 flex-1">
-          <Breadcrumb className="ml-1.5 min-w-0">
-            <BreadcrumbList className="flex-nowrap gap-0.5 overflow-hidden text-xs text-neutral-700">
-              <BreadcrumbItem className="shrink-0">
-                <span className="text-neutral-500">Changelog</span>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator className="shrink-0" />
-              <BreadcrumbItem className="overflow-hidden">
-                <BreadcrumbPage className="truncate">{version}</BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
+          <h1 className="truncate text-xl font-semibold text-neutral-900">
+            What's new in {version}?
+          </h1>
         </div>
 
-        <div className="flex shrink-0 items-center">
-          {formattedDate && (
-            <Button
-              size="sm"
-              variant="ghost"
-              className="pointer-events-none text-neutral-600"
-            >
-              <CalendarIcon size={14} className="shrink-0" />
-              <span>{formattedDate}</span>
-            </Button>
-          )}
+        <div className="flex shrink-0 items-center gap-0 pr-1">
           <Button
-            size="sm"
+            size="icon"
             variant="ghost"
-            className="gap-1.5 text-neutral-600 hover:text-black"
-            onClick={() => openerCommands.openUrl(webUrl, null)}
+            className="text-neutral-500 hover:text-black"
+            aria-label="Close changelog"
+            title="Close"
+            onClick={onClose}
           >
-            <ExternalLinkIcon size={14} />
-            <span>Open in web</span>
+            <XIcon size={15} />
           </Button>
         </div>
       </div>

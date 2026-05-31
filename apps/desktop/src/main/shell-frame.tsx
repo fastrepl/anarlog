@@ -16,6 +16,7 @@ export function ClassicMainShellFrame() {
   const sidebarTimelineEnabled = useConfigValue("sidebar_timeline_enabled");
 
   const isOnboarding = currentTab?.type === "onboarding";
+  const isChangelog = currentTab?.type === "changelog";
   const hasCustomSidebar = hasCustomSidebarTab(currentTab);
   const hasLeftSurfaceCustomSidebar =
     hasLeftSurfaceCustomSidebarTab(currentTab);
@@ -30,11 +31,13 @@ export function ClassicMainShellFrame() {
     !hasCustomSidebar &&
     !isOnboarding;
   const mainSurfaceChrome =
-    showSidebarTimeline || hasLeftSurfaceCustomSidebar
-      ? "left"
-      : showTopTimeline
-        ? "top"
-        : "default";
+    isChangelog && !showSidebarTimeline
+      ? "top"
+      : showSidebarTimeline || hasLeftSurfaceCustomSidebar
+        ? "left"
+        : showTopTimeline
+          ? "top"
+          : "default";
 
   return (
     <MainShellScaffold
