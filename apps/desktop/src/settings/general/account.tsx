@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import { RefreshCw, Sparkle } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import {
   type ReactNode,
   useCallback,
@@ -29,16 +29,6 @@ import { env } from "~/env";
 import { SettingsPageTitle } from "~/settings/page-title";
 import { waitForBillingUpdate } from "~/shared/billing";
 import { buildWebAppUrl } from "~/shared/utils";
-const ACCOUNT_FEATURE = {
-  label: "Cloud Services",
-  icon: Sparkle,
-  benefit:
-    "Get hosted transcription and language models without managing API keys.",
-  accent: {
-    icon: "text-blue-900",
-    label: "text-blue-950",
-  },
-} as const;
 
 export function SettingsAccount() {
   const auth = useAuth();
@@ -120,9 +110,6 @@ export function SettingsAccount() {
               >
                 Get started
               </button>
-            </div>
-            <div className="shrink-0">
-              <FeatureSpotlight />
             </div>
           </div>
         </section>
@@ -576,35 +563,6 @@ function PlanTierList({
           })}
         </div>
       )}
-    </div>
-  );
-}
-
-function FeatureSpotlight() {
-  const { label, icon: Icon, benefit, accent } = ACCOUNT_FEATURE;
-
-  return (
-    <div className="group relative flex w-full max-w-[220px] min-w-[180px] items-center justify-center p-2">
-      <div className="relative min-h-[88px] w-full">
-        <button
-          type="button"
-          className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center outline-none"
-          aria-label={`${label}. ${benefit}`}
-        >
-          <div className="flex h-12 w-12 items-center justify-center transition-transform group-focus-within:-translate-y-0.5 group-focus-within:scale-105 group-hover:-translate-y-0.5 group-hover:scale-105">
-            <Icon className={cn(["h-5 w-5", accent.icon])} />
-          </div>
-          <p className={cn(["text-sm font-medium", accent.label])}>{label}</p>
-        </button>
-      </div>
-      <div className="pointer-events-none absolute top-full right-0 z-10 mt-1.5 w-[208px] rounded-xl border border-neutral-200 bg-white/95 p-2.5 text-left opacity-0 shadow-lg backdrop-blur-sm transition-all duration-150 group-focus-within:translate-y-0 group-focus-within:opacity-100 group-hover:translate-y-0 group-hover:opacity-100">
-        <div className="flex items-center justify-between gap-3">
-          <p className={cn(["text-sm font-medium", accent.label])}>{label}</p>
-        </div>
-        <p className="mt-1 text-xs leading-[1.45] text-neutral-600">
-          {benefit}
-        </p>
-      </div>
     </div>
   );
 }
