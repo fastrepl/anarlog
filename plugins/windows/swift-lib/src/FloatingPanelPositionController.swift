@@ -4,7 +4,9 @@ final class FloatingPanelPositionController: NSObject, NSWindowDelegate {
   private var activeScreenId: CGDirectDisplayID?
   private var pinnedOrigin: NSPoint?
   private var isProgrammaticMove = false
+  private var programmaticMoveId = 0
   private var programmaticOrigin: NSPoint?
+  private let programmaticMoveSuppressionDelay: TimeInterval = 0.15
 
   func position(_ panel: NSPanel, force: Bool = false, defaultOrigin: (NSScreen) -> NSPoint) {
     if let pinnedOrigin {
@@ -33,27 +35,42 @@ final class FloatingPanelPositionController: NSObject, NSWindowDelegate {
 
   func windowDidMove(_ notification: Notification) {
     guard let panel = notification.object as? NSPanel else { return }
-
     let origin = panel.frame.origin
+
+    if isProgrammaticMove {
+      programmaticOrigin = origin
+      return
+    }
+
     if let programmaticOrigin, pointsAreClose(origin, programmaticOrigin) {
       return
     }
 
-    if programmaticOrigin != nil {
-      self.programmaticOrigin = nil
+    guard isPointerButtonPressed else {
+      programmaticOrigin = origin
+      return
     }
 
-    guard !isProgrammaticMove else { return }
-
+    programmaticOrigin = nil
     pinnedOrigin = origin
     activeScreenId = panel.screen.flatMap { displayId(for: $0) }
   }
 
   private func move(_ panel: NSPanel, to origin: NSPoint) {
+    programmaticMoveId += 1
+    let moveId = programmaticMoveId
+
     isProgrammaticMove = true
     programmaticOrigin = origin
     panel.setFrameOrigin(origin)
-    isProgrammaticMove = false
+    programmaticOrigin = panel.frame.origin
+
+    // AppKit can deliver move notifications shortly after setFrameOrigin returns.
+    DispatchQueue.main.asyncAfter(deadline: .now() + programmaticMoveSuppressionDelay) {
+      [weak self] in
+      guard let self, self.programmaticMoveId == moveId else { return }
+      self.isProgrammaticMove = false
+    }
   }
 
   private func activeScreen() -> NSScreen {
@@ -130,5 +147,9 @@ final class FloatingPanelPositionController: NSObject, NSWindowDelegate {
 
   private func pointsAreClose(_ left: NSPoint, _ right: NSPoint) -> Bool {
     abs(left.x - right.x) < 0.5 && abs(left.y - right.y) < 0.5
+  }
+
+  private var isPointerButtonPressed: Bool {
+    NSEvent.pressedMouseButtons != 0
   }
 }
