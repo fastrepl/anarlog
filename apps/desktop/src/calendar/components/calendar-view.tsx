@@ -15,7 +15,10 @@ import { ChevronLeftIcon, ChevronRightIcon, RefreshCwIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@hypr/ui/components/ui/button";
-import { ButtonGroup } from "@hypr/ui/components/ui/button-group";
+import {
+  ButtonGroup,
+  ButtonGroupSeparator,
+} from "@hypr/ui/components/ui/button-group";
 import { Spinner } from "@hypr/ui/components/ui/spinner";
 import {
   Tooltip,
@@ -197,27 +200,38 @@ export function CalendarView() {
           </h2>
           <CalendarSyncHeaderControls />
         </div>
-        <ButtonGroup data-tauri-drag-region="false" className="rounded-full">
+        <ButtonGroup
+          data-tauri-drag-region="false"
+          className={cn([
+            "h-8 overflow-hidden rounded-full border border-neutral-200",
+            "bg-white shadow-xs",
+          ])}
+        >
           <Button
-            variant="outline"
+            variant="ghost"
             size="icon"
-            className="rounded-l-full shadow-none"
+            className="h-full w-10 rounded-none border-0 bg-transparent shadow-none hover:bg-neutral-50"
             onClick={goToPrev}
           >
             <ChevronLeftIcon className="h-4 w-4" />
           </Button>
+          <ButtonGroupSeparator className="bg-neutral-200" />
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
-            className="px-3 shadow-none"
+            className={cn([
+              "h-full rounded-none border-0",
+              "bg-transparent px-3 text-sm shadow-none hover:bg-neutral-50",
+            ])}
             onClick={goToToday}
           >
             Today
           </Button>
+          <ButtonGroupSeparator className="bg-neutral-200" />
           <Button
-            variant="outline"
+            variant="ghost"
             size="icon"
-            className="rounded-r-full shadow-none"
+            className="h-full w-10 rounded-none border-0 bg-transparent shadow-none hover:bg-neutral-50"
             onClick={goToNext}
           >
             <ChevronRightIcon className="h-4 w-4" />
