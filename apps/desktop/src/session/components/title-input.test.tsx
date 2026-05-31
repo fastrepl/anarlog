@@ -89,17 +89,15 @@ describe("TitleInput", () => {
     expect(hoisted.runEscapeShortcut).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps the empty title layout at placeholder width", () => {
+  it("positions the empty title generate button next to the placeholder", () => {
     hoisted.store.getCell.mockReturnValueOnce("");
 
     renderTitleInput({ onGenerateTitle: vi.fn() });
 
     const input = screen.getByPlaceholderText("Untitled");
-    expect(input.parentElement?.className).toContain("min-w-fit");
-    expect(input.parentElement?.className).toContain("flex-none");
-    expect(
-      screen.getByRole("button", { name: "Regenerate title" }),
-    ).toBeTruthy();
+    const button = screen.getByRole("button", { name: "Regenerate title" });
+    expect(input.parentElement?.className).toContain("relative");
+    expect(button.className).toContain("left-[84px]");
   });
 
   it("uses the flexible title layout for whitespace-only titles", () => {
@@ -108,8 +106,7 @@ describe("TitleInput", () => {
     renderTitleInput({ onGenerateTitle: vi.fn() });
 
     const input = screen.getByPlaceholderText("Untitled");
-    expect(input.parentElement?.className).toContain("min-w-0");
-    expect(input.parentElement?.className).toContain("flex-1");
+    expect(input.className).toContain("w-full");
     expect(
       screen.queryByRole("button", { name: "Regenerate title" }),
     ).toBeNull();

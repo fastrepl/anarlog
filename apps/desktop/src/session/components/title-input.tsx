@@ -332,59 +332,43 @@ const TitleInputInner = memo(
         localTitle.length === 0 ? onGenerateTitle : undefined;
 
       return (
-        <div className="flex w-full items-center gap-2">
-          <div
+        <div className="relative flex h-8 w-full items-center">
+          <input
+            ref={setInputRef}
+            id={`title-input-${sessionId}-${editorId}`}
+            placeholder="Untitled"
+            type="text"
+            onChange={(e) => {
+              const value = e.target.value;
+              setLocalTitle(value);
+              setLiveTitle(sessionId, value);
+              setIsOverflowing(e.target.scrollWidth > e.target.clientWidth + 1);
+            }}
+            onKeyDown={handleKeyDown}
+            onFocus={() => {
+              isFocused.current = true;
+              setIsTitleFocused(true);
+            }}
+            onBlur={(e) => {
+              isFocused.current = false;
+              setIsTitleFocused(false);
+              setStoreTitle(localTitle);
+              clearLiveTitle(sessionId);
+              setIsOverflowing(e.target.scrollWidth > e.target.clientWidth + 1);
+            }}
+            value={localTitle}
+            style={overflowFadeStyle}
             className={cn([
-              "grid items-center",
-              generateTitleHandler ? "min-w-fit flex-none" : "min-w-0 flex-1",
+              "w-full min-w-0 transition-opacity duration-200",
+              "border-none bg-transparent focus:outline-hidden",
+              "placeholder:text-muted-foreground text-xl font-semibold",
             ])}
-          >
-            {generateTitleHandler && (
-              <span
-                aria-hidden="true"
-                className="invisible col-start-1 row-start-1 text-xl font-semibold whitespace-pre"
-              >
-                Untitled
-              </span>
-            )}
-            <input
-              ref={setInputRef}
-              id={`title-input-${sessionId}-${editorId}`}
-              placeholder="Untitled"
-              type="text"
-              onChange={(e) => {
-                const value = e.target.value;
-                setLocalTitle(value);
-                setLiveTitle(sessionId, value);
-                setIsOverflowing(
-                  e.target.scrollWidth > e.target.clientWidth + 1,
-                );
-              }}
-              onKeyDown={handleKeyDown}
-              onFocus={() => {
-                isFocused.current = true;
-                setIsTitleFocused(true);
-              }}
-              onBlur={(e) => {
-                isFocused.current = false;
-                setIsTitleFocused(false);
-                setStoreTitle(localTitle);
-                clearLiveTitle(sessionId);
-                setIsOverflowing(
-                  e.target.scrollWidth > e.target.clientWidth + 1,
-                );
-              }}
-              value={localTitle}
-              style={overflowFadeStyle}
-              className={cn([
-                "col-start-1 row-start-1 w-full min-w-0 transition-opacity duration-200",
-                "border-none bg-transparent focus:outline-hidden",
-                "placeholder:text-muted-foreground text-xl font-semibold",
-              ])}
-            />
-          </div>
+          />
           {generateTitleHandler && (
-            <GenerateButton onGenerateTitle={generateTitleHandler} />
+            <GenerateButton
+              className="absolute top-1/2 left-[84px] -translate-y-1/2"
+              onGenerateTitle={generateTitleHandler}
+            />
           )}
         </div>
       );
@@ -393,8 +377,10 @@ const TitleInputInner = memo(
 );
 
 const GenerateButton = memo(function GenerateButton({
+  className,
   onGenerateTitle,
 }: {
+  className?: string;
   onGenerateTitle: () => void;
 }) {
   return (
@@ -412,6 +398,7 @@ const GenerateButton = memo(function GenerateButton({
             "shrink-0",
             "text-muted-foreground hover:text-foreground",
             "opacity-50 transition-opacity hover:opacity-100",
+            className,
           ])}
         >
           <SparklesIcon className="h-4 w-4" />
