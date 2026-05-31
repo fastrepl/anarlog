@@ -81,7 +81,7 @@ function OnboardingScreen({ onFinish }: { onFinish: () => void }) {
   return (
     <OnboardingScreenContent
       onFinish={onFinish}
-      headerClassName="px-12 pt-12 pb-8"
+      headerClassName="px-12 pb-8"
       headerDragRegion
     />
   );
@@ -92,15 +92,11 @@ export function StandaloneOnboardingScreen({
 }: {
   onFinish: () => void;
 }) {
-  const isMacOS = platform() === "macos";
-
   return (
     <StandaloneWindowShell>
       <OnboardingScreenContent
         onFinish={onFinish}
-        headerClassName={
-          isMacOS ? "pt-12 pr-12 pb-8 pl-20" : "px-12 pt-12 pb-8"
-        }
+        headerClassName="px-12 pb-8"
         headerDragRegion
       />
     </StandaloneWindowShell>
@@ -208,14 +204,8 @@ function OnboardingScreenContent({
 
       <div
         data-tauri-drag-region={headerDragRegion || undefined}
-        className={cn([
-          "sticky top-0 z-10 flex items-center justify-between",
-          headerClassName,
-        ])}
+        className="relative z-30 flex h-12 shrink-0 items-center justify-end px-12"
       >
-        <h1 className="font-sans text-3xl font-semibold text-neutral-900">
-          Welcome to Anarlog
-        </h1>
         <button
           onClick={() => setIsMuted((prev) => !prev)}
           data-tauri-drag-region="false"
@@ -228,6 +218,18 @@ function OnboardingScreenContent({
             <Volume2Icon size={16} className="text-neutral-600" />
           )}
         </button>
+      </div>
+
+      <div
+        data-tauri-drag-region={headerDragRegion || undefined}
+        className={cn([
+          "relative z-10 flex shrink-0 items-center",
+          headerClassName,
+        ])}
+      >
+        <h1 className="font-hand text-4xl leading-none font-semibold tracking-normal text-neutral-900">
+          Welcome to Anarlog
+        </h1>
       </div>
 
       <div className="relative z-10 flex-1 overflow-y-auto">
