@@ -49,7 +49,7 @@ export function createToastRegistry({
   onOpenSTTSettings,
 }: ToastRegistryParams): ToastRegistryEntry[] {
   const downloadTitle =
-    activeDownloads.length === 1
+    activeDownloads.length === 1 && downloadingModel
       ? `Downloading ${downloadingModel}`
       : `Downloading ${activeDownloads.length} models`;
 
@@ -58,8 +58,7 @@ export function createToastRegistry({
     {
       toast: {
         id: "downloading-model",
-        title: downloadTitle,
-        description: "This may take a few minutes",
+        description: downloadTitle,
         dismissible: false,
         progress:
           activeDownloads.length === 1 ? (downloadProgress ?? 0) : undefined,
@@ -70,12 +69,7 @@ export function createToastRegistry({
     {
       toast: {
         id: "local-stt-loading",
-        description: (
-          <>
-            <strong className="font-mono">Local transcription</strong> is
-            starting up...
-          </>
-        ),
+        description: "Starting transcription...",
         dismissible: false,
       },
       condition: () =>
@@ -84,14 +78,9 @@ export function createToastRegistry({
     {
       toast: {
         id: "local-stt-unreachable",
-        description: (
-          <>
-            <strong className="text-red-600">Could not connect</strong> to the
-            local speech-to-text model. Please check your settings.
-          </>
-        ),
+        description: "Transcription unavailable",
         primaryAction: {
-          label: "Check settings",
+          label: "Settings",
           onClick: onOpenSTTSettings,
         },
         dismissible: true,
@@ -106,14 +95,9 @@ export function createToastRegistry({
     {
       toast: {
         id: "missing-stt",
-        description: (
-          <>
-            <strong className="font-mono">Transcription model</strong> is needed
-            to make Anarlog listen to your conversations.
-          </>
-        ),
+        description: "Transcription model needed",
         primaryAction: {
-          label: "Configure transcription",
+          label: "Add",
           onClick: onOpenSTTSettings,
         },
         dismissible: false,
@@ -123,14 +107,9 @@ export function createToastRegistry({
     {
       toast: {
         id: "missing-llm",
-        description: (
-          <>
-            <strong className="font-mono">Language model</strong> is needed to
-            make Anarlog summarize and chat about your conversations.
-          </>
-        ),
+        description: "Language model needed",
         primaryAction: {
-          label: "Add intelligence",
+          label: "Add",
           onClick: onOpenLLMSettings,
         },
         dismissible: true,
@@ -148,9 +127,7 @@ export function createToastRegistry({
             className="size-5 object-contain object-center"
           />
         ),
-        title: "Sign in required",
-        description:
-          "You have Anarlog Pro models configured. Please sign in to use them.",
+        description: "Sign in required",
         primaryAction: {
           label: "Sign in",
           onClick: onSignIn,
@@ -173,11 +150,9 @@ export function createToastRegistry({
             className="size-5 object-contain object-center"
           />
         ),
-        title: "Keep the magic going",
-        description:
-          "Transcription stays free. Pro unlocks other magic you'll love.",
+        description: "Pro features available",
         primaryAction: {
-          label: "Upgrade to Pro",
+          label: "Upgrade",
           onClick: onSignIn,
         },
         dismissible: true,
