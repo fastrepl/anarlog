@@ -16,7 +16,7 @@ import {
   getPrevStep,
   getStepStatus,
 } from "./config";
-import { FinalSection, finishOnboarding } from "./final";
+import { FinalDescription, FinalSection, finishOnboarding } from "./final";
 import { FolderLocationSection } from "./folder-location";
 import { PermissionsSection } from "./permissions";
 import { OnboardingSection } from "./shared";
@@ -81,7 +81,7 @@ function OnboardingScreen({ onFinish }: { onFinish: () => void }) {
   return (
     <OnboardingScreenContent
       onFinish={onFinish}
-      headerClassName="px-12 pb-8"
+      headerClassName="px-12 pt-4 pb-8"
       headerDragRegion
     />
   );
@@ -96,7 +96,7 @@ export function StandaloneOnboardingScreen({
     <StandaloneWindowShell>
       <OnboardingScreenContent
         onFinish={onFinish}
-        headerClassName="px-12 pb-8"
+        headerClassName="px-12 pt-4 pb-8"
         headerDragRegion
       />
     </StandaloneWindowShell>
@@ -204,7 +204,7 @@ function OnboardingScreenContent({
 
       <div
         data-tauri-drag-region={headerDragRegion || undefined}
-        className="relative z-30 flex h-12 shrink-0 items-center justify-end pr-8 pl-12"
+        className="relative z-30 flex h-12 shrink-0 items-center justify-end pr-3 pl-12"
       >
         <button
           onClick={() => setIsMuted((prev) => !prev)}
@@ -232,7 +232,7 @@ function OnboardingScreenContent({
         </h1>
       </div>
 
-      <div className="relative z-10 flex-1 overflow-y-auto">
+      <div className="scroll-fade-y relative z-10 flex-1 overflow-y-auto">
         <div className="flex flex-col gap-4 px-12 pb-16">
           <OnboardingSection
             title="Start with permissions"
@@ -261,7 +261,6 @@ function OnboardingScreenContent({
                 event: "onboarding_login_skipped",
               });
             }}
-            contentClassName="-mt-4 pt-2"
           >
             <LoginSection
               onContinue={goNext}
@@ -296,6 +295,7 @@ function OnboardingScreenContent({
 
           <OnboardingSection
             title="Ready to go"
+            description={<FinalDescription />}
             status={getStepStatus("final", currentStep)}
             skippable={false}
             onBack={goBack}

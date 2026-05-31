@@ -24,18 +24,16 @@ export function OnboardingSection({
   onNext,
   onSkip,
   skippable = true,
-  contentClassName,
   children,
 }: {
   title: string;
-  completedTitle?: string;
-  description?: string;
+  completedTitle?: ReactNode;
+  description?: ReactNode;
   status: SectionStatus | null;
   onBack?: () => void;
   onNext?: () => void;
   onSkip?: () => void;
   skippable?: boolean;
-  contentClassName?: string;
   children: ReactNode;
 }) {
   const sectionRef = useRef<HTMLElement>(null);
@@ -61,7 +59,7 @@ export function OnboardingSection({
       <div
         className={cn([
           "flex items-center gap-2 transition-all duration-300",
-          isActive && "mb-6 pt-4",
+          isActive && "mb-3 pt-4",
         ])}
       >
         {isCompleted && (
@@ -70,20 +68,20 @@ export function OnboardingSection({
             strokeWidth={2.5}
           />
         )}
-        <div className="flex min-w-0 flex-col gap-1">
+        <div className="flex min-w-0 flex-col gap-3">
           <div className="flex items-center gap-2">
             <h2
               className={cn([
                 "transition-all duration-300",
                 isCompleted
-                  ? "text-sm font-normal text-neutral-300"
-                  : "mb-2 font-sans text-2xl font-semibold text-neutral-900",
+                  ? "text-xs font-normal text-neutral-300"
+                  : "font-sans text-xl font-semibold text-neutral-900",
               ])}
             >
               {isCompleted ? (completedTitle ?? title) : title}
             </h2>
             {isActive && (
-              <div className="mb-1 flex items-center gap-2">
+              <div className="flex items-center gap-2">
                 {import.meta.env.DEV && onBack && (
                   <button
                     onClick={onBack}
@@ -118,7 +116,7 @@ export function OnboardingSection({
             )}
           </div>
           {isActive && description && (
-            <p className="text-sm text-neutral-500">{description}</p>
+            <div className="text-sm text-neutral-500">{description}</div>
           )}
         </div>
       </div>
@@ -131,10 +129,7 @@ export function OnboardingSection({
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
-            className={cn([
-              "-mx-5 -mt-3 -mb-5 overflow-hidden px-5 pt-3 pb-5",
-              contentClassName,
-            ])}
+            className="-mx-5 -mb-5 overflow-hidden px-5 pt-3 pb-5"
           >
             {children}
           </motion.div>

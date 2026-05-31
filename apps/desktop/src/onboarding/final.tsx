@@ -13,51 +13,55 @@ const SOCIALS = [
   {
     label: "Discord",
     icon: "simple-icons:discord",
-    size: 23,
     url: "https://discord.gg/CX8gTH2tj9",
   },
   {
     label: "GitHub",
     icon: "simple-icons:github",
-    size: 23,
     url: "https://github.com/fastrepl/char",
   },
   {
     label: "X",
     icon: "simple-icons:x",
-    size: 23,
+    size: 14,
     url: "https://x.com/getcharnotes",
   },
 ] as const;
 
+const SOCIAL_ICON_SIZE = 18;
+
+export function FinalDescription() {
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+      <span>Join our community and stay updated:</span>
+      <div className="flex items-center gap-2">
+        {SOCIALS.map((social) => {
+          const iconSize = "size" in social ? social.size : SOCIAL_ICON_SIZE;
+
+          return (
+            <button
+              key={social.label}
+              onClick={() => void openerCommands.openUrl(social.url, null)}
+              className="inline-flex size-5 items-center justify-center rounded-md text-neutral-400 transition-colors duration-150 hover:text-neutral-700"
+              aria-label={social.label}
+            >
+              <Icon icon={social.icon} width={iconSize} height={iconSize} />
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function FinalSection({ onContinue }: { onContinue: () => void }) {
   return (
-    <div className="flex flex-col gap-6">
-      <div className="items-left flex flex-col gap-4 text-sm text-neutral-500">
-        <span>Join our community and stay updated:</span>
-        <div className="flex items-center gap-4">
-          {SOCIALS.map(({ label, icon, size, url }) => {
-            return (
-              <button
-                key={label}
-                onClick={() => void openerCommands.openUrl(url, null)}
-                className="inline-flex size-6 items-center justify-center rounded-md text-neutral-400 transition-colors duration-150 hover:text-neutral-700"
-                aria-label={label}
-              >
-                <Icon icon={icon} width={size} height={size} />
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <OnboardingButton
-        className="px-10 py-3.5 text-base"
-        onClick={() => void finishOnboarding(onContinue)}
-      >
-        Open Anarlog
-      </OnboardingButton>
-    </div>
+    <OnboardingButton
+      className="px-6 py-2 text-sm"
+      onClick={() => void finishOnboarding(onContinue)}
+    >
+      Open Anarlog
+    </OnboardingButton>
   );
 }
 

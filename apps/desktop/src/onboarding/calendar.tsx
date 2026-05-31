@@ -5,7 +5,7 @@ import { useCallback, useMemo, useState } from "react";
 import type { ConnectionItem } from "@hypr/api-client";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
 
-import { OnboardingButton, OnboardingAnarlogIcon } from "./shared";
+import { OnboardingButton } from "./shared";
 
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing";
@@ -390,8 +390,7 @@ function OutlookCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
       {!isSignedIn ? (
         <span className="grid items-center overflow-hidden">
           <span className="invisible col-start-1 row-start-1 flex items-center justify-center gap-3">
-            <OnboardingAnarlogIcon />
-            Sign in to Anarlog
+            Sign in to connect
           </span>
 
           <motion.span
@@ -402,9 +401,6 @@ function OutlookCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
             {OUTLOOK_PROVIDER.icon}
             <div className="flex flex-col items-start justify-center">
               <p className="text-md font-normal text-neutral-900">Outlook</p>
-              <span className="text-xs font-normal text-neutral-500">
-                Only in Pro
-              </span>
             </div>
           </motion.span>
 
@@ -413,8 +409,7 @@ function OutlookCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
             animate={{ y: isHovered ? "0%" : "-150%" }}
             transition={{ type: "spring", bounce: 0.15, duration: 0.35 }}
           >
-            <OnboardingAnarlogIcon />
-            Sign in to Anarlog
+            Sign in to connect
           </motion.span>
         </span>
       ) : (
@@ -499,8 +494,7 @@ function GoogleCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
         {!isSignedIn ? (
           <span className="grid items-center overflow-hidden">
             <span className="invisible col-start-1 row-start-1 flex items-center justify-center gap-3">
-              <OnboardingAnarlogIcon />
-              Sign in to Anarlog
+              Sign in to connect
             </span>
 
             <motion.span
@@ -511,9 +505,6 @@ function GoogleCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
               {GOOGLE_PROVIDER.icon}
               <div className="flex flex-col items-start justify-center">
                 <p className="text-md font-normal text-neutral-900">Google</p>
-                <span className="text-xs font-normal text-neutral-500">
-                  Only in Pro
-                </span>
               </div>
             </motion.span>
 
@@ -522,8 +513,7 @@ function GoogleCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
               animate={{ y: isHovered ? "0%" : "-140%" }}
               transition={{ type: "spring", bounce: 0.15, duration: 0.35 }}
             >
-              <OnboardingAnarlogIcon />
-              Sign in to Anarlog
+              Sign in to connect
             </motion.span>
           </span>
         ) : (
@@ -556,7 +546,7 @@ function CalendarSectionContent({
   return (
     <div className="flex flex-col gap-4">
       {hasAnyConnected ? (
-        <div className="flex flex-col gap-4">
+        <>
           {isMacos && (
             <AppleCalendarProvider
               isAuthorized={isAuthorized}
@@ -565,12 +555,17 @@ function CalendarSectionContent({
               onTroubleshoot={() => setShowTroubleshooting(true)}
             />
           )}
-          <GoogleCalendarProvider onSignIn={onSignIn} />
-          <OutlookCalendarProvider onSignIn={onSignIn} />
-        </div>
+          <div className="flex flex-wrap items-center gap-4">
+            <GoogleCalendarProvider onSignIn={onSignIn} />
+            <OutlookCalendarProvider onSignIn={onSignIn} />
+          </div>
+          {hasConnectedCalendar && (
+            <OnboardingButton onClick={onContinue}>Continue</OnboardingButton>
+          )}
+        </>
       ) : (
         // for the case when the user has no connected calendars yet we show the calendars in a row
-        <div className="flex flex-row items-stretch gap-4">
+        <div className="flex flex-wrap items-stretch gap-4">
           {isMacos && (
             <AppleCalendarProvider
               isAuthorized={isAuthorized}
@@ -593,10 +588,6 @@ function CalendarSectionContent({
           isPending={calendar.isPending}
           className="text-sm text-neutral-500"
         />
-      )}
-
-      {hasConnectedCalendar && (
-        <OnboardingButton onClick={onContinue}>Continue</OnboardingButton>
       )}
     </div>
   );
