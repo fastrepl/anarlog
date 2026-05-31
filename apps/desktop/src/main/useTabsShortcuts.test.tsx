@@ -3,13 +3,29 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const hoisted = vi.hoisted(() => ({
   chatMode: "FloatingClosed" as "FloatingClosed" | "FloatingOpen",
-  currentTab: null as null | { active: boolean; slotId: string; type: string },
+  currentTab: null as null | {
+    active: boolean;
+    id?: string;
+    returnToSlotId?: string;
+    returnToTabId?: string;
+    slotId: string;
+    type: string;
+  },
+  canGoBack: false,
+  goBack: vi.fn(),
   handlers: new Map<string, (event?: { defaultPrevented: boolean }) => void>(),
   openCurrent: vi.fn(),
   openNew: vi.fn(),
   select: vi.fn(),
   sendEvent: vi.fn(),
-  tabs: [] as { active: boolean; slotId: string; type: string }[],
+  tabs: [] as {
+    active: boolean;
+    id?: string;
+    returnToSlotId?: string;
+    returnToTabId?: string;
+    slotId: string;
+    type: string;
+  }[],
 }));
 
 vi.mock("react-hotkeys-hook", () => ({
@@ -44,8 +60,10 @@ vi.mock("~/store/zustand/tabs", () => {
   const getTabsState = () => ({
     tabs: hoisted.tabs,
     currentTab: hoisted.currentTab,
+    canGoBack: hoisted.canGoBack,
     clearSelection: vi.fn(),
     close: vi.fn(),
+    goBack: hoisted.goBack,
     select: hoisted.select,
     selectNext: vi.fn(),
     selectPrev: vi.fn(),
@@ -64,7 +82,30 @@ vi.mock("~/store/zustand/tabs", () => {
 
   useTabs.getState = getTabsState;
 
-  return { useTabs };
+  return {
+    uniqueIdfromTab: (tab: {
+      id?: string;
+      requestId?: string;
+      slotId: string;
+      type: string;
+    }) => {
+      switch (tab.type) {
+        case "sessions":
+        case "humans":
+        case "organizations":
+        case "task":
+        case "daily_summary":
+          return `${tab.type}-${tab.id}`;
+        case "edit":
+          return `edit-${tab.requestId}`;
+        case "empty":
+          return `empty-${tab.slotId}`;
+        default:
+          return tab.type;
+      }
+    },
+    useTabs,
+  };
 });
 
 vi.mock("~/stt/contexts", () => ({
@@ -85,6 +126,8 @@ describe("useClassicMainTabsShortcuts", () => {
     vi.useFakeTimers();
     hoisted.chatMode = "FloatingClosed";
     hoisted.currentTab = null;
+    hoisted.canGoBack = false;
+    hoisted.goBack.mockClear();
     hoisted.handlers.clear();
     hoisted.openCurrent.mockClear();
     hoisted.openNew.mockClear();
@@ -326,6 +369,104 @@ describe("useClassicMainTabsShortcuts", () => {
 
     expect(hoisted.select).toHaveBeenCalledWith(homeTab);
     expect(hoisted.openCurrent).not.toHaveBeenCalled();
+  });
+
+  it("returns settings to the tab it opened from on escape", () => {
+    const sessionTab = {
+      active: false,
+      slotId: "slot-session",
+      type: "sessions",
+    };
+    hoisted.currentTab = {
+      active: true,
+      returnToSlotId: "slot-session",
+      slotId: "slot-settings",
+      type: "settings",
+    };
+    hoisted.tabs = [
+      sessionTab,
+      {
+        active: false,
+        slotId: "slot-home",
+        type: "empty",
+      },
+      hoisted.currentTab,
+    ];
+
+    renderHook(() => useClassicMainTabsShortcuts());
+
+    dispatchEscape();
+    vi.runOnlyPendingTimers();
+
+    expect(hoisted.select).toHaveBeenCalledWith(sessionTab);
+    expect(hoisted.openCurrent).not.toHaveBeenCalled();
+    expect(hoisted.goBack).not.toHaveBeenCalled();
+  });
+
+  it("uses history when an origin-tracked tab replaced the current slot", () => {
+    hoisted.currentTab = {
+      active: true,
+      returnToSlotId: "slot-session",
+      slotId: "slot-session",
+      type: "settings",
+    };
+    hoisted.canGoBack = true;
+    hoisted.tabs = [hoisted.currentTab];
+
+    renderHook(() => useClassicMainTabsShortcuts());
+
+    dispatchEscape();
+    vi.runOnlyPendingTimers();
+
+    expect(hoisted.goBack).toHaveBeenCalledTimes(1);
+    expect(hoisted.select).not.toHaveBeenCalled();
+    expect(hoisted.openCurrent).not.toHaveBeenCalled();
+  });
+
+  it("opens home when the return origin is gone instead of using unrelated history", () => {
+    hoisted.currentTab = {
+      active: true,
+      returnToSlotId: "slot-session",
+      slotId: "slot-settings",
+      type: "settings",
+    };
+    hoisted.canGoBack = true;
+    hoisted.tabs = [hoisted.currentTab];
+
+    renderHook(() => useClassicMainTabsShortcuts());
+
+    dispatchEscape();
+    vi.runOnlyPendingTimers();
+
+    expect(hoisted.openCurrent).toHaveBeenCalledWith({ type: "empty" });
+    expect(hoisted.goBack).not.toHaveBeenCalled();
+    expect(hoisted.select).not.toHaveBeenCalled();
+  });
+
+  it("opens home when the origin slot now contains a different tab", () => {
+    const reusedSlotTab = {
+      active: false,
+      id: "new-session",
+      slotId: "slot-session",
+      type: "sessions",
+    };
+    hoisted.currentTab = {
+      active: true,
+      returnToSlotId: "slot-session",
+      returnToTabId: "sessions-old-session",
+      slotId: "slot-settings",
+      type: "settings",
+    };
+    hoisted.tabs = [reusedSlotTab, hoisted.currentTab];
+
+    renderHook(() => useClassicMainTabsShortcuts());
+
+    dispatchEscape();
+    vi.runOnlyPendingTimers();
+
+    expect(hoisted.openCurrent).toHaveBeenCalledWith({ type: "empty" });
+    expect(hoisted.select).not.toHaveBeenCalled();
+    expect(hoisted.goBack).not.toHaveBeenCalled();
   });
 
   it("closes the floating chat before going home on escape", () => {

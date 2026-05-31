@@ -5,7 +5,7 @@ import { useShallow } from "zustand/shallow";
 import { useShell } from "~/contexts/shell";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { useNewNote, useNewNoteAndListen } from "~/shared/useNewNote";
-import { useTabs } from "~/store/zustand/tabs";
+import { uniqueIdfromTab, useTabs } from "~/store/zustand/tabs";
 import { useListener } from "~/stt/contexts";
 
 export function useMainTabsShortcuts({ onModT }: { onModT: () => void }) {
@@ -230,9 +230,30 @@ export function useMainEscapeShortcutAction() {
       return;
     }
 
-    const { tabs, currentTab, openCurrent, select } = useTabs.getState();
+    const { tabs, currentTab, openCurrent, select, goBack, canGoBack } =
+      useTabs.getState();
 
     if (currentTab?.type === "onboarding" || currentTab?.type === "empty") {
+      return;
+    }
+
+    const returnToSlotId = currentTab?.returnToSlotId;
+    const returnToTab = returnToSlotId
+      ? tabs.find(
+          (tab) =>
+            tab.slotId === returnToSlotId &&
+            tab.slotId !== currentTab?.slotId &&
+            (!currentTab?.returnToTabId ||
+              uniqueIdfromTab(tab) === currentTab.returnToTabId),
+        )
+      : null;
+    if (returnToTab) {
+      select(returnToTab);
+      return;
+    }
+
+    if (returnToSlotId === currentTab?.slotId && canGoBack) {
+      goBack();
       return;
     }
 

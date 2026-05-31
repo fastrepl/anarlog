@@ -10,10 +10,23 @@ import type {
   RecentlyOpenedActions,
   RecentlyOpenedState,
 } from "./recently-opened";
-import { getDefaultState, isSameTab, type Tab, type TabInput } from "./schema";
+import {
+  getDefaultState,
+  isSameTab,
+  type Tab,
+  type TabInput,
+  uniqueIdfromTab,
+} from "./schema";
 
 import { id } from "~/shared/utils";
 import { listenerStore } from "~/store/zustand/listener/instance";
+
+const RETURN_ORIGIN_TAB_TYPES: Tab["type"][] = [
+  "calendar",
+  "contacts",
+  "settings",
+  "templates",
+];
 
 export type BasicState = {
   tabs: Tab[];
@@ -143,7 +156,10 @@ export const createBasicSlice = <
       return;
     }
 
-    const remainingTabs = tabs.filter((t) => !isSameTab(t, tab));
+    const remainingTabs = clearReturnOriginsForSlot(
+      tabs.filter((t) => !isSameTab(t, tab)),
+      tabToClose.slotId,
+    );
 
     if (remainingTabs.length === 0) {
       set({
@@ -273,15 +289,31 @@ const openTab = <T extends BasicState & NavigationState>(
     active: false,
     slotId: id(),
   };
+  const activeOriginTab = tabs.find((tab) => tab.active);
+  const returnOrigin =
+    shouldTrackReturnOrigin(tabWithDefaults) &&
+    activeOriginTab &&
+    !isSameTab(activeOriginTab, tabWithDefaults)
+      ? {
+          returnToSlotId: activeOriginTab.slotId,
+          returnToTabId: uniqueIdfromTab(activeOriginTab),
+        }
+      : undefined;
+  const tabWithOrigin = returnOrigin
+    ? { ...tabWithDefaults, ...returnOrigin }
+    : tabWithDefaults;
 
   let nextTabs: Tab[];
   let activeTab: Tab;
 
-  const existingTab = tabs.find((t) => isSameTab(t, tabWithDefaults));
+  const existingTab = tabs.find((t) => isSameTab(t, tabWithOrigin));
   const isNewTab = !existingTab;
 
   if (!isNewTab) {
-    const nextExistingTab = reuseExistingTab(existingTab!, tabWithDefaults);
+    const nextExistingTab = reuseExistingTab(existingTab!, tabWithOrigin, {
+      preserveReturnOrigin:
+        existingTab!.active && !tabWithOrigin.returnToSlotId,
+    });
     nextTabs = tabs.map((tab) =>
       isSameTab(tab, existingTab!)
         ? { ...nextExistingTab, active: true }
@@ -301,26 +333,30 @@ const openTab = <T extends BasicState & NavigationState>(
 
     if (existingActiveIdx !== -1 && currentActiveTab) {
       activeTab = {
-        ...tabWithDefaults,
+        ...tabWithOrigin,
         active: true,
         slotId: currentActiveTab.slotId,
       };
 
-      nextTabs = tabs.map((t, idx) => {
+      const tabsWithFreshOrigins = clearReturnOriginsForSlot(
+        tabs,
+        currentActiveTab.slotId,
+      );
+      nextTabs = tabsWithFreshOrigins.map((t, idx) => {
         if (idx === existingActiveIdx) {
           return activeTab;
         }
         return { ...t, active: false };
       });
     } else {
-      activeTab = { ...tabWithDefaults, active: true, slotId: id() };
+      activeTab = { ...tabWithOrigin, active: true, slotId: id() };
       const deactivated = deactivateAll(tabs);
       nextTabs = [...deactivated, activeTab];
     }
 
     return updateWithHistory(nextTabs, activeTab, history);
   } else {
-    activeTab = { ...tabWithDefaults, active: true, slotId: id() };
+    activeTab = { ...tabWithOrigin, active: true, slotId: id() };
     const deactivated = deactivateAll(tabs);
 
     if (position === "start") {
@@ -338,13 +374,67 @@ const openTab = <T extends BasicState & NavigationState>(
   }
 };
 
-const reuseExistingTab = (existingTab: Tab, requestedTab: Tab): Tab => {
+const reuseExistingTab = (
+  existingTab: Tab,
+  requestedTab: Tab,
+  {
+    preserveReturnOrigin,
+  }: {
+    preserveReturnOrigin: boolean;
+  },
+): Tab => {
   if (existingTab.type === "settings" && requestedTab.type === "settings") {
+    const nextTab = applyReturnOriginForReuse(
+      existingTab,
+      requestedTab,
+      preserveReturnOrigin,
+    );
+
     return {
-      ...existingTab,
+      ...nextTab,
       state: requestedTab.state,
     };
   }
 
-  return existingTab;
+  return applyReturnOriginForReuse(
+    existingTab,
+    requestedTab,
+    preserveReturnOrigin,
+  );
+};
+
+const shouldTrackReturnOrigin = (tab: Tab): boolean =>
+  RETURN_ORIGIN_TAB_TYPES.includes(tab.type);
+
+const clearReturnOriginsForSlot = (tabs: Tab[], slotId: string): Tab[] => {
+  return tabs.map((tab) =>
+    tab.returnToSlotId === slotId ? clearReturnOrigin(tab) : tab,
+  );
+};
+
+const applyReturnOriginForReuse = <T extends Tab>(
+  existingTab: T,
+  requestedTab: Tab,
+  preserveReturnOrigin: boolean,
+): T => {
+  if (requestedTab.returnToSlotId) {
+    return {
+      ...existingTab,
+      returnToSlotId: requestedTab.returnToSlotId,
+      returnToTabId: requestedTab.returnToTabId,
+    };
+  }
+
+  return preserveReturnOrigin ? existingTab : clearReturnOrigin(existingTab);
+};
+
+const clearReturnOrigin = <T extends Tab>(tab: T): T => {
+  if (!tab.returnToSlotId && !tab.returnToTabId) {
+    return tab;
+  }
+
+  const nextTab = { ...tab };
+  delete nextTab.returnToSlotId;
+  delete nextTab.returnToTabId;
+  return nextTab;
 };

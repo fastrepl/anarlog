@@ -131,6 +131,105 @@ describe("Basic Tab Actions", () => {
     });
   });
 
+  test("openNew tracks where settings was opened from", () => {
+    const session = createSessionTab({ id: "tab1", active: false });
+
+    useTabs.getState().openNew(session);
+    const openedSession = useTabs.getState().currentTab!;
+    useTabs.getState().openNew({ type: "settings" });
+
+    expect(useTabs.getState()).toHaveCurrentTab({
+      type: "settings",
+      returnToSlotId: openedSession.slotId,
+      returnToTabId: `sessions-${session.id}`,
+    });
+  });
+
+  test("openNew refreshes settings return target when reusing its tab", () => {
+    const session1 = createSessionTab({ id: "tab1", active: false });
+    const session2 = createSessionTab({ id: "tab2", active: false });
+
+    useTabs.getState().openNew(session1);
+    useTabs.getState().openNew({ type: "settings" });
+    useTabs.getState().openNew(session2);
+    const openedSession2 = useTabs.getState().currentTab!;
+    useTabs.getState().openNew({
+      type: "settings",
+      state: { tab: "notifications" },
+    });
+
+    expect(useTabs.getState()).toHaveCurrentTab({
+      type: "settings",
+      state: { tab: "notifications" },
+      returnToSlotId: openedSession2.slotId,
+    });
+  });
+
+  test("openNew preserves settings return target while settings is already active", () => {
+    const session = createSessionTab({ id: "tab1", active: false });
+
+    useTabs.getState().openNew(session);
+    const openedSession = useTabs.getState().currentTab!;
+    useTabs.getState().openNew({ type: "settings" });
+    useTabs.getState().openNew({
+      type: "settings",
+      state: { tab: "notifications" },
+    });
+
+    expect(useTabs.getState()).toHaveCurrentTab({
+      type: "settings",
+      state: { tab: "notifications" },
+      returnToSlotId: openedSession.slotId,
+    });
+  });
+
+  test("openNew clears stale settings return target when reused without an origin", () => {
+    const session = createSessionTab({ id: "tab1", active: false });
+
+    useTabs.getState().openNew(session);
+    useTabs.getState().openNew({ type: "settings" });
+    useTabs.getState().clearSelection();
+    useTabs.getState().openNew({
+      type: "settings",
+      state: { tab: "notifications" },
+    });
+
+    expect(useTabs.getState()).toHaveCurrentTab({
+      type: "settings",
+      state: { tab: "notifications" },
+    });
+    expect(useTabs.getState().currentTab?.returnToSlotId).toBeUndefined();
+  });
+
+  test("openCurrent clears return targets when replacing their origin slot", () => {
+    const session1 = createSessionTab({ id: "tab1", active: false });
+    const session2 = createSessionTab({ id: "tab2", active: false });
+
+    useTabs.getState().openNew(session1);
+    const openedSession = useTabs.getState().currentTab!;
+    useTabs.getState().openNew({ type: "settings" });
+    useTabs.getState().select(openedSession);
+    useTabs.getState().openCurrent(session2);
+
+    const settingsTab = useTabs
+      .getState()
+      .tabs.find((tab) => tab.type === "settings");
+
+    expect(settingsTab?.returnToSlotId).toBeUndefined();
+  });
+
+  test("close clears return targets for the closed origin slot", () => {
+    const session = createSessionTab({ id: "tab1", active: false });
+
+    useTabs.getState().openNew(session);
+    const openedSession = useTabs.getState().currentTab!;
+    useTabs.getState().openNew({ type: "settings" });
+    useTabs.getState().close(openedSession);
+
+    expect(useTabs.getState()).toHaveCurrentTab({ type: "settings" });
+    expect(useTabs.getState().currentTab?.returnToSlotId).toBeUndefined();
+  });
+
   test("openNew defaults bare settings tabs to app", () => {
     useTabs.getState().openNew({ type: "settings" });
 

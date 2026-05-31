@@ -92,6 +92,8 @@ type BaseTab = {
   active: boolean;
   slotId: string;
   pinned: boolean;
+  returnToSlotId?: string;
+  returnToTabId?: string;
 };
 
 export type Tab =
