@@ -162,17 +162,6 @@ export function OnboardingButton({
   );
 }
 
-export function OnboardingAnarlogIcon() {
-  return (
-    <img
-      src="/assets/anarlog-icon.png"
-      alt=""
-      aria-hidden="true"
-      className="size-4 object-contain object-center"
-    />
-  );
-}
-
 export function StepRow({
   status,
   label,

@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { PictureInPicture2Icon, StickyNoteIcon } from "lucide-react";
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 
@@ -11,117 +10,21 @@ import { FloatingActionButton } from "./components/floating";
 import { NoteInput, type NoteInputHandle } from "./components/note-input";
 import { SearchProvider } from "./components/note-input/search/context";
 import { OuterHeader } from "./components/outer-header";
-import { SessionPreviewCard } from "./components/session-preview-card";
 import { SessionSurface } from "./components/session-surface";
 import { useCurrentNoteTab, useHasTranscript } from "./components/shared";
 import { TitleInput, type TitleInputHandle } from "./components/title-input";
 import { getNextFloatingButtonHidden } from "./floating-scroll-state";
 import { useAutoEnhance } from "./hooks/useAutoEnhance";
-import { useIsSessionEnhancing } from "./hooks/useEnhancedNotes";
-import { getSessionTabStatus } from "./tab-visual-state";
 
 import { useTitleGeneration } from "~/ai/hooks";
 import * as AudioPlayer from "~/audio-player";
-import { openFloatingMeetingPanel } from "~/meeting-float/host";
-import { useConfigValue } from "~/shared/config";
-import { type TabItem, TabItemBase } from "~/shared/tabs";
 import * as main from "~/store/tinybase/store/main";
-import { useSessionTitle } from "~/store/zustand/live-title";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 import { useListener } from "~/stt/contexts";
 import { consumePendingUpload } from "~/stt/pending-upload";
 import { useStartListening } from "~/stt/useStartListening";
 import { useSTTConnection } from "~/stt/useSTTConnection";
 import { useUploadFile } from "~/stt/useUploadFile";
-
-export const TabItemNote: TabItem<Extract<Tab, { type: "sessions" }>> = ({
-  tab,
-  tabIndex,
-  handleCloseThis,
-  handleSelectThis,
-  handleCloseOthers,
-  handleCloseAll,
-  handlePinThis,
-  handleUnpinThis,
-  pendingCloseConfirmationTab,
-  setPendingCloseConfirmationTab,
-}) => {
-  const storeTitle = main.UI.useCell(
-    "sessions",
-    tab.id,
-    "title",
-    main.STORE_ID,
-  );
-  const title = useSessionTitle(tab.id, storeTitle as string | undefined);
-  const sessionMode = useListener((state) => state.getSessionMode(tab.id));
-  const stop = useListener((state) => state.stop);
-  const degraded = useListener((state) => state.live.degraded);
-  const floatingBarEnabled = useConfigValue("floating_bar_enabled");
-  const isEnhancing = useIsSessionEnhancing(tab.id);
-  const status = getSessionTabStatus(
-    sessionMode,
-    isEnhancing,
-    !!degraded,
-    tab.active,
-  );
-  const isActive =
-    status === "listening" ||
-    status === "listening-degraded" ||
-    status === "finalizing";
-
-  const showCloseConfirmation =
-    pendingCloseConfirmationTab?.type === "sessions" &&
-    pendingCloseConfirmationTab?.id === tab.id;
-
-  const handleCloseConfirmationChange = (show: boolean) => {
-    if (!show) {
-      setPendingCloseConfirmationTab?.(null);
-    }
-  };
-
-  const handleCloseWithStop = useCallback(() => {
-    if (isActive) {
-      stop();
-    }
-    handleCloseThis(tab);
-  }, [isActive, stop, tab, handleCloseThis]);
-  const handleOpenFloatingPanel = useCallback(() => {
-    void openFloatingMeetingPanel({
-      sessionId: tab.id,
-      enabled: floatingBarEnabled,
-    });
-  }, [floatingBarEnabled, tab.id]);
-
-  return (
-    <SessionPreviewCard sessionId={tab.id} side="bottom" enabled={!tab.active}>
-      <TabItemBase
-        icon={<StickyNoteIcon className="h-4 w-4" />}
-        title={title || "Untitled"}
-        selected={tab.active}
-        status={status}
-        pinned={tab.pinned}
-        tabIndex={tabIndex}
-        hoverAction={
-          isActive && floatingBarEnabled
-            ? {
-                icon: <PictureInPicture2Icon size={14} />,
-                label: "Open floating panel",
-                onClick: handleOpenFloatingPanel,
-              }
-            : undefined
-        }
-        showCloseConfirmation={showCloseConfirmation}
-        onCloseConfirmationChange={handleCloseConfirmationChange}
-        handleCloseThis={handleCloseWithStop}
-        handleSelectThis={() => handleSelectThis(tab)}
-        handleCloseOthers={handleCloseOthers}
-        handleCloseAll={handleCloseAll}
-        handlePinThis={() => handlePinThis(tab)}
-        handleUnpinThis={() => handleUnpinThis(tab)}
-      />
-    </SessionPreviewCard>
-  );
-};
 
 export function TabContentNote({
   tab,

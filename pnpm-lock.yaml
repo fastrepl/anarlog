@@ -307,15 +307,6 @@ importers:
       '@openrouter/ai-sdk-provider':
         specifier: ^2.5.1
         version: 2.5.1(ai@6.0.158(zod@4.3.6))(zod@4.3.6)
-      '@orama/highlight':
-        specifier: ^0.1.9
-        version: 0.1.9
-      '@orama/orama':
-        specifier: ^3.1.18
-        version: 3.1.18
-      '@orama/plugin-qps':
-        specifier: ^3.1.18
-        version: 3.1.18
       '@pierre/diffs':
         specifier: ^1.1.15
         version: 1.1.15(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
@@ -400,9 +391,6 @@ importers:
       date-fns:
         specifier: ^4.1.0
         version: 4.1.0
-      dompurify:
-        specifier: ^3.3.3
-        version: 3.3.3
       effect:
         specifier: ^3.21.0
         version: 3.21.0
@@ -472,9 +460,6 @@ importers:
       prosemirror-view:
         specifier: 1.41.7
         version: 1.41.7
-      re-resizable:
-        specifier: ^6.11.2
-        version: 6.11.2(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       react:
         specifier: ^19.2.5
         version: 19.2.5
@@ -5139,16 +5124,6 @@ packages:
     engines: {node: ^18.19.0 || >=20.6.0}
     peerDependencies:
       '@opentelemetry/api': '>=1.4.0 <1.10.0'
-
-  '@orama/highlight@0.1.9':
-    resolution: {integrity: sha512-eH4uZMea4R9x9vBFJyS/87oR4Y8oIKxF7e1SItJ9DhPlexZWMVZRlFYvHS1BM/563/dU240ct4ZaGHoYKiCkyQ==}
-
-  '@orama/orama@3.1.18':
-    resolution: {integrity: sha512-a61ljmRVVyG5MC/698C8/FfFDw5a8LOIvyOLW5fztgUXqUpc1jOfQzOitSCbge657OgXXThmY3Tk8fpiDb4UcA==}
-    engines: {node: '>= 20.0.0'}
-
-  '@orama/plugin-qps@3.1.18':
-    resolution: {integrity: sha512-q19pFGF1jRk+dGR4j/4MscCACtZo6DKO8ZjnM3AWJICzjWVYJYBvlGuD2+Jt079iUW04cGh4EpMw5WxaTpZQCw==}
 
   '@oxc-project/types@0.124.0':
     resolution: {integrity: sha512-VBFWMTBvHxS11Z5Lvlr3IWgrwhMTXV+Md+EQF0Xf60+wAdsGFTBx7X7K/hP4pi8N7dcm1RvcHwDxZ16Qx8keUg==}
@@ -19712,14 +19687,6 @@ snapshots:
       '@opentelemetry/sdk-logs': 0.203.0(@opentelemetry/api@1.9.1)
       '@opentelemetry/sdk-trace-base': 2.0.1(@opentelemetry/api@1.9.1)
       '@opentelemetry/semantic-conventions': 1.40.0
-
-  '@orama/highlight@0.1.9': {}
-
-  '@orama/orama@3.1.18': {}
-
-  '@orama/plugin-qps@3.1.18':
-    dependencies:
-      '@orama/orama': 3.1.18
 
   '@oxc-project/types@0.124.0': {}
 

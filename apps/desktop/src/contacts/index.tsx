@@ -1,4 +1,3 @@
-import { Contact2Icon } from "lucide-react";
 import { useCallback, useEffect } from "react";
 
 import type { ContactsSelection } from "@hypr/plugin-windows";
@@ -7,36 +6,8 @@ import { DetailsColumn } from "./details";
 import { OrganizationDetailsColumn } from "./organization-details";
 
 import { StandardTabWrapper } from "~/shared/main";
-import { type TabItem, TabItemBase } from "~/shared/tabs";
 import * as main from "~/store/tinybase/store/main";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
-
-export const TabItemContact: TabItem<Extract<Tab, { type: "contacts" }>> = ({
-  tab,
-  tabIndex,
-  handleCloseThis,
-  handleSelectThis,
-  handleCloseOthers,
-  handleCloseAll,
-  handlePinThis,
-  handleUnpinThis,
-}) => {
-  return (
-    <TabItemBase
-      icon={<Contact2Icon className="h-4 w-4" />}
-      title={"Contacts"}
-      selected={tab.active}
-      pinned={tab.pinned}
-      tabIndex={tabIndex}
-      handleCloseThis={() => handleCloseThis(tab)}
-      handleSelectThis={() => handleSelectThis(tab)}
-      handleCloseOthers={handleCloseOthers}
-      handleCloseAll={handleCloseAll}
-      handlePinThis={() => handlePinThis(tab)}
-      handleUnpinThis={() => handleUnpinThis(tab)}
-    />
-  );
-};
 
 export function TabContentContact({
   tab,

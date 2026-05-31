@@ -91,9 +91,7 @@ export function FloatingActionButton({
   );
 }
 
-export function useShouldShowListeningFab(
-  tab: Extract<Tab, { type: "sessions" }>,
-) {
+function useShouldShowListeningFab(tab: Extract<Tab, { type: "sessions" }>) {
   const currentTab = useCurrentNoteTab(tab);
   const hasTranscript = useHasTranscript(tab.id);
 

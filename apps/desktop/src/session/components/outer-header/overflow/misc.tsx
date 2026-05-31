@@ -1,35 +1,10 @@
 import { Icon } from "@iconify-icon/react";
 import { useMutation } from "@tanstack/react-query";
-import { Link2Icon, Loader2Icon } from "lucide-react";
+import { Loader2Icon } from "lucide-react";
 
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
 import { DropdownMenuItem } from "@hypr/ui/components/ui/dropdown-menu";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@hypr/ui/components/ui/tooltip";
-
-export function Copy() {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <DropdownMenuItem
-          disabled={true}
-          className="cursor-not-allowed"
-          onSelect={(e) => e.preventDefault()}
-        >
-          <Link2Icon />
-          <span>Copy link</span>
-        </DropdownMenuItem>
-      </TooltipTrigger>
-      <TooltipContent side="left">
-        <span>Coming soon</span>
-      </TooltipContent>
-    </Tooltip>
-  );
-}
 
 export function ShowInFinder({ sessionId }: { sessionId: string }) {
   const { mutate, isPending } = useMutation({

@@ -22,43 +22,8 @@ import { PermissionsSection } from "./permissions";
 import { OnboardingSection } from "./shared";
 
 import { useAuth } from "~/auth";
-import { type TabItem, TabItemBase } from "~/shared/tabs";
 import { StandaloneWindowShell } from "~/shared/window-shell";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
-
-export const TabItemOnboarding: TabItem<
-  Extract<Tab, { type: "onboarding" }>
-> = ({
-  tab,
-  tabIndex,
-  handleCloseThis,
-  handleSelectThis,
-  handleCloseOthers,
-  handleCloseAll,
-  handlePinThis,
-  handleUnpinThis,
-}) => {
-  return (
-    <TabItemBase
-      icon={
-        <span className="group-hover:animate-wiggle inline-block origin-[70%_80%] text-sm">
-          👋
-        </span>
-      }
-      title="Welcome"
-      selected={tab.active}
-      allowPin={false}
-      allowClose={false}
-      tabIndex={tabIndex}
-      handleCloseThis={() => handleCloseThis(tab)}
-      handleSelectThis={() => handleSelectThis(tab)}
-      handleCloseOthers={handleCloseOthers}
-      handleCloseAll={handleCloseAll}
-      handlePinThis={() => handlePinThis(tab)}
-      handleUnpinThis={() => handleUnpinThis(tab)}
-    />
-  );
-};
 
 export function TabContentOnboarding({
   tab: _tab,

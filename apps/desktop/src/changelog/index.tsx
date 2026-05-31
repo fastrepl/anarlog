@@ -1,4 +1,4 @@
-import { CalendarIcon, ExternalLinkIcon, SparklesIcon } from "lucide-react";
+import { CalendarIcon, ExternalLinkIcon } from "lucide-react";
 import { useEffect } from "react";
 
 import { ChangelogContent } from "@hypr/changelog";
@@ -17,35 +17,9 @@ import { useChangelogContent } from "./data";
 
 import { useShell } from "~/contexts/shell";
 import { StandardTabWrapper } from "~/shared/main";
-import { type TabItem, TabItemBase } from "~/shared/tabs";
 import { type Tab } from "~/store/zustand/tabs";
 
 export { getLatestVersion } from "./data";
-
-export const TabItemChangelog: TabItem<Extract<Tab, { type: "changelog" }>> = ({
-  tab,
-  tabIndex,
-  handleCloseThis,
-  handleSelectThis,
-  handleCloseOthers,
-  handleCloseAll,
-  handlePinThis,
-  handleUnpinThis,
-}) => (
-  <TabItemBase
-    icon={<SparklesIcon className="h-4 w-4" />}
-    title="What's New"
-    selected={tab.active}
-    pinned={tab.pinned}
-    tabIndex={tabIndex}
-    handleCloseThis={() => handleCloseThis(tab)}
-    handleSelectThis={() => handleSelectThis(tab)}
-    handleCloseOthers={handleCloseOthers}
-    handleCloseAll={handleCloseAll}
-    handlePinThis={() => handlePinThis(tab)}
-    handleUnpinThis={() => handleUnpinThis(tab)}
-  />
-);
 
 export function TabContentChangelog({
   tab,

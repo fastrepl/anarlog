@@ -66,7 +66,6 @@ vi.mock("./listening", () => ({
 }));
 
 vi.mock("./misc", () => ({
-  Copy: () => <button type="button">Copy link</button>,
   ShowInFinder: () => <button type="button">Show in Finder</button>,
 }));
 
