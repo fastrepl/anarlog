@@ -390,7 +390,7 @@ function HeaderTabEnhanced({
             type="button"
             onClick={handleCancelClick}
             className={cn([
-              "inline-flex h-5 w-5 cursor-pointer items-center justify-center rounded-xs hover:bg-neutral-200",
+              "inline-flex h-5 w-5 cursor-pointer items-center justify-center rounded-xs hover:bg-neutral-100",
               !isActive && "opacity-50",
             ])}
             aria-label="Cancel enhancement"
@@ -423,7 +423,7 @@ function HeaderTabEnhanced({
           ? [
               "text-red-600 hover:bg-red-50 hover:text-neutral-900 focus-visible:bg-red-50 focus-visible:text-neutral-900",
             ]
-          : ["hover:bg-neutral-200 focus-visible:bg-neutral-200"],
+          : ["hover:bg-neutral-100 focus-visible:bg-neutral-100"],
       ])}
     >
       {isError && (

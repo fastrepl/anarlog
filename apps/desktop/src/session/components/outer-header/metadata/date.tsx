@@ -32,7 +32,7 @@ export function DateEditor({ sessionId }: { sessionId: string }) {
           type="button"
           variant="ghost"
           size="icon"
-          className="size-7 rounded-md text-neutral-500 hover:text-neutral-900"
+          className="size-7 rounded-md text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
           onClick={() => setIsEditing(true)}
           aria-label="Edit date"
         >

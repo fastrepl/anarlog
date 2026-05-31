@@ -5,6 +5,8 @@ import { cn } from "@hypr/utils";
 import { SyncProvider } from "~/calendar/components/context";
 import { useTabs } from "~/store/zustand/tabs";
 
+export type MainSurfaceChrome = "default" | "top" | "top-borderless" | "left";
+
 export function MainShellScaffold({
   children,
   edgeToEdge = false,
@@ -12,25 +14,30 @@ export function MainShellScaffold({
 }: {
   children: React.ReactNode;
   edgeToEdge?: boolean;
-  mainSurfaceChrome?: "default" | "top" | "left";
+  mainSurfaceChrome?: MainSurfaceChrome;
 }) {
   const currentTab = useTabs((state) => state.currentTab);
   const isCalendarMode = currentTab?.type === "calendar";
   const SyncWrapper = isCalendarMode ? SyncProvider : Fragment;
   const resolvedMainSurfaceChrome =
     mainSurfaceChrome ?? (edgeToEdge ? "top" : "default");
+  const hasTopMainSurfaceChrome =
+    resolvedMainSurfaceChrome === "top" ||
+    resolvedMainSurfaceChrome === "top-borderless";
 
   return (
     <SyncWrapper>
       <div
         className={cn([
           "flex h-full gap-1 overflow-hidden bg-stone-50",
-          resolvedMainSurfaceChrome !== "top" && "pl-1",
-          resolvedMainSurfaceChrome === "top" && [
+          !hasTopMainSurfaceChrome && "pl-1",
+          hasTopMainSurfaceChrome && [
             "[&_[data-chat-floating-anchor]]:rounded-t-xl",
             "[&_[data-chat-floating-anchor]]:rounded-b-none",
             "[&_[data-chat-floating-anchor]]:border-x-0",
-            "[&_[data-chat-floating-anchor]]:border-t",
+            resolvedMainSurfaceChrome === "top"
+              ? "[&_[data-chat-floating-anchor]]:border-t"
+              : "[&_[data-chat-floating-anchor]]:!border-t-0",
             "[&_[data-chat-floating-anchor]]:border-b-0",
             "[&_[data-chat-floating-anchor][data-main-show-after-border-divider]]:!border-b",
             "[&_[data-main-after-border-content][data-main-after-border-merged]_[data-session-transcript-card]]:border-x-0",

@@ -74,7 +74,7 @@ export function OverflowButton({
           <Button
             size="icon"
             variant="ghost"
-            className="rounded-full text-neutral-600 hover:text-black"
+            className="rounded-full text-neutral-600 hover:bg-neutral-100 hover:text-black"
           >
             <MoreHorizontalIcon size={16} />
           </Button>

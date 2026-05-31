@@ -24,7 +24,7 @@ vi.mock("~/shared/main", () => ({
   }: {
     children: React.ReactNode;
     edgeToEdge?: boolean;
-    mainSurfaceChrome?: "default" | "top" | "left";
+    mainSurfaceChrome?: "default" | "top" | "top-borderless" | "left";
   }) => (
     <div
       data-edge-to-edge={String(edgeToEdge)}
@@ -90,6 +90,19 @@ describe("ClassicMainShellFrame", () => {
         .getByTestId("main-shell-scaffold")
         .getAttribute("data-main-surface-chrome"),
     ).toBe("left");
+  });
+
+  it("uses borderless top-edge main surface chrome for collapsed sidebar timeline mode", () => {
+    mocks.sidebarTimelineEnabled = true;
+    mocks.leftsidebar.expanded = false;
+
+    render(<ClassicMainShellFrame />);
+
+    expect(
+      screen
+        .getByTestId("main-shell-scaffold")
+        .getAttribute("data-main-surface-chrome"),
+    ).toBe("top-borderless");
   });
 
   it("uses left-edge main surface chrome for custom sidebar tabs", () => {

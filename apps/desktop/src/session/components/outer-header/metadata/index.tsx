@@ -72,7 +72,7 @@ const TriggerInner = forwardRef<
       size="sm"
       className={cn([
         "rounded-full px-3",
-        "text-neutral-600 hover:text-black",
+        "text-neutral-600 hover:bg-neutral-100 hover:text-black",
         open && "bg-neutral-100",
         hasEvent && "max-w-50",
       ])}

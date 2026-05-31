@@ -12,10 +12,12 @@ const mocks = vi.hoisted(() => ({
   goBack: vi.fn(),
   goNext: vi.fn(),
   runEscapeShortcut: vi.fn(),
+  toggleLeftSidebar: vi.fn(),
   isTauri: vi.fn(() => true),
   startDragging: vi.fn().mockResolvedValue(undefined),
   canGoBack: false,
   canGoNext: false,
+  leftSidebarExpanded: true,
   currentTab: {
     active: true,
     pinned: false,
@@ -58,7 +60,8 @@ vi.mock("~/main/shell-sidebar", () => ({
 vi.mock("~/contexts/shell", () => ({
   useShell: () => ({
     leftsidebar: {
-      expanded: true,
+      expanded: mocks.leftSidebarExpanded,
+      toggleExpanded: mocks.toggleLeftSidebar,
     },
   }),
 }));
@@ -94,10 +97,12 @@ describe("ClassicMainBody", () => {
     mocks.goBack.mockClear();
     mocks.goNext.mockClear();
     mocks.runEscapeShortcut.mockClear();
+    mocks.toggleLeftSidebar.mockClear();
     mocks.isTauri.mockReturnValue(true);
     mocks.startDragging.mockClear();
     mocks.canGoBack = false;
     mocks.canGoNext = false;
+    mocks.leftSidebarExpanded = true;
     mocks.currentTab = {
       active: true,
       pinned: false,
@@ -162,10 +167,12 @@ describe("ClassicMainBody", () => {
     expect(screen.queryByTestId("top-meeting-timeline")).toBeNull();
     expect(screen.queryByTestId("toast-area")).toBeNull();
     const sidebar = screen.getByTestId("main-sidebar");
+    const sidebarToggle = screen.getByRole("button", { name: "Hide sidebar" });
     const backButton = screen.getByRole("button", { name: "Go back" });
     const topArea = backButton.parentElement?.parentElement?.parentElement;
 
     expect(sidebar).toBeTruthy();
+    expect(sidebarToggle).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Open calendar" })).toBeNull();
     expect(backButton.hasAttribute("disabled")).toBe(true);
     expect(
@@ -173,13 +180,43 @@ describe("ClassicMainBody", () => {
         .getByRole("button", { name: "Go forward" })
         .hasAttribute("disabled"),
     ).toBe(true);
+    expect(backButton.parentElement?.className).toContain("gap-0");
     expect(topArea?.className).toContain("h-12");
     expect(topArea?.className).toContain("absolute");
-    expect(backButton.parentElement?.parentElement?.className).toContain(
-      "pt-[9px]",
-    );
+    expect(topArea?.className).toContain("left-0");
     expect(sidebar.parentElement?.className).toContain("flex min-h-0");
     expect(sidebar.parentElement?.className).not.toContain("pt-12");
+  });
+
+  it("expands the main area to the full window when sidebar timeline mode is collapsed", () => {
+    mocks.sidebarTimelineEnabled = true;
+    mocks.leftSidebarExpanded = false;
+    mocks.canGoBack = true;
+    mocks.canGoNext = true;
+
+    const { container } = render(<ClassicMainBody />);
+    const body = container.firstElementChild;
+    const contentRow = body?.lastElementChild;
+    const sidebarToggle = screen.getByRole("button", { name: "Show sidebar" });
+    const backButton = screen.getByRole("button", { name: "Go back" });
+    const topArea = backButton.parentElement?.parentElement?.parentElement;
+
+    fireEvent.click(sidebarToggle);
+    fireEvent.click(backButton);
+    fireEvent.click(screen.getByRole("button", { name: "Go forward" }));
+
+    expect(screen.queryByTestId("top-meeting-timeline")).toBeNull();
+    expect(backButton.parentElement?.className).toContain("gap-0");
+    expect(topArea?.className).toContain("absolute");
+    expect(topArea?.className).toContain("h-12");
+    expect(topArea?.className).toContain("left-1");
+    expect(contentRow?.className).toContain(
+      "flex min-h-0 min-w-0 flex-1 gap-1",
+    );
+    expect(contentRow?.hasAttribute("data-tauri-drag-region")).toBe(false);
+    expect(mocks.toggleLeftSidebar).toHaveBeenCalledTimes(1);
+    expect(mocks.goBack).toHaveBeenCalledTimes(1);
+    expect(mocks.goNext).toHaveBeenCalledTimes(1);
   });
 
   it("hides timeline chrome for changelog tabs without collapsing the sidebar state", () => {
@@ -218,6 +255,7 @@ describe("ClassicMainBody", () => {
 
     expect(screen.queryByTestId("top-meeting-timeline")).toBeNull();
     expect(backButton.hasAttribute("disabled")).toBe(true);
+    expect(backButton.parentElement?.className).toContain("gap-0");
     expect(topArea?.className).toContain("h-12");
     expect(topArea?.className).toContain("absolute");
     expect(screen.getByTestId("main-tab-content").textContent).toContain(

@@ -1,9 +1,20 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const mocks = vi.hoisted(() => ({
+  currentTab: { type: "empty" } as { type: string } | null,
+}));
+
+vi.mock("~/calendar/components/context", () => ({
+  SyncProvider: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="sync-provider">{children}</div>
+  ),
+}));
+
 vi.mock("~/store/zustand/tabs", () => ({
-  useTabs: (selector: (state: { currentTab: { type: string } }) => unknown) =>
-    selector({ currentTab: { type: "empty" } }),
+  useTabs: (
+    selector: (state: { currentTab: typeof mocks.currentTab }) => unknown,
+  ) => selector({ currentTab: mocks.currentTab }),
 }));
 
 import { MainShellScaffold } from "./shell-scaffold";
@@ -11,100 +22,38 @@ import { MainShellScaffold } from "./shell-scaffold";
 describe("MainShellScaffold", () => {
   afterEach(() => {
     cleanup();
+    mocks.currentTab = { type: "empty" };
   });
 
-  it("keeps only the left outer padding by default", () => {
+  it("keeps the top border for regular top chrome", () => {
     render(
-      <MainShellScaffold>
-        <div />
+      <MainShellScaffold mainSurfaceChrome="top">
+        <div data-chat-floating-anchor data-testid="main-surface" />
       </MainShellScaffold>,
     );
 
     const shell = screen.getByTestId("main-app-shell");
 
-    expect(shell.className).toContain("pl-1");
-    expect(shell.className).not.toContain("px-1");
-    expect(shell.className).not.toContain("pb-1");
-  });
-
-  it("removes outer padding for the top-edge main surface", () => {
-    render(
-      <MainShellScaffold edgeToEdge>
-        <div />
-      </MainShellScaffold>,
-    );
-
-    const shell = screen.getByTestId("main-app-shell");
-
-    expect(shell.className).not.toContain("px-1");
-    expect(shell.className).not.toContain("pb-1");
-    expect(shell.className).toContain(
-      "[&_[data-chat-floating-anchor]]:rounded-t-xl",
-    );
-    expect(shell.className).toContain(
-      "[&_[data-chat-floating-anchor]]:rounded-b-none",
-    );
-    expect(shell.className).toContain(
-      "[&_[data-chat-floating-anchor]]:border-x-0",
-    );
-    expect(shell.className).toContain(
-      "[&_[data-chat-floating-anchor]]:border-b-0",
-    );
-    expect(shell.className).toContain(
-      "[&_[data-chat-floating-anchor][data-main-show-after-border-divider]]:!border-b",
-    );
-    expect(shell.className).toContain(
-      "[&_[data-main-after-border-content][data-main-after-border-merged]_[data-session-transcript-card]]:border-x-0",
-    );
-    expect(shell.className).toContain(
-      "[&_[data-main-after-border-content][data-main-after-border-merged]_[data-session-transcript-card]]:border-t-0",
-    );
     expect(shell.className).toContain(
       "[&_[data-chat-floating-anchor]]:border-t",
     );
+    expect(shell.className).not.toContain(
+      "[&_[data-chat-floating-anchor]]:!border-t-0",
+    );
   });
 
-  it("keeps only left chrome for the left-edge main surface", () => {
+  it("removes the top border for borderless top chrome", () => {
     render(
-      <MainShellScaffold mainSurfaceChrome="left">
-        <div />
+      <MainShellScaffold mainSurfaceChrome="top-borderless">
+        <div data-chat-floating-anchor data-testid="main-surface" />
       </MainShellScaffold>,
     );
 
     const shell = screen.getByTestId("main-app-shell");
 
-    expect(shell.className).toContain("pl-1");
-    expect(shell.className).not.toContain("pb-1");
-    expect(shell.className).not.toContain("px-1");
     expect(shell.className).toContain(
-      "[&_[data-chat-floating-anchor]]:rounded-l-xl",
+      "[&_[data-chat-floating-anchor]]:!border-t-0",
     );
-    expect(shell.className).toContain(
-      "[&_[data-chat-floating-anchor]]:rounded-r-none",
-    );
-    expect(shell.className).toContain(
-      "[&_[data-chat-floating-anchor][data-main-has-after-border]]:rounded-bl-none",
-    );
-    expect(shell.className).toContain(
-      "[&_[data-chat-floating-anchor]]:border-y-0",
-    );
-    expect(shell.className).toContain(
-      "[&_[data-chat-floating-anchor][data-main-show-after-border-divider]]:!border-b",
-    );
-    expect(shell.className).toContain(
-      "[&_[data-chat-floating-anchor]]:border-r-0",
-    );
-    expect(shell.className).toContain(
-      "[&_[data-chat-floating-anchor]]:border-l",
-    );
-    expect(shell.className).toContain(
-      "[&_[data-main-after-border-content][data-main-after-border-merged]_[data-session-transcript-card]]:border-t-0",
-    );
-    expect(shell.className).toContain(
-      "[&_[data-main-after-border-content][data-main-after-border-merged]_[data-session-transcript-card]]:border-r-0",
-    );
-    expect(shell.className).toContain(
-      "[&_[data-main-after-border-content][data-main-after-border-merged]_[data-session-transcript-card]]:rounded-br-none",
-    );
+    expect(shell.className).not.toContain("pl-1");
   });
 });

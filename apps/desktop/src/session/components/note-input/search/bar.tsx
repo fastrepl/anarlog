@@ -40,7 +40,7 @@ function ToggleButton({
             "rounded-sm p-0.5 transition-colors",
             active
               ? "bg-neutral-300 text-neutral-700"
-              : "text-neutral-400 hover:bg-neutral-200 hover:text-neutral-500",
+              : "text-neutral-400 hover:bg-neutral-100 hover:text-neutral-500",
           ])}
         >
           {children}
@@ -72,7 +72,7 @@ function IconButton({
         "rounded-sm p-0.5 transition-colors",
         disabled
           ? "cursor-not-allowed text-neutral-300"
-          : "text-neutral-500 hover:bg-neutral-200",
+          : "text-neutral-500 hover:bg-neutral-100",
       ])}
     >
       {children}

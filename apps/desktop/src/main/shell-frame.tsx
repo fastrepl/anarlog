@@ -2,7 +2,11 @@ import { ClassicMainBody } from "./body";
 
 import { useShell } from "~/contexts/shell";
 import { useConfigValue } from "~/shared/config";
-import { MainShellBodyFrame, MainShellScaffold } from "~/shared/main";
+import {
+  type MainSurfaceChrome,
+  MainShellBodyFrame,
+  MainShellScaffold,
+} from "~/shared/main";
 import { ToastArea } from "~/sidebar/toast";
 import {
   hasCustomSidebarTab,
@@ -20,24 +24,26 @@ export function ClassicMainShellFrame() {
   const hasCustomSidebar = hasCustomSidebarTab(currentTab);
   const hasLeftSurfaceCustomSidebar =
     hasLeftSurfaceCustomSidebarTab(currentTab);
-  const showSidebarTimeline =
-    sidebarTimelineEnabled &&
-    leftsidebar.expanded &&
-    !hasCustomSidebar &&
-    !isOnboarding;
+  const showSidebarTimelineChrome =
+    sidebarTimelineEnabled && !hasCustomSidebar && !isOnboarding;
+  const showSidebarTimeline = showSidebarTimelineChrome && leftsidebar.expanded;
+  const showCollapsedSidebarTimelineChrome =
+    showSidebarTimelineChrome && !leftsidebar.expanded;
   const showTopTimeline =
     leftsidebar.expanded &&
     !showSidebarTimeline &&
     !hasCustomSidebar &&
     !isOnboarding;
-  const mainSurfaceChrome =
-    isChangelog && !showSidebarTimeline
-      ? "top"
-      : showSidebarTimeline || hasLeftSurfaceCustomSidebar
-        ? "left"
-        : showTopTimeline
-          ? "top"
-          : "default";
+  const mainSurfaceChrome: MainSurfaceChrome =
+    showCollapsedSidebarTimelineChrome
+      ? "top-borderless"
+      : isChangelog && !showSidebarTimeline
+        ? "top"
+        : showSidebarTimeline || hasLeftSurfaceCustomSidebar
+          ? "left"
+          : showTopTimeline
+            ? "top"
+            : "default";
 
   return (
     <MainShellScaffold

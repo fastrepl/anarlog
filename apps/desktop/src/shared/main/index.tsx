@@ -18,7 +18,7 @@ export {
   SessionStatusBannerProvider,
   useSessionStatusBanner,
 } from "./session-status-banner";
-export { MainShellScaffold } from "./shell-scaffold";
+export { MainShellScaffold, type MainSurfaceChrome } from "./shell-scaffold";
 export { useScrollActiveTabIntoView } from "./tab-scroll";
 
 export function StandardTabWrapper({

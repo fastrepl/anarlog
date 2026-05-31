@@ -1,6 +1,11 @@
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { ArrowLeftIcon, ArrowRightIcon } from "lucide-react";
+import {
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  PanelLeftCloseIcon,
+  PanelLeftOpenIcon,
+} from "lucide-react";
 import { type MouseEvent, type PointerEvent, useCallback, useRef } from "react";
 
 import { cn } from "@hypr/utils";
@@ -43,11 +48,9 @@ export function ClassicMainBody() {
   const hasCustomSidebar = hasCustomSidebarTab(currentTab);
   const hasLeftSurfaceCustomSidebar =
     hasLeftSurfaceCustomSidebarTab(currentTab);
-  const showSidebarTimeline =
-    sidebarTimelineEnabled &&
-    leftsidebar.expanded &&
-    !hasCustomSidebar &&
-    !isOnboarding;
+  const showSidebarTimelineChrome =
+    sidebarTimelineEnabled && !hasCustomSidebar && !isOnboarding;
+  const showSidebarTimeline = showSidebarTimelineChrome && leftsidebar.expanded;
   const showTopTimeline =
     leftsidebar.expanded &&
     !showSidebarTimeline &&
@@ -56,25 +59,30 @@ export function ClassicMainBody() {
     !isOnboarding;
   const showLeftSurfaceChromeBack = hasLeftSurfaceCustomSidebar;
   const enableMainAreaTopDrag =
-    showSidebarTimeline || hasLeftSurfaceCustomSidebar;
+    showSidebarTimelineChrome || hasLeftSurfaceCustomSidebar;
   const mainAreaTopDrag = useMainAreaTopWindowDrag(enableMainAreaTopDrag);
 
   return (
     <div className="relative flex h-full min-w-0 flex-1 flex-col">
-      {isOnboarding ? null : showSidebarTimeline ? (
+      {isOnboarding ? null : showSidebarTimelineChrome ? (
         <div
           data-tauri-drag-region
-          className="absolute top-0 left-0 z-40 h-12 w-[200px]"
+          className={cn([
+            "absolute top-0 z-40 h-12 w-[200px]",
+            leftsidebar.expanded ? "left-0" : "left-1",
+          ])}
         >
           <div
             data-tauri-drag-region
             className="flex h-full min-w-0 items-start pt-[9px] pl-[76px]"
           >
             <SidebarTimelineChrome
+              sidebarExpanded={leftsidebar.expanded}
               canGoBack={canGoBack}
               canGoNext={canGoNext}
               onBack={goBack}
               onForward={goNext}
+              onToggleSidebar={leftsidebar.toggleExpanded}
             />
           </div>
         </div>
@@ -112,12 +120,12 @@ export function ClassicMainBody() {
             data-tauri-drag-region
             className="flex h-full min-w-0 items-start pt-[9px] pl-[76px]"
           >
-            <SidebarTimelineChromeButton
+            <LeftSurfaceChromeButton
               ariaLabel="Go back"
               onClick={runEscapeShortcut}
             >
               <ArrowLeftIcon size={14} />
-            </SidebarTimelineChromeButton>
+            </LeftSurfaceChromeButton>
           </div>
         </div>
       ) : null}
@@ -257,33 +265,47 @@ function SidebarTimelineChrome({
   canGoNext,
   onBack,
   onForward,
+  onToggleSidebar,
+  sidebarExpanded,
 }: {
   canGoBack: boolean;
   canGoNext: boolean;
   onBack: () => void;
   onForward: () => void;
+  onToggleSidebar: () => void;
+  sidebarExpanded: boolean;
 }) {
   return (
-    <div className="flex items-center gap-1">
-      <SidebarTimelineChromeButton
+    <div className="flex items-center gap-0">
+      <LeftSurfaceChromeButton
+        ariaLabel={sidebarExpanded ? "Hide sidebar" : "Show sidebar"}
+        onClick={onToggleSidebar}
+      >
+        {sidebarExpanded ? (
+          <PanelLeftCloseIcon size={14} />
+        ) : (
+          <PanelLeftOpenIcon size={14} />
+        )}
+      </LeftSurfaceChromeButton>
+      <LeftSurfaceChromeButton
         ariaLabel="Go back"
         disabled={!canGoBack}
         onClick={onBack}
       >
         <ArrowLeftIcon size={14} />
-      </SidebarTimelineChromeButton>
-      <SidebarTimelineChromeButton
+      </LeftSurfaceChromeButton>
+      <LeftSurfaceChromeButton
         ariaLabel="Go forward"
         disabled={!canGoNext}
         onClick={onForward}
       >
         <ArrowRightIcon size={14} />
-      </SidebarTimelineChromeButton>
+      </LeftSurfaceChromeButton>
     </div>
   );
 }
 
-function SidebarTimelineChromeButton({
+function LeftSurfaceChromeButton({
   ariaLabel,
   children,
   disabled = false,
