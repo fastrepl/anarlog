@@ -82,10 +82,6 @@ msgstr "ٻولي چونڊيو"
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "انارلاگ کي بهتر ڪرڻ ۾ مدد لاءِ گمنام استعمال جا تجزيا موڪليو."
 
-#: src/settings/index.tsx:36
-msgid "Settings"
-msgstr "سيٽنگون"
-
 #: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "استعمال ڊيٽا حصيداري ڪريو"

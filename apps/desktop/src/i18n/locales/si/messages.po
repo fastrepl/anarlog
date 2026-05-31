@@ -82,10 +82,6 @@ msgstr "භාෂාව තෝරන්න"
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Anarlog වැඩිදියුණු කිරීමට උදවු කිරීමට නිර්නාමික භාවිත විශ්ලේෂණ යවන්න."
 
-#: src/settings/index.tsx:36
-msgid "Settings"
-msgstr "සැකසීම්"
-
 #: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "භාවිතා දත්ත බෙදා ගන්න"

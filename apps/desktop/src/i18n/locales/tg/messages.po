@@ -82,10 +82,6 @@ msgstr "Забонро интихоб кунед"
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Таҳлили истифодаи беном барои беҳтар кардани Anarlog фиристед."
 
-#: src/settings/index.tsx:36
-msgid "Settings"
-msgstr "Танзимот"
-
 #: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "Мубодилаи маълумоти истифода"

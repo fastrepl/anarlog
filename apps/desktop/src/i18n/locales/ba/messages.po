@@ -82,10 +82,6 @@ msgstr "Телде һайлау"
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Анарлогты яҡшыртыу өсөн аноним ҡулланыу аналитикаһын ебәрегеҙ."
 
-#: src/settings/index.tsx:36
-msgid "Settings"
-msgstr "Көйләүҙәр"
-
 #: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "Ҡулланыу мәғлүмәттәре менән уртаҡлашыу"

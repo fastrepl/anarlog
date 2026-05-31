@@ -82,10 +82,6 @@ msgstr "Телне сайлагыз"
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Анарлогны яхшырту өчен аноним куллану аналитикасын җибәрегез."
 
-#: src/settings/index.tsx:36
-msgid "Settings"
-msgstr "көйләүләр"
-
 #: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "Куллану мәгълүматларын бүлешү"

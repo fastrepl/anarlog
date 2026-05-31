@@ -82,10 +82,6 @@ msgstr "Vyberte jazyk"
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Odosielajte anonymné analýzy používania, aby ste pomohli zlepšiť Anarlog."
 
-#: src/settings/index.tsx:36
-msgid "Settings"
-msgstr "Nastavenia"
-
 #: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "Zdieľať údaje o používaní"

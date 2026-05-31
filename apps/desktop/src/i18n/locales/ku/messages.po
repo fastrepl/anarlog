@@ -82,10 +82,6 @@ msgstr "Ziman hilbijêre"
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Analîzên karanîna nenas bişîne da ku alîkariya baştirkirina Anarlog bike."
 
-#: src/settings/index.tsx:36
-msgid "Settings"
-msgstr "Mîheng"
-
 #: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "Daneyên bikaranînê parve bikin"

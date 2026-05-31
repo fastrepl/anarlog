@@ -82,10 +82,6 @@ msgstr "Dil saýlaň"
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Anarlogy gowulaşdyrmak üçin anonim ulanyş analitikasyny iberiň."
 
-#: src/settings/index.tsx:36
-msgid "Settings"
-msgstr "Sazlamalar"
-
 #: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "Ulanyş maglumatlaryny paýlaşyň"

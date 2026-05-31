@@ -82,10 +82,6 @@ msgstr "ژبه وټاکئ"
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "د انارلوګ په ښه کولو کې د مرستې لپاره د نامعلوم کارونې تحلیلونه واستوئ."
 
-#: src/settings/index.tsx:36
-msgid "Settings"
-msgstr "ترتیبات"
-
 #: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "د کارونې ډاټا شریک کړئ"

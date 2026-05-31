@@ -82,10 +82,6 @@ msgstr "Sprooch auswielen"
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Send anonym Notzungsanalyse fir Anarlog ze verbesseren."
 
-#: src/settings/index.tsx:36
-msgid "Settings"
-msgstr "Astellunge"
-
 #: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "Verbrauchsdaten deelen"

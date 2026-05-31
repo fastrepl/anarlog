@@ -82,10 +82,6 @@ msgstr "Tīpakohia te reo"
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Tukuna nga tātaritanga whakamahinga ingoamuna hei whakapai ake i te Anarlog."
 
-#: src/settings/index.tsx:36
-msgid "Settings"
-msgstr "Tautuhinga"
-
 #: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "Tirihia nga raraunga whakamahinga"

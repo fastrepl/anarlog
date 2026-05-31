@@ -82,10 +82,6 @@ msgstr "Zaɓi harshe"
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Aika bayanan amfani da ba a san su ba don taimakawa inganta Anarlog."
 
-#: src/settings/index.tsx:36
-msgid "Settings"
-msgstr "Saituna"
-
 #: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "Raba bayanan amfani"

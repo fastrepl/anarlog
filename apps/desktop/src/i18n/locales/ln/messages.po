@@ -82,10 +82,6 @@ msgstr "Pona monoko"
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Tinda ba analyses ya usage anonyme mpo na kosunga kobongisa Anarlog."
 
-#: src/settings/index.tsx:36
-msgid "Settings"
-msgstr "Mabongisi"
-
 #: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "Kabola ba données ya bosaleli"

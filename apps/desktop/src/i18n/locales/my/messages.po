@@ -82,10 +82,6 @@ msgstr "ဘာသာစကားကို ရွေးပါ"
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Analog ပိုမိုကောင်းမွန်လာစေရန်အတွက် အမည်မသိအသုံးပြုမှု ခွဲခြမ်းစိတ်ဖြာချက်များကို ပေးပို့ပါ။"
 
-#: src/settings/index.tsx:36
-msgid "Settings"
-msgstr "ဆက်တင်များ"
-
 #: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "အသုံးပြုမှုဒေတာကို မျှဝေပါ"

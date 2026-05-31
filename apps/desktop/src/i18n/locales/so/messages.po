@@ -82,10 +82,6 @@ msgstr "Dooro luqadda"
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "U dir isticmaalka falanqaynta qarsoodiga ah si ay gacan uga geysato horumarinta Anarlog."
 
-#: src/settings/index.tsx:36
-msgid "Settings"
-msgstr "Dejinta"
-
 #: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "La wadaag xogta isticmaalka"

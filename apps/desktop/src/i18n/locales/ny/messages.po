@@ -82,10 +82,6 @@ msgstr "Sankhani chinenero"
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Tumizani zowerengera zomwe simukuzitchula kuti zithandizire kukonza Anarlog."
 
-#: src/settings/index.tsx:36
-msgid "Settings"
-msgstr "Zokonda"
-
 #: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "Gawani zogwiritsa ntchito"

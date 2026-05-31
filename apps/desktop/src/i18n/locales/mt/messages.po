@@ -82,10 +82,6 @@ msgstr "Agħżel il-lingwa"
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Ibgħat analiżi tal-użu anonima biex tgħin ittejjeb Anarlog."
 
-#: src/settings/index.tsx:36
-msgid "Settings"
-msgstr "Settings"
-
 #: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "Aqsam id-dejta tal-użu"

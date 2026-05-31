@@ -82,10 +82,6 @@ msgstr "Yan ede"
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Firanṣẹ atupale lilo ailorukọ lati ṣe iranlọwọ ilọsiwaju Anarlog."
 
-#: src/settings/index.tsx:36
-msgid "Settings"
-msgstr "Eto"
-
 #: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "Pin data lilo"

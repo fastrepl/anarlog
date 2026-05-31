@@ -82,10 +82,6 @@ msgstr "भाषां चिनोतु"
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Anarlog इत्यस्य उन्नयनार्थं सहायतार्थं अनामिकं उपयोगविश्लेषणं प्रेषयन्तु ।"
 
-#: src/settings/index.tsx:36
-msgid "Settings"
-msgstr "सेटिंग्स्"
-
 #: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "उपयोगदत्तांशं साझां कुर्वन्तु"

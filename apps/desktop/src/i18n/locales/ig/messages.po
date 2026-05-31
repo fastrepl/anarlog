@@ -82,10 +82,6 @@ msgstr "Họrọ asụsụ"
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Zipu nyocha ojiji na-amaghị aha iji nyere aka melite Anarlog."
 
-#: src/settings/index.tsx:36
-msgid "Settings"
-msgstr "Ntọala"
-
 #: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "Kekọrịta data ojiji"

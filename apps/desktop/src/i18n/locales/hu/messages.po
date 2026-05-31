@@ -82,10 +82,6 @@ msgstr "Nyelv kiválasztása"
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Anonim használati elemzések küldése az Anarlog fejlesztéséhez."
 
-#: src/settings/index.tsx:36
-msgid "Settings"
-msgstr "Beállítások"
-
 #: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "Használati adatok megosztása"

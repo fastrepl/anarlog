@@ -82,10 +82,6 @@ msgstr "Chagua lugha"
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Tuma takwimu za matumizi bila kukutambulisha ili kusaidia kuboresha Anarlog."
 
-#: src/settings/index.tsx:36
-msgid "Settings"
-msgstr "Mipangilio"
-
 #: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "Shiriki data ya matumizi"

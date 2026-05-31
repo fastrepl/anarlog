@@ -82,10 +82,6 @@ msgstr "Vel mál"
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Send dulnevndar nýtslugreiningar fyri at hjálpa til við at betra um Anarlog."
 
-#: src/settings/index.tsx:36
-msgid "Settings"
-msgstr "Innstillingar"
-
 #: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "Deil nýtsludátur"

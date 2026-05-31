@@ -82,10 +82,6 @@ msgstr "སྐད་ཡིག་འདེམས།"
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "མིང་མེད་པའི་བེད་སྤྱོད་དབྱེ་ཞིབ་གཏོང་ནས་ཨ་ནར་ལོག་ཡར་རྒྱས་གཏོང་བར་ཕན་ཐོགས།"
 
-#: src/settings/index.tsx:36
-msgid "Settings"
-msgstr "སྒྲིག་སྟངས།"
-
 #: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "བེད་སྤྱོད་ཀྱི་གཞི་གྲངས་མཉམ་སྤྱོད།"

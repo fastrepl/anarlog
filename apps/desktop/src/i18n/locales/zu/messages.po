@@ -82,10 +82,6 @@ msgstr "Khetha ulimi"
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Thumela izibalo zokusetshenziswa ezingaziwa ukuze usize ukuthuthukisa i-Anarlog."
 
-#: src/settings/index.tsx:36
-msgid "Settings"
-msgstr "Izilungiselelo"
-
 #: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "Yabelana ngedatha yokusetshenziswa"

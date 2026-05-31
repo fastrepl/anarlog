@@ -82,10 +82,6 @@ msgstr "Tannal làkk wi"
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Yonnee jàngat jëfandikoo bu nëbbu ngir jàppale ci gëna suqali Anarlog."
 
-#: src/settings/index.tsx:36
-msgid "Settings"
-msgstr "Jekkal"
-
 #: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "Séddoo done jëfandikoo"

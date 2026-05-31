@@ -82,10 +82,6 @@ msgstr "Chwazi lang"
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Voye analiz itilizasyon anonim pou ede amelyore Anarlog."
 
-#: src/settings/index.tsx:36
-msgid "Settings"
-msgstr "Anviwònman"
-
 #: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "Pataje done itilizasyon"

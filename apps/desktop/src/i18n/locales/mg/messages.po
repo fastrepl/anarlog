@@ -82,10 +82,6 @@ msgstr "Misafidiana fiteny"
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Mandefa fanadihadiana momba ny fampiasana tsy mitonona anarana hanampy amin'ny fanatsarana Anarlog."
 
-#: src/settings/index.tsx:36
-msgid "Settings"
-msgstr "Fikirana"
-
 #: src/settings/general/index.tsx:213
 msgid "Share usage data"
 msgstr "Mizara angona fampiasana"
