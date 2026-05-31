@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { FloatingActionButton } from "./index";
 
+import type { LLMConnectionStatus } from "~/ai/hooks";
 import type { Tab } from "~/store/zustand/tabs";
 
 const hoisted = vi.hoisted(() => ({
@@ -13,6 +14,13 @@ const hoisted = vi.hoisted(() => ({
         id: string;
       },
   hasTranscript: true,
+  enhanceTaskStatus: undefined as string | undefined,
+  enhancedContent: "Generated summary",
+  llmStatus: {
+    status: "success",
+    providerId: "hyprnote",
+    isHosted: true,
+  } as LLMConnectionStatus,
   isCaretNearBottom: false,
   sessionMode: "inactive",
 }));
@@ -28,6 +36,30 @@ vi.mock("~/shared/chat-cta", () => ({
 vi.mock("~/session/components/shared", () => ({
   useCurrentNoteTab: () => hoisted.currentTab,
   useHasTranscript: () => hoisted.hasTranscript,
+}));
+
+vi.mock("~/ai/contexts", () => ({
+  useAITask: (
+    selector: (state: {
+      tasks: Record<string, { status: string | undefined }>;
+    }) => unknown,
+  ) =>
+    selector({
+      tasks: hoisted.enhanceTaskStatus
+        ? { "note-1-enhance": { status: hoisted.enhanceTaskStatus } }
+        : {},
+    }),
+}));
+
+vi.mock("~/ai/hooks", () => ({
+  useLLMConnectionStatus: () => hoisted.llmStatus,
+}));
+
+vi.mock("~/store/tinybase/store/main", () => ({
+  STORE_ID: "main",
+  UI: {
+    useCell: () => hoisted.enhancedContent,
+  },
 }));
 
 vi.mock("../caret-position-context", () => ({
@@ -58,6 +90,13 @@ describe("FloatingActionButton", () => {
   beforeEach(() => {
     hoisted.currentTab = { type: "raw" };
     hoisted.hasTranscript = true;
+    hoisted.enhanceTaskStatus = undefined;
+    hoisted.enhancedContent = "Generated summary";
+    hoisted.llmStatus = {
+      status: "success",
+      providerId: "hyprnote",
+      isHosted: true,
+    };
     hoisted.isCaretNearBottom = false;
     hoisted.sessionMode = "inactive";
   });
@@ -76,6 +115,43 @@ describe("FloatingActionButton", () => {
 
   it("shows the chat FAB on enhanced summary views", () => {
     hoisted.currentTab = { type: "enhanced", id: "note-1" };
+
+    render(<FloatingActionButton tab={tab} />);
+
+    expect(
+      screen.queryByRole("button", { name: "Ask Anarlog anything" }),
+    ).not.toBeNull();
+  });
+
+  it("hides the chat FAB when the visible summary has a generation issue", () => {
+    hoisted.currentTab = { type: "enhanced", id: "note-1" };
+    hoisted.enhanceTaskStatus = "error";
+
+    render(<FloatingActionButton tab={tab} />);
+
+    expect(
+      screen.queryByRole("button", { name: "Ask Anarlog anything" }),
+    ).toBeNull();
+  });
+
+  it("hides the chat FAB when the visible summary has a setup issue", () => {
+    hoisted.currentTab = { type: "enhanced", id: "note-1" };
+    hoisted.enhanceTaskStatus = "idle";
+    hoisted.enhancedContent = "";
+    hoisted.llmStatus = { status: "pending", reason: "missing_provider" };
+
+    render(<FloatingActionButton tab={tab} />);
+
+    expect(
+      screen.queryByRole("button", { name: "Ask Anarlog anything" }),
+    ).toBeNull();
+  });
+
+  it("shows the chat FAB while an empty enhanced summary is still generating", () => {
+    hoisted.currentTab = { type: "enhanced", id: "note-1" };
+    hoisted.enhanceTaskStatus = "generating";
+    hoisted.enhancedContent = "";
+    hoisted.llmStatus = { status: "pending", reason: "missing_provider" };
 
     render(<FloatingActionButton tab={tab} />);
 
