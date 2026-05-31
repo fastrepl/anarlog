@@ -1,30 +1,37 @@
-import { useCallback, useState } from "react";
-import { useHotkeys } from "react-hotkeys-hook";
+import {
+  type Dispatch,
+  type SetStateAction,
+  useCallback,
+  useState,
+} from "react";
+
+import { useConfigValue } from "~/shared/config";
 
 export function useLeftSidebar() {
-  const [expanded, setExpanded] = useState(true);
+  const sidebarTimelineEnabled = useConfigValue("sidebar_timeline_enabled");
+  const [storedExpanded, setStoredExpanded] = useState(true);
   const [locked, setLocked] = useState(false);
+  const expanded = sidebarTimelineEnabled || storedExpanded;
+  const effectiveLocked = sidebarTimelineEnabled || locked;
+
+  const setExpanded: Dispatch<SetStateAction<boolean>> = useCallback(
+    (next) => {
+      if (sidebarTimelineEnabled) return;
+
+      setStoredExpanded(next);
+    },
+    [sidebarTimelineEnabled],
+  );
 
   const toggleExpanded = useCallback(() => {
-    if (locked) return;
-    setExpanded((prev) => !prev);
-  }, [locked]);
-
-  useHotkeys(
-    "mod+\\",
-    toggleExpanded,
-    {
-      preventDefault: true,
-      enableOnFormTags: true,
-      enableOnContentEditable: true,
-    },
-    [toggleExpanded],
-  );
+    if (effectiveLocked) return;
+    setStoredExpanded((prev) => !prev);
+  }, [effectiveLocked]);
 
   return {
     expanded,
     setExpanded,
-    locked,
+    locked: effectiveLocked,
     setLocked,
     toggleExpanded,
   };
