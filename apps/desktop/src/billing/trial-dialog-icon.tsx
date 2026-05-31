@@ -8,7 +8,7 @@ export function TrialDialogIcon({ state }: { state: "started" | "ended" }) {
   return (
     <div
       className={cn([
-        "relative flex size-[76px] items-center justify-center overflow-visible",
+        "relative -my-2 flex size-[92px] items-center justify-center overflow-visible",
         isStarted
           ? "drop-shadow-[0_14px_22px_rgba(180,83,9,0.22)]"
           : "drop-shadow-[0_14px_22px_rgba(0,0,0,0.18)]",
@@ -17,7 +17,7 @@ export function TrialDialogIcon({ state }: { state: "started" | "ended" }) {
       <div
         aria-hidden="true"
         className={cn([
-          "absolute inset-2.5 rounded-[22px] blur-md",
+          "absolute size-14 rounded-[18px] blur-md",
           isStarted ? "bg-amber-200/55" : "bg-neutral-400/30",
         ])}
       />
