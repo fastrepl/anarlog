@@ -44,22 +44,6 @@ export const UI = _UI as TypedUI;
 export type Store = MergeableStore<Schemas>;
 export type { Schemas };
 
-export const testUtils = {
-  useCreateMergeableStore,
-  useProvideStore,
-  useProvideIndexes,
-  useProvideRelationships,
-  useProvideQueries,
-  useCreateIndexes,
-  useCreateRelationships,
-  useCreateQueries,
-  createMergeableStore,
-  createIndexes,
-  createQueries,
-  createRelationships,
-  SCHEMA,
-};
-
 export const StoreComponent = () => {
   const store = useCreateMergeableStore(() =>
     createMergeableStore()

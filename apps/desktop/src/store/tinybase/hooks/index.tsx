@@ -1,50 +1,13 @@
-import { type ReactNode, useCallback, useMemo } from "react";
+import { useCallback, useMemo } from "react";
 
 import type {
-  EnhancedNoteStorage,
-  HumanStorage,
   IgnoredEvent,
   IgnoredRecurringSeries,
-  OrganizationStorage,
   SessionEvent,
-  SessionStorage,
 } from "@hypr/store";
 
 import { getSessionEvent } from "~/session/utils";
 import * as main from "~/store/tinybase/store/main";
-
-export function useSession(sessionId: string) {
-  const title = main.UI.useCell("sessions", sessionId, "title", main.STORE_ID);
-  const rawMd = main.UI.useCell("sessions", sessionId, "raw_md", main.STORE_ID);
-  const createdAt = main.UI.useCell(
-    "sessions",
-    sessionId,
-    "created_at",
-    main.STORE_ID,
-  );
-  const eventJson = main.UI.useCell(
-    "sessions",
-    sessionId,
-    "event_json",
-    main.STORE_ID,
-  );
-  const folderId = main.UI.useCell(
-    "sessions",
-    sessionId,
-    "folder_id",
-    main.STORE_ID,
-  );
-
-  const event = useMemo(
-    () => getSessionEvent({ event_json: eventJson }),
-    [eventJson],
-  );
-
-  return useMemo(
-    () => ({ title, rawMd, createdAt, event, folderId }),
-    [title, rawMd, createdAt, event, folderId],
-  );
-}
 
 export function useSessionEvent(sessionId: string): SessionEvent | null {
   const eventJson = main.UI.useCell(
@@ -54,59 +17,6 @@ export function useSessionEvent(sessionId: string): SessionEvent | null {
     main.STORE_ID,
   );
   return useMemo(() => getSessionEvent({ event_json: eventJson }), [eventJson]);
-}
-
-export function useSetSessionTitle() {
-  const store = main.UI.useStore(main.STORE_ID);
-
-  return useCallback(
-    (sessionId: string, title: string) => {
-      if (!store) return;
-      store.setPartialRow("sessions", sessionId, { title });
-    },
-    [store],
-  );
-}
-
-export function useSetSessionRawMd() {
-  const store = main.UI.useStore(main.STORE_ID);
-
-  return useCallback(
-    (sessionId: string, rawMd: string) => {
-      if (!store) return;
-      store.setPartialRow("sessions", sessionId, { raw_md: rawMd });
-    },
-    [store],
-  );
-}
-
-export function useHuman(humanId: string) {
-  const name = main.UI.useCell("humans", humanId, "name", main.STORE_ID);
-  const email = main.UI.useCell("humans", humanId, "email", main.STORE_ID);
-  const orgId = main.UI.useCell("humans", humanId, "org_id", main.STORE_ID);
-  const jobTitle = main.UI.useCell(
-    "humans",
-    humanId,
-    "job_title",
-    main.STORE_ID,
-  );
-  const linkedinUsername = main.UI.useCell(
-    "humans",
-    humanId,
-    "linkedin_username",
-    main.STORE_ID,
-  );
-
-  return useMemo(
-    () => ({ name, email, orgId, jobTitle, linkedinUsername }),
-    [name, email, orgId, jobTitle, linkedinUsername],
-  );
-}
-
-export function useOrganization(orgId: string) {
-  const name = main.UI.useCell("organizations", orgId, "name", main.STORE_ID);
-
-  return useMemo(() => ({ name }), [name]);
 }
 
 export function useEvent(eventId: string | undefined) {
@@ -295,137 +205,4 @@ export function useIgnoredEvents() {
     ignoreSeries,
     unignoreSeries,
   };
-}
-
-interface TinyBaseTestWrapperProps {
-  children: ReactNode;
-  initialData?: {
-    sessions?: Record<string, Partial<SessionStorage>>;
-    humans?: Record<string, Partial<HumanStorage>>;
-    organizations?: Record<string, Partial<OrganizationStorage>>;
-    enhanced_notes?: Record<string, Partial<EnhancedNoteStorage>>;
-  };
-  initialValues?: {
-    user_id?: string;
-  };
-}
-
-export function TinyBaseTestWrapper({
-  children,
-  initialData,
-  initialValues,
-}: TinyBaseTestWrapperProps) {
-  const {
-    useCreateMergeableStore,
-    useProvideStore,
-    useProvideIndexes,
-    useProvideRelationships,
-    useProvideQueries,
-    useCreateIndexes,
-    useCreateRelationships,
-    useCreateQueries,
-    createMergeableStore,
-    createIndexes,
-    createQueries,
-    createRelationships,
-    SCHEMA,
-  } = main.testUtils;
-
-  const store = useCreateMergeableStore(() => {
-    const s = createMergeableStore()
-      .setTablesSchema(SCHEMA.table)
-      .setValuesSchema(SCHEMA.value);
-
-    if (initialValues?.user_id) {
-      s.setValue("user_id", initialValues.user_id);
-    }
-
-    if (initialData?.sessions) {
-      Object.entries(initialData.sessions).forEach(([id, data]) => {
-        s.setRow("sessions", id, data as Record<string, unknown>);
-      });
-    }
-    if (initialData?.humans) {
-      Object.entries(initialData.humans).forEach(([id, data]) => {
-        s.setRow("humans", id, data as Record<string, unknown>);
-      });
-    }
-    if (initialData?.organizations) {
-      Object.entries(initialData.organizations).forEach(([id, data]) => {
-        s.setRow("organizations", id, data as Record<string, unknown>);
-      });
-    }
-    if (initialData?.enhanced_notes) {
-      Object.entries(initialData.enhanced_notes).forEach(([id, data]) => {
-        s.setRow("enhanced_notes", id, data as Record<string, unknown>);
-      });
-    }
-
-    return s;
-  });
-
-  const indexes = useCreateIndexes(store, (store) =>
-    createIndexes(store)
-      .setIndexDefinition(
-        main.INDEXES.sessionParticipantsBySession,
-        "mapping_session_participant",
-        "session_id",
-      )
-      .setIndexDefinition(
-        main.INDEXES.sessionsByFolder,
-        "sessions",
-        "folder_id",
-        "created_at",
-      )
-      .setIndexDefinition(
-        main.INDEXES.transcriptBySession,
-        "transcripts",
-        "session_id",
-        "created_at",
-      )
-      .setIndexDefinition(
-        main.INDEXES.enhancedNotesBySession,
-        "enhanced_notes",
-        "session_id",
-        "position",
-      ),
-  );
-
-  const relationships = useCreateRelationships(store, (store) =>
-    createRelationships(store).setRelationshipDefinition(
-      main.RELATIONSHIPS.enhancedNoteToSession,
-      "enhanced_notes",
-      "sessions",
-      "session_id",
-    ),
-  );
-
-  const queries = useCreateQueries(store, (store) =>
-    createQueries(store)
-      .setQueryDefinition(
-        main.QUERIES.visibleHumans,
-        "humans",
-        ({ select }) => {
-          select("name");
-          select("email");
-          select("org_id");
-          select("job_title");
-          select("linkedin_username");
-        },
-      )
-      .setQueryDefinition(
-        main.QUERIES.visibleOrganizations,
-        "organizations",
-        ({ select }) => {
-          select("name");
-        },
-      ),
-  );
-
-  useProvideStore(main.STORE_ID, store);
-  useProvideIndexes(main.STORE_ID, indexes!);
-  useProvideRelationships(main.STORE_ID, relationships!);
-  useProvideQueries(main.STORE_ID, queries!);
-
-  return <>{children}</>;
 }
