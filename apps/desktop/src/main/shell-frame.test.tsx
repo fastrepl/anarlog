@@ -46,6 +46,10 @@ vi.mock("~/shared/config", () => ({
   useConfigValue: () => mocks.sidebarTimelineEnabled,
 }));
 
+vi.mock("~/sidebar/toast", () => ({
+  ToastArea: () => <div data-testid="toast-area" />,
+}));
+
 vi.mock("~/store/zustand/tabs", () => ({
   useTabs: (
     selector: (state: { currentTab: typeof mocks.currentTab }) => unknown,
@@ -68,6 +72,7 @@ describe("ClassicMainShellFrame", () => {
   it("uses top-edge main surface chrome in top timeline mode", () => {
     render(<ClassicMainShellFrame />);
 
+    expect(screen.getByTestId("toast-area")).toBeTruthy();
     expect(
       screen
         .getByTestId("main-shell-scaffold")

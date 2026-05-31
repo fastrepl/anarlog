@@ -5,7 +5,6 @@ import { ContactsNav } from "./contacts";
 import { SettingsNav } from "./settings";
 import { TemplatesNav } from "./templates";
 import { TimelineView } from "./timeline";
-import { ToastArea } from "./toast";
 
 import { useConfigValue } from "~/shared/config";
 import { useTabs } from "~/store/zustand/tabs";
@@ -42,7 +41,6 @@ export function LeftSidebar() {
           ) : (
             <TimelineView topChromeInset={isTimelineSidebarLayout} />
           )}
-          {!isSpecialMode && <ToastArea />}
         </div>
       </div>
     </div>

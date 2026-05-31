@@ -15,6 +15,10 @@ import { getLatestVersion } from "~/changelog";
 import { useDevtoolsStore, useDevtoolsUserId } from "~/devtools-panel/hooks";
 import { useConfigValue } from "~/shared/config";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
+import {
+  type DevtoolsToastPreview,
+  useDevtoolsToastPreview,
+} from "~/store/zustand/devtools-toast-preview";
 import { showBatchCompletedNotification } from "~/store/zustand/listener/general-batch";
 import { listenerStore } from "~/store/zustand/listener/instance";
 import { useTabs } from "~/store/zustand/tabs";
@@ -31,6 +35,8 @@ type DevtoolsPanelAction =
   | "instruction:sign-in"
   | "instruction:billing"
   | "instruction:integration"
+  | `toasts:preview:${DevtoolsToastPreview}`
+  | "toasts:preview:clear"
   | "toasts:reset-dismissed"
   | "notifications:calendar"
   | "notifications:mic-detected"
@@ -115,6 +121,12 @@ function useDevtoolsPanelActions() {
   const store = useDevtoolsStore();
   const user_id = useDevtoolsUserId();
   const { trialDaysRemaining, upgradeToPro } = useBillingAccess();
+  const showToastPreview = useDevtoolsToastPreview(
+    (state) => state.showPreview,
+  );
+  const clearToastPreview = useDevtoolsToastPreview(
+    (state) => state.clearPreview,
+  );
   const [trialStartedOpen, setTrialStartedOpen] = useState(false);
   const [trialEndedOpen, setTrialEndedOpen] = useState(false);
   const [shouldThrow, setShouldThrow] = useState(false);
@@ -161,6 +173,14 @@ function useDevtoolsPanelActions() {
       state: { current: latestVersion, previous: null },
     });
   }, [openNew]);
+
+  const showToastPreviewInMainWindow = useCallback(
+    async (preview: DevtoolsToastPreview) => {
+      await showMainWindow();
+      showToastPreview(preview);
+    },
+    [showMainWindow, showToastPreview],
+  );
 
   const showCalendarNotification = useCallback(async () => {
     const eventId = `devtool-event-${crypto.randomUUID()}`;
@@ -342,6 +362,24 @@ function useDevtoolsPanelActions() {
         case "instruction:integration":
           showInstruction("integration");
           return;
+        case "toasts:preview:language-model":
+          void showToastPreviewInMainWindow("language-model");
+          return;
+        case "toasts:preview:transcription-model":
+          void showToastPreviewInMainWindow("transcription-model");
+          return;
+        case "toasts:preview:transcription-error":
+          void showToastPreviewInMainWindow("transcription-error");
+          return;
+        case "toasts:preview:download":
+          void showToastPreviewInMainWindow("download");
+          return;
+        case "toasts:preview:pro":
+          void showToastPreviewInMainWindow("pro");
+          return;
+        case "toasts:preview:clear":
+          clearToastPreview();
+          return;
         case "toasts:reset-dismissed":
           void commands.setDismissedToasts([]);
           return;
@@ -401,6 +439,8 @@ function useDevtoolsPanelActions() {
       showMicDetectedNotification,
       showMicOptionsNotification,
       showOnboarding,
+      showToastPreviewInMainWindow,
+      clearToastPreview,
     ],
   );
 

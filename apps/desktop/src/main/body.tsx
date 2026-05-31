@@ -12,7 +12,6 @@ import { useClassicMainTabsShortcuts } from "./useTabsShortcuts";
 
 import { useShell } from "~/contexts/shell";
 import { useConfigValue } from "~/shared/config";
-import { ToastArea } from "~/sidebar/toast";
 import {
   hasCustomSidebarTab,
   hasLeftSurfaceCustomSidebarTab,
@@ -53,8 +52,6 @@ export function ClassicMainBody() {
     !showSidebarTimeline &&
     !hasCustomSidebar &&
     !isOnboarding;
-  const showFloatingToast =
-    !showSidebarTimeline && !hasCustomSidebar && !isOnboarding;
   const showLeftSurfaceChromeBack = hasLeftSurfaceCustomSidebar;
   const enableMainAreaTopDrag =
     showSidebarTimeline || hasLeftSurfaceCustomSidebar;
@@ -140,11 +137,6 @@ export function ClassicMainBody() {
           ) : null}
         </div>
       </div>
-      {showFloatingToast ? (
-        <div className="absolute bottom-1 left-1 z-30 w-[200px]">
-          <ToastArea />
-        </div>
-      ) : null}
     </div>
   );
 }

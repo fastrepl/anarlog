@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createToastRegistry, getToastToShow } from "./registry";
+import {
+  createDevtoolsToastPreview,
+  createToastRegistry,
+  getToastToShow,
+} from "./registry";
 
 const baseParams = {
   isAuthenticated: true,
@@ -49,5 +53,47 @@ describe("sidebar toast registry", () => {
     expect(toast?.id).toBe("missing-stt");
     expect(toast?.description).toBe("Transcription model needed");
     expect(toast?.primaryAction?.label).toBe("Add");
+  });
+
+  it("renders the pro upgrade toast without an icon", () => {
+    const toast = getToastToShow(
+      createToastRegistry({
+        ...baseParams,
+        isAuthenticated: false,
+      }),
+      () => false,
+    );
+    const previewToast = createDevtoolsToastPreview({
+      preview: "pro",
+      onSignIn: vi.fn(),
+      onOpenLLMSettings: vi.fn(),
+      onOpenSTTSettings: vi.fn(),
+    });
+
+    expect(toast?.id).toBe("upgrade-to-pro");
+    expect(toast?.description).toBe("Pro features available");
+    expect(toast?.icon).toBeUndefined();
+    expect(previewToast.icon).toBeUndefined();
+  });
+
+  it("creates devtools previews with app toast content", () => {
+    const languageModelToast = createDevtoolsToastPreview({
+      preview: "language-model",
+      onSignIn: vi.fn(),
+      onOpenLLMSettings: vi.fn(),
+      onOpenSTTSettings: vi.fn(),
+    });
+    const downloadToast = createDevtoolsToastPreview({
+      preview: "download",
+      onSignIn: vi.fn(),
+      onOpenLLMSettings: vi.fn(),
+      onOpenSTTSettings: vi.fn(),
+    });
+
+    expect(languageModelToast.id).toBe("devtools-missing-llm");
+    expect(languageModelToast.description).toBe("Language model needed");
+    expect(languageModelToast.primaryAction?.label).toBe("Add");
+    expect(downloadToast.id).toBe("devtools-downloading-model");
+    expect(downloadToast.progress).toBe(42);
   });
 });

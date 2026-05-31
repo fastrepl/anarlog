@@ -1,15 +1,22 @@
 import { AnimatePresence, motion } from "motion/react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { cn } from "@hypr/utils";
 
 import { Toast } from "./component";
-import { createToastRegistry, getToastToShow } from "./registry";
+import {
+  createDevtoolsToastPreview,
+  createToastRegistry,
+  getToastToShow,
+} from "./registry";
 import { useDismissedToasts } from "./useDismissedToasts";
 
 import { useAuth } from "~/auth";
 import { useNotifications } from "~/contexts/notifications";
 import { useConfigValues } from "~/shared/config";
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
+import { useDevtoolsToastPreview } from "~/store/zustand/devtools-toast-preview";
 import { useTabs } from "~/store/zustand/tabs";
 import { useToastAction } from "~/store/zustand/toast-action";
 
@@ -17,6 +24,7 @@ export function ToastArea() {
   const auth = useAuth();
   const { dismissToast, isDismissed } = useDismissedToasts();
   const shouldShowToast = useShouldShowToast();
+  const contentOffset = useMainContentCenterOffset();
   const {
     hasActiveDownload,
     downloadProgress,
@@ -46,6 +54,10 @@ export function ToastArea() {
   const hasProLlmConfigured = current_llm_provider === "hyprnote";
 
   const currentTab = useTabs((state) => state.currentTab);
+  const devtoolsPreview = useDevtoolsToastPreview((state) => state.preview);
+  const clearDevtoolsPreview = useDevtoolsToastPreview(
+    (state) => state.clearPreview,
+  );
   const isAiTranscriptionTabActive =
     currentTab?.type === "settings" &&
     currentTab.state?.tab === "transcription";
@@ -130,36 +142,69 @@ export function ToastArea() {
     [registry, isDismissed],
   );
 
+  const devtoolsToast = useMemo(
+    () =>
+      devtoolsPreview
+        ? createDevtoolsToastPreview({
+            preview: devtoolsPreview.type,
+            onSignIn: handleSignIn,
+            onOpenLLMSettings: handleOpenLLMSettings,
+            onOpenSTTSettings: handleOpenSTTSettings,
+          })
+        : null,
+    [
+      devtoolsPreview,
+      handleSignIn,
+      handleOpenLLMSettings,
+      handleOpenSTTSettings,
+    ],
+  );
+
   const handleDismiss = useCallback(() => {
+    if (devtoolsToast) {
+      clearDevtoolsPreview();
+      return;
+    }
+
     if (currentToast) {
       dismissToast(currentToast.id);
     }
-  }, [currentToast, dismissToast]);
+  }, [clearDevtoolsPreview, currentToast, devtoolsToast, dismissToast]);
 
-  const displayToast = currentToast;
+  const displayToast = devtoolsToast ?? currentToast;
+  const displayToastKey =
+    devtoolsPreview && devtoolsToast
+      ? `${devtoolsToast.id}:${devtoolsPreview.key}`
+      : displayToast?.id;
 
   const dismissAction = displayToast?.dismissible ? handleDismiss : undefined;
 
-  return (
+  if (!shouldShowToast || !displayToast) {
+    return null;
+  }
+
+  return createPortal(
     <AnimatePresence mode="wait">
-      {shouldShowToast && displayToast ? (
-        <motion.div
-          key={displayToast.id}
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 16 }}
-          transition={{ duration: 0.3, ease: "easeInOut" }}
-          className={cn([
-            "absolute right-0 bottom-0 left-0 z-20",
-            "pointer-events-none",
-          ])}
-        >
-          <div className="pointer-events-auto">
-            <Toast toast={displayToast} onDismiss={dismissAction} />
-          </div>
-        </motion.div>
-      ) : null}
-    </AnimatePresence>
+      <motion.div
+        key={displayToastKey}
+        initial={{ opacity: 0, y: -20, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: -20, scale: 0.95 }}
+        transition={{ duration: 0.2, ease: "easeOut" }}
+        style={{
+          left: `calc(50% + ${contentOffset}px)`,
+        }}
+        className={cn([
+          "fixed top-14 z-40 -translate-x-1/2",
+          "pointer-events-none",
+        ])}
+      >
+        <div className="pointer-events-auto">
+          <Toast toast={displayToast} onDismiss={dismissAction} />
+        </div>
+      </motion.div>
+    </AnimatePresence>,
+    document.body,
   );
 }
 
@@ -168,13 +213,52 @@ function useShouldShowToast() {
 
   const [showToast, setShowToast] = useState(false);
 
-  useEffect(() => {
+  useMountEffect(() => {
     const timer = setTimeout(() => {
       setShowToast(true);
     }, TOAST_CHECK_DELAY_MS);
 
     return () => clearTimeout(timer);
-  }, []);
+  });
 
   return showToast;
+}
+
+function useMainContentCenterOffset() {
+  const [contentOffset, setContentOffset] = useState(0);
+
+  useMountEffect(() => {
+    const computeOffset = () => {
+      const bodyPanel = document.querySelector("[data-panel-id]");
+      if (!bodyPanel) {
+        setContentOffset(0);
+        return;
+      }
+
+      const bodyRect = bodyPanel.getBoundingClientRect();
+      const bodyCenter = bodyRect.left + bodyRect.width / 2;
+      const windowCenter = window.innerWidth / 2;
+      setContentOffset(bodyCenter - windowCenter);
+    };
+
+    computeOffset();
+    window.addEventListener("resize", computeOffset);
+
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(computeOffset)
+        : null;
+
+    const panels = document.querySelectorAll("[data-panel-id]");
+    for (const panel of panels) {
+      resizeObserver?.observe(panel);
+    }
+
+    return () => {
+      window.removeEventListener("resize", computeOffset);
+      resizeObserver?.disconnect();
+    };
+  });
+
+  return contentOffset;
 }

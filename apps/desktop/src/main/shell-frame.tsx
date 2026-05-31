@@ -3,6 +3,7 @@ import { ClassicMainBody } from "./body";
 import { useShell } from "~/contexts/shell";
 import { useConfigValue } from "~/shared/config";
 import { MainShellBodyFrame, MainShellScaffold } from "~/shared/main";
+import { ToastArea } from "~/sidebar/toast";
 import {
   hasCustomSidebarTab,
   hasLeftSurfaceCustomSidebarTab,
@@ -43,6 +44,7 @@ export function ClassicMainShellFrame() {
       <MainShellBodyFrame>
         <ClassicMainBody />
       </MainShellBodyFrame>
+      <ToastArea />
     </MainShellScaffold>
   );
 }

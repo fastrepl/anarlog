@@ -90,6 +90,7 @@ struct DevtoolsPanelView: View {
         ForEach(DevtoolsToastPreview.allCases, id: \.self) { preview in
           Button(preview.label) {
             toastPreview = preview
+            showToastPreview(preview)
           }
         }
       } label: {
@@ -116,7 +117,13 @@ struct DevtoolsPanelView: View {
       }
       .menuStyle(.borderlessButton)
 
-      DevtoolsToastPill(preview: toastPreview)
+      DevtoolsActionButton("Show in App") {
+        showToastPreview(toastPreview)
+      }
+
+      DevtoolsActionButton("Clear Preview") {
+        RustBridge.devtoolsPanelAction("toasts:preview:clear")
+      }
 
       DevtoolsActionButton("Reset Dismissed") {
         RustBridge.devtoolsPanelAction("toasts:reset-dismissed")
@@ -184,6 +191,10 @@ struct DevtoolsPanelView: View {
         RustBridge.devtoolsPanelAction("error:trigger")
       }
     }
+  }
+
+  private func showToastPreview(_ preview: DevtoolsToastPreview) {
+    RustBridge.devtoolsPanelAction("toasts:preview:\(preview.rawValue)")
   }
 }
 
@@ -254,9 +265,9 @@ private struct DevtoolsActionButton: View {
 }
 
 private enum DevtoolsToastPreview: String, CaseIterable {
-  case languageModel
-  case transcriptionModel
-  case transcriptionError
+  case languageModel = "language-model"
+  case transcriptionModel = "transcription-model"
+  case transcriptionError = "transcription-error"
   case download
   case pro
 
@@ -273,108 +284,5 @@ private enum DevtoolsToastPreview: String, CaseIterable {
     case .pro:
       return "Pro"
     }
-  }
-
-  var description: String {
-    switch self {
-    case .languageModel:
-      return "Language model needed"
-    case .transcriptionModel:
-      return "Transcription needed"
-    case .transcriptionError:
-      return "Transcription unavailable"
-    case .download:
-      return "Downloading model"
-    case .pro:
-      return "Pro features available"
-    }
-  }
-
-  var actionLabel: String? {
-    switch self {
-    case .languageModel, .transcriptionModel:
-      return "Add"
-    case .transcriptionError:
-      return "Settings"
-    case .download:
-      return nil
-    case .pro:
-      return "Upgrade"
-    }
-  }
-
-  var progress: Int? {
-    self == .download ? 42 : nil
-  }
-
-  var isError: Bool {
-    self == .transcriptionError
-  }
-
-  var isDismissible: Bool {
-    self != .transcriptionModel && self != .download
-  }
-}
-
-private struct DevtoolsToastPill: View {
-  let preview: DevtoolsToastPreview
-
-  var body: some View {
-    HStack(spacing: 8) {
-      Text(preview.description)
-        .font(.system(size: 13))
-        .lineLimit(1)
-        .truncationMode(.tail)
-        .foregroundStyle(preview.isError ? Color.red : Color.secondary)
-
-      if let progress = preview.progress {
-        Text("\(progress)%")
-          .font(.system(size: 11, weight: .medium))
-          .foregroundStyle(.secondary)
-          .padding(.horizontal, 8)
-          .padding(.vertical, 5)
-          .background(
-            Capsule(style: .continuous)
-              .fill(Color.black.opacity(0.06))
-          )
-      }
-
-      if let actionLabel = preview.actionLabel {
-        Text(actionLabel)
-          .font(.system(size: 11, weight: .semibold))
-          .foregroundStyle(preview.isError ? Color.red : Color.white)
-          .padding(.horizontal, 10)
-          .padding(.vertical, 5)
-          .background(
-            Capsule(style: .continuous)
-              .fill(preview.isError ? Color.red.opacity(0.10) : Color.black.opacity(0.86))
-          )
-      }
-
-      if preview.isDismissible {
-        Text("Hide")
-          .font(.system(size: 11, weight: .medium))
-          .foregroundStyle(.secondary)
-          .padding(.horizontal, 9)
-          .padding(.vertical, 5)
-          .background(
-            Capsule(style: .continuous)
-              .strokeBorder(Color.black.opacity(0.10), lineWidth: 1)
-          )
-      }
-    }
-    .padding(.leading, 12)
-    .padding(.trailing, 6)
-    .padding(.vertical, 6)
-    .frame(maxWidth: .infinity, alignment: .leading)
-    .background(
-      Capsule(style: .continuous)
-        .fill(Color.white.opacity(0.92))
-    )
-    .overlay(
-      Capsule(style: .continuous)
-        .strokeBorder(
-          preview.isError ? Color.red.opacity(0.20) : Color.black.opacity(0.10), lineWidth: 1)
-    )
   }
 }
