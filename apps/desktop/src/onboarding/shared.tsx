@@ -24,6 +24,7 @@ export function OnboardingSection({
   onNext,
   onSkip,
   skippable = true,
+  contentClassName,
   children,
 }: {
   title: string;
@@ -34,6 +35,7 @@ export function OnboardingSection({
   onNext?: () => void;
   onSkip?: () => void;
   skippable?: boolean;
+  contentClassName?: string;
   children: ReactNode;
 }) {
   const sectionRef = useRef<HTMLElement>(null);
@@ -129,7 +131,10 @@ export function OnboardingSection({
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="-mx-5 -mt-3 -mb-5 overflow-hidden px-5 pt-3 pb-5"
+            className={cn([
+              "-mx-5 -mt-3 -mb-5 overflow-hidden px-5 pt-3 pb-5",
+              contentClassName,
+            ])}
           >
             {children}
           </motion.div>

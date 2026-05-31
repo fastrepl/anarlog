@@ -204,7 +204,7 @@ function OnboardingScreenContent({
 
       <div
         data-tauri-drag-region={headerDragRegion || undefined}
-        className="relative z-30 flex h-12 shrink-0 items-center justify-end px-12"
+        className="relative z-30 flex h-12 shrink-0 items-center justify-end pr-8 pl-12"
       >
         <button
           onClick={() => setIsMuted((prev) => !prev)}
@@ -261,6 +261,7 @@ function OnboardingScreenContent({
                 event: "onboarding_login_skipped",
               });
             }}
+            contentClassName="-mt-4 pt-2"
           >
             <LoginSection
               onContinue={goNext}
