@@ -22,9 +22,9 @@ export function OuterHeader({
 }) {
   return (
     <div className="flex h-12 w-full items-center">
-      <div className="flex w-full min-w-0 items-center justify-between gap-3">
+      <div className="flex w-full min-w-0 items-center justify-between gap-0">
         {title ? <div className="min-w-0 flex-1">{title}</div> : null}
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="flex shrink-0 items-center gap-0 pr-1">
           <SidebarModeStopButton sessionId={sessionId} />
           <MetadataButton sessionId={sessionId} />
           <OverflowButton sessionId={sessionId} currentView={currentView} />

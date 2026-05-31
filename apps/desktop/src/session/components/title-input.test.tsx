@@ -1,5 +1,8 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { type ComponentProps } from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { TooltipProvider } from "@hypr/ui/components/ui/tooltip";
 
 import { TitleInput } from "./title-input";
 
@@ -47,13 +50,11 @@ vi.mock("~/store/zustand/live-title", () => ({
     }),
 }));
 
-describe("TitleInput", () => {
-  afterEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("runs the main escape shortcut directly from the title field", () => {
-    render(
+const renderTitleInput = (
+  props: Partial<ComponentProps<typeof TitleInput>> = {},
+) =>
+  render(
+    <TooltipProvider>
       <TitleInput
         tab={{
           active: true,
@@ -63,13 +64,54 @@ describe("TitleInput", () => {
           state: { autoStart: null, view: null },
           type: "sessions",
         }}
-      />,
-    );
+        {...props}
+      />
+    </TooltipProvider>,
+  );
+
+describe("TitleInput", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    hoisted.store.getCell.mockImplementation(() => "Untitled");
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("runs the main escape shortcut directly from the title field", () => {
+    renderTitleInput();
 
     fireEvent.keyDown(screen.getByPlaceholderText("Untitled"), {
       key: "Escape",
     });
 
     expect(hoisted.runEscapeShortcut).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the empty title layout at placeholder width", () => {
+    hoisted.store.getCell.mockReturnValueOnce("");
+
+    renderTitleInput({ onGenerateTitle: vi.fn() });
+
+    const input = screen.getByPlaceholderText("Untitled");
+    expect(input.parentElement?.className).toContain("min-w-fit");
+    expect(input.parentElement?.className).toContain("flex-none");
+    expect(
+      screen.getByRole("button", { name: "Regenerate title" }),
+    ).toBeTruthy();
+  });
+
+  it("uses the flexible title layout for whitespace-only titles", () => {
+    hoisted.store.getCell.mockReturnValueOnce("          ");
+
+    renderTitleInput({ onGenerateTitle: vi.fn() });
+
+    const input = screen.getByPlaceholderText("Untitled");
+    expect(input.parentElement?.className).toContain("min-w-0");
+    expect(input.parentElement?.className).toContain("flex-1");
+    expect(
+      screen.queryByRole("button", { name: "Regenerate title" }),
+    ).toBeNull();
   });
 });

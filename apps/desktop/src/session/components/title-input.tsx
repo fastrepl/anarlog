@@ -328,42 +328,63 @@ const TitleInputInner = memo(
           }
         }
       };
+      const generateTitleHandler =
+        localTitle.length === 0 ? onGenerateTitle : undefined;
 
       return (
         <div className="flex w-full items-center gap-2">
-          <input
-            ref={setInputRef}
-            id={`title-input-${sessionId}-${editorId}`}
-            placeholder="Untitled"
-            type="text"
-            onChange={(e) => {
-              const value = e.target.value;
-              setLocalTitle(value);
-              setLiveTitle(sessionId, value);
-              setIsOverflowing(e.target.scrollWidth > e.target.clientWidth + 1);
-            }}
-            onKeyDown={handleKeyDown}
-            onFocus={() => {
-              isFocused.current = true;
-              setIsTitleFocused(true);
-            }}
-            onBlur={(e) => {
-              isFocused.current = false;
-              setIsTitleFocused(false);
-              setStoreTitle(localTitle);
-              clearLiveTitle(sessionId);
-              setIsOverflowing(e.target.scrollWidth > e.target.clientWidth + 1);
-            }}
-            value={localTitle}
-            style={overflowFadeStyle}
+          <div
             className={cn([
-              "min-w-0 flex-1 transition-opacity duration-200",
-              "border-none bg-transparent focus:outline-hidden",
-              "placeholder:text-muted-foreground text-xl font-semibold",
+              "grid items-center",
+              generateTitleHandler ? "min-w-fit flex-none" : "min-w-0 flex-1",
             ])}
-          />
-          {onGenerateTitle && !localTitle.trim() && (
-            <GenerateButton onGenerateTitle={onGenerateTitle} />
+          >
+            {generateTitleHandler && (
+              <span
+                aria-hidden="true"
+                className="invisible col-start-1 row-start-1 text-xl font-semibold whitespace-pre"
+              >
+                Untitled
+              </span>
+            )}
+            <input
+              ref={setInputRef}
+              id={`title-input-${sessionId}-${editorId}`}
+              placeholder="Untitled"
+              type="text"
+              onChange={(e) => {
+                const value = e.target.value;
+                setLocalTitle(value);
+                setLiveTitle(sessionId, value);
+                setIsOverflowing(
+                  e.target.scrollWidth > e.target.clientWidth + 1,
+                );
+              }}
+              onKeyDown={handleKeyDown}
+              onFocus={() => {
+                isFocused.current = true;
+                setIsTitleFocused(true);
+              }}
+              onBlur={(e) => {
+                isFocused.current = false;
+                setIsTitleFocused(false);
+                setStoreTitle(localTitle);
+                clearLiveTitle(sessionId);
+                setIsOverflowing(
+                  e.target.scrollWidth > e.target.clientWidth + 1,
+                );
+              }}
+              value={localTitle}
+              style={overflowFadeStyle}
+              className={cn([
+                "col-start-1 row-start-1 w-full min-w-0 transition-opacity duration-200",
+                "border-none bg-transparent focus:outline-hidden",
+                "placeholder:text-muted-foreground text-xl font-semibold",
+              ])}
+            />
+          </div>
+          {generateTitleHandler && (
+            <GenerateButton onGenerateTitle={generateTitleHandler} />
           )}
         </div>
       );
@@ -380,6 +401,7 @@ const GenerateButton = memo(function GenerateButton({
     <Tooltip>
       <TooltipTrigger asChild>
         <button
+          aria-label="Regenerate title"
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
