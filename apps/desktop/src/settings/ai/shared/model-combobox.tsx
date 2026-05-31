@@ -148,7 +148,7 @@ export function ModelCombobox({
           aria-expanded={open}
           className={cn([
             "w-full justify-between bg-white font-normal shadow-none focus-visible:ring-0",
-            "rounded-md px-3",
+            "rounded-full px-3",
           ])}
         >
           <span className="flex w-full min-w-0 items-center justify-between gap-2">

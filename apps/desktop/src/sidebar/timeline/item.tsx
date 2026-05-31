@@ -114,7 +114,7 @@ function ItemBase({
       onShiftClick={ignored ? undefined : onShiftClick}
       contextMenu={hasSelection ? undefined : contextMenu}
       className={cn([
-        "w-full rounded-lg px-3 py-2 text-left",
+        "w-full rounded-full px-3 py-2 text-left",
         ignored ? "cursor-default" : "cursor-pointer",
         multiSelected && "bg-neutral-200",
         !multiSelected && selected && "bg-neutral-200",

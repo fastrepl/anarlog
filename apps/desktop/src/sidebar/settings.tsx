@@ -141,7 +141,7 @@ export function SettingsNav() {
                       setActiveTab(item.id as SettingsTab);
                     }}
                     className={cn([
-                      "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm",
+                      "flex w-full items-center gap-2 rounded-full px-3 py-2 text-left text-sm",
                       "transition-colors",
                       isSettingsItem && activeTab === item.id
                         ? "bg-neutral-200 font-medium text-neutral-900"

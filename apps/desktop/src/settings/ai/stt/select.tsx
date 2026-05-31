@@ -681,7 +681,7 @@ function LocalModelDropdownActions({ model }: { model: LocalModel }) {
         type="button"
         aria-label="Show in Finder"
         className={cn([
-          "flex size-6 items-center justify-center rounded-md",
+          "flex size-6 items-center justify-center rounded-full",
           "text-neutral-500 hover:text-neutral-900",
         ])}
         onPointerDown={stopSelect}
@@ -696,7 +696,7 @@ function LocalModelDropdownActions({ model }: { model: LocalModel }) {
         type="button"
         aria-label="Delete model"
         className={cn([
-          "flex size-6 items-center justify-center rounded-md",
+          "flex size-6 items-center justify-center rounded-full",
           "text-red-500 hover:text-red-600",
         ])}
         onPointerDown={stopSelect}

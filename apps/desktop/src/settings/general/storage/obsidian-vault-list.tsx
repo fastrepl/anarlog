@@ -28,7 +28,7 @@ export function ObsidianVaultList({
           disabled={disabled}
           onClick={() => onSelect(vault.path)}
           className={cn([
-            "flex items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-left text-sm text-neutral-500 transition-colors hover:border-neutral-300 hover:bg-neutral-100 disabled:opacity-50",
+            "flex items-center gap-2 rounded-full border border-neutral-200 bg-neutral-50 px-3 py-2 text-left text-sm text-neutral-500 transition-colors hover:border-neutral-300 hover:bg-neutral-100 disabled:opacity-50",
           ])}
         >
           <img

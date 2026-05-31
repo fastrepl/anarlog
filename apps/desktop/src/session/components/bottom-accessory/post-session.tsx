@@ -412,7 +412,7 @@ function TranscriptReadyPanel({
                 type="button"
                 disabled
                 className={cn([
-                  "flex items-center gap-1 rounded px-1.5 py-0.5",
+                  "flex items-center gap-1 rounded-full px-1.5 py-0.5",
                   "text-[11px] font-medium text-neutral-300",
                   "cursor-not-allowed",
                 ])}
@@ -429,7 +429,7 @@ function TranscriptReadyPanel({
             type="button"
             onClick={regenerate}
             className={cn([
-              "flex items-center gap-1 rounded px-1.5 py-0.5",
+              "flex items-center gap-1 rounded-full px-1.5 py-0.5",
               "text-[11px] font-medium text-neutral-500",
               "transition-colors hover:bg-neutral-200/60 hover:text-neutral-700",
             ])}
@@ -444,7 +444,7 @@ function TranscriptReadyPanel({
             onClick={() => void deleteRecording()}
             disabled={isDeletingRecording}
             className={cn([
-              "flex items-center gap-1 rounded px-1.5 py-0.5",
+              "flex items-center gap-1 rounded-full px-1.5 py-0.5",
               "text-[11px] font-medium text-red-600",
               "transition-colors hover:bg-red-50 hover:text-red-700",
               "disabled:cursor-not-allowed disabled:text-red-300",

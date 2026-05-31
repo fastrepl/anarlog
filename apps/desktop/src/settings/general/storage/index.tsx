@@ -306,7 +306,7 @@ function ChangeContentPathDialog({
                   <button
                     key={vault.path}
                     onClick={() => selectPath(vault.path)}
-                    className="flex cursor-pointer items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-left text-sm text-neutral-500 transition-colors hover:bg-neutral-100"
+                    className="flex cursor-pointer items-center gap-2 rounded-full border border-neutral-200 bg-neutral-50 px-3 py-2 text-left text-sm text-neutral-500 transition-colors hover:bg-neutral-100"
                   >
                     <img
                       src="/assets/obsidian-icon.svg"

@@ -102,7 +102,7 @@ function ActionItem({
         "group",
         "flex items-center justify-between gap-8",
         "text-sm",
-        "rounded-md px-4 py-2",
+        "rounded-full px-4 py-2",
         "cursor-pointer transition-colors hover:bg-neutral-100",
       ])}
     >
