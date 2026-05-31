@@ -199,7 +199,7 @@ export function SettingsApp() {
                                     }}
                                     devtoolsControlPanel={{
                                       title: t`Show Devtools panel`,
-                                      description: t`Show the control panel in the left sidebar.`,
+                                      description: t`Show the native floating control panel.`,
                                       value:
                                         devtoolsControlPanelEnabledField.state
                                           .value,

@@ -380,6 +380,20 @@ pub async fn floating_bar_update(
 
 #[tauri::command]
 #[specta::specta]
+pub async fn devtools_panel_show() -> Result<(), String> {
+    crate::window::devtools_panel::show().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn devtools_panel_hide() -> Result<(), String> {
+    crate::window::devtools_panel::hide().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn window_is_exists(
     app: tauri::AppHandle<tauri::Wry>,
     window: AppWindow,

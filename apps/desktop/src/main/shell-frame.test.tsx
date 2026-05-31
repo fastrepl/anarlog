@@ -5,7 +5,6 @@ const mocks = vi.hoisted(() => ({
   currentTab: { type: "empty" } as { type: string } | null,
   leftsidebar: {
     expanded: true,
-    showDevtool: false,
   },
   sidebarTimelineEnabled: false,
 }));
@@ -63,7 +62,6 @@ describe("ClassicMainShellFrame", () => {
   beforeEach(() => {
     mocks.currentTab = { type: "empty" };
     mocks.leftsidebar.expanded = true;
-    mocks.leftsidebar.showDevtool = false;
     mocks.sidebarTimelineEnabled = false;
   });
 

@@ -46,20 +46,15 @@ export function ClassicMainBody() {
   const showSidebarTimeline =
     sidebarTimelineEnabled &&
     leftsidebar.expanded &&
-    !leftsidebar.showDevtool &&
     !hasCustomSidebar &&
     !isOnboarding;
   const showTopTimeline =
     leftsidebar.expanded &&
     !showSidebarTimeline &&
-    !leftsidebar.showDevtool &&
     !hasCustomSidebar &&
     !isOnboarding;
   const showFloatingToast =
-    !showSidebarTimeline &&
-    !leftsidebar.showDevtool &&
-    !hasCustomSidebar &&
-    !isOnboarding;
+    !showSidebarTimeline && !hasCustomSidebar && !isOnboarding;
   const showLeftSurfaceChromeBack = hasLeftSurfaceCustomSidebar;
   const enableMainAreaTopDrag =
     showSidebarTimeline || hasLeftSurfaceCustomSidebar;

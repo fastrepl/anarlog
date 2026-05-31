@@ -59,7 +59,6 @@ vi.mock("~/contexts/shell", () => ({
   useShell: () => ({
     leftsidebar: {
       expanded: true,
-      showDevtool: false,
     },
   }),
 }));

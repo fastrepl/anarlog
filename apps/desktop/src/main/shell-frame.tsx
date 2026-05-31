@@ -21,13 +21,11 @@ export function ClassicMainShellFrame() {
   const showSidebarTimeline =
     sidebarTimelineEnabled &&
     leftsidebar.expanded &&
-    !leftsidebar.showDevtool &&
     !hasCustomSidebar &&
     !isOnboarding;
   const showTopTimeline =
     leftsidebar.expanded &&
     !showSidebarTimeline &&
-    !leftsidebar.showDevtool &&
     !hasCustomSidebar &&
     !isOnboarding;
   const mainSurfaceChrome =

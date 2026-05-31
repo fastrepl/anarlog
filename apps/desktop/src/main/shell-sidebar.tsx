@@ -21,7 +21,7 @@ export function ClassicMainSidebar() {
     return null;
   }
 
-  if (leftsidebar.showDevtool || hasCustomSidebar || sidebarTimelineEnabled) {
+  if (hasCustomSidebar || sidebarTimelineEnabled) {
     return <LeftSidebar />;
   }
 

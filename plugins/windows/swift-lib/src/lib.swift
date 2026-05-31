@@ -25,3 +25,15 @@ public func _floatingBarUpdate(json: SRString) -> Bool {
   FloatingBarManager.shared.update(state: payload)
   return true
 }
+
+@_cdecl("_devtools_panel_show")
+public func _devtoolsPanelShow() -> Bool {
+  DevtoolsPanelManager.shared.show()
+  return true
+}
+
+@_cdecl("_devtools_panel_hide")
+public func _devtoolsPanelHide() -> Bool {
+  DevtoolsPanelManager.shared.hide()
+  return true
+}

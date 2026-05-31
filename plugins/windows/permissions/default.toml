@@ -16,4 +16,6 @@ permissions = [
     "allow-floating-bar-show",
     "allow-floating-bar-hide",
     "allow-floating-bar-update",
+    "allow-devtools-panel-show",
+    "allow-devtools-panel-hide",
 ]

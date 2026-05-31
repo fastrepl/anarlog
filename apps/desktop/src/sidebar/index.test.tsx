@@ -3,16 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   currentTab: { type: "empty" } as { type: string } | null,
-  showDevtool: false,
   sidebarTimelineEnabled: false,
-}));
-
-vi.mock("~/contexts/shell", () => ({
-  useShell: () => ({
-    leftsidebar: {
-      showDevtool: mocks.showDevtool,
-    },
-  }),
 }));
 
 vi.mock("~/shared/config", () => ({
@@ -61,16 +52,11 @@ vi.mock("~/sidebar/templates", () => ({
   TemplatesNav: () => <div data-testid="templates-nav" />,
 }));
 
-vi.mock("~/sidebar/devtool", () => ({
-  DevtoolView: () => <div data-testid="devtool-view" />,
-}));
-
 import { LeftSidebar } from "./index";
 
 describe("LeftSidebar", () => {
   beforeEach(() => {
     mocks.currentTab = { type: "empty" };
-    mocks.showDevtool = false;
     mocks.sidebarTimelineEnabled = false;
   });
 

@@ -94,6 +94,12 @@ common_event_derives! {
     pub struct FloatingBarOpenMain {}
 }
 
+common_event_derives! {
+    pub struct DevtoolsPanelAction {
+        pub action: String,
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

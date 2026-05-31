@@ -19,6 +19,8 @@ Default permissions for the plugin
 - `allow-floating-bar-show`
 - `allow-floating-bar-hide`
 - `allow-floating-bar-update`
+- `allow-devtools-panel-show`
+- `allow-devtools-panel-hide`
 
 ## Permission Table
 
@@ -28,6 +30,58 @@ Default permissions for the plugin
 <th>Description</th>
 </tr>
 
+
+<tr>
+<td>
+
+`windows:allow-devtools-panel-hide`
+
+</td>
+<td>
+
+Enables the devtools_panel_hide command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`windows:deny-devtools-panel-hide`
+
+</td>
+<td>
+
+Denies the devtools_panel_hide command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`windows:allow-devtools-panel-show`
+
+</td>
+<td>
+
+Enables the devtools_panel_show command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`windows:deny-devtools-panel-show`
+
+</td>
+<td>
+
+Denies the devtools_panel_show command without any pre-configured scope.
+
+</td>
+</tr>
 
 <tr>
 <td>

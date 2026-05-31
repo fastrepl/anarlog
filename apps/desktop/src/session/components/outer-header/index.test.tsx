@@ -6,7 +6,6 @@ import type { EditorView } from "~/store/zustand/tabs/schema";
 const mocks = vi.hoisted(() => ({
   leftsidebar: {
     expanded: true,
-    showDevtool: false,
   },
   sessionModes: {} as Record<string, string>,
   sidebarTimelineEnabled: false,
@@ -58,7 +57,6 @@ import { OuterHeader } from "./index";
 describe("OuterHeader", () => {
   beforeEach(() => {
     mocks.leftsidebar.expanded = true;
-    mocks.leftsidebar.showDevtool = false;
     mocks.sessionModes = {};
     mocks.sidebarTimelineEnabled = false;
     mocks.stopListening.mockClear();

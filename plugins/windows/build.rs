@@ -14,6 +14,8 @@ const COMMANDS: &[&str] = &[
     "floating_bar_show",
     "floating_bar_hide",
     "floating_bar_update",
+    "devtools_panel_show",
+    "devtools_panel_hide",
 ];
 
 fn main() {
