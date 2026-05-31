@@ -100,4 +100,15 @@ describe("ClassicMainShellFrame", () => {
         .getAttribute("data-main-surface-chrome"),
     ).toBe("left");
   });
+
+  it("uses the full shell surface for onboarding", () => {
+    mocks.currentTab = { type: "onboarding" };
+
+    render(<ClassicMainShellFrame />);
+
+    const scaffold = screen.getByTestId("main-shell-scaffold");
+
+    expect(scaffold.getAttribute("data-edge-to-edge")).toBe("true");
+    expect(scaffold.getAttribute("data-main-surface-chrome")).toBeNull();
+  });
 });

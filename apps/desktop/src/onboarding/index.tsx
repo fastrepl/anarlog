@@ -22,7 +22,6 @@ import { PermissionsSection } from "./permissions";
 import { OnboardingSection } from "./shared";
 
 import { useAuth } from "~/auth";
-import { StandardTabWrapper } from "~/shared/main";
 import { type TabItem, TabItemBase } from "~/shared/tabs";
 import { StandaloneWindowShell } from "~/shared/window-shell";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
@@ -83,6 +82,7 @@ function OnboardingScreen({ onFinish }: { onFinish: () => void }) {
     <OnboardingScreenContent
       onFinish={onFinish}
       headerClassName="px-12 pt-12 pb-8"
+      headerDragRegion
     />
   );
 }
@@ -173,141 +173,135 @@ function OnboardingScreenContent({
   }, [onFinish, queryClient]);
 
   return (
-    <StandardTabWrapper noBorder>
-      <div className="relative flex h-full flex-col">
-        <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <motion.div
-            className="absolute inset-0"
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 2, ease: [0.22, 1, 0.36, 1], delay: 0.4 }}
-          >
-            <video
-              ref={onboardingVideoRef}
-              className="absolute inset-0 h-full w-full object-cover object-bottom opacity-28"
-              autoPlay
-              loop
-              muted
-              playsInline
-              preload="auto"
-              aria-hidden="true"
-            >
-              <source src="/assets/onboarding-video.mp4" type="video/mp4" />
-            </video>
-            <div className="absolute inset-0 bg-linear-to-t from-stone-50/8 via-stone-50/18 to-transparent" />
-          </motion.div>
-          <div className="absolute inset-x-0 top-0 h-[80%] [mask-image:linear-gradient(to_bottom,black,black_18%,rgba(0,0,0,0.9)_36%,rgba(0,0,0,0.6)_58%,transparent)] backdrop-blur-[32px]" />
-          <div className="absolute inset-x-0 top-0 h-[92%] [mask-image:linear-gradient(to_bottom,black,rgba(0,0,0,0.8)_34%,rgba(0,0,0,0.35)_62%,transparent)] backdrop-blur-[12px]" />
-          <div className="absolute inset-x-0 top-0 h-[84%] bg-linear-to-b from-stone-50 via-stone-50/82 via-stone-50/97 via-18% via-42% to-stone-50/0" />
-          <motion.div
-            className="absolute inset-0 bg-stone-50"
-            initial={{ opacity: 1 }}
-            animate={{ opacity: 0 }}
-            transition={{ duration: 1.0, ease: "easeOut", delay: 0.1 }}
-          />
-        </div>
-
-        <div
-          data-tauri-drag-region={headerDragRegion || undefined}
-          className={cn([
-            "sticky top-0 z-10 flex items-center justify-between",
-            headerClassName,
-          ])}
+    <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-white">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <motion.div
+          className="absolute inset-0"
+          initial={{ opacity: 0, y: 40 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 2, ease: [0.22, 1, 0.36, 1], delay: 0.4 }}
         >
-          <h1 className="font-sans text-3xl font-semibold text-neutral-900">
-            Welcome to Anarlog
-          </h1>
-          <button
-            onClick={() => setIsMuted((prev) => !prev)}
-            data-tauri-drag-region="false"
-            className="rounded-full p-1.5 transition-colors hover:bg-neutral-100"
-            aria-label={isMuted ? "Unmute" : "Mute"}
+          <video
+            ref={onboardingVideoRef}
+            className="absolute inset-0 h-full w-full object-cover object-bottom opacity-28"
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="auto"
+            aria-hidden="true"
           >
-            {isMuted ? (
-              <VolumeXIcon size={16} className="text-neutral-400" />
-            ) : (
-              <Volume2Icon size={16} className="text-neutral-600" />
-            )}
-          </button>
-        </div>
+            <source src="/assets/onboarding-video.mp4" type="video/mp4" />
+          </video>
+          <div className="absolute inset-0 bg-linear-to-t from-stone-50/8 via-stone-50/18 to-transparent" />
+        </motion.div>
+        <div className="absolute inset-x-0 top-0 h-[80%] [mask-image:linear-gradient(to_bottom,black,black_18%,rgba(0,0,0,0.9)_36%,rgba(0,0,0,0.6)_58%,transparent)] backdrop-blur-[32px]" />
+        <div className="absolute inset-x-0 top-0 h-[92%] [mask-image:linear-gradient(to_bottom,black,rgba(0,0,0,0.8)_34%,rgba(0,0,0,0.35)_62%,transparent)] backdrop-blur-[12px]" />
+        <div className="absolute inset-x-0 top-0 h-[84%] bg-linear-to-b from-stone-50 via-stone-50/82 via-stone-50/97 via-18% via-42% to-stone-50/0" />
+        <motion.div
+          className="absolute inset-0 bg-stone-50"
+          initial={{ opacity: 1 }}
+          animate={{ opacity: 0 }}
+          transition={{ duration: 1.0, ease: "easeOut", delay: 0.1 }}
+        />
+      </div>
 
-        <div className="relative z-10 flex-1 overflow-y-auto">
-          <div className="flex flex-col gap-4 px-12 pb-16">
-            <OnboardingSection
-              title="Start with permissions"
-              completedTitle="Permissions granted"
-              description="Anarlog needs access to your microphone and system audio to record and transcribe your meetings"
-              status={getStepStatus("permissions", currentStep)}
-              skippable={false}
-              onBack={goBack}
-              onNext={goNext}
-            >
-              <PermissionsSection onContinue={goNext} />
-            </OnboardingSection>
+      <div
+        data-tauri-drag-region={headerDragRegion || undefined}
+        className={cn([
+          "sticky top-0 z-10 flex items-center justify-between",
+          headerClassName,
+        ])}
+      >
+        <h1 className="font-sans text-3xl font-semibold text-neutral-900">
+          Welcome to Anarlog
+        </h1>
+        <button
+          onClick={() => setIsMuted((prev) => !prev)}
+          data-tauri-drag-region="false"
+          className="rounded-full p-1.5 transition-colors hover:bg-neutral-100"
+          aria-label={isMuted ? "Unmute" : "Mute"}
+        >
+          {isMuted ? (
+            <VolumeXIcon size={16} className="text-neutral-400" />
+          ) : (
+            <Volume2Icon size={16} className="text-neutral-600" />
+          )}
+        </button>
+      </div>
 
-            <OnboardingSection
-              title="Create account"
-              description="Sign in to unlock powerful Al models, sync across devices, personalization, and workflow integrations."
-              completedTitle={
-                auth.session
-                  ? "Signed in"
-                  : didSkipLogin
-                    ? "Skipped"
-                    : "Account"
-              }
-              status={getStepStatus("login", currentStep)}
-              onBack={goBack}
-              onNext={goNext}
-              onSkip={() => {
-                setDidSkipLogin(true);
-                void analyticsCommands.event({
-                  event: "onboarding_login_skipped",
-                });
-              }}
-            >
-              <LoginSection
-                onContinue={goNext}
-                onSkip={() => setDidSkipLogin(true)}
-              />
-            </OnboardingSection>
+      <div className="relative z-10 flex-1 overflow-y-auto">
+        <div className="flex flex-col gap-4 px-12 pb-16">
+          <OnboardingSection
+            title="Start with permissions"
+            completedTitle="Permissions granted"
+            description="Anarlog needs access to your microphone and system audio to record and transcribe your meetings"
+            status={getStepStatus("permissions", currentStep)}
+            skippable={false}
+            onBack={goBack}
+            onNext={goNext}
+          >
+            <PermissionsSection onContinue={goNext} />
+          </OnboardingSection>
 
-            <OnboardingSection
-              title="Connect calendar"
-              description="Anarlog will sync your calendar to get meeting reminders"
-              completedTitle="Calendar connected"
-              status={getStepStatus("calendar", currentStep)}
-              onBack={goBack}
-              onNext={goNext}
-            >
-              <CalendarSection
-                onContinue={goNext}
-                onSignIn={handleCalendarSignIn}
-              />
-            </OnboardingSection>
+          <OnboardingSection
+            title="Create account"
+            description="Sign in to unlock powerful AI models, sync across devices, and personalization."
+            completedTitle={
+              auth.session ? "Signed in" : didSkipLogin ? "Skipped" : "Account"
+            }
+            status={getStepStatus("login", currentStep)}
+            onBack={goBack}
+            onNext={goNext}
+            onSkip={() => {
+              setDidSkipLogin(true);
+              void analyticsCommands.event({
+                event: "onboarding_login_skipped",
+              });
+            }}
+          >
+            <LoginSection
+              onContinue={goNext}
+              onSkip={() => setDidSkipLogin(true)}
+            />
+          </OnboardingSection>
 
-            <OnboardingSection
-              title="Storage"
-              description="Where your notes and recordings are stored"
-              completedTitle="Storage configured"
-              status={getStepStatus("folder-location", currentStep)}
-              onBack={goBack}
-              onNext={goNext}
-            >
-              <FolderLocationSection onContinue={goNext} />
-            </OnboardingSection>
+          <OnboardingSection
+            title="Connect calendar"
+            description="Anarlog will sync your calendar to get meeting reminders"
+            completedTitle="Calendar connected"
+            status={getStepStatus("calendar", currentStep)}
+            onBack={goBack}
+            onNext={goNext}
+          >
+            <CalendarSection
+              onContinue={goNext}
+              onSignIn={handleCalendarSignIn}
+            />
+          </OnboardingSection>
 
-            <OnboardingSection
-              title="Ready to go"
-              status={getStepStatus("final", currentStep)}
-              skippable={false}
-              onBack={goBack}
-              onNext={() => void finishOnboarding(handleFinish)}
-            >
-              <FinalSection onContinue={handleFinish} />
-            </OnboardingSection>
-          </div>
+          <OnboardingSection
+            title="Storage"
+            description="Where your notes and recordings are stored"
+            completedTitle="Storage configured"
+            status={getStepStatus("folder-location", currentStep)}
+            onBack={goBack}
+            onNext={goNext}
+          >
+            <FolderLocationSection onContinue={goNext} />
+          </OnboardingSection>
+
+          <OnboardingSection
+            title="Ready to go"
+            status={getStepStatus("final", currentStep)}
+            skippable={false}
+            onBack={goBack}
+            onNext={() => void finishOnboarding(handleFinish)}
+          >
+            <FinalSection onContinue={handleFinish} />
+          </OnboardingSection>
         </div>
       </div>
-    </StandardTabWrapper>
+    </div>
   );
 }

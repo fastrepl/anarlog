@@ -67,7 +67,7 @@ export function ClassicMainBody() {
 
   return (
     <div className="relative flex h-full min-w-0 flex-1 flex-col">
-      {showSidebarTimeline ? (
+      {isOnboarding ? null : showSidebarTimeline ? (
         <div
           data-tauri-drag-region
           className="absolute top-0 left-0 z-40 h-12 w-[200px]"

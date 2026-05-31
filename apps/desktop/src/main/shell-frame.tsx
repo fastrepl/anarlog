@@ -38,7 +38,10 @@ export function ClassicMainShellFrame() {
         : "default";
 
   return (
-    <MainShellScaffold mainSurfaceChrome={mainSurfaceChrome}>
+    <MainShellScaffold
+      edgeToEdge={isOnboarding}
+      mainSurfaceChrome={isOnboarding ? undefined : mainSurfaceChrome}
+    >
       <MainShellBodyFrame>
         <ClassicMainBody />
       </MainShellBodyFrame>

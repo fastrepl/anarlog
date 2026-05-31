@@ -132,6 +132,29 @@ describe("ClassicMainBody", () => {
     );
   });
 
+  it("does not reserve top shell chrome for onboarding", () => {
+    mocks.currentTab = {
+      active: true,
+      pinned: false,
+      slotId: "slot-1",
+      type: "onboarding",
+    };
+
+    const { container } = render(<ClassicMainBody />);
+    const body = container.firstElementChild;
+    const firstBodyChild = body?.firstElementChild;
+
+    expect(screen.queryByTestId("top-meeting-timeline")).toBeNull();
+    expect(screen.queryByTestId("toast-area")).toBeNull();
+    expect(firstBodyChild?.className).toContain(
+      "flex min-h-0 min-w-0 flex-1 gap-1",
+    );
+    expect(firstBodyChild?.hasAttribute("data-tauri-drag-region")).toBe(false);
+    expect(screen.getByTestId("main-tab-content").textContent).toContain(
+      "onboarding",
+    );
+  });
+
   it("hides the top timeline when the sidebar timeline is enabled", () => {
     mocks.sidebarTimelineEnabled = true;
 
