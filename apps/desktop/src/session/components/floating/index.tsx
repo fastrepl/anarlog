@@ -27,15 +27,17 @@ export function FloatingActionButton({
   skipReason?: string | null;
   tab: Extract<Tab, { type: "sessions" }>;
 }) {
-  const shouldShowListen = useShouldShowListeningFab(tab);
-  const shouldShowChat = useShouldShowChatFab(tab);
+  const sessionMode = useListener((state) => state.getSessionMode(tab.id));
+  const isLiveSessionActive = sessionMode === "active";
+  const shouldShowListen = useShouldShowListeningFab(tab, sessionMode);
+  const shouldShowChat = useShouldShowChatFab(tab, sessionMode);
   const isCaretNearBottom = useCaretPosition()?.isCaretNearBottom ?? false;
   const showSkipReason = !!skipReason;
   const showAction = shouldShowListen || shouldShowChat;
   const tuckAction =
     !showSkipReason &&
     showAction &&
-    (isCaretNearBottom || (shouldShowChat && hidden));
+    (isCaretNearBottom || (shouldShowChat && (hidden || isLiveSessionActive)));
 
   if (!showSkipReason && !showAction) {
     return null;
@@ -91,16 +93,23 @@ export function FloatingActionButton({
   );
 }
 
-function useShouldShowListeningFab(tab: Extract<Tab, { type: "sessions" }>) {
+function useShouldShowListeningFab(
+  tab: Extract<Tab, { type: "sessions" }>,
+  sessionMode: string,
+) {
   const currentTab = useCurrentNoteTab(tab);
   const hasTranscript = useHasTranscript(tab.id);
 
-  return currentTab.type === "raw" && !hasTranscript;
+  return (
+    sessionMode === "inactive" && currentTab.type === "raw" && !hasTranscript
+  );
 }
 
-function useShouldShowChatFab(tab: Extract<Tab, { type: "sessions" }>) {
+function useShouldShowChatFab(
+  tab: Extract<Tab, { type: "sessions" }>,
+  sessionMode: string,
+) {
   const hasTranscript = useHasTranscript(tab.id);
-  const sessionMode = useListener((state) => state.getSessionMode(tab.id));
   const currentTab = useCurrentNoteTab(tab);
   const enhancedNoteId = currentTab.type === "enhanced" ? currentTab.id : null;
   const taskId = enhancedNoteId
@@ -125,7 +134,14 @@ function useShouldShowChatFab(tab: Extract<Tab, { type: "sessions" }>) {
         !hasContent &&
         isBlockingLLMStatus(llmStatus)));
 
-  return hasTranscript && sessionMode === "inactive" && !hasVisibleIssue;
+  const canShowForSessionMode =
+    sessionMode === "inactive" || sessionMode === "active";
+
+  return (
+    canShowForSessionMode &&
+    (hasTranscript || sessionMode === "active") &&
+    !hasVisibleIssue
+  );
 }
 
 function isBlockingLLMStatus(status: LLMConnectionStatus) {
