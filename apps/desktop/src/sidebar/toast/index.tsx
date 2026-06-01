@@ -86,9 +86,8 @@ export function ToastArea() {
   );
 
   const handleOpenLLMSettings = useCallback(() => {
-    setToastActionTarget("llm");
     openAiTab("intelligence");
-  }, [openAiTab, setToastActionTarget]);
+  }, [openAiTab]);
 
   const handleOpenSTTSettings = useCallback(() => {
     setToastActionTarget("stt");

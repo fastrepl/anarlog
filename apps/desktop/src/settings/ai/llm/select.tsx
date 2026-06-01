@@ -8,7 +8,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@hypr/ui/components/ui/select";
-import { cn } from "@hypr/utils";
 
 import { useLlmSettings } from "./context";
 import { HealthStatusIndicator, useConnectionHealth } from "./health";
@@ -168,94 +167,86 @@ export function SelectProviderAndModel() {
   };
 
   return (
-    <div className="flex flex-col gap-3">
-      <h3 className="text-md font-sans font-semibold">Model being used</h3>
-      <div
-        className={cn([
-          "flex flex-col gap-4",
-          "rounded-xl border border-neutral-200 p-4",
-          !isConfigured || hasError ? "bg-red-50" : "bg-neutral-50",
-        ])}
-      >
-        <div className="flex flex-row items-center gap-4">
-          <div className="min-w-0 flex-2" data-llm-provider-selector>
-            <Select
-              value={current_llm_provider || ""}
-              onValueChange={handleProviderChange}
-            >
-              <SelectTrigger className="bg-white shadow-none focus:ring-0">
-                <SelectValue placeholder="Select a provider" />
-              </SelectTrigger>
-              <SelectContent>
-                {PROVIDERS.map((provider) => {
-                  const requiresPro = requiresEntitlement(
-                    provider.requirements,
-                    "pro",
-                  );
-                  const locked = requiresPro && !billing.isPaid;
+    <div className="flex flex-col gap-4">
+      {!isConfigured && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+          <span className="text-sm text-red-600">
+            <strong className="font-medium">Language model</strong> is needed to
+            make Anarlog summarize and chat about your conversations.
+          </span>
+        </div>
+      )}
 
-                  return (
-                    <SelectItem
-                      key={provider.id}
-                      value={provider.id}
-                      disabled={locked}
-                    >
-                      <div className="flex flex-col gap-0.5">
-                        <div className="flex items-center gap-2">
-                          <ProviderIconSlot>{provider.icon}</ProviderIconSlot>
-                          <span>{provider.displayName}</span>
-                          {requiresPro ? (
-                            <span className="rounded-full border border-neutral-200 px-2 py-0.5 text-[10px] tracking-wide text-neutral-500 uppercase">
-                              Pro
-                            </span>
-                          ) : null}
-                        </div>
-                        {locked ? (
-                          <span className="text-[11px] text-neutral-500">
-                            Upgrade to Pro to use this provider.
+      {hasError && health.message && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+          <span className="text-sm text-red-600">{health.message}</span>
+        </div>
+      )}
+
+      <h3 className="text-md font-sans font-semibold">Model being used</h3>
+      <div className="flex flex-row items-center gap-4">
+        <div className="min-w-0 flex-2" data-llm-provider-selector>
+          <Select
+            value={current_llm_provider || ""}
+            onValueChange={handleProviderChange}
+          >
+            <SelectTrigger className="bg-white shadow-none focus:ring-0">
+              <SelectValue placeholder="Select a provider" />
+            </SelectTrigger>
+            <SelectContent>
+              {PROVIDERS.map((provider) => {
+                const requiresPro = requiresEntitlement(
+                  provider.requirements,
+                  "pro",
+                );
+                const locked = requiresPro && !billing.isPaid;
+
+                return (
+                  <SelectItem
+                    key={provider.id}
+                    value={provider.id}
+                    disabled={locked}
+                  >
+                    <div className="flex flex-col gap-0.5">
+                      <div className="flex items-center gap-2">
+                        <ProviderIconSlot>{provider.icon}</ProviderIconSlot>
+                        <span>{provider.displayName}</span>
+                        {requiresPro ? (
+                          <span className="rounded-full border border-neutral-200 px-2 py-0.5 text-[10px] tracking-wide text-neutral-500 uppercase">
+                            Pro
                           </span>
                         ) : null}
                       </div>
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <span className="text-neutral-500">/</span>
-
-          <div className="min-w-0 flex-3">
-            <ModelCombobox
-              providerId={current_llm_provider || ""}
-              value={current_llm_model || ""}
-              onChange={handleModelChange}
-              disabled={!current_llm_provider}
-              listModels={
-                current_llm_provider
-                  ? configuredProviders[current_llm_provider]?.listModels
-                  : undefined
-              }
-              isConfigured={isConfigured}
-              suffix={isConfigured ? <HealthStatusIndicator /> : undefined}
-            />
-          </div>
+                      {locked ? (
+                        <span className="text-[11px] text-neutral-500">
+                          Upgrade to Pro to use this provider.
+                        </span>
+                      ) : null}
+                    </div>
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
         </div>
 
-        {!isConfigured && (
-          <div className="flex items-center gap-2 border-t border-red-200 pt-2">
-            <span className="text-sm text-red-600">
-              <strong className="font-medium">Language model</strong> is needed
-              to make Anarlog summarize and chat about your conversations.
-            </span>
-          </div>
-        )}
+        <span className="text-neutral-500">/</span>
 
-        {hasError && health.message && (
-          <div className="flex items-center gap-2 border-t border-red-200 pt-2">
-            <span className="text-sm text-red-600">{health.message}</span>
-          </div>
-        )}
+        <div className="min-w-0 flex-3">
+          <ModelCombobox
+            providerId={current_llm_provider || ""}
+            value={current_llm_model || ""}
+            onChange={handleModelChange}
+            disabled={!current_llm_provider}
+            listModels={
+              current_llm_provider
+                ? configuredProviders[current_llm_provider]?.listModels
+                : undefined
+            }
+            isConfigured={isConfigured}
+            suffix={isConfigured ? <HealthStatusIndicator /> : undefined}
+          />
+        </div>
       </div>
     </div>
   );
