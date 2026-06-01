@@ -3,10 +3,12 @@ import { XIcon } from "lucide-react";
 import { ChangelogContent } from "@hypr/changelog";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
 import { Button } from "@hypr/ui/components/ui/button";
+import { cn } from "@hypr/utils";
 
 import { useChangelogContent } from "./data";
 
 import { useShell } from "~/contexts/shell";
+import { useConfigValue } from "~/shared/config";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { StandardTabWrapper } from "~/shared/main";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
@@ -19,8 +21,11 @@ export function TabContentChangelog({
   tab: Extract<Tab, { type: "changelog" }>;
 }) {
   const { current } = tab.state;
-  const { chat } = useShell();
+  const { chat, leftsidebar } = useShell();
   const close = useTabs((state) => state.close);
+  const sidebarTimelineEnabled = useConfigValue("sidebar_timeline_enabled");
+  const showSidebarTimelineHeaderGutter =
+    sidebarTimelineEnabled && !leftsidebar.expanded;
 
   useMountEffect(() => {
     if (chat.mode !== "FloatingClosed") {
@@ -34,7 +39,11 @@ export function TabContentChangelog({
     <StandardTabWrapper>
       <div className="flex h-full flex-col">
         <div className="shrink-0 pr-1 pl-3">
-          <ChangelogHeader version={current} onClose={() => close(tab)} />
+          <ChangelogHeader
+            version={current}
+            showSidebarTimelineHeaderGutter={showSidebarTimelineHeaderGutter}
+            onClose={() => close(tab)}
+          />
         </div>
 
         <div className="relative mt-2 min-h-0 flex-1 overflow-hidden">
@@ -107,14 +116,21 @@ function ChangelogBody({
 }
 
 function ChangelogHeader({
+  showSidebarTimelineHeaderGutter,
   version,
   onClose,
 }: {
+  showSidebarTimelineHeaderGutter: boolean;
   version: string;
   onClose: () => void;
 }) {
   return (
-    <div className="flex h-12 w-full items-center">
+    <div
+      className={cn([
+        "flex h-12 w-full items-center",
+        showSidebarTimelineHeaderGutter && "pl-[156px]",
+      ])}
+    >
       <div className="flex w-full min-w-0 items-center justify-between gap-0">
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-xl font-semibold text-neutral-900">
