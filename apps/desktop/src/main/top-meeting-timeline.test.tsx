@@ -1,4 +1,5 @@
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -8,7 +9,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  createNewMeeting: vi.fn(),
+  createNewNote: vi.fn(),
   liveSessionId: null as string | null,
   openNew: vi.fn(),
   startDragging: vi.fn().mockResolvedValue(undefined),
@@ -60,7 +61,7 @@ vi.mock("~/shared/hooks/useNativeContextMenu", () => ({
 }));
 
 vi.mock("~/shared/useNewNote", () => ({
-  useNewNoteAndListen: () => mocks.createNewMeeting,
+  useNewNote: () => mocks.createNewNote,
 }));
 
 vi.mock("~/store/tinybase/hooks", () => ({
@@ -150,7 +151,7 @@ import {
 
 describe("TopMeetingTimeline", () => {
   beforeEach(() => {
-    mocks.createNewMeeting.mockClear();
+    mocks.createNewNote.mockClear();
     mocks.openNew.mockClear();
     mocks.startDragging.mockClear();
     mocks.stopListening.mockClear();
@@ -170,7 +171,7 @@ describe("TopMeetingTimeline", () => {
     render(<TopMeetingTimeline currentTab={null} />);
 
     const createButton = screen.getByRole("button", {
-      name: /Create new meeting/,
+      name: /Create new note/,
     });
 
     fireEvent.pointerDown(createButton, {
@@ -182,14 +183,14 @@ describe("TopMeetingTimeline", () => {
     fireEvent.click(createButton);
 
     expect(mocks.startDragging).not.toHaveBeenCalled();
-    expect(mocks.createNewMeeting).toHaveBeenCalledTimes(1);
+    expect(mocks.createNewNote).toHaveBeenCalledTimes(1);
   });
 
   it("starts window drag and ignores the release click after dragging", () => {
     render(<TopMeetingTimeline currentTab={null} />);
 
     const createButton = screen.getByRole("button", {
-      name: /Create new meeting/,
+      name: /Create new note/,
     });
 
     fireEvent.pointerDown(createButton, {
@@ -206,7 +207,7 @@ describe("TopMeetingTimeline", () => {
     fireEvent.click(createButton);
 
     expect(mocks.startDragging).toHaveBeenCalledTimes(1);
-    expect(mocks.createNewMeeting).not.toHaveBeenCalled();
+    expect(mocks.createNewNote).not.toHaveBeenCalled();
   });
 
   it("shows timeline item titles above start time metadata", () => {
@@ -224,10 +225,11 @@ describe("TopMeetingTimeline", () => {
     render(<TopMeetingTimeline currentTab={null} />);
 
     const title = screen.getByText("Design Review");
-    const startMetadata = screen.getByText(startLabel);
-    const buttonText = title.closest("button")?.textContent ?? "";
+    const cardButton = title.closest("button");
+    const startMetadata = within(cardButton!).getByText(startLabel);
+    const buttonText = cardButton?.textContent ?? "";
 
-    expect(title.closest("button")).toBe(startMetadata.closest("button"));
+    expect(cardButton).toBe(startMetadata.closest("button"));
     expect(buttonText.indexOf("Design Review")).toBeLessThan(
       buttonText.indexOf(startLabel),
     );
@@ -369,7 +371,7 @@ describe("TopMeetingTimeline", () => {
     expect(indicatorX).toBe(cardWidth / 2);
   });
 
-  it("places the current time marker between open-ended notes and future meetings", () => {
+  it("places the create note card next to the latest note instead of a future event", () => {
     const now = new Date("2026-05-29T15:41:00.000Z");
     vi.useFakeTimers();
     vi.setSystemTime(now);
@@ -393,12 +395,123 @@ describe("TopMeetingTimeline", () => {
 
     render(<TopMeetingTimeline currentTab={null} />);
 
-    expect(screen.getByTestId("top-timeline-now-indicator").style.left).toBe(
-      "162px",
+    const createButton = screen.getByRole("button", {
+      name: /Create new note/,
+    });
+    const createCard = createButton.closest(
+      "[data-timeline-start-ms]",
+    ) as HTMLDivElement | null;
+    const cardWidth = Number.parseFloat(createCard?.style.width ?? "");
+    const carousel = createCard?.parentElement as HTMLDivElement | null;
+    const timelineCards = Array.from(
+      document.querySelectorAll<HTMLElement>("[data-timeline-start-ms]"),
     );
+    const indicatorX = Number.parseFloat(
+      screen.getByTestId("top-timeline-now-indicator").style.left,
+    );
+
+    expect(timelineCards[0]?.textContent).toContain("Untitled");
+    expect(timelineCards[1]?.textContent).toContain("Create new note");
+    expect(timelineCards[2]?.textContent).toContain("Design sync");
+    expect(createCard?.textContent).not.toContain("Today");
+    expect(createCard?.textContent).not.toContain("3:41 PM");
+    expect(cardWidth).toBe(160);
+    expect(carousel?.style.width).toBe("512px");
+    expect(indicatorX).toBe(164);
   });
 
-  it("hides the current time marker during active ad-hoc meetings", () => {
+  it("keeps same-day events before the current-time create note card", () => {
+    const now = new Date("2026-05-29T15:41:00.000Z");
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+
+    mocks.timelineSessionsTable = {
+      "session-1": {
+        created_at: new Date("2026-05-29T15:28:00.000Z").toISOString(),
+        event_json: "",
+        title: "Untitled",
+      },
+    };
+    mocks.timelineEventsTable = {
+      "event-1": {
+        calendar_id: null,
+        ended_at: new Date("2026-05-29T16:00:00.000Z").toISOString(),
+        has_recurrence_rules: false,
+        started_at: new Date("2026-05-29T15:33:00.000Z").toISOString(),
+        title: "Post-note event",
+      },
+    };
+
+    render(<TopMeetingTimeline currentTab={null} />);
+
+    screen.getByRole("button", { name: /Create new note/ });
+    const timelineCards = Array.from(
+      document.querySelectorAll<HTMLElement>("[data-timeline-start-ms]"),
+    );
+
+    expect(timelineCards[0]?.textContent).toContain("Untitled");
+    expect(timelineCards[1]?.textContent).toContain("Post-note event");
+    expect(timelineCards[2]?.textContent).toContain("Create new note");
+  });
+
+  it("places the create note card before future notes", () => {
+    const now = new Date("2026-05-29T15:41:00.000Z");
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+
+    mocks.timelineSessionsTable = {
+      "session-1": {
+        created_at: new Date("2026-05-29T15:28:00.000Z").toISOString(),
+        event_json: "",
+        title: "Current note",
+      },
+      "session-2": {
+        created_at: new Date("2026-05-29T16:15:00.000Z").toISOString(),
+        event_json: "",
+        title: "Future note",
+      },
+    };
+
+    render(<TopMeetingTimeline currentTab={null} />);
+
+    const timelineCards = Array.from(
+      document.querySelectorAll<HTMLElement>("[data-timeline-start-ms]"),
+    );
+
+    expect(timelineCards[0]?.textContent).toContain("Current note");
+    expect(timelineCards[1]?.textContent).toContain("Create new note");
+    expect(timelineCards[2]?.textContent).toContain("Future note");
+  });
+
+  it("keeps manual scroll when the trailing create note clock ticks", () => {
+    const now = new Date("2026-05-29T15:41:00.000Z");
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+
+    render(<TopMeetingTimeline currentTab={null} />);
+
+    const createCard = screen
+      .getByRole("button", { name: /Create new note/ })
+      .closest("[data-timeline-start-ms]") as HTMLDivElement | null;
+    const scrollContainer = createCard?.parentElement?.parentElement;
+
+    expect(scrollContainer).toBeTruthy();
+
+    Object.defineProperty(scrollContainer, "clientWidth", {
+      configurable: true,
+      value: 100,
+    });
+    scrollContainer!.scrollLeft = 42;
+
+    act(() => {
+      vi.setSystemTime(new Date(now.getTime() + 60_100));
+      vi.advanceTimersByTime(60_100);
+    });
+
+    expect(scrollContainer!.scrollLeft).toBe(42);
+  });
+
+  it("keeps create note visible next to active ad-hoc meetings", () => {
     const now = new Date("2026-05-29T15:41:00.000Z");
     vi.useFakeTimers();
     vi.setSystemTime(now);
@@ -415,6 +528,15 @@ describe("TopMeetingTimeline", () => {
 
     render(<TopMeetingTimeline currentTab={null} />);
 
+    const timelineCards = Array.from(
+      document.querySelectorAll<HTMLElement>("[data-timeline-start-ms]"),
+    );
+
+    expect(timelineCards[0]?.textContent).toContain("Live Ad-hoc");
+    expect(timelineCards[1]?.textContent).toContain("Create new note");
+    expect(
+      screen.getByRole("button", { name: /Create new note/ }),
+    ).toBeTruthy();
     expect(screen.queryByTestId("top-timeline-now-indicator")).toBeNull();
   });
 
@@ -460,11 +582,11 @@ describe("TopMeetingTimeline", () => {
       configurable: true,
       value: 100,
     });
-    scrollContainer!.scrollLeft = 250;
+    scrollContainer!.scrollLeft = 380;
     fireEvent.scroll(scrollContainer!);
 
     fireEvent.click(screen.getByRole("button", { name: "Now" }));
 
-    expect(scrollContainer!.scrollLeft).toBe(112);
+    expect(scrollContainer!.scrollLeft).toBe(114);
   });
 });

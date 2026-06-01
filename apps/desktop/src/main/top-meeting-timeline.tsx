@@ -56,7 +56,7 @@ import {
   type MenuItemDef,
   useNativeContextMenu,
 } from "~/shared/hooks/useNativeContextMenu";
-import { useNewNoteAndListen } from "~/shared/useNewNote";
+import { useNewNote } from "~/shared/useNewNote";
 import { useCurrentTimeMs } from "~/sidebar/timeline/realtime";
 import type {
   TimelineEventRow,
@@ -74,6 +74,7 @@ import { useListener } from "~/stt/contexts";
 const TIMELINE_HEIGHT = 44;
 const TIMELINE_CAROUSEL_CARD_WIDTH = 160;
 const TIMELINE_CAROUSEL_PADDING = 0;
+const TIMELINE_CAROUSEL_END_PADDING = 24;
 const TIMELINE_CAROUSEL_GAP = 4;
 const TIMELINE_PAST_DAYS = 6;
 const TIMELINE_FUTURE_DAYS = 1;
@@ -165,7 +166,7 @@ export function TopMeetingTimeline({ currentTab }: { currentTab: Tab | null }) {
 
   const [todayChipDirection, setTodayChipDirection] =
     useState<TodayChipDirection | null>(null);
-  const createNewMeeting = useNewNoteAndListen({ behavior: "current" });
+  const createNewNote = useNewNote({ behavior: "current" });
   const openNew = useTabs((state) => state.openNew);
 
   const renderItems = useMemo(
@@ -193,7 +194,8 @@ export function TopMeetingTimeline({ currentTab }: { currentTab: Tab | null }) {
         endExclusive: timelineEnd,
         hasHiddenPastItems,
         hasHiddenFutureItems,
-        timezone,
+        currentTime: new Date(currentTimeMs),
+        includeCreateNote: true,
       }),
     [
       renderItems,
@@ -202,7 +204,7 @@ export function TopMeetingTimeline({ currentTab }: { currentTab: Tab | null }) {
       timelineEnd,
       hasHiddenPastItems,
       hasHiddenFutureItems,
-      timezone,
+      currentTimeMs,
     ],
   );
   const carouselWidth = getTimelineCarouselWidth(carouselItems);
@@ -440,12 +442,11 @@ export function TopMeetingTimeline({ currentTab }: { currentTab: Tab | null }) {
               />
             ) : null}
             {carouselItems.map((renderItem) =>
-              renderItem.kind === "create-meeting" ? (
-                <TimelineCreateMeetingCard
+              renderItem.kind === "create-note" ? (
+                <TimelineCreateNoteCard
                   key={renderItem.id}
                   item={renderItem}
-                  timezone={timezone}
-                  onClick={createNewMeeting}
+                  onClick={createNewNote}
                 />
               ) : renderItem.kind === "open-calendar" ? (
                 <TimelineOpenCalendarCard
@@ -699,8 +700,8 @@ type TimelineRenderItem = {
   start: Date;
 };
 
-type TimelineCreateMeetingItem = {
-  kind: "create-meeting";
+type TimelineCreateNoteItem = {
+  kind: "create-note";
   id: string;
   start: Date;
 };
@@ -713,7 +714,7 @@ type TimelineOpenCalendarItem = {
 
 type TimelineCarouselItem =
   | TimelineRenderItem
-  | TimelineCreateMeetingItem
+  | TimelineCreateNoteItem
   | TimelineOpenCalendarItem;
 
 function TimelineCarouselCard({
@@ -738,13 +739,11 @@ function TimelineCarouselCard({
   );
 }
 
-function TimelineCreateMeetingCard({
+function TimelineCreateNoteCard({
   item,
-  timezone,
   onClick,
 }: {
-  item: TimelineCreateMeetingItem;
-  timezone?: string;
+  item: TimelineCreateNoteItem;
   onClick: () => void;
 }) {
   return (
@@ -761,12 +760,9 @@ function TimelineCreateMeetingCard({
         ])}
         onClick={onClick}
       >
-        <span className="font-mono text-[10px] text-neutral-500">
-          {formatRelativeTimelineDay(item.start, timezone)}
-        </span>
         <span className="flex min-w-0 items-center gap-1.5 truncate text-xs font-semibold text-neutral-700">
           <PlusIcon size={12} className="shrink-0" />
-          <span className="truncate">Create new meeting</span>
+          <span className="truncate">Create new note</span>
         </span>
       </button>
     </div>
@@ -1003,7 +999,8 @@ function buildTimelineCarouselItems({
   endExclusive,
   hasHiddenPastItems,
   hasHiddenFutureItems,
-  timezone,
+  currentTime,
+  includeCreateNote,
 }: {
   renderItems: TimelineRenderItem[];
   currentDate: Date;
@@ -1011,30 +1008,22 @@ function buildTimelineCarouselItems({
   endExclusive: Date;
   hasHiddenPastItems: boolean;
   hasHiddenFutureItems: boolean;
-  timezone?: string;
+  currentTime: Date;
+  includeCreateNote: boolean;
 }): TimelineCarouselItem[] {
-  const items: TimelineCarouselItem[] = [...renderItems];
-  const hasToday = items.some((item) =>
-    isSameTimelineDay(
-      getTimelineCarouselItemStart(item),
-      currentDate,
-      timezone,
-    ),
-  );
-
-  if (!hasToday) {
-    items.push({
-      kind: "create-meeting",
-      id: `create-meeting-${currentDate.getTime()}`,
-      start: currentDate,
-    });
-  }
+  const items: TimelineRenderItem[] = [...renderItems];
 
   const sortedItems = items.sort(
     (a, b) =>
       getTimelineCarouselItemStart(a).getTime() -
       getTimelineCarouselItemStart(b).getTime(),
   );
+  const visibleItems = includeCreateNote
+    ? insertCreateNoteAtCurrentTime(sortedItems, {
+        currentDate,
+        currentTime,
+      })
+    : sortedItems;
 
   const result: TimelineCarouselItem[] = hasHiddenPastItems
     ? [
@@ -1043,9 +1032,9 @@ function buildTimelineCarouselItems({
           id: `open-calendar-${startInclusive.getTime()}`,
           start: startInclusive,
         },
-        ...sortedItems,
+        ...visibleItems,
       ]
-    : sortedItems;
+    : visibleItems;
 
   if (hasHiddenFutureItems) {
     result.push({
@@ -1056,6 +1045,36 @@ function buildTimelineCarouselItems({
   }
 
   return result;
+}
+
+function insertCreateNoteAtCurrentTime(
+  items: TimelineRenderItem[],
+  {
+    currentDate,
+    currentTime,
+  }: {
+    currentDate: Date;
+    currentTime: Date;
+  },
+): TimelineCarouselItem[] {
+  const createNote: TimelineCreateNoteItem = {
+    kind: "create-note",
+    id: `create-note-${currentDate.getTime()}`,
+    start: currentTime,
+  };
+  const chronologicalIndex = items.findIndex(
+    (item) => item.start.getTime() > currentTime.getTime(),
+  );
+
+  if (chronologicalIndex === -1) {
+    return [...items, createNote];
+  }
+
+  return [
+    ...items.slice(0, chronologicalIndex),
+    createNote,
+    ...items.slice(chronologicalIndex),
+  ];
 }
 
 function hasTimelineEntriesBefore(
@@ -1094,6 +1113,7 @@ function getTimelineCarouselWidth(items: TimelineCarouselItem[]): number {
 
   return (
     TIMELINE_CAROUSEL_PADDING * 2 +
+    TIMELINE_CAROUSEL_END_PADDING +
     contentWidth +
     TIMELINE_CAROUSEL_GAP * Math.max(0, items.length - 1)
   );
@@ -1207,6 +1227,14 @@ function getTimelineCarouselNowX(
   }
 
   if (previousItem && nextItem) {
+    if (previousItem.item.kind === "create-note") {
+      return previousItem.left;
+    }
+
+    if (nextItem.item.kind === "create-note") {
+      return nextItem.left;
+    }
+
     return previousItem.right + (nextItem.left - previousItem.right) / 2;
   }
 
@@ -1216,6 +1244,10 @@ function getTimelineCarouselNowX(
 
   if (!previousItem) {
     return null;
+  }
+
+  if (previousItem.item.kind === "create-note") {
+    return previousItem.left;
   }
 
   if (previousItem.item.kind !== "item") {
@@ -1340,9 +1372,15 @@ function getTimelineCarouselAnchorKey(
   return [
     selectedSessionId ?? "today",
     items.length,
-    first ? getTimelineCarouselItemStart(first).getTime() : 0,
-    last ? getTimelineCarouselItemStart(last).getTime() : 0,
+    first ? getTimelineCarouselAnchorToken(first) : 0,
+    last ? getTimelineCarouselAnchorToken(last) : 0,
   ].join(":");
+}
+
+function getTimelineCarouselAnchorToken(item: TimelineCarouselItem): string {
+  return item.kind === "create-note"
+    ? item.id
+    : String(getTimelineCarouselItemStart(item).getTime());
 }
 
 function getTimelineCarouselItemStart(item: TimelineCarouselItem): Date {
