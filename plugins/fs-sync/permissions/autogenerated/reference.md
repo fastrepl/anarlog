@@ -27,6 +27,7 @@ Default permissions for the fs-sync plugin
 - `allow-entity-dir`
 - `allow-attachment-save`
 - `allow-attachment-list`
+- `allow-attachment-read`
 - `allow-attachment-remove`
 
 ## Permission Table
@@ -60,6 +61,32 @@ Enables the attachment_list command without any pre-configured scope.
 <td>
 
 Denies the attachment_list command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fs-sync:allow-attachment-read`
+
+</td>
+<td>
+
+Enables the attachment_read command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fs-sync:deny-attachment-read`
+
+</td>
+<td>
+
+Denies the attachment_read command without any pre-configured scope.
 
 </td>
 </tr>

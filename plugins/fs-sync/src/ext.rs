@@ -64,6 +64,14 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> FsSync<'a, R, M> {
         self.core()?.attachment_list(session_id)
     }
 
+    pub fn attachment_read(
+        &self,
+        session_id: &str,
+        attachment_id: &str,
+    ) -> Result<Vec<u8>, crate::Error> {
+        self.core()?.attachment_read(session_id, attachment_id)
+    }
+
     pub fn attachment_remove(
         &self,
         session_id: &str,

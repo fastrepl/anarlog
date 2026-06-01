@@ -22,6 +22,7 @@ const COMMANDS: &[&str] = &[
     "entity_dir",
     "attachment_save",
     "attachment_list",
+    "attachment_read",
     "attachment_remove",
 ];
 

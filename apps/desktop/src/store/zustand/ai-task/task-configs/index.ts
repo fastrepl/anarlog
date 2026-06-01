@@ -7,6 +7,7 @@ import type {
   TitleUser,
 } from "@hypr/plugin-template";
 
+import type { EnhanceImageContext } from "./enhance-images";
 import { enhanceSuccess } from "./enhance-success";
 import { enhanceTransform } from "./enhance-transform";
 import { enhanceWorkflow } from "./enhance-workflow";
@@ -27,7 +28,10 @@ export interface TaskArgsMap {
 }
 
 export interface TaskArgsMapTransformed {
-  enhance: EnhanceSystem & EnhanceUser;
+  enhance: EnhanceSystem &
+    EnhanceUser & {
+      imageContext: EnhanceImageContext[];
+    };
   title: TitleSystem & TitleUser;
 }
 

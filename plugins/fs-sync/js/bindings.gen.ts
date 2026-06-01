@@ -190,6 +190,14 @@ async attachmentList(sessionId: string) : Promise<Result<AttachmentInfo[], strin
     else return { status: "error", error: e  as any };
 }
 },
+async attachmentRead(sessionId: string, attachmentId: string) : Promise<Result<number[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:fs-sync|attachment_read", { sessionId, attachmentId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async attachmentRemove(sessionId: string, attachmentId: string) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:fs-sync|attachment_remove", { sessionId, attachmentId }) };

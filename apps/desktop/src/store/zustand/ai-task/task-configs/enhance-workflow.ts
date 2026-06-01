@@ -1,9 +1,11 @@
 import {
   generateText,
+  type ImagePart,
   type LanguageModel,
   Output,
   smoothStream,
   streamText,
+  type TextPart,
 } from "ai";
 import { z } from "zod";
 
@@ -14,6 +16,7 @@ import {
 import { templateSectionSchema } from "@hypr/store";
 
 import type { TaskArgsMapTransformed, TaskConfig } from ".";
+import type { EnhanceImageContext } from "./enhance-images";
 import { createEnhanceValidator } from "./enhance-validator";
 
 import type { Store } from "~/store/tinybase/store/main";
@@ -24,6 +27,8 @@ import { assertCanonicalTemplateSections } from "~/templates/codec";
 const AI_GENERATION_MAX_RETRIES = 4;
 const TEMPLATE_MAX_OUTPUT_TOKENS = 2048;
 const SUMMARY_MAX_OUTPUT_TOKENS = 8192;
+const IMAGE_CONTEXT_NOTE =
+  "Attached note images are included as visual context. Use visible text, diagrams, screenshots, and other image content when it materially improves the summary.";
 
 export const enhanceWorkflow: Pick<
   TaskConfig<"enhance">,
@@ -58,7 +63,10 @@ async function* executeWorkflow(params: {
   };
 
   const system = await getSystemPrompt(argsWithTemplate);
-  const prompt = await getUserPrompt(argsWithTemplate, store);
+  const prompt = withImageContextNote(
+    await getUserPrompt(argsWithTemplate, store),
+    argsWithTemplate.imageContext.length,
+  );
 
   yield* generateSummary({
     model,
@@ -137,13 +145,17 @@ async function generateTemplateIfNeeded(params: {
     onProgress({ type: "analyzing" });
 
     const schema = z.object({ sections: z.array(templateSectionSchema) });
-    const userPrompt = await getUserPrompt(args, store);
+    const userPrompt = withImageContextNote(
+      await getUserPrompt(args, store),
+      args.imageContext.length,
+    );
 
     const result = await generateStructuredOutput({
       model,
       schema,
       signal,
       prompt: createTemplatePrompt(userPrompt, schema),
+      imageContext: args.imageContext,
     });
 
     if (!result) {
@@ -189,8 +201,9 @@ async function generateStructuredOutput<T extends z.ZodTypeAny>(params: {
   schema: T;
   signal: AbortSignal;
   prompt: string;
+  imageContext: EnhanceImageContext[];
 }): Promise<z.infer<T> | null> {
-  const { model, schema, signal, prompt } = params;
+  const { model, schema, signal, prompt, imageContext } = params;
 
   try {
     const result = await generateText({
@@ -200,7 +213,7 @@ async function generateStructuredOutput<T extends z.ZodTypeAny>(params: {
       abortSignal: signal,
       maxRetries: AI_GENERATION_MAX_RETRIES,
       maxOutputTokens: TEMPLATE_MAX_OUTPUT_TOKENS,
-      prompt,
+      ...createPromptInput(prompt, imageContext),
     });
 
     if (!result.output) {
@@ -216,7 +229,7 @@ async function generateStructuredOutput<T extends z.ZodTypeAny>(params: {
         abortSignal: signal,
         maxRetries: AI_GENERATION_MAX_RETRIES,
         maxOutputTokens: TEMPLATE_MAX_OUTPUT_TOKENS,
-        prompt,
+        ...createPromptInput(prompt, imageContext),
       });
 
       const jsonMatch = fallbackResult.text.match(/\{[\s\S]*\}/);
@@ -268,7 +281,7 @@ IMPORTANT: Previous attempt failed. ${previousFeedback}`;
         const result = streamText({
           model,
           system,
-          prompt: enhancedPrompt,
+          ...createPromptInput(enhancedPrompt, args.imageContext),
           abortSignal: combinedController.signal,
           maxRetries: AI_GENERATION_MAX_RETRIES,
           maxOutputTokens: SUMMARY_MAX_OUTPUT_TOKENS,
@@ -295,4 +308,45 @@ IMPORTANT: Previous attempt failed. ${previousFeedback}`;
       },
     },
   );
+}
+
+function withImageContextNote(prompt: string, imageCount: number): string {
+  if (imageCount === 0) {
+    return prompt;
+  }
+
+  return `${prompt}
+
+${IMAGE_CONTEXT_NOTE}`;
+}
+
+function createPromptInput(
+  prompt: string,
+  imageContext: EnhanceImageContext[],
+):
+  | { prompt: string }
+  | {
+      messages: Array<{ role: "user"; content: Array<TextPart | ImagePart> }>;
+    } {
+  if (imageContext.length === 0) {
+    return { prompt };
+  }
+
+  return {
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "text", text: prompt },
+          ...imageContext.map(
+            (image): ImagePart => ({
+              type: "image",
+              image: image.base64,
+              mediaType: image.mimeType,
+            }),
+          ),
+        ],
+      },
+    ],
+  };
 }

@@ -6,8 +6,10 @@ import type {
 } from "@hypr/plugin-template";
 
 import type { TaskArgsMap, TaskArgsMapTransformed, TaskConfig } from ".";
+import { collectEnhanceImageContext } from "./enhance-images";
 
 import { getSessionEventById } from "~/session/utils";
+import { modelSupportsImageInput } from "~/settings/ai/shared/model-capabilities";
 import type { Store as MainStore } from "~/store/tinybase/store/main";
 import type { Store as SettingsStore } from "~/store/tinybase/store/settings";
 import {
@@ -56,6 +58,15 @@ async function transformArgs(
     sessionContext.transcriptsMeta,
     store,
   );
+  const imageContext = modelSupportsImageInput(
+    getOptionalSettingsValue(settingsStore, "current_llm_provider"),
+    getOptionalSettingsValue(settingsStore, "current_llm_model"),
+  )
+    ? await collectEnhanceImageContext(sessionId, [
+        sessionContext.preMeetingMemo,
+        sessionContext.postMeetingMemo,
+      ])
+    : [];
 
   return {
     language,
@@ -65,6 +76,7 @@ async function transformArgs(
     preMeetingMemo: sessionContext.preMeetingMemo,
     postMeetingMemo: sessionContext.postMeetingMemo,
     transcripts: formatTranscripts(segments, sessionContext.transcriptsMeta),
+    imageContext,
   };
 }
 
@@ -115,6 +127,14 @@ function formatTranscripts(
 function getLanguage(settingsStore: SettingsStore): string | null {
   const value = settingsStore.getValue("ai_language");
   return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function getOptionalSettingsValue(
+  settingsStore: SettingsStore,
+  valueId: string,
+): string | undefined {
+  const value = settingsStore.getValue(valueId as any);
+  return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
 function getSessionContext(sessionId: string, store: MainStore) {

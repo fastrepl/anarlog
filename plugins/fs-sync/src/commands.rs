@@ -360,6 +360,20 @@ pub(crate) async fn attachment_list<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
+pub(crate) async fn attachment_read<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    session_id: String,
+    attachment_id: String,
+) -> Result<Vec<u8>, String> {
+    spawn_blocking!({
+        app.fs_sync()
+            .attachment_read(&session_id, &attachment_id)
+            .map_err(|e| e.to_string())
+    })
+}
+
+#[tauri::command]
+#[specta::specta]
 pub(crate) async fn attachment_remove<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     session_id: String,

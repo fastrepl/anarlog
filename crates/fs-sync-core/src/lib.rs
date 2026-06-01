@@ -250,6 +250,14 @@ impl FsSyncCore {
         Ok(attachments)
     }
 
+    pub fn attachment_read(&self, session_id: &str, attachment_id: &str) -> Result<Vec<u8>> {
+        let session_dir = self.resolve_session_dir(session_id);
+        let attachments_dir = session_dir.join("attachments");
+        let safe_attachment_id = sanitize_filename(attachment_id)?;
+
+        Ok(std::fs::read(attachments_dir.join(safe_attachment_id))?)
+    }
+
     pub fn attachment_remove(&self, session_id: &str, attachment_id: &str) -> Result<()> {
         let session_dir = self.resolve_session_dir(session_id);
         let attachments_dir = session_dir.join("attachments");
@@ -574,6 +582,22 @@ mod tests {
             .child("attachments")
             .child("file 1.txt")
             .assert(predicates::path::exists());
+    }
+
+    #[test]
+    fn attachment_read_returns_saved_bytes() {
+        let temp = TempDir::new().unwrap();
+        temp.child("sessions")
+            .child(UUID_1)
+            .create_dir_all()
+            .unwrap();
+
+        let core = FsSyncCore::new(temp.path().to_path_buf());
+        core.attachment_save(UUID_1, b"hello", "image.png").unwrap();
+
+        let bytes = core.attachment_read(UUID_1, "image.png").unwrap();
+
+        assert_eq!(bytes, b"hello");
     }
 
     #[test]

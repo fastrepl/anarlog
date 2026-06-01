@@ -24,5 +24,6 @@ permissions = [
     "allow-entity-dir",
     "allow-attachment-save",
     "allow-attachment-list",
+    "allow-attachment-read",
     "allow-attachment-remove",
 ]
