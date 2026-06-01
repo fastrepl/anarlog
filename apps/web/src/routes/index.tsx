@@ -1,3 +1,4 @@
+import { Icon } from "@iconify-icon/react";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { ArrowRight, ChevronDown, KeyRound, WifiOff } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -296,45 +297,15 @@ function PrivacyVisual({
   return (
     <div className="flex h-20 items-center select-none md:h-28 md:w-full">
       <div className="flex items-center gap-3 rounded-2xl border border-neutral-200 bg-white py-2 pr-8 pl-2 shadow-lg md:w-full">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-500/10">
-          <GoogleMeetIcon className="size-5" />
-        </div>
+        <Icon icon="logos:google-meet" width={32} height={32} />
         <div className="flex flex-col gap-1">
           <span className="text-sm font-medium text-stone-800">
-            1-1 w/ Janice
+            Sprint 3 planning
           </span>
-          <span className="text-sm text-stone-400">3 participants</span>
+          <span className="text-sm text-stone-400">5 participants</span>
         </div>
       </div>
     </div>
-  );
-}
-
-function GoogleMeetIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-      className={className}
-      fill="none"
-    >
-      <path
-        d="M4 7.5A2.5 2.5 0 0 1 6.5 5h6.75L16 7.75v8.75A2.5 2.5 0 0 1 13.5 19h-7A2.5 2.5 0 0 1 4 16.5v-9Z"
-        fill="#00AC47"
-      />
-      <path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H9v5.5H4v-3Z" fill="#FFBA00" />
-      <path d="M4 13.5h5V19H6.5A2.5 2.5 0 0 1 4 16.5v-3Z" fill="#EA4335" />
-      <path d="M9 5h4.25L16 7.75v2.75H9V5Z" fill="#2684FC" />
-      <path d="M9 13.5h7v3A2.5 2.5 0 0 1 13.5 19H9v-5.5Z" fill="#00832D" />
-      <path
-        d="M16 9.25 20.4 6A1 1 0 0 1 22 6.8v10.4a1 1 0 0 1-1.6.8L16 14.75v-5.5Z"
-        fill="#00AC47"
-      />
-      <path
-        d="M16 9.25 20.4 6A1 1 0 0 1 22 6.8v3.95L16 14.75v-5.5Z"
-        fill="#2684FC"
-      />
-    </svg>
   );
 }
 
