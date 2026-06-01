@@ -78,7 +78,7 @@ describe("PersistentChatPanel", () => {
     } as typeof ResizeObserver;
   });
 
-  it("anchors the floating panel to the bottom-right of the note surface", async () => {
+  it("anchors the floating panel to the bottom center of the note surface", async () => {
     render(<TestHost />);
 
     await screen.findByTestId("chat-view");
@@ -88,8 +88,8 @@ describe("PersistentChatPanel", () => {
 
     await waitFor(() => {
       expect(resizeFrame?.className).toContain("items-end");
-      expect(resizeFrame?.className).toContain("justify-end");
-      expect(panel?.style.transformOrigin).toBe("bottom right");
+      expect(resizeFrame?.className).toContain("justify-center");
+      expect(panel?.style.transformOrigin).toBe("bottom center");
     });
   });
 
@@ -105,7 +105,7 @@ describe("PersistentChatPanel", () => {
     });
   });
 
-  it("resizes bottom handles by the pointer movement when bottom anchored", async () => {
+  it("resizes the bottom handle by the pointer movement", async () => {
     vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
       function (this: HTMLElement) {
         if (this.matches("[data-chat-panel]")) {
@@ -251,6 +251,20 @@ describe("PersistentChatPanel", () => {
     dragHandle("top-right", { x: 660, y: 240 }, { x: 700, y: 200 });
     expect(panel?.style.width).toBe("460px");
     expect(panel?.style.height).toBe("400px");
+  });
+
+  it("does not render bottom corner handles or visible corner indicators", async () => {
+    render(<TestHost />);
+
+    await screen.findByTestId("chat-view");
+
+    expect(
+      document.querySelector('[data-chat-resize-handle="bottom-left"]'),
+    ).toBeNull();
+    expect(
+      document.querySelector('[data-chat-resize-handle="bottom-right"]'),
+    ).toBeNull();
+    expect(document.querySelector("[data-chat-resize-handle] span")).toBeNull();
   });
 
   it("hides the floating panel when the chat moves to the right panel", async () => {

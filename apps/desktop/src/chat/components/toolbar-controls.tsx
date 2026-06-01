@@ -14,11 +14,6 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@hypr/ui/components/ui/dropdown-menu";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@hypr/ui/components/ui/tooltip";
 import { cn, formatDistanceToNow } from "@hypr/utils";
 
 import * as main from "~/store/tinybase/store/main";
@@ -47,7 +42,7 @@ export function ChatToolbarControls({
     <div
       className={cn([
         "flex h-full w-full min-w-0 items-center gap-2",
-        isDark ? "px-2" : "px-0",
+        isRightPanel ? "px-3" : isDark ? "px-2" : "px-0",
       ])}
     >
       <div className="flex min-w-0 flex-1 items-center gap-1">
@@ -60,8 +55,8 @@ export function ChatToolbarControls({
       <div className="flex shrink-0 items-center gap-1">
         <ChatActionButton
           icon={<Plus size={16} />}
+          label="New chat"
           onClick={onNewChat}
-          title="New chat"
           className={isDark ? darkToolbarButtonClassName : undefined}
         />
         <ChatActionButton
@@ -77,12 +72,13 @@ export function ChatToolbarControls({
               ? (onOpenFloating ?? (() => {}))
               : (onOpenRightPanel ?? (() => {}))
           }
-          title={isRightPanel ? "Float chat" : "Open in right panel"}
+          label={isRightPanel ? "Float chat" : "Open in right panel"}
           className={cn([
             isDark
               ? darkToolbarButtonClassName
               : isRightPanel &&
                 "bg-neutral-100 text-neutral-900 hover:bg-neutral-100",
+            isRightPanel && "mr-1",
           ])}
         />
       </div>
@@ -91,34 +87,29 @@ export function ChatToolbarControls({
 }
 
 const darkToolbarButtonClassName =
-  "size-8 rounded-lg text-stone-300 hover:bg-white/7 hover:text-white";
+  "size-8 bg-transparent text-stone-300 hover:!bg-white/7 hover:!text-white focus-visible:!bg-white/7 focus-visible:!text-white active:!bg-white/10";
 
 function ChatActionButton({
   className,
   icon,
-  title,
+  label,
   onClick,
 }: {
   className?: string;
   icon: React.ReactNode;
-  title: string;
+  label: string;
   onClick: () => void;
 }) {
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          onClick={onClick}
-          title={title}
-          size="icon"
-          variant="ghost"
-          className={cn(["text-neutral-600", className])}
-        >
-          {icon}
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent side="bottom">{title}</TooltipContent>
-    </Tooltip>
+    <Button
+      aria-label={label}
+      onClick={onClick}
+      size="icon"
+      variant="ghost"
+      className={cn(["rounded-full text-neutral-600", className])}
+    >
+      {icon}
+    </Button>
   );
 }
 
@@ -157,7 +148,7 @@ function ChatGroups({
           className={cn([
             "group flex h-8 max-w-full min-w-0 justify-start gap-1.5 px-2 py-0 text-left",
             isDark
-              ? "w-fit rounded-lg text-stone-100 hover:bg-white/7 hover:text-white data-[state=open]:bg-white/7"
+              ? "w-fit rounded-full text-stone-100 hover:bg-white/7 hover:text-white data-[state=open]:bg-white/7"
               : "text-neutral-700",
           ])}
         >

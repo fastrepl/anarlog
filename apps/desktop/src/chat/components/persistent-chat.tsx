@@ -56,14 +56,6 @@ const RESIZE_HANDLES = [
     id: "left",
     className: "top-7 bottom-7 left-0 w-3 cursor-ew-resize",
   },
-  {
-    id: "bottom-left",
-    className: "bottom-0 left-0 h-7 w-7 cursor-nesw-resize",
-  },
-  {
-    id: "bottom-right",
-    className: "right-0 bottom-0 h-7 w-7 cursor-nwse-resize",
-  },
 ] as const;
 
 type ResizeHandle = (typeof RESIZE_HANDLES)[number]["id"];
@@ -204,7 +196,7 @@ export function PersistentChatPanel({
           minHeight: "min(320px, calc(100% - 1rem))",
           maxWidth: "calc(100% - 2rem)",
           maxHeight: "calc(100% - 1rem)",
-          transformOrigin: "bottom right",
+          transformOrigin: "bottom center",
         };
 
   const handleResizeStart = (
@@ -300,7 +292,7 @@ export function PersistentChatPanel({
             data-chat-resize-frame
             className={cn([
               "pointer-events-auto relative flex h-full min-h-0",
-              "items-end justify-end p-4",
+              "items-end justify-center p-4",
             ])}
             onClick={(event) => {
               if (event.target === event.currentTarget) {
@@ -342,9 +334,7 @@ export function PersistentChatPanel({
                   onPointerMove={handleResizeMove}
                   onPointerUp={handleResizeEnd}
                   onPointerCancel={handleResizeEnd}
-                >
-                  <ResizeHandleIndicator handle={handle.id} />
-                </div>
+                />
               ))}
             </motion.div>
           </div>
@@ -352,38 +342,6 @@ export function PersistentChatPanel({
       )}
     </AnimatePresence>
   );
-}
-
-function ResizeHandleIndicator({ handle }: { handle: ResizeHandle }) {
-  const className = getResizeHandleIndicatorClassName(handle);
-
-  if (!className) {
-    return null;
-  }
-
-  return (
-    <span
-      className={cn([
-        "pointer-events-none absolute h-3 w-3 border-stone-300/45",
-        className,
-      ])}
-    />
-  );
-}
-
-function getResizeHandleIndicatorClassName(handle: ResizeHandle) {
-  switch (handle) {
-    case "top-left":
-      return "top-1.5 left-1.5 rounded-tl-md border-t border-l";
-    case "top-right":
-      return "top-1.5 right-1.5 rounded-tr-md border-t border-r";
-    case "bottom-left":
-      return "bottom-1.5 left-1.5 rounded-bl-md border-b border-l";
-    case "bottom-right":
-      return "right-1.5 bottom-1.5 rounded-br-md border-r border-b";
-    default:
-      return null;
-  }
 }
 
 function getFloatingPanelStyle(
@@ -399,7 +357,7 @@ function getFloatingPanelStyle(
   return {
     width: `${clampedSize.width}px`,
     height: `${clampedSize.height}px`,
-    transformOrigin: "bottom right",
+    transformOrigin: "bottom center",
   };
 }
 

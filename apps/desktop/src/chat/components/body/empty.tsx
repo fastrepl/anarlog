@@ -45,7 +45,8 @@ export function ChatBodyEmpty({
 }) {
   const { chat } = useShell();
   const openNew = useTabs((state) => state.openNew);
-  const isFloating = chat.mode === "FloatingOpen";
+  const isDarkSurface =
+    chat.mode === "FloatingOpen" || chat.mode === "RightPanelOpen";
 
   const handleGoToSettings = useCallback(() => {
     openNew({ type: "settings", state: { tab: "intelligence" } });
@@ -66,7 +67,7 @@ export function ChatBodyEmpty({
             <span
               className={cn([
                 "text-sm font-medium",
-                isFloating ? "text-white" : "text-neutral-800",
+                isDarkSurface ? "text-white" : "text-neutral-800",
               ])}
             >
               Anarlog AI
@@ -76,7 +77,7 @@ export function ChatBodyEmpty({
           <p
             className={cn([
               "mb-2 text-sm",
-              isFloating ? "text-stone-200" : "text-neutral-700",
+              isDarkSurface ? "text-stone-200" : "text-neutral-700",
             ])}
           >
             Hi, I'm Anarlog AI. Set up a language model and I'll be ready to
@@ -104,7 +105,7 @@ export function ChatBodyEmpty({
           <span
             className={cn([
               "text-sm font-medium",
-              isFloating ? "text-white" : "text-neutral-800",
+              isDarkSurface ? "text-white" : "text-neutral-800",
             ])}
           >
             Anarlog AI
@@ -114,7 +115,7 @@ export function ChatBodyEmpty({
         <p
           className={cn([
             "mb-2 text-sm",
-            isFloating ? "text-stone-200" : "text-neutral-700",
+            isDarkSurface ? "text-stone-200" : "text-neutral-700",
           ])}
         >
           Hi, I'm Anarlog AI. I can help you pull context from your notes, find
@@ -128,7 +129,7 @@ export function ChatBodyEmpty({
                 onClick={() => handleSuggestionClick(prompt)}
                 className={cn([
                   "inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px]",
-                  isFloating
+                  isDarkSurface
                     ? "border-stone-600 bg-stone-700 text-stone-100 hover:bg-stone-600"
                     : "border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-100",
                   "transition-colors",

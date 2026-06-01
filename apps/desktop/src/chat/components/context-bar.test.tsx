@@ -9,9 +9,15 @@ import {
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { openNewMock, searchMock, storeState } = vi.hoisted(() => ({
+const { openNewMock, searchMock, shellState, storeState } = vi.hoisted(() => ({
   openNewMock: vi.fn(),
   searchMock: vi.fn(),
+  shellState: {
+    mode: "FloatingOpen" as
+      | "FloatingClosed"
+      | "FloatingOpen"
+      | "RightPanelOpen",
+  },
   storeState: {
     rows: {} as Record<string, Record<string, unknown>>,
     sessionIds: [] as string[],
@@ -40,7 +46,7 @@ vi.mock("@hypr/ui/components/ui/tooltip", () => ({
 vi.mock("~/contexts/shell", () => ({
   useShell: () => ({
     chat: {
-      mode: "FloatingOpen",
+      mode: shellState.mode,
     },
   }),
 }));
@@ -103,6 +109,7 @@ describe("ContextBar session picker", () => {
     cleanup();
     openNewMock.mockClear();
     searchMock.mockReset();
+    shellState.mode = "FloatingOpen";
     storeState.rows = {};
     storeState.sessionIds = [];
     globalThis.ResizeObserver = class {
@@ -178,5 +185,18 @@ describe("ContextBar session picker", () => {
 
     expect(await screen.findByText("Hydrated Note")).toBeTruthy();
     expect(screen.queryByText(/1970/)).toBeNull();
+  });
+
+  it("uses balanced context bar horizontal margin in the right panel", () => {
+    shellState.mode = "RightPanelOpen";
+
+    renderContextBar();
+
+    const outer = document.querySelector("[data-chat-context-bar]");
+
+    expect(outer?.className).toContain("mx-3");
+    expect(outer?.className).not.toContain("mx-5");
+    expect(outer?.className).not.toContain("mx-2");
+    expect(outer?.className).not.toContain("mr-0");
   });
 });

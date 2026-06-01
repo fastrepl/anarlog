@@ -34,7 +34,8 @@ export function MessageBubble({
   children: ReactNode;
 }) {
   const { chat } = useShell();
-  const isFloating = chat.mode === "FloatingOpen";
+  const isDarkSurface =
+    chat.mode === "FloatingOpen" || chat.mode === "RightPanelOpen";
 
   return (
     <div
@@ -43,11 +44,11 @@ export function MessageBubble({
         variant === "user" &&
           "w-fit max-w-full rounded-2xl bg-blue-100 px-3 py-1 text-neutral-800 [&_p]:[text-wrap:wrap]",
         variant === "assistant" &&
-          (isFloating
+          (isDarkSurface
             ? "rounded-2xl bg-white/95 px-3 py-1 text-neutral-800"
             : "text-neutral-800"),
         variant === "loading" &&
-          (isFloating
+          (isDarkSurface
             ? "w-fit rounded-2xl bg-white/95 px-3 py-1 text-neutral-800"
             : "text-neutral-800"),
         variant === "error" &&

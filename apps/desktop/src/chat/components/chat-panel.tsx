@@ -47,15 +47,14 @@ export function ChatView({
     <div
       className={cn([
         "flex h-full min-h-0 flex-col overflow-hidden",
-        isFloating ? "bg-stone-800 text-white" : "bg-stone-50",
+        "bg-stone-800 text-white",
       ])}
     >
       <div
         className={cn([
           "flex shrink-0 items-center pr-0 pl-0",
-          isFloating
-            ? "h-11 border-b border-stone-700/80"
-            : "h-10 border-b border-neutral-100",
+          isFloating ? "h-11" : "h-12",
+          "border-b border-stone-700/80",
         ])}
       >
         <ChatToolbarControls
@@ -65,7 +64,7 @@ export function ChatView({
           onOpenFloating={onOpenFloating}
           onOpenRightPanel={onOpenRightPanel}
           onSelectChat={chat.selectChat}
-          surface={isFloating ? "dark" : "light"}
+          surface="dark"
         />
       </div>
       {user_id && (

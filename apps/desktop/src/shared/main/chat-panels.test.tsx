@@ -135,8 +135,16 @@ describe("MainChatPanels", () => {
     expect(screen.getAllByTestId("panel")).toHaveLength(2);
     expect(screen.getByTestId("resize-handle")).toBeTruthy();
     expect(screen.getByTestId("chat-view").dataset.layout).toBe("right-panel");
-    expect(document.querySelector("[data-chat-right-panel]")).toBeInstanceOf(
-      HTMLDivElement,
-    );
+    const rightPanel = document.querySelector("[data-chat-right-panel]");
+
+    expect(rightPanel).toBeInstanceOf(HTMLDivElement);
+    expect(rightPanel?.className).toContain("bg-stone-800");
+    expect(rightPanel?.className).toContain("border-x");
+    expect(rightPanel?.className).toContain("border-stone-600");
+    expect(rightPanel?.className).not.toContain("border-b-0");
+    expect(rightPanel?.className).toContain("rounded-tr-xl");
+    expect(rightPanel?.className).not.toContain("rounded-t-xl");
+    expect(rightPanel?.className).not.toContain("ml-2");
+    expect(rightPanel?.className).not.toContain("mr-1");
   });
 });

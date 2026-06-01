@@ -7,11 +7,17 @@ import {
 } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { clearContentMock, editorState } = vi.hoisted(() => ({
+const { clearContentMock, editorState, shellState } = vi.hoisted(() => ({
   clearContentMock: vi.fn(),
   editorState: {
     json: undefined as unknown,
     onUpdate: undefined as undefined | ((json: unknown) => void),
+  },
+  shellState: {
+    mode: "FloatingOpen" as
+      | "FloatingClosed"
+      | "FloatingOpen"
+      | "RightPanelOpen",
   },
 }));
 
@@ -49,7 +55,7 @@ vi.mock("@hypr/plugin-analytics", () => ({
 vi.mock("~/contexts/shell", () => ({
   useShell: () => ({
     chat: {
-      mode: "FloatingOpen",
+      mode: shellState.mode,
     },
   }),
 }));
@@ -66,6 +72,7 @@ describe("ChatMessageInput", () => {
     clearContentMock.mockClear();
     editorState.json = { type: "doc", content: [] };
     editorState.onUpdate = undefined;
+    shellState.mode = "FloatingOpen";
   });
 
   it("disables send until the draft has content", () => {
@@ -115,5 +122,24 @@ describe("ChatMessageInput", () => {
     expect(screen.getByTestId("chat-editor").className).toContain(
       "text-neutral-900",
     );
+  });
+
+  it("uses balanced outer padding in the right panel", () => {
+    shellState.mode = "RightPanelOpen";
+
+    render(
+      <ChatMessageInput draftKey="chat-input-test" onSendMessage={vi.fn()} />,
+    );
+
+    const messageInput = screen
+      .getByTestId("chat-editor")
+      .closest("[data-chat-message-input]");
+    const outerContainer = messageInput?.parentElement?.parentElement;
+
+    expect(outerContainer?.className).toContain("px-3");
+    expect(outerContainer?.className).toContain("pb-5");
+    expect(outerContainer?.className).not.toContain("px-5");
+    expect(outerContainer?.className).not.toContain("px-2");
+    expect(outerContainer?.className).not.toContain("pr-0");
   });
 });

@@ -145,6 +145,17 @@ describe("Basic Tab Actions", () => {
     });
   });
 
+  test("openNew collapses docked chat when opening settings", () => {
+    const session = createSessionTab({ id: "tab1", active: false });
+
+    useTabs.getState().openNew(session);
+    useTabs.getState().transitionChatMode({ type: "OPEN_RIGHT_PANEL" });
+    useTabs.getState().openNew({ type: "settings" });
+
+    expect(useTabs.getState()).toHaveCurrentTab({ type: "settings" });
+    expect(useTabs.getState().chatMode).toBe("FloatingClosed");
+  });
+
   test("openNew refreshes settings return target when reusing its tab", () => {
     const session1 = createSessionTab({ id: "tab1", active: false });
     const session2 = createSessionTab({ id: "tab2", active: false });

@@ -54,9 +54,10 @@ export function ChatMessageInput({
   useAutoFocusEditor({ editorRef, disabled, shouldFocus });
   const mentionConfig = useMentionConfig();
   const isSendDisabled = Boolean(disabled) || !hasContent;
+  const isRightPanel = chat.mode === "RightPanelOpen";
 
   return (
-    <Container hasContextBar={hasContextBar}>
+    <Container hasContextBar={hasContextBar} isRightPanel={isRightPanel}>
       <div data-chat-message-input className="flex flex-col px-2 pt-3 pb-2">
         <div className="mb-1 min-h-0 flex-1">
           <ChatEditor
@@ -117,12 +118,19 @@ export function ChatMessageInput({
 function Container({
   children,
   hasContextBar,
+  isRightPanel,
 }: {
   children: React.ReactNode;
   hasContextBar?: boolean;
+  isRightPanel: boolean;
 }) {
   return (
-    <div className="relative min-w-0 shrink-0 px-2 pb-2">
+    <div
+      className={cn([
+        "relative min-w-0 shrink-0",
+        isRightPanel ? "px-3 pb-5" : "px-2 pb-2",
+      ])}
+    >
       <div
         className={cn([
           "flex max-h-full flex-col border border-neutral-200 bg-white",

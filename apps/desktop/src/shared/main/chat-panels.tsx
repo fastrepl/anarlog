@@ -44,7 +44,7 @@ export function MainChatPanels({ children }: { children: React.ReactNode }) {
             >
               <div
                 data-chat-right-panel
-                className="mr-1 -mb-1 ml-2 h-[calc(100%+0.25rem)] min-h-0 overflow-hidden rounded-t-xl border border-b-0 border-neutral-200 bg-stone-50"
+                className="-mb-1 h-[calc(100%+0.25rem)] min-h-0 overflow-hidden rounded-tr-xl border-x border-stone-600 bg-stone-800"
               >
                 <ChatView
                   layout="right-panel"
