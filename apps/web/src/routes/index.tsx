@@ -1,4 +1,4 @@
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { ArrowRight, ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
@@ -140,12 +140,6 @@ function Component() {
 
       <div className="mx-auto w-full max-w-[700px] px-5 py-8 md:px-8 md:py-12">
         <div className="min-w-0">
-          <header className="flex items-center justify-between gap-6">
-            <Link to="/" aria-label="Anarlog home">
-              <img src="/logo.svg" alt="Anarlog" className="h-9 w-auto" />
-            </Link>
-          </header>
-
           <section className="pt-24 pb-16 md:pt-32">
             <h1 className="font-hand max-w-3xl text-6xl leading-[0.98] font-semibold tracking-normal text-balance md:text-8xl">
               AI notepad for private meetings.
