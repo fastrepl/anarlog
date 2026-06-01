@@ -17,6 +17,7 @@ struct DevtoolsPanelView: View {
         VStack(spacing: 10) {
           navigationSection
           toastsSection
+          otaSection
           notificationsSection
           billingSection
           countdownSection
@@ -150,6 +151,26 @@ struct DevtoolsPanelView: View {
       }
       DevtoolsActionButton("Clear") {
         RustBridge.devtoolsPanelAction("notifications:clear")
+      }
+    }
+  }
+
+  private var otaSection: some View {
+    DevtoolsSection(title: "OTA") {
+      DevtoolsActionButton("Available") {
+        RustBridge.devtoolsPanelAction("ota:available")
+      }
+      DevtoolsActionButton("Downloading") {
+        RustBridge.devtoolsPanelAction("ota:downloading")
+      }
+      DevtoolsActionButton("Ready") {
+        RustBridge.devtoolsPanelAction("ota:ready")
+      }
+      DevtoolsActionButton("Failed") {
+        RustBridge.devtoolsPanelAction("ota:failed")
+      }
+      DevtoolsActionButton("Clear") {
+        RustBridge.devtoolsPanelAction("ota:clear")
       }
     }
   }

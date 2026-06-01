@@ -16,7 +16,7 @@ specta-typescript = { workspace = true }
 [dependencies]
 tauri-plugin-store2 = { workspace = true }
 tauri-plugin-updater = { workspace = true }
-tokio = { workspace = true, features = ["macros", "time"] }
+tokio = { workspace = true, features = ["macros", "time", "sync"] }
 
 tauri = { workspace = true, features = ["test"] }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }

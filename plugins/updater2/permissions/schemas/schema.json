@@ -331,6 +331,18 @@
           "markdownDescription": "Denies the install command without any pre-configured scope."
         },
         {
+          "description": "Enables the is_downloaded command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-is-downloaded",
+          "markdownDescription": "Enables the is_downloaded command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the is_downloaded command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-is-downloaded",
+          "markdownDescription": "Denies the is_downloaded command without any pre-configured scope."
+        },
+        {
           "description": "Enables the maybe_emit_updated command without any pre-configured scope.",
           "type": "string",
           "const": "allow-maybe-emit-updated",
@@ -355,10 +367,10 @@
           "markdownDescription": "Denies the postinstall command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-check`\n- `allow-download`\n- `allow-install`\n- `allow-postinstall`\n- `allow-maybe-emit-updated`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-check`\n- `allow-download`\n- `allow-install`\n- `allow-is-downloaded`\n- `allow-postinstall`\n- `allow-maybe-emit-updated`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-check`\n- `allow-download`\n- `allow-install`\n- `allow-postinstall`\n- `allow-maybe-emit-updated`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-check`\n- `allow-download`\n- `allow-install`\n- `allow-is-downloaded`\n- `allow-postinstall`\n- `allow-maybe-emit-updated`"
         }
       ]
     }

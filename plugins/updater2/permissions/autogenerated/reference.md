@@ -7,6 +7,7 @@ Default permissions for the plugin
 - `allow-check`
 - `allow-download`
 - `allow-install`
+- `allow-is-downloaded`
 - `allow-postinstall`
 - `allow-maybe-emit-updated`
 
@@ -93,6 +94,32 @@ Enables the install command without any pre-configured scope.
 <td>
 
 Denies the install command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`updater2:allow-is-downloaded`
+
+</td>
+<td>
+
+Enables the is_downloaded command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`updater2:deny-is-downloaded`
+
+</td>
+<td>
+
+Denies the is_downloaded command without any pre-configured scope.
 
 </td>
 </tr>

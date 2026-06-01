@@ -30,6 +30,14 @@ async install(version: string) : Promise<Result<InstallResult, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async isDownloaded(version: string) : Promise<Result<boolean, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:updater2|is_downloaded", { version }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async postinstall(result: InstallResult) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:updater2|postinstall", { result }) };

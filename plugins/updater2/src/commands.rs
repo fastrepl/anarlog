@@ -34,6 +34,15 @@ pub(crate) async fn install<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
+pub(crate) fn is_downloaded<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    version: String,
+) -> Result<bool, String> {
+    Ok(app.updater2().has_cached_update(&version))
+}
+
+#[tauri::command]
+#[specta::specta]
 pub(crate) async fn postinstall<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     result: InstallResult,

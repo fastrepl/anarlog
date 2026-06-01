@@ -13,6 +13,12 @@ import { cn } from "@hypr/utils";
 import { ClassicMainSidebar } from "./shell-sidebar";
 import { ClassicMainTabContent } from "./tab-content";
 import { TopMeetingTimeline } from "./top-meeting-timeline";
+import {
+  type DesktopUpdateControl,
+  SidebarTimelineUpdateButton,
+  TimelineUpdateBanner,
+  useDesktopUpdateControl,
+} from "./update-banner";
 import { useClassicMainTabsShortcuts } from "./useTabsShortcuts";
 
 import { useShell } from "~/contexts/shell";
@@ -61,6 +67,7 @@ export function ClassicMainBody() {
   const enableMainAreaTopDrag =
     showSidebarTimelineChrome || hasLeftSurfaceCustomSidebar;
   const mainAreaTopDrag = useMainAreaTopWindowDrag(enableMainAreaTopDrag);
+  const update = useDesktopUpdateControl();
 
   return (
     <div className="relative flex h-full min-w-0 flex-1 flex-col">
@@ -74,7 +81,7 @@ export function ClassicMainBody() {
         >
           <div
             data-tauri-drag-region
-            className="flex h-full min-w-0 items-start pt-[9px] pl-[76px]"
+            className="flex h-full min-w-0 items-start pt-[9px] pr-3 pl-[76px]"
           >
             <SidebarTimelineChrome
               sidebarExpanded={leftsidebar.expanded}
@@ -83,6 +90,7 @@ export function ClassicMainBody() {
               onBack={goBack}
               onForward={goNext}
               onToggleSidebar={leftsidebar.toggleExpanded}
+              update={update}
             />
           </div>
         </div>
@@ -129,6 +137,7 @@ export function ClassicMainBody() {
           </div>
         </div>
       ) : null}
+      {showTopTimeline ? <TimelineUpdateBanner update={update} /> : null}
       <div className="flex min-h-0 min-w-0 flex-1 gap-1">
         <ClassicMainSidebar />
         <div
@@ -267,6 +276,7 @@ function SidebarTimelineChrome({
   onForward,
   onToggleSidebar,
   sidebarExpanded,
+  update,
 }: {
   canGoBack: boolean;
   canGoNext: boolean;
@@ -274,44 +284,53 @@ function SidebarTimelineChrome({
   onForward: () => void;
   onToggleSidebar: () => void;
   sidebarExpanded: boolean;
+  update: DesktopUpdateControl;
 }) {
+  const updateVisible = Boolean(update.status && update.version);
+
   return (
-    <div className="flex items-center gap-0">
-      <LeftSurfaceChromeButton
-        ariaLabel={sidebarExpanded ? "Hide sidebar" : "Show sidebar"}
-        onClick={onToggleSidebar}
-      >
-        {sidebarExpanded ? (
-          <PanelLeftCloseIcon size={14} />
-        ) : (
-          <PanelLeftOpenIcon size={14} />
-        )}
-      </LeftSurfaceChromeButton>
-      <LeftSurfaceChromeButton
-        ariaLabel="Go back"
-        disabled={!canGoBack}
-        onClick={onBack}
-      >
-        <ArrowLeftIcon size={14} />
-      </LeftSurfaceChromeButton>
-      <LeftSurfaceChromeButton
-        ariaLabel="Go forward"
-        disabled={!canGoNext}
-        onClick={onForward}
-      >
-        <ArrowRightIcon size={14} />
-      </LeftSurfaceChromeButton>
+    <div className="flex w-full items-center justify-between">
+      <div className="flex items-center gap-0">
+        <LeftSurfaceChromeButton
+          ariaLabel={sidebarExpanded ? "Hide sidebar" : "Show sidebar"}
+          badge={!sidebarExpanded && updateVisible}
+          onClick={onToggleSidebar}
+        >
+          {sidebarExpanded ? (
+            <PanelLeftCloseIcon size={14} />
+          ) : (
+            <PanelLeftOpenIcon size={14} />
+          )}
+        </LeftSurfaceChromeButton>
+        <LeftSurfaceChromeButton
+          ariaLabel="Go back"
+          disabled={!canGoBack}
+          onClick={onBack}
+        >
+          <ArrowLeftIcon size={14} />
+        </LeftSurfaceChromeButton>
+        <LeftSurfaceChromeButton
+          ariaLabel="Go forward"
+          disabled={!canGoNext}
+          onClick={onForward}
+        >
+          <ArrowRightIcon size={14} />
+        </LeftSurfaceChromeButton>
+      </div>
+      {sidebarExpanded ? <SidebarTimelineUpdateButton update={update} /> : null}
     </div>
   );
 }
 
 function LeftSurfaceChromeButton({
   ariaLabel,
+  badge = false,
   children,
   disabled = false,
   onClick,
 }: {
   ariaLabel: string;
+  badge?: boolean;
   children: React.ReactNode;
   disabled?: boolean;
   onClick: () => void;
@@ -323,7 +342,7 @@ function LeftSurfaceChromeButton({
       data-tauri-drag-region="false"
       disabled={disabled}
       className={cn([
-        "flex size-7 items-center justify-center rounded-full",
+        "relative flex size-7 items-center justify-center rounded-full",
         "text-neutral-700 transition-colors hover:bg-neutral-100 hover:text-neutral-900",
         "focus-visible:ring-2 focus-visible:ring-neutral-900 focus-visible:outline-hidden",
         "disabled:text-neutral-300 disabled:hover:bg-transparent disabled:hover:text-neutral-300",
@@ -331,6 +350,13 @@ function LeftSurfaceChromeButton({
       onClick={onClick}
     >
       {children}
+      {badge ? (
+        <span
+          aria-hidden="true"
+          data-testid="collapsed-sidebar-update-badge"
+          className="pointer-events-none absolute top-1 right-1 size-1.5 rounded-full bg-red-500 ring-2 ring-stone-50"
+        />
+      ) : null}
     </button>
   );
 }

@@ -15,6 +15,10 @@ import { getLatestVersion } from "~/changelog";
 import { useDevtoolsStore, useDevtoolsUserId } from "~/devtools-panel/hooks";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import {
+  type DevtoolsOtaPreviewStatus,
+  useDevtoolsOtaPreview,
+} from "~/store/zustand/devtools-ota-preview";
+import {
   type DevtoolsToastPreview,
   useDevtoolsToastPreview,
 } from "~/store/zustand/devtools-toast-preview";
@@ -37,6 +41,11 @@ type DevtoolsPanelAction =
   | `toasts:preview:${DevtoolsToastPreview}`
   | "toasts:preview:clear"
   | "toasts:reset-dismissed"
+  | "ota:available"
+  | "ota:downloading"
+  | "ota:ready"
+  | "ota:failed"
+  | "ota:clear"
   | "notifications:calendar"
   | "notifications:mic-detected"
   | "notifications:mic-options"
@@ -124,6 +133,8 @@ function useDevtoolsPanelActions() {
   const clearToastPreview = useDevtoolsToastPreview(
     (state) => state.clearPreview,
   );
+  const showOtaPreview = useDevtoolsOtaPreview((state) => state.showPreview);
+  const clearOtaPreview = useDevtoolsOtaPreview((state) => state.clearPreview);
   const [trialStartedOpen, setTrialStartedOpen] = useState(false);
   const [trialEndedOpen, setTrialEndedOpen] = useState(false);
   const [shouldThrow, setShouldThrow] = useState(false);
@@ -177,6 +188,14 @@ function useDevtoolsPanelActions() {
       showToastPreview(preview);
     },
     [showMainWindow, showToastPreview],
+  );
+
+  const showOtaPreviewInMainWindow = useCallback(
+    async (preview: DevtoolsOtaPreviewStatus) => {
+      await showMainWindow();
+      showOtaPreview(preview);
+    },
+    [showMainWindow, showOtaPreview],
   );
 
   const showCalendarNotification = useCallback(async () => {
@@ -380,6 +399,21 @@ function useDevtoolsPanelActions() {
         case "toasts:reset-dismissed":
           void commands.setDismissedToasts([]);
           return;
+        case "ota:available":
+          void showOtaPreviewInMainWindow("available");
+          return;
+        case "ota:downloading":
+          void showOtaPreviewInMainWindow("downloading");
+          return;
+        case "ota:ready":
+          void showOtaPreviewInMainWindow("ready");
+          return;
+        case "ota:failed":
+          void showOtaPreviewInMainWindow("failed");
+          return;
+        case "ota:clear":
+          clearOtaPreview();
+          return;
         case "notifications:calendar":
           void showCalendarNotification();
           return;
@@ -438,6 +472,8 @@ function useDevtoolsPanelActions() {
       showOnboarding,
       showToastPreviewInMainWindow,
       clearToastPreview,
+      showOtaPreview,
+      clearOtaPreview,
     ],
   );
 

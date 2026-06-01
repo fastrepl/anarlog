@@ -18,6 +18,16 @@ const mocks = vi.hoisted(() => ({
   canGoBack: false,
   canGoNext: false,
   leftSidebarExpanded: true,
+  sidebarUpdateControl: {
+    status: null as null | "available" | "downloading" | "ready" | "failed",
+    version: null as string | null,
+    progress: null as number | null,
+    errorMessage: null as string | null,
+    downloadStarting: false,
+    installing: false,
+    downloadUpdate: vi.fn(),
+    installUpdate: vi.fn(),
+  },
   currentTab: {
     active: true,
     pinned: false,
@@ -51,6 +61,19 @@ vi.mock("~/main/tab-content", () => ({
 
 vi.mock("~/main/top-meeting-timeline", () => ({
   TopMeetingTimeline: () => <div data-testid="top-meeting-timeline" />,
+}));
+
+vi.mock("~/main/update-banner", () => ({
+  SidebarTimelineUpdateButton: ({
+    update,
+  }: {
+    update: { status: string | null; version: string | null };
+  }) =>
+    update.status && update.version ? (
+      <button type="button" data-testid="sidebar-update-button" />
+    ) : null,
+  TimelineUpdateBanner: () => <div data-testid="timeline-update-banner" />,
+  useDesktopUpdateControl: () => mocks.sidebarUpdateControl,
 }));
 
 vi.mock("~/main/shell-sidebar", () => ({
@@ -103,6 +126,14 @@ describe("ClassicMainBody", () => {
     mocks.canGoBack = false;
     mocks.canGoNext = false;
     mocks.leftSidebarExpanded = true;
+    mocks.sidebarUpdateControl.status = null;
+    mocks.sidebarUpdateControl.version = null;
+    mocks.sidebarUpdateControl.progress = null;
+    mocks.sidebarUpdateControl.errorMessage = null;
+    mocks.sidebarUpdateControl.downloadStarting = false;
+    mocks.sidebarUpdateControl.installing = false;
+    mocks.sidebarUpdateControl.downloadUpdate.mockClear();
+    mocks.sidebarUpdateControl.installUpdate.mockClear();
     mocks.currentTab = {
       active: true,
       pinned: false,
@@ -130,6 +161,7 @@ describe("ClassicMainBody", () => {
     expect(timeline.parentElement?.className).toContain("flex-1");
     expect(topArea?.className).toContain("h-12");
     expect(topArea?.hasAttribute("data-tauri-drag-region")).toBe(true);
+    expect(screen.getByTestId("timeline-update-banner")).toBeTruthy();
     expect(screen.getByTestId("main-sidebar")).toBeTruthy();
     expect(screen.getByTestId("main-tab-content").textContent).toContain(
       "empty",
@@ -149,6 +181,7 @@ describe("ClassicMainBody", () => {
     const firstBodyChild = body?.firstElementChild;
 
     expect(screen.queryByTestId("top-meeting-timeline")).toBeNull();
+    expect(screen.queryByTestId("timeline-update-banner")).toBeNull();
     expect(screen.queryByTestId("toast-area")).toBeNull();
     expect(firstBodyChild?.className).toContain(
       "flex min-h-0 min-w-0 flex-1 gap-1",
@@ -165,14 +198,17 @@ describe("ClassicMainBody", () => {
     render(<ClassicMainBody />);
 
     expect(screen.queryByTestId("top-meeting-timeline")).toBeNull();
+    expect(screen.queryByTestId("timeline-update-banner")).toBeNull();
     expect(screen.queryByTestId("toast-area")).toBeNull();
     const sidebar = screen.getByTestId("main-sidebar");
     const sidebarToggle = screen.getByRole("button", { name: "Hide sidebar" });
     const backButton = screen.getByRole("button", { name: "Go back" });
-    const topArea = backButton.parentElement?.parentElement?.parentElement;
+    const chrome = sidebarToggle.parentElement?.parentElement;
+    const topArea = chrome?.parentElement?.parentElement;
 
     expect(sidebar).toBeTruthy();
     expect(sidebarToggle).toBeTruthy();
+    expect(screen.queryByTestId("sidebar-update-button")).toBeNull();
     expect(screen.queryByRole("button", { name: "Open calendar" })).toBeNull();
     expect(backButton.hasAttribute("disabled")).toBe(true);
     expect(
@@ -181,6 +217,8 @@ describe("ClassicMainBody", () => {
         .hasAttribute("disabled"),
     ).toBe(true);
     expect(backButton.parentElement?.className).toContain("gap-0");
+    expect(chrome?.className).toContain("justify-between");
+    expect(chrome?.className).toContain("w-full");
     expect(topArea?.className).toContain("h-12");
     expect(topArea?.className).toContain("absolute");
     expect(topArea?.className).toContain("left-0");
@@ -199,13 +237,16 @@ describe("ClassicMainBody", () => {
     const contentRow = body?.lastElementChild;
     const sidebarToggle = screen.getByRole("button", { name: "Show sidebar" });
     const backButton = screen.getByRole("button", { name: "Go back" });
-    const topArea = backButton.parentElement?.parentElement?.parentElement;
+    const chrome = sidebarToggle.parentElement?.parentElement;
+    const topArea = chrome?.parentElement?.parentElement;
 
     fireEvent.click(sidebarToggle);
     fireEvent.click(backButton);
     fireEvent.click(screen.getByRole("button", { name: "Go forward" }));
 
     expect(screen.queryByTestId("top-meeting-timeline")).toBeNull();
+    expect(screen.queryByTestId("timeline-update-banner")).toBeNull();
+    expect(screen.queryByTestId("sidebar-update-button")).toBeNull();
     expect(backButton.parentElement?.className).toContain("gap-0");
     expect(topArea?.className).toContain("absolute");
     expect(topArea?.className).toContain("h-12");
@@ -217,6 +258,45 @@ describe("ClassicMainBody", () => {
     expect(mocks.toggleLeftSidebar).toHaveBeenCalledTimes(1);
     expect(mocks.goBack).toHaveBeenCalledTimes(1);
     expect(mocks.goNext).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows the update button at the far end of expanded sidebar timeline chrome", () => {
+    mocks.sidebarTimelineEnabled = true;
+    mocks.sidebarUpdateControl.status = "available";
+    mocks.sidebarUpdateControl.version = "1.0.34";
+
+    render(<ClassicMainBody />);
+
+    const sidebarToggle = screen.getByRole("button", { name: "Hide sidebar" });
+    const chrome = sidebarToggle.parentElement?.parentElement;
+
+    expect(screen.getByTestId("sidebar-update-button")).toBeTruthy();
+    expect(chrome?.className).toContain("justify-between");
+    expect(chrome?.lastElementChild?.getAttribute("data-testid")).toBe(
+      "sidebar-update-button",
+    );
+    expect(
+      within(sidebarToggle).queryByTestId("collapsed-sidebar-update-badge"),
+    ).toBeNull();
+  });
+
+  it("shows an update badge on the collapsed sidebar timeline toggle", () => {
+    mocks.sidebarTimelineEnabled = true;
+    mocks.leftSidebarExpanded = false;
+    mocks.sidebarUpdateControl.status = "available";
+    mocks.sidebarUpdateControl.version = "1.0.34";
+
+    render(<ClassicMainBody />);
+
+    const sidebarToggle = screen.getByRole("button", { name: "Show sidebar" });
+
+    fireEvent.click(sidebarToggle);
+
+    expect(screen.queryByTestId("sidebar-update-button")).toBeNull();
+    expect(
+      within(sidebarToggle).getByTestId("collapsed-sidebar-update-badge"),
+    ).toBeTruthy();
+    expect(mocks.toggleLeftSidebar).toHaveBeenCalledTimes(1);
   });
 
   it("hides timeline chrome for changelog tabs without collapsing the sidebar state", () => {
@@ -232,6 +312,7 @@ describe("ClassicMainBody", () => {
     const topArea = body?.firstElementChild;
 
     expect(screen.queryByTestId("top-meeting-timeline")).toBeNull();
+    expect(screen.queryByTestId("timeline-update-banner")).toBeNull();
     expect(screen.queryByRole("button", { name: "Go back" })).toBeNull();
     expect(topArea?.className).toContain("h-10");
     expect(screen.getByTestId("main-tab-content").textContent).toContain(
@@ -251,9 +332,11 @@ describe("ClassicMainBody", () => {
     render(<ClassicMainBody />);
 
     const backButton = screen.getByRole("button", { name: "Go back" });
-    const topArea = backButton.parentElement?.parentElement?.parentElement;
+    const chrome = backButton.parentElement?.parentElement;
+    const topArea = chrome?.parentElement?.parentElement;
 
     expect(screen.queryByTestId("top-meeting-timeline")).toBeNull();
+    expect(screen.queryByTestId("timeline-update-banner")).toBeNull();
     expect(backButton.hasAttribute("disabled")).toBe(true);
     expect(backButton.parentElement?.className).toContain("gap-0");
     expect(topArea?.className).toContain("h-12");
@@ -296,6 +379,7 @@ describe("ClassicMainBody", () => {
       fireEvent.click(backButton);
 
       expect(screen.queryByTestId("top-meeting-timeline")).toBeNull();
+      expect(screen.queryByTestId("timeline-update-banner")).toBeNull();
       expect(screen.queryByRole("button", { name: "Go forward" })).toBeNull();
       expect(backButton.hasAttribute("disabled")).toBe(false);
       expect(topArea?.className).toContain("h-12");
@@ -385,6 +469,7 @@ describe("ClassicMainBody", () => {
 
     expect(view.getByTestId("main-sidebar")).toBeTruthy();
     expect(view.getByTestId("top-meeting-timeline")).toBeTruthy();
+    expect(view.getByTestId("timeline-update-banner")).toBeTruthy();
     expect(view.queryByTestId("main-tab-content")).toBeNull();
   });
 });

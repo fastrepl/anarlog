@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::LazyLock};
 
 use tauri::Manager;
 use tauri_plugin_store2::Store2PluginExt;
@@ -9,6 +9,9 @@ use crate::events::{
     UpdateDownloadFailedEvent, UpdateDownloadProgressEvent, UpdateDownloadingEvent,
     UpdateReadyEvent, UpdatedEvent,
 };
+
+static DOWNLOAD_MUTEX: LazyLock<tokio::sync::Mutex<()>> =
+    LazyLock::new(|| tokio::sync::Mutex::new(()));
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
 #[serde(tag = "kind", rename_all = "snake_case")]
@@ -101,13 +104,15 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Updater2<'a, R, M> {
         Ok(update.map(|u| u.version))
     }
 
-    fn has_cached_update(&self, version: &str) -> bool {
+    pub fn has_cached_update(&self, version: &str) -> bool {
         get_cache_path(self.manager, version)
             .map(|p| p.exists())
             .unwrap_or(false)
     }
 
     pub async fn download(&self, version: &str) -> Result<(), crate::Error> {
+        let _download_guard = DOWNLOAD_MUTEX.lock().await;
+
         if self.has_cached_update(version) {
             let _ = UpdateReadyEvent {
                 version: version.to_string(),
