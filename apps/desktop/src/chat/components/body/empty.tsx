@@ -1,7 +1,6 @@
 import {
   ListChecksIcon,
   MailIcon,
-  MessageCircleIcon,
   SearchIcon,
   SparklesIcon,
 } from "lucide-react";
@@ -64,12 +63,6 @@ export function ChatBodyEmpty({
       <div className="flex justify-start py-2 pb-1">
         <div className="flex w-full flex-col">
           <div className="mb-2 flex items-center gap-2">
-            <MessageCircleIcon
-              className={cn([
-                "size-4",
-                isFloating ? "text-stone-300" : "text-neutral-500",
-              ])}
-            />
             <span
               className={cn([
                 "text-sm font-medium",
@@ -108,12 +101,6 @@ export function ChatBodyEmpty({
     <div className="flex justify-start pb-1">
       <div className="flex w-full flex-col">
         <div className="mb-2 flex items-center gap-2">
-          <MessageCircleIcon
-            className={cn([
-              "size-4",
-              isFloating ? "text-stone-300" : "text-neutral-500",
-            ])}
-          />
           <span
             className={cn([
               "text-sm font-medium",

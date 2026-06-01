@@ -24,18 +24,37 @@ type FloatingPanelSize = {
   height: number;
 };
 
+type FloatingContainerRect = {
+  top: number;
+  left: number;
+  width: number;
+  height: number;
+};
+
 const RESIZE_HANDLES = [
   {
+    id: "top-left",
+    className: "top-0 left-0 h-4 w-7 cursor-nwse-resize",
+  },
+  {
+    id: "top",
+    className: "top-0 right-7 left-7 h-3 cursor-row-resize",
+  },
+  {
+    id: "top-right",
+    className: "top-0 right-0 h-4 w-7 cursor-nesw-resize",
+  },
+  {
     id: "right",
-    className: "top-12 right-0 bottom-7 w-2 cursor-ew-resize",
+    className: "top-7 right-0 bottom-7 w-3 cursor-ew-resize",
   },
   {
     id: "bottom",
-    className: "right-7 bottom-0 left-7 h-2 cursor-row-resize",
+    className: "right-7 bottom-0 left-7 h-3 cursor-row-resize",
   },
   {
     id: "left",
-    className: "top-12 bottom-7 left-0 w-2 cursor-ew-resize",
+    className: "top-7 bottom-7 left-0 w-3 cursor-ew-resize",
   },
   {
     id: "bottom-left",
@@ -68,7 +87,8 @@ export function PersistentChatPanel({
   const isVisible = chat.mode === "FloatingOpen";
 
   const [hasBeenOpened, setHasBeenOpened] = useState(false);
-  const [containerRect, setContainerRect] = useState<DOMRect | null>(null);
+  const [containerRect, setContainerRect] =
+    useState<FloatingContainerRect | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [floatingSize, setFloatingSize] = useState<FloatingPanelSize | null>(
     null,
@@ -86,9 +106,39 @@ export function PersistentChatPanel({
     );
   };
 
+  const getContainerRect = () => {
+    const root = floatingContainerRef.current;
+    const anchor = getActiveContainer();
+
+    if (!root || !anchor) {
+      return null;
+    }
+
+    const anchorRect = anchor.getBoundingClientRect();
+
+    if (!isExpanded) {
+      return toFloatingContainerRect(anchorRect);
+    }
+
+    const rootRect = root.getBoundingClientRect();
+    const bottom = Math.max(rootRect.bottom, anchorRect.bottom);
+
+    return {
+      top: anchorRect.top,
+      left: anchorRect.left,
+      width: anchorRect.width,
+      height: bottom - anchorRect.top,
+    };
+  };
+
   useEffect(() => {
     if (isVisible && !hasBeenOpened) {
       setHasBeenOpened(true);
+    }
+
+    if (!isVisible) {
+      setIsExpanded(false);
+      resizeStateRef.current = null;
     }
   }, [isVisible, hasBeenOpened]);
 
@@ -105,19 +155,20 @@ export function PersistentChatPanel({
   );
 
   useLayoutEffect(() => {
-    const container = getActiveContainer();
+    const nextRect = getContainerRect();
 
-    if (!isVisible || !container) {
+    if (!isVisible || !nextRect) {
       setContainerRect(null);
       return;
     }
-    setContainerRect(container.getBoundingClientRect());
-  }, [isVisible, hasBeenOpened, floatingContainerRef]);
+    setContainerRect(nextRect);
+  }, [isVisible, isExpanded, hasBeenOpened, floatingContainerRef]);
 
   useEffect(() => {
+    const root = floatingContainerRef.current;
     const container = getActiveContainer();
 
-    if (!isVisible || !container) {
+    if (!isVisible || !root || !container) {
       if (observerRef.current) {
         observerRef.current.disconnect();
         observerRef.current = null;
@@ -126,10 +177,13 @@ export function PersistentChatPanel({
     }
 
     const updateRect = () => {
-      setContainerRect(container.getBoundingClientRect());
+      setContainerRect(getContainerRect());
     };
 
     observerRef.current = new ResizeObserver(updateRect);
+    if (root !== container) {
+      observerRef.current.observe(root);
+    }
     observerRef.current.observe(container);
     window.addEventListener("resize", updateRect);
     window.addEventListener("scroll", updateRect, true);
@@ -140,7 +194,7 @@ export function PersistentChatPanel({
       window.removeEventListener("resize", updateRect);
       window.removeEventListener("scroll", updateRect, true);
     };
-  }, [isVisible, hasBeenOpened, floatingContainerRef]);
+  }, [isVisible, isExpanded, hasBeenOpened, floatingContainerRef]);
 
   if (!hasBeenOpened) {
     return null;
@@ -174,7 +228,7 @@ export function PersistentChatPanel({
           minHeight: "min(320px, calc(100% - 1rem))",
           maxWidth: "calc(100% - 2rem)",
           maxHeight: "calc(100% - 1rem)",
-          transformOrigin: "center",
+          transformOrigin: "bottom center",
         };
 
   const handleResizeStart = (
@@ -272,7 +326,7 @@ export function PersistentChatPanel({
               "pointer-events-auto relative flex h-full min-h-0",
               isExpanded
                 ? "items-stretch justify-center p-0"
-                : "items-center justify-center p-4",
+                : "items-end justify-center p-4",
             ])}
             onClick={(event) => {
               if (!isExpanded && event.target === event.currentTarget) {
@@ -320,9 +374,7 @@ export function PersistentChatPanel({
                     onPointerUp={handleResizeEnd}
                     onPointerCancel={handleResizeEnd}
                   >
-                    {handle.id === "bottom-right" && (
-                      <span className="pointer-events-none absolute right-1.5 bottom-1.5 h-3 w-3 rounded-br-md border-r border-b border-stone-300/45" />
-                    )}
+                    <ResizeHandleIndicator handle={handle.id} />
                   </div>
                 ))}
             </motion.div>
@@ -333,9 +385,41 @@ export function PersistentChatPanel({
   );
 }
 
+function ResizeHandleIndicator({ handle }: { handle: ResizeHandle }) {
+  const className = getResizeHandleIndicatorClassName(handle);
+
+  if (!className) {
+    return null;
+  }
+
+  return (
+    <span
+      className={cn([
+        "pointer-events-none absolute h-3 w-3 border-stone-300/45",
+        className,
+      ])}
+    />
+  );
+}
+
+function getResizeHandleIndicatorClassName(handle: ResizeHandle) {
+  switch (handle) {
+    case "top-left":
+      return "top-1.5 left-1.5 rounded-tl-md border-t border-l";
+    case "top-right":
+      return "top-1.5 right-1.5 rounded-tr-md border-t border-r";
+    case "bottom-left":
+      return "bottom-1.5 left-1.5 rounded-bl-md border-b border-l";
+    case "bottom-right":
+      return "right-1.5 bottom-1.5 rounded-br-md border-r border-b";
+    default:
+      return null;
+  }
+}
+
 function getFloatingPanelStyle(
   size: FloatingPanelSize,
-  containerRect: DOMRect,
+  containerRect: FloatingContainerRect,
 ): CSSProperties {
   const clampedSize = clampFloatingPanelSize(
     size,
@@ -346,7 +430,16 @@ function getFloatingPanelStyle(
   return {
     width: `${clampedSize.width}px`,
     height: `${clampedSize.height}px`,
-    transformOrigin: "center",
+    transformOrigin: "bottom center",
+  };
+}
+
+function toFloatingContainerRect(rect: DOMRect): FloatingContainerRect {
+  return {
+    top: rect.top,
+    left: rect.left,
+    width: rect.width,
+    height: rect.height,
   };
 }
 
@@ -366,11 +459,11 @@ function getResizedSize(
   }
 
   if (resizeState.handle.includes("top")) {
-    nextSize.height -= deltaY * 2;
+    nextSize.height -= deltaY;
   }
 
   if (resizeState.handle.includes("bottom")) {
-    nextSize.height += deltaY * 2;
+    nextSize.height += deltaY;
   }
 
   return nextSize;

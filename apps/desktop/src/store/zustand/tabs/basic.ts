@@ -62,8 +62,13 @@ export const createBasicSlice = <
   tabs: [],
   currentTab: null,
   openCurrent: (tab) => {
-    const { tabs, history, addRecentlyOpened } = get();
+    const { tabs, history, addRecentlyOpened, chatMode } = get();
     const currentActiveTab = tabs.find((t) => t.active);
+    const shouldCloseChat = shouldCloseChatForSessionNavigation(
+      currentActiveTab,
+      tab,
+      chatMode,
+    );
 
     const isCurrentTabListening =
       currentActiveTab?.type === "sessions" &&
@@ -72,9 +77,19 @@ export const createBasicSlice = <
         listenerStore.getState().live.status === "finalizing");
 
     if (currentActiveTab?.pinned || isCurrentTabListening) {
-      set(openTab(tabs, tab, history, true));
+      set(
+        withChatCollapsedForSessionNavigation(
+          openTab(tabs, tab, history, true),
+          shouldCloseChat,
+        ),
+      );
     } else {
-      set(openTab(tabs, tab, history, false));
+      set(
+        withChatCollapsedForSessionNavigation(
+          openTab(tabs, tab, history, false),
+          shouldCloseChat,
+        ),
+      );
     }
 
     if (tab.type === "sessions") {
@@ -87,8 +102,20 @@ export const createBasicSlice = <
     });
   },
   openNew: (tab, options) => {
-    const { tabs, history, addRecentlyOpened } = get();
-    set(openTab(tabs, tab, history, true, options?.position));
+    const { tabs, history, addRecentlyOpened, chatMode } = get();
+    const currentActiveTab = tabs.find((t) => t.active);
+    const shouldCloseChat = shouldCloseChatForSessionNavigation(
+      currentActiveTab,
+      tab,
+      chatMode,
+    );
+
+    set(
+      withChatCollapsedForSessionNavigation(
+        openTab(tabs, tab, history, true, options?.position),
+        shouldCloseChat,
+      ),
+    );
 
     if (tab.type === "sessions") {
       addRecentlyOpened(tab.id);
@@ -100,10 +127,21 @@ export const createBasicSlice = <
     });
   },
   select: (tab) => {
-    const { tabs, addRecentlyOpened } = get();
+    const { tabs, addRecentlyOpened, chatMode } = get();
+    const currentActiveTab = tabs.find((t) => t.active);
+    const shouldCloseChat = shouldCloseChatForSessionNavigation(
+      currentActiveTab,
+      tab,
+      chatMode,
+    );
     const nextTabs = setActiveFlags(tabs, tab);
     const currentTab = nextTabs.find((t) => t.active) || null;
-    set({ tabs: nextTabs, currentTab } as Partial<T>);
+    set(
+      withChatCollapsedForSessionNavigation(
+        { tabs: nextTabs, currentTab } as Partial<T>,
+        shouldCloseChat,
+      ),
+    );
 
     if (tab.type === "sessions") {
       addRecentlyOpened(tab.id);
@@ -117,35 +155,55 @@ export const createBasicSlice = <
     } as Partial<T>);
   },
   selectNext: () => {
-    const { tabs, currentTab } = get();
+    const { tabs, currentTab, chatMode } = get();
     if (tabs.length === 0 || !currentTab) return;
 
     const currentIndex = tabs.findIndex((t) => isSameTab(t, currentTab));
     const nextIndex = (currentIndex + 1) % tabs.length;
     const nextTab = tabs[nextIndex];
+    const shouldCloseChat = shouldCloseChatForSessionNavigation(
+      currentTab,
+      nextTab,
+      chatMode,
+    );
 
     const nextTabs = setActiveFlags(tabs, nextTab);
-    set({
-      tabs: nextTabs,
-      currentTab: { ...nextTab, active: true },
-    } as Partial<T>);
+    set(
+      withChatCollapsedForSessionNavigation(
+        {
+          tabs: nextTabs,
+          currentTab: { ...nextTab, active: true },
+        } as Partial<T>,
+        shouldCloseChat,
+      ),
+    );
   },
   selectPrev: () => {
-    const { tabs, currentTab } = get();
+    const { tabs, currentTab, chatMode } = get();
     if (tabs.length === 0 || !currentTab) return;
 
     const currentIndex = tabs.findIndex((t) => isSameTab(t, currentTab));
     const prevIndex = (currentIndex - 1 + tabs.length) % tabs.length;
     const prevTab = tabs[prevIndex];
+    const shouldCloseChat = shouldCloseChatForSessionNavigation(
+      currentTab,
+      prevTab,
+      chatMode,
+    );
 
     const nextTabs = setActiveFlags(tabs, prevTab);
-    set({
-      tabs: nextTabs,
-      currentTab: { ...prevTab, active: true },
-    } as Partial<T>);
+    set(
+      withChatCollapsedForSessionNavigation(
+        {
+          tabs: nextTabs,
+          currentTab: { ...prevTab, active: true },
+        } as Partial<T>,
+        shouldCloseChat,
+      ),
+    );
   },
   close: (tab) => {
-    const { tabs, history, canClose } = get();
+    const { tabs, history, canClose, chatMode } = get();
     const tabToClose = tabs.find((t) => isSameTab(t, tab));
 
     if (!tabToClose) {
@@ -179,15 +237,23 @@ export const createBasicSlice = <
       remainingTabs[nextActiveIndex],
     );
     const nextCurrentTab = nextTabs[nextActiveIndex];
+    const shouldCloseChat =
+      tabToClose.active &&
+      shouldCloseChatForSessionNavigation(tabToClose, nextCurrentTab, chatMode);
 
     const nextHistory = new Map(history);
     nextHistory.delete(tabToClose.slotId);
 
-    set({
-      tabs: nextTabs,
-      currentTab: nextCurrentTab,
-      history: nextHistory,
-    } as Partial<T>);
+    set(
+      withChatCollapsedForSessionNavigation(
+        {
+          tabs: nextTabs,
+          currentTab: nextCurrentTab,
+          history: nextHistory,
+        } as Partial<T>,
+        shouldCloseChat,
+      ),
+    );
   },
   reorder: (tabs) => {
     const currentTab = tabs.find((t) => t.active) || null;
@@ -437,4 +503,30 @@ const clearReturnOrigin = <T extends Tab>(tab: T): T => {
   delete nextTab.returnToSlotId;
   delete nextTab.returnToTabId;
   return nextTab;
+};
+
+const shouldCloseChatForSessionNavigation = (
+  currentTab: Tab | null | undefined,
+  targetTab: Tab | TabInput,
+  chatMode: ChatModeState["chatMode"],
+): boolean => {
+  if (chatMode !== "FloatingOpen" || targetTab.type !== "sessions") {
+    return false;
+  }
+
+  return currentTab?.type !== "sessions" || currentTab.id !== targetTab.id;
+};
+
+const withChatCollapsedForSessionNavigation = <T extends ChatModeState>(
+  state: Partial<T>,
+  shouldCloseChat: boolean,
+): Partial<T> => {
+  if (!shouldCloseChat) {
+    return state;
+  }
+
+  return {
+    ...state,
+    chatMode: "FloatingClosed",
+  } as Partial<T>;
 };

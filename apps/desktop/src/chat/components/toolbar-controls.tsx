@@ -44,7 +44,7 @@ export function ChatToolbarControls({
     <div
       className={cn([
         "flex h-full w-full min-w-0 items-center gap-2",
-        isDark ? "px-3" : "px-0",
+        isDark ? "px-2" : "px-0",
       ])}
     >
       <div className="flex min-w-0 flex-1 items-center gap-1">
@@ -69,9 +69,10 @@ export function ChatToolbarControls({
             isDark
               ? [
                   darkToolbarButtonClassName,
-                  "bg-white/7 text-white hover:bg-white/10",
+                  isExpanded && "bg-white/7 text-white hover:bg-white/10",
                 ]
-              : "bg-neutral-100 text-neutral-900 hover:bg-neutral-100",
+              : isExpanded &&
+                "bg-neutral-100 text-neutral-900 hover:bg-neutral-100",
           ])}
         />
       </div>
@@ -144,15 +145,15 @@ function ChatGroups({
         <Button
           variant="ghost"
           className={cn([
-            "group flex h-8 min-w-0 justify-start gap-2 px-2 py-0",
+            "group flex h-8 max-w-full min-w-0 justify-start gap-1.5 px-2 py-0 text-left",
             isDark
-              ? "h-9 max-w-full flex-1 rounded-lg px-2.5 text-stone-100 hover:bg-white/7 hover:text-white data-[state=open]:bg-white/7"
+              ? "w-fit rounded-lg text-stone-100 hover:bg-white/7 hover:text-white data-[state=open]:bg-white/7"
               : "text-neutral-700",
           ])}
         >
           <h3
             className={cn([
-              "min-w-0 flex-1 truncate font-medium",
+              "max-w-64 min-w-0 truncate text-left font-medium",
               isDark
                 ? "text-[15px] text-stone-100"
                 : "text-xs text-neutral-700",
