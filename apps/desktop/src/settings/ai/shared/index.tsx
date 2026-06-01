@@ -166,7 +166,7 @@ export function NonHyprProviderCard({
       disabled={config.disabled || locked}
       value={config.id}
       className={cn([
-        "rounded-xl border-2 bg-neutral-50",
+        "rounded-[22px] border-2 bg-neutral-50",
         isConfigured ? "border-solid border-neutral-300" : "border-dashed",
       ])}
     >

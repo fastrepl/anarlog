@@ -12,7 +12,7 @@ export function AppFloatingPanel({
   return (
     <div
       className={cn([
-        "rounded-xl border border-neutral-200 bg-white",
+        "rounded-2xl border border-neutral-200 bg-white",
         className,
       ])}
       {...props}

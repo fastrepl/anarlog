@@ -289,7 +289,7 @@ export function NotificationSettingsView() {
                         tabIndex={0}
                         aria-expanded={searchOpen}
                         className={cn([
-                          "flex min-h-[38px] w-full cursor-text flex-wrap items-center gap-2 rounded-md border p-2",
+                          "flex min-h-[38px] w-full cursor-text flex-wrap items-center gap-2 rounded-2xl border p-2",
                           "focus-visible:ring-ring focus-visible:ring-1 focus-visible:outline-hidden",
                         ])}
                         onKeyDown={(event) => {

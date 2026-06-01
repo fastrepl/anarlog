@@ -575,7 +575,7 @@ function ModelSelectItem({
     <div
       className={cn([
         "relative flex items-center justify-between",
-        "rounded-xs px-2 py-1.5 text-sm outline-hidden",
+        "rounded-full px-2 py-1.5 text-sm outline-hidden",
         "cursor-pointer select-none",
         "hover:bg-accent hover:text-accent-foreground",
         "group",

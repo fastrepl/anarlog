@@ -121,7 +121,7 @@ export function SpokenLanguagesView({
       <div className="relative">
         <div
           className={cn([
-            "flex min-h-[38px] w-full flex-wrap items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-2 py-1.5 focus-within:border-neutral-300",
+            "flex min-h-[38px] w-full flex-wrap items-center gap-1.5 rounded-2xl border border-neutral-200 bg-white px-2 py-1.5 focus-within:border-neutral-300",
             languageInputFocused && "border-neutral-300",
           ])}
           onClick={() =>
@@ -184,7 +184,7 @@ export function SpokenLanguagesView({
           <div
             id="language-options"
             role="listbox"
-            className="absolute top-full right-0 left-0 z-10 mt-1 flex max-h-60 w-full flex-col overflow-hidden overflow-y-auto rounded-xs border border-neutral-200 bg-white shadow-md"
+            className="absolute top-full right-0 left-0 z-10 mt-1 flex max-h-60 w-full flex-col overflow-hidden overflow-y-auto rounded-2xl border border-neutral-200 bg-white shadow-md"
           >
             {filteredLanguages.length > 0 ? (
               filteredLanguages.map((langCode, index) => (
