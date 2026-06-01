@@ -2,7 +2,10 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  chatMode: "FloatingClosed" as "FloatingClosed" | "FloatingOpen",
+  chatMode: "FloatingClosed" as
+    | "FloatingClosed"
+    | "FloatingOpen"
+    | "RightPanelOpen",
   sendEvent: vi.fn(),
 }));
 
@@ -36,6 +39,16 @@ describe("ChatCTA", () => {
 
   it("hides while the floating chat is open", () => {
     mocks.chatMode = "FloatingOpen";
+
+    render(<ChatCTA />);
+
+    expect(
+      screen.queryByRole("button", { name: "Ask Anarlog anything" }),
+    ).toBeNull();
+  });
+
+  it("hides while the right panel chat is open", () => {
+    mocks.chatMode = "RightPanelOpen";
 
     render(<ChatCTA />);
 

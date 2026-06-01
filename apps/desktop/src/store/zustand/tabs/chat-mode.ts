@@ -1,9 +1,10 @@
 import type { StoreApi } from "zustand";
 
-export type ChatMode = "FloatingOpen" | "FloatingClosed";
+export type ChatMode = "FloatingOpen" | "FloatingClosed" | "RightPanelOpen";
 
 export type ChatEvent =
   | { type: "OPEN" }
+  | { type: "OPEN_RIGHT_PANEL" }
   | { type: "CLOSE" }
   | { type: "TOGGLE" };
 
@@ -21,10 +22,24 @@ const computeNextChatMode = (state: ChatMode, event: ChatEvent): ChatMode => {
       if (event.type === "CLOSE" || event.type === "TOGGLE") {
         return "FloatingClosed";
       }
+      if (event.type === "OPEN_RIGHT_PANEL") {
+        return "RightPanelOpen";
+      }
+      return state;
+    case "RightPanelOpen":
+      if (event.type === "CLOSE" || event.type === "TOGGLE") {
+        return "FloatingClosed";
+      }
+      if (event.type === "OPEN") {
+        return "FloatingOpen";
+      }
       return state;
     case "FloatingClosed":
       if (event.type === "OPEN" || event.type === "TOGGLE") {
         return "FloatingOpen";
+      }
+      if (event.type === "OPEN_RIGHT_PANEL") {
+        return "RightPanelOpen";
       }
       return state;
     default:

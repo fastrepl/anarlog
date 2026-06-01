@@ -9,7 +9,12 @@ import { useRef } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  chatMode: { current: "FloatingOpen" },
+  chatMode: {
+    current: "FloatingOpen" as
+      | "FloatingClosed"
+      | "FloatingOpen"
+      | "RightPanelOpen",
+  },
   sendEvent: vi.fn(),
 }));
 
@@ -27,14 +32,21 @@ vi.mock("~/contexts/shell", () => ({
 }));
 
 vi.mock("./chat-panel", () => ({
-  ChatView: ({ onToggleExpanded }: { onToggleExpanded?: () => void }) => (
+  ChatView: ({
+    layout,
+    onOpenRightPanel,
+  }: {
+    layout?: "floating" | "right-panel";
+    onOpenRightPanel?: () => void;
+  }) => (
     <>
       <button
-        data-testid="toggle-expanded"
+        data-layout={layout}
+        data-testid="open-right-panel"
         type="button"
-        onClick={onToggleExpanded}
+        onClick={onOpenRightPanel}
       >
-        Toggle expanded
+        Open right panel
       </button>
       <div data-testid="chat-view" />
     </>
@@ -66,7 +78,7 @@ describe("PersistentChatPanel", () => {
     } as typeof ResizeObserver;
   });
 
-  it("anchors the floating panel to the bottom FAB line", async () => {
+  it("anchors the floating panel to the bottom-right of the note surface", async () => {
     render(<TestHost />);
 
     await screen.findByTestId("chat-view");
@@ -76,8 +88,20 @@ describe("PersistentChatPanel", () => {
 
     await waitFor(() => {
       expect(resizeFrame?.className).toContain("items-end");
-      expect(resizeFrame?.className).toContain("justify-center");
-      expect(panel?.style.transformOrigin).toBe("bottom center");
+      expect(resizeFrame?.className).toContain("justify-end");
+      expect(panel?.style.transformOrigin).toBe("bottom right");
+    });
+  });
+
+  it("opens the docked right panel from the toolbar action", async () => {
+    render(<TestHost />);
+
+    await screen.findByTestId("chat-view");
+
+    fireEvent.click(screen.getByTestId("open-right-panel"));
+
+    expect(mocks.sendEvent).toHaveBeenCalledWith({
+      type: "OPEN_RIGHT_PANEL",
     });
   });
 
@@ -209,11 +233,11 @@ describe("PersistentChatPanel", () => {
     };
 
     dragHandle("right", { x: 660, y: 420 }, { x: 700, y: 420 });
-    expect(panel?.style.width).toBe("500px");
+    expect(panel?.style.width).toBe("460px");
     expect(panel?.style.height).toBe("360px");
 
     dragHandle("left", { x: 240, y: 420 }, { x: 200, y: 420 });
-    expect(panel?.style.width).toBe("500px");
+    expect(panel?.style.width).toBe("460px");
     expect(panel?.style.height).toBe("360px");
 
     dragHandle("top", { x: 450, y: 240 }, { x: 450, y: 200 });
@@ -221,98 +245,26 @@ describe("PersistentChatPanel", () => {
     expect(panel?.style.height).toBe("400px");
 
     dragHandle("top-left", { x: 240, y: 240 }, { x: 200, y: 200 });
-    expect(panel?.style.width).toBe("500px");
+    expect(panel?.style.width).toBe("460px");
     expect(panel?.style.height).toBe("400px");
 
     dragHandle("top-right", { x: 660, y: 240 }, { x: 700, y: 200 });
-    expect(panel?.style.width).toBe("500px");
+    expect(panel?.style.width).toBe("460px");
     expect(panel?.style.height).toBe("400px");
   });
 
-  it("keeps the expanded panel aligned to the anchor while extending to the container bottom", async () => {
-    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
-      function (this: HTMLElement) {
-        if (this.hasAttribute("data-chat-floating-anchor")) {
-          return {
-            bottom: 600,
-            height: 600,
-            left: 200,
-            right: 900,
-            top: 0,
-            width: 700,
-            x: 200,
-            y: 0,
-            toJSON: () => ({}),
-          };
-        }
-
-        return {
-          bottom: 720,
-          height: 720,
-          left: 0,
-          right: 900,
-          top: 0,
-          width: 900,
-          x: 0,
-          y: 0,
-          toJSON: () => ({}),
-        };
-      },
-    );
-
-    render(<TestHost />);
-
-    await screen.findByTestId("chat-view");
-
-    const resizeFrame = document.querySelector<HTMLElement>(
-      "[data-chat-resize-frame]",
-    );
-    const frame = resizeFrame?.parentElement as HTMLElement | null;
-
-    await waitFor(() => {
-      expect(frame?.style.left).toBe("200px");
-      expect(frame?.style.width).toBe("700px");
-      expect(frame?.style.height).toBe("600px");
-    });
-
-    fireEvent.click(screen.getByTestId("toggle-expanded"));
-
-    await waitFor(() => {
-      expect(frame?.style.left).toBe("200px");
-      expect(frame?.style.width).toBe("700px");
-      expect(frame?.style.height).toBe("720px");
-      expect(
-        document.querySelector<HTMLElement>("[data-chat-panel]")?.dataset
-          .chatSize,
-      ).toBe("expanded");
-    });
-  });
-
-  it("resets expanded state when the floating chat closes", async () => {
+  it("hides the floating panel when the chat moves to the right panel", async () => {
     const { rerender } = render(<TestHost />);
 
     await screen.findByTestId("chat-view");
 
-    fireEvent.click(screen.getByTestId("toggle-expanded"));
-
-    await waitFor(() => {
-      expect(
-        document.querySelector<HTMLElement>("[data-chat-panel]")?.dataset
-          .chatSize,
-      ).toBe("expanded");
-    });
-
-    mocks.chatMode.current = "FloatingClosed";
-    rerender(<TestHost />);
-
-    mocks.chatMode.current = "FloatingOpen";
+    mocks.chatMode.current = "RightPanelOpen";
     rerender(<TestHost />);
 
     await waitFor(() => {
       expect(
-        document.querySelector<HTMLElement>("[data-chat-panel]")?.dataset
-          .chatSize,
-      ).toBe("floating");
+        document.querySelector<HTMLElement>("[data-chat-panel]"),
+      ).toBeNull();
     });
   });
 });

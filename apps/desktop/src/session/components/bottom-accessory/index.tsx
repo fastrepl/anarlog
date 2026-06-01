@@ -42,7 +42,8 @@ export function useSessionBottomAccessory({
   const canExpandLiveTranscript = showLiveAccessory;
   const effectiveExpanded =
     isLive && !canExpandLiveTranscript ? false : isExpanded;
-  const isChatVisible = chat.mode === "FloatingOpen";
+  const isChatVisible =
+    chat.mode === "FloatingOpen" || chat.mode === "RightPanelOpen";
 
   const prevLive = useRef(isLive);
   useEffect(() => {

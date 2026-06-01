@@ -14,15 +14,17 @@ import { useShell } from "~/contexts/shell";
 import * as main from "~/store/tinybase/store/main";
 
 export function ChatView({
-  isExpanded = false,
-  onToggleExpanded,
+  layout = "floating",
+  onOpenFloating,
+  onOpenRightPanel,
 }: {
-  isExpanded?: boolean;
-  onToggleExpanded?: () => void;
+  layout?: "floating" | "right-panel";
+  onOpenFloating?: () => void;
+  onOpenRightPanel?: () => void;
 }) {
   const { chat } = useShell();
   const { groupId, sessionId, setGroupId } = chat;
-  const isFloating = chat.mode === "FloatingOpen";
+  const isFloating = layout === "floating";
 
   const { currentSessionId } = useSessionTab();
 
@@ -58,10 +60,11 @@ export function ChatView({
       >
         <ChatToolbarControls
           currentChatGroupId={groupId}
-          isExpanded={isExpanded}
+          layout={layout}
           onNewChat={chat.startNewChat}
+          onOpenFloating={onOpenFloating}
+          onOpenRightPanel={onOpenRightPanel}
           onSelectChat={chat.selectChat}
-          onToggleExpanded={onToggleExpanded}
           surface={isFloating ? "dark" : "light"}
         />
       </div>

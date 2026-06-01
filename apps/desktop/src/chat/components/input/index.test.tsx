@@ -1,4 +1,10 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { clearContentMock, editorState } = vi.hoisted(() => ({
@@ -16,10 +22,11 @@ vi.mock("@hypr/editor/chat", async () => {
     ChatEditor: React.forwardRef<
       { clearContent: () => void; focus: () => void; getJSON: () => unknown },
       {
+        className: string;
         onSubmit: () => void;
         onUpdate: (json: unknown) => void;
       }
-    >(function ChatEditor({ onUpdate }, ref) {
+    >(function ChatEditor({ className, onUpdate }, ref) {
       editorState.onUpdate = onUpdate;
 
       React.useImperativeHandle(ref, () => ({
@@ -28,7 +35,7 @@ vi.mock("@hypr/editor/chat", async () => {
         getJSON: () => editorState.json,
       }));
 
-      return <div data-testid="chat-editor" />;
+      return <div className={className} data-testid="chat-editor" />;
     }),
   };
 });
@@ -55,6 +62,7 @@ import { ChatMessageInput } from "./index";
 
 describe("ChatMessageInput", () => {
   beforeEach(() => {
+    cleanup();
     clearContentMock.mockClear();
     editorState.json = { type: "doc", content: [] };
     editorState.onUpdate = undefined;
@@ -97,5 +105,15 @@ describe("ChatMessageInput", () => {
       [],
     );
     expect(clearContentMock).toHaveBeenCalled();
+  });
+
+  it("keeps typed text visible on the white input surface", () => {
+    render(
+      <ChatMessageInput draftKey="chat-input-test" onSendMessage={vi.fn()} />,
+    );
+
+    expect(screen.getByTestId("chat-editor").className).toContain(
+      "text-neutral-900",
+    );
   });
 });

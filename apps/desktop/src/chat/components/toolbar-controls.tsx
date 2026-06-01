@@ -1,8 +1,8 @@
 import {
   ChevronDown,
-  Maximize2,
   MessageCircle,
-  Minimize2,
+  PanelRightClose,
+  PanelRightOpen,
   Plus,
 } from "lucide-react";
 import { useState } from "react";
@@ -25,20 +25,23 @@ import * as main from "~/store/tinybase/store/main";
 
 export function ChatToolbarControls({
   currentChatGroupId,
-  isExpanded = false,
+  layout = "floating",
   onNewChat,
+  onOpenFloating,
+  onOpenRightPanel,
   onSelectChat,
-  onToggleExpanded,
   surface = "light",
 }: {
   currentChatGroupId: string | undefined;
-  isExpanded?: boolean;
+  layout?: "floating" | "right-panel";
   onNewChat: () => void;
+  onOpenFloating?: () => void;
+  onOpenRightPanel?: () => void;
   onSelectChat: (chatGroupId: string) => void;
-  onToggleExpanded?: () => void;
   surface?: "light" | "dark";
 }) {
   const isDark = surface === "dark";
+  const isRightPanel = layout === "right-panel";
 
   return (
     <div
@@ -62,16 +65,23 @@ export function ChatToolbarControls({
           className={isDark ? darkToolbarButtonClassName : undefined}
         />
         <ChatActionButton
-          icon={isExpanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-          onClick={onToggleExpanded ?? (() => {})}
-          title={isExpanded ? "Collapse chat" : "Expand chat"}
+          icon={
+            isRightPanel ? (
+              <PanelRightClose size={16} />
+            ) : (
+              <PanelRightOpen size={16} />
+            )
+          }
+          onClick={
+            isRightPanel
+              ? (onOpenFloating ?? (() => {}))
+              : (onOpenRightPanel ?? (() => {}))
+          }
+          title={isRightPanel ? "Float chat" : "Open in right panel"}
           className={cn([
             isDark
-              ? [
-                  darkToolbarButtonClassName,
-                  isExpanded && "bg-white/7 text-white hover:bg-white/10",
-                ]
-              : isExpanded &&
+              ? darkToolbarButtonClassName
+              : isRightPanel &&
                 "bg-neutral-100 text-neutral-900 hover:bg-neutral-100",
           ])}
         />

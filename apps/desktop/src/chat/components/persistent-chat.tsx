@@ -89,7 +89,6 @@ export function PersistentChatPanel({
   const [hasBeenOpened, setHasBeenOpened] = useState(false);
   const [containerRect, setContainerRect] =
     useState<FloatingContainerRect | null>(null);
-  const [isExpanded, setIsExpanded] = useState(false);
   const [floatingSize, setFloatingSize] = useState<FloatingPanelSize | null>(
     null,
   );
@@ -107,28 +106,13 @@ export function PersistentChatPanel({
   };
 
   const getContainerRect = () => {
-    const root = floatingContainerRef.current;
     const anchor = getActiveContainer();
 
-    if (!root || !anchor) {
+    if (!anchor) {
       return null;
     }
 
-    const anchorRect = anchor.getBoundingClientRect();
-
-    if (!isExpanded) {
-      return toFloatingContainerRect(anchorRect);
-    }
-
-    const rootRect = root.getBoundingClientRect();
-    const bottom = Math.max(rootRect.bottom, anchorRect.bottom);
-
-    return {
-      top: anchorRect.top,
-      left: anchorRect.left,
-      width: anchorRect.width,
-      height: bottom - anchorRect.top,
-    };
+    return toFloatingContainerRect(anchor.getBoundingClientRect());
   };
 
   useEffect(() => {
@@ -137,7 +121,6 @@ export function PersistentChatPanel({
     }
 
     if (!isVisible) {
-      setIsExpanded(false);
       resizeStateRef.current = null;
     }
   }, [isVisible, hasBeenOpened]);
@@ -162,7 +145,7 @@ export function PersistentChatPanel({
       return;
     }
     setContainerRect(nextRect);
-  }, [isVisible, isExpanded, hasBeenOpened, floatingContainerRef]);
+  }, [isVisible, hasBeenOpened, floatingContainerRef]);
 
   useEffect(() => {
     const root = floatingContainerRef.current;
@@ -194,32 +177,25 @@ export function PersistentChatPanel({
       window.removeEventListener("resize", updateRect);
       window.removeEventListener("scroll", updateRect, true);
     };
-  }, [isVisible, isExpanded, hasBeenOpened, floatingContainerRef]);
+  }, [isVisible, hasBeenOpened, floatingContainerRef]);
 
   if (!hasBeenOpened) {
     return null;
   }
 
-  const panelMotion = isExpanded
-    ? {
-        initial: { opacity: 0, scale: 0.985, filter: "blur(4px)" },
-        animate: { opacity: 1, scale: 1, filter: "blur(0px)" },
-        exit: { opacity: 0, scale: 0.99, filter: "blur(3px)" },
-      }
-    : {
-        initial: { y: 24, opacity: 0, scale: 0.96, filter: "blur(6px)" },
-        animate: { y: 0, opacity: 1, scale: 1, filter: "blur(0px)" },
-        exit: { y: 18, opacity: 0, scale: 0.97, filter: "blur(4px)" },
-      };
+  const panelMotion = {
+    initial: { y: 24, opacity: 0, scale: 0.96, filter: "blur(6px)" },
+    animate: { y: 0, opacity: 1, scale: 1, filter: "blur(0px)" },
+    exit: { y: 18, opacity: 0, scale: 0.97, filter: "blur(4px)" },
+  };
   const panelTransition = {
     opacity: { duration: 0.18, ease: [0.22, 1, 0.36, 1] },
     scale: { duration: 0.24, ease: [0.22, 1, 0.36, 1] },
     y: { duration: 0.28, ease: [0.22, 1, 0.36, 1] },
     filter: { duration: 0.16, ease: "easeOut" },
   };
-  const panelStyle = isExpanded
-    ? { transformOrigin: "center" }
-    : floatingSize && containerRect
+  const panelStyle =
+    floatingSize && containerRect
       ? getFloatingPanelStyle(floatingSize, containerRect)
       : {
           width: "min(640px, calc(100% - 2rem))",
@@ -228,7 +204,7 @@ export function PersistentChatPanel({
           minHeight: "min(320px, calc(100% - 1rem))",
           maxWidth: "calc(100% - 2rem)",
           maxHeight: "calc(100% - 1rem)",
-          transformOrigin: "bottom center",
+          transformOrigin: "bottom right",
         };
 
   const handleResizeStart = (
@@ -324,12 +300,10 @@ export function PersistentChatPanel({
             data-chat-resize-frame
             className={cn([
               "pointer-events-auto relative flex h-full min-h-0",
-              isExpanded
-                ? "items-stretch justify-center p-0"
-                : "items-end justify-center p-4",
+              "items-end justify-end p-4",
             ])}
             onClick={(event) => {
-              if (!isExpanded && event.target === event.currentTarget) {
+              if (event.target === event.currentTarget) {
                 chat.sendEvent({ type: "CLOSE" });
               }
             }}
@@ -337,16 +311,12 @@ export function PersistentChatPanel({
             <motion.div
               ref={panelRef}
               data-chat-panel
-              data-chat-size={isExpanded ? "expanded" : "floating"}
+              data-chat-size="floating"
               className={cn([
                 "relative flex min-h-0 flex-col overflow-hidden",
                 "bg-stone-800 text-white",
-                isExpanded
-                  ? "h-full w-full rounded-none border-0"
-                  : [
-                      "rounded-2xl border-2 border-stone-600",
-                      "shadow-[0_4px_28px_rgba(87,83,78,0.45)]",
-                    ],
+                "rounded-2xl border-2 border-stone-600",
+                "shadow-[0_4px_28px_rgba(87,83,78,0.45)]",
               ])}
               style={panelStyle}
               initial={panelMotion.initial}
@@ -355,28 +325,27 @@ export function PersistentChatPanel({
               transition={panelTransition}
             >
               <ChatView
-                isExpanded={isExpanded}
-                onToggleExpanded={() => setIsExpanded((value) => !value)}
+                layout="floating"
+                onOpenRightPanel={() =>
+                  chat.sendEvent({ type: "OPEN_RIGHT_PANEL" })
+                }
               />
-              {!isExpanded &&
-                RESIZE_HANDLES.map((handle) => (
-                  <div
-                    key={handle.id}
-                    data-chat-resize-handle={handle.id}
-                    className={cn([
-                      "absolute z-20 touch-none select-none",
-                      handle.className,
-                    ])}
-                    onPointerDown={(event) =>
-                      handleResizeStart(handle.id, event)
-                    }
-                    onPointerMove={handleResizeMove}
-                    onPointerUp={handleResizeEnd}
-                    onPointerCancel={handleResizeEnd}
-                  >
-                    <ResizeHandleIndicator handle={handle.id} />
-                  </div>
-                ))}
+              {RESIZE_HANDLES.map((handle) => (
+                <div
+                  key={handle.id}
+                  data-chat-resize-handle={handle.id}
+                  className={cn([
+                    "absolute z-20 touch-none select-none",
+                    handle.className,
+                  ])}
+                  onPointerDown={(event) => handleResizeStart(handle.id, event)}
+                  onPointerMove={handleResizeMove}
+                  onPointerUp={handleResizeEnd}
+                  onPointerCancel={handleResizeEnd}
+                >
+                  <ResizeHandleIndicator handle={handle.id} />
+                </div>
+              ))}
             </motion.div>
           </div>
         </motion.div>
@@ -430,7 +399,7 @@ function getFloatingPanelStyle(
   return {
     width: `${clampedSize.width}px`,
     height: `${clampedSize.height}px`,
-    transformOrigin: "bottom center",
+    transformOrigin: "bottom right",
   };
 }
 
@@ -451,11 +420,11 @@ function getResizedSize(
   const nextSize = { ...resizeState.startSize };
 
   if (resizeState.handle.includes("left")) {
-    nextSize.width -= deltaX * 2;
+    nextSize.width -= deltaX;
   }
 
   if (resizeState.handle.includes("right")) {
-    nextSize.width += deltaX * 2;
+    nextSize.width += deltaX;
   }
 
   if (resizeState.handle.includes("top")) {

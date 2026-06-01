@@ -14,15 +14,21 @@ const {
   useTranscriptScreenMock,
   useRunBatchMock,
   useListenerMock,
+  useTranscriptExportSegmentsMock,
   runBatchMock,
   handleBatchFailedMock,
+  writeTextMock,
+  showTransientToastMock,
 } = vi.hoisted(() => ({
   audioPathMock: vi.fn(),
   useTranscriptScreenMock: vi.fn(),
   useRunBatchMock: vi.fn(),
   useListenerMock: vi.fn(),
+  useTranscriptExportSegmentsMock: vi.fn(),
   runBatchMock: vi.fn(),
   handleBatchFailedMock: vi.fn(),
+  writeTextMock: vi.fn(),
+  showTransientToastMock: vi.fn(),
 }));
 
 vi.mock("@hypr/plugin-fs-sync", () => ({
@@ -73,6 +79,20 @@ vi.mock("~/session/components/note-input/transcript", () => ({
   Transcript: () => <div data-testid="transcript" />,
 }));
 
+vi.mock("~/sidebar/toast/transient", () => ({
+  showTransientToast: showTransientToastMock,
+}));
+
+vi.mock("~/session/components/note-input/transcript/export-data", () => ({
+  useTranscriptExportSegments: useTranscriptExportSegmentsMock,
+  formatTranscriptExportSegments: (
+    segments: Array<{ speaker: string | null; text: string }>,
+  ) =>
+    segments
+      .map((segment) => `${segment.speaker ?? "Speaker"}: ${segment.text}`)
+      .join("\n\n"),
+}));
+
 vi.mock("~/session/components/note-input/transcript/state", () => ({
   useTranscriptScreen: useTranscriptScreenMock,
 }));
@@ -97,6 +117,12 @@ describe("PostSessionAccessory", () => {
   beforeEach(() => {
     cleanup();
     vi.clearAllMocks();
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: writeTextMock,
+      },
+    });
 
     audioPathMock.mockResolvedValue({
       status: "ok",
@@ -109,7 +135,15 @@ describe("PostSessionAccessory", () => {
       liveSegments: [],
       currentActive: false,
     });
+    useTranscriptExportSegmentsMock.mockReturnValue({
+      data: [
+        { speaker: "Alex", text: "We should ship this." },
+        { speaker: null, text: "Agreed." },
+      ],
+      isLoading: false,
+    });
 
+    writeTextMock.mockResolvedValue(undefined);
     runBatchMock.mockResolvedValue(undefined);
     useRunBatchMock.mockReturnValue(runBatchMock);
 
@@ -139,6 +173,29 @@ describe("PostSessionAccessory", () => {
     });
 
     expect(handleBatchFailedMock).not.toHaveBeenCalled();
+  });
+
+  it("copies transcript text from the expanded transcript panel", async () => {
+    render(
+      <PostSessionAccessory
+        sessionId="session-1"
+        hasAudio
+        hasTranscript
+        isTranscriptExpanded
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy transcript" }));
+
+    await waitFor(() => {
+      expect(writeTextMock).toHaveBeenCalledWith(
+        "Alex: We should ship this.\n\nSpeaker: Agreed.",
+      );
+    });
+    expect(showTransientToastMock).toHaveBeenCalledWith({
+      id: "transcript-copy-success",
+      description: "Transcript copied to clipboard",
+    });
   });
 
   it("shows Regenerate button without upload or reserved height in empty panel", async () => {

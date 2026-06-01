@@ -10,6 +10,7 @@ import {
   createToastRegistry,
   getToastToShow,
 } from "./registry";
+import { useTransientToast } from "./transient";
 import { useDismissedToasts } from "./useDismissedToasts";
 
 import { useAuth } from "~/auth";
@@ -75,6 +76,8 @@ export function ToastArea({
   const clearDevtoolsPreview = useDevtoolsToastPreview(
     (state) => state.clearPreview,
   );
+  const transientToast = useTransientToast((state) => state.toast);
+  const clearTransientToast = useTransientToast((state) => state.clearToast);
   const isAiTranscriptionTabActive =
     currentTab?.type === "settings" &&
     currentTab.state?.tab === "transcription";
@@ -177,6 +180,11 @@ export function ToastArea({
   );
 
   const handleDismiss = useCallback(() => {
+    if (transientToast) {
+      clearTransientToast(transientToast.key);
+      return;
+    }
+
     if (devtoolsToast) {
       clearDevtoolsPreview();
       return;
@@ -185,13 +193,21 @@ export function ToastArea({
     if (currentToast) {
       dismissToast(currentToast.id);
     }
-  }, [clearDevtoolsPreview, currentToast, devtoolsToast, dismissToast]);
+  }, [
+    clearDevtoolsPreview,
+    clearTransientToast,
+    currentToast,
+    devtoolsToast,
+    dismissToast,
+    transientToast,
+  ]);
 
-  const displayToast = devtoolsToast ?? currentToast;
+  const displayToast = transientToast ?? devtoolsToast ?? currentToast;
   const displayToastKey =
-    devtoolsPreview && devtoolsToast
+    transientToast?.key ??
+    (devtoolsPreview && devtoolsToast
       ? `${devtoolsToast.id}:${devtoolsPreview.key}`
-      : displayToast?.id;
+      : displayToast?.id);
 
   const dismissAction = displayToast?.dismissible ? handleDismiss : undefined;
   const position =

@@ -88,6 +88,17 @@ describe("CustomSidebarHeader", () => {
     expect(mocks.openCurrent).not.toHaveBeenCalled();
   });
 
+  it("closes right panel chat before opening home", () => {
+    mocks.chatMode = "RightPanelOpen";
+
+    render(<CustomSidebarHeader title="Contacts" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Go home" }));
+
+    expect(mocks.sendEvent).toHaveBeenCalledWith({ type: "CLOSE" });
+    expect(mocks.openCurrent).not.toHaveBeenCalled();
+  });
+
   it("renders history controls when requested", () => {
     mocks.canGoBack = true;
     mocks.canGoNext = true;

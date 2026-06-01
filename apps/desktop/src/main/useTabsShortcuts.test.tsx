@@ -2,7 +2,10 @@ import { cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const hoisted = vi.hoisted(() => ({
-  chatMode: "FloatingClosed" as "FloatingClosed" | "FloatingOpen",
+  chatMode: "FloatingClosed" as
+    | "FloatingClosed"
+    | "FloatingOpen"
+    | "RightPanelOpen",
   currentTab: null as null | {
     active: boolean;
     id?: string;
@@ -471,6 +474,23 @@ describe("useClassicMainTabsShortcuts", () => {
 
   it("closes the floating chat before going home on escape", () => {
     hoisted.chatMode = "FloatingOpen";
+    hoisted.currentTab = {
+      active: true,
+      slotId: "slot-session",
+      type: "sessions",
+    };
+
+    renderHook(() => useClassicMainTabsShortcuts());
+
+    dispatchEscape();
+    vi.runOnlyPendingTimers();
+
+    expect(hoisted.sendEvent).toHaveBeenCalledWith({ type: "CLOSE" });
+    expect(hoisted.openCurrent).not.toHaveBeenCalled();
+  });
+
+  it("closes the right panel chat before going home on escape", () => {
+    hoisted.chatMode = "RightPanelOpen";
     hoisted.currentTab = {
       active: true,
       slotId: "slot-session",

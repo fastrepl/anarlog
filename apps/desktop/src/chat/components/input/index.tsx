@@ -37,7 +37,7 @@ export function ChatMessageInput({
   const editorRef = useRef<ChatEditorHandle>(null);
   const disabled =
     typeof disabledProp === "object" ? disabledProp.disabled : disabledProp;
-  const shouldFocus = chat.mode === "FloatingOpen";
+  const shouldFocus = chat.mode !== "FloatingClosed";
 
   const { hasContent, initialContent, handleEditorUpdate } = useDraftState({
     draftKey,
@@ -61,7 +61,7 @@ export function ChatMessageInput({
         <div className="mb-1 min-h-0 flex-1">
           <ChatEditor
             ref={editorRef}
-            className="max-h-[40vh] overflow-y-auto overscroll-contain text-sm"
+            className="max-h-[40vh] overflow-y-auto overscroll-contain text-sm text-neutral-900"
             initialContent={initialContent}
             mentionConfig={mentionConfig}
             placeholder={chatPlaceholder}

@@ -1,4 +1,5 @@
 import {
+  CopyIcon,
   Loader2Icon,
   Pencil,
   RefreshCw,
@@ -20,7 +21,12 @@ import { cn } from "@hypr/utils";
 import * as AudioPlayer from "~/audio-player";
 import { getEnhancerService } from "~/services/enhancer";
 import { Transcript } from "~/session/components/note-input/transcript";
+import {
+  formatTranscriptExportSegments,
+  useTranscriptExportSegments,
+} from "~/session/components/note-input/transcript/export-data";
 import { useTranscriptScreen } from "~/session/components/note-input/transcript/state";
+import { showTransientToast } from "~/sidebar/toast/transient";
 import { useListener } from "~/stt/contexts";
 import { isStoppedTranscriptionError, useRunBatch } from "~/stt/useRunBatch";
 
@@ -395,8 +401,19 @@ function TranscriptReadyPanel({
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const regenerate = useRegenerateTranscript(sessionId);
+  const { data: transcriptSegments, isLoading: isTranscriptLoading } =
+    useTranscriptExportSegments(sessionId);
   const { audioExists, deleteRecording, isDeletingRecording } =
     AudioPlayer.useAudioPlayer();
+  const transcriptText = formatTranscriptExportSegments(transcriptSegments);
+  const canCopyTranscript = transcriptText.length > 0 && !isTranscriptLoading;
+  const handleCopyTranscript = useCallback(() => {
+    if (!canCopyTranscript) {
+      return;
+    }
+
+    void copyTranscriptToClipboard(transcriptText);
+  }, [canCopyTranscript, transcriptText]);
 
   if (!isExpanded) {
     return null;
@@ -425,6 +442,22 @@ function TranscriptReadyPanel({
               <p>Coming soon</p>
             </TooltipContent>
           </Tooltip>
+          <button
+            type="button"
+            onClick={handleCopyTranscript}
+            disabled={!canCopyTranscript}
+            aria-label="Copy transcript"
+            className={cn([
+              "flex items-center gap-1 rounded-full px-1.5 py-0.5",
+              "text-[11px] font-medium text-neutral-500",
+              "transition-colors hover:bg-neutral-200/60 hover:text-neutral-700",
+              "disabled:cursor-not-allowed disabled:text-neutral-300",
+              "disabled:hover:bg-transparent disabled:hover:text-neutral-300",
+            ])}
+          >
+            <CopyIcon size={10} />
+            {isTranscriptLoading ? "Loading..." : "Copy"}
+          </button>
           <button
             type="button"
             onClick={regenerate}
@@ -465,6 +498,23 @@ function TranscriptReadyPanel({
       </TranscriptScrollArea>
     </TranscriptCard>
   );
+}
+
+async function copyTranscriptToClipboard(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+    showTransientToast({
+      id: "transcript-copy-success",
+      description: "Transcript copied to clipboard",
+    });
+  } catch (error) {
+    console.error("Failed to copy transcript", error);
+    showTransientToast({
+      id: "transcript-copy-error",
+      description: "Failed to copy transcript",
+      variant: "error",
+    });
+  }
 }
 
 function TranscriptEmptyPanel({

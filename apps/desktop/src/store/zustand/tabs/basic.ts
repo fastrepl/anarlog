@@ -510,7 +510,7 @@ const shouldCloseChatForSessionNavigation = (
   targetTab: Tab | TabInput,
   chatMode: ChatModeState["chatMode"],
 ): boolean => {
-  if (chatMode !== "FloatingOpen" || targetTab.type !== "sessions") {
+  if (chatMode === "FloatingClosed" || targetTab.type !== "sessions") {
     return false;
   }
 

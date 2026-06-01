@@ -225,7 +225,7 @@ export function useMainEscapeShortcutAction() {
   const { chat } = useShell();
 
   return useCallback(() => {
-    if (chat.mode === "FloatingOpen") {
+    if (chat.mode !== "FloatingClosed") {
       chat.sendEvent({ type: "CLOSE" });
       return;
     }
@@ -292,7 +292,7 @@ function isFromProseMirrorEditor(target: EventTarget | null) {
 function isPersistentChatInputFocused(
   mode: ReturnType<typeof useShell>["chat"]["mode"],
 ) {
-  if (mode !== "FloatingOpen") {
+  if (mode === "FloatingClosed") {
     return false;
   }
 

@@ -23,7 +23,7 @@ export function TabContentChangelog({
   const close = useTabs((state) => state.close);
 
   useMountEffect(() => {
-    if (chat.mode === "FloatingOpen") {
+    if (chat.mode !== "FloatingClosed") {
       chat.sendEvent({ type: "CLOSE" });
     }
   });

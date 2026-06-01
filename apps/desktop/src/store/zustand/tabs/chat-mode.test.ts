@@ -28,6 +28,29 @@ describe("Chat Mode", () => {
     expect(useTabs.getState().chatMode).toBe("FloatingOpen");
   });
 
+  test("OPEN_RIGHT_PANEL from FloatingClosed to RightPanelOpen", () => {
+    useTabs.getState().transitionChatMode({ type: "OPEN_RIGHT_PANEL" });
+    expect(useTabs.getState().chatMode).toBe("RightPanelOpen");
+  });
+
+  test("OPEN_RIGHT_PANEL from FloatingOpen to RightPanelOpen", () => {
+    useTabs.getState().transitionChatMode({ type: "OPEN" });
+    useTabs.getState().transitionChatMode({ type: "OPEN_RIGHT_PANEL" });
+    expect(useTabs.getState().chatMode).toBe("RightPanelOpen");
+  });
+
+  test("OPEN from RightPanelOpen to FloatingOpen", () => {
+    useTabs.getState().transitionChatMode({ type: "OPEN_RIGHT_PANEL" });
+    useTabs.getState().transitionChatMode({ type: "OPEN" });
+    expect(useTabs.getState().chatMode).toBe("FloatingOpen");
+  });
+
+  test("TOGGLE from RightPanelOpen to FloatingClosed", () => {
+    useTabs.getState().transitionChatMode({ type: "OPEN_RIGHT_PANEL" });
+    useTabs.getState().transitionChatMode({ type: "TOGGLE" });
+    expect(useTabs.getState().chatMode).toBe("FloatingClosed");
+  });
+
   test("no-op when event is irrelevant for current state", () => {
     useTabs.getState().transitionChatMode({ type: "CLOSE" });
     expect(useTabs.getState().chatMode).toBe("FloatingClosed");
@@ -78,6 +101,22 @@ describe("Chat Mode", () => {
       .tabs.find((tab) => tab.type === "sessions" && tab.id === first.id)!;
 
     useTabs.getState().transitionChatMode({ type: "OPEN" });
+    useTabs.getState().select(firstTab);
+
+    expect(useTabs.getState().chatMode).toBe("FloatingClosed");
+  });
+
+  test("selecting a different session closes the right panel chat", () => {
+    const first = createSessionTab({ id: "first" });
+    const second = createSessionTab({ id: "second" });
+
+    useTabs.getState().openNew(first);
+    useTabs.getState().openNew(second);
+    const firstTab = useTabs
+      .getState()
+      .tabs.find((tab) => tab.type === "sessions" && tab.id === first.id)!;
+
+    useTabs.getState().transitionChatMode({ type: "OPEN_RIGHT_PANEL" });
     useTabs.getState().select(firstTab);
 
     expect(useTabs.getState().chatMode).toBe("FloatingClosed");

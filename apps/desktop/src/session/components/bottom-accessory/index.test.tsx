@@ -150,6 +150,35 @@ describe("useSessionBottomAccessory", () => {
     expect(hoisted.hotkeys.get("esc")?.options?.enabled).toBe(false);
   });
 
+  it("defers transcript escape handling while right panel chat is open", () => {
+    useShellMock.mockReturnValue({
+      chat: {
+        mode: "RightPanelOpen",
+      },
+    });
+
+    const { result } = renderHook(() =>
+      useSessionBottomAccessory({
+        sessionId: "session-1",
+        sessionMode: "inactive",
+        audioUrl: "file:///session.wav",
+        hasTranscript: true,
+      }),
+    );
+
+    const toggle = result.current.bottomBorderHandle;
+    expect(isValidElement<{ onToggle: () => void }>(toggle)).toBe(true);
+    if (!isValidElement<{ onToggle: () => void }>(toggle)) {
+      return;
+    }
+
+    act(() => {
+      toggle.props.onToggle();
+    });
+
+    expect(hoisted.hotkeys.get("esc")?.options?.enabled).toBe(false);
+  });
+
   it("keeps the playback accessory mounted while the transcript panel is collapsed", () => {
     const { result } = renderHook(() =>
       useSessionBottomAccessory({

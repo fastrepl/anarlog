@@ -10,7 +10,7 @@ export function ChatCTA({
   label?: string;
 }) {
   const { chat } = useShell();
-  const isChatOpen = chat.mode === "FloatingOpen";
+  const isChatOpen = chat.mode !== "FloatingClosed";
 
   const handleClick = () => {
     chat.sendEvent({ type: "OPEN" });
