@@ -10,6 +10,7 @@ import { type MouseEvent, type PointerEvent, useCallback, useRef } from "react";
 
 import { cn } from "@hypr/utils";
 
+import { resolveMainSurfaceChrome } from "./main-surface-chrome";
 import { ClassicMainSidebar } from "./shell-sidebar";
 import { ClassicMainTabContent } from "./tab-content";
 import { TopMeetingTimeline } from "./top-meeting-timeline";
@@ -22,6 +23,7 @@ import {
 import { useClassicMainTabsShortcuts } from "./useTabsShortcuts";
 
 import { useShell } from "~/contexts/shell";
+import { GlobalLiveTranscriptAccessory } from "~/session/components/bottom-accessory/global-live";
 import { useConfigValue } from "~/shared/config";
 import {
   hasCustomSidebarTab,
@@ -66,6 +68,14 @@ export function ClassicMainBody() {
   const showLeftSurfaceChromeBack = hasLeftSurfaceCustomSidebar;
   const enableMainAreaTopDrag =
     showSidebarTimelineChrome || hasLeftSurfaceCustomSidebar;
+  const mainSurfaceChrome = resolveMainSurfaceChrome({
+    hasLeftSurfaceCustomSidebar,
+    isChangelog,
+    leftSidebarExpanded: leftsidebar.expanded,
+    showSidebarTimeline,
+    showSidebarTimelineChrome,
+    showTopTimeline,
+  });
   const mainAreaTopDrag = useMainAreaTopWindowDrag(enableMainAreaTopDrag);
   const update = useDesktopUpdateControl();
 
@@ -148,12 +158,17 @@ export function ClassicMainBody() {
           onPointerMove={mainAreaTopDrag.onPointerMove}
           onPointerUp={mainAreaTopDrag.onPointerEnd}
         >
-          {currentTab ? (
-            <ClassicMainTabContent
-              key={uniqueIdfromTab(currentTab)}
-              tab={currentTab as Tab}
-            />
-          ) : null}
+          <GlobalLiveTranscriptAccessory
+            currentTab={currentTab}
+            surfaceChrome={mainSurfaceChrome}
+          >
+            {currentTab ? (
+              <ClassicMainTabContent
+                key={uniqueIdfromTab(currentTab)}
+                tab={currentTab as Tab}
+              />
+            ) : null}
+          </GlobalLiveTranscriptAccessory>
         </div>
       </div>
     </div>

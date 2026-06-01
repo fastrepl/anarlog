@@ -5,6 +5,7 @@ export function SessionSurface({
   children,
   afterBorder,
   afterBorderExpanded,
+  afterBorderFlush,
   afterBorderResizable,
   bottomBorderHandle,
   floatingButton,
@@ -14,6 +15,7 @@ export function SessionSurface({
   children: React.ReactNode;
   afterBorder?: React.ReactNode;
   afterBorderExpanded?: boolean;
+  afterBorderFlush?: boolean;
   afterBorderResizable?: boolean;
   bottomBorderHandle?: React.ReactNode;
   floatingButton?: React.ReactNode;
@@ -23,6 +25,7 @@ export function SessionSurface({
     <StandardTabWrapper
       afterBorder={afterBorder}
       afterBorderExpanded={afterBorderExpanded}
+      afterBorderFlush={afterBorderFlush}
       afterBorderResizable={afterBorderResizable}
       bottomBorderHandle={bottomBorderHandle}
       floatingButton={floatingButton}

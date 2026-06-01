@@ -163,6 +163,24 @@ describe("StandardTabWrapper", () => {
     expect(resizeMock).not.toHaveBeenCalled();
   });
 
+  it("can render bottom content flush against the divider", () => {
+    render(
+      <StandardTabWrapper
+        afterBorder={<div data-testid="bottom-area" />}
+        afterBorderFlush
+        bottomBorderHandle={<button>Live</button>}
+      >
+        <div data-testid="main-area" />
+      </StandardTabWrapper>,
+    );
+
+    const bottomArea = screen.getByTestId("bottom-area");
+    const afterBorderContent = bottomArea.parentElement;
+
+    expect(afterBorderContent?.className).not.toContain("pt-1.5");
+    expect(afterBorderContent?.className).not.toContain("mt-1");
+  });
+
   it("keeps main content mounted when expandable bottom content toggles", () => {
     const mountMock = vi.fn();
 

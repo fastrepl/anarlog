@@ -3,6 +3,7 @@ import { useHotkeys } from "react-hotkeys-hook";
 
 import { DuringSessionAccessory } from "./during-session";
 import { ExpandToggle } from "./expand-toggle";
+import { shouldShowLiveTranscriptAccessory } from "./live-visibility";
 import { PostSessionAccessory } from "./post-session";
 
 import { useShell } from "~/contexts/shell";
@@ -38,7 +39,12 @@ export function useSessionBottomAccessory({
   const live = useListener((state) => state.live);
   const { chat } = useShell();
   const liveCaptureMode = getLiveCaptureUiMode(live);
-  const showLiveAccessory = isLive && liveCaptureMode === "live";
+  const shouldDeferToGlobalLiveAccessory =
+    live.sessionId !== null &&
+    live.sessionId !== sessionId &&
+    shouldShowLiveTranscriptAccessory(live);
+  const showLiveAccessory =
+    !shouldDeferToGlobalLiveAccessory && isLive && liveCaptureMode === "live";
   const canExpandLiveTranscript = showLiveAccessory;
   const effectiveExpanded =
     isLive && !canExpandLiveTranscript ? false : isExpanded;
@@ -60,7 +66,10 @@ export function useSessionBottomAccessory({
   }, [isLive, canExpandLiveTranscript, isExpanded]);
 
   const showPostSession =
-    (isInactive && (hasAudio || hasTranscript)) || isRunningBatch;
+    isRunningBatch ||
+    (!shouldDeferToGlobalLiveAccessory &&
+      isInactive &&
+      (hasAudio || hasTranscript));
 
   useHotkeys(
     "esc",

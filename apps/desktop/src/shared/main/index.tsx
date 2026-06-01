@@ -27,6 +27,7 @@ export function StandardTabWrapper({
   bottomBorderHandle,
   afterBorderResizable = false,
   afterBorderExpanded = false,
+  afterBorderFlush = false,
   floatingButton,
   mergeAfterBorder = false,
   noBorder = false,
@@ -34,6 +35,7 @@ export function StandardTabWrapper({
   children: React.ReactNode;
   afterBorder?: React.ReactNode;
   bottomBorderHandle?: React.ReactNode;
+  afterBorderFlush?: boolean;
   afterBorderResizable?: boolean;
   afterBorderExpanded?: boolean;
   floatingButton?: React.ReactNode;
@@ -98,6 +100,7 @@ export function StandardTabWrapper({
               ])}
             >
               <AfterBorderContent
+                flush={afterBorderFlush}
                 bottomBorderHandle={bottomBorderHandle}
                 fill={afterBorderExpanded}
                 mergeAfterBorder={mergeAfterBorder}
@@ -110,6 +113,7 @@ export function StandardTabWrapper({
       </ResizablePanelGroup>
       {afterBorder && !useResizableAfterBorder ? (
         <AfterBorderContent
+          flush={afterBorderFlush}
           bottomBorderHandle={bottomBorderHandle}
           mergeAfterBorder={mergeAfterBorder}
         >
@@ -177,11 +181,13 @@ function AfterBorderContent({
   children,
   bottomBorderHandle,
   fill = false,
+  flush = false,
   mergeAfterBorder,
 }: {
   children: React.ReactNode;
   bottomBorderHandle?: React.ReactNode;
   fill?: boolean;
+  flush?: boolean;
   mergeAfterBorder: boolean;
 }) {
   return (
@@ -189,7 +195,7 @@ function AfterBorderContent({
       data-main-after-border-content
       data-main-after-border-merged={mergeAfterBorder ? "" : undefined}
       className={cn([
-        !mergeAfterBorder && (bottomBorderHandle ? "pt-1.5" : "mt-1"),
+        !flush && !mergeAfterBorder && (bottomBorderHandle ? "pt-1.5" : "mt-1"),
         fill && "flex h-full min-h-0 flex-col overflow-hidden",
       ])}
     >

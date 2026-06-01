@@ -234,6 +234,7 @@ function TabContentNoteInner({
       }
       afterBorder={bottomAccessory}
       afterBorderExpanded={resizeTranscriptSurface}
+      afterBorderFlush={bottomAccessoryState?.mode === "live"}
       afterBorderResizable={canResizeTranscriptSurface}
       bottomBorderHandle={bottomBorderHandle}
       mergeAfterBorder={mergeTranscriptSurface}

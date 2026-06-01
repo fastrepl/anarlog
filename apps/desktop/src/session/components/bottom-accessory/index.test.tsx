@@ -13,6 +13,8 @@ const hoisted = vi.hoisted(() => ({
     }
   >(),
   live: {
+    status: "inactive" as "inactive" | "active" | "finalizing",
+    sessionId: null as string | null,
     requestedLiveTranscription: true as boolean | null,
     liveTranscriptionActive: true as boolean | null,
   },
@@ -42,6 +44,8 @@ vi.mock("~/stt/contexts", () => ({
   useListener: (
     selector: (state: {
       live: {
+        status: "inactive" | "active" | "finalizing";
+        sessionId: string | null;
         requestedLiveTranscription: boolean | null;
         liveTranscriptionActive: boolean | null;
       };
@@ -65,6 +69,8 @@ import { useSessionBottomAccessory } from "./index";
 describe("useSessionBottomAccessory", () => {
   beforeEach(() => {
     hoisted.hotkeys.clear();
+    hoisted.live.status = "inactive";
+    hoisted.live.sessionId = null;
     hoisted.live.requestedLiveTranscription = true;
     hoisted.live.liveTranscriptionActive = true;
     useShellMock.mockReturnValue({
@@ -212,6 +218,45 @@ describe("useSessionBottomAccessory", () => {
     expect(result.current.bottomAccessoryState).toBeNull();
     expect(result.current.bottomAccessory).toBeNull();
     expect(result.current.bottomBorderHandle).toBeNull();
+  });
+
+  it("defers local transcript controls to the global live panel for another active session", () => {
+    hoisted.live.status = "active";
+    hoisted.live.sessionId = "live-session";
+
+    const { result } = renderHook(() =>
+      useSessionBottomAccessory({
+        sessionId: "session-1",
+        sessionMode: "inactive",
+        audioUrl: "file:///session.wav",
+        hasTranscript: true,
+      }),
+    );
+
+    expect(result.current.bottomAccessoryState).toBeNull();
+    expect(result.current.bottomAccessory).toBeNull();
+    expect(result.current.bottomBorderHandle).toBeNull();
+  });
+
+  it("keeps batch progress visible while another session is live", () => {
+    hoisted.live.status = "active";
+    hoisted.live.sessionId = "live-session";
+
+    const { result } = renderHook(() =>
+      useSessionBottomAccessory({
+        sessionId: "session-1",
+        sessionMode: "running_batch",
+        audioUrl: "file:///session.wav",
+        hasTranscript: true,
+      }),
+    );
+
+    expect(result.current.bottomAccessoryState).toEqual({
+      mode: "playback",
+      expanded: false,
+    });
+    expect(result.current.bottomAccessory).not.toBeNull();
+    expect(result.current.bottomBorderHandle).not.toBeNull();
   });
 
   it("keeps batch progress visible while batch transcription is running", () => {
