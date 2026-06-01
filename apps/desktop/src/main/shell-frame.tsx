@@ -53,7 +53,7 @@ export function ClassicMainShellFrame() {
       <MainShellBodyFrame>
         <ClassicMainBody />
       </MainShellBodyFrame>
-      <ToastArea />
+      <ToastArea placement={showSidebarTimeline ? "left-sidebar" : "default"} />
     </MainShellScaffold>
   );
 }

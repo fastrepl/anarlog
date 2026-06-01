@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "motion/react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { cn } from "@hypr/utils";
@@ -20,11 +20,28 @@ import { useDevtoolsToastPreview } from "~/store/zustand/devtools-toast-preview"
 import { useTabs } from "~/store/zustand/tabs";
 import { useToastAction } from "~/store/zustand/toast-action";
 
-export function ToastArea() {
+type ToastAreaPlacement = "default" | "left-sidebar";
+type ToastAreaPosition = {
+  left: number | string;
+  top: number;
+};
+
+const DEFAULT_TOP_OFFSET_PX = 56;
+const LEFT_SIDEBAR_TOP_OFFSET_PX = 36;
+const MAIN_SURFACE_SELECTOR = "[data-chat-floating-anchor]";
+
+export function ToastArea({
+  placement = "default",
+}: {
+  placement?: ToastAreaPlacement;
+}) {
   const auth = useAuth();
   const { dismissToast, isDismissed } = useDismissedToasts();
   const shouldShowToast = useShouldShowToast();
   const contentOffset = useMainContentCenterOffset();
+  const mainSurfacePosition = useMainSurfaceToastPosition(
+    placement === "left-sidebar",
+  );
   const {
     hasActiveDownload,
     downloadProgress,
@@ -177,6 +194,12 @@ export function ToastArea() {
       : displayToast?.id;
 
   const dismissAction = displayToast?.dismissible ? handleDismiss : undefined;
+  const position =
+    mainSurfacePosition ??
+    getFallbackPosition({
+      contentOffset,
+      placement,
+    });
 
   if (!shouldShowToast || !displayToast) {
     return null;
@@ -191,12 +214,10 @@ export function ToastArea() {
         exit={{ opacity: 0, y: -20, scale: 0.95 }}
         transition={{ duration: 0.2, ease: "easeOut" }}
         style={{
-          left: `calc(50% + ${contentOffset}px)`,
+          left: position.left,
+          top: position.top,
         }}
-        className={cn([
-          "fixed top-14 z-40 -translate-x-1/2",
-          "pointer-events-none",
-        ])}
+        className={cn(["fixed z-40 -translate-x-1/2", "pointer-events-none"])}
       >
         <div className="pointer-events-auto">
           <Toast toast={displayToast} onDismiss={dismissAction} />
@@ -260,4 +281,67 @@ function useMainContentCenterOffset() {
   });
 
   return contentOffset;
+}
+
+function useMainSurfaceToastPosition(enabled: boolean) {
+  const [position, setPosition] = useState<ToastAreaPosition | null>(null);
+
+  useEffect(() => {
+    if (!enabled) {
+      setPosition(null);
+      return;
+    }
+
+    const computePosition = () => {
+      const mainSurface = document.querySelector(MAIN_SURFACE_SELECTOR);
+      if (!mainSurface) {
+        setPosition(null);
+        return;
+      }
+
+      const rect = mainSurface.getBoundingClientRect();
+      setPosition({
+        left: rect.left + rect.width / 2,
+        top: rect.top + LEFT_SIDEBAR_TOP_OFFSET_PX,
+      });
+    };
+
+    computePosition();
+    window.addEventListener("resize", computePosition);
+    window.addEventListener("scroll", computePosition, true);
+
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(computePosition)
+        : null;
+
+    const mainSurface = document.querySelector(MAIN_SURFACE_SELECTOR);
+    if (mainSurface) {
+      resizeObserver?.observe(mainSurface);
+    }
+
+    return () => {
+      window.removeEventListener("resize", computePosition);
+      window.removeEventListener("scroll", computePosition, true);
+      resizeObserver?.disconnect();
+    };
+  }, [enabled]);
+
+  return enabled ? position : null;
+}
+
+function getFallbackPosition({
+  contentOffset,
+  placement,
+}: {
+  contentOffset: number;
+  placement: ToastAreaPlacement;
+}): ToastAreaPosition {
+  return {
+    left: `calc(50% + ${contentOffset}px)`,
+    top:
+      placement === "left-sidebar"
+        ? LEFT_SIDEBAR_TOP_OFFSET_PX
+        : DEFAULT_TOP_OFFSET_PX,
+  };
 }
