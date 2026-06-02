@@ -186,7 +186,7 @@ function LiveTranscriptContent({
         shouldPinToBottomRef.current = isLiveTranscriptPinnedToBottom(element);
       }}
       className={cn([
-        "flex flex-col gap-1 overflow-y-auto px-3 pt-2 pb-2.5",
+        "flex flex-col gap-1 overflow-y-auto px-3 py-2.5",
         fillHeight ? "h-full min-h-0" : "max-h-[180px]",
       ])}
     >
@@ -235,7 +235,7 @@ function CollapsedFooterMessage({ message }: { message: string }) {
   return (
     <div
       className={cn([
-        "flex min-h-7 items-center gap-2 px-2 pt-0.5 pb-2",
+        "flex min-h-7 items-center gap-2 px-2 py-2",
         "w-full max-w-full",
       ])}
     >
