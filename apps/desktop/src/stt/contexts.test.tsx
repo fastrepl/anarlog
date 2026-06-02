@@ -273,6 +273,115 @@ describe("ListenerProvider detect events", () => {
     expect(stopSpy).not.toHaveBeenCalled();
   });
 
+  test("does not stop after non-trigger MicStopped when a trigger app is still active", async () => {
+    const store = createListenerStore();
+    const stopSpy = vi.fn();
+
+    store.setState({ stop: stopSpy });
+    store.getState().setTriggerAppIds(["us.zoom.xos"]);
+    setStoreActive(store);
+    listMicUsingApplicationsMock.mockResolvedValue({
+      status: "ok",
+      data: [{ id: "us.zoom.xos", name: "Zoom" }],
+    });
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+
+    const handler = listenMock.mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf("function");
+
+    vi.useFakeTimers();
+    listMicUsingApplicationsMock.mockClear();
+
+    handler({
+      payload: {
+        type: "micStopped",
+        apps: [{ id: "/opt/homebrew/bin/ffmpeg", name: "ffmpeg" }],
+      },
+    });
+
+    await vi.advanceTimersByTimeAsync(AUTO_STOP_CONFIRM_DELAY_MS);
+
+    expect(listMicUsingApplicationsMock).toHaveBeenCalledTimes(1);
+    expect(stopSpy).not.toHaveBeenCalled();
+  });
+
+  test("auto-stops when MicStopped omits the trigger app and no trigger app remains active (regression: #5436)", async () => {
+    const store = createListenerStore();
+    const stopSpy = vi.fn();
+
+    store.setState({ stop: stopSpy });
+    store.getState().setTriggerAppIds(["com.microsoft.teams2"]);
+    setStoreActive(store);
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+
+    const handler = listenMock.mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf("function");
+
+    vi.useFakeTimers();
+    listMicUsingApplicationsMock.mockClear();
+
+    handler({
+      payload: {
+        type: "micStopped",
+        apps: [{ id: "pid:42", name: "Microsoft Teams Helper" }],
+      },
+    });
+
+    await vi.advanceTimersByTimeAsync(AUTO_STOP_CONFIRM_DELAY_MS);
+
+    expect(listMicUsingApplicationsMock).toHaveBeenCalledTimes(1);
+    expect(stopSpy).toHaveBeenCalledTimes(1);
+  });
+
+  test("auto-stops Teams running in a browser when the browser no longer uses the mic (regression: #5436)", async () => {
+    const store = createListenerStore();
+    const stopSpy = vi.fn();
+
+    store.setState({ stop: stopSpy });
+    store.getState().setTriggerAppIds(["company.thebrowser.Browser"]);
+    setStoreActive(store);
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+
+    const handler = listenMock.mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf("function");
+
+    vi.useFakeTimers();
+    listMicUsingApplicationsMock.mockClear();
+
+    handler({
+      payload: {
+        type: "micStopped",
+        apps: [{ id: "company.thebrowser.Browser", name: "Arc" }],
+      },
+    });
+
+    await vi.advanceTimersByTimeAsync(AUTO_STOP_CONFIRM_DELAY_MS);
+
+    expect(listMicUsingApplicationsMock).toHaveBeenCalledTimes(1);
+    expect(stopSpy).toHaveBeenCalledTimes(1);
+  });
+
   test("passes ignorable app ids and footer metadata through mic-detected notifications", async () => {
     const store = createListenerStore();
 
@@ -466,67 +575,73 @@ describe("ListenerProvider detect events", () => {
     expect(stopSpy).toHaveBeenCalledTimes(1);
   });
 
-  test("asks before stopping when a browser meeting stops well before the scheduled end", async () => {
-    const store = createListenerStore();
-    const stopSpy = vi.fn();
-    const now = new Date("2026-05-19T10:05:00.000Z");
+  test.each([
+    { id: "com.google.Chrome", name: "Google Chrome" },
+    { id: "at.studio.AsideBrowser", name: "Aside" },
+    { id: "net.imput.helium", name: "Helium" },
+  ])(
+    "asks before stopping when $name stops well before the scheduled end",
+    async (browser) => {
+      const store = createListenerStore();
+      const stopSpy = vi.fn();
+      const now = new Date("2026-05-19T10:05:00.000Z");
 
-    store.setState({ stop: stopSpy });
-    store.getState().setTriggerAppIds(["com.google.Chrome"]);
-    setStoreActive(store);
-    (useStoreMock as any).mockReturnValue(
-      mockSessionEventStore({
-        started_at: "2026-05-19T10:00:00.000Z",
-        ended_at: "2026-05-19T10:30:00.000Z",
-      }),
-    );
+      store.setState({ stop: stopSpy });
+      store.getState().setTriggerAppIds([browser.id]);
+      setStoreActive(store);
+      (useStoreMock as any).mockReturnValue(
+        mockSessionEventStore({
+          started_at: "2026-05-19T10:00:00.000Z",
+          ended_at: "2026-05-19T10:30:00.000Z",
+        }),
+      );
 
-    render(
-      <ListenerProvider store={store}>
-        <div>child</div>
-      </ListenerProvider>,
-    );
+      render(
+        <ListenerProvider store={store}>
+          <div>child</div>
+        </ListenerProvider>,
+      );
 
-    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+      await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
 
-    const handler = listenMock.mock.calls[0]?.[0];
-    expect(handler).toBeTypeOf("function");
+      const handler = listenMock.mock.calls[0]?.[0];
+      expect(handler).toBeTypeOf("function");
 
-    vi.useFakeTimers();
-    vi.setSystemTime(now);
-    listMicUsingApplicationsMock.mockClear();
+      vi.useFakeTimers();
+      vi.setSystemTime(now);
+      listMicUsingApplicationsMock.mockClear();
 
-    handler({
-      payload: {
-        type: "micStopped",
-        apps: [{ id: "com.google.Chrome", name: "Google Chrome" }],
-      },
-    });
+      handler({
+        payload: {
+          type: "micStopped",
+          apps: [browser],
+        },
+      });
 
-    await vi.advanceTimersByTimeAsync(AUTO_STOP_CONFIRM_DELAY_MS);
+      await vi.advanceTimersByTimeAsync(AUTO_STOP_CONFIRM_DELAY_MS);
 
-    expect(listMicUsingApplicationsMock).toHaveBeenCalledTimes(1);
-    expect(stopSpy).not.toHaveBeenCalled();
-    const notification = showNotificationMock.mock.calls[0]?.[0];
-    expect(parseAutoStopEndedNotificationKey(notification.key)).toBe(
-      "session-1",
-    );
-    expect(notification).toEqual({
-      key: expect.stringContaining("auto-stop-ended:session-1"),
-      title: "Did your meeting end?",
-      message:
-        "Google Chrome stopped using the microphone before the scheduled end time.",
-      timeout: { secs: 60, nanos: 0 },
-      source: null,
-      start_time: null,
-      participants: null,
-      event_details: null,
-      action_label: "Stop recording",
-      options: null,
-      footer: null,
-      icon: { type: "bundle_id", bundle_id: "com.google.Chrome" },
-    });
-  });
+      expect(listMicUsingApplicationsMock).toHaveBeenCalledTimes(1);
+      expect(stopSpy).not.toHaveBeenCalled();
+      const notification = showNotificationMock.mock.calls[0]?.[0];
+      expect(parseAutoStopEndedNotificationKey(notification.key)).toBe(
+        "session-1",
+      );
+      expect(notification).toEqual({
+        key: expect.stringContaining("auto-stop-ended:session-1"),
+        title: "Did your meeting end?",
+        message: `${browser.name} stopped using the microphone before the scheduled end time.`,
+        timeout: { secs: 60, nanos: 0 },
+        source: null,
+        start_time: null,
+        participants: null,
+        event_details: null,
+        action_label: "Stop recording",
+        options: null,
+        footer: null,
+        icon: { type: "bundle_id", bundle_id: browser.id },
+      });
+    },
+  );
 
   test("auto-stops browser meetings inside the scheduled end window", async () => {
     const store = createListenerStore();

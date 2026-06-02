@@ -26,18 +26,39 @@ export const AUTO_STOP_CONFIRM_DELAY_MS = 5_000;
 export const AUTO_STOP_CALENDAR_EARLY_END_THRESHOLD_MS = 3 * 60_000;
 export const AUTO_STOP_CALENDAR_EARLY_START_BUFFER_MS = 5 * 60_000;
 
-const BROWSER_MEETING_APP_IDS = new Set([
+const BROWSER_AUTO_STOP_APP_IDS = new Set([
+  "at.studio.AsideBrowser",
   "app.zen-browser.zen",
   "com.apple.Safari",
+  "com.apple.SafariTechnologyPreview",
   "com.brave.Browser",
+  "com.brave.Browser.beta",
+  "com.brave.Browser.nightly",
+  "com.duckduckgo.macos.browser",
   "com.google.Chrome",
   "com.google.Chrome.canary",
+  "com.kagi.kagimacOS",
+  "com.kagi.kagimacOS.RC",
   "com.microsoft.edgemac",
+  "com.microsoft.edgemac.Beta",
   "com.microsoft.edgemac.Canary",
+  "com.microsoft.edgemac.Dev",
   "com.operasoftware.Opera",
+  "com.operasoftware.OperaDeveloper",
+  "com.operasoftware.OperaGX",
+  "com.operasoftware.OperaNext",
   "com.vivaldi.Vivaldi",
   "company.thebrowser.Browser",
+  "company.thebrowser.dia",
+  "net.imput.helium",
+  "net.mullvad.mullvadbrowser",
+  "net.waterfox.waterfox",
+  "org.chromium.Chromium",
   "org.mozilla.firefox",
+  "org.mozilla.firefoxdeveloperedition",
+  "org.mozilla.librewolf",
+  "org.mozilla.nightly",
+  "org.torproject.torbrowser",
 ]);
 
 type MainStore = NonNullable<ReturnType<typeof main.UI.useStore>>;
@@ -107,7 +128,7 @@ function shouldPromptBeforeAutoStopping({
   sessionId: string | null;
   nowMs: number;
 }) {
-  if (!appIds.some((id) => BROWSER_MEETING_APP_IDS.has(id))) {
+  if (!appIds.some((id) => BROWSER_AUTO_STOP_APP_IDS.has(id))) {
     return false;
   }
 
@@ -141,11 +162,22 @@ function getPrimaryStoppedApp(
     stoppedApps.find(
       (app) =>
         stoppedTriggerAppIds.includes(app.id) &&
-        BROWSER_MEETING_APP_IDS.has(app.id),
+        BROWSER_AUTO_STOP_APP_IDS.has(app.id),
     ) ??
     stoppedApps.find((app) => stoppedTriggerAppIds.includes(app.id)) ??
     null
   );
+}
+
+function getAutoStopCandidateAppIds(
+  triggerAppIds: string[] | null | undefined,
+  stoppedApps: { id: string }[],
+) {
+  const trigger = triggerAppIds ?? [];
+  const stoppedIds = new Set(stoppedApps.map((app) => app.id));
+  const stoppedTriggerAppIds = trigger.filter((id) => stoppedIds.has(id));
+
+  return stoppedTriggerAppIds.length > 0 ? stoppedTriggerAppIds : trigger;
 }
 
 function getStoppedAppLabel(app: { name: string } | null) {
@@ -268,8 +300,9 @@ const useHandleDetectEvents = (store: ListenerStore) => {
     };
 
     const confirmAutoStop = async (
-      stoppedTriggerAppIds: string[],
+      candidateAppIds: string[],
       stoppedApps: { id: string; name: string }[],
+      requireMicSnapshot = false,
     ) => {
       const live = store.getState().live;
       if (live.status !== "active") {
@@ -279,7 +312,7 @@ const useHandleDetectEvents = (store: ListenerStore) => {
       const currentTrigger = live.triggerAppIds;
       if (
         !currentTrigger ||
-        !stoppedTriggerAppIds.some((id) => currentTrigger.includes(id))
+        !candidateAppIds.some((id) => currentTrigger.includes(id))
       ) {
         return;
       }
@@ -287,15 +320,17 @@ const useHandleDetectEvents = (store: ListenerStore) => {
       const result = await detectCommands.listMicUsingApplications();
       if (result.status === "ok") {
         const activeAppIds = new Set(result.data.map((app) => app.id));
-        if (stoppedTriggerAppIds.some((id) => activeAppIds.has(id))) {
+        if (candidateAppIds.some((id) => activeAppIds.has(id))) {
           return;
         }
+      } else if (requireMicSnapshot) {
+        return;
       }
 
       const sessionId = store.getState().live.sessionId;
       if (
         shouldPromptBeforeAutoStopping({
-          appIds: stoppedTriggerAppIds,
+          appIds: candidateAppIds,
           tinybaseStore: tinybaseStoreRef.current,
           sessionId,
           nowMs: Date.now(),
@@ -304,7 +339,7 @@ const useHandleDetectEvents = (store: ListenerStore) => {
         if (sessionId) {
           showMeetingEndedPrompt({
             sessionId,
-            stoppedTriggerAppIds,
+            stoppedTriggerAppIds: candidateAppIds,
             stoppedApps,
           });
         }
@@ -385,12 +420,20 @@ const useHandleDetectEvents = (store: ListenerStore) => {
             trigger?.filter((id) =>
               payload.apps.some((app) => app.id === id),
             ) ?? [];
-          if (stoppedTriggerAppIds.length > 0) {
+          const candidateAppIds = getAutoStopCandidateAppIds(
+            trigger,
+            payload.apps,
+          );
+          if (candidateAppIds.length > 0) {
             clearPendingAutoStop();
 
             pendingAutoStopRef.current = setTimeout(() => {
               pendingAutoStopRef.current = null;
-              void confirmAutoStop(stoppedTriggerAppIds, payload.apps);
+              void confirmAutoStop(
+                candidateAppIds,
+                payload.apps,
+                stoppedTriggerAppIds.length === 0,
+              );
             }, AUTO_STOP_CONFIRM_DELAY_MS);
           }
         } else if (payload.type === "sleepStateChanged") {
