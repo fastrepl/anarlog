@@ -382,6 +382,52 @@ describe("ListenerProvider detect events", () => {
     expect(stopSpy).toHaveBeenCalledTimes(1);
   });
 
+  test("keeps direct trigger auto-stop confidence when a later helper stop arrives", async () => {
+    const store = createListenerStore();
+    const stopSpy = vi.fn();
+
+    store.setState({ stop: stopSpy });
+    store.getState().setTriggerAppIds(["us.zoom.xos"]);
+    setStoreActive(store);
+    listMicUsingApplicationsMock.mockResolvedValue({
+      status: "error",
+      error: "failed to read mic snapshot",
+    });
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+
+    const handler = listenMock.mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf("function");
+
+    vi.useFakeTimers();
+    listMicUsingApplicationsMock.mockClear();
+
+    handler({
+      payload: {
+        type: "micStopped",
+        apps: [{ id: "us.zoom.xos", name: "Zoom" }],
+      },
+    });
+
+    handler({
+      payload: {
+        type: "micStopped",
+        apps: [{ id: "pid:42", name: "Zoom Helper" }],
+      },
+    });
+
+    await vi.advanceTimersByTimeAsync(AUTO_STOP_CONFIRM_DELAY_MS);
+
+    expect(listMicUsingApplicationsMock).toHaveBeenCalledTimes(1);
+    expect(stopSpy).toHaveBeenCalledTimes(1);
+  });
+
   test("passes ignorable app ids and footer metadata through mic-detected notifications", async () => {
     const store = createListenerStore();
 

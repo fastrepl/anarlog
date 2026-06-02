@@ -283,7 +283,10 @@ const useHandleDetectEvents = (store: ListenerStore) => {
 
   const tinybaseStoreRef = useRef(tinybaseStore);
   const settingsStoreRef = useRef(settingsStore);
-  const pendingAutoStopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingAutoStopRef = useRef<{
+    timeout: ReturnType<typeof setTimeout>;
+    requireMicSnapshot: boolean;
+  } | null>(null);
   useEffect(() => {
     tinybaseStoreRef.current = tinybaseStore;
     settingsStoreRef.current = settingsStore;
@@ -294,7 +297,7 @@ const useHandleDetectEvents = (store: ListenerStore) => {
     let cancelled = false;
     const clearPendingAutoStop = () => {
       if (pendingAutoStopRef.current) {
-        clearTimeout(pendingAutoStopRef.current);
+        clearTimeout(pendingAutoStopRef.current.timeout);
         pendingAutoStopRef.current = null;
       }
     };
@@ -425,16 +428,28 @@ const useHandleDetectEvents = (store: ListenerStore) => {
             payload.apps,
           );
           if (candidateAppIds.length > 0) {
+            const requireMicSnapshot = stoppedTriggerAppIds.length === 0;
+            if (
+              pendingAutoStopRef.current &&
+              !pendingAutoStopRef.current.requireMicSnapshot &&
+              requireMicSnapshot
+            ) {
+              return;
+            }
+
             clearPendingAutoStop();
 
-            pendingAutoStopRef.current = setTimeout(() => {
-              pendingAutoStopRef.current = null;
-              void confirmAutoStop(
-                candidateAppIds,
-                payload.apps,
-                stoppedTriggerAppIds.length === 0,
-              );
-            }, AUTO_STOP_CONFIRM_DELAY_MS);
+            pendingAutoStopRef.current = {
+              timeout: setTimeout(() => {
+                pendingAutoStopRef.current = null;
+                void confirmAutoStop(
+                  candidateAppIds,
+                  payload.apps,
+                  requireMicSnapshot,
+                );
+              }, AUTO_STOP_CONFIRM_DELAY_MS),
+              requireMicSnapshot,
+            };
           }
         } else if (payload.type === "sleepStateChanged") {
           if (payload.value) {
