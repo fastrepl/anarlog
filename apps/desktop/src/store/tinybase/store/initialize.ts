@@ -30,6 +30,7 @@ function initializeStore(store: Store): void {
         user_id: userId,
         name: "",
         email: "",
+        phone: "",
         org_id: "",
       });
     }

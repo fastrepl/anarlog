@@ -96,6 +96,7 @@ type Candidate = {
   id: string;
   name: string;
   email?: string;
+  phone?: string;
   orgId?: string;
   jobTitle?: string;
   isNew?: boolean;
@@ -150,10 +151,12 @@ function useCandidateSearch(
 
         const name = (human.name || "") as string;
         const email = (human.email || "") as string;
+        const phone = (human.phone || "") as string;
         const nameMatch = name.toLowerCase().includes(searchLower);
         const emailMatch = email.toLowerCase().includes(searchLower);
+        const phoneMatch = phone.toLowerCase().includes(searchLower);
 
-        if (inputValue && !nameMatch && !emailMatch) {
+        if (inputValue && !nameMatch && !emailMatch && !phoneMatch) {
           return null;
         }
 
@@ -161,6 +164,7 @@ function useCandidateSearch(
           id: humanId,
           name,
           email,
+          phone,
           orgId: human.org_id as string | undefined,
           jobTitle: human.job_title as string | undefined,
           isNew: false,
@@ -323,6 +327,7 @@ function useCreateHuman(userId: string): (name: string) => string {
       created_at: new Date().toISOString(),
       name: p.name,
       email: "",
+      phone: "",
       org_id: "",
       job_title: "",
       linkedin_username: "",

@@ -7,6 +7,7 @@ export const humanSchema = z.object({
   created_at: z.preprocess((val) => val ?? undefined, z.string().optional()),
   name: z.string(),
   email: z.string(),
+  phone: z.preprocess((val) => val ?? undefined, z.string().optional()),
   org_id: z.string(),
   job_title: z.preprocess((val) => val ?? undefined, z.string().optional()),
   linkedin_username: z.preprocess(

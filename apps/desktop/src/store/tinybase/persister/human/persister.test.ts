@@ -72,6 +72,7 @@ describe("createHumanPersister", () => {
               created_at: "2024-01-01T00:00:00Z",
               name: "John Doe",
               emails: ["john@example.com", "john.doe@work.com"],
+              phone: "+1 555 123 4567",
               org_id: "org-1",
               job_title: "Engineer",
               linkedin_username: "johndoe",
@@ -100,6 +101,7 @@ describe("createHumanPersister", () => {
               created_at: "2024-01-01T00:00:00Z",
               name: "John Doe",
               email: "john@example.com",
+              phone: "+1 555 123 4567",
               org_id: "org-1",
               job_title: "Engineer",
               linkedin_username: "johndoe",
@@ -121,6 +123,7 @@ describe("createHumanPersister", () => {
         user_id: "user-1",
         name: "John Doe",
         email: "john@example.com,john.doe@work.com",
+        phone: "+1 555 123 4567",
         org_id: "org-1",
         job_title: "Engineer",
         linkedin_username: "johndoe",
@@ -138,6 +141,7 @@ describe("createHumanPersister", () => {
         "john.doe@work.com",
       ]);
       expect(frontmatter.email).toBeUndefined();
+      expect(frontmatter.phone).toBe("+1 555 123 4567");
     });
   });
 });

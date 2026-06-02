@@ -21,6 +21,7 @@ export function NewPersonForm({
       created_at: new Date().toISOString(),
       name: p.name,
       email: "",
+      phone: "",
       org_id: "",
       job_title: "",
       linkedin_username: "",

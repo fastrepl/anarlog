@@ -100,6 +100,7 @@ export const StoreComponent = () => {
           select("created_at");
           select("name");
           select("email");
+          select("phone");
           select("org_id");
           select("job_title");
           select("linkedin_username");
@@ -126,6 +127,7 @@ export const StoreComponent = () => {
             join("humans", "human_id").as("human");
             select("human", "name").as("human_name");
             select("human", "email").as("human_email");
+            select("human", "phone").as("human_phone");
             select("human", "job_title").as("human_job_title");
             select("human", "linkedin_username").as("human_linkedin_username");
             select("human", "org_id").as("org_id");
@@ -375,6 +377,7 @@ interface _QueryResultRows {
     created_at: string;
     name: string;
     email: string;
+    phone: string;
     org_id: string;
     job_title: string;
     linkedin_username: string;
@@ -392,6 +395,7 @@ interface _QueryResultRows {
     human_id: string;
     human_name?: string;
     human_email?: string;
+    human_phone?: string;
     human_job_title?: string;
     human_linkedin_username?: string;
     org_id?: string;

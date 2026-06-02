@@ -59,6 +59,7 @@ function ToolRegistration() {
         id: string;
         name: string;
         email: string | null;
+        phone: string | null;
         jobTitle: string | null;
         organization: string | null;
         memo: string | null;
@@ -80,13 +81,15 @@ function ToolRegistration() {
         const name = typeof row.name === "string" ? row.name : "";
         const email =
           typeof row.email === "string" && row.email ? row.email : null;
+        const phone =
+          typeof row.phone === "string" && row.phone ? row.phone : null;
         const jobTitle =
           typeof row.job_title === "string" && row.job_title
             ? row.job_title
             : null;
         const memo = typeof row.memo === "string" && row.memo ? row.memo : null;
 
-        const searchable = [name, email, jobTitle, memo, orgName]
+        const searchable = [name, email, phone, jobTitle, memo, orgName]
           .filter(Boolean)
           .join("\n")
           .toLowerCase();
@@ -101,6 +104,7 @@ function ToolRegistration() {
           id: rowId,
           name,
           email,
+          phone,
           jobTitle,
           organization: orgName,
           memo,

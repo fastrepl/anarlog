@@ -8,6 +8,7 @@ export type ContactSearchResult = {
   id: string;
   name: string;
   email: string | null;
+  phone: string | null;
   jobTitle: string | null;
   organization: string | null;
   memo: string | null;

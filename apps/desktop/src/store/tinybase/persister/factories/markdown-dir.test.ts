@@ -75,6 +75,7 @@ describe("createMarkdownDirPersister", () => {
               user_id: "user-1",
               name: "John Doe",
               email: "john@example.com",
+              phone: "",
               org_id: "",
             },
             content: "",
@@ -94,6 +95,7 @@ describe("createMarkdownDirPersister", () => {
         user_id: "user-1",
         name: "John Doe",
         email: "john@example.com",
+        phone: "",
         org_id: "",
       });
     });
@@ -107,6 +109,7 @@ describe("createMarkdownDirPersister", () => {
               user_id: "user-1",
               name: "John Doe",
               email: "john@example.com",
+              phone: "",
               org_id: "",
             },
             content: "",
@@ -116,6 +119,7 @@ describe("createMarkdownDirPersister", () => {
               user_id: "user-1",
               name: "Jane Doe",
               email: "jane@example.com",
+              phone: "",
               org_id: "",
             },
             content: "",
@@ -151,6 +155,7 @@ describe("createMarkdownDirPersister", () => {
         user_id: "user-1",
         name: "John Doe",
         email: "john@example.com",
+        phone: "",
         org_id: "",
       });
 
@@ -164,6 +169,7 @@ describe("createMarkdownDirPersister", () => {
               user_id: "user-1",
               name: "John Doe",
               email: "john@example.com",
+              phone: "",
               org_id: "",
             },
             content: "",
@@ -185,6 +191,7 @@ describe("createMarkdownDirPersister", () => {
         user_id: "user-1",
         name: "John Doe",
         email: "john@example.com",
+        phone: "",
         org_id: "",
       });
 
@@ -192,6 +199,7 @@ describe("createMarkdownDirPersister", () => {
         user_id: "user-1",
         name: "Jane Doe",
         email: "jane@example.com",
+        phone: "",
         org_id: "",
       });
 

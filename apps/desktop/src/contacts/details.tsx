@@ -160,6 +160,14 @@ export function DetailsColumn({
             }
           }
 
+          if (duplicateData.phone) {
+            if (primaryData.phone) {
+              mergedFields.phone = `${primaryData.phone}, ${duplicateData.phone}`;
+            } else {
+              mergedFields.phone = duplicateData.phone;
+            }
+          }
+
           if (duplicateData.memo) {
             if (primaryData.memo) {
               mergedFields.memo = `${primaryData.memo}, ${duplicateData.memo}`;
@@ -294,6 +302,7 @@ export function DetailsColumn({
               </div>
 
               <EditablePersonEmailField personId={selectedHumanId} />
+              <EditablePersonPhoneField personId={selectedHumanId} />
               <EditablePersonLinkedInField personId={selectedHumanId} />
               <EditablePersonMemoField personId={selectedHumanId} />
             </div>
@@ -436,6 +445,34 @@ function EditablePersonEmailField({ personId }: { personId: string }) {
           value={(value as string) || ""}
           onChange={handleChange}
           placeholder="john@example.com"
+          className="h-7 border-none p-0 text-base shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+        />
+      </div>
+    </div>
+  );
+}
+
+function EditablePersonPhoneField({ personId }: { personId: string }) {
+  const value = main.UI.useCell("humans", personId, "phone", main.STORE_ID);
+
+  const handleChange = main.UI.useSetCellCallback(
+    "humans",
+    personId,
+    "phone",
+    (e: React.ChangeEvent<HTMLInputElement>) => e.target.value,
+    [],
+    main.STORE_ID,
+  );
+
+  return (
+    <div className="flex items-center border-b border-neutral-200 px-4 py-3">
+      <div className="w-28 text-sm text-neutral-500">Phone</div>
+      <div className="flex-1">
+        <Input
+          type="tel"
+          value={(value as string) || ""}
+          onChange={handleChange}
+          placeholder="+1 (555) 123-4567"
           className="h-7 border-none p-0 text-base shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
         />
       </div>

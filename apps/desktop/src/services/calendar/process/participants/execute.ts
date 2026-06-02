@@ -23,6 +23,7 @@ export function executeForParticipantsSync(
         user_id: String(userId),
         name: human.name,
         email: human.email,
+        phone: "",
         org_id: "",
         job_title: "",
         linkedin_username: "",

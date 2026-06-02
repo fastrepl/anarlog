@@ -224,7 +224,8 @@ function ContactsList({
       const human = allHumans[id];
       const name = (human?.name ?? "").toLowerCase();
       const email = (human?.email ?? "").toLowerCase();
-      return name.includes(q) || email.includes(q);
+      const phone = (human?.phone ?? "").toLowerCase();
+      return name.includes(q) || email.includes(q) || phone.includes(q);
     };
 
     const filterOrg = (id: string) => {

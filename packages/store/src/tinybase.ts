@@ -44,6 +44,7 @@ export const tableSchemaForTinybase = {
     created_at: { type: "string" },
     name: { type: "string" },
     email: { type: "string" },
+    phone: { type: "string" },
     org_id: { type: "string" },
     job_title: { type: "string" },
     linkedin_username: { type: "string" },

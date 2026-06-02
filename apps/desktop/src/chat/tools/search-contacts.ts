@@ -6,7 +6,7 @@ import type { ToolDependencies } from "./types";
 export const buildSearchContactsTool = (deps: ToolDependencies) =>
   tool({
     description:
-      "Search contacts and return names, emails, roles, and organizations.",
+      "Search contacts and return names, emails, phone numbers, roles, and organizations.",
     inputSchema: z.object({
       query: z.string().describe("Search query for contacts"),
       limit: z

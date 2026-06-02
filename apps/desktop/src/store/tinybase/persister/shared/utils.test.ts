@@ -470,6 +470,7 @@ describe("iterateTableRows", () => {
           user_id: "user-1",
           name: "John Doe",
           email: "john@example.com",
+          phone: "",
           org_id: "",
           job_title: "",
           linkedin_username: "",
