@@ -71,6 +71,12 @@ impl SoniqoModel {
         Self::ParakeetStreaming,
         Self::ParakeetBatch,
         Self::Omnilingual,
+    ];
+
+    const KNOWN: &'static [Self] = &[
+        Self::ParakeetStreaming,
+        Self::ParakeetBatch,
+        Self::Omnilingual,
         Self::Qwen3Small,
         Self::Qwen3Large,
     ];
@@ -140,7 +146,11 @@ impl SoniqoModel {
     }
 
     pub const fn is_available_on_current_platform(self) -> bool {
-        cfg!(all(target_os = "macos", target_arch = "aarch64"))
+        cfg!(all(target_os = "macos", target_arch = "aarch64")) && !self.requires_macos_15()
+    }
+
+    const fn requires_macos_15(self) -> bool {
+        matches!(self, Self::Qwen3Small | Self::Qwen3Large)
     }
 
     pub const fn supports_live_on_current_platform(self) -> bool {
@@ -180,7 +190,7 @@ impl FromStr for SoniqoModel {
     type Err = Error;
 
     fn from_str(value: &str) -> Result<Self> {
-        Self::ALL
+        Self::KNOWN
             .iter()
             .copied()
             .find(|model| value == model.as_str() || value == model.repo())
@@ -268,6 +278,8 @@ pub enum Error {
     UnsupportedModel(String),
     #[error("Soniqo is only available on macOS Apple Silicon")]
     UnsupportedPlatform,
+    #[error("{} requires macOS 15 or newer.", .0.display_name())]
+    RequiresMacOs15(SoniqoModel),
     #[error("Soniqo bridge failed: {0}")]
     Bridge(String),
     #[error("failed to parse Soniqo bridge response: {0}")]
@@ -279,11 +291,15 @@ pub enum Error {
 pub type Result<T> = std::result::Result<T, Error>;
 
 fn ensure_supported_platform(model: SoniqoModel) -> Result<()> {
-    if model.is_available_on_current_platform() {
-        Ok(())
-    } else {
-        Err(Error::UnsupportedPlatform)
+    if !cfg!(all(target_os = "macos", target_arch = "aarch64")) {
+        return Err(Error::UnsupportedPlatform);
     }
+
+    if model.requires_macos_15() {
+        return Err(Error::RequiresMacOs15(model));
+    }
+
+    Ok(())
 }
 
 pub fn model_cache_dir(model: SoniqoModel) -> Result<PathBuf> {
@@ -853,18 +869,24 @@ mod tests {
             "soniqo-parakeet-streaming".parse::<SoniqoModel>().unwrap(),
             SoniqoModel::ParakeetStreaming
         );
+        assert_eq!(
+            "soniqo-qwen3-small".parse::<SoniqoModel>().unwrap(),
+            SoniqoModel::Qwen3Small
+        );
+        assert_eq!(
+            "soniqo-qwen3-large".parse::<SoniqoModel>().unwrap(),
+            SoniqoModel::Qwen3Large
+        );
     }
 
     #[test]
-    fn all_includes_every_model_variant() {
+    fn all_includes_available_model_variants() {
         assert_eq!(
             SoniqoModel::all(),
             &[
                 SoniqoModel::ParakeetStreaming,
                 SoniqoModel::ParakeetBatch,
                 SoniqoModel::Omnilingual,
-                SoniqoModel::Qwen3Small,
-                SoniqoModel::Qwen3Large,
             ]
         );
     }
@@ -912,6 +934,17 @@ mod tests {
             cfg!(all(target_os = "macos", target_arch = "aarch64")),
         );
         assert!(!SoniqoModel::ParakeetBatch.supports_live_on_current_platform());
+    }
+
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    #[test]
+    fn qwen3_platform_error_mentions_macos_15() {
+        let error = ensure_supported_platform(SoniqoModel::Qwen3Small).unwrap_err();
+
+        assert_eq!(
+            error.to_string(),
+            "Soniqo Qwen3 0.6B requires macOS 15 or newer."
+        );
     }
 
     #[test]

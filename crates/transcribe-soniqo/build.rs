@@ -8,6 +8,11 @@ use std::{
 };
 
 #[cfg(target_os = "macos")]
+const SONIQO_SWIFT_MACOS_DEPLOYMENT_TARGET: &str = "14.0";
+#[cfg(target_os = "macos")]
+const SONIQO_METALLIB_MACOS_DEPLOYMENT_TARGET: &str = "15.0";
+
+#[cfg(target_os = "macos")]
 fn swift_runtime_rpaths() -> Vec<String> {
     let mut paths = BTreeSet::from([PathBuf::from("/usr/lib/swift")]);
 
@@ -143,6 +148,78 @@ fn run_command(mut command: Command, context: &str) {
 }
 
 #[cfg(target_os = "macos")]
+fn prepare_swift_package(swift_build_dir: &Path) {
+    let manifest_dir = PathBuf::from(
+        env::var_os("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR is set by Cargo"),
+    );
+    let swift_package_dir = manifest_dir.join("swift-lib");
+
+    let mut command = Command::new("swift");
+    command
+        .arg("package")
+        .arg("--package-path")
+        .arg(&swift_package_dir)
+        .arg("--scratch-path")
+        .arg(swift_build_dir)
+        .arg("resolve");
+    run_command(command, "resolving Soniqo Swift dependencies");
+
+    patch_speech_swift_manifest(swift_build_dir);
+}
+
+#[cfg(target_os = "macos")]
+fn patch_speech_swift_manifest(swift_build_dir: &Path) {
+    let manifest = swift_build_dir
+        .join("checkouts")
+        .join("speech-swift")
+        .join("Package.swift");
+    let target = format!(".macOS(\"{SONIQO_SWIFT_MACOS_DEPLOYMENT_TARGET}\")");
+    let contents = fs::read_to_string(&manifest).unwrap_or_else(|error| {
+        panic!(
+            "failed to read Soniqo speech-swift manifest {}: {error}",
+            manifest.display()
+        )
+    });
+
+    if contents.contains(&target) {
+        return;
+    }
+
+    let patched = contents.replace(".macOS(\"15.0\")", &target);
+    if patched == contents {
+        panic!(
+            "failed to patch Soniqo speech-swift manifest {}; expected macOS 15.0 platform declaration",
+            manifest.display()
+        );
+    }
+
+    let mut permissions = fs::metadata(&manifest)
+        .unwrap_or_else(|error| {
+            panic!(
+                "failed to read permissions for Soniqo speech-swift manifest {}: {error}",
+                manifest.display()
+            )
+        })
+        .permissions();
+    if permissions.readonly() {
+        permissions.set_readonly(false);
+        fs::set_permissions(&manifest, permissions).unwrap_or_else(|error| {
+            panic!(
+                "failed to make Soniqo speech-swift manifest writable {}: {error}",
+                manifest.display()
+            )
+        });
+    }
+
+    fs::write(&manifest, patched).unwrap_or_else(|error| {
+        panic!(
+            "failed to patch Soniqo speech-swift manifest {}: {error}",
+            manifest.display()
+        )
+    });
+}
+
+#[cfg(target_os = "macos")]
 fn compile_mlx_metallib(swift_build_dir: &Path, profile: &str) -> PathBuf {
     let mlx_swift_dir = swift_build_dir.join("checkouts").join("mlx-swift");
     let kernels_dir = mlx_swift_dir
@@ -237,7 +314,6 @@ fn compile_mlx_metallib(swift_build_dir: &Path, profile: &str) -> PathBuf {
                 "-x",
                 "metal",
                 "-std=metal3.2",
-                "-mmacosx-version-min=15.0",
                 "-Wall",
                 "-Wextra",
                 "-fno-fast-math",
@@ -245,6 +321,9 @@ fn compile_mlx_metallib(swift_build_dir: &Path, profile: &str) -> PathBuf {
                 "-Wno-c++20-extensions",
                 "-c",
             ])
+            .arg(format!(
+                "-mmacosx-version-min={SONIQO_METALLIB_MACOS_DEPLOYMENT_TARGET}"
+            ))
             .arg(source)
             .arg(format!("-I{}", kernels_dir.display()))
             .arg(format!("-I{}", include_root.display()))
@@ -334,7 +413,11 @@ fn main() {
             return;
         }
 
-        swift_rs::SwiftLinker::new("15.0")
+        let out_dir = PathBuf::from(env::var_os("OUT_DIR").expect("OUT_DIR is set by Cargo"));
+        let swift_build_dir = out_dir.join("swift-rs").join("soniqo-swift");
+        prepare_swift_package(&swift_build_dir);
+
+        swift_rs::SwiftLinker::new(SONIQO_SWIFT_MACOS_DEPLOYMENT_TARGET)
             .with_package("soniqo-swift", "./swift-lib/")
             .link();
 

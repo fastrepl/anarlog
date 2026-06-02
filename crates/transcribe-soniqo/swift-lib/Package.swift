@@ -4,7 +4,7 @@ import PackageDescription
 
 let package = Package(
   name: "soniqo-swift",
-  platforms: [.macOS("15.0")],
+  platforms: [.macOS("14.0")],
   products: [
     .library(
       name: "soniqo-swift",
@@ -25,7 +25,6 @@ let package = Package(
         .product(name: "OmnilingualASR", package: "speech-swift"),
         .product(name: "ParakeetASR", package: "speech-swift"),
         .product(name: "ParakeetStreamingASR", package: "speech-swift"),
-        .product(name: "Qwen3ASR", package: "speech-swift"),
         .product(name: "SwiftRs", package: "swift-rs"),
       ],
       path: "src"

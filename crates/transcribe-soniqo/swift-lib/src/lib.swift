@@ -3,7 +3,6 @@ import Foundation
 import OmnilingualASR
 import ParakeetASR
 import ParakeetStreamingASR
-import Qwen3ASR
 import SwiftRs
 
 private enum SoniqoBridgeError: LocalizedError {
@@ -157,13 +156,7 @@ private enum SpeechModelKind: String, CaseIterable {
         )
       )
     case .qwen3Small, .qwen3Large:
-      return .qwen3(
-        try await Qwen3ASRModel.fromPretrained(
-          modelId: repo,
-          offlineMode: offlineMode,
-          progressHandler: progressHandler
-        )
-      )
+      throw SoniqoBridgeError.message("\(label) requires macOS 15 or newer.")
     }
   }
 
@@ -238,7 +231,6 @@ private enum LoadedSpeechModel {
   case streaming(ParakeetStreamingASRModel)
   case parakeetBatch(ParakeetASRModel)
   case omnilingual(OmnilingualASRModel)
-  case qwen3(Qwen3ASRModel)
 
   func asStreamingModel() throws -> ParakeetStreamingASRModel {
     guard case .streaming(let model) = self else {
@@ -260,59 +252,7 @@ private enum LoadedSpeechModel {
       return try model.transcribeAudio(audio, sampleRate: sampleRate, language: languageHint)
     case .omnilingual(let model):
       return try model.transcribeAudio(audio, sampleRate: sampleRate)
-    case .qwen3(let model):
-      return transcribeQwen3Audio(
-        model: model,
-        audio: audio,
-        sampleRate: sampleRate,
-        language: languageHint
-      )
     }
-  }
-
-  private func transcribeQwen3Audio(
-    model: Qwen3ASRModel,
-    audio: [Float],
-    sampleRate: Int,
-    language: String?
-  ) -> String {
-    let minimumSamples = max(sampleRate, 1)
-    guard audio.count >= minimumSamples else {
-      return ""
-    }
-
-    let chunkSamples = max(sampleRate * 30, minimumSamples)
-    guard audio.count > chunkSamples else {
-      return model.transcribe(audio: audio, sampleRate: sampleRate, language: language)
-    }
-
-    var chunks: [String] = []
-    var offset = 0
-
-    while offset < audio.count {
-      var end = min(offset + chunkSamples, audio.count)
-      let trailingSamples = audio.count - end
-      if trailingSamples > 0 && trailingSamples < minimumSamples {
-        end = audio.count
-      }
-      defer {
-        offset = end
-      }
-
-      let text = autoreleasepool {
-        model.transcribe(
-          audio: Array(audio[offset..<end]),
-          sampleRate: sampleRate,
-          language: language
-        )
-      }
-      let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-      if !trimmed.isEmpty {
-        chunks.append(trimmed)
-      }
-    }
-
-    return chunks.joined(separator: " ")
   }
 }
 
