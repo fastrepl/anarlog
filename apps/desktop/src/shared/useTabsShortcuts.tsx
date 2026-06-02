@@ -45,6 +45,8 @@ export function useMainTabsShortcuts({ onModT }: { onModT: () => void }) {
 
   const escapeShortcutRef = useRef(runEscapeShortcut);
   escapeShortcutRef.current = runEscapeShortcut;
+  const chatRef = useRef(chat);
+  chatRef.current = chat;
 
   useMountEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -56,6 +58,7 @@ export function useMainTabsShortcuts({ onModT }: { onModT: () => void }) {
       const hadEditorEscapeConsumer =
         fromProseMirrorEditor &&
         document.querySelector("[data-editor-escape-consumer]") !== null;
+      const hadOpenChat = chatRef.current.mode !== "FloatingClosed";
 
       window.setTimeout(() => {
         if (
@@ -64,6 +67,11 @@ export function useMainTabsShortcuts({ onModT }: { onModT: () => void }) {
             hadEditorEscapeConsumer,
           })
         ) {
+          return;
+        }
+
+        if (hadOpenChat) {
+          chatRef.current.sendEvent({ type: "CLOSE" });
           return;
         }
 

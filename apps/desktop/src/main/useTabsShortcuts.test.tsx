@@ -489,6 +489,25 @@ describe("useClassicMainTabsShortcuts", () => {
     expect(hoisted.openCurrent).not.toHaveBeenCalled();
   });
 
+  it("does not go home when chat closes before deferred escape handling runs", () => {
+    hoisted.chatMode = "FloatingOpen";
+    hoisted.currentTab = {
+      active: true,
+      slotId: "slot-session",
+      type: "sessions",
+    };
+
+    const { rerender } = renderHook(() => useClassicMainTabsShortcuts());
+
+    dispatchEscape();
+    hoisted.chatMode = "FloatingClosed";
+    rerender();
+    vi.runOnlyPendingTimers();
+
+    expect(hoisted.sendEvent).toHaveBeenCalledWith({ type: "CLOSE" });
+    expect(hoisted.openCurrent).not.toHaveBeenCalled();
+  });
+
   it("closes the right panel chat before going home on escape", () => {
     hoisted.chatMode = "RightPanelOpen";
     hoisted.currentTab = {
