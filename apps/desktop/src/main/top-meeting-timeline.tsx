@@ -11,6 +11,7 @@ import {
 import {
   memo,
   type CSSProperties,
+  type DragEvent,
   type MouseEvent,
   type MouseEventHandler,
   type PointerEvent,
@@ -47,6 +48,7 @@ import {
   type TimelineTranscriptsTable,
 } from "./meeting-timeline-recordings";
 
+import { writeSessionContextDragData } from "~/chat/context/session-drag";
 import { SessionPreviewCard } from "~/session/components/session-preview-card";
 import { useDeleteSession } from "~/session/hooks/useDeleteSession";
 import { useIsSessionEnhancing } from "~/session/hooks/useEnhancedNotes";
@@ -560,6 +562,17 @@ const SessionTimelineBar = memo(
       openNew({ id: item.id, type: "sessions" });
     }, [item.id, openNew]);
 
+    const handleDragStart = useCallback(
+      (event: DragEvent<HTMLButtonElement>) => {
+        writeSessionContextDragData(
+          event.dataTransfer,
+          item.id,
+          title || item.title || "Untitled",
+        );
+      },
+      [item.id, item.title, title],
+    );
+
     const handleDelete = useCallback(() => {
       deleteSession(item.id, sessionEvent?.tracking_id);
     }, [deleteSession, item.id, sessionEvent]);
@@ -607,8 +620,10 @@ const SessionTimelineBar = memo(
             )}
             showSpinner={showSpinner}
             onClick={openSession}
+            onDragStart={handleDragStart}
             onStop={stop}
             contextMenu={contextMenu}
+            draggable
           />
         </SessionPreviewCard>
       </TimelineCarouselCard>
@@ -831,8 +846,10 @@ function TimelineCardButton({
   amplitude,
   showSpinner,
   onClick,
+  onDragStart,
   onStop,
   contextMenu,
+  draggable,
 }: {
   item: MeetingTimelineEntry;
   title: string;
@@ -841,8 +858,10 @@ function TimelineCardButton({
   amplitude?: number;
   showSpinner?: boolean;
   onClick: (event: MouseEvent<HTMLButtonElement>) => void;
+  onDragStart?: (event: DragEvent<HTMLButtonElement>) => void;
   onStop?: () => void;
   contextMenu?: MenuItemDef[];
+  draggable?: boolean;
 }) {
   const showContextMenu = useNativeContextMenu(contextMenu ?? []);
   const handleContextMenu = useCallback<MouseEventHandler<HTMLButtonElement>>(
@@ -865,6 +884,16 @@ function TimelineCardButton({
     },
     [onStop],
   );
+  const handlePointerDown = useCallback(
+    (event: PointerEvent<HTMLButtonElement>) => {
+      if (!draggable) {
+        return;
+      }
+
+      event.stopPropagation();
+    },
+    [draggable],
+  );
   const startLabel = formatTimelineStartLabel(item.start, timezone);
   const showLiveStop = item.type === "session" && isLive && onStop;
   const showSuffixSpinner =
@@ -876,7 +905,10 @@ function TimelineCardButton({
       <button
         type="button"
         onClick={onClick}
+        onDragStart={onDragStart}
         onContextMenu={handleContextMenu}
+        onPointerDown={handlePointerDown}
+        draggable={draggable}
         className={cn([
           "flex h-10 w-full flex-col justify-center rounded-md border py-0 pl-2 text-left shadow-xs",
           showSuffix ? "pr-8" : "pr-2",

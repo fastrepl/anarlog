@@ -6,6 +6,10 @@ import { ChatMessageInput } from "./input";
 
 import type { useLanguageModel } from "~/ai/hooks";
 import { dedupeByKey, type ContextRef } from "~/chat/context/entities";
+import {
+  hasSessionContextDragData,
+  readSessionContextDragData,
+} from "~/chat/context/session-drag";
 import type { DisplayEntity } from "~/chat/context/use-chat-context-pipeline";
 import type { HyprUIMessage } from "~/chat/types";
 
@@ -53,9 +57,37 @@ export function ChatContent({
   const disabled = !isSystemPromptReady;
   const mergeContextRefs = (contextRefs?: ContextRef[]) =>
     contextRefs ? dedupeByKey([pendingRefs, contextRefs]) : pendingRefs;
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    if (!onAddContextEntity || !hasSessionContextDragData(event.dataTransfer)) {
+      return;
+    }
+
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+  };
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    if (!onAddContextEntity) {
+      return;
+    }
+
+    const contextRef = readSessionContextDragData(event.dataTransfer);
+
+    if (!contextRef) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    onAddContextEntity(contextRef);
+  };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div
+      className="flex min-h-0 flex-1 flex-col overflow-hidden"
+      data-chat-content
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
       {children ?? (
         <ChatBody
           messages={messages}

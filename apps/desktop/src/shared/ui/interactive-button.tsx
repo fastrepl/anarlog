@@ -1,4 +1,9 @@
-import { type MouseEvent, type ReactNode, useCallback } from "react";
+import {
+  type DragEvent,
+  type MouseEvent,
+  type ReactNode,
+  useCallback,
+} from "react";
 
 import {
   type MenuItemDef,
@@ -11,9 +16,11 @@ interface InteractiveButtonProps {
   onCmdClick?: () => void;
   onShiftClick?: () => void;
   onMouseDown?: (e: MouseEvent<HTMLElement>) => void;
+  onDragStart?: (e: DragEvent<HTMLElement>) => void;
   contextMenu?: MenuItemDef[];
   className?: string;
   disabled?: boolean;
+  draggable?: boolean;
   asChild?: boolean;
 }
 
@@ -23,9 +30,11 @@ export function InteractiveButton({
   onCmdClick,
   onShiftClick,
   onMouseDown,
+  onDragStart,
   contextMenu,
   className,
   disabled,
+  draggable,
   asChild = false,
 }: InteractiveButtonProps) {
   const showMenu = useNativeContextMenu(contextMenu ?? []);
@@ -54,10 +63,12 @@ export function InteractiveButton({
   return (
     <Element
       onClick={handleClick}
+      onDragStart={onDragStart}
       onMouseDown={onMouseDown}
       onContextMenu={contextMenu ? showMenu : undefined}
       className={className}
       disabled={!asChild ? disabled : undefined}
+      draggable={draggable}
     >
       {children}
     </Element>

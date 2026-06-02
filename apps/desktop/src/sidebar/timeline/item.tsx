@@ -1,5 +1,5 @@
 import { SquareIcon } from "lucide-react";
-import { memo, useCallback, useMemo } from "react";
+import { memo, type DragEvent, useCallback, useMemo } from "react";
 
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
@@ -20,6 +20,7 @@ import {
   TimelinePrecision,
 } from "./utils";
 
+import { writeSessionContextDragData } from "~/chat/context/session-drag";
 import { SessionPreviewCard } from "~/session/components/session-preview-card";
 import { useIsSessionEnhancing } from "~/session/hooks/useEnhancedNotes";
 import { getSessionEvent } from "~/session/utils";
@@ -95,7 +96,9 @@ function ItemBase({
   onCmdClick,
   onShiftClick,
   onStop,
+  onDragStart,
   contextMenu,
+  draggable,
 }: {
   title: string;
   displayTime: string;
@@ -111,7 +114,9 @@ function ItemBase({
   onCmdClick: () => void;
   onShiftClick: () => void;
   onStop?: () => void;
+  onDragStart?: (event: DragEvent<HTMLElement>) => void;
   contextMenu: MenuItemDef[];
+  draggable?: boolean;
 }) {
   const hasSelection = useTimelineSelection((s) => s.selectedIds.length > 0);
   const showLiveStop = isLive && onStop;
@@ -122,6 +127,7 @@ function ItemBase({
         onClick={ignored ? undefined : onClick}
         onCmdClick={ignored ? undefined : onCmdClick}
         onShiftClick={ignored ? undefined : onShiftClick}
+        onDragStart={onDragStart}
         contextMenu={hasSelection ? undefined : contextMenu}
         className={cn([
           "w-full rounded-lg px-3 py-2 text-left",
@@ -137,6 +143,7 @@ function ItemBase({
           ignored && "opacity-40",
           !ignored && muted && !isLive && "opacity-65",
         ])}
+        draggable={draggable}
       >
         <div className="flex items-center gap-2">
           {showSpinner && (
@@ -445,6 +452,17 @@ const SessionItem = memo(
       useTimelineSelection.getState().selectRange(flatItemKeys, itemKey);
     }, [flatItemKeys, itemKey]);
 
+    const handleDragStart = useCallback(
+      (event: DragEvent<HTMLElement>) => {
+        writeSessionContextDragData(
+          event.dataTransfer,
+          sessionId,
+          title || "Untitled",
+        );
+      },
+      [sessionId, title],
+    );
+
     const handleOpenNewTab = useCallback(() => {
       openNew({ id: sessionId, type: "sessions" });
     }, [sessionId, openNew]);
@@ -532,7 +550,9 @@ const SessionItem = memo(
           onCmdClick={handleCmdClick}
           onShiftClick={handleShiftClick}
           onStop={stop}
+          onDragStart={handleDragStart}
           contextMenu={contextMenu}
+          draggable
         />
       </SessionPreviewCard>
     );
