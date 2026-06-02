@@ -1,7 +1,7 @@
 import { Icon } from "@iconify-icon/react";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { ArrowRight, ChevronDown, KeyRound, WifiOff } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 
 import { DancingSticks } from "@hypr/ui/components/ui/dancing-sticks";
@@ -52,6 +52,181 @@ const privacyCommitments = [
     visual: "meeting",
   },
 ];
+
+const testimonials = [
+  {
+    quote: "Anarlog is great and local.",
+    author: "Tobi Lutke",
+    username: "tobi",
+    avatar: "/api/assets/blog/testimonials/tobi.jpg/",
+    url: "https://x.com/tobi/status/1983892259230699921",
+  },
+  {
+    quote: "Anarlog is worth a look.",
+    author: "Anand Chowdhary",
+    username: "AnandChowdhary",
+    avatar: "/api/assets/blog/testimonials/anand.jpg/",
+    url: "https://x.com/AnandChowdhary/status/1997980479698723119",
+  },
+  {
+    quote: "Anarlog is one of my favorite AI secret weapons.",
+    author: "James Koshigoe",
+    username: "JamesKoshigoe",
+    avatar: "/api/assets/blog/testimonials/james-k.jpg/",
+    url: "https://x.com/JamesKoshigoe/status/2024676687980671195",
+  },
+  {
+    quote: "Really liking Anarlog. Open access to my data and a GPL codebase!",
+    author: "James LePage",
+    username: "jameswlepage",
+    avatar: "/api/assets/blog/testimonials/james-l.jpg/",
+    url: "https://x.com/jameswlepage/status/2042780872693166169",
+  },
+  {
+    quote:
+      "I love the flexibility that Anarlog gives me to integrate personal notes with AI summaries.",
+    author: "Tom Yang",
+    username: "tomyang11_",
+    avatar: "/api/assets/blog/testimonials/tom.jpg/",
+    url: "https://twitter.com/tomyang11_/status/1956395933538902092",
+  },
+];
+
+type TestimonialCardPosition = {
+  x: number | string;
+  y: number;
+  rotate: number;
+  scale: number;
+};
+
+const mobileTestimonialPilePositions: TestimonialCardPosition[] = [
+  { x: 0, y: 0, rotate: -0.5, scale: 1 },
+  { x: 7, y: 12, rotate: 1.1, scale: 0.985 },
+  { x: -7, y: 24, rotate: -1.4, scale: 0.97 },
+  { x: 9, y: 36, rotate: 1.7, scale: 0.955 },
+  { x: -9, y: 48, rotate: -1.7, scale: 0.94 },
+];
+
+const mobileTestimonialSidePositions: TestimonialCardPosition[] = [
+  { x: "calc(5.75rem - 100vw)", y: 0, rotate: -6, scale: 0.94 },
+  { x: "calc(100vw - 5.75rem)", y: 16, rotate: 6, scale: 0.94 },
+  { x: "calc(5.25rem - 100vw)", y: 44, rotate: 5, scale: 0.9 },
+  { x: "calc(100vw - 5.25rem)", y: 60, rotate: -5, scale: 0.9 },
+  { x: "calc(5.75rem - 100vw)", y: 80, rotate: -2.5, scale: 0.86 },
+];
+
+const desktopTestimonialPilePositions: TestimonialCardPosition[] = [
+  { x: 0, y: 34, rotate: -1.5, scale: 1 },
+  { x: 10, y: 44, rotate: 1.7, scale: 0.985 },
+  { x: -11, y: 54, rotate: -2.2, scale: 0.97 },
+  { x: 14, y: 64, rotate: 2.8, scale: 0.955 },
+  { x: -14, y: 74, rotate: -3, scale: 0.94 },
+];
+
+const desktopTestimonialSidePositions: TestimonialCardPosition[] = [
+  { x: -430, y: 0, rotate: -7, scale: 0.9 },
+  { x: 430, y: 8, rotate: 7, scale: 0.9 },
+  { x: -420, y: 132, rotate: 6, scale: 0.88 },
+  { x: 420, y: 140, rotate: -6, scale: 0.88 },
+  { x: -430, y: 74, rotate: -3, scale: 0.82 },
+];
+
+const testimonialDeckStateVersion = 3;
+
+function formatTestimonialOffset(offset: TestimonialCardPosition["x"]) {
+  return typeof offset === "number" ? `${offset}px` : offset;
+}
+
+function renderPullQuote(quote: string) {
+  return quote.split(/(Anarlog)/g).map((part, index) => {
+    if (part !== "Anarlog") return part;
+
+    return (
+      <mark
+        key={index}
+        className="rounded-xs bg-[#fff0b3] box-decoration-clone px-1 py-0.5 text-[#181613]"
+      >
+        {part}
+      </mark>
+    );
+  });
+}
+
+function TestimonialTweetCard({
+  testimonial,
+  ariaLabel,
+  className,
+  style,
+  onMoveToSide,
+}: {
+  testimonial: (typeof testimonials)[number];
+  ariaLabel: string;
+  className?: string;
+  style?: CSSProperties;
+  onMoveToSide: () => void;
+}) {
+  return (
+    <article
+      role="button"
+      tabIndex={0}
+      aria-label={ariaLabel}
+      onClick={onMoveToSide}
+      onKeyDown={(event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+
+        event.preventDefault();
+        onMoveToSide();
+      }}
+      className={cn([
+        "border-color-subtle absolute rounded-lg border bg-white p-5 transition-[transform,box-shadow,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none sm:p-5",
+        className,
+      ])}
+      style={style}
+    >
+      <figure className="flex h-full flex-col">
+        <figcaption className="flex items-start justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <img
+              src={testimonial.avatar}
+              alt={`${testimonial.author} profile photo`}
+              className="size-12 rounded-full object-cover shadow-sm"
+            />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-[#181613]">
+                {testimonial.author}
+              </p>
+              <p className="truncate text-sm leading-5 text-[#756b5d]">
+                @{testimonial.username}
+              </p>
+            </div>
+          </div>
+
+          <a
+            href={testimonial.url}
+            target="_blank"
+            rel="noreferrer"
+            aria-label={`View ${testimonial.author} post on X`}
+            onClick={(event) => event.stopPropagation()}
+            className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-[#181613] transition-colors hover:bg-[#f7f4ef]"
+          >
+            <Icon
+              icon="simple-icons:x"
+              width={15}
+              height={15}
+              aria-hidden="true"
+            />
+          </a>
+        </figcaption>
+
+        <blockquote className="flex flex-1 items-center py-6">
+          <p className="text-xl leading-[1.25] font-semibold text-balance text-[#181613]">
+            {renderPullQuote(testimonial.quote)}
+          </p>
+        </blockquote>
+      </figure>
+    </article>
+  );
+}
 
 const appleSiliconDownloadUrl =
   "https://cdn.crabnebula.app/download/fastrepl/hyprnote2/latest/platform/dmg-aarch64?channel=stable";
@@ -144,8 +319,9 @@ function Component() {
               AI notepad for private meetings.
             </h1>
             <p className="mt-6 max-w-2xl text-xl leading-9 text-[#363029]">
-              An open-source Granola alternative for private meetings. Record
-              locally and choose where AI runs.
+              An open-source Granola alternative for private meetings,
+              downloaded over 11.9M times. Record locally and choose where AI
+              runs.
             </p>
             <div className="mt-8 flex flex-wrap gap-x-5 gap-y-3 text-sm">
               <DownloadButton />
@@ -170,6 +346,8 @@ function Component() {
           <HowItWorksSection />
 
           <PrivacySection />
+
+          <TestimonialsSection />
 
           <section id="manifesto" className="py-10">
             <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
@@ -196,6 +374,145 @@ function Component() {
 
       <SiteFooter />
     </main>
+  );
+}
+
+function TestimonialsSection() {
+  const [testimonialDeckState, setTestimonialDeckState] = useState({
+    version: testimonialDeckStateVersion,
+    movedIndexes: [] as number[],
+  });
+  const movedTestimonialIndexes =
+    testimonialDeckState.version === testimonialDeckStateVersion
+      ? testimonialDeckState.movedIndexes
+      : [];
+  const movedTestimonialSet = new Set(movedTestimonialIndexes);
+  const remainingTestimonialIndexes = testimonials
+    .map((_, index) => index)
+    .filter((index) => !movedTestimonialSet.has(index));
+
+  const handleMoveToSide = (itemIndex: number) => {
+    setTestimonialDeckState((currentState) => {
+      const currentIndexes =
+        currentState.version === testimonialDeckStateVersion
+          ? currentState.movedIndexes
+          : [];
+
+      if (currentIndexes.includes(itemIndex)) return currentState;
+
+      return {
+        version: testimonialDeckStateVersion,
+        movedIndexes: [...currentIndexes, itemIndex],
+      };
+    });
+  };
+
+  return (
+    <section className="pt-8 pb-2">
+      <div>
+        <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
+          What people say
+        </h2>
+        <p className="text-color-secondary mt-6 text-lg leading-8">
+          See for yourself. Before Anarlog had this name, people kept pointing
+          at the same things: private meeting notes, no bot in the room, and
+          local control by default.
+        </p>
+      </div>
+
+      <div className="relative left-1/2 mx-auto mt-8 h-[19rem] w-screen max-w-[980px] -translate-x-1/2 overflow-visible px-5 sm:h-[18rem]">
+        <div className="absolute top-0 left-1/2 z-0 flex h-[15.5rem] w-[calc(100%-2.5rem)] max-w-[380px] -translate-x-1/2 flex-col items-center justify-center text-center sm:h-[13.5rem] sm:w-[380px] sm:translate-y-[34px]">
+          <p className="font-hand text-3xl leading-none font-semibold text-[#756b5d] sm:text-4xl">
+            Try for yourself.
+          </p>
+          <div className="mt-6 flex items-center justify-center">
+            <a
+              href={appleSiliconDownloadUrl}
+              className="inline-flex items-center gap-2 rounded-full bg-[#181613] px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-[#4f4940]"
+            >
+              Start using for free
+              <ArrowRight size={16} strokeWidth={2.2} aria-hidden="true" />
+            </a>
+          </div>
+        </div>
+
+        <div className="sm:hidden">
+          {testimonials.map((testimonial, itemIndex) => {
+            const movedIndex = movedTestimonialIndexes.indexOf(itemIndex);
+            const isMoved = movedIndex >= 0;
+            const remainingIndex =
+              remainingTestimonialIndexes.indexOf(itemIndex);
+            const pilePosition = isMoved
+              ? mobileTestimonialSidePositions[
+                  movedIndex % mobileTestimonialSidePositions.length
+                ]
+              : mobileTestimonialPilePositions[
+                  Math.max(remainingIndex, 0) %
+                    mobileTestimonialPilePositions.length
+                ];
+
+            return (
+              <TestimonialTweetCard
+                key={itemIndex}
+                testimonial={testimonial}
+                ariaLabel={`Move ${testimonial.author} testimonial to the side`}
+                onMoveToSide={() => handleMoveToSide(itemIndex)}
+                className={cn([
+                  "top-0 left-1/2 h-[15.5rem] w-[calc(100%-2.5rem)] cursor-pointer shadow-[0_24px_60px_rgba(24,22,19,0.14)] hover:shadow-[0_30px_75px_rgba(24,22,19,0.16)]",
+                  isMoved || remainingIndex > 0 ? "pointer-events-none" : "",
+                ])}
+                style={{
+                  transform: `translate(calc(-50% + ${formatTestimonialOffset(pilePosition.x)}), ${pilePosition.y}px) scale(${pilePosition.scale}) rotate(${pilePosition.rotate}deg)`,
+                  transformOrigin: "top center",
+                  zIndex: isMoved
+                    ? 20 + movedIndex
+                    : 40 + remainingTestimonialIndexes.length - remainingIndex,
+                }}
+              />
+            );
+          })}
+        </div>
+
+        <div className="hidden sm:block">
+          {testimonials.map((testimonial, itemIndex) => {
+            const movedIndex = movedTestimonialIndexes.indexOf(itemIndex);
+            const isMoved = movedIndex >= 0;
+            const remainingIndex =
+              remainingTestimonialIndexes.indexOf(itemIndex);
+            const pilePosition = isMoved
+              ? desktopTestimonialSidePositions[
+                  movedIndex % desktopTestimonialSidePositions.length
+                ]
+              : desktopTestimonialPilePositions[
+                  Math.max(remainingIndex, 0) %
+                    desktopTestimonialPilePositions.length
+                ];
+
+            return (
+              <TestimonialTweetCard
+                key={itemIndex}
+                testimonial={testimonial}
+                ariaLabel={`Move ${testimonial.author} testimonial to the side`}
+                onMoveToSide={() => handleMoveToSide(itemIndex)}
+                className={cn([
+                  "top-0 left-1/2 h-[13.5rem] w-[380px] cursor-pointer",
+                  !isMoved && remainingIndex === 0
+                    ? "shadow-[0_24px_60px_rgba(24,22,19,0.14)] hover:shadow-[0_30px_75px_rgba(24,22,19,0.16)]"
+                    : "shadow-[0_14px_36px_rgba(24,22,19,0.1)] hover:shadow-[0_18px_44px_rgba(24,22,19,0.13)]",
+                ])}
+                style={{
+                  transform: `translate(calc(-50% + ${formatTestimonialOffset(pilePosition.x)}), ${pilePosition.y}px) scale(${pilePosition.scale}) rotate(${pilePosition.rotate}deg)`,
+                  transformOrigin: "top center",
+                  zIndex: isMoved
+                    ? 20 + movedIndex
+                    : 40 + remainingTestimonialIndexes.length - remainingIndex,
+                }}
+              />
+            );
+          })}
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -296,7 +613,7 @@ function PrivacyVisual({
 
   return (
     <div className="flex h-20 items-center select-none md:h-28 md:w-full">
-      <div className="flex items-center gap-3 rounded-2xl border border-neutral-200 bg-white py-2 pr-8 pl-2 shadow-lg md:w-full">
+      <div className="flex items-center gap-3 rounded-2xl border border-neutral-200 bg-white py-2 pr-8 pl-4 shadow-lg md:w-full">
         <Icon icon="logos:google-meet" width={32} height={32} />
         <div className="flex flex-col gap-1">
           <span className="text-sm font-medium text-stone-800">
