@@ -1,4 +1,5 @@
 export { appLinkPastePlugin } from "./app-link-paste";
+export { clipboardPlugin, serializeClipboardText } from "./clipboard";
 export { clearMarksOnEnterPlugin } from "./clear-marks-on-enter";
 export {
   clipNodeSpec,
