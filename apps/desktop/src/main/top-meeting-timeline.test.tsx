@@ -483,6 +483,33 @@ describe("TopMeetingTimeline", () => {
     expect(timelineCards[2]?.textContent).toContain("Future note");
   });
 
+  it("places a newly created note before the create note card before the clock ticks", () => {
+    const now = new Date("2026-05-29T15:41:00.000Z");
+    const createdAt = new Date("2026-05-29T15:41:30.000Z");
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+
+    const { rerender } = render(<TopMeetingTimeline currentTab={null} />);
+
+    vi.setSystemTime(createdAt);
+    mocks.timelineSessionsTable = {
+      "session-1": {
+        created_at: createdAt.toISOString(),
+        event_json: "",
+        title: "Untitled",
+      },
+    };
+
+    rerender(<TopMeetingTimeline currentTab={null} />);
+
+    const timelineCards = Array.from(
+      document.querySelectorAll<HTMLElement>("[data-timeline-start-ms]"),
+    );
+
+    expect(timelineCards[0]?.textContent).toContain("Untitled");
+    expect(timelineCards[1]?.textContent).toContain("Create new note");
+  });
+
   it("keeps manual scroll when the trailing create note clock ticks", () => {
     const now = new Date("2026-05-29T15:41:00.000Z");
     vi.useFakeTimers();

@@ -196,7 +196,7 @@ export function TopMeetingTimeline({ currentTab }: { currentTab: Tab | null }) {
         endExclusive: timelineEnd,
         hasHiddenPastItems,
         hasHiddenFutureItems,
-        currentTime: new Date(currentTimeMs),
+        currentTime: new Date(Math.max(currentTimeMs, Date.now())),
         includeCreateNote: true,
       }),
     [
