@@ -30,7 +30,7 @@ export function SegmentHeader({
   ]);
 
   return (
-    <p className={headerClassName}>
+    <div className={headerClassName}>
       <SpeakerAssignPopover
         segment={segment}
         transcriptId={transcriptId}
@@ -38,7 +38,7 @@ export function SegmentHeader({
         label={label}
       />
       <span className="font-mono text-neutral-500">{timestamp}</span>
-    </p>
+    </div>
   );
 }
 

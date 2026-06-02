@@ -214,6 +214,18 @@ function buildRenderTranscriptRequest(
     }
 
     for (const hint of transcript.speaker_hints ?? []) {
+      if (hint.type !== "provider_speaker_index") {
+        continue;
+      }
+
+      normalizeSpeakerHint(hint, words, wordIndexById);
+    }
+
+    for (const hint of transcript.speaker_hints ?? []) {
+      if (hint.type === "provider_speaker_index") {
+        continue;
+      }
+
       const normalized = normalizeSpeakerHint(hint, words, wordIndexById);
       if (normalized) {
         assignments.push(normalized);

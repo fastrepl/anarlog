@@ -62,6 +62,31 @@ function createStore(participantIds = ["self", "remote"]): FakeStore {
       ]),
       speaker_hints: JSON.stringify([]),
     },
+    unordered: {
+      session_id: "session-1",
+      started_at: 2_000,
+      words: JSON.stringify([
+        {
+          id: "unordered-word",
+          text: " hello",
+          start_ms: 0,
+          end_ms: 100,
+          channel: 1,
+        },
+      ]),
+      speaker_hints: JSON.stringify([
+        {
+          word_id: "unordered-word",
+          type: "user_speaker_assignment",
+          value: JSON.stringify({ human_id: "remote" }),
+        },
+        {
+          word_id: "unordered-word",
+          type: "provider_speaker_index",
+          value: JSON.stringify({ channel: 1, speaker_index: 2 }),
+        },
+      ]),
+    },
   } as const;
 
   const humans = {
@@ -154,6 +179,25 @@ describe("buildRenderTranscriptRequestFromStore", () => {
     );
 
     expect(request?.participant_human_ids).toEqual(["self", "remote", "third"]);
+  });
+
+  it("applies provider speaker hints before user assignments regardless of storage order", () => {
+    const request = buildRenderTranscriptRequestFromStore(
+      createStore() as never,
+      ["unordered"],
+    );
+
+    expect(request?.transcripts[0]?.words[0]?.speaker_index).toBe(2);
+    expect(request?.transcripts[0]?.assignments).toEqual([
+      {
+        human_id: "remote",
+        scope: {
+          kind: "channel_speaker",
+          channel: "RemoteParty",
+          speaker_index: 2,
+        },
+      },
+    ]);
   });
 
   it("rounds fractional millisecond timings before invoking Rust", async () => {
