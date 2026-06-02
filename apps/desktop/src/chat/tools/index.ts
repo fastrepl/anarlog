@@ -1,4 +1,11 @@
+import { CONTEXT_TEXT_FIELD } from "./context-text";
 import { buildEditSummaryTool } from "./edit-summary";
+import {
+  buildGrepNotesTool,
+  buildListRelatedNotesTool,
+  buildReadCurrentNoteTool,
+  buildReadNoteTool,
+} from "./note-files";
 import { buildSearchCalendarEventsTool } from "./search-calendar-events";
 import { buildSearchContactsTool } from "./search-contacts";
 import { buildSearchSessionsTool } from "./search-sessions";
@@ -11,9 +18,7 @@ import type {
 import type { SearchFilters } from "~/search/contexts/engine/types";
 
 export type { ToolDependencies };
-
-// Ephemeral field: injected by transport during hydration, stripped before persistence.
-export const CONTEXT_TEXT_FIELD = "contextText" as const;
+export { CONTEXT_TEXT_FIELD };
 
 function withToolLogging<T extends { execute?: (...args: any[]) => any }>(
   name: string,
@@ -41,6 +46,16 @@ function withToolLogging<T extends { execute?: (...args: any[]) => any }>(
 }
 
 export const buildChatTools = (deps: ToolDependencies) => ({
+  read_current_note: withToolLogging(
+    "read_current_note",
+    buildReadCurrentNoteTool(deps),
+  ),
+  read_note: withToolLogging("read_note", buildReadNoteTool(deps)),
+  grep_notes: withToolLogging("grep_notes", buildGrepNotesTool(deps)),
+  list_related_notes: withToolLogging(
+    "list_related_notes",
+    buildListRelatedNotesTool(deps),
+  ),
   search_sessions: withToolLogging(
     "search_sessions",
     buildSearchSessionsTool(deps),
@@ -57,6 +72,67 @@ export const buildChatTools = (deps: ToolDependencies) => ({
 });
 
 type LocalTools = {
+  read_current_note: {
+    input: { maxChars?: number };
+    output: {
+      status: "ok" | "error";
+      message?: string;
+      sessionId?: string;
+      title?: string;
+      date?: string | null;
+      event?: string | null;
+      participants?: string[];
+      sections?: Array<{ title: string; characters: number }>;
+      truncated?: boolean;
+      contextText?: string | null;
+    };
+  };
+  read_note: {
+    input: { sessionId: string; maxChars?: number };
+    output: {
+      status: "ok" | "error";
+      message?: string;
+      sessionId: string;
+      title?: string;
+      date?: string | null;
+      event?: string | null;
+      participants?: string[];
+      sections?: Array<{ title: string; characters: number }>;
+      truncated?: boolean;
+      contextText?: string | null;
+    };
+  };
+  grep_notes: {
+    input: { query: string; sessionIds?: string[]; limit?: number };
+    output: {
+      query: string;
+      scanned?: number;
+      message?: string;
+      results: Array<{
+        sessionId: string;
+        title: string;
+        date: string | null;
+        score: number;
+        snippets: Array<{ section: string; text: string }>;
+      }>;
+    };
+  };
+  list_related_notes: {
+    input: { sessionId?: string; limit?: number };
+    output: {
+      status: "ok" | "error";
+      message?: string;
+      sessionId?: string;
+      title?: string;
+      results: Array<{
+        sessionId: string;
+        title: string;
+        date: string | null;
+        score: number;
+        reasons: string[];
+      }>;
+    };
+  };
   search_sessions: {
     input: {
       query?: string;

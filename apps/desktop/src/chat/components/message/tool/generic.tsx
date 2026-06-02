@@ -4,6 +4,7 @@ import { useToolState } from "./shared";
 
 import { Disclosure } from "~/chat/components/message/shared";
 import { extractMcpOutputText } from "~/chat/mcp/mcp-output-parser";
+import { CONTEXT_TEXT_FIELD } from "~/chat/tools/context-text";
 
 function formatToolName(name: string): string {
   return name.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
@@ -24,6 +25,18 @@ function formatOutputText(output: unknown): string | null {
   }
 
   try {
+    if (
+      typeof output === "object" &&
+      output !== null &&
+      CONTEXT_TEXT_FIELD in output
+    ) {
+      const { [CONTEXT_TEXT_FIELD]: _contextText, ...rest } = output as Record<
+        string,
+        unknown
+      >;
+      return JSON.stringify(rest, null, 2);
+    }
+
     return JSON.stringify(output, null, 2);
   } catch {
     return String(output);

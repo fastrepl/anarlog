@@ -15,7 +15,7 @@ import {
 
 import type { ContextRef } from "../context/entities";
 import { extractContextRefsFromMessages } from "../context/refs";
-import { CONTEXT_TEXT_FIELD } from "../tools";
+import { CONTEXT_TEXT_FIELD } from "../tools/context-text";
 import type { HyprUIMessage } from "../types";
 import {
   getSessionIdsFromSearchOutput,

@@ -1,4 +1,4 @@
-import { CONTEXT_TEXT_FIELD } from "./index";
+import { CONTEXT_TEXT_FIELD } from "./context-text";
 
 import type { HyprUIMessage } from "~/chat/types";
 
@@ -11,23 +11,27 @@ export function stripEphemeralToolContext(
 ): HyprUIMessage["parts"] {
   let changed = false;
   const sanitized = parts.map((part) => {
+    const record = isRecord(part) ? (part as Record<string, unknown>) : null;
+    const output = isRecord(record?.["output"]) ? record["output"] : null;
+
     if (
-      !isRecord(part) ||
-      part.type !== "tool-search_sessions" ||
-      part.state !== "output-available" ||
-      !isRecord(part.output) ||
-      !(CONTEXT_TEXT_FIELD in part.output)
+      !record ||
+      typeof record["type"] !== "string" ||
+      !record["type"].startsWith("tool-") ||
+      record["state"] !== "output-available" ||
+      !output ||
+      !(CONTEXT_TEXT_FIELD in output)
     ) {
       return part;
     }
 
     changed = true;
-    const { contextText: _contextText, ...restOutput } = part.output;
+    const { contextText: _contextText, ...restOutput } = output;
     return {
-      ...part,
+      ...record,
       output: restOutput,
     };
   });
 
-  return changed ? sanitized : parts;
+  return changed ? (sanitized as HyprUIMessage["parts"]) : parts;
 }

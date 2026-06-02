@@ -12,6 +12,28 @@ import { hydrateSessionContextFromFs } from "~/chat/context/session-context-hydr
 import { useToolRegistry } from "~/contexts/tool";
 import * as main from "~/store/tinybase/store/main";
 
+const FILE_CONTEXT_TOOL_GUIDANCE = `
+Context and local-note tool guidance:
+- When the user asks about "this note", "this meeting", "the current note", or pronouns that likely refer to the open note, use read_current_note before answering.
+- When the user asks to find or search for something in notes, use grep_notes. If the answer needs the full source after a match, use read_note with the returned session id.
+- When the user asks about people from the current note or related meetings, use list_related_notes and then read_note as needed.
+- Do not assume note contents from chat history when a file-backed tool can read the current source of truth.
+`.trim();
+
+function appendFileContextToolGuidance(
+  prompt: string | undefined,
+): string | undefined {
+  if (prompt === undefined) {
+    return undefined;
+  }
+
+  if (!prompt.trim()) {
+    return FILE_CONTEXT_TOOL_GUIDANCE;
+  }
+
+  return `${prompt.trim()}\n\n${FILE_CONTEXT_TOOL_GUIDANCE}`;
+}
+
 function renderHumanContext(
   store: ReturnType<typeof main.UI.useStore>,
   humanId: string,
@@ -122,7 +144,9 @@ export function useTransport(
     };
   }, [language, systemPromptOverride]);
 
-  const effectiveSystemPrompt = systemPromptOverride ?? systemPrompt;
+  const effectiveSystemPrompt = appendFileContextToolGuidance(
+    systemPromptOverride ?? systemPrompt,
+  );
   const isSystemPromptReady =
     typeof systemPromptOverride === "string" || systemPrompt !== undefined;
 
