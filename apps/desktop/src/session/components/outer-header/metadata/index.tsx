@@ -9,21 +9,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@hypr/ui/components/ui/popover";
-import {
-  cn,
-  differenceInDays,
-  safeFormat,
-  safeParseDate,
-  startOfDay,
-  TZDate,
-} from "@hypr/utils";
+import { cn, safeFormat, safeParseDate, TZDate } from "@hypr/utils";
 
 import { DateEditor } from "./date";
 import { ParticipantsDisplay } from "./participants";
 
 import { useConfigValue } from "~/shared/config";
 import { useSessionEvent } from "~/store/tinybase/hooks";
-import * as main from "~/store/tinybase/store/main";
 
 export function MetadataButton({ sessionId }: { sessionId: string }) {
   const [open, setOpen] = useState(false);
@@ -36,9 +28,9 @@ export function MetadataButton({ sessionId }: { sessionId: string }) {
       <PopoverContent
         variant="app"
         align="end"
-        className="flex max-h-[80vh] w-85 flex-col overflow-visible"
+        className="w-85 overflow-visible"
       >
-        <AppFloatingPanel className="overflow-visible">
+        <AppFloatingPanel className="flex max-h-[80vh] min-h-0 flex-col overflow-visible">
           <ContentInner sessionId={sessionId} />
         </AppFloatingPanel>
       </PopoverContent>
@@ -50,39 +42,25 @@ const TriggerInner = forwardRef<
   HTMLButtonElement,
   { sessionId: string; open?: boolean }
 >(({ sessionId, open, ...props }, ref) => {
-  const createdAt = main.UI.useCell(
-    "sessions",
-    sessionId,
-    "created_at",
-    main.STORE_ID,
-  );
   const sessionEvent = useSessionEvent(sessionId);
-
-  const hasEvent = !!sessionEvent;
-  const parsedDate = safeParseDate(createdAt);
-  const displayText = hasEvent
-    ? sessionEvent.title || "Untitled Event"
-    : formatRelativeOrAbsolute(parsedDate ?? new Date());
+  const label = sessionEvent ? "Open event metadata" : "Open note metadata";
 
   return (
     <Button
       ref={ref}
       {...props}
       variant="ghost"
-      size="sm"
+      size="icon"
+      type="button"
+      aria-label={label}
+      title={label}
       className={cn([
-        "rounded-full px-3",
+        "rounded-full",
         "text-neutral-600 hover:bg-neutral-100 hover:text-black",
         open && "bg-neutral-100",
-        hasEvent && "max-w-50",
       ])}
     >
-      {hasEvent && sessionEvent?.meeting_link ? (
-        <VideoIcon size={14} className="shrink-0" />
-      ) : (
-        <CalendarIcon size={14} className="shrink-0" />
-      )}
-      <span className={cn([hasEvent && "truncate"])}>{displayText}</span>
+      <CalendarIcon size={16} />
     </Button>
   );
 });
@@ -103,14 +81,14 @@ function ContentInner({ sessionId }: { sessionId: string }) {
     : null;
 
   return (
-    <div className="flex flex-col gap-4 p-4">
-      {!eventDisplayData && <DateEditor sessionId={sessionId} />}
-      {eventDisplayData && (
-        <EventDisplay event={eventDisplayData}>
-          <ParticipantsDisplay sessionId={sessionId} />
-        </EventDisplay>
-      )}
-      {!eventDisplayData && <ParticipantsDisplay sessionId={sessionId} />}
+    <div className="flex min-h-0 flex-col overflow-visible">
+      <div className="flex min-h-0 flex-col gap-4 overflow-y-auto p-4 pb-0">
+        {!eventDisplayData && <DateEditor sessionId={sessionId} />}
+        {eventDisplayData && <EventDisplay event={eventDisplayData} />}
+      </div>
+      <div className="p-4">
+        <ParticipantsDisplay sessionId={sessionId} />
+      </div>
     </div>
   );
 }
@@ -327,32 +305,4 @@ function renderDescriptionWithLinks(description: string): React.ReactNode {
   }
 
   return nodes.length > 0 ? nodes : description;
-}
-
-function formatRelativeOrAbsolute(date: Date): string {
-  const now = startOfDay(new Date());
-  const targetDay = startOfDay(date);
-  const daysDiff = differenceInDays(targetDay, now);
-  const absDays = Math.abs(daysDiff);
-
-  if (daysDiff === 0) {
-    return "Today";
-  }
-  if (daysDiff === -1) {
-    return "Yesterday";
-  }
-  if (daysDiff === 1) {
-    return "Tomorrow";
-  }
-
-  if (daysDiff < 0 && absDays <= 6) {
-    return `${absDays} days ago`;
-  }
-
-  if (daysDiff < 0 && absDays <= 27) {
-    const weeks = Math.max(1, Math.round(absDays / 7));
-    return weeks === 1 ? "a week ago" : `${weeks} weeks ago`;
-  }
-
-  return safeFormat(date, "MMM d, yyyy", "Unknown date");
 }
