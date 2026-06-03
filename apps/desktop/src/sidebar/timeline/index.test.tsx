@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   addDeletion: vi.fn(),
   configValue: undefined as string | undefined,
   currentTimeMs: undefined as number | undefined,
+  smartCurrentTimeMs: undefined as number | undefined,
   timelineEventsTable: {} as Record<string, Record<string, unknown>>,
   timelineSessionsTable: {} as Record<string, Record<string, unknown>>,
 }));
@@ -122,7 +123,7 @@ vi.mock("./realtime", async () => {
       },
     ),
     useCurrentTimeMs: () => mocks.currentTimeMs ?? Date.now(),
-    useSmartCurrentTime: () => Date.now(),
+    useSmartCurrentTime: () => mocks.smartCurrentTimeMs ?? Date.now(),
   };
 });
 
@@ -133,6 +134,7 @@ describe("TimelineView", () => {
     vi.clearAllMocks();
     mocks.configValue = undefined;
     mocks.currentTimeMs = undefined;
+    mocks.smartCurrentTimeMs = undefined;
     mocks.timelineEventsTable = {};
     mocks.timelineSessionsTable = {};
   });
@@ -281,6 +283,39 @@ describe("TimelineView", () => {
     const indicator = screen.getByTestId("current-time-indicator");
 
     expect(isBefore(tomorrowHeading, indicator)).toBe(true);
+    expect(isBefore(indicator, yesterdayHeading)).toBe(true);
+  });
+
+  it("places the fallback now indicator after stale future buckets", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-15T23:58:00.000Z"));
+    mocks.configValue = "UTC";
+    mocks.currentTimeMs = Date.now();
+    mocks.smartCurrentTimeMs = Date.now();
+    mocks.timelineSessionsTable = {
+      soon: {
+        title: "Late handoff",
+        created_at: "2024-01-16T00:00:30.000Z",
+      },
+      yesterday: {
+        title: "Planning",
+        created_at: "2024-01-14T12:00:00.000Z",
+      },
+    };
+
+    const { rerender } = render(<TimelineView />);
+
+    vi.setSystemTime(new Date("2024-01-16T00:01:00.000Z"));
+    mocks.currentTimeMs = Date.now();
+    rerender(<TimelineView />);
+
+    const staleTomorrowHeading = screen.getByText("Tomorrow");
+    const staleTomorrowItem = screen.getByTestId("timeline-item-soon");
+    const yesterdayHeading = screen.getByText("Yesterday");
+    const indicator = screen.getByTestId("current-time-indicator");
+
+    expect(isBefore(staleTomorrowHeading, staleTomorrowItem)).toBe(true);
+    expect(isBefore(staleTomorrowItem, indicator)).toBe(true);
     expect(isBefore(indicator, yesterdayHeading)).toBe(true);
   });
 });

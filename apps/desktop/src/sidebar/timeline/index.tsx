@@ -307,15 +307,7 @@ export function TimelineView({
     if (hasToday) {
       return -1;
     }
-    return buckets.findIndex((bucket) => {
-      const firstItem = bucket.items[0];
-      if (!firstItem) {
-        return false;
-      }
-
-      const itemDate = getItemTimestamp(firstItem);
-      return itemDate ? itemDate.getTime() < currentTimeMs : false;
-    });
+    return getFallbackIndicatorIndex(buckets, Date.now());
   }, [buckets, hasToday, currentTimeMs]);
 
   const toggleShowIgnored = useCallback(() => {
@@ -630,6 +622,41 @@ function SidebarTimelineActionButton({
       </span>
       <span className="truncate">{label}</span>
     </button>
+  );
+}
+
+function getFallbackIndicatorIndex(buckets: TimelineBucket[], nowMs: number) {
+  let staleFutureBoundary: number | null = null;
+
+  for (let index = 0; index < buckets.length; index++) {
+    const bucket = buckets[index];
+    const firstItem = bucket?.items[0];
+    if (!bucket || !firstItem) {
+      continue;
+    }
+
+    const itemDate = getItemTimestamp(firstItem);
+    if (!itemDate || itemDate.getTime() >= nowMs) {
+      continue;
+    }
+
+    if (isFutureBucketLabel(bucket.label)) {
+      staleFutureBoundary = index + 1;
+      continue;
+    }
+
+    return staleFutureBoundary ?? index;
+  }
+
+  return staleFutureBoundary ?? -1;
+}
+
+function isFutureBucketLabel(label: string) {
+  return (
+    label === "Tomorrow" ||
+    label === "next week" ||
+    label === "next month" ||
+    label.startsWith("in ")
   );
 }
 
