@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import {
+  applyExtractedContactToHuman,
   applyExtractedContacts,
   buildEventContactExtractionContext,
   extractDeterministicContactHints,
@@ -188,6 +189,80 @@ describe("event contact extraction", () => {
         (mapping) => mapping.human_id === "human-1",
       ),
     ).toHaveLength(1);
+  });
+
+  test("enhances only the selected participant contact", () => {
+    const store = createStore();
+    store.setRow("humans", "human-1", {
+      user_id: "user-1",
+      created_at: "2026-04-01T00:00:00.000Z",
+      name: "yongkyun.daniel.lee@gmail.com",
+      email: "yongkyun.daniel.lee@gmail.com",
+      phone: "",
+      org_id: "",
+      job_title: "",
+      linkedin_username: "",
+      memo: "",
+      pinned: false,
+    });
+    store.setRow("humans", "human-2", {
+      user_id: "user-1",
+      created_at: "2026-04-01T00:00:00.000Z",
+      name: "other@example.com",
+      email: "other@example.com",
+      phone: "",
+      org_id: "",
+      job_title: "",
+      linkedin_username: "",
+      memo: "",
+      pinned: false,
+    });
+    store.setRow("mapping_session_participant", "mapping-1", {
+      user_id: "user-1",
+      session_id: "session-1",
+      human_id: "human-1",
+      source: "auto",
+    });
+    store.setRow("mapping_session_participant", "mapping-2", {
+      user_id: "user-1",
+      session_id: "session-1",
+      human_id: "human-2",
+      source: "auto",
+    });
+
+    const result = applyExtractedContactToHuman(
+      store,
+      "session-1",
+      "human-1",
+      [
+        {
+          name: "Yongkyun (Daniel) Lee",
+          email: "yongkyun.daniel.lee@gmail.com",
+        },
+        {
+          name: "Other Person",
+          email: "other@example.com",
+        },
+      ],
+      { userId: "user-1" },
+    );
+
+    expect(result).toMatchObject({
+      created: 0,
+      updated: 1,
+      linked: 0,
+      matched: true,
+    });
+    expect(store.getCell("humans", "human-1", "name")).toBe(
+      "Yongkyun (Daniel) Lee",
+    );
+    expect(store.getCell("humans", "human-2", "name")).toBe(
+      "other@example.com",
+    );
+    expect(Object.keys(store.getTable("humans"))).toHaveLength(3);
+    expect(
+      Object.keys(store.getTable("mapping_session_participant")),
+    ).toHaveLength(3);
   });
 
   test("creates and links a new contact when no existing contact matches", () => {

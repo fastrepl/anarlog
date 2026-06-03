@@ -1,14 +1,27 @@
-import { X } from "lucide-react";
+import { Loader2Icon, SparklesIcon, X } from "lucide-react";
 import { useCallback } from "react";
 
 import { Badge } from "@hypr/ui/components/ui/badge";
 import { Button } from "@hypr/ui/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@hypr/ui/components/ui/tooltip";
 
 import * as main from "~/store/tinybase/store/main";
 import { useTabs } from "~/store/zustand/tabs/index";
 import { parseTranscriptHints, updateTranscriptHints } from "~/stt/utils";
 
-export function ParticipantChip({ mappingId }: { mappingId: string }) {
+export function ParticipantChip({
+  mappingId,
+  enhancingHumanId,
+  onEnhanceContact,
+}: {
+  mappingId: string;
+  enhancingHumanId?: string;
+  onEnhanceContact?: (humanId: string) => void;
+}) {
   const details = useParticipantDetails(mappingId);
 
   const assignedHumanId = details?.humanId;
@@ -36,6 +49,8 @@ export function ParticipantChip({ mappingId }: { mappingId: string }) {
   }
 
   const { humanName } = details;
+  const isEnhancing = enhancingHumanId === assignedHumanId;
+  const canEnhance = Boolean(onEnhanceContact && assignedHumanId);
 
   return (
     <Badge
@@ -44,6 +59,18 @@ export function ParticipantChip({ mappingId }: { mappingId: string }) {
       onClick={handleClick}
     >
       {humanName || "Unknown"}
+      {canEnhance && (
+        <EnhanceContactButton
+          isEnhancing={isEnhancing}
+          isDisabled={Boolean(enhancingHumanId)}
+          label={humanName || "contact"}
+          onClick={() => {
+            if (assignedHumanId) {
+              onEnhanceContact?.(assignedHumanId);
+            }
+          }}
+        />
+      )}
       <Button
         type="button"
         variant="ghost"
@@ -57,6 +84,44 @@ export function ParticipantChip({ mappingId }: { mappingId: string }) {
         <X className="h-2.5 w-2.5" />
       </Button>
     </Badge>
+  );
+}
+
+function EnhanceContactButton({
+  isEnhancing,
+  isDisabled,
+  label,
+  onClick,
+}: {
+  isEnhancing: boolean;
+  isDisabled: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <Tooltip delayDuration={0}>
+      <TooltipTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          aria-label={`Enhance contact ${label}`}
+          className="ml-0.5 h-3.5 w-3.5 p-0 text-neutral-500 hover:bg-transparent hover:text-neutral-800"
+          disabled={isDisabled}
+          onClick={(e) => {
+            e.stopPropagation();
+            onClick();
+          }}
+        >
+          {isEnhancing ? (
+            <Loader2Icon className="h-2.5 w-2.5 animate-spin" />
+          ) : (
+            <SparklesIcon className="h-2.5 w-2.5" />
+          )}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">Enhance contact</TooltipContent>
+    </Tooltip>
   );
 }
 
