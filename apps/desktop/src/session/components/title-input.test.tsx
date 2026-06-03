@@ -111,4 +111,32 @@ describe("TitleInput", () => {
       screen.queryByRole("button", { name: "Regenerate title" }),
     ).toBeNull();
   });
+
+  it("reveals overflowing titles with a hover scroll overlay", () => {
+    const title =
+      "Product Discovery Pace and Headless Agent Usage Strategy Review";
+
+    renderTitleInput();
+
+    const input = screen.getByPlaceholderText("Untitled");
+    Object.defineProperty(input, "clientWidth", {
+      configurable: true,
+      value: 160,
+    });
+    Object.defineProperty(input, "scrollWidth", {
+      configurable: true,
+      value: 420,
+    });
+
+    fireEvent.change(input, { target: { value: title } });
+
+    const hoverTitle = screen.getByText(title);
+    expect(input.className).toContain("text-transparent");
+    expect(hoverTitle.className).toContain(
+      "group-hover/title-input:animate-title-hover-scroll",
+    );
+    expect(
+      hoverTitle.style.getPropertyValue("--title-hover-scroll-distance"),
+    ).toBe("-260px");
+  });
 });

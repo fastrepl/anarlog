@@ -14,6 +14,10 @@
 
   --animate-shimmer: shimmer 2s infinite;
   --animate-reveal-left: reveal-left 0.5s ease-out forwards;
+  --animate-title-hover-scroll: title-hover-scroll var(
+    --title-hover-scroll-duration,
+    4s
+  ) ease-in-out forwards;
   --animate-kbd-press: kbd-press 0.4s ease-out forwards;
 
   --animate-wiggle: wiggle 1s ease-in-out infinite;
@@ -55,6 +59,14 @@
     }
     100% {
       clip-path: inset(0 0 0 0);
+    }
+  }
+  @keyframes title-hover-scroll {
+    0%, 16% {
+      transform: translateX(0);
+    }
+    84%, 100% {
+      transform: translateX(var(--title-hover-scroll-distance, 0px));
     }
   }
   @keyframes kbd-press {
