@@ -61,7 +61,7 @@
 @keyframes scroll-fade-y-bottom {
   from {
     --scroll-fade-bottom-start: 94%;
-    --scroll-fade-bottom-end: 99%;
+    --scroll-fade-bottom-end: 100%;
   }
 
   to {
