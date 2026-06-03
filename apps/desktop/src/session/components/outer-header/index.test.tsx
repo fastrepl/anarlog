@@ -87,8 +87,9 @@ describe("OuterHeader", () => {
     cleanup();
   });
 
-  it("shows a stop listening button for active sessions in sidebar timeline mode", () => {
+  it("shows a stop listening button for active sessions in collapsed sidebar timeline mode", () => {
     mocks.sidebarTimelineEnabled = true;
+    mocks.leftsidebar.expanded = false;
     mocks.sessionModes = { "session-1": "active" };
 
     render(
@@ -139,6 +140,7 @@ describe("OuterHeader", () => {
 
   it("keeps sidebar timeline header controls hidden while the sidebar is expanded", () => {
     mocks.sidebarTimelineEnabled = true;
+    mocks.sessionModes = { "session-1": "active" };
 
     const { container } = render(
       <OuterHeader
@@ -151,6 +153,7 @@ describe("OuterHeader", () => {
     expect(screen.queryByRole("button", { name: "Hide sidebar" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Go back" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Go forward" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Stop listening" })).toBeNull();
     expect(container.firstElementChild?.className).not.toContain("pl-[156px]");
   });
 

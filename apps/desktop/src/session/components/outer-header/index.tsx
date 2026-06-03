@@ -59,7 +59,7 @@ function SidebarModeStopButton({ sessionId }: { sessionId: string }) {
   const active = mode === "active" || mode === "finalizing";
   const finalizing = mode === "finalizing";
 
-  if (!sidebarTimelineEnabled || !leftsidebar.expanded || !active) {
+  if (!sidebarTimelineEnabled || leftsidebar.expanded || !active) {
     return null;
   }
 
