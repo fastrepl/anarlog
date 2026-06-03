@@ -25,6 +25,7 @@ struct DevtoolsPanelView: View {
         ScrollView(showsIndicators: false) {
           VStack(spacing: 10) {
             navigationSection
+            meetingNotesSection
             toastsSection
             otaSection
             notificationsSection
@@ -149,6 +150,14 @@ struct DevtoolsPanelView: View {
 
       DevtoolsActionButton("Reset Dismissed") {
         RustBridge.devtoolsPanelAction("toasts:reset-dismissed")
+      }
+    }
+  }
+
+  private var meetingNotesSection: some View {
+    DevtoolsSection(title: "NOTES") {
+      DevtoolsActionButton("Populate Recurring") {
+        RustBridge.devtoolsPanelAction("notes:populate-recurring")
       }
     }
   }
