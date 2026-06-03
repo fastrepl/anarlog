@@ -4,6 +4,12 @@ const SESSION_CONTEXT_DRAG_TYPE = "application/x-anarlog-session-context";
 
 type SessionDragPayload = {
   sessionId: string;
+  title?: string;
+};
+
+type SessionMentionDragData = {
+  id: string;
+  label: string;
 };
 
 const createSessionContextRef = (sessionId: string): ContextRef => ({
@@ -28,17 +34,19 @@ export const writeSessionContextDragData = (
   sessionId: string,
   fallbackText: string,
 ) => {
+  const title = fallbackText.trim() || "Untitled";
+
   dataTransfer.effectAllowed = "copy";
   dataTransfer.setData(
     SESSION_CONTEXT_DRAG_TYPE,
-    JSON.stringify({ sessionId }),
+    JSON.stringify({ sessionId, title }),
   );
-  dataTransfer.setData("text/plain", fallbackText);
+  dataTransfer.setData("text/plain", title);
 };
 
-export const readSessionContextDragData = (
+const readSessionContextDragPayload = (
   dataTransfer: Pick<DataTransfer, "getData" | "types"> | null | undefined,
-): ContextRef | null => {
+): SessionDragPayload | null => {
   if (!dataTransfer || !hasSessionContextDragData(dataTransfer)) {
     return null;
   }
@@ -55,8 +63,35 @@ export const readSessionContextDragData = (
       return null;
     }
 
-    return createSessionContextRef(payload.sessionId);
+    return {
+      sessionId: payload.sessionId,
+      title:
+        typeof payload.title === "string" && payload.title.trim().length > 0
+          ? payload.title.trim()
+          : undefined,
+    };
   } catch {
     return null;
   }
+};
+
+export const readSessionContextDragData = (
+  dataTransfer: Pick<DataTransfer, "getData" | "types"> | null | undefined,
+): ContextRef | null => {
+  const payload = readSessionContextDragPayload(dataTransfer);
+  return payload ? createSessionContextRef(payload.sessionId) : null;
+};
+
+export const readSessionMentionDragData = (
+  dataTransfer: Pick<DataTransfer, "getData" | "types"> | null | undefined,
+): SessionMentionDragData | null => {
+  const payload = readSessionContextDragPayload(dataTransfer);
+  if (!payload) {
+    return null;
+  }
+
+  return {
+    id: payload.sessionId,
+    label: payload.title ?? "Untitled",
+  };
 };

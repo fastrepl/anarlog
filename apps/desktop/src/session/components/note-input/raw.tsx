@@ -11,6 +11,7 @@ import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 
 import { AppLinkView } from "~/editor-bridge/app-link-view";
 import { useMentionConfig } from "~/editor-bridge/mention-config";
+import { sessionMentionDropConfig } from "~/editor-bridge/session-mention-drop";
 import { SessionNodeView } from "~/editor-bridge/session-view";
 import { emitRawEditorSync } from "~/session/raw-editor-sync";
 import { useFileUpload } from "~/shared/hooks/useFileUpload";
@@ -108,6 +109,7 @@ export const RawEditor = forwardRef<
         initialContent={initialContent}
         handleChange={handleChange}
         mentionConfig={mentionConfig}
+        sessionMentionDropConfig={sessionMentionDropConfig}
         placeholderComponent={Placeholder}
         onNavigateToTitle={onNavigateToTitle}
         fileHandlerConfig={fileHandlerConfig}
