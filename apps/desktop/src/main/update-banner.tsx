@@ -348,9 +348,9 @@ export function SidebarTimelineUpdateButton({
       disabled={isDownloading || update.downloadStarting || update.installing}
       className={cn([
         "relative flex size-7 shrink-0 items-center justify-center rounded-full",
-        "text-neutral-700 transition-colors hover:bg-neutral-100 hover:text-neutral-900",
-        "focus-visible:ring-2 focus-visible:ring-neutral-900 focus-visible:outline-hidden",
-        "disabled:cursor-default disabled:text-neutral-500 disabled:hover:bg-transparent disabled:hover:text-neutral-500",
+        "bg-blue-600 text-white shadow-sm transition-colors hover:bg-blue-700",
+        "focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 focus-visible:outline-hidden",
+        "disabled:cursor-default disabled:bg-blue-600 disabled:text-white disabled:opacity-70 disabled:hover:bg-blue-600",
       ])}
       onClick={isReady ? update.installUpdate : update.downloadUpdate}
     >
@@ -483,8 +483,8 @@ function BannerAction({
       disabled={installing}
       className={cn([
         "inline-flex h-7 shrink-0 items-center justify-center gap-1.5 overflow-hidden rounded-full px-3 font-medium",
-        "bg-neutral-950 text-white transition-colors hover:bg-neutral-800",
-        "focus-visible:ring-2 focus-visible:ring-neutral-900 focus-visible:outline-hidden",
+        "bg-blue-600 text-white transition-colors hover:bg-blue-700",
+        "focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 focus-visible:outline-hidden",
         "disabled:cursor-not-allowed disabled:opacity-60",
       ])}
     >
