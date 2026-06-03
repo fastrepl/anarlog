@@ -134,6 +134,7 @@ function ItemBase({
 }) {
   const hasSelection = useTimelineSelection((s) => s.selectedIds.length > 0);
   const showLiveStop = isLive && onStop;
+  const showTrailingStatus = showLiveStop || showSpinner;
 
   return (
     <div
@@ -149,7 +150,7 @@ function ItemBase({
         contextMenu={hasSelection ? undefined : contextMenu}
         className={cn([
           "w-full rounded-lg px-3 py-2 text-left",
-          showLiveStop && "pr-10",
+          showTrailingStatus && "pr-10",
           ignored ? "cursor-default" : "cursor-pointer",
           multiSelected && "bg-neutral-200",
           !multiSelected && selected && "bg-neutral-200",
@@ -164,11 +165,6 @@ function ItemBase({
         draggable={draggable}
       >
         <div className="flex items-center gap-2">
-          {showSpinner && (
-            <div className="shrink-0">
-              <Spinner size={14} />
-            </div>
-          )}
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             <div
               className={cn(
@@ -192,6 +188,14 @@ function ItemBase({
           {calendarId && <CalendarIndicator calendarId={calendarId} />}
         </div>
       </InteractiveButton>
+      {showSpinner ? (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute top-1/2 right-3 flex size-5 -translate-y-1/2 items-center justify-center text-neutral-400"
+        >
+          <Spinner size={14} />
+        </div>
+      ) : null}
       {showLiveStop ? (
         <button
           type="button"
