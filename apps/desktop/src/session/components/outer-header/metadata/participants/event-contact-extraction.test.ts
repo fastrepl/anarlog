@@ -265,6 +265,71 @@ describe("event contact extraction", () => {
     ).toHaveLength(3);
   });
 
+  test("does not enhance a selected participant from a loose first-name alias", () => {
+    const store = createStore();
+    store.setRow("humans", "human-1", {
+      user_id: "user-1",
+      created_at: "2026-04-01T00:00:00.000Z",
+      name: "Yongkyun",
+      email: "",
+      phone: "",
+      org_id: "",
+      job_title: "",
+      linkedin_username: "",
+      memo: "",
+      pinned: false,
+    });
+    store.setRow("mapping_session_participant", "mapping-1", {
+      user_id: "user-1",
+      session_id: "session-1",
+      human_id: "human-1",
+      source: "manual",
+    });
+
+    const result = applyExtractedContactToHuman(
+      store,
+      "session-1",
+      "human-1",
+      [
+        {
+          name: "Yongkyun Lee",
+          email: "yongkyun.lee@example.com",
+        },
+      ],
+      { userId: "user-1" },
+    );
+
+    expect(result).toMatchObject({
+      updated: 0,
+      matched: false,
+    });
+    expect(store.getCell("humans", "human-1", "email")).toBe("");
+  });
+
+  test("treats the current user contact as already up to date", () => {
+    const store = createStore();
+
+    const result = applyExtractedContactToHuman(
+      store,
+      "session-1",
+      "user-1",
+      [
+        {
+          name: "John Jeong",
+          email: "john@example.com",
+        },
+      ],
+      { userId: "user-1" },
+    );
+
+    expect(result).toMatchObject({
+      updated: 0,
+      skipped: 1,
+      matched: true,
+    });
+    expect(store.getCell("humans", "user-1", "email")).toBe("john@example.com");
+  });
+
   test("creates and links a new contact when no existing contact matches", () => {
     const store = createStore();
 

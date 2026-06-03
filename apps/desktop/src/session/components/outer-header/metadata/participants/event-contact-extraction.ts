@@ -273,7 +273,7 @@ export function applyExtractedContactToHuman(
   store.transaction(() => {
     const sessionMappings = buildSessionMappingsByHuman(store, sessionId);
     const mapping = sessionMappings.get(humanId);
-    if (!mapping || mapping.source === "excluded" || humanId === userId) {
+    if (!mapping || mapping.source === "excluded") {
       result.skipped += 1;
       return;
     }
@@ -286,6 +286,11 @@ export function applyExtractedContactToHuman(
 
     const contact = findContactForHuman(human, normalizedContacts);
     if (!contact) {
+      if (humanId === userId) {
+        result.matched = true;
+        result.contacts.push(normalizedContacts[0]);
+        result.skipped += 1;
+      }
       return;
     }
 
@@ -293,7 +298,7 @@ export function applyExtractedContactToHuman(
     result.contacts.push(contact);
 
     const currentUser = store.getRow("humans", userId);
-    if (isCurrentUserContact(contact, currentUser)) {
+    if (humanId === userId || isCurrentUserContact(contact, currentUser)) {
       result.skipped += 1;
       return;
     }
@@ -723,7 +728,7 @@ function findContactForHuman(
   };
   const humanEmail = normalizeEmail(humanCandidate.email);
   const humanName = normalizeName(humanCandidate.name ?? "");
-  const humanAliases = getCandidateAliases(humanCandidate);
+  const humanAliases = getStrongCandidateAliases(humanCandidate);
 
   return contacts.find((contact) => {
     const contactEmail = normalizeEmail(contact.email);
@@ -736,7 +741,7 @@ function findContactForHuman(
       return true;
     }
 
-    const contactAliases = getCandidateAliases({
+    const contactAliases = getStrongCandidateAliases({
       name: contact.name,
       email: contact.email,
     });
@@ -745,13 +750,8 @@ function findContactForHuman(
 }
 
 function getCandidateAliases(candidate: EventContactCandidate): Set<string> {
-  const aliases = new Set<string>();
-  const normalizedName = normalizeName(candidate.name ?? "");
+  const aliases = getStrongCandidateAliases(candidate);
   const nameTokens = tokenizeName(candidate.name ?? "");
-
-  if (normalizedName) {
-    aliases.add(normalizedName);
-  }
 
   if (nameTokens[0]) {
     aliases.add(nameTokens[0]);
@@ -768,6 +768,29 @@ function getCandidateAliases(candidate: EventContactCandidate): Set<string> {
     }
     if (emailTokens[0]) {
       aliases.add(emailTokens[0]);
+    }
+  }
+
+  return aliases;
+}
+
+function getStrongCandidateAliases(
+  candidate: EventContactCandidate,
+): Set<string> {
+  const aliases = new Set<string>();
+  const normalizedName = normalizeName(candidate.name ?? "");
+
+  if (normalizedName) {
+    aliases.add(normalizedName);
+  }
+
+  const emailLocal = candidate.email?.split("@")[0];
+  if (emailLocal) {
+    const normalizedEmailLocal = normalizeName(
+      emailLocal.replace(/[._+-]+/g, " "),
+    );
+    if (normalizedEmailLocal) {
+      aliases.add(normalizedEmailLocal);
     }
   }
 
