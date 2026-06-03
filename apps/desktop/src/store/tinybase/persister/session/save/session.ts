@@ -2,6 +2,7 @@ import { sep } from "@tauri-apps/api/path";
 
 import type {
   ParticipantData,
+  SessionKeyFactsData,
   SessionMetaJson,
 } from "~/store/tinybase/persister/session/types";
 import {
@@ -43,6 +44,7 @@ export function tablesToSessionMetaMap(
   const tables = store.getTables() as TablesContent;
 
   const participantsBySession = buildParticipantMap(tables);
+  const keyFactsBySession = buildKeyFactsMap(tables);
   const tagsBySession = buildTagMap(tables);
 
   const result = new Map<string, SessionMetaWithFolder>();
@@ -56,6 +58,7 @@ export function tablesToSessionMetaMap(
         title: session.title ?? "",
         event: tryParseJson(session.event_json),
         participants: participantsBySession.get(session.id) ?? [],
+        key_facts: keyFactsBySession.get(session.id),
         tags: tagsBySession.get(session.id),
       },
       folderPath: session.folder_id ?? "",
@@ -82,6 +85,7 @@ function collectSessionMetas(ctx: BuildContext): MetaItem[] {
   const { tables, dataDir, changedSessionIds } = ctx;
 
   const participantsBySession = buildParticipantMap(tables);
+  const keyFactsBySession = buildKeyFactsMap(tables);
   const tagsBySession = buildTagMap(tables);
 
   return iterateTableRows(tables, "sessions")
@@ -96,6 +100,7 @@ function collectSessionMetas(ctx: BuildContext): MetaItem[] {
         title: session.title ?? "",
         event: tryParseJson(session.event_json),
         participants: participantsBySession.get(session.id) ?? [],
+        key_facts: keyFactsBySession.get(session.id),
         tags: tagsBySession.get(session.id),
       };
 
@@ -127,6 +132,30 @@ function buildParticipantMap(
       source: p.source,
     });
     result.set(p.session_id, list);
+  }
+
+  return result;
+}
+
+function buildKeyFactsMap(
+  tables: TablesContent,
+): Map<string, SessionKeyFactsData> {
+  const result = new Map<string, SessionKeyFactsData>();
+
+  for (const row of iterateTableRows(tables, "session_key_facts")) {
+    if (!row.session_id || !row.content || !row.source_hash) {
+      continue;
+    }
+
+    result.set(row.session_id, {
+      id: row.id,
+      user_id: row.user_id,
+      session_id: row.session_id,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      content: row.content,
+      source_hash: row.source_hash,
+    });
   }
 
   return result;

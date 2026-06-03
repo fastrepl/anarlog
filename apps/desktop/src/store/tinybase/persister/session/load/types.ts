@@ -9,6 +9,7 @@ export const SESSION_TABLES = [
   "mapping_tag_session",
   "transcripts",
   "enhanced_notes",
+  "session_key_facts",
 ] as const satisfies readonly (keyof typeof SCHEMA.table)[];
 
 type SessionTables = (typeof SESSION_TABLES)[number];

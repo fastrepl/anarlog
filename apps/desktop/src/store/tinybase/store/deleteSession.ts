@@ -62,6 +62,20 @@ export function captureSessionData(
     raw_md: sessionRow.raw_md as string,
   };
 
+  const keyFactsRow = store.getRow("session_key_facts", sessionId);
+  const keyFacts =
+    keyFactsRow && Object.keys(keyFactsRow).length > 0
+      ? {
+          id: sessionId,
+          user_id: keyFactsRow.user_id as string,
+          session_id: keyFactsRow.session_id as string,
+          created_at: keyFactsRow.created_at as string,
+          updated_at: keyFactsRow.updated_at as string,
+          content: keyFactsRow.content as string,
+          source_hash: keyFactsRow.source_hash as string,
+        }
+      : null;
+
   const transcripts: DeletedSessionData["transcripts"] = [];
   const participants: DeletedSessionData["participants"] = [];
   const tagSessions: DeletedSessionData["tagSessions"] = [];
@@ -148,6 +162,7 @@ export function captureSessionData(
     participants,
     tagSessions,
     enhancedNotes,
+    keyFacts,
     deletedAt: Date.now(),
   };
 }
@@ -157,8 +172,14 @@ export function restoreSessionData(
   data: DeletedSessionData,
 ): void {
   store.transaction(() => {
-    const { session, transcripts, participants, tagSessions, enhancedNotes } =
-      data;
+    const {
+      session,
+      transcripts,
+      participants,
+      tagSessions,
+      enhancedNotes,
+      keyFacts,
+    } = data;
 
     store.setRow("sessions", session.id, {
       user_id: session.user_id,
@@ -211,6 +232,17 @@ export function restoreSessionData(
         title: enhancedNote.title,
       });
     }
+
+    if (keyFacts) {
+      store.setRow("session_key_facts", keyFacts.id, {
+        user_id: keyFacts.user_id,
+        session_id: keyFacts.session_id,
+        created_at: keyFacts.created_at,
+        updated_at: keyFacts.updated_at,
+        content: keyFacts.content,
+        source_hash: keyFacts.source_hash,
+      });
+    }
   });
 }
 
@@ -221,6 +253,7 @@ export function deleteSessionCascade(
   options?: { deferFilesystemDelete?: boolean },
 ): void {
   if (!indexes) {
+    store.delRow("session_key_facts", sessionId);
     store.delRow("sessions", sessionId);
   } else {
     store.transaction(() => {
@@ -255,6 +288,7 @@ export function deleteSessionCascade(
         "enhanced_notes",
       );
 
+      store.delRow("session_key_facts", sessionId);
       store.delRow("sessions", sessionId);
     });
   }

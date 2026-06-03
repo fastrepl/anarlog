@@ -14,11 +14,8 @@ import { cn } from "@hypr/utils";
 import { DuringSessionAccessory } from "./during-session";
 import { ExpandToggle } from "./expand-toggle";
 import { shouldShowLiveTranscriptAccessory } from "./live-visibility";
-import {
-  PostSessionAccessory,
-  type PostSessionTab,
-  usePastSessionNotes,
-} from "./post-session";
+import { usePastSessionNotes } from "./past-notes";
+import { PostSessionAccessory, type PostSessionTab } from "./post-session";
 
 import { useShell } from "~/contexts/shell";
 import { getLiveCaptureUiMode } from "~/store/zustand/listener/general-shared";
@@ -54,7 +51,8 @@ export function useSessionBottomAccessory({
   const isRunningBatch = sessionMode === "running_batch";
   const hasAudio = Boolean(audioUrl) && (isInactive || isRunningBatch);
   const pastNotes = usePastSessionNotes(sessionId);
-  const hasPastNotes = pastNotes.length > 0;
+  const hasPastNotes = pastNotes.hasPastNotes;
+  const generateMissingPastNotes = pastNotes.generateMissing;
   const activePostSessionTab: PostSessionTab = hasPastNotes
     ? (postSessionTab ??
       (!hasAudio && !hasTranscript && !isRunningBatch
@@ -97,12 +95,17 @@ export function useSessionBottomAccessory({
       (hasAudio || hasTranscript || hasPastNotes));
   const selectPostSessionTab = useCallback(
     (tab: PostSessionTab) => {
+      const shouldExpand = activePostSessionTab !== tab || !isExpanded;
+      if (tab === "past_notes" && shouldExpand) {
+        generateMissingPastNotes();
+      }
+
       setPostSessionTab(tab);
       setIsExpanded((expanded) =>
         activePostSessionTab === tab ? !expanded : true,
       );
     },
-    [activePostSessionTab],
+    [activePostSessionTab, generateMissingPastNotes, isExpanded],
   );
 
   useHotkeys(
@@ -169,7 +172,7 @@ export function useSessionBottomAccessory({
           hasTranscript={hasTranscript}
           isTranscriptExpanded={isExpanded}
           activeTab={activePostSessionTab}
-          pastNotes={pastNotes}
+          pastNotes={pastNotes.notes}
           fillHeight={isExpanded}
         />
       ) : null,

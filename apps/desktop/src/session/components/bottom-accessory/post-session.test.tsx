@@ -7,7 +7,8 @@ import {
 } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { buildPastSessionNotes, PostSessionAccessory } from "./post-session";
+import { buildPastSessionNotes } from "./past-notes";
+import { PostSessionAccessory } from "./post-session";
 
 const {
   audioPathMock,
@@ -343,7 +344,9 @@ describe("PostSessionAccessory", () => {
             sessionId: "session-0",
             title: "Weekly Product Sync",
             dateLabel: "May 28, 2026",
-            summary: "Decided to ship the transcript panel and revisit polish.",
+            summary:
+              "Ship the transcript panel.\nRevisit visual polish next week.",
+            isGenerating: false,
           },
         ]}
       />,
@@ -352,11 +355,8 @@ describe("PostSessionAccessory", () => {
     expect(screen.getByText("Past notes")).toBeTruthy();
     expect(screen.getByText("Weekly Product Sync")).toBeTruthy();
     expect(screen.getByText("May 28, 2026")).toBeTruthy();
-    expect(
-      screen.getByText(
-        "Decided to ship the transcript panel and revisit polish.",
-      ),
-    ).toBeTruthy();
+    expect(screen.getByText("Ship the transcript panel.")).toBeTruthy();
+    expect(screen.getByText("Revisit visual polish next week.")).toBeTruthy();
     expect(screen.queryByTestId("transcript")).toBeNull();
   });
 
@@ -472,23 +472,87 @@ describe("PostSessionAccessory", () => {
       },
     });
 
-    const notes = buildPastSessionNotes(store, "current", "self");
+    const result = buildPastSessionNotes(store, "current", "self");
 
-    expect(notes).toEqual([
+    expect(result.notes).toEqual([
       {
         sessionId: "previous",
         title: "Weekly Product Sync",
         dateLabel: "May 28, 2026",
-        summary:
-          "Aligned on transcript panel behavior. Past notes should stay short and scannable.",
+        summary: null,
+        isGenerating: false,
       },
       {
         sessionId: "older",
         title: "Older Product Sync",
         dateLabel: "May 21, 2026",
-        summary: "Reviewed onboarding follow-ups and assigned owners.",
+        summary: null,
+        isGenerating: false,
       },
     ]);
+    expect(result.missing.map((request) => request.sessionId)).toEqual([
+      "previous",
+      "older",
+    ]);
+  });
+
+  it("reuses saved key facts when the source hash still matches", () => {
+    const store = makeStore({
+      sessions: {
+        current: {
+          title: "Weekly Product Sync",
+          created_at: "2026-06-03T10:00:00.000Z",
+          event_json: "",
+          raw_md: "",
+        },
+        previous: {
+          title: "Weekly Product Sync",
+          created_at: "2026-05-28T10:00:00.000Z",
+          event_json: "",
+          raw_md: "Alex committed to send pricing by Friday.",
+        },
+      },
+      mapping_session_participant: {
+        current_alex: {
+          session_id: "current",
+          human_id: "alex",
+          user_id: "self",
+          source: "auto",
+        },
+        previous_alex: {
+          session_id: "previous",
+          human_id: "alex",
+          user_id: "self",
+          source: "auto",
+        },
+      },
+    });
+
+    const first = buildPastSessionNotes(store, "current", "self");
+    expect(first.notes[0]?.summary).toBeNull();
+    const request = first.missing[0]!;
+
+    store.setRow("session_key_facts", "previous", {
+      user_id: "self",
+      session_id: "previous",
+      created_at: "2026-05-28T11:00:00.000Z",
+      updated_at: "2026-05-28T11:00:00.000Z",
+      content: "Alex committed to send pricing by Friday.",
+      source_hash: request.sourceHash,
+    });
+
+    const second = buildPastSessionNotes(store, "current", "self");
+
+    expect(second.notes).toEqual([
+      {
+        sessionId: "previous",
+        title: "Weekly Product Sync",
+        dateLabel: "May 28, 2026",
+        summary: "Alex committed to send pricing by Friday.",
+        isGenerating: false,
+      },
+    ]);
+    expect(second.missing).toHaveLength(0);
   });
 });
 
@@ -506,6 +570,12 @@ function makeStore(
       for (const rowId of Object.keys(tables[tableId] ?? {})) {
         callback(rowId, () => {});
       }
+    },
+    setRow: (tableId: string, rowId: string, row: Record<string, any>) => {
+      tables[tableId] = {
+        ...(tables[tableId] ?? {}),
+        [rowId]: row,
+      };
     },
   } as any;
 }

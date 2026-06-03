@@ -47,12 +47,23 @@ type EnhancedNoteRow = {
   title: string;
 };
 
+type SessionKeyFactsRow = {
+  id: string;
+  user_id: string;
+  session_id: string;
+  created_at: string;
+  updated_at: string;
+  content: string;
+  source_hash: string;
+};
+
 export type DeletedSessionData = {
   session: SessionRow;
   transcripts: TranscriptRow[];
   participants: ParticipantRow[];
   tagSessions: TagSessionRow[];
   enhancedNotes: EnhancedNoteRow[];
+  keyFacts: SessionKeyFactsRow | null;
   deletedAt: number;
 };
 

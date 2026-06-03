@@ -52,6 +52,17 @@ export function processMetaFile(
       };
     }
 
+    if (meta.key_facts?.content && meta.key_facts.source_hash) {
+      result.session_key_facts[sessionId] = {
+        user_id: meta.key_facts.user_id ?? meta.user_id ?? "",
+        session_id: sessionId,
+        created_at: meta.key_facts.created_at ?? "",
+        updated_at: meta.key_facts.updated_at ?? "",
+        content: meta.key_facts.content,
+        source_hash: meta.key_facts.source_hash,
+      };
+    }
+
     if (meta.tags) {
       for (const tagName of meta.tags) {
         if (!result.tags[tagName]) {

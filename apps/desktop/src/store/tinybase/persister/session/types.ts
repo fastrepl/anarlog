@@ -1,9 +1,11 @@
 import type {
   MappingSessionParticipantStorage,
+  SessionKeyFactsStorage,
   SessionStorage,
 } from "@hypr/store";
 
 export type ParticipantData = MappingSessionParticipantStorage & { id: string };
+export type SessionKeyFactsData = SessionKeyFactsStorage & { id: string };
 
 export type SessionMetaJson = Pick<
   SessionStorage,
@@ -13,6 +15,7 @@ export type SessionMetaJson = Pick<
   event?: Record<string, unknown>;
   event_id?: string;
   participants: ParticipantData[];
+  key_facts?: SessionKeyFactsData;
   tags?: string[];
 };
 

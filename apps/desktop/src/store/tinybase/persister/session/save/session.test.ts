@@ -124,6 +124,38 @@ describe("tablesToSessionMetaMap", () => {
     expect(result.get("session-1")?.meta.tags).toBeUndefined();
   });
 
+  test("includes saved key facts in session metadata", () => {
+    const store = createTestMainStore();
+    store.setRow("sessions", "session-1", {
+      user_id: "user-1",
+      created_at: "2024-01-01T00:00:00Z",
+      title: "Test Session",
+      folder_id: "/sessions",
+      event_json: "",
+      raw_md: "",
+    });
+    store.setRow("session_key_facts", "session-1", {
+      user_id: "user-1",
+      session_id: "session-1",
+      created_at: "2024-01-01T01:00:00Z",
+      updated_at: "2024-01-01T01:05:00Z",
+      content: "Alex owns pricing follow-up.",
+      source_hash: "hash-1",
+    });
+
+    const result = tablesToSessionMetaMap(store);
+
+    expect(result.get("session-1")?.meta.key_facts).toEqual({
+      id: "session-1",
+      user_id: "user-1",
+      session_id: "session-1",
+      created_at: "2024-01-01T01:00:00Z",
+      updated_at: "2024-01-01T01:05:00Z",
+      content: "Alex owns pricing follow-up.",
+      source_hash: "hash-1",
+    });
+  });
+
   test("handles multiple sessions independently", () => {
     const store = createTestMainStore();
     store.setRow("sessions", "session-1", {

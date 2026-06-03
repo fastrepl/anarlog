@@ -124,6 +124,20 @@ describe("getSessionSaveScope", () => {
     });
   });
 
+  test("limits saved key fact changes to session metadata output", () => {
+    expect(
+      getSessionSaveScope({
+        session_key_facts: {
+          "session-1": [{ content: ["Alex owns pricing.", "stamp"] }],
+        },
+      }),
+    ).toEqual({
+      session: true,
+      transcript: false,
+      note: false,
+    });
+  });
+
   test("saves all artifacts when the session folder changes", () => {
     expect(
       getSessionSaveScope({
@@ -259,6 +273,24 @@ describe("getChangedSessionIds", () => {
       const result = getChangedSessionIds(tables, changedTables);
 
       expect(result?.hasUnresolvedDeletions).toBe(true);
+    });
+  });
+
+  describe("key facts changes", () => {
+    test("resolves session id from saved key facts", () => {
+      const tables: TablesContent = {
+        session_key_facts: {
+          "session-1": { session_id: "session-1" },
+        },
+      };
+      const changedTables: ChangedTables = {
+        session_key_facts: { "session-1": {} },
+      };
+
+      const result = getChangedSessionIds(tables, changedTables);
+
+      expect(result?.changedSessionIds).toEqual(new Set(["session-1"]));
+      expect(result?.hasUnresolvedDeletions).toBe(false);
     });
   });
 
