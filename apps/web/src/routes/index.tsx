@@ -53,6 +53,19 @@ const privacyCommitments = [
   },
 ];
 
+const credibilityLogos = [
+  { name: "Databricks", src: "/icons/databricks.svg" },
+  { name: "Amazon", src: "/icons/amazon.svg", className: "max-h-9" },
+  { name: "Meta", src: "/icons/meta.svg", className: "max-h-9" },
+  { name: "Palantir", src: "/icons/palantir.svg" },
+  { name: "Apple", src: "/icons/apple.svg", className: "max-h-9" },
+  { name: "Disney", src: "/icons/disney.svg", className: "max-h-9" },
+  { name: "Richmond American", src: "/icons/richmond_american.svg" },
+  { name: "Adobe", src: "/icons/adobe.svg", className: "max-h-8" },
+  { name: "Wayfair", src: "/icons/wayfair.svg" },
+  { name: "Bain & Company", src: "/icons/bain.svg", className: "max-h-6" },
+];
+
 const testimonials = [
   {
     quote: "Anarlog is great and local.",
@@ -312,9 +325,9 @@ function Component() {
     <main className="min-h-screen bg-white text-[#181613]">
       <AnnouncementBanner />
 
-      <div className="mx-auto w-full max-w-[700px] px-5 py-8 md:px-8 md:py-12">
+      <div className="mx-auto w-full max-w-[700px] px-5 pt-4 pb-8 md:px-8 md:pt-4 md:pb-12">
         <div className="min-w-0">
-          <section className="pt-24 pb-16 md:pt-32">
+          <section className="pt-10 pb-16 md:pt-12">
             <h1 className="font-hand max-w-3xl text-6xl leading-[0.98] font-semibold tracking-normal text-balance md:text-8xl">
               AI notepad for private meetings.
             </h1>
@@ -342,6 +355,8 @@ function Component() {
               </a>
             </div>
           </section>
+
+          <CredibilityLogoMarquee />
 
           <HowItWorksSection />
 
@@ -374,6 +389,64 @@ function Component() {
 
       <SiteFooter />
     </main>
+  );
+}
+
+function CredibilityLogoMarquee() {
+  return (
+    <section className="py-8" aria-labelledby="credibility-heading">
+      <h2
+        id="credibility-heading"
+        className="font-hand text-3xl leading-none font-semibold text-[#756b5d]"
+      >
+        Trusted by people in
+      </h2>
+      <p className="sr-only">
+        {credibilityLogos.map((logo) => logo.name).join(", ")}
+      </p>
+
+      <div className="relative left-1/2 mt-6 w-screen -translate-x-1/2 overflow-hidden bg-white py-4 motion-reduce:overflow-visible">
+        <div
+          className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-linear-to-r from-white to-transparent motion-reduce:hidden md:w-32"
+          aria-hidden="true"
+        />
+        <div
+          className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-linear-to-l from-white to-transparent motion-reduce:hidden md:w-32"
+          aria-hidden="true"
+        />
+
+        <div
+          className="animate-scroll-left flex w-max items-center motion-reduce:mx-auto motion-reduce:w-full motion-reduce:max-w-6xl motion-reduce:animate-none motion-reduce:justify-center motion-reduce:px-6"
+          style={{ animationDuration: "36s" }}
+          aria-hidden="true"
+        >
+          {[0, 1].map((trackIndex) => (
+            <div
+              key={trackIndex}
+              className={cn([
+                "flex shrink-0 items-center gap-14 px-7 md:gap-20 md:px-10",
+                trackIndex === 0 &&
+                  "motion-reduce:w-full motion-reduce:shrink motion-reduce:flex-wrap motion-reduce:justify-center motion-reduce:gap-x-12 motion-reduce:gap-y-6 motion-reduce:px-0 md:motion-reduce:gap-x-16",
+                trackIndex === 1 && "motion-reduce:hidden",
+              ])}
+            >
+              {credibilityLogos.map((logo) => (
+                <img
+                  key={`${trackIndex}-${logo.name}`}
+                  src={logo.src}
+                  alt=""
+                  className={cn([
+                    "h-7 w-auto max-w-none object-contain opacity-65 grayscale",
+                    logo.className,
+                  ])}
+                  draggable={false}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -711,7 +784,7 @@ function HowItWorksSection() {
           </div>
           <div className="flex flex-1 items-center justify-center bg-stone-50/30 px-8 pb-0">
             <div className="w-full max-w-lg overflow-hidden rounded-t-xl border border-b-0 border-neutral-200 bg-white shadow-lg">
-              <div className="flex items-center gap-2 border-b border-neutral-200 bg-neutral-50 px-4 py-3">
+              <div className="flex items-center gap-2 px-4 py-3">
                 <div className="flex gap-2">
                   <div className="h-3 w-3 rounded-full bg-red-400"></div>
                   <div className="h-3 w-3 rounded-full bg-yellow-400"></div>
@@ -753,7 +826,7 @@ function HowItWorksSection() {
           </div>
           <div className="flex flex-1 items-start justify-center bg-stone-50/30 px-8 pb-0">
             <div className="w-full max-w-lg overflow-hidden rounded-t-xl border border-b-0 border-neutral-200 bg-white shadow-lg">
-              <div className="flex items-center gap-2 border-b border-neutral-200 bg-neutral-50 px-4 py-3">
+              <div className="flex items-center gap-2 px-4 py-3">
                 <div className="flex gap-2">
                   <div className="h-3 w-3 rounded-full bg-red-400"></div>
                   <div className="h-3 w-3 rounded-full bg-yellow-400"></div>
@@ -885,7 +958,7 @@ function HowItWorksSection() {
               aria-hidden="true"
             />
             <div className="overflow-hidden rounded-t-lg border border-b-0 border-neutral-200 bg-white shadow-lg">
-              <div className="flex items-center gap-1.5 border-b border-neutral-200 bg-neutral-50 px-3 py-2">
+              <div className="flex items-center gap-1.5 px-3 py-2">
                 <div className="flex gap-1.5">
                   <div className="h-2 w-2 rounded-full bg-red-400"></div>
                   <div className="h-2 w-2 rounded-full bg-yellow-400"></div>
@@ -926,7 +999,7 @@ function HowItWorksSection() {
           </div>
           <div className="overflow-clip bg-stone-50/30 px-6 pb-0">
             <div className="overflow-hidden rounded-t-lg border border-b-0 border-neutral-200 bg-white shadow-lg">
-              <div className="flex items-center gap-1.5 border-b border-neutral-200 bg-neutral-50 px-3 py-2">
+              <div className="flex items-center gap-1.5 px-3 py-2">
                 <div className="flex gap-1.5">
                   <div className="h-2 w-2 rounded-full bg-red-400"></div>
                   <div className="h-2 w-2 rounded-full bg-yellow-400"></div>
