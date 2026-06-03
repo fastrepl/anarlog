@@ -14,10 +14,14 @@ const mocks = vi.hoisted(() => ({
   invalidateResource: vi.fn(),
   clearSelection: vi.fn(),
   addDeletion: vi.fn(),
+  configValue: undefined as string | undefined,
+  currentTimeMs: undefined as number | undefined,
+  timelineEventsTable: {} as Record<string, Record<string, unknown>>,
+  timelineSessionsTable: {} as Record<string, Record<string, unknown>>,
 }));
 
 vi.mock("~/shared/config", () => ({
-  useConfigValue: () => undefined,
+  useConfigValue: () => mocks.configValue,
 }));
 
 vi.mock("~/shared/hooks/useNativeContextMenu", () => ({
@@ -54,7 +58,10 @@ vi.mock("~/store/tinybase/store/main", () => ({
   STORE_ID: "main",
   UI: {
     useIndexes: () => null,
-    useResultTable: () => ({}),
+    useResultTable: (query: string) =>
+      query === "timelineEvents"
+        ? mocks.timelineEventsTable
+        : mocks.timelineSessionsTable,
     useStore: () => null,
   },
 }));
@@ -100,7 +107,9 @@ vi.mock("./anchor", async () => {
 });
 
 vi.mock("./item", () => ({
-  TimelineItemComponent: () => <div data-testid="timeline-item" />,
+  TimelineItemComponent: ({ item }: { item: { id: string } }) => (
+    <div data-testid={`timeline-item-${item.id}`} />
+  ),
 }));
 
 vi.mock("./realtime", async () => {
@@ -112,7 +121,7 @@ vi.mock("./realtime", async () => {
         return <div ref={ref} data-testid="current-time-indicator" />;
       },
     ),
-    useCurrentTimeMs: () => Date.now(),
+    useCurrentTimeMs: () => mocks.currentTimeMs ?? Date.now(),
     useSmartCurrentTime: () => Date.now(),
   };
 });
@@ -122,6 +131,10 @@ import { TimelineView } from ".";
 describe("TimelineView", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.configValue = undefined;
+    mocks.currentTimeMs = undefined;
+    mocks.timelineEventsTable = {};
+    mocks.timelineSessionsTable = {};
   });
 
   afterEach(() => {
@@ -168,6 +181,108 @@ describe("TimelineView", () => {
 
     expect(actions.className).not.toContain("opacity-0");
   });
+
+  it("keeps sidebar actions hidden during timeline data refreshes", () => {
+    vi.useFakeTimers();
+
+    const { container, rerender } = render(<TimelineView topChromeInset />);
+    const scroller = container.querySelector("[data-sidebar-timeline-scroll]");
+
+    expect(scroller).toBeInstanceOf(HTMLDivElement);
+
+    Object.defineProperty(scroller, "clientHeight", {
+      configurable: true,
+      value: 200,
+    });
+    Object.defineProperty(scroller, "scrollHeight", {
+      configurable: true,
+      value: 1200,
+    });
+    scroller!.scrollTop = 120;
+    fireEvent.scroll(scroller!);
+
+    expect(getSidebarActions().className).toContain("opacity-0");
+
+    mocks.timelineSessionsTable = {
+      "session-1": {
+        title: "Planning",
+        created_at: "2024-01-15T12:00:00.000Z",
+      },
+    };
+    rerender(<TimelineView topChromeInset />);
+
+    expect(getSidebarActions().className).toContain("opacity-0");
+
+    act(() => {
+      vi.advanceTimersByTime(900);
+    });
+
+    expect(getSidebarActions().className).not.toContain("opacity-0");
+  });
+
+  it("places the fallback now indicator between future and past buckets", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-15T15:54:00.000Z"));
+
+    mocks.configValue = "Asia/Seoul";
+    mocks.timelineSessionsTable = {
+      tomorrow: {
+        title: "Sprint retro & planning",
+        created_at: "2024-01-15T00:00:00.000Z",
+        event_json: JSON.stringify({
+          started_at: "2024-01-17T08:30:00.000Z",
+        }),
+      },
+      yesterday: {
+        title: "Design sync",
+        created_at: "2024-01-15T12:00:00.000Z",
+      },
+      "two-days-ago": {
+        title: "Product Discovery Pace",
+        created_at: "2024-01-14T12:00:00.000Z",
+      },
+    };
+
+    render(<TimelineView />);
+
+    const tomorrowHeading = screen.getByText("Tomorrow");
+    const yesterdayHeading = screen.getByText("Yesterday");
+    const twoDaysAgoHeading = screen.getByText("2 days ago");
+    const indicator = screen.getByTestId("current-time-indicator");
+
+    expect(isBefore(tomorrowHeading, indicator)).toBe(true);
+    expect(isBefore(indicator, yesterdayHeading)).toBe(true);
+    expect(isBefore(indicator, twoDaysAgoHeading)).toBe(true);
+  });
+
+  it("places the fallback now indicator with fresh time after data refreshes", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-15T23:58:00.000Z"));
+    mocks.configValue = "UTC";
+    mocks.currentTimeMs = Date.now();
+
+    const { rerender } = render(<TimelineView />);
+
+    vi.setSystemTime(new Date("2024-01-16T00:01:00.000Z"));
+    mocks.timelineSessionsTable = {
+      tomorrow: {
+        title: "Roadmap review",
+        created_at: "2024-01-17T12:00:00.000Z",
+      },
+      yesterday: {
+        title: "Late wrap",
+        created_at: "2024-01-15T23:59:00.000Z",
+      },
+    };
+    rerender(<TimelineView />);
+
+    const tomorrowHeading = screen.getByText("Tomorrow");
+    const yesterdayHeading = screen.getByText("Yesterday");
+    const indicator = screen.getByTestId("current-time-indicator");
+
+    expect(isBefore(tomorrowHeading, indicator)).toBe(true);
+    expect(isBefore(indicator, yesterdayHeading)).toBe(true);
+  });
 });
 
 function getSidebarActions() {
@@ -178,4 +293,10 @@ function getSidebarActions() {
   expect(actions).toBeInstanceOf(HTMLDivElement);
 
   return actions as HTMLDivElement;
+}
+
+function isBefore(first: Element, second: Element) {
+  return Boolean(
+    first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING,
+  );
 }
