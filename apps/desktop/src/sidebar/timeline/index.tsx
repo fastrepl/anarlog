@@ -307,6 +307,7 @@ export function TimelineView({
     if (hasToday) {
       return -1;
     }
+    const nowMs = Date.now();
     return buckets.findIndex((bucket) => {
       const firstItem = bucket.items[0];
       if (!firstItem) {
@@ -314,7 +315,7 @@ export function TimelineView({
       }
 
       const itemDate = getItemTimestamp(firstItem);
-      return itemDate ? itemDate.getTime() < currentTimeMs : false;
+      return itemDate ? itemDate.getTime() < nowMs : false;
     });
   }, [buckets, hasToday, currentTimeMs]);
 

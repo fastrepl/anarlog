@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   clearSelection: vi.fn(),
   addDeletion: vi.fn(),
   configValue: undefined as string | undefined,
+  currentTimeMs: undefined as number | undefined,
   timelineEventsTable: {} as Record<string, Record<string, unknown>>,
   timelineSessionsTable: {} as Record<string, Record<string, unknown>>,
 }));
@@ -120,7 +121,7 @@ vi.mock("./realtime", async () => {
         return <div ref={ref} data-testid="current-time-indicator" />;
       },
     ),
-    useCurrentTimeMs: () => Date.now(),
+    useCurrentTimeMs: () => mocks.currentTimeMs ?? Date.now(),
     useSmartCurrentTime: () => Date.now(),
   };
 });
@@ -131,6 +132,7 @@ describe("TimelineView", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.configValue = undefined;
+    mocks.currentTimeMs = undefined;
     mocks.timelineEventsTable = {};
     mocks.timelineSessionsTable = {};
   });
@@ -251,6 +253,35 @@ describe("TimelineView", () => {
     expect(isBefore(tomorrowHeading, indicator)).toBe(true);
     expect(isBefore(indicator, yesterdayHeading)).toBe(true);
     expect(isBefore(indicator, twoDaysAgoHeading)).toBe(true);
+  });
+
+  it("places the fallback now indicator with fresh time after data refreshes", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-15T23:58:00.000Z"));
+    mocks.configValue = "UTC";
+    mocks.currentTimeMs = Date.now();
+
+    const { rerender } = render(<TimelineView />);
+
+    vi.setSystemTime(new Date("2024-01-16T00:01:00.000Z"));
+    mocks.timelineSessionsTable = {
+      tomorrow: {
+        title: "Roadmap review",
+        created_at: "2024-01-17T12:00:00.000Z",
+      },
+      yesterday: {
+        title: "Late wrap",
+        created_at: "2024-01-15T23:59:00.000Z",
+      },
+    };
+    rerender(<TimelineView />);
+
+    const tomorrowHeading = screen.getByText("Tomorrow");
+    const yesterdayHeading = screen.getByText("Yesterday");
+    const indicator = screen.getByTestId("current-time-indicator");
+
+    expect(isBefore(tomorrowHeading, indicator)).toBe(true);
+    expect(isBefore(indicator, yesterdayHeading)).toBe(true);
   });
 });
 
