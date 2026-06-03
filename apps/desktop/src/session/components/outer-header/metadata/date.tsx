@@ -1,5 +1,5 @@
 import { useForm } from "@tanstack/react-form";
-import { CalendarIcon, CheckIcon, XIcon } from "lucide-react";
+import { CheckIcon, PencilIcon, XIcon } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@hypr/ui/components/ui/button";
@@ -36,7 +36,7 @@ export function DateEditor({ sessionId }: { sessionId: string }) {
           onClick={() => setIsEditing(true)}
           aria-label="Edit date"
         >
-          <CalendarIcon size={16} />
+          <PencilIcon size={16} />
         </Button>
       </div>
     );
