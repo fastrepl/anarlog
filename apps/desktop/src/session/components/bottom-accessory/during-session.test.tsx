@@ -192,6 +192,29 @@ describe("DuringSessionAccessory", () => {
     expect(chip.className).toContain("min-w-0");
     expect(screen.getByText(label).className).toContain("truncate");
   });
+
+  it("keeps speaker labels sticky while expanded transcript content scrolls", () => {
+    const label = "Artem";
+
+    useStoreMock.mockReturnValue({
+      getValue: vi.fn(() => undefined),
+      getRow: vi.fn((tableId: string, rowId: string) =>
+        tableId === "humans" && rowId === "human-1" ? { name: label } : {},
+      ),
+    });
+    liveSegments = [
+      segment("This speaker label should remain visible while scrolling.", 0, {
+        channel: "RemoteParty",
+        speaker_human_id: "human-1",
+      }),
+    ];
+
+    render(<DuringSessionAccessory sessionId="session-1" isExpanded />);
+
+    const chip = screen.getByTitle(label);
+    expect(chip.className).toContain("sticky");
+    expect(chip.className).toContain("top-2.5");
+  });
 });
 
 function getLiveTranscriptScrollViewport() {
