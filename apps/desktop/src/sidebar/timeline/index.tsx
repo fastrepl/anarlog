@@ -2,6 +2,8 @@ import {
   ArrowDownIcon,
   ArrowUpIcon,
   CalendarDaysIcon,
+  SearchIcon,
+  SquarePenIcon,
   SunIcon,
 } from "lucide-react";
 import {
@@ -40,6 +42,8 @@ import {
 
 import { useConfigValue } from "~/shared/config";
 import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
+import { useOpenNoteDialog } from "~/shared/open-note-dialog";
+import { useNewNote } from "~/shared/useNewNote";
 import { useIgnoredEvents } from "~/store/tinybase/hooks";
 import {
   captureSessionData,
@@ -50,6 +54,8 @@ import * as main from "~/store/tinybase/store/main";
 import { useTabs } from "~/store/zustand/tabs";
 import { useTimelineSelection } from "~/store/zustand/timeline-selection";
 import { useUndoDelete } from "~/store/zustand/undo-delete";
+
+const SIDEBAR_ACTIONS_REVEAL_DELAY_MS = 900;
 
 export function TimelineView({
   showOpenCalendarButton = true,
@@ -68,9 +74,12 @@ export function TimelineView({
   const [showIgnored, setShowIgnored] = useState(false);
   const [isScrolledToTop, setIsScrolledToTop] = useState(true);
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(true);
+  const [areSidebarActionsHidden, setAreSidebarActionsHidden] = useState(false);
 
   const { isIgnored } = useIgnoredEvents();
   const openNew = useTabs((state) => state.openNew);
+  const createNewNote = useNewNote();
+  const openNoteDialog = useOpenNoteDialog();
 
   const buckets = useMemo(() => {
     if (showIgnored) {
@@ -173,6 +182,10 @@ export function TimelineView({
     anchorNode: todayAnchorNode,
   } = useAnchor();
   const selectedSessionScrollFrameRef = useRef<number | null>(null);
+  const previousScrollTopRef = useRef(0);
+  const sidebarActionsRevealTimerRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
   const scrollSelectedSessionIntoView = useCallback<
     RefCallback<HTMLDivElement>
   >(
@@ -200,13 +213,42 @@ export function TimelineView({
       return;
     }
 
+    const clearSidebarActionsRevealTimer = () => {
+      if (sidebarActionsRevealTimerRef.current !== null) {
+        clearTimeout(sidebarActionsRevealTimerRef.current);
+        sidebarActionsRevealTimerRef.current = null;
+      }
+    };
+
+    const revealSidebarActionsSoon = () => {
+      clearSidebarActionsRevealTimer();
+      sidebarActionsRevealTimerRef.current = setTimeout(() => {
+        setAreSidebarActionsHidden(false);
+        sidebarActionsRevealTimerRef.current = null;
+      }, SIDEBAR_ACTIONS_REVEAL_DELAY_MS);
+    };
+
     const updateScrollPosition = () => {
       const maxScrollTop = Math.max(
         0,
         container.scrollHeight - container.clientHeight,
       );
-      setIsScrolledToTop(container.scrollTop <= 12);
-      setIsScrolledToBottom(maxScrollTop - container.scrollTop <= 12);
+      const nextScrollTop = container.scrollTop;
+      const scrolledToTop = nextScrollTop <= 12;
+      const scrollDelta = nextScrollTop - previousScrollTopRef.current;
+
+      setIsScrolledToTop(scrolledToTop);
+      setIsScrolledToBottom(maxScrollTop - nextScrollTop <= 12);
+
+      if (topChromeInset && scrollDelta > 2 && !scrolledToTop) {
+        setAreSidebarActionsHidden(true);
+        revealSidebarActionsSoon();
+      } else if (topChromeInset && (scrolledToTop || scrollDelta < -2)) {
+        clearSidebarActionsRevealTimer();
+        setAreSidebarActionsHidden(false);
+      }
+
+      previousScrollTopRef.current = nextScrollTop;
     };
 
     updateScrollPosition();
@@ -215,9 +257,10 @@ export function TimelineView({
     });
 
     return () => {
+      clearSidebarActionsRevealTimer();
       container.removeEventListener("scroll", updateScrollPosition);
     };
-  }, [containerRef, buckets.length, flatItemKeys.length]);
+  }, [containerRef, buckets.length, flatItemKeys.length, topChromeInset]);
 
   const scrollFadeMask = useMemo(() => {
     const topFadeEnd = isScrolledToTop ? "0px" : "28px";
@@ -263,6 +306,10 @@ export function TimelineView({
   const handleOpenCalendar = useCallback(() => {
     openNew({ type: "calendar" });
   }, [openNew]);
+
+  const handleOpenNoteDialog = useCallback(() => {
+    openNoteDialog.open();
+  }, [openNoteDialog]);
 
   const handleDeleteSelected = useCallback(() => {
     if (!store || !indexes) {
@@ -342,6 +389,7 @@ export function TimelineView({
     <div className="relative h-full">
       <div
         ref={containerRef}
+        data-sidebar-timeline-scroll
         onContextMenu={showContextMenu}
         className={cn([
           "scrollbar-hide flex h-full flex-col overflow-y-auto",
@@ -358,8 +406,8 @@ export function TimelineView({
             className={cn([
               topChromeInset
                 ? reserveOpenCalendarChipSpace
-                  ? "h-20"
-                  : "h-12"
+                  ? "h-44"
+                  : "h-32"
                 : "h-10",
               "shrink-0",
             ])}
@@ -439,9 +487,17 @@ export function TimelineView({
           className={cn([
             "pointer-events-none absolute inset-x-0 top-0 z-[15]",
             isScrolledToTop
-              ? "h-12 bg-neutral-50"
-              : "h-20 bg-linear-to-b from-neutral-50 via-neutral-50/95 via-55% to-neutral-50/0",
+              ? "h-32 bg-neutral-50"
+              : "h-36 bg-linear-to-b from-neutral-50 via-neutral-50/95 via-55% to-neutral-50/0",
           ])}
+        />
+      )}
+
+      {topChromeInset && (
+        <SidebarTimelineActions
+          hidden={areSidebarActionsHidden}
+          onNewNote={createNewNote}
+          onSearch={handleOpenNoteDialog}
         />
       )}
 
@@ -449,7 +505,11 @@ export function TimelineView({
         <div
           className={cn([
             "absolute left-1/2 z-20 flex -translate-x-1/2 transform flex-col items-center gap-2",
-            topChromeInset ? "top-12" : "top-2",
+            topChromeInset
+              ? areSidebarActionsHidden
+                ? "top-12"
+                : "top-32"
+              : "top-2",
           ])}
         >
           {showOpenCalendarChip && (
@@ -486,6 +546,71 @@ export function TimelineView({
         />
       )}
     </div>
+  );
+}
+
+function SidebarTimelineActions({
+  hidden,
+  onNewNote,
+  onSearch,
+}: {
+  hidden: boolean;
+  onNewNote: () => void;
+  onSearch: () => void;
+}) {
+  return (
+    <div
+      data-sidebar-timeline-actions
+      className={cn([
+        "absolute inset-x-0 top-12 z-30 px-2 pt-1 pb-2",
+        "bg-neutral-50",
+        "transition-[opacity,transform] duration-150 ease-out",
+        hidden
+          ? "pointer-events-none -translate-y-2 opacity-0"
+          : "translate-y-0 opacity-100",
+      ])}
+    >
+      <div className="flex flex-col gap-1">
+        <SidebarTimelineActionButton
+          icon={<SquarePenIcon size={15} />}
+          label="New note"
+          onClick={onNewNote}
+        />
+        <SidebarTimelineActionButton
+          icon={<SearchIcon size={15} />}
+          label="Search"
+          onClick={onSearch}
+        />
+      </div>
+    </div>
+  );
+}
+
+function SidebarTimelineActionButton({
+  icon,
+  label,
+  onClick,
+}: {
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={cn([
+        "flex h-8 w-full items-center gap-2 rounded-lg px-2.5 text-left",
+        "text-sm font-medium text-neutral-700",
+        "transition-colors hover:bg-neutral-200/70 hover:text-neutral-950",
+        "focus-visible:ring-2 focus-visible:ring-neutral-900 focus-visible:outline-hidden",
+      ])}
+      onClick={onClick}
+    >
+      <span className="flex size-4 shrink-0 items-center justify-center text-neutral-600">
+        {icon}
+      </span>
+      <span className="truncate">{label}</span>
+    </button>
   );
 }
 
