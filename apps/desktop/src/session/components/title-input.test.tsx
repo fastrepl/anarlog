@@ -8,7 +8,6 @@ import { TitleInput } from "./title-input";
 
 const hoisted = vi.hoisted(() => ({
   clearLiveTitle: vi.fn(),
-  runEscapeShortcut: vi.fn(),
   setLiveTitle: vi.fn(),
   store: {
     addCellListener: vi.fn(() => "listener-id"),
@@ -23,10 +22,6 @@ vi.mock("usehooks-ts", () => ({
 
 vi.mock("~/ai/hooks", () => ({
   useTitleGenerating: () => false,
-}));
-
-vi.mock("~/shared/useTabsShortcuts", () => ({
-  useMainEscapeShortcutAction: () => hoisted.runEscapeShortcut,
 }));
 
 vi.mock("~/store/tinybase/store/main", () => ({
@@ -79,14 +74,14 @@ describe("TitleInput", () => {
     cleanup();
   });
 
-  it("runs the main escape shortcut directly from the title field", () => {
+  it("does not route escape from the title field into tab navigation", () => {
     renderTitleInput();
 
     fireEvent.keyDown(screen.getByPlaceholderText("Untitled"), {
       key: "Escape",
     });
 
-    expect(hoisted.runEscapeShortcut).toHaveBeenCalledTimes(1);
+    expect(hoisted.clearLiveTitle).not.toHaveBeenCalled();
   });
 
   it("positions the empty title generate button next to the placeholder", () => {

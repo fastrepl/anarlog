@@ -9,12 +9,14 @@ const hoisted = vi.hoisted(() => ({
   currentTab: null as null | {
     active: boolean;
     id?: string;
+    pinned?: boolean;
     returnToSlotId?: string;
     returnToTabId?: string;
     slotId: string;
     type: string;
   },
   canGoBack: false,
+  close: vi.fn(),
   goBack: vi.fn(),
   handlers: new Map<string, (event?: { defaultPrevented: boolean }) => void>(),
   openCurrent: vi.fn(),
@@ -29,6 +31,8 @@ const hoisted = vi.hoisted(() => ({
     slotId: string;
     type: string;
   }[],
+  unpin: vi.fn(),
+  setPendingCloseConfirmationTab: vi.fn(),
 }));
 
 vi.mock("react-hotkeys-hook", () => ({
@@ -65,7 +69,7 @@ vi.mock("~/store/zustand/tabs", () => {
     currentTab: hoisted.currentTab,
     canGoBack: hoisted.canGoBack,
     clearSelection: vi.fn(),
-    close: vi.fn(),
+    close: hoisted.close,
     goBack: hoisted.goBack,
     select: hoisted.select,
     selectNext: vi.fn(),
@@ -73,8 +77,8 @@ vi.mock("~/store/zustand/tabs", () => {
     restoreLastClosedTab: vi.fn(),
     openNew: hoisted.openNew,
     openCurrent: hoisted.openCurrent,
-    unpin: vi.fn(),
-    setPendingCloseConfirmationTab: vi.fn(),
+    unpin: hoisted.unpin,
+    setPendingCloseConfirmationTab: hoisted.setPendingCloseConfirmationTab,
   });
 
   const useTabs = ((
@@ -128,6 +132,7 @@ describe("useClassicMainTabsShortcuts", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     hoisted.chatMode = "FloatingClosed";
+    hoisted.close.mockClear();
     hoisted.currentTab = null;
     hoisted.canGoBack = false;
     hoisted.goBack.mockClear();
@@ -136,6 +141,8 @@ describe("useClassicMainTabsShortcuts", () => {
     hoisted.openNew.mockClear();
     hoisted.select.mockClear();
     hoisted.sendEvent.mockClear();
+    hoisted.unpin.mockClear();
+    hoisted.setPendingCloseConfirmationTab.mockClear();
     hoisted.tabs = [];
   });
 
@@ -155,24 +162,52 @@ describe("useClassicMainTabsShortcuts", () => {
     expect(hoisted.openNew).toHaveBeenCalledWith({ type: "empty" });
   });
 
-  it("binds escape to open the home view", () => {
+  it("binds mod+w to close the current note tab", () => {
     hoisted.currentTab = {
       active: true,
+      id: "session-1",
       slotId: "slot-session",
       type: "sessions",
     };
 
     renderHook(() => useClassicMainTabsShortcuts());
 
+    const handler = hoisted.handlers.get("mod+w");
+    expect(handler).toBeTruthy();
+
+    handler?.();
+
+    expect(hoisted.close).toHaveBeenCalledWith(hoisted.currentTab);
+    expect(hoisted.openCurrent).not.toHaveBeenCalled();
+  });
+
+  it("does not open the home view from a note on escape", () => {
+    const homeTab = {
+      active: false,
+      slotId: "slot-home",
+      type: "empty",
+    };
+    hoisted.currentTab = {
+      active: true,
+      id: "session-1",
+      slotId: "slot-session",
+      type: "sessions",
+    };
+    hoisted.tabs = [homeTab, hoisted.currentTab];
+
+    renderHook(() => useClassicMainTabsShortcuts());
+
     dispatchEscape();
     vi.runOnlyPendingTimers();
 
-    expect(hoisted.openCurrent).toHaveBeenCalledWith({ type: "empty" });
+    expect(hoisted.openCurrent).not.toHaveBeenCalled();
+    expect(hoisted.select).not.toHaveBeenCalled();
   });
 
-  it("returns the escape shortcut action", () => {
+  it("returns an escape shortcut action that does not close a note", () => {
     hoisted.currentTab = {
       active: true,
+      id: "session-1",
       slotId: "slot-session",
       type: "sessions",
     };
@@ -181,7 +216,8 @@ describe("useClassicMainTabsShortcuts", () => {
 
     result.current.runEscapeShortcut();
 
-    expect(hoisted.openCurrent).toHaveBeenCalledWith({ type: "empty" });
+    expect(hoisted.openCurrent).not.toHaveBeenCalled();
+    expect(hoisted.select).not.toHaveBeenCalled();
   });
 
   it("uses the latest tab state when the returned escape action runs", () => {
@@ -195,18 +231,21 @@ describe("useClassicMainTabsShortcuts", () => {
 
     hoisted.currentTab = {
       active: true,
+      id: "session-1",
       slotId: "slot-session",
       type: "sessions",
     };
 
     result.current.runEscapeShortcut();
 
-    expect(hoisted.openCurrent).toHaveBeenCalledWith({ type: "empty" });
+    expect(hoisted.openCurrent).not.toHaveBeenCalled();
+    expect(hoisted.select).not.toHaveBeenCalled();
   });
 
-  it("opens the home view even when the editor stops escape propagation", () => {
+  it("does not leave a note when the editor stops escape propagation", () => {
     hoisted.currentTab = {
       active: true,
+      id: "session-1",
       slotId: "slot-session",
       type: "sessions",
     };
@@ -221,12 +260,14 @@ describe("useClassicMainTabsShortcuts", () => {
     vi.runOnlyPendingTimers();
     editor.remove();
 
-    expect(hoisted.openCurrent).toHaveBeenCalledWith({ type: "empty" });
+    expect(hoisted.openCurrent).not.toHaveBeenCalled();
+    expect(hoisted.select).not.toHaveBeenCalled();
   });
 
-  it("opens the home view when the editor prevents default escape handling", () => {
+  it("does not leave a note when the editor prevents default escape handling", () => {
     hoisted.currentTab = {
       active: true,
+      id: "session-1",
       slotId: "slot-session",
       type: "sessions",
     };
@@ -245,12 +286,14 @@ describe("useClassicMainTabsShortcuts", () => {
     vi.runOnlyPendingTimers();
     editor.remove();
 
-    expect(hoisted.openCurrent).toHaveBeenCalledWith({ type: "empty" });
+    expect(hoisted.openCurrent).not.toHaveBeenCalled();
+    expect(hoisted.select).not.toHaveBeenCalled();
   });
 
-  it("does not rerun escape when a focused target handles it directly", () => {
+  it("does not leave a note when a focused target handles escape directly", () => {
     hoisted.currentTab = {
       active: true,
+      id: "session-1",
       slotId: "slot-session",
       type: "sessions",
     };
@@ -267,8 +310,8 @@ describe("useClassicMainTabsShortcuts", () => {
     vi.runOnlyPendingTimers();
     target.remove();
 
-    expect(hoisted.openCurrent).toHaveBeenCalledWith({ type: "empty" });
-    expect(hoisted.openCurrent).toHaveBeenCalledTimes(1);
+    expect(hoisted.openCurrent).not.toHaveBeenCalled();
+    expect(hoisted.select).not.toHaveBeenCalled();
   });
 
   it("does not duplicate chat close when a focused target handles escape directly", () => {

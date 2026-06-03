@@ -245,6 +245,10 @@ export function useMainEscapeShortcutAction() {
       return;
     }
 
+    if (currentTab?.type === "sessions") {
+      return;
+    }
+
     const returnToSlotId = currentTab?.returnToSlotId;
     const returnToTab = returnToSlotId
       ? tabs.find(
