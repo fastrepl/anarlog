@@ -23,7 +23,11 @@ final class DevtoolsPanelManager {
       }
 
       let panel = self.createPanel()
-      let hostingView = NSHostingView(rootView: DevtoolsPanelView())
+      let hostingView = NSHostingView(
+        rootView: DevtoolsPanelView { [weak self, weak panel] isCollapsed in
+          guard let panel else { return }
+          self?.resize(panel, isCollapsed: isCollapsed)
+        })
       hostingView.frame = NSRect(
         x: 0,
         y: 0,
@@ -76,10 +80,25 @@ final class DevtoolsPanelManager {
   private func position(_ panel: NSPanel, force: Bool = false) {
     placement.position(panel, force: force) { screen in
       let frame = screen.visibleFrame
-      let x = frame.maxX - DevtoolsPanelLayout.containerWidth - DevtoolsPanelLayout.screenMargin
-      let y = frame.maxY - DevtoolsPanelLayout.containerHeight - DevtoolsPanelLayout.screenMargin
+      let x = frame.maxX - panel.frame.width - DevtoolsPanelLayout.screenMargin
+      let y = frame.maxY - panel.frame.height - DevtoolsPanelLayout.screenMargin
       return NSPoint(x: x, y: y)
     }
+  }
+
+  private func resize(_ panel: NSPanel, isCollapsed: Bool) {
+    let height =
+      isCollapsed
+      ? DevtoolsPanelLayout.collapsedHeight
+      : DevtoolsPanelLayout.containerHeight
+    guard abs(panel.frame.height - height) > 0.5 else { return }
+
+    let frame = NSRect(
+      x: panel.frame.minX,
+      y: panel.frame.maxY - height,
+      width: DevtoolsPanelLayout.containerWidth,
+      height: height)
+    placement.setFrame(panel, to: frame, display: true, animate: true)
   }
 
   private func startFollowingActiveScreen() {

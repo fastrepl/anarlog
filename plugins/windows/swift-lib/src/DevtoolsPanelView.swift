@@ -3,32 +3,43 @@ import SwiftUI
 enum DevtoolsPanelLayout {
   static let containerWidth: CGFloat = 300
   static let containerHeight: CGFloat = 560
+  static let collapsedHeight: CGFloat = 44
   static let screenMargin: CGFloat = 14
 }
 
 struct DevtoolsPanelView: View {
   @State private var toastPreview = DevtoolsToastPreview.languageModel
+  @State private var isCollapsed = false
+
+  private let onCollapseChange: (Bool) -> Void
+
+  init(onCollapseChange: @escaping (Bool) -> Void = { _ in }) {
+    self.onCollapseChange = onCollapseChange
+  }
 
   var body: some View {
     VStack(spacing: 0) {
       header
-      Divider()
-      ScrollView(showsIndicators: false) {
-        VStack(spacing: 10) {
-          navigationSection
-          toastsSection
-          otaSection
-          notificationsSection
-          billingSection
-          countdownSection
-          errorSection
+      if !isCollapsed {
+        Divider()
+        ScrollView(showsIndicators: false) {
+          VStack(spacing: 10) {
+            navigationSection
+            toastsSection
+            otaSection
+            notificationsSection
+            billingSection
+            countdownSection
+            errorSection
+          }
+          .padding(10)
         }
-        .padding(10)
       }
     }
     .frame(
       width: DevtoolsPanelLayout.containerWidth,
-      height: DevtoolsPanelLayout.containerHeight
+      height: isCollapsed
+        ? DevtoolsPanelLayout.collapsedHeight : DevtoolsPanelLayout.containerHeight
     )
     .background(
       RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -47,15 +58,25 @@ struct DevtoolsPanelView: View {
         .font(.system(size: 13, weight: .semibold))
         .foregroundStyle(.primary)
       Spacer()
-      Text("DEV")
-        .font(.system(size: 10, weight: .bold))
-        .foregroundStyle(.secondary)
-        .padding(.horizontal, 7)
-        .padding(.vertical, 3)
-        .background(
-          Capsule(style: .continuous)
-            .fill(Color.black.opacity(0.06))
-        )
+      Button {
+        let nextIsCollapsed = !isCollapsed
+        withAnimation(.easeInOut(duration: 0.16)) {
+          isCollapsed = nextIsCollapsed
+        }
+        onCollapseChange(nextIsCollapsed)
+      } label: {
+        Image(systemName: isCollapsed ? "chevron.down" : "chevron.up")
+          .font(.system(size: 11, weight: .bold))
+          .foregroundStyle(.secondary)
+          .frame(width: 24, height: 22)
+          .background(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+              .fill(Color.black.opacity(0.05))
+          )
+          .contentShape(Rectangle())
+      }
+      .buttonStyle(.plain)
+      .accessibilityLabel(isCollapsed ? "Expand devtools" : "Collapse devtools")
     }
     .padding(.horizontal, 12)
     .padding(.vertical, 10)

@@ -29,6 +29,20 @@ final class FloatingPanelPositionController: NSObject, NSWindowDelegate {
     activeScreenId = screenId
   }
 
+  func setFrame(_ panel: NSPanel, to frame: NSRect, display: Bool, animate: Bool) {
+    let wasPinned = pinnedOrigin != nil
+
+    performProgrammaticMove(expectedOrigin: frame.origin) {
+      panel.setFrame(frame, display: display, animate: animate)
+      return panel.frame.origin
+    }
+
+    if wasPinned {
+      pinnedOrigin = panel.frame.origin
+      activeScreenId = panel.screen.flatMap { displayId(for: $0) }
+    }
+  }
+
   func resetActiveScreen() {
     activeScreenId = nil
   }
@@ -57,15 +71,21 @@ final class FloatingPanelPositionController: NSObject, NSWindowDelegate {
   }
 
   private func move(_ panel: NSPanel, to origin: NSPoint) {
+    performProgrammaticMove(expectedOrigin: origin) {
+      panel.setFrameOrigin(origin)
+      return panel.frame.origin
+    }
+  }
+
+  private func performProgrammaticMove(expectedOrigin: NSPoint, updateFrame: () -> NSPoint) {
     programmaticMoveId += 1
     let moveId = programmaticMoveId
 
     isProgrammaticMove = true
-    programmaticOrigin = origin
-    panel.setFrameOrigin(origin)
-    programmaticOrigin = panel.frame.origin
+    programmaticOrigin = expectedOrigin
+    programmaticOrigin = updateFrame()
 
-    // AppKit can deliver move notifications shortly after setFrameOrigin returns.
+    // AppKit can deliver move notifications shortly after programmatic frame changes.
     DispatchQueue.main.asyncAfter(deadline: .now() + programmaticMoveSuppressionDelay) {
       [weak self] in
       guard let self, self.programmaticMoveId == moveId else { return }
