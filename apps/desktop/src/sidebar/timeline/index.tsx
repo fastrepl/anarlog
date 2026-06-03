@@ -17,7 +17,7 @@ import {
 } from "react";
 
 import { Button } from "@hypr/ui/components/ui/button";
-import { cn, startOfDay } from "@hypr/utils";
+import { cn } from "@hypr/utils";
 
 import { useAnchor, useAutoScrollToAnchor } from "./anchor";
 import { TimelineItemComponent } from "./item";
@@ -148,6 +148,7 @@ export function TimelineView({
     () => buckets.some((bucket) => bucket.label === "Today"),
     [buckets],
   );
+  const currentTimeMs = useCurrentTimeMs();
 
   const currentTab = useTabs((state) => state.currentTab);
 
@@ -302,23 +303,20 @@ export function TimelineView({
     deps: [todayBucketLength],
   });
 
-  const todayTimestamp = useMemo(() => startOfDay(new Date()).getTime(), []);
   const indicatorIndex = useMemo(() => {
     if (hasToday) {
       return -1;
     }
-    return buckets.findIndex(
-      (bucket) =>
-        bucket.items.length > 0 &&
-        (() => {
-          const itemDate = getItemTimestamp(bucket.items[0]);
-          if (!itemDate) {
-            return false;
-          }
-          return itemDate.getTime() < todayTimestamp;
-        })(),
-    );
-  }, [buckets, hasToday, todayTimestamp]);
+    return buckets.findIndex((bucket) => {
+      const firstItem = bucket.items[0];
+      if (!firstItem) {
+        return false;
+      }
+
+      const itemDate = getItemTimestamp(firstItem);
+      return itemDate ? itemDate.getTime() < currentTimeMs : false;
+    });
+  }, [buckets, hasToday, currentTimeMs]);
 
   const toggleShowIgnored = useCallback(() => {
     setShowIgnored((prev) => !prev);
