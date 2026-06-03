@@ -1,5 +1,11 @@
 import { SquareIcon } from "lucide-react";
-import { memo, type DragEvent, useCallback, useMemo } from "react";
+import {
+  memo,
+  type DragEvent,
+  type RefCallback,
+  useCallback,
+  useMemo,
+} from "react";
 
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
@@ -48,6 +54,7 @@ export const TimelineItemComponent = memo(
     timezone,
     multiSelected,
     flatItemKeys,
+    selectedNodeRef,
   }: {
     item: TimelineItem;
     precision: TimelinePrecision;
@@ -55,6 +62,7 @@ export const TimelineItemComponent = memo(
     timezone?: string;
     multiSelected: boolean;
     flatItemKeys: string[];
+    selectedNodeRef?: RefCallback<HTMLDivElement>;
   }) => {
     if (item.type === "event") {
       return (
@@ -65,6 +73,7 @@ export const TimelineItemComponent = memo(
           timezone={timezone}
           multiSelected={multiSelected}
           flatItemKeys={flatItemKeys}
+          selectedNodeRef={selectedNodeRef}
         />
       );
     }
@@ -76,6 +85,7 @@ export const TimelineItemComponent = memo(
         timezone={timezone}
         multiSelected={multiSelected}
         flatItemKeys={flatItemKeys}
+        selectedNodeRef={selectedNodeRef}
       />
     );
   },
@@ -99,6 +109,8 @@ function ItemBase({
   onDragStart,
   contextMenu,
   draggable,
+  selectedNodeRef,
+  timelineSessionId,
 }: {
   title: string;
   displayTime: string;
@@ -117,12 +129,18 @@ function ItemBase({
   onDragStart?: (event: DragEvent<HTMLElement>) => void;
   contextMenu: MenuItemDef[];
   draggable?: boolean;
+  selectedNodeRef?: RefCallback<HTMLDivElement>;
+  timelineSessionId?: string;
 }) {
   const hasSelection = useTimelineSelection((s) => s.selectedIds.length > 0);
   const showLiveStop = isLive && onStop;
 
   return (
-    <div className="group/sidebar-live-item relative">
+    <div
+      ref={selectedNodeRef}
+      data-sidebar-timeline-session-id={timelineSessionId}
+      className="group/sidebar-live-item relative"
+    >
       <InteractiveButton
         onClick={ignored ? undefined : onClick}
         onCmdClick={ignored ? undefined : onCmdClick}
@@ -222,6 +240,7 @@ const EventItem = memo(
     timezone,
     multiSelected,
     flatItemKeys,
+    selectedNodeRef,
   }: {
     item: EventTimelineItem;
     precision: TimelinePrecision;
@@ -229,6 +248,7 @@ const EventItem = memo(
     timezone?: string;
     multiSelected: boolean;
     flatItemKeys: string[];
+    selectedNodeRef?: RefCallback<HTMLDivElement>;
   }) => {
     const store = main.UI.useStore(main.STORE_ID);
     const openCurrent = useTabs((state) => state.openCurrent);
@@ -369,6 +389,7 @@ const EventItem = memo(
         onCmdClick={handleCmdClick}
         onShiftClick={handleShiftClick}
         contextMenu={contextMenu}
+        selectedNodeRef={selected ? selectedNodeRef : undefined}
       />
     );
   },
@@ -382,6 +403,7 @@ const SessionItem = memo(
     timezone,
     multiSelected,
     flatItemKeys,
+    selectedNodeRef,
   }: {
     item: SessionTimelineItem;
     precision: TimelinePrecision;
@@ -389,6 +411,7 @@ const SessionItem = memo(
     timezone?: string;
     multiSelected: boolean;
     flatItemKeys: string[];
+    selectedNodeRef?: RefCallback<HTMLDivElement>;
   }) => {
     const store = main.UI.useStore(main.STORE_ID);
     const indexes = main.UI.useIndexes(main.STORE_ID);
@@ -552,6 +575,8 @@ const SessionItem = memo(
           onStop={stop}
           onDragStart={handleDragStart}
           contextMenu={contextMenu}
+          selectedNodeRef={selected ? selectedNodeRef : undefined}
+          timelineSessionId={sessionId}
           draggable
         />
       </SessionPreviewCard>

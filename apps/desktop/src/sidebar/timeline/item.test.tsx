@@ -189,4 +189,38 @@ describe("TimelineItemComponent", () => {
     expect(mocks.stop).toHaveBeenCalledOnce();
     expect(mocks.openCurrent).not.toHaveBeenCalled();
   });
+
+  it("exposes the selected session row for sidebar scroll anchoring", () => {
+    const selectedNodeRef = vi.fn();
+
+    render(
+      <TimelineItemComponent
+        item={{
+          type: "session",
+          id: "session-live",
+          data: {
+            title: "Live Note",
+            created_at: "2024-01-15T10:30:00.000Z",
+          },
+        }}
+        precision="time"
+        selected
+        selectedNodeRef={selectedNodeRef}
+        timezone="UTC"
+        multiSelected={false}
+        flatItemKeys={["session-session-live"]}
+      />,
+    );
+
+    const row = screen
+      .getByText("Live Note")
+      .closest("[data-sidebar-timeline-session-id]");
+
+    expect(row?.getAttribute("data-sidebar-timeline-session-id")).toBe(
+      "session-live",
+    );
+    expect(selectedNodeRef.mock.calls.some(([node]) => node === row)).toBe(
+      true,
+    );
+  });
 });

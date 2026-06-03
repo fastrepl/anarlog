@@ -6,9 +6,11 @@ import {
 } from "lucide-react";
 import {
   type ReactNode,
+  type RefCallback,
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -170,6 +172,27 @@ export function TimelineView({
     registerAnchor: setCurrentTimeIndicatorRef,
     anchorNode: todayAnchorNode,
   } = useAnchor();
+  const selectedSessionScrollFrameRef = useRef<number | null>(null);
+  const scrollSelectedSessionIntoView = useCallback<
+    RefCallback<HTMLDivElement>
+  >(
+    (node) => {
+      if (selectedSessionScrollFrameRef.current !== null) {
+        cancelAnimationFrame(selectedSessionScrollFrameRef.current);
+        selectedSessionScrollFrameRef.current = null;
+      }
+
+      if (!node || currentTab?.type !== "sessions") {
+        return;
+      }
+
+      selectedSessionScrollFrameRef.current = requestAnimationFrame(() => {
+        selectedSessionScrollFrameRef.current = null;
+        scrollTimelineItemIntoView(containerRef.current, node);
+      });
+    },
+    [containerRef, currentTab],
+  );
 
   useEffect(() => {
     const container = containerRef.current;
@@ -372,6 +395,7 @@ export function TimelineView({
                   precision={bucket.precision}
                   registerIndicator={setCurrentTimeIndicatorRef}
                   selectedSessionId={selectedSessionId}
+                  selectedNodeRef={scrollSelectedSessionIntoView}
                   timezone={timezone}
                   selectedIds={selectedIds}
                   flatItemKeys={flatItemKeys}
@@ -390,6 +414,9 @@ export function TimelineView({
                       timezone={timezone}
                       multiSelected={selectedIds.includes(itemKey)}
                       flatItemKeys={flatItemKeys}
+                      selectedNodeRef={
+                        selected ? scrollSelectedSessionIntoView : undefined
+                      }
                     />
                   );
                 })
@@ -498,6 +525,7 @@ function TodayBucket({
   precision,
   registerIndicator,
   selectedSessionId,
+  selectedNodeRef,
   timezone,
   selectedIds,
   flatItemKeys,
@@ -506,6 +534,7 @@ function TodayBucket({
   precision: TimelinePrecision;
   registerIndicator: (node: HTMLDivElement | null) => void;
   selectedSessionId: string | undefined;
+  selectedNodeRef: RefCallback<HTMLDivElement>;
   timezone?: string;
   selectedIds: string[];
   flatItemKeys: string[];
@@ -569,6 +598,7 @@ function TodayBucket({
           timezone={timezone}
           multiSelected={selectedIds.includes(itemKey)}
           flatItemKeys={flatItemKeys}
+          selectedNodeRef={selected ? selectedNodeRef : undefined}
         />
       );
 
@@ -611,12 +641,47 @@ function TodayBucket({
     precision,
     registerIndicator,
     selectedSessionId,
+    selectedNodeRef,
     timezone,
     selectedIds,
     flatItemKeys,
   ]);
 
   return renderedEntries;
+}
+
+function scrollTimelineItemIntoView(
+  container: HTMLDivElement | null,
+  item: HTMLDivElement,
+) {
+  if (!container) {
+    return;
+  }
+
+  const containerRect = container.getBoundingClientRect();
+  const itemRect = item.getBoundingClientRect();
+  const margin = 12;
+  const aboveViewport = itemRect.top < containerRect.top + margin;
+  const belowViewport = itemRect.bottom > containerRect.bottom - margin;
+
+  if (!aboveViewport && !belowViewport) {
+    return;
+  }
+
+  const itemCenter =
+    itemRect.top -
+    containerRect.top +
+    container.scrollTop +
+    itemRect.height / 2;
+  const targetScrollTop = Math.max(
+    itemCenter - container.clientHeight * 0.45,
+    0,
+  );
+
+  container.scrollTo({
+    top: targetScrollTop,
+    behavior: "smooth",
+  });
 }
 
 function useTimelineTables(): {
