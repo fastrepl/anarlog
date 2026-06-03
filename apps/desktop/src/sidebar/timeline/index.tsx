@@ -183,9 +183,14 @@ export function TimelineView({
   } = useAnchor();
   const selectedSessionScrollFrameRef = useRef<number | null>(null);
   const previousScrollTopRef = useRef(0);
+  const areSidebarActionsHiddenRef = useRef(false);
   const sidebarActionsRevealTimerRef = useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
+  const setSidebarActionsHidden = useCallback((hidden: boolean) => {
+    areSidebarActionsHiddenRef.current = hidden;
+    setAreSidebarActionsHidden(hidden);
+  }, []);
   const scrollSelectedSessionIntoView = useCallback<
     RefCallback<HTMLDivElement>
   >(
@@ -223,7 +228,7 @@ export function TimelineView({
     const revealSidebarActionsSoon = () => {
       clearSidebarActionsRevealTimer();
       sidebarActionsRevealTimerRef.current = setTimeout(() => {
-        setAreSidebarActionsHidden(false);
+        setSidebarActionsHidden(false);
         sidebarActionsRevealTimerRef.current = null;
       }, SIDEBAR_ACTIONS_REVEAL_DELAY_MS);
     };
@@ -241,17 +246,27 @@ export function TimelineView({
       setIsScrolledToBottom(maxScrollTop - nextScrollTop <= 12);
 
       if (topChromeInset && scrollDelta > 2 && !scrolledToTop) {
-        setAreSidebarActionsHidden(true);
+        setSidebarActionsHidden(true);
         revealSidebarActionsSoon();
       } else if (topChromeInset && (scrolledToTop || scrollDelta < -2)) {
         clearSidebarActionsRevealTimer();
-        setAreSidebarActionsHidden(false);
+        setSidebarActionsHidden(false);
       }
 
       previousScrollTopRef.current = nextScrollTop;
+
+      return { scrolledToTop };
     };
 
-    updateScrollPosition();
+    const { scrolledToTop } = updateScrollPosition();
+    if (
+      topChromeInset &&
+      !scrolledToTop &&
+      areSidebarActionsHiddenRef.current &&
+      sidebarActionsRevealTimerRef.current === null
+    ) {
+      revealSidebarActionsSoon();
+    }
     container.addEventListener("scroll", updateScrollPosition, {
       passive: true,
     });
@@ -260,7 +275,13 @@ export function TimelineView({
       clearSidebarActionsRevealTimer();
       container.removeEventListener("scroll", updateScrollPosition);
     };
-  }, [containerRef, buckets.length, flatItemKeys.length, topChromeInset]);
+  }, [
+    containerRef,
+    buckets.length,
+    flatItemKeys.length,
+    topChromeInset,
+    setSidebarActionsHidden,
+  ]);
 
   const scrollFadeMask = useMemo(() => {
     const topFadeEnd = isScrolledToTop ? "0px" : "28px";
