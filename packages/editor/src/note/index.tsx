@@ -131,6 +131,9 @@ export type SessionMentionDropData = {
 };
 
 export type SessionMentionDropConfig = {
+  has?: (
+    dataTransfer: Pick<DataTransfer, "types"> | null | undefined,
+  ) => boolean;
   read: (
     dataTransfer: Pick<DataTransfer, "getData" | "types"> | null | undefined,
   ) => SessionMentionDropData | null;
@@ -195,6 +198,8 @@ function wrapNodeViewComponents(nodeViews?: NodeViewComponents) {
 }
 
 function createSessionMentionDropPlugin(config: SessionMentionDropConfig) {
+  const hasSession = (dataTransfer: DataTransfer | null) =>
+    config.has ? config.has(dataTransfer) : Boolean(config.read(dataTransfer));
   const readSession = (dataTransfer: DataTransfer | null) =>
     config.read(dataTransfer);
 
@@ -204,7 +209,7 @@ function createSessionMentionDropPlugin(config: SessionMentionDropConfig) {
       handleDOMEvents: {
         dragover(_view, event) {
           const dataTransfer = (event as DragEvent).dataTransfer;
-          if (!readSession(dataTransfer)) {
+          if (!hasSession(dataTransfer)) {
             return false;
           }
 
