@@ -6,7 +6,7 @@ import {
   SquareIcon,
   TrashIcon,
 } from "lucide-react";
-import { type ReactNode, useCallback, useRef } from "react";
+import { type ReactNode, useCallback, useMemo, useRef } from "react";
 
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 import { Button } from "@hypr/ui/components/ui/button";
@@ -16,9 +16,10 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@hypr/ui/components/ui/tooltip";
-import { cn } from "@hypr/utils";
+import { cn, format, safeParseDate } from "@hypr/utils";
 
 import * as AudioPlayer from "~/audio-player";
+import { extractPlainText } from "~/search/contexts/engine/utils";
 import { getEnhancerService } from "~/services/enhancer";
 import { Transcript } from "~/session/components/note-input/transcript";
 import {
@@ -26,26 +27,49 @@ import {
   useTranscriptExportSegments,
 } from "~/session/components/note-input/transcript/export-data";
 import { useTranscriptScreen } from "~/session/components/note-input/transcript/state";
+import { getSessionEvent } from "~/session/utils";
 import { showTransientToast } from "~/sidebar/toast/transient";
+import * as main from "~/store/tinybase/store/main";
 import { useListener } from "~/stt/contexts";
 import { isStoppedTranscriptionError, useRunBatch } from "~/stt/useRunBatch";
+
+export type PostSessionTab = "transcript" | "past_notes";
+
+export type PastSessionNote = {
+  sessionId: string;
+  title: string;
+  dateLabel: string;
+  summary: string;
+};
+
+type MainStore = NonNullable<ReturnType<typeof main.UI.useStore>>;
 
 export function PostSessionAccessory({
   sessionId,
   hasAudio,
   hasTranscript,
   isTranscriptExpanded,
+  activeTab = "transcript",
+  pastNotes = [],
   fillHeight = false,
 }: {
   sessionId: string;
   hasAudio: boolean;
   hasTranscript: boolean;
   isTranscriptExpanded: boolean;
+  activeTab?: PostSessionTab;
+  pastNotes?: PastSessionNote[];
   fillHeight?: boolean;
 }) {
   const screen = useTranscriptScreen({ sessionId });
   const isBatching = screen.kind === "running_batch";
-  const shouldFillTranscriptPanel = fillHeight && (hasTranscript || isBatching);
+  const effectiveActiveTab =
+    activeTab === "past_notes" && pastNotes.length > 0
+      ? "past_notes"
+      : "transcript";
+  const shouldFillExpandedPanel =
+    fillHeight &&
+    (effectiveActiveTab === "past_notes" || hasTranscript || isBatching);
   const timeline = isBatching ? (
     <BatchProgressTimeline sessionId={sessionId} screen={screen} />
   ) : hasAudio ? (
@@ -66,19 +90,26 @@ export function PostSessionAccessory({
       {isTranscriptExpanded ? (
         <div
           className={cn([
-            shouldFillTranscriptPanel
+            shouldFillExpandedPanel
               ? "min-h-[114px] flex-1 overflow-hidden"
               : "shrink-0",
           ])}
         >
-          <TranscriptPanel
-            sessionId={sessionId}
-            screen={screen}
-            hasAudio={hasAudio}
-            hasTranscript={hasTranscript}
-            isExpanded={isTranscriptExpanded}
-            fillHeight={shouldFillTranscriptPanel}
-          />
+          {effectiveActiveTab === "past_notes" ? (
+            <PastNotesPanel
+              notes={pastNotes}
+              fillHeight={shouldFillExpandedPanel}
+            />
+          ) : (
+            <TranscriptPanel
+              sessionId={sessionId}
+              screen={screen}
+              hasAudio={hasAudio}
+              hasTranscript={hasTranscript}
+              isExpanded={isTranscriptExpanded}
+              fillHeight={shouldFillExpandedPanel}
+            />
+          )}
         </div>
       ) : null}
       {timeline ? (
@@ -86,6 +117,36 @@ export function PostSessionAccessory({
       ) : null}
     </div>
   );
+}
+
+export function usePastSessionNotes(sessionId: string): PastSessionNote[] {
+  const store = main.UI.useStore(main.STORE_ID);
+  const sessionsTable = main.UI.useTable("sessions", main.STORE_ID);
+  const participantsTable = main.UI.useTable(
+    "mapping_session_participant",
+    main.STORE_ID,
+  );
+  const enhancedNotesTable = main.UI.useTable("enhanced_notes", main.STORE_ID);
+  const userId = main.UI.useValue("user_id", main.STORE_ID);
+
+  return useMemo(() => {
+    if (!store) {
+      return [];
+    }
+
+    return buildPastSessionNotes(
+      store,
+      sessionId,
+      typeof userId === "string" ? userId : null,
+    );
+  }, [
+    store,
+    sessionId,
+    userId,
+    sessionsTable,
+    participantsTable,
+    enhancedNotesTable,
+  ]);
 }
 
 function TimelineSlot({
@@ -104,6 +165,54 @@ function TimelineSlot({
     >
       {children}
     </div>
+  );
+}
+
+function PastNotesPanel({
+  notes,
+  fillHeight,
+}: {
+  notes: PastSessionNote[];
+  fillHeight: boolean;
+}) {
+  return (
+    <TranscriptCard fillHeight={fillHeight}>
+      <div className="flex shrink-0 items-center justify-between px-3 py-1.5">
+        <span className="text-xs font-medium text-neutral-500">Past notes</span>
+      </div>
+
+      <div
+        className={cn([
+          "min-h-0 overflow-y-auto px-4 pb-4",
+          fillHeight ? "flex-1" : "max-h-[300px]",
+        ])}
+      >
+        <div className="relative flex flex-col gap-4 pt-2">
+          <div className="absolute top-2 bottom-0 left-[3px] w-px bg-neutral-200" />
+          {notes.map((note) => (
+            <div
+              key={note.sessionId}
+              className="relative grid grid-cols-1 pl-5"
+            >
+              <div className="absolute top-1.5 left-0 h-2 w-2 rounded-full border border-neutral-300 bg-white" />
+              <div className="flex min-w-0 flex-col gap-1">
+                <div className="flex min-w-0 items-baseline justify-between gap-3">
+                  <span className="min-w-0 truncate text-xs font-medium text-neutral-700">
+                    {note.title}
+                  </span>
+                  <span className="shrink-0 text-[11px] text-neutral-400">
+                    {note.dateLabel}
+                  </span>
+                </div>
+                <p className="line-clamp-3 text-xs leading-5 text-neutral-500">
+                  {note.summary}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </TranscriptCard>
   );
 }
 
@@ -605,4 +714,260 @@ function TranscriptCard({
       {children}
     </div>
   );
+}
+
+const MAX_PAST_NOTES = 8;
+const MAX_SUMMARY_LENGTH = 220;
+const SUMMARY_TARGET_LENGTH = 150;
+const SPACE_REGEX = /\s+/g;
+
+export function buildPastSessionNotes(
+  store: MainStore,
+  sessionId: string,
+  userId: string | null,
+): PastSessionNote[] {
+  const currentSession = store.getRow("sessions", sessionId);
+  if (!currentSession) {
+    return [];
+  }
+
+  const currentParticipantIds = getSessionParticipantIds(
+    store,
+    sessionId,
+    userId,
+  );
+  const currentEvent = getSessionEvent(currentSession);
+  const currentSeriesId = getRecurrenceSeriesId(currentEvent);
+  if (!currentSeriesId && currentParticipantIds.size === 0) {
+    return [];
+  }
+
+  const currentTimestamp = getSessionTimestamp(currentSession);
+  const notes: Array<PastSessionNote & { dateMs: number }> = [];
+
+  store.forEachRow("sessions", (candidateSessionId, _forEachCell) => {
+    if (candidateSessionId === sessionId) {
+      return;
+    }
+
+    const candidateSession = store.getRow("sessions", candidateSessionId);
+    if (!candidateSession) {
+      return;
+    }
+
+    const candidateTimestamp = getSessionTimestamp(candidateSession);
+    if (
+      currentTimestamp > 0 &&
+      candidateTimestamp > 0 &&
+      candidateTimestamp >= currentTimestamp
+    ) {
+      return;
+    }
+
+    const candidateEvent = getSessionEvent(candidateSession);
+    const candidateParticipantIds = getSessionParticipantIds(
+      store,
+      candidateSessionId,
+      userId,
+    );
+    if (
+      !isRelatedPastSession({
+        currentParticipantIds,
+        currentSeriesId,
+        candidateParticipantIds,
+        candidateSeriesId: getRecurrenceSeriesId(candidateEvent),
+      })
+    ) {
+      return;
+    }
+
+    const summary = getSessionNoteSummary(store, candidateSessionId);
+    if (!summary) {
+      return;
+    }
+
+    notes.push({
+      sessionId: candidateSessionId,
+      title: getSessionTitle(candidateSession),
+      dateLabel: formatSessionDate(candidateSession),
+      summary,
+      dateMs: candidateTimestamp,
+    });
+  });
+
+  return notes
+    .sort((a, b) => b.dateMs - a.dateMs)
+    .slice(0, MAX_PAST_NOTES)
+    .map(({ dateMs: _dateMs, ...note }) => note);
+}
+
+function getSessionParticipantIds(
+  store: MainStore,
+  sessionId: string,
+  userId: string | null,
+): Set<string> {
+  const participantIds = new Set<string>();
+
+  store.forEachRow("mapping_session_participant", (mappingId, _forEachCell) => {
+    const mapping = store.getRow("mapping_session_participant", mappingId);
+    if (
+      mapping.session_id !== sessionId ||
+      mapping.source === "excluded" ||
+      !mapping.human_id
+    ) {
+      return;
+    }
+
+    const ownerUserId =
+      typeof mapping.user_id === "string" && mapping.user_id.trim()
+        ? mapping.user_id
+        : null;
+    const isCurrentUser =
+      (userId && mapping.human_id === userId) ||
+      (!userId && ownerUserId && mapping.human_id === ownerUserId);
+    if (!isCurrentUser) {
+      participantIds.add(mapping.human_id);
+    }
+  });
+
+  return participantIds;
+}
+
+function isRelatedPastSession({
+  currentParticipantIds,
+  currentSeriesId,
+  candidateParticipantIds,
+  candidateSeriesId,
+}: {
+  currentParticipantIds: Set<string>;
+  currentSeriesId: string | null;
+  candidateParticipantIds: Set<string>;
+  candidateSeriesId: string | null;
+}) {
+  if (currentSeriesId && candidateSeriesId === currentSeriesId) {
+    return true;
+  }
+
+  if (currentParticipantIds.size === 0) {
+    return false;
+  }
+
+  for (const participantId of currentParticipantIds) {
+    if (!candidateParticipantIds.has(participantId)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function getSessionNoteSummary(store: MainStore, sessionId: string): string {
+  const enhancedNotes: Array<{ content: string; position: number }> = [];
+
+  store.forEachRow("enhanced_notes", (noteId, _forEachCell) => {
+    const note = store.getRow("enhanced_notes", noteId);
+    if (note.session_id !== sessionId || !note.content?.trim()) {
+      return;
+    }
+
+    enhancedNotes.push({
+      content: note.content,
+      position: typeof note.position === "number" ? note.position : 0,
+    });
+  });
+
+  enhancedNotes.sort((a, b) => a.position - b.position);
+  for (const note of enhancedNotes) {
+    const summary = toConciseSummary(note.content);
+    if (summary) {
+      return summary;
+    }
+  }
+
+  const rawMd = store.getCell("sessions", sessionId, "raw_md");
+  return toConciseSummary(rawMd);
+}
+
+function toConciseSummary(value: unknown): string {
+  const cleaned = cleanSummaryText(extractPlainText(value));
+  if (!cleaned) {
+    return "";
+  }
+
+  const sentences = cleaned.match(/[^.!?]+(?:[.!?]+|$)/g) ?? [cleaned];
+  let summary = "";
+
+  for (const sentence of sentences) {
+    const trimmed = sentence.trim();
+    if (!trimmed) {
+      continue;
+    }
+
+    const next = summary ? `${summary} ${trimmed}` : trimmed;
+    if (summary && next.length > SUMMARY_TARGET_LENGTH) {
+      break;
+    }
+
+    summary = next;
+    if (summary.length >= SUMMARY_TARGET_LENGTH) {
+      break;
+    }
+  }
+
+  return truncateAtWord(summary || cleaned, MAX_SUMMARY_LENGTH);
+}
+
+function cleanSummaryText(text: string): string {
+  return text
+    .replace(/!\[[^\]]*]\([^)]+\)/g, "")
+    .replace(/\[([^\]]+)]\([^)]+\)/g, "$1")
+    .replace(/[`*_~>#]/g, "")
+    .replace(/(^|\s)([-+]|[0-9]+[.)])\s+/g, " ")
+    .replace(SPACE_REGEX, " ")
+    .trim();
+}
+
+function truncateAtWord(text: string, maxLength: number): string {
+  if (text.length <= maxLength) {
+    return text;
+  }
+
+  const slice = text.slice(0, maxLength + 1);
+  const lastSpace = slice.lastIndexOf(" ");
+  const end = lastSpace > maxLength * 0.6 ? lastSpace : maxLength;
+  return `${slice.slice(0, end).trim()}...`;
+}
+
+function getSessionTitle(session: { title?: string }): string {
+  return session.title?.trim() || "Untitled";
+}
+
+function getRecurrenceSeriesId(
+  event: ReturnType<typeof getSessionEvent>,
+): string | null {
+  const seriesId = event?.recurrence_series_id?.trim();
+  return seriesId || null;
+}
+
+function getSessionTimestamp(session: {
+  created_at?: string;
+  event_json?: string;
+}): number {
+  const event = getSessionEvent(session);
+  const value = event?.started_at || session.created_at;
+  if (!value) {
+    return 0;
+  }
+
+  const timestamp = Date.parse(value);
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+function formatSessionDate(session: {
+  created_at?: string;
+  event_json?: string;
+}): string {
+  const event = getSessionEvent(session);
+  const parsed = safeParseDate(event?.started_at || session.created_at);
+  return parsed ? format(parsed, "MMM d, yyyy") : "";
 }

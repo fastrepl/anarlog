@@ -7,7 +7,7 @@ import {
 } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { PostSessionAccessory } from "./post-session";
+import { buildPastSessionNotes, PostSessionAccessory } from "./post-session";
 
 const {
   audioPathMock,
@@ -101,6 +101,8 @@ vi.mock("~/store/tinybase/store/main", () => ({
   UI: {
     useStore: vi.fn(() => null),
     useIndexes: vi.fn(() => null),
+    useTable: vi.fn(() => ({})),
+    useValue: vi.fn(() => null),
   },
 }));
 
@@ -327,4 +329,183 @@ describe("PostSessionAccessory", () => {
     expect(screen.getByTestId("transcript-skeleton")).toBeTruthy();
     expect(screen.queryByTestId("transcript")).toBeNull();
   });
+
+  it("renders the past notes timeline when the past notes tab is active", () => {
+    render(
+      <PostSessionAccessory
+        sessionId="session-1"
+        hasAudio={false}
+        hasTranscript
+        isTranscriptExpanded
+        activeTab="past_notes"
+        pastNotes={[
+          {
+            sessionId: "session-0",
+            title: "Weekly Product Sync",
+            dateLabel: "May 28, 2026",
+            summary: "Decided to ship the transcript panel and revisit polish.",
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("Past notes")).toBeTruthy();
+    expect(screen.getByText("Weekly Product Sync")).toBeTruthy();
+    expect(screen.getByText("May 28, 2026")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Decided to ship the transcript panel and revisit polish.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByTestId("transcript")).toBeNull();
+  });
+
+  it("builds descending past notes from previous sessions with the same participants", () => {
+    const store = makeStore({
+      sessions: {
+        current: {
+          title: "Weekly Product Sync",
+          created_at: "2026-06-03T10:00:00.000Z",
+          event_json: JSON.stringify({
+            started_at: "2026-06-03T10:00:00.000Z",
+            recurrence_series_id: "series-1",
+          }),
+          raw_md: "",
+        },
+        previous: {
+          title: "Weekly Product Sync",
+          created_at: "2026-05-28T10:00:00.000Z",
+          event_json: JSON.stringify({
+            started_at: "2026-05-28T10:00:00.000Z",
+            recurrence_series_id: "series-1",
+          }),
+          raw_md: "",
+        },
+        older: {
+          title: "Older Product Sync",
+          created_at: "2026-05-21T10:00:00.000Z",
+          event_json: "",
+          raw_md: "Reviewed onboarding follow-ups and assigned owners.",
+        },
+        partial: {
+          title: "Alex 1:1",
+          created_at: "2026-05-20T10:00:00.000Z",
+          event_json: "",
+          raw_md: "Should not show up.",
+        },
+        future: {
+          title: "Future Product Sync",
+          created_at: "2026-06-10T10:00:00.000Z",
+          event_json: "",
+          raw_md: "Should not show up.",
+        },
+      },
+      mapping_session_participant: {
+        current_self: {
+          session_id: "current",
+          human_id: "self",
+          user_id: "self",
+          source: "manual",
+        },
+        current_alex: {
+          session_id: "current",
+          human_id: "alex",
+          user_id: "self",
+          source: "auto",
+        },
+        current_jamie: {
+          session_id: "current",
+          human_id: "jamie",
+          user_id: "self",
+          source: "auto",
+        },
+        previous_alex: {
+          session_id: "previous",
+          human_id: "alex",
+          user_id: "self",
+          source: "auto",
+        },
+        previous_jamie: {
+          session_id: "previous",
+          human_id: "jamie",
+          user_id: "self",
+          source: "auto",
+        },
+        older_alex: {
+          session_id: "older",
+          human_id: "alex",
+          user_id: "self",
+          source: "auto",
+        },
+        older_jamie: {
+          session_id: "older",
+          human_id: "jamie",
+          user_id: "self",
+          source: "auto",
+        },
+        partial_alex: {
+          session_id: "partial",
+          human_id: "alex",
+          user_id: "self",
+          source: "auto",
+        },
+        future_alex: {
+          session_id: "future",
+          human_id: "alex",
+          user_id: "self",
+          source: "auto",
+        },
+        future_jamie: {
+          session_id: "future",
+          human_id: "jamie",
+          user_id: "self",
+          source: "auto",
+        },
+      },
+      enhanced_notes: {
+        previous_summary: {
+          session_id: "previous",
+          content:
+            "Aligned on transcript panel behavior. Past notes should stay short and scannable.",
+          position: 0,
+        },
+      },
+    });
+
+    const notes = buildPastSessionNotes(store, "current", "self");
+
+    expect(notes).toEqual([
+      {
+        sessionId: "previous",
+        title: "Weekly Product Sync",
+        dateLabel: "May 28, 2026",
+        summary:
+          "Aligned on transcript panel behavior. Past notes should stay short and scannable.",
+      },
+      {
+        sessionId: "older",
+        title: "Older Product Sync",
+        dateLabel: "May 21, 2026",
+        summary: "Reviewed onboarding follow-ups and assigned owners.",
+      },
+    ]);
+  });
 });
+
+function makeStore(
+  tables: Record<string, Record<string, Record<string, any>>>,
+) {
+  return {
+    getRow: (tableId: string, rowId: string) => tables[tableId]?.[rowId] ?? {},
+    getCell: (tableId: string, rowId: string, cellId: string) =>
+      tables[tableId]?.[rowId]?.[cellId],
+    forEachRow: (
+      tableId: string,
+      callback: (rowId: string, forEachCell: unknown) => void,
+    ) => {
+      for (const rowId of Object.keys(tables[tableId] ?? {})) {
+        callback(rowId, () => {});
+      }
+    },
+  } as any;
+}

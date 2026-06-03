@@ -18,6 +18,12 @@ const hoisted = vi.hoisted(() => ({
     requestedLiveTranscription: true as boolean | null,
     liveTranscriptionActive: true as boolean | null,
   },
+  pastNotes: [] as Array<{
+    sessionId: string;
+    title: string;
+    dateLabel: string;
+    summary: string;
+  }>,
 }));
 
 vi.mock("react-hotkeys-hook", () => ({
@@ -38,6 +44,7 @@ vi.mock("./during-session", () => ({
 
 vi.mock("./post-session", () => ({
   PostSessionAccessory: () => null,
+  usePastSessionNotes: () => hoisted.pastNotes,
 }));
 
 vi.mock("~/stt/contexts", () => ({
@@ -73,6 +80,7 @@ describe("useSessionBottomAccessory", () => {
     hoisted.live.sessionId = null;
     hoisted.live.requestedLiveTranscription = true;
     hoisted.live.liveTranscriptionActive = true;
+    hoisted.pastNotes = [];
     useShellMock.mockReturnValue({
       chat: {
         mode: "Closed",

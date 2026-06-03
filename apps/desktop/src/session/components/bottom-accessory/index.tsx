@@ -1,10 +1,24 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { X } from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useHotkeys } from "react-hotkeys-hook";
+
+import { cn } from "@hypr/utils";
 
 import { DuringSessionAccessory } from "./during-session";
 import { ExpandToggle } from "./expand-toggle";
 import { shouldShowLiveTranscriptAccessory } from "./live-visibility";
-import { PostSessionAccessory } from "./post-session";
+import {
+  PostSessionAccessory,
+  type PostSessionTab,
+  usePastSessionNotes,
+} from "./post-session";
 
 import { useShell } from "~/contexts/shell";
 import { getLiveCaptureUiMode } from "~/store/zustand/listener/general-shared";
@@ -31,11 +45,22 @@ export function useSessionBottomAccessory({
   bottomAccessoryState: BottomAccessoryState;
 } {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [postSessionTab, setPostSessionTab] = useState<PostSessionTab | null>(
+    null,
+  );
   const isLive = sessionMode === "active";
   const isFinalizing = sessionMode === "finalizing";
   const isInactive = sessionMode === "inactive";
   const isRunningBatch = sessionMode === "running_batch";
   const hasAudio = Boolean(audioUrl) && (isInactive || isRunningBatch);
+  const pastNotes = usePastSessionNotes(sessionId);
+  const hasPastNotes = pastNotes.length > 0;
+  const activePostSessionTab: PostSessionTab = hasPastNotes
+    ? (postSessionTab ??
+      (!hasAudio && !hasTranscript && !isRunningBatch
+        ? "past_notes"
+        : "transcript"))
+    : "transcript";
   const live = useListener((state) => state.live);
   const { chat } = useShell();
   const liveCaptureMode = getLiveCaptureUiMode(live);
@@ -69,7 +94,16 @@ export function useSessionBottomAccessory({
     isRunningBatch ||
     (!shouldDeferToGlobalLiveAccessory &&
       isInactive &&
-      (hasAudio || hasTranscript));
+      (hasAudio || hasTranscript || hasPastNotes));
+  const selectPostSessionTab = useCallback(
+    (tab: PostSessionTab) => {
+      setPostSessionTab(tab);
+      setIsExpanded((expanded) =>
+        activePostSessionTab === tab ? !expanded : true,
+      );
+    },
+    [activePostSessionTab],
+  );
 
   useHotkeys(
     "esc",
@@ -134,10 +168,18 @@ export function useSessionBottomAccessory({
           hasAudio={hasAudio}
           hasTranscript={hasTranscript}
           isTranscriptExpanded={isExpanded}
+          activeTab={activePostSessionTab}
+          pastNotes={pastNotes}
           fillHeight={isExpanded}
         />
       ) : null,
-      bottomBorderHandle: (
+      bottomBorderHandle: hasPastNotes ? (
+        <PostSessionTabHandle
+          isExpanded={isExpanded}
+          activeTab={activePostSessionTab}
+          onSelect={selectPostSessionTab}
+        />
+      ) : (
         <ExpandToggle
           isExpanded={isExpanded}
           onToggle={() => setIsExpanded((v) => !v)}
@@ -155,4 +197,76 @@ export function useSessionBottomAccessory({
     bottomBorderHandle: null,
     bottomAccessoryState,
   };
+}
+
+function PostSessionTabHandle({
+  isExpanded,
+  activeTab,
+  onSelect,
+}: {
+  isExpanded: boolean;
+  activeTab: PostSessionTab;
+  onSelect: (tab: PostSessionTab) => void;
+}) {
+  return (
+    <div className="relative left-3 z-10 flex h-5 items-center">
+      <PostSessionTabButton
+        label="Transcript"
+        tab="transcript"
+        activeTab={activeTab}
+        isExpanded={isExpanded}
+        onSelect={onSelect}
+        className="rounded-tl-[10px] border-l"
+      />
+      <PostSessionTabButton
+        label="Past notes"
+        tab="past_notes"
+        activeTab={activeTab}
+        isExpanded={isExpanded}
+        onSelect={onSelect}
+        className="-ml-px rounded-tr-[10px] border-r"
+      />
+    </div>
+  );
+}
+
+function PostSessionTabButton({
+  label,
+  tab,
+  activeTab,
+  isExpanded,
+  onSelect,
+  className,
+}: {
+  label: string;
+  tab: PostSessionTab;
+  activeTab: PostSessionTab;
+  isExpanded: boolean;
+  onSelect: (tab: PostSessionTab) => void;
+  className?: string;
+}) {
+  const isActive = activeTab === tab;
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(tab)}
+      className={cn([
+        "relative flex h-5 items-center justify-center gap-1 border-t border-neutral-200 px-3",
+        "after:pointer-events-none after:absolute after:right-px after:-bottom-px after:left-px after:h-0.5 after:bg-inherit after:content-['']",
+        "text-[10px] font-medium transition-colors",
+        isActive && isExpanded
+          ? "bg-neutral-50 text-neutral-600"
+          : "bg-white text-neutral-400",
+        "hover:cursor-pointer hover:bg-neutral-100 hover:text-neutral-600",
+        className,
+      ])}
+      aria-label={
+        isActive && isExpanded ? `Collapse ${label}` : `Expand ${label}`
+      }
+    >
+      <span>{label}</span>
+      {isActive && isExpanded ? <X size={10} className="shrink-0" /> : null}
+    </button>
+  );
 }
