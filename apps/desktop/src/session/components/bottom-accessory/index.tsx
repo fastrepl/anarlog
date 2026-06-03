@@ -212,14 +212,14 @@ function PostSessionTabHandle({
   onSelect: (tab: PostSessionTab) => void;
 }) {
   return (
-    <div className="relative left-3 z-10 flex h-5 items-center">
+    <div className="relative left-3 z-10 flex h-5 items-center gap-1">
       <PostSessionTabButton
         label="Transcript"
         tab="transcript"
         activeTab={activeTab}
         isExpanded={isExpanded}
         onSelect={onSelect}
-        className="rounded-tl-[10px] border-l"
+        className="rounded-t-[10px] border-x"
       />
       <PostSessionTabButton
         label="Past notes"
@@ -227,7 +227,7 @@ function PostSessionTabHandle({
         activeTab={activeTab}
         isExpanded={isExpanded}
         onSelect={onSelect}
-        className="-ml-px rounded-tr-[10px] border-r"
+        className="rounded-t-[10px] border-x"
       />
     </div>
   );
