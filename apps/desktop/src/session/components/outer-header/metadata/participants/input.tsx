@@ -1,9 +1,26 @@
+import { useMutation } from "@tanstack/react-query";
+import { Loader2Icon, SparklesIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+import { Button } from "@hypr/ui/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@hypr/ui/components/ui/tooltip";
 
 import { ParticipantChip } from "./chip";
 import { ParticipantDropdown } from "./dropdown";
+import {
+  applyExtractedContacts,
+  buildEventContactExtractionContext,
+  extractEventContacts,
+} from "./event-contact-extraction";
 
+import { useLanguageModel } from "~/ai/hooks";
 import { useAutoCloser } from "~/shared/hooks/useAutoCloser";
+import { showTransientToast } from "~/sidebar/toast/transient";
+import { useSessionEvent } from "~/store/tinybase/hooks";
 import * as main from "~/store/tinybase/store/main";
 
 export function ParticipantInput({ sessionId }: { sessionId: string }) {
@@ -20,6 +37,8 @@ export function ParticipantInput({ sessionId }: { sessionId: string }) {
     deleteLastParticipant,
     resetInput,
   } = useParticipantInput(sessionId);
+  const { extractContacts, isExtracting, showExtractionButton } =
+    useEventContactExtraction(sessionId);
   const placeholder =
     mappingIds.length > 0
       ? "Who else was in the meeting?"
@@ -78,6 +97,13 @@ export function ParticipantInput({ sessionId }: { sessionId: string }) {
           onKeyDown={handleKeyDown}
           onFocus={() => setShowDropdown(true)}
         />
+
+        {showExtractionButton && (
+          <ExtractEventContactsButton
+            isExtracting={isExtracting}
+            onClick={extractContacts}
+          />
+        )}
       </div>
 
       {showDropdown && inputValue.trim() && (
@@ -89,6 +115,40 @@ export function ParticipantInput({ sessionId }: { sessionId: string }) {
         />
       )}
     </div>
+  );
+}
+
+function ExtractEventContactsButton({
+  isExtracting,
+  onClick,
+}: {
+  isExtracting: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <Tooltip delayDuration={0}>
+      <TooltipTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label="Extract contacts from event"
+          className="size-6 shrink-0 text-neutral-400 hover:text-neutral-700"
+          disabled={isExtracting}
+          onClick={(event) => {
+            event.stopPropagation();
+            onClick();
+          }}
+        >
+          {isExtracting ? (
+            <Loader2Icon className="size-3.5 animate-spin" />
+          ) : (
+            <SparklesIcon className="size-3.5" />
+          )}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">Extract contacts from event</TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -290,6 +350,112 @@ function useParticipantInput(sessionId: string) {
     deleteLastParticipant,
     resetInput,
   };
+}
+
+function useEventContactExtraction(sessionId: string) {
+  const store = main.UI.useStore(main.STORE_ID);
+  const userId = main.UI.useValue("user_id", main.STORE_ID);
+  const sessionEvent = useSessionEvent(sessionId);
+  const model = useLanguageModel("title");
+
+  const showExtractionButton = Boolean(
+    sessionEvent?.title?.trim() || sessionEvent?.description?.trim(),
+  );
+
+  const { mutate, isPending } = useMutation({
+    mutationKey: ["event-contact-extraction", sessionId],
+    mutationFn: async () => {
+      if (!store || !sessionEvent) {
+        throw new Error("Event unavailable");
+      }
+
+      const context = buildEventContactExtractionContext(
+        store,
+        sessionId,
+        sessionEvent,
+      );
+      const extraction = await extractEventContacts({ model, context });
+      const applied = applyExtractedContacts(
+        store,
+        sessionId,
+        extraction.contacts,
+        {
+          userId: typeof userId === "string" ? userId : undefined,
+        },
+      );
+
+      return { extraction, applied };
+    },
+    onSuccess: ({ extraction, applied }) => {
+      const changed = applied.created + applied.updated + applied.linked;
+      if (extraction.contacts.length === 0) {
+        showTransientToast({
+          id: "event-contact-extraction",
+          description: "No contact hint found",
+        });
+        return;
+      }
+
+      if (changed === 0) {
+        showTransientToast({
+          id: "event-contact-extraction",
+          description: "Contacts already up to date",
+        });
+        return;
+      }
+
+      showTransientToast({
+        id: "event-contact-extraction",
+        description: formatExtractionToastDescription(applied),
+      });
+    },
+    onError: (error) => {
+      const message =
+        error instanceof Error && error.message === "Language model needed"
+          ? "Language model needed"
+          : "Could not extract contacts";
+
+      showTransientToast({
+        id: "event-contact-extraction",
+        description: message,
+        variant: "error",
+      });
+    },
+  });
+
+  const extractContacts = useCallback(() => {
+    mutate();
+  }, [mutate]);
+
+  return {
+    extractContacts,
+    isExtracting: isPending,
+    showExtractionButton,
+  };
+}
+
+function formatExtractionToastDescription({
+  created,
+  updated,
+  linked,
+}: {
+  created: number;
+  updated: number;
+  linked: number;
+}) {
+  if (created > 0 && updated === 0) {
+    return created === 1 ? "Contact created" : `${created} contacts created`;
+  }
+
+  if (updated > 0 && created === 0) {
+    return updated === 1 ? "Contact updated" : `${updated} contacts updated`;
+  }
+
+  if (linked > 0 && created === 0 && updated === 0) {
+    return linked === 1 ? "Contact linked" : `${linked} contacts linked`;
+  }
+
+  return "Contacts updated";
 }
 
 function useLinkHumanToSession(
