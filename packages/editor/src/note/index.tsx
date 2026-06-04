@@ -46,6 +46,7 @@ import {
 } from "../node-views";
 import {
   appLinkPastePlugin,
+  autolinkPlugin,
   type FileHandlerConfig,
   type PlaceholderFunction,
   SearchQuery,
@@ -540,6 +541,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
         clearMarksOnEnterPlugin(),
         clipPastePlugin(),
         appLinkPastePlugin(),
+        autolinkPlugin(),
         linkBoundaryGuardPlugin(),
         ...(mentionConfig ? [mentionSkipPlugin()] : []),
         ...(sessionMentionDropConfig

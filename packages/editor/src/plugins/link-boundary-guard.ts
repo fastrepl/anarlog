@@ -1,22 +1,14 @@
-import { type Mark } from "prosemirror-model";
+import type { Attrs } from "prosemirror-model";
 import { Plugin, PluginKey, type Transaction } from "prosemirror-state";
-import tldList from "tlds";
 
-const VALID_TLDS = new Set(tldList.map((t: string) => t.toLowerCase()));
+import {
+  isLinkTextForHref,
+  isValidUrl,
+  looksLikeUrlText,
+  normalizeUrlHref,
+} from "./url";
 
-function isValidUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-      return false;
-    }
-    const parts = parsed.hostname.split(".");
-    if (parts.length < 2) return false;
-    return VALID_TLDS.has(parts[parts.length - 1].toLowerCase());
-  } catch {
-    return false;
-  }
-}
+const STANDALONE_TRAILING_PUNCTUATION_REGEX = /^[.,!?;:)\]}]+$/;
 
 export function linkBoundaryGuardPlugin() {
   return new Plugin({
@@ -30,8 +22,10 @@ export function linkBoundaryGuardPlugin() {
       let prevLink: {
         startPos: number;
         endPos: number;
-        mark: Mark;
+        attrs: Attrs;
+        href: string;
       } | null = null;
+      const changedRanges = getChangedRanges(transactions);
 
       newState.doc.descendants((node, pos) => {
         if (!node.isText || !node.text) {
@@ -42,31 +36,51 @@ export function linkBoundaryGuardPlugin() {
         const linkMark = node.marks.find((m) => m.type === linkType);
 
         if (linkMark) {
-          const textLooksLikeUrl =
-            node.text.startsWith("https://") || node.text.startsWith("http://");
+          const textLooksLikeUrl = looksLikeUrlText(node.text);
+          const href = linkMark.attrs.href;
+          const nodeTextChanged = hasChangedRange(
+            changedRanges,
+            pos,
+            pos + node.text.length,
+          );
 
-          if (textLooksLikeUrl && !isValidUrl(node.text)) {
+          if (typeof href !== "string") {
+            prevLink = null;
+            return;
+          }
+
+          if (textLooksLikeUrl && !isValidUrl(node.text) && nodeTextChanged) {
             if (!tr) tr = newState.tr;
             tr.removeMark(pos, pos + node.text.length, linkType);
             prevLink = null;
-          } else if (node.text === linkMark.attrs.href) {
+          } else if (isLinkTextForHref(node.text, href)) {
             prevLink = {
               startPos: pos,
               endPos: pos + node.text.length,
-              mark: linkMark,
+              attrs: linkMark.attrs,
+              href,
             };
-          } else if (textLooksLikeUrl) {
-            const updatedMark = linkType.create({
-              ...linkMark.attrs,
-              href: node.text,
-            });
+          } else if (textLooksLikeUrl && nodeTextChanged) {
+            const nextHref = normalizeUrlHref(node.text);
             if (!tr) tr = newState.tr;
             tr.removeMark(pos, pos + node.text.length, linkType);
-            tr.addMark(pos, pos + node.text.length, updatedMark);
+            tr.addMark(
+              pos,
+              pos + node.text.length,
+              linkType.create({ ...linkMark.attrs, href: nextHref }),
+            );
             prevLink = {
               startPos: pos,
               endPos: pos + node.text.length,
-              mark: updatedMark,
+              attrs: { ...linkMark.attrs, href: nextHref },
+              href: nextHref,
+            };
+          } else if (textLooksLikeUrl) {
+            prevLink = {
+              startPos: pos,
+              endPos: pos + node.text.length,
+              attrs: linkMark.attrs,
+              href,
             };
           } else {
             prevLink = null;
@@ -75,15 +89,21 @@ export function linkBoundaryGuardPlugin() {
           if (!/^\s/.test(node.text[0])) {
             const wsIdx = node.text.search(/\s/);
             const extendLen = wsIdx >= 0 ? wsIdx : node.text.length;
-            const newHref =
-              prevLink.mark.attrs.href + node.text.slice(0, extendLen);
-            if (isValidUrl(newHref)) {
+            const extension = node.text.slice(0, extendLen);
+            const newHref = prevLink.href + extension;
+            if (
+              !STANDALONE_TRAILING_PUNCTUATION_REGEX.test(extension) &&
+              isValidUrl(newHref)
+            ) {
               if (!tr) tr = newState.tr;
               tr.removeMark(prevLink.startPos, prevLink.endPos, linkType);
               tr.addMark(
                 prevLink.startPos,
                 pos + extendLen,
-                linkType.create({ ...prevLink.mark.attrs, href: newHref }),
+                linkType.create({
+                  ...prevLink.attrs,
+                  href: newHref,
+                }),
               );
             }
           }
@@ -96,4 +116,27 @@ export function linkBoundaryGuardPlugin() {
       return tr;
     },
   });
+}
+
+function getChangedRanges(transactions: readonly Transaction[]) {
+  const ranges: Array<{ from: number; to: number }> = [];
+
+  for (const transaction of transactions) {
+    if (!transaction.docChanged) continue;
+    transaction.mapping.maps.forEach((stepMap) => {
+      stepMap.forEach((_oldStart, _oldEnd, newStart, newEnd) => {
+        ranges.push({ from: newStart, to: newEnd });
+      });
+    });
+  }
+
+  return ranges;
+}
+
+function hasChangedRange(
+  ranges: Array<{ from: number; to: number }>,
+  from: number,
+  to: number,
+) {
+  return ranges.some((range) => range.from < to && from < range.to);
 }
