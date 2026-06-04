@@ -417,7 +417,7 @@ export function TimelineView({
             className={cn([
               topChromeInset
                 ? reserveOpenCalendarChipSpace
-                  ? "h-44"
+                  ? "h-52"
                   : "h-32"
                 : "h-10",
               "shrink-0",
@@ -495,11 +495,14 @@ export function TimelineView({
       {topChromeInset && (
         <div
           aria-hidden
+          data-sidebar-timeline-top-fade
           className={cn([
             "pointer-events-none absolute inset-x-0 top-0 z-[15]",
-            isScrolledToTop
-              ? "h-32 bg-neutral-50"
-              : "h-36 bg-linear-to-b from-neutral-50 via-neutral-50/95 via-55% to-neutral-50/0",
+            areSidebarActionsHidden
+              ? "h-20 bg-linear-to-b from-neutral-50 via-neutral-50/95 via-60% to-neutral-50/0"
+              : isScrolledToTop
+                ? "h-32 bg-neutral-50"
+                : "h-36 bg-linear-to-b from-neutral-50 via-neutral-50/95 via-55% to-neutral-50/0",
           ])}
         />
       )}
@@ -519,7 +522,7 @@ export function TimelineView({
             topChromeInset
               ? areSidebarActionsHidden
                 ? "top-12"
-                : "top-32"
+                : "top-36"
               : "top-2",
           ])}
         >
@@ -573,7 +576,7 @@ function SidebarTimelineActions({
     <div
       data-sidebar-timeline-actions
       className={cn([
-        "absolute inset-x-0 top-12 z-30 px-2 pt-1 pb-2",
+        "absolute inset-x-0 top-12 z-30 pt-1 pb-2",
         "bg-neutral-50",
         "transition-[opacity,transform] duration-150 ease-out",
         hidden
@@ -610,7 +613,7 @@ function SidebarTimelineActionButton({
     <button
       type="button"
       className={cn([
-        "flex h-8 w-full items-center gap-2 rounded-lg px-2.5 text-left",
+        "flex h-8 w-full items-center gap-2 rounded-full px-3 text-left",
         "text-sm font-medium text-neutral-700",
         "transition-colors hover:bg-neutral-200/70 hover:text-neutral-950",
         "focus-visible:ring-2 focus-visible:ring-neutral-900 focus-visible:outline-hidden",

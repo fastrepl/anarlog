@@ -154,6 +154,27 @@ describe("TimelineView", () => {
     expect(mocks.openSearch).toHaveBeenCalledTimes(1);
   });
 
+  it("places the open calendar chip below visible sidebar actions", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
+    mocks.currentTimeMs = Date.now();
+    mocks.smartCurrentTimeMs = Date.now();
+    mocks.timelineSessionsTable = {
+      later: {
+        title: "Quarterly planning",
+        created_at: "2024-01-17T12:00:00.000Z",
+      },
+    };
+
+    render(<TimelineView topChromeInset />);
+
+    expect(getSidebarActions().className).not.toContain("opacity-0");
+    expect(
+      screen.getByRole("button", { name: "Open calendar" }).parentElement
+        ?.className,
+    ).toContain("top-36");
+  });
+
   it("hides sidebar actions briefly after scrolling down", () => {
     vi.useFakeTimers();
 
@@ -176,12 +197,14 @@ describe("TimelineView", () => {
     fireEvent.scroll(scroller!);
 
     expect(actions.className).toContain("opacity-0");
+    expect(getTopFade(container).className).toContain("h-20");
 
     act(() => {
       vi.advanceTimersByTime(900);
     });
 
     expect(actions.className).not.toContain("opacity-0");
+    expect(getTopFade(container).className).toContain("h-36");
   });
 
   it("keeps sidebar actions hidden during timeline data refreshes", () => {
@@ -328,6 +351,14 @@ function getSidebarActions() {
   expect(actions).toBeInstanceOf(HTMLDivElement);
 
   return actions as HTMLDivElement;
+}
+
+function getTopFade(container: HTMLElement) {
+  const topFade = container.querySelector("[data-sidebar-timeline-top-fade]");
+
+  expect(topFade).toBeInstanceOf(HTMLDivElement);
+
+  return topFade as HTMLDivElement;
 }
 
 function isBefore(first: Element, second: Element) {
