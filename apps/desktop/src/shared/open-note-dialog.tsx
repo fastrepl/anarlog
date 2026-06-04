@@ -13,6 +13,7 @@ import { useHotkeys } from "react-hotkeys-hook";
 import { Kbd } from "@hypr/ui/components/ui/kbd";
 import { cn } from "@hypr/utils";
 
+import { useMainContentCenterOffset } from "~/shared/main/content-offset";
 import * as main from "~/store/tinybase/store/main";
 import { useTabs } from "~/store/zustand/tabs";
 
@@ -21,6 +22,7 @@ const MAX_RECENT_DISPLAY = 5;
 interface OpenNoteDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  mainContentCenterOffset?: number;
 }
 
 type OpenNoteDialogContextValue = {
@@ -43,6 +45,7 @@ export function OpenNoteDialogProvider({
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const mainContentCenterOffset = useMainContentCenterOffset();
 
   const openDialog = useCallback(() => {
     setOpen(true);
@@ -59,7 +62,11 @@ export function OpenNoteDialogProvider({
   return (
     <OpenNoteDialogContext.Provider value={value}>
       {children}
-      <OpenNoteDialog open={open} onOpenChange={setOpen} />
+      <OpenNoteDialog
+        open={open}
+        onOpenChange={setOpen}
+        mainContentCenterOffset={mainContentCenterOffset}
+      />
     </OpenNoteDialogContext.Provider>
   );
 }
@@ -74,7 +81,11 @@ export function useOpenNoteDialog() {
   return context;
 }
 
-export function OpenNoteDialog({ open, onOpenChange }: OpenNoteDialogProps) {
+export function OpenNoteDialog({
+  open,
+  onOpenChange,
+  mainContentCenterOffset = 0,
+}: OpenNoteDialogProps) {
   const [query, setQuery] = useState("");
   const openCurrent = useTabs((state) => state.openCurrent);
   const recentlyOpenedSessionIds = useTabs(
@@ -173,7 +184,10 @@ export function OpenNoteDialog({ open, onOpenChange }: OpenNoteDialogProps) {
         className="absolute top-0 right-0 left-0 h-[15%]"
         onClick={(e) => e.stopPropagation()}
       />
-      <div className="absolute top-[15%] left-1/2 w-full max-w-lg -translate-x-1/2 px-4">
+      <div
+        className="absolute top-[15%] left-1/2 w-full max-w-lg -translate-x-1/2 px-4"
+        style={{ marginLeft: mainContentCenterOffset }}
+      >
         <div
           className={cn([
             "rounded-xl border border-neutral-200/80 bg-[#faf8f5]",
