@@ -357,34 +357,34 @@ export function SlashCommandMenu() {
       ref={popupRef}
       data-editor-escape-consumer
       className={cn([
-        "absolute z-[9999] max-h-80 w-[280px]",
+        "absolute z-[9999] max-h-64 w-[240px]",
         "overflow-y-auto rounded-lg border border-neutral-200 bg-white/95 p-1",
         "shadow-[0_2px_8px_rgba(0,0,0,0.08),0_18px_42px_-16px_rgba(0,0,0,0.34)] backdrop-blur-sm",
       ])}
       style={{ top: 0, left: 0 }}
     >
-      <div className="px-2 py-1 text-[0.7rem] font-semibold tracking-wide text-neutral-400 uppercase select-none">
+      <div className="px-1.5 py-0.5 text-[0.65rem] font-semibold tracking-wide text-neutral-400 uppercase select-none">
         Commands
       </div>
       {items.map((item, index) => (
         <button
           key={item.id}
           className={cn([
-            "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left",
+            "flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left",
             "cursor-pointer border-none bg-transparent transition-colors",
             index === selectedIndex && "bg-neutral-100",
           ])}
           onClick={() => executeCommand(item)}
           onMouseEnter={() => setSelectedIndex(index)}
         >
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-md border border-neutral-200 bg-neutral-50">
-            <item.icon className="size-4 text-neutral-600" />
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-md border border-neutral-200 bg-neutral-50">
+            <item.icon className="size-3.5 text-neutral-600" />
           </span>
           <span className="flex flex-col gap-px overflow-hidden">
-            <span className="truncate text-[0.85rem] font-medium text-neutral-900">
+            <span className="truncate text-[0.8rem] font-medium text-neutral-900">
               {item.label}
             </span>
-            <span className="truncate text-xs text-neutral-400">
+            <span className="truncate text-[0.7rem] text-neutral-400">
               {item.description}
             </span>
           </span>
