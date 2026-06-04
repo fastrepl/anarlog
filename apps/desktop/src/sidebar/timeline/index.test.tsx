@@ -204,6 +204,29 @@ describe("TimelineView", () => {
     ).toContain("h-24");
   });
 
+  it("uses compact top spacing when top chrome has no hidden future items", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
+    mocks.currentTimeMs = Date.now();
+    mocks.smartCurrentTimeMs = Date.now();
+    mocks.timelineSessionsTable = {
+      past: {
+        title: "Demo Session Kickoff",
+        created_at: "2024-01-01T12:00:00.000Z",
+      },
+    };
+
+    const { container } = render(<TimelineView topChromeInset />);
+
+    expect(getSidebarActions().className).not.toContain("opacity-0");
+    expect(
+      container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
+    ).toContain("h-20");
+    expect(
+      container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
+    ).not.toContain("h-24");
+  });
+
   it("shows the open calendar chip without top chrome", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));

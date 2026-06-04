@@ -129,6 +129,11 @@ export function TimelineView({
     showOpenCalendarButton &&
     isScrolledToTop &&
     hasMoreFutureItems;
+  const topSpacerClassName = topChromeInset
+    ? hasMoreFutureItems
+      ? "h-24"
+      : "h-20"
+    : "h-10";
 
   const hasToday = useMemo(
     () => buckets.some((bucket) => bucket.label === "Today"),
@@ -401,7 +406,7 @@ export function TimelineView({
           <div
             aria-hidden
             data-sidebar-timeline-top-spacer
-            className={cn([topChromeInset ? "h-24" : "h-10", "shrink-0"])}
+            className={cn([topSpacerClassName, "shrink-0"])}
           />
         )}
         {buckets.map((bucket, index) => {
