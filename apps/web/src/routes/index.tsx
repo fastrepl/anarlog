@@ -145,6 +145,8 @@ const desktopTestimonialSidePositions: TestimonialCardPosition[] = [
 ];
 
 const testimonialDeckStateVersion = 3;
+const testimonialNameContext =
+  "Name context: Hyprnote became Char, then Anarlog.";
 
 function formatTestimonialOffset(offset: TestimonialCardPosition["x"]) {
   return typeof offset === "number" ? `${offset}px` : offset;
@@ -231,11 +233,15 @@ function TestimonialTweetCard({
           </a>
         </figcaption>
 
-        <blockquote className="flex flex-1 items-center py-6">
-          <p className="text-xl leading-[1.25] font-semibold text-balance text-[#181613]">
+        <blockquote className="flex flex-1 items-center py-3">
+          <p className="text-lg leading-[1.25] font-semibold text-balance text-[#181613]">
             {renderPullQuote(testimonial.quote)}
           </p>
         </blockquote>
+
+        <p className="border-t border-[#ede7dc] pt-3 text-xs leading-5 text-[#756b5d]">
+          {testimonialNameContext}
+        </p>
       </figure>
     </article>
   );
