@@ -46,7 +46,7 @@ describe("syncCalendars", () => {
     vi.useRealTimers();
   });
 
-  test("limits event sync range to six days ago through tomorrow", () => {
+  test("limits default event sync range to six days ago through tomorrow", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(2026, 4, 29, 13, 30));
 
@@ -75,6 +75,38 @@ describe("syncCalendars", () => {
 
     expect(ctx?.from).toEqual(new Date(2026, 4, 23, 0, 0, 0, 0));
     expect(ctx?.to).toEqual(new Date(2026, 4, 31, 0, 0, 0, 0));
+  });
+
+  test("uses an explicit event sync range when provided", () => {
+    const store = createStore();
+    store.setRow("calendars", "cal-1", {
+      user_id: "user-1",
+      created_at: "2026-05-01T00:00:00.000Z",
+      tracking_id_calendar: "primary",
+      name: "Work",
+      enabled: true,
+      provider: "google",
+      source: "work@example.com",
+      color: "#4285f4",
+      connection_id: "conn-work",
+    });
+    const queries = createQueries(store).setQueryDefinition(
+      QUERIES.enabledCalendars,
+      "calendars",
+      ({ select, where }) => {
+        select("provider");
+        where("enabled", true);
+      },
+    );
+
+    const range = {
+      from: new Date("2026-06-01T00:00:00.000Z"),
+      to: new Date("2026-07-01T00:00:00.000Z"),
+    };
+    const ctx = createCtx(store, queries, "google", "conn-work", range);
+
+    expect(ctx?.from).toBe(range.from);
+    expect(ctx?.to).toBe(range.to);
   });
 
   test("keeps Google calendars isolated per connection when ids overlap", async () => {

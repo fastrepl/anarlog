@@ -1,3 +1,4 @@
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   addDays,
   addMonths,
@@ -30,7 +31,13 @@ import { cn } from "@hypr/utils";
 import { useSync } from "./context";
 import { DayCell } from "./day-cell";
 
-import { useCalendarData, useNow, useWeekStartsOn } from "~/calendar/hooks";
+import {
+  useCalendarData,
+  useEnabledCalendars,
+  useNow,
+  useWeekStartsOn,
+} from "~/calendar/hooks";
+import type { CalendarSyncRange } from "~/services/calendar";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 const WEEKDAY_HEADERS_SUN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -45,6 +52,8 @@ const VIEW_BREAKPOINTS = [
 
 const COMPACT_SCROLL_PAST_DAYS = 42;
 const COMPACT_SCROLL_FUTURE_DAYS = 42;
+const VISIBLE_RANGE_SYNC_QUERY_KEY = "calendar-visible-range-sync";
+const VISIBLE_RANGE_SYNC_STALE_MS = 60 * 1000;
 
 function useVisibleCols(ref: React.RefObject<HTMLDivElement | null>) {
   const [cols, setCols] = useState(7);
@@ -82,6 +91,7 @@ export function CalendarView() {
   const compactBaseRef = useRef(startOfDay(now));
   const cols = useVisibleCols(containerRef);
   const calendarData = useCalendarData();
+  const enabledCalendars = useEnabledCalendars();
 
   useMountEffect(() => {
     scheduleSync();
@@ -136,6 +146,28 @@ export function CalendarView() {
       end: addDays(visibleStart, COMPACT_SCROLL_FUTURE_DAYS - 1),
     });
   }, [currentMonth, isMonthView, visibleStart, weekOpts]);
+
+  const visibleRange = useMemo<CalendarSyncRange | null>(() => {
+    const firstDay = days[0];
+    const lastDay = days[days.length - 1];
+    if (!firstDay || !lastDay) return null;
+
+    return {
+      from: startOfDay(firstDay),
+      to: startOfDay(addDays(lastDay, 1)),
+    };
+  }, [days]);
+
+  const enabledCalendarKey = useMemo(
+    () =>
+      enabledCalendars
+        .map((calendar) => calendar.id)
+        .sort()
+        .join(","),
+    [enabledCalendars],
+  );
+
+  useVisibleRangeSync(visibleRange, enabledCalendarKey);
 
   const visibleHeaders =
     weekStartsOn === 1 ? WEEKDAY_HEADERS_MON : WEEKDAY_HEADERS_SUN;
@@ -325,7 +357,30 @@ export function CalendarView() {
   );
 }
 
+function useVisibleRangeSync(
+  range: CalendarSyncRange | null,
+  enabledCalendarKey: string,
+) {
+  const { canSync, syncRange } = useSync();
+  const from = range?.from.toISOString();
+  const to = range?.to.toISOString();
+
+  useQuery({
+    queryKey: [VISIBLE_RANGE_SYNC_QUERY_KEY, from, to, enabledCalendarKey],
+    queryFn: async ({ signal }) => {
+      if (!range) return null;
+      await syncRange(range, signal);
+      return null;
+    },
+    enabled: Boolean(range && canSync),
+    staleTime: VISIBLE_RANGE_SYNC_STALE_MS,
+    gcTime: 10 * VISIBLE_RANGE_SYNC_STALE_MS,
+    retry: false,
+  });
+}
+
 function CalendarSyncHeaderControls() {
+  const queryClient = useQueryClient();
   const { status, cancelDebouncedSync, scheduleSync } = useSync();
   const refreshFeedbackTimeoutRef = useRef<ReturnType<
     typeof setTimeout
@@ -350,9 +405,12 @@ function CalendarSyncHeaderControls() {
       refreshFeedbackTimeoutRef.current = null;
       setShowManualRefreshFeedback(false);
     }, 1500);
+    void queryClient.invalidateQueries({
+      queryKey: [VISIBLE_RANGE_SYNC_QUERY_KEY],
+    });
     cancelDebouncedSync();
     scheduleSync();
-  }, [cancelDebouncedSync, scheduleSync]);
+  }, [cancelDebouncedSync, queryClient, scheduleSync]);
 
   const showSyncIndicator = showManualRefreshFeedback || status !== "idle";
   const statusText =

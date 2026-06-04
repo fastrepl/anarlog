@@ -26,6 +26,11 @@ export interface Ctx {
   calendarTrackingIdToId: Map<string, string>;
 }
 
+export type CalendarSyncRange = {
+  from: Date;
+  to: Date;
+};
+
 // ---
 
 export function createCtx(
@@ -33,6 +38,7 @@ export function createCtx(
   queries: Queries<Schemas>,
   provider: CalendarProviderType,
   connectionId: string,
+  range: CalendarSyncRange = getDefaultRange(),
 ): Ctx | null {
   const resultTable = queries.getResultTable(QUERIES.enabledCalendars);
 
@@ -67,15 +73,13 @@ export function createCtx(
     return null;
   }
 
-  const { from, to } = getRange();
-
   return {
     store,
     provider,
     connectionId,
     userId: String(userId),
-    from,
-    to,
+    from: range.from,
+    to: range.to,
     calendarIds,
     calendarTrackingIdToId,
   };
@@ -194,7 +198,7 @@ export async function syncCalendars(
 
 // ---
 
-const getRange = () => {
+export const getDefaultRange = (): CalendarSyncRange => {
   const now = new Date();
   const from = new Date(now);
   from.setHours(0, 0, 0, 0);

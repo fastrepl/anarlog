@@ -2,7 +2,12 @@ import type { Queries } from "tinybase/with-schemas";
 
 import type { CalendarProviderType } from "@hypr/plugin-calendar";
 
-import { createCtx, getProviderConnections, syncCalendars } from "./ctx";
+import {
+  type CalendarSyncRange,
+  createCtx,
+  getProviderConnections,
+  syncCalendars,
+} from "./ctx";
 import {
   CalendarFetchError,
   fetchExistingEvents,
@@ -19,6 +24,10 @@ import {
 import type { Schemas, Store } from "~/store/tinybase/store/main";
 
 export const CALENDAR_SYNC_TASK_ID = "calendarSync";
+export type { CalendarSyncRange };
+type CalendarSyncOptions = {
+  signal?: AbortSignal;
+};
 
 export async function syncCalendarEvents(
   store: Store,
@@ -30,13 +39,42 @@ export async function syncCalendarEvents(
   ]);
 }
 
-async function run(store: Store, queries: Queries<Schemas>) {
+export async function syncCalendarEventsForRange(
+  store: Store,
+  queries: Queries<Schemas>,
+  range: CalendarSyncRange,
+  options: CalendarSyncOptions = {},
+): Promise<void> {
+  await run(store, queries, range, options);
+}
+
+async function run(
+  store: Store,
+  queries: Queries<Schemas>,
+  range?: CalendarSyncRange,
+  options: CalendarSyncOptions = {},
+) {
+  if (isAborted(options.signal)) return;
+
   const providerConnections = await getProviderConnections();
+  if (isAborted(options.signal)) return;
+
   await syncCalendars(store, providerConnections);
+  if (isAborted(options.signal)) return;
+
   for (const { provider, connection_ids } of providerConnections) {
     for (const connectionId of connection_ids) {
+      if (isAborted(options.signal)) return;
+
       try {
-        await runForConnection(store, queries, provider, connectionId);
+        await runForConnection(
+          store,
+          queries,
+          provider,
+          connectionId,
+          range,
+          options,
+        );
       } catch (error) {
         console.error(
           `[calendar-sync] Error syncing ${provider} (${connectionId}): ${error}`,
@@ -51,9 +89,11 @@ async function runForConnection(
   queries: Queries<Schemas>,
   provider: CalendarProviderType,
   connectionId: string,
+  range?: CalendarSyncRange,
+  options: CalendarSyncOptions = {},
 ) {
-  const ctx = createCtx(store, queries, provider, connectionId);
-  if (!ctx) {
+  const ctx = createCtx(store, queries, provider, connectionId, range);
+  if (!ctx || isAborted(options.signal)) {
     return;
   }
 
@@ -74,18 +114,32 @@ async function runForConnection(
     throw error;
   }
 
+  if (isAborted(options.signal)) return;
+
   const existing = fetchExistingEvents(ctx);
+  if (isAborted(options.signal)) return;
 
   const eventsOut = syncEvents(ctx, {
     incoming,
     existing,
     incomingParticipants,
   });
+  if (isAborted(options.signal)) return;
+
   executeForEventsSync(ctx, eventsOut);
+  if (isAborted(options.signal)) return;
+
   syncSessionEmbeddedEvents(ctx, incoming);
+  if (isAborted(options.signal)) return;
 
   const participantsOut = syncSessionParticipants(ctx, {
     incomingParticipants,
   });
+  if (isAborted(options.signal)) return;
+
   executeForParticipantsSync(ctx, participantsOut);
+}
+
+function isAborted(signal: AbortSignal | undefined) {
+  return signal?.aborted === true;
 }
