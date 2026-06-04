@@ -144,17 +144,42 @@ describe("TimelineView", () => {
     vi.useRealTimers();
   });
 
-  it("shows sidebar actions for creating and searching notes", () => {
+  it("shows expanding sidebar action tabs for creating, searching, and opening calendar", () => {
     render(<TimelineView topChromeInset />);
+
+    const newNoteButton = screen.getByRole("button", { name: "New note" });
+    const searchButton = screen.getByRole("button", { name: "Search" });
+    const calendarButton = screen.getByRole("button", {
+      name: "Open calendar",
+    });
+    const actionTabs = getSidebarActionTabs();
+
+    expect(actionTabs.className).not.toContain("bg-neutral-100/80");
+    expect(actionTabs.className).not.toContain("rounded-full");
+    expect(newNoteButton.className).toContain("flex-1");
+    expect(newNoteButton.className).toContain("rounded-full");
+    expect(searchButton.className).toContain("w-8");
+    expect(calendarButton.className).toContain("w-8");
+
+    fireEvent.mouseEnter(searchButton);
+
+    expect(newNoteButton.className).toContain("w-8");
+    expect(searchButton.className).toContain("flex-1");
+
+    fireEvent.mouseLeave(actionTabs);
+
+    expect(newNoteButton.className).toContain("flex-1");
 
     fireEvent.click(screen.getByRole("button", { name: "New note" }));
     fireEvent.click(screen.getByRole("button", { name: "Search" }));
+    fireEvent.click(calendarButton);
 
     expect(mocks.newNote).toHaveBeenCalledTimes(1);
     expect(mocks.openSearch).toHaveBeenCalledTimes(1);
+    expect(mocks.openNew).toHaveBeenCalledWith({ type: "calendar" });
   });
 
-  it("places the open calendar chip below visible sidebar actions", () => {
+  it("keeps calendar in the sidebar action tabs without extra top spacing", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
     mocks.currentTimeMs = Date.now();
@@ -166,24 +191,61 @@ describe("TimelineView", () => {
       },
     };
 
-    render(<TimelineView topChromeInset />);
+    const { container } = render(<TimelineView topChromeInset />);
 
     expect(getSidebarActions().className).not.toContain("opacity-0");
     expect(
-      screen.getByRole("button", { name: "Open calendar" }).parentElement
-        ?.className,
-    ).toContain("top-36");
+      getSidebarActions().contains(
+        screen.getByRole("button", { name: "Open calendar" }),
+      ),
+    ).toBe(true);
+    expect(
+      container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
+    ).toContain("h-24");
+  });
+
+  it("shows the open calendar chip without top chrome", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
+    mocks.currentTimeMs = Date.now();
+    mocks.smartCurrentTimeMs = Date.now();
+    mocks.timelineSessionsTable = {
+      later: {
+        title: "Quarterly planning",
+        created_at: "2024-01-17T12:00:00.000Z",
+      },
+    };
+
+    const { container } = render(<TimelineView />);
+    const calendarButton = screen.getByRole("button", {
+      name: "Open calendar",
+    });
+
+    expect(getSidebarActionTabsOrNull()).toBeNull();
+    expect(
+      container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
+    ).toContain("h-10");
+
+    fireEvent.click(calendarButton);
+
+    expect(mocks.openNew).toHaveBeenCalledWith({ type: "calendar" });
   });
 
   it("hides sidebar actions briefly after scrolling down", () => {
     vi.useFakeTimers();
 
     const { container } = render(<TimelineView topChromeInset />);
-    const actions = getSidebarActions();
     const scroller = container.querySelector("[data-sidebar-timeline-scroll]");
+    const newNoteButton = screen.getByRole("button", { name: "New note" });
+    const searchButton = screen.getByRole("button", { name: "Search" });
 
     expect(scroller).toBeInstanceOf(HTMLDivElement);
-    expect(actions.className).not.toContain("opacity-0");
+    expect(getSidebarActions().className).not.toContain("opacity-0");
+
+    fireEvent.mouseEnter(searchButton);
+
+    expect(newNoteButton.className).toContain("w-8");
+    expect(searchButton.className).toContain("flex-1");
 
     Object.defineProperty(scroller, "clientHeight", {
       configurable: true,
@@ -196,15 +258,22 @@ describe("TimelineView", () => {
     scroller!.scrollTop = 120;
     fireEvent.scroll(scroller!);
 
-    expect(actions.className).toContain("opacity-0");
+    expect(getSidebarActions().className).toContain("opacity-0");
     expect(getTopFade(container).className).toContain("h-20");
 
     act(() => {
       vi.advanceTimersByTime(900);
     });
 
-    expect(actions.className).not.toContain("opacity-0");
-    expect(getTopFade(container).className).toContain("h-36");
+    const revealedNewNoteButton = screen.getByRole("button", {
+      name: "New note",
+    });
+    const revealedSearchButton = screen.getByRole("button", { name: "Search" });
+
+    expect(getSidebarActions().className).not.toContain("opacity-0");
+    expect(revealedNewNoteButton.className).toContain("flex-1");
+    expect(revealedSearchButton.className).toContain("w-8");
+    expect(getTopFade(container).className).toContain("h-28");
   });
 
   it("keeps sidebar actions hidden during timeline data refreshes", () => {
@@ -351,6 +420,20 @@ function getSidebarActions() {
   expect(actions).toBeInstanceOf(HTMLDivElement);
 
   return actions as HTMLDivElement;
+}
+
+function getSidebarActionTabs() {
+  const actions = screen
+    .getByRole("button", { name: "New note" })
+    .closest("[data-sidebar-timeline-action-tabs]");
+
+  expect(actions).toBeInstanceOf(HTMLDivElement);
+
+  return actions as HTMLDivElement;
+}
+
+function getSidebarActionTabsOrNull() {
+  return document.querySelector("[data-sidebar-timeline-action-tabs]");
 }
 
 function getTopFade(container: HTMLElement) {
