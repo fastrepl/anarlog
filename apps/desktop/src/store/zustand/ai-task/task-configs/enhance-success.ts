@@ -1,12 +1,18 @@
 import { md2json } from "@hypr/editor/markdown";
 
 import { createTaskId, type TaskConfig } from ".";
+import {
+  appendTagLineToMarkdown,
+  extractEnhanceTagNames,
+  upsertSessionTags,
+} from "./summary-tags";
 
 import { hasLiveSessionTitleDraft } from "~/store/zustand/live-title";
 
 const onSuccess: NonNullable<TaskConfig<"enhance">["onSuccess"]> = ({
   text,
   args,
+  transformedArgs,
   model,
   store,
   startTask,
@@ -16,11 +22,15 @@ const onSuccess: NonNullable<TaskConfig<"enhance">["onSuccess"]> = ({
     return;
   }
 
+  const tagNames = extractEnhanceTagNames(text, transformedArgs);
+  const textWithTags = appendTagLineToMarkdown(text, tagNames);
+
   try {
-    const jsonContent = md2json(text);
+    const jsonContent = md2json(textWithTags);
     store.setPartialRow("enhanced_notes", args.enhancedNoteId, {
       content: JSON.stringify(jsonContent),
     });
+    upsertSessionTags(store, args.sessionId, tagNames);
   } catch (error) {
     console.error("Failed to convert markdown to JSON:", error);
     return;

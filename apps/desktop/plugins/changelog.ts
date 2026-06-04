@@ -48,6 +48,10 @@ export function changelog(): Plugin {
       if (id === RESOLVED_ID) return buildModule();
     },
     configureServer(server: ViteDevServer) {
+      if (process.env.NODE_ENV === "test" || process.env.VITEST) {
+        return;
+      }
+
       try {
         watch(changelogDir, { recursive: true }, () => {
           const mod = server.moduleGraph.getModuleById(RESOLVED_ID);
