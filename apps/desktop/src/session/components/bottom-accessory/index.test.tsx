@@ -282,6 +282,21 @@ describe("useSessionBottomAccessory", () => {
     expect(result.current.bottomBorderHandle).toBeNull();
   });
 
+  it("hides the bottom accessory while finalizing", () => {
+    const { result } = renderHook(() =>
+      useSessionBottomAccessory({
+        sessionId: "session-1",
+        sessionMode: "finalizing",
+        audioUrl: null,
+        hasTranscript: false,
+      }),
+    );
+
+    expect(result.current.bottomAccessoryState).toBeNull();
+    expect(result.current.bottomAccessory).toBeNull();
+    expect(result.current.bottomBorderHandle).toBeNull();
+  });
+
   it("defers local transcript controls to the global live panel for another active session", () => {
     hoisted.live.status = "active";
     hoisted.live.sessionId = "live-session";

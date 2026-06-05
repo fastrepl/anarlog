@@ -46,7 +46,6 @@ export function GlobalLiveTranscriptAccessory({
   return (
     <GlobalLiveTranscriptAccessoryContent
       sessionId={accessorySessionId}
-      isFinalizing={live.status === "finalizing"}
       surfaceChrome={surfaceChrome}
     >
       {children}
@@ -57,12 +56,10 @@ export function GlobalLiveTranscriptAccessory({
 function GlobalLiveTranscriptAccessoryContent({
   children,
   sessionId,
-  isFinalizing,
   surfaceChrome,
 }: {
   children: ReactNode;
   sessionId: string | null;
-  isFinalizing: boolean;
   surfaceChrome: MainSurfaceChrome;
 }) {
   const [expandedLiveSession, setExpandedLiveSession] = useState<{
@@ -72,7 +69,7 @@ function GlobalLiveTranscriptAccessoryContent({
   const afterBorderPanelRef = useRef<ImperativePanelHandle>(null);
   const afterBorderSize = GLOBAL_LIVE_AFTER_BORDER_EXPANDED_SIZE;
   const hasLiveAccessory = Boolean(sessionId);
-  const canExpand = hasLiveAccessory && !isFinalizing;
+  const canExpand = hasLiveAccessory;
   const isExpanded =
     canExpand &&
     expandedLiveSession.sessionId === sessionId &&
@@ -103,7 +100,6 @@ function GlobalLiveTranscriptAccessoryContent({
   const afterBorder = sessionId ? (
     <DuringSessionAccessory
       sessionId={sessionId}
-      isFinalizing={isFinalizing}
       isExpanded={isExpanded}
       fillHeight={useResizableAfterBorder}
     />

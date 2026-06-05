@@ -22,7 +22,7 @@ import { getLiveCaptureUiMode } from "~/store/zustand/listener/general-shared";
 import { useListener } from "~/stt/contexts";
 
 export type BottomAccessoryState = {
-  mode: "live" | "playback" | "transcript_only" | "finalizing";
+  mode: "live" | "playback" | "transcript_only";
   expanded: boolean;
 } | null;
 
@@ -46,7 +46,6 @@ export function useSessionBottomAccessory({
     null,
   );
   const isLive = sessionMode === "active";
-  const isFinalizing = sessionMode === "finalizing";
   const isInactive = sessionMode === "inactive";
   const isRunningBatch = sessionMode === "running_batch";
   const hasAudio = Boolean(audioUrl) && (isInactive || isRunningBatch);
@@ -128,39 +127,35 @@ export function useSessionBottomAccessory({
   const mode: NonNullable<BottomAccessoryState>["mode"] | null =
     showLiveAccessory
       ? "live"
-      : isFinalizing
-        ? "finalizing"
-        : showPostSession
-          ? hasAudio || isRunningBatch
-            ? "playback"
-            : "transcript_only"
-          : null;
+      : showPostSession
+        ? hasAudio || isRunningBatch
+          ? "playback"
+          : "transcript_only"
+        : null;
 
   const bottomAccessoryState: BottomAccessoryState = useMemo(
     () => (mode ? { mode, expanded: effectiveExpanded } : null),
     [effectiveExpanded, mode],
   );
 
-  if (showLiveAccessory || isFinalizing) {
+  if (showLiveAccessory) {
     return {
       bottomAccessory: (
         <DuringSessionAccessory
           sessionId={sessionId}
-          isFinalizing={isFinalizing}
           isExpanded={effectiveExpanded}
-          fillHeight={effectiveExpanded && !isFinalizing}
+          fillHeight={effectiveExpanded}
         />
       ),
-      bottomBorderHandle:
-        canExpandLiveTranscript && !isFinalizing ? (
-          <ExpandToggle
-            isExpanded={effectiveExpanded}
-            onToggle={() => setIsExpanded((v) => !v)}
-            label="Live"
-            collapsedClassName="bg-neutral-50"
-            expandedClassName="bg-neutral-50"
-          />
-        ) : null,
+      bottomBorderHandle: canExpandLiveTranscript ? (
+        <ExpandToggle
+          isExpanded={effectiveExpanded}
+          onToggle={() => setIsExpanded((v) => !v)}
+          label="Live"
+          collapsedClassName="bg-neutral-50"
+          expandedClassName="bg-neutral-50"
+        />
+      ) : null,
       bottomAccessoryState,
     };
   }

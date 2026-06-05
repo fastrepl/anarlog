@@ -66,17 +66,14 @@ vi.mock("./during-session", () => ({
   DuringSessionAccessory: ({
     fillHeight,
     isExpanded,
-    isFinalizing,
     sessionId,
   }: {
     fillHeight?: boolean;
     isExpanded?: boolean;
-    isFinalizing?: boolean;
     sessionId: string;
   }) => (
     <div
       data-fill-height={String(fillHeight)}
-      data-finalizing={String(isFinalizing)}
       data-is-expanded={String(isExpanded)}
       data-session-id={sessionId}
       data-testid="during-session-accessory"
@@ -311,7 +308,7 @@ describe("GlobalLiveTranscriptAccessory", () => {
     expect(screen.queryByTestId("during-session-accessory")).toBeNull();
   });
 
-  it("keeps finalizing visible outside the active session tab", () => {
+  it("hides the global live transcript while finalizing", () => {
     mocks.live.status = "finalizing";
     mocks.live.requestedLiveTranscription = false;
     mocks.live.liveTranscriptionActive = false;
@@ -322,12 +319,8 @@ describe("GlobalLiveTranscriptAccessory", () => {
       </GlobalLiveTranscriptAccessory>,
     );
 
-    expect(
-      screen.getByTestId("during-session-accessory").dataset,
-    ).toMatchObject({
-      sessionId: "live-session",
-      finalizing: "true",
-    });
+    expect(screen.getByTestId("tab-content")).toBeTruthy();
+    expect(screen.queryByTestId("during-session-accessory")).toBeNull();
     expect(screen.queryByRole("button", { name: "Expand Live" })).toBeNull();
   });
 });

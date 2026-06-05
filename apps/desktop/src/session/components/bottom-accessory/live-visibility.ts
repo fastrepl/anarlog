@@ -17,10 +17,6 @@ export function shouldShowLiveTranscriptAccessory(
     return false;
   }
 
-  if (live.status === "finalizing") {
-    return true;
-  }
-
   if (live.status !== "active") {
     return false;
   }
