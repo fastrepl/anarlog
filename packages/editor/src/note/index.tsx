@@ -58,7 +58,9 @@ import {
   getSearchState,
   hashtagPlugin,
   imageTrailingParagraphPlugin,
+  type LinkOpenHandler,
   linkBoundaryGuardPlugin,
+  linkOpenPlugin,
   placeholderPlugin,
   searchPlugin,
   searchReplaceAll,
@@ -152,6 +154,7 @@ export interface NoteEditorProps {
   placeholderComponent?: PlaceholderFunction;
   fileHandlerConfig?: FileHandlerConfig;
   onNavigateToTitle?: (pixelWidth?: number) => void;
+  onLinkOpen?: LinkOpenHandler;
   linkedItemOpenBehavior?: LinkedItemOpenBehavior;
   taskSource?: TaskSource;
   extraNodeViews?: NodeViewComponents;
@@ -445,6 +448,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
       placeholderComponent,
       fileHandlerConfig,
       onNavigateToTitle,
+      onLinkOpen,
       linkedItemOpenBehavior = "current",
       taskSource,
       extraNodeViews,
@@ -543,6 +547,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
         appLinkPastePlugin(),
         autolinkPlugin(),
         linkBoundaryGuardPlugin(),
+        ...(onLinkOpen ? [linkOpenPlugin(onLinkOpen)] : []),
         ...(mentionConfig ? [mentionSkipPlugin()] : []),
         ...(sessionMentionDropConfig
           ? [createSessionMentionDropPlugin(sessionMentionDropConfig)]
@@ -555,6 +560,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
         mentionConfig,
         sessionMentionDropConfig,
         onNavigateToTitle,
+        onLinkOpen,
       ],
     );
     const nodeViews = useMemo(
