@@ -360,7 +360,7 @@ describe("PostSessionAccessory", () => {
     expect(screen.queryByTestId("transcript")).toBeNull();
   });
 
-  it("builds descending past notes from previous sessions with the same participants", () => {
+  it("builds descending past notes from recurring and same-title sessions", () => {
     const store = makeStore({
       sessions: {
         current: {
@@ -380,6 +380,12 @@ describe("PostSessionAccessory", () => {
             recurrence_series_id: "series-1",
           }),
           raw_md: "",
+        },
+        same_title: {
+          title: "Weekly Product Sync",
+          created_at: "2026-05-27T10:00:00.000Z",
+          event_json: "",
+          raw_md: "Confirmed notification copy and reviewed follow-ups.",
         },
         older: {
           title: "Older Product Sync",
@@ -427,6 +433,18 @@ describe("PostSessionAccessory", () => {
         },
         previous_jamie: {
           session_id: "previous",
+          human_id: "jamie",
+          user_id: "self",
+          source: "auto",
+        },
+        same_title_alex: {
+          session_id: "same_title",
+          human_id: "alex",
+          user_id: "self",
+          source: "auto",
+        },
+        same_title_jamie: {
+          session_id: "same_title",
           human_id: "jamie",
           user_id: "self",
           source: "auto",
@@ -483,17 +501,67 @@ describe("PostSessionAccessory", () => {
         isGenerating: false,
       },
       {
-        sessionId: "older",
-        title: "Older Product Sync",
-        dateLabel: "May 21, 2026",
+        sessionId: "same_title",
+        title: "Weekly Product Sync",
+        dateLabel: "May 27, 2026",
         summary: null,
         isGenerating: false,
       },
     ]);
     expect(result.missing.map((request) => request.sessionId)).toEqual([
       "previous",
-      "older",
+      "same_title",
     ]);
+  });
+
+  it("does not treat matching participants alone as related past notes", () => {
+    const store = makeStore({
+      sessions: {
+        current: {
+          title: "Design sync",
+          created_at: "2026-06-03T10:00:00.000Z",
+          event_json: "",
+          raw_md: "",
+        },
+        different_topic: {
+          title: "Dev sync",
+          created_at: "2026-06-01T10:00:00.000Z",
+          event_json: "",
+          raw_md: "Discussed release branch status.",
+        },
+      },
+      mapping_session_participant: {
+        current_alex: {
+          session_id: "current",
+          human_id: "alex",
+          user_id: "self",
+          source: "auto",
+        },
+        current_jamie: {
+          session_id: "current",
+          human_id: "jamie",
+          user_id: "self",
+          source: "auto",
+        },
+        different_topic_alex: {
+          session_id: "different_topic",
+          human_id: "alex",
+          user_id: "self",
+          source: "auto",
+        },
+        different_topic_jamie: {
+          session_id: "different_topic",
+          human_id: "jamie",
+          user_id: "self",
+          source: "auto",
+        },
+      },
+    });
+
+    const result = buildPastSessionNotes(store, "current", "self");
+
+    expect(result.notes).toEqual([]);
+    expect(result.missing).toEqual([]);
   });
 
   it("reuses saved key facts when the source hash still matches", () => {

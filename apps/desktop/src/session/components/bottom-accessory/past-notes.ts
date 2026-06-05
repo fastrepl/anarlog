@@ -47,6 +47,7 @@ type MainStore = NonNullable<ReturnType<typeof main.UI.useStore>>;
 const MAX_PAST_NOTES = 8;
 const MAX_SOURCE_LENGTH = 6000;
 const SPACE_REGEX = /\s+/g;
+const GENERIC_TITLE_KEYS = new Set(["new note", "untitled"]);
 
 const keyFactsSchema = z.object({
   facts: z.array(z.string()).min(1).max(6),
@@ -152,7 +153,8 @@ export function buildPastSessionNotes(
   );
   const currentEvent = getSessionEvent(currentSession);
   const currentSeriesId = getRecurrenceSeriesId(currentEvent);
-  if (!currentSeriesId && currentParticipantIds.size === 0) {
+  const currentTitleKey = getSessionTitleKey(currentSession);
+  if (!currentSeriesId && !currentTitleKey) {
     return { notes: [], missing: [] };
   }
 
@@ -191,8 +193,10 @@ export function buildPastSessionNotes(
       !isRelatedPastSession({
         currentParticipantIds,
         currentSeriesId,
+        currentTitleKey,
         candidateParticipantIds,
         candidateSeriesId: getRecurrenceSeriesId(candidateEvent),
+        candidateTitleKey: getSessionTitleKey(candidateSession),
       })
     ) {
       return;
@@ -455,33 +459,46 @@ function getSessionParticipantIds(
 function isRelatedPastSession({
   currentParticipantIds,
   currentSeriesId,
+  currentTitleKey,
   candidateParticipantIds,
   candidateSeriesId,
+  candidateTitleKey,
 }: {
   currentParticipantIds: Set<string>;
   currentSeriesId: string | null;
+  currentTitleKey: string;
   candidateParticipantIds: Set<string>;
   candidateSeriesId: string | null;
+  candidateTitleKey: string;
 }) {
   if (currentSeriesId && candidateSeriesId === currentSeriesId) {
     return true;
   }
 
-  if (currentParticipantIds.size === 0) {
+  if (!currentTitleKey || currentTitleKey !== candidateTitleKey) {
     return false;
   }
 
-  for (const participantId of currentParticipantIds) {
-    if (!candidateParticipantIds.has(participantId)) {
-      return false;
+  if (currentParticipantIds.size === 0 || candidateParticipantIds.size === 0) {
+    return true;
+  }
+
+  for (const participantId of candidateParticipantIds) {
+    if (currentParticipantIds.has(participantId)) {
+      return true;
     }
   }
 
-  return true;
+  return false;
 }
 
 function getSessionTitle(session: { title?: string }): string {
   return session.title?.trim() || "Untitled";
+}
+
+function getSessionTitleKey(session: { title?: string }): string {
+  const key = getSessionTitle(session).toLowerCase().replace(SPACE_REGEX, " ");
+  return GENERIC_TITLE_KEYS.has(key) ? "" : key;
 }
 
 function getSessionUserId(
