@@ -11,6 +11,7 @@ import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 
 import { AppLinkView } from "~/editor-bridge/app-link-view";
 import { useMentionConfig } from "~/editor-bridge/mention-config";
+import { openEditorLink } from "~/editor-bridge/open-editor-link";
 import { sessionMentionDropConfig } from "~/editor-bridge/session-mention-drop";
 import { SessionNodeView } from "~/editor-bridge/session-view";
 import { emitRawEditorSync } from "~/session/raw-editor-sync";
@@ -112,6 +113,7 @@ export const RawEditor = forwardRef<
         sessionMentionDropConfig={sessionMentionDropConfig}
         placeholderComponent={Placeholder}
         onNavigateToTitle={onNavigateToTitle}
+        onLinkOpen={openEditorLink}
         fileHandlerConfig={fileHandlerConfig}
         taskSource={
           syncTasks ? { type: "session_raw_note", id: sessionId } : undefined

@@ -18,6 +18,11 @@ export {
 } from "./image-trailing-paragraph";
 export { linkBoundaryGuardPlugin } from "./link-boundary-guard";
 export {
+  getOpenableHref,
+  type LinkOpenHandler,
+  linkOpenPlugin,
+} from "./link-open";
+export {
   type PlaceholderFunction,
   placeholderPlugin,
   placeholderPluginKey,
