@@ -30,10 +30,9 @@ export function detectMeetingType(
   }
 }
 
-export function useRemoteMeeting(sessionId: string): RemoteMeeting | null {
-  const event = useSessionEvent(sessionId);
-  const meetingLink = event?.meeting_link ?? null;
-
+export function getRemoteMeeting(
+  meetingLink: string | null | undefined,
+): RemoteMeeting | null {
   if (!meetingLink) {
     return null;
   }
@@ -44,4 +43,9 @@ export function useRemoteMeeting(sessionId: string): RemoteMeeting | null {
   }
 
   return { type, url: meetingLink };
+}
+
+export function useRemoteMeeting(sessionId: string): RemoteMeeting | null {
+  const event = useSessionEvent(sessionId);
+  return getRemoteMeeting(event?.meeting_link);
 }

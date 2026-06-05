@@ -1,5 +1,5 @@
-import { render } from "@testing-library/react";
-import { describe, expect, test, vi } from "vitest";
+import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { ListenButton } from "./listen";
 
@@ -20,12 +20,6 @@ const {
       canStartLiveSession: () => true,
     }),
   ),
-}));
-
-vi.mock("@hypr/plugin-opener2", () => ({
-  commands: {
-    openUrl: vi.fn(),
-  },
 }));
 
 vi.mock("../listen-action", () => ({
@@ -54,10 +48,6 @@ vi.mock("~/session/hooks/useEventCountdown", () => ({
   },
 }));
 
-vi.mock("~/session/hooks/useRemoteMeeting", () => ({
-  useRemoteMeeting: () => null,
-}));
-
 vi.mock("~/shared/config", () => ({
   useConfigValue: useConfigValueMock,
 }));
@@ -72,6 +62,10 @@ vi.mock("~/stt/contexts", () => ({
 }));
 
 describe("floating ListenButton", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
   test("requests auto-start when the event countdown expires", () => {
     const tab = {
       type: "sessions",
@@ -87,5 +81,20 @@ describe("floating ListenButton", () => {
       view: null,
       autoStart: true,
     });
+  });
+
+  test("keeps remote meeting join controls out of the floating slot", () => {
+    const tab = {
+      type: "sessions",
+      id: "session-1",
+      state: { view: null, autoStart: null },
+    } as Extract<Tab, { type: "sessions" }>;
+
+    render(<ListenButton tab={tab} />);
+
+    expect(
+      screen.getByRole("button", { name: "Listen session-1" }),
+    ).not.toBeNull();
+    expect(screen.queryByRole("button", { name: /Join/ })).toBeNull();
   });
 });

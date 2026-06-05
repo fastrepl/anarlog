@@ -1,5 +1,5 @@
 import { CalendarIcon, MapPinIcon, VideoIcon } from "lucide-react";
-import { forwardRef, useState } from "react";
+import { forwardRef, type ReactElement, useState } from "react";
 
 import { commands as openerCommands } from "@hypr/plugin-opener2";
 import { Button } from "@hypr/ui/components/ui/button";
@@ -17,13 +17,25 @@ import { ParticipantsDisplay } from "./participants";
 import { useConfigValue } from "~/shared/config";
 import { useSessionEvent } from "~/store/tinybase/hooks";
 
-export function MetadataButton({ sessionId }: { sessionId: string }) {
+export function MetadataButton({
+  sessionId,
+  renderTrigger,
+}: {
+  sessionId: string;
+  renderTrigger?: (props: { open: boolean; label: string }) => ReactElement;
+}) {
   const [open, setOpen] = useState(false);
+  const sessionEvent = useSessionEvent(sessionId);
+  const label = sessionEvent ? "Open event metadata" : "Open note metadata";
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <TriggerInner sessionId={sessionId} open={open} />
+        {renderTrigger ? (
+          renderTrigger({ open, label })
+        ) : (
+          <TriggerInner label={label} open={open} />
+        )}
       </PopoverTrigger>
       <PopoverContent
         variant="app"
@@ -40,11 +52,8 @@ export function MetadataButton({ sessionId }: { sessionId: string }) {
 
 const TriggerInner = forwardRef<
   HTMLButtonElement,
-  { sessionId: string; open?: boolean }
->(({ sessionId, open, ...props }, ref) => {
-  const sessionEvent = useSessionEvent(sessionId);
-  const label = sessionEvent ? "Open event metadata" : "Open note metadata";
-
+  { label: string; open?: boolean }
+>(({ label, open, ...props }, ref) => {
   return (
     <Button
       ref={ref}

@@ -1,17 +1,9 @@
-import { HeadsetIcon } from "lucide-react";
 import { useCallback } from "react";
 
-import { commands as openerCommands } from "@hypr/plugin-opener2";
-
 import { ListenActionButton } from "../listen-action";
-import { FloatingButton } from "./shared";
 
 import { useListenButtonState } from "~/session/components/shared";
 import { useEventCountdown } from "~/session/hooks/useEventCountdown";
-import {
-  type RemoteMeeting,
-  useRemoteMeeting,
-} from "~/session/hooks/useRemoteMeeting";
 import { useConfigValue } from "~/shared/config";
 import type { Tab } from "~/store/zustand/tabs";
 import { useTabs } from "~/store/zustand/tabs";
@@ -33,7 +25,6 @@ export function ListenButton({
     "auto_start_scheduled_meetings",
   );
   const updateSessionTabState = useTabs((state) => state.updateSessionTabState);
-  const remote = useRemoteMeeting(tab.id);
   const handleCountdownExpire = useCallback(() => {
     if (!autoStartScheduledMeetings || !canStartLiveSession) {
       return;
@@ -54,23 +45,6 @@ export function ListenButton({
     return <ListenActionButton sessionId={tab.id} />;
   }
 
-  if (!remote) {
-    if (!shouldRender) {
-      return null;
-    }
-
-    return (
-      <div className="flex flex-col items-center gap-2">
-        {countdown.label && (
-          <div className="text-xs whitespace-nowrap text-neutral-500">
-            <span>{countdown.label}</span>
-          </div>
-        )}
-        <ListenActionButton sessionId={tab.id} />
-      </div>
-    );
-  }
-
   if (!shouldRender) {
     return null;
   }
@@ -82,59 +56,7 @@ export function ListenButton({
           <span>{countdown.label}</span>
         </div>
       )}
-      <div className="flex items-center gap-2">
-        <RemoteMeetingButton remote={remote} />
-        <ListenActionButton sessionId={tab.id} />
-      </div>
+      <ListenActionButton sessionId={tab.id} />
     </div>
   );
-}
-
-function RemoteMeetingButton({ remote }: { remote: RemoteMeeting }) {
-  const handleJoin = useCallback(() => {
-    void openerCommands.openUrl(remote.url, null);
-  }, [remote.url]);
-
-  const { icon, name } = getMeetingDisplay(remote.type);
-
-  return (
-    <FloatingButton
-      onClick={handleJoin}
-      className="h-10 justify-center gap-2 border-neutral-200 bg-white px-4 text-neutral-800 shadow-[0_4px_14px_rgba(0,0,0,0.1)] hover:bg-neutral-100"
-    >
-      <span>Join</span>
-      {icon}
-      <span>{name}</span>
-    </FloatingButton>
-  );
-}
-
-function getMeetingDisplay(type: RemoteMeeting["type"]) {
-  switch (type) {
-    case "zoom":
-      return {
-        name: "Zoom",
-        icon: <img src="/assets/zoom.png" alt="" width={20} height={20} />,
-      };
-    case "google-meet":
-      return {
-        name: "Meet",
-        icon: <img src="/assets/meet.png" alt="" width={20} height={20} />,
-      };
-    case "webex":
-      return {
-        name: "Webex",
-        icon: <img src="/assets/webex.png" alt="" width={20} height={20} />,
-      };
-    case "teams":
-      return {
-        name: "Teams",
-        icon: <img src="/assets/teams.png" alt="" width={20} height={20} />,
-      };
-    default:
-      return {
-        name: "Meeting",
-        icon: <HeadsetIcon size={20} />,
-      };
-  }
 }

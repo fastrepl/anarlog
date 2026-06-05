@@ -1,13 +1,20 @@
-import { MicOff } from "lucide-react";
+import { ChevronDownIcon, HeadsetIcon, MicOff } from "lucide-react";
 
+import { commands as openerCommands } from "@hypr/plugin-opener2";
 import { DancingSticks } from "@hypr/ui/components/ui/dancing-sticks";
-import { cn } from "@hypr/utils";
+import { cn, safeParseDate } from "@hypr/utils";
 
 import { MetadataButton } from "./metadata";
 import { OverflowButton } from "./overflow";
 
+import { useNow } from "~/calendar/hooks";
 import { useShell } from "~/contexts/shell";
+import {
+  getRemoteMeeting,
+  type RemoteMeeting,
+} from "~/session/hooks/useRemoteMeeting";
 import { useConfigValue } from "~/shared/config";
+import { useSessionEvent } from "~/store/tinybase/hooks";
 import type { EditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
 
@@ -38,12 +45,131 @@ export function OuterHeader({
         </div>
         <div className="flex shrink-0 items-center gap-0 pr-1">
           <SidebarModeStopButton sessionId={sessionId} />
-          <MetadataButton sessionId={sessionId} />
+          <HeaderMeetingControl sessionId={sessionId} />
           <OverflowButton sessionId={sessionId} currentView={currentView} />
         </div>
       </div>
     </div>
   );
+}
+
+function HeaderMeetingControl({ sessionId }: { sessionId: string }) {
+  const sessionEvent = useSessionEvent(sessionId);
+
+  if (!sessionEvent) {
+    return <MetadataButton sessionId={sessionId} />;
+  }
+
+  return <EventMeetingControl sessionId={sessionId} event={sessionEvent} />;
+}
+
+function EventMeetingControl({
+  sessionId,
+  event,
+}: {
+  sessionId: string;
+  event: {
+    ended_at?: string;
+    meeting_link?: string;
+  };
+}) {
+  const mode = useListener((state) => state.getSessionMode(sessionId));
+  const now = useNow();
+  const remote = getRemoteMeeting(event.meeting_link);
+  const inProgress =
+    mode === "active" || mode === "finalizing" || mode === "running_batch";
+  const endedAt = event.ended_at ? safeParseDate(event.ended_at) : null;
+  const ended = !!endedAt && endedAt.getTime() <= now.getTime();
+
+  if (inProgress) {
+    return <MetadataButton sessionId={sessionId} />;
+  }
+
+  if (remote && !ended) {
+    return <HeaderMeetingJoinButton sessionId={sessionId} remote={remote} />;
+  }
+
+  return <MetadataButton sessionId={sessionId} />;
+}
+
+function HeaderMeetingJoinButton({
+  sessionId,
+  remote,
+}: {
+  sessionId: string;
+  remote: RemoteMeeting;
+}) {
+  const { icon, name } = getMeetingDisplay(remote.type);
+  const label = `Join ${name}`;
+  const handleJoin = () => {
+    void openerCommands.openUrl(remote.url, null);
+  };
+
+  return (
+    <div className="mr-1 flex h-8 max-w-56 shrink-0 items-center overflow-hidden rounded-full border border-neutral-200 bg-white shadow-[0_1px_4px_rgba(0,0,0,0.08)]">
+      <button
+        type="button"
+        aria-label={label}
+        title={label}
+        onClick={handleJoin}
+        className={cn([
+          "flex h-full min-w-0 items-center gap-1.5 px-3",
+          "text-sm font-medium text-neutral-800",
+          "transition-colors hover:bg-neutral-50",
+        ])}
+      >
+        {icon}
+        <span className="truncate">{label}</span>
+      </button>
+      <MetadataButton
+        sessionId={sessionId}
+        renderTrigger={({ open, label: metadataLabel }) => (
+          <button
+            type="button"
+            aria-label={metadataLabel}
+            title={metadataLabel}
+            className={cn([
+              "flex h-full w-7 shrink-0 items-center justify-center border-l border-neutral-200",
+              "text-neutral-500 transition-colors hover:bg-neutral-50 hover:text-neutral-900",
+              open && "bg-neutral-100 text-neutral-900",
+            ])}
+          >
+            <ChevronDownIcon size={14} />
+          </button>
+        )}
+      />
+    </div>
+  );
+}
+
+function getMeetingDisplay(type: RemoteMeeting["type"]) {
+  switch (type) {
+    case "zoom":
+      return {
+        name: "Zoom",
+        icon: <img src="/assets/zoom.png" alt="" width={18} height={18} />,
+      };
+    case "google-meet":
+      return {
+        name: "Meet",
+        icon: <img src="/assets/meet.png" alt="" width={18} height={18} />,
+      };
+    case "webex":
+      return {
+        name: "Webex",
+        icon: <img src="/assets/webex.png" alt="" width={18} height={18} />,
+      };
+    case "teams":
+      return {
+        name: "Teams",
+        icon: <img src="/assets/teams.png" alt="" width={18} height={18} />,
+      };
+    default:
+      return {
+        name: "Meeting",
+        icon: <HeadsetIcon size={18} />,
+      };
+  }
 }
 
 function SidebarModeStopButton({ sessionId }: { sessionId: string }) {

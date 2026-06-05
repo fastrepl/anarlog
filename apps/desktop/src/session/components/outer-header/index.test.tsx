@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { EditorView } from "~/store/zustand/tabs/schema";
@@ -13,12 +14,26 @@ const mocks = vi.hoisted(() => ({
   goBack: vi.fn(),
   goNext: vi.fn(),
   sessionModes: {} as Record<string, string>,
+  sessionEvents: {} as Record<string, any>,
   sidebarTimelineEnabled: false,
   stopListening: vi.fn(),
+  nowMs: new Date("2026-06-05T09:50:00.000Z").getTime(),
+  openUrl: vi.fn(),
 }));
 
 vi.mock("./metadata", () => ({
-  MetadataButton: () => <button type="button">Metadata</button>,
+  MetadataButton: ({
+    renderTrigger,
+  }: {
+    renderTrigger?: (props: { open: boolean; label: string }) => ReactElement;
+  }) =>
+    renderTrigger ? (
+      renderTrigger({ open: false, label: "Open event metadata" })
+    ) : (
+      <button type="button" aria-label="Open event metadata">
+        Metadata
+      </button>
+    ),
 }));
 
 vi.mock("./overflow", () => ({
@@ -29,6 +44,16 @@ vi.mock("@hypr/ui/components/ui/dancing-sticks", () => ({
   DancingSticks: () => <span data-testid="dancing-sticks" />,
 }));
 
+vi.mock("@hypr/plugin-opener2", () => ({
+  commands: {
+    openUrl: mocks.openUrl,
+  },
+}));
+
+vi.mock("~/calendar/hooks", () => ({
+  useNow: () => new Date(mocks.nowMs),
+}));
+
 vi.mock("~/contexts/shell", () => ({
   useShell: () => ({
     leftsidebar: mocks.leftsidebar,
@@ -37,6 +62,11 @@ vi.mock("~/contexts/shell", () => ({
 
 vi.mock("~/shared/config", () => ({
   useConfigValue: () => mocks.sidebarTimelineEnabled,
+}));
+
+vi.mock("~/store/tinybase/hooks", () => ({
+  useSessionEvent: (sessionId: string) =>
+    mocks.sessionEvents[sessionId] ?? null,
 }));
 
 vi.mock("~/store/zustand/tabs", () => ({
@@ -79,8 +109,11 @@ describe("OuterHeader", () => {
     mocks.goBack.mockClear();
     mocks.goNext.mockClear();
     mocks.sessionModes = {};
+    mocks.sessionEvents = {};
     mocks.sidebarTimelineEnabled = false;
     mocks.stopListening.mockClear();
+    mocks.nowMs = new Date("2026-06-05T09:50:00.000Z").getTime();
+    mocks.openUrl.mockClear();
   });
 
   afterEach(() => {
@@ -196,5 +229,90 @@ describe("OuterHeader", () => {
     );
 
     expect(screen.queryByRole("button", { name: "Stop listening" })).toBeNull();
+  });
+
+  it("shows a header join control before a remote meeting", () => {
+    mocks.sessionEvents = {
+      "session-1": {
+        title: "Design Review",
+        started_at: "2026-06-05T10:00:00.000Z",
+        ended_at: "2026-06-05T10:30:00.000Z",
+        meeting_link: "https://meet.google.com/abc-defg-hij",
+      },
+    };
+    mocks.nowMs = new Date("2026-06-05T09:55:00.000Z").getTime();
+
+    render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "raw" } as EditorView}
+        title={<span>Session title</span>}
+      />,
+    );
+
+    const joinButton = screen.getByRole("button", { name: "Join Meet" });
+
+    fireEvent.click(joinButton);
+
+    expect(joinButton.textContent).toContain("Join Meet");
+    expect(
+      screen.getByRole("button", { name: "Open event metadata" }),
+    ).not.toBeNull();
+    expect(mocks.openUrl).toHaveBeenCalledWith(
+      "https://meet.google.com/abc-defg-hij",
+      null,
+    );
+  });
+
+  it("shows metadata without the join control while the meeting is in progress", () => {
+    mocks.sessionEvents = {
+      "session-1": {
+        title: "Design Review",
+        started_at: "2026-06-05T10:00:00.000Z",
+        ended_at: "2026-06-05T10:30:00.000Z",
+        meeting_link: "https://meet.google.com/abc-defg-hij",
+      },
+    };
+    mocks.sessionModes = { "session-1": "active" };
+
+    render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "raw" } as EditorView}
+        title={<span>Session title</span>}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Join Meet" })).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Open event metadata" }),
+    ).not.toBeNull();
+  });
+
+  it("shows the calendar metadata button after the meeting is over", () => {
+    mocks.sessionEvents = {
+      "session-1": {
+        title: "Design Review",
+        started_at: "2026-06-05T10:00:00.000Z",
+        ended_at: "2026-06-05T10:30:00.000Z",
+        meeting_link: "https://meet.google.com/abc-defg-hij",
+      },
+    };
+    mocks.nowMs = new Date("2026-06-05T10:31:00.000Z").getTime();
+
+    render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "raw" } as EditorView}
+        title={<span>Session title</span>}
+      />,
+    );
+
+    const metadataButton = screen.getByRole("button", {
+      name: "Open event metadata",
+    });
+
+    expect(screen.queryByRole("button", { name: "Join Meet" })).toBeNull();
+    expect(metadataButton.textContent).toBe("Metadata");
   });
 });
