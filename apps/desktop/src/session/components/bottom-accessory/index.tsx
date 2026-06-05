@@ -53,6 +53,9 @@ export function useSessionBottomAccessory({
   const pastNotes = usePastSessionNotes(sessionId);
   const hasPastNotes = pastNotes.hasPastNotes;
   const generateMissingPastNotes = pastNotes.generateMissing;
+  const regeneratePastNote = pastNotes.canGenerate
+    ? pastNotes.regenerate
+    : undefined;
   const activePostSessionTab: PostSessionTab = hasPastNotes
     ? (postSessionTab ??
       (!hasAudio && !hasTranscript && !isRunningBatch
@@ -173,6 +176,7 @@ export function useSessionBottomAccessory({
           isTranscriptExpanded={isExpanded}
           activeTab={activePostSessionTab}
           pastNotes={pastNotes.notes}
+          onRegeneratePastNote={regeneratePastNote}
           fillHeight={isExpanded}
         />
       ) : null,
