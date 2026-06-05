@@ -91,6 +91,7 @@ export function checkEventNotifications(
         participants: null,
         event_details: null,
         action_label: "Open notes",
+        action_variant: null,
         options: null,
         footer: null,
         icon: null,

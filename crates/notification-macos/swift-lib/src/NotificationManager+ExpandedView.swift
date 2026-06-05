@@ -193,13 +193,20 @@ extension NotificationManager {
 
     let actionButton = ActionButton()
     let actionLabel = notification.payload.actionLabel ?? "Accept"
-    actionButton.title = "  \(actionLabel)"
+    if notification.payload.isDestructiveAction {
+      actionButton.configureDestructiveAction(label: actionLabel)
+    } else {
+      actionButton.title = "  \(actionLabel)"
+      actionButton.setBackgroundColors(
+        normal: Colors.actionButtonBg,
+        pressed: Colors.actionButtonPressedBg
+      )
+      actionButton.contentTintColor = NSColor.white
+    }
     actionButton.notification = notification
     actionButton.font = NSFont.systemFont(
       ofSize: Fonts.actionButtonSize, weight: Fonts.buttonWeight)
     actionButton.layer?.cornerRadius = 10
-    actionButton.layer?.backgroundColor = Colors.actionButtonBg
-    actionButton.contentTintColor = NSColor.white
     actionButton.translatesAutoresizingMaskIntoConstraints = false
     actionButton.heightAnchor.constraint(equalToConstant: 36).isActive = true
 

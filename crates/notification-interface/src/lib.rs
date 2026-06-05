@@ -149,6 +149,13 @@ pub struct NotificationContext {
     pub source: Option<NotificationSource>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub enum NotificationActionVariant {
+    Default,
+    Destructive,
+}
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
 pub struct Notification {
     pub key: Option<String>,
@@ -160,6 +167,7 @@ pub struct Notification {
     pub participants: Option<Vec<Participant>>,
     pub event_details: Option<EventDetails>,
     pub action_label: Option<String>,
+    pub action_variant: Option<NotificationActionVariant>,
     pub options: Option<Vec<String>>,
     pub footer: Option<NotificationFooter>,
     pub icon: Option<NotificationIcon>,
@@ -219,6 +227,7 @@ pub struct NotificationBuilder {
     participants: Option<Vec<Participant>>,
     event_details: Option<EventDetails>,
     action_label: Option<String>,
+    action_variant: Option<NotificationActionVariant>,
     options: Option<Vec<String>>,
     footer: Option<NotificationFooter>,
     icon: Option<NotificationIcon>,
@@ -270,6 +279,11 @@ impl NotificationBuilder {
         self
     }
 
+    pub fn action_variant(mut self, action_variant: NotificationActionVariant) -> Self {
+        self.action_variant = Some(action_variant);
+        self
+    }
+
     pub fn options(mut self, options: Vec<String>) -> Self {
         self.options = Some(options);
         self
@@ -301,6 +315,7 @@ impl NotificationBuilder {
             participants: self.participants,
             event_details: self.event_details,
             action_label: self.action_label,
+            action_variant: self.action_variant,
             options: self.options,
             footer: self.footer,
             icon,

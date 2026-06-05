@@ -11,7 +11,13 @@ extension NotificationManager {
     }
 
     let actionButton = CompactActionButton()
-    actionButton.title = notification.payload.actionLabel ?? "Take Notes"
+    let actionLabel = notification.payload.actionLabel ?? "Take Notes"
+    if notification.payload.isDestructiveAction {
+      actionButton.configureDestructiveAction(label: actionLabel)
+      actionButton.showsProgress = false
+    } else {
+      actionButton.title = actionLabel
+    }
     actionButton.notification = notification
     return actionButton
   }

@@ -97,6 +97,8 @@ class CloseButton: NSButton, TrackableButton {
 
 class NotificationButton: NSButton {
   weak var notification: NotificationInstance?
+  private var normalBackgroundColor = Colors.buttonNormalBg
+  private var pressedBackgroundColor = Colors.buttonPressedBg
 
   override init(frame frameRect: NSRect) {
     super.init(frame: frameRect)
@@ -122,7 +124,7 @@ class NotificationButton: NSButton {
     }
 
     layer?.cornerRadius = 8
-    layer?.backgroundColor = Colors.buttonNormalBg
+    layer?.backgroundColor = normalBackgroundColor
     layer?.borderColor = NSColor(calibratedWhite: 0.7, alpha: 0.5).cgColor
     layer?.borderWidth = 0.5
 
@@ -140,10 +142,38 @@ class NotificationButton: NSButton {
   }
 
   func animatePress() {
-    layer?.backgroundColor = Colors.buttonPressedBg
+    layer?.backgroundColor = pressedBackgroundColor
     DispatchQueue.main.asyncAfter(deadline: .now() + Timing.buttonPress) {
-      self.layer?.backgroundColor = Colors.buttonNormalBg
+      self.layer?.backgroundColor = self.normalBackgroundColor
     }
+  }
+
+  func setBackgroundColors(normal: CGColor, pressed: CGColor) {
+    normalBackgroundColor = normal
+    pressedBackgroundColor = pressed
+    layer?.backgroundColor = normal
+  }
+
+  func configureDestructiveAction(label: String) {
+    title = label
+    imagePosition = .imageLeft
+    imageScaling = .scaleProportionallyDown
+
+    if #available(macOS 11.0, *) {
+      let cfg = NSImage.SymbolConfiguration(pointSize: Fonts.buttonSize, weight: .semibold)
+      image = NSImage(systemSymbolName: "square.fill", accessibilityDescription: "Stop")?
+        .withSymbolConfiguration(cfg)
+    } else {
+      image = nil
+    }
+
+    contentTintColor = NSColor.white
+    setBackgroundColors(
+      normal: Colors.actionButtonDestructiveBg,
+      pressed: Colors.actionButtonDestructivePressedBg
+    )
+    layer?.borderColor = NSColor.clear.cgColor
+    invalidateIntrinsicContentSize()
   }
 
   func performAction() {}
@@ -171,6 +201,13 @@ class CompactActionButton: ActionButton {
   private var isPaused: Bool = false
   private var isCountdownActive: Bool = false
   private var progressRatio: CGFloat = 1.0
+  var showsProgress = true {
+    didSet {
+      if !showsProgress {
+        clearProgressState()
+      }
+    }
+  }
   var onProgressComplete: (() -> Void)?
 
   override init(frame frameRect: NSRect) {
@@ -220,6 +257,22 @@ class CompactActionButton: ActionButton {
     progressLayer.frame = CGRect(x: 0, y: 0, width: width, height: bounds.height)
   }
 
+  private func clearProgressState() {
+    progressLayer.removeAllAnimations()
+    isPaused = false
+    isCountdownActive = false
+    progressStartTime = nil
+    remainingDuration = 0
+    totalDuration = 0
+    progressRatio = 1.0
+    progressLayer.isHidden = true
+
+    CATransaction.begin()
+    CATransaction.setDisableActions(true)
+    progressLayer.bounds.size.width = progressLayerFullWidth
+    CATransaction.commit()
+  }
+
   private func runProgressAnimation(from startWidth: CGFloat, duration: Double) {
     CATransaction.begin()
     CATransaction.setDisableActions(true)
@@ -246,6 +299,10 @@ class CompactActionButton: ActionButton {
 
   func startProgress(duration: Double) {
     guard duration > 0 else { return }
+    guard showsProgress else {
+      clearProgressState()
+      return
+    }
 
     totalDuration = duration
     remainingDuration = duration
@@ -262,6 +319,7 @@ class CompactActionButton: ActionButton {
   }
 
   func pauseProgress() {
+    guard showsProgress else { return }
     guard isCountdownActive, !isPaused, let startTime = progressStartTime else { return }
     isPaused = true
 
@@ -284,6 +342,7 @@ class CompactActionButton: ActionButton {
   }
 
   func resumeProgress() {
+    guard showsProgress else { return }
     guard isCountdownActive, isPaused, remainingDuration > 0 else { return }
     isPaused = false
     progressStartTime = Date()
@@ -295,16 +354,11 @@ class CompactActionButton: ActionButton {
   }
 
   func resetProgress() {
-    progressLayer.removeAllAnimations()
-    isPaused = false
-    isCountdownActive = false
-    progressStartTime = nil
-    remainingDuration = 0
-    totalDuration = 0
-    progressRatio = 1.0
+    clearProgressState()
 
-    layer?.backgroundColor = Colors.buttonNormalBg
-    progressLayer.isHidden = true
+    if showsProgress {
+      layer?.backgroundColor = Colors.buttonNormalBg
+    }
 
     CATransaction.begin()
     CATransaction.setDisableActions(true)

@@ -48,6 +48,13 @@ enum Colors {
   static let buttonPressedBg = NSColor(calibratedWhite: 0.85, alpha: 0.9).cgColor
   static let notificationBg = NSColor(calibratedWhite: 0.92, alpha: 0.85).cgColor
   static let actionButtonBg = NSColor(calibratedWhite: 0.35, alpha: 0.95).cgColor
+  static let actionButtonPressedBg = NSColor(calibratedWhite: 0.25, alpha: 0.95).cgColor
+  static let actionButtonDestructiveBg = NSColor(
+    calibratedRed: 0.78, green: 0.16, blue: 0.14, alpha: 0.95
+  ).cgColor
+  static let actionButtonDestructivePressedBg = NSColor(
+    calibratedRed: 0.64, green: 0.10, blue: 0.09, alpha: 0.95
+  ).cgColor
   static let compactActionButtonElapsedBg = NSColor(calibratedWhite: 0.92, alpha: 0.98).cgColor
   static let compactActionButtonRemainingBg = NSColor(calibratedWhite: 0.78, alpha: 0.98)
     .cgColor

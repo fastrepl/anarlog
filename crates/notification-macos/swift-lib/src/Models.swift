@@ -186,6 +186,11 @@ enum NotificationSource: Codable {
 
 }
 
+enum NotificationActionVariant: String, Codable {
+  case defaultAction = "default"
+  case destructive = "destructive"
+}
+
 struct NotificationPayload: Codable {
   let key: String
   let title: String
@@ -196,6 +201,7 @@ struct NotificationPayload: Codable {
   let participants: [Participant]?
   let eventDetails: EventDetails?
   let actionLabel: String?
+  let actionVariant: NotificationActionVariant?
   let options: [String]?
   let footer: NotificationFooter?
   let icon: NotificationIcon?
@@ -204,12 +210,20 @@ struct NotificationPayload: Codable {
     return timeoutSeconds <= 0
   }
 
+  var isDestructiveAction: Bool {
+    return actionVariant == .destructive
+  }
+
   var hasOptions: Bool {
     guard let options = options else { return false }
     return !options.isEmpty
   }
 
   var hasExpandableContent: Bool {
+    if case .some(.calendarEvent) = source {
+      return false
+    }
+
     let hasParticipants = participants?.isEmpty == false
     return hasParticipants || eventDetails != nil
   }

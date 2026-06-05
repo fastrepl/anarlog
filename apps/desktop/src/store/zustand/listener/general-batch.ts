@@ -53,6 +53,7 @@ export async function showBatchCompletedNotification(
       participants: null,
       event_details: null,
       action_label: "Open Anarlog",
+      action_variant: null,
       options: null,
       footer: null,
       icon: null,
