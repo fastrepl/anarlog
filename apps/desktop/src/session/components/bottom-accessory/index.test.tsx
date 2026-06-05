@@ -26,6 +26,7 @@ const hoisted = vi.hoisted(() => ({
     isGenerating: boolean;
   }>,
   generateMissingPastNotes: vi.fn(),
+  regeneratePastNote: vi.fn(),
 }));
 
 vi.mock("react-hotkeys-hook", () => ({
@@ -55,6 +56,7 @@ vi.mock("./past-notes", () => ({
     isGenerating: false,
     canGenerate: true,
     generateMissing: hoisted.generateMissingPastNotes,
+    regenerate: hoisted.regeneratePastNote,
   }),
 }));
 
@@ -93,6 +95,7 @@ describe("useSessionBottomAccessory", () => {
     hoisted.live.liveTranscriptionActive = true;
     hoisted.pastNotes = [];
     hoisted.generateMissingPastNotes.mockClear();
+    hoisted.regeneratePastNote.mockClear();
     useShellMock.mockReturnValue({
       chat: {
         mode: "Closed",
