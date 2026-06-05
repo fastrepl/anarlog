@@ -345,7 +345,7 @@ describe("PostSessionAccessory", () => {
             title: "Weekly Product Sync",
             dateLabel: "May 28, 2026",
             summary:
-              "Ship the transcript panel.\nRevisit visual polish next week.",
+              "- Ship the transcript panel.\nRevisit visual polish next week.\n3. Confirm keyboard behavior.\nDo not show this fourth fact.",
             isGenerating: false,
           },
         ]}
@@ -353,10 +353,22 @@ describe("PostSessionAccessory", () => {
     );
 
     expect(screen.getByText("Past notes")).toBeTruthy();
-    expect(screen.getByText("Weekly Product Sync")).toBeTruthy();
-    expect(screen.getByText("May 28, 2026")).toBeTruthy();
+    const title = screen.getByText("Weekly Product Sync");
+    const date = screen.getByText("May 28, 2026");
+    expect(title).toBeTruthy();
+    expect(date).toBeTruthy();
+    expect(date.compareDocumentPosition(title)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    const factsList = screen.getByRole("list");
+    expect(factsList.className).toContain("list-disc");
+    expect(factsList.className).toContain("list-inside");
+    expect(factsList.className).not.toContain("flex");
+    expect(screen.getAllByRole("listitem")).toHaveLength(3);
     expect(screen.getByText("Ship the transcript panel.")).toBeTruthy();
     expect(screen.getByText("Revisit visual polish next week.")).toBeTruthy();
+    expect(screen.getByText("Confirm keyboard behavior.")).toBeTruthy();
+    expect(screen.queryByText("Do not show this fourth fact.")).toBeNull();
     expect(screen.queryByTestId("transcript")).toBeNull();
   });
 

@@ -46,10 +46,11 @@ type MainStore = NonNullable<ReturnType<typeof main.UI.useStore>>;
 
 const MAX_PAST_NOTES = 8;
 const MAX_SOURCE_LENGTH = 6000;
+const MAX_KEY_FACTS = 3;
 const SPACE_REGEX = /\s+/g;
 
 const keyFactsSchema = z.object({
-  facts: z.array(z.string()).min(1).max(6),
+  facts: z.array(z.string()).min(1).max(MAX_KEY_FACTS),
 });
 
 export function usePastSessionNotes(sessionId: string): PastSessionNotesResult {
@@ -313,7 +314,7 @@ async function generatePastSessionKeyFacts({
     prompt,
     output: Output.object({ schema: keyFactsSchema }),
     maxRetries: 2,
-    maxOutputTokens: 700,
+    maxOutputTokens: 400,
   });
 
   return normalizeFacts(result.output?.facts ?? []).join("\n");
@@ -348,7 +349,7 @@ function normalizeFacts(facts: string[]): string[] {
     normalized.push(text);
   }
 
-  return normalized.slice(0, 6);
+  return normalized.slice(0, MAX_KEY_FACTS);
 }
 
 function getSavedKeyFacts(

@@ -151,22 +151,25 @@ function PastNotesPanel({
           {notes.map((note) => (
             <div
               key={note.sessionId}
-              className="relative grid grid-cols-1 pl-5"
+              className="relative grid min-w-0 grid-cols-1 overflow-hidden pl-5"
             >
               <div className="absolute top-1.5 left-0 h-2 w-2 rounded-full border border-neutral-300 bg-white" />
-              <div className="flex min-w-0 flex-col gap-1">
-                <div className="flex min-w-0 items-baseline justify-between gap-3">
-                  <span className="min-w-0 truncate text-xs font-medium text-neutral-700">
-                    {note.title}
-                  </span>
+              <div className="flex min-w-0 flex-col gap-1 overflow-hidden">
+                <div className="flex min-w-0 items-baseline gap-2">
                   <span className="shrink-0 text-[11px] text-neutral-400">
                     {note.dateLabel}
                   </span>
+                  <span className="min-w-0 truncate text-xs font-medium text-neutral-700">
+                    {note.title}
+                  </span>
                 </div>
                 {note.summary ? (
-                  <ul className="flex flex-col gap-1 text-xs leading-5 text-neutral-500">
+                  <ul className="min-w-0 list-inside list-disc space-y-1 overflow-hidden pr-1 pl-1 text-xs leading-5 text-neutral-500">
                     {splitKeyFacts(note.summary).map((fact) => (
-                      <li key={fact} className="line-clamp-2">
+                      <li
+                        key={fact}
+                        className="line-clamp-2 min-w-0 break-words"
+                      >
                         {fact}
                       </li>
                     ))}
@@ -190,8 +193,14 @@ function PastNotesPanel({
 function splitKeyFacts(content: string): string[] {
   return content
     .split("\n")
-    .map((fact) => fact.trim())
-    .filter(Boolean);
+    .map((fact) =>
+      fact
+        .replace(/^[-*]\s+/, "")
+        .replace(/^\d+[.)]\s+/, "")
+        .trim(),
+    )
+    .filter(Boolean)
+    .slice(0, 3);
 }
 
 function TranscriptPanel({
