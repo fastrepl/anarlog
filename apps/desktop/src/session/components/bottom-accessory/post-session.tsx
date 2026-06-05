@@ -40,6 +40,7 @@ export function PostSessionAccessory({
   isTranscriptExpanded,
   activeTab = "transcript",
   pastNotes = [],
+  onRegeneratePastNote,
   fillHeight = false,
 }: {
   sessionId: string;
@@ -48,6 +49,7 @@ export function PostSessionAccessory({
   isTranscriptExpanded: boolean;
   activeTab?: PostSessionTab;
   pastNotes?: PastSessionNote[];
+  onRegeneratePastNote?: (sessionId: string) => void;
   fillHeight?: boolean;
 }) {
   const screen = useTranscriptScreen({ sessionId });
@@ -87,6 +89,7 @@ export function PostSessionAccessory({
           {effectiveActiveTab === "past_notes" ? (
             <PastNotesPanel
               notes={pastNotes}
+              onRegenerateNote={onRegeneratePastNote}
               fillHeight={shouldFillExpandedPanel}
             />
           ) : (
@@ -129,9 +132,11 @@ function TimelineSlot({
 
 function PastNotesPanel({
   notes,
+  onRegenerateNote,
   fillHeight,
 }: {
   notes: PastSessionNote[];
+  onRegenerateNote?: (sessionId: string) => void;
   fillHeight: boolean;
 }) {
   return (
@@ -155,13 +160,24 @@ function PastNotesPanel({
             >
               <div className="absolute top-1.5 left-0 h-2 w-2 rounded-full border border-neutral-300 bg-white" />
               <div className="flex min-w-0 flex-col gap-1 overflow-hidden">
-                <div className="flex min-w-0 items-baseline gap-2">
-                  <span className="shrink-0 text-[11px] text-neutral-400">
-                    {note.dateLabel}
-                  </span>
-                  <span className="min-w-0 truncate text-xs font-medium text-neutral-700">
-                    {note.title}
-                  </span>
+                <div className="flex min-w-0 items-center justify-between gap-2">
+                  <div className="flex min-w-0 items-baseline gap-2">
+                    <span className="shrink-0 text-[11px] text-neutral-400">
+                      {note.dateLabel}
+                    </span>
+                    <span className="min-w-0 truncate text-xs font-medium text-neutral-700">
+                      {note.title}
+                    </span>
+                  </div>
+                  {onRegenerateNote ? (
+                    <RegeneratePastNoteButton
+                      isDisabled={
+                        note.isGenerating || note.isRegenerateDisabled === true
+                      }
+                      isGenerating={note.isGenerating}
+                      onClick={() => onRegenerateNote(note.sessionId)}
+                    />
+                  ) : null}
                 </div>
                 {note.summary ? (
                   <ul className="min-w-0 list-inside list-disc space-y-1 overflow-hidden pr-1 pl-1 text-xs leading-5 text-neutral-500">
@@ -201,6 +217,49 @@ function splitKeyFacts(content: string): string[] {
     )
     .filter(Boolean)
     .slice(0, 3);
+}
+
+function RegeneratePastNoteButton({
+  isDisabled,
+  isGenerating,
+  onClick,
+}: {
+  isDisabled: boolean;
+  isGenerating: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label="Regenerate past note summary"
+          disabled={isDisabled}
+          onClick={onClick}
+          className={cn([
+            "h-5 w-5 shrink-0 text-neutral-400",
+            "hover:bg-neutral-200/60 hover:text-neutral-700",
+            "disabled:cursor-not-allowed disabled:text-neutral-300",
+          ])}
+        >
+          {isGenerating ? (
+            <Loader2Icon size={10} className="animate-spin" />
+          ) : (
+            <RefreshCw size={10} />
+          )}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">
+        <p>
+          {isGenerating
+            ? "Regenerating past note summary"
+            : "Regenerate past note summary"}
+        </p>
+      </TooltipContent>
+    </Tooltip>
+  );
 }
 
 function TranscriptPanel({
