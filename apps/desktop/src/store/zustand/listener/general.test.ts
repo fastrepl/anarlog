@@ -2,7 +2,11 @@ import { create as mutate } from "mutative";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { createListenerStore } from ".";
-import { getLiveCaptureUiMode } from "./general-shared";
+import {
+  getLiveCaptureUiMode,
+  markLiveActive,
+  updateLiveProgress,
+} from "./general-shared";
 
 let store: ReturnType<typeof createListenerStore>;
 
@@ -67,6 +71,33 @@ describe("General Listener Slice", () => {
           liveTranscriptionActive: false,
         }),
       ).toBe("fallback_record_only");
+    });
+
+    test("markLiveActive preserves startup progress errors", () => {
+      const intervalId = setInterval(() => {}, 1000);
+
+      store.setState((state) =>
+        mutate(state, (draft) => {
+          updateLiveProgress(draft.live, {
+            type: "connection_error",
+            session_id: "session-1",
+            error: "socket closed",
+          });
+          markLiveActive(
+            draft.live,
+            "session-1",
+            intervalId,
+            true,
+            false,
+            null,
+          );
+        }),
+      );
+
+      clearInterval(intervalId);
+
+      expect(store.getState().live.status).toBe("active");
+      expect(store.getState().live.lastError).toBe("socket closed");
     });
   });
 

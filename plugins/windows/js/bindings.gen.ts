@@ -282,7 +282,8 @@ export type EditorView =
   | { type: "attachments" };
 export type ExtensionsState = { selectedExtension: string | null };
 export type FloatingBarOpenMain = Record<string, never>;
-export type FloatingBarState = { amplitude: number; degraded: boolean };
+export type FloatingBarState = { amplitude: number; status: FloatingBarStatus };
+export type FloatingBarStatus = "recording" | "error";
 export type FloatingBarStop = Record<string, never>;
 export type JsonValue =
   | null

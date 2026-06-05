@@ -8,10 +8,11 @@ import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { listenerStore } from "~/store/zustand/listener/instance";
 
 type ListenerState = ReturnType<typeof listenerStore.getState>;
+type FloatingBarStatus = "recording" | "error";
 type FloatingRouteState = {
   sessionId: string;
   amplitude: number;
-  degraded: boolean;
+  status: FloatingBarStatus;
 };
 
 export function FloatingMeetingWindowHost() {
@@ -138,7 +139,7 @@ function FloatingMeetingWindowSync() {
   return null;
 }
 
-function getFloatingRouteState(
+export function getFloatingRouteState(
   state: ListenerState,
   sessionId?: string,
 ): FloatingRouteState | null {
@@ -160,7 +161,7 @@ function getFloatingRouteState(
       Math.hypot(state.live.amplitude.mic, state.live.amplitude.speaker),
       1,
     ),
-    degraded: Boolean(state.live.degraded),
+    status: state.live.degraded || state.live.lastError ? "error" : "recording",
   };
 }
 
@@ -171,7 +172,7 @@ function isSameFloatingRouteState(
   return (
     left?.sessionId === right?.sessionId &&
     left?.amplitude === right?.amplitude &&
-    left?.degraded === right?.degraded
+    left?.status === right?.status
   );
 }
 
@@ -226,7 +227,7 @@ async function showFloatingMeetingWindow(
 
   const updateResult = await windowsCommands.floatingBarUpdate({
     amplitude: routeState.amplitude,
-    degraded: routeState.degraded,
+    status: routeState.status,
   });
   if (!shouldContinue()) {
     await hideFloatingMeetingPanel();

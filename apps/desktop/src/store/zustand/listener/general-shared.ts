@@ -122,6 +122,7 @@ export const markLiveStartRequested = (live: LiveState, sessionId: string) => {
   live.loading = true;
   live.status = "inactive";
   live.sessionId = sessionId;
+  live.lastError = null;
   live.requestedLiveTranscription = null;
   live.liveTranscriptionActive = null;
 };

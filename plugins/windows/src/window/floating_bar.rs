@@ -4,9 +4,16 @@ use crate::Error;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
+pub enum FloatingBarStatus {
+    Recording,
+    Error,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
 pub struct FloatingBarState {
     pub amplitude: f64,
-    pub degraded: bool,
+    pub status: FloatingBarStatus,
 }
 
 #[cfg(target_os = "macos")]

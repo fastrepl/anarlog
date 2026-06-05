@@ -55,7 +55,7 @@ final class FloatingBarManager {
   func update(state: FloatingBarStatePayload) {
     DispatchQueue.main.async { [weak self] in
       guard let self else { return }
-      self.model.degraded = state.degraded
+      self.model.status = state.status
       self.model.amplitude = min(max(state.amplitude, 0), 1)
     }
   }

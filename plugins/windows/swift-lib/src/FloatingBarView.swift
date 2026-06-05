@@ -47,6 +47,8 @@ struct FloatingBarView: View {
                   width: FloatingBarLayout.stopSquareSize,
                   height: FloatingBarLayout.stopSquareSize
                 )
+            } else if model.status == .error {
+              ErrorMark(color: errorAccentColor)
             } else {
               DancingBars(color: accentColor, amplitude: model.amplitude)
             }
@@ -80,11 +82,15 @@ struct FloatingBarView: View {
   }
 
   private var accentColor: Color {
-    model.degraded ? Color(red: 0.96, green: 0.62, blue: 0.04) : normalAccentColor
+    model.status == .error ? errorAccentColor : normalAccentColor
   }
 
   private var stopColor: Color {
     normalAccentColor
+  }
+
+  private var errorAccentColor: Color {
+    Color(red: 1, green: 0.25, blue: 0.24)
   }
 
   private var normalAccentColor: Color {
@@ -147,6 +153,21 @@ private struct CircularClickArea<Content: View>: View {
         isHovered = hovered
         onHoverChange(hovered)
       }
+  }
+}
+
+private struct ErrorMark: View {
+  let color: Color
+
+  var body: some View {
+    VStack(spacing: 1.5) {
+      Capsule(style: .continuous)
+        .fill(color)
+        .frame(width: 3.2, height: 8)
+      Circle()
+        .fill(color)
+        .frame(width: 3.2, height: 3.2)
+    }
   }
 }
 
