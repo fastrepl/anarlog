@@ -18,7 +18,7 @@ export function getLocalModelIcon(model: string): ModelIconSpec | null {
     return {
       label: "A",
       title: "Anarlog Pro",
-      className: "border-neutral-200 bg-white text-neutral-700",
+      className: "border-border bg-card text-muted-foreground",
       imageSrc: ANARLOG_ICON_SRC,
       imageClassName: "size-4 object-contain",
     };
@@ -28,7 +28,7 @@ export function getLocalModelIcon(model: string): ModelIconSpec | null {
     return {
       label: "Q",
       title: "Qwen",
-      className: "border-neutral-200 bg-white text-neutral-700",
+      className: "border-border bg-card text-muted-foreground",
       imageSrc: `${MODEL_ICON_ASSET_BASE}/qwen-logo.svg`,
       imageClassName: "size-4 object-contain",
     };
@@ -38,7 +38,7 @@ export function getLocalModelIcon(model: string): ModelIconSpec | null {
     return {
       label: "O",
       title: "Meta Omnilingual",
-      className: "border-neutral-200 bg-white text-neutral-700",
+      className: "border-border bg-card text-muted-foreground",
       imageSrc: `${MODEL_ICON_ASSET_BASE}/meta-logo.svg`,
       imageClassName: "size-4 object-contain",
     };
@@ -48,7 +48,7 @@ export function getLocalModelIcon(model: string): ModelIconSpec | null {
     return {
       label: "W",
       title: "OpenAI Whisper",
-      className: "border-neutral-200 bg-white text-neutral-700",
+      className: "border-border bg-card text-muted-foreground",
       imageSrc: `${MODEL_ICON_ASSET_BASE}/openai-logo.svg`,
       imageClassName: "size-4 object-contain",
     };
@@ -58,7 +58,7 @@ export function getLocalModelIcon(model: string): ModelIconSpec | null {
     return {
       label: "P",
       title: "NVIDIA Parakeet",
-      className: "border-neutral-200 bg-white text-neutral-700",
+      className: "border-border bg-card text-muted-foreground",
       imageSrc: `${MODEL_ICON_ASSET_BASE}/nvidia-logo.svg`,
       imageClassName: "size-4 object-cover object-left",
     };
@@ -98,7 +98,7 @@ export function getLocalModelBackendBadge(model: string): ModelIconSpec | null {
     return {
       label: "NPU",
       title: "Apple NPU",
-      className: "border-neutral-200 bg-neutral-50 text-neutral-600",
+      className: "border-border bg-muted text-muted-foreground",
     };
   }
 

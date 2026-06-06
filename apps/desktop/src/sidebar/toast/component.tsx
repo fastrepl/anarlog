@@ -17,11 +17,11 @@ export function Toast({
       <div
         className={cn([
           "relative z-50 inline-flex max-w-[calc(100vw-24px)] items-center gap-3 py-1.5 pr-1.5 pl-4",
-          "rounded-full bg-white",
-          "border shadow-lg",
+          "bg-secondary text-secondary-foreground rounded-full",
+          "border shadow-lg backdrop-blur-none",
           toast.variant === "error"
-            ? "border-red-200 shadow-red-100"
-            : "border-neutral-200",
+            ? "border-alert-border shadow-red-100 dark:shadow-red-950/30"
+            : "border-border",
         ])}
       >
         {toast.icon ? <span className="shrink-0">{toast.icon}</span> : null}
@@ -29,7 +29,9 @@ export function Toast({
         <div
           className={cn([
             "max-w-50 truncate text-sm",
-            toast.variant === "error" ? "text-red-500" : "text-neutral-600",
+            toast.variant === "error"
+              ? "text-alert-foreground"
+              : "text-muted-foreground",
           ])}
         >
           {toast.description}
@@ -87,14 +89,14 @@ function getActions(
 
 function getActionClassName(toast: ToastType, index: number) {
   if (toast.variant === "error" && index === 0) {
-    return "bg-red-50 text-red-500 hover:bg-red-100 hover:text-red-600";
+    return "bg-alert text-alert-foreground hover:bg-alert/90";
   }
 
   if (index === 0) {
-    return "bg-neutral-900 text-white hover:bg-neutral-800";
+    return "bg-primary text-primary-foreground hover:bg-primary/90";
   }
 
-  return "border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50";
+  return "border-border bg-card text-foreground hover:bg-accent border";
 }
 
 function getProgress(toast: ToastType) {
@@ -116,7 +118,7 @@ function getProgress(toast: ToastType) {
 
 function ProgressPill({ progress }: { progress: number }) {
   return (
-    <span className="rounded-full bg-neutral-100 px-2.5 py-1.5 text-xs font-medium whitespace-nowrap text-neutral-600">
+    <span className="bg-muted text-muted-foreground rounded-full px-2.5 py-1.5 text-xs font-medium whitespace-nowrap">
       {Math.round(progress)}%
     </span>
   );

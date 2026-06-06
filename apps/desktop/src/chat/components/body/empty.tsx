@@ -67,7 +67,7 @@ export function ChatBodyEmpty({
             <span
               className={cn([
                 "text-sm font-medium",
-                isDarkSurface ? "text-white" : "text-neutral-800",
+                isDarkSurface ? "text-primary-foreground" : "text-foreground",
               ])}
             >
               Anarlog AI
@@ -77,7 +77,9 @@ export function ChatBodyEmpty({
           <p
             className={cn([
               "mb-2 text-sm",
-              isDarkSurface ? "text-stone-200" : "text-neutral-700",
+              isDarkSurface
+                ? "text-primary-foreground/80"
+                : "text-muted-foreground",
             ])}
           >
             Hi, I'm Anarlog AI. Set up a language model and I'll be ready to
@@ -86,8 +88,8 @@ export function ChatBodyEmpty({
           <button
             onClick={handleGoToSettings}
             className={cn([
-              "inline-flex w-fit items-center gap-1.5 rounded-full border border-stone-600 bg-stone-800 px-3 py-1.5 text-xs font-medium text-white",
-              "shadow-[0_4px_14px_rgba(87,83,78,0.18)] transition-colors hover:bg-stone-700",
+              "border-primary bg-primary text-primary-foreground inline-flex w-fit items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium",
+              "hover:bg-primary/90 shadow-[0_4px_14px_rgba(87,83,78,0.18)] transition-colors",
             ])}
           >
             <SparklesIcon size={12} />
@@ -105,7 +107,7 @@ export function ChatBodyEmpty({
           <span
             className={cn([
               "text-sm font-medium",
-              isDarkSurface ? "text-white" : "text-neutral-800",
+              isDarkSurface ? "text-primary-foreground" : "text-foreground",
             ])}
           >
             Anarlog AI
@@ -115,7 +117,9 @@ export function ChatBodyEmpty({
         <p
           className={cn([
             "mb-2 text-sm",
-            isDarkSurface ? "text-stone-200" : "text-neutral-700",
+            isDarkSurface
+              ? "text-primary-foreground/80"
+              : "text-muted-foreground",
           ])}
         >
           Hi, I'm Anarlog AI. I can help you pull context from your notes, find
@@ -130,8 +134,8 @@ export function ChatBodyEmpty({
                 className={cn([
                   "inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px]",
                   isDarkSurface
-                    ? "border-stone-600 bg-stone-700 text-stone-100 hover:bg-stone-600"
-                    : "border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-100",
+                    ? "border-primary bg-primary/80 text-primary-foreground hover:bg-primary/70"
+                    : "border-border bg-card text-muted-foreground hover:bg-accent",
                   "transition-colors",
                 ])}
               >

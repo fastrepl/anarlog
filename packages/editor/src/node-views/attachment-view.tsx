@@ -72,7 +72,7 @@ export const AttachmentChipView = forwardRef<
       <span
         contentEditable={false}
         suppressContentEditableWarning
-        className="inline-flex items-center gap-1 rounded-md border border-neutral-200 bg-neutral-50 px-1.5 py-0.5 text-xs text-neutral-600"
+        className="border-border bg-muted text-muted-foreground inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs"
       >
         {isImage && url ? (
           <img
@@ -81,7 +81,7 @@ export const AttachmentChipView = forwardRef<
             className="h-4 w-4 shrink-0 rounded object-cover"
           />
         ) : (
-          <FileIcon size={12} className="shrink-0 text-neutral-400" />
+          <FileIcon size={12} className="text-muted-foreground shrink-0" />
         )}
         <span className="max-w-[120px] truncate">{displayName}</span>
         <button
@@ -91,7 +91,7 @@ export const AttachmentChipView = forwardRef<
             e.stopPropagation();
             handleRemove();
           }}
-          className="shrink-0 rounded p-0.5 hover:bg-neutral-200"
+          className="hover:bg-accent shrink-0 rounded p-0.5"
         >
           <XIcon size={10} />
         </button>

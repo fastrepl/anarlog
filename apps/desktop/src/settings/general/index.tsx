@@ -16,6 +16,7 @@ import { NotificationSettingsView } from "./notification";
 import { Permissions } from "./permissions";
 import { SpokenLanguagesView } from "./spoken-languages";
 import { StorageSettingsView } from "./storage";
+import { ThemeSelector } from "./theme";
 import { TimezoneSelector } from "./timezone";
 import { WeekStartSelector } from "./week-start";
 
@@ -134,6 +135,7 @@ export function SettingsApp() {
   return (
     <div className="flex flex-col gap-8">
       <SettingsPageTitle title={t`App`} />
+      <ThemeSelector />
       <form.Field name="autostart">
         {(autostartField) => (
           <form.Field name="auto_start_scheduled_meetings">

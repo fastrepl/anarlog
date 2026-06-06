@@ -1,7 +1,7 @@
 import { cn } from "@hypr/utils";
 
 export const appFloatingContentClassName =
-  "overflow-hidden rounded-2xl border border-neutral-200 bg-stone-50 p-1 shadow-lg";
+  "bg-popover text-popover-foreground overflow-hidden rounded-2xl border border-border p-1 shadow-lg";
 
 export type FloatingContentVariant = "default" | "app";
 
@@ -12,7 +12,7 @@ export function AppFloatingPanel({
   return (
     <div
       className={cn([
-        "rounded-2xl border border-neutral-200 bg-white",
+        "bg-popover text-popover-foreground border-border rounded-2xl border",
         className,
       ])}
       {...props}

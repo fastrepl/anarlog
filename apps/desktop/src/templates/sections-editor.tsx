@@ -179,7 +179,7 @@ export function SectionsList({
         <Button
           variant="outline"
           size="sm"
-          className="h-auto w-fit rounded-full border-neutral-200 bg-white px-4 py-2.5 text-sm text-stone-800 shadow-[0_2px_6px_rgba(87,83,78,0.08),0_10px_18px_-10px_rgba(87,83,78,0.22)] hover:bg-stone-50"
+          className="border-border bg-card text-foreground hover:bg-background h-auto w-fit rounded-full px-4 py-2.5 text-sm shadow-[0_2px_6px_rgba(87,83,78,0.08),0_10px_18px_-10px_rgba(87,83,78,0.22)]"
           onClick={addSection}
           disabled={disabled}
         >
@@ -217,7 +217,7 @@ function SectionItem({
   const [isFocused, setIsFocused] = useState(false);
 
   return (
-    <div className="group relative bg-white">
+    <div className="group bg-card relative">
       {!disabled && (
         <button
           type="button"
@@ -237,7 +237,7 @@ function SectionItem({
                 type="button"
                 size="icon"
                 variant="ghost"
-                className="h-7 w-7 text-neutral-400 hover:text-neutral-700"
+                className="text-muted-foreground hover:text-muted-foreground h-7 w-7"
                 aria-label="Section actions"
               >
                 <MoreHorizontalIcon className="size-4" />
@@ -303,7 +303,7 @@ function SectionItem({
             "min-h-[100px] w-full resize-y rounded-xl border p-3 font-mono text-sm transition-colors",
             "focus-visible:outline-hidden",
             disabled
-              ? "bg-neutral-50"
+              ? "bg-muted"
               : isFocused
                 ? "ring-primary/20 border-blue-500 ring-2"
                 : "border-input",

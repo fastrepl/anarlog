@@ -62,7 +62,7 @@ export function SpeakerAssignPopover({
           type="button"
           className={cn([
             "-ml-1 cursor-pointer rounded-xs px-1",
-            "transition-colors hover:bg-neutral-100",
+            "hover:bg-accent transition-colors",
           ])}
           style={{ color }}
         >
@@ -320,13 +320,13 @@ function ParticipantList({
 
   return (
     <AppFloatingPanel className="overflow-hidden">
-      <div className="border-b border-neutral-100 p-2">
+      <div className="border-border border-b p-2">
         <input
           autoFocus
           type="search"
           className={cn([
-            "h-8 w-full rounded-md border border-neutral-200 bg-white px-2 text-sm outline-hidden",
-            "placeholder:text-neutral-400 focus:border-neutral-300",
+            "border-border bg-card h-8 w-full rounded-md border px-2 text-sm outline-hidden",
+            "placeholder:text-muted-foreground focus:border-border",
           ])}
           placeholder="Search contacts"
           value={query}
@@ -343,7 +343,7 @@ function ParticipantList({
 
         {groups.map((group) => (
           <div key={group.title}>
-            <div className="px-3 pt-2 pb-1 text-[11px] font-medium text-neutral-400 uppercase">
+            <div className="text-muted-foreground px-3 pt-2 pb-1 text-[11px] font-medium uppercase">
               {group.title}
             </div>
             {group.options.map((option) => (
@@ -357,7 +357,7 @@ function ParticipantList({
         ))}
 
         {!createOption && groups.length === 0 && (
-          <p className="px-3 py-2 text-xs text-neutral-400">
+          <p className="text-muted-foreground px-3 py-2 text-xs">
             {query.trim() ? "No matching contacts" : "No contacts"}
           </p>
         )}
@@ -378,7 +378,7 @@ function ParticipantOptionButton({
       type="button"
       className={cn([
         "w-full px-3 py-1.5 text-left text-sm",
-        "hover:bg-neutral-100",
+        "hover:bg-accent",
       ])}
       onClick={() => onSelect(option)}
     >
@@ -386,7 +386,7 @@ function ParticipantOptionButton({
         {option.isNew ? `Add "${option.name}"` : option.name}
       </span>
       {!option.isNew && option.email && (
-        <span className="block truncate text-xs text-neutral-400">
+        <span className="text-muted-foreground block truncate text-xs">
           {option.email}
         </span>
       )}

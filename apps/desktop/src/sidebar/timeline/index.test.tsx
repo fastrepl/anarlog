@@ -171,7 +171,7 @@ describe("TimelineView", () => {
     });
     const actionTabs = getSidebarActionTabs();
 
-    expect(actionTabs.className).not.toContain("bg-neutral-100/80");
+    expect(actionTabs.className).not.toContain("bg-muted/80");
     expect(actionTabs.className).not.toContain("rounded-full");
     expect(newNoteButton.className).toContain("flex-1");
     expect(newNoteButton.className).toContain("justify-center");

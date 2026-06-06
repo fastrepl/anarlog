@@ -145,12 +145,12 @@ function ItemBase({
           "w-full rounded-lg px-3 py-2 text-left",
           showTrailingStatus && "pr-10",
           ignored ? "cursor-default" : "cursor-pointer",
-          multiSelected && "bg-neutral-200",
-          !multiSelected && selected && "bg-neutral-200",
-          !multiSelected && !selected && "hover:bg-neutral-200/50",
+          multiSelected && "bg-accent",
+          !multiSelected && selected && "bg-accent",
+          !multiSelected && !selected && "hover:bg-accent/50",
           isLive && [
-            "bg-red-500 text-white hover:bg-red-600",
-            "focus-visible:ring-2 focus-visible:ring-red-500/40 focus-visible:outline-hidden",
+            "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+            "focus-visible:ring-destructive/40 focus-visible:ring-2 focus-visible:outline-hidden",
           ],
           ignored && "opacity-40",
           !ignored && muted && !isLive && "opacity-65",
@@ -171,7 +171,9 @@ function ItemBase({
               <div
                 className={cn([
                   "font-mono text-xs",
-                  isLive ? "text-white/65" : "text-neutral-500",
+                  isLive
+                    ? "text-destructive-foreground/65"
+                    : "text-muted-foreground",
                 ])}
               >
                 {displayTime}
@@ -183,7 +185,7 @@ function ItemBase({
       {showSpinner ? (
         <div
           aria-hidden
-          className="pointer-events-none absolute top-1/2 right-3 flex size-5 -translate-y-1/2 items-center justify-center text-neutral-400"
+          className="text-muted-foreground pointer-events-none absolute top-1/2 right-3 flex size-5 -translate-y-1/2 items-center justify-center"
         >
           <Spinner size={14} />
         </div>
@@ -199,8 +201,8 @@ function ItemBase({
           }}
           className={cn([
             "absolute top-1/2 right-3 flex size-5 -translate-y-1/2 items-center justify-center rounded-sm",
-            "text-white/80 transition-colors hover:bg-white/15 hover:text-white",
-            "focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:outline-hidden",
+            "text-destructive-foreground/80 hover:bg-destructive-foreground/15 hover:text-destructive-foreground transition-colors",
+            "focus-visible:ring-destructive-foreground/70 focus-visible:ring-2 focus-visible:outline-hidden",
           ])}
         >
           <span

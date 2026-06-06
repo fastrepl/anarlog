@@ -47,14 +47,14 @@ export function ChatView({
     <div
       className={cn([
         "flex h-full min-h-0 flex-col overflow-hidden",
-        "bg-stone-800 text-white",
+        "bg-primary text-primary-foreground",
       ])}
     >
       <div
         className={cn([
           "flex shrink-0 items-center pr-0 pl-0",
           isFloating ? "h-11" : "h-12",
-          "border-b border-stone-700/80",
+          "border-primary/80 border-b",
         ])}
       >
         <ChatToolbarControls

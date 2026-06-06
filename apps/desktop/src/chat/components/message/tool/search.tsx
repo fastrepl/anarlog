@@ -191,7 +191,7 @@ function RenderContent({ part }: { part: Part }) {
                   key={result.id || index}
                   className="basis-full pl-1 sm:basis-1/2 lg:basis-1/3"
                 >
-                  <Card className="h-full bg-neutral-50">
+                  <Card className="bg-muted h-full">
                     <CardContent className="px-2 py-0.5">
                       <RenderSession result={result} />
                     </CardContent>
@@ -199,8 +199,8 @@ function RenderContent({ part }: { part: Part }) {
                 </CarouselItem>
               ))}
             </CarouselContent>
-            <CarouselPrevious className="-left-4 h-6 w-6 bg-neutral-100 hover:bg-neutral-200" />
-            <CarouselNext className="-right-4 h-6 w-6 bg-neutral-100 hover:bg-neutral-200" />
+            <CarouselPrevious className="bg-muted hover:bg-accent -left-4 h-6 w-6" />
+            <CarouselNext className="bg-muted hover:bg-accent -right-4 h-6 w-6" />
           </Carousel>
         </div>
       </div>
@@ -250,7 +250,7 @@ function RenderSession({ result }: { result: SearchResult }) {
     >
       <span className="truncate font-medium">{result.title || "Untitled"}</span>
       {dateLabel && (
-        <span className="text-[11px] text-neutral-400 tabular-nums">
+        <span className="text-muted-foreground text-[11px] tabular-nums">
           {dateLabel}
         </span>
       )}

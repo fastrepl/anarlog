@@ -81,7 +81,7 @@ export function SettingsAccount() {
               </Button>
             }
           >
-            <p className="text-xs text-neutral-500">
+            <p className="text-muted-foreground text-xs">
               If the browser does not reopen Anarlog, use the paste-link
               fallback in the sign-in instruction window.
             </p>
@@ -98,7 +98,7 @@ export function SettingsAccount() {
             <div className="flex min-w-0 flex-1 flex-col gap-4">
               <div className="flex flex-col gap-2">
                 <h3 className="text-sm font-medium">Sign in to Anarlog</h3>
-                <div className="text-sm text-neutral-600">
+                <div className="text-muted-foreground text-sm">
                   Sign in to unlock cloud transcription and AI models, plus Pro
                   features like sharing.
                 </div>
@@ -106,7 +106,7 @@ export function SettingsAccount() {
               <button
                 type="button"
                 onClick={handleSignIn}
-                className="h-10 w-fit rounded-full border-2 border-stone-600 bg-stone-800 px-6 text-sm font-medium text-white shadow-[0_4px_14px_rgba(87,83,78,0.4)] transition-all duration-200 hover:bg-stone-700"
+                className="border-primary bg-primary text-primary-foreground hover:bg-primary/90 h-10 w-fit rounded-full border-2 px-6 text-sm font-medium shadow-[0_4px_14px_rgba(87,83,78,0.4)] transition-all duration-200"
               >
                 Get started
               </button>
@@ -133,7 +133,7 @@ export function SettingsAccount() {
             onClick={() => signOutMutation.mutate()}
             disabled={signOutMutation.isPending}
             className={cn([
-              "border-red-200 text-red-700 hover:border-red-300 hover:bg-red-50 hover:text-red-800",
+              "border-alert-border text-alert-foreground hover:bg-alert hover:text-alert-foreground",
             ])}
           >
             {signOutMutation.isPending ? "Signing out..." : "Sign out"}
@@ -226,7 +226,9 @@ function PlanBillingSection({
       if (compact) {
         if (!isPaid) {
           return (
-            <span className="text-xs text-neutral-400">{action.label}</span>
+            <span className="text-muted-foreground text-xs">
+              {action.label}
+            </span>
           );
         }
 
@@ -236,7 +238,7 @@ function PlanBillingSection({
             onClick={handleOpenBillingPortal}
             disabled={actionPending}
             className={cn([
-              "group relative min-w-[88px] text-xs font-medium text-neutral-500 transition-colors hover:text-neutral-700 disabled:opacity-50",
+              "group text-muted-foreground hover:text-muted-foreground relative min-w-[88px] text-xs font-medium transition-colors disabled:opacity-50",
             ])}
           >
             <span className="block transition-opacity duration-150 group-hover:opacity-0">
@@ -251,7 +253,7 @@ function PlanBillingSection({
 
       if (!isPaid) {
         return (
-          <div className="flex h-8 w-full items-center justify-center rounded-full border border-neutral-200 bg-neutral-50 text-xs text-neutral-500">
+          <div className="border-border bg-muted text-muted-foreground flex h-8 w-full items-center justify-center rounded-full border text-xs">
             {action.label}
           </div>
         );
@@ -263,7 +265,7 @@ function PlanBillingSection({
           onClick={handleOpenBillingPortal}
           disabled={actionPending}
           className={cn([
-            "group relative flex h-8 w-full items-center justify-center overflow-hidden rounded-full border border-neutral-300 bg-linear-to-b from-white to-stone-50 text-xs font-medium text-neutral-600 shadow-xs transition-all hover:scale-[102%] hover:shadow-md active:scale-[98%] disabled:opacity-50 disabled:hover:scale-100",
+            "group border-border from-card to-background text-muted-foreground relative flex h-8 w-full items-center justify-center overflow-hidden rounded-full border bg-linear-to-b text-xs font-medium shadow-xs transition-all hover:scale-[102%] hover:shadow-md active:scale-[98%] disabled:opacity-50 disabled:hover:scale-100",
           ])}
         >
           <span className="transition-opacity duration-150 group-hover:opacity-0">
@@ -321,8 +323,8 @@ function PlanBillingSection({
           className={cn([
             "text-xs font-medium transition-colors",
             isUpgrade
-              ? "text-stone-600 hover:text-stone-800"
-              : "text-neutral-500 hover:text-neutral-700",
+              ? "text-muted-foreground hover:text-foreground"
+              : "text-muted-foreground hover:text-muted-foreground",
           ])}
         >
           {label}
@@ -333,8 +335,8 @@ function PlanBillingSection({
     const buttonClass = cn([
       "flex h-8 w-full cursor-pointer items-center justify-center rounded-full text-xs font-medium transition-all hover:scale-[102%] active:scale-[98%] disabled:opacity-50 disabled:hover:scale-100",
       isUpgrade
-        ? "bg-linear-to-t from-stone-600 to-stone-500 text-white shadow-md hover:shadow-lg"
-        : "border border-neutral-300 bg-linear-to-b from-white to-stone-50 text-neutral-700 shadow-xs hover:shadow-md",
+        ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-md hover:shadow-lg"
+        : "border-border from-card to-background text-muted-foreground border bg-linear-to-b shadow-xs hover:shadow-md",
     ]);
 
     return (
@@ -357,7 +359,7 @@ function PlanBillingSection({
           <button
             type="button"
             onClick={handleOpenBillingPortal}
-            className="text-xs text-neutral-500 transition-colors hover:text-neutral-700"
+            className="text-muted-foreground hover:text-muted-foreground text-xs transition-colors"
           >
             Manage billing
           </button>
@@ -365,7 +367,7 @@ function PlanBillingSection({
       </div>
 
       <div className="mb-4 flex items-center gap-2">
-        <p className="text-sm text-neutral-600">{statusText}</p>
+        <p className="text-muted-foreground text-sm">{statusText}</p>
         <RefreshBillingButton />
       </div>
 
@@ -385,11 +387,13 @@ function GuestPlanSection({ onSignIn }: { onSignIn: () => Promise<void> }) {
 
     if (action.style === "current") {
       if (compact) {
-        return <span className="text-xs text-neutral-400">{action.label}</span>;
+        return (
+          <span className="text-muted-foreground text-xs">{action.label}</span>
+        );
       }
 
       return (
-        <div className="flex h-8 w-full items-center justify-center rounded-full border border-neutral-200 bg-neutral-50 text-xs text-neutral-500">
+        <div className="border-border bg-muted text-muted-foreground flex h-8 w-full items-center justify-center rounded-full border text-xs">
           {action.label}
         </div>
       );
@@ -407,7 +411,7 @@ function GuestPlanSection({ onSignIn }: { onSignIn: () => Promise<void> }) {
         <button
           type="button"
           onClick={onSignIn}
-          className="text-xs font-medium text-stone-600 transition-colors hover:text-stone-800"
+          className="text-muted-foreground hover:text-foreground text-xs font-medium transition-colors"
         >
           Sign in
         </button>
@@ -418,7 +422,7 @@ function GuestPlanSection({ onSignIn }: { onSignIn: () => Promise<void> }) {
       <button
         type="button"
         onClick={onSignIn}
-        className="flex h-8 w-full cursor-pointer items-center justify-center rounded-full bg-linear-to-t from-stone-600 to-stone-500 text-xs font-medium text-white shadow-md transition-all hover:scale-[102%] hover:shadow-lg active:scale-[98%]"
+        className="bg-primary text-primary-foreground hover:bg-primary/90 flex h-8 w-full cursor-pointer items-center justify-center rounded-full text-xs font-medium shadow-md transition-all hover:scale-[102%] hover:shadow-lg active:scale-[98%]"
       >
         {label}
       </button>
@@ -426,10 +430,10 @@ function GuestPlanSection({ onSignIn }: { onSignIn: () => Promise<void> }) {
   };
 
   return (
-    <section className="border-t border-neutral-100 pt-6">
+    <section className="border-border border-t pt-6">
       <div className="mb-4 flex flex-col gap-1">
         <h2 className="font-sans text-lg font-semibold">Plans</h2>
-        <p className="text-sm text-neutral-600">
+        <p className="text-muted-foreground text-sm">
           Compare Free, Lite, and Pro before you sign in.
         </p>
       </div>
@@ -472,7 +476,7 @@ function PlanTierList({
   return (
     <div ref={containerRef}>
       {isWide ? (
-        <div className="grid grid-cols-3 divide-x divide-neutral-100 border-t border-neutral-100">
+        <div className="divide-border border-border grid grid-cols-3 divide-x border-t">
           {PLAN_TIERS.map((tier) => {
             const isCurrent = tier.id === currentTier;
             const action = getActionForTier(
@@ -486,31 +490,31 @@ function PlanTierList({
                 key={tier.id}
                 className={cn([
                   "flex flex-col p-3",
-                  isCurrent && "bg-stone-50/60",
+                  isCurrent && "bg-background/60",
                 ])}
               >
                 <div className="mb-2 flex items-center gap-2">
-                  <span className="font-sans text-base font-medium text-stone-800">
+                  <span className="text-foreground font-sans text-base font-medium">
                     {tier.name}
                   </span>
                   {isCurrent && isTrialing && (
-                    <span className="rounded-full bg-stone-600 px-2 py-0.5 text-[10px] font-medium tracking-wide text-white uppercase">
+                    <span className="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[10px] font-medium tracking-wide uppercase">
                       Trial
                     </span>
                   )}
                 </div>
 
                 <div className="mb-2">
-                  <span className="font-sans text-xl text-stone-700">
+                  <span className="text-muted-foreground font-sans text-xl">
                     {tier.price}
                   </span>
                   {tier.period && (
-                    <span className="ml-1 text-sm text-neutral-500">
+                    <span className="text-muted-foreground ml-1 text-sm">
                       {tier.period}
                     </span>
                   )}
                   {tier.subtitle && (
-                    <div className="mt-0.5 text-xs text-neutral-400">
+                    <div className="text-muted-foreground mt-0.5 text-xs">
                       {tier.subtitle}
                     </div>
                   )}
@@ -539,21 +543,21 @@ function PlanTierList({
               <div
                 key={tier.id}
                 className={cn([
-                  "border-b border-neutral-100 py-3 last:border-b-0",
-                  isCurrent && "-mx-2 rounded-md bg-stone-50/60 px-2",
+                  "border-border border-b py-3 last:border-b-0",
+                  isCurrent && "bg-background/60 -mx-2 rounded-md px-2",
                 ])}
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                    <span className="text-sm font-medium text-stone-800">
+                    <span className="text-foreground text-sm font-medium">
                       {tier.name}
                     </span>
-                    <span className="text-sm text-neutral-500">
+                    <span className="text-muted-foreground text-sm">
                       {tier.price}
                       {tier.period}
                     </span>
                     {isCurrent && isTrialing && (
-                      <span className="rounded-full bg-stone-600 px-1.5 py-px text-[10px] font-medium tracking-wide text-white uppercase">
+                      <span className="bg-primary text-primary-foreground rounded-full px-1.5 py-px text-[10px] font-medium tracking-wide uppercase">
                         Trial
                       </span>
                     )}
@@ -582,7 +586,7 @@ function RefreshBillingButton() {
     <button
       type="button"
       onClick={handleClick}
-      className="text-neutral-400 transition-colors hover:text-neutral-600"
+      className="text-muted-foreground hover:text-muted-foreground transition-colors"
       aria-label="Refresh billing status"
     >
       <RefreshCw className="size-3" />
@@ -602,12 +606,12 @@ function Container({
   children?: ReactNode;
 }) {
   return (
-    <section className="border-b border-neutral-200 pb-4 last:border-b-0">
+    <section className="border-border border-b pb-4 last:border-b-0">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <h3 className="text-sm font-medium">{title}</h3>
           {description && (
-            <div className="text-sm text-neutral-600">{description}</div>
+            <div className="text-muted-foreground text-sm">{description}</div>
           )}
         </div>
         {action ? <div className="shrink-0">{action}</div> : null}

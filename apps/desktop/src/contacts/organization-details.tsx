@@ -1,5 +1,4 @@
 import { Icon } from "@iconify-icon/react";
-import { Facehash } from "facehash";
 import { Building2, Mail } from "lucide-react";
 
 import { commands as openerCommands } from "@hypr/plugin-opener2";
@@ -7,7 +6,7 @@ import { Button } from "@hypr/ui/components/ui/button";
 import { Input } from "@hypr/ui/components/ui/input";
 import { cn } from "@hypr/utils";
 
-import { getContactBgClass } from "./shared";
+import { ContactFacehash, getContactBgClass } from "./shared";
 
 import * as main from "~/store/tinybase/store/main";
 
@@ -38,17 +37,17 @@ export function OrganizationDetailsColumn({
         <>
           <div
             data-tauri-drag-region
-            className="flex items-center justify-center border-b border-neutral-200 py-6"
+            className="border-border flex items-center justify-center border-b py-6"
           >
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-neutral-200">
-              <Building2 className="h-8 w-8 text-neutral-600" />
+            <div className="bg-accent flex h-16 w-16 items-center justify-center rounded-full">
+              <Building2 className="text-muted-foreground h-8 w-8" />
             </div>
           </div>
 
           <div className="flex-1 overflow-y-auto">
             <div>
-              <div className="flex items-center border-b border-neutral-200 px-4 py-3">
-                <div className="w-28 text-sm text-neutral-500">Name</div>
+              <div className="border-border flex items-center border-b px-4 py-3">
+                <div className="text-muted-foreground w-28 text-sm">Name</div>
                 <div className="flex-1">
                   <EditableOrganizationNameField
                     organizationId={selectedOrganizationId}
@@ -58,9 +57,9 @@ export function OrganizationDetailsColumn({
             </div>
 
             <div className="p-6">
-              <h3 className="mb-4 text-sm font-medium text-neutral-600">
+              <h3 className="text-muted-foreground mb-4 text-sm font-medium">
                 People
-                <span className="font-normal text-neutral-400">
+                <span className="text-muted-foreground font-normal">
                   {" "}
                   &middot; {peopleInOrg?.length ?? 0}{" "}
                   {(peopleInOrg?.length ?? 0) === 1 ? "member" : "members"}
@@ -78,7 +77,7 @@ export function OrganizationDetailsColumn({
                       return (
                         <div
                           key={humanId}
-                          className="cursor-pointer rounded-lg border border-neutral-200 bg-white p-4 transition-all hover:shadow-xs"
+                          className="border-border bg-card cursor-pointer rounded-lg border p-4 transition-all hover:shadow-xs"
                           onClick={() => onPersonClick?.(humanId)}
                         >
                           <div className="flex flex-col items-center gap-3 text-center">
@@ -90,7 +89,7 @@ export function OrganizationDetailsColumn({
                                 ),
                               ])}
                             >
-                              <Facehash
+                              <ContactFacehash
                                 name={String(
                                   human.name || human.email || humanId,
                                 )}
@@ -111,7 +110,7 @@ export function OrganizationDetailsColumn({
                                 {human.name || human.email || "Unnamed"}
                               </div>
                               {human.job_title && (
-                                <div className="mt-1 truncate text-xs text-neutral-500">
+                                <div className="text-muted-foreground mt-1 truncate text-xs">
                                   {human.job_title as string}
                                 </div>
                               )}
@@ -159,7 +158,7 @@ export function OrganizationDetailsColumn({
                     })}
                   </div>
                 ) : (
-                  <p className="text-sm text-neutral-500">
+                  <p className="text-muted-foreground text-sm">
                     No people in this organization
                   </p>
                 )}
@@ -171,7 +170,7 @@ export function OrganizationDetailsColumn({
         </>
       ) : (
         <div className="flex flex-1 items-center justify-center">
-          <p className="text-sm text-neutral-500">
+          <p className="text-muted-foreground text-sm">
             Select an organization to view details
           </p>
         </div>

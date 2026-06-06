@@ -25,7 +25,7 @@ function ActionLink({
       onClick={onClick}
       disabled={disabled}
       className={cn([
-        "underline transition-colors hover:text-neutral-900",
+        "hover:text-foreground underline transition-colors",
         disabled && "cursor-not-allowed opacity-50",
       ])}
     >
@@ -96,7 +96,7 @@ export function AccessPermissionRow({
           disabled={isPending}
           className={cn([
             "size-8",
-            isAuthorized && "bg-stone-100 text-stone-800 hover:bg-stone-200",
+            isAuthorized && "bg-muted text-foreground hover:bg-accent",
           ])}
           aria-label={
             isAuthorized
@@ -130,12 +130,12 @@ export function TroubleShootingLink({
 }) {
   const [showActions, setShowActions] = useState(false);
   return (
-    <div className={cn(["text-xs text-neutral-600", className])}>
+    <div className={cn(["text-muted-foreground text-xs", className])}>
       {!showActions ? (
         <button
           type="button"
           onClick={() => setShowActions(true)}
-          className="underline transition-colors hover:text-neutral-900"
+          className="hover:text-foreground underline transition-colors"
         >
           Having trouble?
         </button>

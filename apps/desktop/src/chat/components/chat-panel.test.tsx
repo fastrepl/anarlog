@@ -57,8 +57,8 @@ describe("ChatView", () => {
     const { container } = render(<ChatView layout="right-panel" />);
     const root = container.firstElementChild;
 
-    expect(root?.className).toContain("bg-stone-800");
-    expect(root?.className).toContain("text-white");
+    expect(root?.className).toContain("bg-primary");
+    expect(root?.className).toContain("text-primary-foreground");
     expect(root?.firstElementChild?.className).toContain("h-12");
     expect(screen.getByTestId("chat-toolbar").dataset.surface).toBe("dark");
     expect(mocks.toolbarControls).toHaveBeenCalledWith(

@@ -306,8 +306,8 @@ export function PersistentChatPanel({
               data-chat-size="floating"
               className={cn([
                 "relative flex min-h-0 flex-col overflow-hidden",
-                "bg-stone-800 text-white",
-                "rounded-2xl border-2 border-stone-600",
+                "bg-primary text-primary-foreground",
+                "border-primary rounded-2xl border-2",
                 "shadow-[0_4px_28px_rgba(87,83,78,0.45)]",
               ])}
               style={panelStyle}

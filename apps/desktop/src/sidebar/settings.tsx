@@ -117,7 +117,7 @@ export function SettingsNav() {
         <div className="flex flex-col gap-4 pb-2">
           {groups.map((group) => (
             <div key={group.label} className="flex flex-col gap-0.5">
-              <span className="px-3 pb-1 text-[11px] font-medium tracking-wider text-neutral-400 uppercase">
+              <span className="text-muted-foreground px-3 pb-1 text-[11px] font-medium tracking-wider uppercase">
                 {group.label}
               </span>
               {group.items.map((item) => {
@@ -144,8 +144,8 @@ export function SettingsNav() {
                       "flex w-full items-center gap-2 rounded-full px-3 py-2 text-left text-sm",
                       "transition-colors",
                       isSettingsItem && activeTab === item.id
-                        ? "bg-neutral-200 font-medium text-neutral-900"
-                        : "text-neutral-600 hover:bg-neutral-200/50 hover:text-neutral-800",
+                        ? "bg-sidebar-accent text-foreground font-medium"
+                        : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground",
                     ])}
                   >
                     <item.icon size={15} />

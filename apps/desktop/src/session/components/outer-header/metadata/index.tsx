@@ -65,8 +65,8 @@ const TriggerInner = forwardRef<
       title={label}
       className={cn([
         "rounded-full",
-        "text-neutral-600 hover:bg-neutral-100 hover:text-black",
-        open && "bg-neutral-100",
+        "text-muted-foreground hover:bg-accent hover:text-black",
+        open && "bg-muted",
       ])}
     >
       <CalendarIcon size={16} />
@@ -182,16 +182,16 @@ export function EventDisplay({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="text-base font-medium text-neutral-900">
+      <div className="text-foreground text-base font-medium">
         {event.title || "Untitled Event"}
       </div>
 
-      <div className="h-px bg-neutral-200" />
+      <div className="bg-accent h-px" />
 
       {shouldShowLocation && (
         <>
-          <div className="flex items-center gap-2 text-sm text-neutral-700">
-            <MapPinIcon size={16} className="shrink-0 text-neutral-500" />
+          <div className="text-muted-foreground flex items-center gap-2 text-sm">
+            <MapPinIcon size={16} className="text-muted-foreground shrink-0" />
             <span>{event.location}</span>
           </div>
         </>
@@ -200,8 +200,8 @@ export function EventDisplay({
       {event.meetingLink && (
         <>
           <div className="flex items-center justify-between gap-2">
-            <div className="flex min-w-0 items-center gap-2 text-sm text-neutral-700">
-              <VideoIcon size={16} className="shrink-0 text-neutral-500" />
+            <div className="text-muted-foreground flex min-w-0 items-center gap-2 text-sm">
+              <VideoIcon size={16} className="text-muted-foreground shrink-0" />
               <span className="truncate">
                 {meetingDomain || "Meeting link"}
               </span>
@@ -219,15 +219,17 @@ export function EventDisplay({
       )}
 
       {event.startedAt && (
-        <div className="text-sm text-neutral-700">{formatEventDateTime()}</div>
+        <div className="text-muted-foreground text-sm">
+          {formatEventDateTime()}
+        </div>
       )}
 
       {children}
 
       {event.description && (
         <>
-          <div className="h-px bg-neutral-200" />
-          <div className="select-text-deep max-h-40 overflow-y-auto text-sm break-words whitespace-pre-wrap text-neutral-700">
+          <div className="bg-accent h-px" />
+          <div className="select-text-deep text-muted-foreground max-h-40 overflow-y-auto text-sm break-words whitespace-pre-wrap">
             {renderDescriptionWithLinks(event.description)}
           </div>
         </>
@@ -292,7 +294,7 @@ function renderDescriptionWithLinks(description: string): React.ReactNode {
       <a
         key={`description-link-${linkIndex}`}
         href={url}
-        className="cursor-pointer underline transition-colors hover:text-neutral-900"
+        className="hover:text-foreground cursor-pointer underline transition-colors"
         onClick={(e) => {
           e.preventDefault();
           void openerCommands.openUrl(url, null);

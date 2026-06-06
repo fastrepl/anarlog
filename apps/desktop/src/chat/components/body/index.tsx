@@ -81,7 +81,7 @@ export function ChatBody({
         <Button
           onClick={scrollToBottom}
           size="sm"
-          className="absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 transform items-center gap-1 rounded-full border border-neutral-200 bg-white text-neutral-700 shadow-xs hover:bg-neutral-50"
+          className="border-border bg-card text-muted-foreground hover:bg-accent absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 transform items-center gap-1 rounded-full border shadow-xs"
           variant="outline"
         >
           <ChevronDownIcon size={12} />

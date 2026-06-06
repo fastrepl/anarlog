@@ -11,7 +11,7 @@ import type { ReactNode } from "react";
 import type { LocalModel } from "@hypr/plugin-local-stt";
 
 import { env } from "~/env";
-import { AnarlogProviderIcon } from "~/settings/ai/shared";
+import { AnarlogProviderIcon, ProviderBrandImage } from "~/settings/ai/shared";
 import { type ProviderRequirement } from "~/settings/ai/shared/eligibility";
 import { sortProviders } from "~/settings/ai/shared/sort-providers";
 import { localSttQueries } from "~/stt/useLocalSttModel";
@@ -123,7 +123,9 @@ const _PROVIDERS = [
     id: "deepgram",
     displayName: "Deepgram",
     badge: null,
-    icon: <Icon icon="simple-icons:deepgram" className="size-4" />,
+    icon: (
+      <Icon icon="simple-icons:deepgram" className="text-foreground size-4" />
+    ),
     baseUrl: "https://api.deepgram.com/v1",
     models: [
       "nova-3-general",
@@ -168,7 +170,7 @@ const _PROVIDERS = [
     displayName: "Gladia",
     badge: null,
     icon: (
-      <img
+      <ProviderBrandImage
         src="/assets/gladia.jpeg"
         alt="Gladia"
         className="size-4 rounded-xs"
@@ -184,7 +186,7 @@ const _PROVIDERS = [
     displayName: "Soniox",
     badge: null,
     icon: (
-      <img
+      <ProviderBrandImage
         src="/assets/soniox-black.png"
         alt="Soniox"
         className="size-5 rounded-xs"
@@ -220,7 +222,7 @@ const _PROVIDERS = [
     displayName: "pyannoteAI",
     badge: "Batch only",
     icon: (
-      <img
+      <ProviderBrandImage
         src="/assets/pyannote-logo-black.png"
         alt="pyannoteAI"
         className="size-4"
@@ -236,13 +238,11 @@ const _PROVIDERS = [
     displayName: "AquaVoice",
     badge: "Batch only",
     icon: (
-      <span className="flex size-4 items-center justify-center">
-        <img
-          src="/assets/aquavoice-black.png"
-          alt="AquaVoice"
-          className="size-3.5 rounded-xs object-contain object-center"
-        />
-      </span>
+      <ProviderBrandImage
+        src="/assets/aquavoice-black.png"
+        alt="AquaVoice"
+        className="size-3.5 rounded-xs"
+      />
     ),
     baseUrl: "https://api.aquavoice.com/api/v1",
     models: ["avalon-v1-en"],
@@ -253,7 +253,9 @@ const _PROVIDERS = [
     id: "custom",
     displayName: "Custom",
     badge: null,
-    icon: <Icon icon="mingcute:random-fill" />,
+    icon: (
+      <Icon icon="mingcute:random-fill" className="text-foreground size-4" />
+    ),
     baseUrl: undefined,
     models: [],
     requirements: [

@@ -74,7 +74,7 @@ export function TemplateDetailsColumn({
 function TemplateDetailEmpty({ onCreate }: { onCreate: () => void }) {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-3">
-      <p className="text-sm text-neutral-500">No templates yet</p>
+      <p className="text-muted-foreground text-sm">No templates yet</p>
       <Button
         type="button"
         size="sm"
@@ -117,7 +117,7 @@ function WebTemplatePreview({
         category={template.category}
         targets={template.targets}
         titleMeta={
-          <span className="shrink-0 text-sm font-normal whitespace-nowrap text-neutral-400">
+          <span className="text-muted-foreground shrink-0 text-sm font-normal whitespace-nowrap">
             {getTemplateCreatorLabel({
               isUserTemplate: false,
               format: "short",
@@ -132,7 +132,7 @@ function WebTemplatePreview({
               size="sm"
               variant="ghost"
               onClick={() => onSetDefault(nextTemplate)}
-              className="shrink-0 text-neutral-600 hover:text-black"
+              className="text-muted-foreground shrink-0 hover:text-black"
             >
               Set as default
             </Button>
@@ -141,7 +141,7 @@ function WebTemplatePreview({
               size="icon"
               variant="ghost"
               onClick={() => onFavorite(nextTemplate)}
-              className="text-neutral-500 hover:text-neutral-800"
+              className="text-muted-foreground hover:text-foreground"
               title="Favorite template"
               aria-label="Favorite template"
             >
@@ -154,9 +154,8 @@ function WebTemplatePreview({
                   size="icon"
                   variant="ghost"
                   className={cn([
-                    "text-neutral-500 hover:text-neutral-800",
-                    actionsOpen &&
-                      "bg-neutral-100 text-neutral-800 hover:bg-neutral-100",
+                    "text-muted-foreground hover:text-foreground",
+                    actionsOpen && "bg-muted text-foreground hover:bg-accent",
                   ])}
                   aria-label="Template actions"
                 >

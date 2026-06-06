@@ -103,10 +103,7 @@ function LiveTranscriptFooterContent({
   return (
     <div className={cn(["w-full select-none", fillHeight && "h-full min-h-0"])}>
       <div
-        className={cn([
-          "rounded-xl bg-neutral-50",
-          fillHeight && "h-full min-h-0",
-        ])}
+        className={cn(["bg-muted rounded-xl", fillHeight && "h-full min-h-0"])}
       >
         <LiveTranscriptContent
           fillHeight={fillHeight}
@@ -175,7 +172,7 @@ function LiveTranscriptContent({
       ])}
     >
       {segments.length === 0 ? (
-        <span className="py-4 text-center text-xs text-neutral-400">
+        <span className="text-muted-foreground py-4 text-center text-xs">
           Transcript will appear here as you speak.
         </span>
       ) : (
@@ -224,7 +221,7 @@ function CollapsedFooterMessage({ message }: { message: string }) {
       ])}
     >
       <div className="min-w-0 flex-1 select-none">
-        <p className="truncate text-left text-xs text-neutral-600 [direction:rtl]">
+        <p className="text-muted-foreground truncate text-left text-xs [direction:rtl]">
           {message}
         </p>
       </div>
@@ -363,7 +360,7 @@ function TranscriptSegmentRow({
       >
         <span className="min-w-0 truncate">{label}</span>
       </span>
-      <span className="min-w-0 text-xs leading-5 text-neutral-700">
+      <span className="text-muted-foreground min-w-0 text-xs leading-5">
         {getSegmentText(segment)}
       </span>
     </div>

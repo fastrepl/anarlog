@@ -47,16 +47,16 @@ export const mentionNodeSpec: NodeSpec = {
 const GLOBAL_NAVIGATE_FUNCTION = "__HYPR_NAVIGATE__";
 
 const FACEHASH_BG_CLASSES = [
-  "bg-amber-50",
-  "bg-rose-50",
-  "bg-violet-50",
-  "bg-blue-50",
-  "bg-teal-50",
-  "bg-green-50",
-  "bg-cyan-50",
-  "bg-fuchsia-50",
-  "bg-indigo-50",
-  "bg-yellow-50",
+  "bg-amber-50 dark:bg-amber-950",
+  "bg-rose-50 dark:bg-rose-950",
+  "bg-violet-50 dark:bg-violet-950",
+  "bg-blue-50 dark:bg-blue-950",
+  "bg-teal-50 dark:bg-teal-950",
+  "bg-green-50 dark:bg-green-950",
+  "bg-cyan-50 dark:bg-cyan-950",
+  "bg-fuchsia-50 dark:bg-fuchsia-950",
+  "bg-indigo-50 dark:bg-indigo-950",
+  "bg-yellow-50 dark:bg-yellow-950",
 ];
 
 function getMentionFacehashBgClass(name: string) {
@@ -83,6 +83,7 @@ function MentionAvatar({
           size={16}
           showInitial={true}
           interactive={false}
+          className="text-stone-950"
           colorClasses={[bgClass]}
         />
       </span>

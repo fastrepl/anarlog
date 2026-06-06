@@ -153,14 +153,14 @@ function MainPanel({
         data-main-has-after-border={afterBorder ? "" : undefined}
         data-main-show-after-border-divider={afterBorder ? "" : undefined}
         className={cn([
-          "relative flex min-h-0 flex-1 flex-col overflow-hidden bg-white",
+          "bg-card relative flex min-h-0 flex-1 flex-col overflow-hidden",
           mergeAfterBorder && afterBorder
             ? "rounded-t-xl rounded-b-none"
             : "rounded-xl",
           !noBorder &&
             (mergeAfterBorder && afterBorder
-              ? "border border-b-0 border-neutral-200"
-              : "border border-neutral-200"),
+              ? "border-border border border-b-0"
+              : "border-border border"),
         ])}
       >
         {children}

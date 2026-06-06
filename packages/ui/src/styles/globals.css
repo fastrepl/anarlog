@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
   --animate-accordion-down: accordion-down 0.2s ease-out;
@@ -23,6 +23,10 @@
   --color-destructive: hsl(var(--destructive));
   --color-destructive-foreground: hsl(var(--destructive-foreground));
 
+  --color-alert: hsl(var(--alert));
+  --color-alert-foreground: hsl(var(--alert-foreground));
+  --color-alert-border: hsl(var(--alert-border));
+
   --color-muted: hsl(var(--muted));
   --color-muted-foreground: hsl(var(--muted-foreground));
 
@@ -43,6 +47,7 @@
   --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
   --color-sidebar-border: hsl(var(--sidebar-border));
   --color-sidebar-ring: hsl(var(--sidebar-ring));
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
 
   --radius-xl: calc(var(--radius) + 4px);
   --radius-lg: var(--radius);
@@ -168,64 +173,78 @@
   ::before,
   ::backdrop,
   ::file-selector-button {
-    border-color: var(--color-gray-200, currentcolor);
+    border-color: var(--color-border, currentcolor);
   }
 }
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
+    --background: 60 9% 98%;
+    --foreground: 24 10% 10%;
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
+    --card-foreground: 24 10% 10%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
+    --popover-foreground: 24 10% 10%;
+    --primary: 24 10% 16%;
+    --primary-foreground: 60 9% 98%;
+    --secondary: 60 5% 96%;
+    --secondary-foreground: 24 10% 10%;
+    --muted: 60 5% 96%;
+    --muted-foreground: 25 5% 45%;
+    --accent: 60 5% 94%;
+    --accent-foreground: 24 10% 10%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
+    --alert: 0 86% 97%;
+    --alert-foreground: 0 72% 42%;
+    --alert-border: 0 90% 86%;
+    --border: 24 6% 90%;
+    --input: 24 6% 90%;
+    --ring: 24 10% 10%;
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
+    --sidebar-accent: 60 5% 90%;
+    --kbd-shadow-outer: rgba(0, 0, 0, 0.1);
+    --kbd-shadow-inset: rgba(255, 255, 255, 0.8);
+    --kbd-shadow-outer-hover: rgba(0, 0, 0, 0.15);
   }
 
   .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
+    --background: 24 10% 11%;
+    --foreground: 60 9% 98%;
+    --card: 24 10% 16%;
+    --card-foreground: 60 9% 98%;
+    --popover: 24 10% 16%;
+    --popover-foreground: 60 9% 98%;
+    --primary: 24 10% 16%;
+    --primary-foreground: 60 9% 98%;
+    --secondary: 24 6% 20%;
+    --secondary-foreground: 60 9% 98%;
+    --muted: 24 6% 20%;
+    --muted-foreground: 25 5% 55%;
+    --accent: 24 6% 25%;
+    --accent-foreground: 60 9% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
+    --alert: 0 50% 14%;
+    --alert-foreground: 0 86% 72%;
+    --alert-border: 0 45% 24%;
+    --border: 24 6% 28%;
+    --input: 24 6% 28%;
+    --ring: 60 9% 75%;
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
+    --sidebar-accent: 24 6% 23%;
+    --kbd-shadow-outer: rgba(0, 0, 0, 0.35);
+    --kbd-shadow-inset: rgba(255, 255, 255, 0.08);
+    --kbd-shadow-outer-hover: rgba(0, 0, 0, 0.5);
   }
 
   .theme {

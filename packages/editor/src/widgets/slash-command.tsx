@@ -358,12 +358,12 @@ export function SlashCommandMenu() {
       data-editor-escape-consumer
       className={cn([
         "absolute z-[9999] max-h-64 w-[240px]",
-        "overflow-y-auto rounded-lg border border-neutral-200 bg-white/95 p-1",
+        "border-border bg-card/95 overflow-y-auto rounded-lg border p-1",
         "shadow-[0_2px_8px_rgba(0,0,0,0.08),0_18px_42px_-16px_rgba(0,0,0,0.34)] backdrop-blur-sm",
       ])}
       style={{ top: 0, left: 0 }}
     >
-      <div className="px-1.5 py-0.5 text-[0.65rem] font-semibold tracking-wide text-neutral-400 uppercase select-none">
+      <div className="text-muted-foreground px-1.5 py-0.5 text-[0.65rem] font-semibold tracking-wide uppercase select-none">
         Commands
       </div>
       {items.map((item, index) => (
@@ -372,19 +372,19 @@ export function SlashCommandMenu() {
           className={cn([
             "flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left",
             "cursor-pointer border-none bg-transparent transition-colors",
-            index === selectedIndex && "bg-neutral-100",
+            index === selectedIndex && "bg-muted",
           ])}
           onClick={() => executeCommand(item)}
           onMouseEnter={() => setSelectedIndex(index)}
         >
-          <span className="flex size-7 shrink-0 items-center justify-center rounded-md border border-neutral-200 bg-neutral-50">
-            <item.icon className="size-3.5 text-neutral-600" />
+          <span className="border-border bg-muted flex size-7 shrink-0 items-center justify-center rounded-md border">
+            <item.icon className="text-muted-foreground size-3.5" />
           </span>
           <span className="flex flex-col gap-px overflow-hidden">
-            <span className="truncate text-[0.8rem] font-medium text-neutral-900">
+            <span className="text-foreground truncate text-[0.8rem] font-medium">
               {item.label}
             </span>
-            <span className="truncate text-[0.7rem] text-neutral-400">
+            <span className="text-muted-foreground truncate text-[0.7rem]">
               {item.description}
             </span>
           </span>

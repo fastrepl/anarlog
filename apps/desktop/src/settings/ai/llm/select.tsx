@@ -39,6 +39,7 @@ import {
 import { listOpenRouterModels } from "~/settings/ai/shared/list-openrouter";
 import { ModelCombobox } from "~/settings/ai/shared/model-combobox";
 import { useConfigValues } from "~/shared/config";
+import { SettingsAlert } from "~/shared/ui/settings-alert";
 import * as settings from "~/store/tinybase/store/settings";
 
 export function SelectProviderAndModel() {
@@ -169,18 +170,14 @@ export function SelectProviderAndModel() {
   return (
     <div className="flex flex-col gap-4">
       {!isConfigured && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
-          <span className="text-sm text-red-600">
-            <strong className="font-medium">Language model</strong> is needed to
-            make Anarlog summarize and chat about your conversations.
-          </span>
-        </div>
+        <SettingsAlert>
+          <strong className="font-medium">Language model</strong> is needed to
+          make Anarlog summarize and chat about your conversations.
+        </SettingsAlert>
       )}
 
       {hasError && health.message && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
-          <span className="text-sm text-red-600">{health.message}</span>
-        </div>
+        <SettingsAlert>{health.message}</SettingsAlert>
       )}
 
       <h3 className="text-md font-sans font-semibold">Model being used</h3>
@@ -190,7 +187,7 @@ export function SelectProviderAndModel() {
             value={current_llm_provider || ""}
             onValueChange={handleProviderChange}
           >
-            <SelectTrigger className="bg-white shadow-none focus:ring-0">
+            <SelectTrigger className="bg-card shadow-none focus:ring-0">
               <SelectValue placeholder="Select a provider" />
             </SelectTrigger>
             <SelectContent>
@@ -206,19 +203,20 @@ export function SelectProviderAndModel() {
                     key={provider.id}
                     value={provider.id}
                     disabled={locked}
+                    className="data-disabled:text-muted-foreground data-disabled:!opacity-100"
                   >
                     <div className="flex flex-col gap-0.5">
                       <div className="flex items-center gap-2">
                         <ProviderIconSlot>{provider.icon}</ProviderIconSlot>
                         <span>{provider.displayName}</span>
                         {requiresPro ? (
-                          <span className="rounded-full border border-neutral-200 px-2 py-0.5 text-[10px] tracking-wide text-neutral-500 uppercase">
+                          <span className="border-border text-muted-foreground rounded-full border px-2 py-0.5 text-[10px] tracking-wide uppercase">
                             Pro
                           </span>
                         ) : null}
                       </div>
                       {locked ? (
-                        <span className="text-[11px] text-neutral-500">
+                        <span className="text-muted-foreground text-[11px]">
                           Upgrade to Pro to use this provider.
                         </span>
                       ) : null}
@@ -230,7 +228,7 @@ export function SelectProviderAndModel() {
           </Select>
         </div>
 
-        <span className="text-neutral-500">/</span>
+        <span className="text-muted-foreground">/</span>
 
         <div className="min-w-0 flex-3">
           <ModelCombobox

@@ -52,7 +52,7 @@ export function OptionsMenu({
 
   const moreButton = (
     <button
-      className="absolute top-1/2 right-2 z-10 -translate-y-1/2 cursor-pointer text-white/70 transition-colors hover:text-white disabled:opacity-50"
+      className="text-primary-foreground/70 hover:text-primary-foreground absolute top-1/2 right-2 z-10 -translate-y-1/2 cursor-pointer transition-colors disabled:opacity-50"
       disabled={disabled}
       onClick={(e) => {
         e.stopPropagation();

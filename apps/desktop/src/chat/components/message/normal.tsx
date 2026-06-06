@@ -77,7 +77,7 @@ export function NormalMessage({
           <div className="mt-1 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
             <button
               onClick={handleCopy}
-              className={`p-1 transition-colors ${copied ? "text-green-500" : "text-neutral-400 hover:text-neutral-600"}`}
+              className={`p-1 transition-colors ${copied ? "text-green-500" : "text-muted-foreground hover:text-foreground"}`}
               aria-label="Copy message"
             >
               {copied ? <CheckIcon size={14} /> : <CopyIcon size={14} />}
@@ -85,7 +85,7 @@ export function NormalMessage({
             {handleReload && (
               <button
                 onClick={handleReload}
-                className="p-1 text-neutral-400 transition-colors hover:text-neutral-600"
+                className="text-muted-foreground hover:text-muted-foreground p-1 transition-colors"
                 aria-label="Regenerate message"
               >
                 <RotateCcwIcon size={14} />
@@ -137,7 +137,7 @@ function Reasoning({ part }: { part: Extract<Part, { type: "reasoning" }> }) {
       title={title}
       disabled={streaming}
     >
-      <div className="text-sm whitespace-pre-wrap text-neutral-500">
+      <div className="text-muted-foreground text-sm whitespace-pre-wrap">
         {part.text}
       </div>
     </Disclosure>

@@ -117,7 +117,7 @@ export const SessionNodeView = forwardRef<
         onClick={handleRowClick}
         className={cn([
           "group flex items-start rounded-md px-2 py-1 transition-colors",
-          "-mx-2 focus-within:bg-neutral-50 hover:bg-neutral-50",
+          "focus-within:bg-muted hover:bg-accent -mx-2",
           "cursor-pointer",
         ])}
       >
@@ -136,7 +136,7 @@ export const SessionNodeView = forwardRef<
             ref={nodeProps.contentDOMRef}
             data-session-title
             className={cn([
-              "min-w-0 text-sm text-neutral-900",
+              "text-foreground min-w-0 text-sm",
               "[&>p]:m-0 [&>p]:min-w-0 [&>p]:truncate",
               status === "done" && "[&>p]:line-through [&>p]:opacity-60",
             ])}
@@ -145,7 +145,7 @@ export const SessionNodeView = forwardRef<
           </div>
           {displayTime && (
             <span
-              className="shrink-0 font-mono text-xs text-neutral-400"
+              className="text-muted-foreground shrink-0 font-mono text-xs"
               contentEditable={false}
             >
               {displayTime}

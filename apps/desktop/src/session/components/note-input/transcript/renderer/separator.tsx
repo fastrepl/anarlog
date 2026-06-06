@@ -5,12 +5,12 @@ export function TranscriptSeparator() {
     <div
       className={cn([
         "flex items-center gap-3",
-        "text-xs font-light text-neutral-400",
+        "text-muted-foreground text-xs font-light",
       ])}
     >
-      <div className="flex-1 border-t border-neutral-200/40" />
+      <div className="border-border/40 flex-1 border-t" />
       <span>~ ~ ~ ~ ~ ~ ~ ~ ~</span>
-      <div className="flex-1 border-t border-neutral-200/40" />
+      <div className="border-border/40 flex-1 border-t" />
     </div>
   );
 }

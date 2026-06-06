@@ -46,6 +46,7 @@ import {
   requiresEntitlement,
 } from "~/settings/ai/shared/eligibility";
 import { useConfigValues } from "~/shared/config";
+import { SettingsAlert } from "~/shared/ui/settings-alert";
 import * as settings from "~/store/tinybase/store/settings";
 import {
   isConfiguredSttModel,
@@ -134,18 +135,14 @@ export function SelectProviderAndModel() {
   return (
     <div className="flex flex-col gap-4">
       {!isConfigured && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
-          <span className="text-sm text-red-600">
-            <strong className="font-medium">Transcription model</strong> is
-            needed to make Anarlog listen to your conversations.
-          </span>
-        </div>
+        <SettingsAlert>
+          <strong className="font-medium">Transcription model</strong> is needed
+          to make Anarlog listen to your conversations.
+        </SettingsAlert>
       )}
 
       {hasError && health.message && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
-          <span className="text-sm text-red-600">{health.message}</span>
-        </div>
+        <SettingsAlert>{health.message}</SettingsAlert>
       )}
 
       <h3 className="text-md font-sans font-semibold">Model being used</h3>
@@ -155,7 +152,7 @@ export function SelectProviderAndModel() {
             value={current_stt_provider || ""}
             onValueChange={handleProviderChange}
           >
-            <SelectTrigger className="bg-white shadow-none focus:ring-0">
+            <SelectTrigger className="bg-card shadow-none focus:ring-0">
               <SelectValue placeholder="Select a provider" />
             </SelectTrigger>
             <SelectContent>
@@ -171,20 +168,24 @@ export function SelectProviderAndModel() {
                   <SelectItem
                     key={provider.id}
                     value={provider.id}
-                    disabled={provider.disabled || !configured || locked}
+                    disabled={provider.disabled || locked}
+                    className={cn([
+                      "data-disabled:text-muted-foreground data-disabled:!opacity-100",
+                      !configured && !locked && "text-muted-foreground",
+                    ])}
                   >
                     <div className="flex flex-col gap-0.5">
                       <div className="flex items-center gap-2">
                         <ProviderIconSlot>{provider.icon}</ProviderIconSlot>
                         <span>{provider.displayName}</span>
                         {requiresPro ? (
-                          <span className="rounded-full border border-neutral-200 px-2 py-0.5 text-[10px] tracking-wide text-neutral-500 uppercase">
+                          <span className="border-border text-muted-foreground rounded-full border px-2 py-0.5 text-[10px] tracking-wide uppercase">
                             Pro
                           </span>
                         ) : null}
                       </div>
                       {locked ? (
-                        <span className="text-[11px] text-neutral-500">
+                        <span className="text-muted-foreground text-[11px]">
                           Upgrade to Pro to use this provider.
                         </span>
                       ) : null}
@@ -196,7 +197,7 @@ export function SelectProviderAndModel() {
           </Select>
         </div>
 
-        <span className="text-neutral-500">/</span>
+        <span className="text-muted-foreground">/</span>
 
         {current_stt_provider === "custom" ? (
           <div className="min-w-0 flex-3">
@@ -216,7 +217,7 @@ export function SelectProviderAndModel() {
             >
               <SelectTrigger
                 className={cn([
-                  "bg-white text-left shadow-none focus:ring-0",
+                  "bg-card text-left shadow-none focus:ring-0",
                   "[&>span]:flex [&>span]:w-full [&>span]:items-center [&>span]:justify-between [&>span]:gap-2",
                   isConfigured && "[&>svg:last-child]:hidden",
                 ])}
@@ -243,7 +244,7 @@ export function SelectProviderAndModel() {
                   return (
                     <span key={model.id}>
                       {categoryLabel && (
-                        <div className="px-2 pt-2 pb-1 text-[11px] font-medium tracking-wide text-neutral-400 uppercase">
+                        <div className="text-muted-foreground px-2 pt-2 pb-1 text-[11px] font-medium tracking-wide uppercase">
                           {categoryLabel}
                         </div>
                       )}
@@ -499,14 +500,14 @@ function ModelSelectItem({
               "rounded-md px-1.5 py-0.5 font-medium",
               model.mode === "realtime"
                 ? "bg-sky-50 text-sky-700"
-                : "bg-neutral-100 text-neutral-600",
+                : "bg-muted text-muted-foreground",
             ])}
           >
             {model.mode === "realtime" ? "Realtime" : "Batch"}
           </span>
         )}
         {!model.isDownloaded && sizeLabel && (
-          <span className="font-mono text-neutral-500">{sizeLabel}</span>
+          <span className="text-muted-foreground font-mono">{sizeLabel}</span>
         )}
       </div>
     </div>
@@ -518,7 +519,10 @@ function ModelSelectItem({
         <SelectItem
           key={model.id}
           value={model.id}
-          className={cn([showLocalActions && "pr-20"])}
+          className={cn([
+            showLocalActions && "pr-20",
+            isDeprecated && "text-muted-foreground focus:text-muted-foreground",
+          ])}
         >
           {content}
         </SelectItem>
@@ -552,13 +556,13 @@ function ModelSelectItem({
         "group",
       ])}
     >
-      <div className="min-w-0 flex-1 text-neutral-400">{content}</div>
+      <div className="text-muted-foreground min-w-0 flex-1">{content}</div>
       {isDownloading ? (
         <span
           className={cn([
             "rounded-full px-2 py-0.5 text-[11px] font-medium",
             "flex items-center gap-1",
-            "bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-500",
+            "from-muted to-accent text-muted-foreground bg-linear-to-t",
           ])}
         >
           <Loader2 className="size-3 animate-spin" />
@@ -571,8 +575,8 @@ function ModelSelectItem({
             "opacity-0 group-hover:opacity-100",
             "transition-all duration-150",
             isCloud
-              ? "bg-linear-to-t from-stone-600 to-stone-500 py-1 text-white shadow-xs hover:shadow-md"
-              : "bg-linear-to-t from-neutral-200 to-neutral-100 py-0.5 text-neutral-900 shadow-xs hover:shadow-md",
+              ? "bg-primary text-primary-foreground hover:bg-primary/90 py-1 shadow-xs hover:shadow-md"
+              : "from-muted to-accent text-foreground bg-linear-to-t py-0.5 shadow-xs hover:shadow-md",
           ])}
           onClick={handleAction}
         >
@@ -588,7 +592,13 @@ function ModelSelectedValue({ model }: { model: ModelEntry }) {
     <LocalModelLabel
       model={model.id}
       label={model.displayName ?? displayModelId(model.id)}
-      className="min-w-0 flex-1"
+      className={cn([
+        "min-w-0 flex-1",
+        model.status === "deprecated" && "opacity-60",
+      ])}
+      labelClassName={cn([
+        model.status === "deprecated" && "text-muted-foreground",
+      ])}
     />
   );
 }
@@ -642,7 +652,7 @@ function LocalModelDropdownActions({ model }: { model: LocalModel }) {
         aria-label="Show in Finder"
         className={cn([
           "flex size-6 items-center justify-center rounded-full",
-          "text-neutral-500 hover:text-neutral-900",
+          "text-muted-foreground hover:text-foreground",
         ])}
         onPointerDown={stopSelect}
         onClick={(event) => {

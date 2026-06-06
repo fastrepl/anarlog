@@ -52,6 +52,11 @@ export const SETTINGS_MAPPING = {
       path: ["general", "sidebar_timeline_enabled"],
       default: false as boolean,
     },
+    theme: {
+      type: "string",
+      path: ["general", "theme"],
+      default: "system" as string,
+    },
     save_recordings: {
       type: "boolean",
       path: ["general", "save_recordings"],

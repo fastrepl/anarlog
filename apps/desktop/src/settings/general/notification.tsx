@@ -208,7 +208,7 @@ export function NotificationSettingsView() {
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
               <h3 className="mb-1 text-sm font-medium">Event notifications</h3>
-              <p className="text-xs text-neutral-600">
+              <p className="text-muted-foreground text-xs">
                 Get notified 5 minutes before calendar events start
               </p>
             </div>
@@ -228,7 +228,7 @@ export function NotificationSettingsView() {
                 <h3 className="mb-1 text-sm font-medium">
                   Microphone detection
                 </h3>
-                <p className="text-xs text-neutral-600">
+                <p className="text-muted-foreground text-xs">
                   Automatically detect when a meeting starts based on microphone
                   activity.
                 </p>
@@ -246,7 +246,7 @@ export function NotificationSettingsView() {
                     <div className="mb-4 flex items-center justify-between gap-4">
                       <div className="flex-1">
                         <h4 className="text-sm font-medium">Detection delay</h4>
-                        <p className="text-xs text-neutral-600">
+                        <p className="text-muted-foreground text-xs">
                           How long the mic must be active before triggering
                         </p>
                       </div>
@@ -276,7 +276,7 @@ export function NotificationSettingsView() {
                   <h4 className="text-sm font-medium">
                     Exclude apps from detection
                   </h4>
-                  <p className="text-xs text-neutral-600">
+                  <p className="text-muted-foreground text-xs">
                     Search installed apps to exclude them. Click an excluded app
                     to include it again.
                   </p>
@@ -308,7 +308,7 @@ export function NotificationSettingsView() {
                               className={cn([
                                 "flex items-center gap-1 px-2 py-0.5 text-xs",
                                 isDefault
-                                  ? ["bg-neutral-200 text-neutral-700"]
+                                  ? ["bg-accent text-muted-foreground"]
                                   : ["bg-muted"],
                               ])}
                               title={isDefault ? "default" : undefined}
@@ -367,7 +367,7 @@ export function NotificationSettingsView() {
                                   }
                                   className={cn([
                                     "cursor-pointer",
-                                    "hover:bg-neutral-200! focus:bg-neutral-200! aria-selected:bg-transparent",
+                                    "hover:bg-accent! focus:bg-accent! aria-selected:bg-transparent",
                                   ])}
                                 >
                                   <span className="flex-1 truncate">
@@ -403,7 +403,7 @@ export function NotificationSettingsView() {
                 <h3 className="mb-1 text-sm font-medium">
                   Respect Do-Not-Disturb mode
                 </h3>
-                <p className="text-xs text-neutral-600">
+                <p className="text-muted-foreground text-xs">
                   Don't show notifications when Do-Not-Disturb is enabled on
                   your system
                 </p>

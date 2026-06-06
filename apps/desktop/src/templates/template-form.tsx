@@ -108,7 +108,7 @@ function TemplateTargetsInput({
           type="text"
           autoFocus
           value={inputValue}
-          className="min-w-[84px] flex-1 bg-transparent py-0 text-xs leading-none text-neutral-500 outline-hidden"
+          className="text-muted-foreground min-w-[84px] flex-1 bg-transparent py-0 text-xs leading-none outline-hidden"
           onChange={(e) => setInputValue(e.target.value)}
           onBlur={submitTargets}
           onKeyDown={(e) => {
@@ -229,10 +229,8 @@ export function TemplateForm({
               onClick={setSelectedTemplateId}
               title={isDefault ? "Remove as default" : "Set as default"}
               className={cn([
-                "shrink-0 text-neutral-600 hover:text-black",
-                isDefault
-                  ? "bg-neutral-100 text-black hover:bg-neutral-100"
-                  : null,
+                "text-muted-foreground shrink-0 hover:text-black",
+                isDefault ? "bg-muted hover:bg-accent text-black" : null,
               ])}
             >
               {isDefault ? "Current default" : "Set as default"}
@@ -243,7 +241,7 @@ export function TemplateForm({
               variant="ghost"
               onClick={() => toggleTemplateFavorite(id)}
               className={cn([
-                "text-neutral-500 hover:text-neutral-800",
+                "text-muted-foreground hover:text-foreground",
                 template.pinned && "text-rose-500 hover:text-rose-600",
               ])}
               title={
@@ -265,9 +263,8 @@ export function TemplateForm({
                   size="icon"
                   variant="ghost"
                   className={cn([
-                    "text-neutral-500 hover:text-neutral-800",
-                    actionsOpen &&
-                      "bg-neutral-100 text-neutral-800 hover:bg-neutral-100",
+                    "text-muted-foreground hover:text-foreground",
+                    actionsOpen && "bg-muted text-foreground hover:bg-accent",
                   ])}
                   aria-label="Template actions"
                 >
@@ -311,7 +308,7 @@ export function TemplateForm({
                     className="absolute inset-0 h-auto w-full max-w-full min-w-0 border-0 px-0 py-0 text-lg font-semibold shadow-none focus-visible:ring-0 md:text-lg"
                   />
                 </div>
-                <span className="shrink-0 text-sm font-normal whitespace-nowrap text-neutral-400">
+                <span className="text-muted-foreground shrink-0 text-sm font-normal whitespace-nowrap">
                   {getTemplateCreatorLabel({
                     isUserTemplate: true,
                     creatorName,
@@ -327,7 +324,7 @@ export function TemplateForm({
                 value={field.state.value}
                 onChange={(e) => field.handleChange(e.target.value)}
                 placeholder="Describe the template purpose..."
-                className="mt-1 min-h-[24px] resize-none border-0 px-0 py-0 text-sm text-neutral-500 shadow-none focus-visible:ring-0"
+                className="text-muted-foreground mt-1 min-h-[24px] resize-none border-0 px-0 py-0 text-sm shadow-none focus-visible:ring-0"
                 rows={1}
               />
             )}

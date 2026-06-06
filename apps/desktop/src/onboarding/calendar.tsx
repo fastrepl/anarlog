@@ -75,7 +75,7 @@ function AppleCalendarList() {
       onRefresh={handleRefresh}
       isLoading={isLoading}
       disableHoverTone
-      className="rounded-xl border border-white/45 bg-white/28 shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_8px_24px_-20px_rgba(87,83,78,0.35)] backdrop-blur-md backdrop-saturate-150"
+      className="border-border/45 bg-card/28 rounded-xl border shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_8px_24px_-20px_rgba(87,83,78,0.35)] backdrop-blur-md backdrop-saturate-150"
     />
   );
 }
@@ -102,7 +102,7 @@ function AppleCalendarProvider({
             onRequest();
           }}
           disabled={isPending}
-          className="flex h-full w-full items-center justify-center gap-3 border border-neutral-200 bg-white px-12 text-stone-800 shadow-[0_2px_6px_rgba(87,83,78,0.08),0_10px_18px_-10px_rgba(87,83,78,0.22)] transition-all duration-150 hover:bg-stone-100"
+          className="border-border bg-card text-foreground hover:bg-accent flex h-full w-full items-center justify-center gap-3 border px-12 shadow-[0_2px_6px_rgba(87,83,78,0.08),0_10px_18px_-10px_rgba(87,83,78,0.22)] transition-all duration-150"
         >
           <img
             src="/assets/apple-calendar.png"
@@ -173,7 +173,7 @@ function GoogleCalendarConnectedContent({
         onRefresh={handleRefresh}
         isLoading={isLoading}
         disableHoverTone
-        className="rounded-xl border border-white/45 bg-white/28 shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_8px_24px_-20px_rgba(87,83,78,0.35)] backdrop-blur-md backdrop-saturate-150"
+        className="border-border/45 bg-card/28 rounded-xl border shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_8px_24px_-20px_rgba(87,83,78,0.35)] backdrop-blur-md backdrop-saturate-150"
       />
 
       <OnboardingButton
@@ -185,7 +185,7 @@ function GoogleCalendarConnectedContent({
             "connect",
           )
         }
-        className="flex items-center gap-3 border border-neutral-200 bg-white text-stone-800 shadow-[0_2px_6px_rgba(87,83,78,0.08),0_10px_18px_-10px_rgba(87,83,78,0.22)] hover:bg-stone-50"
+        className="border-border bg-card text-foreground hover:bg-accent flex items-center gap-3 border shadow-[0_2px_6px_rgba(87,83,78,0.08),0_10px_18px_-10px_rgba(87,83,78,0.22)]"
       >
         {GOOGLE_PROVIDER?.icon}
         Add another account
@@ -298,7 +298,7 @@ function OutlookCalendarConnectedContent({
         onRefresh={handleRefresh}
         isLoading={isLoading}
         disableHoverTone
-        className="rounded-xl border border-white/45 bg-white/28 shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_8px_24px_-20px_rgba(87,83,78,0.35)] backdrop-blur-md backdrop-saturate-150"
+        className="border-border/45 bg-card/28 rounded-xl border shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_8px_24px_-20px_rgba(87,83,78,0.35)] backdrop-blur-md backdrop-saturate-150"
       />
 
       <OnboardingButton
@@ -310,7 +310,7 @@ function OutlookCalendarConnectedContent({
             "connect",
           )
         }
-        className="flex items-center gap-3 border border-neutral-200 bg-white text-stone-800 shadow-[0_2px_6px_rgba(87,83,78,0.08),0_10px_18px_-10px_rgba(87,83,78,0.22)] hover:bg-stone-50"
+        className="border-border bg-card text-foreground hover:bg-accent flex items-center gap-3 border shadow-[0_2px_6px_rgba(87,83,78,0.08),0_10px_18px_-10px_rgba(87,83,78,0.22)]"
       >
         {OUTLOOK_PROVIDER?.icon}
         Add another account
@@ -383,8 +383,8 @@ function OutlookCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
       }
       className={
         isSignedIn
-          ? "gho flex items-center gap-3 border border-neutral-200 bg-white text-stone-800 shadow-[0_2px_6px_rgba(87,83,78,0.08),0_10px_18px_-10px_rgba(87,83,78,0.22)] hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-white"
-          : "border-1 border-neutral-200 bg-gray-100 text-stone-800 shadow-[0_2px_6px_rgba(87,83,78,0.01),0_10px_18px_-10px_rgba(87,83,78,0.1)] transition-all duration-150 hover:border-stone-600 hover:bg-stone-800 hover:text-white focus-visible:border-stone-600 focus-visible:bg-stone-800 focus-visible:text-white"
+          ? "gho border-border bg-card text-foreground hover:bg-accent disabled:hover:bg-card flex items-center gap-3 border shadow-[0_2px_6px_rgba(87,83,78,0.08),0_10px_18px_-10px_rgba(87,83,78,0.22)] disabled:cursor-not-allowed disabled:opacity-60"
+          : "border-border bg-muted text-foreground hover:border-primary hover:bg-primary hover:text-primary-foreground focus-visible:border-primary focus-visible:bg-primary focus-visible:text-primary-foreground border-1 shadow-[0_2px_6px_rgba(87,83,78,0.01),0_10px_18px_-10px_rgba(87,83,78,0.1)] transition-all duration-150"
       }
     >
       {!isSignedIn ? (
@@ -400,7 +400,7 @@ function OutlookCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
           >
             {OUTLOOK_PROVIDER.icon}
             <div className="flex flex-col items-start justify-center">
-              <p className="text-md font-normal text-neutral-900">Outlook</p>
+              <p className="text-md text-foreground font-normal">Outlook</p>
             </div>
           </motion.span>
 
@@ -487,8 +487,8 @@ function GoogleCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
         }
         className={
           isSignedIn
-            ? "flex items-center gap-3 border border-neutral-200 bg-white text-stone-800 shadow-[0_2px_6px_rgba(87,83,78,0.08),0_10px_18px_-10px_rgba(87,83,78,0.22)] hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-white"
-            : "border-1 border-neutral-200 bg-gray-100 text-stone-800 shadow-[0_2px_6px_rgba(87,83,78,0.01),0_10px_18px_-10px_rgba(87,83,78,0.1)] transition-all duration-150 hover:border-stone-600 hover:bg-stone-800 hover:text-white focus-visible:border-stone-600 focus-visible:bg-stone-800 focus-visible:text-white"
+            ? "border-border bg-card text-foreground hover:bg-accent disabled:hover:bg-card flex items-center gap-3 border shadow-[0_2px_6px_rgba(87,83,78,0.08),0_10px_18px_-10px_rgba(87,83,78,0.22)] disabled:cursor-not-allowed disabled:opacity-60"
+            : "border-border bg-muted text-foreground hover:border-primary hover:bg-primary hover:text-primary-foreground focus-visible:border-primary focus-visible:bg-primary focus-visible:text-primary-foreground border-1 shadow-[0_2px_6px_rgba(87,83,78,0.01),0_10px_18px_-10px_rgba(87,83,78,0.1)] transition-all duration-150"
         }
       >
         {!isSignedIn ? (
@@ -504,7 +504,7 @@ function GoogleCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
             >
               {GOOGLE_PROVIDER.icon}
               <div className="flex flex-col items-start justify-center">
-                <p className="text-md font-normal text-neutral-900">Google</p>
+                <p className="text-md text-foreground font-normal">Google</p>
               </div>
             </motion.span>
 
@@ -586,7 +586,7 @@ function CalendarSectionContent({
           onReset={calendar.reset}
           onOpen={calendar.open}
           isPending={calendar.isPending}
-          className="text-sm text-neutral-500"
+          className="text-muted-foreground text-sm"
         />
       )}
     </div>

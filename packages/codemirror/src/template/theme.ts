@@ -1,3 +1,5 @@
+import "./theme.css";
+
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { EditorView } from "@codemirror/view";
 import { tags } from "@lezer/highlight";
@@ -28,19 +30,38 @@ const templateTheme = EditorView.theme({
     padding: "4px 8px",
   },
   ".cm-placeholder": {
-    color: "#999",
+    color: "var(--cm-placeholder)",
     fontStyle: "italic",
   },
 });
 
 const templateHighlightStyle = HighlightStyle.define([
-  { tag: tags.brace, color: "#d97706", fontWeight: "600" },
-  { tag: tags.variableName, color: "#0369a1", fontWeight: "500" },
-  { tag: tags.keyword, color: "#7c3aed", fontWeight: "500" },
-  { tag: tags.string, color: "#059669" },
-  { tag: tags.operator, color: "#64748b" },
-  { tag: tags.propertyName, color: "#0891b2" },
-  { tag: tags.comment, color: "#9ca3af", fontStyle: "italic" },
+  {
+    tag: tags.brace,
+    color: "var(--cm-syntax-brace)",
+    fontWeight: "600",
+  },
+  {
+    tag: tags.variableName,
+    color: "var(--cm-syntax-variable)",
+    fontWeight: "500",
+  },
+  {
+    tag: tags.keyword,
+    color: "var(--cm-syntax-keyword)",
+    fontWeight: "500",
+  },
+  { tag: tags.string, color: "var(--cm-syntax-string)" },
+  { tag: tags.operator, color: "var(--cm-syntax-operator)" },
+  {
+    tag: tags.propertyName,
+    color: "var(--cm-syntax-property)",
+  },
+  {
+    tag: tags.comment,
+    color: "var(--cm-syntax-comment)",
+    fontStyle: "italic",
+  },
 ]);
 
 export const templateExtensions = [

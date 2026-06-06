@@ -52,7 +52,7 @@ export function TemplateCategoryLabel({
   return (
     <span
       className={cn([
-        "flex items-center gap-1.5 font-mono text-xs text-stone-400",
+        "text-muted-foreground flex items-center gap-1.5 font-mono text-xs",
         className,
       ])}
     >

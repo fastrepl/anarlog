@@ -62,7 +62,7 @@ export function ChatMessageInput({
         <div className="mb-1 min-h-0 flex-1">
           <ChatEditor
             ref={editorRef}
-            className="max-h-[40vh] overflow-y-auto overscroll-contain text-sm text-neutral-900"
+            className="text-foreground max-h-[40vh] overflow-y-auto overscroll-contain text-sm"
             initialContent={initialContent}
             mentionConfig={mentionConfig}
             placeholder={chatPlaceholder}
@@ -90,11 +90,11 @@ export function ChatMessageInput({
                 "inline-flex h-7 items-center gap-1.5 rounded-lg pr-1.5 pl-2.5 text-xs font-medium transition-all duration-100",
                 "border",
                 isSendDisabled
-                  ? "cursor-default border-neutral-200 text-neutral-300"
+                  ? "border-border text-muted-foreground/70 cursor-default"
                   : [
-                      "border-stone-600 bg-stone-800 text-white",
-                      "hover:bg-stone-700",
-                      "active:scale-[0.97] active:bg-stone-600",
+                      "border-primary bg-primary text-primary-foreground",
+                      "hover:bg-primary/90",
+                      "active:bg-primary/80 active:scale-[0.97]",
                     ],
               ])}
             >
@@ -102,7 +102,9 @@ export function ChatMessageInput({
               <span
                 className={cn([
                   "font-mono text-xs",
-                  isSendDisabled ? "text-neutral-300" : "text-stone-400",
+                  isSendDisabled
+                    ? "text-muted-foreground/70"
+                    : "text-muted-foreground",
                 ])}
               >
                 ⌘ ↩
@@ -133,7 +135,7 @@ function Container({
     >
       <div
         className={cn([
-          "flex max-h-full flex-col border border-neutral-200 bg-white",
+          "border-border bg-card flex max-h-full flex-col border",
           hasContextBar ? "rounded-t-none rounded-b-xl" : "rounded-xl",
           hasContextBar && "border-t-0",
         ])}

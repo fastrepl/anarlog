@@ -47,7 +47,7 @@ export function WeekStartSelector() {
     <div className="flex flex-row items-center justify-between">
       <div>
         <h3 className="mb-1 text-sm font-medium">Week starts on</h3>
-        <p className="text-xs text-neutral-600">
+        <p className="text-muted-foreground text-xs">
           First day of the week in the calendar view
         </p>
       </div>

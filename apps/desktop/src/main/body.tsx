@@ -358,9 +358,9 @@ function LeftSurfaceChromeButton({
       disabled={disabled}
       className={cn([
         "relative flex size-7 items-center justify-center rounded-full",
-        "text-neutral-700 transition-colors hover:bg-neutral-100 hover:text-neutral-900",
-        "focus-visible:ring-2 focus-visible:ring-neutral-900 focus-visible:outline-hidden",
-        "disabled:text-neutral-300 disabled:hover:bg-transparent disabled:hover:text-neutral-300",
+        "text-muted-foreground hover:bg-accent hover:text-foreground transition-colors",
+        "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-hidden",
+        "disabled:text-muted-foreground/70 disabled:hover:text-muted-foreground/70 disabled:hover:bg-transparent",
       ])}
       onClick={onClick}
     >
@@ -369,7 +369,7 @@ function LeftSurfaceChromeButton({
         <span
           aria-hidden="true"
           data-testid="collapsed-sidebar-update-badge"
-          className="pointer-events-none absolute top-1 right-1 size-1.5 rounded-full bg-red-500 ring-2 ring-stone-50"
+          className="ring-background pointer-events-none absolute top-1 right-1 size-1.5 rounded-full bg-red-500 ring-2"
         />
       ) : null}
     </button>

@@ -115,15 +115,15 @@ function ComposerSettingsCard() {
     <div
       className={cn([
         "h-full w-full rounded-[28px] px-5 py-4",
-        "bg-[rgba(23,24,28,0.88)] text-white",
+        "bg-primary/88 text-primary-foreground",
       ])}
     >
       <div className="mb-3 flex items-center justify-between gap-3">
         <div data-tauri-drag-region className="min-w-0 flex-1 pr-4">
-          <p className="text-[10px] font-semibold tracking-[0.24em] text-white/38 uppercase">
+          <p className="text-primary-foreground/38 text-[10px] font-semibold tracking-[0.24em] uppercase">
             Composer
           </p>
-          <p className="truncate pt-1 text-sm text-white/72">
+          <p className="text-primary-foreground/72 truncate pt-1 text-sm">
             Configure a chat model to use the quick composer.
           </p>
         </div>
@@ -134,8 +134,8 @@ function ComposerSettingsCard() {
           data-tauri-drag-region="false"
           className={cn([
             "inline-flex size-8 items-center justify-center rounded-full",
-            "bg-white/7 text-white/65 transition-colors",
-            "hover:bg-white/12 hover:text-white",
+            "bg-primary-foreground/7 text-primary-foreground/65 transition-colors",
+            "hover:bg-primary-foreground/12 hover:text-primary-foreground",
           ])}
         >
           <XIcon className="size-4" />
@@ -147,8 +147,8 @@ function ComposerSettingsCard() {
         onClick={() => void openSettingsInMainWindow()}
         className={cn([
           "inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-sm font-medium",
-          "bg-white/7 text-white/85 transition-colors",
-          "hover:bg-white/10 hover:text-white",
+          "bg-primary-foreground/7 text-primary-foreground/85 transition-colors",
+          "hover:bg-primary-foreground/10 hover:text-primary-foreground",
         ])}
       >
         <Settings2Icon className="size-4" />
@@ -199,15 +199,17 @@ function ComposerInput({
     <div
       className={cn([
         "h-full w-full rounded-[28px] px-5 py-4",
-        "bg-[rgba(23,24,28,0.88)] text-white",
+        "bg-primary/88 text-primary-foreground",
       ])}
     >
       <div className="mb-3 flex items-start justify-between gap-4">
         <div data-tauri-drag-region className="min-w-0 flex-1 pr-4">
-          <p className="text-[10px] font-semibold tracking-[0.24em] text-white/38 uppercase">
+          <p className="text-primary-foreground/38 text-[10px] font-semibold tracking-[0.24em] uppercase">
             Composer
           </p>
-          <p className="truncate pt-1 text-[15px] text-white/90">{title}</p>
+          <p className="text-primary-foreground/90 truncate pt-1 text-[15px]">
+            {title}
+          </p>
         </div>
 
         <div data-tauri-drag-region="false" className="flex items-center gap-2">
@@ -217,8 +219,8 @@ function ComposerInput({
             data-tauri-drag-region="false"
             className={cn([
               "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium",
-              "bg-white/7 text-white/76",
-              "transition-colors hover:bg-white/12 hover:text-white",
+              "bg-primary-foreground/7 text-primary-foreground/76",
+              "hover:bg-primary-foreground/12 hover:text-primary-foreground transition-colors",
             ])}
           >
             <ArrowUpRightIcon className="size-3.5" />
@@ -230,8 +232,8 @@ function ComposerInput({
             data-tauri-drag-region="false"
             className={cn([
               "inline-flex size-8 items-center justify-center rounded-full",
-              "bg-white/7 text-white/65 transition-colors",
-              "hover:bg-white/12 hover:text-white",
+              "bg-primary-foreground/7 text-primary-foreground/65 transition-colors",
+              "hover:bg-primary-foreground/12 hover:text-primary-foreground",
             ])}
           >
             <XIcon className="size-4" />
@@ -242,9 +244,9 @@ function ComposerInput({
       <ChatEditor
         ref={editorRef}
         className={cn([
-          "max-h-[88px] min-h-[34px] overflow-y-auto text-[15px] leading-6 text-white",
+          "text-primary-foreground max-h-[88px] min-h-[34px] overflow-y-auto text-[15px] leading-6",
           "[&_.ProseMirror]:min-h-[34px] [&_.ProseMirror]:outline-none",
-          "[&_.ProseMirror]:placeholder:text-white/28",
+          "[&_.ProseMirror]:placeholder:text-primary-foreground/28",
         ])}
         initialContent={initialContent}
         mentionConfig={mentionConfig}
@@ -254,11 +256,11 @@ function ComposerInput({
       />
 
       <div className="mt-3 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-[11px] text-white/40">
-          <span className="rounded-full bg-white/6 px-2 py-1">
+        <div className="text-primary-foreground/40 flex items-center gap-2 text-[11px]">
+          <span className="bg-card/6 rounded-full px-2 py-1">
             Esc to dismiss
           </span>
-          <span className="rounded-full bg-white/6 px-2 py-1">⌘ ↩ to send</span>
+          <span className="bg-card/6 rounded-full px-2 py-1">⌘ ↩ to send</span>
         </div>
 
         {isStreaming ? (
@@ -267,8 +269,8 @@ function ComposerInput({
             onClick={onStop}
             className={cn([
               "inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium",
-              "bg-white/8 text-white/82 transition-colors",
-              "hover:bg-white/12 hover:text-white",
+              "bg-primary-foreground/8 text-primary-foreground/82 transition-colors",
+              "hover:bg-primary-foreground/12 hover:text-primary-foreground",
             ])}
           >
             <SparklesIcon className="size-3.5" />
@@ -282,9 +284,9 @@ function ComposerInput({
             className={cn([
               "inline-flex size-10 items-center justify-center rounded-full",
               disabled
-                ? "cursor-default bg-white/8 text-white/25"
+                ? "bg-primary-foreground/8 text-primary-foreground/25 cursor-default"
                 : [
-                    "bg-white text-[#111318]",
+                    "bg-primary-foreground text-primary",
                     "transition-transform hover:scale-[1.02]",
                   ],
               !hasContent && !disabled && "opacity-55",

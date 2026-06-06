@@ -65,7 +65,7 @@ function ExternalLink({
 }) {
   return (
     <a
-      className="text-blue-600 underline hover:text-blue-800"
+      className="text-blue-600 underline decoration-blue-400/40 underline-offset-2 hover:text-blue-700 dark:text-blue-400 dark:decoration-blue-500/50 dark:hover:text-blue-300"
       href={href}
       onClick={(e) => {
         e.preventDefault();
@@ -85,7 +85,7 @@ function ChangelogBody({
   loading: boolean;
 }) {
   if (loading) {
-    return <p className="text-neutral-500">Loading...</p>;
+    return <p className="text-muted-foreground">Loading...</p>;
   }
 
   if (content) {
@@ -111,7 +111,9 @@ function ChangelogBody({
   }
 
   return (
-    <p className="text-neutral-500">No changelog available for this version.</p>
+    <p className="text-muted-foreground">
+      No changelog available for this version.
+    </p>
   );
 }
 
@@ -133,7 +135,7 @@ function ChangelogHeader({
     >
       <div className="flex w-full min-w-0 items-center justify-between gap-0">
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-xl font-semibold text-neutral-900">
+          <h1 className="text-foreground truncate text-xl font-semibold">
             What's new in {version}?
           </h1>
         </div>
@@ -142,7 +144,7 @@ function ChangelogHeader({
           <Button
             size="icon"
             variant="ghost"
-            className="text-neutral-500 hover:text-black"
+            className="text-muted-foreground hover:text-foreground"
             aria-label="Close changelog"
             title="Close"
             onClick={onClose}

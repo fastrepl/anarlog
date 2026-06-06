@@ -66,7 +66,7 @@ class NodeViewErrorBoundary extends Component<
           suppressContentEditableWarning: true,
           "data-node-view-error": this.props.name,
           className: [
-            "rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1 text-sm text-neutral-600",
+            "rounded-md border border-border bg-muted px-2 py-1 text-sm text-muted-foreground",
             typeof className === "string" ? className : "",
           ]
             .filter(Boolean)

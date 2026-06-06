@@ -29,7 +29,7 @@ export function MainShellScaffold({
     <SyncWrapper>
       <div
         className={cn([
-          "flex h-full gap-1 overflow-hidden bg-stone-50",
+          "bg-background flex h-full gap-1 overflow-hidden",
           !hasTopMainSurfaceChrome && "pl-1",
           hasTopMainSurfaceChrome && [
             "[&_[data-chat-floating-anchor]]:rounded-t-xl",

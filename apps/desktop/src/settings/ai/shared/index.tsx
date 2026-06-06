@@ -55,14 +55,45 @@ export function AnarlogProviderIcon() {
     <img
       src={ANARLOG_ICON_SRC}
       alt="Anarlog"
+      data-slot="provider-logo"
       className="size-4 object-contain object-center [clip-path:inset(6%_round_18%)]"
+    />
+  );
+}
+
+export function ProviderBrandImage({
+  src,
+  alt,
+  className,
+}: {
+  src: string;
+  alt: string;
+  className?: string;
+}) {
+  return (
+    <img
+      src={src}
+      alt={alt}
+      data-slot="provider-brand-icon"
+      className={cn([
+        "object-contain object-center [filter:var(--provider-brand-filter)]",
+        className,
+      ])}
     />
   );
 }
 
 export function ProviderIconSlot({ children }: { children: ReactNode }) {
   return (
-    <span className="flex size-5 shrink-0 items-center justify-center">
+    <span
+      data-slot="provider-icon"
+      className={cn([
+        "text-foreground flex size-5 shrink-0 items-center justify-center",
+        "[&_svg]:block [&_svg]:size-full [&_svg]:text-inherit",
+        "[&_iconify-icon]:text-inherit",
+        "[&_[data-slot=provider-brand-icon]]:[filter:var(--provider-brand-filter)]",
+      ])}
+    >
       {children}
     </span>
   );
@@ -166,21 +197,22 @@ export function NonHyprProviderCard({
       disabled={config.disabled || locked}
       value={config.id}
       className={cn([
-        "rounded-[22px] border-2 bg-neutral-50",
-        isConfigured ? "border-solid border-neutral-300" : "border-dashed",
+        "bg-muted rounded-[22px] border-2",
+        isConfigured ? "border-border border-solid" : "border-dashed",
       ])}
     >
       <AccordionTrigger
         className={cn([
           "gap-2 px-4 capitalize hover:no-underline",
-          (config.disabled || locked) && "cursor-not-allowed opacity-30",
+          (config.disabled || locked) &&
+            "text-muted-foreground cursor-not-allowed",
         ])}
       >
         <div className="flex items-center gap-2">
           <ProviderIconSlot>{config.icon}</ProviderIconSlot>
           <span>{config.displayName}</span>
           {config.badge && (
-            <span className="rounded-full border border-neutral-300 px-2 text-xs font-light text-neutral-500">
+            <span className="border-border text-muted-foreground rounded-full border px-2 text-xs font-light">
               {config.badge}
             </span>
           )}
@@ -225,7 +257,7 @@ export function NonHyprProviderCard({
                   href={config.links.download.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-0.5 text-neutral-600 hover:text-neutral-900 hover:underline"
+                  className="text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 hover:underline"
                 >
                   {config.links.download.label}
                   <ExternalLink size={12} />
@@ -236,7 +268,7 @@ export function NonHyprProviderCard({
                   href={config.links.models.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-0.5 text-neutral-600 hover:text-neutral-900 hover:underline"
+                  className="text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 hover:underline"
                 >
                   {config.links.models.label}
                   <ExternalLink size={12} />
@@ -247,7 +279,7 @@ export function NonHyprProviderCard({
                   href={config.links.setup.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-0.5 text-neutral-600 hover:text-neutral-900 hover:underline"
+                  className="text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 hover:underline"
                 >
                   {config.links.setup.label}
                   <ExternalLink size={12} />
@@ -257,7 +289,7 @@ export function NonHyprProviderCard({
           )}
           {((!showBaseUrl && config.baseUrl) || !showApiKey) && (
             <details className="flex flex-col gap-4 pt-2">
-              <summary className="cursor-pointer text-xs text-neutral-600 hover:text-neutral-900 hover:underline">
+              <summary className="text-muted-foreground hover:text-foreground cursor-pointer text-xs hover:underline">
                 Advanced
               </summary>
               <div className="mt-4 flex flex-col gap-4">
@@ -373,7 +405,7 @@ function FormField({
   return (
     <div className="flex flex-col gap-2">
       <label className="block text-xs font-medium">{label}</label>
-      <InputGroup className="bg-white">
+      <InputGroup className="bg-card">
         <InputGroupInput
           name={field.name}
           type={type}

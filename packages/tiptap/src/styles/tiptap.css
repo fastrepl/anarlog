@@ -18,6 +18,8 @@
 /* Animation styles */
 @import "./animation.css";
 
+@import "./dark.css";
+
 .ProseMirror .is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   float: left;

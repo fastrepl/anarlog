@@ -52,7 +52,7 @@ export function ListenButton({
   return (
     <div className="flex flex-col items-center gap-2">
       {countdown.label && (
-        <div className="text-xs whitespace-nowrap text-neutral-500">
+        <div className="text-muted-foreground text-xs whitespace-nowrap">
           <span>{countdown.label}</span>
         </div>
       )}

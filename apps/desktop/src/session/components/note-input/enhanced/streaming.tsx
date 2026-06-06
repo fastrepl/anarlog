@@ -35,7 +35,7 @@ export function StreamingView({ enhancedNoteId }: { enhancedNoteId: string }) {
     <div className="pb-2">
       {statusText ? (
         <div className="flex flex-col gap-1">
-          <p className="text-sm text-neutral-500">{statusText}</p>
+          <p className="text-muted-foreground text-sm">{statusText}</p>
           <RotatingTip />
         </div>
       ) : (
@@ -68,5 +68,7 @@ function RotatingTip() {
     return () => clearInterval(id);
   }, []);
 
-  return <p className="pl-3 text-xs text-neutral-400">└ Tip: {TIPS[index]}</p>;
+  return (
+    <p className="text-muted-foreground pl-3 text-xs">└ Tip: {TIPS[index]}</p>
+  );
 }

@@ -89,7 +89,7 @@ export function ParticipantInput({ sessionId }: { sessionId: string }) {
         <input
           ref={inputRef}
           type="text"
-          className="min-w-[120px] flex-1 bg-transparent text-sm outline-hidden placeholder:text-neutral-400"
+          className="placeholder:text-muted-foreground min-w-[120px] flex-1 bg-transparent text-sm outline-hidden"
           placeholder={placeholder}
           value={inputValue}
           onChange={(e) => handleInputChange(e.target.value)}

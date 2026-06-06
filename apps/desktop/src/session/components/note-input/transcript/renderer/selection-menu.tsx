@@ -14,12 +14,12 @@ import { useAutoCloser } from "~/shared/hooks/useAutoCloser";
 const MENU_CONTAINER_CLASSES = [
   "pointer-events-auto",
   "flex gap-1",
-  "bg-white shadow-lg rounded-md border border-neutral-200 p-1",
+  "bg-card shadow-lg rounded-md border border-border p-1",
 ];
 
 const MENU_BUTTON_CLASSES = [
   "px-2 py-1 text-xs rounded-xs",
-  "hover:bg-neutral-100 transition-colors",
+  "hover:bg-accent transition-colors",
 ];
 
 export function SelectionMenu({
@@ -141,7 +141,7 @@ function SelectionHighlight({
             top: rect.top,
             width: rect.width,
             height: rect.height,
-            backgroundColor: "rgba(59, 130, 246, 0.3)",
+            backgroundColor: "var(--selection-overlay)",
             pointerEvents: "none",
             zIndex: 40,
           }}

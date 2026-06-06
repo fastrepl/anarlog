@@ -75,12 +75,12 @@ export function ResourceView({ resource }: { resource: TaskResource }) {
   return (
     <div className="w-full max-w-3xl px-6 py-6">
       {isLoading ? (
-        <div className="flex items-center justify-center py-12 text-neutral-400">
+        <div className="text-muted-foreground flex items-center justify-center py-12">
           Loading...
         </div>
       ) : null}
       {error ? (
-        <div className="flex items-center justify-center py-12 text-neutral-400">
+        <div className="text-muted-foreground flex items-center justify-center py-12">
           Failed to load {isPR ? "pull request" : "issue"}
         </div>
       ) : null}
@@ -88,22 +88,22 @@ export function ResourceView({ resource }: { resource: TaskResource }) {
         <>
           <div className="mb-4">
             <div className="flex items-start justify-between gap-3">
-              <h1 className="text-xl leading-snug font-semibold text-neutral-900">
+              <h1 className="text-foreground text-xl leading-snug font-semibold">
                 {issue.title}
-                <span className="ml-2 font-normal text-neutral-400">
+                <span className="text-muted-foreground ml-2 font-normal">
                   #{issue.number}
                 </span>
               </h1>
               <button
                 type="button"
-                className="shrink-0 rounded-md p-1.5 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-600"
+                className="text-muted-foreground hover:bg-accent hover:text-muted-foreground shrink-0 rounded-md p-1.5 transition-colors"
                 onClick={() => openerCommands.openUrl(url, null)}
                 title="Open on GitHub"
               >
                 <ExternalLinkIcon className="size-4" />
               </button>
             </div>
-            <div className="mt-2 flex items-center gap-2 text-sm text-neutral-500">
+            <div className="text-muted-foreground mt-2 flex items-center gap-2 text-sm">
               <StateBadge isPR={isPR} isMerged={isMerged} isClosed={isClosed} />
               <span>
                 {issue.user?.login} opened on{" "}
@@ -145,8 +145,10 @@ export function ResourceView({ resource }: { resource: TaskResource }) {
           ) : null}
 
           {issue.assignees && issue.assignees.length > 0 ? (
-            <div className="mb-4 flex items-center gap-2 text-sm text-neutral-500">
-              <span className="font-medium text-neutral-600">Assignees:</span>
+            <div className="text-muted-foreground mb-4 flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground font-medium">
+                Assignees:
+              </span>
               {issue.assignees.map((assignee) => (
                 <span key={assignee.id} className="flex items-center gap-1">
                   {assignee.avatar_url ? (
@@ -163,9 +165,9 @@ export function ResourceView({ resource }: { resource: TaskResource }) {
           ) : null}
 
           {issue.body ? (
-            <div className="border-t border-neutral-200 pt-4">
+            <div className="border-border border-t pt-4">
               <Streamdown
-                className="mt-1 text-sm text-neutral-700"
+                className="text-muted-foreground mt-1 text-sm"
                 components={streamdownComponents}
                 isAnimating={false}
                 rehypePlugins={rehypePlugins}
@@ -174,14 +176,14 @@ export function ResourceView({ resource }: { resource: TaskResource }) {
               </Streamdown>
             </div>
           ) : (
-            <div className="border-t border-neutral-200 pt-4 text-sm text-neutral-400 italic">
+            <div className="border-border text-muted-foreground border-t pt-4 text-sm italic">
               No description provided.
             </div>
           )}
 
           {comments && comments.length > 0 ? (
-            <div className="mt-6 border-t border-neutral-200 pt-4">
-              <div className="mb-4 flex items-center gap-2 text-sm font-medium text-neutral-600">
+            <div className="border-border mt-6 border-t pt-4">
+              <div className="text-muted-foreground mb-4 flex items-center gap-2 text-sm font-medium">
                 <MessageSquareIcon className="size-4" />
                 <span>
                   {comments.length}{" "}
@@ -192,9 +194,9 @@ export function ResourceView({ resource }: { resource: TaskResource }) {
                 {comments.map((comment) => (
                   <div
                     key={comment.id}
-                    className="rounded-lg border border-neutral-200 bg-neutral-50/50"
+                    className="border-border bg-muted/50 rounded-lg border"
                   >
-                    <div className="flex items-center gap-2 border-b border-neutral-200 px-4 py-2.5 text-sm">
+                    <div className="border-border flex items-center gap-2 border-b px-4 py-2.5 text-sm">
                       {comment.user?.avatar_url ? (
                         <img
                           src={comment.user.avatar_url}
@@ -202,10 +204,10 @@ export function ResourceView({ resource }: { resource: TaskResource }) {
                           className="size-5 rounded-full"
                         />
                       ) : null}
-                      <span className="font-medium text-neutral-700">
+                      <span className="text-muted-foreground font-medium">
                         {comment.user?.login}
                       </span>
-                      <span className="text-neutral-400">
+                      <span className="text-muted-foreground">
                         commented on{" "}
                         {new Date(comment.created_at).toLocaleDateString(
                           "en-US",
@@ -220,7 +222,7 @@ export function ResourceView({ resource }: { resource: TaskResource }) {
                     <div className="px-4 py-3">
                       {comment.body ? (
                         <Streamdown
-                          className="mt-1 text-sm text-neutral-700"
+                          className="text-muted-foreground mt-1 text-sm"
                           components={streamdownComponents}
                           isAnimating={false}
                           rehypePlugins={rehypePlugins}
@@ -228,7 +230,7 @@ export function ResourceView({ resource }: { resource: TaskResource }) {
                           {comment.body}
                         </Streamdown>
                       ) : (
-                        <span className="text-sm text-neutral-400 italic">
+                        <span className="text-muted-foreground text-sm italic">
                           No content.
                         </span>
                       )}

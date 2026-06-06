@@ -120,7 +120,7 @@ describe("ChatMessageInput", () => {
     );
 
     expect(screen.getByTestId("chat-editor").className).toContain(
-      "text-neutral-900",
+      "text-foreground",
     );
   });
 

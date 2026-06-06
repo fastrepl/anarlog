@@ -298,6 +298,7 @@ export const generalSchema = z.object({
   on_device_transcription_mode: z.string().default("realtime"),
   timezone: z.string().optional(),
   week_start: z.string().optional(),
+  theme: z.enum(["light", "dark", "system"]).default("system"),
 });
 
 export const aiProviderSchema = z

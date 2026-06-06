@@ -92,8 +92,8 @@ function GlobalLiveTranscriptAccessoryContent({
         }))
       }
       label="Live"
-      collapsedClassName="bg-neutral-50"
-      expandedClassName="bg-neutral-50"
+      collapsedClassName="bg-muted"
+      expandedClassName="bg-muted"
     />
   ) : null;
 

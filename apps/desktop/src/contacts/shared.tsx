@@ -1,6 +1,6 @@
-import { stringHash } from "facehash";
+import { Facehash, stringHash } from "facehash";
 import { ArrowDownUp, Plus, Search, X } from "lucide-react";
-import type { KeyboardEvent, RefObject } from "react";
+import type { ComponentProps, KeyboardEvent, RefObject } from "react";
 
 import { Button } from "@hypr/ui/components/ui/button";
 import {
@@ -11,25 +11,46 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@hypr/ui/components/ui/dropdown-menu";
+import { cn } from "@hypr/utils";
 
 import { CustomSidebarHeader } from "~/sidebar/custom-sidebar-header";
 
 const COLOR_PALETTES = [
-  "bg-amber-50",
-  "bg-rose-50",
-  "bg-violet-50",
-  "bg-blue-50",
-  "bg-teal-50",
-  "bg-green-50",
-  "bg-cyan-50",
-  "bg-fuchsia-50",
-  "bg-indigo-50",
-  "bg-yellow-50",
-];
+  "bg-amber-50 dark:bg-amber-950",
+  "bg-rose-50 dark:bg-rose-950",
+  "bg-violet-50 dark:bg-violet-950",
+  "bg-blue-50 dark:bg-blue-950",
+  "bg-teal-50 dark:bg-teal-950",
+  "bg-green-50 dark:bg-green-950",
+  "bg-cyan-50 dark:bg-cyan-950",
+  "bg-fuchsia-50 dark:bg-fuchsia-950",
+  "bg-indigo-50 dark:bg-indigo-950",
+  "bg-yellow-50 dark:bg-yellow-950",
+] as const;
+
+export const CONTACT_FACEHASH_CLASS = "text-foreground";
 
 export function getContactBgClass(name: string) {
   const hash = stringHash(name);
   return COLOR_PALETTES[hash % COLOR_PALETTES.length];
+}
+
+export function ContactFacehash({
+  name,
+  className,
+  colorClasses,
+  ...props
+}: ComponentProps<typeof Facehash>) {
+  const bgClass = colorClasses?.[0] ?? getContactBgClass(name);
+
+  return (
+    <Facehash
+      name={name}
+      className={cn([CONTACT_FACEHASH_CLASS, className])}
+      colorClasses={colorClasses ?? [bgClass]}
+      {...props}
+    />
+  );
 }
 
 export type SortOption =
@@ -131,8 +152,8 @@ export function ColumnHeader({
       </CustomSidebarHeader>
       {onSearchChange && (
         <div className="pb-2">
-          <div className="flex h-8 w-full items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-200/50 px-3 transition-colors focus-within:bg-neutral-200">
-            <Search className="h-4 w-4 shrink-0 text-neutral-400" />
+          <div className="border-border bg-muted focus-within:bg-accent flex h-8 w-full items-center gap-2 rounded-lg border px-3 transition-colors">
+            <Search className="text-muted-foreground h-4 w-4 shrink-0" />
             <input
               ref={searchInputRef}
               type="text"
@@ -140,12 +161,12 @@ export function ColumnHeader({
               onChange={(e) => onSearchChange(e.target.value)}
               onKeyDown={handleSearchKeyDown}
               placeholder="Search contacts..."
-              className="min-w-0 flex-1 bg-transparent text-sm placeholder:text-sm placeholder:text-neutral-400 focus:outline-hidden"
+              className="placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent text-sm placeholder:text-sm focus:outline-hidden"
             />
             {searchValue && (
               <button
                 onClick={() => onSearchChange("")}
-                className="h-4 w-4 shrink-0 text-neutral-400 transition-colors hover:text-neutral-600"
+                className="text-muted-foreground hover:text-foreground h-4 w-4 shrink-0 transition-colors"
                 aria-label="Clear search"
               >
                 <X className="h-4 w-4" />

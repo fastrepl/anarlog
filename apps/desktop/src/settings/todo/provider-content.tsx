@@ -67,7 +67,7 @@ function OAuthTodoProviderContent({ config }: { config: TodoProvider }) {
           <TooltipTrigger asChild>
             <span
               tabIndex={0}
-              className="cursor-not-allowed text-xs text-neutral-400 opacity-50"
+              className="text-muted-foreground cursor-not-allowed text-xs opacity-50"
             >
               Connect {config.displayName}
             </span>
@@ -86,7 +86,7 @@ function OAuthTodoProviderContent({ config }: { config: TodoProvider }) {
         <button
           type="button"
           onClick={upgradeToPro}
-          className="cursor-pointer text-xs text-neutral-600 underline transition-colors hover:text-neutral-900"
+          className="text-muted-foreground hover:text-foreground cursor-pointer text-xs underline transition-colors"
         >
           Upgrade to connect
         </button>
@@ -110,7 +110,7 @@ function OAuthTodoProviderContent({ config }: { config: TodoProvider }) {
         <button
           type="button"
           onClick={handleConnect}
-          className="cursor-pointer text-xs text-neutral-600 underline transition-colors hover:text-neutral-900"
+          className="text-muted-foreground hover:text-foreground cursor-pointer text-xs underline transition-colors"
         >
           Connect {config.displayName}
         </button>
@@ -175,7 +175,7 @@ function ConnectionActions({
         >
           Reconnect required
         </button>
-        <span className="text-xs text-neutral-400">or</span>
+        <span className="text-muted-foreground text-xs">or</span>
         <button
           type="button"
           onClick={() =>
@@ -206,7 +206,7 @@ function ConnectionActions({
             "todo",
           )
         }
-        className="cursor-pointer text-xs text-neutral-500 underline transition-colors hover:text-neutral-700"
+        className="text-muted-foreground hover:text-muted-foreground cursor-pointer text-xs underline transition-colors"
       >
         Disconnect
       </button>

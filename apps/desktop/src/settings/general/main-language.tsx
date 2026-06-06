@@ -49,7 +49,7 @@ export function MainLanguageView({
         <h3 className="mb-1 text-sm font-medium">
           <Trans>Main language</Trans>
         </h3>
-        <p className="text-xs text-neutral-600">
+        <p className="text-muted-foreground text-xs">
           <Trans>
             Language for summaries, chats, and AI-generated responses
           </Trans>

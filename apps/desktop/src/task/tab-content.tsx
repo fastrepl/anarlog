@@ -76,7 +76,7 @@ export function TabContentTask({ tab }: { tab: TaskTab }) {
                 <div key={key}>
                   {index > 0 ? (
                     <div className="max-w-3xl px-6">
-                      <div className="border-t-2 border-neutral-200" />
+                      <div className="border-border border-t-2" />
                     </div>
                   ) : null}
                   <div ref={(element) => registerRef(key, element)}>
@@ -123,8 +123,8 @@ function ResourceNav({
               className={cn([
                 "w-full rounded-md px-2 py-1.5 text-left text-xs transition-colors",
                 isActive
-                  ? "font-medium text-neutral-900"
-                  : "text-neutral-500 hover:text-neutral-700",
+                  ? "text-foreground font-medium"
+                  : "text-muted-foreground hover:text-muted-foreground",
               ])}
             >
               <span className="line-clamp-2">

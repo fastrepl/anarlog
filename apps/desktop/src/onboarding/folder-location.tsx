@@ -111,25 +111,25 @@ export function FolderLocationSection({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-3 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3">
-        <FolderIcon className="size-4 shrink-0 text-neutral-500" />
+      <div className="border-border bg-muted flex items-center gap-3 rounded-lg border px-4 py-3">
+        <FolderIcon className="text-muted-foreground size-4 shrink-0" />
         <button
           onClick={handleOpenPath}
-          className="min-w-0 flex-1 truncate text-left text-sm text-neutral-600 hover:underline"
+          className="text-muted-foreground min-w-0 flex-1 truncate text-left text-sm hover:underline"
         >
           {displayPath(vaultBase, home)}
         </button>
         <button
           onClick={handleChange}
           disabled={isPending}
-          className="shrink-0 text-sm text-neutral-500 transition-colors hover:text-neutral-700 disabled:opacity-50"
+          className="text-muted-foreground hover:text-muted-foreground shrink-0 text-sm transition-colors disabled:opacity-50"
         >
           Change
         </button>
         <button
           onClick={onContinue}
           disabled={isPending}
-          className="shrink-0 rounded-full bg-stone-600 px-3 py-1 text-sm font-medium text-white duration-150 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
+          className="bg-primary text-primary-foreground hover:bg-primary/90 shrink-0 rounded-full px-3 py-1 text-sm font-medium duration-150 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
         >
           Confirm
         </button>

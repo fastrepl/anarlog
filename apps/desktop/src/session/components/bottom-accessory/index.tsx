@@ -152,8 +152,8 @@ export function useSessionBottomAccessory({
           isExpanded={effectiveExpanded}
           onToggle={() => setIsExpanded((v) => !v)}
           label="Live"
-          collapsedClassName="bg-neutral-50"
-          expandedClassName="bg-neutral-50"
+          collapsedClassName="bg-muted"
+          expandedClassName="bg-muted"
         />
       ) : null,
       bottomAccessoryState,
@@ -187,7 +187,7 @@ export function useSessionBottomAccessory({
           onToggle={() => setIsExpanded((v) => !v)}
           label="Transcript"
           showExpandedCloseIcon
-          collapsedClassName="bg-neutral-50"
+          collapsedClassName="bg-muted"
         />
       ),
       bottomAccessoryState,
@@ -254,13 +254,13 @@ function PostSessionTabButton({
       type="button"
       onClick={() => onSelect(tab)}
       className={cn([
-        "relative flex h-5 items-center justify-center gap-1 border-t border-neutral-200 px-3",
+        "border-border relative flex h-5 items-center justify-center gap-1 border-t px-3",
         "after:pointer-events-none after:absolute after:right-px after:-bottom-px after:left-px after:h-0.5 after:bg-inherit after:content-['']",
         "text-[10px] font-medium transition-colors",
         isActive && isExpanded
-          ? "bg-neutral-50 text-neutral-600"
-          : "bg-white text-neutral-400",
-        "hover:cursor-pointer hover:bg-neutral-100 hover:text-neutral-600",
+          ? "bg-muted text-muted-foreground"
+          : "bg-card text-muted-foreground",
+        "hover:bg-accent hover:text-muted-foreground hover:cursor-pointer",
         className,
       ])}
       aria-label={

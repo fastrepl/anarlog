@@ -63,7 +63,7 @@ export class EditorErrorBoundary extends Component<
       return (
         <div
           role="alert"
-          className="flex items-center justify-between gap-3 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-600"
+          className="border-border bg-muted text-muted-foreground flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm"
         >
           <span>
             The editor failed to render. Your recording is still running.
@@ -71,7 +71,7 @@ export class EditorErrorBoundary extends Component<
           <button
             type="button"
             onClick={this.retry}
-            className="shrink-0 rounded-md border border-neutral-200 bg-white px-2 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-100"
+            className="border-border bg-card text-muted-foreground hover:bg-accent shrink-0 rounded-md border px-2 py-1 text-xs font-medium"
           >
             Reload editor
           </button>

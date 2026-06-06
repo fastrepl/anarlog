@@ -23,7 +23,7 @@ export function SegmentHeader({
   const label = useSpeakerLabel(segment.key, speakerLabelManager);
   const timestamp = getTimestampRange(segment);
   const headerClassName = cn([
-    "sticky top-0 z-20 bg-neutral-50",
+    "bg-muted sticky top-0 z-20",
     "-mx-3 px-3 py-1",
     "text-xs font-light",
     "flex items-center justify-between",
@@ -37,7 +37,7 @@ export function SegmentHeader({
         color={color}
         label={label}
       />
-      <span className="font-mono text-neutral-500">{timestamp}</span>
+      <span className="text-muted-foreground font-mono">{timestamp}</span>
     </div>
   );
 }

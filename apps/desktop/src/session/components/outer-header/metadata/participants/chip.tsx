@@ -106,7 +106,7 @@ function EnhanceContactButton({
           variant="ghost"
           size="sm"
           aria-label={`Enhance contact ${label}`}
-          className="ml-0.5 h-3.5 w-3.5 p-0 text-neutral-500 hover:bg-transparent hover:text-neutral-800"
+          className="text-muted-foreground hover:text-foreground ml-0.5 h-3.5 w-3.5 p-0 hover:bg-transparent"
           disabled={isDisabled}
           onClick={(e) => {
             e.stopPropagation();

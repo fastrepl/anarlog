@@ -187,4 +187,5 @@ export const valueSchemaForTinybase = {
   current_stt_provider: { type: "string" },
   current_stt_model: { type: "string" },
   on_device_transcription_mode: { type: "string" },
+  theme: { type: "string" },
 } as const satisfies InferTinyBaseSchema<typeof generalSchema>;

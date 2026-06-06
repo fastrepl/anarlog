@@ -142,7 +142,7 @@ function PastNotesPanel({
   return (
     <TranscriptCard fillHeight={fillHeight}>
       <div className="flex shrink-0 items-center justify-between px-3 py-1.5">
-        <span className="text-xs font-medium text-neutral-500">
+        <span className="text-muted-foreground text-xs font-medium">
           Related meetings
         </span>
       </div>
@@ -154,20 +154,20 @@ function PastNotesPanel({
         ])}
       >
         <div className="relative flex flex-col gap-4 pt-2">
-          <div className="absolute top-2 bottom-0 left-[3px] w-px bg-neutral-200" />
+          <div className="bg-accent absolute top-2 bottom-0 left-[3px] w-px" />
           {notes.map((note) => (
             <div
               key={note.sessionId}
               className="relative grid min-w-0 grid-cols-1 overflow-hidden pl-5"
             >
-              <div className="absolute top-1.5 left-0 h-2 w-2 rounded-full border border-neutral-300 bg-white" />
+              <div className="border-border bg-card absolute top-1.5 left-0 h-2 w-2 rounded-full border" />
               <div className="flex min-w-0 flex-col gap-1 overflow-hidden">
                 <div className="flex min-w-0 items-center justify-between gap-2">
                   <div className="flex min-w-0 items-baseline gap-2">
-                    <span className="shrink-0 text-[11px] text-neutral-400">
+                    <span className="text-muted-foreground shrink-0 text-[11px]">
                       {note.dateLabel}
                     </span>
-                    <span className="min-w-0 truncate text-xs font-medium text-neutral-700">
+                    <span className="text-muted-foreground min-w-0 truncate text-xs font-medium">
                       {note.title}
                     </span>
                   </div>
@@ -182,7 +182,7 @@ function PastNotesPanel({
                   ) : null}
                 </div>
                 {note.summary ? (
-                  <ul className="min-w-0 list-outside list-disc space-y-1 overflow-hidden pr-1 pl-4 text-xs leading-5 text-neutral-500">
+                  <ul className="text-muted-foreground min-w-0 list-outside list-disc space-y-1 overflow-hidden pr-1 pl-4 text-xs leading-5">
                     {splitKeyFacts(note.summary).map((fact) => (
                       <li key={fact} className="min-w-0 break-words">
                         <span className="line-clamp-2">{fact}</span>
@@ -190,7 +190,7 @@ function PastNotesPanel({
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-xs leading-5 text-neutral-400">
+                  <p className="text-muted-foreground text-xs leading-5">
                     {note.isGenerating
                       ? "Generating key facts..."
                       : "Key facts will be generated when this tab opens."}
@@ -238,9 +238,9 @@ function RegeneratePastNoteButton({
           disabled={isDisabled}
           onClick={onClick}
           className={cn([
-            "h-5 w-5 shrink-0 text-neutral-400",
-            "hover:bg-neutral-200/60 hover:text-neutral-700",
-            "disabled:cursor-not-allowed disabled:text-neutral-300",
+            "text-muted-foreground h-5 w-5 shrink-0",
+            "hover:bg-accent/60 hover:text-muted-foreground",
+            "disabled:text-muted-foreground/70 disabled:cursor-not-allowed",
           ])}
         >
           {isGenerating ? (
@@ -360,13 +360,15 @@ function BatchingTranscriptPanel({
   return (
     <TranscriptCard fillHeight={fillHeight}>
       <div className="flex shrink-0 items-center justify-between px-3 py-1.5">
-        <span className="text-xs font-medium text-neutral-500">Transcript</span>
+        <span className="text-muted-foreground text-xs font-medium">
+          Transcript
+        </span>
         <div className="flex items-center gap-1 px-1 py-0.5">
           <Spinner size={10} />
-          <span className="text-[11px] text-neutral-500">
+          <span className="text-muted-foreground text-[11px]">
             {phaseLabel}
             {typeof percentage === "number" && percentage > 0 && (
-              <span className="ml-1 text-neutral-400 tabular-nums">
+              <span className="text-muted-foreground ml-1 tabular-nums">
                 {Math.round(percentage * 100)}%
               </span>
             )}
@@ -418,14 +420,14 @@ function BatchTranscriptSkeleton({ fillHeight }: { fillHeight: boolean }) {
             <div className="flex w-[72px] shrink-0 flex-col gap-3 pt-0.5">
               <div
                 className={cn([
-                  "h-2.5 rounded-full bg-neutral-200/80",
+                  "bg-accent/80 h-2.5 rounded-full",
                   "animate-pulse",
                   row.speaker,
                 ])}
               />
               <div
                 className={cn([
-                  "h-1.5 rounded-full bg-neutral-100",
+                  "bg-muted h-1.5 rounded-full",
                   "animate-pulse",
                   row.time,
                 ])}
@@ -436,7 +438,7 @@ function BatchTranscriptSkeleton({ fillHeight }: { fillHeight: boolean }) {
                 <div
                   key={lineIndex}
                   className={cn([
-                    "h-2.5 rounded-full bg-neutral-100",
+                    "bg-muted h-2.5 rounded-full",
                     "animate-pulse",
                     lineWidth,
                   ])}
@@ -479,7 +481,7 @@ function BatchProgressTimeline({
         <div
           className={cn([
             "flex h-7 w-7 items-center justify-center rounded-full",
-            "border border-neutral-200 bg-white shadow-xs",
+            "border-border bg-card border shadow-xs",
             "shrink-0",
           ])}
         >
@@ -496,13 +498,13 @@ function BatchProgressTimeline({
       }
       main={
         <div className="flex h-6 items-center">
-          <div className="relative h-2 w-full overflow-hidden rounded-full bg-neutral-200/80">
+          <div className="bg-accent/80 relative h-2 w-full overflow-hidden rounded-full">
             <div
-              className="absolute inset-y-0 left-0 rounded-full bg-neutral-400 transition-[width] duration-300 ease-out"
+              className="bg-muted-foreground absolute inset-y-0 left-0 rounded-full transition-[width] duration-300 ease-out"
               style={{ width: `${Math.max(progress * 100, 8)}%` }}
             />
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="px-2 text-[10px] font-medium tracking-[0.02em] text-neutral-500">
+              <span className="text-muted-foreground px-2 text-[10px] font-medium tracking-[0.02em]">
                 {phaseLabel}
               </span>
             </div>
@@ -528,7 +530,7 @@ function StopTranscriptionButton({
           variant="ghost"
           size="icon"
           className={cn([
-            "text-neutral-500 hover:text-neutral-700",
+            "text-muted-foreground hover:text-muted-foreground",
             compact ? "h-5 w-5" : "h-6 w-6",
           ])}
           onClick={onClick}
@@ -584,7 +586,7 @@ function TranscriptReadyPanel({
                 disabled
                 className={cn([
                   "flex items-center gap-1 rounded-full px-1.5 py-0.5",
-                  "text-[11px] font-medium text-neutral-300",
+                  "text-muted-foreground/70 text-[11px] font-medium",
                   "cursor-not-allowed",
                 ])}
               >
@@ -603,10 +605,10 @@ function TranscriptReadyPanel({
             aria-label="Copy transcript"
             className={cn([
               "flex items-center gap-1 rounded-full px-1.5 py-0.5",
-              "text-[11px] font-medium text-neutral-500",
-              "transition-colors hover:bg-neutral-200/60 hover:text-neutral-700",
-              "disabled:cursor-not-allowed disabled:text-neutral-300",
-              "disabled:hover:bg-transparent disabled:hover:text-neutral-300",
+              "text-muted-foreground text-[11px] font-medium",
+              "hover:bg-accent/60 hover:text-muted-foreground transition-colors",
+              "disabled:text-muted-foreground/70 disabled:cursor-not-allowed",
+              "disabled:hover:text-muted-foreground/70 disabled:hover:bg-transparent",
             ])}
           >
             <CopyIcon size={10} />
@@ -617,8 +619,8 @@ function TranscriptReadyPanel({
             onClick={regenerate}
             className={cn([
               "flex items-center gap-1 rounded-full px-1.5 py-0.5",
-              "text-[11px] font-medium text-neutral-500",
-              "transition-colors hover:bg-neutral-200/60 hover:text-neutral-700",
+              "text-muted-foreground text-[11px] font-medium",
+              "hover:bg-accent/60 hover:text-muted-foreground transition-colors",
             ])}
           >
             <RefreshCw size={10} />
@@ -697,7 +699,9 @@ function TranscriptEmptyPanel({
         {error ? (
           <span className="text-xs text-red-500">{error}</span>
         ) : (
-          <span className="text-xs text-neutral-400">No transcript yet</span>
+          <span className="text-muted-foreground text-xs">
+            No transcript yet
+          </span>
         )}
 
         <div className="flex items-center gap-1.5">
@@ -705,7 +709,7 @@ function TranscriptEmptyPanel({
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 gap-1.5 text-xs text-neutral-500"
+              className="text-muted-foreground h-7 gap-1.5 text-xs"
               onClick={regenerate}
             >
               <RefreshCw size={12} />
@@ -750,7 +754,7 @@ function TranscriptCard({
     <div
       data-session-transcript-card
       className={cn([
-        "overflow-hidden rounded-b-xl border border-neutral-200 bg-white",
+        "border-border bg-card overflow-hidden rounded-b-xl border",
         fillHeight && "flex h-full flex-col",
         fillHeight && reserveMinHeight && "min-h-[114px]",
         !fillHeight && reserveMinHeight && "min-h-[96px]",

@@ -190,7 +190,7 @@ export function OpenNoteDialog({
       >
         <div
           className={cn([
-            "rounded-xl border border-neutral-200/80 bg-[#faf8f5]",
+            "border-border/80 bg-background rounded-xl border",
             "shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)]",
             "overflow-hidden",
           ])}
@@ -205,8 +205,8 @@ export function OpenNoteDialog({
               }
             }}
           >
-            <div className="flex items-center gap-3 border-b border-neutral-200/60 px-4 py-3">
-              <SearchIcon className="h-4 w-4 shrink-0 text-neutral-400" />
+            <div className="border-border/60 flex items-center gap-3 border-b px-4 py-3">
+              <SearchIcon className="text-muted-foreground h-4 w-4 shrink-0" />
               <CommandPrimitive.Input
                 ref={focusInput}
                 value={query}
@@ -214,7 +214,7 @@ export function OpenNoteDialog({
                 placeholder="Find a note..."
                 className={cn([
                   "flex-1 bg-transparent text-sm",
-                  "outline-hidden placeholder:text-neutral-400",
+                  "placeholder:text-muted-foreground outline-hidden",
                 ])}
               />
               <button
@@ -222,8 +222,8 @@ export function OpenNoteDialog({
                 className={cn([
                   "h-5 w-5 rounded-full",
                   "flex items-center justify-center",
-                  "bg-neutral-200/80 hover:bg-neutral-300/80",
-                  "text-xs text-neutral-500",
+                  "bg-accent/80 hover:bg-accent/80",
+                  "text-muted-foreground text-xs",
                   "transition-colors",
                 ])}
               >
@@ -233,7 +233,7 @@ export function OpenNoteDialog({
 
             <CommandPrimitive.List className="max-h-80 overflow-y-auto p-2">
               {!hasAnyResults ? (
-                <CommandPrimitive.Empty className="py-6 text-center text-sm text-neutral-500">
+                <CommandPrimitive.Empty className="text-muted-foreground py-6 text-center text-sm">
                   No notes found.
                 </CommandPrimitive.Empty>
               ) : (
@@ -244,7 +244,7 @@ export function OpenNoteDialog({
                         filteredOtherSessions.length > 0 ? "pb-1.5" : ""
                       }
                       heading={
-                        <div className="px-2 py-1.5 text-xs font-medium tracking-wider text-neutral-500 uppercase">
+                        <div className="text-muted-foreground px-2 py-1.5 text-xs font-medium tracking-wider uppercase">
                           Recent
                         </div>
                       }
@@ -256,12 +256,12 @@ export function OpenNoteDialog({
                           onSelect={() => handleSelect(session.id)}
                           className={cn([
                             "flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5",
-                            "text-sm text-neutral-700",
-                            "data-[selected=true]:bg-neutral-200/60",
+                            "text-muted-foreground text-sm",
+                            "data-[selected=true]:bg-accent/60",
                             "transition-colors",
                           ])}
                         >
-                          <FileTextIcon className="h-4 w-4 shrink-0 text-neutral-400" />
+                          <FileTextIcon className="text-muted-foreground h-4 w-4 shrink-0" />
                           <span className="truncate">{session.title}</span>
                         </CommandPrimitive.Item>
                       ))}
@@ -273,9 +273,9 @@ export function OpenNoteDialog({
                       heading={
                         <div className="flex flex-col gap-3">
                           {filteredRecentSessions.length > 0 && (
-                            <div className="mx-2 h-px bg-neutral-200" />
+                            <div className="bg-accent mx-2 h-px" />
                           )}
-                          <div className="px-2 py-1.5 text-xs font-medium tracking-wider text-neutral-500 uppercase">
+                          <div className="text-muted-foreground px-2 py-1.5 text-xs font-medium tracking-wider uppercase">
                             All Notes
                           </div>
                         </div>
@@ -288,12 +288,12 @@ export function OpenNoteDialog({
                           onSelect={() => handleSelect(session.id)}
                           className={cn([
                             "flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5",
-                            "text-sm text-neutral-700",
-                            "data-[selected=true]:bg-neutral-200/60",
+                            "text-muted-foreground text-sm",
+                            "data-[selected=true]:bg-accent/60",
                             "transition-colors",
                           ])}
                         >
-                          <FileTextIcon className="h-4 w-4 shrink-0 text-neutral-400" />
+                          <FileTextIcon className="text-muted-foreground h-4 w-4 shrink-0" />
                           <span className="truncate">{session.title}</span>
                         </CommandPrimitive.Item>
                       ))}
@@ -306,8 +306,8 @@ export function OpenNoteDialog({
             <div
               className={cn([
                 "flex items-center justify-center gap-4 px-4 py-2.5",
-                "border-t border-neutral-200/60",
-                "text-xs text-neutral-400",
+                "border-border/60 border-t",
+                "text-muted-foreground text-xs",
               ])}
             >
               <span className="flex items-center gap-1.5">

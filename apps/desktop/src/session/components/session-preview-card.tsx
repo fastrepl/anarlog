@@ -49,7 +49,7 @@ const previewCardComponents: typeof streamdownComponents = {
         {...props}
         title={title}
         className={cn([
-          "block max-h-32 w-full rounded-md bg-white object-contain",
+          "bg-card block max-h-32 w-full rounded-md object-contain",
           props.className,
         ])}
         style={{
@@ -277,10 +277,10 @@ function ParticipantsList({ mappingIds }: { mappingIds: string[] }) {
   const remaining = names.length - visible.length;
 
   return (
-    <div className="line-clamp-2 text-xs text-neutral-500">
+    <div className="text-muted-foreground line-clamp-2 text-xs">
       {visible.join(", ")}
       {remaining > 0 && (
-        <span className="text-neutral-500"> and {remaining} more</span>
+        <span className="text-muted-foreground"> and {remaining} more</span>
       )}
     </div>
   );
@@ -361,14 +361,14 @@ export function SessionPreviewCard({
       >
         <div className="flex flex-col gap-1">
           {dateDisplay && (
-            <div className="text-xs text-neutral-500">{dateDisplay}</div>
+            <div className="text-muted-foreground text-xs">{dateDisplay}</div>
           )}
 
           <div className="text-sm font-medium">{title || "Untitled"}</div>
           <ParticipantsList mappingIds={participantMappingIds} />
 
           {previewMarkdown || previewPlainText ? (
-            <div className="mt-1 flex max-h-32 flex-col overflow-hidden mask-[linear-gradient(to_bottom,black_60%,transparent)] text-neutral-600">
+            <div className="text-muted-foreground mt-1 flex max-h-32 flex-col overflow-hidden mask-[linear-gradient(to_bottom,black_60%,transparent)]">
               {previewHasImage && previewImage ? (
                 <img
                   src={previewImage.src}

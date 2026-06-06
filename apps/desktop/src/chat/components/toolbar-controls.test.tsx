@@ -77,10 +77,12 @@ describe("ChatToolbarControls", () => {
     });
 
     expect(newChatButton.className).toContain("rounded-full");
-    expect(newChatButton.className).toContain("hover:!bg-white/7");
+    expect(newChatButton.className).toContain("hover:!bg-primary-foreground/7");
     expect(newChatButton.getAttribute("title")).toBeNull();
     expect(rightPanelButton.className).toContain("rounded-full");
-    expect(rightPanelButton.className).toContain("hover:!bg-white/7");
+    expect(rightPanelButton.className).toContain(
+      "hover:!bg-primary-foreground/7",
+    );
     expect(rightPanelButton.getAttribute("title")).toBeNull();
   });
 

@@ -134,7 +134,7 @@ function OnboardingScreenContent({
   }, [onFinish, queryClient]);
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-white">
+    <div className="bg-card relative flex h-full min-h-0 flex-col overflow-hidden">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <motion.div
           className="absolute inset-0"
@@ -154,13 +154,13 @@ function OnboardingScreenContent({
           >
             <source src="/assets/onboarding-video.mp4" type="video/mp4" />
           </video>
-          <div className="absolute inset-0 bg-linear-to-t from-stone-50/8 via-stone-50/18 to-transparent" />
+          <div className="from-background/8 via-background/18 absolute inset-0 bg-linear-to-t to-transparent" />
         </motion.div>
         <div className="absolute inset-x-0 top-0 h-[80%] [mask-image:linear-gradient(to_bottom,black,black_18%,rgba(0,0,0,0.9)_36%,rgba(0,0,0,0.6)_58%,transparent)] backdrop-blur-[32px]" />
         <div className="absolute inset-x-0 top-0 h-[92%] [mask-image:linear-gradient(to_bottom,black,rgba(0,0,0,0.8)_34%,rgba(0,0,0,0.35)_62%,transparent)] backdrop-blur-[12px]" />
-        <div className="absolute inset-x-0 top-0 h-[84%] bg-linear-to-b from-stone-50 via-stone-50/82 via-stone-50/97 via-18% via-42% to-stone-50/0" />
+        <div className="from-background via-background/82 via-background/97 to-background/0 absolute inset-x-0 top-0 h-[84%] bg-linear-to-b via-18% via-42%" />
         <motion.div
-          className="absolute inset-0 bg-stone-50"
+          className="bg-background absolute inset-0"
           initial={{ opacity: 1 }}
           animate={{ opacity: 0 }}
           transition={{ duration: 1.0, ease: "easeOut", delay: 0.1 }}
@@ -174,13 +174,13 @@ function OnboardingScreenContent({
         <button
           onClick={() => setIsMuted((prev) => !prev)}
           data-tauri-drag-region="false"
-          className="rounded-full p-1.5 transition-colors hover:bg-neutral-100"
+          className="hover:bg-accent rounded-full p-1.5 transition-colors"
           aria-label={isMuted ? "Unmute" : "Mute"}
         >
           {isMuted ? (
-            <VolumeXIcon size={16} className="text-neutral-400" />
+            <VolumeXIcon size={16} className="text-muted-foreground" />
           ) : (
-            <Volume2Icon size={16} className="text-neutral-600" />
+            <Volume2Icon size={16} className="text-muted-foreground" />
           )}
         </button>
       </div>
@@ -192,7 +192,7 @@ function OnboardingScreenContent({
           headerClassName,
         ])}
       >
-        <h1 className="font-hand text-4xl leading-none font-semibold tracking-normal text-neutral-900">
+        <h1 className="font-hand text-foreground text-4xl leading-none font-semibold tracking-normal">
           Welcome to Anarlog
         </h1>
       </div>

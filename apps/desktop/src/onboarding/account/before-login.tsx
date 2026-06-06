@@ -22,7 +22,7 @@ export function BeforeLogin({ onContinue: _ }: { onContinue: () => void }) {
           onClick={() => {
             void auth?.signIn();
           }}
-          className="rounded-full border border-white/60 bg-white/55 px-6 py-2 text-sm font-medium text-neutral-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] backdrop-blur-sm transition-colors hover:bg-white/75 hover:text-neutral-800"
+          className="border-border/60 bg-card/55 text-muted-foreground hover:bg-card/75 hover:text-foreground rounded-full border px-6 py-2 text-sm font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] backdrop-blur-sm transition-colors"
         >
           Login with existing account
         </button>

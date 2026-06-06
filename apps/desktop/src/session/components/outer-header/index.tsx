@@ -212,7 +212,7 @@ function SidebarModeStopButton({ sessionId }: { sessionId: string }) {
       className={cn([
         "group inline-flex items-center justify-center rounded-full text-sm font-medium",
         finalizing
-          ? ["cursor-wait bg-neutral-100 text-neutral-500"]
+          ? ["bg-muted text-muted-foreground cursor-wait"]
           : [colors.button],
         "h-7 w-20",
         "disabled:pointer-events-none disabled:opacity-50",

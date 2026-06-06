@@ -108,7 +108,7 @@ export function FormatToolbar() {
     <div
       ref={toolbarRef}
       className={cn([
-        "absolute z-[9999] flex items-center gap-0.5 rounded-lg border border-neutral-200 bg-white/95 p-1",
+        "border-border bg-card/95 absolute z-[9999] flex items-center gap-0.5 rounded-lg border p-1",
         "shadow-[0_2px_8px_rgba(0,0,0,0.08),0_18px_42px_-16px_rgba(0,0,0,0.34)] backdrop-blur-sm",
       ])}
       style={{ top: 0, left: 0 }}
@@ -123,8 +123,8 @@ export function FormatToolbar() {
               "flex size-8 items-center justify-center rounded-md",
               "cursor-pointer border-none transition-colors",
               active
-                ? "bg-neutral-200 text-neutral-900"
-                : "bg-transparent text-neutral-600 hover:bg-neutral-100",
+                ? "bg-accent text-foreground"
+                : "text-muted-foreground hover:bg-accent bg-transparent",
             ])}
             onClick={() => toggle(button.markType)}
           >

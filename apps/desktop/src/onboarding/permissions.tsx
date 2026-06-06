@@ -51,8 +51,8 @@ function PermissionBlock({
       className={cn([
         "group flex min-w-0 flex-1 basis-0 items-center gap-3 rounded-xl px-3 py-3 text-left transition-all",
         isAuthorized
-          ? "border border-neutral-200 bg-white"
-          : "border border-stone-600 bg-stone-800 text-white shadow-[0_4px_14px_rgba(87,83,78,0.18)] hover:bg-stone-700 active:scale-[0.98]",
+          ? "border-border bg-card border"
+          : "border-primary bg-primary text-primary-foreground hover:bg-primary/90 border shadow-[0_4px_14px_rgba(87,83,78,0.18)] active:scale-[0.98]",
         (isPending || isAuthorized) && "cursor-default",
         isPending && "opacity-50",
       ])}
@@ -67,7 +67,7 @@ function PermissionBlock({
           "flex size-6 shrink-0 items-center justify-center rounded-md",
           isAuthorized
             ? "bg-green-50 text-green-600"
-            : "bg-white/10 text-white",
+            : "bg-primary-foreground/10 text-primary-foreground",
         ])}
       >
         {isAuthorized ? (
@@ -80,7 +80,7 @@ function PermissionBlock({
         <span
           className={cn([
             "text-sm font-medium",
-            isAuthorized ? "text-neutral-900" : "text-white",
+            isAuthorized ? "text-foreground" : "text-primary-foreground",
           ])}
         >
           {title}
@@ -88,14 +88,16 @@ function PermissionBlock({
         <p
           className={cn([
             "truncate text-xs @[480px]:block",
-            isAuthorized ? "text-neutral-500" : "text-white/70",
+            isAuthorized
+              ? "text-muted-foreground"
+              : "text-primary-foreground/70",
           ])}
         >
           {body}
         </p>
       </div>
       {!isAuthorized && (
-        <div className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-white/80">
+        <div className="text-primary-foreground/80 inline-flex shrink-0 items-center gap-1 text-xs font-medium">
           <span className="hidden @[480px]:inline">{ctaLabel}</span>
           <ArrowRightIcon className="size-3.5 transition-transform group-hover:translate-x-0.5" />
         </div>

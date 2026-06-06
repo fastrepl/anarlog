@@ -135,7 +135,7 @@ export function TranscriptViewer({
         className={cn([
           "absolute bottom-3 left-1/2 z-30 -translate-x-1/2",
           "rounded-full px-4 py-2",
-          "bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900",
+          "from-muted to-accent text-foreground bg-linear-to-t",
           "shadow-xs hover:scale-[102%] hover:shadow-md active:scale-[98%]",
           "text-xs font-light",
           "transition-opacity duration-150",

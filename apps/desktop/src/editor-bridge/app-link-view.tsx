@@ -75,11 +75,16 @@ function Checkbox({ checked }: { checked: boolean }) {
       className={cn([
         "flex size-5 shrink-0 items-center justify-center rounded-md border-2",
         checked
-          ? "border-neutral-400 bg-neutral-400"
-          : "border-neutral-300 bg-white",
+          ? "border-muted-foreground bg-muted-foreground"
+          : "border-border bg-card",
       ])}
     >
-      {checked && <CheckIcon className="size-3.5 text-white" strokeWidth={3} />}
+      {checked && (
+        <CheckIcon
+          className="text-primary-foreground size-3.5"
+          strokeWidth={3}
+        />
+      )}
     </span>
   );
 }
@@ -135,15 +140,15 @@ export const AppLinkView = forwardRef<HTMLSpanElement, NodeViewComponentProps>(
           }}
           className={cn([
             "inline-flex max-w-full items-center gap-2.5 rounded-lg px-2 py-1 text-left align-middle",
-            "transition-colors hover:bg-neutral-100",
+            "hover:bg-accent transition-colors",
           ])}
         >
           {showCheckbox ? (
             <Checkbox checked={checked} />
           ) : attrs.provider === "slack" ? (
-            <SlackIcon className="size-4 shrink-0 text-neutral-500" />
+            <SlackIcon className="text-muted-foreground size-4 shrink-0" />
           ) : attrs.provider === "discord" ? (
-            <DiscordIcon className="size-4 shrink-0 text-neutral-500" />
+            <DiscordIcon className="text-muted-foreground size-4 shrink-0" />
           ) : (
             <img
               src="/assets/github-icon.svg"
@@ -152,10 +157,10 @@ export const AppLinkView = forwardRef<HTMLSpanElement, NodeViewComponentProps>(
             />
           )}
           <span className="min-w-0">
-            <span className="block truncate text-sm font-medium text-neutral-800">
+            <span className="text-foreground block truncate text-sm font-medium">
               {header}
             </span>
-            <span className="block truncate text-xs text-neutral-500">
+            <span className="text-muted-foreground block truncate text-xs">
               {subline}
             </span>
           </span>

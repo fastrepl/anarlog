@@ -7,6 +7,18 @@
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
     />
     <title>Anarlog</title>
+    <script>
+      (function () {
+        var theme = localStorage.getItem("hypr-theme");
+        var prefersDark = window.matchMedia("(prefers-color-scheme: dark)")
+          .matches;
+        var isDark =
+          theme === "dark" || ((theme === "system" || !theme) && prefersDark);
+        if (isDark) {
+          document.documentElement.classList.add("dark");
+        }
+      })();
+    </script>
     <style>
       html, body, #root {
         background: transparent !important;

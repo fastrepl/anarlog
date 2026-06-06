@@ -374,7 +374,7 @@ function ContactsList({
           </div>
         )}
         {pinnedItems.length > 0 && nonPinnedItems.length > 0 && (
-          <div className="mx-3 my-1 h-px bg-neutral-200" />
+          <div className="bg-accent mx-3 my-1 h-px" />
         )}
         {nonPinnedItems.map((item) =>
           item.kind === "person" ? (

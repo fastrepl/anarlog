@@ -36,10 +36,10 @@ export function PlanFeatureList({
         const iconClassName = cn([
           dense ? "size-3.5" : "size-4.5",
           feature.included === true
-            ? "text-green-700"
+            ? "text-emerald-600 dark:text-emerald-400"
             : isPartial
-              ? "text-neutral-900"
-              : "text-red-500",
+              ? "text-foreground"
+              : "text-red-500 dark:text-red-400",
         ]);
         const featureContent = (
           <>
@@ -58,15 +58,15 @@ export function PlanFeatureList({
                   className={cn([
                     dense ? "text-xs" : "text-sm",
                     feature.included === false
-                      ? "text-neutral-700"
-                      : "text-neutral-900",
+                      ? "text-muted-foreground"
+                      : "text-foreground",
                   ])}
                 >
                   {feature.label}
                 </span>
               </div>
               {feature.tooltip && !dense && (
-                <div className="mt-0.5 text-xs text-neutral-500 italic">
+                <div className="text-muted-foreground mt-0.5 text-xs italic">
                   {feature.tooltip}
                 </div>
               )}
@@ -88,7 +88,7 @@ export function PlanFeatureList({
                 className={cn([
                   "flex w-full items-start border-0 bg-transparent p-0 text-left",
                   dense ? "gap-1.5" : "gap-3",
-                  "cursor-help rounded-sm focus-visible:ring-2 focus-visible:ring-stone-300 focus-visible:outline-none",
+                  "focus-visible:ring-ring cursor-help rounded-sm focus-visible:ring-2 focus-visible:outline-none",
                 ])}
                 aria-label={`${feature.label}: ${getPartialFeatureTooltip(feature)}`}
               >

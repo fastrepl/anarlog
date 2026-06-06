@@ -76,8 +76,7 @@ export function ChatToolbarControls({
           className={cn([
             isDark
               ? darkToolbarButtonClassName
-              : isRightPanel &&
-                "bg-neutral-100 text-neutral-900 hover:bg-neutral-100",
+              : isRightPanel && "bg-muted text-foreground hover:bg-accent",
             isRightPanel && "mr-1",
           ])}
         />
@@ -87,7 +86,7 @@ export function ChatToolbarControls({
 }
 
 const darkToolbarButtonClassName =
-  "size-8 bg-transparent text-stone-300 hover:!bg-white/7 hover:!text-white focus-visible:!bg-white/7 focus-visible:!text-white active:!bg-white/10";
+  "size-8 bg-transparent text-primary-foreground/60 hover:!bg-primary-foreground/7 hover:!text-primary-foreground focus-visible:!bg-primary-foreground/7 focus-visible:!text-primary-foreground active:!bg-primary-foreground/10";
 
 function ChatActionButton({
   className,
@@ -106,7 +105,7 @@ function ChatActionButton({
       onClick={onClick}
       size="icon"
       variant="ghost"
-      className={cn(["rounded-full text-neutral-600", className])}
+      className={cn(["text-muted-foreground rounded-full", className])}
     >
       {icon}
     </Button>
@@ -148,16 +147,16 @@ function ChatGroups({
           className={cn([
             "group flex h-8 max-w-full min-w-0 justify-start gap-1.5 px-2 py-0 text-left",
             isDark
-              ? "w-fit rounded-full text-stone-100 hover:bg-white/7 hover:text-white data-[state=open]:bg-white/7"
-              : "text-neutral-700",
+              ? "text-primary-foreground hover:bg-primary-foreground/7 hover:text-primary-foreground data-[state=open]:bg-primary-foreground/7 w-fit rounded-full"
+              : "text-muted-foreground",
           ])}
         >
           <h3
             className={cn([
               "max-w-64 min-w-0 truncate text-left font-medium",
               isDark
-                ? "text-[15px] text-stone-100"
-                : "text-xs text-neutral-700",
+                ? "text-primary-foreground text-[15px]"
+                : "text-muted-foreground text-xs",
             ])}
           >
             {currentChatTitle || "Ask Anarlog AI anything"}
@@ -165,7 +164,7 @@ function ChatGroups({
           <ChevronDown
             className={cn([
               "h-3.5 w-3.5 shrink-0 transition-transform duration-200",
-              isDark ? "text-stone-300" : "text-neutral-400",
+              isDark ? "text-primary-foreground/60" : "text-muted-foreground",
               isDropdownOpen && "rotate-180",
             ])}
           />
@@ -179,7 +178,7 @@ function ChatGroups({
       >
         <AppFloatingPanel className="flex flex-col gap-0.5 p-1.5">
           <div className="px-2 py-1.5">
-            <h4 className="text-[10px] font-semibold tracking-wider text-neutral-500 uppercase">
+            <h4 className="text-muted-foreground text-[10px] font-semibold tracking-wider uppercase">
               Recent Chats
             </h4>
           </div>
@@ -199,8 +198,8 @@ function ChatGroups({
             </div>
           ) : (
             <div className="px-3 py-6 text-center">
-              <MessageCircle className="mx-auto mb-1.5 h-6 w-6 text-neutral-300" />
-              <p className="text-xs text-neutral-400">No recent chats</p>
+              <MessageCircle className="text-muted-foreground/70 mx-auto mb-1.5 h-6 w-6" />
+              <p className="text-muted-foreground text-xs">No recent chats</p>
             </div>
           )}
         </AppFloatingPanel>
@@ -237,8 +236,8 @@ function ChatGroupItem({
       className={cn([
         "group h-auto w-full justify-start px-2.5 py-1.5",
         isActive
-          ? "bg-neutral-100 shadow-xs hover:bg-neutral-100"
-          : "hover:bg-neutral-50 active:bg-neutral-100",
+          ? "bg-muted hover:bg-accent shadow-xs"
+          : "hover:bg-accent active:bg-muted",
       ])}
     >
       <div className="flex w-full items-center gap-2.5">
@@ -247,8 +246,8 @@ function ChatGroupItem({
             className={cn([
               "h-3.5 w-3.5 transition-colors",
               isActive
-                ? "text-neutral-700"
-                : "text-neutral-400 group-hover:text-neutral-600",
+                ? "text-muted-foreground"
+                : "text-muted-foreground group-hover:text-muted-foreground",
             ])}
           />
         </div>
@@ -256,12 +255,12 @@ function ChatGroupItem({
           <div
             className={cn([
               "truncate text-sm font-medium",
-              isActive ? "text-neutral-900" : "text-neutral-700",
+              isActive ? "text-foreground" : "text-muted-foreground",
             ])}
           >
             {chatGroup.title}
           </div>
-          <div className="mt-0.5 text-[11px] text-neutral-500">
+          <div className="text-muted-foreground mt-0.5 text-[11px]">
             {formattedTime}
           </div>
         </div>

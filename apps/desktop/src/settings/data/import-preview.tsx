@@ -64,7 +64,7 @@ export function ImportPreview({
         </div>
         {hasData ? (
           <TooltipProvider delayDuration={100}>
-            <div className="flex flex-wrap items-center gap-3 text-xs text-neutral-600">
+            <div className="text-muted-foreground flex flex-wrap items-center gap-3 text-xs">
               {statItems.map(({ icon: Icon, label, count }) => (
                 <Tooltip key={label}>
                   <TooltipTrigger asChild>
@@ -79,7 +79,9 @@ export function ImportPreview({
             </div>
           </TooltipProvider>
         ) : (
-          <p className="text-xs text-neutral-500">No data found to import.</p>
+          <p className="text-muted-foreground text-xs">
+            No data found to import.
+          </p>
         )}
       </div>
       <div className="flex shrink-0 items-center gap-2">

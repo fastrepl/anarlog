@@ -348,9 +348,9 @@ export function SidebarTimelineUpdateButton({
       disabled={isDownloading || update.downloadStarting || update.installing}
       className={cn([
         "relative flex size-7 shrink-0 items-center justify-center rounded-full",
-        "bg-blue-600 text-white shadow-sm transition-colors hover:bg-blue-700",
-        "focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 focus-visible:outline-hidden",
-        "disabled:cursor-default disabled:bg-blue-600 disabled:text-white disabled:opacity-70 disabled:hover:bg-blue-600",
+        "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm transition-colors",
+        "focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden",
+        "disabled:bg-primary disabled:text-primary-foreground disabled:hover:bg-primary disabled:cursor-default disabled:opacity-70",
       ])}
       onClick={isReady ? update.installUpdate : update.downloadUpdate}
     >
@@ -389,7 +389,7 @@ function UpdateBanner({
       role="status"
       aria-live="polite"
       data-testid="timeline-update-banner"
-      className="flex h-9 w-full shrink-0 items-center justify-center border-y border-stone-200/70 bg-stone-100/80 px-3 font-mono text-xs text-neutral-800"
+      className="bg-muted/80 text-foreground border-border/70 flex h-9 w-full shrink-0 items-center justify-center border-y px-3 font-mono text-xs"
     >
       <div className="flex min-w-0 items-center justify-center gap-3">
         <BannerBody status={status} errorMessage={errorMessage} />
@@ -456,8 +456,8 @@ function BannerAction({
         disabled={downloadStarting}
         className={cn([
           "inline-flex h-7 w-[104px] shrink-0 items-center justify-center gap-1.5 overflow-hidden rounded-full px-3 font-medium",
-          "bg-neutral-950 text-white transition-colors hover:bg-neutral-800",
-          "focus-visible:ring-2 focus-visible:ring-neutral-900 focus-visible:outline-hidden",
+          "bg-primary text-primary-foreground hover:bg-primary/90 transition-colors",
+          "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-hidden",
           "disabled:cursor-not-allowed disabled:opacity-60",
         ])}
       >
@@ -483,8 +483,8 @@ function BannerAction({
       disabled={installing}
       className={cn([
         "inline-flex h-7 shrink-0 items-center justify-center gap-1.5 overflow-hidden rounded-full px-3 font-medium",
-        "bg-blue-600 text-white transition-colors hover:bg-blue-700",
-        "focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 focus-visible:outline-hidden",
+        "bg-primary text-primary-foreground hover:bg-primary/90 transition-colors",
+        "focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden",
         "disabled:cursor-not-allowed disabled:opacity-60",
       ])}
     >
@@ -504,12 +504,12 @@ function DownloadProgress({ progress }: { progress: number | null }) {
           ? "Downloading update"
           : `Downloading update, ${pct}% complete`
       }
-      className="relative inline-flex h-7 w-[104px] shrink-0 items-center justify-center overflow-hidden rounded-full border border-stone-300 bg-white px-3 font-medium text-neutral-800"
+      className="bg-card text-foreground border-border relative inline-flex h-7 w-[104px] shrink-0 items-center justify-center overflow-hidden rounded-full border px-3 font-medium"
     >
       {progress === null ? null : (
         <span
           aria-hidden="true"
-          className="absolute inset-y-0 left-0 bg-neutral-950/15"
+          className="bg-primary/15 absolute inset-y-0 left-0"
           style={{ width: `${pct}%` }}
         />
       )}

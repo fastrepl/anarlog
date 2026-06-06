@@ -265,8 +265,8 @@ describe("TopMeetingTimeline", () => {
     const cardButton = title.closest("button");
     const stopButton = screen.getByLabelText("Stop listening");
 
-    expect(cardButton?.className).toContain("bg-red-500");
-    expect(cardButton?.className).not.toContain("bg-neutral-900");
+    expect(cardButton?.className).toContain("bg-destructive");
+    expect(cardButton?.className).not.toContain("bg-primary");
 
     fireEvent.click(stopButton);
 
@@ -305,7 +305,7 @@ describe("TopMeetingTimeline", () => {
     });
 
     expect(cardButton?.className).toContain("pr-8");
-    expect(spinnerSuffix.className).toContain("text-white/70");
+    expect(spinnerSuffix.className).toContain("text-primary-foreground/70");
     expect(screen.getAllByTestId("timeline-spinner")).toHaveLength(1);
     expect(within(cardButton!).queryByTestId("timeline-spinner")).toBeNull();
   });

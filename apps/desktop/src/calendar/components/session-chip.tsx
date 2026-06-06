@@ -90,10 +90,10 @@ export function SessionChip({ sessionId }: { sessionId: string }) {
           ])}
           onContextMenu={showContextMenu}
         >
-          <div className="w-[4px] shrink-0 self-stretch rounded-full border border-neutral-300 bg-transparent" />
+          <div className="border-border w-[4px] shrink-0 self-stretch rounded-full border bg-transparent" />
           <span className="truncate">{title}</span>
           {createdAt && (
-            <span className="ml-auto shrink-0 font-mono text-neutral-400">
+            <span className="text-muted-foreground ml-auto shrink-0 font-mono">
               {createdAt}
             </span>
           )}
@@ -136,14 +136,16 @@ function SessionPopoverContent({ sessionId }: { sessionId: string }) {
 
   return (
     <div className="flex flex-col gap-3 p-4">
-      <div className="text-base font-medium text-neutral-900">
+      <div className="text-foreground text-base font-medium">
         {session.title as string}
       </div>
-      <div className="h-px bg-neutral-200" />
-      {createdAt && <div className="text-sm text-neutral-700">{createdAt}</div>}
+      <div className="bg-accent h-px" />
+      {createdAt && (
+        <div className="text-muted-foreground text-sm">{createdAt}</div>
+      )}
       <Button
         size="sm"
-        className="min-h-8 w-full bg-stone-800 text-white hover:bg-stone-700"
+        className="bg-primary text-primary-foreground hover:bg-primary/90 min-h-8 w-full"
         onClick={handleOpen}
       >
         Open note

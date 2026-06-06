@@ -180,9 +180,9 @@ describe("TimelineItemComponent", () => {
 
     const rowButton = screen.getByText("Live Note").closest("button");
 
-    expect(rowButton?.className).toContain("bg-red-500");
-    expect(rowButton?.className).toContain("text-white");
-    expect(rowButton?.className).not.toContain("bg-neutral-200");
+    expect(rowButton?.className).toContain("bg-destructive");
+    expect(rowButton?.className).toContain("text-destructive-foreground");
+    expect(rowButton?.className).not.toContain("bg-accent");
     expect(screen.getByTestId("dancing-sticks").dataset.amplitude).toBe("0.5");
 
     fireEvent.click(screen.getByRole("button", { name: "Stop listening" }));

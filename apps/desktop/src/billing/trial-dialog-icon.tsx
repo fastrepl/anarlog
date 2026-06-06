@@ -18,7 +18,7 @@ export function TrialDialogIcon({ state }: { state: "started" | "ended" }) {
         aria-hidden="true"
         className={cn([
           "absolute size-14 rounded-[18px] blur-md",
-          isStarted ? "bg-amber-200/55" : "bg-neutral-400/30",
+          isStarted ? "bg-amber-200/55" : "bg-muted-foreground/30",
         ])}
       />
       <div

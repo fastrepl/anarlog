@@ -439,12 +439,9 @@ export function TimelineView({
                 />
               )}
               <div
-                className={cn([
-                  "sticky top-0 z-10",
-                  "bg-neutral-50 py-1 pr-1 pl-3",
-                ])}
+                className={cn(["sticky top-0 z-10", "bg-muted py-1 pr-1 pl-3"])}
               >
-                <div className="text-base font-bold text-neutral-900">
+                <div className="text-foreground text-base font-bold">
                   {bucket.label}
                 </div>
               </div>
@@ -499,12 +496,12 @@ export function TimelineView({
           className={cn([
             "pointer-events-none absolute inset-x-0 top-0 z-[15]",
             showCalendarSyncStatus
-              ? "h-28 bg-neutral-50"
+              ? "bg-background h-28"
               : areSidebarActionsHidden
-                ? "h-20 bg-linear-to-b from-neutral-50 via-neutral-50/95 via-60% to-neutral-50/0"
+                ? "from-background via-background/95 to-background/0 h-20 bg-linear-to-b via-60%"
                 : isScrolledToTop
-                  ? "h-24 bg-neutral-50"
-                  : "h-28 bg-linear-to-b from-neutral-50 via-neutral-50/95 via-55% to-neutral-50/0",
+                  ? "bg-muted h-24"
+                  : "from-background via-background/95 to-background/0 h-28 bg-linear-to-b via-55%",
           ])}
         />
       )}
@@ -537,8 +534,8 @@ export function TimelineView({
               onClick={handleOpenCalendar}
               size="sm"
               className={cn([
-                "rounded-full bg-white hover:bg-neutral-50",
-                "border border-neutral-200 text-neutral-700",
+                "bg-card hover:bg-accent rounded-full",
+                "border-border text-muted-foreground border",
                 "flex items-center gap-1",
                 "px-3",
                 "shadow-xs",
@@ -625,7 +622,7 @@ function SidebarTimelineActions({
       data-sidebar-timeline-actions
       className={cn([
         "absolute inset-x-0 top-10 z-30 pt-1 pb-2",
-        "bg-neutral-50",
+        "bg-muted",
         "transition-[opacity,transform] duration-150 ease-out",
         hideActionContainer
           ? "pointer-events-none -translate-y-2 opacity-0"
@@ -727,12 +724,12 @@ function SidebarTimelineActionButton({
       data-sidebar-timeline-action={id}
       className={cn([
         "flex h-8 min-w-8 items-center overflow-hidden rounded-full",
-        "text-sm font-medium text-neutral-700",
+        "text-muted-foreground text-sm font-medium",
         "transition-[width,flex-grow,background-color,color] duration-150 ease-out",
-        "focus-visible:ring-2 focus-visible:ring-neutral-900 focus-visible:outline-hidden",
+        "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-hidden",
         active
-          ? "flex-1 justify-center bg-neutral-200/70 px-3 text-neutral-950"
-          : "w-8 flex-none justify-center px-2 hover:bg-neutral-200/70 hover:text-neutral-950",
+          ? "bg-accent/70 text-foreground flex-1 justify-center px-3"
+          : "hover:bg-accent/70 hover:text-foreground w-8 flex-none justify-center px-2",
       ])}
       onClick={onClick}
       onFocus={() => onExpand(id)}
@@ -741,7 +738,7 @@ function SidebarTimelineActionButton({
       <span
         className={cn([
           "flex size-4 shrink-0 items-center justify-center",
-          active ? "text-neutral-700" : "text-neutral-600",
+          active ? "text-muted-foreground" : "text-muted-foreground",
         ])}
       >
         {icon}
@@ -810,9 +807,9 @@ function TimelineNowChip({
       type="button"
       aria-label="Go back to now"
       className={cn([
-        "flex h-6 items-center gap-1 rounded-full border border-neutral-200 bg-white/95 px-2.5 text-xs font-semibold text-neutral-900 shadow-md backdrop-blur",
-        "transition-colors hover:border-neutral-300 hover:bg-white hover:text-neutral-950",
-        "focus-visible:ring-2 focus-visible:ring-neutral-900 focus-visible:outline-hidden",
+        "border-border bg-card/95 text-foreground flex h-6 items-center gap-1 rounded-full border px-2.5 text-xs font-semibold shadow-md backdrop-blur",
+        "hover:border-border hover:bg-accent hover:text-foreground transition-colors",
+        "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-hidden",
         className,
       ])}
       onClick={onClick}
@@ -867,7 +864,7 @@ function TodayBucket({
       return (
         <>
           <CurrentTimeIndicator ref={registerIndicator} timezone={timezone} />
-          <div className="px-3 py-4 text-center text-sm text-neutral-400">
+          <div className="text-muted-foreground px-3 py-4 text-center text-sm">
             No items today
           </div>
         </>

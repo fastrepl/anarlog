@@ -122,8 +122,8 @@ export const FileAttachmentView = forwardRef<
         contentEditable={false}
         suppressContentEditableWarning
         className={cn([
-          "group my-1 flex items-center gap-3 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2.5",
-          "hover:border-neutral-300 hover:bg-neutral-100",
+          "group border-border bg-muted my-1 flex items-center gap-3 rounded-lg border px-3 py-2.5",
+          "hover:border-border hover:bg-accent",
           "transition-colors",
         ])}
       >
@@ -134,17 +134,17 @@ export const FileAttachmentView = forwardRef<
             className="h-10 w-10 shrink-0 rounded object-cover"
           />
         ) : (
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-neutral-200/60">
-            <Icon size={20} className="text-neutral-500" />
+          <div className="bg-accent/60 flex h-10 w-10 shrink-0 items-center justify-center rounded">
+            <Icon size={20} className="text-muted-foreground" />
           </div>
         )}
 
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-medium text-neutral-700">
+          <div className="text-muted-foreground truncate text-sm font-medium">
             {displayName}
           </div>
           {sizeLabel && (
-            <div className="text-xs text-neutral-400">{sizeLabel}</div>
+            <div className="text-muted-foreground text-xs">{sizeLabel}</div>
           )}
         </div>
 
@@ -157,10 +157,10 @@ export const FileAttachmentView = forwardRef<
                 e.stopPropagation();
                 handleOpen();
               }}
-              className="rounded p-1 hover:bg-neutral-200"
+              className="hover:bg-accent rounded p-1"
               title="Open file"
             >
-              <ExternalLinkIcon size={14} className="text-neutral-500" />
+              <ExternalLinkIcon size={14} className="text-muted-foreground" />
             </button>
           )}
           <button
@@ -170,10 +170,10 @@ export const FileAttachmentView = forwardRef<
               e.stopPropagation();
               handleRemove();
             }}
-            className="rounded p-1 hover:bg-neutral-200"
+            className="hover:bg-accent rounded p-1"
             title="Remove attachment"
           >
-            <XIcon size={14} className="text-neutral-500" />
+            <XIcon size={14} className="text-muted-foreground" />
           </button>
         </div>
       </div>

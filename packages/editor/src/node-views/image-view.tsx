@@ -190,12 +190,12 @@ export const ResizableImageView = forwardRef<
           alt={node.attrs.alt || ""}
           title={parseImageMetadata(node.attrs.title).title ?? undefined}
           className={cn([
-            "tiptap-image max-w-full rounded-md bg-white transition-[box-shadow,border-color] select-none",
+            "tiptap-image bg-card max-w-full rounded-md transition-[box-shadow,border-color] select-none",
             isSelected
-              ? "ring-2 ring-blue-500 ring-offset-2 ring-offset-white"
+              ? "ring-offset-card ring-2 ring-blue-500 ring-offset-2"
               : "",
             isHovered && !isSelected
-              ? "ring-1 ring-neutral-300 ring-offset-2 ring-offset-white"
+              ? "ring-border ring-offset-card ring-1 ring-offset-2"
               : "",
             "w-full",
           ])}
@@ -215,17 +215,17 @@ export const ResizableImageView = forwardRef<
               type="button"
               aria-label="Resize image from left"
               onPointerDown={(event) => handleResizeStart("left", event)}
-              className="absolute top-1/2 left-1 z-20 flex h-14 w-4 -translate-y-1/2 cursor-ew-resize items-center justify-center rounded-full border border-neutral-300 bg-white/95 shadow-sm backdrop-blur-sm"
+              className="border-border bg-card/95 absolute top-1/2 left-1 z-20 flex h-14 w-4 -translate-y-1/2 cursor-ew-resize items-center justify-center rounded-full border shadow-sm backdrop-blur-sm"
             >
-              <span className="h-8 w-1 rounded-full bg-neutral-400" />
+              <span className="bg-muted-foreground h-8 w-1 rounded-full" />
             </button>
             <button
               type="button"
               aria-label="Resize image from right"
               onPointerDown={(event) => handleResizeStart("right", event)}
-              className="absolute top-1/2 right-1 z-20 flex h-14 w-4 -translate-y-1/2 cursor-ew-resize items-center justify-center rounded-full border border-neutral-300 bg-white/95 shadow-sm backdrop-blur-sm"
+              className="border-border bg-card/95 absolute top-1/2 right-1 z-20 flex h-14 w-4 -translate-y-1/2 cursor-ew-resize items-center justify-center rounded-full border shadow-sm backdrop-blur-sm"
             >
-              <span className="h-8 w-1 rounded-full bg-neutral-400" />
+              <span className="bg-muted-foreground h-8 w-1 rounded-full" />
             </button>
           </>
         )}

@@ -96,7 +96,7 @@ export function GitHubTodoProviderContent({
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-xs text-neutral-400">
+      <p className="text-muted-foreground text-xs">
         Only public repositories are supported.{" "}
         {!auth.session ? (
           <span>Sign in for private repo access.</span>
@@ -104,7 +104,7 @@ export function GitHubTodoProviderContent({
           <button
             type="button"
             onClick={upgradeToPro}
-            className="underline transition-colors hover:text-neutral-700"
+            className="hover:text-muted-foreground underline transition-colors"
           >
             Upgrade for private repos.
           </button>
@@ -119,7 +119,7 @@ export function GitHubTodoProviderContent({
                 "todo",
               )
             }
-            className="underline transition-colors hover:text-neutral-700"
+            className="hover:text-muted-foreground underline transition-colors"
           >
             Connect GitHub for private repos.
           </button>
@@ -134,7 +134,7 @@ export function GitHubTodoProviderContent({
                 "todo",
               )
             }
-            className="underline transition-colors hover:text-neutral-700"
+            className="hover:text-muted-foreground underline transition-colors"
           >
             Disconnect private repo access.
           </button>
@@ -143,7 +143,7 @@ export function GitHubTodoProviderContent({
 
       {hasRepository && !showAddInput ? (
         <div className="flex items-center gap-2">
-          <span className="text-sm text-neutral-700">
+          <span className="text-muted-foreground text-sm">
             {normalizedRepository}
           </span>
           <button
@@ -154,14 +154,14 @@ export function GitHubTodoProviderContent({
                 null,
               )
             }
-            className="text-neutral-400 transition-colors hover:text-neutral-700"
+            className="text-muted-foreground hover:text-muted-foreground transition-colors"
           >
             <ExternalLinkIcon className="size-3.5" />
           </button>
           <button
             type="button"
             onClick={() => setRepository("")}
-            className="text-neutral-400 transition-colors hover:text-neutral-700"
+            className="text-muted-foreground hover:text-muted-foreground transition-colors"
           >
             <XIcon className="size-3.5" />
           </button>
@@ -195,7 +195,7 @@ export function GitHubTodoProviderContent({
               <button
                 type="submit"
                 disabled={!isValidInput}
-                className="text-xs text-neutral-600 underline transition-colors hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-40"
+                className="text-muted-foreground hover:text-foreground text-xs underline transition-colors disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Add
               </button>
@@ -206,7 +206,7 @@ export function GitHubTodoProviderContent({
                   setInputValue("");
                   setDebouncedInput("");
                 }}
-                className="text-xs text-neutral-400 underline transition-colors hover:text-neutral-600"
+                className="text-muted-foreground hover:text-muted-foreground text-xs underline transition-colors"
               >
                 Cancel
               </button>
@@ -224,8 +224,8 @@ export function GitHubTodoProviderContent({
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => handleSelect(repo)}
                 className={cn([
-                  "flex w-full items-center px-3 py-1.5 text-left text-sm text-neutral-700",
-                  "transition-colors hover:bg-neutral-50",
+                  "text-muted-foreground flex w-full items-center px-3 py-1.5 text-left text-sm",
+                  "hover:bg-accent transition-colors",
                 ])}
               >
                 {repo}
@@ -237,7 +237,7 @@ export function GitHubTodoProviderContent({
         <button
           type="button"
           onClick={() => setShowAddInput(true)}
-          className="flex w-fit items-center gap-1 text-xs text-neutral-500 transition-colors hover:text-neutral-800"
+          className="text-muted-foreground hover:text-foreground flex w-fit items-center gap-1 text-xs transition-colors"
         >
           <PlusIcon className="size-3" />
           {hasRepository ? "Replace repository" : "Add repository"}

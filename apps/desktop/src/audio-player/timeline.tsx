@@ -100,21 +100,18 @@ export function Timeline() {
           className={cn([
             "flex items-center justify-center",
             "h-7 w-7 rounded-full",
-            "border border-neutral-200 bg-white",
-            "transition-all hover:scale-110 hover:bg-neutral-100",
+            "border-border bg-card border",
+            "hover:bg-accent transition-all hover:scale-110",
             "shrink-0 shadow-xs select-none",
           ])}
         >
           {state === "playing" ? (
             <Pause
-              className="h-3.5 w-3.5 text-neutral-900"
+              className="text-foreground h-3.5 w-3.5"
               fill="currentColor"
             />
           ) : (
-            <Play
-              className="h-3.5 w-3.5 text-neutral-900"
-              fill="currentColor"
-            />
+            <Play className="text-foreground h-3.5 w-3.5" fill="currentColor" />
           )}
         </button>
       }
@@ -132,9 +129,9 @@ export function Timeline() {
                 className={cn([
                   "flex items-center justify-center",
                   "h-6 rounded-md px-1.5",
-                  "border border-neutral-200 bg-white",
-                  "transition-colors hover:bg-neutral-100",
-                  "font-mono text-xs text-neutral-700 select-none",
+                  "border-border bg-card border",
+                  "hover:bg-accent transition-colors",
+                  "text-muted-foreground font-mono text-xs select-none",
                   "shadow-xs",
                 ])}
               >
@@ -144,7 +141,7 @@ export function Timeline() {
                 <div
                   className={cn([
                     "absolute right-0 bottom-full mb-1",
-                    "rounded-lg border border-neutral-200 bg-white shadow-md",
+                    "border-border bg-card rounded-lg border shadow-md",
                     "z-50 py-1",
                   ])}
                 >
@@ -157,10 +154,10 @@ export function Timeline() {
                       }}
                       className={cn([
                         "block w-full px-3 py-1 text-left font-mono text-xs select-none",
-                        "transition-colors hover:bg-neutral-100",
+                        "hover:bg-accent transition-colors",
                         rate === playbackRate
-                          ? "font-semibold text-neutral-900"
-                          : "text-neutral-600",
+                          ? "text-foreground font-semibold"
+                          : "text-muted-foreground",
                       ])}
                     >
                       {rate}x
