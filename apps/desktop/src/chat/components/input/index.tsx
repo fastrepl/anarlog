@@ -101,7 +101,7 @@ export function ChatMessageInput({
                 "chat-input-send",
                 "inline-flex h-7 items-center gap-1.5 rounded-lg border pr-1.5 pl-2.5 text-xs font-medium transition-all duration-100",
                 !isSendDisabled && [
-                  "border-stone-600 bg-primary text-primary-foreground",
+                  "bg-primary text-primary-foreground border-stone-600",
                   "hover:bg-primary/90",
                   "active:bg-primary/80 active:scale-[0.97]",
                 ],

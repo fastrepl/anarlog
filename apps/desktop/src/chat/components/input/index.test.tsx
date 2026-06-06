@@ -63,7 +63,8 @@ vi.mock("~/contexts/shell", () => ({
 vi.mock("~/chat/hooks/use-chat-appearance", () => ({
   useChatAppearance: () => ({
     isDarkAppearance: true,
-    elevatedSurfaceClassName: "bg-primary-foreground text-primary border-border",
+    elevatedSurfaceClassName:
+      "bg-primary-foreground text-primary border-border",
     inputEditorClassName: "chat-input-editor text-primary",
     sendButtonDisabledClassName:
       "cursor-default border-border text-muted-foreground/60",

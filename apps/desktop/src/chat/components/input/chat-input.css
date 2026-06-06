@@ -14,7 +14,9 @@
 [data-chat-input-surface="elevated"]
   .chat-input-editor.tiptap
   .is-editor-empty:first-child::before,
-[data-chat-input-surface="elevated"] .chat-input-editor.tiptap .is-empty::before {
+[data-chat-input-surface="elevated"]
+  .chat-input-editor.tiptap
+  .is-empty::before {
   color: hsl(var(--muted-foreground)) !important;
 }
 

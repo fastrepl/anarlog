@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  normalizeThemePreference,
-  resolveBootIsDark,
-} from "./apply";
+import { normalizeThemePreference, resolveBootIsDark } from "./apply";
 
 describe("normalizeThemePreference", () => {
   it("returns stored theme values", () => {

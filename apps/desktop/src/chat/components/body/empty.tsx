@@ -65,7 +65,9 @@ export function ChatBodyEmpty({
             <span
               className={cn([
                 "text-sm font-medium",
-                isDarkAppearance ? "text-primary-foreground" : "text-foreground",
+                isDarkAppearance
+                  ? "text-primary-foreground"
+                  : "text-foreground",
               ])}
             >
               Anarlog AI

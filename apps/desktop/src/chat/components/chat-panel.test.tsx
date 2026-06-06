@@ -31,7 +31,11 @@ vi.mock("./content", () => ({
 }));
 
 vi.mock("./session-provider", () => ({
-  ChatSession: ({ children }: { children: (props: object) => React.ReactNode }) =>
+  ChatSession: ({
+    children,
+  }: {
+    children: (props: object) => React.ReactNode;
+  }) =>
     children({
       messages: [],
       status: "ready",
