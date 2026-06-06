@@ -1,4 +1,5 @@
 (function () {
+  // Fast path before React boots. `main.tsx` re-reads settings.json and syncs this key.
   var stored = localStorage.getItem("hypr-theme");
   var theme =
     stored === "light" || stored === "dark" || stored === "system"

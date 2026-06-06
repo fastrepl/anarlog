@@ -11,6 +11,10 @@ import {
   storeToSettings,
 } from "./transform";
 
+import {
+  themePreferenceFromSettings,
+  writeStoredThemePreference,
+} from "~/shared/theme/apply";
 import { createFileListener } from "~/store/tinybase/persister/shared/listener";
 import type { Schemas, Store } from "~/store/tinybase/store/settings";
 import { StoreOrMergeableStore } from "~/store/tinybase/store/shared";
@@ -81,12 +85,16 @@ function createPersisterBuilder<T>(transform: TransformUtils<T>) {
           result.data as Record<string, unknown>,
           languageDefaults,
         );
+        writeStoredThemePreference(themePreferenceFromSettings(settings));
 
         return transform.toStore(settings as T);
       },
       async () => {
         const languageDefaults = await getLanguageDefaults();
         const settings = transform.fromStore(store, languageDefaults);
+        writeStoredThemePreference(
+          themePreferenceFromSettings(settings as Record<string, unknown>),
+        );
         const result = await commands.save(
           settings as Parameters<typeof commands.save>[0],
         );

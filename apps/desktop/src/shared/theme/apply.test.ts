@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { normalizeThemePreference, resolveBootIsDark } from "./apply";
+import {
+  normalizeThemePreference,
+  resolveBootIsDark,
+  themePreferenceFromSettings,
+} from "./apply";
 
 describe("normalizeThemePreference", () => {
   it("returns stored theme values", () => {
@@ -12,6 +16,21 @@ describe("normalizeThemePreference", () => {
   it("falls back to system for missing or invalid values", () => {
     expect(normalizeThemePreference(null)).toBe("system");
     expect(normalizeThemePreference("invalid")).toBe("system");
+  });
+});
+
+describe("themePreferenceFromSettings", () => {
+  it("reads the persisted general.theme value", () => {
+    expect(
+      themePreferenceFromSettings({
+        general: { theme: "dark" },
+      }),
+    ).toBe("dark");
+  });
+
+  it("falls back to system when theme is missing", () => {
+    expect(themePreferenceFromSettings({ general: {} })).toBe("system");
+    expect(themePreferenceFromSettings(undefined)).toBe("system");
   });
 });
 

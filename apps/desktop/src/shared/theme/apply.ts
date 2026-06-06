@@ -1,3 +1,5 @@
+import { commands as settingsCommands } from "@hypr/plugin-settings";
+
 import { resolveIsDarkMode, type ThemePreference } from "./resolve";
 
 const THEME_STORAGE_KEY = "hypr-theme";
@@ -26,7 +28,11 @@ export function resolveBootIsDark(
 }
 
 export function writeStoredThemePreference(theme: ThemePreference): void {
-  localStorage.setItem(THEME_STORAGE_KEY, theme);
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
+  } catch {
+    // Ignore unavailable storage in tests or restricted webviews.
+  }
 }
 
 export function applyDocumentTheme(theme: ThemePreference): boolean {
@@ -34,4 +40,33 @@ export function applyDocumentTheme(theme: ThemePreference): boolean {
   const isDark = resolveIsDarkMode(theme, prefersDark);
   document.documentElement.classList.toggle("dark", isDark);
   return isDark;
+}
+
+export function themePreferenceFromSettings(
+  settings: Record<string, unknown> | undefined,
+): ThemePreference {
+  const general = settings?.general;
+  const theme =
+    general && typeof general === "object" && "theme" in general
+      ? (general as { theme?: unknown }).theme
+      : null;
+
+  return normalizeThemePreference(typeof theme === "string" ? theme : null);
+}
+
+export async function bootstrapThemeFromSettings(): Promise<void> {
+  try {
+    const result = await settingsCommands.load();
+    if (result.status !== "ok") {
+      return;
+    }
+
+    const preference = themePreferenceFromSettings(
+      result.data as Record<string, unknown>,
+    );
+    applyDocumentTheme(preference);
+    writeStoredThemePreference(preference);
+  } catch {
+    // Non-Tauri dev sessions can skip persisted settings bootstrap.
+  }
 }
