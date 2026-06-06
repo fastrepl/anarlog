@@ -19,6 +19,12 @@ const mocks = vi.hoisted(() => ({
   smartCurrentTimeMs: undefined as number | undefined,
   timelineEventsTable: {} as Record<string, Record<string, unknown>>,
   timelineSessionsTable: {} as Record<string, Record<string, unknown>>,
+  scheduledTaskRunIds: undefined as string[] | undefined,
+  runningTaskRunIds: undefined as string[] | undefined,
+  taskRunInfo: {} as Record<
+    string,
+    { taskId: string; running: boolean; nextTimestamp: number } | undefined
+  >,
 }));
 
 vi.mock("~/shared/config", () => ({
@@ -65,6 +71,14 @@ vi.mock("~/store/tinybase/store/main", () => ({
         : mocks.timelineSessionsTable,
     useStore: () => null,
   },
+}));
+
+vi.mock("tinytick/ui-react", () => ({
+  useManager: () => ({
+    getTaskRunInfo: (taskRunId: string) => mocks.taskRunInfo[taskRunId],
+  }),
+  useRunningTaskRunIds: () => mocks.runningTaskRunIds,
+  useScheduledTaskRunIds: () => mocks.scheduledTaskRunIds,
 }));
 
 vi.mock("~/store/zustand/tabs", () => ({
@@ -137,6 +151,9 @@ describe("TimelineView", () => {
     mocks.smartCurrentTimeMs = undefined;
     mocks.timelineEventsTable = {};
     mocks.timelineSessionsTable = {};
+    mocks.scheduledTaskRunIds = undefined;
+    mocks.runningTaskRunIds = undefined;
+    mocks.taskRunInfo = {};
   });
 
   afterEach(() => {
@@ -157,6 +174,7 @@ describe("TimelineView", () => {
     expect(actionTabs.className).not.toContain("bg-neutral-100/80");
     expect(actionTabs.className).not.toContain("rounded-full");
     expect(newNoteButton.className).toContain("flex-1");
+    expect(newNoteButton.className).toContain("justify-center");
     expect(newNoteButton.className).toContain("rounded-full");
     expect(searchButton.className).toContain("w-8");
     expect(calendarButton.className).toContain("w-8");
@@ -165,6 +183,7 @@ describe("TimelineView", () => {
 
     expect(newNoteButton.className).toContain("w-8");
     expect(searchButton.className).toContain("flex-1");
+    expect(searchButton.className).toContain("justify-center");
 
     fireEvent.mouseLeave(actionTabs);
 
@@ -202,6 +221,133 @@ describe("TimelineView", () => {
     expect(
       container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
     ).toContain("h-24");
+  });
+
+  it("shows a due calendar sync status in sidebar chrome", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
+    mocks.scheduledTaskRunIds = ["calendar-sync-run"];
+    mocks.taskRunInfo = {
+      "calendar-sync-run": {
+        taskId: "calendarSync",
+        running: false,
+        nextTimestamp: Date.now(),
+      },
+    };
+
+    const { container } = render(<TimelineView topChromeInset />);
+
+    expect(screen.getByRole("status").textContent).toBe(
+      "Starting calendar sync",
+    );
+    expect(
+      container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
+    ).toContain("h-28");
+  });
+
+  it("updates scheduled calendar sync status as the due window passes", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
+    mocks.scheduledTaskRunIds = ["calendar-sync-run"];
+    mocks.taskRunInfo = {
+      "calendar-sync-run": {
+        taskId: "calendarSync",
+        running: false,
+        nextTimestamp: Date.now() + 2000,
+      },
+    };
+
+    const { rerender } = render(<TimelineView topChromeInset />);
+
+    expect(screen.queryByRole("status")).toBeNull();
+
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    mocks.currentTimeMs = Date.now();
+    rerender(<TimelineView topChromeInset />);
+
+    expect(screen.getByRole("status").textContent).toBe(
+      "Starting calendar sync",
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(2500);
+    });
+    mocks.currentTimeMs = Date.now();
+    rerender(<TimelineView topChromeInset />);
+
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("shows a running calendar sync status in sidebar chrome", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
+    mocks.runningTaskRunIds = ["calendar-sync-run"];
+    mocks.taskRunInfo = {
+      "calendar-sync-run": {
+        taskId: "calendarSync",
+        running: true,
+        nextTimestamp: Date.now() + 1000,
+      },
+    };
+
+    render(<TimelineView topChromeInset />);
+
+    expect(screen.getByRole("status").textContent).toBe("Syncing calendar");
+  });
+
+  it("keeps calendar sync status visible while action tabs hide on scroll", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
+    mocks.runningTaskRunIds = ["calendar-sync-run"];
+    mocks.taskRunInfo = {
+      "calendar-sync-run": {
+        taskId: "calendarSync",
+        running: true,
+        nextTimestamp: Date.now() + 1000,
+      },
+    };
+
+    const { container } = render(<TimelineView topChromeInset />);
+    const scroller = container.querySelector("[data-sidebar-timeline-scroll]");
+
+    expect(scroller).toBeInstanceOf(HTMLDivElement);
+
+    Object.defineProperty(scroller, "clientHeight", {
+      configurable: true,
+      value: 200,
+    });
+    Object.defineProperty(scroller, "scrollHeight", {
+      configurable: true,
+      value: 1200,
+    });
+    scroller!.scrollTop = 120;
+    fireEvent.scroll(scroller!);
+
+    expect(screen.getByRole("status").textContent).toBe("Syncing calendar");
+    expect(getSidebarActions().className).not.toContain("opacity-0");
+    expect(getSidebarActionTabs().className).toContain("opacity-0");
+    expect(
+      container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
+    ).toContain("h-28");
+  });
+
+  it("hides future repeated calendar sync schedules from sidebar chrome", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
+    mocks.scheduledTaskRunIds = ["calendar-sync-run"];
+    mocks.taskRunInfo = {
+      "calendar-sync-run": {
+        taskId: "calendarSync",
+        running: false,
+        nextTimestamp: Date.now() + 60_000,
+      },
+    };
+
+    render(<TimelineView topChromeInset />);
+
+    expect(screen.queryByRole("status")).toBeNull();
   });
 
   it("uses compact top spacing when top chrome has no hidden future items", () => {

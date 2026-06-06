@@ -49,7 +49,7 @@ export const CurrentTimeIndicator = forwardRef<
   );
 });
 
-export function useCurrentTimeMs() {
+export function useCurrentTimeMs(maxTickDelayMs = MINUTE_MS) {
   const [now, setNow] = useState(() => new Date().getTime());
 
   useMountEffect(() => {
@@ -64,7 +64,10 @@ export function useCurrentTimeMs() {
 
     const scheduleUpdate = () => {
       clearUpdate();
-      timeoutId = setTimeout(update, getCurrentTimeTickDelay(Date.now()));
+      timeoutId = setTimeout(
+        update,
+        getCurrentTimeTickDelay(Date.now(), maxTickDelayMs),
+      );
     };
 
     const update = () => {
@@ -96,9 +99,15 @@ export function useCurrentTimeMs() {
   return now;
 }
 
-function getCurrentTimeTickDelay(nowMs: number): number {
+function getCurrentTimeTickDelay(
+  nowMs: number,
+  maxTickDelayMs: number,
+): number {
   const msIntoMinute = nowMs % MINUTE_MS;
-  return MINUTE_MS - msIntoMinute + CURRENT_TIME_TICK_OFFSET_MS;
+  return Math.min(
+    MINUTE_MS - msIntoMinute + CURRENT_TIME_TICK_OFFSET_MS,
+    maxTickDelayMs,
+  );
 }
 
 export function useSmartCurrentTime(

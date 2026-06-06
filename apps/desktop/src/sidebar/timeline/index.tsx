@@ -15,8 +15,14 @@ import {
   useRef,
   useState,
 } from "react";
+import {
+  useManager,
+  useRunningTaskRunIds,
+  useScheduledTaskRunIds,
+} from "tinytick/ui-react";
 
 import { Button } from "@hypr/ui/components/ui/button";
+import { Spinner } from "@hypr/ui/components/ui/spinner";
 import { cn } from "@hypr/utils";
 
 import { useAnchor, useAutoScrollToAnchor } from "./anchor";
@@ -40,6 +46,7 @@ import {
   type TimelineSessionsTable,
 } from "./utils";
 
+import { CALENDAR_SYNC_TASK_ID } from "~/services/calendar";
 import { useConfigValue } from "~/shared/config";
 import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
 import { useOpenNoteDialog } from "~/shared/open-note-dialog";
@@ -56,7 +63,10 @@ import { useTimelineSelection } from "~/store/zustand/timeline-selection";
 import { useUndoDelete } from "~/store/zustand/undo-delete";
 
 const SIDEBAR_ACTIONS_REVEAL_DELAY_MS = 900;
+const DUE_CALENDAR_SYNC_VISIBLE_WINDOW_MS = 1000;
+const CALENDAR_SYNC_STATUS_TICK_MS = 500;
 type SidebarTimelineActionId = "new-note" | "search" | "calendar";
+type SidebarCalendarSyncStatus = "idle" | "scheduled" | "syncing";
 
 export function TimelineView({
   showOpenCalendarButton = true,
@@ -123,6 +133,9 @@ export function TimelineView({
       }),
     [visibleTimelineEventsTable, timelineSessionsTable, timezone],
   );
+  const calendarSyncStatus = useCalendarSyncStatus();
+  const showCalendarSyncStatus =
+    topChromeInset && calendarSyncStatus !== "idle";
 
   const showOpenCalendarChip =
     !topChromeInset &&
@@ -130,9 +143,11 @@ export function TimelineView({
     isScrolledToTop &&
     hasMoreFutureItems;
   const topSpacerClassName = topChromeInset
-    ? hasMoreFutureItems
-      ? "h-24"
-      : "h-20"
+    ? showCalendarSyncStatus
+      ? "h-28"
+      : hasMoreFutureItems
+        ? "h-24"
+        : "h-20"
     : "h-10";
 
   const hasToday = useMemo(
@@ -483,11 +498,13 @@ export function TimelineView({
           data-sidebar-timeline-top-fade
           className={cn([
             "pointer-events-none absolute inset-x-0 top-0 z-[15]",
-            areSidebarActionsHidden
-              ? "h-20 bg-linear-to-b from-neutral-50 via-neutral-50/95 via-60% to-neutral-50/0"
-              : isScrolledToTop
-                ? "h-24 bg-neutral-50"
-                : "h-28 bg-linear-to-b from-neutral-50 via-neutral-50/95 via-55% to-neutral-50/0",
+            showCalendarSyncStatus
+              ? "h-28 bg-neutral-50"
+              : areSidebarActionsHidden
+                ? "h-20 bg-linear-to-b from-neutral-50 via-neutral-50/95 via-60% to-neutral-50/0"
+                : isScrolledToTop
+                  ? "h-24 bg-neutral-50"
+                  : "h-28 bg-linear-to-b from-neutral-50 via-neutral-50/95 via-55% to-neutral-50/0",
           ])}
         />
       )}
@@ -500,6 +517,7 @@ export function TimelineView({
           onOpenCalendar={handleOpenCalendar}
           onSearch={handleOpenNoteDialog}
           showCalendarAction={showOpenCalendarButton}
+          calendarSyncStatus={calendarSyncStatus}
         />
       )}
 
@@ -557,16 +575,20 @@ function SidebarTimelineActions({
   onOpenCalendar,
   onSearch,
   showCalendarAction,
+  calendarSyncStatus,
 }: {
   hidden: boolean;
   onNewNote: () => void;
   onOpenCalendar: () => void;
   onSearch: () => void;
   showCalendarAction: boolean;
+  calendarSyncStatus: SidebarCalendarSyncStatus;
 }) {
   const [expandedActionId, setExpandedActionId] =
     useState<SidebarTimelineActionId | null>(null);
   const activeActionId = expandedActionId ?? "new-note";
+  const showCalendarSyncStatus = calendarSyncStatus !== "idle";
+  const hideActionContainer = hidden && !showCalendarSyncStatus;
   const actionItems = useMemo(
     () => [
       {
@@ -605,7 +627,7 @@ function SidebarTimelineActions({
         "absolute inset-x-0 top-10 z-30 pt-1 pb-2",
         "bg-neutral-50",
         "transition-[opacity,transform] duration-150 ease-out",
-        hidden
+        hideActionContainer
           ? "pointer-events-none -translate-y-2 opacity-0"
           : "translate-y-0 opacity-100",
       ])}
@@ -614,7 +636,13 @@ function SidebarTimelineActions({
         data-sidebar-timeline-action-tabs
         role="toolbar"
         aria-label="Sidebar actions"
-        className="flex w-full items-center gap-1"
+        className={cn([
+          "flex w-full items-center gap-1",
+          "transition-[opacity,transform] duration-150 ease-out",
+          hidden
+            ? "pointer-events-none -translate-y-2 opacity-0"
+            : "translate-y-0 opacity-100",
+        ])}
         onMouseLeave={() => setExpandedActionId(null)}
         onBlur={(event) => {
           const nextFocusedNode = event.relatedTarget as Node | null;
@@ -636,6 +664,41 @@ function SidebarTimelineActions({
           />
         ))}
       </div>
+      <SidebarCalendarSyncStatus status={calendarSyncStatus} />
+    </div>
+  );
+}
+
+function SidebarCalendarSyncStatus({
+  status,
+}: {
+  status: SidebarCalendarSyncStatus;
+}) {
+  if (status === "idle") {
+    return null;
+  }
+
+  const label =
+    status === "scheduled" ? "Starting calendar sync" : "Syncing calendar";
+
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      data-sidebar-calendar-sync-status
+      className={cn([
+        "mt-1.5 flex h-5 items-center gap-1.5 px-3",
+        "text-[11px] leading-none font-medium text-neutral-500",
+      ])}
+    >
+      <span className="flex size-3 shrink-0 items-center justify-center text-neutral-400">
+        {status === "syncing" ? (
+          <Spinner size={12} />
+        ) : (
+          <CalendarDaysIcon size={12} />
+        )}
+      </span>
+      <span className="truncate">{label}</span>
     </div>
   );
 }
@@ -668,7 +731,7 @@ function SidebarTimelineActionButton({
         "transition-[width,flex-grow,background-color,color] duration-150 ease-out",
         "focus-visible:ring-2 focus-visible:ring-neutral-900 focus-visible:outline-hidden",
         active
-          ? "flex-1 bg-neutral-200/70 px-3 text-neutral-950"
+          ? "flex-1 justify-center bg-neutral-200/70 px-3 text-neutral-950"
           : "w-8 flex-none justify-center px-2 hover:bg-neutral-200/70 hover:text-neutral-950",
       ])}
       onClick={onClick}
@@ -924,6 +987,40 @@ function scrollTimelineItemIntoView(
     top: targetScrollTop,
     behavior: "smooth",
   });
+}
+
+function useCalendarSyncStatus(): SidebarCalendarSyncStatus {
+  const manager = useManager();
+  const scheduledTaskRunIds = useScheduledTaskRunIds();
+  const runningTaskRunIds = useRunningTaskRunIds();
+  const currentTimeMs = useCurrentTimeMs(CALENDAR_SYNC_STATUS_TICK_MS);
+
+  return useMemo(() => {
+    if (!manager) {
+      return "idle";
+    }
+
+    const hasRunningSync = runningTaskRunIds?.some(
+      (taskRunId) =>
+        manager.getTaskRunInfo(taskRunId)?.taskId === CALENDAR_SYNC_TASK_ID,
+    );
+    if (hasRunningSync) {
+      return "syncing";
+    }
+
+    const visibleFrom = currentTimeMs - DUE_CALENDAR_SYNC_VISIBLE_WINDOW_MS;
+    const visibleUntil = currentTimeMs + DUE_CALENDAR_SYNC_VISIBLE_WINDOW_MS;
+    const hasDueScheduledSync = scheduledTaskRunIds?.some((taskRunId) => {
+      const info = manager.getTaskRunInfo(taskRunId);
+      return (
+        info?.taskId === CALENDAR_SYNC_TASK_ID &&
+        info.nextTimestamp >= visibleFrom &&
+        info.nextTimestamp <= visibleUntil
+      );
+    });
+
+    return hasDueScheduledSync ? "scheduled" : "idle";
+  }, [manager, scheduledTaskRunIds, runningTaskRunIds, currentTimeMs]);
 }
 
 function useTimelineTables(): {
