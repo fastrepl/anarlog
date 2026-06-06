@@ -114,14 +114,17 @@ describe("ChatMessageInput", () => {
     expect(clearContentMock).toHaveBeenCalled();
   });
 
-  it("keeps typed text visible on the white input surface", () => {
+  it("keeps typed text visible on the elevated input surface", () => {
     render(
       <ChatMessageInput draftKey="chat-input-test" onSendMessage={vi.fn()} />,
     );
 
-    expect(screen.getByTestId("chat-editor").className).toContain(
-      "text-foreground",
-    );
+    const editor = screen.getByTestId("chat-editor");
+    const surface = editor.closest("[data-chat-message-input]")?.parentElement;
+
+    expect(editor.className).toContain("text-primary");
+    expect(surface?.className).toContain("bg-primary-foreground/95");
+    expect(surface?.className).not.toContain("bg-card");
   });
 
   it("uses balanced outer padding in the right panel", () => {

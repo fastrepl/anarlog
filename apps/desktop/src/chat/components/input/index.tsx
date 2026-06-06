@@ -62,7 +62,7 @@ export function ChatMessageInput({
         <div className="mb-1 min-h-0 flex-1">
           <ChatEditor
             ref={editorRef}
-            className="text-foreground max-h-[40vh] overflow-y-auto overscroll-contain text-sm"
+            className="text-primary max-h-[40vh] overflow-y-auto overscroll-contain text-sm"
             initialContent={initialContent}
             mentionConfig={mentionConfig}
             placeholder={chatPlaceholder}
@@ -135,7 +135,7 @@ function Container({
     >
       <div
         className={cn([
-          "border-border bg-card flex max-h-full flex-col border",
+          "border-border bg-primary-foreground/95 flex max-h-full flex-col border",
           hasContextBar ? "rounded-t-none rounded-b-xl" : "rounded-xl",
           hasContextBar && "border-t-0",
         ])}

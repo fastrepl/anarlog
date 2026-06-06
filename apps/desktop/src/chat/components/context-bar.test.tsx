@@ -199,4 +199,13 @@ describe("ContextBar session picker", () => {
     expect(outer?.className).not.toContain("mx-2");
     expect(outer?.className).not.toContain("mr-0");
   });
+
+  it("uses an elevated surface that contrasts with the dark chat panel", () => {
+    renderContextBar();
+
+    const outer = document.querySelector("[data-chat-context-bar]");
+
+    expect(outer?.className).toContain("bg-primary-foreground/95");
+    expect(outer?.className).not.toContain("bg-card");
+  });
 });

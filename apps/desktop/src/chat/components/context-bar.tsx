@@ -377,7 +377,7 @@ export function ContextBar({
     <div
       data-chat-context-bar
       className={cn([
-        "border-border bg-card shrink-0 rounded-t-xl border-t border-r border-l",
+        "border-border bg-primary-foreground/95 shrink-0 rounded-t-xl border-t border-r border-l",
         isRightPanel ? "mx-3" : "mx-2",
       ])}
     >
