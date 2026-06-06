@@ -917,7 +917,7 @@ function TimelineCardButton({
             (showLiveStop
               ? "border-destructive bg-destructive text-destructive-foreground hover:border-destructive/90 hover:bg-destructive/90"
               : item.selected
-                ? "border-primary bg-primary text-primary-foreground hover:bg-primary/90"
+                ? "border-ring bg-accent text-foreground hover:bg-accent/90"
                 : "border-border bg-card text-foreground hover:bg-accent"),
           item.type === "event" &&
             "border-border bg-card/80 text-muted-foreground hover:bg-accent border-dashed",
@@ -932,7 +932,7 @@ function TimelineCardButton({
         <FadedTimelineLabel
           className={cn([
             "font-mono text-[10px]",
-            item.selected || showLiveStop
+            showLiveStop
               ? "text-primary-foreground/65"
               : "text-muted-foreground",
           ])}
@@ -946,9 +946,7 @@ function TimelineCardButton({
           aria-label="Loading timeline item"
           className={cn([
             "absolute top-1/2 right-2 flex size-5 -translate-y-1/2 items-center justify-center",
-            item.selected
-              ? "text-primary-foreground/70"
-              : "text-muted-foreground",
+            "text-muted-foreground",
           ])}
         >
           <Spinner size={12} />

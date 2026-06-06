@@ -236,6 +236,48 @@ describe("TopMeetingTimeline", () => {
     expect(startLabel).not.toContain("-");
   });
 
+  it("highlights the selected session with accent styling", () => {
+    const start = new Date();
+    mocks.timelineSessionsTable = {
+      "session-1": {
+        created_at: start.toISOString(),
+        event_json: "",
+        title: "Selected Meeting",
+      },
+      "session-2": {
+        created_at: new Date(start.getTime() + 60 * 60 * 1000).toISOString(),
+        event_json: "",
+        title: "Other Meeting",
+      },
+    };
+
+    render(
+      <TopMeetingTimeline
+        currentTab={{
+          active: true,
+          id: "session-1",
+          pinned: false,
+          slotId: "slot-1",
+          state: { autoStart: null, view: null },
+          type: "sessions",
+        }}
+      />,
+    );
+
+    const selectedButton = screen
+      .getByText("Selected Meeting")
+      .closest("button");
+    const otherButton = screen.getByText("Other Meeting").closest("button");
+    const selectedClasses = selectedButton?.className.split(/\s+/) ?? [];
+    const otherClasses = otherButton?.className.split(/\s+/) ?? [];
+
+    expect(selectedClasses).toContain("bg-accent");
+    expect(selectedClasses).toContain("border-ring");
+    expect(selectedClasses).not.toContain("bg-primary");
+    expect(otherClasses).toContain("bg-card");
+    expect(otherClasses).not.toContain("bg-accent");
+  });
+
   it("shows active meetings as red with a stop suffix", () => {
     const start = new Date();
     mocks.liveSessionId = "session-1";
@@ -305,7 +347,7 @@ describe("TopMeetingTimeline", () => {
     });
 
     expect(cardButton?.className).toContain("pr-8");
-    expect(spinnerSuffix.className).toContain("text-primary-foreground/70");
+    expect(spinnerSuffix.className).toContain("text-muted-foreground");
     expect(screen.getAllByTestId("timeline-spinner")).toHaveLength(1);
     expect(within(cardButton!).queryByTestId("timeline-spinner")).toBeNull();
   });
