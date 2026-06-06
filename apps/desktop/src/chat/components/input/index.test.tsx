@@ -63,11 +63,11 @@ vi.mock("~/contexts/shell", () => ({
 vi.mock("~/chat/hooks/use-chat-appearance", () => ({
   useChatAppearance: () => ({
     isDarkAppearance: true,
-    toolbarSurface: "dark",
-    panelClassName: "bg-primary text-primary-foreground",
-    panelBorderClassName: "border-primary/80",
-    elevatedSurfaceClassName: "bg-primary-foreground/95 text-primary",
-    inputEditorClassName: "text-primary",
+    elevatedSurfaceClassName: "bg-primary-foreground text-primary border-border",
+    inputEditorClassName: "chat-input-editor text-primary",
+    sendButtonDisabledClassName:
+      "cursor-default border-border text-muted-foreground/60",
+    sendButtonShortcutDisabledClassName: "text-muted-foreground/60",
   }),
 }));
 
@@ -125,7 +125,19 @@ describe("ChatMessageInput", () => {
     expect(clearContentMock).toHaveBeenCalled();
   });
 
-  it("keeps typed text visible on the elevated input surface", () => {
+  it("marks the send control for disabled surface styling before the draft has content", () => {
+    render(
+      <ChatMessageInput draftKey="chat-input-test" onSendMessage={vi.fn()} />,
+    );
+
+    const sendButton = screen.getByRole("button", { name: /send/i });
+
+    expect(sendButton.disabled).toBe(true);
+    expect(sendButton.className).toContain("chat-input-send");
+    expect(sendButton.className).not.toContain("bg-primary");
+  });
+
+  it("uses the elevated dark input surface for typed text", () => {
     render(
       <ChatMessageInput draftKey="chat-input-test" onSendMessage={vi.fn()} />,
     );
@@ -133,9 +145,10 @@ describe("ChatMessageInput", () => {
     const editor = screen.getByTestId("chat-editor");
     const surface = editor.closest("[data-chat-message-input]")?.parentElement;
 
-    expect(editor.className).toContain("text-primary");
-    expect(surface?.className).toContain("bg-primary-foreground/95");
-    expect(surface?.className).not.toContain("bg-card");
+    expect(editor.className).toContain("chat-input-editor");
+    expect(surface?.getAttribute("data-chat-input-surface")).toBe("elevated");
+    expect(surface?.className).toContain("bg-primary-foreground");
+    expect(surface?.className).toContain("text-primary");
   });
 
   it("uses balanced outer padding in the right panel", () => {

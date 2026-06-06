@@ -30,4 +30,9 @@ describe("resolveBootIsDark", () => {
     expect(resolveBootIsDark(null, true)).toBe(true);
     expect(resolveBootIsDark(null, false)).toBe(false);
   });
+
+  it("treats invalid boot values like system to avoid theme flashes", () => {
+    expect(resolveBootIsDark("legacy-value", true)).toBe(true);
+    expect(resolveBootIsDark("legacy-value", false)).toBe(false);
+  });
 });

@@ -1,0 +1,31 @@
+[data-chat-input-surface="elevated"] {
+  background-color: hsl(var(--primary-foreground));
+  color: hsl(var(--primary));
+}
+
+.dark [data-chat-input-surface="elevated"] .chat-input-editor.tiptap,
+.dark [data-chat-input-surface="elevated"] .chat-input-editor.tiptap p,
+[data-chat-input-surface="elevated"] .chat-input-editor.tiptap,
+[data-chat-input-surface="elevated"] .chat-input-editor.tiptap p {
+  color: hsl(var(--primary)) !important;
+  caret-color: hsl(var(--primary));
+}
+
+[data-chat-input-surface="elevated"]
+  .chat-input-editor.tiptap
+  .is-editor-empty:first-child::before,
+[data-chat-input-surface="elevated"] .chat-input-editor.tiptap .is-empty::before {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+[data-chat-input-surface="elevated"] .chat-input-send:disabled {
+  border-color: hsl(var(--border)) !important;
+  color: hsl(var(--muted-foreground) / 0.6) !important;
+  cursor: default;
+}
+
+[data-chat-input-surface="elevated"]
+  .chat-input-send:disabled
+  .chat-input-send-shortcut {
+  color: hsl(var(--muted-foreground) / 0.6) !important;
+}

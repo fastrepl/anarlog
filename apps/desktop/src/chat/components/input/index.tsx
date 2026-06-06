@@ -1,3 +1,5 @@
+import "./chat-input.css";
+
 import { SquareIcon } from "lucide-react";
 import { useRef } from "react";
 
@@ -35,8 +37,7 @@ export function ChatMessageInput({
   onContextRefsChange?: (refs: ContextRef[]) => void;
 }) {
   const { chat } = useShell();
-  const { elevatedSurfaceClassName, inputEditorClassName } =
-    useChatAppearance();
+  const { elevatedSurfaceClassName } = useChatAppearance();
   const editorRef = useRef<ChatEditorHandle>(null);
   const disabled =
     typeof disabledProp === "object" ? disabledProp.disabled : disabledProp;
@@ -70,8 +71,8 @@ export function ChatMessageInput({
           <ChatEditor
             ref={editorRef}
             className={cn([
-              inputEditorClassName,
-              "max-h-[40vh] overflow-y-auto overscroll-contain text-sm [&_p]:text-inherit",
+              "chat-input-editor",
+              "max-h-[40vh] overflow-y-auto overscroll-contain text-sm",
             ])}
             initialContent={initialContent}
             mentionConfig={mentionConfig}
@@ -97,24 +98,20 @@ export function ChatMessageInput({
               onClick={handleSubmit}
               disabled={isSendDisabled}
               className={cn([
-                "inline-flex h-7 items-center gap-1.5 rounded-lg pr-1.5 pl-2.5 text-xs font-medium transition-all duration-100",
-                "border",
-                isSendDisabled
-                  ? "border-border text-muted-foreground/70 cursor-default"
-                  : [
-                      "border-primary bg-primary text-primary-foreground",
-                      "hover:bg-primary/90",
-                      "active:bg-primary/80 active:scale-[0.97]",
-                    ],
+                "chat-input-send",
+                "inline-flex h-7 items-center gap-1.5 rounded-lg border pr-1.5 pl-2.5 text-xs font-medium transition-all duration-100",
+                !isSendDisabled && [
+                  "border-stone-600 bg-primary text-primary-foreground",
+                  "hover:bg-primary/90",
+                  "active:bg-primary/80 active:scale-[0.97]",
+                ],
               ])}
             >
               Send
               <span
                 className={cn([
-                  "font-mono text-xs",
-                  isSendDisabled
-                    ? "text-muted-foreground/70"
-                    : "text-muted-foreground",
+                  "chat-input-send-shortcut font-mono text-xs",
+                  !isSendDisabled && "text-stone-400",
                 ])}
               >
                 ⌘ ↩
@@ -146,8 +143,9 @@ function Container({
       ])}
     >
       <div
+        data-chat-input-surface="elevated"
         className={cn([
-          "border-border flex max-h-full flex-col border",
+          "flex max-h-full flex-col border",
           elevatedSurfaceClassName,
           hasContextBar ? "rounded-t-none rounded-b-xl" : "rounded-xl",
           hasContextBar && "border-t-0",

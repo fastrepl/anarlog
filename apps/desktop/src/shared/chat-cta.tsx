@@ -26,7 +26,7 @@ export function ChatCTA({
       onClick={handleClick}
       className={cn([
         "border-primary bg-primary inline-flex max-w-full items-center gap-2 rounded-full border-2",
-        "text-primary-foreground px-4 py-2 text-sm shadow-[0_4px_14px_rgba(87,83,78,0.4)]",
+        "text-primary-foreground px-4 py-2 text-sm shadow-[0_6px_20px_rgba(0,0,0,0.45)]",
         "hover:bg-primary/90 transition-colors",
       ])}
     >

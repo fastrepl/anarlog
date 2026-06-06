@@ -257,10 +257,12 @@ function ComposerInput({
 
       <div className="mt-3 flex items-center justify-between gap-3">
         <div className="text-primary-foreground/40 flex items-center gap-2 text-[11px]">
-          <span className="bg-card/6 rounded-full px-2 py-1">
+          <span className="bg-primary-foreground/8 rounded-full px-2 py-1">
             Esc to dismiss
           </span>
-          <span className="bg-card/6 rounded-full px-2 py-1">⌘ ↩ to send</span>
+          <span className="bg-primary-foreground/8 rounded-full px-2 py-1">
+            ⌘ ↩ to send
+          </span>
         </div>
 
         {isStreaming ? (

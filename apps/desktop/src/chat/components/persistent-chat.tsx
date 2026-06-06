@@ -14,7 +14,6 @@ import { cn } from "@hypr/utils";
 import { ChatView } from "./chat-panel";
 
 import { chatFloatingPanelShellClassNames } from "~/chat/surface";
-import { useChatAppearance } from "~/chat/hooks/use-chat-appearance";
 import { useShell } from "~/contexts/shell";
 
 const FLOATING_PANEL_MIN_WIDTH = 360;
@@ -78,7 +77,6 @@ export function PersistentChatPanel({
   floatingContainerRef: React.RefObject<HTMLDivElement | null>;
 }) {
   const { chat } = useShell();
-  const { isDarkAppearance } = useChatAppearance();
   const isVisible = chat.mode === "FloatingOpen";
 
   const [hasBeenOpened, setHasBeenOpened] = useState(false);
@@ -309,7 +307,7 @@ export function PersistentChatPanel({
               data-chat-size="floating"
               className={cn([
                 "relative flex min-h-0 flex-col overflow-hidden",
-                chatFloatingPanelShellClassNames(isDarkAppearance),
+                chatFloatingPanelShellClassNames(),
               ])}
               style={panelStyle}
               initial={panelMotion.initial}

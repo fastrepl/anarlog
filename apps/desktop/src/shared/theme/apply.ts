@@ -2,7 +2,9 @@ import { resolveIsDarkMode, type ThemePreference } from "./resolve";
 
 const THEME_STORAGE_KEY = "hypr-theme";
 
-export function readStoredThemePreference(): ThemePreference | null {
+/** Keep `public/theme-boot.js` aligned with normalizeThemePreference + resolveIsDarkMode. */
+
+export function readStoredThemePreference(): ThemePreference {
   const stored = localStorage.getItem(THEME_STORAGE_KEY);
   return normalizeThemePreference(stored);
 }

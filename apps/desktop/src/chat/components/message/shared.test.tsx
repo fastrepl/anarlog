@@ -53,7 +53,7 @@ describe("MessageBubble", () => {
     const bubble = container.firstChild as HTMLElement;
 
     expect(bubble.className).toContain("bg-blue-100");
-    expect(bubble.className).toContain("text-primary");
+    expect(bubble.className).toContain("text-neutral-800");
     expect(bubble.className).not.toContain("text-foreground");
   });
 });
