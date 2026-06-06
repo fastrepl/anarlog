@@ -180,6 +180,8 @@ describe("FloatingActionButton", () => {
     );
     expect(wrapper?.className).toContain("group-hover:pointer-events-auto");
     expect(wrapper?.className).toContain("group-hover:translate-y-0");
+    expect(wrapper?.className).toContain("hover:pointer-events-auto");
+    expect(wrapper?.className).toContain("hover:translate-y-0");
   });
 
   it("tucks the chat FAB near the editor caret and reveals it from the hover zone", () => {
@@ -198,6 +200,8 @@ describe("FloatingActionButton", () => {
     );
     expect(wrapper?.className).toContain("group-hover:pointer-events-auto");
     expect(wrapper?.className).toContain("group-hover:translate-y-0");
+    expect(wrapper?.className).toContain("hover:pointer-events-auto");
+    expect(wrapper?.className).toContain("hover:translate-y-0");
   });
 
   it("keeps the chat FAB tucked during active meetings", () => {
@@ -217,6 +221,8 @@ describe("FloatingActionButton", () => {
     expect(wrapper?.className).toContain("pointer-events-none");
     expect(wrapper?.className).toContain("group-hover:pointer-events-auto");
     expect(wrapper?.className).toContain("group-hover:translate-y-0");
+    expect(wrapper?.className).toContain("hover:pointer-events-auto");
+    expect(wrapper?.className).toContain("hover:translate-y-0");
   });
 
   it("shows the tucked chat FAB during active meetings before transcript exists", () => {
