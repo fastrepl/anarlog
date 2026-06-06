@@ -137,12 +137,11 @@ initWindowsPlugin();
 
 const rootElement = document.getElementById("root")!;
 if (!rootElement.innerHTML) {
-  void bootstrapThemeFromSettings().finally(() => {
-    const root = ReactDOM.createRoot(rootElement);
-    root.render(
-      <StrictMode>
-        <AppWithTiny />
-      </StrictMode>,
-    );
-  });
+  void bootstrapThemeFromSettings();
+  const root = ReactDOM.createRoot(rootElement);
+  root.render(
+    <StrictMode>
+      <AppWithTiny />
+    </StrictMode>,
+  );
 }

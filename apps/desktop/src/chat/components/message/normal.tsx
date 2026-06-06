@@ -85,7 +85,7 @@ export function NormalMessage({
             {handleReload && (
               <button
                 onClick={handleReload}
-                className="text-muted-foreground hover:text-muted-foreground p-1 transition-colors"
+                className="text-muted-foreground hover:text-foreground p-1 transition-colors"
                 aria-label="Regenerate message"
               >
                 <RotateCcwIcon size={14} />
