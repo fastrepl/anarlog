@@ -3,7 +3,7 @@ import { type ReactNode } from "react";
 
 import { cn } from "@hypr/utils";
 
-import { useShell } from "~/contexts/shell";
+import { useChatAppearance } from "~/chat/hooks/use-chat-appearance";
 
 export function MessageContainer({
   align = "start",
@@ -33,9 +33,7 @@ export function MessageBubble({
   withActionButton?: boolean;
   children: ReactNode;
 }) {
-  const { chat } = useShell();
-  const isDarkSurface =
-    chat.mode === "FloatingOpen" || chat.mode === "RightPanelOpen";
+  const { isDarkAppearance } = useChatAppearance();
 
   return (
     <div
@@ -44,11 +42,11 @@ export function MessageBubble({
         variant === "user" &&
           "text-primary w-fit max-w-full rounded-2xl bg-blue-100 px-3 py-1 [&_p]:[text-wrap:wrap]",
         variant === "assistant" &&
-          (isDarkSurface
+          (isDarkAppearance
             ? "bg-primary-foreground/95 text-primary rounded-2xl px-3 py-1"
             : "text-foreground"),
         variant === "loading" &&
-          (isDarkSurface
+          (isDarkAppearance
             ? "bg-primary-foreground/95 text-primary w-fit rounded-2xl px-3 py-1"
             : "text-foreground"),
         variant === "error" &&

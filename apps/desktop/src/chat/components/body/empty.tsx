@@ -9,7 +9,7 @@ import { useCallback } from "react";
 import { cn } from "@hypr/utils";
 
 import type { ContextRef } from "~/chat/context/entities";
-import { useShell } from "~/contexts/shell";
+import { useChatAppearance } from "~/chat/hooks/use-chat-appearance";
 import { useTabs } from "~/store/zustand/tabs";
 
 const SUGGESTIONS = [
@@ -43,10 +43,8 @@ export function ChatBodyEmpty({
     contextRefs?: ContextRef[],
   ) => void;
 }) {
-  const { chat } = useShell();
+  const { isDarkAppearance } = useChatAppearance();
   const openNew = useTabs((state) => state.openNew);
-  const isDarkSurface =
-    chat.mode === "FloatingOpen" || chat.mode === "RightPanelOpen";
 
   const handleGoToSettings = useCallback(() => {
     openNew({ type: "settings", state: { tab: "intelligence" } });
@@ -67,7 +65,7 @@ export function ChatBodyEmpty({
             <span
               className={cn([
                 "text-sm font-medium",
-                isDarkSurface ? "text-primary-foreground" : "text-foreground",
+                isDarkAppearance ? "text-primary-foreground" : "text-foreground",
               ])}
             >
               Anarlog AI
@@ -77,7 +75,7 @@ export function ChatBodyEmpty({
           <p
             className={cn([
               "mb-2 text-sm",
-              isDarkSurface
+              isDarkAppearance
                 ? "text-primary-foreground/80"
                 : "text-muted-foreground",
             ])}
@@ -107,7 +105,7 @@ export function ChatBodyEmpty({
           <span
             className={cn([
               "text-sm font-medium",
-              isDarkSurface ? "text-primary-foreground" : "text-foreground",
+              isDarkAppearance ? "text-primary-foreground" : "text-foreground",
             ])}
           >
             Anarlog AI
@@ -117,7 +115,7 @@ export function ChatBodyEmpty({
         <p
           className={cn([
             "mb-2 text-sm",
-            isDarkSurface
+            isDarkAppearance
               ? "text-primary-foreground/80"
               : "text-muted-foreground",
           ])}
@@ -133,7 +131,7 @@ export function ChatBodyEmpty({
                 onClick={() => handleSuggestionClick(prompt)}
                 className={cn([
                   "inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px]",
-                  isDarkSurface
+                  isDarkAppearance
                     ? "border-primary bg-primary/80 text-primary-foreground hover:bg-primary/70"
                     : "border-border bg-card text-muted-foreground hover:bg-accent",
                   "transition-colors",

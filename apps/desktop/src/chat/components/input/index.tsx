@@ -9,6 +9,7 @@ import { cn } from "@hypr/utils";
 import { useAutoFocusEditor, useDraftState, useSubmit } from "./hooks";
 
 import type { ContextRef } from "~/chat/context/entities";
+import { useChatAppearance } from "~/chat/hooks/use-chat-appearance";
 import { useShell } from "~/contexts/shell";
 import { useMentionConfig } from "~/editor-bridge/mention-config";
 
@@ -34,6 +35,8 @@ export function ChatMessageInput({
   onContextRefsChange?: (refs: ContextRef[]) => void;
 }) {
   const { chat } = useShell();
+  const { elevatedSurfaceClassName, inputEditorClassName } =
+    useChatAppearance();
   const editorRef = useRef<ChatEditorHandle>(null);
   const disabled =
     typeof disabledProp === "object" ? disabledProp.disabled : disabledProp;
@@ -57,12 +60,19 @@ export function ChatMessageInput({
   const isRightPanel = chat.mode === "RightPanelOpen";
 
   return (
-    <Container hasContextBar={hasContextBar} isRightPanel={isRightPanel}>
+    <Container
+      elevatedSurfaceClassName={elevatedSurfaceClassName}
+      hasContextBar={hasContextBar}
+      isRightPanel={isRightPanel}
+    >
       <div data-chat-message-input className="flex flex-col px-2 pt-3 pb-2">
         <div className="mb-1 min-h-0 flex-1">
           <ChatEditor
             ref={editorRef}
-            className="text-primary max-h-[40vh] overflow-y-auto overscroll-contain text-sm"
+            className={cn([
+              inputEditorClassName,
+              "max-h-[40vh] overflow-y-auto overscroll-contain text-sm [&_p]:text-inherit",
+            ])}
             initialContent={initialContent}
             mentionConfig={mentionConfig}
             placeholder={chatPlaceholder}
@@ -119,10 +129,12 @@ export function ChatMessageInput({
 
 function Container({
   children,
+  elevatedSurfaceClassName,
   hasContextBar,
   isRightPanel,
 }: {
   children: React.ReactNode;
+  elevatedSurfaceClassName: string;
   hasContextBar?: boolean;
   isRightPanel: boolean;
 }) {
@@ -135,7 +147,8 @@ function Container({
     >
       <div
         className={cn([
-          "border-border bg-primary-foreground/95 flex max-h-full flex-col border",
+          "border-border flex max-h-full flex-col border",
+          elevatedSurfaceClassName,
           hasContextBar ? "rounded-t-none rounded-b-xl" : "rounded-xl",
           hasContextBar && "border-t-0",
         ])}

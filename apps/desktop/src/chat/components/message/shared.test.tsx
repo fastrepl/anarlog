@@ -1,15 +1,26 @@
 import { cleanup, render } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const shellState = vi.hoisted(() => ({
-  mode: "FloatingOpen" as "FloatingOpen" | "FloatingClosed" | "RightPanelOpen",
+const appearanceState = vi.hoisted(() => ({
+  isDarkAppearance: true,
 }));
 
-vi.mock("~/contexts/shell", () => ({
-  useShell: () => ({
-    chat: {
-      mode: shellState.mode,
-    },
+vi.mock("~/chat/hooks/use-chat-appearance", () => ({
+  useChatAppearance: () => ({
+    isDarkAppearance: appearanceState.isDarkAppearance,
+    toolbarSurface: appearanceState.isDarkAppearance ? "dark" : "light",
+    panelClassName: appearanceState.isDarkAppearance
+      ? "bg-primary text-primary-foreground"
+      : "bg-card text-foreground",
+    panelBorderClassName: appearanceState.isDarkAppearance
+      ? "border-primary/80"
+      : "border-border",
+    elevatedSurfaceClassName: appearanceState.isDarkAppearance
+      ? "bg-primary-foreground/95 text-primary"
+      : "bg-muted text-foreground",
+    inputEditorClassName: appearanceState.isDarkAppearance
+      ? "text-primary"
+      : "text-foreground",
   }),
 }));
 
@@ -18,7 +29,7 @@ import { MessageBubble } from "./shared";
 describe("MessageBubble", () => {
   beforeEach(() => {
     cleanup();
-    shellState.mode = "FloatingOpen";
+    appearanceState.isDarkAppearance = true;
   });
 
   it("uses contrasting tokens for assistant bubbles on dark chat surfaces", () => {

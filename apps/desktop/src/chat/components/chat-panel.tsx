@@ -9,6 +9,7 @@ import { ChatToolbarControls } from "./toolbar-controls";
 import { useSessionTab } from "./use-session-tab";
 
 import { useLanguageModel } from "~/ai/hooks";
+import { useChatAppearance } from "~/chat/hooks/use-chat-appearance";
 import { useChatActions } from "~/chat/store/use-chat-actions";
 import { useShell } from "~/contexts/shell";
 import * as main from "~/store/tinybase/store/main";
@@ -24,6 +25,8 @@ export function ChatView({
 }) {
   const { chat } = useShell();
   const { groupId, sessionId, setGroupId } = chat;
+  const { panelClassName, panelBorderClassName, toolbarSurface } =
+    useChatAppearance();
   const isFloating = layout === "floating";
 
   const { currentSessionId } = useSessionTab();
@@ -47,14 +50,15 @@ export function ChatView({
     <div
       className={cn([
         "flex h-full min-h-0 flex-col overflow-hidden",
-        "bg-primary text-primary-foreground",
+        panelClassName,
       ])}
     >
       <div
         className={cn([
           "flex shrink-0 items-center pr-0 pl-0",
           isFloating ? "h-11" : "h-12",
-          "border-primary/80 border-b",
+          panelBorderClassName,
+          "border-b",
         ])}
       >
         <ChatToolbarControls
@@ -64,7 +68,7 @@ export function ChatView({
           onOpenFloating={onOpenFloating}
           onOpenRightPanel={onOpenRightPanel}
           onSelectChat={chat.selectChat}
-          surface="dark"
+          surface={toolbarSurface}
         />
       </div>
       {user_id && (

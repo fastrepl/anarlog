@@ -18,6 +18,7 @@ import { cn, safeParseDate } from "@hypr/utils";
 import type { ContextRef } from "~/chat/context/entities";
 import { type ContextChipProps, renderChip } from "~/chat/context/registry";
 import type { DisplayEntity } from "~/chat/context/use-chat-context-pipeline";
+import { useChatAppearance } from "~/chat/hooks/use-chat-appearance";
 import { useShell } from "~/contexts/shell";
 import { useSearchEngine } from "~/search/contexts/engine";
 import { getSessionEvent } from "~/session/utils";
@@ -354,6 +355,7 @@ export function ContextBar({
   onAddEntity?: (ref: ContextRef) => void;
 }) {
   const { chat } = useShell();
+  const { elevatedSurfaceClassName } = useChatAppearance();
   const isRightPanel = chat.mode === "RightPanelOpen";
   const chips = useMemo(
     () =>
@@ -377,7 +379,8 @@ export function ContextBar({
     <div
       data-chat-context-bar
       className={cn([
-        "border-border bg-primary-foreground/95 shrink-0 rounded-t-xl border-t border-r border-l",
+        "border-border shrink-0 rounded-t-xl border-t border-r border-l",
+        elevatedSurfaceClassName,
         isRightPanel ? "mx-3" : "mx-2",
       ])}
     >

@@ -38,6 +38,29 @@ vi.mock("~/contexts/shell", () => ({
   useShell: () => ({ chat: mocks.chat }),
 }));
 
+const appearanceState = vi.hoisted(() => ({
+  isDarkAppearance: true,
+}));
+
+vi.mock("~/chat/hooks/use-chat-appearance", () => ({
+  useChatAppearance: () => ({
+    isDarkAppearance: appearanceState.isDarkAppearance,
+    toolbarSurface: appearanceState.isDarkAppearance ? "dark" : "light",
+    panelClassName: appearanceState.isDarkAppearance
+      ? "bg-primary text-primary-foreground"
+      : "bg-card text-foreground",
+    panelBorderClassName: appearanceState.isDarkAppearance
+      ? "border-primary/80"
+      : "border-border",
+    elevatedSurfaceClassName: appearanceState.isDarkAppearance
+      ? "bg-primary-foreground/95 text-primary"
+      : "bg-muted text-foreground",
+    inputEditorClassName: appearanceState.isDarkAppearance
+      ? "text-primary"
+      : "text-foreground",
+  }),
+}));
+
 vi.mock("~/store/tinybase/store/main", () => ({
   STORE_ID: "main",
   UI: {
@@ -51,9 +74,10 @@ describe("ChatView", () => {
   beforeEach(() => {
     cleanup();
     mocks.toolbarControls.mockClear();
+    appearanceState.isDarkAppearance = true;
   });
 
-  it("uses the modal dark surface for the right panel layout", () => {
+  it("uses the dark stone surface when the app is in dark appearance", () => {
     const { container } = render(<ChatView layout="right-panel" />);
     const root = container.firstElementChild;
 
@@ -67,5 +91,16 @@ describe("ChatView", () => {
         surface: "dark",
       }),
     );
+  });
+
+  it("uses the light card surface when the app is in light appearance", () => {
+    appearanceState.isDarkAppearance = false;
+
+    const { container } = render(<ChatView layout="right-panel" />);
+    const root = container.firstElementChild;
+
+    expect(root?.className).toContain("bg-card");
+    expect(root?.className).toContain("text-foreground");
+    expect(screen.getByTestId("chat-toolbar").dataset.surface).toBe("light");
   });
 });

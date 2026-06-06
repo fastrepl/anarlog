@@ -60,6 +60,17 @@ vi.mock("~/contexts/shell", () => ({
   }),
 }));
 
+vi.mock("~/chat/hooks/use-chat-appearance", () => ({
+  useChatAppearance: () => ({
+    isDarkAppearance: true,
+    toolbarSurface: "dark",
+    panelClassName: "bg-primary text-primary-foreground",
+    panelBorderClassName: "border-primary/80",
+    elevatedSurfaceClassName: "bg-primary-foreground/95 text-primary",
+    inputEditorClassName: "text-primary",
+  }),
+}));
+
 vi.mock("~/editor-bridge/mention-config", () => ({
   useMentionConfig: () => undefined,
 }));
