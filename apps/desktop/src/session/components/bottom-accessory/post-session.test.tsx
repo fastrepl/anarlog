@@ -222,10 +222,12 @@ describe("PostSessionAccessory", () => {
     const noTranscript = screen.getByText("No transcript yet");
     const transcriptCard = noTranscript.parentElement?.parentElement;
     const transcriptSlot = transcriptCard?.parentElement;
+    const accessoryRoot = transcriptSlot?.parentElement;
     expect(transcriptCard?.className).not.toContain("min-h-[114px]");
     expect(transcriptCard?.className).not.toContain("min-h-[96px]");
     expect(transcriptSlot?.className).not.toContain("min-h-[114px]");
     expect(transcriptSlot?.className).toContain("shrink-0");
+    expect(accessoryRoot?.className).not.toContain("h-full");
     expect(screen.queryByRole("button", { name: "Upload audio" })).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: /Regenerate/ }));

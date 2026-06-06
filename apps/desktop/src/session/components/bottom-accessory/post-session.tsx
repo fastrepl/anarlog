@@ -75,7 +75,7 @@ export function PostSessionAccessory({
     <div
       className={cn([
         "flex min-h-0 flex-col",
-        fillHeight && "h-full overflow-hidden",
+        shouldFillExpandedPanel && "h-full overflow-hidden",
       ])}
     >
       {isTranscriptExpanded ? (
