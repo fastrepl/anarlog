@@ -4,10 +4,23 @@ const THEME_STORAGE_KEY = "hypr-theme";
 
 export function readStoredThemePreference(): ThemePreference | null {
   const stored = localStorage.getItem(THEME_STORAGE_KEY);
+  return normalizeThemePreference(stored);
+}
+
+export function normalizeThemePreference(
+  stored: string | null,
+): ThemePreference {
   if (stored === "light" || stored === "dark" || stored === "system") {
     return stored;
   }
-  return null;
+  return "system";
+}
+
+export function resolveBootIsDark(
+  stored: string | null,
+  prefersDark: boolean,
+): boolean {
+  return resolveIsDarkMode(normalizeThemePreference(stored), prefersDark);
 }
 
 export function writeStoredThemePreference(theme: ThemePreference): void {

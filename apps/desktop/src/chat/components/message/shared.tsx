@@ -42,14 +42,14 @@ export function MessageBubble({
       className={cn([
         "select-text-deep text-sm",
         variant === "user" &&
-          "text-foreground w-fit max-w-full rounded-2xl bg-blue-100 px-3 py-1 [&_p]:[text-wrap:wrap]",
+          "text-primary w-fit max-w-full rounded-2xl bg-blue-100 px-3 py-1 [&_p]:[text-wrap:wrap]",
         variant === "assistant" &&
           (isDarkSurface
-            ? "bg-card/95 text-foreground rounded-2xl px-3 py-1"
+            ? "bg-primary-foreground/95 text-primary rounded-2xl px-3 py-1"
             : "text-foreground"),
         variant === "loading" &&
           (isDarkSurface
-            ? "bg-card/95 text-foreground w-fit rounded-2xl px-3 py-1"
+            ? "bg-primary-foreground/95 text-primary w-fit rounded-2xl px-3 py-1"
             : "text-foreground"),
         variant === "error" &&
           "rounded-2xl border border-red-200 bg-red-50 px-3 py-1 text-red-600",

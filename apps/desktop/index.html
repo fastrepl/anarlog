@@ -13,10 +13,11 @@
         var prefersDark = window.matchMedia("(prefers-color-scheme: dark)")
           .matches;
         var isDark =
-          theme === "dark" || ((theme === "system" || !theme) && prefersDark);
-        if (isDark) {
-          document.documentElement.classList.add("dark");
-        }
+          theme === "dark" ||
+          (theme !== "light" &&
+            (theme === "system" || !theme) &&
+            prefersDark);
+        document.documentElement.classList.toggle("dark", isDark);
       })();
     </script>
     <style>
