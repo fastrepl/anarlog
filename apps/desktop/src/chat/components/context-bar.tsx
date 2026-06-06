@@ -163,11 +163,11 @@ function ContextChip({
           className={cn([
             "group max-w-48 min-w-0 rounded-md px-1.5 py-0.5 text-xs",
             pending
-              ? "bg-muted0/5 text-muted-foreground"
+              ? "bg-muted/5 text-muted-foreground"
               : "bg-card text-muted-foreground shadow-xs",
             "inline-flex shrink items-center gap-1",
             isClickable
-              ? "hover:bg-accent0/20 cursor-pointer"
+              ? "hover:bg-accent/20 cursor-pointer"
               : "cursor-default",
           ])}
         >
@@ -180,7 +180,7 @@ function ContextChip({
                 e.stopPropagation();
                 onRemove(chip.key);
               }}
-              className="hover:bg-accent0/20 ml-0.5 hidden items-center justify-center rounded-sm group-hover:inline-flex"
+              className="hover:bg-accent/20 ml-0.5 hidden items-center justify-center rounded-sm group-hover:inline-flex"
             >
               <XIcon className="size-2.5" />
             </button>
@@ -234,7 +234,7 @@ function ChipList({
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="bg-muted0/10 text-muted-foreground hover:bg-accent0/20 hover:text-muted-foreground inline-flex shrink-0 items-center gap-0.5 rounded-md px-1 py-0.5 text-xs transition-colors"
+          className="bg-muted/10 text-muted-foreground hover:bg-accent/20 hover:text-muted-foreground inline-flex shrink-0 items-center gap-0.5 rounded-md px-1 py-0.5 text-xs transition-colors"
         >
           {!expanded && hiddenCount > 0 && <span>+{hiddenCount}</span>}
           <ChevronDownIcon
@@ -330,7 +330,7 @@ function AddSessionButton({ onAdd }: { onAdd: (sessionId: string) => void }) {
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="bg-muted0/10 text-muted-foreground hover:bg-accent0/20 hover:text-muted-foreground inline-flex shrink-0 items-center justify-center rounded-md p-0.5 transition-colors"
+          className="bg-muted/10 text-muted-foreground hover:bg-accent/20 hover:text-muted-foreground inline-flex shrink-0 items-center justify-center rounded-md p-0.5 transition-colors"
         >
           <PlusIcon className="size-3.5" />
         </button>
