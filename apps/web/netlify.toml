@@ -3,7 +3,7 @@
 [build]
 command = "VITE_APP_VERSION=$COMMIT_REF pnpm -F @hypr/web build"
 publish = "apps/web/dist/client"
-ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF apps/web packages/api-client packages/tiptap packages/ui packages/utils package.json pnpm-lock.yaml"
+ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF apps/web packages/api-client packages/changelog packages/tiptap packages/ui packages/utils package.json pnpm-lock.yaml"
 
 [build.environment]
 VITE_APP_URL = "https://anarlog.so"
