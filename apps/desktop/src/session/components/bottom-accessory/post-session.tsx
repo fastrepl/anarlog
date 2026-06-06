@@ -142,7 +142,9 @@ function PastNotesPanel({
   return (
     <TranscriptCard fillHeight={fillHeight}>
       <div className="flex shrink-0 items-center justify-between px-3 py-1.5">
-        <span className="text-xs font-medium text-neutral-500">Past notes</span>
+        <span className="text-xs font-medium text-neutral-500">
+          Related meetings
+        </span>
       </div>
 
       <div

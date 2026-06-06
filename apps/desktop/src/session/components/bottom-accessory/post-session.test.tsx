@@ -352,7 +352,7 @@ describe("PostSessionAccessory", () => {
       />,
     );
 
-    expect(screen.getByText("Past notes")).toBeTruthy();
+    expect(screen.getByText("Related meetings")).toBeTruthy();
     const title = screen.getByText("Weekly Product Sync");
     const date = screen.getByText("May 28, 2026");
     expect(title).toBeTruthy();

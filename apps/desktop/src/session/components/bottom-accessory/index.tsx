@@ -221,7 +221,7 @@ function PostSessionTabHandle({
         className="rounded-t-[10px] border-x"
       />
       <PostSessionTabButton
-        label="Past notes"
+        label="Related meetings"
         tab="past_notes"
         activeTab={activeTab}
         isExpanded={isExpanded}
