@@ -20,7 +20,7 @@ I tested five tools that take different positions on this spectrum. For each one
 |                |                                                                    |                                |
 | -------------- | ------------------------------------------------------------------ | ------------------------------ |
 | **Tool**       | **Best For**                                                       | **Pricing**                    |
-| **Char**       | Users who want complete control over data and AI stack             | Free (local/BYOK), Pro $25/mo  |
+| **Anarlog**       | Users who want complete control over data and AI stack             | Free (local/BYOK), Pro $25/mo  |
 | **Meetily**    | Teams on Windows or Mac who want a polished open-source option     | Community free, Pro $10/mo     |
 | **Shadow**     | Client-facing roles who need screen capture alongside audio        | Free transcription, Plus $8/mo |
 | **Talat**      | People who want Granola's UX without the cloud, for a one-time fee | $49 pre-release, $99 at 1.0    |
@@ -30,15 +30,15 @@ I tested five tools that take different positions on this spectrum. For each one
 
 ## 5 Tools for Local AI Meeting Notes: A Closer Look
 
-### 1. Char
+### 1. Anarlog
 
 ![](/api/assets/blog/blog/char-summary.png "char-editor-width=80")
 
-[Char](https://anarlog.so) is an open-source AI notepad for meetings, built for people who want complete control over their data and AI stack. It captures system audio from any meeting platform without joining your call and without requiring calendar permissions. 
+[Anarlog](https://anarlog.so) is an open-source AI notepad for meetings, built for people who want complete control over their data and AI stack. It captures system audio from any meeting platform without joining your call and without requiring calendar permissions. 
 
-You can take notes during the meeting in Char's built-in editor while it transcribes in the background, and the AI combines both into a structured summary after the call. 
+You can take notes during the meeting in Anarlog's built-in editor while it transcribes in the background, and the AI combines both into a structured summary after the call. 
 
-The AI stack is yours to choose: Char's managed cloud service, your own API keys from OpenAI, Anthropic, or Deepgram, or fully local models through Ollama or LM Studio for offline operation. Every audio file, transcript, and note lives on your computer. You decide if data ever leaves your device.
+The AI stack is yours to choose: Anarlog's managed cloud service, your own API keys from OpenAI, Anthropic, or Deepgram, or fully local models through Ollama or LM Studio for offline operation. Every audio file, transcript, and note lives on your computer. You decide if data ever leaves your device.
 
 #### How local is it actually
 
@@ -47,7 +47,7 @@ The AI stack is yours to choose: Char's managed cloud service, your own API keys
 - Storage: all data stored locally on your device. Your files, your folder structure, zero lock-in.
 - Open-source codebase. Your security team can audit exactly how data is handled.
 
-If you run Char with local models, nothing leaves your machine. If you plug in an API key, only the transcript goes to that provider for summarization. For companies that have banned cloud-based meeting tools, Char is one of the few options where "local-first" means exactly what it says.
+If you run Anarlog with local models, nothing leaves your machine. If you plug in an API key, only the transcript goes to that provider for summarization. For companies that have banned cloud-based meeting tools, Anarlog is one of the few options where "local-first" means exactly what it says.
 
 #### Where it falls short
 
@@ -58,7 +58,7 @@ If you run Char with local models, nothing leaves your machine. If you plug in a
 
 #### Pricing
 
-Free for unlimited loacl transcription and AI. A lite plan at $8/month with Char cloud and pro at $25/month for integrations, advanced templates, and more.
+Free for unlimited loacl transcription and AI. A lite plan at $8/month with Anarlog cloud and pro at $25/month for integrations, advanced templates, and more.
 
 ### 2. Meetily
 
@@ -181,7 +181,7 @@ $400 lifetime (one-time). All features, all future updates. $600 lifetime + 1 ye
 
 Local processing means accepting tradeoffs. Local models are not as accurate as cloud transcription on messy audio, speaker diarization is still maturing across the board, and most of these tools are macOS-only or macOS-first. The gap is closing fast, though, and for anyone handling sensitive conversations, the architectural guarantee that your audio never left your device is worth more than a privacy policy that can change with a terms-of-service update.
 
-Char is the strongest choice if you want complete control: open-source, your choice of AI provider, and data that lives on your device in a format you own. 
+Anarlog is the strongest choice if you want complete control: open-source, your choice of AI provider, and data that lives on your device in a format you own. 
 
 Meetily is the best open-source option if you need Windows support or want a free polished app. 
 
@@ -191,7 +191,7 @@ Talat is for people who loved Granola but could not accept cloud dependency, and
 
 Screenpipe is the power user's option: not just meeting notes but a searchable memory of your entire workday. 
 
-If you want to start with local AI meeting notes that give you full ownership, [try Char](https://anarlog.so). It is free, open-source, and works offline with local models. Your first meeting's notes will land on your device, readable by any tool you already use.
+If you want to start with local AI meeting notes that give you full ownership, [try Anarlog](https://anarlog.so). It is free, open-source, and works offline with local models. Your first meeting's notes will land on your device, readable by any tool you already use.
 
 ## Frequently Asked Questions
 
@@ -201,11 +201,11 @@ No. Granola captures system audio locally, which is why it gets grouped with loc
 
 ### 2. Can I use these tools for in-person meetings?
 
-Yes. Tools that capture microphone input (Char, Meetily, Talat, Screenpipe) work for in-person conversations. Place your laptop near the speakers and let the mic pick up the room. Speaker diarization accuracy varies since it was primarily designed for virtual calls with separate audio channels.
+Yes. Tools that capture microphone input (Anarlog, Meetily, Talat, Screenpipe) work for in-person conversations. Place your laptop near the speakers and let the mic pick up the room. Speaker diarization accuracy varies since it was primarily designed for virtual calls with separate audio channels.
 
 ### 3. Do local meeting notetakers work offline?
 
-If both transcription and summarization use local models, yes. Char with Ollama, Meetily with Parakeet + Ollama, Talat with its built-in LLM, and Screenpipe with local Whisper all work without an internet connection. Shadow's transcription works offline but the AI summary features need a connection.
+If both transcription and summarization use local models, yes. Anarlog with Ollama, Meetily with Parakeet + Ollama, Talat with its built-in LLM, and Screenpipe with local Whisper all work without an internet connection. Shadow's transcription works offline but the AI summary features need a connection.
 
 ### 4. What hardware do I need to run local transcription?
 

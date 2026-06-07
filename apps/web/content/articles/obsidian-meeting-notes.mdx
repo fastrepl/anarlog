@@ -1,6 +1,6 @@
 ---
 meta_title: "How to Use Obsidian for Meeting Notes"
-meta_description: "Step-by-step guide to building meeting notes in Obsidian with templates, person notes, backlinks, searchable action items, and local AI transcription via Char."
+meta_description: "Step-by-step guide to building meeting notes in Obsidian with templates, person notes, backlinks, searchable action items, and local AI transcription via Anarlog."
 author:
   - "John Jeong"
 featured: true
@@ -221,7 +221,7 @@ Everyone at a specific company:
 
 Searches the `company` property across person notes. Useful when you're preparing for a client meeting and want to see all your contacts there.
 
-### Step 8: Add Char for real-time transcription and AI notes
+### Step 8: Add Anarlog for real-time transcription and AI notes
 
 Everything up to this point relies on what you managed to type. In a 30-minute meeting, that's maybe 15% of what was said. The decision that was made at minute 22. The exact phrasing someone used when they pushed back on a deadline. The side comment that turns out to be the most important thing said all week. It's gone unless you happened to write it down.
 
@@ -229,32 +229,32 @@ You need transcription. And if you're the kind of person who chose Obsidian — 
 
 Most meeting transcription tools don't. They store your data on their servers. They require monthly subscriptions. They join your call as a bot. They lock your transcripts in a proprietary format you can't move.
 
-This is exactly the problem Char solves.
+This is exactly the problem Anarlog solves.
 
-Char is an open-source AI notepad for meetings. Here's what it does and why it fits this system:
+Anarlog is an open-source AI notepad for meetings. Here's what it does and why it fits this system:
 
-![Char obsidian integration](/api/assets/blog/articles/obsidian-meeting-notes/image-10-1.png "char-editor-width=80")
+![Anarlog obsidian integration](/api/assets/blog/articles/obsidian-meeting-notes/image-10-1.png "char-editor-width=80")
 
-You point the output folder at your vault. This is the key. Set Char's output folder to your `Meetings/` folder (or a subfolder like `Meetings/Transcripts/`). When Char finishes processing a meeting, the transcript and summary appear in your vault. Obsidian indexes them instantly. They're searchable, linkable, part of your system. No export. No copy-paste.
+You point the output folder at your vault. This is the key. Set Anarlog's output folder to your `Meetings/` folder (or a subfolder like `Meetings/Transcripts/`). When Anarlog finishes processing a meeting, the transcript and summary appear in your vault. Obsidian indexes them instantly. They're searchable, linkable, part of your system. No export. No copy-paste.
 
-It records via system audio. No bot joins your Zoom. No calendar permissions. Char captures what your computer hears, which means it works with Zoom, Teams, Google Meet, phone calls, and in-person conversations with a mic. Nobody in the meeting knows it's running.
+It records via system audio. No bot joins your Zoom. No calendar permissions. Anarlog captures what your computer hears, which means it works with Zoom, Teams, Google Meet, phone calls, and in-person conversations with a mic. Nobody in the meeting knows it's running.
 
-It transcribes in real time and generates structured summaries. Char combines your notes with the full transcript and produces a summary using AI. The summary lands as a file on your computer.
+It transcribes in real time and generates structured summaries. Anarlog combines your notes with the full transcript and produces a summary using AI. The summary lands as a file on your computer.
 
-You choose the AI. Use Char's managed cloud service if you want simplicity. Bring your own API keys from OpenAI, Deepgram, or Anthropic if your company already has them. Run models locally through Ollama or LM Studio if nothing leaves your machine. Your security team can audit the code. You're not trusting a black box with your meeting recordings.
+You choose the AI. Use Anarlog's managed cloud service if you want simplicity. Bring your own API keys from OpenAI, Deepgram, or Anthropic if your company already has them. Run models locally through Ollama or LM Studio if nothing leaves your machine. Your security team can audit the code. You're not trusting a black box with your meeting recordings.
 
-There's no lock-in. Every file Char produces is a file on your computer. Stop using Char and every transcript is still there, in your vault, working. There's nothing to export because nothing was ever locked up.
+There's no lock-in. Every file Anarlog produces is a file on your computer. Stop using Anarlog and every transcript is still there, in your vault, working. There's nothing to export because nothing was ever locked up.
 
-If you use Obsidian, you already made this choice once: files on your machine, open format, your control. Char is the same choice applied to meeting recordings.
+If you use Obsidian, you already made this choice once: files on your machine, open format, your control. Anarlog is the same choice applied to meeting recordings.
 
 ## Your Obsidian Meeting Notes Workflow
 
 Monday morning. You open Obsidian.
 
 1. You check your calendar and see three meetings today. From your daily note, you create a meeting note for the first one: `2026-04-07 Sprint Planning`.
-2. The meeting starts. You open Char. It starts recording system audio. You take notes in Obsidian: quick bullets, [[wikilinks]] for people and topics as they come up.
-3. The meeting ends. You stop Char. It processes the recording and drops a transcript and structured summary into your vault. You pull the key decisions and action items to the top of your meeting note.
+2. The meeting starts. You open Anarlog. It starts recording system audio. You take notes in Obsidian: quick bullets, [[wikilinks]] for people and topics as they come up.
+3. The meeting ends. You stop Anarlog. It processes the recording and drops a transcript and structured summary into your vault. You pull the key decisions and action items to the top of your meeting note.
 4. Before your 1:1 with Sarah that afternoon, you open [[Sarah Chen]] and glance at backlinks. You can see every meeting she's been in this month, what she committed to, what's still open. You search task-todo:"Sarah Chen" and it shows rwo open items from last week.
 5. In the 1:1, you reference the specific thing she said in the sprint planning meeting. You know the exact phrasing because it's in the transcript. You're not guessing. You're not paraphrasing from memory. You're reading her words back from a file in your vault.
 
-That's the system. Templates give you structure. Links connect everything. Backlinks surface history. Search finds anything. Char fills the gap between what you typed and what was actually said. [Download Char now](https://anarlog.so/download/apple-silicon) and try it on your next meeting.
+That's the system. Templates give you structure. Links connect everything. Backlinks surface history. Search finds anything. Anarlog fills the gap between what you typed and what was actually said. [Download Anarlog now](https://anarlog.so/download/apple-silicon) and try it on your next meeting.

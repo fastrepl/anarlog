@@ -1,6 +1,6 @@
 ---
 meta_title: "Best Self-Hosted AI Notetakers in 2026"
-meta_description: "Six open-source AI meeting notetakers you can self-host — from full meeting workspaces to raw transcription pipelines. Covers Char, Meetily, Scriberr, Vibe, Whishper, and WhisperX."
+meta_description: "Six open-source AI meeting notetakers you can self-host — from full meeting workspaces to raw transcription pipelines. Covers Anarlog, Meetily, Scriberr, Vibe, Whishper, and WhisperX."
 author:
   - "Harshika"
 featured: false
@@ -16,7 +16,7 @@ If you don't want your meeting audio on someone else's servers, these are your o
 |              |             |                 |                                               |                    |                                |
 | ------------ | ----------- | --------------- | --------------------------------------------- | ------------------ | ------------------------------ |
 | **Tool**     | **License** | **Platform**    | **Local STT**                                 | **Local LLM**      | **Pricing**                    |
-| **Char**     | MIT         | macOS           | Parakeet V3, Parakeet Batch + 7 cloud         | Ollama / LM Studio | Free (local) · $8–$25/mo cloud |
+| **Anarlog**     | MIT         | macOS           | Parakeet V3, Parakeet Batch + 7 cloud         | Ollama / LM Studio | Free (local) · $8–$25/mo cloud |
 | **Meetily**  | MIT         | Windows, macOS  | Whisper, Parakeet                             | Ollama             | Free · $10/mo Pro              |
 | **Scriberr** | MIT         | Docker (web)    | Whisper.cpp                                   | Ollama             | Free                           |
 | **Vibe**     | MIT         | Win, Mac, Linux | Whisper.cpp                                   | No built-in        | Free                           |
@@ -26,19 +26,19 @@ If you don't want your meeting audio on someone else's servers, these are your o
 
 ### 6 Best Self-Hosted AI Notetakers
 
-### 1. Char
+### 1. Anarlog
 
-![Char review](/api/assets/blog/blog/char-summary.png "char-editor-width=80")
+![Anarlog review](/api/assets/blog/blog/char-summary.png "char-editor-width=80")
 
-[Char](https://anarlog.so/) is the only tool on this list that handles the full meeting workflow in one app — capture, transcription, note-taking, summarization, and structured export. 
+[Anarlog](https://anarlog.so/) is the only tool on this list that handles the full meeting workflow in one app — capture, transcription, note-taking, summarization, and structured export. 
 
 It ships with a built-in notepad where you write during the meeting, and the AI merges your manual notes with the transcript into structured output using your template. Notes are plain Markdown files on disk. Open them in Obsidian, VS Code, whatever.
 
 #### Setup
 
-**Install:** brew install char, or clone the [MIT-licensed repo](https://github.com/fastrepl/char) and build from source.
+**Install:** brew install anarlog, or clone the [MIT-licensed repo](https://github.com/fastrepl/anarlog) and build from source.
 
-**Transcription:** Pick from 9 STT providers in Preferences. Local Parakeet models run fully on-device, and the other providers are cloud BYOK: paste your API key, audio goes to that provider, Char never touches it.
+**Transcription:** Pick from 9 STT providers in Preferences. Local Parakeet models run fully on-device, and the other providers are cloud BYOK: paste your API key, audio goes to that provider, Anarlog never touches it.
 
 **Summarization:** Configured separately. Point it at Ollama or LM Studio for offline, or add a key for OpenAI, Anthropic, or Gemini.
 
@@ -195,10 +195,10 @@ Free and open-source (BSD-4-Clause).
 
 It depends on what you're optimizing for.
 
-- If you want a full meeting workspace, Char is the most complete option on this list. 
+- If you want a full meeting workspace, Anarlog is the most complete option on this list. 
 - If you're on Windows and need real-time capture with local transcription and summarization, go for Meetily.
 - If you need a shared transcription service for a team, deploy Scriberr or Whishper via Docker and give everyone a browser-based upload interface.
 - If you just need fast, reliable file transcription on your desktop, Vibe is the simplest path.
 - If you're building a custom pipeline and need word-level timestamps with speaker diarization, WhisperX gives you the research-grade engine to wire into your own stack.
 
-For most users who want privacy-first meeting notes that just work, start with [Char](https://anarlog.so/download/apple-silicon). Free for fully local use, no account required.
+For most users who want privacy-first meeting notes that just work, start with [Anarlog](https://anarlog.so/download/apple-silicon). Free for fully local use, no account required.
