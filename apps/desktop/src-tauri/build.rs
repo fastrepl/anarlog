@@ -5,6 +5,9 @@ use std::{
     process::Command,
 };
 
+#[cfg(target_os = "macos")]
+const MACOS_MINIMUM_SYSTEM_VERSION: &str = "14.2";
+
 fn main() {
     #[cfg(target_os = "macos")]
     println!("cargo:rustc-link-arg=-fapple-link-rtlib");
@@ -18,6 +21,7 @@ fn main() {
 #[cfg(target_os = "macos")]
 fn build_check_permissions() {
     let triple = std::env::var("TARGET").unwrap();
+    let swift_target = swift_target(&triple);
 
     let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     let build_rs = manifest_dir.join("build.rs");
@@ -37,11 +41,11 @@ fn build_check_permissions() {
     }
 
     let status = Command::new("swiftc")
-        .args(["-O", "-o"])
+        .args(["-O", "-target"])
+        .arg(&swift_target)
+        .arg("-o")
         .arg(&compiled)
         .arg(&swift_src)
-        // we should theoretically cross compile for the target
-        // .args(["-target", &triple])
         .status()
         .expect("failed to run swiftc");
 
@@ -53,6 +57,21 @@ fn build_check_permissions() {
     if !same_contents(&compiled, &dst) {
         fs::copy(&compiled, &dst).expect("copy check-permissions binary");
     }
+}
+
+#[cfg(target_os = "macos")]
+fn swift_target(cargo_target: &str) -> String {
+    let arch = cargo_target
+        .split('-')
+        .next()
+        .expect("TARGET contains an architecture");
+    let arch = match arch {
+        "aarch64" => "arm64",
+        "x86_64" => "x86_64",
+        _ => panic!("unsupported macOS target architecture: {arch}"),
+    };
+
+    format!("{arch}-apple-macosx{MACOS_MINIMUM_SYSTEM_VERSION}")
 }
 
 #[cfg(target_os = "macos")]
