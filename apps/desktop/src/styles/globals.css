@@ -10,7 +10,7 @@
 @theme {
   --font-sans:
     system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-hand: "Caveat", cursive;
+  --font-hand: "Bradley Hand", "Segoe Print", "Comic Sans MS", cursive;
 
   --animate-shimmer: shimmer 2s infinite;
   --animate-reveal-left: reveal-left 0.5s ease-out forwards;

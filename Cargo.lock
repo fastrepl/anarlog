@@ -4893,7 +4893,6 @@ dependencies = [
  "tauri-plugin-mcp",
  "tauri-plugin-messenger",
  "tauri-plugin-misc",
- "tauri-plugin-network",
  "tauri-plugin-notification",
  "tauri-plugin-notify",
  "tauri-plugin-opener",

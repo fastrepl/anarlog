@@ -207,17 +207,7 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
                         LocalModel::Cactus(m) => m,
                         _ => return Err(crate::Error::UnsupportedModelType),
                     };
-                    let cactus_config = CactusConfig {
-                        cloud: hypr_transcribe_cactus::CloudConfig {
-                            base_url: option_env!("CACTUS_CLOUD_API_BASE").map(ToString::to_string),
-                            headers: vec![(
-                                "x-device-fingerprint".to_string(),
-                                hypr_host::fingerprint(),
-                            )],
-                            ..Default::default()
-                        },
-                        ..Default::default()
-                    };
+                    let cactus_config = CactusConfig::default();
                     start_internal2_server(&supervisor, cache_dir, cactus_model, cactus_config)
                         .await
                 }
