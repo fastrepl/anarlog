@@ -48,8 +48,11 @@ import {
 import { useConfigValues } from "~/shared/config";
 import * as settings from "~/store/tinybase/store/settings";
 import {
+  isConfiguredSttModel,
+  isHyprnoteLocalSttModel,
   isLiveTranscriptionSupported,
   isRealtimeLocalModel,
+  isSupportedLocalSttModel,
 } from "~/stt/capabilities";
 
 export function SelectProviderAndModel() {
@@ -58,18 +61,24 @@ export function SelectProviderAndModel() {
     "current_stt_model",
   ] as const);
   const billing = useBillingAccess();
-  const configuredProviders = useConfiguredMapping(current_stt_model);
+  const configuredProviders = useConfiguredMapping();
   const { startDownload, startTrial } = useSttSettings();
   const health = useConnectionHealth();
 
-  const isConfigured = !!(current_stt_provider && current_stt_model);
+  const selectedSttModel = isConfiguredSttModel(
+    current_stt_provider,
+    current_stt_model,
+  )
+    ? current_stt_model
+    : undefined;
+  const isConfigured = !!(current_stt_provider && selectedSttModel);
   const hasError = isConfigured && health.status === "error";
   const selectedProvider = current_stt_provider as ProviderId | undefined;
   const selectedModels = selectedProvider
     ? (configuredProviders[selectedProvider]?.models ?? [])
     : [];
   const selectedModel = selectedModels.find(
-    (model) => model.id === current_stt_model,
+    (model) => model.id === selectedSttModel,
   );
 
   const handleSelectProvider = settings.UI.useSetValueCallback(
@@ -86,8 +95,8 @@ export function SelectProviderAndModel() {
     settings.STORE_ID,
   );
   const lastSelectedModelsRef = useRef<Record<string, string>>(
-    current_stt_provider && current_stt_model
-      ? { [current_stt_provider]: current_stt_model }
+    current_stt_provider && selectedSttModel
+      ? { [current_stt_provider]: selectedSttModel }
       : {},
   );
   const rememberModel = (provider?: string, model?: string) => {
@@ -99,7 +108,7 @@ export function SelectProviderAndModel() {
   };
 
   const handleProviderChange = (provider: string) => {
-    rememberModel(current_stt_provider, current_stt_model);
+    rememberModel(current_stt_provider, selectedSttModel);
 
     const providerId = provider as ProviderId;
     const nextModels = configuredProviders[providerId]?.models ?? [];
@@ -192,7 +201,7 @@ export function SelectProviderAndModel() {
         {current_stt_provider === "custom" ? (
           <div className="min-w-0 flex-3">
             <Input
-              value={current_stt_model || ""}
+              value={selectedSttModel || ""}
               onChange={(event) => handleModelChange(event.target.value)}
               className="text-xs"
               placeholder="Enter a model identifier"
@@ -201,7 +210,7 @@ export function SelectProviderAndModel() {
         ) : (
           <div className="min-w-0 flex-3">
             <Select
-              value={current_stt_model || ""}
+              value={selectedSttModel || ""}
               onValueChange={handleModelChange}
               disabled={selectedModels.length === 0}
             >
@@ -281,18 +290,24 @@ function useHasLanguageWarning() {
     ] as const);
   const health = useConnectionHealth();
 
-  const isConfigured = !!(current_stt_provider && current_stt_model);
-  const isOnDeviceModel =
-    current_stt_provider === "hyprnote" &&
-    !!current_stt_model &&
-    current_stt_model !== "cloud";
+  const selectedSttModel = isConfiguredSttModel(
+    current_stt_provider,
+    current_stt_model,
+  )
+    ? current_stt_model
+    : undefined;
+  const isConfigured = !!(current_stt_provider && selectedSttModel);
+  const isOnDeviceModel = isHyprnoteLocalSttModel(
+    current_stt_provider,
+    selectedSttModel,
+  );
   const useLiveOnDeviceModel =
-    isOnDeviceModel && isRealtimeLocalModel(current_stt_model);
+    isOnDeviceModel && isRealtimeLocalModel(selectedSttModel);
   const hasError = isConfigured && health.status === "error";
   const liveSupport = useQuery({
-    queryKey: ["stt-live-support", current_stt_provider, current_stt_model],
+    queryKey: ["stt-live-support", current_stt_provider, selectedSttModel],
     queryFn: () =>
-      isLiveTranscriptionSupported(current_stt_provider, current_stt_model),
+      isLiveTranscriptionSupported(current_stt_provider, selectedSttModel),
     enabled: isConfigured,
   });
 
@@ -300,7 +315,7 @@ function useHasLanguageWarning() {
     queryKey: [
       "stt-language-support",
       current_stt_provider,
-      current_stt_model,
+      selectedSttModel,
       useLiveOnDeviceModel,
       liveSupport.data,
       spoken_languages,
@@ -312,12 +327,12 @@ function useHasLanguageWarning() {
       const result = useLiveMode
         ? await listenerCommands.isSupportedLanguagesLive(
             current_stt_provider!,
-            current_stt_model ?? null,
+            selectedSttModel ?? null,
             spoken_languages ?? [],
           )
         : await listenerCommands.isSupportedLanguagesBatch(
             current_stt_provider!,
-            current_stt_model ?? null,
+            selectedSttModel ?? null,
             spoken_languages ?? [],
           );
       return result.status === "ok" ? result.data : true;
@@ -331,7 +346,7 @@ function useHasLanguageWarning() {
   return isConfigured && languageSupport.data === false && !hasError;
 }
 
-type ModelCategory = "latest" | "deprecated" | null;
+type ModelCategory = "latest" | null;
 type ModelEntry = {
   id: string;
   isDownloaded: boolean;
@@ -339,7 +354,6 @@ type ModelEntry = {
   category?: ModelCategory;
   sizeBytes?: number | null;
   mode?: "realtime" | "batch";
-  status?: "deprecated";
 };
 
 function getModelCategoryLabel(category?: ModelCategory) {
@@ -347,14 +361,10 @@ function getModelCategoryLabel(category?: ModelCategory) {
     return "Recommended";
   }
 
-  if (category === "deprecated") {
-    return "Cactus (Deprecated)";
-  }
-
   return null;
 }
 
-function useConfiguredMapping(currentModel?: string): Record<
+function useConfiguredMapping(): Record<
   ProviderId,
   {
     configured: boolean;
@@ -385,17 +395,8 @@ function useConfiguredMapping(currentModel?: string): Record<
   });
 
   const localModels = supportedModels.data ?? [];
-  const cactusModels = localModels.filter((m) => m.model_type === "cactus");
-  const visibleCactusModels = cactusModels.filter(
-    (m) => m.key === currentModel,
-  );
   const soniqoModels = localModels.filter((m) => m.model_type === "soniqo");
 
-  const cactusDownloaded = useQueries({
-    queries: [
-      ...visibleCactusModels.map((m) => sttModelQueries.isDownloaded(m.key)),
-    ],
-  });
   const soniqoDownloaded = useQueries({
     queries: [...soniqoModels.map((m) => sttModelQueries.isDownloaded(m.key))],
   });
@@ -435,22 +436,6 @@ function useConfiguredMapping(currentModel?: string): Record<
                 ? "realtime"
                 : "batch",
               category: "latest",
-            });
-          });
-
-          const sorted = [...visibleCactusModels].sort((a) =>
-            String(a.key).includes("parakeet") ? -1 : 1,
-          );
-          sorted.forEach((model) => {
-            const i = visibleCactusModels.indexOf(model);
-            models.push({
-              id: model.key,
-              isDownloaded: cactusDownloaded[i]?.data ?? false,
-              displayName: model.display_name,
-              sizeBytes: model.size_bytes,
-              mode: "batch",
-              category: "deprecated",
-              status: "deprecated",
             });
           });
         }
@@ -499,14 +484,8 @@ function ModelSelectItem({
   const label = model.displayName ?? displayModelId(model.id);
   const sizeLabel = formatModelSize(model.sizeBytes);
   const showLocalActions = model.isDownloaded && isLocalModelId(model.id);
-  const isDeprecated = model.status === "deprecated";
   const content = (
-    <div
-      className={cn([
-        "flex min-w-0 flex-1 items-center justify-between gap-3",
-        isDeprecated && "opacity-60",
-      ])}
-    >
+    <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
       <LocalModelLabel
         model={model.id}
         label={label}
@@ -514,11 +493,6 @@ function ModelSelectItem({
       />
       <div className="flex shrink-0 items-center gap-2 text-[11px]">
         <LocalModelBackendBadge model={model.id} />
-        {model.status === "deprecated" && (
-          <span className="rounded-md bg-amber-50 px-1.5 py-0.5 font-medium text-amber-700">
-            Deprecated
-          </span>
-        )}
         {model.mode && (
           <span
             className={cn([
@@ -544,10 +518,7 @@ function ModelSelectItem({
         <SelectItem
           key={model.id}
           value={model.id}
-          className={cn([
-            showLocalActions && "pr-20",
-            isDeprecated && "text-neutral-400 focus:text-neutral-500",
-          ])}
+          className={cn([showLocalActions && "pr-20"])}
         >
           {content}
         </SelectItem>
@@ -617,22 +588,13 @@ function ModelSelectedValue({ model }: { model: ModelEntry }) {
     <LocalModelLabel
       model={model.id}
       label={model.displayName ?? displayModelId(model.id)}
-      className={cn([
-        "min-w-0 flex-1",
-        model.status === "deprecated" && "opacity-60",
-      ])}
-      labelClassName={cn([model.status === "deprecated" && "text-neutral-400"])}
+      className="min-w-0 flex-1"
     />
   );
 }
 
 function isLocalModelId(model: string): model is LocalModel {
-  return (
-    model.startsWith("soniqo-") ||
-    model.startsWith("cactus-") ||
-    model.startsWith("am-") ||
-    model.startsWith("Quantized")
-  );
+  return isSupportedLocalSttModel(model);
 }
 
 function LocalModelDropdownActions({ model }: { model: LocalModel }) {
@@ -646,9 +608,7 @@ function LocalModelDropdownActions({ model }: { model: LocalModel }) {
   const handleOpen = () => {
     const resultPromise = String(model).startsWith("soniqo-")
       ? localSttCommands.soniqoModelDir(model)
-      : String(model).startsWith("cactus-")
-        ? localSttCommands.cactusModelsDir()
-        : localSttCommands.modelsDir();
+      : localSttCommands.modelsDir();
 
     void resultPromise.then((result) => {
       if (result.status === "ok") {

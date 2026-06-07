@@ -1,4 +1,4 @@
-pub use hypr_local_model::{AmModel, CactusSttModel, LocalModel, SoniqoModel, WhisperModel};
+pub use hypr_local_model::{AmModel, LocalModel, SoniqoModel, WhisperModel};
 
 pub static SUPPORTED_MODELS: &[LocalModel] = &[
     LocalModel::Soniqo(SoniqoModel::ParakeetStreaming),
@@ -6,14 +6,6 @@ pub static SUPPORTED_MODELS: &[LocalModel] = &[
     LocalModel::Am(AmModel::ParakeetV2),
     LocalModel::Am(AmModel::ParakeetV3),
     LocalModel::Am(AmModel::WhisperLargeV3),
-    LocalModel::Cactus(CactusSttModel::WhisperSmallInt4),
-    LocalModel::Cactus(CactusSttModel::WhisperSmallInt4Apple),
-    LocalModel::Cactus(CactusSttModel::WhisperSmallInt8),
-    LocalModel::Cactus(CactusSttModel::WhisperSmallInt8Apple),
-    LocalModel::Cactus(CactusSttModel::ParakeetTdt0_6bV3Int4),
-    LocalModel::Cactus(CactusSttModel::ParakeetTdt0_6bV3Int4Apple),
-    LocalModel::Cactus(CactusSttModel::ParakeetTdt0_6bV3Int8),
-    LocalModel::Cactus(CactusSttModel::ParakeetTdt0_6bV3Int8Apple),
 ];
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -21,7 +13,6 @@ pub static SUPPORTED_MODELS: &[LocalModel] = &[
 #[serde(rename_all = "camelCase")]
 pub enum SttModelType {
     Soniqo,
-    Cactus,
     Whispercpp,
     Argmax,
 }
@@ -45,13 +36,6 @@ pub fn stt_model_info(model: &LocalModel) -> SttModelInfo {
             size_bytes: Some(value.size_bytes()),
             model_type: SttModelType::Soniqo,
         },
-        LocalModel::Cactus(value) => SttModelInfo {
-            key: model.clone(),
-            display_name: value.display_name().to_string(),
-            description: value.description().to_string(),
-            size_bytes: value.model_size_bytes(),
-            model_type: SttModelType::Cactus,
-        },
         LocalModel::Whisper(value) => SttModelInfo {
             key: model.clone(),
             display_name: value.display_name().to_string(),
@@ -66,7 +50,7 @@ pub fn stt_model_info(model: &LocalModel) -> SttModelInfo {
             size_bytes: Some(value.model_size_bytes()),
             model_type: SttModelType::Argmax,
         },
-        LocalModel::GgufLlm(_) | LocalModel::CactusLlm(_) => unreachable!(),
+        LocalModel::GgufLlm(_) => unreachable!(),
     }
 }
 

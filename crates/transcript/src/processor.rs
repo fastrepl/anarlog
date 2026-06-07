@@ -23,7 +23,7 @@ use super::words::{assemble, assemble_batch, finalize_words};
 ///
 /// The processor supports two integration patterns:
 ///
-/// - **Inline** (cactus cloud handoff): the streaming protocol itself carries
+/// - **Inline** cloud handoff: the streaming protocol itself carries
 ///   handoff/correction metadata. Handled automatically inside `process()`.
 ///
 /// - **External** (LLM postprocessor, future sources): the caller finalizes

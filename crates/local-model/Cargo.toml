@@ -5,7 +5,6 @@ edition = "2024"
 
 [dependencies]
 hypr-am = { workspace = true }
-hypr-cactus-model = { workspace = true }
 hypr-file = { workspace = true }
 hypr-model-downloader = { workspace = true }
 hypr-transcribe-soniqo = { workspace = true }

@@ -1,7 +1,9 @@
-use std::path::PathBuf;
-use std::sync::Arc;
+#[cfg(feature = "whisper-cpp")]
+use std::{path::PathBuf, sync::Arc};
 
+#[cfg(feature = "whisper-cpp")]
 use axum::http::StatusCode;
+#[cfg(feature = "whisper-cpp")]
 use tower_http::cors::{self, CorsLayer};
 
 mod axum_server;
@@ -10,8 +12,10 @@ pub mod runtime;
 
 pub use axum_server::LocalAxumServer;
 
+#[cfg(feature = "whisper-cpp")]
 use runtime::{LocalServerRuntime, NoopRuntime};
 
+#[cfg(feature = "whisper-cpp")]
 const WHISPER_LISTEN_PATH: &str = "/v1";
 
 pub struct LocalSttServer {
@@ -19,47 +23,6 @@ pub struct LocalSttServer {
 }
 
 impl LocalSttServer {
-    #[cfg(feature = "cactus")]
-    pub async fn start_cactus(model_path: PathBuf) -> std::io::Result<Self> {
-        Self::start_cactus_with_config(model_path, hypr_transcribe_cactus::CactusConfig::default())
-            .await
-    }
-
-    #[cfg(feature = "cactus")]
-    pub async fn start_cactus_with_config(
-        model_path: PathBuf,
-        cactus_config: hypr_transcribe_cactus::CactusConfig,
-    ) -> std::io::Result<Self> {
-        Self::start_cactus_with_runtime(Arc::new(NoopRuntime), model_path, cactus_config).await
-    }
-
-    #[cfg(feature = "cactus")]
-    pub async fn start_cactus_with_runtime(
-        runtime: Arc<dyn LocalServerRuntime>,
-        model_path: PathBuf,
-        cactus_config: hypr_transcribe_cactus::CactusConfig,
-    ) -> std::io::Result<Self> {
-        tracing::info!(model_path = %model_path.display(), "starting local cactus server");
-
-        let router = hypr_transcribe_cactus::TranscribeService::builder()
-            .model_path(model_path)
-            .cactus_config(cactus_config)
-            .build()
-            .into_router(|err: String| async move { (StatusCode::INTERNAL_SERVER_ERROR, err) })
-            .layer(cors_layer());
-
-        let inner = LocalAxumServer::start_with_runtime(
-            runtime,
-            router,
-            hypr_transcribe_cactus::LISTEN_PATH,
-        )
-        .await?;
-
-        tracing::info!(base_url = %inner.base_url(), "local STT server ready");
-
-        Ok(Self { inner })
-    }
-
     #[cfg(feature = "whisper-cpp")]
     pub async fn start_whisper(model_path: PathBuf) -> std::io::Result<Self> {
         Self::start_whisper_with_runtime(Arc::new(NoopRuntime), model_path).await
@@ -108,6 +71,7 @@ impl Drop for LocalSttServer {
     }
 }
 
+#[cfg(feature = "whisper-cpp")]
 fn cors_layer() -> CorsLayer {
     CorsLayer::new()
         .allow_origin(cors::Any)

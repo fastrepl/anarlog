@@ -15,7 +15,6 @@ dirs = { workspace = true }
 reqwest = { workspace = true, features = ["json", "stream"] }
 specta-typescript = { workspace = true }
 tauri-plugin-store = { workspace = true }
-tempfile = { workspace = true }
 
 [dependencies]
 hypr-local-llm-core = { workspace = true, features = ["specta"] }

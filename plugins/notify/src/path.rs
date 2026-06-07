@@ -104,9 +104,9 @@ mod tests {
 
     #[test]
     fn test_skip_models() {
-        let path = PathBuf::from("/vault/models/cactus/encoder.layer_6_self_attn_output.bias");
+        let path = PathBuf::from("/vault/models/local/encoder.layer_6_self_attn_output.bias");
         assert!(should_skip_path(
-            "models/cactus/encoder.layer_6_self_attn_output.bias",
+            "models/local/encoder.layer_6_self_attn_output.bias",
             &path
         ));
     }

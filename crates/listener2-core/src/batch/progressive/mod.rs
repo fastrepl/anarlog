@@ -13,8 +13,6 @@ use super::{BatchParams, BatchRunOutput};
 pub(super) enum ProgressiveProvider {
     #[strum(serialize = "argmax")]
     Argmax,
-    #[strum(serialize = "cactus")]
-    Cactus,
     #[strum(serialize = "openai")]
     OpenAI,
     #[strum(serialize = "whispercpp")]
@@ -42,7 +40,6 @@ fn resolve_progressive_provider(
 ) -> crate::Result<ProgressiveProvider> {
     match params.provider {
         super::BatchProvider::WhisperLocal => return Ok(ProgressiveProvider::WhisperCpp),
-        super::BatchProvider::Cactus => return Ok(ProgressiveProvider::Cactus),
         super::BatchProvider::OpenAI
             if OpenAIAdapter::supports_progressive_batch_model(listen_params.model.as_deref()) =>
         {
@@ -59,7 +56,6 @@ fn resolve_progressive_provider(
 
     match adapter_kind {
         AdapterKind::Argmax => Ok(ProgressiveProvider::Argmax),
-        AdapterKind::Cactus => Ok(ProgressiveProvider::Cactus),
         AdapterKind::OpenAI
             if OpenAIAdapter::supports_progressive_batch_model(listen_params.model.as_deref()) =>
         {

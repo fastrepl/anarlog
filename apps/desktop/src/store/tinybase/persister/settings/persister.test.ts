@@ -119,7 +119,7 @@ describe("settingsPersister roundtrip", () => {
     store.setValues(values);
     const result = storeToSettings(store);
 
-    const expected = { ...original, cactus: {} };
+    const expected = { ...original };
     (expected.general as any).audio_retention = "none";
     // storeToSettings omits values that equal schema defaults
     delete (expected as any).general.save_recordings;
@@ -207,7 +207,6 @@ describe("settingsPersister roundtrip", () => {
 
     expect(result).toEqual({
       ai: { llm: {}, stt: {} },
-      cactus: {},
       notification: {},
       general: {},
       language: {},

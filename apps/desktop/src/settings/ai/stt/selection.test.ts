@@ -34,9 +34,9 @@ describe("getPreferredProviderModel", () => {
     expect(
       getPreferredProviderModel(undefined, [
         { id: "cloud", isDownloaded: false },
-        { id: "cactus-whisper-small-int8", isDownloaded: true },
+        { id: "soniqo-qwen3-small", isDownloaded: true },
       ]),
-    ).toBe("cactus-whisper-small-int8");
+    ).toBe("soniqo-qwen3-small");
   });
 
   test("clears the selection when a provider has no selectable models", () => {

@@ -46,8 +46,7 @@ pub fn is_supported_languages_live(
             );
         }
 
-        if model.starts_with("am-") || model.starts_with("whisper-") || model.starts_with("cactus-")
-        {
+        if model.starts_with("am-") || model.starts_with("whisper-") {
             return Ok(false);
         }
     }

@@ -20,6 +20,10 @@ import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { useDevtoolsToastPreview } from "~/store/zustand/devtools-toast-preview";
 import { useTabs } from "~/store/zustand/tabs";
 import { useToastAction } from "~/store/zustand/toast-action";
+import {
+  isConfiguredSttModel,
+  isHyprnoteCloudSttModel,
+} from "~/stt/capabilities";
 
 type ToastAreaPlacement = "default" | "left-sidebar";
 type ToastAreaPosition = {
@@ -66,9 +70,14 @@ export function ToastArea({
     "current_stt_model",
   ] as const);
   const hasLLMConfigured = !!(current_llm_provider && current_llm_model);
-  const hasSttConfigured = !!(current_stt_provider && current_stt_model);
-  const hasProSttConfigured =
-    current_stt_provider === "hyprnote" && current_stt_model === "cloud";
+  const hasSttConfigured = isConfiguredSttModel(
+    current_stt_provider,
+    current_stt_model,
+  );
+  const hasProSttConfigured = isHyprnoteCloudSttModel(
+    current_stt_provider,
+    current_stt_model,
+  );
   const hasProLlmConfigured = current_llm_provider === "hyprnote";
 
   const currentTab = useTabs((state) => state.currentTab);

@@ -7,7 +7,6 @@ use hypr_transcript::{
 };
 use owhisper_interface::stream::{Alternatives, StreamResponse, Word};
 
-const CACTUS_OVERLAP_MAX_GAP_MS: i64 = 500;
 const SONIQO_CUMULATIVE_PREFIX_MIN_TOKENS: usize = 4;
 const SONIQO_HISTORY_TOKEN_LIMIT: usize = 160;
 const SONIQO_REPEAT_MIN_TOKENS: usize = 4;
@@ -192,7 +191,6 @@ impl RenderedSegmentState {
 
 #[derive(Default)]
 enum TranscriptNormalizer {
-    Cactus(CactusTranscriptNormalizer),
     Soniqo(SoniqoTranscriptNormalizer),
     #[default]
     Passthrough,
@@ -201,7 +199,6 @@ enum TranscriptNormalizer {
 impl TranscriptNormalizer {
     fn for_provider(provider_name: &str) -> Self {
         match provider_name {
-            "cactus" => Self::Cactus(CactusTranscriptNormalizer::default()),
             "soniqo" => Self::Soniqo(SoniqoTranscriptNormalizer::default()),
             _ => Self::Passthrough,
         }
@@ -209,7 +206,6 @@ impl TranscriptNormalizer {
 
     fn normalize(&mut self, response: &mut StreamResponse) {
         match self {
-            Self::Cactus(normalizer) => normalizer.normalize(response),
             Self::Soniqo(normalizer) => normalizer.normalize(response),
             Self::Passthrough => {}
         }
@@ -225,17 +221,6 @@ impl TranscriptNormalizer {
 }
 
 #[derive(Default)]
-struct CactusTranscriptNormalizer {
-    channels: BTreeMap<i32, CactusChannelState>,
-}
-
-#[derive(Default)]
-struct CactusChannelState {
-    last_final_tokens: Vec<String>,
-    last_final_end_ms: i64,
-}
-
-#[derive(Default)]
 struct SoniqoTranscriptNormalizer {
     channels: BTreeMap<i32, SoniqoChannelState>,
 }
@@ -245,45 +230,6 @@ struct SoniqoChannelState {
     active_start_ms: Option<i64>,
     active_tokens: Vec<String>,
     committed_tokens: Vec<String>,
-}
-
-impl CactusTranscriptNormalizer {
-    fn normalize(&mut self, response: &mut StreamResponse) {
-        let StreamResponse::TranscriptResponse {
-            channel,
-            channel_index,
-            is_final,
-            ..
-        } = response
-        else {
-            return;
-        };
-
-        let Some(alternative) = channel.alternatives.first_mut() else {
-            return;
-        };
-        if alternative.words.is_empty() {
-            return;
-        }
-
-        let channel_idx = channel_index.first().copied().unwrap_or_default();
-        let state = self.channels.entry(channel_idx).or_default();
-        let overlap = find_cactus_overlap_prefix(
-            &alternative.words,
-            &state.last_final_tokens,
-            state.last_final_end_ms,
-        );
-
-        if overlap > 0 {
-            alternative.words.drain(..overlap);
-        }
-
-        if *is_final && !alternative.words.is_empty() {
-            state.last_final_tokens = normalize_tokens_for_overlap(&alternative.words);
-            state.last_final_end_ms =
-                word_end_ms(alternative.words.last().expect("checked non-empty"));
-        }
-    }
 }
 
 impl SoniqoTranscriptNormalizer {
@@ -386,33 +332,6 @@ impl SoniqoTranscriptNormalizer {
             state.active_tokens = current_tokens;
         }
     }
-}
-
-fn find_cactus_overlap_prefix(
-    words: &[Word],
-    last_final_tokens: &[String],
-    last_final_end_ms: i64,
-) -> usize {
-    if words.is_empty()
-        || last_final_tokens.is_empty()
-        || word_start_ms(&words[0]) > last_final_end_ms + CACTUS_OVERLAP_MAX_GAP_MS
-    {
-        return 0;
-    }
-
-    let current_tokens = normalize_tokens_for_overlap(words);
-    let max_overlap = last_final_tokens.len().min(current_tokens.len());
-
-    for overlap in (1..=max_overlap).rev() {
-        let suffix = &last_final_tokens[last_final_tokens.len() - overlap..];
-        let prefix = &current_tokens[..overlap];
-
-        if suffix == prefix {
-            return overlap;
-        }
-    }
-
-    0
 }
 
 fn find_soniqo_overlap_prefix(current_tokens: &[String], previous_tokens: &[String]) -> usize {
@@ -733,15 +652,6 @@ mod tests {
 
     use super::*;
 
-    fn transcript_response(
-        transcript: &str,
-        words: Vec<Word>,
-        is_final: bool,
-        channel_idx: i32,
-    ) -> StreamResponse {
-        transcript_response_at(transcript, words, is_final, channel_idx, 0.0, 0.0)
-    }
-
     fn transcript_response_at(
         transcript: &str,
         words: Vec<Word>,
@@ -769,7 +679,7 @@ mod tests {
                 model_info: ModelInfo {
                     name: "model".to_string(),
                     version: "1".to_string(),
-                    arch: "cactus".to_string(),
+                    arch: "test".to_string(),
                 },
                 model_uuid: "uuid".to_string(),
                 extra: None,
@@ -803,57 +713,6 @@ mod tests {
                 word(part, word_start, word_end)
             })
             .collect()
-    }
-
-    #[test]
-    fn cactus_normalizer_trims_partial_overlap_from_last_confirmed_chunk() {
-        let mut normalizer = CactusTranscriptNormalizer::default();
-
-        let mut final_response = transcript_response("Mark", vec![word("Mark", 0.0, 1.0)], true, 0);
-        normalizer.normalize(&mut final_response);
-
-        let mut partial_response = transcript_response(
-            "Mark Zuckerberg speaks",
-            vec![
-                word("Mark", 0.8, 1.2),
-                word("Zuckerberg", 1.2, 2.0),
-                word("speaks", 2.0, 2.8),
-            ],
-            false,
-            0,
-        );
-        normalizer.normalize(&mut partial_response);
-
-        let StreamResponse::TranscriptResponse { channel, .. } = partial_response else {
-            panic!("expected transcript response");
-        };
-        let words = &channel.alternatives[0].words;
-        assert_eq!(words.len(), 2);
-        assert_eq!(words[0].word, "Zuckerberg");
-        assert_eq!(words[1].word, "speaks");
-    }
-
-    #[test]
-    fn cactus_normalizer_does_not_trim_later_repeated_word() {
-        let mut normalizer = CactusTranscriptNormalizer::default();
-
-        let mut final_response = transcript_response("Mark", vec![word("Mark", 0.0, 1.0)], true, 0);
-        normalizer.normalize(&mut final_response);
-
-        let mut partial_response = transcript_response(
-            "Mark later",
-            vec![word("Mark", 2.0, 2.4), word("later", 2.4, 3.0)],
-            false,
-            0,
-        );
-        normalizer.normalize(&mut partial_response);
-
-        let StreamResponse::TranscriptResponse { channel, .. } = partial_response else {
-            panic!("expected transcript response");
-        };
-        let words = &channel.alternatives[0].words;
-        assert_eq!(words.len(), 2);
-        assert_eq!(words[0].word, "Mark");
     }
 
     #[test]

@@ -13,5 +13,4 @@ permissions = [
     "allow-get-servers",
     "allow-list-supported-models",
     "allow-list-supported-languages",
-    "allow-cactus-models-dir",
 ]

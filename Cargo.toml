@@ -33,7 +33,6 @@ hypr-analytics = { path = "crates/analytics", package = "analytics" }
 hypr-api-agent = { path = "crates/api-agent", package = "api-agent" }
 hypr-api-auth = { path = "crates/api-auth", package = "api-auth" }
 hypr-api-bot = { path = "crates/api-bot", package = "api-bot" }
-hypr-api-cactus = { path = "crates/api-cactus", package = "api-cactus" }
 hypr-api-calendar = { path = "crates/api-calendar", package = "api-calendar" }
 hypr-api-claw = { path = "crates/api-claw", package = "api-claw" }
 hypr-api-client = { path = "crates/api-client", package = "api-client" }
@@ -67,8 +66,6 @@ hypr-audio-sync = { path = "crates/audio-sync", package = "audio-sync" }
 hypr-audio-utils = { path = "crates/audio-utils", package = "audio-utils" }
 hypr-buffer = { path = "crates/buffer", package = "buffer" }
 hypr-bundle = { path = "crates/bundle", package = "bundle" }
-hypr-cactus = { path = "crates/cactus", package = "cactus" }
-hypr-cactus-model = { path = "crates/cactus-model", package = "cactus-model" }
 hypr-calendar = { path = "crates/calendar", package = "calendar" }
 hypr-calendar-interface = { path = "crates/calendar-interface", package = "calendar-interface" }
 hypr-chatwoot = { path = "crates/chatwoot", package = "chatwoot" }
@@ -120,7 +117,6 @@ hypr-language = { path = "crates/language", package = "language" }
 hypr-linear = { path = "crates/linear", package = "linear" }
 hypr-listener-core = { path = "crates/listener-core", package = "listener-core" }
 hypr-listener2-core = { path = "crates/listener2-core", package = "listener2-core" }
-hypr-llm-cactus = { path = "crates/llm-cactus", package = "llm-cactus" }
 hypr-llm-proxy = { path = "crates/llm-proxy", package = "llm-proxy" }
 hypr-llm-types = { path = "crates/llm-types", package = "llm-types" }
 hypr-lmstudio = { path = "crates/lmstudio", package = "lmstudio" }
@@ -171,7 +167,6 @@ hypr-template-eval = { path = "crates/template-eval", package = "template-eval" 
 hypr-template-support = { path = "crates/template-support", package = "template-support" }
 hypr-ticket-interface = { path = "crates/ticket-interface", package = "ticket-interface" }
 hypr-tiptap = { path = "crates/tiptap", package = "tiptap" }
-hypr-transcribe-cactus = { path = "crates/transcribe-cactus", package = "transcribe-cactus" }
 hypr-transcribe-core = { path = "crates/transcribe-core", package = "transcribe-core" }
 hypr-transcribe-proxy = { path = "crates/transcribe-proxy", package = "transcribe-proxy" }
 hypr-transcribe-soniqo = { path = "crates/transcribe-soniqo", package = "transcribe-soniqo" }

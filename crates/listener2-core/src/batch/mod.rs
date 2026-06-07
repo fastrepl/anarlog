@@ -32,7 +32,6 @@ pub enum BatchProvider {
     Mistral,
     Hyprnote,
     Am,
-    Cactus,
     Soniqo,
     AquaVoice,
 }
@@ -52,7 +51,7 @@ impl BatchProvider {
             Self::Mistral => Some(AdapterKind::Mistral),
             Self::Hyprnote => Some(AdapterKind::Hyprnote),
             Self::AquaVoice => Some(AdapterKind::AquaVoice),
-            Self::Am | Self::WhisperLocal | Self::Cactus | Self::Soniqo | Self::DashScope => None,
+            Self::Am | Self::WhisperLocal | Self::Soniqo | Self::DashScope => None,
         }
     }
 }
@@ -147,7 +146,7 @@ pub fn expects_progressive_batch(params: &BatchParams) -> bool {
                 listen_params.model.as_deref(),
             )
         }
-        BatchProvider::WhisperLocal | BatchProvider::Cactus => true,
+        BatchProvider::WhisperLocal => true,
         BatchProvider::OpenAI => {
             OpenAIAdapter::supports_progressive_batch_model(params.model.as_deref())
         }
@@ -199,7 +198,7 @@ async fn run_batch_inner(
                 run_direct_batch_for_adapter_kind(adapter_kind, params, listen_params).await
             }
         }
-        BatchProvider::WhisperLocal | BatchProvider::Cactus => {
+        BatchProvider::WhisperLocal => {
             run_progressive_batch_session(runtime, params, listen_params).await
         }
         BatchProvider::Soniqo => run_soniqo_batch(params, listen_params).await,
@@ -236,7 +235,7 @@ fn resolve_batch_adapter_kind(
 
 fn supports_progressive_batch(adapter_kind: AdapterKind, model: Option<&str>) -> bool {
     match adapter_kind {
-        AdapterKind::Argmax | AdapterKind::Cactus => true,
+        AdapterKind::Argmax => true,
         AdapterKind::OpenAI => OpenAIAdapter::supports_progressive_batch_model(model),
         _ => false,
     }
@@ -381,19 +380,6 @@ mod tests {
 
         assert_eq!(adapter_kind, AdapterKind::Argmax);
         assert!(supports_progressive_batch(adapter_kind, None));
-    }
-
-    #[test]
-    fn am_routes_cactus_model_to_progressive_batch() {
-        let params = batch_params(BatchProvider::Am, "http://localhost:50060/v1");
-        let adapter_kind =
-            resolve_batch_adapter_kind(&params, &listen_params(Some("cactus-whisper-small-int4")));
-
-        assert_eq!(adapter_kind, AdapterKind::Cactus);
-        assert!(supports_progressive_batch(
-            adapter_kind,
-            Some("cactus-whisper-small-int4"),
-        ));
     }
 
     #[test]

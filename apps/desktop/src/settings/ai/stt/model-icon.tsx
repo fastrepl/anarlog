@@ -80,14 +80,6 @@ export function getLocalModelIcon(model: string): ModelIconSpec | null {
     };
   }
 
-  if (value.includes("cactus")) {
-    return {
-      label: "C",
-      title: "Cactus",
-      className: "border-lime-200 bg-lime-50 text-lime-700",
-    };
-  }
-
   return null;
 }
 

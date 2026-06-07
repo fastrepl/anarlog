@@ -15,6 +15,8 @@ import {
   getOnDeviceTranscriptionConfig,
   getOnDeviceTranscriptionMode,
   getTranscriptionLanguages,
+  isConfiguredSttModel,
+  isSupportedLocalSttModel,
 } from "./capabilities";
 
 beforeEach(() => {
@@ -33,9 +35,7 @@ describe("getOnDeviceTranscriptionMode", () => {
   });
 
   test("uses batch mode for non-realtime local models", () => {
-    expect(
-      getOnDeviceTranscriptionMode("cactus-parakeet-tdt-0.6b-v3-int8"),
-    ).toBe("batch");
+    expect(getOnDeviceTranscriptionMode("soniqo-qwen3-small")).toBe("batch");
   });
 
   test("keeps live mode when realtime local model has no Soniqo-supported language", () => {
@@ -48,6 +48,32 @@ describe("getOnDeviceTranscriptionMode", () => {
     expect(
       getOnDeviceTranscriptionMode("soniqo-parakeet-streaming", ["de"]),
     ).toBe("batch");
+  });
+});
+
+describe("isSupportedLocalSttModel", () => {
+  test("accepts shipped local STT model families", () => {
+    expect(isSupportedLocalSttModel("soniqo-parakeet-streaming")).toBe(true);
+    expect(isSupportedLocalSttModel("am-parakeet-v3")).toBe(true);
+    expect(isSupportedLocalSttModel("QuantizedSmallEn")).toBe(true);
+  });
+
+  test("rejects cloud, local LLM, and removed local model ids", () => {
+    expect(isSupportedLocalSttModel("cloud")).toBe(false);
+    expect(isSupportedLocalSttModel("Llama3p2_3bQ4")).toBe(false);
+    expect(isSupportedLocalSttModel("removed-local-model")).toBe(false);
+  });
+});
+
+describe("isConfiguredSttModel", () => {
+  test("requires known model ids for Anarlog STT", () => {
+    expect(isConfiguredSttModel("hyprnote", "cloud")).toBe(true);
+    expect(isConfiguredSttModel("hyprnote", "soniqo-qwen3-small")).toBe(true);
+    expect(isConfiguredSttModel("hyprnote", "removed-local-model")).toBe(false);
+  });
+
+  test("allows custom model ids for external providers", () => {
+    expect(isConfiguredSttModel("custom", "whisper-large-v3")).toBe(true);
   });
 });
 

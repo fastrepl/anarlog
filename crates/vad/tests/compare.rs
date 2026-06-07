@@ -1,6 +1,5 @@
 use vad::{
     earshot::{VoiceActivityDetector as EarshotVad, choose_optimal_frame_size},
-    silero_cactus::{Model, VadOptions},
     silero_onnx::{CHUNK_SIZE_16KHZ, SileroVad, pcm_i16_to_f32},
 };
 
@@ -51,26 +50,6 @@ fn silero_onnx_mask(audio: &[u8]) -> (Vec<bool>, f32) {
     (mask, max_prob)
 }
 
-fn silero_cactus_mask(audio: &[u8], total_samples: usize) -> Vec<bool> {
-    let home = std::env::var("HOME").unwrap();
-    let path = format!(
-        "{}/Library/Application Support/com.hyprnote.dev/models/cactus/whisper-medium-int8-apple/vad",
-        home
-    );
-    let model = Model::new(&path).unwrap();
-    let result = model.vad_pcm(audio, &VadOptions::default()).unwrap();
-
-    let mut mask = vec![false; total_samples];
-    for seg in &result.segments {
-        let start = seg.start.min(total_samples);
-        let end = seg.end.min(total_samples);
-        for j in start..end {
-            mask[j] = true;
-        }
-    }
-    mask
-}
-
 fn agreement(a: &[bool], b: &[bool]) -> f64 {
     let len = a.len().min(b.len());
     let matching = a[..len]
@@ -90,21 +69,17 @@ fn compare(name: &str, audio: &[u8]) {
     let total_samples = audio.len() / 2;
     let earshot = earshot_mask(audio);
     let (silero_onnx, silero_onnx_max) = silero_onnx_mask(audio);
-    let silero_cactus = silero_cactus_mask(audio, total_samples);
 
     println!("=== {name} ({:.1}s) ===", total_samples as f64 / 16000.0);
     println!(
-        "  Speech %:  earshot={:.1}%  silero_onnx={:.1}% (max_prob={:.4})  silero_cactus={:.1}%",
+        "  Speech %:  earshot={:.1}%  silero_onnx={:.1}% (max_prob={:.4})",
         speech_ratio(&earshot),
         speech_ratio(&silero_onnx),
         silero_onnx_max,
-        speech_ratio(&silero_cactus),
     );
     println!(
-        "  Agreement: earshot<>silero_onnx={:.1}%  earshot<>silero_cactus={:.1}%  silero_onnx<>silero_cactus={:.1}%",
+        "  Agreement: earshot<>silero_onnx={:.1}%",
         agreement(&earshot, &silero_onnx),
-        agreement(&earshot, &silero_cactus),
-        agreement(&silero_onnx, &silero_cactus),
     );
     println!();
 }

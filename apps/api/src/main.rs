@@ -139,10 +139,6 @@ async fn app() -> Router {
         &env.chatwoot,
         auth_state_support.clone(),
     );
-    let cactus_config = hypr_api_cactus::CactusProxyConfig {
-        api_key: env.cactus_api_key.clone(),
-        upstream_base: None,
-    };
     let research_config = hypr_api_research::ResearchConfig {
         exa_api_key: env.exa_api_key.clone(),
         jina_api_key: env.jina_api_key.clone(),
@@ -243,7 +239,6 @@ async fn app() -> Router {
     Router::new()
         .route("/health", axum::routing::get(version))
         .route("/openapi.json", axum::routing::get(openapi_json))
-        .nest("/cactus", hypr_api_cactus::router(cactus_config))
         .merge(support_routes)
         .merge(webhook_routes)
         .merge(paid_routes)

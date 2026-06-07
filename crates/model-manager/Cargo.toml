@@ -4,11 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [features]
-cactus = ["hypr-cactus"]
 whisper-local = ["hypr-whisper-local"]
 
 [dependencies]
-hypr-cactus = { workspace = true, optional = true }
 hypr-whisper-local = { workspace = true, optional = true }
 
 thiserror = { workspace = true }

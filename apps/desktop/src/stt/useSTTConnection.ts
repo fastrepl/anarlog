@@ -1,10 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 
-import {
-  commands as localSttCommands,
-  type LocalModel,
-} from "@hypr/plugin-local-stt";
+import { commands as localSttCommands } from "@hypr/plugin-local-stt";
 import type { AIProviderStorage } from "@hypr/store";
 
 import { useAuth } from "~/auth";
@@ -13,6 +10,10 @@ import { env } from "~/env";
 import { providerRowId } from "~/settings/ai/shared";
 import { type ProviderId } from "~/settings/ai/stt/shared";
 import * as settings from "~/store/tinybase/store/settings";
+import {
+  isHyprnoteCloudSttModel,
+  isHyprnoteLocalSttModel,
+} from "~/stt/capabilities";
 
 export const useSTTConnection = () => {
   const auth = useAuth();
@@ -30,33 +31,34 @@ export const useSTTConnection = () => {
     settings.STORE_ID,
   ) as AIProviderStorage | undefined;
 
-  const isLocalModel =
-    current_stt_provider === "hyprnote" &&
-    !!current_stt_model &&
-    current_stt_model !== "cloud";
+  const localModel = isHyprnoteLocalSttModel(
+    current_stt_provider,
+    current_stt_model,
+  )
+    ? current_stt_model
+    : null;
+  const isLocalModel = !!localModel;
 
-  const isCloudModel =
-    current_stt_provider === "hyprnote" && current_stt_model === "cloud";
+  const isCloudModel = isHyprnoteCloudSttModel(
+    current_stt_provider,
+    current_stt_model,
+  );
 
   const local = useQuery({
     enabled: current_stt_provider === "hyprnote",
-    queryKey: ["stt-connection", isLocalModel, current_stt_model],
+    queryKey: ["stt-connection", localModel],
     refetchInterval: 1000,
     queryFn: async () => {
-      if (!isLocalModel || !current_stt_model) {
+      if (!localModel) {
         return null;
       }
 
-      const downloaded = await localSttCommands.isModelDownloaded(
-        current_stt_model as LocalModel,
-      );
+      const downloaded = await localSttCommands.isModelDownloaded(localModel);
       if (downloaded.status !== "ok" || !downloaded.data) {
         return { status: "not_downloaded" as const, connection: null };
       }
 
-      const serverResult = await localSttCommands.getServerForModel(
-        current_stt_model as LocalModel,
-      );
+      const serverResult = await localSttCommands.getServerForModel(localModel);
 
       if (serverResult.status !== "ok") {
         return null;
@@ -69,7 +71,7 @@ export const useSTTConnection = () => {
           status: "ready" as const,
           connection: {
             provider: current_stt_provider!,
-            model: current_stt_model,
+            model: localModel,
             baseUrl: server.url,
             apiKey: "",
           },
@@ -121,6 +123,7 @@ export const useSTTConnection = () => {
   }, [
     current_stt_provider,
     current_stt_model,
+    localModel,
     isLocalModel,
     isCloudModel,
     local.data,

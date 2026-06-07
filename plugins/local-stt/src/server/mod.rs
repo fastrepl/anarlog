@@ -1,8 +1,6 @@
 pub mod external;
 #[cfg(feature = "whisper-cpp")]
 pub mod internal;
-#[cfg(target_arch = "aarch64")]
-pub mod internal2;
 pub mod supervisor;
 
 #[derive(

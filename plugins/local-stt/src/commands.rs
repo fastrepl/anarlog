@@ -13,18 +13,6 @@ pub async fn models_dir<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<S
 
 #[tauri::command]
 #[specta::specta]
-pub async fn cactus_models_dir<R: tauri::Runtime>(
-    app: tauri::AppHandle<R>,
-) -> Result<String, String> {
-    Ok(app
-        .local_stt()
-        .cactus_models_dir()
-        .to_string_lossy()
-        .to_string())
-}
-
-#[tauri::command]
-#[specta::specta]
 pub async fn soniqo_model_dir<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     model: LocalModel,

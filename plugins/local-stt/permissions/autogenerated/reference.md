@@ -16,7 +16,6 @@ Default permissions for the plugin
 - `allow-get-servers`
 - `allow-list-supported-models`
 - `allow-list-supported-languages`
-- `allow-cactus-models-dir`
 
 ## Permission Table
 
@@ -26,32 +25,6 @@ Default permissions for the plugin
 <th>Description</th>
 </tr>
 
-
-<tr>
-<td>
-
-`local-stt:allow-cactus-models-dir`
-
-</td>
-<td>
-
-Enables the cactus_models_dir command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`local-stt:deny-cactus-models-dir`
-
-</td>
-<td>
-
-Denies the cactus_models_dir command without any pre-configured scope.
-
-</td>
-</tr>
 
 <tr>
 <td>

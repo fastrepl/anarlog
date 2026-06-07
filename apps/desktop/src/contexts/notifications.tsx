@@ -18,6 +18,10 @@ import {
 import { useConfigValues } from "~/shared/config";
 import type { DownloadProgress } from "~/sidebar/toast/types";
 import { useTabs } from "~/store/zustand/tabs";
+import {
+  isConfiguredSttModel,
+  isHyprnoteLocalSttModel,
+} from "~/stt/capabilities";
 
 interface NotificationState {
   hasActiveBanner: boolean;
@@ -56,14 +60,17 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   ] as const);
 
   const hasConfigBanner =
-    !current_stt_provider ||
-    !current_stt_model ||
+    !isConfiguredSttModel(current_stt_provider, current_stt_model) ||
     !current_llm_provider ||
     !current_llm_model;
 
-  const sttModel = current_stt_model as string | undefined;
-  const isLocalSttModel =
-    current_stt_provider === "hyprnote" && !!sttModel && sttModel !== "cloud";
+  const sttModel = isHyprnoteLocalSttModel(
+    current_stt_provider,
+    current_stt_model,
+  )
+    ? current_stt_model
+    : null;
+  const isLocalSttModel = !!sttModel;
 
   const localSttQuery = useQuery({
     enabled: isLocalSttModel,
@@ -72,9 +79,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     queryFn: async () => {
       if (!sttModel) return null;
 
-      const serverResult = await localSttCommands.getServerForModel(
-        sttModel as LocalModel,
-      );
+      const serverResult = await localSttCommands.getServerForModel(sttModel);
       if (serverResult.status !== "ok") return null;
 
       return serverResult.data?.status ?? null;

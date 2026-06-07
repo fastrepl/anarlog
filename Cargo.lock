@@ -502,7 +502,6 @@ version = "0.1.0"
 dependencies = [
  "analytics",
  "api-auth",
- "api-cactus",
  "api-calendar",
  "api-env",
  "api-mail",
@@ -575,17 +574,6 @@ dependencies = [
  "tracing",
  "urlencoding",
  "utoipa",
-]
-
-[[package]]
-name = "api-cactus"
-version = "0.1.0"
-dependencies = [
- "axum 0.8.9",
- "bytes",
- "reqwest 0.13.2",
- "serde",
- "tracing",
 ]
 
 [[package]]
@@ -2939,49 +2927,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cactus"
-version = "0.1.0"
-dependencies = [
- "cactus-model",
- "cactus-sys",
- "colored",
- "criterion",
- "data",
- "futures-util",
- "insta",
- "jsonschema",
- "language",
- "llm-types",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
- "tokio",
- "tokio-stream",
- "tokio-util",
- "tracing",
- "url",
-]
-
-[[package]]
-name = "cactus-model"
-version = "0.1.0"
-dependencies = [
- "language",
- "serde",
- "specta",
- "strum 0.28.0",
-]
-
-[[package]]
-name = "cactus-sys"
-version = "0.1.0"
-source = "git+https://github.com/cactus-compute/cactus?rev=130a60dcd4767a994a34f319d26d02eedb50f293#130a60dcd4767a994a34f319d26d02eedb50f293"
-dependencies = [
- "bindgen 0.72.1",
- "cmake",
-]
-
-[[package]]
 name = "cairo-rs"
 version = "0.18.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4085,34 +4030,6 @@ name = "crossbeam-utils"
 version = "0.8.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d0a5c400df2834b80a4c3327b3aad3a4c4cd4de0629063962b03235697506a28"
-
-[[package]]
-name = "crossterm"
-version = "0.29.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8b9f2e4c67f833b660cdb0a3523065869fb35570177239812ed4c905aeff87b"
-dependencies = [
- "bitflags 2.11.1",
- "crossterm_winapi",
- "derive_more 2.1.1",
- "document-features",
- "futures-core",
- "mio",
- "parking_lot",
- "rustix 1.1.4",
- "signal-hook 0.3.18",
- "signal-hook-mio",
- "winapi",
-]
-
-[[package]]
-name = "crossterm_winapi"
-version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "acdd7c62a3665c7f6830a51635d9ac9b23ed385797f70a83bb8bafe9c572ab2b"
-dependencies = [
- "winapi",
-]
 
 [[package]]
 name = "crunchy"
@@ -9644,9 +9561,6 @@ checksum = "7b4a6248eb93a4401ed2f37dfe8ea592d3cf05b7cf4f8efa867b6895af7e094e"
 dependencies = [
  "console",
  "once_cell",
- "pest",
- "pest_derive",
- "serde",
  "similar",
  "tempfile",
 ]
@@ -10691,29 +10605,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "11d3d7f243d5c5a8b9bb5d6dd2b1602c0cb0b9db1621bafc7ed66e35ff9fe092"
 
 [[package]]
-name = "llm-cactus"
-version = "0.1.0"
-dependencies = [
- "axum 0.8.9",
- "cactus",
- "cactus-model",
- "futures-util",
- "insta",
- "llm-types",
- "model-manager",
- "pico-args",
- "reqwest 0.13.2",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
- "tokio",
- "tokio-util",
- "tower 0.5.3",
- "url",
- "uuid",
-]
-
-[[package]]
 name = "llm-proxy"
 version = "0.1.0"
 dependencies = [
@@ -10765,20 +10656,15 @@ dependencies = [
 name = "local-llm-core"
 version = "0.1.0"
 dependencies = [
- "axum 0.8.9",
  "dirs 6.0.0",
  "file",
  "gguf",
- "llm-cactus",
  "lmstudio",
  "local-model",
  "serde",
- "serde_json",
  "specta",
  "thiserror 2.0.18",
  "tokio",
- "tower-http 0.6.8",
- "tracing",
 ]
 
 [[package]]
@@ -10786,7 +10672,6 @@ name = "local-model"
 version = "0.1.0"
 dependencies = [
  "am",
- "cactus-model",
  "file",
  "model-downloader",
  "serde",
@@ -10815,7 +10700,6 @@ dependencies = [
  "tokio",
  "tower-http 0.6.8",
  "tracing",
- "transcribe-cactus",
  "transcribe-whisper-local",
 ]
 
@@ -11344,7 +11228,6 @@ dependencies = [
 name = "model-manager"
 version = "0.1.0"
 dependencies = [
- "cactus",
  "thiserror 2.0.18",
  "tokio",
  "uuid",
@@ -12766,7 +12649,6 @@ dependencies = [
  "backon",
  "base64 0.22.1",
  "bytes",
- "cactus-model",
  "data",
  "deepgram",
  "futures-util",
@@ -15799,21 +15681,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1bc711410fbe7399f390ca1c3b60ad0f53f80e95c5eb935e52268a0e2cd49acc"
 
 [[package]]
-name = "sequential-macro"
-version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eb5facc5f409a55d25bf271c853402a00e1187097d326757043f5dd711944d07"
-
-[[package]]
-name = "sequential-test"
-version = "0.2.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f0d9c0d773bc7e7733264f460e5dfa00b2510421ddd6284db0749eef8dfb79e9"
-dependencies = [
- "sequential-macro",
-]
-
-[[package]]
 name = "serde"
 version = "1.0.228"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -16251,17 +16118,6 @@ checksum = "b2a0c28ca5908dbdbcd52e6fdaa00358ab88637f8ab33e1f188dd510eb44b53d"
 dependencies = [
  "libc",
  "signal-hook-registry",
-]
-
-[[package]]
-name = "signal-hook-mio"
-version = "0.2.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b75a19a7a740b25bc7944bdee6172368f988763b744e3d4dfe753f6b4ece40cc"
-dependencies = [
- "libc",
- "mio",
- "signal-hook 0.3.18",
 ]
 
 [[package]]
@@ -18536,7 +18392,6 @@ dependencies = [
  "tauri-plugin-settings",
  "tauri-plugin-store",
  "tauri-specta",
- "tempfile",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
@@ -18551,7 +18406,6 @@ dependencies = [
  "axum 0.8.9",
  "axum-extra",
  "backon",
- "cactus-model",
  "data",
  "dirs 6.0.0",
  "download-interface",
@@ -18591,7 +18445,6 @@ dependencies = [
  "tower 0.5.3",
  "tower-http 0.6.8",
  "tracing",
- "transcribe-cactus",
  "transcribe-soniqo",
  "transcribe-whisper-local",
  "whisper-local",
@@ -20384,47 +20237,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "transcribe-cactus"
-version = "0.1.0"
-dependencies = [
- "audio",
- "audio-actual",
- "audio-chunking",
- "audio-mock",
- "audio-utils",
- "axum 0.8.9",
- "bytes",
- "cactus",
- "cactus-model",
- "colored",
- "crossterm",
- "data",
- "dirs 6.0.0",
- "futures-util",
- "insta",
- "language",
- "model-manager",
- "owhisper-client",
- "owhisper-interface",
- "pico-args",
- "reqwest 0.13.2",
- "rodio",
- "sequential-test",
- "serde_html_form 0.4.0",
- "serde_json",
- "strum 0.28.0",
- "tempfile",
- "thiserror 2.0.18",
- "tokio",
- "tokio-tungstenite 0.29.0",
- "tower 0.5.3",
- "tracing",
- "transcribe-core",
- "uuid",
- "ws-utils",
-]
-
-[[package]]
 name = "transcribe-core"
 version = "0.1.0"
 dependencies = [
@@ -21757,7 +21569,6 @@ name = "vad"
 version = "0.1.0"
 dependencies = [
  "approx",
- "cactus",
  "criterion",
  "data",
  "earshot",

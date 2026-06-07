@@ -9,8 +9,6 @@ use ractor::{ActorCell, ActorProcessingErr, ActorRef, concurrency::Duration, reg
 
 #[cfg(feature = "whisper-cpp")]
 use super::internal::{InternalSTTActor, InternalSTTArgs};
-#[cfg(target_arch = "aarch64")]
-use super::internal2::{Internal2STTActor, Internal2STTArgs};
 use super::{
     ServerType,
     external::{ExternalSTTActor, ExternalSTTArgs},
@@ -19,8 +17,6 @@ use super::{
 pub type SupervisorRef = ActorRef<DynamicSupervisorMsg>;
 
 pub const INTERNAL_STT_ACTOR_NAME: &str = "internal_stt";
-#[cfg(target_arch = "aarch64")]
-pub const INTERNAL2_STT_ACTOR_NAME: &str = "internal2_stt";
 pub const EXTERNAL_STT_ACTOR_NAME: &str = "external_stt";
 pub const SUPERVISOR_NAME: &str = "stt_supervisor";
 
@@ -57,15 +53,6 @@ pub async fn start_internal_stt(
     DynamicSupervisor::spawn_child(supervisor.clone(), child_spec).await
 }
 
-#[cfg(target_arch = "aarch64")]
-pub async fn start_internal2_stt(
-    supervisor: &ActorRef<DynamicSupervisorMsg>,
-    args: Internal2STTArgs,
-) -> Result<(), ActorProcessingErr> {
-    let child_spec = create_internal2_child_spec_with_args(args);
-    DynamicSupervisor::spawn_child(supervisor.clone(), child_spec).await
-}
-
 pub async fn start_external_stt(
     supervisor: &ActorRef<DynamicSupervisorMsg>,
     args: ExternalSTTArgs,
@@ -88,29 +75,6 @@ fn create_internal_child_spec_with_args(args: InternalSTTArgs) -> DynChildSpec {
 
     DynChildSpec {
         id: INTERNAL_STT_ACTOR_NAME.to_string(),
-        spawn_fn,
-        restart: RestartPolicy::Transient,
-        backoff_fn: Some(ChildBackoffFn::new(|_, _, _, _| {
-            Some(Duration::from_millis(500))
-        })),
-        reset_after: None,
-    }
-}
-
-#[cfg(target_arch = "aarch64")]
-fn create_internal2_child_spec_with_args(args: Internal2STTArgs) -> DynChildSpec {
-    let spawn_fn = DynSpawnFn::new(move |supervisor: ActorCell, child_id: String| {
-        let args = args.clone();
-        async move {
-            let (actor_ref, _handle) =
-                DynamicSupervisor::spawn_linked(child_id, Internal2STTActor, args, supervisor)
-                    .await?;
-            Ok(actor_ref.get_cell())
-        }
-    });
-
-    DynChildSpec {
-        id: INTERNAL2_STT_ACTOR_NAME.to_string(),
         spawn_fn,
         restart: RestartPolicy::Transient,
         backoff_fn: Some(ChildBackoffFn::new(|_, _, _, _| {
@@ -148,17 +112,13 @@ pub async fn stop_stt_server(
 ) -> Result<(), ActorProcessingErr> {
     let child_ids: Vec<&str> = match server_type {
         ServerType::Internal => {
-            #[cfg(all(target_arch = "aarch64", feature = "whisper-cpp"))]
+            #[cfg(feature = "whisper-cpp")]
             {
-                vec![INTERNAL2_STT_ACTOR_NAME, INTERNAL_STT_ACTOR_NAME]
+                vec![INTERNAL_STT_ACTOR_NAME]
             }
-            #[cfg(all(target_arch = "aarch64", not(feature = "whisper-cpp")))]
+            #[cfg(not(feature = "whisper-cpp"))]
             {
-                vec![INTERNAL2_STT_ACTOR_NAME]
-            }
-            #[cfg(not(target_arch = "aarch64"))]
-            {
-                vec![]
+                Vec::new()
             }
         }
         ServerType::External => vec![EXTERNAL_STT_ACTOR_NAME],
@@ -180,8 +140,6 @@ pub async fn stop_stt_server(
 
     match server_type {
         ServerType::Internal => {
-            #[cfg(target_arch = "aarch64")]
-            wait_for_actor_shutdown(Internal2STTActor::name()).await;
             #[cfg(feature = "whisper-cpp")]
             wait_for_actor_shutdown(InternalSTTActor::name()).await;
         }

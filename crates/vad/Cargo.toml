@@ -6,11 +6,9 @@ edition = "2024"
 [features]
 earshot = ["dep:earshot"]
 silero-onnx = ["dep:hypr-onnx"]
-silero-cactus = ["dep:hypr-cactus"]
 
 [dependencies]
 earshot = { workspace = true, optional = true }
-hypr-cactus = { workspace = true, optional = true }
 hypr-onnx = { workspace = true, optional = true }
 thiserror = { workspace = true }
 
@@ -25,8 +23,8 @@ serde_json = { workspace = true }
 [[bench]]
 name = "vad"
 harness = false
-required-features = ["earshot", "silero-onnx", "silero-cactus"]
+required-features = ["earshot", "silero-onnx"]
 
 [[test]]
 name = "compare"
-required-features = ["earshot", "silero-onnx", "silero-cactus"]
+required-features = ["earshot", "silero-onnx"]

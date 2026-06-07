@@ -11,7 +11,6 @@ mod commands;
 mod error;
 mod ext;
 mod migrate;
-mod resource;
 
 pub use error::*;
 pub use ext::*;
@@ -47,40 +46,6 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }
 
-#[cfg(target_arch = "aarch64")]
-pub(crate) fn spawn_llm_server<R: tauri::Runtime>(
-    app_handle: &tauri::AppHandle<R>,
-    state: SharedState,
-) {
-    let app_handle = app_handle.clone();
-    tauri::async_runtime::spawn(async move {
-        let (model_name, model_path) = match resource::resolve_embedded_llm_args(&app_handle) {
-            Ok(args) => args,
-            Err(error) => {
-                tracing::warn!(
-                    error = %error,
-                    "failed to resolve local LLM startup configuration"
-                );
-                return;
-            }
-        };
-
-        match hypr_local_llm_core::LlmServer::start_with_model_path(model_name, &model_path).await {
-            Ok(server) => {
-                let mut guard = state.lock().await;
-                guard.server = Some(server);
-                tracing::info!("local_llm_server_started");
-            }
-            Err(error) => {
-                tracing::error!(
-                    error = %error,
-                    "failed_to_start_local_llm_server"
-                );
-            }
-        }
-    });
-}
-
 pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
     let specta_builder = make_specta_builder();
 
@@ -94,17 +59,8 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
 
             let data_dir = app.settings().global_base()?.into_std_path_buf();
             let models_dir = app.local_llm().models_dir();
-            let cactus_models_dir = data_dir.join("models").join("cactus");
 
             migrate::legacy_gguf_files(&data_dir, &models_dir);
-
-            if let Err(error) = migrate::whisper_small_special_tokens(&cactus_models_dir) {
-                tracing::warn!(
-                    error = %error,
-                    path = %cactus_models_dir.display(),
-                    "failed_to_patch_whisper_small_special_tokens"
-                );
-            }
 
             let download_channels = Arc::new(Mutex::new(HashMap::new()));
             let model_downloader =

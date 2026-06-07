@@ -197,7 +197,7 @@ mod tests {
     }
 
     #[test]
-    fn serializes_optional_native_cactus_fields_when_present() {
+    fn serializes_optional_native_fields_when_present() {
         let message = Message::assistant("hello")
             .with_name("assistant-tool")
             .with_audio(vec!["/tmp/audio.wav".into()])

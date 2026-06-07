@@ -10,8 +10,6 @@ use hypr_model_downloader::{DownloadStatus, ModelDownloadManager, ModelDownloade
 
 #[cfg(feature = "whisper-cpp")]
 use crate::server::internal;
-#[cfg(target_arch = "aarch64")]
-use crate::server::internal2;
 use crate::{
     model::LocalModel,
     server::{ServerInfo, ServerStatus, ServerType, external, supervisor},
@@ -59,19 +57,14 @@ pub struct LocalStt<'a, R: Runtime, M: Manager<R>> {
 impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
     fn ensure_stt_model(model: &LocalModel) -> Result<(), crate::Error> {
         match model {
-            LocalModel::Soniqo(_)
-            | LocalModel::Am(_)
-            | LocalModel::Whisper(_)
-            | LocalModel::Cactus(_) => {
+            LocalModel::Soniqo(_) | LocalModel::Am(_) | LocalModel::Whisper(_) => {
                 if model.is_available_on_current_platform() {
                     Ok(())
                 } else {
                     Err(crate::Error::UnsupportedPlatform)
                 }
             }
-            LocalModel::GgufLlm(_) | LocalModel::CactusLlm(_) => {
-                Err(crate::Error::UnsupportedModelType)
-            }
+            LocalModel::GgufLlm(_) => Err(crate::Error::UnsupportedModelType),
         }
     }
 
@@ -86,20 +79,6 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
                     .unwrap_or_default()
                     .join("models")
                     .join("stt")
-            })
-    }
-
-    pub fn cactus_models_dir(&self) -> PathBuf {
-        use tauri_plugin_settings::SettingsPluginExt;
-        self.manager
-            .settings()
-            .global_base()
-            .map(|base| base.join("models").join("cactus").into_std_path_buf())
-            .unwrap_or_else(|_| {
-                dirs::data_dir()
-                    .unwrap_or_default()
-                    .join("models")
-                    .join("cactus")
             })
     }
 
@@ -160,16 +139,16 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
 
         let server_type = match &model {
             LocalModel::Am(_) => ServerType::External,
-            LocalModel::Whisper(_) | LocalModel::Cactus(_) => ServerType::Internal,
-            LocalModel::Soniqo(_) | LocalModel::GgufLlm(_) | LocalModel::CactusLlm(_) => {
+            LocalModel::Whisper(_) => ServerType::Internal,
+            LocalModel::Soniqo(_) | LocalModel::GgufLlm(_) => {
                 return Err(crate::Error::UnsupportedModelType);
             }
         };
 
         let current_info = match server_type {
-            #[cfg(target_arch = "aarch64")]
-            ServerType::Internal => internal2_health().await,
-            #[cfg(not(target_arch = "aarch64"))]
+            #[cfg(feature = "whisper-cpp")]
+            ServerType::Internal => internal_health().await,
+            #[cfg(not(feature = "whisper-cpp"))]
             ServerType::Internal => None,
             ServerType::External => external_health().await,
         };
@@ -198,20 +177,16 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
 
         match server_type {
             ServerType::Internal => {
-                #[cfg(target_arch = "aarch64")]
+                #[cfg(feature = "whisper-cpp")]
                 {
-                    use hypr_transcribe_cactus::CactusConfig;
-
-                    let cache_dir = self.cactus_models_dir();
-                    let cactus_model = match model {
-                        LocalModel::Cactus(m) => m,
+                    let cache_dir = self.models_dir();
+                    let whisper_model = match model {
+                        LocalModel::Whisper(m) => m,
                         _ => return Err(crate::Error::UnsupportedModelType),
                     };
-                    let cactus_config = CactusConfig::default();
-                    start_internal2_server(&supervisor, cache_dir, cactus_model, cactus_config)
-                        .await
+                    start_internal_server(&supervisor, cache_dir, whisper_model).await
                 }
-                #[cfg(not(target_arch = "aarch64"))]
+                #[cfg(not(feature = "whisper-cpp"))]
                 Err(crate::Error::UnsupportedModelType)
             }
             ServerType::External => {
@@ -273,16 +248,16 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
 
         let server_type = match model {
             LocalModel::Am(_) => ServerType::External,
-            LocalModel::Whisper(_) | LocalModel::Cactus(_) => ServerType::Internal,
-            LocalModel::Soniqo(_) | LocalModel::GgufLlm(_) | LocalModel::CactusLlm(_) => {
+            LocalModel::Whisper(_) => ServerType::Internal,
+            LocalModel::Soniqo(_) | LocalModel::GgufLlm(_) => {
                 return Err(crate::Error::UnsupportedModelType);
             }
         };
 
         let info = match server_type {
-            #[cfg(target_arch = "aarch64")]
-            ServerType::Internal => internal2_health().await,
-            #[cfg(not(target_arch = "aarch64"))]
+            #[cfg(feature = "whisper-cpp")]
+            ServerType::Internal => internal_health().await,
+            #[cfg(not(feature = "whisper-cpp"))]
             ServerType::Internal => None,
             ServerType::External => external_health().await,
         };
@@ -292,13 +267,13 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
 
     #[tracing::instrument(skip_all)]
     pub async fn get_servers(&self) -> Result<HashMap<ServerType, ServerInfo>, crate::Error> {
-        #[cfg(target_arch = "aarch64")]
-        let internal_info = internal2_health().await.unwrap_or(ServerInfo {
+        #[cfg(feature = "whisper-cpp")]
+        let internal_info = internal_health().await.unwrap_or(ServerInfo {
             url: None,
             status: ServerStatus::Unreachable,
             model: None,
         });
-        #[cfg(not(target_arch = "aarch64"))]
+        #[cfg(not(feature = "whisper-cpp"))]
         let internal_info = ServerInfo {
             url: None,
             status: ServerStatus::Unreachable,
@@ -490,30 +465,6 @@ impl<R: Runtime, T: Manager<R>> LocalSttPluginExt<R> for T {
     }
 }
 
-#[cfg(target_arch = "aarch64")]
-async fn start_internal2_server(
-    supervisor: &supervisor::SupervisorRef,
-    cache_dir: PathBuf,
-    model: hypr_cactus_model::CactusSttModel,
-    cactus_config: hypr_transcribe_cactus::CactusConfig,
-) -> Result<String, crate::Error> {
-    supervisor::start_internal2_stt(
-        supervisor,
-        internal2::Internal2STTArgs {
-            model_cache_dir: cache_dir,
-            model_type: model,
-            cactus_config,
-        },
-    )
-    .await
-    .map_err(|e| crate::Error::ServerStartFailed(e.to_string()))?;
-
-    internal2_health()
-        .await
-        .and_then(|info| info.url)
-        .ok_or_else(|| crate::Error::ServerStartFailed("empty_health".to_string()))
-}
-
 #[cfg(feature = "whisper-cpp")]
 async fn start_internal_server(
     supervisor: &supervisor::SupervisorRef,
@@ -582,17 +533,6 @@ async fn start_external_server<R: Runtime, T: Manager<R>>(
         .await
         .and_then(|info| info.url)
         .ok_or_else(|| crate::Error::ServerStartFailed("empty_health".to_string()))
-}
-
-#[cfg(target_arch = "aarch64")]
-async fn internal2_health() -> Option<ServerInfo> {
-    match registry::where_is(internal2::Internal2STTActor::name()) {
-        Some(cell) => {
-            let actor: ActorRef<internal2::Internal2STTMessage> = cell.into();
-            call_t!(actor, internal2::Internal2STTMessage::GetHealth, 10 * 1000).ok()
-        }
-        None => None,
-    }
 }
 
 #[cfg(feature = "whisper-cpp")]

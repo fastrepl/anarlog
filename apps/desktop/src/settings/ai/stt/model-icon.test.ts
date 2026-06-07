@@ -23,15 +23,15 @@ describe("local model icons", () => {
     expect(getLocalModelIcon("QuantizedSmall")?.imageSrc).toBe(
       "/assets/model-icons/openai-logo.svg",
     );
-    expect(
-      getLocalModelIcon("cactus-parakeet-tdt-0.6b-v3-int4")?.imageSrc,
-    ).toBe("/assets/model-icons/nvidia-logo.svg");
+    expect(getLocalModelIcon("soniqo-parakeet-batch")?.imageSrc).toBe(
+      "/assets/model-icons/nvidia-logo.svg",
+    );
   });
 
   test("returns runtime badges for hardware and model runtimes", () => {
-    expect(
-      getLocalModelBackendBadge("cactus-whisper-small-int8-apple-npu")?.label,
-    ).toBe("NPU");
+    expect(getLocalModelBackendBadge("whisper-small-apple-npu")?.label).toBe(
+      "NPU",
+    );
     expect(getLocalModelBackendBadge("qwen3-ggml")?.label).toBe("GGML");
     expect(getLocalModelBackendBadge("whisper-nvidia-cuda")?.label).toBe("NV");
   });

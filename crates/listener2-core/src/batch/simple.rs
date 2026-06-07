@@ -51,7 +51,7 @@ pub(super) async fn run_direct_batch_for_adapter_kind(
         Mistral => MistralAdapter,
         Hyprnote => HyprnoteAdapter,
         AquaVoice => AquaVoiceAdapter,
-    }, unsupported: [DashScope, Cactus])
+    }, unsupported: [DashScope])
 }
 
 async fn run_direct_batch<A: BatchSttAdapter>(

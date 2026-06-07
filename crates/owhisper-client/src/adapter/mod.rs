@@ -4,7 +4,6 @@ mod url_builder;
 mod aquavoice;
 mod argmax;
 pub(crate) mod assemblyai;
-mod cactus;
 mod dashscope;
 pub mod deepgram;
 mod deepgram_compat;
@@ -25,7 +24,6 @@ mod whispercpp;
 pub use aquavoice::*;
 pub use argmax::*;
 pub use assemblyai::*;
-pub use cactus::*;
 pub use dashscope::*;
 pub use deepgram::*;
 pub use elevenlabs::*;
@@ -325,10 +323,6 @@ fn is_local_argmax(base_url: &str) -> bool {
     host_matches(base_url, is_local_host) && !is_hyprnote_local_proxy(base_url)
 }
 
-fn is_cactus_model(model: &str) -> bool {
-    model.parse::<hypr_cactus_model::CactusSttModel>().is_ok()
-}
-
 pub(crate) fn build_ws_url_from_base_with(
     provider: crate::providers::Provider,
     api_base: &str,
@@ -426,8 +420,6 @@ pub enum AdapterKind {
     Pyannote,
     #[strum(serialize = "hyprnote")]
     Hyprnote,
-    #[strum(serialize = "cactus")]
-    Cactus,
 }
 
 impl AdapterKind {
@@ -443,11 +435,6 @@ impl AdapterKind {
         }
 
         if is_local_argmax(base_url) {
-            if let Some(model) = _model
-                && is_cactus_model(model)
-            {
-                return Self::Cactus;
-            }
             return Self::Argmax;
         }
 
@@ -458,7 +445,7 @@ impl AdapterKind {
 
     pub fn has_live_mode(&self) -> bool {
         match self {
-            Self::AquaVoice | Self::Argmax | Self::OpenAI | Self::Pyannote | Self::Cactus => false,
+            Self::AquaVoice | Self::Argmax | Self::OpenAI | Self::Pyannote => false,
             Self::Soniox
             | Self::Fireworks
             | Self::Deepgram
@@ -490,15 +477,6 @@ impl AdapterKind {
             Self::ElevenLabs => ElevenLabsAdapter::language_support_live(languages),
             Self::DashScope => DashScopeAdapter::language_support_live(languages),
             Self::Argmax => ArgmaxAdapter::language_support_live(languages, model),
-            Self::Cactus => {
-                if CactusAdapter::is_supported_languages_live(languages, model) {
-                    LanguageSupport::Supported {
-                        quality: LanguageQuality::NoData,
-                    }
-                } else {
-                    LanguageSupport::NotSupported
-                }
-            }
             Self::Mistral => MistralAdapter::language_support_live(languages),
             Self::Pyannote => LanguageSupport::NotSupported,
             Self::Hyprnote => HyprnoteAdapter::language_support_live(languages, model),
@@ -527,9 +505,6 @@ impl AdapterKind {
             Self::Mistral => MistralAdapter::language_support_batch(languages),
             Self::Pyannote => PyannoteAdapter::language_support_batch(languages, model),
             Self::Hyprnote => HyprnoteAdapter::language_support_batch(languages, model),
-            Self::Cactus => LanguageSupport::Supported {
-                quality: LanguageQuality::NoData,
-            },
         }
     }
 
@@ -792,13 +767,6 @@ mod tests {
                 None,
                 AdapterKind::Argmax,
             ),
-            // localhost cactus
-            (
-                "http://localhost:50060/v1",
-                &[En],
-                Some("cactus-parakeet-tdt-0.6b-v3-int8"),
-                AdapterKind::Cactus,
-            ),
         ];
 
         for (url, langs, model, expected) in cases {
@@ -833,7 +801,6 @@ mod tests {
             AdapterKind::Argmax,
             AdapterKind::OpenAI,
             AdapterKind::Pyannote,
-            AdapterKind::Cactus,
         ];
         for kind in batch_only {
             assert!(
@@ -1030,14 +997,6 @@ mod tests {
         assert_eq!(
             AdapterKind::from_url_and_languages("http://localhost:50060/v1", &en, None),
             AdapterKind::Argmax,
-        );
-        assert_eq!(
-            AdapterKind::from_url_and_languages(
-                "http://localhost:50060/v1",
-                &en,
-                Some("cactus-parakeet-tdt-0.6b-v3-int8"),
-            ),
-            AdapterKind::Cactus,
         );
     }
 
