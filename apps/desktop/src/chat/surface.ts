@@ -38,5 +38,5 @@ export function chatToolbarSurface(): ChatToolbarSurface {
 }
 
 export function chatFloatingControlClassNames(): string {
-  return "border-border bg-primary-foreground text-primary hover:bg-accent";
+  return "border-border bg-primary-foreground text-primary hover:bg-primary-foreground/90";
 }

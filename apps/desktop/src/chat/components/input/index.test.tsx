@@ -131,7 +131,9 @@ describe("ChatMessageInput", () => {
       <ChatMessageInput draftKey="chat-input-test" onSendMessage={vi.fn()} />,
     );
 
-    const sendButton = screen.getByRole("button", { name: /send/i });
+    const sendButton = screen.getByRole<HTMLButtonElement>("button", {
+      name: /send/i,
+    });
 
     expect(sendButton.disabled).toBe(true);
     expect(sendButton.className).toContain("chat-input-send");

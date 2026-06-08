@@ -352,6 +352,7 @@ type ModelEntry = {
   id: string;
   isDownloaded: boolean;
   displayName?: string;
+  isDeprecated?: boolean;
   category?: ModelCategory;
   sizeBytes?: number | null;
   mode?: "realtime" | "batch";
@@ -485,6 +486,7 @@ function ModelSelectItem({
   const label = model.displayName ?? displayModelId(model.id);
   const sizeLabel = formatModelSize(model.sizeBytes);
   const showLocalActions = model.isDownloaded && isLocalModelId(model.id);
+  const isDeprecated = model.isDeprecated === true;
   const content = (
     <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
       <LocalModelLabel
@@ -588,17 +590,14 @@ function ModelSelectItem({
 }
 
 function ModelSelectedValue({ model }: { model: ModelEntry }) {
+  const isDeprecated = model.isDeprecated === true;
+
   return (
     <LocalModelLabel
       model={model.id}
       label={model.displayName ?? displayModelId(model.id)}
-      className={cn([
-        "min-w-0 flex-1",
-        model.status === "deprecated" && "opacity-60",
-      ])}
-      labelClassName={cn([
-        model.status === "deprecated" && "text-muted-foreground",
-      ])}
+      className={cn(["min-w-0 flex-1", isDeprecated && "opacity-60"])}
+      labelClassName={cn([isDeprecated && "text-muted-foreground"])}
     />
   );
 }

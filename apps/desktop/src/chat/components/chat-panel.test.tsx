@@ -2,7 +2,9 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  toolbarControls: vi.fn(() => <div data-testid="chat-toolbar" />),
+  toolbarControls: vi.fn((_props: Record<string, unknown>) => (
+    <div data-testid="chat-toolbar" />
+  )),
   chat: {
     groupId: "group-1",
     sessionId: "session-1",

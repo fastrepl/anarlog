@@ -134,7 +134,7 @@ export function ChatBodyEmpty({
                 className={cn([
                   "inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px]",
                   isDarkAppearance
-                    ? "border-primary bg-primary/80 text-primary-foreground hover:bg-primary/70"
+                    ? "border-border bg-primary-foreground text-primary hover:bg-primary-foreground/90"
                     : "border-border bg-card text-muted-foreground hover:bg-accent",
                   "transition-colors",
                 ])}
