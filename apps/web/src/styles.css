@@ -442,6 +442,12 @@
 }
 
 .blog-prose
+  :where(p, li):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
+  font-size: 1.3rem;
+  line-height: 1.5;
+}
+
+.blog-prose
   :where(h2):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
   margin-top: 4rem;
   margin-bottom: 1.25rem;
