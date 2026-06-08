@@ -25,7 +25,7 @@ msgstr "Zimanê axaftinê lê zêde bike"
 msgid "Additional spoken languages"
 msgstr "Zimanên axaftinê yên zêde"
 
-#: src/settings/general/index.tsx:152
+#: src/settings/general/app-settings.tsx:35
 msgid "Always ready without manually launching."
 msgstr "Bêyî destpêkirina bi destan her dem amade ye."
 
@@ -33,19 +33,35 @@ msgstr "Bêyî destpêkirina bi destan her dem amade ye."
 msgid "App"
 msgstr "App"
 
-#: src/settings/general/index.tsx:159
+#: src/settings/general/theme.tsx:45
+msgid "Appearance"
+msgstr ""
+
+#: src/settings/general/app-settings.tsx:71
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Dema ku notek bi piştgiriya bûyerê digihîje dema xweya destpêkê ya plansazkirî, bixweber dest bi guhdarkirinê bike."
 
-#: src/settings/general/index.tsx:169
+#: src/settings/general/app-settings.tsx:82
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Dema sepana civînê mîkrofonê berdide, bixweber guhdarîkirinê rawestîne."
 
-#: src/settings/general/index.tsx:265
+#: src/settings/general/theme.tsx:48
+msgid "Choose light, dark, or match your system setting."
+msgstr ""
+
+#: src/settings/general/theme.tsx:35
+msgid "Dark"
+msgstr ""
+
+#: src/settings/general/index.tsx:255
 msgid "Data"
 msgstr "Daneyên"
 
-#: src/settings/general/index.tsx:214
+#: src/settings/general/week-start.tsx:58
+msgid "First day of the week in the calendar view"
+msgstr ""
+
+#: src/settings/general/index.tsx:206
 msgid "Language & Region"
 msgstr "Ziman û Herêm"
 
@@ -53,67 +69,111 @@ msgstr "Ziman û Herêm"
 msgid "Language for summaries, chats, and AI-generated responses"
 msgstr "Ziman ji bo kurtasî, sohbet û bersivên ku ji hêla AI-ê ve hatî çêkirin"
 
+#: src/settings/general/theme.tsx:34
+msgid "Light"
+msgstr ""
+
 #: src/settings/general/main-language.tsx:50
 msgid "Main language"
 msgstr "Zimanê sereke"
 
-#: src/settings/general/app-settings.tsx:56
+#: src/settings/general/app-settings.tsx:65
 msgid "Meetings"
 msgstr "Hevdîtin"
+
+#: src/settings/general/week-start.tsx:40
+msgid "Monday"
+msgstr ""
 
 #: src/settings/general/main-language.tsx:64
 #: src/settings/general/spoken-languages.tsx:218
 msgid "No matching languages found"
 msgstr "Zimanên lihevhatî nehatin dîtin"
 
-#: src/settings/general/index.tsx:277
+#: src/settings/general/searchable-select.tsx:122
+msgid "No results found."
+msgstr ""
+
+#: src/settings/general/index.tsx:265
 msgid "Notifications"
 msgstr "Agahdar"
+
+#: src/settings/general/index.tsx:274
+msgid "Permissions"
+msgstr ""
 
 #: src/settings/general/main-language.tsx:63
 msgid "Search language..."
 msgstr "Zimanê gerînê..."
 
+#: src/settings/general/searchable-select.tsx:116
+msgid "Search..."
+msgstr ""
+
+#: src/settings/general/theme.tsx:61
+msgid "Select appearance"
+msgstr ""
+
+#: src/settings/general/week-start.tsx:63
+msgid "Select day"
+msgstr ""
+
 #: src/settings/general/main-language.tsx:62
 msgid "Select language"
 msgstr "Ziman hilbijêre"
 
-#: src/settings/general/index.tsx:193
+#: src/settings/general/searchable-select.tsx:95
+msgid "Select..."
+msgstr ""
+
+#: src/settings/general/app-settings.tsx:53
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Analîzên karanîna nenas bişîne da ku alîkariya baştirkirina Anarlog bike."
 
-#: src/settings/general/index.tsx:192
+#: src/settings/general/app-settings.tsx:51
 msgid "Share usage data"
 msgstr "Daneyên bikaranînê parve bikin"
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/app-settings.tsx:91
 msgid "Show floating bar"
 msgstr "Barika herikîn nîşan bide"
 
-#: src/settings/general/index.tsx:176
+#: src/settings/general/app-settings.tsx:93
 msgid "Show the compact floating control while listening."
 msgstr "Dema ku guhdarî dike, kontrolê ya kompakt nîşan bide."
 
-#: src/settings/general/index.tsx:182
+#: src/settings/general/app-settings.tsx:41
 msgid "Show timeline in sidebar"
 msgstr "Xeta demê li kêlekê nîşan bide"
 
-#: src/settings/general/index.tsx:151
+#: src/settings/general/app-settings.tsx:33
 msgid "Start Anarlog at login"
 msgstr "Di têketinê de Anarlogê dest pê bike"
 
-#: src/settings/general/index.tsx:158
+#: src/settings/general/app-settings.tsx:69
 msgid "Start when meeting begins"
 msgstr "Dema civîn dest pê dike"
 
-#: src/settings/general/index.tsx:168
+#: src/settings/general/app-settings.tsx:80
 msgid "Stop when meeting ends"
 msgstr "Dema civîn biqede raweste"
+
+#: src/settings/general/week-start.tsx:39
+msgid "Sunday"
+msgstr ""
+
+#: src/settings/general/theme.tsx:36
+msgid "System"
+msgstr ""
 
 #: src/settings/general/spoken-languages.tsx:119
 msgid "The main language is always included for transcription"
 msgstr "Zimanê sereke her tim ji bo transkripsiyonê tê de"
 
-#: src/settings/general/index.tsx:183
+#: src/settings/general/app-settings.tsx:43
 msgid "Use the left sidebar timeline instead of the top timeline."
 msgstr "Li şûna rêzika jorîn rêzika kêleka çepê bikar bînin."
+
+#: src/settings/general/week-start.tsx:55
+msgid "Week starts on"
+msgstr ""

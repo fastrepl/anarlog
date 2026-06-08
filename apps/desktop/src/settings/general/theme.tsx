@@ -2,9 +2,12 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import { useMemo } from "react";
 
 import {
-  SearchableSelect,
-  type SearchableSelectOption,
-} from "./searchable-select";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@hypr/ui/components/ui/select";
 
 import { useConfigValue } from "~/shared/config";
 import {
@@ -26,7 +29,7 @@ export function ThemeSelector() {
     settings.STORE_ID,
   );
 
-  const options: SearchableSelectOption[] = useMemo(
+  const options = useMemo(
     () => [
       { value: "light", label: t`Light` },
       { value: "dark", label: t`Dark` },
@@ -45,18 +48,26 @@ export function ThemeSelector() {
           <Trans>Choose light, dark, or match your system setting.</Trans>
         </p>
       </div>
-      <SearchableSelect
+      <Select
         value={THEME_OPTIONS.includes(value) ? value : "system"}
-        onChange={(next) => {
+        onValueChange={(next) => {
           const preference = next as ThemePreference;
           writeStoredThemePreference(preference);
           applyDocumentTheme(preference);
           setTheme(next);
         }}
-        options={options}
-        placeholder={t`Select appearance`}
-        className="w-40"
-      />
+      >
+        <SelectTrigger className="bg-card w-40 shadow-none focus:ring-0">
+          <SelectValue placeholder={t`Select appearance`} />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }

@@ -259,7 +259,7 @@ export function NotificationSettingsView() {
                         <SelectTrigger className="w-[100px]">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent align="end">
                           <SelectItem value="5">5 sec</SelectItem>
                           <SelectItem value="10">10 sec</SelectItem>
                           <SelectItem value="15">15 sec</SelectItem>
@@ -389,11 +389,12 @@ export function NotificationSettingsView() {
       </form.Field>
 
       <div className="flex flex-col gap-6">
-        <div className="relative flex items-center pt-4 pb-2">
-          <div className="border-muted w-full border-t" />
-          <span className="bg-background text-muted-foreground absolute left-1/2 -translate-x-1/2 px-4 text-xs font-medium">
+        <div className="flex items-center gap-4 pt-4 pb-2">
+          <div className="border-muted min-w-0 flex-1 border-t" />
+          <span className="text-muted-foreground shrink-0 text-xs font-medium">
             For enabled notifications
           </span>
+          <div className="border-muted min-w-0 flex-1 border-t" />
         </div>
 
         <form.Field name="respect_dnd">

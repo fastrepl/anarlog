@@ -25,7 +25,7 @@ msgstr "სალაპარაკო ენის დამატება"
 msgid "Additional spoken languages"
 msgstr "დამატებითი სალაპარაკო ენები"
 
-#: src/settings/general/index.tsx:152
+#: src/settings/general/app-settings.tsx:35
 msgid "Always ready without manually launching."
 msgstr "ყოველთვის მზადაა ხელით გაშვების გარეშე."
 
@@ -33,19 +33,35 @@ msgstr "ყოველთვის მზადაა ხელით გაშ
 msgid "App"
 msgstr "აპი"
 
-#: src/settings/general/index.tsx:159
+#: src/settings/general/theme.tsx:45
+msgid "Appearance"
+msgstr ""
+
+#: src/settings/general/app-settings.tsx:71
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "ავტომატურად დაიწყეთ მოსმენა, როდესაც ღონისძიებაზე მხარდაჭერილი ჩანიშვნა მიაღწევს დაგეგმილ დაწყების დროს."
 
-#: src/settings/general/index.tsx:169
+#: src/settings/general/app-settings.tsx:82
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "ავტომატურად შეწყვიტოს მოსმენა, როდესაც შეხვედრის აპი გამოუშვებს მიკროფონს."
 
-#: src/settings/general/index.tsx:265
+#: src/settings/general/theme.tsx:48
+msgid "Choose light, dark, or match your system setting."
+msgstr ""
+
+#: src/settings/general/theme.tsx:35
+msgid "Dark"
+msgstr ""
+
+#: src/settings/general/index.tsx:255
 msgid "Data"
 msgstr "მონაცემები"
 
-#: src/settings/general/index.tsx:214
+#: src/settings/general/week-start.tsx:58
+msgid "First day of the week in the calendar view"
+msgstr ""
+
+#: src/settings/general/index.tsx:206
 msgid "Language & Region"
 msgstr "ენა და რეგიონი"
 
@@ -53,67 +69,111 @@ msgstr "ენა და რეგიონი"
 msgid "Language for summaries, chats, and AI-generated responses"
 msgstr "ენა შეჯამებისთვის, ჩეთებისთვის და AI-ით გენერირებული პასუხებისთვის"
 
+#: src/settings/general/theme.tsx:34
+msgid "Light"
+msgstr ""
+
 #: src/settings/general/main-language.tsx:50
 msgid "Main language"
 msgstr "მთავარი ენა"
 
-#: src/settings/general/app-settings.tsx:56
+#: src/settings/general/app-settings.tsx:65
 msgid "Meetings"
 msgstr "შეხვედრები"
+
+#: src/settings/general/week-start.tsx:40
+msgid "Monday"
+msgstr ""
 
 #: src/settings/general/main-language.tsx:64
 #: src/settings/general/spoken-languages.tsx:218
 msgid "No matching languages found"
 msgstr "შესაბამისი ენები ვერ მოიძებნა"
 
-#: src/settings/general/index.tsx:277
+#: src/settings/general/searchable-select.tsx:122
+msgid "No results found."
+msgstr ""
+
+#: src/settings/general/index.tsx:265
 msgid "Notifications"
 msgstr "შეტყობინებები"
+
+#: src/settings/general/index.tsx:274
+msgid "Permissions"
+msgstr ""
 
 #: src/settings/general/main-language.tsx:63
 msgid "Search language..."
 msgstr "ენის ძიება..."
 
+#: src/settings/general/searchable-select.tsx:116
+msgid "Search..."
+msgstr ""
+
+#: src/settings/general/theme.tsx:61
+msgid "Select appearance"
+msgstr ""
+
+#: src/settings/general/week-start.tsx:63
+msgid "Select day"
+msgstr ""
+
 #: src/settings/general/main-language.tsx:62
 msgid "Select language"
 msgstr "აირჩიეთ ენა"
 
-#: src/settings/general/index.tsx:193
+#: src/settings/general/searchable-select.tsx:95
+msgid "Select..."
+msgstr ""
+
+#: src/settings/general/app-settings.tsx:53
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "ანონიმური გამოყენების ანალიტიკის გაგზავნა Anarlog-ის გასაუმჯობესებლად."
 
-#: src/settings/general/index.tsx:192
+#: src/settings/general/app-settings.tsx:51
 msgid "Share usage data"
 msgstr "გამოყენების მონაცემების გაზიარება"
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/app-settings.tsx:91
 msgid "Show floating bar"
 msgstr "მცურავი ზოლის ჩვენება"
 
-#: src/settings/general/index.tsx:176
+#: src/settings/general/app-settings.tsx:93
 msgid "Show the compact floating control while listening."
 msgstr "კომპაქტური მცურავი მართვის ჩვენება მოსმენისას."
 
-#: src/settings/general/index.tsx:182
+#: src/settings/general/app-settings.tsx:41
 msgid "Show timeline in sidebar"
 msgstr "გვერდითა ზოლში ვადების ჩვენება"
 
-#: src/settings/general/index.tsx:151
+#: src/settings/general/app-settings.tsx:33
 msgid "Start Anarlog at login"
 msgstr "დაიწყეთ Anarlog შესვლისას"
 
-#: src/settings/general/index.tsx:158
+#: src/settings/general/app-settings.tsx:69
 msgid "Start when meeting begins"
 msgstr "დაიწყეთ შეხვედრის დაწყებისთანავე"
 
-#: src/settings/general/index.tsx:168
+#: src/settings/general/app-settings.tsx:80
 msgid "Stop when meeting ends"
 msgstr "შეჩერება შეხვედრის დასრულებისას"
+
+#: src/settings/general/week-start.tsx:39
+msgid "Sunday"
+msgstr ""
+
+#: src/settings/general/theme.tsx:36
+msgid "System"
+msgstr ""
 
 #: src/settings/general/spoken-languages.tsx:119
 msgid "The main language is always included for transcription"
 msgstr "მთავარი ენა ყოველთვის შედის ტრანსკრიფციისთვის"
 
-#: src/settings/general/index.tsx:183
+#: src/settings/general/app-settings.tsx:43
 msgid "Use the left sidebar timeline instead of the top timeline."
 msgstr "გამოიყენეთ მარცხენა გვერდითი ზოლის ქრონოლოგია ზედა ქრონოლოგიის ნაცვლად."
+
+#: src/settings/general/week-start.tsx:55
+msgid "Week starts on"
+msgstr ""

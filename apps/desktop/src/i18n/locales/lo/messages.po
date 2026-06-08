@@ -25,7 +25,7 @@ msgstr "ເພີ່ມພາສາເວົ້າ"
 msgid "Additional spoken languages"
 msgstr "ພາສາເວົ້າເພີ່ມເຕີມ"
 
-#: src/settings/general/index.tsx:152
+#: src/settings/general/app-settings.tsx:35
 msgid "Always ready without manually launching."
 msgstr "ພ້ອມສະເໝີໂດຍບໍ່ມີການເປີດດ້ວຍຕົນເອງ."
 
@@ -33,19 +33,35 @@ msgstr "ພ້ອມສະເໝີໂດຍບໍ່ມີການເປີດ
 msgid "App"
 msgstr "ແອັບ"
 
-#: src/settings/general/index.tsx:159
+#: src/settings/general/theme.tsx:45
+msgid "Appearance"
+msgstr ""
+
+#: src/settings/general/app-settings.tsx:71
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "ເລີ່ມຟັງອັດຕະໂນມັດເມື່ອບັນທຶກເຫດການທີ່ຮອງຮັບຮອດເວລາເລີ່ມຕົ້ນທີ່ກຳນົດໄວ້."
 
-#: src/settings/general/index.tsx:169
+#: src/settings/general/app-settings.tsx:82
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "ຢຸດຟັງອັດຕະໂນມັດເມື່ອແອັບປະຊຸມປ່ອຍໄມໂຄຣໂຟນ."
 
-#: src/settings/general/index.tsx:265
+#: src/settings/general/theme.tsx:48
+msgid "Choose light, dark, or match your system setting."
+msgstr ""
+
+#: src/settings/general/theme.tsx:35
+msgid "Dark"
+msgstr ""
+
+#: src/settings/general/index.tsx:255
 msgid "Data"
 msgstr "ຂໍ້ມູນ"
 
-#: src/settings/general/index.tsx:214
+#: src/settings/general/week-start.tsx:58
+msgid "First day of the week in the calendar view"
+msgstr ""
+
+#: src/settings/general/index.tsx:206
 msgid "Language & Region"
 msgstr "ພາສາ ແລະພາກພື້ນ"
 
@@ -53,67 +69,111 @@ msgstr "ພາສາ ແລະພາກພື້ນ"
 msgid "Language for summaries, chats, and AI-generated responses"
 msgstr "ພາສາສຳລັບບົດສະຫຼຸບ, ການສົນທະນາ ແລະຄຳຕອບທີ່ສ້າງຂຶ້ນໂດຍ AI"
 
+#: src/settings/general/theme.tsx:34
+msgid "Light"
+msgstr ""
+
 #: src/settings/general/main-language.tsx:50
 msgid "Main language"
 msgstr "ພາສາຫຼັກ"
 
-#: src/settings/general/app-settings.tsx:56
+#: src/settings/general/app-settings.tsx:65
 msgid "Meetings"
 msgstr "ການປະຊຸມ"
+
+#: src/settings/general/week-start.tsx:40
+msgid "Monday"
+msgstr ""
 
 #: src/settings/general/main-language.tsx:64
 #: src/settings/general/spoken-languages.tsx:218
 msgid "No matching languages found"
 msgstr "ບໍ່ພົບພາສາທີ່ກົງກັນ"
 
-#: src/settings/general/index.tsx:277
+#: src/settings/general/searchable-select.tsx:122
+msgid "No results found."
+msgstr ""
+
+#: src/settings/general/index.tsx:265
 msgid "Notifications"
 msgstr "ການແຈ້ງເຕືອນ"
+
+#: src/settings/general/index.tsx:274
+msgid "Permissions"
+msgstr ""
 
 #: src/settings/general/main-language.tsx:63
 msgid "Search language..."
 msgstr "ພາສາຄົ້ນຫາ..."
 
+#: src/settings/general/searchable-select.tsx:116
+msgid "Search..."
+msgstr ""
+
+#: src/settings/general/theme.tsx:61
+msgid "Select appearance"
+msgstr ""
+
+#: src/settings/general/week-start.tsx:63
+msgid "Select day"
+msgstr ""
+
 #: src/settings/general/main-language.tsx:62
 msgid "Select language"
 msgstr "ເລືອກພາສາ"
 
-#: src/settings/general/index.tsx:193
+#: src/settings/general/searchable-select.tsx:95
+msgid "Select..."
+msgstr ""
+
+#: src/settings/general/app-settings.tsx:53
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "ສົ່ງການວິເຄາະການນຳໃຊ້ທີ່ບໍ່ເປີດເຜີຍຊື່ເພື່ອຊ່ວຍປັບປຸງ Anarlog."
 
-#: src/settings/general/index.tsx:192
+#: src/settings/general/app-settings.tsx:51
 msgid "Share usage data"
 msgstr "ແບ່ງປັນຂໍ້ມູນການນຳໃຊ້"
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/app-settings.tsx:91
 msgid "Show floating bar"
 msgstr "ສະແດງແຖບເລື່ອນ"
 
-#: src/settings/general/index.tsx:176
+#: src/settings/general/app-settings.tsx:93
 msgid "Show the compact floating control while listening."
 msgstr "ສະແດງການຄວບຄຸມການລອຍຕົວແບບກະທັດຮັດໃນຂະນະທີ່ຟັງ."
 
-#: src/settings/general/index.tsx:182
+#: src/settings/general/app-settings.tsx:41
 msgid "Show timeline in sidebar"
 msgstr "ສະແດງທາມລາຍໃນແຖບດ້ານຂ້າງ"
 
-#: src/settings/general/index.tsx:151
+#: src/settings/general/app-settings.tsx:33
 msgid "Start Anarlog at login"
 msgstr "ເລີ່ມ​ຕົ້ນ​ອະນາ​ລັອກ​ທີ່​ເຂົ້າ​ສູ່​ລະ​ບົບ"
 
-#: src/settings/general/index.tsx:158
+#: src/settings/general/app-settings.tsx:69
 msgid "Start when meeting begins"
 msgstr "ເລີ່ມເມື່ອການປະຊຸມເລີ່ມຕົ້ນ"
 
-#: src/settings/general/index.tsx:168
+#: src/settings/general/app-settings.tsx:80
 msgid "Stop when meeting ends"
 msgstr "ຢຸດເມື່ອການປະຊຸມຈົບລົງ"
+
+#: src/settings/general/week-start.tsx:39
+msgid "Sunday"
+msgstr ""
+
+#: src/settings/general/theme.tsx:36
+msgid "System"
+msgstr ""
 
 #: src/settings/general/spoken-languages.tsx:119
 msgid "The main language is always included for transcription"
 msgstr "ພາສາຫຼັກແມ່ນລວມເຂົ້າກັບການຖອດຂໍ້ຄວາມສະເໝີ"
 
-#: src/settings/general/index.tsx:183
+#: src/settings/general/app-settings.tsx:43
 msgid "Use the left sidebar timeline instead of the top timeline."
 msgstr "ໃຊ້ທາມລາຍແຖບດ້ານຊ້າຍແທນທາມລາຍເທິງສຸດ."
+
+#: src/settings/general/week-start.tsx:55
+msgid "Week starts on"
+msgstr ""

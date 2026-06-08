@@ -25,7 +25,7 @@ msgstr "Beszélt nyelv hozzáadása"
 msgid "Additional spoken languages"
 msgstr "További beszélt nyelvek"
 
-#: src/settings/general/index.tsx:152
+#: src/settings/general/app-settings.tsx:35
 msgid "Always ready without manually launching."
 msgstr "Mindig készen áll kézi indítás nélkül."
 
@@ -33,19 +33,35 @@ msgstr "Mindig készen áll kézi indítás nélkül."
 msgid "App"
 msgstr "Alkalmazás"
 
-#: src/settings/general/index.tsx:159
+#: src/settings/general/theme.tsx:45
+msgid "Appearance"
+msgstr ""
+
+#: src/settings/general/app-settings.tsx:71
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Automatikusan elkezdheti a hallgatást, ha egy eseményhez kapcsolódó hangjegy eléri az ütemezett kezdési időpontját."
 
-#: src/settings/general/index.tsx:169
+#: src/settings/general/app-settings.tsx:82
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "A hallgatás automatikus leállítása, amikor az értekezlet alkalmazás elengedi a mikrofont."
 
-#: src/settings/general/index.tsx:265
+#: src/settings/general/theme.tsx:48
+msgid "Choose light, dark, or match your system setting."
+msgstr ""
+
+#: src/settings/general/theme.tsx:35
+msgid "Dark"
+msgstr ""
+
+#: src/settings/general/index.tsx:255
 msgid "Data"
 msgstr "Adatok"
 
-#: src/settings/general/index.tsx:214
+#: src/settings/general/week-start.tsx:58
+msgid "First day of the week in the calendar view"
+msgstr ""
+
+#: src/settings/general/index.tsx:206
 msgid "Language & Region"
 msgstr "Nyelv és régió"
 
@@ -53,67 +69,111 @@ msgstr "Nyelv és régió"
 msgid "Language for summaries, chats, and AI-generated responses"
 msgstr "Összefoglalók, csevegések és mesterséges intelligencia által generált válaszok nyelve"
 
+#: src/settings/general/theme.tsx:34
+msgid "Light"
+msgstr ""
+
 #: src/settings/general/main-language.tsx:50
 msgid "Main language"
 msgstr "Fő nyelv"
 
-#: src/settings/general/app-settings.tsx:56
+#: src/settings/general/app-settings.tsx:65
 msgid "Meetings"
 msgstr "Találkozók"
+
+#: src/settings/general/week-start.tsx:40
+msgid "Monday"
+msgstr ""
 
 #: src/settings/general/main-language.tsx:64
 #: src/settings/general/spoken-languages.tsx:218
 msgid "No matching languages found"
 msgstr "Nincs megfelelő nyelv"
 
-#: src/settings/general/index.tsx:277
+#: src/settings/general/searchable-select.tsx:122
+msgid "No results found."
+msgstr ""
+
+#: src/settings/general/index.tsx:265
 msgid "Notifications"
 msgstr "Értesítések"
+
+#: src/settings/general/index.tsx:274
+msgid "Permissions"
+msgstr ""
 
 #: src/settings/general/main-language.tsx:63
 msgid "Search language..."
 msgstr "Keresési nyelv..."
 
+#: src/settings/general/searchable-select.tsx:116
+msgid "Search..."
+msgstr ""
+
+#: src/settings/general/theme.tsx:61
+msgid "Select appearance"
+msgstr ""
+
+#: src/settings/general/week-start.tsx:63
+msgid "Select day"
+msgstr ""
+
 #: src/settings/general/main-language.tsx:62
 msgid "Select language"
 msgstr "Nyelv kiválasztása"
 
-#: src/settings/general/index.tsx:193
+#: src/settings/general/searchable-select.tsx:95
+msgid "Select..."
+msgstr ""
+
+#: src/settings/general/app-settings.tsx:53
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Anonim használati elemzések küldése az Anarlog fejlesztéséhez."
 
-#: src/settings/general/index.tsx:192
+#: src/settings/general/app-settings.tsx:51
 msgid "Share usage data"
 msgstr "Használati adatok megosztása"
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/app-settings.tsx:91
 msgid "Show floating bar"
 msgstr "Lebegő sáv megjelenítése"
 
-#: src/settings/general/index.tsx:176
+#: src/settings/general/app-settings.tsx:93
 msgid "Show the compact floating control while listening."
 msgstr "A kompakt lebegő vezérlő megjelenítése hallgatás közben."
 
-#: src/settings/general/index.tsx:182
+#: src/settings/general/app-settings.tsx:41
 msgid "Show timeline in sidebar"
 msgstr "Idővonal megjelenítése az oldalsávon"
 
-#: src/settings/general/index.tsx:151
+#: src/settings/general/app-settings.tsx:33
 msgid "Start Anarlog at login"
 msgstr "Indítsa el az Anarlogot bejelentkezéskor"
 
-#: src/settings/general/index.tsx:158
+#: src/settings/general/app-settings.tsx:69
 msgid "Start when meeting begins"
 msgstr "A megbeszélés kezdetekor kezdődik"
 
-#: src/settings/general/index.tsx:168
+#: src/settings/general/app-settings.tsx:80
 msgid "Stop when meeting ends"
 msgstr "Leállítás az értekezlet végén"
+
+#: src/settings/general/week-start.tsx:39
+msgid "Sunday"
+msgstr ""
+
+#: src/settings/general/theme.tsx:36
+msgid "System"
+msgstr ""
 
 #: src/settings/general/spoken-languages.tsx:119
 msgid "The main language is always included for transcription"
 msgstr "A fő nyelv mindig szerepel az átíráshoz"
 
-#: src/settings/general/index.tsx:183
+#: src/settings/general/app-settings.tsx:43
 msgid "Use the left sidebar timeline instead of the top timeline."
 msgstr "Használja a bal oldalsáv idővonalát a felső idővonal helyett."
+
+#: src/settings/general/week-start.tsx:55
+msgid "Week starts on"
+msgstr ""

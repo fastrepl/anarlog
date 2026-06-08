@@ -1,9 +1,13 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useMemo } from "react";
 
 import {
-  SearchableSelect,
-  type SearchableSelectOption,
-} from "./searchable-select";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@hypr/ui/components/ui/select";
 
 import { useConfigValue } from "~/shared/config";
 import * as settings from "~/store/tinybase/store/settings";
@@ -19,6 +23,7 @@ function getSystemWeekStart(): "sunday" | "monday" {
 }
 
 export function WeekStartSelector() {
+  const { t } = useLingui();
   const value = useConfigValue("week_start");
   const setWeekStart = settings.UI.useSetValueCallback(
     "week_start",
@@ -29,12 +34,12 @@ export function WeekStartSelector() {
 
   const systemDefault = useMemo(() => getSystemWeekStart(), []);
 
-  const options: SearchableSelectOption[] = useMemo(
+  const options = useMemo(
     () => [
-      { value: "sunday", label: "Sunday" },
-      { value: "monday", label: "Monday" },
+      { value: "sunday", label: t`Sunday` },
+      { value: "monday", label: t`Monday` },
     ],
-    [],
+    [t],
   );
 
   const displayValue = value || systemDefault;
@@ -46,18 +51,25 @@ export function WeekStartSelector() {
   return (
     <div className="flex flex-row items-center justify-between">
       <div>
-        <h3 className="mb-1 text-sm font-medium">Week starts on</h3>
+        <h3 className="mb-1 text-sm font-medium">
+          <Trans>Week starts on</Trans>
+        </h3>
         <p className="text-muted-foreground text-xs">
-          First day of the week in the calendar view
+          <Trans>First day of the week in the calendar view</Trans>
         </p>
       </div>
-      <SearchableSelect
-        value={displayValue}
-        onChange={handleChange}
-        options={options}
-        placeholder="Select day"
-        className="w-40"
-      />
+      <Select value={displayValue} onValueChange={handleChange}>
+        <SelectTrigger className="bg-card w-40 shadow-none focus:ring-0">
+          <SelectValue placeholder={t`Select day`} />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }

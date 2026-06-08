@@ -25,7 +25,7 @@ msgstr "Füügt geschwat Sprooch"
 msgid "Additional spoken languages"
 msgstr "Zousätzlech geschwat Sproochen"
 
-#: src/settings/general/index.tsx:152
+#: src/settings/general/app-settings.tsx:35
 msgid "Always ready without manually launching."
 msgstr "Immer prett ouni manuell ze starten."
 
@@ -33,19 +33,35 @@ msgstr "Immer prett ouni manuell ze starten."
 msgid "App"
 msgstr "App"
 
-#: src/settings/general/index.tsx:159
+#: src/settings/general/theme.tsx:45
+msgid "Appearance"
+msgstr ""
+
+#: src/settings/general/app-settings.tsx:71
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Automatesch ufänken ze lauschteren wann en Event-gestützten Notiz seng geplangte Startzäit erreecht."
 
-#: src/settings/general/index.tsx:169
+#: src/settings/general/app-settings.tsx:82
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Automatesch ophalen ze lauschteren wann d'Versammlungsapp de Mikro erausgeet."
 
-#: src/settings/general/index.tsx:265
+#: src/settings/general/theme.tsx:48
+msgid "Choose light, dark, or match your system setting."
+msgstr ""
+
+#: src/settings/general/theme.tsx:35
+msgid "Dark"
+msgstr ""
+
+#: src/settings/general/index.tsx:255
 msgid "Data"
 msgstr "Daten"
 
-#: src/settings/general/index.tsx:214
+#: src/settings/general/week-start.tsx:58
+msgid "First day of the week in the calendar view"
+msgstr ""
+
+#: src/settings/general/index.tsx:206
 msgid "Language & Region"
 msgstr "Sprooch & Regioun"
 
@@ -53,67 +69,111 @@ msgstr "Sprooch & Regioun"
 msgid "Language for summaries, chats, and AI-generated responses"
 msgstr "Sprooch fir Zesummefaassungen, Chats, an AI-generéiert Äntwerten"
 
+#: src/settings/general/theme.tsx:34
+msgid "Light"
+msgstr ""
+
 #: src/settings/general/main-language.tsx:50
 msgid "Main language"
 msgstr "Haaptsprooch"
 
-#: src/settings/general/app-settings.tsx:56
+#: src/settings/general/app-settings.tsx:65
 msgid "Meetings"
 msgstr "Versammlungen"
+
+#: src/settings/general/week-start.tsx:40
+msgid "Monday"
+msgstr ""
 
 #: src/settings/general/main-language.tsx:64
 #: src/settings/general/spoken-languages.tsx:218
 msgid "No matching languages found"
 msgstr "Keng passende Sprooche fonnt"
 
-#: src/settings/general/index.tsx:277
+#: src/settings/general/searchable-select.tsx:122
+msgid "No results found."
+msgstr ""
+
+#: src/settings/general/index.tsx:265
 msgid "Notifications"
 msgstr "Notifikatiounen"
+
+#: src/settings/general/index.tsx:274
+msgid "Permissions"
+msgstr ""
 
 #: src/settings/general/main-language.tsx:63
 msgid "Search language..."
 msgstr "Sich Sprooch..."
 
+#: src/settings/general/searchable-select.tsx:116
+msgid "Search..."
+msgstr ""
+
+#: src/settings/general/theme.tsx:61
+msgid "Select appearance"
+msgstr ""
+
+#: src/settings/general/week-start.tsx:63
+msgid "Select day"
+msgstr ""
+
 #: src/settings/general/main-language.tsx:62
 msgid "Select language"
 msgstr "Sprooch auswielen"
 
-#: src/settings/general/index.tsx:193
+#: src/settings/general/searchable-select.tsx:95
+msgid "Select..."
+msgstr ""
+
+#: src/settings/general/app-settings.tsx:53
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Send anonym Notzungsanalyse fir Anarlog ze verbesseren."
 
-#: src/settings/general/index.tsx:192
+#: src/settings/general/app-settings.tsx:51
 msgid "Share usage data"
 msgstr "Verbrauchsdaten deelen"
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/app-settings.tsx:91
 msgid "Show floating bar"
 msgstr "Schwiewend Bar weisen"
 
-#: src/settings/general/index.tsx:176
+#: src/settings/general/app-settings.tsx:93
 msgid "Show the compact floating control while listening."
 msgstr "Weist déi kompakt schwiewend Kontroll beim Nolauschteren."
 
-#: src/settings/general/index.tsx:182
+#: src/settings/general/app-settings.tsx:41
 msgid "Show timeline in sidebar"
 msgstr "Säit Timeline an der Sidebar"
 
-#: src/settings/general/index.tsx:151
+#: src/settings/general/app-settings.tsx:33
 msgid "Start Anarlog at login"
 msgstr "Start Anarlog beim Login"
 
-#: src/settings/general/index.tsx:158
+#: src/settings/general/app-settings.tsx:69
 msgid "Start when meeting begins"
 msgstr "Start wann d'Versammlung ufänkt"
 
-#: src/settings/general/index.tsx:168
+#: src/settings/general/app-settings.tsx:80
 msgid "Stop when meeting ends"
 msgstr "Stopp wann d'Versammlung eriwwer ass"
+
+#: src/settings/general/week-start.tsx:39
+msgid "Sunday"
+msgstr ""
+
+#: src/settings/general/theme.tsx:36
+msgid "System"
+msgstr ""
 
 #: src/settings/general/spoken-languages.tsx:119
 msgid "The main language is always included for transcription"
 msgstr "D'Haaptsprooch ass ëmmer fir Transkriptioun abegraff"
 
-#: src/settings/general/index.tsx:183
+#: src/settings/general/app-settings.tsx:43
 msgid "Use the left sidebar timeline instead of the top timeline."
 msgstr "Benotzt déi lénks Sidebar Timeline amplaz vun der Top Timeline."
+
+#: src/settings/general/week-start.tsx:55
+msgid "Week starts on"
+msgstr ""

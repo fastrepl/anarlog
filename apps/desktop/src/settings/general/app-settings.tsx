@@ -1,10 +1,9 @@
 import { Trans } from "@lingui/react/macro";
+import { type ReactNode, useId } from "react";
 
 import { Switch } from "@hypr/ui/components/ui/switch";
 
 interface SettingItem {
-  title: string;
-  description: string;
   value: boolean;
   onChange: (value: boolean) => void;
 }
@@ -31,20 +30,30 @@ export function AppSettingsView({
       <section>
         <div className="flex flex-col gap-4">
           <SettingRow
-            title={autostart.title}
-            description={autostart.description}
+            title={<Trans>Start Anarlog at login</Trans>}
+            description={
+              <Trans>Always ready without manually launching.</Trans>
+            }
             checked={autostart.value}
             onChange={autostart.onChange}
           />
           <SettingRow
-            title={sidebarTimeline.title}
-            description={sidebarTimeline.description}
+            title={<Trans>Show timeline in sidebar</Trans>}
+            description={
+              <Trans>
+                Use the left sidebar timeline instead of the top timeline.
+              </Trans>
+            }
             checked={sidebarTimeline.value}
             onChange={sidebarTimeline.onChange}
           />
           <SettingRow
-            title={telemetryConsent.title}
-            description={telemetryConsent.description}
+            title={<Trans>Share usage data</Trans>}
+            description={
+              <Trans>
+                Send anonymous usage analytics to help improve Anarlog.
+              </Trans>
+            }
             checked={telemetryConsent.value}
             onChange={telemetryConsent.onChange}
           />
@@ -57,20 +66,32 @@ export function AppSettingsView({
         </h2>
         <div className="flex flex-col gap-4">
           <SettingRow
-            title={autoStartScheduledMeetings.title}
-            description={autoStartScheduledMeetings.description}
+            title={<Trans>Start when meeting begins</Trans>}
+            description={
+              <Trans>
+                Automatically start listening when an event-backed note reaches
+                its scheduled start time.
+              </Trans>
+            }
             checked={autoStartScheduledMeetings.value}
             onChange={autoStartScheduledMeetings.onChange}
           />
           <SettingRow
-            title={autoStopMeetings.title}
-            description={autoStopMeetings.description}
+            title={<Trans>Stop when meeting ends</Trans>}
+            description={
+              <Trans>
+                Automatically stop listening when the meeting app releases the
+                microphone.
+              </Trans>
+            }
             checked={autoStopMeetings.value}
             onChange={autoStopMeetings.onChange}
           />
           <SettingRow
-            title={floatingBar.title}
-            description={floatingBar.description}
+            title={<Trans>Show floating bar</Trans>}
+            description={
+              <Trans>Show the compact floating control while listening.</Trans>
+            }
             checked={floatingBar.value}
             onChange={floatingBar.onChange}
           />
@@ -86,18 +107,30 @@ function SettingRow({
   checked,
   onChange,
 }: {
-  title: string;
-  description: string;
+  title: ReactNode;
+  description: ReactNode;
   checked: boolean;
   onChange: (checked: boolean) => void;
 }) {
+  const titleId = useId();
+  const descriptionId = useId();
+
   return (
     <div className="flex items-center justify-between gap-4">
       <div className="flex-1">
-        <h3 className="mb-1 text-sm font-medium">{title}</h3>
-        <p className="text-muted-foreground text-xs">{description}</p>
+        <h3 id={titleId} className="mb-1 text-sm font-medium">
+          {title}
+        </h3>
+        <p id={descriptionId} className="text-muted-foreground text-xs">
+          {description}
+        </p>
       </div>
-      <Switch checked={checked} onCheckedChange={onChange} aria-label={title} />
+      <Switch
+        checked={checked}
+        onCheckedChange={onChange}
+        aria-labelledby={titleId}
+        aria-describedby={descriptionId}
+      />
     </div>
   );
 }

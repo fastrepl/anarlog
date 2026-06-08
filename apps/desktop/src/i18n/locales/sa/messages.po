@@ -25,7 +25,7 @@ msgstr "भाषितभाषा योजयतु"
 msgid "Additional spoken languages"
 msgstr "अतिरिक्तभाष्यभाषा"
 
-#: src/settings/general/index.tsx:152
+#: src/settings/general/app-settings.tsx:35
 msgid "Always ready without manually launching."
 msgstr "हस्तेन प्रक्षेपणं विना सर्वदा सज्जम्।"
 
@@ -33,19 +33,35 @@ msgstr "हस्तेन प्रक्षेपणं विना सर्
 msgid "App"
 msgstr "अनुप्रयोग"
 
-#: src/settings/general/index.tsx:159
+#: src/settings/general/theme.tsx:45
+msgid "Appearance"
+msgstr ""
+
+#: src/settings/general/app-settings.tsx:71
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "यदा घटना-समर्थित-टिप्पणी स्वस्य निर्धारित-प्रारम्भसमयं प्राप्नोति तदा स्वयमेव श्रोतुं आरभत ।"
 
-#: src/settings/general/index.tsx:169
+#: src/settings/general/app-settings.tsx:82
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "यदा सभा-अनुप्रयोगः माइक्रोफोनं मुक्तं करोति तदा स्वयमेव श्रवणं स्थगयति ।"
 
-#: src/settings/general/index.tsx:265
+#: src/settings/general/theme.tsx:48
+msgid "Choose light, dark, or match your system setting."
+msgstr ""
+
+#: src/settings/general/theme.tsx:35
+msgid "Dark"
+msgstr ""
+
+#: src/settings/general/index.tsx:255
 msgid "Data"
 msgstr "दत्तांश"
 
-#: src/settings/general/index.tsx:214
+#: src/settings/general/week-start.tsx:58
+msgid "First day of the week in the calendar view"
+msgstr ""
+
+#: src/settings/general/index.tsx:206
 msgid "Language & Region"
 msgstr "भाषा एवं क्षेत्र"
 
@@ -53,67 +69,111 @@ msgstr "भाषा एवं क्षेत्र"
 msgid "Language for summaries, chats, and AI-generated responses"
 msgstr "सारांशानां, गपशपानां, एआइ-जनितप्रतिसादानां च भाषा"
 
+#: src/settings/general/theme.tsx:34
+msgid "Light"
+msgstr ""
+
 #: src/settings/general/main-language.tsx:50
 msgid "Main language"
 msgstr "मुख्यभाषा"
 
-#: src/settings/general/app-settings.tsx:56
+#: src/settings/general/app-settings.tsx:65
 msgid "Meetings"
 msgstr "समागमाः"
+
+#: src/settings/general/week-start.tsx:40
+msgid "Monday"
+msgstr ""
 
 #: src/settings/general/main-language.tsx:64
 #: src/settings/general/spoken-languages.tsx:218
 msgid "No matching languages found"
 msgstr "न सङ्गतभाषा लभ्यते"
 
-#: src/settings/general/index.tsx:277
+#: src/settings/general/searchable-select.tsx:122
+msgid "No results found."
+msgstr ""
+
+#: src/settings/general/index.tsx:265
 msgid "Notifications"
 msgstr "सूचना"
+
+#: src/settings/general/index.tsx:274
+msgid "Permissions"
+msgstr ""
 
 #: src/settings/general/main-language.tsx:63
 msgid "Search language..."
 msgstr "भाषां अन्वेष्टुम्..."
 
+#: src/settings/general/searchable-select.tsx:116
+msgid "Search..."
+msgstr ""
+
+#: src/settings/general/theme.tsx:61
+msgid "Select appearance"
+msgstr ""
+
+#: src/settings/general/week-start.tsx:63
+msgid "Select day"
+msgstr ""
+
 #: src/settings/general/main-language.tsx:62
 msgid "Select language"
 msgstr "भाषां चिनोतु"
 
-#: src/settings/general/index.tsx:193
+#: src/settings/general/searchable-select.tsx:95
+msgid "Select..."
+msgstr ""
+
+#: src/settings/general/app-settings.tsx:53
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Anarlog इत्यस्य उन्नयनार्थं सहायतार्थं अनामिकं उपयोगविश्लेषणं प्रेषयन्तु ।"
 
-#: src/settings/general/index.tsx:192
+#: src/settings/general/app-settings.tsx:51
 msgid "Share usage data"
 msgstr "उपयोगदत्तांशं साझां कुर्वन्तु"
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/app-settings.tsx:91
 msgid "Show floating bar"
 msgstr "प्लवमानं पट्टिकां दर्शयतु"
 
-#: src/settings/general/index.tsx:176
+#: src/settings/general/app-settings.tsx:93
 msgid "Show the compact floating control while listening."
 msgstr "श्रवणकाले संकुचितं प्लवमानं नियन्त्रणं दर्शयतु।"
 
-#: src/settings/general/index.tsx:182
+#: src/settings/general/app-settings.tsx:41
 msgid "Show timeline in sidebar"
 msgstr "पार्श्वपट्टिकायां समयरेखां दर्शयतु"
 
-#: src/settings/general/index.tsx:151
+#: src/settings/general/app-settings.tsx:33
 msgid "Start Anarlog at login"
 msgstr "प्रवेशसमये Anarlog आरभत"
 
-#: src/settings/general/index.tsx:158
+#: src/settings/general/app-settings.tsx:69
 msgid "Start when meeting begins"
 msgstr "समागमस्य आरम्भे आरभत"
 
-#: src/settings/general/index.tsx:168
+#: src/settings/general/app-settings.tsx:80
 msgid "Stop when meeting ends"
 msgstr "समागमस्य समाप्तेः समये स्थगयतु"
+
+#: src/settings/general/week-start.tsx:39
+msgid "Sunday"
+msgstr ""
+
+#: src/settings/general/theme.tsx:36
+msgid "System"
+msgstr ""
 
 #: src/settings/general/spoken-languages.tsx:119
 msgid "The main language is always included for transcription"
 msgstr "प्रतिलेखनार्थं मुख्यभाषा सर्वदा समाविष्टा भवति"
 
-#: src/settings/general/index.tsx:183
+#: src/settings/general/app-settings.tsx:43
 msgid "Use the left sidebar timeline instead of the top timeline."
 msgstr "ऊर्ध्वसमयरेखायाः स्थाने वामपार्श्वपट्टिकाकालरेखायाः उपयोगं कुर्वन्तु ।"
+
+#: src/settings/general/week-start.tsx:55
+msgid "Week starts on"
+msgstr ""

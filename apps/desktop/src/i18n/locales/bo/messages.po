@@ -25,7 +25,7 @@ msgstr "སྐད་ཆའི་སྐད་ཡིག་ཁ་སྣོན"
 msgid "Additional spoken languages"
 msgstr "ཁ་སྣོན་གྱི་སྐད་ཆ"
 
-#: src/settings/general/index.tsx:152
+#: src/settings/general/app-settings.tsx:35
 msgid "Always ready without manually launching."
 msgstr "ལག་ཐོག་ནས་འགོ་མ་བཙུགས་པར་ག་དུས་ཡིན་ཡང་གྲ་སྒྲིག་ཡོད།"
 
@@ -33,19 +33,35 @@ msgstr "ལག་ཐོག་ནས་འགོ་མ་བཙུགས་པར
 msgid "App"
 msgstr "མཉེན་ཆས།"
 
-#: src/settings/general/index.tsx:159
+#: src/settings/general/theme.tsx:45
+msgid "Appearance"
+msgstr ""
+
+#: src/settings/general/app-settings.tsx:71
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "བྱུང་རིམ་རྒྱབ་སྐྱོར་བྱས་པའི་དྲན་ཐོ་ཞིག་དུས་ཚོད་གཏན་འཁེལ་བྱས་པའི་འགོ་འཛུགས་དུས་ཚོད་ལ་སླེབས་སྐབས་རང་འགུལ་གྱིས་ཉན་འགོ་ཚུགས།"
 
-#: src/settings/general/index.tsx:169
+#: src/settings/general/app-settings.tsx:82
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "ཚོགས་འདུའི་མཉེན་ཆས་ཀྱིས་སྐད་འཕྲིན་གློད་དུས་རང་འགུལ་གྱིས་ཉན་མཚམས་འཇོག་གི་ཡོད།"
 
-#: src/settings/general/index.tsx:265
+#: src/settings/general/theme.tsx:48
+msgid "Choose light, dark, or match your system setting."
+msgstr ""
+
+#: src/settings/general/theme.tsx:35
+msgid "Dark"
+msgstr ""
+
+#: src/settings/general/index.tsx:255
 msgid "Data"
 msgstr "གཞི་གྲངས།"
 
-#: src/settings/general/index.tsx:214
+#: src/settings/general/week-start.tsx:58
+msgid "First day of the week in the calendar view"
+msgstr ""
+
+#: src/settings/general/index.tsx:206
 msgid "Language & Region"
 msgstr "སྐད་ཡིག་དང་ས་ཁུལ།"
 
@@ -53,67 +69,111 @@ msgstr "སྐད་ཡིག་དང་ས་ཁུལ།"
 msgid "Language for summaries, chats, and AI-generated responses"
 msgstr "སྙིང་བསྡུས་དང་། ཁ་བརྡ། AI ཡིས་བཟོས་པའི་ལན་འདེབས་ཀྱི་སྐད་ཡིག"
 
+#: src/settings/general/theme.tsx:34
+msgid "Light"
+msgstr ""
+
 #: src/settings/general/main-language.tsx:50
 msgid "Main language"
 msgstr "སྐད་ཡིག་གཙོ་བོ།"
 
-#: src/settings/general/app-settings.tsx:56
+#: src/settings/general/app-settings.tsx:65
 msgid "Meetings"
 msgstr "ཚོགས་འདུ།"
+
+#: src/settings/general/week-start.tsx:40
+msgid "Monday"
+msgstr ""
 
 #: src/settings/general/main-language.tsx:64
 #: src/settings/general/spoken-languages.tsx:218
 msgid "No matching languages found"
 msgstr "མཐུན་པའི་སྐད་ཡིག་མ་རྙེད།"
 
-#: src/settings/general/index.tsx:277
+#: src/settings/general/searchable-select.tsx:122
+msgid "No results found."
+msgstr ""
+
+#: src/settings/general/index.tsx:265
 msgid "Notifications"
 msgstr "བརྡ་ཐོ"
+
+#: src/settings/general/index.tsx:274
+msgid "Permissions"
+msgstr ""
 
 #: src/settings/general/main-language.tsx:63
 msgid "Search language..."
 msgstr "འཚོལ་ཞིབ་སྐད་ཡིག..."
 
+#: src/settings/general/searchable-select.tsx:116
+msgid "Search..."
+msgstr ""
+
+#: src/settings/general/theme.tsx:61
+msgid "Select appearance"
+msgstr ""
+
+#: src/settings/general/week-start.tsx:63
+msgid "Select day"
+msgstr ""
+
 #: src/settings/general/main-language.tsx:62
 msgid "Select language"
 msgstr "སྐད་ཡིག་འདེམས།"
 
-#: src/settings/general/index.tsx:193
+#: src/settings/general/searchable-select.tsx:95
+msgid "Select..."
+msgstr ""
+
+#: src/settings/general/app-settings.tsx:53
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "མིང་མེད་པའི་བེད་སྤྱོད་དབྱེ་ཞིབ་གཏོང་ནས་ཨ་ནར་ལོག་ཡར་རྒྱས་གཏོང་བར་ཕན་ཐོགས།"
 
-#: src/settings/general/index.tsx:192
+#: src/settings/general/app-settings.tsx:51
 msgid "Share usage data"
 msgstr "བེད་སྤྱོད་ཀྱི་གཞི་གྲངས་མཉམ་སྤྱོད།"
 
-#: src/settings/general/index.tsx:175
+#: src/settings/general/app-settings.tsx:91
 msgid "Show floating bar"
 msgstr "འཕྱོ་བའི་ཕྲ་རིང་སྟོན།"
 
-#: src/settings/general/index.tsx:176
+#: src/settings/general/app-settings.tsx:93
 msgid "Show the compact floating control while listening."
 msgstr "ཉན་པའི་སྐབས་སུ་འཕྱོ་བའི་ཚོད་འཛིན་ཆུང་ཆུང་དེ་སྟོན།"
 
-#: src/settings/general/index.tsx:182
+#: src/settings/general/app-settings.tsx:41
 msgid "Show timeline in sidebar"
 msgstr "ཟུར་ཕྲེང་ནང་དུས་ཐིག་སྟོན།"
 
-#: src/settings/general/index.tsx:151
+#: src/settings/general/app-settings.tsx:33
 msgid "Start Anarlog at login"
 msgstr "ནང་འཇུག་བྱེད་སྐབས་ཨ་ནར་ལོག་འགོ་འཛུགས།"
 
-#: src/settings/general/index.tsx:158
+#: src/settings/general/app-settings.tsx:69
 msgid "Start when meeting begins"
 msgstr "ཚོགས་འདུ་འགོ་འཛུགས་སྐབས་འགོ་འཛུགས།"
 
-#: src/settings/general/index.tsx:168
+#: src/settings/general/app-settings.tsx:80
 msgid "Stop when meeting ends"
 msgstr "ཚོགས་འདུ་གྲོལ་རྗེས་མཚམས་འཇོག་དགོས།"
+
+#: src/settings/general/week-start.tsx:39
+msgid "Sunday"
+msgstr ""
+
+#: src/settings/general/theme.tsx:36
+msgid "System"
+msgstr ""
 
 #: src/settings/general/spoken-languages.tsx:119
 msgid "The main language is always included for transcription"
 msgstr "ཡིག་བསྒྱུར་གྱི་ཆེད་དུ་སྐད་ཡིག་གཙོ་བོ་ནི་རྟག་ཏུ་ཚུད་ཡོད།"
 
-#: src/settings/general/index.tsx:183
+#: src/settings/general/app-settings.tsx:43
 msgid "Use the left sidebar timeline instead of the top timeline."
 msgstr "མགོའི་དུས་ཐིག་གི་ཚབ་ཏུ་གཡོན་ཟུར་གྱི་དུས་ཐིག་བེད་སྤྱོད་བྱེད།"
+
+#: src/settings/general/week-start.tsx:55
+msgid "Week starts on"
+msgstr ""
