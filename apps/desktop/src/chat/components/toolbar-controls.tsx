@@ -1,9 +1,10 @@
 import {
   ChevronDown,
   MessageCircle,
-  PanelRightClose,
-  PanelRightOpen,
+  PanelRight,
+  PictureInPicture2,
   Plus,
+  X,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -21,6 +22,7 @@ import * as main from "~/store/tinybase/store/main";
 export function ChatToolbarControls({
   currentChatGroupId,
   layout = "floating",
+  onClose,
   onNewChat,
   onOpenFloating,
   onOpenRightPanel,
@@ -29,6 +31,7 @@ export function ChatToolbarControls({
 }: {
   currentChatGroupId: string | undefined;
   layout?: "floating" | "right-panel";
+  onClose?: () => void;
   onNewChat: () => void;
   onOpenFloating?: () => void;
   onOpenRightPanel?: () => void;
@@ -42,7 +45,7 @@ export function ChatToolbarControls({
     <div
       className={cn([
         "flex h-full w-full min-w-0 items-center gap-2",
-        isRightPanel ? "px-3" : isDark ? "px-2" : "px-0",
+        isRightPanel ? "pr-1 pl-3" : isDark ? "px-2" : "pr-2 pl-2",
       ])}
     >
       <div className="flex min-w-0 flex-1 items-center gap-1">
@@ -59,27 +62,29 @@ export function ChatToolbarControls({
           onClick={onNewChat}
           className={isDark ? darkToolbarButtonClassName : undefined}
         />
-        <ChatActionButton
-          icon={
-            isRightPanel ? (
-              <PanelRightClose size={16} />
-            ) : (
-              <PanelRightOpen size={16} />
-            )
-          }
-          onClick={
-            isRightPanel
-              ? (onOpenFloating ?? (() => {}))
-              : (onOpenRightPanel ?? (() => {}))
-          }
-          label={isRightPanel ? "Float chat" : "Open in right panel"}
-          className={cn([
-            isDark
-              ? darkToolbarButtonClassName
-              : isRightPanel && "bg-muted text-foreground hover:bg-accent",
-            isRightPanel && "mr-1",
-          ])}
-        />
+        {isRightPanel ? (
+          <>
+            <ChatActionButton
+              icon={<PictureInPicture2 size={16} />}
+              label="Float chat"
+              onClick={onOpenFloating ?? (() => {})}
+              className={isDark ? darkToolbarButtonClassName : undefined}
+            />
+            <ChatActionButton
+              icon={<X size={16} />}
+              label="Close chat"
+              onClick={onClose ?? (() => {})}
+              className={isDark ? darkToolbarButtonClassName : undefined}
+            />
+          </>
+        ) : (
+          <ChatActionButton
+            icon={<PanelRight size={16} />}
+            label="Open in right panel"
+            onClick={onOpenRightPanel ?? (() => {})}
+            className={isDark ? darkToolbarButtonClassName : undefined}
+          />
+        )}
       </div>
     </div>
   );
@@ -145,10 +150,11 @@ function ChatGroups({
         <Button
           variant="ghost"
           className={cn([
-            "group flex h-8 max-w-full min-w-0 justify-start gap-1.5 px-2 py-0 text-left",
+            "group flex h-8 max-w-full min-w-0 justify-start gap-1.5 py-0 text-left",
+            "-ml-2 px-2",
             isDark
               ? "text-primary-foreground hover:bg-primary-foreground/7 hover:text-primary-foreground data-[state=open]:bg-primary-foreground/7 w-fit rounded-full"
-              : "text-muted-foreground",
+              : "text-foreground hover:bg-accent hover:text-foreground data-[state=open]:bg-accent w-fit rounded-full",
           ])}
         >
           <h3
@@ -156,7 +162,7 @@ function ChatGroups({
               "max-w-64 min-w-0 truncate text-left font-medium",
               isDark
                 ? "text-primary-foreground text-[15px]"
-                : "text-muted-foreground text-xs",
+                : "text-foreground text-[15px]",
             ])}
           >
             {currentChatTitle || "Ask Anarlog AI anything"}

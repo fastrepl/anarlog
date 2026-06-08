@@ -5,6 +5,7 @@ import {
   chatFloatingControlClassNames,
   chatFloatingPanelShellClassNames,
   chatInputEditorClassNames,
+  chatPanelBorderClassNames,
   chatPanelClassNames,
   chatSendButtonDisabledClassNames,
   chatToolbarSurface,
@@ -12,15 +13,16 @@ import {
 } from "./surface";
 
 describe("chat surface tokens", () => {
-  it("always uses the dark stone chat chrome regardless of app theme", () => {
-    expect(isChatDarkAppearance()).toBe(true);
-    expect(chatToolbarSurface()).toBe("dark");
+  it("uses the app chrome appearance instead of the forced dark chat chrome", () => {
+    expect(isChatDarkAppearance()).toBe(false);
+    expect(chatToolbarSurface()).toBe("light");
   });
 
-  it("maps the original stone-800 shell to primary tokens", () => {
-    expect(chatPanelClassNames()).toContain("bg-primary");
-    expect(chatPanelClassNames()).toContain("text-primary-foreground");
-    expect(chatPanelClassNames()).not.toContain("bg-card");
+  it("matches the main sidebar card surface", () => {
+    expect(chatPanelClassNames()).toContain("bg-card");
+    expect(chatPanelClassNames()).toContain("text-card-foreground");
+    expect(chatPanelClassNames()).not.toContain("bg-primary");
+    expect(chatPanelBorderClassNames()).toContain("border-border");
   });
 
   it("maps elevated chat surfaces to dark accent tokens", () => {
@@ -31,17 +33,20 @@ describe("chat surface tokens", () => {
     expect(chatInputEditorClassNames()).toContain("chat-input-editor");
   });
 
-  it("uses elevated controls on the dark chat panel", () => {
+  it("uses elevated controls on the chat panel", () => {
     expect(chatFloatingControlClassNames()).toContain("bg-accent");
     expect(chatFloatingControlClassNames()).toContain("text-accent-foreground");
   });
 
-  it("uses a dark drop shadow on the floating shell", () => {
+  it("uses the card surface on the floating shell", () => {
     expect(chatFloatingPanelShellClassNames()).toContain(
-      "shadow-[0_16px_48px_rgba(0,0,0,0.55)]",
+      "shadow-[0_16px_48px_rgba(0,0,0,0.18)]",
     );
-    expect(chatFloatingPanelShellClassNames()).toContain("border-stone-600");
-    expect(chatFloatingPanelShellClassNames()).toContain("bg-primary");
+    expect(chatFloatingPanelShellClassNames()).toContain(
+      "dark:shadow-[0_16px_48px_rgba(0,0,0,0.55)]",
+    );
+    expect(chatFloatingPanelShellClassNames()).toContain("border-border");
+    expect(chatFloatingPanelShellClassNames()).toContain("bg-card");
   });
 
   it("styles disabled send controls on the elevated input surface", () => {

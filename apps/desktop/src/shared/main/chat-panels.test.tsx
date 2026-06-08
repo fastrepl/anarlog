@@ -138,9 +138,9 @@ describe("MainChatPanels", () => {
     const rightPanel = document.querySelector("[data-chat-right-panel]");
 
     expect(rightPanel).toBeInstanceOf(HTMLDivElement);
-    expect(rightPanel?.className).toContain("bg-primary");
+    expect(rightPanel?.className).toContain("bg-card");
     expect(rightPanel?.className).toContain("border-x");
-    expect(rightPanel?.className).toContain("border-primary");
+    expect(rightPanel?.className).toContain("border-border");
     expect(rightPanel?.className).not.toContain("border-b-0");
     expect(rightPanel?.className).toContain("rounded-tr-xl");
     expect(rightPanel?.className).not.toContain("rounded-t-xl");

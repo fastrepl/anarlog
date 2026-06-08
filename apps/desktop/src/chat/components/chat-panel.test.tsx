@@ -82,30 +82,33 @@ describe("ChatView", () => {
     mocks.toolbarControls.mockClear();
   });
 
-  it("uses the dark stone shell in the right panel layout", () => {
+  it("uses the sidebar card shell in the right panel layout", () => {
     const { container } = render(<ChatView layout="right-panel" />);
     const root = container.firstElementChild;
 
-    expect(root?.className).toContain("bg-primary");
-    expect(root?.className).toContain("text-primary-foreground");
-    expect(root?.className).not.toContain("bg-card");
+    expect(root?.className).toContain("bg-card");
+    expect(root?.className).toContain("text-card-foreground");
+    expect(root?.className).not.toContain("bg-primary");
     expect(root?.firstElementChild?.className).toContain("h-12");
-    expect(screen.getByTestId("chat-toolbar").dataset.surface).toBe("dark");
+    expect(root?.firstElementChild?.className).not.toContain("border-b");
+    expect(screen.getByTestId("chat-toolbar").dataset.surface).toBe("light");
     expect(mocks.toolbarControls).toHaveBeenCalledWith(
       expect.objectContaining({
         layout: "right-panel",
-        surface: "dark",
+        onClose: expect.any(Function),
+        surface: "light",
       }),
     );
   });
 
-  it("uses the dark stone shell in the floating layout", () => {
+  it("uses the sidebar card shell in the floating layout", () => {
     const { container } = render(<ChatView layout="floating" />);
     const root = container.firstElementChild;
 
-    expect(root?.className).toContain("bg-primary");
-    expect(root?.className).toContain("text-primary-foreground");
+    expect(root?.className).toContain("bg-card");
+    expect(root?.className).toContain("text-card-foreground");
     expect(root?.firstElementChild?.className).toContain("h-11");
-    expect(screen.getByTestId("chat-toolbar").dataset.surface).toBe("dark");
+    expect(root?.firstElementChild?.className).not.toContain("border-b");
+    expect(screen.getByTestId("chat-toolbar").dataset.surface).toBe("light");
   });
 });

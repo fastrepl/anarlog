@@ -1,20 +1,19 @@
 export type ChatToolbarSurface = "light" | "dark";
 
-// Chat chrome always uses the original stone-800 shell, independent of app theme.
 export function isChatDarkAppearance(): boolean {
-  return true;
+  return false;
 }
 
 export function chatPanelClassNames(): string {
-  return "bg-primary text-primary-foreground";
+  return "bg-card text-card-foreground";
 }
 
 export function chatPanelBorderClassNames(): string {
-  return "border-stone-700/80";
+  return "border-border";
 }
 
 export function chatFloatingPanelShellClassNames(): string {
-  return "bg-primary text-primary-foreground rounded-2xl border-2 border-stone-600 shadow-[0_16px_48px_rgba(0,0,0,0.55)]";
+  return "bg-card text-card-foreground rounded-2xl border-2 border-border shadow-[0_16px_48px_rgba(0,0,0,0.18)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.55)]";
 }
 
 export function chatElevatedSurfaceClassNames(): string {
@@ -34,7 +33,7 @@ export function chatSendButtonShortcutDisabledClassNames(): string {
 }
 
 export function chatToolbarSurface(): ChatToolbarSurface {
-  return "dark";
+  return "light";
 }
 
 export function chatFloatingControlClassNames(): string {

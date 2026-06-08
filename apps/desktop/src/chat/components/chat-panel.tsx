@@ -25,8 +25,7 @@ export function ChatView({
 }) {
   const { chat } = useShell();
   const { groupId, sessionId, setGroupId } = chat;
-  const { panelClassName, panelBorderClassName, toolbarSurface } =
-    useChatAppearance();
+  const { panelClassName, toolbarSurface } = useChatAppearance();
   const isFloating = layout === "floating";
 
   const { currentSessionId } = useSessionTab();
@@ -57,13 +56,12 @@ export function ChatView({
         className={cn([
           "flex shrink-0 items-center pr-0 pl-0",
           isFloating ? "h-11" : "h-12",
-          panelBorderClassName,
-          "border-b",
         ])}
       >
         <ChatToolbarControls
           currentChatGroupId={groupId}
           layout={layout}
+          onClose={() => chat.sendEvent({ type: "CLOSE" })}
           onNewChat={chat.startNewChat}
           onOpenFloating={onOpenFloating}
           onOpenRightPanel={onOpenRightPanel}
