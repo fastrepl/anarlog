@@ -136,12 +136,16 @@ function AppWithTiny() {
 initWindowsPlugin();
 
 const rootElement = document.getElementById("root")!;
-if (!rootElement.innerHTML) {
-  void bootstrapThemeFromSettings();
+async function renderApp() {
+  await bootstrapThemeFromSettings();
   const root = ReactDOM.createRoot(rootElement);
   root.render(
     <StrictMode>
       <AppWithTiny />
     </StrictMode>,
   );
+}
+
+if (!rootElement.innerHTML) {
+  void renderApp();
 }

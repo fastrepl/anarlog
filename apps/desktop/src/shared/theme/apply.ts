@@ -3,6 +3,7 @@ import { commands as settingsCommands } from "@hypr/plugin-settings";
 import { resolveIsDarkMode, type ThemePreference } from "./resolve";
 
 const THEME_STORAGE_KEY = "hypr-theme";
+const THEME_BOOTSTRAP_TIMEOUT_MS = 150;
 
 /** Keep `public/theme-boot.js` aligned with normalizeThemePreference + resolveIsDarkMode. */
 
@@ -54,7 +55,7 @@ export function themePreferenceFromSettings(
   return normalizeThemePreference(typeof theme === "string" ? theme : null);
 }
 
-export async function bootstrapThemeFromSettings(): Promise<void> {
+async function loadThemeFromSettings(): Promise<void> {
   try {
     const result = await settingsCommands.load();
     if (result.status !== "ok") {
@@ -69,4 +70,22 @@ export async function bootstrapThemeFromSettings(): Promise<void> {
   } catch {
     // Non-Tauri dev sessions can skip persisted settings bootstrap.
   }
+}
+
+export async function bootstrapThemeFromSettings({
+  timeoutMs = THEME_BOOTSTRAP_TIMEOUT_MS,
+}: {
+  timeoutMs?: number;
+} = {}): Promise<void> {
+  const themeLoad = loadThemeFromSettings();
+
+  if (timeoutMs <= 0) {
+    await themeLoad;
+    return;
+  }
+
+  await Promise.race([
+    themeLoad,
+    new Promise<void>((resolve) => setTimeout(resolve, timeoutMs)),
+  ]);
 }
