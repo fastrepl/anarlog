@@ -23,17 +23,17 @@ describe("chat surface tokens", () => {
     expect(chatPanelClassNames()).not.toContain("bg-card");
   });
 
-  it("maps the original white elevated surfaces to primary-foreground tokens", () => {
-    expect(chatElevatedSurfaceClassNames()).toContain("bg-primary-foreground");
-    expect(chatElevatedSurfaceClassNames()).toContain("text-primary");
+  it("maps elevated chat surfaces to dark accent tokens", () => {
+    expect(chatElevatedSurfaceClassNames()).toContain("bg-accent");
+    expect(chatElevatedSurfaceClassNames()).toContain("text-accent-foreground");
     expect(chatElevatedSurfaceClassNames()).toContain("border-border");
-    expect(chatInputEditorClassNames()).toContain("text-primary");
+    expect(chatInputEditorClassNames()).toContain("text-accent-foreground");
     expect(chatInputEditorClassNames()).toContain("chat-input-editor");
   });
 
   it("uses elevated controls on the dark chat panel", () => {
-    expect(chatFloatingControlClassNames()).toContain("bg-primary-foreground");
-    expect(chatFloatingControlClassNames()).toContain("text-primary");
+    expect(chatFloatingControlClassNames()).toContain("bg-accent");
+    expect(chatFloatingControlClassNames()).toContain("text-accent-foreground");
   });
 
   it("uses a dark drop shadow on the floating shell", () => {

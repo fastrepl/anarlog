@@ -439,7 +439,10 @@ export function TimelineView({
                 />
               )}
               <div
-                className={cn(["sticky top-0 z-10", "bg-muted py-1 pr-1 pl-3"])}
+                className={cn([
+                  "sticky top-0 z-10",
+                  "bg-background/95 py-1 pr-1 pl-3 backdrop-blur",
+                ])}
               >
                 <div className="text-foreground text-base font-bold">
                   {bucket.label}
@@ -500,7 +503,7 @@ export function TimelineView({
               : areSidebarActionsHidden
                 ? "from-background via-background/95 to-background/0 h-20 bg-linear-to-b via-60%"
                 : isScrolledToTop
-                  ? "bg-muted h-24"
+                  ? "bg-background h-24"
                   : "from-background via-background/95 to-background/0 h-28 bg-linear-to-b via-55%",
           ])}
         />
@@ -622,7 +625,7 @@ function SidebarTimelineActions({
       data-sidebar-timeline-actions
       className={cn([
         "absolute inset-x-0 top-10 z-30 pt-1 pb-2",
-        "bg-muted",
+        "bg-background/95 backdrop-blur",
         "transition-[opacity,transform] duration-150 ease-out",
         hideActionContainer
           ? "pointer-events-none -translate-y-2 opacity-0"
@@ -685,10 +688,10 @@ function SidebarCalendarSyncStatus({
       data-sidebar-calendar-sync-status
       className={cn([
         "mt-1.5 flex h-5 items-center gap-1.5 px-3",
-        "text-[11px] leading-none font-medium text-neutral-500",
+        "text-muted-foreground text-[11px] leading-none font-medium",
       ])}
     >
-      <span className="flex size-3 shrink-0 items-center justify-center text-neutral-400">
+      <span className="text-muted-foreground flex size-3 shrink-0 items-center justify-center">
         {status === "syncing" ? (
           <Spinner size={12} />
         ) : (
@@ -724,12 +727,13 @@ function SidebarTimelineActionButton({
       data-sidebar-timeline-action={id}
       className={cn([
         "flex h-8 min-w-8 items-center overflow-hidden rounded-full",
+        "border border-transparent",
         "text-muted-foreground text-sm font-medium",
-        "transition-[width,flex-grow,background-color,color] duration-150 ease-out",
+        "transition-[width,flex-grow,background-color,border-color,color] duration-150 ease-out",
         "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-hidden",
         active
-          ? "bg-accent/70 text-foreground flex-1 justify-center px-3"
-          : "hover:bg-accent/70 hover:text-foreground w-8 flex-none justify-center px-2",
+          ? "border-border bg-card text-foreground flex-1 justify-center px-3 shadow-xs"
+          : "hover:bg-card/80 hover:text-foreground w-8 flex-none justify-center px-2",
       ])}
       onClick={onClick}
       onFocus={() => onExpand(id)}
@@ -738,7 +742,7 @@ function SidebarTimelineActionButton({
       <span
         className={cn([
           "flex size-4 shrink-0 items-center justify-center",
-          active ? "text-muted-foreground" : "text-muted-foreground",
+          active ? "text-foreground" : "text-muted-foreground",
         ])}
       >
         {icon}

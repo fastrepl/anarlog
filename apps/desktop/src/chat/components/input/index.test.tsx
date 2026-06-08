@@ -63,9 +63,8 @@ vi.mock("~/contexts/shell", () => ({
 vi.mock("~/chat/hooks/use-chat-appearance", () => ({
   useChatAppearance: () => ({
     isDarkAppearance: true,
-    elevatedSurfaceClassName:
-      "bg-primary-foreground text-primary border-border",
-    inputEditorClassName: "chat-input-editor text-primary",
+    elevatedSurfaceClassName: "bg-accent text-accent-foreground border-border",
+    inputEditorClassName: "chat-input-editor text-accent-foreground",
     sendButtonDisabledClassName:
       "cursor-default border-border text-muted-foreground/60",
     sendButtonShortcutDisabledClassName: "text-muted-foreground/60",
@@ -150,8 +149,8 @@ describe("ChatMessageInput", () => {
 
     expect(editor.className).toContain("chat-input-editor");
     expect(surface?.getAttribute("data-chat-input-surface")).toBe("elevated");
-    expect(surface?.className).toContain("bg-primary-foreground");
-    expect(surface?.className).toContain("text-primary");
+    expect(surface?.className).toContain("bg-accent");
+    expect(surface?.className).toContain("text-accent-foreground");
   });
 
   it("uses balanced outer padding in the right panel", () => {

@@ -18,11 +18,11 @@ export function chatFloatingPanelShellClassNames(): string {
 }
 
 export function chatElevatedSurfaceClassNames(): string {
-  return "bg-primary-foreground text-primary border-border";
+  return "bg-accent text-accent-foreground border-border";
 }
 
 export function chatInputEditorClassNames(): string {
-  return "chat-input-editor text-primary";
+  return "chat-input-editor text-accent-foreground";
 }
 
 export function chatSendButtonDisabledClassNames(): string {
@@ -38,5 +38,5 @@ export function chatToolbarSurface(): ChatToolbarSurface {
 }
 
 export function chatFloatingControlClassNames(): string {
-  return "border-border bg-primary-foreground text-primary hover:bg-primary-foreground/90";
+  return "border-border bg-accent text-accent-foreground hover:bg-accent/90";
 }

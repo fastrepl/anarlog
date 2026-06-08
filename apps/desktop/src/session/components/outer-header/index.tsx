@@ -106,7 +106,7 @@ function HeaderMeetingJoinButton({
   };
 
   return (
-    <div className="mr-1 flex h-8 max-w-56 shrink-0 items-center overflow-hidden rounded-full border border-neutral-200 bg-white shadow-[0_1px_4px_rgba(0,0,0,0.08)]">
+    <div className="border-border bg-card text-foreground mr-1 flex h-8 max-w-56 shrink-0 items-center overflow-hidden rounded-full border shadow-[0_1px_4px_rgba(0,0,0,0.08)]">
       <button
         type="button"
         aria-label={label}
@@ -114,8 +114,8 @@ function HeaderMeetingJoinButton({
         onClick={handleJoin}
         className={cn([
           "flex h-full min-w-0 items-center gap-1.5 px-3",
-          "text-sm font-medium text-neutral-800",
-          "transition-colors hover:bg-neutral-50",
+          "text-sm font-medium",
+          "hover:bg-accent transition-colors",
         ])}
       >
         {icon}
@@ -129,9 +129,9 @@ function HeaderMeetingJoinButton({
             aria-label={metadataLabel}
             title={metadataLabel}
             className={cn([
-              "flex h-full w-7 shrink-0 items-center justify-center border-l border-neutral-200",
-              "text-neutral-500 transition-colors hover:bg-neutral-50 hover:text-neutral-900",
-              open && "bg-neutral-100 text-neutral-900",
+              "border-border text-muted-foreground flex h-full w-7 shrink-0 items-center justify-center border-l",
+              "hover:bg-accent hover:text-foreground transition-colors",
+              open && "bg-accent text-foreground",
             ])}
           >
             <ChevronDownIcon size={14} />

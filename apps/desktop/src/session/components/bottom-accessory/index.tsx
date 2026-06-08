@@ -258,7 +258,7 @@ function PostSessionTabButton({
         "after:pointer-events-none after:absolute after:right-px after:-bottom-px after:left-px after:h-0.5 after:bg-inherit after:content-['']",
         "text-[10px] font-medium transition-colors",
         isActive && isExpanded
-          ? "bg-muted text-muted-foreground"
+          ? "bg-card text-foreground"
           : "bg-card text-muted-foreground",
         "hover:bg-accent hover:text-muted-foreground hover:cursor-pointer",
         className,

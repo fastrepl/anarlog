@@ -72,7 +72,7 @@ export function ChatBodyEmpty({
             >
               Anarlog AI
             </span>
-            <BetaChip />
+            <BetaChip isDarkAppearance={isDarkAppearance} />
           </div>
           <p
             className={cn([
@@ -112,7 +112,7 @@ export function ChatBodyEmpty({
           >
             Anarlog AI
           </span>
-          <BetaChip />
+          <BetaChip isDarkAppearance={isDarkAppearance} />
         </div>
         <p
           className={cn([
@@ -134,7 +134,7 @@ export function ChatBodyEmpty({
                 className={cn([
                   "inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px]",
                   isDarkAppearance
-                    ? "border-border bg-primary-foreground text-primary hover:bg-primary-foreground/90"
+                    ? "border-border bg-accent text-accent-foreground hover:bg-accent/85"
                     : "border-border bg-card text-muted-foreground hover:bg-accent",
                   "transition-colors",
                 ])}
@@ -150,9 +150,16 @@ export function ChatBodyEmpty({
   );
 }
 
-function BetaChip() {
+function BetaChip({ isDarkAppearance }: { isDarkAppearance: boolean }) {
   return (
-    <span className="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-900">
+    <span
+      className={cn([
+        "rounded-full border px-1.5 py-0.5 text-[10px] font-medium",
+        isDarkAppearance
+          ? "border-border bg-accent text-accent-foreground"
+          : "border-sky-200 bg-sky-100 text-sky-900",
+      ])}
+    >
       Beta
     </span>
   );

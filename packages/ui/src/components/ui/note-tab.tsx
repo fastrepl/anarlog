@@ -16,11 +16,11 @@ export const NoteTab = React.forwardRef<
       className={cn([
         "relative my-2 shrink-0 border-b-2 px-1 py-0.5 text-xs font-medium transition-all duration-200 select-none",
         isActive
-          ? ["border-neutral-900", "text-neutral-900"]
+          ? ["border-foreground", "text-foreground"]
           : [
               "border-transparent",
-              "text-neutral-600",
-              "hover:text-neutral-800",
+              "text-muted-foreground",
+              "hover:text-foreground",
             ],
         className,
       ])}

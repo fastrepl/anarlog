@@ -43,11 +43,11 @@ export function MessageBubble({
           "w-fit max-w-full rounded-2xl bg-blue-100 px-3 py-1 text-neutral-800 [&_p]:[text-wrap:wrap]",
         variant === "assistant" &&
           (isDarkAppearance
-            ? "bg-primary-foreground/95 text-primary rounded-2xl px-3 py-1"
+            ? "bg-accent text-accent-foreground rounded-2xl px-3 py-1"
             : "text-foreground"),
         variant === "loading" &&
           (isDarkAppearance
-            ? "bg-primary-foreground/95 text-primary w-fit rounded-2xl px-3 py-1"
+            ? "bg-accent text-accent-foreground w-fit rounded-2xl px-3 py-1"
             : "text-foreground"),
         variant === "error" &&
           "rounded-2xl border border-red-200 bg-red-50 px-3 py-1 text-red-600",

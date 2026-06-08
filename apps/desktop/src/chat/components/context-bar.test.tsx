@@ -57,9 +57,8 @@ vi.mock("~/chat/hooks/use-chat-appearance", () => ({
     toolbarSurface: "dark",
     panelClassName: "bg-primary text-primary-foreground",
     panelBorderClassName: "border-primary/80",
-    elevatedSurfaceClassName:
-      "bg-primary-foreground text-primary border-border",
-    inputEditorClassName: "text-primary",
+    elevatedSurfaceClassName: "bg-accent text-accent-foreground border-border",
+    inputEditorClassName: "text-accent-foreground",
   }),
 }));
 
@@ -217,8 +216,8 @@ describe("ContextBar session picker", () => {
 
     const outer = document.querySelector("[data-chat-context-bar]");
 
-    expect(outer?.className).toContain("bg-primary-foreground");
-    expect(outer?.className).toContain("text-primary");
+    expect(outer?.className).toContain("bg-accent");
+    expect(outer?.className).toContain("text-accent-foreground");
     expect(outer?.className).not.toContain("bg-card");
   });
 });

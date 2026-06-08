@@ -16,10 +16,10 @@ vi.mock("~/chat/hooks/use-chat-appearance", () => ({
       ? "border-primary/80"
       : "border-border",
     elevatedSurfaceClassName: appearanceState.isDarkAppearance
-      ? "bg-primary-foreground/95 text-primary"
+      ? "bg-accent text-accent-foreground"
       : "bg-muted text-foreground",
     inputEditorClassName: appearanceState.isDarkAppearance
-      ? "text-primary"
+      ? "text-accent-foreground"
       : "text-foreground",
   }),
 }));
@@ -39,8 +39,8 @@ describe("MessageBubble", () => {
 
     const bubble = container.firstChild as HTMLElement;
 
-    expect(bubble.className).toContain("bg-primary-foreground/95");
-    expect(bubble.className).toContain("text-primary");
+    expect(bubble.className).toContain("bg-accent");
+    expect(bubble.className).toContain("text-accent-foreground");
     expect(bubble.className).not.toContain("bg-card/95");
     expect(bubble.className).not.toContain("text-foreground");
   });
