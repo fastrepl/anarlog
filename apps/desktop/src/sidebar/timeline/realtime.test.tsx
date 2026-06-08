@@ -29,6 +29,24 @@ describe("CurrentTimeIndicator", () => {
     );
   });
 
+  test("uses red current-time colors in light and dark mode", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2024, 0, 15, 12, 0, 0));
+
+    const { container } = render(<CurrentTimeIndicator />);
+    const line = container.querySelector("[data-sidebar-current-time-line]");
+    const label = container.querySelector("[data-sidebar-current-time-label]");
+
+    expect(line?.className).toContain("bg-red-500/85");
+    expect(line?.className).toContain("dark:bg-red-400/70");
+    expect(label?.className).toContain("border-red-500");
+    expect(label?.className).toContain("bg-red-500");
+    expect(label?.className).toContain("text-white");
+    expect(label?.className).toContain("dark:border-red-500");
+    expect(label?.className).toContain("dark:bg-red-500");
+    expect(label?.className).toContain("dark:text-white");
+  });
+
   test("syncs the label at the next wall-clock minute", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(2024, 0, 15, 12, 0, 45));

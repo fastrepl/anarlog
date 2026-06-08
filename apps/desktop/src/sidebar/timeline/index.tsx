@@ -142,13 +142,21 @@ export function TimelineView({
     showOpenCalendarButton &&
     isScrolledToTop &&
     hasMoreFutureItems;
+
   const topSpacerClassName = topChromeInset
     ? showCalendarSyncStatus
       ? "h-28"
-      : hasMoreFutureItems
-        ? "h-24"
-        : "h-20"
+      : "h-[5.25rem]"
     : "h-10";
+  const bucketHeaderTopClassName = topChromeInset
+    ? showCalendarSyncStatus
+      ? "top-28"
+      : areSidebarActionsHidden
+        ? "top-20"
+        : isScrolledToTop
+          ? "top-[5.25rem]"
+          : "top-28"
+    : "top-0";
 
   const hasToday = useMemo(
     () => buckets.some((bucket) => bucket.label === "Today"),
@@ -439,8 +447,10 @@ export function TimelineView({
                 />
               )}
               <div
+                data-sidebar-timeline-bucket-header
                 className={cn([
-                  "sticky top-0 z-10",
+                  "sticky z-10",
+                  bucketHeaderTopClassName,
                   "bg-background/95 py-1 pr-1 pl-3 backdrop-blur",
                 ])}
               >
@@ -503,7 +513,7 @@ export function TimelineView({
               : areSidebarActionsHidden
                 ? "from-background via-background/95 to-background/0 h-20 bg-linear-to-b via-60%"
                 : isScrolledToTop
-                  ? "bg-background h-24"
+                  ? "bg-background h-[5.25rem]"
                   : "from-background via-background/95 to-background/0 h-28 bg-linear-to-b via-55%",
           ])}
         />

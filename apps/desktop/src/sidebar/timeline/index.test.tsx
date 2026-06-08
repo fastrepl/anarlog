@@ -220,7 +220,7 @@ describe("TimelineView", () => {
     ).toBe(true);
     expect(
       container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
-    ).toContain("h-24");
+    ).toContain("h-[5.25rem]");
   });
 
   it("shows a due calendar sync status in sidebar chrome", () => {
@@ -350,7 +350,7 @@ describe("TimelineView", () => {
     expect(screen.queryByRole("status")).toBeNull();
   });
 
-  it("uses compact top spacing when top chrome has no hidden future items", () => {
+  it("keeps the first bucket below the sidebar action chrome", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
     mocks.currentTimeMs = Date.now();
@@ -367,10 +367,11 @@ describe("TimelineView", () => {
     expect(getSidebarActions().className).not.toContain("opacity-0");
     expect(
       container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
-    ).toContain("h-20");
+    ).toContain("h-[5.25rem]");
     expect(
-      container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
-    ).not.toContain("h-24");
+      container.querySelector("[data-sidebar-timeline-bucket-header]")
+        ?.className,
+    ).toContain("top-[5.25rem]");
   });
 
   it("shows the open calendar chip without top chrome", () => {
