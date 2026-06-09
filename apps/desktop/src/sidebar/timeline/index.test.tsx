@@ -579,6 +579,9 @@ describe("TimelineView", () => {
     expect(isBefore(tomorrowHeading, indicator)).toBe(true);
     expect(isBefore(indicator, yesterdayHeading)).toBe(true);
     expect(isBefore(indicator, twoDaysAgoHeading)).toBe(true);
+    expect(
+      indicator.closest("[data-sidebar-current-time-header-gap]")?.className,
+    ).toContain("pb-3");
   });
 
   it("hides the now indicator while an active meeting is visible", () => {
