@@ -146,12 +146,9 @@ function PermissionGroup({
 
 export function Permissions() {
   const calendar = usePermission("calendar");
-  const reminders = usePermission("reminders");
   const mic = usePermission("microphone");
   const systemAudio = usePermission("systemAudio");
-  const screenRecording = usePermission("screenRecording");
   const accessibility = usePermission("accessibility");
-  const inputMonitoring = usePermission("inputMonitoring");
 
   return (
     <div className="flex flex-col gap-8">
@@ -186,15 +183,6 @@ export function Permissions() {
           onReset={accessibility.reset}
           onOpen={accessibility.open}
         />
-        <PermissionRow
-          title="Screen recording"
-          description="Required to capture screenshots and on-screen context for vision and activity features"
-          status={screenRecording.status}
-          isPending={screenRecording.isPending}
-          onRequest={screenRecording.request}
-          onReset={screenRecording.reset}
-          onOpen={screenRecording.open}
-        />
       </PermissionGroup>
 
       <PermissionGroup title="Others">
@@ -206,24 +194,6 @@ export function Permissions() {
           onRequest={calendar.request}
           onReset={calendar.reset}
           onOpen={calendar.open}
-        />
-        <PermissionRow
-          title="Reminders"
-          description="Required to sync Apple Reminders into Anarlog"
-          status={reminders.status}
-          isPending={reminders.isPending}
-          onRequest={reminders.request}
-          onReset={reminders.reset}
-          onOpen={reminders.open}
-        />
-        <PermissionRow
-          title="Input monitoring"
-          description="Required to listen for global dictation hotkeys"
-          status={inputMonitoring.status}
-          isPending={inputMonitoring.isPending}
-          onRequest={inputMonitoring.request}
-          onReset={inputMonitoring.reset}
-          onOpen={inputMonitoring.open}
         />
       </PermissionGroup>
     </div>
