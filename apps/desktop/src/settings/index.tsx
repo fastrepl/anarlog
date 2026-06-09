@@ -51,7 +51,10 @@ function SettingsView({ tab }: { tab: Extract<Tab, { type: "settings" }> }) {
   };
 
   return (
-    <div className="flex w-full flex-1 flex-col overflow-hidden">
+    <div
+      data-settings-content
+      className="bg-card dark:bg-accent flex w-full flex-1 flex-col overflow-hidden"
+    >
       <div className="relative w-full flex-1 overflow-hidden">
         <div
           className={cn([

@@ -230,6 +230,17 @@
   }
 }
 
+@layer components {
+  [data-settings-content] button,
+  [data-settings-content] button:hover,
+  [data-settings-content] [role="combobox"],
+  [data-settings-content] [role="combobox"]:hover,
+  [data-settings-content] [data-slot="select-trigger"],
+  [data-settings-content] [data-slot="select-trigger"]:hover {
+    box-shadow: none !important;
+  }
+}
+
 /* Search result highlighting styles — matches transcript's bg-yellow-200/50 and bg-yellow-500 */
 .ProseMirror-search-match {
   background-color: rgb(254 240 138 / 0.5);
