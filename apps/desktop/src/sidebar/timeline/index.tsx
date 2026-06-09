@@ -61,6 +61,7 @@ import * as main from "~/store/tinybase/store/main";
 import { useTabs } from "~/store/zustand/tabs";
 import { useTimelineSelection } from "~/store/zustand/timeline-selection";
 import { useUndoDelete } from "~/store/zustand/undo-delete";
+import { useListener } from "~/stt/contexts";
 
 const SIDEBAR_ACTIONS_REVEAL_DELAY_MS = 900;
 const DUE_CALENDAR_SYNC_VISIBLE_WINDOW_MS = 1000;
@@ -163,6 +164,21 @@ export function TimelineView({
     [buckets],
   );
   const currentTimeMs = useCurrentTimeMs();
+  const activeSessionId = useListener((state) =>
+    state.live.status === "active" || state.live.status === "finalizing"
+      ? state.live.sessionId
+      : null,
+  );
+  const hasActiveVisibleSession = useMemo(
+    () =>
+      !!activeSessionId &&
+      buckets.some((bucket) =>
+        bucket.items.some(
+          (item) => item.type === "session" && item.id === activeSessionId,
+        ),
+      ),
+    [activeSessionId, buckets],
+  );
 
   const currentTab = useTabs((state) => state.currentTab);
 
@@ -434,8 +450,12 @@ export function TimelineView({
         )}
         {buckets.map((bucket, index) => {
           const isToday = bucket.label === "Today";
-          const shouldRenderIndicatorBefore =
+          const shouldPlaceIndicatorBefore =
             !hasToday && indicatorIndex === index;
+          const shouldRenderIndicatorBefore =
+            shouldPlaceIndicatorBefore && !hasActiveVisibleSession;
+          const shouldRenderIndicatorAnchorBefore =
+            shouldPlaceIndicatorBefore && hasActiveVisibleSession;
           const isTopIndicator = shouldRenderIndicatorBefore && index === 0;
 
           return (
@@ -444,6 +464,11 @@ export function TimelineView({
                 <CurrentTimeIndicator
                   ref={setCurrentTimeIndicatorRef}
                   timezone={timezone}
+                />
+              )}
+              {shouldRenderIndicatorAnchorBefore && (
+                <CurrentTimeAnchor
+                  registerIndicator={setCurrentTimeIndicatorRef}
                 />
               )}
               <div
@@ -465,6 +490,7 @@ export function TimelineView({
                   registerIndicator={setCurrentTimeIndicatorRef}
                   selectedSessionId={selectedSessionId}
                   selectedNodeRef={scrollSelectedSessionIntoView}
+                  suppressCurrentTimeIndicator={hasActiveVisibleSession}
                   timezone={timezone}
                   selectedIds={selectedIds}
                   flatItemKeys={flatItemKeys}
@@ -494,12 +520,15 @@ export function TimelineView({
           );
         })}
         {!hasToday &&
-          (indicatorIndex === -1 || indicatorIndex === buckets.length) && (
+          (indicatorIndex === -1 || indicatorIndex === buckets.length) &&
+          (hasActiveVisibleSession ? (
+            <CurrentTimeAnchor registerIndicator={setCurrentTimeIndicatorRef} />
+          ) : (
             <CurrentTimeIndicator
               ref={setCurrentTimeIndicatorRef}
               timezone={timezone}
             />
-          )}
+          ))}
       </div>
 
       {topChromeInset && (
@@ -836,12 +865,40 @@ function TimelineNowChip({
   );
 }
 
+function CurrentTimeAnchor({
+  progress = 0.5,
+  registerIndicator,
+  variant = "seam",
+}: {
+  progress?: number;
+  registerIndicator: (node: HTMLDivElement | null) => void;
+  variant?: "seam" | "inside";
+}) {
+  return (
+    <div
+      ref={registerIndicator}
+      aria-hidden
+      data-sidebar-current-time-anchor
+      className={cn([
+        "pointer-events-none opacity-0",
+        variant === "inside"
+          ? "absolute inset-x-0 z-20 h-px"
+          : "relative z-20 h-px",
+      ])}
+      style={
+        variant === "inside" ? { top: `${(1 - progress) * 100}%` } : undefined
+      }
+    />
+  );
+}
+
 function TodayBucket({
   items,
   precision,
   registerIndicator,
   selectedSessionId,
   selectedNodeRef,
+  suppressCurrentTimeIndicator,
   timezone,
   selectedIds,
   flatItemKeys,
@@ -851,6 +908,7 @@ function TodayBucket({
   registerIndicator: (node: HTMLDivElement | null) => void;
   selectedSessionId: string | undefined;
   selectedNodeRef: RefCallback<HTMLDivElement>;
+  suppressCurrentTimeIndicator: boolean;
   timezone?: string;
   selectedIds: string[];
   flatItemKeys: string[];
@@ -877,7 +935,11 @@ function TodayBucket({
     if (entries.length === 0) {
       return (
         <>
-          <CurrentTimeIndicator ref={registerIndicator} timezone={timezone} />
+          {suppressCurrentTimeIndicator ? (
+            <CurrentTimeAnchor registerIndicator={registerIndicator} />
+          ) : (
+            <CurrentTimeIndicator ref={registerIndicator} timezone={timezone} />
+          )}
           <div className="text-muted-foreground px-3 py-4 text-center text-sm">
             No items today
           </div>
@@ -893,11 +955,18 @@ function TodayBucket({
         index === indicatorPlacement.index
       ) {
         nodes.push(
-          <CurrentTimeIndicator
-            ref={registerIndicator}
-            key="current-time-indicator"
-            timezone={timezone}
-          />,
+          suppressCurrentTimeIndicator ? (
+            <CurrentTimeAnchor
+              key="current-time-anchor"
+              registerIndicator={registerIndicator}
+            />
+          ) : (
+            <CurrentTimeIndicator
+              ref={registerIndicator}
+              key="current-time-indicator"
+              timezone={timezone}
+            />
+          ),
         );
       }
 
@@ -924,13 +993,21 @@ function TodayBucket({
       ) {
         nodes.push(
           <div key={`${itemKey}-wrapper`} className="relative">
-            <CurrentTimeIndicator
-              ref={registerIndicator}
-              key="current-time-indicator-inside"
-              timezone={timezone}
-              variant="inside"
-              progress={indicatorPlacement.progress}
-            />
+            {suppressCurrentTimeIndicator ? (
+              <CurrentTimeAnchor
+                registerIndicator={registerIndicator}
+                variant="inside"
+                progress={indicatorPlacement.progress}
+              />
+            ) : (
+              <CurrentTimeIndicator
+                ref={registerIndicator}
+                key="current-time-indicator-inside"
+                timezone={timezone}
+                variant="inside"
+                progress={indicatorPlacement.progress}
+              />
+            )}
             {itemNode}
           </div>,
         );
@@ -942,11 +1019,18 @@ function TodayBucket({
 
     if (indicatorPlacement.type === "after") {
       nodes.push(
-        <CurrentTimeIndicator
-          ref={registerIndicator}
-          key="current-time-indicator-end"
-          timezone={timezone}
-        />,
+        suppressCurrentTimeIndicator ? (
+          <CurrentTimeAnchor
+            key="current-time-anchor-end"
+            registerIndicator={registerIndicator}
+          />
+        ) : (
+          <CurrentTimeIndicator
+            ref={registerIndicator}
+            key="current-time-indicator-end"
+            timezone={timezone}
+          />
+        ),
       );
     }
 
@@ -958,6 +1042,7 @@ function TodayBucket({
     registerIndicator,
     selectedSessionId,
     selectedNodeRef,
+    suppressCurrentTimeIndicator,
     timezone,
     selectedIds,
     flatItemKeys,
