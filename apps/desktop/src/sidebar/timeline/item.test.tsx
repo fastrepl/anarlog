@@ -185,7 +185,11 @@ describe("TimelineItemComponent", () => {
     expect(rowButton?.className).not.toContain("bg-accent");
     expect(screen.getByTestId("dancing-sticks").dataset.amplitude).toBe("0.5");
 
-    fireEvent.click(screen.getByRole("button", { name: "Stop listening" }));
+    const stopButton = screen.getByRole("button", { name: "Stop listening" });
+    expect(stopButton.className).toContain("text-white/80");
+    expect(stopButton.className).toContain("hover:text-white");
+
+    fireEvent.click(stopButton);
 
     expect(mocks.stop).toHaveBeenCalledOnce();
     expect(mocks.openCurrent).not.toHaveBeenCalled();
