@@ -88,6 +88,7 @@ export function FormatToolbar() {
     const update = () => {
       void computePosition(referenceEl, toolbar, {
         placement: "top",
+        strategy: "fixed",
         middleware: [offset(8), flip(), shift({ padding: 8 })],
       }).then(({ x, y }) => {
         Object.assign(toolbar.style, {
@@ -108,10 +109,10 @@ export function FormatToolbar() {
     <div
       ref={toolbarRef}
       className={cn([
-        "border-border bg-card/95 absolute z-[9999] flex items-center gap-0.5 rounded-lg border p-1",
+        "border-border bg-card/95 fixed flex items-center gap-0.5 rounded-lg border p-1",
         "shadow-[0_2px_8px_rgba(0,0,0,0.08),0_18px_42px_-16px_rgba(0,0,0,0.34)] backdrop-blur-sm",
       ])}
-      style={{ top: 0, left: 0 }}
+      style={{ top: 0, left: 0, zIndex: 10000 }}
       onMouseDown={(e) => e.preventDefault()}
     >
       {TOOLBAR_BUTTONS.map((button) => {
