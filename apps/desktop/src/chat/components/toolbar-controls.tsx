@@ -43,10 +43,7 @@ export function ChatToolbarControls({
 
   return (
     <div
-      className={cn([
-        "flex h-full w-full min-w-0 items-center gap-2",
-        isRightPanel ? "pr-1 pl-3" : isDark ? "px-2" : "pr-2 pl-2",
-      ])}
+      className={cn(["flex h-full w-full min-w-0 items-center gap-2", "px-3"])}
     >
       <div className="flex min-w-0 flex-1 items-center gap-1">
         <ChatGroups
@@ -55,7 +52,10 @@ export function ChatToolbarControls({
           surface={surface}
         />
       </div>
-      <div className="flex shrink-0 items-center gap-1">
+      <div
+        data-chat-toolbar-actions
+        className="flex shrink-0 items-center gap-0"
+      >
         <ChatActionButton
           icon={<Plus size={16} />}
           label="New chat"
@@ -78,12 +78,20 @@ export function ChatToolbarControls({
             />
           </>
         ) : (
-          <ChatActionButton
-            icon={<PanelRight size={16} />}
-            label="Open in right panel"
-            onClick={onOpenRightPanel ?? (() => {})}
-            className={isDark ? darkToolbarButtonClassName : undefined}
-          />
+          <>
+            <ChatActionButton
+              icon={<PanelRight size={16} />}
+              label="Open in right panel"
+              onClick={onOpenRightPanel ?? (() => {})}
+              className={isDark ? darkToolbarButtonClassName : undefined}
+            />
+            <ChatActionButton
+              icon={<X size={16} />}
+              label="Close chat"
+              onClick={onClose ?? (() => {})}
+              className={isDark ? darkToolbarButtonClassName : undefined}
+            />
+          </>
         )}
       </div>
     </div>

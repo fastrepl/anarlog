@@ -58,7 +58,7 @@ export function ChatBody({
           ref={contentRef}
           className={cn([
             "flex min-h-full flex-1 flex-col",
-            isRightPanel ? "px-3 py-5" : "px-2 py-3",
+            isRightPanel ? "px-3 py-5" : "px-3 py-3",
           ])}
         >
           <div className="flex-1" />

@@ -51,7 +51,8 @@ describe("ChatBody", () => {
 
     const content = screen.getByTestId("chat-body-empty").parentElement;
 
-    expect(content?.className).toContain("px-2");
+    expect(content?.className).toContain("px-3");
+    expect(content?.className).not.toContain("px-2");
     expect(content?.className).not.toContain("pr-0");
   });
 

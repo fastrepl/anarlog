@@ -153,6 +153,22 @@ describe("ChatMessageInput", () => {
     expect(surface?.className).toContain("text-accent-foreground");
   });
 
+  it("uses shared horizontal outer padding while floating", () => {
+    render(
+      <ChatMessageInput draftKey="chat-input-test" onSendMessage={vi.fn()} />,
+    );
+
+    const messageInput = screen
+      .getByTestId("chat-editor")
+      .closest("[data-chat-message-input]");
+    const outerContainer = messageInput?.parentElement?.parentElement;
+
+    expect(outerContainer?.className).toContain("px-3");
+    expect(outerContainer?.className).toContain("pb-2");
+    expect(outerContainer?.className).not.toContain("px-2");
+    expect(outerContainer?.className).not.toContain("pr-0");
+  });
+
   it("uses balanced outer padding in the right panel", () => {
     shellState.mode = "RightPanelOpen";
 
