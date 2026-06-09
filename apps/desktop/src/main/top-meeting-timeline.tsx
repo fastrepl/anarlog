@@ -519,8 +519,11 @@ function TopCurrentTimeIndicator({
       className="pointer-events-none absolute top-0 bottom-0 z-40 w-0"
       style={{ left }}
     >
-      <div className="absolute top-0 bottom-1 left-0 w-px -translate-x-1/2 bg-red-500/90 shadow-[0_0_0_1px_rgba(255,255,255,0.85)]" />
-      <div className="absolute top-0 left-0 size-1.5 -translate-x-1/2 rounded-full bg-red-500 shadow-[0_0_0_1px_rgba(255,255,255,0.95)]" />
+      <div
+        className={cn([
+          "absolute top-0 bottom-1 left-0 w-px -translate-x-1/2 bg-red-500/90 shadow-[0_0_0_1px_rgba(255,255,255,0.85)]",
+        ])}
+      />
       <div className="bg-destructive text-destructive-foreground absolute top-1/2 left-0 -translate-x-1/2 -translate-y-1/2 rounded-full px-2 py-1 font-mono text-[10px] leading-none font-semibold whitespace-nowrap opacity-0 shadow-xs transition-opacity group-hover/timeline-strip:opacity-100">
         {label}
       </div>

@@ -369,9 +369,12 @@ describe("TopMeetingTimeline", () => {
 
     render(<TopMeetingTimeline currentTab={null} />);
 
-    expect(screen.getByTestId("top-timeline-now-indicator").style.left).toBe(
-      "80px",
-    );
+    const indicator = screen.getByTestId("top-timeline-now-indicator");
+
+    expect(indicator.style.left).toBe("80px");
+    expect(indicator.children).toHaveLength(2);
+    expect(indicator.children[0]?.className).toContain("top-0");
+    expect(indicator.children[0]?.className).toContain("bottom-1");
   });
 
   it("uses the recording end for completed sessions linked to calendar events", () => {
