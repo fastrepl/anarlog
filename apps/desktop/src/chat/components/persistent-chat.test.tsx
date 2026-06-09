@@ -16,6 +16,21 @@ const mocks = vi.hoisted(() => ({
       | "RightPanelOpen",
   },
   sendEvent: vi.fn(),
+  sessionProps: {
+    contextEntities: [],
+    isSystemPromptReady: true,
+    messages: [],
+    onAddContextEntity: vi.fn(),
+    onDraftContextRefsChange: vi.fn(),
+    onRemoveContextEntity: vi.fn(),
+    pendingRefs: [],
+    regenerate: vi.fn(),
+    sendMessage: vi.fn(),
+    sessionId: "chat-session-1",
+    setMessages: vi.fn(),
+    status: "ready" as const,
+    stop: vi.fn(),
+  },
 }));
 
 vi.mock("react-hotkeys-hook", () => ({
@@ -32,15 +47,18 @@ vi.mock("~/contexts/shell", () => ({
 }));
 
 vi.mock("./chat-panel", () => ({
-  ChatView: ({
+  ChatPanelFrame: ({
     layout,
     onOpenRightPanel,
+    sessionProps,
   }: {
     layout?: "floating" | "right-panel";
     onOpenRightPanel?: () => void;
+    sessionProps: unknown;
   }) => (
     <>
       <button
+        data-has-session={String(sessionProps === mocks.sessionProps)}
         data-layout={layout}
         data-testid="open-right-panel"
         type="button"
@@ -61,7 +79,10 @@ function TestHost() {
   return (
     <div ref={containerRef} data-testid="full-panel-container">
       <div data-chat-floating-anchor />
-      <PersistentChatPanel floatingContainerRef={containerRef} />
+      <PersistentChatPanel
+        floatingContainerRef={containerRef}
+        sessionProps={mocks.sessionProps}
+      />
     </div>
   );
 }
@@ -83,6 +104,9 @@ describe("PersistentChatPanel", () => {
 
     await screen.findByTestId("chat-view");
 
+    expect(screen.getByTestId("open-right-panel").dataset.hasSession).toBe(
+      "true",
+    );
     const resizeFrame = document.querySelector("[data-chat-resize-frame]");
     const panel = document.querySelector<HTMLElement>("[data-chat-panel]");
 

@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
     | "RightPanelOpen",
   persistentChatPanel: vi.fn(),
   sendEvent: vi.fn(),
+  sessionProps: { sessionId: "chat-session-1" },
 }));
 
 vi.mock("@hypr/ui/components/ui/resizable", () => ({
@@ -63,14 +64,17 @@ vi.mock("~/contexts/shell", () => ({
 }));
 
 vi.mock("~/chat/components/chat-panel", () => ({
-  ChatView: ({
+  ChatPanelFrame: ({
     layout,
     onOpenFloating,
+    sessionProps,
   }: {
     layout?: "floating" | "right-panel";
     onOpenFloating?: () => void;
+    sessionProps: unknown;
   }) => (
     <button
+      data-has-session={String(sessionProps === mocks.sessionProps)}
       data-layout={layout}
       data-testid="chat-view"
       type="button"
@@ -79,15 +83,22 @@ vi.mock("~/chat/components/chat-panel", () => ({
       Chat
     </button>
   ),
+  ChatSessionHost: ({
+    children,
+  }: {
+    children: (sessionProps: unknown) => React.ReactNode;
+  }) => <>{children(mocks.sessionProps)}</>,
 }));
 
 vi.mock("~/chat/components/persistent-chat", () => ({
   PersistentChatPanel: ({
     floatingContainerRef,
+    sessionProps,
   }: {
     floatingContainerRef: { current: HTMLDivElement | null };
+    sessionProps: unknown;
   }) => {
-    mocks.persistentChatPanel(floatingContainerRef);
+    mocks.persistentChatPanel(floatingContainerRef, sessionProps);
     return <div data-testid="persistent-chat-panel" />;
   },
 }));
@@ -115,6 +126,9 @@ describe("MainChatPanels", () => {
     expect(mocks.persistentChatPanel.mock.calls[0]?.[0].current).toBeInstanceOf(
       HTMLDivElement,
     );
+    expect(mocks.persistentChatPanel.mock.calls[0]?.[1]).toBe(
+      mocks.sessionProps,
+    );
     expect(screen.getByTestId("panel-group").dataset.direction).toBe(
       "horizontal",
     );
@@ -135,6 +149,10 @@ describe("MainChatPanels", () => {
     expect(screen.getAllByTestId("panel")).toHaveLength(2);
     expect(screen.getByTestId("resize-handle")).toBeTruthy();
     expect(screen.getByTestId("chat-view").dataset.layout).toBe("right-panel");
+    expect(screen.getByTestId("chat-view").dataset.hasSession).toBe("true");
+    expect(mocks.persistentChatPanel.mock.calls[0]?.[1]).toBe(
+      mocks.sessionProps,
+    );
     const rightPanel = document.querySelector("[data-chat-right-panel]");
 
     expect(rightPanel).toBeInstanceOf(HTMLDivElement);

@@ -24,6 +24,25 @@ import { useTransport } from "~/chat/transport/use-transport";
 import type { HyprUIMessage } from "~/chat/types";
 import * as main from "~/store/tinybase/store/main";
 
+export type ChatSessionRenderProps = {
+  sessionId: string;
+  messages: HyprUIMessage[];
+  setMessages: (
+    msgs: HyprUIMessage[] | ((prev: HyprUIMessage[]) => HyprUIMessage[]),
+  ) => void;
+  sendMessage: (message: HyprUIMessage) => void;
+  regenerate: () => void;
+  stop: () => void;
+  status: ChatStatus;
+  error?: Error;
+  contextEntities: DisplayEntity[];
+  pendingRefs: ContextRef[];
+  onRemoveContextEntity: (key: string) => void;
+  onAddContextEntity: (ref: ContextRef) => void;
+  onDraftContextRefsChange: (refs: ContextRef[]) => void;
+  isSystemPromptReady: boolean;
+};
+
 interface ChatSessionProps {
   sessionId: string;
   chatGroupId?: string;
@@ -31,24 +50,8 @@ interface ChatSessionProps {
   modelOverride?: LanguageModel;
   extraTools?: ToolSet;
   systemPromptOverride?: string;
-  children: (props: {
-    sessionId: string;
-    messages: HyprUIMessage[];
-    setMessages: (
-      msgs: HyprUIMessage[] | ((prev: HyprUIMessage[]) => HyprUIMessage[]),
-    ) => void;
-    sendMessage: (message: HyprUIMessage) => void;
-    regenerate: () => void;
-    stop: () => void;
-    status: ChatStatus;
-    error?: Error;
-    contextEntities: DisplayEntity[];
-    pendingRefs: ContextRef[];
-    onRemoveContextEntity: (key: string) => void;
-    onAddContextEntity: (ref: ContextRef) => void;
-    onDraftContextRefsChange: (refs: ContextRef[]) => void;
-    isSystemPromptReady: boolean;
-  }) => ReactNode;
+  unstyled?: boolean;
+  children: (props: ChatSessionRenderProps) => ReactNode;
 }
 
 export function ChatSession({
@@ -58,6 +61,7 @@ export function ChatSession({
   modelOverride,
   extraTools,
   systemPromptOverride,
+  unstyled = false,
   children,
 }: ChatSessionProps) {
   const store = main.UI.useStore(main.STORE_ID);
@@ -182,24 +186,26 @@ export function ChatSession({
     store,
   });
 
-  return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      {children({
-        sessionId,
-        messages,
-        setMessages,
-        sendMessage,
-        regenerate,
-        stop,
-        status,
-        error,
-        contextEntities,
-        pendingRefs,
-        onRemoveContextEntity,
-        onAddContextEntity,
-        onDraftContextRefsChange,
-        isSystemPromptReady,
-      })}
-    </div>
-  );
+  const content = children({
+    sessionId,
+    messages,
+    setMessages,
+    sendMessage,
+    regenerate,
+    stop,
+    status,
+    error,
+    contextEntities,
+    pendingRefs,
+    onRemoveContextEntity,
+    onAddContextEntity,
+    onDraftContextRefsChange,
+    isSystemPromptReady,
+  });
+
+  if (unstyled) {
+    return content;
+  }
+
+  return <div className="flex min-h-0 flex-1 flex-col">{content}</div>;
 }

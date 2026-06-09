@@ -1,10 +1,10 @@
-import { useCallback } from "react";
+import { type ReactNode, useCallback } from "react";
 
 import { cn } from "@hypr/utils";
 
 import { ChatBody } from "./body";
 import { ChatContent } from "./content";
-import { ChatSession } from "./session-provider";
+import { ChatSession, type ChatSessionRenderProps } from "./session-provider";
 import { ChatToolbarControls } from "./toolbar-controls";
 import { useSessionTab } from "./use-session-tab";
 
@@ -23,15 +23,62 @@ export function ChatView({
   onOpenFloating?: () => void;
   onOpenRightPanel?: () => void;
 }) {
+  return (
+    <ChatSessionHost>
+      {(sessionProps) => (
+        <ChatPanelFrame
+          layout={layout}
+          onOpenFloating={onOpenFloating}
+          onOpenRightPanel={onOpenRightPanel}
+          sessionProps={sessionProps}
+        />
+      )}
+    </ChatSessionHost>
+  );
+}
+
+export function ChatSessionHost({
+  children,
+}: {
+  children: (sessionProps: ChatSessionRenderProps | null) => ReactNode;
+}) {
   const { chat } = useShell();
-  const { groupId, sessionId, setGroupId } = chat;
+  const { groupId, sessionId } = chat;
+  const { currentSessionId } = useSessionTab();
+  const { user_id } = main.UI.useValues(main.STORE_ID);
+
+  if (!user_id) {
+    return <>{children(null)}</>;
+  }
+
+  return (
+    <ChatSession
+      sessionId={sessionId}
+      chatGroupId={groupId}
+      currentSessionId={currentSessionId}
+      unstyled
+    >
+      {children}
+    </ChatSession>
+  );
+}
+
+export function ChatPanelFrame({
+  layout = "floating",
+  onOpenFloating,
+  onOpenRightPanel,
+  sessionProps,
+}: {
+  layout?: "floating" | "right-panel";
+  onOpenFloating?: () => void;
+  onOpenRightPanel?: () => void;
+  sessionProps: ChatSessionRenderProps | null;
+}) {
+  const { chat } = useShell();
+  const { groupId, setGroupId } = chat;
   const { panelClassName, toolbarSurface } = useChatAppearance();
   const isFloating = layout === "floating";
-
-  const { currentSessionId } = useSessionTab();
-
   const model = useLanguageModel("chat");
-  const { user_id } = main.UI.useValues(main.STORE_ID);
 
   const handleGroupCreated = useCallback(
     (newGroupId: string) => {
@@ -69,38 +116,29 @@ export function ChatView({
           surface={toolbarSurface}
         />
       </div>
-      {user_id && (
-        <ChatSession
-          key={sessionId}
-          sessionId={sessionId}
-          chatGroupId={groupId}
-          currentSessionId={currentSessionId}
+      {sessionProps && (
+        <ChatContent
+          {...sessionProps}
+          model={model}
+          handleSendMessage={handleSendMessage}
         >
-          {(sessionProps) => (
-            <ChatContent
-              {...sessionProps}
-              model={model}
-              handleSendMessage={handleSendMessage}
-            >
-              <ChatBody
-                messages={sessionProps.messages}
-                status={sessionProps.status}
-                error={sessionProps.error}
-                onReload={sessionProps.regenerate}
-                isModelConfigured={!!model}
-                hasContext={sessionProps.contextEntities.length > 0}
-                onSendMessage={(content, parts) => {
-                  handleSendMessage(
-                    content,
-                    parts,
-                    sessionProps.sendMessage,
-                    sessionProps.pendingRefs,
-                  );
-                }}
-              />
-            </ChatContent>
-          )}
-        </ChatSession>
+          <ChatBody
+            messages={sessionProps.messages}
+            status={sessionProps.status}
+            error={sessionProps.error}
+            onReload={sessionProps.regenerate}
+            isModelConfigured={!!model}
+            hasContext={sessionProps.contextEntities.length > 0}
+            onSendMessage={(content, parts) => {
+              handleSendMessage(
+                content,
+                parts,
+                sessionProps.sendMessage,
+                sessionProps.pendingRefs,
+              );
+            }}
+          />
+        </ChatContent>
       )}
     </div>
   );

@@ -11,8 +11,9 @@ import { useHotkeys } from "react-hotkeys-hook";
 
 import { cn } from "@hypr/utils";
 
-import { ChatView } from "./chat-panel";
+import { ChatPanelFrame } from "./chat-panel";
 
+import type { ChatSessionRenderProps } from "~/chat/components/session-provider";
 import { chatFloatingPanelShellClassNames } from "~/chat/surface";
 import { useShell } from "~/contexts/shell";
 
@@ -73,8 +74,10 @@ type ResizeState = {
 
 export function PersistentChatPanel({
   floatingContainerRef,
+  sessionProps,
 }: {
   floatingContainerRef: React.RefObject<HTMLDivElement | null>;
+  sessionProps: ChatSessionRenderProps | null;
 }) {
   const { chat } = useShell();
   const isVisible = chat.mode === "FloatingOpen";
@@ -315,11 +318,12 @@ export function PersistentChatPanel({
               exit={panelMotion.exit}
               transition={panelTransition}
             >
-              <ChatView
+              <ChatPanelFrame
                 layout="floating"
                 onOpenRightPanel={() =>
                   chat.sendEvent({ type: "OPEN_RIGHT_PANEL" })
                 }
+                sessionProps={sessionProps}
               />
               {RESIZE_HANDLES.map((handle) => (
                 <div
