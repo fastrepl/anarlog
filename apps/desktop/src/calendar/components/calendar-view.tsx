@@ -236,7 +236,7 @@ export function CalendarView() {
           data-tauri-drag-region="false"
           className={cn([
             "border-border h-8 overflow-hidden rounded-full border",
-            "bg-card shadow-xs",
+            "bg-card",
           ])}
         >
           <Button
