@@ -107,7 +107,7 @@ export function SearchableSelect({
             : "var(--radix-popover-trigger-width)",
         }}
       >
-        <AppFloatingPanel className="bg-background overflow-hidden">
+        <AppFloatingPanel className="overflow-hidden">
           <Command
             filter={filterFunction}
             className="rounded-[inherit] border-0 bg-transparent"

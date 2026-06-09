@@ -23,7 +23,7 @@ export function TimelineShell({
 }) {
   return (
     <div
-      className="bg-muted w-full rounded-xl select-none"
+      className="w-full rounded-xl bg-transparent select-none"
       onContextMenu={onContextMenu}
     >
       <div

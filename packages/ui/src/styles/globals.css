@@ -35,6 +35,9 @@
 
   --color-popover: hsl(var(--popover));
   --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-app-floating-chrome: hsl(var(--app-floating-chrome));
+  --color-app-floating-panel: hsl(var(--app-floating-panel));
+  --color-app-floating-border: hsl(var(--app-floating-border));
 
   --color-card: hsl(var(--card));
   --color-card-foreground: hsl(var(--card-foreground));
@@ -201,6 +204,9 @@
     --border: 24 6% 90%;
     --input: 24 6% 90%;
     --ring: 24 10% 10%;
+    --app-floating-chrome: 60 5% 94%;
+    --app-floating-panel: 60 9% 98%;
+    --app-floating-border: 24 6% 86%;
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
     --chart-3: 197 37% 24%;
@@ -236,6 +242,9 @@
     --border: 24 6% 28%;
     --input: 24 6% 28%;
     --ring: 60 9% 75%;
+    --app-floating-chrome: 24 7% 21%;
+    --app-floating-panel: 24 8% 14%;
+    --app-floating-border: 24 6% 33%;
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
