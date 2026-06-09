@@ -65,8 +65,8 @@ const TriggerInner = forwardRef<
       title={label}
       className={cn([
         "rounded-full",
-        "text-muted-foreground hover:bg-accent hover:text-black",
-        open && "bg-muted",
+        "text-muted-foreground hover:bg-accent hover:text-foreground",
+        open && "bg-muted text-foreground",
       ])}
     >
       <CalendarIcon size={16} />
