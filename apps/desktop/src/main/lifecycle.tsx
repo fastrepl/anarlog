@@ -2,6 +2,7 @@ import { useRouteContext } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef } from "react";
 
 import { useLanguageModel, useLLMConnection } from "~/ai/hooks";
+import { useAuth } from "~/auth";
 import { useSessionTab } from "~/chat/components/use-session-tab";
 import { buildChatTools } from "~/chat/tools";
 import { useRegisterTools } from "~/contexts/tool";
@@ -40,6 +41,7 @@ export function ClassicMainServices() {
 }
 
 function ToolRegistration() {
+  const auth = useAuth();
   const { search } = useSearchEngine();
   const store = main.UI.useStore(main.STORE_ID);
   const indexes = main.UI.useIndexes(main.STORE_ID);
@@ -237,6 +239,7 @@ function ToolRegistration() {
   );
 
   const { getSessionId, getEnhancedNoteId } = useSessionTab();
+  const getAuthHeaders = useCallback(() => auth?.getHeaders(), [auth]);
   const openEditTab = useCallback((requestId: string) => {
     useTabs.getState().openNew({ type: "edit", requestId });
   }, []);
@@ -253,6 +256,7 @@ function ToolRegistration() {
         getSessionId,
         getEnhancedNoteId,
         openEditTab,
+        getAuthHeaders,
       }),
     [
       search,
@@ -261,6 +265,7 @@ function ToolRegistration() {
       getSessionId,
       getEnhancedNoteId,
       openEditTab,
+      getAuthHeaders,
     ],
   );
 

@@ -12,8 +12,10 @@ import { buildSearchSessionsTool } from "./search-sessions";
 import type {
   CalendarEventSearchResult,
   ContactSearchResult,
+  WebSearchResponse,
   ToolDependencies,
 } from "./types";
+import { buildWebSearchTool } from "./web-search";
 
 import type { SearchFilters } from "~/search/contexts/engine/types";
 
@@ -68,6 +70,7 @@ export const buildChatTools = (deps: ToolDependencies) => ({
     "search_calendar_events",
     buildSearchCalendarEventsTool(deps),
   ),
+  web_search: withToolLogging("web_search", buildWebSearchTool(deps)),
   edit_summary: withToolLogging("edit_summary", buildEditSummaryTool(deps)),
 });
 
@@ -172,6 +175,15 @@ type LocalTools = {
       query: string;
       results: CalendarEventSearchResult[];
     };
+  };
+  web_search: {
+    input: {
+      query: string;
+      includeDomains?: string[];
+      excludeDomains?: string[];
+      limit?: number;
+    };
+    output: WebSearchResponse;
   };
   edit_summary: {
     input: { sessionId?: string; enhancedNoteId?: string; content: string };

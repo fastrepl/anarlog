@@ -18,6 +18,11 @@ Context and local-note tool guidance:
 - When the user asks to find or search for something in notes, use grep_notes. If the answer needs the full source after a match, use read_note with the returned session id.
 - When the user asks about people from the current note or related meetings, use list_related_notes and then read_note as needed.
 - Do not assume note contents from chat history when a file-backed tool can read the current source of truth.
+
+Web search guidance:
+- Use web_search for public websites, URLs, companies, products, people, news, or current facts that may be outside local notes.
+- Include source URLs in the final answer when web_search results are used.
+- Do not use web_search for questions that only need local notes, contacts, or calendar events.
 `.trim();
 
 function appendFileContextToolGuidance(
