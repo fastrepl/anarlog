@@ -374,6 +374,46 @@ describe("TimelineView", () => {
     ).toContain("top-[5.25rem]");
   });
 
+  it("pins bucket headers to the sidebar chrome while scrolled", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
+    mocks.currentTimeMs = Date.now();
+    mocks.smartCurrentTimeMs = Date.now();
+    mocks.timelineSessionsTable = {
+      tomorrow: {
+        title: "Founder sync",
+        created_at: "2024-01-16T10:00:00.000Z",
+      },
+      today: {
+        title: "Design sync",
+        created_at: "2024-01-15T17:30:00.000Z",
+      },
+    };
+
+    const { container } = render(<TimelineView topChromeInset />);
+    const scroller = container.querySelector("[data-sidebar-timeline-scroll]");
+    const header = container.querySelector(
+      "[data-sidebar-timeline-bucket-header]",
+    );
+
+    expect(scroller).toBeInstanceOf(HTMLDivElement);
+    expect(header?.className).toContain("top-[5.25rem]");
+
+    Object.defineProperty(scroller, "clientHeight", {
+      configurable: true,
+      value: 200,
+    });
+    Object.defineProperty(scroller, "scrollHeight", {
+      configurable: true,
+      value: 1200,
+    });
+    scroller!.scrollTop = 120;
+    fireEvent.scroll(scroller!);
+
+    expect(header?.className).toContain("top-12");
+    expect(header?.className).toContain("z-20");
+  });
+
   it("shows the open calendar chip without top chrome", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
