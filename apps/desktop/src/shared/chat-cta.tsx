@@ -3,6 +3,7 @@ import { MessageCircle } from "lucide-react";
 import { cn } from "@hypr/utils";
 
 import { useShell } from "~/contexts/shell";
+import { floatingActionSurfaceClassName } from "~/shared/floating-action-surface";
 
 export function ChatCTA({
   label = "Ask Anarlog anything",
@@ -25,9 +26,9 @@ export function ChatCTA({
       type="button"
       onClick={handleClick}
       className={cn([
-        "border-primary bg-primary inline-flex max-w-full items-center gap-2 rounded-full border-2",
-        "text-primary-foreground px-4 py-2 text-sm shadow-[0_6px_20px_rgba(0,0,0,0.45)]",
-        "hover:bg-primary/90 transition-colors",
+        "inline-flex h-10 max-w-full items-center gap-2 rounded-full border-2",
+        "px-4 text-sm transition-colors",
+        floatingActionSurfaceClassName,
       ])}
     >
       <MessageCircle className="size-4 shrink-0" aria-hidden="true" />

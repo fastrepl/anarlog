@@ -8,6 +8,8 @@ import {
 } from "@hypr/ui/components/ui/tooltip";
 import { cn } from "@hypr/utils";
 
+import { floatingActionSurfaceClassName } from "~/shared/floating-action-surface";
+
 export { ActionableTooltipContent } from "~/session/components/shared";
 
 export function FloatingButton({
@@ -42,9 +44,9 @@ export function FloatingButton({
     <Button
       size="lg"
       className={cn([
-        "rounded-full border-2 transition-[border-color,opacity] duration-200 focus-visible:ring-0",
+        "rounded-full border-2 transition-[background-color,border-color,color,opacity,box-shadow] duration-200 focus-visible:ring-0",
+        floatingActionSurfaceClassName,
         error && "border-red-500",
-        !error && "border-border",
         subtle && "opacity-40 hover:opacity-100",
         className,
       ])}
