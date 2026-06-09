@@ -8,12 +8,15 @@ use owhisper_client::{
 };
 use tracing::Instrument;
 
+use hypr_audio_chunking::AudioChunk;
 use hypr_audio_utils::Source;
 use hypr_transcribe_core::{
     TARGET_SAMPLE_RATE, channel_duration_sec, chunk_channel_audio, split_resampled_channels,
 };
 
 use super::{BatchParams, BatchRunMode, BatchRunOutput, format_user_friendly_error, session_span};
+
+const SONIQO_PARAKEET_MAX_CHUNK_SAMPLES: usize = TARGET_SAMPLE_RATE as usize * 39 / 2;
 
 macro_rules! dispatch_batch {
     ($ak:expr, $params:expr, $lp:expr,
@@ -266,6 +269,7 @@ fn transcribe_soniqo_channel(
     let duration_seconds = channel_duration_sec(samples);
     let chunks =
         chunk_channel_audio::<hypr_audio_chunking::Error>(samples).map_err(|e| e.to_string())?;
+    let chunks = split_soniqo_native_chunks(model, chunks);
     tracing::info!(
         hyprnote.stt.provider.name = "soniqo",
         hyprnote.stt.model = %model,
@@ -359,6 +363,47 @@ fn transcribe_soniqo_samples(
     hypr_transcribe_soniqo::transcribe_file(model, file.path(), language).map_err(|e| e.to_string())
 }
 
+fn split_soniqo_native_chunks(
+    model: hypr_transcribe_soniqo::SoniqoModel,
+    chunks: Vec<AudioChunk>,
+) -> Vec<AudioChunk> {
+    let max_samples = match model {
+        hypr_transcribe_soniqo::SoniqoModel::ParakeetBatch => SONIQO_PARAKEET_MAX_CHUNK_SAMPLES,
+        _ => return chunks,
+    };
+
+    chunks
+        .into_iter()
+        .flat_map(|chunk| split_audio_chunk(chunk, max_samples))
+        .collect()
+}
+
+fn split_audio_chunk(chunk: AudioChunk, max_samples: usize) -> Vec<AudioChunk> {
+    if chunk.samples.len() <= max_samples {
+        return vec![chunk];
+    }
+
+    let AudioChunk {
+        samples,
+        sample_start,
+        ..
+    } = chunk;
+
+    samples
+        .chunks(max_samples)
+        .enumerate()
+        .map(|(index, window)| {
+            let sample_start = sample_start + index * max_samples;
+            let sample_end = sample_start + window.len();
+            AudioChunk {
+                samples: window.to_vec(),
+                sample_start,
+                sample_end,
+            }
+        })
+        .collect()
+}
+
 fn collapse_identical_channels(channels: Vec<Vec<f32>>) -> Vec<Vec<f32>> {
     if channels.len() != 2 || !channels_are_effectively_identical(&channels[0], &channels[1]) {
         return channels;
@@ -404,5 +449,44 @@ mod tests {
         let channels = collapse_identical_channels(vec![vec![0.1, 0.2], vec![0.9, 0.8]]);
 
         assert_eq!(channels, vec![vec![0.1, 0.2], vec![0.9, 0.8]]);
+    }
+
+    #[test]
+    fn splits_parakeet_chunks_below_largest_coreml_shape() {
+        let sample_start = TARGET_SAMPLE_RATE as usize * 4;
+        let oversized = SONIQO_PARAKEET_MAX_CHUNK_SAMPLES + TARGET_SAMPLE_RATE as usize;
+        let chunks = split_soniqo_native_chunks(
+            hypr_transcribe_soniqo::SoniqoModel::ParakeetBatch,
+            vec![AudioChunk {
+                samples: vec![0.0; oversized],
+                sample_start,
+                sample_end: sample_start + oversized,
+            }],
+        );
+
+        assert_eq!(chunks.len(), 2);
+        assert_eq!(chunks[0].sample_start, sample_start);
+        assert_eq!(
+            chunks[0].sample_end,
+            sample_start + SONIQO_PARAKEET_MAX_CHUNK_SAMPLES
+        );
+        assert_eq!(chunks[1].sample_start, chunks[0].sample_end);
+        assert_eq!(chunks[1].samples.len(), TARGET_SAMPLE_RATE as usize);
+    }
+
+    #[test]
+    fn leaves_non_parakeet_chunks_unchanged() {
+        let oversized = SONIQO_PARAKEET_MAX_CHUNK_SAMPLES + TARGET_SAMPLE_RATE as usize;
+        let chunks = split_soniqo_native_chunks(
+            hypr_transcribe_soniqo::SoniqoModel::Omnilingual,
+            vec![AudioChunk {
+                samples: vec![0.0; oversized],
+                sample_start: 0,
+                sample_end: oversized,
+            }],
+        );
+
+        assert_eq!(chunks.len(), 1);
+        assert_eq!(chunks[0].samples.len(), oversized);
     }
 }
