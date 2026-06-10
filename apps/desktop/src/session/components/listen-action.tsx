@@ -4,7 +4,11 @@ import { Spinner } from "@hypr/ui/components/ui/spinner";
 
 import { OptionsMenu } from "./floating/options-menu";
 import { ActionableTooltipContent, FloatingButton } from "./floating/shared";
-import { RecordingIcon, useListenButtonState } from "./shared";
+import {
+  RecordingIcon,
+  useCurrentNoteHasContent,
+  useListenButtonState,
+} from "./shared";
 
 import { useTabs } from "~/store/zustand/tabs";
 import { useListener } from "~/stt/contexts";
@@ -19,6 +23,7 @@ export function ListenActionButton({ sessionId }: { sessionId: string }) {
   }));
   const startListening = useStartListening(sessionId);
   const openNew = useTabs((state) => state.openNew);
+  const noteHasContent = useCurrentNoteHasContent(sessionId, { type: "raw" });
 
   const handleConfigure = useCallback(() => {
     startListening();
@@ -43,6 +48,7 @@ export function ListenActionButton({ sessionId }: { sessionId: string }) {
         sessionId={sessionId}
         disabled={isDisabled}
         warningMessage={warningMessage}
+        hideUploadActions={noteHasContent}
         onConfigure={handleConfigure}
       >
         <FloatingButton

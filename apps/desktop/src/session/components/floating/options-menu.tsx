@@ -22,12 +22,14 @@ export function OptionsMenu({
   sessionId,
   disabled,
   warningMessage,
+  hideUploadActions = false,
   onConfigure,
   children,
 }: {
   sessionId: string;
   disabled: boolean;
   warningMessage: string;
+  hideUploadActions?: boolean;
   onConfigure?: () => void;
   children: React.ReactNode;
 }) {
@@ -63,6 +65,10 @@ export function OptionsMenu({
       <span className="sr-only">More options</span>
     </button>
   );
+
+  if (hideUploadActions) {
+    return <div className="relative flex items-center">{children}</div>;
+  }
 
   if (disabled && warningMessage) {
     return (

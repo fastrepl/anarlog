@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { OverflowButton } from "./index";
 
@@ -8,12 +8,14 @@ import type { EditorView } from "~/store/zustand/tabs/schema";
 const {
   uploadAudioMock,
   uploadTranscriptMock,
+  useCurrentNoteHasContentMock,
   useHasTranscriptMock,
   useListenerMock,
   useConfigValueMock,
 } = vi.hoisted(() => ({
   uploadAudioMock: vi.fn(),
   uploadTranscriptMock: vi.fn(),
+  useCurrentNoteHasContentMock: vi.fn(),
   useHasTranscriptMock: vi.fn(),
   useListenerMock: vi.fn(),
   useConfigValueMock: vi.fn(),
@@ -80,6 +82,7 @@ vi.mock("~/meeting-float/host", () => ({
 }));
 
 vi.mock("~/session/components/shared", () => ({
+  useCurrentNoteHasContent: useCurrentNoteHasContentMock,
   useHasTranscript: useHasTranscriptMock,
 }));
 
@@ -99,8 +102,13 @@ vi.mock("~/stt/useUploadFile", () => ({
 }));
 
 describe("OverflowButton", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
+    useCurrentNoteHasContentMock.mockReturnValue(false);
     useHasTranscriptMock.mockReturnValue(true);
     useConfigValueMock.mockReturnValue(false);
     useListenerMock.mockImplementation((selector) =>
@@ -110,7 +118,7 @@ describe("OverflowButton", () => {
     );
   });
 
-  it("keeps upload actions available when a transcript already exists", () => {
+  it("keeps upload actions available when the current note is empty", () => {
     render(
       <OverflowButton
         sessionId="session-1"
@@ -123,5 +131,21 @@ describe("OverflowButton", () => {
 
     expect(uploadAudioMock).toHaveBeenCalledTimes(1);
     expect(uploadTranscriptMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("hides upload actions when the current note has content", () => {
+    useCurrentNoteHasContentMock.mockReturnValue(true);
+
+    render(
+      <OverflowButton
+        sessionId="session-1"
+        currentView={{ type: "enhanced", id: "note-1" } as EditorView}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Upload audio" })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Upload transcript" }),
+    ).toBeNull();
   });
 });

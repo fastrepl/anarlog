@@ -4,6 +4,7 @@ import { Button } from "@hypr/ui/components/ui/button";
 
 import { computeCurrentNoteTab } from "./compute-note-tab";
 
+import { extractPlainText } from "~/search/contexts/engine/utils";
 import * as main from "~/store/tinybase/store/main";
 import type { Tab } from "~/store/zustand/tabs/schema";
 import { type EditorView } from "~/store/zustand/tabs/schema";
@@ -19,6 +20,30 @@ export function useHasTranscript(sessionId: string): boolean {
   );
 
   return !!transcriptIds && transcriptIds.length > 0;
+}
+
+export function hasStoredNoteContent(value: unknown): boolean {
+  return extractPlainText(value).trim().length > 0;
+}
+
+export function useCurrentNoteHasContent(
+  sessionId: string,
+  currentView: EditorView,
+): boolean {
+  const rawMd = main.UI.useCell("sessions", sessionId, "raw_md", main.STORE_ID);
+  const enhancedNoteId = currentView.type === "enhanced" ? currentView.id : "";
+  const enhancedContent = main.UI.useCell(
+    "enhanced_notes",
+    enhancedNoteId,
+    "content",
+    main.STORE_ID,
+  );
+
+  if (currentView.type === "enhanced") {
+    return hasStoredNoteContent(enhancedContent);
+  }
+
+  return hasStoredNoteContent(rawMd);
 }
 
 export function useCurrentNoteTab(

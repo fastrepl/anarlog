@@ -1,6 +1,38 @@
 import { describe, expect, it } from "vitest";
 
 import { computeCurrentNoteTab } from "./compute-note-tab";
+import { hasStoredNoteContent } from "./shared";
+
+describe("hasStoredNoteContent", () => {
+  it("returns false for empty stored note values", () => {
+    expect(hasStoredNoteContent("")).toBe(false);
+    expect(
+      hasStoredNoteContent(
+        JSON.stringify({
+          type: "doc",
+          content: [{ type: "paragraph" }],
+        }),
+      ),
+    ).toBe(false);
+  });
+
+  it("returns true for markdown and tiptap text content", () => {
+    expect(hasStoredNoteContent("Meeting notes")).toBe(true);
+    expect(
+      hasStoredNoteContent(
+        JSON.stringify({
+          type: "doc",
+          content: [
+            {
+              type: "paragraph",
+              content: [{ type: "text", text: "Meeting notes" }],
+            },
+          ],
+        }),
+      ),
+    ).toBe(true);
+  });
+});
 
 describe("computeCurrentNoteTab", () => {
   describe("when listening is active", () => {

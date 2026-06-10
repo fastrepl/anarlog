@@ -24,7 +24,10 @@ import { ShowInFinder } from "./misc";
 
 import { useAudioPlayer } from "~/audio-player";
 import { openFloatingMeetingPanel } from "~/meeting-float/host";
-import { useHasTranscript } from "~/session/components/shared";
+import {
+  useCurrentNoteHasContent,
+  useHasTranscript,
+} from "~/session/components/shared";
 import { useConfigValue } from "~/shared/config";
 import type { EditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
@@ -40,6 +43,10 @@ export function OverflowButton({
   const [open, setOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const hasTranscript = useHasTranscript(sessionId);
+  const currentNoteHasContent = useCurrentNoteHasContent(
+    sessionId,
+    currentView,
+  );
   const { uploadAudio, uploadTranscript } = useUploadFile(sessionId);
   const { audioExists } = useAudioPlayer();
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
@@ -90,20 +97,24 @@ export function OverflowButton({
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <Listening sessionId={sessionId} hasTranscript={hasTranscript} />
-            <DropdownMenuItem
-              onClick={handleUploadAudio}
-              className="cursor-pointer"
-            >
-              <AudioLinesIcon />
-              <span>Upload audio</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={handleUploadTranscript}
-              className="cursor-pointer"
-            >
-              <FileTextIcon />
-              <span>Upload transcript</span>
-            </DropdownMenuItem>
+            {!currentNoteHasContent && (
+              <>
+                <DropdownMenuItem
+                  onClick={handleUploadAudio}
+                  className="cursor-pointer"
+                >
+                  <AudioLinesIcon />
+                  <span>Upload audio</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={handleUploadTranscript}
+                  className="cursor-pointer"
+                >
+                  <FileTextIcon />
+                  <span>Upload transcript</span>
+                </DropdownMenuItem>
+              </>
+            )}
             {canOpenFloatingPanel && (
               <DropdownMenuItem
                 onClick={handleOpenFloatingPanel}
