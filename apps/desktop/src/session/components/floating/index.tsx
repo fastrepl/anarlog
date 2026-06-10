@@ -46,8 +46,10 @@ export function FloatingActionButton({
   return (
     <div
       className={cn([
-        "absolute bottom-0 left-1/2 z-20 flex h-14 max-w-[calc(100%-2rem)] -translate-x-1/2 items-end justify-center pb-4",
-        tuckAction ? "group pointer-events-auto" : "pointer-events-none",
+        "absolute left-1/2 z-20 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-end justify-center",
+        tuckAction
+          ? "group pointer-events-auto bottom-0 h-24 pb-4"
+          : "pointer-events-none bottom-0 h-14 pb-4",
       ])}
     >
       <AnimatePresence mode="wait" initial={false}>
