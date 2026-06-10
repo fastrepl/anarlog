@@ -15,6 +15,7 @@ const {
   useConfigValueMock,
   useSTTConnectionMock,
   isSupportedLanguagesLiveMock,
+  setLeftSidebarExpandedMock,
 } = vi.hoisted(() => ({
   queueAutoEnhanceIfSummaryEmptyMock: vi.fn(),
   startMock: vi.fn(),
@@ -26,6 +27,7 @@ const {
   useConfigValueMock: vi.fn(),
   useSTTConnectionMock: vi.fn(),
   isSupportedLanguagesLiveMock: vi.fn(),
+  setLeftSidebarExpandedMock: vi.fn(),
 }));
 
 vi.mock("@hypr/plugin-transcription", () => ({
@@ -60,6 +62,14 @@ vi.mock("./useSTTConnection", () => ({
 vi.mock("~/services/enhancer", () => ({
   getEnhancerService: vi.fn(() => ({
     queueAutoEnhanceIfSummaryEmpty: queueAutoEnhanceIfSummaryEmptyMock,
+  })),
+}));
+
+vi.mock("~/contexts/shell", () => ({
+  useShell: vi.fn(() => ({
+    leftsidebar: {
+      setExpanded: setLeftSidebarExpandedMock,
+    },
   })),
 }));
 
@@ -172,6 +182,28 @@ describe("useStartListening", () => {
       status: "ok",
       data: true,
     });
+  });
+
+  test("collapses the left sidebar after listening starts", async () => {
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    expect(setLeftSidebarExpandedMock).toHaveBeenCalledWith(false);
+  });
+
+  test("keeps the left sidebar state when listening fails to start", async () => {
+    startMock.mockResolvedValue(false);
+
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    expect(setLeftSidebarExpandedMock).not.toHaveBeenCalled();
   });
 
   test("runs batch transcription after record-only capture stops", async () => {

@@ -12,6 +12,7 @@ import {
 } from "./useRunBatch";
 import { useSTTConnection } from "./useSTTConnection";
 
+import { useShell } from "~/contexts/shell";
 import { getEnhancerService } from "~/services/enhancer";
 import { getSessionEventById } from "~/session/utils";
 import { useConfigValue } from "~/shared/config";
@@ -56,6 +57,8 @@ export function useStartListening(sessionId: string) {
   const start = useListener((state) => state.start);
   const { conn } = useSTTConnection();
   const runBatch = useRunBatch(sessionId);
+  const { leftsidebar } = useShell();
+  const setLeftSidebarExpanded = leftsidebar.setExpanded;
 
   const keywords = useKeywords(sessionId);
   const runBatchRef = useRef(runBatch);
@@ -180,6 +183,8 @@ export function useStartListening(sessionId: string) {
       return;
     }
 
+    setLeftSidebarExpanded(false);
+
     void analyticsCommands.event({
       event: "session_started",
       has_calendar_event: !!getSessionEventById(store, sessionId),
@@ -200,6 +205,7 @@ export function useStartListening(sessionId: string) {
     keywords,
     user_id,
     spokenLanguages,
+    setLeftSidebarExpanded,
   ]);
 
   return startListening;
