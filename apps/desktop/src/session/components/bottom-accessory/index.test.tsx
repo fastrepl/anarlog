@@ -208,7 +208,7 @@ describe("useSessionBottomAccessory", () => {
     expect(hoisted.hotkeys.get("esc")?.options?.enabled).toBe(false);
   });
 
-  it("keeps the playback accessory mounted while the transcript panel is collapsed", () => {
+  it("hides the playback accessory while the transcript panel is collapsed", () => {
     const { result } = renderHook(() =>
       useSessionBottomAccessory({
         sessionId: "session-1",
@@ -222,7 +222,7 @@ describe("useSessionBottomAccessory", () => {
       mode: "playback",
       expanded: false,
     });
-    expect(result.current.bottomAccessory).not.toBeNull();
+    expect(result.current.bottomAccessory).toBeNull();
   });
 
   it("generates missing past note facts when the past notes tab opens", () => {

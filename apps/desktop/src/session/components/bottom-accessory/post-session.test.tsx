@@ -63,8 +63,23 @@ vi.mock("@hypr/ui/components/ui/tooltip", () => ({
 
 vi.mock("~/audio-player", () => ({
   Timeline: () => <div data-testid="timeline" />,
-  TimelineShell: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
+  TimelineShell: ({
+    children,
+    leading,
+    main,
+    meta,
+  }: {
+    children?: React.ReactNode;
+    leading?: React.ReactNode;
+    main?: React.ReactNode;
+    meta?: React.ReactNode;
+  }) => (
+    <div>
+      {leading}
+      {main}
+      {meta}
+      {children}
+    </div>
   ),
   TimelineMeta: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
@@ -237,7 +252,7 @@ describe("PostSessionAccessory", () => {
     });
   });
 
-  it("keeps the audio timeline visible while the transcript panel is collapsed", () => {
+  it("hides the audio timeline while the transcript panel is collapsed", () => {
     render(
       <PostSessionAccessory
         sessionId="session-1"
@@ -247,12 +262,18 @@ describe("PostSessionAccessory", () => {
       />,
     );
 
-    expect(screen.getByTestId("timeline")).toBeTruthy();
+    expect(screen.queryByTestId("timeline")).toBeNull();
     expect(screen.queryByTestId("transcript")).toBeNull();
   });
 
-  it("keeps the audio timeline slot height stable between collapsed and expanded states", () => {
-    const { unmount } = render(
+  it("keeps batch progress visible while the transcript panel is collapsed", () => {
+    useTranscriptScreenMock.mockReturnValue({
+      kind: "running_batch",
+      percentage: 0.25,
+      phase: "transcribing",
+    });
+
+    render(
       <PostSessionAccessory
         sessionId="session-1"
         hasAudio
@@ -261,13 +282,12 @@ describe("PostSessionAccessory", () => {
       />,
     );
 
-    const collapsedSlotClassName =
-      screen.getByTestId("timeline").parentElement?.className;
-    expect(collapsedSlotClassName).toContain("h-10");
-    expect(collapsedSlotClassName).toContain("-mt-1.5");
+    expect(screen.getByText("25%")).toBeTruthy();
+    expect(screen.getByText("Transcribing")).toBeTruthy();
+    expect(screen.queryByTestId("transcript")).toBeNull();
+  });
 
-    unmount();
-
+  it("keeps the audio timeline slot height stable when expanded", () => {
     render(
       <PostSessionAccessory
         sessionId="session-1"
@@ -328,7 +348,7 @@ describe("PostSessionAccessory", () => {
 
     expect(screen.getByText("Transcript")).toBeTruthy();
     expect(screen.getAllByText("Transcribing...")).toHaveLength(1);
-    expect(screen.getAllByTestId("spinner")).toHaveLength(1);
+    expect(screen.getAllByTestId("spinner")).toHaveLength(2);
     expect(screen.getByTestId("transcript-skeleton")).toBeTruthy();
     expect(screen.queryByTestId("transcript")).toBeNull();
   });

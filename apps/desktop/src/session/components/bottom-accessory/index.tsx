@@ -161,7 +161,7 @@ export function useSessionBottomAccessory({
   }
 
   if (showPostSession) {
-    const hasAccessoryContent = isExpanded || hasAudio || isRunningBatch;
+    const hasAccessoryContent = isExpanded || isRunningBatch;
     return {
       bottomAccessory: hasAccessoryContent ? (
         <PostSessionAccessory

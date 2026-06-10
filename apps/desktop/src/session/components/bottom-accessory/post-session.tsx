@@ -63,7 +63,7 @@ export function PostSessionAccessory({
     (effectiveActiveTab === "past_notes" || hasTranscript || isBatching);
   const timeline = isBatching ? (
     <BatchProgressTimeline sessionId={sessionId} screen={screen} />
-  ) : hasAudio ? (
+  ) : hasAudio && isTranscriptExpanded ? (
     <AudioPlayer.Timeline />
   ) : null;
 
