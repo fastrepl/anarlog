@@ -13,7 +13,6 @@ interface AppSettingsViewProps {
   autoStartScheduledMeetings: SettingItem;
   autoStopMeetings: SettingItem;
   floatingBar: SettingItem;
-  sidebarTimeline: SettingItem;
   telemetryConsent: SettingItem;
 }
 
@@ -22,7 +21,6 @@ export function AppSettingsView({
   autoStartScheduledMeetings,
   autoStopMeetings,
   floatingBar,
-  sidebarTimeline,
   telemetryConsent,
 }: AppSettingsViewProps) {
   return (
@@ -36,16 +34,6 @@ export function AppSettingsView({
             }
             checked={autostart.value}
             onChange={autostart.onChange}
-          />
-          <SettingRow
-            title={<Trans>Show timeline in sidebar</Trans>}
-            description={
-              <Trans>
-                Use the left sidebar timeline instead of the top timeline.
-              </Trans>
-            }
-            checked={sidebarTimeline.value}
-            onChange={sidebarTimeline.onChange}
           />
           <SettingRow
             title={<Trans>Share usage data</Trans>}

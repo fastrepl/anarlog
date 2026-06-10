@@ -25,11 +25,11 @@ msgstr "添加口语语言"
 msgid "Additional spoken languages"
 msgstr "其他口语语言"
 
-#: src/settings/general/app-settings.tsx:35
+#: src/settings/general/app-settings.tsx:33
 msgid "Always ready without manually launching."
 msgstr "无需手动启动，随时就绪。"
 
-#: src/settings/general/index.tsx:136
+#: src/settings/general/index.tsx:133
 msgid "App"
 msgstr "应用"
 
@@ -37,11 +37,11 @@ msgstr "应用"
 msgid "Appearance"
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:71
+#: src/settings/general/app-settings.tsx:59
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "当关联日程的笔记到达预定开始时间时，自动开始聆听。"
 
-#: src/settings/general/app-settings.tsx:82
+#: src/settings/general/app-settings.tsx:70
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "当会议应用释放麦克风时，自动停止聆听。"
 
@@ -53,7 +53,7 @@ msgstr ""
 msgid "Dark"
 msgstr ""
 
-#: src/settings/general/index.tsx:255
+#: src/settings/general/index.tsx:239
 msgid "Data"
 msgstr "数据"
 
@@ -61,7 +61,7 @@ msgstr "数据"
 msgid "First day of the week in the calendar view"
 msgstr ""
 
-#: src/settings/general/index.tsx:206
+#: src/settings/general/index.tsx:190
 msgid "Language & Region"
 msgstr "语言和地区"
 
@@ -77,7 +77,7 @@ msgstr ""
 msgid "Main language"
 msgstr "主要语言"
 
-#: src/settings/general/app-settings.tsx:65
+#: src/settings/general/app-settings.tsx:53
 msgid "Meetings"
 msgstr "会议"
 
@@ -94,11 +94,11 @@ msgstr "未找到匹配的语言"
 msgid "No results found."
 msgstr ""
 
-#: src/settings/general/index.tsx:265
+#: src/settings/general/index.tsx:249
 msgid "Notifications"
 msgstr "通知"
 
-#: src/settings/general/index.tsx:274
+#: src/settings/general/index.tsx:258
 msgid "Permissions"
 msgstr ""
 
@@ -126,35 +126,31 @@ msgstr "选择语言"
 msgid "Select..."
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:53
+#: src/settings/general/app-settings.tsx:41
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "发送匿名使用分析，帮助改进 Anarlog。"
 
-#: src/settings/general/app-settings.tsx:51
+#: src/settings/general/app-settings.tsx:39
 msgid "Share usage data"
 msgstr "分享使用数据"
 
-#: src/settings/general/app-settings.tsx:91
+#: src/settings/general/app-settings.tsx:79
 msgid "Show floating bar"
 msgstr "显示浮动栏"
 
-#: src/settings/general/app-settings.tsx:93
+#: src/settings/general/app-settings.tsx:81
 msgid "Show the compact floating control while listening."
 msgstr "聆听时显示紧凑的浮动控件。"
 
-#: src/settings/general/app-settings.tsx:41
-msgid "Show timeline in sidebar"
-msgstr "在侧边栏显示时间线"
-
-#: src/settings/general/app-settings.tsx:33
+#: src/settings/general/app-settings.tsx:31
 msgid "Start Anarlog at login"
 msgstr "登录时启动 Anarlog"
 
-#: src/settings/general/app-settings.tsx:69
+#: src/settings/general/app-settings.tsx:57
 msgid "Start when meeting begins"
 msgstr "会议开始时启动"
 
-#: src/settings/general/app-settings.tsx:80
+#: src/settings/general/app-settings.tsx:68
 msgid "Stop when meeting ends"
 msgstr "会议结束时停止"
 
@@ -169,10 +165,6 @@ msgstr ""
 #: src/settings/general/spoken-languages.tsx:119
 msgid "The main language is always included for transcription"
 msgstr "主要语言始终包含在转录中"
-
-#: src/settings/general/app-settings.tsx:43
-msgid "Use the left sidebar timeline instead of the top timeline."
-msgstr "使用左侧边栏时间线，而不是顶部时间线。"
 
 #: src/settings/general/week-start.tsx:55
 msgid "Week starts on"

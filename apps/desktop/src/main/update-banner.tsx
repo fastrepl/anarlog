@@ -1,6 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { DownloadIcon, RefreshCwIcon, RotateCwIcon } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
+import { DownloadIcon, RotateCwIcon } from "lucide-react";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 
 import {
@@ -294,38 +293,6 @@ export function useDesktopUpdateControl(): DesktopUpdateControl {
   };
 }
 
-export function TimelineUpdateBanner({
-  update,
-}: {
-  update: DesktopUpdateControl;
-}) {
-  return (
-    <AnimatePresence initial={false}>
-      {update.status && update.version ? (
-        <motion.div
-          key="timeline-update-banner"
-          initial={{ height: 0, opacity: 0 }}
-          animate={{ height: "auto", opacity: 1 }}
-          exit={{ height: 0, opacity: 0 }}
-          transition={{ duration: 0.18, ease: "easeOut" }}
-          className="w-full shrink-0 overflow-hidden"
-        >
-          <UpdateBanner
-            status={update.status}
-            progress={update.progress}
-            errorMessage={update.errorMessage}
-            downloadStarting={update.downloadStarting}
-            installing={update.installing}
-            actionIcon={bannerActionIcon(update.status)}
-            onDownload={update.downloadUpdate}
-            onInstall={update.installUpdate}
-          />
-        </motion.div>
-      ) : null}
-    </AnimatePresence>
-  );
-}
-
 export function SidebarTimelineUpdateButton({
   update,
 }: {
@@ -363,165 +330,6 @@ export function SidebarTimelineUpdateButton({
       )}
     </button>
   );
-}
-
-function UpdateBanner({
-  status,
-  progress,
-  errorMessage,
-  downloadStarting,
-  installing,
-  actionIcon,
-  onDownload,
-  onInstall,
-}: {
-  status: UpdateBannerStatus;
-  progress: number | null;
-  errorMessage: string | null;
-  downloadStarting: boolean;
-  installing: boolean;
-  actionIcon?: ReactNode;
-  onDownload: () => void;
-  onInstall: () => void;
-}) {
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      data-testid="timeline-update-banner"
-      className="bg-muted/80 text-foreground border-border/70 flex h-9 w-full shrink-0 items-center justify-center border-y px-3 font-mono text-xs"
-    >
-      <div className="flex min-w-0 items-center justify-center gap-3">
-        <BannerBody status={status} errorMessage={errorMessage} />
-
-        <BannerAction
-          status={status}
-          progress={progress}
-          downloadStarting={downloadStarting}
-          installing={installing}
-          actionIcon={actionIcon}
-          onDownload={onDownload}
-          onInstall={onInstall}
-        />
-      </div>
-    </div>
-  );
-}
-
-function BannerBody({
-  status,
-  errorMessage,
-}: {
-  status: UpdateBannerStatus;
-  errorMessage: string | null;
-}) {
-  if (status === "available" || status === "downloading") {
-    return <span className="shrink-0">New version available</span>;
-  }
-
-  if (status === "ready") {
-    return <span className="shrink-0">Update ready</span>;
-  }
-
-  return (
-    <span className="shrink-0" title={errorMessage ?? undefined}>
-      Update failed
-    </span>
-  );
-}
-
-function BannerAction({
-  status,
-  progress,
-  downloadStarting,
-  installing,
-  actionIcon,
-  onDownload,
-  onInstall,
-}: {
-  status: UpdateBannerStatus;
-  progress: number | null;
-  downloadStarting: boolean;
-  installing: boolean;
-  actionIcon?: ReactNode;
-  onDownload: () => void;
-  onInstall: () => void;
-}) {
-  if (status === "available" || status === "failed") {
-    return (
-      <button
-        type="button"
-        data-tauri-drag-region="false"
-        onClick={onDownload}
-        disabled={downloadStarting}
-        className={cn([
-          "inline-flex h-7 w-[104px] shrink-0 items-center justify-center gap-1.5 overflow-hidden rounded-full px-3 font-medium",
-          "bg-primary text-primary-foreground hover:bg-primary/90 transition-colors",
-          "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-hidden",
-          "disabled:cursor-not-allowed disabled:opacity-60",
-        ])}
-      >
-        <ActionIcon icon={actionIcon} />
-        {downloadStarting
-          ? "Starting..."
-          : status === "failed"
-            ? "Retry"
-            : "Download"}
-      </button>
-    );
-  }
-
-  if (status === "downloading") {
-    return <DownloadProgress progress={progress} />;
-  }
-
-  return (
-    <button
-      type="button"
-      data-tauri-drag-region="false"
-      onClick={onInstall}
-      disabled={installing}
-      className={cn([
-        "inline-flex h-7 shrink-0 items-center justify-center gap-1.5 overflow-hidden rounded-full px-3 font-medium",
-        "bg-primary text-primary-foreground hover:bg-primary/90 transition-colors",
-        "focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden",
-        "disabled:cursor-not-allowed disabled:opacity-60",
-      ])}
-    >
-      <ActionIcon icon={actionIcon} />
-      {installing ? "Restarting" : "Restart"}
-    </button>
-  );
-}
-
-function DownloadProgress({ progress }: { progress: number | null }) {
-  const pct = Math.max(0, Math.min(100, Math.round((progress ?? 0) * 100)));
-
-  return (
-    <div
-      aria-label={
-        progress === null
-          ? "Downloading update"
-          : `Downloading update, ${pct}% complete`
-      }
-      className="bg-card text-foreground border-border relative inline-flex h-7 w-[104px] shrink-0 items-center justify-center overflow-hidden rounded-full border px-3 font-medium"
-    >
-      {progress === null ? null : (
-        <span
-          aria-hidden="true"
-          className="bg-primary/15 absolute inset-y-0 left-0"
-          style={{ width: `${pct}%` }}
-        />
-      )}
-      <span className="relative z-10 tabular-nums">
-        {progress === null ? "Downloading" : `${pct}%`}
-      </span>
-    </div>
-  );
-}
-
-function ActionIcon({ icon }: { icon?: ReactNode }) {
-  return icon ? <span aria-hidden="true">{icon}</span> : null;
 }
 
 function SidebarCircularProgress({ progress }: { progress: number | null }) {
@@ -589,16 +397,6 @@ function sidebarActionIcon(status: UpdateBannerStatus): ReactNode {
   }
 
   return <DownloadIcon size={14} aria-hidden="true" />;
-}
-
-function bannerActionIcon(status: UpdateBannerStatus): ReactNode {
-  if (status === "failed") {
-    return <RefreshCwIcon size={12} aria-hidden="true" />;
-  }
-  if (status === "ready") {
-    return <RotateCwIcon size={12} aria-hidden="true" />;
-  }
-  return <DownloadIcon size={12} aria-hidden="true" />;
 }
 
 function unwrapResult<T>(result: Result<T, string>): T {

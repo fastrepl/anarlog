@@ -25,11 +25,11 @@ msgstr "Сөйлеу тілін қосу"
 msgid "Additional spoken languages"
 msgstr "Қосымша ауызекі тілдер"
 
-#: src/settings/general/app-settings.tsx:35
+#: src/settings/general/app-settings.tsx:33
 msgid "Always ready without manually launching."
 msgstr "Қолмен іске қоспай-ақ әрқашан дайын."
 
-#: src/settings/general/index.tsx:136
+#: src/settings/general/index.tsx:133
 msgid "App"
 msgstr "Қолданба"
 
@@ -37,11 +37,11 @@ msgstr "Қолданба"
 msgid "Appearance"
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:71
+#: src/settings/general/app-settings.tsx:59
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Оқиғаға негізделген жазба жоспарланған басталу уақытына жеткенде тыңдауды автоматты түрде бастаңыз."
 
-#: src/settings/general/app-settings.tsx:82
+#: src/settings/general/app-settings.tsx:70
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Кездесу қолданбасы микрофонды шығарған кезде тыңдауды автоматты түрде тоқтатыңыз."
 
@@ -53,7 +53,7 @@ msgstr ""
 msgid "Dark"
 msgstr ""
 
-#: src/settings/general/index.tsx:255
+#: src/settings/general/index.tsx:239
 msgid "Data"
 msgstr "Деректер"
 
@@ -61,7 +61,7 @@ msgstr "Деректер"
 msgid "First day of the week in the calendar view"
 msgstr ""
 
-#: src/settings/general/index.tsx:206
+#: src/settings/general/index.tsx:190
 msgid "Language & Region"
 msgstr "Тіл және аймақ"
 
@@ -77,7 +77,7 @@ msgstr ""
 msgid "Main language"
 msgstr "Негізгі тіл"
 
-#: src/settings/general/app-settings.tsx:65
+#: src/settings/general/app-settings.tsx:53
 msgid "Meetings"
 msgstr "Кездесулер"
 
@@ -94,11 +94,11 @@ msgstr "Сәйкес тіл табылмады"
 msgid "No results found."
 msgstr ""
 
-#: src/settings/general/index.tsx:265
+#: src/settings/general/index.tsx:249
 msgid "Notifications"
 msgstr "Хабарландырулар"
 
-#: src/settings/general/index.tsx:274
+#: src/settings/general/index.tsx:258
 msgid "Permissions"
 msgstr ""
 
@@ -126,35 +126,31 @@ msgstr "Тілді таңдаңыз"
 msgid "Select..."
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:53
+#: src/settings/general/app-settings.tsx:41
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Anarlog-ті жақсартуға көмектесу үшін анонимді пайдалану аналитикасын жіберіңіз."
 
-#: src/settings/general/app-settings.tsx:51
+#: src/settings/general/app-settings.tsx:39
 msgid "Share usage data"
 msgstr "Пайдалану деректерін бөлісу"
 
-#: src/settings/general/app-settings.tsx:91
+#: src/settings/general/app-settings.tsx:79
 msgid "Show floating bar"
 msgstr "Қалқымалы жолақты көрсету"
 
-#: src/settings/general/app-settings.tsx:93
+#: src/settings/general/app-settings.tsx:81
 msgid "Show the compact floating control while listening."
 msgstr "Тыңдау кезінде ықшам қалқымалы басқару элементін көрсетіңіз."
 
-#: src/settings/general/app-settings.tsx:41
-msgid "Show timeline in sidebar"
-msgstr "Бүйірлік тақтада хронологияны көрсету"
-
-#: src/settings/general/app-settings.tsx:33
+#: src/settings/general/app-settings.tsx:31
 msgid "Start Anarlog at login"
 msgstr "Кіру кезінде Anarlog іске қосыңыз"
 
-#: src/settings/general/app-settings.tsx:69
+#: src/settings/general/app-settings.tsx:57
 msgid "Start when meeting begins"
 msgstr "Кездесу басталғанда бастаңыз"
 
-#: src/settings/general/app-settings.tsx:80
+#: src/settings/general/app-settings.tsx:68
 msgid "Stop when meeting ends"
 msgstr "Кездесу аяқталғанда тоқтатыңыз"
 
@@ -169,10 +165,6 @@ msgstr ""
 #: src/settings/general/spoken-languages.tsx:119
 msgid "The main language is always included for transcription"
 msgstr "Негізгі тіл әрқашан транскрипция үшін қосылады"
-
-#: src/settings/general/app-settings.tsx:43
-msgid "Use the left sidebar timeline instead of the top timeline."
-msgstr "Жоғарғы хронологияның орнына сол жақ бүйірлік тақтаның хронологиясын пайдаланыңыз."
 
 #: src/settings/general/week-start.tsx:55
 msgid "Week starts on"

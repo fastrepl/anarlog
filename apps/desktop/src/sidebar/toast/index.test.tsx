@@ -94,7 +94,7 @@ describe("ToastArea", () => {
     vi.useRealTimers();
   });
 
-  it("keeps the default toast placement fixed to the existing top timeline position", () => {
+  it("keeps the default toast placement fixed to the top chrome position", () => {
     render(<ToastArea />);
 
     act(() => {

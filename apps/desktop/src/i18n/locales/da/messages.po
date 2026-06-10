@@ -25,11 +25,11 @@ msgstr "Tilføj talesprog"
 msgid "Additional spoken languages"
 msgstr "Yderligere talte sprog"
 
-#: src/settings/general/app-settings.tsx:35
+#: src/settings/general/app-settings.tsx:33
 msgid "Always ready without manually launching."
 msgstr "Altid klar uden manuel lancering."
 
-#: src/settings/general/index.tsx:136
+#: src/settings/general/index.tsx:133
 msgid "App"
 msgstr "App"
 
@@ -37,11 +37,11 @@ msgstr "App"
 msgid "Appearance"
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:71
+#: src/settings/general/app-settings.tsx:59
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Begynd automatisk at lytte, når en begivenhedsstøttet note når sit planlagte starttidspunkt."
 
-#: src/settings/general/app-settings.tsx:82
+#: src/settings/general/app-settings.tsx:70
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Stop automatisk med at lytte, når mødeappen slipper mikrofonen."
 
@@ -53,7 +53,7 @@ msgstr ""
 msgid "Dark"
 msgstr ""
 
-#: src/settings/general/index.tsx:255
+#: src/settings/general/index.tsx:239
 msgid "Data"
 msgstr "Data"
 
@@ -61,7 +61,7 @@ msgstr "Data"
 msgid "First day of the week in the calendar view"
 msgstr ""
 
-#: src/settings/general/index.tsx:206
+#: src/settings/general/index.tsx:190
 msgid "Language & Region"
 msgstr "Sprog og region"
 
@@ -77,7 +77,7 @@ msgstr ""
 msgid "Main language"
 msgstr "Hovedsprog"
 
-#: src/settings/general/app-settings.tsx:65
+#: src/settings/general/app-settings.tsx:53
 msgid "Meetings"
 msgstr "Møder"
 
@@ -94,11 +94,11 @@ msgstr "Der blev ikke fundet nogen matchende sprog"
 msgid "No results found."
 msgstr ""
 
-#: src/settings/general/index.tsx:265
+#: src/settings/general/index.tsx:249
 msgid "Notifications"
 msgstr "Underretninger"
 
-#: src/settings/general/index.tsx:274
+#: src/settings/general/index.tsx:258
 msgid "Permissions"
 msgstr ""
 
@@ -126,35 +126,31 @@ msgstr "Vælg sprog"
 msgid "Select..."
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:53
+#: src/settings/general/app-settings.tsx:41
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Send anonym brugsanalyse for at hjælpe med at forbedre Anarlog."
 
-#: src/settings/general/app-settings.tsx:51
+#: src/settings/general/app-settings.tsx:39
 msgid "Share usage data"
 msgstr "Del brugsdata"
 
-#: src/settings/general/app-settings.tsx:91
+#: src/settings/general/app-settings.tsx:79
 msgid "Show floating bar"
 msgstr "Vis flydende bjælke"
 
-#: src/settings/general/app-settings.tsx:93
+#: src/settings/general/app-settings.tsx:81
 msgid "Show the compact floating control while listening."
 msgstr "Vis den kompakte flydende kontrol, mens du lytter."
 
-#: src/settings/general/app-settings.tsx:41
-msgid "Show timeline in sidebar"
-msgstr "Vis tidslinje i sidebjælken"
-
-#: src/settings/general/app-settings.tsx:33
+#: src/settings/general/app-settings.tsx:31
 msgid "Start Anarlog at login"
 msgstr "Start Anarlog ved login"
 
-#: src/settings/general/app-settings.tsx:69
+#: src/settings/general/app-settings.tsx:57
 msgid "Start when meeting begins"
 msgstr "Start, når mødet begynder"
 
-#: src/settings/general/app-settings.tsx:80
+#: src/settings/general/app-settings.tsx:68
 msgid "Stop when meeting ends"
 msgstr "Stop, når mødet slutter"
 
@@ -169,10 +165,6 @@ msgstr ""
 #: src/settings/general/spoken-languages.tsx:119
 msgid "The main language is always included for transcription"
 msgstr "Hovedsproget er altid inkluderet til transskription"
-
-#: src/settings/general/app-settings.tsx:43
-msgid "Use the left sidebar timeline instead of the top timeline."
-msgstr "Brug tidslinjen i venstre sidebjælke i stedet for den øverste tidslinje."
 
 #: src/settings/general/week-start.tsx:55
 msgid "Week starts on"

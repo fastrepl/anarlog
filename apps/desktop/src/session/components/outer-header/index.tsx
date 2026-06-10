@@ -13,7 +13,6 @@ import {
   getRemoteMeeting,
   type RemoteMeeting,
 } from "~/session/hooks/useRemoteMeeting";
-import { useConfigValue } from "~/shared/config";
 import { useSessionEvent } from "~/store/tinybase/hooks";
 import type { EditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
@@ -28,11 +27,8 @@ export function OuterHeader({
   title?: React.ReactNode;
 }) {
   const { leftsidebar } = useShell();
-  const sidebarTimelineEnabled = useConfigValue("sidebar_timeline_enabled");
-  const showSidebarTimelineHeaderGutter =
-    sidebarTimelineEnabled && !leftsidebar.expanded;
-  const showExpandedSidebarTimelineHeader =
-    sidebarTimelineEnabled && leftsidebar.expanded;
+  const showSidebarTimelineHeaderGutter = !leftsidebar.expanded;
+  const showExpandedSidebarTimelineHeader = leftsidebar.expanded;
 
   return (
     <div
@@ -186,7 +182,6 @@ function getMeetingDisplay(type: RemoteMeeting["type"]) {
 
 function SidebarModeStopButton({ sessionId }: { sessionId: string }) {
   const { leftsidebar } = useShell();
-  const sidebarTimelineEnabled = useConfigValue("sidebar_timeline_enabled");
   const { amplitude, degraded, mode, muted, stop } = useListener((state) => ({
     amplitude: state.live.amplitude,
     degraded: state.live.degraded,
@@ -197,7 +192,7 @@ function SidebarModeStopButton({ sessionId }: { sessionId: string }) {
   const active = mode === "active" || mode === "finalizing";
   const finalizing = mode === "finalizing";
 
-  if (!sidebarTimelineEnabled || leftsidebar.expanded || !active) {
+  if (leftsidebar.expanded || !active) {
     return null;
   }
 

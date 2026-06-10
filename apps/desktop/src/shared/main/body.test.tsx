@@ -34,7 +34,6 @@ const mocks = vi.hoisted(() => ({
     slotId: "slot-1",
     type: "empty",
   },
-  sidebarTimelineEnabled: false,
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({
@@ -64,10 +63,6 @@ vi.mock("~/main/tab-content", () => ({
     ),
 }));
 
-vi.mock("~/main/top-meeting-timeline", () => ({
-  TopMeetingTimeline: () => <div data-testid="top-meeting-timeline" />,
-}));
-
 vi.mock("~/main/update-banner", () => ({
   SidebarTimelineUpdateButton: ({
     update,
@@ -77,7 +72,6 @@ vi.mock("~/main/update-banner", () => ({
     update.status && update.version ? (
       <button type="button" data-testid="sidebar-update-button" />
     ) : null,
-  TimelineUpdateBanner: () => <div data-testid="timeline-update-banner" />,
   useDesktopUpdateControl: () => mocks.sidebarUpdateControl,
 }));
 
@@ -109,10 +103,6 @@ vi.mock("~/session/components/bottom-accessory/global-live", () => ({
       {children}
     </div>
   ),
-}));
-
-vi.mock("~/shared/config", () => ({
-  useConfigValue: () => mocks.sidebarTimelineEnabled,
 }));
 
 vi.mock("~/sidebar/toast", () => ({
@@ -162,32 +152,30 @@ describe("ClassicMainBody", () => {
       slotId: "slot-1",
       type: "empty",
     };
-    mocks.sidebarTimelineEnabled = false;
   });
 
   afterEach(() => {
     cleanup();
   });
 
-  it("renders the shell and current tab content", () => {
+  it("renders sidebar timeline chrome and current tab content", () => {
     render(<ClassicMainBody />);
 
-    const timeline = screen.getByTestId("top-meeting-timeline");
-    const timelineRow = timeline.parentElement?.parentElement;
-    const topArea = timelineRow?.parentElement;
+    const sidebarToggle = screen.getByRole("button", { name: "Hide sidebar" });
+    const chrome = sidebarToggle.parentElement?.parentElement;
+    const topArea = chrome?.parentElement?.parentElement;
 
-    expect(timeline).toBeTruthy();
-    expect(timelineRow?.className).toContain("pl-[76px]");
-    expect(timelineRow?.className).toContain("pt-1");
-    expect(timelineRow?.hasAttribute("data-tauri-drag-region")).toBe(true);
-    expect(timeline.parentElement?.className).toContain("flex-1");
-    expect(topArea?.className).toContain("h-12");
-    expect(topArea?.hasAttribute("data-tauri-drag-region")).toBe(true);
-    expect(screen.getByTestId("timeline-update-banner")).toBeTruthy();
     expect(screen.getByTestId("main-sidebar")).toBeTruthy();
     expect(screen.getByTestId("main-tab-content").textContent).toContain(
       "empty",
     );
+    expect(screen.queryByTestId("timeline-update-banner")).toBeNull();
+    expect(sidebarToggle.parentElement?.className).toContain("gap-0");
+    expect(chrome?.className).toContain("justify-between");
+    expect(chrome?.className).toContain("w-full");
+    expect(topArea?.className).toContain("h-12");
+    expect(topArea?.className).toContain("absolute");
+    expect(topArea?.className).toContain("left-0");
   });
 
   it("does not reserve top shell chrome for onboarding", () => {
@@ -202,7 +190,6 @@ describe("ClassicMainBody", () => {
     const body = container.firstElementChild;
     const firstBodyChild = body?.firstElementChild;
 
-    expect(screen.queryByTestId("top-meeting-timeline")).toBeNull();
     expect(screen.queryByTestId("timeline-update-banner")).toBeNull();
     expect(screen.queryByTestId("toast-area")).toBeNull();
     expect(firstBodyChild?.className).toContain(
@@ -214,37 +201,7 @@ describe("ClassicMainBody", () => {
     );
   });
 
-  it("hides the top timeline when the sidebar timeline is enabled", () => {
-    mocks.sidebarTimelineEnabled = true;
-
-    render(<ClassicMainBody />);
-
-    expect(screen.queryByTestId("top-meeting-timeline")).toBeNull();
-    expect(screen.queryByTestId("timeline-update-banner")).toBeNull();
-    expect(screen.queryByTestId("toast-area")).toBeNull();
-    const sidebar = screen.getByTestId("main-sidebar");
-    const sidebarToggle = screen.getByRole("button", { name: "Hide sidebar" });
-    const chrome = sidebarToggle.parentElement?.parentElement;
-    const topArea = chrome?.parentElement?.parentElement;
-
-    expect(sidebar).toBeTruthy();
-    expect(sidebarToggle).toBeTruthy();
-    expect(screen.queryByTestId("sidebar-update-button")).toBeNull();
-    expect(screen.queryByRole("button", { name: "Open calendar" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Go back" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Go forward" })).toBeNull();
-    expect(sidebarToggle.parentElement?.className).toContain("gap-0");
-    expect(chrome?.className).toContain("justify-between");
-    expect(chrome?.className).toContain("w-full");
-    expect(topArea?.className).toContain("h-12");
-    expect(topArea?.className).toContain("absolute");
-    expect(topArea?.className).toContain("left-0");
-    expect(sidebar.parentElement?.className).toContain("flex min-h-0");
-    expect(sidebar.parentElement?.className).not.toContain("pt-12");
-  });
-
-  it("expands the main area to the full window when sidebar timeline mode is collapsed", () => {
-    mocks.sidebarTimelineEnabled = true;
+  it("expands the main area to the full window when the sidebar is collapsed", () => {
     mocks.leftSidebarExpanded = false;
 
     const { container } = render(<ClassicMainBody />);
@@ -256,12 +213,8 @@ describe("ClassicMainBody", () => {
 
     fireEvent.click(sidebarToggle);
 
-    expect(screen.queryByTestId("top-meeting-timeline")).toBeNull();
-    expect(screen.queryByTestId("timeline-update-banner")).toBeNull();
     expect(screen.queryByTestId("sidebar-update-button")).toBeNull();
     expect(screen.queryByRole("button", { name: "Go back" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Go forward" })).toBeNull();
-    expect(sidebarToggle.parentElement?.className).toContain("gap-0");
     expect(sidebarToggle.className).toContain("pointer-events-auto");
     expect(topArea?.className).toContain("absolute");
     expect(topArea?.className).toContain("h-12");
@@ -274,8 +227,7 @@ describe("ClassicMainBody", () => {
     expect(mocks.toggleLeftSidebar).toHaveBeenCalledTimes(1);
   });
 
-  it("shows the update button at the far end of expanded sidebar timeline chrome", () => {
-    mocks.sidebarTimelineEnabled = true;
+  it("shows the update button at the far end of expanded sidebar chrome", () => {
     mocks.sidebarUpdateControl.status = "available";
     mocks.sidebarUpdateControl.version = "1.0.34";
 
@@ -294,8 +246,7 @@ describe("ClassicMainBody", () => {
     ).toBeNull();
   });
 
-  it("shows an update badge on the collapsed sidebar timeline toggle", () => {
-    mocks.sidebarTimelineEnabled = true;
+  it("shows an update badge on the collapsed sidebar toggle", () => {
     mocks.leftSidebarExpanded = false;
     mocks.sidebarUpdateControl.status = "available";
     mocks.sidebarUpdateControl.version = "1.0.34";
@@ -313,35 +264,13 @@ describe("ClassicMainBody", () => {
     expect(mocks.toggleLeftSidebar).toHaveBeenCalledTimes(1);
   });
 
-  it("hides timeline chrome for changelog tabs without collapsing the sidebar state", () => {
+  it("keeps sidebar chrome for changelog tabs", () => {
     mocks.currentTab = {
       active: true,
       pinned: false,
       slotId: "slot-1",
       type: "changelog",
     };
-
-    const { container } = render(<ClassicMainBody />);
-    const body = container.firstElementChild;
-    const topArea = body?.firstElementChild;
-
-    expect(screen.queryByTestId("top-meeting-timeline")).toBeNull();
-    expect(screen.queryByTestId("timeline-update-banner")).toBeNull();
-    expect(screen.queryByRole("button", { name: "Go back" })).toBeNull();
-    expect(topArea?.className).toContain("h-10");
-    expect(screen.getByTestId("main-tab-content").textContent).toContain(
-      "changelog",
-    );
-  });
-
-  it("keeps sidebar timeline chrome for changelog tabs in sidebar timeline mode", () => {
-    mocks.currentTab = {
-      active: true,
-      pinned: false,
-      slotId: "slot-1",
-      type: "changelog",
-    };
-    mocks.sidebarTimelineEnabled = true;
 
     render(<ClassicMainBody />);
 
@@ -349,10 +278,8 @@ describe("ClassicMainBody", () => {
     const chrome = sidebarToggle.parentElement?.parentElement;
     const topArea = chrome?.parentElement?.parentElement;
 
-    expect(screen.queryByTestId("top-meeting-timeline")).toBeNull();
     expect(screen.queryByTestId("timeline-update-banner")).toBeNull();
     expect(screen.queryByRole("button", { name: "Go back" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Go forward" })).toBeNull();
     expect(sidebarToggle.parentElement?.className).toContain("gap-0");
     expect(topArea?.className).toContain("h-12");
     expect(topArea?.className).toContain("absolute");
@@ -378,9 +305,7 @@ describe("ClassicMainBody", () => {
 
       fireEvent.click(backButton);
 
-      expect(screen.queryByTestId("top-meeting-timeline")).toBeNull();
       expect(screen.queryByTestId("timeline-update-banner")).toBeNull();
-      expect(screen.queryByRole("button", { name: "Go forward" })).toBeNull();
       expect(backButton.hasAttribute("disabled")).toBe(false);
       expect(topArea?.className).toContain("h-12");
       expect(topArea?.className).toContain("absolute");
@@ -389,9 +314,7 @@ describe("ClassicMainBody", () => {
     },
   );
 
-  it("starts window dragging from the top 48px of the main area in sidebar timeline mode", () => {
-    mocks.sidebarTimelineEnabled = true;
-
+  it("starts window dragging from the top 48px of the main area", () => {
     render(<ClassicMainBody />);
 
     const mainContent = screen.getByTestId("main-tab-content");
@@ -412,7 +335,6 @@ describe("ClassicMainBody", () => {
   });
 
   it("does not start window dragging from an input in the top drag strip", () => {
-    mocks.sidebarTimelineEnabled = true;
     mocks.currentTab = {
       active: true,
       pinned: false,
@@ -440,8 +362,6 @@ describe("ClassicMainBody", () => {
   });
 
   it("does not start window dragging below the main area drag strip", () => {
-    mocks.sidebarTimelineEnabled = true;
-
     render(<ClassicMainBody />);
 
     const mainContent = screen.getByTestId("main-tab-content");
@@ -455,26 +375,6 @@ describe("ClassicMainBody", () => {
     fireEvent.pointerMove(mainContent, {
       clientX: 20,
       clientY: 56,
-      pointerId: 1,
-    });
-
-    expect(mocks.startDragging).not.toHaveBeenCalled();
-  });
-
-  it("does not add main area dragging when the top timeline owns the titlebar", () => {
-    render(<ClassicMainBody />);
-
-    const mainContent = screen.getByTestId("main-tab-content");
-
-    fireEvent.pointerDown(mainContent, {
-      button: 0,
-      clientX: 12,
-      clientY: 12,
-      pointerId: 1,
-    });
-    fireEvent.pointerMove(mainContent, {
-      clientX: 20,
-      clientY: 12,
       pointerId: 1,
     });
 
@@ -496,8 +396,6 @@ describe("ClassicMainBody", () => {
     const view = within(container);
 
     expect(view.getByTestId("main-sidebar")).toBeTruthy();
-    expect(view.getByTestId("top-meeting-timeline")).toBeTruthy();
-    expect(view.getByTestId("timeline-update-banner")).toBeTruthy();
     expect(view.queryByTestId("main-tab-content")).toBeNull();
   });
 });

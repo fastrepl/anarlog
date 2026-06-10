@@ -12,18 +12,15 @@ import { cn } from "@hypr/utils";
 import { resolveMainSurfaceChrome } from "./main-surface-chrome";
 import { ClassicMainSidebar } from "./shell-sidebar";
 import { ClassicMainTabContent } from "./tab-content";
-import { TopMeetingTimeline } from "./top-meeting-timeline";
 import {
   type DesktopUpdateControl,
   SidebarTimelineUpdateButton,
-  TimelineUpdateBanner,
   useDesktopUpdateControl,
 } from "./update-banner";
 import { useClassicMainTabsShortcuts } from "./useTabsShortcuts";
 
 import { useShell } from "~/contexts/shell";
 import { GlobalLiveTranscriptAccessory } from "~/session/components/bottom-accessory/global-live";
-import { useConfigValue } from "~/shared/config";
 import {
   hasCustomSidebarTab,
   hasLeftSurfaceCustomSidebarTab,
@@ -43,7 +40,6 @@ type MainAreaWindowDragStart = {
 export function ClassicMainBody() {
   const { leftsidebar } = useShell();
   const currentTab = useTabs((state) => state.currentTab);
-  const sidebarTimelineEnabled = useConfigValue("sidebar_timeline_enabled");
   const { runEscapeShortcut } = useClassicMainTabsShortcuts();
 
   const isOnboarding = currentTab?.type === "onboarding";
@@ -51,15 +47,8 @@ export function ClassicMainBody() {
   const hasCustomSidebar = hasCustomSidebarTab(currentTab);
   const hasLeftSurfaceCustomSidebar =
     hasLeftSurfaceCustomSidebarTab(currentTab);
-  const showSidebarTimelineChrome =
-    sidebarTimelineEnabled && !hasCustomSidebar && !isOnboarding;
+  const showSidebarTimelineChrome = !hasCustomSidebar && !isOnboarding;
   const showSidebarTimeline = showSidebarTimelineChrome && leftsidebar.expanded;
-  const showTopTimeline =
-    leftsidebar.expanded &&
-    !showSidebarTimeline &&
-    !hasCustomSidebar &&
-    !isChangelog &&
-    !isOnboarding;
   const showLeftSurfaceChromeBack = hasLeftSurfaceCustomSidebar;
   const enableMainAreaTopDrag =
     showSidebarTimelineChrome || hasLeftSurfaceCustomSidebar;
@@ -69,7 +58,6 @@ export function ClassicMainBody() {
     leftSidebarExpanded: leftsidebar.expanded,
     showSidebarTimeline,
     showSidebarTimelineChrome,
-    showTopTimeline,
   });
   const mainAreaTopDrag = useMainAreaTopWindowDrag(enableMainAreaTopDrag);
   const update = useDesktopUpdateControl();
@@ -102,23 +90,11 @@ export function ClassicMainBody() {
           className="absolute top-0 left-0 z-40 h-10 w-[200px]"
         />
       ) : (
-        <div
-          data-tauri-drag-region
-          className={cn([
-            "relative shrink-0",
-            showTopTimeline ? "h-12" : "h-10",
-          ])}
-        >
+        <div data-tauri-drag-region className="relative h-10 shrink-0">
           <div
             data-tauri-drag-region
             className="flex h-full min-w-0 items-start pt-1 pl-[76px]"
-          >
-            {showTopTimeline ? (
-              <div className="min-w-0 flex-1">
-                <TopMeetingTimeline currentTab={currentTab} />
-              </div>
-            ) : null}
-          </div>
+          />
         </div>
       )}
       {showLeftSurfaceChromeBack ? (
@@ -139,7 +115,6 @@ export function ClassicMainBody() {
           </div>
         </div>
       ) : null}
-      {showTopTimeline ? <TimelineUpdateBanner update={update} /> : null}
       <div className="flex min-h-0 min-w-0 flex-1 gap-1">
         <ClassicMainSidebar />
         <div

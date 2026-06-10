@@ -6,12 +6,10 @@ import { SettingsNav } from "./settings";
 import { TemplatesNav } from "./templates";
 import { TimelineView } from "./timeline";
 
-import { useConfigValue } from "~/shared/config";
 import { useTabs } from "~/store/zustand/tabs";
 
 export function LeftSidebar() {
   const currentTab = useTabs((state) => state.currentTab);
-  const sidebarTimelineEnabled = useConfigValue("sidebar_timeline_enabled");
 
   const isSettingsMode = currentTab?.type === "settings";
   const isCalendarMode = currentTab?.type === "calendar";
@@ -19,7 +17,7 @@ export function LeftSidebar() {
   const isTemplatesMode = currentTab?.type === "templates";
   const isSpecialMode =
     isSettingsMode || isCalendarMode || isContactsMode || isTemplatesMode;
-  const isTimelineSidebarLayout = sidebarTimelineEnabled && !isSpecialMode;
+  const isTimelineSidebarLayout = !isSpecialMode;
 
   return (
     <div

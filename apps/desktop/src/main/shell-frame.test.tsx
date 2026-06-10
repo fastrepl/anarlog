@@ -6,7 +6,6 @@ const mocks = vi.hoisted(() => ({
   leftsidebar: {
     expanded: true,
   },
-  sidebarTimelineEnabled: false,
 }));
 
 vi.mock("./body", () => ({
@@ -42,10 +41,6 @@ vi.mock("~/contexts/shell", () => ({
   }),
 }));
 
-vi.mock("~/shared/config", () => ({
-  useConfigValue: () => mocks.sidebarTimelineEnabled,
-}));
-
 vi.mock("~/sidebar/toast", () => ({
   ToastArea: ({ placement }: { placement?: "default" | "left-sidebar" }) => (
     <div data-placement={placement} data-testid="toast-area" />
@@ -68,25 +63,9 @@ describe("ClassicMainShellFrame", () => {
   beforeEach(() => {
     mocks.currentTab = { type: "empty" };
     mocks.leftsidebar.expanded = true;
-    mocks.sidebarTimelineEnabled = false;
   });
 
-  it("uses top-edge main surface chrome in top timeline mode", () => {
-    render(<ClassicMainShellFrame />);
-
-    expect(
-      screen.getByTestId("toast-area").getAttribute("data-placement"),
-    ).toBe("default");
-    expect(
-      screen
-        .getByTestId("main-shell-scaffold")
-        .getAttribute("data-main-surface-chrome"),
-    ).toBe("top");
-  });
-
-  it("uses left-edge main surface chrome in sidebar timeline mode", () => {
-    mocks.sidebarTimelineEnabled = true;
-
+  it("uses left-edge main surface chrome while the sidebar timeline is expanded", () => {
     render(<ClassicMainShellFrame />);
 
     expect(
@@ -99,8 +78,7 @@ describe("ClassicMainShellFrame", () => {
     ).toBe("left");
   });
 
-  it("uses borderless top-edge main surface chrome for collapsed sidebar timeline mode", () => {
-    mocks.sidebarTimelineEnabled = true;
+  it("uses borderless top-edge main surface chrome while the sidebar timeline is collapsed", () => {
     mocks.leftsidebar.expanded = false;
 
     render(<ClassicMainShellFrame />);
@@ -127,22 +105,8 @@ describe("ClassicMainShellFrame", () => {
     ).toBe("left");
   });
 
-  it("uses top-edge main surface chrome for changelog tabs", () => {
+  it("keeps left-edge main surface chrome for changelog tabs while expanded", () => {
     mocks.currentTab = { type: "changelog" };
-    mocks.leftsidebar.expanded = false;
-
-    render(<ClassicMainShellFrame />);
-
-    expect(
-      screen
-        .getByTestId("main-shell-scaffold")
-        .getAttribute("data-main-surface-chrome"),
-    ).toBe("top");
-  });
-
-  it("keeps left-edge main surface chrome for changelog tabs in sidebar timeline mode", () => {
-    mocks.currentTab = { type: "changelog" };
-    mocks.sidebarTimelineEnabled = true;
 
     render(<ClassicMainShellFrame />);
 

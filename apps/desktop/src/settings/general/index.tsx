@@ -31,7 +31,6 @@ function useSettingsForm() {
     "auto_start_scheduled_meetings",
     "auto_stop_meetings",
     "floating_bar_enabled",
-    "sidebar_timeline_enabled",
     "notification_detect",
     "telemetry_consent",
     "ai_language",
@@ -69,7 +68,6 @@ function useSettingsForm() {
       auto_start_scheduled_meetings: value.auto_start_scheduled_meetings,
       auto_stop_meetings: value.auto_stop_meetings,
       floating_bar_enabled: value.floating_bar_enabled,
-      sidebar_timeline_enabled: value.sidebar_timeline_enabled,
       notification_detect: value.notification_detect,
       telemetry_consent: value.telemetry_consent,
       ai_language: value.ai_language,
@@ -113,7 +111,6 @@ function useSettingsForm() {
           normalizedValue.auto_start_scheduled_meetings,
         auto_stop_meetings: normalizedValue.auto_stop_meetings,
         floating_bar_enabled: normalizedValue.floating_bar_enabled,
-        sidebar_timeline_enabled: normalizedValue.sidebar_timeline_enabled,
         notification_detect: normalizedValue.notification_detect,
         telemetry_consent: normalizedValue.telemetry_consent,
       });
@@ -144,51 +141,38 @@ export function SettingsApp() {
                   {(autoStopMeetingsField) => (
                     <form.Field name="floating_bar_enabled">
                       {(floatingBarEnabledField) => (
-                        <form.Field name="sidebar_timeline_enabled">
-                          {(sidebarTimelineEnabledField) => (
-                            <form.Field name="telemetry_consent">
-                              {(telemetryConsentField) => (
-                                <AppSettingsView
-                                  autostart={{
-                                    value: autostartField.state.value,
-                                    onChange: (val) =>
-                                      autostartField.handleChange(val),
-                                  }}
-                                  autoStartScheduledMeetings={{
-                                    value:
-                                      autoStartScheduledMeetingsField.state
-                                        .value,
-                                    onChange: (val) =>
-                                      autoStartScheduledMeetingsField.handleChange(
-                                        val,
-                                      ),
-                                  }}
-                                  autoStopMeetings={{
-                                    value: autoStopMeetingsField.state.value,
-                                    onChange: (val) =>
-                                      autoStopMeetingsField.handleChange(val),
-                                  }}
-                                  floatingBar={{
-                                    value: floatingBarEnabledField.state.value,
-                                    onChange: (val) =>
-                                      floatingBarEnabledField.handleChange(val),
-                                  }}
-                                  sidebarTimeline={{
-                                    value:
-                                      sidebarTimelineEnabledField.state.value,
-                                    onChange: (val) =>
-                                      sidebarTimelineEnabledField.handleChange(
-                                        val,
-                                      ),
-                                  }}
-                                  telemetryConsent={{
-                                    value: telemetryConsentField.state.value,
-                                    onChange: (val) =>
-                                      telemetryConsentField.handleChange(val),
-                                  }}
-                                />
-                              )}
-                            </form.Field>
+                        <form.Field name="telemetry_consent">
+                          {(telemetryConsentField) => (
+                            <AppSettingsView
+                              autostart={{
+                                value: autostartField.state.value,
+                                onChange: (val) =>
+                                  autostartField.handleChange(val),
+                              }}
+                              autoStartScheduledMeetings={{
+                                value:
+                                  autoStartScheduledMeetingsField.state.value,
+                                onChange: (val) =>
+                                  autoStartScheduledMeetingsField.handleChange(
+                                    val,
+                                  ),
+                              }}
+                              autoStopMeetings={{
+                                value: autoStopMeetingsField.state.value,
+                                onChange: (val) =>
+                                  autoStopMeetingsField.handleChange(val),
+                              }}
+                              floatingBar={{
+                                value: floatingBarEnabledField.state.value,
+                                onChange: (val) =>
+                                  floatingBarEnabledField.handleChange(val),
+                              }}
+                              telemetryConsent={{
+                                value: telemetryConsentField.state.value,
+                                onChange: (val) =>
+                                  telemetryConsentField.handleChange(val),
+                              }}
+                            />
                           )}
                         </form.Field>
                       )}

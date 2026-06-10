@@ -25,11 +25,11 @@ msgstr "צוגעבן גערעדט שפּראַך"
 msgid "Additional spoken languages"
 msgstr "נאך גערעדטע שפראכן"
 
-#: src/settings/general/app-settings.tsx:35
+#: src/settings/general/app-settings.tsx:33
 msgid "Always ready without manually launching."
 msgstr "שטענדיק גרייט אָן מאַניואַלי קאַטער."
 
-#: src/settings/general/index.tsx:136
+#: src/settings/general/index.tsx:133
 msgid "App"
 msgstr "אַפּ"
 
@@ -37,11 +37,11 @@ msgstr "אַפּ"
 msgid "Appearance"
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:71
+#: src/settings/general/app-settings.tsx:59
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "אָטאַמאַטיק אָנהייב צוגעהערט ווען אַ געשעעניש-באַקט טאָן ריטשאַז זיין סקעדזשולד אָנהייב צייט."
 
-#: src/settings/general/app-settings.tsx:82
+#: src/settings/general/app-settings.tsx:70
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "אָטאַמאַטיק האַלטן צוגעהערט ווען די באַגעגעניש אַפּ ריליסיז די מיקראָפאָן."
 
@@ -53,7 +53,7 @@ msgstr ""
 msgid "Dark"
 msgstr ""
 
-#: src/settings/general/index.tsx:255
+#: src/settings/general/index.tsx:239
 msgid "Data"
 msgstr "דאַטאַ"
 
@@ -61,7 +61,7 @@ msgstr "דאַטאַ"
 msgid "First day of the week in the calendar view"
 msgstr ""
 
-#: src/settings/general/index.tsx:206
+#: src/settings/general/index.tsx:190
 msgid "Language & Region"
 msgstr "שפּראַך און געגנט"
 
@@ -77,7 +77,7 @@ msgstr ""
 msgid "Main language"
 msgstr "הויפּט שפּראַך"
 
-#: src/settings/general/app-settings.tsx:65
+#: src/settings/general/app-settings.tsx:53
 msgid "Meetings"
 msgstr "מיטינגז"
 
@@ -94,11 +94,11 @@ msgstr "קיין שטיפעריש שפראכן געפונען"
 msgid "No results found."
 msgstr ""
 
-#: src/settings/general/index.tsx:265
+#: src/settings/general/index.tsx:249
 msgid "Notifications"
 msgstr "נאָטיפיקאַטיאָנס"
 
-#: src/settings/general/index.tsx:274
+#: src/settings/general/index.tsx:258
 msgid "Permissions"
 msgstr ""
 
@@ -126,35 +126,31 @@ msgstr "סעלעקט שפּראַך"
 msgid "Select..."
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:53
+#: src/settings/general/app-settings.tsx:41
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "שיקן אַנאָנימע באַנוצערס אַנאַליטיקס צו העלפֿן פֿאַרבעסערן אַנאַלאָג."
 
-#: src/settings/general/app-settings.tsx:51
+#: src/settings/general/app-settings.tsx:39
 msgid "Share usage data"
 msgstr "ייַנטיילן באַניץ דאַטן"
 
-#: src/settings/general/app-settings.tsx:91
+#: src/settings/general/app-settings.tsx:79
 msgid "Show floating bar"
 msgstr "ווייַז פלאָוטינג באַר"
 
-#: src/settings/general/app-settings.tsx:93
+#: src/settings/general/app-settings.tsx:81
 msgid "Show the compact floating control while listening."
 msgstr "ווייַזן די סאָליד פלאָוטינג קאָנטראָל בשעת צוגעהערט."
 
-#: src/settings/general/app-settings.tsx:41
-msgid "Show timeline in sidebar"
-msgstr "ווייַז טיימליין אין סיידבאַר"
-
-#: src/settings/general/app-settings.tsx:33
+#: src/settings/general/app-settings.tsx:31
 msgid "Start Anarlog at login"
 msgstr "אָנהייב אַנאַלאָג ביי לאָגין"
 
-#: src/settings/general/app-settings.tsx:69
+#: src/settings/general/app-settings.tsx:57
 msgid "Start when meeting begins"
 msgstr "אָנהייב ווען באַגעגעניש הייבט זיך אָן"
 
-#: src/settings/general/app-settings.tsx:80
+#: src/settings/general/app-settings.tsx:68
 msgid "Stop when meeting ends"
 msgstr "האַלטן ווען באַגעגעניש ענדס"
 
@@ -169,10 +165,6 @@ msgstr ""
 #: src/settings/general/spoken-languages.tsx:119
 msgid "The main language is always included for transcription"
 msgstr "די הויפּט שפּראַך איז שטענדיק אַרייַנגערעכנט פֿאַר טראַנסקריפּציע"
-
-#: src/settings/general/app-settings.tsx:43
-msgid "Use the left sidebar timeline instead of the top timeline."
-msgstr "ניצן די טיימליין פון די לינקס סיידבאַר אַנשטאָט פון די שפּיץ טיימליין."
 
 #: src/settings/general/week-start.tsx:55
 msgid "Week starts on"

@@ -25,11 +25,11 @@ msgstr "Ongerako olulimi olwogerwa"
 msgid "Additional spoken languages"
 msgstr "Ennimi endala ezoogerwa"
 
-#: src/settings/general/app-settings.tsx:35
+#: src/settings/general/app-settings.tsx:33
 msgid "Always ready without manually launching."
 msgstr "Bulijjo mwetegefu nga totongozza mu ngalo."
 
-#: src/settings/general/index.tsx:136
+#: src/settings/general/index.tsx:133
 msgid "App"
 msgstr "Ekikozesebwa"
 
@@ -37,11 +37,11 @@ msgstr "Ekikozesebwa"
 msgid "Appearance"
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:71
+#: src/settings/general/app-settings.tsx:59
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Tandika okuwuliriza mu ngeri ey'otoma nga ekiwandiiko ekiwanirirwa ekibaddewo kituuse ku ssaawa yaakyo etegekeddwa okutandika."
 
-#: src/settings/general/app-settings.tsx:82
+#: src/settings/general/app-settings.tsx:70
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Olekera awo okuwuliriza mu ngeri ey'otoma nga app y'olukiiko efulumya akazindaalo."
 
@@ -53,7 +53,7 @@ msgstr ""
 msgid "Dark"
 msgstr ""
 
-#: src/settings/general/index.tsx:255
+#: src/settings/general/index.tsx:239
 msgid "Data"
 msgstr "Eby'okunoonyereza"
 
@@ -61,7 +61,7 @@ msgstr "Eby'okunoonyereza"
 msgid "First day of the week in the calendar view"
 msgstr ""
 
-#: src/settings/general/index.tsx:206
+#: src/settings/general/index.tsx:190
 msgid "Language & Region"
 msgstr "Olulimi & Ekitundu"
 
@@ -77,7 +77,7 @@ msgstr ""
 msgid "Main language"
 msgstr "Olulimi olukulu"
 
-#: src/settings/general/app-settings.tsx:65
+#: src/settings/general/app-settings.tsx:53
 msgid "Meetings"
 msgstr "Enkiiko"
 
@@ -94,11 +94,11 @@ msgstr "Tewali nnimi zikwatagana zizuuliddwa"
 msgid "No results found."
 msgstr ""
 
-#: src/settings/general/index.tsx:265
+#: src/settings/general/index.tsx:249
 msgid "Notifications"
 msgstr "Ebimanyisibwa"
 
-#: src/settings/general/index.tsx:274
+#: src/settings/general/index.tsx:258
 msgid "Permissions"
 msgstr ""
 
@@ -126,35 +126,31 @@ msgstr "Londa olulimi"
 msgid "Select..."
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:53
+#: src/settings/general/app-settings.tsx:41
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Wereza okwekenneenya enkozesa okutali kwa mannya okuyamba okulongoosa Anarlog."
 
-#: src/settings/general/app-settings.tsx:51
+#: src/settings/general/app-settings.tsx:39
 msgid "Share usage data"
 msgstr "Gabana data y'enkozesa"
 
-#: src/settings/general/app-settings.tsx:91
+#: src/settings/general/app-settings.tsx:79
 msgid "Show floating bar"
 msgstr "Laga ebbaala etengejja"
 
-#: src/settings/general/app-settings.tsx:93
+#: src/settings/general/app-settings.tsx:81
 msgid "Show the compact floating control while listening."
 msgstr "Laga ekifuga ekitengejja ekitono nga owuliriza."
 
-#: src/settings/general/app-settings.tsx:41
-msgid "Show timeline in sidebar"
-msgstr "Laga ensengeka y'ebiseera mu bbali"
-
-#: src/settings/general/app-settings.tsx:33
+#: src/settings/general/app-settings.tsx:31
 msgid "Start Anarlog at login"
 msgstr "Tandika Anarlog ku kuyingira"
 
-#: src/settings/general/app-settings.tsx:69
+#: src/settings/general/app-settings.tsx:57
 msgid "Start when meeting begins"
 msgstr "Tandika ng'olukiiko lutandise"
 
-#: src/settings/general/app-settings.tsx:80
+#: src/settings/general/app-settings.tsx:68
 msgid "Stop when meeting ends"
 msgstr "Komya ng'olukiiko luwedde"
 
@@ -169,10 +165,6 @@ msgstr ""
 #: src/settings/general/spoken-languages.tsx:119
 msgid "The main language is always included for transcription"
 msgstr "Olulimi olukulu bulijjo luteekebwamu okuwandiika"
-
-#: src/settings/general/app-settings.tsx:43
-msgid "Use the left sidebar timeline instead of the top timeline."
-msgstr "Kozesa ensengeka y'ebiseera ey'oludda olwa kkono mu kifo ky'ensengeka y'ebiseera ey'okungulu."
 
 #: src/settings/general/week-start.tsx:55
 msgid "Week starts on"

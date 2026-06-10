@@ -256,7 +256,7 @@ describe("GlobalLiveTranscriptAccessory", () => {
     expect(transcriptCard?.className).not.toContain("rounded-b-xl");
   });
 
-  it("keeps the current surface divider in top timeline mode", () => {
+  it("keeps the current surface divider in top chrome mode", () => {
     render(
       <GlobalLiveTranscriptAccessory
         currentTab={{ type: "sessions", id: "other-session" } as any}

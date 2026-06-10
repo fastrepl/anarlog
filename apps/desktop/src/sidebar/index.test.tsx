@@ -3,11 +3,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   currentTab: { type: "empty" } as { type: string } | null,
-  sidebarTimelineEnabled: false,
-}));
-
-vi.mock("~/shared/config", () => ({
-  useConfigValue: () => mocks.sidebarTimelineEnabled,
 }));
 
 vi.mock("~/store/zustand/tabs", () => ({
@@ -57,12 +52,9 @@ import { LeftSidebar } from "./index";
 describe("LeftSidebar", () => {
   beforeEach(() => {
     mocks.currentTab = { type: "empty" };
-    mocks.sidebarTimelineEnabled = false;
   });
 
   it("uses the timeline layout without a duplicate sidebar top offset", () => {
-    mocks.sidebarTimelineEnabled = true;
-
     const { container } = render(<LeftSidebar />);
 
     expect(screen.getByTestId("timeline-view")).toBeTruthy();
@@ -83,7 +75,6 @@ describe("LeftSidebar", () => {
     ["contacts", "contacts-nav"],
     ["templates", "templates-nav"],
   ])("keeps %s below the window chrome", (type, testId) => {
-    mocks.sidebarTimelineEnabled = true;
     mocks.currentTab = { type };
 
     const { container } = render(<LeftSidebar />);

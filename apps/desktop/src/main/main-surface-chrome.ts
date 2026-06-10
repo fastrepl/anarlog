@@ -6,14 +6,12 @@ export function resolveMainSurfaceChrome({
   leftSidebarExpanded,
   showSidebarTimeline,
   showSidebarTimelineChrome,
-  showTopTimeline,
 }: {
   hasLeftSurfaceCustomSidebar: boolean;
   isChangelog: boolean;
   leftSidebarExpanded: boolean;
   showSidebarTimeline: boolean;
   showSidebarTimelineChrome: boolean;
-  showTopTimeline: boolean;
 }): MainSurfaceChrome {
   if (showSidebarTimelineChrome && !leftSidebarExpanded) {
     return "top-borderless";
@@ -25,10 +23,6 @@ export function resolveMainSurfaceChrome({
 
   if (showSidebarTimeline || hasLeftSurfaceCustomSidebar) {
     return "left";
-  }
-
-  if (showTopTimeline) {
-    return "top";
   }
 
   return "default";

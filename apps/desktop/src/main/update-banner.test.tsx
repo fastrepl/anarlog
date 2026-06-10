@@ -89,7 +89,6 @@ vi.mock("@hypr/plugin-updater2", () => ({
 
 import {
   SidebarTimelineUpdateButton,
-  TimelineUpdateBanner,
   useDesktopUpdateControl,
 } from "./update-banner";
 
@@ -97,7 +96,7 @@ import { useDevtoolsOtaPreview } from "~/store/zustand/devtools-ota-preview";
 
 const queryClients: QueryClient[] = [];
 
-describe("TimelineUpdateBanner", () => {
+describe("SidebarTimelineUpdateButton", () => {
   beforeEach(() => {
     checkMock.mockReset();
     downloadMock.mockReset();
@@ -156,122 +155,6 @@ describe("TimelineUpdateBanner", () => {
     useDevtoolsOtaPreview.getState().clearPreview();
   });
 
-  it("shows an available update from the updater check", async () => {
-    checkMock.mockResolvedValue({ status: "ok", data: "1.0.34" });
-
-    renderBanner();
-
-    expect(await screen.findByText("New version available")).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Download/ })).toBeTruthy();
-  });
-
-  it("downloads and restarts from the banner", async () => {
-    checkMock.mockResolvedValue({ status: "ok", data: "1.0.34" });
-
-    renderBanner();
-
-    fireEvent.click(await screen.findByRole("button", { name: /Download/ }));
-
-    await waitFor(() => expect(downloadMock).toHaveBeenCalledWith("1.0.34"));
-
-    await waitFor(() =>
-      expect(eventHandlers.updateReady).toBeTypeOf("function"),
-    );
-
-    act(() => {
-      eventHandlers.updateReady?.({ payload: { version: "1.0.34" } });
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: /Restart/ }));
-
-    await waitFor(() => {
-      expect(installMock).toHaveBeenCalledWith("1.0.34");
-      expect(postinstallMock).toHaveBeenCalledWith({
-        kind: "relaunch_current",
-      });
-    });
-  });
-
-  it("shows restart when the checked update is already downloaded", async () => {
-    checkMock.mockResolvedValue({ status: "ok", data: "1.0.34" });
-    isDownloadedMock.mockResolvedValue({ status: "ok", data: true });
-
-    renderBanner();
-
-    expect(await screen.findByText("Update ready")).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Restart/ })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /Download/ })).toBeNull();
-  });
-
-  it("shows a failed state when postinstall returns an error result", async () => {
-    checkMock.mockResolvedValue({ status: "ok", data: "1.0.34" });
-    postinstallMock.mockResolvedValue({
-      status: "error",
-      error: "Restart failed",
-    });
-
-    renderBanner();
-
-    fireEvent.click(await screen.findByRole("button", { name: /Download/ }));
-
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: /Restart/ })).toBeTruthy(),
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: /Restart/ }));
-
-    expect(await screen.findByText("Update failed")).toBeTruthy();
-  });
-
-  it("shows download progress from updater events", async () => {
-    renderBanner();
-
-    await waitFor(() =>
-      expect(eventHandlers.updateDownloadProgress).toBeTypeOf("function"),
-    );
-
-    act(() => {
-      eventHandlers.updateDownloading?.({ payload: { version: "1.0.34" } });
-      eventHandlers.updateDownloadProgress?.({
-        payload: {
-          version: "1.0.34",
-          chunk_length: 25,
-          content_length: 100,
-        },
-      });
-      eventHandlers.updateDownloadProgress?.({
-        payload: {
-          version: "1.0.34",
-          chunk_length: 25,
-          content_length: 100,
-        },
-      });
-    });
-
-    expect(screen.getByText("New version available")).toBeTruthy();
-    expect(screen.getByText("50%")).toBeTruthy();
-  });
-
-  it("clears the banner after the app reports it has updated", async () => {
-    checkMock.mockResolvedValue({ status: "ok", data: "1.0.34" });
-
-    renderBanner();
-
-    expect(await screen.findByText("New version available")).toBeTruthy();
-
-    await waitFor(() => expect(eventHandlers.updated).toBeTypeOf("function"));
-
-    act(() => {
-      eventHandlers.updated?.({
-        payload: { previous: "1.0.33", current: "1.0.34" },
-      });
-    });
-
-    await waitFor(() =>
-      expect(screen.queryByText("New version available")).toBeNull(),
-    );
-  });
-
   it("downloads from the sidebar update button", async () => {
     checkMock.mockResolvedValue({ status: "ok", data: "1.0.34" });
 
@@ -282,6 +165,20 @@ describe("TimelineUpdateBanner", () => {
     );
 
     await waitFor(() => expect(downloadMock).toHaveBeenCalledWith("1.0.34"));
+  });
+
+  it("shows restart when the checked update is already downloaded", async () => {
+    checkMock.mockResolvedValue({ status: "ok", data: "1.0.34" });
+    isDownloadedMock.mockResolvedValue({ status: "ok", data: true });
+
+    renderSidebarUpdateButton();
+
+    expect(
+      await screen.findByRole("button", { name: "Restart to update" }),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: "Download update" }),
+    ).toBeNull();
   });
 
   it("shows sidebar circular progress while downloading", async () => {
@@ -308,7 +205,6 @@ describe("TimelineUpdateBanner", () => {
 
     expect(button.hasAttribute("disabled")).toBe(true);
     expect(button.querySelector(".lucide-download")).toBeNull();
-    expect(button.querySelector(".lucide-loader-circle")).toBeNull();
   });
 
   it("restarts from the sidebar update button when ready", async () => {
@@ -332,25 +228,47 @@ describe("TimelineUpdateBanner", () => {
     });
   });
 
+  it("clears the button after the app reports it has updated", async () => {
+    checkMock.mockResolvedValue({ status: "ok", data: "1.0.34" });
+
+    renderSidebarUpdateButton();
+
+    expect(
+      await screen.findByRole("button", { name: "Download update" }),
+    ).toBeTruthy();
+
+    await waitFor(() => expect(eventHandlers.updated).toBeTypeOf("function"));
+
+    act(() => {
+      eventHandlers.updated?.({
+        payload: { previous: "1.0.33", current: "1.0.34" },
+      });
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: "Download update" }),
+      ).toBeNull(),
+    );
+  });
+
   it("shows the devtools OTA preview state without a real updater result", async () => {
     useDevtoolsOtaPreview.getState().showPreview("available");
 
-    renderBanner();
+    renderSidebarUpdateButton();
 
-    expect(await screen.findByText("New version available")).toBeTruthy();
-
-    fireEvent.click(screen.getByRole("button", { name: /Download/ }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Download update" }),
+    );
 
     expect(
-      await screen.findByLabelText("Downloading update, 58% complete"),
+      await screen.findByRole("button", {
+        name: "Downloading update, 58% complete",
+      }),
     ).toBeTruthy();
     expect(downloadMock).not.toHaveBeenCalled();
   });
 });
-
-function renderBanner() {
-  return renderWithQueryClient(<TimelineUpdateBannerHarness />);
-}
 
 function renderSidebarUpdateButton() {
   return renderWithQueryClient(<SidebarUpdateButtonHarness />);
@@ -360,12 +278,6 @@ function SidebarUpdateButtonHarness() {
   const update = useDesktopUpdateControl();
 
   return <SidebarTimelineUpdateButton update={update} />;
-}
-
-function TimelineUpdateBannerHarness() {
-  const update = useDesktopUpdateControl();
-
-  return <TimelineUpdateBanner update={update} />;
 }
 
 function renderWithQueryClient(ui: ReactNode) {

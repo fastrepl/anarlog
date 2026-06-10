@@ -25,11 +25,11 @@ msgstr "Ongeza lugha inayozungumzwa"
 msgid "Additional spoken languages"
 msgstr "Lugha za ziada zinazozungumzwa"
 
-#: src/settings/general/app-settings.tsx:35
+#: src/settings/general/app-settings.tsx:33
 msgid "Always ready without manually launching."
 msgstr "Tayari kila wakati bila kuzindua wewe mwenyewe."
 
-#: src/settings/general/index.tsx:136
+#: src/settings/general/index.tsx:133
 msgid "App"
 msgstr "Programu"
 
@@ -37,11 +37,11 @@ msgstr "Programu"
 msgid "Appearance"
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:71
+#: src/settings/general/app-settings.tsx:59
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Anza kusikiliza kiotomatiki wakati dokezo linaloungwa mkono na tukio linapofikia wakati wake wa kuanza ulioratibiwa."
 
-#: src/settings/general/app-settings.tsx:82
+#: src/settings/general/app-settings.tsx:70
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Acha kusikiliza kiotomatiki wakati programu ya mkutano ikitoa maikrofoni."
 
@@ -53,7 +53,7 @@ msgstr ""
 msgid "Dark"
 msgstr ""
 
-#: src/settings/general/index.tsx:255
+#: src/settings/general/index.tsx:239
 msgid "Data"
 msgstr "Data"
 
@@ -61,7 +61,7 @@ msgstr "Data"
 msgid "First day of the week in the calendar view"
 msgstr ""
 
-#: src/settings/general/index.tsx:206
+#: src/settings/general/index.tsx:190
 msgid "Language & Region"
 msgstr "Lugha na Eneo"
 
@@ -77,7 +77,7 @@ msgstr ""
 msgid "Main language"
 msgstr "Lugha kuu"
 
-#: src/settings/general/app-settings.tsx:65
+#: src/settings/general/app-settings.tsx:53
 msgid "Meetings"
 msgstr "Mikutano"
 
@@ -94,11 +94,11 @@ msgstr "Hakuna lugha zinazolingana zilizopatikana"
 msgid "No results found."
 msgstr ""
 
-#: src/settings/general/index.tsx:265
+#: src/settings/general/index.tsx:249
 msgid "Notifications"
 msgstr "Arifa"
 
-#: src/settings/general/index.tsx:274
+#: src/settings/general/index.tsx:258
 msgid "Permissions"
 msgstr ""
 
@@ -126,35 +126,31 @@ msgstr "Chagua lugha"
 msgid "Select..."
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:53
+#: src/settings/general/app-settings.tsx:41
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Tuma takwimu za matumizi bila kukutambulisha ili kusaidia kuboresha Anarlog."
 
-#: src/settings/general/app-settings.tsx:51
+#: src/settings/general/app-settings.tsx:39
 msgid "Share usage data"
 msgstr "Shiriki data ya matumizi"
 
-#: src/settings/general/app-settings.tsx:91
+#: src/settings/general/app-settings.tsx:79
 msgid "Show floating bar"
 msgstr "Onyesha upau unaoelea"
 
-#: src/settings/general/app-settings.tsx:93
+#: src/settings/general/app-settings.tsx:81
 msgid "Show the compact floating control while listening."
 msgstr "Onyesha kidhibiti fumbatio cha kuelea unaposikiliza."
 
-#: src/settings/general/app-settings.tsx:41
-msgid "Show timeline in sidebar"
-msgstr "Onyesha rekodi ya matukio katika utepe"
-
-#: src/settings/general/app-settings.tsx:33
+#: src/settings/general/app-settings.tsx:31
 msgid "Start Anarlog at login"
 msgstr "Anzisha Anarlog wakati wa kuingia"
 
-#: src/settings/general/app-settings.tsx:69
+#: src/settings/general/app-settings.tsx:57
 msgid "Start when meeting begins"
 msgstr "Anza mkutano unapoanza"
 
-#: src/settings/general/app-settings.tsx:80
+#: src/settings/general/app-settings.tsx:68
 msgid "Stop when meeting ends"
 msgstr "Simama mkutano unapoisha"
 
@@ -169,10 +165,6 @@ msgstr ""
 #: src/settings/general/spoken-languages.tsx:119
 msgid "The main language is always included for transcription"
 msgstr "Lugha kuu hujumuishwa kila wakati kwa unukuzi"
-
-#: src/settings/general/app-settings.tsx:43
-msgid "Use the left sidebar timeline instead of the top timeline."
-msgstr "Tumia rekodi ya matukio ya utepe wa kushoto badala ya rekodi ya matukio ya juu."
 
 #: src/settings/general/week-start.tsx:55
 msgid "Week starts on"

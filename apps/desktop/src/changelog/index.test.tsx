@@ -10,7 +10,6 @@ const mocks = vi.hoisted(() => ({
   leftsidebar: {
     expanded: true,
   },
-  sidebarTimelineEnabled: false,
 }));
 
 vi.mock("@hypr/changelog", () => ({
@@ -37,10 +36,6 @@ vi.mock("~/contexts/shell", () => ({
   }),
 }));
 
-vi.mock("~/shared/config", () => ({
-  useConfigValue: () => mocks.sidebarTimelineEnabled,
-}));
-
 vi.mock("~/shared/main", () => ({
   StandardTabWrapper: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
@@ -62,15 +57,13 @@ describe("TabContentChangelog", () => {
     mocks.chat.sendEvent.mockClear();
     mocks.close.mockClear();
     mocks.leftsidebar.expanded = true;
-    mocks.sidebarTimelineEnabled = false;
   });
 
   afterEach(() => {
     cleanup();
   });
 
-  it("adds the note header gutter when sidebar timeline mode is collapsed", () => {
-    mocks.sidebarTimelineEnabled = true;
+  it("adds the note header gutter when the sidebar is collapsed", () => {
     mocks.leftsidebar.expanded = false;
 
     render(<TabContentChangelog tab={buildChangelogTab()} />);
@@ -90,15 +83,12 @@ describe("TabContentChangelog", () => {
   });
 
   it("does not add the collapsed sidebar gutter while the left sidebar is expanded", () => {
-    mocks.sidebarTimelineEnabled = true;
-
     render(<TabContentChangelog tab={buildChangelogTab()} />);
 
     expect(getHeader().className).not.toContain("pl-[156px]");
   });
 
-  it("uses the left-edge title slot while sidebar timeline mode is expanded", () => {
-    mocks.sidebarTimelineEnabled = true;
+  it("uses the left-edge title slot while the sidebar is expanded", () => {
     mocks.leftsidebar.expanded = true;
 
     render(<TabContentChangelog tab={buildChangelogTab()} />);
@@ -113,19 +103,6 @@ describe("TabContentChangelog", () => {
     expect(titleSlot?.className).toContain("justify-start");
     expect(titleSlot?.className).not.toContain("left-1/2");
     expect(heading.className).toContain("text-left");
-  });
-
-  it("centers the changelog title independently from the close button", () => {
-    render(<TabContentChangelog tab={buildChangelogTab()} />);
-
-    const heading = screen.getByRole("heading", {
-      name: "What's new in 1.0.36?",
-    });
-    const titleSlot = heading.parentElement;
-
-    expect(titleSlot?.className).toContain("left-1/2");
-    expect(titleSlot?.className).toContain("-translate-x-1/2");
-    expect(heading.className).toContain("text-center");
   });
 });
 

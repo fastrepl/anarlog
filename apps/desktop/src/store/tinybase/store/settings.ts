@@ -47,11 +47,6 @@ export const SETTINGS_MAPPING = {
       path: ["general", "floating_bar_enabled"],
       default: true as boolean,
     },
-    sidebar_timeline_enabled: {
-      type: "boolean",
-      path: ["general", "sidebar_timeline_enabled"],
-      default: false as boolean,
-    },
     theme: {
       type: "string",
       path: ["general", "theme"],

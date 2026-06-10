@@ -25,11 +25,11 @@ msgstr "Забони гуфтугӯиро илова кунед"
 msgid "Additional spoken languages"
 msgstr "Забонҳои иловагии гуфтугӯӣ"
 
-#: src/settings/general/app-settings.tsx:35
+#: src/settings/general/app-settings.tsx:33
 msgid "Always ready without manually launching."
 msgstr "Ҳамеша бидуни оғози дастӣ омода аст."
 
-#: src/settings/general/index.tsx:136
+#: src/settings/general/index.tsx:133
 msgid "App"
 msgstr "Барнома"
 
@@ -37,11 +37,11 @@ msgstr "Барнома"
 msgid "Appearance"
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:71
+#: src/settings/general/app-settings.tsx:59
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Ҳангоме ки ёддоште, ки аз рӯйдод пуштибонӣ мешавад, ба вақти ба нақша гирифтаи оғози оғозёбӣ мерасад, ба таври худкор гӯш карданро оғоз кунед."
 
-#: src/settings/general/app-settings.tsx:82
+#: src/settings/general/app-settings.tsx:70
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Вақте ки барномаи вохӯрӣ микрофонро озод мекунад, худкор гӯш карданро қатъ кунед."
 
@@ -53,7 +53,7 @@ msgstr ""
 msgid "Dark"
 msgstr ""
 
-#: src/settings/general/index.tsx:255
+#: src/settings/general/index.tsx:239
 msgid "Data"
 msgstr "Маълумот"
 
@@ -61,7 +61,7 @@ msgstr "Маълумот"
 msgid "First day of the week in the calendar view"
 msgstr ""
 
-#: src/settings/general/index.tsx:206
+#: src/settings/general/index.tsx:190
 msgid "Language & Region"
 msgstr "Забон ва минтақа"
 
@@ -77,7 +77,7 @@ msgstr ""
 msgid "Main language"
 msgstr "Забони асосӣ"
 
-#: src/settings/general/app-settings.tsx:65
+#: src/settings/general/app-settings.tsx:53
 msgid "Meetings"
 msgstr "Вохангҳо"
 
@@ -94,11 +94,11 @@ msgstr "Ягон забонҳои мувофиқ ёфт нашуд"
 msgid "No results found."
 msgstr ""
 
-#: src/settings/general/index.tsx:265
+#: src/settings/general/index.tsx:249
 msgid "Notifications"
 msgstr "Огоҳиҳо"
 
-#: src/settings/general/index.tsx:274
+#: src/settings/general/index.tsx:258
 msgid "Permissions"
 msgstr ""
 
@@ -126,35 +126,31 @@ msgstr "Забонро интихоб кунед"
 msgid "Select..."
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:53
+#: src/settings/general/app-settings.tsx:41
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Таҳлили истифодаи беном барои беҳтар кардани Anarlog фиристед."
 
-#: src/settings/general/app-settings.tsx:51
+#: src/settings/general/app-settings.tsx:39
 msgid "Share usage data"
 msgstr "Мубодилаи маълумоти истифода"
 
-#: src/settings/general/app-settings.tsx:91
+#: src/settings/general/app-settings.tsx:79
 msgid "Show floating bar"
 msgstr "Намоиш додани сатри шинокунанда"
 
-#: src/settings/general/app-settings.tsx:93
+#: src/settings/general/app-settings.tsx:81
 msgid "Show the compact floating control while listening."
 msgstr "Ҳангоми гӯш кардани назорати шинокунандаи паймон нишон диҳед."
 
-#: src/settings/general/app-settings.tsx:41
-msgid "Show timeline in sidebar"
-msgstr "Намоиш додани ҷадвали вақт дар панели паҳлӯ"
-
-#: src/settings/general/app-settings.tsx:33
+#: src/settings/general/app-settings.tsx:31
 msgid "Start Anarlog at login"
 msgstr "Дар ворид шудан ба Anarlog оғоз кунед"
 
-#: src/settings/general/app-settings.tsx:69
+#: src/settings/general/app-settings.tsx:57
 msgid "Start when meeting begins"
 msgstr "Вақте ки вохӯрӣ оғоз мешавад, оғоз кунед"
 
-#: src/settings/general/app-settings.tsx:80
+#: src/settings/general/app-settings.tsx:68
 msgid "Stop when meeting ends"
 msgstr "Ҳангоми ба охир расидани вохӯрӣ қатъ кунед"
 
@@ -169,10 +165,6 @@ msgstr ""
 #: src/settings/general/spoken-languages.tsx:119
 msgid "The main language is always included for transcription"
 msgstr "Забони асосӣ ҳамеша барои транскрипсия дохил карда мешавад"
-
-#: src/settings/general/app-settings.tsx:43
-msgid "Use the left sidebar timeline instead of the top timeline."
-msgstr "Ба ҷои ҷадвали болоии ҷадвали панели паҳлӯии чапро истифода баред."
 
 #: src/settings/general/week-start.tsx:55
 msgid "Week starts on"

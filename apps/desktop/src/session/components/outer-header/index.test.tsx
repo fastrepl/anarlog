@@ -15,7 +15,6 @@ const mocks = vi.hoisted(() => ({
   goNext: vi.fn(),
   sessionModes: {} as Record<string, string>,
   sessionEvents: {} as Record<string, any>,
-  sidebarTimelineEnabled: false,
   stopListening: vi.fn(),
   nowMs: new Date("2026-06-05T09:50:00.000Z").getTime(),
   openUrl: vi.fn(),
@@ -58,10 +57,6 @@ vi.mock("~/contexts/shell", () => ({
   useShell: () => ({
     leftsidebar: mocks.leftsidebar,
   }),
-}));
-
-vi.mock("~/shared/config", () => ({
-  useConfigValue: () => mocks.sidebarTimelineEnabled,
 }));
 
 vi.mock("~/store/tinybase/hooks", () => ({
@@ -110,7 +105,6 @@ describe("OuterHeader", () => {
     mocks.goNext.mockClear();
     mocks.sessionModes = {};
     mocks.sessionEvents = {};
-    mocks.sidebarTimelineEnabled = false;
     mocks.stopListening.mockClear();
     mocks.nowMs = new Date("2026-06-05T09:50:00.000Z").getTime();
     mocks.openUrl.mockClear();
@@ -120,8 +114,7 @@ describe("OuterHeader", () => {
     cleanup();
   });
 
-  it("shows a stop listening button for active sessions in collapsed sidebar timeline mode", () => {
-    mocks.sidebarTimelineEnabled = true;
+  it("shows a stop listening button for active sessions while the sidebar is collapsed", () => {
     mocks.leftsidebar.expanded = false;
     mocks.sessionModes = { "session-1": "active" };
 
@@ -147,8 +140,7 @@ describe("OuterHeader", () => {
     expect(mocks.stopListening).toHaveBeenCalledTimes(1);
   });
 
-  it("raises the tightened title field when sidebar timeline mode is collapsed", () => {
-    mocks.sidebarTimelineEnabled = true;
+  it("raises the tightened title field when the sidebar is collapsed", () => {
     mocks.leftsidebar.expanded = false;
 
     render(
@@ -177,8 +169,7 @@ describe("OuterHeader", () => {
     expect(screen.queryByRole("button", { name: "Go forward" })).toBeNull();
   });
 
-  it("uses a compact title offset while the sidebar timeline is expanded", () => {
-    mocks.sidebarTimelineEnabled = true;
+  it("uses a compact title offset while the sidebar is expanded", () => {
     mocks.leftsidebar.expanded = true;
 
     render(
@@ -196,8 +187,7 @@ describe("OuterHeader", () => {
     expect(titleSlot?.className).toContain("right-[70px]");
   });
 
-  it("keeps sidebar timeline header controls hidden while the sidebar is expanded", () => {
-    mocks.sidebarTimelineEnabled = true;
+  it("keeps sidebar header controls hidden while the sidebar is expanded", () => {
     mocks.sessionModes = { "session-1": "active" };
 
     const { container } = render(
@@ -227,24 +217,7 @@ describe("OuterHeader", () => {
     expect(container.firstElementChild?.className).toContain("h-12");
   });
 
-  it("uses the note-surface title offset while reserving room for header controls", () => {
-    render(
-      <OuterHeader
-        sessionId="session-1"
-        currentView={{ type: "raw" } as EditorView}
-        title={<span>Session title</span>}
-      />,
-    );
-
-    const title = screen.getByText("Session title");
-    const titleSlot = title.parentElement?.parentElement;
-
-    expect(titleSlot?.className).toContain("left-[114px]");
-    expect(titleSlot?.className).toContain("right-[70px]");
-  });
-
-  it("keeps the dedicated stop button hidden outside sidebar timeline mode", () => {
-    mocks.sidebarTimelineEnabled = false;
+  it("keeps the dedicated stop button hidden while the sidebar is expanded", () => {
     mocks.sessionModes = { "session-1": "active" };
 
     render(

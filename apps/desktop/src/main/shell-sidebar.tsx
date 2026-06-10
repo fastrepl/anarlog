@@ -1,5 +1,4 @@
 import { useShell } from "~/contexts/shell";
-import { useConfigValue } from "~/shared/config";
 import { LeftSidebar } from "~/sidebar";
 import {
   hasCustomSidebarTab,
@@ -10,7 +9,6 @@ import { useTabs } from "~/store/zustand/tabs";
 export function ClassicMainSidebar() {
   const { leftsidebar } = useShell();
   const currentTab = useTabs((state) => state.currentTab);
-  const sidebarTimelineEnabled = useConfigValue("sidebar_timeline_enabled");
   const isOnboarding = currentTab?.type === "onboarding";
 
   const hasCustomSidebar = hasCustomSidebarTab(currentTab);
@@ -21,9 +19,5 @@ export function ClassicMainSidebar() {
     return null;
   }
 
-  if (hasCustomSidebar || sidebarTimelineEnabled) {
-    return <LeftSidebar />;
-  }
-
-  return null;
+  return <LeftSidebar />;
 }
