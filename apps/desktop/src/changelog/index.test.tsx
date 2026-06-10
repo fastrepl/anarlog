@@ -75,7 +75,18 @@ describe("TabContentChangelog", () => {
 
     render(<TabContentChangelog tab={buildChangelogTab()} />);
 
+    const heading = screen.getByRole("heading", {
+      name: "What's new in 1.0.36?",
+    });
+    const titleSlot = heading.parentElement;
+
     expect(getHeader().className).toContain("pl-[156px]");
+    expect(titleSlot?.className).toContain("left-[104px]");
+    expect(titleSlot?.className).not.toContain("-translate-y-1");
+    expect(titleSlot?.className).toContain("right-[70px]");
+    expect(titleSlot?.className).toContain("justify-start");
+    expect(titleSlot?.className).not.toContain("left-1/2");
+    expect(heading.className).toContain("text-left");
   });
 
   it("does not add the collapsed sidebar gutter while the left sidebar is expanded", () => {
@@ -85,6 +96,37 @@ describe("TabContentChangelog", () => {
 
     expect(getHeader().className).not.toContain("pl-[156px]");
   });
+
+  it("uses the left-edge title slot while sidebar timeline mode is expanded", () => {
+    mocks.sidebarTimelineEnabled = true;
+    mocks.leftsidebar.expanded = true;
+
+    render(<TabContentChangelog tab={buildChangelogTab()} />);
+
+    const heading = screen.getByRole("heading", {
+      name: "What's new in 1.0.36?",
+    });
+    const titleSlot = heading.parentElement;
+
+    expect(titleSlot?.className).toContain("left-0");
+    expect(titleSlot?.className).toContain("right-[70px]");
+    expect(titleSlot?.className).toContain("justify-start");
+    expect(titleSlot?.className).not.toContain("left-1/2");
+    expect(heading.className).toContain("text-left");
+  });
+
+  it("centers the changelog title independently from the close button", () => {
+    render(<TabContentChangelog tab={buildChangelogTab()} />);
+
+    const heading = screen.getByRole("heading", {
+      name: "What's new in 1.0.36?",
+    });
+    const titleSlot = heading.parentElement;
+
+    expect(titleSlot?.className).toContain("left-1/2");
+    expect(titleSlot?.className).toContain("-translate-x-1/2");
+    expect(heading.className).toContain("text-center");
+  });
 });
 
 function getHeader() {
@@ -92,7 +134,7 @@ function getHeader() {
     name: "What's new in 1.0.36?",
   });
 
-  return heading.parentElement?.parentElement?.parentElement as HTMLElement;
+  return heading.parentElement?.parentElement as HTMLElement;
 }
 
 function buildChangelogTab(): Extract<Tab, { type: "changelog" }> {

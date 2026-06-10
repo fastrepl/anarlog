@@ -16,7 +16,6 @@ import { TitleInput, type TitleInputHandle } from "./components/title-input";
 import { getNextFloatingButtonHidden } from "./floating-scroll-state";
 import { useAutoEnhance } from "./hooks/useAutoEnhance";
 
-import { useTitleGeneration } from "~/ai/hooks";
 import * as AudioPlayer from "~/audio-player";
 import * as main from "~/store/tinybase/store/main";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
@@ -113,7 +112,6 @@ function TabContentNoteInner({
     currentView.type === "enhanced"
       ? `enhanced-${currentView.id}`
       : currentView.type;
-  const { generateTitle } = useTitleGeneration(tab);
   const hasTranscript = useHasTranscript(tab.id);
   const [floatingButtonScrollState, setFloatingButtonScrollState] =
     React.useState({
@@ -227,7 +225,6 @@ function TabContentNoteInner({
               onTransferContentToEditor={handleTransferContentToEditor}
               onFocusEditorAtStart={handleFocusEditorAtStart}
               onFocusEditorAtPixelWidth={handleFocusEditorAtPixelWidth}
-              onGenerateTitle={hasTranscript ? generateTitle : undefined}
             />
           }
         />

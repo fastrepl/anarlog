@@ -31,23 +31,35 @@ export function OuterHeader({
   const sidebarTimelineEnabled = useConfigValue("sidebar_timeline_enabled");
   const showSidebarTimelineHeaderGutter =
     sidebarTimelineEnabled && !leftsidebar.expanded;
+  const showExpandedSidebarTimelineHeader =
+    sidebarTimelineEnabled && leftsidebar.expanded;
 
   return (
     <div
       className={cn([
-        "flex h-12 w-full items-center",
+        "relative flex w-full items-center",
+        showSidebarTimelineHeaderGutter ? "h-[52px] pb-1" : "h-12",
         showSidebarTimelineHeaderGutter && "pl-[156px]",
       ])}
     >
-      <div className="flex w-full min-w-0 items-center justify-between gap-0">
-        <div className="flex min-w-0 flex-1 items-center gap-1">
-          {title ? <div className="min-w-0 flex-1">{title}</div> : null}
+      {title ? (
+        <div
+          className={cn([
+            "pointer-events-none absolute inset-y-0 right-[70px] flex items-center",
+            showSidebarTimelineHeaderGutter
+              ? "left-[104px] -translate-y-1"
+              : showExpandedSidebarTimelineHeader
+                ? "left-0"
+                : "left-[114px]",
+          ])}
+        >
+          <div className="pointer-events-auto w-full min-w-0">{title}</div>
         </div>
-        <div className="flex shrink-0 items-center gap-0 pr-1">
-          <SidebarModeStopButton sessionId={sessionId} />
-          <HeaderMeetingControl sessionId={sessionId} />
-          <OverflowButton sessionId={sessionId} currentView={currentView} />
-        </div>
+      ) : null}
+      <div className="relative z-10 ml-auto flex shrink-0 items-center gap-0 pr-1">
+        <SidebarModeStopButton sessionId={sessionId} />
+        <HeaderMeetingControl sessionId={sessionId} />
+        <OverflowButton sessionId={sessionId} currentView={currentView} />
       </div>
     </div>
   );

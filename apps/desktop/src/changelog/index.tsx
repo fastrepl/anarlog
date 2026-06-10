@@ -26,6 +26,8 @@ export function TabContentChangelog({
   const sidebarTimelineEnabled = useConfigValue("sidebar_timeline_enabled");
   const showSidebarTimelineHeaderGutter =
     sidebarTimelineEnabled && !leftsidebar.expanded;
+  const showExpandedSidebarTimelineHeader =
+    sidebarTimelineEnabled && leftsidebar.expanded;
 
   useMountEffect(() => {
     if (chat.mode !== "FloatingClosed") {
@@ -42,6 +44,9 @@ export function TabContentChangelog({
           <ChangelogHeader
             version={current}
             showSidebarTimelineHeaderGutter={showSidebarTimelineHeaderGutter}
+            showExpandedSidebarTimelineHeader={
+              showExpandedSidebarTimelineHeader
+            }
             onClose={() => close(tab)}
           />
         </div>
@@ -118,10 +123,12 @@ function ChangelogBody({
 }
 
 function ChangelogHeader({
+  showExpandedSidebarTimelineHeader,
   showSidebarTimelineHeaderGutter,
   version,
   onClose,
 }: {
+  showExpandedSidebarTimelineHeader: boolean;
   showSidebarTimelineHeaderGutter: boolean;
   version: string;
   onClose: () => void;
@@ -129,29 +136,43 @@ function ChangelogHeader({
   return (
     <div
       className={cn([
-        "flex h-12 w-full items-center",
+        "relative flex h-12 w-full items-center",
         showSidebarTimelineHeaderGutter && "pl-[156px]",
       ])}
     >
-      <div className="flex w-full min-w-0 items-center justify-between gap-0">
-        <div className="min-w-0 flex-1">
-          <h1 className="text-foreground truncate text-xl font-semibold">
-            What's new in {version}?
-          </h1>
-        </div>
+      <div
+        className={cn([
+          "pointer-events-none absolute inset-y-0 flex items-center",
+          showExpandedSidebarTimelineHeader
+            ? "right-[70px] left-0 justify-start"
+            : showSidebarTimelineHeaderGutter
+              ? "right-[70px] left-[104px] justify-start"
+              : "left-1/2 w-[min(640px,calc(100%_-_160px))] -translate-x-1/2 justify-center",
+        ])}
+      >
+        <h1
+          className={cn([
+            "text-foreground truncate text-xl font-semibold",
+            showExpandedSidebarTimelineHeader || showSidebarTimelineHeaderGutter
+              ? "text-left"
+              : "text-center",
+          ])}
+        >
+          What's new in {version}?
+        </h1>
+      </div>
 
-        <div className="flex shrink-0 items-center gap-0 pr-1">
-          <Button
-            size="icon"
-            variant="ghost"
-            className="text-muted-foreground hover:text-foreground"
-            aria-label="Close changelog"
-            title="Close"
-            onClick={onClose}
-          >
-            <XIcon size={15} />
-          </Button>
-        </div>
+      <div className="relative z-10 ml-auto flex shrink-0 items-center gap-0 pr-1">
+        <Button
+          size="icon"
+          variant="ghost"
+          className="text-muted-foreground hover:text-foreground"
+          aria-label="Close changelog"
+          title="Close"
+          onClick={onClose}
+        >
+          <XIcon size={16} />
+        </Button>
       </div>
     </div>
   );

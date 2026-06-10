@@ -540,10 +540,10 @@ export function TimelineView({
             showCalendarSyncStatus
               ? "bg-background h-28"
               : areSidebarActionsHidden
-                ? "from-background via-background/95 to-background/0 h-20 bg-linear-to-b via-60%"
+                ? "from-background via-background/95 to-background/0 h-20 bg-linear-to-b from-60% via-80%"
                 : isScrolledToTop
                   ? "bg-background h-[5.25rem]"
-                  : "from-background via-background/95 to-background/0 h-28 bg-linear-to-b via-55%",
+                  : "from-background via-background/95 to-background/0 h-28 bg-linear-to-b from-75% via-85%",
           ])}
         />
       )}

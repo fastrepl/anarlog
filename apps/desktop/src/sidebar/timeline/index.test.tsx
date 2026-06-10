@@ -492,6 +492,7 @@ describe("TimelineView", () => {
 
     expect(getSidebarActions().className).toContain("opacity-0");
     expect(getTopFade(container).className).toContain("h-20");
+    expect(getTopFade(container).className).toContain("from-60%");
 
     act(() => {
       vi.advanceTimersByTime(900);
@@ -506,6 +507,7 @@ describe("TimelineView", () => {
     expect(revealedNewNoteButton.className).toContain("flex-1");
     expect(revealedSearchButton.className).toContain("w-8");
     expect(getTopFade(container).className).toContain("h-28");
+    expect(getTopFade(container).className).toContain("from-75%");
   });
 
   it("keeps sidebar actions hidden during timeline data refreshes", () => {

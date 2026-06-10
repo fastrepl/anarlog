@@ -84,21 +84,23 @@ describe("TitleInput", () => {
     expect(hoisted.clearLiveTitle).not.toHaveBeenCalled();
   });
 
-  it("positions the empty title generate button next to the placeholder", () => {
+  it("left-aligns the empty title field without a generate button", () => {
     hoisted.store.getCell.mockReturnValueOnce("");
 
-    renderTitleInput({ onGenerateTitle: vi.fn() });
+    renderTitleInput();
 
     const input = screen.getByPlaceholderText("Untitled");
-    const button = screen.getByRole("button", { name: "Regenerate title" });
     expect(input.parentElement?.className).toContain("relative");
-    expect(button.className).toContain("left-[84px]");
+    expect(input.className).toContain("text-left");
+    expect(
+      screen.queryByRole("button", { name: "Regenerate title" }),
+    ).toBeNull();
   });
 
   it("uses the flexible title layout for whitespace-only titles", () => {
     hoisted.store.getCell.mockReturnValueOnce("          ");
 
-    renderTitleInput({ onGenerateTitle: vi.fn() });
+    renderTitleInput();
 
     const input = screen.getByPlaceholderText("Untitled");
     expect(input.className).toContain("w-full");
@@ -126,12 +128,57 @@ describe("TitleInput", () => {
     fireEvent.change(input, { target: { value: title } });
 
     const hoverTitle = screen.getByText(title);
+    const overlay = hoverTitle.parentElement;
     expect(input.className).toContain("text-transparent");
+    expect(input.parentElement?.style.maskImage).toBe(
+      "linear-gradient(to right, black 0, black calc(100% - 28px), transparent 100%)",
+    );
+    expect(overlay?.className).toContain("justify-start");
     expect(hoverTitle.className).toContain(
       "group-hover/title-input:animate-title-hover-scroll",
     );
     expect(
       hoverTitle.style.getPropertyValue("--title-hover-scroll-distance"),
     ).toBe("-260px");
+  });
+
+  it("updates title fades based on horizontal scroll position", () => {
+    renderTitleInput();
+
+    const input = screen.getByPlaceholderText("Untitled");
+    Object.defineProperty(input, "clientWidth", {
+      configurable: true,
+      value: 160,
+    });
+    Object.defineProperty(input, "scrollWidth", {
+      configurable: true,
+      value: 420,
+    });
+
+    fireEvent.change(input, {
+      target: {
+        value:
+          "Product Discovery Pace and Headless Agent Usage Strategy Review",
+      },
+    });
+
+    const titleInputShell = input.parentElement;
+    expect(titleInputShell?.style.maskImage).toBe(
+      "linear-gradient(to right, black 0, black calc(100% - 28px), transparent 100%)",
+    );
+
+    input.scrollLeft = 130;
+    fireEvent.scroll(input);
+
+    expect(titleInputShell?.style.maskImage).toBe(
+      "linear-gradient(to right, transparent 0, black 28px, black calc(100% - 28px), transparent 100%)",
+    );
+
+    input.scrollLeft = 260;
+    fireEvent.scroll(input);
+
+    expect(titleInputShell?.style.maskImage).toBe(
+      "linear-gradient(to right, transparent 0, black 28px, black 100%)",
+    );
   });
 });

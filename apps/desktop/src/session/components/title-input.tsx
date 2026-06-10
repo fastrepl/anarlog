@@ -1,5 +1,4 @@
 import { usePrevious } from "@uidotdev/usehooks";
-import { SparklesIcon } from "lucide-react";
 import {
   type CSSProperties,
   forwardRef,
@@ -12,11 +11,6 @@ import {
 } from "react";
 import { useResizeObserver } from "usehooks-ts";
 
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@hypr/ui/components/ui/tooltip";
 import { cn } from "@hypr/utils";
 
 import { useTitleGenerating } from "~/ai/hooks";
@@ -37,7 +31,6 @@ export const TitleInput = forwardRef<
     onTransferContentToEditor?: (content: string) => void;
     onFocusEditorAtStart?: () => void;
     onFocusEditorAtPixelWidth?: (pixelWidth: number) => void;
-    onGenerateTitle?: () => void;
   }
 >(
   (
@@ -46,7 +39,6 @@ export const TitleInput = forwardRef<
       onTransferContentToEditor,
       onFocusEditorAtStart,
       onFocusEditorAtPixelWidth,
-      onGenerateTitle,
     },
     ref,
   ) => {
@@ -85,7 +77,7 @@ export const TitleInput = forwardRef<
 
     if (isGenerating) {
       return (
-        <div className="flex h-8 w-full items-center">
+        <div className="flex h-8 w-full items-center justify-start">
           <span className="text-muted-foreground animate-pulse text-xl font-semibold">
             Generating title...
           </span>
@@ -95,7 +87,7 @@ export const TitleInput = forwardRef<
 
     if (showRevealAnimation && generatedTitle) {
       return (
-        <div className="flex h-8 w-full items-center overflow-hidden">
+        <div className="flex h-8 w-full items-center justify-start overflow-hidden">
           <span className="animate-reveal-left text-xl font-semibold whitespace-nowrap">
             {generatedTitle}
           </span>
@@ -112,7 +104,6 @@ export const TitleInput = forwardRef<
         onTransferContentToEditor={onTransferContentToEditor}
         onFocusEditorAtStart={onFocusEditorAtStart}
         onFocusEditorAtPixelWidth={onFocusEditorAtPixelWidth}
-        onGenerateTitle={onGenerateTitle}
       />
     );
   },
@@ -128,7 +119,6 @@ const TitleInputInner = memo(
       onTransferContentToEditor?: (content: string) => void;
       onFocusEditorAtStart?: () => void;
       onFocusEditorAtPixelWidth?: (pixelWidth: number) => void;
-      onGenerateTitle?: () => void;
     }
   >(
     (
@@ -139,13 +129,14 @@ const TitleInputInner = memo(
         onTransferContentToEditor,
         onFocusEditorAtStart,
         onFocusEditorAtPixelWidth,
-        onGenerateTitle,
       },
       ref,
     ) => {
       const [localTitle, setLocalTitle] = useState(() => getInitialTitle());
       const [isOverflowing, setIsOverflowing] = useState(false);
       const [overflowDistance, setOverflowDistance] = useState(0);
+      const [showStartFade, setShowStartFade] = useState(false);
+      const [showEndFade, setShowEndFade] = useState(false);
       const [isTitleFocused, setIsTitleFocused] = useState(false);
       const isFocused = useRef(false);
       const internalRef = useRef<HTMLInputElement>(null);
@@ -159,11 +150,17 @@ const TitleInputInner = memo(
           if (!input) {
             setIsOverflowing(false);
             setOverflowDistance(0);
+            setShowStartFade(false);
+            setShowEndFade(false);
             return;
           }
           const distance = Math.max(input.scrollWidth - input.clientWidth, 0);
+          const overflowing = distance > 1;
+          const scrollLeft = Math.max(input.scrollLeft, 0);
           setIsOverflowing(distance > 1);
           setOverflowDistance(distance);
+          setShowStartFade(overflowing && scrollLeft > 1);
+          setShowEndFade(overflowing && scrollLeft < distance - 1);
         },
         [],
       );
@@ -176,6 +173,8 @@ const TitleInputInner = memo(
           } else {
             setIsOverflowing(false);
             setOverflowDistance(0);
+            setShowStartFade(false);
+            setShowEndFade(false);
           }
         },
         [updateOverflowState],
@@ -186,13 +185,14 @@ const TitleInputInner = memo(
         onResize: () => updateOverflowState(),
       });
 
-      const overflowFadeStyle =
-        isOverflowing && !isTitleFocused
+      const titleFadeStyle =
+        showStartFade || showEndFade
           ? {
-              WebkitMaskImage:
-                "linear-gradient(to right, black, black calc(100% - 28px), transparent)",
-              maskImage:
-                "linear-gradient(to right, black, black calc(100% - 28px), transparent)",
+              WebkitMaskImage: getTitleFadeMask({
+                showStartFade,
+                showEndFade,
+              }),
+              maskImage: getTitleFadeMask({ showStartFade, showEndFade }),
               WebkitMaskRepeat: "no-repeat",
               maskRepeat: "no-repeat",
               WebkitMaskSize: "100% 100%",
@@ -338,11 +338,12 @@ const TitleInputInner = memo(
           }
         }
       };
-      const generateTitleHandler =
-        localTitle.length === 0 ? onGenerateTitle : undefined;
 
       return (
-        <div className="group/title-input relative flex h-8 w-full items-center overflow-hidden">
+        <div
+          style={titleFadeStyle}
+          className="group/title-input relative flex h-8 w-full items-center overflow-hidden"
+        >
           <input
             ref={setInputRef}
             id={`title-input-${sessionId}-${editorId}`}
@@ -354,10 +355,13 @@ const TitleInputInner = memo(
               setLiveTitle(sessionId, value);
               updateOverflowState(e.target);
             }}
+            onClick={(e) => updateOverflowState(e.currentTarget)}
             onKeyDown={handleKeyDown}
+            onKeyUp={(e) => updateOverflowState(e.currentTarget)}
             onFocus={() => {
               isFocused.current = true;
               setIsTitleFocused(true);
+              updateOverflowState();
             }}
             onBlur={(e) => {
               isFocused.current = false;
@@ -366,19 +370,20 @@ const TitleInputInner = memo(
               clearLiveTitle(sessionId);
               updateOverflowState(e.target);
             }}
+            onScroll={(e) => updateOverflowState(e.currentTarget)}
+            onSelect={(e) => updateOverflowState(e.currentTarget)}
             value={localTitle}
-            style={showHoverReveal ? undefined : overflowFadeStyle}
             className={cn([
               "w-full min-w-0 transition-opacity duration-200",
               "border-none bg-transparent focus:outline-hidden",
-              "placeholder:text-muted-foreground text-xl font-semibold",
+              "placeholder:text-muted-foreground text-left text-xl font-semibold",
               showHoverReveal && "text-transparent caret-transparent",
             ])}
           />
           {showHoverReveal ? (
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute inset-0 flex items-center overflow-hidden"
+              className="pointer-events-none absolute inset-0 flex items-center justify-start overflow-hidden"
             >
               <span
                 style={titleHoverScrollStyle}
@@ -388,47 +393,26 @@ const TitleInputInner = memo(
               </span>
             </div>
           ) : null}
-          {generateTitleHandler && (
-            <GenerateButton
-              className="absolute top-1/2 left-[84px] -translate-y-1/2"
-              onGenerateTitle={generateTitleHandler}
-            />
-          )}
         </div>
       );
     },
   ),
 );
 
-const GenerateButton = memo(function GenerateButton({
-  className,
-  onGenerateTitle,
+function getTitleFadeMask({
+  showStartFade,
+  showEndFade,
 }: {
-  className?: string;
-  onGenerateTitle: () => void;
+  showStartFade: boolean;
+  showEndFade: boolean;
 }) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          aria-label="Regenerate title"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onGenerateTitle();
-          }}
-          onMouseDown={(e) => e.preventDefault()}
-          className={cn([
-            "shrink-0",
-            "text-muted-foreground hover:text-foreground",
-            "opacity-50 transition-opacity hover:opacity-100",
-            className,
-          ])}
-        >
-          <SparklesIcon className="h-4 w-4" />
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side="bottom">Regenerate title</TooltipContent>
-    </Tooltip>
-  );
-});
+  if (showStartFade && showEndFade) {
+    return "linear-gradient(to right, transparent 0, black 28px, black calc(100% - 28px), transparent 100%)";
+  }
+
+  if (showStartFade) {
+    return "linear-gradient(to right, transparent 0, black 28px, black 100%)";
+  }
+
+  return "linear-gradient(to right, black 0, black calc(100% - 28px), transparent 100%)";
+}

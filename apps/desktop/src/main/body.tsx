@@ -82,6 +82,7 @@ export function ClassicMainBody() {
           className={cn([
             "absolute top-0 z-40 h-12 w-[200px]",
             leftsidebar.expanded ? "left-0" : "left-1",
+            !leftsidebar.expanded && "pointer-events-none",
           ])}
         >
           <div
@@ -133,7 +134,7 @@ export function ClassicMainBody() {
               ariaLabel="Go back"
               onClick={runEscapeShortcut}
             >
-              <ArrowLeftIcon size={14} />
+              <ArrowLeftIcon size={16} />
             </LeftSurfaceChromeButton>
           </div>
         </div>
@@ -177,6 +178,7 @@ function useMainAreaTopWindowDrag(enabled: boolean) {
       if (
         !enabled ||
         event.button !== 0 ||
+        isInteractiveMainAreaDragTarget(event.target) ||
         !isWithinMainAreaTopDragRegion(event)
       ) {
         windowDragStartRef.current = null;
@@ -262,6 +264,27 @@ function isWithinMainAreaTopDragRegion(
   return offsetY >= 0 && offsetY < MAIN_AREA_TOP_DRAG_HEIGHT_PX;
 }
 
+function isInteractiveMainAreaDragTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) {
+    return false;
+  }
+
+  return Boolean(
+    target.closest(
+      [
+        "a",
+        "button",
+        "input",
+        "select",
+        "textarea",
+        "[contenteditable='true']",
+        "[role='button']",
+        "[role='textbox']",
+      ].join(","),
+    ),
+  );
+}
+
 function isMainAreaWindowDrag(
   start: { clientX: number; clientY: number },
   current: { clientX: number; clientY: number },
@@ -295,9 +318,9 @@ function SidebarTimelineChrome({
           onClick={onToggleSidebar}
         >
           {sidebarExpanded ? (
-            <PanelLeftCloseIcon size={14} />
+            <PanelLeftCloseIcon size={16} />
           ) : (
-            <PanelLeftOpenIcon size={14} />
+            <PanelLeftOpenIcon size={16} />
           )}
         </LeftSurfaceChromeButton>
       </div>
@@ -326,7 +349,7 @@ function LeftSurfaceChromeButton({
       data-tauri-drag-region="false"
       disabled={disabled}
       className={cn([
-        "relative flex size-7 items-center justify-center rounded-full",
+        "pointer-events-auto relative flex size-7 items-center justify-center rounded-full",
         "text-muted-foreground hover:bg-accent hover:text-foreground transition-colors",
         "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-hidden",
         "disabled:text-muted-foreground/70 disabled:hover:text-muted-foreground/70 disabled:hover:bg-transparent",

@@ -147,7 +147,7 @@ describe("OuterHeader", () => {
     expect(mocks.stopListening).toHaveBeenCalledTimes(1);
   });
 
-  it("adds a left gutter for anchored sidebar chrome when collapsed", () => {
+  it("raises the tightened title field when sidebar timeline mode is collapsed", () => {
     mocks.sidebarTimelineEnabled = true;
     mocks.leftsidebar.expanded = false;
 
@@ -160,15 +160,40 @@ describe("OuterHeader", () => {
     );
 
     const title = screen.getByText("Session title");
-    const header =
-      title.parentElement?.parentElement?.parentElement?.parentElement;
-    const titleRow = title.parentElement?.parentElement;
+    const titleWrapper = title.parentElement;
+    const titleSlot = titleWrapper?.parentElement;
+    const header = titleSlot?.parentElement;
 
     expect(header?.className).toContain("pl-[156px]");
-    expect(titleRow?.className).toContain("items-center");
+    expect(header?.className).toContain("h-[52px]");
+    expect(header?.className).toContain("pb-1");
+    expect(titleWrapper?.className).toContain("w-full");
+    expect(titleWrapper?.className).not.toContain("max-w-[680px]");
+    expect(titleSlot?.className).toContain("left-[104px]");
+    expect(titleSlot?.className).toContain("-translate-y-1");
+    expect(titleSlot?.className).toContain("right-[70px]");
     expect(screen.queryByRole("button", { name: "Show sidebar" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Go back" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Go forward" })).toBeNull();
+  });
+
+  it("uses a compact title offset while the sidebar timeline is expanded", () => {
+    mocks.sidebarTimelineEnabled = true;
+    mocks.leftsidebar.expanded = true;
+
+    render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "raw" } as EditorView}
+        title={<span>Session title</span>}
+      />,
+    );
+
+    const title = screen.getByText("Session title");
+    const titleSlot = title.parentElement?.parentElement;
+
+    expect(titleSlot?.className).toContain("left-0");
+    expect(titleSlot?.className).toContain("right-[70px]");
   });
 
   it("keeps sidebar timeline header controls hidden while the sidebar is expanded", () => {
@@ -202,8 +227,8 @@ describe("OuterHeader", () => {
     expect(container.firstElementChild?.className).toContain("h-12");
   });
 
-  it("keeps the header content row full width", () => {
-    const { container } = render(
+  it("uses the note-surface title offset while reserving room for header controls", () => {
+    render(
       <OuterHeader
         sessionId="session-1"
         currentView={{ type: "raw" } as EditorView}
@@ -211,9 +236,11 @@ describe("OuterHeader", () => {
       />,
     );
 
-    expect(container.firstElementChild?.firstElementChild?.className).toContain(
-      "w-full",
-    );
+    const title = screen.getByText("Session title");
+    const titleSlot = title.parentElement?.parentElement;
+
+    expect(titleSlot?.className).toContain("left-[114px]");
+    expect(titleSlot?.className).toContain("right-[70px]");
   });
 
   it("keeps the dedicated stop button hidden outside sidebar timeline mode", () => {

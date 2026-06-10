@@ -54,9 +54,14 @@ vi.mock("~/main/useTabsShortcuts", () => ({
 }));
 
 vi.mock("~/main/tab-content", () => ({
-  ClassicMainTabContent: ({ tab }: { tab: { type: string } }) => (
-    <div data-testid="main-tab-content">{tab.type}</div>
-  ),
+  ClassicMainTabContent: ({ tab }: { tab: { type: string } }) =>
+    tab.type === "sessions" ? (
+      <div data-testid="main-tab-content">
+        <input aria-label="Session title" />
+      </div>
+    ) : (
+      <div data-testid="main-tab-content">{tab.type}</div>
+    ),
 }));
 
 vi.mock("~/main/top-meeting-timeline", () => ({
@@ -257,9 +262,11 @@ describe("ClassicMainBody", () => {
     expect(screen.queryByRole("button", { name: "Go back" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Go forward" })).toBeNull();
     expect(sidebarToggle.parentElement?.className).toContain("gap-0");
+    expect(sidebarToggle.className).toContain("pointer-events-auto");
     expect(topArea?.className).toContain("absolute");
     expect(topArea?.className).toContain("h-12");
     expect(topArea?.className).toContain("left-1");
+    expect(topArea?.className).toContain("pointer-events-none");
     expect(contentRow?.className).toContain(
       "flex min-h-0 min-w-0 flex-1 gap-1",
     );
@@ -402,6 +409,34 @@ describe("ClassicMainBody", () => {
     });
 
     expect(mocks.startDragging).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not start window dragging from an input in the top drag strip", () => {
+    mocks.sidebarTimelineEnabled = true;
+    mocks.currentTab = {
+      active: true,
+      pinned: false,
+      slotId: "slot-1",
+      type: "sessions",
+    };
+
+    render(<ClassicMainBody />);
+
+    const titleInput = screen.getByRole("textbox", { name: "Session title" });
+
+    fireEvent.pointerDown(titleInput, {
+      button: 0,
+      clientX: 240,
+      clientY: 12,
+      pointerId: 1,
+    });
+    fireEvent.pointerMove(titleInput, {
+      clientX: 248,
+      clientY: 12,
+      pointerId: 1,
+    });
+
+    expect(mocks.startDragging).not.toHaveBeenCalled();
   });
 
   it("does not start window dragging below the main area drag strip", () => {
