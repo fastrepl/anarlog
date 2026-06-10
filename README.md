@@ -2,11 +2,7 @@
 
 ![anarlog](https://repository-images.githubusercontent.com/900550981/a4267a9f-414b-4c36-965c-419313ce2417)
 
-<p align="center">
-  <p align="center">
-   <a href="https://deepwiki.com/fastrepl/anarlog"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
-  </p>
-</p>
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/fastrepl/anarlog)
 
 # anarlog
 
