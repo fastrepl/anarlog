@@ -3,7 +3,7 @@ import { useLayoutEffect, useMemo, useRef } from "react";
 
 import { cn } from "@hypr/utils";
 
-import { getSegmentColor } from "~/session/components/note-input/transcript/renderer/utils";
+import { useSegmentColorVars } from "~/session/components/note-input/transcript/renderer/utils";
 import * as main from "~/store/tinybase/store/main";
 import { getLiveCaptureUiMode } from "~/store/zustand/listener/general-shared";
 import { useListener } from "~/stt/contexts";
@@ -344,16 +344,18 @@ function TranscriptSegmentRow({
   segment: Segment;
   label: string;
 }) {
-  const color = getSegmentColor(segment.key);
+  const colorVars = useSegmentColorVars(segment.key);
 
   return (
     <div className="grid min-w-0 grid-cols-[92px_minmax(0,1fr)] items-start gap-x-3">
       <span
-        className="sticky top-2.5 z-10 mt-0.5 flex min-h-5 max-w-full min-w-0 items-center justify-start rounded-full px-2 text-[11px] font-medium"
+        className="sticky top-2.5 z-10 mt-0.5 flex min-h-5 max-w-full min-w-0 items-center justify-start rounded-full px-2 text-[11px] font-medium [--segment-color:var(--segment-color-light)] dark:[--segment-color:var(--segment-color-dark)]"
         title={label}
         style={{
-          backgroundColor: `${color}1A`,
-          color,
+          ...colorVars,
+          backgroundColor:
+            "color-mix(in srgb, var(--segment-color) 10%, transparent)",
+          color: "var(--segment-color)",
         }}
       >
         <span className="min-w-0 truncate">{label}</span>
