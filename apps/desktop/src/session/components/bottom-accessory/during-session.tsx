@@ -3,6 +3,8 @@ import { useLayoutEffect, useMemo, useRef } from "react";
 
 import { cn } from "@hypr/utils";
 
+import { SpeakerAssignPopover } from "../note-input/transcript/renderer/speaker-assign";
+
 import { useSegmentColorVars } from "~/session/components/note-input/transcript/renderer/utils";
 import * as main from "~/store/tinybase/store/main";
 import { getLiveCaptureUiMode } from "~/store/zustand/listener/general-shared";
@@ -21,6 +23,7 @@ import {
   SpeakerLabelManager,
   defaultRenderLabelContext,
 } from "~/stt/segment/shared";
+import { parseTranscriptWords } from "~/stt/utils";
 
 export function DuringSessionAccessory({
   sessionId,
@@ -83,7 +86,7 @@ function LiveTranscriptFooterContent({
   isExpanded?: boolean;
 }) {
   const store = main.UI.useStore(main.STORE_ID);
-  const segments = useLiveTranscriptSegments(sessionId);
+  const { segments, transcriptIdByWordId } = useLiveTranscriptData(sessionId);
   const labelContext = useMemo(
     () => (store ? defaultRenderLabelContext(store) : undefined),
     [store],
@@ -109,6 +112,7 @@ function LiveTranscriptFooterContent({
           previewText={previewText}
           scrollRef={scrollRef}
           segments={segments}
+          transcriptIdByWordId={transcriptIdByWordId}
           labelContext={labelContext}
           speakerLabelManager={speakerLabelManager}
         />
@@ -123,6 +127,7 @@ function LiveTranscriptContent({
   previewText,
   scrollRef,
   segments,
+  transcriptIdByWordId,
   labelContext,
   speakerLabelManager,
 }: {
@@ -131,6 +136,7 @@ function LiveTranscriptContent({
   previewText: string | null;
   scrollRef: React.RefObject<HTMLDivElement | null>;
   segments: Segment[];
+  transcriptIdByWordId: Map<string, string>;
   labelContext: ReturnType<typeof defaultRenderLabelContext> | undefined;
   speakerLabelManager: SpeakerLabelManager;
 }) {
@@ -178,6 +184,7 @@ function LiveTranscriptContent({
           <TranscriptSegmentRow
             key={getSegmentIdentity(segment, index)}
             segment={segment}
+            transcriptId={getSegmentTranscriptId(segment, transcriptIdByWordId)}
             label={SegmentKeyUtils.renderLabel(
               segment.key,
               labelContext,
@@ -227,7 +234,10 @@ function CollapsedFooterMessage({ message }: { message: string }) {
   );
 }
 
-function useLiveTranscriptSegments(sessionId: string): Segment[] {
+function useLiveTranscriptData(sessionId: string): {
+  segments: Segment[];
+  transcriptIdByWordId: Map<string, string>;
+} {
   const store = main.UI.useStore(main.STORE_ID);
   const transcriptIds =
     main.UI.useSliceRowIds(
@@ -277,8 +287,24 @@ function useLiveTranscriptSegments(sessionId: string): Segment[] {
   });
 
   return useMemo(() => {
-    return mergeRenderedAndLiveSegments(renderedSegments, liveSegments);
-  }, [liveSegments, renderedSegments]);
+    const segments = mergeRenderedAndLiveSegments(
+      renderedSegments,
+      liveSegments,
+    );
+    const transcriptIdByWordId = new Map<string, string>();
+
+    if (store) {
+      for (const transcriptId of transcriptIds) {
+        for (const word of parseTranscriptWords(store, transcriptId)) {
+          if (typeof word.id === "string" && word.id) {
+            transcriptIdByWordId.set(word.id, transcriptId);
+          }
+        }
+      }
+    }
+
+    return { segments, transcriptIdByWordId };
+  }, [liveSegments, renderedSegments, store, transcriptIds, transcriptsTable]);
 }
 
 function getLiveTranscriptScrollKey(segments: Segment[]): string {
@@ -339,9 +365,11 @@ function getTranscriptPreview(segments: Segment[]): string | null {
 
 function TranscriptSegmentRow({
   segment,
+  transcriptId,
   label,
 }: {
   segment: Segment;
+  transcriptId: string | undefined;
   label: string;
 }) {
   const colorVars = useSegmentColorVars(segment.key);
@@ -358,11 +386,37 @@ function TranscriptSegmentRow({
           color: "var(--segment-color)",
         }}
       >
-        <span className="min-w-0 truncate">{label}</span>
+        {transcriptId ? (
+          <SpeakerAssignPopover
+            segment={segment}
+            transcriptId={transcriptId}
+            color="var(--segment-color)"
+            label={label}
+            className="max-w-full min-w-0 truncate text-left"
+          />
+        ) : (
+          <span className="min-w-0 truncate">{label}</span>
+        )}
       </span>
       <span className="text-muted-foreground min-w-0 text-xs leading-5">
         {getSegmentText(segment)}
       </span>
     </div>
   );
+}
+
+function getSegmentTranscriptId(
+  segment: Segment,
+  transcriptIdByWordId: Map<string, string>,
+): string | undefined {
+  for (const word of segment.words) {
+    if (word.id) {
+      const transcriptId = transcriptIdByWordId.get(word.id);
+      if (transcriptId) {
+        return transcriptId;
+      }
+    }
+  }
+
+  return undefined;
 }

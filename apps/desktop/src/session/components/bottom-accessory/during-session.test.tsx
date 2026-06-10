@@ -1,30 +1,69 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DuringSessionAccessory } from "./during-session";
 
 import type { Segment } from "~/stt/live-segment";
 
-const { useListenerMock, useQueryMock, useStoreMock } = vi.hoisted(() => ({
+const {
+  useCellMock,
+  useListenerMock,
+  useQueriesMock,
+  useQueryMock,
+  useRowIdsMock,
+  useSliceRowIdsMock,
+  useStoreMock,
+  useTableMock,
+  useValueMock,
+} = vi.hoisted(() => ({
+  useCellMock: vi.fn(),
   useListenerMock: vi.fn(),
+  useQueriesMock: vi.fn(),
   useQueryMock: vi.fn(),
+  useRowIdsMock: vi.fn(),
+  useSliceRowIdsMock: vi.fn(),
   useStoreMock: vi.fn(),
+  useTableMock: vi.fn(),
+  useValueMock: vi.fn(),
 }));
 
 vi.mock("@tanstack/react-query", () => ({
   useQuery: useQueryMock,
 }));
 
+vi.mock("@hypr/ui/components/ui/popover", () => ({
+  AppFloatingPanel: ({
+    children,
+    className,
+  }: {
+    children: ReactNode;
+    className?: string;
+  }) => <div className={className}>{children}</div>,
+  Popover: ({ children }: { children: ReactNode }) => <>{children}</>,
+  PopoverContent: ({ children }: { children: ReactNode }) => (
+    <div>{children}</div>
+  ),
+  PopoverTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
+}));
+
 vi.mock("~/store/tinybase/store/main", () => ({
   STORE_ID: "main",
   INDEXES: {
+    sessionParticipantsBySession: "sessionParticipantsBySession",
     transcriptBySession: "transcriptBySession",
   },
+  QUERIES: {
+    sessionParticipantsWithDetails: "sessionParticipantsWithDetails",
+  },
   UI: {
-    useSliceRowIds: vi.fn(() => []),
+    useCell: useCellMock,
+    useQueries: useQueriesMock,
+    useRowIds: useRowIdsMock,
+    useSliceRowIds: useSliceRowIdsMock,
     useStore: useStoreMock,
-    useTable: vi.fn(() => ({})),
-    useValue: vi.fn(() => undefined),
+    useTable: useTableMock,
+    useValue: useValueMock,
   },
 }));
 
@@ -45,7 +84,13 @@ describe("DuringSessionAccessory", () => {
     scrollHeight = 480;
 
     useQueryMock.mockReturnValue({ data: [] });
+    useCellMock.mockReturnValue(undefined);
+    useQueriesMock.mockReturnValue(null);
+    useRowIdsMock.mockReturnValue([]);
+    useSliceRowIdsMock.mockReturnValue([]);
     useStoreMock.mockReturnValue(null);
+    useTableMock.mockReturnValue({});
+    useValueMock.mockReturnValue(undefined);
     useListenerMock.mockImplementation((selector) =>
       selector({
         live: {
@@ -214,6 +259,95 @@ describe("DuringSessionAccessory", () => {
     const chip = screen.getByTitle(label);
     expect(chip.className).toContain("sticky");
     expect(chip.className).toContain("top-2.5");
+  });
+
+  it("assigns live transcript speaker labels to session participants", () => {
+    const setCell = vi.fn();
+    const store = {
+      forEachRow: vi.fn(
+        (tableId: string, callback: (rowId: string) => void) => {
+          if (tableId === "humans") {
+            callback("human-1");
+          }
+          if (tableId === "mapping_session_participant") {
+            callback("mapping-1");
+          }
+        },
+      ),
+      getCell: vi.fn((tableId: string, rowId: string, cellId: string) => {
+        if (tableId === "transcripts" && rowId === "transcript-1") {
+          if (cellId === "session_id") return "session-1";
+          if (cellId === "started_at") return 0;
+          if (cellId === "words") {
+            return JSON.stringify([
+              {
+                id: "word-0",
+                text: "Remote words.",
+                start_ms: 0,
+                end_ms: 300,
+                channel: 1,
+              },
+            ]);
+          }
+          if (cellId === "speaker_hints") return "[]";
+        }
+        if (tableId === "mapping_session_participant") {
+          if (cellId === "session_id") return "session-1";
+          if (cellId === "human_id") return "human-1";
+        }
+        return undefined;
+      }),
+      getRow: vi.fn((tableId: string, rowId: string) =>
+        tableId === "humans" && rowId === "human-1"
+          ? { name: "Alex", email: "alex@example.com" }
+          : {},
+      ),
+      getValue: vi.fn(() => "user-1"),
+      setCell,
+      setRow: vi.fn(),
+    };
+
+    useStoreMock.mockReturnValue(store);
+    useCellMock.mockReturnValue("session-1");
+    useQueriesMock.mockReturnValue({
+      getResultRow: vi.fn(() => ({
+        human_id: "human-1",
+        human_name: "Alex",
+        human_email: "alex@example.com",
+      })),
+    });
+    useRowIdsMock.mockReturnValue(["human-1"]);
+    useSliceRowIdsMock.mockImplementation((indexId: string) =>
+      indexId === "transcriptBySession" ? ["transcript-1"] : ["mapping-1"],
+    );
+    useValueMock.mockReturnValue("user-1");
+    liveSegments = [
+      segment("Remote words.", 0, {
+        channel: "RemoteParty",
+        speaker_index: 0,
+      }),
+    ];
+
+    render(<DuringSessionAccessory sessionId="session-1" isExpanded />);
+
+    expect(screen.getByRole("button", { name: "Speaker 1" })).toBeTruthy();
+    fireEvent.click(screen.getByText("Alex"));
+
+    expect(setCell).toHaveBeenCalledWith(
+      "transcripts",
+      "transcript-1",
+      "speaker_hints",
+      expect.any(String),
+    );
+    const hints = JSON.parse(setCell.mock.calls[0]?.[3] as string);
+    expect(hints).toEqual([
+      {
+        id: "word-0:user_speaker_assignment",
+        word_id: "word-0",
+        type: "user_speaker_assignment",
+        value: JSON.stringify({ human_id: "human-1" }),
+      },
+    ]);
   });
 });
 

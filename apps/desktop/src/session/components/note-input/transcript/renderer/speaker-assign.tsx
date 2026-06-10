@@ -17,11 +17,13 @@ export function SpeakerAssignPopover({
   transcriptId,
   color,
   label,
+  className,
 }: {
   segment: Segment;
   transcriptId: string;
   color: string;
   label: string;
+  className?: string;
 }) {
   const [open, setOpen] = useState(false);
   const store = main.UI.useStore(main.STORE_ID);
@@ -52,7 +54,11 @@ export function SpeakerAssignPopover({
   );
 
   if (isSelf) {
-    return <span style={{ color }}>{label}</span>;
+    return (
+      <span className={className} style={{ color }}>
+        {label}
+      </span>
+    );
   }
 
   return (
@@ -63,6 +69,7 @@ export function SpeakerAssignPopover({
           className={cn([
             "-ml-1 cursor-pointer rounded-xs px-1",
             "hover:bg-accent transition-colors",
+            className,
           ])}
           style={{ color }}
         >
