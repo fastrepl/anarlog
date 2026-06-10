@@ -2,12 +2,8 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  canGoBack: false,
-  canGoNext: false,
   chatMode: "FloatingClosed",
   currentTab: { type: "settings" } as { type: string } | null,
-  goBack: vi.fn(),
-  goNext: vi.fn(),
   openCurrent: vi.fn(),
   select: vi.fn(),
   sendEvent: vi.fn(),
@@ -27,10 +23,6 @@ vi.mock("~/store/zustand/tabs", () => ({
   useTabs: (selector: (state: unknown) => unknown) =>
     selector({
       currentTab: mocks.currentTab,
-      canGoBack: mocks.canGoBack,
-      canGoNext: mocks.canGoNext,
-      goBack: mocks.goBack,
-      goNext: mocks.goNext,
       openCurrent: mocks.openCurrent,
       select: mocks.select,
       tabs: mocks.tabs,
@@ -45,12 +37,8 @@ describe("CustomSidebarHeader", () => {
   });
 
   beforeEach(() => {
-    mocks.canGoBack = false;
-    mocks.canGoNext = false;
     mocks.chatMode = "FloatingClosed";
     mocks.currentTab = { type: "settings" };
-    mocks.goBack.mockClear();
-    mocks.goNext.mockClear();
     mocks.openCurrent.mockClear();
     mocks.select.mockClear();
     mocks.sendEvent.mockClear();
@@ -99,20 +87,7 @@ describe("CustomSidebarHeader", () => {
     expect(mocks.openCurrent).not.toHaveBeenCalled();
   });
 
-  it("renders history controls when requested", () => {
-    mocks.canGoBack = true;
-    mocks.canGoNext = true;
-
-    render(<CustomSidebarHeader title="Contacts" showHistoryControls />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Go back" }));
-    fireEvent.click(screen.getByRole("button", { name: "Go forward" }));
-
-    expect(mocks.goBack).toHaveBeenCalledTimes(1);
-    expect(mocks.goNext).toHaveBeenCalledTimes(1);
-  });
-
-  it("hides history controls by default", () => {
+  it("does not render history controls", () => {
     render(<CustomSidebarHeader title="Settings" />);
 
     expect(screen.queryByRole("button", { name: "Go back" })).toBeNull();

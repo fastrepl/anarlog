@@ -2,7 +2,6 @@ import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   ArrowLeftIcon,
-  ArrowRightIcon,
   PanelLeftCloseIcon,
   PanelLeftOpenIcon,
 } from "lucide-react";
@@ -44,10 +43,6 @@ type MainAreaWindowDragStart = {
 export function ClassicMainBody() {
   const { leftsidebar } = useShell();
   const currentTab = useTabs((state) => state.currentTab);
-  const goBack = useTabs((state) => state.goBack);
-  const goNext = useTabs((state) => state.goNext);
-  const canGoBack = useTabs((state) => state.canGoBack);
-  const canGoNext = useTabs((state) => state.canGoNext);
   const sidebarTimelineEnabled = useConfigValue("sidebar_timeline_enabled");
   const { runEscapeShortcut } = useClassicMainTabsShortcuts();
 
@@ -95,10 +90,6 @@ export function ClassicMainBody() {
           >
             <SidebarTimelineChrome
               sidebarExpanded={leftsidebar.expanded}
-              canGoBack={canGoBack}
-              canGoNext={canGoNext}
-              onBack={goBack}
-              onForward={goNext}
               onToggleSidebar={leftsidebar.toggleExpanded}
               update={update}
             />
@@ -285,18 +276,10 @@ function isMainAreaWindowDrag(
 }
 
 function SidebarTimelineChrome({
-  canGoBack,
-  canGoNext,
-  onBack,
-  onForward,
   onToggleSidebar,
   sidebarExpanded,
   update,
 }: {
-  canGoBack: boolean;
-  canGoNext: boolean;
-  onBack: () => void;
-  onForward: () => void;
   onToggleSidebar: () => void;
   sidebarExpanded: boolean;
   update: DesktopUpdateControl;
@@ -316,20 +299,6 @@ function SidebarTimelineChrome({
           ) : (
             <PanelLeftOpenIcon size={14} />
           )}
-        </LeftSurfaceChromeButton>
-        <LeftSurfaceChromeButton
-          ariaLabel="Go back"
-          disabled={!canGoBack}
-          onClick={onBack}
-        >
-          <ArrowLeftIcon size={14} />
-        </LeftSurfaceChromeButton>
-        <LeftSurfaceChromeButton
-          ariaLabel="Go forward"
-          disabled={!canGoNext}
-          onClick={onForward}
-        >
-          <ArrowRightIcon size={14} />
         </LeftSurfaceChromeButton>
       </div>
       {sidebarExpanded ? <SidebarTimelineUpdateButton update={update} /> : null}

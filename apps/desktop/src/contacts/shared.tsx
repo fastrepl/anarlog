@@ -135,7 +135,7 @@ export function ColumnHeader({
 
   return (
     <div className="@container">
-      <CustomSidebarHeader title={title} showHistoryControls>
+      <CustomSidebarHeader title={title}>
         <div className="flex shrink-0 items-center">
           {sortOption && setSortOption && (
             <div className="hidden @[220px]:block">

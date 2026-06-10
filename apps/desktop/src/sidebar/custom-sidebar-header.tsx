@@ -1,4 +1,4 @@
-import { ArrowLeftIcon, ArrowRightIcon } from "lucide-react";
+import { ArrowLeftIcon } from "lucide-react";
 import { useCallback } from "react";
 
 import { cn } from "@hypr/utils";
@@ -9,21 +9,15 @@ import { useTabs } from "~/store/zustand/tabs";
 export function CustomSidebarHeader({
   title,
   children,
-  showHistoryControls = false,
 }: {
   title: string;
   children?: React.ReactNode;
-  showHistoryControls?: boolean;
 }) {
   const { chat } = useShell();
   const currentTab = useTabs((state) => state.currentTab);
   const tabs = useTabs((state) => state.tabs);
   const select = useTabs((state) => state.select);
   const openCurrent = useTabs((state) => state.openCurrent);
-  const goBack = useTabs((state) => state.goBack);
-  const goNext = useTabs((state) => state.goNext);
-  const canGoBack = useTabs((state) => state.canGoBack);
-  const canGoNext = useTabs((state) => state.canGoNext);
 
   const handleBack = useCallback(() => {
     if (chat.mode !== "FloatingClosed") {
@@ -60,24 +54,6 @@ export function CustomSidebarHeader({
         >
           <ArrowLeftIcon size={14} />
         </CustomSidebarHeaderButton>
-        {showHistoryControls ? (
-          <>
-            <CustomSidebarHeaderButton
-              label="Go back"
-              disabled={!canGoBack}
-              onClick={goBack}
-            >
-              <ArrowLeftIcon size={14} />
-            </CustomSidebarHeaderButton>
-            <CustomSidebarHeaderButton
-              label="Go forward"
-              disabled={!canGoNext}
-              onClick={goNext}
-            >
-              <ArrowRightIcon size={14} />
-            </CustomSidebarHeaderButton>
-          </>
-        ) : null}
         <h3 className="truncate font-sans text-sm font-medium select-none">
           {title}
         </h3>

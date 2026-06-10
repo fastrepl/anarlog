@@ -219,7 +219,6 @@ describe("ClassicMainBody", () => {
     expect(screen.queryByTestId("toast-area")).toBeNull();
     const sidebar = screen.getByTestId("main-sidebar");
     const sidebarToggle = screen.getByRole("button", { name: "Hide sidebar" });
-    const backButton = screen.getByRole("button", { name: "Go back" });
     const chrome = sidebarToggle.parentElement?.parentElement;
     const topArea = chrome?.parentElement?.parentElement;
 
@@ -227,13 +226,9 @@ describe("ClassicMainBody", () => {
     expect(sidebarToggle).toBeTruthy();
     expect(screen.queryByTestId("sidebar-update-button")).toBeNull();
     expect(screen.queryByRole("button", { name: "Open calendar" })).toBeNull();
-    expect(backButton.hasAttribute("disabled")).toBe(true);
-    expect(
-      screen
-        .getByRole("button", { name: "Go forward" })
-        .hasAttribute("disabled"),
-    ).toBe(true);
-    expect(backButton.parentElement?.className).toContain("gap-0");
+    expect(screen.queryByRole("button", { name: "Go back" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Go forward" })).toBeNull();
+    expect(sidebarToggle.parentElement?.className).toContain("gap-0");
     expect(chrome?.className).toContain("justify-between");
     expect(chrome?.className).toContain("w-full");
     expect(topArea?.className).toContain("h-12");
@@ -246,25 +241,22 @@ describe("ClassicMainBody", () => {
   it("expands the main area to the full window when sidebar timeline mode is collapsed", () => {
     mocks.sidebarTimelineEnabled = true;
     mocks.leftSidebarExpanded = false;
-    mocks.canGoBack = true;
-    mocks.canGoNext = true;
 
     const { container } = render(<ClassicMainBody />);
     const body = container.firstElementChild;
     const contentRow = body?.lastElementChild;
     const sidebarToggle = screen.getByRole("button", { name: "Show sidebar" });
-    const backButton = screen.getByRole("button", { name: "Go back" });
     const chrome = sidebarToggle.parentElement?.parentElement;
     const topArea = chrome?.parentElement?.parentElement;
 
     fireEvent.click(sidebarToggle);
-    fireEvent.click(backButton);
-    fireEvent.click(screen.getByRole("button", { name: "Go forward" }));
 
     expect(screen.queryByTestId("top-meeting-timeline")).toBeNull();
     expect(screen.queryByTestId("timeline-update-banner")).toBeNull();
     expect(screen.queryByTestId("sidebar-update-button")).toBeNull();
-    expect(backButton.parentElement?.className).toContain("gap-0");
+    expect(screen.queryByRole("button", { name: "Go back" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Go forward" })).toBeNull();
+    expect(sidebarToggle.parentElement?.className).toContain("gap-0");
     expect(topArea?.className).toContain("absolute");
     expect(topArea?.className).toContain("h-12");
     expect(topArea?.className).toContain("left-1");
@@ -273,8 +265,6 @@ describe("ClassicMainBody", () => {
     );
     expect(contentRow?.hasAttribute("data-tauri-drag-region")).toBe(false);
     expect(mocks.toggleLeftSidebar).toHaveBeenCalledTimes(1);
-    expect(mocks.goBack).toHaveBeenCalledTimes(1);
-    expect(mocks.goNext).toHaveBeenCalledTimes(1);
   });
 
   it("shows the update button at the far end of expanded sidebar timeline chrome", () => {
@@ -348,34 +338,20 @@ describe("ClassicMainBody", () => {
 
     render(<ClassicMainBody />);
 
-    const backButton = screen.getByRole("button", { name: "Go back" });
-    const chrome = backButton.parentElement?.parentElement;
+    const sidebarToggle = screen.getByRole("button", { name: "Hide sidebar" });
+    const chrome = sidebarToggle.parentElement?.parentElement;
     const topArea = chrome?.parentElement?.parentElement;
 
     expect(screen.queryByTestId("top-meeting-timeline")).toBeNull();
     expect(screen.queryByTestId("timeline-update-banner")).toBeNull();
-    expect(backButton.hasAttribute("disabled")).toBe(true);
-    expect(backButton.parentElement?.className).toContain("gap-0");
+    expect(screen.queryByRole("button", { name: "Go back" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Go forward" })).toBeNull();
+    expect(sidebarToggle.parentElement?.className).toContain("gap-0");
     expect(topArea?.className).toContain("h-12");
     expect(topArea?.className).toContain("absolute");
     expect(screen.getByTestId("main-tab-content").textContent).toContain(
       "changelog",
     );
-  });
-
-  it("navigates history from the sidebar timeline chrome", () => {
-    mocks.sidebarTimelineEnabled = true;
-    mocks.canGoBack = true;
-    mocks.canGoNext = true;
-
-    render(<ClassicMainBody />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Go back" }));
-    fireEvent.click(screen.getByRole("button", { name: "Go forward" }));
-
-    expect(mocks.openNew).not.toHaveBeenCalled();
-    expect(mocks.goBack).toHaveBeenCalledTimes(1);
-    expect(mocks.goNext).toHaveBeenCalledTimes(1);
   });
 
   it.each(["calendar", "settings", "contacts", "templates"])(
