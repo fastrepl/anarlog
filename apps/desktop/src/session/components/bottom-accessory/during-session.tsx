@@ -102,9 +102,7 @@ function LiveTranscriptFooterContent({
 
   return (
     <div className={cn(["w-full select-none", fillHeight && "h-full min-h-0"])}>
-      <div
-        className={cn(["bg-muted rounded-xl", fillHeight && "h-full min-h-0"])}
-      >
+      <div className={cn(["rounded-xl", fillHeight && "h-full min-h-0"])}>
         <LiveTranscriptContent
           fillHeight={fillHeight}
           isExpanded={isExpanded}
