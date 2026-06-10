@@ -94,7 +94,7 @@ final class FloatingBarManager {
     ) { screen, size in
       let frame = screen.visibleFrame
       let x = frame.maxX - size.width - FloatingBarLayout.screenMargin
-      let y = frame.midY - size.height / 2
+      let y = frame.midY - size.height / 2 - FloatingBarLayout.visualCenterOffset
       return NSPoint(x: x, y: y)
     }
   }

@@ -12,73 +12,96 @@ enum FloatingBarLayout {
   static let pillPadding: CGFloat = 2
   static let pillWidth: CGFloat = clickAreaSize + pillPadding * 2
   static let pillHeight: CGFloat = clickAreaSize * 2 + clickAreaGap + pillPadding * 2
+  static let hoverHandleGap: CGFloat = 3
+  static let hoverHandleWidth: CGFloat = 13
+  static let hoverHandleHeight: CGFloat = 8
+  static let hoverHandleReservedHeight: CGFloat = hoverHandleGap + hoverHandleHeight
+  static let hoverHandleDotSize: CGFloat = 1.6
+  static let hoverHandleDotGap: CGFloat = 2.4
   static let containerWidth: CGFloat = pillWidth + inset * 2
-  static let containerHeight: CGFloat = pillHeight + inset * 2
+  static let containerHeight: CGFloat = pillHeight + hoverHandleReservedHeight + inset * 2
+  static let visualCenterOffset: CGFloat = hoverHandleReservedHeight / 2
   static let dragClickThreshold: CGFloat = 4
 }
 
 struct FloatingBarView: View {
   @ObservedObject var model: FloatingBarViewModel
+  @State private var isBarHovered = false
   @State private var isBarsHovered = false
   @State private var suppressNextClick = false
 
   var body: some View {
-    VStack(spacing: FloatingBarLayout.clickAreaGap) {
-      Button(action: { performClick(RustBridge.openMainWindow) }) {
-        CircularClickArea {
-          Text("a")
-            .font(.custom(FloatingBarFonts.cabinSketchName, size: FloatingBarLayout.markSize))
-            .foregroundStyle(.white)
-            .offset(y: -1)
-        }
-      }
-      .buttonStyle(.plain)
-
-      Button(action: { performClick(RustBridge.stopListening) }) {
-        CircularClickArea(
-          hoverFill: accentColor.opacity(0.16),
-          onHoverChange: { isBarsHovered = $0 }
-        ) {
-          Group {
-            if isBarsHovered {
-              Rectangle()
-                .fill(stopColor)
-                .frame(
-                  width: FloatingBarLayout.stopSquareSize,
-                  height: FloatingBarLayout.stopSquareSize
-                )
-            } else if model.status == .error {
-              ErrorMark(color: errorAccentColor)
-            } else {
-              DancingBars(color: accentColor, amplitude: model.amplitude)
-            }
+    VStack(spacing: FloatingBarLayout.hoverHandleGap) {
+      VStack(spacing: FloatingBarLayout.clickAreaGap) {
+        Button(action: { performClick(RustBridge.openMainWindow) }) {
+          CircularClickArea {
+            Text("a")
+              .font(.custom(FloatingBarFonts.cabinSketchName, size: FloatingBarLayout.markSize))
+              .foregroundStyle(.white)
+              .offset(y: -1)
           }
-          .frame(
-            width: FloatingBarLayout.waveformWidth,
-            height: FloatingBarLayout.waveformHeight
-          )
         }
+        .buttonStyle(.plain)
+
+        Button(action: { performClick(RustBridge.stopListening) }) {
+          CircularClickArea(
+            hoverFill: accentColor.opacity(0.16),
+            onHoverChange: { isBarsHovered = $0 }
+          ) {
+            Group {
+              if isBarsHovered {
+                Rectangle()
+                  .fill(stopColor)
+                  .frame(
+                    width: FloatingBarLayout.stopSquareSize,
+                    height: FloatingBarLayout.stopSquareSize
+                  )
+              } else if model.status == .error {
+                ErrorMark(color: errorAccentColor)
+              } else {
+                DancingBars(color: accentColor, amplitude: model.amplitude)
+              }
+            }
+            .frame(
+              width: FloatingBarLayout.waveformWidth,
+              height: FloatingBarLayout.waveformHeight
+            )
+          }
+        }
+        .buttonStyle(.plain)
       }
-      .buttonStyle(.plain)
+      .padding(FloatingBarLayout.pillPadding)
+      .frame(width: FloatingBarLayout.pillWidth, height: FloatingBarLayout.pillHeight)
+      .contentShape(Capsule(style: .continuous))
+      .simultaneousGesture(dragClickSuppressor)
+      .background(
+        Capsule(style: .continuous)
+          .fill(Color(red: 0.43, green: 0.44, blue: 0.40).opacity(0.78))
+      )
+      .overlay(
+        Capsule(style: .continuous)
+          .strokeBorder(Color.white.opacity(0.14), lineWidth: 0.5)
+      )
+      .overlay(
+        Capsule(style: .continuous)
+          .strokeBorder(Color.white.opacity(0.28), lineWidth: 0.5)
+          .padding(1.5)
+      )
+
+      FloatingBarHoverHandle()
+        .opacity(isBarHovered ? 1 : 0)
+        .scaleEffect(isBarHovered ? 1 : 0.92)
+        .animation(.easeOut(duration: 0.12), value: isBarHovered)
+        .accessibilityHidden(true)
     }
-    .padding(FloatingBarLayout.pillPadding)
-    .frame(width: FloatingBarLayout.pillWidth, height: FloatingBarLayout.pillHeight)
-    .contentShape(Capsule(style: .continuous))
-    .simultaneousGesture(dragClickSuppressor)
-    .background(
-      Capsule(style: .continuous)
-        .fill(Color(red: 0.43, green: 0.44, blue: 0.40).opacity(0.78))
-    )
-    .overlay(
-      Capsule(style: .continuous)
-        .strokeBorder(Color.white.opacity(0.14), lineWidth: 0.5)
-    )
-    .overlay(
-      Capsule(style: .continuous)
-        .strokeBorder(Color.white.opacity(0.28), lineWidth: 0.5)
-        .padding(1.5)
-    )
     .padding(FloatingBarLayout.inset)
+    .frame(
+      width: FloatingBarLayout.containerWidth,
+      height: FloatingBarLayout.containerHeight,
+      alignment: .top
+    )
+    .contentShape(Rectangle())
+    .onHover { isBarHovered = $0 }
   }
 
   private var accentColor: Color {
@@ -119,6 +142,31 @@ struct FloatingBarView: View {
     }
 
     action()
+  }
+}
+
+private struct FloatingBarHoverHandle: View {
+  private let columns = Array(
+    repeating: GridItem(
+      .fixed(FloatingBarLayout.hoverHandleDotSize), spacing: FloatingBarLayout.hoverHandleDotGap),
+    count: 3
+  )
+
+  var body: some View {
+    LazyVGrid(columns: columns, spacing: FloatingBarLayout.hoverHandleDotGap) {
+      ForEach(0..<6, id: \.self) { _ in
+        Circle()
+          .fill(Color.white.opacity(0.66))
+          .frame(
+            width: FloatingBarLayout.hoverHandleDotSize,
+            height: FloatingBarLayout.hoverHandleDotSize
+          )
+      }
+    }
+    .frame(
+      width: FloatingBarLayout.hoverHandleWidth,
+      height: FloatingBarLayout.hoverHandleHeight
+    )
   }
 }
 
