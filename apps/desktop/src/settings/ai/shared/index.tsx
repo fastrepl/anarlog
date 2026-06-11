@@ -340,6 +340,24 @@ const streamdownComponents = {
   p: (props: React.HTMLAttributes<HTMLParagraphElement>) => {
     return <p className="mb-1">{props.children as React.ReactNode}</p>;
   },
+  a: ({
+    children,
+    className,
+    ...props
+  }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => {
+    return (
+      <a
+        {...props}
+        className={cn([
+          "text-foreground font-medium underline underline-offset-2",
+          "decoration-foreground/50 hover:decoration-foreground",
+          className,
+        ])}
+      >
+        {children as React.ReactNode}
+      </a>
+    );
+  },
 } as const;
 
 export function StyledStreamdown({
