@@ -4,6 +4,8 @@ import {
   ArrowLeftIcon,
   PanelLeftCloseIcon,
   PanelLeftOpenIcon,
+  SearchIcon,
+  SquarePenIcon,
 } from "lucide-react";
 import { type MouseEvent, type PointerEvent, useCallback, useRef } from "react";
 
@@ -21,6 +23,8 @@ import { useClassicMainTabsShortcuts } from "./useTabsShortcuts";
 
 import { useShell } from "~/contexts/shell";
 import { GlobalLiveTranscriptAccessory } from "~/session/components/bottom-accessory/global-live";
+import { useOpenNoteDialog } from "~/shared/open-note-dialog";
+import { useNewNote } from "~/shared/useNewNote";
 import {
   hasCustomSidebarTab,
   hasLeftSurfaceCustomSidebarTab,
@@ -61,6 +65,11 @@ export function ClassicMainBody() {
   });
   const mainAreaTopDrag = useMainAreaTopWindowDrag(enableMainAreaTopDrag);
   const update = useDesktopUpdateControl();
+  const createNewNote = useNewNote();
+  const openNoteDialog = useOpenNoteDialog();
+  const handleOpenNoteDialog = useCallback(() => {
+    openNoteDialog.open();
+  }, [openNoteDialog]);
 
   return (
     <div className="relative flex h-full min-w-0 flex-1 flex-col">
@@ -75,10 +84,12 @@ export function ClassicMainBody() {
         >
           <div
             data-tauri-drag-region
-            className="flex h-full min-w-0 items-start pt-[9px] pr-3 pl-[76px]"
+            className="flex h-full min-w-0 items-start pt-[9px] pr-1 pl-[76px]"
           >
             <SidebarTimelineChrome
               sidebarExpanded={leftsidebar.expanded}
+              onNewNote={createNewNote}
+              onSearch={handleOpenNoteDialog}
               onToggleSidebar={leftsidebar.toggleExpanded}
               update={update}
             />
@@ -274,15 +285,20 @@ function isMainAreaWindowDrag(
 }
 
 function SidebarTimelineChrome({
+  onNewNote,
+  onSearch,
   onToggleSidebar,
   sidebarExpanded,
   update,
 }: {
+  onNewNote: () => void;
+  onSearch: () => void;
   onToggleSidebar: () => void;
   sidebarExpanded: boolean;
   update: DesktopUpdateControl;
 }) {
   const updateVisible = Boolean(update.status && update.version);
+  const showDownloadButton = sidebarExpanded && update.status === "available";
 
   return (
     <div className="flex w-full items-center justify-between">
@@ -298,8 +314,20 @@ function SidebarTimelineChrome({
             <PanelLeftOpenIcon size={16} />
           )}
         </LeftSurfaceChromeButton>
+        {sidebarExpanded ? (
+          <>
+            <LeftSurfaceChromeButton ariaLabel="Search" onClick={onSearch}>
+              <SearchIcon size={15} />
+            </LeftSurfaceChromeButton>
+            <LeftSurfaceChromeButton ariaLabel="New note" onClick={onNewNote}>
+              <SquarePenIcon size={15} />
+            </LeftSurfaceChromeButton>
+          </>
+        ) : null}
       </div>
-      {sidebarExpanded ? <SidebarTimelineUpdateButton update={update} /> : null}
+      {showDownloadButton ? (
+        <SidebarTimelineUpdateButton update={update} />
+      ) : null}
     </div>
   );
 }

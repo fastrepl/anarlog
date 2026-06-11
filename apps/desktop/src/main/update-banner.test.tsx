@@ -160,9 +160,15 @@ describe("SidebarTimelineUpdateButton", () => {
 
     renderSidebarUpdateButton();
 
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Download update" }),
+    const button = await screen.findByRole("button", {
+      name: "Download update",
+    });
+
+    expect(button.className.split(" ")).toEqual(
+      expect.arrayContaining(["h-7", "w-7", "min-h-7", "min-w-7", "p-0"]),
     );
+
+    fireEvent.click(button);
 
     await waitFor(() => expect(downloadMock).toHaveBeenCalledWith("1.0.34"));
   });

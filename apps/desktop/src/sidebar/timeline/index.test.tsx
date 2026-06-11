@@ -8,8 +8,6 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  newNote: vi.fn(),
-  openSearch: vi.fn(),
   openNew: vi.fn(),
   registerAnchor: vi.fn(),
   invalidateResource: vi.fn(),
@@ -36,16 +34,6 @@ vi.mock("~/shared/config", () => ({
 
 vi.mock("~/shared/hooks/useNativeContextMenu", () => ({
   useNativeContextMenu: () => vi.fn(),
-}));
-
-vi.mock("~/shared/useNewNote", () => ({
-  useNewNote: () => mocks.newNote,
-}));
-
-vi.mock("~/shared/open-note-dialog", () => ({
-  useOpenNoteDialog: () => ({
-    open: mocks.openSearch,
-  }),
 }));
 
 vi.mock("~/store/tinybase/hooks", () => ({
@@ -183,44 +171,15 @@ describe("TimelineView", () => {
     vi.useRealTimers();
   });
 
-  it("shows expanding sidebar action tabs for creating, searching, and opening calendar", () => {
+  it("does not render sidebar action tabs inside the timeline chrome", () => {
     render(<TimelineView topChromeInset />);
 
-    const newNoteButton = screen.getByRole("button", { name: "New note" });
-    const searchButton = screen.getByRole("button", { name: "Search" });
-    const calendarButton = screen.getByRole("button", {
-      name: "Open calendar",
-    });
-    const actionTabs = getSidebarActionTabs();
-
-    expect(actionTabs.className).not.toContain("bg-muted/80");
-    expect(actionTabs.className).not.toContain("rounded-full");
-    expect(newNoteButton.className).toContain("flex-1");
-    expect(newNoteButton.className).toContain("justify-center");
-    expect(newNoteButton.className).toContain("rounded-full");
-    expect(searchButton.className).toContain("w-8");
-    expect(calendarButton.className).toContain("w-8");
-
-    fireEvent.mouseEnter(searchButton);
-
-    expect(newNoteButton.className).toContain("w-8");
-    expect(searchButton.className).toContain("flex-1");
-    expect(searchButton.className).toContain("justify-center");
-
-    fireEvent.mouseLeave(actionTabs);
-
-    expect(newNoteButton.className).toContain("flex-1");
-
-    fireEvent.click(screen.getByRole("button", { name: "New note" }));
-    fireEvent.click(screen.getByRole("button", { name: "Search" }));
-    fireEvent.click(calendarButton);
-
-    expect(mocks.newNote).toHaveBeenCalledTimes(1);
-    expect(mocks.openSearch).toHaveBeenCalledTimes(1);
-    expect(mocks.openNew).toHaveBeenCalledWith({ type: "calendar" });
+    expect(screen.queryByRole("button", { name: "New note" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Search" })).toBeNull();
+    expect(getSidebarActionTabsOrNull()).toBeNull();
   });
 
-  it("keeps calendar in the sidebar action tabs without extra top spacing", () => {
+  it("shows the open calendar chip in top chrome without action tabs", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
     mocks.currentTimeMs = Date.now();
@@ -233,16 +192,19 @@ describe("TimelineView", () => {
     };
 
     const { container } = render(<TimelineView topChromeInset />);
+    const calendarButton = screen.getByRole("button", {
+      name: "Open calendar",
+    });
 
-    expect(getSidebarActions().className).not.toContain("opacity-0");
-    expect(
-      getSidebarActions().contains(
-        screen.getByRole("button", { name: "Open calendar" }),
-      ),
-    ).toBe(true);
+    expect(getSidebarActionTabsOrNull()).toBeNull();
+    expect(calendarButton.className).toContain("rounded-full");
     expect(
       container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
-    ).toContain("h-[5.25rem]");
+    ).toContain("h-20");
+
+    fireEvent.click(calendarButton);
+
+    expect(mocks.openNew).toHaveBeenCalledWith({ type: "calendar" });
   });
 
   it("shows a due calendar sync status in sidebar chrome", () => {
@@ -262,9 +224,10 @@ describe("TimelineView", () => {
     expect(screen.getByRole("status").textContent).toBe(
       "Starting calendar sync",
     );
+    expect(screen.getByRole("status").className).toContain("rounded-full");
     expect(
       container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
-    ).toContain("h-28");
+    ).toContain("h-20");
   });
 
   it("updates scheduled calendar sync status as the due window passes", () => {
@@ -319,7 +282,36 @@ describe("TimelineView", () => {
     expect(screen.getByRole("status").textContent).toBe("Syncing calendar");
   });
 
-  it("keeps calendar sync status visible while action tabs hide on scroll", () => {
+  it("hides calendar sync status while visible events are listed", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
+    mocks.currentTimeMs = Date.now();
+    mocks.smartCurrentTimeMs = Date.now();
+    mocks.runningTaskRunIds = ["calendar-sync-run"];
+    mocks.taskRunInfo = {
+      "calendar-sync-run": {
+        taskId: "calendarSync",
+        running: true,
+        nextTimestamp: Date.now() + 1000,
+      },
+    };
+    mocks.timelineEventsTable = {
+      standup: {
+        title: "Team standup",
+        started_at: "2024-01-15T12:30:00.000Z",
+        ended_at: "2024-01-15T13:00:00.000Z",
+        tracking_id_event: "event-standup",
+        has_recurrence_rules: false,
+      },
+    };
+
+    render(<TimelineView topChromeInset />);
+
+    expect(screen.getByTestId("timeline-item-standup")).toBeTruthy();
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("keeps calendar sync status visible while scrolled", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
     mocks.runningTaskRunIds = ["calendar-sync-run"];
@@ -348,11 +340,10 @@ describe("TimelineView", () => {
     fireEvent.scroll(scroller!);
 
     expect(screen.getByRole("status").textContent).toBe("Syncing calendar");
-    expect(getSidebarActions().className).not.toContain("opacity-0");
-    expect(getSidebarActionTabs().className).toContain("opacity-0");
+    expect(getSidebarActionTabsOrNull()).toBeNull();
     expect(
       container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
-    ).toContain("h-28");
+    ).toContain("h-20");
   });
 
   it("hides future repeated calendar sync schedules from sidebar chrome", () => {
@@ -386,14 +377,13 @@ describe("TimelineView", () => {
 
     const { container } = render(<TimelineView topChromeInset />);
 
-    expect(getSidebarActions().className).not.toContain("opacity-0");
     expect(
       container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
-    ).toContain("h-[5.25rem]");
+    ).toContain("h-12");
     expect(
       container.querySelector("[data-sidebar-timeline-bucket-header]")
         ?.className,
-    ).toContain("top-[5.25rem]");
+    ).toContain("top-12");
   });
 
   it("pins bucket headers to the sidebar chrome while scrolled", () => {
@@ -419,7 +409,7 @@ describe("TimelineView", () => {
     );
 
     expect(scroller).toBeInstanceOf(HTMLDivElement);
-    expect(header?.className).toContain("top-[5.25rem]");
+    expect(header?.className).toContain("top-12");
 
     Object.defineProperty(scroller, "clientHeight", {
       configurable: true,
@@ -463,21 +453,12 @@ describe("TimelineView", () => {
     expect(mocks.openNew).toHaveBeenCalledWith({ type: "calendar" });
   });
 
-  it("hides sidebar actions briefly after scrolling down", () => {
-    vi.useFakeTimers();
-
+  it("keeps top chrome compact while scrolled without timeline action tabs", () => {
     const { container } = render(<TimelineView topChromeInset />);
     const scroller = container.querySelector("[data-sidebar-timeline-scroll]");
-    const newNoteButton = screen.getByRole("button", { name: "New note" });
-    const searchButton = screen.getByRole("button", { name: "Search" });
 
     expect(scroller).toBeInstanceOf(HTMLDivElement);
-    expect(getSidebarActions().className).not.toContain("opacity-0");
-
-    fireEvent.mouseEnter(searchButton);
-
-    expect(newNoteButton.className).toContain("w-8");
-    expect(searchButton.className).toContain("flex-1");
+    expect(getSidebarActionTabsOrNull()).toBeNull();
 
     Object.defineProperty(scroller, "clientHeight", {
       configurable: true,
@@ -490,62 +471,9 @@ describe("TimelineView", () => {
     scroller!.scrollTop = 120;
     fireEvent.scroll(scroller!);
 
-    expect(getSidebarActions().className).toContain("opacity-0");
-    expect(getTopFade(container).className).toContain("h-20");
+    expect(getSidebarActionTabsOrNull()).toBeNull();
+    expect(getTopFade(container).className).toContain("h-16");
     expect(getTopFade(container).className).toContain("from-60%");
-
-    act(() => {
-      vi.advanceTimersByTime(900);
-    });
-
-    const revealedNewNoteButton = screen.getByRole("button", {
-      name: "New note",
-    });
-    const revealedSearchButton = screen.getByRole("button", { name: "Search" });
-
-    expect(getSidebarActions().className).not.toContain("opacity-0");
-    expect(revealedNewNoteButton.className).toContain("flex-1");
-    expect(revealedSearchButton.className).toContain("w-8");
-    expect(getTopFade(container).className).toContain("h-28");
-    expect(getTopFade(container).className).toContain("from-75%");
-  });
-
-  it("keeps sidebar actions hidden during timeline data refreshes", () => {
-    vi.useFakeTimers();
-
-    const { container, rerender } = render(<TimelineView topChromeInset />);
-    const scroller = container.querySelector("[data-sidebar-timeline-scroll]");
-
-    expect(scroller).toBeInstanceOf(HTMLDivElement);
-
-    Object.defineProperty(scroller, "clientHeight", {
-      configurable: true,
-      value: 200,
-    });
-    Object.defineProperty(scroller, "scrollHeight", {
-      configurable: true,
-      value: 1200,
-    });
-    scroller!.scrollTop = 120;
-    fireEvent.scroll(scroller!);
-
-    expect(getSidebarActions().className).toContain("opacity-0");
-
-    mocks.timelineSessionsTable = {
-      "session-1": {
-        title: "Planning",
-        created_at: "2024-01-15T12:00:00.000Z",
-      },
-    };
-    rerender(<TimelineView topChromeInset />);
-
-    expect(getSidebarActions().className).toContain("opacity-0");
-
-    act(() => {
-      vi.advanceTimersByTime(900);
-    });
-
-    expect(getSidebarActions().className).not.toContain("opacity-0");
   });
 
   it("places the fallback now indicator between future and past buckets", () => {
@@ -708,26 +636,6 @@ describe("TimelineView", () => {
     expect(isBefore(indicator, yesterdayHeading)).toBe(true);
   });
 });
-
-function getSidebarActions() {
-  const actions = screen
-    .getByRole("button", { name: "New note" })
-    .closest("[data-sidebar-timeline-actions]");
-
-  expect(actions).toBeInstanceOf(HTMLDivElement);
-
-  return actions as HTMLDivElement;
-}
-
-function getSidebarActionTabs() {
-  const actions = screen
-    .getByRole("button", { name: "New note" })
-    .closest("[data-sidebar-timeline-action-tabs]");
-
-  expect(actions).toBeInstanceOf(HTMLDivElement);
-
-  return actions as HTMLDivElement;
-}
 
 function getSidebarActionTabsOrNull() {
   return document.querySelector("[data-sidebar-timeline-action-tabs]");

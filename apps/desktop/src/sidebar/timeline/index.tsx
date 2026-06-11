@@ -2,8 +2,6 @@ import {
   ArrowDownIcon,
   ArrowUpIcon,
   CalendarDaysIcon,
-  SearchIcon,
-  SquarePenIcon,
   SunIcon,
 } from "lucide-react";
 import {
@@ -49,8 +47,6 @@ import {
 import { CALENDAR_SYNC_TASK_ID } from "~/services/calendar";
 import { useConfigValue } from "~/shared/config";
 import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
-import { useOpenNoteDialog } from "~/shared/open-note-dialog";
-import { useNewNote } from "~/shared/useNewNote";
 import { useIgnoredEvents } from "~/store/tinybase/hooks";
 import {
   captureSessionData,
@@ -63,10 +59,8 @@ import { useTimelineSelection } from "~/store/zustand/timeline-selection";
 import { useUndoDelete } from "~/store/zustand/undo-delete";
 import { useListener } from "~/stt/contexts";
 
-const SIDEBAR_ACTIONS_REVEAL_DELAY_MS = 900;
 const DUE_CALENDAR_SYNC_VISIBLE_WINDOW_MS = 1000;
 const CALENDAR_SYNC_STATUS_TICK_MS = 500;
-type SidebarTimelineActionId = "new-note" | "search" | "calendar";
 type SidebarCalendarSyncStatus = "idle" | "scheduled" | "syncing";
 
 export function TimelineView({
@@ -86,12 +80,9 @@ export function TimelineView({
   const [showIgnored, setShowIgnored] = useState(false);
   const [isScrolledToTop, setIsScrolledToTop] = useState(true);
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(true);
-  const [areSidebarActionsHidden, setAreSidebarActionsHidden] = useState(false);
 
   const { isIgnored } = useIgnoredEvents();
   const openNew = useTabs((state) => state.openNew);
-  const createNewNote = useNewNote();
-  const openNoteDialog = useOpenNoteDialog();
 
   const buckets = useMemo(() => {
     if (showIgnored) {
@@ -134,28 +125,19 @@ export function TimelineView({
       }),
     [visibleTimelineEventsTable, timelineSessionsTable, timezone],
   );
+  const hasVisibleCalendarEvents = useMemo(
+    () =>
+      buckets.some((bucket) =>
+        bucket.items.some((item) => item.type === "event"),
+      ),
+    [buckets],
+  );
   const calendarSyncStatus = useCalendarSyncStatus();
   const showCalendarSyncStatus =
-    topChromeInset && calendarSyncStatus !== "idle";
+    calendarSyncStatus !== "idle" && !hasVisibleCalendarEvents;
 
   const showOpenCalendarChip =
-    !topChromeInset &&
-    showOpenCalendarButton &&
-    isScrolledToTop &&
-    hasMoreFutureItems;
-
-  const topSpacerClassName = topChromeInset
-    ? showCalendarSyncStatus
-      ? "h-28"
-      : "h-[5.25rem]"
-    : "h-10";
-  const bucketHeaderTopClassName = topChromeInset
-    ? showCalendarSyncStatus
-      ? "top-28"
-      : isScrolledToTop
-        ? "top-[5.25rem]"
-        : "top-12"
-    : "top-0";
+    showOpenCalendarButton && isScrolledToTop && hasMoreFutureItems;
 
   const hasToday = useMemo(
     () => buckets.some((bucket) => bucket.label === "Today"),
@@ -210,16 +192,27 @@ export function TimelineView({
     registerAnchor: setCurrentTimeIndicatorRef,
     anchorNode: todayAnchorNode,
   } = useAnchor();
+  const showTopNowChip = !isTodayVisible && isScrolledPastToday;
+  const topChromeChipCount = [
+    showOpenCalendarChip,
+    topChromeInset && showCalendarSyncStatus,
+    topChromeInset && showTopNowChip,
+  ].filter(Boolean).length;
+  const topSpacerClassName = topChromeInset
+    ? topChromeChipCount > 1
+      ? "h-28"
+      : topChromeChipCount === 1
+        ? "h-20"
+        : "h-12"
+    : "h-10";
+  const bucketHeaderTopClassName = topChromeInset
+    ? topChromeChipCount > 1
+      ? "top-28"
+      : topChromeChipCount === 1
+        ? "top-20"
+        : "top-12"
+    : "top-0";
   const selectedSessionScrollFrameRef = useRef<number | null>(null);
-  const previousScrollTopRef = useRef(0);
-  const areSidebarActionsHiddenRef = useRef(false);
-  const sidebarActionsRevealTimerRef = useRef<ReturnType<
-    typeof setTimeout
-  > | null>(null);
-  const setSidebarActionsHidden = useCallback((hidden: boolean) => {
-    areSidebarActionsHiddenRef.current = hidden;
-    setAreSidebarActionsHidden(hidden);
-  }, []);
   const scrollSelectedSessionIntoView = useCallback<
     RefCallback<HTMLDivElement>
   >(
@@ -247,21 +240,6 @@ export function TimelineView({
       return;
     }
 
-    const clearSidebarActionsRevealTimer = () => {
-      if (sidebarActionsRevealTimerRef.current !== null) {
-        clearTimeout(sidebarActionsRevealTimerRef.current);
-        sidebarActionsRevealTimerRef.current = null;
-      }
-    };
-
-    const revealSidebarActionsSoon = () => {
-      clearSidebarActionsRevealTimer();
-      sidebarActionsRevealTimerRef.current = setTimeout(() => {
-        setSidebarActionsHidden(false);
-        sidebarActionsRevealTimerRef.current = null;
-      }, SIDEBAR_ACTIONS_REVEAL_DELAY_MS);
-    };
-
     const updateScrollPosition = () => {
       const maxScrollTop = Math.max(
         0,
@@ -269,48 +247,20 @@ export function TimelineView({
       );
       const nextScrollTop = container.scrollTop;
       const scrolledToTop = nextScrollTop <= 12;
-      const scrollDelta = nextScrollTop - previousScrollTopRef.current;
 
       setIsScrolledToTop(scrolledToTop);
       setIsScrolledToBottom(maxScrollTop - nextScrollTop <= 12);
-
-      if (topChromeInset && scrollDelta > 2 && !scrolledToTop) {
-        setSidebarActionsHidden(true);
-        revealSidebarActionsSoon();
-      } else if (topChromeInset && (scrolledToTop || scrollDelta < -2)) {
-        clearSidebarActionsRevealTimer();
-        setSidebarActionsHidden(false);
-      }
-
-      previousScrollTopRef.current = nextScrollTop;
-
-      return { scrolledToTop };
     };
 
-    const { scrolledToTop } = updateScrollPosition();
-    if (
-      topChromeInset &&
-      !scrolledToTop &&
-      areSidebarActionsHiddenRef.current &&
-      sidebarActionsRevealTimerRef.current === null
-    ) {
-      revealSidebarActionsSoon();
-    }
+    updateScrollPosition();
     container.addEventListener("scroll", updateScrollPosition, {
       passive: true,
     });
 
     return () => {
-      clearSidebarActionsRevealTimer();
       container.removeEventListener("scroll", updateScrollPosition);
     };
-  }, [
-    containerRef,
-    buckets.length,
-    flatItemKeys.length,
-    topChromeInset,
-    setSidebarActionsHidden,
-  ]);
+  }, [containerRef, buckets.length, flatItemKeys.length]);
 
   const scrollFadeMask = useMemo(() => {
     const topFadeEnd = isScrolledToTop ? "0px" : "28px";
@@ -345,10 +295,6 @@ export function TimelineView({
   const handleOpenCalendar = useCallback(() => {
     openNew({ type: "calendar" });
   }, [openNew]);
-
-  const handleOpenNoteDialog = useCallback(() => {
-    openNoteDialog.open();
-  }, [openNoteDialog]);
 
   const handleDeleteSelected = useCallback(() => {
     if (!store || !indexes) {
@@ -537,58 +483,37 @@ export function TimelineView({
           data-sidebar-timeline-top-fade
           className={cn([
             "pointer-events-none absolute inset-x-0 top-0 z-[15]",
-            showCalendarSyncStatus
+            topChromeChipCount > 1
               ? "bg-background h-28"
-              : areSidebarActionsHidden
-                ? "from-background via-background/95 to-background/0 h-20 bg-linear-to-b from-60% via-80%"
-                : isScrolledToTop
-                  ? "bg-background h-[5.25rem]"
-                  : "from-background via-background/95 to-background/0 h-28 bg-linear-to-b from-75% via-85%",
+              : topChromeChipCount === 1
+                ? "bg-background h-20"
+                : "from-background via-background/95 to-background/0 h-16 bg-linear-to-b from-60% via-85%",
           ])}
         />
       )}
 
-      {topChromeInset && (
-        <SidebarTimelineActions
-          key={areSidebarActionsHidden ? "hidden" : "visible"}
-          hidden={areSidebarActionsHidden}
-          onNewNote={createNewNote}
-          onOpenCalendar={handleOpenCalendar}
-          onSearch={handleOpenNoteDialog}
-          showCalendarAction={showOpenCalendarButton}
-          calendarSyncStatus={calendarSyncStatus}
-        />
-      )}
-
-      {(showOpenCalendarChip || (!isTodayVisible && isScrolledPastToday)) && (
+      {(showOpenCalendarChip ||
+        (topChromeInset && showCalendarSyncStatus) ||
+        showTopNowChip) && (
         <div
           className={cn([
             "absolute left-1/2 z-20 flex -translate-x-1/2 transform flex-col items-center gap-2",
-            topChromeInset
-              ? areSidebarActionsHidden
-                ? "top-10"
-                : "top-24"
-              : "top-2",
+            topChromeInset ? "top-12" : "top-2",
           ])}
         >
           {showOpenCalendarChip && (
-            <Button
+            <TimelineTopChip
+              ariaLabel="Open calendar"
+              icon={<CalendarDaysIcon size={12} />}
               onClick={handleOpenCalendar}
-              size="sm"
-              className={cn([
-                "bg-card hover:bg-accent rounded-full",
-                "border-border text-muted-foreground border",
-                "flex items-center gap-1",
-                "px-3",
-                "shadow-xs",
-              ])}
-              variant="outline"
             >
-              <CalendarDaysIcon size={12} />
-              <span className="text-xs">Open calendar</span>
-            </Button>
+              Open calendar
+            </TimelineTopChip>
           )}
-          {!isTodayVisible && isScrolledPastToday && (
+          {topChromeInset && showCalendarSyncStatus && (
+            <SidebarCalendarSyncStatus status={calendarSyncStatus} />
+          )}
+          {showTopNowChip && (
             <TimelineNowChip direction="up" onClick={scrollToToday} />
           )}
         </div>
@@ -608,106 +533,6 @@ export function TimelineView({
   );
 }
 
-function SidebarTimelineActions({
-  hidden,
-  onNewNote,
-  onOpenCalendar,
-  onSearch,
-  showCalendarAction,
-  calendarSyncStatus,
-}: {
-  hidden: boolean;
-  onNewNote: () => void;
-  onOpenCalendar: () => void;
-  onSearch: () => void;
-  showCalendarAction: boolean;
-  calendarSyncStatus: SidebarCalendarSyncStatus;
-}) {
-  const [expandedActionId, setExpandedActionId] =
-    useState<SidebarTimelineActionId | null>(null);
-  const activeActionId = expandedActionId ?? "new-note";
-  const showCalendarSyncStatus = calendarSyncStatus !== "idle";
-  const hideActionContainer = hidden && !showCalendarSyncStatus;
-  const actionItems = useMemo(
-    () => [
-      {
-        ariaLabel: "New note",
-        icon: <SquarePenIcon size={15} />,
-        id: "new-note" as const,
-        label: "New note",
-        onClick: onNewNote,
-      },
-      {
-        ariaLabel: "Search",
-        icon: <SearchIcon size={15} />,
-        id: "search" as const,
-        label: "Search",
-        onClick: onSearch,
-      },
-      ...(showCalendarAction
-        ? [
-            {
-              ariaLabel: "Open calendar",
-              icon: <CalendarDaysIcon size={15} />,
-              id: "calendar" as const,
-              label: "Calendar",
-              onClick: onOpenCalendar,
-            },
-          ]
-        : []),
-    ],
-    [onNewNote, onOpenCalendar, onSearch, showCalendarAction],
-  );
-
-  return (
-    <div
-      data-sidebar-timeline-actions
-      className={cn([
-        "absolute inset-x-0 top-10 z-30 pt-1 pb-2",
-        "bg-background/95 backdrop-blur",
-        "transition-[opacity,transform] duration-150 ease-out",
-        hideActionContainer
-          ? "pointer-events-none -translate-y-2 opacity-0"
-          : "translate-y-0 opacity-100",
-      ])}
-    >
-      <div
-        data-sidebar-timeline-action-tabs
-        role="toolbar"
-        aria-label="Sidebar actions"
-        className={cn([
-          "flex w-full items-center gap-1",
-          "transition-[opacity,transform] duration-150 ease-out",
-          hidden
-            ? "pointer-events-none -translate-y-2 opacity-0"
-            : "translate-y-0 opacity-100",
-        ])}
-        onMouseLeave={() => setExpandedActionId(null)}
-        onBlur={(event) => {
-          const nextFocusedNode = event.relatedTarget as Node | null;
-          if (!event.currentTarget.contains(nextFocusedNode)) {
-            setExpandedActionId(null);
-          }
-        }}
-      >
-        {actionItems.map((action) => (
-          <SidebarTimelineActionButton
-            key={action.id}
-            active={activeActionId === action.id}
-            ariaLabel={action.ariaLabel}
-            icon={action.icon}
-            id={action.id}
-            label={action.label}
-            onClick={action.onClick}
-            onExpand={setExpandedActionId}
-          />
-        ))}
-      </div>
-      <SidebarCalendarSyncStatus status={calendarSyncStatus} />
-    </div>
-  );
-}
-
 function SidebarCalendarSyncStatus({
   status,
 }: {
@@ -721,81 +546,71 @@ function SidebarCalendarSyncStatus({
     status === "scheduled" ? "Starting calendar sync" : "Syncing calendar";
 
   return (
-    <div
+    <TimelineTopChip
       role="status"
       aria-live="polite"
       data-sidebar-calendar-sync-status
-      className={cn([
-        "mt-1.5 flex h-5 items-center gap-1.5 px-3",
-        "text-muted-foreground text-[11px] leading-none font-medium",
-      ])}
-    >
-      <span className="text-muted-foreground flex size-3 shrink-0 items-center justify-center">
-        {status === "syncing" ? (
+      icon={
+        status === "syncing" ? (
           <Spinner size={12} />
         ) : (
           <CalendarDaysIcon size={12} />
-        )}
-      </span>
-      <span className="truncate">{label}</span>
-    </div>
+        )
+      }
+    >
+      {label}
+    </TimelineTopChip>
   );
 }
 
-function SidebarTimelineActionButton({
-  active,
+function TimelineTopChip({
   ariaLabel,
+  children,
   icon,
-  id,
-  label,
   onClick,
-  onExpand,
+  ...props
 }: {
-  active: boolean;
-  ariaLabel: string;
+  ariaLabel?: string;
+  children: ReactNode;
   icon: ReactNode;
-  id: SidebarTimelineActionId;
-  label: string;
-  onClick: () => void;
-  onExpand: (id: SidebarTimelineActionId) => void;
+  className?: string;
+  role?: string;
+  "aria-live"?: "off" | "polite" | "assertive";
+  "data-sidebar-calendar-sync-status"?: true;
+  onClick?: () => void;
 }) {
-  return (
-    <button
-      type="button"
-      aria-label={ariaLabel}
-      data-sidebar-timeline-action={id}
-      className={cn([
-        "flex h-8 min-w-8 items-center overflow-hidden rounded-full",
-        "border border-transparent",
-        "text-muted-foreground text-sm font-medium",
-        "transition-[width,flex-grow,background-color,border-color,color] duration-150 ease-out",
-        "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-hidden",
-        active
-          ? "border-border bg-card text-foreground flex-1 justify-center px-3 shadow-xs"
-          : "hover:bg-card/80 hover:text-foreground w-8 flex-none justify-center px-2",
-      ])}
-      onClick={onClick}
-      onFocus={() => onExpand(id)}
-      onMouseEnter={() => onExpand(id)}
-    >
-      <span
-        className={cn([
-          "flex size-4 shrink-0 items-center justify-center",
-          active ? "text-foreground" : "text-muted-foreground",
-        ])}
+  const className = cn([
+    "border-border bg-card/95 text-muted-foreground flex h-6 items-center gap-1 rounded-full border px-2.5 text-xs font-medium shadow-xs backdrop-blur",
+    onClick && "hover:bg-accent hover:text-foreground transition-colors",
+    "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-hidden",
+    props.className,
+  ]);
+
+  if (onClick) {
+    return (
+      <Button
+        {...props}
+        aria-label={ariaLabel}
+        className={className}
+        onClick={onClick}
+        size="sm"
+        variant="outline"
       >
+        <span className="flex size-3 shrink-0 items-center justify-center">
+          {icon}
+        </span>
+        <span className="truncate">{children}</span>
+      </Button>
+    );
+  }
+
+  return (
+    <div {...props} aria-label={ariaLabel} className={className}>
+      <span className="flex size-3 shrink-0 items-center justify-center">
         {icon}
       </span>
-      <span
-        aria-hidden
-        className={cn([
-          "truncate whitespace-nowrap transition-[margin,max-width,opacity] duration-150 ease-out",
-          active ? "ml-2 max-w-28 opacity-100" : "ml-0 max-w-0 opacity-0",
-        ])}
-      >
-        {label}
-      </span>
-    </button>
+      <span className="truncate">{children}</span>
+    </div>
   );
 }
 

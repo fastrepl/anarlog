@@ -8,7 +8,9 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  createNewNote: vi.fn(),
   openNew: vi.fn(),
+  openSearch: vi.fn(),
   goBack: vi.fn(),
   goNext: vi.fn(),
   runEscapeShortcut: vi.fn(),
@@ -105,6 +107,16 @@ vi.mock("~/session/components/bottom-accessory/global-live", () => ({
   ),
 }));
 
+vi.mock("~/shared/open-note-dialog", () => ({
+  useOpenNoteDialog: () => ({
+    open: mocks.openSearch,
+  }),
+}));
+
+vi.mock("~/shared/useNewNote", () => ({
+  useNewNote: () => mocks.createNewNote,
+}));
+
 vi.mock("~/sidebar/toast", () => ({
   ToastArea: () => <div data-testid="toast-area" />,
 }));
@@ -128,7 +140,9 @@ import { ClassicMainBody } from "~/main/body";
 
 describe("ClassicMainBody", () => {
   beforeEach(() => {
+    mocks.createNewNote.mockClear();
     mocks.openNew.mockClear();
+    mocks.openSearch.mockClear();
     mocks.goBack.mockClear();
     mocks.goNext.mockClear();
     mocks.runEscapeShortcut.mockClear();
@@ -162,20 +176,41 @@ describe("ClassicMainBody", () => {
     render(<ClassicMainBody />);
 
     const sidebarToggle = screen.getByRole("button", { name: "Hide sidebar" });
+    const searchButton = screen.getByRole("button", { name: "Search" });
+    const newNoteButton = screen.getByRole("button", { name: "New note" });
     const chrome = sidebarToggle.parentElement?.parentElement;
+    const chromeFrame = chrome?.parentElement;
     const topArea = chrome?.parentElement?.parentElement;
+
+    fireEvent.click(searchButton);
+    fireEvent.click(newNoteButton);
 
     expect(screen.getByTestId("main-sidebar")).toBeTruthy();
     expect(screen.getByTestId("main-tab-content").textContent).toContain(
       "empty",
     );
     expect(screen.queryByTestId("timeline-update-banner")).toBeNull();
-    expect(sidebarToggle.parentElement?.className).toContain("gap-0");
+    expect(sidebarToggle.parentElement?.className.split(" ")).toContain(
+      "gap-0",
+    );
+    expect(sidebarToggle.parentElement?.className.split(" ")).not.toContain(
+      "gap-0.5",
+    );
     expect(chrome?.className).toContain("justify-between");
     expect(chrome?.className).toContain("w-full");
+    expect(chromeFrame?.className).toContain("pr-1");
+    expect(chromeFrame?.className).not.toContain("pr-3");
     expect(topArea?.className).toContain("h-12");
     expect(topArea?.className).toContain("absolute");
     expect(topArea?.className).toContain("left-0");
+    expect(sidebarToggle.compareDocumentPosition(searchButton)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(searchButton.compareDocumentPosition(newNoteButton)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(mocks.openSearch).toHaveBeenCalledTimes(1);
+    expect(mocks.createNewNote).toHaveBeenCalledTimes(1);
   });
 
   it("does not reserve top shell chrome for onboarding", () => {
@@ -235,15 +270,27 @@ describe("ClassicMainBody", () => {
 
     const sidebarToggle = screen.getByRole("button", { name: "Hide sidebar" });
     const chrome = sidebarToggle.parentElement?.parentElement;
+    const chromeFrame = chrome?.parentElement;
 
     expect(screen.getByTestId("sidebar-update-button")).toBeTruthy();
     expect(chrome?.className).toContain("justify-between");
+    expect(chromeFrame?.className).toContain("pr-1");
+    expect(chromeFrame?.className).not.toContain("pr-3");
     expect(chrome?.lastElementChild?.getAttribute("data-testid")).toBe(
       "sidebar-update-button",
     );
     expect(
       within(sidebarToggle).queryByTestId("collapsed-sidebar-update-badge"),
     ).toBeNull();
+  });
+
+  it("only shows downloadable updates in the far-right sidebar chrome slot", () => {
+    mocks.sidebarUpdateControl.status = "ready";
+    mocks.sidebarUpdateControl.version = "1.0.34";
+
+    render(<ClassicMainBody />);
+
+    expect(screen.queryByTestId("sidebar-update-button")).toBeNull();
   });
 
   it("shows an update badge on the collapsed sidebar toggle", () => {
@@ -280,7 +327,12 @@ describe("ClassicMainBody", () => {
 
     expect(screen.queryByTestId("timeline-update-banner")).toBeNull();
     expect(screen.queryByRole("button", { name: "Go back" })).toBeNull();
-    expect(sidebarToggle.parentElement?.className).toContain("gap-0");
+    expect(sidebarToggle.parentElement?.className.split(" ")).toContain(
+      "gap-0",
+    );
+    expect(sidebarToggle.parentElement?.className.split(" ")).not.toContain(
+      "gap-0.5",
+    );
     expect(topArea?.className).toContain("h-12");
     expect(topArea?.className).toContain("absolute");
     expect(screen.getByTestId("main-tab-content").textContent).toContain(

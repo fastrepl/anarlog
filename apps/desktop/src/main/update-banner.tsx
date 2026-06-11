@@ -314,7 +314,7 @@ export function SidebarTimelineUpdateButton({
       data-tauri-drag-region="false"
       disabled={isDownloading || update.downloadStarting || update.installing}
       className={cn([
-        "relative flex size-7 shrink-0 items-center justify-center rounded-full",
+        "relative flex h-7 min-h-7 w-7 min-w-7 shrink-0 items-center justify-center rounded-full p-0",
         "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm transition-colors",
         "focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden",
         "disabled:bg-primary disabled:text-primary-foreground disabled:hover:bg-primary disabled:cursor-default disabled:opacity-70",
