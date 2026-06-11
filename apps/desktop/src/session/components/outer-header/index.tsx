@@ -27,8 +27,11 @@ export function OuterHeader({
   title?: React.ReactNode;
 }) {
   const { leftsidebar } = useShell();
+  const sessionMode = useListener((state) => state.getSessionMode(sessionId));
   const showSidebarTimelineHeaderGutter = !leftsidebar.expanded;
   const showExpandedSidebarTimelineHeader = leftsidebar.expanded;
+  const reserveCollapsedLiveControls =
+    showSidebarTimelineHeaderGutter && isSidebarStopButtonMode(sessionMode);
 
   return (
     <div
@@ -41,7 +44,8 @@ export function OuterHeader({
       {title ? (
         <div
           className={cn([
-            "pointer-events-none absolute inset-y-0 right-[70px] flex items-center",
+            "pointer-events-none absolute inset-y-0 flex items-center",
+            reserveCollapsedLiveControls ? "right-[153px]" : "right-[70px]",
             showSidebarTimelineHeaderGutter
               ? "left-[104px] -translate-y-1"
               : showExpandedSidebarTimelineHeader
@@ -53,39 +57,54 @@ export function OuterHeader({
         </div>
       ) : null}
       <div className="relative z-10 ml-auto flex shrink-0 items-center gap-0 pr-1">
-        <SidebarModeStopButton sessionId={sessionId} />
-        <HeaderMeetingControl sessionId={sessionId} />
+        <SidebarModeStopButton sessionMode={sessionMode} />
+        <HeaderMeetingControl sessionId={sessionId} sessionMode={sessionMode} />
         <OverflowButton sessionId={sessionId} currentView={currentView} />
       </div>
     </div>
   );
 }
 
-function HeaderMeetingControl({ sessionId }: { sessionId: string }) {
+function HeaderMeetingControl({
+  sessionId,
+  sessionMode,
+}: {
+  sessionId: string;
+  sessionMode: string;
+}) {
   const sessionEvent = useSessionEvent(sessionId);
 
   if (!sessionEvent) {
     return <MetadataButton sessionId={sessionId} />;
   }
 
-  return <EventMeetingControl sessionId={sessionId} event={sessionEvent} />;
+  return (
+    <EventMeetingControl
+      sessionId={sessionId}
+      event={sessionEvent}
+      sessionMode={sessionMode}
+    />
+  );
 }
 
 function EventMeetingControl({
   sessionId,
   event,
+  sessionMode,
 }: {
   sessionId: string;
   event: {
     ended_at?: string;
     meeting_link?: string;
   };
+  sessionMode: string;
 }) {
-  const mode = useListener((state) => state.getSessionMode(sessionId));
   const now = useNow();
   const remote = getRemoteMeeting(event.meeting_link);
   const inProgress =
-    mode === "active" || mode === "finalizing" || mode === "running_batch";
+    sessionMode === "active" ||
+    sessionMode === "finalizing" ||
+    sessionMode === "running_batch";
   const endedAt = event.ended_at ? safeParseDate(event.ended_at) : null;
   const ended = !!endedAt && endedAt.getTime() <= now.getTime();
 
@@ -180,17 +199,16 @@ function getMeetingDisplay(type: RemoteMeeting["type"]) {
   }
 }
 
-function SidebarModeStopButton({ sessionId }: { sessionId: string }) {
+function SidebarModeStopButton({ sessionMode }: { sessionMode: string }) {
   const { leftsidebar } = useShell();
-  const { amplitude, degraded, mode, muted, stop } = useListener((state) => ({
+  const { amplitude, degraded, muted, stop } = useListener((state) => ({
     amplitude: state.live.amplitude,
     degraded: state.live.degraded,
-    mode: state.getSessionMode(sessionId),
     muted: state.live.muted,
     stop: state.stop,
   }));
-  const active = mode === "active" || mode === "finalizing";
-  const finalizing = mode === "finalizing";
+  const active = isSidebarStopButtonMode(sessionMode);
+  const finalizing = sessionMode === "finalizing";
 
   if (leftsidebar.expanded || !active) {
     return null;
@@ -257,4 +275,8 @@ function SidebarModeStopButton({ sessionId }: { sessionId: string }) {
       )}
     </button>
   );
+}
+
+function isSidebarStopButtonMode(sessionMode: string) {
+  return sessionMode === "active" || sessionMode === "finalizing";
 }

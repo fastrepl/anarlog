@@ -129,9 +129,13 @@ describe("OuterHeader", () => {
     const stopButton = screen.getByRole("button", {
       name: "Stop listening",
     });
+    const title = screen.getByText("Session title");
+    const titleSlot = title.parentElement?.parentElement;
 
     fireEvent.click(stopButton);
 
+    expect(titleSlot?.className).toContain("right-[153px]");
+    expect(titleSlot?.className).not.toContain("right-[70px]");
     expect(screen.getByTestId("dancing-sticks")).not.toBeNull();
     expect(stopButton.className).toContain("h-7");
     expect(stopButton.className).toContain("w-20");
