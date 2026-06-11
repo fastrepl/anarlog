@@ -11,6 +11,38 @@ import {
 } from "../node-views";
 import { clipNodeSpec } from "../plugins";
 
+const tableCellAttrs = {
+  colspan: { default: 1 },
+  rowspan: { default: 1 },
+  colwidth: { default: null },
+};
+
+function getTableCellAttrs(dom: Node | string) {
+  if (typeof dom === "string") return {};
+  const element = dom as HTMLElement;
+  const widthAttr = element.getAttribute("data-colwidth");
+  const widths =
+    widthAttr && /^\d+(,\d+)*$/.test(widthAttr)
+      ? widthAttr.split(",").map((value) => Number(value))
+      : null;
+  const colspan = Number(element.getAttribute("colspan") || 1);
+
+  return {
+    colspan,
+    rowspan: Number(element.getAttribute("rowspan") || 1),
+    colwidth: widths && widths.length === colspan ? widths : null,
+  };
+}
+
+function setTableCellAttrs(node: { attrs: Record<string, any> }) {
+  const attrs: Record<string, string | number> = {};
+  if (node.attrs.colspan !== 1) attrs.colspan = node.attrs.colspan;
+  if (node.attrs.rowspan !== 1) attrs.rowspan = node.attrs.rowspan;
+  if (node.attrs.colwidth)
+    attrs["data-colwidth"] = node.attrs.colwidth.join(",");
+  return attrs;
+}
+
 // Node names match Tiptap for JSON content compatibility.
 const nodes: Record<string, NodeSpec> = {
   doc: { content: "block+" },
@@ -117,6 +149,48 @@ const nodes: Record<string, NodeSpec> = {
     parseDOM: [{ tag: "li:not([data-type])" }],
     toDOM() {
       return ["li", 0];
+    },
+  },
+
+  table: {
+    content: "tableRow+",
+    group: "block",
+    isolating: true,
+    tableRole: "table",
+    parseDOM: [{ tag: "table" }],
+    toDOM() {
+      return ["table", ["tbody", 0]];
+    },
+  },
+
+  tableRow: {
+    content: "(tableCell | tableHeader)*",
+    tableRole: "row",
+    parseDOM: [{ tag: "tr" }],
+    toDOM() {
+      return ["tr", 0];
+    },
+  },
+
+  tableCell: {
+    content: "block+",
+    attrs: tableCellAttrs,
+    isolating: true,
+    tableRole: "cell",
+    parseDOM: [{ tag: "td", getAttrs: getTableCellAttrs }],
+    toDOM(node) {
+      return ["td", setTableCellAttrs(node), 0];
+    },
+  },
+
+  tableHeader: {
+    content: "block+",
+    attrs: tableCellAttrs,
+    isolating: true,
+    tableRole: "header_cell",
+    parseDOM: [{ tag: "th", getAttrs: getTableCellAttrs }],
+    toDOM(node) {
+      return ["th", setTableCellAttrs(node), 0];
     },
   },
 

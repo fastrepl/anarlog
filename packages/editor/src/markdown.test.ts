@@ -1,3 +1,4 @@
+import { Node as PMNode } from "prosemirror-model";
 import { describe, expect, test } from "vitest";
 
 import {
@@ -8,6 +9,7 @@ import {
   md2json,
   parseJsonContent,
 } from "./markdown";
+import { schema as noteSchema } from "./note/schema";
 
 describe("json2md", () => {
   test("renders underline as html tags", () => {
@@ -105,6 +107,314 @@ describe("json2md", () => {
     expect(markdown).toBe(
       '![alt text](https://example.com/image.png "char-editor-width=42|Example")',
     );
+  });
+
+  test("renders table nodes as markdown tables", () => {
+    const markdown = json2md({
+      type: "doc",
+      content: [
+        {
+          type: "table",
+          content: [
+            {
+              type: "tableRow",
+              content: [
+                {
+                  type: "tableHeader",
+                  content: [
+                    {
+                      type: "paragraph",
+                      content: [{ type: "text", text: "Name" }],
+                    },
+                  ],
+                },
+                {
+                  type: "tableHeader",
+                  content: [
+                    {
+                      type: "paragraph",
+                      content: [{ type: "text", text: "Role | Notes" }],
+                    },
+                  ],
+                },
+              ],
+            },
+            {
+              type: "tableRow",
+              content: [
+                {
+                  type: "tableCell",
+                  content: [
+                    {
+                      type: "paragraph",
+                      content: [{ type: "text", text: "Alasdair" }],
+                    },
+                  ],
+                },
+                {
+                  type: "tableCell",
+                  content: [
+                    {
+                      type: "paragraph",
+                      content: [{ type: "text", text: "Account Executive" }],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(markdown).toBe(
+      "| Name | Role \\| Notes |\n| --- | --- |\n| Alasdair | Account Executive |",
+    );
+  });
+
+  test("renders merged and shorter table rows with consistent columns", () => {
+    const markdown = json2md({
+      type: "doc",
+      content: [
+        {
+          type: "table",
+          content: [
+            {
+              type: "tableRow",
+              content: [
+                {
+                  type: "tableHeader",
+                  attrs: { colspan: 2 },
+                  content: [
+                    {
+                      type: "paragraph",
+                      content: [{ type: "text", text: "Quarter" }],
+                    },
+                  ],
+                },
+                {
+                  type: "tableHeader",
+                  content: [
+                    {
+                      type: "paragraph",
+                      content: [{ type: "text", text: "Status" }],
+                    },
+                  ],
+                },
+              ],
+            },
+            {
+              type: "tableRow",
+              content: [
+                {
+                  type: "tableCell",
+                  content: [
+                    {
+                      type: "paragraph",
+                      content: [{ type: "text", text: "Q3" }],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(markdown).toBe(
+      "| Quarter |  | Status |\n| --- | --- | --- |\n| Q3 |  |  |",
+    );
+
+    const roundtripped = md2json(markdown);
+    expect(roundtripped.content?.[0]?.content?.[0]?.content).toHaveLength(3);
+    expect(roundtripped.content?.[0]?.content?.[1]?.content).toHaveLength(3);
+  });
+
+  test("renders table cell hard breaks as parseable break tags", () => {
+    const markdown = json2md({
+      type: "doc",
+      content: [
+        {
+          type: "table",
+          content: [
+            {
+              type: "tableRow",
+              content: [
+                {
+                  type: "tableHeader",
+                  content: [
+                    {
+                      type: "paragraph",
+                      content: [{ type: "text", text: "Summary" }],
+                    },
+                  ],
+                },
+              ],
+            },
+            {
+              type: "tableRow",
+              content: [
+                {
+                  type: "tableCell",
+                  content: [
+                    {
+                      type: "paragraph",
+                      content: [
+                        { type: "text", text: "First" },
+                        { type: "hardBreak" },
+                        { type: "text", text: "Second" },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(markdown).toBe("| Summary |\n| --- |\n| First<br>Second |");
+  });
+
+  test("escapes literal table cell break tags", () => {
+    const markdown = json2md({
+      type: "doc",
+      content: [
+        {
+          type: "table",
+          content: [
+            {
+              type: "tableRow",
+              content: [
+                {
+                  type: "tableHeader",
+                  content: [
+                    {
+                      type: "paragraph",
+                      content: [{ type: "text", text: "Raw" }],
+                    },
+                  ],
+                },
+              ],
+            },
+            {
+              type: "tableRow",
+              content: [
+                {
+                  type: "tableCell",
+                  content: [
+                    {
+                      type: "paragraph",
+                      content: [{ type: "text", text: "literal <br>" }],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(markdown).toBe("| Raw |\n| --- |\n| literal \\<br> |");
+  });
+
+  test("preserves table cell backslashes across roundtrip", () => {
+    const json: JSONContent = {
+      type: "doc",
+      content: [
+        {
+          type: "table",
+          content: [
+            {
+              type: "tableRow",
+              content: [
+                {
+                  type: "tableHeader",
+                  content: [
+                    {
+                      type: "paragraph",
+                      content: [{ type: "text", text: "Path" }],
+                    },
+                  ],
+                },
+              ],
+            },
+            {
+              type: "tableRow",
+              content: [
+                {
+                  type: "tableCell",
+                  content: [
+                    {
+                      type: "paragraph",
+                      content: [{ type: "text", text: "C:\\Users\\John" }],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    const roundtripped = md2json(json2md(json));
+    const cellText =
+      roundtripped.content?.[0]?.content?.[1]?.content?.[0]?.content?.[0]
+        ?.content?.[0]?.text;
+
+    expect(cellText).toBe("C:\\Users\\John");
+  });
+
+  test("preserves table cell backslashes before pipes across roundtrip", () => {
+    const json: JSONContent = {
+      type: "doc",
+      content: [
+        {
+          type: "table",
+          content: [
+            {
+              type: "tableRow",
+              content: [
+                {
+                  type: "tableHeader",
+                  content: [
+                    {
+                      type: "paragraph",
+                      content: [{ type: "text", text: "Pattern" }],
+                    },
+                  ],
+                },
+              ],
+            },
+            {
+              type: "tableRow",
+              content: [
+                {
+                  type: "tableCell",
+                  content: [
+                    {
+                      type: "paragraph",
+                      content: [{ type: "text", text: "literal \\| marker" }],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    const roundtripped = md2json(json2md(json));
+    const cellText =
+      roundtripped.content?.[0]?.content?.[1]?.content?.[0]?.content?.[0]
+        ?.content?.[0]?.text;
+
+    expect(cellText).toBe("literal \\| marker");
   });
 });
 
@@ -211,6 +521,48 @@ We appreciate your patience while you wait.`);
     expect(json.content![0].type).toBe("image");
     expect(json.content![0].attrs?.src).toBe("https://example.com/welcome.png");
     expect(json.content![1].type).toBe("paragraph");
+  });
+
+  test("converts markdown tables to editor-compatible table JSON", () => {
+    const json = md2json(`| Name | Company | Role / Notes |
+| --- | --- | --- |
+| Alasdair | Cloudflare | Account Executive |
+| Rick | Cloudflare | Solutions Engineer |`);
+
+    const table = json.content?.[0];
+    expect(table?.type).toBe("table");
+    expect(table?.content?.[0]?.type).toBe("tableRow");
+    expect(table?.content?.[0]?.content?.[0]?.type).toBe("tableHeader");
+    expect(
+      table?.content?.[0]?.content?.[0]?.content?.[0]?.content?.[0]?.text,
+    ).toBe("Name");
+    expect(table?.content?.[1]?.content?.[0]?.type).toBe("tableCell");
+    expect(() => PMNode.fromJSON(noteSchema, json)).not.toThrow();
+  });
+
+  test("converts table cell break tags to hard breaks", () => {
+    const json = md2json(`| Summary |
+| --- |
+| First<br>Second |`);
+
+    const cellContent =
+      json.content?.[0]?.content?.[1]?.content?.[0]?.content?.[0]?.content;
+    expect(cellContent).toEqual([
+      { type: "text", text: "First" },
+      { type: "hardBreak" },
+      { type: "text", text: "Second" },
+    ]);
+    expect(() => PMNode.fromJSON(noteSchema, json)).not.toThrow();
+  });
+
+  test("keeps escaped table cell break tags as text", () => {
+    const json = md2json(`| Raw |
+| --- |
+| literal \\<br> |`);
+
+    const cellContent =
+      json.content?.[0]?.content?.[1]?.content?.[0]?.content?.[0]?.content;
+    expect(cellContent).toEqual([{ type: "text", text: "literal <br>" }]);
   });
 });
 

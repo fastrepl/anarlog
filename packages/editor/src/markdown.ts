@@ -26,6 +26,38 @@ import {
 // JSON post-processing (see liftBlockImages / wrapBlockImages).
 // ---------------------------------------------------------------------------
 
+const tableCellAttrs = {
+  colspan: { default: 1 },
+  rowspan: { default: 1 },
+  colwidth: { default: null },
+};
+
+function getTableCellAttrs(dom: Node | string) {
+  if (typeof dom === "string") return {};
+  const element = dom as HTMLElement;
+  const widthAttr = element.getAttribute("data-colwidth");
+  const widths =
+    widthAttr && /^\d+(,\d+)*$/.test(widthAttr)
+      ? widthAttr.split(",").map((value) => Number(value))
+      : null;
+  const colspan = Number(element.getAttribute("colspan") || 1);
+
+  return {
+    colspan,
+    rowspan: Number(element.getAttribute("rowspan") || 1),
+    colwidth: widths && widths.length === colspan ? widths : null,
+  };
+}
+
+function setTableCellAttrs(node: PMNode) {
+  const attrs: Record<string, string | number> = {};
+  if (node.attrs.colspan !== 1) attrs.colspan = node.attrs.colspan;
+  if (node.attrs.rowspan !== 1) attrs.rowspan = node.attrs.rowspan;
+  if (node.attrs.colwidth)
+    attrs["data-colwidth"] = node.attrs.colwidth.join(",");
+  return attrs;
+}
+
 const nodes: Record<string, NodeSpec> = {
   doc: { content: "block+" },
 
@@ -132,6 +164,48 @@ const nodes: Record<string, NodeSpec> = {
     parseDOM: [{ tag: "li" }],
     toDOM() {
       return ["li", 0];
+    },
+  },
+
+  table: {
+    content: "tableRow+",
+    group: "block",
+    isolating: true,
+    tableRole: "table",
+    parseDOM: [{ tag: "table" }],
+    toDOM() {
+      return ["table", ["tbody", 0]];
+    },
+  },
+
+  tableRow: {
+    content: "(tableCell | tableHeader)*",
+    tableRole: "row",
+    parseDOM: [{ tag: "tr" }],
+    toDOM() {
+      return ["tr", 0];
+    },
+  },
+
+  tableCell: {
+    content: "block+",
+    attrs: tableCellAttrs,
+    isolating: true,
+    tableRole: "cell",
+    parseDOM: [{ tag: "td", getAttrs: getTableCellAttrs }],
+    toDOM(node) {
+      return ["td", setTableCellAttrs(node), 0];
+    },
+  },
+
+  tableHeader: {
+    content: "block+",
+    attrs: tableCellAttrs,
+    isolating: true,
+    tableRole: "header_cell",
+    parseDOM: [{ tag: "th", getAttrs: getTableCellAttrs }],
+    toDOM(node) {
+      return ["th", setTableCellAttrs(node), 0];
     },
   },
 
@@ -481,6 +555,25 @@ function highlightPlugin(md: MarkdownIt) {
   );
 }
 
+function hardBreakTagPlugin(md: MarkdownIt) {
+  md.inline.ruler.before(
+    "html_inline",
+    "hardbreak_tag",
+    (state: StateInline, silent: boolean) => {
+      const match = state.src.slice(state.pos).match(/^<br\s*\/?>/i);
+      if (!match) return false;
+
+      if (!silent) {
+        const token = state.push("hardbreak", "br", 0);
+        token.markup = match[0];
+      }
+
+      state.pos += match[0].length;
+      return true;
+    },
+  );
+}
+
 function taskListPlugin(md: MarkdownIt) {
   md.core.ruler.after("inline", "task_lists", (state) => {
     const tokens = state.tokens;
@@ -557,6 +650,39 @@ function taskListPlugin(md: MarkdownIt) {
         }
       }
     }
+  });
+}
+
+function tableCellParagraphsPlugin(md: MarkdownIt) {
+  md.core.ruler.after("inline", "table_cell_paragraphs", (state) => {
+    const tokens = state.tokens;
+    const out: Token[] = [];
+
+    for (let i = 0; i < tokens.length; i++) {
+      const token = tokens[i];
+      const prev = tokens[i - 1];
+      const next = tokens[i + 1];
+
+      if (
+        token.type === "inline" &&
+        (prev?.type === "th_open" || prev?.type === "td_open") &&
+        (next?.type === "th_close" || next?.type === "td_close")
+      ) {
+        const open = new state.Token("paragraph_open", "p", 1);
+        open.level = token.level;
+        const inline = new state.Token("inline", "", 0);
+        Object.assign(inline, token);
+        inline.level = token.level + 1;
+        const close = new state.Token("paragraph_close", "p", -1);
+        close.level = token.level;
+
+        out.push(open, inline, close);
+      } else {
+        out.push(token);
+      }
+    }
+
+    state.tokens = out;
   });
 }
 
@@ -850,6 +976,9 @@ function getParser(): MarkdownParser {
   md.use(strikethroughPlugin);
   md.use(underlinePlugin);
   md.use(highlightPlugin);
+  md.use(hardBreakTagPlugin);
+  md.enable("table");
+  md.use(tableCellParagraphsPlugin);
   md.use(taskListPlugin);
   md.use(clipPlugin);
   md.use(fileAttachmentPlugin);
@@ -891,6 +1020,12 @@ function getParser(): MarkdownParser {
       },
     },
     hardbreak: { node: "hardBreak" },
+    table: { block: "table" },
+    thead: { ignore: true },
+    tbody: { ignore: true },
+    tr: { block: "tableRow" },
+    th: { block: "tableHeader" },
+    td: { block: "tableCell" },
 
     em: { mark: "italic" },
     strong: { mark: "bold" },
@@ -960,6 +1095,107 @@ function backticksFor(node: PMNode, side: number): string {
   return result;
 }
 
+function escapeTableCell(markdown: string): string {
+  const breakPlaceholder = "\u0000TABLE_CELL_BREAK\u0000";
+
+  return markdown
+    .replace(/\\\n/g, breakPlaceholder)
+    .replace(/\n+/g, breakPlaceholder)
+    .replace(/\|/g, "\\|")
+    .replace(/<br\s*\/?>/gi, "\\$&")
+    .split(breakPlaceholder)
+    .join("<br>")
+    .trim();
+}
+
+function tableCellToMarkdown(cell: PMNode): string {
+  const parts: string[] = [];
+
+  cell.forEach((child) => {
+    const doc = markdownSchema.node("doc", null, [child]);
+    parts.push(getSerializer().serialize(doc));
+  });
+
+  return escapeTableCell(parts.join("\n"));
+}
+
+function tableCellSpan(cell: PMNode, attr: "colspan" | "rowspan"): number {
+  const span = Number(cell.attrs[attr] ?? 1);
+  return Number.isInteger(span) && span > 0 ? span : 1;
+}
+
+function tableCellsToMarkdown(cells: string[]): string {
+  return `| ${cells.join(" | ")} |`;
+}
+
+function tableRowsToMarkdown(rows: PMNode[]): {
+  rows: string[];
+  columnCount: number;
+} {
+  const pendingRowspans: number[] = [];
+  const renderedRows: string[][] = [];
+  let columnCount = 0;
+
+  for (const row of rows) {
+    const cells: string[] = [];
+    let columnIndex = 0;
+
+    const addPendingRowspans = () => {
+      while ((pendingRowspans[columnIndex] ?? 0) > 0) {
+        cells.push("");
+        pendingRowspans[columnIndex] -= 1;
+        columnIndex += 1;
+      }
+    };
+
+    row.forEach((cell) => {
+      addPendingRowspans();
+
+      const startColumn = columnIndex;
+      const colspan = tableCellSpan(cell, "colspan");
+      const rowspan = tableCellSpan(cell, "rowspan");
+
+      cells.push(tableCellToMarkdown(cell));
+      columnIndex += 1;
+
+      for (let i = 1; i < colspan; i++) {
+        cells.push("");
+        columnIndex += 1;
+      }
+
+      if (rowspan > 1) {
+        for (let i = 0; i < colspan; i++) {
+          pendingRowspans[startColumn + i] = Math.max(
+            pendingRowspans[startColumn + i] ?? 0,
+            rowspan - 1,
+          );
+        }
+      }
+    });
+
+    addPendingRowspans();
+    columnCount = Math.max(columnCount, cells.length);
+    renderedRows.push(cells);
+  }
+
+  columnCount = Math.max(columnCount, 1);
+
+  return {
+    rows: renderedRows.map((cells) => {
+      while (cells.length < columnCount) {
+        cells.push("");
+      }
+
+      return tableCellsToMarkdown(cells);
+    }),
+    columnCount,
+  };
+}
+
+function tableDelimiterRow(columnCount: number): string {
+  return `| ${Array.from({ length: columnCount }, () => "---").join(" | ")} |`;
+}
+
 let _serializer: MarkdownSerializer | null = null;
 
 function getSerializer(): MarkdownSerializer {
@@ -1009,6 +1245,34 @@ function getSerializer(): MarkdownSerializer {
       listItem(state, node) {
         state.renderContent(node);
       },
+
+      table(state, node) {
+        const rows: PMNode[] = [];
+        node.forEach((row) => rows.push(row));
+        if (rows.length === 0) {
+          state.closeBlock(node);
+          return;
+        }
+
+        const table = tableRowsToMarkdown(rows);
+
+        state.write(table.rows[0]);
+        state.write("\n");
+        state.write(tableDelimiterRow(table.columnCount));
+
+        for (let i = 1; i < table.rows.length; i++) {
+          state.write("\n");
+          state.write(table.rows[i]);
+        }
+
+        state.closeBlock(node);
+      },
+
+      tableRow() {},
+
+      tableCell() {},
+
+      tableHeader() {},
 
       taskList(state, node) {
         state.renderList(node, "  ", () => "- ");
