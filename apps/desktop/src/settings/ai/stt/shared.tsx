@@ -46,6 +46,10 @@ export const displayModelId = (model: string) => {
     return "Whisper RT";
   }
 
+  if (model === "stt-v5" || model === "stt-async-v5") {
+    return "Soniox v5";
+  }
+
   if (model === "stt-v4" || model === "stt-rt-v4" || model === "stt-async-v4") {
     return "Soniox v4";
   }
@@ -193,7 +197,7 @@ const _PROVIDERS = [
       />
     ),
     baseUrl: "https://api.soniox.com",
-    models: ["stt-v4", "stt-v3"],
+    models: ["stt-v5", "stt-v4"],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
   },
   {

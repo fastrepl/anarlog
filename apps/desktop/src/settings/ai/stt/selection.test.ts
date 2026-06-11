@@ -15,10 +15,10 @@ describe("getPreferredProviderModel", () => {
   test("falls back to the first available model when none is remembered", () => {
     expect(
       getPreferredProviderModel(undefined, [
+        { id: "stt-v5" },
         { id: "stt-v4" },
-        { id: "stt-v3" },
       ]),
-    ).toBe("stt-v4");
+    ).toBe("stt-v5");
   });
 
   test("falls back to the first available model when the remembered model is gone", () => {

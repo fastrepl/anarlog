@@ -412,7 +412,7 @@ mod tests {
     #[test]
     fn test_build_initial_message_soniox() {
         let params = ListenParams {
-            model: Some("stt-rt-v3".to_string()),
+            model: Some("stt-v5".to_string()),
             languages: vec![ISO639::En.into()],
             sample_rate: 16000,
             channels: 1,
@@ -426,6 +426,7 @@ mod tests {
         let msg = initial_msg.unwrap();
         assert!(msg.contains("api_key"));
         assert!(msg.contains("test-key"));
+        assert!(msg.contains("stt-rt-v4"));
     }
 
     #[test]

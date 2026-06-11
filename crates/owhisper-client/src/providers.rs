@@ -298,7 +298,7 @@ impl Provider {
         match self {
             Self::AquaVoice => "avalon-v1-en",
             Self::Deepgram => "nova-3",
-            Self::Soniox => "stt-rt-v3",
+            Self::Soniox => "stt-rt-v4",
             Self::AssemblyAI => "u3-rt-pro",
             Self::Fireworks => "whisper-v3-turbo",
             Self::OpenAI => "gpt-4o-transcribe",
@@ -323,7 +323,7 @@ impl Provider {
         match self {
             Self::AquaVoice => "avalon-v1-en",
             Self::Deepgram => "nova-3",
-            Self::Soniox => "stt-async-v3",
+            Self::Soniox => "stt-async-v5",
             Self::AssemblyAI => "universal-3-pro",
             Self::Fireworks => "whisper-v3-turbo",
             Self::OpenAI => "gpt-4o-transcribe-diarize",
