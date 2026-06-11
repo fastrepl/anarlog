@@ -32,8 +32,8 @@ export const CurrentTimeIndicator = forwardRef<
       aria-hidden
       className={
         variant === "inside"
-          ? "group absolute inset-x-0 z-20 h-px"
-          : "group relative z-20 h-px"
+          ? "group absolute inset-x-0 z-30 h-px"
+          : "group relative z-30 h-px"
       }
       style={variant === "inside" ? { top: insideOffset } : undefined}
     >

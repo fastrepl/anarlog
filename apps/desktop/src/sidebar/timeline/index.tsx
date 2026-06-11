@@ -405,7 +405,7 @@ export function TimelineView({
           return (
             <div key={bucket.label} className={cn([isTopIndicator && "pt-3"])}>
               {shouldRenderIndicatorBefore && (
-                <div data-sidebar-current-time-header-gap className="pb-3">
+                <div data-sidebar-current-time-header-gap className="py-3">
                   <CurrentTimeIndicator
                     ref={setCurrentTimeIndicatorRef}
                     timezone={timezone}
