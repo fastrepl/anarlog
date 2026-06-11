@@ -6,6 +6,7 @@ use utoipa::ToSchema;
 pub const MODEL_KEY_DEFAULT: &str = "default";
 pub const MODEL_KEY_TOOL_CALLING: &str = "tool_calling";
 pub const MODEL_KEY_AUDIO: &str = "audio";
+const MODEL_LATEST_SONNET: &str = "~anthropic/claude-sonnet-latest";
 
 #[derive(
     Debug,
@@ -47,50 +48,28 @@ impl Default for StaticModelResolver {
     fn default() -> Self {
         let mut models = HashMap::new();
 
-        models.insert(
-            CharTask::Chat.to_string(),
-            vec![
-                "anthropic/claude-haiku-4.5".into(),
-                "anthropic/claude-sonnet-4.6".into(),
-                "z-ai/glm-5".into(),
-            ],
-        );
+        models.insert(CharTask::Chat.to_string(), vec![MODEL_LATEST_SONNET.into()]);
         models.insert(
             CharTask::Title.to_string(),
-            vec![
-                "moonshotai/kimi-k2-0905".into(),
-                "google/gemini-2.5-flash-lite".into(),
-                "z-ai/glm-4.7-flash".into(),
-            ],
+            vec![MODEL_LATEST_SONNET.into()],
         );
         models.insert(
             CharTask::Enhance.to_string(),
-            vec![
-                "anthropic/claude-opus-4.8".into(),
-                "openai/gpt-5.5".into(),
-                "anthropic/claude-sonnet-4.6".into(),
-            ],
+            vec![MODEL_LATEST_SONNET.into()],
         );
         models.insert(
             MODEL_KEY_TOOL_CALLING.to_owned(),
-            vec![
-                "anthropic/claude-sonnet-4.6".into(),
-                "anthropic/claude-haiku-4.5".into(),
-                "moonshotai/kimi-k2-0905:exacto".into(),
-            ],
+            vec![MODEL_LATEST_SONNET.into()],
         );
         models.insert(
             MODEL_KEY_DEFAULT.to_owned(),
-            vec![
-                "anthropic/claude-sonnet-4.6".into(),
-                "openai/gpt-5.2-chat".into(),
-                "moonshotai/kimi-k2-0905".into(),
-            ],
+            vec![MODEL_LATEST_SONNET.into()],
         );
         models.insert(
             MODEL_KEY_AUDIO.to_owned(),
             vec![
-                "google/gemini-2.5-flash-lite".into(),
+                "google/gemini-3.1-pro-preview".into(),
+                "google/gemini-3.5-flash".into(),
                 "mistralai/voxtral-small-24b-2507".into(),
             ],
         );
@@ -160,11 +139,7 @@ mod tests {
                 false,
                 false,
                 None,
-                &[
-                    "anthropic/claude-haiku-4.5",
-                    "anthropic/claude-sonnet-4.6",
-                    "z-ai/glm-5",
-                ],
+                &[MODEL_LATEST_SONNET],
             ),
             (
                 "by_tool_calling",
@@ -172,35 +147,16 @@ mod tests {
                 true,
                 false,
                 None,
-                &[
-                    "anthropic/claude-sonnet-4.6",
-                    "anthropic/claude-haiku-4.5",
-                    "moonshotai/kimi-k2-0905:exacto",
-                ],
+                &[MODEL_LATEST_SONNET],
             ),
-            (
-                "default",
-                None,
-                false,
-                false,
-                None,
-                &[
-                    "anthropic/claude-sonnet-4.6",
-                    "openai/gpt-5.2-chat",
-                    "moonshotai/kimi-k2-0905",
-                ],
-            ),
+            ("default", None, false, false, None, &[MODEL_LATEST_SONNET]),
             (
                 "task_overrides_tool_calling",
                 Some(CharTask::Chat),
                 true,
                 false,
                 None,
-                &[
-                    "anthropic/claude-haiku-4.5",
-                    "anthropic/claude-sonnet-4.6",
-                    "z-ai/glm-5",
-                ],
+                &[MODEL_LATEST_SONNET],
             ),
             (
                 "with_models_custom_key",
@@ -216,11 +172,7 @@ mod tests {
                 false,
                 false,
                 None,
-                &[
-                    "anthropic/claude-opus-4.8",
-                    "openai/gpt-5.5",
-                    "anthropic/claude-sonnet-4.6",
-                ],
+                &[MODEL_LATEST_SONNET],
             ),
             (
                 "audio_overrides_task",
@@ -229,7 +181,8 @@ mod tests {
                 true,
                 None,
                 &[
-                    "google/gemini-2.5-flash-lite",
+                    "google/gemini-3.1-pro-preview",
+                    "google/gemini-3.5-flash",
                     "mistralai/voxtral-small-24b-2507",
                 ],
             ),
@@ -240,7 +193,8 @@ mod tests {
                 true,
                 None,
                 &[
-                    "google/gemini-2.5-flash-lite",
+                    "google/gemini-3.1-pro-preview",
+                    "google/gemini-3.5-flash",
                     "mistralai/voxtral-small-24b-2507",
                 ],
             ),

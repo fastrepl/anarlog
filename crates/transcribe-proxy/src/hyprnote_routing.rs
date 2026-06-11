@@ -89,8 +89,8 @@ impl HyprnoteRouter {
         languages: &[Language],
         available_providers: &HashSet<Provider>,
     ) -> Vec<Provider> {
-        let mut candidates: Vec<_> = self
-            .priorities
+        let priorities = self.priorities_for_mode(mode);
+        let mut candidates: Vec<_> = priorities
             .iter()
             .copied()
             .filter_map(|p| {
@@ -106,15 +106,21 @@ impl HyprnoteRouter {
         candidates.sort_by(|a, b| {
             let (p1, s1) = a;
             let (p2, s2) = b;
+            if mode == RoutingMode::Batch {
+                match (*p1 == Provider::Soniox, *p2 == Provider::Soniox) {
+                    (true, false) => return std::cmp::Ordering::Less,
+                    (false, true) => return std::cmp::Ordering::Greater,
+                    _ => {}
+                }
+            }
+
             match s2.cmp(s1) {
                 std::cmp::Ordering::Equal => {
-                    let idx1 = self
-                        .priorities
+                    let idx1 = priorities
                         .iter()
                         .position(|p| p == p1)
                         .unwrap_or(usize::MAX);
-                    let idx2 = self
-                        .priorities
+                    let idx2 = priorities
                         .iter()
                         .position(|p| p == p2)
                         .unwrap_or(usize::MAX);
@@ -149,6 +155,17 @@ impl HyprnoteRouter {
 
     pub fn retry_config(&self) -> &RetryConfig {
         &self.retry_config
+    }
+
+    fn priorities_for_mode(&self, mode: RoutingMode) -> Vec<Provider> {
+        let mut priorities = self.priorities.clone();
+        if mode == RoutingMode::Batch
+            && let Some(index) = priorities.iter().position(|p| *p == Provider::Soniox)
+        {
+            let soniox = priorities.remove(index);
+            priorities.insert(0, soniox);
+        }
+        priorities
     }
 }
 
@@ -581,6 +598,18 @@ mod tests {
         assert_eq!(
             router.select_provider_chain_with_mode(RoutingMode::Batch, &languages, &available),
             vec![Provider::OpenAI]
+        );
+    }
+
+    #[test]
+    fn batch_routing_prefers_soniox_when_available() {
+        let router = HyprnoteRouter::default();
+        let languages = langs(&[ISO639::En]);
+        let available = default_available();
+
+        assert_eq!(
+            router.select_provider_chain_with_mode(RoutingMode::Batch, &languages, &available),
+            vec![Provider::Soniox, Provider::Deepgram]
         );
     }
 
