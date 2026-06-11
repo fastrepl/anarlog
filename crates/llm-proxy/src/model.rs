@@ -64,6 +64,14 @@ impl Default for StaticModelResolver {
             ],
         );
         models.insert(
+            CharTask::Enhance.to_string(),
+            vec![
+                "anthropic/claude-opus-4.8".into(),
+                "openai/gpt-5.5".into(),
+                "anthropic/claude-sonnet-4.6".into(),
+            ],
+        );
+        models.insert(
             MODEL_KEY_TOOL_CALLING.to_owned(),
             vec![
                 "anthropic/claude-sonnet-4.6".into(),
@@ -203,15 +211,15 @@ mod tests {
                 &["foo/bar"],
             ),
             (
-                "unknown_task_falls_back_to_default",
+                "enhance_uses_quality_models",
                 Some(CharTask::Enhance),
                 false,
                 false,
                 None,
                 &[
+                    "anthropic/claude-opus-4.8",
+                    "openai/gpt-5.5",
                     "anthropic/claude-sonnet-4.6",
-                    "openai/gpt-5.2-chat",
-                    "moonshotai/kimi-k2-0905",
                 ],
             ),
             (
