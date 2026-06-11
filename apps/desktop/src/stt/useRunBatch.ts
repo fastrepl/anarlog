@@ -7,9 +7,11 @@ import { useListener } from "./contexts";
 import { useKeywords } from "./useKeywords";
 import { useSTTConnection } from "./useSTTConnection";
 
+import { deleteProcessedAudioForRetention } from "~/services/audio-retention";
 import { useConfigValue } from "~/shared/config";
 import { id } from "~/shared/utils";
 import * as main from "~/store/tinybase/store/main";
+import * as settings from "~/store/tinybase/store/settings";
 import type { BatchPersistCallback } from "~/store/zustand/listener/transcript";
 import { getTranscriptionLanguages } from "~/stt/capabilities";
 import type { SpeakerHintWithId, WordWithId } from "~/stt/types";
@@ -118,6 +120,7 @@ export const useRunBatch = (sessionId: string) => {
   const store = main.UI.useStore(main.STORE_ID);
   const indexes = main.UI.useIndexes(main.STORE_ID);
   const { user_id } = main.UI.useValues(main.STORE_ID);
+  const settingsStore = settings.UI.useStore(settings.STORE_ID);
 
   const startTranscription = useListener((state) => state.startTranscription);
   const { conn } = useSTTConnection();
@@ -290,6 +293,14 @@ export const useRunBatch = (sessionId: string) => {
       };
 
       await startTranscription(params, { handlePersist: persist });
+
+      if (settingsStore) {
+        await deleteProcessedAudioForRetention(
+          store as main.Store,
+          settingsStore as settings.Store,
+          sessionId,
+        );
+      }
     },
     [
       conn,
@@ -299,6 +310,7 @@ export const useRunBatch = (sessionId: string) => {
       spokenLanguages,
       startTranscription,
       sessionId,
+      settingsStore,
       store,
       user_id,
     ],

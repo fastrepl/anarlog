@@ -13,11 +13,13 @@ import {
 import { useSTTConnection } from "./useSTTConnection";
 
 import { useShell } from "~/contexts/shell";
+import { deleteProcessedAudioForRetention } from "~/services/audio-retention";
 import { getEnhancerService } from "~/services/enhancer";
 import { getSessionEventById } from "~/session/utils";
 import { useConfigValue } from "~/shared/config";
 import { id } from "~/shared/utils";
 import * as main from "~/store/tinybase/store/main";
+import * as settings from "~/store/tinybase/store/settings";
 import type {
   LiveTranscriptPersistCallback,
   OnStoppedCallback,
@@ -50,6 +52,7 @@ export function useStartListening(sessionId: string) {
   const { user_id } = main.UI.useValues(main.STORE_ID);
   const store = main.UI.useStore(main.STORE_ID);
   const indexes = main.UI.useIndexes(main.STORE_ID);
+  const settingsStore = settings.UI.useStore(settings.STORE_ID);
 
   const aiLanguage = useConfigValue("ai_language");
   const spokenLanguages = useConfigValue("spoken_languages");
@@ -102,6 +105,14 @@ export function useStartListening(sessionId: string) {
       }
 
       getEnhancerService()?.queueAutoEnhanceIfSummaryEmpty(sessionId);
+
+      if (settingsStore) {
+        await deleteProcessedAudioForRetention(
+          store as main.Store,
+          settingsStore as settings.Store,
+          sessionId,
+        );
+      }
     };
 
     const handlePersist: LiveTranscriptPersistCallback = (delta) => {
@@ -206,6 +217,7 @@ export function useStartListening(sessionId: string) {
     user_id,
     spokenLanguages,
     setLeftSidebarExpanded,
+    settingsStore,
   ]);
 
   return startListening;

@@ -16,6 +16,10 @@ const {
   useSTTConnectionMock,
   isSupportedLanguagesLiveMock,
   setLeftSidebarExpandedMock,
+  settingsUseStoreMock,
+  deleteProcessedAudioForRetentionMock,
+  mainStoreMock,
+  settingsStoreMock,
 } = vi.hoisted(() => ({
   queueAutoEnhanceIfSummaryEmptyMock: vi.fn(),
   startMock: vi.fn(),
@@ -28,6 +32,16 @@ const {
   useSTTConnectionMock: vi.fn(),
   isSupportedLanguagesLiveMock: vi.fn(),
   setLeftSidebarExpandedMock: vi.fn(),
+  settingsUseStoreMock: vi.fn(),
+  deleteProcessedAudioForRetentionMock: vi.fn(),
+  mainStoreMock: {
+    getCell: vi.fn(() => ""),
+    forEachRow: vi.fn(),
+    setRow: vi.fn(),
+    delRow: vi.fn(),
+    transaction: vi.fn((fn: () => void) => fn()),
+  },
+  settingsStoreMock: { id: "settings-store" },
 }));
 
 vi.mock("@hypr/plugin-transcription", () => ({
@@ -65,6 +79,10 @@ vi.mock("~/services/enhancer", () => ({
   })),
 }));
 
+vi.mock("~/services/audio-retention", () => ({
+  deleteProcessedAudioForRetention: deleteProcessedAudioForRetentionMock,
+}));
+
 vi.mock("~/contexts/shell", () => ({
   useShell: vi.fn(() => ({
     leftsidebar: {
@@ -94,6 +112,13 @@ vi.mock("~/store/tinybase/store/main", () => ({
     useValues: useValuesMock,
     useStore: useStoreMock,
     useIndexes: useIndexesMock,
+  },
+}));
+
+vi.mock("~/store/tinybase/store/settings", () => ({
+  STORE_ID: "settings",
+  UI: {
+    useStore: settingsUseStoreMock,
   },
 }));
 
@@ -161,6 +186,7 @@ describe("useStartListening", () => {
     useConfigValueMock.mockImplementation((key) =>
       key === "ai_language" ? "en" : [],
     );
+    settingsUseStoreMock.mockReturnValue(settingsStoreMock);
     useSTTConnectionMock.mockReturnValue({
       conn: {
         provider: "hyprnote",
@@ -169,13 +195,7 @@ describe("useStartListening", () => {
         apiKey: "",
       },
     });
-    useStoreMock.mockReturnValue({
-      getCell: vi.fn(() => ""),
-      forEachRow: vi.fn(),
-      setRow: vi.fn(),
-      delRow: vi.fn(),
-      transaction: vi.fn((fn: () => void) => fn()),
-    });
+    useStoreMock.mockReturnValue(mainStoreMock);
     startMock.mockResolvedValue(true);
     runBatchMock.mockResolvedValue(undefined);
     isSupportedLanguagesLiveMock.mockResolvedValue({
@@ -227,6 +247,40 @@ describe("useStartListening", () => {
 
     expect(runBatchMock).toHaveBeenCalledWith("/tmp/session.wav");
     expect(queueAutoEnhanceIfSummaryEmptyMock).toHaveBeenCalledWith(
+      "session-1",
+    );
+    expect(deleteProcessedAudioForRetentionMock).toHaveBeenCalledWith(
+      mainStoreMock,
+      settingsStoreMock,
+      "session-1",
+    );
+  });
+
+  test("cleans up processed audio after live capture stops", async () => {
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    const onStopped = startMock.mock.calls[0]?.[1]?.onStopped;
+
+    await act(async () => {
+      await onStopped?.("session-1", {
+        durationSeconds: 42,
+        audioPath: "/tmp/session.wav",
+        requestedLiveTranscription: true,
+        liveTranscriptionActive: true,
+      });
+    });
+
+    expect(runBatchMock).not.toHaveBeenCalled();
+    expect(queueAutoEnhanceIfSummaryEmptyMock).toHaveBeenCalledWith(
+      "session-1",
+    );
+    expect(deleteProcessedAudioForRetentionMock).toHaveBeenCalledWith(
+      mainStoreMock,
+      settingsStoreMock,
       "session-1",
     );
   });

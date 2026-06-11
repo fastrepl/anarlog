@@ -5,6 +5,7 @@ import { SCHEMA as MAIN_SCHEMA } from "@hypr/store";
 
 import {
   cleanupExpiredAudio,
+  deleteProcessedAudioForRetention,
   normalizeAudioRetention,
   sessionAudioExpired,
 } from "./audio-retention";
@@ -191,6 +192,93 @@ describe("audio retention", () => {
     expect(audioDeleteMock).toHaveBeenCalledTimes(1);
     expect(audioDeleteMock).toHaveBeenCalledWith("processed");
     expect(deleted).toEqual(["processed"]);
+  });
+
+  test("deletes processed audio immediately when retention is none", async () => {
+    const now = Date.parse("2026-05-13T00:00:00.000Z");
+    const store = createMainStore();
+    const settingsStore = createSettingsStore();
+
+    settingsStore.setValue("audio_retention", "none");
+    store.setRow("sessions", "processed", {
+      user_id: "user",
+      created_at: "2026-05-13T00:00:00.000Z",
+      title: "",
+      raw_md: "",
+    });
+    store.setRow("transcripts", "processed-transcript", {
+      user_id: "user",
+      created_at: "2026-05-13T00:00:00.000Z",
+      session_id: "processed",
+      started_at: now,
+      words: JSON.stringify([{ text: " saved" }]),
+      speaker_hints: "[]",
+      memo_md: "",
+    });
+
+    const deleted = await deleteProcessedAudioForRetention(
+      store,
+      settingsStore,
+      "processed",
+    );
+
+    expect(deleted).toBe(true);
+    expect(audioDeleteMock).toHaveBeenCalledTimes(1);
+    expect(audioDeleteMock).toHaveBeenCalledWith("processed");
+  });
+
+  test("does not delete unprocessed audio immediately when retention is none", async () => {
+    const store = createMainStore();
+    const settingsStore = createSettingsStore();
+
+    settingsStore.setValue("audio_retention", "none");
+    store.setRow("sessions", "unprocessed", {
+      user_id: "user",
+      created_at: "2026-05-13T00:00:00.000Z",
+      title: "",
+      raw_md: "",
+    });
+
+    const deleted = await deleteProcessedAudioForRetention(
+      store,
+      settingsStore,
+      "unprocessed",
+    );
+
+    expect(deleted).toBe(false);
+    expect(audioDeleteMock).not.toHaveBeenCalled();
+  });
+
+  test("does not delete processed audio immediately when retention is not none", async () => {
+    const now = Date.parse("2026-05-13T00:00:00.000Z");
+    const store = createMainStore();
+    const settingsStore = createSettingsStore();
+
+    settingsStore.setValue("audio_retention", "oneDay");
+    store.setRow("sessions", "processed", {
+      user_id: "user",
+      created_at: "2026-05-13T00:00:00.000Z",
+      title: "",
+      raw_md: "",
+    });
+    store.setRow("transcripts", "processed-transcript", {
+      user_id: "user",
+      created_at: "2026-05-13T00:00:00.000Z",
+      session_id: "processed",
+      started_at: now,
+      words: JSON.stringify([{ text: " saved" }]),
+      speaker_hints: "[]",
+      memo_md: "",
+    });
+
+    const deleted = await deleteProcessedAudioForRetention(
+      store,
+      settingsStore,
+      "processed",
+    );
+
+    expect(deleted).toBe(false);
+    expect(audioDeleteMock).not.toHaveBeenCalled();
   });
 
   test("does not delete session or orphaned audio when retention is forever", async () => {

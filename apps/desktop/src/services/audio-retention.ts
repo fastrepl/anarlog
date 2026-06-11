@@ -92,6 +92,44 @@ function audioRetentionDurationMs(policy: ExpiringAudioRetentionPolicy) {
   return AUDIO_RETENTION_DURATION_MS[policy];
 }
 
+export async function deleteProcessedAudioForRetention(
+  store: main.Store,
+  settingsStore: settings.Store,
+  sessionId: string,
+) {
+  const policy = getAudioRetentionPolicy(settingsStore);
+  if (policy !== "none") {
+    return false;
+  }
+
+  if (listenerStore.getState().getSessionMode(sessionId) !== "inactive") {
+    return false;
+  }
+
+  if (!sessionHasTranscriptWords(store, sessionId)) {
+    return false;
+  }
+
+  try {
+    const result = await fsSyncCommands.audioDelete(sessionId);
+    if (result.status === "error") {
+      console.error("[audio-retention] failed to delete audio", {
+        sessionId,
+        error: result.error,
+      });
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("[audio-retention] failed to delete audio", {
+      sessionId,
+      error,
+    });
+    return false;
+  }
+}
+
 export async function cleanupExpiredAudio(
   store: main.Store,
   settingsStore: settings.Store,
