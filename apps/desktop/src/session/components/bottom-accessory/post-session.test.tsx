@@ -403,12 +403,12 @@ describe("PostSessionAccessory", () => {
     );
     const factsList = screen.getByRole("list");
     expect(factsList.className).toContain("list-disc");
-    expect(factsList.className).toContain("list-outside");
-    expect(factsList.className).not.toContain("flex");
+    expect(factsList.className).toContain("list-inside");
+    expect(factsList.className).not.toContain("overflow-hidden");
     const facts = screen.getAllByRole("listitem");
     expect(facts).toHaveLength(3);
     expect(facts[0].className).not.toContain("line-clamp");
-    expect(facts[0].querySelector("span")?.className).toContain("line-clamp-2");
+    expect(facts[0].querySelector(".line-clamp-2")).toBeNull();
     expect(screen.getByText("Ship the transcript panel.")).toBeTruthy();
     expect(screen.getByText("Revisit visual polish next week.")).toBeTruthy();
     expect(screen.getByText("Confirm keyboard behavior.")).toBeTruthy();

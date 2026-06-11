@@ -158,10 +158,10 @@ function PastNotesPanel({
           {notes.map((note) => (
             <div
               key={note.sessionId}
-              className="relative grid min-w-0 grid-cols-1 overflow-hidden pl-5"
+              className="relative grid min-w-0 grid-cols-1 pl-5"
             >
               <div className="border-border bg-card absolute top-1.5 left-0 h-2 w-2 rounded-full border" />
-              <div className="flex min-w-0 flex-col gap-1 overflow-hidden">
+              <div className="flex min-w-0 flex-col gap-1">
                 <div className="flex min-w-0 items-center justify-between gap-2">
                   <div className="flex min-w-0 items-baseline gap-2">
                     <span className="text-muted-foreground shrink-0 text-[11px]">
@@ -182,10 +182,10 @@ function PastNotesPanel({
                   ) : null}
                 </div>
                 {note.summary ? (
-                  <ul className="text-muted-foreground min-w-0 list-outside list-disc space-y-1 overflow-hidden pr-1 pl-4 text-xs leading-5">
+                  <ul className="text-muted-foreground min-w-0 list-inside list-disc space-y-1 pr-1 text-xs leading-5">
                     {splitKeyFacts(note.summary).map((fact) => (
                       <li key={fact} className="min-w-0 break-words">
-                        <span className="line-clamp-2">{fact}</span>
+                        {fact}
                       </li>
                     ))}
                   </ul>
