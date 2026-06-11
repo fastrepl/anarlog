@@ -104,6 +104,25 @@ describe("TabContentChangelog", () => {
     expect(titleSlot?.className).not.toContain("left-1/2");
     expect(heading.className).toContain("text-left");
   });
+
+  it("marks the full top header area as draggable while keeping close clickable", () => {
+    render(<TabContentChangelog tab={buildChangelogTab()} />);
+
+    const header = getHeader();
+    const headerFrame = header.parentElement;
+    const heading = screen.getByRole("heading", {
+      name: "What's new in 1.0.36?",
+    });
+    const titleSlot = heading.parentElement;
+    const closeButton = screen.getByRole("button", {
+      name: "Close changelog",
+    });
+
+    expect(headerFrame?.hasAttribute("data-tauri-drag-region")).toBe(true);
+    expect(header.hasAttribute("data-tauri-drag-region")).toBe(true);
+    expect(titleSlot?.hasAttribute("data-tauri-drag-region")).toBe(true);
+    expect(closeButton.getAttribute("data-tauri-drag-region")).toBe("false");
+  });
 });
 
 function getHeader() {

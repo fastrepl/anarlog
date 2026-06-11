@@ -36,7 +36,7 @@ export function TabContentChangelog({
   return (
     <StandardTabWrapper>
       <div className="flex h-full flex-col">
-        <div className="shrink-0 pr-1 pl-3">
+        <div data-tauri-drag-region className="shrink-0 pr-1 pl-3">
           <ChangelogHeader
             version={current}
             showSidebarTimelineHeaderGutter={showSidebarTimelineHeaderGutter}
@@ -131,12 +131,14 @@ function ChangelogHeader({
 }) {
   return (
     <div
+      data-tauri-drag-region
       className={cn([
         "relative flex h-12 w-full items-center",
         showSidebarTimelineHeaderGutter && "pl-[156px]",
       ])}
     >
       <div
+        data-tauri-drag-region
         className={cn([
           "pointer-events-none absolute inset-y-0 flex items-center",
           showExpandedSidebarTimelineHeader
@@ -162,6 +164,7 @@ function ChangelogHeader({
         <Button
           size="icon"
           variant="ghost"
+          data-tauri-drag-region="false"
           className="text-muted-foreground hover:text-foreground"
           aria-label="Close changelog"
           title="Close"
