@@ -78,6 +78,7 @@ final class FloatingBarManager {
     panel.isOpaque = false
     panel.backgroundColor = .clear
     panel.hasShadow = false
+    panel.sharingType = .none
     panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
     panel.isMovableByWindowBackground = true
     panel.delegate = placement
