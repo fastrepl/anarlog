@@ -22,6 +22,8 @@ export const appLinkNodeSpec: NodeSpec = {
     guildId: { default: null },
     messageId: { default: null },
     inviteCode: { default: null },
+    resourceId: { default: null },
+    resourceTitle: { default: null },
   },
   parseDOM: [
     {
@@ -45,6 +47,8 @@ export const appLinkNodeSpec: NodeSpec = {
           guildId: el.getAttribute("data-guild-id"),
           messageId: el.getAttribute("data-message-id"),
           inviteCode: el.getAttribute("data-invite-code"),
+          resourceId: el.getAttribute("data-resource-id"),
+          resourceTitle: el.getAttribute("data-resource-title"),
         };
       },
     },
@@ -82,6 +86,12 @@ export const appLinkNodeSpec: NodeSpec = {
     }
     if (node.attrs.inviteCode) {
       attrs["data-invite-code"] = String(node.attrs.inviteCode);
+    }
+    if (node.attrs.resourceId) {
+      attrs["data-resource-id"] = String(node.attrs.resourceId);
+    }
+    if (node.attrs.resourceTitle) {
+      attrs["data-resource-title"] = String(node.attrs.resourceTitle);
     }
 
     return [
