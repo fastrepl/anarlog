@@ -104,6 +104,11 @@ describe("useSessionBottomAccessory", () => {
   });
 
   it("collapses the post-session transcript panel on escape", () => {
+    type TranscriptToggleProps = {
+      collapsedClassName?: string;
+      onToggle: () => void;
+    };
+
     const { result } = renderHook(() =>
       useSessionBottomAccessory({
         sessionId: "session-1",
@@ -120,10 +125,14 @@ describe("useSessionBottomAccessory", () => {
     expect(hoisted.hotkeys.get("esc")?.options?.enabled).toBe(false);
 
     const toggle = result.current.bottomBorderHandle;
-    expect(isValidElement<{ onToggle: () => void }>(toggle)).toBe(true);
-    if (!isValidElement<{ onToggle: () => void }>(toggle)) {
+    expect(isValidElement<TranscriptToggleProps>(toggle)).toBe(true);
+    if (!isValidElement<TranscriptToggleProps>(toggle)) {
       return;
     }
+
+    expect(toggle.props.collapsedClassName).toBe(
+      "bg-card dark:bg-app-floating-chrome",
+    );
 
     act(() => {
       toggle.props.onToggle();
@@ -394,7 +403,15 @@ describe("useSessionBottomAccessory", () => {
     expect(result.current.bottomAccessory).not.toBeNull();
   });
 
-  it("keeps the expanded live handle on neutral 50", () => {
+  it("uses dark-aware chrome for the live handle", () => {
+    type LiveToggleProps = {
+      collapsedClassName?: string;
+      expandedClassName?: string;
+      isExpanded: boolean;
+      label?: string;
+      onToggle: () => void;
+    };
+
     const { result } = renderHook(() =>
       useSessionBottomAccessory({
         sessionId: "session-1",
@@ -405,26 +422,18 @@ describe("useSessionBottomAccessory", () => {
     );
 
     const toggle = result.current.bottomBorderHandle;
-    expect(
-      isValidElement<{
-        expandedClassName?: string;
-        isExpanded: boolean;
-        label?: string;
-        onToggle: () => void;
-      }>(toggle),
-    ).toBe(true);
-    if (
-      !isValidElement<{
-        expandedClassName?: string;
-        label?: string;
-        onToggle: () => void;
-      }>(toggle)
-    ) {
+    expect(isValidElement<LiveToggleProps>(toggle)).toBe(true);
+    if (!isValidElement<LiveToggleProps>(toggle)) {
       return;
     }
 
     expect(toggle.props.label).toBe("Live");
-    expect(toggle.props.expandedClassName).toBe("bg-muted");
+    expect(toggle.props.collapsedClassName).toBe(
+      "bg-card dark:bg-app-floating-chrome",
+    );
+    expect(toggle.props.expandedClassName).toBe(
+      "bg-card dark:bg-app-floating-chrome",
+    );
 
     act(() => {
       toggle.props.onToggle();

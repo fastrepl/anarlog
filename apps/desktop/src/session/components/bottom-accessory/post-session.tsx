@@ -634,9 +634,9 @@ function TranscriptReadyPanel({
             disabled={isDeletingRecording}
             className={cn([
               "flex items-center gap-1 rounded-full px-1.5 py-0.5",
-              "text-[11px] font-medium text-red-600",
-              "transition-colors hover:bg-red-50 hover:text-red-700",
-              "disabled:cursor-not-allowed disabled:text-red-300",
+              "text-[11px] font-medium text-red-600 dark:text-red-400",
+              "transition-colors hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/50 dark:hover:text-red-300",
+              "disabled:cursor-not-allowed disabled:text-red-300 dark:disabled:text-red-500/60",
             ])}
           >
             {isDeletingRecording ? (

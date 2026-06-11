@@ -136,6 +136,8 @@ describe("OuterHeader", () => {
     expect(stopButton.className).toContain("h-7");
     expect(stopButton.className).toContain("w-20");
     expect(stopButton.className).toContain("rounded-full");
+    expect(stopButton.className).toContain("dark:bg-red-950/50");
+    expect(stopButton.className).toContain("dark:text-red-300");
     expect(stopButton.textContent).toContain("Stop");
     expect(mocks.stopListening).toHaveBeenCalledTimes(1);
   });

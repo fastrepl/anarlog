@@ -114,7 +114,7 @@ export function ActionableTooltipContent({
         <Button
           size="sm"
           variant="outline"
-          className="rounded-md text-black"
+          className="text-foreground rounded-md"
           onClick={action.handleClick}
         >
           {action.label}

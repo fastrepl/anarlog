@@ -199,13 +199,14 @@ function SidebarModeStopButton({ sessionId }: { sessionId: string }) {
   const accent = degraded ? "amber" : "red";
   const colors = {
     red: {
-      button: "text-red-500 hover:text-red-600 bg-red-50 hover:bg-red-100",
+      button:
+        "bg-red-50 text-red-500 hover:bg-red-100 hover:text-red-600 dark:bg-red-950/50 dark:text-red-300 dark:hover:bg-red-950 dark:hover:text-red-200",
       sticks: "#ef4444",
       stop: "bg-red-500",
     },
     amber: {
       button:
-        "text-amber-500 hover:text-amber-600 bg-amber-50 hover:bg-amber-100",
+        "bg-amber-50 text-amber-500 hover:bg-amber-100 hover:text-amber-600 dark:bg-amber-950/50 dark:text-amber-300 dark:hover:bg-amber-950 dark:hover:text-amber-200",
       sticks: "#f59e0b",
       stop: "bg-amber-500",
     },

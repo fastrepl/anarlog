@@ -435,6 +435,7 @@ function HeaderTabEnhanced({
         isError
           ? [
               "hover:text-foreground focus-visible:text-foreground text-red-600 hover:bg-red-50 focus-visible:bg-red-50",
+              "dark:text-red-400 dark:hover:bg-red-950/50 dark:focus-visible:bg-red-950/50",
             ]
           : ["hover:bg-accent focus-visible:bg-muted"],
       ])}

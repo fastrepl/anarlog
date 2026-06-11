@@ -256,6 +256,19 @@ describe("GlobalLiveTranscriptAccessory", () => {
     expect(transcriptCard?.className).not.toContain("rounded-b-xl");
   });
 
+  it("uses dark-aware chrome for the global live handle", () => {
+    render(
+      <GlobalLiveTranscriptAccessory currentTab={{ type: "settings" } as any}>
+        <div data-testid="tab-content" />
+      </GlobalLiveTranscriptAccessory>,
+    );
+
+    const toggle = screen.getByRole("button", { name: "Expand Live" });
+
+    expect(toggle.className).toContain("bg-card");
+    expect(toggle.className).toContain("dark:bg-app-floating-chrome");
+  });
+
   it("keeps the current surface divider in top chrome mode", () => {
     render(
       <GlobalLiveTranscriptAccessory

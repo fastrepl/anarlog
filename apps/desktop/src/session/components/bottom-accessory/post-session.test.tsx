@@ -216,6 +216,25 @@ describe("PostSessionAccessory", () => {
     });
   });
 
+  it("uses dark-aware colors for the delete recording action", () => {
+    render(
+      <PostSessionAccessory
+        sessionId="session-1"
+        hasAudio
+        hasTranscript
+        isTranscriptExpanded
+      />,
+    );
+
+    const deleteButton = screen.getByRole("button", {
+      name: "Delete recording",
+    });
+
+    expect(deleteButton.className).toContain("dark:text-red-400");
+    expect(deleteButton.className).toContain("dark:hover:bg-red-950/50");
+    expect(deleteButton.className).toContain("dark:hover:text-red-300");
+  });
+
   it("shows Regenerate button without upload or reserved height in empty panel", async () => {
     useTranscriptScreenMock.mockReturnValue({
       kind: "ready",

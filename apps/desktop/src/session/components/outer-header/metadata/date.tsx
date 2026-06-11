@@ -138,7 +138,7 @@ function EditableDateForm({
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="text-muted-foreground size-7 shrink-0 rounded-md hover:bg-red-50 hover:text-red-600"
+                className="text-muted-foreground size-7 shrink-0 rounded-md hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/50 dark:hover:text-red-300"
                 onClick={onCancel}
                 aria-label="Cancel date edit"
               >
@@ -152,7 +152,7 @@ function EditableDateForm({
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="text-muted-foreground size-7 shrink-0 rounded-md hover:bg-green-50 hover:text-green-600"
+                  className="text-muted-foreground size-7 shrink-0 rounded-md hover:bg-green-50 hover:text-green-600 dark:hover:bg-green-950/50 dark:hover:text-green-300"
                   onClick={() => void form.handleSubmit()}
                   disabled={!canSubmit}
                   aria-label="Save date"
