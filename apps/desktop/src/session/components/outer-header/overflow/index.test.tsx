@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { OverflowButton } from "./index";
 
+import { openFloatingMeetingPanel } from "~/meeting-float/host";
 import type { EditorView } from "~/store/zustand/tabs/schema";
 
 const {
@@ -146,6 +147,51 @@ describe("OverflowButton", () => {
     expect(screen.queryByRole("button", { name: "Upload audio" })).toBeNull();
     expect(
       screen.queryByRole("button", { name: "Upload transcript" }),
+    ).toBeNull();
+  });
+
+  it("opens the floating panel while actively listening", () => {
+    useConfigValueMock.mockReturnValue(true);
+    useListenerMock.mockImplementation((selector) =>
+      selector({
+        getSessionMode: () => "active",
+      }),
+    );
+
+    render(
+      <OverflowButton
+        sessionId="session-1"
+        currentView={{ type: "enhanced", id: "note-1" } as EditorView}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Open floating panel" }),
+    );
+
+    expect(openFloatingMeetingPanel).toHaveBeenCalledWith({
+      sessionId: "session-1",
+      enabled: true,
+    });
+  });
+
+  it("hides the floating panel action while finalizing", () => {
+    useConfigValueMock.mockReturnValue(true);
+    useListenerMock.mockImplementation((selector) =>
+      selector({
+        getSessionMode: () => "finalizing",
+      }),
+    );
+
+    render(
+      <OverflowButton
+        sessionId="session-1"
+        currentView={{ type: "enhanced", id: "note-1" } as EditorView}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "Open floating panel" }),
     ).toBeNull();
   });
 });

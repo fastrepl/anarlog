@@ -143,7 +143,7 @@ export function getFloatingRouteState(
   state: ListenerState,
   sessionId?: string,
 ): FloatingRouteState | null {
-  if (state.live.status !== "active" && state.live.status !== "finalizing") {
+  if (state.live.status !== "active") {
     return null;
   }
 

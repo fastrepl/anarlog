@@ -59,4 +59,15 @@ describe("getFloatingRouteState", () => {
       )?.status,
     ).toBe("error");
   });
+
+  it("hides the floating route while the session is finalizing", () => {
+    expect(
+      getFloatingRouteState(
+        createListenerState({
+          status: "finalizing",
+          sessionId: "session-1",
+        }),
+      ),
+    ).toBeNull();
+  });
 });

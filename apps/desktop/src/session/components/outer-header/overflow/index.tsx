@@ -51,9 +51,7 @@ export function OverflowButton({
   const { audioExists } = useAudioPlayer();
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
   const floatingBarEnabled = useConfigValue("floating_bar_enabled");
-  const canOpenFloatingPanel =
-    floatingBarEnabled &&
-    (sessionMode === "active" || sessionMode === "finalizing");
+  const canOpenFloatingPanel = floatingBarEnabled && sessionMode === "active";
   const openExportModal = () => {
     setOpen(false);
     requestAnimationFrame(() => setIsExportModalOpen(true));
