@@ -79,6 +79,7 @@ export function OverflowButton({
           <Button
             size="icon"
             variant="ghost"
+            data-tauri-drag-region="false"
             className="text-muted-foreground hover:bg-accent hover:text-foreground rounded-full"
           >
             <MoreHorizontalIcon size={16} />

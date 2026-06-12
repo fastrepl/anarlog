@@ -32,8 +32,12 @@ export function SessionSurface({
       mergeAfterBorder={mergeAfterBorder}
     >
       <div className="flex h-full flex-col">
-        {header ? <div className="pr-1 pl-3">{header}</div> : null}
-        <div className="mt-2 min-h-0 flex-1 px-2">{children}</div>
+        {header ? (
+          <div data-tauri-drag-region className="pr-1 pl-3">
+            {header}
+          </div>
+        ) : null}
+        <div className="min-h-0 flex-1 px-2">{children}</div>
       </div>
     </StandardTabWrapper>
   );

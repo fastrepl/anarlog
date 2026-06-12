@@ -143,6 +143,7 @@ describe("OuterHeader", () => {
     expect(stopButton.className).toContain("dark:bg-red-950/50");
     expect(stopButton.className).toContain("dark:text-red-300");
     expect(stopButton.textContent).toContain("Stop");
+    expect(stopButton.getAttribute("data-tauri-drag-region")).toBe("false");
     expect(mocks.stopListening).toHaveBeenCalledTimes(1);
   });
 
@@ -163,12 +164,12 @@ describe("OuterHeader", () => {
     const header = titleSlot?.parentElement;
 
     expect(header?.className).toContain("pl-[156px]");
-    expect(header?.className).toContain("h-[52px]");
-    expect(header?.className).toContain("pb-1");
+    expect(header?.className).toContain("h-11");
+    expect(header?.className).not.toContain("pb-1");
     expect(titleWrapper?.className).toContain("w-full");
     expect(titleWrapper?.className).not.toContain("max-w-[680px]");
     expect(titleSlot?.className).toContain("left-[104px]");
-    expect(titleSlot?.className).toContain("-translate-y-1");
+    expect(titleSlot?.className).not.toContain("-translate-y-1");
     expect(titleSlot?.className).toContain("right-[70px]");
     expect(screen.queryByRole("button", { name: "Show sidebar" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Go back" })).toBeNull();
@@ -257,13 +258,15 @@ describe("OuterHeader", () => {
     );
 
     const joinButton = screen.getByRole("button", { name: "Join Meet" });
+    const metadataButton = screen.getByRole("button", {
+      name: "Open event metadata",
+    });
 
     fireEvent.click(joinButton);
 
     expect(joinButton.textContent).toContain("Join Meet");
-    expect(
-      screen.getByRole("button", { name: "Open event metadata" }),
-    ).not.toBeNull();
+    expect(joinButton.getAttribute("data-tauri-drag-region")).toBe("false");
+    expect(metadataButton.getAttribute("data-tauri-drag-region")).toBe("false");
     expect(mocks.openUrl).toHaveBeenCalledWith(
       "https://meet.google.com/abc-defg-hij",
       null,

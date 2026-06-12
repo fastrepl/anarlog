@@ -61,6 +61,7 @@ const TriggerInner = forwardRef<
       variant="ghost"
       size="icon"
       type="button"
+      data-tauri-drag-region="false"
       aria-label={label}
       title={label}
       className={cn([

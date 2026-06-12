@@ -134,6 +134,21 @@ describe("OverflowButton", () => {
     expect(uploadTranscriptMock).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps the overflow trigger out of the header drag region", () => {
+    const { container } = render(
+      <OverflowButton
+        sessionId="session-1"
+        currentView={{ type: "enhanced", id: "note-1" } as EditorView}
+      />,
+    );
+
+    const trigger = container.querySelector(
+      "button[data-tauri-drag-region='false']",
+    );
+
+    expect(trigger).not.toBeNull();
+  });
+
   it("hides upload actions when the current note has content", () => {
     useCurrentNoteHasContentMock.mockReturnValue(true);
 

@@ -37,7 +37,7 @@ export function OuterHeader({
     <div
       className={cn([
         "relative flex w-full items-center",
-        showSidebarTimelineHeaderGutter ? "h-[52px] pb-1" : "h-12",
+        showSidebarTimelineHeaderGutter ? "h-11" : "h-12",
         showSidebarTimelineHeaderGutter && "pl-[156px]",
       ])}
     >
@@ -47,7 +47,7 @@ export function OuterHeader({
             "pointer-events-none absolute inset-y-0 flex items-center",
             reserveCollapsedLiveControls ? "right-[153px]" : "right-[70px]",
             showSidebarTimelineHeaderGutter
-              ? "left-[104px] -translate-y-1"
+              ? "left-[104px]"
               : showExpandedSidebarTimelineHeader
                 ? "left-0"
                 : "left-[114px]",
@@ -136,6 +136,7 @@ function HeaderMeetingJoinButton({
     <div className="border-border bg-card text-foreground mr-1 flex h-8 max-w-56 shrink-0 items-center overflow-hidden rounded-full border shadow-[0_1px_4px_rgba(0,0,0,0.08)]">
       <button
         type="button"
+        data-tauri-drag-region="false"
         aria-label={label}
         title={label}
         onClick={handleJoin}
@@ -153,6 +154,7 @@ function HeaderMeetingJoinButton({
         renderTrigger={({ open, label: metadataLabel }) => (
           <button
             type="button"
+            data-tauri-drag-region="false"
             aria-label={metadataLabel}
             title={metadataLabel}
             className={cn([
@@ -233,6 +235,7 @@ function SidebarModeStopButton({ sessionMode }: { sessionMode: string }) {
   return (
     <button
       type="button"
+      data-tauri-drag-region="false"
       onClick={finalizing ? undefined : stop}
       disabled={finalizing}
       className={cn([

@@ -97,6 +97,17 @@ describe("TitleInput", () => {
     ).toBeNull();
   });
 
+  it("keeps the title field out of the header drag region", () => {
+    renderTitleInput();
+
+    const input = screen.getByPlaceholderText("Untitled");
+
+    expect(input.getAttribute("data-tauri-drag-region")).toBe("false");
+    expect(input.parentElement?.getAttribute("data-tauri-drag-region")).toBe(
+      "false",
+    );
+  });
+
   it("uses the flexible title layout for whitespace-only titles", () => {
     hoisted.store.getCell.mockReturnValueOnce("          ");
 

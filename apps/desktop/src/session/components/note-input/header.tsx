@@ -94,6 +94,7 @@ function getStoredNoteMarkdown(content: string | undefined) {
 const UUID_TITLE_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ISO_TITLE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
+const SESSION_NOTE_TAB_CLASSNAME = "my-0";
 
 function getEnhancedNoteTitle({
   rawTitle,
@@ -197,6 +198,9 @@ function HeaderTabRaw({
 
   return (
     <NoteTab
+      data-main-area-window-drag-region
+      data-tauri-drag-region="false"
+      className={SESSION_NOTE_TAB_CLASSNAME}
       isActive={isActive}
       onClick={onClick}
       onContextMenu={showContextMenu}
@@ -376,6 +380,8 @@ function HeaderTabEnhanced({
 
     return wrapWithTemplateTooltip(
       <div
+        data-main-area-window-drag-region
+        data-tauri-drag-region="false"
         role="button"
         tabIndex={0}
         onClick={onClick}
@@ -387,7 +393,8 @@ function HeaderTabEnhanced({
           }
         }}
         className={cn([
-          "group/tab relative my-2 shrink-0 cursor-pointer border-b-2 px-1 py-0.5 text-xs font-medium transition-all duration-200 select-none",
+          "group/tab relative shrink-0 cursor-pointer border-b-2 px-1 py-0.5 text-xs font-medium transition-all duration-200 select-none",
+          SESSION_NOTE_TAB_CLASSNAME,
           isActive
             ? ["text-foreground", "border-foreground"]
             : [
@@ -401,6 +408,7 @@ function HeaderTabEnhanced({
           <TruncatedTitle title={tabTitle} isActive={isActive} />
           <button
             type="button"
+            data-tauri-drag-region="false"
             onClick={handleCancelClick}
             className={cn([
               "hover:bg-accent inline-flex h-5 w-5 cursor-pointer items-center justify-center rounded-xs",
@@ -437,6 +445,8 @@ function HeaderTabEnhanced({
 
   const regenerateIcon = (
     <span
+      data-main-area-window-drag-region
+      data-tauri-drag-region="false"
       onClick={handleRegenerateClick}
       className={cn([
         "group relative inline-flex h-5 w-5 cursor-pointer items-center justify-center rounded-xs transition-colors",
@@ -468,6 +478,9 @@ function HeaderTabEnhanced({
 
   return wrapWithTemplateTooltip(
     <NoteTab
+      data-main-area-window-drag-region
+      data-tauri-drag-region="false"
+      className={SESSION_NOTE_TAB_CLASSNAME}
       isActive={isActive}
       onClick={onClick}
       onContextMenu={showContextMenu}
@@ -935,8 +948,11 @@ function CreateOtherFormatButton({
     <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <button
+          data-main-area-window-drag-region
+          data-tauri-drag-region="false"
           className={cn([
-            "relative my-2 shrink-0 px-1 py-0.5 text-xs font-medium whitespace-nowrap transition-all duration-200 select-none",
+            "relative shrink-0 px-1 py-0.5 text-xs font-medium whitespace-nowrap transition-all duration-200 select-none",
+            SESSION_NOTE_TAB_CLASSNAME,
             "text-muted-foreground hover:text-foreground",
             "flex items-center gap-1",
             "border-b-2 border-transparent",
