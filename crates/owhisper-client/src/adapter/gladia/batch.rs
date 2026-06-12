@@ -11,6 +11,7 @@ use owhisper_interface::batch::{
 use serde::{Deserialize, Serialize};
 
 use super::GladiaAdapter;
+use crate::adapter::http::streaming_file_part;
 use crate::adapter::{BatchFuture, BatchSttAdapter, ClientWithMiddleware, append_path_if_missing};
 use crate::error::Error;
 use crate::polling::{PollingConfig, PollingResult, poll_until};
@@ -166,35 +167,10 @@ impl GladiaAdapter {
     ) -> Result<BatchResponse, Error> {
         let base_url = Self::batch_api_url(api_base);
 
-        let file_bytes = tokio::fs::read(&file_path)
-            .await
-            .map_err(|e| Error::AudioProcessing(format!("failed to read file: {}", e)))?;
-
-        let file_name = file_path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("audio.wav")
-            .to_string();
-
-        let mime_type = match file_path.extension().and_then(|e| e.to_str()) {
-            Some("wav") => "audio/wav",
-            Some("mp3") => "audio/mpeg",
-            Some("ogg") => "audio/ogg",
-            Some("flac") => "audio/flac",
-            Some("m4a") => "audio/mp4",
-            Some("webm") => "audio/webm",
-            _ => "application/octet-stream",
-        };
-
         let mut upload_url = base_url.clone();
         append_path_if_missing(&mut upload_url, "upload");
-        let form = reqwest::multipart::Form::new().part(
-            "audio",
-            reqwest::multipart::Part::bytes(file_bytes)
-                .file_name(file_name)
-                .mime_str(mime_type)
-                .map_err(|e| Error::AudioProcessing(e.to_string()))?,
-        );
+        let form =
+            reqwest::multipart::Form::new().part("audio", streaming_file_part(&file_path).await?);
 
         let upload_response = client
             .post(upload_url.to_string())

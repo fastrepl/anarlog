@@ -142,6 +142,7 @@ export function getRenderTranscriptRequestKey(
 export function buildRenderTranscriptRequestFromStore(
   store: NonNullable<ReturnType<typeof main.UI.useStore>>,
   transcriptIds: string[],
+  options: { participantMappingIds?: readonly string[] } = {},
 ): RenderTranscriptRequest | null {
   const sessionId = getSessionIdForTranscripts(store, transcriptIds);
   const transcripts = transcriptIds.map((transcriptId) => ({
@@ -155,7 +156,11 @@ export function buildRenderTranscriptRequestFromStore(
   return buildRenderTranscriptRequest(
     transcripts,
     collectRenderHumans(store),
-    collectSessionParticipantHumanIds(store, sessionId),
+    collectSessionParticipantHumanIds(
+      store,
+      sessionId,
+      options.participantMappingIds,
+    ),
   );
 }
 
@@ -385,13 +390,15 @@ function getSessionIdForTranscripts(
 function collectSessionParticipantHumanIds(
   store: Pick<main.Store, "forEachRow" | "getCell">,
   sessionId?: string,
+  participantMappingIds?: readonly string[],
 ): string[] {
   if (!sessionId) {
     return [];
   }
 
   const participantHumanIds: string[] = [];
-  store.forEachRow("mapping_session_participant", (mappingId, _forEachCell) => {
+
+  const collect = (mappingId: string) => {
     const mappingSessionId = store.getCell(
       "mapping_session_participant",
       mappingId,
@@ -409,7 +416,20 @@ function collectSessionParticipantHumanIds(
     if (typeof humanId === "string" && humanId) {
       participantHumanIds.push(humanId);
     }
-  });
+  };
+
+  if (participantMappingIds) {
+    for (const mappingId of participantMappingIds) {
+      collect(mappingId);
+    }
+  } else {
+    store.forEachRow(
+      "mapping_session_participant",
+      (mappingId, _forEachCell) => {
+        collect(mappingId);
+      },
+    );
+  }
 
   return participantHumanIds;
 }

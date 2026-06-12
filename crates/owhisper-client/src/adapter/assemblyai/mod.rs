@@ -71,9 +71,11 @@ impl AssemblyAIAdapter {
 
         if url.host_str() == Some("api.assemblyai.com") {
             let _ = url.set_host(Some("streaming.assemblyai.com"));
+            url.set_path(Provider::AssemblyAI.ws_path());
+        } else {
+            super::append_path_if_missing(&mut url, Provider::AssemblyAI.ws_path());
         }
 
-        super::append_path_if_missing(&mut url, Provider::AssemblyAI.ws_path());
         super::set_scheme_from_host(&mut url);
 
         (url, existing_params)
@@ -99,6 +101,7 @@ impl AssemblyAIAdapter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Provider;
 
     #[test]
     fn test_streaming_ws_url_appends_v3_ws() {
@@ -110,6 +113,14 @@ mod tests {
     #[test]
     fn test_streaming_ws_url_empty_uses_default() {
         let (url, params) = AssemblyAIAdapter::streaming_ws_url("");
+        assert_eq!(url.as_str(), "wss://streaming.assemblyai.com/v3/ws");
+        assert!(params.is_empty());
+    }
+
+    #[test]
+    fn test_streaming_ws_url_default_api_base_uses_streaming_path() {
+        let (url, params) =
+            AssemblyAIAdapter::streaming_ws_url(Provider::AssemblyAI.default_api_base());
         assert_eq!(url.as_str(), "wss://streaming.assemblyai.com/v3/ws");
         assert!(params.is_empty());
     }

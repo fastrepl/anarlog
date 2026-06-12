@@ -36,10 +36,24 @@ interface SearchContextValue {
   setReplaceQuery: (query: string) => void;
 }
 
+interface SearchHighlightsContextValue {
+  query: string;
+  isVisible: boolean;
+  activeMatchId: string | null;
+  caseSensitive: boolean;
+  wholeWord: boolean;
+}
+
 const SearchContext = createContext<SearchContextValue | null>(null);
+const SearchHighlightsContext =
+  createContext<SearchHighlightsContextValue | null>(null);
 
 export function useSearch() {
   return useContext(SearchContext);
+}
+
+export function useSearchHighlights() {
+  return useContext(SearchHighlightsContext);
 }
 
 interface SearchState {
@@ -280,7 +294,28 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
     [state, onNext, onPrev],
   );
 
+  const highlightsValue = useMemo(
+    () => ({
+      query: state.query,
+      isVisible: state.isVisible,
+      activeMatchId: state.activeMatchId,
+      caseSensitive: state.caseSensitive,
+      wholeWord: state.wholeWord,
+    }),
+    [
+      state.activeMatchId,
+      state.caseSensitive,
+      state.isVisible,
+      state.query,
+      state.wholeWord,
+    ],
+  );
+
   return (
-    <SearchContext.Provider value={value}>{children}</SearchContext.Provider>
+    <SearchContext.Provider value={value}>
+      <SearchHighlightsContext.Provider value={highlightsValue}>
+        {children}
+      </SearchHighlightsContext.Provider>
+    </SearchContext.Provider>
   );
 }

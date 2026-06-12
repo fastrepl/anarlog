@@ -49,16 +49,25 @@ export function useTranscriptExportSegments(sessionId: string): {
       sessionId,
       main.STORE_ID,
     ) ?? [];
+  const participantMappingIds =
+    main.UI.useSliceRowIds(
+      main.INDEXES.sessionParticipantsBySession,
+      sessionId,
+      main.STORE_ID,
+    ) ?? [];
 
   const request = useMemo(() => {
     if (!store || transcriptIds.length === 0) {
       return null;
     }
 
-    return buildRenderTranscriptRequestFromStore(store, transcriptIds);
+    return buildRenderTranscriptRequestFromStore(store, transcriptIds, {
+      participantMappingIds,
+    });
   }, [
     store,
     transcriptIds,
+    participantMappingIds,
     transcriptsTable,
     participantMappingsTable,
     humansTable,

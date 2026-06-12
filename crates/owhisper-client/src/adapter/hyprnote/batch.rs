@@ -4,7 +4,7 @@ use owhisper_interface::ListenParams;
 use owhisper_interface::batch::Response as BatchResponse;
 
 use super::HyprnoteAdapter;
-use crate::adapter::http::mime_type_from_extension;
+use crate::adapter::http::{mime_type_from_extension, streaming_file_body};
 use crate::adapter::{BatchFuture, BatchSttAdapter, ClientWithMiddleware, append_path_if_missing};
 use crate::error::Error;
 
@@ -72,15 +72,14 @@ async fn do_transcribe_file(
         }
     }
 
-    let bytes = tokio::fs::read(&file_path)
-        .await
-        .map_err(|e| Error::AudioProcessing(format!("failed to read file: {e}")))?;
+    let audio = streaming_file_body(&file_path).await?;
 
     let response = client
         .post(url.to_string())
         .header("Authorization", format!("Bearer {api_key}"))
         .header("Content-Type", mime_type_from_extension(&file_path))
-        .body(bytes)
+        .header("Content-Length", audio.len)
+        .body(audio.body)
         .send()
         .await?;
 

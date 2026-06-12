@@ -24,6 +24,7 @@ reqwest-middleware = { workspace = true, features = ["json", "multipart"] }
 reqwest-tracing = { workspace = true }
 tokio = { workspace = true, features = ["fs"] }
 tokio-stream = { workspace = true }
+tokio-util = { workspace = true, features = ["io"] }
 
 backon = { workspace = true }
 base64 = { workspace = true }

@@ -104,89 +104,37 @@ function ContactsList({
   const allOrgs = main.UI.useTable("organizations", main.STORE_ID);
   const store = main.UI.useStore(main.STORE_ID);
 
-  const alphabeticalHumanIds = main.UI.useResultSortedRowIds(
+  const sortConfig = useMemo(() => {
+    switch (sortOption) {
+      case "reverse-alphabetical":
+        return { cellId: "name", descending: true };
+      case "newest":
+        return { cellId: "created_at", descending: true };
+      case "oldest":
+        return { cellId: "created_at", descending: false };
+      case "alphabetical":
+      default:
+        return { cellId: "name", descending: false };
+    }
+  }, [sortOption]);
+
+  const sortedHumanIds = main.UI.useResultSortedRowIds(
     main.QUERIES.visibleHumans,
-    "name",
-    false,
-    0,
-    undefined,
-    main.STORE_ID,
-  );
-  const reverseAlphabeticalHumanIds = main.UI.useResultSortedRowIds(
-    main.QUERIES.visibleHumans,
-    "name",
-    true,
-    0,
-    undefined,
-    main.STORE_ID,
-  );
-  const newestHumanIds = main.UI.useResultSortedRowIds(
-    main.QUERIES.visibleHumans,
-    "created_at",
-    true,
-    0,
-    undefined,
-    main.STORE_ID,
-  );
-  const oldestHumanIds = main.UI.useResultSortedRowIds(
-    main.QUERIES.visibleHumans,
-    "created_at",
-    false,
+    sortConfig.cellId,
+    sortConfig.descending,
     0,
     undefined,
     main.STORE_ID,
   );
 
-  const alphabeticalOrgIds = main.UI.useResultSortedRowIds(
+  const sortedOrgIds = main.UI.useResultSortedRowIds(
     main.QUERIES.visibleOrganizations,
-    "name",
-    false,
+    sortConfig.cellId,
+    sortConfig.descending,
     0,
     undefined,
     main.STORE_ID,
   );
-  const reverseAlphabeticalOrgIds = main.UI.useResultSortedRowIds(
-    main.QUERIES.visibleOrganizations,
-    "name",
-    true,
-    0,
-    undefined,
-    main.STORE_ID,
-  );
-  const newestOrgIds = main.UI.useResultSortedRowIds(
-    main.QUERIES.visibleOrganizations,
-    "created_at",
-    true,
-    0,
-    undefined,
-    main.STORE_ID,
-  );
-  const oldestOrgIds = main.UI.useResultSortedRowIds(
-    main.QUERIES.visibleOrganizations,
-    "created_at",
-    false,
-    0,
-    undefined,
-    main.STORE_ID,
-  );
-
-  const sortedHumanIds =
-    sortOption === "alphabetical"
-      ? alphabeticalHumanIds
-      : sortOption === "reverse-alphabetical"
-        ? reverseAlphabeticalHumanIds
-        : sortOption === "newest"
-          ? newestHumanIds
-          : oldestHumanIds;
-
-  const sortedOrgIds =
-    sortOption === "alphabetical"
-      ? alphabeticalOrgIds
-      : sortOption === "reverse-alphabetical"
-        ? reverseAlphabeticalOrgIds
-        : sortOption === "newest"
-          ? newestOrgIds
-          : oldestOrgIds;
 
   const { pinnedHumanIds, unpinnedHumanIds } = useMemo(() => {
     const pinned = sortedHumanIds.filter((id) => allHumans[id]?.pinned);

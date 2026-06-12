@@ -16,8 +16,8 @@ use owhisper_client::Auth;
 pub use builder::ClientRequestBuilder;
 pub use handler::WebSocketProxy;
 pub use types::{
-    ClientMessageFilter, FirstMessageTransformer, InitialMessage, OnCloseCallback,
-    ResponseTransformer,
+    ClientBinaryTransformer, ClientMessageFilter, FirstMessageTransformer, InitialMessage,
+    OnCloseCallback, ResponseTransformer,
 };
 pub use upstream_error::{UpstreamError, detect_upstream_error};
 
@@ -73,6 +73,7 @@ pub struct StreamingProxyPlan {
     connect_timeout: Duration,
     on_close: Option<OnCloseCallback>,
     client_message_filter: Option<ClientMessageFilter>,
+    client_binary_transformer: Option<ClientBinaryTransformer>,
 }
 
 pub enum StreamingProxy {
@@ -92,6 +93,7 @@ impl StreamingProxyPlan {
             connect_timeout: Duration::default(),
             on_close: None,
             client_message_filter: None,
+            client_binary_transformer: None,
         }
     }
 
@@ -133,6 +135,11 @@ impl StreamingProxyPlan {
 
     pub fn client_message_filter(mut self, filter: ClientMessageFilter) -> Self {
         self.client_message_filter = Some(filter);
+        self
+    }
+
+    pub fn client_binary_transformer(mut self, transformer: ClientBinaryTransformer) -> Self {
+        self.client_binary_transformer = Some(transformer);
         self
     }
 
@@ -200,6 +207,7 @@ impl StreamingProxyPlan {
                 self.connect_timeout,
                 self.on_close,
                 self.client_message_filter,
+                self.client_binary_transformer,
             )),
             StreamingTransport::SplitStereo => StreamingProxy::split(
                 apply_headers(request, self.headers),
@@ -208,6 +216,7 @@ impl StreamingProxyPlan {
                 self.connect_timeout,
                 self.on_close,
                 self.client_message_filter,
+                self.client_binary_transformer,
             ),
         }
     }
@@ -227,6 +236,7 @@ impl StreamingProxyPlan {
                 self.connect_timeout,
                 self.on_close,
                 self.client_message_filter,
+                self.client_binary_transformer,
             ),
         }
     }
@@ -237,6 +247,15 @@ impl StreamingProxy {
         Self::Single(proxy)
     }
 
+    fn with_client_binary_transformer(self, transformer: Option<ClientBinaryTransformer>) -> Self {
+        match self {
+            Self::ChannelSplit(proxy) => {
+                Self::ChannelSplit(proxy.with_client_binary_transformer(transformer))
+            }
+            Self::Single(proxy) => Self::Single(proxy),
+        }
+    }
+
     pub fn split(
         upstream_request: ClientRequestBuilder,
         initial_message: Option<InitialMessage>,
@@ -244,6 +263,7 @@ impl StreamingProxy {
         connect_timeout: Duration,
         on_close: Option<OnCloseCallback>,
         client_message_filter: Option<ClientMessageFilter>,
+        client_binary_transformer: Option<ClientBinaryTransformer>,
     ) -> Self {
         let proxy = ChannelSplitProxy::new(
             upstream_request,
@@ -257,6 +277,7 @@ impl StreamingProxy {
             Some(filter) => Self::ChannelSplit(proxy.with_client_message_filter(filter)),
             None => Self::ChannelSplit(proxy),
         }
+        .with_client_binary_transformer(client_binary_transformer)
     }
 
     pub fn split_with_requests(
@@ -267,6 +288,7 @@ impl StreamingProxy {
         connect_timeout: Duration,
         on_close: Option<OnCloseCallback>,
         client_message_filter: Option<ClientMessageFilter>,
+        client_binary_transformer: Option<ClientBinaryTransformer>,
     ) -> Self {
         let proxy = ChannelSplitProxy::with_split_requests(
             mic_request,
@@ -281,6 +303,7 @@ impl StreamingProxy {
             Some(filter) => Self::ChannelSplit(proxy.with_client_message_filter(filter)),
             None => Self::ChannelSplit(proxy),
         }
+        .with_client_binary_transformer(client_binary_transformer)
     }
 
     pub async fn handle_upgrade(&self, ws: WebSocketUpgrade) -> Response<Body> {

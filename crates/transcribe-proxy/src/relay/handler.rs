@@ -17,9 +17,10 @@ use owhisper_client::Provider;
 use super::builder::WebSocketProxyBuilder;
 use super::pending::{FlushError, PendingState, QueuedPayload};
 use super::types::{
-    ClientMessageFilter, ClientReceiver, ClientSender, ControlMessageTypes, DEFAULT_CLOSE_CODE,
-    FirstMessageTransformer, InitialMessage, OnCloseCallback, ResponseTransformer, ShutdownSignal,
-    UpstreamReceiver, UpstreamSender, convert, is_control_message,
+    ClientBinaryTransformer, ClientMessageFilter, ClientReceiver, ClientSender,
+    ControlMessageTypes, DEFAULT_CLOSE_CODE, FirstMessageTransformer, InitialMessage,
+    OnCloseCallback, ResponseTransformer, ShutdownSignal, UpstreamReceiver, UpstreamSender,
+    convert, is_control_message,
 };
 
 #[derive(Clone)]
@@ -32,6 +33,7 @@ pub struct WebSocketProxy {
     connect_timeout: Duration,
     on_close: Option<OnCloseCallback>,
     client_message_filter: Option<ClientMessageFilter>,
+    client_binary_transformer: Option<ClientBinaryTransformer>,
 }
 
 impl WebSocketProxy {
@@ -45,6 +47,7 @@ impl WebSocketProxy {
         connect_timeout: Duration,
         on_close: Option<OnCloseCallback>,
         client_message_filter: Option<ClientMessageFilter>,
+        client_binary_transformer: Option<ClientBinaryTransformer>,
     ) -> Self {
         Self {
             upstream_request,
@@ -55,6 +58,7 @@ impl WebSocketProxy {
             connect_timeout,
             on_close,
             client_message_filter,
+            client_binary_transformer,
         }
     }
 
@@ -117,6 +121,7 @@ impl WebSocketProxy {
             self.response_transformer.clone(),
             self.on_close.clone(),
             self.client_message_filter.clone(),
+            self.client_binary_transformer.clone(),
         )
         .await;
 
@@ -151,6 +156,7 @@ impl WebSocketProxy {
         response_transformer: Option<ResponseTransformer>,
         on_close: Option<OnCloseCallback>,
         client_message_filter: Option<ClientMessageFilter>,
+        client_binary_transformer: Option<ClientBinaryTransformer>,
     ) {
         let start_time = Instant::now();
 
@@ -169,6 +175,7 @@ impl WebSocketProxy {
             transform_first_message,
             initial_message,
             client_message_filter,
+            client_binary_transformer,
         );
 
         let upstream_to_client = Self::run_upstream_to_client(
@@ -258,6 +265,7 @@ impl WebSocketProxy {
         mut first_msg_transformer: Option<FirstMessageTransformer>,
         initial_message: Option<InitialMessage>,
         client_message_filter: Option<ClientMessageFilter>,
+        client_binary_transformer: Option<ClientBinaryTransformer>,
     ) {
         let mut pending = PendingState::default();
 
@@ -340,9 +348,15 @@ impl WebSocketProxy {
                             if first_msg_transformer.is_some() {
                                 tracing::debug!("binary_message_received_before_text_transform");
                             }
-                            let data = bytes.to_vec();
+                            let (data, is_text) = match client_binary_transformer.as_ref() {
+                                Some(transformer) => match transformer(bytes.to_vec()) {
+                                    Some(payload) => payload,
+                                    None => continue,
+                                },
+                                None => (bytes.to_vec(), false),
+                            };
 
-                            if Self::process_data_message(&mut pending, data, false, &control_types, &shutdown_tx, &mut upstream_sender).await {
+                            if Self::process_data_message(&mut pending, data, is_text, &control_types, &shutdown_tx, &mut upstream_sender).await {
                                 break;
                             }
                         }

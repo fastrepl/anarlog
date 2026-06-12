@@ -8,6 +8,7 @@ use owhisper_interface::batch::{
 use serde::Deserialize;
 
 use super::FireworksAdapter;
+use crate::adapter::http::streaming_file_part;
 use crate::adapter::{BatchFuture, BatchSttAdapter, ClientWithMiddleware};
 use crate::error::Error;
 
@@ -48,21 +49,7 @@ impl FireworksAdapter {
         params: &ListenParams,
         file_path: &Path,
     ) -> Result<BatchResponse, Error> {
-        let file_name = file_path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("audio.wav")
-            .to_string();
-
-        let file_bytes = tokio::fs::read(file_path).await.map_err(|e| {
-            Error::AudioProcessing(format!(
-                "failed to read file {}: {}",
-                file_path.display(),
-                e
-            ))
-        })?;
-
-        let file_part = reqwest::multipart::Part::bytes(file_bytes).file_name(file_name);
+        let file_part = streaming_file_part(file_path).await?;
         let mut form = reqwest::multipart::Form::new().part("file", file_part);
 
         let default = crate::providers::Provider::Fireworks.default_batch_model();

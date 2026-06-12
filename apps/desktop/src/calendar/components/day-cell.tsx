@@ -13,7 +13,6 @@ import { EventChip } from "./event-chip";
 import { SessionChip } from "./session-chip";
 
 import type { CalendarData } from "~/calendar/hooks";
-import { useNow } from "~/calendar/hooks";
 
 function useVisibleItemCount(
   ref: React.RefObject<HTMLDivElement | null>,
@@ -71,20 +70,21 @@ export function DayCell({
   day,
   isCurrentMonth,
   calendarData,
+  todayKey,
 }: {
   day: Date;
   isCurrentMonth: boolean;
   calendarData: CalendarData;
+  todayKey: string;
 }) {
   const dateKey = format(day, "yyyy-MM-dd");
   const eventIds = calendarData.eventIdsByDate[dateKey] ?? [];
   const sessionIds = calendarData.sessionIdsByDate[dateKey] ?? [];
 
-  const now = useNow();
   const itemsRef = useRef<HTMLDivElement>(null);
   const totalItems = eventIds.length + sessionIds.length;
   const maxVisible = useVisibleItemCount(itemsRef, totalItems);
-  const today = format(day, "yyyy-MM-dd") === format(now, "yyyy-MM-dd");
+  const today = dateKey === todayKey;
 
   const visibleEvents = eventIds.slice(0, maxVisible);
   const remainingSlots = Math.max(0, maxVisible - visibleEvents.length);

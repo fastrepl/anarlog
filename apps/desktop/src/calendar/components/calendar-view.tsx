@@ -79,6 +79,7 @@ function useVisibleCols(ref: React.RefObject<HTMLDivElement | null>) {
 export function CalendarView() {
   const { scheduleSync } = useSync();
   const now = useNow();
+  const todayKey = format(now, "yyyy-MM-dd");
   const weekStartsOn = useWeekStartsOn();
   const weekOpts = useMemo(() => ({ weekStartsOn }), [weekStartsOn]);
   const [currentMonth, setCurrentMonth] = useState(now);
@@ -304,6 +305,7 @@ export function CalendarView() {
                 day={day}
                 isCurrentMonth={isSameMonth(day, currentMonth)}
                 calendarData={calendarData}
+                todayKey={todayKey}
               />
             ))}
           </div>
@@ -347,6 +349,7 @@ export function CalendarView() {
                 day={day}
                 isCurrentMonth={true}
                 calendarData={calendarData}
+                todayKey={todayKey}
               />
             ))}
           </div>

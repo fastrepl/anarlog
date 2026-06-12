@@ -50,7 +50,11 @@ export function useTranscriptScreen({
     (state) => state.batch[sessionId]?.error ?? null,
   );
   const batchProgress = useListener((state) => state.batch[sessionId] ?? null);
-  const live = useListener((state) => state.live);
+  const live = useListener((state) => ({
+    requestedLiveTranscription: state.live.requestedLiveTranscription,
+    liveTranscriptionActive: state.live.liveTranscriptionActive,
+    degraded: state.live.degraded,
+  }));
   const { audioExists } = useAudioPlayer();
 
   const { transcriptIds, liveSegments, hasTranscriptWords } =

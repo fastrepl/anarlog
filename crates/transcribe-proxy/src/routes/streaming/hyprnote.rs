@@ -10,7 +10,10 @@ use owhisper_interface::ListenParams;
 use crate::config::SttProxyConfig;
 use crate::provider_selector::SelectedProvider;
 use crate::query_params::{QueryParams, QueryValue};
-use crate::relay::{ClientMessageFilter, StreamingProxy, StreamingProxyPlan, StreamingTransport};
+use crate::relay::{
+    ClientBinaryTransformer, ClientMessageFilter, StreamingProxy, StreamingProxyPlan,
+    StreamingTransport,
+};
 use crate::routes::AppState;
 use crate::routes::model_resolution::resolve_model_live;
 
@@ -140,6 +143,32 @@ fn build_client_message_filter(provider: Provider) -> ClientMessageFilter {
     })
 }
 
+fn encode_audio_message<A: RealtimeSttAdapter>(audio: Vec<u8>) -> Option<(Vec<u8>, bool)> {
+    match A::default().audio_to_message(bytes::Bytes::from(audio)) {
+        owhisper_client::hypr_ws_client::client::Message::Text(text) => {
+            Some((text.to_string().into_bytes(), true))
+        }
+        owhisper_client::hypr_ws_client::client::Message::Binary(bytes) => {
+            Some((bytes.to_vec(), false))
+        }
+        _ => None,
+    }
+}
+
+fn build_client_binary_transformer(provider: Provider) -> ClientBinaryTransformer {
+    Arc::new(move |audio: Vec<u8>| match provider {
+        Provider::Deepgram => encode_audio_message::<DeepgramAdapter>(audio),
+        Provider::AssemblyAI => encode_audio_message::<AssemblyAIAdapter>(audio),
+        Provider::Soniox => encode_audio_message::<SonioxAdapter>(audio),
+        Provider::Fireworks => encode_audio_message::<FireworksAdapter>(audio),
+        Provider::Gladia => encode_audio_message::<GladiaAdapter>(audio),
+        Provider::ElevenLabs => encode_audio_message::<ElevenLabsAdapter>(audio),
+        Provider::DashScope => encode_audio_message::<DashScopeAdapter>(audio),
+        Provider::Mistral => encode_audio_message::<MistralAdapter>(audio),
+        Provider::AquaVoice | Provider::OpenAI | Provider::Pyannote => Some((audio, false)),
+    })
+}
+
 fn build_proxy_plan(
     provider: Provider,
     selected: &SelectedProvider,
@@ -155,6 +184,7 @@ fn build_proxy_plan(
     .control_message_types(provider.control_message_types())
     .response_transformer(build_response_transformer(provider))
     .client_message_filter(build_client_message_filter(provider))
+    .client_binary_transformer(build_client_binary_transformer(provider))
     .apply_auth(selected);
 
     if let Some(on_close) = build_on_close_callback(config, provider, &analytics_ctx) {
@@ -531,6 +561,25 @@ mod tests {
     fn test_client_message_filter_non_json_passthrough() {
         let filter = build_client_message_filter(Provider::Soniox);
         assert_eq!(filter("not json".to_string()), Some("not json".to_string()));
+    }
+
+    #[test]
+    fn test_client_binary_transformer_preserves_deepgram_binary() {
+        let transformer = build_client_binary_transformer(Provider::Deepgram);
+
+        assert_eq!(transformer(vec![1, 2, 3]), Some((vec![1, 2, 3], false)));
+    }
+
+    #[test]
+    fn test_client_binary_transformer_encodes_elevenlabs_audio() {
+        let transformer = build_client_binary_transformer(Provider::ElevenLabs);
+        let (data, is_text) = transformer(vec![1, 2, 3]).unwrap();
+
+        assert!(is_text);
+        let text = String::from_utf8(data).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(json["message_type"], "input_audio_chunk");
+        assert_eq!(json["audio_base_64"], "AQID");
     }
 
     #[test]

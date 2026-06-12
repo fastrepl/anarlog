@@ -146,30 +146,10 @@ async fn do_transcribe_file(
     }
 }
 
-use crate::adapter::http::mime_type_from_extension;
+use crate::adapter::http::streaming_file_part;
 
 async fn build_file_part(file_path: &Path) -> Result<Part, Error> {
-    let fallback_name = match file_path.extension().and_then(|e| e.to_str()) {
-        Some(ext) => format!("audio.{}", ext),
-        None => "audio".to_string(),
-    };
-
-    let file_name = file_path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .map(ToOwned::to_owned)
-        .unwrap_or(fallback_name);
-
-    let file_bytes = tokio::fs::read(file_path)
-        .await
-        .map_err(|e| Error::AudioProcessing(e.to_string()))?;
-
-    let mime_type = mime_type_from_extension(file_path);
-
-    Part::bytes(file_bytes)
-        .file_name(file_name)
-        .mime_str(mime_type)
-        .map_err(|e| Error::AudioProcessing(e.to_string()))
+    streaming_file_part(file_path).await
 }
 
 fn build_transcription_options(

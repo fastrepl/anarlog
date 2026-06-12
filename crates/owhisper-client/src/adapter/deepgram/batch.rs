@@ -41,7 +41,7 @@ impl BatchSttAdapter for DeepgramAdapter {
     }
 }
 
-use crate::adapter::http::mime_type_from_extension;
+use crate::adapter::http::{mime_type_from_extension, streaming_file_body};
 
 async fn do_transcribe_file(
     client: &ClientWithMiddleware,
@@ -50,11 +50,8 @@ async fn do_transcribe_file(
     params: &ListenParams,
     file_path: PathBuf,
 ) -> Result<BatchResponse, Error> {
-    let audio_data = tokio::fs::read(&file_path)
-        .await
-        .map_err(|e| Error::AudioProcessing(format!("failed to read file: {}", e)))?;
-
     let content_type = mime_type_from_extension(&file_path);
+    let audio = streaming_file_body(&file_path).await?;
 
     let url = build_batch_url(
         api_base,
@@ -68,7 +65,8 @@ async fn do_transcribe_file(
         .header("Authorization", format!("Token {}", api_key))
         .header("Accept", "application/json")
         .header("Content-Type", content_type)
-        .body(audio_data)
+        .header("Content-Length", audio.len)
+        .body(audio.body)
         .send()
         .await?;
 

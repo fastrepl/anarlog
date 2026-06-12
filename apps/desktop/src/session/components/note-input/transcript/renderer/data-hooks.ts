@@ -11,6 +11,18 @@ import {
 
 export function useRenderedTranscriptSegments(transcriptId: string): Segment[] {
   const store = main.UI.useStore(main.STORE_ID);
+  const sessionId = main.UI.useCell(
+    "transcripts",
+    transcriptId,
+    "session_id",
+    main.STORE_ID,
+  );
+  const participantMappingIds =
+    main.UI.useSliceRowIds(
+      main.INDEXES.sessionParticipantsBySession,
+      sessionId ?? "",
+      main.STORE_ID,
+    ) ?? [];
   const transcriptsTable = main.UI.useTable("transcripts", main.STORE_ID);
   const participantMappingsTable = main.UI.useTable(
     "mapping_session_participant",
@@ -24,10 +36,13 @@ export function useRenderedTranscriptSegments(transcriptId: string): Segment[] {
       return null;
     }
 
-    return buildRenderTranscriptRequestFromStore(store, [transcriptId]);
+    return buildRenderTranscriptRequestFromStore(store, [transcriptId], {
+      participantMappingIds,
+    });
   }, [
     store,
     transcriptId,
+    participantMappingIds,
     transcriptsTable,
     participantMappingsTable,
     humansTable,

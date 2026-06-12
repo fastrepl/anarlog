@@ -228,6 +228,14 @@ pub async fn upload_file(
     api_key: &str,
 ) -> Result<String, Error> {
     let part = reqwest::multipart::Part::bytes(file_bytes).file_name(file_name.to_string());
+    upload_file_part(client, part, api_key).await
+}
+
+pub async fn upload_file_part(
+    client: &reqwest::Client,
+    part: reqwest::multipart::Part,
+    api_key: &str,
+) -> Result<String, Error> {
     let form = reqwest::multipart::Form::new().part("file", part);
 
     let response = client

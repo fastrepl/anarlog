@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use super::AssemblyAIAdapter;
 use super::language::BATCH_LANGUAGES;
-use crate::adapter::http::ensure_success;
+use crate::adapter::http::{ensure_success, mime_type_from_extension, streaming_file_body};
 use crate::adapter::{BatchFuture, BatchSttAdapter, ClientWithMiddleware, append_path_if_missing};
 use crate::error::Error;
 use crate::polling::{PollingConfig, PollingResult, poll_until};
@@ -171,19 +171,8 @@ impl AssemblyAIAdapter {
     ) -> Result<BatchResponse, Error> {
         let base_url = Self::batch_api_url(api_base);
 
-        let audio_data = tokio::fs::read(&file_path)
-            .await
-            .map_err(|e| Error::AudioProcessing(format!("failed to read file: {}", e)))?;
-
-        let content_type = match file_path.extension().and_then(|e| e.to_str()) {
-            Some("wav") => "audio/wav",
-            Some("mp3") => "audio/mpeg",
-            Some("ogg") => "audio/ogg",
-            Some("flac") => "audio/flac",
-            Some("m4a") => "audio/mp4",
-            Some("webm") => "audio/webm",
-            _ => "application/octet-stream",
-        };
+        let audio = streaming_file_body(&file_path).await?;
+        let content_type = mime_type_from_extension(&file_path);
 
         let mut upload_url = base_url.clone();
         append_path_if_missing(&mut upload_url, "upload");
@@ -191,7 +180,8 @@ impl AssemblyAIAdapter {
             .post(upload_url.to_string())
             .header("Authorization", api_key)
             .header("Content-Type", content_type)
-            .body(audio_data)
+            .header("Content-Length", audio.len)
+            .body(audio.body)
             .send()
             .await?;
 

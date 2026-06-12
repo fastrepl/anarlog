@@ -43,12 +43,12 @@ impl FireworksAdapter {
 
     pub(crate) fn batch_api_host(api_base: &str) -> String {
         let host = Self::api_host(api_base);
-        format!("audio-turbo.{}", host)
+        format!("audio-prod.{}", host)
     }
 
     pub(crate) fn ws_host(api_base: &str) -> String {
         let host = Self::api_host(api_base);
-        format!("audio-streaming-v2.{}", host)
+        format!("audio-streaming.{}", host)
     }
 
     pub(crate) fn build_ws_url_from_base(api_base: &str) -> (url::Url, Vec<(String, String)>) {
@@ -73,7 +73,7 @@ mod tests {
         let (url, params) = FireworksAdapter::build_ws_url_from_base("");
         assert_eq!(
             url.as_str(),
-            "wss://audio-streaming-v2.api.fireworks.ai/v1/audio/transcriptions/streaming"
+            "wss://audio-streaming.api.fireworks.ai/v1/audio/transcriptions/streaming"
         );
         assert!(params.is_empty());
     }
@@ -83,7 +83,7 @@ mod tests {
         let (url, params) = FireworksAdapter::build_ws_url_from_base("https://api.fireworks.ai");
         assert_eq!(
             url.as_str(),
-            "wss://audio-streaming-v2.api.fireworks.ai/v1/audio/transcriptions/streaming"
+            "wss://audio-streaming.api.fireworks.ai/v1/audio/transcriptions/streaming"
         );
         assert!(params.is_empty());
     }
@@ -104,5 +104,13 @@ mod tests {
         );
         assert_eq!(url.as_str(), "ws://localhost:8787/listen");
         assert_eq!(params, vec![("provider".into(), "fireworks".into())]);
+    }
+
+    #[test]
+    fn test_batch_api_host_default_api_base() {
+        assert_eq!(
+            FireworksAdapter::batch_api_host("https://api.fireworks.ai"),
+            "audio-prod.api.fireworks.ai"
+        );
     }
 }

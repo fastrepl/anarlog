@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::task::Poll;
 
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use futures_util::Stream;
 use futures_util::task::AtomicWaker;
 use hypr_audio_interface::AsyncSource;
@@ -53,9 +53,12 @@ impl SpeakerInput {
         let tap_desc = ca::TapDesc::with_mono_global_tap_excluding_processes(&ns::Array::new());
         let tap = tap_desc.create_process_tap()?;
 
+        let tap_uid = tap
+            .uid()
+            .map_err(|error| anyhow!("process tap has no uid: {error}"))?;
         let sub_tap = cf::DictionaryOf::with_keys_values(
             &[ca::sub_device_keys::uid()],
-            &[tap.uid().unwrap().as_type_ref()],
+            &[tap_uid.as_type_ref()],
         );
 
         let agg_desc = cf::DictionaryOf::with_keys_values(
@@ -79,7 +82,10 @@ impl SpeakerInput {
     }
 
     pub fn sample_rate(&self) -> u32 {
-        self.tap.asbd().unwrap().sample_rate as u32
+        self.tap
+            .asbd()
+            .map(|asbd| asbd.sample_rate as u32)
+            .unwrap_or(48_000)
     }
 
     fn start_device(
@@ -95,7 +101,9 @@ impl SpeakerInput {
             _output_time: &cat::AudioTimeStamp,
             ctx: Option<&mut Ctx>,
         ) -> os::Status {
-            let ctx = ctx.unwrap();
+            let Some(ctx) = ctx else {
+                return os::Status::NO_ERR;
+            };
 
             let first_buffer = &input_data.buffers[0];
 
@@ -131,10 +139,14 @@ impl SpeakerInput {
         Ok(started_device)
     }
 
-    pub fn stream(self) -> SpeakerStream {
-        let asbd = self.tap.asbd().unwrap();
+    pub fn stream(self) -> Result<SpeakerStream> {
+        let asbd = self
+            .tap
+            .asbd()
+            .map_err(|error| anyhow!("process tap has no stream format: {error}"))?;
 
-        let format = av::AudioFormat::with_asbd(&asbd).unwrap();
+        let format = av::AudioFormat::with_asbd(&asbd)
+            .ok_or_else(|| anyhow!("process tap has unsupported audio format"))?;
         let common_format = format.common_format();
 
         let rb = HeapRb::<f32>::new(BUFFER_SIZE);
@@ -156,9 +168,9 @@ impl SpeakerInput {
             conversion_buffer: vec![0.0f32; crate::rt_ring::DEFAULT_SCRATCH_LEN],
         });
 
-        let device = self.start_device(&mut ctx).unwrap();
+        let device = self.start_device(&mut ctx)?;
 
-        SpeakerStream {
+        Ok(SpeakerStream {
             reader: RingbufAsyncReader::new(
                 consumer,
                 waker,
@@ -172,7 +184,7 @@ impl SpeakerInput {
             current_sample_rate,
             sample_rate_probe_counter: 0,
             buffer_rate: asbd.sample_rate as u32,
-        }
+        })
     }
 }
 
@@ -252,9 +264,11 @@ impl Stream for SpeakerStream {
                 .sample_rate_probe_counter
                 .is_multiple_of(SAMPLE_RATE_PROBE_INTERVAL)
             {
-                let after = this._tap.asbd().unwrap().sample_rate as u32;
-                if this.current_sample_rate != after {
-                    this.current_sample_rate = after;
+                if let Ok(asbd) = this._tap.asbd() {
+                    let after = asbd.sample_rate as u32;
+                    if this.current_sample_rate != after {
+                        this.current_sample_rate = after;
+                    }
                 }
             }
         }

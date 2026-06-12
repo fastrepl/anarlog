@@ -18,6 +18,7 @@ pub type InitialMessage = Arc<String>;
 pub type ResponseTransformer = Arc<dyn Fn(&str) -> Option<String> + Send + Sync>;
 
 pub type ClientMessageFilter = Arc<dyn Fn(String) -> Option<String> + Send + Sync>;
+pub type ClientBinaryTransformer = Arc<dyn Fn(Vec<u8>) -> Option<(Vec<u8>, bool)> + Send + Sync>;
 
 #[derive(Clone, Debug)]
 pub enum ShutdownSignal {

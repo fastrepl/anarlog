@@ -1,13 +1,12 @@
 import { setupI18n, type Messages } from "@lingui/core";
 
-import type { DisplayLocale } from "./locales";
+import { SOURCE_LOCALE, type DisplayLocale } from "./locales";
 
 const catalogModules = import.meta.glob<{ messages: Messages }>(
   "./locales/*/messages.ts",
-  { eager: true },
 );
 
-const catalogs = Object.fromEntries(
+const catalogLoaders = Object.fromEntries(
   Object.entries(catalogModules).map(([path, module]) => {
     const locale = path.match(/^\.\/locales\/([^/]+)\/messages\.ts$/)?.[1];
 
@@ -15,14 +14,20 @@ const catalogs = Object.fromEntries(
       throw new Error(`Invalid i18n catalog path: ${path}`);
     }
 
-    return [locale, module.messages];
+    return [locale, module];
   }),
-) as Record<DisplayLocale, Messages>;
+) as Record<DisplayLocale, () => Promise<{ messages: Messages }>>;
 
-export function createI18n(locale: DisplayLocale) {
+export async function createI18n(locale: DisplayLocale) {
   const i18n = setupI18n();
+  const loadCatalog = catalogLoaders[locale] ?? catalogLoaders[SOURCE_LOCALE];
 
-  i18n.load(catalogs);
+  if (!loadCatalog) {
+    throw new Error(`Missing i18n catalog for locale: ${locale}`);
+  }
+
+  const { messages } = await loadCatalog();
+  i18n.load(locale, messages);
   i18n.activate(locale);
 
   return i18n;

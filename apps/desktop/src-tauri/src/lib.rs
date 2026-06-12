@@ -86,7 +86,13 @@ pub async fn main() {
     let audio: std::sync::Arc<dyn hypr_audio_actual::AudioProvider> =
         create_audio_provider(&context.config().identifier);
 
-    let db = open_desktop_db(&context.config().identifier).await;
+    let db = match open_desktop_db(&context.config().identifier).await {
+        Ok(db) => db,
+        Err(error) => {
+            tracing::error!(%error, "failed_to_open_desktop_db");
+            return;
+        }
+    };
 
     let mut builder = tauri_plugin_windows::extend_builder(tauri::Builder::default())
         .manage(audio)
@@ -102,7 +108,9 @@ pub async fn main() {
     // should always be the first plugin
     {
         builder = builder.plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
-            app.windows().show(AppWindow::Main).unwrap();
+            if let Err(error) = app.windows().show(AppWindow::Main) {
+                tracing::error!(?error, "failed_to_show_main_window_for_single_instance");
+            }
         }));
     }
 
@@ -215,13 +223,12 @@ pub async fn main() {
 
                 app_handle
                     .windows()
-                    .set_show_app_in_dock(appearance_settings.show_app_in_dock)
-                    .unwrap();
+                    .set_show_app_in_dock(appearance_settings.show_app_in_dock)?;
 
                 if appearance_settings.show_tray_icon {
-                    app_handle.tray().create_tray_menu().unwrap();
+                    app_handle.tray().create_tray_menu()?;
                 }
-                app_handle.tray().create_app_menu().unwrap();
+                app_handle.tray().create_app_menu()?;
             }
 
             {
@@ -286,7 +293,9 @@ pub async fn main() {
 
     {
         let app_handle = app.handle().clone();
-        AppWindow::Main.show(&app_handle).unwrap();
+        if let Err(error) = AppWindow::Main.show(&app_handle) {
+            tracing::error!(?error, "failed_to_show_main_window");
+        }
     }
 
     #[cfg(target_os = "macos")]
@@ -296,7 +305,9 @@ pub async fn main() {
     app.run(move |app, event| match event {
         #[cfg(target_os = "macos")]
         tauri::RunEvent::Reopen { .. } => {
-            AppWindow::Main.show(app).unwrap();
+            if let Err(error) = AppWindow::Main.show(app) {
+                tracing::error!(?error, "failed_to_show_main_window_on_reopen");
+            }
         }
         #[cfg(target_os = "macos")]
         tauri::RunEvent::ExitRequested { api, .. } => {

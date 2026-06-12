@@ -29,7 +29,7 @@ export function useConfigValue<K extends SettingsValueKey>(
   const storedValue = settings.UI.useValue(key, settings.STORE_ID);
   const hasStoredValue = settings.UI.useHasValue(key, settings.STORE_ID);
   const legacySaveRecordings = settings.UI.useValue(
-    "save_recordings",
+    key === "audio_retention" ? "save_recordings" : key,
     settings.STORE_ID,
   );
   const mapping = settings.SETTINGS_MAPPING.values[key];

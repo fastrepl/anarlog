@@ -4,7 +4,7 @@ import { cn } from "@hypr/utils";
 
 import type { HighlightSegment } from "./utils";
 
-import { useSearch } from "~/session/components/note-input/search/context";
+import { useSearchHighlights } from "~/session/components/note-input/search/context";
 import { createHighlightSegments } from "~/session/components/note-input/search/matching";
 import type { SegmentWord } from "~/stt/live-segment";
 import { isTranscriptWordSeekable } from "~/stt/timing";
@@ -52,7 +52,7 @@ export function WordSpan(props: WordSpanProps) {
 }
 
 function useTranscriptSearchHighlights(word: SegmentWord, displayText: string) {
-  const search = useSearch();
+  const search = useSearchHighlights();
   const query = search?.query?.trim() ?? "";
   const isVisible = Boolean(search?.isVisible);
   const activeMatchId = search?.activeMatchId ?? null;

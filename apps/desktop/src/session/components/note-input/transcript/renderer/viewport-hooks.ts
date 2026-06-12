@@ -71,6 +71,10 @@ export function useAutoScroll(
   const rafRef = useRef<number | null>(null);
   const lastHeightRef = useRef(0);
   const initialFlushRef = useRef(enabled);
+  const enabledRef = useRef(enabled);
+  const scheduleRef = useRef<(force?: boolean) => void>(() => {});
+
+  enabledRef.current = enabled;
 
   useEffect(() => {
     const element = containerRef.current;
@@ -91,7 +95,7 @@ export function useAutoScroll(
     };
 
     const schedule = (force = false) => {
-      if (!force && (!enabled || !isPinned())) {
+      if (!force && (!enabledRef.current || !isPinned())) {
         return;
       }
 
@@ -104,12 +108,7 @@ export function useAutoScroll(
       });
     };
 
-    if (initialFlushRef.current) {
-      initialFlushRef.current = false;
-      schedule(true);
-    } else {
-      schedule();
-    }
+    scheduleRef.current = schedule;
 
     const resizeObserver = new ResizeObserver(() => {
       const nextHeight = element.scrollHeight;
@@ -128,11 +127,22 @@ export function useAutoScroll(
 
     return () => {
       resizeObserver.disconnect();
+      scheduleRef.current = () => {};
       if (rafRef.current !== null) {
         cancelAnimationFrame(rafRef.current);
         rafRef.current = null;
       }
     };
+  }, [containerRef]);
+
+  useEffect(() => {
+    if (initialFlushRef.current) {
+      initialFlushRef.current = false;
+      scheduleRef.current(true);
+      return;
+    }
+
+    scheduleRef.current();
   }, deps);
 }
 

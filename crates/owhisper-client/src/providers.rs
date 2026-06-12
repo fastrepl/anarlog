@@ -186,7 +186,7 @@ impl Provider {
             Self::Deepgram => "api.deepgram.com",
             Self::AssemblyAI => "streaming.assemblyai.com",
             Self::Soniox => "stt-rt.soniox.com",
-            Self::Fireworks => "audio-streaming-v2.api.fireworks.ai",
+            Self::Fireworks => "audio-streaming.api.fireworks.ai",
             Self::OpenAI => "api.openai.com",
             Self::Gladia => "api.gladia.io",
             Self::ElevenLabs => "api.elevenlabs.io",
@@ -449,5 +449,18 @@ impl Provider {
 
     pub fn detect_any_error(data: &[u8]) -> Option<ProviderError> {
         Self::ALL.iter().find_map(|p| p.detect_error(data))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fireworks_auth_uses_raw_api_key() {
+        assert_eq!(
+            Provider::Fireworks.build_auth_header("fw-key"),
+            Some(("Authorization", "fw-key".to_string()))
+        );
     }
 }

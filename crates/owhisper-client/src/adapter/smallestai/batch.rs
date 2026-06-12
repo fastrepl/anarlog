@@ -8,6 +8,7 @@ use owhisper_interface::batch::{
 use serde::{Deserialize, Serialize};
 
 use super::SmallestAIAdapter;
+use crate::adapter::http::streaming_file_body;
 use crate::adapter::parsing::parse_speaker_id;
 use crate::adapter::{BatchFuture, BatchSttAdapter, ClientWithMiddleware, MIXED_CAPTURE_CHANNEL};
 use crate::error::Error;
@@ -48,15 +49,8 @@ impl SmallestAIAdapter {
         params: &ListenParams,
         file_path: &Path,
     ) -> Result<BatchResponse, Error> {
-        let file_bytes = tokio::fs::read(file_path).await.map_err(|error| {
-            Error::AudioProcessing(format!(
-                "failed to read file {}: {}",
-                file_path.display(),
-                error
-            ))
-        })?;
-
         let (mut url, existing_params) = SmallestAIAdapter::batch_api_url(api_base);
+        let audio = streaming_file_body(file_path).await?;
         {
             let mut query_pairs = url.query_pairs_mut();
 
@@ -76,7 +70,8 @@ impl SmallestAIAdapter {
             .post(url)
             .header("Authorization", format!("Bearer {api_key}"))
             .header("Content-Type", "application/octet-stream")
-            .body(file_bytes)
+            .header("Content-Length", audio.len)
+            .body(audio.body)
             .send()
             .await?;
 

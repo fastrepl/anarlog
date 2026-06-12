@@ -7,6 +7,7 @@ use owhisper_interface::batch::{
 };
 
 use super::{SonioxAdapter, words};
+use crate::adapter::http::streaming_file_part;
 use crate::adapter::parsing::ms_to_secs_opt;
 use crate::adapter::{BatchFuture, BatchSttAdapter, ClientWithMiddleware, MIXED_CAPTURE_CHANNEL};
 use crate::error::Error;
@@ -19,24 +20,11 @@ impl SonioxAdapter {
     ) -> Result<BatchResponse, Error> {
         let client = reqwest::Client::new();
 
-        let file_name = file_path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("audio.wav")
-            .to_string();
-
-        let file_bytes = tokio::fs::read(file_path).await.map_err(|e| {
-            Error::AudioProcessing(format!(
-                "failed to read file {}: {}",
-                file_path.display(),
-                e
-            ))
-        })?;
-
         tracing::info!(hyprnote.file.path = %file_path.display(), "uploading_file_to_soniox");
-        let file_id = soniox::upload_file(&client, &file_name, file_bytes, api_key)
-            .await
-            .map_err(soniox_err)?;
+        let file_id =
+            soniox::upload_file_part(&client, streaming_file_part(file_path).await?, api_key)
+                .await
+                .map_err(soniox_err)?;
 
         tracing::info!(hyprnote.file.id = %file_id, "soniox_file_uploaded");
         let result = Self::transcribe_and_fetch(&client, api_key, params, &file_id).await;

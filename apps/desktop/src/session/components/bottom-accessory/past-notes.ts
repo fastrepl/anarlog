@@ -56,20 +56,38 @@ const keyFactsSchema = z.object({
   facts: z.array(z.string()).min(1).max(MAX_KEY_FACTS),
 });
 
-export function usePastSessionNotes(sessionId: string): PastSessionNotesResult {
+export function usePastSessionNotes(
+  sessionId: string,
+  { enabled = true }: { enabled?: boolean } = {},
+): PastSessionNotesResult {
   const store = main.UI.useStore(main.STORE_ID);
-  const sessionsTable = main.UI.useTable("sessions", main.STORE_ID);
-  const participantsTable = main.UI.useTable(
-    "mapping_session_participant",
+  const sessionsTable = main.UI.useTable(
+    enabled ? "sessions" : ("__disabled_past_notes_sessions" as "sessions"),
     main.STORE_ID,
   );
-  const enhancedNotesTable = main.UI.useTable("enhanced_notes", main.STORE_ID);
-  const keyFactsTable = main.UI.useTable("session_key_facts", main.STORE_ID);
+  const participantsTable = main.UI.useTable(
+    enabled
+      ? "mapping_session_participant"
+      : ("__disabled_past_notes_participants" as "mapping_session_participant"),
+    main.STORE_ID,
+  );
+  const enhancedNotesTable = main.UI.useTable(
+    enabled
+      ? "enhanced_notes"
+      : ("__disabled_past_notes_enhanced" as "enhanced_notes"),
+    main.STORE_ID,
+  );
+  const keyFactsTable = main.UI.useTable(
+    enabled
+      ? "session_key_facts"
+      : ("__disabled_past_notes_key_facts" as "session_key_facts"),
+    main.STORE_ID,
+  );
   const userId = main.UI.useValue("user_id", main.STORE_ID);
   const model = useLanguageModel("enhance");
 
   const built = useMemo(() => {
-    if (!store) {
+    if (!enabled || !store) {
       return { notes: [], missing: [], requests: [] };
     }
 
@@ -80,6 +98,7 @@ export function usePastSessionNotes(sessionId: string): PastSessionNotesResult {
     );
   }, [
     store,
+    enabled,
     sessionId,
     userId,
     sessionsTable,
@@ -121,16 +140,21 @@ export function usePastSessionNotes(sessionId: string): PastSessionNotesResult {
   );
 
   const generateMissing = useCallback(() => {
-    if (!model || built.missing.length === 0 || mutation.isPending) {
+    if (
+      !enabled ||
+      !model ||
+      built.missing.length === 0 ||
+      mutation.isPending
+    ) {
       return;
     }
 
     void mutation.mutateAsync(built.missing);
-  }, [built.missing, model, mutation]);
+  }, [built.missing, enabled, model, mutation]);
 
   const regenerate = useCallback(
     (targetSessionId: string) => {
-      if (!model || mutation.isPending) {
+      if (!enabled || !model || mutation.isPending) {
         return;
       }
 
@@ -143,14 +167,14 @@ export function usePastSessionNotes(sessionId: string): PastSessionNotesResult {
 
       void mutation.mutateAsync([request]);
     },
-    [built.requests, model, mutation],
+    [built.requests, enabled, model, mutation],
   );
 
   return {
     notes,
     hasPastNotes: notes.length > 0,
     isGenerating: mutation.isPending,
-    canGenerate: Boolean(model),
+    canGenerate: enabled && Boolean(model),
     generateMissing,
     regenerate,
   };
@@ -170,11 +194,9 @@ export function buildPastSessionNotes(
     return { notes: [], missing: [], requests: [] };
   }
 
-  const currentParticipantIds = getSessionParticipantIds(
-    store,
-    sessionId,
-    userId,
-  );
+  const participantIdsBySession = collectParticipantIdsBySession(store, userId);
+  const currentParticipantIds =
+    participantIdsBySession.get(sessionId) ?? new Set<string>();
   const currentEvent = getSessionEvent(currentSession);
   const currentSeriesId = getRecurrenceSeriesId(currentEvent);
   const currentTitleKey = getSessionTitleKey(currentSession);
@@ -183,10 +205,9 @@ export function buildPastSessionNotes(
   }
 
   const currentTimestamp = getSessionTimestamp(currentSession);
-  const items: Array<{
-    note: PastSessionNote & { dateMs: number };
-    request: PastSessionNoteRequest;
-    isMissing: boolean;
+  const candidates: Array<{
+    sessionId: string;
+    timestamp: number;
   }> = [];
 
   store.forEachRow("sessions", (candidateSessionId, _forEachCell) => {
@@ -209,11 +230,8 @@ export function buildPastSessionNotes(
     }
 
     const candidateEvent = getSessionEvent(candidateSession);
-    const candidateParticipantIds = getSessionParticipantIds(
-      store,
-      candidateSessionId,
-      userId,
-    );
+    const candidateParticipantIds =
+      participantIdsBySession.get(candidateSessionId) ?? new Set<string>();
     if (
       !isRelatedPastSession({
         currentParticipantIds,
@@ -227,18 +245,43 @@ export function buildPastSessionNotes(
       return;
     }
 
-    const source = getSessionKeyFactsSource(store, candidateSessionId);
-    if (!source) {
-      return;
+    candidates.push({
+      sessionId: candidateSessionId,
+      timestamp: candidateTimestamp,
+    });
+  });
+
+  candidates.sort((a, b) => b.timestamp - a.timestamp);
+
+  const enhancedNotesBySession = collectEnhancedNotesBySession(store);
+  const items: Array<{
+    note: PastSessionNote & { dateMs: number };
+    request: PastSessionNoteRequest;
+    isMissing: boolean;
+  }> = [];
+
+  for (const candidate of candidates) {
+    if (items.length >= MAX_PAST_NOTES) {
+      break;
     }
 
+    const source = getSessionKeyFactsSource(
+      store,
+      candidate.sessionId,
+      enhancedNotesBySession,
+    );
+    if (!source) {
+      continue;
+    }
+
+    const candidateSession = store.getRow("sessions", candidate.sessionId);
     const title = getSessionTitle(candidateSession);
     const dateLabel = formatSessionDate(candidateSession);
     const sourceHash = createSourceHash([title, dateLabel, source].join("\n"));
-    const saved = getSavedKeyFacts(store, candidateSessionId, sourceHash);
+    const saved = getSavedKeyFacts(store, candidate.sessionId, sourceHash);
     const ownerUserId = getSessionUserId(candidateSession, userId);
     const request = {
-      sessionId: candidateSessionId,
+      sessionId: candidate.sessionId,
       userId: ownerUserId,
       title,
       dateLabel,
@@ -248,29 +291,25 @@ export function buildPastSessionNotes(
 
     items.push({
       note: {
-        sessionId: candidateSessionId,
+        sessionId: candidate.sessionId,
         title,
         dateLabel,
         summary: saved,
         isGenerating: false,
-        dateMs: candidateTimestamp,
+        dateMs: candidate.timestamp,
       },
       request,
       isMissing: !saved,
     });
-  });
-
-  const selected = items
-    .sort((a, b) => b.note.dateMs - a.note.dateMs)
-    .slice(0, MAX_PAST_NOTES);
+  }
 
   return {
-    notes: selected.map(({ note }) => {
+    notes: items.map(({ note }) => {
       const { dateMs: _dateMs, ...rest } = note;
       return rest;
     }),
-    missing: selected.flatMap((item) => (item.isMissing ? [item.request] : [])),
-    requests: selected.map((item) => item.request),
+    missing: items.flatMap((item) => (item.isMissing ? [item.request] : [])),
+    requests: items.map((item) => item.request),
   };
 }
 
@@ -401,22 +440,9 @@ function getSavedKeyFacts(
 function getSessionKeyFactsSource(
   store: MainStore,
   sessionId: string,
+  enhancedNotesBySession: Map<string, EnhancedNoteSource[]>,
 ): string | null {
-  const enhancedNotes: Array<{ content: string; position: number }> = [];
-
-  store.forEachRow("enhanced_notes", (noteId, _forEachCell) => {
-    const note = store.getRow("enhanced_notes", noteId);
-    if (note.session_id !== sessionId || !note.content?.trim()) {
-      return;
-    }
-
-    enhancedNotes.push({
-      content: note.content,
-      position: typeof note.position === "number" ? note.position : 0,
-    });
-  });
-
-  enhancedNotes.sort((a, b) => a.position - b.position);
+  const enhancedNotes = enhancedNotesBySession.get(sessionId) ?? [];
   const enhancedText = cleanSourceText(
     enhancedNotes.map((note) => extractPlainText(note.content)).join("\n\n"),
   );
@@ -427,6 +453,37 @@ function getSessionKeyFactsSource(
   const rawMd = store.getCell("sessions", sessionId, "raw_md");
   const rawText = cleanSourceText(extractPlainText(rawMd));
   return rawText ? truncateAtWord(rawText, MAX_SOURCE_LENGTH) : null;
+}
+
+type EnhancedNoteSource = { content: string; position: number };
+
+function collectEnhancedNotesBySession(
+  store: MainStore,
+): Map<string, EnhancedNoteSource[]> {
+  const notesBySession = new Map<string, EnhancedNoteSource[]>();
+
+  store.forEachRow("enhanced_notes", (noteId, _forEachCell) => {
+    const note = store.getRow("enhanced_notes", noteId);
+    const sessionId =
+      typeof note.session_id === "string" ? note.session_id : null;
+    const content = typeof note.content === "string" ? note.content.trim() : "";
+    if (!sessionId || !content) {
+      return;
+    }
+
+    const notes = notesBySession.get(sessionId) ?? [];
+    notes.push({
+      content,
+      position: typeof note.position === "number" ? note.position : 0,
+    });
+    notesBySession.set(sessionId, notes);
+  });
+
+  for (const notes of notesBySession.values()) {
+    notes.sort((a, b) => a.position - b.position);
+  }
+
+  return notesBySession;
 }
 
 function cleanSourceText(text: string): string {
@@ -450,20 +507,17 @@ function truncateAtWord(text: string, maxLength: number): string {
   return `${slice.slice(0, end).trim()}...`;
 }
 
-function getSessionParticipantIds(
+function collectParticipantIdsBySession(
   store: MainStore,
-  sessionId: string,
   userId: string | null,
-): Set<string> {
-  const participantIds = new Set<string>();
+): Map<string, Set<string>> {
+  const participantIdsBySession = new Map<string, Set<string>>();
 
   store.forEachRow("mapping_session_participant", (mappingId, _forEachCell) => {
     const mapping = store.getRow("mapping_session_participant", mappingId);
-    if (
-      mapping.session_id !== sessionId ||
-      mapping.source === "excluded" ||
-      !mapping.human_id
-    ) {
+    const sessionId =
+      typeof mapping.session_id === "string" ? mapping.session_id : null;
+    if (!sessionId || mapping.source === "excluded" || !mapping.human_id) {
       return;
     }
 
@@ -475,11 +529,14 @@ function getSessionParticipantIds(
       (userId && mapping.human_id === userId) ||
       (!userId && ownerUserId && mapping.human_id === ownerUserId);
     if (!isCurrentUser) {
+      const participantIds =
+        participantIdsBySession.get(sessionId) ?? new Set<string>();
       participantIds.add(mapping.human_id);
+      participantIdsBySession.set(sessionId, participantIds);
     }
   });
 
-  return participantIds;
+  return participantIdsBySession;
 }
 
 function isRelatedPastSession({

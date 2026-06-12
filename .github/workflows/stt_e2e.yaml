@@ -4,6 +4,7 @@ on:
       provider:
         type: choice
         options:
+          - all
           - deepgram
           - assemblyai
           - soniox
@@ -11,16 +12,27 @@ on:
           - fireworks
           - openai
           - elevenlabs
+        default: all
   push:
     branches:
       - main
     paths:
+      - apps/api/**
+      - crates/api-auth/**
+      - crates/api-env/**
+      - crates/audio-mime/**
       - crates/transcribe-proxy/**
-      - crates/owhisper-client/src/adapter/**
+      - crates/owhisper-client/**
+      - crates/owhisper-interface/**
   pull_request:
     paths:
+      - apps/api/**
+      - crates/api-auth/**
+      - crates/api-env/**
+      - crates/audio-mime/**
       - crates/transcribe-proxy/**
-      - crates/owhisper-client/src/adapter/**
+      - crates/owhisper-client/**
+      - crates/owhisper-interface/**
 
 jobs:
   detect-changes:
@@ -34,8 +46,14 @@ jobs:
         id: filter
         with:
           filters: |
-            transcribe_proxy:
+            stt_server:
+              - 'apps/api/**'
+              - 'crates/api-auth/**'
+              - 'crates/api-env/**'
+              - 'crates/audio-mime/**'
               - 'crates/transcribe-proxy/**'
+              - 'crates/owhisper-client/**'
+              - 'crates/owhisper-interface/**'
             deepgram:
               - 'crates/owhisper-client/src/adapter/deepgram/**'
             assemblyai:
@@ -65,10 +83,8 @@ jobs:
           if [ "${{ steps.filter.outputs.elevenlabs }}" == "true" ]; then providers+=("elevenlabs"); fi
 
           if [ ${#providers[@]} -eq 0 ]; then
-            if [ "${{ steps.filter.outputs.transcribe_proxy }}" == "true" ]; then
+            if [ "${{ steps.filter.outputs.stt_server }}" == "true" ]; then
               providers=("deepgram" "soniox")
-            else
-              providers=("deepgram")
             fi
           fi
 
@@ -85,14 +101,18 @@ jobs:
       - id: set
         run: |
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo 'providers=["${{ inputs.provider }}"]' >> $GITHUB_OUTPUT
+            if [ "${{ inputs.provider }}" == "all" ]; then
+              echo 'providers=["assemblyai","deepgram","elevenlabs","fireworks","gladia","openai","soniox"]' >> "$GITHUB_OUTPUT"
+            else
+              echo 'providers=["${{ inputs.provider }}"]' >> "$GITHUB_OUTPUT"
+            fi
           else
             printf 'providers=%s\n' '${{ needs.detect-changes.outputs.providers }}' >> "$GITHUB_OUTPUT"
           fi
 
   direct-provider-batch-e2e:
     needs: setup
-    if: needs.setup.outputs.providers != ''
+    if: always() && needs.setup.outputs.providers != ''
     runs-on: depot-ubuntu-24.04-8
     strategy:
       fail-fast: false
@@ -148,8 +168,11 @@ jobs:
 
   proxy-provider-e2e:
     needs: setup
-    if: needs.setup.outputs.providers != ''
+    if: always() && needs.setup.outputs.providers != ''
     runs-on: depot-ubuntu-24.04-8
+    concurrency:
+      group: stt-provider-e2e-${{ matrix.provider }}
+      cancel-in-progress: false
     strategy:
       fail-fast: false
       matrix:

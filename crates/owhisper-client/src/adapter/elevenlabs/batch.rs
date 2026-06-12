@@ -8,6 +8,7 @@ use owhisper_interface::batch::{
 use serde::Deserialize;
 
 use super::{ElevenLabsAdapter, ElevenLabsWord};
+use crate::adapter::http::streaming_file_part;
 use crate::adapter::{BatchFuture, BatchSttAdapter, ClientWithMiddleware, MIXED_CAPTURE_CHANNEL};
 use crate::error::Error;
 
@@ -57,20 +58,6 @@ impl ElevenLabsAdapter {
         params: &ListenParams,
         file_path: &Path,
     ) -> Result<BatchResponse, Error> {
-        let file_name = file_path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("audio.wav")
-            .to_string();
-
-        let file_bytes = tokio::fs::read(file_path).await.map_err(|e| {
-            Error::AudioProcessing(format!(
-                "failed to read file {}: {}",
-                file_path.display(),
-                e
-            ))
-        })?;
-
         let default = crate::providers::Provider::ElevenLabs.default_batch_model();
         let model = match params.model.as_deref() {
             Some(m) if crate::providers::is_meta_model(m) => default,
@@ -79,7 +66,7 @@ impl ElevenLabsAdapter {
             None => default,
         };
 
-        let part = reqwest::multipart::Part::bytes(file_bytes).file_name(file_name);
+        let part = streaming_file_part(file_path).await?;
         let mut form = reqwest::multipart::Form::new()
             .part("file", part)
             .text("model_id", model.to_string())

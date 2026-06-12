@@ -275,6 +275,12 @@ function useLiveTranscriptData(sessionId: string): {
       sessionId,
       main.STORE_ID,
     ) ?? [];
+  const participantMappingIds =
+    main.UI.useSliceRowIds(
+      main.INDEXES.sessionParticipantsBySession,
+      sessionId,
+      main.STORE_ID,
+    ) ?? [];
   const transcriptsTable = main.UI.useTable("transcripts", main.STORE_ID);
   const participantMappingsTable = main.UI.useTable(
     "mapping_session_participant",
@@ -289,10 +295,13 @@ function useLiveTranscriptData(sessionId: string): {
       return null;
     }
 
-    return buildRenderTranscriptRequestFromStore(store, transcriptIds);
+    return buildRenderTranscriptRequestFromStore(store, transcriptIds, {
+      participantMappingIds,
+    });
   }, [
     store,
     transcriptIds,
+    participantMappingIds,
     transcriptsTable,
     participantMappingsTable,
     humansTable,

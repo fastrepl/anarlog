@@ -3,8 +3,8 @@ use futures_util::{SinkExt, StreamExt};
 use tokio_tungstenite::tungstenite::Message as TungsteniteMessage;
 
 use super::super::types::{
-    ClientMessageFilter, ClientReceiver, ClientSender, DEFAULT_CLOSE_CODE, ShutdownSignal,
-    UpstreamReceiver, UpstreamSender, convert,
+    ClientBinaryTransformer, ClientMessageFilter, ClientReceiver, ClientSender, DEFAULT_CLOSE_CODE,
+    ShutdownSignal, UpstreamReceiver, UpstreamSender, convert,
 };
 use super::coordinator::SplitEvent;
 use super::payload::RewrittenSplitResponse;
@@ -54,6 +54,24 @@ fn upstream_receive_error_signal(error: &impl std::fmt::Display) -> ShutdownSign
     }
 }
 
+fn transform_binary_message(
+    payload: Vec<u8>,
+    transformer: &Option<ClientBinaryTransformer>,
+) -> Option<TungsteniteMessage> {
+    let (data, is_text) = match transformer {
+        Some(transformer) => transformer(payload)?,
+        None => (payload, false),
+    };
+
+    if is_text {
+        String::from_utf8(data)
+            .ok()
+            .map(|text| TungsteniteMessage::Text(text.into()))
+    } else {
+        Some(TungsteniteMessage::Binary(data.into()))
+    }
+}
+
 pub(super) async fn send_text(client_tx: &mut ClientSender, text: String) -> bool {
     client_tx.send(Message::Text(text.into())).await.is_ok()
 }
@@ -74,6 +92,7 @@ pub(super) async fn relay_client_to_upstreams(
     mut mic_tx: UpstreamSender,
     mut spk_tx: UpstreamSender,
     client_message_filter: Option<ClientMessageFilter>,
+    client_binary_transformer: Option<ClientBinaryTransformer>,
     shutdown_tx: tokio::sync::broadcast::Sender<ShutdownSignal>,
     event_tx: tokio::sync::mpsc::Sender<SplitEvent>,
 ) {
@@ -122,14 +141,31 @@ pub(super) async fn relay_client_to_upstreams(
                         }
 
                         let (mic, spk) = deinterleave(&bytes);
-                        if mic_tx
-                            .send(TungsteniteMessage::Binary(mic.into()))
-                            .await
-                            .is_err()
-                            || spk_tx
-                                .send(TungsteniteMessage::Binary(spk.into()))
-                                .await
-                                .is_err()
+                        let Some(mic_message) =
+                            transform_binary_message(mic, &client_binary_transformer)
+                        else {
+                            let _ = event_tx
+                                .send(SplitEvent::Fatal(ShutdownSignal::Close {
+                                    code: DEFAULT_CLOSE_CODE,
+                                    reason: "invalid_transformed_audio_message".to_string(),
+                                }))
+                                .await;
+                            break;
+                        };
+                        let Some(spk_message) =
+                            transform_binary_message(spk, &client_binary_transformer)
+                        else {
+                            let _ = event_tx
+                                .send(SplitEvent::Fatal(ShutdownSignal::Close {
+                                    code: DEFAULT_CLOSE_CODE,
+                                    reason: "invalid_transformed_audio_message".to_string(),
+                                }))
+                                .await;
+                            break;
+                        };
+
+                        if mic_tx.send(mic_message).await.is_err()
+                            || spk_tx.send(spk_message).await.is_err()
                         {
                             let _ = event_tx
                                 .send(SplitEvent::Fatal(upstream_send_failed_signal()))
