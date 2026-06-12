@@ -22,7 +22,7 @@ export const Enhanced = forwardRef<
 >(({ sessionId, enhancedNoteId, onNavigateToTitle }, ref) => {
   const taskId = createTaskId(enhancedNoteId, "enhance");
   const llmStatus = useLLMConnectionStatus();
-  const { status, error } = useAITaskTask(taskId, "enhance");
+  const { status, error, hasTask } = useAITaskTask(taskId, "enhance");
   const content = main.UI.useCell(
     "enhanced_notes",
     enhancedNoteId,
@@ -53,8 +53,16 @@ export const Enhanced = forwardRef<
     );
   }
 
-  if (status === "generating") {
-    return <StreamingView enhancedNoteId={enhancedNoteId} />;
+  if (
+    status === "generating" ||
+    (!hasContent && status === "idle" && !hasTask)
+  ) {
+    return (
+      <StreamingView
+        enhancedNoteId={enhancedNoteId}
+        pending={status === "idle"}
+      />
+    );
   }
 
   return (

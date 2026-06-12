@@ -106,6 +106,7 @@ export function useAITaskTask<T extends TaskType>(
     streamedText,
     error,
     currentStep,
+    hasTask: !!taskState,
     isGenerating: status === "generating",
     isSuccess: status === "success",
     isError: status === "error",
