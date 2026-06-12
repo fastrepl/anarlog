@@ -18,6 +18,7 @@ const {
   useTranscriptExportSegmentsMock,
   runBatchMock,
   handleBatchFailedMock,
+  audioExistsMock,
   writeTextMock,
   showTransientToastMock,
 } = vi.hoisted(() => ({
@@ -28,6 +29,7 @@ const {
   useTranscriptExportSegmentsMock: vi.fn(),
   runBatchMock: vi.fn(),
   handleBatchFailedMock: vi.fn(),
+  audioExistsMock: vi.fn(),
   writeTextMock: vi.fn(),
   showTransientToastMock: vi.fn(),
 }));
@@ -85,7 +87,7 @@ vi.mock("~/audio-player", () => ({
     <div>{children}</div>
   ),
   useAudioPlayer: () => ({
-    audioExists: true,
+    audioExists: audioExistsMock(),
     deleteRecording: vi.fn(),
     isDeletingRecording: false,
   }),
@@ -146,6 +148,7 @@ describe("PostSessionAccessory", () => {
       status: "ok",
       data: "/tmp/session.wav",
     });
+    audioExistsMock.mockReturnValue(true);
 
     useTranscriptScreenMock.mockReturnValue({
       kind: "ready",
@@ -191,6 +194,51 @@ describe("PostSessionAccessory", () => {
     });
 
     expect(handleBatchFailedMock).not.toHaveBeenCalled();
+  });
+
+  it("hides ready transcript regeneration when the recording is missing", () => {
+    audioExistsMock.mockReturnValue(false);
+
+    render(
+      <PostSessionAccessory
+        sessionId="session-1"
+        hasAudio={false}
+        hasTranscript
+        isTranscriptExpanded
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Regenerate" })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Delete recording" }),
+    ).toBeNull();
+  });
+
+  it("shows an error toast when regeneration cannot find the recording", async () => {
+    audioPathMock.mockResolvedValue({
+      status: "error",
+      error: "audio_path_not_found",
+    });
+
+    render(
+      <PostSessionAccessory
+        sessionId="session-1"
+        hasAudio
+        hasTranscript
+        isTranscriptExpanded
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Regenerate" }));
+
+    await waitFor(() => {
+      expect(showTransientToastMock).toHaveBeenCalledWith({
+        id: "transcript-regenerate-audio-missing-session-1",
+        description: "Recording not found. It may have been deleted.",
+        variant: "error",
+      });
+    });
+    expect(runBatchMock).not.toHaveBeenCalled();
   });
 
   it("copies transcript text from the expanded transcript panel", async () => {

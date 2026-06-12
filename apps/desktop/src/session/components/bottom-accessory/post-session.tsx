@@ -313,7 +313,14 @@ function useRegenerateTranscript(sessionId: string) {
 
   return useCallback(async () => {
     const result = await fsSyncCommands.audioPath(sessionId);
-    if (result.status === "error") return;
+    if (result.status === "error") {
+      showTransientToast({
+        id: `transcript-regenerate-audio-missing-${sessionId}`,
+        description: "Recording not found. It may have been deleted.",
+        variant: "error",
+      });
+      return;
+    }
 
     const audioPath = result.data;
 
@@ -614,18 +621,20 @@ function TranscriptReadyPanel({
             <CopyIcon size={10} />
             {isTranscriptLoading ? "Loading..." : "Copy"}
           </button>
-          <button
-            type="button"
-            onClick={regenerate}
-            className={cn([
-              "flex items-center gap-1 rounded-full px-1.5 py-0.5",
-              "text-muted-foreground text-[11px] font-medium",
-              "hover:bg-accent/60 hover:text-muted-foreground transition-colors",
-            ])}
-          >
-            <RefreshCw size={10} />
-            Regenerate
-          </button>
+          {audioExists ? (
+            <button
+              type="button"
+              onClick={regenerate}
+              className={cn([
+                "flex items-center gap-1 rounded-full px-1.5 py-0.5",
+                "text-muted-foreground text-[11px] font-medium",
+                "hover:bg-accent/60 hover:text-muted-foreground transition-colors",
+              ])}
+            >
+              <RefreshCw size={10} />
+              Regenerate
+            </button>
+          ) : null}
         </div>
         {audioExists ? (
           <button
