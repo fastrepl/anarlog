@@ -1,6 +1,5 @@
 import { Streamdown } from "streamdown";
 
-import { Spinner } from "@hypr/ui/components/ui/spinner";
 import { cn } from "@hypr/utils";
 
 import { streamdownComponents } from "../../streamdown";
@@ -47,7 +46,6 @@ export function StreamingView({
           aria-live="polite"
           className="flex min-h-[260px] flex-col items-center justify-center gap-2 text-center"
         >
-          <Spinner size={16} />
           <div className="flex flex-col gap-1">
             <p className="text-foreground text-sm font-medium">{statusText}</p>
             <p className="text-muted-foreground text-xs">

@@ -86,6 +86,7 @@ describe("Enhanced", () => {
     expect(screen.getByRole("status").textContent).toContain(
       "Tip: The Anarlog team loves our users!",
     );
+    expect(screen.queryByTestId("spinner")).toBeNull();
     expect(screen.queryByText("Enhanced editor")).toBeNull();
   });
 
