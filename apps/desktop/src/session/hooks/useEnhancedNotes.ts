@@ -3,6 +3,7 @@ import { useEffect, useMemo } from "react";
 import { useHasTranscript } from "../components/shared";
 
 import { useAITask } from "~/ai/contexts";
+import { useLLMConnectionStatus } from "~/ai/hooks";
 import { getEnhancerService } from "~/services/enhancer";
 import * as main from "~/store/tinybase/store/main";
 import * as settings from "~/store/tinybase/store/settings";
@@ -58,28 +59,40 @@ export function useEnsureDefaultSummary(sessionId: string) {
     "selected_template_id",
     settings.STORE_ID,
   ) as string | undefined;
+  const llmStatus = useLLMConnectionStatus();
 
   useEffect(() => {
     if (
       !hasTranscript ||
       sessionMode === "active" ||
       sessionMode === "running_batch" ||
-      sessionMode === "finalizing" ||
-      (enhancedNoteIds && enhancedNoteIds.length > 0)
+      sessionMode === "finalizing"
     ) {
       return;
     }
 
-    getEnhancerService()?.ensureNote(
-      sessionId,
-      selectedTemplateId || undefined,
-    );
+    const service = getEnhancerService();
+    if (!service) {
+      return;
+    }
+
+    const hasEnhancedNotes = enhancedNoteIds && enhancedNoteIds.length > 0;
+
+    if (llmStatus.status !== "success") {
+      if (!hasEnhancedNotes) {
+        service.ensureNote(sessionId, selectedTemplateId || undefined);
+      }
+      return;
+    }
+
+    service.queueAutoEnhanceIfSummaryEmpty(sessionId);
   }, [
     hasTranscript,
     sessionMode,
     sessionId,
     enhancedNoteIds?.length,
     selectedTemplateId,
+    llmStatus,
   ]);
 }
 

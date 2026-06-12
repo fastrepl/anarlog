@@ -38,6 +38,7 @@ import { useLanguageModel, useLLMConnectionStatus } from "~/ai/hooks";
 import { extractPlainText } from "~/search/contexts/engine/utils";
 import { getEnhancerService } from "~/services/enhancer";
 import { useHasTranscript } from "~/session/components/shared";
+import { shouldShowEmptySummaryConfigError } from "~/session/enhance-config";
 import { useEnsureDefaultSummary } from "~/session/hooks/useEnhancedNotes";
 import {
   type MenuItemDef,
@@ -1210,12 +1211,7 @@ function useEnhanceLogic(sessionId: string, enhancedNoteId: string) {
     }
   }, [model, missingModelError]);
 
-  const isConfigError =
-    llmStatus.status === "pending" ||
-    (llmStatus.status === "error" &&
-      (llmStatus.reason === "missing_config" ||
-        llmStatus.reason === "not_pro" ||
-        llmStatus.reason === "unauthenticated"));
+  const isConfigError = shouldShowEmptySummaryConfigError(llmStatus);
 
   const isIdleWithConfigError = enhanceTask.isIdle && isConfigError;
 

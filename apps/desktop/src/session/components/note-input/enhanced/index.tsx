@@ -10,6 +10,7 @@ import { StreamingView } from "./streaming";
 
 import { useAITaskTask } from "~/ai/hooks";
 import { useLLMConnectionStatus } from "~/ai/hooks";
+import { shouldShowEmptySummaryConfigError } from "~/session/enhance-config";
 import * as main from "~/store/tinybase/store/main";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 
@@ -35,7 +36,7 @@ export const Enhanced = forwardRef<
   ) => {
     const taskId = createTaskId(enhancedNoteId, "enhance");
     const llmStatus = useLLMConnectionStatus();
-    const { status, error, hasTask } = useAITaskTask(taskId, "enhance");
+    const { status, error } = useAITaskTask(taskId, "enhance");
     const content = main.UI.useCell(
       "enhanced_notes",
       enhancedNoteId,
@@ -45,12 +46,7 @@ export const Enhanced = forwardRef<
 
     const hasContent = typeof content === "string" && content.trim().length > 0;
 
-    const isConfigError =
-      llmStatus.status === "pending" ||
-      (llmStatus.status === "error" &&
-        (llmStatus.reason === "missing_config" ||
-          llmStatus.reason === "not_pro" ||
-          llmStatus.reason === "unauthenticated"));
+    const isConfigError = shouldShowEmptySummaryConfigError(llmStatus);
 
     if (status === "idle" && isConfigError && !hasContent) {
       return <ConfigError status={llmStatus} />;
@@ -66,16 +62,8 @@ export const Enhanced = forwardRef<
       );
     }
 
-    if (
-      status === "generating" ||
-      (!hasContent && status === "idle" && !hasTask)
-    ) {
-      return (
-        <StreamingView
-          enhancedNoteId={enhancedNoteId}
-          pending={status === "idle"}
-        />
-      );
+    if (status === "generating") {
+      return <StreamingView enhancedNoteId={enhancedNoteId} />;
     }
 
     return (

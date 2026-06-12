@@ -77,16 +77,28 @@ describe("Enhanced", () => {
     hoisted.content = "";
   });
 
-  it("shows an interim summary state before the enhance task is visible", () => {
+  it("renders an empty editor before the auto-enhance task is visible", () => {
     render(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
 
-    expect(screen.getByRole("status").textContent).toContain(
-      "Preparing summary...",
-    );
-    expect(screen.getByRole("status").textContent).toContain(
-      "Tip: The Anarlog team loves our users!",
-    );
+    expect(screen.getByText("Enhanced editor")).not.toBeNull();
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.queryByText("Preparing summary...")).toBeNull();
     expect(screen.queryByTestId("spinner")).toBeNull();
+  });
+
+  it("keeps the generating view quiet until summary text streams", () => {
+    hoisted.task = {
+      status: "generating",
+      error: undefined,
+      streamedText: "",
+      currentStep: undefined,
+      isGenerating: true,
+    };
+
+    render(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
+
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.queryByText("Preparing summary...")).toBeNull();
     expect(screen.queryByText("Enhanced editor")).toBeNull();
   });
 
@@ -105,13 +117,67 @@ describe("Enhanced", () => {
     expect(screen.queryByRole("status")).toBeNull();
   });
 
-  it("keeps config errors ahead of the empty interim state", () => {
-    hoisted.llmStatus = { status: "pending", reason: "missing_provider" };
+  it("shows config errors for hosted subscription blockers", () => {
+    hoisted.llmStatus = {
+      status: "error",
+      reason: "not_pro",
+      providerId: "hyprnote",
+    };
 
     render(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
 
     expect(screen.getByText("Config error")).not.toBeNull();
     expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("shows config errors when hosted generation requires authentication", () => {
+    hoisted.llmStatus = {
+      status: "error",
+      reason: "unauthenticated",
+      providerId: "hyprnote",
+    };
+
+    render(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
+
+    expect(screen.getByText("Config error")).not.toBeNull();
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("shows config errors when a provider API key is missing", () => {
+    hoisted.llmStatus = {
+      status: "error",
+      reason: "missing_config",
+      providerId: "openai",
+      missing: ["api_key"],
+    };
+
+    render(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
+
+    expect(screen.getByText("Config error")).not.toBeNull();
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("shows config errors when a provider base URL is missing", () => {
+    hoisted.llmStatus = {
+      status: "error",
+      reason: "missing_config",
+      providerId: "openai",
+      missing: ["base_url"],
+    };
+
+    render(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
+
+    expect(screen.getByText("Config error")).not.toBeNull();
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("does not show config errors for missing provider setup", () => {
+    hoisted.llmStatus = { status: "pending", reason: "missing_provider" };
+
+    render(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
+
+    expect(screen.queryByText("Config error")).toBeNull();
+    expect(screen.getByText("Enhanced editor")).not.toBeNull();
   });
 
   it("renders the editor when the enhanced note already has content", () => {
