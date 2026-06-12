@@ -1,4 +1,5 @@
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::{Arc, MutexGuard};
 use std::time::{Duration, Instant};
 
 use hypr_transcription_core::listener2 as core;
@@ -36,16 +37,21 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener2<'a, R, M> {
         let idle_timeout = batch_idle_timeout(&params);
 
         {
-            let mut sessions = registry
-                .sessions
-                .lock()
-                .expect("batch session registry poisoned");
-            if let Some(entry) = sessions.get(&session_id) {
-                let state = *entry
-                    .control
-                    .terminal_state
-                    .lock()
-                    .expect("batch terminal state poisoned");
+            let mut sessions = lock_batch_sessions(&registry)?;
+            if let Some(control) = sessions.get(&session_id).map(|entry| entry.control.clone()) {
+                let state = match lock_terminal_state(&control) {
+                    Ok(state) => *state,
+                    Err(error) => {
+                        let entry = sessions.remove(&session_id);
+                        drop(sessions);
+
+                        if let Some(entry) = entry {
+                            abort_batch_entry(entry);
+                        }
+                        return Err(error);
+                    }
+                };
+
                 if state == BatchTerminalState::Running {
                     return Err(core::Error::BatchError(
                         "session already running".to_string(),
@@ -64,10 +70,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener2<'a, R, M> {
         });
 
         {
-            let mut sessions = registry
-                .sessions
-                .lock()
-                .expect("batch session registry poisoned");
+            let mut sessions = lock_batch_sessions(&registry)?;
             sessions.insert(
                 session_id.clone(),
                 BatchSessionEntry {
@@ -95,10 +98,13 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener2<'a, R, M> {
         let abort_handle = task.abort_handle();
 
         let is_running = {
-            let mut sessions = registry
-                .sessions
-                .lock()
-                .expect("batch session registry poisoned");
+            let mut sessions = match lock_batch_sessions(&registry) {
+                Ok(sessions) => sessions,
+                Err(error) => {
+                    abort_handle.abort();
+                    return Err(error);
+                }
+            };
             let Some(entry) = sessions.get_mut(&session_id) else {
                 abort_handle.abort();
                 return Ok(());
@@ -113,11 +119,14 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener2<'a, R, M> {
 
             entry.abort_handle = Some(abort_handle.clone());
 
-            *control
-                .terminal_state
-                .lock()
-                .expect("batch terminal state poisoned")
-                == BatchTerminalState::Running
+            match lock_terminal_state(&control) {
+                Ok(state) => *state == BatchTerminalState::Running,
+                Err(error) => {
+                    sessions.remove(&session_id);
+                    abort_handle.abort();
+                    return Err(error);
+                }
+            }
         };
 
         if !is_running {
@@ -243,11 +252,35 @@ impl core::DenoiseRuntime for TauriDenoiseRuntime {
     }
 }
 
-fn should_emit_event(control: &BatchSessionControl, event: &core::BatchEvent) -> bool {
-    let state = *control
+fn batch_lock_poisoned(name: &'static str) -> core::Error {
+    tracing::error!(lock = name, "batch_session_lock_poisoned");
+    core::Error::BatchError(format!("{name} poisoned"))
+}
+
+fn lock_batch_sessions(
+    registry: &BatchSessionRegistry,
+) -> Result<MutexGuard<'_, HashMap<String, BatchSessionEntry>>, core::Error> {
+    registry
+        .sessions
+        .lock()
+        .map_err(|_| batch_lock_poisoned("batch session registry"))
+}
+
+fn lock_terminal_state(
+    control: &BatchSessionControl,
+) -> Result<MutexGuard<'_, BatchTerminalState>, core::Error> {
+    control
         .terminal_state
         .lock()
-        .expect("batch terminal state poisoned");
+        .map_err(|_| batch_lock_poisoned("batch terminal state"))
+}
+
+fn should_emit_event(control: &BatchSessionControl, event: &core::BatchEvent) -> bool {
+    let Ok(state) = lock_terminal_state(control) else {
+        return false;
+    };
+    let state = *state;
+
     state == BatchTerminalState::Running
         || matches!(
             (state, event),
@@ -259,10 +292,10 @@ fn should_emit_event(control: &BatchSessionControl, event: &core::BatchEvent) ->
 }
 
 fn mark_terminal_state(control: &BatchSessionControl, next: BatchTerminalState) -> bool {
-    let mut state = control
-        .terminal_state
-        .lock()
-        .expect("batch terminal state poisoned");
+    let Ok(mut state) = lock_terminal_state(control) else {
+        return false;
+    };
+
     if *state != BatchTerminalState::Running {
         return false;
     }
@@ -277,13 +310,11 @@ fn finish_batch_session(
     control: &Arc<BatchSessionControl>,
 ) {
     {
-        let mut state = control
-            .terminal_state
-            .lock()
-            .expect("batch terminal state poisoned");
-        if *state == BatchTerminalState::Running {
-            *state = BatchTerminalState::Finished;
-            control.cancellation_token.cancel();
+        if let Ok(mut state) = lock_terminal_state(control) {
+            if *state == BatchTerminalState::Running {
+                *state = BatchTerminalState::Finished;
+                control.cancellation_token.cancel();
+            }
         }
     }
 
@@ -295,15 +326,21 @@ fn remove_batch_session(
     session_id: &str,
     control: &Arc<BatchSessionControl>,
 ) {
-    let mut sessions = registry
-        .sessions
-        .lock()
-        .expect("batch session registry poisoned");
+    let Ok(mut sessions) = lock_batch_sessions(registry) else {
+        return;
+    };
+
     let should_remove = sessions
         .get(session_id)
         .is_some_and(|entry| Arc::ptr_eq(&entry.control, control));
     if should_remove {
         sessions.remove(session_id);
+    }
+}
+
+fn abort_batch_entry(entry: BatchSessionEntry) {
+    if let Some(abort_handle) = entry.abort_handle {
+        abort_handle.abort();
     }
 }
 
@@ -313,10 +350,10 @@ fn stop_batch_session(
     session_id: &str,
 ) {
     let entry = {
-        let mut sessions = registry
-            .sessions
-            .lock()
-            .expect("batch session registry poisoned");
+        let Ok(mut sessions) = lock_batch_sessions(registry) else {
+            return;
+        };
+
         sessions.remove(session_id)
     };
 
@@ -331,9 +368,7 @@ fn stop_batch_session(
         .emit(app);
     }
 
-    if let Some(abort_handle) = entry.abort_handle {
-        abort_handle.abort();
-    }
+    abort_batch_entry(entry);
 }
 
 fn batch_idle_timeout(params: &TranscriptionParams) -> Option<Duration> {
@@ -401,6 +436,40 @@ mod tests {
         })
     }
 
+    fn make_registry(control: Arc<BatchSessionControl>) -> Arc<BatchSessionRegistry> {
+        Arc::new(BatchSessionRegistry {
+            sessions: std::sync::Mutex::new(std::collections::HashMap::from([(
+                "session-1".to_string(),
+                BatchSessionEntry {
+                    control,
+                    abort_handle: None,
+                },
+            )])),
+        })
+    }
+
+    fn poison_terminal_state(control: Arc<BatchSessionControl>) {
+        assert!(
+            std::thread::spawn(move || {
+                let _guard = control.terminal_state.lock().unwrap();
+                panic!("poison terminal state");
+            })
+            .join()
+            .is_err()
+        );
+    }
+
+    fn poison_registry(registry: Arc<BatchSessionRegistry>) {
+        assert!(
+            std::thread::spawn(move || {
+                let _guard = registry.sessions.lock().unwrap();
+                panic!("poison registry");
+            })
+            .join()
+            .is_err()
+        );
+    }
+
     fn transcription_params(
         provider: core::BatchProvider,
         base_url: &str,
@@ -449,17 +518,48 @@ mod tests {
     }
 
     #[test]
-    fn finish_batch_session_removes_matching_registry_entry() {
+    fn lock_terminal_state_returns_batch_error_when_poisoned() {
         let control = make_control();
-        let registry = Arc::new(BatchSessionRegistry {
-            sessions: std::sync::Mutex::new(std::collections::HashMap::from([(
-                "session-1".to_string(),
-                BatchSessionEntry {
-                    control: control.clone(),
-                    abort_handle: None,
-                },
-            )])),
-        });
+        poison_terminal_state(control.clone());
+
+        match lock_terminal_state(&control) {
+            Err(core::Error::BatchError(message)) => {
+                assert!(message.contains("batch terminal state poisoned"));
+            }
+            _ => panic!("expected terminal state poison to return BatchError"),
+        }
+    }
+
+    #[test]
+    fn lock_batch_sessions_returns_batch_error_when_poisoned() {
+        let registry = make_registry(make_control());
+        poison_registry(registry.clone());
+
+        match lock_batch_sessions(&registry) {
+            Err(core::Error::BatchError(message)) => {
+                assert!(message.contains("batch session registry poisoned"));
+            }
+            _ => panic!("expected registry poison to return BatchError"),
+        }
+    }
+
+    #[test]
+    fn poisoned_terminal_state_stops_emit_and_transition_without_panic() {
+        let control = make_control();
+        let event = core::BatchEvent::BatchStarted {
+            session_id: "session-1".to_string(),
+        };
+        poison_terminal_state(control.clone());
+
+        assert!(!should_emit_event(&control, &event));
+        assert!(!mark_terminal_state(&control, BatchTerminalState::Stopped));
+    }
+
+    #[test]
+    fn finish_batch_session_removes_entry_when_terminal_state_is_poisoned() {
+        let control = make_control();
+        let registry = make_registry(control.clone());
+        poison_terminal_state(control.clone());
 
         finish_batch_session(&registry, "session-1", &control);
 
@@ -469,6 +569,38 @@ mod tests {
                 .lock()
                 .expect("batch session registry poisoned")
                 .contains_key("session-1")
+        );
+    }
+
+    #[test]
+    fn finish_batch_session_removes_matching_registry_entry() {
+        let control = make_control();
+        let registry = make_registry(control.clone());
+
+        finish_batch_session(&registry, "session-1", &control);
+
+        assert!(
+            !registry
+                .sessions
+                .lock()
+                .expect("batch session registry poisoned")
+                .contains_key("session-1")
+        );
+    }
+
+    #[tokio::test]
+    async fn abort_batch_entry_cancels_background_task() {
+        let task = tokio::spawn(std::future::pending::<()>());
+
+        abort_batch_entry(BatchSessionEntry {
+            control: make_control(),
+            abort_handle: Some(task.abort_handle()),
+        });
+
+        assert!(
+            task.await
+                .expect_err("batch task should be aborted")
+                .is_cancelled()
         );
     }
 
