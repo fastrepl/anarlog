@@ -12,6 +12,7 @@ vi.mock("@hypr/plugin-transcription", () => ({
 
 import {
   buildRenderTranscriptRequestFromStore,
+  collectAssignedHumanIdsFromTranscriptRows,
   getRenderTranscriptRequestKey,
   renderTranscriptSegments,
 } from "./render-transcript";
@@ -198,6 +199,32 @@ describe("buildRenderTranscriptRequestFromStore", () => {
         },
       },
     ]);
+  });
+
+  it("collects assigned speaker human ids from transcript rows", () => {
+    expect(
+      collectAssignedHumanIdsFromTranscriptRows([
+        {
+          speaker_hints: [
+            {
+              word_id: "word-1",
+              type: "user_speaker_assignment",
+              value: JSON.stringify({ human_id: "remote" }),
+            },
+            {
+              word_id: "word-2",
+              type: "user_speaker_assignment",
+              value: { human_id: "third" },
+            },
+            {
+              word_id: "word-3",
+              type: "provider_speaker_index",
+              value: JSON.stringify({ speaker_index: 1 }),
+            },
+          ],
+        },
+      ]),
+    ).toEqual(["remote", "third"]);
   });
 
   it("rounds fractional millisecond timings before invoking Rust", async () => {

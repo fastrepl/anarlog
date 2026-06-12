@@ -5,6 +5,7 @@ import { cn } from "@hypr/utils";
 
 import { SpeakerAssignPopover } from "../note-input/transcript/renderer/speaker-assign";
 
+import { useSessionTranscriptRenderData } from "~/session/components/note-input/transcript/render-request-hooks";
 import { useSegmentColorVars } from "~/session/components/note-input/transcript/renderer/utils";
 import * as main from "~/store/tinybase/store/main";
 import { getLiveCaptureUiMode } from "~/store/zustand/listener/general-shared";
@@ -15,7 +16,6 @@ import {
   type Segment,
 } from "~/stt/live-segment";
 import {
-  buildRenderTranscriptRequestFromStore,
   getRenderTranscriptRequestKey,
   renderTranscriptSegments,
 } from "~/stt/render-transcript";
@@ -23,7 +23,6 @@ import {
   SpeakerLabelManager,
   defaultRenderLabelContext,
 } from "~/stt/segment/shared";
-import { parseTranscriptWords } from "~/stt/utils";
 
 export function DuringSessionAccessory({
   sessionId,
@@ -268,36 +267,8 @@ function useLiveTranscriptData(sessionId: string): {
   segments: Segment[];
   transcriptIdByWordId: Map<string, string>;
 } {
-  const store = main.UI.useStore(main.STORE_ID);
-  const transcriptIds =
-    main.UI.useSliceRowIds(
-      main.INDEXES.transcriptBySession,
-      sessionId,
-      main.STORE_ID,
-    ) ?? [];
-  const transcriptsTable = main.UI.useTable("transcripts", main.STORE_ID);
-  const participantMappingsTable = main.UI.useTable(
-    "mapping_session_participant",
-    main.STORE_ID,
-  );
-  const humansTable = main.UI.useTable("humans", main.STORE_ID);
-  const selfHumanId = main.UI.useValue("user_id", main.STORE_ID);
+  const { request, transcriptRows } = useSessionTranscriptRenderData(sessionId);
   const liveSegments = useListener((state) => state.liveSegments);
-
-  const request = useMemo(() => {
-    if (!store || transcriptIds.length === 0) {
-      return null;
-    }
-
-    return buildRenderTranscriptRequestFromStore(store, transcriptIds);
-  }, [
-    store,
-    transcriptIds,
-    transcriptsTable,
-    participantMappingsTable,
-    humansTable,
-    selfHumanId,
-  ]);
   const requestKey = useMemo(
     () => getRenderTranscriptRequestKey(request),
     [request],
@@ -323,18 +294,16 @@ function useLiveTranscriptData(sessionId: string): {
     );
     const transcriptIdByWordId = new Map<string, string>();
 
-    if (store) {
-      for (const transcriptId of transcriptIds) {
-        for (const word of parseTranscriptWords(store, transcriptId)) {
-          if (typeof word.id === "string" && word.id) {
-            transcriptIdByWordId.set(word.id, transcriptId);
-          }
+    for (const { transcriptId, row } of transcriptRows) {
+      for (const word of row.words ?? []) {
+        if (typeof word.id === "string" && word.id) {
+          transcriptIdByWordId.set(word.id, transcriptId);
         }
       }
     }
 
     return { segments, transcriptIdByWordId };
-  }, [liveSegments, renderedSegments, store, transcriptIds, transcriptsTable]);
+  }, [liveSegments, renderedSegments, transcriptRows]);
 }
 
 function getLiveTranscriptScrollKey(segments: Segment[]): string {

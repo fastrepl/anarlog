@@ -23,7 +23,7 @@ export type RenderedTranscriptSegmentWithWordMetadata = Omit<
   words: SegmentWord[];
 };
 
-type TranscriptRow = {
+export type TranscriptRow = {
   started_at?: number | null;
   words?: Array<{
     id?: string | null;
@@ -38,7 +38,7 @@ type TranscriptRow = {
   > | null;
 };
 
-type RenderTranscriptRequestHumans = {
+export type RenderTranscriptRequestHumans = {
   selfHumanId?: string;
   humans: RenderTranscriptHuman[];
 };
@@ -157,6 +157,40 @@ export function buildRenderTranscriptRequestFromStore(
     collectRenderHumans(store),
     collectSessionParticipantHumanIds(store, sessionId),
   );
+}
+
+export function buildRenderTranscriptRequestFromRows(
+  transcripts: TranscriptRow[],
+  humans?: RenderTranscriptRequestHumans,
+  participantHumanIds?: string[],
+): RenderTranscriptRequest | null {
+  return buildRenderTranscriptRequest(transcripts, humans, participantHumanIds);
+}
+
+export function collectAssignedHumanIdsFromTranscriptRows(
+  transcripts: TranscriptRow[],
+): string[] {
+  const humanIds = new Set<string>();
+
+  for (const transcript of transcripts) {
+    for (const hint of transcript.speaker_hints ?? []) {
+      if (hint.type !== "user_speaker_assignment") {
+        continue;
+      }
+
+      const value = parseHintValue(hint.value);
+      const humanId =
+        value && typeof value === "object"
+          ? (value as { human_id?: unknown }).human_id
+          : undefined;
+
+      if (typeof humanId === "string" && humanId) {
+        humanIds.add(humanId);
+      }
+    }
+  }
+
+  return [...humanIds];
 }
 
 export function buildRenderTranscriptRequestFromFsTranscript(

@@ -309,6 +309,8 @@ describe("DuringSessionAccessory", () => {
   it("assigns live transcript speaker labels to session participants", () => {
     const setCell = vi.fn();
     const store = {
+      addRowListener: vi.fn(() => "listener-1"),
+      delListener: vi.fn(),
       forEachRow: vi.fn(
         (tableId: string, callback: (rowId: string) => void) => {
           if (tableId === "humans") {
@@ -399,6 +401,8 @@ describe("DuringSessionAccessory", () => {
 
   it("keeps the speaker selector open while live transcript words update", () => {
     const store = {
+      addRowListener: vi.fn(() => "listener-1"),
+      delListener: vi.fn(),
       forEachRow: vi.fn(),
       getCell: vi.fn((tableId: string, rowId: string, cellId: string) => {
         if (tableId === "transcripts" && rowId === "transcript-1") {
