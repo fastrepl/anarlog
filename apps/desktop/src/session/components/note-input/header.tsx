@@ -410,12 +410,20 @@ function HeaderTabEnhanced({
           >
             <span className="flex items-center justify-center group-hover/tab:hidden">
               {step?.type === "generating" ? (
-                <img
-                  src="/assets/write-animation.gif"
-                  alt=""
-                  aria-hidden="true"
-                  className="size-3"
-                />
+                <>
+                  <img
+                    src="/assets/write-animation.gif"
+                    alt=""
+                    aria-hidden="true"
+                    className="size-3 dark:hidden"
+                  />
+                  <img
+                    src="/assets/write-animation-white.gif"
+                    alt=""
+                    aria-hidden="true"
+                    className="hidden size-3 dark:block"
+                  />
+                </>
               ) : (
                 <Spinner size={14} />
               )}
