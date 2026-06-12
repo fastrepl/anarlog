@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import type { ReactNode } from "react";
+import type { MouseEvent, ReactElement, ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DuringSessionAccessory } from "./during-session";
@@ -32,20 +32,65 @@ vi.mock("@tanstack/react-query", () => ({
   useQuery: useQueryMock,
 }));
 
-vi.mock("@hypr/ui/components/ui/popover", () => ({
-  AppFloatingPanel: ({
-    children,
-    className,
-  }: {
-    children: ReactNode;
-    className?: string;
-  }) => <div className={className}>{children}</div>,
-  Popover: ({ children }: { children: ReactNode }) => <>{children}</>,
-  PopoverContent: ({ children }: { children: ReactNode }) => (
-    <div>{children}</div>
-  ),
-  PopoverTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
-}));
+vi.mock("@hypr/ui/components/ui/popover", async () => {
+  const React = await vi.importActual<typeof import("react")>("react");
+  const PopoverContext = React.createContext<{
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+  } | null>(null);
+
+  return {
+    AppFloatingPanel: ({
+      children,
+      className,
+    }: {
+      children: ReactNode;
+      className?: string;
+    }) => <div className={className}>{children}</div>,
+    Popover: ({
+      children,
+      open,
+      onOpenChange,
+    }: {
+      children: ReactNode;
+      open: boolean;
+      onOpenChange: (open: boolean) => void;
+    }) => (
+      <PopoverContext.Provider value={{ open, onOpenChange }}>
+        {children}
+      </PopoverContext.Provider>
+    ),
+    PopoverContent: ({
+      children,
+      className,
+    }: {
+      children: ReactNode;
+      className?: string;
+    }) => {
+      const context = React.useContext(PopoverContext);
+      return context?.open ? (
+        <div data-popover-content className={className}>
+          {children}
+        </div>
+      ) : null;
+    },
+    PopoverTrigger: ({
+      children,
+    }: {
+      children: ReactElement<{
+        onClick?: (event: MouseEvent) => void;
+      }>;
+    }) => {
+      const context = React.useContext(PopoverContext);
+      return React.cloneElement(children, {
+        onClick: (event: MouseEvent) => {
+          children.props.onClick?.(event);
+          context?.onOpenChange(true);
+        },
+      });
+    },
+  };
+});
 
 vi.mock("~/store/tinybase/store/main", () => ({
   STORE_ID: "main",
@@ -331,6 +376,7 @@ describe("DuringSessionAccessory", () => {
     render(<DuringSessionAccessory sessionId="session-1" isExpanded />);
 
     expect(screen.getByRole("button", { name: "Speaker 1" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Speaker 1" }));
     fireEvent.click(screen.getByText("Alex"));
 
     expect(setCell).toHaveBeenCalledWith(
@@ -348,6 +394,85 @@ describe("DuringSessionAccessory", () => {
         value: JSON.stringify({ human_id: "human-1" }),
       },
     ]);
+    expect(screen.getByRole("button", { name: "Alex" })).toBeTruthy();
+  });
+
+  it("keeps the speaker selector open while live transcript words update", () => {
+    const store = {
+      forEachRow: vi.fn(),
+      getCell: vi.fn((tableId: string, rowId: string, cellId: string) => {
+        if (tableId === "transcripts" && rowId === "transcript-1") {
+          if (cellId === "session_id") return "session-1";
+          if (cellId === "started_at") return 0;
+          if (cellId === "words") {
+            return JSON.stringify([
+              {
+                id: "word-0",
+                text: "Remote words.",
+                start_ms: 0,
+                end_ms: 300,
+                channel: 1,
+              },
+            ]);
+          }
+          if (cellId === "speaker_hints") return "[]";
+        }
+        return undefined;
+      }),
+      getRow: vi.fn(() => ({ name: "Alex", email: "alex@example.com" })),
+      getValue: vi.fn(() => "user-1"),
+      setCell: vi.fn(),
+      setRow: vi.fn(),
+    };
+    const remoteSegment = {
+      ...segment("Remote words.", 0, {
+        channel: "RemoteParty",
+        speaker_index: 0,
+      }),
+      id: "live-segment-word-0",
+    };
+
+    useStoreMock.mockReturnValue(store);
+    useCellMock.mockReturnValue("session-1");
+    useQueriesMock.mockReturnValue({
+      getResultRow: vi.fn(() => ({
+        human_id: "human-1",
+        human_name: "Alex",
+        human_email: "alex@example.com",
+      })),
+    });
+    useSliceRowIdsMock.mockImplementation((indexId: string) =>
+      indexId === "transcriptBySession" ? ["transcript-1"] : ["mapping-1"],
+    );
+    useValueMock.mockReturnValue("user-1");
+    liveSegments = [remoteSegment];
+
+    const view = render(
+      <DuringSessionAccessory sessionId="session-1" isExpanded />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Speaker 1" }));
+    expect(screen.getByText("Alex")).toBeTruthy();
+
+    liveSegments = [
+      {
+        ...remoteSegment,
+        id: "live-segment-word-1",
+        words: [
+          ...remoteSegment.words,
+          {
+            id: "word-1",
+            text: " More words.",
+            start_ms: 300,
+            end_ms: 600,
+            channel: "RemoteParty",
+            is_final: false,
+          },
+        ],
+      },
+    ];
+    view.rerender(<DuringSessionAccessory sessionId="session-1" isExpanded />);
+
+    expect(screen.getByText("Alex")).toBeTruthy();
   });
 });
 

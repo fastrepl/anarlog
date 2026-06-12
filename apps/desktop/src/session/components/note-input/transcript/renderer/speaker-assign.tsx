@@ -18,12 +18,14 @@ export function SpeakerAssignPopover({
   color,
   label,
   className,
+  onAssigned,
 }: {
   segment: Segment;
   transcriptId: string;
   color: string;
   label: string;
   className?: string;
+  onAssigned?: (humanId: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const store = main.UI.useStore(main.STORE_ID);
@@ -48,9 +50,10 @@ export function SpeakerAssignPopover({
         humanId,
         anchorWordId,
       );
+      onAssigned?.(humanId);
       setOpen(false);
     },
-    [store, transcriptId, segment.key, segment.words],
+    [onAssigned, store, transcriptId, segment.key, segment.words],
   );
 
   if (isSelf) {
