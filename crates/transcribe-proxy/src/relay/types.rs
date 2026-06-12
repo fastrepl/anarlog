@@ -18,6 +18,14 @@ pub type InitialMessage = Arc<String>;
 pub type ResponseTransformer = Arc<dyn Fn(&str) -> Option<String> + Send + Sync>;
 
 pub type ClientMessageFilter = Arc<dyn Fn(String) -> Option<String> + Send + Sync>;
+pub type ClientBinaryMessageMapper =
+    Arc<dyn Fn(Vec<u8>) -> Option<ClientBinaryMessage> + Send + Sync>;
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ClientBinaryMessage {
+    Text(String),
+    Binary(Vec<u8>),
+}
 
 #[derive(Clone, Debug)]
 pub enum ShutdownSignal {

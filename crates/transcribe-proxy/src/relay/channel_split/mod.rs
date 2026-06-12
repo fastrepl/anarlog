@@ -21,8 +21,8 @@ use self::coordinator::{CoordinatorAction, SplitCoordinator, SplitEvent};
 use self::io::{relay_client_to_upstreams, relay_upstream_to_events, send_rewritten, send_text};
 use self::payload::{FinalizeMode, rewrite_split_response};
 use super::types::{
-    ClientMessageFilter, DEFAULT_CLOSE_CODE, InitialMessage, OnCloseCallback, ResponseTransformer,
-    ShutdownSignal, convert,
+    ClientBinaryMessageMapper, ClientMessageFilter, DEFAULT_CLOSE_CODE, InitialMessage,
+    OnCloseCallback, ResponseTransformer, ShutdownSignal, convert,
 };
 
 fn proxy_debug_enabled() -> bool {
@@ -40,6 +40,7 @@ pub struct ChannelSplitProxy {
     connect_timeout: Duration,
     on_close: Option<OnCloseCallback>,
     client_message_filter: Option<ClientMessageFilter>,
+    client_binary_message_mapper: Option<ClientBinaryMessageMapper>,
 }
 
 impl ChannelSplitProxy {
@@ -76,11 +77,17 @@ impl ChannelSplitProxy {
             connect_timeout,
             on_close,
             client_message_filter: None,
+            client_binary_message_mapper: None,
         }
     }
 
     pub fn with_client_message_filter(mut self, filter: ClientMessageFilter) -> Self {
         self.client_message_filter = Some(filter);
+        self
+    }
+
+    pub fn with_client_binary_message_mapper(mut self, mapper: ClientBinaryMessageMapper) -> Self {
+        self.client_binary_message_mapper = Some(mapper);
         self
     }
 
@@ -173,6 +180,7 @@ impl ChannelSplitProxy {
             mic_tx,
             spk_tx,
             self.client_message_filter.clone(),
+            self.client_binary_message_mapper.clone(),
             shutdown_tx.clone(),
             event_tx.clone(),
         );

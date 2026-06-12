@@ -370,16 +370,44 @@ function getProviderModelMode(
   providerId: ProviderId,
   model: string,
 ): ModelEntry["mode"] {
-  if (providerId !== "soniox") {
-    return undefined;
+  if (providerId === "assemblyai") {
+    if (model === "universal-3-pro") {
+      return "batch";
+    }
+
+    if (model === "u3-rt-pro") {
+      return "realtime";
+    }
   }
 
-  if (model === "stt-v5" || model === "stt-async-v5") {
-    return "batch";
+  if (providerId === "elevenlabs") {
+    if (model === "scribe_v2") {
+      return "batch";
+    }
+
+    if (model === "scribe_v2_realtime") {
+      return "realtime";
+    }
   }
 
-  if (model === "stt-v4" || model === "stt-rt-v4") {
-    return "realtime";
+  if (providerId === "mistral") {
+    if (model === "voxtral-mini-2602" || model === "voxtral-mini-latest") {
+      return "batch";
+    }
+
+    if (model === "voxtral-mini-transcribe-realtime-2602") {
+      return "realtime";
+    }
+  }
+
+  if (providerId === "soniox") {
+    if (model === "stt-v5" || model === "stt-async-v5") {
+      return "batch";
+    }
+
+    if (model === "stt-v4" || model === "stt-rt-v4") {
+      return "realtime";
+    }
   }
 
   return undefined;

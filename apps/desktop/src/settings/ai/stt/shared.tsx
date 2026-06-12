@@ -34,11 +34,11 @@ export const displayModelId = (model: string) => {
     return "Pro (Cloud)";
   }
 
-  if (
-    model === "universal-3-pro" ||
-    model === "u3-rt-pro" ||
-    model === "universal"
-  ) {
+  if (model === "u3-rt-pro") {
+    return "Universal-3 Pro Streaming";
+  }
+
+  if (model === "universal-3-pro" || model === "universal") {
     return "Universal-3 Pro";
   }
 
@@ -62,6 +62,10 @@ export const displayModelId = (model: string) => {
     return "Solaria 1";
   }
 
+  if (model === "scribe_v2_realtime") {
+    return "Scribe V2 Realtime";
+  }
+
   if (model === "scribe_v2") {
     return "Scribe V2";
   }
@@ -76,6 +80,10 @@ export const displayModelId = (model: string) => {
 
   if (model === "gpt-4o-mini-transcribe") {
     return "GPT-4o mini Transcribe";
+  }
+
+  if (model === "voxtral-mini-transcribe-realtime-2602") {
+    return "Voxtral Realtime";
   }
 
   if (model === "voxtral-mini-2602") {
@@ -155,7 +163,7 @@ const _PROVIDERS = [
     badge: null,
     icon: <AssemblyAI size={12} />,
     baseUrl: "https://api.assemblyai.com",
-    models: ["universal-3-pro"],
+    models: ["universal-3-pro", "u3-rt-pro"],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
   },
   {
@@ -207,7 +215,7 @@ const _PROVIDERS = [
     badge: null,
     icon: <ElevenLabs size={16} />,
     baseUrl: "https://api.elevenlabs.io",
-    models: ["scribe_v2"],
+    models: ["scribe_v2", "scribe_v2_realtime"],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
   },
   {
@@ -217,7 +225,7 @@ const _PROVIDERS = [
     badge: null,
     icon: <Mistral size={16} />,
     baseUrl: "https://api.mistral.ai/v1",
-    models: ["voxtral-mini-2602"],
+    models: ["voxtral-mini-2602", "voxtral-mini-transcribe-realtime-2602"],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
   },
   {

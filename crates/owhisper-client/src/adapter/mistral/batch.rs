@@ -95,12 +95,7 @@ async fn do_transcribe_file(
         .mime_str(mime_type)
         .map_err(|e| Error::AudioProcessing(e.to_string()))?;
 
-    let default = Provider::Mistral.default_batch_model();
-    let model = match params.model.as_deref() {
-        Some(m) if is_meta_model(m) => default,
-        Some(m) => m,
-        None => default,
-    };
+    let model = resolve_batch_model(params.model.as_deref());
 
     let mut form = Form::new()
         .part("file", file_part)
@@ -147,6 +142,16 @@ use crate::adapter::http::mime_type_from_extension;
 fn strip_punctuation(s: &str) -> String {
     s.trim_matches(|c: char| c.is_ascii_punctuation())
         .to_string()
+}
+
+fn resolve_batch_model(model: Option<&str>) -> &str {
+    let default = Provider::Mistral.default_batch_model();
+    match model {
+        Some(m) if is_meta_model(m) => default,
+        Some("voxtral-mini-transcribe-realtime-2602") => default,
+        Some(m) => m,
+        None => default,
+    }
 }
 
 fn convert_response(response: MistralBatchResponse) -> BatchResponse {
@@ -246,6 +251,14 @@ mod tests {
     use super::*;
     use crate::adapter::BatchSttAdapter;
     use crate::http_client::create_client;
+
+    #[test]
+    fn batch_realtime_model_alias_uses_batch_model() {
+        assert_eq!(
+            resolve_batch_model(Some("voxtral-mini-transcribe-realtime-2602")),
+            "voxtral-mini-2602"
+        );
+    }
 
     #[test]
     fn convert_response_marks_segment_interpolated_words() {

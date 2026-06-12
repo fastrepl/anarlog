@@ -34,13 +34,7 @@ impl RealtimeSttAdapter for ElevenLabsAdapter {
                 query_pairs.append_pair(key, value);
             }
 
-            let default = crate::providers::Provider::ElevenLabs.default_live_model();
-            let model = match params.model.as_deref() {
-                Some(m) if crate::providers::is_meta_model(m) => default,
-                Some("scribe_v2") => default,
-                Some(m) => m,
-                None => default,
-            };
+            let model = Self::resolve_live_model(params.model.as_deref());
             query_pairs.append_pair("model_id", model);
 
             let audio_format = format!("pcm_{}", params.sample_rate);
@@ -201,6 +195,16 @@ enum ElevenLabsMessage {
 }
 
 impl ElevenLabsAdapter {
+    fn resolve_live_model(model: Option<&str>) -> &str {
+        let default = crate::providers::Provider::ElevenLabs.default_live_model();
+        match model {
+            Some(m) if crate::providers::is_meta_model(m) => default,
+            Some("scribe_v2") => default,
+            Some(m) => m,
+            None => default,
+        }
+    }
+
     fn build_response(
         text: &str,
         words: Vec<ElevenLabsWord>,

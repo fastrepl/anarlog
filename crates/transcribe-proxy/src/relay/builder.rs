@@ -7,8 +7,8 @@ pub use tokio_tungstenite::tungstenite::ClientRequestBuilder;
 
 use super::handler::WebSocketProxy;
 use super::types::{
-    ClientMessageFilter, FirstMessageTransformer, InitialMessage, OnCloseCallback,
-    ResponseTransformer,
+    ClientBinaryMessageMapper, ClientMessageFilter, FirstMessageTransformer, InitialMessage,
+    OnCloseCallback, ResponseTransformer,
 };
 use crate::config::DEFAULT_CONNECT_TIMEOUT_MS;
 use crate::provider_selector::SelectedProvider;
@@ -38,6 +38,7 @@ pub struct WebSocketProxyBuilder<S = NoUpstream> {
     connect_timeout: Duration,
     on_close: Option<OnCloseCallback>,
     client_message_filter: Option<ClientMessageFilter>,
+    client_binary_message_mapper: Option<ClientBinaryMessageMapper>,
 }
 
 impl Default for WebSocketProxyBuilder<NoUpstream> {
@@ -51,6 +52,7 @@ impl Default for WebSocketProxyBuilder<NoUpstream> {
             connect_timeout: Duration::from_millis(DEFAULT_CONNECT_TIMEOUT_MS),
             on_close: None,
             client_message_filter: None,
+            client_binary_message_mapper: None,
         }
     }
 }
@@ -66,6 +68,7 @@ impl<S> WebSocketProxyBuilder<S> {
             connect_timeout: self.connect_timeout,
             on_close: self.on_close,
             client_message_filter: self.client_message_filter,
+            client_binary_message_mapper: self.client_binary_message_mapper,
         }
     }
 
@@ -79,6 +82,7 @@ impl<S> WebSocketProxyBuilder<S> {
         connect_timeout: Duration,
         on_close: Option<OnCloseCallback>,
         client_message_filter: Option<ClientMessageFilter>,
+        client_binary_message_mapper: Option<ClientBinaryMessageMapper>,
     ) -> WebSocketProxy {
         let control_message_types = if control_message_types.is_empty() {
             None
@@ -95,6 +99,7 @@ impl<S> WebSocketProxyBuilder<S> {
             connect_timeout,
             on_close,
             client_message_filter,
+            client_binary_message_mapper,
         )
     }
 
@@ -143,6 +148,11 @@ impl<S> WebSocketProxyBuilder<S> {
 
     pub fn client_message_filter(mut self, filter: ClientMessageFilter) -> Self {
         self.client_message_filter = Some(filter);
+        self
+    }
+
+    pub fn client_binary_message_mapper(mut self, mapper: ClientBinaryMessageMapper) -> Self {
+        self.client_binary_message_mapper = Some(mapper);
         self
     }
 }
@@ -209,6 +219,7 @@ impl WebSocketProxyBuilder<WithUrl> {
             self.connect_timeout,
             self.on_close,
             self.client_message_filter,
+            self.client_binary_message_mapper,
         ))
     }
 }

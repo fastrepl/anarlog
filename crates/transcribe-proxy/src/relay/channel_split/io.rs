@@ -3,8 +3,8 @@ use futures_util::{SinkExt, StreamExt};
 use tokio_tungstenite::tungstenite::Message as TungsteniteMessage;
 
 use super::super::types::{
-    ClientMessageFilter, ClientReceiver, ClientSender, DEFAULT_CLOSE_CODE, ShutdownSignal,
-    UpstreamReceiver, UpstreamSender, convert,
+    ClientBinaryMessage, ClientBinaryMessageMapper, ClientMessageFilter, ClientReceiver,
+    ClientSender, DEFAULT_CLOSE_CODE, ShutdownSignal, UpstreamReceiver, UpstreamSender, convert,
 };
 use super::coordinator::SplitEvent;
 use super::payload::RewrittenSplitResponse;
@@ -74,6 +74,7 @@ pub(super) async fn relay_client_to_upstreams(
     mut mic_tx: UpstreamSender,
     mut spk_tx: UpstreamSender,
     client_message_filter: Option<ClientMessageFilter>,
+    client_binary_message_mapper: Option<ClientBinaryMessageMapper>,
     shutdown_tx: tokio::sync::broadcast::Sender<ShutdownSignal>,
     event_tx: tokio::sync::mpsc::Sender<SplitEvent>,
 ) {
@@ -122,14 +123,30 @@ pub(super) async fn relay_client_to_upstreams(
                         }
 
                         let (mic, spk) = deinterleave(&bytes);
+                        let to_upstream = |data: Vec<u8>| {
+                            let mapped = match client_binary_message_mapper.as_ref() {
+                                Some(mapper) => mapper(data)?,
+                                None => ClientBinaryMessage::Binary(data),
+                            };
+
+                            Some(match mapped {
+                                ClientBinaryMessage::Text(text) => TungsteniteMessage::Text(text.into()),
+                                ClientBinaryMessage::Binary(data) => TungsteniteMessage::Binary(data.into()),
+                            })
+                        };
+
+                        let Some(mic_message) = to_upstream(mic) else {
+                            continue;
+                        };
+                        let Some(spk_message) = to_upstream(spk) else {
+                            continue;
+                        };
+
                         if mic_tx
-                            .send(TungsteniteMessage::Binary(mic.into()))
+                            .send(mic_message)
                             .await
                             .is_err()
-                            || spk_tx
-                                .send(TungsteniteMessage::Binary(spk.into()))
-                                .await
-                                .is_err()
+                            || spk_tx.send(spk_message).await.is_err()
                         {
                             let _ = event_tx
                                 .send(SplitEvent::Fatal(upstream_send_failed_signal()))

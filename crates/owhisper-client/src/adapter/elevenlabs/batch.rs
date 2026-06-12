@@ -71,13 +71,7 @@ impl ElevenLabsAdapter {
             ))
         })?;
 
-        let default = crate::providers::Provider::ElevenLabs.default_batch_model();
-        let model = match params.model.as_deref() {
-            Some(m) if crate::providers::is_meta_model(m) => default,
-            Some("scribe_v2") => default,
-            Some(m) => m,
-            None => default,
-        };
+        let model = Self::resolve_batch_model(params.model.as_deref());
 
         let part = reqwest::multipart::Part::bytes(file_bytes).file_name(file_name);
         let mut form = reqwest::multipart::Form::new()
@@ -122,6 +116,16 @@ impl ElevenLabsAdapter {
 
     fn num_speakers_hint(params: &ListenParams) -> Option<u32> {
         params.num_speakers.or(params.max_speakers)
+    }
+
+    fn resolve_batch_model(model: Option<&str>) -> &str {
+        let default = crate::providers::Provider::ElevenLabs.default_batch_model();
+        match model {
+            Some(m) if crate::providers::is_meta_model(m) => default,
+            Some("scribe_v2" | "scribe_v2_realtime") => default,
+            Some(m) => m,
+            None => default,
+        }
     }
 
     fn convert_to_batch_response(response: TranscriptResponse) -> BatchResponse {
@@ -189,6 +193,14 @@ mod tests {
         assert_eq!(
             ElevenLabsAdapter::num_speakers_hint(&ListenParams::default()),
             None
+        );
+    }
+
+    #[test]
+    fn batch_realtime_model_alias_uses_batch_model() {
+        assert_eq!(
+            ElevenLabsAdapter::resolve_batch_model(Some("scribe_v2_realtime")),
+            "scribe_v2"
         );
     }
 

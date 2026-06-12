@@ -1,3 +1,4 @@
+use base64::Engine;
 use std::sync::Arc;
 
 use owhisper_client::{
@@ -10,7 +11,10 @@ use owhisper_interface::ListenParams;
 use crate::config::SttProxyConfig;
 use crate::provider_selector::SelectedProvider;
 use crate::query_params::{QueryParams, QueryValue};
-use crate::relay::{ClientMessageFilter, StreamingProxy, StreamingProxyPlan, StreamingTransport};
+use crate::relay::{
+    ClientBinaryMessage, ClientBinaryMessageMapper, ClientMessageFilter, StreamingProxy,
+    StreamingProxyPlan, StreamingTransport,
+};
 use crate::routes::AppState;
 use crate::routes::model_resolution::resolve_model_live;
 
@@ -140,6 +144,21 @@ fn build_client_message_filter(provider: Provider) -> ClientMessageFilter {
     })
 }
 
+fn build_client_binary_message_mapper(provider: Provider) -> Option<ClientBinaryMessageMapper> {
+    if provider != Provider::ElevenLabs {
+        return None;
+    }
+
+    Some(Arc::new(|audio: Vec<u8>| {
+        let chunk = serde_json::json!({
+            "message_type": "input_audio_chunk",
+            "audio_base_64": base64::engine::general_purpose::STANDARD.encode(audio),
+        });
+
+        Some(ClientBinaryMessage::Text(chunk.to_string()))
+    }))
+}
+
 fn build_proxy_plan(
     provider: Provider,
     selected: &SelectedProvider,
@@ -156,6 +175,10 @@ fn build_proxy_plan(
     .response_transformer(build_response_transformer(provider))
     .client_message_filter(build_client_message_filter(provider))
     .apply_auth(selected);
+
+    if let Some(mapper) = build_client_binary_message_mapper(provider) {
+        plan = plan.client_binary_message_mapper(mapper);
+    }
 
     if let Some(on_close) = build_on_close_callback(config, provider, &analytics_ctx) {
         plan = plan.on_close(on_close);
@@ -531,6 +554,20 @@ mod tests {
     fn test_client_message_filter_non_json_passthrough() {
         let filter = build_client_message_filter(Provider::Soniox);
         assert_eq!(filter("not json".to_string()), Some("not json".to_string()));
+    }
+
+    #[test]
+    fn test_client_binary_message_mapper_elevenlabs_wraps_audio_chunks() {
+        assert!(build_client_binary_message_mapper(Provider::Deepgram).is_none());
+
+        let mapper = build_client_binary_message_mapper(Provider::ElevenLabs).unwrap();
+        let Some(ClientBinaryMessage::Text(text)) = mapper(vec![1, 2, 3]) else {
+            panic!("expected ElevenLabs binary audio to map to text JSON");
+        };
+
+        let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(parsed["message_type"], "input_audio_chunk");
+        assert_eq!(parsed["audio_base_64"], "AQID");
     }
 
     #[test]
