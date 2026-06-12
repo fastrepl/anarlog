@@ -109,6 +109,28 @@ describe("TitleInput", () => {
     ).toBeNull();
   });
 
+  it("marks the title field as a Tauri drag region until it is focused", () => {
+    renderTitleInput();
+
+    const input = screen.getByPlaceholderText("Untitled");
+    const titleInputShell = input.parentElement;
+
+    expect(titleInputShell?.hasAttribute("data-tauri-drag-region")).toBe(true);
+    expect(input.hasAttribute("data-tauri-drag-region")).toBe(false);
+
+    fireEvent.focus(input);
+
+    expect(titleInputShell?.getAttribute("data-tauri-drag-region")).toBe(
+      "false",
+    );
+    expect(input.hasAttribute("data-tauri-drag-region")).toBe(false);
+
+    fireEvent.blur(input);
+
+    expect(titleInputShell?.hasAttribute("data-tauri-drag-region")).toBe(true);
+    expect(input.hasAttribute("data-tauri-drag-region")).toBe(false);
+  });
+
   it("reveals overflowing titles with a hover scroll overlay", () => {
     const title =
       "Product Discovery Pace and Headless Agent Usage Strategy Review";

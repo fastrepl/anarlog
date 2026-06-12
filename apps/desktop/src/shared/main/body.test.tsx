@@ -58,7 +58,18 @@ vi.mock("~/main/tab-content", () => ({
   ClassicMainTabContent: ({ tab }: { tab: { type: string } }) =>
     tab.type === "sessions" ? (
       <div data-testid="main-tab-content">
-        <input aria-label="Session title" />
+        <div data-tauri-drag-region>
+          <input aria-label="Session title" />
+        </div>
+        <button
+          type="button"
+          aria-label="Session tab"
+          data-main-area-window-drag-region
+          data-tauri-drag-region="false"
+        >
+          Summary
+        </button>
+        <input aria-label="Session note field" />
       </div>
     ) : (
       <div data-testid="main-tab-content">{tab.type}</div>
@@ -393,7 +404,7 @@ describe("ClassicMainBody", () => {
     expect(mocks.startDragging).toHaveBeenCalledTimes(1);
   });
 
-  it("does not start window dragging from an input in the top drag strip", () => {
+  it("starts window dragging from an input inside a Tauri drag region", () => {
     mocks.currentTab = {
       active: true,
       pinned: false,
@@ -412,6 +423,35 @@ describe("ClassicMainBody", () => {
       pointerId: 1,
     });
     fireEvent.pointerMove(titleInput, {
+      clientX: 248,
+      clientY: 12,
+      pointerId: 1,
+    });
+
+    expect(mocks.startDragging).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not start window dragging from a regular input in the top drag strip", () => {
+    mocks.currentTab = {
+      active: true,
+      pinned: false,
+      slotId: "slot-1",
+      type: "sessions",
+    };
+
+    render(<ClassicMainBody />);
+
+    const noteInput = screen.getByRole("textbox", {
+      name: "Session note field",
+    });
+
+    fireEvent.pointerDown(noteInput, {
+      button: 0,
+      clientX: 240,
+      clientY: 12,
+      pointerId: 1,
+    });
+    fireEvent.pointerMove(noteInput, {
       clientX: 248,
       clientY: 12,
       pointerId: 1,
@@ -438,6 +478,33 @@ describe("ClassicMainBody", () => {
     });
 
     expect(mocks.startDragging).not.toHaveBeenCalled();
+  });
+
+  it("starts window dragging from an explicit drag target below the top strip", () => {
+    mocks.currentTab = {
+      active: true,
+      pinned: false,
+      slotId: "slot-1",
+      type: "sessions",
+    };
+
+    render(<ClassicMainBody />);
+
+    const tabButton = screen.getByRole("button", { name: "Session tab" });
+
+    fireEvent.pointerDown(tabButton, {
+      button: 0,
+      clientX: 240,
+      clientY: 72,
+      pointerId: 1,
+    });
+    fireEvent.pointerMove(tabButton, {
+      clientX: 248,
+      clientY: 72,
+      pointerId: 1,
+    });
+
+    expect(mocks.startDragging).toHaveBeenCalledTimes(1);
   });
 
   it("renders the shell while the initial tab is still loading", async () => {

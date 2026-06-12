@@ -58,6 +58,7 @@ const TriggerInner = forwardRef<
     <Button
       ref={ref}
       {...props}
+      data-tauri-drag-region="false"
       variant="ghost"
       size="icon"
       type="button"

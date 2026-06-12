@@ -29,14 +29,22 @@ vi.mock("./metadata", () => ({
     renderTrigger ? (
       renderTrigger({ open: false, label: "Open event metadata" })
     ) : (
-      <button type="button" aria-label="Open event metadata">
+      <button
+        type="button"
+        aria-label="Open event metadata"
+        data-tauri-drag-region="false"
+      >
         Metadata
       </button>
     ),
 }));
 
 vi.mock("./overflow", () => ({
-  OverflowButton: () => <button type="button">More</button>,
+  OverflowButton: () => (
+    <button type="button" data-tauri-drag-region="false">
+      More
+    </button>
+  ),
 }));
 
 vi.mock("@hypr/ui/components/ui/dancing-sticks", () => ({
@@ -162,6 +170,8 @@ describe("OuterHeader", () => {
     const titleSlot = titleWrapper?.parentElement;
     const header = titleSlot?.parentElement;
 
+    expect(header?.hasAttribute("data-tauri-drag-region")).toBe(true);
+    expect(titleSlot?.hasAttribute("data-tauri-drag-region")).toBe(true);
     expect(header?.className).toContain("pl-[156px]");
     expect(header?.className).toContain("h-[52px]");
     expect(header?.className).toContain("pb-1");
@@ -319,6 +329,7 @@ describe("OuterHeader", () => {
     });
 
     expect(screen.queryByRole("button", { name: "Join Meet" })).toBeNull();
+    expect(metadataButton.getAttribute("data-tauri-drag-region")).toBe("false");
     expect(metadataButton.textContent).toBe("Metadata");
   });
 });

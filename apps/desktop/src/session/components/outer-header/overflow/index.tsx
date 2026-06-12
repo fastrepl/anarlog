@@ -77,6 +77,7 @@ export function OverflowButton({
       <DropdownMenu open={open} onOpenChange={setOpen}>
         <DropdownMenuTrigger asChild>
           <Button
+            data-tauri-drag-region="false"
             size="icon"
             variant="ghost"
             className="text-muted-foreground hover:bg-accent hover:text-foreground rounded-full"

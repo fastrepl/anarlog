@@ -131,7 +131,7 @@ export const NoteInput = forwardRef<
 
   return (
     <div className="-mx-2 flex h-full flex-col">
-      <div className="relative px-2">
+      <div data-tauri-drag-region className="relative px-2">
         <Header
           sessionId={sessionId}
           editorTabs={editorTabs}

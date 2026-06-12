@@ -35,6 +35,7 @@ export function OuterHeader({
 
   return (
     <div
+      data-tauri-drag-region
       className={cn([
         "relative flex w-full items-center",
         showSidebarTimelineHeaderGutter ? "h-[52px] pb-1" : "h-12",
@@ -43,6 +44,7 @@ export function OuterHeader({
     >
       {title ? (
         <div
+          data-tauri-drag-region
           className={cn([
             "pointer-events-none absolute inset-y-0 flex items-center",
             reserveCollapsedLiveControls ? "right-[153px]" : "right-[70px]",
@@ -56,7 +58,10 @@ export function OuterHeader({
           <div className="pointer-events-auto w-full min-w-0">{title}</div>
         </div>
       ) : null}
-      <div className="relative z-10 ml-auto flex shrink-0 items-center gap-0 pr-1">
+      <div
+        data-tauri-drag-region
+        className="relative z-10 ml-auto flex shrink-0 items-center gap-0 pr-1"
+      >
         <SidebarModeStopButton sessionMode={sessionMode} />
         <HeaderMeetingControl sessionId={sessionId} sessionMode={sessionMode} />
         <OverflowButton sessionId={sessionId} currentView={currentView} />
@@ -133,7 +138,10 @@ function HeaderMeetingJoinButton({
   };
 
   return (
-    <div className="border-border bg-card text-foreground mr-1 flex h-8 max-w-56 shrink-0 items-center overflow-hidden rounded-full border shadow-[0_1px_4px_rgba(0,0,0,0.08)]">
+    <div
+      data-tauri-drag-region="false"
+      className="border-border bg-card text-foreground mr-1 flex h-8 max-w-56 shrink-0 items-center overflow-hidden rounded-full border shadow-[0_1px_4px_rgba(0,0,0,0.08)]"
+    >
       <button
         type="button"
         aria-label={label}
@@ -233,6 +241,7 @@ function SidebarModeStopButton({ sessionMode }: { sessionMode: string }) {
   return (
     <button
       type="button"
+      data-tauri-drag-region="false"
       onClick={finalizing ? undefined : stop}
       disabled={finalizing}
       className={cn([

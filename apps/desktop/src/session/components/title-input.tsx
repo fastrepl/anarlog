@@ -77,7 +77,10 @@ export const TitleInput = forwardRef<
 
     if (isGenerating) {
       return (
-        <div className="flex h-8 w-full items-center justify-start">
+        <div
+          data-tauri-drag-region
+          className="flex h-8 w-full items-center justify-start"
+        >
           <span className="text-muted-foreground animate-pulse text-xl font-semibold">
             Generating title...
           </span>
@@ -87,7 +90,10 @@ export const TitleInput = forwardRef<
 
     if (showRevealAnimation && generatedTitle) {
       return (
-        <div className="flex h-8 w-full items-center justify-start overflow-hidden">
+        <div
+          data-tauri-drag-region
+          className="flex h-8 w-full items-center justify-start overflow-hidden"
+        >
           <span className="animate-reveal-left text-xl font-semibold whitespace-nowrap">
             {generatedTitle}
           </span>
@@ -341,6 +347,7 @@ const TitleInputInner = memo(
 
       return (
         <div
+          data-tauri-drag-region={isTitleFocused ? "false" : true}
           style={titleFadeStyle}
           className="group/title-input relative flex h-8 w-full items-center overflow-hidden"
         >

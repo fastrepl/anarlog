@@ -33,6 +33,7 @@ import { type Tab, uniqueIdfromTab, useTabs } from "~/store/zustand/tabs";
 
 const MAIN_AREA_TOP_DRAG_HEIGHT_PX = 48;
 const MAIN_AREA_WINDOW_DRAG_THRESHOLD_PX = 5;
+const MAIN_AREA_WINDOW_DRAG_REGION_ATTR = "data-main-area-window-drag-region";
 
 type MainAreaWindowDragStart = {
   pointerId: number;
@@ -160,12 +161,16 @@ function useMainAreaTopWindowDrag(enabled: boolean) {
   const handlePointerDown = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
       suppressNextClickRef.current = false;
+      const explicitDragTarget = isExplicitMainAreaWindowDragTarget(
+        event.target,
+      );
 
       if (
         !enabled ||
         event.button !== 0 ||
-        isInteractiveMainAreaDragTarget(event.target) ||
-        !isWithinMainAreaTopDragRegion(event)
+        (!explicitDragTarget &&
+          (isInteractiveMainAreaDragTarget(event.target) ||
+            !isWithinMainAreaTopDragRegion(event)))
       ) {
         windowDragStartRef.current = null;
         return;
@@ -255,6 +260,10 @@ function isInteractiveMainAreaDragTarget(target: EventTarget | null): boolean {
     return false;
   }
 
+  if (isTauriDragRegionTarget(target)) {
+    return false;
+  }
+
   return Boolean(
     target.closest(
       [
@@ -268,6 +277,35 @@ function isInteractiveMainAreaDragTarget(target: EventTarget | null): boolean {
         "[role='textbox']",
       ].join(","),
     ),
+  );
+}
+
+function isExplicitMainAreaWindowDragTarget(
+  target: EventTarget | null,
+): boolean {
+  if (!(target instanceof Element)) {
+    return false;
+  }
+
+  const mainAreaDragRegion = target.closest(
+    `[${MAIN_AREA_WINDOW_DRAG_REGION_ATTR}]`,
+  );
+
+  if (mainAreaDragRegion) {
+    return (
+      mainAreaDragRegion.getAttribute(MAIN_AREA_WINDOW_DRAG_REGION_ATTR) !==
+      "false"
+    );
+  }
+
+  return isTauriDragRegionTarget(target);
+}
+
+function isTauriDragRegionTarget(target: Element): boolean {
+  const dragRegion = target.closest("[data-tauri-drag-region]");
+
+  return Boolean(
+    dragRegion && dragRegion.getAttribute("data-tauri-drag-region") !== "false",
   );
 }
 
