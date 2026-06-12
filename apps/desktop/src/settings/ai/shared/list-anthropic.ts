@@ -5,13 +5,13 @@ import {
   extractMetadataMap,
   fetchJson,
   type InputModality,
-  isDateSnapshot,
   isOldModel,
   type ListModelsResult,
   type ModelIgnoreReason,
   partition,
   REQUEST_TIMEOUT,
   shouldIgnoreCommonKeywords,
+  sortModelsByRecency,
 } from "./list-common";
 
 const AnthropicModelSchema = Schema.Struct({
@@ -43,8 +43,8 @@ export async function listAnthropicModels(
       "anthropic-dangerous-direct-browser-access": "true",
     }),
     Effect.andThen((json) => Schema.decodeUnknown(AnthropicModelSchema)(json)),
-    Effect.map(({ data }) => ({
-      ...partition(
+    Effect.map(({ data }) => {
+      const result = partition(
         data,
         (model) => {
           const reasons: ModelIgnoreReason[] = [];
@@ -54,19 +54,21 @@ export async function listAnthropicModels(
           if (isOldModel(model.id)) {
             reasons.push("old_model");
           }
-          if (isDateSnapshot(model.id)) {
-            reasons.push("date_snapshot");
-          }
           return reasons.length > 0 ? reasons : null;
         },
         (model) => model.id,
-      ),
-      metadata: extractMetadataMap(
-        data,
-        (model) => model.id,
-        (model) => ({ input_modalities: getInputModalities(model.id) }),
-      ),
-    })),
+      );
+
+      return {
+        models: sortModelsByRecency(result.models),
+        ignored: result.ignored,
+        metadata: extractMetadataMap(
+          data,
+          (model) => model.id,
+          (model) => ({ input_modalities: getInputModalities(model.id) }),
+        ),
+      };
+    }),
     Effect.timeout(REQUEST_TIMEOUT),
     Effect.catchAll(() => Effect.succeed(DEFAULT_RESULT)),
     Effect.runPromise,

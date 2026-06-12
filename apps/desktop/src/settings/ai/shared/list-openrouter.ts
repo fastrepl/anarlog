@@ -5,7 +5,6 @@ import {
   extractMetadataMap,
   fetchJson,
   type InputModality,
-  isDateSnapshot,
   isNonChatModel,
   isOldModel,
   type ListModelsResult,
@@ -13,6 +12,7 @@ import {
   partition,
   REQUEST_TIMEOUT,
   shouldIgnoreCommonKeywords,
+  sortModelsByRecency,
 } from "./list-common";
 
 const OpenRouterModelSchema = Schema.Struct({
@@ -42,60 +42,66 @@ export async function listOpenRouterModels(
     return DEFAULT_RESULT;
   }
 
-  const hasCommonIgnoreKeywords = (model: OpenRouterModel): boolean =>
-    shouldIgnoreCommonKeywords(model.id);
-
-  const supportsTextInput = (model: OpenRouterModel): boolean =>
-    !Array.isArray(model.architecture?.input_modalities) ||
-    model.architecture.input_modalities.includes("text");
-
-  const supportsToolUse = (model: OpenRouterModel): boolean =>
-    !model.supported_parameters ||
-    ["tools", "tool_choice"].every((parameter) =>
-      model.supported_parameters?.includes(parameter),
-    );
-
-  const getIgnoreReasons = (
-    model: OpenRouterModel,
-  ): ModelIgnoreReason[] | null => {
-    const reasons: ModelIgnoreReason[] = [];
-    if (hasCommonIgnoreKeywords(model)) {
-      reasons.push("common_keyword");
-    }
-    if (isNonChatModel(model.id)) {
-      reasons.push("not_chat_model");
-    }
-    if (!supportsTextInput(model)) {
-      reasons.push("no_text_input");
-    }
-    if (!supportsToolUse(model)) {
-      reasons.push("no_tool");
-    }
-    if (isOldModel(model.id)) {
-      reasons.push("old_model");
-    }
-    if (isDateSnapshot(model.id)) {
-      reasons.push("date_snapshot");
-    }
-    return reasons.length > 0 ? reasons : null;
-  };
-
   return pipe(
     fetchJson(`${baseUrl}/models`, { Authorization: `Bearer ${apiKey}` }),
     Effect.andThen((json) => Schema.decodeUnknown(OpenRouterModelSchema)(json)),
-    Effect.map(({ data }) => ({
-      ...partition(data, getIgnoreReasons, (model) => model.id),
-      metadata: extractMetadataMap(
-        data,
-        (model) => model.id,
-        (model) => ({ input_modalities: getInputModalities(model) }),
-      ),
-    })),
+    Effect.map(({ data }) => processOpenRouterModels(data)),
     Effect.timeout(REQUEST_TIMEOUT),
     Effect.catchAll(() => Effect.succeed(DEFAULT_RESULT)),
     Effect.runPromise,
   );
 }
+
+export const processOpenRouterModels = (
+  data: ReadonlyArray<OpenRouterModel>,
+): ListModelsResult => {
+  const result = partition(data, getIgnoreReasons, (model) => model.id);
+
+  return {
+    models: sortModelsByRecency(result.models),
+    ignored: result.ignored,
+    metadata: extractMetadataMap(
+      data,
+      (model) => model.id,
+      (model) => ({ input_modalities: getInputModalities(model) }),
+    ),
+  };
+};
+
+const hasCommonIgnoreKeywords = (model: OpenRouterModel): boolean =>
+  shouldIgnoreCommonKeywords(model.id);
+
+const supportsTextInput = (model: OpenRouterModel): boolean =>
+  !Array.isArray(model.architecture?.input_modalities) ||
+  model.architecture.input_modalities.includes("text");
+
+const supportsToolUse = (model: OpenRouterModel): boolean =>
+  !model.supported_parameters ||
+  ["tools", "tool_choice"].every((parameter) =>
+    model.supported_parameters?.includes(parameter),
+  );
+
+const getIgnoreReasons = (
+  model: OpenRouterModel,
+): ModelIgnoreReason[] | null => {
+  const reasons: ModelIgnoreReason[] = [];
+  if (hasCommonIgnoreKeywords(model)) {
+    reasons.push("common_keyword");
+  }
+  if (isNonChatModel(model.id)) {
+    reasons.push("not_chat_model");
+  }
+  if (!supportsTextInput(model)) {
+    reasons.push("no_text_input");
+  }
+  if (!supportsToolUse(model)) {
+    reasons.push("no_tool");
+  }
+  if (isOldModel(model.id)) {
+    reasons.push("old_model");
+  }
+  return reasons.length > 0 ? reasons : null;
+};
 
 const getInputModalities = (model: OpenRouterModel): InputModality[] => {
   const modalities = model.architecture?.input_modalities ?? [];

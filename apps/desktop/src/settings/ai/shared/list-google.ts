@@ -7,11 +7,13 @@ import {
   type InputModality,
   isDateSnapshot,
   isNonChatModel,
+  isOldModel,
   type ListModelsResult,
   type ModelIgnoreReason,
   partition,
   REQUEST_TIMEOUT,
   shouldIgnoreCommonKeywords,
+  sortModelsByRecency,
 } from "./list-common";
 
 const GoogleModelSchema = Schema.Struct({
@@ -51,6 +53,9 @@ export async function listGoogleModels(
     if (isNonChatModel(extractModelId(model))) {
       reasons.push("not_chat_model");
     }
+    if (isOldModel(extractModelId(model))) {
+      reasons.push("old_model");
+    }
     if (!supportsGeneration(model)) {
       reasons.push("no_completion");
     }
@@ -63,12 +68,17 @@ export async function listGoogleModels(
   return pipe(
     fetchJson(`${baseUrl}/models`, { "x-goog-api-key": apiKey }),
     Effect.andThen((json) => Schema.decodeUnknown(GoogleModelSchema)(json)),
-    Effect.map(({ models }) => ({
-      ...partition(models, getIgnoreReasons, extractModelId),
-      metadata: extractMetadataMap(models, extractModelId, (model) => ({
-        input_modalities: getInputModalities(extractModelId(model)),
-      })),
-    })),
+    Effect.map(({ models }) => {
+      const result = partition(models, getIgnoreReasons, extractModelId);
+
+      return {
+        models: sortModelsByRecency(result.models),
+        ignored: result.ignored,
+        metadata: extractMetadataMap(models, extractModelId, (model) => ({
+          input_modalities: getInputModalities(extractModelId(model)),
+        })),
+      };
+    }),
     Effect.timeout(REQUEST_TIMEOUT),
     Effect.catchAll(() => Effect.succeed(DEFAULT_RESULT)),
     Effect.runPromise,

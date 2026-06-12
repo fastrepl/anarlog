@@ -12,6 +12,7 @@ import {
   partition,
   REQUEST_TIMEOUT,
   shouldIgnoreCommonKeywords,
+  sortModelsByRecency,
 } from "./list-common";
 
 const OpenAIModelSchema = Schema.Struct({
@@ -33,8 +34,8 @@ export async function listOpenAIModels(
   return pipe(
     fetchJson(`${baseUrl}/models`, { Authorization: `Bearer ${apiKey}` }),
     Effect.andThen((json) => Schema.decodeUnknown(OpenAIModelSchema)(json)),
-    Effect.map(({ data }) => ({
-      ...partition(
+    Effect.map(({ data }) => {
+      const result = partition(
         data,
         (model) => {
           const reasons: ModelIgnoreReason[] = [];
@@ -53,13 +54,18 @@ export async function listOpenAIModels(
           return reasons.length > 0 ? reasons : null;
         },
         (model) => model.id,
-      ),
-      metadata: extractMetadataMap(
-        data,
-        (model) => model.id,
-        (_model) => ({ input_modalities: ["text", "image"] }),
-      ),
-    })),
+      );
+
+      return {
+        models: sortModelsByRecency(result.models),
+        ignored: result.ignored,
+        metadata: extractMetadataMap(
+          data,
+          (model) => model.id,
+          (_model) => ({ input_modalities: ["text", "image"] }),
+        ),
+      };
+    }),
     Effect.timeout(REQUEST_TIMEOUT),
     Effect.catchAll(() => Effect.succeed(DEFAULT_RESULT)),
     Effect.runPromise,
@@ -77,8 +83,8 @@ export async function listGenericModels(
   return pipe(
     fetchJson(`${baseUrl}/models`, { Authorization: `Bearer ${apiKey}` }),
     Effect.andThen((json) => Schema.decodeUnknown(OpenAIModelSchema)(json)),
-    Effect.map(({ data }) => ({
-      ...partition(
+    Effect.map(({ data }) => {
+      const result = partition(
         data,
         (model) => {
           const reasons: ModelIgnoreReason[] = [];
@@ -97,13 +103,18 @@ export async function listGenericModels(
           return reasons.length > 0 ? reasons : null;
         },
         (model) => model.id,
-      ),
-      metadata: extractMetadataMap(
-        data,
-        (model) => model.id,
-        () => ({ input_modalities: ["text"] }),
-      ),
-    })),
+      );
+
+      return {
+        models: sortModelsByRecency(result.models),
+        ignored: result.ignored,
+        metadata: extractMetadataMap(
+          data,
+          (model) => model.id,
+          () => ({ input_modalities: ["text"] }),
+        ),
+      };
+    }),
     Effect.timeout(REQUEST_TIMEOUT),
     Effect.catchAll(() => Effect.succeed(DEFAULT_RESULT)),
     Effect.runPromise,

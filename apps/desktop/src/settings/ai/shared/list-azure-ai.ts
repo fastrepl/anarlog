@@ -4,11 +4,13 @@ import {
   DEFAULT_RESULT,
   extractMetadataMap,
   fetchJson,
+  isOldModel,
   type ListModelsResult,
   type ModelIgnoreReason,
   partition,
   REQUEST_TIMEOUT,
   shouldIgnoreCommonKeywords,
+  sortModelsByRecency,
 } from "./list-common";
 
 const AzureAIDeploymentSchema = Schema.Struct({
@@ -35,24 +37,32 @@ export async function listAzureAIModels(
     Effect.andThen((json) =>
       Schema.decodeUnknown(AzureAIDeploymentSchema)(json),
     ),
-    Effect.map(({ data }) => ({
-      ...partition(
+    Effect.map(({ data }) => {
+      const result = partition(
         data,
         (model) => {
           const reasons: ModelIgnoreReason[] = [];
           if (shouldIgnoreCommonKeywords(model.id)) {
             reasons.push("common_keyword");
           }
+          if (isOldModel(model.id)) {
+            reasons.push("old_model");
+          }
           return reasons.length > 0 ? reasons : null;
         },
         (model) => model.id,
-      ),
-      metadata: extractMetadataMap(
-        data,
-        (model) => model.id,
-        (_model) => ({ input_modalities: ["text", "image"] }),
-      ),
-    })),
+      );
+
+      return {
+        models: sortModelsByRecency(result.models),
+        ignored: result.ignored,
+        metadata: extractMetadataMap(
+          data,
+          (model) => model.id,
+          (_model) => ({ input_modalities: ["text", "image"] }),
+        ),
+      };
+    }),
     Effect.timeout(REQUEST_TIMEOUT),
     Effect.catchAll(() => Effect.succeed(DEFAULT_RESULT)),
     Effect.runPromise,

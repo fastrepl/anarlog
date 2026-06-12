@@ -5,12 +5,14 @@ import {
   extractMetadataMap,
   fetchJson,
   isDateSnapshot,
+  isNonChatModel,
   isOldModel,
   type ListModelsResult,
   type ModelIgnoreReason,
   partition,
   REQUEST_TIMEOUT,
   shouldIgnoreCommonKeywords,
+  sortModelsByRecency,
 } from "./list-common";
 
 const AzureOpenAIModelSchema = Schema.Struct({
@@ -44,13 +46,16 @@ export async function listAzureOpenAIModels(
     Effect.andThen((json) =>
       Schema.decodeUnknown(AzureOpenAIModelSchema)(json),
     ),
-    Effect.map(({ data }) => ({
-      ...partition(
+    Effect.map(({ data }) => {
+      const result = partition(
         data,
         (model) => {
           const reasons: ModelIgnoreReason[] = [];
           if (shouldIgnoreCommonKeywords(model.id)) {
             reasons.push("common_keyword");
+          }
+          if (isNonChatModel(model.id)) {
+            reasons.push("not_chat_model");
           }
           if (isOldModel(model.id)) {
             reasons.push("old_model");
@@ -68,13 +73,18 @@ export async function listAzureOpenAIModels(
           return reasons.length > 0 ? reasons : null;
         },
         (model) => model.id,
-      ),
-      metadata: extractMetadataMap(
-        data,
-        (model) => model.id,
-        (_model) => ({ input_modalities: ["text", "image"] }),
-      ),
-    })),
+      );
+
+      return {
+        models: sortModelsByRecency(result.models),
+        ignored: result.ignored,
+        metadata: extractMetadataMap(
+          data,
+          (model) => model.id,
+          (_model) => ({ input_modalities: ["text", "image"] }),
+        ),
+      };
+    }),
     Effect.timeout(REQUEST_TIMEOUT),
     Effect.catchAll(() => Effect.succeed(DEFAULT_RESULT)),
     Effect.runPromise,

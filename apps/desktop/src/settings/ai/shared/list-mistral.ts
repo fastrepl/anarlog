@@ -5,12 +5,13 @@ import {
   extractMetadataMap,
   fetchJson,
   type InputModality,
-  isDateSnapshot,
+  isOldModel,
   type ListModelsResult,
   type ModelIgnoreReason,
   partition,
   REQUEST_TIMEOUT,
   shouldIgnoreCommonKeywords,
+  sortModelsByRecency,
 } from "./list-common";
 
 const MistralCapabilitiesSchema = Schema.Struct({
@@ -52,8 +53,8 @@ export async function listMistralModels(
     if (!supportsChatCompletion(model)) {
       reasons.push("no_completion");
     }
-    if (isDateSnapshot(model.id)) {
-      reasons.push("date_snapshot");
+    if (isOldModel(model.id)) {
+      reasons.push("old_model");
     }
     return reasons.length > 0 ? reasons : null;
   };
@@ -65,16 +66,21 @@ export async function listMistralModels(
   return pipe(
     fetchJson(`${baseUrl}/models`, { Authorization: `Bearer ${apiKey}` }),
     Effect.andThen((json) => Schema.decodeUnknown(MistralModelSchema)(json)),
-    Effect.map(({ data }) => ({
-      ...partition(data, getIgnoreReasons, (model) => model.id),
-      metadata: extractMetadataMap(
-        data,
-        (model) => model.id,
-        (model) => ({
-          input_modalities: getInputModalities(model),
-        }),
-      ),
-    })),
+    Effect.map(({ data }) => {
+      const result = partition(data, getIgnoreReasons, (model) => model.id);
+
+      return {
+        models: sortModelsByRecency(result.models),
+        ignored: result.ignored,
+        metadata: extractMetadataMap(
+          data,
+          (model) => model.id,
+          (model) => ({
+            input_modalities: getInputModalities(model),
+          }),
+        ),
+      };
+    }),
     Effect.timeout(REQUEST_TIMEOUT),
     Effect.catchAll(() => Effect.succeed(DEFAULT_RESULT)),
     Effect.runPromise,

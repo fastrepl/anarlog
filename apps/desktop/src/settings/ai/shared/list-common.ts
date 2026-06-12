@@ -47,6 +47,31 @@ const commonIgnoreKeywords = [
   "moderation",
   "codex",
   "transcribe",
+  "search-api",
+] as const;
+
+const modelPriorityPatterns = [
+  /(?:^|\/)gpt-5\.5-pro$/,
+  /(?:^|\/)gpt-5\.5$/,
+  /(?:^|\/)(?:chat-latest|gpt-chat-latest)$/,
+  /(?:^|\/)gpt-5\.4-pro$/,
+  /(?:^|\/)gpt-5\.4$/,
+  /(?:^|\/)gpt-5\.4-mini$/,
+  /(?:^|\/)gpt-5\.4-nano$/,
+  /(?:^|\/)claude-fable-5$/,
+  /(?:^|\/)claude-opus-4[-.]8$/,
+  /(?:^|\/)claude-sonnet-4[-.]6$/,
+  /(?:^|\/)claude-haiku-4[-.]5(?:-\d{8})?$/,
+  /(?:^|\/)gemini-3\.1-pro-preview$/,
+  /(?:^|\/)gemini-3\.5-flash$/,
+  /(?:^|\/)gemini-3-flash-preview$/,
+  /(?:^|\/)gemini-3\.1-flash-lite$/,
+  /(?:^|\/)mistral-medium-3[-.]5/,
+  /(?:^|\/)(?:mistral-small-4|mistral-small-latest)/,
+  /(?:^|\/)(?:mistral-large-3|mistral-large-2512)/,
+  /(?:^|\/)devstral-2/,
+  /(?:^|\/)magistral-medium-(?:1[-.]2|2509)/,
+  /(?:^|\/)ministral-(?:3|14b-2512|8b-2512|3b-2512)/,
 ] as const;
 
 export const fetchJson = (url: string, headers: Record<string, string>) =>
@@ -90,11 +115,60 @@ export const isNonChatModel = (id: string): boolean => {
 
 export const isOldModel = (id: string): boolean => {
   const lowerId = id.toLowerCase();
-  if (/^gpt-3\.5/.test(lowerId)) return true;
-  if (/^gpt-4(?!o|\.)/.test(lowerId)) return true;
-  if (/^(davinci|babbage|curie|ada)(-|$)/.test(lowerId)) return true;
-  if (/^claude-(2|instant)/.test(lowerId)) return true;
+  const name = lowerId.includes("/") ? lowerId.split("/").pop()! : lowerId;
+  const dashedName = name.replace(/\./g, "-");
+
+  if (/^gpt-3\.5/.test(name)) return true;
+  if (/^gpt-4/.test(name)) return true;
+  if (/^gpt-5($|-)/.test(name)) return true;
+  if (/^gpt-5\.[1-3]($|-)/.test(name)) return true;
+  if (/^(davinci|babbage|curie|ada)(-|$)/.test(name)) return true;
+  if (/^claude-(2|3|instant)/.test(dashedName)) return true;
+  if (
+    /^claude-opus-4($|-)/.test(dashedName) &&
+    !/^claude-opus-4-8($|-)/.test(dashedName)
+  ) {
+    return true;
+  }
+  if (
+    /^claude-sonnet-4($|-)/.test(dashedName) &&
+    !/^claude-sonnet-4-6($|-)/.test(dashedName)
+  ) {
+    return true;
+  }
+  if (
+    /^claude-haiku-4($|-)/.test(dashedName) &&
+    !/^claude-haiku-4-5($|-)/.test(dashedName)
+  ) {
+    return true;
+  }
+  if (/^gemini-(1|2)(\.|-)/.test(name)) return true;
+  if (/^(open-)?mistral-(7b|nemo)(-|$)/.test(name)) return true;
+  if (/^open-mixtral/.test(name)) return true;
+  if (/^mistral-large-(24|240|241|2502|2508)/.test(name)) return true;
+  if (/^mistral-medium-(2505|3[.-]1)($|-)/.test(name)) return true;
+  if (/^mistral-small-(3|2503|2506)($|-)/.test(name)) return true;
+  if (/^magistral-(small|medium)-2507($|-)/.test(name)) return true;
+  if (/^ministral-(3b|8b)-24/.test(name)) return true;
   return false;
+};
+
+export const sortModelsByRecency = (models: string[]): string[] => {
+  const priority = (model: string) => {
+    const normalized = model.toLowerCase();
+    const index = modelPriorityPatterns.findIndex((pattern) =>
+      pattern.test(normalized),
+    );
+    return index === -1 ? modelPriorityPatterns.length : index;
+  };
+
+  return [...models].sort((a, b) => {
+    const priorityDelta = priority(a) - priority(b);
+    if (priorityDelta !== 0) {
+      return priorityDelta;
+    }
+    return a.localeCompare(b);
+  });
 };
 
 const hasMetadata = (metadata: ModelMetadata | undefined): boolean => {
