@@ -25,11 +25,11 @@ msgstr "Legg talumál til"
 msgid "Additional spoken languages"
 msgstr "Eyka talumál"
 
-#: src/settings/general/app-settings.tsx:33
+#: src/settings/general/app-settings.tsx:37
 msgid "Always ready without manually launching."
 msgstr "Altíð klárur uttan at seta í gongd manuelt."
 
-#: src/settings/general/index.tsx:133
+#: src/settings/general/index.tsx:139
 msgid "App"
 msgstr "Forrit"
 
@@ -37,11 +37,11 @@ msgstr "Forrit"
 msgid "Appearance"
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:59
+#: src/settings/general/app-settings.tsx:79
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Byrja sjálvvirkandi at lurta, tá ein hendingarstuðlaður notur nær sína ásettu byrjanartíð."
 
-#: src/settings/general/app-settings.tsx:70
+#: src/settings/general/app-settings.tsx:90
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Sjálvvirkandi steðga við at lurta, tá møtiappin sleppur mikrofonini."
 
@@ -53,7 +53,7 @@ msgstr ""
 msgid "Dark"
 msgstr ""
 
-#: src/settings/general/index.tsx:239
+#: src/settings/general/index.tsx:273
 msgid "Data"
 msgstr "Dátur"
 
@@ -61,7 +61,11 @@ msgstr "Dátur"
 msgid "First day of the week in the calendar view"
 msgstr ""
 
-#: src/settings/general/index.tsx:190
+#: src/settings/general/app-settings.tsx:63
+msgid "Keep Anarlog available from the menu bar."
+msgstr ""
+
+#: src/settings/general/index.tsx:224
 msgid "Language & Region"
 msgstr "Mál og øki"
 
@@ -77,7 +81,7 @@ msgstr ""
 msgid "Main language"
 msgstr "Høvuðsmál"
 
-#: src/settings/general/app-settings.tsx:53
+#: src/settings/general/app-settings.tsx:73
 msgid "Meetings"
 msgstr "Fundir"
 
@@ -94,11 +98,11 @@ msgstr "Einki samsvarandi mál er funnið"
 msgid "No results found."
 msgstr ""
 
-#: src/settings/general/index.tsx:249
+#: src/settings/general/index.tsx:283
 msgid "Notifications"
 msgstr "Fráboðanir"
 
-#: src/settings/general/index.tsx:258
+#: src/settings/general/index.tsx:292
 msgid "Permissions"
 msgstr ""
 
@@ -126,31 +130,43 @@ msgstr "Vel mál"
 msgid "Select..."
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:41
+#: src/settings/general/app-settings.tsx:45
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Send dulnevndar nýtslugreiningar fyri at hjálpa til við at betra um Anarlog."
 
-#: src/settings/general/app-settings.tsx:39
+#: src/settings/general/app-settings.tsx:43
 msgid "Share usage data"
 msgstr "Deil nýtsludátur"
 
-#: src/settings/general/app-settings.tsx:79
+#: src/settings/general/app-settings.tsx:55
+msgid "Show Anarlog in the Dock and app switcher."
+msgstr ""
+
+#: src/settings/general/app-settings.tsx:53
+msgid "Show app in Dock"
+msgstr ""
+
+#: src/settings/general/app-settings.tsx:99
 msgid "Show floating bar"
 msgstr "Vís flótandi striku"
 
-#: src/settings/general/app-settings.tsx:81
+#: src/settings/general/app-settings.tsx:101
 msgid "Show the compact floating control while listening."
 msgstr "Vís kompaktu flótandi stýringina, meðan tú lurtar."
 
-#: src/settings/general/app-settings.tsx:31
+#: src/settings/general/app-settings.tsx:61
+msgid "Show tray icon"
+msgstr ""
+
+#: src/settings/general/app-settings.tsx:35
 msgid "Start Anarlog at login"
 msgstr "Byrja Anarlog við innritan"
 
-#: src/settings/general/app-settings.tsx:57
+#: src/settings/general/app-settings.tsx:77
 msgid "Start when meeting begins"
 msgstr "Byrja tá møtið byrjar"
 
-#: src/settings/general/app-settings.tsx:68
+#: src/settings/general/app-settings.tsx:88
 msgid "Stop when meeting ends"
 msgstr "Steðga á, tá ið fundurin endar"
 

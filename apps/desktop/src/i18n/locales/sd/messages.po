@@ -25,11 +25,11 @@ msgstr "ڳالهائيندڙ ٻولي شامل ڪريو"
 msgid "Additional spoken languages"
 msgstr "اضافي ڳالهائيندڙ ٻوليون"
 
-#: src/settings/general/app-settings.tsx:33
+#: src/settings/general/app-settings.tsx:37
 msgid "Always ready without manually launching."
 msgstr "دستي طور تي لانچ ڪرڻ کان سواءِ هميشه تيار."
 
-#: src/settings/general/index.tsx:133
+#: src/settings/general/index.tsx:139
 msgid "App"
 msgstr "ايپ"
 
@@ -37,11 +37,11 @@ msgstr "ايپ"
 msgid "Appearance"
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:59
+#: src/settings/general/app-settings.tsx:79
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "خود بخود ٻڌڻ شروع ڪريو جڏھن ھڪڙي واقعي جي پٺڀرائي نوٽ پنھنجي مقرر ڪيل وقت تي پھچي."
 
-#: src/settings/general/app-settings.tsx:70
+#: src/settings/general/app-settings.tsx:90
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "خود بخود ٻڌڻ بند ڪريو جڏھن ميٽنگ ايپ مائڪروفون جاري ڪري ٿي."
 
@@ -53,7 +53,7 @@ msgstr ""
 msgid "Dark"
 msgstr ""
 
-#: src/settings/general/index.tsx:239
+#: src/settings/general/index.tsx:273
 msgid "Data"
 msgstr "ڊيٽا"
 
@@ -61,7 +61,11 @@ msgstr "ڊيٽا"
 msgid "First day of the week in the calendar view"
 msgstr ""
 
-#: src/settings/general/index.tsx:190
+#: src/settings/general/app-settings.tsx:63
+msgid "Keep Anarlog available from the menu bar."
+msgstr ""
+
+#: src/settings/general/index.tsx:224
 msgid "Language & Region"
 msgstr "ٻولي ۽ علائقو"
 
@@ -77,7 +81,7 @@ msgstr ""
 msgid "Main language"
 msgstr "مکيه ٻولي"
 
-#: src/settings/general/app-settings.tsx:53
+#: src/settings/general/app-settings.tsx:73
 msgid "Meetings"
 msgstr "ملاقات"
 
@@ -94,11 +98,11 @@ msgstr "ڪابه ملندڙ ٻوليون نه مليون"
 msgid "No results found."
 msgstr ""
 
-#: src/settings/general/index.tsx:249
+#: src/settings/general/index.tsx:283
 msgid "Notifications"
 msgstr "اطلاعات"
 
-#: src/settings/general/index.tsx:258
+#: src/settings/general/index.tsx:292
 msgid "Permissions"
 msgstr ""
 
@@ -126,31 +130,43 @@ msgstr "ٻولي چونڊيو"
 msgid "Select..."
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:41
+#: src/settings/general/app-settings.tsx:45
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "انارلاگ کي بهتر ڪرڻ ۾ مدد لاءِ گمنام استعمال جا تجزيا موڪليو."
 
-#: src/settings/general/app-settings.tsx:39
+#: src/settings/general/app-settings.tsx:43
 msgid "Share usage data"
 msgstr "استعمال ڊيٽا حصيداري ڪريو"
 
-#: src/settings/general/app-settings.tsx:79
+#: src/settings/general/app-settings.tsx:55
+msgid "Show Anarlog in the Dock and app switcher."
+msgstr ""
+
+#: src/settings/general/app-settings.tsx:53
+msgid "Show app in Dock"
+msgstr ""
+
+#: src/settings/general/app-settings.tsx:99
 msgid "Show floating bar"
 msgstr "سچل بار ڏيکاريو"
 
-#: src/settings/general/app-settings.tsx:81
+#: src/settings/general/app-settings.tsx:101
 msgid "Show the compact floating control while listening."
 msgstr "ٻڌڻ دوران ڪمپيڪٽ سچل ڪنٽرول ڏيکاريو."
 
-#: src/settings/general/app-settings.tsx:31
+#: src/settings/general/app-settings.tsx:61
+msgid "Show tray icon"
+msgstr ""
+
+#: src/settings/general/app-settings.tsx:35
 msgid "Start Anarlog at login"
 msgstr "لاگ ان تي Anarlog شروع ڪريو"
 
-#: src/settings/general/app-settings.tsx:57
+#: src/settings/general/app-settings.tsx:77
 msgid "Start when meeting begins"
 msgstr "شروع ڪريو جڏهن ميٽنگ شروع ٿئي"
 
-#: src/settings/general/app-settings.tsx:68
+#: src/settings/general/app-settings.tsx:88
 msgid "Stop when meeting ends"
 msgstr "جڏهن ميٽنگ ختم ٿئي ته روڪيو"
 

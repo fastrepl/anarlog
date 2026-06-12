@@ -13,6 +13,8 @@ interface AppSettingsViewProps {
   autoStartScheduledMeetings: SettingItem;
   autoStopMeetings: SettingItem;
   floatingBar: SettingItem;
+  showAppInDock: SettingItem;
+  showTrayIcon: SettingItem;
   telemetryConsent: SettingItem;
 }
 
@@ -21,6 +23,8 @@ export function AppSettingsView({
   autoStartScheduledMeetings,
   autoStopMeetings,
   floatingBar,
+  showAppInDock,
+  showTrayIcon,
   telemetryConsent,
 }: AppSettingsViewProps) {
   return (
@@ -44,6 +48,22 @@ export function AppSettingsView({
             }
             checked={telemetryConsent.value}
             onChange={telemetryConsent.onChange}
+          />
+          <SettingRow
+            title={<Trans>Show app in Dock</Trans>}
+            description={
+              <Trans>Show Anarlog in the Dock and app switcher.</Trans>
+            }
+            checked={showAppInDock.value}
+            onChange={showAppInDock.onChange}
+          />
+          <SettingRow
+            title={<Trans>Show tray icon</Trans>}
+            description={
+              <Trans>Keep Anarlog available from the menu bar.</Trans>
+            }
+            checked={showTrayIcon.value}
+            onChange={showTrayIcon.onChange}
           />
         </div>
       </section>

@@ -13,7 +13,11 @@ import {
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 import { commands as detectCommands } from "@hypr/plugin-detect";
 import { commands as localSttCommands } from "@hypr/plugin-local-stt";
-import { getCurrentWebviewWindowLabel } from "@hypr/plugin-windows";
+import { commands as trayCommands } from "@hypr/plugin-tray";
+import {
+  commands as windowsCommands,
+  getCurrentWebviewWindowLabel,
+} from "@hypr/plugin-windows";
 
 import { registerSaveHandler } from "./save";
 
@@ -45,6 +49,16 @@ export const SETTINGS_MAPPING = {
     floating_bar_enabled: {
       type: "boolean",
       path: ["general", "floating_bar_enabled"],
+      default: true as boolean,
+    },
+    show_app_in_dock: {
+      type: "boolean",
+      path: ["general", "show_app_in_dock"],
+      default: true as boolean,
+    },
+    show_tray_icon: {
+      type: "boolean",
+      path: ["general", "show_tray_icon"],
       default: true as boolean,
     },
     theme: {
@@ -363,6 +377,12 @@ const SETTINGS_LISTENERS: SettingsListeners = {
   current_stt_model: (store) => syncLocalSttServer(store),
   telemetry_consent: (_store, newValue) => {
     analyticsCommands.setDisabled(!newValue).catch(console.error);
+  },
+  show_app_in_dock: (_store, newValue) => {
+    windowsCommands.setShowAppInDock(newValue).catch(console.error);
+  },
+  show_tray_icon: (_store, newValue) => {
+    trayCommands.setTrayIconVisible(newValue).catch(console.error);
   },
 };
 

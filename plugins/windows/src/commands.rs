@@ -37,6 +37,18 @@ pub async fn window_destroy(
 
 #[tauri::command]
 #[specta::specta]
+pub async fn set_show_app_in_dock(
+    app: tauri::AppHandle<tauri::Wry>,
+    show: bool,
+) -> Result<(), String> {
+    app.windows()
+        .set_show_app_in_dock(show)
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn window_navigate(
     app: tauri::AppHandle<tauri::Wry>,
     window: AppWindow,

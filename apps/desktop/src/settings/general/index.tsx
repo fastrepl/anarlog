@@ -31,6 +31,8 @@ function useSettingsForm() {
     "auto_start_scheduled_meetings",
     "auto_stop_meetings",
     "floating_bar_enabled",
+    "show_app_in_dock",
+    "show_tray_icon",
     "notification_detect",
     "telemetry_consent",
     "ai_language",
@@ -68,6 +70,8 @@ function useSettingsForm() {
       auto_start_scheduled_meetings: value.auto_start_scheduled_meetings,
       auto_stop_meetings: value.auto_stop_meetings,
       floating_bar_enabled: value.floating_bar_enabled,
+      show_app_in_dock: value.show_app_in_dock,
+      show_tray_icon: value.show_tray_icon,
       notification_detect: value.notification_detect,
       telemetry_consent: value.telemetry_consent,
       ai_language: value.ai_language,
@@ -111,6 +115,8 @@ function useSettingsForm() {
           normalizedValue.auto_start_scheduled_meetings,
         auto_stop_meetings: normalizedValue.auto_stop_meetings,
         floating_bar_enabled: normalizedValue.floating_bar_enabled,
+        show_app_in_dock: normalizedValue.show_app_in_dock,
+        show_tray_icon: normalizedValue.show_tray_icon,
         notification_detect: normalizedValue.notification_detect,
         telemetry_consent: normalizedValue.telemetry_consent,
       });
@@ -141,38 +147,66 @@ export function SettingsApp() {
                   {(autoStopMeetingsField) => (
                     <form.Field name="floating_bar_enabled">
                       {(floatingBarEnabledField) => (
-                        <form.Field name="telemetry_consent">
-                          {(telemetryConsentField) => (
-                            <AppSettingsView
-                              autostart={{
-                                value: autostartField.state.value,
-                                onChange: (val) =>
-                                  autostartField.handleChange(val),
-                              }}
-                              autoStartScheduledMeetings={{
-                                value:
-                                  autoStartScheduledMeetingsField.state.value,
-                                onChange: (val) =>
-                                  autoStartScheduledMeetingsField.handleChange(
-                                    val,
-                                  ),
-                              }}
-                              autoStopMeetings={{
-                                value: autoStopMeetingsField.state.value,
-                                onChange: (val) =>
-                                  autoStopMeetingsField.handleChange(val),
-                              }}
-                              floatingBar={{
-                                value: floatingBarEnabledField.state.value,
-                                onChange: (val) =>
-                                  floatingBarEnabledField.handleChange(val),
-                              }}
-                              telemetryConsent={{
-                                value: telemetryConsentField.state.value,
-                                onChange: (val) =>
-                                  telemetryConsentField.handleChange(val),
-                              }}
-                            />
+                        <form.Field name="show_app_in_dock">
+                          {(showAppInDockField) => (
+                            <form.Field name="show_tray_icon">
+                              {(showTrayIconField) => (
+                                <form.Field name="telemetry_consent">
+                                  {(telemetryConsentField) => (
+                                    <AppSettingsView
+                                      autostart={{
+                                        value: autostartField.state.value,
+                                        onChange: (val) =>
+                                          autostartField.handleChange(val),
+                                      }}
+                                      autoStartScheduledMeetings={{
+                                        value:
+                                          autoStartScheduledMeetingsField.state
+                                            .value,
+                                        onChange: (val) =>
+                                          autoStartScheduledMeetingsField.handleChange(
+                                            val,
+                                          ),
+                                      }}
+                                      autoStopMeetings={{
+                                        value:
+                                          autoStopMeetingsField.state.value,
+                                        onChange: (val) =>
+                                          autoStopMeetingsField.handleChange(
+                                            val,
+                                          ),
+                                      }}
+                                      floatingBar={{
+                                        value:
+                                          floatingBarEnabledField.state.value,
+                                        onChange: (val) =>
+                                          floatingBarEnabledField.handleChange(
+                                            val,
+                                          ),
+                                      }}
+                                      showAppInDock={{
+                                        value: showAppInDockField.state.value,
+                                        onChange: (val) =>
+                                          showAppInDockField.handleChange(val),
+                                      }}
+                                      showTrayIcon={{
+                                        value: showTrayIconField.state.value,
+                                        onChange: (val) =>
+                                          showTrayIconField.handleChange(val),
+                                      }}
+                                      telemetryConsent={{
+                                        value:
+                                          telemetryConsentField.state.value,
+                                        onChange: (val) =>
+                                          telemetryConsentField.handleChange(
+                                            val,
+                                          ),
+                                      }}
+                                    />
+                                  )}
+                                </form.Field>
+                              )}
+                            </form.Field>
                           )}
                         </form.Field>
                       )}

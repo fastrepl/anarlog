@@ -25,11 +25,11 @@ msgstr "Оозеки тилди кошуңуз"
 msgid "Additional spoken languages"
 msgstr "Кошумча сүйлөө тилдери"
 
-#: src/settings/general/app-settings.tsx:33
+#: src/settings/general/app-settings.tsx:37
 msgid "Always ready without manually launching."
 msgstr "Кол менен ишке киргизбестен ар дайым даяр."
 
-#: src/settings/general/index.tsx:133
+#: src/settings/general/index.tsx:139
 msgid "App"
 msgstr "Колдонмо"
 
@@ -37,11 +37,11 @@ msgstr "Колдонмо"
 msgid "Appearance"
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:59
+#: src/settings/general/app-settings.tsx:79
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Окуяга негизделген эскертүү пландаштырылган башталуу убактысына жеткенде, автоматтык түрдө угууну баштаңыз."
 
-#: src/settings/general/app-settings.tsx:70
+#: src/settings/general/app-settings.tsx:90
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Жолугушуу колдонмосу микрофонду чыгарганда, угууну автоматтык түрдө токтотот."
 
@@ -53,7 +53,7 @@ msgstr ""
 msgid "Dark"
 msgstr ""
 
-#: src/settings/general/index.tsx:239
+#: src/settings/general/index.tsx:273
 msgid "Data"
 msgstr "Маалымат"
 
@@ -61,7 +61,11 @@ msgstr "Маалымат"
 msgid "First day of the week in the calendar view"
 msgstr ""
 
-#: src/settings/general/index.tsx:190
+#: src/settings/general/app-settings.tsx:63
+msgid "Keep Anarlog available from the menu bar."
+msgstr ""
+
+#: src/settings/general/index.tsx:224
 msgid "Language & Region"
 msgstr "Тил жана аймак"
 
@@ -77,7 +81,7 @@ msgstr ""
 msgid "Main language"
 msgstr "Негизги тил"
 
-#: src/settings/general/app-settings.tsx:53
+#: src/settings/general/app-settings.tsx:73
 msgid "Meetings"
 msgstr "Жолугушуулар"
 
@@ -94,11 +98,11 @@ msgstr "Дал келген тилдер табылган жок"
 msgid "No results found."
 msgstr ""
 
-#: src/settings/general/index.tsx:249
+#: src/settings/general/index.tsx:283
 msgid "Notifications"
 msgstr "Эскертмелер"
 
-#: src/settings/general/index.tsx:258
+#: src/settings/general/index.tsx:292
 msgid "Permissions"
 msgstr ""
 
@@ -126,31 +130,43 @@ msgstr "Тилди тандаңыз"
 msgid "Select..."
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:41
+#: src/settings/general/app-settings.tsx:45
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Anarlog'ту жакшыртууга жардам берүү үчүн анонимдүү колдонуу аналитикасын жөнөтүңүз."
 
-#: src/settings/general/app-settings.tsx:39
+#: src/settings/general/app-settings.tsx:43
 msgid "Share usage data"
 msgstr "Колдонуу дайындарын бөлүшүү"
 
-#: src/settings/general/app-settings.tsx:79
+#: src/settings/general/app-settings.tsx:55
+msgid "Show Anarlog in the Dock and app switcher."
+msgstr ""
+
+#: src/settings/general/app-settings.tsx:53
+msgid "Show app in Dock"
+msgstr ""
+
+#: src/settings/general/app-settings.tsx:99
 msgid "Show floating bar"
 msgstr "Калкуучу тилкени көрсөтүү"
 
-#: src/settings/general/app-settings.tsx:81
+#: src/settings/general/app-settings.tsx:101
 msgid "Show the compact floating control while listening."
 msgstr "Угуу учурунда чакан калкыма башкарууну көрсөтүңүз."
 
-#: src/settings/general/app-settings.tsx:31
+#: src/settings/general/app-settings.tsx:61
+msgid "Show tray icon"
+msgstr ""
+
+#: src/settings/general/app-settings.tsx:35
 msgid "Start Anarlog at login"
 msgstr "Кирүү учурунда Anarlogти баштаңыз"
 
-#: src/settings/general/app-settings.tsx:57
+#: src/settings/general/app-settings.tsx:77
 msgid "Start when meeting begins"
 msgstr "Жолугушуу башталганда баштаңыз"
 
-#: src/settings/general/app-settings.tsx:68
+#: src/settings/general/app-settings.tsx:88
 msgid "Stop when meeting ends"
 msgstr "Жолугушуу аяктаганда токтоңуз"
 

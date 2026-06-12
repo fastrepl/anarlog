@@ -57,6 +57,7 @@
     "@hypr/plugin-tantivy": "workspace:*",
     "@hypr/plugin-template": "workspace:*",
     "@hypr/plugin-todo": "workspace:*",
+    "@hypr/plugin-tray": "workspace:*",
     "@hypr/plugin-transcription": "workspace:*",
     "@hypr/plugin-updater2": "workspace:*",
     "@hypr/plugin-windows": "workspace:*",

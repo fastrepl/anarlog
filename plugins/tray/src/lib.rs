@@ -1,3 +1,4 @@
+mod commands;
 mod ext;
 mod menu_items;
 mod tray_icon;
@@ -51,10 +52,12 @@ fn setup_update_listeners(app: &tauri::AppHandle) {
     });
 }
 
-fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
-    tauri_specta::Builder::<R>::new()
+fn make_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
+    tauri_specta::Builder::<tauri::Wry>::new()
         .plugin_name(PLUGIN_NAME)
-        .commands(tauri_specta::collect_commands![])
+        .commands(tauri_specta::collect_commands![
+            commands::set_tray_icon_visible,
+        ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }
 
@@ -66,7 +69,7 @@ mod test {
     fn export_types() {
         const OUTPUT_FILE: &str = "./js/bindings.gen.ts";
 
-        make_specta_builder::<tauri::Wry>()
+        make_specta_builder()
             .export(
                 specta_typescript::Typescript::default()
                     .formatter(specta_typescript::formatter::prettier)

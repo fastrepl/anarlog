@@ -235,7 +235,16 @@ impl AppWindow {
     fn prepare_show(&self, app: &AppHandle<tauri::Wry>) {
         #[cfg(target_os = "macos")]
         if matches!(self, Self::Main) {
-            let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
+            let show_app_in_dock = app
+                .try_state::<crate::DockVisibilityState>()
+                .map(|state| state.show_app_in_dock())
+                .unwrap_or(true);
+            let policy = if show_app_in_dock {
+                tauri::ActivationPolicy::Regular
+            } else {
+                tauri::ActivationPolicy::Accessory
+            };
+            let _ = app.set_activation_policy(policy);
         }
 
         if matches!(self, Self::Main) {
@@ -639,6 +648,31 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Windows<'a, tauri::Wry, M> {
 
     pub fn destroy(&self, window: AppWindow) -> Result<(), crate::Error> {
         window.destroy(self.manager.app_handle())
+    }
+
+    pub fn set_show_app_in_dock(&self, show: bool) -> Result<(), crate::Error> {
+        let app = self.manager.app_handle();
+
+        if let Some(state) = app.try_state::<crate::DockVisibilityState>() {
+            state.set_show_app_in_dock(show);
+        }
+
+        #[cfg(target_os = "macos")]
+        {
+            let policy = if show {
+                tauri::ActivationPolicy::Regular
+            } else {
+                tauri::ActivationPolicy::Accessory
+            };
+            app.set_activation_policy(policy)?;
+        }
+
+        #[cfg(not(target_os = "macos"))]
+        {
+            let _ = app;
+        }
+
+        Ok(())
     }
 
     pub fn is_focused(&self, window: AppWindow) -> Result<bool, crate::Error> {

@@ -275,6 +275,8 @@ export const generalSchema = z.object({
   auto_stop_meetings: z.boolean().default(true),
   auto_start_scheduled_meetings: z.boolean().default(true),
   floating_bar_enabled: z.boolean().default(true),
+  show_app_in_dock: z.boolean().default(true),
+  show_tray_icon: z.boolean().default(true),
   telemetry_consent: z.boolean().default(true),
   save_recordings: z.boolean().default(true),
   audio_retention: z.string().default("forever"),

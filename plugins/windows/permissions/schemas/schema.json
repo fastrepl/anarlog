@@ -379,6 +379,18 @@
           "markdownDescription": "Denies the set_fake_window_bounds command without any pre-configured scope."
         },
         {
+          "description": "Enables the set_show_app_in_dock command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-show-app-in-dock",
+          "markdownDescription": "Enables the set_show_app_in_dock command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_show_app_in_dock command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-show-app-in-dock",
+          "markdownDescription": "Denies the set_show_app_in_dock command without any pre-configured scope."
+        },
+        {
           "description": "Enables the window_destroy command without any pre-configured scope.",
           "type": "string",
           "const": "allow-window-destroy",
@@ -523,10 +535,10 @@
           "markdownDescription": "Denies the window_show command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-window-show`\n- `allow-window-hide`\n- `allow-window-destroy`\n- `allow-window-navigate`\n- `allow-window-emit-navigate`\n- `allow-window-is-exists`\n- `allow-window-is-occluded`\n- `allow-window-set-frame-animated`\n- `allow-window-save-frame`\n- `allow-window-restore-frame-animated`\n- `allow-window-expand-width`\n- `allow-window-restore-width`\n- `allow-floating-bar-show`\n- `allow-floating-bar-hide`\n- `allow-floating-bar-update`\n- `allow-devtools-panel-show`\n- `allow-devtools-panel-hide`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-window-show`\n- `allow-window-hide`\n- `allow-window-destroy`\n- `allow-window-navigate`\n- `allow-window-emit-navigate`\n- `allow-window-is-exists`\n- `allow-window-is-occluded`\n- `allow-window-set-frame-animated`\n- `allow-window-save-frame`\n- `allow-window-restore-frame-animated`\n- `allow-window-expand-width`\n- `allow-window-restore-width`\n- `allow-set-show-app-in-dock`\n- `allow-floating-bar-show`\n- `allow-floating-bar-hide`\n- `allow-floating-bar-update`\n- `allow-devtools-panel-show`\n- `allow-devtools-panel-hide`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-window-show`\n- `allow-window-hide`\n- `allow-window-destroy`\n- `allow-window-navigate`\n- `allow-window-emit-navigate`\n- `allow-window-is-exists`\n- `allow-window-is-occluded`\n- `allow-window-set-frame-animated`\n- `allow-window-save-frame`\n- `allow-window-restore-frame-animated`\n- `allow-window-expand-width`\n- `allow-window-restore-width`\n- `allow-floating-bar-show`\n- `allow-floating-bar-hide`\n- `allow-floating-bar-update`\n- `allow-devtools-panel-show`\n- `allow-devtools-panel-hide`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-window-show`\n- `allow-window-hide`\n- `allow-window-destroy`\n- `allow-window-navigate`\n- `allow-window-emit-navigate`\n- `allow-window-is-exists`\n- `allow-window-is-occluded`\n- `allow-window-set-frame-animated`\n- `allow-window-save-frame`\n- `allow-window-restore-frame-animated`\n- `allow-window-expand-width`\n- `allow-window-restore-width`\n- `allow-set-show-app-in-dock`\n- `allow-floating-bar-show`\n- `allow-floating-bar-hide`\n- `allow-floating-bar-update`\n- `allow-devtools-panel-show`\n- `allow-devtools-panel-hide`"
         }
       ]
     }

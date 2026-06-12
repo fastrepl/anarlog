@@ -16,6 +16,7 @@ Default permissions for the plugin
 - `allow-window-restore-frame-animated`
 - `allow-window-expand-width`
 - `allow-window-restore-width`
+- `allow-set-show-app-in-dock`
 - `allow-floating-bar-show`
 - `allow-floating-bar-hide`
 - `allow-floating-bar-update`
@@ -209,6 +210,32 @@ Enables the set_fake_window_bounds command without any pre-configured scope.
 <td>
 
 Denies the set_fake_window_bounds command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`windows:allow-set-show-app-in-dock`
+
+</td>
+<td>
+
+Enables the set_show_app_in_dock command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`windows:deny-set-show-app-in-dock`
+
+</td>
+<td>
+
+Denies the set_show_app_in_dock command without any pre-configured scope.
 
 </td>
 </tr>

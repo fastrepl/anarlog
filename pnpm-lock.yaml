@@ -190,6 +190,9 @@ importers:
       '@hypr/plugin-transcription':
         specifier: workspace:*
         version: link:../../plugins/transcription
+      '@hypr/plugin-tray':
+        specifier: workspace:*
+        version: link:../../plugins/tray
       '@hypr/plugin-updater2':
         specifier: workspace:*
         version: link:../../plugins/updater2

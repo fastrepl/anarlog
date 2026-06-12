@@ -104,6 +104,10 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
     pub fn create_tray_menu(&self) -> Result<()> {
         let app = self.manager.app_handle();
 
+        if app.tray_by_id(TRAY_ID).is_some() {
+            return Ok(());
+        }
+
         let menu = Menu::with_items(
             app,
             &[
@@ -124,6 +128,24 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
             .menu(&menu)
             .show_menu_on_left_click(true)
             .build(app)?;
+
+        Ok(())
+    }
+
+    pub fn set_visible(&self, visible: bool) -> Result<()> {
+        let app = self.manager.app_handle();
+
+        if visible {
+            self.create_tray_menu()?;
+            Self::refresh_icon(app)?;
+        } else {
+            if let Ok(mut task) = ANIMATION_TASK.lock()
+                && let Some(handle) = task.take()
+            {
+                handle.abort();
+            }
+            let _ = app.remove_tray_by_id(TRAY_ID);
+        }
 
         Ok(())
     }

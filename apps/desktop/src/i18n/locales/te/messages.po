@@ -25,11 +25,11 @@ msgstr "మాట్లాడే భాషను జోడించు"
 msgid "Additional spoken languages"
 msgstr "అదనపు మాట్లాడే భాషలు"
 
-#: src/settings/general/app-settings.tsx:33
+#: src/settings/general/app-settings.tsx:37
 msgid "Always ready without manually launching."
 msgstr "మాన్యువల్‌గా ప్రారంభించకుండానే ఎల్లప్పుడూ సిద్ధంగా ఉంటుంది."
 
-#: src/settings/general/index.tsx:133
+#: src/settings/general/index.tsx:139
 msgid "App"
 msgstr "యాప్"
 
@@ -37,11 +37,11 @@ msgstr "యాప్"
 msgid "Appearance"
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:59
+#: src/settings/general/app-settings.tsx:79
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "ఈవెంట్-బ్యాక్డ్ నోట్ షెడ్యూల్ చేసిన ప్రారంభ సమయానికి చేరుకున్నప్పుడు స్వయంచాలకంగా వినడం ప్రారంభించండి."
 
-#: src/settings/general/app-settings.tsx:70
+#: src/settings/general/app-settings.tsx:90
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "మీటింగ్ యాప్ మైక్రోఫోన్‌ను విడుదల చేసినప్పుడు స్వయంచాలకంగా వినడం ఆపివేయండి."
 
@@ -53,7 +53,7 @@ msgstr ""
 msgid "Dark"
 msgstr ""
 
-#: src/settings/general/index.tsx:239
+#: src/settings/general/index.tsx:273
 msgid "Data"
 msgstr "డేటా"
 
@@ -61,7 +61,11 @@ msgstr "డేటా"
 msgid "First day of the week in the calendar view"
 msgstr ""
 
-#: src/settings/general/index.tsx:190
+#: src/settings/general/app-settings.tsx:63
+msgid "Keep Anarlog available from the menu bar."
+msgstr ""
+
+#: src/settings/general/index.tsx:224
 msgid "Language & Region"
 msgstr "భాష & ప్రాంతం"
 
@@ -77,7 +81,7 @@ msgstr ""
 msgid "Main language"
 msgstr "ప్రధాన భాష"
 
-#: src/settings/general/app-settings.tsx:53
+#: src/settings/general/app-settings.tsx:73
 msgid "Meetings"
 msgstr "సమావేశాలు"
 
@@ -94,11 +98,11 @@ msgstr "సరిపోయే భాషలు ఏవీ కనుగొనబడ
 msgid "No results found."
 msgstr ""
 
-#: src/settings/general/index.tsx:249
+#: src/settings/general/index.tsx:283
 msgid "Notifications"
 msgstr "నోటిఫికేషన్‌లు"
 
-#: src/settings/general/index.tsx:258
+#: src/settings/general/index.tsx:292
 msgid "Permissions"
 msgstr ""
 
@@ -126,31 +130,43 @@ msgstr "భాషను ఎంచుకోండి"
 msgid "Select..."
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:41
+#: src/settings/general/app-settings.tsx:45
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Anarlogని మెరుగుపరచడంలో సహాయపడటానికి అనామక వినియోగ విశ్లేషణలను పంపండి."
 
-#: src/settings/general/app-settings.tsx:39
+#: src/settings/general/app-settings.tsx:43
 msgid "Share usage data"
 msgstr "వినియోగ డేటాను భాగస్వామ్యం చేయండి"
 
-#: src/settings/general/app-settings.tsx:79
+#: src/settings/general/app-settings.tsx:55
+msgid "Show Anarlog in the Dock and app switcher."
+msgstr ""
+
+#: src/settings/general/app-settings.tsx:53
+msgid "Show app in Dock"
+msgstr ""
+
+#: src/settings/general/app-settings.tsx:99
 msgid "Show floating bar"
 msgstr "ఫ్లోటింగ్ బార్‌ను చూపు"
 
-#: src/settings/general/app-settings.tsx:81
+#: src/settings/general/app-settings.tsx:101
 msgid "Show the compact floating control while listening."
 msgstr "వింటున్నప్పుడు కాంపాక్ట్ ఫ్లోటింగ్ కంట్రోల్‌ని చూపండి."
 
-#: src/settings/general/app-settings.tsx:31
+#: src/settings/general/app-settings.tsx:61
+msgid "Show tray icon"
+msgstr ""
+
+#: src/settings/general/app-settings.tsx:35
 msgid "Start Anarlog at login"
 msgstr "లాగిన్ వద్ద Anarlogని ప్రారంభించండి"
 
-#: src/settings/general/app-settings.tsx:57
+#: src/settings/general/app-settings.tsx:77
 msgid "Start when meeting begins"
 msgstr "సమావేశం ప్రారంభమైనప్పుడు ప్రారంభించండి"
 
-#: src/settings/general/app-settings.tsx:68
+#: src/settings/general/app-settings.tsx:88
 msgid "Stop when meeting ends"
 msgstr "సమావేశం ముగిసినప్పుడు ఆపివేయండి"
 
