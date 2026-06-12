@@ -28,7 +28,10 @@ import {
   getLiveTranscriptionConfig,
   getTranscriptionLanguages,
 } from "~/stt/capabilities";
-import { applyLiveTranscriptDelta } from "~/stt/utils";
+import {
+  createTranscriptAccumulator,
+  type TranscriptAccumulator,
+} from "~/stt/utils";
 
 export function getPostCaptureAction(
   details: {
@@ -78,8 +81,14 @@ export function useStartListening(sessionId: string) {
     const startedAt = Date.now();
     const memoMd = store.getCell("sessions", sessionId, "raw_md");
     const createdAt = new Date().toISOString();
+    const transcriptAccumulatorRef: {
+      current: TranscriptAccumulator | null;
+    } = { current: null };
 
     const onStopped: OnStoppedCallback = async (_sessionId, details) => {
+      transcriptAccumulatorRef.current?.dispose();
+      transcriptAccumulatorRef.current = null;
+
       const postCaptureAction = getPostCaptureAction(
         details,
         canRunBatchRef.current,
@@ -133,10 +142,20 @@ export function useStartListening(sessionId: string) {
         } satisfies TranscriptStorage;
 
         store.setRow("transcripts", transcriptId, transcriptRow);
+        transcriptAccumulatorRef.current = createTranscriptAccumulator(
+          store,
+          transcriptId,
+          { words: [], hints: [] },
+        );
       }
 
+      transcriptAccumulatorRef.current ??= createTranscriptAccumulator(
+        store,
+        transcriptId,
+      );
+
       store.transaction(() => {
-        applyLiveTranscriptDelta(store, transcriptId!, delta);
+        transcriptAccumulatorRef.current?.applyLiveDelta(delta);
       });
     };
 
@@ -188,6 +207,9 @@ export function useStartListening(sessionId: string) {
     );
 
     if (!started) {
+      transcriptAccumulatorRef.current?.dispose();
+      transcriptAccumulatorRef.current = null;
+
       if (transcriptId) {
         store.delRow("transcripts", transcriptId);
       }

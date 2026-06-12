@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { upsertSpeakerAssignment } from "./utils";
+import type { LiveTranscriptDelta } from "@hypr/plugin-transcription";
+
+import {
+  createTranscriptAccumulator,
+  updateTranscriptHints,
+  upsertSpeakerAssignment,
+} from "./utils";
 
 import type { SegmentKey } from "~/stt/live-segment";
 
@@ -14,8 +20,11 @@ function createStore(row: TranscriptRow) {
     words: row.words ?? JSON.stringify([]),
     speaker_hints: row.speaker_hints ?? JSON.stringify([]),
   };
+  const getCellCalls: string[] = [];
 
   return {
+    getCellCalls,
+    readCell: (cellId: "words" | "speaker_hints") => transcript[cellId],
     getCell: (
       tableId: "transcripts",
       rowId: string,
@@ -25,6 +34,7 @@ function createStore(row: TranscriptRow) {
         return undefined;
       }
 
+      getCellCalls.push(cellId);
       return transcript[cellId];
     },
     setCell: (
@@ -41,6 +51,285 @@ function createStore(row: TranscriptRow) {
     },
   };
 }
+
+function liveDelta(
+  newWords: LiveTranscriptDelta["new_words"],
+  replacedIds: string[] = [],
+): LiveTranscriptDelta {
+  return {
+    new_words: newWords,
+    replaced_ids: replacedIds,
+    partials: [],
+  };
+}
+
+describe("TranscriptAccumulator", () => {
+  it("applies live deltas without rereading newly-created transcript JSON", () => {
+    const store = createStore({});
+    const accumulator = createTranscriptAccumulator(store, "transcript-1", {
+      words: [],
+      hints: [],
+    });
+
+    accumulator.applyLiveDelta(
+      liveDelta([
+        {
+          id: "word-1",
+          text: "hello",
+          start_ms: 100,
+          end_ms: 200,
+          channel: 0,
+          state: "final",
+          speaker_index: 1,
+        },
+      ]),
+    );
+    accumulator.applyLiveDelta(
+      liveDelta(
+        [
+          {
+            id: "word-2",
+            text: "hello",
+            start_ms: 100,
+            end_ms: 220,
+            channel: 0,
+            state: "final",
+          },
+        ],
+        ["word-1"],
+      ),
+    );
+    accumulator.dispose();
+
+    expect(store.getCellCalls).toEqual([]);
+    expect(JSON.parse(store.readCell("words"))).toEqual([
+      {
+        id: "word-2",
+        text: "hello",
+        start_ms: 100,
+        end_ms: 220,
+        channel: 0,
+      },
+    ]);
+    expect(JSON.parse(store.readCell("speaker_hints"))).toEqual([]);
+  });
+
+  it("appends batch chunks without reparsing stored words and hints", () => {
+    const store = createStore({
+      words: JSON.stringify([
+        {
+          id: "existing-word",
+          text: "existing",
+          start_ms: 0,
+          end_ms: 100,
+          channel: 0,
+        },
+      ]),
+      speaker_hints: JSON.stringify([]),
+    });
+    const accumulator = createTranscriptAccumulator(store, "transcript-1");
+
+    accumulator.appendWordsAndHints(
+      [
+        {
+          id: "word-1",
+          text: "hello",
+          start_ms: 100,
+          end_ms: 200,
+          channel: 0,
+        },
+      ],
+      [],
+    );
+    accumulator.appendWordsAndHints(
+      [
+        {
+          id: "word-2",
+          text: "world",
+          start_ms: 200,
+          end_ms: 300,
+          channel: 0,
+        },
+      ],
+      [],
+    );
+    accumulator.dispose();
+
+    expect(store.getCellCalls).toEqual(["words", "speaker_hints"]);
+    expect(JSON.parse(store.readCell("words"))).toEqual([
+      {
+        id: "existing-word",
+        text: "existing",
+        start_ms: 0,
+        end_ms: 100,
+        channel: 0,
+      },
+      {
+        id: "word-1",
+        text: "hello",
+        start_ms: 100,
+        end_ms: 200,
+        channel: 0,
+      },
+      {
+        id: "word-2",
+        text: "world",
+        start_ms: 200,
+        end_ms: 300,
+        channel: 0,
+      },
+    ]);
+  });
+
+  it("preserves live speaker assignments made while an accumulator is active", () => {
+    const store = createStore({});
+    const accumulator = createTranscriptAccumulator(store, "transcript-1", {
+      words: [],
+      hints: [],
+    });
+
+    accumulator.applyLiveDelta(
+      liveDelta([
+        {
+          id: "word-1",
+          text: "hello",
+          start_ms: 0,
+          end_ms: 100,
+          channel: 1,
+          state: "final",
+          speaker_index: 2,
+        },
+      ]),
+    );
+    upsertSpeakerAssignment(
+      store,
+      "transcript-1",
+      remoteSpeakerKey(2),
+      "human-1",
+      "word-1",
+    );
+    accumulator.applyLiveDelta(
+      liveDelta([
+        {
+          id: "word-2",
+          text: "there",
+          start_ms: 100,
+          end_ms: 200,
+          channel: 1,
+          state: "final",
+          speaker_index: 2,
+        },
+      ]),
+    );
+    accumulator.dispose();
+
+    expect(JSON.parse(store.readCell("speaker_hints"))).toEqual([
+      {
+        id: "word-1:provider_speaker_index",
+        word_id: "word-1",
+        type: "provider_speaker_index",
+        value: JSON.stringify({ channel: 1, speaker_index: 2 }),
+      },
+      {
+        id: "word-1:user_speaker_assignment",
+        word_id: "word-1",
+        type: "user_speaker_assignment",
+        value: JSON.stringify({ human_id: "human-1" }),
+      },
+      {
+        id: "word-2:provider_speaker_index",
+        word_id: "word-2",
+        type: "provider_speaker_index",
+        value: JSON.stringify({ channel: 1, speaker_index: 2 }),
+      },
+    ]);
+  });
+
+  it("does not restore externally removed speaker assignments from the accumulator cache", () => {
+    const store = createStore({});
+    const accumulator = createTranscriptAccumulator(store, "transcript-1", {
+      words: [],
+      hints: [],
+    });
+
+    accumulator.applyLiveDelta(
+      liveDelta([
+        {
+          id: "word-1",
+          text: "hello",
+          start_ms: 0,
+          end_ms: 100,
+          channel: 1,
+          state: "final",
+          speaker_index: 2,
+        },
+      ]),
+    );
+    upsertSpeakerAssignment(
+      store,
+      "transcript-1",
+      remoteSpeakerKey(2),
+      "human-1",
+      "word-1",
+    );
+    accumulator.applyLiveDelta(
+      liveDelta([
+        {
+          id: "word-2",
+          text: "there",
+          start_ms: 100,
+          end_ms: 200,
+          channel: 1,
+          state: "final",
+          speaker_index: 2,
+        },
+      ]),
+    );
+
+    const hintsWithoutAssignment = JSON.parse(
+      store.readCell("speaker_hints"),
+    ).filter(
+      (hint: { type?: string }) => hint.type !== "user_speaker_assignment",
+    );
+    updateTranscriptHints(store, "transcript-1", hintsWithoutAssignment);
+
+    accumulator.applyLiveDelta(
+      liveDelta([
+        {
+          id: "word-3",
+          text: "again",
+          start_ms: 200,
+          end_ms: 300,
+          channel: 1,
+          state: "final",
+          speaker_index: 2,
+        },
+      ]),
+    );
+    accumulator.dispose();
+
+    expect(JSON.parse(store.readCell("speaker_hints"))).toEqual([
+      {
+        id: "word-1:provider_speaker_index",
+        word_id: "word-1",
+        type: "provider_speaker_index",
+        value: JSON.stringify({ channel: 1, speaker_index: 2 }),
+      },
+      {
+        id: "word-2:provider_speaker_index",
+        word_id: "word-2",
+        type: "provider_speaker_index",
+        value: JSON.stringify({ channel: 1, speaker_index: 2 }),
+      },
+      {
+        id: "word-3:provider_speaker_index",
+        word_id: "word-3",
+        type: "provider_speaker_index",
+        value: JSON.stringify({ channel: 1, speaker_index: 2 }),
+      },
+    ]);
+  });
+});
 
 function remoteSpeakerKey(speakerIndex: number | null): SegmentKey {
   return {

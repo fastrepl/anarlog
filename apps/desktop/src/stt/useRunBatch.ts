@@ -16,10 +16,8 @@ import type { BatchPersistCallback } from "~/store/zustand/listener/transcript";
 import { getTranscriptionLanguages } from "~/stt/capabilities";
 import type { SpeakerHintWithId, WordWithId } from "~/stt/types";
 import {
-  parseTranscriptHints,
-  parseTranscriptWords,
-  updateTranscriptHints,
-  updateTranscriptWords,
+  createTranscriptAccumulator,
+  type TranscriptAccumulator,
 } from "~/stt/utils";
 
 type RunOptions = {
@@ -169,6 +167,9 @@ export const useRunBatch = (sessionId: string) => {
       const handlePersist: BatchPersistCallback | undefined =
         options?.handlePersist;
       let wroteDefaultTranscript = false;
+      const transcriptAccumulatorRef: {
+        current: TranscriptAccumulator | null;
+      } = { current: null };
 
       const persist =
         handlePersist ??
@@ -204,6 +205,12 @@ export const useRunBatch = (sessionId: string) => {
 
               store.setRow("transcripts", currentTranscriptId, transcriptRow);
             });
+
+            transcriptAccumulatorRef.current = createTranscriptAccumulator(
+              store,
+              currentTranscriptId,
+              { words: [], hints: [] },
+            );
           }
 
           const currentTranscriptId = transcriptId;
@@ -211,13 +218,10 @@ export const useRunBatch = (sessionId: string) => {
             return;
           }
 
-          const shouldReplace = persistOptions?.mode === "replace";
-          const existingWords = shouldReplace
-            ? []
-            : parseTranscriptWords(store, currentTranscriptId);
-          const existingHints = shouldReplace
-            ? []
-            : parseTranscriptHints(store, currentTranscriptId);
+          transcriptAccumulatorRef.current ??= createTranscriptAccumulator(
+            store,
+            currentTranscriptId,
+          );
 
           const newWords: WordWithId[] = [];
           const newWordIds: string[] = [];
@@ -266,14 +270,11 @@ export const useRunBatch = (sessionId: string) => {
           });
 
           store.transaction(() => {
-            updateTranscriptWords(store, currentTranscriptId, [
-              ...existingWords,
-              ...newWords,
-            ]);
-            updateTranscriptHints(store, currentTranscriptId, [
-              ...existingHints,
-              ...newHints,
-            ]);
+            transcriptAccumulatorRef.current?.appendWordsAndHints(
+              newWords,
+              newHints,
+              persistOptions,
+            );
           });
 
           wroteDefaultTranscript = true;
@@ -301,6 +302,9 @@ export const useRunBatch = (sessionId: string) => {
         if (!handlePersist && wroteDefaultTranscript) {
           await saveCompletedBatchTranscript();
         }
+
+        transcriptAccumulatorRef.current?.dispose();
+        transcriptAccumulatorRef.current = null;
       }
 
       if (settingsStore) {
