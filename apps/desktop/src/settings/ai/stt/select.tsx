@@ -366,6 +366,25 @@ function getModelCategoryLabel(category?: ModelCategory) {
   return null;
 }
 
+function getProviderModelMode(
+  providerId: ProviderId,
+  model: string,
+): ModelEntry["mode"] {
+  if (providerId !== "soniox") {
+    return undefined;
+  }
+
+  if (model === "stt-v5" || model === "stt-async-v5") {
+    return "batch";
+  }
+
+  if (model === "stt-v4" || model === "stt-rt-v4") {
+    return "realtime";
+  }
+
+  return undefined;
+}
+
 function useConfiguredMapping(): Record<
   ProviderId,
   {
@@ -456,6 +475,7 @@ function useConfiguredMapping(): Record<
           models: provider.models.map((model) => ({
             id: model,
             isDownloaded: true,
+            mode: getProviderModelMode(provider.id, model),
           })),
         },
       ];
@@ -496,18 +516,7 @@ function ModelSelectItem({
       />
       <div className="flex shrink-0 items-center gap-2 text-[11px]">
         <LocalModelBackendBadge model={model.id} />
-        {model.mode && (
-          <span
-            className={cn([
-              "rounded-md px-1.5 py-0.5 font-medium",
-              model.mode === "realtime"
-                ? "bg-sky-50 text-sky-700"
-                : "bg-muted text-muted-foreground",
-            ])}
-          >
-            {model.mode === "realtime" ? "Realtime" : "Batch"}
-          </span>
-        )}
+        <ModelModeBadge mode={model.mode} />
         {!model.isDownloaded && sizeLabel && (
           <span className="text-muted-foreground font-mono">{sizeLabel}</span>
         )}
@@ -593,12 +602,34 @@ function ModelSelectedValue({ model }: { model: ModelEntry }) {
   const isDeprecated = model.isDeprecated === true;
 
   return (
-    <LocalModelLabel
-      model={model.id}
-      label={model.displayName ?? displayModelId(model.id)}
-      className={cn(["min-w-0 flex-1", isDeprecated && "opacity-60"])}
-      labelClassName={cn([isDeprecated && "text-muted-foreground"])}
-    />
+    <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
+      <LocalModelLabel
+        model={model.id}
+        label={model.displayName ?? displayModelId(model.id)}
+        className={cn(["min-w-0 flex-1", isDeprecated && "opacity-60"])}
+        labelClassName={cn([isDeprecated && "text-muted-foreground"])}
+      />
+      <ModelModeBadge mode={model.mode} />
+    </div>
+  );
+}
+
+function ModelModeBadge({ mode }: { mode?: ModelEntry["mode"] }) {
+  if (!mode) {
+    return null;
+  }
+
+  return (
+    <span
+      className={cn([
+        "shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-medium",
+        mode === "realtime"
+          ? "bg-sky-50 text-sky-700"
+          : "bg-muted text-muted-foreground",
+      ])}
+    >
+      {mode === "realtime" ? "Realtime" : "Batch"}
+    </span>
   );
 }
 
