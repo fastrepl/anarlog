@@ -57,6 +57,7 @@ const credibilityLogos = [
   { name: "Databricks", src: "/icons/databricks.svg" },
   { name: "Amazon", src: "/icons/amazon.svg", className: "max-h-9" },
   { name: "Meta", src: "/icons/meta.svg", className: "max-h-9" },
+  { name: "Y Combinator", src: "/icons/yc.svg" },
   { name: "Palantir", src: "/icons/palantir.svg" },
   { name: "Apple", src: "/icons/apple.svg", className: "max-h-9" },
   { name: "Disney", src: "/icons/disney.svg", className: "max-h-9" },
