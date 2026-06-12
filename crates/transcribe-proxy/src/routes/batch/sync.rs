@@ -1,8 +1,8 @@
+use std::path::Path;
 use std::time::Duration;
 
 use axum::{
     Json,
-    body::Bytes,
     http::StatusCode,
     response::{IntoResponse, Response},
 };
@@ -21,7 +21,6 @@ use crate::query_params::QueryParams;
 
 use super::super::AppState;
 use super::super::model_resolution::resolve_model_batch;
-use super::write_to_temp_file;
 
 #[derive(Debug, Clone)]
 pub(super) enum BatchAttemptError {
@@ -102,7 +101,8 @@ pub(super) async fn handle_hyprnote_batch(
     state: &AppState,
     params: &QueryParams,
     listen_params: ListenParams,
-    body: Bytes,
+    audio_path: &Path,
+    audio_size_bytes: u64,
     content_type: &str,
 ) -> Response {
     let mut provider_chain =
@@ -129,7 +129,7 @@ pub(super) async fn handle_hyprnote_batch(
     tracing::info!(
         provider_chain = ?provider_chain.iter().map(|p| p.provider()).collect::<Vec<_>>(),
         content_type = %content_type,
-        body_size_bytes = %body.len(),
+        body_size_bytes = %audio_size_bytes,
         "hyprnote_batch_transcription_request"
     );
 
@@ -156,14 +156,8 @@ pub(super) async fn handle_hyprnote_batch(
         let resolved_model = provider_listen_params.model.clone();
         providers_tried.push(provider);
 
-        match transcribe_with_retry(
-            selected,
-            provider_listen_params,
-            body.clone(),
-            content_type,
-            &retry_config,
-        )
-        .await
+        match transcribe_with_retry(selected, provider_listen_params, audio_path, &retry_config)
+            .await
         {
             Ok((response, retries)) => {
                 tracing::info!(
@@ -237,8 +231,7 @@ fn append_deepgram_batch_detection_fallback(
 pub(super) async fn transcribe_with_retry(
     selected: &SelectedProvider,
     params: ListenParams,
-    audio_bytes: Bytes,
-    content_type: &str,
+    audio_path: &Path,
     retry_config: &RetryConfig,
 ) -> Result<(BatchResponse, usize), (BatchAttemptError, usize)> {
     let backoff = ExponentialBuilder::default()
@@ -247,21 +240,20 @@ pub(super) async fn transcribe_with_retry(
         .with_max_times(retry_config.num_retries);
     let mut retries = 0usize;
 
-    let result = (|| async {
-        transcribe_with_provider(selected, params.clone(), audio_bytes.clone(), content_type).await
-    })
-    .retry(backoff)
-    .notify(|err, dur| {
-        tracing::warn!(
-            hyprnote.stt.provider.name = ?selected.provider(),
-            error = %err,
-            hyprnote.retry.delay_ms = dur.as_millis(),
-            "retrying_transcription"
-        );
-        retries += 1;
-    })
-    .when(|e| e.is_retryable())
-    .await;
+    let result =
+        (|| async { transcribe_with_provider(selected, params.clone(), audio_path).await })
+            .retry(backoff)
+            .notify(|err, dur| {
+                tracing::warn!(
+                    hyprnote.stt.provider.name = ?selected.provider(),
+                    error = %err,
+                    hyprnote.retry.delay_ms = dur.as_millis(),
+                    "retrying_transcription"
+                );
+                retries += 1;
+            })
+            .when(|e| e.is_retryable())
+            .await;
 
     match result {
         Ok(response) => Ok((response, retries)),
@@ -272,13 +264,8 @@ pub(super) async fn transcribe_with_retry(
 pub(super) async fn transcribe_with_provider(
     selected: &SelectedProvider,
     params: ListenParams,
-    audio_bytes: Bytes,
-    content_type: &str,
+    audio_path: &Path,
 ) -> Result<BatchResponse, BatchAttemptError> {
-    let temp_file = write_to_temp_file(&audio_bytes, content_type)
-        .map_err(|e| BatchAttemptError::Client(format!("failed to create temp file: {e}")))?;
-
-    let file_path = temp_file.path();
     let provider = selected.provider();
     let api_base = selected
         .upstream_url()
@@ -292,7 +279,7 @@ pub(super) async fn transcribe_with_provider(
                 .api_key(api_key)
                 .params(params)
                 .build()
-                .transcribe_file(file_path)
+                .transcribe_file(audio_path)
                 .await
         };
     }

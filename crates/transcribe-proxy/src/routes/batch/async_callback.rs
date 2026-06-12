@@ -183,14 +183,11 @@ async fn handle_sync_fallback(
         .provider_selector()
         .select(Some(provider))
         .map_err(|_| RouteError::MissingConfig("api_key not configured for provider"))?;
+    let audio_file = super::write_bytes_to_temp_file(&audio_bytes, content_type)
+        .map_err(|e| RouteError::Internal(format!("failed to create temp audio file: {e}")))?;
 
-    match super::sync::transcribe_with_provider(
-        &selected,
-        listen_params.clone(),
-        audio_bytes,
-        content_type,
-    )
-    .await
+    match super::sync::transcribe_with_provider(&selected, listen_params.clone(), audio_file.path())
+        .await
     {
         Ok(response) => {
             let raw_result = serde_json::to_value(&response)

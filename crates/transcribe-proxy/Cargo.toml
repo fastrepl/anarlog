@@ -20,7 +20,7 @@ reqwest = { workspace = true, features = ["json"] }
 reqwest-middleware = { workspace = true }
 sentry = { workspace = true }
 serde_html_form = { workspace = true }
-tokio = { workspace = true, features = ["rt-multi-thread", "time", "sync", "macros"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "time", "sync", "macros", "fs", "io-util"] }
 tokio-tungstenite = { workspace = true, features = ["native-tls"] }
 tower = { workspace = true }
 tracing = { workspace = true }

@@ -19,7 +19,7 @@ openai-transcription = { workspace = true }
 owhisper-interface = { workspace = true }
 
 futures-util = { workspace = true }
-reqwest = { workspace = true, features = ["json", "multipart"] }
+reqwest = { workspace = true, features = ["json", "multipart", "stream"] }
 reqwest-middleware = { workspace = true, features = ["json", "multipart"] }
 reqwest-tracing = { workspace = true }
 tokio = { workspace = true, features = ["fs"] }
