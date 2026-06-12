@@ -63,7 +63,25 @@ export function useSessionBottomAccessory({
   const hasTranscriptError = Boolean(batchError);
   const canShowTranscriptTab =
     canUsePlayback || hasTranscript || hasTranscriptError || isRunningBatch;
-  const pastNotes = usePastSessionNotes(sessionId);
+  const live = useListener((state) => ({
+    status: state.live.status,
+    sessionId: state.live.sessionId,
+    requestedLiveTranscription: state.live.requestedLiveTranscription,
+    liveTranscriptionActive: state.live.liveTranscriptionActive,
+  }));
+  const { chat } = useShell();
+  const liveCaptureMode = getLiveCaptureUiMode(live);
+  const shouldDeferToGlobalLiveAccessory =
+    live.sessionId !== null &&
+    live.sessionId !== sessionId &&
+    shouldShowLiveTranscriptAccessory(live);
+  const showLiveAccessory =
+    !shouldDeferToGlobalLiveAccessory && isLive && liveCaptureMode === "live";
+  const shouldLoadPastNotes =
+    (isInactive || isRunningBatch) && !shouldDeferToGlobalLiveAccessory;
+  const pastNotes = usePastSessionNotes(sessionId, {
+    enabled: shouldLoadPastNotes,
+  });
   const hasPastNotes = pastNotes.hasPastNotes;
   const generateMissingPastNotes = pastNotes.generateMissing;
   const regeneratePastNote = pastNotes.canGenerate
@@ -75,15 +93,6 @@ export function useSessionBottomAccessory({
       : hasPastNotes
         ? (postSessionTab ?? "transcript")
         : "transcript";
-  const live = useListener((state) => state.live);
-  const { chat } = useShell();
-  const liveCaptureMode = getLiveCaptureUiMode(live);
-  const shouldDeferToGlobalLiveAccessory =
-    live.sessionId !== null &&
-    live.sessionId !== sessionId &&
-    shouldShowLiveTranscriptAccessory(live);
-  const showLiveAccessory =
-    !shouldDeferToGlobalLiveAccessory && isLive && liveCaptureMode === "live";
   const canExpandLiveTranscript = showLiveAccessory;
   const effectiveExpanded =
     isLive && !canExpandLiveTranscript ? false : isExpanded;

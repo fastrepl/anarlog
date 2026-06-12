@@ -56,20 +56,38 @@ const keyFactsSchema = z.object({
   facts: z.array(z.string()).min(1).max(MAX_KEY_FACTS),
 });
 
-export function usePastSessionNotes(sessionId: string): PastSessionNotesResult {
+export function usePastSessionNotes(
+  sessionId: string,
+  { enabled = true }: { enabled?: boolean } = {},
+): PastSessionNotesResult {
   const store = main.UI.useStore(main.STORE_ID);
-  const sessionsTable = main.UI.useTable("sessions", main.STORE_ID);
-  const participantsTable = main.UI.useTable(
-    "mapping_session_participant",
+  const sessionsTable = main.UI.useTable(
+    enabled ? "sessions" : ("__disabled_past_notes_sessions" as "sessions"),
     main.STORE_ID,
   );
-  const enhancedNotesTable = main.UI.useTable("enhanced_notes", main.STORE_ID);
-  const keyFactsTable = main.UI.useTable("session_key_facts", main.STORE_ID);
+  const participantsTable = main.UI.useTable(
+    enabled
+      ? "mapping_session_participant"
+      : ("__disabled_past_notes_participants" as "mapping_session_participant"),
+    main.STORE_ID,
+  );
+  const enhancedNotesTable = main.UI.useTable(
+    enabled
+      ? "enhanced_notes"
+      : ("__disabled_past_notes_enhanced" as "enhanced_notes"),
+    main.STORE_ID,
+  );
+  const keyFactsTable = main.UI.useTable(
+    enabled
+      ? "session_key_facts"
+      : ("__disabled_past_notes_key_facts" as "session_key_facts"),
+    main.STORE_ID,
+  );
   const userId = main.UI.useValue("user_id", main.STORE_ID);
   const model = useLanguageModel("enhance");
 
   const built = useMemo(() => {
-    if (!store) {
+    if (!enabled || !store) {
       return { notes: [], missing: [], requests: [] };
     }
 
@@ -80,6 +98,7 @@ export function usePastSessionNotes(sessionId: string): PastSessionNotesResult {
     );
   }, [
     store,
+    enabled,
     sessionId,
     userId,
     sessionsTable,
@@ -121,16 +140,21 @@ export function usePastSessionNotes(sessionId: string): PastSessionNotesResult {
   );
 
   const generateMissing = useCallback(() => {
-    if (!model || built.missing.length === 0 || mutation.isPending) {
+    if (
+      !enabled ||
+      !model ||
+      built.missing.length === 0 ||
+      mutation.isPending
+    ) {
       return;
     }
 
     void mutation.mutateAsync(built.missing);
-  }, [built.missing, model, mutation]);
+  }, [built.missing, enabled, model, mutation]);
 
   const regenerate = useCallback(
     (targetSessionId: string) => {
-      if (!model || mutation.isPending) {
+      if (!enabled || !model || mutation.isPending) {
         return;
       }
 
@@ -143,14 +167,14 @@ export function usePastSessionNotes(sessionId: string): PastSessionNotesResult {
 
       void mutation.mutateAsync([request]);
     },
-    [built.requests, model, mutation],
+    [built.requests, enabled, model, mutation],
   );
 
   return {
     notes,
     hasPastNotes: notes.length > 0,
     isGenerating: mutation.isPending,
-    canGenerate: Boolean(model),
+    canGenerate: enabled && Boolean(model),
     generateMissing,
     regenerate,
   };
