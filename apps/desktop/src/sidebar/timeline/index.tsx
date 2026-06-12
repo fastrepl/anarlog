@@ -33,9 +33,8 @@ import {
 import {
   buildTimelineBuckets,
   calculateTodayIndicatorPlacement,
-  filterTimelineTablesUpToTomorrow,
+  deriveTimelineWindowData,
   getItemTimestamp,
-  hasTimelineItemsAfterTomorrow,
   type TimelineBucket,
   type TimelineEventsTable,
   type TimelineIndicatorPlacement,
@@ -72,66 +71,20 @@ export function TimelineView({
 } = {}) {
   const timezone = useConfigValue("timezone") || undefined;
   const { timelineEventsTable, timelineSessionsTable } = useTimelineTables();
-  const allBuckets = useTimelineData({
-    timelineEventsTable,
-    timelineSessionsTable,
-    timezone,
-  });
   const [showIgnored, setShowIgnored] = useState(false);
   const [isScrolledToTop, setIsScrolledToTop] = useState(true);
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(true);
 
   const { isIgnored } = useIgnoredEvents();
+  const { buckets, hasMoreFutureItems, hasVisibleCalendarEvents } =
+    useTimelineData({
+      isEventIgnored: isIgnored,
+      showIgnored,
+      timelineEventsTable,
+      timelineSessionsTable,
+      timezone,
+    });
   const openNew = useTabs((state) => state.openNew);
-
-  const buckets = useMemo(() => {
-    if (showIgnored) {
-      return allBuckets;
-    }
-
-    return allBuckets
-      .map((bucket) => ({
-        ...bucket,
-        items: bucket.items.filter((item) => {
-          if (item.type !== "event") return true;
-          return !isIgnored(
-            item.data.tracking_id_event,
-            item.data.recurrence_series_id,
-          );
-        }),
-      }))
-      .filter((bucket) => bucket.items.length > 0);
-  }, [allBuckets, showIgnored, isIgnored, timezone]);
-
-  const visibleTimelineEventsTable = useMemo(() => {
-    if (showIgnored || !timelineEventsTable) {
-      return timelineEventsTable;
-    }
-
-    return Object.fromEntries(
-      Object.entries(timelineEventsTable).filter(
-        ([, item]) =>
-          !isIgnored(item.tracking_id_event, item.recurrence_series_id),
-      ),
-    );
-  }, [timelineEventsTable, showIgnored, isIgnored]);
-
-  const hasMoreFutureItems = useMemo(
-    () =>
-      hasTimelineItemsAfterTomorrow({
-        timelineEventsTable: visibleTimelineEventsTable,
-        timelineSessionsTable,
-        timezone,
-      }),
-    [visibleTimelineEventsTable, timelineSessionsTable, timezone],
-  );
-  const hasVisibleCalendarEvents = useMemo(
-    () =>
-      buckets.some((bucket) =>
-        bucket.items.some((item) => item.type === "event"),
-      ),
-    [buckets],
-  );
   const calendarSyncStatus = useCalendarSyncStatus();
   const showCalendarSyncStatus =
     calendarSyncStatus !== "idle" && !hasVisibleCalendarEvents;
@@ -951,35 +904,60 @@ function useTimelineTables(): {
 }
 
 function useTimelineData({
+  isEventIgnored,
+  showIgnored,
   timelineEventsTable,
   timelineSessionsTable,
   timezone,
 }: {
+  isEventIgnored: (
+    trackingId: string | null | undefined,
+    recurrenceSeriesId: string | null | undefined,
+  ) => boolean;
+  showIgnored: boolean;
   timelineEventsTable: TimelineEventsTable;
   timelineSessionsTable: TimelineSessionsTable;
   timezone?: string;
-}): TimelineBucket[] {
-  const filteredTables = useMemo(
+}): {
+  buckets: TimelineBucket[];
+  hasMoreFutureItems: boolean;
+  hasVisibleCalendarEvents: boolean;
+} {
+  const windowData = useMemo(
     () =>
-      filterTimelineTablesUpToTomorrow({
+      deriveTimelineWindowData({
+        isEventIgnored,
+        showIgnored,
         timelineEventsTable,
         timelineSessionsTable,
         timezone,
       }),
-    [timelineEventsTable, timelineSessionsTable, timezone],
+    [
+      isEventIgnored,
+      showIgnored,
+      timelineEventsTable,
+      timelineSessionsTable,
+      timezone,
+    ],
   );
   const currentTimeMs = useSmartCurrentTime(
-    filteredTables.timelineEventsTable,
-    filteredTables.timelineSessionsTable,
+    windowData.timelineEventsTable,
+    windowData.timelineSessionsTable,
   );
 
-  return useMemo(
-    () =>
-      buildTimelineBuckets({
-        timelineEventsTable: filteredTables.timelineEventsTable,
-        timelineSessionsTable: filteredTables.timelineSessionsTable,
-        timezone,
-      }),
-    [filteredTables, currentTimeMs, timezone],
-  );
+  return useMemo(() => {
+    const buckets = buildTimelineBuckets({
+      timelineEventsTable: windowData.timelineEventsTable,
+      timelineSessionsTable: windowData.timelineSessionsTable,
+      timezone,
+    });
+
+    return {
+      buckets,
+      hasMoreFutureItems: windowData.hasMoreFutureItems,
+      hasVisibleCalendarEvents: buckets.some((bucket) =>
+        bucket.items.some((item) => item.type === "event"),
+      ),
+    };
+  }, [windowData, currentTimeMs, timezone]);
 }

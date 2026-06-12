@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   buildTimelineBuckets,
   calculateTodayIndicatorPlacement,
+  deriveTimelineWindowData,
   filterTimelineTablesUpToTomorrow,
   getBucketInfo,
   hasTimelineItemsAfterTomorrow,
@@ -236,6 +237,75 @@ describe("timeline utils", () => {
         },
       }),
     ).toBe(false);
+  });
+
+  test("deriveTimelineWindowData filters ignored events before window and future derivation", () => {
+    const visible = deriveTimelineWindowData({
+      timelineEventsTable: {
+        ignoredTomorrow: {
+          title: "Ignored Tomorrow",
+          started_at: "2024-01-16T09:00:00.000Z",
+          ended_at: "2024-01-16T10:00:00.000Z",
+          calendar_id: "cal-1",
+          tracking_id_event: "ignored",
+          has_recurrence_rules: false,
+        },
+        ignoredLater: {
+          title: "Ignored Later",
+          started_at: "2024-01-17T09:00:00.000Z",
+          ended_at: "2024-01-17T10:00:00.000Z",
+          calendar_id: "cal-1",
+          tracking_id_event: "ignored-later",
+          has_recurrence_rules: false,
+        },
+        visibleLater: {
+          title: "Visible Later",
+          started_at: "2024-01-17T11:00:00.000Z",
+          ended_at: "2024-01-17T12:00:00.000Z",
+          calendar_id: "cal-1",
+          tracking_id_event: "visible-later",
+          has_recurrence_rules: false,
+        },
+      },
+      timelineSessionsTable: {
+        tomorrow: {
+          title: "Tomorrow Session",
+          created_at: "2024-01-14T12:00:00.000Z",
+          event_json: JSON.stringify({
+            started_at: "2024-01-16T11:00:00.000Z",
+          }),
+        },
+      },
+      showIgnored: false,
+      isEventIgnored: (trackingId) =>
+        trackingId?.startsWith("ignored") ?? false,
+    });
+
+    expect(Object.keys(visible.timelineEventsTable ?? {})).toEqual([]);
+    expect(Object.keys(visible.timelineSessionsTable ?? {})).toEqual([
+      "tomorrow",
+    ]);
+    expect(visible.hasMoreFutureItems).toBe(true);
+
+    const withIgnored = deriveTimelineWindowData({
+      timelineEventsTable: {
+        ignoredTomorrow: {
+          title: "Ignored Tomorrow",
+          started_at: "2024-01-16T09:00:00.000Z",
+          ended_at: "2024-01-16T10:00:00.000Z",
+          calendar_id: "cal-1",
+          tracking_id_event: "ignored",
+          has_recurrence_rules: false,
+        },
+      },
+      timelineSessionsTable: null,
+      showIgnored: true,
+      isEventIgnored: () => true,
+    });
+
+    expect(Object.keys(withIgnored.timelineEventsTable ?? {})).toEqual([
+      "ignoredTomorrow",
+    ]);
   });
 
   test("buildTimelineBuckets prioritizes sessions to events and avoid duplicate timeline items", () => {

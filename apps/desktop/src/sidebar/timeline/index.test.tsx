@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   addDeletion: vi.fn(),
   configValue: undefined as string | undefined,
   currentTimeMs: undefined as number | undefined,
+  isIgnored: vi.fn(() => false),
   liveSessionId: null as string | null,
   liveStatus: "inactive" as "inactive" | "active" | "finalizing",
   smartCurrentTimeMs: undefined as number | undefined,
@@ -38,7 +39,7 @@ vi.mock("~/shared/hooks/useNativeContextMenu", () => ({
 
 vi.mock("~/store/tinybase/hooks", () => ({
   useIgnoredEvents: () => ({
-    isIgnored: () => false,
+    isIgnored: mocks.isIgnored,
   }),
 }));
 
@@ -156,6 +157,7 @@ describe("TimelineView", () => {
     vi.clearAllMocks();
     mocks.configValue = undefined;
     mocks.currentTimeMs = undefined;
+    mocks.isIgnored.mockReturnValue(false);
     mocks.liveSessionId = null;
     mocks.liveStatus = "inactive";
     mocks.smartCurrentTimeMs = undefined;

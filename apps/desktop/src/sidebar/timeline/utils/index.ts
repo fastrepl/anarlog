@@ -63,6 +63,12 @@ export type TimelineBucket = {
   items: TimelineItem[];
 };
 
+export type TimelineWindowData = {
+  timelineEventsTable: TimelineEventsTable;
+  timelineSessionsTable: TimelineSessionsTable;
+  hasMoreFutureItems: boolean;
+};
+
 export type TimelineIndicatorPlacement =
   | { type: "inside"; index: number; progress: number }
   | { type: "before"; index: number }
@@ -315,6 +321,74 @@ export function filterTimelineTablesUpToTomorrow({
           ),
         )
       : timelineSessionsTable,
+  };
+}
+
+export function deriveTimelineWindowData({
+  timelineEventsTable,
+  timelineSessionsTable,
+  timezone,
+  showIgnored = true,
+  isEventIgnored = () => false,
+}: {
+  timelineEventsTable: TimelineEventsTable;
+  timelineSessionsTable: TimelineSessionsTable;
+  timezone?: string;
+  showIgnored?: boolean;
+  isEventIgnored?: (
+    trackingId: string | null | undefined,
+    recurrenceSeriesId: string | null | undefined,
+  ) => boolean;
+}): TimelineWindowData {
+  const filteredEventsTable = timelineEventsTable
+    ? ({} as Record<string, TimelineEventRow>)
+    : timelineEventsTable;
+  const filteredSessionsTable = timelineSessionsTable
+    ? ({} as Record<string, TimelineSessionRow>)
+    : timelineSessionsTable;
+  let hasMoreFutureItems = false;
+
+  if (timelineSessionsTable && filteredSessionsTable) {
+    for (const [sessionId, row] of Object.entries(timelineSessionsTable)) {
+      const date = safeParseDate(
+        getSessionEvent(row)?.started_at ?? row.created_at,
+      );
+
+      if (isAfterTomorrow(date, timezone)) {
+        hasMoreFutureItems = true;
+        continue;
+      }
+
+      if (isAtOrBeforeTomorrow(date, timezone)) {
+        filteredSessionsTable[sessionId] = row;
+      }
+    }
+  }
+
+  if (timelineEventsTable && filteredEventsTable) {
+    for (const [eventId, row] of Object.entries(timelineEventsTable)) {
+      const ignored =
+        !showIgnored &&
+        isEventIgnored(row.tracking_id_event, row.recurrence_series_id);
+      const date = safeParseDate(row.started_at) ?? safeParseDate(row.ended_at);
+
+      if (isAfterTomorrow(date, timezone)) {
+        if (!ignored) {
+          hasMoreFutureItems = true;
+        }
+        continue;
+      }
+
+      if (!ignored && isAtOrBeforeTomorrow(date, timezone)) {
+        filteredEventsTable[eventId] = row;
+      }
+    }
+  }
+
+  return {
+    timelineEventsTable: filteredEventsTable,
+    timelineSessionsTable: filteredSessionsTable,
+    hasMoreFutureItems,
   };
 }
 
