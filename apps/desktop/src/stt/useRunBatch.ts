@@ -116,6 +116,15 @@ export function getSessionSpeakerCount(
   return humanIds.size > 1 ? humanIds.size : undefined;
 }
 
+async function saveCompletedBatchTranscript(): Promise<void> {
+  try {
+    const { save } = await import("~/store/tinybase/store/save");
+    await save();
+  } catch (error) {
+    console.error("[runBatch] failed to save completed transcript", error);
+  }
+}
+
 export const useRunBatch = (sessionId: string) => {
   const store = main.UI.useStore(main.STORE_ID);
   const indexes = main.UI.useIndexes(main.STORE_ID);
@@ -159,6 +168,7 @@ export const useRunBatch = (sessionId: string) => {
 
       const handlePersist: BatchPersistCallback | undefined =
         options?.handlePersist;
+      let wroteDefaultTranscript = false;
 
       const persist =
         handlePersist ??
@@ -266,14 +276,7 @@ export const useRunBatch = (sessionId: string) => {
             ]);
           });
 
-          void import("~/store/tinybase/store/save")
-            .then(({ save }) => save())
-            .catch((error) => {
-              console.error(
-                "[runBatch] failed to save streamed transcript",
-                error,
-              );
-            });
+          wroteDefaultTranscript = true;
         });
 
       const params: TranscriptionParams = {
@@ -292,7 +295,13 @@ export const useRunBatch = (sessionId: string) => {
         max_speakers: options?.maxSpeakers,
       };
 
-      await startTranscription(params, { handlePersist: persist });
+      try {
+        await startTranscription(params, { handlePersist: persist });
+      } finally {
+        if (!handlePersist && wroteDefaultTranscript) {
+          await saveCompletedBatchTranscript();
+        }
+      }
 
       if (settingsStore) {
         await deleteProcessedAudioForRetention(
