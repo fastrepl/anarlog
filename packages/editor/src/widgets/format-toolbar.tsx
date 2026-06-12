@@ -112,7 +112,7 @@ export function FormatToolbar() {
         "border-border bg-card/95 fixed flex items-center gap-0.5 rounded-lg border p-1",
         "shadow-[0_2px_8px_rgba(0,0,0,0.08),0_18px_42px_-16px_rgba(0,0,0,0.34)] backdrop-blur-sm",
       ])}
-      style={{ top: 0, left: 0, zIndex: 10000 }}
+      style={{ top: 0, left: 0, zIndex: 40 }}
       onMouseDown={(e) => e.preventDefault()}
     >
       {TOOLBAR_BUTTONS.map((button) => {
