@@ -6,7 +6,6 @@ import {
   NoteEditor,
   type JSONContent,
   type NoteEditorRef,
-  type PlaceholderFunction,
 } from "@hypr/editor/note";
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 
@@ -116,7 +115,6 @@ export const RawEditor = forwardRef<
         handleChange={handleChange}
         mentionConfig={mentionConfig}
         sessionMentionDropConfig={sessionMentionDropConfig}
-        placeholderComponent={Placeholder}
         onNavigateToTitle={onNavigateToTitle}
         onLinkOpen={openEditorLink}
         fileHandlerConfig={fileHandlerConfig}
@@ -140,15 +138,3 @@ function useRawEditorSyncSourceId() {
 
   return sourceIdRef.current;
 }
-
-const Placeholder: PlaceholderFunction = ({ node, pos }) => {
-  if (node.type.name !== "paragraph") {
-    return "";
-  }
-
-  if (pos === 0) {
-    return "Take notes to guide Anarlog's meeting notes. Press / for commands.";
-  }
-
-  return "Press / for commands.";
-};
