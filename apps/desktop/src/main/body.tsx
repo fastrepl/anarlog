@@ -301,8 +301,11 @@ function SidebarTimelineChrome({
   const showDownloadButton = sidebarExpanded && update.status === "available";
 
   return (
-    <div className="flex w-full items-center justify-between">
-      <div className="flex items-center gap-0">
+    <div
+      data-tauri-drag-region
+      className="flex w-full items-center justify-between"
+    >
+      <div data-tauri-drag-region className="flex items-center gap-0">
         <LeftSurfaceChromeButton
           ariaLabel={sidebarExpanded ? "Hide sidebar" : "Show sidebar"}
           badge={!sidebarExpanded && updateVisible}

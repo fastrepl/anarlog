@@ -203,6 +203,13 @@ describe("ClassicMainBody", () => {
     expect(topArea?.className).toContain("h-12");
     expect(topArea?.className).toContain("absolute");
     expect(topArea?.className).toContain("left-0");
+    expect(chrome?.hasAttribute("data-tauri-drag-region")).toBe(true);
+    expect(
+      sidebarToggle.parentElement?.hasAttribute("data-tauri-drag-region"),
+    ).toBe(true);
+    expect(sidebarToggle.getAttribute("data-tauri-drag-region")).toBe("false");
+    expect(searchButton.getAttribute("data-tauri-drag-region")).toBe("false");
+    expect(newNoteButton.getAttribute("data-tauri-drag-region")).toBe("false");
     expect(sidebarToggle.compareDocumentPosition(searchButton)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
