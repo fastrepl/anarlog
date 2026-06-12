@@ -288,7 +288,7 @@ function ToastPill({
       <div
         className={cn([
           "flex items-center gap-3 py-1.5 pr-1.5 pl-4",
-          "bg-secondary text-secondary-foreground rounded-full",
+          "bg-card text-card-foreground rounded-full",
           "border-border border shadow-lg backdrop-blur-none",
         ])}
       >
@@ -301,8 +301,8 @@ function ToastPill({
           className={cn([
             "rounded-full px-3 py-1.5 text-xs font-medium",
             "whitespace-nowrap",
-            "bg-alert text-alert-foreground",
-            "hover:bg-alert/90",
+            "bg-destructive text-destructive-foreground",
+            "hover:bg-destructive/90",
             "transition-colors",
           ])}
         >
@@ -314,7 +314,7 @@ function ToastPill({
           className={cn([
             "rounded-full px-3 py-1.5 text-xs font-medium",
             "whitespace-nowrap",
-            "border-border bg-card text-foreground hover:bg-accent border",
+            "border-border bg-muted text-foreground hover:bg-accent border",
             "transition-colors",
           ])}
         >

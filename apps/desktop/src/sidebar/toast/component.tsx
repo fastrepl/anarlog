@@ -17,7 +17,7 @@ export function Toast({
       <div
         className={cn([
           "relative z-50 inline-flex max-w-[calc(100vw-24px)] items-center gap-3 py-1.5 pr-1.5 pl-4",
-          "bg-secondary text-secondary-foreground rounded-full",
+          "bg-card text-card-foreground rounded-full",
           "border shadow-lg backdrop-blur-none",
           toast.variant === "error"
             ? "border-alert-border shadow-red-100 dark:shadow-red-950/30"
@@ -89,14 +89,14 @@ function getActions(
 
 function getActionClassName(toast: ToastType, index: number) {
   if (toast.variant === "error" && index === 0) {
-    return "bg-alert text-alert-foreground hover:bg-alert/90";
+    return "bg-destructive text-destructive-foreground hover:bg-destructive/90";
   }
 
   if (index === 0) {
-    return "bg-primary text-primary-foreground hover:bg-primary/90";
+    return "bg-muted text-foreground hover:bg-accent";
   }
 
-  return "border-border bg-card text-foreground hover:bg-accent border";
+  return "border-border bg-muted text-foreground hover:bg-accent border";
 }
 
 function getProgress(toast: ToastType) {

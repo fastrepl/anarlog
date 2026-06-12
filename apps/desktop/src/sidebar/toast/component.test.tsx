@@ -26,12 +26,38 @@ describe("Toast", () => {
     const pill = container.querySelector(".inline-flex");
 
     expect(pill?.className).toContain("rounded-full");
+    expect(pill?.className).toContain("bg-card");
     expect(screen.getByText("Language model needed")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Add" }).className).toContain(
+      "bg-muted",
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Add" }));
     fireEvent.click(screen.getByRole("button", { name: "Hide" }));
 
     expect(onAdd).toHaveBeenCalledTimes(1);
     expect(onHide).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses the destructive button color for error primary actions", () => {
+    render(
+      <Toast
+        toast={{
+          id: "transcription-unavailable",
+          description: "Transcription unavailable",
+          dismissible: true,
+          variant: "error",
+          primaryAction: {
+            label: "Settings",
+            onClick: vi.fn(),
+          },
+        }}
+      />,
+    );
+
+    const action = screen.getByRole("button", { name: "Settings" });
+
+    expect(action.className).toContain("bg-destructive");
+    expect(action.className).toContain("text-destructive-foreground");
   });
 });
