@@ -9,17 +9,29 @@ import * as main from "~/store/tinybase/store/main";
 import type { Tab } from "~/store/zustand/tabs/schema";
 import { type EditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
+import { parseTranscriptWords } from "~/stt/utils";
 
 export { computeCurrentNoteTab } from "./compute-note-tab";
 
 export function useHasTranscript(sessionId: string): boolean {
-  const transcriptIds = main.UI.useSliceRowIds(
-    main.INDEXES.transcriptBySession,
-    sessionId,
-    main.STORE_ID,
-  );
+  const transcriptIds =
+    main.UI.useSliceRowIds(
+      main.INDEXES.transcriptBySession,
+      sessionId,
+      main.STORE_ID,
+    ) ?? [];
+  const transcriptsTable = main.UI.useTable("transcripts", main.STORE_ID);
+  const store = main.UI.useStore(main.STORE_ID);
 
-  return !!transcriptIds && transcriptIds.length > 0;
+  return useMemo(() => {
+    if (!store) {
+      return false;
+    }
+
+    return transcriptIds.some(
+      (transcriptId) => parseTranscriptWords(store, transcriptId).length > 0,
+    );
+  }, [store, transcriptIds, transcriptsTable]);
 }
 
 export function hasStoredNoteContent(value: unknown): boolean {

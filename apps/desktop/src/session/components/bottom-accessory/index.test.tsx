@@ -1,4 +1,11 @@
-import { act, renderHook } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+} from "@testing-library/react";
 import { isValidElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -25,6 +32,7 @@ const hoisted = vi.hoisted(() => ({
     summary: string | null;
     isGenerating: boolean;
   }>,
+  batch: {} as Record<string, { error: string | null }>,
   generateMissingPastNotes: vi.fn(),
   regeneratePastNote: vi.fn(),
 }));
@@ -69,10 +77,12 @@ vi.mock("~/stt/contexts", () => ({
         requestedLiveTranscription: boolean | null;
         liveTranscriptionActive: boolean | null;
       };
+      batch: Record<string, { error: string | null }>;
     }) => unknown,
   ) =>
     selector({
       live: hoisted.live,
+      batch: hoisted.batch,
     }),
 }));
 
@@ -88,12 +98,14 @@ import { useSessionBottomAccessory } from "./index";
 
 describe("useSessionBottomAccessory", () => {
   beforeEach(() => {
+    cleanup();
     hoisted.hotkeys.clear();
     hoisted.live.status = "inactive";
     hoisted.live.sessionId = null;
     hoisted.live.requestedLiveTranscription = true;
     hoisted.live.liveTranscriptionActive = true;
     hoisted.pastNotes = [];
+    hoisted.batch = {};
     hoisted.generateMissingPastNotes.mockClear();
     hoisted.regeneratePastNote.mockClear();
     useShellMock.mockReturnValue({
@@ -113,7 +125,7 @@ describe("useSessionBottomAccessory", () => {
       useSessionBottomAccessory({
         sessionId: "session-1",
         sessionMode: "inactive",
-        audioUrl: "file:///session.wav",
+        audioExists: true,
         hasTranscript: true,
       }),
     );
@@ -166,7 +178,7 @@ describe("useSessionBottomAccessory", () => {
       useSessionBottomAccessory({
         sessionId: "session-1",
         sessionMode: "inactive",
-        audioUrl: "file:///session.wav",
+        audioExists: true,
         hasTranscript: true,
       }),
     );
@@ -199,7 +211,7 @@ describe("useSessionBottomAccessory", () => {
       useSessionBottomAccessory({
         sessionId: "session-1",
         sessionMode: "inactive",
-        audioUrl: "file:///session.wav",
+        audioExists: true,
         hasTranscript: true,
       }),
     );
@@ -222,7 +234,7 @@ describe("useSessionBottomAccessory", () => {
       useSessionBottomAccessory({
         sessionId: "session-1",
         sessionMode: "inactive",
-        audioUrl: "file:///session.wav",
+        audioExists: true,
         hasTranscript: true,
       }),
     );
@@ -249,7 +261,7 @@ describe("useSessionBottomAccessory", () => {
       useSessionBottomAccessory({
         sessionId: "session-1",
         sessionMode: "inactive",
-        audioUrl: "file:///session.wav",
+        audioExists: true,
         hasTranscript: true,
       }),
     );
@@ -273,6 +285,165 @@ describe("useSessionBottomAccessory", () => {
     });
   });
 
+  it("uses related meetings as the only tab when there is no transcript content", () => {
+    hoisted.pastNotes = [
+      {
+        sessionId: "past-session",
+        title: "Weekly sync",
+        dateLabel: "May 28, 2026",
+        summary: null,
+        isGenerating: false,
+      },
+    ];
+
+    const { result } = renderHook(() =>
+      useSessionBottomAccessory({
+        sessionId: "session-1",
+        sessionMode: "inactive",
+        audioExists: false,
+        hasTranscript: false,
+      }),
+    );
+
+    expect(result.current.bottomAccessoryState).toEqual({
+      mode: "transcript_only",
+      expanded: false,
+    });
+
+    render(result.current.bottomBorderHandle);
+
+    expect(screen.queryByRole("button", { name: /Transcript/ })).toBeNull();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Expand Related meetings" }),
+    );
+
+    expect(hoisted.generateMissingPastNotes).toHaveBeenCalledTimes(1);
+    expect(result.current.bottomAccessoryState).toEqual({
+      mode: "transcript_only",
+      expanded: true,
+    });
+  });
+
+  it("keeps the transcript panel available after batch transcription fails without words", () => {
+    hoisted.batch = {
+      "session-1": {
+        error: "batch start failed: connection refused",
+      },
+    };
+
+    const { result } = renderHook(() =>
+      useSessionBottomAccessory({
+        sessionId: "session-1",
+        sessionMode: "inactive",
+        audioExists: false,
+        hasTranscript: false,
+      }),
+    );
+
+    expect(result.current.bottomAccessoryState).toEqual({
+      mode: "transcript_only",
+      expanded: false,
+    });
+    expect(result.current.bottomBorderHandle).not.toBeNull();
+  });
+
+  it("keeps the transcript tab visible for batch errors next to related meetings", () => {
+    hoisted.batch = {
+      "session-1": {
+        error: "batch start failed: connection refused",
+      },
+    };
+    hoisted.pastNotes = [
+      {
+        sessionId: "past-session",
+        title: "Weekly sync",
+        dateLabel: "May 28, 2026",
+        summary: null,
+        isGenerating: false,
+      },
+    ];
+
+    const { result } = renderHook(() =>
+      useSessionBottomAccessory({
+        sessionId: "session-1",
+        sessionMode: "inactive",
+        audioExists: false,
+        hasTranscript: false,
+      }),
+    );
+
+    render(result.current.bottomBorderHandle);
+
+    expect(
+      screen.getByRole("button", { name: "Expand Transcript" }),
+    ).not.toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Expand Related meetings" }),
+    ).not.toBeNull();
+  });
+
+  it("keeps playback disabled until the audio URL is ready", () => {
+    const { result, rerender } = renderHook(
+      ({ audioUrlReady }: { audioUrlReady: boolean }) =>
+        useSessionBottomAccessory({
+          sessionId: "session-1",
+          sessionMode: "inactive",
+          audioExists: true,
+          audioUrlReady,
+          hasTranscript: false,
+        }),
+      {
+        initialProps: {
+          audioUrlReady: false,
+        },
+      },
+    );
+
+    expect(result.current.bottomAccessoryState).toEqual({
+      mode: "transcript_only",
+      expanded: false,
+    });
+    expect(result.current.bottomBorderHandle).not.toBeNull();
+
+    rerender({ audioUrlReady: true });
+
+    expect(result.current.bottomAccessoryState).toEqual({
+      mode: "playback",
+      expanded: false,
+    });
+  });
+
+  it("keeps the post-session handle visible while audio lookup is loading", () => {
+    const { result, rerender } = renderHook(
+      ({ isAudioLoading }: { isAudioLoading: boolean }) =>
+        useSessionBottomAccessory({
+          sessionId: "session-1",
+          sessionMode: "inactive",
+          audioExists: false,
+          audioUrlReady: false,
+          isAudioLoading,
+          hasTranscript: false,
+        }),
+      {
+        initialProps: {
+          isAudioLoading: true,
+        },
+      },
+    );
+
+    expect(result.current.bottomAccessoryState).toEqual({
+      mode: "transcript_only",
+      expanded: false,
+    });
+    expect(result.current.bottomBorderHandle).not.toBeNull();
+
+    rerender({ isAudioLoading: false });
+
+    expect(result.current.bottomAccessoryState).toBeNull();
+    expect(result.current.bottomBorderHandle).toBeNull();
+  });
+
   it("hides the bottom accessory while recording for batch transcription", () => {
     hoisted.live.requestedLiveTranscription = false;
     hoisted.live.liveTranscriptionActive = false;
@@ -281,7 +452,7 @@ describe("useSessionBottomAccessory", () => {
       useSessionBottomAccessory({
         sessionId: "session-1",
         sessionMode: "active",
-        audioUrl: null,
+        audioExists: false,
         hasTranscript: false,
       }),
     );
@@ -296,7 +467,7 @@ describe("useSessionBottomAccessory", () => {
       useSessionBottomAccessory({
         sessionId: "session-1",
         sessionMode: "finalizing",
-        audioUrl: null,
+        audioExists: false,
         hasTranscript: false,
       }),
     );
@@ -314,7 +485,7 @@ describe("useSessionBottomAccessory", () => {
       useSessionBottomAccessory({
         sessionId: "session-1",
         sessionMode: "inactive",
-        audioUrl: "file:///session.wav",
+        audioExists: true,
         hasTranscript: true,
       }),
     );
@@ -332,7 +503,7 @@ describe("useSessionBottomAccessory", () => {
       useSessionBottomAccessory({
         sessionId: "session-1",
         sessionMode: "running_batch",
-        audioUrl: "file:///session.wav",
+        audioExists: true,
         hasTranscript: true,
       }),
     );
@@ -350,7 +521,7 @@ describe("useSessionBottomAccessory", () => {
       useSessionBottomAccessory({
         sessionId: "session-1",
         sessionMode: "running_batch",
-        audioUrl: "file:///session.wav",
+        audioExists: true,
         hasTranscript: true,
       }),
     );
@@ -369,7 +540,7 @@ describe("useSessionBottomAccessory", () => {
         useSessionBottomAccessory({
           sessionId: "session-1",
           sessionMode,
-          audioUrl: "file:///session.wav",
+          audioExists: true,
           hasTranscript: true,
         }),
       {
@@ -416,7 +587,7 @@ describe("useSessionBottomAccessory", () => {
       useSessionBottomAccessory({
         sessionId: "session-1",
         sessionMode: "active",
-        audioUrl: null,
+        audioExists: false,
         hasTranscript: false,
       }),
     );

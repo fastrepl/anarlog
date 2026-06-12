@@ -328,7 +328,7 @@ export function AudioPlayerProvider({
     },
   });
 
-  const audioExistsValue = Boolean(url) || (audioExists.data ?? false);
+  const audioExistsValue = audioExists.data ?? false;
 
   const value = useMemo<AudioPlayerContextValue>(
     () => ({

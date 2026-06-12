@@ -70,7 +70,7 @@ export function TabContentNote({
     updateSessionTabState,
   ]);
 
-  const { data: audioUrl } = useQuery({
+  const audioUrlQuery = useQuery({
     enabled: sessionMode !== "active" && sessionMode !== "finalizing",
     queryKey: ["audio", tab.id, "url"],
     queryFn: () => fsSyncCommands.audioPath(tab.id),
@@ -81,12 +81,17 @@ export function TabContentNote({
       return convertFileSrc(result.data);
     },
   });
+  const audioUrl = audioUrlQuery.data;
 
   return (
     <CaretPositionProvider>
       <SearchProvider>
         <AudioPlayer.Provider sessionId={tab.id} url={audioUrl ?? ""}>
-          <TabContentNoteInner tab={tab} audioUrl={audioUrl} />
+          <TabContentNoteInner
+            tab={tab}
+            audioUrlReady={Boolean(audioUrl)}
+            isAudioUrlLoading={audioUrlQuery.isPending}
+          />
         </AudioPlayer.Provider>
       </SearchProvider>
     </CaretPositionProvider>
@@ -95,10 +100,12 @@ export function TabContentNote({
 
 function TabContentNoteInner({
   tab,
-  audioUrl,
+  audioUrlReady,
+  isAudioUrlLoading,
 }: {
   tab: Extract<Tab, { type: "sessions" }>;
-  audioUrl: string | null | undefined;
+  audioUrlReady: boolean;
+  isAudioUrlLoading: boolean;
 }) {
   const titleInputRef = React.useRef<TitleInputHandle>(null);
   const noteInputRef = React.useRef<NoteInputHandle>(null);
@@ -125,6 +132,7 @@ function TabContentNoteInner({
   const sessionId = tab.id;
   const { skipReason } = useAutoEnhance(tab);
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
+  const { audioExists } = AudioPlayer.useAudioPlayer();
 
   useAutoFocusTitle({ sessionId, titleInputRef });
   usePendingUpload(sessionId);
@@ -133,7 +141,9 @@ function TabContentNoteInner({
     useSessionBottomAccessory({
       sessionId,
       sessionMode,
-      audioUrl,
+      audioExists,
+      audioUrlReady,
+      isAudioLoading: isAudioUrlLoading,
       hasTranscript,
     });
 

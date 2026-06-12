@@ -31,12 +31,16 @@ export type BottomAccessoryState = {
 export function useSessionBottomAccessory({
   sessionId,
   sessionMode,
-  audioUrl,
+  audioExists,
+  audioUrlReady = audioExists,
+  isAudioLoading = false,
   hasTranscript,
 }: {
   sessionId: string;
   sessionMode: string;
-  audioUrl: string | null | undefined;
+  audioExists: boolean;
+  audioUrlReady?: boolean;
+  isAudioLoading?: boolean;
   hasTranscript: boolean;
 }): {
   bottomAccessory: ReactNode;
@@ -50,19 +54,27 @@ export function useSessionBottomAccessory({
   const isLive = sessionMode === "active";
   const isInactive = sessionMode === "inactive";
   const isRunningBatch = sessionMode === "running_batch";
-  const hasAudio = Boolean(audioUrl) && (isInactive || isRunningBatch);
+  const canUsePlayback = audioUrlReady && (isInactive || isRunningBatch);
+  const mayHaveAudio =
+    (audioExists || isAudioLoading) && (isInactive || isRunningBatch);
+  const batchError = useListener(
+    (state) => state.batch[sessionId]?.error ?? null,
+  );
+  const hasTranscriptError = Boolean(batchError);
+  const canShowTranscriptTab =
+    canUsePlayback || hasTranscript || hasTranscriptError || isRunningBatch;
   const pastNotes = usePastSessionNotes(sessionId);
   const hasPastNotes = pastNotes.hasPastNotes;
   const generateMissingPastNotes = pastNotes.generateMissing;
   const regeneratePastNote = pastNotes.canGenerate
     ? pastNotes.regenerate
     : undefined;
-  const activePostSessionTab: PostSessionTab = hasPastNotes
-    ? (postSessionTab ??
-      (!hasAudio && !hasTranscript && !isRunningBatch
-        ? "past_notes"
-        : "transcript"))
-    : "transcript";
+  const activePostSessionTab: PostSessionTab =
+    hasPastNotes && !canShowTranscriptTab
+      ? "past_notes"
+      : hasPastNotes
+        ? (postSessionTab ?? "transcript")
+        : "transcript";
   const live = useListener((state) => state.live);
   const { chat } = useShell();
   const liveCaptureMode = getLiveCaptureUiMode(live);
@@ -96,7 +108,7 @@ export function useSessionBottomAccessory({
     isRunningBatch ||
     (!shouldDeferToGlobalLiveAccessory &&
       isInactive &&
-      (hasAudio || hasTranscript || hasPastNotes));
+      (mayHaveAudio || hasTranscript || hasTranscriptError || hasPastNotes));
   const selectPostSessionTab = useCallback(
     (tab: PostSessionTab) => {
       const shouldExpand = activePostSessionTab !== tab || !isExpanded;
@@ -130,7 +142,7 @@ export function useSessionBottomAccessory({
     showLiveAccessory
       ? "live"
       : showPostSession
-        ? hasAudio || isRunningBatch
+        ? canUsePlayback || isRunningBatch
           ? "playback"
           : "transcript_only"
         : null;
@@ -168,7 +180,7 @@ export function useSessionBottomAccessory({
       bottomAccessory: hasAccessoryContent ? (
         <PostSessionAccessory
           sessionId={sessionId}
-          hasAudio={hasAudio}
+          hasAudio={canUsePlayback}
           hasTranscript={hasTranscript}
           isTranscriptExpanded={isExpanded}
           activeTab={activePostSessionTab}
@@ -181,6 +193,7 @@ export function useSessionBottomAccessory({
         <PostSessionTabHandle
           isExpanded={isExpanded}
           activeTab={activePostSessionTab}
+          showTranscriptTab={canShowTranscriptTab}
           onSelect={selectPostSessionTab}
         />
       ) : (
@@ -206,22 +219,26 @@ export function useSessionBottomAccessory({
 function PostSessionTabHandle({
   isExpanded,
   activeTab,
+  showTranscriptTab,
   onSelect,
 }: {
   isExpanded: boolean;
   activeTab: PostSessionTab;
+  showTranscriptTab: boolean;
   onSelect: (tab: PostSessionTab) => void;
 }) {
   return (
     <div className="relative left-3 z-10 flex h-5 items-center gap-1">
-      <PostSessionTabButton
-        label="Transcript"
-        tab="transcript"
-        activeTab={activeTab}
-        isExpanded={isExpanded}
-        onSelect={onSelect}
-        className="rounded-t-[10px] border-x"
-      />
+      {showTranscriptTab ? (
+        <PostSessionTabButton
+          label="Transcript"
+          tab="transcript"
+          activeTab={activeTab}
+          isExpanded={isExpanded}
+          onSelect={onSelect}
+          className="rounded-t-[10px] border-x"
+        />
+      ) : null}
       <PostSessionTabButton
         label="Related meetings"
         tab="past_notes"
