@@ -1,3 +1,4 @@
+import type { EditorView } from "prosemirror-view";
 import { forwardRef, useCallback, useEffect, useMemo, useRef } from "react";
 
 import { parseJsonContent } from "@hypr/editor/markdown";
@@ -28,6 +29,8 @@ export const RawEditor = forwardRef<
     onNavigateToTitle?: (pixelWidth?: number) => void;
     syncTasks?: boolean;
     showFormatToolbar?: boolean;
+    onViewReady?: (view: EditorView) => void;
+    onViewDisposed?: (view: EditorView) => void;
   }
 >(
   (
@@ -37,6 +40,8 @@ export const RawEditor = forwardRef<
       onNavigateToTitle,
       syncTasks = true,
       showFormatToolbar = true,
+      onViewReady,
+      onViewDisposed,
     },
     ref,
   ) => {
@@ -120,6 +125,8 @@ export const RawEditor = forwardRef<
         }
         extraNodeViews={extraNodeViews}
         showFormatToolbar={showFormatToolbar}
+        onViewReady={onViewReady}
+        onViewDisposed={onViewDisposed}
       />
     );
   },

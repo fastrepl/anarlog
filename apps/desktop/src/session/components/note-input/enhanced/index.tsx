@@ -1,3 +1,4 @@
+import type { EditorView } from "prosemirror-view";
 import { forwardRef } from "react";
 
 import type { NoteEditorRef } from "@hypr/editor/note";
@@ -18,59 +19,74 @@ export const Enhanced = forwardRef<
     sessionId: string;
     enhancedNoteId: string;
     onNavigateToTitle?: (pixelWidth?: number) => void;
+    onViewReady?: (view: EditorView) => void;
+    onViewDisposed?: (view: EditorView) => void;
   }
->(({ sessionId, enhancedNoteId, onNavigateToTitle }, ref) => {
-  const taskId = createTaskId(enhancedNoteId, "enhance");
-  const llmStatus = useLLMConnectionStatus();
-  const { status, error, hasTask } = useAITaskTask(taskId, "enhance");
-  const content = main.UI.useCell(
-    "enhanced_notes",
-    enhancedNoteId,
-    "content",
-    main.STORE_ID,
-  );
+>(
+  (
+    {
+      sessionId,
+      enhancedNoteId,
+      onNavigateToTitle,
+      onViewReady,
+      onViewDisposed,
+    },
+    ref,
+  ) => {
+    const taskId = createTaskId(enhancedNoteId, "enhance");
+    const llmStatus = useLLMConnectionStatus();
+    const { status, error, hasTask } = useAITaskTask(taskId, "enhance");
+    const content = main.UI.useCell(
+      "enhanced_notes",
+      enhancedNoteId,
+      "content",
+      main.STORE_ID,
+    );
 
-  const hasContent = typeof content === "string" && content.trim().length > 0;
+    const hasContent = typeof content === "string" && content.trim().length > 0;
 
-  const isConfigError =
-    llmStatus.status === "pending" ||
-    (llmStatus.status === "error" &&
-      (llmStatus.reason === "missing_config" ||
-        llmStatus.reason === "not_pro" ||
-        llmStatus.reason === "unauthenticated"));
+    const isConfigError =
+      llmStatus.status === "pending" ||
+      (llmStatus.status === "error" &&
+        (llmStatus.reason === "missing_config" ||
+          llmStatus.reason === "not_pro" ||
+          llmStatus.reason === "unauthenticated"));
 
-  if (status === "idle" && isConfigError && !hasContent) {
-    return <ConfigError status={llmStatus} />;
-  }
+    if (status === "idle" && isConfigError && !hasContent) {
+      return <ConfigError status={llmStatus} />;
+    }
 
-  if (status === "error") {
+    if (status === "error") {
+      return (
+        <EnhanceError
+          sessionId={sessionId}
+          enhancedNoteId={enhancedNoteId}
+          error={error}
+        />
+      );
+    }
+
+    if (
+      status === "generating" ||
+      (!hasContent && status === "idle" && !hasTask)
+    ) {
+      return (
+        <StreamingView
+          enhancedNoteId={enhancedNoteId}
+          pending={status === "idle"}
+        />
+      );
+    }
+
     return (
-      <EnhanceError
+      <EnhancedEditor
+        ref={ref}
         sessionId={sessionId}
         enhancedNoteId={enhancedNoteId}
-        error={error}
+        onNavigateToTitle={onNavigateToTitle}
+        onViewReady={onViewReady}
+        onViewDisposed={onViewDisposed}
       />
     );
-  }
-
-  if (
-    status === "generating" ||
-    (!hasContent && status === "idle" && !hasTask)
-  ) {
-    return (
-      <StreamingView
-        enhancedNoteId={enhancedNoteId}
-        pending={status === "idle"}
-      />
-    );
-  }
-
-  return (
-    <EnhancedEditor
-      ref={ref}
-      sessionId={sessionId}
-      enhancedNoteId={enhancedNoteId}
-      onNavigateToTitle={onNavigateToTitle}
-    />
-  );
-});
+  },
+);

@@ -160,6 +160,8 @@ export interface NoteEditorProps {
   extraNodeViews?: NodeViewComponents;
   sessionMentionDropConfig?: SessionMentionDropConfig;
   showFormatToolbar?: boolean;
+  onViewReady?: (view: EditorView) => void;
+  onViewDisposed?: (view: EditorView) => void;
 }
 
 const baseNodeViews = {
@@ -272,16 +274,31 @@ function createSessionMentionDropPlugin(config: SessionMentionDropConfig) {
 function ViewCapture({
   viewRef,
   onViewReady,
+  onViewDisposed,
 }: {
   viewRef: React.RefObject<EditorView | null>;
   onViewReady: (view: EditorView) => void;
+  onViewDisposed?: (view: EditorView) => void;
 }) {
-  useEditorEffect((view) => {
-    if (view && viewRef.current !== view) {
-      viewRef.current = view;
-      onViewReady(view);
-    }
-  });
+  const callbacksRef = useRef({ onViewReady, onViewDisposed });
+  callbacksRef.current = { onViewReady, onViewDisposed };
+
+  useEditorEffect(
+    (view) => {
+      if (view && viewRef.current !== view) {
+        viewRef.current = view;
+        callbacksRef.current.onViewReady(view);
+      }
+
+      return () => {
+        if (viewRef.current === view) {
+          viewRef.current = null;
+          callbacksRef.current.onViewDisposed?.(view);
+        }
+      };
+    },
+    [viewRef],
+  );
   return null;
 }
 
@@ -454,6 +471,8 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
       extraNodeViews,
       sessionMentionDropConfig,
       showFormatToolbar = true,
+      onViewReady: onViewReadyProp,
+      onViewDisposed,
     } = props;
 
     const taskStorage = useTaskStorageOptional();
@@ -620,8 +639,9 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
     const onViewReady = useCallback(
       (view: EditorView) => {
         onUpdate(view.state.doc.toJSON() as JSONContent);
+        onViewReadyProp?.(view);
       },
-      [onUpdate],
+      [onUpdate, onViewReadyProp],
     );
 
     return (
@@ -656,7 +676,11 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
               }}
             >
               <ProseMirrorDoc />
-              <ViewCapture viewRef={viewRef} onViewReady={onViewReady} />
+              <ViewCapture
+                viewRef={viewRef}
+                onViewReady={onViewReady}
+                onViewDisposed={onViewDisposed}
+              />
               <EditorCommandsBridge commandsRef={commandsRef} />
               {showFormatToolbar && <FormatToolbar />}
               <SlashCommandMenu />

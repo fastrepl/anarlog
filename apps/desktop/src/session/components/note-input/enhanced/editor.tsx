@@ -1,3 +1,4 @@
+import type { EditorView } from "prosemirror-view";
 import { forwardRef, useMemo } from "react";
 
 import { parseJsonContent } from "@hypr/editor/markdown";
@@ -23,48 +24,63 @@ export const EnhancedEditor = forwardRef<
     sessionId: string;
     enhancedNoteId: string;
     onNavigateToTitle?: (pixelWidth?: number) => void;
+    onViewReady?: (view: EditorView) => void;
+    onViewDisposed?: (view: EditorView) => void;
   }
->(({ sessionId, enhancedNoteId, onNavigateToTitle }, ref) => {
-  const onFileUpload = useFileUpload(sessionId);
-  const content = main.UI.useCell(
-    "enhanced_notes",
-    enhancedNoteId,
-    "content",
-    main.STORE_ID,
-  );
+>(
+  (
+    {
+      sessionId,
+      enhancedNoteId,
+      onNavigateToTitle,
+      onViewReady,
+      onViewDisposed,
+    },
+    ref,
+  ) => {
+    const onFileUpload = useFileUpload(sessionId);
+    const content = main.UI.useCell(
+      "enhanced_notes",
+      enhancedNoteId,
+      "content",
+      main.STORE_ID,
+    );
 
-  const initialContent = useMemo<JSONContent>(
-    () => parseJsonContent(content as string),
-    [content],
-  );
+    const initialContent = useMemo<JSONContent>(
+      () => parseJsonContent(content as string),
+      [content],
+    );
 
-  const handleChange = main.UI.useSetPartialRowCallback(
-    "enhanced_notes",
-    enhancedNoteId,
-    (input: JSONContent) => ({ content: JSON.stringify(input) }),
-    [],
-    main.STORE_ID,
-  );
+    const handleChange = main.UI.useSetPartialRowCallback(
+      "enhanced_notes",
+      enhancedNoteId,
+      (input: JSONContent) => ({ content: JSON.stringify(input) }),
+      [],
+      main.STORE_ID,
+    );
 
-  const fileHandlerConfig = useMemo(() => ({ onFileUpload }), [onFileUpload]);
-  const mentionConfig = useMentionConfig();
+    const fileHandlerConfig = useMemo(() => ({ onFileUpload }), [onFileUpload]);
+    const mentionConfig = useMentionConfig();
 
-  return (
-    <div className="h-full">
-      <NoteEditor
-        ref={ref}
-        className="enhanced-summary-editor"
-        key={`enhanced-note-${enhancedNoteId}`}
-        initialContent={initialContent}
-        handleChange={handleChange}
-        mentionConfig={mentionConfig}
-        sessionMentionDropConfig={sessionMentionDropConfig}
-        onNavigateToTitle={onNavigateToTitle}
-        onLinkOpen={openEditorLink}
-        fileHandlerConfig={fileHandlerConfig}
-        taskSource={{ type: "enhanced_note", id: enhancedNoteId }}
-        extraNodeViews={extraNodeViews}
-      />
-    </div>
-  );
-});
+    return (
+      <div className="h-full">
+        <NoteEditor
+          ref={ref}
+          className="enhanced-summary-editor"
+          key={`enhanced-note-${enhancedNoteId}`}
+          initialContent={initialContent}
+          handleChange={handleChange}
+          mentionConfig={mentionConfig}
+          sessionMentionDropConfig={sessionMentionDropConfig}
+          onNavigateToTitle={onNavigateToTitle}
+          onLinkOpen={openEditorLink}
+          fileHandlerConfig={fileHandlerConfig}
+          taskSource={{ type: "enhanced_note", id: enhancedNoteId }}
+          extraNodeViews={extraNodeViews}
+          onViewReady={onViewReady}
+          onViewDisposed={onViewDisposed}
+        />
+      </div>
+    );
+  },
+);
