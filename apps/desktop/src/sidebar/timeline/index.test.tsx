@@ -8,8 +8,10 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  anchorNode: null as HTMLDivElement | null,
   openNew: vi.fn(),
   registerAnchor: vi.fn(),
+  useAutoScrollToAnchor: vi.fn(),
   invalidateResource: vi.fn(),
   clearSelection: vi.fn(),
   addDeletion: vi.fn(),
@@ -119,14 +121,14 @@ vi.mock("./anchor", async () => {
 
   return {
     useAnchor: () => ({
-      anchorNode: null,
+      anchorNode: mocks.anchorNode,
       containerRef: React.useRef<HTMLDivElement>(null),
       isAnchorVisible: true,
       isScrolledPastAnchor: false,
       registerAnchor: mocks.registerAnchor,
       scrollToAnchor: vi.fn(),
     }),
-    useAutoScrollToAnchor: vi.fn(),
+    useAutoScrollToAnchor: mocks.useAutoScrollToAnchor,
   };
 });
 
@@ -155,6 +157,7 @@ import { TimelineView } from ".";
 describe("TimelineView", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.anchorNode = null;
     mocks.configValue = undefined;
     mocks.currentTimeMs = undefined;
     mocks.isIgnored.mockReturnValue(false);
@@ -514,6 +517,53 @@ describe("TimelineView", () => {
     expect(
       indicator.closest("[data-sidebar-current-time-header-gap]")?.className,
     ).toContain("py-3");
+  });
+
+  it("does not auto-scroll to the fallback now indicator without a today bucket", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-15T15:54:00.000Z"));
+
+    mocks.configValue = "UTC";
+    mocks.anchorNode = document.createElement("div");
+    mocks.timelineSessionsTable = {
+      yesterday: {
+        title: "Design sync",
+        created_at: "2024-01-14T12:00:00.000Z",
+      },
+    };
+
+    render(<TimelineView topChromeInset />);
+
+    expect(screen.getByTestId("current-time-indicator")).toBeTruthy();
+    expect(mocks.useAutoScrollToAnchor).toHaveBeenCalledWith(
+      expect.objectContaining({
+        anchorNode: null,
+      }),
+    );
+  });
+
+  it("auto-scrolls to the current-time anchor when a today bucket exists", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-15T15:54:00.000Z"));
+
+    mocks.configValue = "UTC";
+    const anchorNode = document.createElement("div");
+    mocks.anchorNode = anchorNode;
+    mocks.timelineSessionsTable = {
+      today: {
+        title: "Design sync",
+        created_at: "2024-01-15T12:00:00.000Z",
+      },
+    };
+
+    render(<TimelineView topChromeInset />);
+
+    expect(screen.getByText("Today")).toBeTruthy();
+    expect(mocks.useAutoScrollToAnchor).toHaveBeenCalledWith(
+      expect.objectContaining({
+        anchorNode,
+      }),
+    );
   });
 
   it("hides the now indicator while an active meeting is visible", () => {

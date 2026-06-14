@@ -226,11 +226,12 @@ export function TimelineView({
     const b = buckets.find((bucket) => bucket.label === "Today");
     return b?.items.length ?? 0;
   }, [buckets]);
+  const autoScrollAnchorNode = hasToday ? todayAnchorNode : null;
 
   useAutoScrollToAnchor({
     scrollFn: scrollToToday,
     isVisible: isTodayVisible,
-    anchorNode: todayAnchorNode,
+    anchorNode: autoScrollAnchorNode,
     deps: [todayBucketLength],
   });
 
