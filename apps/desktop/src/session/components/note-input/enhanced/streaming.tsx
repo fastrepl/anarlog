@@ -11,6 +11,25 @@ export function StreamingView({ enhancedNoteId }: { enhancedNoteId: string }) {
   const taskId = createTaskId(enhancedNoteId, "enhance");
   const { streamedText, isGenerating } = useAITaskTask(taskId, "enhance");
 
+  if (streamedText.trim().length === 0) {
+    return (
+      <div
+        role="status"
+        aria-live="polite"
+        className="text-muted-foreground flex flex-col gap-0.5 pb-2 text-sm"
+      >
+        <p className="leading-5">Analyzing structure...</p>
+        <p className="flex items-start gap-1.5 pl-4 text-xs leading-5">
+          <span
+            aria-hidden="true"
+            className="border-muted-foreground/60 mt-[5px] h-2 w-2 shrink-0 rounded-bl-[2px] border-b border-l"
+          />
+          <span>Tip: The Anarlog team loves our users!</span>
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="pb-2">
       <div className="flex flex-col gap-1">

@@ -86,7 +86,7 @@ describe("Enhanced", () => {
     expect(screen.queryByTestId("spinner")).toBeNull();
   });
 
-  it("keeps the generating view quiet until summary text streams", () => {
+  it("shows an inline analyzing state until summary text streams", () => {
     hoisted.task = {
       status: "generating",
       error: undefined,
@@ -97,8 +97,11 @@ describe("Enhanced", () => {
 
     render(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
 
-    expect(screen.queryByRole("status")).toBeNull();
-    expect(screen.queryByText("Preparing summary...")).toBeNull();
+    expect(screen.getByRole("status")).not.toBeNull();
+    expect(screen.getByText("Analyzing structure...")).not.toBeNull();
+    expect(
+      screen.getByText("Tip: The Anarlog team loves our users!"),
+    ).not.toBeNull();
     expect(screen.queryByText("Enhanced editor")).toBeNull();
   });
 

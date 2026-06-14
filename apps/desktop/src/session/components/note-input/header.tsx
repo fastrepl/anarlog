@@ -24,7 +24,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@hypr/ui/components/ui/popover";
-import { Spinner } from "@hypr/ui/components/ui/spinner";
 import { sonnerToast } from "@hypr/ui/components/ui/toast";
 import { cn } from "@hypr/utils";
 
@@ -47,7 +46,6 @@ import {
 import { useWebResources } from "~/shared/ui/resource-list";
 import * as main from "~/store/tinybase/store/main";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
-import { type TaskStepInfo } from "~/store/zustand/ai-task/tasks";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 import { type EditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
@@ -226,8 +224,10 @@ function HeaderTabEnhanced({
   canRemove?: boolean;
   onRemove?: () => void;
 }) {
-  const { isGenerating, isError, onRegenerate, onCancel, currentStep } =
-    useEnhanceLogic(sessionId, enhancedNoteId);
+  const { isGenerating, isError, onRegenerate, onCancel } = useEnhanceLogic(
+    sessionId,
+    enhancedNoteId,
+  );
   const content = main.UI.useCell(
     "enhanced_notes",
     enhancedNoteId,
@@ -372,8 +372,6 @@ function HeaderTabEnhanced({
   const showContextMenu = useNativeContextMenu(contextMenu);
 
   if (isGenerating) {
-    const step = currentStep as TaskStepInfo<"enhance"> | undefined;
-
     const handleCancelClick = (e: React.MouseEvent) => {
       e.stopPropagation();
       onCancel();
@@ -417,27 +415,7 @@ function HeaderTabEnhanced({
             ])}
             aria-label="Cancel enhancement"
           >
-            <span className="flex items-center justify-center group-hover/tab:hidden">
-              {step?.type === "generating" ? (
-                <>
-                  <img
-                    src="/assets/write-animation.gif"
-                    alt=""
-                    aria-hidden="true"
-                    className="size-3 dark:hidden"
-                  />
-                  <img
-                    src="/assets/write-animation-white.gif"
-                    alt=""
-                    aria-hidden="true"
-                    className="hidden size-3 dark:block"
-                  />
-                </>
-              ) : (
-                <Spinner size={14} />
-              )}
-            </span>
-            <XIcon className="hidden size-4 items-center justify-center group-hover/tab:flex" />
+            <XIcon className="flex size-4 items-center justify-center" />
           </button>
         </span>
       </div>,
@@ -1241,7 +1219,6 @@ function useEnhanceLogic(sessionId: string, enhancedNoteId: string) {
     error,
     onRegenerate,
     onCancel: enhanceTask.cancel,
-    currentStep: enhanceTask.currentStep,
   };
 }
 
