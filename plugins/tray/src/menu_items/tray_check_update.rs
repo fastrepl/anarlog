@@ -9,6 +9,7 @@ use tauri::{
 };
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 use tauri_plugin_updater2::Updater2PluginExt;
+use tauri_specta::Event;
 
 use super::{MenuItemHandler, TrayOpen, TrayQuit, TrayStart, TrayVersion};
 
@@ -75,6 +76,25 @@ impl TrayCheckUpdate {
     fn pending_version() -> Option<String> {
         PENDING_VERSION.lock().unwrap().clone()
     }
+
+    async fn apply_update(app: AppHandle<tauri::Wry>, version: String) {
+        match app.updater2().install(&version).await {
+            Ok(result) => {
+                if let Err(e) = app.updater2().postinstall(result).await {
+                    app.dialog()
+                        .message(format!("Failed to apply update: {}", e))
+                        .title("Update Failed")
+                        .show(|_| {});
+                }
+            }
+            Err(e) => {
+                app.dialog()
+                    .message(format!("Failed to install update: {}", e))
+                    .title("Update Failed")
+                    .show(|_| {});
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -106,22 +126,7 @@ impl MenuItemHandler for TrayCheckUpdate {
             if let Some(version) = Self::pending_version() {
                 let app = app.clone();
                 tauri::async_runtime::spawn(async move {
-                    match app.updater2().install(&version).await {
-                        Ok(result) => {
-                            if let Err(e) = app.updater2().postinstall(result).await {
-                                app.dialog()
-                                    .message(format!("Failed to apply update: {}", e))
-                                    .title("Update Failed")
-                                    .show(|_| {});
-                            }
-                        }
-                        Err(e) => {
-                            app.dialog()
-                                .message(format!("Failed to install update: {}", e))
-                                .title("Update Failed")
-                                .show(|_| {});
-                        }
-                    }
+                    Self::apply_update(app, version).await;
                 });
             }
             return;
@@ -135,6 +140,14 @@ impl MenuItemHandler for TrayCheckUpdate {
         tauri::async_runtime::spawn(async move {
             match app.updater2().check().await {
                 Ok(Some(version)) => {
+                    if app.updater2().has_cached_update(&version) {
+                        let event = tauri_plugin_updater2::UpdateReadyEvent { version };
+                        if let Err(e) = event.emit(&app) {
+                            tracing::warn!("failed_emit_update_ready_event: {e}");
+                        }
+                        return;
+                    }
+
                     let app_for_dialog = app.clone();
                     let version_for_download = version.clone();
                     app.dialog()

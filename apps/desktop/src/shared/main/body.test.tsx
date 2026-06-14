@@ -291,13 +291,13 @@ describe("ClassicMainBody", () => {
     ).toBeNull();
   });
 
-  it("only shows downloadable updates in the far-right sidebar chrome slot", () => {
+  it("shows ready updates in the far-right sidebar chrome slot", () => {
     mocks.sidebarUpdateControl.status = "ready";
     mocks.sidebarUpdateControl.version = "1.0.34";
 
     render(<ClassicMainBody />);
 
-    expect(screen.queryByTestId("sidebar-update-button")).toBeNull();
+    expect(screen.getByTestId("sidebar-update-button")).toBeTruthy();
   });
 
   it("shows an update badge on the collapsed sidebar toggle", () => {

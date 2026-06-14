@@ -298,7 +298,7 @@ function SidebarTimelineChrome({
   update: DesktopUpdateControl;
 }) {
   const updateVisible = Boolean(update.status && update.version);
-  const showDownloadButton = sidebarExpanded && update.status === "available";
+  const showUpdateButton = sidebarExpanded && updateVisible;
 
   return (
     <div
@@ -328,7 +328,7 @@ function SidebarTimelineChrome({
           </>
         ) : null}
       </div>
-      {showDownloadButton ? (
+      {showUpdateButton ? (
         <SidebarTimelineUpdateButton update={update} />
       ) : null}
     </div>
