@@ -23,6 +23,7 @@ export const EnhancedEditor = forwardRef<
   {
     sessionId: string;
     enhancedNoteId: string;
+    contentOverride?: JSONContent;
     onNavigateToTitle?: (pixelWidth?: number) => void;
     onViewReady?: (view: EditorView) => void;
     onViewDisposed?: (view: EditorView) => void;
@@ -32,6 +33,7 @@ export const EnhancedEditor = forwardRef<
     {
       sessionId,
       enhancedNoteId,
+      contentOverride,
       onNavigateToTitle,
       onViewReady,
       onViewDisposed,
@@ -47,9 +49,13 @@ export const EnhancedEditor = forwardRef<
     );
 
     const initialContent = useMemo<JSONContent>(
-      () => parseJsonContent(content as string),
-      [content],
+      () => contentOverride ?? parseJsonContent(content as string),
+      [content, contentOverride],
     );
+    const persistChanges = contentOverride === undefined;
+    const editorKey = persistChanges
+      ? `enhanced-note-${enhancedNoteId}`
+      : `enhanced-note-${enhancedNoteId}-preview`;
 
     const handleChange = main.UI.useSetPartialRowCallback(
       "enhanced_notes",
@@ -67,18 +73,23 @@ export const EnhancedEditor = forwardRef<
         <NoteEditor
           ref={ref}
           className="enhanced-summary-editor"
-          key={`enhanced-note-${enhancedNoteId}`}
+          key={editorKey}
           initialContent={initialContent}
-          handleChange={handleChange}
+          handleChange={persistChanges ? handleChange : undefined}
           mentionConfig={mentionConfig}
           sessionMentionDropConfig={sessionMentionDropConfig}
           onNavigateToTitle={onNavigateToTitle}
           onLinkOpen={openEditorLink}
           fileHandlerConfig={fileHandlerConfig}
-          taskSource={{ type: "enhanced_note", id: enhancedNoteId }}
+          taskSource={
+            persistChanges
+              ? { type: "enhanced_note", id: enhancedNoteId }
+              : undefined
+          }
           extraNodeViews={extraNodeViews}
           onViewReady={onViewReady}
           onViewDisposed={onViewDisposed}
+          syncContentWhenFocused={!persistChanges}
         />
       </div>
     );

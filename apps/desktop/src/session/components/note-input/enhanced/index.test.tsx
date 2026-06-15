@@ -23,10 +23,6 @@ const hoisted = vi.hoisted(() => ({
   content: "",
 }));
 
-vi.mock("streamdown", () => ({
-  Streamdown: ({ children }: { children: string }) => <div>{children}</div>,
-}));
-
 vi.mock("@hypr/ui/components/ui/spinner", () => ({
   Spinner: () => <span data-testid="spinner" />,
 }));
@@ -55,7 +51,34 @@ vi.mock("./config-error", () => ({
 }));
 
 vi.mock("./editor", () => ({
-  EnhancedEditor: () => <div>Enhanced editor</div>,
+  EnhancedEditor: ({
+    contentOverride,
+  }: {
+    contentOverride?: { content?: unknown[] };
+  }) => {
+    const collectText = (value: unknown): string => {
+      if (!value || typeof value !== "object") {
+        return "";
+      }
+
+      const node = value as {
+        text?: unknown;
+        content?: unknown[];
+      };
+
+      return [
+        typeof node.text === "string" ? node.text : "",
+        ...(node.content?.map(collectText) ?? []),
+      ].join("");
+    };
+
+    return (
+      <div>
+        <span>Enhanced editor</span>
+        {contentOverride ? <span>{collectText(contentOverride)}</span> : null}
+      </div>
+    );
+  },
 }));
 
 vi.mock("./enhance-error", () => ({
@@ -86,23 +109,20 @@ describe("Enhanced", () => {
     expect(screen.queryByTestId("spinner")).toBeNull();
   });
 
-  it("shows an inline analyzing state until summary text streams", () => {
+  it("renders a generating summary through the editor preview", () => {
     hoisted.task = {
       status: "generating",
       error: undefined,
-      streamedText: "",
+      streamedText: "Streaming summary",
       currentStep: undefined,
       isGenerating: true,
     };
 
     render(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
 
-    expect(screen.getByRole("status")).not.toBeNull();
-    expect(screen.getByText("Analyzing structure...")).not.toBeNull();
-    expect(
-      screen.getByText("Tip: The Anarlog team loves our users!"),
-    ).not.toBeNull();
-    expect(screen.queryByText("Enhanced editor")).toBeNull();
+    expect(screen.getByText("Enhanced editor")).not.toBeNull();
+    expect(screen.getByText("Streaming summary")).not.toBeNull();
+    expect(screen.queryByRole("status")).toBeNull();
   });
 
   it("renders the editor after an empty enhance task returns idle", () => {

@@ -1,12 +1,12 @@
 import type { EditorView } from "prosemirror-view";
-import { forwardRef } from "react";
+import { forwardRef, useMemo } from "react";
 
+import { md2json } from "@hypr/editor/markdown";
 import type { NoteEditorRef } from "@hypr/editor/note";
 
 import { ConfigError } from "./config-error";
 import { EnhancedEditor } from "./editor";
 import { EnhanceError } from "./enhance-error";
-import { StreamingView } from "./streaming";
 
 import { useAITaskTask } from "~/ai/hooks";
 import { useLLMConnectionStatus } from "~/ai/hooks";
@@ -36,12 +36,16 @@ export const Enhanced = forwardRef<
   ) => {
     const taskId = createTaskId(enhancedNoteId, "enhance");
     const llmStatus = useLLMConnectionStatus();
-    const { status, error } = useAITaskTask(taskId, "enhance");
+    const { status, error, streamedText } = useAITaskTask(taskId, "enhance");
     const content = main.UI.useCell(
       "enhanced_notes",
       enhancedNoteId,
       "content",
       main.STORE_ID,
+    );
+    const streamingPreviewContent = useMemo(
+      () => (status === "generating" ? md2json(streamedText) : undefined),
+      [status, streamedText],
     );
 
     const hasContent = typeof content === "string" && content.trim().length > 0;
@@ -62,15 +66,12 @@ export const Enhanced = forwardRef<
       );
     }
 
-    if (status === "generating") {
-      return <StreamingView enhancedNoteId={enhancedNoteId} />;
-    }
-
     return (
       <EnhancedEditor
         ref={ref}
         sessionId={sessionId}
         enhancedNoteId={enhancedNoteId}
+        contentOverride={streamingPreviewContent}
         onNavigateToTitle={onNavigateToTitle}
         onViewReady={onViewReady}
         onViewDisposed={onViewDisposed}

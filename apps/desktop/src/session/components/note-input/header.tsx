@@ -224,7 +224,7 @@ function HeaderTabEnhanced({
   canRemove?: boolean;
   onRemove?: () => void;
 }) {
-  const { isGenerating, isError, onRegenerate, onCancel } = useEnhanceLogic(
+  const { isGenerating, isError, onRegenerate } = useEnhanceLogic(
     sessionId,
     enhancedNoteId,
   );
@@ -268,9 +268,12 @@ function HeaderTabEnhanced({
   const handleRegenerateClick = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
+      if (isGenerating) {
+        return;
+      }
       handleRegenerate();
     },
-    [handleRegenerate],
+    [handleRegenerate, isGenerating],
   );
   const handleExploreTemplatesClick = useCallback(
     (e: React.MouseEvent) => {
@@ -370,57 +373,6 @@ function HeaderTabEnhanced({
     onRemove,
   ]);
   const showContextMenu = useNativeContextMenu(contextMenu);
-
-  if (isGenerating) {
-    const handleCancelClick = (e: React.MouseEvent) => {
-      e.stopPropagation();
-      onCancel();
-    };
-
-    return wrapWithTemplateTooltip(
-      <div
-        data-main-area-window-drag-region
-        data-tauri-drag-region="false"
-        role="button"
-        tabIndex={0}
-        onClick={onClick}
-        onContextMenu={showContextMenu}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            onClick();
-          }
-        }}
-        className={cn([
-          "group/tab relative shrink-0 cursor-pointer border-b-2 px-1 py-0.5 text-xs font-medium transition-all duration-200 select-none",
-          SESSION_NOTE_TAB_CLASSNAME,
-          isActive
-            ? ["text-foreground", "border-foreground"]
-            : [
-                "text-muted-foreground",
-                "border-transparent",
-                "hover:text-foreground",
-              ],
-        ])}
-      >
-        <span className="flex h-5 items-center gap-1">
-          <TruncatedTitle title={tabTitle} isActive={isActive} />
-          <button
-            type="button"
-            data-tauri-drag-region="false"
-            onClick={handleCancelClick}
-            className={cn([
-              "hover:bg-accent inline-flex h-5 w-5 cursor-pointer items-center justify-center rounded-xs",
-              !isActive && "opacity-50",
-            ])}
-            aria-label="Cancel enhancement"
-          >
-            <XIcon className="flex size-4 items-center justify-center" />
-          </button>
-        </span>
-      </div>,
-    );
-  }
 
   const regenerateIcon = (
     <span

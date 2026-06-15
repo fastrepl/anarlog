@@ -162,6 +162,7 @@ export interface NoteEditorProps {
   showFormatToolbar?: boolean;
   onViewReady?: (view: EditorView) => void;
   onViewDisposed?: (view: EditorView) => void;
+  syncContentWhenFocused?: boolean;
 }
 
 const baseNodeViews = {
@@ -473,6 +474,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
       showFormatToolbar = true,
       onViewReady: onViewReadyProp,
       onViewDisposed,
+      syncContentWhenFocused = false,
     } = props;
 
     const taskStorage = useTaskStorageOptional();
@@ -618,7 +620,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
         return;
       }
 
-      if (view.hasFocus()) {
+      if (view.hasFocus() && !syncContentWhenFocused) {
         previousContentRef.current = reconciledInitialContent;
         return;
       }
@@ -634,7 +636,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
       } catch {
         // invalid content
       }
-    }, [reconciledInitialContent]);
+    }, [reconciledInitialContent, syncContentWhenFocused]);
 
     const onViewReady = useCallback(
       (view: EditorView) => {
