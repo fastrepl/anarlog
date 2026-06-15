@@ -146,22 +146,21 @@ export function TimelineView({
     anchorNode: todayAnchorNode,
   } = useAnchor();
   const showTopNowChip = !isTodayVisible && isScrolledPastToday;
-  const topChromeChipCount = [
+  const reservedTopChromeChipCount = [
     showOpenCalendarChip,
     topChromeInset && showCalendarSyncStatus,
-    topChromeInset && showTopNowChip,
   ].filter(Boolean).length;
   const topSpacerClassName = topChromeInset
-    ? topChromeChipCount > 1
+    ? reservedTopChromeChipCount > 1
       ? "h-28"
-      : topChromeChipCount === 1
+      : reservedTopChromeChipCount === 1
         ? "h-20"
         : "h-12"
     : "h-10";
   const bucketHeaderTopClassName = topChromeInset
-    ? topChromeChipCount > 1
+    ? reservedTopChromeChipCount > 1
       ? "top-28"
-      : topChromeChipCount === 1
+      : reservedTopChromeChipCount === 1
         ? "top-20"
         : "top-12"
     : "top-0";
@@ -437,9 +436,9 @@ export function TimelineView({
           data-sidebar-timeline-top-fade
           className={cn([
             "pointer-events-none absolute inset-x-0 top-0 z-[15]",
-            topChromeChipCount > 1
+            reservedTopChromeChipCount > 1
               ? "bg-background h-28"
-              : topChromeChipCount === 1
+              : reservedTopChromeChipCount === 1
                 ? "bg-background h-20"
                 : "from-background via-background/95 to-background/0 h-16 bg-linear-to-b from-60% via-85%",
           ])}

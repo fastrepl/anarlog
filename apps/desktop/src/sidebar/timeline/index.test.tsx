@@ -17,6 +17,8 @@ const mocks = vi.hoisted(() => ({
   addDeletion: vi.fn(),
   configValue: undefined as string | undefined,
   currentTimeMs: undefined as number | undefined,
+  isAnchorVisible: true,
+  isScrolledPastAnchor: false,
   isIgnored: vi.fn(() => false),
   liveSessionId: null as string | null,
   liveStatus: "inactive" as "inactive" | "active" | "finalizing",
@@ -123,8 +125,8 @@ vi.mock("./anchor", async () => {
     useAnchor: () => ({
       anchorNode: mocks.anchorNode,
       containerRef: React.useRef<HTMLDivElement>(null),
-      isAnchorVisible: true,
-      isScrolledPastAnchor: false,
+      isAnchorVisible: mocks.isAnchorVisible,
+      isScrolledPastAnchor: mocks.isScrolledPastAnchor,
       registerAnchor: mocks.registerAnchor,
       scrollToAnchor: vi.fn(),
     }),
@@ -160,6 +162,8 @@ describe("TimelineView", () => {
     mocks.anchorNode = null;
     mocks.configValue = undefined;
     mocks.currentTimeMs = undefined;
+    mocks.isAnchorVisible = true;
+    mocks.isScrolledPastAnchor = false;
     mocks.isIgnored.mockReturnValue(false);
     mocks.liveSessionId = null;
     mocks.liveStatus = "inactive";
@@ -479,6 +483,29 @@ describe("TimelineView", () => {
     expect(getSidebarActionTabsOrNull()).toBeNull();
     expect(getTopFade(container).className).toContain("h-16");
     expect(getTopFade(container).className).toContain("from-60%");
+  });
+
+  it("overlays the top now chip without reserving sidebar space", () => {
+    mocks.isAnchorVisible = false;
+    mocks.isScrolledPastAnchor = true;
+    mocks.timelineSessionsTable = {
+      past: {
+        title: "Design sync",
+        created_at: "2024-01-14T12:00:00.000Z",
+      },
+    };
+
+    const { container } = render(<TimelineView topChromeInset />);
+
+    expect(screen.getByRole("button", { name: "Go back to now" })).toBeTruthy();
+    expect(
+      container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
+    ).toContain("h-12");
+    expect(
+      container.querySelector("[data-sidebar-timeline-bucket-header]")
+        ?.className,
+    ).toContain("top-12");
+    expect(getTopFade(container).className).toContain("h-16");
   });
 
   it("places the fallback now indicator between future and past buckets", () => {
