@@ -30,8 +30,22 @@ import {
 } from "~/stt/capabilities";
 import {
   createTranscriptAccumulator,
+  parseTranscriptWords,
   type TranscriptAccumulator,
 } from "~/stt/utils";
+
+function hasTranscriptContent(
+  store: main.Store,
+  indexes: ReturnType<typeof main.UI.useIndexes> | undefined,
+  sessionId: string,
+) {
+  const transcriptIds =
+    indexes?.getSliceRowIds(main.INDEXES.transcriptBySession, sessionId) ?? [];
+
+  return transcriptIds.some(
+    (transcriptId) => parseTranscriptWords(store, transcriptId).length > 0,
+  );
+}
 
 export function getPostCaptureAction(
   details: {
@@ -81,6 +95,11 @@ export function useStartListening(sessionId: string) {
     const startedAt = Date.now();
     const memoMd = store.getCell("sessions", sessionId, "raw_md");
     const createdAt = new Date().toISOString();
+    const hadTranscriptBeforeStart = hasTranscriptContent(
+      store as main.Store,
+      indexes ?? undefined,
+      sessionId,
+    );
     const transcriptAccumulatorRef: {
       current: TranscriptAccumulator | null;
     } = { current: null };
@@ -113,7 +132,16 @@ export function useStartListening(sessionId: string) {
         return;
       }
 
-      getEnhancerService()?.queueAutoEnhanceIfSummaryEmpty(sessionId);
+      const service = getEnhancerService();
+      const shouldRegenerateExistingSummary =
+        hadTranscriptBeforeStart &&
+        (transcriptId !== null || postCaptureAction === "batch_then_enhance");
+      if (shouldRegenerateExistingSummary) {
+        service?.resetEnhanceTasks(sessionId);
+        service?.queueAutoEnhance(sessionId);
+      } else {
+        service?.queueAutoEnhanceIfSummaryEmpty(sessionId);
+      }
 
       if (settingsStore) {
         await deleteProcessedAudioForRetention(

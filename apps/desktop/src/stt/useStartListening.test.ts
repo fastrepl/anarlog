@@ -5,7 +5,9 @@ import { getPostCaptureAction } from "./useStartListening";
 import { useStartListening } from "./useStartListening";
 
 const {
+  queueAutoEnhanceMock,
   queueAutoEnhanceIfSummaryEmptyMock,
+  resetEnhanceTasksMock,
   startMock,
   runBatchMock,
   useListenerMock,
@@ -21,7 +23,9 @@ const {
   mainStoreMock,
   settingsStoreMock,
 } = vi.hoisted(() => ({
+  queueAutoEnhanceMock: vi.fn(),
   queueAutoEnhanceIfSummaryEmptyMock: vi.fn(),
+  resetEnhanceTasksMock: vi.fn(),
   startMock: vi.fn(),
   runBatchMock: vi.fn(),
   useListenerMock: vi.fn(),
@@ -35,9 +39,10 @@ const {
   settingsUseStoreMock: vi.fn(),
   deleteProcessedAudioForRetentionMock: vi.fn(),
   mainStoreMock: {
-    getCell: vi.fn(() => ""),
+    getCell: vi.fn((_table: string, _rowId: string, _cell: string) => ""),
     forEachRow: vi.fn(),
     setRow: vi.fn(),
+    setCell: vi.fn(),
     delRow: vi.fn(),
     transaction: vi.fn((fn: () => void) => fn()),
   },
@@ -75,7 +80,9 @@ vi.mock("./useSTTConnection", () => ({
 
 vi.mock("~/services/enhancer", () => ({
   getEnhancerService: vi.fn(() => ({
+    queueAutoEnhance: queueAutoEnhanceMock,
     queueAutoEnhanceIfSummaryEmpty: queueAutoEnhanceIfSummaryEmptyMock,
+    resetEnhanceTasks: resetEnhanceTasksMock,
   })),
 }));
 
@@ -187,6 +194,8 @@ describe("useStartListening", () => {
       key === "ai_language" ? "en" : [],
     );
     settingsUseStoreMock.mockReturnValue(settingsStoreMock);
+    mainStoreMock.getCell.mockImplementation(() => "");
+    mainStoreMock.forEachRow.mockImplementation(() => {});
     useSTTConnectionMock.mockReturnValue({
       conn: {
         provider: "hyprnote",
@@ -283,6 +292,110 @@ describe("useStartListening", () => {
       settingsStoreMock,
       "session-1",
     );
+  });
+
+  test("regenerates the summary after resumed live capture writes transcript", async () => {
+    useIndexesMock.mockReturnValue({
+      getSliceRowIds: vi.fn(() => ["existing-transcript"]),
+    });
+    mainStoreMock.getCell.mockImplementation((table, _rowId, cell) => {
+      if (table === "transcripts" && cell === "words") {
+        return JSON.stringify([
+          {
+            id: "existing-word",
+            text: "existing",
+            start_ms: 0,
+            end_ms: 100,
+            channel: 0,
+          },
+        ]);
+      }
+
+      return "";
+    });
+
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    const handlePersist = startMock.mock.calls[0]?.[1]?.handlePersist;
+    expect(handlePersist).toBeTypeOf("function");
+
+    act(() => {
+      handlePersist?.({
+        new_words: [
+          {
+            id: "new-word",
+            text: "new",
+            start_ms: 100,
+            end_ms: 200,
+            channel: 0,
+          },
+        ],
+        replaced_ids: [],
+        partials: [],
+      });
+    });
+
+    const onStopped = startMock.mock.calls[0]?.[1]?.onStopped;
+
+    await act(async () => {
+      await onStopped?.("session-1", {
+        durationSeconds: 42,
+        audioPath: "/tmp/session.wav",
+        requestedLiveTranscription: true,
+        liveTranscriptionActive: true,
+      });
+    });
+
+    expect(resetEnhanceTasksMock).toHaveBeenCalledWith("session-1");
+    expect(queueAutoEnhanceMock).toHaveBeenCalledWith("session-1");
+    expect(queueAutoEnhanceIfSummaryEmptyMock).not.toHaveBeenCalled();
+  });
+
+  test("regenerates the summary after resumed batch capture completes", async () => {
+    useIndexesMock.mockReturnValue({
+      getSliceRowIds: vi.fn(() => ["existing-transcript"]),
+    });
+    mainStoreMock.getCell.mockImplementation((table, _rowId, cell) => {
+      if (table === "transcripts" && cell === "words") {
+        return JSON.stringify([
+          {
+            id: "existing-word",
+            text: "existing",
+            start_ms: 0,
+            end_ms: 100,
+            channel: 0,
+          },
+        ]);
+      }
+
+      return "";
+    });
+
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    const onStopped = startMock.mock.calls[0]?.[1]?.onStopped;
+
+    await act(async () => {
+      await onStopped?.("session-1", {
+        durationSeconds: 42,
+        audioPath: "/tmp/session.wav",
+        requestedLiveTranscription: false,
+        liveTranscriptionActive: false,
+      });
+    });
+
+    expect(runBatchMock).toHaveBeenCalledWith("/tmp/session.wav");
+    expect(resetEnhanceTasksMock).toHaveBeenCalledWith("session-1");
+    expect(queueAutoEnhanceMock).toHaveBeenCalledWith("session-1");
+    expect(queueAutoEnhanceIfSummaryEmptyMock).not.toHaveBeenCalled();
   });
 
   test("forces batch transcription for batch-only local models with realtime stored", async () => {
