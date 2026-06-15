@@ -10,6 +10,7 @@ import { cn } from "@hypr/utils";
 import { SiteFooter } from "@/components/site-footer";
 import { desktopSchemeSchema } from "@/functions/desktop-flow";
 import { getGitHubStats } from "@/functions/github";
+import { useMountEffect } from "@/hooks/useMountEffect";
 import {
   ANARLOG_SITE_URL,
   ROOT_DESCRIPTION,
@@ -710,18 +711,29 @@ function HowItWorksSection() {
   const [typedText1, setTypedText1] = useState("");
   const [typedText2, setTypedText2] = useState("");
   const [enhancedLines, setEnhancedLines] = useState(0);
+  const [isTypingActive, setIsTypingActive] = useState(false);
 
   const text1 = "metrisc w/ john";
   const text2 = "stakehlder mtg";
 
-  useEffect(() => {
+  useMountEffect(() => {
+    const timeouts: ReturnType<typeof setTimeout>[] = [];
+    const intervals: ReturnType<typeof setInterval>[] = [];
+
+    const queueTimeout = (callback: () => void, delay: number) => {
+      const timeout = setTimeout(callback, delay);
+      timeouts.push(timeout);
+    };
+
     const runAnimation = () => {
       setTypedText1("");
       setTypedText2("");
       setEnhancedLines(0);
+      setIsTypingActive(false);
 
       let currentIndex1 = 0;
-      setTimeout(() => {
+      queueTimeout(() => {
+        setIsTypingActive(true);
         const interval1 = setInterval(() => {
           if (currentIndex1 < text1.length) {
             setTypedText1(text1.slice(0, currentIndex1 + 1));
@@ -736,20 +748,21 @@ function HowItWorksSection() {
                 currentIndex2++;
               } else {
                 clearInterval(interval2);
+                setIsTypingActive(false);
 
-                setTimeout(() => {
+                queueTimeout(() => {
                   setEnhancedLines(1);
-                  setTimeout(() => {
+                  queueTimeout(() => {
                     setEnhancedLines(2);
-                    setTimeout(() => {
+                    queueTimeout(() => {
                       setEnhancedLines(3);
-                      setTimeout(() => {
+                      queueTimeout(() => {
                         setEnhancedLines(4);
-                        setTimeout(() => {
+                        queueTimeout(() => {
                           setEnhancedLines(5);
-                          setTimeout(() => {
+                          queueTimeout(() => {
                             setEnhancedLines(6);
-                            setTimeout(() => runAnimation(), 3000);
+                            queueTimeout(() => runAnimation(), 3000);
                           }, 800);
                         }, 800);
                       }, 800);
@@ -758,13 +771,20 @@ function HowItWorksSection() {
                 }, 500);
               }
             }, 50);
+            intervals.push(interval2);
           }
         }, 50);
+        intervals.push(interval1);
       }, 500);
     };
 
     runAnimation();
-  }, []);
+
+    return () => {
+      timeouts.forEach(clearTimeout);
+      intervals.forEach(clearInterval);
+    };
+  });
 
   return (
     <section className="py-10">
@@ -798,7 +818,11 @@ function HowItWorksSection() {
                   <div className="h-3 w-3 rounded-full bg-green-400"></div>
                 </div>
                 <div className="ml-auto">
-                  <DancingSticks amplitude={1} height={12} color="#a3a3a3" />
+                  <DancingSticks
+                    amplitude={isTypingActive ? 1 : 0}
+                    height={12}
+                    color="#a3a3a3"
+                  />
                 </div>
               </div>
               {/* Content area */}
@@ -972,7 +996,11 @@ function HowItWorksSection() {
                   <div className="h-2 w-2 rounded-full bg-green-400"></div>
                 </div>
                 <div className="ml-auto">
-                  <DancingSticks amplitude={1} height={10} color="#a3a3a3" />
+                  <DancingSticks
+                    amplitude={isTypingActive ? 1 : 0}
+                    height={10}
+                    color="#a3a3a3"
+                  />
                 </div>
               </div>
               <div className="min-h-[200px] space-y-2 p-4 text-xs">
