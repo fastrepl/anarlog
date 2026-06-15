@@ -29,7 +29,7 @@ msgstr "ភាសានិយាយបន្ថែម"
 msgid "Always ready without manually launching."
 msgstr "រួចរាល់ជានិច្ច ដោយមិនចាំបាច់បើកដំណើរការដោយដៃ។"
 
-#: src/settings/general/index.tsx:139
+#: src/settings/general/index.tsx:166
 msgid "App"
 msgstr "កម្មវិធី"
 
@@ -53,7 +53,7 @@ msgstr ""
 msgid "Dark"
 msgstr ""
 
-#: src/settings/general/index.tsx:273
+#: src/settings/general/index.tsx:300
 msgid "Data"
 msgstr "ទិន្នន័យ"
 
@@ -65,7 +65,7 @@ msgstr ""
 msgid "Keep Anarlog available from the menu bar."
 msgstr ""
 
-#: src/settings/general/index.tsx:224
+#: src/settings/general/index.tsx:251
 msgid "Language & Region"
 msgstr "ភាសា និងតំបន់"
 
@@ -98,11 +98,11 @@ msgstr "រកមិនឃើញភាសាដែលត្រូវគ្នា
 msgid "No results found."
 msgstr ""
 
-#: src/settings/general/index.tsx:283
+#: src/settings/general/index.tsx:310
 msgid "Notifications"
 msgstr "ការជូនដំណឹង"
 
-#: src/settings/general/index.tsx:292
+#: src/settings/general/index.tsx:319
 msgid "Permissions"
 msgstr ""
 

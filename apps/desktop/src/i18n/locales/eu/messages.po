@@ -29,7 +29,7 @@ msgstr "Ahozko hizkuntza gehigarriak"
 msgid "Always ready without manually launching."
 msgstr "Beti prest eskuz abiarazi gabe."
 
-#: src/settings/general/index.tsx:139
+#: src/settings/general/index.tsx:166
 msgid "App"
 msgstr "Aplikazioa"
 
@@ -53,7 +53,7 @@ msgstr ""
 msgid "Dark"
 msgstr ""
 
-#: src/settings/general/index.tsx:273
+#: src/settings/general/index.tsx:300
 msgid "Data"
 msgstr "Datuak"
 
@@ -65,7 +65,7 @@ msgstr ""
 msgid "Keep Anarlog available from the menu bar."
 msgstr ""
 
-#: src/settings/general/index.tsx:224
+#: src/settings/general/index.tsx:251
 msgid "Language & Region"
 msgstr "Hizkuntza eta eskualdea"
 
@@ -98,11 +98,11 @@ msgstr "Ez da bat datorren hizkuntzarik aurkitu"
 msgid "No results found."
 msgstr ""
 
-#: src/settings/general/index.tsx:283
+#: src/settings/general/index.tsx:310
 msgid "Notifications"
 msgstr "Jakinarazpenak"
 
-#: src/settings/general/index.tsx:292
+#: src/settings/general/index.tsx:319
 msgid "Permissions"
 msgstr ""
 

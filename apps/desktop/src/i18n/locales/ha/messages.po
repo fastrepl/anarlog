@@ -29,7 +29,7 @@ msgstr "Ƙarin harsunan magana"
 msgid "Always ready without manually launching."
 msgstr "Koyaushe a shirye ba tare da ƙaddamar da hannu ba."
 
-#: src/settings/general/index.tsx:139
+#: src/settings/general/index.tsx:166
 msgid "App"
 msgstr "App"
 
@@ -53,7 +53,7 @@ msgstr ""
 msgid "Dark"
 msgstr ""
 
-#: src/settings/general/index.tsx:273
+#: src/settings/general/index.tsx:300
 msgid "Data"
 msgstr "Bayanai"
 
@@ -65,7 +65,7 @@ msgstr ""
 msgid "Keep Anarlog available from the menu bar."
 msgstr ""
 
-#: src/settings/general/index.tsx:224
+#: src/settings/general/index.tsx:251
 msgid "Language & Region"
 msgstr "Harshe & Yanki"
 
@@ -98,11 +98,11 @@ msgstr "Ba a sami yarukan da suka dace ba"
 msgid "No results found."
 msgstr ""
 
-#: src/settings/general/index.tsx:283
+#: src/settings/general/index.tsx:310
 msgid "Notifications"
 msgstr "Sanarwa"
 
-#: src/settings/general/index.tsx:292
+#: src/settings/general/index.tsx:319
 msgid "Permissions"
 msgstr ""
 

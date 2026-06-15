@@ -29,7 +29,7 @@ msgstr "Basa lisan tambahan"
 msgid "Always ready without manually launching."
 msgstr "Salawasna siap tanpa diluncurkeun sacara manual."
 
-#: src/settings/general/index.tsx:139
+#: src/settings/general/index.tsx:166
 msgid "App"
 msgstr "Aplikasi"
 
@@ -53,7 +53,7 @@ msgstr ""
 msgid "Dark"
 msgstr ""
 
-#: src/settings/general/index.tsx:273
+#: src/settings/general/index.tsx:300
 msgid "Data"
 msgstr "Data"
 
@@ -65,7 +65,7 @@ msgstr ""
 msgid "Keep Anarlog available from the menu bar."
 msgstr ""
 
-#: src/settings/general/index.tsx:224
+#: src/settings/general/index.tsx:251
 msgid "Language & Region"
 msgstr "Basa & Wewengkon"
 
@@ -98,11 +98,11 @@ msgstr "Teu kapanggih basa nu cocog"
 msgid "No results found."
 msgstr ""
 
-#: src/settings/general/index.tsx:283
+#: src/settings/general/index.tsx:310
 msgid "Notifications"
 msgstr "Bewara"
 
-#: src/settings/general/index.tsx:292
+#: src/settings/general/index.tsx:319
 msgid "Permissions"
 msgstr ""
 

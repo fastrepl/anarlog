@@ -29,7 +29,7 @@ msgstr "追加の音声言語"
 msgid "Always ready without manually launching."
 msgstr "手動で起動しなくても常に準備できます。"
 
-#: src/settings/general/index.tsx:139
+#: src/settings/general/index.tsx:166
 msgid "App"
 msgstr "アプリ"
 
@@ -53,7 +53,7 @@ msgstr ""
 msgid "Dark"
 msgstr ""
 
-#: src/settings/general/index.tsx:273
+#: src/settings/general/index.tsx:300
 msgid "Data"
 msgstr "データ"
 
@@ -65,7 +65,7 @@ msgstr ""
 msgid "Keep Anarlog available from the menu bar."
 msgstr ""
 
-#: src/settings/general/index.tsx:224
+#: src/settings/general/index.tsx:251
 msgid "Language & Region"
 msgstr "言語と地域"
 
@@ -98,11 +98,11 @@ msgstr "一致する言語が見つかりません"
 msgid "No results found."
 msgstr ""
 
-#: src/settings/general/index.tsx:283
+#: src/settings/general/index.tsx:310
 msgid "Notifications"
 msgstr "通知"
 
-#: src/settings/general/index.tsx:292
+#: src/settings/general/index.tsx:319
 msgid "Permissions"
 msgstr ""
 

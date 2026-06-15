@@ -29,7 +29,7 @@ msgstr "অতিরিক্ত কথ্য ভাষা"
 msgid "Always ready without manually launching."
 msgstr "ম্যানুয়ালি লঞ্চ না করে সর্বদা প্রস্তুত।"
 
-#: src/settings/general/index.tsx:139
+#: src/settings/general/index.tsx:166
 msgid "App"
 msgstr "অ্যাপ"
 
@@ -53,7 +53,7 @@ msgstr ""
 msgid "Dark"
 msgstr ""
 
-#: src/settings/general/index.tsx:273
+#: src/settings/general/index.tsx:300
 msgid "Data"
 msgstr "ডেটা"
 
@@ -65,7 +65,7 @@ msgstr ""
 msgid "Keep Anarlog available from the menu bar."
 msgstr ""
 
-#: src/settings/general/index.tsx:224
+#: src/settings/general/index.tsx:251
 msgid "Language & Region"
 msgstr "ভাষা ও অঞ্চল"
 
@@ -98,11 +98,11 @@ msgstr "কোন মিলিত ভাষা পাওয়া যায়�
 msgid "No results found."
 msgstr ""
 
-#: src/settings/general/index.tsx:283
+#: src/settings/general/index.tsx:310
 msgid "Notifications"
 msgstr "বিজ্ঞপ্তি"
 
-#: src/settings/general/index.tsx:292
+#: src/settings/general/index.tsx:319
 msgid "Permissions"
 msgstr ""
 

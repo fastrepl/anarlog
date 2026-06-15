@@ -3,6 +3,8 @@ import { useForm } from "@tanstack/react-form";
 import { disable, enable } from "@tauri-apps/plugin-autostart";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
+import { commands as trayCommands } from "@hypr/plugin-tray";
+import { commands as windowsCommands } from "@hypr/plugin-windows";
 import type { General, GeneralStorage } from "@hypr/store";
 
 export { SettingsAccount } from "./account";
@@ -26,7 +28,7 @@ import { useConfigValues } from "~/shared/config";
 import * as settings from "~/store/tinybase/store/settings";
 
 function useSettingsForm() {
-  const value = useConfigValues([
+  const settingsValue = useConfigValues([
     "autostart",
     "auto_start_scheduled_meetings",
     "auto_stop_meetings",
@@ -66,18 +68,19 @@ function useSettingsForm() {
 
   const form = useForm({
     defaultValues: {
-      autostart: value.autostart,
-      auto_start_scheduled_meetings: value.auto_start_scheduled_meetings,
-      auto_stop_meetings: value.auto_stop_meetings,
-      floating_bar_enabled: value.floating_bar_enabled,
-      show_app_in_dock: value.show_app_in_dock,
-      show_tray_icon: value.show_tray_icon,
-      notification_detect: value.notification_detect,
-      telemetry_consent: value.telemetry_consent,
-      ai_language: value.ai_language,
+      autostart: settingsValue.autostart,
+      auto_start_scheduled_meetings:
+        settingsValue.auto_start_scheduled_meetings,
+      auto_stop_meetings: settingsValue.auto_stop_meetings,
+      floating_bar_enabled: settingsValue.floating_bar_enabled,
+      show_app_in_dock: settingsValue.show_app_in_dock,
+      show_tray_icon: settingsValue.show_tray_icon,
+      notification_detect: settingsValue.notification_detect,
+      telemetry_consent: settingsValue.telemetry_consent,
+      ai_language: settingsValue.ai_language,
       spoken_languages: getAdditionalSpokenLanguages(
-        value.ai_language,
-        value.spoken_languages,
+        settingsValue.ai_language,
+        settingsValue.spoken_languages,
       ),
     },
     listeners: {
@@ -92,6 +95,8 @@ function useSettingsForm() {
       },
     },
     onSubmit: ({ value }) => {
+      const previousShowAppInDock = settingsValue.show_app_in_dock;
+      const previousShowTrayIcon = settingsValue.show_tray_icon;
       const normalizedValue = {
         ...value,
         spoken_languages: getAdditionalSpokenLanguages(
@@ -106,6 +111,28 @@ function useSettingsForm() {
         void enable();
       } else {
         void disable();
+      }
+
+      if (normalizedValue.show_app_in_dock !== previousShowAppInDock) {
+        void windowsCommands
+          .setShowAppInDock(normalizedValue.show_app_in_dock)
+          .then((result) => {
+            if (result.status === "error") {
+              console.error(result.error);
+            }
+          })
+          .catch(console.error);
+      }
+
+      if (normalizedValue.show_tray_icon !== previousShowTrayIcon) {
+        void trayCommands
+          .setTrayIconVisible(normalizedValue.show_tray_icon)
+          .then((result) => {
+            if (result.status === "error") {
+              console.error(result.error);
+            }
+          })
+          .catch(console.error);
       }
 
       void analyticsCommands.event({
@@ -128,7 +155,7 @@ function useSettingsForm() {
     },
   });
 
-  return { form, value };
+  return { form, value: settingsValue };
 }
 
 export function SettingsApp() {
