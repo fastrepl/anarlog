@@ -312,6 +312,125 @@ describe("ListenerProvider detect events", () => {
     expect(stopSpy).not.toHaveBeenCalled();
   });
 
+  test.each([
+    [[{ id: "com.kakao.KakaoTalkMac", name: "KakaoTalk" }]],
+    [[{ id: "pid:42", name: "KakaoTalk Helper" }]],
+  ])(
+    "does not auto-stop KakaoTalk sessions from screen-share mic transitions",
+    async (stoppedApps) => {
+      const store = createListenerStore();
+      const stopSpy = vi.fn();
+
+      store.setState({ stop: stopSpy });
+      store.getState().setTriggerAppIds(["com.kakao.KakaoTalkMac"]);
+      setStoreActive(store);
+
+      render(
+        <ListenerProvider store={store}>
+          <div>child</div>
+        </ListenerProvider>,
+      );
+
+      await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+
+      const handler = listenMock.mock.calls[0]?.[0];
+      expect(handler).toBeTypeOf("function");
+
+      vi.useFakeTimers();
+      listMicUsingApplicationsMock.mockClear();
+
+      handler({
+        payload: {
+          type: "micStopped",
+          apps: stoppedApps,
+        },
+      });
+
+      await vi.advanceTimersByTimeAsync(AUTO_STOP_CONFIRM_DELAY_MS);
+
+      expect(listMicUsingApplicationsMock).not.toHaveBeenCalled();
+      expect(stopSpy).not.toHaveBeenCalled();
+    },
+  );
+
+  test("does not auto-stop co-trigger sessions while KakaoTalk remains active after a helper stop", async () => {
+    const store = createListenerStore();
+    const stopSpy = vi.fn();
+
+    store.setState({ stop: stopSpy });
+    store
+      .getState()
+      .setTriggerAppIds(["com.kakao.KakaoTalkMac", "us.zoom.xos"]);
+    setStoreActive(store);
+    listMicUsingApplicationsMock.mockResolvedValue({
+      status: "ok",
+      data: [{ id: "com.kakao.KakaoTalkMac", name: "KakaoTalk" }],
+    });
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+
+    const handler = listenMock.mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf("function");
+
+    vi.useFakeTimers();
+    listMicUsingApplicationsMock.mockClear();
+
+    handler({
+      payload: {
+        type: "micStopped",
+        apps: [{ id: "pid:42", name: "KakaoTalk Helper" }],
+      },
+    });
+
+    await vi.advanceTimersByTimeAsync(AUTO_STOP_CONFIRM_DELAY_MS);
+
+    expect(listMicUsingApplicationsMock).toHaveBeenCalledTimes(1);
+    expect(stopSpy).not.toHaveBeenCalled();
+  });
+
+  test("auto-stops co-trigger sessions after a helper stop when no trigger app remains active", async () => {
+    const store = createListenerStore();
+    const stopSpy = vi.fn();
+
+    store.setState({ stop: stopSpy });
+    store
+      .getState()
+      .setTriggerAppIds(["com.kakao.KakaoTalkMac", "us.zoom.xos"]);
+    setStoreActive(store);
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+
+    const handler = listenMock.mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf("function");
+
+    vi.useFakeTimers();
+    listMicUsingApplicationsMock.mockClear();
+
+    handler({
+      payload: {
+        type: "micStopped",
+        apps: [{ id: "pid:42", name: "KakaoTalk Helper" }],
+      },
+    });
+
+    await vi.advanceTimersByTimeAsync(AUTO_STOP_CONFIRM_DELAY_MS);
+
+    expect(listMicUsingApplicationsMock).toHaveBeenCalledTimes(1);
+    expect(stopSpy).toHaveBeenCalledTimes(1);
+  });
+
   test("auto-stops when MicStopped omits the trigger app and no trigger app remains active (regression: #5436)", async () => {
     const store = createListenerStore();
     const stopSpy = vi.fn();

@@ -61,6 +61,8 @@ const BROWSER_AUTO_STOP_APP_IDS = new Set([
   "org.torproject.torbrowser",
 ]);
 
+const UNRELIABLE_AUTO_STOP_APP_IDS = new Set(["com.kakao.KakaoTalkMac"]);
+
 type MainStore = NonNullable<ReturnType<typeof main.UI.useStore>>;
 
 function getIgnorableApps(apps: { id: string; name: string }[]) {
@@ -176,8 +178,20 @@ function getAutoStopCandidateAppIds(
   const trigger = triggerAppIds ?? [];
   const stoppedIds = new Set(stoppedApps.map((app) => app.id));
   const stoppedTriggerAppIds = trigger.filter((id) => stoppedIds.has(id));
+  const candidateAppIds =
+    stoppedTriggerAppIds.length > 0 ? stoppedTriggerAppIds : trigger;
 
-  return stoppedTriggerAppIds.length > 0 ? stoppedTriggerAppIds : trigger;
+  return candidateAppIds.filter((id) => !UNRELIABLE_AUTO_STOP_APP_IDS.has(id));
+}
+
+function getAutoStopActiveCheckAppIds(
+  triggerAppIds: string[] | null | undefined,
+  candidateAppIds: string[],
+) {
+  const unreliableTriggerAppIds =
+    triggerAppIds?.filter((id) => UNRELIABLE_AUTO_STOP_APP_IDS.has(id)) ?? [];
+
+  return [...new Set([...candidateAppIds, ...unreliableTriggerAppIds])];
 }
 
 function getStoppedAppLabel(app: { name: string } | null) {
@@ -321,13 +335,20 @@ const useHandleDetectEvents = (store: ListenerStore) => {
         return;
       }
 
+      const activeCheckAppIds = getAutoStopActiveCheckAppIds(
+        currentTrigger,
+        candidateAppIds,
+      );
+      const hasUnreliableActiveCheckApp = activeCheckAppIds.some(
+        (id) => !candidateAppIds.includes(id),
+      );
       const result = await detectCommands.listMicUsingApplications();
       if (result.status === "ok") {
         const activeAppIds = new Set(result.data.map((app) => app.id));
-        if (candidateAppIds.some((id) => activeAppIds.has(id))) {
+        if (activeCheckAppIds.some((id) => activeAppIds.has(id))) {
           return;
         }
-      } else if (requireMicSnapshot) {
+      } else if (requireMicSnapshot || hasUnreliableActiveCheckApp) {
         return;
       }
 
