@@ -297,20 +297,6 @@ export function SessionPreviewCard({
   children: React.ReactNode;
   enabled?: boolean;
 }) {
-  const {
-    title,
-    previewMarkdown,
-    previewPlainText,
-    dateDisplay,
-    participantMappingIds,
-  } = useSessionPreviewData(sessionId);
-  const previewHasImage =
-    !!previewMarkdown && MARKDOWN_IMAGE_REGEX.test(previewMarkdown);
-  const previewImage = useMemo(
-    () => extractPreviewImage(previewMarkdown),
-    [previewMarkdown],
-  );
-
   const followAxis = side === "right" ? "y" : "x";
   const { triggerRef, handleMouseMove, handleMouseLeave, style } =
     useCursorFollow(followAxis);
@@ -359,43 +345,61 @@ export function SessionPreviewCard({
         followStyle={style}
         className={cn(["w-[228px] pb-0!", "pointer-events-none"])}
       >
-        <div className="flex flex-col gap-1">
-          {dateDisplay && (
-            <div className="text-muted-foreground text-xs">{dateDisplay}</div>
-          )}
-
-          <div className="text-sm font-medium">{title || "Untitled"}</div>
-          <ParticipantsList mappingIds={participantMappingIds} />
-
-          {previewMarkdown || previewPlainText ? (
-            <div className="text-muted-foreground mt-1 flex max-h-32 flex-col overflow-hidden mask-[linear-gradient(to_bottom,black_60%,transparent)]">
-              {previewHasImage && previewImage ? (
-                <img
-                  src={previewImage.src}
-                  alt={previewImage.alt}
-                  title={previewImage.title}
-                  className="block w-full object-cover object-top"
-                />
-              ) : previewMarkdown ? (
-                <Streamdown
-                  components={previewCardComponents}
-                  className="flex flex-col text-xs"
-                  isAnimating={false}
-                  rehypePlugins={previewCardRehypePlugins}
-                >
-                  {previewMarkdown}
-                </Streamdown>
-              ) : (
-                <div className="text-xs leading-relaxed">
-                  {previewPlainText}
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="h-4" />
-          )}
-        </div>
+        <SessionPreviewCardContent sessionId={sessionId} />
       </HoverCardContent>
     </HoverCard>
+  );
+}
+
+function SessionPreviewCardContent({ sessionId }: { sessionId: string }) {
+  const {
+    title,
+    previewMarkdown,
+    previewPlainText,
+    dateDisplay,
+    participantMappingIds,
+  } = useSessionPreviewData(sessionId);
+  const previewHasImage =
+    !!previewMarkdown && MARKDOWN_IMAGE_REGEX.test(previewMarkdown);
+  const previewImage = useMemo(
+    () => extractPreviewImage(previewMarkdown),
+    [previewMarkdown],
+  );
+
+  return (
+    <div className="flex flex-col gap-1">
+      {dateDisplay && (
+        <div className="text-muted-foreground text-xs">{dateDisplay}</div>
+      )}
+
+      <div className="text-sm font-medium">{title || "Untitled"}</div>
+      <ParticipantsList mappingIds={participantMappingIds} />
+
+      {previewMarkdown || previewPlainText ? (
+        <div className="text-muted-foreground mt-1 flex max-h-32 flex-col overflow-hidden mask-[linear-gradient(to_bottom,black_60%,transparent)]">
+          {previewHasImage && previewImage ? (
+            <img
+              src={previewImage.src}
+              alt={previewImage.alt}
+              title={previewImage.title}
+              className="block w-full object-cover object-top"
+            />
+          ) : previewMarkdown ? (
+            <Streamdown
+              components={previewCardComponents}
+              className="flex flex-col text-xs"
+              isAnimating={false}
+              rehypePlugins={previewCardRehypePlugins}
+            >
+              {previewMarkdown}
+            </Streamdown>
+          ) : (
+            <div className="text-xs leading-relaxed">{previewPlainText}</div>
+          )}
+        </div>
+      ) : (
+        <div className="h-4" />
+      )}
+    </div>
   );
 }

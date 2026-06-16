@@ -427,11 +427,14 @@ const SessionItem = memo(
     ) as string | undefined;
     const title = useSessionTitle(sessionId, storeTitle);
 
-    const { sessionMode, stop, amplitude } = useListener((state) => ({
-      sessionMode: state.getSessionMode(sessionId),
-      stop: state.stop,
-      amplitude: state.live.amplitude,
-    }));
+    const { sessionMode, stop, amplitude } = useListener((state) => {
+      const sessionMode = state.getSessionMode(sessionId);
+      return {
+        sessionMode,
+        stop: state.stop,
+        amplitude: sessionMode === "active" ? state.live.amplitude : null,
+      };
+    });
     const isEnhancing = useIsSessionEnhancing(sessionId);
     const isLive = sessionMode === "active";
     const isFinalizing = sessionMode === "finalizing";
@@ -557,7 +560,10 @@ const SessionItem = memo(
           isLive={isLive}
           amplitude={Math.max(
             0.25,
-            Math.min(Math.hypot(amplitude.mic, amplitude.speaker), 1),
+            Math.min(
+              Math.hypot(amplitude?.mic ?? 0, amplitude?.speaker ?? 0),
+              1,
+            ),
           )}
           showSpinner={showSpinner}
           selected={selected}
