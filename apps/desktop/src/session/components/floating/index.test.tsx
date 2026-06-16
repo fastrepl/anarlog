@@ -183,6 +183,7 @@ describe("FloatingActionButton", () => {
     expect(hoverZone?.className).not.toContain("w-96");
     expect(wrapper?.getAttribute("aria-hidden")).toBe("true");
     expect(wrapper?.className).toContain("pointer-events-none");
+    expect(wrapper?.className).toContain("before:pointer-events-none");
     expect(wrapper?.className).toContain("before:-inset-x-8");
     expect(wrapper?.className).toContain("before:-inset-y-8");
     expect(wrapper?.className).toContain(
@@ -191,6 +192,7 @@ describe("FloatingActionButton", () => {
     expect(wrapper?.style.getPropertyValue("--floating-fab-tuck-offset")).toBe(
       "calc(100% - 0.5rem + 18px)",
     );
+    expect(wrapper?.className).toContain("before:pointer-events-none");
     expect(wrapper?.className).toContain("group-hover:pointer-events-auto");
     expect(wrapper?.className).toContain("group-hover:translate-y-0");
     expect(wrapper?.className).toContain("hover:pointer-events-auto");
@@ -240,6 +242,7 @@ describe("FloatingActionButton", () => {
       "calc(100% - 0.5rem + 18px)",
     );
     expect(wrapper?.className).toContain("pointer-events-none");
+    expect(wrapper?.className).toContain("before:pointer-events-none");
     expect(wrapper?.className).toContain("group-hover:pointer-events-auto");
     expect(wrapper?.className).toContain("group-hover:translate-y-0");
     expect(wrapper?.className).toContain("hover:pointer-events-auto");

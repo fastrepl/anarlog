@@ -85,7 +85,7 @@ export function FloatingActionButton({
             className={cn([
               "relative max-w-full translate-y-[var(--floating-fab-tuck-offset)] transition-transform duration-200 ease-out",
               tuckAction
-                ? "pointer-events-none visible group-hover:pointer-events-auto group-hover:translate-y-0 before:absolute before:-inset-x-8 before:-inset-y-8 before:content-[''] hover:pointer-events-auto hover:translate-y-0"
+                ? "pointer-events-none visible group-hover:pointer-events-auto group-hover:translate-y-0 before:pointer-events-none before:absolute before:-inset-x-8 before:-inset-y-8 before:content-[''] hover:pointer-events-auto hover:translate-y-0"
                 : "pointer-events-auto visible",
             ])}
           >
