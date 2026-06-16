@@ -104,6 +104,7 @@ export type NotificationFooter = {
 export type NotificationIcon =
   | { type: "hidden" }
   | { type: "bundle_id"; bundle_id: string }
+  | { type: "system_symbol"; name: string }
   | { type: "path"; path: string }
   | {
       type: "overlay";
@@ -113,6 +114,7 @@ export type NotificationIcon =
 export type NotificationIconAsset =
   | { type: "app_icon" }
   | { type: "calendar" }
+  | { type: "system_symbol"; name: string }
   | { type: "bundle_id"; bundle_id: string }
   | { type: "path"; path: string };
 export type NotificationSource =

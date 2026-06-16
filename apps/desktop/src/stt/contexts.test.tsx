@@ -589,10 +589,103 @@ describe("ListenerProvider detect events", () => {
             bundle_id: "us.zoom.xos",
           },
         },
-        icon: null,
+        icon: {
+          type: "bundle_id",
+          bundle_id: "us.zoom.xos",
+        },
       }),
     );
   });
+
+  test("shows iPhone call icon and label for AV Capture mic notifications", async () => {
+    const store = createListenerStore();
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+
+    const handler = listenMock.mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf("function");
+
+    handler({
+      payload: {
+        type: "micDetected",
+        key: "mic-1",
+        apps: [{ id: "pid:42", name: "AV Capture" }],
+        duration_secs: 15,
+      },
+    });
+
+    expect(showNotificationMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: {
+          type: "mic_detected",
+          app_names: ["iPhone Call"],
+          app_ids: [],
+          event_ids: [],
+        },
+        footer: null,
+        icon: {
+          type: "system_symbol",
+          name: "phone.fill",
+        },
+      }),
+    );
+  });
+
+  test.each([
+    {
+      app: { id: "com.apple.FaceTime", name: "FaceTime" },
+      icon: { type: "bundle_id", bundle_id: "com.apple.FaceTime" },
+    },
+    {
+      app: { id: "com.kakao.KakaoTalkMac", name: "KakaoTalk" },
+      icon: { type: "bundle_id", bundle_id: "com.kakao.KakaoTalkMac" },
+    },
+  ])(
+    "uses app-specific icons for $app.name mic notifications",
+    async ({ app, icon }) => {
+      const store = createListenerStore();
+
+      render(
+        <ListenerProvider store={store}>
+          <div>child</div>
+        </ListenerProvider>,
+      );
+
+      await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+
+      const handler = listenMock.mock.calls[0]?.[0];
+      expect(handler).toBeTypeOf("function");
+
+      handler({
+        payload: {
+          type: "micDetected",
+          key: "mic-1",
+          apps: [app],
+          duration_secs: 15,
+        },
+      });
+
+      expect(showNotificationMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          source: expect.objectContaining({
+            app_names: [app.name],
+            app_ids: [app.id],
+          }),
+          footer: expect.objectContaining({
+            text: `Ignore ${app.name}?`,
+            icon,
+          }),
+          icon,
+        }),
+      );
+    },
+  );
 
   test("records trigger app ids from micDetected while already listening", async () => {
     const store = createListenerStore();

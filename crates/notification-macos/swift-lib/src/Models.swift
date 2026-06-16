@@ -21,11 +21,13 @@ struct NotificationFooter: Codable {
 enum NotificationIconAsset: Codable {
   case appIcon
   case calendar
+  case systemSymbol(name: String)
   case bundleId(bundleId: String)
   case path(path: String)
 
   private enum CodingKeys: String, CodingKey {
     case type
+    case name
     case bundleId = "bundle_id"
     case path
   }
@@ -33,6 +35,7 @@ enum NotificationIconAsset: Codable {
   private enum IconType: String, Codable {
     case appIcon = "app_icon"
     case calendar
+    case systemSymbol = "system_symbol"
     case bundleId = "bundle_id"
     case path
   }
@@ -45,6 +48,8 @@ enum NotificationIconAsset: Codable {
       self = .appIcon
     case .calendar:
       self = .calendar
+    case .systemSymbol:
+      self = .systemSymbol(name: try container.decode(String.self, forKey: .name))
     case .bundleId:
       self = .bundleId(bundleId: try container.decode(String.self, forKey: .bundleId))
     case .path:
@@ -60,6 +65,9 @@ enum NotificationIconAsset: Codable {
       try container.encode(IconType.appIcon, forKey: .type)
     case .calendar:
       try container.encode(IconType.calendar, forKey: .type)
+    case .systemSymbol(let name):
+      try container.encode(IconType.systemSymbol, forKey: .type)
+      try container.encode(name, forKey: .name)
     case .bundleId(let bundleId):
       try container.encode(IconType.bundleId, forKey: .type)
       try container.encode(bundleId, forKey: .bundleId)
@@ -73,11 +81,13 @@ enum NotificationIconAsset: Codable {
 enum NotificationIcon: Codable {
   case hidden
   case bundleId(bundleId: String)
+  case systemSymbol(name: String)
   case path(path: String)
   case overlay(base: NotificationIconAsset, badge: NotificationIconAsset)
 
   private enum CodingKeys: String, CodingKey {
     case type
+    case name
     case bundleId = "bundle_id"
     case path
     case base
@@ -87,6 +97,7 @@ enum NotificationIcon: Codable {
   private enum IconType: String, Codable {
     case hidden
     case bundleId = "bundle_id"
+    case systemSymbol = "system_symbol"
     case path
     case overlay
   }
@@ -99,6 +110,8 @@ enum NotificationIcon: Codable {
       self = .hidden
     case .bundleId:
       self = .bundleId(bundleId: try container.decode(String.self, forKey: .bundleId))
+    case .systemSymbol:
+      self = .systemSymbol(name: try container.decode(String.self, forKey: .name))
     case .path:
       self = .path(path: try container.decode(String.self, forKey: .path))
     case .overlay:
@@ -118,6 +131,9 @@ enum NotificationIcon: Codable {
     case .bundleId(let bundleId):
       try container.encode(IconType.bundleId, forKey: .type)
       try container.encode(bundleId, forKey: .bundleId)
+    case .systemSymbol(let name):
+      try container.encode(IconType.systemSymbol, forKey: .type)
+      try container.encode(name, forKey: .name)
     case .path(let path):
       try container.encode(IconType.path, forKey: .type)
       try container.encode(path, forKey: .path)

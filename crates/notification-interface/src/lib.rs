@@ -121,6 +121,8 @@ pub enum NotificationIconAsset {
     AppIcon,
     #[serde(rename = "calendar")]
     Calendar,
+    #[serde(rename = "system_symbol")]
+    SystemSymbol { name: String },
     #[serde(rename = "bundle_id")]
     BundleId { bundle_id: String },
     #[serde(rename = "path")]
@@ -134,6 +136,8 @@ pub enum NotificationIcon {
     Hidden,
     #[serde(rename = "bundle_id")]
     BundleId { bundle_id: String },
+    #[serde(rename = "system_symbol")]
+    SystemSymbol { name: String },
     #[serde(rename = "path")]
     Path { path: String },
     #[serde(rename = "overlay")]
@@ -213,6 +217,10 @@ impl NotificationIcon {
         Some(Self::BundleId {
             bundle_id: app_id.to_string(),
         })
+    }
+
+    pub fn system_symbol(name: impl Into<String>) -> Self {
+        Self::SystemSymbol { name: name.into() }
     }
 }
 
@@ -355,6 +363,16 @@ mod tests {
             Some(NotificationIcon::BundleId {
                 bundle_id: "us.zoom.xos".to_string(),
             })
+        );
+    }
+
+    #[test]
+    fn system_symbol_icons_are_supported() {
+        assert_eq!(
+            NotificationIcon::system_symbol("phone.fill"),
+            NotificationIcon::SystemSymbol {
+                name: "phone.fill".to_string(),
+            }
         );
     }
 
