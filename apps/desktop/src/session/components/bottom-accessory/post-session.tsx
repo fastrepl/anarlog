@@ -356,8 +356,8 @@ function BatchingTranscriptPanel({
   const handleStop = useCallback(() => {
     void stopTranscription(sessionId);
   }, [sessionId, stopTranscription]);
-  const { percentage, phase } = screen;
-  const phaseLabel = phase === "importing" ? "Importing..." : "Transcribing...";
+  const { phase } = screen;
+  const phaseLabel = getBatchPhaseLabel(phase);
   const canStopTranscription = phase !== "importing";
 
   if (!isExpanded) {
@@ -371,18 +371,13 @@ function BatchingTranscriptPanel({
           Transcript
         </span>
         <div className="flex items-center gap-1 px-1 py-0.5">
-          <Spinner size={10} />
+          <BatchStatusControl
+            onStop={canStopTranscription ? handleStop : undefined}
+            compact
+          />
           <span className="text-muted-foreground text-[11px]">
             {phaseLabel}
-            {typeof percentage === "number" && percentage > 0 && (
-              <span className="text-muted-foreground ml-1 tabular-nums">
-                {Math.round(percentage * 100)}%
-              </span>
-            )}
           </span>
-          {canStopTranscription ? (
-            <StopTranscriptionButton onClick={handleStop} compact />
-          ) : null}
         </div>
       </div>
 
@@ -473,62 +468,57 @@ function BatchProgressTimeline({
   const handleStop = useCallback(() => {
     void stopTranscription(sessionId);
   }, [sessionId, stopTranscription]);
-  const phaseLabel =
-    screen.phase === "importing" ? "Importing" : "Transcribing";
+  const phaseLabel = getBatchPhaseLabel(screen.phase);
   const canStopTranscription = screen.phase !== "importing";
-  const progress = Math.max(0, Math.min(screen.percentage ?? 0, 1));
-  const progressText =
-    typeof screen.percentage === "number" && screen.percentage > 0
-      ? `${Math.round(screen.percentage * 100)}%`
-      : "...";
 
   return (
     <AudioPlayer.TimelineShell
       leading={
-        <div
-          className={cn([
-            "flex h-7 w-7 items-center justify-center rounded-full",
-            "border-border bg-card border shadow-xs",
-            "shrink-0",
-          ])}
-        >
-          <Spinner size={12} />
-        </div>
-      }
-      meta={
-        <AudioPlayer.TimelineMeta>
-          <span>{progressText}</span>
-          {canStopTranscription ? (
-            <StopTranscriptionButton onClick={handleStop} />
-          ) : null}
-        </AudioPlayer.TimelineMeta>
+        <BatchStatusControl
+          onStop={canStopTranscription ? handleStop : undefined}
+        />
       }
       main={
-        <div className="flex h-6 items-center">
-          <div className="bg-accent/80 relative h-2 w-full overflow-hidden rounded-full">
-            <div
-              className="bg-muted-foreground absolute inset-y-0 left-0 rounded-full transition-[width] duration-300 ease-out"
-              style={{ width: `${Math.max(progress * 100, 8)}%` }}
-            />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-muted-foreground px-2 text-[10px] font-medium tracking-[0.02em]">
-                {phaseLabel}
-              </span>
-            </div>
-          </div>
+        <div className="flex h-6 items-center justify-center">
+          <span className="text-muted-foreground text-[11px] font-medium">
+            {phaseLabel}
+          </span>
         </div>
       }
     />
   );
 }
 
-function StopTranscriptionButton({
-  onClick,
-  compact = false,
+function getBatchPhaseLabel(phase?: "importing" | "transcribing") {
+  return phase === "importing" ? "Uploading..." : "Transcribing...";
+}
+
+function BatchStatusControl({
+  onStop,
+  compact,
 }: {
-  onClick: () => void;
+  onStop?: () => void;
   compact?: boolean;
 }) {
+  const sizeClassName = compact ? "h-5 w-5" : "h-7 w-7";
+  const spinnerSize = compact ? 10 : 12;
+  const iconSize = compact ? 9 : 10;
+
+  if (!onStop) {
+    return (
+      <div
+        className={cn([
+          "flex items-center justify-center rounded-full",
+          "border-border bg-card border shadow-xs",
+          "shrink-0",
+          sizeClassName,
+        ])}
+      >
+        <Spinner size={spinnerSize} />
+      </div>
+    );
+  }
+
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -537,13 +527,22 @@ function StopTranscriptionButton({
           variant="ghost"
           size="icon"
           className={cn([
-            "text-muted-foreground hover:text-muted-foreground",
-            compact ? "h-5 w-5" : "h-6 w-6",
+            "group rounded-full",
+            "border-border bg-card border shadow-xs",
+            "text-muted-foreground hover:bg-accent hover:text-muted-foreground",
+            "shrink-0 transition-colors",
+            sizeClassName,
           ])}
-          onClick={onClick}
+          onClick={onStop}
           aria-label="Stop transcription"
         >
-          <SquareIcon size={compact ? 9 : 10} className="fill-current" />
+          <span className="group-hover:hidden">
+            <Spinner size={spinnerSize} />
+          </span>
+          <SquareIcon
+            size={iconSize}
+            className="hidden fill-current group-hover:block"
+          />
         </Button>
       </TooltipTrigger>
       <TooltipContent side="bottom">

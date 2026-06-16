@@ -333,7 +333,7 @@ describe("PostSessionAccessory", () => {
     expect(screen.queryByTestId("transcript")).toBeNull();
   });
 
-  it("keeps batch progress visible while the transcript panel is collapsed", () => {
+  it("keeps batch status visible while the transcript panel is collapsed", () => {
     useTranscriptScreenMock.mockReturnValue({
       kind: "running_batch",
       percentage: 0.25,
@@ -349,9 +349,35 @@ describe("PostSessionAccessory", () => {
       />,
     );
 
-    expect(screen.getByText("25%")).toBeTruthy();
-    expect(screen.getByText("Transcribing")).toBeTruthy();
+    expect(screen.queryByText("25%")).toBeNull();
+    expect(screen.getByText("Transcribing...")).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Stop transcription" }),
+    ).toBeTruthy();
     expect(screen.queryByTestId("transcript")).toBeNull();
+  });
+
+  it("shows uploading state without a stop action while importing audio", () => {
+    useTranscriptScreenMock.mockReturnValue({
+      kind: "running_batch",
+      percentage: 0.25,
+      phase: "importing",
+    });
+
+    render(
+      <PostSessionAccessory
+        sessionId="session-1"
+        hasAudio
+        hasTranscript
+        isTranscriptExpanded={false}
+      />,
+    );
+
+    expect(screen.getByText("Uploading...")).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: "Stop transcription" }),
+    ).toBeNull();
+    expect(screen.queryByText("25%")).toBeNull();
   });
 
   it("keeps the audio timeline slot height stable when expanded", () => {
@@ -397,7 +423,7 @@ describe("PostSessionAccessory", () => {
     expect(transcriptSlot?.className).toContain("min-h-[114px]");
   });
 
-  it("shows transcript skeletons instead of duplicating batch progress in the body", () => {
+  it("shows transcript skeletons with simple batch status in the body", () => {
     useTranscriptScreenMock.mockReturnValue({
       kind: "running_batch",
       percentage: 0.25,
@@ -414,7 +440,8 @@ describe("PostSessionAccessory", () => {
     );
 
     expect(screen.getByText("Transcript")).toBeTruthy();
-    expect(screen.getAllByText("Transcribing...")).toHaveLength(1);
+    expect(screen.getAllByText("Transcribing...")).toHaveLength(2);
+    expect(screen.queryByText("25%")).toBeNull();
     expect(screen.getAllByTestId("spinner")).toHaveLength(2);
     expect(screen.getByTestId("transcript-skeleton")).toBeTruthy();
     expect(screen.queryByTestId("transcript")).toBeNull();
