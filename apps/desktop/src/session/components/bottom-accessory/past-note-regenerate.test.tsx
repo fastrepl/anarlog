@@ -1,7 +1,50 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { buildPastSessionNotes } from "./past-notes";
+const hoisted = vi.hoisted(() => ({
+  store: null as ReturnType<typeof makeStore> | null,
+  userId: "self",
+  generateText: vi.fn(),
+  showTransientToast: vi.fn(),
+}));
+
+vi.mock("ai", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("ai")>()),
+  generateText: hoisted.generateText,
+}));
+
+vi.mock("@hypr/plugin-template", () => ({
+  commands: {
+    renderCustom: vi.fn(async (template: string) => ({
+      status: "ok",
+      data: template,
+    })),
+  },
+}));
+
+vi.mock("~/ai/hooks", () => ({
+  useLanguageModel: () => ({ id: "model-1" }),
+}));
+
+vi.mock("~/store/tinybase/store/main", () => ({
+  STORE_ID: "main",
+  UI: {
+    useStore: () => hoisted.store,
+    useTable: () => ({}),
+    useValue: () => hoisted.userId,
+  },
+}));
+
+import { buildPastSessionNotes, usePastSessionNotes } from "./past-notes";
 import { PostSessionAccessory } from "./post-session";
 
 vi.mock("@hypr/plugin-fs-sync", () => ({
@@ -62,7 +105,7 @@ vi.mock("~/session/components/note-input/transcript/state", () => ({
 }));
 
 vi.mock("~/sidebar/toast/transient", () => ({
-  showTransientToast: vi.fn(),
+  showTransientToast: hoisted.showTransientToast,
 }));
 
 vi.mock("~/stt/contexts", () => ({
@@ -74,6 +117,13 @@ vi.mock("~/stt/useRunBatch", () => ({
   useRunBatch: () => vi.fn(),
   isStoppedTranscriptionError: vi.fn(() => false),
 }));
+
+beforeEach(() => {
+  hoisted.store = null;
+  hoisted.userId = "self";
+  hoisted.generateText.mockReset();
+  hoisted.showTransientToast.mockReset();
+});
 
 afterEach(() => {
   cleanup();
@@ -229,6 +279,106 @@ describe("past note regeneration", () => {
       "previous",
     ]);
   });
+
+  it("recovers from failed related meeting fact regeneration", async () => {
+    hoisted.store = makeStore({
+      sessions: {
+        current: {
+          title: "Weekly Product Sync",
+          created_at: "2026-06-03T10:00:00.000Z",
+          event_json: "",
+          raw_md: "",
+        },
+        previous: {
+          title: "Weekly Product Sync",
+          created_at: "2026-05-28T10:00:00.000Z",
+          event_json: "",
+          raw_md: "Alex committed to send pricing by Friday.",
+        },
+      },
+      mapping_session_participant: {
+        current_alex: {
+          session_id: "current",
+          human_id: "alex",
+          user_id: "self",
+          source: "auto",
+        },
+        previous_alex: {
+          session_id: "previous",
+          human_id: "alex",
+          user_id: "self",
+          source: "auto",
+        },
+      },
+    });
+    const first = buildPastSessionNotes(hoisted.store, "current", "self");
+    const request = first.requests[0]!;
+    hoisted.store.setRow("session_key_facts", "previous", {
+      user_id: "self",
+      session_id: "previous",
+      created_at: "2026-05-28T11:00:00.000Z",
+      updated_at: "2026-05-28T11:00:00.000Z",
+      content: "Alex committed to send pricing by Friday.",
+      source_hash: request.sourceHash,
+    });
+    hoisted.generateText.mockRejectedValueOnce(new Error("timed out"));
+    hoisted.generateText.mockResolvedValueOnce({
+      output: {
+        facts: ["Alex will send pricing by Friday."],
+      },
+    });
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        mutations: {
+          retry: false,
+        },
+      },
+    });
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+
+    const { result } = renderHook(
+      () => usePastSessionNotes("current", { enabled: true }),
+      { wrapper },
+    );
+
+    act(() => {
+      result.current.regenerate("previous");
+    });
+
+    await waitFor(() => {
+      expect(hoisted.showTransientToast).toHaveBeenCalledWith({
+        id: "past-note-key-facts-error",
+        description: "Could not generate related meeting facts. Try again.",
+        variant: "error",
+      });
+    });
+    expect(consoleError).toHaveBeenCalledWith(
+      "Failed to generate related meeting facts",
+      expect.any(Error),
+    );
+    await waitFor(() => {
+      expect(result.current.isGenerating).toBe(false);
+    });
+
+    act(() => {
+      result.current.regenerate("previous");
+    });
+
+    await waitFor(() => {
+      expect(hoisted.generateText).toHaveBeenCalledTimes(2);
+    });
+    expect(hoisted.generateText.mock.calls[1]?.[0]).toMatchObject({
+      timeout: {
+        totalMs: 30_000,
+      },
+    });
+    consoleError.mockRestore();
+  });
 });
 
 function makeStore(
@@ -251,6 +401,9 @@ function makeStore(
         ...(tables[tableId] ?? {}),
         [rowId]: row,
       };
+    },
+    transaction: (callback: () => void) => {
+      callback();
     },
   } as any;
 }

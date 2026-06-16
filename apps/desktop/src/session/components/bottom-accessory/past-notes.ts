@@ -15,6 +15,7 @@ import userPromptTemplate from "./past-note-key-facts.user.md.jinja?raw";
 import { useLanguageModel } from "~/ai/hooks";
 import { extractPlainText } from "~/search/contexts/engine/utils";
 import { getSessionEvent } from "~/session/utils";
+import { showTransientToast } from "~/sidebar/toast/transient";
 import * as main from "~/store/tinybase/store/main";
 
 export type PastSessionNote = {
@@ -49,6 +50,7 @@ type MainStore = NonNullable<ReturnType<typeof main.UI.useStore>>;
 const MAX_PAST_NOTES = 8;
 const MAX_SOURCE_LENGTH = 6000;
 const MAX_KEY_FACTS = 3;
+const KEY_FACTS_GENERATION_TIMEOUT_MS = 30_000;
 const SPACE_REGEX = /\s+/g;
 const GENERIC_TITLE_KEYS = new Set(["new note", "untitled"]);
 
@@ -119,6 +121,14 @@ export function usePastSessionNotes(
         requests,
       });
     },
+    onError: (error) => {
+      console.error("Failed to generate related meeting facts", error);
+      showTransientToast({
+        id: "past-note-key-facts-error",
+        description: "Could not generate related meeting facts. Try again.",
+        variant: "error",
+      });
+    },
   });
 
   const generatingIds = useMemo(
@@ -149,7 +159,7 @@ export function usePastSessionNotes(
       return;
     }
 
-    void mutation.mutateAsync(built.missing);
+    mutation.mutate(built.missing);
   }, [built.missing, enabled, model, mutation]);
 
   const regenerate = useCallback(
@@ -165,7 +175,7 @@ export function usePastSessionNotes(
         return;
       }
 
-      void mutation.mutateAsync([request]);
+      mutation.mutate([request]);
     },
     [built.requests, enabled, model, mutation],
   );
@@ -368,6 +378,7 @@ async function generatePastSessionKeyFacts({
     output: Output.object({ schema: keyFactsSchema }),
     maxRetries: 2,
     maxOutputTokens: 400,
+    timeout: { totalMs: KEY_FACTS_GENERATION_TIMEOUT_MS },
   });
 
   return normalizeFacts(result.output?.facts ?? []).join("\n");
