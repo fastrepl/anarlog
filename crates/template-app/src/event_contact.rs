@@ -45,6 +45,24 @@ mod tests {
     - Prefer matching hinted names to candidate participant emails.
     - Exclude the organizer, current user, meeting platforms, bots, companies, URLs, and labels.
     - If unsure, return an empty contacts array.
+
+    # Format Requirements
+
+    Return only valid JSON matching this shape:
+
+    ```json
+    {
+      "contacts": [
+        {
+          "name": "Full Name",
+          "email": "person@example.com",
+          "companyName": "Company"
+        }
+      ]
+    }
+    ```
+
+    Use `null` for `email` when the event identifies the person but no candidate email matches. Use `null` for `companyName` when no company is clear. Infer obvious company names from non-personal email domains, for example `tom@kestroll.com` means `Kestroll`. Use `{"contacts":[]}` when no contact should be extracted.
     "#);
 
     tpl_snapshot!(

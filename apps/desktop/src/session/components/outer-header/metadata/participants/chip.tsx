@@ -8,6 +8,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@hypr/ui/components/ui/tooltip";
+import { cn } from "@hypr/utils";
 
 import * as main from "~/store/tinybase/store/main";
 import { useTabs } from "~/store/zustand/tabs/index";
@@ -55,10 +56,19 @@ export function ParticipantChip({
   return (
     <Badge
       variant="secondary"
-      className="bg-muted hover:bg-muted/80 flex cursor-pointer items-center gap-1 px-2 py-0.5 text-xs"
+      className={cn([
+        "bg-muted hover:bg-muted/80 relative flex cursor-pointer items-center gap-1 overflow-hidden px-2 py-0.5 text-xs",
+        isEnhancing && "ring-ring/20 ring-1",
+      ])}
       onClick={handleClick}
     >
-      {humanName || "Unknown"}
+      {isEnhancing && (
+        <span
+          aria-hidden="true"
+          className="animate-shimmer pointer-events-none absolute inset-0 -translate-x-full bg-linear-to-r from-transparent via-white/60 to-transparent"
+        />
+      )}
+      <span className="relative z-10">{humanName || "Unknown"}</span>
       {canEnhance && (
         <EnhanceContactButton
           isEnhancing={isEnhancing}
@@ -75,7 +85,7 @@ export function ParticipantChip({
         type="button"
         variant="ghost"
         size="sm"
-        className="ml-0.5 h-3 w-3 p-0 hover:bg-transparent"
+        className="relative z-10 ml-0.5 h-3 w-3 p-0 hover:bg-transparent"
         onClick={(e) => {
           e.stopPropagation();
           handleRemove();
@@ -106,7 +116,7 @@ function EnhanceContactButton({
           variant="ghost"
           size="sm"
           aria-label={`Enhance contact ${label}`}
-          className="text-muted-foreground hover:text-foreground ml-0.5 h-3.5 w-3.5 p-0 hover:bg-transparent"
+          className="text-muted-foreground hover:text-foreground relative z-10 ml-0.5 h-3.5 w-3.5 p-0 hover:bg-transparent"
           disabled={isDisabled}
           onClick={(e) => {
             e.stopPropagation();

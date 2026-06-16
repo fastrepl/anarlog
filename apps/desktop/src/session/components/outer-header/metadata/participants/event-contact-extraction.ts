@@ -1,4 +1,4 @@
-import { generateText, type LanguageModel, Output } from "ai";
+import { generateText, type LanguageModel } from "ai";
 import { z } from "zod";
 
 import {
@@ -9,6 +9,7 @@ import type {
   EventParticipant,
   HumanStorage,
   MappingSessionParticipantStorage,
+  OrganizationStorage,
   SessionEvent,
 } from "@hypr/store";
 
@@ -37,11 +38,12 @@ export type EventContactExtractionContext = {
 export type ExtractedEventContact = {
   name: string;
   email?: string;
+  companyName?: string;
 };
 
 export type ExtractEventContactsResult = {
   contacts: ExtractedEventContact[];
-  source: "hint" | "model";
+  source: "model";
 };
 
 export type ApplyExtractedContactsResult = {
@@ -62,6 +64,7 @@ const aiExtractionSchema = z.object({
       z.object({
         name: z.string(),
         email: z.union([z.string(), z.null()]).optional(),
+        companyName: z.union([z.string(), z.null()]).optional(),
       }),
     )
     .max(MAX_CONTACTS_TO_EXTRACT),
@@ -92,11 +95,6 @@ export async function extractEventContacts({
   model: LanguageModel | null;
   context: EventContactExtractionContext;
 }): Promise<ExtractEventContactsResult> {
-  const hintedContacts = extractDeterministicContactHints(context);
-  if (hintedContacts.length > 0) {
-    return { contacts: hintedContacts, source: "hint" };
-  }
-
   if (!model) {
     throw new Error("Language model needed");
   }
@@ -111,13 +109,12 @@ export async function extractEventContacts({
     temperature: 0,
     maxRetries: 2,
     maxOutputTokens: 384,
-    output: Output.object({ schema: aiExtractionSchema }),
     system,
     prompt,
   });
 
   const contacts = normalizeExtractedContacts(
-    result.output?.contacts ?? [],
+    parseExtractionJson(result.text).contacts,
     context.candidates,
   );
 
@@ -152,6 +149,7 @@ export function applyExtractedContacts(
   store.transaction(() => {
     const humansByEmail = buildHumansByEmailIndex(store);
     const humansByName = buildHumansByNameIndex(store);
+    const organizationsByName = buildOrganizationsByNameIndex(store);
     const sessionMappings = buildSessionMappingsByHuman(store, sessionId);
     const sessionHumansByName = buildSessionHumansByNameIndex(
       store,
@@ -177,6 +175,14 @@ export function applyExtractedContacts(
       }
 
       if (!humanId) {
+        const orgId = getOrCreateOrganizationId(
+          store,
+          organizationsByName,
+          userId,
+          contact.companyName,
+          createdAt,
+        );
+
         humanId = id();
         store.setRow("humans", humanId, {
           user_id: userId,
@@ -184,7 +190,7 @@ export function applyExtractedContacts(
           name: contact.name,
           email: contact.email ?? "",
           phone: "",
-          org_id: "",
+          org_id: orgId ?? "",
           job_title: "",
           linkedin_username: "",
           memo: "",
@@ -201,6 +207,17 @@ export function applyExtractedContacts(
         const human = store.getRow("humans", humanId);
         const existingName = stringCell(human?.name);
         const existingEmail = stringCell(human?.email);
+        const existingOrgId = stringCell(human?.org_id);
+        const orgId = existingOrgId
+          ? undefined
+          : getOrCreateOrganizationId(
+              store,
+              organizationsByName,
+              userId,
+              contact.companyName,
+              createdAt,
+            );
+        const shouldUpdateOrg = shouldUpdateHumanOrg(existingOrgId, orgId);
         const shouldUpdateName = shouldUpdateHumanName(
           existingName,
           contact.email,
@@ -221,7 +238,10 @@ export function applyExtractedContacts(
             humansByEmail.set(emailLower, humanId);
           }
         }
-        if (shouldUpdateName || shouldUpdateEmail) {
+        if (shouldUpdateOrg) {
+          store.setCell("humans", humanId, "org_id", orgId ?? "");
+        }
+        if (shouldUpdateName || shouldUpdateEmail || shouldUpdateOrg) {
           result.updated += 1;
           result.contacts.push(contact);
         }
@@ -305,11 +325,23 @@ export function applyExtractedContactToHuman(
 
     const existingName = stringCell(human.name);
     const existingEmail = stringCell(human.email);
+    const existingOrgId = stringCell(human.org_id);
+    const organizationsByName = buildOrganizationsByNameIndex(store);
+    const orgId = existingOrgId
+      ? undefined
+      : getOrCreateOrganizationId(
+          store,
+          organizationsByName,
+          userId,
+          contact.companyName,
+          new Date().toISOString(),
+        );
     const shouldUpdateName = shouldUpdateHumanName(existingName, contact.email);
     const shouldUpdateEmail = shouldUpdateHumanEmail(
       existingEmail,
       contact.email,
     );
+    const shouldUpdateOrg = shouldUpdateHumanOrg(existingOrgId, orgId);
 
     if (shouldUpdateName) {
       store.setCell("humans", humanId, "name", contact.name);
@@ -317,42 +349,15 @@ export function applyExtractedContactToHuman(
     if (shouldUpdateEmail) {
       store.setCell("humans", humanId, "email", contact.email ?? "");
     }
-    if (shouldUpdateName || shouldUpdateEmail) {
+    if (shouldUpdateOrg) {
+      store.setCell("humans", humanId, "org_id", orgId ?? "");
+    }
+    if (shouldUpdateName || shouldUpdateEmail || shouldUpdateOrg) {
       result.updated += 1;
     }
   });
 
   return result;
-}
-
-export function extractDeterministicContactHints(
-  context: EventContactExtractionContext,
-): ExtractedEventContact[] {
-  const contacts: ExtractedEventContact[] = [];
-
-  for (const line of getEventTextLines(context)) {
-    const match = line.match(/^(.{2,120}?)\s+<>\s+(.{1,120})$/);
-    if (!match) {
-      continue;
-    }
-
-    const sides = [match[1], match[2]]
-      .map(cleanNameHint)
-      .filter((name) => isLikelyPersonName(name));
-
-    for (const name of sides) {
-      if (isSelfReference(name, context.candidates)) {
-        continue;
-      }
-
-      contacts.push({
-        name,
-        email: matchCandidateEmail(name, context.candidates),
-      });
-    }
-  }
-
-  return normalizeExtractedContacts(contacts, context.candidates);
 }
 
 function collectContactCandidates(
@@ -481,14 +486,6 @@ function dedupeCandidates(
   return Array.from(byKey.values());
 }
 
-function getEventTextLines(context: EventContactExtractionContext): string[] {
-  return [context.title, context.description]
-    .filter((value): value is string => Boolean(value?.trim()))
-    .flatMap((value) => stripHtml(value).split(/\r?\n/))
-    .map((line) => line.trim())
-    .filter(Boolean);
-}
-
 async function getSystemPrompt(): Promise<string> {
   const result = await templateCommands.render({ eventContactSystem: {} });
   if (result.status === "error") {
@@ -496,6 +493,20 @@ async function getSystemPrompt(): Promise<string> {
   }
 
   return result.data;
+}
+
+function parseExtractionJson(text: string): z.infer<typeof aiExtractionSchema> {
+  try {
+    return aiExtractionSchema.parse(JSON.parse(stripJsonFence(text)));
+  } catch {
+    throw new Error("Invalid contact extraction JSON");
+  }
+}
+
+function stripJsonFence(text: string): string {
+  const trimmed = text.trim();
+  const match = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  return match ? match[1].trim() : trimmed;
 }
 
 async function getUserPrompt(
@@ -547,7 +558,11 @@ function stripHtml(value: string): string {
 }
 
 function normalizeExtractedContacts(
-  contacts: Array<{ name?: string | null; email?: string | null }>,
+  contacts: Array<{
+    name?: string | null;
+    email?: string | null;
+    companyName?: string | null;
+  }>,
   candidates: EventContactCandidate[],
 ): ExtractedEventContact[] {
   const deduped = new Map<string, ExtractedEventContact>();
@@ -560,10 +575,16 @@ function normalizeExtractedContacts(
     }
 
     const matchedEmail = email || matchCandidateEmail(name, candidates);
-    const normalizedContact = {
+    const companyName = normalizeCompanyName(contact.companyName);
+    const normalizedContact: ExtractedEventContact = {
       name,
-      email: matchedEmail,
     };
+    if (matchedEmail) {
+      normalizedContact.email = matchedEmail;
+    }
+    if (companyName) {
+      normalizedContact.companyName = companyName;
+    }
 
     if (isSelfContactFromCandidates(normalizedContact, candidates)) {
       continue;
@@ -574,6 +595,18 @@ function normalizeExtractedContacts(
       : `name:${normalizeName(name)}`;
     if (!deduped.has(key)) {
       deduped.set(key, normalizedContact);
+    } else if (
+      !deduped.get(key)?.companyName &&
+      normalizedContact.companyName
+    ) {
+      const existingContact = deduped.get(key);
+      if (!existingContact) {
+        continue;
+      }
+      deduped.set(key, {
+        ...existingContact,
+        companyName: normalizedContact.companyName,
+      });
     }
   }
 
@@ -628,6 +661,9 @@ function matchCandidateEmail(
   }
 
   let best: { email: string; score: number } | null = null;
+  const firstNameMatches: string[] = [];
+  const firstNameToken = nameTokens[0];
+
   for (const candidate of candidates) {
     const email = normalizeEmail(candidate.email);
     if (!email || candidate.isCurrentUser) {
@@ -651,10 +687,20 @@ function matchCandidateEmail(
 
     if (enoughSignal && (!best || score > best.score)) {
       best = { email, score };
+    } else if (
+      firstNameToken &&
+      nameTokens.length > 1 &&
+      matched.length === 1 &&
+      matched[0] === firstNameToken
+    ) {
+      firstNameMatches.push(email);
     }
   }
 
-  return best?.email;
+  return (
+    best?.email ??
+    (firstNameMatches.length === 1 ? firstNameMatches[0] : undefined)
+  );
 }
 
 function isSelfReference(
@@ -820,6 +866,13 @@ function shouldUpdateHumanEmail(
   return Boolean(normalizeEmail(email) && !normalizeEmail(existingEmail));
 }
 
+function shouldUpdateHumanOrg(
+  existingOrgId: string | undefined,
+  orgId: string | undefined,
+): boolean {
+  return Boolean(orgId && !existingOrgId);
+}
+
 function buildHumansByEmailIndex(store: Store): Map<string, string> {
   const humansByEmail = new Map<string, string>();
   store.forEachRow("humans", (humanId, _forEachCell) => {
@@ -842,6 +895,46 @@ function buildHumansByNameIndex(store: Store): Map<string, string> {
     }
   });
   return humansByName;
+}
+
+function buildOrganizationsByNameIndex(store: Store): Map<string, string> {
+  const organizationsByName = new Map<string, string>();
+  store.forEachRow("organizations", (orgId, _forEachCell) => {
+    const organization = store.getRow("organizations", orgId);
+    const name = normalizeName(stringCell(organization?.name) ?? "");
+    if (name) {
+      organizationsByName.set(name, orgId);
+    }
+  });
+  return organizationsByName;
+}
+
+function getOrCreateOrganizationId(
+  store: Store,
+  organizationsByName: Map<string, string>,
+  userId: string,
+  companyName: string | undefined,
+  createdAt: string,
+): string | undefined {
+  if (!companyName) {
+    return undefined;
+  }
+
+  const nameKey = normalizeName(companyName);
+  const existingOrgId = organizationsByName.get(nameKey);
+  if (existingOrgId) {
+    return existingOrgId;
+  }
+
+  const orgId = id();
+  store.setRow("organizations", orgId, {
+    user_id: userId,
+    created_at: createdAt,
+    name: companyName,
+    pinned: false,
+  } satisfies OrganizationStorage);
+  organizationsByName.set(nameKey, orgId);
+  return orgId;
 }
 
 function buildSessionHumansByNameIndex(
@@ -894,6 +987,21 @@ function normalizeEmail(value: string | undefined | null): string | undefined {
   }
 
   return email;
+}
+
+function normalizeCompanyName(
+  value: string | undefined | null,
+): string | undefined {
+  const name = value?.trim().replace(/\s+/g, " ");
+  if (!name || name.length < 2 || name.length > 80) {
+    return undefined;
+  }
+
+  if (name.includes("@") || /^https?:\/\//i.test(name)) {
+    return undefined;
+  }
+
+  return name;
 }
 
 function normalizeName(value: string): string {
