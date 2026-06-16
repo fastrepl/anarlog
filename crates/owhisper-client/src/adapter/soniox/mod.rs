@@ -10,7 +10,11 @@ use super::LanguageSupport;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, strum::EnumString, strum::AsRefStr)]
 pub enum SonioxModel {
     #[default]
-    #[strum(serialize = "stt-v5", serialize = "stt-async-v5")]
+    #[strum(
+        serialize = "stt-v5",
+        serialize = "stt-rt-v5",
+        serialize = "stt-async-v5"
+    )]
     V5,
     #[strum(
         serialize = "stt-v4",
@@ -33,7 +37,7 @@ pub enum SonioxModel {
 impl SonioxModel {
     pub fn live_model(&self) -> &'static str {
         match self {
-            Self::V5 => "stt-rt-v4",
+            Self::V5 => "stt-rt-v5",
             Self::V4 => "stt-rt-v4",
             Self::V3 => "stt-rt-v3",
         }
@@ -125,19 +129,22 @@ mod tests {
     use super::*;
 
     #[test]
-    fn v5_uses_async_v5_for_batch_and_rt_v4_for_live() {
+    fn v5_uses_async_v5_for_batch_and_rt_v5_for_live() {
         let model = SonioxAdapter::resolve_model(Some("stt-v5"));
 
         assert_eq!(model.batch_model(), "stt-async-v5");
-        assert_eq!(model.live_model(), "stt-rt-v4");
+        assert_eq!(model.live_model(), "stt-rt-v5");
     }
 
     #[test]
-    fn async_v5_model_resolves_to_v5() {
-        let model = SonioxAdapter::resolve_model(Some("stt-async-v5"));
+    fn explicit_v5_models_resolve_to_v5() {
+        let async_model = SonioxAdapter::resolve_model(Some("stt-async-v5"));
+        let live_model = SonioxAdapter::resolve_model(Some("stt-rt-v5"));
 
-        assert_eq!(model, SonioxModel::V5);
-        assert_eq!(model.batch_model(), "stt-async-v5");
+        assert_eq!(async_model, SonioxModel::V5);
+        assert_eq!(async_model.batch_model(), "stt-async-v5");
+        assert_eq!(live_model, SonioxModel::V5);
+        assert_eq!(live_model.live_model(), "stt-rt-v5");
     }
 
     #[test]

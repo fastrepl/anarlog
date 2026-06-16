@@ -401,11 +401,11 @@ function getProviderModelMode(
   }
 
   if (providerId === "soniox") {
-    if (model === "stt-v5" || model === "stt-async-v5") {
+    if (model === "stt-async-v5") {
       return "batch";
     }
 
-    if (model === "stt-v4" || model === "stt-rt-v4") {
+    if (model === "stt-rt-v5" || model === "stt-v4" || model === "stt-rt-v4") {
       return "realtime";
     }
   }

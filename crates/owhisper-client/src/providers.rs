@@ -298,7 +298,7 @@ impl Provider {
         match self {
             Self::AquaVoice => "avalon-v1-en",
             Self::Deepgram => "nova-3",
-            Self::Soniox => "stt-rt-v4",
+            Self::Soniox => "stt-rt-v5",
             Self::AssemblyAI => "u3-rt-pro",
             Self::Fireworks => "whisper-v3-turbo",
             Self::OpenAI => "gpt-4o-transcribe",

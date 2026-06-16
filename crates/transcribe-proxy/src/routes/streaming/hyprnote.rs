@@ -449,7 +449,7 @@ mod tests {
         let msg = initial_msg.unwrap();
         assert!(msg.contains("api_key"));
         assert!(msg.contains("test-key"));
-        assert!(msg.contains("stt-rt-v4"));
+        assert!(msg.contains("stt-rt-v5"));
     }
 
     #[test]
