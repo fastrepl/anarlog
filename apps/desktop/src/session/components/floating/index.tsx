@@ -46,7 +46,7 @@ export function FloatingActionButton({
   return (
     <div
       className={cn([
-        "absolute left-1/2 z-20 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-end justify-center",
+        "absolute left-1/2 z-30 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-end justify-center",
         tuckAction
           ? "group pointer-events-auto bottom-0 h-32 pb-4"
           : "pointer-events-none bottom-0 h-14 pb-4",
@@ -68,7 +68,9 @@ export function FloatingActionButton({
         ) : (
           <motion.div
             key={shouldShowListen ? "listen" : "chat"}
-            aria-hidden={tuckAction}
+            aria-hidden={
+              tuckAction && (shouldShowListen || !isLiveSessionActive)
+            }
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}

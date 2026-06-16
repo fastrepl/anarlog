@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { FloatingActionButton } from "./index";
@@ -23,6 +23,7 @@ const hoisted = vi.hoisted(() => ({
   } as LLMConnectionStatus,
   isCaretNearBottom: false,
   sessionMode: "inactive",
+  sendEvent: vi.fn(),
 }));
 
 vi.mock("./listen", () => ({
@@ -30,7 +31,11 @@ vi.mock("./listen", () => ({
 }));
 
 vi.mock("~/shared/chat-cta", () => ({
-  ChatCTA: () => <button type="button">Ask Anarlog anything</button>,
+  ChatCTA: () => (
+    <button type="button" onClick={() => hoisted.sendEvent({ type: "OPEN" })}>
+      Ask Anarlog anything
+    </button>
+  ),
 }));
 
 vi.mock("~/session/components/shared", () => ({
@@ -99,6 +104,7 @@ describe("FloatingActionButton", () => {
     };
     hoisted.isCaretNearBottom = false;
     hoisted.sessionMode = "inactive";
+    hoisted.sendEvent.mockClear();
   });
 
   afterEach(() => {
@@ -168,6 +174,7 @@ describe("FloatingActionButton", () => {
 
     expect(hoverZone?.className).toContain("group");
     expect(hoverZone?.className).toContain("pointer-events-auto");
+    expect(hoverZone?.className).toContain("z-30");
     expect(hoverZone?.className).toContain("bottom-0");
     expect(hoverZone?.className).not.toContain("-bottom-4");
     expect(hoverZone?.className).toContain("h-32");
@@ -228,7 +235,7 @@ describe("FloatingActionButton", () => {
     expect(hoverZone?.className).not.toContain("-bottom-4");
     expect(hoverZone?.className).toContain("h-32");
     expect(hoverZone?.className).toContain("pb-4");
-    expect(wrapper?.getAttribute("aria-hidden")).toBe("true");
+    expect(wrapper?.getAttribute("aria-hidden")).toBe("false");
     expect(wrapper?.style.getPropertyValue("--floating-fab-tuck-offset")).toBe(
       "calc(100% - 0.5rem + 18px)",
     );
@@ -250,10 +257,22 @@ describe("FloatingActionButton", () => {
     expect(
       screen.queryByRole("button", { name: "Start listening" }),
     ).toBeNull();
-    expect(wrapper?.getAttribute("aria-hidden")).toBe("true");
+    expect(wrapper?.getAttribute("aria-hidden")).toBe("false");
     expect(wrapper?.style.getPropertyValue("--floating-fab-tuck-offset")).toBe(
       "calc(100% - 0.5rem + 18px)",
     );
+  });
+
+  it("opens chat from the tucked active meeting FAB", () => {
+    hoisted.sessionMode = "active";
+
+    render(<FloatingActionButton tab={tab} />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Ask Anarlog anything" }),
+    );
+
+    expect(hoisted.sendEvent).toHaveBeenCalledWith({ type: "OPEN" });
   });
 
   it("tucks the listen FAB near the editor caret instead of scroll state", () => {
