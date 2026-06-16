@@ -10,6 +10,7 @@ import { useLanguageModel } from "~/ai/hooks";
 import type { ContextRef } from "~/chat/context/entities";
 import { hydrateSessionContextFromFs } from "~/chat/context/session-context-hydrator";
 import { useToolRegistry } from "~/contexts/tool";
+import { useConfigValue } from "~/shared/config";
 import * as main from "~/store/tinybase/store/main";
 
 const FILE_CONTEXT_TOOL_GUIDANCE = `
@@ -109,7 +110,7 @@ export function useTransport(
   const registry = useToolRegistry();
   const configuredModel = useLanguageModel("chat");
   const model = modelOverride ?? configuredModel;
-  const language = main.UI.useValue("ai_language", main.STORE_ID) ?? "en";
+  const language = useConfigValue("ai_language") || "en";
   const [systemPrompt, setSystemPrompt] = useState<string | undefined>();
 
   useEffect(() => {
