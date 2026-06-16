@@ -485,6 +485,96 @@ describe("TimelineView", () => {
     expect(getTopFade(container).className).toContain("from-60%");
   });
 
+  it("shows an imminent meeting chip over the sidebar timeline", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
+    mocks.currentTimeMs = Date.now();
+    mocks.smartCurrentTimeMs = Date.now();
+    mocks.timelineEventsTable = {
+      standup: {
+        title: "Team standup",
+        started_at: "2024-01-15T12:00:51.000Z",
+        ended_at: "2024-01-15T12:30:00.000Z",
+        tracking_id_event: "event-standup",
+        has_recurrence_rules: false,
+      },
+    };
+
+    const { container } = render(<TimelineView topChromeInset />);
+    const chip = container.querySelector(
+      "[data-sidebar-upcoming-meeting-status]",
+    );
+
+    expect(chip?.textContent).toBe("Starts in 51s");
+    expect(chip?.className).toContain("bg-destructive");
+    expect(chip?.getAttribute("aria-label")).toBe("Team standup starts in 51s");
+    expect(
+      container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
+    ).toContain("h-12");
+  });
+
+  it("rounds upcoming meeting minutes down to elapsed whole minutes", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
+    mocks.currentTimeMs = Date.now();
+    mocks.smartCurrentTimeMs = Date.now();
+    mocks.timelineEventsTable = {
+      standup: {
+        title: "Team standup",
+        started_at: "2024-01-15T12:01:01.000Z",
+        ended_at: "2024-01-15T12:30:00.000Z",
+        tracking_id_event: "event-standup",
+        has_recurrence_rules: false,
+      },
+    };
+
+    const { container } = render(<TimelineView topChromeInset />);
+
+    expect(
+      container.querySelector("[data-sidebar-upcoming-meeting-status]")
+        ?.textContent,
+    ).toBe("Starts in 1m");
+  });
+
+  it("hides the imminent meeting chip outside the start window", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
+    mocks.currentTimeMs = Date.now();
+    mocks.smartCurrentTimeMs = Date.now();
+    mocks.timelineEventsTable = {
+      later: {
+        title: "Roadmap review",
+        started_at: "2024-01-15T12:06:00.000Z",
+        ended_at: "2024-01-15T12:30:00.000Z",
+        tracking_id_event: "event-later",
+        has_recurrence_rules: false,
+      },
+    };
+
+    const { container, rerender } = render(<TimelineView topChromeInset />);
+
+    expect(
+      container.querySelector("[data-sidebar-upcoming-meeting-status]"),
+    ).toBeNull();
+
+    vi.setSystemTime(new Date("2024-01-15T12:01:00.000Z"));
+    mocks.currentTimeMs = Date.now();
+    rerender(<TimelineView topChromeInset />);
+
+    expect(
+      container.querySelector("[data-sidebar-upcoming-meeting-status]")
+        ?.textContent,
+    ).toBe("Starts in 5m");
+
+    vi.setSystemTime(new Date("2024-01-15T12:06:01.000Z"));
+    mocks.currentTimeMs = Date.now();
+    rerender(<TimelineView topChromeInset />);
+
+    expect(
+      container.querySelector("[data-sidebar-upcoming-meeting-status]"),
+    ).toBeNull();
+  });
+
   it("overlays the top now chip without reserving sidebar space", () => {
     mocks.isAnchorVisible = false;
     mocks.isScrolledPastAnchor = true;

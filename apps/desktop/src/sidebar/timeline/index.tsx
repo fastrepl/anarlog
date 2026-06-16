@@ -60,6 +60,7 @@ import { useListener } from "~/stt/contexts";
 
 const DUE_CALENDAR_SYNC_VISIBLE_WINDOW_MS = 1000;
 const CALENDAR_SYNC_STATUS_TICK_MS = 500;
+const UPCOMING_MEETING_VISIBLE_WINDOW_MS = 5 * 60 * 1000;
 type SidebarCalendarSyncStatus = "idle" | "scheduled" | "syncing";
 
 export function TimelineView({
@@ -96,7 +97,11 @@ export function TimelineView({
     () => buckets.some((bucket) => bucket.label === "Today"),
     [buckets],
   );
-  const currentTimeMs = useCurrentTimeMs();
+  const currentTimeMs = useCurrentTimeMs(1000);
+  const upcomingMeetingStatus = useMemo(
+    () => getUpcomingMeetingStatus(buckets, currentTimeMs),
+    [buckets, currentTimeMs],
+  );
   const activeSessionId = useListener((state) =>
     state.live.status === "active" || state.live.status === "finalizing"
       ? state.live.sessionId
@@ -447,6 +452,7 @@ export function TimelineView({
 
       {(showOpenCalendarChip ||
         (topChromeInset && showCalendarSyncStatus) ||
+        upcomingMeetingStatus ||
         showTopNowChip) && (
         <div
           className={cn([
@@ -466,6 +472,12 @@ export function TimelineView({
           {topChromeInset && showCalendarSyncStatus && (
             <SidebarCalendarSyncStatus status={calendarSyncStatus} />
           )}
+          {upcomingMeetingStatus && (
+            <SidebarUpcomingMeetingStatus
+              label={upcomingMeetingStatus.label}
+              title={upcomingMeetingStatus.title}
+            />
+          )}
           {showTopNowChip && (
             <TimelineNowChip direction="up" onClick={scrollToToday} />
           )}
@@ -483,6 +495,32 @@ export function TimelineView({
         />
       )}
     </div>
+  );
+}
+
+function SidebarUpcomingMeetingStatus({
+  label,
+  title,
+}: {
+  label: string;
+  title: string;
+}) {
+  return (
+    <TimelineTopChip
+      role="status"
+      aria-live="polite"
+      ariaLabel={`${title || "Meeting"} ${label.toLowerCase()}`}
+      data-sidebar-upcoming-meeting-status
+      className="border-destructive bg-destructive text-destructive-foreground shadow-md"
+      icon={
+        <span
+          aria-hidden
+          className="bg-destructive-foreground size-2 rounded-full"
+        />
+      }
+    >
+      {label}
+    </TimelineTopChip>
   );
 }
 
@@ -530,6 +568,7 @@ function TimelineTopChip({
   role?: string;
   "aria-live"?: "off" | "polite" | "assertive";
   "data-sidebar-calendar-sync-status"?: true;
+  "data-sidebar-upcoming-meeting-status"?: true;
   onClick?: () => void;
 }) {
   const className = cn([
@@ -600,6 +639,56 @@ function isFutureBucketLabel(label: string) {
     label === "next month" ||
     label.startsWith("in ")
   );
+}
+
+function getUpcomingMeetingStatus(
+  buckets: TimelineBucket[],
+  currentTimeMs: number,
+): { label: string; title: string } | null {
+  let nearest: { title: string; diffMs: number } | null = null;
+
+  for (const bucket of buckets) {
+    for (const item of bucket.items) {
+      if (item.type === "event" && item.data.is_all_day) {
+        continue;
+      }
+
+      const timestamp = getItemTimestamp(item);
+      if (!timestamp) {
+        continue;
+      }
+
+      const diffMs = timestamp.getTime() - currentTimeMs;
+      if (diffMs <= 0 || diffMs > UPCOMING_MEETING_VISIBLE_WINDOW_MS) {
+        continue;
+      }
+
+      if (!nearest || diffMs < nearest.diffMs) {
+        nearest = {
+          title: item.data.title || "Untitled",
+          diffMs,
+        };
+      }
+    }
+  }
+
+  if (!nearest) {
+    return null;
+  }
+
+  return {
+    label: formatUpcomingMeetingLabel(nearest.diffMs),
+    title: nearest.title,
+  };
+}
+
+function formatUpcomingMeetingLabel(diffMs: number): string {
+  const totalSeconds = Math.max(1, Math.floor(diffMs / 1000));
+  if (totalSeconds < 60) {
+    return `Starts in ${totalSeconds}s`;
+  }
+
+  return `Starts in ${Math.floor(totalSeconds / 60)}m`;
 }
 
 function TimelineNowChip({
