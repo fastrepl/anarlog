@@ -182,7 +182,7 @@ function PastNotesPanel({
                   ) : null}
                 </div>
                 {note.summary ? (
-                  <ul className="text-muted-foreground min-w-0 list-inside list-disc space-y-1 pr-1 text-xs leading-5">
+                  <ul className="text-muted-foreground min-w-0 list-disc space-y-1 pr-1 pl-5 text-xs leading-5">
                     {splitKeyFacts(note.summary).map((fact) => (
                       <li key={fact} className="min-w-0 break-words">
                         {fact}

@@ -451,7 +451,8 @@ describe("PostSessionAccessory", () => {
     );
     const factsList = screen.getByRole("list");
     expect(factsList.className).toContain("list-disc");
-    expect(factsList.className).toContain("list-inside");
+    expect(factsList.className).not.toContain("list-inside");
+    expect(factsList.className).toContain("pl-5");
     expect(factsList.className).not.toContain("overflow-hidden");
     const facts = screen.getAllByRole("listitem");
     expect(facts).toHaveLength(3);
