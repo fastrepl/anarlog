@@ -24,6 +24,7 @@ import {
 import { listAnthropicModels } from "~/settings/ai/shared/list-anthropic";
 import { listAzureAIModels } from "~/settings/ai/shared/list-azure-ai";
 import { listAzureOpenAIModels } from "~/settings/ai/shared/list-azure-openai";
+import { listCloudflareWorkersAIModels } from "~/settings/ai/shared/list-cloudflare-workers-ai";
 import {
   type InputModality,
   type ListModelsResult,
@@ -300,6 +301,10 @@ function useConfiguredMapping(): Record<string, ProviderStatus> {
         switch (provider.id) {
           case "openai":
             listModelsFunc = () => listOpenAIModels(baseUrl, apiKey);
+            break;
+          case "cloudflare_workers_ai":
+            listModelsFunc = () =>
+              listCloudflareWorkersAIModels(baseUrl, apiKey);
             break;
           case "anthropic":
             listModelsFunc = () => listAnthropicModels(baseUrl, apiKey);

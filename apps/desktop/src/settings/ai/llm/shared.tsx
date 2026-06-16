@@ -97,6 +97,26 @@ const _PROVIDERS = [
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
   },
   {
+    id: "cloudflare_workers_ai",
+    displayName: "Cloudflare Workers AI",
+    badge: null,
+    icon: <Icon icon="simple-icons:cloudflare" width={16} />,
+    baseUrl: undefined,
+    requirements: [
+      { kind: "requires_config", fields: ["base_url", "api_key"] },
+    ],
+    links: {
+      models: {
+        label: "Available models",
+        url: "https://developers.cloudflare.com/workers-ai/models/",
+      },
+      setup: {
+        label: "Setup guide",
+        url: "https://developers.cloudflare.com/workers-ai/configuration/open-ai-compatibility/",
+      },
+    },
+  },
+  {
     id: "anthropic",
     displayName: "Anthropic",
     badge: null,
