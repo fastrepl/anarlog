@@ -111,6 +111,21 @@ impl LiveTranscriptEngine {
         })
     }
 
+    pub fn update_participants(
+        &mut self,
+        participant_human_ids: &[String],
+        self_human_id: Option<&str>,
+    ) {
+        self.rendered_segments.channel_assignments =
+            channel_assignments_for_participants(participant_human_ids, self_human_id);
+        self.rendered_segments.segment_options = Some(segment_options_for_participants(
+            participant_human_ids,
+            self_human_id,
+        ));
+        self.max_speaker_index =
+            max_speaker_index_for_participants(participant_human_ids, self_human_id);
+    }
+
     pub fn flush(&mut self) -> Option<LiveTranscriptUpdate> {
         let transcript_delta: LiveTranscriptDelta = self.processor.flush().into();
         let segment_delta = self.rendered_segments.apply_delta(&transcript_delta);

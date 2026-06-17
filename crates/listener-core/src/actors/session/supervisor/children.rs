@@ -100,6 +100,7 @@ pub(super) async fn spawn_recorder(
 pub(super) async fn spawn_listener(
     supervisor_cell: ActorCell,
     ctx: &SessionContext,
+    stream_offset_secs: Option<f64>,
 ) -> Result<ActorCell, ractor::SpawnErr> {
     let mode = ChannelMode::determine(ctx.params.onboarding);
     let (listener_ref, _): (ActorRef<crate::actors::ListenerMsg>, _) = Actor::spawn_linked(
@@ -117,6 +118,7 @@ pub(super) async fn spawn_listener(
             mode,
             session_started_at: ctx.started_at_instant,
             session_started_at_unix: ctx.started_at_system,
+            stream_offset_secs,
             session_id: ctx.params.session_id.clone(),
             participant_human_ids: ctx.params.participant_human_ids.clone(),
             self_human_id: ctx.params.self_human_id.clone(),
@@ -197,6 +199,37 @@ pub(super) async fn attach_listener_to_source(state: &SessionState) {
             state.mode.listener_routing(state.listener_cell.as_ref()),
         )) {
             tracing::warn!(?error, "failed_to_attach_listener_to_source");
+        }
+    }
+}
+
+pub(super) async fn stop_listener(state: &mut SessionState, reason: &str) -> f64 {
+    if let Some(cell) = state.listener_cell.take() {
+        let replay_duration_secs = prepare_listener_refresh(state).await;
+        stop_child(&cell, reason, "listener").await;
+        return replay_duration_secs;
+    }
+
+    0.0
+}
+
+pub(super) async fn prepare_listener_refresh(state: &SessionState) -> f64 {
+    let Some(source_cell) = &state.source_cell else {
+        return 0.0;
+    };
+
+    let source_ref: ActorRef<SourceMsg> = source_cell.clone().into();
+    match ractor::call_t!(source_ref, SourceMsg::PrepareListenerRefresh, 500) {
+        Ok(replay) => replay.duration_secs,
+        Err(error) => {
+            tracing::warn!(?error, "failed_to_prepare_listener_refresh");
+            if let Some(source_cell) = &state.source_cell {
+                let source_ref: ActorRef<SourceMsg> = source_cell.clone().into();
+                let _ = source_ref.cast(SourceMsg::SetListenerRouting(
+                    state.mode.listener_routing(state.listener_cell.as_ref()),
+                ));
+            }
+            0.0
         }
     }
 }

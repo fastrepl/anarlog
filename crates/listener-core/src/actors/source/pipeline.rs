@@ -8,22 +8,39 @@ use ractor::ActorRef;
 
 use crate::{
     ListenerRuntime, SessionDataEvent,
-    actors::{ChannelMode, ListenerMsg, RecMsg},
+    actors::{ChannelMode, ListenerMsg, RecMsg, SAMPLE_RATE},
 };
 use hypr_audio_utils::f32_to_i16_bytes;
 use hypr_vad_masking::VadMask;
 
-use super::{ListenerRouting, SourceFrame};
+use super::{ListenerRefreshReplay, ListenerRouting, SourceFrame};
 
 const AUDIO_AMPLITUDE_THROTTLE: Duration = Duration::from_millis(100);
 const MAX_BUFFER_CHUNKS: usize = 150;
+const REPLAY_HISTORY_SECS: usize = 5;
 
-type BufferedAudio = (Arc<[f32]>, Arc<[f32]>, ChannelMode);
+#[derive(Clone)]
+struct BufferedAudio {
+    mic: Arc<[f32]>,
+    spk: Arc<[f32]>,
+    mode: ChannelMode,
+}
+
+impl BufferedAudio {
+    fn new(mic: Arc<[f32]>, spk: Arc<[f32]>, mode: ChannelMode) -> Self {
+        Self { mic, spk, mode }
+    }
+
+    fn sample_count(&self) -> usize {
+        self.mic.len().max(self.spk.len())
+    }
+}
 
 pub(in crate::actors) struct Pipeline {
     vad_mask: VadMask,
     amplitude: AmplitudeEmitter,
     audio_buffer: AudioBuffer,
+    replay_history: ReplayHistory,
     backlog_quota: f32,
 }
 
@@ -35,6 +52,7 @@ impl Pipeline {
         Self {
             amplitude: AmplitudeEmitter::new(runtime, session_id),
             audio_buffer: AudioBuffer::new(MAX_BUFFER_CHUNKS),
+            replay_history: ReplayHistory::new(SAMPLE_RATE as usize * REPLAY_HISTORY_SECS),
             backlog_quota: 0.0,
             vad_mask: VadMask::default(),
         }
@@ -43,6 +61,7 @@ impl Pipeline {
     pub(super) fn reset(&mut self) {
         self.amplitude.reset();
         self.audio_buffer.clear();
+        self.replay_history.clear();
         self.backlog_quota = 0.0;
         self.vad_mask = VadMask::default();
     }
@@ -73,6 +92,19 @@ impl Pipeline {
         }
     }
 
+    pub(super) fn prepare_listener_refresh(&mut self) -> ListenerRefreshReplay {
+        self.audio_buffer.clear();
+        self.backlog_quota = 0.0;
+
+        for item in self.replay_history.items() {
+            self.audio_buffer.push_item(item);
+        }
+
+        ListenerRefreshReplay {
+            duration_secs: self.replay_history.duration_secs(),
+        }
+    }
+
     fn dispatch(
         &mut self,
         frame: SourceFrame,
@@ -83,19 +115,20 @@ impl Pipeline {
         let (mut processed_mic, processed_spk) = Self::select_tracks(frame, mode);
         self.vad_mask.process(&mut processed_mic);
         let processed_mic = Arc::<[f32]>::from(processed_mic);
+        let item = BufferedAudio::new(processed_mic, processed_spk, mode);
 
-        self.amplitude.observe_mic(&processed_mic);
-        self.amplitude.observe_spk(&processed_spk);
+        self.replay_history.push(item.clone());
+
+        self.amplitude.observe_mic(&item.mic);
+        self.amplitude.observe_spk(&item.spk);
 
         if let Some(actor) = recorder {
             let result = match mode {
-                ChannelMode::MicOnly => actor.cast(RecMsg::AudioSingle(Arc::clone(&processed_mic))),
-                ChannelMode::SpeakerOnly => {
-                    actor.cast(RecMsg::AudioSingle(Arc::clone(&processed_spk)))
-                }
+                ChannelMode::MicOnly => actor.cast(RecMsg::AudioSingle(Arc::clone(&item.mic))),
+                ChannelMode::SpeakerOnly => actor.cast(RecMsg::AudioSingle(Arc::clone(&item.spk))),
                 ChannelMode::MicAndSpeaker => actor.cast(RecMsg::AudioDual(
-                    Arc::clone(&processed_mic),
-                    Arc::clone(&processed_spk),
+                    Arc::clone(&item.mic),
+                    Arc::clone(&item.spk),
                 )),
             };
             if let Err(e) = result {
@@ -105,7 +138,7 @@ impl Pipeline {
 
         match listener_routing {
             ListenerRouting::Buffering => {
-                self.audio_buffer.push(processed_mic, processed_spk, mode);
+                self.audio_buffer.push_item(item);
                 tracing::debug!(
                     buffered = self.audio_buffer.len(),
                     "listener_unavailable_buffering"
@@ -113,7 +146,7 @@ impl Pipeline {
             }
             ListenerRouting::Attached(actor) => {
                 self.flush_buffer_to_listener(actor);
-                self.send_to_listener(actor, &processed_mic, &processed_spk, mode);
+                self.send_to_listener(actor, &item.mic, &item.spk, item.mode);
             }
             ListenerRouting::Dropped => {}
         }
@@ -125,11 +158,11 @@ impl Pipeline {
                 (self.backlog_quota + Self::BACKLOG_QUOTA_INCREMENT).min(Self::MAX_BACKLOG_QUOTA);
 
             while self.backlog_quota >= 1.0 {
-                let Some((mic, spk, buffered_mode)) = self.audio_buffer.pop() else {
+                let Some(item) = self.audio_buffer.pop() else {
                     break;
                 };
 
-                self.send_to_listener(actor, &mic, &spk, buffered_mode);
+                self.send_to_listener(actor, &item.mic, &item.spk, item.mode);
                 self.backlog_quota -= 1.0;
             }
         }
@@ -196,7 +229,7 @@ impl AudioBuffer {
         }
     }
 
-    fn push(&mut self, mic: Arc<[f32]>, spk: Arc<[f32]>, mode: ChannelMode) {
+    fn push_item(&mut self, item: BufferedAudio) {
         if self.buffer.len() >= self.max_size {
             self.buffer.pop_front();
             if !self.overflowing {
@@ -204,7 +237,7 @@ impl AudioBuffer {
                 tracing::warn!("audio_buffer_overflow_listener_unavailable");
             }
         }
-        self.buffer.push_back((mic, spk, mode));
+        self.buffer.push_back(item);
     }
 
     fn pop(&mut self) -> Option<BufferedAudio> {
@@ -226,6 +259,48 @@ impl AudioBuffer {
     fn clear(&mut self) {
         self.buffer.clear();
         self.overflowing = false;
+    }
+}
+
+struct ReplayHistory {
+    buffer: VecDeque<BufferedAudio>,
+    max_samples: usize,
+    samples: usize,
+}
+
+impl ReplayHistory {
+    fn new(max_samples: usize) -> Self {
+        Self {
+            buffer: VecDeque::new(),
+            max_samples,
+            samples: 0,
+        }
+    }
+
+    fn push(&mut self, item: BufferedAudio) {
+        self.samples += item.sample_count();
+        self.buffer.push_back(item);
+
+        while self.samples > self.max_samples {
+            let Some(item) = self.buffer.pop_front() else {
+                self.samples = 0;
+                return;
+            };
+            self.samples = self.samples.saturating_sub(item.sample_count());
+        }
+    }
+
+    fn items(&self) -> impl Iterator<Item = BufferedAudio> + '_ {
+        self.buffer.iter().cloned()
+    }
+
+    fn duration_secs(&self) -> f64 {
+        self.samples as f64 / SAMPLE_RATE as f64
+    }
+
+    fn clear(&mut self) {
+        self.buffer.clear();
+        self.samples = 0;
     }
 }
 
@@ -475,6 +550,53 @@ mod tests {
         assert!(pipeline.audio_buffer.is_empty());
 
         handle.abort();
+    }
+
+    #[tokio::test]
+    async fn listener_refresh_replays_recent_audio_history() {
+        let mut pipeline = test_pipeline();
+
+        let (old_probe_tx, mut old_probe_rx) = tokio::sync::mpsc::unbounded_channel();
+        let (old_listener_ref, old_handle) = Actor::spawn(None, ListenerProbe(old_probe_tx), ())
+            .await
+            .unwrap();
+
+        for _ in 0..3 {
+            pipeline.dispatch_frame(
+                source_frame(false),
+                ChannelMode::MicAndSpeaker,
+                &ListenerRouting::Attached(old_listener_ref.clone()),
+                None,
+            );
+        }
+
+        for _ in 0..3 {
+            tokio::time::timeout(std::time::Duration::from_secs(1), old_probe_rx.recv())
+                .await
+                .unwrap()
+                .unwrap();
+        }
+
+        let replay = pipeline.prepare_listener_refresh();
+
+        assert_eq!(pipeline.audio_buffer.len(), 3);
+        assert!(replay.duration_secs > 0.0);
+
+        let (new_probe_tx, mut new_probe_rx) = tokio::sync::mpsc::unbounded_channel();
+        let (new_listener_ref, new_handle) = Actor::spawn(None, ListenerProbe(new_probe_tx), ())
+            .await
+            .unwrap();
+
+        pipeline.on_listener_routing_changed(&ListenerRouting::Attached(new_listener_ref));
+
+        let event = tokio::time::timeout(std::time::Duration::from_secs(1), new_probe_rx.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(matches!(event, ProbeEvent::ListenerDual));
+
+        old_handle.abort();
+        new_handle.abort();
     }
 
     #[tokio::test]

@@ -9,7 +9,11 @@ import type { TranscriptionParams } from "@hypr/plugin-transcription";
 
 import type { BatchActions, BatchState } from "./batch";
 import { runBatchSession } from "./general-batch";
-import { startLiveSession, stopLiveSession } from "./general-live";
+import {
+  startLiveSession,
+  stopLiveSession,
+  updateLiveSessionConfig,
+} from "./general-live";
 import {
   type GeneralState,
   type SessionMode,
@@ -39,6 +43,12 @@ export type GeneralActions = {
   stop: () => void;
   setMuted: (value: boolean) => void;
   setTriggerAppIds: (appIds: string[] | null) => void;
+  updateCaptureConfig: (
+    update: Pick<
+      CaptureParams,
+      "session_id" | "languages" | "participant_human_ids" | "self_human_id"
+    >,
+  ) => Promise<void>;
   startTranscription: (
     params: TranscriptionParams,
     options?: { handlePersist?: BatchPersistCallback },
@@ -119,6 +129,19 @@ export const createGeneralSlice = <
   setTriggerAppIds: (appIds) => {
     setLiveState(set, (live) => {
       live.triggerAppIds = appIds;
+    });
+  },
+  updateCaptureConfig: async (update) => {
+    const live = get().live;
+    if (live.status !== "active" || live.sessionId !== update.session_id) {
+      return;
+    }
+
+    await updateLiveSessionConfig({
+      session_id: update.session_id,
+      languages: update.languages,
+      participant_human_ids: update.participant_human_ids ?? [],
+      self_human_id: update.self_human_id ?? null,
     });
   },
   startTranscription: async (params, options) => {

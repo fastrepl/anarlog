@@ -456,7 +456,9 @@ fn format_languages(languages: &[hypr_language::Language]) -> String {
 }
 
 fn build_extra(args: &ListenerArgs) -> (f64, Extra) {
-    let session_offset_secs = args.session_started_at.elapsed().as_secs_f64();
+    let session_offset_secs = args
+        .stream_offset_secs
+        .unwrap_or_else(|| args.session_started_at.elapsed().as_secs_f64());
     let started_unix_millis = args
         .session_started_at_unix
         .duration_since(UNIX_EPOCH)
@@ -641,6 +643,7 @@ mod tests {
             mode: crate::actors::ChannelMode::MicOnly,
             session_started_at: Instant::now(),
             session_started_at_unix: SystemTime::now(),
+            stream_offset_secs: None,
             session_id: "session".to_string(),
             participant_human_ids: vec![],
             self_human_id: None,
@@ -654,6 +657,16 @@ mod tests {
         args.self_human_id = Some("self".to_string());
 
         assert_eq!(expected_speakers(&args), Some(2));
+    }
+
+    #[test]
+    fn build_extra_prefers_explicit_stream_offset() {
+        let mut args = listener_args("https://api.deepgram.com", "nova-3");
+        args.stream_offset_secs = Some(12.5);
+
+        let (offset_secs, _) = build_extra(&args);
+
+        assert_eq!(offset_secs, 12.5);
     }
 
     #[test]

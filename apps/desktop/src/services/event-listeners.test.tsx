@@ -18,6 +18,7 @@ const {
   getOrCreateSessionForEventIdMock,
   setTriggerAppIdsMock,
   stopMock,
+  updateCaptureConfigMock,
   getListenerStateMock,
 } = vi.hoisted(() => ({
   notificationListenMock: vi.fn(),
@@ -31,6 +32,7 @@ const {
   getOrCreateSessionForEventIdMock: vi.fn(() => "session-event"),
   setTriggerAppIdsMock: vi.fn(),
   stopMock: vi.fn(),
+  updateCaptureConfigMock: vi.fn(),
   getListenerStateMock: vi.fn(),
 }));
 
@@ -66,6 +68,12 @@ vi.mock("~/store/tinybase/store/main", () => ({
 
 vi.mock("~/store/tinybase/store/settings", () => ({
   STORE_ID: "settings-store",
+  SETTINGS_MAPPING: {
+    values: {
+      ai_language: { default: "en" },
+      spoken_languages: { default: "[]" },
+    },
+  },
   UI: {
     useStore: useSettingsStoreMock,
   },
@@ -100,6 +108,7 @@ describe("EventListeners notification events", () => {
     getOrCreateSessionForEventIdMock.mockReset();
     setTriggerAppIdsMock.mockReset();
     stopMock.mockReset();
+    updateCaptureConfigMock.mockReset();
     getListenerStateMock.mockReset();
 
     getCurrentWebviewWindowLabelMock.mockReturnValue("main");
@@ -112,11 +121,13 @@ describe("EventListeners notification events", () => {
     getListenerStateMock.mockReturnValue({
       setTriggerAppIds: setTriggerAppIdsMock,
       stop: stopMock,
+      updateCaptureConfig: updateCaptureConfigMock,
       live: { status: "active", sessionId: "session-1" },
     });
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -179,6 +190,58 @@ describe("EventListeners notification events", () => {
     expect(stopMock).toHaveBeenCalledTimes(1);
     expect(createSessionMock).not.toHaveBeenCalled();
     expect(openNewMock).not.toHaveBeenCalled();
+  });
+
+  test("live capture config sync mounts without auth providers", async () => {
+    vi.useFakeTimers();
+
+    const mainStore = {
+      addTableListener: vi.fn(() => "main-listener"),
+      delListener: vi.fn(),
+      forEachRow: vi.fn(),
+      getValue: vi.fn((key: string) =>
+        key === "user_id" ? "human-self" : undefined,
+      ),
+    };
+    const settingsStore = {
+      addValueListener: vi.fn(() => "settings-listener"),
+      delListener: vi.fn(),
+      getValue: vi.fn((key: string) => {
+        if (key === "ai_language") {
+          return "ko";
+        }
+        if (key === "spoken_languages") {
+          return JSON.stringify(["ko"]);
+        }
+        if (key === "current_stt_provider") {
+          return "soniox";
+        }
+        if (key === "current_stt_model") {
+          return "stt-v4";
+        }
+        return undefined;
+      }),
+    };
+
+    useMainStoreMock.mockReturnValue(mainStore as never);
+    useSettingsStoreMock.mockReturnValue(settingsStore as never);
+
+    render(<EventListeners />);
+
+    expect(mainStore.addTableListener).toHaveBeenCalledWith(
+      "mapping_session_participant",
+      expect.any(Function),
+    );
+    expect(settingsStore.addValueListener).toHaveBeenCalledTimes(4);
+
+    await vi.runOnlyPendingTimersAsync();
+
+    expect(updateCaptureConfigMock).toHaveBeenCalledWith({
+      session_id: "session-1",
+      languages: ["ko"],
+      participant_human_ids: [],
+      self_human_id: "human-self",
+    });
   });
 
   test("notification_confirm with auto-stop prompt ignores collapsed body click", async () => {

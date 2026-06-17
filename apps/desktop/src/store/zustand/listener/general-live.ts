@@ -10,6 +10,7 @@ import {
   commands as listenerCommands,
   events as listenerEvents,
   type CaptureDataEvent,
+  type CaptureConfigUpdate,
   type CaptureLifecycleEvent,
   type CaptureParams,
   type CaptureStatusEvent,
@@ -66,6 +67,9 @@ const startSessionEffect = (params: CaptureParams) =>
   fromResult(listenerCommands.startCapture(params));
 
 const stopSessionEffect = () => fromResult(listenerCommands.stopCapture());
+
+export const updateLiveSessionConfig = (update: CaptureConfigUpdate) =>
+  fromResult(listenerCommands.updateCaptureConfig(update));
 
 function getAutoStopTriggerAppIds(
   appIds: string[] | null,

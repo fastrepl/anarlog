@@ -27,6 +27,7 @@ pub enum SourceMsg {
     SetMicMute(bool),
     GetMicMute(RpcReplyPort<bool>),
     GetMicDevice(RpcReplyPort<Option<String>>),
+    PrepareListenerRefresh(RpcReplyPort<ListenerRefreshReplay>),
     SetListenerRouting(ListenerRouting),
     SetRecorder(Option<ActorRef<RecMsg>>),
     Frame(SourceFrame),
@@ -36,6 +37,11 @@ pub enum SourceMsg {
 pub struct SourceFrame {
     pub capture: CaptureFrame,
     pub mic_muted: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ListenerRefreshReplay {
+    pub duration_secs: f64,
 }
 
 #[derive(Clone)]
@@ -186,6 +192,13 @@ impl Actor for SourceActor {
             SourceMsg::GetMicDevice(reply) => {
                 if !reply.is_closed() {
                     let _ = reply.send(st.mic_device.clone());
+                }
+            }
+            SourceMsg::PrepareListenerRefresh(reply) => {
+                st.listener_routing = ListenerRouting::Buffering;
+                let replay = st.pipeline.prepare_listener_refresh();
+                if !reply.is_closed() {
+                    let _ = reply.send(replay);
                 }
             }
             SourceMsg::SetListenerRouting(routing) => {

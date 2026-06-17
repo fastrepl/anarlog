@@ -2,7 +2,7 @@ use owhisper_client::AdapterKind;
 use std::str::FromStr;
 
 use crate::listener::ListenerPluginExt;
-use crate::{CaptureParams, CaptureState};
+use crate::{CaptureConfigUpdate, CaptureParams, CaptureState};
 use hypr_transcript::{RenderTranscriptRequest, RenderedTranscriptSegment};
 use hypr_transcription_core::listener2 as listener2_core;
 
@@ -60,6 +60,16 @@ pub async fn start_capture<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn stop_capture<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<(), String> {
     app.listener().stop_capture().await;
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn update_capture_config<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    update: CaptureConfigUpdate,
+) -> Result<(), String> {
+    app.listener().update_capture_config(update).await;
     Ok(())
 }
 

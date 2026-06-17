@@ -8,6 +8,7 @@ import {
 } from "@hypr/plugin-updater2";
 import { getCurrentWebviewWindowLabel } from "@hypr/plugin-windows";
 
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import * as main from "~/store/tinybase/store/main";
 import {
   createSession,
@@ -18,8 +19,15 @@ import { listenerStore } from "~/store/zustand/listener/instance";
 import { useTabs } from "~/store/zustand/tabs";
 import { parseAutoStopEndedNotificationKey } from "~/stt/auto-stop-notification";
 import { parseBatchCompletedNotificationKey } from "~/stt/batch-completed-notification";
+import {
+  getLiveTranscriptionConfig,
+  getTranscriptionLanguages,
+} from "~/stt/capabilities";
 
 type MainStore = NonNullable<ReturnType<typeof main.UI.useStore>>;
+type SettingsStore = NonNullable<ReturnType<typeof settings.UI.useStore>>;
+
+const LIVE_CAPTURE_CONFIG_DEBOUNCE_MS = 750;
 
 function parseIgnoredPlatforms(value: unknown) {
   if (typeof value !== "string") {
@@ -82,6 +90,193 @@ function handleAutoStopEndedNotification(
   }
 
   return true;
+}
+
+function getSessionParticipantHumanIds(store: MainStore, sessionId: string) {
+  const seen = new Set<string>();
+  const participantHumanIds: string[] = [];
+
+  store.forEachRow("mapping_session_participant", (mappingId, _forEachCell) => {
+    const sid = store.getCell(
+      "mapping_session_participant",
+      mappingId,
+      "session_id",
+    );
+    if (sid !== sessionId) return;
+
+    const humanId = store.getCell(
+      "mapping_session_participant",
+      mappingId,
+      "human_id",
+    );
+    if (typeof humanId !== "string" || !humanId || seen.has(humanId)) {
+      return;
+    }
+
+    seen.add(humanId);
+    participantHumanIds.push(humanId);
+  });
+
+  return participantHumanIds;
+}
+
+function createCaptureConfigSignature(config: {
+  session_id: string;
+  languages: string[];
+  participant_human_ids: string[];
+  self_human_id: string | null;
+}) {
+  return JSON.stringify(config);
+}
+
+function parseStringArray(value: unknown, fallback: string[]) {
+  if (Array.isArray(value)) {
+    return value.filter((item): item is string => typeof item === "string");
+  }
+
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed)
+      ? parsed.filter((item): item is string => typeof item === "string")
+      : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function getSettingsDefault(key: "ai_language" | "spoken_languages") {
+  const mapping = settings.SETTINGS_MAPPING?.values[key];
+  return mapping && "default" in mapping ? mapping.default : undefined;
+}
+
+function getLiveConfigLanguages(settingsStore: SettingsStore) {
+  const aiLanguageValue = settingsStore.getValue("ai_language");
+  const aiLanguage =
+    typeof aiLanguageValue === "string"
+      ? aiLanguageValue
+      : typeof getSettingsDefault("ai_language") === "string"
+        ? getSettingsDefault("ai_language")
+        : undefined;
+
+  return getTranscriptionLanguages(
+    aiLanguage,
+    parseStringArray(
+      settingsStore.getValue("spoken_languages"),
+      parseStringArray(getSettingsDefault("spoken_languages"), []),
+    ),
+  );
+}
+
+function LiveCaptureConfigSync() {
+  const store = main.UI.useStore(main.STORE_ID);
+  const settingsStore = settings.UI.useStore(settings.STORE_ID);
+
+  if (!store || !settingsStore) {
+    return null;
+  }
+
+  return (
+    <LiveCaptureConfigSyncReady
+      settingsStore={settingsStore as SettingsStore}
+      store={store as MainStore}
+    />
+  );
+}
+
+function LiveCaptureConfigSyncReady({
+  store,
+  settingsStore,
+}: {
+  store: MainStore;
+  settingsStore: SettingsStore;
+}) {
+  useMountEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let lastSignature: string | null = null;
+
+    const pushConfig = async () => {
+      const live = listenerStore.getState().live;
+      if (live.status !== "active" || !live.sessionId) {
+        return;
+      }
+
+      const languages = getLiveConfigLanguages(settingsStore);
+      const provider = settingsStore.getValue("current_stt_provider");
+      const model = settingsStore.getValue("current_stt_model");
+      const liveConfig = await getLiveTranscriptionConfig({
+        provider: typeof provider === "string" ? provider : undefined,
+        model: typeof model === "string" ? model : undefined,
+        languages,
+      });
+
+      if (liveConfig.transcriptionMode === "batch") {
+        return;
+      }
+
+      const selfHumanId = store.getValue("user_id");
+      const nextConfig = {
+        session_id: live.sessionId,
+        languages: liveConfig.languages,
+        participant_human_ids: getSessionParticipantHumanIds(
+          store,
+          live.sessionId,
+        ),
+        self_human_id: typeof selfHumanId === "string" ? selfHumanId : null,
+      };
+      const signature = createCaptureConfigSignature(nextConfig);
+      if (signature === lastSignature) {
+        return;
+      }
+
+      lastSignature = signature;
+      await listenerStore.getState().updateCaptureConfig(nextConfig);
+    };
+
+    const schedulePush = () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+
+      timeoutId = setTimeout(() => {
+        void pushConfig().catch((error) => {
+          console.error(
+            "[listener] failed to update live capture config",
+            error,
+          );
+        });
+      }, LIVE_CAPTURE_CONFIG_DEBOUNCE_MS);
+    };
+
+    const mainListenerIds = [
+      store.addTableListener("mapping_session_participant", schedulePush),
+    ];
+    const settingsListenerIds = [
+      settingsStore.addValueListener("ai_language", schedulePush),
+      settingsStore.addValueListener("spoken_languages", schedulePush),
+      settingsStore.addValueListener("current_stt_provider", schedulePush),
+      settingsStore.addValueListener("current_stt_model", schedulePush),
+    ];
+
+    schedulePush();
+
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      for (const listenerId of mainListenerIds) {
+        store.delListener(listenerId);
+      }
+      for (const listenerId of settingsListenerIds) {
+        settingsStore.delListener(listenerId);
+      }
+    };
+  });
+
+  return null;
 }
 
 function useUpdaterEvents() {
@@ -297,6 +492,15 @@ function useNotificationEvents() {
 }
 
 export function EventListeners() {
+  return (
+    <>
+      <EventListenersInner />
+      <LiveCaptureConfigSync />
+    </>
+  );
+}
+
+function EventListenersInner() {
   useUpdaterEvents();
   useNotificationEvents();
 

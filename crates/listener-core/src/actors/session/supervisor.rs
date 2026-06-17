@@ -5,7 +5,10 @@ use ractor::{Actor, ActorCell, ActorProcessingErr, ActorRef, SupervisionEvent};
 use tracing::Instrument;
 
 use crate::DegradedError;
-use crate::actors::session::types::{SessionContext, session_span, session_supervisor_name};
+use crate::actors::session::types::{
+    SessionConfigUpdate, SessionContext, SessionParams, session_span, session_supervisor_name,
+};
+use crate::actors::{ListenerConfigUpdate, ListenerMsg};
 use owhisper_client::AdapterKind;
 
 use self::children::{ChildKind, RESTART_BUDGET};
@@ -27,6 +30,7 @@ pub struct SessionActor;
 #[derive(Debug)]
 pub enum SessionMsg {
     Shutdown,
+    UpdateConfig(SessionConfigUpdate),
 }
 
 #[ractor::async_trait]
@@ -91,7 +95,7 @@ impl Actor for SessionActor {
                 return Ok(());
             }
 
-            match children::spawn_listener(myself.get_cell(), &state.ctx).await {
+            match children::spawn_listener(myself.get_cell(), &state.ctx, None).await {
                 Ok(listener_cell) => {
                     state.listener_cell = Some(listener_cell);
                     state.mode.on_listener_attached();
@@ -130,6 +134,9 @@ impl Actor for SessionActor {
                 state.shutting_down = true;
                 children::shutdown_children(state, "session_stop").await;
                 myself.stop(None);
+            }
+            SessionMsg::UpdateConfig(update) => {
+                update_config(myself, state, update).await;
             }
         }
         Ok(())
@@ -257,6 +264,100 @@ async fn enter_batch_fallback(state: &mut SessionState, degraded: DegradedError)
     state.mode.enter_batch_fallback();
     children::attach_listener_to_source(state).await;
     emit_active_lifecycle_event(state, Some(degraded)).await;
+}
+
+async fn update_config(
+    myself: ActorRef<SessionMsg>,
+    state: &mut SessionState,
+    update: SessionConfigUpdate,
+) {
+    if update.session_id != state.ctx.params.session_id {
+        return;
+    }
+
+    let should_refresh_listener = state.mode.should_spawn_listener()
+        && update_requires_listener_refresh(&state.ctx.params, &update);
+
+    state.ctx.params.languages = update.languages;
+    state.ctx.params.participant_human_ids = update.participant_human_ids;
+    state.ctx.params.self_human_id = update.self_human_id;
+
+    if should_refresh_listener {
+        refresh_listener(myself, state).await;
+        return;
+    }
+
+    if let Some(listener_cell) = &state.listener_cell {
+        let listener_ref: ractor::ActorRef<ListenerMsg> = listener_cell.clone().into();
+        if let Err(error) = listener_ref.cast(ListenerMsg::UpdateConfig(ListenerConfigUpdate {
+            languages: state.ctx.params.languages.clone(),
+            participant_human_ids: state.ctx.params.participant_human_ids.clone(),
+            self_human_id: state.ctx.params.self_human_id.clone(),
+        })) {
+            tracing::warn!(?error, "failed_to_cast_listener_config_update");
+        }
+    }
+}
+
+async fn refresh_listener(myself: ActorRef<SessionMsg>, state: &mut SessionState) {
+    let replay_duration_secs = children::stop_listener(state, "config_update").await;
+
+    if !state.mode.should_spawn_listener() {
+        return;
+    }
+
+    let replay_offset_secs =
+        (state.ctx.started_at_instant.elapsed().as_secs_f64() - replay_duration_secs).max(0.0);
+
+    match children::spawn_listener(myself.get_cell(), &state.ctx, Some(replay_offset_secs)).await {
+        Ok(listener_cell) => {
+            state.listener_cell = Some(listener_cell);
+            state.mode.on_listener_attached();
+            children::attach_listener_to_source(state).await;
+        }
+        Err(error) => {
+            tracing::warn!(?error, "listener_refresh_failed");
+            let degraded = if should_stop_on_listener_failure(state) {
+                DegradedError::StreamError {
+                    message: error.to_string(),
+                }
+            } else {
+                DegradedError::UpstreamUnavailable {
+                    message: mode::classify_connection_failure(&state.ctx.params.base_url),
+                }
+            };
+            handle_listener_failure(&myself, state, degraded).await;
+        }
+    }
+}
+
+fn update_requires_listener_refresh(current: &SessionParams, update: &SessionConfigUpdate) -> bool {
+    current.languages != update.languages
+        || expected_speaker_count(
+            &current.participant_human_ids,
+            current.self_human_id.as_deref(),
+        ) != expected_speaker_count(
+            &update.participant_human_ids,
+            update.self_human_id.as_deref(),
+        )
+}
+
+fn expected_speaker_count(
+    participant_human_ids: &[String],
+    self_human_id: Option<&str>,
+) -> Option<u32> {
+    let mut participants = participant_human_ids.to_vec();
+
+    if let Some(self_human_id) = self_human_id
+        && !participants.iter().any(|id| id == self_human_id)
+    {
+        participants.push(self_human_id.to_string());
+    }
+
+    participants.sort();
+    participants.dedup();
+
+    (participants.len() > 1).then_some(participants.len() as u32)
 }
 
 async fn handle_listener_failure(
@@ -487,6 +588,64 @@ mod tests {
             mode: SessionModeState::new(TranscriptionMode::Live, TranscriptionMode::Live),
             shutting_down: false,
         }
+    }
+
+    fn test_update(
+        languages: Vec<hypr_language::Language>,
+        participant_human_ids: Vec<&str>,
+        self_human_id: Option<&str>,
+    ) -> SessionConfigUpdate {
+        SessionConfigUpdate {
+            session_id: "session".to_string(),
+            languages,
+            participant_human_ids: participant_human_ids
+                .into_iter()
+                .map(ToString::to_string)
+                .collect(),
+            self_human_id: self_human_id.map(ToString::to_string),
+        }
+    }
+
+    #[test]
+    fn config_update_refreshes_when_languages_change() {
+        let mut ctx = test_ctx();
+        ctx.params.languages = vec![hypr_language::ISO639::En.into()];
+        let state = test_state(ctx);
+        let update = test_update(
+            vec![
+                hypr_language::ISO639::En.into(),
+                hypr_language::ISO639::Ko.into(),
+            ],
+            vec![],
+            None,
+        );
+
+        assert!(update_requires_listener_refresh(&state.ctx.params, &update));
+    }
+
+    #[test]
+    fn config_update_refreshes_when_expected_speaker_count_changes() {
+        let mut ctx = test_ctx();
+        ctx.params.participant_human_ids = vec!["self".to_string()];
+        ctx.params.self_human_id = Some("self".to_string());
+        let state = test_state(ctx);
+        let update = test_update(vec![], vec!["self", "remote"], Some("self"));
+
+        assert!(update_requires_listener_refresh(&state.ctx.params, &update));
+    }
+
+    #[test]
+    fn config_update_does_not_refresh_for_same_speaker_count() {
+        let mut ctx = test_ctx();
+        ctx.params.participant_human_ids = vec!["self".to_string(), "remote-a".to_string()];
+        ctx.params.self_human_id = Some("self".to_string());
+        let state = test_state(ctx);
+        let update = test_update(vec![], vec!["self", "remote-b"], Some("self"));
+
+        assert!(!update_requires_listener_refresh(
+            &state.ctx.params,
+            &update
+        ));
     }
 
     #[test]

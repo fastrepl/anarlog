@@ -1,6 +1,6 @@
 use ractor::{ActorRef, call_t, registry};
 
-use crate::{CaptureParams, CaptureState};
+use crate::{CaptureConfigUpdate, CaptureParams, CaptureState};
 use hypr_transcription_core::listener::{
     StartSessionError,
     actors::{RootActor, RootMsg, SessionParams, SourceActor, SourceMsg},
@@ -88,6 +88,15 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener<'a, R, M> {
         if let Some(cell) = registry::where_is(RootActor::name()) {
             let actor: ActorRef<RootMsg> = cell.into();
             let _ = ractor::call!(actor, RootMsg::StopSession);
+        }
+    }
+
+    #[tracing::instrument(skip_all)]
+    pub async fn update_capture_config(&self, update: CaptureConfigUpdate) {
+        if let Some(cell) = registry::where_is(RootActor::name()) {
+            let actor: ActorRef<RootMsg> = cell.into();
+            let update = update.into();
+            let _ = ractor::call!(actor, RootMsg::UpdateSessionConfig, update);
         }
     }
 }

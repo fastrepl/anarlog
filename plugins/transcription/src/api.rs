@@ -26,6 +26,16 @@ pub struct CaptureParams {
     pub self_human_id: Option<String>,
 }
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
+pub struct CaptureConfigUpdate {
+    pub session_id: String,
+    pub languages: Vec<hypr_language::Language>,
+    #[serde(default)]
+    pub participant_human_ids: Vec<String>,
+    #[serde(default)]
+    pub self_human_id: Option<String>,
+}
+
 impl CaptureParams {
     fn default_transcription_mode(&self) -> listener::TranscriptionMode {
         if self.transcription_mode == Some(listener::TranscriptionMode::Batch) {
@@ -205,6 +215,17 @@ impl From<CaptureParams> for listener::actors::SessionParams {
             base_url: value.base_url,
             api_key: value.api_key,
             keywords: value.keywords,
+            participant_human_ids: value.participant_human_ids,
+            self_human_id: value.self_human_id,
+        }
+    }
+}
+
+impl From<CaptureConfigUpdate> for listener::actors::SessionConfigUpdate {
+    fn from(value: CaptureConfigUpdate) -> Self {
+        Self {
+            session_id: value.session_id,
+            languages: value.languages,
             participant_human_ids: value.participant_human_ids,
             self_human_id: value.self_human_id,
         }

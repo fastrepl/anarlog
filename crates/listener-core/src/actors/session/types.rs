@@ -30,6 +30,17 @@ pub struct SessionParams {
     pub self_human_id: Option<String>,
 }
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+pub struct SessionConfigUpdate {
+    pub session_id: String,
+    pub languages: Vec<hypr_language::Language>,
+    #[serde(default)]
+    pub participant_human_ids: Vec<String>,
+    #[serde(default)]
+    pub self_human_id: Option<String>,
+}
+
 impl SessionParams {
     pub fn effective_transcription_mode(&self) -> TranscriptionMode {
         if self.transcription_mode == TranscriptionMode::Batch {

@@ -11,13 +11,15 @@ use crate::actors::session::lifecycle::{
     clear_sentry_session_context, configure_sentry_session_context, emit_session_ended,
 };
 use crate::actors::{
-    SessionContext, SessionMsg, SessionParams, session_span, spawn_session_supervisor,
+    SessionConfigUpdate, SessionContext, SessionMsg, SessionParams, session_span,
+    spawn_session_supervisor,
 };
 use crate::{ListenerRuntime, SessionLifecycleEvent, StartSessionError, State};
 use hypr_audio::AudioProvider;
 
 pub enum RootMsg {
     StartSession(SessionParams, RpcReplyPort<Result<(), StartSessionError>>),
+    UpdateSessionConfig(SessionConfigUpdate, RpcReplyPort<()>),
     StopSession(RpcReplyPort<()>),
     GetState(RpcReplyPort<State>),
 }
@@ -73,6 +75,10 @@ impl Actor for RootActor {
             RootMsg::StartSession(params, reply) => {
                 let result = start_session_impl(myself.get_cell(), params, state).await;
                 let _ = reply.send(result);
+            }
+            RootMsg::UpdateSessionConfig(update, reply) => {
+                update_session_config_impl(update, state).await;
+                let _ = reply.send(());
             }
             RootMsg::StopSession(reply) => {
                 stop_session_impl(state).await;
@@ -188,6 +194,25 @@ async fn start_session_impl(
     }
     .instrument(span)
     .await
+}
+
+async fn update_session_config_impl(update: SessionConfigUpdate, state: &mut RootState) {
+    let Some(active_session_id) = &state.active_session_id else {
+        return;
+    };
+
+    if active_session_id != &update.session_id {
+        return;
+    }
+
+    let Some(supervisor) = &state.active_supervisor else {
+        return;
+    };
+
+    let session_ref: ActorRef<SessionMsg> = supervisor.clone().into();
+    if let Err(error) = session_ref.cast(SessionMsg::UpdateConfig(update)) {
+        tracing::warn!(?error, "failed_to_cast_session_config_update");
+    }
 }
 
 fn clear_stopped_supervisors(state: &mut RootState) {
