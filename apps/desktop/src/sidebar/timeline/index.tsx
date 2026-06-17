@@ -220,11 +220,11 @@ export function TimelineView({
   }, [containerRef, buckets.length, flatItemKeys.length]);
 
   const scrollFadeMask = useMemo(() => {
-    const topFadeEnd = isScrolledToTop ? "0px" : "28px";
-    const bottomFadeStart = isScrolledToBottom ? "100%" : "calc(100% - 28px)";
-
-    return `linear-gradient(to bottom, transparent 0, #000 ${topFadeEnd}, #000 ${bottomFadeStart}, transparent 100%)`;
-  }, [isScrolledToTop, isScrolledToBottom]);
+    return getTimelineScrollFadeMask({
+      showBottomFade: !isScrolledToBottom,
+      showTopFade: hasMoreFutureItems && !isScrolledToTop,
+    });
+  }, [hasMoreFutureItems, isScrolledToBottom, isScrolledToTop]);
 
   const todayBucketLength = useMemo(() => {
     const b = buckets.find((bucket) => bucket.label === "Today");
@@ -1049,4 +1049,26 @@ function useTimelineData({
       ),
     };
   }, [windowData, currentTimeMs, timezone]);
+}
+
+function getTimelineScrollFadeMask({
+  showBottomFade,
+  showTopFade,
+}: {
+  showBottomFade: boolean;
+  showTopFade: boolean;
+}): string {
+  if (showTopFade && showBottomFade) {
+    return "linear-gradient(to bottom, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%)";
+  }
+
+  if (showTopFade) {
+    return "linear-gradient(to bottom, transparent 0, #000 28px, #000 100%)";
+  }
+
+  if (showBottomFade) {
+    return "linear-gradient(to bottom, #000 0, #000 calc(100% - 28px), transparent 100%)";
+  }
+
+  return "none";
 }

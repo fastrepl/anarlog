@@ -485,6 +485,76 @@ describe("TimelineView", () => {
     expect(getTopFade(container).className).toContain("from-60%");
   });
 
+  it("does not show a top scroll fade when there are no hidden future notes", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
+    mocks.timelineSessionsTable = {
+      today: {
+        title: "Design sync",
+        created_at: "2024-01-15T11:00:00.000Z",
+      },
+    };
+
+    const { container } = render(<TimelineView topChromeInset />);
+    const scroller = container.querySelector(
+      "[data-sidebar-timeline-scroll]",
+    ) as HTMLDivElement | null;
+
+    expect(scroller).toBeInstanceOf(HTMLDivElement);
+
+    Object.defineProperty(scroller, "clientHeight", {
+      configurable: true,
+      value: 200,
+    });
+    Object.defineProperty(scroller, "scrollHeight", {
+      configurable: true,
+      value: 1200,
+    });
+    scroller!.scrollTop = 120;
+    fireEvent.scroll(scroller!);
+
+    expect(scroller!.style.maskImage).toBe(
+      "linear-gradient(to bottom, #000 0, #000 calc(100% - 28px), transparent 100%)",
+    );
+  });
+
+  it("drops the bottom scroll fade at the bottom edge", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
+    mocks.timelineSessionsTable = {
+      today: {
+        title: "Design sync",
+        created_at: "2024-01-15T11:00:00.000Z",
+      },
+      later: {
+        title: "Quarterly planning",
+        created_at: "2024-01-17T12:00:00.000Z",
+      },
+    };
+
+    const { container } = render(<TimelineView topChromeInset />);
+    const scroller = container.querySelector(
+      "[data-sidebar-timeline-scroll]",
+    ) as HTMLDivElement | null;
+
+    expect(scroller).toBeInstanceOf(HTMLDivElement);
+
+    Object.defineProperty(scroller, "clientHeight", {
+      configurable: true,
+      value: 200,
+    });
+    Object.defineProperty(scroller, "scrollHeight", {
+      configurable: true,
+      value: 1200,
+    });
+    scroller!.scrollTop = 1000;
+    fireEvent.scroll(scroller!);
+
+    expect(scroller!.style.maskImage).toBe(
+      "linear-gradient(to bottom, transparent 0, #000 28px, #000 100%)",
+    );
+  });
+
   it("shows an imminent meeting chip over the sidebar timeline", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
