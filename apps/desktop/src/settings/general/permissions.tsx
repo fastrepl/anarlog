@@ -173,17 +173,15 @@ export function Permissions() {
         />
       </PermissionGroup>
 
-      <PermissionGroup title="Dailynote">
-        <PermissionRow
-          title="Accessibility"
-          description="Required to detect meeting apps and sync mute status"
-          status={accessibility.status}
-          isPending={accessibility.isPending}
-          onRequest={accessibility.request}
-          onReset={accessibility.reset}
-          onOpen={accessibility.open}
-        />
-      </PermissionGroup>
+      <PermissionRow
+        title="Accessibility"
+        description="Required to detect meeting apps and sync mute status"
+        status={accessibility.status}
+        isPending={accessibility.isPending}
+        onRequest={accessibility.request}
+        onReset={accessibility.reset}
+        onOpen={accessibility.open}
+      />
 
       <PermissionGroup title="Others">
         <PermissionRow
