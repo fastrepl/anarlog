@@ -1,10 +1,4 @@
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-} from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -25,12 +19,6 @@ const mocks = vi.hoisted(() => ({
   smartCurrentTimeMs: undefined as number | undefined,
   timelineEventsTable: {} as Record<string, Record<string, unknown>>,
   timelineSessionsTable: {} as Record<string, Record<string, unknown>>,
-  scheduledTaskRunIds: undefined as string[] | undefined,
-  runningTaskRunIds: undefined as string[] | undefined,
-  taskRunInfo: {} as Record<
-    string,
-    { taskId: string; running: boolean; nextTimestamp: number } | undefined
-  >,
 }));
 
 vi.mock("~/shared/config", () => ({
@@ -67,14 +55,6 @@ vi.mock("~/store/tinybase/store/main", () => ({
         : mocks.timelineSessionsTable,
     useStore: () => null,
   },
-}));
-
-vi.mock("tinytick/ui-react", () => ({
-  useManager: () => ({
-    getTaskRunInfo: (taskRunId: string) => mocks.taskRunInfo[taskRunId],
-  }),
-  useRunningTaskRunIds: () => mocks.runningTaskRunIds,
-  useScheduledTaskRunIds: () => mocks.scheduledTaskRunIds,
 }));
 
 vi.mock("~/store/zustand/tabs", () => ({
@@ -135,8 +115,20 @@ vi.mock("./anchor", async () => {
 });
 
 vi.mock("./item", () => ({
-  TimelineItemComponent: ({ item }: { item: { id: string } }) => (
-    <div data-testid={`timeline-item-${item.id}`} />
+  TimelineItemComponent: ({
+    isUpcoming,
+    item,
+    itemNodeRef,
+  }: {
+    isUpcoming?: boolean;
+    item: { id: string };
+    itemNodeRef?: (node: HTMLDivElement | null) => void;
+  }) => (
+    <div
+      ref={itemNodeRef}
+      data-testid={`timeline-item-${item.id}`}
+      data-upcoming={isUpcoming ? "true" : undefined}
+    />
   ),
 }));
 
@@ -170,9 +162,6 @@ describe("TimelineView", () => {
     mocks.smartCurrentTimeMs = undefined;
     mocks.timelineEventsTable = {};
     mocks.timelineSessionsTable = {};
-    mocks.scheduledTaskRunIds = undefined;
-    mocks.runningTaskRunIds = undefined;
-    mocks.taskRunInfo = {};
   });
 
   afterEach(() => {
@@ -214,162 +203,6 @@ describe("TimelineView", () => {
     fireEvent.click(calendarButton);
 
     expect(mocks.openNew).toHaveBeenCalledWith({ type: "calendar" });
-  });
-
-  it("shows a due calendar sync status in sidebar chrome", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
-    mocks.scheduledTaskRunIds = ["calendar-sync-run"];
-    mocks.taskRunInfo = {
-      "calendar-sync-run": {
-        taskId: "calendarSync",
-        running: false,
-        nextTimestamp: Date.now(),
-      },
-    };
-
-    const { container } = render(<TimelineView topChromeInset />);
-
-    expect(screen.getByRole("status").textContent).toBe(
-      "Starting calendar sync",
-    );
-    expect(screen.getByRole("status").className).toContain("rounded-full");
-    expect(
-      container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
-    ).toContain("h-20");
-  });
-
-  it("updates scheduled calendar sync status as the due window passes", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
-    mocks.scheduledTaskRunIds = ["calendar-sync-run"];
-    mocks.taskRunInfo = {
-      "calendar-sync-run": {
-        taskId: "calendarSync",
-        running: false,
-        nextTimestamp: Date.now() + 2000,
-      },
-    };
-
-    const { rerender } = render(<TimelineView topChromeInset />);
-
-    expect(screen.queryByRole("status")).toBeNull();
-
-    act(() => {
-      vi.advanceTimersByTime(1000);
-    });
-    mocks.currentTimeMs = Date.now();
-    rerender(<TimelineView topChromeInset />);
-
-    expect(screen.getByRole("status").textContent).toBe(
-      "Starting calendar sync",
-    );
-
-    act(() => {
-      vi.advanceTimersByTime(2500);
-    });
-    mocks.currentTimeMs = Date.now();
-    rerender(<TimelineView topChromeInset />);
-
-    expect(screen.queryByRole("status")).toBeNull();
-  });
-
-  it("shows a running calendar sync status in sidebar chrome", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
-    mocks.runningTaskRunIds = ["calendar-sync-run"];
-    mocks.taskRunInfo = {
-      "calendar-sync-run": {
-        taskId: "calendarSync",
-        running: true,
-        nextTimestamp: Date.now() + 1000,
-      },
-    };
-
-    render(<TimelineView topChromeInset />);
-
-    expect(screen.getByRole("status").textContent).toBe("Syncing calendar");
-  });
-
-  it("hides calendar sync status while visible events are listed", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
-    mocks.currentTimeMs = Date.now();
-    mocks.smartCurrentTimeMs = Date.now();
-    mocks.runningTaskRunIds = ["calendar-sync-run"];
-    mocks.taskRunInfo = {
-      "calendar-sync-run": {
-        taskId: "calendarSync",
-        running: true,
-        nextTimestamp: Date.now() + 1000,
-      },
-    };
-    mocks.timelineEventsTable = {
-      standup: {
-        title: "Team standup",
-        started_at: "2024-01-15T12:30:00.000Z",
-        ended_at: "2024-01-15T13:00:00.000Z",
-        tracking_id_event: "event-standup",
-        has_recurrence_rules: false,
-      },
-    };
-
-    render(<TimelineView topChromeInset />);
-
-    expect(screen.getByTestId("timeline-item-standup")).toBeTruthy();
-    expect(screen.queryByRole("status")).toBeNull();
-  });
-
-  it("keeps calendar sync status visible while scrolled", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
-    mocks.runningTaskRunIds = ["calendar-sync-run"];
-    mocks.taskRunInfo = {
-      "calendar-sync-run": {
-        taskId: "calendarSync",
-        running: true,
-        nextTimestamp: Date.now() + 1000,
-      },
-    };
-
-    const { container } = render(<TimelineView topChromeInset />);
-    const scroller = container.querySelector("[data-sidebar-timeline-scroll]");
-
-    expect(scroller).toBeInstanceOf(HTMLDivElement);
-
-    Object.defineProperty(scroller, "clientHeight", {
-      configurable: true,
-      value: 200,
-    });
-    Object.defineProperty(scroller, "scrollHeight", {
-      configurable: true,
-      value: 1200,
-    });
-    scroller!.scrollTop = 120;
-    fireEvent.scroll(scroller!);
-
-    expect(screen.getByRole("status").textContent).toBe("Syncing calendar");
-    expect(getSidebarActionTabsOrNull()).toBeNull();
-    expect(
-      container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
-    ).toContain("h-20");
-  });
-
-  it("hides future repeated calendar sync schedules from sidebar chrome", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
-    mocks.scheduledTaskRunIds = ["calendar-sync-run"];
-    mocks.taskRunInfo = {
-      "calendar-sync-run": {
-        taskId: "calendarSync",
-        running: false,
-        nextTimestamp: Date.now() + 60_000,
-      },
-    };
-
-    render(<TimelineView topChromeInset />);
-
-    expect(screen.queryByRole("status")).toBeNull();
   });
 
   it("keeps the first bucket below the sidebar action chrome", () => {
@@ -559,6 +392,8 @@ describe("TimelineView", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
     mocks.currentTimeMs = Date.now();
+    mocks.isAnchorVisible = false;
+    mocks.isScrolledPastAnchor = true;
     mocks.smartCurrentTimeMs = Date.now();
     mocks.timelineEventsTable = {
       standup: {
@@ -571,16 +406,108 @@ describe("TimelineView", () => {
     };
 
     const { container } = render(<TimelineView topChromeInset />);
+    const scroller = container.querySelector("[data-sidebar-timeline-scroll]");
+    const row = screen.getByTestId("timeline-item-standup");
     const chip = container.querySelector(
       "[data-sidebar-upcoming-meeting-status]",
-    );
+    ) as HTMLElement | null;
+
+    Object.defineProperty(scroller, "clientHeight", {
+      configurable: true,
+      value: 400,
+    });
+    scroller!.scrollTop = 0;
+    scroller!.scrollTo = vi.fn();
+    vi.spyOn(scroller!, "getBoundingClientRect").mockReturnValue({
+      bottom: 400,
+      height: 400,
+      left: 0,
+      right: 240,
+      toJSON: () => ({}),
+      top: 0,
+      width: 240,
+      x: 0,
+      y: 0,
+    });
+    vi.spyOn(row, "getBoundingClientRect").mockReturnValue({
+      bottom: 832,
+      height: 32,
+      left: 0,
+      right: 240,
+      toJSON: () => ({}),
+      top: 800,
+      width: 240,
+      x: 0,
+      y: 800,
+    });
 
     expect(chip?.textContent).toBe("Starts in 51s");
     expect(chip?.className).toContain("bg-destructive");
+    expect(chip?.querySelector("svg")).toBeTruthy();
     expect(chip?.getAttribute("aria-label")).toBe("Team standup starts in 51s");
+    expect(screen.getByTestId("timeline-item-standup").dataset.upcoming).toBe(
+      "true",
+    );
     expect(
       container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
     ).toContain("h-12");
+    expect(screen.queryByText("Now")).toBeNull();
+
+    fireEvent.click(chip!);
+
+    expect(scroller!.scrollTo).toHaveBeenCalledWith({
+      top: 636,
+      behavior: "smooth",
+    });
+  });
+
+  it("hides the imminent meeting chip when the meeting row is visible", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
+    mocks.currentTimeMs = Date.now();
+    mocks.smartCurrentTimeMs = Date.now();
+    mocks.timelineEventsTable = {
+      standup: {
+        title: "Team standup",
+        started_at: "2024-01-15T12:00:51.000Z",
+        ended_at: "2024-01-15T12:30:00.000Z",
+        tracking_id_event: "event-standup",
+        has_recurrence_rules: false,
+      },
+    };
+
+    const { container } = render(<TimelineView topChromeInset />);
+    const scroller = container.querySelector("[data-sidebar-timeline-scroll]");
+    const row = screen.getByTestId("timeline-item-standup");
+
+    vi.spyOn(scroller!, "getBoundingClientRect").mockReturnValue({
+      bottom: 400,
+      height: 400,
+      left: 0,
+      right: 240,
+      toJSON: () => ({}),
+      top: 0,
+      width: 240,
+      x: 0,
+      y: 0,
+    });
+    vi.spyOn(row, "getBoundingClientRect").mockReturnValue({
+      bottom: 120,
+      height: 32,
+      left: 0,
+      right: 240,
+      toJSON: () => ({}),
+      top: 88,
+      width: 240,
+      x: 0,
+      y: 88,
+    });
+
+    fireEvent.scroll(scroller!);
+
+    expect(
+      container.querySelector("[data-sidebar-upcoming-meeting-status]"),
+    ).toBeNull();
   });
 
   it("rounds upcoming meeting minutes down to elapsed whole minutes", () => {

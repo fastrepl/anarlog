@@ -25,6 +25,7 @@ import { useShell } from "~/contexts/shell";
 import { GlobalLiveTranscriptAccessory } from "~/session/components/bottom-accessory/global-live";
 import { useOpenNoteDialog } from "~/shared/open-note-dialog";
 import { useNewNote } from "~/shared/useNewNote";
+import { useSidebarUpcomingMeetingStatus } from "~/sidebar/timeline/upcoming-meeting";
 import {
   hasCustomSidebarTab,
   hasLeftSurfaceCustomSidebarTab,
@@ -65,6 +66,7 @@ export function ClassicMainBody() {
   });
   const mainAreaTopDrag = useMainAreaTopWindowDrag(enableMainAreaTopDrag);
   const update = useDesktopUpdateControl();
+  const upcomingMeetingStatus = useSidebarUpcomingMeetingStatus();
   const createNewNote = useNewNote();
   const openNoteDialog = useOpenNoteDialog();
   const handleOpenNoteDialog = useCallback(() => {
@@ -91,6 +93,7 @@ export function ClassicMainBody() {
               onNewNote={createNewNote}
               onSearch={handleOpenNoteDialog}
               onToggleSidebar={leftsidebar.toggleExpanded}
+              hasUpcomingMeeting={Boolean(upcomingMeetingStatus)}
               update={update}
             />
           </div>
@@ -285,12 +288,14 @@ function isMainAreaWindowDrag(
 }
 
 function SidebarTimelineChrome({
+  hasUpcomingMeeting,
   onNewNote,
   onSearch,
   onToggleSidebar,
   sidebarExpanded,
   update,
 }: {
+  hasUpcomingMeeting: boolean;
   onNewNote: () => void;
   onSearch: () => void;
   onToggleSidebar: () => void;
@@ -299,6 +304,13 @@ function SidebarTimelineChrome({
 }) {
   const updateVisible = Boolean(update.status && update.version);
   const showUpdateButton = sidebarExpanded && updateVisible;
+  const collapsedBadge = !sidebarExpanded
+    ? hasUpcomingMeeting
+      ? "upcomingMeeting"
+      : updateVisible
+        ? "update"
+        : null
+    : null;
 
   return (
     <div
@@ -308,7 +320,7 @@ function SidebarTimelineChrome({
       <div data-tauri-drag-region className="flex items-center gap-0">
         <LeftSurfaceChromeButton
           ariaLabel={sidebarExpanded ? "Hide sidebar" : "Show sidebar"}
-          badge={!sidebarExpanded && updateVisible}
+          badge={collapsedBadge}
           onClick={onToggleSidebar}
         >
           {sidebarExpanded ? (
@@ -335,15 +347,17 @@ function SidebarTimelineChrome({
   );
 }
 
+type LeftSurfaceChromeBadge = "update" | "upcomingMeeting";
+
 function LeftSurfaceChromeButton({
   ariaLabel,
-  badge = false,
+  badge = null,
   children,
   disabled = false,
   onClick,
 }: {
   ariaLabel: string;
-  badge?: boolean;
+  badge?: LeftSurfaceChromeBadge | null;
   children: React.ReactNode;
   disabled?: boolean;
   onClick: () => void;
@@ -366,8 +380,15 @@ function LeftSurfaceChromeButton({
       {badge ? (
         <span
           aria-hidden="true"
-          data-testid="collapsed-sidebar-update-badge"
-          className="ring-background pointer-events-none absolute top-1 right-1 size-1.5 rounded-full bg-blue-500 ring-2"
+          data-testid={
+            badge === "upcomingMeeting"
+              ? "collapsed-sidebar-upcoming-meeting-badge"
+              : "collapsed-sidebar-update-badge"
+          }
+          className={cn([
+            "ring-background pointer-events-none absolute top-1 right-1 size-1.5 rounded-full ring-2",
+            badge === "upcomingMeeting" ? "bg-red-500" : "bg-blue-500",
+          ])}
         />
       ) : null}
     </button>

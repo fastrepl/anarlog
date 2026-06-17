@@ -13,14 +13,8 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  useManager,
-  useRunningTaskRunIds,
-  useScheduledTaskRunIds,
-} from "tinytick/ui-react";
 
 import { Button } from "@hypr/ui/components/ui/button";
-import { Spinner } from "@hypr/ui/components/ui/spinner";
 import { cn } from "@hypr/utils";
 
 import { useAnchor, useAutoScrollToAnchor } from "./anchor";
@@ -30,6 +24,7 @@ import {
   useCurrentTimeMs,
   useSmartCurrentTime,
 } from "./realtime";
+import { getUpcomingMeetingStatus } from "./upcoming-meeting";
 import {
   buildTimelineBuckets,
   calculateTodayIndicatorPlacement,
@@ -43,7 +38,6 @@ import {
   type TimelineSessionsTable,
 } from "./utils";
 
-import { CALENDAR_SYNC_TASK_ID } from "~/services/calendar";
 import { useConfigValue } from "~/shared/config";
 import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
 import { useIgnoredEvents } from "~/store/tinybase/hooks";
@@ -57,11 +51,6 @@ import { useTabs } from "~/store/zustand/tabs";
 import { useTimelineSelection } from "~/store/zustand/timeline-selection";
 import { useUndoDelete } from "~/store/zustand/undo-delete";
 import { useListener } from "~/stt/contexts";
-
-const DUE_CALENDAR_SYNC_VISIBLE_WINDOW_MS = 1000;
-const CALENDAR_SYNC_STATUS_TICK_MS = 500;
-const UPCOMING_MEETING_VISIBLE_WINDOW_MS = 5 * 60 * 1000;
-type SidebarCalendarSyncStatus = "idle" | "scheduled" | "syncing";
 
 export function TimelineView({
   showOpenCalendarButton = true,
@@ -77,18 +66,14 @@ export function TimelineView({
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(true);
 
   const { isIgnored } = useIgnoredEvents();
-  const { buckets, hasMoreFutureItems, hasVisibleCalendarEvents } =
-    useTimelineData({
-      isEventIgnored: isIgnored,
-      showIgnored,
-      timelineEventsTable,
-      timelineSessionsTable,
-      timezone,
-    });
+  const { buckets, hasMoreFutureItems } = useTimelineData({
+    isEventIgnored: isIgnored,
+    showIgnored,
+    timelineEventsTable,
+    timelineSessionsTable,
+    timezone,
+  });
   const openNew = useTabs((state) => state.openNew);
-  const calendarSyncStatus = useCalendarSyncStatus();
-  const showCalendarSyncStatus =
-    calendarSyncStatus !== "idle" && !hasVisibleCalendarEvents;
 
   const showOpenCalendarChip =
     showOpenCalendarButton && isScrolledToTop && hasMoreFutureItems;
@@ -101,6 +86,15 @@ export function TimelineView({
   const upcomingMeetingStatus = useMemo(
     () => getUpcomingMeetingStatus(buckets, currentTimeMs),
     [buckets, currentTimeMs],
+  );
+  const [isUpcomingMeetingVisible, setIsUpcomingMeetingVisible] =
+    useState(false);
+  const upcomingMeetingNodeRef = useRef<HTMLDivElement | null>(null);
+  const setUpcomingMeetingNodeRef = useCallback<RefCallback<HTMLDivElement>>(
+    (node) => {
+      upcomingMeetingNodeRef.current = node;
+    },
+    [],
   );
   const activeSessionId = useListener((state) =>
     state.live.status === "active" || state.live.status === "finalizing"
@@ -150,24 +144,20 @@ export function TimelineView({
     registerAnchor: setCurrentTimeIndicatorRef,
     anchorNode: todayAnchorNode,
   } = useAnchor();
-  const showTopNowChip = !isTodayVisible && isScrolledPastToday;
-  const reservedTopChromeChipCount = [
-    showOpenCalendarChip,
-    topChromeInset && showCalendarSyncStatus,
-  ].filter(Boolean).length;
+  const showUpcomingMeetingChip =
+    Boolean(upcomingMeetingStatus) && !isUpcomingMeetingVisible;
+  const showTopNowChip =
+    !showUpcomingMeetingChip && !isTodayVisible && isScrolledPastToday;
+  const hasReservedTopChromeChip = showOpenCalendarChip;
   const topSpacerClassName = topChromeInset
-    ? reservedTopChromeChipCount > 1
-      ? "h-28"
-      : reservedTopChromeChipCount === 1
-        ? "h-20"
-        : "h-12"
+    ? hasReservedTopChromeChip
+      ? "h-20"
+      : "h-12"
     : "h-10";
   const bucketHeaderTopClassName = topChromeInset
-    ? reservedTopChromeChipCount > 1
-      ? "top-28"
-      : reservedTopChromeChipCount === 1
-        ? "top-20"
-        : "top-12"
+    ? hasReservedTopChromeChip
+      ? "top-20"
+      : "top-12"
     : "top-0";
   const selectedSessionScrollFrameRef = useRef<number | null>(null);
   const scrollSelectedSessionIntoView = useCallback<
@@ -190,6 +180,14 @@ export function TimelineView({
     },
     [containerRef, currentTab],
   );
+  const scrollToUpcomingMeeting = useCallback(() => {
+    const node = upcomingMeetingNodeRef.current;
+    if (!node) {
+      return;
+    }
+
+    scrollTimelineItemIntoView(containerRef.current, node);
+  }, [containerRef]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -207,6 +205,9 @@ export function TimelineView({
 
       setIsScrolledToTop(scrolledToTop);
       setIsScrolledToBottom(maxScrollTop - nextScrollTop <= 12);
+      setIsUpcomingMeetingVisible(
+        isTimelineItemVisible(container, upcomingMeetingNodeRef.current),
+      );
     };
 
     updateScrollPosition();
@@ -217,7 +218,12 @@ export function TimelineView({
     return () => {
       container.removeEventListener("scroll", updateScrollPosition);
     };
-  }, [containerRef, buckets.length, flatItemKeys.length]);
+  }, [
+    containerRef,
+    buckets.length,
+    flatItemKeys.length,
+    upcomingMeetingStatus?.itemKey,
+  ]);
 
   const scrollFadeMask = useMemo(() => {
     return getTimelineScrollFadeMask({
@@ -398,6 +404,8 @@ export function TimelineView({
                   timezone={timezone}
                   selectedIds={selectedIds}
                   flatItemKeys={flatItemKeys}
+                  upcomingItemKey={upcomingMeetingStatus?.itemKey}
+                  upcomingItemNodeRef={setUpcomingMeetingNodeRef}
                 />
               ) : (
                 bucket.items.map((item) => {
@@ -416,6 +424,12 @@ export function TimelineView({
                       selectedNodeRef={
                         selected ? scrollSelectedSessionIntoView : undefined
                       }
+                      itemNodeRef={
+                        itemKey === upcomingMeetingStatus?.itemKey
+                          ? setUpcomingMeetingNodeRef
+                          : undefined
+                      }
+                      isUpcoming={itemKey === upcomingMeetingStatus?.itemKey}
                     />
                   );
                 })
@@ -441,19 +455,14 @@ export function TimelineView({
           data-sidebar-timeline-top-fade
           className={cn([
             "pointer-events-none absolute inset-x-0 top-0 z-[15]",
-            reservedTopChromeChipCount > 1
-              ? "bg-background h-28"
-              : reservedTopChromeChipCount === 1
-                ? "bg-background h-20"
-                : "from-background via-background/95 to-background/0 h-16 bg-linear-to-b from-60% via-85%",
+            hasReservedTopChromeChip
+              ? "bg-background h-20"
+              : "from-background via-background/95 to-background/0 h-16 bg-linear-to-b from-60% via-85%",
           ])}
         />
       )}
 
-      {(showOpenCalendarChip ||
-        (topChromeInset && showCalendarSyncStatus) ||
-        upcomingMeetingStatus ||
-        showTopNowChip) && (
+      {(showOpenCalendarChip || showUpcomingMeetingChip || showTopNowChip) && (
         <div
           className={cn([
             "absolute left-1/2 z-20 flex -translate-x-1/2 transform flex-col items-center gap-2",
@@ -469,12 +478,10 @@ export function TimelineView({
               Open calendar
             </TimelineTopChip>
           )}
-          {topChromeInset && showCalendarSyncStatus && (
-            <SidebarCalendarSyncStatus status={calendarSyncStatus} />
-          )}
-          {upcomingMeetingStatus && (
+          {upcomingMeetingStatus && showUpcomingMeetingChip && (
             <SidebarUpcomingMeetingStatus
               label={upcomingMeetingStatus.label}
+              onClick={scrollToUpcomingMeeting}
               title={upcomingMeetingStatus.title}
             />
           )}
@@ -484,7 +491,7 @@ export function TimelineView({
         </div>
       )}
 
-      {!isTodayVisible && !isScrolledPastToday && (
+      {!showUpcomingMeetingChip && !isTodayVisible && !isScrolledPastToday && (
         <TimelineNowChip
           onClick={scrollToToday}
           direction="down"
@@ -500,54 +507,21 @@ export function TimelineView({
 
 function SidebarUpcomingMeetingStatus({
   label,
+  onClick,
   title,
 }: {
   label: string;
+  onClick: () => void;
   title: string;
 }) {
   return (
     <TimelineTopChip
-      role="status"
       aria-live="polite"
       ariaLabel={`${title || "Meeting"} ${label.toLowerCase()}`}
       data-sidebar-upcoming-meeting-status
       className="border-destructive bg-destructive text-destructive-foreground shadow-md"
-      icon={
-        <span
-          aria-hidden
-          className="bg-destructive-foreground size-2 rounded-full"
-        />
-      }
-    >
-      {label}
-    </TimelineTopChip>
-  );
-}
-
-function SidebarCalendarSyncStatus({
-  status,
-}: {
-  status: SidebarCalendarSyncStatus;
-}) {
-  if (status === "idle") {
-    return null;
-  }
-
-  const label =
-    status === "scheduled" ? "Starting calendar sync" : "Syncing calendar";
-
-  return (
-    <TimelineTopChip
-      role="status"
-      aria-live="polite"
-      data-sidebar-calendar-sync-status
-      icon={
-        status === "syncing" ? (
-          <Spinner size={12} />
-        ) : (
-          <CalendarDaysIcon size={12} />
-        )
-      }
+      icon={<ArrowUpIcon aria-hidden className="size-3" strokeWidth={2.4} />}
+      onClick={onClick}
     >
       {label}
     </TimelineTopChip>
@@ -567,7 +541,6 @@ function TimelineTopChip({
   className?: string;
   role?: string;
   "aria-live"?: "off" | "polite" | "assertive";
-  "data-sidebar-calendar-sync-status"?: true;
   "data-sidebar-upcoming-meeting-status"?: true;
   onClick?: () => void;
 }) {
@@ -641,56 +614,6 @@ function isFutureBucketLabel(label: string) {
   );
 }
 
-function getUpcomingMeetingStatus(
-  buckets: TimelineBucket[],
-  currentTimeMs: number,
-): { label: string; title: string } | null {
-  let nearest: { title: string; diffMs: number } | null = null;
-
-  for (const bucket of buckets) {
-    for (const item of bucket.items) {
-      if (item.type === "event" && item.data.is_all_day) {
-        continue;
-      }
-
-      const timestamp = getItemTimestamp(item);
-      if (!timestamp) {
-        continue;
-      }
-
-      const diffMs = timestamp.getTime() - currentTimeMs;
-      if (diffMs <= 0 || diffMs > UPCOMING_MEETING_VISIBLE_WINDOW_MS) {
-        continue;
-      }
-
-      if (!nearest || diffMs < nearest.diffMs) {
-        nearest = {
-          title: item.data.title || "Untitled",
-          diffMs,
-        };
-      }
-    }
-  }
-
-  if (!nearest) {
-    return null;
-  }
-
-  return {
-    label: formatUpcomingMeetingLabel(nearest.diffMs),
-    title: nearest.title,
-  };
-}
-
-function formatUpcomingMeetingLabel(diffMs: number): string {
-  const totalSeconds = Math.max(1, Math.floor(diffMs / 1000));
-  if (totalSeconds < 60) {
-    return `Starts in ${totalSeconds}s`;
-  }
-
-  return `Starts in ${Math.floor(totalSeconds / 60)}m`;
-}
-
 function TimelineNowChip({
   className,
   direction,
@@ -759,6 +682,8 @@ function TodayBucket({
   timezone,
   selectedIds,
   flatItemKeys,
+  upcomingItemKey,
+  upcomingItemNodeRef,
 }: {
   items: TimelineItem[];
   precision: TimelinePrecision;
@@ -769,6 +694,8 @@ function TodayBucket({
   timezone?: string;
   selectedIds: string[];
   flatItemKeys: string[];
+  upcomingItemKey?: string;
+  upcomingItemNodeRef: RefCallback<HTMLDivElement>;
 }) {
   const currentTimeMs = useCurrentTimeMs();
 
@@ -841,6 +768,10 @@ function TodayBucket({
           multiSelected={selectedIds.includes(itemKey)}
           flatItemKeys={flatItemKeys}
           selectedNodeRef={selected ? selectedNodeRef : undefined}
+          itemNodeRef={
+            itemKey === upcomingItemKey ? upcomingItemNodeRef : undefined
+          }
+          isUpcoming={itemKey === upcomingItemKey}
         />
       );
 
@@ -903,6 +834,8 @@ function TodayBucket({
     timezone,
     selectedIds,
     flatItemKeys,
+    upcomingItemKey,
+    upcomingItemNodeRef,
   ]);
 
   return renderedEntries;
@@ -942,38 +875,22 @@ function scrollTimelineItemIntoView(
   });
 }
 
-function useCalendarSyncStatus(): SidebarCalendarSyncStatus {
-  const manager = useManager();
-  const scheduledTaskRunIds = useScheduledTaskRunIds();
-  const runningTaskRunIds = useRunningTaskRunIds();
-  const currentTimeMs = useCurrentTimeMs(CALENDAR_SYNC_STATUS_TICK_MS);
+function isTimelineItemVisible(
+  container: HTMLDivElement | null,
+  item: HTMLDivElement | null,
+) {
+  if (!container || !item) {
+    return false;
+  }
 
-  return useMemo(() => {
-    if (!manager) {
-      return "idle";
-    }
+  const containerRect = container.getBoundingClientRect();
+  const itemRect = item.getBoundingClientRect();
+  const margin = 8;
 
-    const hasRunningSync = runningTaskRunIds?.some(
-      (taskRunId) =>
-        manager.getTaskRunInfo(taskRunId)?.taskId === CALENDAR_SYNC_TASK_ID,
-    );
-    if (hasRunningSync) {
-      return "syncing";
-    }
-
-    const visibleFrom = currentTimeMs - DUE_CALENDAR_SYNC_VISIBLE_WINDOW_MS;
-    const visibleUntil = currentTimeMs + DUE_CALENDAR_SYNC_VISIBLE_WINDOW_MS;
-    const hasDueScheduledSync = scheduledTaskRunIds?.some((taskRunId) => {
-      const info = manager.getTaskRunInfo(taskRunId);
-      return (
-        info?.taskId === CALENDAR_SYNC_TASK_ID &&
-        info.nextTimestamp >= visibleFrom &&
-        info.nextTimestamp <= visibleUntil
-      );
-    });
-
-    return hasDueScheduledSync ? "scheduled" : "idle";
-  }, [manager, scheduledTaskRunIds, runningTaskRunIds, currentTimeMs]);
+  return (
+    itemRect.bottom > containerRect.top + margin &&
+    itemRect.top < containerRect.bottom - margin
+  );
 }
 
 function useTimelineTables(): {

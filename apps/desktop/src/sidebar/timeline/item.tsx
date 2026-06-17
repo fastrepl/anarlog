@@ -50,6 +50,8 @@ export const TimelineItemComponent = memo(
     multiSelected,
     flatItemKeys,
     selectedNodeRef,
+    itemNodeRef,
+    isUpcoming,
   }: {
     item: TimelineItem;
     precision: TimelinePrecision;
@@ -58,6 +60,8 @@ export const TimelineItemComponent = memo(
     multiSelected: boolean;
     flatItemKeys: string[];
     selectedNodeRef?: RefCallback<HTMLDivElement>;
+    itemNodeRef?: RefCallback<HTMLDivElement>;
+    isUpcoming?: boolean;
   }) => {
     if (item.type === "event") {
       return (
@@ -69,6 +73,8 @@ export const TimelineItemComponent = memo(
           multiSelected={multiSelected}
           flatItemKeys={flatItemKeys}
           selectedNodeRef={selectedNodeRef}
+          itemNodeRef={itemNodeRef}
+          isUpcoming={isUpcoming}
         />
       );
     }
@@ -81,6 +87,8 @@ export const TimelineItemComponent = memo(
         multiSelected={multiSelected}
         flatItemKeys={flatItemKeys}
         selectedNodeRef={selectedNodeRef}
+        itemNodeRef={itemNodeRef}
+        isUpcoming={isUpcoming}
       />
     );
   },
@@ -104,7 +112,9 @@ function ItemBase({
   contextMenu,
   draggable,
   selectedNodeRef,
+  itemNodeRef,
   timelineSessionId,
+  isUpcoming,
 }: {
   title: string;
   displayTime: string;
@@ -123,15 +133,24 @@ function ItemBase({
   contextMenu: MenuItemDef[];
   draggable?: boolean;
   selectedNodeRef?: RefCallback<HTMLDivElement>;
+  itemNodeRef?: RefCallback<HTMLDivElement>;
   timelineSessionId?: string;
+  isUpcoming?: boolean;
 }) {
   const hasSelection = useTimelineSelection((s) => s.selectedIds.length > 0);
   const showLiveStop = isLive && onStop;
   const showTrailingStatus = showLiveStop || showSpinner;
+  const setItemRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      selectedNodeRef?.(node);
+      itemNodeRef?.(node);
+    },
+    [selectedNodeRef, itemNodeRef],
+  );
 
   return (
     <div
-      ref={selectedNodeRef}
+      ref={setItemRef}
       data-sidebar-timeline-session-id={timelineSessionId}
       className="group/sidebar-live-item relative"
     >
@@ -148,12 +167,17 @@ function ItemBase({
           multiSelected && "bg-accent",
           !multiSelected && selected && "bg-accent",
           !multiSelected && !selected && "hover:bg-accent/50",
+          isUpcoming &&
+            !isLive && [
+              "bg-destructive/8 text-foreground motion-safe:animate-pulse",
+              "hover:bg-destructive/12 focus-visible:ring-destructive/25",
+            ],
           isLive && [
             "bg-destructive text-destructive-foreground hover:bg-destructive/90",
             "focus-visible:ring-destructive/40 focus-visible:ring-2 focus-visible:outline-hidden",
           ],
           ignored && "opacity-40",
-          !ignored && muted && !isLive && "opacity-65",
+          !ignored && muted && !isLive && !isUpcoming && "opacity-65",
         ])}
         draggable={draggable}
       >
@@ -239,6 +263,8 @@ const EventItem = memo(
     multiSelected,
     flatItemKeys,
     selectedNodeRef,
+    itemNodeRef,
+    isUpcoming,
   }: {
     item: EventTimelineItem;
     precision: TimelinePrecision;
@@ -247,6 +273,8 @@ const EventItem = memo(
     multiSelected: boolean;
     flatItemKeys: string[];
     selectedNodeRef?: RefCallback<HTMLDivElement>;
+    itemNodeRef?: RefCallback<HTMLDivElement>;
+    isUpcoming?: boolean;
   }) => {
     const store = main.UI.useStore(main.STORE_ID);
     const openCurrent = useTabs((state) => state.openCurrent);
@@ -387,6 +415,8 @@ const EventItem = memo(
         onShiftClick={handleShiftClick}
         contextMenu={contextMenu}
         selectedNodeRef={selected ? selectedNodeRef : undefined}
+        itemNodeRef={itemNodeRef}
+        isUpcoming={isUpcoming}
       />
     );
   },
@@ -401,6 +431,8 @@ const SessionItem = memo(
     multiSelected,
     flatItemKeys,
     selectedNodeRef,
+    itemNodeRef,
+    isUpcoming,
   }: {
     item: SessionTimelineItem;
     precision: TimelinePrecision;
@@ -409,6 +441,8 @@ const SessionItem = memo(
     multiSelected: boolean;
     flatItemKeys: string[];
     selectedNodeRef?: RefCallback<HTMLDivElement>;
+    itemNodeRef?: RefCallback<HTMLDivElement>;
+    isUpcoming?: boolean;
   }) => {
     const store = main.UI.useStore(main.STORE_ID);
     const indexes = main.UI.useIndexes(main.STORE_ID);
@@ -576,7 +610,9 @@ const SessionItem = memo(
           onDragStart={handleDragStart}
           contextMenu={contextMenu}
           selectedNodeRef={selected ? selectedNodeRef : undefined}
+          itemNodeRef={itemNodeRef}
           timelineSessionId={sessionId}
+          isUpcoming={isUpcoming}
           draggable
         />
       </SessionPreviewCard>

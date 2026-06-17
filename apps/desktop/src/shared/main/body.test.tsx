@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   startDragging: vi.fn().mockResolvedValue(undefined),
   canGoBack: false,
   canGoNext: false,
+  upcomingMeetingStatus: null as null | { label: string; title: string },
   leftSidebarExpanded: true,
   sidebarUpdateControl: {
     status: null as null | "available" | "downloading" | "ready" | "failed",
@@ -75,6 +76,10 @@ vi.mock("~/main/update-banner", () => ({
       <button type="button" data-testid="sidebar-update-button" />
     ) : null,
   useDesktopUpdateControl: () => mocks.sidebarUpdateControl,
+}));
+
+vi.mock("~/sidebar/timeline/upcoming-meeting", () => ({
+  useSidebarUpcomingMeetingStatus: () => mocks.upcomingMeetingStatus,
 }));
 
 vi.mock("~/main/shell-sidebar", () => ({
@@ -151,6 +156,7 @@ describe("ClassicMainBody", () => {
     mocks.startDragging.mockClear();
     mocks.canGoBack = false;
     mocks.canGoNext = false;
+    mocks.upcomingMeetingStatus = null;
     mocks.leftSidebarExpanded = true;
     mocks.sidebarUpdateControl.status = null;
     mocks.sidebarUpdateControl.version = null;
@@ -320,6 +326,30 @@ describe("ClassicMainBody", () => {
     expect(badge.className.split(" ")).toContain("bg-blue-500");
     expect(badge.className.split(" ")).not.toContain("bg-red-500");
     expect(mocks.toggleLeftSidebar).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows a red upcoming meeting badge on the collapsed sidebar toggle", () => {
+    mocks.leftSidebarExpanded = false;
+    mocks.sidebarUpdateControl.status = "available";
+    mocks.sidebarUpdateControl.version = "1.0.34";
+    mocks.upcomingMeetingStatus = {
+      label: "Starts in 3m",
+      title: "Devtool design sync",
+    };
+
+    render(<ClassicMainBody />);
+
+    const sidebarToggle = screen.getByRole("button", { name: "Show sidebar" });
+    const badge = within(sidebarToggle).getByTestId(
+      "collapsed-sidebar-upcoming-meeting-badge",
+    );
+
+    expect(badge).toBeTruthy();
+    expect(badge.className.split(" ")).toContain("bg-red-500");
+    expect(badge.className.split(" ")).not.toContain("bg-blue-500");
+    expect(
+      within(sidebarToggle).queryByTestId("collapsed-sidebar-update-badge"),
+    ).toBeNull();
   });
 
   it("keeps sidebar chrome for changelog tabs", () => {

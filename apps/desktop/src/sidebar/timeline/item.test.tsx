@@ -229,6 +229,70 @@ describe("TimelineItemComponent", () => {
     );
   });
 
+  it("highlights an upcoming meeting row", () => {
+    render(
+      <TimelineItemComponent
+        item={{
+          type: "event",
+          id: "event-standup",
+          data: {
+            title: "Team standup",
+            started_at: "2024-01-15T10:30:00.000Z",
+            ended_at: "2024-01-15T11:00:00.000Z",
+            tracking_id_event: "tracking-standup",
+            has_recurrence_rules: false,
+          },
+        }}
+        precision="time"
+        selected={false}
+        timezone="UTC"
+        multiSelected={false}
+        flatItemKeys={["event-event-standup"]}
+        isUpcoming
+      />,
+    );
+
+    const rowButton = screen.getByText("Team standup").closest("button");
+
+    expect(rowButton?.className).toContain("bg-destructive/8");
+    expect(rowButton?.className).toContain("motion-safe:animate-pulse");
+    expect(rowButton?.className).not.toContain("shadow-[0_0_22px");
+    expect(rowButton?.className).not.toContain("ring-1");
+    expect(rowButton?.className).not.toContain("opacity-65");
+  });
+
+  it("exposes an arbitrary timeline row for visibility checks", () => {
+    const itemNodeRef = vi.fn();
+
+    render(
+      <TimelineItemComponent
+        item={{
+          type: "event",
+          id: "event-standup",
+          data: {
+            title: "Team standup",
+            started_at: "2024-01-15T10:30:00.000Z",
+            ended_at: "2024-01-15T11:00:00.000Z",
+            tracking_id_event: "tracking-standup",
+            has_recurrence_rules: false,
+          },
+        }}
+        precision="time"
+        selected={false}
+        timezone="UTC"
+        multiSelected={false}
+        flatItemKeys={["event-event-standup"]}
+        itemNodeRef={itemNodeRef}
+      />,
+    );
+
+    const row = screen
+      .getByText("Team standup")
+      .closest("button")?.parentElement;
+
+    expect(itemNodeRef.mock.calls.some(([node]) => node === row)).toBe(true);
+  });
+
   it("renders finalizing session spinner at the end of the row", () => {
     mocks.sessionMode = "finalizing";
     mocks.storeTitle = "Finalizing Note";
