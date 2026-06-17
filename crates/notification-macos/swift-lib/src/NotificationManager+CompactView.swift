@@ -14,7 +14,10 @@ extension NotificationManager {
     let actionLabel = notification.payload.actionLabel ?? "Open Anarlog"
     if notification.payload.isDestructiveAction {
       actionButton.configureDestructiveAction(label: actionLabel)
-      actionButton.showsProgress = false
+      actionButton.showsProgress = notification.payload.showsStopCountdown
+      if notification.payload.showsStopCountdown {
+        actionButton.configureDestructiveCountdownStyle()
+      }
     } else {
       actionButton.title = actionLabel
     }
@@ -64,10 +67,14 @@ extension NotificationManager {
 
     textStack.addArrangedSubview(titleLabel)
 
-    let compactMessage =
-      notification.meetingStartTime != nil
-      ? "Starting soon"
-      : notification.payload.message
+    let compactMessage: String
+    if notification.meetingStartTime != nil {
+      compactMessage = "Starting soon"
+    } else if notification.payload.showsStopCountdown {
+      compactMessage = notification.stopCountdownText(notification.payload.timeoutSeconds)
+    } else {
+      compactMessage = notification.payload.message
+    }
     if !compactMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
       let bodyLabel = NSTextField(labelWithString: compactMessage)
       bodyLabel.font = NSFont.systemFont(ofSize: Fonts.bodySize, weight: Fonts.bodyWeight)
@@ -82,6 +89,8 @@ extension NotificationManager {
 
       if notification.meetingStartTime != nil {
         notification.bindCompactMessageLabel(bodyLabel)
+      } else if notification.payload.showsStopCountdown {
+        notification.bindStopCountdownLabel(bodyLabel)
       }
     }
 

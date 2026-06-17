@@ -1,5 +1,6 @@
 export const AUTO_STOP_ENDED_NOTIFICATION_KEY_PREFIX =
   "auto-stop-ended:" as const;
+export const AUTO_STOP_CONFIRM_TIMEOUT_SECONDS = 30;
 
 const AUTO_STOP_ENDED_NOTIFICATION_KEY_NONCE_SEPARATOR = ":prompt:";
 

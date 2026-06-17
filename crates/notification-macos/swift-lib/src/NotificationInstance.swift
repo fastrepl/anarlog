@@ -23,6 +23,8 @@ class NotificationInstance {
   var meetingStartTime: Date?
   weak var timerLabel: NSTextField?
   weak var compactMessageLabel: NSTextField?
+  weak var stopCountdownLabel: NSTextField?
+  var stopCountdownTimer: Timer?
 
   init(
     payload: NotificationPayload, panel: NSPanel, clickableView: ClickableView, creationIndex: Int
@@ -60,6 +62,11 @@ class NotificationInstance {
     timerLabel = nil
   }
 
+  func bindStopCountdownLabel(_ label: NSTextField) {
+    stopCountdownLabel = label
+    updateStopCountdownLabel(remainingSeconds: payload.timeoutSeconds)
+  }
+
   func startScheduleUpdates() {
     guard let meetingStartTime else { return }
     updateScheduleLabels()
@@ -75,8 +82,11 @@ class NotificationInstance {
   func stopScheduleUpdates() {
     countdownTimer?.invalidate()
     countdownTimer = nil
+    stopCountdownTimer?.invalidate()
+    stopCountdownTimer = nil
     timerLabel = nil
     compactMessageLabel = nil
+    stopCountdownLabel = nil
   }
 
   private func updateScheduleLabels() {
@@ -110,6 +120,7 @@ class NotificationInstance {
     remainingDismissSeconds = timeoutSeconds
     dismissStartTime = Date()
     scheduleDismissTimer(after: timeoutSeconds)
+    startStopCountdownUpdates()
 
     if let compactActionButton {
       compactActionButton.startProgress(duration: timeoutSeconds)
@@ -125,6 +136,9 @@ class NotificationInstance {
     }
     dismissTimer?.invalidate()
     dismissTimer = nil
+    stopCountdownTimer?.invalidate()
+    stopCountdownTimer = nil
+    updateStopCountdownLabel(remainingSeconds: remainingDismissSeconds)
 
     if let compactActionButton {
       compactActionButton.pauseProgress()
@@ -135,6 +149,7 @@ class NotificationInstance {
     guard timeoutSeconds > 0, remainingDismissSeconds > 0 else { return }
     dismissStartTime = Date()
     scheduleDismissTimer(after: remainingDismissSeconds)
+    startStopCountdownUpdates()
 
     if let compactActionButton {
       compactActionButton.resumeProgress()
@@ -148,6 +163,7 @@ class NotificationInstance {
     remainingDismissSeconds = timeoutSeconds
     dismissStartTime = Date()
     scheduleDismissTimer(after: timeoutSeconds)
+    startStopCountdownUpdates()
 
     if let compactActionButton {
       compactActionButton.startProgress(duration: timeoutSeconds)
@@ -157,6 +173,8 @@ class NotificationInstance {
   func dismiss() {
     dismissTimer?.invalidate()
     dismissTimer = nil
+    stopCountdownTimer?.invalidate()
+    stopCountdownTimer = nil
     dismissStartTime = nil
     remainingDismissSeconds = 0
     compactActionButton?.resetProgress()
@@ -191,8 +209,40 @@ class NotificationInstance {
     }
   }
 
+  func stopCountdownText(_ remainingSeconds: Double) -> String {
+    let seconds = max(0, Int(ceil(remainingSeconds)))
+    return "Anarlog will stop listening in \(seconds) seconds."
+  }
+
+  private func startStopCountdownUpdates() {
+    guard stopCountdownLabel != nil else { return }
+    updateStopCountdownLabel()
+
+    stopCountdownTimer?.invalidate()
+    stopCountdownTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) {
+      [weak self] _ in
+      self?.updateStopCountdownLabel()
+    }
+  }
+
+  private func updateStopCountdownLabel(remainingSeconds: Double? = nil) {
+    guard stopCountdownLabel != nil else { return }
+
+    let remaining: Double
+    if let remainingSeconds {
+      remaining = remainingSeconds
+    } else if let dismissStartTime {
+      remaining = max(0, remainingDismissSeconds - Date().timeIntervalSince(dismissStartTime))
+    } else {
+      remaining = remainingDismissSeconds
+    }
+
+    stopCountdownLabel?.stringValue = stopCountdownText(remaining)
+  }
+
   deinit {
     countdownTimer?.invalidate()
     dismissTimer?.invalidate()
+    stopCountdownTimer?.invalidate()
   }
 }

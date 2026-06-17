@@ -215,6 +215,8 @@ class CompactActionButton: ActionButton {
     }
   }
   var onProgressComplete: (() -> Void)?
+  private var progressBaseBackgroundColor = Colors.compactActionButtonElapsedBg
+  private var progressFillColor = Colors.compactActionButtonRemainingBg
 
   override init(frame frameRect: NSRect) {
     super.init(frame: frameRect)
@@ -237,7 +239,7 @@ class CompactActionButton: ActionButton {
       layer?.cornerCurve = .continuous
     }
 
-    progressLayer.backgroundColor = Colors.compactActionButtonRemainingBg
+    progressLayer.backgroundColor = progressFillColor
     progressLayer.anchorPoint = CGPoint(x: 0, y: 0.5)
     progressLayer.isHidden = true
     layer?.addSublayer(progressLayer)
@@ -256,6 +258,12 @@ class CompactActionButton: ActionButton {
     DispatchQueue.main.asyncAfter(deadline: .now() + Timing.buttonPress) {
       self.alphaValue = 1.0
     }
+  }
+
+  func configureDestructiveCountdownStyle() {
+    progressBaseBackgroundColor = Colors.actionButtonDestructivePressedBg
+    progressFillColor = Colors.actionButtonDestructiveBg
+    progressLayer.backgroundColor = progressFillColor
   }
 
   private func syncProgressLayerFrame() {
@@ -317,7 +325,8 @@ class CompactActionButton: ActionButton {
     isCountdownActive = true
     progressRatio = 1.0
 
-    layer?.backgroundColor = Colors.compactActionButtonElapsedBg
+    layer?.backgroundColor = progressBaseBackgroundColor
+    progressLayer.backgroundColor = progressFillColor
     progressLayer.isHidden = false
     progressLayer.removeAllAnimations()
     syncProgressLayerFrame()
@@ -363,7 +372,7 @@ class CompactActionButton: ActionButton {
     clearProgressState()
 
     if showsProgress {
-      layer?.backgroundColor = Colors.buttonNormalBg
+      layer?.backgroundColor = progressBaseBackgroundColor
     }
 
     CATransaction.begin()

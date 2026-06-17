@@ -11,7 +11,10 @@ import {
   type NotificationIcon,
 } from "@hypr/plugin-notification";
 
-import { createAutoStopEndedNotificationKey } from "./auto-stop-notification";
+import {
+  AUTO_STOP_CONFIRM_TIMEOUT_SECONDS,
+  createAutoStopEndedNotificationKey,
+} from "./auto-stop-notification";
 
 import { getSessionEventById } from "~/session/utils";
 import * as main from "~/store/tinybase/store/main";
@@ -261,11 +264,6 @@ function getAutoStopActiveCheckAppIds(
   return [...new Set([...candidateAppIds, ...unreliableTriggerAppIds])];
 }
 
-function getStoppedAppLabel(app: MicApp | null) {
-  const name = app ? getNotificationAppName(app).trim() : "";
-  return name || "The meeting app";
-}
-
 function showMeetingEndedPrompt({
   sessionId,
   stoppedTriggerAppIds,
@@ -280,8 +278,8 @@ function showMeetingEndedPrompt({
   void notificationCommands.showNotification({
     key: createAutoStopEndedNotificationKey(sessionId),
     title: "Did your meeting end?",
-    message: `${getStoppedAppLabel(app)} stopped using the microphone before the scheduled end time.`,
-    timeout: { secs: 60, nanos: 0 },
+    message: `Anarlog will stop listening in ${AUTO_STOP_CONFIRM_TIMEOUT_SECONDS} seconds.`,
+    timeout: { secs: AUTO_STOP_CONFIRM_TIMEOUT_SECONDS, nanos: 0 },
     source: null,
     start_time: null,
     participants: null,

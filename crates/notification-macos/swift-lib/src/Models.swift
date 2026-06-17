@@ -230,6 +230,10 @@ struct NotificationPayload: Codable {
     return actionVariant == .destructive
   }
 
+  var showsStopCountdown: Bool {
+    return isDestructiveAction && actionLabel == "Stop" && timeoutSeconds > 0
+  }
+
   var hasOptions: Bool {
     guard let options = options else { return false }
     return !options.isEmpty

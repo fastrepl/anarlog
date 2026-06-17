@@ -69,7 +69,7 @@ function shouldAutoStartNotificationSession(
 }
 
 function handleAutoStopEndedNotification(
-  type: "notification_confirm" | "notification_accept",
+  type: "notification_confirm" | "notification_accept" | "notification_timeout",
   key: string,
 ): boolean {
   const sessionId = parseAutoStopEndedNotificationKey(key);
@@ -77,7 +77,7 @@ function handleAutoStopEndedNotification(
     return false;
   }
 
-  if (type !== "notification_accept") {
+  if (type === "notification_confirm") {
     return true;
   }
 
@@ -362,9 +362,14 @@ function useNotificationEvents() {
       .listen(({ payload }) => {
         if (
           payload.type === "notification_confirm" ||
-          payload.type === "notification_accept"
+          payload.type === "notification_accept" ||
+          payload.type === "notification_timeout"
         ) {
           if (handleAutoStopEndedNotification(payload.type, payload.key)) {
+            return;
+          }
+
+          if (payload.type === "notification_timeout") {
             return;
           }
 
