@@ -64,12 +64,29 @@ export function useDesktopUpdateControl(): DesktopUpdateControl {
 
     const listen = async () => {
       const [
+        unlistenAvailable,
         unlistenDownloading,
         unlistenProgress,
         unlistenReady,
         unlistenFailed,
         unlistenUpdated,
       ] = await Promise.all([
+        updaterEvents.updateAvailableEvent.listen(({ payload }) => {
+          setEventState((current) =>
+            current?.version === payload.version &&
+            (current.status === "downloading" ||
+              current.status === "ready" ||
+              current.status === "failed")
+              ? current
+              : {
+                  status: "available",
+                  version: payload.version,
+                  downloadedBytes: 0,
+                  contentLength: null,
+                  errorMessage: null,
+                },
+          );
+        }),
         updaterEvents.updateDownloadingEvent.listen(({ payload }) => {
           setEventState({
             status: "downloading",
@@ -120,6 +137,7 @@ export function useDesktopUpdateControl(): DesktopUpdateControl {
       ]);
 
       if (cancelled) {
+        unlistenAvailable();
         unlistenDownloading();
         unlistenProgress();
         unlistenReady();
@@ -129,6 +147,7 @@ export function useDesktopUpdateControl(): DesktopUpdateControl {
       }
 
       unlistenFns.push(
+        unlistenAvailable,
         unlistenDownloading,
         unlistenProgress,
         unlistenReady,
@@ -151,13 +170,24 @@ export function useDesktopUpdateControl(): DesktopUpdateControl {
       const version = unwrapResult(await updaterCommands.check());
 
       if (!version) {
+        setEventState((current) =>
+          current?.status === "available" ? null : current,
+        );
         return null;
       }
 
-      return {
+      const nextUpdate = {
         version,
         ready: unwrapResult(await updaterCommands.isDownloaded(version)),
       };
+
+      setEventState((current) =>
+        current?.status === "available" && current.version !== version
+          ? null
+          : current,
+      );
+
+      return nextUpdate;
     },
     refetchInterval: UPDATE_CHECK_INTERVAL_MS,
     retry: false,
@@ -221,8 +251,14 @@ export function useDesktopUpdateControl(): DesktopUpdateControl {
       ? updateCheck.data
       : null;
   const version = eventState?.version ?? checkedUpdate?.version ?? null;
-  const status: UpdateBannerStatus | null = eventState
-    ? eventState.status
+  const eventStatus =
+    eventState?.status === "available" &&
+    checkedUpdate?.version === eventState.version &&
+    checkedUpdate.ready
+      ? "ready"
+      : eventState?.status;
+  const status: UpdateBannerStatus | null = eventStatus
+    ? eventStatus
     : checkedUpdate
       ? checkedUpdate.ready
         ? "ready"
@@ -315,9 +351,9 @@ export function SidebarTimelineUpdateButton({
       disabled={isDownloading || update.downloadStarting || update.installing}
       className={cn([
         "relative flex h-7 min-h-7 w-7 min-w-7 shrink-0 items-center justify-center rounded-full p-0",
-        "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm transition-colors",
+        "bg-blue-500 text-white shadow-sm transition-colors hover:bg-blue-600",
         "focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden",
-        "disabled:bg-primary disabled:text-primary-foreground disabled:hover:bg-primary disabled:cursor-default disabled:opacity-70",
+        "disabled:cursor-default disabled:bg-blue-500 disabled:text-white disabled:opacity-70 disabled:hover:bg-blue-500",
       ])}
       onClick={isReady ? update.installUpdate : update.downloadUpdate}
     >

@@ -144,9 +144,10 @@ pub async fn main() {
         .plugin(tauri_plugin_notify::init())
         .plugin(tauri_plugin_overlay::init())
         .plugin(tauri_plugin_clipboard_manager::init())
-        .plugin(tauri_plugin_tray::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_store2::init())
+        .plugin(tauri_plugin_updater2::init())
+        .plugin(tauri_plugin_tray::init())
         .plugin(tauri_plugin_settings::init())
         .plugin(tauri_plugin_sfx::init())
         .plugin(tauri_plugin_shortcut::init())
@@ -169,8 +170,7 @@ pub async fn main() {
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec!["--background"]),
-        ))
-        .plugin(tauri_plugin_updater2::init());
+        ));
 
     if let Some(client) = sentry_client.as_ref() {
         builder = builder.plugin(tauri_plugin_sentry::init_with_no_injection(client));

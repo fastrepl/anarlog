@@ -367,7 +367,7 @@ function LeftSurfaceChromeButton({
         <span
           aria-hidden="true"
           data-testid="collapsed-sidebar-update-badge"
-          className="ring-background pointer-events-none absolute top-1 right-1 size-1.5 rounded-full bg-red-500 ring-2"
+          className="ring-background pointer-events-none absolute top-1 right-1 size-1.5 rounded-full bg-blue-500 ring-2"
         />
       ) : null}
     </button>

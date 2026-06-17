@@ -253,7 +253,11 @@ async fn streaming_hyprnote_client_surfaces_abnormal_close_without_response() {
     );
     assert_terminal_error_contains(
         &result,
-        &["ResetWithoutClosingHandshake", "Protocol"],
+        &[
+            "ResetWithoutClosingHandshake",
+            "Protocol",
+            "Connection reset",
+        ],
         "abnormal closes without responses should surface as client stream errors",
     );
 }

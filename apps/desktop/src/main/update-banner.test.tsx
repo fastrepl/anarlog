@@ -16,6 +16,7 @@ const {
   installMock,
   isDownloadedMock,
   postinstallMock,
+  updateAvailableListenMock,
   updateDownloadingListenMock,
   updateDownloadProgressListenMock,
   updateReadyListenMock,
@@ -28,12 +29,16 @@ const {
   installMock: vi.fn(),
   isDownloadedMock: vi.fn(),
   postinstallMock: vi.fn(),
+  updateAvailableListenMock: vi.fn(),
   updateDownloadingListenMock: vi.fn(),
   updateDownloadProgressListenMock: vi.fn(),
   updateReadyListenMock: vi.fn(),
   updateDownloadFailedListenMock: vi.fn(),
   updatedListenMock: vi.fn(),
   eventHandlers: {
+    updateAvailable: null as
+      | null
+      | ((event: { payload: { version: string } }) => void),
     updateDownloading: null as
       | null
       | ((event: { payload: { version: string } }) => void),
@@ -69,6 +74,9 @@ vi.mock("@hypr/plugin-updater2", () => ({
     postinstall: postinstallMock,
   },
   events: {
+    updateAvailableEvent: {
+      listen: updateAvailableListenMock,
+    },
     updateDownloadingEvent: {
       listen: updateDownloadingListenMock,
     },
@@ -103,12 +111,14 @@ describe("SidebarTimelineUpdateButton", () => {
     installMock.mockReset();
     isDownloadedMock.mockReset();
     postinstallMock.mockReset();
+    updateAvailableListenMock.mockReset();
     updateDownloadingListenMock.mockReset();
     updateDownloadProgressListenMock.mockReset();
     updateReadyListenMock.mockReset();
     updateDownloadFailedListenMock.mockReset();
     updatedListenMock.mockReset();
 
+    eventHandlers.updateAvailable = null;
     eventHandlers.updateDownloading = null;
     eventHandlers.updateDownloadProgress = null;
     eventHandlers.updateReady = null;
@@ -124,6 +134,10 @@ describe("SidebarTimelineUpdateButton", () => {
     isDownloadedMock.mockResolvedValue({ status: "ok", data: false });
     postinstallMock.mockResolvedValue({ status: "ok", data: null });
 
+    updateAvailableListenMock.mockImplementation(async (handler) => {
+      eventHandlers.updateAvailable = handler;
+      return () => {};
+    });
     updateDownloadingListenMock.mockImplementation(async (handler) => {
       eventHandlers.updateDownloading = handler;
       return () => {};
@@ -167,10 +181,83 @@ describe("SidebarTimelineUpdateButton", () => {
     expect(button.className.split(" ")).toEqual(
       expect.arrayContaining(["h-7", "w-7", "min-h-7", "min-w-7", "p-0"]),
     );
+    expect(button.className.split(" ")).toEqual(
+      expect.arrayContaining(["bg-blue-500", "hover:bg-blue-600"]),
+    );
+    expect(button.className.split(" ")).not.toContain("bg-primary");
 
     fireEvent.click(button);
 
     await waitFor(() => expect(downloadMock).toHaveBeenCalledWith("1.0.34"));
+  });
+
+  it("shows download when an external update check reports an available version", async () => {
+    renderSidebarUpdateButton();
+
+    await waitFor(() =>
+      expect(eventHandlers.updateAvailable).toBeTypeOf("function"),
+    );
+
+    act(() => {
+      eventHandlers.updateAvailable?.({ payload: { version: "1.0.34" } });
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Download update" }));
+
+    await waitFor(() => expect(downloadMock).toHaveBeenCalledWith("1.0.34"));
+  });
+
+  it("clears stale available state after a successful check finds no update", async () => {
+    renderSidebarUpdateButton();
+
+    await waitFor(() =>
+      expect(eventHandlers.updateAvailable).toBeTypeOf("function"),
+    );
+
+    act(() => {
+      eventHandlers.updateAvailable?.({ payload: { version: "1.0.34" } });
+    });
+
+    expect(
+      screen.getByRole("button", { name: "Download update" }),
+    ).toBeTruthy();
+
+    await act(async () => {
+      await queryClients[queryClients.length - 1]?.refetchQueries({
+        queryKey: ["updater2", "check"],
+      });
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: "Download update" }),
+      ).toBeNull(),
+    );
+  });
+
+  it("keeps retry visible when a failed update is rechecked", async () => {
+    renderSidebarUpdateButton();
+
+    await waitFor(() =>
+      expect(eventHandlers.updateDownloadFailed).toBeTypeOf("function"),
+    );
+
+    act(() => {
+      eventHandlers.updateDownloadFailed?.({
+        payload: { version: "1.0.34" },
+      });
+    });
+
+    expect(screen.getByRole("button", { name: "Retry update" })).toBeTruthy();
+
+    act(() => {
+      eventHandlers.updateAvailable?.({ payload: { version: "1.0.34" } });
+    });
+
+    expect(screen.getByRole("button", { name: "Retry update" })).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: "Download update" }),
+    ).toBeNull();
   });
 
   it("shows restart when the checked update is already downloaded", async () => {
@@ -181,6 +268,28 @@ describe("SidebarTimelineUpdateButton", () => {
 
     expect(
       await screen.findByRole("button", { name: "Restart to update" }),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: "Download update" }),
+    ).toBeNull();
+  });
+
+  it("keeps restart visible when an already-downloaded update also emits available", async () => {
+    checkMock.mockResolvedValue({ status: "ok", data: "1.0.34" });
+    isDownloadedMock.mockResolvedValue({ status: "ok", data: true });
+
+    renderSidebarUpdateButton();
+
+    expect(
+      await screen.findByRole("button", { name: "Restart to update" }),
+    ).toBeTruthy();
+
+    act(() => {
+      eventHandlers.updateAvailable?.({ payload: { version: "1.0.34" } });
+    });
+
+    expect(
+      screen.getByRole("button", { name: "Restart to update" }),
     ).toBeTruthy();
     expect(
       screen.queryByRole("button", { name: "Download update" }),

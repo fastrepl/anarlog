@@ -25,6 +25,11 @@ fn setup_update_listeners(app: &tauri::AppHandle) {
     use tauri_specta::Event;
 
     let handle = app.clone();
+    tauri_plugin_updater2::UpdateAvailableEvent::listen(app, move |_event| {
+        let _ = handle.tray().set_update_available(true);
+    });
+
+    let handle = app.clone();
     tauri_plugin_updater2::UpdateDownloadingEvent::listen(app, move |_event| {
         let _ = menu_items::TrayCheckUpdate::set_state(&handle, UpdateMenuState::Downloading);
         let _ = handle.tray().set_update_available(true);

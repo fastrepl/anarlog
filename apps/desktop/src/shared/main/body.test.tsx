@@ -312,9 +312,13 @@ describe("ClassicMainBody", () => {
     fireEvent.click(sidebarToggle);
 
     expect(screen.queryByTestId("sidebar-update-button")).toBeNull();
-    expect(
-      within(sidebarToggle).getByTestId("collapsed-sidebar-update-badge"),
-    ).toBeTruthy();
+    const badge = within(sidebarToggle).getByTestId(
+      "collapsed-sidebar-update-badge",
+    );
+
+    expect(badge).toBeTruthy();
+    expect(badge.className.split(" ")).toContain("bg-blue-500");
+    expect(badge.className.split(" ")).not.toContain("bg-red-500");
     expect(mocks.toggleLeftSidebar).toHaveBeenCalledTimes(1);
   });
 

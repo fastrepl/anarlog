@@ -6,8 +6,8 @@ use tauri_plugin_updater::UpdaterExt;
 use tauri_specta::Event;
 
 use crate::events::{
-    UpdateDownloadFailedEvent, UpdateDownloadProgressEvent, UpdateDownloadingEvent,
-    UpdateReadyEvent, UpdatedEvent,
+    UpdateAvailableEvent, UpdateDownloadFailedEvent, UpdateDownloadProgressEvent,
+    UpdateDownloadingEvent, UpdateReadyEvent, UpdatedEvent,
 };
 
 static DOWNLOAD_MUTEX: LazyLock<tokio::sync::Mutex<()>> =
@@ -101,7 +101,23 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Updater2<'a, R, M> {
     pub async fn check(&self) -> Result<Option<String>, crate::Error> {
         let updater = self.manager.updater()?;
         let update = updater.check().await?;
-        Ok(update.map(|u| u.version))
+        let version = update.map(|u| u.version);
+
+        if let Some(version) = &version {
+            if self.has_cached_update(version) {
+                let _ = UpdateReadyEvent {
+                    version: version.clone(),
+                }
+                .emit(self.manager.app_handle());
+            } else {
+                let _ = UpdateAvailableEvent {
+                    version: version.clone(),
+                }
+                .emit(self.manager.app_handle());
+            }
+        }
+
+        Ok(version)
     }
 
     pub fn has_cached_update(&self, version: &str) -> bool {
