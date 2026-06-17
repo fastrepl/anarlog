@@ -50,7 +50,6 @@ struct DevtoolsPanelView: View {
       RoundedRectangle(cornerRadius: 12, style: .continuous)
         .strokeBorder(Color.black.opacity(0.08), lineWidth: 1)
     )
-    .shadow(color: Color.black.opacity(0.20), radius: 18, y: 8)
   }
 
   private var header: some View {
