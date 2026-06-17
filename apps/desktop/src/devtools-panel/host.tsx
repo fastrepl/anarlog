@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { useCallback, useRef, useState } from "react";
 
 import { commands as notificationCommands } from "@hypr/plugin-notification";
@@ -29,8 +30,7 @@ import { useTabs } from "~/store/zustand/tabs";
 import { createAutoStopEndedNotificationKey } from "~/stt/auto-stop-notification";
 import { commands } from "~/types/tauri.gen";
 
-const forceDevtoolsPanel =
-  import.meta.env.DEV && import.meta.env.MODE !== "test";
+const canResolveDevtoolsPanel = import.meta.env.MODE !== "test";
 
 type DevtoolsPanelAction =
   | "navigation:onboarding"
@@ -65,7 +65,7 @@ type DevtoolsPanelAction =
 
 export function DevtoolsFloatingPanelHost() {
   const isMainWindow = getCurrentWebviewWindowLabel() === "main";
-  const shouldShow = isMainWindow && forceDevtoolsPanel;
+  const shouldShow = useShouldShowDevtoolsPanel(isMainWindow);
 
   if (!isMainWindow) {
     return null;
@@ -76,6 +76,17 @@ export function DevtoolsFloatingPanelHost() {
   }
 
   return <DevtoolsFloatingPanelSync />;
+}
+
+function useShouldShowDevtoolsPanel(isMainWindow: boolean) {
+  const enabledQuery = useQuery({
+    queryKey: ["devtools-panel", "enabled"],
+    queryFn: commands.showDevtool,
+    enabled: isMainWindow && canResolveDevtoolsPanel,
+    staleTime: Infinity,
+  });
+
+  return enabledQuery.data ?? false;
 }
 
 function DevtoolsFloatingPanelDisabled() {
