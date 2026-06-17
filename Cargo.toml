@@ -257,7 +257,7 @@ tauri-plugin-template = { path = "plugins/template" }
 tauri-plugin-todo = { path = "plugins/todo" }
 tauri-plugin-tracing = { path = "plugins/tracing" }
 tauri-plugin-transcription = { path = "plugins/transcription" }
-tauri-plugin-tray = { path = "plugins/tray" }
+tauri-plugin-tray = { path = "plugins/tray", package = "tauri-plugin-hypr-tray" }
 tauri-plugin-updater2 = { path = "plugins/updater2" }
 tauri-plugin-webhook = { path = "plugins/webhook" }
 tauri-plugin-windows = { path = "plugins/windows" }

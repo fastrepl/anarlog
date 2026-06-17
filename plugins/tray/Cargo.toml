@@ -1,11 +1,14 @@
 [package]
-name = "tauri-plugin-tray"
+name = "tauri-plugin-hypr-tray"
 version = "0.1.0"
 authors = ["You"]
 edition = "2024"
 exclude = ["/js", "/node_modules"]
-links = "tauri-plugin-tray"
+links = "tauri-plugin-hypr-tray"
 description = ""
+
+[lib]
+name = "tauri_plugin_tray"
 
 [build-dependencies]
 tauri-plugin = { workspace = true, features = ["build"] }

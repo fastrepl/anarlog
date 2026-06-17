@@ -31,7 +31,7 @@
     "windows:allow-devtools-panel-show",
     "windows:allow-devtools-panel-hide",
     "tracing:default",
-    "tray:default",
+    "hypr-tray:default",
     "analytics:default",
     "agent:default",
     "bedrock:default",

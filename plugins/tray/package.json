@@ -3,7 +3,7 @@
   "private": true,
   "main": "./js/index.ts",
   "scripts": {
-    "codegen": "cargo test -p tauri-plugin-tray",
+    "codegen": "cargo test -p tauri-plugin-hypr-tray",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

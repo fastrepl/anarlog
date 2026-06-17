@@ -4802,6 +4802,7 @@ dependencies = [
  "tauri-plugin-git",
  "tauri-plugin-hooks",
  "tauri-plugin-http",
+ "tauri-plugin-hypr-tray",
  "tauri-plugin-icon",
  "tauri-plugin-importer",
  "tauri-plugin-js",
@@ -4836,7 +4837,6 @@ dependencies = [
  "tauri-plugin-todo",
  "tauri-plugin-tracing",
  "tauri-plugin-transcription",
- "tauri-plugin-tray",
  "tauri-plugin-updater",
  "tauri-plugin-updater2",
  "tauri-plugin-window-state",
@@ -18321,6 +18321,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "tauri-plugin-hypr-tray"
+version = "0.1.0"
+dependencies = [
+ "host",
+ "intercept",
+ "open",
+ "serde_json",
+ "specta",
+ "specta-typescript",
+ "tauri",
+ "tauri-plugin",
+ "tauri-plugin-clipboard-manager",
+ "tauri-plugin-dialog",
+ "tauri-plugin-misc",
+ "tauri-plugin-updater2",
+ "tauri-plugin-windows",
+ "tauri-specta",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "tauri-plugin-icon"
 version = "0.1.0"
 dependencies = [
@@ -18975,9 +18997,9 @@ dependencies = [
  "tauri",
  "tauri-plugin",
  "tauri-plugin-hooks",
+ "tauri-plugin-hypr-tray",
  "tauri-plugin-local-stt",
  "tauri-plugin-settings",
- "tauri-plugin-tray",
  "tauri-specta",
  "thiserror 2.0.18",
  "tokio",
@@ -18986,28 +19008,6 @@ dependencies = [
  "transcribe-soniqo",
  "transcript",
  "transcription-core",
-]
-
-[[package]]
-name = "tauri-plugin-tray"
-version = "0.1.0"
-dependencies = [
- "host",
- "intercept",
- "open",
- "serde_json",
- "specta",
- "specta-typescript",
- "tauri",
- "tauri-plugin",
- "tauri-plugin-clipboard-manager",
- "tauri-plugin-dialog",
- "tauri-plugin-misc",
- "tauri-plugin-updater2",
- "tauri-plugin-windows",
- "tauri-specta",
- "tokio",
- "tracing",
 ]
 
 [[package]]

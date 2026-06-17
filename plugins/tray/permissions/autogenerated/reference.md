@@ -18,7 +18,7 @@ Default permissions for the plugin
 <tr>
 <td>
 
-`tray:allow-set-tray-icon-visible`
+`hypr-tray:allow-set-tray-icon-visible`
 
 </td>
 <td>
@@ -31,7 +31,7 @@ Enables the set_tray_icon_visible command without any pre-configured scope.
 <tr>
 <td>
 
-`tray:deny-set-tray-icon-visible`
+`hypr-tray:deny-set-tray-icon-visible`
 
 </td>
 <td>
