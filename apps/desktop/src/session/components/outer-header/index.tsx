@@ -133,7 +133,7 @@ function HeaderMeetingJoinButton({
   };
 
   return (
-    <div className="border-border bg-card text-foreground mr-1 flex h-8 max-w-56 shrink-0 items-center overflow-hidden rounded-full border shadow-[0_1px_4px_rgba(0,0,0,0.08)]">
+    <div className="border-border bg-card text-foreground mr-1 flex h-7 max-w-56 shrink-0 items-center overflow-hidden rounded-full border">
       <button
         type="button"
         data-tauri-drag-region="false"
@@ -141,13 +141,14 @@ function HeaderMeetingJoinButton({
         title={label}
         onClick={handleJoin}
         className={cn([
-          "flex h-full min-w-0 items-center gap-1.5 px-3",
+          "flex h-full min-w-0 items-center gap-1.5 px-2.5",
           "text-sm font-medium",
           "hover:bg-accent transition-colors",
         ])}
       >
+        <span>Join</span>
         {icon}
-        <span className="truncate">{label}</span>
+        <span className="truncate">{name}</span>
       </button>
       <MetadataButton
         sessionId={sessionId}
@@ -158,7 +159,7 @@ function HeaderMeetingJoinButton({
             aria-label={metadataLabel}
             title={metadataLabel}
             className={cn([
-              "border-border text-muted-foreground flex h-full w-7 shrink-0 items-center justify-center border-l",
+              "border-border text-muted-foreground flex h-full w-[26px] shrink-0 items-center justify-start border-l pl-[5px]",
               "hover:bg-accent hover:text-foreground transition-colors",
               open && "bg-accent text-foreground",
             ])}

@@ -264,7 +264,9 @@ describe("OuterHeader", () => {
 
     fireEvent.click(joinButton);
 
-    expect(joinButton.textContent).toContain("Join Meet");
+    expect(joinButton.getAttribute("aria-label")).toBe("Join Meet");
+    expect(joinButton.textContent).toContain("Join");
+    expect(joinButton.textContent).toContain("Meet");
     expect(joinButton.getAttribute("data-tauri-drag-region")).toBe("false");
     expect(metadataButton.getAttribute("data-tauri-drag-region")).toBe("false");
     expect(mocks.openUrl).toHaveBeenCalledWith(
