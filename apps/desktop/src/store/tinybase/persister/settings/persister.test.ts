@@ -139,6 +139,17 @@ describe("settingsPersister roundtrip", () => {
     expect(valuesFromRemoteAlias.audio_retention).toBe("forever");
   });
 
+  test("migrates legacy STT model aliases on load", () => {
+    const [, values] = settingsToContent({
+      ai: {
+        current_stt_provider: "soniox",
+        current_stt_model: "stt-rt-v3",
+      },
+    });
+
+    expect(values.current_stt_model).toBe("stt-rt-v4");
+  });
+
   test("store -> settings -> store preserves all data", () => {
     const store1 = createMergeableStore()
       .setTablesSchema(SCHEMA.table)

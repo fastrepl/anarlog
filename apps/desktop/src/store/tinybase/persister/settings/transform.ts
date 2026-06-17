@@ -3,6 +3,7 @@ import type { Content } from "tinybase/with-schemas";
 import { normalizeAudioRetention } from "~/services/audio-retention-policy";
 import type { Schemas, Store } from "~/store/tinybase/store/settings";
 import { SETTINGS_MAPPING } from "~/store/tinybase/store/settings";
+import { normalizeStoredSttModel } from "~/stt/model-selection";
 
 type ProviderData = { base_url: string; api_key: string };
 type ProviderRow = { type: "llm" | "stt"; base_url: string; api_key: string };
@@ -103,6 +104,15 @@ function settingsToStoreValues(settings: unknown): Record<string, unknown> {
 
     if (key === "audio_retention") {
       value = normalizeAudioRetention(value, undefined);
+    }
+
+    if (key === "current_stt_model") {
+      value = normalizeStoredSttModel(
+        getByPath(settings, ["ai", "current_stt_provider"]) as
+          | string
+          | undefined,
+        value as string | undefined,
+      );
     }
 
     if (value !== undefined) {

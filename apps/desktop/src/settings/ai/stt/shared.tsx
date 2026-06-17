@@ -239,7 +239,7 @@ const _PROVIDERS = [
       />
     ),
     baseUrl: "https://api.soniox.com",
-    models: ["stt-v5", "stt-rt-v5"],
+    models: ["stt-rt-v5", "stt-rt-v4"],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
   },
   {
