@@ -26,6 +26,7 @@
     "@hypr/store": "workspace:*",
     "@hypr/tiptap": "workspace:^",
     "@hypr/utils": "workspace:^",
+    "@tauri-apps/api": "^2.10.1",
     "facehash": "^0.0.7",
     "lucide-react": "^0.544.0",
     "markdown-it": "^14.1.1",

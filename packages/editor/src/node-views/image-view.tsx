@@ -4,7 +4,13 @@ import {
   useEditorState,
 } from "@handlewithcare/react-prosemirror";
 import type { NodeSpec } from "prosemirror-model";
-import { forwardRef, useCallback, useRef, useState } from "react";
+import {
+  forwardRef,
+  type MouseEvent,
+  useCallback,
+  useRef,
+  useState,
+} from "react";
 
 import { cn } from "@hypr/utils";
 
@@ -13,6 +19,52 @@ import { getSafeNodePos } from "./error-boundary";
 const MIN_IMAGE_WIDTH = 15;
 const MAX_IMAGE_WIDTH = 100;
 const DEFAULT_IMAGE_WIDTH = 80;
+
+type MenuModule = typeof import("@tauri-apps/api/menu");
+
+type WindowWithTauri = Window & {
+  __TAURI_INTERNALS__?: unknown;
+};
+
+async function copyImageToClipboard(src: string, alt?: string | null) {
+  const response = await fetch(src);
+  const blob = await response.blob();
+
+  if (blob.type.startsWith("image/") && "ClipboardItem" in window) {
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        [blob.type]: blob,
+      }),
+    ]);
+    return;
+  }
+
+  await navigator.clipboard.writeText(alt || src);
+}
+
+async function showImageContextMenu(
+  event: MouseEvent,
+  action: () => void,
+) {
+  event.preventDefault();
+  event.stopPropagation();
+
+  if (!(window as WindowWithTauri).__TAURI_INTERNALS__) {
+    action();
+    return;
+  }
+
+  const { Menu, MenuItem } = (await import(
+    "@tauri-apps/api/menu"
+  )) as MenuModule;
+  const copyItem = await MenuItem.new({
+    id: "copy-image",
+    text: "Copy Image",
+    action,
+  });
+  const menu = await Menu.new({ items: [copyItem] });
+  await menu.popup();
+}
 
 function clampImageWidth(value: number) {
   if (Number.isNaN(value)) return DEFAULT_IMAGE_WIDTH;
@@ -166,6 +218,19 @@ export const ResizableImageView = forwardRef<
     [updateAttributes],
   );
 
+  const handleCopyImage = useCallback(() => {
+    if (typeof node.attrs.src !== "string") return;
+
+    void copyImageToClipboard(node.attrs.src, node.attrs.alt);
+  }, [node.attrs.alt, node.attrs.src]);
+
+  const handleContextMenu = useCallback(
+    (event: MouseEvent) => {
+      void showImageContextMenu(event, handleCopyImage);
+    },
+    [handleCopyImage],
+  );
+
   const showControls = isHovered || isSelected || isResizing;
   const editorWidth = clampImageWidth(node.attrs.editorWidth);
   const imageWidth =
@@ -183,6 +248,7 @@ export const ResizableImageView = forwardRef<
         style={imageWidth ? { width: imageWidth } : undefined}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
+        onContextMenu={handleContextMenu}
       >
         <img
           ref={imageRef}

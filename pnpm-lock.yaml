@@ -1122,6 +1122,9 @@ importers:
       '@hypr/utils':
         specifier: workspace:^
         version: link:../utils
+      '@tauri-apps/api':
+        specifier: ^2.10.1
+        version: 2.10.1
       facehash:
         specifier: ^0.0.7
         version: 0.0.7(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
