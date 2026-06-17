@@ -87,15 +87,31 @@ function baseLanguageCode(language: string) {
 }
 
 function languageSupportProvider(provider: string) {
-  return provider === "custom" ? "deepgram" : provider;
+  return provider === "custom" || provider === "cloudflare_workers_ai"
+    ? "deepgram"
+    : provider;
 }
 
-async function isSupportedLanguagesLive(
+export async function isSupportedLanguagesLive(
   provider: string,
   model: string | null | undefined,
   languages: readonly string[],
 ) {
   const result = await listenerCommands.isSupportedLanguagesLive(
+    languageSupportProvider(provider),
+    model ?? null,
+    [...languages],
+  );
+
+  return result.status === "ok" ? result.data : true;
+}
+
+export async function isSupportedLanguagesBatch(
+  provider: string,
+  model: string | null | undefined,
+  languages: readonly string[],
+) {
+  const result = await listenerCommands.isSupportedLanguagesBatch(
     languageSupportProvider(provider),
     model ?? null,
     [...languages],

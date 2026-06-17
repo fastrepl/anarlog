@@ -51,13 +51,15 @@ function ProviderContext({ providerId }: { providerId: ProviderId }) {
               ? `Use [Gladia](https://www.gladia.io) for transcriptions.`
               : providerId === "openai"
                 ? `Use [OpenAI](https://openai.com) for transcriptions.`
-                : providerId === "fireworks"
-                  ? `Use [Fireworks AI](https://fireworks.ai) for transcriptions.`
-                  : providerId === "mistral"
-                    ? `Use [Mistral](https://mistral.ai) for transcriptions.`
-                    : providerId === "custom"
-                      ? `We only support **Deepgram compatible** endpoints for now.`
-                      : "";
+                : providerId === "cloudflare_workers_ai"
+                  ? `Use a [Cloudflare Workers AI](https://developers.cloudflare.com/workers-ai/) endpoint that exposes Deepgram-compatible Nova-3 transcription.`
+                  : providerId === "fireworks"
+                    ? `Use [Fireworks AI](https://fireworks.ai) for transcriptions.`
+                    : providerId === "mistral"
+                      ? `Use [Mistral](https://mistral.ai) for transcriptions.`
+                      : providerId === "custom"
+                        ? `We only support **Deepgram compatible** endpoints for now.`
+                        : "";
 
   if (!content.trim()) {
     return null;

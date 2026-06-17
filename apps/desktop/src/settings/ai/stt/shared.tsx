@@ -27,11 +27,23 @@ type Provider = {
   models: LocalModel[] | string[];
   badge?: string | null;
   requirements: ProviderRequirement[];
+  links?: {
+    models?: { label: string; url: string };
+    setup?: { label: string; url: string };
+  };
 };
 
 export const displayModelId = (model: string) => {
   if (model === "cloud") {
     return "Pro (Cloud)";
+  }
+
+  if (model === "nova-3" || model === "nova-3-general") {
+    return "Nova 3";
+  }
+
+  if (model === "nova-3-medical") {
+    return "Nova 3 Medical";
   }
 
   if (model === "u3-rt-pro") {
@@ -175,6 +187,28 @@ const _PROVIDERS = [
     baseUrl: "https://api.openai.com/v1",
     models: ["gpt-4o-transcribe", "gpt-4o-mini-transcribe", "whisper-1"],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+  },
+  {
+    disabled: false,
+    id: "cloudflare_workers_ai",
+    displayName: "Cloudflare Workers AI",
+    badge: null,
+    icon: <Icon icon="simple-icons:cloudflare" className="size-4" />,
+    baseUrl: undefined,
+    models: ["nova-3"],
+    requirements: [
+      { kind: "requires_config", fields: ["base_url", "api_key"] },
+    ],
+    links: {
+      models: {
+        label: "Nova-3 docs",
+        url: "https://developers.cloudflare.com/workers-ai/models/nova-3/",
+      },
+      setup: {
+        label: "Workers AI docs",
+        url: "https://developers.cloudflare.com/workers-ai/",
+      },
+    },
   },
   {
     disabled: false,

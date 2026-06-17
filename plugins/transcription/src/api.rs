@@ -366,6 +366,13 @@ mod tests {
     }
 
     #[test]
+    fn defaults_cloudflare_workers_ai_capture_to_live_mode() {
+        let params = capture_params("https://example.workers.dev", "nova-3");
+
+        assert_eq!(params.default_transcription_mode(), TranscriptionMode::Live);
+    }
+
+    #[test]
     fn defaults_soniox_capture_to_live_mode_without_languages() {
         let params = capture_params("https://api.soniox.com", "stt-rt-v5");
 

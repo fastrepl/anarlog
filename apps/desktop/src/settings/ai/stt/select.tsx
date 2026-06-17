@@ -14,7 +14,6 @@ import {
   type LocalModel,
 } from "@hypr/plugin-local-stt";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
-import { commands as listenerCommands } from "@hypr/plugin-transcription";
 import type { AIProviderStorage } from "@hypr/store";
 import { Input } from "@hypr/ui/components/ui/input";
 import {
@@ -53,6 +52,8 @@ import {
   isHyprnoteLocalSttModel,
   isLiveTranscriptionSupported,
   isRealtimeLocalModel,
+  isSupportedLanguagesBatch,
+  isSupportedLanguagesLive,
   isSupportedLocalSttModel,
 } from "~/stt/capabilities";
 
@@ -325,18 +326,17 @@ function useHasLanguageWarning() {
       const useLiveMode = isOnDeviceModel
         ? useLiveOnDeviceModel && liveSupport.data
         : liveSupport.data;
-      const result = useLiveMode
-        ? await listenerCommands.isSupportedLanguagesLive(
+      return useLiveMode
+        ? await isSupportedLanguagesLive(
             current_stt_provider!,
             selectedSttModel ?? null,
             spoken_languages ?? [],
           )
-        : await listenerCommands.isSupportedLanguagesBatch(
+        : await isSupportedLanguagesBatch(
             current_stt_provider!,
             selectedSttModel ?? null,
             spoken_languages ?? [],
           );
-      return result.status === "ok" ? result.data : true;
     },
     enabled:
       isConfigured &&
