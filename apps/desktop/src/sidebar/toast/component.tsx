@@ -93,7 +93,7 @@ function getActionClassName(toast: ToastType, index: number) {
   }
 
   if (index === 0) {
-    return "bg-muted text-foreground hover:bg-accent";
+    return "bg-foreground text-background hover:bg-foreground/90";
   }
 
   return "border-border bg-muted text-foreground hover:bg-accent border";

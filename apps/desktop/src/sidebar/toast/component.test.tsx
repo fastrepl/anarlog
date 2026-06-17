@@ -29,6 +29,12 @@ describe("Toast", () => {
     expect(pill?.className).toContain("bg-card");
     expect(screen.getByText("Language model needed")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Add" }).className).toContain(
+      "bg-foreground",
+    );
+    expect(screen.getByRole("button", { name: "Add" }).className).toContain(
+      "text-background",
+    );
+    expect(screen.getByRole("button", { name: "Hide" }).className).toContain(
       "bg-muted",
     );
 
