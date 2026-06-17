@@ -12,6 +12,7 @@ pub struct SpeakerLabelContext {
 pub struct SpeakerLabeler {
     unknown_speaker_map: HashMap<SegmentKey, usize>,
     next_index: usize,
+    max_unknown_speaker_number: Option<usize>,
 }
 
 impl SpeakerLabeler {
@@ -19,11 +20,21 @@ impl SpeakerLabeler {
         Self {
             unknown_speaker_map: HashMap::new(),
             next_index: 1,
+            max_unknown_speaker_number: None,
         }
     }
 
-    pub fn from_segments(segments: &[Segment], ctx: Option<&SpeakerLabelContext>) -> Self {
-        let mut labeler = Self::new();
+    pub fn with_max_unknown_speaker_number(mut self, max: Option<usize>) -> Self {
+        self.max_unknown_speaker_number = max;
+        self
+    }
+
+    pub fn from_segments(
+        segments: &[Segment],
+        ctx: Option<&SpeakerLabelContext>,
+        max_unknown_speaker_number: Option<usize>,
+    ) -> Self {
+        let mut labeler = Self::new().with_max_unknown_speaker_number(max_unknown_speaker_number);
         for segment in segments {
             if !segment.key.is_known_speaker(ctx) {
                 labeler.unknown_speaker_number(&segment.key);
@@ -41,7 +52,10 @@ impl SpeakerLabeler {
             return *existing;
         }
 
-        let next = self.next_index;
+        let next = self
+            .max_unknown_speaker_number
+            .map(|max| self.next_index.min(max))
+            .unwrap_or(self.next_index);
         self.unknown_speaker_map.insert(key.clone(), next);
         self.next_index += 1;
         next
@@ -149,6 +163,30 @@ mod tests {
         assert_eq!(labeler.label_for(&a, None), "Speaker 1");
         assert_eq!(labeler.label_for(&b, None), "Speaker 2");
         assert_eq!(labeler.label_for(&a, None), "Speaker 1");
+    }
+
+    #[test]
+    fn caps_unknown_speaker_numbers() {
+        let mut labeler = SpeakerLabeler::new().with_max_unknown_speaker_number(Some(2));
+        let a = SegmentKey {
+            channel: ChannelProfile::DirectMic,
+            speaker_index: Some(0),
+            speaker_human_id: None,
+        };
+        let b = SegmentKey {
+            channel: ChannelProfile::RemoteParty,
+            speaker_index: Some(1),
+            speaker_human_id: None,
+        };
+        let c = SegmentKey {
+            channel: ChannelProfile::RemoteParty,
+            speaker_index: Some(2),
+            speaker_human_id: None,
+        };
+
+        assert_eq!(labeler.label_for(&a, None), "Speaker 1");
+        assert_eq!(labeler.label_for(&b, None), "Speaker 2");
+        assert_eq!(labeler.label_for(&c, None), "Speaker 2");
     }
 
     #[test]

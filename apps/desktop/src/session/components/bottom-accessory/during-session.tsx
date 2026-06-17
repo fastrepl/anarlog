@@ -11,6 +11,7 @@ import * as main from "~/store/tinybase/store/main";
 import { getLiveCaptureUiMode } from "~/store/zustand/listener/general-shared";
 import { useListener } from "~/stt/contexts";
 import {
+  getMaxSpeakerNumberForParticipants,
   mergeRenderedAndLiveSegments,
   SegmentKeyUtils,
   type Segment,
@@ -85,7 +86,8 @@ function LiveTranscriptFooterContent({
   isExpanded?: boolean;
 }) {
   const store = main.UI.useStore(main.STORE_ID);
-  const { segments, transcriptIdByWordId } = useLiveTranscriptData(sessionId);
+  const { maxSpeakerNumber, segments, transcriptIdByWordId } =
+    useLiveTranscriptData(sessionId);
   const labelContext = useMemo(
     () => (store ? defaultRenderLabelContext(store) : undefined),
     [store],
@@ -96,8 +98,12 @@ function LiveTranscriptFooterContent({
       return new SpeakerLabelManager();
     }
 
-    return SpeakerLabelManager.fromSegments(segments, labelContext);
-  }, [labelContext, segments, store]);
+    return SpeakerLabelManager.fromSegments(
+      segments,
+      labelContext,
+      maxSpeakerNumber,
+    );
+  }, [labelContext, maxSpeakerNumber, segments, store]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const previewText = useMemo(() => getTranscriptPreview(segments), [segments]);
@@ -264,6 +270,7 @@ function CollapsedFooterMessage({ message }: { message: string }) {
 }
 
 function useLiveTranscriptData(sessionId: string): {
+  maxSpeakerNumber?: number;
   segments: Segment[];
   transcriptIdByWordId: Map<string, string>;
 } {
@@ -292,6 +299,12 @@ function useLiveTranscriptData(sessionId: string): {
       renderedSegments,
       liveSegments,
     );
+    const maxSpeakerNumber = request
+      ? getMaxSpeakerNumberForParticipants(
+          request.participant_human_ids,
+          request.self_human_id,
+        )
+      : undefined;
     const transcriptIdByWordId = new Map<string, string>();
 
     for (const { transcriptId, row } of transcriptRows) {
@@ -302,8 +315,8 @@ function useLiveTranscriptData(sessionId: string): {
       }
     }
 
-    return { segments, transcriptIdByWordId };
-  }, [liveSegments, renderedSegments, transcriptRows]);
+    return { maxSpeakerNumber, segments, transcriptIdByWordId };
+  }, [liveSegments, renderedSegments, request, transcriptRows]);
 }
 
 function getLiveTranscriptScrollKey(segments: Segment[]): string {

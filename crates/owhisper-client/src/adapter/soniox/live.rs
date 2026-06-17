@@ -534,6 +534,31 @@ mod tests {
     }
 
     #[test]
+    fn parse_response_normalizes_numeric_string_speaker_ids_to_zero_based_indices() {
+        let responses = SonioxAdapter.parse_response(
+            r#"{
+                "tokens": [
+                    { "text": "hello", "start_ms": 0, "end_ms": 400, "is_final": true, "speaker": "1" },
+                    { "text": " there", "start_ms": 400, "end_ms": 900, "is_final": true, "speaker": "2" }
+                ]
+            }"#,
+        );
+
+        assert_eq!(responses.len(), 1);
+
+        let words = match &responses[0] {
+            StreamResponse::TranscriptResponse { channel, .. } => &channel.alternatives[0].words,
+            _ => panic!("expected transcript response"),
+        };
+
+        assert_eq!(words.len(), 2);
+        assert_eq!(words[0].word, "hello");
+        assert_eq!(words[0].speaker, Some(0));
+        assert_eq!(words[1].word, "there");
+        assert_eq!(words[1].speaker, Some(1));
+    }
+
+    #[test]
     fn parse_response_keeps_korean_eojeol_partial_when_finality_splits_mid_word() {
         let responses = SonioxAdapter.parse_response(
             r#"{

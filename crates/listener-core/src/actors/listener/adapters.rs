@@ -422,6 +422,7 @@ fn build_listen_params(args: &ListenerArgs) -> owhisper_interface::ListenParams 
         sample_rate: super::super::SAMPLE_RATE,
         keywords: args.keywords.clone(),
         num_speakers,
+        max_speakers: num_speakers,
         custom_query: Some(custom_query),
         ..Default::default()
     }
@@ -665,6 +666,7 @@ mod tests {
         let custom_query = params.custom_query.expect("custom query");
 
         assert_eq!(params.num_speakers, Some(2));
+        assert_eq!(params.max_speakers, Some(2));
         assert!(!custom_query.contains_key("speaker_labels"));
         assert!(!custom_query.contains_key("max_speakers"));
     }
@@ -679,6 +681,7 @@ mod tests {
         let custom_query = params.custom_query.expect("custom query");
 
         assert_eq!(params.num_speakers, Some(2));
+        assert_eq!(params.max_speakers, Some(2));
         assert!(!custom_query.contains_key("speaker_labels"));
         assert!(!custom_query.contains_key("max_speakers"));
     }

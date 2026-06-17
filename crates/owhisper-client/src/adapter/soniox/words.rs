@@ -28,7 +28,7 @@ impl PendingWord {
         self.text.push_str(text);
 
         if self.speaker.is_none() {
-            self.speaker = token.speaker.as_ref().and_then(|speaker| speaker.as_i32());
+            self.speaker = token.speaker.as_ref().and_then(soniox_speaker_index);
         }
         if self.language.is_none() {
             self.language = token.language.clone();
@@ -57,6 +57,23 @@ impl PendingWord {
             speaker: self.speaker,
             language: self.language,
         })
+    }
+}
+
+fn soniox_speaker_index(speaker: &soniox::SpeakerId) -> Option<i32> {
+    match speaker {
+        soniox::SpeakerId::Num(n) => Some(*n),
+        soniox::SpeakerId::Str(value) => {
+            let trimmed = value.trim();
+            if trimmed.chars().all(|c| c.is_ascii_digit()) {
+                return trimmed
+                    .parse::<i32>()
+                    .ok()
+                    .map(|speaker| speaker.saturating_sub(1));
+            }
+
+            speaker.as_i32()
+        }
     }
 }
 

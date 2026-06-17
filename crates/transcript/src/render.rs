@@ -84,13 +84,15 @@ pub fn render_transcript_segments(
     all_segments.sort_by_key(|seg| seg.words.first().map(|w| w.start_ms).unwrap_or(i64::MAX));
 
     let ctx = SpeakerLabelContext {
-        self_human_id,
+        self_human_id: self_human_id.clone(),
         human_name_by_id: humans
             .into_iter()
             .map(|human| (human.human_id, human.name))
             .collect::<HashMap<_, _>>(),
     };
-    let mut labeler = SpeakerLabeler::from_segments(&all_segments, Some(&ctx));
+    let max_speaker_number =
+        max_speaker_number_for_participants(&participant_human_ids, self_human_id.as_deref());
+    let mut labeler = SpeakerLabeler::from_segments(&all_segments, Some(&ctx), max_speaker_number);
 
     all_segments
         .into_iter()
@@ -119,6 +121,24 @@ pub fn render_transcript_segments(
             })
         })
         .collect()
+}
+
+fn max_speaker_number_for_participants(
+    participant_human_ids: &[String],
+    self_human_id: Option<&str>,
+) -> Option<usize> {
+    let mut participants = participant_human_ids.to_vec();
+
+    if let Some(self_human_id) = self_human_id
+        && !participants.iter().any(|id| id == self_human_id)
+    {
+        participants.push(self_human_id.to_string());
+    }
+
+    participants.sort();
+    participants.dedup();
+
+    (participants.len() > 1).then_some(participants.len())
 }
 
 fn offset_transcript_data(
@@ -303,6 +323,29 @@ mod tests {
         assert_eq!(segments[0].text, "hello");
         assert_eq!(segments[1].speaker_label, "Bob");
         assert_eq!(segments[1].text, "world");
+    }
+
+    #[test]
+    fn caps_unknown_speaker_labels_to_participant_count() {
+        let segments = render_transcript_segments(RenderTranscriptRequest {
+            transcripts: vec![RenderTranscriptInput {
+                started_at: Some(0),
+                words: vec![
+                    word_si("w1", " one", 0, 100, 2, 0),
+                    word_si("w2", " two", 200, 300, 2, 1),
+                    word_si("w3", " three", 400, 500, 2, 2),
+                ],
+                assignments: vec![],
+            }],
+            participant_human_ids: vec!["self".to_string(), "remote".to_string()],
+            self_human_id: Some("self".to_string()),
+            humans: vec![],
+        });
+
+        assert_eq!(segments.len(), 3);
+        assert_eq!(segments[0].speaker_label, "Speaker 1");
+        assert_eq!(segments[1].speaker_label, "Speaker 2");
+        assert_eq!(segments[2].speaker_label, "Speaker 2");
     }
 
     #[test]

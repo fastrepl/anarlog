@@ -7,7 +7,10 @@ import {
 } from "../render-request-hooks";
 
 import * as main from "~/store/tinybase/store/main";
-import type { Segment } from "~/stt/live-segment";
+import {
+  getMaxSpeakerNumberForParticipants,
+  type Segment,
+} from "~/stt/live-segment";
 import {
   getRenderTranscriptRequestKey,
   renderTranscriptSegments,
@@ -16,6 +19,13 @@ import {
 const emptyIds: string[] = [];
 
 export function useRenderedTranscriptSegments(transcriptId: string): Segment[] {
+  return useRenderedTranscriptData(transcriptId).segments;
+}
+
+export function useRenderedTranscriptData(transcriptId: string): {
+  maxSpeakerNumber?: number;
+  segments: Segment[];
+} {
   const { request } = useTranscriptRenderData(transcriptId);
   const requestKey = useMemo(
     () => getRenderTranscriptRequestKey(request),
@@ -35,7 +45,18 @@ export function useRenderedTranscriptSegments(transcriptId: string): Segment[] {
     gcTime: 0,
   });
 
-  return data;
+  const maxSpeakerNumber = useMemo(
+    () =>
+      request
+        ? getMaxSpeakerNumberForParticipants(
+            request.participant_human_ids,
+            request.self_human_id,
+          )
+        : undefined,
+    [request],
+  );
+
+  return { maxSpeakerNumber, segments: data };
 }
 
 export function useTranscriptOffset(transcriptId: string): number {

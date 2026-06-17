@@ -67,6 +67,7 @@ pub struct LiveTranscriptEngine {
     processor: TranscriptProcessor,
     normalizer: TranscriptNormalizer,
     rendered_segments: RenderedSegmentState,
+    max_speaker_index: Option<i32>,
 }
 
 impl LiveTranscriptEngine {
@@ -79,6 +80,8 @@ impl LiveTranscriptEngine {
             channel_assignments_for_participants(participant_human_ids, self_human_id);
         let segment_options =
             segment_options_for_participants(participant_human_ids, self_human_id);
+        let max_speaker_index =
+            max_speaker_index_for_participants(participant_human_ids, self_human_id);
 
         let normalizer = TranscriptNormalizer::for_provider(provider_name);
 
@@ -92,12 +95,14 @@ impl LiveTranscriptEngine {
                 segment_options: Some(segment_options),
                 ..Default::default()
             },
+            max_speaker_index,
         }
     }
 
     pub fn process(&mut self, response: &StreamResponse) -> Option<LiveTranscriptUpdate> {
         let mut normalized = response.clone();
         self.normalizer.normalize(&mut normalized);
+        clamp_response_speaker_indices(&mut normalized, self.max_speaker_index);
         let transcript_delta: LiveTranscriptDelta = self.processor.process(&normalized)?.into();
         let segment_delta = self.rendered_segments.apply_delta(&transcript_delta);
         Some(LiveTranscriptUpdate {
@@ -117,6 +122,46 @@ impl LiveTranscriptEngine {
             transcript_delta,
             segment_delta,
         })
+    }
+}
+
+fn max_speaker_index_for_participants(
+    participant_human_ids: &[String],
+    self_human_id: Option<&str>,
+) -> Option<i32> {
+    let mut participants = participant_human_ids.to_vec();
+
+    if let Some(self_human_id) = self_human_id
+        && !participants.iter().any(|id| id == self_human_id)
+    {
+        participants.push(self_human_id.to_string());
+    }
+
+    participants.sort();
+    participants.dedup();
+
+    if participants.len() <= 1 {
+        return None;
+    }
+
+    i32::try_from(participants.len() - 1).ok()
+}
+
+fn clamp_response_speaker_indices(response: &mut StreamResponse, max_speaker_index: Option<i32>) {
+    let Some(max_speaker_index) = max_speaker_index else {
+        return;
+    };
+
+    let StreamResponse::TranscriptResponse { channel, .. } = response else {
+        return;
+    };
+
+    for alternative in &mut channel.alternatives {
+        for word in &mut alternative.words {
+            if let Some(speaker) = word.speaker {
+                word.speaker = Some(speaker.clamp(0, max_speaker_index));
+            }
+        }
     }
 }
 
@@ -1208,6 +1253,34 @@ mod tests {
 
         assert_eq!(final_text.trim(), "hello world");
         assert!(flush_update.transcript_delta.partials.is_empty());
+    }
+
+    #[test]
+    fn clamps_provider_speakers_to_participant_count() {
+        let max_speaker_index =
+            max_speaker_index_for_participants(&["remote".to_string()], Some("self"));
+        let mut high_word = word("too-high", 0.0, 0.5);
+        high_word.speaker = Some(2);
+        let mut negative_word = word("negative", 0.5, 1.0);
+        negative_word.speaker = Some(-1);
+        let mut response = transcript_response_at(
+            "too-high negative",
+            vec![high_word, negative_word],
+            true,
+            0,
+            0.0,
+            1.0,
+        );
+
+        clamp_response_speaker_indices(&mut response, max_speaker_index);
+
+        let StreamResponse::TranscriptResponse { channel, .. } = response else {
+            panic!("expected transcript response");
+        };
+        let words = &channel.alternatives[0].words;
+
+        assert_eq!(words[0].speaker, Some(1));
+        assert_eq!(words[1].speaker, Some(0));
     }
 
     #[test]

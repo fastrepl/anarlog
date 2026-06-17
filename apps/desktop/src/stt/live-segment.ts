@@ -62,6 +62,8 @@ export class SpeakerLabelManager {
   private unknownSpeakerMap: Map<string, number> = new Map();
   private nextIndex = 1;
 
+  constructor(private readonly maxUnknownSpeakerNumber?: number) {}
+
   getUnknownSpeakerNumber(key: SegmentKey): number {
     const serialized = SegmentKeyUtils.serialize(key);
     const existing = this.unknownSpeakerMap.get(serialized);
@@ -69,7 +71,10 @@ export class SpeakerLabelManager {
       return existing;
     }
 
-    const newIndex = this.nextIndex;
+    const newIndex =
+      this.maxUnknownSpeakerNumber && this.maxUnknownSpeakerNumber > 0
+        ? Math.min(this.nextIndex, this.maxUnknownSpeakerNumber)
+        : this.nextIndex;
     this.unknownSpeakerMap.set(serialized, newIndex);
     this.nextIndex += 1;
     return newIndex;
@@ -78,8 +83,9 @@ export class SpeakerLabelManager {
   static fromSegments(
     segments: Segment[],
     ctx?: RenderLabelContext,
+    maxUnknownSpeakerNumber?: number,
   ): SpeakerLabelManager {
-    const manager = new SpeakerLabelManager();
+    const manager = new SpeakerLabelManager(maxUnknownSpeakerNumber);
     for (const segment of segments) {
       if (!SegmentKeyUtils.isKnownSpeaker(segment.key, ctx)) {
         manager.getUnknownSpeakerNumber(segment.key);
@@ -147,6 +153,18 @@ export const SegmentKeyUtils = {
       : `Speaker ${channelLabel}`;
   },
 };
+
+export function getMaxSpeakerNumberForParticipants(
+  participantHumanIds: readonly string[],
+  selfHumanId?: string | null,
+): number | undefined {
+  const ids = new Set(participantHumanIds.filter(Boolean));
+  if (selfHumanId) {
+    ids.add(selfHumanId);
+  }
+
+  return ids.size > 1 ? ids.size : undefined;
+}
 
 export function mergeRenderedAndLiveSegments(
   renderedSegments: Segment[],
