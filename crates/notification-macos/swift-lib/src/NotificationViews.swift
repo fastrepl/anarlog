@@ -1,13 +1,15 @@
 import Cocoa
 
 class ShadowContainerView: NSView {
+  var cornerRadius = Layout.cornerRadius
+
   override func layout() {
     super.layout()
     let pathRect = bounds.insetBy(dx: 0.5, dy: 0.5)
     layer?.shadowPath = CGPath(
       roundedRect: pathRect,
-      cornerWidth: Layout.cornerRadius,
-      cornerHeight: Layout.cornerRadius,
+      cornerWidth: cornerRadius,
+      cornerHeight: cornerRadius,
       transform: nil
     )
   }
@@ -16,19 +18,36 @@ class ShadowContainerView: NSView {
 class NotificationBackgroundView: NSView {
   let bgLayer = CALayer()
   let borderLayer = CALayer()
+  var cornerRadius = Layout.cornerRadius {
+    didSet {
+      applyCornerRadius()
+    }
+  }
 
-  func makeBackgroundOpaque() {
-    bgLayer.backgroundColor = NSColor(calibratedWhite: 0.92, alpha: 1.0).cgColor
-    layer?.cornerRadius = Layout.cornerRadius
-    bgLayer.cornerRadius = Layout.cornerRadius
-    borderLayer.cornerRadius = Layout.cornerRadius
-    borderLayer.borderWidth = 1.5
-    borderLayer.borderColor = NSColor(calibratedWhite: 0.75, alpha: 0.5).cgColor
+  private func applyCornerRadius() {
+    layer?.cornerRadius = cornerRadius
+    bgLayer.cornerRadius = cornerRadius
+    borderLayer.cornerRadius = cornerRadius
+
     if #available(macOS 11.0, *) {
       layer?.cornerCurve = .continuous
       bgLayer.cornerCurve = .continuous
       borderLayer.cornerCurve = .continuous
     }
+  }
+
+  func makeBackgroundOpaque() {
+    bgLayer.backgroundColor = NSColor(calibratedWhite: 0.92, alpha: 1.0).cgColor
+    applyCornerRadius()
+    borderLayer.borderWidth = 1.5
+    borderLayer.borderColor = NSColor(calibratedWhite: 0.75, alpha: 0.5).cgColor
+  }
+
+  func makeBackgroundLiquidGlass() {
+    bgLayer.backgroundColor = NSColor(calibratedWhite: 1.0, alpha: 0.24).cgColor
+    applyCornerRadius()
+    borderLayer.borderWidth = 1.0
+    borderLayer.borderColor = NSColor.white.withAlphaComponent(0.68).cgColor
   }
 
   override init(frame frameRect: NSRect) {
@@ -43,17 +62,16 @@ class NotificationBackgroundView: NSView {
 
   private func setup() {
     wantsLayer = true
-    layer?.cornerRadius = Layout.cornerRadius
     layer?.masksToBounds = true
 
-    bgLayer.cornerRadius = Layout.cornerRadius
     bgLayer.backgroundColor = Colors.notificationBg
     layer?.addSublayer(bgLayer)
 
-    borderLayer.cornerRadius = Layout.cornerRadius
     borderLayer.borderWidth = 2.0
     borderLayer.borderColor = NSColor.white.cgColor
     layer?.addSublayer(borderLayer)
+
+    applyCornerRadius()
   }
 
   override func layout() {

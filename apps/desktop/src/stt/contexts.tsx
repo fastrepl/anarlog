@@ -286,7 +286,7 @@ function showMeetingEndedPrompt({
     start_time: null,
     participants: null,
     event_details: null,
-    action_label: "Stop meeting",
+    action_label: "Stop",
     action_variant: "destructive",
     options: null,
     footer: null,

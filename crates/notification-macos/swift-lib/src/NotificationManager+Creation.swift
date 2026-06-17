@@ -9,6 +9,10 @@ extension NotificationManager {
     isMacOS26() ? 0 : Layout.buttonOverhang
   }
 
+  func notificationCornerRadius() -> CGFloat {
+    isMacOS26() ? Layout.liquidGlassCornerRadius : Layout.cornerRadius
+  }
+
   func createPanel(screen: NSScreen? = nil, yPosition: CGFloat, hasFooter: Bool = false) -> NSPanel
   {
     let targetScreen = screen ?? getTargetScreen() ?? NSScreen.main!
@@ -30,7 +34,7 @@ extension NotificationManager {
     panel.hidesOnDeactivate = false
     panel.isOpaque = false
     panel.backgroundColor = .clear
-    panel.hasShadow = !isMacOS26()
+    panel.hasShadow = false
     panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
     panel.isMovableByWindowBackground = false
     panel.alphaValue = 0
@@ -47,8 +51,8 @@ extension NotificationManager {
     v.layer?.backgroundColor = NSColor.clear.cgColor
     v.layer?.isOpaque = false
     if isMacOS26() {
-      v.layer?.cornerRadius = Layout.cornerRadius
-      v.layer?.masksToBounds = true
+      v.layer?.cornerRadius = notificationCornerRadius()
+      v.layer?.masksToBounds = false
       if #available(macOS 11.0, *) {
         v.layer?.cornerCurve = .continuous
       }
@@ -68,16 +72,14 @@ extension NotificationManager {
       )
     )
     container.wantsLayer = true
-    container.layer?.cornerRadius = Layout.cornerRadius
+    let cornerRadius = notificationCornerRadius()
+    container.cornerRadius = cornerRadius
+    container.layer?.cornerRadius = cornerRadius
     container.layer?.masksToBounds = false
     if #available(macOS 11.0, *) {
       container.layer?.cornerCurve = .continuous
     }
     container.autoresizingMask = [.width, .height]
-    container.layer?.shadowColor = NSColor.black.cgColor
-    container.layer?.shadowOpacity = 0.22
-    container.layer?.shadowOffset = CGSize(width: 0, height: 2)
-    container.layer?.shadowRadius = 12
     return container
   }
 
@@ -87,19 +89,21 @@ extension NotificationManager {
     let effectView = NSVisualEffectView(frame: container.bounds)
     effectView.material = .popover
     effectView.state = .active
-    effectView.blendingMode = isMacOS26 ? .withinWindow : .behindWindow
+    effectView.blendingMode = .behindWindow
     effectView.wantsLayer = true
-    effectView.layer?.cornerRadius = Layout.cornerRadius
+    let cornerRadius = notificationCornerRadius()
+    effectView.layer?.cornerRadius = cornerRadius
     effectView.layer?.masksToBounds = true
-    if isMacOS26, #available(macOS 11.0, *) {
+    if #available(macOS 11.0, *) {
       effectView.layer?.cornerCurve = .continuous
     }
     effectView.autoresizingMask = [.width, .height]
 
     let backgroundView = NotificationBackgroundView(frame: effectView.bounds)
+    backgroundView.cornerRadius = cornerRadius
     backgroundView.autoresizingMask = [.width, .height]
     if isMacOS26 {
-      backgroundView.makeBackgroundOpaque()
+      backgroundView.makeBackgroundLiquidGlass()
     }
     effectView.addSubview(backgroundView, positioned: .below, relativeTo: nil)
 

@@ -27,7 +27,10 @@ import {
 import { showBatchCompletedNotification } from "~/store/zustand/listener/general-batch";
 import { listenerStore } from "~/store/zustand/listener/instance";
 import { useTabs } from "~/store/zustand/tabs";
-import { createAutoStopEndedNotificationKey } from "~/stt/auto-stop-notification";
+import {
+  AUTO_STOP_CONFIRM_TIMEOUT_SECONDS,
+  createAutoStopEndedNotificationKey,
+} from "~/stt/auto-stop-notification";
 import { commands } from "~/types/tauri.gen";
 
 const canResolveDevtoolsPanel = import.meta.env.MODE !== "test";
@@ -270,7 +273,7 @@ function useDevtoolsPanelActions() {
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         location: "Conference Room",
       },
-      action_label: "Open notes",
+      action_label: "Open Anarlog",
       action_variant: null,
       options: null,
       footer: null,
@@ -336,14 +339,13 @@ function useDevtoolsPanelActions() {
     await notificationCommands.showNotification({
       key: createAutoStopEndedNotificationKey(sessionId),
       title: "Did your meeting end?",
-      message:
-        "Google Chrome stopped using the microphone before the scheduled end time.",
-      timeout: { secs: 60, nanos: 0 },
+      message: `Anarlog will stop listening in ${AUTO_STOP_CONFIRM_TIMEOUT_SECONDS} seconds.`,
+      timeout: { secs: AUTO_STOP_CONFIRM_TIMEOUT_SECONDS, nanos: 0 },
       source: null,
       start_time: null,
       participants: null,
       event_details: null,
-      action_label: "Stop meeting",
+      action_label: "Stop",
       action_variant: "destructive",
       options: null,
       footer: null,

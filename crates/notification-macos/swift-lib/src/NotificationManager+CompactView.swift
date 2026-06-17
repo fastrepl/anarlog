@@ -11,7 +11,7 @@ extension NotificationManager {
     }
 
     let actionButton = CompactActionButton()
-    let actionLabel = notification.payload.actionLabel ?? "Take Notes"
+    let actionLabel = notification.payload.actionLabel ?? "Open Anarlog"
     if notification.payload.isDestructiveAction {
       actionButton.configureDestructiveAction(label: actionLabel)
       actionButton.showsProgress = false

@@ -90,7 +90,7 @@ export function checkEventNotifications(
         start_time: Math.floor(startTime.getTime() / 1000),
         participants: null,
         event_details: null,
-        action_label: "Open notes",
+        action_label: "Open Anarlog",
         action_variant: null,
         options: null,
         footer: null,

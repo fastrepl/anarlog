@@ -28,8 +28,8 @@ extension NotificationManager {
     panel.contentView = clickableView
     if isMacOS26() {
       panel.contentView?.wantsLayer = true
-      panel.contentView?.layer?.cornerRadius = Layout.cornerRadius
-      panel.contentView?.layer?.masksToBounds = true
+      panel.contentView?.layer?.cornerRadius = notificationCornerRadius()
+      panel.contentView?.layer?.masksToBounds = false
       if #available(macOS 11.0, *) {
         panel.contentView?.layer?.cornerCurve = .continuous
       }

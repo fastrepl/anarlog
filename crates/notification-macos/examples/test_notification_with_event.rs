@@ -65,7 +65,7 @@ fn main() {
             })
             .participants(participants)
             .event_details(event_details)
-            .action_label("Take Notes")
+            .action_label("Open Anarlog")
             .start_time(start_time)
             .build();
 

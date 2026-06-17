@@ -12,6 +12,7 @@ enum Layout {
   static let slideInOffset: CGFloat = 10
   static let buttonOverhang: CGFloat = 8
   static let cornerRadius: CGFloat = 14
+  static let liquidGlassCornerRadius: CGFloat = 22
   static let contentPaddingHorizontal: CGFloat = 12
   static let contentPaddingVertical: CGFloat = 9
   static let expandedPaddingHorizontal: CGFloat = 16
@@ -44,8 +45,8 @@ enum Fonts {
 }
 
 enum Colors {
-  static let buttonNormalBg = NSColor(calibratedWhite: 0.95, alpha: 0.9).cgColor
-  static let buttonPressedBg = NSColor(calibratedWhite: 0.85, alpha: 0.9).cgColor
+  static let buttonNormalBg = NSColor(calibratedWhite: 1.0, alpha: 0.42).cgColor
+  static let buttonPressedBg = NSColor(calibratedWhite: 1.0, alpha: 0.62).cgColor
   static let notificationBg = NSColor(calibratedWhite: 0.92, alpha: 0.85).cgColor
   static let actionButtonBg = NSColor(calibratedWhite: 0.35, alpha: 0.95).cgColor
   static let actionButtonPressedBg = NSColor(calibratedWhite: 0.25, alpha: 0.95).cgColor
