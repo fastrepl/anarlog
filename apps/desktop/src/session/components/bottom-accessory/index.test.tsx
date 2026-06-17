@@ -574,7 +574,7 @@ describe("useSessionBottomAccessory", () => {
     expect(result.current.bottomAccessory).not.toBeNull();
   });
 
-  it("uses dark-aware chrome for the live handle", () => {
+  it("uses panel chrome for the live handle", () => {
     type LiveToggleProps = {
       collapsedClassName?: string;
       expandedClassName?: string;
@@ -599,12 +599,8 @@ describe("useSessionBottomAccessory", () => {
     }
 
     expect(toggle.props.label).toBe("Live");
-    expect(toggle.props.collapsedClassName).toBe(
-      "bg-card dark:bg-app-floating-chrome",
-    );
-    expect(toggle.props.expandedClassName).toBe(
-      "bg-card dark:bg-app-floating-chrome",
-    );
+    expect(toggle.props.collapsedClassName).toBe("bg-app-floating-panel");
+    expect(toggle.props.expandedClassName).toBe("bg-app-floating-panel");
 
     act(() => {
       toggle.props.onToggle();

@@ -22,6 +22,7 @@ import { getLiveCaptureUiMode } from "~/store/zustand/listener/general-shared";
 import { useListener } from "~/stt/contexts";
 
 const BOTTOM_ACCESSORY_HANDLE_CLASS = "bg-card dark:bg-app-floating-chrome";
+const LIVE_ACCESSORY_HANDLE_CLASS = "bg-app-floating-panel";
 
 export type BottomAccessoryState = {
   mode: "live" | "playback" | "transcript_only";
@@ -175,8 +176,8 @@ export function useSessionBottomAccessory({
           isExpanded={effectiveExpanded}
           onToggle={() => setIsExpanded((v) => !v)}
           label="Live"
-          collapsedClassName={BOTTOM_ACCESSORY_HANDLE_CLASS}
-          expandedClassName={BOTTOM_ACCESSORY_HANDLE_CLASS}
+          collapsedClassName={LIVE_ACCESSORY_HANDLE_CLASS}
+          expandedClassName={LIVE_ACCESSORY_HANDLE_CLASS}
         />
       ) : null,
       bottomAccessoryState,
