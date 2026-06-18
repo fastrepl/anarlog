@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   collectEnhanceImageContext,
@@ -39,6 +39,11 @@ describe("enhance image context", () => {
       status: "ok",
       data: [104, 101, 108, 108, 111],
     });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it("reads only image attachments referenced by note JSON", async () => {
@@ -92,6 +97,75 @@ describe("enhance image context", () => {
 
     expect(images).toEqual([{ base64: "abc123", mimeType: "image/png" }]);
     expect(fsSyncMocks.attachmentList).not.toHaveBeenCalled();
+  });
+
+  it("skips oversized base64 data URL images when compression is unavailable", async () => {
+    const oversized = "a".repeat(350 * 1024);
+
+    const images = await collectEnhanceImageContext(
+      "session-1",
+      `![pasted](data:image/png;base64,${oversized})`,
+    );
+
+    expect(images).toEqual([]);
+    expect(fsSyncMocks.attachmentList).not.toHaveBeenCalled();
+  });
+
+  it("compresses oversized base64 data URL images into budget", async () => {
+    const originalCreateElement = document.createElement.bind(document);
+    vi.spyOn(document, "createElement").mockImplementation(
+      (tagName: string, options?: ElementCreationOptions) => {
+        if (tagName !== "canvas") {
+          return originalCreateElement(tagName, options);
+        }
+
+        return {
+          width: 0,
+          height: 0,
+          getContext: () => ({
+            clearRect: vi.fn(),
+            drawImage: vi.fn(),
+          }),
+          toDataURL: () => "data:image/jpeg;base64,aGVsbG8=",
+        } as unknown as HTMLCanvasElement;
+      },
+    );
+    vi.stubGlobal(
+      "createImageBitmap",
+      vi.fn(async () => ({
+        width: 2400,
+        height: 1600,
+        close: vi.fn(),
+      })),
+    );
+
+    const images = await collectEnhanceImageContext(
+      "session-1",
+      `![pasted](data:image/png;base64,${"a".repeat(350 * 1024)})`,
+    );
+
+    expect(images).toEqual([
+      { base64: "aGVsbG8=", mimeType: "image/jpeg", filename: undefined },
+    ]);
+  });
+
+  it("keeps image context within the aggregate byte budget", async () => {
+    const image = "a".repeat(170 * 1024);
+
+    const images = await collectEnhanceImageContext(
+      "session-1",
+      [
+        `![one](data:image/png;base64,${image})`,
+        `![two](data:image/png;base64,${image})`,
+        `![three](data:image/png;base64,${image})`,
+        `![four](data:image/png;base64,${image})`,
+        `![five](data:image/png;base64,${image})`,
+        `![six](data:image/png;base64,${image})`,
+        `![seven](data:image/png;base64,${image})`,
+      ].join("\n"),
+    );
+
+    expect(images).toHaveLength(6);
   });
 
   it("does not load an attachment again for a node that already has a data URL", async () => {

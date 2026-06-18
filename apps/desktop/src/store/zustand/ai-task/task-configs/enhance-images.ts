@@ -16,7 +16,13 @@ type ImageReference = {
 };
 
 const MAX_IMAGE_COUNT = 10;
-const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+const MAX_IMAGE_BYTES = 128 * 1024;
+const MAX_TOTAL_IMAGE_BYTES = 768 * 1024;
+const MAX_SOURCE_IMAGE_BYTES = 8 * 1024 * 1024;
+const COMPRESSED_IMAGE_MIME_TYPE = "image/jpeg";
+const MAX_COMPRESSED_IMAGE_EDGE = 1280;
+const MIN_COMPRESSED_IMAGE_EDGE = 512;
+const COMPRESSED_IMAGE_QUALITY_STEPS = [0.82, 0.72, 0.62, 0.52];
 
 const EXTENSION_TO_MIME: Record<string, string> = {
   gif: "image/gif",
@@ -36,13 +42,21 @@ export async function collectEnhanceImageContext(
     ? rawContent.flatMap(collectImageReferences)
     : collectImageReferences(rawContent);
   const images: EnhanceImageContext[] = [];
+  let totalImageBytes = 0;
 
   for (const ref of references) {
     if (!ref.dataUrl) {
       continue;
     }
 
-    images.push(ref.dataUrl);
+    const image = await prepareImageForBudget(ref.dataUrl, totalImageBytes);
+    if (!image) {
+      continue;
+    }
+
+    const imageBytes = getBase64ByteLength(image.base64);
+    images.push(image);
+    totalImageBytes += imageBytes;
     if (images.length >= MAX_IMAGE_COUNT) {
       return images;
     }
@@ -91,13 +105,122 @@ export async function collectEnhanceImageContext(
       continue;
     }
 
-    images.push(image);
+    const budgetedImage = await prepareImageForBudget(image, totalImageBytes);
+    if (!budgetedImage) {
+      continue;
+    }
+
+    const imageBytes = getBase64ByteLength(budgetedImage.base64);
+    images.push(budgetedImage);
+    totalImageBytes += imageBytes;
     if (images.length >= MAX_IMAGE_COUNT) {
       return images;
     }
   }
 
   return images;
+}
+
+async function prepareImageForBudget(
+  image: EnhanceImageContext,
+  currentTotalBytes: number,
+): Promise<EnhanceImageContext | null> {
+  const targetBytes = Math.min(
+    MAX_IMAGE_BYTES,
+    MAX_TOTAL_IMAGE_BYTES - currentTotalBytes,
+  );
+  if (targetBytes <= 0) {
+    return null;
+  }
+
+  const imageBytes = getBase64ByteLength(image.base64);
+  if (imageBytes <= targetBytes) {
+    return image;
+  }
+
+  return compressImageContext(image, targetBytes);
+}
+
+async function compressImageContext(
+  image: EnhanceImageContext,
+  targetBytes: number,
+): Promise<EnhanceImageContext | null> {
+  if (
+    typeof createImageBitmap !== "function" ||
+    typeof fetch !== "function" ||
+    typeof document === "undefined"
+  ) {
+    return null;
+  }
+
+  let bitmap: ImageBitmap;
+  try {
+    const response = await fetch(toDataUrl(image));
+    bitmap = await createImageBitmap(await response.blob());
+  } catch {
+    return null;
+  }
+
+  try {
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      return null;
+    }
+
+    let maxEdge = MAX_COMPRESSED_IMAGE_EDGE;
+    while (maxEdge >= MIN_COMPRESSED_IMAGE_EDGE) {
+      const scale = Math.min(
+        1,
+        maxEdge / Math.max(bitmap.width, bitmap.height),
+      );
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+
+      for (const quality of COMPRESSED_IMAGE_QUALITY_STEPS) {
+        const compressed = parseGeneratedImageDataUrl(
+          canvas.toDataURL(COMPRESSED_IMAGE_MIME_TYPE, quality),
+          image.filename,
+        );
+        if (
+          compressed &&
+          getBase64ByteLength(compressed.base64) <= targetBytes
+        ) {
+          return compressed;
+        }
+      }
+
+      maxEdge = Math.floor(maxEdge * 0.75);
+    }
+  } finally {
+    bitmap.close?.();
+  }
+
+  return null;
+}
+
+function toDataUrl(image: EnhanceImageContext): string {
+  return `data:${image.mimeType};base64,${image.base64}`;
+}
+
+function parseGeneratedImageDataUrl(
+  src: string,
+  filename: string | undefined,
+): EnhanceImageContext | null {
+  const match = src.match(
+    /^data:(image\/(?:gif|jpe?g|png|webp));base64,(.+)$/i,
+  );
+  if (!match) {
+    return null;
+  }
+
+  return {
+    base64: match[2],
+    mimeType: match[1].toLowerCase() === "image/jpg" ? "image/jpeg" : match[1],
+    filename,
+  };
 }
 
 export function collectImageReferences(rawContent: string): ImageReference[] {
@@ -135,7 +258,7 @@ async function readImageAttachment(
     return null;
   }
 
-  if (readResult.data.length > MAX_IMAGE_BYTES) {
+  if (readResult.data.length > MAX_SOURCE_IMAGE_BYTES) {
     return null;
   }
 
@@ -227,7 +350,7 @@ function parseImageDataUrl(src: string): EnhanceImageContext | null {
   const mimeType =
     match[1].toLowerCase() === "image/jpg" ? "image/jpeg" : match[1];
   const base64 = match[2];
-  if (getBase64ByteLength(base64) > MAX_IMAGE_BYTES) {
+  if (getBase64ByteLength(base64) > MAX_SOURCE_IMAGE_BYTES) {
     return null;
   }
 
