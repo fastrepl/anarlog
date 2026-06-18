@@ -5,9 +5,9 @@ use bytes::Bytes;
 use ractor::{ActorProcessingErr, ActorRef};
 
 use owhisper_client::{
-    AdapterKind, ArgmaxAdapter, AssemblyAIAdapter, DashScopeAdapter, DeepgramAdapter,
-    ElevenLabsAdapter, FireworksAdapter, GladiaAdapter, HyprnoteAdapter, MistralAdapter,
-    RealtimeSttAdapter, SonioxAdapter, hypr_ws_client,
+    AdapterKind, ArgmaxAdapter, AssemblyAIAdapter, CartesiaAdapter, DashScopeAdapter,
+    DeepgramAdapter, ElevenLabsAdapter, FireworksAdapter, GladiaAdapter, HyprnoteAdapter,
+    MistralAdapter, RealtimeSttAdapter, SonioxAdapter, hypr_ws_client,
 };
 use owhisper_interface::stream::Extra;
 use owhisper_interface::{ControlMessage, MixedMessage};
@@ -94,6 +94,7 @@ pub(super) async fn spawn_rx_task(
 
     let result = dispatch_realtime!(adapter_kind, is_dual, args, myself, {
         Argmax => ArgmaxAdapter,
+        Cartesia => CartesiaAdapter,
         Soniox => SonioxAdapter,
         Fireworks => FireworksAdapter,
         Deepgram => DeepgramAdapter,

@@ -2,7 +2,7 @@ use base64::Engine;
 use std::sync::Arc;
 
 use owhisper_client::{
-    AssemblyAIAdapter, Auth, DashScopeAdapter, DeepgramAdapter, ElevenLabsAdapter,
+    AssemblyAIAdapter, Auth, CartesiaAdapter, DashScopeAdapter, DeepgramAdapter, ElevenLabsAdapter,
     FireworksAdapter, GladiaAdapter, MistralAdapter, Provider, RealtimeSttAdapter, SonioxAdapter,
     normalize_listen_params,
 };
@@ -44,6 +44,7 @@ fn build_upstream_url_with_adapter(
     match provider {
         Provider::Deepgram => DeepgramAdapter.build_ws_url(api_base, params, channels),
         Provider::AssemblyAI => AssemblyAIAdapter.build_ws_url(api_base, params, channels),
+        Provider::Cartesia => CartesiaAdapter.build_ws_url(api_base, params, channels),
         Provider::Soniox => SonioxAdapter.build_ws_url(api_base, params, channels),
         Provider::Fireworks => FireworksAdapter.build_ws_url(api_base, params, channels),
         Provider::OpenAI => unreachable!("openai only supports batch transcription"),
@@ -65,6 +66,7 @@ fn build_initial_message_with_adapter(
     let msg = match provider {
         Provider::Deepgram => DeepgramAdapter.initial_message(api_key, params, channels),
         Provider::AssemblyAI => AssemblyAIAdapter.initial_message(api_key, params, channels),
+        Provider::Cartesia => CartesiaAdapter.initial_message(api_key, params, channels),
         Provider::Soniox => SonioxAdapter.initial_message(api_key, params, channels),
         Provider::Fireworks => FireworksAdapter.initial_message(api_key, params, channels),
         Provider::OpenAI => unreachable!("openai only supports batch transcription"),
@@ -90,6 +92,7 @@ fn build_response_transformer(
         let responses: Vec<owhisper_interface::stream::StreamResponse> = match provider {
             Provider::Deepgram => DeepgramAdapter.parse_response(raw),
             Provider::AssemblyAI => AssemblyAIAdapter.parse_response(raw),
+            Provider::Cartesia => CartesiaAdapter.parse_response(raw),
             Provider::Soniox => SonioxAdapter.parse_response(raw),
             Provider::Fireworks => FireworksAdapter.parse_response(raw),
             Provider::OpenAI => unreachable!("openai only supports batch transcription"),

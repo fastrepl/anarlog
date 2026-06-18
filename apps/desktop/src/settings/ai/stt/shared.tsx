@@ -86,6 +86,14 @@ export const displayModelId = (model: string) => {
     return "Whisper 1";
   }
 
+  if (model === "ink-whisper") {
+    return "Ink Whisper";
+  }
+
+  if (model === "ink-2") {
+    return "Ink 2";
+  }
+
   if (model === "gpt-4o-transcribe") {
     return "GPT-4o Transcribe";
   }
@@ -187,6 +195,26 @@ const _PROVIDERS = [
     baseUrl: "https://api.openai.com/v1",
     models: ["gpt-4o-transcribe", "gpt-4o-mini-transcribe", "whisper-1"],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+  },
+  {
+    disabled: false,
+    id: "cartesia",
+    displayName: "Cartesia",
+    badge: null,
+    icon: <Icon icon="mingcute:voiceprint-fill" className="size-4" />,
+    baseUrl: "https://api.cartesia.ai",
+    models: ["ink-2"],
+    requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+    links: {
+      models: {
+        label: "Cartesia STT docs",
+        url: "https://docs.cartesia.ai/api-reference/stt/transcribe",
+      },
+      setup: {
+        label: "API keys",
+        url: "https://play.cartesia.ai/keys",
+      },
+    },
   },
   {
     disabled: false,

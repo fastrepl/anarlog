@@ -4,6 +4,7 @@ mod url_builder;
 mod aquavoice;
 mod argmax;
 pub(crate) mod assemblyai;
+pub(crate) mod cartesia;
 mod dashscope;
 pub mod deepgram;
 mod deepgram_compat;
@@ -24,6 +25,7 @@ mod whispercpp;
 pub use aquavoice::*;
 pub use argmax::*;
 pub use assemblyai::*;
+pub use cartesia::*;
 pub use dashscope::*;
 pub use deepgram::*;
 pub use elevenlabs::*;
@@ -92,6 +94,7 @@ pub fn documented_language_codes_live() -> Vec<String> {
     let mut codes = Vec::new();
 
     codes.extend(deepgram::documented_language_codes());
+    codes.extend(cartesia::documented_language_codes_live());
     codes.extend(soniox::documented_language_codes().iter().copied());
     codes.extend(gladia::documented_language_codes().iter().copied());
     codes.extend(assemblyai::documented_language_codes_live().iter().copied());
@@ -104,6 +107,7 @@ pub fn documented_language_codes_live() -> Vec<String> {
 pub fn documented_language_codes_batch() -> Vec<String> {
     let mut codes = Vec::new();
 
+    codes.extend(cartesia::documented_language_codes_batch());
     codes.extend(deepgram::documented_language_codes());
     codes.extend(soniox::documented_language_codes().iter().copied());
     codes.extend(gladia::documented_language_codes().iter().copied());
@@ -396,6 +400,8 @@ pub fn append_provider_param(base_url: &str, provider: &str) -> String {
 pub enum AdapterKind {
     #[strum(serialize = "aquavoice")]
     AquaVoice,
+    #[strum(serialize = "cartesia")]
+    Cartesia,
     #[strum(serialize = "argmax")]
     Argmax,
     #[strum(serialize = "soniox")]
@@ -447,6 +453,7 @@ impl AdapterKind {
         match self {
             Self::AquaVoice | Self::Argmax | Self::OpenAI | Self::Pyannote => false,
             Self::Soniox
+            | Self::Cartesia
             | Self::Fireworks
             | Self::Deepgram
             | Self::AssemblyAI
@@ -465,6 +472,7 @@ impl AdapterKind {
     ) -> LanguageSupport {
         match self {
             Self::AquaVoice => LanguageSupport::NotSupported,
+            Self::Cartesia => CartesiaAdapter::language_support_live(languages),
             Self::Deepgram => {
                 let model = model.and_then(|m| m.parse::<deepgram::DeepgramModel>().ok());
                 DeepgramAdapter::language_support_live(languages, model)
@@ -490,6 +498,7 @@ impl AdapterKind {
     ) -> LanguageSupport {
         match self {
             Self::AquaVoice => AquaVoiceAdapter::language_support_batch(languages),
+            Self::Cartesia => CartesiaAdapter::language_support_batch(languages),
             Self::Deepgram => {
                 let model = model.and_then(|m| m.parse::<deepgram::DeepgramModel>().ok());
                 DeepgramAdapter::language_support_batch(languages, model)
@@ -550,6 +559,7 @@ impl From<crate::providers::Provider> for AdapterKind {
         use crate::providers::Provider;
         match p {
             Provider::AquaVoice => Self::AquaVoice,
+            Provider::Cartesia => Self::Cartesia,
             Provider::Deepgram => Self::Deepgram,
             Provider::AssemblyAI => Self::AssemblyAI,
             Provider::Soniox => Self::Soniox,

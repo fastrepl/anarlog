@@ -8,9 +8,9 @@ use axum::{
 };
 use backon::{ExponentialBuilder, Retryable};
 use owhisper_client::{
-    AquaVoiceAdapter, AssemblyAIAdapter, BatchClient, DeepgramAdapter, ElevenLabsAdapter,
-    FireworksAdapter, GladiaAdapter, MistralAdapter, OpenAIAdapter, Provider, PyannoteAdapter,
-    SonioxAdapter,
+    AquaVoiceAdapter, AssemblyAIAdapter, BatchClient, CartesiaAdapter, DeepgramAdapter,
+    ElevenLabsAdapter, FireworksAdapter, GladiaAdapter, MistralAdapter, OpenAIAdapter, Provider,
+    PyannoteAdapter, SonioxAdapter,
 };
 use owhisper_interface::ListenParams;
 use owhisper_interface::batch::Response as BatchResponse;
@@ -287,6 +287,7 @@ pub(super) async fn transcribe_with_provider(
     let result = match provider {
         Provider::Deepgram => batch_transcribe!(DeepgramAdapter),
         Provider::AssemblyAI => batch_transcribe!(AssemblyAIAdapter),
+        Provider::Cartesia => batch_transcribe!(CartesiaAdapter),
         Provider::Soniox => batch_transcribe!(SonioxAdapter),
         Provider::OpenAI => batch_transcribe!(OpenAIAdapter),
         Provider::Gladia => batch_transcribe!(GladiaAdapter),

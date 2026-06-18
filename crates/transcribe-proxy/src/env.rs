@@ -8,6 +8,8 @@ pub struct SttApiKeysEnv {
     #[serde(default)]
     pub deepgram_api_key: Option<String>,
     #[serde(default)]
+    pub cartesia_api_key: Option<String>,
+    #[serde(default)]
     pub assemblyai_api_key: Option<String>,
     #[serde(default)]
     pub soniox_api_key: Option<String>,
@@ -65,6 +67,9 @@ impl From<&SttApiKeysEnv> for ApiKeys {
         let mut map = HashMap::new();
         if let Some(key) = env.deepgram_api_key.as_ref().filter(|s| !s.is_empty()) {
             map.insert(Provider::Deepgram, key.clone());
+        }
+        if let Some(key) = env.cartesia_api_key.as_ref().filter(|s| !s.is_empty()) {
+            map.insert(Provider::Cartesia, key.clone());
         }
         if let Some(key) = env.assemblyai_api_key.as_ref().filter(|s| !s.is_empty()) {
             map.insert(Provider::AssemblyAI, key.clone());

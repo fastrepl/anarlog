@@ -1,4 +1,5 @@
 use crate::adapter::assemblyai;
+use crate::adapter::cartesia;
 use crate::adapter::deepgram;
 use crate::adapter::elevenlabs;
 use crate::adapter::soniox;
@@ -68,6 +69,8 @@ impl Auth {
 pub enum Provider {
     #[strum(serialize = "aquavoice")]
     AquaVoice,
+    #[strum(serialize = "cartesia")]
+    Cartesia,
     #[strum(serialize = "deepgram")]
     Deepgram,
     #[strum(serialize = "assemblyai")]
@@ -91,8 +94,9 @@ pub enum Provider {
 }
 
 impl Provider {
-    const ALL: [Provider; 11] = [
+    const ALL: [Provider; 12] = [
         Self::AquaVoice,
+        Self::Cartesia,
         Self::Deepgram,
         Self::AssemblyAI,
         Self::Soniox,
@@ -114,6 +118,10 @@ impl Provider {
             Self::AquaVoice => Auth::Header {
                 name: "Authorization",
                 prefix: Some("Bearer "),
+            },
+            Self::Cartesia => Auth::Header {
+                name: "X-API-Key",
+                prefix: None,
             },
             Self::Deepgram => Auth::Header {
                 name: "Authorization",
@@ -167,6 +175,7 @@ impl Provider {
     pub fn default_api_host(&self) -> &'static str {
         match self {
             Self::AquaVoice => "api.aquavoice.com",
+            Self::Cartesia => "api.cartesia.ai",
             Self::Deepgram => "api.deepgram.com",
             Self::AssemblyAI => "api.assemblyai.com",
             Self::Soniox => "api.soniox.com",
@@ -183,6 +192,7 @@ impl Provider {
     pub fn default_ws_host(&self) -> &'static str {
         match self {
             Self::AquaVoice => "api.aquavoice.com",
+            Self::Cartesia => "api.cartesia.ai",
             Self::Deepgram => "api.deepgram.com",
             Self::AssemblyAI => "streaming.assemblyai.com",
             Self::Soniox => "stt-rt.soniox.com",
@@ -199,6 +209,7 @@ impl Provider {
     pub fn ws_path(&self) -> &'static str {
         match self {
             Self::AquaVoice => "",
+            Self::Cartesia => "/stt/turns/websocket",
             Self::Deepgram => "/v1/listen",
             Self::AssemblyAI => "/v3/ws",
             Self::Soniox => "/transcribe-websocket",
@@ -215,6 +226,7 @@ impl Provider {
     pub fn default_api_url(&self) -> Option<&'static str> {
         match self {
             Self::AquaVoice => None,
+            Self::Cartesia => None,
             Self::Deepgram => None,
             Self::AssemblyAI => Some("https://api.assemblyai.com/v2"),
             Self::Soniox => None,
@@ -231,6 +243,7 @@ impl Provider {
     pub fn default_api_base(&self) -> &'static str {
         match self {
             Self::AquaVoice => "https://api.aquavoice.com/api/v1",
+            Self::Cartesia => "https://api.cartesia.ai",
             Self::Deepgram => "https://api.deepgram.com/v1",
             Self::AssemblyAI => "https://api.assemblyai.com/v2",
             Self::Soniox => "https://api.soniox.com",
@@ -247,6 +260,7 @@ impl Provider {
     pub fn domain(&self) -> &'static str {
         match self {
             Self::AquaVoice => "aquavoice.com",
+            Self::Cartesia => "cartesia.ai",
             Self::Deepgram => "deepgram.com",
             Self::AssemblyAI => "assemblyai.com",
             Self::Soniox => "soniox.com",
@@ -281,6 +295,7 @@ impl Provider {
     pub fn env_key_name(&self) -> &'static str {
         match self {
             Self::AquaVoice => "AQUAVOICE_API_KEY",
+            Self::Cartesia => "CARTESIA_API_KEY",
             Self::Deepgram => "DEEPGRAM_API_KEY",
             Self::AssemblyAI => "ASSEMBLYAI_API_KEY",
             Self::Soniox => "SONIOX_API_KEY",
@@ -297,6 +312,7 @@ impl Provider {
     pub fn default_live_model(&self) -> &'static str {
         match self {
             Self::AquaVoice => "avalon-v1-en",
+            Self::Cartesia => "ink-2",
             Self::Deepgram => "nova-3",
             Self::Soniox => "stt-rt-v5",
             Self::AssemblyAI => "u3-rt-pro",
@@ -322,6 +338,7 @@ impl Provider {
     pub fn default_batch_model(&self) -> &'static str {
         match self {
             Self::AquaVoice => "avalon-v1-en",
+            Self::Cartesia => cartesia::DEFAULT_MODEL,
             Self::Deepgram => "nova-3",
             Self::Soniox => "stt-async-v5",
             Self::AssemblyAI => "universal-3-pro",
@@ -348,6 +365,7 @@ impl Provider {
         match self {
             Self::Deepgram | Self::Gladia => true,
             Self::AquaVoice
+            | Self::Cartesia
             | Self::Soniox
             | Self::AssemblyAI
             | Self::Fireworks
@@ -362,6 +380,7 @@ impl Provider {
     pub fn control_message_types(&self) -> &'static [&'static str] {
         match self {
             Self::AquaVoice => &[],
+            Self::Cartesia => &[],
             Self::Deepgram => &["KeepAlive", "CloseStream", "Finalize"],
             Self::AssemblyAI => &["Terminate"],
             Self::Soniox => &["keepalive", "finalize"],
@@ -388,7 +407,7 @@ impl Provider {
                     "words_accurate_timestamps": true
                 }
             })),
-            Self::AquaVoice | Self::Mistral | Self::Pyannote => None,
+            Self::AquaVoice | Self::Cartesia | Self::Mistral | Self::Pyannote => None,
             _ => None,
         }
     }
@@ -426,6 +445,7 @@ impl Provider {
             Self::DashScope => from_adapter(&crate::adapter::DashScopeAdapter, msg),
             Self::Mistral => from_adapter(&crate::adapter::MistralAdapter::default(), msg),
             Self::AquaVoice => None,
+            Self::Cartesia => from_adapter(&crate::adapter::CartesiaAdapter, msg),
             Self::OpenAI => None,
             Self::Pyannote => None,
         }
@@ -438,6 +458,7 @@ impl Provider {
             Self::ElevenLabs => elevenlabs::error::detect_error(data),
             Self::AssemblyAI => assemblyai::error::detect_error(data),
             Self::AquaVoice
+            | Self::Cartesia
             | Self::Fireworks
             | Self::OpenAI
             | Self::Gladia

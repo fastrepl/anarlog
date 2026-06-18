@@ -36,6 +36,7 @@ type Store = NonNullable<ReturnType<typeof main.UI.useStore>>;
 
 const DIRECT_BATCH_PROVIDERS: Set<TranscriptionParams["provider"]> = new Set([
   "deepgram",
+  "cartesia",
   "soniox",
   "assemblyai",
   "openai",

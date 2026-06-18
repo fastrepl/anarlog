@@ -132,6 +132,10 @@ describe("getBatchProvider", () => {
     expect(getBatchProvider("openai", "gpt-4o-transcribe")).toBe("openai");
   });
 
+  test("keeps cartesia mapped to the batch transcription provider", () => {
+    expect(getBatchProvider("cartesia", "ink-2")).toBe("cartesia");
+  });
+
   test("maps Cloudflare Workers AI to the Deepgram-compatible batch provider", () => {
     expect(getBatchProvider("cloudflare_workers_ai", "nova-3")).toBe(
       "deepgram",

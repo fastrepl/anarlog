@@ -105,6 +105,7 @@ pub fn env_with_provider(provider: Provider, api_key: String) -> transcribe_prox
     let mut env = transcribe_proxy::Env::default();
     match provider {
         Provider::Deepgram => env.stt.deepgram_api_key = Some(api_key),
+        Provider::Cartesia => env.stt.cartesia_api_key = Some(api_key),
         Provider::AssemblyAI => env.stt.assemblyai_api_key = Some(api_key),
         Provider::Soniox => env.stt.soniox_api_key = Some(api_key),
         Provider::Fireworks => env.stt.fireworks_api_key = Some(api_key),

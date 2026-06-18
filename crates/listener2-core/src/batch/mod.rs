@@ -34,6 +34,7 @@ pub enum BatchProvider {
     Am,
     Soniqo,
     AquaVoice,
+    Cartesia,
 }
 
 impl BatchProvider {
@@ -51,6 +52,7 @@ impl BatchProvider {
             Self::Mistral => Some(AdapterKind::Mistral),
             Self::Hyprnote => Some(AdapterKind::Hyprnote),
             Self::AquaVoice => Some(AdapterKind::AquaVoice),
+            Self::Cartesia => Some(AdapterKind::Cartesia),
             Self::Am | Self::WhisperLocal | Self::Soniqo | Self::DashScope => None,
         }
     }
