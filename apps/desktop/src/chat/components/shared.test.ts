@@ -22,4 +22,14 @@ describe("hasRenderableContent", () => {
       }),
     ).toBe(true);
   });
+
+  test("returns false for blank text-only messages", () => {
+    expect(
+      hasRenderableContent({
+        id: "message-3",
+        role: "assistant",
+        parts: [{ type: "text", text: " " }],
+      }),
+    ).toBe(false);
+  });
 });

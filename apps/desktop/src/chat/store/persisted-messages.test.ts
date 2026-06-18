@@ -5,6 +5,7 @@ import {
   normalizeChatMessageStatus,
   rowToPersistedChatMessage,
   shouldHidePersistedMessage,
+  shouldPersistFinishedMessage,
 } from "./persisted-messages";
 
 import type { HyprUIMessage } from "~/chat/types";
@@ -63,7 +64,7 @@ describe("persisted chat messages", () => {
     });
   });
 
-  test("hides only empty streaming assistant messages", () => {
+  test("hides empty assistant messages regardless of status", () => {
     expect(
       shouldHidePersistedMessage(
         rowToPersistedChatMessage("assistant-1", {
@@ -75,6 +76,21 @@ describe("persisted chat messages", () => {
           metadata: "{}",
           parts: "[]",
           status: "streaming",
+        }),
+      ),
+    ).toBe(true);
+
+    expect(
+      shouldHidePersistedMessage(
+        rowToPersistedChatMessage("assistant-ready", {
+          user_id: "user-1",
+          created_at: "2024-01-01T00:00:01.000Z",
+          chat_group_id: "group-1",
+          role: "assistant",
+          content: "",
+          metadata: "{}",
+          parts: "[]",
+          status: "ready",
         }),
       ),
     ).toBe(true);
@@ -93,5 +109,23 @@ describe("persisted chat messages", () => {
         }),
       ),
     ).toBe(false);
+  });
+
+  test("does not persist empty finished assistant messages", () => {
+    expect(
+      shouldPersistFinishedMessage({
+        id: "assistant-empty",
+        role: "assistant",
+        parts: [],
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldPersistFinishedMessage({
+        id: "assistant-text",
+        role: "assistant",
+        parts: [{ type: "text", text: "Done" }],
+      }),
+    ).toBe(true);
   });
 });

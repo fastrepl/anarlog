@@ -6,6 +6,7 @@ import type { ChatMessageStatus } from "@hypr/store";
 
 import type { ChatJson, LoadedChatData } from "./types";
 
+import { hasRenderableParts } from "~/chat/message-content";
 import {
   CHAT_MESSAGES_FILE,
   err,
@@ -43,6 +44,30 @@ function normalizeLoadedChatMessage(
   };
 }
 
+function parseMessageParts(parts: unknown): unknown {
+  if (typeof parts !== "string") {
+    return parts;
+  }
+
+  try {
+    return JSON.parse(parts);
+  } catch {
+    return [];
+  }
+}
+
+function shouldLoadChatMessage(message: Record<string, unknown>): boolean {
+  if (message.role !== "assistant") {
+    return true;
+  }
+
+  const content = typeof message.content === "string" ? message.content : "";
+  return (
+    content.trim().length > 0 ||
+    hasRenderableParts(parseMessageParts(message.parts))
+  );
+}
+
 export function chatJsonToData(json: ChatJson): LoadedChatData {
   const result: LoadedChatData = {
     chat_groups: {},
@@ -54,6 +79,9 @@ export function chatJsonToData(json: ChatJson): LoadedChatData {
 
   for (const message of json.messages) {
     const { id: messageId, ...messageData } = message;
+    if (!shouldLoadChatMessage(messageData)) {
+      continue;
+    }
     result.chat_messages[messageId] = normalizeLoadedChatMessage(
       messageData,
     ) as LoadedChatData["chat_messages"][string];

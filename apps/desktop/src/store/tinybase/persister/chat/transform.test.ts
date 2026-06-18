@@ -117,6 +117,44 @@ describe("chatJsonToData", () => {
     expect(data.chat_messages["msg-2"]?.status).toBe("aborted");
   });
 
+  test("skips empty assistant placeholders", () => {
+    const data = chatJsonToData({
+      chat_group: {
+        id: "group-1",
+        user_id: "user-1",
+        created_at: "2024-01-01T00:00:00Z",
+        title: "Test Chat",
+      },
+      messages: [
+        {
+          id: "msg-user",
+          user_id: "user-1",
+          created_at: "2024-01-01T00:00:01Z",
+          chat_group_id: "group-1",
+          role: "user",
+          content: "Hello",
+          metadata: "{}",
+          parts: '[{"type":"text","text":"Hello"}]',
+          ...readyMessage,
+        },
+        {
+          id: "msg-empty-assistant",
+          user_id: "user-1",
+          created_at: "2024-01-01T00:00:02Z",
+          chat_group_id: "group-1",
+          role: "assistant",
+          content: "",
+          metadata: "{}",
+          parts: "[]",
+          ...readyMessage,
+        },
+      ],
+    });
+
+    expect(data.chat_messages["msg-user"]).toBeDefined();
+    expect(data.chat_messages["msg-empty-assistant"]).toBeUndefined();
+  });
+
   test("handles empty messages array", () => {
     const json: ChatJson = {
       chat_group: {

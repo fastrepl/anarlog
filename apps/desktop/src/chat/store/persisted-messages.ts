@@ -1,5 +1,6 @@
 import type { ChatMessageStatus, ChatMessageStorage } from "@hypr/store";
 
+import { hasRenderableContent } from "~/chat/message-content";
 import type { HyprUIMessage } from "~/chat/types";
 import * as main from "~/store/tinybase/store/main";
 
@@ -141,9 +142,13 @@ export function getPersistedChatMessages(
 export function shouldHidePersistedMessage(message: PersistedChatMessage) {
   return (
     message.message.role === "assistant" &&
-    message.status === "streaming" &&
-    message.message.parts.length === 0
+    !hasRenderableContent(message.message) &&
+    !(message.row.content ?? "").trim()
   );
+}
+
+export function shouldPersistFinishedMessage(message: HyprUIMessage): boolean {
+  return message.role !== "assistant" || hasRenderableContent(message);
 }
 
 export function getVisibleChatMessages(

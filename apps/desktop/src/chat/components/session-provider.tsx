@@ -18,6 +18,7 @@ import {
   buildPersistedChatMessageRow,
   getPersistedChatMessages,
   getVisibleChatMessages,
+  shouldPersistFinishedMessage,
 } from "~/chat/store/persisted-messages";
 import { stripEphemeralToolContext } from "~/chat/tools/strip-ephemeral-tool-context";
 import { useTransport } from "~/chat/transport/use-transport";
@@ -117,6 +118,10 @@ export function ChatSession({
         sanitizedParts === message.parts
           ? message
           : { ...message, parts: sanitizedParts };
+      if (!shouldPersistFinishedMessage(sanitizedMessage)) {
+        store.delRow("chat_messages", sanitizedMessage.id);
+        return;
+      }
       store.setRow(
         "chat_messages",
         sanitizedMessage.id,
@@ -142,12 +147,16 @@ export function ChatSession({
 
   const regenerate = useCallback(() => {
     if (!store || !chatGroupId) return;
-    const last = [...getPersistedChatMessages(store, chatGroupId)]
-      .reverse()
-      .find((m) => m.message.role === "assistant");
-    if (last) store.delRow("chat_messages", last.id);
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role !== "assistant") {
+        continue;
+      }
+
+      store.delRow("chat_messages", messages[i].id);
+      break;
+    }
     void chatRegenerate();
-  }, [store, chatGroupId, chatRegenerate]);
+  }, [store, chatGroupId, messages, chatRegenerate]);
 
   const setMessages = useCallback(
     (next: HyprUIMessage[] | ((prev: HyprUIMessage[]) => HyprUIMessage[])) => {
