@@ -85,12 +85,9 @@ export function useSessionBottomAccessory({
   });
   const hasPastNotes = pastNotes.hasPastNotes;
   const generateMissingPastNotes = pastNotes.generateMissing;
-  const regeneratePastNote = pastNotes.canGenerate
-    ? pastNotes.regenerate
-    : undefined;
   const activePostSessionTab: PostSessionTab =
     hasPastNotes && !canShowTranscriptTab
-      ? "past_notes"
+      ? "insights"
       : hasPastNotes
         ? (postSessionTab ?? "transcript")
         : "transcript";
@@ -122,7 +119,7 @@ export function useSessionBottomAccessory({
   const selectPostSessionTab = useCallback(
     (tab: PostSessionTab) => {
       const shouldExpand = activePostSessionTab !== tab || !isExpanded;
-      if (tab === "past_notes" && shouldExpand) {
+      if (tab === "insights" && shouldExpand) {
         generateMissingPastNotes();
       }
 
@@ -195,7 +192,9 @@ export function useSessionBottomAccessory({
           isTranscriptExpanded={isExpanded}
           activeTab={activePostSessionTab}
           pastNotes={pastNotes.notes}
-          onRegeneratePastNote={regeneratePastNote}
+          onRegenerateInsights={
+            pastNotes.canGenerate ? pastNotes.regenerateAll : undefined
+          }
           fillHeight={isExpanded}
         />
       ) : null,
@@ -250,8 +249,8 @@ function PostSessionTabHandle({
         />
       ) : null}
       <PostSessionTabButton
-        label="Related meetings"
-        tab="past_notes"
+        label="Insights"
+        tab="insights"
         activeTab={activeTab}
         isExpanded={isExpanded}
         onSelect={onSelect}

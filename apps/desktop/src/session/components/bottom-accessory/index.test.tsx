@@ -34,7 +34,7 @@ const hoisted = vi.hoisted(() => ({
   }>,
   batch: {} as Record<string, { error: string | null }>,
   generateMissingPastNotes: vi.fn(),
-  regeneratePastNote: vi.fn(),
+  regenerateInsights: vi.fn(),
 }));
 
 vi.mock("react-hotkeys-hook", () => ({
@@ -64,7 +64,8 @@ vi.mock("./past-notes", () => ({
     isGenerating: false,
     canGenerate: true,
     generateMissing: hoisted.generateMissingPastNotes,
-    regenerate: hoisted.regeneratePastNote,
+    regenerate: vi.fn(),
+    regenerateAll: hoisted.regenerateInsights,
   }),
 }));
 
@@ -107,7 +108,7 @@ describe("useSessionBottomAccessory", () => {
     hoisted.pastNotes = [];
     hoisted.batch = {};
     hoisted.generateMissingPastNotes.mockClear();
-    hoisted.regeneratePastNote.mockClear();
+    hoisted.regenerateInsights.mockClear();
     useShellMock.mockReturnValue({
       chat: {
         mode: "Closed",
@@ -246,7 +247,7 @@ describe("useSessionBottomAccessory", () => {
     expect(result.current.bottomAccessory).toBeNull();
   });
 
-  it("generates missing past note facts when the past notes tab opens", () => {
+  it("generates missing insights when the insights tab opens", () => {
     hoisted.pastNotes = [
       {
         sessionId: "past-session",
@@ -268,14 +269,14 @@ describe("useSessionBottomAccessory", () => {
 
     const handle = result.current.bottomBorderHandle;
     expect(
-      isValidElement<{ onSelect: (tab: "past_notes") => void }>(handle),
+      isValidElement<{ onSelect: (tab: "insights") => void }>(handle),
     ).toBe(true);
-    if (!isValidElement<{ onSelect: (tab: "past_notes") => void }>(handle)) {
+    if (!isValidElement<{ onSelect: (tab: "insights") => void }>(handle)) {
       return;
     }
 
     act(() => {
-      handle.props.onSelect("past_notes");
+      handle.props.onSelect("insights");
     });
 
     expect(hoisted.generateMissingPastNotes).toHaveBeenCalledTimes(1);
@@ -285,7 +286,7 @@ describe("useSessionBottomAccessory", () => {
     });
   });
 
-  it("uses related meetings as the only tab when there is no transcript content", () => {
+  it("uses insights as the only tab when there is no transcript content", () => {
     hoisted.pastNotes = [
       {
         sessionId: "past-session",
@@ -314,9 +315,7 @@ describe("useSessionBottomAccessory", () => {
 
     expect(screen.queryByRole("button", { name: /Transcript/ })).toBeNull();
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Expand Related meetings" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Expand Insights" }));
 
     expect(hoisted.generateMissingPastNotes).toHaveBeenCalledTimes(1);
     expect(result.current.bottomAccessoryState).toEqual({
@@ -379,7 +378,7 @@ describe("useSessionBottomAccessory", () => {
       screen.getByRole("button", { name: "Expand Transcript" }),
     ).not.toBeNull();
     expect(
-      screen.getByRole("button", { name: "Expand Related meetings" }),
+      screen.getByRole("button", { name: "Expand Insights" }),
     ).not.toBeNull();
   });
 

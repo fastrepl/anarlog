@@ -447,19 +447,20 @@ describe("PostSessionAccessory", () => {
     expect(screen.queryByTestId("transcript")).toBeNull();
   });
 
-  it("renders the past notes timeline when the past notes tab is active", () => {
+  it("renders compiled insights when the insights tab is active", () => {
     render(
       <PostSessionAccessory
         sessionId="session-1"
         hasAudio={false}
         hasTranscript
         isTranscriptExpanded
-        activeTab="past_notes"
+        activeTab="insights"
         pastNotes={[
           {
             sessionId: "session-0",
             title: "Weekly Product Sync",
             dateLabel: "May 28, 2026",
+            participantNames: ["Alex", "Jamie"],
             summary:
               "- Ship the transcript panel.\nRevisit visual polish next week.\n3. Confirm keyboard behavior.\nDo not show this fourth fact.",
             isGenerating: false,
@@ -468,14 +469,11 @@ describe("PostSessionAccessory", () => {
       />,
     );
 
-    expect(screen.getByText("Related meetings")).toBeTruthy();
-    const title = screen.getByText("Weekly Product Sync");
-    const date = screen.getByText("May 28, 2026");
-    expect(title).toBeTruthy();
-    expect(date).toBeTruthy();
-    expect(date.compareDocumentPosition(title)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
-    );
+    expect(screen.getByText("Insights")).toBeTruthy();
+    expect(screen.getByText("Alex")).toBeTruthy();
+    expect(screen.getByText("Jamie")).toBeTruthy();
+    expect(screen.queryByText("Weekly Product Sync")).toBeNull();
+    expect(screen.queryByText("May 28, 2026")).toBeNull();
     const factsList = screen.getByRole("list");
     expect(factsList.className).toContain("list-disc");
     expect(factsList.className).not.toContain("list-inside");
@@ -629,6 +627,7 @@ describe("PostSessionAccessory", () => {
         sessionId: "previous",
         title: "Weekly Product Sync",
         dateLabel: "May 28, 2026",
+        participantNames: ["alex", "jamie"],
         summary: null,
         isGenerating: false,
       },
@@ -636,6 +635,7 @@ describe("PostSessionAccessory", () => {
         sessionId: "same_title",
         title: "Weekly Product Sync",
         dateLabel: "May 27, 2026",
+        participantNames: ["alex", "jamie"],
         summary: null,
         isGenerating: false,
       },
@@ -748,6 +748,7 @@ describe("PostSessionAccessory", () => {
         sessionId: "previous",
         title: "Weekly Product Sync",
         dateLabel: "May 28, 2026",
+        participantNames: ["alex"],
         summary: "Alex committed to send pricing by Friday.",
         isGenerating: false,
       },

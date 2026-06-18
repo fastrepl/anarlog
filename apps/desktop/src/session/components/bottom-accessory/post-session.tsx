@@ -31,7 +31,9 @@ import { showTransientToast } from "~/sidebar/toast/transient";
 import { useListener } from "~/stt/contexts";
 import { isStoppedTranscriptionError, useRunBatch } from "~/stt/useRunBatch";
 
-export type PostSessionTab = "transcript" | "past_notes";
+export type PostSessionTab = "transcript" | "insights";
+
+const MAX_COMPILED_INSIGHTS = 12;
 
 export function PostSessionAccessory({
   sessionId,
@@ -40,7 +42,7 @@ export function PostSessionAccessory({
   isTranscriptExpanded,
   activeTab = "transcript",
   pastNotes = [],
-  onRegeneratePastNote,
+  onRegenerateInsights,
   fillHeight = false,
 }: {
   sessionId: string;
@@ -49,18 +51,18 @@ export function PostSessionAccessory({
   isTranscriptExpanded: boolean;
   activeTab?: PostSessionTab;
   pastNotes?: PastSessionNote[];
-  onRegeneratePastNote?: (sessionId: string) => void;
+  onRegenerateInsights?: () => void;
   fillHeight?: boolean;
 }) {
   const screen = useTranscriptScreen({ sessionId });
   const isBatching = screen.kind === "running_batch";
   const effectiveActiveTab =
-    activeTab === "past_notes" && pastNotes.length > 0
-      ? "past_notes"
+    activeTab === "insights" && pastNotes.length > 0
+      ? "insights"
       : "transcript";
   const shouldFillExpandedPanel =
     fillHeight &&
-    (effectiveActiveTab === "past_notes" || hasTranscript || isBatching);
+    (effectiveActiveTab === "insights" || hasTranscript || isBatching);
   const timeline = isBatching ? (
     <BatchProgressTimeline sessionId={sessionId} screen={screen} />
   ) : hasAudio && isTranscriptExpanded ? (
@@ -86,10 +88,10 @@ export function PostSessionAccessory({
               : "shrink-0",
           ])}
         >
-          {effectiveActiveTab === "past_notes" ? (
-            <PastNotesPanel
+          {effectiveActiveTab === "insights" ? (
+            <InsightsPanel
               notes={pastNotes}
-              onRegenerateNote={onRegeneratePastNote}
+              onRegenerateInsights={onRegenerateInsights}
               fillHeight={shouldFillExpandedPanel}
             />
           ) : (
@@ -130,21 +132,35 @@ function TimelineSlot({
   );
 }
 
-function PastNotesPanel({
+function InsightsPanel({
   notes,
-  onRegenerateNote,
+  onRegenerateInsights,
   fillHeight,
 }: {
   notes: PastSessionNote[];
-  onRegenerateNote?: (sessionId: string) => void;
+  onRegenerateInsights?: () => void;
   fillHeight: boolean;
 }) {
+  const participantNames = getCompiledParticipantNames(notes);
+  const insightFacts = getCompiledInsightFacts(notes);
+  const isGenerating = notes.some((note) => note.isGenerating);
+  const isRegenerateDisabled =
+    notes.length === 0 ||
+    notes.some((note) => note.isGenerating || note.isRegenerateDisabled);
+
   return (
     <TranscriptCard fillHeight={fillHeight}>
       <div className="flex shrink-0 items-center justify-between px-3 py-1.5">
         <span className="text-muted-foreground text-xs font-medium">
-          Related meetings
+          Insights
         </span>
+        {onRegenerateInsights ? (
+          <RegenerateInsightsButton
+            isDisabled={isRegenerateDisabled}
+            isGenerating={isGenerating}
+            onClick={onRegenerateInsights}
+          />
+        ) : null}
       </div>
 
       <div
@@ -153,52 +169,44 @@ function PastNotesPanel({
           fillHeight ? "flex-1" : "max-h-[300px]",
         ])}
       >
-        <div className="relative flex flex-col gap-4 pt-2">
-          <div className="bg-accent absolute top-2 bottom-0 left-[3px] w-px" />
-          {notes.map((note) => (
-            <div
-              key={note.sessionId}
-              className="relative grid min-w-0 grid-cols-1 pl-5"
-            >
-              <div className="border-border bg-card absolute top-1.5 left-0 h-2 w-2 rounded-full border" />
-              <div className="flex min-w-0 flex-col gap-1">
-                <div className="flex min-w-0 items-center justify-between gap-2">
-                  <div className="flex min-w-0 items-baseline gap-2">
-                    <span className="text-muted-foreground shrink-0 text-[11px]">
-                      {note.dateLabel}
-                    </span>
-                    <span className="text-muted-foreground min-w-0 truncate text-xs font-medium">
-                      {note.title}
-                    </span>
-                  </div>
-                  {onRegenerateNote ? (
-                    <RegeneratePastNoteButton
-                      isDisabled={
-                        note.isGenerating || note.isRegenerateDisabled === true
-                      }
-                      isGenerating={note.isGenerating}
-                      onClick={() => onRegenerateNote(note.sessionId)}
-                    />
-                  ) : null}
-                </div>
-                {note.summary ? (
-                  <ul className="text-muted-foreground min-w-0 list-disc space-y-1 pr-1 pl-5 text-xs leading-5">
-                    {splitKeyFacts(note.summary).map((fact) => (
-                      <li key={fact} className="min-w-0 break-words">
-                        {fact}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-muted-foreground text-xs leading-5">
-                    {note.isGenerating
-                      ? "Generating key facts..."
-                      : "Key facts will be generated when this tab opens."}
-                  </p>
-                )}
-              </div>
+        <div className="flex min-w-0 flex-col gap-3 pt-2">
+          {participantNames.length > 0 ? (
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+              <span className="text-muted-foreground mr-0.5 text-[11px] font-medium">
+                With
+              </span>
+              {participantNames.map((participantName) => (
+                <span
+                  key={participantName}
+                  className="border-border bg-accent/35 text-muted-foreground max-w-full truncate rounded-full border px-2 py-0.5 text-[11px] leading-4"
+                >
+                  {participantName}
+                </span>
+              ))}
             </div>
-          ))}
+          ) : null}
+
+          {insightFacts.length > 0 ? (
+            <ul className="text-muted-foreground min-w-0 list-disc space-y-1.5 pr-1 pl-5 text-xs leading-5">
+              {insightFacts.map((fact) => (
+                <li key={fact.key} className="min-w-0 break-words">
+                  {fact.text}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-muted-foreground text-xs leading-5">
+              {isGenerating
+                ? "Generating insights..."
+                : "Insights will be generated when this tab opens."}
+            </p>
+          )}
+
+          {insightFacts.length > 0 && isGenerating ? (
+            <p className="text-muted-foreground text-xs leading-5">
+              Updating insights...
+            </p>
+          ) : null}
         </div>
       </div>
     </TranscriptCard>
@@ -218,7 +226,55 @@ function splitKeyFacts(content: string): string[] {
     .slice(0, 3);
 }
 
-function RegeneratePastNoteButton({
+function getCompiledParticipantNames(notes: PastSessionNote[]): string[] {
+  const seen = new Set<string>();
+  const names: string[] = [];
+
+  for (const note of notes) {
+    for (const participantName of note.participantNames ?? []) {
+      const text = participantName.trim();
+      const key = text.toLowerCase();
+      if (!text || seen.has(key)) {
+        continue;
+      }
+
+      seen.add(key);
+      names.push(text);
+    }
+  }
+
+  return names.sort((a, b) => a.localeCompare(b));
+}
+
+function getCompiledInsightFacts(
+  notes: PastSessionNote[],
+): Array<{ key: string; text: string }> {
+  const seen = new Set<string>();
+  const facts: Array<{ key: string; text: string }> = [];
+
+  for (const note of notes) {
+    if (!note.summary) {
+      continue;
+    }
+
+    for (const fact of splitKeyFacts(note.summary)) {
+      const key = fact.toLowerCase();
+      if (seen.has(key)) {
+        continue;
+      }
+
+      seen.add(key);
+      facts.push({ key: `${note.sessionId}-${key}`, text: fact });
+      if (facts.length >= MAX_COMPILED_INSIGHTS) {
+        return facts;
+      }
+    }
+  }
+
+  return facts;
+}
+
+function RegenerateInsightsButton({
   isDisabled,
   isGenerating,
   onClick,
@@ -234,7 +290,7 @@ function RegeneratePastNoteButton({
           type="button"
           variant="ghost"
           size="icon"
-          aria-label="Regenerate past note summary"
+          aria-label="Regenerate insights"
           disabled={isDisabled}
           onClick={onClick}
           className={cn([
@@ -251,11 +307,7 @@ function RegeneratePastNoteButton({
         </Button>
       </TooltipTrigger>
       <TooltipContent side="bottom">
-        <p>
-          {isGenerating
-            ? "Regenerating past note summary"
-            : "Regenerate past note summary"}
-        </p>
+        <p>{isGenerating ? "Regenerating insights" : "Regenerate insights"}</p>
       </TooltipContent>
     </Tooltip>
   );

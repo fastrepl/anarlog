@@ -22,6 +22,7 @@ export type PastSessionNote = {
   sessionId: string;
   title: string;
   dateLabel: string;
+  participantNames?: string[];
   summary: string | null;
   isGenerating: boolean;
   isRegenerateDisabled?: boolean;
@@ -34,6 +35,7 @@ export type PastSessionNoteRequest = {
   dateLabel: string;
   sourceText: string;
   sourceHash: string;
+  participantNames: string[];
 };
 
 export type PastSessionNotesResult = {
@@ -43,6 +45,7 @@ export type PastSessionNotesResult = {
   canGenerate: boolean;
   generateMissing: () => void;
   regenerate: (sessionId: string) => void;
+  regenerateAll: () => void;
 };
 
 type MainStore = NonNullable<ReturnType<typeof main.UI.useStore>>;
@@ -71,6 +74,10 @@ export function usePastSessionNotes(
     enabled
       ? "mapping_session_participant"
       : ("__disabled_past_notes_participants" as "mapping_session_participant"),
+    main.STORE_ID,
+  );
+  const humansTable = main.UI.useTable(
+    enabled ? "humans" : ("__disabled_past_notes_humans" as "humans"),
     main.STORE_ID,
   );
   const enhancedNotesTable = main.UI.useTable(
@@ -105,6 +112,7 @@ export function usePastSessionNotes(
     userId,
     sessionsTable,
     participantsTable,
+    humansTable,
     enhancedNotesTable,
     keyFactsTable,
   ]);
@@ -122,10 +130,10 @@ export function usePastSessionNotes(
       });
     },
     onError: (error) => {
-      console.error("Failed to generate related meeting facts", error);
+      console.error("Failed to generate meeting insights", error);
       showTransientToast({
         id: "past-note-key-facts-error",
-        description: "Could not generate related meeting facts. Try again.",
+        description: "Could not generate meeting insights. Try again.",
         variant: "error",
       });
     },
@@ -180,6 +188,19 @@ export function usePastSessionNotes(
     [built.requests, enabled, model, mutation],
   );
 
+  const regenerateAll = useCallback(() => {
+    if (
+      !enabled ||
+      !model ||
+      built.requests.length === 0 ||
+      mutation.isPending
+    ) {
+      return;
+    }
+
+    mutation.mutate(built.requests);
+  }, [built.requests, enabled, model, mutation]);
+
   return {
     notes,
     hasPastNotes: notes.length > 0,
@@ -187,6 +208,7 @@ export function usePastSessionNotes(
     canGenerate: enabled && Boolean(model),
     generateMissing,
     regenerate,
+    regenerateAll,
   };
 }
 
@@ -271,6 +293,10 @@ export function buildPastSessionNotes(
     const sourceHash = createSourceHash([title, dateLabel, source].join("\n"));
     const saved = getSavedKeyFacts(store, candidateSessionId, sourceHash);
     const ownerUserId = getSessionUserId(candidateSession, userId);
+    const participantNames = getSessionParticipantNames(
+      store,
+      new Set([...currentParticipantIds, ...candidateParticipantIds]),
+    );
     const request = {
       sessionId: candidateSessionId,
       userId: ownerUserId,
@@ -278,6 +304,7 @@ export function buildPastSessionNotes(
       dateLabel,
       sourceText: source,
       sourceHash,
+      participantNames,
     };
 
     items.push({
@@ -285,6 +312,7 @@ export function buildPastSessionNotes(
         sessionId: candidateSessionId,
         title,
         dateLabel,
+        participantNames,
         summary: saved,
         isGenerating: false,
         dateMs: candidateTimestamp,
@@ -366,6 +394,7 @@ async function generatePastSessionKeyFacts({
     session: {
       title: request.title,
       date_label: request.dateLabel,
+      participant_names: request.participantNames,
     },
     notes: request.sourceText,
   });
@@ -515,6 +544,31 @@ function getSessionParticipantIds(
   });
 
   return participantIds;
+}
+
+function getSessionParticipantNames(
+  store: MainStore,
+  participantIds: Set<string>,
+): string[] {
+  const seen = new Set<string>();
+  const names: string[] = [];
+
+  for (const participantId of participantIds) {
+    const human = store.getRow("humans", participantId);
+    const name =
+      typeof human.name === "string" && human.name.trim()
+        ? human.name.trim()
+        : participantId;
+    const key = name.toLowerCase();
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    names.push(name);
+  }
+
+  return names.sort((a, b) => a.localeCompare(b));
 }
 
 function isRelatedPastSession({

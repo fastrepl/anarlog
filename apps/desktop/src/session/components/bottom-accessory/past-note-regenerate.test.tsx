@@ -129,8 +129,8 @@ afterEach(() => {
   cleanup();
 });
 
-describe("past note regeneration", () => {
-  it("regenerates a selected past note from its timeline row", () => {
+describe("insights regeneration", () => {
+  it("regenerates compiled insights from the insights panel", () => {
     const regenerate = vi.fn();
 
     render(
@@ -139,7 +139,7 @@ describe("past note regeneration", () => {
         hasAudio={false}
         hasTranscript
         isTranscriptExpanded
-        activeTab="past_notes"
+        activeTab="insights"
         pastNotes={[
           {
             sessionId: "session-0",
@@ -149,25 +149,25 @@ describe("past note regeneration", () => {
             isGenerating: false,
           },
         ]}
-        onRegeneratePastNote={regenerate}
+        onRegenerateInsights={regenerate}
       />,
     );
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Regenerate past note summary" }),
+      screen.getByRole("button", { name: "Regenerate insights" }),
     );
 
-    expect(regenerate).toHaveBeenCalledWith("session-0");
+    expect(regenerate).toHaveBeenCalledTimes(1);
   });
 
-  it("disables the row regenerate action while that note is generating", () => {
+  it("disables the regenerate action while insights are generating", () => {
     render(
       <PostSessionAccessory
         sessionId="session-1"
         hasAudio={false}
         hasTranscript
         isTranscriptExpanded
-        activeTab="past_notes"
+        activeTab="insights"
         pastNotes={[
           {
             sessionId: "session-0",
@@ -177,16 +177,16 @@ describe("past note regeneration", () => {
             isGenerating: true,
           },
         ]}
-        onRegeneratePastNote={vi.fn()}
+        onRegenerateInsights={vi.fn()}
       />,
     );
 
     expect(
-      screen.getByRole("button", { name: "Regenerate past note summary" }),
+      screen.getByRole("button", { name: "Regenerate insights" }),
     ).toHaveProperty("disabled", true);
   });
 
-  it("disables row regenerate actions while another note is generating", () => {
+  it("disables regeneration while another insight source is generating", () => {
     const regenerate = vi.fn();
 
     render(
@@ -195,7 +195,7 @@ describe("past note regeneration", () => {
         hasAudio={false}
         hasTranscript
         isTranscriptExpanded
-        activeTab="past_notes"
+        activeTab="insights"
         pastNotes={[
           {
             sessionId: "session-0",
@@ -214,18 +214,16 @@ describe("past note regeneration", () => {
             isRegenerateDisabled: true,
           },
         ]}
-        onRegeneratePastNote={regenerate}
+        onRegenerateInsights={regenerate}
       />,
     );
 
-    const buttons = screen.getAllByRole("button", {
-      name: "Regenerate past note summary",
+    const button = screen.getByRole("button", {
+      name: "Regenerate insights",
     });
 
-    expect(buttons).toHaveLength(2);
-    expect(buttons[0]).toHaveProperty("disabled", true);
-    expect(buttons[1]).toHaveProperty("disabled", true);
-    fireEvent.click(buttons[0]!);
+    expect(button).toHaveProperty("disabled", true);
+    fireEvent.click(button);
     expect(regenerate).not.toHaveBeenCalled();
   });
 
@@ -353,12 +351,12 @@ describe("past note regeneration", () => {
     await waitFor(() => {
       expect(hoisted.showTransientToast).toHaveBeenCalledWith({
         id: "past-note-key-facts-error",
-        description: "Could not generate related meeting facts. Try again.",
+        description: "Could not generate meeting insights. Try again.",
         variant: "error",
       });
     });
     expect(consoleError).toHaveBeenCalledWith(
-      "Failed to generate related meeting facts",
+      "Failed to generate meeting insights",
       expect.any(Error),
     );
     await waitFor(() => {
