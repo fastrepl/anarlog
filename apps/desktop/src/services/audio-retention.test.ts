@@ -114,7 +114,7 @@ describe("audio retention", () => {
     expect(sessionAudioExpired("not-a-date", "oneDay")).toBe(false);
   });
 
-  test("deletes expired inactive audio and orphaned expired audio", async () => {
+  test("deletes expired inactive audio without deleting orphaned audio", async () => {
     const now = Date.parse("2026-05-13T00:00:00.000Z");
     const store = createMainStore();
     const settingsStore = createSettingsStore();
@@ -142,21 +142,12 @@ describe("audio retention", () => {
     getSessionModeMock.mockImplementation((sessionId) =>
       sessionId === "active" ? "active" : "inactive",
     );
-    audioDeleteOrphanedExpiredMock.mockResolvedValue({
-      status: "ok",
-      data: ["orphan"],
-    });
-
     const deleted = await cleanupExpiredAudio(store, settingsStore, now);
 
     expect(audioDeleteMock).toHaveBeenCalledTimes(1);
     expect(audioDeleteMock).toHaveBeenCalledWith("expired");
-    expect(audioDeleteOrphanedExpiredMock).toHaveBeenCalledWith(
-      ["expired", "fresh", "active"],
-      24 * 60 * 60 * 1000,
-      now,
-    );
-    expect(deleted).toEqual(["expired", "orphan"]);
+    expect(audioDeleteOrphanedExpiredMock).not.toHaveBeenCalled();
+    expect(deleted).toEqual(["expired"]);
   });
 
   test("keeps unsaved audio when retention is none until transcript words exist", async () => {
@@ -191,6 +182,7 @@ describe("audio retention", () => {
 
     expect(audioDeleteMock).toHaveBeenCalledTimes(1);
     expect(audioDeleteMock).toHaveBeenCalledWith("processed");
+    expect(audioDeleteOrphanedExpiredMock).not.toHaveBeenCalled();
     expect(deleted).toEqual(["processed"]);
   });
 
@@ -356,11 +348,7 @@ describe("audio retention", () => {
     const deleted = await cleanupExpiredAudio(store, settingsStore, now);
 
     expect(audioDeleteMock).not.toHaveBeenCalled();
-    expect(audioDeleteOrphanedExpiredMock).toHaveBeenCalledWith(
-      ["fresh"],
-      30 * 24 * 60 * 60 * 1000,
-      now,
-    );
+    expect(audioDeleteOrphanedExpiredMock).not.toHaveBeenCalled();
     expect(deleted).toEqual([]);
   });
 });

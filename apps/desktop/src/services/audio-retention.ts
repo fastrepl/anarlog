@@ -4,7 +4,6 @@ import {
   AUDIO_RETENTION_DURATION_MS,
   normalizeAudioRetention as normalizeAudioRetentionPolicy,
   type AudioRetentionPolicy,
-  type ExpiringAudioRetentionPolicy,
 } from "./audio-retention-policy";
 
 import type * as main from "~/store/tinybase/store/main";
@@ -88,10 +87,6 @@ function sessionHasTranscriptWords(store: main.Store, sessionId: string) {
   return hasWords;
 }
 
-function audioRetentionDurationMs(policy: ExpiringAudioRetentionPolicy) {
-  return AUDIO_RETENTION_DURATION_MS[policy];
-}
-
 export async function deleteProcessedAudioForRetention(
   store: main.Store,
   settingsStore: settings.Store,
@@ -141,12 +136,9 @@ export async function cleanupExpiredAudio(
   }
 
   const deletes: Promise<void>[] = [];
-  const knownSessionIds: string[] = [];
   const deletedSessionIds: string[] = [];
 
   store.forEachRow("sessions", (sessionId, _forEachCell) => {
-    knownSessionIds.push(sessionId);
-
     if (listenerStore.getState().getSessionMode(sessionId) !== "inactive") {
       return;
     }
@@ -184,26 +176,6 @@ export async function cleanupExpiredAudio(
   });
 
   await Promise.all(deletes);
-
-  try {
-    const orphanedResult = await fsSyncCommands.audioDeleteOrphanedExpired(
-      knownSessionIds,
-      audioRetentionDurationMs(policy),
-      nowMs,
-    );
-
-    if (orphanedResult.status === "error") {
-      console.error("[audio-retention] failed to delete orphaned audio", {
-        error: orphanedResult.error,
-      });
-    } else {
-      deletedSessionIds.push(...orphanedResult.data);
-    }
-  } catch (error) {
-    console.error("[audio-retention] failed to delete orphaned audio", {
-      error,
-    });
-  }
 
   return deletedSessionIds;
 }

@@ -96,6 +96,7 @@ describe("desktop tab lifecycle", () => {
         expect.anything(),
         expect.anything(),
         "session-1",
+        { deferFilesystemDelete: true },
       );
     });
 

@@ -81,7 +81,9 @@ export function createSessionTabCloseHandler({
     }
 
     invalidateSessionResource(sessionId);
-    void deleteSessionFn(store, indexes, sessionId);
+    void deleteSessionFn(store, indexes, sessionId, {
+      deferFilesystemDelete: true,
+    });
   };
 }
 
