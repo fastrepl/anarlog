@@ -15,6 +15,10 @@ type ImageReference = {
   dataUrl?: { base64: string; mimeType: string };
 };
 
+type IndexedImageReference = ImageReference & {
+  index: number;
+};
+
 const MAX_IMAGE_COUNT = 10;
 const MAX_IMAGE_BYTES = 128 * 1024;
 const MAX_TOTAL_IMAGE_BYTES = 768 * 1024;
@@ -41,84 +45,91 @@ export async function collectEnhanceImageContext(
   const references = Array.isArray(rawContent)
     ? rawContent.flatMap(collectImageReferences)
     : collectImageReferences(rawContent);
-  const images: EnhanceImageContext[] = [];
+  const candidateRefs = getCandidateImageReferences(references);
+  const images: Array<{ index: number; image: EnhanceImageContext }> = [];
   let totalImageBytes = 0;
-
-  for (const ref of references) {
-    if (!ref.dataUrl) {
-      continue;
-    }
-
-    const image = await prepareImageForBudget(ref.dataUrl, totalImageBytes);
-    if (!image) {
-      continue;
-    }
-
-    const imageBytes = getBase64ByteLength(image.base64);
-    images.push(image);
-    totalImageBytes += imageBytes;
-    if (images.length >= MAX_IMAGE_COUNT) {
-      return images;
-    }
-  }
-
-  const attachmentRefs = references.filter(
-    (ref) => !ref.dataUrl && (ref.attachmentId || ref.filename),
-  );
-  if (attachmentRefs.length === 0) {
-    return images;
-  }
-
-  const listResult = await fsSyncCommands.attachmentList(sessionId);
-  if (listResult.status === "error") {
-    console.warn(
-      "[enhance] failed to list image attachments",
-      listResult.error,
-    );
-    return images;
-  }
-
-  const attachmentsById = new Map(
-    listResult.data.map((attachment) => [attachment.attachmentId, attachment]),
-  );
-  const attachmentsByFilename = new Map(
-    listResult.data.map((attachment) => [
-      getPathFilename(attachment.path) || attachment.attachmentId,
-      attachment,
-    ]),
-  );
   const seen = new Set<string>();
+  let attachmentLookup:
+    | {
+        byId: Map<string, AttachmentInfo>;
+        byFilename: Map<string, AttachmentInfo>;
+      }
+    | null
+    | undefined;
 
-  for (const ref of attachmentRefs) {
-    const attachment =
-      (ref.attachmentId ? attachmentsById.get(ref.attachmentId) : undefined) ??
-      (ref.filename ? attachmentsById.get(ref.filename) : undefined) ??
-      (ref.filename ? attachmentsByFilename.get(ref.filename) : undefined);
+  async function getAttachmentLookup() {
+    if (attachmentLookup !== undefined) {
+      return attachmentLookup;
+    }
 
-    if (!attachment || seen.has(attachment.attachmentId)) {
+    const listResult = await fsSyncCommands.attachmentList(sessionId);
+    if (listResult.status === "error") {
+      console.warn(
+        "[enhance] failed to list image attachments",
+        listResult.error,
+      );
+      attachmentLookup = null;
+      return attachmentLookup;
+    }
+
+    attachmentLookup = {
+      byId: new Map(
+        listResult.data.map((attachment) => [
+          attachment.attachmentId,
+          attachment,
+        ]),
+      ),
+      byFilename: new Map(
+        listResult.data.map((attachment) => [
+          getPathFilename(attachment.path) || attachment.attachmentId,
+          attachment,
+        ]),
+      ),
+    };
+    return attachmentLookup;
+  }
+
+  for (const ref of prioritizeImageReferences(candidateRefs)) {
+    let sourceImage: EnhanceImageContext | null = null;
+
+    if (ref.dataUrl) {
+      sourceImage = ref.dataUrl;
+    } else {
+      const lookup = await getAttachmentLookup();
+      const attachment =
+        (ref.attachmentId ? lookup?.byId.get(ref.attachmentId) : undefined) ??
+        (ref.filename ? lookup?.byId.get(ref.filename) : undefined) ??
+        (ref.filename ? lookup?.byFilename.get(ref.filename) : undefined);
+
+      if (!attachment || seen.has(attachment.attachmentId)) {
+        continue;
+      }
+
+      seen.add(attachment.attachmentId);
+      sourceImage = await readImageAttachment(sessionId, attachment);
+    }
+
+    if (!sourceImage) {
       continue;
     }
 
-    seen.add(attachment.attachmentId);
-    const image = await readImageAttachment(sessionId, attachment);
-    if (!image) {
-      continue;
-    }
-
-    const budgetedImage = await prepareImageForBudget(image, totalImageBytes);
+    const budgetedImage = await prepareImageForBudget(
+      sourceImage,
+      totalImageBytes,
+    );
     if (!budgetedImage) {
       continue;
     }
 
     const imageBytes = getBase64ByteLength(budgetedImage.base64);
-    images.push(budgetedImage);
+    images.push({ index: ref.index, image: budgetedImage });
     totalImageBytes += imageBytes;
     if (images.length >= MAX_IMAGE_COUNT) {
-      return images;
+      return sortImageContexts(images);
     }
   }
 
-  return images;
+  return sortImageContexts(images);
 }
 
 async function prepareImageForBudget(
@@ -199,6 +210,41 @@ async function compressImageContext(
   }
 
   return null;
+}
+
+function getCandidateImageReferences(
+  references: ImageReference[],
+): IndexedImageReference[] {
+  return references.flatMap((ref, index) =>
+    ref.dataUrl || ref.attachmentId || ref.filename ? [{ ...ref, index }] : [],
+  );
+}
+
+function prioritizeImageReferences(
+  references: IndexedImageReference[],
+): IndexedImageReference[] {
+  if (references.length <= MAX_IMAGE_COUNT) {
+    return references;
+  }
+
+  const selectedIndexes = new Set<number>();
+  for (let i = 0; i < MAX_IMAGE_COUNT; i++) {
+    selectedIndexes.add(
+      Math.round((i * (references.length - 1)) / (MAX_IMAGE_COUNT - 1)),
+    );
+  }
+
+  const sampled = [...selectedIndexes].map((index) => references[index]);
+  const remaining = references.filter(
+    (_, index) => !selectedIndexes.has(index),
+  );
+  return [...sampled, ...remaining];
+}
+
+function sortImageContexts(
+  images: Array<{ index: number; image: EnhanceImageContext }>,
+): EnhanceImageContext[] {
+  return images.sort((a, b) => a.index - b.index).map(({ image }) => image);
 }
 
 function toDataUrl(image: EnhanceImageContext): string {

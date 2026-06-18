@@ -168,6 +168,25 @@ describe("enhance image context", () => {
     expect(images).toHaveLength(6);
   });
 
+  it("samples image context across the full note when over the image count cap", async () => {
+    const images = await collectEnhanceImageContext(
+      "session-1",
+      Array.from(
+        { length: 20 },
+        (_, index) =>
+          `![image-${index}](data:image/png;base64,image${String(index).padStart(2, "0")})`,
+      ).join("\n"),
+    );
+
+    expect(images).toEqual(
+      [0, 2, 4, 6, 8, 11, 13, 15, 17, 19].map((index) => ({
+        base64: `image${String(index).padStart(2, "0")}`,
+        mimeType: "image/png",
+      })),
+    );
+    expect(fsSyncMocks.attachmentList).not.toHaveBeenCalled();
+  });
+
   it("does not load an attachment again for a node that already has a data URL", async () => {
     const rawContent = JSON.stringify({
       type: "doc",
