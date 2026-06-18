@@ -210,11 +210,6 @@ export function SelectProviderAndModel() {
                       <div className="flex items-center gap-2">
                         <ProviderIconSlot>{provider.icon}</ProviderIconSlot>
                         <span>{provider.displayName}</span>
-                        {requiresPro ? (
-                          <span className="border-border text-muted-foreground rounded-full border px-2 py-0.5 text-[10px] tracking-wide uppercase">
-                            Pro
-                          </span>
-                        ) : null}
                       </div>
                       {locked ? (
                         <span className="text-muted-foreground text-[11px]">
