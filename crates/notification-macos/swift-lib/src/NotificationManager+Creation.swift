@@ -270,12 +270,14 @@ extension NotificationManager {
     closeButton.translatesAutoresizingMaskIntoConstraints = false
     clickableView.addSubview(closeButton, positioned: .above, relativeTo: nil)
 
-    let buttonOffset =
+    let horizontalButtonOffset =
       isMacOS26() ? (CloseButtonConfig.size / 2) + 4 : (CloseButtonConfig.size / 2) - 2
+    let verticalButtonOffset = buttonOverhang() - (CloseButtonConfig.size / 2)
     NSLayoutConstraint.activate([
-      closeButton.centerYAnchor.constraint(equalTo: container.topAnchor, constant: buttonOffset),
+      closeButton.centerYAnchor.constraint(
+        equalTo: container.topAnchor, constant: verticalButtonOffset),
       closeButton.centerXAnchor.constraint(
-        equalTo: container.leadingAnchor, constant: buttonOffset),
+        equalTo: container.leadingAnchor, constant: horizontalButtonOffset),
       closeButton.widthAnchor.constraint(equalToConstant: CloseButtonConfig.size),
       closeButton.heightAnchor.constraint(equalToConstant: CloseButtonConfig.size),
     ])

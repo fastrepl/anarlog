@@ -69,6 +69,11 @@ class CloseButton: NSButton, TrackableButton {
     NSSize(width: CloseButtonConfig.size, height: CloseButtonConfig.size)
   }
 
+  override func layout() {
+    super.layout()
+    layer?.cornerRadius = min(bounds.width, bounds.height) / 2
+  }
+
   override func updateTrackingAreas() {
     super.updateTrackingAreas()
     setupTrackingArea()
