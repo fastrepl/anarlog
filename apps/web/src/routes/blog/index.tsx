@@ -28,7 +28,7 @@ function Component() {
 
   return (
     <main className="min-h-screen bg-white text-[#181613]">
-      <div className="mx-auto w-full max-w-[700px] px-5 py-8 md:px-8 md:py-12">
+      <div className="mx-auto w-full max-w-[860px] px-5 py-8 md:px-8 md:py-12">
         <header className="flex items-center justify-between gap-6">
           <Link to="/" aria-label="Anarlog home">
             <img src="/logo.svg" alt="Anarlog" className="h-9 w-auto" />

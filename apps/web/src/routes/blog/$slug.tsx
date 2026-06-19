@@ -1,10 +1,17 @@
 import { MDXContent } from "@content-collections/mdx/react";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { type Article, allArticles } from "content-collections";
+import { Download } from "lucide-react";
+import type { ComponentProps } from "react";
 
 import { mdxComponents } from "@/components/mdx-components";
 import { SiteFooter } from "@/components/site-footer";
 import { ANARLOG_SITE_URL } from "@/lib/seo";
+
+const blogMdxComponents = {
+  ...mdxComponents,
+  table: BlogTable,
+};
 
 export const Route = createFileRoute("/blog/$slug")({
   component: Component,
@@ -45,7 +52,7 @@ function Component() {
 
   return (
     <main className="min-h-screen bg-white text-[#181613]">
-      <div className="mx-auto w-full max-w-[700px] px-5 py-8 md:px-8 md:py-12">
+      <div className="mx-auto w-full max-w-[860px] px-5 py-8 md:px-8 md:py-12">
         <header className="flex items-center justify-between gap-6">
           <Link to="/" aria-label="Anarlog home">
             <img src="/logo.svg" alt="Anarlog" className="h-9 w-auto" />
@@ -60,7 +67,7 @@ function Component() {
         </Link>
 
         <header className="pt-10 pb-12">
-          <h1 className="font-hand text-5xl leading-[1.02] font-semibold tracking-normal text-balance text-black md:text-7xl">
+          <h1 className="font-hand text-5xl leading-[1.02] font-semibold tracking-normal text-balance text-black md:text-6xl">
             {article.title}
           </h1>
           <div className="mt-6 flex items-center gap-2 text-sm text-[#756b5d]">
@@ -81,21 +88,58 @@ function Component() {
             aria-label="TLDR"
             className="mb-12 border-y border-[#eee8df] py-5"
           >
-            <p className="font-hand text-xl font-semibold tracking-normal text-[#756b5d]">
+            <p className="font-hand text-lg font-semibold tracking-normal text-[#756b5d]">
               TL;DR
             </p>
-            <p className="font-hand mt-3 text-2xl leading-8 font-semibold text-[#363029]">
+            <p className="font-hand mt-3 text-xl leading-7 font-semibold text-[#363029] md:text-2xl md:leading-8">
               {tldr}
             </p>
           </aside>
         )}
 
         <article className="blog-prose prose prose-stone prose-headings:font-hand prose-headings:font-semibold prose-headings:text-[#756b5d] prose-p:text-[#363029] prose-a:text-[#181613] prose-a:underline hover:prose-a:text-[#4f4940] prose-strong:text-[#181613] prose-li:text-[#363029] prose-img:rounded-md prose-img:border prose-img:border-[#eee8df] max-w-none">
-          <MDXContent code={article.mdx} components={mdxComponents} />
+          <MDXContent code={article.mdx} components={blogMdxComponents} />
         </article>
+
+        <BlogDownloadCta />
       </div>
 
       <SiteFooter />
     </main>
+  );
+}
+
+function BlogTable({ children, ...props }: ComponentProps<"table">) {
+  return (
+    <div className="my-8 overflow-x-auto">
+      <table {...props}>{children}</table>
+    </div>
+  );
+}
+
+function BlogDownloadCta() {
+  return (
+    <aside
+      aria-label="Download Anarlog"
+      className="mt-20 border-y border-[#eee8df] bg-[#faf7f1] px-5 py-8 md:px-7"
+    >
+      <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p className="font-hand text-3xl leading-none font-semibold tracking-normal text-[#756b5d] md:text-4xl">
+            Take notes without inviting a bot
+          </p>
+          <p className="mt-3 max-w-xl text-base leading-7 text-[#4f4940]">
+            Download Anarlog for private, local-first meeting notes on your Mac.
+          </p>
+        </div>
+        <Link
+          to="/download/"
+          className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-full bg-[#181613] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#363029]"
+        >
+          <Download size={17} strokeWidth={2.2} aria-hidden="true" />
+          Download app
+        </Link>
+      </div>
+    </aside>
   );
 }
