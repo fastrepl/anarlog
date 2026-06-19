@@ -91,6 +91,10 @@ describe("TitleInput", () => {
 
     const input = screen.getByPlaceholderText("Untitled");
     expect(input.parentElement?.className).toContain("relative");
+    expect(input.parentElement?.className).toContain("max-w-full");
+    expect(input.parentElement?.className).toContain("text-xl");
+    expect(input.parentElement?.className).toContain("font-semibold");
+    expect(input.parentElement?.classList.contains("w-full")).toBe(false);
     expect(input.className).toContain("text-left");
     expect(
       screen.queryByRole("button", { name: "Regenerate title" }),
@@ -115,6 +119,7 @@ describe("TitleInput", () => {
 
     const input = screen.getByPlaceholderText("Untitled");
     expect(input.className).toContain("w-full");
+    expect(input.parentElement?.style.width).toBe("calc(10ch + 2px)");
     expect(
       screen.queryByRole("button", { name: "Regenerate title" }),
     ).toBeNull();

@@ -166,7 +166,8 @@ describe("OuterHeader", () => {
     expect(header?.className).toContain("pl-[156px]");
     expect(header?.className).toContain("h-11");
     expect(header?.className).not.toContain("pb-1");
-    expect(titleWrapper?.className).toContain("w-full");
+    expect(titleWrapper?.classList.contains("w-full")).toBe(false);
+    expect(titleWrapper?.className).toContain("max-w-full");
     expect(titleWrapper?.className).not.toContain("max-w-[680px]");
     expect(titleSlot?.className).toContain("left-[104px]");
     expect(titleSlot?.className).not.toContain("-translate-y-1");

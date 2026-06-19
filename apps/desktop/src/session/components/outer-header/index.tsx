@@ -53,7 +53,7 @@ export function OuterHeader({
                 : "left-[114px]",
           ])}
         >
-          <div className="pointer-events-auto w-full min-w-0">{title}</div>
+          <div className="pointer-events-auto max-w-full min-w-0">{title}</div>
         </div>
       ) : null}
       <div className="relative z-10 ml-auto flex shrink-0 items-center gap-0 pr-1">

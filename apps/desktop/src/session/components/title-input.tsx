@@ -218,6 +218,14 @@ const TitleInputInner = memo(
             ).toFixed(2)}s`,
           } as CSSProperties)
         : undefined;
+      const visibleTitleLength = Math.max(
+        localTitle.length || "Untitled".length,
+        "Untitled".length,
+      );
+      const titleShellStyle = {
+        ...titleFadeStyle,
+        width: `calc(${visibleTitleLength}ch + 2px)`,
+      };
 
       useImperativeHandle(
         ref,
@@ -348,11 +356,12 @@ const TitleInputInner = memo(
       return (
         <div
           data-tauri-drag-region="false"
-          style={titleFadeStyle}
-          className="group/title-input relative flex h-8 w-full items-center overflow-hidden"
+          style={titleShellStyle}
+          className="group/title-input relative flex h-8 max-w-full items-center overflow-hidden text-xl font-semibold"
         >
           <input
             data-tauri-drag-region="false"
+            aria-label="Session title"
             ref={setInputRef}
             id={`title-input-${sessionId}-${editorId}`}
             placeholder="Untitled"
@@ -381,6 +390,7 @@ const TitleInputInner = memo(
             onScroll={(e) => updateOverflowState(e.currentTarget)}
             onSelect={(e) => updateOverflowState(e.currentTarget)}
             value={localTitle}
+            size={visibleTitleLength}
             className={cn([
               "w-full min-w-0 transition-opacity duration-200",
               "border-none bg-transparent focus:outline-hidden",
