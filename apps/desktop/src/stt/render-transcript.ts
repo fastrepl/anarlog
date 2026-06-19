@@ -122,11 +122,16 @@ export function getRenderTranscriptRequestKey(
     for (const assignment of transcript.assignments) {
       writeValue(assignment.human_id);
       writeValue(assignment.scope.kind);
-      writeValue(assignment.scope.channel);
+      writeValue(
+        "channel" in assignment.scope ? assignment.scope.channel : null,
+      );
       writeValue(
         "speaker_index" in assignment.scope
           ? assignment.scope.speaker_index
           : null,
+      );
+      writeValue(
+        "word_ids" in assignment.scope ? assignment.scope.word_ids : null,
       );
     }
   }
@@ -334,6 +339,25 @@ function normalizeSpeakerHint(
     typeof (value as { human_id?: unknown }).human_id === "string"
   ) {
     const humanId = (value as { human_id: string }).human_id;
+    if (
+      (value as { scope?: unknown }).scope === "segment" &&
+      Array.isArray((value as { word_ids?: unknown }).word_ids)
+    ) {
+      const wordIds = (value as { word_ids: unknown[] }).word_ids.filter(
+        (wordId): wordId is string =>
+          typeof wordId === "string" && wordId.length > 0,
+      );
+      if (wordIds.length > 0) {
+        return {
+          human_id: humanId,
+          scope: {
+            kind: "words",
+            word_ids: wordIds,
+          },
+        };
+      }
+    }
+
     return word.speaker_index == null
       ? {
           human_id: humanId,

@@ -66,6 +66,15 @@ fn speaker_human(human_id: &str, ch: ChannelProfile, si: i32) -> IdentityAssignm
     }
 }
 
+fn words_human(human_id: &str, word_ids: &[&str]) -> IdentityAssignment {
+    IdentityAssignment {
+        human_id: human_id.to_string(),
+        scope: IdentityScope::Words {
+            word_ids: word_ids.iter().map(|id| id.to_string()).collect(),
+        },
+    }
+}
+
 fn key(ch: i32) -> SegmentKey {
     SegmentKey {
         channel: ChannelProfile::from(ch),
@@ -79,6 +88,14 @@ fn key_speaker(ch: i32, si: i32) -> SegmentKey {
         channel: ChannelProfile::from(ch),
         speaker_index: Some(si),
         speaker_human_id: None,
+    }
+}
+
+fn key_speaker_human(ch: i32, si: i32, human_id: &str) -> SegmentKey {
+    SegmentKey {
+        channel: ChannelProfile::from(ch),
+        speaker_index: Some(si),
+        speaker_human_id: Some(human_id.to_string()),
     }
 }
 
@@ -355,6 +372,30 @@ fn auto_assign_based_on_provider_speaker_index() {
     assert_eq!(result[0].key, key_speaker(0, 0));
     assert_eq!(result[1].key, key_speaker(1, 1));
     assert_eq!(result[2].key, key_speaker(0, 0));
+}
+
+#[test]
+fn word_assignment_overrides_only_selected_words() {
+    let finals = vec![
+        fw_si("0", 0, 100, 1, 2),
+        fw_si("1", 100, 200, 1, 2),
+        fw_si("2", 200, 300, 1, 2),
+        fw_si("3", 300, 400, 1, 2),
+    ];
+    let assignments = vec![
+        speaker_human("alice", ChannelProfile::RemoteParty, 2),
+        words_human("bob", &["w-1", "w-2"]),
+    ];
+
+    let result = build_segments(&finals, &[], &assignments, None);
+
+    assert_eq!(result.len(), 3);
+    assert_eq!(result[0].key, key_speaker_human(1, 2, "alice"));
+    assert_eq!(texts(&result[0]), vec!["0"]);
+    assert_eq!(result[1].key, key_speaker_human(1, 2, "bob"));
+    assert_eq!(texts(&result[1]), vec!["1", "2"]);
+    assert_eq!(result[2].key, key_speaker_human(1, 2, "alice"));
+    assert_eq!(texts(&result[2]), vec!["3"]);
 }
 
 #[test]

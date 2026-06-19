@@ -12,6 +12,8 @@ import * as main from "~/store/tinybase/store/main";
 import type { Segment } from "~/stt/live-segment";
 import { upsertSpeakerAssignment } from "~/stt/utils";
 
+type AssignmentMode = "all" | "segment";
+
 export function SpeakerAssignPopover({
   segment,
   transcriptId,
@@ -28,8 +30,8 @@ export function SpeakerAssignPopover({
   onAssigned?: (humanId: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [assignmentMode, setAssignmentMode] = useState<AssignmentMode>("all");
   const store = main.UI.useStore(main.STORE_ID);
-  const isSelf = segment.key.channel === "DirectMic";
 
   const sessionId = main.UI.useCell(
     "transcripts",
@@ -37,6 +39,13 @@ export function SpeakerAssignPopover({
     "session_id",
     main.STORE_ID,
   ) as string | undefined;
+
+  const handleOpenChange = useCallback((nextOpen: boolean) => {
+    setOpen(nextOpen);
+    if (!nextOpen) {
+      setAssignmentMode("all");
+    }
+  }, []);
 
   const handleAssign = useCallback(
     (humanId: string) => {
@@ -49,23 +58,26 @@ export function SpeakerAssignPopover({
         segment.key,
         humanId,
         anchorWordId,
+        {
+          mode: assignmentMode,
+          wordIds: getAssignmentWordIds(segment),
+        },
       );
       onAssigned?.(humanId);
-      setOpen(false);
+      handleOpenChange(false);
     },
-    [onAssigned, store, transcriptId, segment.key, segment.words],
+    [
+      assignmentMode,
+      handleOpenChange,
+      onAssigned,
+      store,
+      transcriptId,
+      segment,
+    ],
   );
 
-  if (isSelf) {
-    return (
-      <span className={className} style={{ color }}>
-        {label}
-      </span>
-    );
-  }
-
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <button
           type="button"
@@ -80,9 +92,52 @@ export function SpeakerAssignPopover({
         </button>
       </PopoverTrigger>
       <PopoverContent variant="app" align="start" className="w-64">
+        <AssignmentModePicker
+          mode={assignmentMode}
+          onChange={setAssignmentMode}
+        />
         <ParticipantList sessionId={sessionId} onSelect={handleAssign} />
       </PopoverContent>
     </Popover>
+  );
+}
+
+function AssignmentModePicker({
+  mode,
+  onChange,
+}: {
+  mode: AssignmentMode;
+  onChange: (mode: AssignmentMode) => void;
+}) {
+  const options: Array<{ value: AssignmentMode; label: string }> = [
+    { value: "all", label: "All matching" },
+    { value: "segment", label: "This segment" },
+  ];
+
+  return (
+    <div className="border-border border-b p-2">
+      <div className="bg-muted grid h-8 grid-cols-2 rounded-md p-0.5">
+        {options.map((option) => {
+          const selected = mode === option.value;
+
+          return (
+            <button
+              key={option.value}
+              type="button"
+              className={cn([
+                "rounded-sm px-2 text-xs transition-colors",
+                selected
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground",
+              ])}
+              onClick={() => onChange(option.value)}
+            >
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -93,6 +148,15 @@ export function getAssignmentAnchorWordId(
     (word) => typeof word.id === "string" && word.id.length > 0,
   );
   return typeof word?.id === "string" ? word.id : undefined;
+}
+
+export function getAssignmentWordIds(segment: Segment): string[] {
+  return segment.words
+    .map((word) => word.id)
+    .filter(
+      (wordId): wordId is string =>
+        typeof wordId === "string" && wordId.length > 0,
+    );
 }
 
 export type SpeakerParticipantOption = {

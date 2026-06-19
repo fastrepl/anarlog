@@ -12,6 +12,9 @@ pub enum IdentityScope {
         channel: ChannelProfile,
         speaker_index: i32,
     },
+    Words {
+        word_ids: Vec<String>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type)]

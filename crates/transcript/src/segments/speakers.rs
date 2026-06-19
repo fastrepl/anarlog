@@ -22,7 +22,6 @@ pub(super) fn create_speaker_state(
     let mut assignment_by_word_index: HashMap<usize, SpeakerIdentity> = HashMap::new();
     let mut human_id_by_scoped_speaker: HashMap<(ChannelProfile, i32), String> = HashMap::new();
 
-    // Populate human_id_by_scoped_speaker from assignments
     for assignment in assignments {
         if let IdentityScope::ChannelSpeaker {
             channel,
@@ -34,7 +33,6 @@ pub(super) fn create_speaker_state(
         }
     }
 
-    // Build per-word identities from word.speaker_index + assignment cross-reference
     for word in normalized_words {
         if let Some(speaker_index) = word.speaker_index {
             let entry = assignment_by_word_index.entry(word.order).or_default();
@@ -46,7 +44,22 @@ pub(super) fn create_speaker_state(
         }
     }
 
-    // Channel-scoped assignments (no speaker_index) apply to entire channel
+    for assignment in assignments {
+        if let IdentityScope::Words { word_ids } = &assignment.scope {
+            for word in normalized_words {
+                let Some(word_id) = word.id.as_ref() else {
+                    continue;
+                };
+                if !word_ids.iter().any(|id| id == word_id) {
+                    continue;
+                }
+
+                let entry = assignment_by_word_index.entry(word.order).or_default();
+                entry.human_id = Some(assignment.human_id.clone());
+            }
+        }
+    }
+
     let mut human_id_by_channel: HashMap<ChannelProfile, String> = HashMap::new();
     for assignment in assignments {
         if let IdentityScope::Channel { channel } = assignment.scope {
