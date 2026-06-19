@@ -315,6 +315,45 @@ describe("EnhancerService", () => {
       expect(result).toEqual({ type: "queued" });
       expect(aiTaskStore.getState().generate).toHaveBeenCalled();
     });
+
+    it("creates a visible summary tab when transcript is too short for auto-enhance", () => {
+      vi.useFakeTimers();
+      const tables = createTables({
+        transcripts: {
+          "t-1": {
+            session_id: "session-1",
+            words: JSON.stringify([{ text: "hi" }, { text: "there" }]),
+          },
+        },
+      });
+      const store = createMockStore(tables);
+      const aiTaskStore = createMockAITaskStore();
+      const deps = createDeps({
+        mainStore: store,
+        indexes: createMockIndexes(tables),
+        aiTaskStore,
+      });
+      const service = new EnhancerService(deps);
+
+      try {
+        const result = service.queueAutoEnhanceIfSummaryEmpty("session-1");
+
+        expect(result).toEqual({ type: "queued" });
+        expect(store.setRow).toHaveBeenCalledWith(
+          "enhanced_notes",
+          expect.any(String),
+          expect.objectContaining({
+            session_id: "session-1",
+            content: "",
+            title: "Summary",
+          }),
+        );
+        expect(aiTaskStore.getState().generate).not.toHaveBeenCalled();
+      } finally {
+        service.dispose();
+        vi.useRealTimers();
+      }
+    });
   });
 
   describe("checkEligibility()", () => {

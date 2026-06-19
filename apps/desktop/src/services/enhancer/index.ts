@@ -181,6 +181,13 @@ export class EnhancerService {
       return { type: "summary_exists", noteId: existingNoteId };
     }
 
+    if (!existingNoteId) {
+      const eligibility = this.checkEligibility(sessionId);
+      if (!eligibility.eligible && eligibility.wordCount > 0) {
+        this.ensureNote(sessionId, templateId);
+      }
+    }
+
     this.queueAutoEnhance(sessionId);
     return { type: "queued" };
   }
