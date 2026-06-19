@@ -19,7 +19,11 @@ const mocks = vi.hoisted(() => ({
   startDragging: vi.fn().mockResolvedValue(undefined),
   canGoBack: false,
   canGoNext: false,
-  upcomingMeetingStatus: null as null | { label: string; title: string },
+  upcomingMeetingStatus: null as null | {
+    itemKey: string;
+    label: string;
+    title: string;
+  },
   leftSidebarExpanded: true,
   sidebarUpdateControl: {
     status: null as null | "available" | "downloading" | "ready" | "failed",
@@ -36,6 +40,12 @@ const mocks = vi.hoisted(() => ({
     pinned: false,
     slotId: "slot-1",
     type: "empty",
+  } as null | {
+    active: boolean;
+    id?: string;
+    pinned: boolean;
+    slotId: string;
+    type: string;
   },
 }));
 
@@ -333,6 +343,7 @@ describe("ClassicMainBody", () => {
     mocks.sidebarUpdateControl.status = "available";
     mocks.sidebarUpdateControl.version = "1.0.34";
     mocks.upcomingMeetingStatus = {
+      itemKey: "session-upcoming",
       label: "Starts in 3m",
       title: "Devtool design sync",
     };
@@ -347,6 +358,35 @@ describe("ClassicMainBody", () => {
     expect(badge).toBeTruthy();
     expect(badge.className.split(" ")).toContain("bg-red-500");
     expect(badge.className.split(" ")).not.toContain("bg-blue-500");
+    expect(
+      within(sidebarToggle).queryByTestId("collapsed-sidebar-update-badge"),
+    ).toBeNull();
+  });
+
+  it("hides the red upcoming meeting badge when that note is already open", () => {
+    mocks.leftSidebarExpanded = false;
+    mocks.currentTab = {
+      active: true,
+      id: "upcoming",
+      pinned: false,
+      slotId: "slot-1",
+      type: "sessions",
+    };
+    mocks.upcomingMeetingStatus = {
+      itemKey: "session-upcoming",
+      label: "Starts in 3m",
+      title: "Devtool design sync",
+    };
+
+    render(<ClassicMainBody />);
+
+    const sidebarToggle = screen.getByRole("button", { name: "Show sidebar" });
+
+    expect(
+      within(sidebarToggle).queryByTestId(
+        "collapsed-sidebar-upcoming-meeting-badge",
+      ),
+    ).toBeNull();
     expect(
       within(sidebarToggle).queryByTestId("collapsed-sidebar-update-badge"),
     ).toBeNull();

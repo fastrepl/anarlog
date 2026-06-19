@@ -67,6 +67,10 @@ export function ClassicMainBody() {
   const mainAreaTopDrag = useMainAreaTopWindowDrag(enableMainAreaTopDrag);
   const update = useDesktopUpdateControl();
   const upcomingMeetingStatus = useSidebarUpcomingMeetingStatus();
+  const hasUpcomingMeetingBadge = upcomingMeetingStatus
+    ? currentTab?.type !== "sessions" ||
+      upcomingMeetingStatus.itemKey !== `session-${currentTab.id}`
+    : false;
   const createNewNote = useNewNote();
   const openNoteDialog = useOpenNoteDialog();
   const handleOpenNoteDialog = useCallback(() => {
@@ -93,7 +97,7 @@ export function ClassicMainBody() {
               onNewNote={createNewNote}
               onSearch={handleOpenNoteDialog}
               onToggleSidebar={leftsidebar.toggleExpanded}
-              hasUpcomingMeeting={Boolean(upcomingMeetingStatus)}
+              hasUpcomingMeeting={hasUpcomingMeetingBadge}
               update={update}
             />
           </div>
