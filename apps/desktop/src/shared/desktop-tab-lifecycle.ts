@@ -72,7 +72,12 @@ export function createSessionTabCloseHandler({
     }
 
     const sessionId = tab.id;
-    if (getSessionMode(sessionId) === "running_batch") {
+    const sessionMode = getSessionMode(sessionId);
+    if (
+      sessionMode === "active" ||
+      sessionMode === "finalizing" ||
+      sessionMode === "running_batch"
+    ) {
       return;
     }
 
