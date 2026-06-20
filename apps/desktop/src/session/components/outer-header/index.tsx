@@ -37,7 +37,7 @@ export function OuterHeader({
     <div
       className={cn([
         "relative flex w-full items-center",
-        showSidebarTimelineHeaderGutter ? "h-11" : "h-12",
+        "h-12",
         showSidebarTimelineHeaderGutter && "pl-[156px]",
       ])}
     >

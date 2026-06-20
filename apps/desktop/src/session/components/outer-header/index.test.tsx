@@ -164,7 +164,7 @@ describe("OuterHeader", () => {
     const header = titleSlot?.parentElement;
 
     expect(header?.className).toContain("pl-[156px]");
-    expect(header?.className).toContain("h-11");
+    expect(header?.className).toContain("h-12");
     expect(header?.className).not.toContain("pb-1");
     expect(titleWrapper?.classList.contains("w-full")).toBe(false);
     expect(titleWrapper?.className).toContain("max-w-full");
