@@ -115,7 +115,7 @@ impl WindowImpl for AppWindow {
                     .window_builder(app, "/app")
                     .maximizable(true)
                     .minimizable(true)
-                    .min_inner_size(620.0, 500.0);
+                    .min_inner_size(500.0, 500.0);
                 let window = builder.build()?;
                 window.set_size(LogicalSize::new(910.0, 600.0))?;
                 window
