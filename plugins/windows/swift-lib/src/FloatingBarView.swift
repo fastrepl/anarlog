@@ -14,10 +14,10 @@ enum FloatingBarLayout {
   static let pillHeight: CGFloat = clickAreaSize * 2 + clickAreaGap + pillPadding * 2
   static let hoverHandleGap: CGFloat = 3
   static let hoverHandleWidth: CGFloat = 13
-  static let hoverHandleHeight: CGFloat = 8
+  static let hoverHandleHeight: CGFloat = 3
   static let hoverHandleReservedHeight: CGFloat = hoverHandleGap + hoverHandleHeight
-  static let hoverHandleDotSize: CGFloat = 1.6
-  static let hoverHandleDotGap: CGFloat = 2.4
+  static let hoverHandleDotSize: CGFloat = 2
+  static let hoverHandleDotGap: CGFloat = 3
   static let containerWidth: CGFloat = pillWidth + inset * 2
   static let containerHeight: CGFloat = pillHeight + hoverHandleReservedHeight + inset * 2
   static let visualCenterOffset: CGFloat = hoverHandleReservedHeight / 2
@@ -146,15 +146,9 @@ struct FloatingBarView: View {
 }
 
 private struct FloatingBarHoverHandle: View {
-  private let columns = Array(
-    repeating: GridItem(
-      .fixed(FloatingBarLayout.hoverHandleDotSize), spacing: FloatingBarLayout.hoverHandleDotGap),
-    count: 3
-  )
-
   var body: some View {
-    LazyVGrid(columns: columns, spacing: FloatingBarLayout.hoverHandleDotGap) {
-      ForEach(0..<6, id: \.self) { _ in
+    HStack(spacing: FloatingBarLayout.hoverHandleDotGap) {
+      ForEach(0..<3, id: \.self) { _ in
         Circle()
           .fill(Color.white.opacity(0.66))
           .frame(
