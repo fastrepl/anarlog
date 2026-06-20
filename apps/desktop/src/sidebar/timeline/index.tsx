@@ -152,12 +152,12 @@ export function TimelineView({
   const topSpacerClassName = topChromeInset
     ? hasReservedTopChromeChip
       ? "h-20"
-      : "h-12"
+      : "h-8"
     : "h-10";
   const bucketHeaderTopClassName = topChromeInset
     ? hasReservedTopChromeChip
       ? "top-20"
-      : "top-12"
+      : "top-8"
     : "top-0";
   const selectedSessionScrollFrameRef = useRef<number | null>(null);
   const scrollSelectedSessionIntoView = useCallback<
@@ -466,7 +466,7 @@ export function TimelineView({
         <div
           className={cn([
             "absolute left-1/2 z-20 flex -translate-x-1/2 transform flex-col items-center gap-2",
-            topChromeInset ? "top-12" : "top-2",
+            topChromeInset ? "top-8" : "top-2",
           ])}
         >
           {showOpenCalendarChip && (

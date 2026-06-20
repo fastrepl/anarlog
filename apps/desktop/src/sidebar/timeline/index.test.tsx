@@ -221,11 +221,11 @@ describe("TimelineView", () => {
 
     expect(
       container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
-    ).toContain("h-12");
+    ).toContain("h-8");
     expect(
       container.querySelector("[data-sidebar-timeline-bucket-header]")
         ?.className,
-    ).toContain("top-12");
+    ).toContain("top-8");
   });
 
   it("pins bucket headers to the sidebar chrome while scrolled", () => {
@@ -251,7 +251,7 @@ describe("TimelineView", () => {
     );
 
     expect(scroller).toBeInstanceOf(HTMLDivElement);
-    expect(header?.className).toContain("top-12");
+    expect(header?.className).toContain("top-8");
 
     Object.defineProperty(scroller, "clientHeight", {
       configurable: true,
@@ -264,7 +264,7 @@ describe("TimelineView", () => {
     scroller!.scrollTop = 120;
     fireEvent.scroll(scroller!);
 
-    expect(header?.className).toContain("top-12");
+    expect(header?.className).toContain("top-8");
     expect(header?.className).toContain("z-20");
   });
 
@@ -450,7 +450,7 @@ describe("TimelineView", () => {
     );
     expect(
       container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
-    ).toContain("h-12");
+    ).toContain("h-8");
     expect(screen.queryByText("Now")).toBeNull();
 
     fireEvent.click(chip!);
@@ -587,11 +587,11 @@ describe("TimelineView", () => {
     expect(screen.getByRole("button", { name: "Go back to now" })).toBeTruthy();
     expect(
       container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
-    ).toContain("h-12");
+    ).toContain("h-8");
     expect(
       container.querySelector("[data-sidebar-timeline-bucket-header]")
         ?.className,
-    ).toContain("top-12");
+    ).toContain("top-8");
     expect(getTopFade(container).className).toContain("h-16");
   });
 
