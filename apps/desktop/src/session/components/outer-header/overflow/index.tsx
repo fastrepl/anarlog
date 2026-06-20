@@ -17,12 +17,11 @@ import {
   DropdownMenuTrigger,
 } from "@hypr/ui/components/ui/dropdown-menu";
 
-import { DeleteNote, DeleteRecording } from "./delete";
+import { DeleteNote } from "./delete";
 import { ExportModal } from "./export-modal";
 import { Listening } from "./listening";
 import { ShowInFinder } from "./misc";
 
-import { useAudioPlayer } from "~/audio-player";
 import { openFloatingMeetingPanel } from "~/meeting-float/host";
 import {
   useCurrentNoteHasContent,
@@ -48,7 +47,6 @@ export function OverflowButton({
     currentView,
   );
   const { uploadAudio, uploadTranscript } = useUploadFile(sessionId);
-  const { audioExists } = useAudioPlayer();
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
   const floatingBarEnabled = useConfigValue("floating_bar_enabled");
   const canOpenFloatingPanel = floatingBarEnabled && sessionMode === "active";
@@ -125,8 +123,6 @@ export function OverflowButton({
             )}
             <DropdownMenuSeparator />
             <ShowInFinder sessionId={sessionId} />
-            {audioExists && <DropdownMenuSeparator />}
-            {audioExists && <DeleteRecording sessionId={sessionId} />}
             <DeleteNote sessionId={sessionId} />
           </AppFloatingPanel>
         </DropdownMenuContent>

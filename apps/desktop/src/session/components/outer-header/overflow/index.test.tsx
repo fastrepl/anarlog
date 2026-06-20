@@ -57,7 +57,6 @@ vi.mock("@hypr/ui/components/ui/dropdown-menu", () => ({
 
 vi.mock("./delete", () => ({
   DeleteNote: () => <button type="button">Delete note</button>,
-  DeleteRecording: () => <button type="button">Delete recording</button>,
 }));
 
 vi.mock("./export-modal", () => ({
@@ -70,12 +69,6 @@ vi.mock("./listening", () => ({
 
 vi.mock("./misc", () => ({
   ShowInFinder: () => <button type="button">Show in Finder</button>,
-}));
-
-vi.mock("~/audio-player", () => ({
-  useAudioPlayer: () => ({
-    audioExists: true,
-  }),
 }));
 
 vi.mock("~/meeting-float/host", () => ({
@@ -208,5 +201,19 @@ describe("OverflowButton", () => {
     expect(
       screen.queryByRole("button", { name: "Open floating panel" }),
     ).toBeNull();
+  });
+
+  it("does not show the delete recording action", () => {
+    render(
+      <OverflowButton
+        sessionId="session-1"
+        currentView={{ type: "enhanced", id: "note-1" } as EditorView}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "Delete recording" }),
+    ).toBeNull();
+    expect(screen.getByRole("button", { name: "Delete note" })).not.toBeNull();
   });
 });
