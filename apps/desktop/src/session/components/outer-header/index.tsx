@@ -35,6 +35,7 @@ export function OuterHeader({
 
   return (
     <div
+      data-tauri-drag-region
       className={cn([
         "relative flex w-full items-center",
         "h-12",
@@ -43,6 +44,7 @@ export function OuterHeader({
     >
       {title ? (
         <div
+          data-tauri-drag-region
           className={cn([
             "pointer-events-none absolute inset-y-0 flex items-center",
             reserveCollapsedLiveControls ? "right-[153px]" : "right-[70px]",
@@ -53,10 +55,18 @@ export function OuterHeader({
                 : "left-[114px]",
           ])}
         >
-          <div className="pointer-events-auto max-w-full min-w-0">{title}</div>
+          <div
+            data-tauri-drag-region
+            className="pointer-events-auto max-w-full min-w-0"
+          >
+            {title}
+          </div>
         </div>
       ) : null}
-      <div className="relative z-10 ml-auto flex shrink-0 items-center gap-0 pr-1">
+      <div
+        data-tauri-drag-region
+        className="relative z-10 ml-auto flex shrink-0 items-center gap-0 pr-1"
+      >
         <SidebarModeStopButton sessionMode={sessionMode} />
         <HeaderMeetingControl sessionId={sessionId} sessionMode={sessionMode} />
         <OverflowButton sessionId={sessionId} currentView={currentView} />

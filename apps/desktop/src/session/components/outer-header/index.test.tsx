@@ -225,6 +225,27 @@ describe("OuterHeader", () => {
     expect(container.firstElementChild?.className).toContain("h-12");
   });
 
+  it("marks the structural title and action strip as draggable", () => {
+    const { container } = render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "raw" } as EditorView}
+        title={<span>Session title</span>}
+      />,
+    );
+
+    const header = container.firstElementChild;
+    const title = screen.getByText("Session title");
+    const titleWrapper = title.parentElement;
+    const titleSlot = titleWrapper?.parentElement;
+    const actionStrip = header?.lastElementChild;
+
+    expect(header?.hasAttribute("data-tauri-drag-region")).toBe(true);
+    expect(titleSlot?.hasAttribute("data-tauri-drag-region")).toBe(true);
+    expect(titleWrapper?.hasAttribute("data-tauri-drag-region")).toBe(true);
+    expect(actionStrip?.hasAttribute("data-tauri-drag-region")).toBe(true);
+  });
+
   it("keeps the dedicated stop button hidden while the sidebar is expanded", () => {
     mocks.sessionModes = { "session-1": "active" };
 

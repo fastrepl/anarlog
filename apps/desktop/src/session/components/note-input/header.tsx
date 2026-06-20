@@ -1012,10 +1012,16 @@ export function Header({
   }
 
   return (
-    <div className="flex flex-col">
-      <div className="flex items-center justify-between gap-2">
-        <div className="relative min-w-0 flex-1">
-          <div className="scroll-fade-x scrollbar-hide flex items-center gap-1 overflow-x-auto">
+    <div data-tauri-drag-region className="flex flex-col">
+      <div
+        data-tauri-drag-region
+        className="flex items-center justify-between gap-2"
+      >
+        <div data-tauri-drag-region className="relative min-w-0 flex-1">
+          <div
+            data-tauri-drag-region
+            className="scroll-fade-x scrollbar-hide flex items-center gap-1 overflow-x-auto"
+          >
             {editorTabs.map((view, index) => {
               if (view.type === "enhanced") {
                 return (
