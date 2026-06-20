@@ -14,10 +14,12 @@ enum FloatingBarLayout {
   static let pillHeight: CGFloat = clickAreaSize * 2 + clickAreaGap + pillPadding * 2
   static let hoverHandleGap: CGFloat = 3
   static let hoverHandleWidth: CGFloat = 13
-  static let hoverHandleHeight: CGFloat = 3
-  static let hoverHandleReservedHeight: CGFloat = hoverHandleGap + hoverHandleHeight
-  static let hoverHandleDotSize: CGFloat = 2
-  static let hoverHandleDotGap: CGFloat = 3
+  static let hoverHandleHeight: CGFloat = 8
+  static let hoverHandleBottomPadding: CGFloat = 4
+  static let hoverHandleReservedHeight: CGFloat =
+    hoverHandleGap + hoverHandleHeight + hoverHandleBottomPadding
+  static let hoverHandleDotSize: CGFloat = 1.6
+  static let hoverHandleDotGap: CGFloat = 2.4
   static let containerWidth: CGFloat = pillWidth + inset * 2
   static let containerHeight: CGFloat = pillHeight + hoverHandleReservedHeight + inset * 2
   static let visualCenterOffset: CGFloat = hoverHandleReservedHeight / 2
@@ -34,10 +36,10 @@ struct FloatingBarView: View {
     VStack(spacing: FloatingBarLayout.hoverHandleGap) {
       VStack(spacing: FloatingBarLayout.clickAreaGap) {
         Button(action: { performClick(RustBridge.openMainWindow) }) {
-          CircularClickArea {
+          CircularClickArea(hoverFill: controlHoverFill) {
             Text("a")
               .font(.custom(FloatingBarFonts.cabinSketchName, size: FloatingBarLayout.markSize))
-              .foregroundStyle(.white)
+              .foregroundStyle(primaryContentColor)
               .offset(y: -1)
           }
         }
@@ -76,19 +78,19 @@ struct FloatingBarView: View {
       .simultaneousGesture(dragClickSuppressor)
       .background(
         Capsule(style: .continuous)
-          .fill(Color(red: 0.43, green: 0.44, blue: 0.40).opacity(0.78))
+          .fill(surfaceColor)
       )
       .overlay(
         Capsule(style: .continuous)
-          .strokeBorder(Color.white.opacity(0.14), lineWidth: 0.5)
+          .strokeBorder(outerStrokeColor, lineWidth: 0.5)
       )
       .overlay(
         Capsule(style: .continuous)
-          .strokeBorder(Color.white.opacity(0.28), lineWidth: 0.5)
+          .strokeBorder(innerStrokeColor, lineWidth: 0.5)
           .padding(1.5)
       )
 
-      FloatingBarHoverHandle()
+      FloatingBarHoverHandle(color: secondaryContentColor)
         .opacity(isBarHovered ? 1 : 0)
         .scaleEffect(isBarHovered ? 1 : 0.92)
         .animation(.easeOut(duration: 0.12), value: isBarHovered)
@@ -106,6 +108,38 @@ struct FloatingBarView: View {
 
   private var accentColor: Color {
     model.status == .error ? errorAccentColor : normalAccentColor
+  }
+
+  private var surfaceColor: Color {
+    if model.colorScheme == .dark {
+      return Color(red: 0.43, green: 0.44, blue: 0.40).opacity(0.78)
+    }
+
+    return Color(red: 1, green: 0.99, blue: 0.96).opacity(0.92)
+  }
+
+  private var primaryContentColor: Color {
+    if model.colorScheme == .dark {
+      return .white
+    }
+
+    return Color(red: 0.12, green: 0.11, blue: 0.10)
+  }
+
+  private var secondaryContentColor: Color {
+    primaryContentColor.opacity(model.colorScheme == .dark ? 0.66 : 0.46)
+  }
+
+  private var controlHoverFill: Color {
+    primaryContentColor.opacity(model.colorScheme == .dark ? 0.08 : 0.07)
+  }
+
+  private var outerStrokeColor: Color {
+    primaryContentColor.opacity(model.colorScheme == .dark ? 0.14 : 0.12)
+  }
+
+  private var innerStrokeColor: Color {
+    primaryContentColor.opacity(model.colorScheme == .dark ? 0.28 : 0.18)
   }
 
   private var stopColor: Color {
@@ -146,11 +180,13 @@ struct FloatingBarView: View {
 }
 
 private struct FloatingBarHoverHandle: View {
+  let color: Color
+
   var body: some View {
     HStack(spacing: FloatingBarLayout.hoverHandleDotGap) {
       ForEach(0..<3, id: \.self) { _ in
         Circle()
-          .fill(Color.white.opacity(0.66))
+          .fill(color)
           .frame(
             width: FloatingBarLayout.hoverHandleDotSize,
             height: FloatingBarLayout.hoverHandleDotSize

@@ -9,10 +9,12 @@ import { listenerStore } from "~/store/zustand/listener/instance";
 
 type ListenerState = ReturnType<typeof listenerStore.getState>;
 type FloatingBarStatus = "recording" | "error";
+type FloatingBarColorScheme = "light" | "dark";
 type FloatingRouteState = {
   sessionId: string;
   amplitude: number;
   status: FloatingBarStatus;
+  colorScheme: FloatingBarColorScheme;
 };
 
 export function FloatingMeetingWindowHost() {
@@ -35,7 +37,7 @@ function FloatingMeetingWindowDisabled() {
 
 function FloatingMeetingWindowSync() {
   useMountEffect(() => {
-    let routeState = getFloatingRouteState(listenerStore.getState());
+    let routeState = getCurrentFloatingRouteState(listenerStore.getState());
     let syncQueued = false;
     let cancelled = false;
     let shownSessionId: string | null = null;
@@ -117,10 +119,26 @@ function FloatingMeetingWindowSync() {
     scheduleSync();
 
     const unsubscribe = listenerStore.subscribe((state, previousState) => {
-      const nextRouteState = getFloatingRouteState(state);
-      const previousRouteState = getFloatingRouteState(previousState);
+      const colorScheme = getCurrentFloatingBarColorScheme();
+      const nextRouteState = getFloatingRouteState(state, { colorScheme });
+      const previousRouteState = getFloatingRouteState(previousState, {
+        colorScheme,
+      });
 
       if (isSameFloatingRouteState(nextRouteState, previousRouteState)) {
+        return;
+      }
+
+      routeState = nextRouteState;
+      scheduleSync();
+    });
+
+    const unsubscribeAppliedTheme = subscribeToAppliedTheme(() => {
+      const nextRouteState = getCurrentFloatingRouteState(
+        listenerStore.getState(),
+      );
+
+      if (isSameFloatingRouteState(nextRouteState, routeState)) {
         return;
       }
 
@@ -131,6 +149,7 @@ function FloatingMeetingWindowSync() {
     return () => {
       cancelled = true;
       unsubscribe();
+      unsubscribeAppliedTheme();
       unlisteners.forEach((unlisten) => unlisten());
       void hideFloatingMeetingPanel();
     };
@@ -141,7 +160,13 @@ function FloatingMeetingWindowSync() {
 
 export function getFloatingRouteState(
   state: ListenerState,
-  sessionId?: string,
+  {
+    sessionId,
+    colorScheme = "dark",
+  }: {
+    sessionId?: string;
+    colorScheme?: FloatingBarColorScheme;
+  } = {},
 ): FloatingRouteState | null {
   if (state.live.status !== "active") {
     return null;
@@ -162,7 +187,42 @@ export function getFloatingRouteState(
       1,
     ),
     status: state.live.degraded || state.live.lastError ? "error" : "recording",
+    colorScheme,
   };
+}
+
+function getCurrentFloatingRouteState(
+  state: ListenerState,
+  sessionId?: string,
+): FloatingRouteState | null {
+  return getFloatingRouteState(state, {
+    sessionId,
+    colorScheme: getCurrentFloatingBarColorScheme(),
+  });
+}
+
+function subscribeToAppliedTheme(onStoreChange: () => void) {
+  if (
+    typeof document === "undefined" ||
+    typeof MutationObserver === "undefined"
+  ) {
+    return () => {};
+  }
+
+  const observer = new MutationObserver(onStoreChange);
+  observer.observe(document.documentElement, {
+    attributeFilter: ["class"],
+    attributes: true,
+  });
+  return () => observer.disconnect();
+}
+
+export function getCurrentFloatingBarColorScheme(): FloatingBarColorScheme {
+  if (typeof document === "undefined") {
+    return "dark";
+  }
+
+  return document.documentElement.classList.contains("dark") ? "dark" : "light";
 }
 
 function isSameFloatingRouteState(
@@ -172,7 +232,8 @@ function isSameFloatingRouteState(
   return (
     left?.sessionId === right?.sessionId &&
     left?.amplitude === right?.amplitude &&
-    left?.status === right?.status
+    left?.status === right?.status &&
+    left?.colorScheme === right?.colorScheme
   );
 }
 
@@ -228,6 +289,7 @@ async function showFloatingMeetingWindow(
   const updateResult = await windowsCommands.floatingBarUpdate({
     amplitude: routeState.amplitude,
     status: routeState.status,
+    colorScheme: routeState.colorScheme,
   });
   if (!shouldContinue()) {
     await hideFloatingMeetingPanel();
@@ -257,7 +319,10 @@ export async function openFloatingMeetingPanel({
     return;
   }
 
-  const routeState = getFloatingRouteState(listenerStore.getState(), sessionId);
+  const routeState = getCurrentFloatingRouteState(
+    listenerStore.getState(),
+    sessionId,
+  );
 
   if (!routeState) {
     return;

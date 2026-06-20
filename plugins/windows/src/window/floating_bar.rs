@@ -11,9 +11,17 @@ pub enum FloatingBarStatus {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
+pub enum FloatingBarColorScheme {
+    Light,
+    Dark,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
 pub struct FloatingBarState {
     pub amplitude: f64,
     pub status: FloatingBarStatus,
+    pub color_scheme: FloatingBarColorScheme,
 }
 
 #[cfg(target_os = "macos")]

@@ -57,6 +57,7 @@ final class FloatingBarManager {
       guard let self else { return }
       self.model.status = state.status
       self.model.amplitude = min(max(state.amplitude, 0), 1)
+      self.model.colorScheme = state.colorScheme
     }
   }
 

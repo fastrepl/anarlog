@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { getFloatingRouteState } from "./host";
+import {
+  getCurrentFloatingBarColorScheme,
+  getFloatingRouteState,
+} from "./host";
 
 import { createListenerStore } from "~/store/zustand/listener";
 
@@ -33,6 +36,7 @@ describe("getFloatingRouteState", () => {
       sessionId: "session-1",
       amplitude: 1,
       status: "recording",
+      colorScheme: "dark",
     });
   });
 
@@ -69,5 +73,15 @@ describe("getFloatingRouteState", () => {
         }),
       ),
     ).toBeNull();
+  });
+});
+
+describe("getCurrentFloatingBarColorScheme", () => {
+  it("uses the applied document theme", () => {
+    document.documentElement.classList.remove("dark");
+    expect(getCurrentFloatingBarColorScheme()).toBe("light");
+
+    document.documentElement.classList.add("dark");
+    expect(getCurrentFloatingBarColorScheme()).toBe("dark");
   });
 });
