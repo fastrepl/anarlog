@@ -3,13 +3,11 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 export * from "./bindings.gen";
 import { commands } from "./bindings.gen";
 
-type UUID = `${string}-${string}-${string}-${string}-${string}`;
-
 export type WindowLabel =
   | "main"
   | "composer"
   | "floating"
-  | `note-${UUID}`
+  | `note-${string}`
   | "calendar"
   | "settings";
 

@@ -9,6 +9,7 @@ import {
 
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
+import { commands as windowsCommands } from "@hypr/plugin-windows";
 import { DancingSticks } from "@hypr/ui/components/ui/dancing-sticks";
 import { Spinner } from "@hypr/ui/components/ui/spinner";
 import { cn, format, getYear, safeParseDate, TZDate } from "@hypr/utils";
@@ -105,6 +106,7 @@ function ItemBase({
   muted,
   multiSelected,
   onClick,
+  onDoubleClick,
   onCmdClick,
   onShiftClick,
   onStop,
@@ -126,6 +128,7 @@ function ItemBase({
   muted?: boolean;
   multiSelected: boolean;
   onClick: () => void;
+  onDoubleClick?: () => void;
   onCmdClick: () => void;
   onShiftClick: () => void;
   onStop?: () => void;
@@ -156,6 +159,7 @@ function ItemBase({
     >
       <InteractiveButton
         onClick={ignored ? undefined : onClick}
+        onDoubleClick={ignored ? undefined : onDoubleClick}
         onCmdClick={ignored ? undefined : onCmdClick}
         onShiftClick={ignored ? undefined : onShiftClick}
         onDragStart={onDragStart}
@@ -447,7 +451,6 @@ const SessionItem = memo(
     const store = main.UI.useStore(main.STORE_ID);
     const indexes = main.UI.useIndexes(main.STORE_ID);
     const openCurrent = useTabs((state) => state.openCurrent);
-    const openNew = useTabs((state) => state.openNew);
     const invalidateResource = useTabs((state) => state.invalidateResource);
     const addDeletion = useUndoDelete((state) => state.addDeletion);
     const { ignoreEvent } = useIgnoredEvents();
@@ -507,6 +510,10 @@ const SessionItem = memo(
       useTimelineSelection.getState().selectRange(flatItemKeys, itemKey);
     }, [flatItemKeys, itemKey]);
 
+    const handleOpenStandaloneWindow = useCallback(() => {
+      void openStandaloneNoteWindow(sessionId);
+    }, [sessionId]);
+
     const handleDragStart = useCallback(
       (event: DragEvent<HTMLElement>) => {
         writeSessionContextDragData(
@@ -517,10 +524,6 @@ const SessionItem = memo(
       },
       [sessionId, title],
     );
-
-    const handleOpenNewTab = useCallback(() => {
-      openNew({ id: sessionId, type: "sessions" });
-    }, [sessionId, openNew]);
 
     const handleDelete = useCallback(() => {
       if (!store) {
@@ -563,9 +566,9 @@ const SessionItem = memo(
     const contextMenu = useMemo(
       () => [
         {
-          id: "open-new-tab",
-          text: "Open in New Tab",
-          action: handleOpenNewTab,
+          id: "open-new-window",
+          text: "Open in New Window",
+          action: handleOpenStandaloneWindow,
         },
         {
           id: "show",
@@ -579,7 +582,7 @@ const SessionItem = memo(
           action: handleDelete,
         },
       ],
-      [handleOpenNewTab, handleShowInFinder, handleDelete],
+      [handleOpenStandaloneWindow, handleShowInFinder, handleDelete],
     );
 
     return (
@@ -604,6 +607,7 @@ const SessionItem = memo(
           muted={muted}
           multiSelected={multiSelected}
           onClick={handleClick}
+          onDoubleClick={handleOpenStandaloneWindow}
           onCmdClick={handleCmdClick}
           onShiftClick={handleShiftClick}
           onStop={stop}
@@ -619,6 +623,17 @@ const SessionItem = memo(
     );
   },
 );
+
+async function openStandaloneNoteWindow(sessionId: string) {
+  const result = await windowsCommands.windowShow({
+    type: "note",
+    value: sessionId,
+  });
+
+  if (result.status === "error") {
+    console.error("Failed to open note window:", result.error);
+  }
+}
 
 function formatDisplayTime(
   timestamp: string | null | undefined,

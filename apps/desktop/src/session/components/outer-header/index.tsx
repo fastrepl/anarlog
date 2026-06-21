@@ -20,10 +20,12 @@ import { useListener } from "~/stt/contexts";
 export function OuterHeader({
   sessionId,
   currentView,
+  standaloneWindow = false,
   title,
 }: {
   sessionId: string;
   currentView: EditorView;
+  standaloneWindow?: boolean;
   title?: React.ReactNode;
 }) {
   const { leftsidebar } = useShell();
@@ -48,11 +50,13 @@ export function OuterHeader({
           className={cn([
             "pointer-events-none absolute inset-y-0 flex items-center",
             reserveCollapsedLiveControls ? "right-[153px]" : "right-[70px]",
-            showSidebarTimelineHeaderGutter
-              ? "left-[104px]"
-              : showExpandedSidebarTimelineHeader
-                ? "left-0"
-                : "left-[114px]",
+            standaloneWindow
+              ? "left-[68px]"
+              : showSidebarTimelineHeaderGutter
+                ? "left-[104px]"
+                : showExpandedSidebarTimelineHeader
+                  ? "left-0"
+                  : "left-[114px]",
           ])}
         >
           <div

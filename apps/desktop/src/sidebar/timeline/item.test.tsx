@@ -13,12 +13,21 @@ const mocks = vi.hoisted(() => ({
   sessionMode: "inactive",
   stop: vi.fn(),
   storeTitle: "Live Note",
+  nativeContextMenus: [] as Array<
+    Array<{
+      id?: string;
+      text?: string;
+      action?: () => void;
+      separator?: boolean;
+    }>
+  >,
   timelineSelection: {
     selectedIds: [] as string[],
     setAnchor: vi.fn(),
     selectRange: vi.fn(),
     toggleSelect: vi.fn(),
   },
+  windowShow: vi.fn(() => Promise.resolve({ status: "ok", data: null })),
 }));
 
 vi.mock("@hypr/plugin-fs-sync", () => ({
@@ -30,6 +39,12 @@ vi.mock("@hypr/plugin-fs-sync", () => ({
 vi.mock("@hypr/plugin-opener2", () => ({
   commands: {
     openPath: vi.fn(() => Promise.resolve()),
+  },
+}));
+
+vi.mock("@hypr/plugin-windows", () => ({
+  commands: {
+    windowShow: mocks.windowShow,
   },
 }));
 
@@ -60,7 +75,17 @@ vi.mock("~/session/hooks/useEnhancedNotes", () => ({
 }));
 
 vi.mock("~/shared/hooks/useNativeContextMenu", () => ({
-  useNativeContextMenu: () => vi.fn(),
+  useNativeContextMenu: (
+    menu: Array<{
+      id?: string;
+      text?: string;
+      action?: () => void;
+      separator?: boolean;
+    }>,
+  ) => {
+    mocks.nativeContextMenus.push(menu);
+    return vi.fn();
+  },
 }));
 
 vi.mock("~/store/tinybase/hooks", () => ({
@@ -151,6 +176,8 @@ describe("TimelineItemComponent", () => {
     mocks.stop.mockClear();
     mocks.openCurrent.mockClear();
     mocks.openNew.mockClear();
+    mocks.windowShow.mockClear();
+    mocks.nativeContextMenus = [];
     mocks.timelineSelection.selectedIds = [];
     mocks.timelineSelection.setAnchor.mockClear();
     mocks.timelineSelection.selectRange.mockClear();
@@ -321,5 +348,124 @@ describe("TimelineItemComponent", () => {
     expect(rowButton?.className).toContain("pr-10");
     expect(spinnerSlot?.className).toContain("absolute");
     expect(spinnerSlot?.className).toContain("right-3");
+  });
+
+  it("opens the current tab after a single-click on a session row", () => {
+    vi.useFakeTimers();
+
+    try {
+      render(
+        <TimelineItemComponent
+          item={{
+            type: "session",
+            id: "session-note",
+            data: {
+              title: "Window Note",
+              created_at: "2024-01-15T10:30:00.000Z",
+            },
+          }}
+          precision="time"
+          selected={false}
+          timezone="UTC"
+          multiSelected={false}
+          flatItemKeys={["session-session-note"]}
+        />,
+      );
+
+      const rowButton = screen.getByText("Live Note").closest("button");
+      fireEvent.click(rowButton!);
+
+      expect(mocks.openCurrent).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(200);
+
+      expect(mocks.timelineSelection.setAnchor).toHaveBeenCalledWith(
+        "session-session-note",
+      );
+      expect(mocks.openCurrent).toHaveBeenCalledWith({
+        id: "session-note",
+        type: "sessions",
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("opens a standalone note window when a session row is double-clicked", () => {
+    vi.useFakeTimers();
+
+    try {
+      render(
+        <TimelineItemComponent
+          item={{
+            type: "session",
+            id: "session-note-window",
+            data: {
+              title: "Window Note",
+              created_at: "2024-01-15T10:30:00.000Z",
+            },
+          }}
+          precision="time"
+          selected={false}
+          timezone="UTC"
+          multiSelected={false}
+          flatItemKeys={["session-session-note-window"]}
+        />,
+      );
+
+      const rowButton = screen.getByText("Live Note").closest("button");
+      fireEvent.click(rowButton!);
+      fireEvent.click(rowButton!);
+      fireEvent.doubleClick(rowButton!);
+
+      expect(mocks.windowShow).toHaveBeenCalledWith({
+        type: "note",
+        value: "session-note-window",
+      });
+      vi.runAllTimers();
+      expect(mocks.openCurrent).not.toHaveBeenCalled();
+      expect(mocks.timelineSelection.setAnchor).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("offers a standalone window action instead of a new tab action for session rows", () => {
+    render(
+      <TimelineItemComponent
+        item={{
+          type: "session",
+          id: "session-note-window",
+          data: {
+            title: "Window Note",
+            created_at: "2024-01-15T10:30:00.000Z",
+          },
+        }}
+        precision="time"
+        selected={false}
+        timezone="UTC"
+        multiSelected={false}
+        flatItemKeys={["session-session-note-window"]}
+      />,
+    );
+
+    const menu = mocks.nativeContextMenus.find((items) =>
+      items.some((item) => item.id === "open-new-window"),
+    );
+
+    expect(menu?.some((item) => item.text === "Open in New Tab")).toBe(false);
+    const openWindowItem = menu?.find((item) => item.id === "open-new-window");
+
+    expect(openWindowItem).toMatchObject({
+      id: "open-new-window",
+      text: "Open in New Window",
+    });
+
+    openWindowItem?.action?.();
+
+    expect(mocks.windowShow).toHaveBeenCalledWith({
+      type: "note",
+      value: "session-note-window",
+    });
   });
 });

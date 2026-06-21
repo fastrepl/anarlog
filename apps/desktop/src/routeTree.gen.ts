@@ -14,6 +14,7 @@ import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as AppOnboardingRouteImport } from './routes/app/onboarding'
 import { Route as AppInstructionRouteImport } from './routes/app/instruction'
 import { Route as AppComposerRouteImport } from './routes/app/composer'
+import { Route as AppNoteSessionIdRouteImport } from './routes/app/note.$sessionId'
 import { Route as AppMainLayoutRouteImport } from './routes/app/main/_layout'
 import { Route as AppMainLayoutIndexRouteImport } from './routes/app/main/_layout.index'
 
@@ -42,6 +43,11 @@ const AppComposerRoute = AppComposerRouteImport.update({
   path: '/composer',
   getParentRoute: () => AppRouteRoute,
 } as any)
+const AppNoteSessionIdRoute = AppNoteSessionIdRouteImport.update({
+  id: '/note/$sessionId',
+  path: '/note/$sessionId',
+  getParentRoute: () => AppRouteRoute,
+} as any)
 const AppMainLayoutRoute = AppMainLayoutRouteImport.update({
   id: '/main/_layout',
   path: '/main',
@@ -60,6 +66,7 @@ export interface FileRoutesByFullPath {
   '/app/onboarding': typeof AppOnboardingRoute
   '/app/': typeof AppIndexRoute
   '/app/main': typeof AppMainLayoutRouteWithChildren
+  '/app/note/$sessionId': typeof AppNoteSessionIdRoute
   '/app/main/': typeof AppMainLayoutIndexRoute
 }
 export interface FileRoutesByTo {
@@ -67,6 +74,7 @@ export interface FileRoutesByTo {
   '/app/instruction': typeof AppInstructionRoute
   '/app/onboarding': typeof AppOnboardingRoute
   '/app': typeof AppIndexRoute
+  '/app/note/$sessionId': typeof AppNoteSessionIdRoute
   '/app/main': typeof AppMainLayoutIndexRoute
 }
 export interface FileRoutesById {
@@ -77,6 +85,7 @@ export interface FileRoutesById {
   '/app/onboarding': typeof AppOnboardingRoute
   '/app/': typeof AppIndexRoute
   '/app/main/_layout': typeof AppMainLayoutRouteWithChildren
+  '/app/note/$sessionId': typeof AppNoteSessionIdRoute
   '/app/main/_layout/': typeof AppMainLayoutIndexRoute
 }
 export interface FileRouteTypes {
@@ -88,6 +97,7 @@ export interface FileRouteTypes {
     | '/app/onboarding'
     | '/app/'
     | '/app/main'
+    | '/app/note/$sessionId'
     | '/app/main/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -95,6 +105,7 @@ export interface FileRouteTypes {
     | '/app/instruction'
     | '/app/onboarding'
     | '/app'
+    | '/app/note/$sessionId'
     | '/app/main'
   id:
     | '__root__'
@@ -104,6 +115,7 @@ export interface FileRouteTypes {
     | '/app/onboarding'
     | '/app/'
     | '/app/main/_layout'
+    | '/app/note/$sessionId'
     | '/app/main/_layout/'
   fileRoutesById: FileRoutesById
 }
@@ -148,6 +160,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppComposerRouteImport
       parentRoute: typeof AppRouteRoute
     }
+    '/app/note/$sessionId': {
+      id: '/app/note/$sessionId'
+      path: '/note/$sessionId'
+      fullPath: '/app/note/$sessionId'
+      preLoaderRoute: typeof AppNoteSessionIdRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
     '/app/main/_layout': {
       id: '/app/main/_layout'
       path: '/main'
@@ -183,6 +202,7 @@ interface AppRouteRouteChildren {
   AppOnboardingRoute: typeof AppOnboardingRoute
   AppIndexRoute: typeof AppIndexRoute
   AppMainLayoutRoute: typeof AppMainLayoutRouteWithChildren
+  AppNoteSessionIdRoute: typeof AppNoteSessionIdRoute
 }
 
 const AppRouteRouteChildren: AppRouteRouteChildren = {
@@ -191,6 +211,7 @@ const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppOnboardingRoute: AppOnboardingRoute,
   AppIndexRoute: AppIndexRoute,
   AppMainLayoutRoute: AppMainLayoutRouteWithChildren,
+  AppNoteSessionIdRoute: AppNoteSessionIdRoute,
 }
 
 const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(

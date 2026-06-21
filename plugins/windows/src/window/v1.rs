@@ -7,6 +7,8 @@ pub enum AppWindow {
     Main,
     #[serde(rename = "composer")]
     Composer,
+    #[serde(rename = "note")]
+    Note(String),
 }
 
 impl std::fmt::Display for AppWindow {
@@ -14,6 +16,7 @@ impl std::fmt::Display for AppWindow {
         match self {
             Self::Main => write!(f, "main"),
             Self::Composer => write!(f, "composer"),
+            Self::Note(id) => write!(f, "note-{id}"),
         }
     }
 }
@@ -26,6 +29,10 @@ impl std::str::FromStr for AppWindow {
             "main" => return Ok(Self::Main),
             "composer" => return Ok(Self::Composer),
             _ => {}
+        }
+
+        if let Some(id) = s.strip_prefix("note-").filter(|id| !id.is_empty()) {
+            return Ok(Self::Note(id.to_string()));
         }
 
         Err(strum::ParseError::VariantNotFound)
@@ -100,6 +107,7 @@ impl WindowImpl for AppWindow {
         match self {
             Self::Main => "Anarlog".into(),
             Self::Composer => "Composer".into(),
+            Self::Note(_) => "Note".into(),
         }
     }
 
@@ -131,6 +139,18 @@ impl WindowImpl for AppWindow {
                     crate::window::composer::WIDTH,
                     crate::window::composer::HEIGHT,
                 ))?;
+                window
+            }
+            Self::Note(id) => {
+                let encoded_id: String =
+                    url::form_urlencoded::byte_serialize(id.as_bytes()).collect();
+                let builder = self
+                    .window_builder(app, format!("/app/note/{encoded_id}"))
+                    .maximizable(true)
+                    .minimizable(true)
+                    .min_inner_size(420.0, 500.0);
+                let window = builder.build()?;
+                window.set_size(LogicalSize::new(720.0, 820.0))?;
                 window
             }
         };

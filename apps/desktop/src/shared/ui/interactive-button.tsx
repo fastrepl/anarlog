@@ -3,8 +3,10 @@ import {
   type MouseEvent,
   type ReactNode,
   useCallback,
+  useRef,
 } from "react";
 
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import {
   type MenuItemDef,
   useNativeContextMenu,
@@ -13,6 +15,7 @@ import {
 interface InteractiveButtonProps {
   children: ReactNode;
   onClick?: () => void;
+  onDoubleClick?: () => void;
   onCmdClick?: () => void;
   onShiftClick?: () => void;
   onMouseDown?: (e: MouseEvent<HTMLElement>) => void;
@@ -27,6 +30,7 @@ interface InteractiveButtonProps {
 export function InteractiveButton({
   children,
   onClick,
+  onDoubleClick,
   onCmdClick,
   onShiftClick,
   onMouseDown,
@@ -38,6 +42,16 @@ export function InteractiveButton({
   asChild = false,
 }: InteractiveButtonProps) {
   const showMenu = useNativeContextMenu(contextMenu ?? []);
+  const clickTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearPendingClick = useCallback(() => {
+    if (clickTimeoutRef.current) {
+      clearTimeout(clickTimeoutRef.current);
+      clickTimeoutRef.current = null;
+    }
+  }, []);
+
+  useMountEffect(() => clearPendingClick);
 
   const handleClick = useCallback(
     (e: MouseEvent<HTMLElement>) => {
@@ -46,16 +60,44 @@ export function InteractiveButton({
       }
 
       if (e.shiftKey) {
+        clearPendingClick();
         e.preventDefault();
         onShiftClick?.();
       } else if (e.metaKey || e.ctrlKey) {
+        clearPendingClick();
         e.preventDefault();
         onCmdClick?.();
+      } else if (onDoubleClick) {
+        clearPendingClick();
+        clickTimeoutRef.current = setTimeout(() => {
+          clickTimeoutRef.current = null;
+          onClick?.();
+        }, 200);
       } else {
         onClick?.();
       }
     },
-    [onClick, onCmdClick, onShiftClick, disabled],
+    [
+      onClick,
+      onDoubleClick,
+      onCmdClick,
+      onShiftClick,
+      disabled,
+      clearPendingClick,
+    ],
+  );
+
+  const handleDoubleClick = useCallback(
+    (e: MouseEvent<HTMLElement>) => {
+      if (disabled) {
+        return;
+      }
+
+      clearPendingClick();
+      e.preventDefault();
+      onDoubleClick?.();
+    },
+    [onDoubleClick, disabled, clearPendingClick],
   );
 
   const Element = asChild ? "div" : "button";
@@ -63,6 +105,7 @@ export function InteractiveButton({
   return (
     <Element
       onClick={handleClick}
+      onDoubleClick={onDoubleClick ? handleDoubleClick : undefined}
       onDragStart={onDragStart}
       onMouseDown={onMouseDown}
       onContextMenu={contextMenu ? showMenu : undefined}
