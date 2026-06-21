@@ -250,9 +250,8 @@ describe("ClassicMainBody", () => {
 
     expect(screen.queryByTestId("timeline-update-banner")).toBeNull();
     expect(screen.queryByTestId("toast-area")).toBeNull();
-    expect(firstBodyChild?.className).toContain(
-      "flex min-h-0 min-w-0 flex-1 gap-1",
-    );
+    expect(firstBodyChild?.className).toContain("min-h-0 flex-1");
+    expect(firstBodyChild?.className).toContain("overflow-hidden");
     expect(firstBodyChild?.hasAttribute("data-tauri-drag-region")).toBe(false);
     expect(screen.getByTestId("main-tab-content").textContent).toContain(
       "onboarding",
@@ -278,9 +277,8 @@ describe("ClassicMainBody", () => {
     expect(topArea?.className).toContain("h-12");
     expect(topArea?.className).toContain("left-1");
     expect(topArea?.className).toContain("pointer-events-none");
-    expect(contentRow?.className).toContain(
-      "flex min-h-0 min-w-0 flex-1 gap-1",
-    );
+    expect(contentRow?.className).toContain("min-h-0 flex-1");
+    expect(contentRow?.className).toContain("overflow-hidden");
     expect(contentRow?.hasAttribute("data-tauri-drag-region")).toBe(false);
     expect(mocks.toggleLeftSidebar).toHaveBeenCalledTimes(1);
   });

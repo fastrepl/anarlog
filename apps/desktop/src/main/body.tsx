@@ -7,8 +7,21 @@ import {
   SearchIcon,
   SquarePenIcon,
 } from "lucide-react";
-import { type MouseEvent, type PointerEvent, useCallback, useRef } from "react";
+import {
+  type CSSProperties,
+  type MouseEvent,
+  type PointerEvent,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@hypr/ui/components/ui/resizable";
 import { cn } from "@hypr/utils";
 
 import { resolveMainSurfaceChrome } from "./main-surface-chrome";
@@ -34,6 +47,11 @@ import { type Tab, uniqueIdfromTab, useTabs } from "~/store/zustand/tabs";
 
 const MAIN_AREA_TOP_DRAG_HEIGHT_PX = 48;
 const MAIN_AREA_WINDOW_DRAG_THRESHOLD_PX = 5;
+const LEFT_SIDEBAR_DEFAULT_SIZE = 18;
+const LEFT_SIDEBAR_MIN_SIZE = 12;
+const LEFT_SIDEBAR_MAX_SIZE = 32;
+const LEFT_SIDEBAR_MIN_WIDTH_PX = 180;
+const LEFT_SIDEBAR_MAX_WIDTH_PX = 360;
 
 type MainAreaWindowDragStart = {
   pointerId: number;
@@ -46,6 +64,9 @@ export function ClassicMainBody() {
   const { leftsidebar } = useShell();
   const currentTab = useTabs((state) => state.currentTab);
   const { runEscapeShortcut } = useClassicMainTabsShortcuts();
+  const [leftSidebarPanelSize, setLeftSidebarPanelSize] = useState(
+    LEFT_SIDEBAR_DEFAULT_SIZE,
+  );
 
   const isOnboarding = currentTab?.type === "onboarding";
   const isChangelog = currentTab?.type === "changelog";
@@ -54,6 +75,7 @@ export function ClassicMainBody() {
     hasLeftSurfaceCustomSidebarTab(currentTab);
   const showSidebarTimelineChrome = !hasCustomSidebar && !isOnboarding;
   const showSidebarTimeline = showSidebarTimelineChrome && leftsidebar.expanded;
+  const showLeftSidebarPanel = leftsidebar.expanded && !isOnboarding;
   const showLeftSurfaceChromeBack = hasLeftSurfaceCustomSidebar;
   const enableMainAreaTopDrag =
     showSidebarTimelineChrome || hasLeftSurfaceCustomSidebar;
@@ -76,14 +98,38 @@ export function ClassicMainBody() {
   const handleOpenNoteDialog = useCallback(() => {
     openNoteDialog.open();
   }, [openNoteDialog]);
+  const handlePanelLayout = useCallback(
+    (sizes: number[]) => {
+      if (!showLeftSidebarPanel) {
+        return;
+      }
+
+      const sidebarSize = sizes[0];
+      if (typeof sidebarSize === "number") {
+        setLeftSidebarPanelSize(sidebarSize);
+      }
+    },
+    [showLeftSidebarPanel],
+  );
+  const leftSidebarChromeStyle = useMemo(
+    () =>
+      ({
+        width: `${leftSidebarPanelSize}%`,
+        minWidth: LEFT_SIDEBAR_MIN_WIDTH_PX,
+        maxWidth: LEFT_SIDEBAR_MAX_WIDTH_PX,
+      }) satisfies CSSProperties,
+    [leftSidebarPanelSize],
+  );
 
   return (
     <div className="relative flex h-full min-w-0 flex-1 flex-col">
       {isOnboarding ? null : showSidebarTimelineChrome ? (
         <div
           data-tauri-drag-region
+          data-left-sidebar-chrome
+          style={leftSidebarChromeStyle}
           className={cn([
-            "absolute top-0 z-40 h-12 w-[200px]",
+            "absolute top-0 z-40 h-12",
             leftsidebar.expanded ? "left-0" : "left-1",
             !leftsidebar.expanded && "pointer-events-none",
           ])}
@@ -105,7 +151,9 @@ export function ClassicMainBody() {
       ) : hasLeftSurfaceCustomSidebar ? (
         <div
           data-tauri-drag-region
-          className="absolute top-0 left-0 z-40 h-10 w-[200px]"
+          data-left-sidebar-chrome
+          style={leftSidebarChromeStyle}
+          className="absolute top-0 left-0 z-40 h-10"
         />
       ) : (
         <div data-tauri-drag-region className="relative h-10 shrink-0">
@@ -118,7 +166,9 @@ export function ClassicMainBody() {
       {showLeftSurfaceChromeBack ? (
         <div
           data-tauri-drag-region
-          className="absolute top-0 left-0 z-50 h-12 w-[200px]"
+          data-left-sidebar-chrome
+          style={leftSidebarChromeStyle}
+          className="absolute top-0 left-0 z-50 h-12"
         >
           <div
             data-tauri-drag-region
@@ -133,29 +183,54 @@ export function ClassicMainBody() {
           </div>
         </div>
       ) : null}
-      <div className="flex min-h-0 min-w-0 flex-1 gap-1">
-        <ClassicMainSidebar />
-        <div
-          className="min-h-0 min-w-0 flex-1 overflow-auto"
-          onClickCapture={mainAreaTopDrag.onClickCapture}
-          onPointerCancel={mainAreaTopDrag.onPointerEnd}
-          onPointerDown={mainAreaTopDrag.onPointerDown}
-          onPointerMove={mainAreaTopDrag.onPointerMove}
-          onPointerUp={mainAreaTopDrag.onPointerEnd}
-        >
-          <GlobalLiveTranscriptAccessory
-            currentTab={currentTab}
-            surfaceChrome={mainSurfaceChrome}
+      <ResizablePanelGroup
+        autoSaveId={showLeftSidebarPanel ? "classic-main-sidebar" : undefined}
+        direction="horizontal"
+        className="min-h-0 flex-1 overflow-hidden"
+        onLayout={handlePanelLayout}
+      >
+        {showLeftSidebarPanel ? (
+          <>
+            <ResizablePanel
+              defaultSize={LEFT_SIDEBAR_DEFAULT_SIZE}
+              minSize={LEFT_SIDEBAR_MIN_SIZE}
+              maxSize={LEFT_SIDEBAR_MAX_SIZE}
+              className="min-h-0 overflow-hidden"
+              style={{
+                minWidth: LEFT_SIDEBAR_MIN_WIDTH_PX,
+                maxWidth: LEFT_SIDEBAR_MAX_WIDTH_PX,
+              }}
+            >
+              <ClassicMainSidebar />
+            </ResizablePanel>
+            <ResizableHandle className="z-10 w-1 !bg-transparent after:w-2" />
+          </>
+        ) : (
+          <ClassicMainSidebar />
+        )}
+        <ResizablePanel className="min-h-0 flex-1 overflow-hidden">
+          <div
+            className="h-full min-h-0 min-w-0 flex-1 overflow-auto"
+            onClickCapture={mainAreaTopDrag.onClickCapture}
+            onPointerCancel={mainAreaTopDrag.onPointerEnd}
+            onPointerDown={mainAreaTopDrag.onPointerDown}
+            onPointerMove={mainAreaTopDrag.onPointerMove}
+            onPointerUp={mainAreaTopDrag.onPointerEnd}
           >
-            {currentTab ? (
-              <ClassicMainTabContent
-                key={uniqueIdfromTab(currentTab)}
-                tab={currentTab as Tab}
-              />
-            ) : null}
-          </GlobalLiveTranscriptAccessory>
-        </div>
-      </div>
+            <GlobalLiveTranscriptAccessory
+              currentTab={currentTab}
+              surfaceChrome={mainSurfaceChrome}
+            >
+              {currentTab ? (
+                <ClassicMainTabContent
+                  key={uniqueIdfromTab(currentTab)}
+                  tab={currentTab as Tab}
+                />
+              ) : null}
+            </GlobalLiveTranscriptAccessory>
+          </div>
+        </ResizablePanel>
+      </ResizablePanelGroup>
     </div>
   );
 }
