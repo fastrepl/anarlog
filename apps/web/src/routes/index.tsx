@@ -340,9 +340,9 @@ function Component() {
               AI notepad for private meetings.
             </h1>
             <p className="mt-6 max-w-2xl text-xl leading-9 text-[#363029]">
-              The open-source Granola alternative for private meetings,
-              downloaded over 18k times. Record locally and choose where AI
-              runs.
+              The open-source Granola alternative for private meetings, with
+              over 18k accumulated users worldwide. Record locally and choose
+              where AI runs.
             </p>
             <div className="mt-8 flex flex-wrap gap-x-5 gap-y-3 text-sm">
               <DownloadButton />
