@@ -64,12 +64,6 @@ vi.mock("@hypr/ui/components/ui/tooltip", () => ({
   TooltipTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 
-vi.mock("~/session/components/session-preview-card", () => ({
-  SessionPreviewCard: ({ children }: { children: ReactNode }) => (
-    <>{children}</>
-  ),
-}));
-
 vi.mock("~/session/hooks/useEnhancedNotes", () => ({
   useIsSessionEnhancing: () => false,
 }));

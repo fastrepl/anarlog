@@ -23,7 +23,6 @@ import {
 } from "./utils";
 
 import { writeSessionContextDragData } from "~/chat/context/session-drag";
-import { SessionPreviewCard } from "~/session/components/session-preview-card";
 import { useIsSessionEnhancing } from "~/session/hooks/useEnhancedNotes";
 import { getSessionEvent } from "~/session/utils";
 import type { MenuItemDef } from "~/shared/hooks/useNativeContextMenu";
@@ -586,40 +585,31 @@ const SessionItem = memo(
     );
 
     return (
-      <SessionPreviewCard
-        sessionId={sessionId}
-        side="right"
-        enabled={!selected}
-      >
-        <ItemBase
-          title={title}
-          displayTime={displayTime}
-          isLive={isLive}
-          amplitude={Math.max(
-            0.25,
-            Math.min(
-              Math.hypot(amplitude?.mic ?? 0, amplitude?.speaker ?? 0),
-              1,
-            ),
-          )}
-          showSpinner={showSpinner}
-          selected={selected}
-          muted={muted}
-          multiSelected={multiSelected}
-          onClick={handleClick}
-          onDoubleClick={handleOpenStandaloneWindow}
-          onCmdClick={handleCmdClick}
-          onShiftClick={handleShiftClick}
-          onStop={stop}
-          onDragStart={handleDragStart}
-          contextMenu={contextMenu}
-          selectedNodeRef={selected ? selectedNodeRef : undefined}
-          itemNodeRef={itemNodeRef}
-          timelineSessionId={sessionId}
-          isUpcoming={isUpcoming}
-          draggable
-        />
-      </SessionPreviewCard>
+      <ItemBase
+        title={title}
+        displayTime={displayTime}
+        isLive={isLive}
+        amplitude={Math.max(
+          0.25,
+          Math.min(Math.hypot(amplitude?.mic ?? 0, amplitude?.speaker ?? 0), 1),
+        )}
+        showSpinner={showSpinner}
+        selected={selected}
+        muted={muted}
+        multiSelected={multiSelected}
+        onClick={handleClick}
+        onDoubleClick={handleOpenStandaloneWindow}
+        onCmdClick={handleCmdClick}
+        onShiftClick={handleShiftClick}
+        onStop={stop}
+        onDragStart={handleDragStart}
+        contextMenu={contextMenu}
+        selectedNodeRef={selected ? selectedNodeRef : undefined}
+        itemNodeRef={itemNodeRef}
+        timelineSessionId={sessionId}
+        isUpcoming={isUpcoming}
+        draggable
+      />
     );
   },
 );
