@@ -20,10 +20,12 @@ import { useListener } from "~/stt/contexts";
 export function OuterHeader({
   sessionId,
   currentView,
+  standaloneWindow = false,
   title,
 }: {
   sessionId: string;
   currentView: EditorView;
+  standaloneWindow?: boolean;
   title?: React.ReactNode;
 }) {
   const { leftsidebar } = useShell();
@@ -31,7 +33,8 @@ export function OuterHeader({
   const showSidebarTimelineHeaderGutter = !leftsidebar.expanded;
   const showExpandedSidebarTimelineHeader = leftsidebar.expanded;
   const reserveCollapsedLiveControls =
-    showSidebarTimelineHeaderGutter && isSidebarStopButtonMode(sessionMode);
+    (standaloneWindow || showSidebarTimelineHeaderGutter) &&
+    isSidebarStopButtonMode(sessionMode);
 
   return (
     <div
@@ -48,11 +51,13 @@ export function OuterHeader({
           className={cn([
             "pointer-events-none absolute inset-y-0 flex items-center",
             reserveCollapsedLiveControls ? "right-[153px]" : "right-[70px]",
-            showSidebarTimelineHeaderGutter
-              ? "left-[104px]"
-              : showExpandedSidebarTimelineHeader
-                ? "left-0"
-                : "left-[114px]",
+            standaloneWindow
+              ? "left-[68px]"
+              : showSidebarTimelineHeaderGutter
+                ? "left-[104px]"
+                : showExpandedSidebarTimelineHeader
+                  ? "left-0"
+                  : "left-[114px]",
           ])}
         >
           <div
@@ -67,7 +72,10 @@ export function OuterHeader({
         data-tauri-drag-region
         className="relative z-10 ml-auto flex shrink-0 items-center gap-0 pr-1"
       >
-        <SidebarModeStopButton sessionMode={sessionMode} />
+        <SidebarModeStopButton
+          sessionMode={sessionMode}
+          standaloneWindow={standaloneWindow}
+        />
         <HeaderMeetingControl sessionId={sessionId} sessionMode={sessionMode} />
         <OverflowButton sessionId={sessionId} currentView={currentView} />
       </div>
@@ -212,7 +220,13 @@ function getMeetingDisplay(type: RemoteMeeting["type"]) {
   }
 }
 
-function SidebarModeStopButton({ sessionMode }: { sessionMode: string }) {
+function SidebarModeStopButton({
+  sessionMode,
+  standaloneWindow,
+}: {
+  sessionMode: string;
+  standaloneWindow: boolean;
+}) {
   const { leftsidebar } = useShell();
   const { amplitude, degraded, muted, stop } = useListener((state) => ({
     amplitude: state.live.amplitude,
@@ -223,7 +237,7 @@ function SidebarModeStopButton({ sessionMode }: { sessionMode: string }) {
   const active = isSidebarStopButtonMode(sessionMode);
   const finalizing = sessionMode === "finalizing";
 
-  if (leftsidebar.expanded || !active) {
+  if ((!standaloneWindow && leftsidebar.expanded) || !active) {
     return null;
   }
 

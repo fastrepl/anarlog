@@ -282,7 +282,10 @@ export type Anchor =
   | "BottomRight"
   | "BottomLeft"
   | "Center";
-export type AppWindow = { type: "main" } | { type: "composer" };
+export type AppWindow =
+  | { type: "main" }
+  | { type: "composer" }
+  | { type: "note"; value: string };
 export type ChangelogState = { previous: string | null; current: string };
 export type ContactsSelection =
   | { type: "person"; id: string }
