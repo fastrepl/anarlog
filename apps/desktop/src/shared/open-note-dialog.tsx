@@ -1,5 +1,5 @@
 import { Command as CommandPrimitive } from "cmdk";
-import { FileTextIcon, SearchIcon } from "lucide-react";
+import { FileTextIcon, SearchIcon, XIcon } from "lucide-react";
 import {
   createContext,
   useCallback,
@@ -10,7 +10,6 @@ import {
 import { createPortal } from "react-dom";
 import { useHotkeys } from "react-hotkeys-hook";
 
-import { Kbd } from "@hypr/ui/components/ui/kbd";
 import { cn } from "@hypr/utils";
 
 import { useMainContentCenterOffset } from "~/shared/main/content-offset";
@@ -190,7 +189,7 @@ export function OpenNoteDialog({
       >
         <div
           className={cn([
-            "border-border/80 bg-background rounded-xl border",
+            "border-border/80 bg-background rounded-2xl border",
             "shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)]",
             "overflow-hidden",
           ])}
@@ -218,6 +217,7 @@ export function OpenNoteDialog({
                 ])}
               />
               <button
+                aria-label="Close"
                 onClick={() => handleOpenChange(false)}
                 className={cn([
                   "h-5 w-5 rounded-full",
@@ -227,7 +227,7 @@ export function OpenNoteDialog({
                   "transition-colors",
                 ])}
               >
-                ×
+                <XIcon className="h-3 w-3" />
               </button>
             </div>
 
@@ -302,27 +302,6 @@ export function OpenNoteDialog({
                 </>
               )}
             </CommandPrimitive.List>
-
-            <div
-              className={cn([
-                "flex items-center justify-center gap-4 px-4 py-2.5",
-                "border-border/60 border-t",
-                "text-muted-foreground text-xs",
-              ])}
-            >
-              <span className="flex items-center gap-1.5">
-                <Kbd className="text-[10px]">↑↓</Kbd>
-                <span>to navigate</span>
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Kbd className="text-[10px]">↵</Kbd>
-                <span>to open</span>
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Kbd className="text-[10px]">esc</Kbd>
-                <span>to dismiss</span>
-              </span>
-            </div>
           </CommandPrimitive>
         </div>
       </div>
