@@ -344,32 +344,84 @@ describe("TimelineItemComponent", () => {
     expect(spinnerSlot?.className).toContain("right-3");
   });
 
+  it("opens the current tab after a single-click on a session row", () => {
+    vi.useFakeTimers();
+
+    try {
+      render(
+        <TimelineItemComponent
+          item={{
+            type: "session",
+            id: "session-note",
+            data: {
+              title: "Window Note",
+              created_at: "2024-01-15T10:30:00.000Z",
+            },
+          }}
+          precision="time"
+          selected={false}
+          timezone="UTC"
+          multiSelected={false}
+          flatItemKeys={["session-session-note"]}
+        />,
+      );
+
+      const rowButton = screen.getByText("Live Note").closest("button");
+      fireEvent.click(rowButton!);
+
+      expect(mocks.openCurrent).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(350);
+
+      expect(mocks.timelineSelection.setAnchor).toHaveBeenCalledWith(
+        "session-session-note",
+      );
+      expect(mocks.openCurrent).toHaveBeenCalledWith({
+        id: "session-note",
+        type: "sessions",
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("opens a standalone note window when a session row is double-clicked", () => {
-    render(
-      <TimelineItemComponent
-        item={{
-          type: "session",
-          id: "session-note-window",
-          data: {
-            title: "Window Note",
-            created_at: "2024-01-15T10:30:00.000Z",
-          },
-        }}
-        precision="time"
-        selected={false}
-        timezone="UTC"
-        multiSelected={false}
-        flatItemKeys={["session-session-note-window"]}
-      />,
-    );
+    vi.useFakeTimers();
 
-    const rowButton = screen.getByText("Live Note").closest("button");
-    fireEvent.doubleClick(rowButton!);
+    try {
+      render(
+        <TimelineItemComponent
+          item={{
+            type: "session",
+            id: "session-note-window",
+            data: {
+              title: "Window Note",
+              created_at: "2024-01-15T10:30:00.000Z",
+            },
+          }}
+          precision="time"
+          selected={false}
+          timezone="UTC"
+          multiSelected={false}
+          flatItemKeys={["session-session-note-window"]}
+        />,
+      );
 
-    expect(mocks.windowShow).toHaveBeenCalledWith({
-      type: "note",
-      value: "session-note-window",
-    });
+      const rowButton = screen.getByText("Live Note").closest("button");
+      fireEvent.click(rowButton!);
+      fireEvent.click(rowButton!);
+      fireEvent.doubleClick(rowButton!);
+
+      expect(mocks.windowShow).toHaveBeenCalledWith({
+        type: "note",
+        value: "session-note-window",
+      });
+      vi.runAllTimers();
+      expect(mocks.openCurrent).not.toHaveBeenCalled();
+      expect(mocks.timelineSelection.setAnchor).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("offers a standalone window action instead of a new tab action for session rows", () => {

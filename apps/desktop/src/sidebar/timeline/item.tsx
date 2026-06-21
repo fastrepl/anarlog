@@ -5,6 +5,7 @@ import {
   type RefCallback,
   useCallback,
   useMemo,
+  useRef,
 } from "react";
 
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
@@ -453,6 +454,7 @@ const SessionItem = memo(
     const invalidateResource = useTabs((state) => state.invalidateResource);
     const addDeletion = useUndoDelete((state) => state.addDeletion);
     const { ignoreEvent } = useIgnoredEvents();
+    const clickTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const sessionId = item.id;
     const storeTitle = main.UI.useCell(
@@ -496,33 +498,48 @@ const SessionItem = memo(
 
     const itemKey = `session-${item.id}`;
 
+    const clearPendingClick = useCallback(() => {
+      if (clickTimeoutRef.current) {
+        clearTimeout(clickTimeoutRef.current);
+        clickTimeoutRef.current = null;
+      }
+    }, []);
+
     const handleClick = useCallback(() => {
-      useTimelineSelection.getState().setAnchor(itemKey);
-      openCurrent({ id: sessionId, type: "sessions" });
-    }, [sessionId, openCurrent, itemKey]);
+      clearPendingClick();
+      clickTimeoutRef.current = setTimeout(() => {
+        clickTimeoutRef.current = null;
+        useTimelineSelection.getState().setAnchor(itemKey);
+        openCurrent({ id: sessionId, type: "sessions" });
+      }, 200);
+    }, [sessionId, openCurrent, itemKey, clearPendingClick]);
 
     const handleCmdClick = useCallback(() => {
+      clearPendingClick();
       useTimelineSelection.getState().toggleSelect(itemKey);
-    }, [itemKey]);
+    }, [itemKey, clearPendingClick]);
 
     const handleShiftClick = useCallback(() => {
+      clearPendingClick();
       useTimelineSelection.getState().selectRange(flatItemKeys, itemKey);
-    }, [flatItemKeys, itemKey]);
+    }, [flatItemKeys, itemKey, clearPendingClick]);
+
+    const handleOpenStandaloneWindow = useCallback(() => {
+      clearPendingClick();
+      void openStandaloneNoteWindow(sessionId);
+    }, [sessionId, clearPendingClick]);
 
     const handleDragStart = useCallback(
       (event: DragEvent<HTMLElement>) => {
+        clearPendingClick();
         writeSessionContextDragData(
           event.dataTransfer,
           sessionId,
           title || "Untitled",
         );
       },
-      [sessionId, title],
+      [sessionId, title, clearPendingClick],
     );
-
-    const handleOpenStandaloneWindow = useCallback(() => {
-      void openStandaloneNoteWindow(sessionId);
-    }, [sessionId]);
 
     const handleDelete = useCallback(() => {
       if (!store) {
