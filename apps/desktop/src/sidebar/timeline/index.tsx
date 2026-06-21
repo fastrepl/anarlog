@@ -159,6 +159,7 @@ export function TimelineView({
       ? "top-20"
       : "top-8"
     : "top-0";
+  const showTopChromeFade = topChromeInset && !isScrolledToTop;
   const selectedSessionScrollFrameRef = useRef<number | null>(null);
   const scrollSelectedSessionIntoView = useCallback<
     RefCallback<HTMLDivElement>
@@ -449,7 +450,7 @@ export function TimelineView({
           ))}
       </div>
 
-      {topChromeInset && (
+      {showTopChromeFade && (
         <div
           aria-hidden
           data-sidebar-timeline-top-fade

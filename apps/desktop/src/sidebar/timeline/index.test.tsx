@@ -301,6 +301,7 @@ describe("TimelineView", () => {
 
     expect(scroller).toBeInstanceOf(HTMLDivElement);
     expect(getSidebarActionTabsOrNull()).toBeNull();
+    expect(queryTopFade(container)).toBeNull();
 
     Object.defineProperty(scroller, "clientHeight", {
       configurable: true,
@@ -583,6 +584,9 @@ describe("TimelineView", () => {
     };
 
     const { container } = render(<TimelineView topChromeInset />);
+    const scroller = container.querySelector("[data-sidebar-timeline-scroll]");
+
+    expect(scroller).toBeInstanceOf(HTMLDivElement);
 
     expect(screen.getByRole("button", { name: "Go back to now" })).toBeTruthy();
     expect(
@@ -592,6 +596,18 @@ describe("TimelineView", () => {
       container.querySelector("[data-sidebar-timeline-bucket-header]")
         ?.className,
     ).toContain("top-8");
+
+    Object.defineProperty(scroller, "clientHeight", {
+      configurable: true,
+      value: 200,
+    });
+    Object.defineProperty(scroller, "scrollHeight", {
+      configurable: true,
+      value: 1200,
+    });
+    scroller!.scrollTop = 120;
+    fireEvent.scroll(scroller!);
+
     expect(getTopFade(container).className).toContain("h-16");
   });
 
@@ -808,11 +824,15 @@ function getSidebarActionTabsOrNull() {
 }
 
 function getTopFade(container: HTMLElement) {
-  const topFade = container.querySelector("[data-sidebar-timeline-top-fade]");
+  const topFade = queryTopFade(container);
 
   expect(topFade).toBeInstanceOf(HTMLDivElement);
 
   return topFade as HTMLDivElement;
+}
+
+function queryTopFade(container: HTMLElement) {
+  return container.querySelector("[data-sidebar-timeline-top-fade]");
 }
 
 function isBefore(first: Element, second: Element) {
