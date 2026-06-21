@@ -27,6 +27,14 @@ common_derives! {
         pub started_at: Option<String>,
         pub ended_at: Option<String>,
         pub event: Option<Event>,
+        pub source_apps: Vec<SessionSourceApp>,
+    }
+}
+
+common_derives! {
+    pub struct SessionSourceApp {
+        pub id: Option<String>,
+        pub name: String,
     }
 }
 
@@ -141,6 +149,7 @@ mod tests {
                 started_at: Some("2025-01-01 10:00".to_string()),
                 ended_at: Some("2025-01-01 11:00".to_string()),
                 event: Some(Event { name: "Calendar Event".to_string() }),
+                source_apps: vec![],
             }),
         },
         @"
@@ -158,6 +167,7 @@ mod tests {
                 started_at: None,
                 ended_at: None,
                 event: None,
+                source_apps: vec![],
             }),
         },
         @"

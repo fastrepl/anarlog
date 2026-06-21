@@ -105,6 +105,35 @@ describe("enhanceTransform.transformArgs", () => {
     );
   });
 
+  it("includes recorded source apps in session context", async () => {
+    const store = createStore();
+    store.getCell.mockImplementation(
+      (tableId: string, _rowId: string, cellId: string) => {
+        if (tableId === "sessions" && cellId === "title") {
+          return "Weekly Review";
+        }
+        if (tableId === "sessions" && cellId === "source_app_json") {
+          return JSON.stringify([{ id: "us.zoom.xos", name: "Zoom" }]);
+        }
+
+        return "";
+      },
+    );
+
+    const result = await enhanceTransform.transformArgs(
+      {
+        sessionId: "session-1",
+        enhancedNoteId: "note-1",
+      },
+      store,
+      createSettingsStore(),
+    );
+
+    expect(result.session.sourceApps).toEqual([
+      { id: "us.zoom.xos", name: "Zoom" },
+    ]);
+  });
+
   it("collects image context from pre- and post-meeting memo content", async () => {
     const store = createStore();
     store.forEachRow.mockImplementation(

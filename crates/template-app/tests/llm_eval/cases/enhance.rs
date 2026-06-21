@@ -23,6 +23,7 @@ pub fn structured_summary(samples: usize) -> Result<EvalCase, Failed> {
                         started_at: None,
                         ended_at: None,
                         event: None,
+                        source_apps: vec![],
                     },
                     participants: vec![
                         Participant {

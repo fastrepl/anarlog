@@ -16,6 +16,7 @@ function createEnhanceArgs(
       startedAt: null,
       endedAt: null,
       event: null,
+      sourceApps: [],
     },
     participants: [],
     template: null,

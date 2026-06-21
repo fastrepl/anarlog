@@ -18,6 +18,7 @@ import {
 
 import { getSessionEventById } from "~/session/utils";
 import * as main from "~/store/tinybase/store/main";
+import { setSessionSourceApps } from "~/store/tinybase/store/sessions";
 import * as settings from "~/store/tinybase/store/settings";
 import {
   createListenerStore,
@@ -145,6 +146,20 @@ function getNotificationIconForApps(apps: MicApp[]): NotificationIcon | null {
 
 function getNotificationAppName(app: MicApp) {
   return getMicAppNotificationOverride(app)?.displayName ?? app.name;
+}
+
+function getSessionSourceApps(apps: MicApp[]) {
+  const hasResolvableApp = apps.some(
+    (app) => app.id && !app.id.startsWith("pid:"),
+  );
+  const sourceApps = hasResolvableApp
+    ? apps.filter((app) => app.id && !app.id.startsWith("pid:"))
+    : apps;
+
+  return sourceApps.map((app) => ({
+    id: app.id,
+    name: getNotificationAppName(app),
+  }));
 }
 
 function getIgnorableApps(apps: MicApp[]) {
@@ -446,11 +461,20 @@ const useHandleDetectEvents = (store: ListenerStore) => {
           const appIds = ignorableApps.map((app) => app.id);
 
           const live = store.getState().live;
+          const currentTinybaseStore = tinybaseStoreRef.current;
           const shouldCaptureTriggerApps =
             live.status === "active" ||
             (live.status === "inactive" && live.loading && !!live.sessionId);
 
           if (shouldCaptureTriggerApps) {
+            if (currentTinybaseStore && live.sessionId) {
+              setSessionSourceApps(
+                currentTinybaseStore,
+                live.sessionId,
+                getSessionSourceApps(payload.apps),
+              );
+            }
+
             if (appIds.length > 0) {
               const currentTrigger = store.getState().live.triggerAppIds ?? [];
               if (appIds.some((id) => currentTrigger.includes(id))) {
@@ -463,7 +487,6 @@ const useHandleDetectEvents = (store: ListenerStore) => {
             return;
           }
 
-          const currentTinybaseStore = tinybaseStoreRef.current;
           const nearbyEvents = currentTinybaseStore
             ? getNearbyEvents(currentTinybaseStore)
             : [];

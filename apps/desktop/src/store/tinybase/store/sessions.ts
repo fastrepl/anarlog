@@ -15,6 +15,10 @@ import { DEFAULT_USER_ID } from "~/shared/utils";
 import { id } from "~/shared/utils";
 
 type Store = NonNullable<ReturnType<typeof main.UI.useStore>>;
+type SessionSourceApp = {
+  id?: string;
+  name: string;
+};
 
 export function createSession(store: Store, title?: string): string {
   const sessionId = id();
@@ -88,6 +92,28 @@ export function getOrCreateSessionForEventId(
     has_event_id: true,
   });
   return sessionId;
+}
+
+export function setSessionSourceApps(
+  store: Store,
+  sessionId: string,
+  apps: SessionSourceApp[],
+): void {
+  if (!store.hasRow("sessions", sessionId)) {
+    return;
+  }
+
+  const normalizedApps = normalizeSourceApps(apps);
+  if (normalizedApps.length === 0) {
+    return;
+  }
+
+  store.setCell(
+    "sessions",
+    sessionId,
+    "source_app_json",
+    JSON.stringify(normalizedApps),
+  );
 }
 
 export function isSessionEmpty(store: Store, sessionId: string): boolean {
@@ -172,6 +198,30 @@ export function isSessionEmpty(store: Store, sessionId: string): boolean {
 function getCurrentUserId(store: Store): string {
   const userId = store.getValue("user_id");
   return typeof userId === "string" && userId ? userId : DEFAULT_USER_ID;
+}
+
+function normalizeSourceApps(apps: SessionSourceApp[]): SessionSourceApp[] {
+  const seen = new Set<string>();
+  const result: SessionSourceApp[] = [];
+
+  for (const app of apps) {
+    const name = app.name.trim();
+    const idValue = app.id?.trim();
+    const id = idValue && !idValue.startsWith("pid:") ? idValue : undefined;
+    if (!name && !id) {
+      continue;
+    }
+
+    const key = id ?? name.toLowerCase();
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    result.push(id ? { id, name: name || id } : { name });
+  }
+
+  return result;
 }
 
 function ensureCurrentUserHuman(store: Store, userId: string): void {

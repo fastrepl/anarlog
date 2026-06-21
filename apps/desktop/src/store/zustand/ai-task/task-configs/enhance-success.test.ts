@@ -20,6 +20,7 @@ function createTransformedArgs(): EnhanceSuccessParams["transformedArgs"] {
       startedAt: null,
       endedAt: null,
       event: null,
+      sourceApps: [],
     },
     participants: [],
     template: null,

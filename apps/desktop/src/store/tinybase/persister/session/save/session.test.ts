@@ -29,6 +29,7 @@ describe("tablesToSessionMetaMap", () => {
         created_at: "2024-01-01T00:00:00Z",
         title: "Test Session",
         event: undefined,
+        source_apps: undefined,
         participants: [],
         tags: undefined,
       },
@@ -122,6 +123,27 @@ describe("tablesToSessionMetaMap", () => {
     const result = tablesToSessionMetaMap(store);
 
     expect(result.get("session-1")?.meta.tags).toBeUndefined();
+  });
+
+  test("includes source apps in session metadata", () => {
+    const store = createTestMainStore();
+    store.setRow("sessions", "session-1", {
+      user_id: "user-1",
+      created_at: "2024-01-01T00:00:00Z",
+      title: "Slack Sales Follow-up",
+      folder_id: "/sessions",
+      event_json: "",
+      source_app_json: JSON.stringify([
+        { id: "com.tinyspeck.slackmacgap", name: "Slack" },
+      ]),
+      raw_md: "",
+    });
+
+    const result = tablesToSessionMetaMap(store);
+
+    expect(result.get("session-1")?.meta.source_apps).toEqual([
+      { id: "com.tinyspeck.slackmacgap", name: "Slack" },
+    ]);
   });
 
   test("includes saved key facts in session metadata", () => {

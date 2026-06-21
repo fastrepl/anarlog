@@ -13,6 +13,7 @@ import * as main from "~/store/tinybase/store/main";
 import {
   createSession,
   getOrCreateSessionForEventId,
+  setSessionSourceApps,
 } from "~/store/tinybase/store/sessions";
 import * as settings from "~/store/tinybase/store/settings";
 import { listenerStore } from "~/store/zustand/listener/instance";
@@ -26,6 +27,10 @@ import {
 
 type MainStore = NonNullable<ReturnType<typeof main.UI.useStore>>;
 type SettingsStore = NonNullable<ReturnType<typeof settings.UI.useStore>>;
+type SessionSourceApp = {
+  id?: string;
+  name: string;
+};
 
 const LIVE_CAPTURE_CONFIG_DEBOUNCE_MS = 750;
 
@@ -146,6 +151,42 @@ function parseStringArray(value: unknown, fallback: string[]) {
   } catch {
     return fallback;
   }
+}
+
+function getSourceAppsFromMicDetectedSource(source: {
+  app_names?: string[];
+  app_ids?: string[];
+}): SessionSourceApp[] {
+  const appNames = source.app_names ?? [];
+  const appIds = source.app_ids ?? [];
+
+  if (appIds.length === 0) {
+    return appNames.map((name) => ({ name }));
+  }
+
+  return appIds.map((id, index) => ({
+    id,
+    name: appNames[index] ?? appNames[0] ?? id,
+  }));
+}
+
+function persistMicDetectedSource(
+  store: MainStore,
+  sessionId: string,
+  source: {
+    app_names?: string[];
+    app_ids?: string[];
+  } | null,
+) {
+  if (!source) {
+    return;
+  }
+
+  setSessionSourceApps(
+    store,
+    sessionId,
+    getSourceAppsFromMicDetectedSource(source),
+  );
 }
 
 function getSettingsDefault(key: "ai_language" | "spoken_languages") {
@@ -314,6 +355,7 @@ function useNotificationEvents() {
   const pendingAutoStart = useRef<{
     eventId: string | null;
     triggerAppIds: string[] | null;
+    sourceApps: SessionSourceApp[];
   } | null>(null);
   const storeRef = useRef(store);
   const settingsStoreRef = useRef(settingsStore);
@@ -327,11 +369,12 @@ function useNotificationEvents() {
 
   useEffect(() => {
     if (pendingAutoStart.current && store) {
-      const { eventId, triggerAppIds } = pendingAutoStart.current;
+      const { eventId, triggerAppIds, sourceApps } = pendingAutoStart.current;
       pendingAutoStart.current = null;
       const sessionId = eventId
         ? getOrCreateSessionForEventId(store, eventId)
         : createSession(store);
+      setSessionSourceApps(store, sessionId, sourceApps);
 
       if (triggerAppIds && triggerAppIds.length > 0) {
         listenerStore.getState().setTriggerAppIds(triggerAppIds);
@@ -385,6 +428,8 @@ function useNotificationEvents() {
             payload.source?.type === "mic_detected"
               ? (payload.source.app_ids ?? null)
               : null;
+          const micDetectedSource =
+            payload.source?.type === "mic_detected" ? payload.source : null;
           const currentStore = storeRef.current;
           if (sourceSessionId) {
             openNewRef.current({
@@ -396,12 +441,19 @@ function useNotificationEvents() {
           }
 
           if (!currentStore) {
-            pendingAutoStart.current = { eventId, triggerAppIds };
+            pendingAutoStart.current = {
+              eventId,
+              triggerAppIds,
+              sourceApps: micDetectedSource
+                ? getSourceAppsFromMicDetectedSource(micDetectedSource)
+                : [],
+            };
             return;
           }
           const sessionId = eventId
             ? getOrCreateSessionForEventId(currentStore, eventId)
             : createSession(currentStore);
+          persistMicDetectedSource(currentStore, sessionId, micDetectedSource);
 
           if (triggerAppIds && triggerAppIds.length > 0) {
             listenerStore.getState().setTriggerAppIds(triggerAppIds);
@@ -442,6 +494,11 @@ function useNotificationEvents() {
               .setTriggerAppIds(
                 triggerAppIds.length > 0 ? triggerAppIds : null,
               );
+            setSessionSourceApps(
+              currentStore,
+              sessionId,
+              getSourceAppsFromMicDetectedSource(payload.source),
+            );
           }
 
           openNewRef.current({

@@ -35,12 +35,18 @@ Meeting: {{ title }}
 Time: {{ started }} - {{ ended }}
 {%- when _ -%}
 {%- endmatch -%}
+{%- if !s.source_apps.is_empty() %}
+Platform: {%- for app in s.source_apps %}{% if !loop.first %}, {% endif %} {{ app.name }}{%- endfor %}
+{%- endif -%}
 {%- else -%}
 {%- match s.title -%}
 {%- when Some with (title) %}
 Session: {{ title }}
 {%- when None -%}
 {%- endmatch -%}
+{%- if !s.source_apps.is_empty() %}
+Platform: {%- for app in s.source_apps %}{% if !loop.first %}, {% endif %} {{ app.name }}{%- endfor %}
+{%- endif -%}
 {%- endif -%}
 {%- when None -%}
 {%- endmatch -%}
@@ -58,12 +64,18 @@ Meeting: {{ title }}
 Time: {{ started }} - {{ ended }}
 {%- when _ -%}
 {%- endmatch -%}
+{%- if !s.source_apps.is_empty() %}
+Platform: {%- for app in s.source_apps %}{% if !loop.first %}, {% endif %} {{ app.name }}{%- endfor %}
+{%- endif -%}
 {%- else -%}
 {%- match s.title -%}
 {%- when Some with (title) %}
 Session: {{ title }}
 {%- when None -%}
 {%- endmatch -%}
+{%- if !s.source_apps.is_empty() %}
+Platform: {%- for app in s.source_apps %}{% if !loop.first %}, {% endif %} {{ app.name }}{%- endfor %}
+{%- endif -%}
 {%- endif -%}
 {%- endmacro -%}
 

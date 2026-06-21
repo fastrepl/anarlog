@@ -689,6 +689,11 @@ describe("ListenerProvider detect events", () => {
 
   test("records trigger app ids from micDetected while already listening", async () => {
     const store = createListenerStore();
+    const tinybaseStore = {
+      hasRow: vi.fn(() => true),
+      setCell: vi.fn(),
+    };
+    useStoreMock.mockReturnValue(tinybaseStore as never);
 
     setStoreActive(store);
 
@@ -717,6 +722,12 @@ describe("ListenerProvider detect events", () => {
 
     expect(showNotificationMock).not.toHaveBeenCalled();
     expect(store.getState().live.triggerAppIds).toEqual(["com.google.Chrome"]);
+    expect(tinybaseStore.setCell).toHaveBeenCalledWith(
+      "sessions",
+      "session-1",
+      "source_app_json",
+      JSON.stringify([{ id: "com.google.Chrome", name: "Google Chrome" }]),
+    );
   });
 
   test("records trigger app ids from micDetected while listening is starting", async () => {

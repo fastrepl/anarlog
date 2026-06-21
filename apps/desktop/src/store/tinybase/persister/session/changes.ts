@@ -50,6 +50,7 @@ const SESSION_META_CELLS = new Set([
   "created_at",
   "title",
   "event_json",
+  "source_app_json",
   "folder_id",
 ]);
 const SESSION_NOTE_CELLS = new Set(["raw_md", "folder_id"]);

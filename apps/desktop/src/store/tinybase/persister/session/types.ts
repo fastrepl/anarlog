@@ -6,6 +6,10 @@ import type {
 
 export type ParticipantData = MappingSessionParticipantStorage & { id: string };
 export type SessionKeyFactsData = SessionKeyFactsStorage & { id: string };
+export type SessionSourceAppData = {
+  id?: string;
+  name: string;
+};
 
 export type SessionMetaJson = Pick<
   SessionStorage,
@@ -14,6 +18,7 @@ export type SessionMetaJson = Pick<
   id: string;
   event?: Record<string, unknown>;
   event_id?: string;
+  source_apps?: SessionSourceAppData[];
   participants: ParticipantData[];
   key_facts?: SessionKeyFactsData;
   tags?: string[];

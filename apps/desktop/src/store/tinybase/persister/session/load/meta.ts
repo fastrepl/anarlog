@@ -40,6 +40,9 @@ export function processMetaFile(
       title: meta.title ?? "",
       folder_id: folderPath,
       event_json: eventValue,
+      source_app_json: meta.source_apps
+        ? JSON.stringify(meta.source_apps)
+        : undefined,
       raw_md: "",
     };
 

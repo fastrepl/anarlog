@@ -34,6 +34,7 @@ export function createSessionListener(): RowListener<
           "user_id",
           "created_at",
           "event_json",
+          "source_app_json",
           "title",
           "raw_md",
           "transcript",

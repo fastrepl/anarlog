@@ -27,6 +27,7 @@ export const tableSchemaForTinybase = {
     created_at: { type: "string" },
     folder_id: { type: "string" },
     event_json: { type: "string" },
+    source_app_json: { type: "string" },
     title: { type: "string" },
     raw_md: { type: "string" },
   } as const satisfies InferTinyBaseSchema<typeof sessionSchema>,

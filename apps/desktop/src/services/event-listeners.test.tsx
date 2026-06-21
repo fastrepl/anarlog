@@ -16,6 +16,7 @@ const {
   openNewMock,
   createSessionMock,
   getOrCreateSessionForEventIdMock,
+  setSessionSourceAppsMock,
   setTriggerAppIdsMock,
   stopMock,
   updateCaptureConfigMock,
@@ -30,6 +31,7 @@ const {
   openNewMock: vi.fn(),
   createSessionMock: vi.fn(() => "session-new"),
   getOrCreateSessionForEventIdMock: vi.fn(() => "session-event"),
+  setSessionSourceAppsMock: vi.fn(),
   setTriggerAppIdsMock: vi.fn(),
   stopMock: vi.fn(),
   updateCaptureConfigMock: vi.fn(),
@@ -82,6 +84,7 @@ vi.mock("~/store/tinybase/store/settings", () => ({
 vi.mock("~/store/tinybase/store/sessions", () => ({
   createSession: createSessionMock,
   getOrCreateSessionForEventId: getOrCreateSessionForEventIdMock,
+  setSessionSourceApps: setSessionSourceAppsMock,
 }));
 
 vi.mock("~/store/zustand/tabs", () => ({
@@ -106,6 +109,7 @@ describe("EventListeners notification events", () => {
     openNewMock.mockReset();
     createSessionMock.mockReset();
     getOrCreateSessionForEventIdMock.mockReset();
+    setSessionSourceAppsMock.mockReset();
     setTriggerAppIdsMock.mockReset();
     stopMock.mockReset();
     updateCaptureConfigMock.mockReset();
@@ -350,6 +354,11 @@ describe("EventListeners notification events", () => {
     });
 
     expect(setTriggerAppIdsMock).toHaveBeenCalledWith(["us.zoom.xos"]);
+    expect(setSessionSourceAppsMock).toHaveBeenCalledWith(
+      expect.anything(),
+      "session-new",
+      [{ id: "us.zoom.xos", name: "Zoom" }],
+    );
     expect(openNewMock).toHaveBeenCalledTimes(1);
   });
 
@@ -379,6 +388,11 @@ describe("EventListeners notification events", () => {
     });
 
     expect(setTriggerAppIdsMock).toHaveBeenCalledWith(["us.zoom.xos"]);
+    expect(setSessionSourceAppsMock).toHaveBeenCalledWith(
+      expect.anything(),
+      "session-new",
+      [{ id: "us.zoom.xos", name: "Zoom" }],
+    );
     expect(openNewMock).toHaveBeenCalledTimes(1);
   });
 
@@ -407,6 +421,7 @@ describe("EventListeners notification events", () => {
     });
 
     expect(setTriggerAppIdsMock).not.toHaveBeenCalled();
+    expect(setSessionSourceAppsMock).not.toHaveBeenCalled();
     expect(openNewMock).not.toHaveBeenCalled();
 
     useMainStoreMock.mockReturnValue({} as never);
@@ -414,6 +429,11 @@ describe("EventListeners notification events", () => {
 
     await vi.waitFor(() =>
       expect(setTriggerAppIdsMock).toHaveBeenCalledWith(["us.zoom.xos"]),
+    );
+    expect(setSessionSourceAppsMock).toHaveBeenCalledWith(
+      expect.anything(),
+      "session-new",
+      [{ id: "us.zoom.xos", name: "Zoom" }],
     );
     expect(openNewMock).toHaveBeenCalledTimes(1);
   });

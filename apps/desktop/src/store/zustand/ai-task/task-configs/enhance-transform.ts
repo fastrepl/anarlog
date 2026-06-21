@@ -158,6 +158,7 @@ function getSessionContext(sessionId: string, store: MainStore) {
 
 function getSessionData(sessionId: string, store: MainStore): Session {
   const rawTitle = getStringCell(store, "sessions", sessionId, "title");
+  const sourceApps = getSessionSourceApps(sessionId, store);
   const parsed = getSessionEventById(store, sessionId);
 
   if (parsed) {
@@ -169,6 +170,7 @@ function getSessionData(sessionId: string, store: MainStore): Session {
       event: {
         name: eventTitle || rawTitle || "",
       },
+      sourceApps,
     };
   }
 
@@ -177,7 +179,49 @@ function getSessionData(sessionId: string, store: MainStore): Session {
     startedAt: null,
     endedAt: null,
     event: null,
+    sourceApps,
   };
+}
+
+function getSessionSourceApps(sessionId: string, store: MainStore) {
+  const rawValue = getOptionalStringCell(
+    store,
+    "sessions",
+    sessionId,
+    "source_app_json",
+  );
+  if (!rawValue) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(rawValue);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed.flatMap((item) => {
+      if (!item || typeof item !== "object") {
+        return [];
+      }
+
+      const record = item as Record<string, unknown>;
+      const name = typeof record.name === "string" ? record.name.trim() : "";
+      const id = typeof record.id === "string" ? record.id.trim() : "";
+      if (!name && !id) {
+        return [];
+      }
+
+      return [
+        {
+          id: id || null,
+          name: name || id,
+        },
+      ];
+    });
+  } catch {
+    return [];
+  }
 }
 
 function getParticipants(sessionId: string, store: MainStore): Participant[] {

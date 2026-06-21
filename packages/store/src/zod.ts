@@ -106,6 +106,10 @@ export const sessionSchema = z.object({
   created_at: z.string(),
   folder_id: z.preprocess((val) => val ?? undefined, z.string().optional()),
   event_json: z.preprocess((val) => val ?? undefined, z.string().optional()),
+  source_app_json: z.preprocess(
+    (val) => val ?? undefined,
+    z.string().optional(),
+  ),
   title: z.string(),
   raw_md: z.string(),
 });

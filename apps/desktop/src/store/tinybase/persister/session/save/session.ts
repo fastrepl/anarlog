@@ -4,6 +4,7 @@ import type {
   ParticipantData,
   SessionKeyFactsData,
   SessionMetaJson,
+  SessionSourceAppData,
 } from "~/store/tinybase/persister/session/types";
 import {
   buildSessionPath,
@@ -28,6 +29,32 @@ function tryParseJson(
   } catch {
     return undefined;
   }
+}
+
+function tryParseSourceApps(
+  value: string | undefined,
+): SessionSourceAppData[] | undefined {
+  const parsed = tryParseJson(value);
+  if (!Array.isArray(parsed)) {
+    return undefined;
+  }
+
+  const apps = parsed.flatMap((item): SessionSourceAppData[] => {
+    if (!item || typeof item !== "object") {
+      return [];
+    }
+
+    const record = item as Record<string, unknown>;
+    const name = typeof record.name === "string" ? record.name.trim() : "";
+    const id = typeof record.id === "string" ? record.id.trim() : "";
+    if (!name && !id) {
+      return [];
+    }
+
+    return [id ? { id, name: name || id } : { name }];
+  });
+
+  return apps.length > 0 ? apps : undefined;
 }
 
 type MetaItem = [SessionMetaJson, string];
@@ -57,6 +84,7 @@ export function tablesToSessionMetaMap(
         created_at: session.created_at ?? "",
         title: session.title ?? "",
         event: tryParseJson(session.event_json),
+        source_apps: tryParseSourceApps(session.source_app_json),
         participants: participantsBySession.get(session.id) ?? [],
         key_facts: keyFactsBySession.get(session.id),
         tags: tagsBySession.get(session.id),
@@ -99,6 +127,7 @@ function collectSessionMetas(ctx: BuildContext): MetaItem[] {
         created_at: session.created_at ?? "",
         title: session.title ?? "",
         event: tryParseJson(session.event_json),
+        source_apps: tryParseSourceApps(session.source_app_json),
         participants: participantsBySession.get(session.id) ?? [],
         key_facts: keyFactsBySession.get(session.id),
         tags: tagsBySession.get(session.id),

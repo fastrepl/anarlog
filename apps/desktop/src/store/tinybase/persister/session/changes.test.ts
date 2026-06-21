@@ -124,6 +124,20 @@ describe("getSessionSaveScope", () => {
     });
   });
 
+  test("limits source app changes to session metadata output", () => {
+    expect(
+      getSessionSaveScope({
+        sessions: {
+          "session-1": [{ source_app_json: ["[]", "stamp"] }],
+        },
+      }),
+    ).toEqual({
+      session: true,
+      transcript: false,
+      note: false,
+    });
+  });
+
   test("limits saved key fact changes to session metadata output", () => {
     expect(
       getSessionSaveScope({

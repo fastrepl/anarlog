@@ -88,6 +88,7 @@ mod tests {
                 started_at: None,
                 ended_at: None,
                 event: None,
+                source_apps: vec![],
             },
             participants: vec![
                 Participant {
@@ -160,6 +161,7 @@ mod tests {
                 started_at: None,
                 ended_at: None,
                 event: None,
+                source_apps: vec![],
             },
             participants: vec![],
             template: None,

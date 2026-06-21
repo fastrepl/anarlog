@@ -204,6 +204,24 @@ describe("processMetaFile", () => {
     });
   });
 
+  test("restores source apps from meta JSON", () => {
+    const sourceApps = [{ id: "us.zoom.xos", name: "Zoom" }];
+    const content = JSON.stringify({
+      id: "session-1",
+      user_id: "user-1",
+      created_at: "2024-01-01T00:00:00Z",
+      title: "Test Session",
+      participants: [],
+      source_apps: sourceApps,
+    });
+
+    processMetaFile("/data/sessions/session-1/_meta.json", content, result);
+
+    expect(result.sessions["session-1"].source_app_json).toBe(
+      JSON.stringify(sourceApps),
+    );
+  });
+
   test("restores saved key facts from meta JSON", () => {
     const content = JSON.stringify({
       id: "session-1",
