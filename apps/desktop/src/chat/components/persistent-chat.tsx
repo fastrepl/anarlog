@@ -296,7 +296,7 @@ export function PersistentChatPanel({
             data-chat-resize-frame
             className={cn([
               "pointer-events-auto relative flex h-full min-h-0",
-              "items-end justify-center p-4",
+              "items-end justify-center px-4 pt-4 pb-3",
             ])}
             onClick={(event) => {
               if (event.target === event.currentTarget) {

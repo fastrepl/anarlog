@@ -166,40 +166,7 @@ describe("FloatingActionButton", () => {
     ).not.toBeNull();
   });
 
-  it("keeps the chat FAB mounted as a peek while hidden and reveals it from the hover zone", () => {
-    render(<FloatingActionButton hidden tab={tab} />);
-
-    const wrapper = screen.getByText("Ask Anarlog anything").parentElement;
-    const hoverZone = wrapper?.parentElement;
-
-    expect(hoverZone?.className).toContain("group");
-    expect(hoverZone?.className).toContain("pointer-events-auto");
-    expect(hoverZone?.className).toContain("z-30");
-    expect(hoverZone?.className).toContain("bottom-0");
-    expect(hoverZone?.className).not.toContain("-bottom-4");
-    expect(hoverZone?.className).toContain("h-32");
-    expect(hoverZone?.className).toContain("pb-4");
-    expect(hoverZone?.className).toContain("max-w-[calc(100%-2rem)]");
-    expect(hoverZone?.className).not.toContain("w-96");
-    expect(wrapper?.getAttribute("aria-hidden")).toBe("true");
-    expect(wrapper?.className).toContain("pointer-events-none");
-    expect(wrapper?.className).toContain("before:pointer-events-none");
-    expect(wrapper?.className).toContain("before:-inset-x-8");
-    expect(wrapper?.className).toContain("before:-inset-y-8");
-    expect(wrapper?.className).toContain(
-      "translate-y-[var(--floating-fab-tuck-offset)]",
-    );
-    expect(wrapper?.style.getPropertyValue("--floating-fab-tuck-offset")).toBe(
-      "calc(100% - 0.5rem + 18px)",
-    );
-    expect(wrapper?.className).toContain("before:pointer-events-none");
-    expect(wrapper?.className).toContain("group-hover:pointer-events-auto");
-    expect(wrapper?.className).toContain("group-hover:translate-y-0");
-    expect(wrapper?.className).toContain("hover:pointer-events-auto");
-    expect(wrapper?.className).toContain("hover:translate-y-0");
-  });
-
-  it("tucks the chat FAB near the editor caret and reveals it from the hover zone", () => {
+  it("keeps the chat FAB visible near the editor caret", () => {
     hoisted.isCaretNearBottom = true;
 
     render(<FloatingActionButton tab={tab} />);
@@ -207,23 +174,21 @@ describe("FloatingActionButton", () => {
     const wrapper = screen.getByText("Ask Anarlog anything").parentElement;
     const hoverZone = wrapper?.parentElement;
 
-    expect(hoverZone?.className).toContain("group");
-    expect(hoverZone?.className).toContain("pointer-events-auto");
-    expect(hoverZone?.className).toContain("bottom-0");
+    expect(hoverZone?.className).toContain("pointer-events-none");
+    expect(hoverZone?.className).toContain("bottom-3");
     expect(hoverZone?.className).not.toContain("-bottom-4");
-    expect(hoverZone?.className).toContain("h-32");
-    expect(hoverZone?.className).toContain("pb-4");
-    expect(wrapper?.getAttribute("aria-hidden")).toBe("true");
+    expect(hoverZone?.className).toContain("h-10");
+    expect(hoverZone?.className).toContain("w-40");
+    expect(hoverZone?.className).toContain("pb-0");
+    expect(wrapper?.getAttribute("aria-hidden")).toBe("false");
     expect(wrapper?.style.getPropertyValue("--floating-fab-tuck-offset")).toBe(
-      "calc(100% - 0.5rem + 18px)",
+      "0px",
     );
-    expect(wrapper?.className).toContain("group-hover:pointer-events-auto");
-    expect(wrapper?.className).toContain("group-hover:translate-y-0");
-    expect(wrapper?.className).toContain("hover:pointer-events-auto");
-    expect(wrapper?.className).toContain("hover:translate-y-0");
+    expect(wrapper?.className).toContain("pointer-events-auto");
+    expect(wrapper?.className).not.toContain("group-hover:translate-y-0");
   });
 
-  it("keeps the chat FAB tucked during active meetings", () => {
+  it("keeps the chat FAB visible during active meetings", () => {
     hoisted.sessionMode = "active";
 
     render(<FloatingActionButton tab={tab} />);
@@ -231,25 +196,22 @@ describe("FloatingActionButton", () => {
     const wrapper = screen.getByText("Ask Anarlog anything").parentElement;
     const hoverZone = wrapper?.parentElement;
 
-    expect(hoverZone?.className).toContain("group");
-    expect(hoverZone?.className).toContain("pointer-events-auto");
-    expect(hoverZone?.className).toContain("bottom-0");
+    expect(hoverZone?.className).toContain("pointer-events-none");
+    expect(hoverZone?.className).toContain("bottom-3");
     expect(hoverZone?.className).not.toContain("-bottom-4");
-    expect(hoverZone?.className).toContain("h-32");
-    expect(hoverZone?.className).toContain("pb-4");
+    expect(hoverZone?.className).toContain("h-10");
+    expect(hoverZone?.className).toContain("w-40");
+    expect(hoverZone?.className).toContain("pb-0");
     expect(wrapper?.getAttribute("aria-hidden")).toBe("false");
     expect(wrapper?.style.getPropertyValue("--floating-fab-tuck-offset")).toBe(
-      "calc(100% - 0.5rem + 18px)",
+      "0px",
     );
-    expect(wrapper?.className).toContain("pointer-events-none");
-    expect(wrapper?.className).toContain("before:pointer-events-none");
-    expect(wrapper?.className).toContain("group-hover:pointer-events-auto");
-    expect(wrapper?.className).toContain("group-hover:translate-y-0");
-    expect(wrapper?.className).toContain("hover:pointer-events-auto");
-    expect(wrapper?.className).toContain("hover:translate-y-0");
+    expect(wrapper?.className).toContain("pointer-events-auto");
+    expect(wrapper?.className).not.toContain("group-hover:pointer-events-auto");
+    expect(wrapper?.className).not.toContain("before:pointer-events-none");
   });
 
-  it("shows the tucked chat FAB during active meetings before transcript exists", () => {
+  it("shows the chat FAB during active meetings before transcript exists", () => {
     hoisted.sessionMode = "active";
     hoisted.hasTranscript = false;
 
@@ -262,11 +224,11 @@ describe("FloatingActionButton", () => {
     ).toBeNull();
     expect(wrapper?.getAttribute("aria-hidden")).toBe("false");
     expect(wrapper?.style.getPropertyValue("--floating-fab-tuck-offset")).toBe(
-      "calc(100% - 0.5rem + 18px)",
+      "0px",
     );
   });
 
-  it("opens chat from the tucked active meeting FAB", () => {
+  it("opens chat from the active meeting FAB", () => {
     hoisted.sessionMode = "active";
 
     render(<FloatingActionButton tab={tab} />);
@@ -292,19 +254,6 @@ describe("FloatingActionButton", () => {
     );
   });
 
-  it("keeps the listen FAB popped up when only scroll hidden is set", () => {
-    hoisted.hasTranscript = false;
-
-    render(<FloatingActionButton hidden tab={tab} />);
-
-    const wrapper = screen.getByText("Start listening").parentElement;
-
-    expect(wrapper?.getAttribute("aria-hidden")).toBe("false");
-    expect(wrapper?.style.getPropertyValue("--floating-fab-tuck-offset")).toBe(
-      "0px",
-    );
-  });
-
   it("shows a skip reason in the FAB slot instead of the chat FAB", () => {
     render(
       <FloatingActionButton
@@ -323,10 +272,9 @@ describe("FloatingActionButton", () => {
     ).toBeNull();
   });
 
-  it("keeps a skip reason visible even when the FAB is tucked", () => {
+  it("keeps a skip reason visible without tuck behavior", () => {
     render(
       <FloatingActionButton
-        hidden
         tab={tab}
         skipReason="Not enough words recorded (3/5 minimum)"
       />,

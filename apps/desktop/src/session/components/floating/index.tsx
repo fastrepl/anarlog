@@ -19,27 +19,22 @@ import type { Tab } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
 
 export function FloatingActionButton({
-  hidden = false,
   skipReason = null,
   tab,
 }: {
-  hidden?: boolean;
   skipReason?: string | null;
   tab: Extract<Tab, { type: "sessions" }>;
 }) {
   const sessionMode = useListener((state) => state.getSessionMode(tab.id));
-  const isLiveSessionActive = sessionMode === "active";
   const shouldShowListen = useShouldShowListeningFab(tab, sessionMode);
   const shouldShowChat = useShouldShowChatFab(tab, sessionMode);
   const isCaretNearBottom = useCaretPosition()?.isCaretNearBottom ?? false;
   const showSkipReason = !!skipReason;
-  const showAction = shouldShowListen || shouldShowChat;
-  const tuckAction =
-    !showSkipReason &&
-    showAction &&
-    (isCaretNearBottom || (shouldShowChat && (hidden || isLiveSessionActive)));
+  const useChatHoverArea = !showSkipReason && shouldShowChat;
+  const tuckListenAction =
+    !showSkipReason && shouldShowListen && isCaretNearBottom;
 
-  if (!showSkipReason && !showAction) {
+  if (!showSkipReason && !shouldShowListen && !shouldShowChat) {
     return null;
   }
 
@@ -47,9 +42,14 @@ export function FloatingActionButton({
     <div
       className={cn([
         "absolute left-1/2 z-30 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-end justify-center",
-        tuckAction
+        tuckListenAction
           ? "group pointer-events-auto bottom-0 h-32 pb-4"
-          : "pointer-events-none bottom-0 h-14 pb-4",
+          : cn([
+              "pointer-events-none",
+              useChatHoverArea
+                ? "bottom-3 h-10 w-40 pb-0"
+                : "bottom-0 h-14 pb-4",
+            ]),
       ])}
     >
       <AnimatePresence mode="wait" initial={false}>
@@ -68,23 +68,21 @@ export function FloatingActionButton({
         ) : (
           <motion.div
             key={shouldShowListen ? "listen" : "chat"}
-            aria-hidden={
-              tuckAction && (shouldShowListen || !isLiveSessionActive)
-            }
+            aria-hidden={tuckListenAction}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
             style={
               {
-                "--floating-fab-tuck-offset": tuckAction
+                "--floating-fab-tuck-offset": tuckListenAction
                   ? "calc(100% - 0.5rem + 18px)"
                   : "0px",
               } as CSSProperties
             }
             className={cn([
               "relative max-w-full translate-y-[var(--floating-fab-tuck-offset)] transition-transform duration-200 ease-out",
-              tuckAction
+              tuckListenAction
                 ? "pointer-events-none visible group-hover:pointer-events-auto group-hover:translate-y-0 before:pointer-events-none before:absolute before:-inset-x-8 before:-inset-y-8 before:content-[''] hover:pointer-events-auto hover:translate-y-0"
                 : "pointer-events-auto visible",
             ])}

@@ -113,6 +113,7 @@ describe("PersistentChatPanel", () => {
     await waitFor(() => {
       expect(resizeFrame?.className).toContain("items-end");
       expect(resizeFrame?.className).toContain("justify-center");
+      expect(resizeFrame?.className).toContain("pb-3");
       expect(panel?.style.transformOrigin).toBe("bottom center");
     });
   });
