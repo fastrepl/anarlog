@@ -119,8 +119,10 @@ describe("TitleInput", () => {
     const input = screen.getByPlaceholderText("Untitled");
 
     expect(input.parentElement?.className).toContain("text-sm");
+    expect(input.parentElement?.className).toContain("leading-none");
     expect(input.parentElement?.className).not.toContain("font-mono");
     expect(input.className).toContain("text-sm");
+    expect(input.className).toContain("leading-none");
     expect(input.className).not.toContain("font-mono");
   });
 
