@@ -24,7 +24,7 @@ export function DateEditor({ sessionId }: { sessionId: string }) {
 
   if (!isEditing) {
     return (
-      <div className="flex h-9 items-center justify-between gap-3">
+      <div className="flex h-7 items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="text-muted-foreground text-sm">{noteDate}</div>
         </div>
@@ -113,11 +113,11 @@ function EditableDateForm({
     <div className="flex flex-col gap-2">
       <form.Field name="createdAt">
         {(field) => (
-          <div className="flex h-9 items-center gap-0">
+          <div className="flex h-7 items-center gap-0">
             <Input
               autoFocus
               type="datetime-local"
-              className="flex-1 border-0 px-0 shadow-none focus-visible:ring-0"
+              className="h-7 flex-1 border-0 px-0 py-0 shadow-none focus-visible:ring-0"
               value={field.state.value}
               onChange={(e) => field.handleChange(e.target.value)}
               onKeyDown={(e) => {

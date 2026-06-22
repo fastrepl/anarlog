@@ -57,7 +57,7 @@ export function ParticipantChip({
     <Badge
       variant="secondary"
       className={cn([
-        "bg-muted hover:bg-muted/80 relative flex cursor-pointer items-center gap-1 overflow-hidden px-2 py-0.5 text-xs",
+        "bg-foreground/10 hover:bg-foreground/15 relative flex cursor-pointer items-center gap-1 overflow-hidden px-2 py-0.5 text-xs",
         isEnhancing && "ring-ring/20 ring-1",
       ])}
       onClick={handleClick}
