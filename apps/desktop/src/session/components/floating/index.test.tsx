@@ -16,6 +16,7 @@ const hoisted = vi.hoisted(() => ({
   hasTranscript: true,
   enhanceTaskStatus: undefined as string | undefined,
   enhancedContent: "Generated summary",
+  templateId: undefined as string | undefined,
   llmStatus: {
     status: "success",
     providerId: "hyprnote",
@@ -24,6 +25,8 @@ const hoisted = vi.hoisted(() => ({
   isCaretNearBottom: false,
   sessionMode: "inactive",
   sendEvent: vi.fn(),
+  enhance: vi.fn(),
+  updateSessionTabState: vi.fn(),
 }));
 
 vi.mock("./listen", () => ({
@@ -41,6 +44,8 @@ vi.mock("~/shared/chat-cta", () => ({
 vi.mock("~/session/components/shared", () => ({
   useCurrentNoteTab: () => hoisted.currentTab,
   useHasTranscript: () => hoisted.hasTranscript,
+  hasStoredNoteContent: (value: unknown) =>
+    typeof value === "string" && value.trim().length > 0,
 }));
 
 vi.mock("~/ai/contexts", () => ({
@@ -63,8 +68,29 @@ vi.mock("~/ai/hooks", () => ({
 vi.mock("~/store/tinybase/store/main", () => ({
   STORE_ID: "main",
   UI: {
-    useCell: () => hoisted.enhancedContent,
+    useCell: (_table: string, _row: string, cell: string) => {
+      if (cell === "content") {
+        return hoisted.enhancedContent;
+      }
+
+      if (cell === "template_id") {
+        return hoisted.templateId;
+      }
+
+      return undefined;
+    },
   },
+}));
+
+vi.mock("~/services/enhancer", () => ({
+  getEnhancerService: () => ({
+    enhance: hoisted.enhance,
+  }),
+}));
+
+vi.mock("~/store/zustand/tabs", () => ({
+  useTabs: (selector: (state: unknown) => unknown) =>
+    selector({ updateSessionTabState: hoisted.updateSessionTabState }),
 }));
 
 vi.mock("../caret-position-context", () => ({
@@ -97,6 +123,7 @@ describe("FloatingActionButton", () => {
     hoisted.hasTranscript = true;
     hoisted.enhanceTaskStatus = undefined;
     hoisted.enhancedContent = "Generated summary";
+    hoisted.templateId = undefined;
     hoisted.llmStatus = {
       status: "success",
       providerId: "hyprnote",
@@ -105,6 +132,8 @@ describe("FloatingActionButton", () => {
     hoisted.isCaretNearBottom = false;
     hoisted.sessionMode = "inactive";
     hoisted.sendEvent.mockClear();
+    hoisted.enhance.mockReset();
+    hoisted.updateSessionTabState.mockClear();
   });
 
   afterEach(() => {
@@ -126,6 +155,47 @@ describe("FloatingActionButton", () => {
 
     expect(
       screen.queryByRole("button", { name: "Ask Anarlog anything" }),
+    ).not.toBeNull();
+  });
+
+  it("shows a generate summary FAB instead of chat for empty transcript-backed summaries", () => {
+    hoisted.currentTab = { type: "enhanced", id: "note-1" };
+    hoisted.enhancedContent = "";
+    hoisted.templateId = "template-1";
+    hoisted.enhance.mockReturnValue({
+      type: "started",
+      noteId: "note-1",
+    });
+
+    render(<FloatingActionButton tab={tab} />);
+
+    expect(
+      screen.queryByRole("button", { name: "Ask Anarlog anything" }),
+    ).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Generate summary" }));
+
+    expect(hoisted.enhance).toHaveBeenCalledWith("session-1", {
+      templateId: "template-1",
+    });
+    expect(hoisted.updateSessionTabState).toHaveBeenCalledWith(tab, {
+      ...tab.state,
+      view: { type: "enhanced", id: "note-1" },
+    });
+  });
+
+  it("keeps the generate summary FAB visible after an empty enhance success", () => {
+    hoisted.currentTab = { type: "enhanced", id: "note-1" };
+    hoisted.enhanceTaskStatus = "success";
+    hoisted.enhancedContent = "";
+
+    render(<FloatingActionButton tab={tab} />);
+
+    expect(
+      screen.queryByRole("button", { name: "Ask Anarlog anything" }),
+    ).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Generate summary" }),
     ).not.toBeNull();
   });
 

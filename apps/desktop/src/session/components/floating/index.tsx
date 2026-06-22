@@ -1,20 +1,26 @@
+import { SparklesIcon } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import type { CSSProperties } from "react";
+import { useCallback } from "react";
 
 import { cn } from "@hypr/utils";
 
 import { useCaretPosition } from "../caret-position-context";
 import { ListenButton } from "./listen";
+import { FloatingButton } from "./shared";
 
 import { useAITask } from "~/ai/contexts";
 import { type LLMConnectionStatus, useLLMConnectionStatus } from "~/ai/hooks";
+import { getEnhancerService } from "~/services/enhancer";
 import {
   useCurrentNoteTab,
+  hasStoredNoteContent,
   useHasTranscript,
 } from "~/session/components/shared";
 import { ChatCTA } from "~/shared/chat-cta";
 import * as main from "~/store/tinybase/store/main";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
+import { useTabs } from "~/store/zustand/tabs";
 import type { Tab } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
 
@@ -31,13 +37,21 @@ export function FloatingActionButton({
   const canShowListen = useShouldShowListeningFab(tab, sessionMode);
   const shouldShowListen = allowListening && canShowListen;
   const shouldShowChat = useShouldShowChatFab(tab, sessionMode);
+  const generateSummaryNoteId = useGenerateSummaryNoteId(tab, sessionMode);
+  const shouldShowGenerateSummary = generateSummaryNoteId !== null;
   const isCaretNearBottom = useCaretPosition()?.isCaretNearBottom ?? false;
   const showSkipReason = !!skipReason;
-  const useChatHoverArea = !showSkipReason && shouldShowChat;
+  const useChatHoverArea =
+    !showSkipReason && !shouldShowGenerateSummary && shouldShowChat;
   const tuckListenAction =
     !showSkipReason && shouldShowListen && isCaretNearBottom;
 
-  if (!showSkipReason && !shouldShowListen && !shouldShowChat) {
+  if (
+    !showSkipReason &&
+    !shouldShowListen &&
+    !shouldShowGenerateSummary &&
+    !shouldShowChat
+  ) {
     return null;
   }
 
@@ -70,7 +84,13 @@ export function FloatingActionButton({
           </motion.div>
         ) : (
           <motion.div
-            key={shouldShowListen ? "listen" : "chat"}
+            key={
+              shouldShowListen
+                ? "listen"
+                : shouldShowGenerateSummary
+                  ? "generate-summary"
+                  : "chat"
+            }
             aria-hidden={tuckListenAction}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -90,11 +110,63 @@ export function FloatingActionButton({
                 : "pointer-events-auto visible",
             ])}
           >
-            {shouldShowListen ? <ListenButton tab={tab} /> : <ChatCTA />}
+            {shouldShowListen ? (
+              <ListenButton tab={tab} />
+            ) : shouldShowGenerateSummary ? (
+              <GenerateSummaryButton
+                tab={tab}
+                enhancedNoteId={generateSummaryNoteId}
+              />
+            ) : (
+              <ChatCTA />
+            )}
           </motion.div>
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+function GenerateSummaryButton({
+  tab,
+  enhancedNoteId,
+}: {
+  tab: Extract<Tab, { type: "sessions" }>;
+  enhancedNoteId: string;
+}) {
+  const updateSessionTabState = useTabs((state) => state.updateSessionTabState);
+  const templateId = main.UI.useCell(
+    "enhanced_notes",
+    enhancedNoteId,
+    "template_id",
+    main.STORE_ID,
+  ) as string | undefined;
+
+  const handleGenerateSummary = useCallback(() => {
+    const result = getEnhancerService()?.enhance(tab.id, {
+      templateId: templateId || undefined,
+    });
+
+    if (
+      (result?.type === "started" || result?.type === "already_active") &&
+      result.noteId
+    ) {
+      updateSessionTabState(tab, {
+        ...tab.state,
+        view: { type: "enhanced", id: result.noteId },
+      });
+    }
+  }, [tab, templateId, updateSessionTabState]);
+
+  return (
+    <FloatingButton
+      onClick={handleGenerateSummary}
+      className="w-[164px] justify-start gap-2 px-4"
+    >
+      <span className="flex items-center gap-1.5">
+        <SparklesIcon className="size-3.5" /> Generate summary
+      </span>
+    </FloatingButton>
   );
 }
 
@@ -108,6 +180,45 @@ function useShouldShowListeningFab(
   return (
     sessionMode === "inactive" && currentTab.type === "raw" && !hasTranscript
   );
+}
+
+function useGenerateSummaryNoteId(
+  tab: Extract<Tab, { type: "sessions" }>,
+  sessionMode: string,
+) {
+  const hasTranscript = useHasTranscript(tab.id);
+  const currentTab = useCurrentNoteTab(tab);
+  const enhancedNoteId = currentTab.type === "enhanced" ? currentTab.id : null;
+  const taskId = enhancedNoteId
+    ? createTaskId(enhancedNoteId, "enhance")
+    : null;
+  const taskStatus = useAITask((state) =>
+    taskId ? state.tasks[taskId]?.status : undefined,
+  );
+  const llmStatus = useLLMConnectionStatus();
+  const content = main.UI.useCell(
+    "enhanced_notes",
+    enhancedNoteId ?? "",
+    "content",
+    main.STORE_ID,
+  );
+  const canStartEnhance =
+    taskStatus === undefined ||
+    taskStatus === "idle" ||
+    taskStatus === "success";
+
+  if (
+    sessionMode === "inactive" &&
+    hasTranscript &&
+    enhancedNoteId &&
+    canStartEnhance &&
+    !hasStoredNoteContent(content) &&
+    !isBlockingLLMStatus(llmStatus)
+  ) {
+    return enhancedNoteId;
+  }
+
+  return null;
 }
 
 function useShouldShowChatFab(
@@ -131,7 +242,7 @@ function useShouldShowChatFab(
     main.STORE_ID,
   );
   const visibleTaskStatus = taskStatus ?? "idle";
-  const hasContent = typeof content === "string" && content.trim().length > 0;
+  const hasContent = hasStoredNoteContent(content);
   const hasVisibleIssue =
     currentTab.type === "enhanced" &&
     (visibleTaskStatus === "error" ||
