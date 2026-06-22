@@ -13,14 +13,14 @@ import { useHotkeys } from "react-hotkeys-hook";
 import type { NoteEditorRef } from "@hypr/editor/note";
 import { cn } from "@hypr/utils";
 
+import { getPersistedNoteTabView } from "../compute-note-tab";
 import { Enhanced } from "./enhanced";
-import { Header, useEditorTabs } from "./header";
 import { RawEditor } from "./raw";
 import { SearchBar } from "./search/bar";
 import { useSearch } from "./search/context";
+import { Transcript } from "./transcript";
 
 import { useCaretNearBottom } from "~/session/components/caret-position-context";
-import { useCurrentNoteTab } from "~/session/components/shared";
 import { useScrollPreservation } from "~/shared/hooks/useScrollPreservation";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 import { type EditorView as TabEditorView } from "~/store/zustand/tabs/schema";
@@ -31,17 +31,19 @@ export interface NoteInputHandle {
   focusAtStart: () => void;
   focusAtPixelWidth: (pixelWidth: number) => void;
   insertAtStartAndFocus: (content: string) => void;
+  preserveScroll: () => void;
 }
 
 export const NoteInput = forwardRef<
   NoteInputHandle,
   {
     tab: Extract<Tab, { type: "sessions" }>;
+    currentTab: TabEditorView;
+    editorTabs: TabEditorView[];
     onNavigateToTitle?: (pixelWidth?: number) => void;
     onScroll?: UIEventHandler<HTMLDivElement>;
   }
->(({ tab, onNavigateToTitle, onScroll }, ref) => {
-  const editorTabs = useEditorTabs({ sessionId: tab.id });
+>(({ tab, currentTab, editorTabs, onNavigateToTitle, onScroll }, ref) => {
   const updateSessionTabState = useTabs((state) => state.updateSessionTabState);
   const internalEditorRef = useRef<NoteEditorRef>(null);
   const [container, setContainer] = useState<HTMLDivElement | null>(null);
@@ -51,21 +53,6 @@ export const NoteInput = forwardRef<
 
   const tabRef = useRef(tab);
   tabRef.current = tab;
-
-  const currentTab: TabEditorView = useCurrentNoteTab(tab);
-
-  useImperativeHandle(
-    ref,
-    () => ({
-      focus: () => internalEditorRef.current?.commands.focus(),
-      focusAtStart: () => internalEditorRef.current?.commands.focusAtStart(),
-      focusAtPixelWidth: (px) =>
-        internalEditorRef.current?.commands.focusAtPixelWidth(px),
-      insertAtStartAndFocus: (content) =>
-        internalEditorRef.current?.commands.insertAtStartAndFocus(content),
-    }),
-    [currentTab],
-  );
 
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
   const isMeetingInProgress =
@@ -79,15 +66,29 @@ export const NoteInput = forwardRef<
       : currentTab.type,
   );
 
+  useImperativeHandle(
+    ref,
+    () => ({
+      focus: () => internalEditorRef.current?.commands.focus(),
+      focusAtStart: () => internalEditorRef.current?.commands.focusAtStart(),
+      focusAtPixelWidth: (px) =>
+        internalEditorRef.current?.commands.focusAtPixelWidth(px),
+      insertAtStartAndFocus: (content) =>
+        internalEditorRef.current?.commands.insertAtStartAndFocus(content),
+      preserveScroll: onBeforeTabChange,
+    }),
+    [onBeforeTabChange],
+  );
+
   const handleTabChange = useCallback(
     (tabView: TabEditorView) => {
       onBeforeTabChange();
       updateSessionTabState(tabRef.current, {
         ...tabRef.current.state,
-        view: tabView,
+        view: getPersistedNoteTabView(tabView, sessionMode === "active"),
       });
     },
-    [onBeforeTabChange, updateSessionTabState],
+    [onBeforeTabChange, sessionMode, updateSessionTabState],
   );
 
   useTabShortcuts({
@@ -126,20 +127,13 @@ export const NoteInput = forwardRef<
   }, [currentTab]);
 
   const handleContainerClick = () => {
-    internalEditorRef.current?.commands.focus();
+    if (currentTab.type !== "transcript") {
+      internalEditorRef.current?.commands.focus();
+    }
   };
 
   return (
     <div className="-mx-2 flex h-full flex-col">
-      <div className="relative px-2">
-        <Header
-          sessionId={sessionId}
-          editorTabs={editorTabs}
-          currentTab={currentTab}
-          handleTabChange={handleTabChange}
-        />
-      </div>
-
       {showSearchBar && (
         <div className="px-3 pt-1">
           <SearchBar editorRef={internalEditorRef} />
@@ -149,16 +143,20 @@ export const NoteInput = forwardRef<
       <div className="relative flex-1 overflow-hidden">
         <div
           ref={(node) => {
-            scrollRef.current = node;
+            if (currentTab.type !== "transcript") {
+              scrollRef.current = node;
+            } else if (scrollRef.current === node) {
+              scrollRef.current = null;
+            }
             setContainer(node);
           }}
           onClick={handleContainerClick}
           onScroll={onScroll}
           className={cn([
             "h-full px-3",
-            "scroll-fade-y overflow-auto",
-            "pt-2",
-            "pb-6",
+            currentTab.type === "transcript"
+              ? "overflow-hidden pt-2 pb-0"
+              : ["scroll-fade-y overflow-auto", "pt-2", "pb-6"],
           ])}
         >
           {currentTab.type === "enhanced" && (
@@ -179,6 +177,9 @@ export const NoteInput = forwardRef<
               onViewReady={handleViewReady}
               onViewDisposed={handleViewDisposed}
             />
+          )}
+          {currentTab.type === "transcript" && (
+            <Transcript sessionId={sessionId} scrollRef={scrollRef} />
           )}
         </div>
       </div>
@@ -225,6 +226,22 @@ function useTabShortcuts({
       const rawTab = editorTabs.find((t) => t.type === "raw");
       if (rawTab && currentTab.type !== "raw") {
         handleTabChange(rawTab);
+      }
+    },
+    {
+      preventDefault: true,
+      enableOnFormTags: true,
+      enableOnContentEditable: true,
+    },
+    [currentTab, editorTabs, handleTabChange],
+  );
+
+  useHotkeys(
+    "alt+t",
+    () => {
+      const transcriptTab = editorTabs.find((t) => t.type === "transcript");
+      if (transcriptTab && currentTab.type !== "transcript") {
+        handleTabChange(transcriptTab);
       }
     },
     {

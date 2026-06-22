@@ -1,11 +1,15 @@
 import {
+  AlignLeftIcon,
   AlertCircleIcon,
+  AudioLinesIcon,
+  ChevronDownIcon,
   ChevronRightIcon,
   HeartIcon,
   LightbulbIcon,
   PlusIcon,
   RefreshCwIcon,
   SearchIcon,
+  SparklesIcon,
   XIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -36,7 +40,6 @@ import { useAITaskTask } from "~/ai/hooks";
 import { useLanguageModel, useLLMConnectionStatus } from "~/ai/hooks";
 import { extractPlainText } from "~/search/contexts/engine/utils";
 import { getEnhancerService } from "~/services/enhancer";
-import { useHasTranscript } from "~/session/components/shared";
 import { shouldShowEmptySummaryConfigError } from "~/session/enhance-config";
 import { useEnsureDefaultSummary } from "~/session/hooks/useEnhancedNotes";
 import {
@@ -48,7 +51,6 @@ import * as main from "~/store/tinybase/store/main";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 import { type EditorView } from "~/store/zustand/tabs/schema";
-import { useListener } from "~/stt/contexts";
 import {
   filterWebTemplatesAgainstUserTemplates,
   getTemplateCreatorLabel,
@@ -59,22 +61,6 @@ import {
   useUserTemplates,
   type WebTemplate,
 } from "~/templates";
-
-function TruncatedTitle({
-  title,
-  isActive,
-}: {
-  title: string;
-  isActive: boolean;
-}) {
-  return (
-    <span
-      className={cn(["truncate", isActive ? "max-w-[120px]" : "max-w-[60px]"])}
-    >
-      {title}
-    </span>
-  );
-}
 
 function getStoredNoteMarkdown(content: string | undefined) {
   const trimmed = content?.trim() ?? "";
@@ -204,8 +190,166 @@ function HeaderTabRaw({
       onClick={onClick}
       onContextMenu={showContextMenu}
     >
-      Memos
+      <AlignLeftIcon size={14} />
+      <span>Memos</span>
     </NoteTab>
+  );
+}
+
+function HeaderTabTranscript({
+  isActive,
+  onClick = () => {},
+  sessionId,
+}: {
+  isActive: boolean;
+  onClick?: () => void;
+  sessionId: string;
+}) {
+  const { data: transcriptSegments, isLoading } =
+    useTranscriptExportSegments(sessionId);
+  const transcriptMarkdown = useMemo(
+    () => formatTranscriptExportSegments(transcriptSegments),
+    [transcriptSegments],
+  );
+  const contextMenu = useMemo<MenuItemDef[]>(
+    () => [
+      {
+        id: `copy-transcript-${sessionId}`,
+        text: isLoading ? "Loading transcript..." : "Copy",
+        action: () => {
+          void copyTextToClipboard(transcriptMarkdown, {
+            success: "Transcript copied to clipboard",
+            error: "Failed to copy transcript",
+          });
+        },
+        disabled: isLoading || transcriptMarkdown.length === 0,
+      },
+    ],
+    [isLoading, sessionId, transcriptMarkdown],
+  );
+  const showContextMenu = useNativeContextMenu(contextMenu);
+
+  return (
+    <NoteTab
+      data-main-area-window-drag-region
+      data-tauri-drag-region="false"
+      className={SESSION_NOTE_TAB_CLASSNAME}
+      isActive={isActive}
+      onClick={onClick}
+      onContextMenu={showContextMenu}
+    >
+      <AudioLinesIcon size={14} />
+      <span>Transcript</span>
+    </NoteTab>
+  );
+}
+
+function HeaderTabSummaryPending({
+  isActive,
+  onActivate,
+  sessionId,
+}: {
+  isActive: boolean;
+  onActivate: (view: Extract<EditorView, { type: "enhanced" }>) => void;
+  sessionId: string;
+}) {
+  const ensureSummary = useCallback(
+    (templateId?: string | null) => {
+      const service = getEnhancerService();
+      if (!service) {
+        return;
+      }
+
+      const enhancedNoteId = service.ensureNote(
+        sessionId,
+        templateId || undefined,
+      );
+      onActivate({ type: "enhanced", id: enhancedNoteId });
+    },
+    [onActivate, sessionId],
+  );
+  const regenerateSummary = useCallback(
+    (templateId?: string | null) => {
+      const service = getEnhancerService();
+      if (!service) {
+        return;
+      }
+
+      const result = service.enhance(sessionId, {
+        templateId: templateId || undefined,
+      });
+      const enhancedNoteId =
+        "noteId" in result
+          ? result.noteId
+          : service.ensureNote(sessionId, templateId || undefined);
+      onActivate({ type: "enhanced", id: enhancedNoteId });
+    },
+    [onActivate, sessionId],
+  );
+  const contextMenu = useMemo<MenuItemDef[]>(
+    () => [
+      {
+        id: `copy-enhanced-pending-${sessionId}`,
+        text: "Copy",
+        action: () => {},
+        disabled: true,
+      },
+      {
+        id: `regenerate-enhanced-pending-${sessionId}`,
+        text: "Regenerate",
+        action: () => regenerateSummary(),
+      },
+    ],
+    [regenerateSummary, sessionId],
+  );
+  const showContextMenu = useNativeContextMenu(contextMenu);
+  const menuTrigger = (
+    <button
+      type="button"
+      data-main-area-window-drag-region
+      data-tauri-drag-region="false"
+      aria-label="Summary templates"
+      className="hover:bg-accent hover:text-foreground flex h-5 w-5 items-center justify-center rounded-xs transition-colors"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <ChevronDownIcon size={13} />
+    </button>
+  );
+
+  return (
+    <div
+      data-main-area-window-drag-region
+      data-tauri-drag-region="false"
+      className={cn([
+        "relative flex h-6 shrink-0 items-center border-b-2 py-0.5 text-xs font-medium transition-all duration-200 select-none",
+        isActive
+          ? ["border-foreground", "text-foreground"]
+          : [
+              "border-transparent",
+              "text-muted-foreground",
+              "hover:text-foreground",
+            ],
+        SESSION_NOTE_TAB_CLASSNAME,
+      ])}
+      onContextMenu={showContextMenu}
+    >
+      <button
+        type="button"
+        data-main-area-window-drag-region
+        data-tauri-drag-region="false"
+        className="flex h-5 items-center gap-1 px-1"
+        onClick={() => ensureSummary()}
+      >
+        <SparklesIcon size={14} />
+        <span>Summary</span>
+      </button>
+      <SummaryTemplateMenu
+        sessionId={sessionId}
+        isGenerating={false}
+        onRegenerate={regenerateSummary}
+        trigger={menuTrigger}
+      />
+    </div>
   );
 }
 
@@ -214,15 +358,11 @@ function HeaderTabEnhanced({
   onClick = () => {},
   sessionId,
   enhancedNoteId,
-  canRemove = false,
-  onRemove,
 }: {
   isActive: boolean;
   onClick?: () => void;
   sessionId: string;
   enhancedNoteId: string;
-  canRemove?: boolean;
-  onRemove?: () => void;
 }) {
   const { isGenerating, isError, onRegenerate } = useEnhanceLogic(
     sessionId,
@@ -262,18 +402,11 @@ function HeaderTabEnhanced({
       error: `Failed to copy ${tabTitle}`,
     });
   }, [noteMarkdown, tabTitle]);
-  const handleRegenerate = useCallback(() => {
-    void onRegenerate(null);
-  }, [onRegenerate]);
-  const handleRegenerateClick = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation();
-      if (isGenerating) {
-        return;
-      }
-      handleRegenerate();
+  const handleRegenerate = useCallback(
+    (templateId: string | null = null) => {
+      void onRegenerate(templateId);
     },
-    [handleRegenerate, isGenerating],
+    [onRegenerate],
   );
   const handleExploreTemplatesClick = useCallback(
     (e: React.MouseEvent) => {
@@ -333,7 +466,7 @@ function HeaderTabEnhanced({
     [handleExploreTemplatesClick, templateId, templateTitle],
   );
   const contextMenu = useMemo<MenuItemDef[]>(() => {
-    const items: MenuItemDef[] = [
+    return [
       {
         id: `copy-enhanced-${enhancedNoteId}`,
         text: "Copy",
@@ -349,76 +482,76 @@ function HeaderTabEnhanced({
         disabled: isGenerating,
       },
     ];
-
-    if (canRemove) {
-      items.push({ separator: true });
-      items.push({
-        id: `remove-enhanced-${enhancedNoteId}`,
-        text: "Remove",
-        action: () => {
-          onRemove?.();
-        },
-        disabled: isGenerating || !onRemove,
-      });
-    }
-
-    return items;
   }, [
-    canRemove,
     enhancedNoteId,
     handleCopy,
     handleRegenerate,
     isGenerating,
     noteMarkdown.length,
-    onRemove,
   ]);
   const showContextMenu = useNativeContextMenu(contextMenu);
 
-  const regenerateIcon = (
-    <span
+  const menuTrigger = (
+    <button
+      type="button"
       data-main-area-window-drag-region
       data-tauri-drag-region="false"
-      onClick={handleRegenerateClick}
+      aria-label="Summary templates"
       className={cn([
-        "group relative inline-flex h-5 w-5 cursor-pointer items-center justify-center rounded-xs transition-colors",
+        "flex h-5 w-5 items-center justify-center rounded-xs transition-colors",
         isError
           ? [
-              "hover:text-foreground focus-visible:text-foreground text-red-600 hover:bg-red-50 focus-visible:bg-red-50",
-              "dark:text-red-400 dark:hover:bg-red-950/50 dark:focus-visible:bg-red-950/50",
+              "text-red-600 hover:bg-red-50 hover:text-red-700",
+              "dark:text-red-400 dark:hover:bg-red-950/50 dark:hover:text-red-300",
             ]
-          : ["hover:bg-accent focus-visible:bg-muted"],
+          : "hover:bg-accent hover:text-foreground",
       ])}
+      onClick={(e) => e.stopPropagation()}
     >
-      {isError && (
-        <AlertCircleIcon
-          size={12}
-          className="pointer-events-none absolute inset-0 m-auto transition-opacity duration-200 group-hover:opacity-0 group-focus-visible:opacity-0"
-        />
+      {isError ? (
+        <AlertCircleIcon size={12} />
+      ) : isGenerating ? (
+        <RefreshCwIcon size={12} className="animate-spin" />
+      ) : (
+        <ChevronDownIcon size={13} />
       )}
-      <RefreshCwIcon
-        size={12}
-        className={cn([
-          "pointer-events-none absolute inset-0 m-auto transition-opacity duration-200",
-          isError
-            ? "opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100"
-            : "opacity-100",
-        ])}
-      />
-    </span>
+    </button>
   );
 
   return wrapWithTemplateTooltip(
-    <NoteTab
+    <div
       data-main-area-window-drag-region
       data-tauri-drag-region="false"
-      className={SESSION_NOTE_TAB_CLASSNAME}
-      isActive={isActive}
-      onClick={onClick}
+      className={cn([
+        "relative flex h-6 shrink-0 items-center border-b-2 py-0.5 text-xs font-medium transition-all duration-200 select-none",
+        isActive
+          ? ["border-foreground", "text-foreground"]
+          : [
+              "border-transparent",
+              "text-muted-foreground",
+              "hover:text-foreground",
+            ],
+        SESSION_NOTE_TAB_CLASSNAME,
+      ])}
       onContextMenu={showContextMenu}
     >
-      <TruncatedTitle title={tabTitle} isActive={isActive} />
-      {isActive && regenerateIcon}
-    </NoteTab>,
+      <button
+        type="button"
+        data-main-area-window-drag-region
+        data-tauri-drag-region="false"
+        className="flex h-5 items-center gap-1 px-1"
+        onClick={onClick}
+      >
+        <SparklesIcon size={14} />
+        <span>Summary</span>
+      </button>
+      <SummaryTemplateMenu
+        sessionId={sessionId}
+        isGenerating={isGenerating}
+        onRegenerate={handleRegenerate}
+        trigger={menuTrigger}
+      />
+    </div>,
   );
 }
 
@@ -450,12 +583,16 @@ function useOpenTemplatesTab() {
   );
 }
 
-function CreateOtherFormatButton({
+function SummaryTemplateMenu({
   sessionId,
-  handleTabChange,
+  isGenerating,
+  onRegenerate,
+  trigger,
 }: {
   sessionId: string;
-  handleTabChange: (view: EditorView) => void;
+  isGenerating: boolean;
+  onRegenerate: (templateId?: string | null) => void;
+  trigger: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -493,20 +630,27 @@ function CreateOtherFormatButton({
 
   const handleUseTemplate = useCallback(
     (templateId: string) => {
+      if (isGenerating) {
+        return;
+      }
+
       setOpen(false);
       setSearch("");
       resultRefs.current = [];
-
-      const service = getEnhancerService();
-      if (!service) return;
-
-      const result = service.enhance(sessionId, { templateId });
-      if (result.type === "started" || result.type === "already_active") {
-        handleTabChange({ type: "enhanced", id: result.noteId });
-      }
+      onRegenerate(templateId);
     },
-    [sessionId, handleTabChange],
+    [isGenerating, onRegenerate],
   );
+  const handleRegenerateCurrent = useCallback(() => {
+    if (isGenerating) {
+      return;
+    }
+
+    setOpen(false);
+    setSearch("");
+    resultRefs.current = [];
+    onRegenerate(null);
+  }, [isGenerating, onRegenerate]);
 
   const handleOpenChange = useCallback((nextOpen: boolean) => {
     setOpen(nextOpen);
@@ -729,6 +873,18 @@ function CreateOtherFormatButton({
     if (!hasSearch) {
       return [
         {
+          key: "current",
+          title: "Summary",
+          items: [
+            {
+              key: "regenerate-current-summary",
+              title: "Regenerate summary",
+              description: "Use the current template",
+              onClick: handleRegenerateCurrent,
+            },
+          ],
+        },
+        {
           key: "favorite",
           title: "Favorites",
           items: filteredFavoriteTemplates.map((template) => ({
@@ -819,6 +975,7 @@ function CreateOtherFormatButton({
     filteredFavoriteTemplates,
     filteredSuggestedTemplates,
     handleCreateTemplate,
+    handleRegenerateCurrent,
     handleSuggestedTemplateClick,
     handleUseTemplate,
     hasSearch,
@@ -877,22 +1034,7 @@ function CreateOtherFormatButton({
 
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
-      <PopoverTrigger asChild>
-        <button
-          data-main-area-window-drag-region
-          data-tauri-drag-region="false"
-          className={cn([
-            "relative shrink-0 px-1 py-0.5 text-xs font-medium whitespace-nowrap transition-all duration-200 select-none",
-            SESSION_NOTE_TAB_CLASSNAME,
-            "text-muted-foreground hover:text-foreground",
-            "flex items-center gap-1",
-            "border-b-2 border-transparent",
-          ])}
-        >
-          <PlusIcon size={14} />
-          <span>Use template</span>
-        </button>
-      </PopoverTrigger>
+      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       <PopoverContent variant="app" className="w-80" align="start">
         <div className="flex flex-col gap-1">
           <AppFloatingPanel className="flex flex-col overflow-hidden">
@@ -999,17 +1141,12 @@ export function Header({
   currentTab: EditorView;
   handleTabChange: (view: EditorView) => void;
 }) {
-  const sessionMode = useListener((state) => state.getSessionMode(sessionId));
-  const isLiveProcessing = sessionMode === "active";
-  const store = main.UI.useStore(main.STORE_ID);
-  const primaryEnhancedTabId = editorTabs.find(
+  const summaryTab = editorTabs.find(
     (view): view is Extract<EditorView, { type: "enhanced" }> =>
       view.type === "enhanced",
-  )?.id;
-
-  if (editorTabs.length === 1 && editorTabs[0].type === "raw") {
-    return null;
-  }
+  );
+  const memoTab = editorTabs.find((view) => view.type === "raw");
+  const transcriptTab = editorTabs.find((view) => view.type === "transcript");
 
   return (
     <div data-tauri-drag-region className="flex flex-col">
@@ -1022,58 +1159,41 @@ export function Header({
             data-tauri-drag-region
             className="scroll-fade-x scrollbar-hide flex items-center gap-1 overflow-x-auto"
           >
-            {editorTabs.map((view, index) => {
-              if (view.type === "enhanced") {
-                return (
-                  <HeaderTabEnhanced
-                    key={`enhanced-${view.id}`}
-                    sessionId={sessionId}
-                    enhancedNoteId={view.id}
-                    canRemove={view.id !== primaryEnhancedTabId}
-                    onRemove={
-                      view.id !== primaryEnhancedTabId
-                        ? () => {
-                            const previousView = editorTabs[index - 1];
-                            if (
-                              currentTab.type === "enhanced" &&
-                              currentTab.id === view.id &&
-                              previousView
-                            ) {
-                              handleTabChange(previousView);
-                            }
-
-                            store?.delRow("enhanced_notes", view.id);
-                          }
-                        : undefined
-                    }
-                    isActive={
-                      currentTab.type === "enhanced" &&
-                      currentTab.id === view.id
-                    }
-                    onClick={() => handleTabChange(view)}
-                  />
-                );
-              }
-
-              if (view.type === "raw") {
-                return (
-                  <HeaderTabRaw
-                    key={view.type}
-                    sessionId={sessionId}
-                    isActive={currentTab.type === view.type}
-                    onClick={() => handleTabChange(view)}
-                  />
-                );
-              }
-
-              return null;
-            })}
-            {!isLiveProcessing && (
-              <CreateOtherFormatButton
+            {summaryTab ? (
+              <HeaderTabEnhanced
+                key={`enhanced-${summaryTab.id}`}
                 sessionId={sessionId}
-                handleTabChange={handleTabChange}
+                enhancedNoteId={summaryTab.id}
+                isActive={
+                  currentTab.type === "enhanced" &&
+                  currentTab.id === summaryTab.id
+                }
+                onClick={() => handleTabChange(summaryTab)}
+              />
+            ) : (
+              <HeaderTabSummaryPending
+                key="summary-pending"
+                sessionId={sessionId}
+                isActive={false}
+                onActivate={handleTabChange}
               />
             )}
+            <HeaderTabRaw
+              key="raw"
+              sessionId={sessionId}
+              isActive={memoTab ? currentTab.type === memoTab.type : false}
+              onClick={() => handleTabChange(memoTab ?? { type: "raw" })}
+            />
+            <HeaderTabTranscript
+              key="transcript"
+              sessionId={sessionId}
+              isActive={
+                transcriptTab ? currentTab.type === transcriptTab.type : false
+              }
+              onClick={() =>
+                handleTabChange(transcriptTab ?? { type: "transcript" })
+              }
+            />
           </div>
         </div>
       </div>
@@ -1088,27 +1208,17 @@ export function useEditorTabs({
 }): EditorView[] {
   useEnsureDefaultSummary(sessionId);
 
-  const sessionMode = useListener((state) => state.getSessionMode(sessionId));
-  const hasTranscript = useHasTranscript(sessionId);
   const enhancedNoteIds = main.UI.useSliceRowIds(
     main.INDEXES.enhancedNotesBySession,
     sessionId,
     main.STORE_ID,
   );
 
-  if (sessionMode === "active") {
-    return [{ type: "raw" }];
-  }
+  const summaryTab = enhancedNoteIds?.[0]
+    ? [{ type: "enhanced", id: enhancedNoteIds[0] } satisfies EditorView]
+    : [];
 
-  if (hasTranscript) {
-    const enhancedTabs: EditorView[] = (enhancedNoteIds || []).map((id) => ({
-      type: "enhanced",
-      id,
-    }));
-    return [...enhancedTabs, { type: "raw" }];
-  }
-
-  return [{ type: "raw" }];
+  return [...summaryTab, { type: "raw" }, { type: "transcript" }];
 }
 
 function useEnhanceLogic(sessionId: string, enhancedNoteId: string) {

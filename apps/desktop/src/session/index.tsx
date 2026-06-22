@@ -6,18 +6,19 @@ import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 
 import { useSessionBottomAccessory } from "./components/bottom-accessory";
 import { CaretPositionProvider } from "./components/caret-position-context";
+import { getPersistedNoteTabView } from "./components/compute-note-tab";
 import { FloatingActionButton } from "./components/floating";
 import { NoteInput, type NoteInputHandle } from "./components/note-input";
+import { Header, useEditorTabs } from "./components/note-input/header";
 import { SearchProvider } from "./components/note-input/search/context";
 import { OuterHeader } from "./components/outer-header";
 import { SessionSurface } from "./components/session-surface";
 import { useCurrentNoteTab, useHasTranscript } from "./components/shared";
-import { TitleInput, type TitleInputHandle } from "./components/title-input";
 import { useAutoEnhance } from "./hooks/useAutoEnhance";
 
 import * as AudioPlayer from "~/audio-player";
-import * as main from "~/store/tinybase/store/main";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
+import type { EditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
 import { consumePendingUpload } from "~/stt/pending-upload";
 import { useStartListening } from "~/stt/useStartListening";
@@ -116,18 +117,17 @@ function TabContentNoteInner({
   audioUrlReady: boolean;
   isAudioUrlLoading: boolean;
 }) {
-  const titleInputRef = React.useRef<TitleInputHandle>(null);
   const noteInputRef = React.useRef<NoteInputHandle>(null);
-
   const currentView = useCurrentNoteTab(tab);
-  const hasTranscript = useHasTranscript(tab.id);
+  const editorTabs = useEditorTabs({ sessionId: tab.id });
+  const updateSessionTabState = useTabs((state) => state.updateSessionTabState);
 
   const sessionId = tab.id;
   const { skipReason } = useAutoEnhance(tab);
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
+  const hasTranscript = useHasTranscript(sessionId);
   const { audioExists } = AudioPlayer.useAudioPlayer();
 
-  useAutoFocusTitle({ sessionId, titleInputRef });
   usePendingUpload(sessionId);
 
   const { bottomAccessory, bottomBorderHandle, bottomAccessoryState } =
@@ -140,27 +140,15 @@ function TabContentNoteInner({
       hasTranscript,
     });
 
-  const handleNavigateToTitle = React.useCallback((pixelWidth?: number) => {
-    if (pixelWidth !== undefined) {
-      titleInputRef.current?.focusAtPixelWidth(pixelWidth);
-    } else {
-      titleInputRef.current?.focusAtEnd();
-    }
-  }, []);
-
-  const handleTransferContentToEditor = React.useCallback((content: string) => {
-    noteInputRef.current?.insertAtStartAndFocus(content);
-  }, []);
-
-  const handleFocusEditorAtStart = React.useCallback(() => {
-    noteInputRef.current?.focusAtStart();
-  }, []);
-
-  const handleFocusEditorAtPixelWidth = React.useCallback(
-    (pixelWidth: number) => {
-      noteInputRef.current?.focusAtPixelWidth(pixelWidth);
+  const handleHeaderTabChange = React.useCallback(
+    (view: EditorView) => {
+      noteInputRef.current?.preserveScroll();
+      updateSessionTabState(tab, {
+        ...tab.state,
+        view: getPersistedNoteTabView(view, sessionMode === "active"),
+      });
     },
-    [],
+    [sessionMode, tab, updateSessionTabState],
   );
 
   const mergeTranscriptSurface =
@@ -189,12 +177,11 @@ function TabContentNoteInner({
           currentView={currentView}
           standaloneWindow={standaloneWindow}
           title={
-            <TitleInput
-              ref={titleInputRef}
-              tab={tab}
-              onTransferContentToEditor={handleTransferContentToEditor}
-              onFocusEditorAtStart={handleFocusEditorAtStart}
-              onFocusEditorAtPixelWidth={handleFocusEditorAtPixelWidth}
+            <Header
+              sessionId={sessionId}
+              editorTabs={editorTabs}
+              currentTab={currentView}
+              handleTabChange={handleHeaderTabChange}
             />
           }
         />
@@ -204,7 +191,6 @@ function TabContentNoteInner({
       afterBorderFlush={bottomAccessoryState?.mode === "live"}
       afterBorderResizable={canResizeTranscriptSurface}
       bottomBorderHandle={bottomBorderHandle}
-      mergeAfterBorder={mergeTranscriptSurface}
       floatingButton={
         <FloatingActionButton
           allowListening={!standaloneWindow}
@@ -212,11 +198,13 @@ function TabContentNoteInner({
           tab={tab}
         />
       }
+      mergeAfterBorder={mergeTranscriptSurface}
     >
       <NoteInput
         ref={noteInputRef}
         tab={tab}
-        onNavigateToTitle={handleNavigateToTitle}
+        currentTab={currentView}
+        editorTabs={editorTabs}
       />
     </SessionSurface>
   );
@@ -233,26 +221,4 @@ function usePendingUpload(sessionId: string) {
       processFileRef.current(pending.filePath, pending.kind);
     }
   }, [sessionId]);
-}
-
-function useAutoFocusTitle({
-  sessionId,
-  titleInputRef,
-}: {
-  sessionId: string;
-  titleInputRef: React.RefObject<TitleInputHandle | null>;
-}) {
-  // Prevent re-focusing when the user intentionally leaves the title empty.
-  const didAutoFocus = useRef(false);
-
-  const title = main.UI.useCell("sessions", sessionId, "title", main.STORE_ID);
-
-  useEffect(() => {
-    if (didAutoFocus.current) return;
-
-    if (!title) {
-      titleInputRef.current?.focus();
-      didAutoFocus.current = true;
-    }
-  }, [sessionId, title]);
 }
