@@ -218,14 +218,15 @@ describe("ChatMessageInput", () => {
     expect(surface?.getAttribute("data-chat-input-surface")).toBe("floating");
     expect(surface?.className).toContain("min-h-10");
     expect(surface?.className).toContain("max-h-32");
-    expect(surface?.className).toContain("rounded-[20px]");
+    expect(surface?.className).toContain("rounded-full");
     expect(surface?.className).toContain("py-2");
     expect(surface?.className).toContain("bg-[#f4f4f5]");
     expect(surface?.className).toContain("dark:bg-[#202020]");
     expect(surface?.className).toContain("text-muted-foreground");
-    expect(surface?.className).toContain(
-      "shadow-[inset_0_0_0_1px_hsl(var(--border)),0_4px_12px_rgba(0,0,0,0.1),0_16px_40px_rgba(0,0,0,0.16)]",
-    );
+    expect(surface?.className).toContain("border-border/70");
+    expect(surface?.className).toContain("shadow-none");
+    expect(surface?.className).not.toContain("shadow-[");
+    expect(surface?.className).not.toContain("inset_0_0_0_1px");
     expect(surface?.className).not.toContain("bg-card");
   });
 

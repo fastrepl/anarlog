@@ -20,6 +20,14 @@ import { useShell } from "~/contexts/shell";
 const FLOATING_PANEL_MIN_WIDTH = 368;
 const FLOATING_PANEL_MIN_HEIGHT = 320;
 const FLOATING_PANEL_MARGIN = 12;
+const FLOATING_CHAT_INPUT_MAX_WIDTH = 640;
+const FLOATING_CHAT_INPUT_HEIGHT = 40;
+const FLOATING_CHAT_SHELL_INSET = 4;
+const FLOATING_PANEL_DEFAULT_MAX_WIDTH =
+  FLOATING_CHAT_INPUT_MAX_WIDTH + FLOATING_CHAT_SHELL_INSET * 2;
+const FLOATING_PANEL_REVEAL_HEIGHT =
+  FLOATING_CHAT_INPUT_HEIGHT + FLOATING_CHAT_SHELL_INSET;
+const FLOATING_PANEL_RADIUS = 20;
 
 type FloatingPanelSize = {
   width: number;
@@ -185,19 +193,19 @@ export function PersistentChatPanel({
       y: 0,
       opacity: 1,
       scale: 1,
-      clipPath: "inset(calc(100% - 5rem) 0 0 0 round 1.75rem)",
+      clipPath: `inset(calc(100% - ${FLOATING_PANEL_REVEAL_HEIGHT}px) 0 0 0 round ${FLOATING_PANEL_RADIUS}px)`,
     },
     animate: {
       y: 0,
       opacity: 1,
       scale: 1,
-      clipPath: "inset(0 0 0 0 round 1.75rem)",
+      clipPath: `inset(0 0 0 0 round ${FLOATING_PANEL_RADIUS}px)`,
     },
     exit: {
       y: 8,
       opacity: 0,
       scale: 0.99,
-      clipPath: "inset(calc(100% - 5rem) 0 0 0 round 1.75rem)",
+      clipPath: `inset(calc(100% - ${FLOATING_PANEL_REVEAL_HEIGHT}px) 0 0 0 round ${FLOATING_PANEL_RADIUS}px)`,
     },
   };
   const panelTransition = {
@@ -212,7 +220,7 @@ export function PersistentChatPanel({
       : {
           width: "calc(100% - 1.5rem)",
           minWidth: "min(368px, calc(100% - 1.5rem))",
-          maxWidth: "648px",
+          maxWidth: `${FLOATING_PANEL_DEFAULT_MAX_WIDTH}px`,
           maxHeight: "calc(100% - 1rem)",
           transformOrigin: "bottom center",
         };

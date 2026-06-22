@@ -47,11 +47,12 @@ describe("chat surface tokens", () => {
       "dark:shadow-[0_16px_48px_rgba(0,0,0,0.55)]",
     );
     expect(chatFloatingPanelShellClassNames()).toContain("bg-[#f4f4f5]");
-    expect(chatFloatingPanelShellClassNames()).toContain("border-[#dedede]");
+    expect(chatFloatingPanelShellClassNames()).toContain("rounded-[20px]");
+    expect(chatFloatingPanelShellClassNames()).toContain("border-0");
     expect(chatFloatingPanelShellClassNames()).toContain("dark:bg-[#202020]");
-    expect(chatFloatingPanelShellClassNames()).toContain(
-      "dark:border-[#3a3a3a]",
-    );
+    expect(chatFloatingPanelShellClassNames()).not.toContain("after:border");
+    expect(chatFloatingPanelShellClassNames()).not.toContain("after:inset");
+    expect(chatFloatingPanelShellClassNames()).not.toContain("border-2");
     expect(chatFloatingPanelShellClassNames()).not.toContain("bg-card");
   });
 

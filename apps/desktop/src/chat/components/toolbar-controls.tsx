@@ -86,12 +86,6 @@ export function ChatToolbarControls({
               onClick={onOpenRightPanel ?? (() => {})}
               className={isDark ? darkToolbarButtonClassName : undefined}
             />
-            <ChatActionButton
-              icon={<X size={16} />}
-              label="Close chat"
-              onClick={onClose ?? (() => {})}
-              className={isDark ? darkToolbarButtonClassName : undefined}
-            />
           </>
         )}
       </div>

@@ -59,7 +59,7 @@ describe("ChatCTA", () => {
       "[clip-path:inset(0_calc(50%_-_3rem)_0_calc(50%_-_3rem)_round_9999px)]",
     );
     expect(surface?.className).toContain(
-      "transition-[clip-path,height,padding,background-color,box-shadow]",
+      "transition-[clip-path,height,padding,background-color,border-color]",
     );
     expect(surface?.className).toContain("origin-bottom");
     expect(surface?.className).toContain("h-2");
@@ -67,8 +67,13 @@ describe("ChatCTA", () => {
     expect(surface?.className).toContain("bg-black");
     expect(surface?.className).toContain("dark:bg-white");
     expect(surface?.className).toContain("shadow-none");
+    expect(surface?.className).toContain("border");
+    expect(surface?.className).toContain("border-transparent");
     expect(surface?.className).not.toContain("border-2");
     expect(surface?.className).toContain("pointer-events-none");
+    expect(surface?.className).toContain(
+      "group-hover/anarlog-chat-cta:border-border/70",
+    );
     expect(surface?.className).toContain(
       "group-hover/anarlog-chat-cta:bg-[#f4f4f5]",
     );
@@ -80,17 +85,10 @@ describe("ChatCTA", () => {
       "group-hover/anarlog-chat-cta:[clip-path:inset(0_0_0_0_round_9999px)]",
     );
     expect(surface?.className).toContain(
-      "group-hover/anarlog-chat-cta:shadow-[inset_0_0_0_1px_hsl(var(--border)),0_4px_12px_rgba(0,0,0,0.1),0_16px_40px_rgba(0,0,0,0.16)]",
-    );
-    expect(surface?.className).toContain(
-      "dark:group-hover/anarlog-chat-cta:shadow-[inset_0_0_0_1px_hsl(var(--border)),0_4px_14px_rgba(0,0,0,0.35),0_16px_44px_rgba(0,0,0,0.55)]",
-    );
-    expect(surface?.className).toContain(
       "group-focus-visible/anarlog-chat-cta:[clip-path:inset(0_0_0_0_round_9999px)]",
     );
-    expect(surface?.className).toContain(
-      "group-focus-visible/anarlog-chat-cta:shadow-[inset_0_0_0_1px_hsl(var(--border)),0_4px_12px_rgba(0,0,0,0.1),0_16px_40px_rgba(0,0,0,0.16)]",
-    );
+    expect(surface?.className).not.toContain("shadow-[");
+    expect(surface?.className).not.toContain("inset_0_0_0_1px");
     expect(button.querySelectorAll("svg")).toHaveLength(0);
     expect(label.className).toContain("max-w-0");
     expect(label.className).toContain("opacity-0");

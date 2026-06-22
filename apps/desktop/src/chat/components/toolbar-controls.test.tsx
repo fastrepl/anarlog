@@ -105,7 +105,6 @@ describe("ChatToolbarControls", () => {
     const rightPanelButton = screen.getByRole("button", {
       name: "Open in right panel",
     });
-    const closeButton = screen.getByRole("button", { name: "Close chat" });
 
     expect(newChatButton.className).toContain("rounded-full");
     expect(newChatButton.className).toContain("hover:!bg-primary-foreground/7");
@@ -115,12 +114,10 @@ describe("ChatToolbarControls", () => {
       "hover:!bg-primary-foreground/7",
     );
     expect(rightPanelButton.getAttribute("title")).toBeNull();
-    expect(closeButton.className).toContain("rounded-full");
-    expect(closeButton.className).toContain("hover:!bg-primary-foreground/7");
-    expect(closeButton.getAttribute("title")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Close chat" })).toBeNull();
   });
 
-  it("renders and wires close in the floating toolbar", () => {
+  it("renders floating toolbar actions without a close button", () => {
     const onClose = vi.fn();
     const onOpenRightPanel = vi.fn();
 
@@ -139,16 +136,15 @@ describe("ChatToolbarControls", () => {
     const rightPanelButton = screen.getByRole("button", {
       name: "Open in right panel",
     });
-    const closeButton = screen.getByRole("button", { name: "Close chat" });
     const actions = container.querySelector("[data-chat-toolbar-actions]");
 
     fireEvent.click(rightPanelButton);
-    fireEvent.click(closeButton);
 
     expect(actions?.className).toContain("gap-0");
     expect(actions?.className).not.toContain("gap-1");
     expect(onOpenRightPanel).toHaveBeenCalled();
-    expect(onClose).toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Close chat" })).toBeNull();
   });
 
   it("uses the shared toolbar padding in the right panel", () => {

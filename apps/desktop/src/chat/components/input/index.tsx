@@ -175,9 +175,8 @@ function Container({
           "flex max-h-full border",
           isFloating
             ? [
-                "text-muted-foreground max-h-32 min-h-10 flex-row items-center overflow-hidden rounded-[20px] border-0 bg-[#f4f4f5] px-4 py-2 text-sm",
-                "shadow-[inset_0_0_0_1px_hsl(var(--border)),0_4px_12px_rgba(0,0,0,0.1),0_16px_40px_rgba(0,0,0,0.16)]",
-                "dark:bg-[#202020] dark:shadow-[inset_0_0_0_1px_hsl(var(--border)),0_4px_14px_rgba(0,0,0,0.35),0_16px_44px_rgba(0,0,0,0.55)]",
+                "border-border/70 text-muted-foreground max-h-32 min-h-10 flex-row items-center overflow-hidden rounded-full bg-[#f4f4f5] px-4 py-2 text-sm shadow-none",
+                "dark:bg-[#202020]",
               ]
             : [elevatedSurfaceClassName, "flex-col rounded-xl"],
           hasContextBar && !isFloating && "rounded-t-none border-t-0",
