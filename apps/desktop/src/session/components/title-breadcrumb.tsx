@@ -65,7 +65,7 @@ function BreadcrumbFolderCrumb({
   return (
     <>
       {showSeparator ? <BreadcrumbSeparator /> : null}
-      <li className="overflow-hidden">
+      <li className="min-w-0 overflow-hidden">
         <span className="truncate text-neutral-600">{name}</span>
       </li>
     </>

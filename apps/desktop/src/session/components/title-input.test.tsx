@@ -125,7 +125,19 @@ describe("TitleInput", () => {
     expect(input.className).toContain("leading-5");
     expect(input.className).toContain("appearance-none");
     expect(input.className).toContain("p-0");
+    expect(input.className).toContain("truncate");
     expect(input.className).not.toContain("font-mono");
+  });
+
+  it("keeps focused breadcrumb titles horizontally scrollable", () => {
+    renderTitleInput({ variant: "breadcrumb" });
+
+    const input = screen.getByPlaceholderText("Untitled");
+    fireEvent.focus(input);
+
+    expect(input.className).not.toContain("truncate");
+    expect(input.className).toContain("overflow-x-auto");
+    expect(input.className).toContain("whitespace-nowrap");
   });
 
   it("uses the flexible title layout for whitespace-only titles", () => {

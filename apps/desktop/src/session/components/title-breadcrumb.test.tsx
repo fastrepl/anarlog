@@ -53,6 +53,9 @@ describe("NoteTitleBreadcrumb", () => {
 
     expect(screen.getByText("work")).not.toBeNull();
     expect(screen.getByText("meetings")).not.toBeNull();
+    expect(screen.getByText("work").parentElement?.className).toContain(
+      "min-w-0",
+    );
     expect(screen.getAllByText("/")).toHaveLength(2);
     expect(screen.getByLabelText("Session title")).not.toBeNull();
   });
