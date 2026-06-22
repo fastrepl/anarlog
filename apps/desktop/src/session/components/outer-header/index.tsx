@@ -30,7 +30,8 @@ export function OuterHeader({
 }) {
   const { leftsidebar } = useShell();
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
-  const showSidebarTimelineHeaderGutter = !leftsidebar.expanded;
+  const showSidebarTimelineHeaderGutter =
+    !standaloneWindow && !leftsidebar.expanded;
   const showExpandedSidebarTimelineHeader = leftsidebar.expanded;
   const reserveCollapsedLiveControls =
     (standaloneWindow || showSidebarTimelineHeaderGutter) &&

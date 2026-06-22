@@ -53,7 +53,9 @@ export function InteractiveButton({
     }
   }, []);
 
-  useMountEffect(() => clearPendingClick);
+  useMountEffect(() => {
+    return clearPendingClick;
+  });
 
   const handleClick = useCallback(
     (e: MouseEvent<HTMLElement>) => {
