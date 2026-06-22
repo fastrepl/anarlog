@@ -113,6 +113,17 @@ describe("TitleInput", () => {
     );
   });
 
+  it("uses sans-serif styling for breadcrumb titles", () => {
+    renderTitleInput({ variant: "breadcrumb" });
+
+    const input = screen.getByPlaceholderText("Untitled");
+
+    expect(input.parentElement?.className).toContain("text-xs");
+    expect(input.parentElement?.className).not.toContain("font-mono");
+    expect(input.className).toContain("text-xs");
+    expect(input.className).not.toContain("font-mono");
+  });
+
   it("uses the flexible title layout for whitespace-only titles", () => {
     hoisted.storeTitle = "          ";
 

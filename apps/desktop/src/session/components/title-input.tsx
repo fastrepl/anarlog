@@ -88,9 +88,7 @@ export const TitleInput = forwardRef<
           <span
             className={cn([
               "text-muted-foreground animate-pulse",
-              variant === "breadcrumb"
-                ? "font-mono text-xs"
-                : "text-xl font-semibold",
+              variant === "breadcrumb" ? "text-xs" : "text-xl font-semibold",
             ])}
           >
             Generating title...
@@ -111,9 +109,7 @@ export const TitleInput = forwardRef<
           <span
             className={cn([
               "animate-reveal-left whitespace-nowrap",
-              variant === "breadcrumb"
-                ? "font-mono text-xs"
-                : "text-xl font-semibold",
+              variant === "breadcrumb" ? "text-xs" : "text-xl font-semibold",
             ])}
           >
             {generatedTitle}
@@ -370,7 +366,7 @@ const TitleInputInner = memo(
           className={cn([
             "group/title-input relative flex max-w-full items-center overflow-hidden",
             variant === "breadcrumb"
-              ? "h-6 font-mono text-xs"
+              ? "h-6 text-xs"
               : "h-8 text-xl font-semibold",
           ])}
         >
@@ -426,7 +422,7 @@ const TitleInputInner = memo(
                 className={cn([
                   "group-hover/title-input:animate-title-hover-scroll whitespace-nowrap group-hover/title-input:will-change-transform",
                   variant === "breadcrumb"
-                    ? "font-mono text-xs"
+                    ? "text-xs"
                     : "text-xl font-semibold",
                 ])}
               >
