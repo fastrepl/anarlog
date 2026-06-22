@@ -1035,7 +1035,11 @@ function SummaryTemplateMenu({
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverContent variant="app" className="w-80" align="start">
+      <PopoverContent
+        variant="app"
+        className="w-80 rounded-[18px]"
+        align="start"
+      >
         <div className="flex flex-col gap-1">
           <AppFloatingPanel className="flex flex-col overflow-hidden">
             <div className="border-border border-b py-2">
