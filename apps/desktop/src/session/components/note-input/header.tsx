@@ -1,23 +1,19 @@
 import {
-  AlertCircleIcon,
+  AlignLeftIcon,
+  AudioLinesIcon,
   ChevronDownIcon,
   ChevronRightIcon,
   HeartIcon,
   LightbulbIcon,
   PlusIcon,
   SearchIcon,
+  SparklesIcon,
   XIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { json2md, parseJsonContent } from "@hypr/editor/markdown";
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
-import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from "@hypr/ui/components/ui/hover-card";
-import { NoteTab } from "@hypr/ui/components/ui/note-tab";
 import {
   AppFloatingPanel,
   Popover,
@@ -35,6 +31,7 @@ import {
 import { useAITaskTask } from "~/ai/hooks";
 import { useLanguageModel, useLLMConnectionStatus } from "~/ai/hooks";
 import { extractPlainText } from "~/search/contexts/engine/utils";
+import { getEnhancerService } from "~/services/enhancer";
 import { useHasTranscript } from "~/session/components/shared";
 import { shouldShowEmptySummaryConfigError } from "~/session/enhance-config";
 import { useEnsureDefaultSummary } from "~/session/hooks/useEnhancedNotes";
@@ -59,22 +56,6 @@ import {
   type WebTemplate,
 } from "~/templates";
 
-function TruncatedTitle({
-  title,
-  isActive,
-}: {
-  title: string;
-  isActive: boolean;
-}) {
-  return (
-    <span
-      className={cn(["truncate", isActive ? "max-w-[120px]" : "max-w-[60px]"])}
-    >
-      {title}
-    </span>
-  );
-}
-
 function getStoredNoteMarkdown(content: string | undefined) {
   const trimmed = content?.trim() ?? "";
 
@@ -92,7 +73,51 @@ function getStoredNoteMarkdown(content: string | undefined) {
 const UUID_TITLE_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ISO_TITLE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
-const SESSION_NOTE_TAB_CLASSNAME = "my-0";
+
+function IconHeaderTab({
+  isActive,
+  label,
+  icon,
+  onClick,
+  onContextMenu,
+  title,
+}: {
+  isActive: boolean;
+  label: string;
+  icon: React.ReactNode;
+  onClick?: () => void;
+  onContextMenu?: React.MouseEventHandler<HTMLButtonElement>;
+  title?: string;
+}) {
+  return (
+    <button
+      data-main-area-window-drag-region
+      data-tauri-drag-region="false"
+      type="button"
+      aria-label={label}
+      aria-current={isActive ? "page" : undefined}
+      onClick={onClick}
+      onContextMenu={onContextMenu}
+      title={title}
+      className={iconHeaderTabClassName(isActive, "min-w-10 px-2")}
+    >
+      {icon}
+    </button>
+  );
+}
+
+function iconHeaderTabClassName(isActive: boolean, className?: string) {
+  return cn([
+    "flex h-7 shrink-0 items-center justify-center rounded-full transition-colors",
+    isActive
+      ? ["bg-foreground/10 text-foreground -my-0.5 h-8"]
+      : [
+          "text-muted-foreground/70",
+          "hover:bg-background/60 hover:text-foreground",
+        ],
+    className,
+  ]);
+}
 
 function getEnhancedNoteTitle({
   rawTitle,
@@ -195,16 +220,13 @@ function HeaderTabRaw({
   const showContextMenu = useNativeContextMenu(contextMenu);
 
   return (
-    <NoteTab
-      data-main-area-window-drag-region
-      data-tauri-drag-region="false"
-      className={SESSION_NOTE_TAB_CLASSNAME}
+    <IconHeaderTab
       isActive={isActive}
+      label="Memos"
+      icon={<AlignLeftIcon className="size-4" />}
       onClick={onClick}
       onContextMenu={showContextMenu}
-    >
-      Memos
-    </NoteTab>
+    />
   );
 }
 
@@ -215,6 +237,7 @@ function HeaderTabEnhanced({
   enhancedNoteId,
   canRemove = false,
   onRemove,
+  onSelectNote,
 }: {
   isActive: boolean;
   onClick?: () => void;
@@ -222,12 +245,12 @@ function HeaderTabEnhanced({
   enhancedNoteId: string;
   canRemove?: boolean;
   onRemove?: () => void;
+  onSelectNote?: (enhancedNoteId: string) => void;
 }) {
   const { isGenerating, isError, onRegenerate } = useEnhanceLogic(
     sessionId,
     enhancedNoteId,
   );
-  const store = main.UI.useStore(main.STORE_ID);
   const content = main.UI.useCell(
     "enhanced_notes",
     enhancedNoteId,
@@ -248,7 +271,6 @@ function HeaderTabEnhanced({
   ) as string | undefined;
   const { data: template } = useUserTemplate(templateId);
   const templateTitle = template?.title?.trim() || null;
-  const openTemplatesTab = useOpenTemplatesTab();
   const tabTitle = getEnhancedNoteTitle({
     rawTitle,
     templateTitle,
@@ -271,70 +293,18 @@ function HeaderTabEnhanced({
         return;
       }
 
-      store?.setPartialRow("enhanced_notes", enhancedNoteId, {
-        template_id: selectedTemplateId,
-        title: "Summary",
+      const result = getEnhancerService()?.enhance(sessionId, {
+        templateId: selectedTemplateId,
       });
-      void onRegenerate(selectedTemplateId);
-    },
-    [enhancedNoteId, isGenerating, onRegenerate, store],
-  );
-  const handleExploreTemplatesClick = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
 
-      if (!templateId) {
-        return;
+      if (
+        (result?.type === "started" || result?.type === "already_active") &&
+        result.noteId
+      ) {
+        onSelectNote?.(result.noteId);
       }
-
-      openTemplatesTab({
-        showHomepage: false,
-        isWebMode: false,
-        selectedMineId: templateId,
-        selectedWebIndex: null,
-      });
     },
-    [openTemplatesTab, templateId],
-  );
-
-  const wrapWithTemplateTooltip = useCallback(
-    (node: React.ReactNode) => {
-      if (!templateId || !templateTitle) {
-        return node;
-      }
-
-      return (
-        <HoverCard openDelay={150} closeDelay={100}>
-          <HoverCardTrigger asChild>{node}</HoverCardTrigger>
-          <HoverCardContent
-            variant="app"
-            align="start"
-            side="bottom"
-            sideOffset={8}
-            avoidCollisions={false}
-            className="w-72"
-          >
-            <AppFloatingPanel className="flex flex-col gap-2 p-3">
-              <p className="text-muted-foreground text-xs leading-5">
-                <span className="text-foreground font-medium">
-                  {templateTitle}
-                </span>{" "}
-                was used to generate this summary.
-              </p>
-              <button
-                type="button"
-                onClick={handleExploreTemplatesClick}
-                className="text-foreground hover:text-muted-foreground w-fit text-xs font-medium underline underline-offset-2"
-              >
-                Explore more templates
-              </button>
-            </AppFloatingPanel>
-          </HoverCardContent>
-        </HoverCard>
-      );
-    },
-    [handleExploreTemplatesClick, templateId, templateTitle],
+    [isGenerating, onSelectNote, sessionId],
   );
   const contextMenu = useMemo<MenuItemDef[]>(() => {
     const items: MenuItemDef[] = [
@@ -377,64 +347,66 @@ function HeaderTabEnhanced({
     onRemove,
   ]);
   const showContextMenu = useNativeContextMenu(contextMenu);
+  const templateTooltip =
+    templateId && templateTitle
+      ? `${templateTitle} was used to generate this summary.`
+      : undefined;
 
   const templateMenuTrigger = (
-    <span
+    <button
       data-main-area-window-drag-region
       data-tauri-drag-region="false"
-      role="button"
-      aria-label="Select summary template"
+      type="button"
+      aria-label={tabTitle}
+      aria-current="page"
       aria-disabled={isGenerating}
       tabIndex={isGenerating ? -1 : 0}
       onClick={(event) => event.stopPropagation()}
       onPointerDown={(event) => event.stopPropagation()}
-      className={cn([
-        "group relative -m-1 inline-flex size-7 items-center justify-center rounded-full transition-colors",
-        isGenerating ? "cursor-not-allowed opacity-70" : "cursor-pointer",
-        isError
-          ? [
-              "hover:text-foreground focus-visible:text-foreground text-red-600 hover:bg-red-50 focus-visible:bg-red-50",
-              "dark:text-red-400 dark:hover:bg-red-950/50 dark:focus-visible:bg-red-950/50",
-            ]
-          : ["hover:bg-accent focus-visible:bg-muted"],
-      ])}
-    >
-      {isError ? (
-        <AlertCircleIcon
-          size={12}
-          className="pointer-events-none absolute inset-0 m-auto transition-opacity duration-200 group-hover:opacity-0 group-focus-visible:opacity-0"
-        />
-      ) : null}
-      <ChevronDownIcon
-        size={12}
-        className={cn([
-          "pointer-events-none absolute inset-0 m-auto transition-opacity duration-200",
+      onContextMenu={showContextMenu}
+      title={templateTooltip}
+      className={iconHeaderTabClassName(
+        true,
+        cn([
+          "min-w-[62px] gap-2 pr-1.5 pl-2",
+          isGenerating ? "cursor-not-allowed opacity-70" : "cursor-pointer",
           isError
-            ? "opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100"
-            : "opacity-100",
-        ])}
-      />
-    </span>
+            ? [
+                "text-red-600 hover:bg-red-50 hover:text-red-700 focus-visible:bg-red-50",
+                "dark:text-red-400 dark:hover:bg-red-950/50 dark:hover:text-red-300 dark:focus-visible:bg-red-950/50",
+              ]
+            : "focus-visible:bg-background focus-visible:text-foreground",
+        ]),
+      )}
+    >
+      <SparklesIcon className="size-4" />
+      <ChevronDownIcon className="size-3.5" />
+    </button>
   );
 
-  return wrapWithTemplateTooltip(
-    <NoteTab
+  return isActive ? (
+    <TemplatePickerPopover
+      sessionId={sessionId}
+      onSelectTemplate={handleSelectTemplate}
+      trigger={templateMenuTrigger}
+    />
+  ) : (
+    <button
       data-main-area-window-drag-region
       data-tauri-drag-region="false"
-      className={SESSION_NOTE_TAB_CLASSNAME}
-      isActive={isActive}
+      type="button"
+      aria-label={tabTitle}
       onClick={onClick}
       onContextMenu={showContextMenu}
+      title={templateTooltip}
+      className={iconHeaderTabClassName(
+        false,
+        "min-w-[62px] gap-2 pr-1.5 pl-2",
+      )}
     >
-      <TruncatedTitle title={tabTitle} isActive={isActive} />
-      {isActive ? (
-        <TemplatePickerPopover
-          sessionId={sessionId}
-          onSelectTemplate={handleSelectTemplate}
-          trigger={templateMenuTrigger}
-        />
-      ) : null}
-    </NoteTab>,
+      <SparklesIcon className="size-4" />
+      <ChevronDownIcon className="size-3.5" />
+    </button>
   );
 }
 
@@ -446,15 +418,12 @@ function HeaderTabTranscript({
   onClick?: () => void;
 }) {
   return (
-    <NoteTab
-      data-main-area-window-drag-region
-      data-tauri-drag-region="false"
-      className={SESSION_NOTE_TAB_CLASSNAME}
+    <IconHeaderTab
       isActive={isActive}
+      label="Transcript"
+      icon={<AudioLinesIcon className="size-4" />}
       onClick={onClick}
-    >
-      Transcript
-    </NoteTab>
+    />
   );
 }
 
@@ -1028,8 +997,10 @@ export function Header({
       >
         <div data-tauri-drag-region className="relative min-w-0 flex-1">
           <div
-            data-tauri-drag-region
-            className="scroll-fade-x scrollbar-hide flex items-center gap-1 overflow-x-auto"
+            role="tablist"
+            aria-label="Session note tabs"
+            data-tauri-drag-region="false"
+            className="bg-muted/25 pointer-events-auto relative z-10 flex h-7 w-fit max-w-full items-center gap-0.5 overflow-visible rounded-full"
           >
             {editorTabs.map((view, index) => {
               if (view.type === "enhanced") {
@@ -1054,6 +1025,9 @@ export function Header({
                             store?.delRow("enhanced_notes", view.id);
                           }
                         : undefined
+                    }
+                    onSelectNote={(enhancedNoteId) =>
+                      handleTabChange({ type: "enhanced", id: enhancedNoteId })
                     }
                     isActive={
                       currentTab.type === "enhanced" &&
