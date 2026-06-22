@@ -8,6 +8,7 @@ import {
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  buildEventSpeakerParticipantOptions,
   buildCreateSpeakerParticipantOption,
   buildSpeakerParticipantGroups,
   getAssignmentAnchorWordId,
@@ -24,6 +25,7 @@ const {
   useRowIdsMock,
   useSliceRowIdsMock,
   useStoreMock,
+  useTableMock,
   useValueMock,
 } = vi.hoisted(() => ({
   useCellMock: vi.fn(),
@@ -31,6 +33,7 @@ const {
   useRowIdsMock: vi.fn(),
   useSliceRowIdsMock: vi.fn(),
   useStoreMock: vi.fn(),
+  useTableMock: vi.fn(),
   useValueMock: vi.fn(),
 }));
 
@@ -97,6 +100,21 @@ vi.mock("@hypr/ui/components/ui/popover", async () => {
   };
 });
 
+vi.mock("@hypr/ui/components/ui/checkbox", () => ({
+  Checkbox: ({
+    checked,
+    onCheckedChange,
+  }: {
+    checked: boolean;
+    onCheckedChange: (checked: boolean) => void;
+  }) =>
+    createElement("input", {
+      type: "checkbox",
+      checked,
+      onChange: (event) => onCheckedChange(event.currentTarget.checked),
+    }),
+}));
+
 vi.mock("~/store/tinybase/store/main", () => ({
   STORE_ID: "main",
   INDEXES: {
@@ -111,6 +129,7 @@ vi.mock("~/store/tinybase/store/main", () => ({
     useRowIds: useRowIdsMock,
     useSliceRowIds: useSliceRowIdsMock,
     useStore: useStoreMock,
+    useTable: useTableMock,
     useValue: useValueMock,
   },
 }));
@@ -134,7 +153,7 @@ function option(
 }
 
 describe("SpeakerAssignPopover", () => {
-  it("resets assignment mode after the popover closes", () => {
+  it("assigns only after confirmation and defaults to all matching segments", () => {
     const cells = new Map([
       [
         "words",
@@ -171,6 +190,7 @@ describe("SpeakerAssignPopover", () => {
     useRowIdsMock.mockReturnValue(["human-1"]);
     useSliceRowIdsMock.mockReturnValue([]);
     useStoreMock.mockReturnValue(store);
+    useTableMock.mockReturnValue({});
     useValueMock.mockReturnValue("user-1");
 
     render(
@@ -203,26 +223,111 @@ describe("SpeakerAssignPopover", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Speaker 2" }));
-    fireEvent.click(screen.getByRole("button", { name: "This segment" }));
-    expect(
-      screen
-        .getByRole("button", { name: "This segment" })
-        .getAttribute("class"),
-    ).toContain("bg-background");
-
     fireEvent.click(screen.getByRole("button", { name: "Alice" }));
-    fireEvent.click(screen.getByRole("button", { name: "Speaker 2" }));
+    expect(cells.get("speaker_hints")).toBe(JSON.stringify([]));
 
-    expect(
-      screen
-        .getByRole("button", { name: "All matching" })
-        .getAttribute("class"),
-    ).toContain("bg-background");
-    expect(
-      screen
-        .getByRole("button", { name: "This segment" })
-        .getAttribute("class"),
-    ).not.toContain("bg-background");
+    fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+
+    expect(cells.get("speaker_hints")).toBe(
+      JSON.stringify([
+        {
+          id: "word-1:user_speaker_assignment",
+          word_id: "word-1",
+          type: "user_speaker_assignment",
+          value: JSON.stringify({ human_id: "human-1" }),
+        },
+      ]),
+    );
+  });
+
+  it("uses segment scope when the matching-segments checkbox is off", () => {
+    const cells = new Map([
+      [
+        "words",
+        JSON.stringify([
+          {
+            id: "word-1",
+            text: "hello",
+            start_ms: 0,
+            end_ms: 100,
+            channel: 1,
+          },
+        ]),
+      ],
+      ["speaker_hints", JSON.stringify([])],
+    ]);
+    const store = {
+      getCell: vi.fn((_tableId: string, _rowId: string, cellId: string) =>
+        cells.get(cellId),
+      ),
+      setCell: vi.fn(
+        (_tableId: string, _rowId: string, cellId: string, value: string) => {
+          cells.set(cellId, value);
+        },
+      ),
+      getRow: vi.fn(() => ({
+        name: "Alice",
+        email: "",
+      })),
+      setRow: vi.fn(),
+    };
+
+    useCellMock.mockReturnValue("session-1");
+    useQueriesMock.mockReturnValue({ getResultRow: vi.fn() });
+    useRowIdsMock.mockReturnValue(["human-1"]);
+    useSliceRowIdsMock.mockReturnValue([]);
+    useStoreMock.mockReturnValue(store);
+    useTableMock.mockReturnValue({});
+    useValueMock.mockReturnValue("user-1");
+
+    render(
+      createElement(SpeakerAssignPopover, {
+        segment: {
+          id: "segment-1",
+          key: {
+            channel: "RemoteParty",
+            speaker_index: 2,
+            speaker_human_id: null,
+          },
+          start_ms: 0,
+          end_ms: 100,
+          text: "hello",
+          words: [
+            {
+              id: "word-1",
+              text: "hello",
+              start_ms: 0,
+              end_ms: 100,
+              channel: "RemoteParty",
+              is_final: true,
+            },
+          ],
+        } as Segment,
+        transcriptId: "transcript-1",
+        color: "red",
+        label: "Speaker 2",
+      }),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Speaker 2" }));
+    fireEvent.click(screen.getByRole("checkbox"));
+    fireEvent.click(screen.getByRole("button", { name: "Alice" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+
+    expect(cells.get("speaker_hints")).toBe(
+      JSON.stringify([
+        {
+          id: "word-1:user_speaker_assignment:segment",
+          word_id: "word-1",
+          type: "user_speaker_assignment",
+          value: JSON.stringify({
+            human_id: "human-1",
+            scope: "segment",
+            word_ids: ["word-1"],
+          }),
+        },
+      ]),
+    );
   });
 });
 
@@ -236,31 +341,99 @@ describe("buildSpeakerParticipantGroups", () => {
 
     expect(groups).toEqual([
       {
-        title: "Contacts",
+        title: "People",
         options: [option("human-1", "Alice")],
       },
     ]);
   });
 
-  it("keeps session participants first and excludes duplicate contacts", () => {
+  it("keeps participants first and excludes duplicate people", () => {
     const participant = option("human-1", "Alice", {
+      isSessionParticipant: true,
+    });
+    const eventParticipant = option("human-3", "Carol", {
       isSessionParticipant: true,
     });
     const groups = buildSpeakerParticipantGroups({
       sessionParticipants: [participant],
+      eventParticipants: [eventParticipant],
       contacts: [option("human-1", "Alice"), option("human-2", "Bob")],
       query: "",
     });
 
     expect(groups).toEqual([
       {
-        title: "Session participants",
-        options: [participant],
+        title: "Participants",
+        options: [participant, eventParticipant],
       },
       {
-        title: "Contacts",
+        title: "People",
         options: [option("human-2", "Bob")],
       },
+    ]);
+  });
+});
+
+describe("buildEventSpeakerParticipantOptions", () => {
+  it("matches event participants to existing people by email", () => {
+    expect(
+      buildEventSpeakerParticipantOptions({
+        eventParticipants: [{ name: "Alice A.", email: "alice@example.com" }],
+        contacts: [option("human-1", "Alice", { email: "alice@example.com" })],
+      }),
+    ).toEqual([
+      option("human-1", "Alice A.", {
+        email: "alice@example.com",
+        isSessionParticipant: true,
+      }),
+    ]);
+  });
+
+  it("creates pending participant options for event attendees without people", () => {
+    expect(
+      buildEventSpeakerParticipantOptions({
+        eventParticipants: [{ name: "Bob", email: "bob@example.com" }],
+        contacts: [],
+      }),
+    ).toEqual([
+      option("event:bob@example.com", "Bob", {
+        email: "bob@example.com",
+        isSessionParticipant: true,
+        isNew: true,
+      }),
+    ]);
+  });
+
+  it("does not match event attendees by name when their email differs", () => {
+    expect(
+      buildEventSpeakerParticipantOptions({
+        eventParticipants: [{ name: "Bob", email: "bob@example.com" }],
+        contacts: [option("human-1", "Bob", { email: "other@example.com" })],
+      }),
+    ).toEqual([
+      option("event:bob@example.com", "Bob", {
+        email: "bob@example.com",
+        isSessionParticipant: true,
+        isNew: true,
+      }),
+    ]);
+  });
+
+  it("keeps duplicate event attendees without emails selectable", () => {
+    expect(
+      buildEventSpeakerParticipantOptions({
+        eventParticipants: [{ name: "Bob" }, { name: "Bob" }],
+        contacts: [],
+      }),
+    ).toEqual([
+      option("event:Bob:0", "Bob", {
+        isSessionParticipant: true,
+        isNew: true,
+      }),
+      option("event:Bob:1", "Bob", {
+        isSessionParticipant: true,
+        isNew: true,
+      }),
     ]);
   });
 });
@@ -277,6 +450,7 @@ describe("buildCreateSpeakerParticipantOption", () => {
       name: "Charlie",
       isSessionParticipant: false,
       isNew: true,
+      isCreateOption: true,
     });
   });
 

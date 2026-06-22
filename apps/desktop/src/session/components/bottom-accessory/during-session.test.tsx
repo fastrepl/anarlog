@@ -380,6 +380,7 @@ describe("DuringSessionAccessory", () => {
     expect(screen.getByRole("button", { name: "Speaker 1" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Speaker 1" }));
     fireEvent.click(screen.getByText("Alex"));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
 
     expect(setCell).toHaveBeenCalledWith(
       "transcripts",
