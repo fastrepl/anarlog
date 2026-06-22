@@ -181,7 +181,7 @@ describe("useClassicMainTabsShortcuts", () => {
     expect(hoisted.openCurrent).not.toHaveBeenCalled();
   });
 
-  it("does not open the home view from a note on escape", () => {
+  it("selects an existing home view from a note on escape", () => {
     const homeTab = {
       active: false,
       slotId: "slot-home",
@@ -200,11 +200,11 @@ describe("useClassicMainTabsShortcuts", () => {
     dispatchEscape();
     vi.runOnlyPendingTimers();
 
+    expect(hoisted.select).toHaveBeenCalledWith(homeTab);
     expect(hoisted.openCurrent).not.toHaveBeenCalled();
-    expect(hoisted.select).not.toHaveBeenCalled();
   });
 
-  it("returns an escape shortcut action that does not close a note", () => {
+  it("returns an escape shortcut action that opens home from a note", () => {
     hoisted.currentTab = {
       active: true,
       id: "session-1",
@@ -216,7 +216,7 @@ describe("useClassicMainTabsShortcuts", () => {
 
     result.current.runEscapeShortcut();
 
-    expect(hoisted.openCurrent).not.toHaveBeenCalled();
+    expect(hoisted.openCurrent).toHaveBeenCalledWith({ type: "empty" });
     expect(hoisted.select).not.toHaveBeenCalled();
   });
 
@@ -238,11 +238,11 @@ describe("useClassicMainTabsShortcuts", () => {
 
     result.current.runEscapeShortcut();
 
-    expect(hoisted.openCurrent).not.toHaveBeenCalled();
+    expect(hoisted.openCurrent).toHaveBeenCalledWith({ type: "empty" });
     expect(hoisted.select).not.toHaveBeenCalled();
   });
 
-  it("does not leave a note when the editor stops escape propagation", () => {
+  it("opens home from a note when the editor stops escape propagation", () => {
     hoisted.currentTab = {
       active: true,
       id: "session-1",
@@ -260,11 +260,11 @@ describe("useClassicMainTabsShortcuts", () => {
     vi.runOnlyPendingTimers();
     editor.remove();
 
-    expect(hoisted.openCurrent).not.toHaveBeenCalled();
+    expect(hoisted.openCurrent).toHaveBeenCalledWith({ type: "empty" });
     expect(hoisted.select).not.toHaveBeenCalled();
   });
 
-  it("does not leave a note when the editor prevents default escape handling", () => {
+  it("opens home from a note when the editor prevents default escape handling", () => {
     hoisted.currentTab = {
       active: true,
       id: "session-1",
@@ -286,11 +286,39 @@ describe("useClassicMainTabsShortcuts", () => {
     vi.runOnlyPendingTimers();
     editor.remove();
 
-    expect(hoisted.openCurrent).not.toHaveBeenCalled();
+    expect(hoisted.openCurrent).toHaveBeenCalledWith({ type: "empty" });
     expect(hoisted.select).not.toHaveBeenCalled();
   });
 
-  it("does not leave a note when a focused target handles escape directly", () => {
+  it("opens home from a note when ProseMirror handles escape from a text node", () => {
+    hoisted.currentTab = {
+      active: true,
+      id: "session-1",
+      slotId: "slot-session",
+      type: "sessions",
+    };
+    const editor = document.createElement("div");
+    editor.className = "ProseMirror";
+    editor.contentEditable = "true";
+    const text = document.createTextNode("note");
+    editor.append(text);
+    editor.addEventListener("keydown", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    });
+    document.body.append(editor);
+
+    renderHook(() => useClassicMainTabsShortcuts());
+
+    dispatchEscape(text);
+    vi.runOnlyPendingTimers();
+    editor.remove();
+
+    expect(hoisted.openCurrent).toHaveBeenCalledWith({ type: "empty" });
+    expect(hoisted.select).not.toHaveBeenCalled();
+  });
+
+  it("does not duplicate home navigation when a focused target handles escape directly", () => {
     hoisted.currentTab = {
       active: true,
       id: "session-1",
@@ -310,7 +338,58 @@ describe("useClassicMainTabsShortcuts", () => {
     vi.runOnlyPendingTimers();
     target.remove();
 
-    expect(hoisted.openCurrent).not.toHaveBeenCalled();
+    expect(hoisted.openCurrent).toHaveBeenCalledWith({ type: "empty" });
+    expect(hoisted.openCurrent).toHaveBeenCalledTimes(1);
+    expect(hoisted.select).not.toHaveBeenCalled();
+  });
+
+  it("opens home from a note when the title field handles escape", () => {
+    hoisted.currentTab = {
+      active: true,
+      id: "session-1",
+      slotId: "slot-session",
+      type: "sessions",
+    };
+    const target = document.createElement("input");
+    target.dataset.sessionTitleInput = "true";
+    target.addEventListener("keydown", (event) => {
+      event.preventDefault();
+    });
+    document.body.append(target);
+
+    renderHook(() => useClassicMainTabsShortcuts());
+
+    dispatchEscape(target);
+    vi.runOnlyPendingTimers();
+    target.remove();
+
+    expect(hoisted.openCurrent).toHaveBeenCalledWith({ type: "empty" });
+    expect(hoisted.select).not.toHaveBeenCalled();
+  });
+
+  it("opens home from a note when the session surface handles escape", () => {
+    hoisted.currentTab = {
+      active: true,
+      id: "session-1",
+      slotId: "slot-session",
+      type: "sessions",
+    };
+    const surface = document.createElement("div");
+    surface.dataset.sessionSurface = "true";
+    const target = document.createElement("div");
+    target.addEventListener("keydown", (event) => {
+      event.preventDefault();
+    });
+    surface.append(target);
+    document.body.append(surface);
+
+    renderHook(() => useClassicMainTabsShortcuts());
+
+    dispatchEscape(target);
+    vi.runOnlyPendingTimers();
+    surface.remove();
+
+    expect(hoisted.openCurrent).toHaveBeenCalledWith({ type: "empty" });
     expect(hoisted.select).not.toHaveBeenCalled();
   });
 

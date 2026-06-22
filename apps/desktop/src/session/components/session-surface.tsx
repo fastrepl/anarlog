@@ -31,7 +31,7 @@ export function SessionSurface({
       floatingButton={floatingButton}
       mergeAfterBorder={mergeAfterBorder}
     >
-      <div className="flex h-full flex-col">
+      <div data-session-surface className="flex h-full flex-col">
         {header ? (
           <div data-tauri-drag-region className="pr-1 pl-3">
             {header}
