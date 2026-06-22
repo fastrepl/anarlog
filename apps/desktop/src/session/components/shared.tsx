@@ -43,6 +43,7 @@ export function useCurrentNoteHasContent(
   currentView: EditorView,
 ): boolean {
   const rawMd = main.UI.useCell("sessions", sessionId, "raw_md", main.STORE_ID);
+  const hasTranscript = useHasTranscript(sessionId);
   const enhancedNoteId = currentView.type === "enhanced" ? currentView.id : "";
   const enhancedContent = main.UI.useCell(
     "enhanced_notes",
@@ -53,6 +54,10 @@ export function useCurrentNoteHasContent(
 
   if (currentView.type === "enhanced") {
     return hasStoredNoteContent(enhancedContent);
+  }
+
+  if (currentView.type === "transcript") {
+    return hasTranscript;
   }
 
   return hasStoredNoteContent(rawMd);

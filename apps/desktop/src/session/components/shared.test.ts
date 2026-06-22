@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { computeCurrentNoteTab } from "./compute-note-tab";
+import {
+  computeCurrentNoteTab,
+  getPersistedNoteTabView,
+} from "./compute-note-tab";
 import { hasStoredNoteContent } from "./shared";
 
 describe("hasStoredNoteContent", () => {
@@ -34,6 +37,20 @@ describe("hasStoredNoteContent", () => {
   });
 });
 
+describe("getPersistedNoteTabView", () => {
+  it("stores raw when summary is selected during a live session", () => {
+    expect(
+      getPersistedNoteTabView({ type: "enhanced", id: "note-1" }, true),
+    ).toEqual({ type: "raw" });
+  });
+
+  it("preserves enhanced views outside live sessions", () => {
+    expect(
+      getPersistedNoteTabView({ type: "enhanced", id: "note-1" }, false),
+    ).toEqual({ type: "enhanced", id: "note-1" });
+  });
+});
+
 describe("computeCurrentNoteTab", () => {
   describe("when listening is active", () => {
     it("returns raw view when current view is enhanced", () => {
@@ -50,13 +67,13 @@ describe("computeCurrentNoteTab", () => {
       expect(result).toEqual({ type: "raw" });
     });
 
-    it("returns raw view when current view is transcript", () => {
+    it("preserves transcript view", () => {
       const result = computeCurrentNoteTab(
         { type: "transcript" },
         true,
         "note-1",
       );
-      expect(result).toEqual({ type: "raw" });
+      expect(result).toEqual({ type: "transcript" });
     });
 
     it("returns raw view when no persisted view", () => {
@@ -80,13 +97,22 @@ describe("computeCurrentNoteTab", () => {
       expect(result).toEqual({ type: "raw" });
     });
 
-    it("normalizes persisted transcript view to raw", () => {
+    it("respects persisted transcript view", () => {
       const result = computeCurrentNoteTab(
         { type: "transcript" },
         false,
         "note-1",
       );
-      expect(result).toEqual({ type: "raw" });
+      expect(result).toEqual({ type: "transcript" });
+    });
+
+    it("normalizes non-primary enhanced view to primary enhanced view", () => {
+      const result = computeCurrentNoteTab(
+        { type: "enhanced", id: "note-2" },
+        false,
+        "note-1",
+      );
+      expect(result).toEqual({ type: "enhanced", id: "note-1" });
     });
 
     it("normalizes persisted attachments view to raw", () => {

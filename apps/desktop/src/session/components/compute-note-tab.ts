@@ -6,14 +6,26 @@ export function computeCurrentNoteTab(
   firstEnhancedNoteId: string | undefined,
 ): EditorView {
   if (isLiveSessionActive) {
-    if (tabView?.type === "raw") {
+    if (tabView?.type === "raw" || tabView?.type === "transcript") {
       return tabView;
     }
     return { type: "raw" };
   }
 
   if (tabView) {
-    if (tabView.type === "enhanced" || tabView.type === "raw") {
+    if (tabView.type === "enhanced") {
+      if (firstEnhancedNoteId && tabView.id === firstEnhancedNoteId) {
+        return tabView;
+      }
+
+      if (firstEnhancedNoteId) {
+        return { type: "enhanced", id: firstEnhancedNoteId };
+      }
+
+      return { type: "raw" };
+    }
+
+    if (tabView.type === "raw" || tabView.type === "transcript") {
       return tabView;
     }
 
@@ -25,4 +37,15 @@ export function computeCurrentNoteTab(
   }
 
   return { type: "raw" };
+}
+
+export function getPersistedNoteTabView(
+  tabView: EditorView,
+  isLiveSessionActive: boolean,
+): EditorView {
+  if (isLiveSessionActive && tabView.type === "enhanced") {
+    return { type: "raw" };
+  }
+
+  return tabView;
 }
