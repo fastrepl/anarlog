@@ -361,6 +361,7 @@ const TitleInputInner = memo(
         >
           <input
             data-tauri-drag-region="false"
+            data-session-title-input
             aria-label="Session title"
             ref={setInputRef}
             id={`title-input-${sessionId}-${editorId}`}

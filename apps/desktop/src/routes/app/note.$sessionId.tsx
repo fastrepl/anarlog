@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useLayoutEffect, useMemo } from "react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { useEffect, useLayoutEffect, useMemo } from "react";
 
 import { ClassicMainLayout } from "~/main/layout";
 import { TabContentNote } from "~/session";
@@ -12,6 +13,7 @@ export const Route = createFileRoute("/app/note/$sessionId")({
 
 function Component() {
   const { sessionId } = Route.useParams();
+  useCloseStandaloneNoteWindowOnEscape();
   const tab = useStandaloneNoteTab(sessionId);
 
   return (
@@ -62,4 +64,22 @@ export function useStandaloneNoteTab(sessionId: string) {
   }, [sessionId, tab]);
 
   return storeTab ?? tab;
+}
+
+export function useCloseStandaloneNoteWindowOnEscape() {
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      event.preventDefault();
+      void getCurrentWindow().close();
+    };
+
+    window.addEventListener("keydown", handleKeyDown, { capture: true });
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown, { capture: true });
+    };
+  }, []);
 }

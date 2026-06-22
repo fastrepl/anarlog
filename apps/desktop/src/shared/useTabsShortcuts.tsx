@@ -55,6 +55,8 @@ export function useMainTabsShortcuts({ onModT }: { onModT: () => void }) {
       }
 
       const fromProseMirrorEditor = isFromProseMirrorEditor(event.target);
+      const fromSessionTitleInput = isFromSessionTitleInput(event.target);
+      const fromSessionSurface = isFromSessionSurface(event.target);
       const hadEditorEscapeConsumer =
         fromProseMirrorEditor &&
         document.querySelector("[data-editor-escape-consumer]") !== null;
@@ -64,6 +66,8 @@ export function useMainTabsShortcuts({ onModT }: { onModT: () => void }) {
         if (
           shouldSkipEscapeShortcut(event, {
             fromProseMirrorEditor,
+            fromSessionTitleInput,
+            fromSessionSurface,
             hadEditorEscapeConsumer,
           })
         ) {
@@ -245,10 +249,6 @@ export function useMainEscapeShortcutAction() {
       return;
     }
 
-    if (currentTab?.type === "sessions") {
-      return;
-    }
-
     const returnToSlotId = currentTab?.returnToSlotId;
     const returnToTab = returnToSlotId
       ? tabs.find(
@@ -283,10 +283,21 @@ function shouldSkipEscapeShortcut(
   event: KeyboardEvent,
   {
     fromProseMirrorEditor,
+    fromSessionTitleInput,
+    fromSessionSurface,
     hadEditorEscapeConsumer,
-  }: { fromProseMirrorEditor: boolean; hadEditorEscapeConsumer: boolean },
+  }: {
+    fromProseMirrorEditor: boolean;
+    fromSessionTitleInput: boolean;
+    fromSessionSurface: boolean;
+    hadEditorEscapeConsumer: boolean;
+  },
 ) {
   if (!event.defaultPrevented) {
+    return false;
+  }
+
+  if (fromSessionTitleInput || fromSessionSurface) {
     return false;
   }
 
@@ -298,7 +309,28 @@ function shouldSkipEscapeShortcut(
 }
 
 function isFromProseMirrorEditor(target: EventTarget | null) {
-  return target instanceof Element && target.closest(".ProseMirror") !== null;
+  const element =
+    target instanceof Element
+      ? target
+      : target instanceof Node
+        ? target.parentElement
+        : null;
+
+  return element !== null && element.closest(".ProseMirror") !== null;
+}
+
+function isFromSessionTitleInput(target: EventTarget | null) {
+  return (
+    target instanceof Element &&
+    target.closest("[data-session-title-input]") !== null
+  );
+}
+
+function isFromSessionSurface(target: EventTarget | null) {
+  return (
+    target instanceof Element &&
+    target.closest("[data-session-surface]") !== null
+  );
 }
 
 function isPersistentChatInputFocused(
