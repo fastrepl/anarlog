@@ -33,11 +33,13 @@ export function ChatCTA({
         data-chat-cta-surface
         aria-hidden="true"
         className={cn([
-          "pointer-events-none absolute bottom-0 left-1/2 inline-flex h-2 w-24 max-w-[min(640px,calc(100cqw-2rem))] -translate-x-1/2 items-center overflow-hidden rounded-full bg-black",
-          "origin-bottom px-0 text-sm shadow-none transition-[width,height,padding,background-color,box-shadow] duration-200 ease-out",
-          "group-hover/anarlog-chat-cta:h-10 group-hover/anarlog-chat-cta:w-[640px] group-hover/anarlog-chat-cta:px-4",
-          "group-focus-visible/anarlog-chat-cta:h-10 group-focus-visible/anarlog-chat-cta:w-[640px] group-focus-visible/anarlog-chat-cta:px-4",
-          "group-hover/anarlog-chat-cta:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.16)] group-focus-visible/anarlog-chat-cta:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.16)]",
+          "pointer-events-none absolute bottom-0 left-1/2 inline-flex h-2 w-[min(640px,calc(100cqw_-_2rem))] -translate-x-1/2 items-center overflow-hidden rounded-full bg-black dark:bg-white",
+          "[clip-path:inset(0_calc(50%_-_3rem)_0_calc(50%_-_3rem)_round_9999px)]",
+          "origin-bottom px-0 text-sm shadow-none transition-[clip-path,height,padding,background-color,box-shadow] duration-200 ease-out",
+          "group-hover/anarlog-chat-cta:bg-[#fff9ed] group-focus-visible/anarlog-chat-cta:bg-[#fff9ed] dark:group-hover/anarlog-chat-cta:bg-[#211d18] dark:group-focus-visible/anarlog-chat-cta:bg-[#211d18]",
+          "group-hover/anarlog-chat-cta:h-10 group-hover/anarlog-chat-cta:px-4 group-hover/anarlog-chat-cta:[clip-path:inset(0_0_0_0_round_9999px)]",
+          "group-focus-visible/anarlog-chat-cta:h-10 group-focus-visible/anarlog-chat-cta:px-4 group-focus-visible/anarlog-chat-cta:[clip-path:inset(0_0_0_0_round_9999px)]",
+          "group-hover/anarlog-chat-cta:shadow-[inset_0_0_0_1px_hsl(var(--border)),0_16px_48px_rgba(0,0,0,0.18)] group-focus-visible/anarlog-chat-cta:shadow-[inset_0_0_0_1px_hsl(var(--border)),0_16px_48px_rgba(0,0,0,0.18)] dark:group-hover/anarlog-chat-cta:shadow-[inset_0_0_0_1px_hsl(var(--border)),0_16px_48px_rgba(0,0,0,0.55)] dark:group-focus-visible/anarlog-chat-cta:shadow-[inset_0_0_0_1px_hsl(var(--border)),0_16px_48px_rgba(0,0,0,0.55)]",
           "group-focus-visible/anarlog-chat-cta:ring-ring group-focus-visible/anarlog-chat-cta:ring-2 group-focus-visible/anarlog-chat-cta:ring-offset-2",
         ])}
       >
@@ -45,6 +47,7 @@ export function ChatCTA({
           className={cn([
             "size-4 shrink-0 text-white/55 opacity-0 transition-opacity duration-150",
             "group-focus-within/anarlog-chat-cta:opacity-100 group-hover/anarlog-chat-cta:opacity-100",
+            "group-focus-within/anarlog-chat-cta:text-muted-foreground group-hover/anarlog-chat-cta:text-muted-foreground",
           ])}
           aria-hidden="true"
         />
@@ -52,7 +55,7 @@ export function ChatCTA({
           aria-hidden="true"
           className={cn([
             "ml-2 max-w-0 min-w-0 flex-1 truncate text-left opacity-0",
-            "text-white/55",
+            "group-focus-within/anarlog-chat-cta:text-muted-foreground group-hover/anarlog-chat-cta:text-muted-foreground text-white/55",
             "transition-[max-width,opacity] duration-200 ease-out",
             "group-hover/anarlog-chat-cta:max-w-full group-hover/anarlog-chat-cta:opacity-100",
             "group-focus-within/anarlog-chat-cta:max-w-full group-focus-within/anarlog-chat-cta:opacity-100",

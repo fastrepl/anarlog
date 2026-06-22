@@ -25,11 +25,11 @@ describe("chat surface tokens", () => {
     expect(chatPanelBorderClassNames()).toContain("border-border");
   });
 
-  it("maps elevated chat surfaces to dark accent tokens", () => {
-    expect(chatElevatedSurfaceClassNames()).toContain("bg-accent");
-    expect(chatElevatedSurfaceClassNames()).toContain("text-accent-foreground");
+  it("maps elevated chat surfaces to the card theme", () => {
+    expect(chatElevatedSurfaceClassNames()).toContain("bg-card");
+    expect(chatElevatedSurfaceClassNames()).toContain("text-card-foreground");
     expect(chatElevatedSurfaceClassNames()).toContain("border-border");
-    expect(chatInputEditorClassNames()).toContain("text-accent-foreground");
+    expect(chatInputEditorClassNames()).toContain("text-card-foreground");
     expect(chatInputEditorClassNames()).toContain("chat-input-editor");
   });
 

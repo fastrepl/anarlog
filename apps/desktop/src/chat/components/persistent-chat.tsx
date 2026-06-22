@@ -194,11 +194,9 @@ export function PersistentChatPanel({
     floatingSize && containerRect
       ? getFloatingPanelStyle(floatingSize, containerRect)
       : {
-          width: "min(640px, calc(100% - 2rem))",
-          height: "min(560px, calc(100% - 1rem))",
+          width: "calc(100% - 2rem)",
           minWidth: "min(360px, calc(100% - 2rem))",
-          minHeight: "min(320px, calc(100% - 1rem))",
-          maxWidth: "calc(100% - 2rem)",
+          maxWidth: "720px",
           maxHeight: "calc(100% - 1rem)",
           transformOrigin: "bottom center",
         };

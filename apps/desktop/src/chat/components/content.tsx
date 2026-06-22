@@ -14,6 +14,7 @@ import type { DisplayEntity } from "~/chat/context/use-chat-context-pipeline";
 import type { HyprUIMessage } from "~/chat/types";
 
 export function ChatContent({
+  layout = "floating",
   sessionId,
   messages,
   sendMessage,
@@ -31,6 +32,7 @@ export function ChatContent({
   isSystemPromptReady,
   children,
 }: {
+  layout?: "floating" | "right-panel";
   sessionId: string;
   messages: HyprUIMessage[];
   sendMessage: (message: HyprUIMessage) => void;
@@ -54,6 +56,7 @@ export function ChatContent({
   children?: React.ReactNode;
 }) {
   const isModelConfigured = !!model;
+  const isFloating = layout === "floating";
   const disabled = !isSystemPromptReady;
   const mergeContextRefs = (contextRefs?: ContextRef[]) =>
     contextRefs ? dedupeByKey([pendingRefs, contextRefs]) : pendingRefs;
@@ -83,7 +86,11 @@ export function ChatContent({
 
   return (
     <div
-      className="flex min-h-0 flex-1 flex-col overflow-hidden"
+      className={
+        isFloating
+          ? "flex min-h-0 shrink-0 flex-col overflow-hidden"
+          : "flex min-h-0 flex-1 flex-col overflow-hidden"
+      }
       data-chat-content
       onDragOver={handleDragOver}
       onDrop={handleDrop}

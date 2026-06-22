@@ -54,34 +54,50 @@ describe("ChatCTA", () => {
     expect(surface?.className).toContain("absolute");
     expect(surface?.className).toContain("bottom-0");
     expect(surface?.className).toContain("left-1/2");
+    expect(surface?.className).toContain("w-[min(640px,calc(100cqw_-_2rem))]");
     expect(surface?.className).toContain(
-      "max-w-[min(640px,calc(100cqw-2rem))]",
+      "[clip-path:inset(0_calc(50%_-_3rem)_0_calc(50%_-_3rem)_round_9999px)]",
+    );
+    expect(surface?.className).toContain(
+      "transition-[clip-path,height,padding,background-color,box-shadow]",
     );
     expect(surface?.className).toContain("origin-bottom");
     expect(surface?.className).toContain("h-2");
-    expect(surface?.className).toContain("w-24");
     expect(surface?.className).toContain("rounded-full");
     expect(surface?.className).toContain("bg-black");
+    expect(surface?.className).toContain("dark:bg-white");
     expect(surface?.className).toContain("shadow-none");
     expect(surface?.className).not.toContain("border-2");
     expect(surface?.className).toContain("pointer-events-none");
+    expect(surface?.className).toContain(
+      "group-hover/anarlog-chat-cta:bg-[#fff9ed]",
+    );
+    expect(surface?.className).toContain(
+      "dark:group-hover/anarlog-chat-cta:bg-[#211d18]",
+    );
     expect(surface?.className).toContain("group-hover/anarlog-chat-cta:h-10");
     expect(surface?.className).toContain(
-      "group-hover/anarlog-chat-cta:w-[640px]",
+      "group-hover/anarlog-chat-cta:[clip-path:inset(0_0_0_0_round_9999px)]",
     );
     expect(surface?.className).toContain(
-      "group-hover/anarlog-chat-cta:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.16)]",
+      "group-hover/anarlog-chat-cta:shadow-[inset_0_0_0_1px_hsl(var(--border)),0_16px_48px_rgba(0,0,0,0.18)]",
     );
     expect(surface?.className).toContain(
-      "group-focus-visible/anarlog-chat-cta:w-[640px]",
+      "dark:group-hover/anarlog-chat-cta:shadow-[inset_0_0_0_1px_hsl(var(--border)),0_16px_48px_rgba(0,0,0,0.55)]",
     );
     expect(surface?.className).toContain(
-      "group-focus-visible/anarlog-chat-cta:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.16)]",
+      "group-focus-visible/anarlog-chat-cta:[clip-path:inset(0_0_0_0_round_9999px)]",
+    );
+    expect(surface?.className).toContain(
+      "group-focus-visible/anarlog-chat-cta:shadow-[inset_0_0_0_1px_hsl(var(--border)),0_16px_48px_rgba(0,0,0,0.18)]",
     );
     expect(button.querySelectorAll("svg")).toHaveLength(1);
     expect(label.className).toContain("max-w-0");
     expect(label.className).toContain("opacity-0");
     expect(label.className).toContain("text-white/55");
+    expect(label.className).toContain(
+      "group-hover/anarlog-chat-cta:text-muted-foreground",
+    );
     expect(label.className).toContain(
       "group-hover/anarlog-chat-cta:max-w-full",
     );

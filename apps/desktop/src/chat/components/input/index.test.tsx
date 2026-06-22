@@ -63,8 +63,8 @@ vi.mock("~/contexts/shell", () => ({
 vi.mock("~/chat/hooks/use-chat-appearance", () => ({
   useChatAppearance: () => ({
     isDarkAppearance: true,
-    elevatedSurfaceClassName: "bg-accent text-accent-foreground border-border",
-    inputEditorClassName: "chat-input-editor text-accent-foreground",
+    elevatedSurfaceClassName: "bg-card text-card-foreground border-border",
+    inputEditorClassName: "chat-input-editor text-card-foreground",
     sendButtonDisabledClassName:
       "cursor-default border-border text-muted-foreground/60",
     sendButtonShortcutDisabledClassName: "text-muted-foreground/60",
@@ -139,7 +139,7 @@ describe("ChatMessageInput", () => {
     expect(sendButton.className).not.toContain("bg-primary");
   });
 
-  it("uses the elevated dark input surface for typed text", () => {
+  it("uses the light card input surface for typed text", () => {
     render(
       <ChatMessageInput draftKey="chat-input-test" onSendMessage={vi.fn()} />,
     );
@@ -148,9 +148,11 @@ describe("ChatMessageInput", () => {
     const surface = editor.closest("[data-chat-message-input]")?.parentElement;
 
     expect(editor.className).toContain("chat-input-editor");
+    expect(editor.className).toContain("max-h-48");
     expect(surface?.getAttribute("data-chat-input-surface")).toBe("elevated");
-    expect(surface?.className).toContain("bg-accent");
-    expect(surface?.className).toContain("text-accent-foreground");
+    expect(surface?.className).toContain("bg-card");
+    expect(surface?.className).toContain("text-card-foreground");
+    expect(surface?.className).toContain("rounded-[1.75rem]");
   });
 
   it("uses shared horizontal outer padding while floating", () => {
@@ -186,5 +188,18 @@ describe("ChatMessageInput", () => {
     expect(outerContainer?.className).not.toContain("px-5");
     expect(outerContainer?.className).not.toContain("px-2");
     expect(outerContainer?.className).not.toContain("pr-0");
+  });
+
+  it("caps the editor height in the right panel separately", () => {
+    shellState.mode = "RightPanelOpen";
+
+    render(
+      <ChatMessageInput draftKey="chat-input-test" onSendMessage={vi.fn()} />,
+    );
+
+    const editor = screen.getByTestId("chat-editor");
+
+    expect(editor.className).toContain("max-h-[40vh]");
+    expect(editor.className).not.toContain("max-h-48");
   });
 });

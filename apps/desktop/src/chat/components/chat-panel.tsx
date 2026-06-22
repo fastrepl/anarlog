@@ -95,7 +95,8 @@ export function ChatPanelFrame({
   return (
     <div
       className={cn([
-        "flex h-full min-h-0 flex-col overflow-hidden",
+        "flex min-h-0 flex-col overflow-hidden",
+        isFloating ? "max-h-full" : "h-full",
         panelClassName,
       ])}
     >
@@ -119,6 +120,7 @@ export function ChatPanelFrame({
       {sessionProps && (
         <ChatContent
           {...sessionProps}
+          layout={layout}
           model={model}
           handleSendMessage={handleSendMessage}
         >

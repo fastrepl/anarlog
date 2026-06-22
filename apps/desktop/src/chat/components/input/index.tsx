@@ -59,20 +59,23 @@ export function ChatMessageInput({
   const mentionConfig = useMentionConfig();
   const isSendDisabled = Boolean(disabled) || !hasContent;
   const isRightPanel = chat.mode === "RightPanelOpen";
+  const isFloating = chat.mode === "FloatingOpen";
 
   return (
     <Container
       elevatedSurfaceClassName={elevatedSurfaceClassName}
       hasContextBar={hasContextBar}
+      isFloating={isFloating}
       isRightPanel={isRightPanel}
     >
       <div data-chat-message-input className="flex flex-col px-2 pt-3 pb-2">
-        <div className="mb-1 min-h-0 flex-1">
+        <div className="mb-1 min-h-0">
           <ChatEditor
             ref={editorRef}
             className={cn([
               "chat-input-editor",
-              "max-h-[40vh] overflow-y-auto overscroll-contain text-sm",
+              "overflow-y-auto overscroll-contain text-sm",
+              isRightPanel ? "max-h-[40vh]" : "max-h-48",
             ])}
             initialContent={initialContent}
             mentionConfig={mentionConfig}
@@ -128,11 +131,13 @@ function Container({
   children,
   elevatedSurfaceClassName,
   hasContextBar,
+  isFloating,
   isRightPanel,
 }: {
   children: React.ReactNode;
   elevatedSurfaceClassName: string;
   hasContextBar?: boolean;
+  isFloating: boolean;
   isRightPanel: boolean;
 }) {
   return (
@@ -147,8 +152,8 @@ function Container({
         className={cn([
           "flex max-h-full flex-col border",
           elevatedSurfaceClassName,
-          hasContextBar ? "rounded-t-none rounded-b-xl" : "rounded-xl",
-          hasContextBar && "border-t-0",
+          isFloating ? "rounded-[1.75rem]" : "rounded-xl",
+          hasContextBar && !isFloating && "rounded-t-none border-t-0",
         ])}
       >
         {children}

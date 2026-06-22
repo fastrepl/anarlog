@@ -17,11 +17,11 @@ export function chatFloatingPanelShellClassNames(): string {
 }
 
 export function chatElevatedSurfaceClassNames(): string {
-  return "bg-accent text-accent-foreground border-border";
+  return "bg-card text-card-foreground border-border";
 }
 
 export function chatInputEditorClassNames(): string {
-  return "chat-input-editor text-accent-foreground";
+  return "chat-input-editor text-card-foreground";
 }
 
 export function chatSendButtonDisabledClassNames(): string {

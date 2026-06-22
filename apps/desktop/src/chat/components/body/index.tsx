@@ -36,6 +36,7 @@ export function ChatBody({
 }) {
   const { chat } = useShell();
   const isRightPanel = chat.mode === "RightPanelOpen";
+  const isFloating = chat.mode === "FloatingOpen";
   const {
     contentRef,
     isAtBottom,
@@ -47,21 +48,30 @@ export function ChatBody({
   } = useChatAutoScroll(status);
 
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col">
+    <div
+      className={cn([
+        "relative flex min-h-0 flex-col",
+        isRightPanel ? "flex-1" : "shrink-0",
+      ])}
+    >
       <div
         ref={scrollRef}
         onScroll={updateAutoScrollState}
         onWheel={handleWheel}
-        className="flex min-h-0 flex-1 flex-col overflow-y-auto"
+        className={cn([
+          "flex min-h-0 flex-col overflow-y-auto",
+          isRightPanel ? "flex-1" : "max-h-[min(16rem,35vh)] shrink-0",
+        ])}
       >
         <div
           ref={contentRef}
           className={cn([
-            "flex min-h-full flex-1 flex-col",
+            "flex flex-col",
+            isRightPanel && "min-h-full flex-1",
             isRightPanel ? "px-3 py-5" : "px-3 py-3",
           ])}
         >
-          <div className="flex-1" />
+          {!isFloating && <div className="flex-1" />}
           {messages.length === 0 ? (
             <ChatBodyEmpty
               isModelConfigured={isModelConfigured}

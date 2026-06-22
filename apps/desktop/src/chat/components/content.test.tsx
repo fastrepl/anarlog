@@ -54,6 +54,37 @@ const renderContent = (onAddContextEntity = vi.fn()) => {
 };
 
 describe("ChatContent", () => {
+  it("uses shrink-wrapped layout by default for floating chat", () => {
+    const container = renderContent();
+
+    expect(container?.className).toContain("shrink-0");
+    expect(container?.className).not.toContain("flex-1");
+  });
+
+  it("fills available height in the right panel layout", () => {
+    const { container } = render(
+      <ChatContent
+        sessionId="active-session"
+        layout="right-panel"
+        messages={[]}
+        sendMessage={vi.fn()}
+        regenerate={vi.fn()}
+        stop={vi.fn()}
+        status="ready"
+        model={{} as never}
+        handleSendMessage={vi.fn()}
+        contextEntities={[]}
+        pendingRefs={[]}
+        isSystemPromptReady
+      />,
+    );
+
+    const content = container.querySelector("[data-chat-content]");
+
+    expect(content?.className).toContain("flex-1");
+    expect(content?.className).not.toContain("shrink-0");
+  });
+
   it("adds dropped session refs to chat context", () => {
     const onAddContextEntity = vi.fn();
     const container = renderContent(onAddContextEntity);
