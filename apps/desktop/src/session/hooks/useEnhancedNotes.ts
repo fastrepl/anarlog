@@ -1,14 +1,10 @@
 import { useEffect, useMemo } from "react";
 
-import { useHasTranscript } from "../components/shared";
-
 import { useAITask } from "~/ai/contexts";
-import { useLLMConnectionStatus } from "~/ai/hooks";
 import { getEnhancerService } from "~/services/enhancer";
 import * as main from "~/store/tinybase/store/main";
 import * as settings from "~/store/tinybase/store/settings";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
-import { useListener } from "~/stt/contexts";
 
 export function useEnhancedNotes(sessionId: string) {
   return main.UI.useSliceRowIds(
@@ -48,8 +44,6 @@ export function useEnhancedNote(enhancedNoteId: string) {
 }
 
 export function useEnsureDefaultSummary(sessionId: string) {
-  const sessionMode = useListener((state) => state.getSessionMode(sessionId));
-  const hasTranscript = useHasTranscript(sessionId);
   const enhancedNoteIds = main.UI.useSliceRowIds(
     main.INDEXES.enhancedNotesBySession,
     sessionId,
@@ -59,7 +53,6 @@ export function useEnsureDefaultSummary(sessionId: string) {
     "selected_template_id",
     settings.STORE_ID,
   ) as string | undefined;
-  const llmStatus = useLLMConnectionStatus();
 
   useEffect(() => {
     const service = getEnhancerService();
@@ -73,29 +66,7 @@ export function useEnsureDefaultSummary(sessionId: string) {
     if (!hasEnhancedNotes) {
       service.ensureNote(sessionId, templateId);
     }
-
-    if (
-      !hasTranscript ||
-      sessionMode === "active" ||
-      sessionMode === "running_batch" ||
-      sessionMode === "finalizing"
-    ) {
-      return;
-    }
-
-    if (llmStatus.status !== "success") {
-      return;
-    }
-
-    service.queueAutoEnhanceIfSummaryEmpty(sessionId);
-  }, [
-    hasTranscript,
-    sessionMode,
-    sessionId,
-    enhancedNoteIds?.length,
-    selectedTemplateId,
-    llmStatus,
-  ]);
+  }, [sessionId, enhancedNoteIds?.length, selectedTemplateId]);
 }
 
 export function useIsSessionEnhancing(sessionId: string): boolean {
