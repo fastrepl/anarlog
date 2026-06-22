@@ -333,6 +333,21 @@ describe("PostSessionAccessory", () => {
     expect(screen.queryByTestId("transcript")).toBeNull();
   });
 
+  it("keeps the audio timeline when suppressing the expanded transcript panel", () => {
+    render(
+      <PostSessionAccessory
+        sessionId="session-1"
+        hasAudio
+        hasTranscript
+        isTranscriptExpanded
+        suppressTranscriptPanel
+      />,
+    );
+
+    expect(screen.getByTestId("timeline")).toBeTruthy();
+    expect(screen.queryByTestId("transcript")).toBeNull();
+  });
+
   it("keeps batch status visible while the transcript panel is collapsed", () => {
     useTranscriptScreenMock.mockReturnValue({
       kind: "running_batch",

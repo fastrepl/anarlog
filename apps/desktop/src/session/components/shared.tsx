@@ -42,6 +42,7 @@ export function useCurrentNoteHasContent(
   sessionId: string,
   currentView: EditorView,
 ): boolean {
+  const hasTranscript = useHasTranscript(sessionId);
   const rawMd = main.UI.useCell("sessions", sessionId, "raw_md", main.STORE_ID);
   const enhancedNoteId = currentView.type === "enhanced" ? currentView.id : "";
   const enhancedContent = main.UI.useCell(
@@ -55,6 +56,10 @@ export function useCurrentNoteHasContent(
     return hasStoredNoteContent(enhancedContent);
   }
 
+  if (currentView.type === "transcript") {
+    return hasTranscript;
+  }
+
   return hasStoredNoteContent(rawMd);
 }
 
@@ -63,6 +68,10 @@ export function useCurrentNoteTab(
 ): EditorView {
   const sessionMode = useListener((state) => state.getSessionMode(tab.id));
   const isLiveSessionActive = sessionMode === "active";
+  const batchError = useListener((state) => state.batch[tab.id]?.error ?? null);
+  const hasTranscript = useHasTranscript(tab.id);
+  const canShowTranscript =
+    hasTranscript || sessionMode === "running_batch" || Boolean(batchError);
 
   const enhancedNoteIds = main.UI.useSliceRowIds(
     main.INDEXES.enhancedNotesBySession,
@@ -77,8 +86,14 @@ export function useCurrentNoteTab(
         tab.state.view ?? null,
         isLiveSessionActive,
         firstEnhancedNoteId,
+        canShowTranscript,
       ),
-    [tab.state.view, isLiveSessionActive, firstEnhancedNoteId],
+    [
+      tab.state.view,
+      isLiveSessionActive,
+      firstEnhancedNoteId,
+      canShowTranscript,
+    ],
   );
 }
 

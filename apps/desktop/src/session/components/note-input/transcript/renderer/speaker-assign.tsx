@@ -1,3 +1,4 @@
+import { SearchIcon } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
 import type { EventParticipant, SessionEvent } from "@hypr/store";
@@ -82,7 +83,14 @@ export function SpeakerAssignPopover({
           {label}
         </button>
       </PopoverTrigger>
-      <PopoverContent variant="app" align="start" className="w-72">
+      <PopoverContent
+        variant="app"
+        side="right"
+        align="start"
+        sideOffset={8}
+        collisionPadding={16}
+        className="max-h-[min(var(--radix-popover-content-available-height),28rem)] w-80"
+      >
         <ParticipantList sessionId={sessionId} onSelect={handleAssign} />
       </PopoverContent>
     </Popover>
@@ -466,25 +474,25 @@ function ParticipantList({
   ]);
 
   return (
-    <AppFloatingPanel className="flex flex-col gap-2 p-2">
-      <div className="border-app-floating-border bg-app-floating-panel overflow-hidden rounded-2xl border">
-        <div className="p-2">
-          <input
-            autoFocus
-            type="search"
-            className={cn([
-              "border-border h-8 w-full rounded-md border bg-transparent px-2 text-sm outline-hidden",
-              "placeholder:text-muted-foreground focus:border-border",
-            ])}
-            placeholder="Search people"
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setSelectedOption(null);
-            }}
-          />
+    <div className="flex max-h-[min(var(--radix-popover-content-available-height),28rem)] flex-col gap-1 overflow-hidden">
+      <AppFloatingPanel className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="border-border border-b py-2">
+          <div className="flex h-9 items-center gap-2 px-3">
+            <SearchIcon size={16} className="text-muted-foreground shrink-0" />
+            <input
+              autoFocus
+              type="search"
+              className="placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent text-sm outline-hidden"
+              placeholder="Search people"
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setSelectedOption(null);
+              }}
+            />
+          </div>
         </div>
-        <div className="max-h-60 overflow-auto py-1">
+        <div className="min-h-0 flex-1 overflow-auto py-1">
           {groups.map((group) => (
             <div key={group.title}>
               <div className="text-muted-foreground px-3 pt-2 pb-1 text-[11px] font-medium uppercase">
@@ -522,26 +530,22 @@ function ParticipantList({
             </p>
           )}
         </div>
-      </div>
-      <div className="flex items-center gap-3">
+      </AppFloatingPanel>
+      <div className="flex items-center gap-3 px-2 py-1">
         <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2">
           <Checkbox
             checked={applyToAllMatching}
-            className={cn([
-              "border-white bg-white text-black",
-              "data-[state=checked]:border-white data-[state=checked]:bg-white data-[state=checked]:text-black",
-            ])}
             onCheckedChange={(value) => setApplyToAllMatching(value === true)}
           />
-          <span className="text-muted-foreground truncate text-xs">
-            Apply to all matching segments
+          <span className="text-muted-foreground text-sm whitespace-nowrap">
+            Apply to all
           </span>
         </label>
         <button
           type="button"
           className={cn([
-            "h-8 rounded-full bg-white px-3 text-xs font-medium text-black",
-            "hover:bg-white/90",
+            "bg-primary text-primary-foreground h-8 rounded-full px-3 text-xs font-medium",
+            "hover:bg-primary/90",
             "disabled:pointer-events-none disabled:opacity-50",
           ])}
           disabled={!selectedOption}
@@ -550,7 +554,7 @@ function ParticipantList({
           Confirm
         </button>
       </div>
-    </AppFloatingPanel>
+    </div>
   );
 }
 

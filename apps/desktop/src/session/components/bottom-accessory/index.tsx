@@ -34,8 +34,8 @@ export function useSessionBottomAccessory({
   sessionMode,
   audioExists,
   audioUrlReady = audioExists,
-  isAudioLoading = false,
   hasTranscript,
+  suppressTranscriptPanel = false,
 }: {
   sessionId: string;
   sessionMode: string;
@@ -43,6 +43,7 @@ export function useSessionBottomAccessory({
   audioUrlReady?: boolean;
   isAudioLoading?: boolean;
   hasTranscript: boolean;
+  suppressTranscriptPanel?: boolean;
 }): {
   bottomAccessory: ReactNode;
   bottomBorderHandle: ReactNode;
@@ -56,8 +57,6 @@ export function useSessionBottomAccessory({
   const isInactive = sessionMode === "inactive";
   const isRunningBatch = sessionMode === "running_batch";
   const canUsePlayback = audioUrlReady && (isInactive || isRunningBatch);
-  const mayHaveAudio =
-    (audioExists || isAudioLoading) && (isInactive || isRunningBatch);
   const batchError = useListener(
     (state) => state.batch[sessionId]?.error ?? null,
   );
@@ -115,7 +114,7 @@ export function useSessionBottomAccessory({
     isRunningBatch ||
     (!shouldDeferToGlobalLiveAccessory &&
       isInactive &&
-      (mayHaveAudio || hasTranscript || hasTranscriptError || hasPastNotes));
+      (canUsePlayback || hasPastNotes));
   const selectPostSessionTab = useCallback(
     (tab: PostSessionTab) => {
       const shouldExpand = activePostSessionTab !== tab || !isExpanded;
@@ -192,6 +191,7 @@ export function useSessionBottomAccessory({
           isTranscriptExpanded={isExpanded}
           activeTab={activePostSessionTab}
           pastNotes={pastNotes.notes}
+          suppressTranscriptPanel={suppressTranscriptPanel}
           onRegenerateInsights={
             pastNotes.canGenerate ? pastNotes.regenerateAll : undefined
           }
@@ -202,7 +202,7 @@ export function useSessionBottomAccessory({
         <PostSessionTabHandle
           isExpanded={isExpanded}
           activeTab={activePostSessionTab}
-          showTranscriptTab={canShowTranscriptTab}
+          showTranscriptTab={isRunningBatch && canShowTranscriptTab}
           onSelect={selectPostSessionTab}
         />
       ) : (

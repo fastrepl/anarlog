@@ -42,6 +42,7 @@ export function PostSessionAccessory({
   isTranscriptExpanded,
   activeTab = "transcript",
   pastNotes = [],
+  suppressTranscriptPanel = false,
   onRegenerateInsights,
   fillHeight = false,
 }: {
@@ -51,6 +52,7 @@ export function PostSessionAccessory({
   isTranscriptExpanded: boolean;
   activeTab?: PostSessionTab;
   pastNotes?: PastSessionNote[];
+  suppressTranscriptPanel?: boolean;
   onRegenerateInsights?: () => void;
   fillHeight?: boolean;
 }) {
@@ -80,7 +82,7 @@ export function PostSessionAccessory({
         shouldFillExpandedPanel && "h-full overflow-hidden",
       ])}
     >
-      {isTranscriptExpanded ? (
+      {isTranscriptExpanded && !suppressTranscriptPanel ? (
         <div
           className={cn([
             shouldFillExpandedPanel

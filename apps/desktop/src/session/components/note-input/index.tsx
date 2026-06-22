@@ -18,6 +18,7 @@ import { Header, useEditorTabs } from "./header";
 import { RawEditor } from "./raw";
 import { SearchBar } from "./search/bar";
 import { useSearch } from "./search/context";
+import { Transcript } from "./transcript";
 
 import { useCaretNearBottom } from "~/session/components/caret-position-context";
 import { useCurrentNoteTab } from "~/session/components/shared";
@@ -31,6 +32,7 @@ export interface NoteInputHandle {
   focusAtStart: () => void;
   focusAtPixelWidth: (pixelWidth: number) => void;
   insertAtStartAndFocus: (content: string) => void;
+  prepareForTabChange: () => void;
 }
 
 export const NoteInput = forwardRef<
@@ -39,152 +41,191 @@ export const NoteInput = forwardRef<
     tab: Extract<Tab, { type: "sessions" }>;
     onNavigateToTitle?: (pixelWidth?: number) => void;
     onScroll?: UIEventHandler<HTMLDivElement>;
+    editorTabs?: TabEditorView[];
+    currentTab?: TabEditorView;
+    handleTabChange?: (view: TabEditorView) => void;
+    hideHeader?: boolean;
   }
->(({ tab, onNavigateToTitle, onScroll }, ref) => {
-  const editorTabs = useEditorTabs({ sessionId: tab.id });
-  const updateSessionTabState = useTabs((state) => state.updateSessionTabState);
-  const internalEditorRef = useRef<NoteEditorRef>(null);
-  const [container, setContainer] = useState<HTMLDivElement | null>(null);
-  const [view, setView] = useState<EditorView | null>(null);
-
-  const sessionId = tab.id;
-
-  const tabRef = useRef(tab);
-  tabRef.current = tab;
-
-  const currentTab: TabEditorView = useCurrentNoteTab(tab);
-
-  useImperativeHandle(
-    ref,
-    () => ({
-      focus: () => internalEditorRef.current?.commands.focus(),
-      focusAtStart: () => internalEditorRef.current?.commands.focusAtStart(),
-      focusAtPixelWidth: (px) =>
-        internalEditorRef.current?.commands.focusAtPixelWidth(px),
-      insertAtStartAndFocus: (content) =>
-        internalEditorRef.current?.commands.insertAtStartAndFocus(content),
-    }),
-    [currentTab],
-  );
-
-  const sessionMode = useListener((state) => state.getSessionMode(sessionId));
-  const isMeetingInProgress =
-    sessionMode === "active" ||
-    sessionMode === "finalizing" ||
-    sessionMode === "running_batch";
-
-  const { scrollRef, onBeforeTabChange } = useScrollPreservation(
-    currentTab.type === "enhanced"
-      ? `enhanced-${currentTab.id}`
-      : currentTab.type,
-  );
-
-  const handleTabChange = useCallback(
-    (tabView: TabEditorView) => {
-      onBeforeTabChange();
-      updateSessionTabState(tabRef.current, {
-        ...tabRef.current.state,
-        view: tabView,
-      });
+>(
+  (
+    {
+      tab,
+      onNavigateToTitle,
+      onScroll,
+      editorTabs: providedEditorTabs,
+      currentTab: providedCurrentTab,
+      handleTabChange: providedHandleTabChange,
+      hideHeader = false,
     },
-    [onBeforeTabChange, updateSessionTabState],
-  );
+    ref,
+  ) => {
+    const fallbackEditorTabs = useEditorTabs({ sessionId: tab.id });
+    const updateSessionTabState = useTabs(
+      (state) => state.updateSessionTabState,
+    );
+    const internalEditorRef = useRef<NoteEditorRef>(null);
+    const [container, setContainer] = useState<HTMLDivElement | null>(null);
+    const [view, setView] = useState<EditorView | null>(null);
 
-  useTabShortcuts({
-    editorTabs,
-    currentTab,
-    handleTabChange,
-  });
+    const sessionId = tab.id;
 
-  useEffect(() => {
-    if (currentTab.type === "raw" && isMeetingInProgress) {
-      requestAnimationFrame(() => {
-        internalEditorRef.current?.commands.focus();
-      });
-    }
-  }, [currentTab, isMeetingInProgress]);
+    const tabRef = useRef(tab);
+    tabRef.current = tab;
 
-  const handleViewReady = useCallback((editorView: EditorView) => {
-    setView(editorView);
-  }, []);
+    const fallbackCurrentTab: TabEditorView = useCurrentNoteTab(tab);
+    const editorTabs = providedEditorTabs ?? fallbackEditorTabs;
+    const currentTab = providedCurrentTab ?? fallbackCurrentTab;
 
-  const handleViewDisposed = useCallback((editorView: EditorView) => {
-    setView((currentView) => (currentView === editorView ? null : currentView));
-  }, []);
+    const sessionMode = useListener((state) => state.getSessionMode(sessionId));
+    const isMeetingInProgress =
+      sessionMode === "active" ||
+      sessionMode === "finalizing" ||
+      sessionMode === "running_batch";
 
-  useCaretNearBottom({
-    view,
-    container,
-    enabled: true,
-  });
+    const { scrollRef, onBeforeTabChange } = useScrollPreservation(
+      currentTab.type === "enhanced"
+        ? `enhanced-${currentTab.id}`
+        : currentTab.type,
+    );
 
-  const search = useSearch();
-  const showSearchBar = search?.isVisible ?? false;
+    useImperativeHandle(
+      ref,
+      () => ({
+        focus: () => internalEditorRef.current?.commands.focus(),
+        focusAtStart: () => internalEditorRef.current?.commands.focusAtStart(),
+        focusAtPixelWidth: (px) =>
+          internalEditorRef.current?.commands.focusAtPixelWidth(px),
+        insertAtStartAndFocus: (content) =>
+          internalEditorRef.current?.commands.insertAtStartAndFocus(content),
+        prepareForTabChange: onBeforeTabChange,
+      }),
+      [currentTab, onBeforeTabChange],
+    );
 
-  useEffect(() => {
-    search?.close();
-  }, [currentTab]);
+    const handleTabChange = useCallback(
+      (tabView: TabEditorView) => {
+        onBeforeTabChange();
+        if (providedHandleTabChange) {
+          providedHandleTabChange(tabView);
+        } else {
+          updateSessionTabState(tabRef.current, {
+            ...tabRef.current.state,
+            view: tabView,
+          });
+        }
+      },
+      [onBeforeTabChange, providedHandleTabChange, updateSessionTabState],
+    );
 
-  const handleContainerClick = () => {
-    internalEditorRef.current?.commands.focus();
-  };
+    useTabShortcuts({
+      editorTabs,
+      currentTab,
+      handleTabChange,
+    });
 
-  return (
-    <div className="-mx-2 flex h-full flex-col">
-      <div className="relative px-2">
-        <Header
-          sessionId={sessionId}
-          editorTabs={editorTabs}
-          currentTab={currentTab}
-          handleTabChange={handleTabChange}
-        />
-      </div>
+    useEffect(() => {
+      if (currentTab.type === "raw" && isMeetingInProgress) {
+        requestAnimationFrame(() => {
+          internalEditorRef.current?.commands.focus();
+        });
+      }
+    }, [currentTab, isMeetingInProgress]);
 
-      {showSearchBar && (
-        <div className="px-3 pt-1">
-          <SearchBar editorRef={internalEditorRef} />
-        </div>
-      )}
+    const handleViewReady = useCallback((editorView: EditorView) => {
+      setView(editorView);
+    }, []);
 
-      <div className="relative flex-1 overflow-hidden">
-        <div
-          ref={(node) => {
-            scrollRef.current = node;
-            setContainer(node);
-          }}
-          onClick={handleContainerClick}
-          onScroll={onScroll}
-          className={cn([
-            "h-full px-3",
-            "scroll-fade-y overflow-auto",
-            "pt-2",
-            "pb-6",
-          ])}
-        >
-          {currentTab.type === "enhanced" && (
-            <Enhanced
-              ref={internalEditorRef}
+    const handleViewDisposed = useCallback((editorView: EditorView) => {
+      setView((currentView) =>
+        currentView === editorView ? null : currentView,
+      );
+    }, []);
+
+    useCaretNearBottom({
+      view,
+      container,
+      enabled: true,
+    });
+
+    const search = useSearch();
+    const showSearchBar = search?.isVisible ?? false;
+    const isEditableTab =
+      currentTab.type === "enhanced" || currentTab.type === "raw";
+
+    useEffect(() => {
+      search?.close();
+    }, [currentTab]);
+
+    const handleContainerClick = () => {
+      if (!isEditableTab) {
+        return;
+      }
+
+      internalEditorRef.current?.commands.focus();
+    };
+
+    return (
+      <div className="-mx-2 flex h-full flex-col">
+        {!hideHeader && (
+          <div className="relative px-2">
+            <Header
               sessionId={sessionId}
-              enhancedNoteId={currentTab.id}
-              onNavigateToTitle={onNavigateToTitle}
-              onViewReady={handleViewReady}
-              onViewDisposed={handleViewDisposed}
+              editorTabs={editorTabs}
+              currentTab={currentTab}
+              handleTabChange={handleTabChange}
             />
-          )}
-          {currentTab.type === "raw" && (
-            <RawEditor
-              ref={internalEditorRef}
-              sessionId={sessionId}
-              onNavigateToTitle={onNavigateToTitle}
-              onViewReady={handleViewReady}
-              onViewDisposed={handleViewDisposed}
-            />
-          )}
+          </div>
+        )}
+
+        {showSearchBar && isEditableTab && (
+          <div className="px-3 pt-1">
+            <SearchBar editorRef={internalEditorRef} />
+          </div>
+        )}
+
+        <div className="relative flex-1 overflow-hidden">
+          <div
+            ref={(node) => {
+              scrollRef.current = node;
+              setContainer(node);
+            }}
+            onClick={handleContainerClick}
+            onScroll={onScroll}
+            className={cn([
+              "h-full px-3",
+              "scroll-fade-y overflow-auto",
+              "pt-2",
+              "pb-6",
+            ])}
+          >
+            {currentTab.type === "enhanced" && (
+              <Enhanced
+                ref={internalEditorRef}
+                sessionId={sessionId}
+                enhancedNoteId={currentTab.id}
+                onNavigateToTitle={onNavigateToTitle}
+                onViewReady={handleViewReady}
+                onViewDisposed={handleViewDisposed}
+              />
+            )}
+            {currentTab.type === "raw" && (
+              <RawEditor
+                ref={internalEditorRef}
+                sessionId={sessionId}
+                onNavigateToTitle={onNavigateToTitle}
+                onViewReady={handleViewReady}
+                onViewDisposed={handleViewDisposed}
+              />
+            )}
+            {currentTab.type === "transcript" && (
+              <Transcript sessionId={sessionId} scrollRef={scrollRef} />
+            )}
+          </div>
         </div>
       </div>
-    </div>
-  );
-});
+    );
+  },
+);
 
 function useTabShortcuts({
   editorTabs,

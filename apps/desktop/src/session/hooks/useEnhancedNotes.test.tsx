@@ -77,15 +77,34 @@ describe("useEnsureDefaultSummary", () => {
     hoisted.service.queueAutoEnhanceIfSummaryEmpty.mockClear();
   });
 
-  it("queues generation instead of creating an empty summary", async () => {
+  it("creates the summary row before queueing generation", async () => {
     renderHook(() => useEnsureDefaultSummary("session-1"));
 
     await waitFor(() => {
+      expect(hoisted.service.ensureNote).toHaveBeenCalledWith(
+        "session-1",
+        "template-1",
+      );
       expect(
         hoisted.service.queueAutoEnhanceIfSummaryEmpty,
       ).toHaveBeenCalledWith("session-1");
     });
-    expect(hoisted.service.ensureNote).not.toHaveBeenCalled();
+  });
+
+  it("creates the summary row without queueing generation before transcript exists", async () => {
+    hoisted.hasTranscript = false;
+
+    renderHook(() => useEnsureDefaultSummary("session-1"));
+
+    await waitFor(() => {
+      expect(hoisted.service.ensureNote).toHaveBeenCalledWith(
+        "session-1",
+        "template-1",
+      );
+    });
+    expect(
+      hoisted.service.queueAutoEnhanceIfSummaryEmpty,
+    ).not.toHaveBeenCalled();
   });
 
   it("creates the summary row when a hosted subscription blocks generation", async () => {

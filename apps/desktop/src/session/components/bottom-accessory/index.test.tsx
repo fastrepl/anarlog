@@ -116,12 +116,7 @@ describe("useSessionBottomAccessory", () => {
     });
   });
 
-  it("collapses the post-session transcript panel on escape", () => {
-    type TranscriptToggleProps = {
-      collapsedClassName?: string;
-      onToggle: () => void;
-    };
-
+  it("shows collapsed playback chrome for inactive sessions with audio", () => {
     const { result } = renderHook(() =>
       useSessionBottomAccessory({
         sessionId: "session-1",
@@ -135,40 +130,12 @@ describe("useSessionBottomAccessory", () => {
       mode: "playback",
       expanded: false,
     });
-    expect(hoisted.hotkeys.get("esc")?.options?.enabled).toBe(false);
-
-    const toggle = result.current.bottomBorderHandle;
-    expect(isValidElement<TranscriptToggleProps>(toggle)).toBe(true);
-    if (!isValidElement<TranscriptToggleProps>(toggle)) {
-      return;
-    }
-
-    expect(toggle.props.collapsedClassName).toBe(
-      "bg-card dark:bg-app-floating-chrome",
-    );
-
-    act(() => {
-      toggle.props.onToggle();
-    });
-
-    expect(result.current.bottomAccessoryState).toEqual({
-      mode: "playback",
-      expanded: true,
-    });
-    expect(hoisted.hotkeys.get("esc")?.options?.enabled).toBe(true);
-
-    act(() => {
-      hoisted.hotkeys.get("esc")?.handler();
-    });
-
-    expect(result.current.bottomAccessoryState).toEqual({
-      mode: "playback",
-      expanded: false,
-    });
+    expect(result.current.bottomAccessory).toBeNull();
+    expect(result.current.bottomBorderHandle).not.toBeNull();
     expect(hoisted.hotkeys.get("esc")?.options?.enabled).toBe(false);
   });
 
-  it("defers transcript escape handling while chat is open", () => {
+  it("does not register transcript escape handling while chat is open", () => {
     useShellMock.mockReturnValue({
       chat: {
         mode: "FloatingOpen",
@@ -184,24 +151,15 @@ describe("useSessionBottomAccessory", () => {
       }),
     );
 
-    const toggle = result.current.bottomBorderHandle;
-    expect(isValidElement<{ onToggle: () => void }>(toggle)).toBe(true);
-    if (!isValidElement<{ onToggle: () => void }>(toggle)) {
-      return;
-    }
-
-    act(() => {
-      toggle.props.onToggle();
-    });
-
     expect(result.current.bottomAccessoryState).toEqual({
       mode: "playback",
-      expanded: true,
+      expanded: false,
     });
+    expect(result.current.bottomBorderHandle).not.toBeNull();
     expect(hoisted.hotkeys.get("esc")?.options?.enabled).toBe(false);
   });
 
-  it("defers transcript escape handling while right panel chat is open", () => {
+  it("does not register transcript escape handling while right panel chat is open", () => {
     useShellMock.mockReturnValue({
       chat: {
         mode: "RightPanelOpen",
@@ -217,34 +175,27 @@ describe("useSessionBottomAccessory", () => {
       }),
     );
 
-    const toggle = result.current.bottomBorderHandle;
-    expect(isValidElement<{ onToggle: () => void }>(toggle)).toBe(true);
-    if (!isValidElement<{ onToggle: () => void }>(toggle)) {
-      return;
-    }
-
-    act(() => {
-      toggle.props.onToggle();
-    });
-
-    expect(hoisted.hotkeys.get("esc")?.options?.enabled).toBe(false);
-  });
-
-  it("hides the playback accessory while the transcript panel is collapsed", () => {
-    const { result } = renderHook(() =>
-      useSessionBottomAccessory({
-        sessionId: "session-1",
-        sessionMode: "inactive",
-        audioExists: true,
-        hasTranscript: true,
-      }),
-    );
-
     expect(result.current.bottomAccessoryState).toEqual({
       mode: "playback",
       expanded: false,
     });
+    expect(result.current.bottomBorderHandle).not.toBeNull();
+    expect(hoisted.hotkeys.get("esc")?.options?.enabled).toBe(false);
+  });
+
+  it("hides inactive transcript-only accessory without playback or insights", () => {
+    const { result } = renderHook(() =>
+      useSessionBottomAccessory({
+        sessionId: "session-1",
+        sessionMode: "inactive",
+        audioExists: false,
+        hasTranscript: true,
+      }),
+    );
+
+    expect(result.current.bottomAccessoryState).toBeNull();
     expect(result.current.bottomAccessory).toBeNull();
+    expect(result.current.bottomBorderHandle).toBeNull();
   });
 
   it("generates missing insights when the insights tab opens", () => {
@@ -324,7 +275,7 @@ describe("useSessionBottomAccessory", () => {
     });
   });
 
-  it("keeps the transcript panel available after batch transcription fails without words", () => {
+  it("does not render a bottom transcript panel after batch transcription fails without words", () => {
     hoisted.batch = {
       "session-1": {
         error: "batch start failed: connection refused",
@@ -340,14 +291,12 @@ describe("useSessionBottomAccessory", () => {
       }),
     );
 
-    expect(result.current.bottomAccessoryState).toEqual({
-      mode: "transcript_only",
-      expanded: false,
-    });
-    expect(result.current.bottomBorderHandle).not.toBeNull();
+    expect(result.current.bottomAccessoryState).toBeNull();
+    expect(result.current.bottomAccessory).toBeNull();
+    expect(result.current.bottomBorderHandle).toBeNull();
   });
 
-  it("keeps the transcript tab visible for batch errors next to related meetings", () => {
+  it("shows only the insights bottom tab for batch errors next to related meetings", () => {
     hoisted.batch = {
       "session-1": {
         error: "batch start failed: connection refused",
@@ -375,14 +324,14 @@ describe("useSessionBottomAccessory", () => {
     render(result.current.bottomBorderHandle);
 
     expect(
-      screen.getByRole("button", { name: "Expand Transcript" }),
-    ).not.toBeNull();
+      screen.queryByRole("button", { name: "Expand Transcript" }),
+    ).toBeNull();
     expect(
       screen.getByRole("button", { name: "Expand Insights" }),
     ).not.toBeNull();
   });
 
-  it("keeps playback disabled until the audio URL is ready", () => {
+  it("waits for the audio URL before showing inactive playback", () => {
     const { result, rerender } = renderHook(
       ({ audioUrlReady }: { audioUrlReady: boolean }) =>
         useSessionBottomAccessory({
@@ -399,11 +348,8 @@ describe("useSessionBottomAccessory", () => {
       },
     );
 
-    expect(result.current.bottomAccessoryState).toEqual({
-      mode: "transcript_only",
-      expanded: false,
-    });
-    expect(result.current.bottomBorderHandle).not.toBeNull();
+    expect(result.current.bottomAccessoryState).toBeNull();
+    expect(result.current.bottomBorderHandle).toBeNull();
 
     rerender({ audioUrlReady: true });
 
@@ -411,9 +357,10 @@ describe("useSessionBottomAccessory", () => {
       mode: "playback",
       expanded: false,
     });
+    expect(result.current.bottomBorderHandle).not.toBeNull();
   });
 
-  it("keeps the post-session handle visible while audio lookup is loading", () => {
+  it("hides the post-session handle while audio lookup is loading without insights", () => {
     const { result, rerender } = renderHook(
       ({ isAudioLoading }: { isAudioLoading: boolean }) =>
         useSessionBottomAccessory({
@@ -431,11 +378,8 @@ describe("useSessionBottomAccessory", () => {
       },
     );
 
-    expect(result.current.bottomAccessoryState).toEqual({
-      mode: "transcript_only",
-      expanded: false,
-    });
-    expect(result.current.bottomBorderHandle).not.toBeNull();
+    expect(result.current.bottomAccessoryState).toBeNull();
+    expect(result.current.bottomBorderHandle).toBeNull();
 
     rerender({ isAudioLoading: false });
 
@@ -533,7 +477,7 @@ describe("useSessionBottomAccessory", () => {
     expect(result.current.bottomBorderHandle).not.toBeNull();
   });
 
-  it("keeps the transcript panel expanded when regeneration starts", () => {
+  it("keeps collapsed inactive playback when regeneration starts", () => {
     const { result, rerender } = renderHook(
       ({ sessionMode }: { sessionMode: string }) =>
         useSessionBottomAccessory({
@@ -549,26 +493,17 @@ describe("useSessionBottomAccessory", () => {
       },
     );
 
-    const toggle = result.current.bottomBorderHandle;
-    expect(isValidElement<{ onToggle: () => void }>(toggle)).toBe(true);
-    if (!isValidElement<{ onToggle: () => void }>(toggle)) {
-      return;
-    }
-
-    act(() => {
-      toggle.props.onToggle();
-    });
-
     expect(result.current.bottomAccessoryState).toEqual({
       mode: "playback",
-      expanded: true,
+      expanded: false,
     });
+    expect(result.current.bottomBorderHandle).not.toBeNull();
 
     rerender({ sessionMode: "running_batch" });
 
     expect(result.current.bottomAccessoryState).toEqual({
       mode: "playback",
-      expanded: true,
+      expanded: false,
     });
     expect(result.current.bottomAccessory).not.toBeNull();
   });

@@ -1,10 +1,10 @@
 import {
   AlertCircleIcon,
+  ChevronDownIcon,
   ChevronRightIcon,
   HeartIcon,
   LightbulbIcon,
   PlusIcon,
-  RefreshCwIcon,
   SearchIcon,
   XIcon,
 } from "lucide-react";
@@ -35,8 +35,6 @@ import {
 import { useAITaskTask } from "~/ai/hooks";
 import { useLanguageModel, useLLMConnectionStatus } from "~/ai/hooks";
 import { extractPlainText } from "~/search/contexts/engine/utils";
-import { getEnhancerService } from "~/services/enhancer";
-import { useHasTranscript } from "~/session/components/shared";
 import { shouldShowEmptySummaryConfigError } from "~/session/enhance-config";
 import { useEnsureDefaultSummary } from "~/session/hooks/useEnhancedNotes";
 import {
@@ -48,7 +46,6 @@ import * as main from "~/store/tinybase/store/main";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 import { type EditorView } from "~/store/zustand/tabs/schema";
-import { useListener } from "~/stt/contexts";
 import {
   filterWebTemplatesAgainstUserTemplates,
   getTemplateCreatorLabel,
@@ -228,6 +225,7 @@ function HeaderTabEnhanced({
     sessionId,
     enhancedNoteId,
   );
+  const store = main.UI.useStore(main.STORE_ID);
   const content = main.UI.useCell(
     "enhanced_notes",
     enhancedNoteId,
@@ -265,15 +263,19 @@ function HeaderTabEnhanced({
   const handleRegenerate = useCallback(() => {
     void onRegenerate(null);
   }, [onRegenerate]);
-  const handleRegenerateClick = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation();
+  const handleSelectTemplate = useCallback(
+    (selectedTemplateId: string) => {
       if (isGenerating) {
         return;
       }
-      handleRegenerate();
+
+      store?.setPartialRow("enhanced_notes", enhancedNoteId, {
+        template_id: selectedTemplateId,
+        title: "Summary",
+      });
+      void onRegenerate(selectedTemplateId);
     },
-    [handleRegenerate, isGenerating],
+    [enhancedNoteId, isGenerating, onRegenerate, store],
   );
   const handleExploreTemplatesClick = useCallback(
     (e: React.MouseEvent) => {
@@ -374,13 +376,19 @@ function HeaderTabEnhanced({
   ]);
   const showContextMenu = useNativeContextMenu(contextMenu);
 
-  const regenerateIcon = (
+  const templateMenuTrigger = (
     <span
       data-main-area-window-drag-region
       data-tauri-drag-region="false"
-      onClick={handleRegenerateClick}
+      role="button"
+      aria-label="Select summary template"
+      aria-disabled={isGenerating}
+      tabIndex={isGenerating ? -1 : 0}
+      onClick={(event) => event.stopPropagation()}
+      onPointerDown={(event) => event.stopPropagation()}
       className={cn([
-        "group relative inline-flex h-5 w-5 cursor-pointer items-center justify-center rounded-xs transition-colors",
+        "group relative -m-1 inline-flex size-7 items-center justify-center rounded-full transition-colors",
+        isGenerating ? "cursor-not-allowed opacity-70" : "cursor-pointer",
         isError
           ? [
               "hover:text-foreground focus-visible:text-foreground text-red-600 hover:bg-red-50 focus-visible:bg-red-50",
@@ -389,13 +397,13 @@ function HeaderTabEnhanced({
           : ["hover:bg-accent focus-visible:bg-muted"],
       ])}
     >
-      {isError && (
+      {isError ? (
         <AlertCircleIcon
           size={12}
           className="pointer-events-none absolute inset-0 m-auto transition-opacity duration-200 group-hover:opacity-0 group-focus-visible:opacity-0"
         />
-      )}
-      <RefreshCwIcon
+      ) : null}
+      <ChevronDownIcon
         size={12}
         className={cn([
           "pointer-events-none absolute inset-0 m-auto transition-opacity duration-200",
@@ -417,8 +425,34 @@ function HeaderTabEnhanced({
       onContextMenu={showContextMenu}
     >
       <TruncatedTitle title={tabTitle} isActive={isActive} />
-      {isActive && regenerateIcon}
+      {isActive ? (
+        <TemplatePickerPopover
+          sessionId={sessionId}
+          onSelectTemplate={handleSelectTemplate}
+          trigger={templateMenuTrigger}
+        />
+      ) : null}
     </NoteTab>,
+  );
+}
+
+function HeaderTabTranscript({
+  isActive,
+  onClick = () => {},
+}: {
+  isActive: boolean;
+  onClick?: () => void;
+}) {
+  return (
+    <NoteTab
+      data-main-area-window-drag-region
+      data-tauri-drag-region="false"
+      className={SESSION_NOTE_TAB_CLASSNAME}
+      isActive={isActive}
+      onClick={onClick}
+    >
+      Transcript
+    </NoteTab>
   );
 }
 
@@ -450,12 +484,14 @@ function useOpenTemplatesTab() {
   );
 }
 
-function CreateOtherFormatButton({
+function TemplatePickerPopover({
   sessionId,
-  handleTabChange,
+  onSelectTemplate,
+  trigger,
 }: {
   sessionId: string;
-  handleTabChange: (view: EditorView) => void;
+  onSelectTemplate: (templateId: string) => void;
+  trigger: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -497,15 +533,9 @@ function CreateOtherFormatButton({
       setSearch("");
       resultRefs.current = [];
 
-      const service = getEnhancerService();
-      if (!service) return;
-
-      const result = service.enhance(sessionId, { templateId });
-      if (result.type === "started" || result.type === "already_active") {
-        handleTabChange({ type: "enhanced", id: result.noteId });
-      }
+      onSelectTemplate(templateId);
     },
-    [sessionId, handleTabChange],
+    [onSelectTemplate],
   );
 
   const handleOpenChange = useCallback((nextOpen: boolean) => {
@@ -877,30 +907,13 @@ function CreateOtherFormatButton({
 
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
-      <PopoverTrigger asChild>
-        <button
-          data-main-area-window-drag-region
-          data-tauri-drag-region="false"
-          className={cn([
-            "relative shrink-0 px-1 py-0.5 text-xs font-medium whitespace-nowrap transition-all duration-200 select-none",
-            SESSION_NOTE_TAB_CLASSNAME,
-            "text-muted-foreground hover:text-foreground",
-            "flex items-center gap-1",
-            "border-b-2 border-transparent",
-          ])}
-        >
-          <PlusIcon size={14} />
-          <span>Use template</span>
-        </button>
-      </PopoverTrigger>
+      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       <PopoverContent variant="app" className="w-80" align="start">
         <div className="flex flex-col gap-1">
           <AppFloatingPanel className="flex flex-col overflow-hidden">
             <div className="border-border border-b py-2">
               <div
-                className={cn([
-                  "bg-card flex h-9 items-center gap-2 rounded-md px-3",
-                ])}
+                className={cn(["flex h-9 items-center gap-2 rounded-md px-3"])}
               >
                 <SearchIcon className="text-muted-foreground h-4 w-4" />
                 <input
@@ -999,8 +1012,6 @@ export function Header({
   currentTab: EditorView;
   handleTabChange: (view: EditorView) => void;
 }) {
-  const sessionMode = useListener((state) => state.getSessionMode(sessionId));
-  const isLiveProcessing = sessionMode === "active";
   const store = main.UI.useStore(main.STORE_ID);
   const primaryEnhancedTabId = editorTabs.find(
     (view): view is Extract<EditorView, { type: "enhanced" }> =>
@@ -1066,14 +1077,18 @@ export function Header({
                 );
               }
 
+              if (view.type === "transcript") {
+                return (
+                  <HeaderTabTranscript
+                    key={view.type}
+                    isActive={currentTab.type === view.type}
+                    onClick={() => handleTabChange(view)}
+                  />
+                );
+              }
+
               return null;
             })}
-            {!isLiveProcessing && (
-              <CreateOtherFormatButton
-                sessionId={sessionId}
-                handleTabChange={handleTabChange}
-              />
-            )}
           </div>
         </div>
       </div>
@@ -1088,27 +1103,17 @@ export function useEditorTabs({
 }): EditorView[] {
   useEnsureDefaultSummary(sessionId);
 
-  const sessionMode = useListener((state) => state.getSessionMode(sessionId));
-  const hasTranscript = useHasTranscript(sessionId);
   const enhancedNoteIds = main.UI.useSliceRowIds(
     main.INDEXES.enhancedNotesBySession,
     sessionId,
     main.STORE_ID,
   );
+  const enhancedTabs: EditorView[] = (enhancedNoteIds || []).map((id) => ({
+    type: "enhanced",
+    id,
+  }));
 
-  if (sessionMode === "active") {
-    return [{ type: "raw" }];
-  }
-
-  if (hasTranscript) {
-    const enhancedTabs: EditorView[] = (enhancedNoteIds || []).map((id) => ({
-      type: "enhanced",
-      id,
-    }));
-    return [...enhancedTabs, { type: "raw" }];
-  }
-
-  return [{ type: "raw" }];
+  return [...enhancedTabs, { type: "raw" }, { type: "transcript" }];
 }
 
 function useEnhanceLogic(sessionId: string, enhancedNoteId: string) {

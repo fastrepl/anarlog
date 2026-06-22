@@ -8,6 +8,10 @@ import { useSessionBottomAccessory } from "./components/bottom-accessory";
 import { CaretPositionProvider } from "./components/caret-position-context";
 import { FloatingActionButton } from "./components/floating";
 import { NoteInput, type NoteInputHandle } from "./components/note-input";
+import {
+  Header as NoteInputHeader,
+  useEditorTabs,
+} from "./components/note-input/header";
 import { SearchProvider } from "./components/note-input/search/context";
 import { OuterHeader } from "./components/outer-header";
 import { SessionSurface } from "./components/session-surface";
@@ -120,7 +124,9 @@ function TabContentNoteInner({
   const titleInputRef = React.useRef<TitleInputHandle>(null);
   const noteInputRef = React.useRef<NoteInputHandle>(null);
 
+  const editorTabs = useEditorTabs({ sessionId: tab.id });
   const currentView = useCurrentNoteTab(tab);
+  const updateSessionTabState = useTabs((state) => state.updateSessionTabState);
   const hasTranscript = useHasTranscript(tab.id);
 
   const sessionId = tab.id;
@@ -139,8 +145,16 @@ function TabContentNoteInner({
       audioUrlReady,
       isAudioLoading: isAudioUrlLoading,
       hasTranscript,
+      suppressTranscriptPanel: currentView.type === "transcript",
     });
 
+  const handleTabChange = React.useCallback(
+    (view: typeof currentView) => {
+      noteInputRef.current?.prepareForTabChange();
+      updateSessionTabState(tab, { ...tab.state, view });
+    },
+    [tab, updateSessionTabState],
+  );
   const handleNavigateToTitle = React.useCallback((pixelWidth?: number) => {
     if (pixelWidth !== undefined) {
       titleInputRef.current?.focusAtPixelWidth(pixelWidth);
@@ -148,15 +162,12 @@ function TabContentNoteInner({
       titleInputRef.current?.focusAtEnd();
     }
   }, []);
-
   const handleTransferContentToEditor = React.useCallback((content: string) => {
     noteInputRef.current?.insertAtStartAndFocus(content);
   }, []);
-
   const handleFocusEditorAtStart = React.useCallback(() => {
     noteInputRef.current?.focusAtStart();
   }, []);
-
   const handleFocusEditorAtPixelWidth = React.useCallback(
     (pixelWidth: number) => {
       noteInputRef.current?.focusAtPixelWidth(pixelWidth);
@@ -181,6 +192,11 @@ function TabContentNoteInner({
     bottomAccessoryState?.expanded === true &&
     canResizeTranscriptSurface &&
     hasResizableTranscriptSurface;
+  const showBottomAccessory =
+    currentView.type !== "transcript" ||
+    bottomAccessoryState?.mode === "playback";
+  const showBottomTranscriptSurface =
+    showBottomAccessory && currentView.type !== "transcript";
 
   return (
     <SessionSurface
@@ -190,28 +206,46 @@ function TabContentNoteInner({
           currentView={currentView}
           standaloneWindow={standaloneWindow}
           title={
-            <NoteTitleBreadcrumb
-              sessionId={tab.id}
-              title={
-                <TitleInput
-                  ref={titleInputRef}
-                  tab={tab}
-                  variant="breadcrumb"
-                  onTransferContentToEditor={handleTransferContentToEditor}
-                  onFocusEditorAtStart={handleFocusEditorAtStart}
-                  onFocusEditorAtPixelWidth={handleFocusEditorAtPixelWidth}
+            <div className="flex min-w-0 items-center gap-2">
+              <div className="min-w-0 flex-1">
+                <NoteTitleBreadcrumb
+                  sessionId={tab.id}
+                  title={
+                    <TitleInput
+                      ref={titleInputRef}
+                      tab={tab}
+                      variant="breadcrumb"
+                      onTransferContentToEditor={handleTransferContentToEditor}
+                      onFocusEditorAtStart={handleFocusEditorAtStart}
+                      onFocusEditorAtPixelWidth={handleFocusEditorAtPixelWidth}
+                    />
+                  }
                 />
-              }
-            />
+              </div>
+              <div className="shrink-0">
+                <NoteInputHeader
+                  sessionId={tab.id}
+                  editorTabs={editorTabs}
+                  currentTab={currentView}
+                  handleTabChange={handleTabChange}
+                />
+              </div>
+            </div>
           }
         />
       }
-      afterBorder={bottomAccessory}
-      afterBorderExpanded={resizeTranscriptSurface}
-      afterBorderFlush={bottomAccessoryState?.mode === "live"}
-      afterBorderResizable={canResizeTranscriptSurface}
-      bottomBorderHandle={bottomBorderHandle}
-      mergeAfterBorder={mergeTranscriptSurface}
+      afterBorder={showBottomAccessory ? bottomAccessory : null}
+      afterBorderExpanded={
+        showBottomTranscriptSurface && resizeTranscriptSurface
+      }
+      afterBorderFlush={
+        showBottomTranscriptSurface && bottomAccessoryState?.mode === "live"
+      }
+      afterBorderResizable={
+        showBottomTranscriptSurface && canResizeTranscriptSurface
+      }
+      bottomBorderHandle={showBottomAccessory ? bottomBorderHandle : null}
+      mergeAfterBorder={showBottomTranscriptSurface && mergeTranscriptSurface}
       floatingButton={
         <FloatingActionButton
           allowListening={!standaloneWindow}
@@ -224,6 +258,10 @@ function TabContentNoteInner({
         ref={noteInputRef}
         tab={tab}
         onNavigateToTitle={handleNavigateToTitle}
+        editorTabs={editorTabs}
+        currentTab={currentView}
+        handleTabChange={handleTabChange}
+        hideHeader
       />
     </SessionSurface>
   );
@@ -249,9 +287,7 @@ function useAutoFocusTitle({
   sessionId: string;
   titleInputRef: React.RefObject<TitleInputHandle | null>;
 }) {
-  // Prevent re-focusing when the user intentionally leaves the title empty.
   const didAutoFocus = useRef(false);
-
   const title = main.UI.useCell("sessions", sessionId, "title", main.STORE_ID);
 
   useEffect(() => {

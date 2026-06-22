@@ -36,13 +36,14 @@ describe("hasStoredNoteContent", () => {
 
 describe("computeCurrentNoteTab", () => {
   describe("when listening is active", () => {
-    it("returns raw view when current view is enhanced", () => {
+    it("preserves enhanced view", () => {
       const result = computeCurrentNoteTab(
         { type: "enhanced", id: "note-1" },
         true,
         "note-1",
+        false,
       );
-      expect(result).toEqual({ type: "raw" });
+      expect(result).toEqual({ type: "enhanced", id: "note-1" });
     });
 
     it("preserves raw view", () => {
@@ -50,13 +51,14 @@ describe("computeCurrentNoteTab", () => {
       expect(result).toEqual({ type: "raw" });
     });
 
-    it("returns raw view when current view is transcript", () => {
+    it("preserves transcript view", () => {
       const result = computeCurrentNoteTab(
         { type: "transcript" },
         true,
         "note-1",
+        true,
       );
-      expect(result).toEqual({ type: "raw" });
+      expect(result).toEqual({ type: "transcript" });
     });
 
     it("returns raw view when no persisted view", () => {
@@ -71,6 +73,7 @@ describe("computeCurrentNoteTab", () => {
         { type: "enhanced", id: "note-1" },
         false,
         "note-1",
+        false,
       );
       expect(result).toEqual({ type: "enhanced", id: "note-1" });
     });
@@ -80,13 +83,24 @@ describe("computeCurrentNoteTab", () => {
       expect(result).toEqual({ type: "raw" });
     });
 
-    it("normalizes persisted transcript view to raw", () => {
+    it("respects persisted transcript view", () => {
       const result = computeCurrentNoteTab(
         { type: "transcript" },
         false,
         "note-1",
+        true,
       );
-      expect(result).toEqual({ type: "raw" });
+      expect(result).toEqual({ type: "transcript" });
+    });
+
+    it("preserves persisted transcript view even before transcript content exists", () => {
+      const result = computeCurrentNoteTab(
+        { type: "transcript" },
+        false,
+        "note-1",
+        false,
+      );
+      expect(result).toEqual({ type: "transcript" });
     });
 
     it("normalizes persisted attachments view to raw", () => {
@@ -94,6 +108,7 @@ describe("computeCurrentNoteTab", () => {
         { type: "attachments" },
         false,
         "note-1",
+        false,
       );
       expect(result).toEqual({ type: "raw" });
     });

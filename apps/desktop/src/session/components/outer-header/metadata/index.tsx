@@ -96,7 +96,7 @@ function ContentInner({ sessionId }: { sessionId: string }) {
         {!eventDisplayData && <DateEditor sessionId={sessionId} />}
         {eventDisplayData && <EventDisplay event={eventDisplayData} />}
       </div>
-      <div className="p-4">
+      <div className="px-4 pt-2 pb-4">
         <ParticipantsDisplay sessionId={sessionId} />
       </div>
     </div>

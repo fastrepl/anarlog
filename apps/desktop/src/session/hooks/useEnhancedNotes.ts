@@ -62,6 +62,18 @@ export function useEnsureDefaultSummary(sessionId: string) {
   const llmStatus = useLLMConnectionStatus();
 
   useEffect(() => {
+    const service = getEnhancerService();
+    if (!service) {
+      return;
+    }
+
+    const hasEnhancedNotes = enhancedNoteIds && enhancedNoteIds.length > 0;
+    const templateId = selectedTemplateId || undefined;
+
+    if (!hasEnhancedNotes) {
+      service.ensureNote(sessionId, templateId);
+    }
+
     if (
       !hasTranscript ||
       sessionMode === "active" ||
@@ -71,17 +83,7 @@ export function useEnsureDefaultSummary(sessionId: string) {
       return;
     }
 
-    const service = getEnhancerService();
-    if (!service) {
-      return;
-    }
-
-    const hasEnhancedNotes = enhancedNoteIds && enhancedNoteIds.length > 0;
-
     if (llmStatus.status !== "success") {
-      if (!hasEnhancedNotes) {
-        service.ensureNote(sessionId, selectedTemplateId || undefined);
-      }
       return;
     }
 
