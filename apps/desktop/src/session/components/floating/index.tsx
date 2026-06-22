@@ -19,14 +19,17 @@ import type { Tab } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
 
 export function FloatingActionButton({
+  allowListening = true,
   skipReason = null,
   tab,
 }: {
+  allowListening?: boolean;
   skipReason?: string | null;
   tab: Extract<Tab, { type: "sessions" }>;
 }) {
   const sessionMode = useListener((state) => state.getSessionMode(tab.id));
-  const shouldShowListen = useShouldShowListeningFab(tab, sessionMode);
+  const canShowListen = useShouldShowListeningFab(tab, sessionMode);
+  const shouldShowListen = allowListening && canShowListen;
   const shouldShowChat = useShouldShowChatFab(tab, sessionMode);
   const isCaretNearBottom = useCaretPosition()?.isCaretNearBottom ?? false;
   const showSkipReason = !!skipReason;

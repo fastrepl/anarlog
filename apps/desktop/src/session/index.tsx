@@ -46,6 +46,10 @@ export function TabContentNote({
       return;
     }
 
+    if (standaloneWindow) {
+      return;
+    }
+
     if (hasAttemptedAutoStart.current) {
       return;
     }
@@ -65,6 +69,7 @@ export function TabContentNote({
     tab.id,
     tab.state,
     tab.state.autoStart,
+    standaloneWindow,
     canStartLiveSession,
     conn,
     startListening,
@@ -201,7 +206,11 @@ function TabContentNoteInner({
       bottomBorderHandle={bottomBorderHandle}
       mergeAfterBorder={mergeTranscriptSurface}
       floatingButton={
-        <FloatingActionButton skipReason={skipReason} tab={tab} />
+        <FloatingActionButton
+          allowListening={!standaloneWindow}
+          skipReason={skipReason}
+          tab={tab}
+        />
       }
     >
       <NoteInput

@@ -34,8 +34,7 @@ export function OuterHeader({
     !standaloneWindow && !leftsidebar.expanded;
   const showExpandedSidebarTimelineHeader = leftsidebar.expanded;
   const reserveCollapsedLiveControls =
-    (standaloneWindow || showSidebarTimelineHeaderGutter) &&
-    isSidebarStopButtonMode(sessionMode);
+    showSidebarTimelineHeaderGutter && isSidebarStopButtonMode(sessionMode);
 
   return (
     <div
@@ -78,7 +77,11 @@ export function OuterHeader({
           standaloneWindow={standaloneWindow}
         />
         <HeaderMeetingControl sessionId={sessionId} sessionMode={sessionMode} />
-        <OverflowButton sessionId={sessionId} currentView={currentView} />
+        <OverflowButton
+          allowListening={!standaloneWindow}
+          sessionId={sessionId}
+          currentView={currentView}
+        />
       </div>
     </div>
   );
@@ -238,7 +241,7 @@ function SidebarModeStopButton({
   const active = isSidebarStopButtonMode(sessionMode);
   const finalizing = sessionMode === "finalizing";
 
-  if ((!standaloneWindow && leftsidebar.expanded) || !active) {
+  if (standaloneWindow || leftsidebar.expanded || !active) {
     return null;
   }
 

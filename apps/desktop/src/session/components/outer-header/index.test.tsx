@@ -260,7 +260,7 @@ describe("OuterHeader", () => {
     expect(screen.queryByRole("button", { name: "Stop listening" })).toBeNull();
   });
 
-  it("shows a stop listening button in standalone windows", () => {
+  it("keeps listener controls hidden in standalone windows", () => {
     mocks.leftsidebar.expanded = true;
     mocks.sessionModes = { "session-1": "active" };
 
@@ -273,17 +273,13 @@ describe("OuterHeader", () => {
       />,
     );
 
-    const stopButton = screen.getByRole("button", {
-      name: "Stop listening",
-    });
     const title = screen.getByText("Session title");
     const titleSlot = title.parentElement?.parentElement;
 
-    fireEvent.click(stopButton);
-
     expect(titleSlot?.className).toContain("left-[68px]");
-    expect(titleSlot?.className).toContain("right-[153px]");
-    expect(mocks.stopListening).toHaveBeenCalledTimes(1);
+    expect(titleSlot?.className).toContain("right-[70px]");
+    expect(screen.queryByRole("button", { name: "Stop listening" })).toBeNull();
+    expect(mocks.stopListening).not.toHaveBeenCalled();
   });
 
   it("does not reserve collapsed sidebar gutter in standalone windows", () => {
