@@ -33,7 +33,7 @@ export function ChatCTA({
         className={cn([
           "pointer-events-none absolute bottom-0 left-1/2 inline-flex h-2 w-[min(640px,calc(100cqw_-_2rem))] -translate-x-1/2 items-center overflow-hidden rounded-full border border-transparent bg-black dark:bg-white",
           "[clip-path:inset(0_calc(50%_-_3rem)_0_calc(50%_-_3rem)_round_9999px)]",
-          "origin-bottom px-0 text-sm shadow-none transition-[clip-path,height,padding,background-color,border-color] duration-200 ease-out",
+          "origin-bottom px-0 text-sm shadow-[0_8px_22px_rgba(0,0,0,0.2)] transition-[clip-path,height,padding,background-color,border-color,box-shadow] duration-200 ease-out dark:shadow-[0_8px_24px_rgba(0,0,0,0.45)]",
           "group-hover/anarlog-chat-cta:border-border/70 group-focus-visible/anarlog-chat-cta:border-border/70 group-hover/anarlog-chat-cta:bg-[#f4f4f5] group-focus-visible/anarlog-chat-cta:bg-[#f4f4f5] dark:group-hover/anarlog-chat-cta:bg-[#202020] dark:group-focus-visible/anarlog-chat-cta:bg-[#202020]",
           "group-hover/anarlog-chat-cta:h-10 group-hover/anarlog-chat-cta:px-4 group-hover/anarlog-chat-cta:[clip-path:inset(0_0_0_0_round_9999px)]",
           "group-focus-visible/anarlog-chat-cta:h-10 group-focus-visible/anarlog-chat-cta:px-4 group-focus-visible/anarlog-chat-cta:[clip-path:inset(0_0_0_0_round_9999px)]",

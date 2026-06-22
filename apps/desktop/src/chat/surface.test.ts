@@ -41,18 +41,21 @@ describe("chat surface tokens", () => {
 
   it("uses a neutral surface on the floating shell", () => {
     expect(chatFloatingPanelShellClassNames()).toContain(
-      "shadow-[0_16px_48px_rgba(0,0,0,0.18)]",
+      "shadow-[0_18px_56px_rgba(0,0,0,0.22)]",
     );
     expect(chatFloatingPanelShellClassNames()).toContain(
-      "dark:shadow-[0_16px_48px_rgba(0,0,0,0.55)]",
+      "dark:shadow-[0_18px_64px_rgba(0,0,0,0.6)]",
     );
     expect(chatFloatingPanelShellClassNames()).toContain("bg-[#f4f4f5]");
-    expect(chatFloatingPanelShellClassNames()).toContain("rounded-[20px]");
-    expect(chatFloatingPanelShellClassNames()).toContain("border-0");
+    expect(chatFloatingPanelShellClassNames()).toContain("rounded-[28px]");
+    expect(chatFloatingPanelShellClassNames()).toContain("border");
+    expect(chatFloatingPanelShellClassNames()).toContain("border-border/70");
+    expect(chatFloatingPanelShellClassNames()).toContain(
+      "dark:border-white/10",
+    );
     expect(chatFloatingPanelShellClassNames()).toContain("dark:bg-[#202020]");
     expect(chatFloatingPanelShellClassNames()).not.toContain("after:border");
     expect(chatFloatingPanelShellClassNames()).not.toContain("after:inset");
-    expect(chatFloatingPanelShellClassNames()).not.toContain("border-2");
     expect(chatFloatingPanelShellClassNames()).not.toContain("bg-card");
   });
 

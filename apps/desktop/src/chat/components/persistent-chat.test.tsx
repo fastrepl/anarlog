@@ -116,21 +116,21 @@ describe("PersistentChatPanel", () => {
     expect(screen.getByTestId("open-right-panel").dataset.hasSession).toBe(
       "true",
     );
-    const resizeFrame = document.querySelector("[data-chat-resize-frame]");
+    const floatingFrame = document.querySelector("[data-chat-floating-frame]");
     const panel = document.querySelector<HTMLElement>("[data-chat-panel]");
 
     await waitFor(() => {
-      expect(resizeFrame?.className).toContain("items-end");
-      expect(resizeFrame?.className).toContain("justify-center");
-      expect(resizeFrame?.className).toContain("px-3");
-      expect(resizeFrame?.className).toContain("pb-2");
-      expect(resizeFrame?.className).not.toContain("pb-3");
+      expect(floatingFrame?.className).toContain("items-end");
+      expect(floatingFrame?.className).toContain("justify-center");
+      expect(floatingFrame?.className).toContain("px-3");
+      expect(floatingFrame?.className).toContain("pb-2");
+      expect(floatingFrame?.className).not.toContain("pb-3");
       expect(panel?.style.width).toBe("calc(100% - 1.5rem)");
       expect(panel?.style.minWidth).toBe("min(368px, calc(100% - 1.5rem))");
       expect(panel?.style.maxWidth).toBe("648px");
       expect(panel?.style.height).toBe("");
       expect(panel?.style.transformOrigin).toBe("bottom center");
-      expect(panel?.className).toContain("rounded-[20px]");
+      expect(panel?.className).toContain("rounded-[28px]");
       expect(panel?.dataset.chatPanelReveal).toBe("bottom-up");
     });
   });
@@ -152,11 +152,11 @@ describe("PersistentChatPanel", () => {
 
     await screen.findByTestId("chat-view");
 
-    const resizeFrame = document.querySelector<HTMLElement>(
-      "[data-chat-resize-frame]",
+    const floatingFrame = document.querySelector<HTMLElement>(
+      "[data-chat-floating-frame]",
     );
 
-    fireEvent.click(resizeFrame!);
+    fireEvent.click(floatingFrame!);
 
     expect(mocks.sendEvent).toHaveBeenCalledWith({ type: "CLOSE" });
   });
@@ -169,175 +169,25 @@ describe("PersistentChatPanel", () => {
     fireEvent.click(screen.getByTestId("mark-draft-content"));
     mocks.sendEvent.mockClear();
 
-    const resizeFrame = document.querySelector<HTMLElement>(
-      "[data-chat-resize-frame]",
+    const floatingFrame = document.querySelector<HTMLElement>(
+      "[data-chat-floating-frame]",
     );
 
-    fireEvent.click(resizeFrame!);
+    fireEvent.click(floatingFrame!);
 
     expect(mocks.sendEvent).not.toHaveBeenCalledWith({ type: "CLOSE" });
   });
 
-  it("resizes the bottom handle by the pointer movement", async () => {
-    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
-      function (this: HTMLElement) {
-        if (this.matches("[data-chat-panel]")) {
-          return {
-            bottom: 600,
-            height: 360,
-            left: 240,
-            right: 660,
-            top: 240,
-            width: 420,
-            x: 240,
-            y: 240,
-            toJSON: () => ({}),
-          };
-        }
-
-        return {
-          bottom: 720,
-          height: 720,
-          left: 0,
-          right: 900,
-          top: 0,
-          width: 900,
-          x: 0,
-          y: 0,
-          toJSON: () => ({}),
-        };
-      },
-    );
-
-    render(<TestHost />);
-
-    await screen.findByTestId("chat-view");
-
-    const resizeFrame = document.querySelector<HTMLElement>(
-      "[data-chat-resize-frame]",
-    );
-    const panel = document.querySelector<HTMLElement>("[data-chat-panel]");
-    const bottomHandle = document.querySelector<HTMLElement>(
-      '[data-chat-resize-handle="bottom"]',
-    );
-
-    expect(resizeFrame).toBeTruthy();
-    expect(panel).toBeTruthy();
-    expect(bottomHandle).toBeTruthy();
-
-    fireEvent.pointerDown(bottomHandle!, {
-      clientX: 450,
-      clientY: 600,
-      pointerId: 1,
-    });
-    fireEvent.pointerMove(bottomHandle!, {
-      clientX: 450,
-      clientY: 640,
-      pointerId: 1,
-    });
-
-    expect(panel?.style.height).toBe("400px");
-  });
-
-  it("resizes from side, top, and top corner handles", async () => {
-    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
-      function (this: HTMLElement) {
-        if (this.matches("[data-chat-panel]")) {
-          return {
-            bottom: 600,
-            height: 360,
-            left: 240,
-            right: 660,
-            top: 240,
-            width: 420,
-            x: 240,
-            y: 240,
-            toJSON: () => ({}),
-          };
-        }
-
-        return {
-          bottom: 720,
-          height: 720,
-          left: 0,
-          right: 900,
-          top: 0,
-          width: 900,
-          x: 0,
-          y: 0,
-          toJSON: () => ({}),
-        };
-      },
-    );
-
+  it("does not expose resize handles on the floating panel", async () => {
     render(<TestHost />);
 
     await screen.findByTestId("chat-view");
 
     const panel = document.querySelector<HTMLElement>("[data-chat-panel]");
+
     expect(panel).toBeTruthy();
-
-    const dragHandle = (
-      handle: string,
-      start: { x: number; y: number },
-      end: { x: number; y: number },
-    ) => {
-      const resizeHandle = document.querySelector<HTMLElement>(
-        `[data-chat-resize-handle="${handle}"]`,
-      );
-
-      expect(resizeHandle).toBeTruthy();
-
-      fireEvent.pointerDown(resizeHandle!, {
-        clientX: start.x,
-        clientY: start.y,
-        pointerId: 1,
-      });
-      fireEvent.pointerMove(resizeHandle!, {
-        clientX: end.x,
-        clientY: end.y,
-        pointerId: 1,
-      });
-      fireEvent.pointerUp(resizeHandle!, {
-        clientX: end.x,
-        clientY: end.y,
-        pointerId: 1,
-      });
-    };
-
-    dragHandle("right", { x: 660, y: 420 }, { x: 700, y: 420 });
-    expect(panel?.style.width).toBe("460px");
-    expect(panel?.style.height).toBe("360px");
-
-    dragHandle("left", { x: 240, y: 420 }, { x: 200, y: 420 });
-    expect(panel?.style.width).toBe("460px");
-    expect(panel?.style.height).toBe("360px");
-
-    dragHandle("top", { x: 450, y: 240 }, { x: 450, y: 200 });
-    expect(panel?.style.width).toBe("420px");
-    expect(panel?.style.height).toBe("400px");
-
-    dragHandle("top-left", { x: 240, y: 240 }, { x: 200, y: 200 });
-    expect(panel?.style.width).toBe("460px");
-    expect(panel?.style.height).toBe("400px");
-
-    dragHandle("top-right", { x: 660, y: 240 }, { x: 700, y: 200 });
-    expect(panel?.style.width).toBe("460px");
-    expect(panel?.style.height).toBe("400px");
-  });
-
-  it("does not render bottom corner handles or visible corner indicators", async () => {
-    render(<TestHost />);
-
-    await screen.findByTestId("chat-view");
-
-    expect(
-      document.querySelector('[data-chat-resize-handle="bottom-left"]'),
-    ).toBeNull();
-    expect(
-      document.querySelector('[data-chat-resize-handle="bottom-right"]'),
-    ).toBeNull();
-    expect(document.querySelector("[data-chat-resize-handle] span")).toBeNull();
+    expect(document.querySelector("[data-chat-resize-frame]")).toBeNull();
+    expect(document.querySelector("[data-chat-resize-handle]")).toBeNull();
   });
 
   it("hides the floating panel when the chat moves to the right panel", async () => {

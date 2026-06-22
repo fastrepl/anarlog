@@ -5,6 +5,8 @@
 
 [data-chat-input-surface="floating"] .chat-input-editor.tiptap,
 [data-chat-input-surface="floating"] .chat-input-editor.tiptap p {
+  caret-color: hsl(var(--card-foreground));
+  color: hsl(var(--card-foreground)) !important;
   line-height: 20px;
   margin-bottom: 0;
   min-height: 20px !important;

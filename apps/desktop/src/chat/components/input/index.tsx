@@ -77,7 +77,7 @@ export function ChatMessageInput({
         data-chat-message-input
         className={cn([
           isFloating
-            ? "flex min-h-10 w-full min-w-0 items-center"
+            ? "flex h-full min-h-0 w-full min-w-0 items-center"
             : "flex flex-col px-2 pt-3 pb-2",
         ])}
       >
@@ -175,8 +175,8 @@ function Container({
           "flex max-h-full border",
           isFloating
             ? [
-                "border-border/70 text-muted-foreground max-h-32 min-h-10 flex-row items-center overflow-hidden rounded-full bg-[#f4f4f5] px-4 py-2 text-sm shadow-none",
-                "dark:bg-[#202020]",
+                "border-border/70 text-card-foreground h-10 max-h-10 min-h-10 flex-row items-center overflow-hidden rounded-full bg-white px-4 py-0 text-sm shadow-none",
+                "dark:bg-card dark:text-card-foreground",
               ]
             : [elevatedSurfaceClassName, "flex-col rounded-xl"],
           hasContextBar && !isFloating && "rounded-t-none border-t-0",

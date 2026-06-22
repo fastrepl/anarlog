@@ -202,32 +202,36 @@ describe("ChatMessageInput", () => {
     expect(sendButton.className).not.toContain("bg-primary");
   });
 
-  it("matches the hovered FAB surface while floating", () => {
+  it("uses a white input surface while floating", () => {
     render(
       <ChatMessageInput draftKey="chat-input-test" onSendMessage={vi.fn()} />,
     );
 
     const editor = screen.getByTestId("chat-editor");
-    const surface = editor.closest("[data-chat-message-input]")?.parentElement;
+    const messageInput = editor.closest("[data-chat-message-input]");
+    const surface = messageInput?.parentElement;
 
     expect(editor.className).toContain("chat-input-editor");
     expect(editor.className).toContain("max-h-24");
     expect(editor.className).toContain("overflow-y-auto");
     expect(editor.dataset.placeholder).toBe("Ask anything");
+    expect(messageInput?.className).toContain("h-full");
+    expect(messageInput?.className).not.toContain("min-h-10");
     expect(screen.queryByRole("button", { name: /send/i })).toBeNull();
     expect(surface?.getAttribute("data-chat-input-surface")).toBe("floating");
+    expect(surface?.className).toContain("h-10");
     expect(surface?.className).toContain("min-h-10");
-    expect(surface?.className).toContain("max-h-32");
+    expect(surface?.className).toContain("max-h-10");
     expect(surface?.className).toContain("rounded-full");
-    expect(surface?.className).toContain("py-2");
-    expect(surface?.className).toContain("bg-[#f4f4f5]");
-    expect(surface?.className).toContain("dark:bg-[#202020]");
-    expect(surface?.className).toContain("text-muted-foreground");
+    expect(surface?.className).toContain("py-0");
+    expect(surface?.className).toContain("bg-white");
+    expect(surface?.className).toContain("text-card-foreground");
+    expect(surface?.className).toContain("dark:bg-card");
+    expect(surface?.className).toContain("dark:text-card-foreground");
     expect(surface?.className).toContain("border-border/70");
     expect(surface?.className).toContain("shadow-none");
     expect(surface?.className).not.toContain("shadow-[");
     expect(surface?.className).not.toContain("inset_0_0_0_1px");
-    expect(surface?.className).not.toContain("bg-card");
   });
 
   it("uses the light card input surface in the right panel", () => {
