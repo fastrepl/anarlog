@@ -409,6 +409,7 @@ describe("TimelineItemComponent", () => {
 
       const rowButton = screen.getByText("Live Note").closest("button");
       fireEvent.click(rowButton!);
+      vi.advanceTimersByTime(250);
       fireEvent.click(rowButton!);
       fireEvent.doubleClick(rowButton!);
 
