@@ -345,84 +345,73 @@ describe("TimelineItemComponent", () => {
   });
 
   it("opens the current tab after a single-click on a session row", () => {
-    vi.useFakeTimers();
+    render(
+      <TimelineItemComponent
+        item={{
+          type: "session",
+          id: "session-note",
+          data: {
+            title: "Window Note",
+            created_at: "2024-01-15T10:30:00.000Z",
+          },
+        }}
+        precision="time"
+        selected={false}
+        timezone="UTC"
+        multiSelected={false}
+        flatItemKeys={["session-session-note"]}
+      />,
+    );
 
-    try {
-      render(
-        <TimelineItemComponent
-          item={{
-            type: "session",
-            id: "session-note",
-            data: {
-              title: "Window Note",
-              created_at: "2024-01-15T10:30:00.000Z",
-            },
-          }}
-          precision="time"
-          selected={false}
-          timezone="UTC"
-          multiSelected={false}
-          flatItemKeys={["session-session-note"]}
-        />,
-      );
+    const rowButton = screen.getByText("Live Note").closest("button");
+    fireEvent.click(rowButton!, { detail: 1 });
 
-      const rowButton = screen.getByText("Live Note").closest("button");
-      fireEvent.click(rowButton!);
-
-      expect(mocks.openCurrent).not.toHaveBeenCalled();
-
-      vi.advanceTimersByTime(350);
-
-      expect(mocks.timelineSelection.setAnchor).toHaveBeenCalledWith(
-        "session-session-note",
-      );
-      expect(mocks.openCurrent).toHaveBeenCalledWith({
-        id: "session-note",
-        type: "sessions",
-      });
-    } finally {
-      vi.useRealTimers();
-    }
+    expect(mocks.timelineSelection.setAnchor).toHaveBeenCalledWith(
+      "session-session-note",
+    );
+    expect(mocks.openCurrent).toHaveBeenCalledWith({
+      id: "session-note",
+      type: "sessions",
+    });
   });
 
   it("opens a standalone note window when a session row is double-clicked", () => {
-    vi.useFakeTimers();
+    render(
+      <TimelineItemComponent
+        item={{
+          type: "session",
+          id: "session-note-window",
+          data: {
+            title: "Window Note",
+            created_at: "2024-01-15T10:30:00.000Z",
+          },
+        }}
+        precision="time"
+        selected={false}
+        timezone="UTC"
+        multiSelected={false}
+        flatItemKeys={["session-session-note-window"]}
+      />,
+    );
 
-    try {
-      render(
-        <TimelineItemComponent
-          item={{
-            type: "session",
-            id: "session-note-window",
-            data: {
-              title: "Window Note",
-              created_at: "2024-01-15T10:30:00.000Z",
-            },
-          }}
-          precision="time"
-          selected={false}
-          timezone="UTC"
-          multiSelected={false}
-          flatItemKeys={["session-session-note-window"]}
-        />,
-      );
+    const rowButton = screen.getByText("Live Note").closest("button");
+    fireEvent.click(rowButton!, { detail: 1 });
+    fireEvent.click(rowButton!, { detail: 2 });
+    fireEvent.doubleClick(rowButton!);
 
-      const rowButton = screen.getByText("Live Note").closest("button");
-      fireEvent.click(rowButton!);
-      vi.advanceTimersByTime(250);
-      fireEvent.click(rowButton!);
-      fireEvent.doubleClick(rowButton!);
-
-      expect(mocks.windowShow).toHaveBeenCalledWith({
-        type: "note",
-        value: "session-note-window",
-      });
-      vi.runAllTimers();
-      expect(mocks.openCurrent).not.toHaveBeenCalled();
-      expect(mocks.timelineSelection.setAnchor).not.toHaveBeenCalled();
-    } finally {
-      vi.useRealTimers();
-    }
+    expect(mocks.openCurrent).toHaveBeenCalledTimes(1);
+    expect(mocks.openCurrent).toHaveBeenCalledWith({
+      id: "session-note-window",
+      type: "sessions",
+    });
+    expect(mocks.timelineSelection.setAnchor).toHaveBeenCalledTimes(1);
+    expect(mocks.timelineSelection.setAnchor).toHaveBeenCalledWith(
+      "session-session-note-window",
+    );
+    expect(mocks.windowShow).toHaveBeenCalledWith({
+      type: "note",
+      value: "session-note-window",
+    });
   });
 
   it("offers a standalone window action instead of a new tab action for session rows", () => {

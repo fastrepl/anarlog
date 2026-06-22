@@ -3,16 +3,12 @@ import {
   type MouseEvent,
   type ReactNode,
   useCallback,
-  useRef,
 } from "react";
 
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import {
   type MenuItemDef,
   useNativeContextMenu,
 } from "~/shared/hooks/useNativeContextMenu";
-
-const DOUBLE_CLICK_DELAY_MS = 350;
 
 interface InteractiveButtonProps {
   children: ReactNode;
@@ -44,18 +40,6 @@ export function InteractiveButton({
   asChild = false,
 }: InteractiveButtonProps) {
   const showMenu = useNativeContextMenu(contextMenu ?? []);
-  const clickTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const clearPendingClick = useCallback(() => {
-    if (clickTimeoutRef.current) {
-      clearTimeout(clickTimeoutRef.current);
-      clickTimeoutRef.current = null;
-    }
-  }, []);
-
-  useMountEffect(() => {
-    return clearPendingClick;
-  });
 
   const handleClick = useCallback(
     (e: MouseEvent<HTMLElement>) => {
@@ -65,22 +49,16 @@ export function InteractiveButton({
 
       if (e.shiftKey) {
         e.preventDefault();
-        clearPendingClick();
         onShiftClick?.();
       } else if (e.metaKey || e.ctrlKey) {
         e.preventDefault();
-        clearPendingClick();
         onCmdClick?.();
       } else if (onDoubleClick) {
-        clearPendingClick();
         if (e.detail > 1) {
           return;
         }
 
-        clickTimeoutRef.current = setTimeout(() => {
-          clickTimeoutRef.current = null;
-          onClick?.();
-        }, DOUBLE_CLICK_DELAY_MS);
+        onClick?.();
       } else {
         onClick?.();
       }
@@ -91,7 +69,6 @@ export function InteractiveButton({
       onCmdClick,
       onShiftClick,
       disabled,
-      clearPendingClick,
     ],
   );
 
@@ -102,26 +79,23 @@ export function InteractiveButton({
       }
 
       e.preventDefault();
-      clearPendingClick();
       onDoubleClick?.();
     },
-    [onDoubleClick, disabled, clearPendingClick],
+    [onDoubleClick, disabled],
   );
 
   const handleDragStart = useCallback(
     (e: DragEvent<HTMLElement>) => {
-      clearPendingClick();
       onDragStart?.(e);
     },
-    [onDragStart, clearPendingClick],
+    [onDragStart],
   );
 
   const handleContextMenu = useCallback(
     (e: MouseEvent<HTMLElement>) => {
-      clearPendingClick();
       showMenu(e);
     },
-    [showMenu, clearPendingClick],
+    [showMenu],
   );
 
   const Element = asChild ? "div" : "button";
