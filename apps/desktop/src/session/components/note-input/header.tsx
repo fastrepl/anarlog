@@ -1035,18 +1035,12 @@ function SummaryTemplateMenu({
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverContent
-        variant="app"
-        className="w-80 rounded-[18px]"
-        align="start"
-      >
-        <div className="flex flex-col gap-1">
-          <AppFloatingPanel className="flex flex-col overflow-hidden">
-            <div className="border-border border-b py-2">
+      <PopoverContent variant="app" className="w-80" align="start">
+        <AppFloatingPanel className="flex flex-col gap-2 p-2">
+          <div className="border-app-floating-border bg-app-floating-panel flex flex-col overflow-hidden rounded-2xl border">
+            <div className="border-app-floating-border border-b p-2">
               <div
-                className={cn([
-                  "bg-card flex h-9 items-center gap-2 rounded-md px-3",
-                ])}
+                className={cn(["flex h-9 items-center gap-2 rounded-md px-3"])}
               >
                 <SearchIcon className="text-muted-foreground h-4 w-4" />
                 <input
@@ -1070,53 +1064,49 @@ function SummaryTemplateMenu({
               </div>
             </div>
 
-            <div className="relative">
-              <div
-                className={cn([
-                  "scroll-fade-y scrollbar-hide max-h-80 overflow-y-auto p-2",
-                ])}
-              >
-                <div className="flex flex-col gap-3">
-                  {resultSections.map((section) => (
-                    <TemplateSection
-                      key={section.key}
-                      title={section.title}
-                      icon={section.icon}
-                      uppercase={section.uppercase}
-                    >
-                      {section.items.length > 0 ? (
-                        section.items.map((item) => {
-                          const itemIndex = resultIndex;
-                          resultIndex += 1;
+            <div
+              className={cn([
+                "scroll-fade-y scrollbar-hide max-h-80 overflow-y-auto p-2",
+              ])}
+            >
+              <div className="flex flex-col gap-3">
+                {resultSections.map((section) => (
+                  <TemplateSection
+                    key={section.key}
+                    title={section.title}
+                    icon={section.icon}
+                    uppercase={section.uppercase}
+                  >
+                    {section.items.length > 0 ? (
+                      section.items.map((item) => {
+                        const itemIndex = resultIndex;
+                        resultIndex += 1;
 
-                          return (
-                            <TemplateResultButton
-                              key={item.key}
-                              buttonRef={(node) => {
-                                resultRefs.current[itemIndex] = node;
-                              }}
-                              title={item.title}
-                              description={item.description}
-                              creatorLabel={item.creatorLabel}
-                              tags={item.tags}
-                              onClick={item.onClick}
-                              onKeyDown={(e) =>
-                                handleResultKeyDown(e, itemIndex)
-                              }
-                            />
-                          );
-                        })
-                      ) : (
-                        <div className="text-muted-foreground px-2 py-3 text-sm">
-                          {section.emptyMessage}
-                        </div>
-                      )}
-                    </TemplateSection>
-                  ))}
-                </div>
+                        return (
+                          <TemplateResultButton
+                            key={item.key}
+                            buttonRef={(node) => {
+                              resultRefs.current[itemIndex] = node;
+                            }}
+                            title={item.title}
+                            description={item.description}
+                            creatorLabel={item.creatorLabel}
+                            tags={item.tags}
+                            onClick={item.onClick}
+                            onKeyDown={(e) => handleResultKeyDown(e, itemIndex)}
+                          />
+                        );
+                      })
+                    ) : (
+                      <div className="text-muted-foreground px-2 py-3 text-sm">
+                        {section.emptyMessage}
+                      </div>
+                    )}
+                  </TemplateSection>
+                ))}
               </div>
             </div>
-          </AppFloatingPanel>
+          </div>
 
           <button
             onClick={handleSeeAllTemplates}
@@ -1128,7 +1118,7 @@ function SummaryTemplateMenu({
             See all templates
             <ChevronRightIcon className="h-3.5 w-3.5" />
           </button>
-        </div>
+        </AppFloatingPanel>
       </PopoverContent>
     </Popover>
   );
