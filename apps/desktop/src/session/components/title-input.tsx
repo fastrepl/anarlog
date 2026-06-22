@@ -89,7 +89,7 @@ export const TitleInput = forwardRef<
             className={cn([
               "text-muted-foreground animate-pulse",
               variant === "breadcrumb"
-                ? "text-sm leading-none"
+                ? "text-sm leading-5"
                 : "text-xl font-semibold",
             ])}
           >
@@ -112,7 +112,7 @@ export const TitleInput = forwardRef<
             className={cn([
               "animate-reveal-left whitespace-nowrap",
               variant === "breadcrumb"
-                ? "text-sm leading-none"
+                ? "text-sm leading-5"
                 : "text-xl font-semibold",
             ])}
           >
@@ -370,7 +370,7 @@ const TitleInputInner = memo(
           className={cn([
             "group/title-input relative flex max-w-full items-center overflow-hidden",
             variant === "breadcrumb"
-              ? "h-5 text-sm leading-none"
+              ? "h-5 text-sm leading-5"
               : "h-8 text-xl font-semibold",
           ])}
         >
@@ -411,7 +411,7 @@ const TitleInputInner = memo(
               "border-none bg-transparent focus:outline-hidden",
               "placeholder:text-muted-foreground text-left",
               variant === "breadcrumb"
-                ? "h-5 truncate text-sm leading-none text-neutral-700 focus:underline"
+                ? "h-5 appearance-none truncate p-0 text-sm leading-5 text-neutral-700 focus:underline"
                 : "text-xl font-semibold",
               showHoverReveal && "text-transparent caret-transparent",
             ])}
@@ -426,7 +426,7 @@ const TitleInputInner = memo(
                 className={cn([
                   "group-hover/title-input:animate-title-hover-scroll whitespace-nowrap group-hover/title-input:will-change-transform",
                   variant === "breadcrumb"
-                    ? "text-sm leading-none"
+                    ? "text-sm leading-5"
                     : "text-xl font-semibold",
                 ])}
               >
