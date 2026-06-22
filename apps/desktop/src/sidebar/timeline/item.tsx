@@ -453,6 +453,7 @@ const SessionItem = memo(
     const invalidateResource = useTabs((state) => state.invalidateResource);
     const addDeletion = useUndoDelete((state) => state.addDeletion);
     const { ignoreEvent } = useIgnoredEvents();
+
     const sessionId = item.id;
     const storeTitle = main.UI.useCell(
       "sessions",
