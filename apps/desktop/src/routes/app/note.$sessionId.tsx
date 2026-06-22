@@ -16,7 +16,7 @@ function Component() {
 
   return (
     <ClassicMainLayout includeServices={false}>
-      <StandaloneWindowShell>
+      <StandaloneWindowShell topDragRegion={false}>
         <div className="bg-background h-screen w-screen">
           <TabContentNote tab={tab} standaloneWindow />
         </div>
