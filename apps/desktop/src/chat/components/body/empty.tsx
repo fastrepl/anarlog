@@ -14,17 +14,17 @@ import { useTabs } from "~/store/zustand/tabs";
 
 const SUGGESTIONS = [
   {
-    label: "Actions",
+    label: "List action items.",
     icon: ListChecksIcon,
     prompt: "What are my action items from this meeting?",
   },
   {
-    label: "Draft follow-up",
+    label: "Draft follow-up email.",
     icon: MailIcon,
     prompt: "Draft a follow-up email to the participants",
   },
   {
-    label: "Key decisions",
+    label: "Find key decisions.",
     icon: SearchIcon,
     prompt: "What were the key decisions that have been made?",
   },
@@ -103,44 +103,30 @@ export function ChatBodyEmpty({
   return (
     <div className="flex justify-start pb-1">
       <div className="flex w-full flex-col">
-        <div className="mb-2 flex items-center gap-2">
-          <span
-            className={cn([
-              "text-sm font-medium",
-              isDarkAppearance ? "text-primary-foreground" : "text-foreground",
-            ])}
-          >
-            Anarlog AI
-          </span>
-          <BetaChip isDarkAppearance={isDarkAppearance} />
-        </div>
-        <p
-          className={cn([
-            "mb-2 text-sm",
-            isDarkAppearance
-              ? "text-primary-foreground/80"
-              : "text-muted-foreground",
-          ])}
-        >
-          Hi, I'm Anarlog AI. I can help you pull context from your notes, find
-          key decisions, and draft what comes next.
-        </p>
         {hasContext && (
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-col gap-1">
             {SUGGESTIONS.map(({ label, icon: Icon, prompt }) => (
               <button
                 key={label}
                 onClick={() => handleSuggestionClick(prompt)}
                 className={cn([
-                  "inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px]",
+                  "group flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm",
                   isDarkAppearance
-                    ? "border-border bg-accent text-accent-foreground hover:bg-accent/85"
-                    : "border-border bg-card text-muted-foreground hover:bg-accent",
+                    ? "text-primary-foreground/85 hover:bg-primary-foreground/7"
+                    : "text-muted-foreground hover:bg-card",
                   "transition-colors",
                 ])}
               >
-                <Icon size={12} />
-                {label}
+                <Icon
+                  size={15}
+                  className={cn([
+                    "shrink-0 transition-colors",
+                    isDarkAppearance
+                      ? "text-primary-foreground/55 group-hover:text-primary-foreground/80"
+                      : "text-muted-foreground/75 group-hover:text-foreground",
+                  ])}
+                />
+                <span>{label}</span>
               </button>
             ))}
           </div>

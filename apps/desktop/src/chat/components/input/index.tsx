@@ -64,6 +64,7 @@ export function ChatMessageInput({
   const isSendDisabled = Boolean(disabled) || !hasContent;
   const isRightPanel = chat.mode === "RightPanelOpen";
   const isFloating = chat.mode === "FloatingOpen";
+  const showSendControl = !isFloating || isStreaming || hasContent;
 
   return (
     <Container
@@ -72,60 +73,77 @@ export function ChatMessageInput({
       isFloating={isFloating}
       isRightPanel={isRightPanel}
     >
-      <div data-chat-message-input className="flex flex-col px-2 pt-3 pb-2">
-        <div className="mb-1 min-h-0">
+      <div
+        data-chat-message-input
+        className={cn([
+          isFloating
+            ? "flex h-full w-full min-w-0 items-center"
+            : "flex flex-col px-2 pt-3 pb-2",
+        ])}
+      >
+        <div className={cn([isFloating ? "min-w-0 flex-1" : "mb-1 min-h-0"])}>
           <ChatEditor
             ref={editorRef}
             className={cn([
               "chat-input-editor",
-              "overflow-y-auto overscroll-contain text-sm",
-              isRightPanel ? "max-h-[40vh]" : "max-h-48",
+              "text-sm",
+              isFloating
+                ? "max-h-6 w-full min-w-0 overflow-hidden overscroll-contain"
+                : "overflow-y-auto overscroll-contain",
+              !isFloating && (isRightPanel ? "max-h-[40vh]" : "max-h-48"),
             ])}
             initialContent={initialContent}
             mentionConfig={mentionConfig}
-            placeholder={chatPlaceholder}
+            placeholder={isFloating ? floatingChatPlaceholder : chatPlaceholder}
             onUpdate={handleEditorUpdate}
             onSubmit={handleSubmit}
           />
         </div>
 
-        <div className="flex shrink-0 items-center justify-between">
-          <div />
-          {isStreaming ? (
-            <Button
-              onClick={onStop}
-              size="icon"
-              variant="ghost"
-              className="h-7 w-7 rounded-full"
-            >
-              <SquareIcon size={14} className="fill-current" />
-            </Button>
-          ) : (
-            <button
-              onClick={handleSubmit}
-              disabled={isSendDisabled}
-              className={cn([
-                "chat-input-send",
-                "inline-flex h-7 items-center gap-1.5 rounded-lg border pr-1.5 pl-2.5 text-xs font-medium transition-all duration-100",
-                !isSendDisabled && [
-                  "bg-primary text-primary-foreground border-stone-600",
-                  "hover:bg-primary/90",
-                  "active:bg-primary/80 active:scale-[0.97]",
-                ],
-              ])}
-            >
-              Send
-              <span
+        {showSendControl && (
+          <div
+            className={cn([
+              "flex shrink-0 items-center",
+              isFloating ? "ml-3" : "justify-between",
+            ])}
+          >
+            <div />
+            {isStreaming ? (
+              <Button
+                onClick={onStop}
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7 rounded-full"
+              >
+                <SquareIcon size={14} className="fill-current" />
+              </Button>
+            ) : (
+              <button
+                onClick={handleSubmit}
+                disabled={isSendDisabled}
                 className={cn([
-                  "chat-input-send-shortcut font-mono text-xs",
-                  !isSendDisabled && "text-stone-400",
+                  "chat-input-send",
+                  "inline-flex h-7 items-center gap-1.5 rounded-lg border pr-1.5 pl-2.5 text-xs font-medium transition-all duration-100",
+                  !isSendDisabled && [
+                    "bg-primary text-primary-foreground border-stone-600",
+                    "hover:bg-primary/90",
+                    "active:bg-primary/80 active:scale-[0.97]",
+                  ],
                 ])}
               >
-                ⌘ ↩
-              </span>
-            </button>
-          )}
-        </div>
+                Send
+                <span
+                  className={cn([
+                    "chat-input-send-shortcut font-mono text-xs",
+                    !isSendDisabled && "text-stone-400",
+                  ])}
+                >
+                  ⌘ ↩
+                </span>
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </Container>
   );
@@ -148,15 +166,20 @@ function Container({
     <div
       className={cn([
         "relative min-w-0 shrink-0",
-        isRightPanel ? "px-3 pb-4" : "px-3 pb-2",
+        isRightPanel ? "px-3 pb-4" : "px-1.5 pb-1.5",
       ])}
     >
       <div
-        data-chat-input-surface="elevated"
+        data-chat-input-surface={isFloating ? "floating" : "elevated"}
         className={cn([
-          "flex max-h-full flex-col border",
-          elevatedSurfaceClassName,
-          isFloating ? "rounded-[1.75rem]" : "rounded-xl",
+          "flex max-h-full border",
+          isFloating
+            ? [
+                "text-muted-foreground h-10 flex-row items-center overflow-hidden rounded-full border-0 bg-[#f4f4f5] px-4 text-sm",
+                "shadow-[inset_0_0_0_1px_hsl(var(--border)),0_16px_48px_rgba(0,0,0,0.18)]",
+                "dark:bg-[#202020] dark:shadow-[inset_0_0_0_1px_hsl(var(--border)),0_16px_48px_rgba(0,0,0,0.55)]",
+              ]
+            : [elevatedSurfaceClassName, "flex-col rounded-xl"],
           hasContextBar && !isFloating && "rounded-t-none border-t-0",
         ])}
       >
@@ -169,6 +192,13 @@ function Container({
 const chatPlaceholder: PlaceholderFunction = ({ node, pos }) => {
   if (node.type.name === "paragraph" && pos === 0) {
     return "Ask & search about anything, or be creative!";
+  }
+  return "";
+};
+
+const floatingChatPlaceholder: PlaceholderFunction = ({ node, pos }) => {
+  if (node.type.name === "paragraph" && pos === 0) {
+    return "Ask anything";
   }
   return "";
 };

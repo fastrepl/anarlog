@@ -181,15 +181,30 @@ export function PersistentChatPanel({
   }
 
   const panelMotion = {
-    initial: { y: 24, opacity: 0, scale: 0.96, filter: "blur(6px)" },
-    animate: { y: 0, opacity: 1, scale: 1, filter: "blur(0px)" },
-    exit: { y: 18, opacity: 0, scale: 0.97, filter: "blur(4px)" },
+    initial: {
+      y: 0,
+      opacity: 1,
+      scale: 1,
+      clipPath: "inset(calc(100% - 5rem) 0 0 0 round 1.75rem)",
+    },
+    animate: {
+      y: 0,
+      opacity: 1,
+      scale: 1,
+      clipPath: "inset(0 0 0 0 round 1.75rem)",
+    },
+    exit: {
+      y: 8,
+      opacity: 0,
+      scale: 0.99,
+      clipPath: "inset(calc(100% - 5rem) 0 0 0 round 1.75rem)",
+    },
   };
   const panelTransition = {
     opacity: { duration: 0.18, ease: [0.22, 1, 0.36, 1] },
-    scale: { duration: 0.24, ease: [0.22, 1, 0.36, 1] },
-    y: { duration: 0.28, ease: [0.22, 1, 0.36, 1] },
-    filter: { duration: 0.16, ease: "easeOut" },
+    scale: { duration: 0.2, ease: [0.22, 1, 0.36, 1] },
+    y: { duration: 0.22, ease: [0.22, 1, 0.36, 1] },
+    clipPath: { duration: 0.32, ease: [0.22, 1, 0.36, 1] },
   };
   const panelStyle =
     floatingSize && containerRect
@@ -295,7 +310,7 @@ export function PersistentChatPanel({
             data-chat-resize-frame
             className={cn([
               "pointer-events-auto relative flex h-full min-h-0",
-              "items-end justify-center px-4 pt-4 pb-3",
+              "items-end justify-center px-4 pt-4 pb-0.5",
             ])}
             onClick={(event) => {
               if (event.target === event.currentTarget) {
@@ -310,6 +325,7 @@ export function PersistentChatPanel({
             <motion.div
               ref={panelRef}
               data-chat-panel
+              data-chat-panel-reveal="bottom-up"
               data-chat-size="floating"
               className={cn([
                 "relative flex min-h-0 flex-col overflow-hidden",
