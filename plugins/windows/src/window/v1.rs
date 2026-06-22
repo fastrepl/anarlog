@@ -11,6 +11,7 @@ const NOTE_WINDOW_OFFSETS: [(f64, f64); 6] = [
     (-288.0, 144.0),
     (0.0, 216.0),
 ];
+const NOTE_WINDOW_OVERFLOW_OFFSET: f64 = 48.0;
 static NOTE_WINDOW_POSITIONING_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type, PartialEq, Eq, Hash)]
@@ -186,16 +187,19 @@ impl WindowImpl for AppWindow {
             .lock()
             .unwrap_or_else(|err| err.into_inner());
         let monitor = window
-            .current_monitor()?
+            .current_monitor()
+            .ok()
+            .flatten()
             .or_else(|| app.primary_monitor().ok().flatten());
         let Some(monitor) = monitor else {
             return Ok(());
         };
 
-        let scale_factor = window.scale_factor()?;
-        let monitor_position = monitor.position().to_logical::<f64>(scale_factor);
-        let monitor_size = monitor.size().to_logical::<f64>(scale_factor);
-        let window_size = window.outer_size()?.to_logical::<f64>(scale_factor);
+        let monitor_scale_factor = monitor.scale_factor();
+        let window_scale_factor = window.scale_factor()?;
+        let monitor_position = monitor.position().to_logical::<f64>(monitor_scale_factor);
+        let monitor_size = monitor.size().to_logical::<f64>(monitor_scale_factor);
+        let window_size = window.outer_size()?.to_logical::<f64>(window_scale_factor);
         let target_label = window.label().to_string();
         let note_windows = app
             .webview_windows()
@@ -219,7 +223,7 @@ impl WindowImpl for AppWindow {
             .filter(|(label, _)| label != &target_label)
             .filter_map(|(_, note_window)| {
                 let position = note_window.outer_position().ok()?;
-                let note_scale_factor = note_window.scale_factor().unwrap_or(scale_factor);
+                let note_scale_factor = note_window.scale_factor().unwrap_or(window_scale_factor);
                 let position = position.to_logical::<f64>(note_scale_factor);
 
                 Some((position.x, position.y))
@@ -262,15 +266,20 @@ fn staggered_note_window_position(
             clamp_to_monitor(base_y + offset.1, monitor_y, monitor_height, window_height),
         )
     };
-    let slot_offset = |index: usize| NOTE_WINDOW_OFFSETS[index % NOTE_WINDOW_OFFSETS.len()];
-    let fallback = candidate_for_offset(slot_offset(slot_index));
+    let candidate_for_slot = |index: usize| {
+        let offset = NOTE_WINDOW_OFFSETS[index % NOTE_WINDOW_OFFSETS.len()];
+        let overflow_offset =
+            (index / NOTE_WINDOW_OFFSETS.len()) as f64 * NOTE_WINDOW_OVERFLOW_OFFSET;
+        candidate_for_offset((offset.0 + overflow_offset, offset.1 + overflow_offset))
+    };
+    let fallback = candidate_for_slot(slot_index);
 
     if occupied_positions.is_empty() {
         return fallback;
     }
 
-    (0..NOTE_WINDOW_OFFSETS.len())
-        .map(|index| candidate_for_offset(slot_offset(slot_index + index)))
+    (0..(NOTE_WINDOW_OFFSETS.len() + occupied_positions.len() + 1))
+        .map(|index| candidate_for_slot(slot_index + index))
         .find(|position| {
             !occupied_positions
                 .iter()
@@ -353,6 +362,30 @@ mod tests {
                 1,
             ),
             (584.0, 212.0)
+        );
+    }
+
+    #[test]
+    fn cascades_when_stagger_slots_are_full() {
+        assert_eq!(
+            staggered_note_window_position(
+                0.0,
+                0.0,
+                1600.0,
+                1100.0,
+                720.0,
+                820.0,
+                &[
+                    (440.0, 140.0),
+                    (584.0, 212.0),
+                    (296.0, 212.0),
+                    (728.0, 280.0),
+                    (152.0, 280.0),
+                    (440.0, 356.0),
+                ],
+                6,
+            ),
+            (488.0, 188.0)
         );
     }
 }
