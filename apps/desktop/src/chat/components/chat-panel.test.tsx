@@ -102,11 +102,11 @@ describe("ChatView", () => {
     );
   });
 
-  it("uses the warm shell in the floating layout", () => {
+  it("uses the neutral shell in the floating layout", () => {
     const { container } = render(<ChatView layout="floating" />);
     const root = container.firstElementChild;
 
-    expect(root?.className).toContain("bg-[#fff9ed]");
+    expect(root?.className).toContain("bg-[#f4f4f5]");
     expect(root?.className).toContain("text-card-foreground");
     expect(root?.className).toContain("max-h-full");
     expect(root?.className).not.toContain("bg-card");

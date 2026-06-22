@@ -39,23 +39,26 @@ describe("chat surface tokens", () => {
     expect(chatFloatingControlClassNames()).toContain("text-accent-foreground");
   });
 
-  it("uses a warm surface on the floating shell", () => {
+  it("uses a neutral surface on the floating shell", () => {
     expect(chatFloatingPanelShellClassNames()).toContain(
       "shadow-[0_16px_48px_rgba(0,0,0,0.18)]",
     );
     expect(chatFloatingPanelShellClassNames()).toContain(
       "dark:shadow-[0_16px_48px_rgba(0,0,0,0.55)]",
     );
-    expect(chatFloatingPanelShellClassNames()).toContain("bg-[#fff9ed]");
-    expect(chatFloatingPanelShellClassNames()).toContain("border-[#e4d8c8]");
-    expect(chatFloatingPanelShellClassNames()).toContain("dark:bg-[#211d18]");
+    expect(chatFloatingPanelShellClassNames()).toContain("bg-[#f4f4f5]");
+    expect(chatFloatingPanelShellClassNames()).toContain("border-[#dedede]");
+    expect(chatFloatingPanelShellClassNames()).toContain("dark:bg-[#202020]");
+    expect(chatFloatingPanelShellClassNames()).toContain(
+      "dark:border-[#3a3a3a]",
+    );
     expect(chatFloatingPanelShellClassNames()).not.toContain("bg-card");
   });
 
-  it("uses a warm floating panel surface to separate it from white notes", () => {
-    expect(chatFloatingPanelClassNames()).toContain("bg-[#fff9ed]");
+  it("uses a neutral floating panel surface to separate it from white notes", () => {
+    expect(chatFloatingPanelClassNames()).toContain("bg-[#f4f4f5]");
     expect(chatFloatingPanelClassNames()).toContain("text-card-foreground");
-    expect(chatFloatingPanelClassNames()).toContain("dark:bg-[#211d18]");
+    expect(chatFloatingPanelClassNames()).toContain("dark:bg-[#202020]");
     expect(chatFloatingPanelClassNames()).not.toContain("bg-card");
   });
 

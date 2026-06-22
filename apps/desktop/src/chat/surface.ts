@@ -9,7 +9,7 @@ export function chatPanelClassNames(): string {
 }
 
 export function chatFloatingPanelClassNames(): string {
-  return "bg-[#fff9ed] text-card-foreground dark:bg-[#211d18]";
+  return "bg-[#f4f4f5] text-card-foreground dark:bg-[#202020]";
 }
 
 export function chatPanelBorderClassNames(): string {
@@ -17,7 +17,7 @@ export function chatPanelBorderClassNames(): string {
 }
 
 export function chatFloatingPanelShellClassNames(): string {
-  return "bg-[#fff9ed] text-card-foreground rounded-2xl border-2 border-[#e4d8c8] shadow-[0_16px_48px_rgba(0,0,0,0.18)] dark:border-[#39312a] dark:bg-[#211d18] dark:shadow-[0_16px_48px_rgba(0,0,0,0.55)]";
+  return "bg-[#f4f4f5] text-card-foreground rounded-2xl border-2 border-[#dedede] shadow-[0_16px_48px_rgba(0,0,0,0.18)] dark:border-[#3a3a3a] dark:bg-[#202020] dark:shadow-[0_16px_48px_rgba(0,0,0,0.55)]";
 }
 
 export function chatElevatedSurfaceClassNames(): string {

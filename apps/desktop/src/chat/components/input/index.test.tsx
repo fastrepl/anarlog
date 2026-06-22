@@ -221,7 +221,7 @@ describe("ChatMessageInput", () => {
     expect(surface?.className).toContain("dark:bg-[#202020]");
     expect(surface?.className).toContain("text-muted-foreground");
     expect(surface?.className).toContain(
-      "shadow-[inset_0_0_0_1px_hsl(var(--border)),0_16px_48px_rgba(0,0,0,0.18)]",
+      "shadow-[inset_0_0_0_1px_hsl(var(--border)),0_4px_12px_rgba(0,0,0,0.1),0_16px_40px_rgba(0,0,0,0.16)]",
     );
     expect(surface?.className).not.toContain("bg-card");
   });

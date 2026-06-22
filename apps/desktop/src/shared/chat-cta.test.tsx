@@ -70,31 +70,32 @@ describe("ChatCTA", () => {
     expect(surface?.className).not.toContain("border-2");
     expect(surface?.className).toContain("pointer-events-none");
     expect(surface?.className).toContain(
-      "group-hover/anarlog-chat-cta:bg-[#fff9ed]",
+      "group-hover/anarlog-chat-cta:bg-[#f4f4f5]",
     );
     expect(surface?.className).toContain(
-      "dark:group-hover/anarlog-chat-cta:bg-[#211d18]",
+      "dark:group-hover/anarlog-chat-cta:bg-[#202020]",
     );
     expect(surface?.className).toContain("group-hover/anarlog-chat-cta:h-10");
     expect(surface?.className).toContain(
       "group-hover/anarlog-chat-cta:[clip-path:inset(0_0_0_0_round_9999px)]",
     );
     expect(surface?.className).toContain(
-      "group-hover/anarlog-chat-cta:shadow-[inset_0_0_0_1px_hsl(var(--border)),0_16px_48px_rgba(0,0,0,0.18)]",
+      "group-hover/anarlog-chat-cta:shadow-[inset_0_0_0_1px_hsl(var(--border)),0_4px_12px_rgba(0,0,0,0.1),0_16px_40px_rgba(0,0,0,0.16)]",
     );
     expect(surface?.className).toContain(
-      "dark:group-hover/anarlog-chat-cta:shadow-[inset_0_0_0_1px_hsl(var(--border)),0_16px_48px_rgba(0,0,0,0.55)]",
+      "dark:group-hover/anarlog-chat-cta:shadow-[inset_0_0_0_1px_hsl(var(--border)),0_4px_14px_rgba(0,0,0,0.35),0_16px_44px_rgba(0,0,0,0.55)]",
     );
     expect(surface?.className).toContain(
       "group-focus-visible/anarlog-chat-cta:[clip-path:inset(0_0_0_0_round_9999px)]",
     );
     expect(surface?.className).toContain(
-      "group-focus-visible/anarlog-chat-cta:shadow-[inset_0_0_0_1px_hsl(var(--border)),0_16px_48px_rgba(0,0,0,0.18)]",
+      "group-focus-visible/anarlog-chat-cta:shadow-[inset_0_0_0_1px_hsl(var(--border)),0_4px_12px_rgba(0,0,0,0.1),0_16px_40px_rgba(0,0,0,0.16)]",
     );
-    expect(button.querySelectorAll("svg")).toHaveLength(1);
+    expect(button.querySelectorAll("svg")).toHaveLength(0);
     expect(label.className).toContain("max-w-0");
     expect(label.className).toContain("opacity-0");
     expect(label.className).toContain("text-white/55");
+    expect(label.className).not.toContain("ml-2");
     expect(label.className).toContain(
       "group-hover/anarlog-chat-cta:text-muted-foreground",
     );

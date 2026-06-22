@@ -176,8 +176,8 @@ function Container({
           isFloating
             ? [
                 "text-muted-foreground h-10 flex-row items-center overflow-hidden rounded-full border-0 bg-[#f4f4f5] px-4 text-sm",
-                "shadow-[inset_0_0_0_1px_hsl(var(--border)),0_16px_48px_rgba(0,0,0,0.18)]",
-                "dark:bg-[#202020] dark:shadow-[inset_0_0_0_1px_hsl(var(--border)),0_16px_48px_rgba(0,0,0,0.55)]",
+                "shadow-[inset_0_0_0_1px_hsl(var(--border)),0_4px_12px_rgba(0,0,0,0.1),0_16px_40px_rgba(0,0,0,0.16)]",
+                "dark:bg-[#202020] dark:shadow-[inset_0_0_0_1px_hsl(var(--border)),0_4px_14px_rgba(0,0,0,0.35),0_16px_44px_rgba(0,0,0,0.55)]",
               ]
             : [elevatedSurfaceClassName, "flex-col rounded-xl"],
           hasContextBar && !isFloating && "rounded-t-none border-t-0",
