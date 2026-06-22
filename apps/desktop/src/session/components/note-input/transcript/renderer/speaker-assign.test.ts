@@ -222,7 +222,12 @@ describe("SpeakerAssignPopover", () => {
       }),
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Speaker 2" }));
+    const trigger = screen.getByRole("button", { name: "Speaker 2" });
+    expect(trigger.className).toContain("rounded-full");
+    expect(trigger.className).toContain("px-2");
+    expect(trigger.className).toContain("-ml-2");
+
+    fireEvent.click(trigger);
     fireEvent.click(screen.getByRole("button", { name: "Alice" }));
     expect(cells.get("speaker_hints")).toBe(JSON.stringify([]));
 

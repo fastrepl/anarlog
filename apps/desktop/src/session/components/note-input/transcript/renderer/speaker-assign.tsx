@@ -73,7 +73,7 @@ export function SpeakerAssignPopover({
         <button
           type="button"
           className={cn([
-            "-ml-1 cursor-pointer rounded-xs px-1",
+            "-my-0.5 -ml-2 cursor-pointer rounded-full px-2 py-0.5",
             "hover:bg-accent transition-colors",
             className,
           ])}
