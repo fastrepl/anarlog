@@ -33,9 +33,11 @@ import { useListener } from "~/stt/contexts";
 import { useUploadFile } from "~/stt/useUploadFile";
 
 export function OverflowButton({
+  allowListening = true,
   sessionId,
   currentView,
 }: {
+  allowListening?: boolean;
   sessionId: string;
   currentView: EditorView;
 }) {
@@ -49,7 +51,8 @@ export function OverflowButton({
   const { uploadAudio, uploadTranscript } = useUploadFile(sessionId);
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
   const floatingBarEnabled = useConfigValue("floating_bar_enabled");
-  const canOpenFloatingPanel = floatingBarEnabled && sessionMode === "active";
+  const canOpenFloatingPanel =
+    allowListening && floatingBarEnabled && sessionMode === "active";
   const openExportModal = () => {
     setOpen(false);
     requestAnimationFrame(() => setIsExportModalOpen(true));
@@ -93,7 +96,9 @@ export function OverflowButton({
               <span>Export</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <Listening sessionId={sessionId} hasTranscript={hasTranscript} />
+            {allowListening && (
+              <Listening sessionId={sessionId} hasTranscript={hasTranscript} />
+            )}
             {!currentNoteHasContent && (
               <>
                 <DropdownMenuItem

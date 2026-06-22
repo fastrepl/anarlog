@@ -254,6 +254,16 @@ describe("FloatingActionButton", () => {
     );
   });
 
+  it("hides the listen FAB when listening is disabled", () => {
+    hoisted.hasTranscript = false;
+
+    render(<FloatingActionButton allowListening={false} tab={tab} />);
+
+    expect(
+      screen.queryByRole("button", { name: "Start listening" }),
+    ).toBeNull();
+  });
+
   it("shows a skip reason in the FAB slot instead of the chat FAB", () => {
     render(
       <FloatingActionButton

@@ -183,6 +183,30 @@ describe("OverflowButton", () => {
     });
   });
 
+  it("hides listening actions when listening is disabled", () => {
+    useConfigValueMock.mockReturnValue(true);
+    useListenerMock.mockImplementation((selector) =>
+      selector({
+        getSessionMode: () => "active",
+      }),
+    );
+
+    render(
+      <OverflowButton
+        allowListening={false}
+        sessionId="session-1"
+        currentView={{ type: "enhanced", id: "note-1" } as EditorView}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "Resume listening" }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Open floating panel" }),
+    ).toBeNull();
+  });
+
   it("hides the floating panel action while finalizing", () => {
     useConfigValueMock.mockReturnValue(true);
     useListenerMock.mockImplementation((selector) =>
