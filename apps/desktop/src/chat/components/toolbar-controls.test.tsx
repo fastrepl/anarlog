@@ -45,7 +45,7 @@ describe("ChatToolbarControls", () => {
     cleanup();
   });
 
-  it("renders the dark chat history trigger as an icon button", () => {
+  it("renders the dark chat history trigger as a pill button", () => {
     render(
       <ChatToolbarControls
         currentChatGroupId={undefined}
@@ -58,7 +58,9 @@ describe("ChatToolbarControls", () => {
 
     const historyButton = screen.getByRole("button", { name: "Chat history" });
     expect(historyButton.className).toContain("rounded-full");
-    expect(historyButton.className).toContain("size-8");
+    expect(historyButton.className).toContain("h-8");
+    expect(historyButton.className).toContain("w-auto");
+    expect(historyButton.className).toContain("gap-1.5");
     expect(historyButton.className).toContain("hover:bg-primary-foreground/7");
     expect(screen.queryByText("Ask Anarlog AI anything")).toBeNull();
   });
@@ -79,7 +81,9 @@ describe("ChatToolbarControls", () => {
     expect(container.firstElementChild?.className).not.toContain("pl-2");
     expect(container.firstElementChild?.className).not.toContain("pr-2");
     expect(historyButton.className).toContain("-ml-2");
-    expect(historyButton.className).toContain("size-8");
+    expect(historyButton.className).toContain("h-8");
+    expect(historyButton.className).toContain("w-auto");
+    expect(historyButton.className).toContain("gap-1.5");
     expect(historyButton.className).toContain("text-muted-foreground");
     expect(historyButton.textContent).toBe("");
     expect(screen.queryByText("Ask Anarlog AI anything")).toBeNull();
@@ -173,7 +177,8 @@ describe("ChatToolbarControls", () => {
     expect(actions?.className).toContain("gap-0");
     expect(actions?.className).not.toContain("gap-1");
     expect(historyButton.className).toContain("-ml-2");
-    expect(historyButton.className).toContain("size-8");
+    expect(historyButton.className).toContain("h-8");
+    expect(historyButton.className).toContain("w-auto");
     expect(screen.queryByText("Ask Anarlog AI anything")).toBeNull();
     const floatButton = screen.getByRole("button", { name: "Float chat" });
     const closeButton = screen.getByRole("button", { name: "Close chat" });
