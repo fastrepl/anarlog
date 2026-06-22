@@ -11,6 +11,7 @@ import { useSessionTab } from "./use-session-tab";
 import { useLanguageModel } from "~/ai/hooks";
 import { useChatAppearance } from "~/chat/hooks/use-chat-appearance";
 import { useChatActions } from "~/chat/store/use-chat-actions";
+import { chatFloatingPanelClassNames } from "~/chat/surface";
 import { useShell } from "~/contexts/shell";
 import * as main from "~/store/tinybase/store/main";
 
@@ -99,7 +100,7 @@ export function ChatPanelFrame({
       className={cn([
         "flex min-h-0 flex-col overflow-hidden",
         isFloating ? "max-h-full" : "h-full",
-        panelClassName,
+        isFloating ? chatFloatingPanelClassNames() : panelClassName,
       ])}
     >
       <div
