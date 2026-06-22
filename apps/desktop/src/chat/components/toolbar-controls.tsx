@@ -1,5 +1,6 @@
 import {
   ChevronDown,
+  History,
   MessageCircle,
   PanelRight,
   PictureInPicture2,
@@ -137,12 +138,6 @@ function ChatGroups({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const isDark = surface === "dark";
 
-  const currentChatTitle = main.UI.useCell(
-    "chat_groups",
-    currentChatGroupId || "",
-    "title",
-    main.STORE_ID,
-  );
   const recentChatGroupIds = main.UI.useSortedRowIds(
     "chat_groups",
     "created_at",
@@ -156,29 +151,26 @@ function ChatGroups({
     <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
       <DropdownMenuTrigger asChild>
         <Button
+          aria-label="Chat history"
           variant="ghost"
+          size="icon"
           className={cn([
-            "group flex h-8 max-w-full min-w-0 justify-start gap-1.5 py-0 text-left",
-            "-ml-2 px-2",
+            "group relative -ml-2 size-8 shrink-0 rounded-full p-0",
             isDark
-              ? "text-primary-foreground hover:bg-primary-foreground/7 hover:text-primary-foreground data-[state=open]:bg-primary-foreground/7 w-fit rounded-full"
-              : "text-foreground hover:bg-accent hover:text-foreground data-[state=open]:bg-accent w-fit rounded-full",
+              ? "text-primary-foreground/70 hover:bg-primary-foreground/7 hover:text-primary-foreground data-[state=open]:bg-primary-foreground/7"
+              : "text-muted-foreground hover:bg-accent hover:text-foreground data-[state=open]:bg-accent",
           ])}
         >
-          <h3
+          <History
             className={cn([
-              "max-w-64 min-w-0 truncate text-left font-medium",
-              isDark
-                ? "text-primary-foreground text-[15px]"
-                : "text-foreground text-[15px]",
+              "h-4 w-4",
+              isDark ? "text-primary-foreground/70" : "text-muted-foreground",
             ])}
-          >
-            {currentChatTitle || "Ask Anarlog AI anything"}
-          </h3>
+          />
           <ChevronDown
             className={cn([
-              "h-3.5 w-3.5 shrink-0 transition-transform duration-200",
-              isDark ? "text-primary-foreground/60" : "text-muted-foreground",
+              "absolute right-1 bottom-1 h-2.5 w-2.5 shrink-0 transition-transform duration-200",
+              isDark ? "text-primary-foreground/50" : "text-muted-foreground",
               isDropdownOpen && "rotate-180",
             ])}
           />

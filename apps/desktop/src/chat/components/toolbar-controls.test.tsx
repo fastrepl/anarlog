@@ -45,7 +45,7 @@ describe("ChatToolbarControls", () => {
     cleanup();
   });
 
-  it("renders the dark chat title trigger as a pill", () => {
+  it("renders the dark chat history trigger as an icon button", () => {
     render(
       <ChatToolbarControls
         currentChatGroupId={undefined}
@@ -56,11 +56,14 @@ describe("ChatToolbarControls", () => {
       />,
     );
 
-    const title = screen.getByText("Ask Anarlog AI anything");
-    expect(title.closest("button")?.className).toContain("rounded-full");
+    const historyButton = screen.getByRole("button", { name: "Chat history" });
+    expect(historyButton.className).toContain("rounded-full");
+    expect(historyButton.className).toContain("size-8");
+    expect(historyButton.className).toContain("hover:bg-primary-foreground/7");
+    expect(screen.queryByText("Ask Anarlog AI anything")).toBeNull();
   });
 
-  it("keeps the light chat title readable on the card shell", () => {
+  it("renders the light chat history trigger without title text", () => {
     const { container } = render(
       <ChatToolbarControls
         currentChatGroupId={undefined}
@@ -71,16 +74,15 @@ describe("ChatToolbarControls", () => {
       />,
     );
 
-    const title = screen.getByText("Ask Anarlog AI anything");
-    const titleButton = title.closest("button");
+    const historyButton = screen.getByRole("button", { name: "Chat history" });
     expect(container.firstElementChild?.className).toContain("px-3");
     expect(container.firstElementChild?.className).not.toContain("pl-2");
     expect(container.firstElementChild?.className).not.toContain("pr-2");
-    expect(titleButton?.className).toContain("-ml-2");
-    expect(titleButton?.className).toContain("px-2");
-    expect(title.className).toContain("text-foreground");
-    expect(title.className).toContain("text-[15px]");
-    expect(title.className).not.toContain("text-muted-foreground");
+    expect(historyButton.className).toContain("-ml-2");
+    expect(historyButton.className).toContain("size-8");
+    expect(historyButton.className).toContain("text-muted-foreground");
+    expect(historyButton.textContent).toBe("");
+    expect(screen.queryByText("Ask Anarlog AI anything")).toBeNull();
   });
 
   it("renders dark toolbar action buttons as circles without tooltips", () => {
@@ -160,9 +162,7 @@ describe("ChatToolbarControls", () => {
       />,
     );
 
-    const titleButton = screen
-      .getByText("Ask Anarlog AI anything")
-      .closest("button");
+    const historyButton = screen.getByRole("button", { name: "Chat history" });
 
     expect(container.firstElementChild?.className).toContain("px-3");
     expect(container.firstElementChild?.className).not.toContain("px-5");
@@ -172,8 +172,9 @@ describe("ChatToolbarControls", () => {
     const actions = container.querySelector("[data-chat-toolbar-actions]");
     expect(actions?.className).toContain("gap-0");
     expect(actions?.className).not.toContain("gap-1");
-    expect(titleButton?.className).toContain("-ml-2");
-    expect(titleButton?.className).toContain("px-2");
+    expect(historyButton.className).toContain("-ml-2");
+    expect(historyButton.className).toContain("size-8");
+    expect(screen.queryByText("Ask Anarlog AI anything")).toBeNull();
     const floatButton = screen.getByRole("button", { name: "Float chat" });
     const closeButton = screen.getByRole("button", { name: "Close chat" });
     expect(floatButton.className).not.toContain("bg-muted");
