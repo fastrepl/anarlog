@@ -60,6 +60,7 @@ export function useMainTabsShortcuts({ onModT }: { onModT: () => void }) {
       const hadEditorEscapeConsumer =
         fromProseMirrorEditor &&
         document.querySelector("[data-editor-escape-consumer]") !== null;
+      const hadMeaningfulFocus = hasMeaningfulFocus(event.target);
       const hadOpenChat = chatRef.current.mode !== "FloatingClosed";
 
       window.setTimeout(() => {
@@ -69,6 +70,7 @@ export function useMainTabsShortcuts({ onModT }: { onModT: () => void }) {
             fromSessionTitleInput,
             fromSessionSurface,
             hadEditorEscapeConsumer,
+            hadMeaningfulFocus,
           })
         ) {
           return;
@@ -286,14 +288,20 @@ function shouldSkipEscapeShortcut(
     fromSessionTitleInput,
     fromSessionSurface,
     hadEditorEscapeConsumer,
+    hadMeaningfulFocus,
   }: {
     fromProseMirrorEditor: boolean;
     fromSessionTitleInput: boolean;
     fromSessionSurface: boolean;
     hadEditorEscapeConsumer: boolean;
+    hadMeaningfulFocus: boolean;
   },
 ) {
   if (!event.defaultPrevented) {
+    return false;
+  }
+
+  if (!hadMeaningfulFocus) {
     return false;
   }
 
@@ -306,6 +314,35 @@ function shouldSkipEscapeShortcut(
   }
 
   return hadEditorEscapeConsumer;
+}
+
+function hasMeaningfulFocus(target: EventTarget | null) {
+  if (isMeaningfulEscapeTarget(target)) {
+    return true;
+  }
+
+  const activeElement = document.activeElement;
+
+  return (
+    activeElement instanceof HTMLElement &&
+    activeElement !== document.body &&
+    activeElement !== document.documentElement
+  );
+}
+
+function isMeaningfulEscapeTarget(target: EventTarget | null) {
+  const element =
+    target instanceof Element
+      ? target
+      : target instanceof Node
+        ? target.parentElement
+        : null;
+
+  return (
+    element !== null &&
+    element !== document.body &&
+    element !== document.documentElement
+  );
 }
 
 function isFromProseMirrorEditor(target: EventTarget | null) {
