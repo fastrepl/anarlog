@@ -22,6 +22,7 @@ export function ChatMessageInput({
   hasContextBar,
   isStreaming,
   onStop,
+  onDraftContentChange,
   onContextRefsChange,
 }: {
   draftKey: string;
@@ -34,6 +35,7 @@ export function ChatMessageInput({
   hasContextBar?: boolean;
   isStreaming?: boolean;
   onStop?: () => void;
+  onDraftContentChange?: (hasDraftContent: boolean) => void;
   onContextRefsChange?: (refs: ContextRef[]) => void;
 }) {
   const { chat } = useShell();
@@ -45,6 +47,7 @@ export function ChatMessageInput({
 
   const { hasContent, initialContent, handleEditorUpdate } = useDraftState({
     draftKey,
+    onDraftContentChange,
     onContextRefsChange,
   });
   const handleSubmit = useSubmit({
@@ -53,6 +56,7 @@ export function ChatMessageInput({
     disabled,
     isStreaming,
     onSendMessage,
+    onDraftContentChange,
     onContextRefsChange,
   });
   useAutoFocusEditor({ editorRef, disabled, shouldFocus });

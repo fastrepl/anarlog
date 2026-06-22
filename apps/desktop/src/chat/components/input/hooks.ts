@@ -10,28 +10,33 @@ const draftsByKey = new Map<string, JSONContent>();
 
 export function useDraftState({
   draftKey,
+  onDraftContentChange,
   onContextRefsChange,
 }: {
   draftKey: string;
+  onDraftContentChange?: (hasDraftContent: boolean) => void;
   onContextRefsChange?: (refs: ContextRef[]) => void;
 }) {
-  const [hasContent, setHasContent] = useState(false);
   const initialContent = useRef(draftsByKey.get(draftKey) ?? EMPTY_DOC);
+  const [hasContent, setHasContent] = useState(() =>
+    hasTextContent(initialContent.current),
+  );
 
   useEffect(() => {
+    onDraftContentChange?.(hasDraftContent(initialContent.current));
     onContextRefsChange?.(
       extractContextRefsFromTiptapJson(initialContent.current),
     );
-  }, [onContextRefsChange]);
+  }, [onDraftContentChange, onContextRefsChange]);
 
   const handleEditorUpdate = useCallback(
     (json: JSONContent) => {
-      const text = tiptapJsonToText(json).trim();
-      setHasContent(text.length > 0);
+      setHasContent(hasTextContent(json));
       draftsByKey.set(draftKey, json);
+      onDraftContentChange?.(hasDraftContent(json));
       onContextRefsChange?.(extractContextRefsFromTiptapJson(json));
     },
-    [draftKey, onContextRefsChange],
+    [draftKey, onDraftContentChange, onContextRefsChange],
   );
 
   return {
@@ -47,6 +52,7 @@ export function useSubmit({
   disabled,
   isStreaming,
   onSendMessage,
+  onDraftContentChange,
   onContextRefsChange,
 }: {
   draftKey: string;
@@ -58,6 +64,7 @@ export function useSubmit({
     parts: Array<{ type: "text"; text: string }>,
     contextRefs?: ContextRef[],
   ) => void;
+  onDraftContentChange?: (hasDraftContent: boolean) => void;
   onContextRefsChange?: (refs: ContextRef[]) => void;
 }) {
   return useCallback(() => {
@@ -73,6 +80,7 @@ export function useSubmit({
     onSendMessage(text, [{ type: "text", text }], mentionRefs);
     editorRef.current?.clearContent();
     draftsByKey.delete(draftKey);
+    onDraftContentChange?.(false);
     onContextRefsChange?.([]);
   }, [
     draftKey,
@@ -80,6 +88,7 @@ export function useSubmit({
     disabled,
     isStreaming,
     onSendMessage,
+    onDraftContentChange,
     onContextRefsChange,
   ]);
 }
@@ -144,6 +153,30 @@ function tiptapJsonToText(json: any): string {
   }
 
   return "";
+}
+
+function hasTextContent(json: JSONContent | undefined): boolean {
+  return tiptapJsonToText(json).trim().length > 0;
+}
+
+function hasDraftContent(json: JSONContent | undefined): boolean {
+  if (hasTextContent(json)) {
+    return true;
+  }
+
+  return hasAttachmentNode(json);
+}
+
+function hasAttachmentNode(json: JSONContent | undefined): boolean {
+  if (!json || typeof json !== "object") {
+    return false;
+  }
+
+  if (json.type === "attachment") {
+    return true;
+  }
+
+  return Array.isArray(json.content) && json.content.some(hasAttachmentNode);
 }
 
 function extractContextRefsFromTiptapJson(

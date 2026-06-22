@@ -28,6 +28,7 @@ export function ChatContent({
   pendingRefs,
   onRemoveContextEntity,
   onAddContextEntity,
+  onDraftContentChange,
   onDraftContextRefsChange,
   isSystemPromptReady,
   children,
@@ -51,6 +52,7 @@ export function ChatContent({
   pendingRefs: ContextRef[];
   onRemoveContextEntity?: (key: string) => void;
   onAddContextEntity?: (ref: ContextRef) => void;
+  onDraftContentChange?: (hasDraftContent: boolean) => void;
   onDraftContextRefsChange?: (refs: ContextRef[]) => void;
   isSystemPromptReady: boolean;
   children?: React.ReactNode;
@@ -131,6 +133,7 @@ export function ChatContent({
                 mergeContextRefs(contextRefs),
               );
             }}
+            onDraftContentChange={onDraftContentChange}
             onContextRefsChange={onDraftContextRefsChange}
             isStreaming={status === "streaming" || status === "submitted"}
             onStop={stop}

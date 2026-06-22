@@ -88,9 +88,11 @@ describe("ChatMessageInput", () => {
 
   it("disables send until the draft has content", () => {
     const onSendMessage = vi.fn();
+    const onDraftContentChange = vi.fn();
     render(
       <ChatMessageInput
         draftKey="chat-input-test"
+        onDraftContentChange={onDraftContentChange}
         onSendMessage={onSendMessage}
       />,
     );
@@ -114,6 +116,7 @@ describe("ChatMessageInput", () => {
     });
 
     expect(sendButton.disabled).toBe(false);
+    expect(onDraftContentChange).toHaveBeenCalledWith(true);
 
     fireEvent.click(sendButton);
 
@@ -123,6 +126,49 @@ describe("ChatMessageInput", () => {
       [],
     );
     expect(clearContentMock).toHaveBeenCalled();
+    expect(onDraftContentChange).toHaveBeenLastCalledWith(false);
+  });
+
+  it("tracks attachment-only drafts without enabling text send", () => {
+    const onDraftContentChange = vi.fn();
+    render(
+      <ChatMessageInput
+        draftKey="chat-input-test"
+        onDraftContentChange={onDraftContentChange}
+        onSendMessage={vi.fn()}
+      />,
+    );
+
+    const sendButton = screen.getByRole<HTMLButtonElement>("button", {
+      name: /send/i,
+    });
+
+    editorState.json = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            {
+              type: "attachment",
+              attrs: {
+                id: "attachment-1",
+                name: "image.png",
+                mimeType: "image/png",
+                url: "data:image/png;base64,abc",
+                size: 123,
+              },
+            },
+          ],
+        },
+      ],
+    };
+    act(() => {
+      editorState.onUpdate?.(editorState.json);
+    });
+
+    expect(onDraftContentChange).toHaveBeenCalledWith(true);
+    expect(sendButton.disabled).toBe(true);
   });
 
   it("marks the send control for disabled surface styling before the draft has content", () => {

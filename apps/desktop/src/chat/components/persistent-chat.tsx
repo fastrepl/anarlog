@@ -85,6 +85,7 @@ export function PersistentChatPanel({
   const [hasBeenOpened, setHasBeenOpened] = useState(false);
   const [containerRect, setContainerRect] =
     useState<FloatingContainerRect | null>(null);
+  const [draftHasContent, setDraftHasContent] = useState(false);
   const [floatingSize, setFloatingSize] = useState<FloatingPanelSize | null>(
     null,
   );
@@ -298,6 +299,10 @@ export function PersistentChatPanel({
             ])}
             onClick={(event) => {
               if (event.target === event.currentTarget) {
+                if (draftHasContent) {
+                  return;
+                }
+
                 chat.sendEvent({ type: "CLOSE" });
               }
             }}
@@ -318,6 +323,7 @@ export function PersistentChatPanel({
             >
               <ChatPanelFrame
                 layout="floating"
+                onDraftContentChange={setDraftHasContent}
                 onOpenRightPanel={() =>
                   chat.sendEvent({ type: "OPEN_RIGHT_PANEL" })
                 }

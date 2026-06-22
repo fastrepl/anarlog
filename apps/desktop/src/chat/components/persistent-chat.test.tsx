@@ -49,10 +49,12 @@ vi.mock("~/contexts/shell", () => ({
 vi.mock("./chat-panel", () => ({
   ChatPanelFrame: ({
     layout,
+    onDraftContentChange,
     onOpenRightPanel,
     sessionProps,
   }: {
     layout?: "floating" | "right-panel";
+    onDraftContentChange?: (hasDraftContent: boolean) => void;
     onOpenRightPanel?: () => void;
     sessionProps: unknown;
   }) => (
@@ -65,6 +67,13 @@ vi.mock("./chat-panel", () => ({
         onClick={onOpenRightPanel}
       >
         Open right panel
+      </button>
+      <button
+        data-testid="mark-draft-content"
+        type="button"
+        onClick={() => onDraftContentChange?.(true)}
+      >
+        Mark draft content
       </button>
       <div data-testid="chat-view" />
     </>
@@ -131,6 +140,37 @@ describe("PersistentChatPanel", () => {
     expect(mocks.sendEvent).toHaveBeenCalledWith({
       type: "OPEN_RIGHT_PANEL",
     });
+  });
+
+  it("closes on backdrop click while the draft is empty", async () => {
+    render(<TestHost />);
+
+    await screen.findByTestId("chat-view");
+
+    const resizeFrame = document.querySelector<HTMLElement>(
+      "[data-chat-resize-frame]",
+    );
+
+    fireEvent.click(resizeFrame!);
+
+    expect(mocks.sendEvent).toHaveBeenCalledWith({ type: "CLOSE" });
+  });
+
+  it("keeps the expanded composer open on backdrop click when draft has content", async () => {
+    render(<TestHost />);
+
+    await screen.findByTestId("chat-view");
+
+    fireEvent.click(screen.getByTestId("mark-draft-content"));
+    mocks.sendEvent.mockClear();
+
+    const resizeFrame = document.querySelector<HTMLElement>(
+      "[data-chat-resize-frame]",
+    );
+
+    fireEvent.click(resizeFrame!);
+
+    expect(mocks.sendEvent).not.toHaveBeenCalledWith({ type: "CLOSE" });
   });
 
   it("resizes the bottom handle by the pointer movement", async () => {

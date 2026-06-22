@@ -65,11 +65,13 @@ export function ChatSessionHost({
 
 export function ChatPanelFrame({
   layout = "floating",
+  onDraftContentChange,
   onOpenFloating,
   onOpenRightPanel,
   sessionProps,
 }: {
   layout?: "floating" | "right-panel";
+  onDraftContentChange?: (hasDraftContent: boolean) => void;
   onOpenFloating?: () => void;
   onOpenRightPanel?: () => void;
   sessionProps: ChatSessionRenderProps | null;
@@ -121,6 +123,7 @@ export function ChatPanelFrame({
         <ChatContent
           {...sessionProps}
           layout={layout}
+          onDraftContentChange={onDraftContentChange}
           model={model}
           handleSendMessage={handleSendMessage}
         >
