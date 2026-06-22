@@ -118,9 +118,9 @@ describe("TitleInput", () => {
 
     const input = screen.getByPlaceholderText("Untitled");
 
-    expect(input.parentElement?.className).toContain("text-xs");
+    expect(input.parentElement?.className).toContain("text-sm");
     expect(input.parentElement?.className).not.toContain("font-mono");
-    expect(input.className).toContain("text-xs");
+    expect(input.className).toContain("text-sm");
     expect(input.className).not.toContain("font-mono");
   });
 
