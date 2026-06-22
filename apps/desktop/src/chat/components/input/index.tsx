@@ -77,7 +77,7 @@ export function ChatMessageInput({
         data-chat-message-input
         className={cn([
           isFloating
-            ? "flex h-full w-full min-w-0 items-center"
+            ? "flex min-h-10 w-full min-w-0 items-center"
             : "flex flex-col px-2 pt-3 pb-2",
         ])}
       >
@@ -88,7 +88,7 @@ export function ChatMessageInput({
               "chat-input-editor",
               "text-sm",
               isFloating
-                ? "max-h-6 w-full min-w-0 overflow-hidden overscroll-contain"
+                ? "max-h-24 w-full min-w-0 overflow-y-auto overscroll-contain"
                 : "overflow-y-auto overscroll-contain",
               !isFloating && (isRightPanel ? "max-h-[40vh]" : "max-h-48"),
             ])}
@@ -166,7 +166,7 @@ function Container({
     <div
       className={cn([
         "relative min-w-0 shrink-0",
-        isRightPanel ? "px-3 pb-4" : "px-1.5 pb-1.5",
+        isRightPanel ? "px-3 pb-4" : "px-1 pb-1",
       ])}
     >
       <div
@@ -175,7 +175,7 @@ function Container({
           "flex max-h-full border",
           isFloating
             ? [
-                "text-muted-foreground h-10 flex-row items-center overflow-hidden rounded-full border-0 bg-[#f4f4f5] px-4 text-sm",
+                "text-muted-foreground max-h-32 min-h-10 flex-row items-center overflow-hidden rounded-[20px] border-0 bg-[#f4f4f5] px-4 py-2 text-sm",
                 "shadow-[inset_0_0_0_1px_hsl(var(--border)),0_4px_12px_rgba(0,0,0,0.1),0_16px_40px_rgba(0,0,0,0.16)]",
                 "dark:bg-[#202020] dark:shadow-[inset_0_0_0_1px_hsl(var(--border)),0_4px_14px_rgba(0,0,0,0.35),0_16px_44px_rgba(0,0,0,0.55)]",
               ]

@@ -122,10 +122,12 @@ describe("PersistentChatPanel", () => {
     await waitFor(() => {
       expect(resizeFrame?.className).toContain("items-end");
       expect(resizeFrame?.className).toContain("justify-center");
-      expect(resizeFrame?.className).toContain("pb-0.5");
+      expect(resizeFrame?.className).toContain("px-3");
+      expect(resizeFrame?.className).toContain("pb-2");
       expect(resizeFrame?.className).not.toContain("pb-3");
-      expect(panel?.style.width).toBe("calc(100% - 2rem)");
-      expect(panel?.style.maxWidth).toBe("720px");
+      expect(panel?.style.width).toBe("calc(100% - 1.5rem)");
+      expect(panel?.style.minWidth).toBe("min(368px, calc(100% - 1.5rem))");
+      expect(panel?.style.maxWidth).toBe("648px");
       expect(panel?.style.height).toBe("");
       expect(panel?.style.transformOrigin).toBe("bottom center");
       expect(panel?.dataset.chatPanelReveal).toBe("bottom-up");

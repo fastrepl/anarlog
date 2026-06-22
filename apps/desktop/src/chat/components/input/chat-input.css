@@ -3,6 +3,23 @@
   color: hsl(var(--card-foreground));
 }
 
+[data-chat-input-surface="floating"] .chat-input-editor.tiptap,
+[data-chat-input-surface="floating"] .chat-input-editor.tiptap p {
+  line-height: 20px;
+  margin-bottom: 0;
+  min-height: 20px !important;
+  padding: 0 !important;
+}
+
+[data-chat-input-surface="floating"]
+  .chat-input-editor.tiptap
+  .is-editor-empty:first-child::before,
+[data-chat-input-surface="floating"]
+  .chat-input-editor.tiptap
+  .is-empty::before {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
 .dark [data-chat-input-surface="elevated"] .chat-input-editor.tiptap,
 .dark [data-chat-input-surface="elevated"] .chat-input-editor.tiptap p,
 [data-chat-input-surface="elevated"] .chat-input-editor.tiptap,

@@ -211,12 +211,15 @@ describe("ChatMessageInput", () => {
     const surface = editor.closest("[data-chat-message-input]")?.parentElement;
 
     expect(editor.className).toContain("chat-input-editor");
-    expect(editor.className).toContain("max-h-6");
+    expect(editor.className).toContain("max-h-24");
+    expect(editor.className).toContain("overflow-y-auto");
     expect(editor.dataset.placeholder).toBe("Ask anything");
     expect(screen.queryByRole("button", { name: /send/i })).toBeNull();
     expect(surface?.getAttribute("data-chat-input-surface")).toBe("floating");
-    expect(surface?.className).toContain("h-10");
-    expect(surface?.className).toContain("rounded-full");
+    expect(surface?.className).toContain("min-h-10");
+    expect(surface?.className).toContain("max-h-32");
+    expect(surface?.className).toContain("rounded-[20px]");
+    expect(surface?.className).toContain("py-2");
     expect(surface?.className).toContain("bg-[#f4f4f5]");
     expect(surface?.className).toContain("dark:bg-[#202020]");
     expect(surface?.className).toContain("text-muted-foreground");
@@ -244,7 +247,7 @@ describe("ChatMessageInput", () => {
     expect(surface?.className).toContain("rounded-xl");
   });
 
-  it("uses a thin outer shell gap while floating", () => {
+  it("keeps the floating input inset from the clipped shell corners", () => {
     render(
       <ChatMessageInput draftKey="chat-input-test" onSendMessage={vi.fn()} />,
     );
@@ -254,9 +257,10 @@ describe("ChatMessageInput", () => {
       .closest("[data-chat-message-input]");
     const outerContainer = messageInput?.parentElement?.parentElement;
 
-    expect(outerContainer?.className).toContain("px-1.5");
-    expect(outerContainer?.className).toContain("pb-1.5");
+    expect(outerContainer?.className).toContain("px-1");
+    expect(outerContainer?.className).toContain("pb-1");
     expect(outerContainer?.className).not.toContain("px-3");
+    expect(outerContainer?.className).not.toContain("px-2.5");
     expect(outerContainer?.className).not.toContain("pr-0");
   });
 

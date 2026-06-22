@@ -17,9 +17,9 @@ import type { ChatSessionRenderProps } from "~/chat/components/session-provider"
 import { chatFloatingPanelShellClassNames } from "~/chat/surface";
 import { useShell } from "~/contexts/shell";
 
-const FLOATING_PANEL_MIN_WIDTH = 360;
+const FLOATING_PANEL_MIN_WIDTH = 368;
 const FLOATING_PANEL_MIN_HEIGHT = 320;
-const FLOATING_PANEL_MARGIN = 16;
+const FLOATING_PANEL_MARGIN = 12;
 
 type FloatingPanelSize = {
   width: number;
@@ -210,9 +210,9 @@ export function PersistentChatPanel({
     floatingSize && containerRect
       ? getFloatingPanelStyle(floatingSize, containerRect)
       : {
-          width: "calc(100% - 2rem)",
-          minWidth: "min(360px, calc(100% - 2rem))",
-          maxWidth: "720px",
+          width: "calc(100% - 1.5rem)",
+          minWidth: "min(368px, calc(100% - 1.5rem))",
+          maxWidth: "648px",
           maxHeight: "calc(100% - 1rem)",
           transformOrigin: "bottom center",
         };
@@ -310,7 +310,7 @@ export function PersistentChatPanel({
             data-chat-resize-frame
             className={cn([
               "pointer-events-auto relative flex h-full min-h-0",
-              "items-end justify-center px-4 pt-4 pb-0.5",
+              "items-end justify-center px-3 pt-4 pb-2",
             ])}
             onClick={(event) => {
               if (event.target === event.currentTarget) {
