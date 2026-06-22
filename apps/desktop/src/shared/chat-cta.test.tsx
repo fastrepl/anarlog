@@ -54,22 +54,34 @@ describe("ChatCTA", () => {
     expect(surface?.className).toContain("absolute");
     expect(surface?.className).toContain("bottom-0");
     expect(surface?.className).toContain("left-1/2");
+    expect(surface?.className).toContain(
+      "max-w-[min(640px,calc(100cqw-2rem))]",
+    );
     expect(surface?.className).toContain("origin-bottom");
-    expect(surface?.className).toContain("h-[10px]");
+    expect(surface?.className).toContain("h-2");
     expect(surface?.className).toContain("w-24");
     expect(surface?.className).toContain("rounded-full");
+    expect(surface?.className).toContain("bg-black");
+    expect(surface?.className).toContain("shadow-none");
+    expect(surface?.className).not.toContain("border-2");
     expect(surface?.className).toContain("pointer-events-none");
     expect(surface?.className).toContain("group-hover/anarlog-chat-cta:h-10");
     expect(surface?.className).toContain(
       "group-hover/anarlog-chat-cta:w-[640px]",
     );
     expect(surface?.className).toContain(
+      "group-hover/anarlog-chat-cta:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.16)]",
+    );
+    expect(surface?.className).toContain(
       "group-focus-visible/anarlog-chat-cta:w-[640px]",
+    );
+    expect(surface?.className).toContain(
+      "group-focus-visible/anarlog-chat-cta:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.16)]",
     );
     expect(button.querySelectorAll("svg")).toHaveLength(1);
     expect(label.className).toContain("max-w-0");
     expect(label.className).toContain("opacity-0");
-    expect(label.className).toContain("text-background/55");
+    expect(label.className).toContain("text-white/55");
     expect(label.className).toContain(
       "group-hover/anarlog-chat-cta:max-w-full",
     );

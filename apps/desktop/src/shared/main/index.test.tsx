@@ -98,6 +98,9 @@ describe("StandardTabWrapper", () => {
         ?.hasAttribute("data-main-has-after-border"),
     ).toBe(true);
     expect(
+      document.querySelector("[data-chat-floating-anchor]")?.className,
+    ).toContain("@container");
+    expect(
       document
         .querySelector("[data-chat-floating-anchor]")
         ?.hasAttribute("data-main-show-after-border-divider"),
