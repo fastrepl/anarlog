@@ -1,4 +1,4 @@
-import { ChevronRightIcon, FolderIcon } from "lucide-react";
+import { FolderIcon } from "lucide-react";
 import { useMemo } from "react";
 
 import { cn } from "@hypr/utils";
@@ -42,13 +42,9 @@ export function NoteTitleBreadcrumb({
                 showSeparator={index > 0}
               />
             ))}
+            <BreadcrumbSeparator />
           </>
-        ) : (
-          <li className="shrink-0">
-            <span className="text-neutral-500">Select folder</span>
-          </li>
-        )}
-        <BreadcrumbSeparator />
+        ) : null}
         <li className="min-w-0 overflow-hidden">
           <span aria-current="page" className="text-foreground font-normal">
             {title}
@@ -78,8 +74,8 @@ function BreadcrumbFolderCrumb({
 
 function BreadcrumbSeparator() {
   return (
-    <li aria-hidden="true" className="shrink-0">
-      <ChevronRightIcon className="text-muted-foreground size-3.5" />
+    <li aria-hidden="true" className="text-muted-foreground shrink-0 px-0.5">
+      /
     </li>
   );
 }

@@ -23,7 +23,7 @@ describe("NoteTitleBreadcrumb", () => {
     cleanup();
   });
 
-  it("renders the root folder crumb before the editable title", () => {
+  it("renders only the editable title when no folder is set", () => {
     render(
       <NoteTitleBreadcrumb
         sessionId="session-1"
@@ -36,7 +36,7 @@ describe("NoteTitleBreadcrumb", () => {
     });
     const title = screen.getByLabelText("Session title");
 
-    expect(screen.getByText("Select folder")).not.toBeNull();
+    expect(screen.queryByText("Select folder")).toBeNull();
     expect(breadcrumb.contains(title)).toBe(true);
     expect(breadcrumb.getAttribute("data-tauri-drag-region")).toBe("false");
   });
@@ -53,6 +53,7 @@ describe("NoteTitleBreadcrumb", () => {
 
     expect(screen.getByText("work")).not.toBeNull();
     expect(screen.getByText("meetings")).not.toBeNull();
+    expect(screen.getAllByText("/")).toHaveLength(2);
     expect(screen.getByLabelText("Session title")).not.toBeNull();
   });
 });
