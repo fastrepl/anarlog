@@ -9,9 +9,8 @@ import { TitleInput } from "./title-input";
 const hoisted = vi.hoisted(() => ({
   clearLiveTitle: vi.fn(),
   setLiveTitle: vi.fn(),
+  storeTitle: "Untitled" as string | undefined,
   store: {
-    addCellListener: vi.fn(() => "listener-id"),
-    delListener: vi.fn(),
     getCell: vi.fn(() => "Untitled"),
   },
 }));
@@ -27,6 +26,7 @@ vi.mock("~/ai/hooks", () => ({
 vi.mock("~/store/tinybase/store/main", () => ({
   STORE_ID: "main",
   UI: {
+    useCell: () => hoisted.storeTitle,
     useSetPartialRowCallback: () => vi.fn(),
     useStore: () => hoisted.store,
   },
@@ -67,6 +67,7 @@ const renderTitleInput = (
 describe("TitleInput", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    hoisted.storeTitle = "Untitled";
     hoisted.store.getCell.mockImplementation(() => "Untitled");
   });
 
@@ -85,7 +86,7 @@ describe("TitleInput", () => {
   });
 
   it("left-aligns the empty title field without a generate button", () => {
-    hoisted.store.getCell.mockReturnValueOnce("");
+    hoisted.storeTitle = "";
 
     renderTitleInput();
 
@@ -113,7 +114,7 @@ describe("TitleInput", () => {
   });
 
   it("uses the flexible title layout for whitespace-only titles", () => {
-    hoisted.store.getCell.mockReturnValueOnce("          ");
+    hoisted.storeTitle = "          ";
 
     renderTitleInput();
 
@@ -156,6 +157,35 @@ describe("TitleInput", () => {
     expect(
       hoverTitle.style.getPropertyValue("--title-hover-scroll-distance"),
     ).toBe("-260px");
+  });
+
+  it("updates when the persisted title loads after mount", () => {
+    hoisted.storeTitle = undefined;
+
+    const { rerender } = renderTitleInput();
+
+    const input = screen.getByPlaceholderText("Untitled");
+    expect((input as HTMLInputElement).value).toBe("");
+
+    hoisted.storeTitle = "Spotify Leadership Transition";
+    rerender(
+      <TooltipProvider>
+        <TitleInput
+          tab={{
+            active: true,
+            id: "session-1",
+            pinned: false,
+            slotId: "slot-1",
+            state: { autoStart: null, view: { type: "raw" } },
+            type: "sessions",
+          }}
+        />
+      </TooltipProvider>,
+    );
+
+    expect(
+      (screen.getByPlaceholderText("Untitled") as HTMLInputElement).value,
+    ).toBe("Spotify Leadership Transition");
   });
 
   it("updates title fades based on horizontal scroll position", () => {

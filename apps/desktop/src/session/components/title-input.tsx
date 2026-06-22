@@ -6,6 +6,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -46,11 +47,16 @@ export const TitleInput = forwardRef<
       id: sessionId,
       state: { view },
     } = tab;
-    const store = main.UI.useStore(main.STORE_ID);
     const isGenerating = useTitleGenerating(sessionId);
     const wasGenerating = usePrevious(isGenerating);
     const [showRevealAnimation, setShowRevealAnimation] = useState(false);
     const [generatedTitle, setGeneratedTitle] = useState<string | null>(null);
+    const storeTitle = main.UI.useCell(
+      "sessions",
+      sessionId,
+      "title",
+      main.STORE_ID,
+    ) as string | undefined;
 
     const editorId = view ? "active" : "inactive";
     const inputRef = useRef<TitleInputHandle>(null);
@@ -59,21 +65,14 @@ export const TitleInput = forwardRef<
 
     useEffect(() => {
       if (wasGenerating && !isGenerating) {
-        const title = store?.getCell("sessions", sessionId, "title") as
-          | string
-          | undefined;
-        setGeneratedTitle(title ?? null);
+        setGeneratedTitle(storeTitle ?? null);
         setShowRevealAnimation(true);
         const timer = setTimeout(() => {
           setShowRevealAnimation(false);
         }, 1000);
         return () => clearTimeout(timer);
       }
-    }, [wasGenerating, isGenerating, store, sessionId]);
-
-    const getInitialTitle = useCallback(() => {
-      return (store?.getCell("sessions", sessionId, "title") as string) ?? "";
-    }, [store, sessionId]);
+    }, [wasGenerating, isGenerating, storeTitle]);
 
     if (isGenerating) {
       return (
@@ -106,7 +105,6 @@ export const TitleInput = forwardRef<
         ref={inputRef}
         sessionId={sessionId}
         editorId={editorId}
-        getInitialTitle={getInitialTitle}
         onTransferContentToEditor={onTransferContentToEditor}
         onFocusEditorAtStart={onFocusEditorAtStart}
         onFocusEditorAtPixelWidth={onFocusEditorAtPixelWidth}
@@ -121,7 +119,6 @@ const TitleInputInner = memo(
     {
       sessionId: string;
       editorId: string;
-      getInitialTitle: () => string;
       onTransferContentToEditor?: (content: string) => void;
       onFocusEditorAtStart?: () => void;
       onFocusEditorAtPixelWidth?: (pixelWidth: number) => void;
@@ -131,24 +128,28 @@ const TitleInputInner = memo(
       {
         sessionId,
         editorId,
-        getInitialTitle,
         onTransferContentToEditor,
         onFocusEditorAtStart,
         onFocusEditorAtPixelWidth,
       },
       ref,
     ) => {
-      const [localTitle, setLocalTitle] = useState(() => getInitialTitle());
+      const storeTitle = main.UI.useCell(
+        "sessions",
+        sessionId,
+        "title",
+        main.STORE_ID,
+      ) as string | undefined;
+      const [draftTitle, setDraftTitle] = useState<string | null>(null);
       const [isOverflowing, setIsOverflowing] = useState(false);
       const [overflowDistance, setOverflowDistance] = useState(0);
       const [showStartFade, setShowStartFade] = useState(false);
       const [showEndFade, setShowEndFade] = useState(false);
       const [isTitleFocused, setIsTitleFocused] = useState(false);
-      const isFocused = useRef(false);
       const internalRef = useRef<HTMLInputElement>(null);
-      const store = main.UI.useStore(main.STORE_ID);
       const setLiveTitle = useLiveTitle((s) => s.setTitle);
       const clearLiveTitle = useLiveTitle((s) => s.clearTitle);
+      const title = draftTitle ?? storeTitle ?? "";
 
       const updateOverflowState = useCallback(
         (node?: HTMLInputElement | null) => {
@@ -206,7 +207,7 @@ const TitleInputInner = memo(
             }
           : undefined;
       const showHoverReveal =
-        isOverflowing && !isTitleFocused && localTitle.length > 0;
+        isOverflowing && !isTitleFocused && title.length > 0;
       const titleHoverScrollStyle = showHoverReveal
         ? ({
             "--title-hover-scroll-distance": `-${Math.ceil(
@@ -219,7 +220,7 @@ const TitleInputInner = memo(
           } as CSSProperties)
         : undefined;
       const visibleTitleLength = Math.max(
-        localTitle.length || "Untitled".length,
+        title.length || "Untitled".length,
         "Untitled".length,
       );
       const titleShellStyle = {
@@ -268,25 +269,9 @@ const TitleInputInner = memo(
         [],
       );
 
-      useEffect(() => {
-        if (!store) return;
-
-        const listenerId = store.addCellListener(
-          "sessions",
-          sessionId,
-          "title",
-          (_store, _tableId, _rowId, _cellId, newValue) => {
-            if (!isFocused.current) {
-              setLocalTitle((newValue as string) ?? "");
-              requestAnimationFrame(() => updateOverflowState());
-            }
-          },
-        );
-
-        return () => {
-          store.delListener(listenerId);
-        };
-      }, [store, sessionId, updateOverflowState]);
+      useLayoutEffect(() => {
+        requestAnimationFrame(() => updateOverflowState());
+      }, [title, updateOverflowState]);
 
       const setStoreTitle = main.UI.useSetPartialRowCallback(
         "sessions",
@@ -311,7 +296,7 @@ const TitleInputInner = memo(
           const beforeCursor = input.value.slice(0, cursorPos);
           const afterCursor = input.value.slice(cursorPos);
 
-          setLocalTitle(beforeCursor);
+          setDraftTitle(beforeCursor);
           setStoreTitle(beforeCursor);
           clearLiveTitle(sessionId);
 
@@ -368,7 +353,7 @@ const TitleInputInner = memo(
             type="text"
             onChange={(e) => {
               const value = e.target.value;
-              setLocalTitle(value);
+              setDraftTitle(value);
               setLiveTitle(sessionId, value);
               updateOverflowState(e.target);
             }}
@@ -376,20 +361,20 @@ const TitleInputInner = memo(
             onKeyDown={handleKeyDown}
             onKeyUp={(e) => updateOverflowState(e.currentTarget)}
             onFocus={() => {
-              isFocused.current = true;
+              setDraftTitle(title);
               setIsTitleFocused(true);
               updateOverflowState();
             }}
             onBlur={(e) => {
-              isFocused.current = false;
               setIsTitleFocused(false);
-              setStoreTitle(localTitle);
+              setStoreTitle(e.target.value);
+              setDraftTitle(null);
               clearLiveTitle(sessionId);
               updateOverflowState(e.target);
             }}
             onScroll={(e) => updateOverflowState(e.currentTarget)}
             onSelect={(e) => updateOverflowState(e.currentTarget)}
-            value={localTitle}
+            value={title}
             size={visibleTitleLength}
             className={cn([
               "w-full min-w-0 transition-opacity duration-200",
@@ -407,7 +392,7 @@ const TitleInputInner = memo(
                 style={titleHoverScrollStyle}
                 className="group-hover/title-input:animate-title-hover-scroll text-xl font-semibold whitespace-nowrap group-hover/title-input:will-change-transform"
               >
-                {localTitle}
+                {title}
               </span>
             </div>
           ) : null}
