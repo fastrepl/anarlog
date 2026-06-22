@@ -12,6 +12,7 @@ import { SearchProvider } from "./components/note-input/search/context";
 import { OuterHeader } from "./components/outer-header";
 import { SessionSurface } from "./components/session-surface";
 import { useCurrentNoteTab, useHasTranscript } from "./components/shared";
+import { NoteTitleBreadcrumb } from "./components/title-breadcrumb";
 import { TitleInput, type TitleInputHandle } from "./components/title-input";
 import { useAutoEnhance } from "./hooks/useAutoEnhance";
 
@@ -189,12 +190,18 @@ function TabContentNoteInner({
           currentView={currentView}
           standaloneWindow={standaloneWindow}
           title={
-            <TitleInput
-              ref={titleInputRef}
-              tab={tab}
-              onTransferContentToEditor={handleTransferContentToEditor}
-              onFocusEditorAtStart={handleFocusEditorAtStart}
-              onFocusEditorAtPixelWidth={handleFocusEditorAtPixelWidth}
+            <NoteTitleBreadcrumb
+              sessionId={tab.id}
+              title={
+                <TitleInput
+                  ref={titleInputRef}
+                  tab={tab}
+                  variant="breadcrumb"
+                  onTransferContentToEditor={handleTransferContentToEditor}
+                  onFocusEditorAtStart={handleFocusEditorAtStart}
+                  onFocusEditorAtPixelWidth={handleFocusEditorAtPixelWidth}
+                />
+              }
             />
           }
         />

@@ -32,6 +32,7 @@ export const TitleInput = forwardRef<
     onTransferContentToEditor?: (content: string) => void;
     onFocusEditorAtStart?: () => void;
     onFocusEditorAtPixelWidth?: (pixelWidth: number) => void;
+    variant?: "title" | "breadcrumb";
   }
 >(
   (
@@ -40,6 +41,7 @@ export const TitleInput = forwardRef<
       onTransferContentToEditor,
       onFocusEditorAtStart,
       onFocusEditorAtPixelWidth,
+      variant = "title",
     },
     ref,
   ) => {
@@ -78,9 +80,19 @@ export const TitleInput = forwardRef<
       return (
         <div
           data-tauri-drag-region="false"
-          className="flex h-8 w-full items-center justify-start"
+          className={cn([
+            "flex w-full items-center justify-start",
+            variant === "breadcrumb" ? "h-6" : "h-8",
+          ])}
         >
-          <span className="text-muted-foreground animate-pulse text-xl font-semibold">
+          <span
+            className={cn([
+              "text-muted-foreground animate-pulse",
+              variant === "breadcrumb"
+                ? "font-mono text-xs"
+                : "text-xl font-semibold",
+            ])}
+          >
             Generating title...
           </span>
         </div>
@@ -91,9 +103,19 @@ export const TitleInput = forwardRef<
       return (
         <div
           data-tauri-drag-region="false"
-          className="flex h-8 w-full items-center justify-start overflow-hidden"
+          className={cn([
+            "flex w-full items-center justify-start overflow-hidden",
+            variant === "breadcrumb" ? "h-6" : "h-8",
+          ])}
         >
-          <span className="animate-reveal-left text-xl font-semibold whitespace-nowrap">
+          <span
+            className={cn([
+              "animate-reveal-left whitespace-nowrap",
+              variant === "breadcrumb"
+                ? "font-mono text-xs"
+                : "text-xl font-semibold",
+            ])}
+          >
             {generatedTitle}
           </span>
         </div>
@@ -108,6 +130,7 @@ export const TitleInput = forwardRef<
         onTransferContentToEditor={onTransferContentToEditor}
         onFocusEditorAtStart={onFocusEditorAtStart}
         onFocusEditorAtPixelWidth={onFocusEditorAtPixelWidth}
+        variant={variant}
       />
     );
   },
@@ -122,6 +145,7 @@ const TitleInputInner = memo(
       onTransferContentToEditor?: (content: string) => void;
       onFocusEditorAtStart?: () => void;
       onFocusEditorAtPixelWidth?: (pixelWidth: number) => void;
+      variant: "title" | "breadcrumb";
     }
   >(
     (
@@ -131,6 +155,7 @@ const TitleInputInner = memo(
         onTransferContentToEditor,
         onFocusEditorAtStart,
         onFocusEditorAtPixelWidth,
+        variant,
       },
       ref,
     ) => {
@@ -342,7 +367,12 @@ const TitleInputInner = memo(
         <div
           data-tauri-drag-region="false"
           style={titleShellStyle}
-          className="group/title-input relative flex h-8 max-w-full items-center overflow-hidden text-xl font-semibold"
+          className={cn([
+            "group/title-input relative flex max-w-full items-center overflow-hidden",
+            variant === "breadcrumb"
+              ? "h-6 font-mono text-xs"
+              : "h-8 text-xl font-semibold",
+          ])}
         >
           <input
             data-tauri-drag-region="false"
@@ -379,7 +409,10 @@ const TitleInputInner = memo(
             className={cn([
               "w-full min-w-0 transition-opacity duration-200",
               "border-none bg-transparent focus:outline-hidden",
-              "placeholder:text-muted-foreground text-left text-xl font-semibold",
+              "placeholder:text-muted-foreground text-left",
+              variant === "breadcrumb"
+                ? "truncate text-xs text-neutral-700 focus:underline"
+                : "text-xl font-semibold",
               showHoverReveal && "text-transparent caret-transparent",
             ])}
           />
@@ -390,7 +423,12 @@ const TitleInputInner = memo(
             >
               <span
                 style={titleHoverScrollStyle}
-                className="group-hover/title-input:animate-title-hover-scroll text-xl font-semibold whitespace-nowrap group-hover/title-input:will-change-transform"
+                className={cn([
+                  "group-hover/title-input:animate-title-hover-scroll whitespace-nowrap group-hover/title-input:will-change-transform",
+                  variant === "breadcrumb"
+                    ? "font-mono text-xs"
+                    : "text-xl font-semibold",
+                ])}
               >
                 {title}
               </span>
