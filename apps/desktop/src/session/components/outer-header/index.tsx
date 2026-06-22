@@ -49,7 +49,7 @@ export function OuterHeader({
         <div
           data-tauri-drag-region
           className={cn([
-            "pointer-events-none absolute inset-y-0 flex items-center justify-center",
+            "pointer-events-none absolute inset-y-0 flex items-center",
             reserveCollapsedLiveControls ? "right-[153px]" : "right-[70px]",
             standaloneWindow
               ? "left-[68px]"

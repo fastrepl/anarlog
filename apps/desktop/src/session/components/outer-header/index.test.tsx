@@ -193,7 +193,7 @@ describe("OuterHeader", () => {
 
     expect(titleSlot?.className).toContain("left-0");
     expect(titleSlot?.className).toContain("right-[70px]");
-    expect(titleSlot?.className).toContain("justify-center");
+    expect(titleSlot?.className).not.toContain("justify-center");
   });
 
   it("keeps sidebar header controls hidden while the sidebar is expanded", () => {
