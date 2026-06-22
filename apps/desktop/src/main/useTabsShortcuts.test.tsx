@@ -647,7 +647,7 @@ describe("useClassicMainTabsShortcuts", () => {
     expect(hoisted.openCurrent).not.toHaveBeenCalled();
   });
 
-  it("lets earlier escape handlers consume the key", () => {
+  it("opens home from a note when escape is prevented without a focused target", () => {
     hoisted.currentTab = {
       active: true,
       slotId: "slot-session",
@@ -666,6 +666,29 @@ describe("useClassicMainTabsShortcuts", () => {
     dispatchEscape();
     vi.runOnlyPendingTimers();
     window.removeEventListener("keydown", preventEscape);
+
+    expect(hoisted.openCurrent).toHaveBeenCalledWith({ type: "empty" });
+    expect(hoisted.select).not.toHaveBeenCalled();
+  });
+
+  it("lets focused targets consume escape", () => {
+    hoisted.currentTab = {
+      active: true,
+      slotId: "slot-session",
+      type: "sessions",
+    };
+    const input = document.createElement("input");
+    input.addEventListener("keydown", (event) => {
+      event.preventDefault();
+    });
+    document.body.append(input);
+    input.focus();
+
+    renderHook(() => useClassicMainTabsShortcuts());
+
+    dispatchEscape(input);
+    vi.runOnlyPendingTimers();
+    input.remove();
 
     expect(hoisted.openCurrent).not.toHaveBeenCalled();
     expect(hoisted.select).not.toHaveBeenCalled();
