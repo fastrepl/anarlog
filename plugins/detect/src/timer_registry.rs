@@ -37,14 +37,6 @@ impl TimerRegistry {
         generation
     }
 
-    pub fn start_if_absent(&mut self, key: String, token: CancellationToken) -> Option<u64> {
-        if self.timers.contains_key(&key) {
-            return None;
-        }
-
-        Some(self.start_replace(key, token))
-    }
-
     pub fn cancel(&mut self, key: &str) -> bool {
         if let Some(entry) = self.timers.remove(key) {
             entry.token.cancel();
@@ -81,20 +73,6 @@ mod tests {
         assert!(token0_clone.is_cancelled());
         assert_eq!(generation_0, 0);
         assert_eq!(generation_1, 1);
-    }
-
-    #[test]
-    fn start_if_absent_does_not_replace_existing_timer() {
-        let mut registry = TimerRegistry::default();
-        let token0 = CancellationToken::new();
-        let token0_clone = token0.clone();
-
-        let generation_0 = registry.start_if_absent("app.x".to_string(), token0);
-        let generation_1 = registry.start_if_absent("app.x".to_string(), CancellationToken::new());
-
-        assert_eq!(generation_0, Some(0));
-        assert_eq!(generation_1, None);
-        assert!(!token0_clone.is_cancelled());
     }
 
     #[test]

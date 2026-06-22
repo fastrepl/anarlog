@@ -1,7 +1,6 @@
 use rmcp::{
-    ErrorData as McpError, RoleServer, ServerHandler, handler::server::tool::ToolRouter,
-    handler::server::wrapper::Parameters, model::*, service::RequestContext, tool, tool_handler,
-    tool_router,
+    ErrorData as McpError, RoleServer, ServerHandler, handler::server::wrapper::Parameters,
+    model::*, service::RequestContext, tool, tool_handler, tool_router,
 };
 
 use crate::state::AppState;
@@ -12,15 +11,11 @@ use super::tools;
 #[derive(Clone)]
 pub struct ResearchMcpServer {
     state: AppState,
-    tool_router: ToolRouter<Self>,
 }
 
 impl ResearchMcpServer {
     pub(super) fn new(state: AppState) -> Self {
-        Self {
-            state,
-            tool_router: Self::tool_router(),
-        }
+        Self { state }
     }
 }
 

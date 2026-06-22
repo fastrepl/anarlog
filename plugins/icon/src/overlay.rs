@@ -14,7 +14,6 @@ use objc2_foundation::{NSCopying, NSDictionary, NSPoint, NSRect, NSSize, NSStrin
 
 pub enum Overlay {
     Recording,
-    Degraded,
     Notification(u8),
 }
 
@@ -24,7 +23,6 @@ impl Overlay {
     pub fn draw(&self, base_image: &NSImage) -> Retained<NSImage> {
         match self {
             Overlay::Recording => draw_recording(base_image),
-            Overlay::Degraded => draw_degraded(base_image),
             Overlay::Notification(count) => draw_notification(base_image, *count),
         }
     }
@@ -113,36 +111,6 @@ fn draw_recording(base_image: &NSImage) -> Retained<NSImage> {
         );
         let center_path = NSBezierPath::bezierPathWithOvalInRect(center_rect);
         center_path.fill();
-    })
-}
-
-#[cfg(target_os = "macos")]
-fn draw_degraded(base_image: &NSImage) -> Retained<NSImage> {
-    draw_badge(base_image, &NSColor::systemOrangeColor(), |geo| {
-        let stem_width = geo.inner_size * 0.15;
-        let stem_height = geo.inner_size * 0.35;
-        let stem_x = geo.inner_origin.x + (geo.inner_size - stem_width) / 2.0;
-        let stem_y = geo.inner_origin.y + geo.inner_size * 0.42;
-        let stem_rect = NSRect::new(
-            NSPoint::new(stem_x, stem_y),
-            NSSize::new(stem_width, stem_height),
-        );
-        let stem_path = NSBezierPath::bezierPathWithRoundedRect_xRadius_yRadius(
-            stem_rect,
-            stem_width / 2.0,
-            stem_width / 2.0,
-        );
-        stem_path.fill();
-
-        let dot_diameter = geo.inner_size * 0.15;
-        let dot_cx = geo.inner_origin.x + (geo.inner_size - dot_diameter) / 2.0;
-        let dot_cy = geo.inner_origin.y + geo.inner_size * 0.18;
-        let excl_dot_rect = NSRect::new(
-            NSPoint::new(dot_cx, dot_cy),
-            NSSize::new(dot_diameter, dot_diameter),
-        );
-        let excl_dot_path = NSBezierPath::bezierPathWithOvalInRect(excl_dot_rect);
-        excl_dot_path.fill();
     })
 }
 

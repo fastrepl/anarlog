@@ -211,8 +211,6 @@ struct SmallestRealtimeWord {
     #[serde(default)]
     speaker: Option<SmallestSpeaker>,
     #[serde(default)]
-    speaker_confidence: Option<f64>,
-    #[serde(default)]
     language: Option<String>,
 }
 

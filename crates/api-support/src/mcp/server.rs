@@ -1,8 +1,8 @@
 use rmcp::schemars::{self, JsonSchema};
 use rmcp::{
     ErrorData as McpError, RoleServer, ServerHandler, elicit_safe,
-    handler::server::tool::ToolRouter, handler::server::wrapper::Parameters, model::*,
-    service::RequestContext, tool, tool_handler, tool_router,
+    handler::server::wrapper::Parameters, model::*, service::RequestContext, tool, tool_handler,
+    tool_router,
 };
 use serde::Serialize;
 
@@ -26,15 +26,11 @@ use super::tools::{
 #[derive(Clone)]
 pub(crate) struct SupportMcpServer {
     state: AppState,
-    tool_router: ToolRouter<Self>,
 }
 
 impl SupportMcpServer {
     pub(super) fn new(state: AppState) -> Self {
-        Self {
-            state,
-            tool_router: Self::tool_router(),
-        }
+        Self { state }
     }
 }
 

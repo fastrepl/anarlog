@@ -26,7 +26,6 @@ fn main() {
 
         for (overlay, name) in [
             (Overlay::Recording, "recording"),
-            (Overlay::Degraded, "degraded"),
             (Overlay::Notification(1), "notification_1"),
             (Overlay::Notification(9), "notification_9"),
             (Overlay::Notification(10), "notification_10"),
