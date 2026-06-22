@@ -30,4 +30,14 @@ pub trait WindowImpl:
         &self,
         app: &tauri::AppHandle<tauri::Wry>,
     ) -> Result<tauri::WebviewWindow, crate::Error>;
+
+    fn position_new_window(
+        &self,
+        app: &tauri::AppHandle<tauri::Wry>,
+        window: &tauri::WebviewWindow<tauri::Wry>,
+    ) -> Result<(), crate::Error> {
+        let _ = app;
+        let _ = window;
+        Ok(())
+    }
 }

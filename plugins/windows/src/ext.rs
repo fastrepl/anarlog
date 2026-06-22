@@ -275,11 +275,19 @@ impl AppWindow {
         Ok(None)
     }
 
-    fn finalize_show(&self, window: &WebviewWindow) -> Result<(), crate::Error> {
+    fn finalize_show(
+        &self,
+        app: &AppHandle<tauri::Wry>,
+        window: &WebviewWindow,
+    ) -> Result<(), crate::Error>
+    where
+        Self: WindowImpl,
+    {
         use tauri_plugin_window_state::{StateFlags, WindowExt};
 
         let _ = window.restore_state(StateFlags::SIZE);
 
+        self.position_new_window(app, window)?;
         window.show()?;
         window.set_focus()?;
 
@@ -309,7 +317,7 @@ impl AppWindow {
         } else {
             let window = self.build_window(app)?;
             std::thread::sleep(std::time::Duration::from_millis(100));
-            self.finalize_show(&window)?;
+            self.finalize_show(app, &window)?;
             window
         };
 
@@ -356,7 +364,7 @@ impl AppWindow {
                 let _ = tokio::time::timeout(std::time::Duration::from_secs(2), rx).await;
             }
 
-            self.finalize_show(&window)?;
+            self.finalize_show(app, &window)?;
             window
         };
 
