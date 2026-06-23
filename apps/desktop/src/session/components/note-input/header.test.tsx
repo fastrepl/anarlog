@@ -5,6 +5,8 @@ import type { EditorView } from "~/store/zustand/tabs/schema";
 
 const hoisted = vi.hoisted(() => ({
   enhance: vi.fn(),
+  activeTemplateTitle: "Customer Call",
+  isGenerating: false,
   userTemplates: [] as Array<{
     id: string;
     title: string;
@@ -25,10 +27,14 @@ vi.mock("@hypr/plugin-analytics", () => ({
   },
 }));
 
+vi.mock("@hypr/ui/components/ui/spinner", () => ({
+  Spinner: () => <span data-testid="tab-spinner" />,
+}));
+
 vi.mock("~/ai/hooks", () => ({
   useAITaskTask: () => ({
     isIdle: true,
-    isGenerating: false,
+    isGenerating: hoisted.isGenerating,
     isError: false,
     error: null,
     start: vi.fn(),
@@ -103,7 +109,7 @@ vi.mock("~/templates", () => ({
   parseWebTemplates: () => [],
   useCreateTemplate: () => vi.fn(),
   useTemplateCreatorName: () => "You",
-  useUserTemplate: () => ({ data: { title: "Summary" } }),
+  useUserTemplate: () => ({ data: { title: hoisted.activeTemplateTitle } }),
   useUserTemplates: () => hoisted.userTemplates,
 }));
 
@@ -117,6 +123,8 @@ import { Header } from "./header";
 describe("Header", () => {
   beforeEach(() => {
     hoisted.enhance.mockReset();
+    hoisted.activeTemplateTitle = "Customer Call";
+    hoisted.isGenerating = false;
     hoisted.userTemplates = [];
   });
 
@@ -141,7 +149,7 @@ describe("Header", () => {
       />,
     );
 
-    const summaryTab = screen.getByRole("button", { name: "Summary" });
+    const summaryTab = screen.getByRole("button", { name: "Customer Call" });
     const memoTab = screen.getByRole("button", { name: "Memos" });
     const transcriptTab = screen.getByRole("button", { name: "Transcript" });
 
@@ -151,10 +159,16 @@ describe("Header", () => {
     ).toBe("false");
     expect(summaryTab.getAttribute("aria-current")).toBeNull();
     expect(memoTab.getAttribute("aria-current")).toBe("page");
+    expect(memoTab.textContent).toBe("Memos");
+    expect(memoTab.className).toContain("h-[30px]");
+    expect(memoTab.className).toContain("-my-px");
+    expect(summaryTab.className).toContain("h-7");
+    expect(summaryTab.querySelector("svg")).not.toBeNull();
+    expect(summaryTab.querySelectorAll("svg")).toHaveLength(1);
     expect(summaryTab.textContent).toBe("");
     expect(transcriptTab.textContent).toBe("");
     expect(summaryTab.getAttribute("title")).toBe(
-      "Summary was used to generate this summary.",
+      "Customer Call was used to generate this summary.",
     );
 
     fireEvent.click(summaryTab);
@@ -173,7 +187,13 @@ describe("Header", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Summary" }));
+    const activeSummaryTab = screen.getByRole("button", {
+      name: "Customer Call",
+    });
+    expect(activeSummaryTab.textContent).toBe("Customer Call");
+    expect(activeSummaryTab.querySelectorAll("svg")).toHaveLength(2);
+
+    fireEvent.click(activeSummaryTab);
 
     expect(screen.getByPlaceholderText("Search templates...")).not.toBeNull();
 
@@ -188,7 +208,7 @@ describe("Header", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Summary" }));
+    fireEvent.click(screen.getByRole("button", { name: "Customer Call" }));
 
     expect(handleTabChange).toHaveBeenNthCalledWith(2, { type: "raw" });
     expect(handleTabChange).toHaveBeenNthCalledWith(3, {
@@ -215,7 +235,11 @@ describe("Header", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Memos" }));
-    fireEvent.click(screen.getByRole("button", { name: "Summary" }));
+    expect(screen.getByRole("button", { name: "Transcript" }).textContent).toBe(
+      "Transcript",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Customer Call" }));
 
     expect(handleTabChange).toHaveBeenNthCalledWith(1, { type: "raw" });
     expect(handleTabChange).toHaveBeenNthCalledWith(2, {
@@ -224,7 +248,7 @@ describe("Header", () => {
     });
   });
 
-  it("selects the enhanced note returned by the enhancer when changing templates", () => {
+  it("replaces the current enhanced note when changing templates", () => {
     hoisted.userTemplates = [
       {
         id: "template-2",
@@ -236,7 +260,7 @@ describe("Header", () => {
     ];
     hoisted.enhance.mockReturnValue({
       type: "started",
-      noteId: "note-2",
+      noteId: "note-1",
     });
     const editorTabs: EditorView[] = [
       { type: "enhanced", id: "note-1" },
@@ -253,15 +277,39 @@ describe("Header", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Summary" }));
+    fireEvent.click(screen.getByRole("button", { name: "Customer Call" }));
     fireEvent.click(screen.getByRole("button", { name: /Decision Log/ }));
 
     expect(hoisted.enhance).toHaveBeenCalledWith("session-1", {
       templateId: "template-2",
+      targetNoteId: "note-1",
+      templateTitle: "Decision Log",
     });
     expect(handleTabChange).toHaveBeenCalledWith({
       type: "enhanced",
-      id: "note-2",
+      id: "note-1",
     });
+  });
+
+  it("shows a spinner in the active enhanced tab while generating", () => {
+    hoisted.isGenerating = true;
+    const editorTabs: EditorView[] = [
+      { type: "enhanced", id: "note-1" },
+      { type: "raw" },
+    ];
+
+    render(
+      <Header
+        sessionId="session-1"
+        editorTabs={editorTabs}
+        currentTab={{ type: "enhanced", id: "note-1" }}
+        handleTabChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId("tab-spinner")).not.toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Customer Call" }).textContent,
+    ).toBe("Customer Call");
   });
 });

@@ -23,6 +23,8 @@ type QueueEmptySummaryResult =
 type EnhanceOpts = {
   isAuto?: boolean;
   templateId?: string;
+  targetNoteId?: string;
+  templateTitle?: string;
 };
 
 type EnhancerEvent =
@@ -255,12 +257,21 @@ export class EnhancerService {
     if (!model) return { type: "no_model" };
 
     const templateId = opts?.templateId || getSelectedTemplateId();
-    const enhancedNoteId = this.ensureNote(sessionId, templateId);
+    const targetNoteId = opts?.targetNoteId
+      ? this.getSessionEnhancedNoteId(sessionId, opts.targetNoteId)
+      : undefined;
+    const enhancedNoteId =
+      targetNoteId ?? this.ensureNote(sessionId, templateId);
     const enhanceTaskId = createTaskId(enhancedNoteId, "enhance");
     const existingTask = aiTaskStore.getState().getState(enhanceTaskId);
     if (existingTask?.status === "generating") {
       return { type: "already_active", noteId: enhancedNoteId };
     }
+
+    if (targetNoteId) {
+      this.replaceNoteTemplate(targetNoteId, templateId, opts?.templateTitle);
+    }
+
     if (
       existingTask?.status === "success" &&
       this.hasEnhancedNoteContent(enhancedNoteId)
@@ -298,6 +309,19 @@ export class EnhancerService {
       INDEXES.enhancedNotesBySession,
       sessionId,
     );
+  }
+
+  private getSessionEnhancedNoteId(
+    sessionId: string,
+    enhancedNoteId: string,
+  ): string | undefined {
+    const noteSessionId = this.deps.mainStore.getCell(
+      "enhanced_notes",
+      enhancedNoteId,
+      "session_id",
+    );
+
+    return noteSessionId === sessionId ? enhancedNoteId : undefined;
   }
 
   ensureNote(sessionId: string, templateId?: string): string {
@@ -356,6 +380,25 @@ export class EnhancerService {
     return hasSummaryContent(
       this.deps.mainStore.getCell("enhanced_notes", enhancedNoteId, "content"),
     );
+  }
+
+  private replaceNoteTemplate(
+    enhancedNoteId: string,
+    templateId: string | undefined,
+    templateTitle: string | undefined,
+  ) {
+    const normalizedTemplateId = templateId || undefined;
+    const title = templateTitle?.trim() || "Summary";
+
+    this.deps.mainStore.setPartialRow("enhanced_notes", enhancedNoteId, {
+      content: "",
+      title,
+      template_id: normalizedTemplateId,
+    });
+
+    if (normalizedTemplateId && !templateTitle?.trim()) {
+      void this.hydrateTemplateTitle(enhancedNoteId, normalizedTemplateId);
+    }
   }
 
   private async hydrateTemplateTitle(

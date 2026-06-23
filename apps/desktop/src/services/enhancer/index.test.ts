@@ -27,7 +27,12 @@ function createTables(data?: {
   transcripts?: Record<string, { session_id: string; words: string }>;
   enhanced_notes?: Record<
     string,
-    { session_id: string; template_id?: string; content?: string }
+    {
+      session_id: string;
+      template_id?: string;
+      content?: string;
+      title?: string;
+    }
   >;
   sessions?: Record<string, { title: string }>;
 }): Tables {
@@ -52,7 +57,15 @@ function createMockStore(tables: Tables) {
       if (!tables[table]) tables[table] = {};
       tables[table][rowId] = row;
     }),
-    setPartialRow: vi.fn(),
+    setPartialRow: vi.fn(
+      (table: string, rowId: string, partial: Record<string, any>) => {
+        if (!tables[table]) tables[table] = {};
+        tables[table][rowId] = {
+          ...(tables[table][rowId] ?? {}),
+          ...partial,
+        };
+      },
+    ),
   } as any;
 }
 
@@ -256,6 +269,59 @@ describe("EnhancerService", () => {
       const result = service.enhance("session-1");
       expect(result).toEqual({ type: "started", noteId: "note-1" });
       expect(aiTaskStore.getState().generate).toHaveBeenCalled();
+    });
+
+    it("replaces the target note instead of creating a template-specific tab", () => {
+      const tables = createTables({
+        enhanced_notes: {
+          "note-1": {
+            session_id: "session-1",
+            template_id: "template-1",
+            title: "Customer Call",
+            content: "Generated summary",
+          },
+        },
+      });
+      const store = createMockStore(tables);
+      const generate = vi.fn().mockResolvedValue(undefined);
+      const aiTaskStore = createMockAITaskStore();
+      aiTaskStore.getState.mockReturnValue({
+        generate,
+        getState: vi.fn().mockReturnValue({ status: "success" }),
+      });
+      const deps = createDeps({
+        mainStore: store,
+        indexes: createMockIndexes(tables),
+        aiTaskStore,
+      });
+      const service = new EnhancerService(deps);
+
+      const result = service.enhance("session-1", {
+        templateId: "template-2",
+        targetNoteId: "note-1",
+        templateTitle: "Decision Log",
+      });
+
+      expect(result).toEqual({ type: "started", noteId: "note-1" });
+      expect(store.setRow).not.toHaveBeenCalled();
+      expect(store.setPartialRow).toHaveBeenCalledWith(
+        "enhanced_notes",
+        "note-1",
+        {
+          content: "",
+          title: "Decision Log",
+          template_id: "template-2",
+        },
+      );
+      expect(generate).toHaveBeenCalledWith("note-1-enhance", {
+        model: expect.anything(),
+        taskType: "enhance",
+        args: {
+          sessionId: "session-1",
+          enhancedNoteId: "note-1",
+          templateId: "template-2",
+        },
+      });
     });
   });
 

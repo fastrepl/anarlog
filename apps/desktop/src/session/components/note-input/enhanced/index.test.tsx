@@ -27,6 +27,10 @@ vi.mock("@hypr/ui/components/ui/spinner", () => ({
   Spinner: () => <span data-testid="spinner" />,
 }));
 
+vi.mock("streamdown", () => ({
+  Streamdown: ({ children }: { children: string }) => <div>{children}</div>,
+}));
+
 vi.mock("~/ai/hooks", () => ({
   useAITaskTask: () => ({
     status: hoisted.task?.status ?? "idle",
@@ -109,7 +113,26 @@ describe("Enhanced", () => {
     expect(screen.queryByTestId("spinner")).toBeNull();
   });
 
-  it("renders a generating summary through the editor preview", () => {
+  it("shows a generating status before streamed text arrives", () => {
+    hoisted.task = {
+      status: "generating",
+      error: undefined,
+      streamedText: "",
+      currentStep: undefined,
+      isGenerating: true,
+    };
+
+    render(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
+
+    expect(screen.queryByText("Enhanced editor")).toBeNull();
+    expect(screen.getByRole("status")).not.toBeNull();
+    expect(screen.getByText("Analyzing structure...")).not.toBeNull();
+    expect(
+      screen.getByText("Tip: The Anarlog team loves our users!"),
+    ).not.toBeNull();
+  });
+
+  it("renders streamed summary in the generating view", () => {
     hoisted.task = {
       status: "generating",
       error: undefined,
@@ -120,7 +143,7 @@ describe("Enhanced", () => {
 
     render(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
 
-    expect(screen.getByText("Enhanced editor")).not.toBeNull();
+    expect(screen.queryByText("Enhanced editor")).toBeNull();
     expect(screen.getByText("Streaming summary")).not.toBeNull();
     expect(screen.queryByRole("status")).toBeNull();
   });

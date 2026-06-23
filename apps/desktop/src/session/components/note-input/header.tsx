@@ -20,6 +20,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@hypr/ui/components/ui/popover";
+import { Spinner } from "@hypr/ui/components/ui/spinner";
 import { sonnerToast } from "@hypr/ui/components/ui/toast";
 import { cn } from "@hypr/utils";
 
@@ -99,19 +100,26 @@ function IconHeaderTab({
       onClick={onClick}
       onContextMenu={onContextMenu}
       title={title}
-      className={iconHeaderTabClassName(isActive, "min-w-10 px-2")}
+      className={iconHeaderTabClassName(
+        isActive,
+        cn(["min-w-10 px-2", isActive ? "max-w-40 gap-1.5" : null]),
+      )}
     >
       {icon}
+      {isActive && (
+        <span className="min-w-0 truncate text-xs font-medium">{label}</span>
+      )}
     </button>
   );
 }
 
 function iconHeaderTabClassName(isActive: boolean, className?: string) {
   return cn([
-    "flex h-7 shrink-0 items-center justify-center rounded-full transition-colors",
+    "flex shrink-0 items-center justify-center rounded-full transition-colors [&>svg]:shrink-0",
     isActive
-      ? ["bg-foreground/10 text-foreground -my-0.5 h-8"]
+      ? ["bg-foreground/10 text-foreground -my-px h-[30px]"]
       : [
+          "h-7",
           "text-muted-foreground/70",
           "hover:bg-background/60 hover:text-foreground",
         ],
@@ -128,9 +136,13 @@ function getEnhancedNoteTitle({
   templateTitle: string | null;
   templateId: string | undefined;
 }) {
+  if (templateTitle) {
+    return templateTitle;
+  }
+
   const title = typeof rawTitle === "string" ? rawTitle.trim() : "";
   if (!title) {
-    return templateTitle || "Summary";
+    return "Summary";
   }
 
   const isGeneratedTitle =
@@ -139,8 +151,8 @@ function getEnhancedNoteTitle({
     UUID_TITLE_RE.test(title) ||
     ISO_TITLE_RE.test(title);
 
-  if (isGeneratedTitle && templateTitle) {
-    return templateTitle;
+  if (isGeneratedTitle) {
+    return "Summary";
   }
 
   return title;
@@ -185,6 +197,12 @@ async function copyTextToClipboard(
     return false;
   }
 }
+
+type TemplateSelection = {
+  templateId: string;
+  title: string;
+};
+
 function HeaderTabRaw({
   isActive,
   onClick = () => {},
@@ -288,13 +306,15 @@ function HeaderTabEnhanced({
     void onRegenerate(null);
   }, [onRegenerate]);
   const handleSelectTemplate = useCallback(
-    (selectedTemplateId: string) => {
+    (selection: TemplateSelection) => {
       if (isGenerating) {
         return;
       }
 
       const result = getEnhancerService()?.enhance(sessionId, {
-        templateId: selectedTemplateId,
+        templateId: selection.templateId,
+        targetNoteId: enhancedNoteId,
+        templateTitle: selection.title,
       });
 
       if (
@@ -304,7 +324,7 @@ function HeaderTabEnhanced({
         onSelectNote?.(result.noteId);
       }
     },
-    [isGenerating, onSelectNote, sessionId],
+    [enhancedNoteId, isGenerating, onSelectNote, sessionId],
   );
   const contextMenu = useMemo<MenuItemDef[]>(() => {
     const items: MenuItemDef[] = [
@@ -368,7 +388,7 @@ function HeaderTabEnhanced({
       className={iconHeaderTabClassName(
         true,
         cn([
-          "min-w-[62px] gap-2 pr-1.5 pl-2",
+          "max-w-56 min-w-[62px] gap-1.5 pr-1.5 pl-2",
           isGenerating ? "cursor-not-allowed opacity-70" : "cursor-pointer",
           isError
             ? [
@@ -379,7 +399,12 @@ function HeaderTabEnhanced({
         ]),
       )}
     >
-      <SparklesIcon className="size-4" />
+      {isGenerating ? (
+        <Spinner size={16} className="shrink-0" />
+      ) : (
+        <SparklesIcon className="size-4" />
+      )}
+      <span className="min-w-0 truncate text-xs font-medium">{tabTitle}</span>
       <ChevronDownIcon className="size-3.5" />
     </button>
   );
@@ -399,13 +424,13 @@ function HeaderTabEnhanced({
       onClick={onClick}
       onContextMenu={showContextMenu}
       title={templateTooltip}
-      className={iconHeaderTabClassName(
-        false,
-        "min-w-[62px] gap-2 pr-1.5 pl-2",
-      )}
+      className={iconHeaderTabClassName(false, "min-w-10 px-2")}
     >
-      <SparklesIcon className="size-4" />
-      <ChevronDownIcon className="size-3.5" />
+      {isGenerating ? (
+        <Spinner size={16} className="shrink-0" />
+      ) : (
+        <SparklesIcon className="size-4" />
+      )}
     </button>
   );
 }
@@ -461,7 +486,7 @@ function TemplatePickerPopover({
   trigger,
 }: {
   sessionId: string;
-  onSelectTemplate: (templateId: string) => void;
+  onSelectTemplate: (selection: TemplateSelection) => void;
   trigger: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -499,12 +524,12 @@ function TemplatePickerPopover({
   const openTemplatesTab = useOpenTemplatesTab();
 
   const handleUseTemplate = useCallback(
-    (templateId: string) => {
+    (selection: TemplateSelection) => {
       setOpen(false);
       setSearch("");
       resultRefs.current = [];
 
-      onSelectTemplate(templateId);
+      onSelectTemplate(selection);
     },
     [onSelectTemplate],
   );
@@ -530,7 +555,10 @@ function TemplatePickerPopover({
         return;
       }
 
-      handleUseTemplate(templateId);
+      handleUseTemplate({
+        templateId,
+        title: template.title || "Untitled",
+      });
     },
     [createTemplate, handleUseTemplate],
   );
@@ -670,7 +698,11 @@ function TemplatePickerPopover({
         creatorName,
       }),
       tags: getTemplateTags(template),
-      onClick: () => handleUseTemplate(template.id),
+      onClick: () =>
+        handleUseTemplate({
+          templateId: template.id,
+          title: template.title || "Untitled",
+        }),
     }));
 
     const suggestedSlugs = new Set(
@@ -741,7 +773,11 @@ function TemplatePickerPopover({
               creatorName,
             }),
             tags: getTemplateTags(template),
-            onClick: () => handleUseTemplate(template.id),
+            onClick: () =>
+              handleUseTemplate({
+                templateId: template.id,
+                title: template.title || "Untitled",
+              }),
           })),
           emptyMessage: "No favorite templates yet",
         },
@@ -800,7 +836,11 @@ function TemplatePickerPopover({
                   creatorName,
                 }),
                 tags: getTemplateTags(template),
-                onClick: () => handleUseTemplate(template.id),
+                onClick: () =>
+                  handleUseTemplate({
+                    templateId: template.id,
+                    title: template.title || "Untitled",
+                  }),
               })),
             },
           ]
