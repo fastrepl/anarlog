@@ -394,7 +394,7 @@ export function TemplatesSidebarContent({
         ) : (
           <>
             {hasResults && (
-              <div className="pt-3">
+              <div className="pt-1">
                 {combinedTemplates.map((item) =>
                   item.source === "user" ? (
                     <TemplateListItem
@@ -431,7 +431,7 @@ export function TemplatesSidebarContent({
             )}
 
             {isWebLoading && !hasResults && (
-              <div className="pt-3">
+              <div className="pt-1">
                 <div className="flex flex-col gap-1">
                   {[0, 1, 2, 3].map((index) => (
                     <div
