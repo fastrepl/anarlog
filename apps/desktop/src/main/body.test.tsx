@@ -20,12 +20,14 @@ vi.mock("@hypr/ui/components/ui/resizable", () => ({
     autoSaveId,
     children,
     className,
+    dir,
     direction,
     onLayout,
   }: {
     autoSaveId?: string;
     children: React.ReactNode;
     className?: string;
+    dir?: string;
     direction: string;
     onLayout?: (sizes: number[]) => void;
   }) => {
@@ -35,6 +37,7 @@ vi.mock("@hypr/ui/components/ui/resizable", () => ({
       <div
         data-auto-save-id={autoSaveId}
         data-class-name={className}
+        data-dir={dir}
         data-direction={direction}
         data-testid="panel-group"
       >
@@ -46,24 +49,30 @@ vi.mock("@hypr/ui/components/ui/resizable", () => ({
     children,
     className,
     defaultSize,
+    id,
     maxSize,
     minSize,
+    order,
     style,
   }: {
     children: React.ReactNode;
     className?: string;
     defaultSize?: number;
+    id?: string;
     maxSize?: number;
     minSize?: number;
+    order?: number;
     style?: React.CSSProperties;
   }) => (
     <div
       data-class-name={className}
       data-default-size={defaultSize}
+      data-panel-id={id}
       data-max-size={maxSize}
       data-min-size={minSize}
       data-max-width={style?.maxWidth}
       data-min-width={style?.minWidth}
+      data-order={order}
       data-testid="panel"
     >
       {children}
@@ -155,6 +164,7 @@ describe("ClassicMainBody", () => {
     expect(screen.getByTestId("panel-group").dataset.direction).toBe(
       "horizontal",
     );
+    expect(screen.getByTestId("panel-group").dataset.dir).toBe("ltr");
     expect(screen.getByTestId("panel-group").dataset.autoSaveId).toBe(
       "classic-main-sidebar",
     );
@@ -165,11 +175,15 @@ describe("ClassicMainBody", () => {
 
     const panels = screen.getAllByTestId("panel");
     expect(panels).toHaveLength(2);
+    expect(panels[0]?.dataset.panelId).toBe("classic-main-sidebar-left");
+    expect(panels[0]?.dataset.order).toBe("1");
     expect(panels[0]?.dataset.defaultSize).toBe("12.5");
     expect(panels[0]?.dataset.minSize).toBe("12.5");
     expect(panels[0]?.dataset.maxSize).toBe("22.5");
     expect(panels[0]?.dataset.minWidth).toBe("200");
     expect(panels[0]?.dataset.maxWidth).toBe("360");
+    expect(panels[1]?.dataset.panelId).toBe("classic-main-content");
+    expect(panels[1]?.dataset.order).toBe("2");
 
     const sidebarChrome = document.querySelector<HTMLElement>(
       "[data-left-sidebar-chrome]",

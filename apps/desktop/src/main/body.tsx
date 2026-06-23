@@ -187,6 +187,7 @@ export function ClassicMainBody() {
       ) : null}
       <ResizablePanelGroup
         autoSaveId={showLeftSidebarPanel ? "classic-main-sidebar" : undefined}
+        dir="ltr"
         direction="horizontal"
         className="min-h-0 flex-1 overflow-hidden"
         onLayout={handlePanelLayout}
@@ -194,6 +195,8 @@ export function ClassicMainBody() {
         {showLeftSidebarPanel ? (
           <>
             <ResizablePanel
+              id="classic-main-sidebar-left"
+              order={1}
               defaultSize={leftSidebarPanelConstraints.defaultSize}
               minSize={leftSidebarPanelConstraints.minSize}
               maxSize={leftSidebarPanelConstraints.maxSize}
@@ -210,7 +213,11 @@ export function ClassicMainBody() {
         ) : (
           <ClassicMainSidebar />
         )}
-        <ResizablePanel className="min-h-0 flex-1 overflow-hidden">
+        <ResizablePanel
+          id="classic-main-content"
+          order={2}
+          className="min-h-0 flex-1 overflow-hidden"
+        >
           <div
             className="h-full min-h-0 min-w-0 flex-1 overflow-auto"
             onClickCapture={mainAreaTopDrag.onClickCapture}
