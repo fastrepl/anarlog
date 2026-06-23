@@ -47,11 +47,10 @@ import { type Tab, uniqueIdfromTab, useTabs } from "~/store/zustand/tabs";
 
 const MAIN_AREA_TOP_DRAG_HEIGHT_PX = 48;
 const MAIN_AREA_WINDOW_DRAG_THRESHOLD_PX = 5;
-const LEFT_SIDEBAR_DEFAULT_SIZE = 20;
-const LEFT_SIDEBAR_MIN_SIZE = 12;
-const LEFT_SIDEBAR_MAX_SIZE = 32;
+const LEFT_SIDEBAR_DEFAULT_WIDTH_PX = 200;
 const LEFT_SIDEBAR_MIN_WIDTH_PX = 200;
 const LEFT_SIDEBAR_MAX_WIDTH_PX = 360;
+const LEFT_SIDEBAR_FALLBACK_CONTAINER_WIDTH_PX = 1000;
 
 type MainAreaWindowDragStart = {
   pointerId: number;
@@ -64,8 +63,11 @@ export function ClassicMainBody() {
   const { leftsidebar } = useShell();
   const currentTab = useTabs((state) => state.currentTab);
   const { runEscapeShortcut } = useClassicMainTabsShortcuts();
+  const [leftSidebarPanelConstraints] = useState(
+    createLeftSidebarPanelConstraints,
+  );
   const [leftSidebarPanelSize, setLeftSidebarPanelSize] = useState(
-    LEFT_SIDEBAR_DEFAULT_SIZE,
+    leftSidebarPanelConstraints.defaultSize,
   );
 
   const isOnboarding = currentTab?.type === "onboarding";
@@ -192,9 +194,9 @@ export function ClassicMainBody() {
         {showLeftSidebarPanel ? (
           <>
             <ResizablePanel
-              defaultSize={LEFT_SIDEBAR_DEFAULT_SIZE}
-              minSize={LEFT_SIDEBAR_MIN_SIZE}
-              maxSize={LEFT_SIDEBAR_MAX_SIZE}
+              defaultSize={leftSidebarPanelConstraints.defaultSize}
+              minSize={leftSidebarPanelConstraints.minSize}
+              maxSize={leftSidebarPanelConstraints.maxSize}
               className="min-h-0 overflow-hidden"
               style={{
                 minWidth: LEFT_SIDEBAR_MIN_WIDTH_PX,
@@ -233,6 +235,45 @@ export function ClassicMainBody() {
       </ResizablePanelGroup>
     </div>
   );
+}
+
+function createLeftSidebarPanelConstraints() {
+  const containerWidthPx = Math.max(
+    getInitialMainAreaWidthPx(),
+    LEFT_SIDEBAR_DEFAULT_WIDTH_PX,
+  );
+  const minSize = percentageFromPixels(
+    LEFT_SIDEBAR_MIN_WIDTH_PX,
+    containerWidthPx,
+  );
+
+  return {
+    defaultSize: percentageFromPixels(
+      LEFT_SIDEBAR_DEFAULT_WIDTH_PX,
+      containerWidthPx,
+    ),
+    minSize,
+    maxSize: Math.max(
+      minSize,
+      percentageFromPixels(LEFT_SIDEBAR_MAX_WIDTH_PX, containerWidthPx),
+    ),
+  };
+}
+
+function getInitialMainAreaWidthPx() {
+  if (typeof window === "undefined") {
+    return LEFT_SIDEBAR_FALLBACK_CONTAINER_WIDTH_PX;
+  }
+
+  return (
+    window.innerWidth ||
+    document.documentElement.clientWidth ||
+    LEFT_SIDEBAR_FALLBACK_CONTAINER_WIDTH_PX
+  );
+}
+
+function percentageFromPixels(widthPx: number, containerWidthPx: number) {
+  return Math.min((widthPx / containerWidthPx) * 100, 100);
 }
 
 function useMainAreaTopWindowDrag(enabled: boolean) {

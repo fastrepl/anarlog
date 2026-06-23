@@ -134,6 +134,10 @@ import { ClassicMainBody } from "./body";
 describe("ClassicMainBody", () => {
   beforeEach(() => {
     cleanup();
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      value: 1600,
+    });
     mocks.currentTab = {
       active: true,
       pinned: false,
@@ -161,9 +165,9 @@ describe("ClassicMainBody", () => {
 
     const panels = screen.getAllByTestId("panel");
     expect(panels).toHaveLength(2);
-    expect(panels[0]?.dataset.defaultSize).toBe("20");
-    expect(panels[0]?.dataset.minSize).toBe("12");
-    expect(panels[0]?.dataset.maxSize).toBe("32");
+    expect(panels[0]?.dataset.defaultSize).toBe("12.5");
+    expect(panels[0]?.dataset.minSize).toBe("12.5");
+    expect(panels[0]?.dataset.maxSize).toBe("22.5");
     expect(panels[0]?.dataset.minWidth).toBe("200");
     expect(panels[0]?.dataset.maxWidth).toBe("360");
 
@@ -171,7 +175,7 @@ describe("ClassicMainBody", () => {
       "[data-left-sidebar-chrome]",
     );
 
-    expect(sidebarChrome?.style.width).toBe("20%");
+    expect(sidebarChrome?.style.width).toBe("12.5%");
     expect(sidebarChrome?.style.minWidth).toBe("200px");
     expect(sidebarChrome?.style.maxWidth).toBe("360px");
     expect(sidebarChrome?.className).not.toContain("w-[200px]");
