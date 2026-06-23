@@ -196,6 +196,22 @@ describe("OuterHeader", () => {
     expect(titleSlot?.className).not.toContain("justify-center");
   });
 
+  it("can center the title slot for toolbar controls", () => {
+    render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "raw" } as EditorView}
+        centerTitle
+        title={<span>Toolbar controls</span>}
+      />,
+    );
+
+    const title = screen.getByText("Toolbar controls");
+    const titleSlot = title.parentElement?.parentElement;
+
+    expect(titleSlot?.className).toContain("justify-center");
+  });
+
   it("keeps sidebar header controls hidden while the sidebar is expanded", () => {
     mocks.sessionModes = { "session-1": "active" };
 

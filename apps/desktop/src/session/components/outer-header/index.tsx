@@ -22,11 +22,13 @@ export function OuterHeader({
   currentView,
   standaloneWindow = false,
   title,
+  centerTitle = false,
 }: {
   sessionId: string;
   currentView: EditorView;
   standaloneWindow?: boolean;
   title?: React.ReactNode;
+  centerTitle?: boolean;
 }) {
   const { leftsidebar } = useShell();
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
@@ -50,6 +52,7 @@ export function OuterHeader({
           data-tauri-drag-region
           className={cn([
             "pointer-events-none absolute inset-y-0 flex items-center",
+            centerTitle && "justify-center",
             reserveCollapsedLiveControls ? "right-[153px]" : "right-[70px]",
             standaloneWindow
               ? "left-[68px]"
