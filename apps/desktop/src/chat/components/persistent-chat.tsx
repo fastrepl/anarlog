@@ -13,6 +13,7 @@ import { useShell } from "~/contexts/shell";
 const FLOATING_CHAT_INPUT_MAX_WIDTH = 640;
 const FLOATING_CHAT_INPUT_HEIGHT = 40;
 const FLOATING_CHAT_SHELL_INSET = 4;
+const FLOATING_PANEL_MIN_WIDTH = 476;
 const FLOATING_PANEL_DEFAULT_MAX_WIDTH =
   FLOATING_CHAT_INPUT_MAX_WIDTH + FLOATING_CHAT_SHELL_INSET * 2;
 const FLOATING_PANEL_REVEAL_HEIGHT =
@@ -152,7 +153,7 @@ export function PersistentChatPanel({
   };
   const panelStyle = {
     width: "calc(100% - 1.5rem)",
-    minWidth: "min(368px, calc(100% - 1.5rem))",
+    minWidth: `min(${FLOATING_PANEL_MIN_WIDTH}px, 100%)`,
     maxWidth: `${FLOATING_PANEL_DEFAULT_MAX_WIDTH}px`,
     maxHeight: "calc(100% - 1rem)",
     transformOrigin: "bottom center",
