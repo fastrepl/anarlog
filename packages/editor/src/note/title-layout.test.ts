@@ -5,6 +5,18 @@ import { schema } from "./schema";
 import { normalizeTitleHeadingDoc, titleHeadingPlugin } from "./title-layout";
 
 describe("normalizeTitleHeadingDoc", () => {
+  it("keeps a body paragraph after an empty title", () => {
+    const doc = schema.node("doc", null, [schema.node("paragraph")]);
+
+    expect(normalizeTitleHeadingDoc(doc).toJSON()).toEqual({
+      type: "doc",
+      content: [
+        { type: "heading", attrs: { level: 1 } },
+        { type: "paragraph" },
+      ],
+    });
+  });
+
   it("converts the first paragraph into a title heading", () => {
     const doc = schema.node("doc", null, [
       schema.node("paragraph", null, [schema.text("Planning")]),
@@ -47,6 +59,30 @@ describe("normalizeTitleHeadingDoc", () => {
 });
 
 describe("titleHeadingPlugin", () => {
+  it("restores a body paragraph when only an empty title remains", () => {
+    const doc = schema.node("doc", null, [
+      schema.node("heading", { level: 1 }, [schema.text("Planning")]),
+      schema.node("paragraph", null, [schema.text("Follow up")]),
+    ]);
+    const state = EditorState.create({
+      schema,
+      doc,
+      plugins: [titleHeadingPlugin()],
+    });
+
+    const result = state.applyTransaction(
+      state.tr.delete(1, state.doc.content.size),
+    );
+
+    expect(result.state.doc.toJSON()).toEqual({
+      type: "doc",
+      content: [
+        { type: "heading", attrs: { level: 1 } },
+        { type: "paragraph" },
+      ],
+    });
+  });
+
   it("restores the first block to a title heading after edits", () => {
     const doc = schema.node("doc", null, [
       schema.node("heading", { level: 1 }, [schema.text("Planning")]),

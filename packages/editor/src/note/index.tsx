@@ -6,7 +6,6 @@ import {
   ProseMirrorDoc,
   reactKeys,
   useEditorEffect,
-  useEditorEventCallback,
 } from "@handlewithcare/react-prosemirror";
 import { dropCursor } from "prosemirror-dropcursor";
 import { gapCursor } from "prosemirror-gapcursor";
@@ -320,139 +319,133 @@ function EditorCommandsBridge({
 }: {
   commandsRef: React.RefObject<EditorCommands>;
 }) {
-  commandsRef.current.focus = useEditorEventCallback((view) => {
-    if (!view) return;
-    view.focus();
-  });
+  useEditorEffect(
+    (view) => {
+      if (!view) {
+        commandsRef.current = noopCommands;
+        return;
+      }
 
-  commandsRef.current.focusAtStart = useEditorEventCallback((view) => {
-    if (!view) return;
-    view.dispatch(
-      view.state.tr.setSelection(Selection.atStart(view.state.doc)),
-    );
-    view.focus();
-  });
-
-  commandsRef.current.focusAtPixelWidth = useEditorEventCallback(
-    (view, pixelWidth: number) => {
-      if (!view) return;
-
-      const blockStart = Selection.atStart(view.state.doc).from;
-      const firstTextNode = view.dom.querySelector(".ProseMirror > *");
-      if (firstTextNode) {
-        const editorStyle = window.getComputedStyle(firstTextNode);
-        const canvas = document.createElement("canvas");
-        const ctx = canvas.getContext("2d");
-        if (ctx) {
-          ctx.font = `${editorStyle.fontWeight} ${editorStyle.fontSize} ${editorStyle.fontFamily}`;
-          const firstBlock = view.state.doc.firstChild;
-          if (firstBlock && firstBlock.textContent) {
-            const text = firstBlock.textContent;
-            let charPos = 0;
-            for (let i = 0; i <= text.length; i++) {
-              const currentWidth = ctx.measureText(text.slice(0, i)).width;
-              if (currentWidth >= pixelWidth) {
-                charPos = i;
-                break;
+      commandsRef.current = {
+        focus: () => {
+          view.focus();
+        },
+        focusAtStart: () => {
+          view.dispatch(
+            view.state.tr.setSelection(Selection.atStart(view.state.doc)),
+          );
+          view.focus();
+        },
+        focusAtPixelWidth: (pixelWidth: number) => {
+          const blockStart = Selection.atStart(view.state.doc).from;
+          const firstTextNode = view.dom.querySelector(".ProseMirror > *");
+          if (firstTextNode) {
+            const editorStyle = window.getComputedStyle(firstTextNode);
+            const canvas = document.createElement("canvas");
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+              ctx.font = `${editorStyle.fontWeight} ${editorStyle.fontSize} ${editorStyle.fontFamily}`;
+              const firstBlock = view.state.doc.firstChild;
+              if (firstBlock && firstBlock.textContent) {
+                const text = firstBlock.textContent;
+                let charPos = 0;
+                for (let i = 0; i <= text.length; i++) {
+                  const currentWidth = ctx.measureText(text.slice(0, i)).width;
+                  if (currentWidth >= pixelWidth) {
+                    charPos = i;
+                    break;
+                  }
+                  charPos = i;
+                }
+                const targetPos = Math.min(
+                  blockStart + charPos,
+                  view.state.doc.content.size - 1,
+                );
+                view.dispatch(
+                  view.state.tr.setSelection(
+                    TextSelection.create(view.state.doc, targetPos),
+                  ),
+                );
+                view.focus();
+                return;
               }
-              charPos = i;
             }
-            const targetPos = Math.min(
-              blockStart + charPos,
-              view.state.doc.content.size - 1,
-            );
+          }
+
+          view.dispatch(
+            view.state.tr.setSelection(Selection.atStart(view.state.doc)),
+          );
+          view.focus();
+        },
+        insertAtStartAndFocus: (content: string) => {
+          if (!content) return;
+          const pos = Selection.atStart(view.state.doc).from;
+          const tr = view.state.tr.insertText(content, pos);
+          tr.setSelection(TextSelection.create(tr.doc, pos));
+          view.dispatch(tr);
+          view.focus();
+        },
+        replaceContent: (content: JSONContent) => {
+          if (content.type !== "doc") return;
+
+          try {
+            const nextDoc = PMNode.fromJSON(schema, content);
+            if (nextDoc.eq(view.state.doc)) {
+              return;
+            }
+
             view.dispatch(
-              view.state.tr.setSelection(
-                TextSelection.create(view.state.doc, targetPos),
+              view.state.tr.replaceWith(
+                0,
+                view.state.doc.content.size,
+                nextDoc.content,
               ),
             );
-            view.focus();
-            return;
+          } catch {
+            // invalid content
           }
-        }
-      }
+        },
+        setSearch: (query: string, caseSensitive: boolean) => {
+          const q = new SearchQuery({ search: query, caseSensitive });
+          const current = getSearchState(view.state);
+          if (current && current.query.eq(q)) return;
+          view.dispatch(setSearchState(view.state.tr, q));
+        },
+        replace: (params: SearchReplaceParams) => {
+          const query = new SearchQuery({
+            search: params.query,
+            replace: params.replacement,
+            caseSensitive: params.caseSensitive,
+            wholeWord: params.wholeWord,
+          });
 
-      view.dispatch(
-        view.state.tr.setSelection(Selection.atStart(view.state.doc)),
-      );
-      view.focus();
+          view.dispatch(setSearchState(view.state.tr, query));
+
+          if (params.all) {
+            searchReplaceAll(view.state, (tr) => view.dispatch(tr));
+          } else {
+            let result = query.findNext(view.state);
+            let idx = 0;
+            while (result && idx < params.matchIndex) {
+              result = query.findNext(view.state, result.to);
+              idx++;
+            }
+            if (!result) return;
+            view.dispatch(
+              view.state.tr.setSelection(
+                TextSelection.create(view.state.doc, result.from, result.to),
+              ),
+            );
+            searchReplaceCurrent(view.state, (tr) => view.dispatch(tr));
+          }
+        },
+      };
+
+      return () => {
+        commandsRef.current = noopCommands;
+      };
     },
-  );
-
-  commandsRef.current.insertAtStartAndFocus = useEditorEventCallback(
-    (view, content: string) => {
-      if (!view || !content) return;
-      const pos = Selection.atStart(view.state.doc).from;
-      const tr = view.state.tr.insertText(content, pos);
-      tr.setSelection(TextSelection.create(tr.doc, pos));
-      view.dispatch(tr);
-      view.focus();
-    },
-  );
-
-  commandsRef.current.replaceContent = useEditorEventCallback(
-    (view, content: JSONContent) => {
-      if (!view || content.type !== "doc") return;
-
-      try {
-        const nextDoc = PMNode.fromJSON(schema, content);
-        if (nextDoc.eq(view.state.doc)) {
-          return;
-        }
-
-        view.dispatch(
-          view.state.tr.replaceWith(
-            0,
-            view.state.doc.content.size,
-            nextDoc.content,
-          ),
-        );
-      } catch {
-        // invalid content
-      }
-    },
-  );
-
-  commandsRef.current.setSearch = useEditorEventCallback(
-    (view, query: string, caseSensitive: boolean) => {
-      if (!view) return;
-      const q = new SearchQuery({ search: query, caseSensitive });
-      const current = getSearchState(view.state);
-      if (current && current.query.eq(q)) return;
-      view.dispatch(setSearchState(view.state.tr, q));
-    },
-  );
-
-  commandsRef.current.replace = useEditorEventCallback(
-    (view, params: SearchReplaceParams) => {
-      if (!view) return;
-      const query = new SearchQuery({
-        search: params.query,
-        replace: params.replacement,
-        caseSensitive: params.caseSensitive,
-        wholeWord: params.wholeWord,
-      });
-
-      view.dispatch(setSearchState(view.state.tr, query));
-
-      if (params.all) {
-        searchReplaceAll(view.state, (tr) => view.dispatch(tr));
-      } else {
-        let result = query.findNext(view.state);
-        let idx = 0;
-        while (result && idx < params.matchIndex) {
-          result = query.findNext(view.state, result.to);
-          idx++;
-        }
-        if (!result) return;
-        view.dispatch(
-          view.state.tr.setSelection(
-            TextSelection.create(view.state.doc, result.from, result.to),
-          ),
-        );
-        searchReplaceCurrent(view.state, (tr) => view.dispatch(tr));
-      }
-    },
+    [commandsRef],
   );
 
   return null;
