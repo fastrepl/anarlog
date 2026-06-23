@@ -1,12 +1,5 @@
-import {
-  CopyIcon,
-  Loader2Icon,
-  Pencil,
-  RefreshCw,
-  SquareIcon,
-  TrashIcon,
-} from "lucide-react";
-import { type ReactNode, useCallback, useRef } from "react";
+import { Loader2Icon, RefreshCw, SquareIcon } from "lucide-react";
+import { type ReactNode, useCallback } from "react";
 
 import { Button } from "@hypr/ui/components/ui/button";
 import { Spinner } from "@hypr/ui/components/ui/spinner";
@@ -19,14 +12,7 @@ import { cn } from "@hypr/utils";
 
 import * as AudioPlayer from "~/audio-player";
 import type { PastSessionNote } from "~/session/components/bottom-accessory/past-notes";
-import { Transcript } from "~/session/components/note-input/transcript";
-import { useRegenerateTranscript } from "~/session/components/note-input/transcript/actions";
-import {
-  formatTranscriptExportSegments,
-  useTranscriptExportSegments,
-} from "~/session/components/note-input/transcript/export-data";
 import { useTranscriptScreen } from "~/session/components/note-input/transcript/state";
-import { showTransientToast } from "~/sidebar/toast/transient";
 import { useListener } from "~/stt/contexts";
 
 export type PostSessionTab = "transcript" | "insights";
@@ -35,41 +21,30 @@ const MAX_COMPILED_INSIGHTS = 12;
 
 export function PostSessionAccessory({
   sessionId,
-  hasAudio,
-  hasTranscript,
   isTranscriptExpanded,
   activeTab = "transcript",
   pastNotes = [],
-  suppressTranscriptPanel = false,
   onRegenerateInsights,
   fillHeight = false,
 }: {
   sessionId: string;
-  hasAudio: boolean;
-  hasTranscript: boolean;
   isTranscriptExpanded: boolean;
   activeTab?: PostSessionTab;
   pastNotes?: PastSessionNote[];
-  suppressTranscriptPanel?: boolean;
   onRegenerateInsights?: () => void;
   fillHeight?: boolean;
 }) {
   const screen = useTranscriptScreen({ sessionId });
   const isBatching = screen.kind === "running_batch";
-  const effectiveActiveTab =
-    activeTab === "insights" && pastNotes.length > 0
-      ? "insights"
-      : "transcript";
+  const showInsightsPanel =
+    activeTab === "insights" && pastNotes.length > 0 && isTranscriptExpanded;
   const shouldFillExpandedPanel =
-    fillHeight &&
-    (effectiveActiveTab === "insights" || hasTranscript || isBatching);
+    fillHeight && (showInsightsPanel || isBatching);
   const timeline = isBatching ? (
     <BatchProgressTimeline sessionId={sessionId} screen={screen} />
-  ) : hasAudio && isTranscriptExpanded ? (
-    <AudioPlayer.Timeline />
   ) : null;
 
-  if (!isTranscriptExpanded && !timeline) {
+  if (!showInsightsPanel && !timeline) {
     return null;
   }
 
@@ -80,7 +55,7 @@ export function PostSessionAccessory({
         shouldFillExpandedPanel && "h-full overflow-hidden",
       ])}
     >
-      {isTranscriptExpanded && !suppressTranscriptPanel ? (
+      {showInsightsPanel ? (
         <div
           className={cn([
             shouldFillExpandedPanel
@@ -88,26 +63,15 @@ export function PostSessionAccessory({
               : "shrink-0",
           ])}
         >
-          {effectiveActiveTab === "insights" ? (
-            <InsightsPanel
-              notes={pastNotes}
-              onRegenerateInsights={onRegenerateInsights}
-              fillHeight={shouldFillExpandedPanel}
-            />
-          ) : (
-            <TranscriptPanel
-              sessionId={sessionId}
-              screen={screen}
-              hasAudio={hasAudio}
-              hasTranscript={hasTranscript}
-              isExpanded={isTranscriptExpanded}
-              fillHeight={shouldFillExpandedPanel}
-            />
-          )}
+          <InsightsPanel
+            notes={pastNotes}
+            onRegenerateInsights={onRegenerateInsights}
+            fillHeight={shouldFillExpandedPanel}
+          />
         </div>
       ) : null}
       {timeline ? (
-        <TimelineSlot flushTop={!isTranscriptExpanded}>{timeline}</TimelineSlot>
+        <TimelineSlot flushTop={!showInsightsPanel}>{timeline}</TimelineSlot>
       ) : null}
     </div>
   );
@@ -313,169 +277,6 @@ function RegenerateInsightsButton({
   );
 }
 
-function TranscriptPanel({
-  sessionId,
-  screen,
-  hasAudio,
-  hasTranscript,
-  isExpanded,
-  fillHeight,
-}: {
-  sessionId: string;
-  screen: ReturnType<typeof useTranscriptScreen>;
-  hasAudio: boolean;
-  hasTranscript: boolean;
-  isExpanded: boolean;
-  fillHeight: boolean;
-}) {
-  if (screen.kind === "running_batch") {
-    return (
-      <BatchingTranscriptPanel
-        sessionId={sessionId}
-        screen={screen}
-        isExpanded={isExpanded}
-        fillHeight={fillHeight}
-      />
-    );
-  }
-
-  if (hasTranscript) {
-    return (
-      <TranscriptReadyPanel
-        sessionId={sessionId}
-        isExpanded={isExpanded}
-        fillHeight={fillHeight}
-      />
-    );
-  }
-
-  return (
-    <TranscriptEmptyPanel
-      sessionId={sessionId}
-      hasAudio={hasAudio}
-      isExpanded={isExpanded}
-      fillHeight={fillHeight}
-    />
-  );
-}
-
-function BatchingTranscriptPanel({
-  sessionId,
-  screen,
-  isExpanded,
-  fillHeight,
-}: {
-  sessionId: string;
-  screen: {
-    kind: "running_batch";
-    percentage?: number;
-    phase?: "importing" | "transcribing";
-  };
-  isExpanded: boolean;
-  fillHeight: boolean;
-}) {
-  const stopTranscription = useListener((state) => state.stopTranscription);
-  const handleStop = useCallback(() => {
-    void stopTranscription(sessionId);
-  }, [sessionId, stopTranscription]);
-  const { phase } = screen;
-  const phaseLabel = getBatchPhaseLabel(phase);
-  const canStopTranscription = phase !== "importing";
-
-  if (!isExpanded) {
-    return null;
-  }
-
-  return (
-    <TranscriptCard fillHeight={fillHeight}>
-      <div className="flex shrink-0 items-center justify-between px-3 py-1.5">
-        <span className="text-muted-foreground text-xs font-medium">
-          Transcript
-        </span>
-        <div className="flex items-center gap-1 px-1 py-0.5">
-          <BatchStatusControl
-            onStop={canStopTranscription ? handleStop : undefined}
-            compact
-          />
-          <span className="text-muted-foreground text-[11px]">
-            {phaseLabel}
-          </span>
-        </div>
-      </div>
-
-      <BatchTranscriptSkeleton fillHeight={fillHeight} />
-    </TranscriptCard>
-  );
-}
-
-function BatchTranscriptSkeleton({ fillHeight }: { fillHeight: boolean }) {
-  const rows = [
-    {
-      speaker: "w-16",
-      time: "w-8",
-      lines: ["w-[74%]", "w-[54%]"],
-    },
-    {
-      speaker: "w-12",
-      time: "w-10",
-      lines: ["w-[62%]", "w-[82%]", "w-[38%]"],
-    },
-    {
-      speaker: "w-20",
-      time: "w-8",
-      lines: ["w-[70%]", "w-[48%]"],
-    },
-  ] as const;
-
-  return (
-    <div
-      aria-hidden
-      data-testid="transcript-skeleton"
-      className={cn([
-        "flex flex-col overflow-hidden px-6 py-4",
-        fillHeight
-          ? "min-h-0 flex-1 justify-center"
-          : "h-[178px] justify-start",
-      ])}
-    >
-      <div className="flex w-full max-w-[940px] flex-col gap-8">
-        {rows.map((row, index) => (
-          <div key={index} className="flex gap-4">
-            <div className="flex w-[72px] shrink-0 flex-col gap-3 pt-0.5">
-              <div
-                className={cn([
-                  "bg-accent/80 h-2.5 rounded-full",
-                  "animate-pulse",
-                  row.speaker,
-                ])}
-              />
-              <div
-                className={cn([
-                  "bg-muted h-1.5 rounded-full",
-                  "animate-pulse",
-                  row.time,
-                ])}
-              />
-            </div>
-            <div className="flex min-w-0 flex-1 flex-col gap-3 pt-0.5">
-              {row.lines.map((lineWidth, lineIndex) => (
-                <div
-                  key={lineIndex}
-                  className={cn([
-                    "bg-muted h-2.5 rounded-full",
-                    "animate-pulse",
-                    lineWidth,
-                  ])}
-                />
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function BatchProgressTimeline({
   sessionId,
   screen,
@@ -571,203 +372,6 @@ function BatchStatusControl({
         <p>Stop transcription</p>
       </TooltipContent>
     </Tooltip>
-  );
-}
-
-function TranscriptReadyPanel({
-  sessionId,
-  isExpanded,
-  fillHeight,
-}: {
-  sessionId: string;
-  isExpanded: boolean;
-  fillHeight: boolean;
-}) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const regenerate = useRegenerateTranscript(sessionId);
-  const { data: transcriptSegments, isLoading: isTranscriptLoading } =
-    useTranscriptExportSegments(sessionId);
-  const { audioExists, deleteRecording, isDeletingRecording } =
-    AudioPlayer.useAudioPlayer();
-  const transcriptText = formatTranscriptExportSegments(transcriptSegments);
-  const canCopyTranscript = transcriptText.length > 0 && !isTranscriptLoading;
-  const handleCopyTranscript = useCallback(() => {
-    if (!canCopyTranscript) {
-      return;
-    }
-
-    void copyTranscriptToClipboard(transcriptText);
-  }, [canCopyTranscript, transcriptText]);
-
-  if (!isExpanded) {
-    return null;
-  }
-
-  return (
-    <TranscriptCard fillHeight={fillHeight}>
-      <div className="flex shrink-0 items-center justify-between px-3 py-1.5">
-        <div className="flex items-center gap-1">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                disabled
-                className={cn([
-                  "flex items-center gap-1 rounded-full px-1.5 py-0.5",
-                  "text-muted-foreground/70 text-[11px] font-medium",
-                  "cursor-not-allowed",
-                ])}
-              >
-                <Pencil size={10} />
-                Edit
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">
-              <p>Coming soon</p>
-            </TooltipContent>
-          </Tooltip>
-          <button
-            type="button"
-            onClick={handleCopyTranscript}
-            disabled={!canCopyTranscript}
-            aria-label="Copy transcript"
-            className={cn([
-              "flex items-center gap-1 rounded-full px-1.5 py-0.5",
-              "text-muted-foreground text-[11px] font-medium",
-              "hover:bg-accent/60 hover:text-muted-foreground transition-colors",
-              "disabled:text-muted-foreground/70 disabled:cursor-not-allowed",
-              "disabled:hover:text-muted-foreground/70 disabled:hover:bg-transparent",
-            ])}
-          >
-            <CopyIcon size={10} />
-            {isTranscriptLoading ? "Loading..." : "Copy"}
-          </button>
-          {audioExists ? (
-            <button
-              type="button"
-              onClick={regenerate}
-              className={cn([
-                "flex items-center gap-1 rounded-full px-1.5 py-0.5",
-                "text-muted-foreground text-[11px] font-medium",
-                "hover:bg-accent/60 hover:text-muted-foreground transition-colors",
-              ])}
-            >
-              <RefreshCw size={10} />
-              Regenerate
-            </button>
-          ) : null}
-        </div>
-        {audioExists ? (
-          <button
-            type="button"
-            onClick={() => void deleteRecording()}
-            disabled={isDeletingRecording}
-            className={cn([
-              "flex items-center gap-1 rounded-full px-1.5 py-0.5",
-              "text-[11px] font-medium text-red-600 dark:text-red-400",
-              "transition-colors hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/50 dark:hover:text-red-300",
-              "disabled:cursor-not-allowed disabled:text-red-300 dark:disabled:text-red-500/60",
-            ])}
-          >
-            {isDeletingRecording ? (
-              <Loader2Icon size={10} className="animate-spin" />
-            ) : (
-              <TrashIcon size={10} />
-            )}
-            {isDeletingRecording ? "Deleting..." : "Delete recording"}
-          </button>
-        ) : null}
-      </div>
-
-      <TranscriptScrollArea fillHeight={fillHeight}>
-        <Transcript sessionId={sessionId} scrollRef={scrollRef} />
-      </TranscriptScrollArea>
-    </TranscriptCard>
-  );
-}
-
-async function copyTranscriptToClipboard(text: string) {
-  try {
-    await navigator.clipboard.writeText(text);
-    showTransientToast({
-      id: "transcript-copy-success",
-      description: "Transcript copied to clipboard",
-    });
-  } catch (error) {
-    console.error("Failed to copy transcript", error);
-    showTransientToast({
-      id: "transcript-copy-error",
-      description: "Failed to copy transcript",
-      variant: "error",
-    });
-  }
-}
-
-function TranscriptEmptyPanel({
-  sessionId,
-  hasAudio,
-  isExpanded,
-  fillHeight,
-}: {
-  sessionId: string;
-  hasAudio: boolean;
-  isExpanded: boolean;
-  fillHeight: boolean;
-}) {
-  const screen = useTranscriptScreen({ sessionId });
-  const regenerate = useRegenerateTranscript(sessionId);
-
-  const error = screen.kind === "empty" ? screen.error : null;
-
-  if (!isExpanded) {
-    return null;
-  }
-
-  return (
-    <TranscriptCard fillHeight={fillHeight} reserveMinHeight={false}>
-      <div className="flex min-h-0 flex-1 items-center justify-between px-4 py-3">
-        {error ? (
-          <span className="text-xs text-red-500">{error}</span>
-        ) : (
-          <span className="text-muted-foreground text-xs">
-            No transcript yet
-          </span>
-        )}
-
-        <div className="flex items-center gap-1.5">
-          {hasAudio && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground h-7 gap-1.5 text-xs"
-              onClick={regenerate}
-            >
-              <RefreshCw size={12} />
-              Regenerate
-            </Button>
-          )}
-        </div>
-      </div>
-    </TranscriptCard>
-  );
-}
-
-function TranscriptScrollArea({
-  children,
-  fillHeight,
-}: {
-  children: ReactNode;
-  fillHeight: boolean;
-}) {
-  return (
-    <div
-      className={cn([
-        "overflow-y-auto px-3",
-        fillHeight ? "min-h-0 flex-1" : "h-[300px]",
-      ])}
-    >
-      {children}
-    </div>
   );
 }
 

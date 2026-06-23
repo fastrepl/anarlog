@@ -4,6 +4,7 @@ import React, { useEffect, useRef } from "react";
 
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 
+import { shouldShowSessionBottomAccessory } from "./bottom-accessory-visibility";
 import { useSessionBottomAccessory } from "./components/bottom-accessory";
 import { CaretPositionProvider } from "./components/caret-position-context";
 import { FloatingActionButton } from "./components/floating";
@@ -17,6 +18,7 @@ import { OuterHeader } from "./components/outer-header";
 import { SessionSurface } from "./components/session-surface";
 import { useCurrentNoteTab, useHasTranscript } from "./components/shared";
 import { useAutoEnhance } from "./hooks/useAutoEnhance";
+import { shouldShowSessionTopAudioPlayer } from "./top-audio-player";
 
 import * as AudioPlayer from "~/audio-player";
 import * as main from "~/store/tinybase/store/main";
@@ -100,7 +102,6 @@ export function TabContentNote({
             tab={tab}
             standaloneWindow={standaloneWindow}
             audioUrlReady={Boolean(audioUrl)}
-            isAudioUrlLoading={audioUrlQuery.isPending}
           />
         </AudioPlayer.Provider>
       </SearchProvider>
@@ -112,12 +113,10 @@ function TabContentNoteInner({
   tab,
   standaloneWindow,
   audioUrlReady,
-  isAudioUrlLoading,
 }: {
   tab: Extract<Tab, { type: "sessions" }>;
   standaloneWindow: boolean;
   audioUrlReady: boolean;
-  isAudioUrlLoading: boolean;
 }) {
   const noteInputRef = React.useRef<NoteInputHandle>(null);
 
@@ -138,12 +137,13 @@ function TabContentNoteInner({
     useSessionBottomAccessory({
       sessionId,
       sessionMode,
-      audioExists,
-      audioUrlReady,
-      isAudioLoading: isAudioUrlLoading,
-      hasTranscript,
-      suppressTranscriptPanel: currentView.type === "transcript",
     });
+  const showTopAudioPlayer = shouldShowSessionTopAudioPlayer({
+    audioExists,
+    audioUrlReady,
+    currentView,
+    sessionMode,
+  });
 
   const handleTabChange = React.useCallback(
     (view: typeof currentView) => {
@@ -169,9 +169,10 @@ function TabContentNoteInner({
     bottomAccessoryState?.expanded === true &&
     canResizeTranscriptSurface &&
     hasResizableTranscriptSurface;
-  const showBottomAccessory =
-    currentView.type !== "transcript" ||
-    bottomAccessoryState?.mode === "playback";
+  const showBottomAccessory = shouldShowSessionBottomAccessory({
+    currentView,
+    bottomAccessoryState,
+  });
   const showBottomTranscriptSurface =
     showBottomAccessory && currentView.type !== "transcript";
 
@@ -212,14 +213,28 @@ function TabContentNoteInner({
         />
       }
     >
-      <NoteInput
-        ref={noteInputRef}
-        tab={tab}
-        editorTabs={editorTabs}
-        currentTab={currentView}
-        handleTabChange={handleTabChange}
-        hideHeader
-      />
+      <div className="flex h-full min-h-0 flex-col">
+        {showTopAudioPlayer ? (
+          <div
+            data-session-top-audio-player
+            className="shrink-0 px-1 pt-1 pb-2"
+          >
+            <div className="border-border/70 bg-card/80 overflow-hidden rounded-[22px] border">
+              <AudioPlayer.Timeline contentClassName="py-1.5 pr-3 pl-1" />
+            </div>
+          </div>
+        ) : null}
+        <div className="min-h-0 flex-1">
+          <NoteInput
+            ref={noteInputRef}
+            tab={tab}
+            editorTabs={editorTabs}
+            currentTab={currentView}
+            handleTabChange={handleTabChange}
+            hideHeader
+          />
+        </div>
+      </div>
     </SessionSurface>
   );
 }

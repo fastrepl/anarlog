@@ -11,7 +11,11 @@ import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
 
 const PLAYBACK_RATES = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 
-export function Timeline() {
+export function Timeline({
+  contentClassName,
+}: {
+  contentClassName?: string;
+} = {}) {
   const { isPro } = useBillingAccess();
   const {
     registerContainer,
@@ -93,6 +97,7 @@ export function Timeline() {
 
   return (
     <TimelineShell
+      contentClassName={contentClassName}
       onContextMenu={showContextMenu}
       leading={
         <button

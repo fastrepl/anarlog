@@ -136,8 +136,6 @@ describe("insights regeneration", () => {
     render(
       <PostSessionAccessory
         sessionId="session-1"
-        hasAudio={false}
-        hasTranscript
         isTranscriptExpanded
         activeTab="insights"
         pastNotes={[
@@ -164,8 +162,6 @@ describe("insights regeneration", () => {
     render(
       <PostSessionAccessory
         sessionId="session-1"
-        hasAudio={false}
-        hasTranscript
         isTranscriptExpanded
         activeTab="insights"
         pastNotes={[
@@ -192,8 +188,6 @@ describe("insights regeneration", () => {
     render(
       <PostSessionAccessory
         sessionId="session-1"
-        hasAudio={false}
-        hasTranscript
         isTranscriptExpanded
         activeTab="insights"
         pastNotes={[

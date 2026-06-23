@@ -11,11 +11,13 @@ export function TimelineMeta({ children }: { children: ReactNode }) {
 }
 
 export function TimelineShell({
+  contentClassName,
   leading,
   meta,
   main,
   onContextMenu,
 }: {
+  contentClassName?: string;
   leading: ReactNode;
   meta?: ReactNode;
   main: ReactNode;
@@ -30,6 +32,7 @@ export function TimelineShell({
         className={cn([
           "flex items-center gap-2 px-2 py-1",
           "w-full max-w-full",
+          contentClassName,
         ])}
       >
         {leading}

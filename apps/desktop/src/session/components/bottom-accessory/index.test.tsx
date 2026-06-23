@@ -116,7 +116,7 @@ describe("useSessionBottomAccessory", () => {
     });
   });
 
-  it("shows collapsed playback chrome for inactive sessions with audio", () => {
+  it("does not show bottom playback chrome for inactive sessions with audio", () => {
     const { result } = renderHook(() =>
       useSessionBottomAccessory({
         sessionId: "session-1",
@@ -126,12 +126,9 @@ describe("useSessionBottomAccessory", () => {
       }),
     );
 
-    expect(result.current.bottomAccessoryState).toEqual({
-      mode: "playback",
-      expanded: false,
-    });
+    expect(result.current.bottomAccessoryState).toBeNull();
     expect(result.current.bottomAccessory).toBeNull();
-    expect(result.current.bottomBorderHandle).not.toBeNull();
+    expect(result.current.bottomBorderHandle).toBeNull();
     expect(hoisted.hotkeys.get("esc")?.options?.enabled).toBe(false);
   });
 
@@ -151,11 +148,8 @@ describe("useSessionBottomAccessory", () => {
       }),
     );
 
-    expect(result.current.bottomAccessoryState).toEqual({
-      mode: "playback",
-      expanded: false,
-    });
-    expect(result.current.bottomBorderHandle).not.toBeNull();
+    expect(result.current.bottomAccessoryState).toBeNull();
+    expect(result.current.bottomBorderHandle).toBeNull();
     expect(hoisted.hotkeys.get("esc")?.options?.enabled).toBe(false);
   });
 
@@ -175,11 +169,8 @@ describe("useSessionBottomAccessory", () => {
       }),
     );
 
-    expect(result.current.bottomAccessoryState).toEqual({
-      mode: "playback",
-      expanded: false,
-    });
-    expect(result.current.bottomBorderHandle).not.toBeNull();
+    expect(result.current.bottomAccessoryState).toBeNull();
+    expect(result.current.bottomBorderHandle).toBeNull();
     expect(hoisted.hotkeys.get("esc")?.options?.enabled).toBe(false);
   });
 
@@ -232,7 +223,7 @@ describe("useSessionBottomAccessory", () => {
 
     expect(hoisted.generateMissingPastNotes).toHaveBeenCalledTimes(1);
     expect(result.current.bottomAccessoryState).toEqual({
-      mode: "playback",
+      mode: "transcript_only",
       expanded: true,
     });
   });
@@ -331,7 +322,7 @@ describe("useSessionBottomAccessory", () => {
     ).not.toBeNull();
   });
 
-  it("waits for the audio URL before showing inactive playback", () => {
+  it("does not show inactive bottom playback when the audio URL becomes ready", () => {
     const { result, rerender } = renderHook(
       ({ audioUrlReady }: { audioUrlReady: boolean }) =>
         useSessionBottomAccessory({
@@ -353,11 +344,8 @@ describe("useSessionBottomAccessory", () => {
 
     rerender({ audioUrlReady: true });
 
-    expect(result.current.bottomAccessoryState).toEqual({
-      mode: "playback",
-      expanded: false,
-    });
-    expect(result.current.bottomBorderHandle).not.toBeNull();
+    expect(result.current.bottomAccessoryState).toBeNull();
+    expect(result.current.bottomBorderHandle).toBeNull();
   });
 
   it("hides the post-session handle while audio lookup is loading without insights", () => {
@@ -456,7 +444,7 @@ describe("useSessionBottomAccessory", () => {
       expanded: false,
     });
     expect(result.current.bottomAccessory).not.toBeNull();
-    expect(result.current.bottomBorderHandle).not.toBeNull();
+    expect(result.current.bottomBorderHandle).toBeNull();
   });
 
   it("keeps batch progress visible while batch transcription is running", () => {
@@ -474,10 +462,10 @@ describe("useSessionBottomAccessory", () => {
       expanded: false,
     });
     expect(result.current.bottomAccessory).not.toBeNull();
-    expect(result.current.bottomBorderHandle).not.toBeNull();
+    expect(result.current.bottomBorderHandle).toBeNull();
   });
 
-  it("keeps collapsed inactive playback when regeneration starts", () => {
+  it("shows batch progress when regeneration starts", () => {
     const { result, rerender } = renderHook(
       ({ sessionMode }: { sessionMode: string }) =>
         useSessionBottomAccessory({
@@ -493,11 +481,8 @@ describe("useSessionBottomAccessory", () => {
       },
     );
 
-    expect(result.current.bottomAccessoryState).toEqual({
-      mode: "playback",
-      expanded: false,
-    });
-    expect(result.current.bottomBorderHandle).not.toBeNull();
+    expect(result.current.bottomAccessoryState).toBeNull();
+    expect(result.current.bottomBorderHandle).toBeNull();
 
     rerender({ sessionMode: "running_batch" });
 
@@ -506,6 +491,7 @@ describe("useSessionBottomAccessory", () => {
       expanded: false,
     });
     expect(result.current.bottomAccessory).not.toBeNull();
+    expect(result.current.bottomBorderHandle).toBeNull();
   });
 
   it("uses panel chrome for the live handle", () => {

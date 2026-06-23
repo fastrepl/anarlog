@@ -21,7 +21,6 @@ import { useShell } from "~/contexts/shell";
 import { getLiveCaptureUiMode } from "~/store/zustand/listener/general-shared";
 import { useListener } from "~/stt/contexts";
 
-const BOTTOM_ACCESSORY_HANDLE_CLASS = "bg-card dark:bg-app-floating-chrome";
 const LIVE_ACCESSORY_HANDLE_CLASS = "bg-app-floating-panel";
 
 export type BottomAccessoryState = {
@@ -32,18 +31,13 @@ export type BottomAccessoryState = {
 export function useSessionBottomAccessory({
   sessionId,
   sessionMode,
-  audioExists,
-  audioUrlReady = audioExists,
-  hasTranscript,
-  suppressTranscriptPanel = false,
 }: {
   sessionId: string;
   sessionMode: string;
-  audioExists: boolean;
+  audioExists?: boolean;
   audioUrlReady?: boolean;
   isAudioLoading?: boolean;
-  hasTranscript: boolean;
-  suppressTranscriptPanel?: boolean;
+  hasTranscript?: boolean;
 }): {
   bottomAccessory: ReactNode;
   bottomBorderHandle: ReactNode;
@@ -56,13 +50,6 @@ export function useSessionBottomAccessory({
   const isLive = sessionMode === "active";
   const isInactive = sessionMode === "inactive";
   const isRunningBatch = sessionMode === "running_batch";
-  const canUsePlayback = audioUrlReady && (isInactive || isRunningBatch);
-  const batchError = useListener(
-    (state) => state.batch[sessionId]?.error ?? null,
-  );
-  const hasTranscriptError = Boolean(batchError);
-  const canShowTranscriptTab =
-    canUsePlayback || hasTranscript || hasTranscriptError || isRunningBatch;
   const live = useListener((state) => ({
     status: state.live.status,
     sessionId: state.live.sessionId,
@@ -84,12 +71,9 @@ export function useSessionBottomAccessory({
   });
   const hasPastNotes = pastNotes.hasPastNotes;
   const generateMissingPastNotes = pastNotes.generateMissing;
-  const activePostSessionTab: PostSessionTab =
-    hasPastNotes && !canShowTranscriptTab
-      ? "insights"
-      : hasPastNotes
-        ? (postSessionTab ?? "transcript")
-        : "transcript";
+  const activePostSessionTab: PostSessionTab = hasPastNotes
+    ? (postSessionTab ?? "insights")
+    : "transcript";
   const canExpandLiveTranscript = showLiveAccessory;
   const effectiveExpanded =
     isLive && !canExpandLiveTranscript ? false : isExpanded;
@@ -112,9 +96,7 @@ export function useSessionBottomAccessory({
 
   const showPostSession =
     isRunningBatch ||
-    (!shouldDeferToGlobalLiveAccessory &&
-      isInactive &&
-      (canUsePlayback || hasPastNotes));
+    (!shouldDeferToGlobalLiveAccessory && isInactive && hasPastNotes);
   const selectPostSessionTab = useCallback(
     (tab: PostSessionTab) => {
       const shouldExpand = activePostSessionTab !== tab || !isExpanded;
@@ -148,7 +130,7 @@ export function useSessionBottomAccessory({
     showLiveAccessory
       ? "live"
       : showPostSession
-        ? canUsePlayback || isRunningBatch
+        ? isRunningBatch
           ? "playback"
           : "transcript_only"
         : null;
@@ -181,17 +163,14 @@ export function useSessionBottomAccessory({
   }
 
   if (showPostSession) {
-    const hasAccessoryContent = isExpanded || isRunningBatch;
+    const hasAccessoryContent = isRunningBatch || (hasPastNotes && isExpanded);
     return {
       bottomAccessory: hasAccessoryContent ? (
         <PostSessionAccessory
           sessionId={sessionId}
-          hasAudio={canUsePlayback}
-          hasTranscript={hasTranscript}
           isTranscriptExpanded={isExpanded}
           activeTab={activePostSessionTab}
           pastNotes={pastNotes.notes}
-          suppressTranscriptPanel={suppressTranscriptPanel}
           onRegenerateInsights={
             pastNotes.canGenerate ? pastNotes.regenerateAll : undefined
           }
@@ -202,18 +181,10 @@ export function useSessionBottomAccessory({
         <PostSessionTabHandle
           isExpanded={isExpanded}
           activeTab={activePostSessionTab}
-          showTranscriptTab={isRunningBatch && canShowTranscriptTab}
+          showTranscriptTab={false}
           onSelect={selectPostSessionTab}
         />
-      ) : (
-        <ExpandToggle
-          isExpanded={isExpanded}
-          onToggle={() => setIsExpanded((v) => !v)}
-          label="Transcript"
-          showExpandedCloseIcon
-          collapsedClassName={BOTTOM_ACCESSORY_HANDLE_CLASS}
-        />
-      ),
+      ) : null,
       bottomAccessoryState,
     };
   }
