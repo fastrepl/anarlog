@@ -19,7 +19,6 @@ export function ChatMessageInput({
   draftKey,
   onSendMessage,
   disabled: disabledProp,
-  hasContextBar,
   isStreaming,
   onStop,
   onDraftContentChange,
@@ -32,7 +31,6 @@ export function ChatMessageInput({
     contextRefs?: ContextRef[],
   ) => void;
   disabled?: boolean | { disabled: boolean; message?: string };
-  hasContextBar?: boolean;
   isStreaming?: boolean;
   onStop?: () => void;
   onDraftContentChange?: (hasDraftContent: boolean) => void;
@@ -69,7 +67,6 @@ export function ChatMessageInput({
   return (
     <Container
       elevatedSurfaceClassName={elevatedSurfaceClassName}
-      hasContextBar={hasContextBar}
       isFloating={isFloating}
       isRightPanel={isRightPanel}
     >
@@ -152,13 +149,11 @@ export function ChatMessageInput({
 function Container({
   children,
   elevatedSurfaceClassName,
-  hasContextBar,
   isFloating,
   isRightPanel,
 }: {
   children: React.ReactNode;
   elevatedSurfaceClassName: string;
-  hasContextBar?: boolean;
   isFloating: boolean;
   isRightPanel: boolean;
 }) {
@@ -179,7 +174,6 @@ function Container({
                 "dark:bg-card dark:text-card-foreground",
               ]
             : [elevatedSurfaceClassName, "flex-col rounded-xl"],
-          hasContextBar && !isFloating && "rounded-t-none border-t-0",
         ])}
       >
         {children}

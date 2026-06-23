@@ -104,29 +104,31 @@ export function ChatBodyEmpty({
     <div className="flex justify-start pb-1">
       <div className="flex w-full flex-col">
         {hasContext && (
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-0.5">
             {SUGGESTIONS.map(({ label, icon: Icon, prompt }) => (
               <button
                 key={label}
                 onClick={() => handleSuggestionClick(prompt)}
                 className={cn([
-                  "group flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm",
+                  "group grid w-full grid-cols-[1.5rem_minmax(0,1fr)] items-center gap-x-1.5 rounded-lg py-2 pr-3 pl-0 text-left text-sm",
                   isDarkAppearance
-                    ? "text-primary-foreground/85 hover:bg-primary-foreground/7"
-                    : "text-muted-foreground hover:bg-card",
+                    ? "text-primary-foreground/85 hover:bg-primary-foreground/10"
+                    : "text-muted-foreground hover:bg-muted/55",
                   "transition-colors",
                 ])}
               >
-                <Icon
-                  size={15}
-                  className={cn([
-                    "shrink-0 transition-colors",
-                    isDarkAppearance
-                      ? "text-primary-foreground/55 group-hover:text-primary-foreground/80"
-                      : "text-muted-foreground/75 group-hover:text-foreground",
-                  ])}
-                />
-                <span>{label}</span>
+                <span className="flex size-6 items-center justify-center">
+                  <Icon
+                    size={16}
+                    className={cn([
+                      "shrink-0 transition-colors",
+                      isDarkAppearance
+                        ? "text-primary-foreground/55 group-hover:text-primary-foreground/80"
+                        : "text-muted-foreground/75 group-hover:text-foreground",
+                    ])}
+                  />
+                </span>
+                <span className="min-w-0 truncate">{label}</span>
               </button>
             ))}
           </div>

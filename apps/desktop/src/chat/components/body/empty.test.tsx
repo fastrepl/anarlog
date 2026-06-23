@@ -37,7 +37,12 @@ describe("ChatBodyEmpty", () => {
     });
 
     expect(actionItem.className).toContain("w-full");
+    expect(actionItem.className).toContain("grid");
+    expect(actionItem.className).toContain("grid-cols-[1.5rem_minmax(0,1fr)]");
+    expect(actionItem.className).toContain("gap-x-1.5");
+    expect(actionItem.className).toContain("hover:bg-muted/55");
     expect(actionItem.className).toContain("text-left");
+    expect(actionItem.firstElementChild?.className).toContain("size-6");
     expect(followUp.className).toContain("w-full");
     expect(decisions.className).toContain("w-full");
 

@@ -1,38 +1,9 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { openNewMock, searchMock, shellState, storeState } = vi.hoisted(() => ({
+const { openNewMock } = vi.hoisted(() => ({
   openNewMock: vi.fn(),
-  searchMock: vi.fn(),
-  shellState: {
-    mode: "FloatingOpen" as
-      | "FloatingClosed"
-      | "FloatingOpen"
-      | "RightPanelOpen",
-  },
-  storeState: {
-    rows: {} as Record<string, Record<string, unknown>>,
-    sessionIds: [] as string[],
-  },
-}));
-
-vi.mock("@hypr/ui/components/ui/popover", () => ({
-  AppFloatingPanel: ({ children }: { children: ReactNode }) => (
-    <div>{children}</div>
-  ),
-  Popover: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  PopoverContent: ({ children }: { children: ReactNode }) => (
-    <div>{children}</div>
-  ),
-  PopoverTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 
 vi.mock("@hypr/ui/components/ui/tooltip", () => ({
@@ -43,42 +14,6 @@ vi.mock("@hypr/ui/components/ui/tooltip", () => ({
   TooltipTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 
-vi.mock("~/contexts/shell", () => ({
-  useShell: () => ({
-    chat: {
-      mode: shellState.mode,
-    },
-  }),
-}));
-
-vi.mock("~/chat/hooks/use-chat-appearance", () => ({
-  useChatAppearance: () => ({
-    isDarkAppearance: true,
-    toolbarSurface: "dark",
-    panelClassName: "bg-primary text-primary-foreground",
-    panelBorderClassName: "border-primary/80",
-    elevatedSurfaceClassName: "bg-accent text-accent-foreground border-border",
-    inputEditorClassName: "text-accent-foreground",
-  }),
-}));
-
-vi.mock("~/search/contexts/engine", () => ({
-  useSearchEngine: () => ({
-    search: searchMock,
-  }),
-}));
-
-vi.mock("~/store/tinybase/store/main", () => ({
-  STORE_ID: "main",
-  UI: {
-    useRowIds: () => storeState.sessionIds,
-    useStore: () => ({
-      getRow: (_table: string, rowId: string) => storeState.rows[rowId] ?? {},
-      hasRow: (_table: string, rowId: string) => rowId in storeState.rows,
-    }),
-  },
-}));
-
 vi.mock("~/store/zustand/tabs", () => ({
   useTabs: <T,>(selector: (state: { openNew: typeof openNewMock }) => T) =>
     selector({ openNew: openNewMock }),
@@ -86,17 +21,41 @@ vi.mock("~/store/zustand/tabs", () => ({
 
 import { ContextBar } from "./context-bar";
 
-function renderContextBar() {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: {
-        retry: false,
-      },
-    },
+describe("ContextBar", () => {
+  beforeEach(() => {
+    cleanup();
+    openNewMock.mockClear();
+    globalThis.ResizeObserver = class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    } as typeof ResizeObserver;
   });
 
-  return render(
-    <QueryClientProvider client={queryClient}>
+  it("renders context as chips without an add session control", () => {
+    render(
+      <ContextBar
+        entities={[
+          {
+            kind: "session",
+            key: "session:auto:current",
+            source: "auto-current",
+            sessionId: "current",
+            title: "Current Note",
+            date: "2026-04-01T00:00:00.000Z",
+            pending: true,
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getAllByText("Current Note").length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.queryByText("Search sessions...")).toBeNull();
+  });
+
+  it("centers the squircle chip strip above the input surface", () => {
+    const { container } = render(
       <ContextBar
         entities={[
           {
@@ -109,115 +68,235 @@ function renderContextBar() {
             pending: false,
           },
         ]}
-        onAddEntity={vi.fn()}
-      />
-    </QueryClientProvider>,
-  );
-}
-
-describe("ContextBar session picker", () => {
-  beforeEach(() => {
-    cleanup();
-    openNewMock.mockClear();
-    searchMock.mockReset();
-    shellState.mode = "FloatingOpen";
-    storeState.rows = {};
-    storeState.sessionIds = [];
-    globalThis.ResizeObserver = class {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-    } as typeof ResizeObserver;
-  });
-
-  it("shows recent sessions from TinyBase and skips malformed blank rows", () => {
-    storeState.sessionIds = ["blank", "old", "new"];
-    storeState.rows = {
-      blank: {
-        title: "",
-        created_at: "",
-      },
-      old: {
-        title: "Old Note",
-        created_at: "2024-01-01T00:00:00.000Z",
-      },
-      new: {
-        title: "New Note",
-        created_at: "2026-04-14T00:00:00.000Z",
-      },
-    };
-
-    renderContextBar();
-
-    const newNote = screen.getByText("New Note");
-    const oldNote = screen.getByText("Old Note");
-
-    expect(
-      newNote.compareDocumentPosition(oldNote) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(screen.queryByText("Untitled")).toBeNull();
-    expect(screen.queryByText(/1970/)).toBeNull();
-    expect(searchMock).not.toHaveBeenCalled();
-  });
-
-  it("hydrates search hits from TinyBase before rendering", async () => {
-    storeState.sessionIds = ["session-1"];
-    storeState.rows = {
-      "session-1": {
-        title: "Hydrated Note",
-        created_at: "2026-02-02T00:00:00.000Z",
-      },
-    };
-    searchMock.mockResolvedValue([
-      {
-        score: 1,
-        document: {
-          id: "session-1",
-          type: "session",
-          title: "",
-          content: "",
-          created_at: 0,
-        },
-      },
-    ]);
-
-    renderContextBar();
-
-    fireEvent.change(screen.getByPlaceholderText("Search sessions..."), {
-      target: { value: "hydrated" },
-    });
-
-    await waitFor(() => {
-      expect(searchMock).toHaveBeenCalledWith("hydrated", {
-        created_at: undefined,
-      });
-    });
-
-    expect(await screen.findByText("Hydrated Note")).toBeTruthy();
-    expect(screen.queryByText(/1970/)).toBeNull();
-  });
-
-  it("uses balanced context bar horizontal margin in the right panel", () => {
-    shellState.mode = "RightPanelOpen";
-
-    renderContextBar();
+      />,
+    );
 
     const outer = document.querySelector("[data-chat-context-bar]");
+    const chipList = container.querySelector("[data-chat-context-chip-list]");
+    const chipRow = chipList?.parentElement;
+    const chip = container.querySelector("[data-chat-context-chip]");
 
-    expect(outer?.className).toContain("mx-3");
-    expect(outer?.className).not.toContain("mx-5");
-    expect(outer?.className).not.toContain("mx-2");
-    expect(outer?.className).not.toContain("mr-0");
+    expect(outer?.className).toContain("px-3");
+    expect(outer?.className).toContain("pb-1.5");
+    expect(outer?.className).not.toContain("border");
+    expect(outer?.className).not.toContain("rounded-t-xl");
+    expect(chipRow?.className).toContain("justify-center");
+    expect(chip?.className).toContain("rounded-[10px]");
   });
 
-  it("uses an elevated surface that contrasts with the dark chat panel", () => {
-    renderContextBar();
+  it("shows four chips and expands hidden chips from the overflow control", () => {
+    const { container } = render(
+      <ContextBar
+        entities={[
+          {
+            kind: "session",
+            key: "session:manual:first",
+            source: "manual",
+            sessionId: "first",
+            title: "First Note",
+            date: "2026-04-01T00:00:00.000Z",
+            pending: true,
+          },
+          {
+            kind: "session",
+            key: "session:manual:second",
+            source: "manual",
+            sessionId: "second",
+            title: "Second Note",
+            date: "2026-04-02T00:00:00.000Z",
+            pending: true,
+          },
+          {
+            kind: "session",
+            key: "session:manual:third",
+            source: "manual",
+            sessionId: "third",
+            title: "Third Note",
+            date: "2026-04-03T00:00:00.000Z",
+            pending: true,
+          },
+          {
+            kind: "session",
+            key: "session:manual:fourth",
+            source: "manual",
+            sessionId: "fourth",
+            title: "Fourth Note",
+            date: "2026-04-04T00:00:00.000Z",
+            pending: true,
+          },
+          {
+            kind: "session",
+            key: "session:manual:fifth",
+            source: "manual",
+            sessionId: "fifth",
+            title: "Fifth Note",
+            date: "2026-04-05T00:00:00.000Z",
+            pending: true,
+          },
+          {
+            kind: "session",
+            key: "session:manual:sixth",
+            source: "manual",
+            sessionId: "sixth",
+            title: "Sixth Note",
+            date: "2026-04-06T00:00:00.000Z",
+            pending: true,
+          },
+        ]}
+      />,
+    );
 
-    const outer = document.querySelector("[data-chat-context-bar]");
+    const chipList = container.querySelector("[data-chat-context-chip-list]");
 
-    expect(outer?.className).toContain("bg-accent");
-    expect(outer?.className).toContain("text-accent-foreground");
-    expect(outer?.className).not.toContain("bg-card");
+    expect(chipList?.className).toContain("overflow-hidden");
+    expect(chipList?.className).not.toContain("flex-wrap");
+    expect(container.querySelectorAll("[data-chat-context-chip]")).toHaveLength(
+      4,
+    );
+    expect(screen.queryByText("Fifth Note")).toBeNull();
+    expect(screen.queryByText("Sixth Note")).toBeNull();
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "+2 more",
+      }),
+    );
+
+    expect(screen.getAllByText("Fifth Note").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Sixth Note").length).toBeGreaterThan(0);
+    expect(container.querySelectorAll("[data-chat-context-chip]")).toHaveLength(
+      6,
+    );
+    expect(chipList?.className).toContain("flex-wrap");
+    expect(screen.queryByText("+2 more")).toBeNull();
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Collapse context chips",
+      }),
+    );
+
+    expect(container.querySelectorAll("[data-chat-context-chip]")).toHaveLength(
+      4,
+    );
+    expect(screen.getByText("+2 more")).not.toBeNull();
+    expect(chipList?.className).toContain("overflow-hidden");
+  });
+
+  it("wraps four-or-fewer chips instead of clipping them", () => {
+    const { container } = render(
+      <ContextBar
+        entities={[
+          {
+            kind: "session",
+            key: "session:manual:first",
+            source: "manual",
+            sessionId: "first",
+            title: "First Note",
+            date: "2026-04-01T00:00:00.000Z",
+            pending: true,
+          },
+          {
+            kind: "session",
+            key: "session:manual:second",
+            source: "manual",
+            sessionId: "second",
+            title: "Second Note",
+            date: "2026-04-02T00:00:00.000Z",
+            pending: true,
+          },
+          {
+            kind: "session",
+            key: "session:manual:third",
+            source: "manual",
+            sessionId: "third",
+            title: "Third Note",
+            date: "2026-04-03T00:00:00.000Z",
+            pending: true,
+          },
+          {
+            kind: "session",
+            key: "session:manual:fourth",
+            source: "manual",
+            sessionId: "fourth",
+            title: "Fourth Note",
+            date: "2026-04-04T00:00:00.000Z",
+            pending: true,
+          },
+        ]}
+      />,
+    );
+
+    const chipList = container.querySelector("[data-chat-context-chip-list]");
+    const chip = container.querySelector("[data-chat-context-chip]");
+
+    expect(chipList?.className).toContain("flex-wrap");
+    expect(chipList?.className).not.toContain("overflow-hidden");
+    expect(chip?.className).toContain("shrink-0");
+    expect(screen.queryByRole("button", { name: /more/ })).toBeNull();
+  });
+
+  it("opens a session chip when clicked", () => {
+    render(
+      <ContextBar
+        entities={[
+          {
+            kind: "session",
+            key: "session:auto:current",
+            source: "auto-current",
+            sessionId: "current",
+            title: "Current Note",
+            date: "2026-04-01T00:00:00.000Z",
+            pending: false,
+          },
+        ]}
+      />,
+    );
+
+    fireEvent.click(screen.getAllByText("Current Note")[0]);
+
+    expect(openNewMock).toHaveBeenCalledWith({
+      type: "sessions",
+      id: "current",
+    });
+  });
+
+  it("removes manual context chips", () => {
+    const onRemoveEntity = vi.fn();
+    const { container } = render(
+      <ContextBar
+        entities={[
+          {
+            kind: "session",
+            key: "session:manual:current",
+            source: "manual",
+            sessionId: "current",
+            title: "Current Note",
+            date: "2026-04-01T00:00:00.000Z",
+            removable: true,
+            pending: true,
+          },
+        ]}
+        onRemoveEntity={onRemoveEntity}
+      />,
+    );
+
+    const chip = container.querySelector("[data-chat-context-chip]");
+    const iconSlot = chip?.firstElementChild;
+    const contextIcon = iconSlot?.querySelector("svg");
+    const removeButton = screen.getByRole("button", {
+      name: "Remove Current Note",
+    });
+
+    expect(iconSlot?.className).toContain("size-4");
+    expect(iconSlot?.contains(removeButton)).toBe(true);
+    expect(contextIcon?.className.baseVal).toContain("group-hover:opacity-0");
+    expect(removeButton.className).toContain("group-hover:opacity-100");
+    expect(removeButton.className).toContain("group-hover:pointer-events-auto");
+
+    fireEvent.click(removeButton);
+
+    expect(onRemoveEntity).toHaveBeenCalledWith("session:manual:current");
+    expect(openNewMock).not.toHaveBeenCalled();
   });
 });

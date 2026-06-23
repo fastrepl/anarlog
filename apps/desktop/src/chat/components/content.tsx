@@ -119,12 +119,10 @@ export function ChatContent({
           <ContextBar
             entities={contextEntities}
             onRemoveEntity={onRemoveContextEntity}
-            onAddEntity={onAddContextEntity}
           />
           <ChatMessageInput
             draftKey={sessionId}
             disabled={disabled}
-            hasContextBar={contextEntities.length > 0}
             onSendMessage={(content, parts, contextRefs) => {
               handleSendMessage(
                 content,

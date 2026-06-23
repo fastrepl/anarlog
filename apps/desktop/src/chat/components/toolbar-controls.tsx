@@ -61,7 +61,9 @@ export function ChatToolbarControls({
           icon={<Plus size={16} />}
           label="New chat"
           onClick={onNewChat}
-          className={isDark ? darkToolbarButtonClassName : undefined}
+          className={
+            isDark ? darkToolbarButtonClassName : lightToolbarButtonClassName
+          }
         />
         {isRightPanel ? (
           <>
@@ -69,13 +71,21 @@ export function ChatToolbarControls({
               icon={<PictureInPicture2 size={16} />}
               label="Float chat"
               onClick={onOpenFloating ?? (() => {})}
-              className={isDark ? darkToolbarButtonClassName : undefined}
+              className={
+                isDark
+                  ? darkToolbarButtonClassName
+                  : lightToolbarButtonClassName
+              }
             />
             <ChatActionButton
               icon={<X size={16} />}
               label="Close chat"
               onClick={onClose ?? (() => {})}
-              className={isDark ? darkToolbarButtonClassName : undefined}
+              className={
+                isDark
+                  ? darkToolbarButtonClassName
+                  : lightToolbarButtonClassName
+              }
             />
           </>
         ) : (
@@ -84,7 +94,11 @@ export function ChatToolbarControls({
               icon={<PanelRight size={16} />}
               label="Open in right panel"
               onClick={onOpenRightPanel ?? (() => {})}
-              className={isDark ? darkToolbarButtonClassName : undefined}
+              className={
+                isDark
+                  ? darkToolbarButtonClassName
+                  : lightToolbarButtonClassName
+              }
             />
           </>
         )}
@@ -94,7 +108,10 @@ export function ChatToolbarControls({
 }
 
 const darkToolbarButtonClassName =
-  "size-8 bg-transparent text-primary-foreground/60 hover:!bg-primary-foreground/7 hover:!text-primary-foreground focus-visible:!bg-primary-foreground/7 focus-visible:!text-primary-foreground active:!bg-primary-foreground/10";
+  "size-8 bg-transparent text-primary-foreground/60 hover:!bg-primary-foreground/14 hover:!text-primary-foreground focus-visible:!bg-primary-foreground/14 focus-visible:!text-primary-foreground active:!bg-primary-foreground/18";
+
+const lightToolbarButtonClassName =
+  "size-8 bg-transparent text-muted-foreground hover:!bg-muted/80 hover:!text-foreground focus-visible:!bg-muted/80 focus-visible:!text-foreground active:!bg-muted";
 
 function ChatActionButton({
   className,
@@ -149,10 +166,10 @@ function ChatGroups({
           variant="ghost"
           size="sm"
           className={cn([
-            "group -ml-2 h-8 w-auto shrink-0 gap-1.5 rounded-full px-2.5 py-0",
+            "group -ml-2 h-8 w-auto shrink-0 gap-1.5 rounded-full px-2.5 py-0 transition-colors",
             isDark
-              ? "text-primary-foreground/70 hover:bg-primary-foreground/7 hover:text-primary-foreground data-[state=open]:bg-primary-foreground/7"
-              : "text-muted-foreground hover:bg-accent hover:text-foreground data-[state=open]:bg-accent",
+              ? "text-primary-foreground/70 hover:bg-primary-foreground/14 hover:text-primary-foreground data-[state=open]:bg-primary-foreground/14 data-[state=open]:text-primary-foreground"
+              : "text-muted-foreground hover:bg-muted/80 hover:text-foreground data-[state=open]:bg-muted/80 data-[state=open]:text-foreground",
           ])}
         >
           <History
@@ -173,10 +190,12 @@ function ChatGroups({
       <DropdownMenuContent
         variant="app"
         align="start"
-        sideOffset={0}
-        className="w-72"
+        side="bottom"
+        sideOffset={4}
+        avoidCollisions={false}
+        className="w-72 max-w-[calc(100vw-2rem)]"
       >
-        <AppFloatingPanel className="flex flex-col gap-0.5 p-1.5">
+        <AppFloatingPanel className="max-h-80 overflow-y-auto p-1.5">
           <div className="px-2 py-1.5">
             <h4 className="text-muted-foreground text-[10px] font-semibold tracking-wider uppercase">
               Recent Chats
