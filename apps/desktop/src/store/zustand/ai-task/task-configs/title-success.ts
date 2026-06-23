@@ -10,12 +10,32 @@ const onSuccess: NonNullable<TaskConfig<"title">["onSuccess"]> = ({
   args,
   store,
 }) => {
+  if (args.skipPersist) {
+    return;
+  }
+
+  persistGeneratedTitle({
+    text,
+    args,
+    store,
+  });
+};
+
+export function persistGeneratedTitle({
+  text,
+  args,
+  store,
+}: {
+  text: string;
+  args: { sessionId: string };
+  store: Parameters<NonNullable<TaskConfig<"title">["onSuccess"]>>[0]["store"];
+}) {
   if (!text) {
     return;
   }
 
-  const trimmed = text.trim();
-  if (!trimmed || trimmed === "<EMPTY>") {
+  const trimmed = getPersistableGeneratedTitle(text);
+  if (!trimmed) {
     return;
   }
 
@@ -58,7 +78,12 @@ const onSuccess: NonNullable<TaskConfig<"title">["onSuccess"]> = ({
       ),
     });
   });
-};
+}
+
+export function getPersistableGeneratedTitle(text: string): string {
+  const trimmed = text.trim();
+  return trimmed && trimmed !== "<EMPTY>" ? trimmed : "";
+}
 
 export const titleSuccess: Pick<TaskConfig<"title">, "onSuccess"> = {
   onSuccess,

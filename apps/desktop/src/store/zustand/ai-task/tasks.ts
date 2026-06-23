@@ -206,6 +206,26 @@ export const createTasksSlice = <T extends TasksState & TasksActions>(
         }
       }
 
+      try {
+        await taskConfig.onSuccess?.({
+          taskId,
+          text: fullText,
+          model: config.model,
+          args: config.args,
+          transformedArgs: enrichedArgs,
+          store: deps.persistedStore,
+          settingsStore: deps.settingsStore,
+          signal: abortController.signal,
+          startTask: (nextTaskId, nextConfig) =>
+            get().generate(nextTaskId, nextConfig),
+          getTaskState: (nextTaskId) => getTaskState(get().tasks, nextTaskId),
+        });
+      } catch (error) {
+        console.error("Task post-success hook failed:", error);
+      }
+
+      checkAbort();
+
       set((state) =>
         mutate(state, (draft) => {
           draft.tasks[taskId] = {
@@ -218,23 +238,6 @@ export const createTasksSlice = <T extends TasksState & TasksActions>(
           };
         }),
       );
-
-      try {
-        await taskConfig.onSuccess?.({
-          taskId,
-          text: fullText,
-          model: config.model,
-          args: config.args,
-          transformedArgs: enrichedArgs,
-          store: deps.persistedStore,
-          settingsStore: deps.settingsStore,
-          startTask: (nextTaskId, nextConfig) =>
-            get().generate(nextTaskId, nextConfig),
-          getTaskState: (nextTaskId) => getTaskState(get().tasks, nextTaskId),
-        });
-      } catch (error) {
-        console.error("Task post-success hook failed:", error);
-      }
 
       try {
         config.onComplete?.(fullText);

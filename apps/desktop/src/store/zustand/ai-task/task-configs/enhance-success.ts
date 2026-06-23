@@ -6,11 +6,19 @@ import {
   extractEnhanceTagNames,
   upsertSessionTags,
 } from "./summary-tags";
+import {
+  getPersistableGeneratedTitle,
+  persistGeneratedTitle,
+} from "./title-success";
 
 import { ensureMarkdownFirstLineTitle } from "~/session/title-content";
 import { hasLiveSessionTitleDraft } from "~/store/zustand/live-title";
 
-const onSuccess: NonNullable<TaskConfig<"enhance">["onSuccess"]> = ({
+type EnhanceSuccessParams = Parameters<
+  NonNullable<TaskConfig<"enhance">["onSuccess"]>
+>[0];
+
+const onSuccess: NonNullable<TaskConfig<"enhance">["onSuccess"]> = async ({
   text,
   args,
   transformedArgs,
@@ -18,6 +26,7 @@ const onSuccess: NonNullable<TaskConfig<"enhance">["onSuccess"]> = ({
   store,
   startTask,
   getTaskState,
+  signal,
 }) => {
   if (!text) {
     return;
@@ -26,9 +35,79 @@ const onSuccess: NonNullable<TaskConfig<"enhance">["onSuccess"]> = ({
   const tagNames = extractEnhanceTagNames(text, transformedArgs);
   const textWithTags = appendTagLineToMarkdown(text, tagNames);
   const currentTitle = store.getCell("sessions", args.sessionId, "title");
-  const trimmedTitle =
+  let trimmedTitle =
     typeof currentTitle === "string" ? currentTitle.trim() : "";
-  const titledText = ensureMarkdownFirstLineTitle(textWithTags, trimmedTitle);
+  let generatedTitle = "";
+  let shouldPersistGeneratedTitle = false;
+
+  if (!trimmedTitle && !hasLiveSessionTitleDraft(args.sessionId)) {
+    const titleTaskId = createTaskId(args.sessionId, "title");
+    const titleTask = getTaskState(titleTaskId);
+
+    if (titleTask?.status === "success") {
+      generatedTitle = getPersistableGeneratedTitle(titleTask.streamedText);
+    } else if (titleTask?.status !== "generating") {
+      await startTask(titleTaskId, {
+        model,
+        taskType: "title",
+        args: {
+          sessionId: args.sessionId,
+          enhancedNote: textWithTags,
+          skipPersist: true,
+        },
+        onComplete: (title) => {
+          generatedTitle = getPersistableGeneratedTitle(title);
+        },
+      });
+    }
+
+    if (signal.aborted) {
+      return;
+    }
+
+    const updatedTitle = store.getCell("sessions", args.sessionId, "title");
+    trimmedTitle = typeof updatedTitle === "string" ? updatedTitle.trim() : "";
+    if (
+      !trimmedTitle &&
+      !hasLiveSessionTitleDraft(args.sessionId) &&
+      generatedTitle
+    ) {
+      trimmedTitle = generatedTitle;
+      shouldPersistGeneratedTitle = true;
+    }
+  }
+
+  const didPersist = persistEnhancedNoteContent({
+    text: textWithTags,
+    title: trimmedTitle,
+    args,
+    store,
+    tagNames,
+  });
+
+  if (didPersist && shouldPersistGeneratedTitle) {
+    persistGeneratedTitle({
+      text: generatedTitle,
+      args: { sessionId: args.sessionId },
+      store,
+    });
+  }
+};
+
+function persistEnhancedNoteContent({
+  text,
+  title,
+  args,
+  store,
+  tagNames,
+}: {
+  text: string;
+  title: string;
+  args: EnhanceSuccessParams["args"];
+  store: EnhanceSuccessParams["store"];
+  tagNames: string[];
+}): boolean {
+  const titledText = ensureMarkdownFirstLineTitle(text, title);
 
   try {
     const jsonContent = md2json(titledText);
@@ -36,27 +115,12 @@ const onSuccess: NonNullable<TaskConfig<"enhance">["onSuccess"]> = ({
       content: JSON.stringify(jsonContent),
     });
     upsertSessionTags(store, args.sessionId, tagNames);
+    return true;
   } catch (error) {
     console.error("Failed to convert markdown to JSON:", error);
-    return;
+    return false;
   }
-
-  if (trimmedTitle || hasLiveSessionTitleDraft(args.sessionId)) {
-    return;
-  }
-
-  const titleTaskId = createTaskId(args.sessionId, "title");
-  const titleTask = getTaskState(titleTaskId);
-  if (titleTask?.status === "generating" || titleTask?.status === "success") {
-    return;
-  }
-
-  void startTask(titleTaskId, {
-    model,
-    taskType: "title",
-    args: { sessionId: args.sessionId },
-  });
-};
+}
 
 export const enhanceSuccess: Pick<TaskConfig<"enhance">, "onSuccess"> = {
   onSuccess,

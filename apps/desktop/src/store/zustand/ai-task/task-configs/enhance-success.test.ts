@@ -52,6 +52,7 @@ function createParams(
     transformedArgs: createTransformedArgs(),
     store,
     settingsStore: {} as EnhanceSuccessParams["settingsStore"],
+    signal: new AbortController().signal,
     startTask: vi.fn().mockResolvedValue(undefined),
     getTaskState: vi.fn().mockReturnValue(undefined),
     ...overrides,
@@ -147,8 +148,195 @@ describe("enhanceSuccess.onSuccess", () => {
     expect(startTask).toHaveBeenCalledWith("session-1-title", {
       model: params.model,
       taskType: "title",
-      args: { sessionId: "session-1" },
+      args: {
+        sessionId: "session-1",
+        enhancedNote: "# Summary\n\n- Point",
+        skipPersist: true,
+      },
+      onComplete: expect.any(Function),
     });
+  });
+
+  it("waits for the generated title before persisting summary content", async () => {
+    let sessionTitle = "";
+    const store = {
+      setPartialRow: vi.fn((table, row, value) => {
+        if (table === "sessions" && row === "session-1") {
+          sessionTitle = value.title;
+        }
+      }),
+      getCell: vi.fn((table, _row, cell) => {
+        if (table === "sessions" && cell === "title") return sessionTitle;
+        return "";
+      }),
+      getValue: vi.fn().mockReturnValue("user-1"),
+      setRow: vi.fn(),
+      forEachRow: vi.fn(),
+    } as unknown as EnhanceSuccessParams["store"];
+    const startTask = vi.fn().mockImplementation(async (_taskId, config) => {
+      config.onComplete?.("Positive Performance Feedback");
+    });
+    const params = createParams({ store, startTask });
+
+    await enhanceSuccess.onSuccess?.(params);
+
+    const enhancedCallIndex = (
+      store.setPartialRow as ReturnType<typeof vi.fn>
+    ).mock.calls.findIndex(
+      ([table, row]) => table === "enhanced_notes" && row === "note-1",
+    );
+    expect(enhancedCallIndex).toBeGreaterThan(-1);
+    expect(startTask.mock.invocationCallOrder[0]).toBeLessThan(
+      (store.setPartialRow as ReturnType<typeof vi.fn>).mock
+        .invocationCallOrder[enhancedCallIndex],
+    );
+
+    const persisted = (store.setPartialRow as ReturnType<typeof vi.fn>).mock
+      .calls[enhancedCallIndex][2].content;
+    expect(json2md(JSON.parse(persisted)).trim()).toBe(
+      "# Positive Performance Feedback\n\n# Summary\n\n- Point",
+    );
+
+    expect(store.setPartialRow).toHaveBeenCalledWith("sessions", "session-1", {
+      title: "Positive Performance Feedback",
+    });
+  });
+
+  it("does not persist a generated title when summary content fails to persist", async () => {
+    const store = {
+      setPartialRow: vi.fn((table) => {
+        if (table === "enhanced_notes") {
+          throw new Error("write failed");
+        }
+      }),
+      getCell: vi.fn().mockReturnValue(""),
+      getValue: vi.fn().mockReturnValue("user-1"),
+      setRow: vi.fn(),
+      forEachRow: vi.fn(),
+    } as unknown as EnhanceSuccessParams["store"];
+    const startTask = vi.fn().mockImplementation(async (_taskId, config) => {
+      config.onComplete?.("Positive Performance Feedback");
+    });
+    const params = createParams({ store, startTask });
+
+    await enhanceSuccess.onSuccess?.(params);
+
+    expect(store.setPartialRow).not.toHaveBeenCalledWith(
+      "sessions",
+      "session-1",
+      expect.objectContaining({
+        title: "Positive Performance Feedback",
+      }),
+    );
+  });
+
+  it("does not write placeholder generated titles into summary content", async () => {
+    const store = {
+      setPartialRow: vi.fn(),
+      getCell: vi.fn().mockReturnValue(""),
+      getValue: vi.fn().mockReturnValue("user-1"),
+      setRow: vi.fn(),
+      forEachRow: vi.fn(),
+    } as unknown as EnhanceSuccessParams["store"];
+    const startTask = vi.fn().mockImplementation(async (_taskId, config) => {
+      config.onComplete?.("<EMPTY>");
+    });
+    const params = createParams({ store, startTask });
+
+    await enhanceSuccess.onSuccess?.(params);
+
+    const persisted = (store.setPartialRow as ReturnType<typeof vi.fn>).mock
+      .calls[0][2].content;
+    expect(json2md(JSON.parse(persisted)).trim()).toBe("# Summary\n\n- Point");
+    expect(store.setPartialRow).not.toHaveBeenCalledWith(
+      "sessions",
+      "session-1",
+      expect.objectContaining({
+        title: "<EMPTY>",
+      }),
+    );
+  });
+
+  it("reuses a previous skipped title result when retrying summary persistence", async () => {
+    const store = {
+      setPartialRow: vi.fn(),
+      getCell: vi.fn().mockReturnValue(""),
+      getValue: vi.fn().mockReturnValue("user-1"),
+      setRow: vi.fn(),
+      forEachRow: vi.fn(),
+    } as unknown as EnhanceSuccessParams["store"];
+    const params = createParams({
+      store,
+      getTaskState: vi.fn().mockReturnValue({
+        taskType: "title",
+        status: "success",
+        streamedText: "Recovered Summary Title",
+        abortController: null,
+        currentStep: undefined,
+      }),
+    });
+
+    await enhanceSuccess.onSuccess?.(params);
+
+    expect(params.startTask).not.toHaveBeenCalled();
+    const persisted = (store.setPartialRow as ReturnType<typeof vi.fn>).mock
+      .calls[0][2].content;
+    expect(json2md(JSON.parse(persisted)).trim()).toBe(
+      "# Recovered Summary Title\n\n# Summary\n\n- Point",
+    );
+    expect(store.setPartialRow).toHaveBeenCalledWith("sessions", "session-1", {
+      title: "Recovered Summary Title",
+    });
+  });
+
+  it("does not use a generated title if live title editing starts while waiting", async () => {
+    const store = {
+      setPartialRow: vi.fn(),
+      getCell: vi.fn().mockReturnValue(""),
+      getValue: vi.fn().mockReturnValue("user-1"),
+      setRow: vi.fn(),
+      forEachRow: vi.fn(),
+    } as unknown as EnhanceSuccessParams["store"];
+    const startTask = vi.fn().mockImplementation(async (_taskId, config) => {
+      useLiveTitle.getState().setTitle("session-1", "Custom title");
+      config.onComplete?.("Generated Title");
+    });
+    const params = createParams({ store, startTask });
+
+    await enhanceSuccess.onSuccess?.(params);
+
+    const persisted = (store.setPartialRow as ReturnType<typeof vi.fn>).mock
+      .calls[0][2].content;
+    expect(json2md(JSON.parse(persisted)).trim()).toBe("# Summary\n\n- Point");
+    expect(store.setPartialRow).not.toHaveBeenCalledWith(
+      "sessions",
+      "session-1",
+      expect.objectContaining({ title: "Generated Title" }),
+    );
+  });
+
+  it("does not persist summary content when cancelled during title generation", async () => {
+    const abortController = new AbortController();
+    const store = {
+      setPartialRow: vi.fn(),
+      getCell: vi.fn().mockReturnValue(""),
+      getValue: vi.fn().mockReturnValue("user-1"),
+      setRow: vi.fn(),
+      forEachRow: vi.fn(),
+    } as unknown as EnhanceSuccessParams["store"];
+    const startTask = vi.fn().mockImplementation(async (_taskId, config) => {
+      abortController.abort();
+      config.onComplete?.("Generated Title");
+    });
+    const params = createParams({
+      store,
+      startTask,
+      signal: abortController.signal,
+    });
+
+    await enhanceSuccess.onSuccess?.(params);
+
+    expect(store.setPartialRow).not.toHaveBeenCalled();
   });
 
   it("does not start title generation when title already exists", async () => {

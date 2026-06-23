@@ -7,6 +7,16 @@ import { streamdownComponents } from "../../streamdown";
 import { useAITaskTask } from "~/ai/hooks";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 
+function SummaryTitleSpace() {
+  return (
+    <div
+      aria-hidden="true"
+      data-testid="summary-title-space"
+      className="pointer-events-none mb-4 h-[1.875rem]"
+    />
+  );
+}
+
 export function StreamingView({ enhancedNoteId }: { enhancedNoteId: string }) {
   const taskId = createTaskId(enhancedNoteId, "enhance");
   const { streamedText, isGenerating } = useAITaskTask(taskId, "enhance");
@@ -33,6 +43,7 @@ export function StreamingView({ enhancedNoteId }: { enhancedNoteId: string }) {
   return (
     <div className="pb-2">
       <div className="flex flex-col gap-1">
+        <SummaryTitleSpace />
         <Streamdown
           components={streamdownComponents}
           className={cn(["flex flex-col"])}

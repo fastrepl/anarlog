@@ -145,6 +145,7 @@ describe("Enhanced", () => {
 
     expect(screen.queryByText("Enhanced editor")).toBeNull();
     expect(screen.getByText("Streaming summary")).not.toBeNull();
+    expect(screen.getByTestId("summary-title-space")).not.toBeNull();
     expect(screen.queryByRole("status")).toBeNull();
   });
 
