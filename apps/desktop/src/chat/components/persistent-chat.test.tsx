@@ -124,8 +124,12 @@ describe("PersistentChatPanel", () => {
       expect(floatingFrame?.className).toContain("justify-center");
       expect(floatingFrame?.className).toContain("px-3");
       expect(floatingFrame?.className).toContain("pb-2");
+      expect((floatingFrame as HTMLElement | null)?.style.paddingTop).toBe(
+        "46px",
+      );
+      expect(floatingFrame?.className).not.toContain("pt-4");
       expect(floatingFrame?.className).not.toContain("pb-3");
-      expect(panel?.style.width).toBe("calc(100% - 1.5rem)");
+      expect(panel?.style.width).toBe("100%");
       expect(panel?.style.minWidth).toBe("min(476px, 100%)");
       expect(panel?.style.maxWidth).toBe("648px");
       expect(panel?.style.height).toBe("");

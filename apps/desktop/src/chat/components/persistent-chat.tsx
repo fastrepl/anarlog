@@ -19,6 +19,7 @@ const FLOATING_PANEL_DEFAULT_MAX_WIDTH =
 const FLOATING_PANEL_REVEAL_HEIGHT =
   FLOATING_CHAT_INPUT_HEIGHT + FLOATING_CHAT_SHELL_INSET;
 const FLOATING_PANEL_RADIUS = 24;
+const FLOATING_PANEL_TOP_CLEARANCE = 46;
 
 type FloatingContainerRect = {
   top: number;
@@ -152,7 +153,7 @@ export function PersistentChatPanel({
     clipPath: { duration: 0.32, ease: [0.22, 1, 0.36, 1] },
   };
   const panelStyle = {
-    width: "calc(100% - 1.5rem)",
+    width: "100%",
     minWidth: `min(${FLOATING_PANEL_MIN_WIDTH}px, 100%)`,
     maxWidth: `${FLOATING_PANEL_DEFAULT_MAX_WIDTH}px`,
     maxHeight: "100%",
@@ -183,8 +184,11 @@ export function PersistentChatPanel({
             data-chat-floating-frame
             className={cn([
               "pointer-events-auto relative flex h-full min-h-0",
-              "items-end justify-center px-3 pt-4 pb-2",
+              "items-end justify-center px-3 pb-2",
             ])}
+            style={{
+              paddingTop: FLOATING_PANEL_TOP_CLEARANCE,
+            }}
             onClick={(event) => {
               if (event.target === event.currentTarget) {
                 if (draftHasContent) {
