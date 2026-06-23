@@ -6,6 +6,7 @@ import type { LLMConnectionStatus } from "~/ai/hooks";
 const hoisted = vi.hoisted(() => ({
   hasTranscript: true,
   sessionMode: "inactive",
+  batchError: null as string | null,
   enhancedNoteIds: [] as string[],
   selectedTemplateId: "template-1" as string | undefined,
   llmStatus: {
@@ -56,6 +57,11 @@ vi.mock("~/stt/contexts", () => ({
   useListener: (selector: (state: unknown) => unknown) =>
     selector({
       getSessionMode: () => hoisted.sessionMode,
+      batch: {
+        "session-1": {
+          error: hoisted.batchError,
+        },
+      },
     }),
 }));
 
@@ -66,6 +72,7 @@ describe("useEnsureDefaultSummary", () => {
     cleanup();
     hoisted.hasTranscript = true;
     hoisted.sessionMode = "inactive";
+    hoisted.batchError = null;
     hoisted.enhancedNoteIds = [];
     hoisted.selectedTemplateId = "template-1";
     hoisted.llmStatus = {
@@ -91,8 +98,39 @@ describe("useEnsureDefaultSummary", () => {
     ).not.toHaveBeenCalled();
   });
 
-  it("creates the summary row without queueing generation before transcript exists", async () => {
+  it("does not create the summary row before transcript exists", async () => {
     hoisted.hasTranscript = false;
+
+    renderHook(() => useEnsureDefaultSummary("session-1"));
+
+    await waitFor(() => {
+      expect(hoisted.service.ensureNote).not.toHaveBeenCalled();
+    });
+    expect(
+      hoisted.service.queueAutoEnhanceIfSummaryEmpty,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("creates the summary row while batch transcription is running", async () => {
+    hoisted.hasTranscript = false;
+    hoisted.sessionMode = "running_batch";
+
+    renderHook(() => useEnsureDefaultSummary("session-1"));
+
+    await waitFor(() => {
+      expect(hoisted.service.ensureNote).toHaveBeenCalledWith(
+        "session-1",
+        "template-1",
+      );
+    });
+    expect(
+      hoisted.service.queueAutoEnhanceIfSummaryEmpty,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("creates the summary row after batch transcription fails", async () => {
+    hoisted.hasTranscript = false;
+    hoisted.batchError = "Transcription failed";
 
     renderHook(() => useEnsureDefaultSummary("session-1"));
 

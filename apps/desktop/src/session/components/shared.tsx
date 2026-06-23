@@ -71,7 +71,11 @@ export function useCurrentNoteTab(
   const batchError = useListener((state) => state.batch[tab.id]?.error ?? null);
   const hasTranscript = useHasTranscript(tab.id);
   const canShowTranscript =
-    hasTranscript || sessionMode === "running_batch" || Boolean(batchError);
+    hasTranscript ||
+    sessionMode === "active" ||
+    sessionMode === "finalizing" ||
+    sessionMode === "running_batch" ||
+    Boolean(batchError);
 
   const enhancedNoteIds = main.UI.useSliceRowIds(
     main.INDEXES.enhancedNotesBySession,
