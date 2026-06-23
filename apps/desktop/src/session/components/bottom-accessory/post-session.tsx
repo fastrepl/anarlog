@@ -8,7 +8,6 @@ import {
 } from "lucide-react";
 import { type ReactNode, useCallback, useRef } from "react";
 
-import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 import { Button } from "@hypr/ui/components/ui/button";
 import { Spinner } from "@hypr/ui/components/ui/spinner";
 import {
@@ -19,9 +18,9 @@ import {
 import { cn } from "@hypr/utils";
 
 import * as AudioPlayer from "~/audio-player";
-import { getEnhancerService } from "~/services/enhancer";
 import type { PastSessionNote } from "~/session/components/bottom-accessory/past-notes";
 import { Transcript } from "~/session/components/note-input/transcript";
+import { useRegenerateTranscript } from "~/session/components/note-input/transcript/actions";
 import {
   formatTranscriptExportSegments,
   useTranscriptExportSegments,
@@ -29,7 +28,6 @@ import {
 import { useTranscriptScreen } from "~/session/components/note-input/transcript/state";
 import { showTransientToast } from "~/sidebar/toast/transient";
 import { useListener } from "~/stt/contexts";
-import { isStoppedTranscriptionError, useRunBatch } from "~/stt/useRunBatch";
 
 export type PostSessionTab = "transcript" | "insights";
 
@@ -359,36 +357,6 @@ function TranscriptPanel({
       fillHeight={fillHeight}
     />
   );
-}
-
-function useRegenerateTranscript(sessionId: string) {
-  const runBatch = useRunBatch(sessionId);
-  const handleBatchFailed = useListener((state) => state.handleBatchFailed);
-
-  return useCallback(async () => {
-    const result = await fsSyncCommands.audioPath(sessionId);
-    if (result.status === "error") {
-      showTransientToast({
-        id: `transcript-regenerate-audio-missing-${sessionId}`,
-        description: "Recording not found. It may have been deleted.",
-        variant: "error",
-      });
-      return;
-    }
-
-    const audioPath = result.data;
-
-    try {
-      await runBatch(audioPath);
-      getEnhancerService()?.queueAutoEnhanceIfSummaryEmpty(sessionId);
-    } catch (error) {
-      if (isStoppedTranscriptionError(error)) {
-        return;
-      }
-      const msg = error instanceof Error ? error.message : String(error);
-      handleBatchFailed(sessionId, msg);
-    }
-  }, [handleBatchFailed, runBatch, sessionId]);
 }
 
 function BatchingTranscriptPanel({

@@ -25,7 +25,14 @@ import { cn } from "@hypr/utils";
 
 import { useAITaskTask } from "~/ai/hooks";
 import { useLanguageModel, useLLMConnectionStatus } from "~/ai/hooks";
+import * as AudioPlayer from "~/audio-player";
 import { getEnhancerService } from "~/services/enhancer";
+import { useRegenerateTranscript } from "~/session/components/note-input/transcript/actions";
+import {
+  buildTranscriptExportSegments,
+  formatTranscriptExportSegments,
+} from "~/session/components/note-input/transcript/export-data";
+import { useSessionTranscriptRenderData } from "~/session/components/note-input/transcript/render-request-hooks";
 import { useHasTranscript } from "~/session/components/shared";
 import { shouldShowEmptySummaryConfigError } from "~/session/enhance-config";
 import { useEnsureDefaultSummary } from "~/session/hooks/useEnhancedNotes";
@@ -106,7 +113,7 @@ function IconHeaderTab({
 
 function iconHeaderTabClassName(isActive: boolean, className?: string) {
   return cn([
-    "flex shrink-0 items-center justify-center rounded-full transition-colors [&>svg]:shrink-0",
+    "flex shrink-0 items-center justify-center rounded-full transition-colors select-none [&>svg]:shrink-0",
     isActive
       ? ["bg-foreground/10 text-foreground -my-px h-[30px]"]
       : [
@@ -428,16 +435,91 @@ function HeaderTabEnhanced({
 function HeaderTabTranscript({
   isActive,
   onClick = () => {},
+  sessionId,
 }: {
   isActive: boolean;
   onClick?: () => void;
+  sessionId: string;
 }) {
+  const regenerate = useRegenerateTranscript(sessionId);
+  const { request: transcriptExportRequest } =
+    useSessionTranscriptRenderData(sessionId);
+  const { audioExists, deleteRecording, isDeletingRecording } =
+    AudioPlayer.useAudioPlayer();
+  const canCopyTranscript = Boolean(transcriptExportRequest);
+  const handleCopyTranscript = useCallback(async () => {
+    if (!transcriptExportRequest) {
+      return;
+    }
+
+    try {
+      const transcriptSegments = await buildTranscriptExportSegments(
+        transcriptExportRequest,
+      );
+      const transcriptText = formatTranscriptExportSegments(transcriptSegments);
+      if (!transcriptText) {
+        return;
+      }
+
+      await copyTextToClipboard(transcriptText, {
+        success: "Transcript copied to clipboard",
+        error: "Failed to copy transcript",
+      });
+    } catch (error) {
+      console.error("Failed to copy transcript", error);
+      sonnerToast.error("Failed to copy transcript");
+    }
+  }, [transcriptExportRequest]);
+  const handleDeleteRecording = useCallback(() => {
+    void deleteRecording();
+  }, [deleteRecording]);
+  const contextMenu = useMemo<MenuItemDef[]>(() => {
+    const items: MenuItemDef[] = [
+      {
+        id: `copy-transcript-${sessionId}`,
+        text: "Copy",
+        action: () => {
+          void handleCopyTranscript();
+        },
+        disabled: !canCopyTranscript,
+      },
+    ];
+
+    if (audioExists) {
+      items.push({
+        id: `regenerate-transcript-${sessionId}`,
+        text: "Regenerate",
+        action: () => {
+          void regenerate();
+        },
+      });
+      items.push({
+        id: `delete-recording-${sessionId}`,
+        text: "Delete recording",
+        action: handleDeleteRecording,
+        disabled: isDeletingRecording,
+      });
+    }
+
+    return items;
+  }, [
+    audioExists,
+    canCopyTranscript,
+    handleCopyTranscript,
+    handleDeleteRecording,
+    isDeletingRecording,
+    regenerate,
+    sessionId,
+  ]);
+  const showContextMenu = useNativeContextMenu(contextMenu);
+
   return (
     <IconHeaderTab
       isActive={isActive}
       label="Transcript"
       icon={<AudioLinesIcon className="size-4" />}
       onClick={onClick}
+      onContextMenu={showContextMenu}
     />
   );
 }
@@ -943,6 +1025,7 @@ export function Header({
                 return (
                   <HeaderTabTranscript
                     key={view.type}
+                    sessionId={sessionId}
                     isActive={currentTab.type === view.type}
                     onClick={() => handleTabChange(view)}
                   />

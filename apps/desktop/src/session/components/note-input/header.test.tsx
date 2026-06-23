@@ -3,10 +3,26 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { EditorView } from "~/store/zustand/tabs/schema";
 
+type CapturedMenuItem =
+  | {
+      id: string;
+      text: string;
+      action: () => void;
+      disabled?: boolean;
+    }
+  | { separator: true };
+
 const hoisted = vi.hoisted(() => ({
   enhance: vi.fn(),
+  regenerateTranscript: vi.fn(),
+  deleteRecording: vi.fn(),
   activeTemplateTitle: "Customer Call",
+  audioExists: true,
+  isDeletingRecording: false,
+  transcriptExportRequest: {},
+  transcriptSegments: [{ speaker: "Speaker 1", text: "Hello transcript" }],
   isGenerating: false,
+  nativeContextMenus: [] as CapturedMenuItem[][],
   userTemplates: [] as Array<{
     id: string;
     title: string;
@@ -31,6 +47,14 @@ vi.mock("@hypr/ui/components/ui/spinner", () => ({
   Spinner: () => <span data-testid="tab-spinner" />,
 }));
 
+vi.mock("~/audio-player", () => ({
+  useAudioPlayer: () => ({
+    audioExists: hoisted.audioExists,
+    deleteRecording: hoisted.deleteRecording,
+    isDeletingRecording: hoisted.isDeletingRecording,
+  }),
+}));
+
 vi.mock("~/ai/hooks", () => ({
   useAITaskTask: () => ({
     isIdle: true,
@@ -52,8 +76,36 @@ vi.mock("~/services/enhancer", () => ({
   getEnhancerService: () => ({ enhance: hoisted.enhance }),
 }));
 
+vi.mock("~/session/components/note-input/transcript/actions", () => ({
+  useRegenerateTranscript: () => hoisted.regenerateTranscript,
+}));
+
+vi.mock("~/session/components/note-input/transcript/export-data", () => ({
+  buildTranscriptExportSegments: () =>
+    Promise.resolve(hoisted.transcriptSegments),
+  formatTranscriptExportSegments: (
+    segments: Array<{ speaker: string | null; text: string }>,
+  ) =>
+    segments
+      .map((segment) => `${segment.speaker ?? "Speaker"}: ${segment.text}`)
+      .join("\n\n"),
+}));
+
+vi.mock(
+  "~/session/components/note-input/transcript/render-request-hooks",
+  () => ({
+    useSessionTranscriptRenderData: () => ({
+      request: hoisted.transcriptExportRequest,
+      transcriptRows: [],
+    }),
+  }),
+);
+
 vi.mock("~/shared/hooks/useNativeContextMenu", () => ({
-  useNativeContextMenu: () => vi.fn(),
+  useNativeContextMenu: (items: CapturedMenuItem[]) => {
+    hoisted.nativeContextMenus.push(items);
+    return vi.fn();
+  },
 }));
 
 vi.mock("~/shared/ui/resource-list", () => ({
@@ -118,8 +170,17 @@ import { Header } from "./header";
 describe("Header", () => {
   beforeEach(() => {
     hoisted.enhance.mockReset();
+    hoisted.regenerateTranscript.mockReset();
+    hoisted.deleteRecording.mockReset();
     hoisted.activeTemplateTitle = "Customer Call";
+    hoisted.audioExists = true;
+    hoisted.isDeletingRecording = false;
+    hoisted.transcriptExportRequest = {};
+    hoisted.transcriptSegments = [
+      { speaker: "Speaker 1", text: "Hello transcript" },
+    ];
     hoisted.isGenerating = false;
+    hoisted.nativeContextMenus = [];
     hoisted.userTemplates = [];
   });
 
@@ -243,6 +304,60 @@ describe("Header", () => {
     });
   });
 
+  it("adds recording actions to the transcript tab context menu", () => {
+    const editorTabs: EditorView[] = [
+      { type: "enhanced", id: "note-1" },
+      { type: "raw" },
+      { type: "transcript" },
+    ];
+
+    render(
+      <Header
+        sessionId="session-1"
+        editorTabs={editorTabs}
+        currentTab={{ type: "transcript" }}
+        handleTabChange={vi.fn()}
+      />,
+    );
+
+    const menu = findContextMenu("copy-transcript-session-1");
+
+    expect(
+      menu.map((item) => ("text" in item ? item.text : "separator")),
+    ).toEqual(["Copy", "Regenerate", "Delete recording"]);
+    expect(menu.find(isMenuItem)?.disabled).toBe(false);
+    expect(
+      menu.find(
+        (item): item is Extract<CapturedMenuItem, { id: string }> =>
+          "id" in item && item.id === "delete-recording-session-1",
+      )?.disabled,
+    ).toBe(false);
+  });
+
+  it("omits transcript recording actions when recording is missing", () => {
+    hoisted.audioExists = false;
+    const editorTabs: EditorView[] = [
+      { type: "enhanced", id: "note-1" },
+      { type: "raw" },
+      { type: "transcript" },
+    ];
+
+    render(
+      <Header
+        sessionId="session-1"
+        editorTabs={editorTabs}
+        currentTab={{ type: "transcript" }}
+        handleTabChange={vi.fn()}
+      />,
+    );
+
+    const menu = findContextMenu("copy-transcript-session-1");
+
+    expect(
+      menu.map((item) => ("text" in item ? item.text : "separator")),
+    ).toEqual(["Copy"]);
+  });
+
   it("replaces the current enhanced note when changing templates", () => {
     hoisted.userTemplates = [
       {
@@ -308,3 +423,19 @@ describe("Header", () => {
     ).toBe("Customer Call");
   });
 });
+
+function findContextMenu(id: string) {
+  const menu = hoisted.nativeContextMenus.find((items) =>
+    items.some((item) => "id" in item && item.id === id),
+  );
+  if (!menu) {
+    throw new Error(`Context menu not found: ${id}`);
+  }
+  return menu;
+}
+
+function isMenuItem(
+  item: CapturedMenuItem,
+): item is Extract<CapturedMenuItem, { id: string }> {
+  return "id" in item;
+}
