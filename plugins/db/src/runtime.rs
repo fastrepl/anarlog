@@ -31,6 +31,8 @@ impl QueryEventSink for QueryEventChannel {
 }
 
 pub struct PluginDbRuntime {
+    db: std::sync::Arc<Db>,
+    schema_ready: tokio::sync::OnceCell<()>,
     executor: DbExecutor,
     live_query_runtime: LiveQueryRuntime<QueryEventChannel>,
 }
@@ -38,17 +40,29 @@ pub struct PluginDbRuntime {
 impl PluginDbRuntime {
     pub fn new(db: std::sync::Arc<Db>) -> Self {
         Self {
+            db: std::sync::Arc::clone(&db),
+            schema_ready: tokio::sync::OnceCell::new(),
             executor: DbExecutor::new(std::sync::Arc::clone(&db)),
             live_query_runtime: LiveQueryRuntime::new(db),
         }
+    }
+
+    async fn ensure_app_schema(&self) -> Result<()> {
+        self.schema_ready
+            .get_or_try_init(|| async {
+                hypr_db_migrate::migrate(self.db.as_ref(), hypr_db_app::schema()).await
+            })
+            .await?;
+        Ok(())
     }
 
     pub async fn execute(
         &self,
         sql: String,
         params: Vec<serde_json::Value>,
-    ) -> hypr_db_execute::Result<Vec<serde_json::Value>> {
-        self.executor.execute(sql, params).await
+    ) -> Result<Vec<serde_json::Value>> {
+        self.ensure_app_schema().await?;
+        Ok(self.executor.execute(sql, params).await?)
     }
 
     pub async fn execute_proxy(
@@ -56,8 +70,9 @@ impl PluginDbRuntime {
         sql: String,
         params: Vec<serde_json::Value>,
         method: ProxyQueryMethod,
-    ) -> hypr_db_execute::Result<ProxyQueryResult> {
-        self.executor.execute_proxy(sql, params, method).await
+    ) -> Result<ProxyQueryResult> {
+        self.ensure_app_schema().await?;
+        Ok(self.executor.execute_proxy(sql, params, method).await?)
     }
 
     pub async fn subscribe(
@@ -65,8 +80,9 @@ impl PluginDbRuntime {
         sql: String,
         params: Vec<serde_json::Value>,
         sink: QueryEventChannel,
-    ) -> hypr_db_reactive::Result<SubscriptionRegistration> {
-        self.live_query_runtime.subscribe(sql, params, sink).await
+    ) -> Result<SubscriptionRegistration> {
+        self.ensure_app_schema().await?;
+        Ok(self.live_query_runtime.subscribe(sql, params, sink).await?)
     }
 
     pub async fn unsubscribe(&self, subscription_id: &str) -> hypr_db_reactive::Result<()> {

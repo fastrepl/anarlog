@@ -134,6 +134,22 @@ mod test {
         (dir, Arc::new(runtime::PluginDbRuntime::new(Arc::new(db))))
     }
 
+    async fn setup_unmigrated_runtime() -> (tempfile::TempDir, Arc<runtime::PluginDbRuntime>) {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("app.db");
+        let db = hypr_db_core::Db::open(hypr_db_core::DbOpenOptions {
+            storage: hypr_db_core::DbStorage::Local(&db_path),
+            cloudsync_enabled: false,
+            journal_mode_wal: true,
+            foreign_keys: true,
+            max_connections: Some(4),
+        })
+        .await
+        .unwrap();
+
+        (dir, Arc::new(runtime::PluginDbRuntime::new(Arc::new(db))))
+    }
+
     #[tokio::test]
     async fn query_event_channel_sends_result_payload() {
         let (channel, events) = capture_channel();
@@ -186,6 +202,36 @@ mod test {
 
         let event = next_event(&events, 0).await.unwrap();
         assert_eq!(event, QueryEvent::Result(Vec::new()));
+    }
+
+    #[tokio::test]
+    async fn execute_proxy_applies_app_schema_before_run() {
+        let (_dir, runtime) = setup_unmigrated_runtime().await;
+
+        runtime
+            .execute_proxy(
+                "INSERT INTO templates (id, title) VALUES (?, ?)".to_string(),
+                vec![json!("template-1"), json!("Template 1")],
+                hypr_db_execute::ProxyQueryMethod::Run,
+            )
+            .await
+            .unwrap();
+
+        let rows = runtime
+            .execute(
+                "SELECT id, title FROM templates WHERE id = ?".to_string(),
+                vec![json!("template-1")],
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(
+            rows,
+            vec![json!({
+                "id": "template-1",
+                "title": "Template 1",
+            })]
+        );
     }
 
     #[tokio::test]
