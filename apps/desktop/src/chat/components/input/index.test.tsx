@@ -257,11 +257,15 @@ describe("ChatMessageInput", () => {
     expect(editor.className).toContain("overflow-y-auto");
     expect(editor.dataset.placeholder).toBe("Ask anything");
     expect(messageInput?.className).toContain("min-h-[30px]");
+    expect(messageInput?.className).toContain("items-center");
+    expect(messageInput?.className).not.toContain("items-end");
     expect(messageInput?.className).not.toContain("min-h-10");
     expect(screen.queryByRole("button", { name: /send/i })).toBeNull();
     expect(surface?.getAttribute("data-chat-input-surface")).toBe("floating");
     expect(surface?.className).toContain("min-h-[38px]");
     expect(surface?.className).toContain("max-h-40");
+    expect(surface?.className).toContain("items-center");
+    expect(surface?.className).not.toContain("items-end");
     expect(surface?.className).toContain("rounded-[19px]");
     expect(surface?.className).toContain("py-[3px]");
     expect(surface?.className).toContain("bg-white");

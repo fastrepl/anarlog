@@ -66,6 +66,7 @@ export function ChatMessageInput({
   return (
     <Container
       elevatedSurfaceClassName={elevatedSurfaceClassName}
+      hasFloatingDraftContent={hasContent}
       isFloating={isFloating}
       isRightPanel={isRightPanel}
     >
@@ -73,7 +74,10 @@ export function ChatMessageInput({
         data-chat-message-input
         className={cn([
           isFloating
-            ? "flex max-h-full min-h-[30px] w-full min-w-0 items-end"
+            ? [
+                "flex max-h-full min-h-[30px] w-full min-w-0",
+                hasContent ? "items-end" : "items-center",
+              ]
             : "flex flex-col px-2 pt-3 pb-2",
         ])}
       >
@@ -142,11 +146,13 @@ export function ChatMessageInput({
 function Container({
   children,
   elevatedSurfaceClassName,
+  hasFloatingDraftContent,
   isFloating,
   isRightPanel,
 }: {
   children: React.ReactNode;
   elevatedSurfaceClassName: string;
+  hasFloatingDraftContent: boolean;
   isFloating: boolean;
   isRightPanel: boolean;
 }) {
@@ -163,7 +169,8 @@ function Container({
           "flex max-h-full border",
           isFloating
             ? [
-                "border-border/70 text-card-foreground max-h-40 min-h-[38px] flex-row items-end overflow-hidden rounded-[19px] bg-white px-4 py-[3px] text-sm shadow-none",
+                "border-border/70 text-card-foreground max-h-40 min-h-[38px] flex-row overflow-hidden rounded-[19px] bg-white px-4 py-[3px] text-sm shadow-none",
+                hasFloatingDraftContent ? "items-end" : "items-center",
                 "dark:bg-card dark:text-card-foreground",
               ]
             : [elevatedSurfaceClassName, "flex-col rounded-xl"],
