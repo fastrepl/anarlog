@@ -110,8 +110,6 @@ export function isSessionEmpty(store: Store, sessionId: string): boolean {
       raw_md = session.raw_md;
     }
     raw_md = raw_md.trim();
-    // see: https://github.com/ueberdosis/tiptap/issues/7495
-    // this is a known regression on @tiptap/markdown on v3.18.0.
     if (raw_md && raw_md !== "&nbsp;") {
       return false;
     }

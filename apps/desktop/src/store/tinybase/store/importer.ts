@@ -47,7 +47,7 @@ const countRows = (tables: object | null): number => {
   return count;
 };
 
-const convertMarkdownToTiptapJson = (content: string): string => {
+const convertMarkdownToProseMirrorJson = (content: string): string => {
   if (!content || !content.trim()) {
     return content;
   }
@@ -61,8 +61,8 @@ const convertMarkdownToTiptapJson = (content: string): string => {
     // Not JSON - treat as markdown
   }
 
-  const tiptapJson = md2json(content);
-  return JSON.stringify(tiptapJson);
+  const proseMirrorJson = md2json(content);
+  return JSON.stringify(proseMirrorJson);
 };
 
 type Tables = Record<string, Record<string, Record<string, unknown>>>;
@@ -71,7 +71,7 @@ const transformImportedTables = (tables: Tables): Tables => {
   if (tables.sessions) {
     for (const session of Object.values(tables.sessions)) {
       if (typeof session.raw_md === "string") {
-        session.raw_md = convertMarkdownToTiptapJson(session.raw_md);
+        session.raw_md = convertMarkdownToProseMirrorJson(session.raw_md);
       }
     }
   }
@@ -79,7 +79,7 @@ const transformImportedTables = (tables: Tables): Tables => {
   if (tables.enhanced_notes) {
     for (const note of Object.values(tables.enhanced_notes)) {
       if (typeof note.content === "string") {
-        note.content = convertMarkdownToTiptapJson(note.content);
+        note.content = convertMarkdownToProseMirrorJson(note.content);
       }
     }
   }

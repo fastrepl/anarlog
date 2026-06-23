@@ -8,7 +8,7 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @source "../../node_modules/streamdown/dist/index.js";
-@source "../../../../packages/tiptap/src";
+@source "../../../../packages/editor/src";
 
 @theme {
   --font-sans:

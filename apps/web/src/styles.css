@@ -4,7 +4,6 @@
 @import "../../../packages/ui/src/styles/scroll-fade.css";
 
 @source "../../../packages/ui/src";
-@source "../../../packages/tiptap/src";
 
 @theme {
   /* ── Typography ──────────────────────────────── */

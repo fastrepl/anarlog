@@ -1,4 +1,4 @@
-:is(.tiptap, .prosemirror-editor) {
+.prosemirror-editor {
   /* code block */
   pre {
     background: #262626;

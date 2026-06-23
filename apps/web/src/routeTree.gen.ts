@@ -61,7 +61,6 @@ import { Route as ApiAdminKanbanProjectsRouteImport } from './routes/api/admin/k
 import { Route as ApiAdminKanbanItemsRouteImport } from './routes/api/admin/kanban/items'
 import { Route as ApiAdminKanbanDeleteRouteImport } from './routes/api/admin/kanban/delete'
 import { Route as ApiAdminKanbanCreateRouteImport } from './routes/api/admin/kanban/create'
-import { Route as ApiAdminImportGoogleDocsRouteImport } from './routes/api/admin/import/google-docs'
 import { Route as ApiAdminContentSaveRouteImport } from './routes/api/admin/content/save'
 import { Route as ApiAdminContentRenameRouteImport } from './routes/api/admin/content/rename'
 import { Route as ApiAdminContentPublishRouteImport } from './routes/api/admin/content/publish'
@@ -339,12 +338,6 @@ const ApiAdminKanbanCreateRoute = ApiAdminKanbanCreateRouteImport.update({
   path: '/api/admin/kanban/create',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiAdminImportGoogleDocsRoute =
-  ApiAdminImportGoogleDocsRouteImport.update({
-    id: '/api/admin/import/google-docs',
-    path: '/api/admin/import/google-docs',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 const ApiAdminContentSaveRoute = ApiAdminContentSaveRouteImport.update({
   id: '/api/admin/content/save',
   path: '/api/admin/content/save',
@@ -463,7 +456,6 @@ export interface FileRoutesByFullPath {
   '/api/admin/content/publish': typeof ApiAdminContentPublishRoute
   '/api/admin/content/rename': typeof ApiAdminContentRenameRoute
   '/api/admin/content/save': typeof ApiAdminContentSaveRoute
-  '/api/admin/import/google-docs': typeof ApiAdminImportGoogleDocsRoute
   '/api/admin/kanban/create': typeof ApiAdminKanbanCreateRoute
   '/api/admin/kanban/delete': typeof ApiAdminKanbanDeleteRoute
   '/api/admin/kanban/items': typeof ApiAdminKanbanItemsRoute
@@ -529,7 +521,6 @@ export interface FileRoutesByTo {
   '/api/admin/content/publish': typeof ApiAdminContentPublishRoute
   '/api/admin/content/rename': typeof ApiAdminContentRenameRoute
   '/api/admin/content/save': typeof ApiAdminContentSaveRoute
-  '/api/admin/import/google-docs': typeof ApiAdminImportGoogleDocsRoute
   '/api/admin/kanban/create': typeof ApiAdminKanbanCreateRoute
   '/api/admin/kanban/delete': typeof ApiAdminKanbanDeleteRoute
   '/api/admin/kanban/items': typeof ApiAdminKanbanItemsRoute
@@ -598,7 +589,6 @@ export interface FileRoutesById {
   '/api/admin/content/publish': typeof ApiAdminContentPublishRoute
   '/api/admin/content/rename': typeof ApiAdminContentRenameRoute
   '/api/admin/content/save': typeof ApiAdminContentSaveRoute
-  '/api/admin/import/google-docs': typeof ApiAdminImportGoogleDocsRoute
   '/api/admin/kanban/create': typeof ApiAdminKanbanCreateRoute
   '/api/admin/kanban/delete': typeof ApiAdminKanbanDeleteRoute
   '/api/admin/kanban/items': typeof ApiAdminKanbanItemsRoute
@@ -667,7 +657,6 @@ export interface FileRouteTypes {
     | '/api/admin/content/publish'
     | '/api/admin/content/rename'
     | '/api/admin/content/save'
-    | '/api/admin/import/google-docs'
     | '/api/admin/kanban/create'
     | '/api/admin/kanban/delete'
     | '/api/admin/kanban/items'
@@ -733,7 +722,6 @@ export interface FileRouteTypes {
     | '/api/admin/content/publish'
     | '/api/admin/content/rename'
     | '/api/admin/content/save'
-    | '/api/admin/import/google-docs'
     | '/api/admin/kanban/create'
     | '/api/admin/kanban/delete'
     | '/api/admin/kanban/items'
@@ -801,7 +789,6 @@ export interface FileRouteTypes {
     | '/api/admin/content/publish'
     | '/api/admin/content/rename'
     | '/api/admin/content/save'
-    | '/api/admin/import/google-docs'
     | '/api/admin/kanban/create'
     | '/api/admin/kanban/delete'
     | '/api/admin/kanban/items'
@@ -852,7 +839,6 @@ export interface RootRouteChildren {
   ApiAdminContentPublishRoute: typeof ApiAdminContentPublishRoute
   ApiAdminContentRenameRoute: typeof ApiAdminContentRenameRoute
   ApiAdminContentSaveRoute: typeof ApiAdminContentSaveRoute
-  ApiAdminImportGoogleDocsRoute: typeof ApiAdminImportGoogleDocsRoute
   ApiAdminKanbanCreateRoute: typeof ApiAdminKanbanCreateRoute
   ApiAdminKanbanDeleteRoute: typeof ApiAdminKanbanDeleteRoute
   ApiAdminKanbanItemsRoute: typeof ApiAdminKanbanItemsRoute
@@ -1238,13 +1224,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminKanbanCreateRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/admin/import/google-docs': {
-      id: '/api/admin/import/google-docs'
-      path: '/api/admin/import/google-docs'
-      fullPath: '/api/admin/import/google-docs'
-      preLoaderRoute: typeof ApiAdminImportGoogleDocsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/admin/content/save': {
       id: '/api/admin/content/save'
       path: '/api/admin/content/save'
@@ -1426,7 +1405,6 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAdminContentPublishRoute: ApiAdminContentPublishRoute,
   ApiAdminContentRenameRoute: ApiAdminContentRenameRoute,
   ApiAdminContentSaveRoute: ApiAdminContentSaveRoute,
-  ApiAdminImportGoogleDocsRoute: ApiAdminImportGoogleDocsRoute,
   ApiAdminKanbanCreateRoute: ApiAdminKanbanCreateRoute,
   ApiAdminKanbanDeleteRoute: ApiAdminKanbanDeleteRoute,
   ApiAdminKanbanItemsRoute: ApiAdminKanbanItemsRoute,

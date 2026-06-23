@@ -69,7 +69,7 @@ export function useSubmit({
 }) {
   return useCallback(() => {
     const json = editorRef.current?.getJSON();
-    const text = tiptapJsonToText(json).trim();
+    const text = proseMirrorJsonToText(json).trim();
     const mentionRefs = extractContextRefsFromTiptapJson(json);
 
     if (!text || disabled || isStreaming) {
@@ -135,7 +135,7 @@ export function useAutoFocusEditor({
   }, [editorRef, disabled, shouldFocus]);
 }
 
-function tiptapJsonToText(json: any): string {
+function proseMirrorJsonToText(json: any): string {
   if (!json || typeof json !== "object") {
     return "";
   }
@@ -149,14 +149,14 @@ function tiptapJsonToText(json: any): string {
   }
 
   if (json.content && Array.isArray(json.content)) {
-    return json.content.map(tiptapJsonToText).join("");
+    return json.content.map(proseMirrorJsonToText).join("");
   }
 
   return "";
 }
 
 function hasTextContent(json: JSONContent | undefined): boolean {
-  return tiptapJsonToText(json).trim().length > 0;
+  return proseMirrorJsonToText(json).trim().length > 0;
 }
 
 function hasDraftContent(json: JSONContent | undefined): boolean {

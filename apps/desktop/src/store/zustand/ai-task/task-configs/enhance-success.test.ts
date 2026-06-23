@@ -63,7 +63,7 @@ describe("enhanceSuccess.onSuccess", () => {
     useLiveTitle.setState({ titles: {} });
   });
 
-  it("persists enhanced note content as TipTap JSON string", async () => {
+  it("persists enhanced note content as ProseMirror JSON string", async () => {
     const params = createParams();
 
     await enhanceSuccess.onSuccess?.(params);

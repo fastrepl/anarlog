@@ -24,7 +24,6 @@
     "@handlewithcare/react-prosemirror": "^3.0.1",
     "@hypr/plugin-opener2": "workspace:*",
     "@hypr/store": "workspace:*",
-    "@hypr/tiptap": "workspace:^",
     "@hypr/utils": "workspace:^",
     "facehash": "^0.0.7",
     "lucide-react": "^0.544.0",

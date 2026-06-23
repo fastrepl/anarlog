@@ -43,7 +43,7 @@ function setTableCellAttrs(node: { attrs: Record<string, any> }) {
   return attrs;
 }
 
-// Node names match Tiptap for JSON content compatibility.
+// Node names keep legacy JSON content compatibility.
 const nodes: Record<string, NodeSpec> = {
   doc: { content: "block+" },
 

@@ -1,4 +1,4 @@
-:is(.tiptap, .prosemirror-editor) {
+.prosemirror-editor {
   /* highlight */
   mark {
     background-color: #faf594;

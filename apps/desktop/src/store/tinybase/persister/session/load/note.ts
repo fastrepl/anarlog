@@ -31,18 +31,18 @@ export async function processMdFile(
       return;
     }
 
-    const tiptapJson = md2json(markdownBody);
-    const tiptapContent = JSON.stringify(tiptapJson);
+    const proseMirrorJson = md2json(markdownBody);
+    const proseMirrorContent = JSON.stringify(proseMirrorJson);
 
     if (path.endsWith(SESSION_MEMO_FILE)) {
       if (result.sessions[fm.session_id]) {
-        result.sessions[fm.session_id].raw_md = tiptapContent;
+        result.sessions[fm.session_id].raw_md = proseMirrorContent;
       }
     } else {
       result.enhanced_notes[fm.id] = {
         user_id: "",
         session_id: fm.session_id,
-        content: tiptapContent,
+        content: proseMirrorContent,
         template_id: fm.template_id ?? "",
         position: fm.position ?? 0,
         title: fm.title ?? "",

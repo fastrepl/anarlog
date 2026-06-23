@@ -1,44 +1,44 @@
-.dark :is(.tiptap, .prosemirror-editor) {
+.dark .prosemirror-editor {
   caret-color: #d6d3d1;
 }
 
-.dark :is(.tiptap, .prosemirror-editor) h1,
-.dark :is(.tiptap, .prosemirror-editor) h2,
-.dark :is(.tiptap, .prosemirror-editor) h3,
-.dark :is(.tiptap, .prosemirror-editor) h4,
-.dark :is(.tiptap, .prosemirror-editor) h5,
-.dark :is(.tiptap, .prosemirror-editor) h6,
-.dark .blog-editor :is(.tiptap, .prosemirror-editor) h3,
-.dark .blog-editor :is(.tiptap, .prosemirror-editor) h4,
-.dark .blog-editor :is(.tiptap, .prosemirror-editor) h5,
-.dark .blog-editor :is(.tiptap, .prosemirror-editor) h6 {
+.dark .prosemirror-editor h1,
+.dark .prosemirror-editor h2,
+.dark .prosemirror-editor h3,
+.dark .prosemirror-editor h4,
+.dark .prosemirror-editor h5,
+.dark .prosemirror-editor h6,
+.dark .blog-editor .prosemirror-editor h3,
+.dark .blog-editor .prosemirror-editor h4,
+.dark .blog-editor .prosemirror-editor h5,
+.dark .blog-editor .prosemirror-editor h6 {
   color: #e7e5e4;
 }
 
-.dark :is(.tiptap, .prosemirror-editor) blockquote {
+.dark .prosemirror-editor blockquote {
   border-left-color: #a8a29e;
   caret-color: #e7e5e4;
 }
 
-.dark :is(.tiptap, .prosemirror-editor) a {
+.dark .prosemirror-editor a {
   color: #60a5fa;
 }
 
-.dark :is(.tiptap, .prosemirror-editor) a:hover {
+.dark .prosemirror-editor a:hover {
   color: #93c5fd;
 }
 
-.dark :is(.tiptap, .prosemirror-editor) code {
+.dark .prosemirror-editor code {
   border-color: #57534e;
   color: #e7e5e4;
 }
 
-.dark :is(.tiptap, .prosemirror-editor) input.task-checkbox {
+.dark .prosemirror-editor input.task-checkbox {
   border-color: #78716c;
 }
 
 .dark
-  :is(.tiptap, .prosemirror-editor)
+  .prosemirror-editor
   input.task-checkbox[data-interactive="true"]:hover:not(:checked) {
   border-color: #a8a29e;
 }
@@ -52,7 +52,7 @@
   background-color: #292524;
 }
 
-.dark :is(.tiptap, .prosemirror-editor) mark {
+.dark .prosemirror-editor mark {
   background-color: rgb(113 63 18 / 0.45);
   color: #fcd34d;
 }

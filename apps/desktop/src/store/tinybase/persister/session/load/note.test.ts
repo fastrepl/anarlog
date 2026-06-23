@@ -7,12 +7,12 @@ const fsSyncMocks = vi.hoisted(() => ({
   deserialize: vi.fn(),
 }));
 
-const tiptapMocks = vi.hoisted(() => ({
+const markdownMocks = vi.hoisted(() => ({
   md2json: vi.fn().mockReturnValue({ type: "doc", content: [] }),
 }));
 
 vi.mock("@hypr/plugin-fs-sync", () => ({ commands: fsSyncMocks }));
-vi.mock("@hypr/editor/markdown", () => tiptapMocks);
+vi.mock("@hypr/editor/markdown", () => markdownMocks);
 
 describe("processMdFile", () => {
   let result: LoadedSessionData;

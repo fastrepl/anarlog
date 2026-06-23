@@ -1,4 +1,4 @@
-:is(.tiptap, .prosemirror-editor) {
+.prosemirror-editor {
   .hashtag {
     color: #f59e0b;
     text-decoration: underline;
