@@ -182,7 +182,6 @@ function TabContentNoteInner({
           sessionId={tab.id}
           currentView={currentView}
           standaloneWindow={standaloneWindow}
-          centerTitle
           title={
             <NoteInputHeader
               sessionId={tab.id}
