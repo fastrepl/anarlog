@@ -2,9 +2,11 @@ import { useEffect, useMemo } from "react";
 
 import { useAITask } from "~/ai/contexts";
 import { getEnhancerService } from "~/services/enhancer";
+import { useHasTranscript } from "~/session/components/shared";
 import * as main from "~/store/tinybase/store/main";
 import * as settings from "~/store/tinybase/store/settings";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
+import { useListener } from "~/stt/contexts";
 
 export function useEnhancedNotes(sessionId: string) {
   return main.UI.useSliceRowIds(
@@ -44,6 +46,9 @@ export function useEnhancedNote(enhancedNoteId: string) {
 }
 
 export function useEnsureDefaultSummary(sessionId: string) {
+  const hasTranscript = useHasTranscript(sessionId);
+  const sessionMode = useListener((state) => state.getSessionMode(sessionId));
+  const batchError = useListener((state) => state.batch[sessionId]?.error);
   const enhancedNoteIds = main.UI.useSliceRowIds(
     main.INDEXES.enhancedNotesBySession,
     sessionId,
@@ -62,11 +67,23 @@ export function useEnsureDefaultSummary(sessionId: string) {
 
     const hasEnhancedNotes = enhancedNoteIds && enhancedNoteIds.length > 0;
     const templateId = selectedTemplateId || undefined;
+    const canCreateSummary =
+      hasTranscript ||
+      sessionMode === "finalizing" ||
+      sessionMode === "running_batch" ||
+      Boolean(batchError);
 
-    if (!hasEnhancedNotes) {
+    if (!hasEnhancedNotes && canCreateSummary) {
       service.ensureNote(sessionId, templateId);
     }
-  }, [sessionId, enhancedNoteIds?.length, selectedTemplateId]);
+  }, [
+    sessionId,
+    enhancedNoteIds?.length,
+    selectedTemplateId,
+    hasTranscript,
+    sessionMode,
+    batchError,
+  ]);
 }
 
 export function useIsSessionEnhancing(sessionId: string): boolean {

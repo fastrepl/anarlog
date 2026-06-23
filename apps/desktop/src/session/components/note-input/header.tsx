@@ -35,6 +35,7 @@ import {
 import { useAITaskTask } from "~/ai/hooks";
 import { useLanguageModel, useLLMConnectionStatus } from "~/ai/hooks";
 import { extractPlainText } from "~/search/contexts/engine/utils";
+import { useHasTranscript } from "~/session/components/shared";
 import { shouldShowEmptySummaryConfigError } from "~/session/enhance-config";
 import { useEnsureDefaultSummary } from "~/session/hooks/useEnhancedNotes";
 import {
@@ -46,6 +47,7 @@ import * as main from "~/store/tinybase/store/main";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 import { type EditorView } from "~/store/zustand/tabs/schema";
+import { useListener } from "~/stt/contexts";
 import {
   filterWebTemplatesAgainstUserTemplates,
   getTemplateCreatorLabel,
@@ -1102,18 +1104,45 @@ export function useEditorTabs({
   sessionId: string;
 }): EditorView[] {
   useEnsureDefaultSummary(sessionId);
+  const hasTranscript = useHasTranscript(sessionId);
+  const sessionMode = useListener((state) => state.getSessionMode(sessionId));
+  const batchError = useListener((state) => state.batch[sessionId]?.error);
+  const canShowTranscript =
+    hasTranscript ||
+    sessionMode === "active" ||
+    sessionMode === "finalizing" ||
+    sessionMode === "running_batch" ||
+    Boolean(batchError);
 
   const enhancedNoteIds = main.UI.useSliceRowIds(
     main.INDEXES.enhancedNotesBySession,
     sessionId,
     main.STORE_ID,
   );
-  const enhancedTabs: EditorView[] = (enhancedNoteIds || []).map((id) => ({
+
+  return createEditorTabs({
+    enhancedNoteIds: enhancedNoteIds || [],
+    canShowTranscript,
+  });
+}
+
+function createEditorTabs({
+  enhancedNoteIds,
+  canShowTranscript,
+}: {
+  enhancedNoteIds: string[];
+  canShowTranscript: boolean;
+}): EditorView[] {
+  const enhancedTabs: EditorView[] = enhancedNoteIds.map((id) => ({
     type: "enhanced",
     id,
   }));
 
-  return [...enhancedTabs, { type: "raw" }, { type: "transcript" }];
+  return [
+    ...enhancedTabs,
+    { type: "raw" },
+    ...(canShowTranscript ? [{ type: "transcript" } as const] : []),
+  ];
 }
 
 function useEnhanceLogic(sessionId: string, enhancedNoteId: string) {

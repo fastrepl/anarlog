@@ -56,7 +56,7 @@ describe("computeCurrentNoteTab", () => {
         { type: "transcript" },
         true,
         "note-1",
-        true,
+        false,
       );
       expect(result).toEqual({ type: "transcript" });
     });
@@ -93,14 +93,14 @@ describe("computeCurrentNoteTab", () => {
       expect(result).toEqual({ type: "transcript" });
     });
 
-    it("preserves persisted transcript view even before transcript content exists", () => {
+    it("normalizes persisted transcript view before transcript content exists", () => {
       const result = computeCurrentNoteTab(
         { type: "transcript" },
         false,
         "note-1",
         false,
       );
-      expect(result).toEqual({ type: "transcript" });
+      expect(result).toEqual({ type: "raw" });
     });
 
     it("normalizes persisted attachments view to raw", () => {
@@ -108,6 +108,16 @@ describe("computeCurrentNoteTab", () => {
         { type: "attachments" },
         false,
         "note-1",
+        false,
+      );
+      expect(result).toEqual({ type: "raw" });
+    });
+
+    it("normalizes persisted enhanced view when no enhanced notes exist", () => {
+      const result = computeCurrentNoteTab(
+        { type: "enhanced", id: "note-1" },
+        false,
+        undefined,
         false,
       );
       expect(result).toEqual({ type: "raw" });
