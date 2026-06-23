@@ -1020,10 +1020,6 @@ export function Header({
       view.type === "enhanced",
   )?.id;
 
-  if (editorTabs.length === 1 && editorTabs[0].type === "raw") {
-    return null;
-  }
-
   return (
     <div data-tauri-drag-region className="flex flex-col">
       <div
