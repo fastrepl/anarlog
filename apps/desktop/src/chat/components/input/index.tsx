@@ -52,7 +52,6 @@ export function ChatMessageInput({
     draftKey,
     editorRef,
     disabled,
-    isStreaming,
     onSendMessage,
     onDraftContentChange,
     onContextRefsChange,

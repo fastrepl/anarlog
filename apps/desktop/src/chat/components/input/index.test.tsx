@@ -12,6 +12,7 @@ const { clearContentMock, editorState, shellState } = vi.hoisted(() => ({
   editorState: {
     json: undefined as unknown,
     onUpdate: undefined as undefined | ((json: unknown) => void),
+    onSubmit: undefined as undefined | (() => void),
   },
   shellState: {
     mode: "FloatingOpen" as
@@ -36,7 +37,8 @@ vi.mock("@hypr/editor/chat", async () => {
           pos: number;
         }) => string;
       }
-    >(function ChatEditor({ className, onUpdate, placeholder }, ref) {
+    >(function ChatEditor({ className, onSubmit, onUpdate, placeholder }, ref) {
+      editorState.onSubmit = onSubmit;
       editorState.onUpdate = onUpdate;
 
       React.useImperativeHandle(ref, () => ({
@@ -95,6 +97,7 @@ describe("ChatMessageInput", () => {
     cleanup();
     clearContentMock.mockClear();
     editorState.json = { type: "doc", content: [] };
+    editorState.onSubmit = undefined;
     editorState.onUpdate = undefined;
     shellState.mode = "FloatingOpen";
   });
@@ -184,6 +187,39 @@ describe("ChatMessageInput", () => {
 
     expect(onDraftContentChange).toHaveBeenCalledWith(true);
     expect(sendButton.disabled).toBe(true);
+  });
+
+  it("submits drafts while streaming so the caller can queue them", () => {
+    shellState.mode = "RightPanelOpen";
+    const onSendMessage = vi.fn();
+    render(
+      <ChatMessageInput
+        draftKey="chat-input-test"
+        isStreaming
+        onSendMessage={onSendMessage}
+      />,
+    );
+
+    editorState.json = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "Follow up" }],
+        },
+      ],
+    };
+    act(() => {
+      editorState.onUpdate?.(editorState.json);
+      editorState.onSubmit?.();
+    });
+
+    expect(onSendMessage).toHaveBeenCalledWith(
+      "Follow up",
+      [{ type: "text", text: "Follow up" }],
+      [],
+    );
+    expect(clearContentMock).toHaveBeenCalled();
   });
 
   it("marks the send control for disabled surface styling before the draft has content", () => {

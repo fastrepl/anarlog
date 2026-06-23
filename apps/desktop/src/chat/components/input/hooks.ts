@@ -50,7 +50,6 @@ export function useSubmit({
   draftKey,
   editorRef,
   disabled,
-  isStreaming,
   onSendMessage,
   onDraftContentChange,
   onContextRefsChange,
@@ -72,7 +71,7 @@ export function useSubmit({
     const text = proseMirrorJsonToText(json).trim();
     const mentionRefs = extractContextRefsFromTiptapJson(json);
 
-    if (!text || disabled || isStreaming) {
+    if (!text || disabled) {
       return;
     }
 
@@ -86,7 +85,6 @@ export function useSubmit({
     draftKey,
     editorRef,
     disabled,
-    isStreaming,
     onSendMessage,
     onDraftContentChange,
     onContextRefsChange,
