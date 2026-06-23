@@ -113,11 +113,6 @@ vi.mock("~/templates", () => ({
   useUserTemplates: () => hoisted.userTemplates,
 }));
 
-vi.mock("./transcript/export-data", () => ({
-  formatTranscriptExportSegments: () => "",
-  useTranscriptExportSegments: () => ({ data: [] }),
-}));
-
 import { Header } from "./header";
 
 describe("Header", () => {

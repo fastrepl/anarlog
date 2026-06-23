@@ -21,7 +21,6 @@ import {
   useToggleTemplateFavorite,
 } from "./queries";
 import { SectionsList } from "./sections-editor";
-import { getTemplateCreatorLabel, useTemplateCreatorName } from "./utils";
 
 import { TemplateCategoryLabel } from "~/shared/ui/template-category-label";
 import * as settings from "~/store/tinybase/store/settings";
@@ -152,7 +151,6 @@ export function TemplateForm({
   const { id } = template;
   const saveTemplate = useSaveTemplate();
   const toggleTemplateFavorite = useToggleTemplateFavorite();
-  const creatorName = useTemplateCreatorName();
   const [actionsOpen, setActionsOpen] = useState(false);
   const didInitializeForm = useRef(false);
 
@@ -308,13 +306,6 @@ export function TemplateForm({
                     className="absolute inset-0 h-auto w-full max-w-full min-w-0 border-0 px-0 py-0 text-lg font-semibold shadow-none focus-visible:ring-0 md:text-lg"
                   />
                 </div>
-                <span className="text-muted-foreground shrink-0 text-sm font-normal whitespace-nowrap">
-                  {getTemplateCreatorLabel({
-                    isUserTemplate: true,
-                    creatorName,
-                    format: "short",
-                  })}
-                </span>
               </div>
             )}
           </form.Field>

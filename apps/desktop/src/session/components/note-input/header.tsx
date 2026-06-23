@@ -4,7 +4,6 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
   HeartIcon,
-  LightbulbIcon,
   PlusIcon,
   SearchIcon,
   SparklesIcon,
@@ -24,14 +23,8 @@ import { Spinner } from "@hypr/ui/components/ui/spinner";
 import { sonnerToast } from "@hypr/ui/components/ui/toast";
 import { cn } from "@hypr/utils";
 
-import {
-  formatTranscriptExportSegments,
-  useTranscriptExportSegments,
-} from "./transcript/export-data";
-
 import { useAITaskTask } from "~/ai/hooks";
 import { useLanguageModel, useLLMConnectionStatus } from "~/ai/hooks";
-import { extractPlainText } from "~/search/contexts/engine/utils";
 import { getEnhancerService } from "~/services/enhancer";
 import { useHasTranscript } from "~/session/components/shared";
 import { shouldShowEmptySummaryConfigError } from "~/session/enhance-config";
@@ -48,10 +41,8 @@ import { type EditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
 import {
   filterWebTemplatesAgainstUserTemplates,
-  getTemplateCreatorLabel,
   parseWebTemplates,
   useCreateTemplate,
-  useTemplateCreatorName,
   useUserTemplate,
   useUserTemplates,
   type WebTemplate,
@@ -411,7 +402,6 @@ function HeaderTabEnhanced({
 
   return isActive ? (
     <TemplatePickerPopover
-      sessionId={sessionId}
       onSelectTemplate={handleSelectTemplate}
       trigger={templateMenuTrigger}
     />
@@ -481,11 +471,9 @@ function useOpenTemplatesTab() {
 }
 
 function TemplatePickerPopover({
-  sessionId,
   onSelectTemplate,
   trigger,
 }: {
-  sessionId: string;
   onSelectTemplate: (selection: TemplateSelection) => void;
   trigger: React.ReactNode;
 }) {
@@ -493,33 +481,17 @@ function TemplatePickerPopover({
   const [search, setSearch] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
   const resultRefs = useRef<Array<HTMLButtonElement | null>>([]);
-  const sessionTitle = main.UI.useCell(
-    "sessions",
-    sessionId,
-    "title",
-    main.STORE_ID,
-  ) as string | undefined;
-  const rawMd = main.UI.useCell(
-    "sessions",
-    sessionId,
-    "raw_md",
-    main.STORE_ID,
-  ) as string | undefined;
-  const { data: transcriptSegments } = useTranscriptExportSegments(sessionId);
   const userTemplates = useUserTemplates();
   const createTemplate = useCreateTemplate();
-  const creatorName = useTemplateCreatorName();
-  const {
-    data: rawSuggestedTemplates = [],
-    isLoading: isSuggestedTemplatesLoading,
-  } = useWebResources<Record<string, unknown>>("templates");
-  const suggestedTemplates = useMemo(
+  const { data: rawWebTemplates = [] } =
+    useWebResources<Record<string, unknown>>("templates");
+  const webTemplates = useMemo(
     () =>
       filterWebTemplatesAgainstUserTemplates({
         userTemplates,
-        webTemplates: parseWebTemplates(rawSuggestedTemplates),
+        webTemplates: parseWebTemplates(rawWebTemplates),
       }),
-    [rawSuggestedTemplates, userTemplates],
+    [rawWebTemplates, userTemplates],
   );
   const openTemplatesTab = useOpenTemplatesTab();
 
@@ -542,7 +514,7 @@ function TemplatePickerPopover({
     }
   }, []);
 
-  const handleSuggestedTemplateClick = useCallback(
+  const handleWebTemplateClick = useCallback(
     async (template: WebTemplate) => {
       const templateId = await createTemplate({
         title: template.title,
@@ -602,22 +574,6 @@ function TemplatePickerPopover({
 
   const trimmedSearch = search.trim();
   const searchQuery = search.trim().toLowerCase();
-  const transcriptText = useMemo(
-    () => formatTranscriptExportSegments(transcriptSegments),
-    [transcriptSegments],
-  );
-  const meetingContent = useMemo(
-    () =>
-      [sessionTitle ?? "", extractPlainText(rawMd), transcriptText]
-        .filter((value) => value.trim().length > 0)
-        .join("\n\n"),
-    [rawMd, sessionTitle, transcriptText],
-  );
-  const suggestedTemplateRecommendations = useMemo(
-    () => rankSuggestedTemplates(suggestedTemplates, meetingContent),
-    [meetingContent, suggestedTemplates],
-  );
-
   const favoriteTemplates = useMemo(
     () => sortFavoriteTemplates(userTemplates),
     [userTemplates],
@@ -647,29 +603,13 @@ function TemplatePickerPopover({
     );
   }, [otherTemplates, searchQuery]);
 
-  const filteredSuggestedTemplates = useMemo(() => {
-    if (!searchQuery) {
-      return suggestedTemplateRecommendations;
-    }
-
-    return suggestedTemplates.filter(
-      (template) =>
-        template.title?.toLowerCase().includes(searchQuery) ||
-        template.description?.toLowerCase().includes(searchQuery) ||
-        template.category?.toLowerCase().includes(searchQuery) ||
-        template.targets?.some((target) =>
-          target.toLowerCase().includes(searchQuery),
-        ),
-    );
-  }, [searchQuery, suggestedTemplateRecommendations, suggestedTemplates]);
-
   const hasSearch = searchQuery.length > 0;
   const filteredWebTemplates = useMemo(() => {
     if (!searchQuery) {
-      return suggestedTemplates;
+      return webTemplates;
     }
 
-    return suggestedTemplates.filter(
+    return webTemplates.filter(
       (template) =>
         template.title?.toLowerCase().includes(searchQuery) ||
         template.description?.toLowerCase().includes(searchQuery) ||
@@ -678,26 +618,19 @@ function TemplatePickerPopover({
           target.toLowerCase().includes(searchQuery),
         ),
     );
-  }, [searchQuery, suggestedTemplates]);
-  const libraryTemplates = useMemo<
+  }, [searchQuery, webTemplates]);
+  const templateItems = useMemo<
     Array<{
       key: string;
       title: string;
-      description?: string;
-      creatorLabel: string;
-      tags?: string[];
+      isFavorite?: boolean;
       onClick: () => void;
     }>
   >(() => {
-    const userItems = filteredOtherTemplates.map((template) => ({
+    const favoriteItems = filteredFavoriteTemplates.map((template) => ({
       key: template.id,
       title: template.title || "Untitled",
-      description: template.description,
-      creatorLabel: getTemplateCreatorLabel({
-        isUserTemplate: true,
-        creatorName,
-      }),
-      tags: getTemplateTags(template),
+      isFavorite: true,
       onClick: () =>
         handleUseTemplate({
           templateId: template.id,
@@ -705,42 +638,33 @@ function TemplatePickerPopover({
         }),
     }));
 
-    const suggestedSlugs = new Set(
-      !hasSearch
-        ? filteredSuggestedTemplates.map(
-            (template, index) => template.slug || `suggested-${index}`,
-          )
-        : [],
-    );
+    const userItems = filteredOtherTemplates.map((template) => ({
+      key: template.id,
+      title: template.title || "Untitled",
+      onClick: () =>
+        handleUseTemplate({
+          templateId: template.id,
+          title: template.title || "Untitled",
+        }),
+    }));
 
-    const webItems = filteredWebTemplates
-      .filter((template, index) => {
-        if (hasSearch) {
-          return true;
-        }
+    const webItems = filteredWebTemplates.map((template, index) => ({
+      key: template.slug || `library-${index}`,
+      title: template.title || "Untitled",
+      onClick: () => handleWebTemplateClick(template),
+    }));
 
-        return !suggestedSlugs.has(template.slug || `suggested-${index}`);
-      })
-      .map((template, index) => ({
-        key: template.slug || `library-${index}`,
-        title: template.title || "Untitled",
-        description: template.description,
-        creatorLabel: getTemplateCreatorLabel({ isUserTemplate: false }),
-        tags: getTemplateTags(template),
-        onClick: () => handleSuggestedTemplateClick(template),
-      }));
-
-    return [...userItems, ...webItems].sort((a, b) =>
+    const otherItems = [...userItems, ...webItems].sort((a, b) =>
       a.title.localeCompare(b.title),
     );
+
+    return [...favoriteItems, ...otherItems];
   }, [
-    creatorName,
+    filteredFavoriteTemplates,
     filteredOtherTemplates,
-    filteredSuggestedTemplates,
     filteredWebTemplates,
-    handleSuggestedTemplateClick,
+    handleWebTemplateClick,
     handleUseTemplate,
-    hasSearch,
   ]);
   const resultSections = useMemo<
     Array<{
@@ -748,13 +672,12 @@ function TemplatePickerPopover({
       title: string;
       icon?: React.ReactNode;
       uppercase?: boolean;
+      showHeader?: boolean;
       emptyMessage?: string;
       items: Array<{
         key: string;
         title: string;
-        description?: string;
-        creatorLabel?: string;
-        tags?: string[];
+        isFavorite?: boolean;
         onClick: () => void;
       }>;
     }>
@@ -762,49 +685,12 @@ function TemplatePickerPopover({
     if (!hasSearch) {
       return [
         {
-          key: "favorite",
-          title: "Favorites",
-          items: filteredFavoriteTemplates.map((template) => ({
-            key: template.id,
-            title: template.title || "Untitled",
-            description: template.description,
-            creatorLabel: getTemplateCreatorLabel({
-              isUserTemplate: true,
-              creatorName,
-            }),
-            tags: getTemplateTags(template),
-            onClick: () =>
-              handleUseTemplate({
-                templateId: template.id,
-                title: template.title || "Untitled",
-              }),
-          })),
-          emptyMessage: "No favorite templates yet",
+          key: "templates",
+          title: "Templates",
+          showHeader: false,
+          items: templateItems,
+          emptyMessage: "No templates yet",
         },
-        {
-          key: "suggested",
-          title: "Suggested",
-          items: filteredSuggestedTemplates.map((template, index) => ({
-            key: template.slug || `suggested-${index}`,
-            title: template.title || "Untitled",
-            description: template.description,
-            creatorLabel: getTemplateCreatorLabel({ isUserTemplate: false }),
-            tags: getTemplateTags(template),
-            onClick: () => handleSuggestedTemplateClick(template),
-          })),
-          emptyMessage: isSuggestedTemplatesLoading
-            ? "Loading suggestions..."
-            : "No suggested templates yet",
-        },
-        ...(libraryTemplates.length > 0
-          ? [
-              {
-                key: "library",
-                title: "Templates",
-                items: libraryTemplates,
-              },
-            ]
-          : []),
       ];
     }
 
@@ -822,51 +708,18 @@ function TemplatePickerPopover({
           },
         ],
       },
-      ...(filteredFavoriteTemplates.length > 0
+      ...(templateItems.length > 0
         ? [
             {
-              key: "favorite",
-              title: "Favorites",
-              items: filteredFavoriteTemplates.map((template) => ({
-                key: template.id,
-                title: template.title || "Untitled",
-                description: template.description,
-                creatorLabel: getTemplateCreatorLabel({
-                  isUserTemplate: true,
-                  creatorName,
-                }),
-                tags: getTemplateTags(template),
-                onClick: () =>
-                  handleUseTemplate({
-                    templateId: template.id,
-                    title: template.title || "Untitled",
-                  }),
-              })),
-            },
-          ]
-        : []),
-      ...(libraryTemplates.length > 0
-        ? [
-            {
-              key: "library",
+              key: "templates",
               title: "Templates",
-              items: libraryTemplates,
+              showHeader: false,
+              items: templateItems,
             },
           ]
         : []),
     ];
-  }, [
-    creatorName,
-    filteredFavoriteTemplates,
-    filteredSuggestedTemplates,
-    handleCreateTemplate,
-    handleSuggestedTemplateClick,
-    handleUseTemplate,
-    hasSearch,
-    isSuggestedTemplatesLoading,
-    libraryTemplates,
-    trimmedSearch,
-  ]);
+  }, [handleCreateTemplate, hasSearch, templateItems, trimmedSearch]);
   const navigableResults = useMemo(
     () => resultSections.flatMap((section) => section.items),
     [resultSections],
@@ -950,9 +803,7 @@ function TemplatePickerPopover({
 
             <div className="relative">
               <div
-                className={cn([
-                  "scroll-fade-y scrollbar-hide max-h-80 overflow-y-auto p-2",
-                ])}
+                className={cn(["scroll-fade-y max-h-80 overflow-y-auto p-2"])}
               >
                 <div className="flex flex-col gap-3">
                   {resultSections.map((section) => (
@@ -961,6 +812,7 @@ function TemplatePickerPopover({
                       title={section.title}
                       icon={section.icon}
                       uppercase={section.uppercase}
+                      showHeader={section.showHeader}
                     >
                       {section.items.length > 0 ? (
                         section.items.map((item) => {
@@ -974,9 +826,7 @@ function TemplatePickerPopover({
                                 resultRefs.current[itemIndex] = node;
                               }}
                               title={item.title}
-                              description={item.description}
-                              creatorLabel={item.creatorLabel}
-                              tags={item.tags}
+                              isFavorite={item.isFavorite}
                               onClick={item.onClick}
                               onKeyDown={(e) =>
                                 handleResultKeyDown(e, itemIndex)
@@ -1224,15 +1074,6 @@ function useEnhanceLogic(sessionId: string, enhancedNoteId: string) {
   };
 }
 
-function getTemplateTags(template: { category?: string; targets?: string[] }) {
-  return [
-    ...new Set([
-      ...(template.category ? [template.category] : []),
-      ...(template.targets ?? []),
-    ]),
-  ];
-}
-
 function matchesTemplateSearch(
   template: {
     title?: string;
@@ -1273,183 +1114,34 @@ function sortOtherTemplates<T extends { pinned?: boolean; title?: string }>(
     .sort((a, b) => (a.title || "").localeCompare(b.title || ""));
 }
 
-const TEMPLATE_SUGGESTION_STOP_WORDS = new Set([
-  "about",
-  "after",
-  "agenda",
-  "also",
-  "and",
-  "before",
-  "between",
-  "call",
-  "customer",
-  "discussion",
-  "discussions",
-  "follow",
-  "for",
-  "from",
-  "have",
-  "into",
-  "meeting",
-  "meetings",
-  "notes",
-  "plan",
-  "review",
-  "session",
-  "sessions",
-  "template",
-  "templates",
-  "that",
-  "their",
-  "them",
-  "this",
-  "with",
-  "your",
-]);
-
-function rankSuggestedTemplates(
-  templates: WebTemplate[],
-  meetingContent: string,
-) {
-  if (templates.length <= 3) {
-    return templates;
-  }
-
-  const normalizedContent = normalizeTemplateSuggestionText(meetingContent);
-  if (!normalizedContent) {
-    return templates.slice(0, 3);
-  }
-
-  const rankedTemplates = templates
-    .map((template, index) => ({
-      template,
-      index,
-      score: getSuggestedTemplateScore(template, normalizedContent),
-    }))
-    .sort((a, b) => {
-      if (b.score !== a.score) {
-        return b.score - a.score;
-      }
-      return a.index - b.index;
-    });
-
-  if (rankedTemplates[0]?.score === 0) {
-    return templates.slice(0, 3);
-  }
-
-  return rankedTemplates.slice(0, 3).map(({ template }) => template);
-}
-
-function getSuggestedTemplateScore(
-  template: WebTemplate,
-  normalizedContent: string,
-) {
-  let score = 0;
-
-  const title = normalizeTemplateSuggestionText(template.title);
-  const category = normalizeTemplateSuggestionText(template.category);
-
-  if (title && normalizedContent.includes(title)) {
-    score += 12;
-  }
-
-  if (category && normalizedContent.includes(category)) {
-    score += 6;
-  }
-
-  template.targets?.forEach((target) => {
-    const normalizedTarget = normalizeTemplateSuggestionText(target);
-    if (normalizedTarget && normalizedContent.includes(normalizedTarget)) {
-      score += 4;
-    }
-  });
-
-  score += getTemplateSuggestionTokenMatches(
-    normalizedContent,
-    template.title,
-    3,
-  );
-  score += getTemplateSuggestionTokenMatches(
-    normalizedContent,
-    template.category,
-    2,
-  );
-  score += getTemplateSuggestionTokenMatches(
-    normalizedContent,
-    template.description,
-    1,
-  );
-
-  template.targets?.forEach((target) => {
-    score += getTemplateSuggestionTokenMatches(normalizedContent, target, 2);
-  });
-
-  return score;
-}
-
-function getTemplateSuggestionTokenMatches(
-  normalizedContent: string,
-  value: string | undefined,
-  weight: number,
-) {
-  return tokenizeTemplateSuggestionText(value).reduce((score, token) => {
-    if (normalizedContent.includes(token)) {
-      return score + weight;
-    }
-    return score;
-  }, 0);
-}
-
-function tokenizeTemplateSuggestionText(value: string | undefined) {
-  return Array.from(
-    new Set(
-      normalizeTemplateSuggestionText(value)
-        .split(/\s+/)
-        .filter(
-          (token) =>
-            token.length > 2 && !TEMPLATE_SUGGESTION_STOP_WORDS.has(token),
-        ),
-    ),
-  );
-}
-
-function normalizeTemplateSuggestionText(value: string | undefined) {
-  return (value ?? "")
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 function TemplateSection({
   title,
   children,
   icon,
   uppercase = true,
+  showHeader = true,
 }: {
   title: string;
   children: React.ReactNode;
   icon?: React.ReactNode;
   uppercase?: boolean;
+  showHeader?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-1">
-      <div className="flex items-center gap-2 px-2">
-        {icon ??
-          (title === "Suggested templates" ? (
-            <LightbulbIcon className="h-3.5 w-3.5 text-amber-500" />
-          ) : title === "Favorite templates" ? (
-            <HeartIcon className="h-3.5 w-3.5 text-rose-500" />
-          ) : null)}
-        <p
-          className={cn([
-            "text-muted-foreground font-mono text-[11px] font-medium tracking-wide",
-            uppercase && "uppercase",
-          ])}
-        >
-          {title}
-        </p>
-      </div>
+      {showHeader ? (
+        <div className="flex items-center gap-2 px-2">
+          {icon}
+          <p
+            className={cn([
+              "text-muted-foreground font-mono text-[11px] font-medium tracking-wide",
+              uppercase && "uppercase",
+            ])}
+          >
+            {title}
+          </p>
+        </div>
+      ) : null}
       <div className="flex flex-col gap-1">{children}</div>
     </div>
   );
@@ -1458,17 +1150,13 @@ function TemplateSection({
 function TemplateResultButton({
   buttonRef,
   title,
-  description,
-  creatorLabel,
-  tags,
+  isFavorite = false,
   onClick,
   onKeyDown,
 }: {
   buttonRef?: React.Ref<HTMLButtonElement>;
   title: string;
-  description?: string;
-  creatorLabel?: string;
-  tags?: string[];
+  isFavorite?: boolean;
   onClick: () => void;
   onKeyDown?: (e: React.KeyboardEvent<HTMLButtonElement>) => void;
 }) {
@@ -1477,35 +1165,19 @@ function TemplateResultButton({
       ref={buttonRef}
       className={cn([
         "hover:bg-accent focus:bg-muted w-full rounded-md px-3 py-2 text-left transition-colors focus:outline-hidden",
-        "flex flex-col gap-0.5",
+        "flex items-center gap-1.5",
       ])}
       onClick={onClick}
       onKeyDown={onKeyDown}
     >
-      <span className="text-foreground truncate text-sm font-medium">
+      <span className="text-foreground min-w-0 truncate text-sm font-medium">
         {title}
       </span>
-      {description ? (
-        <span className="text-muted-foreground line-clamp-2 text-xs">
-          {description}
-        </span>
-      ) : null}
-      {creatorLabel ? (
-        <span className="text-muted-foreground text-[11px]">
-          {creatorLabel}
-        </span>
-      ) : null}
-      {tags && tags.length > 0 ? (
-        <span className="mt-1 flex flex-wrap gap-1">
-          {tags.map((tag, index) => (
-            <span
-              key={`${tag}-${index}`}
-              className="bg-muted text-muted-foreground rounded-xs px-1.5 py-0.5 text-[11px]"
-            >
-              {tag}
-            </span>
-          ))}
-        </span>
+      {isFavorite ? (
+        <HeartIcon
+          aria-hidden
+          className="size-3.5 shrink-0 fill-rose-500 text-rose-500"
+        />
       ) : null}
     </button>
   );
