@@ -1,4 +1,4 @@
-import { ChevronDownIcon, HeadsetIcon, MicOff } from "lucide-react";
+import { ChevronDownIcon, HeadsetIcon, MicOff, VideoIcon } from "lucide-react";
 
 import { commands as openerCommands } from "@hypr/plugin-opener2";
 import { DancingSticks } from "@hypr/ui/components/ui/dancing-sticks";
@@ -215,6 +215,11 @@ function getMeetingDisplay(type: RemoteMeeting["type"]) {
       return {
         name: "Teams",
         icon: <img src="/assets/teams.png" alt="" width={18} height={18} />,
+      };
+    case "cal-com":
+      return {
+        name: "Cal.com",
+        icon: <VideoIcon size={18} />,
       };
     default:
       return {

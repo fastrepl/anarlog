@@ -1,13 +1,18 @@
 import { useSessionEvent } from "~/store/tinybase/hooks";
 
+export type RemoteMeetingType =
+  | "zoom"
+  | "google-meet"
+  | "webex"
+  | "teams"
+  | "cal-com";
+
 export type RemoteMeeting = {
-  type: "zoom" | "google-meet" | "webex" | "teams";
+  type: RemoteMeetingType;
   url: string;
 };
 
-export function detectMeetingType(
-  url: string,
-): "zoom" | "google-meet" | "webex" | "teams" | null {
+export function detectMeetingType(url: string): RemoteMeetingType | null {
   try {
     const parsed = new URL(url);
     const hostname = parsed.hostname.toLowerCase();
@@ -23,6 +28,9 @@ export function detectMeetingType(
     }
     if (hostname.includes("teams.microsoft.com")) {
       return "teams";
+    }
+    if (hostname === "app.cal.com" && parsed.pathname.startsWith("/video/")) {
+      return "cal-com";
     }
     return null;
   } catch {
