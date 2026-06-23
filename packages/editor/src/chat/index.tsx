@@ -1,4 +1,5 @@
 import "prosemirror-view/style/prosemirror.css";
+import "../styles/prosemirror.css";
 
 import {
   ProseMirror,
@@ -26,7 +27,6 @@ import { EditorState, Plugin, PluginKey } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { forwardRef, useImperativeHandle, useMemo, useRef } from "react";
 
-import "@hypr/tiptap/styles.css";
 import { cn } from "@hypr/utils";
 
 import { EditorErrorBoundary } from "../editor-error-boundary";
@@ -285,7 +285,7 @@ export const ChatEditor = forwardRef<ChatEditorHandle, ChatEditorProps>(
             autoCorrect: "off",
             autoCapitalize: "off",
             role: "textbox",
-            class: cn(className, "tiptap"),
+            class: cn(className, "prosemirror-editor"),
           }}
         >
           <ProseMirrorDoc />

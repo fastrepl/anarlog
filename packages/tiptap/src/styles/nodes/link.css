@@ -1,4 +1,4 @@
-.tiptap {
+:is(.tiptap, .prosemirror-editor) {
   a {
     color: #3b82f6;
     cursor: text;

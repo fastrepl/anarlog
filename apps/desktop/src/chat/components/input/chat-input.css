@@ -3,8 +3,8 @@
   color: hsl(var(--card-foreground));
 }
 
-[data-chat-input-surface="floating"] .chat-input-editor.tiptap,
-[data-chat-input-surface="floating"] .chat-input-editor.tiptap p {
+[data-chat-input-surface="floating"] .chat-input-editor.prosemirror-editor,
+[data-chat-input-surface="floating"] .chat-input-editor.prosemirror-editor p {
   caret-color: hsl(var(--card-foreground));
   color: hsl(var(--card-foreground)) !important;
   line-height: 20px;
@@ -14,27 +14,32 @@
 }
 
 [data-chat-input-surface="floating"]
-  .chat-input-editor.tiptap
+  .chat-input-editor.prosemirror-editor
   .is-editor-empty:first-child::before,
 [data-chat-input-surface="floating"]
-  .chat-input-editor.tiptap
+  .chat-input-editor.prosemirror-editor
   .is-empty::before {
   color: hsl(var(--muted-foreground)) !important;
 }
 
-.dark [data-chat-input-surface="elevated"] .chat-input-editor.tiptap,
-.dark [data-chat-input-surface="elevated"] .chat-input-editor.tiptap p,
-[data-chat-input-surface="elevated"] .chat-input-editor.tiptap,
-[data-chat-input-surface="elevated"] .chat-input-editor.tiptap p {
+.dark
+  [data-chat-input-surface="elevated"]
+  .chat-input-editor.prosemirror-editor,
+.dark
+  [data-chat-input-surface="elevated"]
+  .chat-input-editor.prosemirror-editor
+  p,
+[data-chat-input-surface="elevated"] .chat-input-editor.prosemirror-editor,
+[data-chat-input-surface="elevated"] .chat-input-editor.prosemirror-editor p {
   color: hsl(var(--card-foreground)) !important;
   caret-color: hsl(var(--card-foreground));
 }
 
 [data-chat-input-surface="elevated"]
-  .chat-input-editor.tiptap
+  .chat-input-editor.prosemirror-editor
   .is-editor-empty:first-child::before,
 [data-chat-input-surface="elevated"]
-  .chat-input-editor.tiptap
+  .chat-input-editor.prosemirror-editor
   .is-empty::before {
   color: hsl(var(--muted-foreground)) !important;
 }

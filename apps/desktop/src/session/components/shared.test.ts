@@ -16,7 +16,7 @@ describe("hasStoredNoteContent", () => {
     ).toBe(false);
   });
 
-  it("returns true for markdown and tiptap text content", () => {
+  it("returns true for markdown and ProseMirror JSON text content", () => {
     expect(hasStoredNoteContent("Meeting notes")).toBe(true);
     expect(
       hasStoredNoteContent(

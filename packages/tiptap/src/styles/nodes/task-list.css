@@ -1,4 +1,4 @@
-.tiptap {
+:is(.tiptap, .prosemirror-editor) {
   .task-checkbox-label {
     flex: 0 0 auto;
     margin-right: 6px;

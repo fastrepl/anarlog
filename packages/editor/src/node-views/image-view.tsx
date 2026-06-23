@@ -190,7 +190,7 @@ export const ResizableImageView = forwardRef<
           alt={node.attrs.alt || ""}
           title={parseImageMetadata(node.attrs.title).title ?? undefined}
           className={cn([
-            "tiptap-image bg-card max-w-full rounded-md transition-[box-shadow,border-color] select-none",
+            "prosemirror-image bg-card max-w-full rounded-md transition-[box-shadow,border-color] select-none",
             isSelected
               ? "ring-offset-card ring-2 ring-blue-500 ring-offset-2"
               : "",

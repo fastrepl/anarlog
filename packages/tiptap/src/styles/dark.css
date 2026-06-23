@@ -1,43 +1,45 @@
-.dark .tiptap {
+.dark :is(.tiptap, .prosemirror-editor) {
   caret-color: #d6d3d1;
 }
 
-.dark .tiptap h1,
-.dark .tiptap h2,
-.dark .tiptap h3,
-.dark .tiptap h4,
-.dark .tiptap h5,
-.dark .tiptap h6,
-.dark .blog-editor .tiptap h3,
-.dark .blog-editor .tiptap h4,
-.dark .blog-editor .tiptap h5,
-.dark .blog-editor .tiptap h6 {
+.dark :is(.tiptap, .prosemirror-editor) h1,
+.dark :is(.tiptap, .prosemirror-editor) h2,
+.dark :is(.tiptap, .prosemirror-editor) h3,
+.dark :is(.tiptap, .prosemirror-editor) h4,
+.dark :is(.tiptap, .prosemirror-editor) h5,
+.dark :is(.tiptap, .prosemirror-editor) h6,
+.dark .blog-editor :is(.tiptap, .prosemirror-editor) h3,
+.dark .blog-editor :is(.tiptap, .prosemirror-editor) h4,
+.dark .blog-editor :is(.tiptap, .prosemirror-editor) h5,
+.dark .blog-editor :is(.tiptap, .prosemirror-editor) h6 {
   color: #e7e5e4;
 }
 
-.dark .tiptap blockquote {
+.dark :is(.tiptap, .prosemirror-editor) blockquote {
   border-left-color: #a8a29e;
   caret-color: #e7e5e4;
 }
 
-.dark .tiptap a {
+.dark :is(.tiptap, .prosemirror-editor) a {
   color: #60a5fa;
 }
 
-.dark .tiptap a:hover {
+.dark :is(.tiptap, .prosemirror-editor) a:hover {
   color: #93c5fd;
 }
 
-.dark .tiptap code {
+.dark :is(.tiptap, .prosemirror-editor) code {
   border-color: #57534e;
   color: #e7e5e4;
 }
 
-.dark .tiptap input.task-checkbox {
+.dark :is(.tiptap, .prosemirror-editor) input.task-checkbox {
   border-color: #78716c;
 }
 
-.dark .tiptap input.task-checkbox[data-interactive="true"]:hover:not(:checked) {
+.dark
+  :is(.tiptap, .prosemirror-editor)
+  input.task-checkbox[data-interactive="true"]:hover:not(:checked) {
   border-color: #a8a29e;
 }
 
@@ -50,7 +52,7 @@
   background-color: #292524;
 }
 
-.dark .tiptap mark {
+.dark :is(.tiptap, .prosemirror-editor) mark {
   background-color: rgb(113 63 18 / 0.45);
   color: #fcd34d;
 }

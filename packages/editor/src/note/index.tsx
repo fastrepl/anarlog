@@ -1,5 +1,6 @@
 import "prosemirror-view/style/prosemirror.css";
 import "prosemirror-gapcursor/style/gapcursor.css";
+import "../styles/prosemirror.css";
 
 import {
   ProseMirror,
@@ -31,7 +32,6 @@ import {
 } from "react";
 import { useDebounceCallback } from "usehooks-ts";
 
-import "@hypr/tiptap/styles.css";
 import { cn } from "@hypr/utils";
 
 import { EditorErrorBoundary } from "../editor-error-boundary";
@@ -683,7 +683,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
                 autoCapitalize: "off",
                 role: "textbox",
                 class: cn([
-                  "tiptap",
+                  "prosemirror-editor",
                   enforceTitleHeading && "note-title-editor",
                   className,
                 ]),
