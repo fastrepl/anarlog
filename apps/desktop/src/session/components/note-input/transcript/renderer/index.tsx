@@ -100,7 +100,9 @@ export function TranscriptViewer({
         data-transcript-container
         className={cn([
           "flex h-full flex-col gap-8 overflow-x-hidden overflow-y-auto",
-          "scrollbar-hide scroll-pb-32 pb-16",
+          "scrollbar-hide",
+          "scroll-pb-[calc(8rem+env(safe-area-inset-bottom))]",
+          "pb-[calc(4rem+env(safe-area-inset-bottom))]",
         ])}
       >
         {transcriptIds.map((transcriptId, index) => (

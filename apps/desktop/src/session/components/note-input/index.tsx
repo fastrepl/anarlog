@@ -193,9 +193,10 @@ export const NoteInput = forwardRef<
             onScroll={onScroll}
             className={cn([
               "h-full px-3",
-              "scroll-fade-y overflow-auto",
               "pt-2",
-              "pb-6",
+              currentTab.type === "transcript"
+                ? "overflow-hidden pb-0"
+                : "scroll-fade-y overflow-auto pb-6",
             ])}
           >
             {currentTab.type === "enhanced" && (
