@@ -1,15 +1,17 @@
-.tiptap-root {
+.tiptap-root,
+.prosemirror-editor-root {
   height: 100%;
   display: flex;
   flex-direction: column;
 }
 
-.tiptap-root .tiptap {
+.tiptap-root .tiptap,
+.prosemirror-editor-root .prosemirror-editor {
   flex: 1 1 auto;
   min-height: 100%;
 }
 
-.tiptap {
+:is(.tiptap, .prosemirror-editor) {
   font-variant-ligatures: common-ligatures contextual;
   font-feature-settings: "liga" 1, "calt" 1;
   word-break: break-word;
@@ -55,7 +57,7 @@
     outline: none;
   }
 
-  .tiptap-image {
+  :is(.tiptap-image, .prosemirror-image) {
     max-width: 100%;
     height: auto;
     display: block;
