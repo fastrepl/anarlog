@@ -91,6 +91,7 @@ import {
   useLinkedItemOpenBehavior,
 } from "./linked-item-open-behavior";
 import { schema } from "./schema";
+import { normalizeTitleHeadingDoc, titleHeadingPlugin } from "./title-layout";
 
 export type { MentionConfig, FileHandlerConfig, PlaceholderFunction };
 export { schema };
@@ -163,6 +164,7 @@ export interface NoteEditorProps {
   onViewReady?: (view: EditorView) => void;
   onViewDisposed?: (view: EditorView) => void;
   syncContentWhenFocused?: boolean;
+  enforceTitleHeading?: boolean;
 }
 
 const baseNodeViews = {
@@ -475,6 +477,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
       onViewReady: onViewReadyProp,
       onViewDisposed,
       syncContentWhenFocused = false,
+      enforceTitleHeading = true,
     } = props;
 
     const taskStorage = useTaskStorageOptional();
@@ -553,6 +556,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
       () => [
         reactKeys(),
         buildInputRules(),
+        ...(enforceTitleHeading ? [titleHeadingPlugin()] : []),
         taskIdentityPlugin(),
         buildKeymap(onNavigateToTitle),
         history(),
@@ -582,6 +586,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
         sessionMentionDropConfig,
         onNavigateToTitle,
         onLinkOpen,
+        enforceTitleHeading,
       ],
     );
     const nodeViews = useMemo(
@@ -596,11 +601,18 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
           reconciledInitialContent && reconciledInitialContent.type === "doc"
             ? PMNode.fromJSON(schema, reconciledInitialContent)
             : schema.node("doc", null, [schema.node("paragraph")]);
+        if (enforceTitleHeading) {
+          doc = normalizeTitleHeadingDoc(doc);
+        }
       } catch {
-        doc = schema.node("doc", null, [schema.node("paragraph")]);
+        doc = schema.node("doc", null, [
+          enforceTitleHeading
+            ? schema.node("heading", { level: 1 })
+            : schema.node("paragraph"),
+        ]);
       }
       return EditorState.create({ doc, plugins });
-    }, [reconciledInitialContent, plugins]);
+    }, [reconciledInitialContent, plugins, enforceTitleHeading]);
 
     useEffect(() => {
       const view = viewRef.current;
@@ -626,7 +638,10 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
       }
 
       try {
-        const doc = PMNode.fromJSON(schema, reconciledInitialContent);
+        let doc = PMNode.fromJSON(schema, reconciledInitialContent);
+        if (enforceTitleHeading) {
+          doc = normalizeTitleHeadingDoc(doc);
+        }
         const state = EditorState.create({
           doc,
           plugins: view.state.plugins,
@@ -636,14 +651,14 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
       } catch {
         // invalid content
       }
-    }, [reconciledInitialContent, syncContentWhenFocused]);
+    }, [reconciledInitialContent, syncContentWhenFocused, enforceTitleHeading]);
 
     const onViewReady = useCallback(
       (view: EditorView) => {
-        onUpdate(view.state.doc.toJSON() as JSONContent);
         onViewReadyProp?.(view);
+        syncTasks(view.state.doc.toJSON() as JSONContent);
       },
-      [onUpdate, onViewReadyProp],
+      [onViewReadyProp, syncTasks],
     );
 
     return (
@@ -674,7 +689,11 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
                 autoCorrect: "off",
                 autoCapitalize: "off",
                 role: "textbox",
-                class: cn(["tiptap", className]),
+                class: cn([
+                  "tiptap",
+                  enforceTitleHeading && "note-title-editor",
+                  className,
+                ]),
               }}
             >
               <ProseMirrorDoc />

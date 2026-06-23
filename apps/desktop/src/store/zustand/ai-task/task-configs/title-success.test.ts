@@ -16,6 +16,7 @@ function createParams(
   const store = {
     setPartialRow: vi.fn(),
     getCell: vi.fn().mockReturnValue(""),
+    forEachRow: vi.fn(),
   } as unknown as TitleSuccessParams["store"];
 
   return {
@@ -47,6 +48,60 @@ describe("titleSuccess.onSuccess", () => {
       "session-1",
       { title: "Weekly sync" },
     );
+  });
+
+  it("backfills generated titles into existing enhanced note content", () => {
+    const store = {
+      setPartialRow: vi.fn(),
+      getCell: vi.fn((table, row, cell) => {
+        if (table === "sessions" && cell === "title") return "";
+        if (table === "sessions" && cell === "raw_md") return "";
+        if (table === "enhanced_notes" && cell === "session_id") {
+          return row === "note-1" ? "session-1" : "other-session";
+        }
+        if (table === "enhanced_notes" && cell === "content") {
+          return JSON.stringify({
+            type: "doc",
+            content: [
+              {
+                type: "heading",
+                attrs: { level: 1 },
+                content: [{ type: "text", text: "Summary Section" }],
+              },
+            ],
+          });
+        }
+        return "";
+      }),
+      forEachRow: vi.fn((_table, callback) => {
+        callback("note-1");
+        callback("note-2");
+      }),
+    } as unknown as TitleSuccessParams["store"];
+    const params = createParams({ store, text: "  Weekly sync  " });
+
+    titleSuccess.onSuccess?.(params);
+
+    const enhancedUpdate = (
+      store.setPartialRow as ReturnType<typeof vi.fn>
+    ).mock.calls.find(([table]) => table === "enhanced_notes");
+    expect(enhancedUpdate?.[0]).toBe("enhanced_notes");
+    expect(enhancedUpdate?.[1]).toBe("note-1");
+    expect(JSON.parse(enhancedUpdate?.[2].content)).toMatchObject({
+      type: "doc",
+      content: [
+        {
+          type: "heading",
+          attrs: { level: 1 },
+          content: [{ type: "text", text: "Weekly sync" }],
+        },
+        {
+          type: "heading",
+          attrs: { level: 1 },
+          content: [{ type: "text", text: "Summary Section" }],
+        },
+      ],
+    });
   });
 
   it("does not overwrite an existing session title", () => {

@@ -115,7 +115,7 @@ describe("enhanceSuccess.onSuccess", () => {
     const markdown = json2md(JSON.parse(persisted)).trim();
 
     expect(markdown).toBe(
-      "# Summary\n\nDiscussed launch plan #Launch.\n\n#launch #prep #next_steps #template #owners",
+      "# Existing title\n\n# Summary\n\nDiscussed launch plan #Launch.\n\n#launch #prep #next_steps #template #owners",
     );
     expect(store.setRow).toHaveBeenCalledWith("tags", "launch", {
       user_id: "user-1",
@@ -164,6 +164,27 @@ describe("enhanceSuccess.onSuccess", () => {
     await enhanceSuccess.onSuccess?.(params);
 
     expect(startTask).not.toHaveBeenCalled();
+  });
+
+  it("stores the existing session title before generated summary sections", async () => {
+    const store = {
+      setPartialRow: vi.fn(),
+      getCell: vi.fn().mockReturnValue("OpenCode Interface Type and GUI"),
+      getValue: vi.fn().mockReturnValue("user-1"),
+      setRow: vi.fn(),
+    } as unknown as EnhanceSuccessParams["store"];
+    const params = createParams({
+      store,
+      text: "# OpenCode Tool Discussion\n\n- Speakers discussed OpenCode.",
+    });
+
+    await enhanceSuccess.onSuccess?.(params);
+
+    const persisted = (store.setPartialRow as ReturnType<typeof vi.fn>).mock
+      .calls[0][2].content;
+    expect(json2md(JSON.parse(persisted)).trim()).toBe(
+      "# OpenCode Interface Type and GUI\n\n# OpenCode Tool Discussion\n\n- Speakers discussed OpenCode.",
+    );
   });
 
   it("does not start title generation while the title is being edited", async () => {

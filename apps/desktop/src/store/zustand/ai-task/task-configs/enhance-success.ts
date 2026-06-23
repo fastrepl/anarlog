@@ -7,6 +7,7 @@ import {
   upsertSessionTags,
 } from "./summary-tags";
 
+import { ensureMarkdownFirstLineTitle } from "~/session/title-content";
 import { hasLiveSessionTitleDraft } from "~/store/zustand/live-title";
 
 const onSuccess: NonNullable<TaskConfig<"enhance">["onSuccess"]> = ({
@@ -24,9 +25,13 @@ const onSuccess: NonNullable<TaskConfig<"enhance">["onSuccess"]> = ({
 
   const tagNames = extractEnhanceTagNames(text, transformedArgs);
   const textWithTags = appendTagLineToMarkdown(text, tagNames);
+  const currentTitle = store.getCell("sessions", args.sessionId, "title");
+  const trimmedTitle =
+    typeof currentTitle === "string" ? currentTitle.trim() : "";
+  const titledText = ensureMarkdownFirstLineTitle(textWithTags, trimmedTitle);
 
   try {
-    const jsonContent = md2json(textWithTags);
+    const jsonContent = md2json(titledText);
     store.setPartialRow("enhanced_notes", args.enhancedNoteId, {
       content: JSON.stringify(jsonContent),
     });
@@ -36,9 +41,6 @@ const onSuccess: NonNullable<TaskConfig<"enhance">["onSuccess"]> = ({
     return;
   }
 
-  const currentTitle = store.getCell("sessions", args.sessionId, "title");
-  const trimmedTitle =
-    typeof currentTitle === "string" ? currentTitle.trim() : "";
   if (trimmedTitle || hasLiveSessionTitleDraft(args.sessionId)) {
     return;
   }

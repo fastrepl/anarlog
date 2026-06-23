@@ -14,7 +14,12 @@ import { useMentionConfig } from "~/editor-bridge/mention-config";
 import { openEditorLink } from "~/editor-bridge/open-editor-link";
 import { sessionMentionDropConfig } from "~/editor-bridge/session-mention-drop";
 import { SessionNodeView } from "~/editor-bridge/session-view";
+import { hasStoredNoteContent } from "~/session/components/shared";
 import { emitRawEditorSync } from "~/session/raw-editor-sync";
+import {
+  ensureFirstLineTitle,
+  extractFirstLineTitle,
+} from "~/session/title-content";
 import { useFileUpload } from "~/shared/hooks/useFileUpload";
 import * as main from "~/store/tinybase/store/main";
 
@@ -50,19 +55,34 @@ export const RawEditor = forwardRef<
       "raw_md",
       main.STORE_ID,
     );
+    const sessionTitle = main.UI.useCell(
+      "sessions",
+      sessionId,
+      "title",
+      main.STORE_ID,
+    ) as string | undefined;
     const onFileUpload = useFileUpload(sessionId);
     const syncSourceId = useRawEditorSyncSourceId();
 
     const initialContent = useMemo<JSONContent>(
-      () => parseJsonContent(rawMd as string),
-      [rawMd],
+      () =>
+        ensureFirstLineTitle(parseJsonContent(rawMd as string), sessionTitle),
+      [rawMd, sessionTitle],
     );
 
     const persistChange = main.UI.useSetPartialRowCallback(
       "sessions",
       sessionId,
-      (input: JSONContent) => ({ raw_md: JSON.stringify(input) }),
-      [],
+      (input: JSONContent) => {
+        const title = extractFirstLineTitle(input);
+        return {
+          raw_md: JSON.stringify(input),
+          ...(title !== null || hasStoredNoteContent(rawMd)
+            ? { title: title ?? "" }
+            : {}),
+        };
+      },
+      [rawMd],
       main.STORE_ID,
     );
 

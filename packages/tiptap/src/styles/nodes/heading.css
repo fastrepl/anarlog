@@ -68,6 +68,17 @@
   }
 }
 
+.tiptap.note-title-editor > h1:first-child {
+  font-size: 1.75rem;
+  line-height: 2.125rem;
+  margin-bottom: 1rem;
+}
+
+.tiptap.enhanced-summary-editor.note-title-editor > h1:first-child {
+  font-size: 1.5rem;
+  line-height: 1.875rem;
+}
+
 .blog-editor .tiptap {
   h1 {
     font-size: 1.875rem;
