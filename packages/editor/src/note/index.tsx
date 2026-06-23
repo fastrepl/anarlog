@@ -91,6 +91,7 @@ import {
 } from "./linked-item-open-behavior";
 import { schema } from "./schema";
 import { normalizeTitleHeadingDoc, titleHeadingPlugin } from "./title-layout";
+import { trailingEmptyLineClickPlugin } from "./trailing-empty-line-click";
 
 export type { MentionConfig, FileHandlerConfig, PlaceholderFunction };
 export { schema };
@@ -552,6 +553,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
         ...(enforceTitleHeading ? [titleHeadingPlugin()] : []),
         taskIdentityPlugin(),
         buildKeymap(onNavigateToTitle),
+        trailingEmptyLineClickPlugin(),
         history(),
         dropCursor(),
         gapCursor(),
