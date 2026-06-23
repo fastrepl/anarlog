@@ -8,6 +8,7 @@ import {
   type NoteEditorRef,
 } from "@hypr/editor/note";
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
+import { cn } from "@hypr/utils";
 
 import { AppLinkView } from "~/editor-bridge/app-link-view";
 import { useMentionConfig } from "~/editor-bridge/mention-config";
@@ -129,7 +130,7 @@ export const RawEditor = forwardRef<
     return (
       <NoteEditor
         ref={ref}
-        className={className}
+        className={cn(["session-note-editor", className])}
         key={`session-${sessionId}-raw`}
         initialContent={initialContent}
         handleChange={handleChange}

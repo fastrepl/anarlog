@@ -93,6 +93,8 @@ describe("EnhancedEditor", () => {
 
     const props = hoisted.noteEditorProps[hoisted.noteEditorProps.length - 1];
 
+    expect(props?.className).toContain("session-note-editor");
+    expect(props?.className).toContain("enhanced-summary-editor");
     expect(props?.syncContentWhenFocused).toBe(false);
     expect(props?.handleChange).not.toBe(hoisted.persistContent);
     expect(props?.taskSource).toEqual({ type: "enhanced_note", id: "note-1" });

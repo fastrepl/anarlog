@@ -46,6 +46,7 @@
   }
 }
 
+.prosemirror-editor.session-note-editor,
 .prosemirror-editor.enhanced-summary-editor {
   h1,
   h2,
@@ -74,6 +75,7 @@
   margin-bottom: 1rem;
 }
 
+.prosemirror-editor.session-note-editor.note-title-editor > h1:first-child,
 .prosemirror-editor.enhanced-summary-editor.note-title-editor > h1:first-child {
   font-size: 1.5rem;
   line-height: 1.875rem;

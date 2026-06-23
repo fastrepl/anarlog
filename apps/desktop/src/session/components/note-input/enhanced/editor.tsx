@@ -105,7 +105,7 @@ export const EnhancedEditor = forwardRef<
       <div className="h-full">
         <NoteEditor
           ref={ref}
-          className="enhanced-summary-editor"
+          className="session-note-editor enhanced-summary-editor"
           key={editorKey}
           initialContent={initialContent}
           handleChange={persistChanges ? handleChange : undefined}
