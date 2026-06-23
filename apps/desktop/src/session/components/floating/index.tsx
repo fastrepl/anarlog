@@ -1,4 +1,4 @@
-import { SparklesIcon } from "lucide-react";
+import { RefreshCwIcon } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import type { CSSProperties } from "react";
 import { useCallback } from "react";
@@ -161,10 +161,10 @@ function GenerateSummaryButton({
   return (
     <FloatingButton
       onClick={handleGenerateSummary}
-      className="w-[164px] justify-start gap-2 px-4"
+      className="w-fit gap-2 px-4 whitespace-nowrap"
     >
       <span className="flex items-center gap-1.5">
-        <SparklesIcon className="size-3.5" /> Generate summary
+        <RefreshCwIcon className="size-3.5" /> Generate summary
       </span>
     </FloatingButton>
   );
