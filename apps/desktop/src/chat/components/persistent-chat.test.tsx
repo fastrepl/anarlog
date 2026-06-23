@@ -131,7 +131,8 @@ describe("PersistentChatPanel", () => {
       expect(panel?.style.height).toBe("");
       expect(panel?.style.transformOrigin).toBe("bottom center");
       expect(panel?.className).toContain("rounded-[28px]");
-      expect(panel?.dataset.chatPanelReveal).toBe("bottom-up");
+      expect(panel?.className).toContain("will-change-[clip-path,transform]");
+      expect(panel?.dataset.chatPanelReveal).toBe("input-slot-bottom-up");
     });
   });
 

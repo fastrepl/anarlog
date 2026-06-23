@@ -18,6 +18,7 @@ const FLOATING_PANEL_DEFAULT_MAX_WIDTH =
 const FLOATING_PANEL_REVEAL_HEIGHT =
   FLOATING_CHAT_INPUT_HEIGHT + FLOATING_CHAT_SHELL_INSET;
 const FLOATING_PANEL_RADIUS = 28;
+const FLOATING_PANEL_INPUT_CLIP = `inset(calc(100% - ${FLOATING_PANEL_REVEAL_HEIGHT}px) ${FLOATING_CHAT_SHELL_INSET}px ${FLOATING_CHAT_SHELL_INSET}px ${FLOATING_CHAT_SHELL_INSET}px round 9999px)`;
 
 type FloatingContainerRect = {
   top: number;
@@ -128,27 +129,23 @@ export function PersistentChatPanel({
     initial: {
       y: 0,
       opacity: 1,
-      scale: 1,
-      clipPath: `inset(calc(100% - ${FLOATING_PANEL_REVEAL_HEIGHT}px) 0 0 0 round ${FLOATING_PANEL_RADIUS}px)`,
+      clipPath: FLOATING_PANEL_INPUT_CLIP,
     },
     animate: {
       y: 0,
       opacity: 1,
-      scale: 1,
       clipPath: `inset(0 0 0 0 round ${FLOATING_PANEL_RADIUS}px)`,
     },
     exit: {
-      y: 8,
+      y: 6,
       opacity: 0,
-      scale: 0.99,
-      clipPath: `inset(calc(100% - ${FLOATING_PANEL_REVEAL_HEIGHT}px) 0 0 0 round ${FLOATING_PANEL_RADIUS}px)`,
+      clipPath: FLOATING_PANEL_INPUT_CLIP,
     },
   };
   const panelTransition = {
     opacity: { duration: 0.18, ease: [0.22, 1, 0.36, 1] },
-    scale: { duration: 0.2, ease: [0.22, 1, 0.36, 1] },
-    y: { duration: 0.22, ease: [0.22, 1, 0.36, 1] },
-    clipPath: { duration: 0.32, ease: [0.22, 1, 0.36, 1] },
+    y: { duration: 0.24, ease: [0.22, 1, 0.36, 1] },
+    clipPath: { duration: 0.44, ease: [0.16, 1, 0.3, 1] },
   };
   const panelStyle = {
     width: "calc(100% - 1.5rem)",
@@ -173,7 +170,7 @@ export function PersistentChatPanel({
                 }
               : { display: "none" }
           }
-          initial={{ opacity: 0 }}
+          initial={{ opacity: 1 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
@@ -196,10 +193,11 @@ export function PersistentChatPanel({
           >
             <motion.div
               data-chat-panel
-              data-chat-panel-reveal="bottom-up"
+              data-chat-panel-reveal="input-slot-bottom-up"
               data-chat-size="floating"
               className={cn([
                 "relative flex min-h-0 flex-col overflow-hidden",
+                "will-change-[clip-path,transform]",
                 chatFloatingPanelShellClassNames(),
               ])}
               style={panelStyle}

@@ -120,7 +120,7 @@ describe("ChatCTA", () => {
     expect(hoverZone?.className).toContain("pb-0");
   });
 
-  it("hides while the floating chat is open", () => {
+  it("keeps an inert expanded handoff surface while the floating chat is open", () => {
     mocks.chatMode = "FloatingOpen";
 
     render(<ChatCTA />);
@@ -128,6 +128,14 @@ describe("ChatCTA", () => {
     expect(
       screen.queryByRole("button", { name: "Ask Anarlog anything" }),
     ).toBeNull();
+    const surface = document.querySelector("[data-chat-cta-surface]");
+
+    expect(surface?.className).toContain("h-10");
+    expect(surface?.className).toContain("border-border/70");
+    expect(surface?.className).toContain("bg-[#f4f4f5]");
+    expect(surface?.className).toContain(
+      "[clip-path:inset(0_0_0_0_round_9999px)]",
+    );
   });
 
   it("hides while the right panel chat is open", () => {
