@@ -300,7 +300,7 @@ function SectionItem({
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
           className={cn([
-            "min-h-[100px] w-full resize-y rounded-xl border p-3 font-mono text-sm transition-colors",
+            "min-h-[100px] w-full resize-y rounded-xl border p-3 text-sm transition-colors",
             "focus-visible:outline-hidden",
             disabled
               ? "bg-muted"
