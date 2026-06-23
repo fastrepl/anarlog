@@ -266,6 +266,9 @@ describe("ChatMessageInput", () => {
     expect(surface?.className).toContain("max-h-40");
     expect(surface?.className).toContain("items-center");
     expect(surface?.className).not.toContain("items-end");
+    expect(surface?.className).toContain("pr-[6px]");
+    expect(surface?.className).toContain("pl-4");
+    expect(surface?.className).not.toContain("px-4");
     expect(surface?.className).toContain("rounded-[19px]");
     expect(surface?.className).toContain("py-[3px]");
     expect(surface?.className).toContain("bg-white");
@@ -279,6 +282,42 @@ describe("ChatMessageInput", () => {
     expect(surface?.className).not.toContain("h-10");
     expect(surface?.className).not.toContain("max-h-10");
     expect(surface?.className).not.toContain("max-h-28");
+  });
+
+  it("anchors the floating send control to the bottom edge", () => {
+    render(
+      <ChatMessageInput draftKey="chat-input-test" onSendMessage={vi.fn()} />,
+    );
+
+    editorState.json = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "Hello" }],
+        },
+      ],
+    };
+    act(() => {
+      editorState.onUpdate?.(editorState.json);
+    });
+
+    const sendButton = screen.getByRole<HTMLButtonElement>("button", {
+      name: /send/i,
+    });
+    const sendControl = sendButton.parentElement;
+    const messageInput = screen
+      .getByTestId("chat-editor")
+      .closest("[data-chat-message-input]");
+
+    expect(sendControl?.className).toContain("absolute");
+    expect(sendControl?.className).toContain("right-0");
+    expect(sendControl?.className).toContain("bottom-0.5");
+    expect(sendControl?.className).not.toContain("self-end");
+    expect(sendControl?.className).not.toContain("ml-3");
+    expect(messageInput?.className).toContain("items-center");
+    expect(messageInput?.className).toContain("relative");
+    expect(messageInput?.className).not.toContain("items-end");
   });
 
   it("uses the light card input surface in the right panel", () => {

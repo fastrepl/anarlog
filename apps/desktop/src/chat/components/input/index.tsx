@@ -66,7 +66,6 @@ export function ChatMessageInput({
   return (
     <Container
       elevatedSurfaceClassName={elevatedSurfaceClassName}
-      hasFloatingDraftContent={hasContent}
       isFloating={isFloating}
       isRightPanel={isRightPanel}
     >
@@ -74,10 +73,7 @@ export function ChatMessageInput({
         data-chat-message-input
         className={cn([
           isFloating
-            ? [
-                "flex max-h-full min-h-[30px] w-full min-w-0",
-                hasContent ? "items-end" : "items-center",
-              ]
+            ? "relative flex max-h-full min-h-[30px] w-full min-w-0 items-center"
             : "flex flex-col px-2 pt-3 pb-2",
         ])}
       >
@@ -104,7 +100,9 @@ export function ChatMessageInput({
           <div
             className={cn([
               "flex shrink-0 items-center",
-              isFloating ? "ml-3" : "justify-between",
+              isFloating
+                ? "absolute right-0 bottom-0.5 z-10"
+                : "justify-between",
             ])}
           >
             <div />
@@ -146,13 +144,11 @@ export function ChatMessageInput({
 function Container({
   children,
   elevatedSurfaceClassName,
-  hasFloatingDraftContent,
   isFloating,
   isRightPanel,
 }: {
   children: React.ReactNode;
   elevatedSurfaceClassName: string;
-  hasFloatingDraftContent: boolean;
   isFloating: boolean;
   isRightPanel: boolean;
 }) {
@@ -169,8 +165,7 @@ function Container({
           "flex max-h-full border",
           isFloating
             ? [
-                "border-border/70 text-card-foreground max-h-40 min-h-[38px] flex-row overflow-hidden rounded-[19px] bg-white px-4 py-[3px] text-sm shadow-none",
-                hasFloatingDraftContent ? "items-end" : "items-center",
+                "border-border/70 text-card-foreground max-h-40 min-h-[38px] flex-row items-center overflow-hidden rounded-[19px] bg-white py-[3px] pr-[6px] pl-4 text-sm shadow-none",
                 "dark:bg-card dark:text-card-foreground",
               ]
             : [elevatedSurfaceClassName, "flex-col rounded-xl"],

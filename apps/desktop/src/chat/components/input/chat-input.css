@@ -13,6 +13,33 @@
   padding: 0 !important;
 }
 
+[data-chat-input-surface="floating"] .chat-input-editor.prosemirror-editor {
+  padding-right: 42px !important;
+  scrollbar-color: hsl(var(--muted-foreground) / 0.22) transparent;
+}
+
+[data-chat-input-surface="floating"]
+  .chat-input-editor.prosemirror-editor::-webkit-scrollbar {
+  width: 6px;
+}
+
+[data-chat-input-surface="floating"]
+  .chat-input-editor.prosemirror-editor::-webkit-scrollbar-track {
+  background: transparent;
+  margin-bottom: 36px;
+}
+
+[data-chat-input-surface="floating"]
+  .chat-input-editor.prosemirror-editor::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.22);
+  border-radius: 999px;
+}
+
+[data-chat-input-surface="floating"]
+  .chat-input-editor.prosemirror-editor::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.32);
+}
+
 [data-chat-input-surface="floating"]
   .chat-input-editor.prosemirror-editor
   .is-editor-empty:first-child::before,
