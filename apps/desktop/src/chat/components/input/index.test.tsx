@@ -252,7 +252,7 @@ describe("ChatMessageInput", () => {
     const surface = messageInput?.parentElement;
 
     expect(editor.className).toContain("chat-input-editor");
-    expect(editor.className).toContain("max-h-24");
+    expect(editor.className).toContain("max-h-36");
     expect(editor.className).toContain("min-h-5");
     expect(editor.className).toContain("overflow-y-auto");
     expect(editor.dataset.placeholder).toBe("Ask anything");
@@ -261,7 +261,7 @@ describe("ChatMessageInput", () => {
     expect(screen.queryByRole("button", { name: /send/i })).toBeNull();
     expect(surface?.getAttribute("data-chat-input-surface")).toBe("floating");
     expect(surface?.className).toContain("min-h-[38px]");
-    expect(surface?.className).toContain("max-h-28");
+    expect(surface?.className).toContain("max-h-40");
     expect(surface?.className).toContain("rounded-[19px]");
     expect(surface?.className).toContain("py-[3px]");
     expect(surface?.className).toContain("bg-white");
@@ -274,6 +274,7 @@ describe("ChatMessageInput", () => {
     expect(surface?.className).not.toContain("inset_0_0_0_1px");
     expect(surface?.className).not.toContain("h-10");
     expect(surface?.className).not.toContain("max-h-10");
+    expect(surface?.className).not.toContain("max-h-28");
   });
 
   it("uses the light card input surface in the right panel", () => {

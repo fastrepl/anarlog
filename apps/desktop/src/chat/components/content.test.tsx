@@ -83,11 +83,12 @@ describe("ChatContent", () => {
     cleanup();
   });
 
-  it("uses shrink-wrapped layout by default for floating chat", () => {
+  it("lets floating chat body shrink before the composer is clipped", () => {
     const container = renderContent();
 
-    expect(container?.className).toContain("shrink-0");
+    expect(container?.className).toContain("max-h-full");
     expect(container?.className).not.toContain("flex-1");
+    expect(container?.className).not.toContain("shrink-0");
   });
 
   it("fills available height in the right panel layout", () => {

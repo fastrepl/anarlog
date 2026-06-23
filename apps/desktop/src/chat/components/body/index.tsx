@@ -51,7 +51,7 @@ export function ChatBody({
     <div
       className={cn([
         "relative flex min-h-0 flex-col",
-        isRightPanel ? "flex-1" : "shrink-0",
+        isRightPanel ? "flex-1" : "flex-auto",
       ])}
     >
       <div
@@ -60,7 +60,7 @@ export function ChatBody({
         onWheel={handleWheel}
         className={cn([
           "flex min-h-0 flex-col overflow-y-auto",
-          isRightPanel ? "flex-1" : "max-h-[min(16rem,35vh)] shrink-0",
+          isRightPanel ? "flex-1" : "max-h-[min(36rem,70vh)] flex-auto",
         ])}
       >
         <div

@@ -129,6 +129,7 @@ describe("PersistentChatPanel", () => {
       expect(panel?.style.minWidth).toBe("min(476px, 100%)");
       expect(panel?.style.maxWidth).toBe("648px");
       expect(panel?.style.height).toBe("");
+      expect(panel?.style.maxHeight).toBe("100%");
       expect(panel?.style.transformOrigin).toBe("bottom center");
       expect(panel?.className).toContain("rounded-[24px]");
       expect(panel?.dataset.chatPanelReveal).toBe("bottom-up");

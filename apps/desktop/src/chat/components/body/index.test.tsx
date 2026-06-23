@@ -55,8 +55,10 @@ describe("ChatBody", () => {
 
     expect(content?.className).toContain("px-3");
     expect(content?.className).not.toContain("min-h-full");
-    expect(scrollArea?.className).toContain("max-h-[min(16rem,35vh)]");
-    expect(root?.className).toContain("shrink-0");
+    expect(scrollArea?.className).toContain("max-h-[min(36rem,70vh)]");
+    expect(scrollArea?.className).toContain("flex-auto");
+    expect(root?.className).toContain("flex-auto");
+    expect(root?.className).not.toContain("shrink-0");
     expect(content?.className).not.toContain("px-2");
     expect(content?.className).not.toContain("pr-0");
   });

@@ -84,7 +84,7 @@ export function ChatMessageInput({
               "chat-input-editor",
               "text-sm",
               isFloating
-                ? "max-h-24 min-h-5 w-full min-w-0 overflow-y-auto overscroll-contain"
+                ? "max-h-36 min-h-5 w-full min-w-0 overflow-y-auto overscroll-contain"
                 : "overflow-y-auto overscroll-contain",
               !isFloating && (isRightPanel ? "max-h-[40vh]" : "max-h-48"),
             ])}
@@ -163,7 +163,7 @@ function Container({
           "flex max-h-full border",
           isFloating
             ? [
-                "border-border/70 text-card-foreground max-h-28 min-h-[38px] flex-row items-end overflow-hidden rounded-[19px] bg-white px-4 py-[3px] text-sm shadow-none",
+                "border-border/70 text-card-foreground max-h-40 min-h-[38px] flex-row items-end overflow-hidden rounded-[19px] bg-white px-4 py-[3px] text-sm shadow-none",
                 "dark:bg-card dark:text-card-foreground",
               ]
             : [elevatedSurfaceClassName, "flex-col rounded-xl"],

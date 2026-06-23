@@ -155,7 +155,7 @@ export function PersistentChatPanel({
     width: "calc(100% - 1.5rem)",
     minWidth: `min(${FLOATING_PANEL_MIN_WIDTH}px, 100%)`,
     maxWidth: `${FLOATING_PANEL_DEFAULT_MAX_WIDTH}px`,
-    maxHeight: "calc(100% - 1rem)",
+    maxHeight: "100%",
     transformOrigin: "bottom center",
   };
 
