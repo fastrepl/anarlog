@@ -175,17 +175,15 @@ function WebTemplatePreview({
             </DropdownMenu>
           </>
         }
-      />
-
-      <div className="relative flex-1 overflow-hidden">
-        <div className="scroll-fade-y h-full overflow-y-auto px-6 pb-6">
+      >
+        <div className="mt-6">
           <SectionsList
             disabled={true}
             items={template.sections ?? []}
             onChange={() => {}}
           />
         </div>
-      </div>
+      </ResourcePreviewHeader>
     </div>
   );
 }

@@ -214,132 +214,133 @@ export function TemplateForm({
 
   return (
     <div className="flex h-full flex-1 flex-col">
-      <div className="pt-1 pr-1 pb-4 pl-3">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <TemplateCategoryLabel category={template.category} />
-          </div>
-          <div className="flex items-center gap-0">
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              onClick={setSelectedTemplateId}
-              title={isDefault ? "Remove as default" : "Set as default"}
-              className={cn([
-                "text-muted-foreground shrink-0 hover:text-black",
-                isDefault ? "bg-muted hover:bg-accent text-black" : null,
-              ])}
-            >
-              {isDefault ? "Current default" : "Set as default"}
-            </Button>
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              onClick={() => toggleTemplateFavorite(id)}
-              className={cn([
-                "text-muted-foreground hover:text-foreground",
-                template.pinned && "text-rose-500 hover:text-rose-600",
-              ])}
-              title={
-                template.pinned ? "Unfavorite template" : "Favorite template"
-              }
-              aria-label={
-                template.pinned ? "Unfavorite template" : "Favorite template"
-              }
-            >
-              <HeartIcon
-                className="size-4"
-                fill={template.pinned ? "currentColor" : "none"}
-              />
-            </Button>
-            <DropdownMenu open={actionsOpen} onOpenChange={setActionsOpen}>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  className={cn([
-                    "text-muted-foreground hover:text-foreground",
-                    actionsOpen && "bg-muted text-foreground hover:bg-accent",
-                  ])}
-                  aria-label="Template actions"
-                >
-                  <MoreHorizontalIcon className="size-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent variant="app" align="end">
-                <AppFloatingPanel className="overflow-hidden p-1">
-                  <DropdownMenuItem
-                    onClick={() => handleDuplicateTemplate(id)}
-                    className="cursor-pointer"
-                  >
-                    Duplicate
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handleDeleteTemplate(id)}
-                    className="cursor-pointer text-red-600 focus:text-red-600"
-                  >
-                    Delete
-                  </DropdownMenuItem>
-                </AppFloatingPanel>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+      <div className="flex h-12 items-center justify-between gap-3 pr-1 pl-3">
+        <div className="min-w-0">
+          <TemplateCategoryLabel category={template.category} />
         </div>
-        <div className="mt-3 min-w-0 pr-5 pl-3">
-          <form.Field name="title">
-            {(field) => (
-              <div className="flex min-w-0 items-baseline gap-2">
-                <div className="relative max-w-full min-w-0">
-                  <span
-                    aria-hidden="true"
-                    className="invisible block px-0 py-0 text-lg font-semibold whitespace-pre md:text-lg"
-                  >
-                    {(field.state.value || " ") + " "}
-                  </span>
-                  <Input
-                    value={field.state.value}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    placeholder="Enter template title"
-                    className="absolute inset-0 h-auto w-full max-w-full min-w-0 border-0 px-0 py-0 text-lg font-semibold shadow-none focus-visible:ring-0 md:text-lg"
-                  />
-                </div>
-              </div>
-            )}
-          </form.Field>
-          <form.Field name="description">
-            {(field) => (
-              <Textarea
-                value={field.state.value}
-                onChange={(e) => field.handleChange(e.target.value)}
-                placeholder="Describe the template purpose..."
-                className="text-muted-foreground mt-1 min-h-[24px] resize-none border-0 px-0 py-0 text-sm shadow-none focus-visible:ring-0"
-                rows={1}
-              />
-            )}
-          </form.Field>
-          <form.Field name="targets">
-            {(field) => (
-              <TemplateTargetsInput
-                value={field.state.value}
-                onChange={field.handleChange}
-              />
-            )}
-          </form.Field>
+        <div className="flex items-center gap-0">
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={setSelectedTemplateId}
+            title={isDefault ? "Remove as default" : "Set as default"}
+            className={cn([
+              "text-muted-foreground shrink-0 hover:text-black",
+              isDefault ? "bg-muted hover:bg-accent text-black" : null,
+            ])}
+          >
+            {isDefault ? "Current default" : "Set as default"}
+          </Button>
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            onClick={() => toggleTemplateFavorite(id)}
+            className={cn([
+              "text-muted-foreground hover:text-foreground",
+              template.pinned && "text-rose-500 hover:text-rose-600",
+            ])}
+            title={
+              template.pinned ? "Unfavorite template" : "Favorite template"
+            }
+            aria-label={
+              template.pinned ? "Unfavorite template" : "Favorite template"
+            }
+          >
+            <HeartIcon
+              className="size-4"
+              fill={template.pinned ? "currentColor" : "none"}
+            />
+          </Button>
+          <DropdownMenu open={actionsOpen} onOpenChange={setActionsOpen}>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className={cn([
+                  "text-muted-foreground hover:text-foreground",
+                  actionsOpen && "bg-muted text-foreground hover:bg-accent",
+                ])}
+                aria-label="Template actions"
+              >
+                <MoreHorizontalIcon className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent variant="app" align="end">
+              <AppFloatingPanel className="overflow-hidden p-1">
+                <DropdownMenuItem
+                  onClick={() => handleDuplicateTemplate(id)}
+                  className="cursor-pointer"
+                >
+                  Duplicate
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => handleDeleteTemplate(id)}
+                  className="cursor-pointer text-red-600 focus:text-red-600"
+                >
+                  Delete
+                </DropdownMenuItem>
+              </AppFloatingPanel>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
-      <div className="relative flex-1 overflow-hidden">
-        <div className="scroll-fade-y h-full overflow-y-auto px-6 pb-6">
+      <div className="relative min-h-0 flex-1 overflow-hidden">
+        <div className="scroll-fade-y h-full overflow-y-auto px-6 pt-3 pb-6">
+          <div className="min-w-0">
+            <form.Field name="title">
+              {(field) => (
+                <div className="flex min-w-0 items-baseline gap-2">
+                  <div className="relative max-w-full min-w-0">
+                    <span
+                      aria-hidden="true"
+                      className="invisible block px-0 py-0 text-lg font-semibold whitespace-pre md:text-lg"
+                    >
+                      {(field.state.value || " ") + " "}
+                    </span>
+                    <Input
+                      value={field.state.value}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      placeholder="Enter template title"
+                      className="absolute inset-0 h-auto w-full max-w-full min-w-0 border-0 px-0 py-0 text-lg font-semibold shadow-none focus-visible:ring-0 md:text-lg"
+                    />
+                  </div>
+                </div>
+              )}
+            </form.Field>
+            <form.Field name="description">
+              {(field) => (
+                <Textarea
+                  value={field.state.value}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  placeholder="Describe the template purpose..."
+                  className="text-muted-foreground mt-1 min-h-[24px] resize-none border-0 px-0 py-0 text-sm shadow-none focus-visible:ring-0"
+                  rows={1}
+                />
+              )}
+            </form.Field>
+            <form.Field name="targets">
+              {(field) => (
+                <TemplateTargetsInput
+                  value={field.state.value}
+                  onChange={field.handleChange}
+                />
+              )}
+            </form.Field>
+          </div>
+
           <form.Field name="sections">
             {(field) => (
-              <SectionsList
-                disabled={false}
-                items={field.state.value}
-                onChange={(items) => field.handleChange(items)}
-              />
+              <div className="mt-6">
+                <SectionsList
+                  disabled={false}
+                  items={field.state.value}
+                  onChange={(items) => field.handleChange(items)}
+                />
+              </div>
             )}
           </form.Field>
         </div>
