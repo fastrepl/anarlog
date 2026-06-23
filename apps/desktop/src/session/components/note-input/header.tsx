@@ -962,7 +962,7 @@ export function Header({
   )?.id;
 
   return (
-    <div data-tauri-drag-region className="flex flex-col">
+    <div data-tauri-drag-region className="flex flex-col pl-1">
       <div
         data-tauri-drag-region
         className="flex items-center justify-between gap-2"
