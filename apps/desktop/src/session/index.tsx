@@ -16,8 +16,6 @@ import { SearchProvider } from "./components/note-input/search/context";
 import { OuterHeader } from "./components/outer-header";
 import { SessionSurface } from "./components/session-surface";
 import { useCurrentNoteTab, useHasTranscript } from "./components/shared";
-import { NoteTitleBreadcrumb } from "./components/title-breadcrumb";
-import { TitleInput, type TitleInputHandle } from "./components/title-input";
 import { useAutoEnhance } from "./hooks/useAutoEnhance";
 
 import * as AudioPlayer from "~/audio-player";
@@ -121,7 +119,6 @@ function TabContentNoteInner({
   audioUrlReady: boolean;
   isAudioUrlLoading: boolean;
 }) {
-  const titleInputRef = React.useRef<TitleInputHandle>(null);
   const noteInputRef = React.useRef<NoteInputHandle>(null);
 
   const editorTabs = useEditorTabs({ sessionId: tab.id });
@@ -134,7 +131,7 @@ function TabContentNoteInner({
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
   const { audioExists } = AudioPlayer.useAudioPlayer();
 
-  useAutoFocusTitle({ sessionId, titleInputRef });
+  useAutoFocusTitle({ sessionId, noteInputRef });
   usePendingUpload(sessionId);
 
   const { bottomAccessory, bottomBorderHandle, bottomAccessoryState } =
@@ -155,26 +152,6 @@ function TabContentNoteInner({
     },
     [tab, updateSessionTabState],
   );
-  const handleNavigateToTitle = React.useCallback((pixelWidth?: number) => {
-    if (pixelWidth !== undefined) {
-      titleInputRef.current?.focusAtPixelWidth(pixelWidth);
-    } else {
-      titleInputRef.current?.focusAtEnd();
-    }
-  }, []);
-  const handleTransferContentToEditor = React.useCallback((content: string) => {
-    noteInputRef.current?.insertAtStartAndFocus(content);
-  }, []);
-  const handleFocusEditorAtStart = React.useCallback(() => {
-    noteInputRef.current?.focusAtStart();
-  }, []);
-  const handleFocusEditorAtPixelWidth = React.useCallback(
-    (pixelWidth: number) => {
-      noteInputRef.current?.focusAtPixelWidth(pixelWidth);
-    },
-    [],
-  );
-
   const mergeTranscriptSurface =
     bottomAccessoryState?.expanded === true &&
     (bottomAccessoryState.mode === "playback" ||
@@ -205,32 +182,14 @@ function TabContentNoteInner({
           sessionId={tab.id}
           currentView={currentView}
           standaloneWindow={standaloneWindow}
+          centerTitle
           title={
-            <div className="flex min-w-0 items-center gap-2">
-              <div className="min-w-0 flex-1">
-                <NoteTitleBreadcrumb
-                  sessionId={tab.id}
-                  title={
-                    <TitleInput
-                      ref={titleInputRef}
-                      tab={tab}
-                      variant="breadcrumb"
-                      onTransferContentToEditor={handleTransferContentToEditor}
-                      onFocusEditorAtStart={handleFocusEditorAtStart}
-                      onFocusEditorAtPixelWidth={handleFocusEditorAtPixelWidth}
-                    />
-                  }
-                />
-              </div>
-              <div className="shrink-0">
-                <NoteInputHeader
-                  sessionId={tab.id}
-                  editorTabs={editorTabs}
-                  currentTab={currentView}
-                  handleTabChange={handleTabChange}
-                />
-              </div>
-            </div>
+            <NoteInputHeader
+              sessionId={tab.id}
+              editorTabs={editorTabs}
+              currentTab={currentView}
+              handleTabChange={handleTabChange}
+            />
           }
         />
       }
@@ -257,7 +216,6 @@ function TabContentNoteInner({
       <NoteInput
         ref={noteInputRef}
         tab={tab}
-        onNavigateToTitle={handleNavigateToTitle}
         editorTabs={editorTabs}
         currentTab={currentView}
         handleTabChange={handleTabChange}
@@ -282,20 +240,20 @@ function usePendingUpload(sessionId: string) {
 
 function useAutoFocusTitle({
   sessionId,
-  titleInputRef,
+  noteInputRef,
 }: {
   sessionId: string;
-  titleInputRef: React.RefObject<TitleInputHandle | null>;
+  noteInputRef: React.RefObject<NoteInputHandle | null>;
 }) {
-  const didAutoFocus = useRef(false);
+  const autoFocusedSessionRef = useRef<string | null>(null);
   const title = main.UI.useCell("sessions", sessionId, "title", main.STORE_ID);
 
   useEffect(() => {
-    if (didAutoFocus.current) return;
+    if (autoFocusedSessionRef.current === sessionId) return;
 
     if (!title) {
-      titleInputRef.current?.focus();
-      didAutoFocus.current = true;
+      noteInputRef.current?.focusAtStart();
+      autoFocusedSessionRef.current = sessionId;
     }
   }, [sessionId, title]);
 }
