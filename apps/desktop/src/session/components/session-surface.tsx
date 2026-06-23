@@ -33,7 +33,7 @@ export function SessionSurface({
     >
       <div data-session-surface className="flex h-full flex-col">
         {header ? (
-          <div data-tauri-drag-region className="pr-1 pl-3">
+          <div data-tauri-drag-region className="px-1">
             {header}
           </div>
         ) : null}
