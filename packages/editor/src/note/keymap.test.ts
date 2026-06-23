@@ -73,6 +73,52 @@ describe("buildInputRules", () => {
       ],
     });
   });
+
+  it("replaces typed arrow shorthand with an arrow symbol", () => {
+    const doc = schema.node("doc", null, [
+      schema.node("paragraph", null, [schema.text("-")]),
+    ]);
+    const { handled, state } = runTextInput(doc, ">");
+
+    expect(handled).toBe(true);
+    expect(state.doc.toJSON()).toEqual({
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "→" }],
+        },
+      ],
+    });
+  });
+
+  it("replaces typed copyright shorthand with a copyright symbol", () => {
+    const doc = schema.node("doc", null, [
+      schema.node("paragraph", null, [schema.text("(c")]),
+    ]);
+    const { handled, state } = runTextInput(doc, ")");
+
+    expect(handled).toBe(true);
+    expect(state.doc.toJSON()).toEqual({
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "©" }],
+        },
+      ],
+    });
+  });
+
+  it("keeps replacement shorthands literal in code blocks", () => {
+    const doc = schema.node("doc", null, [
+      schema.node("codeBlock", null, [schema.text("-")]),
+    ]);
+    const { handled, state } = runTextInput(doc, ">");
+
+    expect(handled).not.toBe(true);
+    expect(state.doc.toJSON()).toEqual(doc.toJSON());
+  });
 });
 
 describe("buildKeymap", () => {
@@ -259,6 +305,46 @@ function runBackspaceAtTextStart(
 
   expect(handled).toBe(true);
   return { state };
+}
+
+function runTextInput(doc: ReturnType<typeof schema.node>, text: string) {
+  const inputRules = buildInputRules();
+  let state = EditorState.create({
+    schema,
+    doc,
+    selection: Selection.atEnd(doc),
+    plugins: [inputRules],
+  });
+
+  const view = {
+    composing: false,
+    get state() {
+      return state;
+    },
+    dispatch(tr: Transaction) {
+      state = state.apply(tr);
+    },
+  } as Pick<EditorView, "composing" | "dispatch" | "state"> as EditorView;
+
+  const handleTextInput = inputRules.props.handleTextInput as
+    | ((
+        view: EditorView,
+        from: number,
+        to: number,
+        text: string,
+        deflt: () => Transaction,
+      ) => boolean | void)
+    | undefined;
+
+  const handled = handleTextInput?.(
+    view,
+    state.selection.from,
+    state.selection.to,
+    text,
+    () => state.tr.insertText(text, state.selection.from, state.selection.to),
+  );
+
+  return { handled, state };
 }
 
 function getTextStartPos(doc: ReturnType<typeof schema.node>, text: string) {

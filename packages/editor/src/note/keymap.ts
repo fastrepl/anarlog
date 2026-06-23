@@ -330,6 +330,28 @@ function markInputRule(pattern: RegExp, markType: MarkType, delimLen: number) {
   });
 }
 
+function isInCodeInputContext(state: EditorState) {
+  const { $from } = state.selection;
+
+  for (let depth = $from.depth; depth > 0; depth--) {
+    if ($from.node(depth).type.spec.code) {
+      return true;
+    }
+  }
+
+  return Boolean(schema.marks.code.isInSet(state.storedMarks ?? $from.marks()));
+}
+
+function textReplacementRule(pattern: RegExp, replacement: string) {
+  return new InputRule(pattern, (state, _match, start, end) => {
+    if (isInCodeInputContext(state)) {
+      return null;
+    }
+
+    return state.tr.insertText(replacement, start, end);
+  });
+}
+
 function taskListRule() {
   return new InputRule(/^\s*\[([ x]?)\]\s$/, (state, match, start, end) => {
     const checked = match[1] === "x";
@@ -352,6 +374,8 @@ export function buildInputRules() {
       codeBlockRule(schema.nodes.codeBlock),
       horizontalRuleRule(),
       taskListRule(),
+      textReplacementRule(/->$/, "→"),
+      textReplacementRule(/\(c\)$/i, "©"),
       markInputRule(/(^|[^*])\*\*([^*]+)\*\*$/, schema.marks.bold, 2),
       markInputRule(/(^|[^~])~~([^~]+)~~$/, schema.marks.strike, 2),
       markInputRule(/(^|[^*])\*([^*]+)\*$/, schema.marks.italic, 1),
