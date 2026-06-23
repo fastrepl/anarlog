@@ -113,6 +113,45 @@ describe("transcript slice", () => {
     expect(persist).toHaveBeenCalledWith(delta);
     expect(store.getState().partialWordsByChannel).toEqual({});
     expect(store.getState().partialHintsByChannel).toEqual({});
+    expect(store.getState().liveCaptionText).toBe("hello");
+  });
+
+  test("uses partial words for the live caption text", () => {
+    store.getState().handleTranscriptDelta("session-1", createDelta());
+
+    expect(store.getState().liveCaptionText).toBe("hello remote again");
+  });
+
+  test("keeps the partial caption text when finalized words arrive separately", () => {
+    store.getState().handleTranscriptDelta("session-1", createDelta());
+    store.getState().handleTranscriptDelta("session-1", {
+      new_words: [
+        {
+          id: "word-2",
+          text: " remote",
+          start_ms: 200,
+          end_ms: 300,
+          channel: 1,
+          state: "final",
+          speaker_index: null,
+        },
+      ],
+      replaced_ids: [],
+      partials: [],
+    });
+
+    expect(store.getState().liveCaptionText).toBe("hello remote again");
+  });
+
+  test("keeps the previous live caption text when a delta has no words", () => {
+    store.getState().handleTranscriptDelta("session-1", createDelta());
+    store.getState().handleTranscriptDelta("session-1", {
+      new_words: [],
+      replaced_ids: [],
+      partials: [],
+    });
+
+    expect(store.getState().liveCaptionText).toBe("hello remote again");
   });
 
   test("can persist deltas without replacing the active live preview", () => {
@@ -144,6 +183,7 @@ describe("transcript slice", () => {
     expect(
       store.getState().partialWordsByChannel[0]?.map((word) => word.text),
     ).toEqual([" hello"]);
+    expect(store.getState().liveCaptionText).toBe("hello remote again");
   });
 
   test("resetTranscript clears partial state and callbacks", () => {
@@ -155,6 +195,7 @@ describe("transcript slice", () => {
 
     expect(store.getState().partialWordsByChannel).toEqual({});
     expect(store.getState().partialHintsByChannel).toEqual({});
+    expect(store.getState().liveCaptionText).toBe("");
     expect(store.getState().handlePersistBySession).toEqual({
       "session-1": expect.any(Function),
     });

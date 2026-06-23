@@ -34,6 +34,7 @@ export type OnStoppedCallback = (
 export type TranscriptState = {
   liveSegments: LiveTranscriptSegment[];
   liveSegmentsById: Record<string, LiveTranscriptSegment>;
+  liveCaptionText: string;
   partialWordsByChannel: WordsByChannel;
   partialHintsByChannel: Record<number, RuntimeSpeakerHint[]>;
   handlePersistBySession: Record<string, LiveTranscriptPersistCallback>;
@@ -59,6 +60,7 @@ export type TranscriptActions = {
 const initialState: TranscriptState = {
   liveSegments: [],
   liveSegmentsById: {},
+  liveCaptionText: "",
   partialWordsByChannel: {},
   partialHintsByChannel: {},
   handlePersistBySession: {},
@@ -99,10 +101,14 @@ export const createTranscriptSlice = <
     const { wordsByChannel, hintsByChannel } = groupPartialsByChannel(
       delta.partials,
     );
+    const captionText = getCaptionTextFromDelta(delta, get().liveCaptionText);
 
     if (options?.updateLivePreview !== false) {
       set((state) =>
         mutate(state, (draft) => {
+          if (captionText !== null) {
+            draft.liveCaptionText = captionText;
+          }
           draft.partialWordsByChannel = wordsByChannel;
           draft.partialHintsByChannel = hintsByChannel;
         }),
@@ -145,6 +151,7 @@ export const createTranscriptSlice = <
       mutate(state, (draft) => {
         draft.liveSegments = [];
         draft.liveSegmentsById = {};
+        draft.liveCaptionText = "";
         draft.partialWordsByChannel = {};
         draft.partialHintsByChannel = {};
       }),
@@ -183,4 +190,28 @@ function groupPartialsByChannel(partials: LiveTranscriptDelta["partials"]): {
   });
 
   return { wordsByChannel, hintsByChannel };
+}
+
+function getCaptionTextFromDelta(
+  delta: LiveTranscriptDelta,
+  currentCaptionText: string,
+): string | null {
+  const words =
+    delta.partials.length > 0 || currentCaptionText.length === 0
+      ? delta.partials.length > 0
+        ? delta.partials
+        : delta.new_words
+      : null;
+
+  if (!words) {
+    return null;
+  }
+
+  return words
+    .slice()
+    .sort((a, b) => a.start_ms - b.start_ms)
+    .map((word) => word.text)
+    .join("")
+    .replace(/\s+/g, " ")
+    .trim();
 }

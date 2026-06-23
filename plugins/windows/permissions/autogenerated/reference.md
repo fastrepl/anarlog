@@ -20,6 +20,9 @@ Default permissions for the plugin
 - `allow-floating-bar-show`
 - `allow-floating-bar-hide`
 - `allow-floating-bar-update`
+- `allow-live-caption-show`
+- `allow-live-caption-hide`
+- `allow-live-caption-update`
 - `allow-devtools-panel-show`
 - `allow-devtools-panel-hide`
 
@@ -158,6 +161,84 @@ Enables the floating_bar_update command without any pre-configured scope.
 <td>
 
 Denies the floating_bar_update command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`windows:allow-live-caption-hide`
+
+</td>
+<td>
+
+Enables the live_caption_hide command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`windows:deny-live-caption-hide`
+
+</td>
+<td>
+
+Denies the live_caption_hide command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`windows:allow-live-caption-show`
+
+</td>
+<td>
+
+Enables the live_caption_show command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`windows:deny-live-caption-show`
+
+</td>
+<td>
+
+Denies the live_caption_show command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`windows:allow-live-caption-update`
+
+</td>
+<td>
+
+Enables the live_caption_update command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`windows:deny-live-caption-update`
+
+</td>
+<td>
+
+Denies the live_caption_update command without any pre-configured scope.
 
 </td>
 </tr>

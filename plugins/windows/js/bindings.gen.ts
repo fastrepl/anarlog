@@ -228,6 +228,43 @@ export const commands = {
       else return { status: "error", error: e as any };
     }
   },
+  async liveCaptionShow(): Promise<Result<null, string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("plugin:windows|live_caption_show"),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
+  async liveCaptionHide(): Promise<Result<null, string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("plugin:windows|live_caption_hide"),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
+  async liveCaptionUpdate(
+    state: LiveCaptionState,
+  ): Promise<Result<null, string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("plugin:windows|live_caption_update", {
+          state,
+        }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
   async devtoolsPanelShow(): Promise<Result<null, string>> {
     try {
       return {
@@ -314,6 +351,7 @@ export type JsonValue =
   | string
   | JsonValue[]
   | Partial<{ [key in string]: JsonValue }>;
+export type LiveCaptionState = { text: string; opacity: number };
 export type Navigate = {
   path: string;
   search: Partial<{ [key in string]: JsonValue }> | null;

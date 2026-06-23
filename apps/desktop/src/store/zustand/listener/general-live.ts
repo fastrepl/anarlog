@@ -217,7 +217,11 @@ const createSessionEventHandlers = <T extends LiveStore>(
       get().handleTranscriptDelta(
         targetSessionId,
         payload.delta as unknown as LiveTranscriptDelta,
-        { updateLivePreview: get().live.sessionId === targetSessionId },
+        {
+          updateLivePreview:
+            get().live.sessionId === targetSessionId &&
+            get().live.liveTranscriptionActive === true,
+        },
       );
       return;
     }

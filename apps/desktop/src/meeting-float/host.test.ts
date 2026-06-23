@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   getCurrentFloatingBarColorScheme,
   getFloatingRouteState,
+  getLiveCaptionRouteState,
 } from "./host";
 
 import { createListenerStore } from "~/store/zustand/listener";
@@ -18,6 +19,21 @@ function createListenerState(live: Partial<ListenerLiveState>) {
       ...store.getState().live,
       ...live,
     },
+  });
+  return store.getState();
+}
+
+function createListenerStateWithCaption(
+  live: Partial<ListenerLiveState>,
+  liveCaptionText: string,
+) {
+  const store = createListenerStore();
+  store.setState({
+    live: {
+      ...store.getState().live,
+      ...live,
+    },
+    liveCaptionText,
   });
   return store.getState();
 }
@@ -83,5 +99,56 @@ describe("getCurrentFloatingBarColorScheme", () => {
 
     document.documentElement.classList.add("dark");
     expect(getCurrentFloatingBarColorScheme()).toBe("dark");
+  });
+});
+
+describe("getLiveCaptionRouteState", () => {
+  it("returns live caption state for active live transcription", () => {
+    expect(
+      getLiveCaptionRouteState(
+        createListenerStateWithCaption(
+          {
+            status: "active",
+            sessionId: "session-1",
+            liveTranscriptionActive: true,
+          },
+          "  we should ship this  ",
+        ),
+      ),
+    ).toEqual({
+      sessionId: "session-1",
+      text: "we should ship this",
+      opacity: 0.78,
+    });
+  });
+
+  it("hides captions before live transcription is active", () => {
+    expect(
+      getLiveCaptionRouteState(
+        createListenerStateWithCaption(
+          {
+            status: "active",
+            sessionId: "session-1",
+            liveTranscriptionActive: false,
+          },
+          "hello",
+        ),
+      ),
+    ).toBeNull();
+  });
+
+  it("hides captions without text", () => {
+    expect(
+      getLiveCaptionRouteState(
+        createListenerStateWithCaption(
+          {
+            status: "active",
+            sessionId: "session-1",
+            liveTranscriptionActive: true,
+          },
+          " ",
+        ),
+      ),
+    ).toBeNull();
   });
 });

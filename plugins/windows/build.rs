@@ -15,6 +15,9 @@ const COMMANDS: &[&str] = &[
     "floating_bar_show",
     "floating_bar_hide",
     "floating_bar_update",
+    "live_caption_show",
+    "live_caption_hide",
+    "live_caption_update",
     "devtools_panel_show",
     "devtools_panel_hide",
 ];

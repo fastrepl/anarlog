@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-live-caption-hide"
+description = "Enables the live_caption_hide command without any pre-configured scope."
+commands.allow = ["live_caption_hide"]
+
+[[permission]]
+identifier = "deny-live-caption-hide"
+description = "Denies the live_caption_hide command without any pre-configured scope."
+commands.deny = ["live_caption_hide"]
