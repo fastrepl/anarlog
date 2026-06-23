@@ -4,25 +4,26 @@ export function computeCurrentNoteTab(
   tabView: EditorView | null,
   isLiveSessionActive: boolean,
   firstEnhancedNoteId: string | undefined,
-  _canShowTranscript = false,
+  canShowTranscript = false,
 ): EditorView {
   if (isLiveSessionActive) {
-    if (
-      tabView?.type === "raw" ||
-      tabView?.type === "enhanced" ||
-      tabView?.type === "transcript"
-    ) {
+    if (tabView?.type === "raw" || tabView?.type === "transcript") {
+      return tabView;
+    }
+    if (tabView?.type === "enhanced" && firstEnhancedNoteId) {
       return tabView;
     }
     return { type: "raw" };
   }
 
   if (tabView) {
-    if (
-      tabView.type === "enhanced" ||
-      tabView.type === "raw" ||
-      tabView.type === "transcript"
-    ) {
+    if (tabView.type === "raw") {
+      return tabView;
+    }
+    if (tabView.type === "enhanced" && firstEnhancedNoteId) {
+      return tabView;
+    }
+    if (tabView.type === "transcript" && canShowTranscript) {
       return tabView;
     }
 
