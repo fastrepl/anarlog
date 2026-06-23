@@ -26,7 +26,7 @@ export function SegmentHeader({
     "bg-card sticky top-0 z-20",
     "-mx-3 px-3 py-1",
     "text-xs font-light",
-    "flex items-center justify-between",
+    "flex items-center gap-3",
     "[--segment-color:var(--segment-color-light)]",
     "dark:[--segment-color:var(--segment-color-dark)]",
   ]);
@@ -39,7 +39,9 @@ export function SegmentHeader({
         color="var(--segment-color)"
         label={label}
       />
-      <span className="text-muted-foreground font-mono">{timestamp}</span>
+      <span className="text-muted-foreground ml-auto shrink-0 tabular-nums">
+        {timestamp}
+      </span>
     </div>
   );
 }

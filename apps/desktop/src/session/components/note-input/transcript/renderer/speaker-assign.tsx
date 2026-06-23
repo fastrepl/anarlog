@@ -74,8 +74,9 @@ export function SpeakerAssignPopover({
         <button
           type="button"
           className={cn([
-            "-my-0.5 -ml-2 cursor-pointer rounded-full px-2 py-0.5",
-            "hover:bg-accent transition-colors",
+            "-my-0.5 cursor-pointer rounded-full py-0.5 pr-2",
+            "underline-offset-2 hover:underline focus-visible:underline",
+            open ? "underline" : null,
             className,
           ])}
           style={{ color }}

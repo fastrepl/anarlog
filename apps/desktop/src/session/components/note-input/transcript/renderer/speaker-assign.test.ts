@@ -224,10 +224,16 @@ describe("SpeakerAssignPopover", () => {
 
     const trigger = screen.getByRole("button", { name: "Speaker 2" });
     expect(trigger.className).toContain("rounded-full");
-    expect(trigger.className).toContain("px-2");
-    expect(trigger.className).toContain("-ml-2");
+    expect(trigger.className).toContain("pr-2");
+    expect(trigger.className).toContain("hover:underline");
+    expect(trigger.className).toContain("focus-visible:underline");
+    expect(trigger.className).not.toContain("hover:bg-accent");
+    expect(trigger.className.split(/\s+/)).not.toContain("underline");
+    expect(trigger.className).not.toContain("px-2");
+    expect(trigger.className).not.toContain("-ml-2");
 
     fireEvent.click(trigger);
+    expect(trigger.className.split(/\s+/)).toContain("underline");
     fireEvent.click(screen.getByRole("button", { name: "Alice" }));
     expect(cells.get("speaker_hints")).toBe(JSON.stringify([]));
 
