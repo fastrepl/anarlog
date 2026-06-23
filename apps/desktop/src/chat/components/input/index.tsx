@@ -1,6 +1,6 @@
 import "./chat-input.css";
 
-import { SquareIcon } from "lucide-react";
+import { ArrowUpIcon, SquareIcon } from "lucide-react";
 import { useRef } from "react";
 
 import { ChatEditor, type ChatEditorHandle } from "@hypr/editor/chat";
@@ -73,7 +73,7 @@ export function ChatMessageInput({
         data-chat-message-input
         className={cn([
           isFloating
-            ? "flex h-full min-h-0 w-full min-w-0 items-center"
+            ? "flex max-h-full min-h-[30px] w-full min-w-0 items-end"
             : "flex flex-col px-2 pt-3 pb-2",
         ])}
       >
@@ -84,7 +84,7 @@ export function ChatMessageInput({
               "chat-input-editor",
               "text-sm",
               isFloating
-                ? "max-h-24 w-full min-w-0 overflow-y-auto overscroll-contain"
+                ? "max-h-24 min-h-5 w-full min-w-0 overflow-y-auto overscroll-contain"
                 : "overflow-y-auto overscroll-contain",
               !isFloating && (isRightPanel ? "max-h-[40vh]" : "max-h-48"),
             ])}
@@ -115,11 +115,13 @@ export function ChatMessageInput({
               </Button>
             ) : (
               <button
+                type="button"
+                aria-label="Send message"
                 onClick={handleSubmit}
                 disabled={isSendDisabled}
                 className={cn([
                   "chat-input-send",
-                  "inline-flex h-7 items-center gap-1.5 rounded-lg border pr-1.5 pl-2.5 text-xs font-medium transition-all duration-100",
+                  "border-border text-muted-foreground/60 inline-flex size-7 shrink-0 items-center justify-center rounded-full border transition-all duration-100",
                   !isSendDisabled && [
                     "bg-primary text-primary-foreground border-stone-600",
                     "hover:bg-primary/90",
@@ -127,15 +129,7 @@ export function ChatMessageInput({
                   ],
                 ])}
               >
-                Send
-                <span
-                  className={cn([
-                    "chat-input-send-shortcut font-mono text-xs",
-                    !isSendDisabled && "text-stone-400",
-                  ])}
-                >
-                  ⌘ ↩
-                </span>
+                <ArrowUpIcon size={15} strokeWidth={2.25} />
               </button>
             )}
           </div>
@@ -169,7 +163,7 @@ function Container({
           "flex max-h-full border",
           isFloating
             ? [
-                "border-border/70 text-card-foreground h-10 max-h-10 min-h-10 flex-row items-center overflow-hidden rounded-full bg-white px-4 py-0 text-sm shadow-none",
+                "border-border/70 text-card-foreground max-h-28 min-h-[38px] flex-row items-end overflow-hidden rounded-[19px] bg-white px-4 py-[3px] text-sm shadow-none",
                 "dark:bg-card dark:text-card-foreground",
               ]
             : [elevatedSurfaceClassName, "flex-col rounded-xl"],

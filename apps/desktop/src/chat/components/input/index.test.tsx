@@ -236,9 +236,13 @@ describe("ChatMessageInput", () => {
     expect(sendButton.disabled).toBe(true);
     expect(sendButton.className).toContain("chat-input-send");
     expect(sendButton.className).not.toContain("bg-primary");
+    expect(sendButton.className).toContain("rounded-full");
+    expect(sendButton.className).toContain("size-7");
+    expect(sendButton.textContent).toBe("");
+    expect(sendButton.querySelector("svg")).not.toBeNull();
   });
 
-  it("uses a white input surface while floating", () => {
+  it("uses a growable white input surface while floating", () => {
     render(
       <ChatMessageInput draftKey="chat-input-test" onSendMessage={vi.fn()} />,
     );
@@ -249,17 +253,17 @@ describe("ChatMessageInput", () => {
 
     expect(editor.className).toContain("chat-input-editor");
     expect(editor.className).toContain("max-h-24");
+    expect(editor.className).toContain("min-h-5");
     expect(editor.className).toContain("overflow-y-auto");
     expect(editor.dataset.placeholder).toBe("Ask anything");
-    expect(messageInput?.className).toContain("h-full");
+    expect(messageInput?.className).toContain("min-h-[30px]");
     expect(messageInput?.className).not.toContain("min-h-10");
     expect(screen.queryByRole("button", { name: /send/i })).toBeNull();
     expect(surface?.getAttribute("data-chat-input-surface")).toBe("floating");
-    expect(surface?.className).toContain("h-10");
-    expect(surface?.className).toContain("min-h-10");
-    expect(surface?.className).toContain("max-h-10");
-    expect(surface?.className).toContain("rounded-full");
-    expect(surface?.className).toContain("py-0");
+    expect(surface?.className).toContain("min-h-[38px]");
+    expect(surface?.className).toContain("max-h-28");
+    expect(surface?.className).toContain("rounded-[19px]");
+    expect(surface?.className).toContain("py-[3px]");
     expect(surface?.className).toContain("bg-white");
     expect(surface?.className).toContain("text-card-foreground");
     expect(surface?.className).toContain("dark:bg-card");
@@ -268,6 +272,8 @@ describe("ChatMessageInput", () => {
     expect(surface?.className).toContain("shadow-none");
     expect(surface?.className).not.toContain("shadow-[");
     expect(surface?.className).not.toContain("inset_0_0_0_1px");
+    expect(surface?.className).not.toContain("h-10");
+    expect(surface?.className).not.toContain("max-h-10");
   });
 
   it("uses the light card input surface in the right panel", () => {
