@@ -47,7 +47,7 @@ describe("chat surface tokens", () => {
       "dark:shadow-[0_18px_64px_rgba(0,0,0,0.6)]",
     );
     expect(chatFloatingPanelShellClassNames()).toContain("bg-[#f4f4f5]");
-    expect(chatFloatingPanelShellClassNames()).toContain("rounded-[28px]");
+    expect(chatFloatingPanelShellClassNames()).toContain("rounded-[24px]");
     expect(chatFloatingPanelShellClassNames()).toContain("border");
     expect(chatFloatingPanelShellClassNames()).toContain("border-border/70");
     expect(chatFloatingPanelShellClassNames()).toContain(

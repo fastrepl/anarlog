@@ -130,7 +130,7 @@ describe("PersistentChatPanel", () => {
       expect(panel?.style.maxWidth).toBe("648px");
       expect(panel?.style.height).toBe("");
       expect(panel?.style.transformOrigin).toBe("bottom center");
-      expect(panel?.className).toContain("rounded-[28px]");
+      expect(panel?.className).toContain("rounded-[24px]");
       expect(panel?.dataset.chatPanelReveal).toBe("bottom-up");
     });
   });
