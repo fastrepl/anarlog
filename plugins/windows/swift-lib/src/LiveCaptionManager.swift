@@ -21,6 +21,7 @@ final class LiveCaptionManager {
 
       if let panel = self.panel {
         self.resize(panel)
+        self.panelDelegate.clearPinnedPosition()
         self.position(panel, force: true)
         self.startFollowingActiveScreen()
         panel.orderFrontRegardless()
@@ -51,18 +52,16 @@ final class LiveCaptionManager {
     }
   }
 
-  func hide(clearText: Bool = true) {
+  func hide() {
     runOnMain { [weak self] in
       guard let self else { return }
-      self.hidePanel(clearText: clearText)
+      self.hidePanel()
     }
   }
 
-  private func hidePanel(clearText: Bool = true) {
+  private func hidePanel() {
     guard let panel else {
-      if clearText {
-        model.text = ""
-      }
+      model.text = ""
       panelDelegate.resetActiveScreen()
       return
     }
@@ -72,9 +71,7 @@ final class LiveCaptionManager {
     panel.orderOut(nil)
     self.panel = nil
     panelDelegate.resetActiveScreen()
-    if clearText {
-      model.text = ""
-    }
+    model.text = ""
     model.lineCount = LiveCaptionLayout.defaultLineCount
   }
 
@@ -143,8 +140,8 @@ final class LiveCaptionManager {
     }
 
     return NSSize(
-      width: CGFloat(settingsModel.liveCaptionWidth),
-      height: LiveCaptionLayout.height(forLineCount: settingsModel.liveCaptionLineCount))
+      width: LiveCaptionLayout.defaultWidth,
+      height: LiveCaptionLayout.height(forLineCount: LiveCaptionLayout.defaultLineCount))
   }
 
   private func resize(_ panel: NSPanel) {
@@ -169,12 +166,9 @@ final class LiveCaptionManager {
       return LiveCaptionLayout.minimizedSize
     }
 
-    let isResizing = NSEvent.pressedMouseButtons != 0
-    let requestedWidth = isResizing ? panel.frame.width : CGFloat(settingsModel.liveCaptionWidth)
-    let requestedLineCount = isResizing ? model.lineCount : settingsModel.liveCaptionLineCount
-    let width = min(max(requestedWidth, LiveCaptionLayout.minWidth), LiveCaptionLayout.maxWidth)
+    let width = min(max(panel.frame.width, LiveCaptionLayout.minWidth), LiveCaptionLayout.maxWidth)
     let lineCount = min(
-      max(requestedLineCount, LiveCaptionLayout.minLineCount),
+      max(model.lineCount, LiveCaptionLayout.minLineCount),
       LiveCaptionLayout.maxLineCount
     )
     model.lineCount = lineCount
@@ -201,11 +195,6 @@ final class LiveCaptionManager {
 
   private func setMinimized(_ minimized: Bool) {
     settingsModel.setLiveCaptionMinimized(minimized)
-    if minimized {
-      hidePanel(clearText: false)
-      return
-    }
-
     guard let panel else { return }
     resize(panel)
     panelDelegate.clearPinnedPosition()
