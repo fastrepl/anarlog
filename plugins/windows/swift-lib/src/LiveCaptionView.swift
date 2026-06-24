@@ -31,7 +31,6 @@ enum LiveCaptionLayout {
 struct LiveCaptionView: View {
   @ObservedObject var model: LiveCaptionViewModel
   @ObservedObject var settings: FloatingOverlaySettingsModel
-  let onOpenSettings: () -> Void
   let onSetMinimized: (Bool) -> Void
   @State private var isHovered = false
 
@@ -63,18 +62,24 @@ struct LiveCaptionView: View {
           onSetMinimized(true)
         }
         .accessibilityLabel("Minimize transcript")
-
-        CaptionControlButton(systemName: "slider.horizontal.3") {
-          onOpenSettings()
-        }
-        .accessibilityLabel("Transcript settings")
       }
       .frame(width: LiveCaptionLayout.controlsWidth)
       .opacity(isHovered ? 1 : 0)
+      .allowsHitTesting(isHovered)
     }
     .padding(.horizontal, LiveCaptionLayout.horizontalPadding)
     .padding(.vertical, LiveCaptionLayout.verticalPadding)
     .background(captionBackground)
+    .overlay(alignment: .bottomLeading) {
+      CaptionOpacityDragToggle(
+        value: settings.liveCaptionOpacity,
+        onChange: settings.setLiveCaptionOpacity
+      )
+      .opacity(isHovered ? 1 : 0)
+      .allowsHitTesting(isHovered)
+      .padding(.leading, 9)
+      .padding(.bottom, 6)
+    }
     .overlay(alignment: .bottomTrailing) {
       ResizeHint()
         .opacity(isHovered ? 0.55 : 0)
@@ -100,7 +105,12 @@ struct LiveCaptionView: View {
 
   private var captionBackground: some View {
     RoundedRectangle(cornerRadius: LiveCaptionLayout.cornerRadius, style: .continuous)
-      .fill(Color.black.opacity(min(max(settings.liveCaptionOpacity, 0.35), 0.95)))
+      .fill(
+        Color.black.opacity(
+          min(
+            max(settings.liveCaptionOpacity, FloatingOverlayOpacity.minLiveCaption),
+            FloatingOverlayOpacity.max
+          )))
   }
 }
 
@@ -117,6 +127,65 @@ private struct CaptionControlButton: View {
         .background(Circle().fill(Color.white.opacity(0.12)))
     }
     .buttonStyle(.plain)
+  }
+}
+
+private struct CaptionOpacityDragToggle: View {
+  let value: Double
+  let onChange: (Double) -> Void
+
+  private let trackWidth: CGFloat = 52
+  private let trackHeight: CGFloat = 14
+  private let thumbSize: CGFloat = 10
+
+  var body: some View {
+    ZStack(alignment: .leading) {
+      Capsule(style: .continuous)
+        .fill(Color.white.opacity(0.12))
+      Capsule(style: .continuous)
+        .fill(Color.white.opacity(0.24))
+        .frame(width: fillWidth)
+      Circle()
+        .fill(Color.white.opacity(0.9))
+        .frame(width: thumbSize, height: thumbSize)
+        .offset(x: thumbOffset)
+    }
+    .frame(width: trackWidth, height: trackHeight)
+    .contentShape(Capsule(style: .continuous))
+    .gesture(
+      DragGesture(minimumDistance: 0)
+        .onChanged { gesture in
+          onChange(opacity(forX: gesture.location.x))
+        }
+    )
+    .accessibilityElement()
+    .accessibilityLabel("Transcript opacity")
+    .accessibilityValue("\(Int((clampedValue * 100).rounded()))%")
+  }
+
+  private var clampedValue: Double {
+    min(max(value, FloatingOverlayOpacity.minLiveCaption), FloatingOverlayOpacity.max)
+  }
+
+  private var progress: CGFloat {
+    let range = FloatingOverlayOpacity.max - FloatingOverlayOpacity.minLiveCaption
+    return CGFloat((clampedValue - FloatingOverlayOpacity.minLiveCaption) / range)
+  }
+
+  private var thumbOffset: CGFloat {
+    progress * (trackWidth - thumbSize)
+  }
+
+  private var fillWidth: CGFloat {
+    thumbSize + thumbOffset
+  }
+
+  private func opacity(forX x: CGFloat) -> Double {
+    let usableWidth = trackWidth - thumbSize
+    let clampedX = min(max(x - thumbSize / 2, 0), usableWidth)
+    let nextProgress = Double(clampedX / usableWidth)
+    return FloatingOverlayOpacity.minLiveCaption
+      + nextProgress * (FloatingOverlayOpacity.max - FloatingOverlayOpacity.minLiveCaption)
   }
 }
 

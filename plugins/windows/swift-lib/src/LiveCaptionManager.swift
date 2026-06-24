@@ -33,9 +33,6 @@ final class LiveCaptionManager {
         rootView: LiveCaptionView(
           model: self.model,
           settings: self.settingsModel,
-          onOpenSettings: {
-            FloatingOverlaySettingsPanelManager.shared.toggle(anchor: self.panel)
-          },
           onSetMinimized: { [weak self] minimized in
             self?.setMinimized(minimized)
           }))
