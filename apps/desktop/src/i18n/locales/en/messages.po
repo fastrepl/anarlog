@@ -187,7 +187,7 @@ msgstr "Apply to all"
 msgid "Applying..."
 msgstr "Applying..."
 
-#: src/chat/components/input/index.tsx:72
+#: src/chat/components/input/index.tsx:69
 msgid "Ask & search about anything, or be creative!"
 msgstr "Ask & search about anything, or be creative!"
 
@@ -195,7 +195,7 @@ msgstr "Ask & search about anything, or be creative!"
 msgid "Ask Anarlog anything"
 msgstr "Ask Anarlog anything"
 
-#: src/chat/components/input/index.tsx:71
+#: src/chat/components/input/index.tsx:68
 #: src/shared/chat-cta.tsx:18
 msgid "Ask anything"
 msgstr "Ask anything"
