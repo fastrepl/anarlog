@@ -245,7 +245,6 @@ function LiveCaptionDefaultVisibilitySync({
 
   return null;
 }
-
 function FloatingMeetingWindowDisabled() {
   useMountEffect(() => {
     void hideFloatingMeetingPanel();
