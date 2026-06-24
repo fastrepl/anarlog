@@ -151,10 +151,6 @@ private struct CaptionFooter: View {
     }
     .padding(.leading, LiveCaptionLayout.horizontalPadding)
     .padding(.trailing, 24)
-    .background(
-      Rectangle()
-        .fill(Color.black.opacity(0.20))
-    )
   }
 
   private var clampedOpacity: Double {
