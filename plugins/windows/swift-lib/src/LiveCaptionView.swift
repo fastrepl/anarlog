@@ -78,6 +78,16 @@ struct LiveCaptionView: View {
       .frame(height: LiveCaptionLayout.footerHeight)
     }
     .background(captionBackground)
+    .overlay(alignment: .bottomLeading) {
+      CaptionOpacityDragToggle(
+        value: settings.liveCaptionOpacity,
+        onChange: settings.setLiveCaptionOpacity
+      )
+      .opacity(isHovered ? 1 : 0)
+      .allowsHitTesting(isHovered)
+      .padding(.leading, 9)
+      .padding(.bottom, 6)
+    }
     .overlay(alignment: .bottomTrailing) {
       ResizeHint()
         .opacity(isHovered ? 0.55 : 0)
@@ -155,6 +165,65 @@ private struct CaptionFooter: View {
 
   private var clampedOpacity: Double {
     min(max(opacity, FloatingOverlayOpacity.minLiveCaption), FloatingOverlayOpacity.maxLiveCaption)
+  }
+}
+
+private struct CaptionOpacityDragToggle: View {
+  let value: Double
+  let onChange: (Double) -> Void
+
+  private let trackWidth: CGFloat = 52
+  private let trackHeight: CGFloat = 14
+  private let thumbSize: CGFloat = 10
+
+  var body: some View {
+    ZStack(alignment: .leading) {
+      Capsule(style: .continuous)
+        .fill(Color.white.opacity(0.12))
+      Capsule(style: .continuous)
+        .fill(Color.white.opacity(0.24))
+        .frame(width: fillWidth)
+      Circle()
+        .fill(Color.white.opacity(0.9))
+        .frame(width: thumbSize, height: thumbSize)
+        .offset(x: thumbOffset)
+    }
+    .frame(width: trackWidth, height: trackHeight)
+    .contentShape(Capsule(style: .continuous))
+    .gesture(
+      DragGesture(minimumDistance: 0)
+        .onChanged { gesture in
+          onChange(opacity(forX: gesture.location.x))
+        }
+    )
+    .accessibilityElement()
+    .accessibilityLabel("Transcript opacity")
+    .accessibilityValue("\(Int((clampedValue * 100).rounded()))%")
+  }
+
+  private var clampedValue: Double {
+    min(max(value, FloatingOverlayOpacity.minLiveCaption), FloatingOverlayOpacity.max)
+  }
+
+  private var progress: CGFloat {
+    let range = FloatingOverlayOpacity.max - FloatingOverlayOpacity.minLiveCaption
+    return CGFloat((clampedValue - FloatingOverlayOpacity.minLiveCaption) / range)
+  }
+
+  private var thumbOffset: CGFloat {
+    progress * (trackWidth - thumbSize)
+  }
+
+  private var fillWidth: CGFloat {
+    thumbSize + thumbOffset
+  }
+
+  private func opacity(forX x: CGFloat) -> Double {
+    let usableWidth = trackWidth - thumbSize
+    let clampedX = min(max(x - thumbSize / 2, 0), usableWidth)
+    let nextProgress = Double(clampedX / usableWidth)
+    return FloatingOverlayOpacity.minLiveCaption
+      + nextProgress * (FloatingOverlayOpacity.max - FloatingOverlayOpacity.minLiveCaption)
   }
 }
 
