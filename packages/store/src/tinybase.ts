@@ -170,6 +170,8 @@ export const valueSchemaForTinybase = {
   floating_bar_enabled: { type: "boolean" },
   floating_bar_opacity: { type: "number" },
   live_caption_opacity: { type: "number" },
+  live_caption_width: { type: "number" },
+  live_caption_line_count: { type: "number" },
   live_caption_position: { type: "string" },
   live_caption_minimized: { type: "boolean" },
   show_app_in_dock: { type: "boolean" },

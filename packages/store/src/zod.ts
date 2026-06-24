@@ -277,6 +277,8 @@ export const generalSchema = z.object({
   floating_bar_enabled: z.boolean().default(true),
   floating_bar_opacity: z.number().default(0.78),
   live_caption_opacity: z.number().default(0.3),
+  live_caption_width: z.number().default(440),
+  live_caption_line_count: z.number().default(1),
   live_caption_position: z
     .enum([
       "topCenter",

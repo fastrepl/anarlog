@@ -18,6 +18,8 @@ pub enum LiveCaptionPosition {
 pub struct LiveCaptionState {
     pub text: String,
     pub opacity: f64,
+    pub width: f64,
+    pub line_count: u32,
     pub position: LiveCaptionPosition,
     pub minimized: bool,
 }

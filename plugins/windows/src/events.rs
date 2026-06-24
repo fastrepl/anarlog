@@ -99,6 +99,8 @@ common_event_derives! {
 pub struct FloatingBarSettingsChange {
     pub floating_bar_opacity: Option<f64>,
     pub live_caption_opacity: Option<f64>,
+    pub live_caption_width: Option<f64>,
+    pub live_caption_line_count: Option<u32>,
     pub live_caption_position: Option<crate::window::live_caption::LiveCaptionPosition>,
     pub live_caption_minimized: Option<bool>,
 }

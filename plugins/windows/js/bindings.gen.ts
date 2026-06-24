@@ -345,6 +345,8 @@ export type FloatingBarState = {
   colorScheme: FloatingBarColorScheme;
   opacity: number;
   liveCaptionOpacity: number;
+  liveCaptionWidth: number;
+  liveCaptionLineCount: number;
   liveCaptionPosition: LiveCaptionPosition;
   liveCaptionMinimized: boolean;
   liveCaptionToggleVisible: boolean;
@@ -352,6 +354,8 @@ export type FloatingBarState = {
 export type FloatingBarSettingsChange = {
   floatingBarOpacity: number | null;
   liveCaptionOpacity: number | null;
+  liveCaptionWidth: number | null;
+  liveCaptionLineCount: number | null;
   liveCaptionPosition: LiveCaptionPosition | null;
   liveCaptionMinimized: boolean | null;
 };
@@ -374,6 +378,8 @@ export type LiveCaptionPosition =
 export type LiveCaptionState = {
   text: string;
   opacity: number;
+  width: number;
+  lineCount: number;
   position: LiveCaptionPosition;
   minimized: boolean;
 };

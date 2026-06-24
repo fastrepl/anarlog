@@ -25,6 +25,8 @@ pub struct FloatingBarState {
     pub color_scheme: FloatingBarColorScheme,
     pub opacity: f64,
     pub live_caption_opacity: f64,
+    pub live_caption_width: f64,
+    pub live_caption_line_count: u32,
     pub live_caption_position: LiveCaptionPosition,
     pub live_caption_minimized: bool,
     pub live_caption_toggle_visible: bool,

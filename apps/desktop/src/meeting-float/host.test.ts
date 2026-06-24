@@ -56,6 +56,8 @@ describe("getFloatingRouteState", () => {
       colorScheme: "dark",
       opacity: 0.78,
       liveCaptionOpacity: 0.3,
+      liveCaptionWidth: 440,
+      liveCaptionLineCount: 1,
       liveCaptionPosition: "topCenter",
       liveCaptionMinimized: false,
       liveCaptionToggleVisible: false,
@@ -140,6 +142,8 @@ describe("getLiveCaptionRouteState", () => {
       sessionId: "session-1",
       text: "we should ship this",
       opacity: 0.3,
+      width: 440,
+      lineCount: 1,
       position: "topCenter",
       minimized: false,
     });
@@ -159,6 +163,8 @@ describe("getLiveCaptionRouteState", () => {
         {
           floatingBarOpacity: 0.7,
           liveCaptionOpacity: 0.66,
+          liveCaptionWidth: 520,
+          liveCaptionLineCount: 3,
           liveCaptionPosition: "bottomRight",
           liveCaptionMinimized: true,
         },
@@ -197,6 +203,8 @@ describe("getLiveCaptionRouteState", () => {
       sessionId: "session-1",
       text: "",
       opacity: 0.3,
+      width: 440,
+      lineCount: 1,
       position: "topCenter",
       minimized: false,
     });
