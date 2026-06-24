@@ -60,11 +60,10 @@ export function useSessionBottomAccessory({
   const isChatVisible =
     chat.mode === "FloatingOpen" || chat.mode === "RightPanelOpen";
 
+  const showBatchProgress = isRunningBatch && !shouldDeferToGlobalLiveAccessory;
   const showPostSession =
-    !isRunningBatch &&
-    !shouldDeferToGlobalLiveAccessory &&
-    isInactive &&
-    hasPastNotes;
+    showBatchProgress ||
+    (!shouldDeferToGlobalLiveAccessory && isInactive && hasPastNotes);
   const selectPostSessionTab = useCallback(
     (tab: PostSessionTab) => {
       setPostSessionTab(tab);

@@ -12,7 +12,7 @@ export function shouldShowSessionBottomAccessory({
   sessionMode: string;
 }) {
   if (sessionMode === "running_batch") {
-    return false;
+    return bottomAccessoryState?.mode === "playback";
   }
 
   return (

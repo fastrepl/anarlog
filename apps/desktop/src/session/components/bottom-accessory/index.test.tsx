@@ -499,7 +499,7 @@ describe("useSessionBottomAccessory", () => {
     expect(result.current.bottomBorderHandle).toBeNull();
   });
 
-  it("hides the bottom accessory while batch transcription is running", () => {
+  it("keeps batch stop control available while batch transcription is running", () => {
     const { result } = renderHook(() =>
       useSessionBottomAccessory({
         sessionId: "session-1",
@@ -509,12 +509,15 @@ describe("useSessionBottomAccessory", () => {
       }),
     );
 
-    expect(result.current.bottomAccessoryState).toBeNull();
-    expect(result.current.bottomAccessory).toBeNull();
+    expect(result.current.bottomAccessoryState).toEqual({
+      mode: "playback",
+      expanded: false,
+    });
+    expect(isValidElement(result.current.bottomAccessory)).toBe(true);
     expect(result.current.bottomBorderHandle).toBeNull();
   });
 
-  it("keeps the bottom accessory hidden when regeneration starts", () => {
+  it("shows batch progress when regeneration starts", () => {
     const { result, rerender } = renderHook(
       ({ sessionMode }: { sessionMode: string }) =>
         useSessionBottomAccessory({
@@ -535,8 +538,11 @@ describe("useSessionBottomAccessory", () => {
 
     rerender({ sessionMode: "running_batch" });
 
-    expect(result.current.bottomAccessoryState).toBeNull();
-    expect(result.current.bottomAccessory).toBeNull();
+    expect(result.current.bottomAccessoryState).toEqual({
+      mode: "playback",
+      expanded: false,
+    });
+    expect(isValidElement(result.current.bottomAccessory)).toBe(true);
     expect(result.current.bottomBorderHandle).toBeNull();
   });
 
