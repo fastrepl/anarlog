@@ -63,11 +63,18 @@ vi.mock("@lingui/react/macro", () => ({
     children,
     id,
     message,
+    values,
   }: {
     children?: React.ReactNode;
     id?: string;
     message?: string;
-  }) => React.createElement(React.Fragment, null, children ?? message ?? id),
+    values?: Record<string, unknown>;
+  }) =>
+    React.createElement(
+      React.Fragment,
+      null,
+      children ?? translate({ message: message ?? id, values }),
+    ),
   useLingui: () => ({
     _: translate,
     t: translate,
@@ -81,11 +88,18 @@ vi.mock("@lingui/react", () => ({
     children,
     id,
     message,
+    values,
   }: {
     children?: React.ReactNode;
     id?: string;
     message?: string;
-  }) => React.createElement(React.Fragment, null, children ?? message ?? id),
+    values?: Record<string, unknown>;
+  }) =>
+    React.createElement(
+      React.Fragment,
+      null,
+      children ?? translate({ message: message ?? id, values }),
+    ),
   useLingui: () => ({
     _: translate,
     t: translate,
