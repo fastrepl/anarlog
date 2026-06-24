@@ -173,9 +173,9 @@ private struct FloatingOverlaySettingsPanelView: View {
         action: { settings.setLiveCaptionMinimized(!settings.liveCaptionMinimized) }
       ) {
         HStack {
-          Image(systemName: settings.liveCaptionMinimized ? "plus" : "minus")
+          Image(systemName: settings.liveCaptionMinimized ? "eye" : "eye.slash")
             .font(.system(size: 11, weight: .bold))
-          Text(settings.liveCaptionMinimized ? "Restore transcript" : "Minimize transcript")
+          Text(settings.liveCaptionMinimized ? "Show transcript" : "Hide transcript")
           Spacer()
         }
         .font(.system(size: 12, weight: .medium))

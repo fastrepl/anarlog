@@ -686,7 +686,7 @@ export function getLiveCaptionRouteState(
     width: settings.liveCaptionWidth,
     lineCount: settings.liveCaptionLineCount,
     position: settings.liveCaptionPosition,
-    minimized: false,
+    minimized: settings.liveCaptionMinimized,
   };
 }
 

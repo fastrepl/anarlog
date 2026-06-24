@@ -27,10 +27,6 @@ final class LiveCaptionPanelDelegate: NSObject, NSWindowDelegate {
   }
 
   func windowWillResize(_ sender: NSWindow, to frameSize: NSSize) -> NSSize {
-    if settings.liveCaptionMinimized {
-      return LiveCaptionLayout.minimizedSize
-    }
-
     let width = min(max(frameSize.width, LiveCaptionLayout.minWidth), LiveCaptionLayout.maxWidth)
     let lineCount = LiveCaptionLayout.lineCount(forHeight: frameSize.height)
     let height = LiveCaptionLayout.height(forLineCount: lineCount)

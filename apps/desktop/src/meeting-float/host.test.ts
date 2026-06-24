@@ -164,6 +164,8 @@ describe("getLiveCaptionRouteState", () => {
         {
           floatingBarOpacity: 0.7,
           liveCaptionOpacity: 0.66,
+          liveCaptionWidth: 520,
+          liveCaptionLineCount: 3,
           liveCaptionPosition: "bottomRight",
           liveCaptionMinimized: true,
           liveCaptionEnabled: true,
@@ -193,6 +195,54 @@ describe("getLiveCaptionRouteState", () => {
           liveCaptionEnabled: true,
         },
       ),
+    ).toBeNull();
+  });
+
+  it("hides captions when the default preference starts them hidden", () => {
+    expect(
+      getLiveCaptionRouteState(
+        createListenerStateWithCaption(
+          {
+            status: "active",
+            sessionId: "session-1",
+            liveTranscriptionActive: true,
+          },
+          "hello",
+        ),
+        {
+          floatingBarOpacity: 0.7,
+          liveCaptionOpacity: 0.66,
+          liveCaptionWidth: 520,
+          liveCaptionLineCount: 3,
+          liveCaptionPosition: "bottomRight",
+          liveCaptionMinimized: true,
+          liveCaptionEnabled: false,
+        },
+      ),
+    ).toBeNull();
+  });
+
+  it("does not hide captions directly from the default preference", () => {
+    expect(
+      getLiveCaptionRouteState(
+        createListenerStateWithCaption(
+          {
+            status: "active",
+            sessionId: "session-1",
+            liveTranscriptionActive: true,
+          },
+          "hello",
+        ),
+        {
+          floatingBarOpacity: 0.7,
+          liveCaptionOpacity: 0.66,
+          liveCaptionWidth: 520,
+          liveCaptionLineCount: 3,
+          liveCaptionPosition: "bottomRight",
+          liveCaptionMinimized: false,
+          liveCaptionEnabled: false,
+        },
+      ),
     ).toEqual({
       sessionId: "session-1",
       text: "hello",
@@ -203,7 +253,6 @@ describe("getLiveCaptionRouteState", () => {
       minimized: false,
     });
   });
-
   it("hides captions before live transcription is active", () => {
     expect(
       getLiveCaptionRouteState(
