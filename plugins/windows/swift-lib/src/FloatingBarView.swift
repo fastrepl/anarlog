@@ -9,6 +9,7 @@ enum FloatingBarLayout {
   static let stopSquareSize: CGFloat = 9
   static let clickAreaSize: CGFloat = 28
   static let clickAreaGap: CGFloat = 0
+  static let controlCount: CGFloat = 3
   static let pillPadding: CGFloat = 2
   static let pillWidth: CGFloat = clickAreaSize + pillPadding * 2
   static let hoverHandleGap: CGFloat = 3

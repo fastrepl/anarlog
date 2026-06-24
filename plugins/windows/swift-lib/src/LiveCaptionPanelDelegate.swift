@@ -24,6 +24,7 @@ final class LiveCaptionPanelDelegate: NSObject, NSWindowDelegate {
 
   func windowDidMove(_ notification: Notification) {
     placement.windowDidMove(notification)
+    scheduleSnap(notification)
   }
 
   func windowWillResize(_ sender: NSWindow, to frameSize: NSSize) -> NSSize {

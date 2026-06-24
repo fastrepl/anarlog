@@ -5,7 +5,7 @@ import {
 } from "@hypr/plugin-windows";
 import type { GeneralStorage } from "@hypr/store";
 
-import { useConfigValue } from "~/shared/config";
+import { useConfigValue, useConfigValues } from "~/shared/config";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import * as settingsStore from "~/store/tinybase/store/settings";
 import { listenerStore } from "~/store/zustand/listener/instance";
