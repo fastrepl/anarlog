@@ -1,7 +1,12 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-import { getBatchProvider, getSessionSpeakerCount } from "./useRunBatch";
+import {
+  canRunBatchTranscription,
+  getBatchFallbackTarget,
+  getBatchProvider,
+  getSessionSpeakerCount,
+} from "./useRunBatch";
 import { useRunBatch } from "./useRunBatch";
 
 const {
@@ -11,7 +16,11 @@ const {
   useIndexesMock,
   useValuesMock,
   useSTTConnectionMock,
+  useAuthMock,
+  useBillingAccessMock,
   useConfigValueMock,
+  isSupportedLanguagesBatchMock,
+  sonnerToastMessageMock,
   settingsUseStoreMock,
   deleteProcessedAudioForRetentionMock,
   saveMock,
@@ -23,7 +32,11 @@ const {
   useIndexesMock: vi.fn(),
   useValuesMock: vi.fn(),
   useSTTConnectionMock: vi.fn(),
+  useAuthMock: vi.fn(),
+  useBillingAccessMock: vi.fn(),
   useConfigValueMock: vi.fn(),
+  isSupportedLanguagesBatchMock: vi.fn(),
+  sonnerToastMessageMock: vi.fn(),
   settingsUseStoreMock: vi.fn(),
   deleteProcessedAudioForRetentionMock: vi.fn(),
   saveMock: vi.fn(),
@@ -42,6 +55,26 @@ vi.mock("./useSTTConnection", () => ({
   useSTTConnection: useSTTConnectionMock,
 }));
 
+vi.mock("@hypr/ui/components/ui/toast", () => ({
+  sonnerToast: {
+    message: sonnerToastMessageMock,
+  },
+}));
+
+vi.mock("~/auth", () => ({
+  useAuth: useAuthMock,
+}));
+
+vi.mock("~/auth/billing", () => ({
+  useBillingAccess: useBillingAccessMock,
+}));
+
+vi.mock("~/env", () => ({
+  env: {
+    VITE_API_URL: "https://api.test",
+  },
+}));
+
 vi.mock("~/services/audio-retention", () => ({
   deleteProcessedAudioForRetention: deleteProcessedAudioForRetentionMock,
 }));
@@ -53,6 +86,38 @@ vi.mock("~/shared/config", () => ({
 vi.mock("~/shared/utils", () => ({
   id: idMock,
 }));
+
+vi.mock("~/stt/capabilities", () => {
+  const baseLanguageCode = (language: string) =>
+    language.split(/[-_]/)[0]?.toLowerCase() ?? "";
+
+  return {
+    getTranscriptionLanguages: (
+      mainLanguage: string | null | undefined,
+      spokenLanguages: readonly string[] | null | undefined,
+    ) => {
+      const seen = new Set<string>();
+      const languages: string[] = [];
+
+      for (const language of [mainLanguage, ...(spokenLanguages ?? [])]) {
+        if (!language) {
+          continue;
+        }
+
+        const baseCode = baseLanguageCode(language);
+        if (!baseCode || seen.has(baseCode)) {
+          continue;
+        }
+
+        seen.add(baseCode);
+        languages.push(language);
+      }
+
+      return languages;
+    },
+    isSupportedLanguagesBatch: isSupportedLanguagesBatchMock,
+  };
+});
 
 vi.mock("~/store/tinybase/store/main", () => ({
   STORE_ID: "main",
@@ -149,6 +214,52 @@ describe("getBatchProvider", () => {
   });
 });
 
+describe("canRunBatchTranscription", () => {
+  test("allows post-capture batch so useRunBatch can choose a fallback", () => {
+    expect(canRunBatchTranscription(null)).toBe(true);
+    expect(
+      canRunBatchTranscription({
+        provider: "custom",
+        model: "realtime-only",
+      }),
+    ).toBe(true);
+  });
+});
+
+describe("getBatchFallbackTarget", () => {
+  test("uses hosted cloud transcription for paid users with a session", () => {
+    expect(
+      getBatchFallbackTarget({
+        isPaid: true,
+        accessToken: "token",
+        apiBaseUrl: "https://api.test",
+      }),
+    ).toEqual({
+      provider: "hyprnote",
+      model: "cloud",
+      baseUrl: "https://api.test/stt",
+      apiKey: "token",
+      label: "Pro cloud transcription",
+    });
+  });
+
+  test("uses local Soniqo batch transcription otherwise", () => {
+    expect(
+      getBatchFallbackTarget({
+        isPaid: false,
+        accessToken: null,
+        apiBaseUrl: "https://api.test",
+      }),
+    ).toEqual({
+      provider: "soniqo",
+      model: "soniqo-parakeet-batch",
+      baseUrl: "soniqo://local",
+      apiKey: "",
+      label: "Soniqo batch transcription",
+    });
+  });
+});
+
 describe("useRunBatch", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -157,6 +268,7 @@ describe("useRunBatch", () => {
     idMock.mockImplementation(() => `generated-${++nextId}`);
     saveMock.mockResolvedValue(undefined);
     deleteProcessedAudioForRetentionMock.mockResolvedValue(undefined);
+    isSupportedLanguagesBatchMock.mockResolvedValue(true);
     useListenerMock.mockImplementation((selector) =>
       selector({ startTranscription: startTranscriptionMock }),
     );
@@ -172,6 +284,15 @@ describe("useRunBatch", () => {
         baseUrl: "https://api.deepgram.com/v1/listen",
         apiKey: "test-key",
       },
+    });
+    useAuthMock.mockReturnValue({
+      session: {
+        access_token: "paid-token",
+        user: { id: "user-1" },
+      },
+    });
+    useBillingAccessMock.mockReturnValue({
+      isPaid: false,
     });
     useConfigValueMock.mockImplementation((key) =>
       key === "ai_language" ? "en" : [],
@@ -271,6 +392,72 @@ describe("useRunBatch", () => {
         languages: ["de", "en"],
       }),
       expect.any(Object),
+    );
+  });
+
+  test("falls back to local Soniqo when the selected provider is not batch-capable", async () => {
+    useSTTConnectionMock.mockReturnValue({
+      conn: {
+        provider: "custom",
+        model: "realtime-only",
+        baseUrl: "https://custom.test",
+        apiKey: "custom-key",
+      },
+    });
+    startTranscriptionMock.mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => useRunBatch("session-1"));
+
+    await act(async () => {
+      await result.current("/tmp/session.wav");
+    });
+
+    expect(startTranscriptionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: "soniqo",
+        model: "soniqo-parakeet-batch",
+        base_url: "soniqo://local",
+        api_key: "",
+      }),
+      expect.any(Object),
+    );
+    expect(sonnerToastMessageMock).toHaveBeenCalledWith(
+      "Using a batch transcription provider",
+      expect.objectContaining({
+        description:
+          "realtime-only is not available for batch transcription. Using Soniqo batch transcription instead.",
+      }),
+    );
+  });
+
+  test("falls back to hosted cloud transcription for paid users", async () => {
+    isSupportedLanguagesBatchMock.mockResolvedValue(false);
+    useBillingAccessMock.mockReturnValue({
+      isPaid: true,
+    });
+    startTranscriptionMock.mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => useRunBatch("session-1"));
+
+    await act(async () => {
+      await result.current("/tmp/session.wav");
+    });
+
+    expect(startTranscriptionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: "hyprnote",
+        model: "cloud",
+        base_url: "https://api.test/stt",
+        api_key: "paid-token",
+      }),
+      expect.any(Object),
+    );
+    expect(sonnerToastMessageMock).toHaveBeenCalledWith(
+      "Using a batch transcription provider",
+      expect.objectContaining({
+        description:
+          "nova-3 is not available for batch transcription. Using Pro cloud transcription instead.",
+      }),
     );
   });
 });

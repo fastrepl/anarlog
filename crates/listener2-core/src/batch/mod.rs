@@ -203,7 +203,7 @@ async fn run_batch_inner(
         BatchProvider::WhisperLocal => {
             run_progressive_batch_session(runtime, params, listen_params).await
         }
-        BatchProvider::Soniqo => run_soniqo_batch(params, listen_params).await,
+        BatchProvider::Soniqo => run_soniqo_batch(runtime, params, listen_params).await,
         BatchProvider::OpenAI => {
             if OpenAIAdapter::supports_progressive_batch_model(listen_params.model.as_deref()) {
                 run_progressive_batch_session(runtime, params, listen_params).await

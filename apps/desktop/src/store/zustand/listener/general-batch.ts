@@ -19,6 +19,16 @@ import { createBatchCompletedNotificationKey } from "~/stt/batch-completed-notif
 
 type BatchStore = BatchActions & BatchState;
 
+const SYNTHETIC_BATCH_PROGRESS_INITIAL = 0.06;
+const SYNTHETIC_BATCH_PROGRESS_MAX = 0.88;
+const SYNTHETIC_BATCH_PROGRESS_INTERVAL_MS = 800;
+const SYNTHETIC_BATCH_PROGRESS_TIME_CONSTANT_MS = 32_000;
+const OPENAI_PROGRESSIVE_BATCH_MODELS = new Set([
+  "gpt-4o-transcribe",
+  "gpt-4o-mini-transcribe",
+  "gpt-4o-mini-transcribe-2025-12-15",
+]);
+
 async function shouldNotifyBatchCompleted() {
   try {
     const window = getCurrentWindow();
@@ -78,9 +88,19 @@ export const runBatchSession = async <T extends BatchStore>(
   get().handleBatchStarted(sessionId);
 
   let unlisten: (() => void) | undefined;
+  let syntheticProgressTimer: ReturnType<typeof setInterval> | undefined;
   let settled = false;
 
+  const stopSyntheticProgress = () => {
+    if (syntheticProgressTimer) {
+      clearInterval(syntheticProgressTimer);
+      syntheticProgressTimer = undefined;
+    }
+  };
+
   const cleanup = (clearSession = true) => {
+    stopSyntheticProgress();
+
     if (unlisten) {
       unlisten();
       unlisten = undefined;
@@ -92,6 +112,17 @@ export const runBatchSession = async <T extends BatchStore>(
       get().clearBatchSession(sessionId);
     }
   };
+
+  if (shouldUseSyntheticBatchProgress(params)) {
+    const startedAt = Date.now();
+    get().updateBatchProgress(sessionId, SYNTHETIC_BATCH_PROGRESS_INITIAL);
+    syntheticProgressTimer = setInterval(() => {
+      get().updateBatchProgress(
+        sessionId,
+        syntheticBatchProgress(Date.now() - startedAt),
+      );
+    }, SYNTHETIC_BATCH_PROGRESS_INTERVAL_MS);
+  }
 
   const resolveSuccess = (
     output: {
@@ -175,6 +206,7 @@ export const runBatchSession = async <T extends BatchStore>(
         }
 
         if (payload.type === "progress") {
+          stopSyntheticProgress();
           get().handleBatchResponseStreamed(sessionId, payload.event);
           return;
         }
@@ -231,3 +263,34 @@ export const runBatchSession = async <T extends BatchStore>(
 
   await showBatchCompletedNotification(sessionId);
 };
+
+export function shouldUseSyntheticBatchProgress(params: TranscriptionParams) {
+  if (params.provider === "soniqo") {
+    return false;
+  }
+
+  if (params.provider === "argmax" || params.provider === "whispercpp") {
+    return false;
+  }
+
+  if (params.provider === "am") {
+    return false;
+  }
+
+  if (params.provider === "openai") {
+    return !OPENAI_PROGRESSIVE_BATCH_MODELS.has(params.model ?? "");
+  }
+
+  return true;
+}
+
+export function syntheticBatchProgress(elapsedMs: number) {
+  const elapsed = Math.max(0, elapsedMs);
+  const eased =
+    1 - Math.exp(-elapsed / SYNTHETIC_BATCH_PROGRESS_TIME_CONSTANT_MS);
+  return Math.min(
+    SYNTHETIC_BATCH_PROGRESS_MAX,
+    SYNTHETIC_BATCH_PROGRESS_INITIAL +
+      eased * (SYNTHETIC_BATCH_PROGRESS_MAX - SYNTHETIC_BATCH_PROGRESS_INITIAL),
+  );
+}

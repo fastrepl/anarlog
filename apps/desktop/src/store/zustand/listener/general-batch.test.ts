@@ -4,6 +4,8 @@ import { EMPTY_BATCH_TRANSCRIPT_ERROR } from "./batch";
 import {
   runBatchSession,
   showBatchCompletedNotification,
+  shouldUseSyntheticBatchProgress,
+  syntheticBatchProgress,
 } from "./general-batch";
 
 import { parseBatchCompletedNotificationKey } from "~/stt/batch-completed-notification";
@@ -52,6 +54,144 @@ describe("runBatchSession", () => {
     isFocusedMock.mockResolvedValue(true);
     isVisibleMock.mockResolvedValue(true);
     showNotificationMock.mockResolvedValue({ status: "ok", data: null });
+  });
+
+  test("uses synthetic progress only for blocking batch providers", () => {
+    expect(
+      shouldUseSyntheticBatchProgress({
+        session_id: "session-1",
+        provider: "hyprnote",
+        file_path: "/tmp/session.wav",
+        base_url: "",
+        api_key: "",
+      }),
+    ).toBe(true);
+    expect(
+      shouldUseSyntheticBatchProgress({
+        session_id: "session-1",
+        provider: "soniqo",
+        file_path: "/tmp/session.wav",
+        base_url: "soniqo://local",
+        api_key: "",
+      }),
+    ).toBe(false);
+    expect(
+      shouldUseSyntheticBatchProgress({
+        session_id: "session-1",
+        provider: "openai",
+        file_path: "/tmp/session.wav",
+        model: "gpt-4o-transcribe",
+        base_url: "",
+        api_key: "",
+      }),
+    ).toBe(false);
+  });
+
+  test("caps synthetic progress before completion", () => {
+    expect(syntheticBatchProgress(0)).toBe(0.06);
+    expect(syntheticBatchProgress(60_000)).toBeLessThan(0.88);
+    expect(syntheticBatchProgress(10_000_000)).toBe(0.88);
+  });
+
+  test("ticks synthetic progress for blocking batch providers", async () => {
+    vi.useFakeTimers();
+
+    try {
+      const handleBatchStarted = vi.fn();
+      const handleBatchResponse = vi.fn();
+      const handleBatchCompleted = vi.fn();
+      const clearBatchPersist = vi.fn();
+      const clearBatchSession = vi.fn();
+      const handleBatchResponseStreamed = vi.fn();
+      const handleBatchFailed = vi.fn();
+      const handleBatchStopped = vi.fn();
+      const updateBatchProgress = vi.fn();
+      const setBatchPersist = vi.fn();
+
+      let handler:
+        | ((event: {
+            payload: {
+              type: string;
+              session_id: string;
+              response?: unknown;
+              mode?: "direct" | "streamed";
+            };
+          }) => void)
+        | undefined;
+      let resolveStart: ((value: unknown) => void) | undefined;
+
+      listenMock.mockImplementation(async (cb) => {
+        handler = cb;
+        return vi.fn();
+      });
+
+      startTranscriptionMock.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveStart = resolve;
+          }),
+      );
+
+      const runPromise = runBatchSession(
+        () => ({
+          batch: {},
+          batchPreview: {},
+          batchPersist: {},
+          handleBatchStarted,
+          handleBatchResponse,
+          handleBatchCompleted,
+          clearBatchPersist,
+          clearBatchSession,
+          handleBatchResponseStreamed,
+          handleBatchFailed,
+          handleBatchStopped,
+          updateBatchProgress,
+          setBatchPersist,
+        }),
+        "session-1",
+        {
+          session_id: "session-1",
+          provider: "hyprnote",
+          file_path: "/tmp/session.wav",
+          base_url: "",
+          api_key: "",
+        },
+      );
+
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(updateBatchProgress).toHaveBeenCalledWith("session-1", 0.06);
+
+      vi.advanceTimersByTime(1_600);
+
+      expect(
+        updateBatchProgress.mock.calls.some(
+          ([, percentage]) => percentage > 0.06 && percentage < 0.88,
+        ),
+      ).toBe(true);
+
+      handler?.({
+        payload: {
+          type: "completed",
+          session_id: "session-1",
+          mode: "direct",
+          response: {
+            metadata: null,
+            results: { channels: [] },
+          },
+        },
+      });
+      resolveStart?.({ status: "ok", data: null });
+
+      await runPromise;
+
+      const callCount = updateBatchProgress.mock.calls.length;
+      vi.advanceTimersByTime(1_600);
+      expect(updateBatchProgress).toHaveBeenCalledTimes(callCount);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   test("resolves from the completed event and persists the response", async () => {
