@@ -20,6 +20,9 @@ Object.defineProperty(globalThis.window, "__TAURI_INTERNALS__", {
 });
 
 vi.mock("@tauri-apps/api/path", () => ({
+  resolveResource: vi.fn((path: string) =>
+    Promise.resolve(`/resources/${path}`),
+  ),
   sep: vi.fn().mockReturnValue("/"),
 }));
 

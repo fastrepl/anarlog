@@ -1,3 +1,4 @@
+import { resolveResource } from "@tauri-apps/api/path";
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
@@ -96,23 +97,43 @@ function mockNearbyEventStore(event: {
   description?: string;
   is_all_day?: boolean;
 }) {
-  const eventId = event.id ?? "event-1";
+  return mockNearbyEventStoreMany([event]);
+}
+
+function mockNearbyEventStoreMany(
+  events: Array<{
+    id?: string;
+    title?: string;
+    started_at: string;
+    meeting_link?: string;
+    location?: string;
+    description?: string;
+    is_all_day?: boolean;
+  }>,
+) {
   return {
-    getRow: vi.fn((table: string, rowId: string) =>
-      table === "events" && rowId === eventId
-        ? {
-            title: event.title ?? "Design sync",
-            started_at: event.started_at,
-            meeting_link: event.meeting_link,
-            location: event.location,
-            description: event.description,
-            is_all_day: event.is_all_day ?? false,
-          }
-        : undefined,
-    ),
+    getRow: vi.fn((table: string, rowId: string) => {
+      const event = events.find(
+        (event, index) => (event.id ?? `event-${index + 1}`) === rowId,
+      );
+      if (table !== "events" || !event) {
+        return undefined;
+      }
+
+      return {
+        title: event.title ?? "Design sync",
+        started_at: event.started_at,
+        meeting_link: event.meeting_link,
+        location: event.location,
+        description: event.description,
+        is_all_day: event.is_all_day ?? false,
+      };
+    }),
     forEachRow: vi.fn((table: string, callback: (rowId: string) => void) => {
       if (table === "events") {
-        callback(eventId);
+        events.forEach((event, index) =>
+          callback(event.id ?? `event-${index + 1}`),
+        );
       }
     }),
   };
@@ -604,27 +625,29 @@ describe("ListenerProvider detect events", () => {
       },
     });
 
-    expect(showNotificationMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        source: {
-          type: "mic_detected",
-          app_names: ["Zoom", "Zoom"],
-          app_ids: ["us.zoom.xos"],
-          event_ids: [],
-        },
-        footer: {
-          text: "Ignore Zoom?",
-          actionLabel: "Yes",
-          icon: {
-            type: "bundle_id",
-            bundle_id: "us.zoom.xos",
+    await vi.waitFor(() =>
+      expect(showNotificationMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          source: {
+            type: "mic_detected",
+            app_names: ["Zoom", "Zoom"],
+            app_ids: ["us.zoom.xos"],
+            event_ids: [],
           },
-        },
-        icon: {
-          type: "bundle_id",
-          bundle_id: "us.zoom.xos",
-        },
-      }),
+          footer: {
+            text: "Ignore Zoom?",
+            actionLabel: "Yes",
+            icon: {
+              type: "path",
+              path: "/resources/notification-icons/zoom.png",
+            },
+          },
+          icon: {
+            type: "path",
+            path: "/resources/notification-icons/zoom.png",
+          },
+        }),
+      ),
     );
   });
 
@@ -651,20 +674,22 @@ describe("ListenerProvider detect events", () => {
       },
     });
 
-    expect(showNotificationMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        source: {
-          type: "mic_detected",
-          app_names: ["iPhone Call"],
-          app_ids: [],
-          event_ids: [],
-        },
-        footer: null,
-        icon: {
-          type: "system_symbol",
-          name: "phone.fill",
-        },
-      }),
+    await vi.waitFor(() =>
+      expect(showNotificationMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          source: {
+            type: "mic_detected",
+            app_names: ["iPhone Call"],
+            app_ids: [],
+            event_ids: [],
+          },
+          footer: null,
+          icon: {
+            type: "system_symbol",
+            name: "phone.fill",
+          },
+        }),
+      ),
     );
   });
 
@@ -691,27 +716,29 @@ describe("ListenerProvider detect events", () => {
       },
     });
 
-    expect(showNotificationMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        source: {
-          type: "mic_detected",
-          app_names: ["iPhone Call"],
-          app_ids: ["/usr/libexec/avconferenced"],
-          event_ids: [],
-        },
-        footer: {
-          text: "Ignore iPhone Call?",
-          actionLabel: "Yes",
+    await vi.waitFor(() =>
+      expect(showNotificationMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          source: {
+            type: "mic_detected",
+            app_names: ["iPhone Call"],
+            app_ids: ["/usr/libexec/avconferenced"],
+            event_ids: [],
+          },
+          footer: {
+            text: "Ignore iPhone Call?",
+            actionLabel: "Yes",
+            icon: {
+              type: "system_symbol",
+              name: "phone.fill",
+            },
+          },
           icon: {
             type: "system_symbol",
             name: "phone.fill",
           },
-        },
-        icon: {
-          type: "system_symbol",
-          name: "phone.fill",
-        },
-      }),
+        }),
+      ),
     );
   });
 
@@ -748,28 +775,435 @@ describe("ListenerProvider detect events", () => {
       },
     });
 
+    await vi.waitFor(() =>
+      expect(showNotificationMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          source: {
+            type: "mic_detected",
+            app_names: ["Google Meet"],
+            app_ids: ["at.studio.AsideBrowser"],
+            event_ids: ["event-1"],
+          },
+          options: ["Design sync"],
+          footer: {
+            text: "Ignore Google Meet?",
+            actionLabel: "Yes",
+            icon: {
+              type: "path",
+              path: "/resources/notification-icons/google-meet.png",
+            },
+          },
+          icon: {
+            type: "path",
+            path: "/resources/notification-icons/google-meet.png",
+          },
+        }),
+      ),
+    );
+  });
+
+  test("detects Microsoft Teams live join links for browser mic notifications", async () => {
+    const store = createListenerStore();
+
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-24T02:09:00.000Z"));
+    (useStoreMock as any).mockReturnValue(
+      mockNearbyEventStore({
+        title: "Partner sync",
+        started_at: "2026-06-24T02:09:00.000Z",
+        meeting_link: "https://teams.live.com/meet/1234567890",
+      }),
+    );
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+
+    const handler = listenMock.mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf("function");
+
+    handler({
+      payload: {
+        type: "micDetected",
+        key: "mic-1",
+        apps: [{ id: "com.google.Chrome", name: "Google Chrome" }],
+        duration_secs: 15,
+      },
+    });
+
+    await vi.waitFor(() =>
+      expect(showNotificationMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          source: expect.objectContaining({
+            app_names: ["Microsoft Teams"],
+            app_ids: ["com.google.Chrome"],
+          }),
+          footer: expect.objectContaining({
+            text: "Ignore Microsoft Teams?",
+            icon: {
+              type: "path",
+              path: "/resources/notification-icons/microsoft-teams.png",
+            },
+          }),
+          icon: {
+            type: "path",
+            path: "/resources/notification-icons/microsoft-teams.png",
+          },
+        }),
+      ),
+    );
+  });
+
+  test("prefers explicit meeting links over earlier nearby event text", async () => {
+    const store = createListenerStore();
+
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-24T02:09:00.000Z"));
+    (useStoreMock as any).mockReturnValue(
+      mockNearbyEventStoreMany([
+        {
+          title: "Discord planning",
+          started_at: "2026-06-24T02:08:00.000Z",
+        },
+        {
+          title: "Design sync",
+          started_at: "2026-06-24T02:09:00.000Z",
+          meeting_link: "https://meet.google.com/abc-defg-hij",
+        },
+      ]),
+    );
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+
+    const handler = listenMock.mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf("function");
+
+    handler({
+      payload: {
+        type: "micDetected",
+        key: "mic-1",
+        apps: [{ id: "com.google.Chrome", name: "Google Chrome" }],
+        duration_secs: 15,
+      },
+    });
+
+    await vi.waitFor(() =>
+      expect(showNotificationMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          source: expect.objectContaining({
+            app_names: ["Google Meet"],
+            event_ids: ["event-1", "event-2"],
+          }),
+          footer: expect.objectContaining({
+            text: "Ignore Google Meet?",
+          }),
+          icon: {
+            type: "path",
+            path: "/resources/notification-icons/google-meet.png",
+          },
+        }),
+      ),
+    );
+  });
+
+  test("does not infer chat platforms from incidental calendar text", async () => {
+    const store = createListenerStore();
+
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-24T02:09:00.000Z"));
+    (useStoreMock as any).mockReturnValue(
+      mockNearbyEventStore({
+        title: "Quarterly signal review",
+        started_at: "2026-06-24T02:09:00.000Z",
+        description: "Discuss discordance in metrics with the messenger team",
+      }),
+    );
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+
+    const handler = listenMock.mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf("function");
+
+    handler({
+      payload: {
+        type: "micDetected",
+        key: "mic-1",
+        apps: [{ id: "com.google.Chrome", name: "Google Chrome" }],
+        duration_secs: 15,
+      },
+    });
+
+    await vi.waitFor(() =>
+      expect(showNotificationMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          source: expect.objectContaining({
+            app_names: ["Google Chrome"],
+          }),
+          footer: expect.objectContaining({
+            text: "Ignore Google Chrome?",
+            icon: { type: "bundle_id", bundle_id: "com.google.Chrome" },
+          }),
+          icon: { type: "bundle_id", bundle_id: "com.google.Chrome" },
+        }),
+      ),
+    );
+  });
+
+  test("does not show a stale mic prompt when listening starts while icons resolve", async () => {
+    const store = createListenerStore();
+    let iconResolverReady = false;
+    let resolveIcon = () => {};
+
+    vi.mocked(resolveResource).mockImplementationOnce(
+      (path: string) =>
+        new Promise((resolve) => {
+          resolveIcon = () => {
+            resolve(`/resources/${path}`);
+          };
+          iconResolverReady = true;
+        }),
+    );
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-24T02:09:00.000Z"));
+    (useStoreMock as any).mockReturnValue(
+      mockNearbyEventStore({
+        title: "Customer call",
+        started_at: "2026-06-24T02:09:00.000Z",
+        meeting_link: "https://webex.com/meet/customer-call",
+      }),
+    );
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+
+    const handler = listenMock.mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf("function");
+
+    handler({
+      payload: {
+        type: "micDetected",
+        key: "mic-1",
+        apps: [{ id: "com.google.Chrome", name: "Google Chrome" }],
+        duration_secs: 15,
+      },
+    });
+
+    await vi.waitFor(() => expect(iconResolverReady).toBe(true));
+
+    setStoreActive(store);
+    resolveIcon();
+
+    await vi.waitFor(() =>
+      expect(store.getState().live.triggerAppIds).toEqual([
+        "com.google.Chrome",
+      ]),
+    );
+    expect(showNotificationMock).not.toHaveBeenCalled();
+  });
+
+  test("does not show duplicate mic prompts while icons resolve", async () => {
+    const store = createListenerStore();
+    let iconResolverReady = false;
+    let resolveIcon = () => {};
+
+    vi.mocked(resolveResource).mockImplementationOnce(
+      (path: string) =>
+        new Promise((resolve) => {
+          resolveIcon = () => {
+            resolve(`/resources/${path}`);
+          };
+          iconResolverReady = true;
+        }),
+    );
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-24T02:09:00.000Z"));
+    (useStoreMock as any).mockReturnValue(
+      mockNearbyEventStore({
+        title: "Product review",
+        started_at: "2026-06-24T02:09:00.000Z",
+        meeting_link: "https://meet.jit.si/product-review",
+      }),
+    );
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+
+    const handler = listenMock.mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf("function");
+
+    handler({
+      payload: {
+        type: "micDetected",
+        key: "mic-1",
+        apps: [{ id: "com.google.Chrome", name: "Google Chrome" }],
+        duration_secs: 15,
+      },
+    });
+
+    await vi.waitFor(() => expect(iconResolverReady).toBe(true));
+
+    handler({
+      payload: {
+        type: "micDetected",
+        key: "mic-2",
+        apps: [{ id: "com.google.Chrome", name: "Google Chrome" }],
+        duration_secs: 15,
+      },
+    });
+
+    resolveIcon();
+
+    await vi.waitFor(() =>
+      expect(showNotificationMock).toHaveBeenCalledTimes(1),
+    );
     expect(showNotificationMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        source: {
-          type: "mic_detected",
-          app_names: ["Google Meet"],
-          app_ids: ["at.studio.AsideBrowser"],
-          event_ids: ["event-1"],
-        },
-        options: ["Design sync"],
-        footer: {
-          text: "Ignore Google Meet?",
-          actionLabel: "Yes",
-          icon: {
-            type: "system_symbol",
-            name: "video.fill",
-          },
-        },
-        icon: {
-          type: "system_symbol",
-          name: "video.fill",
-        },
+        key: "mic-1",
+        source: expect.objectContaining({
+          app_names: ["Jitsi"],
+        }),
       }),
+    );
+  });
+
+  test("keeps main and footer icons aligned for mixed native and browser mic notifications", async () => {
+    const store = createListenerStore();
+
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-24T02:09:00.000Z"));
+    (useStoreMock as any).mockReturnValue(
+      mockNearbyEventStore({
+        title: "Design sync",
+        started_at: "2026-06-24T02:09:00.000Z",
+        meeting_link: "https://meet.google.com/abc-defg-hij",
+      }),
+    );
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+
+    const handler = listenMock.mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf("function");
+
+    handler({
+      payload: {
+        type: "micDetected",
+        key: "mic-1",
+        apps: [
+          { id: "us.zoom.xos", name: "Zoom" },
+          { id: "com.google.Chrome", name: "Google Chrome" },
+        ],
+        duration_secs: 15,
+      },
+    });
+
+    const zoomIcon = {
+      type: "path",
+      path: "/resources/notification-icons/zoom.png",
+    };
+
+    await vi.waitFor(() =>
+      expect(showNotificationMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          source: expect.objectContaining({
+            app_names: ["Zoom", "Google Meet"],
+            app_ids: ["us.zoom.xos", "com.google.Chrome"],
+          }),
+          footer: expect.objectContaining({
+            text: "Ignore Zoom and Google Meet?",
+            icon: zoomIcon,
+          }),
+          icon: zoomIcon,
+        }),
+      ),
+    );
+  });
+
+  test("shows Cal Video for browser mic notifications with Cal video links", async () => {
+    const store = createListenerStore();
+
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-24T02:09:00.000Z"));
+    (useStoreMock as any).mockReturnValue(
+      mockNearbyEventStore({
+        title: "Founder call",
+        started_at: "2026-06-24T02:09:00.000Z",
+        meeting_link: "https://app.cal.com/video/founder-call",
+      }),
+    );
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+
+    const handler = listenMock.mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf("function");
+
+    handler({
+      payload: {
+        type: "micDetected",
+        key: "mic-1",
+        apps: [{ id: "at.studio.AsideBrowser", name: "Aside" }],
+        duration_secs: 15,
+      },
+    });
+
+    await vi.waitFor(() =>
+      expect(showNotificationMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          source: expect.objectContaining({
+            app_names: ["Cal Video"],
+            app_ids: ["at.studio.AsideBrowser"],
+            event_ids: ["event-1"],
+          }),
+          footer: expect.objectContaining({
+            text: "Ignore Cal Video?",
+            icon: {
+              type: "path",
+              path: "/resources/notification-icons/cal-video.png",
+            },
+          }),
+          icon: {
+            type: "path",
+            path: "/resources/notification-icons/cal-video.png",
+          },
+        }),
+      ),
     );
   });
 
@@ -779,8 +1213,18 @@ describe("ListenerProvider detect events", () => {
       icon: { type: "bundle_id", bundle_id: "com.apple.FaceTime" },
     },
     {
+      app: { id: "net.whatsapp.WhatsApp", name: "WhatsApp" },
+      icon: {
+        type: "path",
+        path: "/resources/notification-icons/whatsapp.png",
+      },
+    },
+    {
       app: { id: "com.kakao.KakaoTalkMac", name: "KakaoTalk" },
-      icon: { type: "bundle_id", bundle_id: "com.kakao.KakaoTalkMac" },
+      icon: {
+        type: "path",
+        path: "/resources/notification-icons/kakaotalk.png",
+      },
     },
   ])(
     "uses app-specific icons for $app.name mic notifications",
@@ -807,18 +1251,20 @@ describe("ListenerProvider detect events", () => {
         },
       });
 
-      expect(showNotificationMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          source: expect.objectContaining({
-            app_names: [app.name],
-            app_ids: [app.id],
-          }),
-          footer: expect.objectContaining({
-            text: `Ignore ${app.name}?`,
+      await vi.waitFor(() =>
+        expect(showNotificationMock).toHaveBeenCalledWith(
+          expect.objectContaining({
+            source: expect.objectContaining({
+              app_names: [app.name],
+              app_ids: [app.id],
+            }),
+            footer: expect.objectContaining({
+              text: `Ignore ${app.name}?`,
+              icon,
+            }),
             icon,
           }),
-          icon,
-        }),
+        ),
       );
     },
   );
