@@ -76,6 +76,7 @@ final class LiveCaptionManager {
       model.text = ""
     }
     model.lineCount = LiveCaptionLayout.defaultLineCount
+    model.lineCount = LiveCaptionLayout.defaultLineCount
   }
 
   func update(state: LiveCaptionStatePayload) {
