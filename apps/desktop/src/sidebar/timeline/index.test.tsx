@@ -197,8 +197,12 @@ describe("TimelineView", () => {
     expect(getSidebarActionTabsOrNull()).toBeNull();
     expect(calendarButton.className).toContain("rounded-full");
     expect(
+      container.querySelector("[data-sidebar-timeline-top-chip-stack]")
+        ?.className,
+    ).toContain("top-10");
+    expect(
       container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
-    ).toContain("h-20");
+    ).toContain("h-18");
 
     fireEvent.click(calendarButton);
 
@@ -286,6 +290,10 @@ describe("TimelineView", () => {
     });
 
     expect(getSidebarActionTabsOrNull()).toBeNull();
+    expect(
+      container.querySelector("[data-sidebar-timeline-top-chip-stack]")
+        ?.className,
+    ).toContain("top-4");
     expect(
       container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
     ).toContain("h-10");

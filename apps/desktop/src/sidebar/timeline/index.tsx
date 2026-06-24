@@ -151,12 +151,12 @@ export function TimelineView({
   const hasReservedTopChromeChip = showOpenCalendarChip;
   const topSpacerClassName = topChromeInset
     ? hasReservedTopChromeChip
-      ? "h-20"
+      ? "h-18"
       : "h-8"
     : "h-10";
   const bucketHeaderTopClassName = topChromeInset
     ? hasReservedTopChromeChip
-      ? "top-20"
+      ? "top-18"
       : "top-8"
     : "top-0";
   const showTopChromeFade = topChromeInset && !isScrolledToTop;
@@ -457,7 +457,7 @@ export function TimelineView({
           className={cn([
             "pointer-events-none absolute inset-x-0 top-0 z-[15]",
             hasReservedTopChromeChip
-              ? "bg-background h-20"
+              ? "bg-background h-18"
               : "from-background via-background/95 to-background/0 h-16 bg-linear-to-b from-60% via-85%",
           ])}
         />
@@ -465,9 +465,10 @@ export function TimelineView({
 
       {(showOpenCalendarChip || showUpcomingMeetingChip || showTopNowChip) && (
         <div
+          data-sidebar-timeline-top-chip-stack
           className={cn([
             "absolute left-1/2 z-20 flex -translate-x-1/2 transform flex-col items-center gap-2",
-            topChromeInset ? "top-8" : "top-2",
+            topChromeInset ? "top-10" : "top-4",
           ])}
         >
           {showOpenCalendarChip && (
