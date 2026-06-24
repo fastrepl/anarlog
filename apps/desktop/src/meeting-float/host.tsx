@@ -11,7 +11,9 @@ import * as settingsStore from "~/store/tinybase/store/settings";
 import { listenerStore } from "~/store/zustand/listener/instance";
 
 type ListenerState = ReturnType<typeof listenerStore.getState>;
-type SettingsStore = NonNullable<ReturnType<typeof settingsStore.UI.useStore>>;
+export type SettingsStore = NonNullable<
+  ReturnType<typeof settingsStore.UI.useStore>
+>;
 type FloatingBarStatus = "recording" | "error";
 type FloatingBarColorScheme = "light" | "dark";
 type LiveCaptionPosition =
@@ -217,8 +219,23 @@ function LiveCaptionWindowSync({
     let syncRequested = false;
     let cancelled = false;
     let shownSessionId: string | null = null;
+    const unlisteners: Array<() => void> = [];
 
     const shouldContinue = () => !cancelled;
+    const updateSettings = (nextSettings: FloatingOverlaySettings) => {
+      const nextRouteState = getLiveCaptionRouteState(
+        listenerStore.getState(),
+        nextSettings,
+      );
+
+      settings = nextSettings;
+      if (isSameLiveCaptionRouteState(nextRouteState, routeState)) {
+        return;
+      }
+
+      routeState = nextRouteState;
+      scheduleSync();
+    };
 
     const sync = async () => {
       if (!shouldContinue()) {
@@ -295,26 +312,36 @@ function LiveCaptionWindowSync({
     const settingsListenerIds = addFloatingOverlaySettingsListeners(
       store,
       () => {
-        const nextSettings = getFloatingOverlaySettingsFromStore(store);
-        const nextRouteState = getLiveCaptionRouteState(
-          listenerStore.getState(),
-          nextSettings,
-        );
-
-        settings = nextSettings;
-        if (isSameLiveCaptionRouteState(nextRouteState, routeState)) {
+        updateSettings(getFloatingOverlaySettingsFromStore(store));
+      },
+    );
+    windowsEvents.floatingBarSettingsChange
+      .listen((event) => {
+        if (cancelled) {
           return;
         }
 
-        routeState = nextRouteState;
-        scheduleSync();
-      },
-    );
+        updateSettings(
+          mergeFloatingOverlaySettings(
+            settings,
+            getSettingsValuesFromNativeChange(event.payload),
+          ),
+        );
+      })
+      .then((unlisten) => {
+        if (cancelled) {
+          unlisten();
+          return;
+        }
+
+        unlisteners.push(unlisten);
+      });
 
     return () => {
       cancelled = true;
       unsubscribe();
       removeSettingsListeners(store, settingsListenerIds);
+      unlisteners.forEach((unlisten) => unlisten());
       void hideLiveCaptionPanel();
     };
   });
@@ -952,21 +979,48 @@ function getSettingsValuesFromNativeChange(change: FloatingBarSettingsChange) {
   return values;
 }
 
+function mergeFloatingOverlaySettings(
+  settings: FloatingOverlaySettings,
+  values: Partial<FloatingOverlaySettingsStorage>,
+): FloatingOverlaySettings {
+  return {
+    ...settings,
+    floatingBarOpacity:
+      values.floating_bar_opacity ?? settings.floatingBarOpacity,
+    liveCaptionOpacity:
+      values.live_caption_opacity ?? settings.liveCaptionOpacity,
+    liveCaptionWidth: values.live_caption_width ?? settings.liveCaptionWidth,
+    liveCaptionLineCount:
+      values.live_caption_line_count ?? settings.liveCaptionLineCount,
+    liveCaptionPosition:
+      values.live_caption_position === undefined
+        ? settings.liveCaptionPosition
+        : normalizeLiveCaptionPosition(values.live_caption_position),
+    liveCaptionMinimized:
+      values.live_caption_minimized ?? settings.liveCaptionMinimized,
+  };
+}
+
 export async function openFloatingMeetingPanel({
   sessionId,
   enabled,
+  store,
 }: {
   sessionId?: string;
   enabled: boolean;
+  store?: SettingsStore;
 }) {
   if (!enabled) {
     await hideFloatingMeetingPanel();
     return;
   }
 
+  const state = listenerStore.getState();
   const routeState = getCurrentFloatingRouteState(
-    listenerStore.getState(),
+    state,
     sessionId,
+    getFloatingOverlaySettingsFromStore(store),
+    getFloatingLiveCaptionToggleVisible(state, store),
   );
 
   if (!routeState) {

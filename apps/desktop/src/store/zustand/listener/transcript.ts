@@ -212,13 +212,7 @@ function getCaptionTextFromDelta(
   }
 
   if (finalWords.length > 0) {
-    const finalCaptionText = wordsToText(finalWords);
-    if (
-      currentCaptionText.length === 0 ||
-      finalCaptionText.length >= currentCaptionText.length
-    ) {
-      return finalCaptionText;
-    }
+    return wordsToText(finalWords);
   }
 
   return currentCaptionText;

@@ -122,13 +122,13 @@ describe("transcript slice", () => {
     expect(store.getState().liveCaptionText).toBe("hello remote again");
   });
 
-  test("keeps the partial caption text when finalized words arrive separately", () => {
+  test("replaces longer partial caption text with shorter finalized words", () => {
     store.getState().handleTranscriptDelta("session-1", createDelta());
     store.getState().handleTranscriptDelta("session-1", {
       new_words: [
         {
           id: "word-2",
-          text: " remote",
+          text: " done",
           start_ms: 200,
           end_ms: 300,
           channel: 1,
@@ -140,7 +140,7 @@ describe("transcript slice", () => {
       partials: [],
     });
 
-    expect(store.getState().liveCaptionText).toBe("hello remote again");
+    expect(store.getState().liveCaptionText).toBe("done");
   });
 
   test("appends delayed partials after finalized caption text", () => {

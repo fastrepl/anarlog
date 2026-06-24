@@ -28,6 +28,7 @@ import {
   useHasTranscript,
 } from "~/session/components/shared";
 import { useConfigValue } from "~/shared/config";
+import * as settingsStore from "~/store/tinybase/store/settings";
 import type { EditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
 import { useUploadFile } from "~/stt/useUploadFile";
@@ -51,6 +52,7 @@ export function OverflowButton({
   const { uploadAudio, uploadTranscript } = useUploadFile(sessionId);
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
   const floatingBarEnabled = useConfigValue("floating_bar_enabled");
+  const settings = settingsStore.UI.useStore(settingsStore.STORE_ID);
   const canOpenFloatingPanel =
     allowListening && floatingBarEnabled && sessionMode === "active";
   const openExportModal = () => {
@@ -70,6 +72,7 @@ export function OverflowButton({
     void openFloatingMeetingPanel({
       sessionId,
       enabled: floatingBarEnabled,
+      store: settings,
     });
   };
 
