@@ -41,10 +41,10 @@ describe("chat surface tokens", () => {
 
   it("uses a neutral surface on the floating shell", () => {
     expect(chatFloatingPanelShellClassNames()).toContain(
-      "shadow-[0_28px_72px_rgba(0,0,0,0.28)]",
+      "shadow-[0_32px_84px_rgba(0,0,0,0.32)]",
     );
     expect(chatFloatingPanelShellClassNames()).toContain(
-      "dark:shadow-[0_32px_84px_rgba(0,0,0,0.68)]",
+      "dark:shadow-[0_36px_96px_rgba(0,0,0,0.72)]",
     );
     expect(chatFloatingPanelShellClassNames()).toContain("bg-[#f4f4f5]");
     expect(chatFloatingPanelShellClassNames()).toContain("rounded-[24px]");

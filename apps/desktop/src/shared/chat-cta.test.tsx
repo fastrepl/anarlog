@@ -66,9 +66,17 @@ describe("ChatCTA", () => {
     expect(surface?.className).toContain("rounded-full");
     expect(surface?.className).toContain("bg-black");
     expect(surface?.className).toContain("dark:bg-white");
-    expect(surface?.className).toContain("shadow-[0_8px_22px_rgba(0,0,0,0.2)]");
     expect(surface?.className).toContain(
-      "dark:shadow-[0_8px_24px_rgba(0,0,0,0.45)]",
+      "shadow-[0_10px_26px_rgba(0,0,0,0.22)]",
+    );
+    expect(surface?.className).toContain(
+      "dark:shadow-[0_10px_30px_rgba(0,0,0,0.5)]",
+    );
+    expect(surface?.className).toContain(
+      "group-hover/anarlog-chat-cta:shadow-[0_16px_42px_rgba(0,0,0,0.26)]",
+    );
+    expect(surface?.className).toContain(
+      "dark:group-hover/anarlog-chat-cta:shadow-[0_18px_52px_rgba(0,0,0,0.64)]",
     );
     expect(surface?.className).toContain("border");
     expect(surface?.className).toContain("border-transparent");
