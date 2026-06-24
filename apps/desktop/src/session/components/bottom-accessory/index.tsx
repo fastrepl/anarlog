@@ -196,7 +196,7 @@ function PostSessionTabButton({
       onClick={() => onSelect(tab)}
       className={cn([
         "border-border relative flex h-5 items-center justify-center gap-1 border-t px-3",
-        "after:pointer-events-none after:absolute after:right-px after:-bottom-px after:left-px after:h-0.5 after:bg-inherit after:content-['']",
+        "after:pointer-events-none after:absolute after:right-px after:-bottom-0.5 after:left-px after:h-1 after:bg-inherit after:content-['']",
         "text-[10px] font-medium transition-colors",
         isActive && isExpanded
           ? "bg-card text-foreground"
