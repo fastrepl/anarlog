@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import * as React from "react";
 import { vi } from "vitest";
 
 Object.defineProperty(globalThis.crypto, "randomUUID", { value: randomUUID });
@@ -30,6 +31,66 @@ vi.mock("@hypr/plugin-db", () => ({
   execute: vi.fn().mockResolvedValue([]),
   executeProxy: vi.fn().mockResolvedValue({ rows: [] }),
   subscribe: vi.fn().mockResolvedValue(() => {}),
+}));
+
+function translate(
+  input:
+    | TemplateStringsArray
+    | string
+    | { message?: string; values?: Record<string, unknown> },
+  ...values: unknown[]
+) {
+  if (typeof input === "string") {
+    return input;
+  }
+
+  if (typeof input === "object" && !("raw" in input)) {
+    let message = input.message ?? "";
+    for (const [key, value] of Object.entries(input.values ?? {})) {
+      message = message.split(`{${key}}`).join(String(value));
+    }
+    return message;
+  }
+
+  return Array.from(input).reduce(
+    (text, part, index) => `${text}${part}${values[index] ?? ""}`,
+    "",
+  );
+}
+
+vi.mock("@lingui/react/macro", () => ({
+  Trans: ({
+    children,
+    id,
+    message,
+  }: {
+    children?: React.ReactNode;
+    id?: string;
+    message?: string;
+  }) => React.createElement(React.Fragment, null, children ?? message ?? id),
+  useLingui: () => ({
+    _: translate,
+    t: translate,
+  }),
+}));
+
+vi.mock("@lingui/react", () => ({
+  I18nProvider: ({ children }: { children?: React.ReactNode }) =>
+    React.createElement(React.Fragment, null, children),
+  Trans: ({
+    children,
+    id,
+    message,
+  }: {
+    children?: React.ReactNode;
+    id?: string;
+    message?: string;
+  }) => React.createElement(React.Fragment, null, children ?? message ?? id),
+  useLingui: () => ({
+    _: translate,
+    t: translate,
+    i18n: { locale: "en" },
+  }),
 }));
 
 vi.mock("@hypr/plugin-analytics", () => ({

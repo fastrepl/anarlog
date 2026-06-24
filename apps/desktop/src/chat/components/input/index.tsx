@@ -64,14 +64,14 @@ export function ChatMessageInput({
   const isRightPanel = chat.mode === "RightPanelOpen";
   const isFloating = chat.mode === "FloatingOpen";
   const showSendControl = !isFloating || isStreaming || hasContent;
+  const placeholderText = isFloating
+    ? t`Ask anything`
+    : t`Ask & search about anything, or be creative!`;
+  const placeholderTextRef = useRef(placeholderText);
+  placeholderTextRef.current = placeholderText;
   const placeholder = useMemo(
-    () =>
-      createChatPlaceholder(
-        isFloating
-          ? t`Ask anything`
-          : t`Ask & search about anything, or be creative!`,
-      ),
-    [isFloating, t],
+    () => createChatPlaceholder(() => placeholderTextRef.current),
+    [],
   );
 
   return (
@@ -189,10 +189,12 @@ function Container({
   );
 }
 
-function createChatPlaceholder(placeholder: string): PlaceholderFunction {
+function createChatPlaceholder(
+  getPlaceholder: () => string,
+): PlaceholderFunction {
   return ({ node, pos }) => {
     if (node.type.name === "paragraph" && pos === 0) {
-      return placeholder;
+      return getPlaceholder();
     }
     return "";
   };
