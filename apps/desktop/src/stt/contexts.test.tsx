@@ -87,6 +87,37 @@ function mockSessionEventStore(event: {
   };
 }
 
+function mockNearbyEventStore(event: {
+  id?: string;
+  title?: string;
+  started_at: string;
+  meeting_link?: string;
+  location?: string;
+  description?: string;
+  is_all_day?: boolean;
+}) {
+  const eventId = event.id ?? "event-1";
+  return {
+    getRow: vi.fn((table: string, rowId: string) =>
+      table === "events" && rowId === eventId
+        ? {
+            title: event.title ?? "Design sync",
+            started_at: event.started_at,
+            meeting_link: event.meeting_link,
+            location: event.location,
+            description: event.description,
+            is_all_day: event.is_all_day ?? false,
+          }
+        : undefined,
+    ),
+    forEachRow: vi.fn((table: string, callback: (rowId: string) => void) => {
+      if (table === "events") {
+        callback(eventId);
+      }
+    }),
+  };
+}
+
 describe("ListenerProvider detect events", () => {
   beforeEach(() => {
     listenMock.mockReset();
@@ -632,6 +663,111 @@ describe("ListenerProvider detect events", () => {
         icon: {
           type: "system_symbol",
           name: "phone.fill",
+        },
+      }),
+    );
+  });
+
+  test("shows iPhone call icon and label for avconferenced mic notifications", async () => {
+    const store = createListenerStore();
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+
+    const handler = listenMock.mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf("function");
+
+    handler({
+      payload: {
+        type: "micDetected",
+        key: "mic-1",
+        apps: [{ id: "/usr/libexec/avconferenced", name: "avconferenced" }],
+        duration_secs: 15,
+      },
+    });
+
+    expect(showNotificationMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: {
+          type: "mic_detected",
+          app_names: ["iPhone Call"],
+          app_ids: ["/usr/libexec/avconferenced"],
+          event_ids: [],
+        },
+        footer: {
+          text: "Ignore iPhone Call?",
+          actionLabel: "Yes",
+          icon: {
+            type: "system_symbol",
+            name: "phone.fill",
+          },
+        },
+        icon: {
+          type: "system_symbol",
+          name: "phone.fill",
+        },
+      }),
+    );
+  });
+
+  test("shows meeting platform for browser mic notifications with nearby meeting link", async () => {
+    const store = createListenerStore();
+
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-24T02:09:00.000Z"));
+    (useStoreMock as any).mockReturnValue(
+      mockNearbyEventStore({
+        title: "Design sync",
+        started_at: "2026-06-24T02:09:00.000Z",
+        meeting_link: "https://meet.google.com/abc-defg-hij",
+      }),
+    );
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+
+    const handler = listenMock.mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf("function");
+
+    handler({
+      payload: {
+        type: "micDetected",
+        key: "mic-1",
+        apps: [{ id: "at.studio.AsideBrowser", name: "Aside" }],
+        duration_secs: 15,
+      },
+    });
+
+    expect(showNotificationMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: {
+          type: "mic_detected",
+          app_names: ["Google Meet"],
+          app_ids: ["at.studio.AsideBrowser"],
+          event_ids: ["event-1"],
+        },
+        options: ["Design sync"],
+        footer: {
+          text: "Ignore Google Meet?",
+          actionLabel: "Yes",
+          icon: {
+            type: "system_symbol",
+            name: "video.fill",
+          },
+        },
+        icon: {
+          type: "system_symbol",
+          name: "video.fill",
         },
       }),
     );

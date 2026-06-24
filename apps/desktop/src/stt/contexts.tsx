@@ -68,20 +68,60 @@ const UNRELIABLE_AUTO_STOP_APP_IDS = new Set(["com.kakao.KakaoTalkMac"]);
 
 type MainStore = NonNullable<ReturnType<typeof main.UI.useStore>>;
 type MicApp = { id: string; name: string };
+type NearbyEvent = {
+  id: string;
+  title: string;
+  meetingLink?: string;
+  location?: string;
+  description?: string;
+};
+type MeetingPlatform = {
+  displayName: string;
+  icon: NotificationIcon;
+};
 
 const IPHONE_CALL_ICON: NotificationIcon = {
   type: "system_symbol",
   name: "phone.fill",
 };
 
+const BROWSER_MEETING_ICON: NotificationIcon = {
+  type: "system_symbol",
+  name: "video.fill",
+};
+
+const MEETING_PLATFORMS = {
+  zoom: {
+    displayName: "Zoom",
+    icon: BROWSER_MEETING_ICON,
+  },
+  googleMeet: {
+    displayName: "Google Meet",
+    icon: BROWSER_MEETING_ICON,
+  },
+  webex: {
+    displayName: "Webex",
+    icon: BROWSER_MEETING_ICON,
+  },
+  teams: {
+    displayName: "Microsoft Teams",
+    icon: BROWSER_MEETING_ICON,
+  },
+  calCom: {
+    displayName: "Cal.com",
+    icon: BROWSER_MEETING_ICON,
+  },
+} satisfies Record<string, MeetingPlatform>;
+
 const MIC_APP_NOTIFICATION_OVERRIDES = [
   {
     ids: new Set([
+      "/usr/libexec/avconferenced",
       "com.apple.avconferenced",
       "com.apple.TelephonyUtilities",
       "com.apple.TelephonyUtilities.callservicesd",
     ]),
-    names: new Set(["av capture", "avcapture", "iphone call"]),
+    names: new Set(["av capture", "avcapture", "avconferenced", "iphone call"]),
     displayName: "iPhone Call",
     icon: IPHONE_CALL_ICON,
   },
@@ -145,6 +185,140 @@ function getNotificationIconForApps(apps: MicApp[]): NotificationIcon | null {
 
 function getNotificationAppName(app: MicApp) {
   return getMicAppNotificationOverride(app)?.displayName ?? app.name;
+}
+
+function isBrowserApp(app: MicApp) {
+  return BROWSER_AUTO_STOP_APP_IDS.has(app.id);
+}
+
+function detectMeetingPlatformFromUrl(value: string): MeetingPlatform | null {
+  try {
+    const hostname = new URL(value).hostname.toLowerCase();
+
+    if (hostname === "zoom.us" || hostname.endsWith(".zoom.us")) {
+      return MEETING_PLATFORMS.zoom;
+    }
+
+    if (hostname === "meet.google.com") {
+      return MEETING_PLATFORMS.googleMeet;
+    }
+
+    if (hostname === "webex.com" || hostname.endsWith(".webex.com")) {
+      return MEETING_PLATFORMS.webex;
+    }
+
+    if (hostname === "teams.microsoft.com") {
+      return MEETING_PLATFORMS.teams;
+    }
+
+    if (hostname === "app.cal.com") {
+      return MEETING_PLATFORMS.calCom;
+    }
+  } catch {}
+
+  return null;
+}
+
+function detectMeetingPlatformFromText(value: string): MeetingPlatform | null {
+  const urls = value.match(/https?:\/\/[^\s<>"')]+/g) ?? [];
+  for (const url of urls) {
+    const platform = detectMeetingPlatformFromUrl(url);
+    if (platform) {
+      return platform;
+    }
+  }
+
+  const normalized = value.toLowerCase();
+  if (normalized.includes("google meet")) {
+    return MEETING_PLATFORMS.googleMeet;
+  }
+  if (normalized.includes("microsoft teams")) {
+    return MEETING_PLATFORMS.teams;
+  }
+  if (normalized.includes("zoom meeting")) {
+    return MEETING_PLATFORMS.zoom;
+  }
+  if (normalized.includes("webex")) {
+    return MEETING_PLATFORMS.webex;
+  }
+  if (normalized.includes("cal.com")) {
+    return MEETING_PLATFORMS.calCom;
+  }
+
+  return null;
+}
+
+function getBrowserMeetingPlatform(
+  apps: MicApp[],
+  nearbyEvents: NearbyEvent[],
+): MeetingPlatform | null {
+  if (!apps.some(isBrowserApp)) {
+    return null;
+  }
+
+  for (const event of nearbyEvents) {
+    for (const value of [
+      event.meetingLink,
+      event.location,
+      event.description,
+      event.title,
+    ]) {
+      if (!value) {
+        continue;
+      }
+
+      const platform = value.startsWith("http")
+        ? detectMeetingPlatformFromUrl(value)
+        : detectMeetingPlatformFromText(value);
+      if (platform) {
+        return platform;
+      }
+    }
+  }
+
+  return null;
+}
+
+function getNotificationDisplayApp(
+  app: MicApp,
+  browserMeetingPlatform: MeetingPlatform | null,
+) {
+  if (browserMeetingPlatform && isBrowserApp(app)) {
+    return { ...app, name: browserMeetingPlatform.displayName };
+  }
+
+  return app;
+}
+
+function getNotificationDisplayApps(
+  apps: MicApp[],
+  browserMeetingPlatform: MeetingPlatform | null,
+) {
+  return apps.map((app) =>
+    getNotificationDisplayApp(app, browserMeetingPlatform),
+  );
+}
+
+function getNotificationIconForDisplayApp(
+  app: MicApp,
+  browserMeetingPlatform: MeetingPlatform | null,
+): NotificationIcon | null {
+  if (browserMeetingPlatform && isBrowserApp(app)) {
+    return browserMeetingPlatform.icon;
+  }
+
+  return getNotificationIconForApp(app);
+}
+
+function getNotificationIconForDetectedApps(
+  apps: MicApp[],
+  browserMeetingPlatform: MeetingPlatform | null,
+): NotificationIcon | null {
+  if (browserMeetingPlatform && apps.some(isBrowserApp)) {
+    return browserMeetingPlatform.icon;
+  }
+
+  return getNotificationIconForApps(apps);
 }
 
 function getIgnorableApps(apps: MicApp[]) {
@@ -329,10 +503,10 @@ export const useListener = <T,>(
 
 function getNearbyEvents(
   tinybaseStore: NonNullable<ReturnType<typeof main.UI.useStore>>,
-): { id: string; title: string }[] {
+): NearbyEvent[] {
   const now = Date.now();
   const windowMs = 15 * 60 * 1000;
-  const results: { id: string; title: string; startedAt: number }[] = [];
+  const results: (NearbyEvent & { startedAt: number })[] = [];
 
   tinybaseStore.forEachRow("events", (eventId, _forEachCell) => {
     const event = tinybaseStore.getRow("events", eventId);
@@ -346,13 +520,27 @@ function getNearbyEvents(
       results.push({
         id: eventId,
         title: String(event.title || "Untitled Event"),
+        meetingLink:
+          typeof event.meeting_link === "string"
+            ? event.meeting_link
+            : undefined,
+        location:
+          typeof event.location === "string" ? event.location : undefined,
+        description:
+          typeof event.description === "string" ? event.description : undefined,
         startedAt: startTime,
       });
     }
   });
 
   results.sort((a, b) => a.startedAt - b.startedAt);
-  return results.map(({ id, title }) => ({ id, title }));
+  return results.map(({ id, title, meetingLink, location, description }) => ({
+    id,
+    title,
+    meetingLink,
+    location,
+    description,
+  }));
 }
 
 const useHandleDetectEvents = (store: ListenerStore) => {
@@ -467,15 +655,29 @@ const useHandleDetectEvents = (store: ListenerStore) => {
           const nearbyEvents = currentTinybaseStore
             ? getNearbyEvents(currentTinybaseStore)
             : [];
+          const browserMeetingPlatform = getBrowserMeetingPlatform(
+            payload.apps,
+            nearbyEvents,
+          );
+          const displayApps = getNotificationDisplayApps(
+            payload.apps,
+            browserMeetingPlatform,
+          );
+          const displayIgnorableApps = ignorableApps.map((app) =>
+            getNotificationDisplayApp(app, browserMeetingPlatform),
+          );
 
           const options =
             nearbyEvents.length > 0 ? nearbyEvents.map((e) => e.title) : null;
           const footer =
-            ignorableApps.length > 0
+            displayIgnorableApps.length > 0
               ? {
-                  text: getIgnoreAppsFooterText(ignorableApps),
+                  text: getIgnoreAppsFooterText(displayIgnorableApps),
                   actionLabel: "Yes",
-                  icon: getNotificationIconForApp(ignorableApps[0]!),
+                  icon: getNotificationIconForDisplayApp(
+                    ignorableApps[0]!,
+                    browserMeetingPlatform,
+                  ),
                 }
               : null;
 
@@ -486,7 +688,7 @@ const useHandleDetectEvents = (store: ListenerStore) => {
             timeout: { secs: 15, nanos: 0 },
             source: {
               type: "mic_detected",
-              app_names: payload.apps.map((app) => getNotificationAppName(app)),
+              app_names: displayApps.map((app) => getNotificationAppName(app)),
               app_ids: appIds,
               event_ids: nearbyEvents.map((e) => e.id),
             },
@@ -497,7 +699,10 @@ const useHandleDetectEvents = (store: ListenerStore) => {
             action_variant: null,
             options,
             footer,
-            icon: getNotificationIconForApps(payload.apps),
+            icon: getNotificationIconForDetectedApps(
+              payload.apps,
+              browserMeetingPlatform,
+            ),
           });
         } else if (payload.type === "micStopped") {
           const autoStopEnabled =
