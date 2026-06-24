@@ -98,13 +98,11 @@ struct FloatingBarView: View {
       if model.liveCaptionToggleVisible {
         Button(action: { performClick(toggleLiveCaption) }) {
           CircularClickArea(
-            hoverFill: controlHoverFill
+            hoverFill: settings.liveCaptionMinimized ? controlHoverFill : accentColor.opacity(0.16)
           ) {
-            Image(systemName: settings.liveCaptionMinimized ? "eye.slash" : "eye")
+            Image(systemName: "captions.bubble")
               .font(.system(size: 12, weight: .semibold))
-              .foregroundStyle(
-                settings.liveCaptionMinimized ? secondaryContentColor : primaryContentColor
-              )
+              .foregroundStyle(settings.liveCaptionMinimized ? primaryContentColor : accentColor)
           }
         }
         .buttonStyle(.plain)
@@ -233,13 +231,7 @@ struct FloatingBarView: View {
   }
 
   private func toggleLiveCaption() {
-    let shouldHide = !settings.liveCaptionMinimized
-    settings.setLiveCaptionMinimized(shouldHide)
-    if shouldHide {
-      LiveCaptionManager.shared.hide(clearText: false)
-    } else {
-      LiveCaptionManager.shared.show()
-    }
+    settings.setLiveCaptionMinimized(!settings.liveCaptionMinimized)
   }
 }
 

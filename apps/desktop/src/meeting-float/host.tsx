@@ -9,6 +9,7 @@ import { useConfigValue } from "~/shared/config";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import * as settingsStore from "~/store/tinybase/store/settings";
 import { listenerStore } from "~/store/zustand/listener/instance";
+import { isHyprnoteCloudSttModel } from "~/stt/capabilities";
 
 type ListenerState = ReturnType<typeof listenerStore.getState>;
 type SettingsStore = NonNullable<ReturnType<typeof settingsStore.UI.useStore>>;
@@ -43,6 +44,7 @@ type FloatingRouteState = {
   liveCaptionOpacity: number;
   liveCaptionPosition: LiveCaptionPosition;
   liveCaptionMinimized: boolean;
+  liveCaptionToggleVisible: boolean;
 };
 type LiveCaptionRouteState = {
   sessionId: string;
@@ -77,6 +79,8 @@ const FLOATING_OVERLAY_SETTING_KEYS = [
   "live_caption_opacity",
   "live_caption_position",
   "live_caption_minimized",
+  "current_stt_provider",
+  "current_stt_model",
 ] as const;
 
 export function FloatingMeetingWindowHost() {
@@ -299,6 +303,7 @@ function FloatingMeetingWindowSync({
       listenerStore.getState(),
       undefined,
       settings,
+      getFloatingLiveCaptionToggleVisible(listenerStore.getState(), store),
     );
     let syncQueued = false;
     let cancelled = false;
@@ -385,10 +390,18 @@ function FloatingMeetingWindowSync({
       const nextRouteState = getFloatingRouteState(state, {
         colorScheme,
         settings,
+        liveCaptionToggleVisible: getFloatingLiveCaptionToggleVisible(
+          state,
+          store,
+        ),
       });
       const previousRouteState = getFloatingRouteState(previousState, {
         colorScheme,
         settings,
+        liveCaptionToggleVisible: getFloatingLiveCaptionToggleVisible(
+          previousState,
+          store,
+        ),
       });
 
       if (isSameFloatingRouteState(nextRouteState, previousRouteState)) {
@@ -407,6 +420,7 @@ function FloatingMeetingWindowSync({
           listenerStore.getState(),
           undefined,
           nextSettings,
+          getFloatingLiveCaptionToggleVisible(listenerStore.getState(), store),
         );
 
         settings = nextSettings;
@@ -424,6 +438,7 @@ function FloatingMeetingWindowSync({
         listenerStore.getState(),
         undefined,
         settings,
+        getFloatingLiveCaptionToggleVisible(listenerStore.getState(), store),
       );
 
       if (isSameFloatingRouteState(nextRouteState, routeState)) {
@@ -453,10 +468,12 @@ export function getFloatingRouteState(
     sessionId,
     colorScheme = "dark",
     settings = DEFAULT_FLOATING_OVERLAY_SETTINGS,
+    liveCaptionToggleVisible = false,
   }: {
     sessionId?: string;
     colorScheme?: FloatingBarColorScheme;
     settings?: FloatingOverlaySettings;
+    liveCaptionToggleVisible?: boolean;
   } = {},
 ): FloatingRouteState | null {
   if (state.live.status !== "active") {
@@ -483,6 +500,7 @@ export function getFloatingRouteState(
     liveCaptionOpacity: settings.liveCaptionOpacity,
     liveCaptionPosition: settings.liveCaptionPosition,
     liveCaptionMinimized: settings.liveCaptionMinimized,
+    liveCaptionToggleVisible,
   };
 }
 
@@ -490,11 +508,39 @@ function getCurrentFloatingRouteState(
   state: ListenerState,
   sessionId?: string,
   settings: FloatingOverlaySettings = DEFAULT_FLOATING_OVERLAY_SETTINGS,
+  liveCaptionToggleVisible = false,
 ): FloatingRouteState | null {
   return getFloatingRouteState(state, {
     sessionId,
     colorScheme: getCurrentFloatingBarColorScheme(),
     settings,
+    liveCaptionToggleVisible,
+  });
+}
+
+export function shouldShowFloatingLiveCaptionToggle({
+  provider,
+  model,
+  liveTranscriptionActive,
+}: {
+  provider?: string | null;
+  model?: string | null;
+  liveTranscriptionActive: boolean;
+}) {
+  return liveTranscriptionActive && isHyprnoteCloudSttModel(provider, model);
+}
+
+function getFloatingLiveCaptionToggleVisible(
+  state: ListenerState,
+  store: SettingsStore | undefined,
+) {
+  const provider = store?.getValue("current_stt_provider");
+  const model = store?.getValue("current_stt_model");
+
+  return shouldShowFloatingLiveCaptionToggle({
+    provider: typeof provider === "string" ? provider : undefined,
+    model: typeof model === "string" ? model : undefined,
+    liveTranscriptionActive: state.live.liveTranscriptionActive === true,
   });
 }
 
@@ -514,8 +560,12 @@ export function getLiveCaptionRouteState(
     return null;
   }
 
+  if (settings.liveCaptionMinimized) {
+    return null;
+  }
+
   const text = state.liveCaptionText.trim();
-  if (!text && !settings.liveCaptionMinimized) {
+  if (!text) {
     return null;
   }
 
@@ -524,7 +574,7 @@ export function getLiveCaptionRouteState(
     text,
     opacity: settings.liveCaptionOpacity,
     position: settings.liveCaptionPosition,
-    minimized: settings.liveCaptionMinimized,
+    minimized: false,
   };
 }
 
@@ -597,7 +647,8 @@ function isSameFloatingRouteState(
     left?.opacity === right?.opacity &&
     left?.liveCaptionOpacity === right?.liveCaptionOpacity &&
     left?.liveCaptionPosition === right?.liveCaptionPosition &&
-    left?.liveCaptionMinimized === right?.liveCaptionMinimized
+    left?.liveCaptionMinimized === right?.liveCaptionMinimized &&
+    left?.liveCaptionToggleVisible === right?.liveCaptionToggleVisible
   );
 }
 
@@ -698,6 +749,7 @@ async function showFloatingMeetingWindow(
     liveCaptionOpacity: routeState.liveCaptionOpacity,
     liveCaptionPosition: routeState.liveCaptionPosition,
     liveCaptionMinimized: routeState.liveCaptionMinimized,
+    liveCaptionToggleVisible: routeState.liveCaptionToggleVisible,
   });
   if (!shouldContinue()) {
     await hideFloatingMeetingPanel();
