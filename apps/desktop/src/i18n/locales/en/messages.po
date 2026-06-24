@@ -25,11 +25,11 @@ msgstr "Add spoken language"
 msgid "Additional spoken languages"
 msgstr "Additional spoken languages"
 
-#: src/settings/general/app-settings.tsx:37
+#: src/settings/general/app-settings.tsx:39
 msgid "Always ready without manually launching."
 msgstr "Always ready without manually launching."
 
-#: src/settings/general/index.tsx:166
+#: src/settings/general/index.tsx:169
 msgid "App"
 msgstr "App"
 
@@ -37,11 +37,11 @@ msgstr "App"
 msgid "Appearance"
 msgstr "Appearance"
 
-#: src/settings/general/app-settings.tsx:79
+#: src/settings/general/app-settings.tsx:81
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Automatically start listening when an event-backed note reaches its scheduled start time."
 
-#: src/settings/general/app-settings.tsx:90
+#: src/settings/general/app-settings.tsx:92
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Automatically stop listening when the meeting app releases the microphone."
 
@@ -53,7 +53,7 @@ msgstr "Choose light, dark, or match your system setting."
 msgid "Dark"
 msgstr "Dark"
 
-#: src/settings/general/index.tsx:300
+#: src/settings/general/index.tsx:323
 msgid "Data"
 msgstr "Data"
 
@@ -61,11 +61,11 @@ msgstr "Data"
 msgid "First day of the week in the calendar view"
 msgstr "First day of the week in the calendar view"
 
-#: src/settings/general/app-settings.tsx:63
+#: src/settings/general/app-settings.tsx:65
 msgid "Keep Anarlog available from the menu bar."
 msgstr "Keep Anarlog available from the menu bar."
 
-#: src/settings/general/index.tsx:251
+#: src/settings/general/index.tsx:274
 msgid "Language & Region"
 msgstr "Language & Region"
 
@@ -81,7 +81,7 @@ msgstr "Light"
 msgid "Main language"
 msgstr "Main language"
 
-#: src/settings/general/app-settings.tsx:73
+#: src/settings/general/app-settings.tsx:75
 msgid "Meetings"
 msgstr "Meetings"
 
@@ -98,11 +98,11 @@ msgstr "No matching languages found"
 msgid "No results found."
 msgstr "No results found."
 
-#: src/settings/general/index.tsx:310
+#: src/settings/general/index.tsx:333
 msgid "Notifications"
 msgstr "Notifications"
 
-#: src/settings/general/index.tsx:319
+#: src/settings/general/index.tsx:342
 msgid "Permissions"
 msgstr "Permissions"
 
@@ -130,43 +130,51 @@ msgstr "Select language"
 msgid "Select..."
 msgstr "Select..."
 
-#: src/settings/general/app-settings.tsx:45
+#: src/settings/general/app-settings.tsx:47
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Send anonymous usage analytics to help improve Anarlog."
 
-#: src/settings/general/app-settings.tsx:43
+#: src/settings/general/app-settings.tsx:45
 msgid "Share usage data"
 msgstr "Share usage data"
 
-#: src/settings/general/app-settings.tsx:55
+#: src/settings/general/app-settings.tsx:57
 msgid "Show Anarlog in the Dock and app switcher."
 msgstr "Show Anarlog in the Dock and app switcher."
 
-#: src/settings/general/app-settings.tsx:53
+#: src/settings/general/app-settings.tsx:55
 msgid "Show app in Dock"
 msgstr "Show app in Dock"
 
-#: src/settings/general/app-settings.tsx:99
+#: src/settings/general/app-settings.tsx:101
 msgid "Show floating bar"
 msgstr "Show floating bar"
 
-#: src/settings/general/app-settings.tsx:101
+#: src/settings/general/app-settings.tsx:109
+msgid "Show live transcript overlay"
+msgstr "Show live transcript overlay"
+
+#: src/settings/general/app-settings.tsx:103
 msgid "Show the compact floating control while listening."
 msgstr "Show the compact floating control while listening."
 
-#: src/settings/general/app-settings.tsx:61
+#: src/settings/general/app-settings.tsx:111
+msgid "Show the live transcript overlay by default while listening."
+msgstr "Show the live transcript overlay by default while listening."
+
+#: src/settings/general/app-settings.tsx:63
 msgid "Show tray icon"
 msgstr "Show tray icon"
 
-#: src/settings/general/app-settings.tsx:35
+#: src/settings/general/app-settings.tsx:37
 msgid "Start Anarlog at login"
 msgstr "Start Anarlog at login"
 
-#: src/settings/general/app-settings.tsx:77
+#: src/settings/general/app-settings.tsx:79
 msgid "Start when meeting begins"
 msgstr "Start when meeting begins"
 
-#: src/settings/general/app-settings.tsx:88
+#: src/settings/general/app-settings.tsx:90
 msgid "Stop when meeting ends"
 msgstr "Stop when meeting ends"
 

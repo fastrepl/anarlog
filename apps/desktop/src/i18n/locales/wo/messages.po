@@ -25,11 +25,11 @@ msgstr "Yokk làkk wiñ làkk"
 msgid "Additional spoken languages"
 msgstr "Yeneen làkk yi ñuy làkk"
 
-#: src/settings/general/app-settings.tsx:37
+#: src/settings/general/app-settings.tsx:39
 msgid "Always ready without manually launching."
 msgstr "Dafay waajal saa yu nekk te doo tàmbali ko ak loxo."
 
-#: src/settings/general/index.tsx:166
+#: src/settings/general/index.tsx:169
 msgid "App"
 msgstr "Jëfekaay"
 
@@ -37,11 +37,11 @@ msgstr "Jëfekaay"
 msgid "Appearance"
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:79
+#: src/settings/general/app-settings.tsx:81
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Tàmbali déglu ci saasi su ab nota buñu jàppale ci xew-xew yeggee ci waxtu tàmbali biñu ko jàppale."
 
-#: src/settings/general/app-settings.tsx:90
+#: src/settings/general/app-settings.tsx:92
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Dafay bàyyi déglu ci saasi su aplikaasioŋu ndaje bi bàyyee mikro bi."
 
@@ -53,7 +53,7 @@ msgstr ""
 msgid "Dark"
 msgstr ""
 
-#: src/settings/general/index.tsx:300
+#: src/settings/general/index.tsx:323
 msgid "Data"
 msgstr "Done"
 
@@ -61,11 +61,11 @@ msgstr "Done"
 msgid "First day of the week in the calendar view"
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:63
+#: src/settings/general/app-settings.tsx:65
 msgid "Keep Anarlog available from the menu bar."
 msgstr ""
 
-#: src/settings/general/index.tsx:251
+#: src/settings/general/index.tsx:274
 msgid "Language & Region"
 msgstr "Làkk wi ak Réew mi"
 
@@ -81,7 +81,7 @@ msgstr ""
 msgid "Main language"
 msgstr "Làkk wi gëna am solo"
 
-#: src/settings/general/app-settings.tsx:73
+#: src/settings/general/app-settings.tsx:75
 msgid "Meetings"
 msgstr "Ndaje yi"
 
@@ -98,11 +98,11 @@ msgstr "Gisu ñu làkk wu méngoo"
 msgid "No results found."
 msgstr ""
 
-#: src/settings/general/index.tsx:310
+#: src/settings/general/index.tsx:333
 msgid "Notifications"
 msgstr "Yégle yi"
 
-#: src/settings/general/index.tsx:319
+#: src/settings/general/index.tsx:342
 msgid "Permissions"
 msgstr ""
 
@@ -130,43 +130,51 @@ msgstr "Tannal làkk wi"
 msgid "Select..."
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:45
+#: src/settings/general/app-settings.tsx:47
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Yonnee jàngat jëfandikoo bu nëbbu ngir jàppale ci gëna suqali Anarlog."
 
-#: src/settings/general/app-settings.tsx:43
+#: src/settings/general/app-settings.tsx:45
 msgid "Share usage data"
 msgstr "Séddoo done jëfandikoo"
 
-#: src/settings/general/app-settings.tsx:55
+#: src/settings/general/app-settings.tsx:57
 msgid "Show Anarlog in the Dock and app switcher."
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:53
+#: src/settings/general/app-settings.tsx:55
 msgid "Show app in Dock"
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:99
+#: src/settings/general/app-settings.tsx:101
 msgid "Show floating bar"
 msgstr "Wone barab buy féey"
 
-#: src/settings/general/app-settings.tsx:101
+#: src/settings/general/app-settings.tsx:109
+msgid "Show live transcript overlay"
+msgstr ""
+
+#: src/settings/general/app-settings.tsx:103
 msgid "Show the compact floating control while listening."
 msgstr "Waneel seytukat biy féey bi ngay déglu."
 
-#: src/settings/general/app-settings.tsx:61
+#: src/settings/general/app-settings.tsx:111
+msgid "Show the live transcript overlay by default while listening."
+msgstr ""
+
+#: src/settings/general/app-settings.tsx:63
 msgid "Show tray icon"
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:35
+#: src/settings/general/app-settings.tsx:37
 msgid "Start Anarlog at login"
 msgstr "Tàmbali Anarlog ci dugg bi"
 
-#: src/settings/general/app-settings.tsx:77
+#: src/settings/general/app-settings.tsx:79
 msgid "Start when meeting begins"
 msgstr "Tàmbali su ndaje bi tàmbalee"
 
-#: src/settings/general/app-settings.tsx:88
+#: src/settings/general/app-settings.tsx:90
 msgid "Stop when meeting ends"
 msgstr "Taxawal su ndaje bi jeexee"
 

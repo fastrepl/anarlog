@@ -25,11 +25,11 @@ msgstr "Żid il-lingwa mitkellma"
 msgid "Additional spoken languages"
 msgstr "Lingwi mitkellma addizzjonali"
 
-#: src/settings/general/app-settings.tsx:37
+#: src/settings/general/app-settings.tsx:39
 msgid "Always ready without manually launching."
 msgstr "Dejjem lest mingħajr tnedija manwalment."
 
-#: src/settings/general/index.tsx:166
+#: src/settings/general/index.tsx:169
 msgid "App"
 msgstr "App"
 
@@ -37,11 +37,11 @@ msgstr "App"
 msgid "Appearance"
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:79
+#: src/settings/general/app-settings.tsx:81
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Ibda tisma' awtomatikament meta nota sostnuta minn avveniment tilħaq il-ħin tal-bidu skedat tagħha."
 
-#: src/settings/general/app-settings.tsx:90
+#: src/settings/general/app-settings.tsx:92
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Awtomatikament tieqaf tisma' meta l-app tal-laqgħa toħroġ il-mikrofonu."
 
@@ -53,7 +53,7 @@ msgstr ""
 msgid "Dark"
 msgstr ""
 
-#: src/settings/general/index.tsx:300
+#: src/settings/general/index.tsx:323
 msgid "Data"
 msgstr "Dejta"
 
@@ -61,11 +61,11 @@ msgstr "Dejta"
 msgid "First day of the week in the calendar view"
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:63
+#: src/settings/general/app-settings.tsx:65
 msgid "Keep Anarlog available from the menu bar."
 msgstr ""
 
-#: src/settings/general/index.tsx:251
+#: src/settings/general/index.tsx:274
 msgid "Language & Region"
 msgstr "Lingwa u Reġjun"
 
@@ -81,7 +81,7 @@ msgstr ""
 msgid "Main language"
 msgstr "Lingwa prinċipali"
 
-#: src/settings/general/app-settings.tsx:73
+#: src/settings/general/app-settings.tsx:75
 msgid "Meetings"
 msgstr "Laqgħat"
 
@@ -98,11 +98,11 @@ msgstr "L-ebda lingwa li taqbel ma nstabet"
 msgid "No results found."
 msgstr ""
 
-#: src/settings/general/index.tsx:310
+#: src/settings/general/index.tsx:333
 msgid "Notifications"
 msgstr "Notifiki"
 
-#: src/settings/general/index.tsx:319
+#: src/settings/general/index.tsx:342
 msgid "Permissions"
 msgstr ""
 
@@ -130,43 +130,51 @@ msgstr "Agħżel il-lingwa"
 msgid "Select..."
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:45
+#: src/settings/general/app-settings.tsx:47
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Ibgħat analiżi tal-użu anonima biex tgħin ittejjeb Anarlog."
 
-#: src/settings/general/app-settings.tsx:43
+#: src/settings/general/app-settings.tsx:45
 msgid "Share usage data"
 msgstr "Aqsam id-dejta tal-użu"
 
-#: src/settings/general/app-settings.tsx:55
+#: src/settings/general/app-settings.tsx:57
 msgid "Show Anarlog in the Dock and app switcher."
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:53
+#: src/settings/general/app-settings.tsx:55
 msgid "Show app in Dock"
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:99
+#: src/settings/general/app-settings.tsx:101
 msgid "Show floating bar"
 msgstr "Uri bar floating"
 
-#: src/settings/general/app-settings.tsx:101
+#: src/settings/general/app-settings.tsx:109
+msgid "Show live transcript overlay"
+msgstr ""
+
+#: src/settings/general/app-settings.tsx:103
 msgid "Show the compact floating control while listening."
 msgstr "Uri l-kontroll kompatt f'wiċċ l-ilma waqt li tisma'."
 
-#: src/settings/general/app-settings.tsx:61
+#: src/settings/general/app-settings.tsx:111
+msgid "Show the live transcript overlay by default while listening."
+msgstr ""
+
+#: src/settings/general/app-settings.tsx:63
 msgid "Show tray icon"
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:35
+#: src/settings/general/app-settings.tsx:37
 msgid "Start Anarlog at login"
 msgstr "Ibda Anarlog mal-login"
 
-#: src/settings/general/app-settings.tsx:77
+#: src/settings/general/app-settings.tsx:79
 msgid "Start when meeting begins"
 msgstr "Ibda meta tibda l-laqgħa"
 
-#: src/settings/general/app-settings.tsx:88
+#: src/settings/general/app-settings.tsx:90
 msgid "Stop when meeting ends"
 msgstr "Ieqaf meta tintemm il-laqgħa"
 

@@ -25,11 +25,11 @@ msgstr "ಮಾತನಾಡುವ ಭಾಷೆಯನ್ನು ಸೇರಿಸಿ"
 msgid "Additional spoken languages"
 msgstr "ಹೆಚ್ಚುವರಿ ಮಾತನಾಡುವ ಭಾಷೆಗಳು"
 
-#: src/settings/general/app-settings.tsx:37
+#: src/settings/general/app-settings.tsx:39
 msgid "Always ready without manually launching."
 msgstr "ಹಸ್ತಚಾಲಿತವಾಗಿ ಪ್ರಾರಂಭಿಸದೆ ಯಾವಾಗಲೂ ಸಿದ್ಧವಾಗಿದೆ."
 
-#: src/settings/general/index.tsx:166
+#: src/settings/general/index.tsx:169
 msgid "App"
 msgstr "ಅಪ್ಲಿಕೇಶನ್"
 
@@ -37,11 +37,11 @@ msgstr "ಅಪ್ಲಿಕೇಶನ್"
 msgid "Appearance"
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:79
+#: src/settings/general/app-settings.tsx:81
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "ಈವೆಂಟ್-ಬೆಂಬಲಿತ ಟಿಪ್ಪಣಿಯು ಅದರ ನಿಗದಿತ ಪ್ರಾರಂಭದ ಸಮಯವನ್ನು ತಲುಪಿದಾಗ ಸ್ವಯಂಚಾಲಿತವಾಗಿ ಆಲಿಸಲು ಪ್ರಾರಂಭಿಸಿ."
 
-#: src/settings/general/app-settings.tsx:90
+#: src/settings/general/app-settings.tsx:92
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "ಮೀಟಿಂಗ್ ಅಪ್ಲಿಕೇಶನ್ ಮೈಕ್ರೊಫೋನ್ ಅನ್ನು ಬಿಡುಗಡೆ ಮಾಡಿದಾಗ ಸ್ವಯಂಚಾಲಿತವಾಗಿ ಆಲಿಸುವುದನ್ನು ನಿಲ್ಲಿಸಿ."
 
@@ -53,7 +53,7 @@ msgstr ""
 msgid "Dark"
 msgstr ""
 
-#: src/settings/general/index.tsx:300
+#: src/settings/general/index.tsx:323
 msgid "Data"
 msgstr "ಡೇಟಾ"
 
@@ -61,11 +61,11 @@ msgstr "ಡೇಟಾ"
 msgid "First day of the week in the calendar view"
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:63
+#: src/settings/general/app-settings.tsx:65
 msgid "Keep Anarlog available from the menu bar."
 msgstr ""
 
-#: src/settings/general/index.tsx:251
+#: src/settings/general/index.tsx:274
 msgid "Language & Region"
 msgstr "ಭಾಷೆ ಮತ್ತು ಪ್ರದೇಶ"
 
@@ -81,7 +81,7 @@ msgstr ""
 msgid "Main language"
 msgstr "ಮುಖ್ಯ ಭಾಷೆ"
 
-#: src/settings/general/app-settings.tsx:73
+#: src/settings/general/app-settings.tsx:75
 msgid "Meetings"
 msgstr "ಸಭೆಗಳು"
 
@@ -98,11 +98,11 @@ msgstr "ಯಾವುದೇ ಹೊಂದಾಣಿಕೆಯ ಭಾಷೆಗಳು 
 msgid "No results found."
 msgstr ""
 
-#: src/settings/general/index.tsx:310
+#: src/settings/general/index.tsx:333
 msgid "Notifications"
 msgstr "ಅಧಿಸೂಚನೆಗಳು"
 
-#: src/settings/general/index.tsx:319
+#: src/settings/general/index.tsx:342
 msgid "Permissions"
 msgstr ""
 
@@ -130,43 +130,51 @@ msgstr "ಭಾಷೆಯನ್ನು ಆಯ್ಕೆಮಾಡಿ"
 msgid "Select..."
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:45
+#: src/settings/general/app-settings.tsx:47
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Anarlog ಸುಧಾರಿಸಲು ಸಹಾಯ ಮಾಡಲು ಅನಾಮಧೇಯ ಬಳಕೆಯ ವಿಶ್ಲೇಷಣೆಗಳನ್ನು ಕಳುಹಿಸಿ."
 
-#: src/settings/general/app-settings.tsx:43
+#: src/settings/general/app-settings.tsx:45
 msgid "Share usage data"
 msgstr "ಬಳಕೆಯ ಡೇಟಾವನ್ನು ಹಂಚಿಕೊಳ್ಳಿ"
 
-#: src/settings/general/app-settings.tsx:55
+#: src/settings/general/app-settings.tsx:57
 msgid "Show Anarlog in the Dock and app switcher."
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:53
+#: src/settings/general/app-settings.tsx:55
 msgid "Show app in Dock"
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:99
+#: src/settings/general/app-settings.tsx:101
 msgid "Show floating bar"
 msgstr "ಫ್ಲೋಟಿಂಗ್ ಬಾರ್ ತೋರಿಸು"
 
-#: src/settings/general/app-settings.tsx:101
+#: src/settings/general/app-settings.tsx:109
+msgid "Show live transcript overlay"
+msgstr ""
+
+#: src/settings/general/app-settings.tsx:103
 msgid "Show the compact floating control while listening."
 msgstr "ಕೇಳುತ್ತಿರುವಾಗ ಕಾಂಪ್ಯಾಕ್ಟ್ ಫ್ಲೋಟಿಂಗ್ ನಿಯಂತ್ರಣವನ್ನು ತೋರಿಸಿ."
 
-#: src/settings/general/app-settings.tsx:61
+#: src/settings/general/app-settings.tsx:111
+msgid "Show the live transcript overlay by default while listening."
+msgstr ""
+
+#: src/settings/general/app-settings.tsx:63
 msgid "Show tray icon"
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:35
+#: src/settings/general/app-settings.tsx:37
 msgid "Start Anarlog at login"
 msgstr "ಲಾಗಿನ್‌ನಲ್ಲಿ ಅನಾರ್ಲಾಗ್ ಅನ್ನು ಪ್ರಾರಂಭಿಸಿ"
 
-#: src/settings/general/app-settings.tsx:77
+#: src/settings/general/app-settings.tsx:79
 msgid "Start when meeting begins"
 msgstr "ಸಭೆ ಪ್ರಾರಂಭವಾದಾಗ ಪ್ರಾರಂಭಿಸಿ"
 
-#: src/settings/general/app-settings.tsx:88
+#: src/settings/general/app-settings.tsx:90
 msgid "Stop when meeting ends"
 msgstr "ಸಭೆಯು ಕೊನೆಗೊಂಡಾಗ ನಿಲ್ಲಿಸಿ"
 

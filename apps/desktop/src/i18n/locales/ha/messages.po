@@ -25,11 +25,11 @@ msgstr "Ƙara yaren magana"
 msgid "Additional spoken languages"
 msgstr "Ƙarin harsunan magana"
 
-#: src/settings/general/app-settings.tsx:37
+#: src/settings/general/app-settings.tsx:39
 msgid "Always ready without manually launching."
 msgstr "Koyaushe a shirye ba tare da ƙaddamar da hannu ba."
 
-#: src/settings/general/index.tsx:166
+#: src/settings/general/index.tsx:169
 msgid "App"
 msgstr "App"
 
@@ -37,11 +37,11 @@ msgstr "App"
 msgid "Appearance"
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:79
+#: src/settings/general/app-settings.tsx:81
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Fara sauraro ta atomatik lokacin da bayanin kula da abin ya faru ya kai lokacin farawa da aka tsara."
 
-#: src/settings/general/app-settings.tsx:90
+#: src/settings/general/app-settings.tsx:92
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Dakatar da saurare ta atomatik lokacin da app ɗin taron ya saki makirufo."
 
@@ -53,7 +53,7 @@ msgstr ""
 msgid "Dark"
 msgstr ""
 
-#: src/settings/general/index.tsx:300
+#: src/settings/general/index.tsx:323
 msgid "Data"
 msgstr "Bayanai"
 
@@ -61,11 +61,11 @@ msgstr "Bayanai"
 msgid "First day of the week in the calendar view"
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:63
+#: src/settings/general/app-settings.tsx:65
 msgid "Keep Anarlog available from the menu bar."
 msgstr ""
 
-#: src/settings/general/index.tsx:251
+#: src/settings/general/index.tsx:274
 msgid "Language & Region"
 msgstr "Harshe & Yanki"
 
@@ -81,7 +81,7 @@ msgstr ""
 msgid "Main language"
 msgstr "Babban harshe"
 
-#: src/settings/general/app-settings.tsx:73
+#: src/settings/general/app-settings.tsx:75
 msgid "Meetings"
 msgstr "Taro"
 
@@ -98,11 +98,11 @@ msgstr "Ba a sami yarukan da suka dace ba"
 msgid "No results found."
 msgstr ""
 
-#: src/settings/general/index.tsx:310
+#: src/settings/general/index.tsx:333
 msgid "Notifications"
 msgstr "Sanarwa"
 
-#: src/settings/general/index.tsx:319
+#: src/settings/general/index.tsx:342
 msgid "Permissions"
 msgstr ""
 
@@ -130,43 +130,51 @@ msgstr "Zaɓi harshe"
 msgid "Select..."
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:45
+#: src/settings/general/app-settings.tsx:47
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Aika bayanan amfani da ba a san su ba don taimakawa inganta Anarlog."
 
-#: src/settings/general/app-settings.tsx:43
+#: src/settings/general/app-settings.tsx:45
 msgid "Share usage data"
 msgstr "Raba bayanan amfani"
 
-#: src/settings/general/app-settings.tsx:55
+#: src/settings/general/app-settings.tsx:57
 msgid "Show Anarlog in the Dock and app switcher."
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:53
+#: src/settings/general/app-settings.tsx:55
 msgid "Show app in Dock"
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:99
+#: src/settings/general/app-settings.tsx:101
 msgid "Show floating bar"
 msgstr "Nuna mashaya mai iyo"
 
-#: src/settings/general/app-settings.tsx:101
+#: src/settings/general/app-settings.tsx:109
+msgid "Show live transcript overlay"
+msgstr ""
+
+#: src/settings/general/app-settings.tsx:103
 msgid "Show the compact floating control while listening."
 msgstr "Nuna ƙaramin iko mai iyo yayin sauraro."
 
-#: src/settings/general/app-settings.tsx:61
+#: src/settings/general/app-settings.tsx:111
+msgid "Show the live transcript overlay by default while listening."
+msgstr ""
+
+#: src/settings/general/app-settings.tsx:63
 msgid "Show tray icon"
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:35
+#: src/settings/general/app-settings.tsx:37
 msgid "Start Anarlog at login"
 msgstr "Fara Anarlog a login"
 
-#: src/settings/general/app-settings.tsx:77
+#: src/settings/general/app-settings.tsx:79
 msgid "Start when meeting begins"
 msgstr "Fara lokacin da aka fara taro"
 
-#: src/settings/general/app-settings.tsx:88
+#: src/settings/general/app-settings.tsx:90
 msgid "Stop when meeting ends"
 msgstr "Dakata lokacin da taro ya ƙare"
 

@@ -182,13 +182,12 @@ function LiveCaptionDefaultVisibilitySync({
     let appliedSessionId: string | null = null;
 
     const applyDefaultVisibility = (state: ListenerState) => {
-      if (
-        !store ||
-        state.live.status !== "active" ||
-        !state.live.sessionId ||
-        state.live.liveTranscriptionActive !== true
-      ) {
+      if (!store || state.live.status !== "active" || !state.live.sessionId) {
         appliedSessionId = null;
+        return;
+      }
+
+      if (state.live.liveTranscriptionActive !== true) {
         return;
       }
 
