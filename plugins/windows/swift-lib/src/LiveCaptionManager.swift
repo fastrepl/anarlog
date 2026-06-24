@@ -72,6 +72,7 @@ final class LiveCaptionManager {
     self.panel = nil
     panelDelegate.resetActiveScreen()
     model.text = ""
+    model.lineCount = LiveCaptionLayout.defaultLineCount
   }
 
   func update(state: LiveCaptionStatePayload) {
@@ -166,7 +167,10 @@ final class LiveCaptionManager {
     }
 
     let width = min(max(panel.frame.width, LiveCaptionLayout.minWidth), LiveCaptionLayout.maxWidth)
-    let lineCount = estimatedLineCount(text: model.text, width: width)
+    let lineCount = min(
+      max(model.lineCount, LiveCaptionLayout.minLineCount),
+      LiveCaptionLayout.maxLineCount
+    )
     model.lineCount = lineCount
 
     return NSSize(
@@ -195,24 +199,6 @@ final class LiveCaptionManager {
     resize(panel)
     panelDelegate.clearPinnedPosition()
     position(panel, force: true)
-  }
-
-  private func estimatedLineCount(text: String, width: CGFloat) -> Int {
-    let textWidth = max(
-      1,
-      width - LiveCaptionLayout.horizontalPadding * 2 - LiveCaptionLayout.controlsWidth
-        - LiveCaptionLayout.controlsGap
-    )
-    let attributed = NSAttributedString(
-      string: text.isEmpty ? " " : text,
-      attributes: [.font: NSFont.systemFont(ofSize: 16, weight: .medium)]
-    )
-    let bounds = attributed.boundingRect(
-      with: NSSize(width: textWidth, height: CGFloat.greatestFiniteMagnitude),
-      options: [.usesLineFragmentOrigin, .usesFontLeading]
-    )
-    let lineCount = Int(ceil(bounds.height / LiveCaptionLayout.lineHeight))
-    return min(max(lineCount, LiveCaptionLayout.minLineCount), LiveCaptionLayout.maxLineCount)
   }
 
   private func startFollowingActiveScreen() {
