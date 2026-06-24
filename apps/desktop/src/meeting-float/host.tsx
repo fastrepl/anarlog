@@ -564,14 +564,9 @@ export function getLiveCaptionRouteState(
     return null;
   }
 
-  const text = state.liveCaptionText.trim();
-  if (!text) {
-    return null;
-  }
-
   return {
     sessionId: state.live.sessionId,
-    text,
+    text: state.liveCaptionText.trim(),
     opacity: settings.liveCaptionOpacity,
     position: settings.liveCaptionPosition,
     minimized: false,

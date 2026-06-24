@@ -181,7 +181,7 @@ describe("getLiveCaptionRouteState", () => {
     ).toBeNull();
   });
 
-  it("hides captions without text", () => {
+  it("shows captions immediately before text arrives", () => {
     expect(
       getLiveCaptionRouteState(
         createListenerStateWithCaption(
@@ -193,7 +193,13 @@ describe("getLiveCaptionRouteState", () => {
           " ",
         ),
       ),
-    ).toBeNull();
+    ).toEqual({
+      sessionId: "session-1",
+      text: "",
+      opacity: 0.3,
+      position: "topCenter",
+      minimized: false,
+    });
   });
 });
 
