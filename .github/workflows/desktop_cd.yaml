@@ -13,6 +13,11 @@ on:
         description: "Publish to Crabnebula and create GitHub release (ignored for staging)"
         type: boolean
         default: true
+      version:
+        description: "Optional explicit version for stable releases"
+        required: false
+        type: string
+        default: ""
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.channel }}
@@ -40,7 +45,9 @@ jobs:
       - uses: ./.github/actions/doxxer_install
       - id: version
         run: |
-          if [[ "${{ inputs.channel }}" == "staging" ]]; then
+          if [[ -n "${{ inputs.version }}" ]]; then
+            VERSION="${{ inputs.version }}"
+          elif [[ "${{ inputs.channel }}" == "staging" ]]; then
             VERSION=$(doxxer --config doxxer.desktop.toml next dev)
           elif [[ "${{ inputs.channel }}" == "stable" ]]; then
             VERSION=$(doxxer --config doxxer.desktop.toml next patch)
@@ -198,11 +205,23 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - uses: mathieudutour/github-tag-action@v6.2
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          custom_tag: desktop_v${{ needs.compute-version.outputs.version }}
-          tag_prefix: ""
+          fetch-depth: 0
+          fetch-tags: true
+      - run: |
+          git fetch --tags --force
+
+          TAG="desktop_v${{ needs.compute-version.outputs.version }}"
+          TARGET=$(git rev-parse HEAD)
+          EXISTING=$(git rev-parse -q --verify "refs/tags/$TAG" || true)
+
+          if [[ -n "$EXISTING" && -z "${{ inputs.version }}" ]]; then
+            echo "::error::Tag $TAG already exists"
+            exit 1
+          fi
+
+          git tag -f "$TAG" "$TARGET"
+          git push origin "refs/tags/$TAG" --force
 
   cn-publish:
     if: ${{ inputs.channel != 'staging' && inputs.publish }}
