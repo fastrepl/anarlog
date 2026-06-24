@@ -191,3 +191,4 @@ final class FloatingOverlaySettingsModel: ObservableObject {
     abs(left - right) < 0.0001
   }
 }
+|||||||

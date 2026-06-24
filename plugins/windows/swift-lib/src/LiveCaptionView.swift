@@ -12,6 +12,7 @@ enum LiveCaptionLayout {
   static let verticalPadding: CGFloat = 10
   static let footerHeight: CGFloat = 32
   static let footerSeparatorHeight: CGFloat = 1
+||||||| Common ancestor
   static let cornerRadius: CGFloat = 12
   static let screenMargin: CGFloat = 12
   static let topOffset: CGFloat = 18
@@ -34,6 +35,8 @@ struct LiveCaptionView: View {
   @ObservedObject var model: LiveCaptionViewModel
   @ObservedObject var settings: FloatingOverlaySettingsModel
   let onSetMinimized: (Bool) -> Void
+||||||| Common ancestor
+  @State private var isHovered = false
 
   var body: some View {
     Group {
@@ -102,6 +105,9 @@ struct LiveCaptionView: View {
             max(settings.liveCaptionOpacity, FloatingOverlayOpacity.minLiveCaption),
             FloatingOverlayOpacity.maxLiveCaption
           )))
+||||||| Common ancestor
+      .contentShape(RoundedRectangle(cornerRadius: LiveCaptionLayout.cornerRadius))
+      .onHover { isHovered = $0 }
   }
 }
 

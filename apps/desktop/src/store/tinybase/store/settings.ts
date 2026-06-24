@@ -81,6 +81,7 @@ export const SETTINGS_MAPPING = {
       path: ["general", "live_caption_minimized"],
       default: false as boolean,
     },
+||||||| Common ancestor
     show_app_in_dock: {
       type: "boolean",
       path: ["general", "show_app_in_dock"],

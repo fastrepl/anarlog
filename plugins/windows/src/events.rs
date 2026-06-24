@@ -105,6 +105,7 @@ pub struct FloatingBarSettingsChange {
     pub live_caption_minimized: Option<bool>,
 }
 
+||||||| Common ancestor
 common_event_derives! {
     pub struct DevtoolsPanelAction {
         pub action: String,

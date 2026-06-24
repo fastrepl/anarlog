@@ -22,6 +22,7 @@ pub struct LiveCaptionState {
     pub line_count: u32,
     pub position: LiveCaptionPosition,
     pub minimized: bool,
+||||||| Common ancestor
 }
 
 #[cfg(target_os = "macos")]

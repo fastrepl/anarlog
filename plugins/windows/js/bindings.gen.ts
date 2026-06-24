@@ -358,6 +358,7 @@ export type FloatingBarSettingsChange = {
   liveCaptionLineCount: number | null;
   liveCaptionPosition: LiveCaptionPosition | null;
   liveCaptionMinimized: boolean | null;
+||||||| Common ancestor
 };
 export type FloatingBarStatus = "recording" | "error";
 export type FloatingBarStop = Record<string, never>;
@@ -383,6 +384,8 @@ export type LiveCaptionState = {
   position: LiveCaptionPosition;
   minimized: boolean;
 };
+||||||| Common ancestor
+export type LiveCaptionState = { text: string; opacity: number };
 export type Navigate = {
   path: string;
   search: Partial<{ [key in string]: JsonValue }> | null;

@@ -4,6 +4,7 @@ final class LiveCaptionPanelDelegate: NSObject, NSWindowDelegate {
   private let placement = FloatingPanelPositionController()
   private let model: LiveCaptionViewModel
   private let settings: FloatingOverlaySettingsModel
+||||||| Common ancestor
 
   init(model: LiveCaptionViewModel, settings: FloatingOverlaySettingsModel) {
     self.model = model
@@ -24,6 +25,7 @@ final class LiveCaptionPanelDelegate: NSObject, NSWindowDelegate {
 
   func windowDidMove(_ notification: Notification) {
     placement.windowDidMove(notification)
+    scheduleSnap(notification)
   }
 
   func windowWillResize(_ sender: NSWindow, to frameSize: NSSize) -> NSSize {
@@ -52,4 +54,5 @@ final class LiveCaptionPanelDelegate: NSObject, NSWindowDelegate {
     placement.setFrame(panel, to: frame, display: display, animate: animate)
   }
 
+||||||| Common ancestor
 }

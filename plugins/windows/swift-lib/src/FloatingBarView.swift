@@ -9,8 +9,11 @@ enum FloatingBarLayout {
   static let stopSquareSize: CGFloat = 9
   static let clickAreaSize: CGFloat = 28
   static let clickAreaGap: CGFloat = 0
+  static let controlCount: CGFloat = 3
   static let pillPadding: CGFloat = 2
   static let pillWidth: CGFloat = clickAreaSize + pillPadding * 2
+||||||| Common ancestor
+  static let pillHeight: CGFloat = clickAreaSize * 2 + clickAreaGap + pillPadding * 2
   static let hoverHandleGap: CGFloat = 3
   static let hoverHandleWidth: CGFloat = 13
   static let hoverHandleHeight: CGFloat = 8
@@ -35,6 +38,7 @@ enum FloatingBarLayout {
 struct FloatingBarView: View {
   @ObservedObject var model: FloatingBarViewModel
   @ObservedObject var settings: FloatingOverlaySettingsModel
+||||||| Common ancestor
   @State private var isBarHovered = false
   @State private var isBarsHovered = false
   @State private var suppressNextClick = false
@@ -114,6 +118,8 @@ struct FloatingBarView: View {
       }
 
       audioControl
+||||||| Common ancestor
+      .buttonStyle(.plain)
     }
     .padding(FloatingBarLayout.pillPadding)
     .frame(width: FloatingBarLayout.pillWidth, height: pillHeight)
