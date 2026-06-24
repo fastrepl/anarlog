@@ -57,6 +57,8 @@ describe("getFloatingRouteState", () => {
       colorScheme: "dark",
       opacity: 0.78,
       liveCaptionOpacity: 0.3,
+      liveCaptionWidth: 440,
+      liveCaptionLineCount: 1,
       liveCaptionPosition: "topCenter",
       liveCaptionMinimized: false,
       liveCaptionToggleVisible: false,
@@ -141,12 +143,14 @@ describe("getLiveCaptionRouteState", () => {
       sessionId: "session-1",
       text: "we should ship this",
       opacity: 0.3,
+      width: 440,
+      lineCount: 1,
       position: "topCenter",
       minimized: false,
     });
   });
 
-  it("hides captions when the floating bar toggle has hidden them", () => {
+  it("hides captions when the live caption is hidden from the floating bar", () => {
     expect(
       getLiveCaptionRouteState(
         createListenerStateWithCaption(
@@ -168,7 +172,7 @@ describe("getLiveCaptionRouteState", () => {
     ).toBeNull();
   });
 
-  it("does not hide captions directly from the default preference", () => {
+  it("keeps the minimized caption restore control visible without text", () => {
     expect(
       getLiveCaptionRouteState(
         createListenerStateWithCaption(
@@ -177,7 +181,7 @@ describe("getLiveCaptionRouteState", () => {
             sessionId: "session-1",
             liveTranscriptionActive: true,
           },
-          "hello",
+          " ",
         ),
         {
           floatingBarOpacity: 0.7,
@@ -185,8 +189,8 @@ describe("getLiveCaptionRouteState", () => {
           liveCaptionWidth: 520,
           liveCaptionLineCount: 3,
           liveCaptionPosition: "bottomRight",
-          liveCaptionMinimized: false,
-          liveCaptionEnabled: false,
+          liveCaptionMinimized: true,
+          liveCaptionEnabled: true,
         },
       ),
     ).toEqual({
@@ -231,6 +235,8 @@ describe("getLiveCaptionRouteState", () => {
       sessionId: "session-1",
       text: "",
       opacity: 0.3,
+      width: 440,
+      lineCount: 1,
       position: "topCenter",
       minimized: false,
     });
@@ -270,38 +276,6 @@ describe("shouldShowFloatingLiveCaptionToggle", () => {
         liveTranscriptionActive: true,
       }),
     ).toBe(true);
-  });
-
-  it("hides before live transcription is active", () => {
-    expect(
-      shouldShowFloatingLiveCaptionToggle({
-        provider: "hyprnote",
-        model: "cloud",
-        liveTranscriptionActive: false,
-      }),
-    ).toBe(false);
-  });
-});
-
-describe("shouldShowFloatingLiveCaptionToggle", () => {
-  it("shows for active Hyprnote cloud live transcription", () => {
-    expect(
-      shouldShowFloatingLiveCaptionToggle({
-        provider: "hyprnote",
-        model: "cloud",
-        liveTranscriptionActive: true,
-      }),
-    ).toBe(true);
-  });
-
-  it("hides for local realtime transcription", () => {
-    expect(
-      shouldShowFloatingLiveCaptionToggle({
-        provider: "hyprnote",
-        model: "soniqo-parakeet-streaming",
-        liveTranscriptionActive: true,
-      }),
-    ).toBe(false);
   });
 
   it("hides before live transcription is active", () => {

@@ -15,7 +15,6 @@ enum LiveCaptionLayout {
   static let cornerRadius: CGFloat = 12
   static let screenMargin: CGFloat = 12
   static let topOffset: CGFloat = 18
-  static let minimizedSize = NSSize(width: 42, height: 36)
 
   static func height(forLineCount lineCount: Int) -> CGFloat {
     let clampedLineCount = min(max(lineCount, minLineCount), maxLineCount)
@@ -34,20 +33,8 @@ struct LiveCaptionView: View {
   @ObservedObject var model: LiveCaptionViewModel
   @ObservedObject var settings: FloatingOverlaySettingsModel
   let onSetMinimized: (Bool) -> Void
-  @State private var isHovered = false
 
   var body: some View {
-    Group {
-      if settings.liveCaptionMinimized {
-        minimizedBody
-      } else {
-        expandedBody
-      }
-    }
-    .onHover { isHovered = $0 }
-  }
-
-  private var expandedBody: some View {
     VStack(spacing: 0) {
       Text(model.text)
         .font(.system(size: 16, weight: .medium, design: .default))
@@ -55,7 +42,7 @@ struct LiveCaptionView: View {
         .foregroundStyle(.white)
         .multilineTextAlignment(.center)
         .lineLimit(model.lineCount)
-        .truncationMode(.tail)
+        .truncationMode(.head)
         .fixedSize(horizontal: false, vertical: true)
         .frame(
           maxWidth: .infinity,
@@ -78,37 +65,7 @@ struct LiveCaptionView: View {
       .frame(height: LiveCaptionLayout.footerHeight)
     }
     .background(captionBackground)
-    .overlay(alignment: .bottomLeading) {
-      CaptionOpacityDragToggle(
-        value: settings.liveCaptionOpacity,
-        onChange: settings.setLiveCaptionOpacity
-      )
-      .opacity(isHovered ? 1 : 0)
-      .allowsHitTesting(isHovered)
-      .padding(.leading, 9)
-      .padding(.bottom, 6)
-    }
-    .overlay(alignment: .bottomTrailing) {
-      ResizeHint()
-        .opacity(isHovered ? 0.55 : 0)
-        .padding(6)
-    }
     .contentShape(RoundedRectangle(cornerRadius: LiveCaptionLayout.cornerRadius))
-  }
-
-  private var minimizedBody: some View {
-    Button(action: { onSetMinimized(false) }) {
-      Image(systemName: "captions.bubble")
-        .font(.system(size: 14, weight: .semibold))
-        .foregroundStyle(.white)
-        .frame(
-          width: LiveCaptionLayout.minimizedSize.width,
-          height: LiveCaptionLayout.minimizedSize.height
-        )
-        .background(captionBackground)
-    }
-    .buttonStyle(.plain)
-    .accessibilityLabel("Restore transcript")
   }
 
   private var captionBackground: some View {
@@ -142,7 +99,7 @@ private struct CaptionFooter: View {
       Spacer(minLength: 0)
 
       Button(action: onMinimize) {
-        Text("Close")
+        Text("Hide")
           .font(.system(size: 11, weight: .semibold))
           .foregroundStyle(.white.opacity(0.92))
           .padding(.horizontal, 8)
@@ -157,86 +114,13 @@ private struct CaptionFooter: View {
           )
       }
       .buttonStyle(.plain)
-      .accessibilityLabel("Close transcript")
+      .accessibilityLabel("Hide transcript")
     }
     .padding(.leading, LiveCaptionLayout.horizontalPadding)
-    .padding(.trailing, 24)
+    .padding(.trailing, 8)
   }
 
   private var clampedOpacity: Double {
     min(max(opacity, FloatingOverlayOpacity.minLiveCaption), FloatingOverlayOpacity.maxLiveCaption)
-  }
-}
-
-private struct CaptionOpacityDragToggle: View {
-  let value: Double
-  let onChange: (Double) -> Void
-
-  private let trackWidth: CGFloat = 52
-  private let trackHeight: CGFloat = 14
-  private let thumbSize: CGFloat = 10
-
-  var body: some View {
-    ZStack(alignment: .leading) {
-      Capsule(style: .continuous)
-        .fill(Color.white.opacity(0.12))
-      Capsule(style: .continuous)
-        .fill(Color.white.opacity(0.24))
-        .frame(width: fillWidth)
-      Circle()
-        .fill(Color.white.opacity(0.9))
-        .frame(width: thumbSize, height: thumbSize)
-        .offset(x: thumbOffset)
-    }
-    .frame(width: trackWidth, height: trackHeight)
-    .contentShape(Capsule(style: .continuous))
-    .gesture(
-      DragGesture(minimumDistance: 0)
-        .onChanged { gesture in
-          onChange(opacity(forX: gesture.location.x))
-        }
-    )
-    .accessibilityElement()
-    .accessibilityLabel("Transcript opacity")
-    .accessibilityValue("\(Int((clampedValue * 100).rounded()))%")
-  }
-
-  private var clampedValue: Double {
-    min(max(value, FloatingOverlayOpacity.minLiveCaption), FloatingOverlayOpacity.max)
-  }
-
-  private var progress: CGFloat {
-    let range = FloatingOverlayOpacity.max - FloatingOverlayOpacity.minLiveCaption
-    return CGFloat((clampedValue - FloatingOverlayOpacity.minLiveCaption) / range)
-  }
-
-  private var thumbOffset: CGFloat {
-    progress * (trackWidth - thumbSize)
-  }
-
-  private var fillWidth: CGFloat {
-    thumbSize + thumbOffset
-  }
-
-  private func opacity(forX x: CGFloat) -> Double {
-    let usableWidth = trackWidth - thumbSize
-    let clampedX = min(max(x - thumbSize / 2, 0), usableWidth)
-    let nextProgress = Double(clampedX / usableWidth)
-    return FloatingOverlayOpacity.minLiveCaption
-      + nextProgress * (FloatingOverlayOpacity.max - FloatingOverlayOpacity.minLiveCaption)
-  }
-}
-
-private struct ResizeHint: View {
-  var body: some View {
-    VStack(alignment: .trailing, spacing: 2) {
-      Capsule()
-        .fill(.white)
-        .frame(width: 6, height: 1)
-      Capsule()
-        .fill(.white)
-        .frame(width: 10, height: 1)
-    }
-    .accessibilityHidden(true)
   }
 }
