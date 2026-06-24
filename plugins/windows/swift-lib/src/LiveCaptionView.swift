@@ -34,7 +34,6 @@ struct LiveCaptionView: View {
   @ObservedObject var model: LiveCaptionViewModel
   @ObservedObject var settings: FloatingOverlaySettingsModel
   let onSetMinimized: (Bool) -> Void
-  @State private var isHovered = false
 
   var body: some View {
     Group {
@@ -44,7 +43,6 @@ struct LiveCaptionView: View {
         expandedBody
       }
     }
-    .onHover { isHovered = $0 }
   }
 
   private var expandedBody: some View {
@@ -78,11 +76,6 @@ struct LiveCaptionView: View {
       .frame(height: LiveCaptionLayout.footerHeight)
     }
     .background(captionBackground)
-    .overlay(alignment: .bottomTrailing) {
-      ResizeHint()
-        .opacity(isHovered ? 0.55 : 0)
-        .padding(6)
-    }
     .contentShape(RoundedRectangle(cornerRadius: LiveCaptionLayout.cornerRadius))
   }
 
@@ -150,24 +143,10 @@ private struct CaptionFooter: View {
       .accessibilityLabel("Close transcript")
     }
     .padding(.leading, LiveCaptionLayout.horizontalPadding)
-    .padding(.trailing, 24)
+    .padding(.trailing, 8)
   }
 
   private var clampedOpacity: Double {
     min(max(opacity, FloatingOverlayOpacity.minLiveCaption), FloatingOverlayOpacity.maxLiveCaption)
-  }
-}
-
-private struct ResizeHint: View {
-  var body: some View {
-    VStack(alignment: .trailing, spacing: 2) {
-      Capsule()
-        .fill(.white)
-        .frame(width: 6, height: 1)
-      Capsule()
-        .fill(.white)
-        .frame(width: 10, height: 1)
-    }
-    .accessibilityHidden(true)
   }
 }
