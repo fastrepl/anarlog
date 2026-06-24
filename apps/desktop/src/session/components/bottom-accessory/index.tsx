@@ -1,30 +1,18 @@
 import { X } from "lucide-react";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
 import { cn } from "@hypr/utils";
 
-import { DuringSessionAccessory } from "./during-session";
-import { ExpandToggle } from "./expand-toggle";
 import { shouldShowLiveTranscriptAccessory } from "./live-visibility";
 import { usePastSessionNotes } from "./past-notes";
 import { PostSessionAccessory, type PostSessionTab } from "./post-session";
 
 import { useShell } from "~/contexts/shell";
-import { getLiveCaptureUiMode } from "~/store/zustand/listener/general-shared";
 import { useListener } from "~/stt/contexts";
 
-const LIVE_ACCESSORY_HANDLE_CLASS = "bg-app-floating-panel";
-
 export type BottomAccessoryState = {
-  mode: "live" | "playback" | "transcript_only";
+  mode: "playback" | "transcript_only";
   expanded: boolean;
 } | null;
 
@@ -47,7 +35,6 @@ export function useSessionBottomAccessory({
   const [postSessionTab, setPostSessionTab] = useState<PostSessionTab | null>(
     null,
   );
-  const isLive = sessionMode === "active";
   const isInactive = sessionMode === "inactive";
   const isRunningBatch = sessionMode === "running_batch";
   const live = useListener((state) => ({
@@ -57,13 +44,10 @@ export function useSessionBottomAccessory({
     liveTranscriptionActive: state.live.liveTranscriptionActive,
   }));
   const { chat } = useShell();
-  const liveCaptureMode = getLiveCaptureUiMode(live);
   const shouldDeferToGlobalLiveAccessory =
     live.sessionId !== null &&
     live.sessionId !== sessionId &&
     shouldShowLiveTranscriptAccessory(live);
-  const showLiveAccessory =
-    !shouldDeferToGlobalLiveAccessory && isLive && liveCaptureMode === "live";
   const shouldLoadPastNotes =
     (isInactive || isRunningBatch) && !shouldDeferToGlobalLiveAccessory;
   const pastNotes = usePastSessionNotes(sessionId, {
@@ -74,25 +58,8 @@ export function useSessionBottomAccessory({
   const activePostSessionTab: PostSessionTab = hasPastNotes
     ? (postSessionTab ?? "insights")
     : "transcript";
-  const canExpandLiveTranscript = showLiveAccessory;
-  const effectiveExpanded =
-    isLive && !canExpandLiveTranscript ? false : isExpanded;
   const isChatVisible =
     chat.mode === "FloatingOpen" || chat.mode === "RightPanelOpen";
-
-  const prevLive = useRef(isLive);
-  useEffect(() => {
-    if (prevLive.current && !isLive) {
-      setIsExpanded(false);
-    }
-    prevLive.current = isLive;
-  }, [isLive]);
-
-  useEffect(() => {
-    if (isLive && !canExpandLiveTranscript && isExpanded) {
-      setIsExpanded(false);
-    }
-  }, [isLive, canExpandLiveTranscript, isExpanded]);
 
   const showPostSession =
     isRunningBatch ||
@@ -126,41 +93,16 @@ export function useSessionBottomAccessory({
     [showPostSession, isExpanded, isChatVisible],
   );
 
-  const mode: NonNullable<BottomAccessoryState>["mode"] | null =
-    showLiveAccessory
-      ? "live"
-      : showPostSession
-        ? isRunningBatch
-          ? "playback"
-          : "transcript_only"
-        : null;
+  const mode: NonNullable<BottomAccessoryState>["mode"] | null = showPostSession
+    ? isRunningBatch
+      ? "playback"
+      : "transcript_only"
+    : null;
 
   const bottomAccessoryState: BottomAccessoryState = useMemo(
-    () => (mode ? { mode, expanded: effectiveExpanded } : null),
-    [effectiveExpanded, mode],
+    () => (mode ? { mode, expanded: isExpanded } : null),
+    [isExpanded, mode],
   );
-
-  if (showLiveAccessory) {
-    return {
-      bottomAccessory: (
-        <DuringSessionAccessory
-          sessionId={sessionId}
-          isExpanded={effectiveExpanded}
-          fillHeight={effectiveExpanded}
-        />
-      ),
-      bottomBorderHandle: canExpandLiveTranscript ? (
-        <ExpandToggle
-          isExpanded={effectiveExpanded}
-          onToggle={() => setIsExpanded((v) => !v)}
-          label="Live"
-          collapsedClassName={LIVE_ACCESSORY_HANDLE_CLASS}
-          expandedClassName={LIVE_ACCESSORY_HANDLE_CLASS}
-        />
-      ) : null,
-      bottomAccessoryState,
-    };
-  }
 
   if (showPostSession) {
     const hasAccessoryContent = isRunningBatch || (hasPastNotes && isExpanded);

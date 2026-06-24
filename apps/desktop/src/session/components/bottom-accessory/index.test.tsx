@@ -494,14 +494,9 @@ describe("useSessionBottomAccessory", () => {
     expect(result.current.bottomBorderHandle).toBeNull();
   });
 
-  it("uses panel chrome for the live handle", () => {
-    type LiveToggleProps = {
-      collapsedClassName?: string;
-      expandedClassName?: string;
-      isExpanded: boolean;
-      label?: string;
-      onToggle: () => void;
-    };
+  it("does not show a local bottom panel while live transcription is active", () => {
+    hoisted.live.status = "active";
+    hoisted.live.sessionId = "session-1";
 
     const { result } = renderHook(() =>
       useSessionBottomAccessory({
@@ -512,23 +507,8 @@ describe("useSessionBottomAccessory", () => {
       }),
     );
 
-    const toggle = result.current.bottomBorderHandle;
-    expect(isValidElement<LiveToggleProps>(toggle)).toBe(true);
-    if (!isValidElement<LiveToggleProps>(toggle)) {
-      return;
-    }
-
-    expect(toggle.props.label).toBe("Live");
-    expect(toggle.props.collapsedClassName).toBe("bg-app-floating-panel");
-    expect(toggle.props.expandedClassName).toBe("bg-app-floating-panel");
-
-    act(() => {
-      toggle.props.onToggle();
-    });
-
-    expect(result.current.bottomAccessoryState).toEqual({
-      mode: "live",
-      expanded: true,
-    });
+    expect(result.current.bottomAccessoryState).toBeNull();
+    expect(result.current.bottomAccessory).toBeNull();
+    expect(result.current.bottomBorderHandle).toBeNull();
   });
 });

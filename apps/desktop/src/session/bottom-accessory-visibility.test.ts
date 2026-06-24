@@ -27,14 +27,11 @@ describe("shouldShowSessionBottomAccessory", () => {
     ).toBe(true);
   });
 
-  it("keeps live bottom controls off the transcript tab", () => {
+  it("keeps the bottom area empty on the transcript tab without accessory state", () => {
     expect(
       shouldShowSessionBottomAccessory({
         currentView: { type: "transcript" },
-        bottomAccessoryState: {
-          mode: "live",
-          expanded: false,
-        },
+        bottomAccessoryState: null,
       }),
     ).toBe(false);
   });

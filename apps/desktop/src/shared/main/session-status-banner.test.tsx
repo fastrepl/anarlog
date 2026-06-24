@@ -77,7 +77,7 @@ describe("MainSessionStatusBannerHost", () => {
       <SessionStatusBannerProvider>
         <BannerPublisher
           skipReason="Microphone access is disabled"
-          bottomAccessoryState={{ mode: "live", expanded: false }}
+          bottomAccessoryState={{ mode: "playback", expanded: false }}
         />
         <MainSessionStatusBannerHost />
       </SessionStatusBannerProvider>,

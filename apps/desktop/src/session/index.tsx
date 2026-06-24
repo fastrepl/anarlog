@@ -157,11 +157,9 @@ function TabContentNoteInner({
     (bottomAccessoryState.mode === "playback" ||
       bottomAccessoryState.mode === "transcript_only");
   const canResizeTranscriptSurface =
-    bottomAccessoryState?.mode === "live" ||
     bottomAccessoryState?.mode === "playback" ||
     bottomAccessoryState?.mode === "transcript_only";
   const hasResizableTranscriptSurface =
-    bottomAccessoryState?.mode === "live" ||
     bottomAccessoryState?.mode === "transcript_only" ||
     (bottomAccessoryState?.mode === "playback" &&
       (hasTranscript || sessionMode === "running_batch"));
@@ -196,9 +194,6 @@ function TabContentNoteInner({
       afterBorder={showBottomAccessory ? bottomAccessory : null}
       afterBorderExpanded={
         showBottomTranscriptSurface && resizeTranscriptSurface
-      }
-      afterBorderFlush={
-        showBottomTranscriptSurface && bottomAccessoryState?.mode === "live"
       }
       afterBorderResizable={
         showBottomTranscriptSurface && canResizeTranscriptSurface
