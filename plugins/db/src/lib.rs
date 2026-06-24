@@ -45,10 +45,7 @@ pub fn init<R: tauri::Runtime>(
     tauri::plugin::Builder::new(PLUGIN_NAME)
         .invoke_handler(specta_builder.invoke_handler())
         .setup(move |app, _| {
-            hypr_tauri_utils::block_on(hypr_db_migrate::migrate(
-                db.as_ref(),
-                hypr_db_app::schema(),
-            ))?;
+            hypr_tauri_utils::block_on(hypr_db_app::prepare_schema(db.as_ref()))?;
 
             let pool = db.pool().clone();
             let app_handle = app.app_handle().clone();
@@ -132,9 +129,7 @@ mod test {
         })
         .await
         .unwrap();
-        hypr_db_migrate::migrate(&db, hypr_db_app::schema())
-            .await
-            .unwrap();
+        hypr_db_app::prepare_schema(&db).await.unwrap();
 
         (dir, Arc::new(runtime::PluginDbRuntime::new(Arc::new(db))))
     }

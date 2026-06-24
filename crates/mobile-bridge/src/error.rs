@@ -69,4 +69,6 @@ pub(crate) enum OpenAppDbError {
     Open(#[from] hypr_db_core::DbOpenError),
     #[error(transparent)]
     Migrate(#[from] hypr_db_migrate::MigrateError),
+    #[error(transparent)]
+    AppSchema(#[from] hypr_db_app::AppSchemaError),
 }

@@ -9,6 +9,8 @@ pub enum Error {
     #[error(transparent)]
     Migrate(#[from] hypr_db_migrate::MigrateError),
     #[error(transparent)]
+    AppSchema(#[from] hypr_db_app::AppSchemaError),
+    #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error(transparent)]
     Sqlx(#[from] sqlx::Error),

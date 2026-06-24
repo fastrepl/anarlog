@@ -46,6 +46,75 @@ pub fn schema() -> hypr_db_migrate::DbSchema {
     }
 }
 
+#[derive(Debug)]
+pub enum AppSchemaError {
+    Migrate(hypr_db_migrate::MigrateError),
+    Sqlx(sqlx::Error),
+}
+
+impl std::fmt::Display for AppSchemaError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Migrate(error) => write!(f, "{error}"),
+            Self::Sqlx(error) => write!(f, "{error}"),
+        }
+    }
+}
+
+impl std::error::Error for AppSchemaError {}
+
+impl From<hypr_db_migrate::MigrateError> for AppSchemaError {
+    fn from(error: hypr_db_migrate::MigrateError) -> Self {
+        Self::Migrate(error)
+    }
+}
+
+impl From<sqlx::Error> for AppSchemaError {
+    fn from(error: sqlx::Error) -> Self {
+        Self::Sqlx(error)
+    }
+}
+
+pub async fn prepare_schema(db: &hypr_db_core::Db) -> Result<(), AppSchemaError> {
+    let templates_missing_before_migration = !templates_table_exists(db.pool()).await?;
+    hypr_db_migrate::migrate(db, schema()).await?;
+    repair_missing_core_tables(db.pool(), templates_missing_before_migration).await?;
+    Ok(())
+}
+
+async fn templates_table_exists(pool: &sqlx::SqlitePool) -> Result<bool, sqlx::Error> {
+    sqlx::query_scalar(
+        "SELECT EXISTS(
+            SELECT 1
+            FROM sqlite_master
+            WHERE type = 'table' AND name = 'templates'
+        )",
+    )
+    .fetch_one(pool)
+    .await
+}
+
+async fn repair_missing_core_tables(
+    pool: &sqlx::SqlitePool,
+    templates_missing_before_migration: bool,
+) -> Result<(), sqlx::Error> {
+    if !templates_table_exists(pool).await? {
+        sqlx::query(include_str!("../migrations/20260413020000_templates.sql"))
+            .execute(pool)
+            .await?;
+    }
+
+    if templates_missing_before_migration {
+        sqlx::query(include_str!(
+            "../migrations/20260524000000_default_templates.sql"
+        ))
+        .execute(pool)
+        .await?;
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -62,7 +131,7 @@ mod tests {
         })
         .await
         .unwrap();
-        hypr_db_migrate::migrate(&db, schema()).await.unwrap();
+        prepare_schema(&db).await.unwrap();
         db
     }
 
@@ -148,6 +217,51 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(row_count, 0);
+    }
+
+    #[tokio::test]
+    async fn prepare_schema_recreates_templates_after_repair_migration_was_already_applied() {
+        let db = test_db().await;
+
+        sqlx::query("DROP TABLE templates")
+            .execute(db.pool())
+            .await
+            .unwrap();
+
+        prepare_schema(&db).await.unwrap();
+
+        let row_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM templates")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        assert!(row_count > 0);
+    }
+
+    #[tokio::test]
+    async fn prepare_schema_seeds_templates_when_repair_migration_creates_missing_table() {
+        let db = Db::connect_memory_plain().await.unwrap();
+        hypr_db_migrate::migrate(
+            &db,
+            hypr_db_migrate::DbSchema {
+                steps: &APP_MIGRATION_STEPS[..3],
+                validate_cloudsync_table: cloudsync_alter_guard_required,
+            },
+        )
+        .await
+        .unwrap();
+
+        sqlx::query("DROP TABLE templates")
+            .execute(db.pool())
+            .await
+            .unwrap();
+
+        prepare_schema(&db).await.unwrap();
+
+        let row_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM templates")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        assert!(row_count > 0);
     }
 
     #[test]

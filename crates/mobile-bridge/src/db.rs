@@ -17,7 +17,7 @@ pub(crate) async fn open_app_db(
     })
     .await?;
 
-    hypr_db_migrate::migrate(&db, hypr_db_app::schema()).await?;
+    hypr_db_app::prepare_schema(&db).await?;
 
     Ok(db)
 }

@@ -200,9 +200,7 @@ mod tests {
 
     async fn test_db() -> Db {
         let db = Db::connect_memory_plain().await.unwrap();
-        hypr_db_migrate::migrate(&db, hypr_db_app::schema())
-            .await
-            .unwrap();
+        hypr_db_app::prepare_schema(&db).await.unwrap();
         db
     }
 

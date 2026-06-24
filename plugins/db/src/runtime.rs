@@ -49,9 +49,7 @@ impl PluginDbRuntime {
 
     async fn ensure_app_schema(&self) -> Result<()> {
         self.schema_ready
-            .get_or_try_init(|| async {
-                hypr_db_migrate::migrate(self.db.as_ref(), hypr_db_app::schema()).await
-            })
+            .get_or_try_init(|| async { hypr_db_app::prepare_schema(self.db.as_ref()).await })
             .await?;
         Ok(())
     }
@@ -105,7 +103,7 @@ pub async fn open_app_db(db_path: Option<&Path>) -> Result<Db> {
     })
     .await?;
 
-    hypr_db_migrate::migrate(&db, hypr_db_app::schema()).await?;
+    hypr_db_app::prepare_schema(&db).await?;
 
     Ok(db)
 }

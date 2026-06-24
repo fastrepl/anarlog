@@ -33,7 +33,7 @@ pub async fn run(args: Args) -> Result<()> {
         .await
         .map_err(|e| Error::operation_failed("open database", e.to_string()))?;
 
-    hypr_db_migrate::migrate(&db, hypr_db_app::schema())
+    hypr_db_app::prepare_schema(&db)
         .await
         .map_err(|e| Error::operation_failed("migrate database", e.to_string()))?;
 
@@ -214,9 +214,7 @@ mod tests {
         let db = hypr_db_core::Db::connect_local_plain(&db_path)
             .await
             .unwrap();
-        hypr_db_migrate::migrate(&db, hypr_db_app::schema())
-            .await
-            .unwrap();
+        hypr_db_app::prepare_schema(&db).await.unwrap();
         hypr_db_app::upsert_template(
             db.pool(),
             hypr_db_app::UpsertTemplate {
