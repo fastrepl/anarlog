@@ -234,7 +234,7 @@ describe("insights regeneration", () => {
           title: "Weekly Product Sync",
           created_at: "2026-05-28T10:00:00.000Z",
           event_json: "",
-          raw_md: "Alex committed to send pricing by Friday.",
+          raw_md: "Raw note text should not feed insights.",
         },
       },
       mapping_session_participant: {
@@ -249,6 +249,13 @@ describe("insights regeneration", () => {
           human_id: "alex",
           user_id: "self",
           source: "auto",
+        },
+      },
+      enhanced_notes: {
+        previous_summary: {
+          session_id: "previous",
+          content: "Alex committed to send pricing by Friday.",
+          position: 0,
         },
       },
     });
@@ -285,7 +292,7 @@ describe("insights regeneration", () => {
           title: "Weekly Product Sync",
           created_at: "2026-05-28T10:00:00.000Z",
           event_json: "",
-          raw_md: "Alex committed to send pricing by Friday.",
+          raw_md: "Raw note text should not feed insights.",
         },
       },
       mapping_session_participant: {
@@ -300,6 +307,13 @@ describe("insights regeneration", () => {
           human_id: "alex",
           user_id: "self",
           source: "auto",
+        },
+      },
+      enhanced_notes: {
+        previous_summary: {
+          session_id: "previous",
+          content: "Alex committed to send pricing by Friday.",
+          position: 0,
         },
       },
     });

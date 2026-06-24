@@ -184,9 +184,10 @@ describe("PostSessionAccessory", () => {
       />,
     );
 
-    expect(screen.getByText("Insights")).toBeTruthy();
-    expect(screen.getByText("Alex")).toBeTruthy();
-    expect(screen.getByText("Jamie")).toBeTruthy();
+    expect(screen.queryByText("Insights")).toBeNull();
+    expect(screen.queryByText("With")).toBeNull();
+    expect(screen.queryByText("Alex")).toBeNull();
+    expect(screen.queryByText("Jamie")).toBeNull();
     expect(screen.queryByText("Weekly Product Sync")).toBeNull();
     expect(screen.queryByText("May 28, 2026")).toBeNull();
     const factsList = screen.getByRole("list");
@@ -203,6 +204,56 @@ describe("PostSessionAccessory", () => {
     expect(screen.getByText("Confirm keyboard behavior.")).toBeTruthy();
     expect(screen.queryByText("Do not show this fourth fact.")).toBeNull();
     expect(screen.queryByTestId("transcript")).toBeNull();
+  });
+
+  it("shows generation progress when opened without saved insights", () => {
+    render(
+      <PostSessionAccessory
+        sessionId="session-1"
+        isTranscriptExpanded
+        activeTab="insights"
+        pastNotes={[
+          {
+            sessionId: "session-0",
+            title: "Weekly Product Sync",
+            dateLabel: "May 28, 2026",
+            participantNames: ["Alex"],
+            summary: null,
+            isGenerating: true,
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("Generating insights...")).toBeTruthy();
+    expect(
+      screen.queryByText("Insights will be generated when this tab opens."),
+    ).toBeNull();
+    expect(screen.queryByText("With")).toBeNull();
+    expect(screen.queryByText("Alex")).toBeNull();
+  });
+
+  it("does not show generation progress for empty insights after generation stops", () => {
+    render(
+      <PostSessionAccessory
+        sessionId="session-1"
+        isTranscriptExpanded
+        activeTab="insights"
+        pastNotes={[
+          {
+            sessionId: "session-0",
+            title: "Weekly Product Sync",
+            dateLabel: "May 28, 2026",
+            participantNames: ["Alex"],
+            summary: null,
+            isGenerating: false,
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("No insights yet.")).toBeTruthy();
+    expect(screen.queryByText("Generating insights...")).toBeNull();
   });
 
   it("builds descending past notes from recurring and same-title sessions", () => {
@@ -230,7 +281,7 @@ describe("PostSessionAccessory", () => {
           title: "Weekly Product Sync",
           created_at: "2026-05-27T10:00:00.000Z",
           event_json: "",
-          raw_md: "Confirmed notification copy and reviewed follow-ups.",
+          raw_md: "Raw note text should not feed insights.",
         },
         older: {
           title: "Older Product Sync",
@@ -332,6 +383,11 @@ describe("PostSessionAccessory", () => {
             "Aligned on transcript panel behavior. Past notes should stay short and scannable.",
           position: 0,
         },
+        same_title_summary: {
+          session_id: "same_title",
+          content: "Confirmed notification copy and reviewed follow-ups.",
+          position: 0,
+        },
       },
     });
 
@@ -358,6 +414,10 @@ describe("PostSessionAccessory", () => {
     expect(result.missing.map((request) => request.sessionId)).toEqual([
       "previous",
       "same_title",
+    ]);
+    expect(result.requests.map((request) => request.sourceText)).toEqual([
+      "Aligned on transcript panel behavior. Past notes should stay short and scannable.",
+      "Confirmed notification copy and reviewed follow-ups.",
     ]);
   });
 
@@ -424,7 +484,7 @@ describe("PostSessionAccessory", () => {
           title: "Weekly Product Sync",
           created_at: "2026-05-28T10:00:00.000Z",
           event_json: "",
-          raw_md: "Alex committed to send pricing by Friday.",
+          raw_md: "Raw note text should not feed insights.",
         },
       },
       mapping_session_participant: {
@@ -439,6 +499,13 @@ describe("PostSessionAccessory", () => {
           human_id: "alex",
           user_id: "self",
           source: "auto",
+        },
+      },
+      enhanced_notes: {
+        previous_summary: {
+          session_id: "previous",
+          content: "Alex committed to send pricing by Friday.",
+          position: 0,
         },
       },
     });

@@ -105,7 +105,6 @@ function InsightsPanel({
   onRegenerateInsights?: () => void;
   fillHeight: boolean;
 }) {
-  const participantNames = getCompiledParticipantNames(notes);
   const insightFacts = getCompiledInsightFacts(notes);
   const isGenerating = notes.some((note) => note.isGenerating);
   const isRegenerateDisabled =
@@ -114,63 +113,50 @@ function InsightsPanel({
 
   return (
     <TranscriptCard fillHeight={fillHeight}>
-      <div className="flex shrink-0 items-center justify-between px-3 py-1.5">
-        <span className="text-muted-foreground text-xs font-medium">
-          Insights
-        </span>
-        {onRegenerateInsights ? (
-          <RegenerateInsightsButton
-            isDisabled={isRegenerateDisabled}
-            isGenerating={isGenerating}
-            onClick={onRegenerateInsights}
-          />
-        ) : null}
-      </div>
-
       <div
         className={cn([
-          "min-h-0 overflow-y-auto px-4 pb-4",
-          fillHeight ? "flex-1" : "max-h-[300px]",
+          "relative min-h-0",
+          fillHeight && "flex flex-1 flex-col",
         ])}
       >
-        <div className="flex min-w-0 flex-col gap-3 pt-2">
-          {participantNames.length > 0 ? (
-            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-              <span className="text-muted-foreground mr-0.5 text-[11px] font-medium">
-                With
-              </span>
-              {participantNames.map((participantName) => (
-                <span
-                  key={participantName}
-                  className="border-border bg-accent/35 text-muted-foreground max-w-full truncate rounded-full border px-2 py-0.5 text-[11px] leading-4"
-                >
-                  {participantName}
-                </span>
-              ))}
-            </div>
-          ) : null}
+        {onRegenerateInsights ? (
+          <div className="absolute top-2 right-3 z-10">
+            <RegenerateInsightsButton
+              isDisabled={isRegenerateDisabled}
+              isGenerating={isGenerating}
+              onClick={onRegenerateInsights}
+            />
+          </div>
+        ) : null}
 
-          {insightFacts.length > 0 ? (
-            <ul className="text-muted-foreground min-w-0 list-disc space-y-1.5 pr-1 pl-5 text-xs leading-5">
-              {insightFacts.map((fact) => (
-                <li key={fact.key} className="min-w-0 break-words">
-                  {fact.text}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-muted-foreground text-xs leading-5">
-              {isGenerating
-                ? "Generating insights..."
-                : "Insights will be generated when this tab opens."}
-            </p>
-          )}
+        <div
+          className={cn([
+            "min-h-0 overflow-y-auto py-3 pl-4",
+            onRegenerateInsights ? "pr-10" : "pr-4",
+            fillHeight ? "flex-1" : "max-h-[300px]",
+          ])}
+        >
+          <div className="flex min-w-0 flex-col gap-2">
+            {insightFacts.length > 0 ? (
+              <ul className="text-muted-foreground min-w-0 list-disc space-y-1.5 pr-1 pl-5 text-xs leading-5">
+                {insightFacts.map((fact) => (
+                  <li key={fact.key} className="min-w-0 break-words">
+                    {fact.text}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-muted-foreground text-xs leading-5">
+                {isGenerating ? "Generating insights..." : "No insights yet."}
+              </p>
+            )}
 
-          {insightFacts.length > 0 && isGenerating ? (
-            <p className="text-muted-foreground text-xs leading-5">
-              Updating insights...
-            </p>
-          ) : null}
+            {insightFacts.length > 0 && isGenerating ? (
+              <p className="text-muted-foreground text-xs leading-5">
+                Updating insights...
+              </p>
+            ) : null}
+          </div>
         </div>
       </div>
     </TranscriptCard>
@@ -188,26 +174,6 @@ function splitKeyFacts(content: string): string[] {
     )
     .filter(Boolean)
     .slice(0, 3);
-}
-
-function getCompiledParticipantNames(notes: PastSessionNote[]): string[] {
-  const seen = new Set<string>();
-  const names: string[] = [];
-
-  for (const note of notes) {
-    for (const participantName of note.participantNames ?? []) {
-      const text = participantName.trim();
-      const key = text.toLowerCase();
-      if (!text || seen.has(key)) {
-        continue;
-      }
-
-      seen.add(key);
-      names.push(text);
-    }
-  }
-
-  return names.sort((a, b) => a.localeCompare(b));
 }
 
 function getCompiledInsightFacts(

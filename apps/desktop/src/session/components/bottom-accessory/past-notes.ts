@@ -396,7 +396,7 @@ async function generatePastSessionKeyFacts({
       date_label: request.dateLabel,
       participant_names: request.participantNames,
     },
-    notes: request.sourceText,
+    summaries: request.sourceText,
   });
 
   const result = await generateText({
@@ -466,7 +466,7 @@ function getSessionKeyFactsSource(
   store: MainStore,
   sessionId: string,
 ): string | null {
-  const enhancedNotes: Array<{ content: string; position: number }> = [];
+  const summaries: Array<{ content: string; position: number }> = [];
 
   store.forEachRow("enhanced_notes", (noteId, _forEachCell) => {
     const note = store.getRow("enhanced_notes", noteId);
@@ -474,23 +474,17 @@ function getSessionKeyFactsSource(
       return;
     }
 
-    enhancedNotes.push({
+    summaries.push({
       content: note.content,
       position: typeof note.position === "number" ? note.position : 0,
     });
   });
 
-  enhancedNotes.sort((a, b) => a.position - b.position);
-  const enhancedText = cleanSourceText(
-    enhancedNotes.map((note) => extractPlainText(note.content)).join("\n\n"),
+  summaries.sort((a, b) => a.position - b.position);
+  const summaryText = cleanSourceText(
+    summaries.map((note) => extractPlainText(note.content)).join("\n\n"),
   );
-  if (enhancedText) {
-    return truncateAtWord(enhancedText, MAX_SOURCE_LENGTH);
-  }
-
-  const rawMd = store.getCell("sessions", sessionId, "raw_md");
-  const rawText = cleanSourceText(extractPlainText(rawMd));
-  return rawText ? truncateAtWord(rawText, MAX_SOURCE_LENGTH) : null;
+  return summaryText ? truncateAtWord(summaryText, MAX_SOURCE_LENGTH) : null;
 }
 
 function cleanSourceText(text: string): string {

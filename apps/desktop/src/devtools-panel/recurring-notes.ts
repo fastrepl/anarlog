@@ -1,4 +1,5 @@
 import type {
+  EnhancedNoteStorage,
   HumanStorage,
   MappingSessionParticipantStorage,
   SessionEvent,
@@ -199,6 +200,15 @@ function upsertSession({
     title: MEETING_TITLE,
     raw_md: rawMd,
   } satisfies SessionStorage);
+
+  store.setRow("enhanced_notes", `${sessionId}:summary`, {
+    user_id: ownerUserId,
+    session_id: sessionId,
+    content: rawMd,
+    template_id: "",
+    position: 0,
+    title: "Summary",
+  } satisfies EnhancedNoteStorage);
 
   for (const participant of PARTICIPANTS) {
     store.setRow(
