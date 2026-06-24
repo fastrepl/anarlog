@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   Check,
   ChevronDown,
@@ -79,7 +80,7 @@ export function ModelCombobox({
   onChange,
   listModels,
   disabled = false,
-  placeholder = "Select a model",
+  placeholder,
   suffix,
   isConfigured = false,
 }: {
@@ -92,6 +93,7 @@ export function ModelCombobox({
   suffix?: React.ReactNode;
   isConfigured?: boolean;
 }) {
+  const { t } = useLingui();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [showIgnored, setShowIgnored] = useState(false);
@@ -158,7 +160,9 @@ export function ModelCombobox({
               </span>
             ) : (
               <span className="text-muted-foreground truncate">
-                {isLoadingModels ? "Loading models..." : placeholder}
+                {isLoadingModels
+                  ? t`Loading models...`
+                  : (placeholder ?? t`Select a model`)}
               </span>
             )}
             {suffix}
@@ -180,7 +184,7 @@ export function ModelCombobox({
             className="rounded-[inherit] border-0 bg-transparent"
           >
             <CommandInput
-              placeholder="Search or create new"
+              placeholder={t`Search or create new`}
               value={query}
               onValueChange={(value: string) => setQuery(value)}
               onKeyDown={(event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -192,11 +196,17 @@ export function ModelCombobox({
             <CommandEmpty>
               <div className="text-muted-foreground px-2 py-1.5 text-sm">
                 {trimmedQuery.length > 0 ? (
-                  <p>No results found.</p>
+                  <p>
+                    <Trans>No results found.</Trans>
+                  </p>
                 ) : hasIgnoredOptions ? (
-                  <p>No models ready to use.</p>
+                  <p>
+                    <Trans>No models ready to use.</Trans>
+                  </p>
                 ) : (
-                  <p>No models available.</p>
+                  <p>
+                    <Trans>No models available.</Trans>
+                  </p>
                 )}
               </div>
             </CommandEmpty>

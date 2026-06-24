@@ -1,4 +1,5 @@
 import { Icon } from "@iconify-icon/react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { type AnyFieldApi, useForm } from "@tanstack/react-form";
 import { ExternalLink } from "lucide-react";
 import type { ReactNode } from "react";
@@ -148,6 +149,7 @@ export function NonHyprProviderCard({
   providers: readonly ProviderConfig[];
   providerContext?: ReactNode;
 }) {
+  const { t } = useLingui();
   const billing = useBillingAccess();
   const [provider, setProvider] = useProvider(providerType, config.id);
   const locked =
@@ -235,7 +237,7 @@ export function NonHyprProviderCard({
         >
           {showBaseUrl && (
             <form.Field name="base_url">
-              {(field) => <FormField field={field} label="Base URL" />}
+              {(field) => <FormField field={field} label={t`Base URL`} />}
             </form.Field>
           )}
           {showApiKey && (
@@ -243,8 +245,8 @@ export function NonHyprProviderCard({
               {(field) => (
                 <FormField
                   field={field}
-                  label="API Key"
-                  placeholder="Enter your API key"
+                  label={t`API Key`}
+                  placeholder={t`Enter your API key`}
                   type="password"
                 />
               )}
@@ -290,12 +292,12 @@ export function NonHyprProviderCard({
           {((!showBaseUrl && config.baseUrl) || !showApiKey) && (
             <details className="flex flex-col gap-4 pt-2">
               <summary className="text-muted-foreground hover:text-foreground cursor-pointer text-xs hover:underline">
-                Advanced
+                <Trans>Advanced</Trans>
               </summary>
               <div className="mt-4 flex flex-col gap-4">
                 {!showBaseUrl && config.baseUrl && (
                   <form.Field name="base_url">
-                    {(field) => <FormField field={field} label="Base URL" />}
+                    {(field) => <FormField field={field} label={t`Base URL`} />}
                   </form.Field>
                 )}
                 {!showApiKey && (
@@ -303,8 +305,8 @@ export function NonHyprProviderCard({
                     {(field) => (
                       <FormField
                         field={field}
-                        label="API Key"
-                        placeholder="Enter your API key (optional)"
+                        label={t`API Key`}
+                        placeholder={t`Enter your API key (optional)`}
                         type="password"
                       />
                     )}

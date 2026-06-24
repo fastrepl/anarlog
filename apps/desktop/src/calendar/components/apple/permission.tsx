@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   AlertCircleIcon,
   ArrowLeftIcon,
@@ -51,6 +52,7 @@ export function AccessPermissionRow({
   onReset: () => void;
   showActionButton?: boolean;
 }) {
+  const { t } = useLingui();
   const isAuthorized = status === "authorized";
   const isDenied = status === "denied";
 
@@ -100,8 +102,8 @@ export function AccessPermissionRow({
           ])}
           aria-label={
             isAuthorized
-              ? `Open ${title.toLowerCase()} settings`
-              : `Request ${title.toLowerCase()}`
+              ? t`Open ${title.toLowerCase()} settings`
+              : t`Request ${title.toLowerCase()}`
           }
         >
           {isAuthorized ? (
@@ -128,6 +130,7 @@ export function TroubleShootingLink({
   isPending: boolean;
   className?: string;
 }) {
+  const { t } = useLingui();
   const [showActions, setShowActions] = useState(false);
   return (
     <div className={cn(["text-muted-foreground text-xs", className])}>
@@ -137,25 +140,25 @@ export function TroubleShootingLink({
           onClick={() => setShowActions(true)}
           className="hover:text-foreground underline transition-colors"
         >
-          Having trouble?
+          <Trans>Having trouble?</Trans>
         </button>
       ) : (
         <div>
-          You can{" "}
+          <Trans>You can</Trans>{" "}
           <ActionLink onClick={onRequest} disabled={isPending}>
-            Request,
+            {t`Request`},
           </ActionLink>{" "}
           <ActionLink onClick={onReset} disabled={isPending}>
-            Reset
+            <Trans>Reset</Trans>
           </ActionLink>{" "}
-          or{" "}
+          <Trans>or</Trans>{" "}
           <ActionLink onClick={onOpen} disabled={isPending}>
-            Open
+            <Trans>Open</Trans>
           </ActionLink>{" "}
-          permission panel.{" "}
+          <Trans>permission panel.</Trans>{" "}
           <ActionLink onClick={() => setShowActions(false)}>
             <ArrowLeftIcon className="inline-block size-3 underline" />
-            Back
+            <Trans>Back</Trans>
           </ActionLink>
         </div>
       )}

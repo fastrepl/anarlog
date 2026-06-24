@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import { EllipsisVerticalIcon } from "lucide-react";
 import { useCallback, useState } from "react";
 
@@ -33,6 +34,7 @@ export function OptionsMenu({
   onConfigure?: () => void;
   children: React.ReactNode;
 }) {
+  const { t } = useLingui();
   const [open, setOpen] = useState(false);
   const { uploadAudio, uploadTranscript } = useUploadFile(sessionId);
 
@@ -62,7 +64,9 @@ export function OptionsMenu({
       }}
     >
       <EllipsisVerticalIcon className="size-4" />
-      <span className="sr-only">More options</span>
+      <span className="sr-only">
+        <Trans>More options</Trans>
+      </span>
     </button>
   );
 
@@ -84,7 +88,7 @@ export function OptionsMenu({
               action={
                 onConfigure
                   ? {
-                      label: "Configure",
+                      label: t`Configure`,
                       handleClick: onConfigure,
                     }
                   : undefined
@@ -126,14 +130,18 @@ export function OptionsMenu({
             className="h-9 justify-center px-3 whitespace-nowrap"
             onClick={handleUploadAudio}
           >
-            <span className="text-sm">Upload audio</span>
+            <span className="text-sm">
+              <Trans>Upload audio</Trans>
+            </span>
           </Button>
           <Button
             variant="ghost"
             className="h-9 justify-center px-3 whitespace-nowrap"
             onClick={handleUploadTranscript}
           >
-            <span className="text-sm">Upload transcript</span>
+            <span className="text-sm">
+              <Trans>Upload transcript</Trans>
+            </span>
           </Button>
         </AppFloatingPanel>
       </PopoverContent>

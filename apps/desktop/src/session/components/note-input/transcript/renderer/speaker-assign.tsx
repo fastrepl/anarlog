@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import { SearchIcon } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
@@ -277,6 +278,7 @@ function ParticipantList({
   sessionId: string | undefined;
   onSelect: (humanId: string, mode: AssignmentMode) => void;
 }) {
+  const { t } = useLingui();
   const queries = main.UI.useQueries(main.STORE_ID);
   const store = main.UI.useStore(main.STORE_ID);
   const userId = main.UI.useValue("user_id", main.STORE_ID) as
@@ -315,13 +317,13 @@ function ParticipantList({
         const email = ((result.human_email as string | undefined) || "").trim();
         return {
           id: result.human_id as string,
-          name: name || email || "Unknown",
+          name: name || email || t`Unknown`,
           email: email || undefined,
           isSessionParticipant: true,
         };
       })
       .filter((p): p is SpeakerParticipantOption => p !== null);
-  }, [mappingIds, queries]);
+  }, [mappingIds, queries, t]);
 
   const participantIds = useMemo(
     () => new Set(participants.map((participant) => participant.id)),
@@ -484,7 +486,7 @@ function ParticipantList({
               autoFocus
               type="search"
               className="placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent text-sm outline-hidden"
-              placeholder="Search people"
+              placeholder={t`Search people`}
               value={query}
               onChange={(e) => {
                 setQuery(e.target.value);
@@ -497,7 +499,11 @@ function ParticipantList({
           {groups.map((group) => (
             <div key={group.title}>
               <div className="text-muted-foreground px-3 pt-2 pb-1 text-[11px] font-medium uppercase">
-                {group.title}
+                {group.title === "Participants" ? (
+                  <Trans>Participants</Trans>
+                ) : (
+                  <Trans>People</Trans>
+                )}
               </div>
               {group.options.map((option) => (
                 <ParticipantOptionButton
@@ -514,7 +520,7 @@ function ParticipantList({
             <div>
               {!hasPeopleGroup && (
                 <div className="text-muted-foreground px-3 pt-2 pb-1 text-[11px] font-medium uppercase">
-                  People
+                  <Trans>People</Trans>
                 </div>
               )}
               <ParticipantOptionButton
@@ -527,7 +533,11 @@ function ParticipantList({
 
           {!createOption && groups.length === 0 && (
             <p className="text-muted-foreground px-3 py-2 text-xs">
-              {query.trim() ? "No matching people" : "No people"}
+              {query.trim() ? (
+                <Trans>No matching people</Trans>
+              ) : (
+                <Trans>No people</Trans>
+              )}
             </p>
           )}
         </div>
@@ -539,7 +549,7 @@ function ParticipantList({
             onCheckedChange={(value) => setApplyToAllMatching(value === true)}
           />
           <span className="text-muted-foreground text-sm whitespace-nowrap">
-            Apply to all
+            <Trans>Apply to all</Trans>
           </span>
         </label>
         <button
@@ -552,7 +562,7 @@ function ParticipantList({
           disabled={!selectedOption}
           onClick={handleConfirm}
         >
-          Confirm
+          <Trans>Confirm</Trans>
         </button>
       </div>
     </div>
@@ -620,6 +630,7 @@ function ParticipantOptionButton({
   selected: boolean;
   onSelect: (option: SpeakerParticipantOption) => void;
 }) {
+  const { t } = useLingui();
   return (
     <button
       type="button"
@@ -631,7 +642,7 @@ function ParticipantOptionButton({
       onClick={() => onSelect(option)}
     >
       <span className="block truncate">
-        {option.isCreateOption ? `Add "${option.name}"` : option.name}
+        {option.isCreateOption ? t`Add "${option.name}"` : option.name}
       </span>
       {option.email && (
         <span className="text-muted-foreground block truncate text-xs">

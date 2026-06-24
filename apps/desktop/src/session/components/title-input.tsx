@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import { usePrevious } from "@uidotdev/usehooks";
 import {
   type CSSProperties,
@@ -93,7 +94,7 @@ export const TitleInput = forwardRef<
                 : "text-xl font-semibold",
             ])}
           >
-            Generating title...
+            <Trans>Generating title...</Trans>
           </span>
         </div>
       );
@@ -159,6 +160,7 @@ const TitleInputInner = memo(
       },
       ref,
     ) => {
+      const { t } = useLingui();
       const storeTitle = main.UI.useCell(
         "sessions",
         sessionId,
@@ -245,8 +247,8 @@ const TitleInputInner = memo(
           } as CSSProperties)
         : undefined;
       const visibleTitleLength = Math.max(
-        title.length || "Untitled".length,
-        "Untitled".length,
+        title.length || t`Untitled`.length,
+        t`Untitled`.length,
       );
       const titleShellStyle = {
         ...titleFadeStyle,
@@ -377,10 +379,10 @@ const TitleInputInner = memo(
           <input
             data-tauri-drag-region="false"
             data-session-title-input
-            aria-label="Session title"
+            aria-label={t`Session title`}
             ref={setInputRef}
             id={`title-input-${sessionId}-${editorId}`}
-            placeholder="Untitled"
+            placeholder={t`Untitled`}
             type="text"
             onChange={(e) => {
               const value = e.target.value;

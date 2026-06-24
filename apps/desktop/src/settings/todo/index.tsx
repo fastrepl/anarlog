@@ -1,3 +1,4 @@
+import { Trans } from "@lingui/react/macro";
 import { platform } from "@tauri-apps/plugin-os";
 import { ChevronDown } from "lucide-react";
 
@@ -24,7 +25,7 @@ export function SettingsTodo() {
 
   return (
     <div className="flex flex-col gap-6">
-      <SettingsPageTitle title="Ticket" />
+      <SettingsPageTitle title={<Trans>Ticket</Trans>} />
       <Accordion type="multiple">
         {visibleProviders.map((provider) => (
           <AccordionItem

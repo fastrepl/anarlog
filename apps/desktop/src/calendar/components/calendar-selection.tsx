@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   CalendarOffIcon,
   ChevronDown,
@@ -53,6 +54,7 @@ export function CalendarSelection({
   isLoading,
   disableHoverTone,
 }: CalendarSelectionProps) {
+  const { t } = useLingui();
   const defaultOpen = useMemo(
     () => groups.map((group) => group.id ?? group.sourceName),
     [groups],
@@ -70,19 +72,23 @@ export function CalendarSelection({
         {isLoading ? (
           <>
             <Loader2Icon className="text-muted-foreground/70 mb-2 size-6 animate-spin" />
-            <p className="text-muted-foreground text-xs">Loading calendars…</p>
+            <p className="text-muted-foreground text-xs">
+              <Trans>Loading calendars...</Trans>
+            </p>
           </>
         ) : (
           <>
             <CalendarOffIcon className="text-muted-foreground/70 mb-2 size-6" />
             <div className="text-muted-foreground flex items-center gap-1 text-xs">
-              <p>No calendars found</p>
+              <p>
+                <Trans>No calendars found</Trans>
+              </p>
               {onRefresh ? (
                 <button
                   type="button"
                   onClick={onRefresh}
                   className="text-muted-foreground hover:bg-accent hover:text-muted-foreground rounded p-1 transition-colors"
-                  aria-label="Refresh calendars"
+                  aria-label={t`Refresh calendars`}
                 >
                   <RefreshCwIcon className="size-3" />
                 </button>
@@ -210,6 +216,7 @@ function CalendarGroupMenuButton({
 }: {
   onClick: (event: MouseEvent<HTMLButtonElement>) => void;
 }) {
+  const { t } = useLingui();
   return (
     <button
       type="button"
@@ -219,7 +226,7 @@ function CalendarGroupMenuButton({
         "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
         "hover:bg-accent hover:text-muted-foreground",
       ])}
-      aria-label="Open calendar account actions"
+      aria-label={t`Open calendar account actions`}
     >
       <EllipsisIcon className="size-4" />
     </button>

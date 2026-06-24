@@ -1,3 +1,4 @@
+import { Trans } from "@lingui/react/macro";
 import {
   AudioLinesIcon,
   FileDownIcon,
@@ -107,7 +108,9 @@ export function OverflowButton({
               className="cursor-pointer"
             >
               <FileDownIcon />
-              <span>Export</span>
+              <span>
+                <Trans>Export</Trans>
+              </span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             {allowListening && (
@@ -120,14 +123,18 @@ export function OverflowButton({
                   className="cursor-pointer"
                 >
                   <AudioLinesIcon />
-                  <span>Upload audio</span>
+                  <span>
+                    <Trans>Upload audio</Trans>
+                  </span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={handleUploadTranscript}
                   className="cursor-pointer"
                 >
                   <FileTextIcon />
-                  <span>Upload transcript</span>
+                  <span>
+                    <Trans>Upload transcript</Trans>
+                  </span>
                 </DropdownMenuItem>
               </>
             )}
@@ -137,7 +144,9 @@ export function OverflowButton({
                 className="cursor-pointer"
               >
                 <PictureInPicture2Icon />
-                <span>Open floating panel</span>
+                <span>
+                  <Trans>Open floating panel</Trans>
+                </span>
               </DropdownMenuItem>
             )}
             <DropdownMenuSeparator />
@@ -147,7 +156,9 @@ export function OverflowButton({
                 className="cursor-pointer"
               >
                 <SquareArrowOutUpRightIcon />
-                <span>Open in New Window</span>
+                <span>
+                  <Trans>Open in New Window</Trans>
+                </span>
               </DropdownMenuItem>
             )}
             <ShowInFinder sessionId={sessionId} />

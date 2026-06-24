@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   GripVertical as HandleIcon,
   MoreHorizontalIcon,
@@ -214,6 +215,7 @@ function SectionItem({
   onMove: (key: string, direction: -1 | 1) => void;
   dragControls: ReturnType<typeof useDragControls>;
 }) {
+  const { t } = useLingui();
   const [isFocused, setIsFocused] = useState(false);
 
   return (
@@ -238,7 +240,7 @@ function SectionItem({
                 size="icon"
                 variant="ghost"
                 className="text-muted-foreground hover:text-muted-foreground h-7 w-7"
-                aria-label="Section actions"
+                aria-label={t`Section actions`}
               >
                 <MoreHorizontalIcon className="size-4" />
               </Button>
@@ -249,33 +251,33 @@ function SectionItem({
                   onClick={() => onInsertAbove(index)}
                   className="cursor-pointer"
                 >
-                  Insert above
+                  <Trans>Insert above</Trans>
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => onInsertBelow(index + 1)}
                   className="cursor-pointer"
                 >
-                  Insert below
+                  <Trans>Insert below</Trans>
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => onMove(item.key, -1)}
                   disabled={index === 0}
                   className="cursor-pointer"
                 >
-                  Move up
+                  <Trans>Move up</Trans>
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => onMove(item.key, 1)}
                   disabled={index === total - 1}
                   className="cursor-pointer"
                 >
-                  Move down
+                  <Trans>Move down</Trans>
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => onDelete(item.key)}
                   className="cursor-pointer text-red-600 focus:text-red-600"
                 >
-                  Delete
+                  <Trans>Delete</Trans>
                 </DropdownMenuItem>
               </AppFloatingPanel>
             </DropdownMenuContent>
@@ -288,7 +290,7 @@ function SectionItem({
           disabled={disabled}
           value={item.title}
           onChange={(e) => onChange({ ...item, title: e.target.value })}
-          placeholder="Untitled"
+          placeholder={t`Untitled`}
           className="placeholder:text-muted-foreground/60 border-0 bg-transparent p-0 font-medium shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
         />
 
@@ -296,7 +298,7 @@ function SectionItem({
           disabled={disabled}
           value={item.description}
           onChange={(e) => onChange({ ...item, description: e.target.value })}
-          placeholder="Template content with Jinja2: {{ variable }}, {% if condition %}"
+          placeholder={t`Template content with Jinja2: {{ variable }}, {% if condition %}`}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
           className={cn([

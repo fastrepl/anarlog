@@ -1,3 +1,5 @@
+import { Trans } from "@lingui/react/macro";
+
 import {
   Tooltip,
   TooltipContent,
@@ -10,7 +12,9 @@ export function ReconnectRequiredIndicator() {
       <TooltipTrigger asChild>
         <span className="size-2.5 rounded-full bg-amber-500" />
       </TooltipTrigger>
-      <TooltipContent side="bottom">Reconnect required</TooltipContent>
+      <TooltipContent side="bottom">
+        <Trans>Reconnect required</Trans>
+      </TooltipContent>
     </Tooltip>
   );
 }

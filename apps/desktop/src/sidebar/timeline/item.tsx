@@ -1,3 +1,4 @@
+import { useLingui } from "@lingui/react/macro";
 import { SquareIcon } from "lucide-react";
 import {
   memo,
@@ -139,6 +140,7 @@ function ItemBase({
   timelineSessionId?: string;
   isUpcoming?: boolean;
 }) {
+  const { t } = useLingui();
   const hasSelection = useTimelineSelection((s) => s.selectedIds.length > 0);
   const showLiveStop = isLive && onStop;
   const showTrailingStatus = showLiveStop || showSpinner;
@@ -192,7 +194,7 @@ function ItemBase({
                 ignored && "line-through",
               )}
             >
-              {title || "Untitled"}
+              {title || t`Untitled`}
             </div>
             {displayTime && (
               <div
@@ -220,7 +222,7 @@ function ItemBase({
       {showLiveStop ? (
         <button
           type="button"
-          aria-label="Stop listening"
+          aria-label={t`Stop listening`}
           onClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
@@ -279,13 +281,14 @@ const EventItem = memo(
     itemNodeRef?: RefCallback<HTMLDivElement>;
     isUpcoming?: boolean;
   }) => {
+    const { t } = useLingui();
     const store = main.UI.useStore(main.STORE_ID);
     const openCurrent = useTabs((state) => state.openCurrent);
     const openNew = useTabs((state) => state.openNew);
 
     const eventId = item.id;
     const trackingIdEvent = item.data.tracking_id_event;
-    const title = item.data.title || "Untitled";
+    const title = item.data.title || t`Untitled`;
     const recurrenceSeriesId = item.data.recurrence_series_id;
 
     const {
@@ -362,35 +365,37 @@ const EventItem = memo(
           return [
             {
               id: "unignore",
-              text: "Show This Event",
+              text: t`Show This Event`,
               action: handleUnignore,
             },
             {
               id: "unignore-series",
-              text: "Show All Recurring Events",
+              text: t`Show All Recurring Events`,
               action: handleUnignoreSeries,
             },
           ];
         }
-        return [{ id: "unignore", text: "Show Event", action: handleUnignore }];
+        return [
+          { id: "unignore", text: t`Show Event`, action: handleUnignore },
+        ];
       }
       const menu: MenuItemDef[] = [
         {
           id: "open-new-tab",
-          text: "Open in New Tab",
+          text: t`Open in New Tab`,
           action: handleOpenNewTab,
         },
         { separator: true as const },
         {
           id: "ignore",
-          text: recurrenceSeriesId ? "Delete This Event" : "Delete Event",
+          text: recurrenceSeriesId ? t`Delete This Event` : t`Delete Event`,
           action: handleIgnore,
         },
       ];
       if (recurrenceSeriesId) {
         menu.push({
           id: "ignore-series",
-          text: "Delete All Recurring Events",
+          text: t`Delete All Recurring Events`,
           action: handleIgnoreSeries,
         });
       }
@@ -403,6 +408,7 @@ const EventItem = memo(
       handleUnignoreSeries,
       handleIgnoreSeries,
       recurrenceSeriesId,
+      t,
     ]);
 
     return (
@@ -447,6 +453,7 @@ const SessionItem = memo(
     itemNodeRef?: RefCallback<HTMLDivElement>;
     isUpcoming?: boolean;
   }) => {
+    const { t } = useLingui();
     const store = main.UI.useStore(main.STORE_ID);
     const indexes = main.UI.useIndexes(main.STORE_ID);
     const openCurrent = useTabs((state) => state.openCurrent);
@@ -518,10 +525,10 @@ const SessionItem = memo(
         writeSessionContextDragData(
           event.dataTransfer,
           sessionId,
-          title || "Untitled",
+          title || t`Untitled`,
         );
       },
-      [sessionId, title],
+      [sessionId, title, t],
     );
 
     const handleDelete = useCallback(() => {
@@ -566,22 +573,22 @@ const SessionItem = memo(
       () => [
         {
           id: "open-new-window",
-          text: "Open in New Window",
+          text: t`Open in New Window`,
           action: handleOpenStandaloneWindow,
         },
         {
           id: "show",
-          text: "Show in Finder",
+          text: t`Show in Finder`,
           action: handleShowInFinder,
         },
         { separator: true as const },
         {
           id: "delete",
-          text: "Delete Note",
+          text: t`Delete Note`,
           action: handleDelete,
         },
       ],
-      [handleOpenStandaloneWindow, handleShowInFinder, handleDelete],
+      [handleOpenStandaloneWindow, handleShowInFinder, handleDelete, t],
     );
 
     return (

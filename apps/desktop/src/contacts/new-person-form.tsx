@@ -1,3 +1,4 @@
+import { useLingui } from "@lingui/react/macro";
 import { CornerDownLeft } from "lucide-react";
 import React, { useState } from "react";
 
@@ -10,6 +11,7 @@ export function NewPersonForm({
   onSave: (humanId: string) => void;
   onCancel: () => void;
 }) {
+  const { t } = useLingui();
   const [name, setName] = useState("");
   const userId = main.UI.useValue("user_id", main.STORE_ID);
 
@@ -67,7 +69,7 @@ export function NewPersonForm({
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Add person"
+            placeholder={t`Add person`}
             className="placeholder:text-muted-foreground w-full bg-transparent text-sm focus:outline-hidden"
             autoFocus
           />
@@ -75,7 +77,7 @@ export function NewPersonForm({
             <button
               type="submit"
               className="text-muted-foreground hover:text-muted-foreground shrink-0 transition-colors"
-              aria-label="Add person"
+              aria-label={t`Add person`}
             >
               <CornerDownLeft className="size-4" />
             </button>

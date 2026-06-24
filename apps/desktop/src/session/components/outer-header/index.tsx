@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ChevronDownIcon, HeadsetIcon, MicOff, VideoIcon } from "lucide-react";
 
 import { commands as openerCommands } from "@hypr/plugin-opener2";
@@ -152,8 +153,9 @@ function HeaderMeetingJoinButton({
   sessionId: string;
   remote: RemoteMeeting;
 }) {
+  const { t } = useLingui();
   const { icon, name } = getMeetingDisplay(remote.type);
-  const label = `Join ${name}`;
+  const label = t`Join ${name}`;
   const handleJoin = () => {
     void openerCommands.openUrl(remote.url, null);
   };
@@ -172,7 +174,9 @@ function HeaderMeetingJoinButton({
           "hover:bg-accent transition-colors",
         ])}
       >
-        <span>Join</span>
+        <span>
+          <Trans>Join</Trans>
+        </span>
         {icon}
         <span className="truncate">{name}</span>
       </button>
@@ -240,6 +244,7 @@ function SidebarModeStopButton({
   sessionMode: string;
   standaloneWindow: boolean;
 }) {
+  const { t } = useLingui();
   const { leftsidebar } = useShell();
   const { amplitude, degraded, muted, stop } = useListener((state) => ({
     amplitude: state.live.amplitude,
@@ -284,7 +289,7 @@ function SidebarModeStopButton({
         "h-7 w-20",
         "disabled:pointer-events-none disabled:opacity-50",
       ])}
-      aria-label={finalizing ? "Finalizing" : "Stop listening"}
+      aria-label={finalizing ? t`Finalizing` : t`Stop listening`}
     >
       {finalizing ? (
         <div className="flex items-center gap-1.5">
@@ -310,7 +315,9 @@ function SidebarModeStopButton({
             className={cn(["hidden items-center gap-1.5", "group-hover:flex"])}
           >
             <span className={cn(["size-2 rounded-none", colors.stop])} />
-            <span className="text-xs">Stop</span>
+            <span className="text-xs">
+              <Trans>Stop</Trans>
+            </span>
           </div>
         </>
       )}

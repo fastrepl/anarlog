@@ -1,3 +1,4 @@
+import { Trans } from "@lingui/react/macro";
 import { AlertCircleIcon, RefreshCwIcon } from "lucide-react";
 
 import { Button } from "@hypr/ui/components/ui/button";
@@ -41,7 +42,9 @@ export function EnhanceError({
     <div className="flex h-full min-h-[400px] flex-col items-center justify-center gap-4">
       <AlertCircleIcon size={24} className="text-muted-foreground" />
       <p className="text-muted-foreground max-w-lg text-center text-sm">
-        {error?.message || "Something went wrong while generating the summary."}
+        {error?.message || (
+          <Trans>Something went wrong while generating the summary.</Trans>
+        )}
       </p>
       <Button
         onClick={handleRetry}
@@ -50,7 +53,9 @@ export function EnhanceError({
         variant="default"
       >
         <RefreshCwIcon size={16} />
-        <span>Retry</span>
+        <span>
+          <Trans>Retry</Trans>
+        </span>
       </Button>
     </div>
   );

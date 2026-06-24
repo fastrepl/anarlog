@@ -1,4 +1,5 @@
 import { Icon } from "@iconify-icon/react";
+import { Trans } from "@lingui/react/macro";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
@@ -33,7 +34,9 @@ const SOCIAL_ICON_SIZE = 18;
 export function FinalDescription() {
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-      <span>Join our community and stay updated:</span>
+      <span>
+        <Trans>Join our community and stay updated:</Trans>
+      </span>
       <div className="flex items-center gap-2">
         {SOCIALS.map((social) => {
           const iconSize = "size" in social ? social.size : SOCIAL_ICON_SIZE;
@@ -60,7 +63,7 @@ export function FinalSection({ onContinue }: { onContinue: () => void }) {
       className="px-6 py-2 text-sm"
       onClick={() => void finishOnboarding(onContinue)}
     >
-      Open Anarlog
+      <Trans>Open Anarlog</Trans>
     </OnboardingButton>
   );
 }

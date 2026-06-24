@@ -1,3 +1,4 @@
+import { useLingui } from "@lingui/react/macro";
 import { FolderIcon } from "lucide-react";
 import { useMemo } from "react";
 
@@ -12,6 +13,7 @@ export function NoteTitleBreadcrumb({
   sessionId: string;
   title: React.ReactNode;
 }) {
+  const { t } = useLingui();
   const folderId = main.UI.useCell(
     "sessions",
     sessionId,
@@ -22,7 +24,7 @@ export function NoteTitleBreadcrumb({
 
   return (
     <nav
-      aria-label="Note breadcrumb"
+      aria-label={t`Note breadcrumb`}
       data-tauri-drag-region="false"
       className={cn([
         "ml-1.5 flex max-w-full min-w-0 items-center overflow-hidden",

@@ -1,3 +1,4 @@
+import { Trans } from "@lingui/react/macro";
 import type { ChatStatus } from "ai";
 import { ChevronDownIcon } from "lucide-react";
 
@@ -99,7 +100,9 @@ export function ChatBody({
           variant="outline"
         >
           <ChevronDownIcon size={12} />
-          <span className="text-xs">Go to recent</span>
+          <span className="text-xs">
+            <Trans>Go to recent</Trans>
+          </span>
         </Button>
       )}
     </div>

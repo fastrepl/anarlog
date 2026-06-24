@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   ALargeSmallIcon,
   ChevronDownIcon,
@@ -96,6 +97,7 @@ export function SearchBar({
 }: {
   editorRef: React.RefObject<NoteEditorRef | null>;
 }) {
+  const { t } = useLingui();
   const search = useSearch();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const replaceInputRef = useRef<HTMLInputElement>(null);
@@ -204,21 +206,21 @@ export function SearchBar({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleSearchKeyDown}
-          placeholder="Search..."
+          placeholder={t`Search...`}
           className="placeholder:text-muted-foreground h-full min-w-0 flex-1 bg-transparent text-xs focus:outline-hidden"
         />
         <div className="flex items-center gap-0.5">
           <ToggleButton
             active={caseSensitive}
             onClick={toggleCaseSensitive}
-            tooltip="Match case"
+            tooltip={t`Match case`}
           >
             <ALargeSmallIcon className="size-3.5" />
           </ToggleButton>
           <ToggleButton
             active={wholeWord}
             onClick={toggleWholeWord}
-            tooltip="Match whole word"
+            tooltip={t`Match whole word`}
           >
             <WholeWordIcon className="size-3.5" />
           </ToggleButton>
@@ -227,7 +229,9 @@ export function SearchBar({
             onClick={toggleReplace}
             tooltip={
               <>
-                <span>Replace</span>
+                <span>
+                  <Trans>Replace</Trans>
+                </span>
                 <Kbd className="animate-kbd-press">⌘ H</Kbd>
               </>
             }
@@ -244,7 +248,9 @@ export function SearchBar({
             disabled={totalMatches === 0}
             tooltip={
               <>
-                <span>Previous match</span>
+                <span>
+                  <Trans>Previous match</Trans>
+                </span>
                 <Kbd className="animate-kbd-press">⇧ ↵</Kbd>
               </>
             }
@@ -256,7 +262,9 @@ export function SearchBar({
             disabled={totalMatches === 0}
             tooltip={
               <>
-                <span>Next match</span>
+                <span>
+                  <Trans>Next match</Trans>
+                </span>
                 <Kbd className="animate-kbd-press">↵</Kbd>
               </>
             }
@@ -268,7 +276,9 @@ export function SearchBar({
           onClick={close}
           tooltip={
             <>
-              <span>Close</span>
+              <span>
+                <Trans>Close</Trans>
+              </span>
               <Kbd className="animate-kbd-press">Esc</Kbd>
             </>
           }
@@ -285,7 +295,7 @@ export function SearchBar({
             value={replaceQuery}
             onChange={(e) => setReplaceQuery(e.target.value)}
             onKeyDown={handleReplaceKeyDown}
-            placeholder="Replace with..."
+            placeholder={t`Replace with...`}
             className="placeholder:text-muted-foreground h-full min-w-0 flex-1 bg-transparent text-xs focus:outline-hidden"
           />
           <div className="flex items-center gap-0.5">
@@ -293,7 +303,9 @@ export function SearchBar({
               onClick={replaceCurrent}
               tooltip={
                 <>
-                  <span>Replace</span>
+                  <span>
+                    <Trans>Replace</Trans>
+                  </span>
                   <Kbd className="animate-kbd-press">↵</Kbd>
                 </>
               }
@@ -304,7 +316,9 @@ export function SearchBar({
               onClick={replaceAll}
               tooltip={
                 <>
-                  <span>Replace all</span>
+                  <span>
+                    <Trans>Replace all</Trans>
+                  </span>
                   <Kbd className="animate-kbd-press">⌘ ↵</Kbd>
                 </>
               }

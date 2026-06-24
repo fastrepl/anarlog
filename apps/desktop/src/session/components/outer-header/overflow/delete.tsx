@@ -1,3 +1,4 @@
+import { Trans } from "@lingui/react/macro";
 import { Loader2Icon, TrashIcon } from "lucide-react";
 import { useCallback } from "react";
 
@@ -43,7 +44,13 @@ export function DeleteRecording({ sessionId }: { sessionId: string }) {
       ) : (
         <TrashIcon />
       )}
-      <span>{isDeletingRecording ? "Deleting..." : "Delete recording"}</span>
+      <span>
+        {isDeletingRecording ? (
+          <Trans>Deleting...</Trans>
+        ) : (
+          <Trans>Delete recording</Trans>
+        )}
+      </span>
     </DropdownMenuItem>
   );
 }
@@ -87,7 +94,9 @@ export function DeleteNote({ sessionId }: { sessionId: string }) {
       ])}
     >
       <TrashIcon />
-      <span>Delete</span>
+      <span>
+        <Trans>Delete</Trans>
+      </span>
     </DropdownMenuItem>
   );
 }

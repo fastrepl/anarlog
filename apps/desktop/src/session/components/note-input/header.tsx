@@ -1,3 +1,4 @@
+import { useLingui } from "@lingui/react/macro";
 import {
   AlignLeftIcon,
   AudioLinesIcon,
@@ -210,6 +211,7 @@ function HeaderTabRaw({
   onClick?: () => void;
   sessionId: string;
 }) {
+  const { t } = useLingui();
   const rawMd = main.UI.useCell(
     "sessions",
     sessionId,
@@ -238,7 +240,7 @@ function HeaderTabRaw({
   return (
     <IconHeaderTab
       isActive={isActive}
-      label="Memos"
+      label={t`Memos`}
       icon={<AlignLeftIcon className="size-4" />}
       onClick={onClick}
       onContextMenu={showContextMenu}
@@ -441,6 +443,7 @@ function HeaderTabTranscript({
   onClick?: () => void;
   sessionId: string;
 }) {
+  const { t } = useLingui();
   const regenerate = useRegenerateTranscript(sessionId);
   const { request: transcriptExportRequest } =
     useSessionTranscriptRenderData(sessionId);
@@ -516,7 +519,7 @@ function HeaderTabTranscript({
   return (
     <IconHeaderTab
       isActive={isActive}
-      label="Transcript"
+      label={t`Transcript`}
       icon={<AudioLinesIcon className="size-4" />}
       onClick={onClick}
       onContextMenu={showContextMenu}
@@ -559,6 +562,7 @@ function TemplatePickerPopover({
   onSelectTemplate: (selection: TemplateSelection) => void;
   trigger: React.ReactNode;
 }) {
+  const { t } = useLingui();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -869,7 +873,7 @@ function TemplatePickerPopover({
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   onKeyDown={handleSearchInputKeyDown}
-                  placeholder="Search templates..."
+                  placeholder={t`Search templates...`}
                   className="placeholder:text-muted-foreground flex-1 bg-transparent text-sm focus:outline-hidden"
                 />
                 {search && (
@@ -935,7 +939,7 @@ function TemplatePickerPopover({
               "text-muted-foreground hover:bg-accent hover:text-foreground transition-colors",
             ])}
           >
-            See all templates
+            {t`See all templates`}
             <ChevronRightIcon className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -955,6 +959,7 @@ export function Header({
   currentTab: EditorView;
   handleTabChange: (view: EditorView) => void;
 }) {
+  const { t } = useLingui();
   const store = main.UI.useStore(main.STORE_ID);
   const primaryEnhancedTabId = editorTabs.find(
     (view): view is Extract<EditorView, { type: "enhanced" }> =>
@@ -970,7 +975,7 @@ export function Header({
         <div data-tauri-drag-region className="relative min-w-0 flex-1">
           <div
             role="tablist"
-            aria-label="Session note tabs"
+            aria-label={t`Session note tabs`}
             data-tauri-drag-region="false"
             className="bg-muted/25 pointer-events-auto relative z-10 flex h-7 w-fit max-w-full items-center gap-0.5 overflow-visible rounded-full"
           >

@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import { XIcon } from "lucide-react";
 
 import { ChangelogContent } from "@hypr/changelog";
@@ -86,7 +87,11 @@ function ChangelogBody({
   loading: boolean;
 }) {
   if (loading) {
-    return <p className="text-muted-foreground">Loading...</p>;
+    return (
+      <p className="text-muted-foreground">
+        <Trans>Loading...</Trans>
+      </p>
+    );
   }
 
   if (content) {
@@ -113,7 +118,7 @@ function ChangelogBody({
 
   return (
     <p className="text-muted-foreground">
-      No changelog available for this version.
+      <Trans>No changelog available for this version.</Trans>
     </p>
   );
 }
@@ -129,6 +134,7 @@ function ChangelogHeader({
   version: string;
   onClose: () => void;
 }) {
+  const { t } = useLingui();
   return (
     <div
       data-tauri-drag-region
@@ -156,7 +162,7 @@ function ChangelogHeader({
               : "text-center",
           ])}
         >
-          What's new in {version}?
+          <Trans>What's new in {version}?</Trans>
         </h1>
       </div>
 
@@ -166,8 +172,8 @@ function ChangelogHeader({
           variant="ghost"
           data-tauri-drag-region="false"
           className="text-muted-foreground hover:text-foreground"
-          aria-label="Close changelog"
-          title="Close"
+          aria-label={t`Close changelog`}
+          title={t`Close`}
           onClick={onClose}
         >
           <XIcon size={16} />

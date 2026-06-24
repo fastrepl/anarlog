@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useMutation } from "@tanstack/react-query";
 import { downloadDir, join } from "@tauri-apps/api/path";
 import { useMemo, useState } from "react";
@@ -61,6 +62,7 @@ export function ExportModal({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { t } = useLingui();
   const [format, setFormat] = useState<FileFormat>("pdf");
   const [includeMemo, setIncludeMemo] = useState(false);
   const [includeSummary, setIncludeSummary] = useState(true);
@@ -203,26 +205,26 @@ export function ExportModal({
 
   const buildMdContent = (): string => {
     const sections: string[] = [];
-    const title = sessionTitle || "Untitled";
+    const title = sessionTitle || t`Untitled`;
     sections.push(`# ${title}`);
 
     if (sessionCreatedAt) {
-      sections.push(`- Created: ${formatDate(sessionCreatedAt)}`);
+      sections.push(`- ${t`Created`}: ${formatDate(sessionCreatedAt)}`);
     }
 
     if (participantNames.length > 0) {
-      sections.push(`- Participants: ${participantNames.join(", ")}`);
+      sections.push(`- ${t`Participants`}: ${participantNames.join(", ")}`);
     }
 
     if (transcriptDuration) {
-      sections.push(`- Duration: ${transcriptDuration}`);
+      sections.push(`- ${t`Duration`}: ${transcriptDuration}`);
     }
 
     if (includeMemo) {
       const memo = getMemoMd();
       if (memo) {
         sections.push("");
-        sections.push("## Memo");
+        sections.push(`## ${t`Memo`}`);
         sections.push(memo);
       }
     }
@@ -231,7 +233,7 @@ export function ExportModal({
       const summary = getSummaryMd();
       if (summary) {
         sections.push("");
-        sections.push("## Summary");
+        sections.push(`## ${t`Summary`}`);
         sections.push(summary);
       }
     }
@@ -240,7 +242,7 @@ export function ExportModal({
       const transcript = getTranscriptText();
       if (transcript) {
         sections.push("");
-        sections.push("## Transcript");
+        sections.push(`## ${t`Transcript`}`);
         sections.push(transcript);
       }
     }
@@ -250,7 +252,7 @@ export function ExportModal({
 
   const buildTxtContent = (): string => {
     const sections: string[] = [];
-    const title = sessionTitle || "Untitled";
+    const title = sessionTitle || t`Untitled`;
     sections.push(title);
     sections.push("=".repeat(title.length));
 
@@ -259,18 +261,18 @@ export function ExportModal({
     }
 
     if (participantNames.length > 0) {
-      sections.push(`Participants: ${participantNames.join(", ")}`);
+      sections.push(`${t`Participants`}: ${participantNames.join(", ")}`);
     }
 
     if (transcriptDuration) {
-      sections.push(`Duration: ${transcriptDuration}`);
+      sections.push(`${t`Duration`}: ${transcriptDuration}`);
     }
 
     if (includeMemo) {
       const memo = getMemoMd();
       if (memo) {
         sections.push("");
-        sections.push("Memo");
+        sections.push(t`Memo`);
         sections.push("-".repeat(4));
         sections.push(markdownToText(memo));
       }
@@ -280,7 +282,7 @@ export function ExportModal({
       const summary = getSummaryMd();
       if (summary) {
         sections.push("");
-        sections.push("Summary");
+        sections.push(t`Summary`);
         sections.push("-".repeat(7));
         sections.push(markdownToText(summary));
       }
@@ -290,7 +292,7 @@ export function ExportModal({
       const transcript = getTranscriptText();
       if (transcript) {
         sections.push("");
-        sections.push("Transcript");
+        sections.push(t`Transcript`);
         sections.push("-".repeat(10));
         sections.push(transcript);
       }
@@ -301,7 +303,7 @@ export function ExportModal({
 
   const buildOrgContent = (): string => {
     const sections: string[] = [];
-    const title = sessionTitle || "Untitled";
+    const title = sessionTitle || t`Untitled`;
     sections.push(`#+TITLE: ${title}`);
 
     if (sessionCreatedAt) {
@@ -309,25 +311,25 @@ export function ExportModal({
     }
 
     sections.push("");
-    sections.push("* Metadata");
+    sections.push(`* ${t`Metadata`}`);
 
     if (sessionCreatedAt) {
-      sections.push(`- Created :: ${formatDate(sessionCreatedAt)}`);
+      sections.push(`- ${t`Created`} :: ${formatDate(sessionCreatedAt)}`);
     }
 
     if (participantNames.length > 0) {
-      sections.push(`- Participants :: ${participantNames.join(", ")}`);
+      sections.push(`- ${t`Participants`} :: ${participantNames.join(", ")}`);
     }
 
     if (transcriptDuration) {
-      sections.push(`- Duration :: ${transcriptDuration}`);
+      sections.push(`- ${t`Duration`} :: ${transcriptDuration}`);
     }
 
     if (includeMemo) {
       const memo = getMemoMd();
       if (memo) {
         sections.push("");
-        sections.push("* Memo");
+        sections.push(`* ${t`Memo`}`);
         sections.push(markdownToOrg(memo));
       }
     }
@@ -336,7 +338,7 @@ export function ExportModal({
       const summary = getSummaryMd();
       if (summary) {
         sections.push("");
-        sections.push("* Summary");
+        sections.push(`* ${t`Summary`}`);
         sections.push(markdownToOrg(summary));
       }
     }
@@ -345,7 +347,7 @@ export function ExportModal({
       const transcript = getTranscriptText();
       if (transcript) {
         sections.push("");
-        sections.push("* Transcript");
+        sections.push(`* ${t`Transcript`}`);
         sections.push(transcript);
       }
     }
@@ -360,7 +362,7 @@ export function ExportModal({
     metadata: ExportMetadata | null;
   } => {
     const metadata: ExportMetadata = {
-      title: sessionTitle || "Untitled",
+      title: sessionTitle || t`Untitled`,
       createdAt: sessionCreatedAt ? formatDate(sessionCreatedAt) : "",
       participants: participantNames,
       eventTitle: eventTitle || null,
@@ -395,7 +397,7 @@ export function ExportModal({
     mutationFn: async () => {
       const downloadsPath = await downloadDir();
       const sanitizedTitle = (
-        (sessionTitle ?? "Untitled").trim() || "Untitled"
+        (sessionTitle ?? t`Untitled`).trim() || t`Untitled`
       ).replace(/[<>:"/\\|?*]/g, "_");
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
       const filename = `${sanitizedTitle}_${timestamp}.${format}`;
@@ -461,15 +463,19 @@ export function ExportModal({
           ])}
         >
           <div className="flex flex-col gap-1">
-            <h2 className="text-base font-semibold">Export</h2>
+            <h2 className="text-base font-semibold">
+              <Trans>Export</Trans>
+            </h2>
             <p className="text-muted-foreground text-sm">
-              Choose a file format and what to include.
+              <Trans>Choose a file format and what to include.</Trans>
             </p>
           </div>
 
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
-              <span className="text-sm font-medium">File format</span>
+              <span className="text-sm font-medium">
+                <Trans>File format</Trans>
+              </span>
               <div className="flex justify-center gap-4">
                 {(["pdf", "txt", "md", "org"] as const).map((f) => (
                   <label
@@ -494,17 +500,29 @@ export function ExportModal({
             </div>
 
             <div className="flex flex-col gap-2">
-              <span className="text-sm font-medium">Include</span>
+              <span className="text-sm font-medium">
+                <Trans>Include</Trans>
+              </span>
               <div className="flex justify-center gap-4">
                 {(
                   [
-                    ["Memo", includeMemo, setIncludeMemo],
-                    ["Summary", includeSummary, setIncludeSummary],
-                    ["Transcript", includeTranscript, setIncludeTranscript],
+                    ["memo", <Trans>Memo</Trans>, includeMemo, setIncludeMemo],
+                    [
+                      "summary",
+                      <Trans>Summary</Trans>,
+                      includeSummary,
+                      setIncludeSummary,
+                    ],
+                    [
+                      "transcript",
+                      <Trans>Transcript</Trans>,
+                      includeTranscript,
+                      setIncludeTranscript,
+                    ],
                   ] as const
-                ).map(([label, checked, setter]) => (
+                ).map(([id, label, checked, setter]) => (
                   <label
-                    key={label}
+                    key={id}
                     className="flex cursor-pointer items-center gap-1.5 text-sm"
                   >
                     <input
@@ -528,10 +546,10 @@ export function ExportModal({
             className="border-primary bg-primary text-primary-foreground hover:bg-primary/90 h-10 w-full rounded-full border-2 text-sm font-medium shadow-[0_4px_14px_rgba(87,83,78,0.4)] transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isPending
-              ? "Exporting..."
+              ? t`Exporting...`
               : isTranscriptPending
-                ? "Preparing transcript..."
-                : "Export"}
+                ? t`Preparing transcript...`
+                : t`Export`}
           </button>
         </div>
       </div>

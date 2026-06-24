@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import { HeartIcon, MoreHorizontalIcon, PlusIcon } from "lucide-react";
 import { useState } from "react";
 
@@ -43,9 +44,12 @@ export function TemplateDetailsColumn({
   handleFavoriteTemplate: (template: UserTemplateDraft) => void;
   handleSetDefaultTemplate: (template: UserTemplateDraft) => void;
 }) {
+  const { t } = useLingui();
   if (isWebMode) {
     if (!selectedWebTemplate) {
-      return <ResourceDetailEmpty message="No community templates available" />;
+      return (
+        <ResourceDetailEmpty message={t`No community templates available`} />
+      );
     }
     return (
       <WebTemplatePreview
@@ -74,7 +78,9 @@ export function TemplateDetailsColumn({
 function TemplateDetailEmpty({ onCreate }: { onCreate: () => void }) {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-3">
-      <p className="text-muted-foreground text-sm">No templates yet</p>
+      <p className="text-muted-foreground text-sm">
+        <Trans>No templates yet</Trans>
+      </p>
       <Button
         type="button"
         size="sm"
@@ -83,7 +89,7 @@ function TemplateDetailEmpty({ onCreate }: { onCreate: () => void }) {
         className="gap-2"
       >
         <PlusIcon className="size-4" />
-        Create template
+        <Trans>Create template</Trans>
       </Button>
     </div>
   );
@@ -100,6 +106,7 @@ function WebTemplatePreview({
   onFavorite: (template: UserTemplateDraft) => void;
   onSetDefault: (template: UserTemplateDraft) => void;
 }) {
+  const { t } = useLingui();
   const nextTemplate: UserTemplateDraft = {
     title: template.title ?? "",
     description: template.description ?? "",
@@ -112,7 +119,7 @@ function WebTemplatePreview({
   return (
     <div className="flex h-full flex-1 flex-col">
       <ResourcePreviewHeader
-        title={template.title || "Untitled"}
+        title={template.title || t`Untitled`}
         description={template.description}
         category={template.category}
         targets={template.targets}
@@ -134,7 +141,7 @@ function WebTemplatePreview({
               onClick={() => onSetDefault(nextTemplate)}
               className="text-muted-foreground shrink-0 hover:text-black"
             >
-              Set as default
+              <Trans>Set as default</Trans>
             </Button>
             <Button
               type="button"
@@ -142,8 +149,8 @@ function WebTemplatePreview({
               variant="ghost"
               onClick={() => onFavorite(nextTemplate)}
               className="text-muted-foreground hover:text-foreground"
-              title="Favorite template"
-              aria-label="Favorite template"
+              title={t`Favorite template`}
+              aria-label={t`Favorite template`}
             >
               <HeartIcon className="size-4" />
             </Button>
@@ -157,7 +164,7 @@ function WebTemplatePreview({
                     "text-muted-foreground hover:text-foreground",
                     actionsOpen && "bg-muted text-foreground hover:bg-accent",
                   ])}
-                  aria-label="Template actions"
+                  aria-label={t`Template actions`}
                 >
                   <MoreHorizontalIcon className="size-4" />
                 </Button>
@@ -168,7 +175,7 @@ function WebTemplatePreview({
                     onClick={() => onClone(nextTemplate)}
                     className="cursor-pointer"
                   >
-                    Duplicate
+                    <Trans>Duplicate</Trans>
                   </DropdownMenuItem>
                 </AppFloatingPanel>
               </DropdownMenuContent>

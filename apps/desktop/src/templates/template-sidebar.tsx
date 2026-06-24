@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ArrowDownUp, BookText, Plus, Search, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -26,6 +27,7 @@ export function TemplatesSidebarContent({
 }: {
   tab: Extract<Tab, { type: "templates" }>;
 }) {
+  const { t } = useLingui();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [search, setSearch] = useState("");
   const [sortOption, setSortOption] = useState<SortOption>("alphabetical");
@@ -293,7 +295,7 @@ export function TemplatesSidebarContent({
   return (
     <div className="flex h-full w-full flex-col overflow-hidden">
       <div>
-        <CustomSidebarHeader title="Templates">
+        <CustomSidebarHeader title={<Trans>Templates</Trans>}>
           {userTemplates.length > 1 && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -310,12 +312,12 @@ export function TemplatesSidebarContent({
                   <DropdownMenuItem
                     onClick={() => setSortOption("alphabetical")}
                   >
-                    A to Z
+                    <Trans>A to Z</Trans>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => setSortOption("reverse-alphabetical")}
                   >
-                    Z to A
+                    <Trans>Z to A</Trans>
                   </DropdownMenuItem>
                 </AppFloatingPanel>
               </DropdownMenuContent>
@@ -349,7 +351,7 @@ export function TemplatesSidebarContent({
                   setSearch("");
                 }
               }}
-              placeholder="Search templates..."
+              placeholder={t`Search templates...`}
               className="placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent text-sm placeholder:text-sm focus:outline-hidden"
             />
             {search && (
@@ -360,7 +362,7 @@ export function TemplatesSidebarContent({
                   "text-muted-foreground hover:text-muted-foreground",
                   "transition-colors",
                 ])}
-                aria-label="Clear search"
+                aria-label={t`Clear search`}
               >
                 <X className="h-4 w-4" />
               </button>

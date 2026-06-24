@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useMutation } from "@tanstack/react-query";
 import { RefreshCw } from "lucide-react";
 import {
@@ -31,6 +32,7 @@ import { waitForBillingUpdate } from "~/shared/billing";
 import { buildWebAppUrl } from "~/shared/utils";
 
 export function SettingsAccount() {
+  const { t } = useLingui();
   const auth = useAuth();
   const { plan, isPaid, isTrialing, trialDaysRemaining } = useBillingAccess();
 
@@ -71,19 +73,26 @@ export function SettingsAccount() {
     if (isPending) {
       return (
         <div className="flex flex-col gap-8">
-          <SettingsPageTitle title="Account" />
+          <SettingsPageTitle title={<Trans>Account</Trans>} />
           <Container
-            title="Finish sign-in"
-            description="Complete the sign-in flow in your browser, then come back here if Anarlog does not reconnect automatically."
+            title={<Trans>Finish sign-in</Trans>}
+            description={
+              <Trans>
+                Complete the sign-in flow in your browser, then come back here
+                if Anarlog does not reconnect automatically.
+              </Trans>
+            }
             action={
               <Button onClick={handleSignIn} variant="outline">
-                Reopen sign-in page
+                <Trans>Reopen sign-in page</Trans>
               </Button>
             }
           >
             <p className="text-muted-foreground text-xs">
-              If the browser does not reopen Anarlog, use the paste-link
-              fallback in the sign-in instruction window.
+              <Trans>
+                If the browser does not reopen Anarlog, use the paste-link
+                fallback in the sign-in instruction window.
+              </Trans>
             </p>
           </Container>
         </div>
@@ -92,15 +101,19 @@ export function SettingsAccount() {
 
     return (
       <div className="flex flex-col gap-8">
-        <SettingsPageTitle title="Account" />
+        <SettingsPageTitle title={<Trans>Account</Trans>} />
         <section className="pb-4">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 flex-1 flex-col gap-4">
               <div className="flex flex-col gap-2">
-                <h3 className="text-sm font-medium">Sign in to Anarlog</h3>
+                <h3 className="text-sm font-medium">
+                  <Trans>Sign in to Anarlog</Trans>
+                </h3>
                 <div className="text-muted-foreground text-sm">
-                  Sign in to unlock cloud transcription and AI models, plus Pro
-                  features like sharing.
+                  <Trans>
+                    Sign in to unlock cloud transcription and AI models, plus
+                    Pro features like sharing.
+                  </Trans>
                 </div>
               </div>
               <button
@@ -108,7 +121,7 @@ export function SettingsAccount() {
                 onClick={handleSignIn}
                 className="border-primary bg-primary text-primary-foreground hover:bg-primary/90 h-10 w-fit rounded-full border-2 px-6 text-sm font-medium shadow-[0_4px_14px_rgba(87,83,78,0.4)] transition-all duration-200"
               >
-                Get started
+                <Trans>Get started</Trans>
               </button>
             </div>
           </div>
@@ -123,10 +136,10 @@ export function SettingsAccount() {
 
   return (
     <div className="flex flex-col gap-8">
-      <SettingsPageTitle title="Account" />
+      <SettingsPageTitle title={<Trans>Account</Trans>} />
       <Container
-        title="Your Account"
-        description={auth.session?.user.email ?? "Signed in"}
+        title={<Trans>Your Account</Trans>}
+        description={auth.session?.user.email ?? t`Signed in`}
         action={
           <Button
             variant="outline"
@@ -136,7 +149,7 @@ export function SettingsAccount() {
               "border-alert-border text-alert-foreground hover:bg-alert hover:text-alert-foreground",
             ])}
           >
-            {signOutMutation.isPending ? "Signing out..." : "Sign out"}
+            {signOutMutation.isPending ? t`Signing out...` : t`Sign out`}
           </Button>
         }
       />
@@ -162,6 +175,7 @@ function PlanBillingSection({
   trialDaysRemaining: number | null;
   isPaid: boolean;
 }) {
+  const { t } = useLingui();
   const auth = useAuth();
   const { canStartTrial: canStartTrialQuery } = useBillingAccess();
 
@@ -201,18 +215,22 @@ function PlanBillingSection({
   }, []);
 
   const planLabel =
-    currentTier === "free" ? "Free" : currentTier === "lite" ? "Lite" : "Pro";
+    currentTier === "free" ? t`Free` : currentTier === "lite" ? "Lite" : "Pro";
+  const trialDaysText =
+    trialDaysRemaining == null
+      ? null
+      : trialDaysRemaining === 1
+        ? t`${trialDaysRemaining} day left`
+        : t`${trialDaysRemaining} days left`;
   const statusText = isTrialing ? (
     <>
-      Pro trial
-      {trialDaysRemaining != null &&
-        ` \u2014 ${trialDaysRemaining} day${trialDaysRemaining === 1 ? "" : "s"} left`}
+      <Trans>Pro trial</Trans>
+      {trialDaysText != null && ` - ${trialDaysText}`}
     </>
   ) : (
-    <>
-      You&rsquo;re on the <span className="font-semibold">{planLabel}</span>{" "}
-      plan
-    </>
+    <Trans>
+      You're on the <span className="font-semibold">{planLabel}</span> plan
+    </Trans>
   );
   const handleOpenBillingPortal = useCallback(async () => {
     const url = await buildWebAppUrl("/app/portal");
@@ -245,7 +263,7 @@ function PlanBillingSection({
               {action.label}
             </span>
             <span className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-              Cancel
+              <Trans>Cancel</Trans>
             </span>
           </button>
         );
@@ -272,7 +290,7 @@ function PlanBillingSection({
             {action.label}
           </span>
           <span className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-            Cancel
+            <Trans>Cancel</Trans>
           </span>
         </button>
       );
@@ -311,7 +329,7 @@ function PlanBillingSection({
 
     const label =
       action.label === "Start free trial" && startTrialMutation.isPending
-        ? "Loading..."
+        ? t`Loading...`
         : action.label;
 
     if (compact) {
@@ -354,14 +372,16 @@ function PlanBillingSection({
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="font-sans text-lg font-semibold">Plan & Billing</h2>
+        <h2 className="font-sans text-lg font-semibold">
+          <Trans>Plan & Billing</Trans>
+        </h2>
         {isPaid && (
           <button
             type="button"
             onClick={handleOpenBillingPortal}
             className="text-muted-foreground hover:text-muted-foreground text-xs transition-colors"
           >
-            Manage billing
+            <Trans>Manage billing</Trans>
           </button>
         )}
       </div>
@@ -382,6 +402,7 @@ function PlanBillingSection({
 }
 
 function GuestPlanSection({ onSignIn }: { onSignIn: () => Promise<void> }) {
+  const { t } = useLingui();
   const renderAction = (action: TierAction, compact: boolean) => {
     if (action == null) return null;
 
@@ -401,10 +422,10 @@ function GuestPlanSection({ onSignIn }: { onSignIn: () => Promise<void> }) {
 
     const label =
       action.targetPlan === "lite"
-        ? "Sign in for Lite"
+        ? t`Sign in for Lite`
         : action.targetPlan === "pro"
-          ? "Sign in for Pro"
-          : "Sign in";
+          ? t`Sign in for Pro`
+          : t`Sign in`;
 
     if (compact) {
       return (
@@ -413,7 +434,7 @@ function GuestPlanSection({ onSignIn }: { onSignIn: () => Promise<void> }) {
           onClick={onSignIn}
           className="text-muted-foreground hover:text-foreground text-xs font-medium transition-colors"
         >
-          Sign in
+          <Trans>Sign in</Trans>
         </button>
       );
     }
@@ -432,9 +453,11 @@ function GuestPlanSection({ onSignIn }: { onSignIn: () => Promise<void> }) {
   return (
     <section className="border-border border-t pt-6">
       <div className="mb-4 flex flex-col gap-1">
-        <h2 className="font-sans text-lg font-semibold">Plans</h2>
+        <h2 className="font-sans text-lg font-semibold">
+          <Trans>Plans</Trans>
+        </h2>
         <p className="text-muted-foreground text-sm">
-          Compare Free, Lite, and Pro before you sign in.
+          <Trans>Compare Free, Lite, and Pro before you sign in.</Trans>
         </p>
       </div>
 
@@ -499,7 +522,7 @@ function PlanTierList({
                   </span>
                   {isCurrent && isTrialing && (
                     <span className="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[10px] font-medium tracking-wide uppercase">
-                      Trial
+                      <Trans>Trial</Trans>
                     </span>
                   )}
                 </div>
@@ -558,7 +581,7 @@ function PlanTierList({
                     </span>
                     {isCurrent && isTrialing && (
                       <span className="bg-primary text-primary-foreground rounded-full px-1.5 py-px text-[10px] font-medium tracking-wide uppercase">
-                        Trial
+                        <Trans>Trial</Trans>
                       </span>
                     )}
                   </div>
@@ -577,6 +600,7 @@ function PlanTierList({
 }
 
 function RefreshBillingButton() {
+  const { t } = useLingui();
   const auth = useAuth();
   const handleClick = useCallback(() => {
     auth.refreshSession();
@@ -587,7 +611,7 @@ function RefreshBillingButton() {
       type="button"
       onClick={handleClick}
       className="text-muted-foreground hover:text-muted-foreground transition-colors"
-      aria-label="Refresh billing status"
+      aria-label={t`Refresh billing status`}
     >
       <RefreshCw className="size-3" />
     </button>
@@ -600,7 +624,7 @@ function Container({
   action,
   children,
 }: {
-  title: string;
+  title: ReactNode;
   description?: ReactNode;
   action?: ReactNode;
   children?: ReactNode;

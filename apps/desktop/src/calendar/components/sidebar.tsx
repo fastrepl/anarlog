@@ -1,3 +1,4 @@
+import { useLingui } from "@lingui/react/macro";
 import { platform } from "@tauri-apps/plugin-os";
 import { ChevronDown, PlusIcon } from "lucide-react";
 import { useCallback, useMemo, type MouseEvent } from "react";
@@ -156,6 +157,7 @@ function ProviderAccordionItem({
   calendar: ReturnType<typeof usePermission>;
   returnTo: string;
 }) {
+  const { t } = useLingui();
   const auth = useAuth();
   const { isPaid, isPro, upgradeToPro } = useBillingAccess();
   const { data: connections, isPending, isError } = useConnections(isPaid);
@@ -220,7 +222,7 @@ function ProviderAccordionItem({
         ? [
             {
               id: `add-${provider.id}-account`,
-              text: `Add ${provider.displayName} account`,
+              text: t`Add ${provider.displayName} account`,
               action: () =>
                 void openIntegrationUrl(
                   provider.nangoIntegrationId,
@@ -237,6 +239,7 @@ function ProviderAccordionItem({
       provider.id,
       provider.nangoIntegrationId,
       returnTo,
+      t,
     ],
   );
   const showProviderMenu = useNativeContextMenu(providerMenuItems);
@@ -292,16 +295,16 @@ function ProviderAccordionItem({
             type="button"
             onClick={handleUpgradeToPro}
             className="border-primary bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:ring-ring pointer-events-none absolute top-1/2 right-1 z-10 shrink-0 translate-x-1 -translate-y-1/2 rounded-full border-2 px-3 py-1 text-xs font-medium opacity-0 shadow-[0_4px_14px_rgba(87,83,78,0.18)] transition-all duration-150 group-focus-within/row:pointer-events-auto group-focus-within/row:translate-x-0 group-focus-within/row:opacity-100 group-hover/row:pointer-events-auto group-hover/row:translate-x-0 group-hover/row:opacity-100 focus-visible:ring-2 focus-visible:outline-none"
-            aria-label={`Upgrade to Pro for ${provider.displayName}`}
+            aria-label={t`Upgrade to Pro for ${provider.displayName}`}
           >
-            Upgrade to Pro
+            {t`Upgrade to Pro`}
           </button>
         ) : hasAddAccountButton ? (
           <button
             type="button"
             onClick={handleAddAccount}
             className="text-muted-foreground hover:bg-accent hover:text-foreground shrink-0 rounded p-1 transition-colors"
-            aria-label={`Add ${provider.displayName} account`}
+            aria-label={t`Add ${provider.displayName} account`}
           >
             <PlusIcon className="size-4" />
           </button>
@@ -322,7 +325,7 @@ function ProviderAccordionItem({
             <div className="flex flex-col gap-3">
               {calendar.status !== "authorized" ? (
                 <AccessPermissionRow
-                  title="Calendar"
+                  title={t`Calendar`}
                   status={calendar.status}
                   isPending={calendar.isPending}
                   onOpen={calendar.open}

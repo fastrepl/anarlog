@@ -1,3 +1,4 @@
+import { Trans } from "@lingui/react/macro";
 import { useCallback, useRef, useState } from "react";
 
 import { cn } from "@hypr/utils";
@@ -55,7 +56,7 @@ export function TabContentTask({ tab }: { tab: TaskTab }) {
 
   const floatingButton = (
     <div className="absolute bottom-4 left-1/2 z-20 -translate-x-1/2">
-      <ChatCTA label="Work on this task" />
+      <ChatCTA label={<Trans>Work on this task</Trans>} />
     </div>
   );
 

@@ -1,7 +1,8 @@
 import "./chat-input.css";
 
+import { useLingui } from "@lingui/react/macro";
 import { ArrowUpIcon, SquareIcon } from "lucide-react";
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 
 import { ChatEditor, type ChatEditorHandle } from "@hypr/editor/chat";
 import type { PlaceholderFunction } from "@hypr/editor/plugins";
@@ -36,6 +37,7 @@ export function ChatMessageInput({
   onDraftContentChange?: (hasDraftContent: boolean) => void;
   onContextRefsChange?: (refs: ContextRef[]) => void;
 }) {
+  const { t } = useLingui();
   const { chat } = useShell();
   const { elevatedSurfaceClassName } = useChatAppearance();
   const editorRef = useRef<ChatEditorHandle>(null);
@@ -62,6 +64,15 @@ export function ChatMessageInput({
   const isRightPanel = chat.mode === "RightPanelOpen";
   const isFloating = chat.mode === "FloatingOpen";
   const showSendControl = !isFloating || isStreaming || hasContent;
+  const placeholder = useMemo(
+    () =>
+      createChatPlaceholder(
+        isFloating
+          ? t`Ask anything`
+          : t`Ask & search about anything, or be creative!`,
+      ),
+    [isFloating, t],
+  );
 
   return (
     <Container
@@ -90,7 +101,7 @@ export function ChatMessageInput({
             ])}
             initialContent={initialContent}
             mentionConfig={mentionConfig}
-            placeholder={isFloating ? floatingChatPlaceholder : chatPlaceholder}
+            placeholder={placeholder}
             onUpdate={handleEditorUpdate}
             onSubmit={handleSubmit}
           />
@@ -112,13 +123,14 @@ export function ChatMessageInput({
                 size="icon"
                 variant="ghost"
                 className="h-7 w-7 rounded-full"
+                aria-label={t`Stop response`}
               >
                 <SquareIcon size={14} className="fill-current" />
               </Button>
             ) : (
               <button
                 type="button"
-                aria-label="Send message"
+                aria-label={t`Send message`}
                 onClick={handleSubmit}
                 disabled={isSendDisabled}
                 className={cn([
@@ -177,16 +189,11 @@ function Container({
   );
 }
 
-const chatPlaceholder: PlaceholderFunction = ({ node, pos }) => {
-  if (node.type.name === "paragraph" && pos === 0) {
-    return "Ask & search about anything, or be creative!";
-  }
-  return "";
-};
-
-const floatingChatPlaceholder: PlaceholderFunction = ({ node, pos }) => {
-  if (node.type.name === "paragraph" && pos === 0) {
-    return "Ask anything";
-  }
-  return "";
-};
+function createChatPlaceholder(placeholder: string): PlaceholderFunction {
+  return ({ node, pos }) => {
+    if (node.type.name === "paragraph" && pos === 0) {
+      return placeholder;
+    }
+    return "";
+  };
+}

@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Loader2Icon, RefreshCw, SquareIcon } from "lucide-react";
 import { type ReactNode, useCallback } from "react";
 
@@ -213,6 +214,7 @@ function RegenerateInsightsButton({
   isGenerating: boolean;
   onClick: () => void;
 }) {
+  const { t } = useLingui();
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -220,7 +222,7 @@ function RegenerateInsightsButton({
           type="button"
           variant="ghost"
           size="icon"
-          aria-label="Regenerate insights"
+          aria-label={t`Regenerate insights`}
           disabled={isDisabled}
           onClick={onClick}
           className={cn([
@@ -237,7 +239,9 @@ function RegenerateInsightsButton({
         </Button>
       </TooltipTrigger>
       <TooltipContent side="bottom">
-        <p>{isGenerating ? "Regenerating insights" : "Regenerate insights"}</p>
+        <p>
+          {isGenerating ? t`Regenerating insights` : t`Regenerate insights`}
+        </p>
       </TooltipContent>
     </Tooltip>
   );
@@ -253,11 +257,12 @@ function BatchProgressTimeline({
     { kind: "running_batch" }
   >;
 }) {
+  const { t } = useLingui();
   const stopTranscription = useListener((state) => state.stopTranscription);
   const handleStop = useCallback(() => {
     void stopTranscription(sessionId);
   }, [sessionId, stopTranscription]);
-  const phaseLabel = getBatchPhaseLabel(screen.phase);
+  const phaseLabel = getBatchPhaseLabel(t, screen.phase);
   const canStopTranscription = screen.phase !== "importing";
 
   return (
@@ -278,8 +283,11 @@ function BatchProgressTimeline({
   );
 }
 
-function getBatchPhaseLabel(phase?: "importing" | "transcribing") {
-  return phase === "importing" ? "Uploading..." : "Transcribing...";
+function getBatchPhaseLabel(
+  t: ReturnType<typeof useLingui>["t"],
+  phase?: "importing" | "transcribing",
+) {
+  return phase === "importing" ? t`Uploading...` : t`Transcribing...`;
 }
 
 function BatchStatusControl({
@@ -289,6 +297,7 @@ function BatchStatusControl({
   onStop?: () => void;
   compact?: boolean;
 }) {
+  const { t } = useLingui();
   const sizeClassName = compact ? "h-5 w-5" : "h-7 w-7";
   const spinnerSize = compact ? 10 : 12;
   const iconSize = compact ? 9 : 10;
@@ -323,7 +332,7 @@ function BatchStatusControl({
             sizeClassName,
           ])}
           onClick={onStop}
-          aria-label="Stop transcription"
+          aria-label={t`Stop transcription`}
         >
           <span className="group-hover:hidden">
             <Spinner size={spinnerSize} />
@@ -335,7 +344,9 @@ function BatchStatusControl({
         </Button>
       </TooltipTrigger>
       <TooltipContent side="bottom">
-        <p>Stop transcription</p>
+        <p>
+          <Trans>Stop transcription</Trans>
+        </p>
       </TooltipContent>
     </Tooltip>
   );

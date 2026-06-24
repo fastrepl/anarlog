@@ -1,3 +1,4 @@
+import { useLingui } from "@lingui/react/macro";
 import { X } from "lucide-react";
 
 import { cn } from "@hypr/utils";
@@ -17,6 +18,7 @@ export function ExpandToggle({
   collapsedClassName?: string;
   expandedClassName?: string;
 }) {
+  const { t } = useLingui();
   const hasLabel = Boolean(label);
 
   return (
@@ -37,7 +39,9 @@ export function ExpandToggle({
         "hover:cursor-pointer",
       ])}
       aria-label={
-        isExpanded ? `Collapse ${label ?? ""}`.trim() : `Expand ${label ?? ""}`
+        isExpanded
+          ? t`Collapse ${label ?? ""}`.trim()
+          : t`Expand ${label ?? ""}`.trim()
       }
     >
       {label ? <span className="text-[10px] font-medium">{label}</span> : null}

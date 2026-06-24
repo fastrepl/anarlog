@@ -1,3 +1,4 @@
+import { useLingui } from "@lingui/react/macro";
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
 import {
@@ -63,6 +64,7 @@ function GlobalLiveTranscriptAccessoryContent({
   sessionId: string | null;
   surfaceChrome: MainSurfaceChrome;
 }) {
+  const { t } = useLingui();
   const [expandedLiveSession, setExpandedLiveSession] = useState<{
     sessionId: string | null;
     isExpanded: boolean;
@@ -92,7 +94,7 @@ function GlobalLiveTranscriptAccessoryContent({
           isExpanded: value.sessionId === sessionId ? !value.isExpanded : true,
         }))
       }
-      label="Live"
+      label={t`Live`}
       collapsedClassName={LIVE_TRANSCRIPT_HANDLE_CLASS}
       expandedClassName={LIVE_TRANSCRIPT_HANDLE_CLASS}
     />

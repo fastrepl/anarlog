@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   Building2,
   CircleMinus,
@@ -29,6 +30,7 @@ export function DetailsColumn({
   selectedHumanId?: string | null;
   handleSessionClick: (id: string) => void;
 }) {
+  const { t } = useLingui();
   const selectedPersonData = main.UI.useRow(
     "humans",
     selectedHumanId ?? "",
@@ -286,7 +288,9 @@ export function DetailsColumn({
 
             <div>
               <div className="border-border flex items-center border-b px-4 py-3">
-                <div className="text-muted-foreground w-28 text-sm">Name</div>
+                <div className="text-muted-foreground w-28 text-sm">
+                  <Trans>Name</Trans>
+                </div>
                 <div className="flex-1">
                   <EditablePersonNameField personId={selectedHumanId} />
                 </div>
@@ -295,7 +299,7 @@ export function DetailsColumn({
 
               <div className="border-border flex items-center border-b px-4 py-3">
                 <div className="text-muted-foreground w-28 text-sm">
-                  Company
+                  <Trans>Company</Trans>
                 </div>
                 <div className="flex-1">
                   <EditPersonOrganizationSelector personId={selectedHumanId} />
@@ -311,14 +315,16 @@ export function DetailsColumn({
             {personSessions.length > 0 && (
               <div className="border-border border-b p-6">
                 <h3 className="text-muted-foreground mb-3 text-sm font-medium">
-                  Summary
+                  <Trans>Summary</Trans>
                 </h3>
                 <div className="border-border bg-muted rounded-lg border p-4">
                   <p className="text-muted-foreground text-sm leading-relaxed">
-                    AI-generated summary of all interactions and notes with this
-                    contact will appear here. This will synthesize key
-                    discussion points, action items, and relationship context
-                    across all meetings and notes.
+                    <Trans>
+                      AI-generated summary of all interactions and notes with
+                      this contact will appear here. This will synthesize key
+                      discussion points, action items, and relationship context
+                      across all meetings and notes.
+                    </Trans>
                   </p>
                 </div>
               </div>
@@ -326,7 +332,7 @@ export function DetailsColumn({
 
             <div className="p-6">
               <h3 className="text-muted-foreground mb-4 text-sm font-medium">
-                Related Notes
+                <Trans>Related Notes</Trans>
               </h3>
               <div className="flex flex-col gap-2">
                 {personSessions.length > 0 ? (
@@ -339,7 +345,7 @@ export function DetailsColumn({
                       <div className="mb-1 flex items-center gap-2">
                         <FileText className="text-muted-foreground h-4 w-4" />
                         <span className="text-sm font-medium">
-                          {session.title || "Untitled Note"}
+                          {session.title || t`Untitled Note`}
                         </span>
                       </div>
                       {session.summary && (
@@ -356,7 +362,7 @@ export function DetailsColumn({
                   ))
                 ) : (
                   <p className="text-muted-foreground text-sm">
-                    No related notes found
+                    <Trans>No related notes found</Trans>
                   </p>
                 )}
               </div>
@@ -368,7 +374,7 @@ export function DetailsColumn({
       ) : (
         <div className="flex flex-1 items-center justify-center">
           <p className="text-muted-foreground text-sm">
-            Select a person to view details
+            <Trans>Select a person to view details</Trans>
           </p>
         </div>
       )}
@@ -377,6 +383,7 @@ export function DetailsColumn({
 }
 
 function EditablePersonNameField({ personId }: { personId: string }) {
+  const { t } = useLingui();
   const value = main.UI.useCell("humans", personId, "name", main.STORE_ID);
 
   const handleChange = main.UI.useSetCellCallback(
@@ -392,13 +399,14 @@ function EditablePersonNameField({ personId }: { personId: string }) {
     <Input
       value={(value as string) || ""}
       onChange={handleChange}
-      placeholder="Name"
+      placeholder={t`Name`}
       className="h-7 border-none p-0 text-base shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
     />
   );
 }
 
 function EditablePersonJobTitleField({ personId }: { personId: string }) {
+  const { t } = useLingui();
   const value = main.UI.useCell("humans", personId, "job_title", main.STORE_ID);
 
   const handleChange = main.UI.useSetCellCallback(
@@ -412,12 +420,14 @@ function EditablePersonJobTitleField({ personId }: { personId: string }) {
 
   return (
     <div className="border-border flex items-center border-b px-4 py-3">
-      <div className="text-muted-foreground w-28 text-sm">Job Title</div>
+      <div className="text-muted-foreground w-28 text-sm">
+        <Trans>Job Title</Trans>
+      </div>
       <div className="flex-1">
         <Input
           value={(value as string) || ""}
           onChange={handleChange}
-          placeholder="Software Engineer"
+          placeholder={t`Software Engineer`}
           className="h-7 border-none p-0 text-base shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
         />
       </div>
@@ -439,7 +449,9 @@ function EditablePersonEmailField({ personId }: { personId: string }) {
 
   return (
     <div className="border-border flex items-center border-b px-4 py-3">
-      <div className="text-muted-foreground w-28 text-sm">Email</div>
+      <div className="text-muted-foreground w-28 text-sm">
+        <Trans>Email</Trans>
+      </div>
       <div className="flex-1">
         <Input
           type="email"
@@ -467,7 +479,9 @@ function EditablePersonPhoneField({ personId }: { personId: string }) {
 
   return (
     <div className="border-border flex items-center border-b px-4 py-3">
-      <div className="text-muted-foreground w-28 text-sm">Phone</div>
+      <div className="text-muted-foreground w-28 text-sm">
+        <Trans>Phone</Trans>
+      </div>
       <div className="flex-1">
         <Input
           type="tel"
@@ -500,7 +514,9 @@ function EditablePersonLinkedInField({ personId }: { personId: string }) {
 
   return (
     <div className="border-border flex items-center border-b px-4 py-3">
-      <div className="text-muted-foreground w-28 text-sm">LinkedIn</div>
+      <div className="text-muted-foreground w-28 text-sm">
+        <Trans>LinkedIn</Trans>
+      </div>
       <div className="flex-1">
         <Input
           value={(value as string) || ""}
@@ -514,6 +530,7 @@ function EditablePersonLinkedInField({ personId }: { personId: string }) {
 }
 
 function EditablePersonMemoField({ personId }: { personId: string }) {
+  const { t } = useLingui();
   const value = main.UI.useCell("humans", personId, "memo", main.STORE_ID);
 
   const handleChange = main.UI.useSetCellCallback(
@@ -527,12 +544,14 @@ function EditablePersonMemoField({ personId }: { personId: string }) {
 
   return (
     <div className="border-border flex border-b px-4 py-3">
-      <div className="text-muted-foreground w-28 pt-2 text-sm">Notes</div>
+      <div className="text-muted-foreground w-28 pt-2 text-sm">
+        <Trans>Notes</Trans>
+      </div>
       <div className="flex-1">
         <Textarea
           value={(value as string) || ""}
           onChange={handleChange}
-          placeholder="Add notes about this contact..."
+          placeholder={t`Add notes about this contact...`}
           className="min-h-[80px] resize-none border-none px-0 py-2 text-base shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
           rows={3}
         />
@@ -585,7 +604,7 @@ function EditPersonOrganizationSelector({ personId }: { personId: string }) {
           ) : (
             <span className="text-muted-foreground flex items-center gap-1 text-base">
               <Plus className="size-4" />
-              Add organization
+              <Trans>Add organization</Trans>
             </span>
           )}
         </div>
@@ -610,6 +629,7 @@ function OrganizationControl({
   onChange: (orgId: string | null) => void;
   closePopover: () => void;
 }) {
+  const { t } = useLingui();
   const [searchTerm, setSearchTerm] = useState("");
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const userId = main.UI.useValue("user_id", main.STORE_ID);
@@ -683,7 +703,7 @@ function OrganizationControl({
   return (
     <div className="flex max-w-[450px] flex-col gap-3">
       <div className="text-muted-foreground text-sm font-medium">
-        Organization
+        <Trans>Organization</Trans>
       </div>
 
       <form onSubmit={handleSubmit}>
@@ -700,7 +720,7 @@ function OrganizationControl({
                 setHighlightedIndex(-1);
               }}
               onKeyDown={handleKeyDown}
-              placeholder="Search or add company"
+              placeholder={t`Search or add company`}
               className="placeholder:text-muted-foreground w-full bg-transparent text-sm focus:outline-hidden focus-visible:ring-0 focus-visible:ring-offset-0"
             />
           </div>

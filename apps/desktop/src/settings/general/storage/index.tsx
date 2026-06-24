@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { homeDir } from "@tauri-apps/api/path";
 import { FolderIcon, type LucideIcon, Settings2Icon } from "lucide-react";
@@ -71,6 +72,7 @@ const AUDIO_RETENTION_OPTIONS = [
 ];
 
 export function StorageSettingsView() {
+  const { t } = useLingui();
   const queryClient = useQueryClient();
   const { data: home } = useQuery({ queryKey: ["home-dir"], queryFn: homeDir });
   const { data: othersBase } = useQuery({
@@ -98,13 +100,15 @@ export function StorageSettingsView() {
 
   return (
     <div>
-      <h2 className="mb-4 font-sans text-lg font-semibold">Storage</h2>
+      <h2 className="mb-4 font-sans text-lg font-semibold">
+        <Trans>Storage</Trans>
+      </h2>
       <div className="flex flex-col gap-3">
         <AudioRetentionRow />
         <StoragePathRow
           icon={FolderIcon}
-          title="Content"
-          description="Stores your notes, recordings, and session data"
+          title={t`Content`}
+          description={t`Stores your notes, recordings, and session data`}
           path={contentBase}
           home={home}
           action={
@@ -114,14 +118,14 @@ export function StorageSettingsView() {
               onClick={() => setShowDialog(true)}
               disabled={!contentBase}
             >
-              Customize
+              <Trans>Customize</Trans>
             </Button>
           }
         />
         <StoragePathRow
           icon={Settings2Icon}
-          title="Others"
-          description="Stores app-wide settings and configurations"
+          title={t`Others`}
+          description={t`Stores app-wide settings and configurations`}
           path={othersBase}
           home={home}
         />
@@ -142,6 +146,7 @@ export function StorageSettingsView() {
 }
 
 function AudioRetentionRow() {
+  const { t } = useLingui();
   const audioRetention = useConfigValue("audio_retention") || "forever";
   const setAudioRetention = settings.UI.useSetPartialValuesCallback(
     (value: string) => ({
@@ -154,19 +159,48 @@ function AudioRetentionRow() {
   const selectedOption =
     AUDIO_RETENTION_OPTIONS.find((option) => option.value === audioRetention) ??
     AUDIO_RETENTION_OPTIONS[AUDIO_RETENTION_OPTIONS.length - 1]!;
+  const copyByValue = {
+    none: {
+      label: t`Don't save`,
+      description: t`Do not keep recordings after processing`,
+    },
+    oneDay: {
+      label: t`1 day`,
+      description: t`Expire recordings after one day`,
+    },
+    threeDays: {
+      label: t`3 days`,
+      description: t`Expire recordings after three days`,
+    },
+    oneWeek: {
+      label: t`1 week`,
+      description: t`Expire recordings after one week`,
+    },
+    oneMonth: {
+      label: t`1 month`,
+      description: t`Expire recordings after one month`,
+    },
+    forever: {
+      label: t`Forever`,
+      description: t`Keep recordings until manually deleted`,
+    },
+  } as const;
 
   return (
     <div className="flex items-center gap-3">
       <div className="flex w-24 shrink-0 cursor-default items-center gap-2">
         <Settings2Icon className="text-muted-foreground size-4" />
-        <span className="text-sm font-medium">Audio</span>
+        <span className="text-sm font-medium">
+          <Trans>Audio</Trans>
+        </span>
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-muted-foreground truncate text-sm">
-          Save audio after meeting
+          <Trans>Save audio after meeting</Trans>
         </p>
         <p className="text-muted-foreground text-xs">
-          {selectedOption.description}
+          {copyByValue[selectedOption.value as keyof typeof copyByValue]
+            ?.description ?? selectedOption.description}
         </p>
       </div>
       <Select value={audioRetention} onValueChange={setAudioRetention}>
@@ -176,7 +210,8 @@ function AudioRetentionRow() {
         <SelectContent>
           {AUDIO_RETENTION_OPTIONS.map((option) => (
             <SelectItem key={option.value} value={option.value}>
-              {option.label}
+              {copyByValue[option.value as keyof typeof copyByValue]?.label ??
+                option.label}
             </SelectItem>
           ))}
         </SelectContent>
@@ -198,6 +233,7 @@ function ChangeContentPathDialog({
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
 }) {
+  const { t } = useLingui();
   const {
     selectedPath,
     selectPath,
@@ -240,10 +276,10 @@ function ChangeContentPathDialog({
 
   const disabledReason = (() => {
     if (!selectedPath || selectedPath === currentPath)
-      return "Select a different folder";
-    if (isCheckingNewPath) return "Checking folder...";
+      return t`Select a different folder`;
+    if (isCheckingNewPath) return t`Checking folder...`;
     if (moveVault && isNewPathEmpty === false) {
-      return "Moving existing data requires an empty folder. Uncheck Move to switch locations without migrating files.";
+      return t`Moving existing data requires an empty folder. Uncheck Move to switch locations without migrating files.`;
     }
     return null;
   })();
@@ -260,9 +296,13 @@ function ChangeContentPathDialog({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Change content location</DialogTitle>
+          <DialogTitle>
+            <Trans>Change content location</Trans>
+          </DialogTitle>
           <DialogDescription>
-            Choose where Anarlog should store data. (notes, settings, etc)
+            <Trans>
+              Choose where Anarlog should store data. (notes, settings, etc)
+            </Trans>
           </DialogDescription>
         </DialogHeader>
 
@@ -284,9 +324,11 @@ function ChangeContentPathDialog({
                 </p>
                 {isNewPathChosen && isNewPathEmpty === false && (
                   <p className="mt-1 text-xs text-yellow-600">
-                    Folder is not empty. Uncheck Move to use it as-is, or pick a
-                    dedicated empty folder (for example "meetings") for a full
-                    migration.
+                    <Trans>
+                      Folder is not empty. Uncheck Move to use it as-is, or pick
+                      a dedicated empty folder (for example "meetings") for a
+                      full migration.
+                    </Trans>
                   </p>
                 )}
               </div>
@@ -296,13 +338,13 @@ function ChangeContentPathDialog({
                 className="shrink-0"
                 onClick={() => chooseFolder()}
               >
-                Browse
+                <Trans>Browse</Trans>
               </Button>
             </div>
             {obsidianVaults && obsidianVaults.length > 0 && (
               <div className="mt-2 flex flex-col gap-1.5">
                 <span className="mt-1 text-xs">
-                  Want to use with your vault?
+                  <Trans>Want to use with your vault?</Trans>
                 </span>
                 {obsidianVaults.map((vault) => (
                   <button
@@ -337,10 +379,10 @@ function ChangeContentPathDialog({
                 />
                 <div className="flex flex-row gap-1">
                   <span className="text-muted-foreground text-sm font-semibold">
-                    Move
+                    <Trans>Move</Trans>
                   </span>
                   <span className="text-muted-foreground text-sm">
-                    existing data to new location
+                    <Trans>existing data to new location</Trans>
                   </span>
                 </div>
               </label>
@@ -359,7 +401,7 @@ function ChangeContentPathDialog({
                       disabledReason ? "pointer-events-none" : "",
                     ])}
                   >
-                    {isPending ? "Applying..." : "Apply and Restart"}
+                    {isPending ? t`Applying...` : t`Apply and Restart`}
                   </Button>
                 </span>
               </TooltipTrigger>
@@ -385,8 +427,8 @@ function StoragePathRow({
   action,
 }: {
   icon: LucideIcon;
-  title: string;
-  description: string;
+  title: ReactNode;
+  description: ReactNode;
   path: string | undefined;
   home: string | undefined;
   action?: ReactNode;

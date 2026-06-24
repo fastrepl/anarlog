@@ -1,3 +1,4 @@
+import { useLingui } from "@lingui/react/macro";
 import { Copy } from "lucide-react";
 import type { ReactNode } from "react";
 
@@ -13,7 +14,7 @@ export function ResourcePreviewHeader({
   category,
   targets,
   onClone,
-  actionLabel = "Clone",
+  actionLabel,
   actionIcon,
   actionVariant,
   actionClassName,
@@ -36,6 +37,7 @@ export function ResourcePreviewHeader({
   footer?: ReactNode;
   children?: ReactNode;
 }) {
+  const { t } = useLingui();
   const actionButton = onClone ? (
     <Button
       onClick={onClone}
@@ -48,7 +50,7 @@ export function ResourcePreviewHeader({
       ) : (
         actionIcon
       )}
-      {actionLabel}
+      {actionLabel ?? t`Clone`}
     </Button>
   ) : null;
 
@@ -68,7 +70,7 @@ export function ResourcePreviewHeader({
         <div className="min-w-0">
           <div className="flex min-w-0 items-baseline gap-2">
             <h2 className="min-w-0 truncate text-lg font-semibold">
-              {title || "Untitled"}
+              {title || t`Untitled`}
             </h2>
             {titleMeta}
           </div>

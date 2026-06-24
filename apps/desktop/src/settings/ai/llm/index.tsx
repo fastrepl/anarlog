@@ -1,3 +1,5 @@
+import { Trans } from "@lingui/react/macro";
+
 import { ConfigureProviders } from "./configure";
 import { LlmSettingsProvider } from "./context";
 import { SelectProviderAndModel } from "./select";
@@ -8,7 +10,7 @@ export function LLM() {
   return (
     <LlmSettingsProvider>
       <div className="flex flex-col gap-6">
-        <SettingsPageTitle title="Intelligence" />
+        <SettingsPageTitle title={<Trans>Intelligence</Trans>} />
         <SelectProviderAndModel />
         <ConfigureProviders />
       </div>

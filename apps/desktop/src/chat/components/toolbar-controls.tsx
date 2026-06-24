@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   ChevronDown,
   History,
@@ -39,6 +40,7 @@ export function ChatToolbarControls({
   onSelectChat: (chatGroupId: string) => void;
   surface?: "light" | "dark";
 }) {
+  const { t } = useLingui();
   const isDark = surface === "dark";
   const isRightPanel = layout === "right-panel";
 
@@ -59,7 +61,7 @@ export function ChatToolbarControls({
       >
         <ChatActionButton
           icon={<Plus size={16} />}
-          label="New chat"
+          label={t`New chat`}
           onClick={onNewChat}
           className={
             isDark ? darkToolbarButtonClassName : lightToolbarButtonClassName
@@ -69,7 +71,7 @@ export function ChatToolbarControls({
           <>
             <ChatActionButton
               icon={<PictureInPicture2 size={16} />}
-              label="Float chat"
+              label={t`Float chat`}
               onClick={onOpenFloating ?? (() => {})}
               className={
                 isDark
@@ -79,7 +81,7 @@ export function ChatToolbarControls({
             />
             <ChatActionButton
               icon={<X size={16} />}
-              label="Close chat"
+              label={t`Close chat`}
               onClick={onClose ?? (() => {})}
               className={
                 isDark
@@ -92,7 +94,7 @@ export function ChatToolbarControls({
           <>
             <ChatActionButton
               icon={<PanelRight size={16} />}
-              label="Open in right panel"
+              label={t`Open in right panel`}
               onClick={onOpenRightPanel ?? (() => {})}
               className={
                 isDark
@@ -146,6 +148,7 @@ function ChatGroups({
   onSelectChat: (chatGroupId: string) => void;
   surface?: "light" | "dark";
 }) {
+  const { t } = useLingui();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const isDark = surface === "dark";
 
@@ -162,7 +165,7 @@ function ChatGroups({
     <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
       <DropdownMenuTrigger asChild>
         <Button
-          aria-label="Chat history"
+          aria-label={t`Chat history`}
           variant="ghost"
           size="sm"
           className={cn([
@@ -218,7 +221,9 @@ function ChatGroups({
           ) : (
             <div className="px-3 py-6 text-center">
               <MessageCircle className="text-muted-foreground/70 mx-auto mb-1.5 h-6 w-6" />
-              <p className="text-muted-foreground text-xs">No recent chats</p>
+              <p className="text-muted-foreground text-xs">
+                <Trans>No recent chats</Trans>
+              </p>
             </div>
           )}
         </AppFloatingPanel>

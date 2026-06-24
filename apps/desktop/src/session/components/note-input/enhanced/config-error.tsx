@@ -1,4 +1,6 @@
+import { Trans } from "@lingui/react/macro";
 import { ArrowRightIcon } from "lucide-react";
+import type { ReactNode } from "react";
 
 import { Button } from "@hypr/ui/components/ui/button";
 
@@ -24,42 +26,70 @@ export function ConfigError({ status }: { status: LLMConnectionStatus }) {
         className="flex items-center gap-2"
         variant="default"
       >
-        <span>Configure</span>
+        <span>
+          <Trans>Configure</Trans>
+        </span>
         <ArrowRightIcon size={16} />
       </Button>
     </div>
   );
 }
 
-function getMessageForStatus(status: LLMConnectionStatus): string {
+function getMessageForStatus(status: LLMConnectionStatus): ReactNode {
   if (status.status === "pending" && status.reason === "missing_provider") {
-    return "You need to configure a language model to summarize this meeting";
+    return (
+      <Trans>
+        You need to configure a language model to summarize this meeting
+      </Trans>
+    );
   }
 
   if (status.status === "pending" && status.reason === "missing_model") {
-    return "You need to select a model to summarize this meeting";
+    return <Trans>You need to select a model to summarize this meeting</Trans>;
   }
 
   if (status.status === "error" && status.reason === "unauthenticated") {
-    return "You need to sign in to use Anarlog's language model";
+    return <Trans>You need to sign in to use Anarlog's language model</Trans>;
   }
 
   if (status.status === "error" && status.reason === "not_pro") {
-    return "Your Anarlog plan has expired. Configure another language model or renew your plan";
+    return (
+      <Trans>
+        Your Anarlog plan has expired. Configure another language model or renew
+        your plan
+      </Trans>
+    );
   }
 
   if (status.status === "error" && status.reason === "missing_config") {
     const missing = status.missing;
     if (missing.includes("api_key") && missing.includes("base_url")) {
-      return "You need to configure the API key and base URL for your language model provider";
+      return (
+        <Trans>
+          You need to configure the API key and base URL for your language model
+          provider
+        </Trans>
+      );
     }
     if (missing.includes("api_key")) {
-      return "You need to configure the API key for your language model provider";
+      return (
+        <Trans>
+          You need to configure the API key for your language model provider
+        </Trans>
+      );
     }
     if (missing.includes("base_url")) {
-      return "You need to configure the base URL for your language model provider";
+      return (
+        <Trans>
+          You need to configure the base URL for your language model provider
+        </Trans>
+      );
     }
   }
 
-  return "You need to configure a language model to summarize this meeting";
+  return (
+    <Trans>
+      You need to configure a language model to summarize this meeting
+    </Trans>
+  );
 }

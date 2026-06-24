@@ -1,3 +1,4 @@
+import { Trans } from "@lingui/react/macro";
 import { useQueryClient } from "@tanstack/react-query";
 import { platform } from "@tauri-apps/plugin-os";
 import { Volume2Icon, VolumeXIcon } from "lucide-react";
@@ -193,16 +194,21 @@ function OnboardingScreenContent({
         ])}
       >
         <h1 className="font-hand text-foreground text-4xl leading-none font-semibold tracking-normal">
-          Welcome to Anarlog
+          <Trans>Welcome to Anarlog</Trans>
         </h1>
       </div>
 
       <div className="scroll-fade-y relative z-10 flex-1 overflow-y-auto">
         <div className="flex flex-col gap-4 px-12 pb-16">
           <OnboardingSection
-            title="Start with permissions"
-            completedTitle="Permissions granted"
-            description="Anarlog needs access to your microphone and system audio to record and transcribe your meetings"
+            title={<Trans>Start with permissions</Trans>}
+            completedTitle={<Trans>Permissions granted</Trans>}
+            description={
+              <Trans>
+                Anarlog needs access to your microphone and system audio to
+                record and transcribe your meetings
+              </Trans>
+            }
             status={getStepStatus("permissions", currentStep)}
             skippable={false}
             onBack={goBack}
@@ -212,10 +218,21 @@ function OnboardingScreenContent({
           </OnboardingSection>
 
           <OnboardingSection
-            title="Create account"
-            description="Sign in to unlock powerful AI models, sync across devices, and personalization."
+            title={<Trans>Create account</Trans>}
+            description={
+              <Trans>
+                Sign in to unlock powerful AI models, sync across devices, and
+                personalization.
+              </Trans>
+            }
             completedTitle={
-              auth.session ? "Signed in" : didSkipLogin ? "Skipped" : "Account"
+              auth.session ? (
+                <Trans>Signed in</Trans>
+              ) : didSkipLogin ? (
+                <Trans>Skipped</Trans>
+              ) : (
+                <Trans>Account</Trans>
+              )
             }
             status={getStepStatus("login", currentStep)}
             onBack={goBack}
@@ -234,9 +251,13 @@ function OnboardingScreenContent({
           </OnboardingSection>
 
           <OnboardingSection
-            title="Connect calendar"
-            description="Anarlog will sync your calendar to get meeting reminders"
-            completedTitle="Calendar connected"
+            title={<Trans>Connect calendar</Trans>}
+            description={
+              <Trans>
+                Anarlog will sync your calendar to get meeting reminders
+              </Trans>
+            }
+            completedTitle={<Trans>Calendar connected</Trans>}
             status={getStepStatus("calendar", currentStep)}
             onBack={goBack}
             onNext={goNext}
@@ -248,9 +269,11 @@ function OnboardingScreenContent({
           </OnboardingSection>
 
           <OnboardingSection
-            title="Storage"
-            description="Where your notes and recordings are stored"
-            completedTitle="Storage configured"
+            title={<Trans>Storage</Trans>}
+            description={
+              <Trans>Where your notes and recordings are stored</Trans>
+            }
+            completedTitle={<Trans>Storage configured</Trans>}
             status={getStepStatus("folder-location", currentStep)}
             onBack={goBack}
             onNext={goNext}
@@ -259,7 +282,7 @@ function OnboardingScreenContent({
           </OnboardingSection>
 
           <OnboardingSection
-            title="Ready to go"
+            title={<Trans>Ready to go</Trans>}
             description={<FinalDescription />}
             status={getStepStatus("final", currentStep)}
             skippable={false}

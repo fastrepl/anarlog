@@ -1,4 +1,5 @@
 import { Icon } from "@iconify-icon/react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Building2, Mail } from "lucide-react";
 
 import { commands as openerCommands } from "@hypr/plugin-opener2";
@@ -17,6 +18,7 @@ export function OrganizationDetailsColumn({
   selectedOrganizationId?: string | null;
   onPersonClick?: (personId: string) => void;
 }) {
+  const { t } = useLingui();
   const selectedOrgData = main.UI.useRow(
     "organizations",
     selectedOrganizationId ?? "",
@@ -47,7 +49,9 @@ export function OrganizationDetailsColumn({
           <div className="flex-1 overflow-y-auto">
             <div>
               <div className="border-border flex items-center border-b px-4 py-3">
-                <div className="text-muted-foreground w-28 text-sm">Name</div>
+                <div className="text-muted-foreground w-28 text-sm">
+                  <Trans>Name</Trans>
+                </div>
                 <div className="flex-1">
                   <EditableOrganizationNameField
                     organizationId={selectedOrganizationId}
@@ -58,11 +62,11 @@ export function OrganizationDetailsColumn({
 
             <div className="p-6">
               <h3 className="text-muted-foreground mb-4 text-sm font-medium">
-                People
+                <Trans>People</Trans>
                 <span className="text-muted-foreground font-normal">
                   {" "}
                   &middot; {peopleInOrg?.length ?? 0}{" "}
-                  {(peopleInOrg?.length ?? 0) === 1 ? "member" : "members"}
+                  {(peopleInOrg?.length ?? 0) === 1 ? t`member` : t`members`}
                 </span>
               </h3>
               <div className="overflow-y-auto" style={{ maxHeight: "55vh" }}>
@@ -107,7 +111,7 @@ export function OrganizationDetailsColumn({
                             </div>
                             <div className="w-full">
                               <div className="truncate text-sm font-semibold">
-                                {human.name || human.email || "Unnamed"}
+                                {human.name || human.email || t`Unnamed`}
                               </div>
                               {human.job_title && (
                                 <div className="text-muted-foreground mt-1 truncate text-xs">
@@ -127,7 +131,7 @@ export function OrganizationDetailsColumn({
                                       null,
                                     );
                                   }}
-                                  title="Send email"
+                                  title={t`Send email`}
                                 >
                                   <Mail />
                                 </Button>
@@ -146,7 +150,7 @@ export function OrganizationDetailsColumn({
                                       : `https://www.linkedin.com/in/${v.replace(/^@/, "")}`;
                                     void openerCommands.openUrl(href, null);
                                   }}
-                                  title="View LinkedIn profile"
+                                  title={t`View LinkedIn profile`}
                                 >
                                   <Icon icon="logos:linkedin-icon" />
                                 </Button>
@@ -159,7 +163,7 @@ export function OrganizationDetailsColumn({
                   </div>
                 ) : (
                   <p className="text-muted-foreground text-sm">
-                    No people in this organization
+                    <Trans>No people in this organization</Trans>
                   </p>
                 )}
               </div>
@@ -171,7 +175,7 @@ export function OrganizationDetailsColumn({
       ) : (
         <div className="flex flex-1 items-center justify-center">
           <p className="text-muted-foreground text-sm">
-            Select an organization to view details
+            <Trans>Select an organization to view details</Trans>
           </p>
         </div>
       )}
@@ -184,6 +188,7 @@ function EditableOrganizationNameField({
 }: {
   organizationId: string;
 }) {
+  const { t } = useLingui();
   const value = main.UI.useCell(
     "organizations",
     organizationId,
@@ -204,7 +209,7 @@ function EditableOrganizationNameField({
     <Input
       value={(value as string) || ""}
       onChange={handleChange}
-      placeholder="Organization name"
+      placeholder={t`Organization name`}
       className="h-7 border-none p-0 text-base shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
     />
   );

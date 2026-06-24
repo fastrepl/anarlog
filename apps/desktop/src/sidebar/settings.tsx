@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import { platform } from "@tauri-apps/plugin-os";
 import {
   AudioLinesIcon,
@@ -30,25 +31,27 @@ type SettingsNavItem =
 
 type SettingsNavGroup = { label: string; items: SettingsNavItem[] };
 
-function getBaseGroups(): SettingsNavGroup[] {
+function getBaseGroups(
+  t: ReturnType<typeof useLingui>["t"],
+): SettingsNavGroup[] {
   const aiItems: SettingsNavItem[] = [
-    { id: "transcription", label: "Transcription", icon: AudioLinesIcon },
-    { id: "intelligence", label: "Intelligence", icon: SparklesIcon },
+    { id: "transcription", label: t`Transcription`, icon: AudioLinesIcon },
+    { id: "intelligence", label: t`Intelligence`, icon: SparklesIcon },
     {
       action: "open-templates",
-      label: "Templates",
+      label: t`Templates`,
       icon: BookText,
     },
   ];
 
   return [
     {
-      label: "General",
+      label: t`General`,
       items: [
-        { id: "app", label: "App", icon: SmartphoneIcon },
-        { id: "data", label: "Data", icon: DatabaseIcon },
-        { id: "account", label: "Account", icon: UserIcon },
-        { id: "notifications", label: "Notifications", icon: BellIcon },
+        { id: "app", label: t`App`, icon: SmartphoneIcon },
+        { id: "data", label: t`Data`, icon: DatabaseIcon },
+        { id: "account", label: t`Account`, icon: UserIcon },
+        { id: "notifications", label: t`Notifications`, icon: BellIcon },
       ],
     },
     {
@@ -59,6 +62,7 @@ function getBaseGroups(): SettingsNavGroup[] {
 }
 
 export function SettingsNav() {
+  const { t } = useLingui();
   const currentTab = useTabs((state) => state.currentTab);
   const openNew = useTabs((state) => state.openNew);
   const updateSettingsTabState = useTabs(
@@ -89,30 +93,30 @@ export function SettingsNav() {
     openNew({ type: "contacts", state: { selected: null } });
   }, [openNew]);
 
-  const groups = getBaseGroups();
+  const groups = getBaseGroups(t);
   const isMacos = platform() === "macos";
   if (isMacos) {
     groups[0].items.push({
       id: "permissions" as const,
-      label: "Permissions",
+      label: t`Permissions`,
       icon: LockIcon,
     });
   }
 
   groups[0].items.push({
     action: "open-calendar",
-    label: "Calendar",
+    label: t`Calendar`,
     icon: CalendarIcon,
   });
   groups[0].items.push({
     action: "open-contacts",
-    label: "Contacts",
+    label: t`Contacts`,
     icon: UsersIcon,
   });
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden">
-      <CustomSidebarHeader title="Settings" />
+      <CustomSidebarHeader title={<Trans>Settings</Trans>} />
       <div className="scrollbar-hide flex-1 overflow-y-auto">
         <div className="flex flex-col gap-4 pb-2">
           {groups.map((group) => (

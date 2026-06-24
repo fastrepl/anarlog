@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Facehash, stringHash } from "facehash";
 import { ArrowDownUp, Plus, Search, X } from "lucide-react";
 import type { ComponentProps, KeyboardEvent, RefObject } from "react";
@@ -66,10 +67,11 @@ function SortDropdown({
   sortOption: SortOption;
   setSortOption: (option: SortOption) => void;
 }) {
+  const { t } = useLingui();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button size="icon" variant="ghost" aria-label="Sort options">
+        <Button size="icon" variant="ghost" aria-label={t`Sort options`}>
           <ArrowDownUp size={16} />
         </Button>
       </DropdownMenuTrigger>
@@ -95,13 +97,13 @@ function SortDropdown({
               value="oldest"
               className="cursor-pointer text-xs"
             >
-              Oldest
+              <Trans>Oldest</Trans>
             </DropdownMenuRadioItem>
             <DropdownMenuRadioItem
               value="newest"
               className="cursor-pointer text-xs"
             >
-              Newest
+              <Trans>Newest</Trans>
             </DropdownMenuRadioItem>
           </DropdownMenuRadioGroup>
         </AppFloatingPanel>
@@ -119,7 +121,7 @@ export function ColumnHeader({
   onSearchChange,
   searchInputRef,
 }: {
-  title: string;
+  title: React.ReactNode;
   sortOption?: SortOption;
   setSortOption?: (option: SortOption) => void;
   onAdd: () => void;
@@ -127,6 +129,7 @@ export function ColumnHeader({
   onSearchChange?: (value: string) => void;
   searchInputRef?: RefObject<HTMLInputElement | null>;
 }) {
+  const { t } = useLingui();
   const handleSearchKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Escape") {
       onSearchChange?.("");
@@ -145,7 +148,7 @@ export function ColumnHeader({
               />
             </div>
           )}
-          <Button onClick={onAdd} size="icon" variant="ghost" title="Add">
+          <Button onClick={onAdd} size="icon" variant="ghost" title={t`Add`}>
             <Plus size={16} />
           </Button>
         </div>
@@ -160,14 +163,14 @@ export function ColumnHeader({
               value={searchValue || ""}
               onChange={(e) => onSearchChange(e.target.value)}
               onKeyDown={handleSearchKeyDown}
-              placeholder="Search contacts..."
+              placeholder={t`Search contacts...`}
               className="placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent text-sm placeholder:text-sm focus:outline-hidden"
             />
             {searchValue && (
               <button
                 onClick={() => onSearchChange("")}
                 className="text-muted-foreground hover:text-foreground h-4 w-4 shrink-0 transition-colors"
-                aria-label="Clear search"
+                aria-label={t`Clear search`}
               >
                 <X className="h-4 w-4" />
               </button>

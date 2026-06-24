@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { arch } from "@tauri-apps/plugin-os";
 import {
@@ -58,6 +59,7 @@ import {
 } from "~/stt/capabilities";
 
 export function SelectProviderAndModel() {
+  const { t } = useLingui();
   const { current_stt_provider, current_stt_model } = useConfigValues([
     "current_stt_provider",
     "current_stt_model",
@@ -141,8 +143,10 @@ export function SelectProviderAndModel() {
     <div className="flex flex-col gap-4">
       {!isConfigured && (
         <SettingsAlert>
-          <strong className="font-medium">Transcription model</strong> is needed
-          to make Anarlog listen to your conversations.
+          <Trans>
+            <strong className="font-medium">Transcription model</strong> is
+            needed to make Anarlog listen to your conversations.
+          </Trans>
         </SettingsAlert>
       )}
 
@@ -150,7 +154,9 @@ export function SelectProviderAndModel() {
         <SettingsAlert>{health.message}</SettingsAlert>
       )}
 
-      <h3 className="text-md font-sans font-semibold">Model being used</h3>
+      <h3 className="text-md font-sans font-semibold">
+        <Trans>Model being used</Trans>
+      </h3>
       <div className="flex flex-row items-center gap-4">
         <div className="min-w-0 flex-2" data-stt-provider-selector>
           <Select
@@ -158,7 +164,7 @@ export function SelectProviderAndModel() {
             onValueChange={handleProviderChange}
           >
             <SelectTrigger className="bg-card shadow-none focus:ring-0">
-              <SelectValue placeholder="Select a provider" />
+              <SelectValue placeholder={t`Select a provider`} />
             </SelectTrigger>
             <SelectContent>
               {PROVIDERS.filter(({ disabled }) => !disabled).map((provider) => {
@@ -185,13 +191,13 @@ export function SelectProviderAndModel() {
                         <span>{provider.displayName}</span>
                         {requiresPro ? (
                           <span className="border-border text-muted-foreground rounded-full border px-2 py-0.5 text-[10px] tracking-wide uppercase">
-                            Pro
+                            <Trans>Pro</Trans>
                           </span>
                         ) : null}
                       </div>
                       {locked ? (
                         <span className="text-muted-foreground text-[11px]">
-                          Upgrade to Pro to use this provider.
+                          <Trans>Upgrade to Pro to use this provider.</Trans>
                         </span>
                       ) : null}
                     </div>
@@ -210,7 +216,7 @@ export function SelectProviderAndModel() {
               value={displayedSttModel || ""}
               onChange={(event) => handleModelChange(event.target.value)}
               className="text-xs"
-              placeholder="Enter a model identifier"
+              placeholder={t`Enter a model identifier`}
             />
           </div>
         ) : (
@@ -227,7 +233,7 @@ export function SelectProviderAndModel() {
                   isConfigured && "[&>svg:last-child]:hidden",
                 ])}
               >
-                <SelectValue placeholder="Select a model">
+                <SelectValue placeholder={t`Select a model`}>
                   {selectedModel ? (
                     <ModelSelectedValue model={selectedModel} />
                   ) : undefined}
@@ -628,7 +634,7 @@ function ModelSelectItem({
           ])}
           onClick={handleAction}
         >
-          {isCloud ? "Upgrade to use" : "Download"}
+          {isCloud ? <Trans>Upgrade to use</Trans> : <Trans>Download</Trans>}
         </button>
       )}
     </div>
@@ -665,7 +671,7 @@ function ModelModeBadge({ mode }: { mode?: ModelEntry["mode"] }) {
           : "bg-muted text-muted-foreground",
       ])}
     >
-      {mode === "realtime" ? "Realtime" : "Batch"}
+      {mode === "realtime" ? <Trans>Realtime</Trans> : <Trans>Batch</Trans>}
     </span>
   );
 }
@@ -675,6 +681,7 @@ function isLocalModelId(model: string): model is LocalModel {
 }
 
 function LocalModelDropdownActions({ model }: { model: LocalModel }) {
+  const { t } = useLingui();
   const queryClient = useQueryClient();
 
   const stopSelect = (event: React.SyntheticEvent<HTMLButtonElement>) => {
@@ -716,7 +723,7 @@ function LocalModelDropdownActions({ model }: { model: LocalModel }) {
     >
       <button
         type="button"
-        aria-label="Show in Finder"
+        aria-label={t`Show in Finder`}
         className={cn([
           "flex size-6 items-center justify-center rounded-full",
           "text-muted-foreground hover:text-foreground",
@@ -731,7 +738,7 @@ function LocalModelDropdownActions({ model }: { model: LocalModel }) {
       </button>
       <button
         type="button"
-        aria-label="Delete model"
+        aria-label={t`Delete model`}
         className={cn([
           "flex size-6 items-center justify-center rounded-full",
           "text-red-500 hover:text-red-600",

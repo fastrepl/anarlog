@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useCallback, useMemo } from "react";
 
 import {
@@ -33,6 +34,8 @@ export function TodoProviderContent({ config }: { config: TodoProvider }) {
 }
 
 function OAuthTodoProviderContent({ config }: { config: TodoProvider }) {
+  const { t } = useLingui();
+
   if (!config.nangoIntegrationId) {
     return null;
   }
@@ -69,11 +72,11 @@ function OAuthTodoProviderContent({ config }: { config: TodoProvider }) {
               tabIndex={0}
               className="text-muted-foreground cursor-not-allowed text-xs opacity-50"
             >
-              Connect {config.displayName}
+              <Trans>Connect {config.displayName}</Trans>
             </span>
           </TooltipTrigger>
           <TooltipContent side="bottom">
-            Sign in to connect {config.displayName}
+            <Trans>Sign in to connect {config.displayName}</Trans>
           </TooltipContent>
         </Tooltip>
       </div>
@@ -88,7 +91,7 @@ function OAuthTodoProviderContent({ config }: { config: TodoProvider }) {
           onClick={upgradeToPro}
           className="text-muted-foreground hover:text-foreground cursor-pointer text-xs underline transition-colors"
         >
-          Upgrade to connect
+          <Trans>Upgrade to connect</Trans>
         </button>
       </div>
     );
@@ -98,7 +101,7 @@ function OAuthTodoProviderContent({ config }: { config: TodoProvider }) {
     return (
       <div className="pt-1 pb-2">
         <span className="text-xs text-red-600">
-          Failed to load integration status
+          <Trans>Failed to load integration status</Trans>
         </span>
       </div>
     );
@@ -112,7 +115,7 @@ function OAuthTodoProviderContent({ config }: { config: TodoProvider }) {
           onClick={handleConnect}
           className="text-muted-foreground hover:text-foreground cursor-pointer text-xs underline transition-colors"
         >
-          Connect {config.displayName}
+          <Trans>Connect {config.displayName}</Trans>
         </button>
       </div>
     );
@@ -133,7 +136,7 @@ function OAuthTodoProviderContent({ config }: { config: TodoProvider }) {
         <TodoFilterField
           settingKey={filterSettingKey}
           label={config.filterLabel ?? "Repository"}
-          description={`Filter synced items by ${(config.filterLabel ?? "repository").toLowerCase()}.`}
+          description={t`Filter synced items by ${(config.filterLabel ?? "repository").toLowerCase()}.`}
           placeholder={config.filterPlaceholder ?? ""}
         />
       ) : null}
@@ -173,9 +176,11 @@ function ConnectionActions({
           }
           className="cursor-pointer text-xs text-amber-700 underline transition-colors hover:text-amber-900"
         >
-          Reconnect required
+          <Trans>Reconnect required</Trans>
         </button>
-        <span className="text-muted-foreground text-xs">or</span>
+        <span className="text-muted-foreground text-xs">
+          <Trans>or</Trans>
+        </span>
         <button
           type="button"
           onClick={() =>
@@ -188,7 +193,7 @@ function ConnectionActions({
           }
           className="cursor-pointer text-xs text-red-500 underline transition-colors hover:text-red-700"
         >
-          Disconnect
+          <Trans>Disconnect</Trans>
         </button>
       </div>
     );
@@ -208,19 +213,20 @@ function ConnectionActions({
         }
         className="text-muted-foreground hover:text-muted-foreground cursor-pointer text-xs underline transition-colors"
       >
-        Disconnect
+        <Trans>Disconnect</Trans>
       </button>
     </div>
   );
 }
 
 function AppleRemindersProviderContent() {
+  const { t } = useLingui();
   const reminders = usePermission("reminders");
 
   if (reminders.status !== "authorized") {
     return (
       <AccessPermissionRow
-        title="Reminders"
+        title={t`Reminders`}
         status={reminders.status}
         isPending={reminders.isPending}
         onOpen={reminders.open}

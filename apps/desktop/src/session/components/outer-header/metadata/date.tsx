@@ -1,3 +1,4 @@
+import { useLingui } from "@lingui/react/macro";
 import { useForm } from "@tanstack/react-form";
 import { CheckIcon, PencilIcon, XIcon } from "lucide-react";
 import { useState } from "react";
@@ -9,6 +10,7 @@ import { format, safeFormat, safeParseDate } from "@hypr/utils";
 import * as main from "~/store/tinybase/store/main";
 
 export function DateEditor({ sessionId }: { sessionId: string }) {
+  const { t } = useLingui();
   const [isEditing, setIsEditing] = useState(false);
   const createdAt = main.UI.useCell(
     "sessions",
@@ -19,7 +21,7 @@ export function DateEditor({ sessionId }: { sessionId: string }) {
   const noteDate = safeFormat(
     createdAt ?? new Date(),
     "MMM d, yyyy h:mm a",
-    "Unknown date",
+    t`Unknown date`,
   );
 
   if (!isEditing) {
@@ -34,7 +36,7 @@ export function DateEditor({ sessionId }: { sessionId: string }) {
           size="icon"
           className="text-muted-foreground hover:bg-accent hover:text-foreground size-7 rounded-md"
           onClick={() => setIsEditing(true)}
-          aria-label="Edit date"
+          aria-label={t`Edit date`}
         >
           <PencilIcon size={16} />
         </Button>
@@ -64,6 +66,7 @@ function EditableDateForm({
   onCancel?: () => void;
   onSaved?: () => void;
 }) {
+  const { t } = useLingui();
   const handleChangeCreatedAt = main.UI.useSetCellCallback(
     "sessions",
     sessionId,
@@ -82,7 +85,7 @@ function EditableDateForm({
         if (!value.createdAt.trim()) {
           return {
             fields: {
-              createdAt: "Date and time are required",
+              createdAt: t`Date and time are required`,
             },
           };
         }
@@ -90,7 +93,7 @@ function EditableDateForm({
         if (!toIsoString(value.createdAt)) {
           return {
             fields: {
-              createdAt: "Enter a valid date and time",
+              createdAt: t`Enter a valid date and time`,
             },
           };
         }
@@ -140,7 +143,7 @@ function EditableDateForm({
                 size="icon"
                 className="text-muted-foreground size-7 shrink-0 rounded-md hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/50 dark:hover:text-red-300"
                 onClick={onCancel}
-                aria-label="Cancel date edit"
+                aria-label={t`Cancel date edit`}
               >
                 <XIcon size={16} />
               </Button>
@@ -155,7 +158,7 @@ function EditableDateForm({
                   className="text-muted-foreground size-7 shrink-0 rounded-md hover:bg-green-50 hover:text-green-600 dark:hover:bg-green-950/50 dark:hover:text-green-300"
                   onClick={() => void form.handleSubmit()}
                   disabled={!canSubmit}
-                  aria-label="Save date"
+                  aria-label={t`Save date`}
                 >
                   <CheckIcon size={16} />
                 </Button>

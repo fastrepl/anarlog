@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useQueryClient } from "@tanstack/react-query";
 import { useMemo, useRef } from "react";
 
@@ -44,6 +45,7 @@ import { SettingsAlert } from "~/shared/ui/settings-alert";
 import * as settings from "~/store/tinybase/store/settings";
 
 export function SelectProviderAndModel() {
+  const { t } = useLingui();
   const configuredProviders = useConfiguredMapping();
   const billing = useBillingAccess();
   const queryClient = useQueryClient();
@@ -172,8 +174,10 @@ export function SelectProviderAndModel() {
     <div className="flex flex-col gap-4">
       {!isConfigured && (
         <SettingsAlert>
-          <strong className="font-medium">Language model</strong> is needed to
-          make Anarlog summarize and chat about your conversations.
+          <Trans>
+            <strong className="font-medium">Language model</strong> is needed to
+            make Anarlog summarize and chat about your conversations.
+          </Trans>
         </SettingsAlert>
       )}
 
@@ -181,7 +185,9 @@ export function SelectProviderAndModel() {
         <SettingsAlert>{health.message}</SettingsAlert>
       )}
 
-      <h3 className="text-md font-sans font-semibold">Model being used</h3>
+      <h3 className="text-md font-sans font-semibold">
+        <Trans>Model being used</Trans>
+      </h3>
       <div className="flex flex-row items-center gap-4">
         <div className="min-w-0 flex-2" data-llm-provider-selector>
           <Select
@@ -189,7 +195,7 @@ export function SelectProviderAndModel() {
             onValueChange={handleProviderChange}
           >
             <SelectTrigger className="bg-card shadow-none focus:ring-0">
-              <SelectValue placeholder="Select a provider" />
+              <SelectValue placeholder={t`Select a provider`} />
             </SelectTrigger>
             <SelectContent>
               {PROVIDERS.map((provider) => {
@@ -213,7 +219,7 @@ export function SelectProviderAndModel() {
                       </div>
                       {locked ? (
                         <span className="text-muted-foreground text-[11px]">
-                          Upgrade to Pro to use this provider.
+                          <Trans>Upgrade to Pro to use this provider.</Trans>
                         </span>
                       ) : null}
                     </div>

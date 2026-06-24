@@ -1,3 +1,4 @@
+import { useLingui } from "@lingui/react/macro";
 import { X } from "lucide-react";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
@@ -143,11 +144,12 @@ function PostSessionTabHandle({
   showTranscriptTab: boolean;
   onSelect: (tab: PostSessionTab) => void;
 }) {
+  const { t } = useLingui();
   return (
     <div className="relative left-3 z-10 flex h-5 items-center gap-1">
       {showTranscriptTab ? (
         <PostSessionTabButton
-          label="Transcript"
+          label={t`Transcript`}
           tab="transcript"
           activeTab={activeTab}
           isExpanded={isExpanded}
@@ -156,7 +158,7 @@ function PostSessionTabHandle({
         />
       ) : null}
       <PostSessionTabButton
-        label="Insights"
+        label={t`Insights`}
         tab="insights"
         activeTab={activeTab}
         isExpanded={isExpanded}
@@ -182,6 +184,7 @@ function PostSessionTabButton({
   onSelect: (tab: PostSessionTab) => void;
   className?: string;
 }) {
+  const { t } = useLingui();
   const isActive = activeTab === tab;
 
   return (
@@ -199,7 +202,7 @@ function PostSessionTabButton({
         className,
       ])}
       aria-label={
-        isActive && isExpanded ? `Collapse ${label}` : `Expand ${label}`
+        isActive && isExpanded ? t`Collapse ${label}` : t`Expand ${label}`
       }
     >
       <span>{label}</span>

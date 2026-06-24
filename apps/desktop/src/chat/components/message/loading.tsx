@@ -1,3 +1,4 @@
+import { Trans } from "@lingui/react/macro";
 import { Loader2 } from "lucide-react";
 
 import { MessageBubble, MessageContainer } from "./shared";
@@ -8,7 +9,9 @@ export function LoadingMessage() {
       <MessageBubble variant="loading">
         <div className="flex items-center gap-2">
           <Loader2 className="h-4 w-4 animate-spin" />
-          <span className="text-sm">Thinking...</span>
+          <span className="text-sm">
+            <Trans>Thinking...</Trans>
+          </span>
         </div>
       </MessageBubble>
     </MessageContainer>

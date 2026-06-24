@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useQuery } from "@tanstack/react-query";
 import { fetch } from "@tauri-apps/plugin-http";
 import { ExternalLinkIcon, PlusIcon, XIcon } from "lucide-react";
@@ -36,6 +37,7 @@ export function GitHubTodoProviderContent({
 }: {
   config: TodoProvider;
 }) {
+  const { t } = useLingui();
   const auth = useAuth();
   const { isPaid, upgradeToPro } = useBillingAccess();
   const { data: connections } = useConnections(isPaid);
@@ -97,16 +99,18 @@ export function GitHubTodoProviderContent({
   return (
     <div className="flex flex-col gap-4">
       <p className="text-muted-foreground text-xs">
-        Only public repositories are supported.{" "}
+        <Trans>Only public repositories are supported.</Trans>{" "}
         {!auth.session ? (
-          <span>Sign in for private repo access.</span>
+          <span>
+            <Trans>Sign in for private repo access.</Trans>
+          </span>
         ) : !isPaid ? (
           <button
             type="button"
             onClick={upgradeToPro}
             className="hover:text-muted-foreground underline transition-colors"
           >
-            Upgrade for private repos.
+            <Trans>Upgrade for private repos.</Trans>
           </button>
         ) : providerConnections.length === 0 ? (
           <button
@@ -121,7 +125,7 @@ export function GitHubTodoProviderContent({
             }
             className="hover:text-muted-foreground underline transition-colors"
           >
-            Connect GitHub for private repos.
+            <Trans>Connect GitHub for private repos.</Trans>
           </button>
         ) : (
           <button
@@ -136,7 +140,7 @@ export function GitHubTodoProviderContent({
             }
             className="hover:text-muted-foreground underline transition-colors"
           >
-            Disconnect private repo access.
+            <Trans>Disconnect private repo access.</Trans>
           </button>
         )}
       </p>
@@ -155,6 +159,7 @@ export function GitHubTodoProviderContent({
               )
             }
             className="text-muted-foreground hover:text-muted-foreground transition-colors"
+            aria-label={t`Open repository on GitHub`}
           >
             <ExternalLinkIcon className="size-3.5" />
           </button>
@@ -162,6 +167,7 @@ export function GitHubTodoProviderContent({
             type="button"
             onClick={() => setRepository("")}
             className="text-muted-foreground hover:text-muted-foreground transition-colors"
+            aria-label={t`Remove repository`}
           >
             <XIcon className="size-3.5" />
           </button>
@@ -184,7 +190,7 @@ export function GitHubTodoProviderContent({
               <Input
                 autoFocus
                 className="flex-1"
-                placeholder="Search or type owner/repo"
+                placeholder={t`Search or type owner/repo`}
                 value={inputValue}
                 onChange={(e) => {
                   setInputValue(e.target.value);
@@ -197,7 +203,7 @@ export function GitHubTodoProviderContent({
                 disabled={!isValidInput}
                 className="text-muted-foreground hover:text-foreground text-xs underline transition-colors disabled:cursor-not-allowed disabled:opacity-40"
               >
-                Add
+                <Trans>Add</Trans>
               </button>
               <button
                 type="button"
@@ -208,7 +214,7 @@ export function GitHubTodoProviderContent({
                 }}
                 className="text-muted-foreground hover:text-muted-foreground text-xs underline transition-colors"
               >
-                Cancel
+                <Trans>Cancel</Trans>
               </button>
             </form>
           </PopoverAnchor>
@@ -240,7 +246,11 @@ export function GitHubTodoProviderContent({
           className="text-muted-foreground hover:text-foreground flex w-fit items-center gap-1 text-xs transition-colors"
         >
           <PlusIcon className="size-3" />
-          {hasRepository ? "Replace repository" : "Add repository"}
+          {hasRepository ? (
+            <Trans>Replace repository</Trans>
+          ) : (
+            <Trans>Add repository</Trans>
+          )}
         </button>
       )}
     </div>

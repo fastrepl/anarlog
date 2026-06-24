@@ -1,3 +1,4 @@
+import { Trans } from "@lingui/react/macro";
 import { platform } from "@tauri-apps/plugin-os";
 import { motion } from "motion/react";
 import { useCallback, useMemo, useState } from "react";
@@ -357,7 +358,9 @@ function OutlookCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
 
   if (isError) {
     return (
-      <p className="text-sm text-red-600">Failed to load Outlook Calendar</p>
+      <p className="text-sm text-red-600">
+        <Trans>Failed to load Outlook Calendar</Trans>
+      </p>
     );
   }
 
@@ -390,7 +393,7 @@ function OutlookCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
       {!isSignedIn ? (
         <span className="grid items-center overflow-hidden">
           <span className="invisible col-start-1 row-start-1 flex items-center justify-center gap-3">
-            Sign in to connect
+            <Trans>Sign in to connect</Trans>
           </span>
 
           <motion.span
@@ -409,13 +412,13 @@ function OutlookCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
             animate={{ y: isHovered ? "0%" : "-150%" }}
             transition={{ type: "spring", bounce: 0.15, duration: 0.35 }}
           >
-            Sign in to connect
+            <Trans>Sign in to connect</Trans>
           </motion.span>
         </span>
       ) : (
         <>
           {OUTLOOK_PROVIDER.icon}
-          Connect Outlook
+          <Trans>Connect Outlook</Trans>
         </>
       )}
     </OnboardingButton>
@@ -460,7 +463,9 @@ function GoogleCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
 
   if (isError) {
     return (
-      <p className="text-sm text-red-600">Failed to load Google Calendar</p>
+      <p className="text-sm text-red-600">
+        <Trans>Failed to load Google Calendar</Trans>
+      </p>
     );
   }
 
@@ -494,7 +499,7 @@ function GoogleCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
         {!isSignedIn ? (
           <span className="grid items-center overflow-hidden">
             <span className="invisible col-start-1 row-start-1 flex items-center justify-center gap-3">
-              Sign in to connect
+              <Trans>Sign in to connect</Trans>
             </span>
 
             <motion.span
@@ -513,13 +518,13 @@ function GoogleCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
               animate={{ y: isHovered ? "0%" : "-140%" }}
               transition={{ type: "spring", bounce: 0.15, duration: 0.35 }}
             >
-              Sign in to connect
+              <Trans>Sign in to connect</Trans>
             </motion.span>
           </span>
         ) : (
           <>
             {GOOGLE_PROVIDER.icon}
-            Connect Google Calendar
+            <Trans>Connect Google Calendar</Trans>
           </>
         )}
       </OnboardingButton>
@@ -560,7 +565,9 @@ function CalendarSectionContent({
             <OutlookCalendarProvider onSignIn={onSignIn} />
           </div>
           {hasConnectedCalendar && (
-            <OnboardingButton onClick={onContinue}>Continue</OnboardingButton>
+            <OnboardingButton onClick={onContinue}>
+              <Trans>Continue</Trans>
+            </OnboardingButton>
           )}
         </>
       ) : (

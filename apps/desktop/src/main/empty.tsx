@@ -1,3 +1,4 @@
+import { Trans } from "@lingui/react/macro";
 import { useCallback } from "react";
 
 import { Kbd } from "@hypr/ui/components/ui/kbd";
@@ -36,15 +37,19 @@ function EmptyView() {
       className="flex h-full flex-col items-center justify-center gap-6"
     >
       <div className="flex min-w-[280px] flex-col gap-1 text-center">
-        <ActionItem label="New Note" shortcut={["⌘", "N"]} onClick={newNote} />
         <ActionItem
-          label="Start Recording"
+          label={<Trans>New Note</Trans>}
+          shortcut={["⌘", "N"]}
+          onClick={newNote}
+        />
+        <ActionItem
+          label={<Trans>Start Recording</Trans>}
           shortcut={["⌘", "⇧", "N"]}
           onClick={newNoteAndListen}
         />
         <div className="bg-accent my-1 h-px" />
         <ActionItem
-          label="Settings"
+          label={<Trans>Settings</Trans>}
           shortcut={["⌘", ","]}
           onClick={openSettings}
         />
@@ -59,7 +64,7 @@ function ActionItem({
   icon,
   onClick,
 }: {
-  label: string;
+  label: React.ReactNode;
   shortcut?: string[];
   icon?: React.ReactNode;
   onClick: () => void;

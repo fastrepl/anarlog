@@ -1,16 +1,21 @@
+import { useLingui } from "@lingui/react/macro";
+import type { ReactNode } from "react";
+
 import { cn } from "@hypr/utils";
 
 import { useShell } from "~/contexts/shell";
 
 export function ChatCTA({
-  label = "Ask anything",
-  ariaLabel = "Ask Anarlog anything",
+  label,
+  ariaLabel,
 }: {
-  label?: string;
+  label?: ReactNode;
   ariaLabel?: string;
 }) {
+  const { t } = useLingui();
   const { chat } = useShell();
   const isChatOpen = chat.mode !== "FloatingClosed";
+  const resolvedLabel = label ?? t`Ask anything`;
 
   const handleClick = () => {
     chat.sendEvent({ type: "OPEN" });
@@ -23,7 +28,7 @@ export function ChatCTA({
   return (
     <button
       type="button"
-      aria-label={ariaLabel}
+      aria-label={ariaLabel ?? t`Ask Anarlog anything`}
       onClick={handleClick}
       className="group/anarlog-chat-cta relative h-10 w-40 max-w-full cursor-text focus-visible:outline-none"
     >
@@ -51,14 +56,14 @@ export function ChatCTA({
             "group-focus-within/anarlog-chat-cta:max-w-full group-focus-within/anarlog-chat-cta:opacity-100",
           ])}
         >
-          {label}
+          {resolvedLabel}
         </span>
       </span>
     </button>
   );
 }
 
-export function FloatingChatCTA({ label }: { label?: string }) {
+export function FloatingChatCTA({ label }: { label?: ReactNode }) {
   return (
     <div className="pointer-events-none absolute bottom-3 left-1/2 z-20 flex h-10 w-40 max-w-[calc(100%-2rem)] -translate-x-1/2 items-end justify-center pb-0">
       <div className="pointer-events-auto max-w-full">

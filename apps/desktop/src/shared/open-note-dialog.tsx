@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Command as CommandPrimitive } from "cmdk";
 import { FileTextIcon, SearchIcon, XIcon } from "lucide-react";
 import {
@@ -85,6 +86,7 @@ export function OpenNoteDialog({
   onOpenChange,
   mainContentCenterOffset = 0,
 }: OpenNoteDialogProps) {
+  const { t } = useLingui();
   const [query, setQuery] = useState("");
   const openCurrent = useTabs((state) => state.openCurrent);
   const recentlyOpenedSessionIds = useTabs(
@@ -101,7 +103,8 @@ export function OpenNoteDialog({
     for (const id of sessionIds) {
       map.set(id, {
         id,
-        title: (store.getCell("sessions", id, "title") as string) || "Untitled",
+        title:
+          (store.getCell("sessions", id, "title") as string) || t`Untitled`,
         createdAt: store.getCell("sessions", id, "created_at") as string,
       });
     }
@@ -210,14 +213,14 @@ export function OpenNoteDialog({
                 ref={focusInput}
                 value={query}
                 onValueChange={setQuery}
-                placeholder="Find a note..."
+                placeholder={t`Find a note...`}
                 className={cn([
                   "flex-1 bg-transparent text-sm",
                   "placeholder:text-muted-foreground outline-hidden",
                 ])}
               />
               <button
-                aria-label="Close"
+                aria-label={t`Close`}
                 onClick={() => handleOpenChange(false)}
                 className={cn([
                   "h-5 w-5 rounded-full",
@@ -234,7 +237,7 @@ export function OpenNoteDialog({
             <CommandPrimitive.List className="max-h-80 overflow-y-auto p-2">
               {!hasAnyResults ? (
                 <CommandPrimitive.Empty className="text-muted-foreground py-6 text-center text-sm">
-                  No notes found.
+                  <Trans>No notes found.</Trans>
                 </CommandPrimitive.Empty>
               ) : (
                 <>
@@ -245,7 +248,7 @@ export function OpenNoteDialog({
                       }
                       heading={
                         <div className="text-muted-foreground px-2 py-1.5 text-xs font-medium tracking-wider uppercase">
-                          Recent
+                          <Trans>Recent</Trans>
                         </div>
                       }
                     >
@@ -276,7 +279,7 @@ export function OpenNoteDialog({
                             <div className="bg-accent mx-2 h-px" />
                           )}
                           <div className="text-muted-foreground px-2 py-1.5 text-xs font-medium tracking-wider uppercase">
-                            All Notes
+                            <Trans>All Notes</Trans>
                           </div>
                         </div>
                       }

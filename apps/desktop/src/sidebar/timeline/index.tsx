@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   ArrowDownIcon,
   ArrowUpIcon,
@@ -39,6 +40,7 @@ import {
 } from "./utils";
 
 import { useConfigValue } from "~/shared/config";
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
 import { useIgnoredEvents } from "~/store/tinybase/hooks";
 import {
@@ -59,6 +61,7 @@ export function TimelineView({
   showOpenCalendarButton?: boolean;
   topChromeInset?: boolean;
 } = {}) {
+  const { t } = useLingui();
   const timezone = useConfigValue("timezone") || undefined;
   const { timelineEventsTable, timelineSessionsTable } = useTimelineTables();
   const [showIgnored, setShowIgnored] = useState(false);
@@ -121,6 +124,8 @@ export function TimelineView({
   const store = main.UI.useStore(main.STORE_ID);
 
   const selectedIds = useTimelineSelection((s) => s.selectedIds);
+  const anchorId = useTimelineSelection((s) => s.anchorId);
+  const selectAll = useTimelineSelection((s) => s.selectAll);
   const clearSelection = useTimelineSelection((s) => s.clear);
   const indexes = main.UI.useIndexes(main.STORE_ID);
   const invalidateResource = useTabs((state) => state.invalidateResource);
@@ -135,6 +140,24 @@ export function TimelineView({
     }
     return keys;
   }, [buckets]);
+  const flatSessionItemKeys = useMemo(
+    () => flatItemKeys.filter(isSessionItemKey),
+    [flatItemKeys],
+  );
+  const selectAllShortcutStateRef = useRef({
+    anchorId,
+    flatSessionItemKeys,
+    selectedIds,
+    selectedSessionId,
+    selectAll,
+  });
+  selectAllShortcutStateRef.current = {
+    anchorId,
+    flatSessionItemKeys,
+    selectedIds,
+    selectedSessionId,
+    selectAll,
+  };
 
   const {
     containerRef,
@@ -246,6 +269,47 @@ export function TimelineView({
     deps: [todayBucketLength],
   });
 
+  useMountEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.defaultPrevented ||
+        !isSelectAllShortcut(event) ||
+        isTextEditingShortcutTarget(event.target) ||
+        isTextEditingShortcutTarget(document.activeElement)
+      ) {
+        return;
+      }
+
+      const {
+        anchorId,
+        flatSessionItemKeys,
+        selectedIds,
+        selectedSessionId,
+        selectAll,
+      } = selectAllShortcutStateRef.current;
+
+      if (
+        !selectedSessionId ||
+        flatSessionItemKeys.length === 0 ||
+        !hasSidebarNoteSelectionContext({
+          anchorId,
+          selectedIds,
+          selectedSessionId,
+        })
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      selectAll(flatSessionItemKeys);
+    };
+
+    window.addEventListener("keydown", handleKeyDown, { capture: true });
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown, { capture: true });
+    };
+  });
+
   const indicatorIndex = useMemo(() => {
     if (hasToday) {
       return -1;
@@ -312,7 +376,7 @@ export function TimelineView({
         ? [
             {
               id: "delete-selected",
-              text: `Delete Selected (${sessionCount})`,
+              text: t`Delete Selected (${sessionCount})`,
               action: handleDeleteSelected,
               disabled: sessionCount === 0,
             },
@@ -320,7 +384,9 @@ export function TimelineView({
         : [
             {
               id: "toggle-ignored",
-              text: showIgnored ? "Hide Deleted Events" : "Show Deleted Events",
+              text: showIgnored
+                ? t`Hide Deleted Events`
+                : t`Show Deleted Events`,
               action: toggleShowIgnored,
             },
           ],
@@ -330,6 +396,7 @@ export function TimelineView({
       handleDeleteSelected,
       showIgnored,
       toggleShowIgnored,
+      t,
     ],
   );
 
@@ -473,11 +540,11 @@ export function TimelineView({
         >
           {showOpenCalendarChip && (
             <TimelineTopChip
-              ariaLabel="Open calendar"
+              ariaLabel={t`Open calendar`}
               icon={<CalendarDaysIcon size={12} />}
               onClick={handleOpenCalendar}
             >
-              Open calendar
+              <Trans>Open calendar</Trans>
             </TimelineTopChip>
           )}
           {upcomingMeetingStatus && showUpcomingMeetingChip && (
@@ -516,10 +583,11 @@ function SidebarUpcomingMeetingStatus({
   onClick: () => void;
   title: string;
 }) {
+  const { t } = useLingui();
   return (
     <TimelineTopChip
       aria-live="polite"
-      ariaLabel={`${title || "Meeting"} ${label.toLowerCase()}`}
+      ariaLabel={`${title || t`Meeting`} ${label.toLowerCase()}`}
       data-sidebar-upcoming-meeting-status
       className="border-destructive bg-destructive text-destructive-foreground shadow-md"
       icon={<ArrowUpIcon aria-hidden className="size-3" strokeWidth={2.4} />}
@@ -616,6 +684,58 @@ function isFutureBucketLabel(label: string) {
   );
 }
 
+function isSelectAllShortcut(event: KeyboardEvent) {
+  return (
+    event.key.toLowerCase() === "a" &&
+    (event.metaKey || event.ctrlKey) &&
+    !event.altKey &&
+    !event.shiftKey
+  );
+}
+
+function isSessionItemKey(key: string) {
+  return key.startsWith("session-");
+}
+
+function hasSidebarNoteSelectionContext({
+  anchorId,
+  selectedIds,
+  selectedSessionId,
+}: {
+  anchorId: string | null;
+  selectedIds: string[];
+  selectedSessionId: string;
+}) {
+  const currentSessionKey = `session-${selectedSessionId}`;
+
+  return anchorId === currentSessionKey || selectedIds.some(isSessionItemKey);
+}
+
+function isTextEditingShortcutTarget(target: EventTarget | null) {
+  const element =
+    target instanceof Element
+      ? target
+      : target instanceof Node
+        ? target.parentElement
+        : null;
+
+  return (
+    element !== null &&
+    Boolean(
+      element.closest(
+        [
+          "input",
+          "textarea",
+          "select",
+          "[contenteditable='true']",
+          "[role='textbox']",
+          ".ProseMirror",
+        ].join(","),
+      ),
+    )
+  );
+}
+
 function TimelineNowChip({
   className,
   direction,
@@ -626,11 +746,12 @@ function TimelineNowChip({
   onClick: () => void;
 }) {
   const DirectionIcon = direction === "up" ? ArrowUpIcon : ArrowDownIcon;
+  const { t } = useLingui();
 
   return (
     <button
       type="button"
-      aria-label="Go back to now"
+      aria-label={t`Go back to now`}
       className={cn([
         "border-border bg-card/95 text-foreground flex h-6 items-center gap-1 rounded-full border px-2.5 text-xs font-semibold shadow-md backdrop-blur",
         "hover:border-border hover:bg-accent hover:text-foreground transition-colors",
@@ -641,7 +762,9 @@ function TimelineNowChip({
     >
       {direction === "up" ? <DirectionIcon size={12} /> : null}
       <SunIcon size={13} className="shrink-0 text-yellow-400" />
-      <span>Now</span>
+      <span>
+        <Trans>Now</Trans>
+      </span>
       {direction === "down" ? <DirectionIcon size={12} /> : null}
     </button>
   );
@@ -727,7 +850,7 @@ function TodayBucket({
             <CurrentTimeIndicator ref={registerIndicator} timezone={timezone} />
           )}
           <div className="text-muted-foreground px-3 py-4 text-center text-sm">
-            No items today
+            <Trans>No items today</Trans>
           </div>
         </>
       );

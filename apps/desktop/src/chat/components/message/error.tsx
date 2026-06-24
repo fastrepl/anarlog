@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ExternalLink, RotateCcw } from "lucide-react";
 
 import { commands as openerCommands } from "@hypr/plugin-opener2";
@@ -25,6 +26,7 @@ export function ErrorMessage({
   error: Error;
   onRetry?: () => void;
 }) {
+  const { t } = useLingui();
   const showContextLengthHelp = isContextLengthError(error.message);
 
   const handleOpenFaq = () => {
@@ -44,7 +46,7 @@ export function ErrorMessage({
             className="mt-2 flex items-center gap-1 text-xs text-red-700 underline hover:text-red-900"
           >
             <ExternalLink className="h-3 w-3" />
-            Learn how to fix this
+            <Trans>Learn how to fix this</Trans>
           </button>
         )}
         {onRetry && (
@@ -52,7 +54,7 @@ export function ErrorMessage({
             onClick={onRetry}
             variant="error"
             icon={RotateCcw}
-            label="Retry"
+            label={t`Retry`}
           />
         )}
       </MessageBubble>

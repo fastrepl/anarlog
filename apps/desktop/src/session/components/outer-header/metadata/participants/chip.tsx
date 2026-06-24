@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Loader2Icon, SparklesIcon, X } from "lucide-react";
 import { useCallback } from "react";
 
@@ -108,6 +109,7 @@ function EnhanceContactButton({
   label: string;
   onClick: () => void;
 }) {
+  const { t } = useLingui();
   return (
     <Tooltip delayDuration={0}>
       <TooltipTrigger asChild>
@@ -115,7 +117,7 @@ function EnhanceContactButton({
           type="button"
           variant="ghost"
           size="sm"
-          aria-label={`Enhance contact ${label}`}
+          aria-label={t`Enhance contact ${label}`}
           className="text-muted-foreground hover:text-foreground relative z-10 ml-0.5 h-3.5 w-3.5 p-0 hover:bg-transparent"
           disabled={isDisabled}
           onClick={(e) => {
@@ -130,7 +132,9 @@ function EnhanceContactButton({
           )}
         </Button>
       </TooltipTrigger>
-      <TooltipContent side="bottom">Enhance contact</TooltipContent>
+      <TooltipContent side="bottom">
+        <Trans>Enhance contact</Trans>
+      </TooltipContent>
     </Tooltip>
   );
 }

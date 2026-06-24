@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useQuery } from "@tanstack/react-query";
 import {
   CircleDotIcon,
@@ -19,6 +20,7 @@ import { type TaskResource } from "~/store/zustand/tabs";
 const rehypePlugins = [defaultRehypePlugins.raw, defaultRehypePlugins.sanitize];
 
 export function ResourceView({ resource }: { resource: TaskResource }) {
+  const { t } = useLingui();
   const {
     data: issue,
     isLoading,
@@ -76,12 +78,16 @@ export function ResourceView({ resource }: { resource: TaskResource }) {
     <div className="w-full max-w-3xl px-6 py-6">
       {isLoading ? (
         <div className="text-muted-foreground flex items-center justify-center py-12">
-          Loading...
+          <Trans>Loading...</Trans>
         </div>
       ) : null}
       {error ? (
         <div className="text-muted-foreground flex items-center justify-center py-12">
-          Failed to load {isPR ? "pull request" : "issue"}
+          {isPR ? (
+            <Trans>Failed to load pull request</Trans>
+          ) : (
+            <Trans>Failed to load issue</Trans>
+          )}
         </div>
       ) : null}
       {issue ? (
@@ -98,7 +104,7 @@ export function ResourceView({ resource }: { resource: TaskResource }) {
                 type="button"
                 className="text-muted-foreground hover:bg-accent hover:text-muted-foreground shrink-0 rounded-md p-1.5 transition-colors"
                 onClick={() => openerCommands.openUrl(url, null)}
-                title="Open on GitHub"
+                title={t`Open on GitHub`}
               >
                 <ExternalLinkIcon className="size-4" />
               </button>
@@ -106,8 +112,8 @@ export function ResourceView({ resource }: { resource: TaskResource }) {
             <div className="text-muted-foreground mt-2 flex items-center gap-2 text-sm">
               <StateBadge isPR={isPR} isMerged={isMerged} isClosed={isClosed} />
               <span>
-                {issue.user?.login} opened on{" "}
-                {new Date(issue.created_at).toLocaleDateString("en-US", {
+                <Trans>{issue.user?.login} opened on</Trans>{" "}
+                {new Date(issue.created_at).toLocaleDateString(undefined, {
                   month: "short",
                   day: "numeric",
                   year: "numeric",
@@ -116,7 +122,7 @@ export function ResourceView({ resource }: { resource: TaskResource }) {
               {issue.comments != null && issue.comments > 0 ? (
                 <span>
                   · {issue.comments}{" "}
-                  {issue.comments === 1 ? "comment" : "comments"}
+                  {issue.comments === 1 ? t`comment` : t`comments`}
                 </span>
               ) : null}
             </div>
@@ -147,7 +153,7 @@ export function ResourceView({ resource }: { resource: TaskResource }) {
           {issue.assignees && issue.assignees.length > 0 ? (
             <div className="text-muted-foreground mb-4 flex items-center gap-2 text-sm">
               <span className="text-muted-foreground font-medium">
-                Assignees:
+                <Trans>Assignees:</Trans>
               </span>
               {issue.assignees.map((assignee) => (
                 <span key={assignee.id} className="flex items-center gap-1">
@@ -177,7 +183,7 @@ export function ResourceView({ resource }: { resource: TaskResource }) {
             </div>
           ) : (
             <div className="border-border text-muted-foreground border-t pt-4 text-sm italic">
-              No description provided.
+              <Trans>No description provided.</Trans>
             </div>
           )}
 
@@ -187,7 +193,7 @@ export function ResourceView({ resource }: { resource: TaskResource }) {
                 <MessageSquareIcon className="size-4" />
                 <span>
                   {comments.length}{" "}
-                  {comments.length === 1 ? "comment" : "comments"}
+                  {comments.length === 1 ? t`comment` : t`comments`}
                 </span>
               </div>
               <div className="space-y-4">
@@ -208,9 +214,9 @@ export function ResourceView({ resource }: { resource: TaskResource }) {
                         {comment.user?.login}
                       </span>
                       <span className="text-muted-foreground">
-                        commented on{" "}
+                        <Trans>commented on</Trans>{" "}
                         {new Date(comment.created_at).toLocaleDateString(
-                          "en-US",
+                          undefined,
                           {
                             month: "short",
                             day: "numeric",
@@ -231,7 +237,7 @@ export function ResourceView({ resource }: { resource: TaskResource }) {
                         </Streamdown>
                       ) : (
                         <span className="text-muted-foreground text-sm italic">
-                          No content.
+                          <Trans>No content.</Trans>
                         </span>
                       )}
                     </div>
@@ -255,22 +261,23 @@ function StateBadge({
   isMerged: boolean;
   isClosed: boolean;
 }) {
+  const { t } = useLingui();
   let label: string;
   let colorClass: string;
   let Icon: typeof CircleDotIcon;
 
   if (isPR && isMerged) {
-    label = "Merged";
+    label = t`Merged`;
     colorClass = "bg-purple-100 text-purple-700";
     Icon = GitMergeIcon;
   } else if (isClosed) {
-    label = "Closed";
+    label = t`Closed`;
     colorClass = isPR
       ? "bg-red-100 text-red-700"
       : "bg-purple-100 text-purple-700";
     Icon = XCircleIcon;
   } else {
-    label = "Open";
+    label = t`Open`;
     colorClass = "bg-green-100 text-green-700";
     Icon = isPR ? GitPullRequestIcon : CircleDotIcon;
   }

@@ -1,5 +1,6 @@
+import { useLingui } from "@lingui/react/macro";
 import { ArrowLeftIcon } from "lucide-react";
-import { useCallback } from "react";
+import { type ReactNode, useCallback } from "react";
 
 import { cn } from "@hypr/utils";
 
@@ -10,9 +11,10 @@ export function CustomSidebarHeader({
   title,
   children,
 }: {
-  title: string;
-  children?: React.ReactNode;
+  title: ReactNode;
+  children?: ReactNode;
 }) {
+  const { t } = useLingui();
   const { chat } = useShell();
   const currentTab = useTabs((state) => state.currentTab);
   const tabs = useTabs((state) => state.tabs);
@@ -48,8 +50,8 @@ export function CustomSidebarHeader({
         className="flex min-w-0 flex-1 items-center gap-1"
       >
         <CustomSidebarHeaderButton
-          label="Go home"
-          title="Back"
+          label={t`Go home`}
+          title={t`Back`}
           onClick={handleBack}
         >
           <ArrowLeftIcon size={14} />
@@ -77,7 +79,7 @@ function CustomSidebarHeaderButton({
   onClick,
   title,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
   disabled?: boolean;
   label: string;
   onClick: () => void;

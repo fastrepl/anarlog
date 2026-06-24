@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useForm } from "@tanstack/react-form";
 import { HeartIcon, MoreHorizontalIcon, Plus, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -148,6 +149,7 @@ export function TemplateForm({
   handleDeleteTemplate: (id: string) => void;
   handleDuplicateTemplate: (id: string) => void;
 }) {
+  const { t } = useLingui();
   const { id } = template;
   const saveTemplate = useSaveTemplate();
   const toggleTemplateFavorite = useToggleTemplateFavorite();
@@ -263,7 +265,7 @@ export function TemplateForm({
                   "text-muted-foreground hover:text-foreground",
                   actionsOpen && "bg-muted text-foreground hover:bg-accent",
                 ])}
-                aria-label="Template actions"
+                aria-label={t`Template actions`}
               >
                 <MoreHorizontalIcon className="size-4" />
               </Button>
@@ -274,13 +276,13 @@ export function TemplateForm({
                   onClick={() => handleDuplicateTemplate(id)}
                   className="cursor-pointer"
                 >
-                  Duplicate
+                  <Trans>Duplicate</Trans>
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => handleDeleteTemplate(id)}
                   className="cursor-pointer text-red-600 focus:text-red-600"
                 >
-                  Delete
+                  <Trans>Delete</Trans>
                 </DropdownMenuItem>
               </AppFloatingPanel>
             </DropdownMenuContent>
@@ -304,7 +306,7 @@ export function TemplateForm({
                     <Input
                       value={field.state.value}
                       onChange={(e) => field.handleChange(e.target.value)}
-                      placeholder="Enter template title"
+                      placeholder={t`Enter template title`}
                       className="absolute inset-0 h-auto w-full max-w-full min-w-0 border-0 px-0 py-0 text-lg font-semibold shadow-none focus-visible:ring-0 md:text-lg"
                     />
                   </div>
@@ -316,7 +318,7 @@ export function TemplateForm({
                 <Textarea
                   value={field.state.value}
                   onChange={(e) => field.handleChange(e.target.value)}
-                  placeholder="Describe the template purpose..."
+                  placeholder={t`Describe the template purpose...`}
                   className="text-muted-foreground mt-1 min-h-[24px] resize-none border-0 px-0 py-0 text-sm shadow-none focus-visible:ring-0"
                   rows={1}
                 />

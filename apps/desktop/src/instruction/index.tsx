@@ -1,4 +1,6 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ChevronLeft, ExternalLink } from "lucide-react";
+import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 
 import { commands as openerCommands } from "@hypr/plugin-opener2";
@@ -31,8 +33,8 @@ function InstructionShell({
   action,
   children,
 }: {
-  title: string;
-  description: string;
+  title: ReactNode;
+  description: ReactNode;
   onBack: () => void;
   action?: React.ReactNode;
   children?: React.ReactNode;
@@ -53,7 +55,9 @@ function InstructionShell({
           ])}
         >
           <ChevronLeft className="h-4 w-4" />
-          <span className="text-xs font-medium">Back</span>
+          <span className="text-xs font-medium">
+            <Trans>Back</Trans>
+          </span>
         </button>
       </div>
 
@@ -72,7 +76,7 @@ function InstructionShell({
 
           <div className="flex max-w-[17rem] flex-col gap-3">
             <div className="text-muted-foreground text-[10px] font-medium tracking-[0.22em] uppercase">
-              Browser step required
+              <Trans>Browser step required</Trans>
             </div>
             <h2 className="text-foreground font-sans text-[22px] leading-[1.15] font-semibold sm:text-[28px]">
               {title}
@@ -147,6 +151,7 @@ export function InstructionScreen({
   url?: string;
   onCleanup?: () => void;
 }) {
+  const { t } = useLingui();
   useInstructionCleanup(onCleanup);
 
   if (type === "sign-in") {
@@ -156,9 +161,9 @@ export function InstructionScreen({
   if (type === "billing") {
     return (
       <ExternalInstruction
-        title="Complete your purchase"
-        description="Finish checkout in your browser, then return to Anarlog."
-        actionLabel="Reopen checkout page"
+        title={t`Complete your purchase`}
+        description={t`Finish checkout in your browser, then return to Anarlog.`}
+        actionLabel={t`Reopen checkout page`}
         onBack={onBack}
         url={url}
       />
@@ -167,9 +172,9 @@ export function InstructionScreen({
 
   return (
     <ExternalInstruction
-      title="Connect your integration"
-      description="Authorize access in your browser, then return to Anarlog."
-      actionLabel="Reopen in browser"
+      title={t`Connect your integration`}
+      description={t`Authorize access in your browser, then return to Anarlog.`}
+      actionLabel={t`Reopen in browser`}
       onBack={onBack}
       url={url}
     />
@@ -177,6 +182,7 @@ export function InstructionScreen({
 }
 
 function SignInInstruction({ onBack }: { onBack: () => void }) {
+  const { t } = useLingui();
   const auth = useAuth();
   const [callbackUrl, setCallbackUrl] = useState("");
   const [showCallbackInput, setShowCallbackInput] = useState(false);
@@ -191,8 +197,8 @@ function SignInInstruction({ onBack }: { onBack: () => void }) {
 
   return (
     <InstructionShell
-      title="Sign in to your account"
-      description="Complete sign-in in your browser, then return to Anarlog."
+      title={t`Sign in to your account`}
+      description={t`Complete sign-in in your browser, then return to Anarlog.`}
       onBack={onBack}
     >
       {showCallbackInput ? (
@@ -210,12 +216,14 @@ function SignInInstruction({ onBack }: { onBack: () => void }) {
               onClick={() => void auth.handleAuthCallback(callbackUrl)}
               disabled={!callbackUrl}
             >
-              Submit callback URL
+              <Trans>Submit callback URL</Trans>
             </Button>
           </div>
           <p className="text-muted-foreground text-xs leading-5">
-            Paste the browser URL here if the browser button did not reopen
-            Anarlog.
+            <Trans>
+              Paste the browser URL here if the browser button did not reopen
+              Anarlog.
+            </Trans>
           </p>
         </>
       ) : (
@@ -226,7 +234,9 @@ function SignInInstruction({ onBack }: { onBack: () => void }) {
             "text-muted-foreground hover:text-muted-foreground text-xs font-medium underline underline-offset-4 transition-colors",
           ])}
         >
-          Browser handoff not working? Paste the callback link instead
+          <Trans>
+            Browser handoff not working? Paste the callback link instead
+          </Trans>
         </button>
       )}
     </InstructionShell>

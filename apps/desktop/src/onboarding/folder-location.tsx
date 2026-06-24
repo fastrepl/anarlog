@@ -1,3 +1,4 @@
+import { useLingui } from "@lingui/react/macro";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { homeDir } from "@tauri-apps/api/path";
 import { message, open as selectFolder } from "@tauri-apps/plugin-dialog";
@@ -10,25 +11,12 @@ import { ObsidianVaultList } from "~/settings/general/storage/obsidian-vault-lis
 import { displayPath } from "~/settings/general/storage/path-utils";
 import { scheduleAutomaticRelaunch } from "~/store/tinybase/store/save";
 
-async function handleStorageUpdate() {
-  const restartStatus = await scheduleAutomaticRelaunch();
-
-  if (restartStatus === "deferred") {
-    void message(
-      "The app will restart after onboarding to apply your storage changes",
-      {
-        kind: "info",
-        title: "Storage Updated",
-      },
-    );
-  }
-}
-
 export function FolderLocationSection({
   onContinue,
 }: {
   onContinue: () => void;
 }) {
+  const { t } = useLingui();
   const queryClient = useQueryClient();
 
   const { data: home } = useQuery({ queryKey: ["home-dir"], queryFn: homeDir });
@@ -51,6 +39,20 @@ export function FolderLocationSection({
       return result.data;
     },
   });
+
+  const handleStorageUpdate = async () => {
+    const restartStatus = await scheduleAutomaticRelaunch();
+
+    if (restartStatus === "deferred") {
+      void message(
+        t`The app will restart after onboarding to apply your storage changes`,
+        {
+          kind: "info",
+          title: t`Storage Updated`,
+        },
+      );
+    }
+  };
 
   const changeMutation = useMutation({
     mutationFn: async (newPath: string) => {
@@ -88,7 +90,7 @@ export function FolderLocationSection({
 
   const handleChange = async () => {
     const selected = await selectFolder({
-      title: "Choose storage location",
+      title: t`Choose storage location`,
       directory: true,
       multiple: false,
       defaultPath: vaultBase ?? undefined,
@@ -124,14 +126,14 @@ export function FolderLocationSection({
           disabled={isPending}
           className="text-muted-foreground hover:text-muted-foreground shrink-0 text-sm transition-colors disabled:opacity-50"
         >
-          Change
+          {t`Change`}
         </button>
         <button
           onClick={onContinue}
           disabled={isPending}
           className="bg-primary text-primary-foreground hover:bg-primary/90 shrink-0 rounded-full px-3 py-1 text-sm font-medium duration-150 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
         >
-          Confirm
+          {t`Confirm`}
         </button>
       </div>
 

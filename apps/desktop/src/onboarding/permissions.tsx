@@ -1,3 +1,4 @@
+import { useLingui } from "@lingui/react/macro";
 import {
   ArrowRightIcon,
   CheckIcon,
@@ -33,15 +34,16 @@ function PermissionBlock({
   isPending: boolean;
   onAction: () => void;
 }) {
+  const { t } = useLingui();
   const isAuthorized = status === "authorized";
   const opensSettings = isAuthorized || status === "denied";
   const title = isAuthorized ? enabledLabel : enableLabel;
   const body = isAuthorized ? enabledBody : enableBody;
   const ctaLabel = isAuthorized
-    ? "Manage"
+    ? t`Manage`
     : opensSettings
-      ? "Open settings"
-      : "Allow access";
+      ? t`Open settings`
+      : t`Allow access`;
 
   return (
     <button
@@ -58,8 +60,8 @@ function PermissionBlock({
       ])}
       aria-label={
         opensSettings
-          ? `Open ${permissionName.toLowerCase()} settings`
-          : `Enable ${permissionName.toLowerCase()}`
+          ? t`Open ${permissionName.toLowerCase()} settings`
+          : t`Enable ${permissionName.toLowerCase()}`
       }
     >
       <div
@@ -111,6 +113,7 @@ export function PermissionsSection({
 }: {
   onContinue?: () => void;
 }) {
+  const { t } = useLingui();
   const mic = usePermission("microphone");
   const systemAudio = usePermission("systemAudio");
   const hasContinuedRef = useRef(false);
@@ -135,24 +138,24 @@ export function PermissionsSection({
   return (
     <div className="@container flex items-stretch gap-3">
       <PermissionBlock
-        enabledLabel="Anarlog can hear your voice"
-        enableLabel="Allow microphone access"
-        enabledBody="Microphone access turned on"
-        enableBody="Help Anarlog listen to you"
+        enabledLabel={t`Anarlog can hear your voice`}
+        enableLabel={t`Allow microphone access`}
+        enabledBody={t`Microphone access turned on`}
+        enableBody={t`Help Anarlog listen to you`}
         Icon={MicIcon}
-        permissionName="Microphone"
+        permissionName={t`Microphone`}
         status={mic.status}
         isPending={mic.isPending}
         onAction={() => handleAction(mic)}
       />
 
       <PermissionBlock
-        enabledLabel="Anarlog can hear others"
-        enableLabel="Allow system audio access"
-        enabledBody="System audio enabled"
-        enableBody="Help Anarlog listen to others"
+        enabledLabel={t`Anarlog can hear others`}
+        enableLabel={t`Allow system audio access`}
+        enabledBody={t`System audio enabled`}
+        enableBody={t`Help Anarlog listen to others`}
         Icon={Volume2Icon}
-        permissionName="System audio"
+        permissionName={t`System audio`}
         status={systemAudio.status}
         isPending={systemAudio.isPending}
         onAction={() => handleAction(systemAudio)}

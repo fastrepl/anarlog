@@ -1,3 +1,4 @@
+import { useLingui } from "@lingui/react/macro";
 import { BrainIcon, CheckIcon, CopyIcon, RotateCcwIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Streamdown } from "streamdown";
@@ -27,6 +28,7 @@ export function NormalMessage({
   message: HyprUIMessage;
   handleReload?: () => void;
 }) {
+  const { t } = useLingui();
   const isUser = message.role === "user";
   const [copied, setCopied] = useState(false);
   const copiedResetTimeoutRef = useRef<number | null>(null);
@@ -78,7 +80,7 @@ export function NormalMessage({
             <button
               onClick={handleCopy}
               className={`p-1 transition-colors ${copied ? "text-green-500" : "text-muted-foreground hover:text-foreground"}`}
-              aria-label="Copy message"
+              aria-label={t`Copy message`}
             >
               {copied ? <CheckIcon size={14} /> : <CopyIcon size={14} />}
             </button>
@@ -86,7 +88,7 @@ export function NormalMessage({
               <button
                 onClick={handleReload}
                 className="text-muted-foreground hover:text-foreground p-1 transition-colors"
-                aria-label="Regenerate message"
+                aria-label={t`Regenerate message`}
               >
                 <RotateCcwIcon size={14} />
               </button>

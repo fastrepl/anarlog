@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useMemo } from "react";
 
 import {
@@ -34,6 +35,7 @@ const COMMON_TIMEZONES = [
 ];
 
 export function TimezoneSelector() {
+  const { t } = useLingui();
   const value = useConfigValue("timezone");
   const setTimezone = settings.UI.useSetValueCallback(
     "timezone",
@@ -57,17 +59,19 @@ export function TimezoneSelector() {
   return (
     <div className="flex flex-row items-center justify-between">
       <div>
-        <h3 className="mb-1 text-sm font-medium">Timezone</h3>
+        <h3 className="mb-1 text-sm font-medium">
+          <Trans>Timezone</Trans>
+        </h3>
         <p className="text-muted-foreground text-xs">
-          Override the timezone used for the sidebar timeline
+          <Trans>Override the timezone used for the sidebar timeline</Trans>
         </p>
       </div>
       <SearchableSelect
         value={displayValue}
         onChange={handleChange}
         options={options}
-        placeholder="Select timezone"
-        searchPlaceholder="Search timezone..."
+        placeholder={t`Select timezone`}
+        searchPlaceholder={t`Search timezone...`}
         className="w-48"
         dropdownClassName="w-72"
       />
