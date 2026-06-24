@@ -243,6 +243,36 @@ describe("useRunBatch", () => {
     expect(saveMock).toHaveBeenCalledTimes(1);
     expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
   });
+
+  test("passes selected transcription languages to batch transcription", async () => {
+    useSTTConnectionMock.mockReturnValue({
+      conn: {
+        provider: "hyprnote",
+        model: "soniqo-parakeet-batch",
+        baseUrl: "soniqo://local",
+        apiKey: "",
+      },
+    });
+    useConfigValueMock.mockImplementation((key) =>
+      key === "ai_language" ? "de" : ["en"],
+    );
+    startTranscriptionMock.mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => useRunBatch("session-1"));
+
+    await act(async () => {
+      await result.current("/tmp/session.wav");
+    });
+
+    expect(startTranscriptionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: "soniqo",
+        model: "soniqo-parakeet-batch",
+        languages: ["de", "en"],
+      }),
+      expect.any(Object),
+    );
+  });
 });
 
 describe("getSessionSpeakerCount", () => {

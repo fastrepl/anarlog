@@ -133,19 +133,22 @@ pub(super) async fn run_soniqo_batch(
             .languages
             .first()
             .map(hypr_language::Language::bcp47_code);
+        let language_hint = soniqo_language_hint(language.as_deref());
         let language_label = language.as_deref().unwrap_or("auto").to_string();
+        let language_hint_label = language_hint.as_deref().unwrap_or("auto").to_string();
         let started_at = Instant::now();
 
         tracing::info!(
             hyprnote.stt.provider.name = "soniqo",
             hyprnote.stt.model = %model,
             hyprnote.stt.language = %language_label,
+            hyprnote.stt.language_hint = %language_hint_label,
             file.extension = %file_extension,
             "soniqo_batch_start"
         );
 
         let transcribed = tokio::task::spawn_blocking(move || {
-            transcribe_soniqo_file(model, &file_path, language.as_deref())
+            transcribe_soniqo_file(model, &file_path, language_hint.as_deref())
         })
         .await
         .map_err(|e| {
@@ -218,7 +221,7 @@ fn transcribe_soniqo_file(
         "soniqo_audio_file_loaded"
     );
 
-    if channel_count <= 1 {
+    if channel_count <= 1 && !uses_resilient_soniqo_chunking(model) {
         tracing::info!(
             hyprnote.stt.provider.name = "soniqo",
             hyprnote.stt.model = %model,
@@ -252,13 +255,68 @@ fn transcribe_soniqo_file(
         "soniqo_channels_prepared"
     );
 
-    channel_samples
-        .into_iter()
-        .enumerate()
-        .map(|(channel_index, samples)| {
+    collect_soniqo_channel_transcripts(channel_samples.into_iter().enumerate().map(
+        |(channel_index, samples)| {
             transcribe_soniqo_channel(model, channel_index, &samples, language)
-        })
-        .collect()
+        },
+    ))
+}
+
+fn soniqo_language_hint(language: Option<&str>) -> Option<String> {
+    let language = language?.trim();
+    if language.is_empty() {
+        return None;
+    }
+
+    language
+        .split(['-', '_'])
+        .next()
+        .filter(|value| !value.is_empty())
+        .map(|value| value.to_lowercase())
+}
+
+fn uses_resilient_soniqo_chunking(model: hypr_transcribe_soniqo::SoniqoModel) -> bool {
+    matches!(model, hypr_transcribe_soniqo::SoniqoModel::ParakeetBatch)
+}
+
+fn collect_soniqo_channel_transcripts<I>(
+    transcripts: I,
+) -> std::result::Result<Vec<hypr_transcribe_soniqo::FileTranscript>, String>
+where
+    I: IntoIterator<Item = std::result::Result<hypr_transcribe_soniqo::FileTranscript, String>>,
+{
+    let mut output = Vec::new();
+    let mut successful_channels = 0usize;
+    let mut failed_channels = 0usize;
+
+    for transcript in transcripts {
+        match transcript {
+            Ok(transcript) => {
+                successful_channels += 1;
+                output.push(transcript);
+            }
+            Err(error) => {
+                failed_channels += 1;
+                tracing::warn!(
+                    hyprnote.stt.provider.name = "soniqo",
+                    error = %error,
+                    "soniqo_channel_transcription_failed"
+                );
+                output.push(hypr_transcribe_soniqo::FileTranscript {
+                    text: String::new(),
+                    duration_seconds: 0.05,
+                });
+            }
+        }
+    }
+
+    if successful_channels == 0 && failed_channels > 0 {
+        return Err(format!(
+            "Soniqo failed to transcribe all {failed_channels} audio channel(s)."
+        ));
+    }
+
+    Ok(output)
 }
 
 fn transcribe_soniqo_channel(
@@ -282,6 +340,8 @@ fn transcribe_soniqo_channel(
     );
 
     let mut texts = Vec::new();
+    let mut successful_chunks = 0usize;
+    let mut failed_chunks = 0usize;
 
     for (chunk_index, chunk) in chunks.into_iter().enumerate() {
         let chunk_duration_ms =
@@ -299,9 +359,14 @@ fn transcribe_soniqo_channel(
             "soniqo_chunk_native_inference_start"
         );
 
-        let text = transcribe_soniqo_samples(model, &chunk.samples, language)
-            .map_err(|e| {
-                tracing::error!(
+        let text = match transcribe_soniqo_samples(model, &chunk.samples, language) {
+            Ok(transcript) => {
+                successful_chunks += 1;
+                transcript.text
+            }
+            Err(e) => {
+                failed_chunks += 1;
+                tracing::warn!(
                     hyprnote.stt.provider.name = "soniqo",
                     hyprnote.stt.model = %model,
                     channel.index = channel_index,
@@ -310,9 +375,9 @@ fn transcribe_soniqo_channel(
                     error = %e,
                     "soniqo_chunk_native_inference_failed"
                 );
-                e
-            })?
-            .text;
+                continue;
+            }
+        };
 
         tracing::info!(
             hyprnote.stt.provider.name = "soniqo",
@@ -328,6 +393,23 @@ fn transcribe_soniqo_channel(
         if !text.is_empty() {
             texts.push(text.to_string());
         }
+    }
+
+    if successful_chunks == 0 && failed_chunks > 0 {
+        return Err(format!(
+            "Soniqo failed to transcribe all {failed_chunks} chunk(s) for channel {channel_index}."
+        ));
+    }
+
+    if failed_chunks > 0 {
+        tracing::warn!(
+            hyprnote.stt.provider.name = "soniqo",
+            hyprnote.stt.model = %model,
+            channel.index = channel_index,
+            chunk.success_count = successful_chunks,
+            chunk.failed_count = failed_chunks,
+            "soniqo_channel_completed_with_chunk_failures"
+        );
     }
 
     Ok(hypr_transcribe_soniqo::FileTranscript {
@@ -489,5 +571,74 @@ mod tests {
 
         assert_eq!(chunks.len(), 1);
         assert_eq!(chunks[0].samples.len(), oversized);
+    }
+
+    #[test]
+    fn soniqo_language_hint_uses_base_language_code() {
+        assert_eq!(soniqo_language_hint(Some("de-DE")).as_deref(), Some("de"));
+        assert_eq!(soniqo_language_hint(Some("en_US")).as_deref(), Some("en"));
+        assert_eq!(soniqo_language_hint(Some(" fr ")).as_deref(), Some("fr"));
+        assert_eq!(soniqo_language_hint(Some("")).as_deref(), None);
+        assert_eq!(soniqo_language_hint(None).as_deref(), None);
+    }
+
+    #[test]
+    fn parakeet_batch_uses_resilient_chunking() {
+        assert!(uses_resilient_soniqo_chunking(
+            hypr_transcribe_soniqo::SoniqoModel::ParakeetBatch
+        ));
+        assert!(!uses_resilient_soniqo_chunking(
+            hypr_transcribe_soniqo::SoniqoModel::Omnilingual
+        ));
+    }
+
+    #[test]
+    fn collect_soniqo_channel_transcripts_keeps_channel_slots() {
+        let transcripts = collect_soniqo_channel_transcripts([
+            Ok(hypr_transcribe_soniqo::FileTranscript {
+                text: "hello".to_string(),
+                duration_seconds: 1.0,
+            }),
+            Err("native chunk failed".to_string()),
+        ])
+        .unwrap();
+
+        assert_eq!(transcripts.len(), 2);
+        assert_eq!(transcripts[0].text, "hello");
+        assert_eq!(transcripts[1].text, "");
+    }
+
+    #[test]
+    fn collect_soniqo_channel_transcripts_preserves_later_channel_index() {
+        let transcripts = collect_soniqo_channel_transcripts([
+            Err("first failed".to_string()),
+            Ok(hypr_transcribe_soniqo::FileTranscript {
+                text: "system audio".to_string(),
+                duration_seconds: 1.0,
+            }),
+        ])
+        .unwrap();
+
+        let response = hypr_transcribe_soniqo::batch_response_from_channels(
+            hypr_transcribe_soniqo::SoniqoModel::ParakeetBatch,
+            transcripts,
+        );
+        let alternative = &response.results.channels[1].alternatives[0];
+
+        assert_eq!(response.results.channels.len(), 2);
+        assert_eq!(response.results.channels[0].alternatives[0].transcript, "");
+        assert_eq!(alternative.transcript, "system audio");
+        assert_eq!(alternative.words[0].channel, 1);
+    }
+
+    #[test]
+    fn collect_soniqo_channel_transcripts_errors_when_all_channels_fail() {
+        let error = collect_soniqo_channel_transcripts([
+            Err("first failed".to_string()),
+            Err("second failed".to_string()),
+        ])
+        .unwrap_err();
+
+        assert_eq!(error, "Soniqo failed to transcribe all 2 audio channel(s).");
     }
 }

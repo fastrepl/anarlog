@@ -455,7 +455,7 @@ describe("settingsPersister roundtrip", () => {
     expect(result.notification).toEqual({ event: false });
   });
 
-  test("storeValuesToSettings clears language values matching OS locale defaults", () => {
+  test("storeValuesToSettings preserves language values matching OS locale defaults", () => {
     const [tables, values] = settingsToContent({
       language: {
         ai_language: "pl",
@@ -474,7 +474,10 @@ describe("settingsPersister roundtrip", () => {
       { ai_language: "pl", spoken_languages: ["pl", "en"] },
     );
 
-    expect(result.language).toEqual({});
+    expect(result.language).toEqual({
+      ai_language: "pl",
+      spoken_languages: ["pl", "en"],
+    });
   });
 
   test("storeValuesToSettings preserves explicitly cleared spoken languages", () => {
@@ -497,6 +500,7 @@ describe("settingsPersister roundtrip", () => {
     );
 
     expect(result.language).toEqual({
+      ai_language: "ko",
       spoken_languages: [],
     });
   });
@@ -526,7 +530,7 @@ describe("settingsPersister roundtrip", () => {
     });
   });
 
-  test("storeValuesToSettings clears language values matching OS locale defaults by prefix", () => {
+  test("storeValuesToSettings preserves language values matching OS locale defaults by prefix", () => {
     const [tables, values] = settingsToContent({
       language: {
         ai_language: "ko",
@@ -545,7 +549,10 @@ describe("settingsPersister roundtrip", () => {
       { ai_language: "ko-KR", spoken_languages: ["ko-KR", "en-US"] },
     );
 
-    expect(result.language).toEqual({});
+    expect(result.language).toEqual({
+      ai_language: "ko",
+      spoken_languages: ["ko", "en"],
+    });
   });
 
   test("language section takes precedence over general section", () => {

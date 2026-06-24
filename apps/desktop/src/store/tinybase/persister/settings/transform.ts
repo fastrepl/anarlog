@@ -153,12 +153,6 @@ export type LanguageDefaults = {
   spoken_languages?: string[];
 };
 
-function languagePrefixMatch(a: string, b: string): boolean {
-  if (a === b) return true;
-  const [shorter, longer] = a.length <= b.length ? [a, b] : [b, a];
-  return longer.startsWith(shorter + "-");
-}
-
 export function storeValuesToSettings(
   values: Record<string, unknown>,
   languageDefaults?: LanguageDefaults,
@@ -185,27 +179,6 @@ export function storeValuesToSettings(
 
       if (!isClearedSpokenLanguages) {
         continue;
-      }
-    }
-    if (languageDefaults) {
-      if (
-        key === "ai_language" &&
-        languageDefaults.ai_language &&
-        languagePrefixMatch(value as string, languageDefaults.ai_language)
-      ) {
-        continue;
-      }
-      if (key === "spoken_languages" && languageDefaults.spoken_languages) {
-        try {
-          const storeArr = JSON.parse(value as string) as string[];
-          const defaultArr = languageDefaults.spoken_languages;
-          if (
-            storeArr.length === defaultArr.length &&
-            storeArr.every((v, i) => languagePrefixMatch(v, defaultArr[i]))
-          ) {
-            continue;
-          }
-        } catch {}
       }
     }
     setByPath(result, config.path, fromStoreValue(key, value));
