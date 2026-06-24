@@ -1088,8 +1088,10 @@ export function Header({
 }
 
 export function useEditorTabs({
+  audioExists = false,
   sessionId,
 }: {
+  audioExists?: boolean;
   sessionId: string;
 }): EditorView[] {
   useEnsureDefaultSummary(sessionId);
@@ -1098,6 +1100,7 @@ export function useEditorTabs({
   const batchError = useListener((state) => state.batch[sessionId]?.error);
   const canShowTranscript =
     hasTranscript ||
+    audioExists ||
     sessionMode === "active" ||
     sessionMode === "finalizing" ||
     sessionMode === "running_batch" ||

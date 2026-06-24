@@ -120,8 +120,9 @@ function TabContentNoteInner({
 }) {
   const noteInputRef = React.useRef<NoteInputHandle>(null);
 
-  const editorTabs = useEditorTabs({ sessionId: tab.id });
-  const currentView = useCurrentNoteTab(tab);
+  const { audioExists } = AudioPlayer.useAudioPlayer();
+  const editorTabs = useEditorTabs({ sessionId: tab.id, audioExists });
+  const currentView = useCurrentNoteTab(tab, { audioExists });
   const updateSessionTabState = useTabs((state) => state.updateSessionTabState);
   const hasTranscript = useHasTranscript(tab.id);
 
@@ -132,8 +133,6 @@ function TabContentNoteInner({
     sessionMode === "active" ||
     sessionMode === "finalizing" ||
     sessionMode === "running_batch";
-  const { audioExists } = AudioPlayer.useAudioPlayer();
-
   useAutoFocusTitle({ sessionId, noteInputRef });
   usePendingUpload(sessionId);
 
@@ -209,6 +208,7 @@ function TabContentNoteInner({
       floatingButton={
         <FloatingActionButton
           allowListening={!standaloneWindow}
+          audioExists={audioExists}
           skipReason={skipReason}
           tab={tab}
         />

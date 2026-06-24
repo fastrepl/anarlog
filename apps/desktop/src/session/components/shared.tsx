@@ -65,6 +65,7 @@ export function useCurrentNoteHasContent(
 
 export function useCurrentNoteTab(
   tab: Extract<Tab, { type: "sessions" }>,
+  { audioExists = false }: { audioExists?: boolean } = {},
 ): EditorView {
   const sessionMode = useListener((state) => state.getSessionMode(tab.id));
   const isLiveSessionActive = sessionMode === "active";
@@ -72,6 +73,7 @@ export function useCurrentNoteTab(
   const hasTranscript = useHasTranscript(tab.id);
   const canShowTranscript =
     hasTranscript ||
+    audioExists ||
     sessionMode === "active" ||
     sessionMode === "finalizing" ||
     sessionMode === "running_batch" ||

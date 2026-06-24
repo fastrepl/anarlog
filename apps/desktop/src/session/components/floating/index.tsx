@@ -12,6 +12,7 @@ import { FloatingButton } from "./shared";
 import { useAITask } from "~/ai/contexts";
 import { type LLMConnectionStatus, useLLMConnectionStatus } from "~/ai/hooks";
 import { getEnhancerService } from "~/services/enhancer";
+import { useRegenerateTranscript } from "~/session/components/note-input/transcript/actions";
 import {
   useCurrentNoteTab,
   hasStoredNoteContent,
@@ -26,23 +27,41 @@ import { useListener } from "~/stt/contexts";
 
 export function FloatingActionButton({
   allowListening = true,
+  audioExists = false,
   skipReason = null,
   tab,
 }: {
   allowListening?: boolean;
+  audioExists?: boolean;
   skipReason?: string | null;
   tab: Extract<Tab, { type: "sessions" }>;
 }) {
   const sessionMode = useListener((state) => state.getSessionMode(tab.id));
-  const canShowListen = useShouldShowListeningFab(tab, sessionMode);
+  const canShowListen = useShouldShowListeningFab(
+    tab,
+    sessionMode,
+    audioExists,
+  );
   const shouldShowListen = allowListening && canShowListen;
-  const shouldShowChat = useShouldShowChatFab(tab, sessionMode);
-  const generateSummaryNoteId = useGenerateSummaryNoteId(tab, sessionMode);
+  const shouldShowRegenerateTranscript = useShouldShowRegenerateTranscriptFab(
+    tab,
+    sessionMode,
+    audioExists,
+  );
+  const shouldShowChat = useShouldShowChatFab(tab, sessionMode, audioExists);
+  const generateSummaryNoteId = useGenerateSummaryNoteId(
+    tab,
+    sessionMode,
+    audioExists,
+  );
   const shouldShowGenerateSummary = generateSummaryNoteId !== null;
   const isCaretNearBottom = useCaretPosition()?.isCaretNearBottom ?? false;
   const showSkipReason = !!skipReason;
   const useChatHoverArea =
-    !showSkipReason && !shouldShowGenerateSummary && shouldShowChat;
+    !showSkipReason &&
+    !shouldShowGenerateSummary &&
+    !shouldShowRegenerateTranscript &&
+    shouldShowChat;
   const tuckListenAction =
     !showSkipReason && shouldShowListen && isCaretNearBottom;
 
@@ -50,6 +69,7 @@ export function FloatingActionButton({
     !showSkipReason &&
     !shouldShowListen &&
     !shouldShowGenerateSummary &&
+    !shouldShowRegenerateTranscript &&
     !shouldShowChat
   ) {
     return null;
@@ -89,7 +109,9 @@ export function FloatingActionButton({
                 ? "listen"
                 : shouldShowGenerateSummary
                   ? "generate-summary"
-                  : "chat"
+                  : shouldShowRegenerateTranscript
+                    ? "regenerate-transcript"
+                    : "chat"
             }
             aria-hidden={tuckListenAction}
             initial={{ opacity: 0 }}
@@ -117,6 +139,8 @@ export function FloatingActionButton({
                 tab={tab}
                 enhancedNoteId={generateSummaryNoteId}
               />
+            ) : shouldShowRegenerateTranscript ? (
+              <RegenerateTranscriptButton sessionId={tab.id} />
             ) : (
               <ChatCTA />
             )}
@@ -124,6 +148,21 @@ export function FloatingActionButton({
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+function RegenerateTranscriptButton({ sessionId }: { sessionId: string }) {
+  const regenerateTranscript = useRegenerateTranscript(sessionId);
+
+  return (
+    <FloatingButton
+      onClick={regenerateTranscript}
+      className="w-fit gap-2 px-4 whitespace-nowrap"
+    >
+      <span className="flex items-center gap-1.5">
+        <RefreshCwIcon className="size-3.5" /> Regenerate transcript
+      </span>
+    </FloatingButton>
   );
 }
 
@@ -170,11 +209,28 @@ function GenerateSummaryButton({
   );
 }
 
+function useShouldShowRegenerateTranscriptFab(
+  tab: Extract<Tab, { type: "sessions" }>,
+  sessionMode: string,
+  audioExists: boolean,
+) {
+  const currentTab = useCurrentNoteTab(tab, { audioExists });
+  const hasTranscript = useHasTranscript(tab.id);
+
+  return (
+    sessionMode === "inactive" &&
+    currentTab.type === "transcript" &&
+    audioExists &&
+    !hasTranscript
+  );
+}
+
 function useShouldShowListeningFab(
   tab: Extract<Tab, { type: "sessions" }>,
   sessionMode: string,
+  audioExists: boolean,
 ) {
-  const currentTab = useCurrentNoteTab(tab);
+  const currentTab = useCurrentNoteTab(tab, { audioExists });
   const hasTranscript = useHasTranscript(tab.id);
 
   return (
@@ -185,9 +241,10 @@ function useShouldShowListeningFab(
 function useGenerateSummaryNoteId(
   tab: Extract<Tab, { type: "sessions" }>,
   sessionMode: string,
+  audioExists: boolean,
 ) {
   const hasTranscript = useHasTranscript(tab.id);
-  const currentTab = useCurrentNoteTab(tab);
+  const currentTab = useCurrentNoteTab(tab, { audioExists });
   const enhancedNoteId = currentTab.type === "enhanced" ? currentTab.id : null;
   const taskId = enhancedNoteId
     ? createTaskId(enhancedNoteId, "enhance")
@@ -224,9 +281,10 @@ function useGenerateSummaryNoteId(
 function useShouldShowChatFab(
   tab: Extract<Tab, { type: "sessions" }>,
   sessionMode: string,
+  audioExists: boolean,
 ) {
   const hasTranscript = useHasTranscript(tab.id);
-  const currentTab = useCurrentNoteTab(tab);
+  const currentTab = useCurrentNoteTab(tab, { audioExists });
   const enhancedNoteId = currentTab.type === "enhanced" ? currentTab.id : null;
   const taskId = enhancedNoteId
     ? createTaskId(enhancedNoteId, "enhance")

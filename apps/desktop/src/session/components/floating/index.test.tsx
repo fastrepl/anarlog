@@ -9,6 +9,7 @@ import type { Tab } from "~/store/zustand/tabs";
 const hoisted = vi.hoisted(() => ({
   currentTab: { type: "raw" } as
     | { type: "raw" }
+    | { type: "transcript" }
     | {
         type: "enhanced";
         id: string;
@@ -26,6 +27,7 @@ const hoisted = vi.hoisted(() => ({
   sessionMode: "inactive",
   sendEvent: vi.fn(),
   enhance: vi.fn(),
+  regenerateTranscript: vi.fn(),
   updateSessionTabState: vi.fn(),
 }));
 
@@ -88,6 +90,10 @@ vi.mock("~/services/enhancer", () => ({
   }),
 }));
 
+vi.mock("~/session/components/note-input/transcript/actions", () => ({
+  useRegenerateTranscript: () => hoisted.regenerateTranscript,
+}));
+
 vi.mock("~/store/zustand/tabs", () => ({
   useTabs: (selector: (state: unknown) => unknown) =>
     selector({ updateSessionTabState: hoisted.updateSessionTabState }),
@@ -133,6 +139,7 @@ describe("FloatingActionButton", () => {
     hoisted.sessionMode = "inactive";
     hoisted.sendEvent.mockClear();
     hoisted.enhance.mockReset();
+    hoisted.regenerateTranscript.mockReset();
     hoisted.updateSessionTabState.mockClear();
   });
 
@@ -331,6 +338,34 @@ describe("FloatingActionButton", () => {
 
     expect(
       screen.queryByRole("button", { name: "Start listening" }),
+    ).toBeNull();
+  });
+
+  it("shows a regenerate transcript FAB on empty transcript views backed by audio", () => {
+    hoisted.currentTab = { type: "transcript" };
+    hoisted.hasTranscript = false;
+
+    render(<FloatingActionButton audioExists tab={tab} />);
+
+    expect(
+      screen.queryByRole("button", { name: "Ask Anarlog anything" }),
+    ).toBeNull();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Regenerate transcript" }),
+    );
+
+    expect(hoisted.regenerateTranscript).toHaveBeenCalledTimes(1);
+  });
+
+  it("hides the regenerate transcript FAB when audio is missing", () => {
+    hoisted.currentTab = { type: "transcript" };
+    hoisted.hasTranscript = false;
+
+    render(<FloatingActionButton tab={tab} />);
+
+    expect(
+      screen.queryByRole("button", { name: "Regenerate transcript" }),
     ).toBeNull();
   });
 

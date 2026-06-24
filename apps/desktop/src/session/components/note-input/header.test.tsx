@@ -1,4 +1,10 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { EditorView } from "~/store/zustand/tabs/schema";
@@ -18,6 +24,8 @@ const hoisted = vi.hoisted(() => ({
   deleteRecording: vi.fn(),
   activeTemplateTitle: "Customer Call",
   audioExists: true,
+  hasTranscript: true,
+  sessionMode: "inactive",
   isDeletingRecording: false,
   transcriptExportRequest: {},
   transcriptSegments: [{ speaker: "Speaker 1", text: "Hello transcript" }],
@@ -130,6 +138,14 @@ vi.mock("~/session/enhance-config", () => ({
   shouldShowEmptySummaryConfigError: () => false,
 }));
 
+vi.mock("~/session/components/shared", () => ({
+  useHasTranscript: () => hoisted.hasTranscript,
+}));
+
+vi.mock("~/session/hooks/useEnhancedNotes", () => ({
+  useEnsureDefaultSummary: vi.fn(),
+}));
+
 vi.mock("~/services/enhancer", () => ({
   getEnhancerService: () => ({ enhance: hoisted.enhance }),
 }));
@@ -213,6 +229,15 @@ vi.mock("~/store/zustand/tabs", () => ({
   ),
 }));
 
+vi.mock("~/stt/contexts", () => ({
+  useListener: (
+    selector: (state: {
+      batch: Record<string, unknown>;
+      getSessionMode: () => string;
+    }) => unknown,
+  ) => selector({ batch: {}, getSessionMode: () => hoisted.sessionMode }),
+}));
+
 vi.mock("~/templates", () => ({
   filterWebTemplatesAgainstUserTemplates: () => [],
   getTemplateCreatorLabel: () => "You",
@@ -223,7 +248,7 @@ vi.mock("~/templates", () => ({
   useUserTemplates: () => hoisted.userTemplates,
 }));
 
-import { Header } from "./header";
+import { Header, useEditorTabs } from "./header";
 
 describe("Header", () => {
   beforeEach(() => {
@@ -232,6 +257,8 @@ describe("Header", () => {
     hoisted.deleteRecording.mockReset();
     hoisted.activeTemplateTitle = "Customer Call";
     hoisted.audioExists = true;
+    hoisted.hasTranscript = true;
+    hoisted.sessionMode = "inactive";
     hoisted.isDeletingRecording = false;
     hoisted.transcriptExportRequest = {};
     hoisted.transcriptSegments = [
@@ -540,6 +567,33 @@ describe("Header", () => {
       transcriptTab.querySelector("[data-testid='tab-spinner']"),
     ).not.toBeNull();
     expect(transcriptTab.querySelector("svg")).toBeNull();
+  });
+
+  it("includes the transcript tab when saved audio exists without transcript rows", () => {
+    hoisted.hasTranscript = false;
+
+    const { result } = renderHook(() =>
+      useEditorTabs({ sessionId: "session-1", audioExists: true }),
+    );
+
+    expect(result.current).toEqual([
+      { type: "enhanced", id: "note-1" },
+      { type: "raw" },
+      { type: "transcript" },
+    ]);
+  });
+
+  it("omits the transcript tab for inactive sessions without transcript or audio", () => {
+    hoisted.hasTranscript = false;
+
+    const { result } = renderHook(() =>
+      useEditorTabs({ sessionId: "session-1", audioExists: false }),
+    );
+
+    expect(result.current).toEqual([
+      { type: "enhanced", id: "note-1" },
+      { type: "raw" },
+    ]);
   });
 });
 
