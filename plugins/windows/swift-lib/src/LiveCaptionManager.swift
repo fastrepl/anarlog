@@ -170,6 +170,10 @@ final class LiveCaptionManager {
   }
 
   private func targetSize(for panel: NSPanel) -> NSSize {
+    if settingsModel.liveCaptionMinimized {
+      return LiveCaptionLayout.minimizedSize
+    }
+
     let isResizing = NSEvent.pressedMouseButtons != 0
     let requestedWidth = isResizing ? panel.frame.width : CGFloat(settingsModel.liveCaptionWidth)
     let requestedLineCount = isResizing ? model.lineCount : settingsModel.liveCaptionLineCount

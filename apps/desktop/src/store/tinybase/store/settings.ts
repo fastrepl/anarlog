@@ -61,6 +61,16 @@ export const SETTINGS_MAPPING = {
       path: ["general", "live_caption_opacity"],
       default: 0.3 as number,
     },
+    live_caption_width: {
+      type: "number",
+      path: ["general", "live_caption_width"],
+      default: 440 as number,
+    },
+    live_caption_line_count: {
+      type: "number",
+      path: ["general", "live_caption_line_count"],
+      default: 1 as number,
+    },
     live_caption_position: {
       type: "string",
       path: ["general", "live_caption_position"],

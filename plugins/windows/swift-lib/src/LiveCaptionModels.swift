@@ -63,6 +63,8 @@ enum LiveCaptionPosition: String, Codable, CaseIterable {
 struct LiveCaptionStatePayload: Codable {
   let text: String
   let opacity: Double
+  let width: Double
+  let lineCount: Int
   let position: LiveCaptionPosition
   let minimized: Bool
 }

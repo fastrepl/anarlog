@@ -4,6 +4,8 @@ import Foundation
 struct FloatingOverlaySettingsChangePayload: Codable {
   var floatingBarOpacity: Double?
   var liveCaptionOpacity: Double?
+  var liveCaptionWidth: Double?
+  var liveCaptionLineCount: Int?
   var liveCaptionPosition: LiveCaptionPosition?
   var liveCaptionMinimized: Bool?
 }
@@ -20,11 +22,15 @@ final class FloatingOverlaySettingsModel: ObservableObject {
 
   @Published var floatingBarOpacity: Double = 0.78
   @Published var liveCaptionOpacity: Double = 0.30
+  @Published var liveCaptionWidth: Double = Double(LiveCaptionLayout.defaultWidth)
+  @Published var liveCaptionLineCount: Int = LiveCaptionLayout.defaultLineCount
   @Published var liveCaptionPosition: LiveCaptionPosition = .topCenter
   @Published var liveCaptionMinimized: Bool = false
 
   private var pendingFloatingBarOpacity: Double?
   private var pendingLiveCaptionOpacity: Double?
+  private var pendingLiveCaptionWidth: Double?
+  private var pendingLiveCaptionLineCount: Int?
   private var pendingLiveCaptionPosition: LiveCaptionPosition?
   private var pendingLiveCaptionMinimized: Bool?
 
@@ -33,12 +39,16 @@ final class FloatingOverlaySettingsModel: ObservableObject {
   func apply(floatingBarState state: FloatingBarStatePayload) {
     applyFloatingBarOpacity(state.opacity)
     applyLiveCaptionOpacity(state.liveCaptionOpacity)
+    applyLiveCaptionWidth(state.liveCaptionWidth)
+    applyLiveCaptionLineCount(state.liveCaptionLineCount)
     _ = applyLiveCaptionPosition(state.liveCaptionPosition)
     _ = applyLiveCaptionMinimized(state.liveCaptionMinimized)
   }
 
   func apply(liveCaptionState state: LiveCaptionStatePayload) -> Bool {
     applyLiveCaptionOpacity(state.opacity)
+    applyLiveCaptionWidth(state.width)
+    applyLiveCaptionLineCount(state.lineCount)
     let positionChanged = applyLiveCaptionPosition(state.position)
     let minimizedChanged = applyLiveCaptionMinimized(state.minimized)
     return positionChanged || minimizedChanged
@@ -60,6 +70,23 @@ final class FloatingOverlaySettingsModel: ObservableObject {
     pendingLiveCaptionOpacity = nextValue
     RustBridge.floatingBarSettingsChanged(
       FloatingOverlaySettingsChangePayload(liveCaptionOpacity: nextValue))
+  }
+
+  func setLiveCaptionSize(width: Double, lineCount: Int) {
+    let nextWidth = clampedLiveCaptionWidth(width)
+    let nextLineCount = clampedLiveCaptionLineCount(lineCount)
+    guard !numbersMatch(liveCaptionWidth, nextWidth) || liveCaptionLineCount != nextLineCount else {
+      return
+    }
+
+    liveCaptionWidth = nextWidth
+    liveCaptionLineCount = nextLineCount
+    pendingLiveCaptionWidth = nextWidth
+    pendingLiveCaptionLineCount = nextLineCount
+    RustBridge.floatingBarSettingsChanged(
+      FloatingOverlaySettingsChangePayload(
+        liveCaptionWidth: nextWidth,
+        liveCaptionLineCount: nextLineCount))
   }
 
   func setLiveCaptionPosition(_ value: LiveCaptionPosition) {
@@ -98,6 +125,26 @@ final class FloatingOverlaySettingsModel: ObservableObject {
     liveCaptionOpacity = nextValue
   }
 
+  private func applyLiveCaptionWidth(_ value: Double) {
+    let nextValue = clampedLiveCaptionWidth(value)
+    if let pendingLiveCaptionWidth {
+      guard numbersMatch(pendingLiveCaptionWidth, nextValue) else { return }
+      self.pendingLiveCaptionWidth = nil
+    }
+
+    liveCaptionWidth = nextValue
+  }
+
+  private func applyLiveCaptionLineCount(_ value: Int) {
+    let nextValue = clampedLiveCaptionLineCount(value)
+    if let pendingLiveCaptionLineCount {
+      guard pendingLiveCaptionLineCount == nextValue else { return }
+      self.pendingLiveCaptionLineCount = nil
+    }
+
+    liveCaptionLineCount = nextValue
+  }
+
   private func applyLiveCaptionPosition(_ value: LiveCaptionPosition) -> Bool {
     if let pendingLiveCaptionPosition {
       guard pendingLiveCaptionPosition == value else { return false }
@@ -128,7 +175,19 @@ final class FloatingOverlaySettingsModel: ObservableObject {
     min(max(value, FloatingOverlayOpacity.minLiveCaption), FloatingOverlayOpacity.maxLiveCaption)
   }
 
+  private func clampedLiveCaptionWidth(_ value: Double) -> Double {
+    min(max(value, Double(LiveCaptionLayout.minWidth)), Double(LiveCaptionLayout.maxWidth))
+  }
+
+  private func clampedLiveCaptionLineCount(_ value: Int) -> Int {
+    min(max(value, LiveCaptionLayout.minLineCount), LiveCaptionLayout.maxLineCount)
+  }
+
   private func opacitiesMatch(_ left: Double, _ right: Double) -> Bool {
+    numbersMatch(left, right)
+  }
+
+  private func numbersMatch(_ left: Double, _ right: Double) -> Bool {
     abs(left - right) < 0.0001
   }
 }
