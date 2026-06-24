@@ -51,16 +51,18 @@ final class LiveCaptionManager {
     }
   }
 
-  func hide() {
+  func hide(clearText: Bool = true) {
     runOnMain { [weak self] in
       guard let self else { return }
-      self.hidePanel()
+      self.hidePanel(clearText: clearText)
     }
   }
 
-  private func hidePanel() {
+  private func hidePanel(clearText: Bool = true) {
     guard let panel else {
-      model.text = ""
+      if clearText {
+        model.text = ""
+      }
       panelDelegate.resetActiveScreen()
       return
     }
@@ -70,7 +72,9 @@ final class LiveCaptionManager {
     panel.orderOut(nil)
     self.panel = nil
     panelDelegate.resetActiveScreen()
-    model.text = ""
+    if clearText {
+      model.text = ""
+    }
     model.lineCount = LiveCaptionLayout.defaultLineCount
   }
 
@@ -194,6 +198,11 @@ final class LiveCaptionManager {
 
   private func setMinimized(_ minimized: Bool) {
     settingsModel.setLiveCaptionMinimized(minimized)
+    if minimized {
+      hidePanel(clearText: false)
+      return
+    }
+
     guard let panel else { return }
     resize(panel)
     panelDelegate.clearPinnedPosition()
