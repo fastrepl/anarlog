@@ -3,6 +3,7 @@
 @plugin "@tailwindcss/typography";
 @import "../../../packages/ui/src/styles/scroll-fade.css";
 
+@source "../../../packages/changelog/src";
 @source "../../../packages/ui/src";
 
 @theme {
