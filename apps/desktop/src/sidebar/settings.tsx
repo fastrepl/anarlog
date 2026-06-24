@@ -31,36 +31,6 @@ type SettingsNavItem =
 
 type SettingsNavGroup = { label: string; items: SettingsNavItem[] };
 
-function getBaseGroups(
-  t: ReturnType<typeof useLingui>["t"],
-): SettingsNavGroup[] {
-  const aiItems: SettingsNavItem[] = [
-    { id: "transcription", label: t`Transcription`, icon: AudioLinesIcon },
-    { id: "intelligence", label: t`Intelligence`, icon: SparklesIcon },
-    {
-      action: "open-templates",
-      label: t`Templates`,
-      icon: BookText,
-    },
-  ];
-
-  return [
-    {
-      label: t`General`,
-      items: [
-        { id: "app", label: t`App`, icon: SmartphoneIcon },
-        { id: "data", label: t`Data`, icon: DatabaseIcon },
-        { id: "account", label: t`Account`, icon: UserIcon },
-        { id: "notifications", label: t`Notifications`, icon: BellIcon },
-      ],
-    },
-    {
-      label: "AI",
-      items: aiItems,
-    },
-  ];
-}
-
 export function SettingsNav() {
   const { t } = useLingui();
   const currentTab = useTabs((state) => state.currentTab);
@@ -93,7 +63,29 @@ export function SettingsNav() {
     openNew({ type: "contacts", state: { selected: null } });
   }, [openNew]);
 
-  const groups = getBaseGroups(t);
+  const groups: SettingsNavGroup[] = [
+    {
+      label: t`General`,
+      items: [
+        { id: "app", label: t`App`, icon: SmartphoneIcon },
+        { id: "data", label: t`Data`, icon: DatabaseIcon },
+        { id: "account", label: t`Account`, icon: UserIcon },
+        { id: "notifications", label: t`Notifications`, icon: BellIcon },
+      ],
+    },
+    {
+      label: "AI",
+      items: [
+        { id: "transcription", label: t`Transcription`, icon: AudioLinesIcon },
+        { id: "intelligence", label: t`Intelligence`, icon: SparklesIcon },
+        {
+          action: "open-templates",
+          label: t`Templates`,
+          icon: BookText,
+        },
+      ],
+    },
+  ];
   const isMacos = platform() === "macos";
   if (isMacos) {
     groups[0].items.push({
@@ -152,10 +144,12 @@ export function SettingsNav() {
                         : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground",
                     ])}
                   >
-                    <item.icon size={15} />
-                    <span>{item.label}</span>
+                    <item.icon size={15} className="shrink-0" />
+                    <span className="min-w-0 flex-1 truncate">
+                      {item.label}
+                    </span>
                     {!isSettingsItem ? (
-                      <ArrowUpRightIcon size={13} className="ml-auto" />
+                      <ArrowUpRightIcon size={13} className="shrink-0" />
                     ) : null}
                   </button>
                 );
