@@ -13,6 +13,7 @@ const {
   useHasTranscriptMock,
   useListenerMock,
   useConfigValueMock,
+  windowShowMock,
 } = vi.hoisted(() => ({
   uploadAudioMock: vi.fn(),
   uploadTranscriptMock: vi.fn(),
@@ -20,6 +21,7 @@ const {
   useHasTranscriptMock: vi.fn(),
   useListenerMock: vi.fn(),
   useConfigValueMock: vi.fn(),
+  windowShowMock: vi.fn(() => Promise.resolve({ status: "ok", data: null })),
 }));
 
 vi.mock("@hypr/ui/components/ui/button", () => ({
@@ -73,6 +75,12 @@ vi.mock("./misc", () => ({
 
 vi.mock("~/meeting-float/host", () => ({
   openFloatingMeetingPanel: vi.fn(),
+}));
+
+vi.mock("@hypr/plugin-windows", () => ({
+  commands: {
+    windowShow: windowShowMock,
+  },
 }));
 
 vi.mock("~/session/components/shared", () => ({
@@ -181,6 +189,36 @@ describe("OverflowButton", () => {
       sessionId: "session-1",
       enabled: true,
     });
+  });
+
+  it("opens the current note in a standalone window", () => {
+    render(
+      <OverflowButton
+        sessionId="session-1"
+        currentView={{ type: "enhanced", id: "note-1" } as EditorView}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Open in New Window" }));
+
+    expect(windowShowMock).toHaveBeenCalledWith({
+      type: "note",
+      value: "session-1",
+    });
+  });
+
+  it("hides the standalone window action in standalone windows", () => {
+    render(
+      <OverflowButton
+        standaloneWindow
+        sessionId="session-1"
+        currentView={{ type: "enhanced", id: "note-1" } as EditorView}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "Open in New Window" }),
+    ).toBeNull();
   });
 
   it("hides listening actions when listening is disabled", () => {

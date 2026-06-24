@@ -9,7 +9,6 @@ import {
 
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
-import { commands as windowsCommands } from "@hypr/plugin-windows";
 import { DancingSticks } from "@hypr/ui/components/ui/dancing-sticks";
 import { Spinner } from "@hypr/ui/components/ui/spinner";
 import { cn, format, getYear, safeParseDate, TZDate } from "@hypr/utils";
@@ -25,6 +24,7 @@ import {
 import { writeSessionContextDragData } from "~/chat/context/session-drag";
 import { useIsSessionEnhancing } from "~/session/hooks/useEnhancedNotes";
 import { getSessionEvent } from "~/session/utils";
+import { openStandaloneNoteWindow } from "~/session/window";
 import type { MenuItemDef } from "~/shared/hooks/useNativeContextMenu";
 import { InteractiveButton } from "~/shared/ui/interactive-button";
 import { useIgnoredEvents } from "~/store/tinybase/hooks";
@@ -613,17 +613,6 @@ const SessionItem = memo(
     );
   },
 );
-
-async function openStandaloneNoteWindow(sessionId: string) {
-  const result = await windowsCommands.windowShow({
-    type: "note",
-    value: sessionId,
-  });
-
-  if (result.status === "error") {
-    console.error("Failed to open note window:", result.error);
-  }
-}
 
 function formatDisplayTime(
   timestamp: string | null | undefined,

@@ -4,6 +4,7 @@ import {
   FileTextIcon,
   MoreHorizontalIcon,
   PictureInPicture2Icon,
+  SquareArrowOutUpRightIcon,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -27,6 +28,7 @@ import {
   useCurrentNoteHasContent,
   useHasTranscript,
 } from "~/session/components/shared";
+import { openStandaloneNoteWindow } from "~/session/window";
 import { useConfigValue } from "~/shared/config";
 import * as settingsStore from "~/store/tinybase/store/settings";
 import type { EditorView } from "~/store/zustand/tabs/schema";
@@ -35,10 +37,12 @@ import { useUploadFile } from "~/stt/useUploadFile";
 
 export function OverflowButton({
   allowListening = true,
+  standaloneWindow = false,
   sessionId,
   currentView,
 }: {
   allowListening?: boolean;
+  standaloneWindow?: boolean;
   sessionId: string;
   currentView: EditorView;
 }) {
@@ -74,6 +78,10 @@ export function OverflowButton({
       enabled: floatingBarEnabled,
       store: settings,
     });
+  };
+  const handleOpenStandaloneWindow = () => {
+    setOpen(false);
+    void openStandaloneNoteWindow(sessionId);
   };
 
   return (
@@ -130,6 +138,15 @@ export function OverflowButton({
               </DropdownMenuItem>
             )}
             <DropdownMenuSeparator />
+            {!standaloneWindow && (
+              <DropdownMenuItem
+                onClick={handleOpenStandaloneWindow}
+                className="cursor-pointer"
+              >
+                <SquareArrowOutUpRightIcon />
+                <span>Open in New Window</span>
+              </DropdownMenuItem>
+            )}
             <ShowInFinder sessionId={sessionId} />
             <DeleteNote sessionId={sessionId} />
           </AppFloatingPanel>

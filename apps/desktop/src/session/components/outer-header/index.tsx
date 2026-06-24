@@ -82,6 +82,7 @@ export function OuterHeader({
         <HeaderMeetingControl sessionId={sessionId} sessionMode={sessionMode} />
         <OverflowButton
           allowListening={!standaloneWindow}
+          standaloneWindow={standaloneWindow}
           sessionId={sessionId}
           currentView={currentView}
         />
