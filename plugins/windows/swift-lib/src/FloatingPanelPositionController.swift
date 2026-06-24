@@ -57,6 +57,10 @@ final class FloatingPanelPositionController: NSObject, NSWindowDelegate {
     activeScreenId = nil
   }
 
+  func clearPinnedOrigin() {
+    pinnedOrigin = nil
+  }
+
   func preparePinnedFrameForReplacement(_ panel: NSPanel, size: NSSize) {
     guard pinnedOrigin != nil else { return }
 

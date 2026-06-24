@@ -51,6 +51,26 @@ export const SETTINGS_MAPPING = {
       path: ["general", "floating_bar_enabled"],
       default: true as boolean,
     },
+    floating_bar_opacity: {
+      type: "number",
+      path: ["general", "floating_bar_opacity"],
+      default: 0.78 as number,
+    },
+    live_caption_opacity: {
+      type: "number",
+      path: ["general", "live_caption_opacity"],
+      default: 0.78 as number,
+    },
+    live_caption_position: {
+      type: "string",
+      path: ["general", "live_caption_position"],
+      default: "topCenter" as string,
+    },
+    live_caption_minimized: {
+      type: "boolean",
+      path: ["general", "live_caption_minimized"],
+      default: false as boolean,
+    },
     show_app_in_dock: {
       type: "boolean",
       path: ["general", "show_app_in_dock"],

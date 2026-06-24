@@ -275,6 +275,19 @@ export const generalSchema = z.object({
   auto_stop_meetings: z.boolean().default(true),
   auto_start_scheduled_meetings: z.boolean().default(true),
   floating_bar_enabled: z.boolean().default(true),
+  floating_bar_opacity: z.number().default(0.78),
+  live_caption_opacity: z.number().default(0.78),
+  live_caption_position: z
+    .enum([
+      "topCenter",
+      "topLeft",
+      "topRight",
+      "bottomLeft",
+      "bottomRight",
+      "bottomCenter",
+    ])
+    .default("topCenter"),
+  live_caption_minimized: z.boolean().default(false),
   show_app_in_dock: z.boolean().default(true),
   show_tray_icon: z.boolean().default(true),
   telemetry_consent: z.boolean().default(true),

@@ -3,9 +3,12 @@ import Cocoa
 final class LiveCaptionPanelDelegate: NSObject, NSWindowDelegate {
   private let placement = FloatingPanelPositionController()
   private let model: LiveCaptionViewModel
+  private let settings: FloatingOverlaySettingsModel
+  private var snapMoveId = 0
 
-  init(model: LiveCaptionViewModel) {
+  init(model: LiveCaptionViewModel, settings: FloatingOverlaySettingsModel) {
     self.model = model
+    self.settings = settings
   }
 
   func position(
@@ -22,9 +25,14 @@ final class LiveCaptionPanelDelegate: NSObject, NSWindowDelegate {
 
   func windowDidMove(_ notification: Notification) {
     placement.windowDidMove(notification)
+    scheduleSnap(notification)
   }
 
   func windowWillResize(_ sender: NSWindow, to frameSize: NSSize) -> NSSize {
+    if settings.liveCaptionMinimized {
+      return LiveCaptionLayout.minimizedSize
+    }
+
     let width = min(max(frameSize.width, LiveCaptionLayout.minWidth), LiveCaptionLayout.maxWidth)
     let lineCount = LiveCaptionLayout.lineCount(forHeight: frameSize.height)
     let height = LiveCaptionLayout.height(forLineCount: lineCount)
@@ -34,5 +42,29 @@ final class LiveCaptionPanelDelegate: NSObject, NSWindowDelegate {
     }
 
     return NSSize(width: width, height: height)
+  }
+
+  func clearPinnedPosition() {
+    placement.clearPinnedOrigin()
+  }
+
+  private func scheduleSnap(_ notification: Notification) {
+    guard let panel = notification.object as? NSPanel else { return }
+
+    snapMoveId += 1
+    let moveId = snapMoveId
+
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self, weak panel] in
+      guard let self, self.snapMoveId == moveId, let panel else { return }
+      guard NSEvent.pressedMouseButtons == 0 else { return }
+      guard let screen = panel.screen ?? NSScreen.main else { return }
+
+      let position = LiveCaptionPosition.nearest(to: panel.frame, in: screen.visibleFrame)
+      self.placement.clearPinnedOrigin()
+      self.settings.setLiveCaptionPosition(position)
+      self.position(panel, force: true) { screen, size in
+        position.origin(in: screen.visibleFrame, size: size)
+      }
+    }
   }
 }

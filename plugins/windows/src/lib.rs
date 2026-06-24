@@ -87,6 +87,7 @@ fn make_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             events::VisibilityEvent,
             events::FloatingBarStop,
             events::FloatingBarOpenMain,
+            events::FloatingBarSettingsChange,
             events::DevtoolsPanelAction,
         ])
         .commands(tauri_specta::collect_commands![

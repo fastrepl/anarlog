@@ -9,9 +9,11 @@ enum FloatingBarLayout {
   static let stopSquareSize: CGFloat = 9
   static let clickAreaSize: CGFloat = 28
   static let clickAreaGap: CGFloat = 0
+  static let controlCount: CGFloat = 3
   static let pillPadding: CGFloat = 2
   static let pillWidth: CGFloat = clickAreaSize + pillPadding * 2
-  static let pillHeight: CGFloat = clickAreaSize * 2 + clickAreaGap + pillPadding * 2
+  static let pillHeight: CGFloat =
+    clickAreaSize * controlCount + clickAreaGap * (controlCount - 1) + pillPadding * 2
   static let hoverHandleGap: CGFloat = 3
   static let hoverHandleWidth: CGFloat = 13
   static let hoverHandleHeight: CGFloat = 8
@@ -28,6 +30,8 @@ enum FloatingBarLayout {
 
 struct FloatingBarView: View {
   @ObservedObject var model: FloatingBarViewModel
+  @ObservedObject var settings: FloatingOverlaySettingsModel
+  let onOpenSettings: () -> Void
   @State private var isBarHovered = false
   @State private var isBarsHovered = false
   @State private var suppressNextClick = false
@@ -114,6 +118,16 @@ struct FloatingBarView: View {
         }
       }
       .buttonStyle(.plain)
+
+      Button(action: { performClick(onOpenSettings) }) {
+        CircularClickArea(hoverFill: controlHoverFill) {
+          Image(systemName: "slider.horizontal.3")
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(primaryContentColor)
+        }
+      }
+      .buttonStyle(.plain)
+      .accessibilityLabel("Floating settings")
     }
     .padding(FloatingBarLayout.pillPadding)
     .frame(width: FloatingBarLayout.pillWidth, height: FloatingBarLayout.pillHeight)
@@ -125,10 +139,10 @@ struct FloatingBarView: View {
 
   private var surfaceColor: Color {
     if model.colorScheme == .dark {
-      return Color(red: 0.43, green: 0.44, blue: 0.40).opacity(0.78)
+      return Color(red: 0.43, green: 0.44, blue: 0.40).opacity(settings.floatingBarOpacity)
     }
 
-    return Color(red: 0.86, green: 0.85, blue: 0.82).opacity(0.95)
+    return Color(red: 0.86, green: 0.85, blue: 0.82).opacity(settings.floatingBarOpacity)
   }
 
   private var primaryContentColor: Color {

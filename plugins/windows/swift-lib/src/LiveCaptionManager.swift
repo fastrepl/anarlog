@@ -6,7 +6,10 @@ final class LiveCaptionManager {
 
   private var panel: NSPanel?
   private let model = LiveCaptionViewModel()
-  private lazy var panelDelegate = LiveCaptionPanelDelegate(model: model)
+  private let settingsModel = FloatingOverlaySettingsModel.shared
+  private lazy var panelDelegate = LiveCaptionPanelDelegate(
+    model: model,
+    settings: settingsModel)
   private var displayChangeObserver: Any?
   private var followActiveScreenTimer: Timer?
 
@@ -17,6 +20,8 @@ final class LiveCaptionManager {
       guard let self else { return }
 
       if let panel = self.panel {
+        self.resize(panel)
+        self.panelDelegate.clearPinnedPosition()
         self.position(panel, force: true)
         self.startFollowingActiveScreen()
         panel.orderFrontRegardless()
@@ -24,15 +29,25 @@ final class LiveCaptionManager {
       }
 
       let panel = self.createPanel()
-      let hostingView = NSHostingView(rootView: LiveCaptionView(model: self.model))
+      let hostingView = NSHostingView(
+        rootView: LiveCaptionView(
+          model: self.model,
+          settings: self.settingsModel,
+          onOpenSettings: {
+            FloatingOverlaySettingsPanelManager.shared.toggle(anchor: self.panel)
+          },
+          onSetMinimized: { [weak self] minimized in
+            self?.setMinimized(minimized)
+          }))
       hostingView.frame = NSRect(
         x: 0,
         y: 0,
-        width: LiveCaptionLayout.defaultWidth,
-        height: LiveCaptionLayout.height(forLineCount: LiveCaptionLayout.defaultLineCount))
+        width: self.initialSize.width,
+        height: self.initialSize.height)
       hostingView.autoresizingMask = [.width, .height]
 
       panel.contentView = hostingView
+      self.resize(panel)
       self.position(panel, force: true)
       panel.orderFrontRegardless()
       self.panel = panel
@@ -55,6 +70,7 @@ final class LiveCaptionManager {
     }
 
     stopFollowingActiveScreen()
+    FloatingOverlaySettingsPanelManager.shared.hide()
     panel.orderOut(nil)
     self.panel = nil
     panelDelegate.resetActiveScreen()
@@ -65,14 +81,18 @@ final class LiveCaptionManager {
     runOnMain { [weak self] in
       guard let self else { return }
       self.model.text = state.text
-      self.model.opacity = min(max(state.opacity, 0.35), 0.95)
+      self.settingsModel.apply(liveCaptionState: state)
+      if let panel = self.panel {
+        self.resize(panel)
+        guard NSEvent.pressedMouseButtons == 0 else { return }
+        self.panelDelegate.clearPinnedPosition()
+        self.position(panel, force: true)
+      }
     }
   }
 
   private func createPanel() -> NSPanel {
-    let initialSize = NSSize(
-      width: LiveCaptionLayout.defaultWidth,
-      height: LiveCaptionLayout.height(forLineCount: LiveCaptionLayout.defaultLineCount))
+    let initialSize = initialSize
     let panel = NSPanel(
       contentRect: NSRect(origin: .zero, size: initialSize),
       styleMask: [.borderless, .nonactivatingPanel, .resizable],
@@ -110,14 +130,90 @@ final class LiveCaptionManager {
 
   private func position(_ panel: NSPanel, force: Bool = false) {
     panelDelegate.position(panel, force: force) { screen, size in
-      let frame = screen.visibleFrame
-      let x = frame.midX - size.width / 2
-      let y = frame.maxY - size.height - LiveCaptionLayout.topOffset
-      return NSPoint(
-        x: min(max(x, frame.minX + LiveCaptionLayout.screenMargin), frame.maxX - size.width),
-        y: max(y, frame.minY + LiveCaptionLayout.screenMargin)
-      )
+      self.settingsModel.liveCaptionPosition.origin(in: screen.visibleFrame, size: size)
     }
+  }
+
+  private var initialSize: NSSize {
+    if settingsModel.liveCaptionMinimized {
+      return LiveCaptionLayout.minimizedSize
+    }
+
+    return NSSize(
+      width: LiveCaptionLayout.defaultWidth,
+      height: LiveCaptionLayout.height(forLineCount: LiveCaptionLayout.defaultLineCount))
+  }
+
+  private func resize(_ panel: NSPanel) {
+    let targetSize = targetSize(for: panel)
+    updateSizeConstraints(panel, targetSize: targetSize)
+
+    guard panel.frame.size != targetSize else { return }
+
+    panel.setFrame(
+      NSRect(
+        x: panel.frame.minX,
+        y: panel.frame.maxY - targetSize.height,
+        width: targetSize.width,
+        height: targetSize.height),
+      display: true,
+      animate: false
+    )
+  }
+
+  private func targetSize(for panel: NSPanel) -> NSSize {
+    if settingsModel.liveCaptionMinimized {
+      return LiveCaptionLayout.minimizedSize
+    }
+
+    let width = min(max(panel.frame.width, LiveCaptionLayout.minWidth), LiveCaptionLayout.maxWidth)
+    let lineCount = estimatedLineCount(text: model.text, width: width)
+    model.lineCount = lineCount
+
+    return NSSize(
+      width: width,
+      height: LiveCaptionLayout.height(forLineCount: lineCount))
+  }
+
+  private func updateSizeConstraints(_ panel: NSPanel, targetSize: NSSize) {
+    if settingsModel.liveCaptionMinimized {
+      panel.minSize = targetSize
+      panel.maxSize = targetSize
+      return
+    }
+
+    panel.minSize = NSSize(
+      width: LiveCaptionLayout.minWidth,
+      height: LiveCaptionLayout.height(forLineCount: LiveCaptionLayout.minLineCount))
+    panel.maxSize = NSSize(
+      width: LiveCaptionLayout.maxWidth,
+      height: LiveCaptionLayout.height(forLineCount: LiveCaptionLayout.maxLineCount))
+  }
+
+  private func setMinimized(_ minimized: Bool) {
+    settingsModel.setLiveCaptionMinimized(minimized)
+    guard let panel else { return }
+    resize(panel)
+    panelDelegate.clearPinnedPosition()
+    position(panel, force: true)
+  }
+
+  private func estimatedLineCount(text: String, width: CGFloat) -> Int {
+    let textWidth = max(
+      1,
+      width - LiveCaptionLayout.horizontalPadding * 2 - LiveCaptionLayout.controlsWidth
+        - LiveCaptionLayout.controlsGap
+    )
+    let attributed = NSAttributedString(
+      string: text.isEmpty ? " " : text,
+      attributes: [.font: NSFont.systemFont(ofSize: 16, weight: .medium)]
+    )
+    let bounds = attributed.boundingRect(
+      with: NSSize(width: textWidth, height: CGFloat.greatestFiniteMagnitude),
+      options: [.usesLineFragmentOrigin, .usesFontLeading]
+    )
+    let lineCount = Int(ceil(bounds.height / LiveCaptionLayout.lineHeight))
+    return min(max(lineCount, LiveCaptionLayout.minLineCount), LiveCaptionLayout.maxLineCount)
   }
 
   private func startFollowingActiveScreen() {

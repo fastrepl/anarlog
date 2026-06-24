@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::Error;
+use crate::window::live_caption::LiveCaptionPosition;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
@@ -22,10 +23,16 @@ pub struct FloatingBarState {
     pub amplitude: f64,
     pub status: FloatingBarStatus,
     pub color_scheme: FloatingBarColorScheme,
+    pub opacity: f64,
+    pub live_caption_opacity: f64,
+    pub live_caption_position: LiveCaptionPosition,
+    pub live_caption_minimized: bool,
 }
 
 #[cfg(target_os = "macos")]
 mod platform {
+    use std::ffi::CStr;
+    use std::os::raw::c_char;
     use std::sync::OnceLock;
 
     use swift_rs::{Bool, SRString, swift};
@@ -85,6 +92,27 @@ mod platform {
     pub extern "C" fn rust_on_floating_bar_open_main() {
         if let Some(app) = APP_HANDLE.get() {
             let _ = crate::events::FloatingBarOpenMain {}.emit(app);
+        }
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn rust_on_floating_bar_settings_change(settings_ptr: *const c_char) {
+        if settings_ptr.is_null() {
+            return;
+        }
+
+        let Ok(settings_json) = (unsafe { CStr::from_ptr(settings_ptr) }).to_str() else {
+            return;
+        };
+
+        let Ok(settings) =
+            serde_json::from_str::<crate::events::FloatingBarSettingsChange>(settings_json)
+        else {
+            return;
+        };
+
+        if let Some(app) = APP_HANDLE.get() {
+            let _ = settings.emit(app);
         }
     }
 }

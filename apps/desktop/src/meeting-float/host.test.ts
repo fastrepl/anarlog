@@ -53,6 +53,10 @@ describe("getFloatingRouteState", () => {
       amplitude: 1,
       status: "recording",
       colorScheme: "dark",
+      opacity: 0.78,
+      liveCaptionOpacity: 0.78,
+      liveCaptionPosition: "topCenter",
+      liveCaptionMinimized: false,
     });
   });
 
@@ -119,6 +123,35 @@ describe("getLiveCaptionRouteState", () => {
       sessionId: "session-1",
       text: "we should ship this",
       opacity: 0.78,
+      position: "topCenter",
+      minimized: false,
+    });
+  });
+
+  it("keeps the minimized caption restore control visible without text", () => {
+    expect(
+      getLiveCaptionRouteState(
+        createListenerStateWithCaption(
+          {
+            status: "active",
+            sessionId: "session-1",
+            liveTranscriptionActive: true,
+          },
+          " ",
+        ),
+        {
+          floatingBarOpacity: 0.7,
+          liveCaptionOpacity: 0.66,
+          liveCaptionPosition: "bottomRight",
+          liveCaptionMinimized: true,
+        },
+      ),
+    ).toEqual({
+      sessionId: "session-1",
+      text: "",
+      opacity: 0.66,
+      position: "bottomRight",
+      minimized: true,
     });
   });
 

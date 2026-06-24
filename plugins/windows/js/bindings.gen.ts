@@ -294,6 +294,7 @@ export const commands = {
 export const events = __makeEvents__<{
   devtoolsPanelAction: DevtoolsPanelAction;
   floatingBarOpenMain: FloatingBarOpenMain;
+  floatingBarSettingsChange: FloatingBarSettingsChange;
   floatingBarStop: FloatingBarStop;
   navigate: Navigate;
   openTab: OpenTab;
@@ -302,6 +303,7 @@ export const events = __makeEvents__<{
 }>({
   devtoolsPanelAction: "plugin:windows:devtools-panel-action",
   floatingBarOpenMain: "plugin:windows:floating-bar-open-main",
+  floatingBarSettingsChange: "plugin:windows:floating-bar-settings-change",
   floatingBarStop: "plugin:windows:floating-bar-stop",
   navigate: "plugin:windows:navigate",
   openTab: "plugin:windows:open-tab",
@@ -341,6 +343,16 @@ export type FloatingBarState = {
   amplitude: number;
   status: FloatingBarStatus;
   colorScheme: FloatingBarColorScheme;
+  opacity: number;
+  liveCaptionOpacity: number;
+  liveCaptionPosition: LiveCaptionPosition;
+  liveCaptionMinimized: boolean;
+};
+export type FloatingBarSettingsChange = {
+  floatingBarOpacity: number | null;
+  liveCaptionOpacity: number | null;
+  liveCaptionPosition: LiveCaptionPosition | null;
+  liveCaptionMinimized: boolean | null;
 };
 export type FloatingBarStatus = "recording" | "error";
 export type FloatingBarStop = Record<string, never>;
@@ -351,7 +363,19 @@ export type JsonValue =
   | string
   | JsonValue[]
   | Partial<{ [key in string]: JsonValue }>;
-export type LiveCaptionState = { text: string; opacity: number };
+export type LiveCaptionPosition =
+  | "topCenter"
+  | "topLeft"
+  | "topRight"
+  | "bottomLeft"
+  | "bottomRight"
+  | "bottomCenter";
+export type LiveCaptionState = {
+  text: string;
+  opacity: number;
+  position: LiveCaptionPosition;
+  minimized: boolean;
+};
 export type Navigate = {
   path: string;
   search: Partial<{ [key in string]: JsonValue }> | null;

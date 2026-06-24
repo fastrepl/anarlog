@@ -6,6 +6,7 @@ final class FloatingBarManager {
 
   private var panel: NSPanel?
   private let model = FloatingBarViewModel()
+  private let settingsModel = FloatingOverlaySettingsModel.shared
   private let placement = FloatingPanelPositionController()
   private var displayChangeObserver: Any?
   private var followActiveScreenTimer: Timer?
@@ -26,7 +27,11 @@ final class FloatingBarManager {
       FloatingBarFonts.register()
 
       let panel = self.createPanel()
-      let hostingView = NSHostingView(rootView: FloatingBarView(model: self.model))
+      let hostingView = NSHostingView(
+        rootView: FloatingBarView(model: self.model, settings: self.settingsModel) {
+          [weak self] in
+          self?.toggleSettingsPanel()
+        })
       hostingView.frame = NSRect(
         x: 0,
         y: 0,
@@ -46,6 +51,7 @@ final class FloatingBarManager {
     DispatchQueue.main.async { [weak self] in
       guard let self, let panel = self.panel else { return }
       self.stopFollowingActiveScreen()
+      FloatingOverlaySettingsPanelManager.shared.hide()
       panel.orderOut(nil)
       self.panel = nil
       self.placement.resetActiveScreen()
@@ -58,6 +64,7 @@ final class FloatingBarManager {
       self.model.status = state.status
       self.model.amplitude = min(max(state.amplitude, 0), 1)
       self.model.colorScheme = state.colorScheme
+      self.settingsModel.apply(floatingBarState: state)
     }
   }
 
@@ -129,5 +136,9 @@ final class FloatingBarManager {
       NotificationCenter.default.removeObserver(displayChangeObserver)
       self.displayChangeObserver = nil
     }
+  }
+
+  private func toggleSettingsPanel() {
+    FloatingOverlaySettingsPanelManager.shared.toggle(anchor: panel)
   }
 }
