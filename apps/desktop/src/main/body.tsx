@@ -11,6 +11,7 @@ import {
   type CSSProperties,
   type MouseEvent,
   type PointerEvent,
+  type WheelEvent,
   useCallback,
   useMemo,
   useRef,
@@ -36,6 +37,7 @@ import { useClassicMainTabsShortcuts } from "./useTabsShortcuts";
 
 import { useShell } from "~/contexts/shell";
 import { GlobalLiveTranscriptAccessory } from "~/session/components/bottom-accessory/global-live";
+import { scrollElementByWheel } from "~/shared/dom/scroll-wheel";
 import { NOTE_SURFACE_MIN_WIDTH_PX } from "~/shared/main/layout-widths";
 import { useOpenNoteDialog } from "~/shared/open-note-dialog";
 import { useNewNote } from "~/shared/useNewNote";
@@ -124,6 +126,21 @@ export function ClassicMainBody() {
     setLeftSidebarResizing(false);
     leftsidebar.toggleExpanded();
   }, [leftsidebar.toggleExpanded]);
+  const handleLeftSidebarChromeWheel = useCallback(
+    (event: WheelEvent<HTMLDivElement>) => {
+      if (!showSidebarTimeline) {
+        return;
+      }
+
+      const timelineScroller =
+        event.currentTarget.parentElement?.querySelector<HTMLElement>(
+          "[data-sidebar-timeline-scroll]",
+        ) ?? null;
+
+      scrollElementByWheel(timelineScroller, event);
+    },
+    [showSidebarTimeline],
+  );
   const leftSidebarChromeStyle = useMemo(
     () =>
       ({
@@ -158,6 +175,7 @@ export function ClassicMainBody() {
           data-tauri-drag-region
           data-left-sidebar-chrome
           style={leftSidebarChromeStyle}
+          onWheel={handleLeftSidebarChromeWheel}
           className={cn([
             "absolute top-0 z-40 h-12",
             leftsidebar.expanded ? "left-0" : "left-1",

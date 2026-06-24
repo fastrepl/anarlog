@@ -275,7 +275,7 @@ describe("TimelineView", () => {
     expect(
       container.querySelector("[data-sidebar-timeline-top-chip-stack]")
         ?.className,
-    ).toContain("top-10");
+    ).toContain("top-11");
     expect(
       container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
     ).toContain("h-18");
@@ -283,6 +283,77 @@ describe("TimelineView", () => {
     fireEvent.click(calendarButton);
 
     expect(mocks.openNew).toHaveBeenCalledWith({ type: "calendar" });
+  });
+
+  it("keeps the open calendar spacer stable when leaving the top edge", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
+    mocks.currentTimeMs = Date.now();
+    mocks.smartCurrentTimeMs = Date.now();
+    mocks.timelineSessionsTable = {
+      later: {
+        title: "Quarterly planning",
+        created_at: "2024-01-17T12:00:00.000Z",
+      },
+    };
+
+    const { container } = render(<TimelineView topChromeInset />);
+    const scroller = container.querySelector("[data-sidebar-timeline-scroll]");
+    const topSpacer = container.querySelector(
+      "[data-sidebar-timeline-top-spacer]",
+    );
+
+    expect(scroller).toBeInstanceOf(HTMLDivElement);
+    expect(topSpacer?.className).toContain("h-18");
+
+    Object.defineProperty(scroller, "clientHeight", {
+      configurable: true,
+      value: 200,
+    });
+    Object.defineProperty(scroller, "scrollHeight", {
+      configurable: true,
+      value: 1200,
+    });
+    scroller!.scrollTop = 120;
+    fireEvent.scroll(scroller!);
+
+    expect(screen.queryByRole("button", { name: "Open calendar" })).toBeNull();
+    expect(topSpacer?.className).toContain("h-18");
+    expect(getTopFade(container).className).toContain("h-16");
+  });
+
+  it("routes wheel gestures from the open calendar chip into the timeline scroller", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
+    mocks.currentTimeMs = Date.now();
+    mocks.smartCurrentTimeMs = Date.now();
+    mocks.timelineSessionsTable = {
+      later: {
+        title: "Quarterly planning",
+        created_at: "2024-01-17T12:00:00.000Z",
+      },
+    };
+
+    const { container } = render(<TimelineView topChromeInset />);
+    const scroller = container.querySelector("[data-sidebar-timeline-scroll]");
+    const calendarButton = screen.getByRole("button", {
+      name: "Open calendar",
+    });
+
+    expect(scroller).toBeInstanceOf(HTMLDivElement);
+
+    Object.defineProperty(scroller, "clientHeight", {
+      configurable: true,
+      value: 200,
+    });
+    Object.defineProperty(scroller, "scrollHeight", {
+      configurable: true,
+      value: 1200,
+    });
+
+    fireEvent.wheel(calendarButton, { deltaY: 80 });
+
+    expect(scroller!.scrollTop).toBe(80);
   });
 
   it("keeps the first bucket below the sidebar action chrome", () => {
@@ -369,7 +440,7 @@ describe("TimelineView", () => {
     expect(
       container.querySelector("[data-sidebar-timeline-top-chip-stack]")
         ?.className,
-    ).toContain("top-4");
+    ).toContain("top-5");
     expect(
       container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
     ).toContain("h-10");
@@ -605,6 +676,10 @@ describe("TimelineView", () => {
     expect(
       container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
     ).toContain("h-8");
+    expect(
+      container.querySelector("[data-sidebar-timeline-top-chip-stack]")
+        ?.className,
+    ).toContain("top-11");
     expect(screen.queryByText("Now")).toBeNull();
 
     fireEvent.click(chip!);
@@ -742,6 +817,10 @@ describe("TimelineView", () => {
     expect(scroller).toBeInstanceOf(HTMLDivElement);
 
     expect(screen.getByRole("button", { name: "Go back to now" })).toBeTruthy();
+    expect(
+      container.querySelector("[data-sidebar-timeline-top-chip-stack]")
+        ?.className,
+    ).toContain("top-11");
     expect(
       container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
     ).toContain("h-8");

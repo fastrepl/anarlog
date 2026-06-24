@@ -117,7 +117,9 @@ vi.mock("./shell-sidebar", () => ({
   ClassicMainSidebar: ({ forceMount = false }: { forceMount?: boolean }) =>
     (forceMount || mocks.leftsidebar.expanded) &&
     mocks.currentTab?.type !== "onboarding" ? (
-      <aside data-testid="classic-main-sidebar" />
+      <aside data-testid="classic-main-sidebar">
+        <div data-sidebar-timeline-scroll />
+      </aside>
     ) : null,
 }));
 
@@ -292,6 +294,33 @@ describe("ClassicMainBody", () => {
       "flex-grow",
     );
     expect(mocks.leftsidebar.toggleExpanded).toHaveBeenCalledTimes(1);
+  });
+
+  it("routes wheel gestures from sidebar chrome into the timeline scroller", () => {
+    render(<ClassicMainBody />);
+
+    const sidebarChrome = document.querySelector<HTMLElement>(
+      "[data-left-sidebar-chrome]",
+    );
+    const timelineScroller = document.querySelector<HTMLElement>(
+      "[data-sidebar-timeline-scroll]",
+    );
+
+    expect(sidebarChrome).toBeInstanceOf(HTMLElement);
+    expect(timelineScroller).toBeInstanceOf(HTMLElement);
+
+    Object.defineProperty(timelineScroller, "clientHeight", {
+      configurable: true,
+      value: 200,
+    });
+    Object.defineProperty(timelineScroller, "scrollHeight", {
+      configurable: true,
+      value: 1200,
+    });
+
+    fireEvent.wheel(sidebarChrome!, { deltaY: 96 });
+
+    expect(timelineScroller!.scrollTop).toBe(96);
   });
 
   it("does not reserve a sidebar panel during onboarding", () => {

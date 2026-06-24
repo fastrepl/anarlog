@@ -8,6 +8,7 @@ import {
 import {
   type ReactNode,
   type RefCallback,
+  type WheelEvent as ReactWheelEvent,
   useCallback,
   useEffect,
   useMemo,
@@ -40,6 +41,7 @@ import {
 } from "./utils";
 
 import { useConfigValue } from "~/shared/config";
+import { scrollElementByWheel } from "~/shared/dom/scroll-wheel";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
 import { useIgnoredEvents } from "~/store/tinybase/hooks";
@@ -80,6 +82,8 @@ export function TimelineView({
 
   const showOpenCalendarChip =
     showOpenCalendarButton && isScrolledToTop && hasMoreFutureItems;
+  const reserveOpenCalendarChipSpace =
+    showOpenCalendarButton && hasMoreFutureItems;
 
   const hasToday = useMemo(
     () => buckets.some((bucket) => bucket.label === "Today"),
@@ -171,14 +175,13 @@ export function TimelineView({
     Boolean(upcomingMeetingStatus) && !isUpcomingMeetingVisible;
   const showTopNowChip =
     !showUpcomingMeetingChip && !isTodayVisible && isScrolledPastToday;
-  const hasReservedTopChromeChip = showOpenCalendarChip;
   const topSpacerClassName = topChromeInset
-    ? hasReservedTopChromeChip
+    ? reserveOpenCalendarChipSpace
       ? "h-18"
       : "h-8"
     : "h-10";
   const bucketHeaderTopClassName = topChromeInset
-    ? hasReservedTopChromeChip
+    ? showOpenCalendarChip
       ? "top-18"
       : "top-8"
     : "top-0";
@@ -401,9 +404,30 @@ export function TimelineView({
   );
 
   const showContextMenu = useNativeContextMenu(contextMenuItems);
+  const handleWheelCapture = useCallback(
+    (event: ReactWheelEvent<HTMLDivElement>) => {
+      const container = containerRef.current;
+      const target = event.target;
+
+      if (
+        !container ||
+        event.defaultPrevented ||
+        (target instanceof Node && container.contains(target))
+      ) {
+        return;
+      }
+
+      scrollElementByWheel(container, event);
+    },
+    [containerRef],
+  );
 
   return (
-    <div className="relative h-full">
+    <div
+      data-sidebar-timeline-root
+      className="relative h-full"
+      onWheelCapture={handleWheelCapture}
+    >
       <div
         ref={containerRef}
         data-sidebar-timeline-scroll
@@ -523,7 +547,7 @@ export function TimelineView({
           data-sidebar-timeline-top-fade
           className={cn([
             "pointer-events-none absolute inset-x-0 top-0 z-[15]",
-            hasReservedTopChromeChip
+            showOpenCalendarChip
               ? "bg-background h-18"
               : "from-background via-background/95 to-background/0 h-16 bg-linear-to-b from-60% via-85%",
           ])}
@@ -535,7 +559,7 @@ export function TimelineView({
           data-sidebar-timeline-top-chip-stack
           className={cn([
             "absolute left-1/2 z-20 flex -translate-x-1/2 transform flex-col items-center gap-2",
-            topChromeInset ? "top-10" : "top-4",
+            topChromeInset ? "top-11" : "top-5",
           ])}
         >
           {showOpenCalendarChip && (
