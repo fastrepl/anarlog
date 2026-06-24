@@ -17,8 +17,8 @@ private enum SoniqoBridgeError: LocalizedError {
 }
 
 private let soniqoFileTranscriptionSampleRate = 16_000
-private let parakeetBatchMinimumChunkSeconds = 5.0
-private let parakeetBatchMaximumChunkSeconds = 19.5
+private let parakeetBatchMinimumChunkSeconds = 20.0
+private let parakeetBatchMaximumChunkSeconds = 29.5
 
 private enum SpeechModelKind: String, CaseIterable {
   case parakeetStreaming = "soniqo-parakeet-streaming"
