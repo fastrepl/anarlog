@@ -10,8 +10,8 @@ enum LiveCaptionLayout {
   static let lineHeight: CGFloat = 22
   static let horizontalPadding: CGFloat = 16
   static let verticalPadding: CGFloat = 10
-  static let footerHeight: CGFloat = 24
-  static let footerGap: CGFloat = 6
+  static let footerHeight: CGFloat = 32
+  static let footerSeparatorHeight: CGFloat = 1
   static let cornerRadius: CGFloat = 12
   static let screenMargin: CGFloat = 12
   static let topOffset: CGFloat = 18
@@ -19,11 +19,12 @@ enum LiveCaptionLayout {
 
   static func height(forLineCount lineCount: Int) -> CGFloat {
     let clampedLineCount = min(max(lineCount, minLineCount), maxLineCount)
-    return verticalPadding * 2 + lineHeight * CGFloat(clampedLineCount) + footerGap + footerHeight
+    return verticalPadding * 2 + lineHeight * CGFloat(clampedLineCount) + footerSeparatorHeight
+      + footerHeight
   }
 
   static func lineCount(forHeight height: CGFloat) -> Int {
-    let textHeight = height - verticalPadding * 2 - footerGap - footerHeight
+    let textHeight = height - verticalPadding * 2 - footerSeparatorHeight - footerHeight
     let rawLineCount = (textHeight / lineHeight).rounded()
     return min(max(Int(rawLineCount), minLineCount), maxLineCount)
   }
@@ -47,7 +48,7 @@ struct LiveCaptionView: View {
   }
 
   private var expandedBody: some View {
-    VStack(spacing: LiveCaptionLayout.footerGap) {
+    VStack(spacing: 0) {
       Text(model.text)
         .font(.system(size: 16, weight: .medium, design: .default))
         .lineSpacing(0)
@@ -62,6 +63,12 @@ struct LiveCaptionView: View {
           maxHeight: LiveCaptionLayout.lineHeight * CGFloat(model.lineCount),
           alignment: .center
         )
+        .padding(.horizontal, LiveCaptionLayout.horizontalPadding)
+        .padding(.vertical, LiveCaptionLayout.verticalPadding)
+
+      Rectangle()
+        .fill(Color.white.opacity(0.16))
+        .frame(height: LiveCaptionLayout.footerSeparatorHeight)
 
       CaptionFooter(
         opacity: settings.liveCaptionOpacity,
@@ -70,8 +77,6 @@ struct LiveCaptionView: View {
       )
       .frame(height: LiveCaptionLayout.footerHeight)
     }
-    .padding(.horizontal, LiveCaptionLayout.horizontalPadding)
-    .padding(.vertical, LiveCaptionLayout.verticalPadding)
     .background(captionBackground)
     .overlay(alignment: .bottomTrailing) {
       ResizeHint()
@@ -108,12 +113,13 @@ struct LiveCaptionView: View {
 }
 
 private struct CaptionFooter: View {
+  private let sliderWidth: CGFloat = 120
   let opacity: Double
   let onSetOpacity: (Double) -> Void
   let onMinimize: () -> Void
 
   var body: some View {
-    HStack(spacing: 10) {
+    HStack(spacing: 8) {
       Image(systemName: "circle.lefthalf.filled")
         .font(.system(size: 11, weight: .semibold))
         .foregroundStyle(.white.opacity(0.72))
@@ -123,36 +129,35 @@ private struct CaptionFooter: View {
         in: FloatingOverlayOpacity.minLiveCaption...FloatingOverlayOpacity.max
       )
       .controlSize(.small)
+      .frame(width: sliderWidth)
       .accessibilityLabel("Transcript opacity")
       .accessibilityValue("\(Int((clampedOpacity * 100).rounded()))%")
 
       Button(action: onMinimize) {
-        Image(systemName: "minus")
-          .font(.system(size: 10, weight: .semibold))
-          .foregroundStyle(.white.opacity(0.95))
-          .frame(width: 20, height: 20)
+        Text("Close")
+          .font(.system(size: 11, weight: .semibold))
+          .foregroundStyle(.white.opacity(0.92))
+          .padding(.horizontal, 8)
+          .frame(height: 20)
           .background(
-            Circle()
-              .fill(Color.black.opacity(0.58))
+            Capsule(style: .continuous)
+              .fill(Color.black.opacity(0.42))
               .overlay(
-                Circle()
-                  .stroke(Color.white.opacity(0.20), lineWidth: 0.5)
+                Capsule(style: .continuous)
+                  .stroke(Color.white.opacity(0.18), lineWidth: 0.5)
               )
-              .shadow(color: .black.opacity(0.24), radius: 3, y: 1)
           )
       }
       .buttonStyle(.plain)
-      .accessibilityLabel("Minimize transcript")
+      .accessibilityLabel("Close transcript")
+
+      Spacer(minLength: 0)
     }
-    .padding(.leading, 8)
+    .padding(.leading, LiveCaptionLayout.horizontalPadding)
     .padding(.trailing, 24)
     .background(
-      RoundedRectangle(cornerRadius: 8, style: .continuous)
-        .fill(Color.black.opacity(0.42))
-        .overlay(
-          RoundedRectangle(cornerRadius: 8, style: .continuous)
-            .stroke(Color.white.opacity(0.14), lineWidth: 0.5)
-        )
+      Rectangle()
+        .fill(Color.black.opacity(0.20))
     )
   }
 
