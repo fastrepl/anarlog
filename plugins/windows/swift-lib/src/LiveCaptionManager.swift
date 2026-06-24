@@ -81,11 +81,13 @@ final class LiveCaptionManager {
     runOnMain { [weak self] in
       guard let self else { return }
       self.model.text = state.text
-      self.settingsModel.apply(liveCaptionState: state)
+      let placementChanged = self.settingsModel.apply(liveCaptionState: state)
       if let panel = self.panel {
         self.resize(panel)
         guard NSEvent.pressedMouseButtons == 0 else { return }
-        self.panelDelegate.clearPinnedPosition()
+        if placementChanged {
+          self.panelDelegate.clearPinnedPosition()
+        }
         self.position(panel, force: true)
       }
     }
@@ -150,15 +152,15 @@ final class LiveCaptionManager {
 
     guard panel.frame.size != targetSize else { return }
 
-    panel.setFrame(
-      NSRect(
+    panelDelegate.setFrame(
+      panel,
+      to: NSRect(
         x: panel.frame.minX,
         y: panel.frame.maxY - targetSize.height,
         width: targetSize.width,
         height: targetSize.height),
       display: true,
-      animate: false
-    )
+      animate: false)
   }
 
   private func targetSize(for panel: NSPanel) -> NSSize {

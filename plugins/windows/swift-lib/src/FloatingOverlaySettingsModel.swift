@@ -16,19 +16,23 @@ final class FloatingOverlaySettingsModel: ObservableObject {
   @Published var liveCaptionPosition: LiveCaptionPosition = .topCenter
   @Published var liveCaptionMinimized: Bool = false
 
+  private var pendingLiveCaptionPosition: LiveCaptionPosition?
+  private var pendingLiveCaptionMinimized: Bool?
+
   private init() {}
 
   func apply(floatingBarState state: FloatingBarStatePayload) {
     floatingBarOpacity = clampedOpacity(state.opacity)
     liveCaptionOpacity = clampedOpacity(state.liveCaptionOpacity)
-    liveCaptionPosition = state.liveCaptionPosition
-    liveCaptionMinimized = state.liveCaptionMinimized
+    _ = applyLiveCaptionPosition(state.liveCaptionPosition)
+    _ = applyLiveCaptionMinimized(state.liveCaptionMinimized)
   }
 
-  func apply(liveCaptionState state: LiveCaptionStatePayload) {
+  func apply(liveCaptionState state: LiveCaptionStatePayload) -> Bool {
     liveCaptionOpacity = clampedOpacity(state.opacity)
-    liveCaptionPosition = state.position
-    liveCaptionMinimized = state.minimized
+    let positionChanged = applyLiveCaptionPosition(state.position)
+    let minimizedChanged = applyLiveCaptionMinimized(state.minimized)
+    return positionChanged || minimizedChanged
   }
 
   func setFloatingBarOpacity(_ value: Double) {
@@ -50,6 +54,7 @@ final class FloatingOverlaySettingsModel: ObservableObject {
   func setLiveCaptionPosition(_ value: LiveCaptionPosition) {
     guard liveCaptionPosition != value else { return }
     liveCaptionPosition = value
+    pendingLiveCaptionPosition = value
     RustBridge.floatingBarSettingsChanged(
       FloatingOverlaySettingsChangePayload(liveCaptionPosition: value))
   }
@@ -57,8 +62,31 @@ final class FloatingOverlaySettingsModel: ObservableObject {
   func setLiveCaptionMinimized(_ value: Bool) {
     guard liveCaptionMinimized != value else { return }
     liveCaptionMinimized = value
+    pendingLiveCaptionMinimized = value
     RustBridge.floatingBarSettingsChanged(
       FloatingOverlaySettingsChangePayload(liveCaptionMinimized: value))
+  }
+
+  private func applyLiveCaptionPosition(_ value: LiveCaptionPosition) -> Bool {
+    if let pendingLiveCaptionPosition {
+      guard pendingLiveCaptionPosition == value else { return false }
+      self.pendingLiveCaptionPosition = nil
+    }
+
+    guard liveCaptionPosition != value else { return false }
+    liveCaptionPosition = value
+    return true
+  }
+
+  private func applyLiveCaptionMinimized(_ value: Bool) -> Bool {
+    if let pendingLiveCaptionMinimized {
+      guard pendingLiveCaptionMinimized == value else { return false }
+      self.pendingLiveCaptionMinimized = nil
+    }
+
+    guard liveCaptionMinimized != value else { return false }
+    liveCaptionMinimized = value
+    return true
   }
 
   private func clampedOpacity(_ value: Double) -> Double {

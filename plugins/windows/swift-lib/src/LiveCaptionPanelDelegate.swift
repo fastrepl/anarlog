@@ -48,6 +48,10 @@ final class LiveCaptionPanelDelegate: NSObject, NSWindowDelegate {
     placement.clearPinnedOrigin()
   }
 
+  func setFrame(_ panel: NSPanel, to frame: NSRect, display: Bool, animate: Bool) {
+    placement.setFrame(panel, to: frame, display: display, animate: animate)
+  }
+
   private func scheduleSnap(_ notification: Notification) {
     guard let panel = notification.object as? NSPanel else { return }
 
