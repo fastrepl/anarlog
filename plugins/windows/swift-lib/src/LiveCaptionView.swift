@@ -64,8 +64,7 @@ struct LiveCaptionView: View {
         .accessibilityLabel("Minimize transcript")
       }
       .frame(width: LiveCaptionLayout.controlsWidth)
-      .opacity(isHovered ? 1 : 0)
-      .allowsHitTesting(isHovered)
+      .opacity(isHovered ? 1 : 0.68)
     }
     .padding(.horizontal, LiveCaptionLayout.horizontalPadding)
     .padding(.vertical, LiveCaptionLayout.verticalPadding)
@@ -75,10 +74,9 @@ struct LiveCaptionView: View {
         value: settings.liveCaptionOpacity,
         onChange: settings.setLiveCaptionOpacity
       )
-      .opacity(isHovered ? 1 : 0)
-      .allowsHitTesting(isHovered)
-      .padding(.leading, 9)
-      .padding(.bottom, 6)
+      .opacity(isHovered ? 1 : 0.72)
+      .padding(.leading, 10)
+      .padding(.bottom, 8)
     }
     .overlay(alignment: .bottomTrailing) {
       ResizeHint()
@@ -122,9 +120,17 @@ private struct CaptionControlButton: View {
     Button(action: action) {
       Image(systemName: systemName)
         .font(.system(size: 10, weight: .semibold))
-        .foregroundStyle(.white.opacity(0.82))
+        .foregroundStyle(.white.opacity(0.95))
         .frame(width: 20, height: 20)
-        .background(Circle().fill(Color.white.opacity(0.12)))
+        .background(
+          Circle()
+            .fill(Color.black.opacity(0.58))
+            .overlay(
+              Circle()
+                .stroke(Color.white.opacity(0.20), lineWidth: 0.5)
+            )
+            .shadow(color: .black.opacity(0.24), radius: 3, y: 1)
+        )
     }
     .buttonStyle(.plain)
   }
@@ -134,19 +140,28 @@ private struct CaptionOpacityDragToggle: View {
   let value: Double
   let onChange: (Double) -> Void
 
-  private let trackWidth: CGFloat = 52
-  private let trackHeight: CGFloat = 14
-  private let thumbSize: CGFloat = 10
+  private let trackWidth: CGFloat = 66
+  private let trackHeight: CGFloat = 18
+  private let thumbSize: CGFloat = 13
 
   var body: some View {
     ZStack(alignment: .leading) {
       Capsule(style: .continuous)
-        .fill(Color.white.opacity(0.12))
+        .fill(Color.black.opacity(0.58))
+        .overlay(
+          Capsule(style: .continuous)
+            .stroke(Color.white.opacity(0.18), lineWidth: 0.5)
+        )
       Capsule(style: .continuous)
-        .fill(Color.white.opacity(0.24))
+        .fill(Color.white.opacity(0.35))
         .frame(width: fillWidth)
       Circle()
-        .fill(Color.white.opacity(0.9))
+        .fill(Color.white.opacity(0.95))
+        .overlay(
+          Circle()
+            .stroke(Color.black.opacity(0.45), lineWidth: 0.5)
+        )
+        .shadow(color: .black.opacity(0.28), radius: 3, y: 1)
         .frame(width: thumbSize, height: thumbSize)
         .offset(x: thumbOffset)
     }
