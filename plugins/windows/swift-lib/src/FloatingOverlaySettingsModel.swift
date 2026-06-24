@@ -10,8 +10,9 @@ struct FloatingOverlaySettingsChangePayload: Codable {
 
 enum FloatingOverlayOpacity {
   static let minFloatingBar = 0.35
-  static let minLiveCaption = 0.30
-  static let max = 0.95
+  static let minLiveCaption = 0.05
+  static let maxFloatingBar = 0.95
+  static let maxLiveCaption = 1.0
 }
 
 final class FloatingOverlaySettingsModel: ObservableObject {
@@ -120,11 +121,11 @@ final class FloatingOverlaySettingsModel: ObservableObject {
   }
 
   private func clampedFloatingBarOpacity(_ value: Double) -> Double {
-    min(max(value, FloatingOverlayOpacity.minFloatingBar), FloatingOverlayOpacity.max)
+    min(max(value, FloatingOverlayOpacity.minFloatingBar), FloatingOverlayOpacity.maxFloatingBar)
   }
 
   private func clampedLiveCaptionOpacity(_ value: Double) -> Double {
-    min(max(value, FloatingOverlayOpacity.minLiveCaption), FloatingOverlayOpacity.max)
+    min(max(value, FloatingOverlayOpacity.minLiveCaption), FloatingOverlayOpacity.maxLiveCaption)
   }
 
   private func opacitiesMatch(_ left: Double, _ right: Double) -> Bool {

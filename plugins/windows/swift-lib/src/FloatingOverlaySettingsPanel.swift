@@ -139,7 +139,7 @@ private struct FloatingOverlaySettingsPanelView: View {
       OpacitySlider(
         title: "Transcript opacity",
         value: settings.liveCaptionOpacity,
-        range: FloatingOverlayOpacity.minLiveCaption...FloatingOverlayOpacity.max,
+        range: FloatingOverlayOpacity.minLiveCaption...FloatingOverlayOpacity.maxLiveCaption,
         onChange: settings.setLiveCaptionOpacity)
 
       VStack(alignment: .leading, spacing: 8) {
@@ -228,7 +228,7 @@ private struct OpacitySlider: View {
   let title: String
   let value: Double
   var range: ClosedRange<Double> =
-    FloatingOverlayOpacity.minFloatingBar...FloatingOverlayOpacity.max
+    FloatingOverlayOpacity.minFloatingBar...FloatingOverlayOpacity.maxFloatingBar
   let onChange: (Double) -> Void
 
   var body: some View {
