@@ -223,7 +223,9 @@ describe("Header", () => {
     expect(memoTab.className).toContain("h-[26px]");
     expect(memoTab.className).not.toContain("-my-px");
     expect(memoTab.className).toContain("bg-white");
+    expect(memoTab.className).toContain("text-foreground");
     expect(memoTab.className).toContain("shadow-xs");
+    expect(memoTab.className).toContain("dark:text-primary");
     expect(memoTab.className).toContain("dark:bg-white");
     expect(summaryTab.className).toContain("h-[26px]");
     expect(summaryTab.className).toContain("dark:hover:bg-white/8");
@@ -255,6 +257,8 @@ describe("Header", () => {
       name: "Customer Call",
     });
     expect(activeSummaryTab.textContent).toBe("Customer Call");
+    expect(activeSummaryTab.className).toContain("text-foreground");
+    expect(activeSummaryTab.className).toContain("dark:text-primary");
     expect(activeSummaryTab.querySelectorAll("svg")).toHaveLength(2);
 
     fireEvent.click(activeSummaryTab);
