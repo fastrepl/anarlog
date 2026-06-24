@@ -8,45 +8,55 @@ struct FloatingOverlaySettingsChangePayload: Codable {
   var liveCaptionMinimized: Bool?
 }
 
+enum FloatingOverlayOpacity {
+  static let minFloatingBar = 0.35
+  static let minLiveCaption = 0.30
+  static let max = 0.95
+}
+
 final class FloatingOverlaySettingsModel: ObservableObject {
   static let shared = FloatingOverlaySettingsModel()
 
   @Published var floatingBarOpacity: Double = 0.78
-  @Published var liveCaptionOpacity: Double = 0.78
+  @Published var liveCaptionOpacity: Double = 0.30
   @Published var liveCaptionPosition: LiveCaptionPosition = .topCenter
   @Published var liveCaptionMinimized: Bool = false
 
+  private var pendingFloatingBarOpacity: Double?
+  private var pendingLiveCaptionOpacity: Double?
   private var pendingLiveCaptionPosition: LiveCaptionPosition?
   private var pendingLiveCaptionMinimized: Bool?
 
   private init() {}
 
   func apply(floatingBarState state: FloatingBarStatePayload) {
-    floatingBarOpacity = clampedOpacity(state.opacity)
-    liveCaptionOpacity = clampedOpacity(state.liveCaptionOpacity)
+    applyFloatingBarOpacity(state.opacity)
+    applyLiveCaptionOpacity(state.liveCaptionOpacity)
     _ = applyLiveCaptionPosition(state.liveCaptionPosition)
     _ = applyLiveCaptionMinimized(state.liveCaptionMinimized)
   }
 
   func apply(liveCaptionState state: LiveCaptionStatePayload) -> Bool {
-    liveCaptionOpacity = clampedOpacity(state.opacity)
+    applyLiveCaptionOpacity(state.opacity)
     let positionChanged = applyLiveCaptionPosition(state.position)
     let minimizedChanged = applyLiveCaptionMinimized(state.minimized)
     return positionChanged || minimizedChanged
   }
 
   func setFloatingBarOpacity(_ value: Double) {
-    let nextValue = clampedOpacity(value)
+    let nextValue = clampedFloatingBarOpacity(value)
     guard floatingBarOpacity != nextValue else { return }
     floatingBarOpacity = nextValue
+    pendingFloatingBarOpacity = nextValue
     RustBridge.floatingBarSettingsChanged(
       FloatingOverlaySettingsChangePayload(floatingBarOpacity: nextValue))
   }
 
   func setLiveCaptionOpacity(_ value: Double) {
-    let nextValue = clampedOpacity(value)
+    let nextValue = clampedLiveCaptionOpacity(value)
     guard liveCaptionOpacity != nextValue else { return }
     liveCaptionOpacity = nextValue
+    pendingLiveCaptionOpacity = nextValue
     RustBridge.floatingBarSettingsChanged(
       FloatingOverlaySettingsChangePayload(liveCaptionOpacity: nextValue))
   }
