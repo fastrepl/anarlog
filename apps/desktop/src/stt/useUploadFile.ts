@@ -22,7 +22,16 @@ import { getEnhancerService } from "~/services/enhancer";
 import * as main from "~/store/tinybase/store/main";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 
-export const AUDIO_EXTENSIONS = ["wav", "mp3", "ogg", "mp4", "m4a", "flac"];
+export const AUDIO_EXTENSIONS = [
+  "wav",
+  "mp3",
+  "ogg",
+  "mp4",
+  "m4a",
+  "flac",
+  "webm",
+  "aac",
+];
 const TRANSCRIPT_EXTENSIONS = ["vtt", "srt"];
 
 function fileExtension(value: string) {

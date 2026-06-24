@@ -71,11 +71,11 @@ vi.mock("~/shared/hooks/useFileUpload", () => ({
 }));
 
 vi.mock("~/stt/useUploadFile", () => ({
-  AUDIO_EXTENSIONS: ["wav", "mp3", "ogg", "mp4", "m4a", "flac"],
+  AUDIO_EXTENSIONS: ["wav", "mp3", "ogg", "mp4", "m4a", "flac", "webm", "aac"],
   isAudioUploadFile: (file: Pick<File, "name" | "type">) =>
     file.type.startsWith("audio/") ||
-    ["wav", "mp3", "ogg", "mp4", "m4a", "flac"].some((extension) =>
-      file.name.endsWith(`.${extension}`),
+    ["wav", "mp3", "ogg", "mp4", "m4a", "flac", "webm", "aac"].some(
+      (extension) => file.name.endsWith(`.${extension}`),
     ),
   useUploadFile: () => ({ processAudioFile: hoisted.processAudioFile }),
 }));
@@ -219,12 +219,48 @@ describe("EnhancedEditor", () => {
 
     const props = hoisted.noteEditorProps[hoisted.noteEditorProps.length - 1];
     const fileHandlerConfig = props?.fileHandlerConfig as {
-      onDrop: (files: File[]) => boolean | void;
+      onDrop: (files: File[]) => boolean | void | { remainingFiles: File[] };
     };
     const file = { name: "clip.mp3", type: "audio/mpeg" } as File;
 
     expect(fileHandlerConfig.onDrop([file])).toBe(true);
     expect(hoisted.processAudioFile).toHaveBeenCalledWith(file);
+  });
+
+  it("keeps non-audio files available when audio is dropped with attachments", () => {
+    render(<EnhancedEditor sessionId="session-1" enhancedNoteId="note-1" />);
+
+    const props = hoisted.noteEditorProps[hoisted.noteEditorProps.length - 1];
+    const fileHandlerConfig = props?.fileHandlerConfig as {
+      onDrop: (files: File[]) => boolean | void | { remainingFiles: File[] };
+    };
+    const audioFile = { name: "clip.mp3", type: "audio/mpeg" } as File;
+    const imageFile = { name: "photo.png", type: "image/png" } as File;
+
+    expect(fileHandlerConfig.onDrop([audioFile, imageFile])).toEqual({
+      remainingFiles: [imageFile],
+    });
+    expect(hoisted.processAudioFile).toHaveBeenCalledTimes(1);
+    expect(hoisted.processAudioFile).toHaveBeenCalledWith(audioFile);
+  });
+
+  it("only imports the first audio file from a multi-audio drop", () => {
+    render(<EnhancedEditor sessionId="session-1" enhancedNoteId="note-1" />);
+
+    const props = hoisted.noteEditorProps[hoisted.noteEditorProps.length - 1];
+    const fileHandlerConfig = props?.fileHandlerConfig as {
+      onDrop: (files: File[]) => boolean | void | { remainingFiles: File[] };
+    };
+    const firstAudioFile = { name: "first.mp3", type: "audio/mpeg" } as File;
+    const secondAudioFile = { name: "second.m4a", type: "" } as File;
+
+    expect(fileHandlerConfig.onDrop([firstAudioFile, secondAudioFile])).toEqual(
+      {
+        remainingFiles: [secondAudioFile],
+      },
+    );
+    expect(hoisted.processAudioFile).toHaveBeenCalledTimes(1);
+    expect(hoisted.processAudioFile).toHaveBeenCalledWith(firstAudioFile);
   });
 
   it("shows an audio upload overlay and intercepts audio drops", async () => {
@@ -241,7 +277,7 @@ describe("EnhancedEditor", () => {
       screen.getByText("Drop to upload and transcribe audio"),
     ).not.toBeNull();
     expect(
-      screen.getByText("WAV, MP3, OGG, MP4, M4A, or FLAC audio"),
+      screen.getByText("WAV, MP3, OGG, MP4, M4A, FLAC, WEBM, or AAC audio"),
     ).not.toBeNull();
     await waitFor(() => expect(hoisted.focusWindow).toHaveBeenCalledTimes(1));
     expect(hoisted.showWindow).toHaveBeenCalledTimes(1);

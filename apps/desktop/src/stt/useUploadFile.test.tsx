@@ -3,7 +3,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-import { useUploadFile } from "./useUploadFile";
+import { isAudioUploadFile, useUploadFile } from "./useUploadFile";
 
 const {
   audioImportDataMock,
@@ -165,4 +165,35 @@ describe("useUploadFile", () => {
     );
     expect(handleBatchFailedMock).not.toHaveBeenCalled();
   });
+
+  test.each(["webm", "aac"])(
+    "imports pathless .%s drops without MIME",
+    async (extension) => {
+      const { result } = renderHook(() => useUploadFile("session-1"), {
+        wrapper: createWrapper(),
+      });
+      const file = new File([new Uint8Array([1, 2, 3])], `drop.${extension}`, {
+        type: "",
+        lastModified: 1_700_000_000_000,
+      });
+      Object.defineProperty(file, "arrayBuffer", {
+        value: vi.fn().mockResolvedValue(new Uint8Array([1, 2, 3]).buffer),
+      });
+
+      expect(isAudioUploadFile(file)).toBe(true);
+
+      act(() => {
+        result.current.processAudioFile(file);
+      });
+
+      await waitFor(() => {
+        expect(audioImportDataMock).toHaveBeenCalled();
+      });
+      expect(audioImportDataMock).toHaveBeenCalledWith(
+        "session-1",
+        [1, 2, 3],
+        `drop.${extension}`,
+      );
+    },
+  );
 });

@@ -20,22 +20,33 @@ export function useNoteFileHandlerConfig(sessionId: string) {
   const [isAudioDragActive, setIsAudioDragActive] = useState(false);
   const audioDragDepthRef = useRef(0);
 
-  const processAudioFiles = useCallback(
-    (files: File[]) => {
-      const audioFiles = files.filter(isAudioUploadFile);
-      if (audioFiles.length === 0) {
-        return false;
+  const processAudioDrop = useCallback(
+    (files: File[], items?: DataTransferItemList) => {
+      const audioDrop = getAudioDrop(files, items);
+      if (!audioDrop) {
+        return null;
       }
 
-      audioFiles.forEach((file) => processAudioFile(file));
-      return true;
+      if (audioDrop.allowUnknownAudio) {
+        processAudioFile(audioDrop.audioFile, { allowUnknownAudio: true });
+      } else {
+        processAudioFile(audioDrop.audioFile);
+      }
+      return { remainingFiles: audioDrop.remainingFiles };
     },
     [processAudioFile],
   );
 
   const handleDrop = useCallback(
-    (files: File[]) => (processAudioFiles(files) ? true : undefined),
-    [processAudioFiles],
+    (files: File[], _pos?: number, items?: DataTransferItemList) => {
+      const result = processAudioDrop(files, items);
+      if (!result) {
+        return undefined;
+      }
+
+      return result.remainingFiles.length === 0 ? true : result;
+    },
+    [processAudioDrop],
   );
 
   const resetAudioDrag = useCallback(() => {
@@ -55,7 +66,7 @@ export function useNoteFileHandlerConfig(sessionId: string) {
 
   const handleDragEnterCapture = useCallback(
     (event: DragEvent<HTMLDivElement>) => {
-      if (!hasAudioUploadDrag(event.dataTransfer)) {
+      if (!hasSingleAudioUploadDrag(event.dataTransfer)) {
         return;
       }
 
@@ -73,7 +84,7 @@ export function useNoteFileHandlerConfig(sessionId: string) {
     (event: DragEvent<HTMLDivElement>) => {
       if (
         audioDragDepthRef.current === 0 &&
-        !hasAudioUploadDrag(event.dataTransfer)
+        !hasSingleAudioUploadDrag(event.dataTransfer)
       ) {
         return;
       }
@@ -87,7 +98,7 @@ export function useNoteFileHandlerConfig(sessionId: string) {
     (event: DragEvent<HTMLDivElement>) => {
       if (
         audioDragDepthRef.current === 0 &&
-        !hasAudioUploadDrag(event.dataTransfer)
+        !hasSingleAudioUploadDrag(event.dataTransfer)
       ) {
         return;
       }
@@ -105,15 +116,30 @@ export function useNoteFileHandlerConfig(sessionId: string) {
   const handleDropCapture = useCallback(
     (event: DragEvent<HTMLDivElement>) => {
       const files = Array.from(event.dataTransfer.files ?? []);
-      if (!processAudioFiles(files)) {
+      if (files.length !== 1) {
         return;
       }
 
+      const audioDrop = getAudioDrop(files, event.dataTransfer.items);
+      if (!audioDrop) {
+        return;
+      }
+
+      if (audioDrop.remainingFiles.length > 0) {
+        resetAudioDrag();
+        return;
+      }
+
+      if (audioDrop.allowUnknownAudio) {
+        processAudioFile(audioDrop.audioFile, { allowUnknownAudio: true });
+      } else {
+        processAudioFile(audioDrop.audioFile);
+      }
       event.preventDefault();
       event.stopPropagation();
       resetAudioDrag();
     },
-    [processAudioFiles, resetAudioDrag],
+    [processAudioFile, resetAudioDrag],
   );
 
   const fileHandlerConfig = useMemo<FileHandlerConfig>(
@@ -148,24 +174,48 @@ export function useNoteFileHandlerConfig(sessionId: string) {
   );
 }
 
-function hasAudioUploadDrag(dataTransfer: DataTransfer) {
+function hasSingleAudioUploadDrag(dataTransfer: DataTransfer) {
   const items = Array.from(dataTransfer.items ?? []);
   if (items.length > 0) {
-    return items.some((item) => {
-      if (item.kind !== "file") {
-        return false;
-      }
+    if (items.length !== 1) {
+      return false;
+    }
 
-      if (item.type.startsWith("audio/")) {
-        return true;
-      }
+    const [item] = items;
+    if (item.kind !== "file") {
+      return false;
+    }
 
-      const file = item.getAsFile();
-      return file ? isAudioUploadFile(file) : false;
-    });
+    if (item.type.startsWith("audio/")) {
+      return true;
+    }
+
+    const file = item.getAsFile();
+    return file ? isAudioUploadFile(file) : false;
   }
 
-  return Array.from(dataTransfer.files ?? []).some(isAudioUploadFile);
+  const files = Array.from(dataTransfer.files ?? []);
+  return files.length === 1 && isAudioUploadFile(files[0]);
+}
+
+function getAudioDrop(files: File[], items?: DataTransferItemList) {
+  const dataTransferItems = Array.from(items ?? []);
+  const audioFile = files.find((file, index) =>
+    isAudioDropFile(file, dataTransferItems[index]),
+  );
+  if (!audioFile) {
+    return null;
+  }
+
+  return {
+    allowUnknownAudio: !isAudioUploadFile(audioFile),
+    audioFile,
+    remainingFiles: files.filter((file) => file !== audioFile),
+  };
+}
+
+function isAudioDropFile(file: File, item?: DataTransferItem) {
+  return isAudioUploadFile(file) || item?.type.startsWith("audio/") === true;
 }
 
 function focusCurrentWindowForAudioDrop() {

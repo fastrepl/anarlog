@@ -7,8 +7,14 @@ export type FileUploadResult = {
   path: string;
 };
 
+export type FileDropResult = boolean | void | { remainingFiles: File[] };
+
 export type FileHandlerConfig = {
-  onDrop?: (files: File[], pos?: number) => boolean | void;
+  onDrop?: (
+    files: File[],
+    pos?: number,
+    items?: DataTransferItemList,
+  ) => FileDropResult;
   onPaste?: (files: File[]) => boolean | void;
   onFileUpload?: (file: File) => Promise<FileUploadResult>;
 };
@@ -17,6 +23,17 @@ const IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"];
 
 function isImageFile(file: File) {
   return IMAGE_MIME_TYPES.includes(file.type);
+}
+
+function isFileDropRemainder(
+  result: FileDropResult,
+): result is { remainingFiles: File[] } {
+  return Boolean(
+    result &&
+    typeof result === "object" &&
+    "remainingFiles" in result &&
+    Array.isArray(result.remainingFiles),
+  );
 }
 
 export function fileHandlerPlugin(config: FileHandlerConfig) {
@@ -105,9 +122,15 @@ export function fileHandlerPlugin(config: FileHandlerConfig) {
         })?.pos;
 
         if (config.onDrop) {
-          const result = config.onDrop(files, pos);
+          const result = config.onDrop(files, pos, event.dataTransfer?.items);
           if (result === true) return true;
           if (result === false) return false;
+          if (isFileDropRemainder(result)) {
+            if (result.remainingFiles.length === 0) return true;
+
+            handleFiles(view, result.remainingFiles, pos);
+            return true;
+          }
         }
 
         handleFiles(view, files, pos);
