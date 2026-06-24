@@ -33,20 +33,30 @@ enum LiveCaptionPosition: String, Codable, CaseIterable {
     let leftX = frame.minX + margin
     let rightX = frame.maxX - size.width - margin
 
+    let origin: NSPoint
     switch self {
     case .topCenter:
-      return NSPoint(x: centerX, y: topY)
+      origin = NSPoint(x: centerX, y: topY)
     case .topLeft:
-      return NSPoint(x: leftX, y: topY)
+      origin = NSPoint(x: leftX, y: topY)
     case .topRight:
-      return NSPoint(x: rightX, y: topY)
+      origin = NSPoint(x: rightX, y: topY)
     case .bottomLeft:
-      return NSPoint(x: leftX, y: bottomY)
+      origin = NSPoint(x: leftX, y: bottomY)
     case .bottomRight:
-      return NSPoint(x: rightX, y: bottomY)
+      origin = NSPoint(x: rightX, y: bottomY)
     case .bottomCenter:
-      return NSPoint(x: centerX, y: bottomY)
+      origin = NSPoint(x: centerX, y: bottomY)
     }
+
+    let minX = frame.minX + margin
+    let maxX = max(minX, frame.maxX - margin - size.width)
+    let minY = frame.minY + margin
+    let maxY = max(minY, frame.maxY - margin - size.height)
+
+    return NSPoint(
+      x: min(max(origin.x, minX), maxX),
+      y: min(max(origin.y, minY), maxY))
   }
 
 }
