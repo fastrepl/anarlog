@@ -62,8 +62,18 @@ export function useSessionBottomAccessory({
 
   const showBatchProgress = isRunningBatch && !shouldDeferToGlobalLiveAccessory;
   const showPostSession =
+<<<<<<< New base: Hide transcribing bottom panel
     showBatchProgress ||
     (!shouldDeferToGlobalLiveAccessory && isInactive && hasPastNotes);
+||||||| Common ancestor
+    isRunningBatch ||
+    (!shouldDeferToGlobalLiveAccessory && isInactive && hasPastNotes);
+=======
+    !isRunningBatch &&
+    !shouldDeferToGlobalLiveAccessory &&
+    isInactive &&
+    hasPastNotes;
+>>>>>>> Current commit: Show transcription tab spinner
   const selectPostSessionTab = useCallback(
     (tab: PostSessionTab) => {
       setPostSessionTab(tab);

@@ -499,7 +499,13 @@ describe("useSessionBottomAccessory", () => {
     expect(result.current.bottomBorderHandle).toBeNull();
   });
 
+<<<<<<< New base: Hide transcribing bottom panel
   it("keeps batch stop control available while batch transcription is running", () => {
+||||||| Common ancestor
+  it("keeps batch progress visible while batch transcription is running", () => {
+=======
+  it("hides the bottom accessory while batch transcription is running", () => {
+>>>>>>> Current commit: Show transcription tab spinner
     const { result } = renderHook(() =>
       useSessionBottomAccessory({
         sessionId: "session-1",
@@ -509,15 +515,26 @@ describe("useSessionBottomAccessory", () => {
       }),
     );
 
+<<<<<<< New base: Hide transcribing bottom panel
     expect(result.current.bottomAccessoryState).toEqual({
       mode: "playback",
       expanded: false,
     });
     expect(isValidElement(result.current.bottomAccessory)).toBe(true);
+||||||| Common ancestor
+    expect(result.current.bottomAccessoryState).toEqual({
+      mode: "playback",
+      expanded: false,
+    });
+    expect(result.current.bottomAccessory).not.toBeNull();
+=======
+    expect(result.current.bottomAccessoryState).toBeNull();
+    expect(result.current.bottomAccessory).toBeNull();
+>>>>>>> Current commit: Show transcription tab spinner
     expect(result.current.bottomBorderHandle).toBeNull();
   });
 
-  it("shows batch progress when regeneration starts", () => {
+  it("keeps the bottom accessory hidden when regeneration starts", () => {
     const { result, rerender } = renderHook(
       ({ sessionMode }: { sessionMode: string }) =>
         useSessionBottomAccessory({
@@ -538,11 +555,22 @@ describe("useSessionBottomAccessory", () => {
 
     rerender({ sessionMode: "running_batch" });
 
+<<<<<<< New base: Hide transcribing bottom panel
     expect(result.current.bottomAccessoryState).toEqual({
       mode: "playback",
       expanded: false,
     });
     expect(isValidElement(result.current.bottomAccessory)).toBe(true);
+||||||| Common ancestor
+    expect(result.current.bottomAccessoryState).toEqual({
+      mode: "playback",
+      expanded: false,
+    });
+    expect(result.current.bottomAccessory).not.toBeNull();
+=======
+    expect(result.current.bottomAccessoryState).toBeNull();
+    expect(result.current.bottomAccessory).toBeNull();
+>>>>>>> Current commit: Show transcription tab spinner
     expect(result.current.bottomBorderHandle).toBeNull();
   });
 

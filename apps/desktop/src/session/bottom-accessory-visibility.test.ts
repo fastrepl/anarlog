@@ -74,4 +74,17 @@ describe("shouldShowSessionBottomAccessory", () => {
       }),
     ).toBe(false);
   });
+
+  it("hides batch transcription status outside the transcript tab", () => {
+    expect(
+      shouldShowSessionBottomAccessory({
+        currentView: { type: "raw" },
+        sessionMode: "running_batch",
+        bottomAccessoryState: {
+          mode: "playback",
+          expanded: false,
+        },
+      }),
+    ).toBe(false);
+  });
 });
