@@ -33,7 +33,6 @@ const hoisted = vi.hoisted(() => ({
     isGenerating: boolean;
   }>,
   batch: {} as Record<string, { error: string | null }>,
-  generateMissingPastNotes: vi.fn(),
   regenerateInsights: vi.fn(),
 }));
 
@@ -63,7 +62,6 @@ vi.mock("./past-notes", () => ({
     hasPastNotes: hoisted.pastNotes.length > 0,
     isGenerating: false,
     canGenerate: true,
-    generateMissing: hoisted.generateMissingPastNotes,
     regenerate: vi.fn(),
     regenerateAll: hoisted.regenerateInsights,
   }),
@@ -107,7 +105,6 @@ describe("useSessionBottomAccessory", () => {
     hoisted.live.liveTranscriptionActive = true;
     hoisted.pastNotes = [];
     hoisted.batch = {};
-    hoisted.generateMissingPastNotes.mockClear();
     hoisted.regenerateInsights.mockClear();
     useShellMock.mockReturnValue({
       chat: {
@@ -221,7 +218,7 @@ describe("useSessionBottomAccessory", () => {
       handle.props.onSelect("insights");
     });
 
-    expect(hoisted.generateMissingPastNotes).toHaveBeenCalledTimes(1);
+    expect(hoisted.regenerateInsights).not.toHaveBeenCalled();
     expect(result.current.bottomAccessoryState).toEqual({
       mode: "transcript_only",
       expanded: true,
@@ -259,7 +256,7 @@ describe("useSessionBottomAccessory", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Expand Insights" }));
 
-    expect(hoisted.generateMissingPastNotes).toHaveBeenCalledTimes(1);
+    expect(hoisted.regenerateInsights).not.toHaveBeenCalled();
     expect(result.current.bottomAccessoryState).toEqual({
       mode: "transcript_only",
       expanded: true,

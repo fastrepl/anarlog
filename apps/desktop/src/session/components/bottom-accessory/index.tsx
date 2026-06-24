@@ -54,7 +54,6 @@ export function useSessionBottomAccessory({
     enabled: shouldLoadPastNotes,
   });
   const hasPastNotes = pastNotes.hasPastNotes;
-  const generateMissingPastNotes = pastNotes.generateMissing;
   const activePostSessionTab: PostSessionTab = hasPastNotes
     ? (postSessionTab ?? "insights")
     : "transcript";
@@ -66,17 +65,12 @@ export function useSessionBottomAccessory({
     (!shouldDeferToGlobalLiveAccessory && isInactive && hasPastNotes);
   const selectPostSessionTab = useCallback(
     (tab: PostSessionTab) => {
-      const shouldExpand = activePostSessionTab !== tab || !isExpanded;
-      if (tab === "insights" && shouldExpand) {
-        generateMissingPastNotes();
-      }
-
       setPostSessionTab(tab);
       setIsExpanded((expanded) =>
         activePostSessionTab === tab ? !expanded : true,
       );
     },
-    [activePostSessionTab, generateMissingPastNotes, isExpanded],
+    [activePostSessionTab],
   );
 
   useHotkeys(

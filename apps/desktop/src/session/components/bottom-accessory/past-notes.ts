@@ -43,7 +43,6 @@ export type PastSessionNotesResult = {
   hasPastNotes: boolean;
   isGenerating: boolean;
   canGenerate: boolean;
-  generateMissing: () => void;
   regenerate: (sessionId: string) => void;
   regenerateAll: () => void;
 };
@@ -157,19 +156,6 @@ export function usePastSessionNotes(
     [built.notes, generatingIds, mutation.isPending],
   );
 
-  const generateMissing = useCallback(() => {
-    if (
-      !enabled ||
-      !model ||
-      built.missing.length === 0 ||
-      mutation.isPending
-    ) {
-      return;
-    }
-
-    mutation.mutate(built.missing);
-  }, [built.missing, enabled, model, mutation]);
-
   const regenerate = useCallback(
     (targetSessionId: string) => {
       if (!enabled || !model || mutation.isPending) {
@@ -206,7 +192,6 @@ export function usePastSessionNotes(
     hasPastNotes: notes.length > 0,
     isGenerating: mutation.isPending,
     canGenerate: enabled && Boolean(model),
-    generateMissing,
     regenerate,
     regenerateAll,
   };
