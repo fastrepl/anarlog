@@ -1,6 +1,7 @@
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use rayon::prelude::*;
 use serde_json::Value;
@@ -235,6 +236,62 @@ pub(crate) async fn audio_import<R: tauri::Runtime>(
         crate::audio::import_to_session(&runtime, &session_id, &session_dir, &source_path)
             .map(|path| path.to_string_lossy().to_string())
             .map_err(|e| e.to_string())
+    })
+}
+
+fn audio_import_source_extension(filename: &str) -> String {
+    let extension = Path::new(filename)
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(str::to_ascii_lowercase);
+
+    match extension.as_deref() {
+        Some("wav" | "mp3" | "ogg" | "mp4" | "m4a" | "flac") => extension.unwrap(),
+        _ => "mp3".to_string(),
+    }
+}
+
+fn audio_import_source_path(session_dir: &Path, filename: &str) -> PathBuf {
+    let extension = audio_import_source_extension(filename);
+    let nonce = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or_default();
+
+    session_dir.join(format!(
+        "audio-upload-{}-{}.{}",
+        std::process::id(),
+        nonce,
+        extension
+    ))
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn audio_import_data<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    session_id: String,
+    data: Vec<u8>,
+    filename: String,
+) -> Result<String, String> {
+    let session_dir = resolve_session_dir(&app, &session_id)?;
+    let runtime = crate::runtime::TauriAudioImportRuntime::new(app);
+    spawn_blocking!({
+        std::fs::create_dir_all(&session_dir).map_err(|e| e.to_string())?;
+
+        let source_path = audio_import_source_path(&session_dir, &filename);
+        std::fs::write(&source_path, data).map_err(|e| e.to_string())?;
+
+        let result =
+            crate::audio::import_to_session(&runtime, &session_id, &session_dir, &source_path)
+                .map(|path| path.to_string_lossy().to_string())
+                .map_err(|e| e.to_string());
+
+        if source_path.exists() {
+            let _ = std::fs::remove_file(&source_path);
+        }
+
+        result
     })
 }
 

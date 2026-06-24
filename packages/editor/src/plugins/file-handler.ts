@@ -106,6 +106,7 @@ export function fileHandlerPlugin(config: FileHandlerConfig) {
 
         if (config.onDrop) {
           const result = config.onDrop(files, pos);
+          if (result === true) return true;
           if (result === false) return false;
         }
 
@@ -119,6 +120,7 @@ export function fileHandlerPlugin(config: FileHandlerConfig) {
 
         if (config.onPaste) {
           const result = config.onPaste(files);
+          if (result === true) return true;
           if (result === false) return false;
         }
 

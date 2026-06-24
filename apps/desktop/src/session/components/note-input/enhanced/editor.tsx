@@ -8,6 +8,9 @@ import {
   type NoteEditorRef,
 } from "@hypr/editor/note";
 
+import { AudioDropTarget } from "../audio-drop-target";
+import { useNoteFileHandlerConfig } from "../file-handler";
+
 import { AppLinkView } from "~/editor-bridge/app-link-view";
 import { useMentionConfig } from "~/editor-bridge/mention-config";
 import { openEditorLink } from "~/editor-bridge/open-editor-link";
@@ -18,7 +21,6 @@ import {
   ensureFirstLineTitle,
   extractFirstLineTitle,
 } from "~/session/title-content";
-import { useFileUpload } from "~/shared/hooks/useFileUpload";
 import * as main from "~/store/tinybase/store/main";
 
 const extraNodeViews = { appLink: AppLinkView, session: SessionNodeView };
@@ -45,7 +47,8 @@ export const EnhancedEditor = forwardRef<
     },
     ref,
   ) => {
-    const onFileUpload = useFileUpload(sessionId);
+    const { audioDropTargetProps, fileHandlerConfig, isAudioDragActive } =
+      useNoteFileHandlerConfig(sessionId);
     const content = main.UI.useCell(
       "enhanced_notes",
       enhancedNoteId,
@@ -98,11 +101,14 @@ export const EnhancedEditor = forwardRef<
       [content, persistContent, persistSessionTitle],
     );
 
-    const fileHandlerConfig = useMemo(() => ({ onFileUpload }), [onFileUpload]);
     const mentionConfig = useMentionConfig();
 
     return (
-      <div className="h-full">
+      <AudioDropTarget
+        className="h-full"
+        targetProps={audioDropTargetProps}
+        isActive={isAudioDragActive}
+      >
         <NoteEditor
           ref={ref}
           className="session-note-editor enhanced-summary-editor"
@@ -124,7 +130,7 @@ export const EnhancedEditor = forwardRef<
           onViewDisposed={onViewDisposed}
           syncContentWhenFocused={!persistChanges}
         />
-      </div>
+      </AudioDropTarget>
     );
   },
 );

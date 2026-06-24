@@ -22,8 +22,24 @@ import { getEnhancerService } from "~/services/enhancer";
 import * as main from "~/store/tinybase/store/main";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 
-const AUDIO_EXTENSIONS = ["wav", "mp3", "ogg", "mp4", "m4a", "flac"];
+export const AUDIO_EXTENSIONS = ["wav", "mp3", "ogg", "mp4", "m4a", "flac"];
 const TRANSCRIPT_EXTENSIONS = ["vtt", "srt"];
+
+function fileExtension(value: string) {
+  const extension = value.toLowerCase().split(".").pop();
+  return extension && extension !== value.toLowerCase() ? extension : "";
+}
+
+export function isAudioUploadFile(file: Pick<File, "name" | "type">) {
+  return (
+    AUDIO_EXTENSIONS.includes(fileExtension(file.name)) ||
+    file.type.startsWith("audio/")
+  );
+}
+
+function isAudioUploadPath(path: string) {
+  return AUDIO_EXTENSIONS.includes(fileExtension(path));
+}
 
 export function useUploadFile(sessionId: string) {
   const runBatch = useRunBatch(sessionId);
@@ -93,6 +109,134 @@ export function useUploadFile(sessionId: string) {
     [sessionId, store],
   );
 
+  const applyDroppedAudioNoteDate = useCallback(
+    async (file: File) => {
+      try {
+        if (!store) {
+          return;
+        }
+
+        const eventJson = store.getCell("sessions", sessionId, "event_json");
+        if (typeof eventJson === "string" && eventJson.trim()) {
+          return;
+        }
+
+        if (!Number.isFinite(file.lastModified) || file.lastModified <= 0) {
+          return;
+        }
+
+        store.setCell(
+          "sessions",
+          sessionId,
+          "created_at",
+          new Date(file.lastModified).toISOString(),
+        );
+      } catch (error) {
+        console.error("[upload] dropped audio date inspection failed:", error);
+      }
+    },
+    [sessionId, store],
+  );
+
+  const importWithProgress = useCallback(
+    async (
+      runImport: () => Promise<
+        | { status: "ok"; data: string }
+        | {
+            status: "error";
+            error: string;
+          }
+      >,
+    ) => {
+      const unlisten = await fsSyncEvents.audioImportEvent.listen((e) => {
+        if (
+          e.payload.type === "audioImportProgress" &&
+          e.payload.session_id === sessionId
+        ) {
+          updateBatchProgress(sessionId, e.payload.percentage);
+        }
+      });
+
+      try {
+        const result = await runImport();
+        if (result.status === "error") {
+          throw new Error(result.error);
+        }
+        return result.data;
+      } finally {
+        unlisten();
+      }
+    },
+    [sessionId, updateBatchProgress],
+  );
+
+  const runAudioImport = useCallback(
+    (
+      importAudio: () => Promise<string>,
+      inspectAudioDate: () => Promise<void>,
+    ) => {
+      const program = pipe(
+        Effect.promise(inspectAudioDate),
+        Effect.tap(() =>
+          Effect.sync(() => {
+            handleBatchStarted(sessionId, "importing");
+          }),
+        ),
+        Effect.flatMap(() =>
+          Effect.tryPromise({
+            try: importAudio,
+            catch: (error) =>
+              error instanceof Error ? error : new Error(String(error)),
+          }),
+        ),
+        Effect.tap(() =>
+          Effect.sync(() => {
+            void analyticsCommands.event({
+              event: "file_uploaded",
+              file_type: "audio",
+            });
+            void queryClient.invalidateQueries({
+              queryKey: ["audio", sessionId, "exist"],
+            });
+            void queryClient.invalidateQueries({
+              queryKey: ["audio", sessionId, "url"],
+            });
+          }),
+        ),
+        Effect.tap(() => Effect.sync(() => clearBatchSession(sessionId))),
+        Effect.flatMap((importedPath) =>
+          Effect.tryPromise({
+            try: () => runBatch(importedPath),
+            catch: (error) => error,
+          }),
+        ),
+        Effect.tap(() => Effect.sync(() => triggerEnhanceIfSummaryEmpty())),
+        Effect.catchAll((error: unknown) =>
+          Effect.sync(() => {
+            if (isStoppedTranscriptionError(error)) {
+              return;
+            }
+            const msg = error instanceof Error ? error.message : String(error);
+            handleBatchFailed(sessionId, msg);
+          }),
+        ),
+      );
+
+      Effect.runPromise(program).catch((error) => {
+        console.error("[upload] audio failed:", error);
+      });
+    },
+    [
+      clearBatchSession,
+      handleBatchFailed,
+      handleBatchStarted,
+      queryClient,
+      runBatch,
+      sessionId,
+      triggerEnhanceIfSummaryEmpty,
+    ],
+  );
+
   const processFile = useCallback(
     (filePath: string, kind: "audio" | "transcript") => {
       const normalizedPath = filePath.toLowerCase();
@@ -157,107 +301,53 @@ export function useUploadFile(sessionId: string) {
         return;
       }
 
-      if (
-        !normalizedPath.endsWith(".wav") &&
-        !normalizedPath.endsWith(".mp3") &&
-        !normalizedPath.endsWith(".ogg") &&
-        !normalizedPath.endsWith(".mp4") &&
-        !normalizedPath.endsWith(".m4a") &&
-        !normalizedPath.endsWith(".flac")
-      ) {
+      if (!isAudioUploadPath(normalizedPath)) {
         return;
       }
 
-      const program = pipe(
-        Effect.promise(() => applyEstimatedAudioNoteDate(filePath)),
-        Effect.tap(() =>
-          Effect.sync(() => {
-            handleBatchStarted(sessionId, "importing");
-          }),
-        ),
-        Effect.flatMap(() =>
-          Effect.tryPromise({
-            try: async () => {
-              const unlisten = await fsSyncEvents.audioImportEvent.listen(
-                (e) => {
-                  if (
-                    e.payload.type === "audioImportProgress" &&
-                    e.payload.session_id === sessionId
-                  ) {
-                    updateBatchProgress(sessionId, e.payload.percentage);
-                  }
-                },
-              );
-              try {
-                const result = await fsSyncCommands.audioImport(
-                  sessionId,
-                  filePath,
-                );
-                if (result.status === "error") {
-                  throw new Error(result.error);
-                }
-                return result.data;
-              } finally {
-                unlisten();
-              }
-            },
-            catch: (error) =>
-              error instanceof Error ? error : new Error(String(error)),
-          }),
-        ),
-        Effect.tap(() =>
-          Effect.sync(() => {
-            void analyticsCommands.event({
-              event: "file_uploaded",
-              file_type: "audio",
-            });
-            void queryClient.invalidateQueries({
-              queryKey: ["audio", sessionId, "exist"],
-            });
-            void queryClient.invalidateQueries({
-              queryKey: ["audio", sessionId, "url"],
-            });
-          }),
-        ),
-        Effect.tap(() => Effect.sync(() => clearBatchSession(sessionId))),
-        Effect.flatMap((importedPath) =>
-          Effect.tryPromise({
-            try: () => runBatch(importedPath),
-            catch: (error) => error,
-          }),
-        ),
-        Effect.tap(() => Effect.sync(() => triggerEnhanceIfSummaryEmpty())),
-        Effect.catchAll((error: unknown) =>
-          Effect.sync(() => {
-            if (isStoppedTranscriptionError(error)) {
-              return;
-            }
-            const msg = error instanceof Error ? error.message : String(error);
-            handleBatchFailed(sessionId, msg);
-          }),
-        ),
+      runAudioImport(
+        () =>
+          importWithProgress(() =>
+            fsSyncCommands.audioImport(sessionId, filePath),
+          ),
+        () => applyEstimatedAudioNoteDate(filePath),
       );
-
-      Effect.runPromise(program).catch((error) => {
-        console.error("[upload] audio failed:", error);
-      });
     },
     [
-      clearBatchSession,
-      handleBatchFailed,
-      handleBatchStarted,
-      updateBatchProgress,
-      queryClient,
-      runBatch,
       sessionId,
-      sessionTab,
       store,
       triggerEnhance,
-      triggerEnhanceIfSummaryEmpty,
       applyEstimatedAudioNoteDate,
-      updateSessionTabState,
+      importWithProgress,
+      runAudioImport,
       user_id,
     ],
+  );
+
+  const processAudioFile = useCallback(
+    (file: File, options?: { allowUnknownAudio?: boolean }) => {
+      if (!options?.allowUnknownAudio && !isAudioUploadFile(file)) {
+        return;
+      }
+
+      const filePath = audioUploadFilePath(file);
+      runAudioImport(
+        async () => {
+          if (filePath) {
+            return importWithProgress(() =>
+              fsSyncCommands.audioImport(sessionId, filePath),
+            );
+          }
+
+          const data = Array.from(new Uint8Array(await file.arrayBuffer()));
+          return importWithProgress(() =>
+            fsSyncCommands.audioImportData(sessionId, data, file.name),
+          );
+        },
+        () => applyDroppedAudioNoteDate(file),
+      );
+    },
+    [applyDroppedAudioNoteDate, importWithProgress, runAudioImport, sessionId],
   );
 
   const selectAndUpload = useCallback(
@@ -305,5 +395,10 @@ export function useUploadFile(sessionId: string) {
     [selectAndUpload],
   );
 
-  return { uploadAudio, uploadTranscript, processFile };
+  return { uploadAudio, uploadTranscript, processFile, processAudioFile };
+}
+
+function audioUploadFilePath(file: File) {
+  const value = (file as { path?: unknown }).path;
+  return typeof value === "string" && value.trim() ? value : null;
 }

@@ -110,6 +110,14 @@ async audioImport(sessionId: string, sourcePath: string) : Promise<Result<string
     else return { status: "error", error: e  as any };
 }
 },
+async audioImportData(sessionId: string, data: number[], filename: string) : Promise<Result<string, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:fs-sync|audio_import_data", { sessionId, data, filename }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async audioSourceMetadata(sourcePath: string) : Promise<Result<AudioSourceMetadata, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:fs-sync|audio_source_metadata", { sourcePath }) };
