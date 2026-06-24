@@ -28,15 +28,12 @@ final class FloatingBarManager {
 
       let panel = self.createPanel()
       let hostingView = NSHostingView(
-        rootView: FloatingBarView(model: self.model, settings: self.settingsModel) {
-          [weak self] in
-          self?.toggleSettingsPanel()
-        })
+        rootView: FloatingBarView(model: self.model, settings: self.settingsModel))
       hostingView.frame = NSRect(
         x: 0,
         y: 0,
-        width: FloatingBarLayout.containerWidth,
-        height: FloatingBarLayout.containerHeight)
+        width: self.currentSize.width,
+        height: self.currentSize.height)
       hostingView.autoresizingMask = [.width, .height]
 
       panel.contentView = hostingView
@@ -64,7 +61,12 @@ final class FloatingBarManager {
       self.model.status = state.status
       self.model.amplitude = min(max(state.amplitude, 0), 1)
       self.model.colorScheme = state.colorScheme
+      self.model.liveCaptionToggleVisible = state.liveCaptionToggleVisible
       self.settingsModel.apply(floatingBarState: state)
+      if let panel = self.panel {
+        self.resize(panel)
+        self.position(panel, force: true)
+      }
     }
   }
 
@@ -74,7 +76,7 @@ final class FloatingBarManager {
         x: 0,
         y: 0,
         width: FloatingBarLayout.containerWidth,
-        height: FloatingBarLayout.containerHeight),
+        height: currentSize.height),
       styleMask: [.borderless, .nonactivatingPanel],
       backing: .buffered,
       defer: false
@@ -94,18 +96,38 @@ final class FloatingBarManager {
   }
 
   private func position(_ panel: NSPanel, force: Bool = false) {
+    let size = currentSize
     placement.position(
       panel,
       force: force,
-      size: NSSize(
-        width: FloatingBarLayout.containerWidth,
-        height: FloatingBarLayout.containerHeight)
+      size: size
     ) { screen, size in
       let frame = screen.visibleFrame
       let x = frame.maxX - size.width - FloatingBarLayout.screenMargin
       let y = frame.midY - size.height / 2 - FloatingBarLayout.visualCenterOffset
       return NSPoint(x: x, y: y)
     }
+  }
+
+  private func resize(_ panel: NSPanel) {
+    let size = currentSize
+    guard panel.frame.size != size else { return }
+
+    panel.setFrame(
+      NSRect(
+        x: panel.frame.minX,
+        y: panel.frame.midY - size.height / 2,
+        width: size.width,
+        height: size.height),
+      display: true)
+    panel.contentView?.frame = NSRect(origin: .zero, size: size)
+  }
+
+  private var currentSize: NSSize {
+    let controlCount: CGFloat = model.liveCaptionToggleVisible ? 3 : 2
+    return NSSize(
+      width: FloatingBarLayout.containerWidth,
+      height: FloatingBarLayout.containerHeight(forControlCount: controlCount))
   }
 
   private func startFollowingActiveScreen() {
@@ -138,7 +160,4 @@ final class FloatingBarManager {
     }
   }
 
-  private func toggleSettingsPanel() {
-    FloatingOverlaySettingsPanelManager.shared.toggle(anchor: panel)
-  }
 }

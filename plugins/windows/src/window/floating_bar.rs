@@ -27,6 +27,7 @@ pub struct FloatingBarState {
     pub live_caption_opacity: f64,
     pub live_caption_position: LiveCaptionPosition,
     pub live_caption_minimized: bool,
+    pub live_caption_toggle_visible: bool,
 }
 
 #[cfg(target_os = "macos")]

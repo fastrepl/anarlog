@@ -18,4 +18,5 @@ struct FloatingBarStatePayload: Codable {
   let liveCaptionOpacity: Double
   let liveCaptionPosition: LiveCaptionPosition
   let liveCaptionMinimized: Bool
+  let liveCaptionToggleVisible: Bool
 }

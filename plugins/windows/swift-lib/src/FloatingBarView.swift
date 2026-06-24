@@ -9,11 +9,8 @@ enum FloatingBarLayout {
   static let stopSquareSize: CGFloat = 9
   static let clickAreaSize: CGFloat = 28
   static let clickAreaGap: CGFloat = 0
-  static let controlCount: CGFloat = 3
   static let pillPadding: CGFloat = 2
   static let pillWidth: CGFloat = clickAreaSize + pillPadding * 2
-  static let pillHeight: CGFloat =
-    clickAreaSize * controlCount + clickAreaGap * (controlCount - 1) + pillPadding * 2
   static let hoverHandleGap: CGFloat = 3
   static let hoverHandleWidth: CGFloat = 13
   static let hoverHandleHeight: CGFloat = 8
@@ -23,15 +20,21 @@ enum FloatingBarLayout {
   static let hoverHandleDotSize: CGFloat = 1.6
   static let hoverHandleDotGap: CGFloat = 2.4
   static let containerWidth: CGFloat = pillWidth + inset * 2
-  static let containerHeight: CGFloat = pillHeight + hoverHandleReservedHeight + inset * 2
   static let visualCenterOffset: CGFloat = hoverHandleReservedHeight / 2
   static let dragClickThreshold: CGFloat = 4
+
+  static func pillHeight(forControlCount controlCount: CGFloat) -> CGFloat {
+    clickAreaSize * controlCount + clickAreaGap * (controlCount - 1) + pillPadding * 2
+  }
+
+  static func containerHeight(forControlCount controlCount: CGFloat) -> CGFloat {
+    pillHeight(forControlCount: controlCount) + hoverHandleReservedHeight + inset * 2
+  }
 }
 
 struct FloatingBarView: View {
   @ObservedObject var model: FloatingBarViewModel
   @ObservedObject var settings: FloatingOverlaySettingsModel
-  let onOpenSettings: () -> Void
   @State private var isBarHovered = false
   @State private var isBarsHovered = false
   @State private var suppressNextClick = false
@@ -49,8 +52,8 @@ struct FloatingBarView: View {
     .frame(
       width: FloatingBarLayout.pillWidth,
       height: isBarHovered
-        ? FloatingBarLayout.pillHeight + FloatingBarLayout.hoverHandleReservedHeight
-        : FloatingBarLayout.pillHeight,
+        ? pillHeight + FloatingBarLayout.hoverHandleReservedHeight
+        : pillHeight,
       alignment: .top
     )
     .contentShape(Capsule(style: .continuous))
@@ -73,7 +76,7 @@ struct FloatingBarView: View {
     .padding(FloatingBarLayout.inset)
     .frame(
       width: FloatingBarLayout.containerWidth,
-      height: FloatingBarLayout.containerHeight,
+      height: containerHeight,
       alignment: .top
     )
     .contentShape(Rectangle())
@@ -92,45 +95,67 @@ struct FloatingBarView: View {
       }
       .buttonStyle(.plain)
 
-      Button(action: { performClick(RustBridge.stopListening) }) {
-        CircularClickArea(
-          hoverFill: accentColor.opacity(0.16),
-          onHoverChange: { isBarsHovered = $0 }
-        ) {
-          Group {
-            if isBarsHovered {
-              Rectangle()
-                .fill(stopColor)
-                .frame(
-                  width: FloatingBarLayout.stopSquareSize,
-                  height: FloatingBarLayout.stopSquareSize
-                )
-            } else if model.status == .error {
-              ErrorMark(color: errorAccentColor)
-            } else {
-              DancingBars(color: accentColor, amplitude: model.amplitude)
-            }
+      if model.liveCaptionToggleVisible {
+        Button(action: { performClick(toggleLiveCaption) }) {
+          CircularClickArea(
+            hoverFill: settings.liveCaptionMinimized ? controlHoverFill : accentColor.opacity(0.16)
+          ) {
+            Image(systemName: "captions.bubble")
+              .font(.system(size: 12, weight: .semibold))
+              .foregroundStyle(settings.liveCaptionMinimized ? primaryContentColor : accentColor)
           }
-          .frame(
-            width: FloatingBarLayout.waveformWidth,
-            height: FloatingBarLayout.waveformHeight
-          )
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel(
+          settings.liveCaptionMinimized ? "Show live transcript" : "Hide live transcript"
+        )
       }
-      .buttonStyle(.plain)
 
-      Button(action: { performClick(onOpenSettings) }) {
-        CircularClickArea(hoverFill: controlHoverFill) {
-          Image(systemName: "slider.horizontal.3")
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(primaryContentColor)
-        }
-      }
-      .buttonStyle(.plain)
-      .accessibilityLabel("Floating settings")
+      audioControl
     }
     .padding(FloatingBarLayout.pillPadding)
-    .frame(width: FloatingBarLayout.pillWidth, height: FloatingBarLayout.pillHeight)
+    .frame(width: FloatingBarLayout.pillWidth, height: pillHeight)
+  }
+
+  private var audioControl: some View {
+    Button(action: { performClick(RustBridge.stopListening) }) {
+      CircularClickArea(
+        hoverFill: accentColor.opacity(0.16),
+        onHoverChange: { isBarsHovered = $0 }
+      ) {
+        Group {
+          if isBarsHovered {
+            Rectangle()
+              .fill(stopColor)
+              .frame(
+                width: FloatingBarLayout.stopSquareSize,
+                height: FloatingBarLayout.stopSquareSize
+              )
+          } else if model.status == .error {
+            ErrorMark(color: errorAccentColor)
+          } else {
+            DancingBars(color: accentColor, amplitude: model.amplitude)
+          }
+        }
+        .frame(
+          width: FloatingBarLayout.waveformWidth,
+          height: FloatingBarLayout.waveformHeight
+        )
+      }
+    }
+    .buttonStyle(.plain)
+  }
+
+  private var controlCount: CGFloat {
+    model.liveCaptionToggleVisible ? 3 : 2
+  }
+
+  private var pillHeight: CGFloat {
+    FloatingBarLayout.pillHeight(forControlCount: controlCount)
+  }
+
+  private var containerHeight: CGFloat {
+    FloatingBarLayout.containerHeight(forControlCount: controlCount)
   }
 
   private var accentColor: Color {
@@ -203,6 +228,10 @@ struct FloatingBarView: View {
     }
 
     action()
+  }
+
+  private func toggleLiveCaption() {
+    settings.setLiveCaptionMinimized(!settings.liveCaptionMinimized)
   }
 }
 

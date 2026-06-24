@@ -347,6 +347,7 @@ export type FloatingBarState = {
   liveCaptionOpacity: number;
   liveCaptionPosition: LiveCaptionPosition;
   liveCaptionMinimized: boolean;
+  liveCaptionToggleVisible: boolean;
 };
 export type FloatingBarSettingsChange = {
   floatingBarOpacity: number | null;

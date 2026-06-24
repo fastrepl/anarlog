@@ -4,6 +4,7 @@ import {
   getCurrentFloatingBarColorScheme,
   getFloatingRouteState,
   getLiveCaptionRouteState,
+  shouldShowFloatingLiveCaptionToggle,
 } from "./host";
 
 import { createListenerStore } from "~/store/zustand/listener";
@@ -57,7 +58,23 @@ describe("getFloatingRouteState", () => {
       liveCaptionOpacity: 0.3,
       liveCaptionPosition: "topCenter",
       liveCaptionMinimized: false,
+      liveCaptionToggleVisible: false,
     });
+  });
+
+  it("marks the transcript toggle visible for cloud live transcription", () => {
+    expect(
+      getFloatingRouteState(
+        createListenerState({
+          status: "active",
+          sessionId: "session-1",
+          liveTranscriptionActive: true,
+        }),
+        {
+          liveCaptionToggleVisible: true,
+        },
+      )?.liveCaptionToggleVisible,
+    ).toBe(true);
   });
 
   it("returns error status when live transcription degrades", () => {
@@ -128,7 +145,7 @@ describe("getLiveCaptionRouteState", () => {
     });
   });
 
-  it("keeps the minimized caption restore control visible without text", () => {
+  it("hides captions when the floating bar toggle has hidden them", () => {
     expect(
       getLiveCaptionRouteState(
         createListenerStateWithCaption(
@@ -146,13 +163,7 @@ describe("getLiveCaptionRouteState", () => {
           liveCaptionMinimized: true,
         },
       ),
-    ).toEqual({
-      sessionId: "session-1",
-      text: "",
-      opacity: 0.66,
-      position: "bottomRight",
-      minimized: true,
-    });
+    ).toBeNull();
   });
 
   it("hides captions before live transcription is active", () => {
@@ -183,5 +194,37 @@ describe("getLiveCaptionRouteState", () => {
         ),
       ),
     ).toBeNull();
+  });
+});
+
+describe("shouldShowFloatingLiveCaptionToggle", () => {
+  it("shows for active Hyprnote cloud live transcription", () => {
+    expect(
+      shouldShowFloatingLiveCaptionToggle({
+        provider: "hyprnote",
+        model: "cloud",
+        liveTranscriptionActive: true,
+      }),
+    ).toBe(true);
+  });
+
+  it("hides for local realtime transcription", () => {
+    expect(
+      shouldShowFloatingLiveCaptionToggle({
+        provider: "hyprnote",
+        model: "soniqo-parakeet-streaming",
+        liveTranscriptionActive: true,
+      }),
+    ).toBe(false);
+  });
+
+  it("hides before live transcription is active", () => {
+    expect(
+      shouldShowFloatingLiveCaptionToggle({
+        provider: "hyprnote",
+        model: "cloud",
+        liveTranscriptionActive: false,
+      }),
+    ).toBe(false);
   });
 });
