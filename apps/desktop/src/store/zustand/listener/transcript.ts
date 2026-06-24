@@ -10,6 +10,7 @@ import type {
 import type { RuntimeSpeakerHint, WordLike } from "~/stt/segment";
 
 type WordsByChannel = Record<number, WordLike[]>;
+type LiveCaptionFinalWord = LiveTranscriptDelta["new_words"][number];
 
 export type BatchPersistCallback = (
   words: WordLike[],
@@ -34,6 +35,7 @@ export type OnStoppedCallback = (
 export type TranscriptState = {
   liveSegments: LiveTranscriptSegment[];
   liveSegmentsById: Record<string, LiveTranscriptSegment>;
+  liveCaptionFinalWordsById: Record<string, LiveCaptionFinalWord>;
   liveCaptionText: string;
   partialWordsByChannel: WordsByChannel;
   partialHintsByChannel: Record<number, RuntimeSpeakerHint[]>;
@@ -60,6 +62,7 @@ export type TranscriptActions = {
 const initialState: TranscriptState = {
   liveSegments: [],
   liveSegmentsById: {},
+  liveCaptionFinalWordsById: {},
   liveCaptionText: "",
   partialWordsByChannel: {},
   partialHintsByChannel: {},
@@ -101,14 +104,16 @@ export const createTranscriptSlice = <
     const { wordsByChannel, hintsByChannel } = groupPartialsByChannel(
       delta.partials,
     );
-    const captionText = getCaptionTextFromDelta(delta, get().liveCaptionText);
 
     if (options?.updateLivePreview !== false) {
       set((state) =>
         mutate(state, (draft) => {
-          if (captionText !== null) {
-            draft.liveCaptionText = captionText;
-          }
+          updateLiveCaptionFinalWords(draft.liveCaptionFinalWordsById, delta);
+          draft.liveCaptionText = getCaptionTextFromDelta(
+            delta,
+            draft.liveCaptionFinalWordsById,
+            draft.liveCaptionText,
+          );
           draft.partialWordsByChannel = wordsByChannel;
           draft.partialHintsByChannel = hintsByChannel;
         }),
@@ -151,6 +156,7 @@ export const createTranscriptSlice = <
       mutate(state, (draft) => {
         draft.liveSegments = [];
         draft.liveSegmentsById = {};
+        draft.liveCaptionFinalWordsById = {};
         draft.liveCaptionText = "";
         draft.partialWordsByChannel = {};
         draft.partialHintsByChannel = {};
@@ -194,19 +200,44 @@ function groupPartialsByChannel(partials: LiveTranscriptDelta["partials"]): {
 
 function getCaptionTextFromDelta(
   delta: LiveTranscriptDelta,
+  finalWordsById: Record<string, LiveCaptionFinalWord>,
   currentCaptionText: string,
-): string | null {
-  const words =
-    delta.partials.length > 0 || currentCaptionText.length === 0
-      ? delta.partials.length > 0
-        ? delta.partials
-        : delta.new_words
-      : null;
+): string {
+  const finalWords = Object.values(finalWordsById).sort(
+    (a, b) => a.start_ms - b.start_ms,
+  );
 
-  if (!words) {
-    return null;
+  if (delta.partials.length > 0) {
+    return wordsToText([...finalWords, ...delta.partials]);
   }
 
+  if (finalWords.length > 0) {
+    const finalCaptionText = wordsToText(finalWords);
+    if (
+      currentCaptionText.length === 0 ||
+      finalCaptionText.length >= currentCaptionText.length
+    ) {
+      return finalCaptionText;
+    }
+  }
+
+  return currentCaptionText;
+}
+
+function updateLiveCaptionFinalWords(
+  finalWordsById: Record<string, LiveCaptionFinalWord>,
+  delta: LiveTranscriptDelta,
+) {
+  for (const replacedId of delta.replaced_ids) {
+    delete finalWordsById[replacedId];
+  }
+
+  for (const word of delta.new_words) {
+    finalWordsById[word.id] = word;
+  }
+}
+
+function wordsToText(words: Array<{ text: string; start_ms: number }>): string {
   return words
     .slice()
     .sort((a, b) => a.start_ms - b.start_ms)

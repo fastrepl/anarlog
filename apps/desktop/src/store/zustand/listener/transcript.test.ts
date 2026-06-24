@@ -143,6 +143,92 @@ describe("transcript slice", () => {
     expect(store.getState().liveCaptionText).toBe("hello remote again");
   });
 
+  test("appends delayed partials after finalized caption text", () => {
+    store.getState().handleTranscriptDelta("session-1", {
+      new_words: [
+        {
+          id: "word-1",
+          text: " hello",
+          start_ms: 0,
+          end_ms: 100,
+          channel: 0,
+          state: "final",
+          speaker_index: null,
+        },
+        {
+          id: "word-2",
+          text: " there",
+          start_ms: 120,
+          end_ms: 220,
+          channel: 0,
+          state: "final",
+          speaker_index: null,
+        },
+      ],
+      replaced_ids: [],
+      partials: [],
+    });
+
+    store.getState().handleTranscriptDelta("session-1", {
+      new_words: [],
+      replaced_ids: [],
+      partials: [
+        {
+          text: " checking",
+          start_ms: 900,
+          end_ms: 1000,
+          channel: 0,
+          speaker_index: null,
+        },
+        {
+          text: " again",
+          start_ms: 1020,
+          end_ms: 1120,
+          channel: 0,
+          speaker_index: null,
+        },
+      ],
+    });
+
+    expect(store.getState().liveCaptionText).toBe("hello there checking again");
+  });
+
+  test("appends delayed finalized words after finalized caption text", () => {
+    store.getState().handleTranscriptDelta("session-1", {
+      new_words: [
+        {
+          id: "word-1",
+          text: " hello",
+          start_ms: 0,
+          end_ms: 100,
+          channel: 0,
+          state: "final",
+          speaker_index: null,
+        },
+      ],
+      replaced_ids: [],
+      partials: [],
+    });
+
+    store.getState().handleTranscriptDelta("session-1", {
+      new_words: [
+        {
+          id: "word-2",
+          text: " again",
+          start_ms: 800,
+          end_ms: 900,
+          channel: 0,
+          state: "final",
+          speaker_index: null,
+        },
+      ],
+      replaced_ids: [],
+      partials: [],
+    });
+
+    expect(store.getState().liveCaptionText).toBe("hello again");
+  });
+
   test("keeps the previous live caption text when a delta has no words", () => {
     store.getState().handleTranscriptDelta("session-1", createDelta());
     store.getState().handleTranscriptDelta("session-1", {
