@@ -19,6 +19,7 @@ import type { TaskArgsMapTransformed, TaskConfig } from ".";
 import type { EnhanceImageContext } from "./enhance-images";
 import { createEnhanceValidator } from "./enhance-validator";
 
+import { deterministicGenerationSettings } from "~/ai/model-settings";
 import type { Store } from "~/store/tinybase/store/main";
 import { normalizeBulletPoints } from "~/store/zustand/ai-task/shared/transform_impl";
 import { withEarlyValidationRetry } from "~/store/zustand/ai-task/shared/validate";
@@ -205,7 +206,7 @@ async function generateStructuredOutput<T extends z.ZodTypeAny>(params: {
   try {
     const result = await generateText({
       model,
-      temperature: 0,
+      ...deterministicGenerationSettings(model),
       output: Output.object({ schema }),
       abortSignal: signal,
       maxRetries: AI_GENERATION_MAX_RETRIES,
@@ -222,7 +223,7 @@ async function generateStructuredOutput<T extends z.ZodTypeAny>(params: {
     try {
       const fallbackResult = await generateText({
         model,
-        temperature: 0,
+        ...deterministicGenerationSettings(model),
         abortSignal: signal,
         maxRetries: AI_GENERATION_MAX_RETRIES,
         maxOutputTokens: TEMPLATE_MAX_OUTPUT_TOKENS,

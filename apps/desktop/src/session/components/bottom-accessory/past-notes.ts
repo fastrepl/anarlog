@@ -13,6 +13,7 @@ import systemPromptTemplate from "./past-note-key-facts.system.md.jinja?raw";
 import userPromptTemplate from "./past-note-key-facts.user.md.jinja?raw";
 
 import { useLanguageModel } from "~/ai/hooks";
+import { deterministicGenerationSettings } from "~/ai/model-settings";
 import { extractPlainText } from "~/search/contexts/engine/utils";
 import { getSessionEvent } from "~/session/utils";
 import { showTransientToast } from "~/sidebar/toast/transient";
@@ -386,7 +387,7 @@ async function generatePastSessionKeyFacts({
 
   const result = await generateText({
     model,
-    temperature: 0,
+    ...deterministicGenerationSettings(model),
     system,
     prompt,
     output: Output.object({ schema: keyFactsSchema }),

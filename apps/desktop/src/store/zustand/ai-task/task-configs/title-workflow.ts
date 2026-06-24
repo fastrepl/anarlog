@@ -4,6 +4,7 @@ import { commands as templateCommands } from "@hypr/plugin-template";
 
 import type { TaskArgsMapTransformed, TaskConfig } from ".";
 
+import { deterministicGenerationSettings } from "~/ai/model-settings";
 import type { Store } from "~/store/tinybase/store/main";
 
 const AI_GENERATION_MAX_RETRIES = 4;
@@ -34,7 +35,7 @@ async function* executeWorkflow(params: {
   const id = generateId();
   const result = streamText({
     model,
-    temperature: 0,
+    ...deterministicGenerationSettings(model),
     system,
     prompt,
     abortSignal: signal,

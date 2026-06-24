@@ -13,6 +13,7 @@ import type {
   SessionEvent,
 } from "@hypr/store";
 
+import { deterministicGenerationSettings } from "~/ai/model-settings";
 import { DEFAULT_USER_ID, id } from "~/shared/utils";
 import type * as main from "~/store/tinybase/store/main";
 
@@ -106,7 +107,7 @@ export async function extractEventContacts({
 
   const result = await generateText({
     model,
-    temperature: 0,
+    ...deterministicGenerationSettings(model),
     maxRetries: 2,
     maxOutputTokens: 384,
     system,
