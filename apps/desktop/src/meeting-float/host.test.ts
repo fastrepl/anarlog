@@ -204,7 +204,7 @@ describe("getLiveCaptionRouteState", () => {
 });
 
 describe("shouldShowFloatingLiveCaptionToggle", () => {
-  it("shows for active Hyprnote cloud live transcription", () => {
+  it("shows for active live transcription", () => {
     expect(
       shouldShowFloatingLiveCaptionToggle({
         provider: "hyprnote",
@@ -214,14 +214,14 @@ describe("shouldShowFloatingLiveCaptionToggle", () => {
     ).toBe(true);
   });
 
-  it("hides for local realtime transcription", () => {
+  it("shows for local realtime transcription", () => {
     expect(
       shouldShowFloatingLiveCaptionToggle({
         provider: "hyprnote",
         model: "soniqo-parakeet-streaming",
         liveTranscriptionActive: true,
       }),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("hides before live transcription is active", () => {
