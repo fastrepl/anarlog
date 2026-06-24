@@ -11,7 +11,9 @@ import * as settingsStore from "~/store/tinybase/store/settings";
 import { listenerStore } from "~/store/zustand/listener/instance";
 
 type ListenerState = ReturnType<typeof listenerStore.getState>;
-type SettingsStore = NonNullable<ReturnType<typeof settingsStore.UI.useStore>>;
+export type SettingsStore = NonNullable<
+  ReturnType<typeof settingsStore.UI.useStore>
+>;
 type FloatingBarStatus = "recording" | "error";
 type FloatingBarColorScheme = "light" | "dark";
 type LiveCaptionPosition =
@@ -24,6 +26,8 @@ type LiveCaptionPosition =
 type FloatingOverlaySettings = {
   floatingBarOpacity: number;
   liveCaptionOpacity: number;
+  liveCaptionWidth: number;
+  liveCaptionLineCount: number;
   liveCaptionPosition: LiveCaptionPosition;
   liveCaptionMinimized: boolean;
 };
@@ -31,6 +35,8 @@ type FloatingOverlaySettingsStorage = Pick<
   GeneralStorage,
   | "floating_bar_opacity"
   | "live_caption_opacity"
+  | "live_caption_width"
+  | "live_caption_line_count"
   | "live_caption_position"
   | "live_caption_minimized"
 >;
@@ -41,23 +47,39 @@ type FloatingRouteState = {
   colorScheme: FloatingBarColorScheme;
   opacity: number;
   liveCaptionOpacity: number;
+  liveCaptionWidth: number;
+  liveCaptionLineCount: number;
   liveCaptionPosition: LiveCaptionPosition;
   liveCaptionMinimized: boolean;
+  liveCaptionToggleVisible: boolean;
 };
 type LiveCaptionRouteState = {
   sessionId: string;
   text: string;
   opacity: number;
+  width: number;
+  lineCount: number;
   position: LiveCaptionPosition;
   minimized: boolean;
 };
 
 const DEFAULT_FLOATING_OVERLAY_SETTINGS: FloatingOverlaySettings = {
   floatingBarOpacity: 0.78,
-  liveCaptionOpacity: 0.78,
+  liveCaptionOpacity: 0.3,
+  liveCaptionWidth: 440,
+  liveCaptionLineCount: 1,
   liveCaptionPosition: "topCenter",
   liveCaptionMinimized: false,
 };
+
+const FLOATING_BAR_MIN_OPACITY = 0.35;
+const FLOATING_BAR_MAX_OPACITY = 0.95;
+const LIVE_CAPTION_MIN_OPACITY = 0.05;
+const LIVE_CAPTION_MAX_OPACITY = 1;
+const LIVE_CAPTION_MIN_WIDTH = 260;
+const LIVE_CAPTION_MAX_WIDTH = 640;
+const LIVE_CAPTION_MIN_LINE_COUNT = 1;
+const LIVE_CAPTION_MAX_LINE_COUNT = 4;
 
 const LIVE_CAPTION_POSITIONS: ReadonlySet<string> = new Set([
   "topCenter",
@@ -71,8 +93,12 @@ const LIVE_CAPTION_POSITIONS: ReadonlySet<string> = new Set([
 const FLOATING_OVERLAY_SETTING_KEYS = [
   "floating_bar_opacity",
   "live_caption_opacity",
+  "live_caption_width",
+  "live_caption_line_count",
   "live_caption_position",
   "live_caption_minimized",
+  "current_stt_provider",
+  "current_stt_model",
 ] as const;
 
 export function FloatingMeetingWindowHost() {
@@ -99,10 +125,26 @@ function getFloatingOverlaySettingsFromStore(
     floatingBarOpacity: normalizeOpacity(
       store?.getValue("floating_bar_opacity"),
       DEFAULT_FLOATING_OVERLAY_SETTINGS.floatingBarOpacity,
+      FLOATING_BAR_MIN_OPACITY,
+      FLOATING_BAR_MAX_OPACITY,
     ),
     liveCaptionOpacity: normalizeOpacity(
       store?.getValue("live_caption_opacity"),
       DEFAULT_FLOATING_OVERLAY_SETTINGS.liveCaptionOpacity,
+      LIVE_CAPTION_MIN_OPACITY,
+      LIVE_CAPTION_MAX_OPACITY,
+    ),
+    liveCaptionWidth: normalizeNumber(
+      store?.getValue("live_caption_width"),
+      DEFAULT_FLOATING_OVERLAY_SETTINGS.liveCaptionWidth,
+      LIVE_CAPTION_MIN_WIDTH,
+      LIVE_CAPTION_MAX_WIDTH,
+    ),
+    liveCaptionLineCount: normalizeInteger(
+      store?.getValue("live_caption_line_count"),
+      DEFAULT_FLOATING_OVERLAY_SETTINGS.liveCaptionLineCount,
+      LIVE_CAPTION_MIN_LINE_COUNT,
+      LIVE_CAPTION_MAX_LINE_COUNT,
     ),
     liveCaptionPosition: normalizeLiveCaptionPosition(
       store?.getValue("live_caption_position"),
@@ -177,8 +219,23 @@ function LiveCaptionWindowSync({
     let syncRequested = false;
     let cancelled = false;
     let shownSessionId: string | null = null;
+    const unlisteners: Array<() => void> = [];
 
     const shouldContinue = () => !cancelled;
+    const updateSettings = (nextSettings: FloatingOverlaySettings) => {
+      const nextRouteState = getLiveCaptionRouteState(
+        listenerStore.getState(),
+        nextSettings,
+      );
+
+      settings = nextSettings;
+      if (isSameLiveCaptionRouteState(nextRouteState, routeState)) {
+        return;
+      }
+
+      routeState = nextRouteState;
+      scheduleSync();
+    };
 
     const sync = async () => {
       if (!shouldContinue()) {
@@ -255,26 +312,36 @@ function LiveCaptionWindowSync({
     const settingsListenerIds = addFloatingOverlaySettingsListeners(
       store,
       () => {
-        const nextSettings = getFloatingOverlaySettingsFromStore(store);
-        const nextRouteState = getLiveCaptionRouteState(
-          listenerStore.getState(),
-          nextSettings,
-        );
-
-        settings = nextSettings;
-        if (isSameLiveCaptionRouteState(nextRouteState, routeState)) {
+        updateSettings(getFloatingOverlaySettingsFromStore(store));
+      },
+    );
+    windowsEvents.floatingBarSettingsChange
+      .listen((event) => {
+        if (cancelled) {
           return;
         }
 
-        routeState = nextRouteState;
-        scheduleSync();
-      },
-    );
+        updateSettings(
+          mergeFloatingOverlaySettings(
+            settings,
+            getSettingsValuesFromNativeChange(event.payload),
+          ),
+        );
+      })
+      .then((unlisten) => {
+        if (cancelled) {
+          unlisten();
+          return;
+        }
+
+        unlisteners.push(unlisten);
+      });
 
     return () => {
       cancelled = true;
       unsubscribe();
       removeSettingsListeners(store, settingsListenerIds);
+      unlisteners.forEach((unlisten) => unlisten());
       void hideLiveCaptionPanel();
     };
   });
@@ -293,6 +360,7 @@ function FloatingMeetingWindowSync({
       listenerStore.getState(),
       undefined,
       settings,
+      getFloatingLiveCaptionToggleVisible(listenerStore.getState(), store),
     );
     let syncQueued = false;
     let cancelled = false;
@@ -379,10 +447,18 @@ function FloatingMeetingWindowSync({
       const nextRouteState = getFloatingRouteState(state, {
         colorScheme,
         settings,
+        liveCaptionToggleVisible: getFloatingLiveCaptionToggleVisible(
+          state,
+          store,
+        ),
       });
       const previousRouteState = getFloatingRouteState(previousState, {
         colorScheme,
         settings,
+        liveCaptionToggleVisible: getFloatingLiveCaptionToggleVisible(
+          previousState,
+          store,
+        ),
       });
 
       if (isSameFloatingRouteState(nextRouteState, previousRouteState)) {
@@ -401,6 +477,7 @@ function FloatingMeetingWindowSync({
           listenerStore.getState(),
           undefined,
           nextSettings,
+          getFloatingLiveCaptionToggleVisible(listenerStore.getState(), store),
         );
 
         settings = nextSettings;
@@ -418,6 +495,7 @@ function FloatingMeetingWindowSync({
         listenerStore.getState(),
         undefined,
         settings,
+        getFloatingLiveCaptionToggleVisible(listenerStore.getState(), store),
       );
 
       if (isSameFloatingRouteState(nextRouteState, routeState)) {
@@ -447,10 +525,12 @@ export function getFloatingRouteState(
     sessionId,
     colorScheme = "dark",
     settings = DEFAULT_FLOATING_OVERLAY_SETTINGS,
+    liveCaptionToggleVisible = false,
   }: {
     sessionId?: string;
     colorScheme?: FloatingBarColorScheme;
     settings?: FloatingOverlaySettings;
+    liveCaptionToggleVisible?: boolean;
   } = {},
 ): FloatingRouteState | null {
   if (state.live.status !== "active") {
@@ -475,8 +555,11 @@ export function getFloatingRouteState(
     colorScheme,
     opacity: settings.floatingBarOpacity,
     liveCaptionOpacity: settings.liveCaptionOpacity,
+    liveCaptionWidth: settings.liveCaptionWidth,
+    liveCaptionLineCount: settings.liveCaptionLineCount,
     liveCaptionPosition: settings.liveCaptionPosition,
     liveCaptionMinimized: settings.liveCaptionMinimized,
+    liveCaptionToggleVisible,
   };
 }
 
@@ -484,11 +567,37 @@ function getCurrentFloatingRouteState(
   state: ListenerState,
   sessionId?: string,
   settings: FloatingOverlaySettings = DEFAULT_FLOATING_OVERLAY_SETTINGS,
+  liveCaptionToggleVisible = false,
 ): FloatingRouteState | null {
   return getFloatingRouteState(state, {
     sessionId,
     colorScheme: getCurrentFloatingBarColorScheme(),
     settings,
+    liveCaptionToggleVisible,
+  });
+}
+
+export function shouldShowFloatingLiveCaptionToggle({
+  liveTranscriptionActive,
+}: {
+  provider?: string | null;
+  model?: string | null;
+  liveTranscriptionActive: boolean;
+}) {
+  return liveTranscriptionActive;
+}
+
+function getFloatingLiveCaptionToggleVisible(
+  state: ListenerState,
+  store: SettingsStore | undefined,
+) {
+  const provider = store?.getValue("current_stt_provider");
+  const model = store?.getValue("current_stt_model");
+
+  return shouldShowFloatingLiveCaptionToggle({
+    provider: typeof provider === "string" ? provider : undefined,
+    model: typeof model === "string" ? model : undefined,
+    liveTranscriptionActive: state.live.liveTranscriptionActive === true,
   });
 }
 
@@ -508,17 +617,18 @@ export function getLiveCaptionRouteState(
     return null;
   }
 
-  const text = state.liveCaptionText.trim();
-  if (!text && !settings.liveCaptionMinimized) {
+  if (settings.liveCaptionMinimized) {
     return null;
   }
 
   return {
     sessionId: state.live.sessionId,
-    text,
+    text: state.liveCaptionText.trim(),
     opacity: settings.liveCaptionOpacity,
+    width: settings.liveCaptionWidth,
+    lineCount: settings.liveCaptionLineCount,
     position: settings.liveCaptionPosition,
-    minimized: settings.liveCaptionMinimized,
+    minimized: false,
   };
 }
 
@@ -590,8 +700,11 @@ function isSameFloatingRouteState(
     left?.colorScheme === right?.colorScheme &&
     left?.opacity === right?.opacity &&
     left?.liveCaptionOpacity === right?.liveCaptionOpacity &&
+    left?.liveCaptionWidth === right?.liveCaptionWidth &&
+    left?.liveCaptionLineCount === right?.liveCaptionLineCount &&
     left?.liveCaptionPosition === right?.liveCaptionPosition &&
-    left?.liveCaptionMinimized === right?.liveCaptionMinimized
+    left?.liveCaptionMinimized === right?.liveCaptionMinimized &&
+    left?.liveCaptionToggleVisible === right?.liveCaptionToggleVisible
   );
 }
 
@@ -603,6 +716,8 @@ function isSameLiveCaptionRouteState(
     left?.sessionId === right?.sessionId &&
     left?.text === right?.text &&
     left?.opacity === right?.opacity &&
+    left?.width === right?.width &&
+    left?.lineCount === right?.lineCount &&
     left?.position === right?.position &&
     left?.minimized === right?.minimized
   );
@@ -690,8 +805,11 @@ async function showFloatingMeetingWindow(
     colorScheme: routeState.colorScheme,
     opacity: routeState.opacity,
     liveCaptionOpacity: routeState.liveCaptionOpacity,
+    liveCaptionWidth: routeState.liveCaptionWidth,
+    liveCaptionLineCount: routeState.liveCaptionLineCount,
     liveCaptionPosition: routeState.liveCaptionPosition,
     liveCaptionMinimized: routeState.liveCaptionMinimized,
+    liveCaptionToggleVisible: routeState.liveCaptionToggleVisible,
   });
   if (!shouldContinue()) {
     await hideFloatingMeetingPanel();
@@ -734,6 +852,8 @@ async function showLiveCaptionWindow(
   const updateResult = await windowsCommands.liveCaptionUpdate({
     text: routeState.text,
     opacity: routeState.opacity,
+    width: routeState.width,
+    lineCount: routeState.lineCount,
     position: routeState.position,
     minimized: routeState.minimized,
   });
@@ -750,12 +870,35 @@ async function showLiveCaptionWindow(
   return true;
 }
 
-function normalizeOpacity(value: unknown, fallback: number): number {
+function normalizeOpacity(
+  value: unknown,
+  fallback: number,
+  min: number,
+  max: number,
+): number {
+  return normalizeNumber(value, fallback, min, max);
+}
+
+function normalizeNumber(
+  value: unknown,
+  fallback: number,
+  min: number,
+  max: number,
+): number {
   if (typeof value !== "number" || !Number.isFinite(value)) {
     return fallback;
   }
 
-  return Math.min(Math.max(value, 0.35), 0.95);
+  return Math.min(Math.max(value, min), max);
+}
+
+function normalizeInteger(
+  value: unknown,
+  fallback: number,
+  min: number,
+  max: number,
+): number {
+  return Math.round(normalizeNumber(value, fallback, min, max));
 }
 
 function normalizeLiveCaptionPosition(value: unknown): LiveCaptionPosition {
@@ -776,6 +919,8 @@ function getSettingsValuesFromNativeChange(change: FloatingBarSettingsChange) {
     values.floating_bar_opacity = normalizeOpacity(
       change.floatingBarOpacity,
       DEFAULT_FLOATING_OVERLAY_SETTINGS.floatingBarOpacity,
+      FLOATING_BAR_MIN_OPACITY,
+      FLOATING_BAR_MAX_OPACITY,
     );
   }
 
@@ -786,6 +931,32 @@ function getSettingsValuesFromNativeChange(change: FloatingBarSettingsChange) {
     values.live_caption_opacity = normalizeOpacity(
       change.liveCaptionOpacity,
       DEFAULT_FLOATING_OVERLAY_SETTINGS.liveCaptionOpacity,
+      LIVE_CAPTION_MIN_OPACITY,
+      LIVE_CAPTION_MAX_OPACITY,
+    );
+  }
+
+  if (
+    change.liveCaptionWidth !== null &&
+    change.liveCaptionWidth !== undefined
+  ) {
+    values.live_caption_width = normalizeNumber(
+      change.liveCaptionWidth,
+      DEFAULT_FLOATING_OVERLAY_SETTINGS.liveCaptionWidth,
+      LIVE_CAPTION_MIN_WIDTH,
+      LIVE_CAPTION_MAX_WIDTH,
+    );
+  }
+
+  if (
+    change.liveCaptionLineCount !== null &&
+    change.liveCaptionLineCount !== undefined
+  ) {
+    values.live_caption_line_count = normalizeInteger(
+      change.liveCaptionLineCount,
+      DEFAULT_FLOATING_OVERLAY_SETTINGS.liveCaptionLineCount,
+      LIVE_CAPTION_MIN_LINE_COUNT,
+      LIVE_CAPTION_MAX_LINE_COUNT,
     );
   }
 
@@ -808,21 +979,48 @@ function getSettingsValuesFromNativeChange(change: FloatingBarSettingsChange) {
   return values;
 }
 
+function mergeFloatingOverlaySettings(
+  settings: FloatingOverlaySettings,
+  values: Partial<FloatingOverlaySettingsStorage>,
+): FloatingOverlaySettings {
+  return {
+    ...settings,
+    floatingBarOpacity:
+      values.floating_bar_opacity ?? settings.floatingBarOpacity,
+    liveCaptionOpacity:
+      values.live_caption_opacity ?? settings.liveCaptionOpacity,
+    liveCaptionWidth: values.live_caption_width ?? settings.liveCaptionWidth,
+    liveCaptionLineCount:
+      values.live_caption_line_count ?? settings.liveCaptionLineCount,
+    liveCaptionPosition:
+      values.live_caption_position === undefined
+        ? settings.liveCaptionPosition
+        : normalizeLiveCaptionPosition(values.live_caption_position),
+    liveCaptionMinimized:
+      values.live_caption_minimized ?? settings.liveCaptionMinimized,
+  };
+}
+
 export async function openFloatingMeetingPanel({
   sessionId,
   enabled,
+  store,
 }: {
   sessionId?: string;
   enabled: boolean;
+  store?: SettingsStore;
 }) {
   if (!enabled) {
     await hideFloatingMeetingPanel();
     return;
   }
 
+  const state = listenerStore.getState();
   const routeState = getCurrentFloatingRouteState(
-    listenerStore.getState(),
+    state,
     sessionId,
+    getFloatingOverlaySettingsFromStore(store),
+    getFloatingLiveCaptionToggleVisible(state, store),
   );
 
   if (!routeState) {

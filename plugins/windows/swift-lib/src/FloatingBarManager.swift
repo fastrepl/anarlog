@@ -29,8 +29,6 @@ final class FloatingBarManager {
       let panel = self.createPanel()
       let hostingView = NSHostingView(
         rootView: FloatingBarView(model: self.model, settings: self.settingsModel))
-||||||| Common ancestor
-      let hostingView = NSHostingView(rootView: FloatingBarView(model: self.model))
       hostingView.frame = NSRect(
         x: 0,
         y: 0,
@@ -69,7 +67,6 @@ final class FloatingBarManager {
         self.resize(panel)
         self.position(panel, force: true)
       }
-||||||| Common ancestor
     }
   }
 
@@ -163,5 +160,4 @@ final class FloatingBarManager {
     }
   }
 
-||||||| Common ancestor
 }

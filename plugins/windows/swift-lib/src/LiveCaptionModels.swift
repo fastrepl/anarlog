@@ -60,8 +60,6 @@ enum LiveCaptionPosition: String, Codable, CaseIterable {
   }
 
 }
-||||||| Common ancestor
-import Foundation
 
 struct LiveCaptionStatePayload: Codable {
   let text: String
@@ -70,5 +68,4 @@ struct LiveCaptionStatePayload: Codable {
   let lineCount: Int
   let position: LiveCaptionPosition
   let minimized: Bool
-||||||| Common ancestor
 }

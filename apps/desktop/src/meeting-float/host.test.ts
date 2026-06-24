@@ -61,7 +61,6 @@ describe("getFloatingRouteState", () => {
       liveCaptionPosition: "topCenter",
       liveCaptionMinimized: false,
       liveCaptionToggleVisible: false,
-||||||| Common ancestor
     });
   });
 
@@ -147,8 +146,6 @@ describe("getLiveCaptionRouteState", () => {
       lineCount: 1,
       position: "topCenter",
       minimized: false,
-||||||| Common ancestor
-      opacity: 0.78,
     });
   });
 

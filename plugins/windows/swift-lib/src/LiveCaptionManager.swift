@@ -21,7 +21,6 @@ final class LiveCaptionManager {
 
       if let panel = self.panel {
         self.resize(panel)
-||||||| Common ancestor
         self.position(panel, force: true)
         self.startFollowingActiveScreen()
         panel.orderFrontRegardless()
@@ -36,8 +35,6 @@ final class LiveCaptionManager {
           onSetMinimized: { [weak self] minimized in
             self?.setMinimized(minimized)
           }))
-||||||| Common ancestor
-      let hostingView = NSHostingView(rootView: LiveCaptionView(model: self.model))
       hostingView.frame = NSRect(
         x: 0,
         y: 0,
@@ -94,8 +91,6 @@ final class LiveCaptionManager {
         }
         self.position(panel, force: true)
       }
-||||||| Common ancestor
-      self.model.opacity = min(max(state.opacity, 0.35), 0.95)
     }
   }
 
@@ -145,14 +140,6 @@ final class LiveCaptionManager {
   private var initialSize: NSSize {
     if settingsModel.liveCaptionMinimized {
       return LiveCaptionLayout.minimizedSize
-||||||| Common ancestor
-      let frame = screen.visibleFrame
-      let x = frame.midX - size.width / 2
-      let y = frame.maxY - size.height - LiveCaptionLayout.topOffset
-      return NSPoint(
-        x: min(max(x, frame.minX + LiveCaptionLayout.screenMargin), frame.maxX - size.width),
-        y: max(y, frame.minY + LiveCaptionLayout.screenMargin)
-      )
     }
 
     return NSSize(
@@ -223,7 +210,6 @@ final class LiveCaptionManager {
     resize(panel)
     panelDelegate.clearPinnedPosition()
     position(panel, force: true)
-||||||| Common ancestor
   }
 
   private func startFollowingActiveScreen() {

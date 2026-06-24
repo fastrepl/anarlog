@@ -290,7 +290,6 @@ export const generalSchema = z.object({
     ])
     .default("topCenter"),
   live_caption_minimized: z.boolean().default(false),
-||||||| Common ancestor
   show_app_in_dock: z.boolean().default(true),
   show_tray_icon: z.boolean().default(true),
   telemetry_consent: z.boolean().default(true),

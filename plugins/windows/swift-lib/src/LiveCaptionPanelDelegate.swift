@@ -4,7 +4,7 @@ final class LiveCaptionPanelDelegate: NSObject, NSWindowDelegate {
   private let placement = FloatingPanelPositionController()
   private let model: LiveCaptionViewModel
   private let settings: FloatingOverlaySettingsModel
-||||||| Common ancestor
+  private var snapMoveId = 0
 
   init(model: LiveCaptionViewModel, settings: FloatingOverlaySettingsModel) {
     self.model = model
@@ -38,9 +38,7 @@ final class LiveCaptionPanelDelegate: NSObject, NSWindowDelegate {
     let height = LiveCaptionLayout.height(forLineCount: lineCount)
 
     DispatchQueue.main.async { [weak self] in
-      guard let self else { return }
-      model.lineCount = lineCount
-      settings.setLiveCaptionSize(width: Double(width), lineCount: lineCount)
+      self?.model.lineCount = lineCount
     }
 
     return NSSize(width: width, height: height)
@@ -54,5 +52,23 @@ final class LiveCaptionPanelDelegate: NSObject, NSWindowDelegate {
     placement.setFrame(panel, to: frame, display: display, animate: animate)
   }
 
-||||||| Common ancestor
+  private func scheduleSnap(_ notification: Notification) {
+    guard let panel = notification.object as? NSPanel else { return }
+
+    snapMoveId += 1
+    let moveId = snapMoveId
+
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self, weak panel] in
+      guard let self, self.snapMoveId == moveId, let panel else { return }
+      guard NSEvent.pressedMouseButtons == 0 else { return }
+      guard let screen = panel.screen ?? NSScreen.main else { return }
+
+      let position = LiveCaptionPosition.nearest(to: panel.frame, in: screen.visibleFrame)
+      self.placement.clearPinnedOrigin()
+      self.settings.setLiveCaptionPosition(position)
+      self.position(panel, force: true) { screen, size in
+        position.origin(in: screen.visibleFrame, size: size)
+      }
+    }
+  }
 }
