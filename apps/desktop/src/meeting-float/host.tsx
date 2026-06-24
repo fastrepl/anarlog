@@ -5,12 +5,13 @@ import {
 } from "@hypr/plugin-windows";
 import type { GeneralStorage } from "@hypr/store";
 
-import { useConfigValue, useConfigValues } from "~/shared/config";
+import { useConfigValue } from "~/shared/config";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import * as settingsStore from "~/store/tinybase/store/settings";
 import { listenerStore } from "~/store/zustand/listener/instance";
 
 type ListenerState = ReturnType<typeof listenerStore.getState>;
+type SettingsStore = NonNullable<ReturnType<typeof settingsStore.UI.useStore>>;
 type FloatingBarStatus = "recording" | "error";
 type FloatingBarColorScheme = "light" | "dark";
 type LiveCaptionPosition =
@@ -67,51 +68,46 @@ const LIVE_CAPTION_POSITIONS: ReadonlySet<string> = new Set([
   "bottomCenter",
 ]);
 
+const FLOATING_OVERLAY_SETTING_KEYS = [
+  "floating_bar_opacity",
+  "live_caption_opacity",
+  "live_caption_position",
+  "live_caption_minimized",
+] as const;
+
 export function FloatingMeetingWindowHost() {
   const floatingBarEnabled = useConfigValue("floating_bar_enabled");
-  const overlaySettings = useFloatingOverlaySettings();
-  const overlaySettingsKey = getFloatingOverlaySettingsKey(overlaySettings);
+  const store = settingsStore.UI.useStore(settingsStore.STORE_ID);
 
   return (
     <>
       <FloatingOverlaySettingsEventSync />
       {floatingBarEnabled ? (
-        <FloatingMeetingWindowSync
-          key={`floating-${overlaySettingsKey}`}
-          settings={overlaySettings}
-        />
+        <FloatingMeetingWindowSync store={store} />
       ) : (
         <FloatingMeetingWindowDisabled />
       )}
-      <LiveCaptionWindowSync
-        key={`caption-${overlaySettingsKey}`}
-        settings={overlaySettings}
-      />
+      <LiveCaptionWindowSync store={store} />
     </>
   );
 }
 
-function useFloatingOverlaySettings(): FloatingOverlaySettings {
-  const values = useConfigValues([
-    "floating_bar_opacity",
-    "live_caption_opacity",
-    "live_caption_position",
-    "live_caption_minimized",
-  ] as const);
-
+function getFloatingOverlaySettingsFromStore(
+  store: SettingsStore | undefined,
+): FloatingOverlaySettings {
   return {
     floatingBarOpacity: normalizeOpacity(
-      values.floating_bar_opacity,
+      store?.getValue("floating_bar_opacity"),
       DEFAULT_FLOATING_OVERLAY_SETTINGS.floatingBarOpacity,
     ),
     liveCaptionOpacity: normalizeOpacity(
-      values.live_caption_opacity,
+      store?.getValue("live_caption_opacity"),
       DEFAULT_FLOATING_OVERLAY_SETTINGS.liveCaptionOpacity,
     ),
     liveCaptionPosition: normalizeLiveCaptionPosition(
-      values.live_caption_position,
+      store?.getValue("live_caption_position"),
     ),
-    liveCaptionMinimized: values.live_caption_minimized === true,
+    liveCaptionMinimized: store?.getValue("live_caption_minimized") === true,
   };
 }
 
@@ -166,11 +162,12 @@ function FloatingMeetingWindowDisabled() {
 }
 
 function LiveCaptionWindowSync({
-  settings,
+  store,
 }: {
-  settings: FloatingOverlaySettings;
+  store: SettingsStore | undefined;
 }) {
   useMountEffect(() => {
+    let settings = getFloatingOverlaySettingsFromStore(store);
     let routeState = getCurrentLiveCaptionRouteState(
       listenerStore.getState(),
       settings,
@@ -255,9 +252,29 @@ function LiveCaptionWindowSync({
       scheduleSync();
     });
 
+    const settingsListenerIds = addFloatingOverlaySettingsListeners(
+      store,
+      () => {
+        const nextSettings = getFloatingOverlaySettingsFromStore(store);
+        const nextRouteState = getLiveCaptionRouteState(
+          listenerStore.getState(),
+          nextSettings,
+        );
+
+        settings = nextSettings;
+        if (isSameLiveCaptionRouteState(nextRouteState, routeState)) {
+          return;
+        }
+
+        routeState = nextRouteState;
+        scheduleSync();
+      },
+    );
+
     return () => {
       cancelled = true;
       unsubscribe();
+      removeSettingsListeners(store, settingsListenerIds);
       void hideLiveCaptionPanel();
     };
   });
@@ -266,11 +283,12 @@ function LiveCaptionWindowSync({
 }
 
 function FloatingMeetingWindowSync({
-  settings,
+  store,
 }: {
-  settings: FloatingOverlaySettings;
+  store: SettingsStore | undefined;
 }) {
   useMountEffect(() => {
+    let settings = getFloatingOverlaySettingsFromStore(store);
     let routeState = getCurrentFloatingRouteState(
       listenerStore.getState(),
       undefined,
@@ -375,6 +393,26 @@ function FloatingMeetingWindowSync({
       scheduleSync();
     });
 
+    const settingsListenerIds = addFloatingOverlaySettingsListeners(
+      store,
+      () => {
+        const nextSettings = getFloatingOverlaySettingsFromStore(store);
+        const nextRouteState = getCurrentFloatingRouteState(
+          listenerStore.getState(),
+          undefined,
+          nextSettings,
+        );
+
+        settings = nextSettings;
+        if (isSameFloatingRouteState(nextRouteState, routeState)) {
+          return;
+        }
+
+        routeState = nextRouteState;
+        scheduleSync();
+      },
+    );
+
     const unsubscribeAppliedTheme = subscribeToAppliedTheme(() => {
       const nextRouteState = getCurrentFloatingRouteState(
         listenerStore.getState(),
@@ -394,6 +432,7 @@ function FloatingMeetingWindowSync({
       cancelled = true;
       unsubscribe();
       unsubscribeAppliedTheme();
+      removeSettingsListeners(store, settingsListenerIds);
       unlisteners.forEach((unlisten) => unlisten());
       void hideFloatingMeetingPanel();
     };
@@ -504,6 +543,32 @@ function subscribeToAppliedTheme(onStoreChange: () => void) {
     attributes: true,
   });
   return () => observer.disconnect();
+}
+
+function addFloatingOverlaySettingsListeners(
+  store: SettingsStore | undefined,
+  onChange: () => void,
+) {
+  if (!store) {
+    return [];
+  }
+
+  return FLOATING_OVERLAY_SETTING_KEYS.map((key) =>
+    store.addValueListener(key, onChange),
+  );
+}
+
+function removeSettingsListeners(
+  store: SettingsStore | undefined,
+  listenerIds: string[],
+) {
+  if (!store) {
+    return;
+  }
+
+  for (const listenerId of listenerIds) {
+    store.delListener(listenerId);
+  }
 }
 
 export function getCurrentFloatingBarColorScheme(): FloatingBarColorScheme {
@@ -699,15 +764,6 @@ function normalizeLiveCaptionPosition(value: unknown): LiveCaptionPosition {
   }
 
   return DEFAULT_FLOATING_OVERLAY_SETTINGS.liveCaptionPosition;
-}
-
-function getFloatingOverlaySettingsKey(settings: FloatingOverlaySettings) {
-  return [
-    settings.floatingBarOpacity,
-    settings.liveCaptionOpacity,
-    settings.liveCaptionPosition,
-    settings.liveCaptionMinimized,
-  ].join(":");
 }
 
 function getSettingsValuesFromNativeChange(change: FloatingBarSettingsChange) {
