@@ -28,6 +28,7 @@ type FloatingOverlaySettings = {
   liveCaptionOpacity: number;
   liveCaptionPosition: LiveCaptionPosition;
   liveCaptionMinimized: boolean;
+  liveCaptionEnabled: boolean;
 };
 type FloatingOverlaySettingsStorage = Pick<
   GeneralStorage,
@@ -35,6 +36,7 @@ type FloatingOverlaySettingsStorage = Pick<
   | "live_caption_opacity"
   | "live_caption_position"
   | "live_caption_minimized"
+  | "live_caption_enabled"
 >;
 type FloatingRouteState = {
   sessionId: string;
@@ -60,6 +62,7 @@ const DEFAULT_FLOATING_OVERLAY_SETTINGS: FloatingOverlaySettings = {
   liveCaptionOpacity: 0.3,
   liveCaptionPosition: "topCenter",
   liveCaptionMinimized: false,
+  liveCaptionEnabled: true,
 };
 
 const FLOATING_BAR_MIN_OPACITY = 0.35;
@@ -81,6 +84,7 @@ const FLOATING_OVERLAY_SETTING_KEYS = [
   "live_caption_opacity",
   "live_caption_position",
   "live_caption_minimized",
+  "live_caption_enabled",
   "current_stt_provider",
   "current_stt_model",
 ] as const;
@@ -92,6 +96,7 @@ export function FloatingMeetingWindowHost() {
   return (
     <>
       <FloatingOverlaySettingsEventSync />
+      <LiveCaptionDefaultVisibilitySync store={store} />
       {floatingBarEnabled ? (
         <FloatingMeetingWindowSync store={store} />
       ) : (
@@ -122,6 +127,7 @@ function getFloatingOverlaySettingsFromStore(
       store?.getValue("live_caption_position"),
     ),
     liveCaptionMinimized: store?.getValue("live_caption_minimized") === true,
+    liveCaptionEnabled: store?.getValue("live_caption_enabled") !== false,
   };
 }
 
@@ -161,6 +167,52 @@ function FloatingOverlaySettingsEventSync() {
     return () => {
       cancelled = true;
       unlisten?.();
+    };
+  });
+
+  return null;
+}
+
+function LiveCaptionDefaultVisibilitySync({
+  store,
+}: {
+  store: SettingsStore | undefined;
+}) {
+  useMountEffect(() => {
+    let appliedSessionId: string | null = null;
+
+    const applyDefaultVisibility = (state: ListenerState) => {
+      if (
+        !store ||
+        state.live.status !== "active" ||
+        !state.live.sessionId ||
+        state.live.liveTranscriptionActive !== true
+      ) {
+        appliedSessionId = null;
+        return;
+      }
+
+      if (appliedSessionId === state.live.sessionId) {
+        return;
+      }
+
+      appliedSessionId = state.live.sessionId;
+      store.setValue(
+        "live_caption_minimized",
+        getLiveCaptionMinimizedForSessionDefault({
+          liveCaptionEnabled: store.getValue("live_caption_enabled") !== false,
+        }),
+      );
+    };
+
+    applyDefaultVisibility(listenerStore.getState());
+
+    const unsubscribe = listenerStore.subscribe((state) => {
+      applyDefaultVisibility(state);
+    });
+
+    return () => {
+      unsubscribe();
     };
   });
 
@@ -557,6 +609,14 @@ export function shouldShowFloatingLiveCaptionToggle({
   liveTranscriptionActive: boolean;
 }) {
   return liveTranscriptionActive && isHyprnoteCloudSttModel(provider, model);
+}
+
+export function getLiveCaptionMinimizedForSessionDefault({
+  liveCaptionEnabled,
+}: {
+  liveCaptionEnabled: boolean;
+}) {
+  return !liveCaptionEnabled;
 }
 
 function getFloatingLiveCaptionToggleVisible(

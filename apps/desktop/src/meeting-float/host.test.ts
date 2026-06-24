@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   getCurrentFloatingBarColorScheme,
   getFloatingRouteState,
+  getLiveCaptionMinimizedForSessionDefault,
   getLiveCaptionRouteState,
   shouldShowFloatingLiveCaptionToggle,
 } from "./host";
@@ -161,9 +162,42 @@ describe("getLiveCaptionRouteState", () => {
           liveCaptionOpacity: 0.66,
           liveCaptionPosition: "bottomRight",
           liveCaptionMinimized: true,
+          liveCaptionEnabled: true,
         },
       ),
     ).toBeNull();
+  });
+
+  it("does not hide captions directly from the default preference", () => {
+    expect(
+      getLiveCaptionRouteState(
+        createListenerStateWithCaption(
+          {
+            status: "active",
+            sessionId: "session-1",
+            liveTranscriptionActive: true,
+          },
+          "hello",
+        ),
+        {
+          floatingBarOpacity: 0.7,
+          liveCaptionOpacity: 0.66,
+          liveCaptionWidth: 520,
+          liveCaptionLineCount: 3,
+          liveCaptionPosition: "bottomRight",
+          liveCaptionMinimized: false,
+          liveCaptionEnabled: false,
+        },
+      ),
+    ).toEqual({
+      sessionId: "session-1",
+      text: "hello",
+      opacity: 0.66,
+      width: 520,
+      lineCount: 3,
+      position: "bottomRight",
+      minimized: false,
+    });
   });
 
   it("hides captions before live transcription is active", () => {
@@ -200,6 +234,20 @@ describe("getLiveCaptionRouteState", () => {
       position: "topCenter",
       minimized: false,
     });
+  });
+});
+
+describe("getLiveCaptionMinimizedForSessionDefault", () => {
+  it("starts visible when the default preference is enabled", () => {
+    expect(
+      getLiveCaptionMinimizedForSessionDefault({ liveCaptionEnabled: true }),
+    ).toBe(false);
+  });
+
+  it("starts hidden when the default preference is disabled", () => {
+    expect(
+      getLiveCaptionMinimizedForSessionDefault({ liveCaptionEnabled: false }),
+    ).toBe(true);
   });
 });
 
