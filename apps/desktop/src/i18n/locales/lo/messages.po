@@ -66,6 +66,7 @@ msgstr ""
 #: src/settings/general/account.tsx:76
 #: src/settings/general/account.tsx:104
 #: src/settings/general/account.tsx:139
+#: src/sidebar/settings.tsx:72
 msgid "Account"
 msgstr ""
 
@@ -168,6 +169,7 @@ msgid "API Key"
 msgstr ""
 
 #: src/settings/general/index.tsx:169
+#: src/sidebar/settings.tsx:70
 msgid "App"
 msgstr "ແອັບ"
 
@@ -255,7 +257,7 @@ msgstr ""
 #: src/calendar/components/sidebar.tsx:328
 #: src/settings/general/permissions.tsx:191
 #: src/sidebar/calendar.tsx:10
-#: src/sidebar/settings.tsx:108
+#: src/sidebar/settings.tsx:100
 msgid "Calendar"
 msgstr ""
 
@@ -421,7 +423,7 @@ msgid "Connect your integration"
 msgstr ""
 
 #: src/sidebar/contacts.tsx:304
-#: src/sidebar/settings.tsx:113
+#: src/sidebar/settings.tsx:105
 msgid "Contacts"
 msgstr ""
 
@@ -467,6 +469,7 @@ msgid "Dark"
 msgstr ""
 
 #: src/settings/general/index.tsx:323
+#: src/sidebar/settings.tsx:71
 msgid "Data"
 msgstr "ຂໍ້ມູນ"
 
@@ -724,6 +727,10 @@ msgstr ""
 msgid "Free"
 msgstr ""
 
+#: src/sidebar/settings.tsx:68
+msgid "General"
+msgstr ""
+
 #: src/session/components/title-input.tsx:97
 msgid "Generating title..."
 msgstr ""
@@ -806,6 +813,7 @@ msgid "Insights"
 msgstr ""
 
 #: src/settings/ai/llm/index.tsx:13
+#: src/sidebar/settings.tsx:80
 msgid "Intelligence"
 msgstr ""
 
@@ -1077,6 +1085,7 @@ msgid "Notes"
 msgstr ""
 
 #: src/settings/general/index.tsx:333
+#: src/sidebar/settings.tsx:73
 msgid "Notifications"
 msgstr "ການແຈ້ງເຕືອນ"
 
@@ -1194,7 +1203,7 @@ msgid "permission panel."
 msgstr ""
 
 #: src/settings/general/index.tsx:342
-#: src/sidebar/settings.tsx:101
+#: src/sidebar/settings.tsx:93
 msgid "Permissions"
 msgstr ""
 
@@ -1487,7 +1496,7 @@ msgid "Set as default"
 msgstr ""
 
 #: src/main/empty.tsx:52
-#: src/sidebar/settings.tsx:119
+#: src/sidebar/settings.tsx:111
 msgid "Settings"
 msgstr ""
 
@@ -1725,6 +1734,7 @@ msgstr ""
 msgid "Template content with Jinja2: {{ variable }}, {% if condition %}"
 msgstr ""
 
+#: src/sidebar/settings.tsx:83
 #: src/templates/template-sidebar.tsx:298
 msgid "Templates"
 msgstr ""
@@ -1763,6 +1773,7 @@ msgid "Transcript"
 msgstr ""
 
 #: src/settings/ai/stt/index.tsx:17
+#: src/sidebar/settings.tsx:79
 msgid "Transcription"
 msgstr ""
 
