@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 enum FloatingBarLayout {
@@ -35,9 +36,12 @@ enum FloatingBarLayout {
 struct FloatingBarView: View {
   @ObservedObject var model: FloatingBarViewModel
   @ObservedObject var settings: FloatingOverlaySettingsModel
+  let panelOrigin: () -> NSPoint?
+  let movePanel: (NSPoint) -> Void
   @State private var isBarHovered = false
   @State private var isBarsHovered = false
   @State private var suppressNextClick = false
+  @State private var dragStart: FloatingBarDragStart?
 
   var body: some View {
     VStack(spacing: FloatingBarLayout.hoverHandleGap) {
@@ -215,8 +219,26 @@ struct FloatingBarView: View {
     )
     .onChanged { _ in
       suppressNextClick = true
+
+      let mouseLocation = NSEvent.mouseLocation
+      let start =
+        dragStart
+        ?? panelOrigin().map {
+          FloatingBarDragStart(panelOrigin: $0, mouseLocation: mouseLocation)
+        }
+
+      guard let start else { return }
+      dragStart = start
+
+      movePanel(
+        NSPoint(
+          x: start.panelOrigin.x + mouseLocation.x - start.mouseLocation.x,
+          y: start.panelOrigin.y + mouseLocation.y - start.mouseLocation.y
+        )
+      )
     }
     .onEnded { _ in
+      dragStart = nil
       DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
         suppressNextClick = false
       }
@@ -241,6 +263,11 @@ struct FloatingBarView: View {
       LiveCaptionManager.shared.show()
     }
   }
+}
+
+private struct FloatingBarDragStart {
+  let panelOrigin: NSPoint
+  let mouseLocation: NSPoint
 }
 
 private struct FloatingBarHoverHandle: View {

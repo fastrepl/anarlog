@@ -28,7 +28,14 @@ final class FloatingBarManager {
 
       let panel = self.createPanel()
       let hostingView = NSHostingView(
-        rootView: FloatingBarView(model: self.model, settings: self.settingsModel))
+        rootView: FloatingBarView(
+          model: self.model,
+          settings: self.settingsModel,
+          panelOrigin: { [weak self] in self?.panel?.frame.origin },
+          movePanel: { [weak self] origin in
+            guard let self, let panel = self.panel else { return }
+            self.placement.moveByUserDrag(panel, to: origin)
+          }))
       hostingView.frame = NSRect(
         x: 0,
         y: 0,

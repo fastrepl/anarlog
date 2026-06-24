@@ -61,6 +61,13 @@ final class FloatingPanelPositionController: NSObject, NSWindowDelegate {
     pinnedOrigin = nil
   }
 
+  func moveByUserDrag(_ panel: NSPanel, to origin: NSPoint) {
+    panel.setFrameOrigin(origin)
+    pinnedOrigin = panel.frame.origin
+    activeScreenId = panel.screen.flatMap { displayId(for: $0) }
+    programmaticOrigin = nil
+  }
+
   func preparePinnedFrameForReplacement(_ panel: NSPanel, size: NSSize) {
     guard pinnedOrigin != nil else { return }
 
