@@ -5,6 +5,7 @@ final class LiveCaptionPanelDelegate: NSObject, NSWindowDelegate {
   private let model: LiveCaptionViewModel
   private let settings: FloatingOverlaySettingsModel
   private var snapMoveId = 0
+  private let snapDistance: CGFloat = 56
 
   init(model: LiveCaptionViewModel, settings: FloatingOverlaySettingsModel) {
     self.model = model
@@ -62,8 +63,16 @@ final class LiveCaptionPanelDelegate: NSObject, NSWindowDelegate {
       guard let self, self.snapMoveId == moveId, let panel else { return }
       guard NSEvent.pressedMouseButtons == 0 else { return }
       guard let screen = panel.screen ?? NSScreen.main else { return }
+      guard
+        let position = LiveCaptionPosition.nearest(
+          to: panel.frame,
+          in: screen.visibleFrame,
+          within: self.snapDistance
+        )
+      else {
+        return
+      }
 
-      let position = LiveCaptionPosition.nearest(to: panel.frame, in: screen.visibleFrame)
       self.placement.clearPinnedOrigin()
       self.settings.setLiveCaptionPosition(position)
       self.position(panel, force: true) { screen, size in

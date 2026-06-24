@@ -21,7 +21,6 @@ final class LiveCaptionManager {
 
       if let panel = self.panel {
         self.resize(panel)
-        self.panelDelegate.clearPinnedPosition()
         self.position(panel, force: true)
         self.startFollowingActiveScreen()
         panel.orderFrontRegardless()
