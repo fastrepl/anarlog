@@ -1,0 +1,1 @@
+export const NOTE_SURFACE_MIN_WIDTH_PX = 500;

@@ -201,6 +201,21 @@ describe("ClassicMainBody", () => {
     expect(sidebarChrome?.style.width).toBe("24%");
   });
 
+  it("keeps the note content panel at least 500px wide", () => {
+    mocks.currentTab = {
+      active: true,
+      id: "session-1",
+      pinned: false,
+      slotId: "slot-session",
+      type: "sessions",
+    };
+
+    render(<ClassicMainBody />);
+
+    const panels = screen.getAllByTestId("panel");
+    expect(panels[1]?.dataset.minWidth).toBe("500");
+  });
+
   it("keeps the collapsed layout free of the sidebar resize handle", () => {
     mocks.leftsidebar.expanded = false;
 

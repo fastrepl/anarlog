@@ -36,6 +36,7 @@ import { useClassicMainTabsShortcuts } from "./useTabsShortcuts";
 
 import { useShell } from "~/contexts/shell";
 import { GlobalLiveTranscriptAccessory } from "~/session/components/bottom-accessory/global-live";
+import { NOTE_SURFACE_MIN_WIDTH_PX } from "~/shared/main/layout-widths";
 import { useOpenNoteDialog } from "~/shared/open-note-dialog";
 import { useNewNote } from "~/shared/useNewNote";
 import { useSidebarUpcomingMeetingStatus } from "~/sidebar/timeline/upcoming-meeting";
@@ -72,6 +73,7 @@ export function ClassicMainBody() {
 
   const isOnboarding = currentTab?.type === "onboarding";
   const isChangelog = currentTab?.type === "changelog";
+  const isSessionTab = currentTab?.type === "sessions";
   const hasCustomSidebar = hasCustomSidebarTab(currentTab);
   const hasLeftSurfaceCustomSidebar =
     hasLeftSurfaceCustomSidebarTab(currentTab);
@@ -217,6 +219,9 @@ export function ClassicMainBody() {
           id="classic-main-content"
           order={2}
           className="min-h-0 flex-1 overflow-hidden"
+          style={{
+            minWidth: isSessionTab ? NOTE_SURFACE_MIN_WIDTH_PX : undefined,
+          }}
         >
           <div
             className="h-full min-h-0 min-w-0 flex-1 overflow-auto"
