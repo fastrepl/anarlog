@@ -9,6 +9,7 @@ import { useConfigValue } from "~/shared/config";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import * as settingsStore from "~/store/tinybase/store/settings";
 import { listenerStore } from "~/store/zustand/listener/instance";
+import { isHyprnoteCloudSttModel } from "~/stt/capabilities";
 
 type ListenerState = ReturnType<typeof listenerStore.getState>;
 export type SettingsStore = NonNullable<

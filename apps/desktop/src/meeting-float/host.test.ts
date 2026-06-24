@@ -282,3 +282,35 @@ describe("shouldShowFloatingLiveCaptionToggle", () => {
     ).toBe(false);
   });
 });
+
+describe("shouldShowFloatingLiveCaptionToggle", () => {
+  it("shows for active Hyprnote cloud live transcription", () => {
+    expect(
+      shouldShowFloatingLiveCaptionToggle({
+        provider: "hyprnote",
+        model: "cloud",
+        liveTranscriptionActive: true,
+      }),
+    ).toBe(true);
+  });
+
+  it("hides for local realtime transcription", () => {
+    expect(
+      shouldShowFloatingLiveCaptionToggle({
+        provider: "hyprnote",
+        model: "soniqo-parakeet-streaming",
+        liveTranscriptionActive: true,
+      }),
+    ).toBe(false);
+  });
+
+  it("hides before live transcription is active", () => {
+    expect(
+      shouldShowFloatingLiveCaptionToggle({
+        provider: "hyprnote",
+        model: "cloud",
+        liveTranscriptionActive: false,
+      }),
+    ).toBe(false);
+  });
+});
