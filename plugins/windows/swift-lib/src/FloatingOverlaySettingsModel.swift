@@ -67,6 +67,26 @@ final class FloatingOverlaySettingsModel: ObservableObject {
       FloatingOverlaySettingsChangePayload(liveCaptionMinimized: value))
   }
 
+  private func applyFloatingBarOpacity(_ value: Double) {
+    let nextValue = clampedFloatingBarOpacity(value)
+    if let pendingFloatingBarOpacity {
+      guard opacitiesMatch(pendingFloatingBarOpacity, nextValue) else { return }
+      self.pendingFloatingBarOpacity = nil
+    }
+
+    floatingBarOpacity = nextValue
+  }
+
+  private func applyLiveCaptionOpacity(_ value: Double) {
+    let nextValue = clampedLiveCaptionOpacity(value)
+    if let pendingLiveCaptionOpacity {
+      guard opacitiesMatch(pendingLiveCaptionOpacity, nextValue) else { return }
+      self.pendingLiveCaptionOpacity = nil
+    }
+
+    liveCaptionOpacity = nextValue
+  }
+
   private func applyLiveCaptionPosition(_ value: LiveCaptionPosition) -> Bool {
     if let pendingLiveCaptionPosition {
       guard pendingLiveCaptionPosition == value else { return false }
@@ -89,7 +109,15 @@ final class FloatingOverlaySettingsModel: ObservableObject {
     return true
   }
 
-  private func clampedOpacity(_ value: Double) -> Double {
-    min(max(value, 0.35), 0.95)
+  private func clampedFloatingBarOpacity(_ value: Double) -> Double {
+    min(max(value, FloatingOverlayOpacity.minFloatingBar), FloatingOverlayOpacity.max)
+  }
+
+  private func clampedLiveCaptionOpacity(_ value: Double) -> Double {
+    min(max(value, FloatingOverlayOpacity.minLiveCaption), FloatingOverlayOpacity.max)
+  }
+
+  private func opacitiesMatch(_ left: Double, _ right: Double) -> Bool {
+    abs(left - right) < 0.0001
   }
 }
