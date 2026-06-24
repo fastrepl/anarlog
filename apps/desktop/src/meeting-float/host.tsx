@@ -61,8 +61,9 @@ const DEFAULT_FLOATING_OVERLAY_SETTINGS: FloatingOverlaySettings = {
 };
 
 const FLOATING_BAR_MIN_OPACITY = 0.35;
-const LIVE_CAPTION_MIN_OPACITY = 0.3;
-const FLOATING_OVERLAY_MAX_OPACITY = 0.95;
+const FLOATING_BAR_MAX_OPACITY = 0.95;
+const LIVE_CAPTION_MIN_OPACITY = 0.05;
+const LIVE_CAPTION_MAX_OPACITY = 1;
 
 const LIVE_CAPTION_POSITIONS: ReadonlySet<string> = new Set([
   "topCenter",
@@ -107,11 +108,13 @@ function getFloatingOverlaySettingsFromStore(
       store?.getValue("floating_bar_opacity"),
       DEFAULT_FLOATING_OVERLAY_SETTINGS.floatingBarOpacity,
       FLOATING_BAR_MIN_OPACITY,
+      FLOATING_BAR_MAX_OPACITY,
     ),
     liveCaptionOpacity: normalizeOpacity(
       store?.getValue("live_caption_opacity"),
       DEFAULT_FLOATING_OVERLAY_SETTINGS.liveCaptionOpacity,
       LIVE_CAPTION_MIN_OPACITY,
+      LIVE_CAPTION_MAX_OPACITY,
     ),
     liveCaptionPosition: normalizeLiveCaptionPosition(
       store?.getValue("live_caption_position"),
@@ -806,12 +809,13 @@ function normalizeOpacity(
   value: unknown,
   fallback: number,
   min: number,
+  max: number,
 ): number {
   if (typeof value !== "number" || !Number.isFinite(value)) {
     return fallback;
   }
 
-  return Math.min(Math.max(value, min), FLOATING_OVERLAY_MAX_OPACITY);
+  return Math.min(Math.max(value, min), max);
 }
 
 function normalizeLiveCaptionPosition(value: unknown): LiveCaptionPosition {
@@ -833,6 +837,7 @@ function getSettingsValuesFromNativeChange(change: FloatingBarSettingsChange) {
       change.floatingBarOpacity,
       DEFAULT_FLOATING_OVERLAY_SETTINGS.floatingBarOpacity,
       FLOATING_BAR_MIN_OPACITY,
+      FLOATING_BAR_MAX_OPACITY,
     );
   }
 
@@ -844,6 +849,7 @@ function getSettingsValuesFromNativeChange(change: FloatingBarSettingsChange) {
       change.liveCaptionOpacity,
       DEFAULT_FLOATING_OVERLAY_SETTINGS.liveCaptionOpacity,
       LIVE_CAPTION_MIN_OPACITY,
+      LIVE_CAPTION_MAX_OPACITY,
     );
   }
 

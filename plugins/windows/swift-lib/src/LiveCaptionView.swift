@@ -107,7 +107,7 @@ struct LiveCaptionView: View {
         Color.black.opacity(
           min(
             max(settings.liveCaptionOpacity, FloatingOverlayOpacity.minLiveCaption),
-            FloatingOverlayOpacity.max
+            FloatingOverlayOpacity.maxLiveCaption
           )))
   }
 }
@@ -120,18 +120,16 @@ private struct CaptionFooter: View {
 
   var body: some View {
     HStack(spacing: 8) {
-      Image(systemName: "circle.lefthalf.filled")
-        .font(.system(size: 11, weight: .semibold))
-        .foregroundStyle(.white.opacity(0.72))
-
       Slider(
         value: Binding(get: { clampedOpacity }, set: onSetOpacity),
-        in: FloatingOverlayOpacity.minLiveCaption...FloatingOverlayOpacity.max
+        in: FloatingOverlayOpacity.minLiveCaption...FloatingOverlayOpacity.maxLiveCaption
       )
       .controlSize(.small)
       .frame(width: sliderWidth)
       .accessibilityLabel("Transcript opacity")
       .accessibilityValue("\(Int((clampedOpacity * 100).rounded()))%")
+
+      Spacer(minLength: 0)
 
       Button(action: onMinimize) {
         Text("Close")
@@ -150,8 +148,6 @@ private struct CaptionFooter: View {
       }
       .buttonStyle(.plain)
       .accessibilityLabel("Close transcript")
-
-      Spacer(minLength: 0)
     }
     .padding(.leading, LiveCaptionLayout.horizontalPadding)
     .padding(.trailing, 24)
@@ -162,7 +158,7 @@ private struct CaptionFooter: View {
   }
 
   private var clampedOpacity: Double {
-    min(max(opacity, FloatingOverlayOpacity.minLiveCaption), FloatingOverlayOpacity.max)
+    min(max(opacity, FloatingOverlayOpacity.minLiveCaption), FloatingOverlayOpacity.maxLiveCaption)
   }
 }
 
