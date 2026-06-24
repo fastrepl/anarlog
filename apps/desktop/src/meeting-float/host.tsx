@@ -54,10 +54,14 @@ type LiveCaptionRouteState = {
 
 const DEFAULT_FLOATING_OVERLAY_SETTINGS: FloatingOverlaySettings = {
   floatingBarOpacity: 0.78,
-  liveCaptionOpacity: 0.78,
+  liveCaptionOpacity: 0.3,
   liveCaptionPosition: "topCenter",
   liveCaptionMinimized: false,
 };
+
+const FLOATING_BAR_MIN_OPACITY = 0.35;
+const LIVE_CAPTION_MIN_OPACITY = 0.3;
+const FLOATING_OVERLAY_MAX_OPACITY = 0.95;
 
 const LIVE_CAPTION_POSITIONS: ReadonlySet<string> = new Set([
   "topCenter",
@@ -99,10 +103,12 @@ function getFloatingOverlaySettingsFromStore(
     floatingBarOpacity: normalizeOpacity(
       store?.getValue("floating_bar_opacity"),
       DEFAULT_FLOATING_OVERLAY_SETTINGS.floatingBarOpacity,
+      FLOATING_BAR_MIN_OPACITY,
     ),
     liveCaptionOpacity: normalizeOpacity(
       store?.getValue("live_caption_opacity"),
       DEFAULT_FLOATING_OVERLAY_SETTINGS.liveCaptionOpacity,
+      LIVE_CAPTION_MIN_OPACITY,
     ),
     liveCaptionPosition: normalizeLiveCaptionPosition(
       store?.getValue("live_caption_position"),
@@ -750,12 +756,16 @@ async function showLiveCaptionWindow(
   return true;
 }
 
-function normalizeOpacity(value: unknown, fallback: number): number {
+function normalizeOpacity(
+  value: unknown,
+  fallback: number,
+  min: number,
+): number {
   if (typeof value !== "number" || !Number.isFinite(value)) {
     return fallback;
   }
 
-  return Math.min(Math.max(value, 0.35), 0.95);
+  return Math.min(Math.max(value, min), FLOATING_OVERLAY_MAX_OPACITY);
 }
 
 function normalizeLiveCaptionPosition(value: unknown): LiveCaptionPosition {
@@ -776,6 +786,7 @@ function getSettingsValuesFromNativeChange(change: FloatingBarSettingsChange) {
     values.floating_bar_opacity = normalizeOpacity(
       change.floatingBarOpacity,
       DEFAULT_FLOATING_OVERLAY_SETTINGS.floatingBarOpacity,
+      FLOATING_BAR_MIN_OPACITY,
     );
   }
 
@@ -786,6 +797,7 @@ function getSettingsValuesFromNativeChange(change: FloatingBarSettingsChange) {
     values.live_caption_opacity = normalizeOpacity(
       change.liveCaptionOpacity,
       DEFAULT_FLOATING_OVERLAY_SETTINGS.liveCaptionOpacity,
+      LIVE_CAPTION_MIN_OPACITY,
     );
   }
 

@@ -59,7 +59,7 @@ export const SETTINGS_MAPPING = {
     live_caption_opacity: {
       type: "number",
       path: ["general", "live_caption_opacity"],
-      default: 0.78 as number,
+      default: 0.3 as number,
     },
     live_caption_position: {
       type: "string",
