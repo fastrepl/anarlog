@@ -85,7 +85,12 @@ final class LiveCaptionManager {
   func update(state: LiveCaptionStatePayload) {
     runOnMain { [weak self] in
       guard let self else { return }
-      let placementChanged = self.settingsModel.apply(liveCaptionState: state)
+      let placementChanged: Bool
+      if self.panel == nil {
+        placementChanged = self.settingsModel.apply(liveCaptionState: state)
+      } else {
+        placementChanged = self.settingsModel.applyLiveCaptionLayout(state)
+      }
       if state.minimized {
         self.hidePanel(clearText: false)
         return

@@ -47,6 +47,10 @@ final class FloatingOverlaySettingsModel: ObservableObject {
 
   func apply(liveCaptionState state: LiveCaptionStatePayload) -> Bool {
     applyLiveCaptionOpacity(state.opacity)
+    return applyLiveCaptionLayout(state)
+  }
+
+  func applyLiveCaptionLayout(_ state: LiveCaptionStatePayload) -> Bool {
     applyLiveCaptionWidth(state.width)
     applyLiveCaptionLineCount(state.lineCount)
     let positionChanged = applyLiveCaptionPosition(state.position)
