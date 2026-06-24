@@ -53,7 +53,7 @@ struct LiveCaptionView: View {
         .foregroundStyle(.white)
         .multilineTextAlignment(.center)
         .lineLimit(model.lineCount)
-        .truncationMode(.tail)
+        .truncationMode(.head)
         .fixedSize(horizontal: false, vertical: true)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
 
