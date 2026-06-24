@@ -201,7 +201,6 @@ export const runBatchSession = async <T extends BatchStore>(
         }
 
         if (payload.type === "started") {
-          get().handleBatchStarted(payload.session_id);
           return;
         }
 
@@ -274,7 +273,7 @@ export function shouldUseSyntheticBatchProgress(params: TranscriptionParams) {
   }
 
   if (params.provider === "am") {
-    return false;
+    return !expectsAmProgressiveBatch(params);
   }
 
   if (params.provider === "openai") {
@@ -282,6 +281,42 @@ export function shouldUseSyntheticBatchProgress(params: TranscriptionParams) {
   }
 
   return true;
+}
+
+function expectsAmProgressiveBatch(params: TranscriptionParams) {
+  if (isLocalArgmaxUrl(params.base_url)) {
+    return true;
+  }
+
+  if (isOpenAIUrl(params.base_url)) {
+    return OPENAI_PROGRESSIVE_BATCH_MODELS.has(params.model ?? "");
+  }
+
+  return false;
+}
+
+function isLocalArgmaxUrl(baseUrl: string) {
+  try {
+    const url = new URL(baseUrl);
+    return isLocalHost(url.hostname) && !url.pathname.includes("/stt");
+  } catch {
+    return false;
+  }
+}
+
+function isOpenAIUrl(baseUrl: string) {
+  try {
+    const hostname = new URL(baseUrl).hostname;
+    return hostname === "openai.com" || hostname.endsWith(".openai.com");
+  } catch {
+    return false;
+  }
+}
+
+function isLocalHost(hostname: string) {
+  return (
+    hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1"
+  );
 }
 
 export function syntheticBatchProgress(elapsedMs: number) {

@@ -85,6 +85,34 @@ describe("runBatchSession", () => {
         api_key: "",
       }),
     ).toBe(false);
+    expect(
+      shouldUseSyntheticBatchProgress({
+        session_id: "session-1",
+        provider: "am",
+        file_path: "/tmp/session.wav",
+        base_url: "https://api.deepgram.com/v1",
+        api_key: "",
+      }),
+    ).toBe(true);
+    expect(
+      shouldUseSyntheticBatchProgress({
+        session_id: "session-1",
+        provider: "am",
+        file_path: "/tmp/session.wav",
+        base_url: "http://localhost:50060/v1",
+        api_key: "",
+      }),
+    ).toBe(false);
+    expect(
+      shouldUseSyntheticBatchProgress({
+        session_id: "session-1",
+        provider: "am",
+        file_path: "/tmp/session.wav",
+        model: "gpt-4o-transcribe",
+        base_url: "https://api.openai.com/v1",
+        api_key: "",
+      }),
+    ).toBe(false);
   });
 
   test("caps synthetic progress before completion", () => {
@@ -189,6 +217,103 @@ describe("runBatchSession", () => {
       const callCount = updateBatchProgress.mock.calls.length;
       vi.advanceTimersByTime(1_600);
       expect(updateBatchProgress).toHaveBeenCalledTimes(callCount);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("keeps synthetic progress when the backend emits started", async () => {
+    vi.useFakeTimers();
+
+    try {
+      const handleBatchStarted = vi.fn();
+      const handleBatchResponse = vi.fn();
+      const handleBatchCompleted = vi.fn();
+      const clearBatchPersist = vi.fn();
+      const clearBatchSession = vi.fn();
+      const handleBatchResponseStreamed = vi.fn();
+      const handleBatchFailed = vi.fn();
+      const handleBatchStopped = vi.fn();
+      const updateBatchProgress = vi.fn();
+      const setBatchPersist = vi.fn();
+
+      let handler:
+        | ((event: {
+            payload: {
+              type: string;
+              session_id: string;
+              response?: unknown;
+              mode?: "direct" | "streamed";
+            };
+          }) => void)
+        | undefined;
+      let resolveStart: ((value: unknown) => void) | undefined;
+
+      listenMock.mockImplementation(async (cb) => {
+        handler = cb;
+        return vi.fn();
+      });
+
+      startTranscriptionMock.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveStart = resolve;
+          }),
+      );
+
+      const runPromise = runBatchSession(
+        () => ({
+          batch: {},
+          batchPreview: {},
+          batchPersist: {},
+          handleBatchStarted,
+          handleBatchResponse,
+          handleBatchCompleted,
+          clearBatchPersist,
+          clearBatchSession,
+          handleBatchResponseStreamed,
+          handleBatchFailed,
+          handleBatchStopped,
+          updateBatchProgress,
+          setBatchPersist,
+        }),
+        "session-1",
+        {
+          session_id: "session-1",
+          provider: "hyprnote",
+          file_path: "/tmp/session.wav",
+          base_url: "",
+          api_key: "",
+        },
+      );
+
+      await Promise.resolve();
+      await Promise.resolve();
+
+      handler?.({
+        payload: {
+          type: "started",
+          session_id: "session-1",
+        },
+      });
+
+      expect(handleBatchStarted).toHaveBeenCalledTimes(1);
+      expect(updateBatchProgress).toHaveBeenCalledWith("session-1", 0.06);
+
+      handler?.({
+        payload: {
+          type: "completed",
+          session_id: "session-1",
+          mode: "direct",
+          response: {
+            metadata: null,
+            results: { channels: [] },
+          },
+        },
+      });
+      resolveStart?.({ status: "ok", data: null });
+
+      await runPromise;
     } finally {
       vi.useRealTimers();
     }
