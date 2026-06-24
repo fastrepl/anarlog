@@ -5,15 +5,13 @@ import {
 } from "@hypr/plugin-windows";
 import type { GeneralStorage } from "@hypr/store";
 
-import { useConfigValue, useConfigValues } from "~/shared/config";
+import { useConfigValue } from "~/shared/config";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import * as settingsStore from "~/store/tinybase/store/settings";
 import { listenerStore } from "~/store/zustand/listener/instance";
 
 type ListenerState = ReturnType<typeof listenerStore.getState>;
-export type SettingsStore = NonNullable<
-  ReturnType<typeof settingsStore.UI.useStore>
->;
+type SettingsStore = NonNullable<ReturnType<typeof settingsStore.UI.useStore>>;
 type FloatingBarStatus = "recording" | "error";
 type FloatingBarColorScheme = "light" | "dark";
 type LiveCaptionPosition =
@@ -26,8 +24,6 @@ type LiveCaptionPosition =
 type FloatingOverlaySettings = {
   floatingBarOpacity: number;
   liveCaptionOpacity: number;
-  liveCaptionWidth: number;
-  liveCaptionLineCount: number;
   liveCaptionPosition: LiveCaptionPosition;
   liveCaptionMinimized: boolean;
 };
@@ -35,12 +31,9 @@ type FloatingOverlaySettingsStorage = Pick<
   GeneralStorage,
   | "floating_bar_opacity"
   | "live_caption_opacity"
-  | "live_caption_width"
-  | "live_caption_line_count"
   | "live_caption_position"
   | "live_caption_minimized"
 >;
-||||||| Common ancestor
 type FloatingRouteState = {
   sessionId: string;
   amplitude: number;
@@ -48,41 +41,23 @@ type FloatingRouteState = {
   colorScheme: FloatingBarColorScheme;
   opacity: number;
   liveCaptionOpacity: number;
-  liveCaptionWidth: number;
-  liveCaptionLineCount: number;
   liveCaptionPosition: LiveCaptionPosition;
   liveCaptionMinimized: boolean;
-  liveCaptionToggleVisible: boolean;
-||||||| Common ancestor
 };
 type LiveCaptionRouteState = {
   sessionId: string;
   text: string;
   opacity: number;
-  width: number;
-  lineCount: number;
   position: LiveCaptionPosition;
   minimized: boolean;
-||||||| Common ancestor
 };
 
 const DEFAULT_FLOATING_OVERLAY_SETTINGS: FloatingOverlaySettings = {
   floatingBarOpacity: 0.78,
-  liveCaptionOpacity: 0.3,
-  liveCaptionWidth: 440,
-  liveCaptionLineCount: 1,
+  liveCaptionOpacity: 0.78,
   liveCaptionPosition: "topCenter",
   liveCaptionMinimized: false,
 };
-
-const FLOATING_BAR_MIN_OPACITY = 0.35;
-const FLOATING_BAR_MAX_OPACITY = 0.95;
-const LIVE_CAPTION_MIN_OPACITY = 0.05;
-const LIVE_CAPTION_MAX_OPACITY = 1;
-const LIVE_CAPTION_MIN_WIDTH = 260;
-const LIVE_CAPTION_MAX_WIDTH = 640;
-const LIVE_CAPTION_MIN_LINE_COUNT = 1;
-const LIVE_CAPTION_MAX_LINE_COUNT = 4;
 
 const LIVE_CAPTION_POSITIONS: ReadonlySet<string> = new Set([
   "topCenter",
@@ -96,33 +71,23 @@ const LIVE_CAPTION_POSITIONS: ReadonlySet<string> = new Set([
 const FLOATING_OVERLAY_SETTING_KEYS = [
   "floating_bar_opacity",
   "live_caption_opacity",
-  "live_caption_width",
-  "live_caption_line_count",
   "live_caption_position",
   "live_caption_minimized",
-  "current_stt_provider",
-  "current_stt_model",
 ] as const;
 
-||||||| Common ancestor
 export function FloatingMeetingWindowHost() {
   const floatingBarEnabled = useConfigValue("floating_bar_enabled");
   const store = settingsStore.UI.useStore(settingsStore.STORE_ID);
-||||||| Common ancestor
 
   return (
     <>
       <FloatingOverlaySettingsEventSync />
       {floatingBarEnabled ? (
         <FloatingMeetingWindowSync store={store} />
-||||||| Common ancestor
-        <FloatingMeetingWindowSync />
       ) : (
         <FloatingMeetingWindowDisabled />
       )}
       <LiveCaptionWindowSync store={store} />
-||||||| Common ancestor
-      <LiveCaptionWindowSync />
     </>
   );
 }
@@ -134,26 +99,10 @@ function getFloatingOverlaySettingsFromStore(
     floatingBarOpacity: normalizeOpacity(
       store?.getValue("floating_bar_opacity"),
       DEFAULT_FLOATING_OVERLAY_SETTINGS.floatingBarOpacity,
-      FLOATING_BAR_MIN_OPACITY,
-      FLOATING_BAR_MAX_OPACITY,
     ),
     liveCaptionOpacity: normalizeOpacity(
       store?.getValue("live_caption_opacity"),
       DEFAULT_FLOATING_OVERLAY_SETTINGS.liveCaptionOpacity,
-      LIVE_CAPTION_MIN_OPACITY,
-      LIVE_CAPTION_MAX_OPACITY,
-    ),
-    liveCaptionWidth: normalizeNumber(
-      store?.getValue("live_caption_width"),
-      DEFAULT_FLOATING_OVERLAY_SETTINGS.liveCaptionWidth,
-      LIVE_CAPTION_MIN_WIDTH,
-      LIVE_CAPTION_MAX_WIDTH,
-    ),
-    liveCaptionLineCount: normalizeInteger(
-      store?.getValue("live_caption_line_count"),
-      DEFAULT_FLOATING_OVERLAY_SETTINGS.liveCaptionLineCount,
-      LIVE_CAPTION_MIN_LINE_COUNT,
-      LIVE_CAPTION_MAX_LINE_COUNT,
     ),
     liveCaptionPosition: normalizeLiveCaptionPosition(
       store?.getValue("live_caption_position"),
@@ -204,7 +153,6 @@ function FloatingOverlaySettingsEventSync() {
   return null;
 }
 
-||||||| Common ancestor
 function FloatingMeetingWindowDisabled() {
   useMountEffect(() => {
     void hideFloatingMeetingPanel();
@@ -218,38 +166,19 @@ function LiveCaptionWindowSync({
 }: {
   store: SettingsStore | undefined;
 }) {
-||||||| Common ancestor
-function LiveCaptionWindowSync() {
   useMountEffect(() => {
     let settings = getFloatingOverlaySettingsFromStore(store);
     let routeState = getCurrentLiveCaptionRouteState(
       listenerStore.getState(),
       settings,
     );
-||||||| Common ancestor
-    let routeState = getCurrentLiveCaptionRouteState(listenerStore.getState());
     let syncQueued = false;
     let syncRunning = false;
     let syncRequested = false;
     let cancelled = false;
     let shownSessionId: string | null = null;
-    const unlisteners: Array<() => void> = [];
 
     const shouldContinue = () => !cancelled;
-    const updateSettings = (nextSettings: FloatingOverlaySettings) => {
-      const nextRouteState = getLiveCaptionRouteState(
-        listenerStore.getState(),
-        nextSettings,
-      );
-
-      settings = nextSettings;
-      if (isSameLiveCaptionRouteState(nextRouteState, routeState)) {
-        return;
-      }
-
-      routeState = nextRouteState;
-      scheduleSync();
-    };
 
     const sync = async () => {
       if (!shouldContinue()) {
@@ -326,36 +255,26 @@ function LiveCaptionWindowSync() {
     const settingsListenerIds = addFloatingOverlaySettingsListeners(
       store,
       () => {
-        updateSettings(getFloatingOverlaySettingsFromStore(store));
+        const nextSettings = getFloatingOverlaySettingsFromStore(store);
+        const nextRouteState = getLiveCaptionRouteState(
+          listenerStore.getState(),
+          nextSettings,
+        );
+
+        settings = nextSettings;
+        if (isSameLiveCaptionRouteState(nextRouteState, routeState)) {
+          return;
+        }
+
+        routeState = nextRouteState;
+        scheduleSync();
       },
     );
-    windowsEvents.floatingBarSettingsChange
-      .listen((event) => {
-        if (cancelled) {
-          return;
-        }
-
-        updateSettings(
-          mergeFloatingOverlaySettings(
-            settings,
-            getSettingsValuesFromNativeChange(event.payload),
-          ),
-        );
-      })
-      .then((unlisten) => {
-        if (cancelled) {
-          unlisten();
-          return;
-        }
-
-        unlisteners.push(unlisten);
-      });
 
     return () => {
       cancelled = true;
       unsubscribe();
       removeSettingsListeners(store, settingsListenerIds);
-      unlisteners.forEach((unlisten) => unlisten());
       void hideLiveCaptionPanel();
     };
   });
@@ -368,18 +287,13 @@ function FloatingMeetingWindowSync({
 }: {
   store: SettingsStore | undefined;
 }) {
-||||||| Common ancestor
-function FloatingMeetingWindowSync() {
   useMountEffect(() => {
     let settings = getFloatingOverlaySettingsFromStore(store);
     let routeState = getCurrentFloatingRouteState(
       listenerStore.getState(),
       undefined,
       settings,
-      getFloatingLiveCaptionToggleVisible(listenerStore.getState(), store),
     );
-||||||| Common ancestor
-    let routeState = getCurrentFloatingRouteState(listenerStore.getState());
     let syncQueued = false;
     let cancelled = false;
     let shownSessionId: string | null = null;
@@ -465,21 +379,10 @@ function FloatingMeetingWindowSync() {
       const nextRouteState = getFloatingRouteState(state, {
         colorScheme,
         settings,
-        liveCaptionToggleVisible: getFloatingLiveCaptionToggleVisible(
-          state,
-          store,
-        ),
       });
-||||||| Common ancestor
-      const nextRouteState = getFloatingRouteState(state, { colorScheme });
       const previousRouteState = getFloatingRouteState(previousState, {
         colorScheme,
         settings,
-        liveCaptionToggleVisible: getFloatingLiveCaptionToggleVisible(
-          previousState,
-          store,
-        ),
-||||||| Common ancestor
       });
 
       if (isSameFloatingRouteState(nextRouteState, previousRouteState)) {
@@ -498,7 +401,6 @@ function FloatingMeetingWindowSync() {
           listenerStore.getState(),
           undefined,
           nextSettings,
-          getFloatingLiveCaptionToggleVisible(listenerStore.getState(), store),
         );
 
         settings = nextSettings;
@@ -516,8 +418,6 @@ function FloatingMeetingWindowSync() {
         listenerStore.getState(),
         undefined,
         settings,
-        getFloatingLiveCaptionToggleVisible(listenerStore.getState(), store),
-||||||| Common ancestor
       );
 
       if (isSameFloatingRouteState(nextRouteState, routeState)) {
@@ -547,14 +447,10 @@ export function getFloatingRouteState(
     sessionId,
     colorScheme = "dark",
     settings = DEFAULT_FLOATING_OVERLAY_SETTINGS,
-    liveCaptionToggleVisible = false,
-||||||| Common ancestor
   }: {
     sessionId?: string;
     colorScheme?: FloatingBarColorScheme;
     settings?: FloatingOverlaySettings;
-    liveCaptionToggleVisible?: boolean;
-||||||| Common ancestor
   } = {},
 ): FloatingRouteState | null {
   if (state.live.status !== "active") {
@@ -579,12 +475,8 @@ export function getFloatingRouteState(
     colorScheme,
     opacity: settings.floatingBarOpacity,
     liveCaptionOpacity: settings.liveCaptionOpacity,
-    liveCaptionWidth: settings.liveCaptionWidth,
-    liveCaptionLineCount: settings.liveCaptionLineCount,
     liveCaptionPosition: settings.liveCaptionPosition,
     liveCaptionMinimized: settings.liveCaptionMinimized,
-    liveCaptionToggleVisible,
-||||||| Common ancestor
   };
 }
 
@@ -592,39 +484,11 @@ function getCurrentFloatingRouteState(
   state: ListenerState,
   sessionId?: string,
   settings: FloatingOverlaySettings = DEFAULT_FLOATING_OVERLAY_SETTINGS,
-  liveCaptionToggleVisible = false,
-||||||| Common ancestor
 ): FloatingRouteState | null {
   return getFloatingRouteState(state, {
     sessionId,
     colorScheme: getCurrentFloatingBarColorScheme(),
     settings,
-    liveCaptionToggleVisible,
-  });
-}
-
-export function shouldShowFloatingLiveCaptionToggle({
-  liveTranscriptionActive,
-}: {
-  provider?: string | null;
-  model?: string | null;
-  liveTranscriptionActive: boolean;
-}) {
-  return liveTranscriptionActive;
-}
-
-function getFloatingLiveCaptionToggleVisible(
-  state: ListenerState,
-  store: SettingsStore | undefined,
-) {
-  const provider = store?.getValue("current_stt_provider");
-  const model = store?.getValue("current_stt_model");
-
-  return shouldShowFloatingLiveCaptionToggle({
-    provider: typeof provider === "string" ? provider : undefined,
-    model: typeof model === "string" ? model : undefined,
-    liveTranscriptionActive: state.live.liveTranscriptionActive === true,
-||||||| Common ancestor
   });
 }
 
@@ -644,24 +508,17 @@ export function getLiveCaptionRouteState(
     return null;
   }
 
-  if (settings.liveCaptionMinimized) {
-||||||| Common ancestor
   const text = state.liveCaptionText.trim();
-  if (!text) {
+  if (!text && !settings.liveCaptionMinimized) {
     return null;
   }
 
   return {
     sessionId: state.live.sessionId,
-    text: state.liveCaptionText.trim(),
-    opacity: settings.liveCaptionOpacity,
-    width: settings.liveCaptionWidth,
-    lineCount: settings.liveCaptionLineCount,
-    position: settings.liveCaptionPosition,
-    minimized: false,
-||||||| Common ancestor
     text,
-    opacity: 0.78,
+    opacity: settings.liveCaptionOpacity,
+    position: settings.liveCaptionPosition,
+    minimized: settings.liveCaptionMinimized,
   };
 }
 
@@ -733,13 +590,8 @@ function isSameFloatingRouteState(
     left?.colorScheme === right?.colorScheme &&
     left?.opacity === right?.opacity &&
     left?.liveCaptionOpacity === right?.liveCaptionOpacity &&
-    left?.liveCaptionWidth === right?.liveCaptionWidth &&
-    left?.liveCaptionLineCount === right?.liveCaptionLineCount &&
     left?.liveCaptionPosition === right?.liveCaptionPosition &&
-    left?.liveCaptionMinimized === right?.liveCaptionMinimized &&
-    left?.liveCaptionToggleVisible === right?.liveCaptionToggleVisible
-||||||| Common ancestor
-    left?.colorScheme === right?.colorScheme
+    left?.liveCaptionMinimized === right?.liveCaptionMinimized
   );
 }
 
@@ -751,12 +603,8 @@ function isSameLiveCaptionRouteState(
     left?.sessionId === right?.sessionId &&
     left?.text === right?.text &&
     left?.opacity === right?.opacity &&
-    left?.width === right?.width &&
-    left?.lineCount === right?.lineCount &&
     left?.position === right?.position &&
     left?.minimized === right?.minimized
-||||||| Common ancestor
-    left?.opacity === right?.opacity
   );
 }
 
@@ -842,12 +690,8 @@ async function showFloatingMeetingWindow(
     colorScheme: routeState.colorScheme,
     opacity: routeState.opacity,
     liveCaptionOpacity: routeState.liveCaptionOpacity,
-    liveCaptionWidth: routeState.liveCaptionWidth,
-    liveCaptionLineCount: routeState.liveCaptionLineCount,
     liveCaptionPosition: routeState.liveCaptionPosition,
     liveCaptionMinimized: routeState.liveCaptionMinimized,
-    liveCaptionToggleVisible: routeState.liveCaptionToggleVisible,
-||||||| Common ancestor
   });
   if (!shouldContinue()) {
     await hideFloatingMeetingPanel();
@@ -890,11 +734,8 @@ async function showLiveCaptionWindow(
   const updateResult = await windowsCommands.liveCaptionUpdate({
     text: routeState.text,
     opacity: routeState.opacity,
-    width: routeState.width,
-    lineCount: routeState.lineCount,
     position: routeState.position,
     minimized: routeState.minimized,
-||||||| Common ancestor
   });
   if (!shouldContinue()) {
     await hideLiveCaptionPanel();
@@ -909,35 +750,12 @@ async function showLiveCaptionWindow(
   return true;
 }
 
-function normalizeOpacity(
-  value: unknown,
-  fallback: number,
-  min: number,
-  max: number,
-): number {
-  return normalizeNumber(value, fallback, min, max);
-}
-
-function normalizeNumber(
-  value: unknown,
-  fallback: number,
-  min: number,
-  max: number,
-): number {
+function normalizeOpacity(value: unknown, fallback: number): number {
   if (typeof value !== "number" || !Number.isFinite(value)) {
     return fallback;
   }
 
-  return Math.min(Math.max(value, min), max);
-}
-
-function normalizeInteger(
-  value: unknown,
-  fallback: number,
-  min: number,
-  max: number,
-): number {
-  return Math.round(normalizeNumber(value, fallback, min, max));
+  return Math.min(Math.max(value, 0.35), 0.95);
 }
 
 function normalizeLiveCaptionPosition(value: unknown): LiveCaptionPosition {
@@ -958,8 +776,6 @@ function getSettingsValuesFromNativeChange(change: FloatingBarSettingsChange) {
     values.floating_bar_opacity = normalizeOpacity(
       change.floatingBarOpacity,
       DEFAULT_FLOATING_OVERLAY_SETTINGS.floatingBarOpacity,
-      FLOATING_BAR_MIN_OPACITY,
-      FLOATING_BAR_MAX_OPACITY,
     );
   }
 
@@ -970,32 +786,6 @@ function getSettingsValuesFromNativeChange(change: FloatingBarSettingsChange) {
     values.live_caption_opacity = normalizeOpacity(
       change.liveCaptionOpacity,
       DEFAULT_FLOATING_OVERLAY_SETTINGS.liveCaptionOpacity,
-      LIVE_CAPTION_MIN_OPACITY,
-      LIVE_CAPTION_MAX_OPACITY,
-    );
-  }
-
-  if (
-    change.liveCaptionWidth !== null &&
-    change.liveCaptionWidth !== undefined
-  ) {
-    values.live_caption_width = normalizeNumber(
-      change.liveCaptionWidth,
-      DEFAULT_FLOATING_OVERLAY_SETTINGS.liveCaptionWidth,
-      LIVE_CAPTION_MIN_WIDTH,
-      LIVE_CAPTION_MAX_WIDTH,
-    );
-  }
-
-  if (
-    change.liveCaptionLineCount !== null &&
-    change.liveCaptionLineCount !== undefined
-  ) {
-    values.live_caption_line_count = normalizeInteger(
-      change.liveCaptionLineCount,
-      DEFAULT_FLOATING_OVERLAY_SETTINGS.liveCaptionLineCount,
-      LIVE_CAPTION_MIN_LINE_COUNT,
-      LIVE_CAPTION_MAX_LINE_COUNT,
     );
   }
 
@@ -1018,49 +808,21 @@ function getSettingsValuesFromNativeChange(change: FloatingBarSettingsChange) {
   return values;
 }
 
-function mergeFloatingOverlaySettings(
-  settings: FloatingOverlaySettings,
-  values: Partial<FloatingOverlaySettingsStorage>,
-): FloatingOverlaySettings {
-  return {
-    ...settings,
-    floatingBarOpacity:
-      values.floating_bar_opacity ?? settings.floatingBarOpacity,
-    liveCaptionOpacity:
-      values.live_caption_opacity ?? settings.liveCaptionOpacity,
-    liveCaptionWidth: values.live_caption_width ?? settings.liveCaptionWidth,
-    liveCaptionLineCount:
-      values.live_caption_line_count ?? settings.liveCaptionLineCount,
-    liveCaptionPosition:
-      values.live_caption_position === undefined
-        ? settings.liveCaptionPosition
-        : normalizeLiveCaptionPosition(values.live_caption_position),
-    liveCaptionMinimized:
-      values.live_caption_minimized ?? settings.liveCaptionMinimized,
-  };
-}
-
-||||||| Common ancestor
 export async function openFloatingMeetingPanel({
   sessionId,
   enabled,
-  store,
 }: {
   sessionId?: string;
   enabled: boolean;
-  store?: SettingsStore;
 }) {
   if (!enabled) {
     await hideFloatingMeetingPanel();
     return;
   }
 
-  const state = listenerStore.getState();
   const routeState = getCurrentFloatingRouteState(
-    state,
+    listenerStore.getState(),
     sessionId,
-    getFloatingOverlaySettingsFromStore(store),
-    getFloatingLiveCaptionToggleVisible(state, store),
   );
 
   if (!routeState) {
