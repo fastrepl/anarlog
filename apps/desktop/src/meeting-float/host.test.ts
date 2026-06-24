@@ -122,7 +122,7 @@ describe("getLiveCaptionRouteState", () => {
     ).toEqual({
       sessionId: "session-1",
       text: "we should ship this",
-      opacity: 0.78,
+      opacity: 0.3,
       position: "topCenter",
       minimized: false,
     });
