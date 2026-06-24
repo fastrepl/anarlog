@@ -56,6 +56,15 @@ enum LiveCaptionPosition: String, Codable, CaseIterable {
     } ?? .topCenter
   }
 
+  static func nearest(to rect: NSRect, in frame: NSRect, within maxDistance: CGFloat)
+    -> LiveCaptionPosition?
+  {
+    let position = nearest(to: rect, in: frame)
+    let distance = distanceSquared(
+      from: rect.origin, to: position.origin(in: frame, size: rect.size))
+    return distance <= maxDistance * maxDistance ? position : nil
+  }
+
   private static func distanceSquared(from left: NSPoint, to right: NSPoint) -> CGFloat {
     let dx = left.x - right.x
     let dy = left.y - right.y
