@@ -6,6 +6,7 @@ interface TimelineSelectionState {
   setAnchor: (id: string) => void;
   toggleSelect: (id: string) => void;
   selectRange: (flatItemKeys: string[], targetId: string) => void;
+  selectAll: (ids: string[]) => void;
   clear: () => void;
   isSelected: (id: string) => boolean;
 }
@@ -54,6 +55,14 @@ export const useTimelineSelection = create<TimelineSelectionState>(
       const range = flatItemKeys.slice(start, end + 1);
 
       set({ selectedIds: range });
+    },
+    selectAll: (ids) => {
+      const { anchorId } = get();
+      set({
+        selectedIds: ids,
+        anchorId:
+          anchorId && ids.includes(anchorId) ? anchorId : (ids[0] ?? null),
+      });
     },
     clear: () => set({ selectedIds: [], anchorId: null }),
     isSelected: (id) => get().selectedIds.includes(id),

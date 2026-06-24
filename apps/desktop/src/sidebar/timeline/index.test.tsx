@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -8,6 +9,9 @@ const mocks = vi.hoisted(() => ({
   useAutoScrollToAnchor: vi.fn(),
   invalidateResource: vi.fn(),
   clearSelection: vi.fn(),
+  currentTab: { type: "empty" } as
+    | { type: "empty" }
+    | { type: "sessions"; id: string },
   addDeletion: vi.fn(),
   configValue: undefined as string | undefined,
   currentTimeMs: undefined as number | undefined,
@@ -16,9 +20,75 @@ const mocks = vi.hoisted(() => ({
   isIgnored: vi.fn(() => false),
   liveSessionId: null as string | null,
   liveStatus: "inactive" as "inactive" | "active" | "finalizing",
+  selectAll: vi.fn(),
   smartCurrentTimeMs: undefined as number | undefined,
+  timelineSelectionAnchorId: null as string | null,
+  timelineSelectionSelectedIds: [] as string[],
   timelineEventsTable: {} as Record<string, Record<string, unknown>>,
   timelineSessionsTable: {} as Record<string, Record<string, unknown>>,
+}));
+
+const lingui = vi.hoisted(() => {
+  const t = (
+    input: TemplateStringsArray | { message?: string } | string,
+    ...values: unknown[]
+  ) => {
+    if (Array.isArray(input)) {
+      return input.reduce(
+        (message, part, index) =>
+          `${message}${part}${index < values.length ? String(values[index]) : ""}`,
+        "",
+      );
+    }
+
+    if (typeof input === "string") {
+      return input;
+    }
+
+    if ("message" in input) {
+      return input.message ?? "";
+    }
+
+    return "";
+  };
+
+  return { t };
+});
+
+vi.mock("@lingui/react/macro", () => ({
+  Trans: ({
+    children,
+    id,
+    message,
+  }: {
+    children?: ReactNode;
+    id?: string;
+    message?: string;
+  }) => <>{children ?? message ?? id}</>,
+  useLingui: () => ({
+    _: lingui.t,
+    t: lingui.t,
+  }),
+}));
+
+vi.mock("@lingui/react", () => ({
+  Trans: ({
+    children,
+    id,
+    message,
+  }: {
+    children?: ReactNode;
+    id?: string;
+    message?: string;
+  }) => <>{children ?? message ?? id}</>,
+  useLingui: () => ({
+    _: lingui.t,
+    t: lingui.t,
+  }),
+}));
+
+vi.mock("@lingui/core/macro", () => ({
+  t: lingui.t,
 }));
 
 vi.mock("~/shared/config", () => ({
@@ -60,7 +130,7 @@ vi.mock("~/store/tinybase/store/main", () => ({
 vi.mock("~/store/zustand/tabs", () => ({
   useTabs: (selector: (state: unknown) => unknown) =>
     selector({
-      currentTab: { type: "empty" },
+      currentTab: mocks.currentTab,
       invalidateResource: mocks.invalidateResource,
       openNew: mocks.openNew,
     }),
@@ -69,8 +139,10 @@ vi.mock("~/store/zustand/tabs", () => ({
 vi.mock("~/store/zustand/timeline-selection", () => ({
   useTimelineSelection: (selector: (state: unknown) => unknown) =>
     selector({
+      anchorId: mocks.timelineSelectionAnchorId,
       clear: mocks.clearSelection,
-      selectedIds: [],
+      selectAll: mocks.selectAll,
+      selectedIds: mocks.timelineSelectionSelectedIds,
     }),
 }));
 
@@ -159,7 +231,11 @@ describe("TimelineView", () => {
     mocks.isIgnored.mockReturnValue(false);
     mocks.liveSessionId = null;
     mocks.liveStatus = "inactive";
+    mocks.currentTab = { type: "empty" };
+    mocks.selectAll.mockClear();
     mocks.smartCurrentTimeMs = undefined;
+    mocks.timelineSelectionAnchorId = null;
+    mocks.timelineSelectionSelectedIds = [];
     mocks.timelineEventsTable = {};
     mocks.timelineSessionsTable = {};
   });
@@ -301,6 +377,75 @@ describe("TimelineView", () => {
     fireEvent.click(calendarButton);
 
     expect(mocks.openNew).toHaveBeenCalledWith({ type: "calendar" });
+  });
+
+  it("selects all visible notes with Cmd+A after a sidebar note selection", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-15T09:00:00.000Z"));
+    mocks.currentTimeMs = Date.now();
+    mocks.currentTab = { type: "sessions", id: "selected-note" };
+    mocks.timelineSelectionAnchorId = "session-selected-note";
+    mocks.timelineEventsTable = {
+      event: {
+        title: "Calendar hold",
+        started_at: "2024-01-15T13:00:00.000Z",
+        ended_at: "2024-01-15T13:30:00.000Z",
+        tracking_id_event: "event-hold",
+        has_recurrence_rules: false,
+      },
+    };
+    mocks.timelineSessionsTable = {
+      "selected-note": {
+        title: "Selected note",
+        created_at: "2024-01-15T12:00:00.000Z",
+      },
+      "other-note": {
+        title: "Other note",
+        created_at: "2024-01-15T11:00:00.000Z",
+      },
+    };
+
+    render(<TimelineView />);
+
+    fireEvent.keyDown(window, { key: "a", metaKey: true });
+
+    expect(mocks.selectAll).toHaveBeenCalledWith([
+      "session-selected-note",
+      "session-other-note",
+    ]);
+  });
+
+  it("does not select sidebar notes when Cmd+A starts in the editor", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-15T09:00:00.000Z"));
+    mocks.currentTimeMs = Date.now();
+    mocks.currentTab = { type: "sessions", id: "selected-note" };
+    mocks.timelineSelectionAnchorId = "session-selected-note";
+    mocks.timelineSessionsTable = {
+      "selected-note": {
+        title: "Selected note",
+        created_at: "2024-01-15T12:00:00.000Z",
+      },
+      "other-note": {
+        title: "Other note",
+        created_at: "2024-01-15T11:00:00.000Z",
+      },
+    };
+
+    render(<TimelineView />);
+
+    const editor = document.createElement("div");
+    editor.className = "ProseMirror";
+    editor.contentEditable = "true";
+    editor.tabIndex = 0;
+    document.body.appendChild(editor);
+    editor.focus();
+
+    fireEvent.keyDown(editor, { key: "a", metaKey: true });
+
+    expect(mocks.selectAll).not.toHaveBeenCalled();
+
+    editor.remove();
   });
 
   it("keeps top chrome compact while scrolled without timeline action tabs", () => {
