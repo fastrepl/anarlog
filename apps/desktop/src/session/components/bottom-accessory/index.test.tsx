@@ -36,6 +36,50 @@ const hoisted = vi.hoisted(() => ({
   regenerateInsights: vi.fn(),
 }));
 
+const lingui = vi.hoisted(() => {
+  type LinguiDescriptor = {
+    message?: string;
+    values?: Record<string, unknown>;
+  };
+  const isDescriptor = (value: unknown): value is LinguiDescriptor =>
+    Boolean(value) && typeof value === "object" && !Array.isArray(value);
+  const t = (
+    input: TemplateStringsArray | LinguiDescriptor | string,
+    ...values: unknown[]
+  ) => {
+    if (typeof input === "string") {
+      return input;
+    }
+
+    if (isDescriptor(input)) {
+      let message = input.message ?? "";
+      const replacements =
+        input.values ??
+        values.find(
+          (value): value is Record<string, unknown> =>
+            Boolean(value) &&
+            typeof value === "object" &&
+            !Array.isArray(value),
+        );
+
+      if (replacements) {
+        for (const [key, value] of Object.entries(replacements)) {
+          message = message.split(`{${key}}`).join(String(value));
+        }
+      }
+
+      return message;
+    }
+
+    return Array.from(input).reduce(
+      (text, part, index) => `${text}${part}${values[index] ?? ""}`,
+      "",
+    );
+  };
+
+  return { t };
+});
+
 vi.mock("react-hotkeys-hook", () => ({
   useHotkeys: (
     keys: string,
@@ -46,6 +90,20 @@ vi.mock("react-hotkeys-hook", () => ({
   ) => {
     hoisted.hotkeys.set(keys, { handler, options });
   },
+}));
+
+vi.mock("@lingui/react/macro", () => ({
+  useLingui: () => ({
+    _: lingui.t,
+    t: lingui.t,
+  }),
+}));
+
+vi.mock("@lingui/react", () => ({
+  useLingui: () => ({
+    _: lingui.t,
+    t: lingui.t,
+  }),
 }));
 
 vi.mock("./during-session", () => ({
@@ -423,7 +481,7 @@ describe("useSessionBottomAccessory", () => {
     expect(result.current.bottomBorderHandle).toBeNull();
   });
 
-  it("keeps batch progress visible while another session is live", () => {
+  it("hides batch progress from the bottom accessory while another session is live", () => {
     hoisted.live.status = "active";
     hoisted.live.sessionId = "live-session";
 
@@ -436,15 +494,12 @@ describe("useSessionBottomAccessory", () => {
       }),
     );
 
-    expect(result.current.bottomAccessoryState).toEqual({
-      mode: "playback",
-      expanded: false,
-    });
-    expect(result.current.bottomAccessory).not.toBeNull();
+    expect(result.current.bottomAccessoryState).toBeNull();
+    expect(result.current.bottomAccessory).toBeNull();
     expect(result.current.bottomBorderHandle).toBeNull();
   });
 
-  it("keeps batch progress visible while batch transcription is running", () => {
+  it("hides the bottom accessory while batch transcription is running", () => {
     const { result } = renderHook(() =>
       useSessionBottomAccessory({
         sessionId: "session-1",
@@ -454,15 +509,12 @@ describe("useSessionBottomAccessory", () => {
       }),
     );
 
-    expect(result.current.bottomAccessoryState).toEqual({
-      mode: "playback",
-      expanded: false,
-    });
-    expect(result.current.bottomAccessory).not.toBeNull();
+    expect(result.current.bottomAccessoryState).toBeNull();
+    expect(result.current.bottomAccessory).toBeNull();
     expect(result.current.bottomBorderHandle).toBeNull();
   });
 
-  it("shows batch progress when regeneration starts", () => {
+  it("keeps the bottom accessory hidden when regeneration starts", () => {
     const { result, rerender } = renderHook(
       ({ sessionMode }: { sessionMode: string }) =>
         useSessionBottomAccessory({
@@ -483,11 +535,8 @@ describe("useSessionBottomAccessory", () => {
 
     rerender({ sessionMode: "running_batch" });
 
-    expect(result.current.bottomAccessoryState).toEqual({
-      mode: "playback",
-      expanded: false,
-    });
-    expect(result.current.bottomAccessory).not.toBeNull();
+    expect(result.current.bottomAccessoryState).toBeNull();
+    expect(result.current.bottomAccessory).toBeNull();
     expect(result.current.bottomBorderHandle).toBeNull();
   });
 

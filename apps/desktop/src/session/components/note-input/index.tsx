@@ -173,6 +173,7 @@ export const NoteInput = forwardRef<
               editorTabs={editorTabs}
               currentTab={currentTab}
               handleTabChange={handleTabChange}
+              isTranscribing={isMeetingInProgress}
             />
           </div>
         )}

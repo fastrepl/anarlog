@@ -11,7 +11,7 @@ export function shouldShowSessionBottomAccessory({
   bottomAccessoryState: BottomAccessoryState;
   sessionMode: string;
 }) {
-  if (currentView.type === "transcript" && sessionMode === "running_batch") {
+  if (sessionMode === "running_batch") {
     return false;
   }
 

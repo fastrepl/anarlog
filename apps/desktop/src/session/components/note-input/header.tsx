@@ -459,10 +459,12 @@ function HeaderTabEnhanced({
 
 function HeaderTabTranscript({
   isActive,
+  isTranscribing,
   onClick = () => {},
   sessionId,
 }: {
   isActive: boolean;
+  isTranscribing: boolean;
   onClick?: () => void;
   sessionId: string;
 }) {
@@ -543,7 +545,13 @@ function HeaderTabTranscript({
     <IconHeaderTab
       isActive={isActive}
       label={t`Transcript`}
-      icon={<AudioLinesIcon className="size-4" />}
+      icon={
+        isTranscribing ? (
+          <Spinner size={16} className="shrink-0" />
+        ) : (
+          <AudioLinesIcon className="size-4" />
+        )
+      }
       onClick={onClick}
       onContextMenu={showContextMenu}
     />
@@ -976,11 +984,13 @@ export function Header({
   editorTabs,
   currentTab,
   handleTabChange,
+  isTranscribing = false,
 }: {
   sessionId: string;
   editorTabs: EditorView[];
   currentTab: EditorView;
   handleTabChange: (view: EditorView) => void;
+  isTranscribing?: boolean;
 }) {
   const { t } = useLingui();
   const store = main.UI.useStore(main.STORE_ID);
@@ -1062,6 +1072,7 @@ export function Header({
                     key={view.type}
                     sessionId={sessionId}
                     isActive={currentTab.type === view.type}
+                    isTranscribing={isTranscribing}
                     onClick={() => handleTabChange(view)}
                   />
                 );
