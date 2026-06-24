@@ -81,6 +81,8 @@ function IconHeaderTab({
   onClick,
   onContextMenu,
   title,
+  size = "tray",
+  className,
 }: {
   isActive: boolean;
   label: string;
@@ -88,6 +90,8 @@ function IconHeaderTab({
   onClick?: () => void;
   onContextMenu?: React.MouseEventHandler<HTMLButtonElement>;
   title?: string;
+  size?: "tray" | "standalone";
+  className?: string;
 }) {
   return (
     <button
@@ -101,7 +105,8 @@ function IconHeaderTab({
       title={title}
       className={iconHeaderTabClassName(
         isActive,
-        cn(["min-w-10 px-2", isActive ? "max-w-40 gap-1.5" : null]),
+        size,
+        cn(["min-w-10 px-2", isActive ? "max-w-40 gap-1.5" : null, className]),
       )}
     >
       {icon}
@@ -112,16 +117,26 @@ function IconHeaderTab({
   );
 }
 
-function iconHeaderTabClassName(isActive: boolean, className?: string) {
+function iconHeaderTabClassName(
+  isActive: boolean,
+  size: "tray" | "standalone" = "tray",
+  className?: string,
+) {
+  const heightClassName = size === "tray" ? "h-[26px]" : "h-7";
+
   return cn([
     "flex shrink-0 items-center justify-center rounded-full transition-colors select-none [&>svg]:shrink-0",
     isActive
-      ? ["bg-foreground/10 text-foreground -my-px h-[30px]"]
+      ? [
+          "text-foreground bg-white shadow-xs",
+          "dark:text-primary dark:bg-white",
+        ]
       : [
-          "h-7",
           "text-muted-foreground/70",
           "hover:bg-background/60 hover:text-foreground",
+          "dark:hover:bg-white/8",
         ],
+    heightClassName,
     className,
   ]);
 }
@@ -206,10 +221,12 @@ function HeaderTabRaw({
   isActive,
   onClick = () => {},
   sessionId,
+  standalone = false,
 }: {
   isActive: boolean;
   onClick?: () => void;
   sessionId: string;
+  standalone?: boolean;
 }) {
   const { t } = useLingui();
   const rawMd = main.UI.useCell(
@@ -244,6 +261,8 @@ function HeaderTabRaw({
       icon={<AlignLeftIcon className="size-4" />}
       onClick={onClick}
       onContextMenu={showContextMenu}
+      size={standalone ? "standalone" : "tray"}
+      className={standalone ? "border-border/70 border shadow-xs" : undefined}
     />
   );
 }
@@ -387,6 +406,7 @@ function HeaderTabEnhanced({
       title={templateTooltip}
       className={iconHeaderTabClassName(
         true,
+        "tray",
         cn([
           "max-w-56 min-w-[62px] gap-1.5 pr-1.5 pl-2",
           isGenerating ? "cursor-not-allowed opacity-70" : "cursor-pointer",
@@ -395,7 +415,10 @@ function HeaderTabEnhanced({
                 "text-red-600 hover:bg-red-50 hover:text-red-700 focus-visible:bg-red-50",
                 "dark:text-red-400 dark:hover:bg-red-950/50 dark:hover:text-red-300 dark:focus-visible:bg-red-950/50",
               ]
-            : "focus-visible:bg-background focus-visible:text-foreground",
+            : [
+                "focus-visible:text-foreground focus-visible:bg-white",
+                "dark:focus-visible:text-primary dark:focus-visible:bg-white",
+              ],
         ]),
       )}
     >
@@ -423,7 +446,7 @@ function HeaderTabEnhanced({
       onClick={onClick}
       onContextMenu={showContextMenu}
       title={templateTooltip}
-      className={iconHeaderTabClassName(false, "min-w-10 px-2")}
+      className={iconHeaderTabClassName(false, "tray", "min-w-10 px-2")}
     >
       {isGenerating ? (
         <Spinner size={16} className="shrink-0" />
@@ -965,6 +988,7 @@ export function Header({
     (view): view is Extract<EditorView, { type: "enhanced" }> =>
       view.type === "enhanced",
   )?.id;
+  const shouldUseTabTray = editorTabs.length > 1;
 
   return (
     <div data-tauri-drag-region className="flex flex-col pl-1">
@@ -977,7 +1001,12 @@ export function Header({
             role="tablist"
             aria-label={t`Session note tabs`}
             data-tauri-drag-region="false"
-            className="bg-muted/25 pointer-events-auto relative z-10 flex h-7 w-fit max-w-full items-center gap-0.5 overflow-visible rounded-full"
+            className={cn([
+              "pointer-events-auto relative z-10 w-fit max-w-full overflow-visible",
+              shouldUseTabTray
+                ? "bg-foreground/10 flex h-[30px] items-center gap-[2px] rounded-full p-[2px] dark:bg-white/12"
+                : null,
+            ])}
           >
             {editorTabs.map((view, index) => {
               if (view.type === "enhanced") {
@@ -1021,6 +1050,7 @@ export function Header({
                     key={view.type}
                     sessionId={sessionId}
                     isActive={currentTab.type === view.type}
+                    standalone={!shouldUseTabTray}
                     onClick={() => handleTabChange(view)}
                   />
                 );

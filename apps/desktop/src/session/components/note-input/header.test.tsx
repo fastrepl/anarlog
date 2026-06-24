@@ -208,17 +208,25 @@ describe("Header", () => {
     const summaryTab = screen.getByRole("button", { name: "Customer Call" });
     const memoTab = screen.getByRole("button", { name: "Memos" });
     const transcriptTab = screen.getByRole("button", { name: "Transcript" });
+    const tabList = screen.getByRole("tablist");
 
     expect(summaryTab.getAttribute("data-state")).toBeNull();
-    expect(
-      screen.getByRole("tablist").getAttribute("data-tauri-drag-region"),
-    ).toBe("false");
+    expect(tabList.getAttribute("data-tauri-drag-region")).toBe("false");
+    expect(tabList.className).toContain("h-[30px]");
+    expect(tabList.className).toContain("p-[2px]");
+    expect(tabList.className).toContain("gap-[2px]");
+    expect(tabList.className).toContain("bg-foreground/10");
+    expect(tabList.className).toContain("dark:bg-white/12");
     expect(summaryTab.getAttribute("aria-current")).toBeNull();
     expect(memoTab.getAttribute("aria-current")).toBe("page");
     expect(memoTab.textContent).toBe("Memos");
-    expect(memoTab.className).toContain("h-[30px]");
-    expect(memoTab.className).toContain("-my-px");
-    expect(summaryTab.className).toContain("h-7");
+    expect(memoTab.className).toContain("h-[26px]");
+    expect(memoTab.className).not.toContain("-my-px");
+    expect(memoTab.className).toContain("bg-white");
+    expect(memoTab.className).toContain("shadow-xs");
+    expect(memoTab.className).toContain("dark:bg-white");
+    expect(summaryTab.className).toContain("h-[26px]");
+    expect(summaryTab.className).toContain("dark:hover:bg-white/8");
     expect(summaryTab.querySelector("svg")).not.toBeNull();
     expect(summaryTab.querySelectorAll("svg")).toHaveLength(1);
     expect(summaryTab.textContent).toBe("");
@@ -271,6 +279,29 @@ describe("Header", () => {
       type: "enhanced",
       id: "note-1",
     });
+  });
+
+  it("renders a raw-only memo tab without the tab tray", () => {
+    render(
+      <Header
+        sessionId="session-1"
+        editorTabs={[{ type: "raw" }]}
+        currentTab={{ type: "raw" }}
+        handleTabChange={vi.fn()}
+      />,
+    );
+
+    const memoTab = screen.getByRole("button", { name: "Memos" });
+    const tabList = screen.getByRole("tablist");
+
+    expect(tabList.className).not.toContain("h-[30px]");
+    expect(tabList.className).not.toContain("bg-foreground/10");
+    expect(tabList.className).not.toContain("rounded-full");
+    expect(memoTab.textContent).toBe("Memos");
+    expect(memoTab.className).toContain("h-7");
+    expect(memoTab.className).toContain("bg-white");
+    expect(memoTab.className).toContain("border");
+    expect(memoTab.className).not.toContain("bg-foreground/10");
   });
 
   it("can switch from transcript back to memo or summary tabs", () => {
