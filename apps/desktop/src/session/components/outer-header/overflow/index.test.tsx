@@ -166,6 +166,26 @@ describe("OverflowButton", () => {
     ).toBeNull();
   });
 
+  it("hides upload actions while a meeting is in progress", () => {
+    useListenerMock.mockImplementation((selector) =>
+      selector({
+        getSessionMode: () => "active",
+      }),
+    );
+
+    render(
+      <OverflowButton
+        sessionId="session-1"
+        currentView={{ type: "enhanced", id: "note-1" } as EditorView}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Upload audio" })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Upload transcript" }),
+    ).toBeNull();
+  });
+
   it("opens the floating panel while actively listening", () => {
     useConfigValueMock.mockReturnValue(true);
     useListenerMock.mockImplementation((selector) =>

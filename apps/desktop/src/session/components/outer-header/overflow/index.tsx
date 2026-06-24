@@ -57,6 +57,9 @@ export function OverflowButton({
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
   const floatingBarEnabled = useConfigValue("floating_bar_enabled");
   const settings = settingsStore.UI.useStore(settingsStore.STORE_ID);
+  const isMeetingInProgress =
+    sessionMode === "active" || sessionMode === "finalizing";
+  const showUploadActions = !currentNoteHasContent && !isMeetingInProgress;
   const canOpenFloatingPanel =
     allowListening && floatingBarEnabled && sessionMode === "active";
   const openExportModal = () => {
@@ -110,7 +113,7 @@ export function OverflowButton({
             {allowListening && (
               <Listening sessionId={sessionId} hasTranscript={hasTranscript} />
             )}
-            {!currentNoteHasContent && (
+            {showUploadActions && (
               <>
                 <DropdownMenuItem
                   onClick={handleUploadAudio}
