@@ -7,6 +7,7 @@ describe("shouldShowSessionBottomAccessory", () => {
     expect(
       shouldShowSessionBottomAccessory({
         currentView: { type: "transcript" },
+        sessionMode: "inactive",
         bottomAccessoryState: {
           mode: "transcript_only",
           expanded: false,
@@ -19,6 +20,7 @@ describe("shouldShowSessionBottomAccessory", () => {
     expect(
       shouldShowSessionBottomAccessory({
         currentView: { type: "transcript" },
+        sessionMode: "inactive",
         bottomAccessoryState: {
           mode: "playback",
           expanded: false,
@@ -31,7 +33,21 @@ describe("shouldShowSessionBottomAccessory", () => {
     expect(
       shouldShowSessionBottomAccessory({
         currentView: { type: "transcript" },
+        sessionMode: "inactive",
         bottomAccessoryState: null,
+      }),
+    ).toBe(false);
+  });
+
+  it("hides batch transcription status on the transcript tab", () => {
+    expect(
+      shouldShowSessionBottomAccessory({
+        currentView: { type: "transcript" },
+        sessionMode: "running_batch",
+        bottomAccessoryState: {
+          mode: "playback",
+          expanded: false,
+        },
       }),
     ).toBe(false);
   });

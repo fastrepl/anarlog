@@ -170,6 +170,7 @@ function TabContentNoteInner({
   const showBottomAccessory = shouldShowSessionBottomAccessory({
     currentView,
     bottomAccessoryState,
+    sessionMode,
   });
   const showBottomTranscriptSurface =
     showBottomAccessory && currentView.type !== "transcript";
