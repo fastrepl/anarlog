@@ -178,14 +178,13 @@ export function TimelineView({
   const topSpacerClassName = topChromeInset
     ? reserveOpenCalendarChipSpace
       ? "h-18"
-      : "h-8"
+      : "h-12"
     : "h-10";
   const bucketHeaderTopClassName = topChromeInset
     ? showOpenCalendarChip
       ? "top-18"
-      : "top-8"
+      : "top-12"
     : "top-0";
-  const showTopChromeFade = topChromeInset && !isScrolledToTop;
   const selectedSessionScrollFrameRef = useRef<number | null>(null);
   const scrollSelectedSessionIntoView = useCallback<
     RefCallback<HTMLDivElement>
@@ -255,9 +254,8 @@ export function TimelineView({
   const scrollFadeMask = useMemo(() => {
     return getTimelineScrollFadeMask({
       showBottomFade: !isScrolledToBottom,
-      showTopFade: hasMoreFutureItems && !isScrolledToTop,
     });
-  }, [hasMoreFutureItems, isScrolledToBottom, isScrolledToTop]);
+  }, [isScrolledToBottom]);
 
   const todayBucketLength = useMemo(() => {
     const b = buckets.find((bucket) => bucket.label === "Today");
@@ -541,16 +539,11 @@ export function TimelineView({
           ))}
       </div>
 
-      {showTopChromeFade && (
+      {topChromeInset && (
         <div
           aria-hidden
-          data-sidebar-timeline-top-fade
-          className={cn([
-            "pointer-events-none absolute inset-x-0 top-0 z-[15]",
-            showOpenCalendarChip
-              ? "bg-background h-18"
-              : "from-background via-background/95 to-background/0 h-16 bg-linear-to-b from-60% via-85%",
-          ])}
+          data-sidebar-timeline-top-occluder
+          className="bg-background pointer-events-none absolute inset-x-0 top-0 z-10 h-12"
         />
       )}
 
@@ -1119,19 +1112,9 @@ function useTimelineData({
 
 function getTimelineScrollFadeMask({
   showBottomFade,
-  showTopFade,
 }: {
   showBottomFade: boolean;
-  showTopFade: boolean;
 }): string {
-  if (showTopFade && showBottomFade) {
-    return "linear-gradient(to bottom, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%)";
-  }
-
-  if (showTopFade) {
-    return "linear-gradient(to bottom, transparent 0, #000 28px, #000 100%)";
-  }
-
   if (showBottomFade) {
     return "linear-gradient(to bottom, #000 0, #000 calc(100% - 28px), transparent 100%)";
   }

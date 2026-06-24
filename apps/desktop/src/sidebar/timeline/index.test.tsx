@@ -279,6 +279,7 @@ describe("TimelineView", () => {
     expect(
       container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
     ).toContain("h-18");
+    expect(queryTopOccluder(container)?.className).toContain("h-12");
 
     fireEvent.click(calendarButton);
 
@@ -319,7 +320,8 @@ describe("TimelineView", () => {
 
     expect(screen.queryByRole("button", { name: "Open calendar" })).toBeNull();
     expect(topSpacer?.className).toContain("h-18");
-    expect(getTopFade(container).className).toContain("h-16");
+    expect(queryTopFade(container)).toBeNull();
+    expect(queryTopOccluder(container)?.className).toContain("bg-background");
   });
 
   it("routes wheel gestures from the open calendar chip into the timeline scroller", () => {
@@ -372,11 +374,12 @@ describe("TimelineView", () => {
 
     expect(
       container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
-    ).toContain("h-8");
+    ).toContain("h-12");
     expect(
       container.querySelector("[data-sidebar-timeline-bucket-header]")
         ?.className,
-    ).toContain("top-8");
+    ).toContain("top-12");
+    expect(queryTopOccluder(container)?.className).toContain("h-12");
   });
 
   it("pins bucket headers to the sidebar chrome while scrolled", () => {
@@ -402,7 +405,7 @@ describe("TimelineView", () => {
     );
 
     expect(scroller).toBeInstanceOf(HTMLDivElement);
-    expect(header?.className).toContain("top-8");
+    expect(header?.className).toContain("top-12");
 
     Object.defineProperty(scroller, "clientHeight", {
       configurable: true,
@@ -415,8 +418,9 @@ describe("TimelineView", () => {
     scroller!.scrollTop = 120;
     fireEvent.scroll(scroller!);
 
-    expect(header?.className).toContain("top-8");
+    expect(header?.className).toContain("top-12");
     expect(header?.className).toContain("z-20");
+    expect(queryTopOccluder(container)?.className).toContain("z-10");
   });
 
   it("shows the open calendar chip without top chrome", () => {
@@ -519,13 +523,14 @@ describe("TimelineView", () => {
     editor.remove();
   });
 
-  it("keeps top chrome compact while scrolled without timeline action tabs", () => {
+  it("does not show a top chrome fade while scrolled without timeline action tabs", () => {
     const { container } = render(<TimelineView topChromeInset />);
     const scroller = container.querySelector("[data-sidebar-timeline-scroll]");
 
     expect(scroller).toBeInstanceOf(HTMLDivElement);
     expect(getSidebarActionTabsOrNull()).toBeNull();
     expect(queryTopFade(container)).toBeNull();
+    expect(queryTopOccluder(container)?.className).toContain("h-12");
 
     Object.defineProperty(scroller, "clientHeight", {
       configurable: true,
@@ -539,8 +544,8 @@ describe("TimelineView", () => {
     fireEvent.scroll(scroller!);
 
     expect(getSidebarActionTabsOrNull()).toBeNull();
-    expect(getTopFade(container).className).toContain("h-16");
-    expect(getTopFade(container).className).toContain("from-60%");
+    expect(queryTopFade(container)).toBeNull();
+    expect(queryTopOccluder(container)?.className).toContain("h-12");
   });
 
   it("does not show a top scroll fade when there are no hidden future notes", () => {
@@ -571,6 +576,46 @@ describe("TimelineView", () => {
     scroller!.scrollTop = 120;
     fireEvent.scroll(scroller!);
 
+    expect(scroller!.style.maskImage).toBe(
+      "linear-gradient(to bottom, #000 0, #000 calc(100% - 28px), transparent 100%)",
+    );
+  });
+
+  it("does not show a top scroll fade when future notes are hidden above a sticky header", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
+    mocks.timelineSessionsTable = {
+      today: {
+        title: "Design sync",
+        created_at: "2024-01-15T11:00:00.000Z",
+      },
+      later: {
+        title: "Quarterly planning",
+        created_at: "2024-01-17T12:00:00.000Z",
+      },
+    };
+
+    const { container } = render(<TimelineView topChromeInset />);
+    const scroller = container.querySelector(
+      "[data-sidebar-timeline-scroll]",
+    ) as HTMLDivElement | null;
+
+    expect(scroller).toBeInstanceOf(HTMLDivElement);
+
+    Object.defineProperty(scroller, "clientHeight", {
+      configurable: true,
+      value: 200,
+    });
+    Object.defineProperty(scroller, "scrollHeight", {
+      configurable: true,
+      value: 1200,
+    });
+    scroller!.scrollTop = 120;
+    fireEvent.scroll(scroller!);
+
+    expect(screen.getByText("Today")).toBeTruthy();
+    expect(queryTopFade(container)).toBeNull();
+    expect(queryTopOccluder(container)?.className).toContain("h-12");
     expect(scroller!.style.maskImage).toBe(
       "linear-gradient(to bottom, #000 0, #000 calc(100% - 28px), transparent 100%)",
     );
@@ -608,9 +653,7 @@ describe("TimelineView", () => {
     scroller!.scrollTop = 1000;
     fireEvent.scroll(scroller!);
 
-    expect(scroller!.style.maskImage).toBe(
-      "linear-gradient(to bottom, transparent 0, #000 28px, #000 100%)",
-    );
+    expect(scroller!.style.maskImage).toBe("none");
   });
 
   it("shows an imminent meeting chip over the sidebar timeline", () => {
@@ -675,7 +718,7 @@ describe("TimelineView", () => {
     );
     expect(
       container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
-    ).toContain("h-8");
+    ).toContain("h-12");
     expect(
       container.querySelector("[data-sidebar-timeline-top-chip-stack]")
         ?.className,
@@ -823,11 +866,11 @@ describe("TimelineView", () => {
     ).toContain("top-11");
     expect(
       container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
-    ).toContain("h-8");
+    ).toContain("h-12");
     expect(
       container.querySelector("[data-sidebar-timeline-bucket-header]")
         ?.className,
-    ).toContain("top-8");
+    ).toContain("top-12");
 
     Object.defineProperty(scroller, "clientHeight", {
       configurable: true,
@@ -840,7 +883,7 @@ describe("TimelineView", () => {
     scroller!.scrollTop = 120;
     fireEvent.scroll(scroller!);
 
-    expect(getTopFade(container).className).toContain("h-16");
+    expect(queryTopFade(container)).toBeNull();
   });
 
   it("places the fallback now indicator between future and past buckets", () => {
@@ -1055,16 +1098,12 @@ function getSidebarActionTabsOrNull() {
   return document.querySelector("[data-sidebar-timeline-action-tabs]");
 }
 
-function getTopFade(container: HTMLElement) {
-  const topFade = queryTopFade(container);
-
-  expect(topFade).toBeInstanceOf(HTMLDivElement);
-
-  return topFade as HTMLDivElement;
-}
-
 function queryTopFade(container: HTMLElement) {
   return container.querySelector("[data-sidebar-timeline-top-fade]");
+}
+
+function queryTopOccluder(container: HTMLElement) {
+  return container.querySelector("[data-sidebar-timeline-top-occluder]");
 }
 
 function isBefore(first: Element, second: Element) {
