@@ -45,6 +45,11 @@ pub fn init<R: tauri::Runtime>(
     tauri::plugin::Builder::new(PLUGIN_NAME)
         .invoke_handler(specta_builder.invoke_handler())
         .setup(move |app, _| {
+            hypr_tauri_utils::block_on(hypr_db_migrate::migrate(
+                db.as_ref(),
+                hypr_db_app::schema(),
+            ))?;
+
             let pool = db.pool().clone();
             let app_handle = app.app_handle().clone();
             hypr_tauri_utils::spawn("import legacy tinybase json", async move {
@@ -232,6 +237,30 @@ mod test {
                 "title": "Template 1",
             })]
         );
+    }
+
+    #[tokio::test]
+    async fn open_memory_app_db_subscribe_sees_app_schema() {
+        let db = runtime::open_app_db(None).await.unwrap();
+        let runtime = runtime::PluginDbRuntime::new(Arc::new(db));
+        let (channel, events) = capture_channel();
+
+        let registration = runtime
+            .subscribe(
+                "SELECT id, title FROM templates ORDER BY id".to_string(),
+                vec![],
+                runtime::QueryEventChannel::new(channel),
+            )
+            .await
+            .unwrap();
+
+        assert!(matches!(
+            registration.analysis,
+            hypr_db_reactive::DependencyAnalysis::Reactive { .. }
+        ));
+
+        let event = next_event(&events, 0).await.unwrap();
+        assert!(matches!(event, QueryEvent::Result(rows) if !rows.is_empty()));
     }
 
     #[tokio::test]

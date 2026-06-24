@@ -32,6 +32,11 @@ pub const APP_MIGRATION_STEPS: &[hypr_db_migrate::MigrationStep] = &[
         scope: hypr_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260524000000_default_templates.sql"),
     },
+    hypr_db_migrate::MigrationStep {
+        id: "20260624000000_repair_templates",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260624000000_repair_templates.sql"),
+    },
 ];
 
 pub fn schema() -> hypr_db_migrate::DbSchema {
@@ -116,6 +121,33 @@ mod tests {
             tables,
             vec!["_sqlx_migrations", "calendars", "events", "templates"]
         );
+    }
+
+    #[tokio::test]
+    async fn repair_migration_recreates_missing_templates_table() {
+        let db = Db::connect_memory_plain().await.unwrap();
+        hypr_db_migrate::migrate(
+            &db,
+            hypr_db_migrate::DbSchema {
+                steps: &APP_MIGRATION_STEPS[..3],
+                validate_cloudsync_table: cloudsync_alter_guard_required,
+            },
+        )
+        .await
+        .unwrap();
+
+        sqlx::query("DROP TABLE templates")
+            .execute(db.pool())
+            .await
+            .unwrap();
+
+        hypr_db_migrate::migrate(&db, schema()).await.unwrap();
+
+        let row_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM templates")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        assert_eq!(row_count, 0);
     }
 
     #[test]
