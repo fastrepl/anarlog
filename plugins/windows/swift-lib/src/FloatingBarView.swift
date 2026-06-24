@@ -21,7 +21,6 @@ enum FloatingBarLayout {
   static let hoverHandleDotGap: CGFloat = 2.4
   static let containerWidth: CGFloat = pillWidth + inset * 2
   static let visualCenterOffset: CGFloat = hoverHandleReservedHeight / 2
-  static let dragClickThreshold: CGFloat = 4
 
   static func pillHeight(forControlCount controlCount: CGFloat) -> CGFloat {
     clickAreaSize * controlCount + clickAreaGap * (controlCount - 1) + pillPadding * 2
@@ -35,9 +34,9 @@ enum FloatingBarLayout {
 struct FloatingBarView: View {
   @ObservedObject var model: FloatingBarViewModel
   @ObservedObject var settings: FloatingOverlaySettingsModel
+  let onOpenSettings: () -> Void
   @State private var isBarHovered = false
   @State private var isBarsHovered = false
-  @State private var suppressNextClick = false
 
   var body: some View {
     VStack(spacing: FloatingBarLayout.hoverHandleGap) {
@@ -57,7 +56,6 @@ struct FloatingBarView: View {
       alignment: .top
     )
     .contentShape(Capsule(style: .continuous))
-    .simultaneousGesture(dragClickSuppressor)
     .background(
       Capsule(style: .continuous)
         .fill(surfaceColor)
@@ -85,7 +83,7 @@ struct FloatingBarView: View {
 
   private var controls: some View {
     VStack(spacing: FloatingBarLayout.clickAreaGap) {
-      Button(action: { performClick(RustBridge.openMainWindow) }) {
+      Button(action: RustBridge.openMainWindow) {
         CircularClickArea(hoverFill: controlHoverFill) {
           Text("a")
             .font(.custom(FloatingBarFonts.cabinSketchName, size: FloatingBarLayout.markSize))
@@ -96,7 +94,7 @@ struct FloatingBarView: View {
       .buttonStyle(.plain)
 
       if model.liveCaptionToggleVisible {
-        Button(action: { performClick(toggleLiveCaption) }) {
+        Button(action: toggleLiveCaption) {
           CircularClickArea(
             hoverFill: controlHoverFill
           ) {
@@ -114,13 +112,23 @@ struct FloatingBarView: View {
       }
 
       audioControl
+
+      Button(action: onOpenSettings) {
+        CircularClickArea(hoverFill: controlHoverFill) {
+          Image(systemName: "slider.horizontal.3")
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(primaryContentColor)
+        }
+      }
+      .buttonStyle(.plain)
+      .accessibilityLabel("Floating settings")
     }
     .padding(FloatingBarLayout.pillPadding)
     .frame(width: FloatingBarLayout.pillWidth, height: pillHeight)
   }
 
   private var audioControl: some View {
-    Button(action: { performClick(RustBridge.stopListening) }) {
+    Button(action: RustBridge.stopListening) {
       CircularClickArea(
         hoverFill: accentColor.opacity(0.16),
         onHoverChange: { isBarsHovered = $0 }
@@ -149,7 +157,7 @@ struct FloatingBarView: View {
   }
 
   private var controlCount: CGFloat {
-    model.liveCaptionToggleVisible ? 3 : 2
+    model.liveCaptionToggleVisible ? 4 : 3
   }
 
   private var pillHeight: CGFloat {
@@ -206,30 +214,6 @@ struct FloatingBarView: View {
 
   private var normalAccentColor: Color {
     Color(red: 1, green: 0.45, blue: 0.48)
-  }
-
-  private var dragClickSuppressor: some Gesture {
-    DragGesture(
-      minimumDistance: FloatingBarLayout.dragClickThreshold,
-      coordinateSpace: .global
-    )
-    .onChanged { _ in
-      suppressNextClick = true
-    }
-    .onEnded { _ in
-      DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-        suppressNextClick = false
-      }
-    }
-  }
-
-  private func performClick(_ action: () -> Void) {
-    if suppressNextClick {
-      suppressNextClick = false
-      return
-    }
-
-    action()
   }
 
   private func toggleLiveCaption() {

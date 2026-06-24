@@ -27,8 +27,11 @@ final class FloatingBarManager {
       FloatingBarFonts.register()
 
       let panel = self.createPanel()
-      let hostingView = NSHostingView(
-        rootView: FloatingBarView(model: self.model, settings: self.settingsModel))
+      let hostingView = DraggableHostingView(
+        rootView: FloatingBarView(model: self.model, settings: self.settingsModel) {
+          [weak self] in
+          self?.toggleSettingsPanel()
+        })
       hostingView.frame = NSRect(
         x: 0,
         y: 0,
@@ -124,7 +127,7 @@ final class FloatingBarManager {
   }
 
   private var currentSize: NSSize {
-    let controlCount: CGFloat = model.liveCaptionToggleVisible ? 3 : 2
+    let controlCount: CGFloat = model.liveCaptionToggleVisible ? 4 : 3
     return NSSize(
       width: FloatingBarLayout.containerWidth,
       height: FloatingBarLayout.containerHeight(forControlCount: controlCount))
@@ -160,4 +163,14 @@ final class FloatingBarManager {
     }
   }
 
+  private func toggleSettingsPanel() {
+    FloatingOverlaySettingsPanelManager.shared.toggle(anchor: panel)
+  }
+
+}
+
+private final class DraggableHostingView<Content: View>: NSHostingView<Content> {
+  override var mouseDownCanMoveWindow: Bool {
+    true
+  }
 }

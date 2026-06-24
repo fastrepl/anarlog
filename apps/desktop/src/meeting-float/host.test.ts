@@ -4,7 +4,6 @@ import {
   getCurrentFloatingBarColorScheme,
   getFloatingRouteState,
   getLiveCaptionRouteState,
-  shouldShowFloatingLiveCaptionToggle,
 } from "./host";
 
 import { createListenerStore } from "~/store/zustand/listener";
@@ -56,27 +55,9 @@ describe("getFloatingRouteState", () => {
       colorScheme: "dark",
       opacity: 0.78,
       liveCaptionOpacity: 0.3,
-      liveCaptionWidth: 440,
-      liveCaptionLineCount: 1,
       liveCaptionPosition: "topCenter",
       liveCaptionMinimized: false,
-      liveCaptionToggleVisible: false,
     });
-  });
-
-  it("marks the transcript toggle visible for cloud live transcription", () => {
-    expect(
-      getFloatingRouteState(
-        createListenerState({
-          status: "active",
-          sessionId: "session-1",
-          liveTranscriptionActive: true,
-        }),
-        {
-          liveCaptionToggleVisible: true,
-        },
-      )?.liveCaptionToggleVisible,
-    ).toBe(true);
   });
 
   it("returns error status when live transcription degrades", () => {
@@ -141,15 +122,13 @@ describe("getLiveCaptionRouteState", () => {
     ).toEqual({
       sessionId: "session-1",
       text: "we should ship this",
-      opacity: 0.3,
-      width: 440,
-      lineCount: 1,
+      opacity: 0.78,
       position: "topCenter",
       minimized: false,
     });
   });
 
-  it("hides captions when the floating bar toggle has hidden them", () => {
+  it("keeps the minimized caption restore control visible without text", () => {
     expect(
       getLiveCaptionRouteState(
         createListenerStateWithCaption(
@@ -163,13 +142,17 @@ describe("getLiveCaptionRouteState", () => {
         {
           floatingBarOpacity: 0.7,
           liveCaptionOpacity: 0.66,
-          liveCaptionWidth: 520,
-          liveCaptionLineCount: 3,
           liveCaptionPosition: "bottomRight",
           liveCaptionMinimized: true,
         },
       ),
-    ).toBeNull();
+    ).toEqual({
+      sessionId: "session-1",
+      text: "",
+      opacity: 0.66,
+      position: "bottomRight",
+      minimized: true,
+    });
   });
 
   it("hides captions before live transcription is active", () => {
@@ -187,7 +170,7 @@ describe("getLiveCaptionRouteState", () => {
     ).toBeNull();
   });
 
-  it("shows captions immediately before text arrives", () => {
+  it("hides captions without text", () => {
     expect(
       getLiveCaptionRouteState(
         createListenerStateWithCaption(
@@ -199,46 +182,6 @@ describe("getLiveCaptionRouteState", () => {
           " ",
         ),
       ),
-    ).toEqual({
-      sessionId: "session-1",
-      text: "",
-      opacity: 0.3,
-      width: 440,
-      lineCount: 1,
-      position: "topCenter",
-      minimized: false,
-    });
-  });
-});
-
-describe("shouldShowFloatingLiveCaptionToggle", () => {
-  it("shows for active live transcription", () => {
-    expect(
-      shouldShowFloatingLiveCaptionToggle({
-        provider: "hyprnote",
-        model: "cloud",
-        liveTranscriptionActive: true,
-      }),
-    ).toBe(true);
-  });
-
-  it("shows for local realtime transcription", () => {
-    expect(
-      shouldShowFloatingLiveCaptionToggle({
-        provider: "hyprnote",
-        model: "soniqo-parakeet-streaming",
-        liveTranscriptionActive: true,
-      }),
-    ).toBe(true);
-  });
-
-  it("hides before live transcription is active", () => {
-    expect(
-      shouldShowFloatingLiveCaptionToggle({
-        provider: "hyprnote",
-        model: "cloud",
-        liveTranscriptionActive: false,
-      }),
-    ).toBe(false);
+    ).toBeNull();
   });
 });
