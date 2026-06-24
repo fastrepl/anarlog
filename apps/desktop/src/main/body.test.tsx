@@ -1,4 +1,10 @@
-import { act, cleanup, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -13,6 +19,7 @@ const mocks = vi.hoisted(() => ({
     toggleExpanded: vi.fn(),
   },
   onPanelLayout: null as null | ((sizes: number[]) => void),
+  onResizeDragging: null as null | ((isDragging: boolean) => void),
 }));
 
 vi.mock("@hypr/ui/components/ui/resizable", () => ({
@@ -70,17 +77,27 @@ vi.mock("@hypr/ui/components/ui/resizable", () => ({
       data-panel-id={id}
       data-max-size={maxSize}
       data-min-size={minSize}
+      data-flex-grow={style?.flexGrow}
       data-max-width={style?.maxWidth}
       data-min-width={style?.minWidth}
       data-order={order}
+      data-transition={style?.transition}
       data-testid="panel"
     >
       {children}
     </div>
   ),
-  ResizableHandle: ({ className }: { className?: string }) => (
-    <div data-class-name={className} data-testid="resize-handle" />
-  ),
+  ResizableHandle: ({
+    className,
+    onDragging,
+  }: {
+    className?: string;
+    onDragging?: (isDragging: boolean) => void;
+  }) => {
+    mocks.onResizeDragging = onDragging ?? null;
+
+    return <div data-class-name={className} data-testid="resize-handle" />;
+  },
 }));
 
 vi.mock("~/contexts/shell", () => ({
@@ -97,8 +114,9 @@ vi.mock("~/store/zustand/tabs", () => ({
 }));
 
 vi.mock("./shell-sidebar", () => ({
-  ClassicMainSidebar: () =>
-    mocks.leftsidebar.expanded && mocks.currentTab?.type !== "onboarding" ? (
+  ClassicMainSidebar: ({ forceMount = false }: { forceMount?: boolean }) =>
+    (forceMount || mocks.leftsidebar.expanded) &&
+    mocks.currentTab?.type !== "onboarding" ? (
       <aside data-testid="classic-main-sidebar" />
     ) : null,
 }));
@@ -156,6 +174,7 @@ describe("ClassicMainBody", () => {
     mocks.leftsidebar.expanded = true;
     mocks.leftsidebar.toggleExpanded.mockClear();
     mocks.onPanelLayout = null;
+    mocks.onResizeDragging = null;
   });
 
   it("wraps the expanded left sidebar in a persistent resizable panel", () => {
@@ -172,6 +191,9 @@ describe("ClassicMainBody", () => {
     expect(screen.getByTestId("resize-handle").dataset.className).toContain(
       "after:w-2",
     );
+    expect(screen.getByTestId("resize-handle").dataset.className).toContain(
+      "w-1",
+    );
 
     const panels = screen.getAllByTestId("panel");
     expect(panels).toHaveLength(2);
@@ -180,15 +202,22 @@ describe("ClassicMainBody", () => {
     expect(panels[0]?.dataset.defaultSize).toBe("12.5");
     expect(panels[0]?.dataset.minSize).toBe("12.5");
     expect(panels[0]?.dataset.maxSize).toBe("22.5");
+    expect(panels[0]?.dataset.flexGrow).toBe("12.5");
     expect(panels[0]?.dataset.minWidth).toBe("200");
     expect(panels[0]?.dataset.maxWidth).toBe("360");
+    expect(panels[0]?.dataset.transition).toContain("flex-grow");
     expect(panels[1]?.dataset.panelId).toBe("classic-main-content");
     expect(panels[1]?.dataset.order).toBe("2");
 
+    const sidebarContent = document.querySelector<HTMLElement>(
+      "[data-left-sidebar-panel-content]",
+    );
     const sidebarChrome = document.querySelector<HTMLElement>(
       "[data-left-sidebar-chrome]",
     );
 
+    expect(sidebarContent?.className).toContain("translate-x-0");
+    expect(sidebarContent?.getAttribute("aria-hidden")).toBe("false");
     expect(sidebarChrome?.style.width).toBe("12.5%");
     expect(sidebarChrome?.style.minWidth).toBe("200px");
     expect(sidebarChrome?.style.maxWidth).toBe("360px");
@@ -216,14 +245,53 @@ describe("ClassicMainBody", () => {
     expect(panels[1]?.dataset.minWidth).toBe("500");
   });
 
-  it("keeps the collapsed layout free of the sidebar resize handle", () => {
+  it("collapses the sidebar panel without unmounting the animated shell", () => {
     mocks.leftsidebar.expanded = false;
 
     render(<ClassicMainBody />);
 
-    expect(screen.queryByTestId("classic-main-sidebar")).toBeNull();
-    expect(screen.queryByTestId("resize-handle")).toBeNull();
-    expect(screen.getAllByTestId("panel")).toHaveLength(1);
+    const resizeHandle = screen.getByTestId("resize-handle");
+
+    expect(resizeHandle.dataset.className).toContain("pointer-events-none");
+    expect(resizeHandle.dataset.className).toContain("w-0");
+    expect(screen.getByTestId("classic-main-sidebar")).toBeTruthy();
+
+    const panels = screen.getAllByTestId("panel");
+    expect(panels).toHaveLength(2);
+    expect(panels[0]?.dataset.panelId).toBe("classic-main-sidebar-left");
+    expect(panels[0]?.dataset.flexGrow).toBe("0");
+    expect(panels[0]?.dataset.minWidth).toBe("0");
+    expect(panels[0]?.dataset.maxWidth).toBe("0");
+    expect(panels[0]?.dataset.transition).toContain("flex-grow");
+
+    const sidebarContent = document.querySelector<HTMLElement>(
+      "[data-left-sidebar-panel-content]",
+    );
+    expect(sidebarContent?.className).toContain("-translate-x-3");
+    expect(sidebarContent?.className).toContain("opacity-0");
+    expect(sidebarContent?.getAttribute("aria-hidden")).toBe("true");
+    expect(sidebarContent?.hasAttribute("inert")).toBe(true);
+  });
+
+  it("restores sidebar transitions when a resize is interrupted by collapse", () => {
+    const { rerender } = render(<ClassicMainBody />);
+
+    act(() => {
+      mocks.onResizeDragging?.(true);
+    });
+
+    expect(screen.getAllByTestId("panel")[0]?.dataset.transition).toBe(
+      undefined,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Hide sidebar" }));
+    mocks.leftsidebar.expanded = false;
+    rerender(<ClassicMainBody />);
+
+    expect(screen.getAllByTestId("panel")[0]?.dataset.transition).toContain(
+      "flex-grow",
+    );
+    expect(mocks.leftsidebar.toggleExpanded).toHaveBeenCalledTimes(1);
   });
 
   it("does not reserve a sidebar panel during onboarding", () => {

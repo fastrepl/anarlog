@@ -79,7 +79,8 @@ export function ClassicMainBody() {
     hasLeftSurfaceCustomSidebarTab(currentTab);
   const showSidebarTimelineChrome = !hasCustomSidebar && !isOnboarding;
   const showSidebarTimeline = showSidebarTimelineChrome && leftsidebar.expanded;
-  const showLeftSidebarPanel = leftsidebar.expanded && !isOnboarding;
+  const mountLeftSidebarPanel = !isOnboarding;
+  const showLeftSidebarPanel = mountLeftSidebarPanel && leftsidebar.expanded;
   const showLeftSurfaceChromeBack = hasLeftSurfaceCustomSidebar;
   const enableMainAreaTopDrag =
     showSidebarTimelineChrome || hasLeftSurfaceCustomSidebar;
@@ -93,6 +94,7 @@ export function ClassicMainBody() {
   const mainAreaTopDrag = useMainAreaTopWindowDrag(enableMainAreaTopDrag);
   const update = useDesktopUpdateControl();
   const upcomingMeetingStatus = useSidebarUpcomingMeetingStatus();
+  const [leftSidebarResizing, setLeftSidebarResizing] = useState(false);
   const hasUpcomingMeetingBadge = upcomingMeetingStatus
     ? currentTab?.type !== "sessions" ||
       upcomingMeetingStatus.itemKey !== `session-${currentTab.id}`
@@ -115,6 +117,13 @@ export function ClassicMainBody() {
     },
     [showLeftSidebarPanel],
   );
+  const handleLeftSidebarResizeDragging = useCallback((isDragging: boolean) => {
+    setLeftSidebarResizing(isDragging);
+  }, []);
+  const handleToggleLeftSidebar = useCallback(() => {
+    setLeftSidebarResizing(false);
+    leftsidebar.toggleExpanded();
+  }, [leftsidebar.toggleExpanded]);
   const leftSidebarChromeStyle = useMemo(
     () =>
       ({
@@ -123,6 +132,23 @@ export function ClassicMainBody() {
         maxWidth: LEFT_SIDEBAR_MAX_WIDTH_PX,
       }) satisfies CSSProperties,
     [leftSidebarPanelSize],
+  );
+  const leftSidebarPanelStyle = useMemo(
+    () =>
+      ({
+        flexGrow: leftsidebar.expanded ? leftSidebarPanelSize : 0,
+        maxWidth: leftsidebar.expanded ? LEFT_SIDEBAR_MAX_WIDTH_PX : 0,
+        minWidth: leftsidebar.expanded ? LEFT_SIDEBAR_MIN_WIDTH_PX : 0,
+        transition:
+          leftSidebarResizing && leftsidebar.expanded
+            ? undefined
+            : [
+                "flex-grow 180ms ease-out",
+                "max-width 180ms ease-out",
+                "min-width 180ms ease-out",
+              ].join(", "),
+      }) satisfies CSSProperties,
+    [leftSidebarPanelSize, leftSidebarResizing, leftsidebar.expanded],
   );
 
   return (
@@ -146,7 +172,7 @@ export function ClassicMainBody() {
               sidebarExpanded={leftsidebar.expanded}
               onNewNote={createNewNote}
               onSearch={handleOpenNoteDialog}
-              onToggleSidebar={leftsidebar.toggleExpanded}
+              onToggleSidebar={handleToggleLeftSidebar}
               hasUpcomingMeeting={hasUpcomingMeetingBadge}
               update={update}
             />
@@ -188,13 +214,13 @@ export function ClassicMainBody() {
         </div>
       ) : null}
       <ResizablePanelGroup
-        autoSaveId={showLeftSidebarPanel ? "classic-main-sidebar" : undefined}
+        autoSaveId={mountLeftSidebarPanel ? "classic-main-sidebar" : undefined}
         dir="ltr"
         direction="horizontal"
         className="min-h-0 flex-1 overflow-hidden"
         onLayout={handlePanelLayout}
       >
-        {showLeftSidebarPanel ? (
+        {mountLeftSidebarPanel ? (
           <>
             <ResizablePanel
               id="classic-main-sidebar-left"
@@ -202,19 +228,37 @@ export function ClassicMainBody() {
               defaultSize={leftSidebarPanelConstraints.defaultSize}
               minSize={leftSidebarPanelConstraints.minSize}
               maxSize={leftSidebarPanelConstraints.maxSize}
-              className="min-h-0 overflow-hidden"
-              style={{
-                minWidth: LEFT_SIDEBAR_MIN_WIDTH_PX,
-                maxWidth: LEFT_SIDEBAR_MAX_WIDTH_PX,
-              }}
+              className={cn([
+                "min-h-0 overflow-hidden",
+                !leftsidebar.expanded && "pointer-events-none",
+              ])}
+              style={leftSidebarPanelStyle}
             >
-              <ClassicMainSidebar />
+              <div
+                data-left-sidebar-panel-content
+                aria-hidden={!leftsidebar.expanded}
+                inert={!leftsidebar.expanded ? true : undefined}
+                className={cn([
+                  "h-full w-full transition-[opacity,transform] duration-200 ease-out",
+                  leftsidebar.expanded
+                    ? "translate-x-0 opacity-100"
+                    : "-translate-x-3 opacity-0",
+                ])}
+              >
+                <ClassicMainSidebar forceMount />
+              </div>
             </ResizablePanel>
-            <ResizableHandle className="z-10 w-1 !bg-transparent after:w-2" />
+            <ResizableHandle
+              className={cn([
+                "z-10 !bg-transparent after:w-2",
+                showLeftSidebarPanel
+                  ? "w-1"
+                  : "pointer-events-none w-0 after:w-0",
+              ])}
+              onDragging={handleLeftSidebarResizeDragging}
+            />
           </>
-        ) : (
-          <ClassicMainSidebar />
-        )}
+        ) : null}
         <ResizablePanel
           id="classic-main-content"
           order={2}

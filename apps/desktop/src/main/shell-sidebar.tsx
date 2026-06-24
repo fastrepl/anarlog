@@ -6,7 +6,11 @@ import {
 } from "~/sidebar/use-custom-sidebar";
 import { useTabs } from "~/store/zustand/tabs";
 
-export function ClassicMainSidebar() {
+export function ClassicMainSidebar({
+  forceMount = false,
+}: {
+  forceMount?: boolean;
+} = {}) {
   const { leftsidebar } = useShell();
   const currentTab = useTabs((state) => state.currentTab);
   const isOnboarding = currentTab?.type === "onboarding";
@@ -15,7 +19,7 @@ export function ClassicMainSidebar() {
 
   useCustomSidebarEffect(hasCustomSidebar, leftsidebar);
 
-  if (!leftsidebar.expanded || isOnboarding) {
+  if ((!leftsidebar.expanded && !forceMount) || isOnboarding) {
     return null;
   }
 

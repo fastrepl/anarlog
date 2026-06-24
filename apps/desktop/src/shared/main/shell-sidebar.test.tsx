@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const hoisted = vi.hoisted(() => ({
@@ -37,6 +37,7 @@ import { ClassicMainSidebar } from "~/main/shell-sidebar";
 
 describe("ClassicMainSidebar", () => {
   beforeEach(() => {
+    cleanup();
     mockCurrentTab = { type: "empty" };
     mockLeftSidebar.expanded = false;
     setExpanded.mockClear();
@@ -77,6 +78,14 @@ describe("ClassicMainSidebar", () => {
     mockLeftSidebar.expanded = true;
 
     render(<ClassicMainSidebar />);
+
+    expect(screen.getByTestId("left-sidebar")).toBeTruthy();
+  });
+
+  it("can keep the sidebar mounted while the shell animates closed", () => {
+    mockLeftSidebar.expanded = false;
+
+    render(<ClassicMainSidebar forceMount />);
 
     expect(screen.getByTestId("left-sidebar")).toBeTruthy();
   });
