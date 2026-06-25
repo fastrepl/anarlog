@@ -245,9 +245,9 @@ const _PROVIDERS = [
     badge: null,
     icon: (
       <ProviderBrandImage
-        src="/assets/gladia.jpeg"
+        src="/assets/gladia-mark.svg"
         alt="Gladia"
-        className="size-4 rounded-xs"
+        className="size-4"
       />
     ),
     baseUrl: "https://api.gladia.io",
