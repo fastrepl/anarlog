@@ -201,7 +201,13 @@ const _PROVIDERS = [
     id: "cartesia",
     displayName: "Cartesia",
     badge: null,
-    icon: <Icon icon="mingcute:voiceprint-fill" className="size-4" />,
+    icon: (
+      <ProviderBrandImage
+        src="/assets/cartesia-mark.svg"
+        alt="Cartesia"
+        className="size-4"
+      />
+    ),
     baseUrl: "https://api.cartesia.ai",
     models: ["ink-2"],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
