@@ -4,8 +4,6 @@ import React, { useEffect, useRef } from "react";
 
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 
-import { shouldShowSessionBottomAccessory } from "./bottom-accessory-visibility";
-import { useSessionBottomAccessory } from "./components/bottom-accessory";
 import { CaretPositionProvider } from "./components/caret-position-context";
 import { FloatingActionButton } from "./components/floating";
 import { NoteInput, type NoteInputHandle } from "./components/note-input";
@@ -16,7 +14,7 @@ import {
 import { SearchProvider } from "./components/note-input/search/context";
 import { OuterHeader } from "./components/outer-header";
 import { SessionSurface } from "./components/session-surface";
-import { useCurrentNoteTab, useHasTranscript } from "./components/shared";
+import { useCurrentNoteTab } from "./components/shared";
 import { useAutoEnhance } from "./hooks/useAutoEnhance";
 import { shouldShowSessionTopAudioPlayer } from "./top-audio-player";
 
@@ -128,7 +126,6 @@ function TabContentNoteInner({
   const currentView = useCurrentNoteTab(tab, { audioExists });
   const contentHydrated = useHydrateSessionContent(tab.id);
   const updateSessionTabState = useTabs((state) => state.updateSessionTabState);
-  const hasTranscript = useHasTranscript(tab.id);
 
   const sessionId = tab.id;
   const { skipReason } = useAutoEnhance(tab);
@@ -140,11 +137,6 @@ function TabContentNoteInner({
   useAutoFocusTitle({ sessionId, noteInputRef });
   usePendingUpload(sessionId);
 
-  const { bottomAccessory, bottomBorderHandle, bottomAccessoryState } =
-    useSessionBottomAccessory({
-      sessionId,
-      sessionMode,
-    });
   const showTopAudioPlayer = shouldShowSessionTopAudioPlayer({
     audioExists,
     audioUrlReady,
@@ -159,25 +151,6 @@ function TabContentNoteInner({
     },
     [tab, updateSessionTabState],
   );
-  const mergeTranscriptSurface =
-    bottomAccessoryState?.expanded === true &&
-    bottomAccessoryState.mode === "playback";
-  const canResizeTranscriptSurface = bottomAccessoryState?.mode === "playback";
-  const hasResizableTranscriptSurface =
-    bottomAccessoryState?.mode === "playback" &&
-    (hasTranscript || sessionMode === "running_batch");
-  const resizeTranscriptSurface =
-    bottomAccessoryState?.expanded === true &&
-    canResizeTranscriptSurface &&
-    hasResizableTranscriptSurface;
-  const showBottomAccessory = shouldShowSessionBottomAccessory({
-    currentView,
-    bottomAccessoryState,
-    sessionMode,
-  });
-  const showBottomTranscriptSurface =
-    showBottomAccessory && currentView.type !== "transcript";
-
   return (
     <SessionSurface
       header={
@@ -196,15 +169,6 @@ function TabContentNoteInner({
           }
         />
       }
-      afterBorder={showBottomAccessory ? bottomAccessory : null}
-      afterBorderExpanded={
-        showBottomTranscriptSurface && resizeTranscriptSurface
-      }
-      afterBorderResizable={
-        showBottomTranscriptSurface && canResizeTranscriptSurface
-      }
-      bottomBorderHandle={showBottomAccessory ? bottomBorderHandle : null}
-      mergeAfterBorder={showBottomTranscriptSurface && mergeTranscriptSurface}
       floatingButton={
         <FloatingActionButton
           allowListening={!standaloneWindow}
