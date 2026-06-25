@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 
+import { TRANSCRIPT_RENDER_CACHE_TIME_MS } from "../cache";
 import {
   useTranscriptRenderData,
   useTranscriptRowsRevision,
@@ -42,7 +43,8 @@ export function useRenderedTranscriptData(transcriptId: string): {
       return renderTranscriptSegments(request);
     },
     enabled: !!request,
-    gcTime: 0,
+    staleTime: Number.POSITIVE_INFINITY,
+    gcTime: TRANSCRIPT_RENDER_CACHE_TIME_MS,
   });
 
   const maxSpeakerNumber = useMemo(

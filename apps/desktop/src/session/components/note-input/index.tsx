@@ -3,7 +3,6 @@ import {
   forwardRef,
   type UIEventHandler,
   useCallback,
-  useDeferredValue,
   useEffect,
   useImperativeHandle,
   useRef,
@@ -76,12 +75,7 @@ export const NoteInput = forwardRef<
     const fallbackCurrentTab: TabEditorView = useCurrentNoteTab(tab);
     const editorTabs = providedEditorTabs ?? fallbackEditorTabs;
     const currentTab = providedCurrentTab ?? fallbackCurrentTab;
-    const deferredCurrentTab = useDeferredValue(currentTab);
-    const renderedCurrentTab = editorTabs.some((editorTab) =>
-      isSameEditorView(editorTab, deferredCurrentTab),
-    )
-      ? deferredCurrentTab
-      : currentTab;
+    const renderedCurrentTab = currentTab;
 
     const sessionMode = useListener((state) => state.getSessionMode(sessionId));
     const isMeetingInProgress =

@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import type { TranscriptItem } from "@hypr/plugin-export";
 import type { RenderTranscriptRequest } from "@hypr/plugin-transcription";
 
+import { TRANSCRIPT_RENDER_CACHE_TIME_MS } from "./cache";
 import { useSessionTranscriptRenderData } from "./render-request-hooks";
 
 import {
@@ -48,7 +49,8 @@ export function useTranscriptExportSegments(sessionId: string): {
       return buildTranscriptExportSegments(request);
     },
     enabled: !!request,
-    gcTime: 0,
+    staleTime: Number.POSITIVE_INFINITY,
+    gcTime: TRANSCRIPT_RENDER_CACHE_TIME_MS,
   });
 
   return { data, isLoading };
