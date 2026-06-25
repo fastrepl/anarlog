@@ -816,6 +816,10 @@ msgstr "Insert above"
 msgid "Insert below"
 msgstr "Insert below"
 
+#: src/session/components/note-input/header.tsx:739
+msgid "Insights"
+msgstr "Insights"
+
 #: src/settings/ai/llm/index.tsx:13
 #: src/sidebar/settings.tsx:81
 msgid "Intelligence"
@@ -930,7 +934,7 @@ msgstr "members"
 msgid "Memo"
 msgstr "Memo"
 
-#: src/session/components/note-input/header.tsx:266
+#: src/session/components/note-input/header.tsx:268
 msgid "Memos"
 msgstr "Memos"
 
@@ -1273,9 +1277,18 @@ msgstr "Refresh billing status"
 msgid "Refresh calendars"
 msgstr "Refresh calendars"
 
+#: src/session/components/note-input/insights.tsx:138
+#: src/session/components/note-input/insights.tsx:156
+msgid "Regenerate insights"
+msgstr "Regenerate insights"
+
 #: src/chat/components/message/normal.tsx:91
 msgid "Regenerate message"
 msgstr "Regenerate message"
+
+#: src/session/components/note-input/insights.tsx:156
+msgid "Regenerating insights"
+msgstr "Regenerating insights"
 
 #: src/contacts/details.tsx:335
 msgid "Related Notes"
@@ -1416,7 +1429,7 @@ msgstr "Search or type owner/repo"
 msgid "Search people"
 msgstr "Search people"
 
-#: src/session/components/note-input/header.tsx:1071
+#: src/session/components/note-input/header.tsx:1092
 #: src/templates/template-sidebar.tsx:354
 msgid "Search templates..."
 msgstr "Search templates..."
@@ -1434,7 +1447,7 @@ msgstr "Search..."
 msgid "Section actions"
 msgstr "Section actions"
 
-#: src/session/components/note-input/header.tsx:1137
+#: src/session/components/note-input/header.tsx:1158
 msgid "See all templates"
 msgstr "See all templates"
 
@@ -1492,7 +1505,7 @@ msgstr "Send email"
 msgid "Send message"
 msgstr "Send message"
 
-#: src/session/components/note-input/header.tsx:1176
+#: src/session/components/note-input/header.tsx:1197
 msgid "Session note tabs"
 msgstr "Session note tabs"
 
@@ -1767,7 +1780,7 @@ msgstr "Timezone"
 msgid "Tip: The Anarlog team loves our users!"
 msgstr "Tip: The Anarlog team loves our users!"
 
-#: src/session/components/note-input/header.tsx:618
+#: src/session/components/note-input/header.tsx:620
 #: src/session/components/outer-header/overflow/export-modal.tsx:245
 #: src/session/components/outer-header/overflow/export-modal.tsx:295
 #: src/session/components/outer-header/overflow/export-modal.tsx:350

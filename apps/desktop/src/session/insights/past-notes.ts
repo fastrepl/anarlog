@@ -201,16 +201,22 @@ export function usePastSessionNotes(
 }
 
 export function useCanShowInsights(sessionId: string): boolean {
+  const useTable =
+    (main.UI.useTable as typeof main.UI.useTable | undefined) ??
+    ((() => undefined) as unknown as typeof main.UI.useTable);
+  const useValue =
+    (main.UI.useValue as typeof main.UI.useValue | undefined) ??
+    ((() => undefined) as unknown as typeof main.UI.useValue);
   const store = main.UI.useStore(main.STORE_ID);
-  const sessionsTable = main.UI.useTable("sessions", main.STORE_ID);
-  const participantsTable = main.UI.useTable(
+  const sessionsTable = useTable("sessions", main.STORE_ID);
+  const participantsTable = useTable(
     "mapping_session_participant",
     main.STORE_ID,
   );
-  const humansTable = main.UI.useTable("humans", main.STORE_ID);
-  const enhancedNotesTable = main.UI.useTable("enhanced_notes", main.STORE_ID);
-  const keyFactsTable = main.UI.useTable("session_key_facts", main.STORE_ID);
-  const userId = main.UI.useValue("user_id", main.STORE_ID);
+  const humansTable = useTable("humans", main.STORE_ID);
+  const enhancedNotesTable = useTable("enhanced_notes", main.STORE_ID);
+  const keyFactsTable = useTable("session_key_facts", main.STORE_ID);
+  const userId = useValue("user_id", main.STORE_ID);
 
   return useMemo(() => {
     if (!store || typeof store.getRow !== "function") {

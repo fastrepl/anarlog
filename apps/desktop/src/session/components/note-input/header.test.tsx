@@ -25,6 +25,7 @@ const hoisted = vi.hoisted(() => ({
   activeTemplateTitle: "Customer Call",
   audioExists: true,
   hasTranscript: true,
+  canShowInsights: false,
   liveSegments: [] as unknown[],
   liveSessionId: null as string | null,
   sessionMode: "inactive",
@@ -153,6 +154,10 @@ vi.mock("~/session/components/shared", () => ({
       hoisted.sessionMode !== "finalizing") ||
     (hoisted.liveSessionId === sessionId && hoisted.liveSegments.length > 0) ||
     hoisted.sessionMode === "running_batch",
+}));
+
+vi.mock("~/session/insights/past-notes", () => ({
+  useCanShowInsights: () => hoisted.canShowInsights,
 }));
 
 vi.mock("~/session/hooks/useEnhancedNotes", () => ({
@@ -289,6 +294,7 @@ describe("Header", () => {
     hoisted.activeTemplateTitle = "Customer Call";
     hoisted.audioExists = true;
     hoisted.hasTranscript = true;
+    hoisted.canShowInsights = false;
     hoisted.liveSegments = [];
     hoisted.liveSessionId = null;
     hoisted.sessionMode = "inactive";
@@ -644,6 +650,21 @@ describe("Header", () => {
 
     expect(result.current).toEqual([
       { type: "enhanced", id: "note-1" },
+      { type: "raw" },
+      { type: "transcript" },
+    ]);
+  });
+
+  it("includes the insights tab when past-note insights exist", () => {
+    hoisted.canShowInsights = true;
+
+    const { result } = renderHook(() =>
+      useEditorTabs({ sessionId: "session-1", audioExists: true }),
+    );
+
+    expect(result.current).toEqual([
+      { type: "enhanced", id: "note-1" },
+      { type: "insights" },
       { type: "raw" },
       { type: "transcript" },
     ]);

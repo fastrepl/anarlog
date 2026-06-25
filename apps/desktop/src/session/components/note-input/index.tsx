@@ -3,6 +3,7 @@ import {
   forwardRef,
   type UIEventHandler,
   useCallback,
+  useDeferredValue,
   useEffect,
   useImperativeHandle,
   useRef,
@@ -15,6 +16,7 @@ import { cn } from "@hypr/utils";
 
 import { Enhanced } from "./enhanced";
 import { Header, useEditorTabs } from "./header";
+import { Insights } from "./insights";
 import { RawEditor } from "./raw";
 import { SearchBar } from "./search/bar";
 import { useSearch } from "./search/context";
@@ -75,7 +77,12 @@ export const NoteInput = forwardRef<
     const fallbackCurrentTab: TabEditorView = useCurrentNoteTab(tab);
     const editorTabs = providedEditorTabs ?? fallbackEditorTabs;
     const currentTab = providedCurrentTab ?? fallbackCurrentTab;
-    const renderedCurrentTab = currentTab;
+    const deferredCurrentTab = useDeferredValue(currentTab);
+    const renderedCurrentTab = editorTabs.some((editorTab) =>
+      isSameEditorView(editorTab, deferredCurrentTab),
+    )
+      ? deferredCurrentTab
+      : currentTab;
 
     const sessionMode = useListener((state) => state.getSessionMode(sessionId));
     const isMeetingInProgress =
@@ -107,7 +114,10 @@ export const NoteInput = forwardRef<
 
     const handleTabChange = useCallback(
       (tabView: TabEditorView) => {
-        if (isSameEditorView(tabView, currentTab)) {
+        if (
+          isSameEditorView(tabView, currentTab) ||
+          isSameEditorView(tabView, renderedCurrentTab)
+        ) {
           return;
         }
 
@@ -125,6 +135,7 @@ export const NoteInput = forwardRef<
         currentTab,
         onBeforeTabChange,
         providedHandleTabChange,
+        renderedCurrentTab,
         updateSessionTabState,
       ],
     );
@@ -184,7 +195,7 @@ export const NoteInput = forwardRef<
             <Header
               sessionId={sessionId}
               editorTabs={editorTabs}
-              currentTab={currentTab}
+              currentTab={renderedCurrentTab}
               handleTabChange={handleTabChange}
               isTranscribing={shouldShowTranscriptSpinner}
             />
@@ -208,7 +219,8 @@ export const NoteInput = forwardRef<
             className={cn([
               "h-full px-3",
               "pt-2",
-              renderedCurrentTab.type === "transcript"
+              renderedCurrentTab.type === "transcript" ||
+              renderedCurrentTab.type === "insights"
                 ? "overflow-hidden pb-0"
                 : "scroll-fade-y overflow-auto pb-6",
             ])}
@@ -234,6 +246,9 @@ export const NoteInput = forwardRef<
             )}
             {renderedCurrentTab.type === "transcript" && (
               <Transcript sessionId={sessionId} scrollRef={scrollRef} />
+            )}
+            {renderedCurrentTab.type === "insights" && (
+              <Insights sessionId={sessionId} />
             )}
           </div>
         </div>

@@ -1,4 +1,4 @@
-import { AlertCircleIcon, AudioLinesIcon } from "lucide-react";
+import { AlertCircleIcon, AudioLinesIcon, SquareIcon } from "lucide-react";
 
 import { Button } from "@hypr/ui/components/ui/button";
 import { Spinner } from "@hypr/ui/components/ui/spinner";
@@ -11,6 +11,7 @@ export function TranscriptEmptyState({
   error,
   onUploadAudio,
   onUploadTranscript,
+  onStopTranscription,
 }: {
   isBatching?: boolean;
   hasAudio?: boolean;
@@ -19,6 +20,7 @@ export function TranscriptEmptyState({
   error?: string | null;
   onUploadAudio?: () => void;
   onUploadTranscript?: () => void;
+  onStopTranscription?: () => void;
 }) {
   if (error) {
     return (
@@ -53,6 +55,17 @@ export function TranscriptEmptyState({
               ? "Importing audio..."
               : "Generating transcript..."}
           </p>
+          {onStopTranscription ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="mt-2 gap-1.5 text-xs"
+              onClick={onStopTranscription}
+            >
+              <SquareIcon className="size-3 fill-current" />
+              Stop transcription
+            </Button>
+          ) : null}
         </div>
       ) : (
         <div className="flex max-w-sm flex-col items-center gap-1 text-center">

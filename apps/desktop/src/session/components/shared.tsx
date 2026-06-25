@@ -5,6 +5,7 @@ import { Button } from "@hypr/ui/components/ui/button";
 import { computeCurrentNoteTab } from "./compute-note-tab";
 
 import { extractPlainText } from "~/search/contexts/engine/utils";
+import { useCanShowInsights } from "~/session/insights/past-notes";
 import { useMainStoreRowsRevision } from "~/store/tinybase/hooks";
 import * as main from "~/store/tinybase/store/main";
 import type { Tab } from "~/store/zustand/tabs/schema";
@@ -47,6 +48,7 @@ export function useCurrentNoteHasContent(
   currentView: EditorView,
 ): boolean {
   const hasTranscript = useHasTranscript(sessionId);
+  const hasInsights = useCanShowInsights(sessionId);
   const rawMd = main.UI.useCell("sessions", sessionId, "raw_md", main.STORE_ID);
   const enhancedNoteId = currentView.type === "enhanced" ? currentView.id : "";
   const enhancedContent = main.UI.useCell(
@@ -64,6 +66,10 @@ export function useCurrentNoteHasContent(
     return hasTranscript;
   }
 
+  if (currentView.type === "insights") {
+    return hasInsights;
+  }
+
   return hasStoredNoteContent(rawMd);
 }
 
@@ -74,6 +80,7 @@ export function useCurrentNoteTab(
   const sessionMode = useListener((state) => state.getSessionMode(tab.id));
   const isLiveSessionActive = sessionMode === "active";
   const canShowTranscript = useCanShowTranscript(tab.id, { audioExists });
+  const canShowInsights = useCanShowInsights(tab.id);
 
   const enhancedNoteIds = main.UI.useSliceRowIds(
     main.INDEXES.enhancedNotesBySession,
@@ -83,6 +90,10 @@ export function useCurrentNoteTab(
   const firstEnhancedNoteId = enhancedNoteIds?.[0];
 
   return useMemo(() => {
+    if (tab.state.view?.type === "insights" && canShowInsights) {
+      return tab.state.view;
+    }
+
     return computeCurrentNoteTab(
       tab.state.view ?? null,
       isLiveSessionActive,
@@ -94,6 +105,7 @@ export function useCurrentNoteTab(
     isLiveSessionActive,
     firstEnhancedNoteId,
     canShowTranscript,
+    canShowInsights,
   ]);
 }
 

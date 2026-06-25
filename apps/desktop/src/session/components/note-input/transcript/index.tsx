@@ -1,4 +1,5 @@
 import type { RefObject } from "react";
+import { useCallback } from "react";
 
 import { TranscriptViewer } from "./renderer";
 import { BatchState } from "./screens/batch";
@@ -6,6 +7,7 @@ import { TranscriptEmptyState } from "./screens/empty";
 import { TranscriptListeningState } from "./screens/listening";
 import { useTranscriptScreen } from "./state";
 
+import { useListener } from "~/stt/contexts";
 import { useUploadFile } from "~/stt/useUploadFile";
 
 export function Transcript({
@@ -17,6 +19,10 @@ export function Transcript({
 }) {
   const screen = useTranscriptScreen({ sessionId });
   const { uploadAudio, uploadTranscript } = useUploadFile(sessionId);
+  const stopTranscription = useListener((state) => state.stopTranscription);
+  const handleStopTranscription = useCallback(() => {
+    void stopTranscription(sessionId);
+  }, [sessionId, stopTranscription]);
 
   return (
     <div className="relative flex h-full flex-col overflow-hidden">
@@ -25,6 +31,9 @@ export function Transcript({
           isBatching
           percentage={screen.percentage}
           phase={screen.phase}
+          onStopTranscription={
+            screen.phase === "importing" ? undefined : handleStopTranscription
+          }
         />
       )}
       {screen.kind === "batch_fallback" && (

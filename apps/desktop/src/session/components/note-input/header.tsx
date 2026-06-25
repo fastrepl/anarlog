@@ -10,6 +10,7 @@ import {
   SparklesIcon,
   XIcon,
 } from "lucide-react";
+import { LightbulbIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { json2md, parseJsonContent } from "@hypr/editor/markdown";
@@ -37,6 +38,7 @@ import { useSessionTranscriptRenderData } from "~/session/components/note-input/
 import { useCanShowTranscript } from "~/session/components/shared";
 import { shouldShowEmptySummaryConfigError } from "~/session/enhance-config";
 import { useEnsureDefaultSummary } from "~/session/hooks/useEnhancedNotes";
+import { useCanShowInsights } from "~/session/insights/past-notes";
 import {
   type MenuItemDef,
   useNativeContextMenu,
@@ -722,6 +724,25 @@ function HeaderTabTranscriptActive({
   );
 }
 
+function HeaderTabInsights({
+  isActive,
+  onClick = () => {},
+}: {
+  isActive: boolean;
+  onClick?: () => void;
+}) {
+  const { t } = useLingui();
+
+  return (
+    <IconHeaderTab
+      isActive={isActive}
+      label={t`Insights`}
+      icon={<LightbulbIcon className="size-4" />}
+      onClick={onClick}
+    />
+  );
+}
+
 function useOpenTemplatesTab() {
   const openNew = useTabs((state) => state.openNew);
   const selectTab = useTabs((state) => state.select);
@@ -1230,6 +1251,16 @@ export function Header({
                 );
               }
 
+              if (view.type === "insights") {
+                return (
+                  <HeaderTabInsights
+                    key={view.type}
+                    isActive={currentTab.type === view.type}
+                    onClick={() => handleTabChange(view)}
+                  />
+                );
+              }
+
               if (view.type === "transcript") {
                 return (
                   <HeaderTabTranscript
@@ -1260,6 +1291,7 @@ export function useEditorTabs({
 }): EditorView[] {
   useEnsureDefaultSummary(sessionId);
   const canShowTranscript = useCanShowTranscript(sessionId, { audioExists });
+  const canShowInsights = useCanShowInsights(sessionId);
 
   const enhancedNoteIds = main.UI.useSliceRowIds(
     main.INDEXES.enhancedNotesBySession,
@@ -1269,15 +1301,18 @@ export function useEditorTabs({
 
   return createEditorTabs({
     enhancedNoteIds: enhancedNoteIds || [],
+    canShowInsights,
     canShowTranscript,
   });
 }
 
 function createEditorTabs({
   enhancedNoteIds,
+  canShowInsights,
   canShowTranscript,
 }: {
   enhancedNoteIds: string[];
+  canShowInsights: boolean;
   canShowTranscript: boolean;
 }): EditorView[] {
   const enhancedTabs: EditorView[] = enhancedNoteIds.map((id) => ({
@@ -1287,6 +1322,7 @@ function createEditorTabs({
 
   return [
     ...enhancedTabs,
+    ...(canShowInsights ? [{ type: "insights" } as const] : []),
     { type: "raw" },
     ...(canShowTranscript ? [{ type: "transcript" } as const] : []),
   ];

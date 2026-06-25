@@ -816,6 +816,10 @@ msgstr ""
 msgid "Insert below"
 msgstr ""
 
+#: src/session/components/note-input/header.tsx:739
+msgid "Insights"
+msgstr ""
+
 #: src/settings/ai/llm/index.tsx:13
 #: src/sidebar/settings.tsx:81
 msgid "Intelligence"
@@ -930,7 +934,7 @@ msgstr ""
 msgid "Memo"
 msgstr ""
 
-#: src/session/components/note-input/header.tsx:266
+#: src/session/components/note-input/header.tsx:268
 msgid "Memos"
 msgstr ""
 
@@ -1273,8 +1277,17 @@ msgstr ""
 msgid "Refresh calendars"
 msgstr ""
 
+#: src/session/components/note-input/insights.tsx:138
+#: src/session/components/note-input/insights.tsx:156
+msgid "Regenerate insights"
+msgstr ""
+
 #: src/chat/components/message/normal.tsx:91
 msgid "Regenerate message"
+msgstr ""
+
+#: src/session/components/note-input/insights.tsx:156
+msgid "Regenerating insights"
 msgstr ""
 
 #: src/contacts/details.tsx:335
@@ -1416,7 +1429,7 @@ msgstr ""
 msgid "Search people"
 msgstr ""
 
-#: src/session/components/note-input/header.tsx:1071
+#: src/session/components/note-input/header.tsx:1092
 #: src/templates/template-sidebar.tsx:354
 msgid "Search templates..."
 msgstr ""
@@ -1434,7 +1447,7 @@ msgstr ""
 msgid "Section actions"
 msgstr ""
 
-#: src/session/components/note-input/header.tsx:1137
+#: src/session/components/note-input/header.tsx:1158
 msgid "See all templates"
 msgstr ""
 
@@ -1492,7 +1505,7 @@ msgstr ""
 msgid "Send message"
 msgstr ""
 
-#: src/session/components/note-input/header.tsx:1176
+#: src/session/components/note-input/header.tsx:1197
 msgid "Session note tabs"
 msgstr ""
 
@@ -1767,7 +1780,7 @@ msgstr ""
 msgid "Tip: The Anarlog team loves our users!"
 msgstr ""
 
-#: src/session/components/note-input/header.tsx:618
+#: src/session/components/note-input/header.tsx:620
 #: src/session/components/outer-header/overflow/export-modal.tsx:245
 #: src/session/components/outer-header/overflow/export-modal.tsx:295
 #: src/session/components/outer-header/overflow/export-modal.tsx:350
