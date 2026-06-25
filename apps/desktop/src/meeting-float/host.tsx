@@ -83,6 +83,8 @@ const LIVE_CAPTION_MIN_WIDTH = 260;
 const LIVE_CAPTION_MAX_WIDTH = 640;
 const LIVE_CAPTION_MIN_LINE_COUNT = 1;
 const LIVE_CAPTION_MAX_LINE_COUNT = 4;
+const LIVE_CAPTION_HORIZONTAL_PADDING_PX = 32;
+const LIVE_CAPTION_AVERAGE_CHARACTER_WIDTH_PX = 7.8;
 
 const LIVE_CAPTION_POSITIONS: ReadonlySet<string> = new Set([
   "topCenter",
@@ -679,9 +681,11 @@ export function getLiveCaptionRouteState(
     return null;
   }
 
+  const text = getLiveCaptionDisplayText(state.liveCaptionText, settings);
+
   return {
     sessionId: state.live.sessionId,
-    text: state.liveCaptionText.trim(),
+    text,
     opacity: settings.liveCaptionOpacity,
     width: settings.liveCaptionWidth,
     lineCount: settings.liveCaptionLineCount,
@@ -928,6 +932,47 @@ async function showLiveCaptionWindow(
   return true;
 }
 
+export function getLiveCaptionDisplayText(
+  text: string,
+  settings: Pick<
+    FloatingOverlaySettings,
+    "liveCaptionWidth" | "liveCaptionLineCount"
+  > = DEFAULT_FLOATING_OVERLAY_SETTINGS,
+) {
+  const normalizedText = text.trim().replace(/\s+/g, " ");
+  if (!normalizedText) {
+    return "";
+  }
+
+  const contentWidth = Math.max(
+    settings.liveCaptionWidth - LIVE_CAPTION_HORIZONTAL_PADDING_PX,
+    LIVE_CAPTION_MIN_WIDTH - LIVE_CAPTION_HORIZONTAL_PADDING_PX,
+  );
+  const charactersPerLine = Math.max(
+    12,
+    Math.floor(contentWidth / LIVE_CAPTION_AVERAGE_CHARACTER_WIDTH_PX),
+  );
+  const maxCharacters = Math.max(
+    24,
+    charactersPerLine * settings.liveCaptionLineCount,
+  );
+
+  if (normalizedText.length <= maxCharacters) {
+    return normalizedText;
+  }
+
+  return `... ${getTextSuffixAtWordBoundary(normalizedText, maxCharacters - 4)}`;
+}
+
+function getTextSuffixAtWordBoundary(text: string, maxCharacters: number) {
+  const suffix = text.slice(-maxCharacters).trimStart();
+  const firstWhitespaceIndex = suffix.search(/\s/);
+  if (firstWhitespaceIndex > 0 && firstWhitespaceIndex < suffix.length - 1) {
+    return suffix.slice(firstWhitespaceIndex).trimStart();
+  }
+
+  return suffix;
+}
 function normalizeOpacity(
   value: unknown,
   fallback: number,

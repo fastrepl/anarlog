@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   getCurrentFloatingBarColorScheme,
   getFloatingRouteState,
+  getLiveCaptionDisplayText,
   getLiveCaptionMinimizedForSessionDefault,
   getLiveCaptionRouteState,
   shouldShowFloatingLiveCaptionToggle,
@@ -289,6 +290,38 @@ describe("getLiveCaptionRouteState", () => {
       position: "topCenter",
       minimized: false,
     });
+  });
+});
+
+describe("getLiveCaptionDisplayText", () => {
+  it("shows a rolling recent caption window", () => {
+    const text =
+      "alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu nu xi omicron pi rho sigma tau upsilon phi chi psi omega";
+
+    const singleLine = getLiveCaptionDisplayText(text, {
+      liveCaptionWidth: 260,
+      liveCaptionLineCount: 1,
+    });
+    const expanded = getLiveCaptionDisplayText(text, {
+      liveCaptionWidth: 260,
+      liveCaptionLineCount: 3,
+    });
+
+    expect(singleLine).toMatch(/^\.\.\. /);
+    expect(expanded).toMatch(/^\.\.\. /);
+    expect(singleLine.endsWith("omega")).toBe(true);
+    expect(expanded.endsWith("omega")).toBe(true);
+    expect(expanded.length).toBeGreaterThan(singleLine.length);
+    expect(expanded.endsWith(singleLine.replace(/^\.\.\. /, ""))).toBe(true);
+  });
+
+  it("keeps short captions unchanged", () => {
+    expect(
+      getLiveCaptionDisplayText("  hello   there  ", {
+        liveCaptionWidth: 260,
+        liveCaptionLineCount: 1,
+      }),
+    ).toBe("hello there");
   });
 });
 
