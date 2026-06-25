@@ -569,7 +569,7 @@ function ModelSelectItem({
 
   if (model.isDownloaded) {
     return (
-      <div className="group/model-row relative">
+      <div className="group/model-row relative overflow-hidden rounded-full">
         <SelectItem
           key={model.id}
           value={model.id}
@@ -714,7 +714,7 @@ function LocalModelDropdownActions({ model }: { model: LocalModel }) {
   return (
     <div
       className={cn([
-        "absolute top-0 right-1 bottom-0 z-10 flex items-center justify-end gap-1 pl-6",
+        "absolute top-0 right-0 bottom-0 z-10 flex items-center justify-end gap-1 rounded-r-full pl-6",
         "via-accent/95 to-accent bg-linear-to-r from-transparent",
         "pointer-events-none opacity-0 transition-opacity duration-150",
         "group-hover/model-row:pointer-events-auto group-hover/model-row:opacity-100",
