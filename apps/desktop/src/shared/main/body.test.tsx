@@ -283,35 +283,48 @@ describe("ClassicMainBody", () => {
     expect(mocks.toggleLeftSidebar).toHaveBeenCalledTimes(1);
   });
 
-  it("shows the update button at the far end of expanded sidebar chrome", () => {
+  it("shows the update button at the far edge of the expanded sidebar chrome row", () => {
     mocks.sidebarUpdateControl.status = "available";
     mocks.sidebarUpdateControl.version = "1.0.34";
 
     render(<ClassicMainBody />);
 
     const sidebarToggle = screen.getByRole("button", { name: "Hide sidebar" });
+    const searchButton = screen.getByRole("button", { name: "Search" });
+    const newNoteButton = screen.getByRole("button", { name: "New note" });
+    const updateButton = screen.getByTestId("sidebar-update-button");
     const chrome = sidebarToggle.parentElement?.parentElement;
     const chromeFrame = chrome?.parentElement;
 
-    expect(screen.getByTestId("sidebar-update-button")).toBeTruthy();
+    expect(updateButton).toBeTruthy();
+    expect(updateButton.parentElement).toBe(chrome);
+    expect(updateButton.parentElement).not.toBe(sidebarToggle.parentElement);
+    expect(searchButton.compareDocumentPosition(newNoteButton)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(searchButton.parentElement).toBe(sidebarToggle.parentElement);
+    expect(newNoteButton.parentElement).toBe(sidebarToggle.parentElement);
     expect(chrome?.className).toContain("justify-between");
     expect(chromeFrame?.className).toContain("pr-1");
     expect(chromeFrame?.className).not.toContain("pr-3");
-    expect(chrome?.lastElementChild?.getAttribute("data-testid")).toBe(
-      "sidebar-update-button",
-    );
     expect(
       within(sidebarToggle).queryByTestId("collapsed-sidebar-update-badge"),
     ).toBeNull();
   });
 
-  it("shows ready updates in the far-right sidebar chrome slot", () => {
+  it("shows ready updates at the far edge of the expanded sidebar chrome row", () => {
     mocks.sidebarUpdateControl.status = "ready";
     mocks.sidebarUpdateControl.version = "1.0.34";
 
     render(<ClassicMainBody />);
 
-    expect(screen.getByTestId("sidebar-update-button")).toBeTruthy();
+    const sidebarToggle = screen.getByRole("button", { name: "Hide sidebar" });
+    const updateButton = screen.getByTestId("sidebar-update-button");
+    const chrome = sidebarToggle.parentElement?.parentElement;
+
+    expect(updateButton).toBeTruthy();
+    expect(updateButton.parentElement).toBe(chrome);
+    expect(updateButton.parentElement).not.toBe(sidebarToggle.parentElement);
   });
 
   it("shows an update badge on the collapsed sidebar toggle", () => {
