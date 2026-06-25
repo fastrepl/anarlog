@@ -116,18 +116,23 @@ export function getLocalModelBackendBadge(model: string): ModelIconSpec | null {
 export function LocalModelLabel({
   model,
   label,
+  title,
   className,
   labelClassName,
 }: {
   model: string;
   label: string;
+  title?: string;
   className?: string;
   labelClassName?: string;
 }) {
   const icon = getLocalModelIcon(model);
 
   return (
-    <div className={cn(["flex min-w-0 items-center gap-2", className])}>
+    <div
+      title={title}
+      className={cn(["flex min-w-0 items-center gap-2", className])}
+    >
       {icon?.imageSrc ? (
         <img
           title={icon.title}

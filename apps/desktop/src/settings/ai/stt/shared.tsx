@@ -126,6 +126,28 @@ export const displayModelId = (model: string) => {
   return model;
 };
 
+function isOnDeviceModelId(model: string) {
+  return (
+    model.startsWith("soniqo-") ||
+    model.startsWith("am-") ||
+    model.startsWith("Quantized")
+  );
+}
+
+export function displayModelLabel(model: string, displayName?: string) {
+  if (isOnDeviceModelId(model)) {
+    return "On device";
+  }
+
+  return displayName ?? displayModelId(model);
+}
+
+export function displayModelTitle(model: string, displayName?: string) {
+  const title = displayName ?? displayModelId(model);
+
+  return displayModelLabel(model, displayName) === title ? undefined : title;
+}
+
 export function formatModelSize(sizeBytes?: number | null) {
   if (!sizeBytes) {
     return null;

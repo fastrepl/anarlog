@@ -31,7 +31,8 @@ import { HealthStatusIndicator, useConnectionHealth } from "./health";
 import { LocalModelBackendBadge, LocalModelLabel } from "./model-icon";
 import { getPreferredProviderModel } from "./selection";
 import {
-  displayModelId,
+  displayModelLabel,
+  displayModelTitle,
   formatModelSize,
   type ProviderId,
   PROVIDERS,
@@ -548,7 +549,8 @@ function ModelSelectItem({
   const downloadInfo = activeDownloads.find((d) => d.model === model.id);
   const isDownloading = !!downloadInfo;
 
-  const label = model.displayName ?? displayModelId(model.id);
+  const label = displayModelLabel(model.id, model.displayName);
+  const title = displayModelTitle(model.id, model.displayName);
   const sizeLabel = formatModelSize(model.sizeBytes);
   const showLocalActions = model.isDownloaded && isLocalModelId(model.id);
   const isDeprecated = model.isDeprecated === true;
@@ -557,6 +559,7 @@ function ModelSelectItem({
       <LocalModelLabel
         model={model.id}
         label={label}
+        title={title}
         className="min-w-0 flex-1"
       />
       <div className="flex shrink-0 items-center gap-2 text-[11px]">
@@ -651,7 +654,8 @@ function ModelSelectedValue({ model }: { model: ModelEntry }) {
     <div className="flex max-w-full min-w-0 items-center gap-2">
       <LocalModelLabel
         model={model.id}
-        label={model.displayName ?? displayModelId(model.id)}
+        label={displayModelLabel(model.id, model.displayName)}
+        title={displayModelTitle(model.id, model.displayName)}
         className={cn(["min-w-0", isDeprecated && "opacity-60"])}
         labelClassName={cn([isDeprecated && "text-muted-foreground"])}
       />
@@ -674,7 +678,11 @@ function ModelModeBadge({ mode }: { mode?: ModelEntry["mode"] }) {
           : "bg-muted text-muted-foreground",
       ])}
     >
-      {mode === "realtime" ? <Trans>Realtime</Trans> : <Trans>Batch</Trans>}
+      {mode === "realtime" ? (
+        <Trans>Live</Trans>
+      ) : (
+        <Trans>After recording</Trans>
+      )}
     </span>
   );
 }
