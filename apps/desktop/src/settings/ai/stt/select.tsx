@@ -576,6 +576,7 @@ function ModelSelectItem({
           key={model.id}
           value={model.id}
           className={cn([
+            "group-hover/model-row:bg-accent group-hover/model-row:text-accent-foreground",
             showLocalActions && "pr-20",
             isDeprecated && "text-muted-foreground focus:text-muted-foreground",
           ])}
@@ -717,7 +718,6 @@ function LocalModelDropdownActions({ model }: { model: LocalModel }) {
     <div
       className={cn([
         "absolute top-0 right-0 bottom-0 z-10 flex items-center justify-end gap-1 rounded-r-full pl-6",
-        "via-accent/95 to-accent bg-linear-to-r from-transparent",
         "pointer-events-none opacity-0 transition-opacity duration-150",
         "group-hover/model-row:pointer-events-auto group-hover/model-row:opacity-100",
         "group-focus-within/model-row:pointer-events-auto group-focus-within/model-row:opacity-100",

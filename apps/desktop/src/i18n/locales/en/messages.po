@@ -238,7 +238,7 @@ msgstr "Back"
 msgid "Base URL"
 msgstr "Base URL"
 
-#: src/settings/ai/stt/select.tsx:676
+#: src/settings/ai/stt/select.tsx:677
 msgid "Batch"
 msgstr "Batch"
 
@@ -543,7 +543,7 @@ msgstr "Don't save"
 msgid "Don't show notifications when Do-Not-Disturb is enabled on your system"
 msgstr "Don't show notifications when Do-Not-Disturb is enabled on your system"
 
-#: src/settings/ai/stt/select.tsx:639
+#: src/settings/ai/stt/select.tsx:640
 msgid "Download"
 msgstr "Download"
 
@@ -1250,7 +1250,7 @@ msgstr "Pro trial"
 msgid "Ready to go"
 msgstr "Ready to go"
 
-#: src/settings/ai/stt/select.tsx:676
+#: src/settings/ai/stt/select.tsx:677
 msgid "Realtime"
 msgstr "Realtime"
 
@@ -1839,7 +1839,7 @@ msgstr "Upgrade to Pro for {0}"
 msgid "Upgrade to Pro to use this provider."
 msgstr "Upgrade to Pro to use this provider."
 
-#: src/settings/ai/stt/select.tsx:639
+#: src/settings/ai/stt/select.tsx:640
 msgid "Upgrade to use"
 msgstr "Upgrade to use"
 
