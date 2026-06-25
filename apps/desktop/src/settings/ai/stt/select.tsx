@@ -229,7 +229,7 @@ export function SelectProviderAndModel() {
               <SelectTrigger
                 className={cn([
                   "bg-card text-left shadow-none focus:ring-0",
-                  "[&>span]:flex [&>span]:w-full [&>span]:items-center [&>span]:justify-between [&>span]:gap-2",
+                  "[&>span]:!flex [&>span]:w-full [&>span]:min-w-0 [&>span]:items-center [&>span]:justify-start [&>span]:gap-2 [&>span]:overflow-visible [&>span]:[-webkit-line-clamp:unset]",
                   isConfigured && "[&>svg:last-child]:hidden",
                 ])}
               >
@@ -645,11 +645,11 @@ function ModelSelectedValue({ model }: { model: ModelEntry }) {
   const isDeprecated = model.isDeprecated === true;
 
   return (
-    <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
+    <div className="flex max-w-full min-w-0 items-center gap-2">
       <LocalModelLabel
         model={model.id}
         label={model.displayName ?? displayModelId(model.id)}
-        className={cn(["min-w-0 flex-1", isDeprecated && "opacity-60"])}
+        className={cn(["min-w-0", isDeprecated && "opacity-60"])}
         labelClassName={cn([isDeprecated && "text-muted-foreground"])}
       />
       <ModelModeBadge mode={model.mode} />
