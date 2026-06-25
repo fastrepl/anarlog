@@ -163,31 +163,51 @@ function CalendarGroupAccordionHeader({
 }) {
   const showContextMenu = useNativeContextMenu(group.menuItems ?? []);
   const hasMenu = (group.menuItems?.length ?? 0) > 0;
+  const hoverPadding = hasMenu
+    ? "group-hover/calendar-group-row:pr-12 group-focus-within/calendar-group-row:pr-12"
+    : "group-hover/calendar-group-row:pr-6 group-focus-within/calendar-group-row:pr-6";
 
   return (
     <div
       onContextMenu={hasMenu ? showContextMenu : undefined}
       className={cn([
-        "group -mx-2 flex items-center gap-1 rounded-md px-2",
+        "group/calendar-group-row relative -mx-2 flex items-center rounded-md px-2",
         !disableHoverTone && "hover:bg-accent",
       ])}
     >
-      <AccordionHeader className="max-w-full min-w-0">
-        <AccordionTriggerPrimitive className="flex max-w-full min-w-0 cursor-pointer items-center py-2 text-left hover:no-underline">
+      <AccordionHeader className="min-w-0 flex-1">
+        <AccordionTriggerPrimitive
+          className={cn([
+            "flex w-full min-w-0 cursor-pointer items-center py-2 pr-0 text-left transition-[padding] duration-150 hover:no-underline",
+            hoverPadding,
+          ])}
+        >
           <span className="text-muted-foreground truncate text-xs font-medium">
             {group.sourceName}
           </span>
         </AccordionTriggerPrimitive>
       </AccordionHeader>
 
-      {hasMenu && <CalendarGroupMenuButton onClick={showContextMenu} />}
-
-      <ChevronDown
+      <div
         className={cn([
-          "text-muted-foreground size-4 shrink-0 opacity-0 transition-all duration-200 group-hover:opacity-100 focus-within:opacity-100",
-          "group-data-[state=open]/group:rotate-180",
+          "pointer-events-none absolute top-1/2 right-1 flex -translate-y-1/2 items-center gap-0.5 opacity-0 transition-opacity duration-150",
+          "group-focus-within/calendar-group-row:opacity-100 group-hover/calendar-group-row:opacity-100",
         ])}
-      />
+      >
+        {hasMenu && (
+          <CalendarGroupMenuButton
+            onClick={showContextMenu}
+            className="pointer-events-none opacity-100 group-focus-within/calendar-group-row:pointer-events-auto group-hover/calendar-group-row:pointer-events-auto"
+          />
+        )}
+
+        <ChevronDown
+          className={cn([
+            "text-muted-foreground pointer-events-none size-4 shrink-0 transition-transform duration-200",
+            "group-data-[state=open]/group:rotate-180",
+          ])}
+        />
+      </div>
     </div>
   );
 }
@@ -213,8 +233,10 @@ function CalendarGroupHeader({ group }: { group: CalendarGroup }) {
 
 function CalendarGroupMenuButton({
   onClick,
+  className,
 }: {
   onClick: (event: MouseEvent<HTMLButtonElement>) => void;
+  className?: string;
 }) {
   const { t } = useLingui();
   return (
@@ -225,6 +247,7 @@ function CalendarGroupMenuButton({
         "text-muted-foreground shrink-0 rounded p-1 transition-colors",
         "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
         "hover:bg-accent hover:text-muted-foreground",
+        className,
       ])}
       aria-label={t`Open calendar account actions`}
     >

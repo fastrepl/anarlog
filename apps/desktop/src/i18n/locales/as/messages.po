@@ -1124,7 +1124,7 @@ msgstr ""
 msgid "Open calendar"
 msgstr ""
 
-#: src/calendar/components/calendar-selection.tsx:229
+#: src/calendar/components/calendar-selection.tsx:252
 msgid "Open calendar account actions"
 msgstr ""
 
