@@ -34,7 +34,7 @@ msgstr ""
 msgid "<0>Language model</0> is needed to make Anarlog summarize and chat about your conversations."
 msgstr ""
 
-#: src/settings/ai/stt/select.tsx:148
+#: src/settings/ai/stt/select.tsx:154
 msgid "<0>Transcription model</0> is needed to make Anarlog listen to your conversations."
 msgstr ""
 
@@ -115,8 +115,12 @@ msgstr "Onjezani chilankhulo"
 msgid "Additional spoken languages"
 msgstr "Zilankhulo zina zoyankhulidwa"
 
-#: src/settings/ai/shared/index.tsx:295
+#: src/settings/ai/shared/index.tsx:296
 msgid "Advanced"
+msgstr ""
+
+#: src/settings/ai/stt/select.tsx:690
+msgid "After recording"
 msgstr ""
 
 #: src/contacts/details.tsx:322
@@ -163,8 +167,8 @@ msgstr ""
 msgid "Anarlog will sync your calendar to get meeting reminders"
 msgstr ""
 
-#: src/settings/ai/shared/index.tsx:248
-#: src/settings/ai/shared/index.tsx:308
+#: src/settings/ai/shared/index.tsx:249
+#: src/settings/ai/shared/index.tsx:309
 msgid "API Key"
 msgstr ""
 
@@ -233,13 +237,9 @@ msgstr "Siyani kumvetsera basi pulogalamu yamsonkhano ikatulutsa cholankhulira."
 msgid "Back"
 msgstr ""
 
-#: src/settings/ai/shared/index.tsx:240
-#: src/settings/ai/shared/index.tsx:300
+#: src/settings/ai/shared/index.tsx:241
+#: src/settings/ai/shared/index.tsx:301
 msgid "Base URL"
-msgstr ""
-
-#: src/settings/ai/stt/select.tsx:677
-msgid "Batch"
 msgstr ""
 
 #: src/settings/general/storage/index.tsx:341
@@ -259,6 +259,10 @@ msgstr ""
 
 #: src/onboarding/index.tsx:260
 msgid "Calendar connected"
+msgstr ""
+
+#: src/settings/ai/stt/select.tsx:695
+msgid "Can transcribe while the meeting is happening."
 msgstr ""
 
 #: src/settings/general/account.tsx:266
@@ -484,7 +488,7 @@ msgstr ""
 msgid "Delete Event"
 msgstr ""
 
-#: src/settings/ai/stt/select.tsx:743
+#: src/settings/ai/stt/select.tsx:767
 msgid "Delete model"
 msgstr ""
 
@@ -541,7 +545,7 @@ msgstr ""
 msgid "Don't show notifications when Do-Not-Disturb is enabled on your system"
 msgstr ""
 
-#: src/settings/ai/stt/select.tsx:640
+#: src/settings/ai/stt/select.tsx:648
 msgid "Download"
 msgstr ""
 
@@ -583,7 +587,7 @@ msgstr ""
 msgid "Enhance contact {label}"
 msgstr ""
 
-#: src/settings/ai/stt/select.tsx:221
+#: src/settings/ai/stt/select.tsx:227
 msgid "Enter a model identifier"
 msgstr ""
 
@@ -595,11 +599,11 @@ msgstr ""
 msgid "Enter template title"
 msgstr ""
 
-#: src/settings/ai/shared/index.tsx:249
+#: src/settings/ai/shared/index.tsx:250
 msgid "Enter your API key"
 msgstr ""
 
-#: src/settings/ai/shared/index.tsx:309
+#: src/settings/ai/shared/index.tsx:310
 msgid "Enter your API key (optional)"
 msgstr ""
 
@@ -861,6 +865,10 @@ msgstr ""
 msgid "LinkedIn"
 msgstr ""
 
+#: src/settings/ai/stt/select.tsx:690
+msgid "Live"
+msgstr ""
+
 #: src/calendar/components/calendar-selection.tsx:76
 msgid "Loading calendars..."
 msgstr ""
@@ -948,7 +956,7 @@ msgid "Microphone detection"
 msgstr ""
 
 #: src/settings/ai/llm/select.tsx:197
-#: src/settings/ai/stt/select.tsx:160
+#: src/settings/ai/stt/select.tsx:166
 msgid "Model being used"
 msgstr ""
 
@@ -1236,7 +1244,7 @@ msgstr ""
 msgid "Previous match"
 msgstr ""
 
-#: src/settings/ai/stt/select.tsx:196
+#: src/settings/ai/stt/select.tsx:202
 msgid "Pro"
 msgstr ""
 
@@ -1246,10 +1254,6 @@ msgstr ""
 
 #: src/onboarding/index.tsx:285
 msgid "Ready to go"
-msgstr ""
-
-#: src/settings/ai/stt/select.tsx:677
-msgid "Realtime"
 msgstr ""
 
 #: src/shared/open-note-dialog.tsx:251
@@ -1362,6 +1366,11 @@ msgstr ""
 msgid "Retry"
 msgstr ""
 
+#: src/settings/ai/shared/index.tsx:348
+#: src/settings/ai/stt/select.tsx:697
+msgid "Runs after the recording finishes, not during the meeting."
+msgstr ""
+
 #: src/settings/personalization/index.tsx:93
 msgid "Save"
 msgstr ""
@@ -1434,7 +1443,7 @@ msgid "Select a different folder"
 msgstr ""
 
 #: src/settings/ai/shared/model-combobox.tsx:165
-#: src/settings/ai/stt/select.tsx:238
+#: src/settings/ai/stt/select.tsx:244
 msgid "Select a model"
 msgstr ""
 
@@ -1443,7 +1452,7 @@ msgid "Select a person to view details"
 msgstr ""
 
 #: src/settings/ai/llm/select.tsx:206
-#: src/settings/ai/stt/select.tsx:169
+#: src/settings/ai/stt/select.tsx:175
 msgid "Select a provider"
 msgstr ""
 
@@ -1526,9 +1535,9 @@ msgstr ""
 
 #: src/settings/general/app-settings.tsx:101
 msgid "Show floating bar"
-msgstr "Onetsani mipiringidzo yoyandama"
+msgstr ""
 
-#: src/settings/ai/stt/select.tsx:728
+#: src/settings/ai/stt/select.tsx:752
 #: src/sidebar/timeline/item.tsx:605
 msgid "Show in Finder"
 msgstr ""
@@ -1833,11 +1842,11 @@ msgid "Upgrade to Pro for {0}"
 msgstr ""
 
 #: src/settings/ai/llm/select.tsx:235
-#: src/settings/ai/stt/select.tsx:202
+#: src/settings/ai/stt/select.tsx:208
 msgid "Upgrade to Pro to use this provider."
 msgstr ""
 
-#: src/settings/ai/stt/select.tsx:640
+#: src/settings/ai/stt/select.tsx:648
 msgid "Upgrade to use"
 msgstr ""
 

@@ -17,6 +17,11 @@ import {
   InputGroup,
   InputGroupInput,
 } from "@hypr/ui/components/ui/input-group";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@hypr/ui/components/ui/tooltip";
 import { cn } from "@hypr/utils";
 
 import {
@@ -213,11 +218,7 @@ export function NonHyprProviderCard({
         <div className="flex items-center gap-2">
           <ProviderIconSlot>{config.icon}</ProviderIconSlot>
           <span>{config.displayName}</span>
-          {config.badge && (
-            <span className="border-border text-muted-foreground rounded-full border px-2 text-xs font-light">
-              {config.badge}
-            </span>
-          )}
+          {config.badge && <ProviderBadge badge={config.badge} />}
         </div>
       </AccordionTrigger>
       <AccordionContent
@@ -318,6 +319,37 @@ export function NonHyprProviderCard({
         </form>
       </AccordionContent>
     </AccordionItem>
+  );
+}
+
+function ProviderBadge({ badge }: { badge: string }) {
+  const isBatchOnly = badge === "Batch only";
+  const badgeNode = (
+    <span
+      className={cn([
+        "text-muted-foreground normal-case",
+        isBatchOnly
+          ? "bg-background/40 cursor-help rounded-md px-1.5 py-0.5 text-[11px] font-medium"
+          : "border-border rounded-full border px-2 text-xs font-light",
+      ])}
+    >
+      {badge}
+    </span>
+  );
+
+  if (!isBatchOnly) {
+    return badgeNode;
+  }
+
+  return (
+    <Tooltip delayDuration={100}>
+      <TooltipTrigger asChild>{badgeNode}</TooltipTrigger>
+      <TooltipContent side="top" className="max-w-64 text-xs">
+        <Trans>
+          Runs after the recording finishes, not during the meeting.
+        </Trans>
+      </TooltipContent>
+    </Tooltip>
   );
 }
 

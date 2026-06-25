@@ -24,6 +24,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@hypr/ui/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@hypr/ui/components/ui/tooltip";
 import { cn } from "@hypr/utils";
 
 import { useSttSettings } from "./context";
@@ -669,21 +674,32 @@ function ModelModeBadge({ mode }: { mode?: ModelEntry["mode"] }) {
     return null;
   }
 
+  const isRealtime = mode === "realtime";
+
   return (
-    <span
-      className={cn([
-        "shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-medium",
-        mode === "realtime"
-          ? "bg-sky-50 text-sky-700"
-          : "bg-muted text-muted-foreground",
-      ])}
-    >
-      {mode === "realtime" ? (
-        <Trans>Live</Trans>
-      ) : (
-        <Trans>After recording</Trans>
-      )}
-    </span>
+    <Tooltip delayDuration={100}>
+      <TooltipTrigger asChild>
+        <span
+          className={cn([
+            "shrink-0 cursor-help rounded-md px-1.5 py-0.5 text-[11px] font-medium",
+            isRealtime
+              ? "bg-sky-50 text-sky-700"
+              : "bg-muted text-muted-foreground",
+          ])}
+        >
+          {isRealtime ? <Trans>Live</Trans> : <Trans>After recording</Trans>}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-64 text-xs">
+        {isRealtime ? (
+          <Trans>Can transcribe while the meeting is happening.</Trans>
+        ) : (
+          <Trans>
+            Runs after the recording finishes, not during the meeting.
+          </Trans>
+        )}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
