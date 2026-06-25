@@ -129,12 +129,12 @@ function iconHeaderTabClassName(
     isActive
       ? [
           "text-foreground bg-white shadow-xs",
-          "dark:text-primary dark:bg-white",
+          "dark:bg-accent dark:text-foreground dark:shadow-none",
         ]
       : [
           "text-muted-foreground/70",
           "hover:bg-background/60 hover:text-foreground",
-          "dark:hover:bg-white/8",
+          "dark:hover:bg-accent/80 dark:hover:text-foreground",
         ],
     heightClassName,
     className,
@@ -228,7 +228,63 @@ function HeaderTabRaw({
   sessionId: string;
   standalone?: boolean;
 }) {
+  if (!isActive) {
+    return (
+      <HeaderTabRawButton
+        isActive={isActive}
+        onClick={onClick}
+        standalone={standalone}
+      />
+    );
+  }
+
+  return (
+    <HeaderTabRawActive
+      isActive={isActive}
+      onClick={onClick}
+      sessionId={sessionId}
+      standalone={standalone}
+    />
+  );
+}
+
+function HeaderTabRawButton({
+  isActive,
+  onClick,
+  onContextMenu,
+  standalone,
+}: {
+  isActive: boolean;
+  onClick?: () => void;
+  onContextMenu?: React.MouseEventHandler<HTMLButtonElement>;
+  standalone: boolean;
+}) {
   const { t } = useLingui();
+
+  return (
+    <IconHeaderTab
+      isActive={isActive}
+      label={t`Memos`}
+      icon={<AlignLeftIcon className="size-4" />}
+      onClick={onClick}
+      onContextMenu={onContextMenu}
+      size={standalone ? "standalone" : "tray"}
+      className={standalone ? "border-border/70 border shadow-xs" : undefined}
+    />
+  );
+}
+
+function HeaderTabRawActive({
+  isActive,
+  onClick,
+  sessionId,
+  standalone,
+}: {
+  isActive: boolean;
+  onClick?: () => void;
+  sessionId: string;
+  standalone: boolean;
+}) {
   const rawMd = main.UI.useCell(
     "sessions",
     sessionId,
@@ -255,14 +311,11 @@ function HeaderTabRaw({
   const showContextMenu = useNativeContextMenu(contextMenu);
 
   return (
-    <IconHeaderTab
+    <HeaderTabRawButton
       isActive={isActive}
-      label={t`Memos`}
-      icon={<AlignLeftIcon className="size-4" />}
       onClick={onClick}
       onContextMenu={showContextMenu}
-      size={standalone ? "standalone" : "tray"}
-      className={standalone ? "border-border/70 border shadow-xs" : undefined}
+      standalone={standalone}
     />
   );
 }
@@ -284,16 +337,27 @@ function HeaderTabEnhanced({
   onRemove?: () => void;
   onSelectNote?: (enhancedNoteId: string) => void;
 }) {
-  const { isGenerating, isError, onRegenerate } = useEnhanceLogic(
-    sessionId,
-    enhancedNoteId,
+  if (!isActive) {
+    return (
+      <HeaderTabEnhancedInactive
+        enhancedNoteId={enhancedNoteId}
+        onClick={onClick}
+      />
+    );
+  }
+
+  return (
+    <HeaderTabEnhancedActive
+      sessionId={sessionId}
+      enhancedNoteId={enhancedNoteId}
+      canRemove={canRemove}
+      onRemove={onRemove}
+      onSelectNote={onSelectNote}
+    />
   );
-  const content = main.UI.useCell(
-    "enhanced_notes",
-    enhancedNoteId,
-    "content",
-    main.STORE_ID,
-  ) as string | undefined;
+}
+
+function useEnhancedTabTitle(enhancedNoteId: string) {
   const rawTitle = main.UI.useCell(
     "enhanced_notes",
     enhancedNoteId,
@@ -313,6 +377,76 @@ function HeaderTabEnhanced({
     templateTitle,
     templateId,
   });
+
+  return {
+    tabTitle,
+    templateTooltip:
+      templateId && templateTitle
+        ? `${templateTitle} was used to generate this summary.`
+        : undefined,
+  };
+}
+
+function useEnhancedTabGenerating(enhancedNoteId: string) {
+  const taskId = createTaskId(enhancedNoteId, "enhance");
+  const enhanceTask = useAITaskTask(taskId, "enhance");
+
+  return enhanceTask.isGenerating;
+}
+
+function HeaderTabEnhancedInactive({
+  onClick = () => {},
+  enhancedNoteId,
+}: {
+  enhancedNoteId: string;
+  onClick?: () => void;
+}) {
+  const { tabTitle, templateTooltip } = useEnhancedTabTitle(enhancedNoteId);
+  const isGenerating = useEnhancedTabGenerating(enhancedNoteId);
+
+  return (
+    <button
+      data-main-area-window-drag-region
+      data-tauri-drag-region="false"
+      type="button"
+      aria-label={tabTitle}
+      onClick={onClick}
+      title={templateTooltip}
+      className={iconHeaderTabClassName(false, "tray", "min-w-10 px-2")}
+    >
+      {isGenerating ? (
+        <Spinner size={16} className="shrink-0" />
+      ) : (
+        <SparklesIcon className="size-4" />
+      )}
+    </button>
+  );
+}
+
+function HeaderTabEnhancedActive({
+  sessionId,
+  enhancedNoteId,
+  canRemove = false,
+  onRemove,
+  onSelectNote,
+}: {
+  sessionId: string;
+  enhancedNoteId: string;
+  canRemove?: boolean;
+  onRemove?: () => void;
+  onSelectNote?: (enhancedNoteId: string) => void;
+}) {
+  const { isGenerating, isError, onRegenerate } = useEnhanceLogic(
+    sessionId,
+    enhancedNoteId,
+  );
+  const content = main.UI.useCell(
+    "enhanced_notes",
+    enhancedNoteId,
+    "content",
+    main.STORE_ID,
+  ) as string | undefined;
+  const { tabTitle, templateTooltip } = useEnhancedTabTitle(enhancedNoteId);
   const noteMarkdown = useMemo(() => getStoredNoteMarkdown(content), [content]);
 
   const handleCopy = useCallback(() => {
@@ -386,11 +520,6 @@ function HeaderTabEnhanced({
     onRemove,
   ]);
   const showContextMenu = useNativeContextMenu(contextMenu);
-  const templateTooltip =
-    templateId && templateTitle
-      ? `${templateTitle} was used to generate this summary.`
-      : undefined;
-
   const templateMenuTrigger = (
     <button
       data-main-area-window-drag-region
@@ -432,28 +561,11 @@ function HeaderTabEnhanced({
     </button>
   );
 
-  return isActive ? (
+  return (
     <TemplatePickerPopover
       onSelectTemplate={handleSelectTemplate}
       trigger={templateMenuTrigger}
     />
-  ) : (
-    <button
-      data-main-area-window-drag-region
-      data-tauri-drag-region="false"
-      type="button"
-      aria-label={tabTitle}
-      onClick={onClick}
-      onContextMenu={showContextMenu}
-      title={templateTooltip}
-      className={iconHeaderTabClassName(false, "tray", "min-w-10 px-2")}
-    >
-      {isGenerating ? (
-        <Spinner size={16} className="shrink-0" />
-      ) : (
-        <SparklesIcon className="size-4" />
-      )}
-    </button>
   );
 }
 
@@ -468,7 +580,67 @@ function HeaderTabTranscript({
   onClick?: () => void;
   sessionId: string;
 }) {
+  if (!isActive) {
+    return (
+      <HeaderTabTranscriptButton
+        isActive={isActive}
+        isTranscribing={isTranscribing}
+        onClick={onClick}
+      />
+    );
+  }
+
+  return (
+    <HeaderTabTranscriptActive
+      isActive={isActive}
+      isTranscribing={isTranscribing}
+      onClick={onClick}
+      sessionId={sessionId}
+    />
+  );
+}
+
+function HeaderTabTranscriptButton({
+  isActive,
+  isTranscribing,
+  onClick,
+  onContextMenu,
+}: {
+  isActive: boolean;
+  isTranscribing: boolean;
+  onClick?: () => void;
+  onContextMenu?: React.MouseEventHandler<HTMLButtonElement>;
+}) {
   const { t } = useLingui();
+
+  return (
+    <IconHeaderTab
+      isActive={isActive}
+      label={t`Transcript`}
+      icon={
+        isTranscribing ? (
+          <Spinner size={16} className="shrink-0" />
+        ) : (
+          <AudioLinesIcon className="size-4" />
+        )
+      }
+      onClick={onClick}
+      onContextMenu={onContextMenu}
+    />
+  );
+}
+
+function HeaderTabTranscriptActive({
+  isActive,
+  isTranscribing,
+  onClick,
+  sessionId,
+}: {
+  isActive: boolean;
+  isTranscribing: boolean;
+  onClick?: () => void;
+  sessionId: string;
+}) {
   const regenerate = useRegenerateTranscript(sessionId);
   const { request: transcriptExportRequest } =
     useSessionTranscriptRenderData(sessionId);
@@ -542,16 +714,9 @@ function HeaderTabTranscript({
   const showContextMenu = useNativeContextMenu(contextMenu);
 
   return (
-    <IconHeaderTab
+    <HeaderTabTranscriptButton
       isActive={isActive}
-      label={t`Transcript`}
-      icon={
-        isTranscribing ? (
-          <Spinner size={16} className="shrink-0" />
-        ) : (
-          <AudioLinesIcon className="size-4" />
-        )
-      }
+      isTranscribing={isTranscribing}
       onClick={onClick}
       onContextMenu={showContextMenu}
     />
@@ -1014,7 +1179,7 @@ export function Header({
             className={cn([
               "pointer-events-auto relative z-10 w-fit max-w-full overflow-visible",
               shouldUseTabTray
-                ? "bg-foreground/10 flex h-[30px] items-center gap-[2px] rounded-full p-[2px] dark:bg-white/12"
+                ? "bg-foreground/10 dark:bg-accent/55 flex h-[30px] items-center gap-[2px] rounded-full p-[2px]"
                 : null,
             ])}
           >

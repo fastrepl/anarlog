@@ -28,6 +28,7 @@ const hoisted = vi.hoisted(() => ({
   sessionMode: "inactive",
   isDeletingRecording: false,
   transcriptExportRequest: {},
+  transcriptRenderDataCalls: 0,
   transcriptSegments: [{ speaker: "Speaker 1", text: "Hello transcript" }],
   isGenerating: false,
   nativeContextMenus: [] as CapturedMenuItem[][],
@@ -168,10 +169,14 @@ vi.mock("~/session/components/note-input/transcript/export-data", () => ({
 vi.mock(
   "~/session/components/note-input/transcript/render-request-hooks",
   () => ({
-    useSessionTranscriptRenderData: () => ({
-      request: hoisted.transcriptExportRequest,
-      transcriptRows: [],
-    }),
+    useSessionTranscriptRenderData: () => {
+      hoisted.transcriptRenderDataCalls += 1;
+
+      return {
+        request: hoisted.transcriptExportRequest,
+        transcriptRows: [],
+      };
+    },
   }),
 );
 
@@ -261,6 +266,7 @@ describe("Header", () => {
     hoisted.sessionMode = "inactive";
     hoisted.isDeletingRecording = false;
     hoisted.transcriptExportRequest = {};
+    hoisted.transcriptRenderDataCalls = 0;
     hoisted.transcriptSegments = [
       { speaker: "Speaker 1", text: "Hello transcript" },
     ];
@@ -301,7 +307,7 @@ describe("Header", () => {
     expect(tabList.className).toContain("p-[2px]");
     expect(tabList.className).toContain("gap-[2px]");
     expect(tabList.className).toContain("bg-foreground/10");
-    expect(tabList.className).toContain("dark:bg-white/12");
+    expect(tabList.className).toContain("dark:bg-accent/55");
     expect(summaryTab.getAttribute("aria-current")).toBeNull();
     expect(memoTab.getAttribute("aria-current")).toBe("page");
     expect(memoTab.textContent).toBe("Memos");
@@ -310,10 +316,11 @@ describe("Header", () => {
     expect(memoTab.className).toContain("bg-white");
     expect(memoTab.className).toContain("text-foreground");
     expect(memoTab.className).toContain("shadow-xs");
-    expect(memoTab.className).toContain("dark:text-primary");
-    expect(memoTab.className).toContain("dark:bg-white");
+    expect(memoTab.className).toContain("dark:text-foreground");
+    expect(memoTab.className).toContain("dark:bg-accent");
+    expect(memoTab.className).toContain("dark:shadow-none");
     expect(summaryTab.className).toContain("h-[26px]");
-    expect(summaryTab.className).toContain("dark:hover:bg-white/8");
+    expect(summaryTab.className).toContain("dark:hover:bg-accent/80");
     expect(summaryTab.querySelector("svg")).not.toBeNull();
     expect(summaryTab.querySelectorAll("svg")).toHaveLength(1);
     expect(transcriptTab.querySelector("svg")).not.toBeNull();
@@ -344,14 +351,15 @@ describe("Header", () => {
     });
     expect(activeSummaryTab.textContent).toBe("Customer Call");
     expect(activeSummaryTab.className).toContain("text-foreground");
-    expect(activeSummaryTab.className).toContain("dark:text-primary");
+    expect(activeSummaryTab.className).toContain("dark:text-foreground");
+    expect(activeSummaryTab.className).toContain("dark:bg-accent");
     expect(activeSummaryTab.querySelectorAll("svg")).toHaveLength(2);
 
     fireEvent.click(activeSummaryTab);
 
     expect(screen.getByPlaceholderText("Search templates...")).not.toBeNull();
 
-    fireEvent.click(memoTab);
+    fireEvent.click(screen.getByRole("button", { name: "Memos" }));
 
     view.rerender(
       <Header
@@ -453,6 +461,36 @@ describe("Header", () => {
           "id" in item && item.id === "delete-recording-session-1",
       )?.disabled,
     ).toBe(false);
+  });
+
+  it("does not prepare transcript export data while the transcript tab is inactive", () => {
+    const editorTabs: EditorView[] = [
+      { type: "enhanced", id: "note-1" },
+      { type: "raw" },
+      { type: "transcript" },
+    ];
+
+    const view = render(
+      <Header
+        sessionId="session-1"
+        editorTabs={editorTabs}
+        currentTab={{ type: "raw" }}
+        handleTabChange={vi.fn()}
+      />,
+    );
+
+    expect(hoisted.transcriptRenderDataCalls).toBe(0);
+
+    view.rerender(
+      <Header
+        sessionId="session-1"
+        editorTabs={editorTabs}
+        currentTab={{ type: "transcript" }}
+        handleTabChange={vi.fn()}
+      />,
+    );
+
+    expect(hoisted.transcriptRenderDataCalls).toBe(1);
   });
 
   it("omits transcript recording actions when recording is missing", () => {

@@ -1,6 +1,7 @@
 import type { EditorView } from "prosemirror-view";
 import {
   forwardRef,
+  startTransition,
   type UIEventHandler,
   useCallback,
   useEffect,
@@ -75,6 +76,12 @@ export const NoteInput = forwardRef<
     const fallbackCurrentTab: TabEditorView = useCurrentNoteTab(tab);
     const editorTabs = providedEditorTabs ?? fallbackEditorTabs;
     const currentTab = providedCurrentTab ?? fallbackCurrentTab;
+    const deferredCurrentTab = useDeferredValue(currentTab);
+    const renderedCurrentTab = editorTabs.some((editorTab) =>
+      isSameEditorView(editorTab, deferredCurrentTab),
+    )
+      ? deferredCurrentTab
+      : currentTab;
 
     const sessionMode = useListener((state) => state.getSessionMode(sessionId));
     const isMeetingInProgress =
@@ -104,6 +111,10 @@ export const NoteInput = forwardRef<
 
     const handleTabChange = useCallback(
       (tabView: TabEditorView) => {
+        if (isSameEditorView(tabView, currentTab)) {
+          return;
+        }
+
         onBeforeTabChange();
         if (providedHandleTabChange) {
           providedHandleTabChange(tabView);
@@ -114,7 +125,12 @@ export const NoteInput = forwardRef<
           });
         }
       },
-      [onBeforeTabChange, providedHandleTabChange, updateSessionTabState],
+      [
+        currentTab,
+        onBeforeTabChange,
+        providedHandleTabChange,
+        updateSessionTabState,
+      ],
     );
 
     useTabShortcuts({
@@ -228,6 +244,18 @@ export const NoteInput = forwardRef<
     );
   },
 );
+
+function isSameEditorView(left: TabEditorView, right: TabEditorView): boolean {
+  if (left.type !== right.type) {
+    return false;
+  }
+
+  if (left.type === "enhanced" && right.type === "enhanced") {
+    return left.id === right.id;
+  }
+
+  return true;
+}
 
 function useTabShortcuts({
   editorTabs,
