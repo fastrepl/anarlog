@@ -61,6 +61,10 @@ type MainAreaWindowDragStart = {
   clientY: number;
   dragging: boolean;
 };
+type LeftSidebarSizeStyle = CSSProperties & {
+  "--left-sidebar-panel-size": string;
+  "--left-sidebar-panel-width": string;
+};
 
 export function ClassicMainBody() {
   const { leftsidebar } = useShell();
@@ -72,6 +76,9 @@ export function ClassicMainBody() {
   const [leftSidebarPanelSize, setLeftSidebarPanelSize] = useState(
     leftSidebarPanelConstraints.defaultSize,
   );
+  const bodyRootRef = useRef<HTMLDivElement>(null);
+  const leftSidebarPanelSizeRef = useRef(leftSidebarPanelSize);
+  const leftSidebarResizeDraggingRef = useRef(false);
 
   const isOnboarding = currentTab?.type === "onboarding";
   const isChangelog = currentTab?.type === "changelog";
@@ -106,6 +113,18 @@ export function ClassicMainBody() {
   const handleOpenNoteDialog = useCallback(() => {
     openNoteDialog.open();
   }, [openNoteDialog]);
+  const applyLeftSidebarPanelSize = useCallback((size: number) => {
+    const bodyRoot = bodyRootRef.current;
+    if (!bodyRoot) {
+      return;
+    }
+
+    bodyRoot.style.setProperty("--left-sidebar-panel-size", `${size}`);
+    bodyRoot.style.setProperty("--left-sidebar-panel-width", `${size}%`);
+  }, []);
+  const commitLeftSidebarPanelSize = useCallback((size: number) => {
+    setLeftSidebarPanelSize(size);
+  }, []);
   const handlePanelLayout = useCallback(
     (sizes: number[]) => {
       if (!showLeftSidebarPanel) {
@@ -114,18 +133,37 @@ export function ClassicMainBody() {
 
       const sidebarSize = sizes[0];
       if (typeof sidebarSize === "number") {
-        setLeftSidebarPanelSize(sidebarSize);
+        leftSidebarPanelSizeRef.current = sidebarSize;
+        applyLeftSidebarPanelSize(sidebarSize);
+
+        if (!leftSidebarResizeDraggingRef.current) {
+          commitLeftSidebarPanelSize(sidebarSize);
+        }
       }
     },
-    [showLeftSidebarPanel],
+    [
+      applyLeftSidebarPanelSize,
+      commitLeftSidebarPanelSize,
+      showLeftSidebarPanel,
+    ],
   );
-  const handleLeftSidebarResizeDragging = useCallback((isDragging: boolean) => {
-    setLeftSidebarResizing(isDragging);
-  }, []);
+  const handleLeftSidebarResizeDragging = useCallback(
+    (isDragging: boolean) => {
+      leftSidebarResizeDraggingRef.current = isDragging;
+      setLeftSidebarResizing(isDragging);
+
+      if (!isDragging) {
+        commitLeftSidebarPanelSize(leftSidebarPanelSizeRef.current);
+      }
+    },
+    [commitLeftSidebarPanelSize],
+  );
   const handleToggleLeftSidebar = useCallback(() => {
+    leftSidebarResizeDraggingRef.current = false;
     setLeftSidebarResizing(false);
+    commitLeftSidebarPanelSize(leftSidebarPanelSizeRef.current);
     leftsidebar.toggleExpanded();
-  }, [leftsidebar.toggleExpanded]);
+  }, [commitLeftSidebarPanelSize, leftsidebar.toggleExpanded]);
   const handleLeftSidebarChromeWheel = useCallback(
     (event: WheelEvent<HTMLDivElement>) => {
       if (!showSidebarTimeline) {
@@ -144,16 +182,16 @@ export function ClassicMainBody() {
   const leftSidebarChromeStyle = useMemo(
     () =>
       ({
-        width: `${leftSidebarPanelSize}%`,
+        width: "var(--left-sidebar-panel-width)",
         minWidth: LEFT_SIDEBAR_MIN_WIDTH_PX,
         maxWidth: LEFT_SIDEBAR_MAX_WIDTH_PX,
       }) satisfies CSSProperties,
-    [leftSidebarPanelSize],
+    [],
   );
   const leftSidebarPanelStyle = useMemo(
     () =>
       ({
-        flexGrow: leftsidebar.expanded ? leftSidebarPanelSize : 0,
+        flexGrow: leftsidebar.expanded ? "var(--left-sidebar-panel-size)" : 0,
         maxWidth: leftsidebar.expanded ? LEFT_SIDEBAR_MAX_WIDTH_PX : 0,
         minWidth: leftsidebar.expanded ? LEFT_SIDEBAR_MIN_WIDTH_PX : 0,
         transition:
@@ -165,11 +203,22 @@ export function ClassicMainBody() {
                 "min-width 180ms ease-out",
               ].join(", "),
       }) satisfies CSSProperties,
-    [leftSidebarPanelSize, leftSidebarResizing, leftsidebar.expanded],
+    [leftSidebarResizing, leftsidebar.expanded],
   );
+  const renderedLeftSidebarPanelSize = leftSidebarResizeDraggingRef.current
+    ? leftSidebarPanelSizeRef.current
+    : leftSidebarPanelSize;
+  const leftSidebarSizeStyle = {
+    "--left-sidebar-panel-size": `${renderedLeftSidebarPanelSize}`,
+    "--left-sidebar-panel-width": `${renderedLeftSidebarPanelSize}%`,
+  } as LeftSidebarSizeStyle;
 
   return (
-    <div className="relative flex h-full min-w-0 flex-1 flex-col">
+    <div
+      ref={bodyRootRef}
+      style={leftSidebarSizeStyle}
+      className="relative flex h-full min-w-0 flex-1 flex-col"
+    >
       {isOnboarding ? null : showSidebarTimelineChrome ? (
         <div
           data-tauri-drag-region

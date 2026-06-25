@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => ({
   },
   onPanelLayout: null as null | ((sizes: number[]) => void),
   onResizeDragging: null as null | ((isDragging: boolean) => void),
+  tabContentRenderCount: 0,
 }));
 
 vi.mock("@hypr/ui/components/ui/resizable", () => ({
@@ -124,9 +125,10 @@ vi.mock("./shell-sidebar", () => ({
 }));
 
 vi.mock("./tab-content", () => ({
-  ClassicMainTabContent: ({ tab }: { tab: { type: string } }) => (
-    <div data-tab-type={tab.type} data-testid="tab-content" />
-  ),
+  ClassicMainTabContent: ({ tab }: { tab: { type: string } }) => {
+    mocks.tabContentRenderCount += 1;
+    return <div data-tab-type={tab.type} data-testid="tab-content" />;
+  },
 }));
 
 vi.mock("./update-banner", () => ({
@@ -177,6 +179,7 @@ describe("ClassicMainBody", () => {
     mocks.leftsidebar.toggleExpanded.mockClear();
     mocks.onPanelLayout = null;
     mocks.onResizeDragging = null;
+    mocks.tabContentRenderCount = 0;
   });
 
   it("wraps the expanded left sidebar in a persistent resizable panel", () => {
@@ -204,7 +207,7 @@ describe("ClassicMainBody", () => {
     expect(panels[0]?.dataset.defaultSize).toBe("12.5");
     expect(panels[0]?.dataset.minSize).toBe("12.5");
     expect(panels[0]?.dataset.maxSize).toBe("22.5");
-    expect(panels[0]?.dataset.flexGrow).toBe("12.5");
+    expect(panels[0]?.dataset.flexGrow).toBe("var(--left-sidebar-panel-size)");
     expect(panels[0]?.dataset.minWidth).toBe("200");
     expect(panels[0]?.dataset.maxWidth).toBe("360");
     expect(panels[0]?.dataset.transition).toContain("flex-grow");
@@ -220,16 +223,86 @@ describe("ClassicMainBody", () => {
 
     expect(sidebarContent?.className).toContain("translate-x-0");
     expect(sidebarContent?.getAttribute("aria-hidden")).toBe("false");
-    expect(sidebarChrome?.style.width).toBe("12.5%");
+    expect(sidebarChrome?.style.width).toBe("var(--left-sidebar-panel-width)");
     expect(sidebarChrome?.style.minWidth).toBe("200px");
     expect(sidebarChrome?.style.maxWidth).toBe("360px");
     expect(sidebarChrome?.className).not.toContain("w-[200px]");
+
+    const bodyRoot = screen.getByTestId("panel-group").parentElement;
+    expect(bodyRoot?.getAttribute("style")).toContain(
+      "--left-sidebar-panel-size: 12.5",
+    );
 
     act(() => {
       mocks.onPanelLayout?.([24, 76]);
     });
 
-    expect(sidebarChrome?.style.width).toBe("24%");
+    expect(bodyRoot?.style.getPropertyValue("--left-sidebar-panel-size")).toBe(
+      "24",
+    );
+    expect(bodyRoot?.style.getPropertyValue("--left-sidebar-panel-width")).toBe(
+      "24%",
+    );
+  });
+
+  it("updates sidebar sizing during drag without rerendering tab content", () => {
+    render(<ClassicMainBody />);
+
+    const bodyRoot = screen.getByTestId("panel-group").parentElement;
+
+    act(() => {
+      mocks.onResizeDragging?.(true);
+    });
+
+    const renderCountAfterDragStart = mocks.tabContentRenderCount;
+
+    act(() => {
+      mocks.onPanelLayout?.([14, 86]);
+      mocks.onPanelLayout?.([16, 84]);
+      mocks.onPanelLayout?.([18, 82]);
+    });
+
+    expect(bodyRoot?.style.getPropertyValue("--left-sidebar-panel-size")).toBe(
+      "18",
+    );
+    expect(bodyRoot?.style.getPropertyValue("--left-sidebar-panel-width")).toBe(
+      "18%",
+    );
+    expect(mocks.tabContentRenderCount).toBe(renderCountAfterDragStart);
+
+    act(() => {
+      mocks.onResizeDragging?.(false);
+    });
+
+    expect(bodyRoot?.style.getPropertyValue("--left-sidebar-panel-size")).toBe(
+      "18",
+    );
+  });
+
+  it("keeps near-equal sidebar size commits in sync with drag-time CSS variables", () => {
+    render(<ClassicMainBody />);
+
+    const bodyRoot = screen.getByTestId("panel-group").parentElement;
+
+    act(() => {
+      mocks.onResizeDragging?.(true);
+      mocks.onPanelLayout?.([12.505, 87.495]);
+    });
+
+    expect(bodyRoot?.style.getPropertyValue("--left-sidebar-panel-size")).toBe(
+      "12.505",
+    );
+
+    act(() => {
+      mocks.onResizeDragging?.(false);
+    });
+
+    expect(bodyRoot?.style.getPropertyValue("--left-sidebar-panel-size")).toBe(
+      "12.505",
+    );
+    expect(bodyRoot?.style.getPropertyValue("--left-sidebar-panel-width")).toBe(
+      "12.505%",
+    );
   });
 
   it("keeps the note content panel at least 500px wide", () => {
