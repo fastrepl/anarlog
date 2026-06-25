@@ -82,21 +82,19 @@ export function useCurrentNoteTab(
   );
   const firstEnhancedNoteId = enhancedNoteIds?.[0];
 
-  return useMemo(
-    () =>
-      computeCurrentNoteTab(
-        tab.state.view ?? null,
-        isLiveSessionActive,
-        firstEnhancedNoteId,
-        canShowTranscript,
-      ),
-    [
-      tab.state.view,
+  return useMemo(() => {
+    return computeCurrentNoteTab(
+      tab.state.view ?? null,
       isLiveSessionActive,
       firstEnhancedNoteId,
       canShowTranscript,
-    ],
-  );
+    );
+  }, [
+    tab.state.view,
+    isLiveSessionActive,
+    firstEnhancedNoteId,
+    canShowTranscript,
+  ]);
 }
 
 export function useCanShowTranscript(

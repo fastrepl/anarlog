@@ -1,4 +1,4 @@
-import { useMutation } from "@tanstack/react-query";
+import { useIsMutating, useMutation } from "@tanstack/react-query";
 import { generateText, type LanguageModel, Output } from "ai";
 import { useCallback, useMemo } from "react";
 import { z } from "zod";
@@ -65,6 +65,11 @@ export function usePastSessionNotes(
   sessionId: string,
   { enabled = true }: { enabled?: boolean } = {},
 ): PastSessionNotesResult {
+  const mutationKey = useMemo(
+    () => ["past-session-notes", sessionId],
+    [sessionId],
+  );
+  const activeMutationCount = useIsMutating({ mutationKey });
   const store = main.UI.useStore(main.STORE_ID);
   const sessionsTable = main.UI.useTable(
     enabled ? "sessions" : ("__disabled_past_notes_sessions" as "sessions"),
@@ -118,6 +123,7 @@ export function usePastSessionNotes(
   ]);
 
   const mutation = useMutation({
+    mutationKey,
     mutationFn: async (requests: PastSessionNoteRequest[]) => {
       if (!store || !model || requests.length === 0) {
         return;
@@ -146,20 +152,21 @@ export function usePastSessionNotes(
         : new Set<string>(),
     [mutation.isPending, mutation.variables],
   );
+  const isGenerating = mutation.isPending || activeMutationCount > 0;
 
   const notes = useMemo(
     () =>
       built.notes.map((note) => ({
         ...note,
         isGenerating: generatingIds.has(note.sessionId),
-        isRegenerateDisabled: mutation.isPending,
+        isRegenerateDisabled: isGenerating,
       })),
-    [built.notes, generatingIds, mutation.isPending],
+    [built.notes, generatingIds, isGenerating],
   );
 
   const regenerate = useCallback(
     (targetSessionId: string) => {
-      if (!enabled || !model || mutation.isPending) {
+      if (!enabled || !model || isGenerating) {
         return;
       }
 
@@ -172,30 +179,61 @@ export function usePastSessionNotes(
 
       mutation.mutate([request]);
     },
-    [built.requests, enabled, model, mutation],
+    [built.requests, enabled, isGenerating, model, mutation],
   );
 
   const regenerateAll = useCallback(() => {
-    if (
-      !enabled ||
-      !model ||
-      built.requests.length === 0 ||
-      mutation.isPending
-    ) {
+    if (!enabled || !model || built.requests.length === 0 || isGenerating) {
       return;
     }
 
     mutation.mutate(built.requests);
-  }, [built.requests, enabled, model, mutation]);
+  }, [built.requests, enabled, isGenerating, model, mutation]);
 
   return {
     notes,
     hasPastNotes: notes.length > 0,
-    isGenerating: mutation.isPending,
+    isGenerating,
     canGenerate: enabled && Boolean(model),
     regenerate,
     regenerateAll,
   };
+}
+
+export function useCanShowInsights(sessionId: string): boolean {
+  const store = main.UI.useStore(main.STORE_ID);
+  const sessionsTable = main.UI.useTable("sessions", main.STORE_ID);
+  const participantsTable = main.UI.useTable(
+    "mapping_session_participant",
+    main.STORE_ID,
+  );
+  const humansTable = main.UI.useTable("humans", main.STORE_ID);
+  const enhancedNotesTable = main.UI.useTable("enhanced_notes", main.STORE_ID);
+  const keyFactsTable = main.UI.useTable("session_key_facts", main.STORE_ID);
+  const userId = main.UI.useValue("user_id", main.STORE_ID);
+
+  return useMemo(() => {
+    if (!store || typeof store.getRow !== "function") {
+      return false;
+    }
+
+    return (
+      buildPastSessionNotes(
+        store,
+        sessionId,
+        typeof userId === "string" ? userId : null,
+      ).notes.length > 0
+    );
+  }, [
+    store,
+    sessionId,
+    userId,
+    sessionsTable,
+    participantsTable,
+    humansTable,
+    enhancedNotesTable,
+    keyFactsTable,
+  ]);
 }
 
 export function buildPastSessionNotes(

@@ -3,34 +3,14 @@ import { StandardTabWrapper } from "~/shared/main";
 export function SessionSurface({
   header,
   children,
-  afterBorder,
-  afterBorderExpanded,
-  afterBorderFlush,
-  afterBorderResizable,
-  bottomBorderHandle,
   floatingButton,
-  mergeAfterBorder,
 }: {
   header?: React.ReactNode;
   children: React.ReactNode;
-  afterBorder?: React.ReactNode;
-  afterBorderExpanded?: boolean;
-  afterBorderFlush?: boolean;
-  afterBorderResizable?: boolean;
-  bottomBorderHandle?: React.ReactNode;
   floatingButton?: React.ReactNode;
-  mergeAfterBorder?: boolean;
 }) {
   return (
-    <StandardTabWrapper
-      afterBorder={afterBorder}
-      afterBorderExpanded={afterBorderExpanded}
-      afterBorderFlush={afterBorderFlush}
-      afterBorderResizable={afterBorderResizable}
-      bottomBorderHandle={bottomBorderHandle}
-      floatingButton={floatingButton}
-      mergeAfterBorder={mergeAfterBorder}
-    >
+    <StandardTabWrapper floatingButton={floatingButton}>
       <div data-session-surface className="flex h-full flex-col">
         {header ? (
           <div data-tauri-drag-region className="px-1">
