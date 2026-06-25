@@ -34,7 +34,7 @@ import {
   formatTranscriptExportSegments,
 } from "~/session/components/note-input/transcript/export-data";
 import { useSessionTranscriptRenderData } from "~/session/components/note-input/transcript/render-request-hooks";
-import { useHasTranscript } from "~/session/components/shared";
+import { useCanShowTranscript } from "~/session/components/shared";
 import { shouldShowEmptySummaryConfigError } from "~/session/enhance-config";
 import { useEnsureDefaultSummary } from "~/session/hooks/useEnhancedNotes";
 import {
@@ -46,7 +46,6 @@ import * as main from "~/store/tinybase/store/main";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 import { type EditorView } from "~/store/zustand/tabs/schema";
-import { useListener } from "~/stt/contexts";
 import {
   filterWebTemplatesAgainstUserTemplates,
   parseWebTemplates,
@@ -1260,16 +1259,7 @@ export function useEditorTabs({
   sessionId: string;
 }): EditorView[] {
   useEnsureDefaultSummary(sessionId);
-  const hasTranscript = useHasTranscript(sessionId);
-  const sessionMode = useListener((state) => state.getSessionMode(sessionId));
-  const batchError = useListener((state) => state.batch[sessionId]?.error);
-  const canShowTranscript =
-    hasTranscript ||
-    audioExists ||
-    sessionMode === "active" ||
-    sessionMode === "finalizing" ||
-    sessionMode === "running_batch" ||
-    Boolean(batchError);
+  const canShowTranscript = useCanShowTranscript(sessionId, { audioExists });
 
   const enhancedNoteIds = main.UI.useSliceRowIds(
     main.INDEXES.enhancedNotesBySession,

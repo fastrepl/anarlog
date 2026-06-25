@@ -25,6 +25,8 @@ const hoisted = vi.hoisted(() => ({
   activeTemplateTitle: "Customer Call",
   audioExists: true,
   hasTranscript: true,
+  liveSegments: [] as unknown[],
+  liveSessionId: null as string | null,
   sessionMode: "inactive",
   isDeletingRecording: false,
   transcriptExportRequest: {},
@@ -141,6 +143,16 @@ vi.mock("~/session/enhance-config", () => ({
 
 vi.mock("~/session/components/shared", () => ({
   useHasTranscript: () => hoisted.hasTranscript,
+  useCanShowTranscript: (
+    sessionId: string,
+    { audioExists = false }: { audioExists?: boolean } = {},
+  ) =>
+    hoisted.hasTranscript ||
+    (audioExists &&
+      hoisted.sessionMode !== "active" &&
+      hoisted.sessionMode !== "finalizing") ||
+    (hoisted.liveSessionId === sessionId && hoisted.liveSegments.length > 0) ||
+    hoisted.sessionMode === "running_batch",
 }));
 
 vi.mock("~/session/hooks/useEnhancedNotes", () => ({
@@ -238,9 +250,23 @@ vi.mock("~/stt/contexts", () => ({
   useListener: (
     selector: (state: {
       batch: Record<string, unknown>;
+      live: {
+        sessionId: string | null;
+        finalizingBySession: Record<string, unknown>;
+      };
+      liveSegments: unknown[];
       getSessionMode: () => string;
     }) => unknown,
-  ) => selector({ batch: {}, getSessionMode: () => hoisted.sessionMode }),
+  ) =>
+    selector({
+      batch: {},
+      live: {
+        sessionId: hoisted.liveSessionId,
+        finalizingBySession: {},
+      },
+      liveSegments: hoisted.liveSegments,
+      getSessionMode: () => hoisted.sessionMode,
+    }),
 }));
 
 vi.mock("~/templates", () => ({
@@ -263,6 +289,8 @@ describe("Header", () => {
     hoisted.activeTemplateTitle = "Customer Call";
     hoisted.audioExists = true;
     hoisted.hasTranscript = true;
+    hoisted.liveSegments = [];
+    hoisted.liveSessionId = null;
     hoisted.sessionMode = "inactive";
     hoisted.isDeletingRecording = false;
     hoisted.transcriptExportRequest = {};
@@ -612,6 +640,38 @@ describe("Header", () => {
 
     const { result } = renderHook(() =>
       useEditorTabs({ sessionId: "session-1", audioExists: true }),
+    );
+
+    expect(result.current).toEqual([
+      { type: "enhanced", id: "note-1" },
+      { type: "raw" },
+      { type: "transcript" },
+    ]);
+  });
+
+  it("omits the transcript tab for active meetings without transcript evidence", () => {
+    hoisted.hasTranscript = false;
+    hoisted.sessionMode = "active";
+    hoisted.liveSessionId = "session-1";
+
+    const { result } = renderHook(() =>
+      useEditorTabs({ sessionId: "session-1", audioExists: true }),
+    );
+
+    expect(result.current).toEqual([
+      { type: "enhanced", id: "note-1" },
+      { type: "raw" },
+    ]);
+  });
+
+  it("includes the transcript tab for active meetings with live segments", () => {
+    hoisted.hasTranscript = false;
+    hoisted.liveSegments = [{ id: "segment-1" }];
+    hoisted.liveSessionId = "session-1";
+    hoisted.sessionMode = "active";
+
+    const { result } = renderHook(() =>
+      useEditorTabs({ sessionId: "session-1", audioExists: false }),
     );
 
     expect(result.current).toEqual([

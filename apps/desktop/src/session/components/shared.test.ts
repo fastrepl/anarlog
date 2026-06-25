@@ -2,14 +2,21 @@ import { renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { computeCurrentNoteTab } from "./compute-note-tab";
-import { hasStoredNoteContent, useCurrentNoteTab } from "./shared";
+import {
+  hasStoredNoteContent,
+  useCanShowTranscript,
+  useCurrentNoteTab,
+} from "./shared";
 
 import type { Tab } from "~/store/zustand/tabs/schema";
 
 const hoisted = vi.hoisted(() => ({
   batchError: null as string | null,
   enhancedNoteIds: ["note-1"] as string[],
+  finalizingBySession: {} as Record<string, unknown>,
   hasTranscript: false,
+  liveSegments: [] as unknown[],
+  liveSessionId: null as string | null,
   sessionMode: "inactive",
 }));
 
@@ -17,11 +24,21 @@ vi.mock("~/stt/contexts", () => ({
   useListener: (
     selector: (state: {
       batch: Record<string, { error: string | null } | undefined>;
+      live: {
+        sessionId: string | null;
+        finalizingBySession: Record<string, unknown>;
+      };
+      liveSegments: unknown[];
       getSessionMode: () => string;
     }) => unknown,
   ) =>
     selector({
       batch: { "session-1": { error: hoisted.batchError } },
+      live: {
+        sessionId: hoisted.liveSessionId,
+        finalizingBySession: hoisted.finalizingBySession,
+      },
+      liveSegments: hoisted.liveSegments,
       getSessionMode: () => hoisted.sessionMode,
     }),
 }));
@@ -65,7 +82,10 @@ describe("useCurrentNoteTab", () => {
   beforeEach(() => {
     hoisted.batchError = null;
     hoisted.enhancedNoteIds = ["note-1"];
+    hoisted.finalizingBySession = {};
     hoisted.hasTranscript = false;
+    hoisted.liveSegments = [];
+    hoisted.liveSessionId = null;
     hoisted.sessionMode = "inactive";
   });
 
@@ -81,6 +101,57 @@ describe("useCurrentNoteTab", () => {
     const { result } = renderHook(() => useCurrentNoteTab(tab));
 
     expect(result.current).toEqual({ type: "raw" });
+  });
+
+  it("normalizes active transcript view when no transcript evidence exists", () => {
+    hoisted.sessionMode = "active";
+    hoisted.liveSessionId = "session-1";
+
+    const { result } = renderHook(() => useCurrentNoteTab(tab));
+
+    expect(result.current).toEqual({ type: "raw" });
+  });
+
+  it("normalizes active transcript view when only in-progress audio exists", () => {
+    hoisted.sessionMode = "active";
+    hoisted.liveSessionId = "session-1";
+
+    const { result } = renderHook(() =>
+      useCurrentNoteTab(tab, { audioExists: true }),
+    );
+
+    expect(result.current).toEqual({ type: "raw" });
+  });
+});
+
+describe("useCanShowTranscript", () => {
+  beforeEach(() => {
+    hoisted.batchError = null;
+    hoisted.finalizingBySession = {};
+    hoisted.hasTranscript = false;
+    hoisted.liveSegments = [];
+    hoisted.liveSessionId = null;
+    hoisted.sessionMode = "inactive";
+  });
+
+  it("shows transcript evidence for live segments owned by the session", () => {
+    hoisted.liveSessionId = "session-1";
+    hoisted.liveSegments = [{ id: "segment-1" }];
+
+    const { result } = renderHook(() => useCanShowTranscript("session-1"));
+
+    expect(result.current).toBe(true);
+  });
+
+  it("ignores live segments from another active session while finalizing", () => {
+    hoisted.finalizingBySession = { "session-1": { startedAt: 1 } };
+    hoisted.liveSessionId = "session-2";
+    hoisted.liveSegments = [{ id: "segment-1" }];
+    hoisted.sessionMode = "finalizing";
+
+    const { result } = renderHook(() => useCanShowTranscript("session-1"));
+
+    expect(result.current).toBe(false);
   });
 });
 
@@ -132,14 +203,24 @@ describe("computeCurrentNoteTab", () => {
       expect(result).toEqual({ type: "raw" });
     });
 
-    it("preserves transcript view", () => {
+    it("preserves transcript view when transcript can show", () => {
+      const result = computeCurrentNoteTab(
+        { type: "transcript" },
+        true,
+        "note-1",
+        true,
+      );
+      expect(result).toEqual({ type: "transcript" });
+    });
+
+    it("normalizes transcript view when transcript cannot show", () => {
       const result = computeCurrentNoteTab(
         { type: "transcript" },
         true,
         "note-1",
         false,
       );
-      expect(result).toEqual({ type: "transcript" });
+      expect(result).toEqual({ type: "raw" });
     });
 
     it("returns raw view when no persisted view", () => {

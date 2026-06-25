@@ -69,15 +69,7 @@ export function useCurrentNoteTab(
 ): EditorView {
   const sessionMode = useListener((state) => state.getSessionMode(tab.id));
   const isLiveSessionActive = sessionMode === "active";
-  const batchError = useListener((state) => state.batch[tab.id]?.error ?? null);
-  const hasTranscript = useHasTranscript(tab.id);
-  const canShowTranscript =
-    hasTranscript ||
-    audioExists ||
-    sessionMode === "active" ||
-    sessionMode === "finalizing" ||
-    sessionMode === "running_batch" ||
-    Boolean(batchError);
+  const canShowTranscript = useCanShowTranscript(tab.id, { audioExists });
 
   const enhancedNoteIds = main.UI.useSliceRowIds(
     main.INDEXES.enhancedNotesBySession,
@@ -100,6 +92,29 @@ export function useCurrentNoteTab(
       firstEnhancedNoteId,
       canShowTranscript,
     ],
+  );
+}
+
+export function useCanShowTranscript(
+  sessionId: string,
+  { audioExists = false }: { audioExists?: boolean } = {},
+): boolean {
+  const hasTranscript = useHasTranscript(sessionId);
+  const sessionMode = useListener((state) => state.getSessionMode(sessionId));
+  const batchError = useListener((state) => state.batch[sessionId]?.error);
+  const isLiveCapture =
+    sessionMode === "active" || sessionMode === "finalizing";
+  const hasLiveSegments = useListener(
+    (state) =>
+      state.live.sessionId === sessionId && state.liveSegments.length > 0,
+  );
+
+  return (
+    hasTranscript ||
+    (audioExists && !isLiveCapture) ||
+    hasLiveSegments ||
+    sessionMode === "running_batch" ||
+    Boolean(batchError)
   );
 }
 

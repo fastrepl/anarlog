@@ -7,7 +7,10 @@ export function computeCurrentNoteTab(
   canShowTranscript = false,
 ): EditorView {
   if (isLiveSessionActive) {
-    if (tabView?.type === "raw" || tabView?.type === "transcript") {
+    if (tabView?.type === "raw") {
+      return tabView;
+    }
+    if (tabView?.type === "transcript" && canShowTranscript) {
       return tabView;
     }
     if (tabView?.type === "enhanced" && firstEnhancedNoteId) {
