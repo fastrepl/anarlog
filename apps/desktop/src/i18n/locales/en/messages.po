@@ -119,7 +119,7 @@ msgstr "Additional spoken languages"
 msgid "Advanced"
 msgstr "Advanced"
 
-#: src/settings/ai/stt/select.tsx:690
+#: src/settings/ai/stt/select.tsx:691
 msgid "After recording"
 msgstr "After recording"
 
@@ -261,7 +261,7 @@ msgstr "Calendar"
 msgid "Calendar connected"
 msgstr "Calendar connected"
 
-#: src/settings/ai/stt/select.tsx:695
+#: src/settings/ai/stt/select.tsx:696
 msgid "Can transcribe while the meeting is happening."
 msgstr "Can transcribe while the meeting is happening."
 
@@ -488,7 +488,7 @@ msgstr "Delete All Recurring Events"
 msgid "Delete Event"
 msgstr "Delete Event"
 
-#: src/settings/ai/stt/select.tsx:767
+#: src/settings/ai/stt/select.tsx:768
 msgid "Delete model"
 msgstr "Delete model"
 
@@ -545,7 +545,7 @@ msgstr "Don't save"
 msgid "Don't show notifications when Do-Not-Disturb is enabled on your system"
 msgstr "Don't show notifications when Do-Not-Disturb is enabled on your system"
 
-#: src/settings/ai/stt/select.tsx:648
+#: src/settings/ai/stt/select.tsx:649
 msgid "Download"
 msgstr "Download"
 
@@ -865,7 +865,7 @@ msgstr "Light"
 msgid "LinkedIn"
 msgstr "LinkedIn"
 
-#: src/settings/ai/stt/select.tsx:690
+#: src/settings/ai/stt/select.tsx:691
 msgid "Live"
 msgstr "Live"
 
@@ -1367,7 +1367,7 @@ msgid "Retry"
 msgstr "Retry"
 
 #: src/settings/ai/shared/index.tsx:348
-#: src/settings/ai/stt/select.tsx:697
+#: src/settings/ai/stt/select.tsx:698
 msgid "Runs after the recording finishes, not during the meeting."
 msgstr "Runs after the recording finishes, not during the meeting."
 
@@ -1537,7 +1537,7 @@ msgstr "Show Event"
 msgid "Show floating bar"
 msgstr "Show floating bar"
 
-#: src/settings/ai/stt/select.tsx:752
+#: src/settings/ai/stt/select.tsx:753
 #: src/sidebar/timeline/item.tsx:605
 msgid "Show in Finder"
 msgstr "Show in Finder"
@@ -1846,7 +1846,7 @@ msgstr "Upgrade to Pro for {0}"
 msgid "Upgrade to Pro to use this provider."
 msgstr "Upgrade to Pro to use this provider."
 
-#: src/settings/ai/stt/select.tsx:648
+#: src/settings/ai/stt/select.tsx:649
 msgid "Upgrade to use"
 msgstr "Upgrade to use"
 
