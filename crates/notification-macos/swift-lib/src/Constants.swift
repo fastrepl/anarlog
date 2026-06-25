@@ -59,12 +59,14 @@ enum Colors {
   static let compactActionButtonElapsedBg = NSColor(calibratedWhite: 0.92, alpha: 0.98).cgColor
   static let compactActionButtonRemainingBg = NSColor(calibratedWhite: 0.78, alpha: 0.98)
     .cgColor
-  static let closeButtonHoverBg = NSColor(calibratedWhite: 0.95, alpha: 1.0).cgColor
-  static let closeButtonPressedBg = NSColor(calibratedWhite: 0.9, alpha: 1.0).cgColor
+  static let closeButtonNormalBg = NSColor(calibratedWhite: 1.0, alpha: 0.24).cgColor
+  static let closeButtonHoverBg = NSColor(calibratedWhite: 1.0, alpha: 0.38).cgColor
+  static let closeButtonPressedBg = NSColor(calibratedWhite: 1.0, alpha: 0.5).cgColor
+  static let closeButtonBorder = NSColor.white.withAlphaComponent(0.62).cgColor
   static let progressBarBg = NSColor(calibratedRed: 0.4, green: 0.6, blue: 0.9, alpha: 0.7).cgColor
 }
 
 enum CloseButtonConfig {
-  static let size: CGFloat = 20
-  static let symbolPointSize: CGFloat = 9
+  static let size: CGFloat = 22
+  static let symbolPointSize: CGFloat = 9.5
 }

@@ -263,12 +263,17 @@ extension NotificationManager {
   func createCloseButton(
     clickableView: ClickableView, container: NSView, notification: NotificationInstance
   )
-    -> CloseButton
+    -> (CloseButton, CloseButtonBackdropView)
   {
+    let backdropView = CloseButtonBackdropView()
+    backdropView.translatesAutoresizingMaskIntoConstraints = false
+    clickableView.addSubview(backdropView, positioned: .above, relativeTo: container)
+
     let closeButton = CloseButton()
     closeButton.notification = notification
+    closeButton.backdropView = backdropView
     closeButton.translatesAutoresizingMaskIntoConstraints = false
-    clickableView.addSubview(closeButton, positioned: .above, relativeTo: nil)
+    clickableView.addSubview(closeButton, positioned: .above, relativeTo: backdropView)
 
     let horizontalButtonOffset =
       isMacOS26() ? (CloseButtonConfig.size / 2) + 4 : (CloseButtonConfig.size / 2) - 2
@@ -280,24 +285,41 @@ extension NotificationManager {
         equalTo: container.leadingAnchor, constant: horizontalButtonOffset),
       closeButton.widthAnchor.constraint(equalToConstant: CloseButtonConfig.size),
       closeButton.heightAnchor.constraint(equalToConstant: CloseButtonConfig.size),
+
+      backdropView.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor),
+      backdropView.centerXAnchor.constraint(equalTo: closeButton.centerXAnchor),
+      backdropView.widthAnchor.constraint(equalTo: closeButton.widthAnchor),
+      backdropView.heightAnchor.constraint(equalTo: closeButton.heightAnchor),
     ])
-    return closeButton
+    return (closeButton, backdropView)
   }
 
-  func setupCloseButtonHover(clickableView: ClickableView, closeButton: CloseButton) {
-    closeButton.alphaValue = 0
-    closeButton.isHidden = true
+  func setupCloseButtonHover(
+    clickableView: ClickableView,
+    closeButton: CloseButton,
+    backdropView: CloseButtonBackdropView
+  ) {
+    let hoverViews: [NSView] = [backdropView, closeButton]
+    hoverViews.forEach {
+      $0.alphaValue = 0
+      $0.isHidden = true
+    }
 
     clickableView.onHover = { [weak clickableView] isHovering in
-      if isHovering { closeButton.isHidden = false }
+      if isHovering {
+        hoverViews.forEach { $0.isHidden = false }
+      }
       NSAnimationContext.runAnimationGroup(
         { context in
           context.duration = Timing.hoverFade
           context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-          closeButton.animator().alphaValue = isHovering ? 1.0 : 0
+          hoverViews.forEach { $0.animator().alphaValue = isHovering ? 1.0 : 0 }
         },
         completionHandler: {
-          if !isHovering { closeButton.isHidden = true }
+          if !isHovering {
+            backdropView.setFillColor(Colors.closeButtonNormalBg)
+            hoverViews.forEach { $0.isHidden = true }
+          }
         }
       )
 

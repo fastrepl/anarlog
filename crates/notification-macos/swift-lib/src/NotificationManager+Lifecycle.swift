@@ -64,8 +64,12 @@ extension NotificationManager {
 
     notification.compactContentView = contentView
 
-    let closeButton = createCloseButton(
+    let (closeButton, closeButtonBackdrop) = createCloseButton(
       clickableView: notification.clickableView, container: container, notification: notification)
-    setupCloseButtonHover(clickableView: notification.clickableView, closeButton: closeButton)
+    setupCloseButtonHover(
+      clickableView: notification.clickableView,
+      closeButton: closeButton,
+      backdropView: closeButtonBackdrop
+    )
   }
 }

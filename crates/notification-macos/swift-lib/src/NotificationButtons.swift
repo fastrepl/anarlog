@@ -20,6 +20,7 @@ extension TrackableButton where Self: NSView {
 
 class CloseButton: NSButton, TrackableButton {
   weak var notification: NotificationInstance?
+  weak var backdropView: CloseButtonBackdropView?
   var trackingArea: NSTrackingArea?
 
   override init(frame frameRect: NSRect) {
@@ -47,19 +48,17 @@ class CloseButton: NSButton, TrackableButton {
     } else {
       image = NSImage(named: NSImage.stopProgressTemplateName)
     }
-    contentTintColor = NSColor.black.withAlphaComponent(0.6)
+    contentTintColor = NSColor.black.withAlphaComponent(0.62)
 
     layer?.cornerRadius = CloseButtonConfig.size / 2
-    layer?.backgroundColor = NSColor.white.cgColor
-    layer?.borderColor = NSColor.black.withAlphaComponent(0.1).cgColor
-    layer?.borderWidth = 0.5
+    layer?.backgroundColor = NSColor.clear.cgColor
 
     layer?.shadowColor = NSColor.black.cgColor
-    layer?.shadowOpacity = 0.2
-    layer?.shadowOffset = CGSize(width: 0, height: 1)
-    layer?.shadowRadius = 3
+    layer?.shadowOpacity = 0.16
+    layer?.shadowOffset = CGSize(width: 0, height: 1.5)
+    layer?.shadowRadius = 4
 
-    layer?.zPosition = 1000
+    layer?.zPosition = 1001
 
     alphaValue = 0
     isHidden = true
@@ -80,9 +79,9 @@ class CloseButton: NSButton, TrackableButton {
   }
 
   override func mouseDown(with event: NSEvent) {
-    layer?.backgroundColor = Colors.closeButtonPressedBg
+    backdropView?.setFillColor(Colors.closeButtonPressedBg)
     DispatchQueue.main.asyncAfter(deadline: .now() + Timing.buttonPress) {
-      self.layer?.backgroundColor = NSColor.white.cgColor
+      self.backdropView?.setFillColor(Colors.closeButtonHoverBg)
     }
     notification?.dismissWithUserAction()
   }
@@ -90,13 +89,76 @@ class CloseButton: NSButton, TrackableButton {
   override func mouseEntered(with event: NSEvent) {
     super.mouseEntered(with: event)
     NSCursor.pointingHand.push()
-    layer?.backgroundColor = Colors.closeButtonHoverBg
+    backdropView?.setFillColor(Colors.closeButtonHoverBg)
   }
 
   override func mouseExited(with event: NSEvent) {
     super.mouseExited(with: event)
     NSCursor.pop()
-    layer?.backgroundColor = NSColor.white.cgColor
+    backdropView?.setFillColor(Colors.closeButtonNormalBg)
+  }
+}
+
+class CloseButtonBackdropView: NSVisualEffectView {
+  private let fillLayer = CALayer()
+  private let borderLayer = CALayer()
+
+  override init(frame frameRect: NSRect) {
+    super.init(frame: frameRect)
+    setup()
+  }
+
+  required init?(coder: NSCoder) {
+    super.init(coder: coder)
+    setup()
+  }
+
+  private func setup() {
+    material = .popover
+    state = .active
+    blendingMode = .behindWindow
+    wantsLayer = true
+
+    layer?.cornerRadius = CloseButtonConfig.size / 2
+    layer?.masksToBounds = true
+    if #available(macOS 11.0, *) {
+      layer?.cornerCurve = .continuous
+    }
+
+    fillLayer.backgroundColor = Colors.closeButtonNormalBg
+    layer?.addSublayer(fillLayer)
+
+    borderLayer.borderWidth = 0.8
+    borderLayer.borderColor = Colors.closeButtonBorder
+    layer?.addSublayer(borderLayer)
+
+    alphaValue = 0
+    isHidden = true
+  }
+
+  func setFillColor(_ color: CGColor) {
+    CATransaction.begin()
+    CATransaction.setAnimationDuration(Timing.hoverFade)
+    fillLayer.backgroundColor = color
+    CATransaction.commit()
+  }
+
+  override func layout() {
+    super.layout()
+    let radius = min(bounds.width, bounds.height) / 2
+    layer?.cornerRadius = radius
+
+    CATransaction.begin()
+    CATransaction.setDisableActions(true)
+    fillLayer.frame = bounds
+    borderLayer.frame = bounds
+    fillLayer.cornerRadius = radius
+    borderLayer.cornerRadius = radius
+    if #available(macOS 11.0, *) {
+      fillLayer.cornerCurve = .continuous
+      borderLayer.cornerCurve = .continuous
+    }
+    CATransaction.commit()
   }
 }
 
