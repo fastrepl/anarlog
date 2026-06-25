@@ -1,6 +1,7 @@
 import { Icon } from "@iconify-icon/react";
 import {
   AssemblyAI,
+  Cloudflare,
   ElevenLabs,
   Fireworks,
   Mistral,
@@ -181,7 +182,7 @@ const _PROVIDERS = [
     id: "assemblyai",
     displayName: "AssemblyAI",
     badge: null,
-    icon: <AssemblyAI size={12} style={{ height: 12, width: 12 }} />,
+    icon: <AssemblyAI size={16} style={{ height: 16, width: 16 }} />,
     baseUrl: "https://api.assemblyai.com",
     models: ["universal-3-pro", "u3-rt-pro"],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
@@ -191,7 +192,7 @@ const _PROVIDERS = [
     id: "openai",
     displayName: "OpenAI",
     badge: "Batch only",
-    icon: <OpenAI size={16} />,
+    icon: <OpenAI size={14} />,
     baseUrl: "https://api.openai.com/v1",
     models: ["gpt-4o-transcribe", "gpt-4o-mini-transcribe", "whisper-1"],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
@@ -221,7 +222,7 @@ const _PROVIDERS = [
     id: "cloudflare_workers_ai",
     displayName: "Cloudflare Workers AI",
     badge: null,
-    icon: <Icon icon="simple-icons:cloudflare" className="size-4" />,
+    icon: <Cloudflare size={14} />,
     baseUrl: undefined,
     models: ["nova-3"],
     requirements: [
@@ -285,7 +286,7 @@ const _PROVIDERS = [
     id: "mistral",
     displayName: "Mistral",
     badge: null,
-    icon: <Mistral size={16} />,
+    icon: <Mistral size={14} />,
     baseUrl: "https://api.mistral.ai/v1",
     models: ["voxtral-mini-2602", "voxtral-mini-transcribe-realtime-2602"],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
@@ -299,7 +300,7 @@ const _PROVIDERS = [
       <ProviderBrandImage
         src="/assets/pyannote-logo-black.png"
         alt="pyannoteAI"
-        className="size-4"
+        className="size-5"
       />
     ),
     baseUrl: "https://api.pyannote.ai",
@@ -341,7 +342,7 @@ const _PROVIDERS = [
     id: "fireworks",
     displayName: "Fireworks",
     badge: null,
-    icon: <Fireworks size={16} />,
+    icon: <Fireworks size={14} />,
     baseUrl: "https://api.fireworks.ai",
     models: ["Default"],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
