@@ -262,6 +262,29 @@ describe("MainChatPanels", () => {
     );
   });
 
+  it("collapses the left sidebar when docked chat would make the note surface narrower than 500px", () => {
+    mocks.chatMode = "RightPanelOpen";
+    mocks.currentTab = { type: "sessions" };
+    mocks.leftSidebarExpanded = true;
+    mockPanelWidths({
+      bodyPanelWidth: 650,
+      leftSidebarWidth: 200,
+      rightPanelWidth: 320,
+    });
+
+    render(
+      <MainChatPanels>
+        <div data-left-sidebar-chrome />
+        <div data-chat-floating-anchor>
+          <div data-session-surface />
+        </div>
+      </MainChatPanels>,
+    );
+
+    expect(mocks.setLeftSidebarExpanded).toHaveBeenCalledWith(false);
+    expect(mocks.windowExpandWidth).not.toHaveBeenCalled();
+  });
+
   it("expands right when docked chat renders narrower than 320px", () => {
     mocks.chatMode = "RightPanelOpen";
     mocks.currentTab = { type: "sessions" };

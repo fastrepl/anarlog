@@ -165,10 +165,6 @@ function useNoteSurfaceWindowWidthGuard({
       return;
     }
 
-    if (!isTauri()) {
-      return;
-    }
-
     const bodyPanel = bodyPanelContainerRef.current;
     if (!bodyPanel) {
       return;
@@ -179,8 +175,23 @@ function useNoteSurfaceWindowWidthGuard({
       return;
     }
 
-    const leftSidebarWidth = getLeftSidebarWidth(bodyPanel, leftPanelOpen);
+    let leftSidebarWidth = getLeftSidebarWidth(bodyPanel, leftPanelOpen);
     const rightPanelWidth = getRightPanelWidth(bodyPanel, rightPanelOpen);
+    const shouldCollapseLeftPanelForRightPanel =
+      rightPanelJustOpened &&
+      leftPanelOpen &&
+      leftSidebarWidth > 0 &&
+      bodyWidth - leftSidebarWidth < NOTE_SURFACE_MIN_WIDTH_PX;
+
+    if (shouldCollapseLeftPanelForRightPanel) {
+      collapseLeftPanel();
+      leftSidebarWidth = 0;
+    }
+
+    if (!isTauri()) {
+      return;
+    }
+
     const requiredBodyWidth = NOTE_SURFACE_MIN_WIDTH_PX + leftSidebarWidth;
     const requiredTotalWidth =
       requiredBodyWidth + (rightPanelOpen ? RIGHT_CHAT_PANEL_MIN_WIDTH_PX : 0);
@@ -208,6 +219,7 @@ function useNoteSurfaceWindowWidthGuard({
     );
   }, [
     bodyPanelContainerRef,
+    collapseLeftPanel,
     enabled,
     leftPanelOpen,
     restoreWidthExpansions,
