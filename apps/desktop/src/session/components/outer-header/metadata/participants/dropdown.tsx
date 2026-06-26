@@ -1,5 +1,5 @@
 import { CornerDownLeft } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { type CSSProperties, useEffect, useRef } from "react";
 
 import { cn } from "@hypr/utils";
 
@@ -13,11 +13,15 @@ type DropdownOption = {
 };
 
 export function ParticipantDropdown({
+  floatingRef,
+  floatingStyles,
   options,
   selectedIndex,
   onSelect,
   onHover,
 }: {
+  floatingRef: (node: HTMLDivElement | null) => void;
+  floatingStyles: CSSProperties;
   options: DropdownOption[];
   selectedIndex: number;
   onSelect: (option: DropdownOption) => void;
@@ -40,7 +44,15 @@ export function ParticipantDropdown({
   }
 
   return (
-    <div className="bg-popover absolute z-50 mt-1 w-full overflow-hidden rounded-md border shadow-md">
+    <div
+      ref={floatingRef}
+      style={floatingStyles}
+      className="bg-popover z-50 overflow-hidden rounded-md border shadow-md"
+      onMouseDown={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      }}
+    >
       <div ref={listRef} className="max-h-50 overflow-auto py-1">
         {options.map((option, index) => (
           <button

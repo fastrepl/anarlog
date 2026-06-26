@@ -40,9 +40,9 @@ export function MetadataButton({
       <PopoverContent
         variant="app"
         align="end"
-        className="w-85 overflow-visible"
+        className="w-85 overflow-hidden"
       >
-        <AppFloatingPanel className="flex max-h-[80vh] min-h-0 flex-col overflow-visible">
+        <AppFloatingPanel className="scrollbar-soft max-h-[80vh] min-h-0 overflow-x-hidden overflow-y-auto overscroll-contain">
           <ContentInner sessionId={sessionId} />
         </AppFloatingPanel>
       </PopoverContent>
@@ -91,14 +91,14 @@ function ContentInner({ sessionId }: { sessionId: string }) {
     : null;
 
   return (
-    <div className="flex min-h-0 flex-col overflow-visible">
-      <div className="flex min-h-0 flex-col gap-4 overflow-y-auto p-4 pb-0">
-        {!eventDisplayData && <DateEditor sessionId={sessionId} />}
-        {eventDisplayData && <EventDisplay event={eventDisplayData} />}
-      </div>
-      <div className="px-4 pt-2 pb-4">
-        <ParticipantsDisplay sessionId={sessionId} />
-      </div>
+    <div className="flex flex-col gap-4 p-4">
+      {!eventDisplayData && <DateEditor sessionId={sessionId} />}
+      {eventDisplayData && (
+        <EventDisplay event={eventDisplayData}>
+          <ParticipantsDisplay sessionId={sessionId} />
+        </EventDisplay>
+      )}
+      {!eventDisplayData && <ParticipantsDisplay sessionId={sessionId} />}
     </div>
   );
 }
@@ -230,7 +230,7 @@ export function EventDisplay({
       {event.description && (
         <>
           <div className="bg-accent h-px" />
-          <div className="select-text-deep text-muted-foreground max-h-40 overflow-y-auto text-sm break-words whitespace-pre-wrap">
+          <div className="select-text-deep text-muted-foreground text-sm break-words whitespace-pre-wrap">
             {renderDescriptionWithLinks(event.description)}
           </div>
         </>

@@ -5,3 +5,15 @@
     display: none;
   }
 }
+
+@utility scrollbar-soft {
+  scrollbar-color: hsl(var(--muted-foreground) / 0.18) transparent;
+
+  &::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.18);
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.28);
+  }
+}

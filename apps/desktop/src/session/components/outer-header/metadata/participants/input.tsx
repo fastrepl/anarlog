@@ -1,3 +1,12 @@
+import {
+  autoUpdate,
+  flip,
+  FloatingPortal,
+  offset,
+  shift,
+  size,
+  useFloating,
+} from "@floating-ui/react";
 import { useMutation } from "@tanstack/react-query";
 import { useCallback, useMemo, useRef, useState } from "react";
 
@@ -37,10 +46,35 @@ export function ParticipantInput({ sessionId }: { sessionId: string }) {
       : "Who was in this meeting?";
 
   const inputRef = useRef<HTMLInputElement>(null);
-  const containerRef = useAutoCloser(() => setShowDropdown(false), {
+  const autoCloserRef = useAutoCloser(() => setShowDropdown(false), {
     esc: false,
     outside: true,
   });
+  const { refs, floatingStyles } = useFloating({
+    placement: "bottom-start",
+    strategy: "fixed",
+    whileElementsMounted: autoUpdate,
+    middleware: [
+      offset(4),
+      flip({ padding: 8 }),
+      shift({ padding: 8 }),
+      size({
+        apply({ rects, elements }) {
+          Object.assign(elements.floating.style, {
+            width: `${rects.reference.width}px`,
+          });
+        },
+      }),
+    ],
+  });
+
+  const setContainerRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      autoCloserRef.current = node;
+      refs.setReference(node);
+    },
+    [autoCloserRef, refs],
+  );
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if ((e.key === "Enter" || e.key === "Tab") && inputValue.trim()) {
@@ -70,7 +104,7 @@ export function ParticipantInput({ sessionId }: { sessionId: string }) {
   };
 
   return (
-    <div className="relative" ref={containerRef}>
+    <div className="relative" ref={setContainerRef}>
       <div
         className="flex min-h-[38px] w-full cursor-text flex-wrap items-center gap-2"
         onClick={() => inputRef.current?.focus()}
@@ -99,12 +133,16 @@ export function ParticipantInput({ sessionId }: { sessionId: string }) {
       </div>
 
       {showDropdown && inputValue.trim() && (
-        <ParticipantDropdown
-          options={dropdownOptions}
-          selectedIndex={selectedIndex}
-          onSelect={handleSelect}
-          onHover={setSelectedIndex}
-        />
+        <FloatingPortal>
+          <ParticipantDropdown
+            floatingRef={refs.setFloating}
+            floatingStyles={floatingStyles}
+            options={dropdownOptions}
+            selectedIndex={selectedIndex}
+            onSelect={handleSelect}
+            onHover={setSelectedIndex}
+          />
+        </FloatingPortal>
       )}
     </div>
   );
