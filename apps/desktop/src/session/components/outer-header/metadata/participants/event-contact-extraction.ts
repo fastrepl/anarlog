@@ -658,6 +658,9 @@ function normalizeExtractedContacts(
 
     const existingEmail = normalizeEmail(existingContact.email);
     if (matchedEmail && existingEmail && existingEmail !== matchedEmail) {
+      if (existingKey) {
+        deduped.delete(existingKey);
+      }
       deduped.set(key, normalizedContact);
       keysByName.set(nameKey, key);
       continue;

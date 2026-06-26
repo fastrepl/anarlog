@@ -336,6 +336,49 @@ describe("event contact extraction", () => {
     );
   });
 
+  test("replaces an inferred email when the model returns a different email for the same person", async () => {
+    const context = {
+      title: "Tom Yang <> john",
+      description: "What:\nTom Yang <> john",
+      candidates: [
+        {
+          name: "John Jeong",
+          email: "john@example.com",
+          isCurrentUser: true,
+        },
+        {
+          name: "Tom Yang",
+          email: "tom@old.example",
+        },
+      ],
+    };
+
+    vi.mocked(generateText).mockResolvedValue({
+      text: JSON.stringify({
+        contacts: [
+          {
+            name: "Tom Yang",
+            email: "tom@kestroll.com",
+            companyName: "Kestroll",
+          },
+        ],
+      }),
+    } as any);
+
+    await expect(
+      extractEventContacts({ model: {} as any, context }),
+    ).resolves.toEqual({
+      source: "model",
+      contacts: [
+        {
+          name: "Tom Yang",
+          email: "tom@kestroll.com",
+          companyName: "Kestroll",
+        },
+      ],
+    });
+  });
+
   test("falls back to event title names when the model misses an email-only participant", async () => {
     const store = createStore();
     store.setRow("sessions", "session-1", {
