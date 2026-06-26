@@ -53,10 +53,10 @@ describe("getOnDeviceTranscriptionMode", () => {
     ).toBe("live");
   });
 
-  test("falls back to batch for non-English Soniqo streaming languages", () => {
+  test("keeps European Soniqo streaming languages live", () => {
     expect(
       getOnDeviceTranscriptionMode("soniqo-parakeet-streaming", ["de"]),
-    ).toBe("batch");
+    ).toBe("live");
   });
 });
 
@@ -96,12 +96,12 @@ describe("getOnDeviceTranscriptionConfig", () => {
     });
   });
 
-  test("keeps German on batch even when English is an additional language", () => {
+  test("keeps German live even when English is an additional language", () => {
     expect(
       getOnDeviceTranscriptionConfig("soniqo-parakeet-streaming", ["de", "en"]),
     ).toEqual({
-      languages: ["de", "en"],
-      transcriptionMode: "batch",
+      languages: ["de"],
+      transcriptionMode: "live",
     });
   });
 

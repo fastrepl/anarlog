@@ -440,6 +440,31 @@ describe("useStartListening", () => {
     });
   });
 
+  test("keeps supported non-English realtime local models live", async () => {
+    useConfigValueMock.mockImplementation((key) =>
+      key === "ai_language" ? "de" : ["en"],
+    );
+    useSTTConnectionMock.mockReturnValue({
+      conn: {
+        provider: "hyprnote",
+        model: "soniqo-parakeet-streaming",
+        baseUrl: "http://localhost:8080",
+        apiKey: "",
+      },
+    });
+
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    expect(startMock.mock.calls[0]?.[0]).toMatchObject({
+      languages: ["de"],
+      transcription_mode: "live",
+    });
+  });
+
   test("keeps realtime local transcription live by filtering unsupported extra spoken languages", async () => {
     useConfigValueMock.mockImplementation((key) =>
       key === "ai_language" ? "en" : ["ko"],

@@ -9,7 +9,6 @@ type LiveTranscriptionConfig = {
   transcriptionMode?: TranscriptionMode;
 };
 
-const SONIQO_STREAMING_LANGUAGE_CODES = new Set(["en"]);
 const SONIQO_PARAKEET_BATCH_LANGUAGE_CODES = new Set([
   "bg",
   "cs",
@@ -37,6 +36,7 @@ const SONIQO_PARAKEET_BATCH_LANGUAGE_CODES = new Set([
   "sv",
   "uk",
 ]);
+const SONIQO_STREAMING_LANGUAGE_CODES = SONIQO_PARAKEET_BATCH_LANGUAGE_CODES;
 
 export function isSupportedLocalSttModel(
   model?: string | null,
@@ -149,23 +149,6 @@ export function getOnDeviceTranscriptionConfig(
   languages: readonly string[],
 ): LiveTranscriptionConfig {
   if (!isRealtimeLocalModel(model)) {
-    return {
-      languages: [...languages],
-      transcriptionMode: "batch",
-    };
-  }
-
-  const primaryLanguage = languages[0];
-  const primaryLanguageLiveSupported =
-    !primaryLanguage ||
-    SONIQO_STREAMING_LANGUAGE_CODES.has(baseLanguageCode(primaryLanguage));
-  const primaryLanguageBatchSupported =
-    !!primaryLanguage &&
-    SONIQO_PARAKEET_BATCH_LANGUAGE_CODES.has(baseLanguageCode(primaryLanguage));
-
-  // The Soniqo streaming session API does not accept a language hint, so keep
-  // non-English Parakeet languages on batch instead of relying on live auto-detect.
-  if (!primaryLanguageLiveSupported && primaryLanguageBatchSupported) {
     return {
       languages: [...languages],
       transcriptionMode: "batch",
