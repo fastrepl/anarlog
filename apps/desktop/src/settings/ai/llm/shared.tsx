@@ -16,7 +16,7 @@ import { AnarlogProviderIcon } from "~/settings/ai/shared";
 import { type ProviderRequirement } from "~/settings/ai/shared/eligibility";
 import { sortProviders } from "~/settings/ai/shared/sort-providers";
 
-type Provider = {
+export type Provider = {
   id: string;
   displayName: string;
   badge: string | null;

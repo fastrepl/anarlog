@@ -30,7 +30,7 @@ msgstr "{trialDaysRemaining} day left"
 msgid "{trialDaysRemaining} days left"
 msgstr "{trialDaysRemaining} days left"
 
-#: src/settings/ai/llm/select.tsx:177
+#: src/settings/ai/llm/select.tsx:185
 msgid "<0>Language model</0> is needed to make Anarlog summarize and chat about your conversations."
 msgstr "<0>Language model</0> is needed to make Anarlog summarize and chat about your conversations."
 
@@ -386,6 +386,10 @@ msgstr "Configure"
 #: src/settings/ai/stt/configure.tsx:16
 msgid "Configure Providers"
 msgstr "Configure Providers"
+
+#: src/settings/ai/llm/select.tsx:240
+msgid "Configure this provider to use it."
+msgstr "Configure this provider to use it."
 
 #: src/onboarding/folder-location.tsx:136
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx:565
@@ -955,7 +959,7 @@ msgstr "Microphone access turned on"
 msgid "Microphone detection"
 msgstr "Microphone detection"
 
-#: src/settings/ai/llm/select.tsx:189
+#: src/settings/ai/llm/select.tsx:197
 #: src/settings/ai/stt/select.tsx:158
 msgid "Model being used"
 msgstr "Model being used"
@@ -1437,7 +1441,7 @@ msgstr "Select a model"
 msgid "Select a person to view details"
 msgstr "Select a person to view details"
 
-#: src/settings/ai/llm/select.tsx:198
+#: src/settings/ai/llm/select.tsx:206
 #: src/settings/ai/stt/select.tsx:167
 msgid "Select a provider"
 msgstr "Select a provider"
@@ -1827,7 +1831,7 @@ msgstr "Upgrade to Pro"
 msgid "Upgrade to Pro for {0}"
 msgstr "Upgrade to Pro for {0}"
 
-#: src/settings/ai/llm/select.tsx:222
+#: src/settings/ai/llm/select.tsx:235
 #: src/settings/ai/stt/select.tsx:200
 msgid "Upgrade to Pro to use this provider."
 msgstr "Upgrade to Pro to use this provider."

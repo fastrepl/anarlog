@@ -9,11 +9,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@hypr/ui/components/ui/select";
+import { cn } from "@hypr/utils";
 
 import { useLlmSettings } from "./context";
 import { HealthStatusIndicator, useConnectionHealth } from "./health";
 import { getPreferredProviderModel } from "./selection";
-import { PROVIDERS } from "./shared";
+import { type Provider, PROVIDERS } from "./shared";
 
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing";
@@ -55,9 +56,16 @@ export function SelectProviderAndModel() {
     "current_llm_model",
     "current_llm_provider",
   ] as const);
+  const selectedProviderConfigured = current_llm_provider
+    ? (configuredProviders[current_llm_provider]?.configured ?? false)
+    : false;
 
   const health = useConnectionHealth();
-  const isConfigured = !!(current_llm_provider && current_llm_model);
+  const isConfigured = !!(
+    current_llm_provider &&
+    current_llm_model &&
+    selectedProviderConfigured
+  );
   const hasError = isConfigured && health.status === "error";
 
   const handleSelectProvider = settings.UI.useSetValueCallback(
@@ -204,13 +212,18 @@ export function SelectProviderAndModel() {
                   "pro",
                 );
                 const locked = requiresPro && !billing.isPaid;
+                const configured =
+                  configuredProviders[provider.id]?.configured ?? false;
 
                 return (
                   <SelectItem
                     key={provider.id}
                     value={provider.id}
-                    disabled={locked}
-                    className="data-disabled:text-muted-foreground data-disabled:!opacity-100"
+                    disabled={locked || !configured}
+                    className={cn([
+                      "data-disabled:text-muted-foreground data-disabled:!opacity-100",
+                      !configured && !locked && "text-muted-foreground",
+                    ])}
                   >
                     <div className="flex flex-col gap-0.5">
                       <div className="flex items-center gap-2">
@@ -220,6 +233,11 @@ export function SelectProviderAndModel() {
                       {locked ? (
                         <span className="text-muted-foreground text-[11px]">
                           <Trans>Upgrade to Pro to use this provider.</Trans>
+                        </span>
+                      ) : null}
+                      {!locked && !configured ? (
+                        <span className="text-muted-foreground text-[11px]">
+                          <Trans>Configure this provider to use it.</Trans>
                         </span>
                       ) : null}
                     </div>
@@ -237,13 +255,13 @@ export function SelectProviderAndModel() {
             providerId={current_llm_provider || ""}
             value={current_llm_model || ""}
             onChange={handleModelChange}
-            disabled={!current_llm_provider}
+            disabled={!current_llm_provider || !selectedProviderConfigured}
             listModels={
               current_llm_provider
                 ? configuredProviders[current_llm_provider]?.listModels
                 : undefined
             }
-            isConfigured={isConfigured}
+            isConfigured={isConfigured && health.status === "success"}
             suffix={isConfigured ? <HealthStatusIndicator /> : undefined}
           />
         </div>
@@ -253,8 +271,95 @@ export function SelectProviderAndModel() {
 }
 
 type ProviderStatus = {
+  configured: boolean;
   listModels?: () => Promise<ListModelsResult>;
 };
+
+type ProviderConfig = {
+  base_url?: unknown;
+  api_key?: unknown;
+};
+
+export function getLlmProviderStatus({
+  provider,
+  config,
+  isAuthenticated,
+  isPaid,
+}: {
+  provider: Provider;
+  config?: ProviderConfig;
+  isAuthenticated: boolean;
+  isPaid: boolean;
+}): ProviderStatus {
+  const baseUrl = String(config?.base_url || provider.baseUrl || "").trim();
+  const apiKey = String(config?.api_key || "").trim();
+
+  const eligible =
+    getProviderSelectionBlockers(provider.requirements, {
+      isAuthenticated,
+      isPaid,
+      config: { base_url: baseUrl, api_key: apiKey },
+    }).length === 0;
+
+  if (!eligible) {
+    return { configured: false };
+  }
+
+  if (provider.id === "hyprnote") {
+    const result: ListModelsResult = {
+      models: ["Auto"],
+      ignored: [],
+      metadata: {
+        Auto: {
+          input_modalities: ["text", "image"] as InputModality[],
+        },
+      },
+    };
+    return { configured: true, listModels: async () => result };
+  }
+
+  let listModelsFunc: () => Promise<ListModelsResult>;
+
+  switch (provider.id) {
+    case "openai":
+      listModelsFunc = () => listOpenAIModels(baseUrl, apiKey);
+      break;
+    case "cloudflare_workers_ai":
+      listModelsFunc = () => listCloudflareWorkersAIModels(baseUrl, apiKey);
+      break;
+    case "anthropic":
+      listModelsFunc = () => listAnthropicModels(baseUrl, apiKey);
+      break;
+    case "openrouter":
+      listModelsFunc = () => listOpenRouterModels(baseUrl, apiKey);
+      break;
+    case "google_generative_ai":
+      listModelsFunc = () => listGoogleModels(baseUrl, apiKey);
+      break;
+    case "mistral":
+      listModelsFunc = () => listMistralModels(baseUrl, apiKey);
+      break;
+    case "azure_openai":
+      listModelsFunc = () => listAzureOpenAIModels(baseUrl, apiKey);
+      break;
+    case "azure_ai":
+      listModelsFunc = () => listAzureAIModels(baseUrl, apiKey);
+      break;
+    case "ollama":
+      listModelsFunc = () => listOllamaModels(baseUrl, apiKey);
+      break;
+    case "lmstudio":
+      listModelsFunc = () => listLMStudioModels(baseUrl, apiKey);
+      break;
+    case "custom":
+      listModelsFunc = () => listGenericModels(baseUrl, apiKey);
+      break;
+    default:
+      listModelsFunc = () => listGenericModels(baseUrl, apiKey);
+  }
+
+  return { configured: true, listModels: listModelsFunc };
+}
 
 function useConfiguredMapping(): Record<string, ProviderStatus> {
   const auth = useAuth();
@@ -268,77 +373,15 @@ function useConfiguredMapping(): Record<string, ProviderStatus> {
     return Object.fromEntries(
       PROVIDERS.map((provider) => {
         const config = configuredProviders[providerRowId("llm", provider.id)];
-        const baseUrl = String(
-          config?.base_url || provider.baseUrl || "",
-        ).trim();
-        const apiKey = String(config?.api_key || "").trim();
-
-        const eligible =
-          getProviderSelectionBlockers(provider.requirements, {
+        return [
+          provider.id,
+          getLlmProviderStatus({
+            provider,
+            config,
             isAuthenticated: !!auth?.session,
             isPaid: billing.isPaid,
-            config: { base_url: baseUrl, api_key: apiKey },
-          }).length === 0;
-
-        if (!eligible) {
-          return [provider.id, { listModels: undefined }];
-        }
-
-        if (provider.id === "hyprnote") {
-          const result: ListModelsResult = {
-            models: ["Auto"],
-            ignored: [],
-            metadata: {
-              Auto: {
-                input_modalities: ["text", "image"] as InputModality[],
-              },
-            },
-          };
-          return [provider.id, { listModels: async () => result }];
-        }
-
-        let listModelsFunc: () => Promise<ListModelsResult>;
-
-        switch (provider.id) {
-          case "openai":
-            listModelsFunc = () => listOpenAIModels(baseUrl, apiKey);
-            break;
-          case "cloudflare_workers_ai":
-            listModelsFunc = () =>
-              listCloudflareWorkersAIModels(baseUrl, apiKey);
-            break;
-          case "anthropic":
-            listModelsFunc = () => listAnthropicModels(baseUrl, apiKey);
-            break;
-          case "openrouter":
-            listModelsFunc = () => listOpenRouterModels(baseUrl, apiKey);
-            break;
-          case "google_generative_ai":
-            listModelsFunc = () => listGoogleModels(baseUrl, apiKey);
-            break;
-          case "mistral":
-            listModelsFunc = () => listMistralModels(baseUrl, apiKey);
-            break;
-          case "azure_openai":
-            listModelsFunc = () => listAzureOpenAIModels(baseUrl, apiKey);
-            break;
-          case "azure_ai":
-            listModelsFunc = () => listAzureAIModels(baseUrl, apiKey);
-            break;
-          case "ollama":
-            listModelsFunc = () => listOllamaModels(baseUrl, apiKey);
-            break;
-          case "lmstudio":
-            listModelsFunc = () => listLMStudioModels(baseUrl, apiKey);
-            break;
-          case "custom":
-            listModelsFunc = () => listGenericModels(baseUrl, apiKey);
-            break;
-          default:
-            listModelsFunc = () => listGenericModels(baseUrl, apiKey);
-        }
-
-        return [provider.id, { listModels: listModelsFunc }];
+          }),
+        ];
       }),
     ) as Record<string, ProviderStatus>;
   }, [configuredProviders, auth, billing]);
