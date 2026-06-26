@@ -84,7 +84,9 @@ export function SelectProviderAndModel() {
   const displayedSttModel =
     selectedProvider === "custom"
       ? selectedSttModel
-      : getPreferredProviderModel(selectedSttModel, selectedModels);
+      : getPreferredProviderModel(selectedSttModel, selectedModels, {
+          keepUnavailableSavedModel: true,
+        });
   const selectedModel = selectedModels.find(
     (model) => model.id === displayedSttModel,
   );

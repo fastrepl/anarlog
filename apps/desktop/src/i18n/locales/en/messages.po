@@ -34,7 +34,7 @@ msgstr "{trialDaysRemaining} days left"
 msgid "<0>Language model</0> is needed to make Anarlog summarize and chat about your conversations."
 msgstr "<0>Language model</0> is needed to make Anarlog summarize and chat about your conversations."
 
-#: src/settings/ai/stt/select.tsx:146
+#: src/settings/ai/stt/select.tsx:148
 msgid "<0>Transcription model</0> is needed to make Anarlog listen to your conversations."
 msgstr "<0>Transcription model</0> is needed to make Anarlog listen to your conversations."
 
@@ -238,7 +238,7 @@ msgstr "Back"
 msgid "Base URL"
 msgstr "Base URL"
 
-#: src/settings/ai/stt/select.tsx:674
+#: src/settings/ai/stt/select.tsx:676
 msgid "Batch"
 msgstr "Batch"
 
@@ -491,7 +491,7 @@ msgstr "Delete All Recurring Events"
 msgid "Delete Event"
 msgstr "Delete Event"
 
-#: src/settings/ai/stt/select.tsx:741
+#: src/settings/ai/stt/select.tsx:743
 msgid "Delete model"
 msgstr "Delete model"
 
@@ -544,7 +544,7 @@ msgstr "Don't save"
 msgid "Don't show notifications when Do-Not-Disturb is enabled on your system"
 msgstr "Don't show notifications when Do-Not-Disturb is enabled on your system"
 
-#: src/settings/ai/stt/select.tsx:637
+#: src/settings/ai/stt/select.tsx:639
 msgid "Download"
 msgstr "Download"
 
@@ -586,7 +586,7 @@ msgstr "Enhance contact"
 msgid "Enhance contact {label}"
 msgstr "Enhance contact {label}"
 
-#: src/settings/ai/stt/select.tsx:219
+#: src/settings/ai/stt/select.tsx:221
 msgid "Enter a model identifier"
 msgstr "Enter a model identifier"
 
@@ -960,7 +960,7 @@ msgid "Microphone detection"
 msgstr "Microphone detection"
 
 #: src/settings/ai/llm/select.tsx:197
-#: src/settings/ai/stt/select.tsx:158
+#: src/settings/ai/stt/select.tsx:160
 msgid "Model being used"
 msgstr "Model being used"
 
@@ -1239,7 +1239,7 @@ msgstr "Preparing transcript..."
 msgid "Previous match"
 msgstr "Previous match"
 
-#: src/settings/ai/stt/select.tsx:194
+#: src/settings/ai/stt/select.tsx:196
 msgid "Pro"
 msgstr "Pro"
 
@@ -1251,7 +1251,7 @@ msgstr "Pro trial"
 msgid "Ready to go"
 msgstr "Ready to go"
 
-#: src/settings/ai/stt/select.tsx:674
+#: src/settings/ai/stt/select.tsx:676
 msgid "Realtime"
 msgstr "Realtime"
 
@@ -1433,7 +1433,7 @@ msgid "Select a different folder"
 msgstr "Select a different folder"
 
 #: src/settings/ai/shared/model-combobox.tsx:165
-#: src/settings/ai/stt/select.tsx:236
+#: src/settings/ai/stt/select.tsx:238
 msgid "Select a model"
 msgstr "Select a model"
 
@@ -1442,7 +1442,7 @@ msgid "Select a person to view details"
 msgstr "Select a person to view details"
 
 #: src/settings/ai/llm/select.tsx:206
-#: src/settings/ai/stt/select.tsx:167
+#: src/settings/ai/stt/select.tsx:169
 msgid "Select a provider"
 msgstr "Select a provider"
 
@@ -1527,7 +1527,7 @@ msgstr "Show Event"
 msgid "Show floating bar"
 msgstr "Show floating bar"
 
-#: src/settings/ai/stt/select.tsx:726
+#: src/settings/ai/stt/select.tsx:728
 #: src/sidebar/timeline/item.tsx:605
 msgid "Show in Finder"
 msgstr "Show in Finder"
@@ -1832,11 +1832,11 @@ msgid "Upgrade to Pro for {0}"
 msgstr "Upgrade to Pro for {0}"
 
 #: src/settings/ai/llm/select.tsx:235
-#: src/settings/ai/stt/select.tsx:200
+#: src/settings/ai/stt/select.tsx:202
 msgid "Upgrade to Pro to use this provider."
 msgstr "Upgrade to Pro to use this provider."
 
-#: src/settings/ai/stt/select.tsx:637
+#: src/settings/ai/stt/select.tsx:639
 msgid "Upgrade to use"
 msgstr "Upgrade to use"
 

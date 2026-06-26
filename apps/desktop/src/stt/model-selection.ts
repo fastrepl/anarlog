@@ -5,6 +5,7 @@ type ModelEntry = {
 
 type PreferredProviderModelOptions = {
   allowSavedModelWithoutChoices?: boolean;
+  keepUnavailableSavedModel?: boolean;
 };
 
 export function normalizeStoredSttModel(
@@ -62,6 +63,14 @@ export function getPreferredProviderModel(
 ) {
   const normalizedSavedModel = normalizeSavedModel(savedModel, models);
   const selectableModels = models.filter((model) => model.isDownloaded ?? true);
+
+  if (
+    options?.keepUnavailableSavedModel &&
+    normalizedSavedModel &&
+    models.some((model) => model.id === normalizedSavedModel)
+  ) {
+    return normalizedSavedModel;
+  }
 
   if (
     normalizedSavedModel &&
