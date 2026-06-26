@@ -102,6 +102,7 @@ export function ChatMessageInput({
             initialContent={initialContent}
             mentionConfig={mentionConfig}
             placeholder={placeholder}
+            submitShortcut="enter"
             onUpdate={handleEditorUpdate}
             onSubmit={handleSubmit}
           />

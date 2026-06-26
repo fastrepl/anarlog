@@ -1474,7 +1474,7 @@ msgstr "Anarlog ஐ மேம்படுத்த உதவ அநாமதே�
 msgid "Send email"
 msgstr ""
 
-#: src/chat/components/input/index.tsx:133
+#: src/chat/components/input/index.tsx:134
 msgid "Send message"
 msgstr ""
 
@@ -1657,7 +1657,7 @@ msgstr ""
 msgid "Stop listening"
 msgstr ""
 
-#: src/chat/components/input/index.tsx:126
+#: src/chat/components/input/index.tsx:127
 msgid "Stop response"
 msgstr ""
 

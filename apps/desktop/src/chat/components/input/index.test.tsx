@@ -13,6 +13,7 @@ const { clearContentMock, editorState, shellState } = vi.hoisted(() => ({
     json: undefined as unknown,
     onUpdate: undefined as undefined | ((json: unknown) => void),
     onSubmit: undefined as undefined | (() => void),
+    submitShortcut: undefined as undefined | "mod-enter" | "enter",
   },
   shellState: {
     mode: "FloatingOpen" as
@@ -36,10 +37,15 @@ vi.mock("@hypr/editor/chat", async () => {
           node: { type: { name: string } };
           pos: number;
         }) => string;
+        submitShortcut?: "mod-enter" | "enter";
       }
-    >(function ChatEditor({ className, onSubmit, onUpdate, placeholder }, ref) {
+    >(function ChatEditor(
+      { className, onSubmit, onUpdate, placeholder, submitShortcut },
+      ref,
+    ) {
       editorState.onSubmit = onSubmit;
       editorState.onUpdate = onUpdate;
+      editorState.submitShortcut = submitShortcut;
 
       React.useImperativeHandle(ref, () => ({
         clearContent: clearContentMock,
@@ -99,6 +105,7 @@ describe("ChatMessageInput", () => {
     editorState.json = { type: "doc", content: [] };
     editorState.onSubmit = undefined;
     editorState.onUpdate = undefined;
+    editorState.submitShortcut = undefined;
     shellState.mode = "FloatingOpen";
   });
 
@@ -220,6 +227,14 @@ describe("ChatMessageInput", () => {
       [],
     );
     expect(clearContentMock).toHaveBeenCalled();
+  });
+
+  it("configures Enter as the chat submit shortcut", () => {
+    render(
+      <ChatMessageInput draftKey="chat-input-test" onSendMessage={vi.fn()} />,
+    );
+
+    expect(editorState.submitShortcut).toBe("enter");
   });
 
   it("marks the send control for disabled surface styling before the draft has content", () => {

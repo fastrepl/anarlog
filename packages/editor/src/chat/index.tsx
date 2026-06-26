@@ -67,6 +67,7 @@ interface ChatEditorProps {
   initialContent?: JSONContent;
   mentionConfig?: MentionConfig;
   placeholder?: PlaceholderFunction;
+  submitShortcut?: "mod-enter" | "enter";
   onUpdate?: (json: JSONContent) => void;
   onSubmit?: () => void;
 }
@@ -171,6 +172,7 @@ export const ChatEditor = forwardRef<ChatEditorHandle, ChatEditorProps>(
       initialContent,
       mentionConfig,
       placeholder,
+      submitShortcut = "mod-enter",
       onUpdate,
       onSubmit,
     } = props;
@@ -207,20 +209,26 @@ export const ChatEditor = forwardRef<ChatEditorHandle, ChatEditorProps>(
       [],
     );
 
-    const plugins = useMemo(
-      () => [
+    const plugins = useMemo(() => {
+      const submitCommand = (state: EditorState) => {
+        if (mentionConfig && findMention(state, mentionConfig.trigger)) {
+          return false;
+        }
+        onSubmitRef.current?.();
+        return true;
+      };
+      const enterCommand =
+        submitShortcut === "enter"
+          ? submitCommand
+          : chainCommands(createParagraphNear, liftEmptyBlock, splitBlock);
+
+      return [
         reactKeys(),
         keymap({
           "Mod-z": undo,
           "Mod-Shift-z": redo,
           ...(!mac ? { "Mod-y": redo } : {}),
-          "Mod-Enter": (state: EditorState) => {
-            if (mentionConfig && findMention(state, mentionConfig.trigger)) {
-              return false;
-            }
-            onSubmitRef.current?.();
-            return true;
-          },
+          "Mod-Enter": submitCommand,
           "Shift-Enter": chainCommands(exitCode, (state, dispatch) => {
             if (dispatch) {
               dispatch(
@@ -231,7 +239,7 @@ export const ChatEditor = forwardRef<ChatEditorHandle, ChatEditorProps>(
             }
             return true;
           }),
-          Enter: chainCommands(createParagraphNear, liftEmptyBlock, splitBlock),
+          Enter: enterCommand,
           Backspace: chainCommands(
             deleteSelection,
             joinBackward,
@@ -248,9 +256,8 @@ export const ChatEditor = forwardRef<ChatEditorHandle, ChatEditorProps>(
         placeholderPlugin(placeholder),
         ...(mentionConfig ? [mentionSkipPlugin()] : []),
         fileHandlerPlugin(),
-      ],
-      [mentionConfig, placeholder],
-    );
+      ];
+    }, [mentionConfig, placeholder, submitShortcut]);
 
     const defaultState = useMemo(() => {
       let doc: PMNode;
