@@ -12,7 +12,6 @@ export type ContextChipProps = {
   key: string;
   icon: React.ComponentType<{ className?: string }>;
   label: string;
-  tooltip: string;
   removable?: boolean;
   entityKind?: ContextEntityKind;
   entityId?: string;
@@ -40,7 +39,6 @@ const renderers: RendererMap = {
         key: entity.key,
         icon: isFromTool ? SearchIcon : CalendarIcon,
         label,
-        tooltip: entity.title || "Session",
         removable: entity.removable,
         entityKind: "session",
         entityId: entity.sessionId,
@@ -51,14 +49,10 @@ const renderers: RendererMap = {
   human: {
     toChip: (entity) => {
       const label = entity.name || entity.email || "Person";
-      const tooltip = [entity.name, entity.email, entity.organizationName]
-        .filter(Boolean)
-        .join(" • ");
       return {
         key: entity.key,
         icon: UserIcon,
         label,
-        tooltip: tooltip || label,
         removable: entity.removable,
         entityKind: "human",
         entityId: entity.humanId,
@@ -73,7 +67,6 @@ const renderers: RendererMap = {
         key: entity.key,
         icon: Building2Icon,
         label,
-        tooltip: label,
         removable: entity.removable,
         entityKind: "organization",
         entityId: entity.organizationId,
@@ -88,7 +81,6 @@ const renderers: RendererMap = {
         key: entity.key,
         icon: UserIcon,
         label: "Account",
-        tooltip: entity.email || "Account",
       };
     },
   },
@@ -99,7 +91,6 @@ const renderers: RendererMap = {
         key: entity.key,
         icon: MonitorIcon,
         label: "Device",
-        tooltip: "Device",
       };
     },
   },

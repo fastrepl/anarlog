@@ -1,17 +1,8 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { openNewMock } = vi.hoisted(() => ({
   openNewMock: vi.fn(),
-}));
-
-vi.mock("@hypr/ui/components/ui/tooltip", () => ({
-  Tooltip: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  TooltipContent: ({ children }: { children: ReactNode }) => (
-    <div>{children}</div>
-  ),
-  TooltipTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 
 vi.mock("~/store/zustand/tabs", () => ({
@@ -52,6 +43,28 @@ describe("ContextBar", () => {
     expect(screen.getAllByText("Current Note").length).toBeGreaterThan(0);
     expect(screen.queryByRole("button")).toBeNull();
     expect(screen.queryByText("Search sessions...")).toBeNull();
+  });
+
+  it("does not render chip tooltips", () => {
+    render(
+      <ContextBar
+        entities={[
+          {
+            kind: "human",
+            key: "human:manual:artem",
+            source: "manual",
+            humanId: "artem",
+            name: "Artem",
+            email: "artem@example.com",
+            organizationName: "Char",
+            pending: true,
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("Artem")).toBeTruthy();
+    expect(screen.queryByText(/artem@example.com/)).toBeNull();
   });
 
   it("centers the squircle chip strip above the input surface", () => {
@@ -287,10 +300,12 @@ describe("ContextBar", () => {
     const removeButton = screen.getByRole("button", {
       name: "Remove Current Note",
     });
+    const removeIcon = removeButton.querySelector("svg");
 
     expect(iconSlot?.className).toContain("size-4");
     expect(iconSlot?.contains(removeButton)).toBe(true);
     expect(contextIcon?.className.baseVal).toContain("group-hover:opacity-0");
+    expect(removeIcon?.className.baseVal).toContain("size-3.5");
     expect(removeButton.className).toContain("group-hover:opacity-100");
     expect(removeButton.className).toContain("group-hover:pointer-events-auto");
 

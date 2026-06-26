@@ -1,11 +1,6 @@
-import { ChevronUpIcon, XIcon } from "lucide-react";
+import { ChevronUpIcon, XCircleIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@hypr/ui/components/ui/tooltip";
 import { cn } from "@hypr/utils";
 
 import { type ContextChipProps, renderChip } from "~/chat/context/registry";
@@ -48,49 +43,40 @@ function ContextChip({
   };
 
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span
-          data-chat-context-chip
-          onClick={handleClick}
+    <span
+      data-chat-context-chip
+      onClick={handleClick}
+      className={cn([
+        "group border-border/60 inline-flex h-7 max-w-56 min-w-0 shrink-0 items-center gap-1.5 rounded-[10px] border px-2.5 text-xs leading-4 shadow-xs",
+        pending
+          ? "bg-card/60 text-muted-foreground"
+          : "bg-card/90 text-muted-foreground",
+        isClickable ? "hover:bg-accent/20 cursor-pointer" : "cursor-default",
+      ])}
+    >
+      <span className="relative flex size-4 shrink-0 items-center justify-center">
+        <Icon
           className={cn([
-            "group border-border/60 inline-flex h-7 max-w-56 min-w-0 shrink-0 items-center gap-1.5 rounded-[10px] border px-2.5 text-xs leading-4 shadow-xs",
-            pending
-              ? "bg-card/60 text-muted-foreground"
-              : "bg-card/90 text-muted-foreground",
-            isClickable
-              ? "hover:bg-accent/20 cursor-pointer"
-              : "cursor-default",
+            "text-muted-foreground size-3.5 shrink-0 transition-opacity",
+            chip.removable && onRemove ? "group-hover:opacity-0" : "",
           ])}
-        >
-          <span className="relative flex size-4 shrink-0 items-center justify-center">
-            <Icon
-              className={cn([
-                "text-muted-foreground size-3.5 shrink-0 transition-opacity",
-                chip.removable && onRemove ? "group-hover:opacity-0" : "",
-              ])}
-            />
-            {chip.removable && onRemove && (
-              <button
-                type="button"
-                aria-label={`Remove ${chip.label}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRemove(chip.key);
-                }}
-                className="hover:bg-accent/30 hover:text-foreground pointer-events-none absolute inset-0 flex items-center justify-center rounded-[5px] opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100"
-              >
-                <XIcon className="size-3" />
-              </button>
-            )}
-          </span>
-          <span className="truncate">{chip.label}</span>
-        </span>
-      </TooltipTrigger>
-      <TooltipContent side="top" className="z-110">
-        {chip.tooltip}
-      </TooltipContent>
-    </Tooltip>
+        />
+        {chip.removable && onRemove && (
+          <button
+            type="button"
+            aria-label={`Remove ${chip.label}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove(chip.key);
+            }}
+            className="text-muted-foreground hover:text-foreground pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100"
+          >
+            <XCircleIcon className="size-3.5" />
+          </button>
+        )}
+      </span>
+      <span className="truncate">{chip.label}</span>
+    </span>
   );
 }
 
