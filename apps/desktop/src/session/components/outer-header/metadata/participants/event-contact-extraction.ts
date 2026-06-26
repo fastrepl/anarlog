@@ -583,6 +583,7 @@ function inferContactsFromEventText(
     );
     if (betweenMatch?.[1]) {
       addDelimitedNames(betweenMatch[1], addName);
+      continue;
     }
 
     if (line.includes("<>")) {

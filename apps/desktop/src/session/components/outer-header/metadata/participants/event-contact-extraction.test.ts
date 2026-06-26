@@ -413,6 +413,49 @@ describe("event contact extraction", () => {
     expect(store.getCell("humans", "human-1", "name")).toBe("Gonzalo Soto");
   });
 
+  test("does not infer a title prefix from a between line with delimiters", async () => {
+    const context = {
+      title: "30 Min Meeting between Gonzalo Soto and Yujong Lee <> john",
+      description:
+        "What:\n30 Min Meeting between Gonzalo Soto and Yujong Lee <> john",
+      candidates: [
+        {
+          name: "John Jeong",
+          email: "john@example.com",
+          isCurrentUser: true,
+        },
+        {
+          name: "Gonzalo Soto",
+          email: "gonzalo@gumloop.com",
+        },
+        {
+          name: "Yujong Lee",
+          email: "yujong@example.com",
+        },
+      ],
+    };
+
+    vi.mocked(generateText).mockResolvedValue({
+      text: JSON.stringify({ contacts: [] }),
+    } as any);
+
+    await expect(
+      extractEventContacts({ model: {} as any, context }),
+    ).resolves.toEqual({
+      source: "model",
+      contacts: [
+        {
+          name: "Gonzalo Soto",
+          email: "gonzalo@gumloop.com",
+        },
+        {
+          name: "Yujong Lee",
+          email: "yujong@example.com",
+        },
+      ],
+    });
+  });
+
   test("reuses an existing organization when applying extracted company", () => {
     const store = createStore();
     store.setRow("organizations", "org-1", {
