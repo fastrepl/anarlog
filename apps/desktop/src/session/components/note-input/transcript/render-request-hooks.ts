@@ -1,10 +1,11 @@
-import { useCallback, useMemo, useRef, useSyncExternalStore } from "react";
+import { useMemo } from "react";
 
 import type {
   RenderTranscriptHuman,
   RenderTranscriptRequest,
 } from "@hypr/plugin-transcription";
 
+import { getUniqueRowIds, useStoreRowsRevision } from "~/store/tinybase/hooks";
 import * as main from "~/store/tinybase/store/main";
 import {
   buildRenderTranscriptRequestFromRows,
@@ -14,7 +15,6 @@ import {
 } from "~/stt/render-transcript";
 import { parseTranscriptHints, parseTranscriptWords } from "~/stt/utils";
 
-type RenderTableId = "transcripts" | "mapping_session_participant" | "humans";
 type UiStore = NonNullable<ReturnType<typeof main.UI.useStore>>;
 
 export type TranscriptRowWithId = {
@@ -146,41 +146,6 @@ function useRenderData(
   return { request, transcriptRows };
 }
 
-function useStoreRowsRevision(
-  store: UiStore | undefined,
-  tableId: RenderTableId,
-  rowIds: readonly string[],
-): number {
-  const revisionRef = useRef(0);
-  const rowIdsKey = getRowIdsKey(rowIds);
-  const subscribedRowIds = useMemo(() => getUniqueRowIds(rowIds), [rowIdsKey]);
-
-  const subscribe = useCallback(
-    (notify: () => void) => {
-      if (!store || subscribedRowIds.length === 0) {
-        return noop;
-      }
-
-      const listenerIds = subscribedRowIds.map((rowId) =>
-        store.addRowListener(tableId, rowId, () => {
-          revisionRef.current += 1;
-          notify();
-        }),
-      );
-
-      return () => {
-        for (const listenerId of listenerIds) {
-          store.delListener(listenerId);
-        }
-      };
-    },
-    [store, subscribedRowIds, tableId],
-  );
-  const getSnapshot = useCallback(() => revisionRef.current, []);
-
-  return useSyncExternalStore(subscribe, getSnapshot, getZero);
-}
-
 function getTranscriptRow(store: UiStore, transcriptId: string): TranscriptRow {
   const startedAt = store.getCell("transcripts", transcriptId, "started_at");
 
@@ -236,28 +201,6 @@ function collectRenderHumans(
 
 function getRowIdsKey(rowIds: readonly string[]): string {
   return getUniqueRowIds(rowIds).join("\u0000");
-}
-
-function getUniqueRowIds(rowIds: readonly string[]): string[] {
-  const uniqueRowIds: string[] = [];
-  const seen = new Set<string>();
-
-  for (const rowId of rowIds) {
-    if (!rowId || seen.has(rowId)) {
-      continue;
-    }
-
-    uniqueRowIds.push(rowId);
-    seen.add(rowId);
-  }
-
-  return uniqueRowIds;
-}
-
-function noop() {}
-
-function getZero() {
-  return 0;
 }
 
 const emptyIds: string[] = [];

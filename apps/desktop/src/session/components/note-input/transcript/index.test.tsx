@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { createRef } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -7,13 +7,11 @@ import { Transcript } from "./index";
 const {
   useSliceRowIdsMock,
   useStoreMock,
-  useTableMock,
   useListenerMock,
   useAudioPlayerMock,
 } = vi.hoisted(() => ({
   useSliceRowIdsMock: vi.fn(),
   useStoreMock: vi.fn(),
-  useTableMock: vi.fn(),
   useListenerMock: vi.fn(),
   useAudioPlayerMock: vi.fn(),
 }));
@@ -26,7 +24,6 @@ vi.mock("~/store/tinybase/store/main", () => ({
   UI: {
     useSliceRowIds: useSliceRowIdsMock,
     useStore: useStoreMock,
-    useTable: useTableMock,
     useCheckpoints: vi.fn(() => null),
     useIndexes: vi.fn(() => null),
   },
@@ -86,16 +83,12 @@ describe("Transcript", () => {
     partialWordsByChannel: Record<number, unknown[]>;
     partialHintsByChannel: Record<number, unknown[]>;
   };
+  let transcriptRowListener: (() => void) | null;
   let transcriptWordsJson: string;
-  let transcriptsTable: Record<string, { words: string }>;
 
   beforeEach(() => {
+    transcriptRowListener = null;
     transcriptWordsJson = "[]";
-    transcriptsTable = {
-      [transcriptId]: {
-        words: transcriptWordsJson,
-      },
-    };
 
     listenerState = {
       getSessionMode: () => "active",
@@ -112,6 +105,16 @@ describe("Transcript", () => {
 
     useSliceRowIdsMock.mockReturnValue([transcriptId]);
     useStoreMock.mockReturnValue({
+      addRowListener: vi.fn(
+        (tableId: string, rowId: string, listener: () => void) => {
+          if (tableId === "transcripts" && rowId === transcriptId) {
+            transcriptRowListener = listener;
+          }
+
+          return "listener-1";
+        },
+      ),
+      delListener: vi.fn(),
       getCell: vi.fn(
         (tableId: string, rowId: string, cellId: "words" | "speaker_hints") => {
           if (
@@ -126,7 +129,6 @@ describe("Transcript", () => {
         },
       ),
     });
-    useTableMock.mockImplementation(() => transcriptsTable);
     useListenerMock.mockImplementation((selector) => selector(listenerState));
     useAudioPlayerMock.mockReturnValue({ audioExists: false });
   });
@@ -140,11 +142,9 @@ describe("Transcript", () => {
     expect(screen.getByTestId("listening-state").textContent).toBe("listening");
 
     transcriptWordsJson = '[{"id":"word-1","text":" Hello"}]';
-    transcriptsTable = {
-      [transcriptId]: {
-        words: transcriptWordsJson,
-      },
-    };
+    act(() => {
+      transcriptRowListener?.();
+    });
 
     view.rerender(<Transcript sessionId={sessionId} scrollRef={scrollRef} />);
 

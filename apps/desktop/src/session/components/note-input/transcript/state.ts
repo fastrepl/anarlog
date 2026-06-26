@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import type { DegradedError } from "@hypr/plugin-transcription";
 
 import { useAudioPlayer } from "~/audio-player";
+import { useMainStoreRowsRevision } from "~/store/tinybase/hooks";
 import * as main from "~/store/tinybase/store/main";
 import { getLiveCaptureUiMode } from "~/store/zustand/listener/general-shared";
 import { useListener } from "~/stt/contexts";
@@ -109,7 +110,10 @@ function useTranscriptContent(sessionId: string) {
       sessionId,
       main.STORE_ID,
     ) ?? [];
-  const transcriptsTable = main.UI.useTable("transcripts", main.STORE_ID);
+  const transcriptRowsRevision = useMainStoreRowsRevision(
+    "transcripts",
+    transcriptIds,
+  );
   const liveSegments = useListener((state) => state.liveSegments);
   const store = main.UI.useStore(main.STORE_ID);
 
@@ -121,7 +125,7 @@ function useTranscriptContent(sessionId: string) {
     return transcriptIds.some(
       (transcriptId) => parseTranscriptWords(store, transcriptId).length > 0,
     );
-  }, [store, transcriptIds, transcriptsTable]);
+  }, [store, transcriptIds, transcriptRowsRevision]);
 
   return {
     transcriptIds,

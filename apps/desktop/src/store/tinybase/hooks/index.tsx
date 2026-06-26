@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useRef, useSyncExternalStore } from "react";
 
 import type {
   IgnoredEvent,
@@ -205,4 +205,77 @@ export function useIgnoredEvents() {
     ignoreSeries,
     unignoreSeries,
   };
+}
+
+type UiStore = NonNullable<ReturnType<typeof main.UI.useStore>>;
+type StoreTableId = Parameters<UiStore["addRowListener"]>[0];
+
+export function useMainStoreRowsRevision(
+  tableId: StoreTableId,
+  rowIds: readonly string[],
+): number {
+  const store = main.UI.useStore(main.STORE_ID);
+
+  return useStoreRowsRevision(store, tableId, rowIds);
+}
+
+export function useStoreRowsRevision(
+  store: UiStore | undefined,
+  tableId: StoreTableId,
+  rowIds: readonly string[],
+): number {
+  const revisionRef = useRef(0);
+  const rowIdsKey = getRowIdsKey(rowIds);
+  const subscribedRowIds = useMemo(() => getUniqueRowIds(rowIds), [rowIdsKey]);
+
+  const subscribe = useCallback(
+    (notify: () => void) => {
+      if (!store || subscribedRowIds.length === 0) {
+        return noop;
+      }
+
+      const listenerIds = subscribedRowIds.map((rowId) =>
+        store.addRowListener(tableId, rowId, () => {
+          revisionRef.current += 1;
+          notify();
+        }),
+      );
+
+      return () => {
+        for (const listenerId of listenerIds) {
+          store.delListener(listenerId);
+        }
+      };
+    },
+    [store, subscribedRowIds, tableId],
+  );
+  const getSnapshot = useCallback(() => revisionRef.current, []);
+
+  return useSyncExternalStore(subscribe, getSnapshot, getZero);
+}
+
+function getRowIdsKey(rowIds: readonly string[]): string {
+  return getUniqueRowIds(rowIds).join("\u0000");
+}
+
+export function getUniqueRowIds(rowIds: readonly string[]): string[] {
+  const uniqueRowIds: string[] = [];
+  const seen = new Set<string>();
+
+  for (const rowId of rowIds) {
+    if (!rowId || seen.has(rowId)) {
+      continue;
+    }
+
+    uniqueRowIds.push(rowId);
+    seen.add(rowId);
+  }
+
+  return uniqueRowIds;
+}
+
+function noop() {}
+
+function getZero() {
+  return 0;
 }

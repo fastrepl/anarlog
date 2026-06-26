@@ -5,6 +5,7 @@ import { Button } from "@hypr/ui/components/ui/button";
 import { computeCurrentNoteTab } from "./compute-note-tab";
 
 import { extractPlainText } from "~/search/contexts/engine/utils";
+import { useMainStoreRowsRevision } from "~/store/tinybase/hooks";
 import * as main from "~/store/tinybase/store/main";
 import type { Tab } from "~/store/zustand/tabs/schema";
 import { type EditorView } from "~/store/zustand/tabs/schema";
@@ -20,7 +21,10 @@ export function useHasTranscript(sessionId: string): boolean {
       sessionId,
       main.STORE_ID,
     ) ?? [];
-  const transcriptsTable = main.UI.useTable("transcripts", main.STORE_ID);
+  const transcriptRowsRevision = useMainStoreRowsRevision(
+    "transcripts",
+    transcriptIds,
+  );
   const store = main.UI.useStore(main.STORE_ID);
 
   return useMemo(() => {
@@ -31,7 +35,7 @@ export function useHasTranscript(sessionId: string): boolean {
     return transcriptIds.some(
       (transcriptId) => parseTranscriptWords(store, transcriptId).length > 0,
     );
-  }, [store, transcriptIds, transcriptsTable]);
+  }, [store, transcriptIds, transcriptRowsRevision]);
 }
 
 export function hasStoredNoteContent(value: unknown): boolean {

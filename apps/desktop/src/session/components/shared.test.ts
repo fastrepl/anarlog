@@ -67,8 +67,10 @@ vi.mock("~/store/tinybase/store/main", () => ({
 
       return [];
     },
-    useStore: () => ({}),
-    useTable: () => ({}),
+    useStore: () => ({
+      addRowListener: vi.fn(() => "listener-1"),
+      delListener: vi.fn(),
+    }),
   },
 }));
 
