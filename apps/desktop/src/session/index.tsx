@@ -21,6 +21,7 @@ import { useAutoEnhance } from "./hooks/useAutoEnhance";
 import { shouldShowSessionTopAudioPlayer } from "./top-audio-player";
 
 import * as AudioPlayer from "~/audio-player";
+import { hydrateSessionContent } from "~/store/tinybase/persister/session/hydrate";
 import * as main from "~/store/tinybase/store/main";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 import { useListener } from "~/stt/contexts";
@@ -28,6 +29,8 @@ import { consumePendingUpload } from "~/stt/pending-upload";
 import { useStartListening } from "~/stt/useStartListening";
 import { useSTTConnection } from "~/stt/useSTTConnection";
 import { useUploadFile } from "~/stt/useUploadFile";
+
+const hydratedSessionIds = new Set<string>();
 
 export function TabContentNote({
   standaloneWindow = false,
@@ -123,6 +126,7 @@ function TabContentNoteInner({
   const { audioExists } = AudioPlayer.useAudioPlayer();
   const editorTabs = useEditorTabs({ sessionId: tab.id, audioExists });
   const currentView = useCurrentNoteTab(tab, { audioExists });
+  const contentHydrated = useHydrateSessionContent(tab.id);
   const updateSessionTabState = useTabs((state) => state.updateSessionTabState);
   const hasTranscript = useHasTranscript(tab.id);
 
@@ -222,17 +226,76 @@ function TabContentNoteInner({
           </div>
         ) : null}
         <div className="min-h-0 flex-1">
-          <NoteInput
-            ref={noteInputRef}
-            tab={tab}
-            editorTabs={editorTabs}
-            currentTab={currentView}
-            handleTabChange={handleTabChange}
-            hideHeader
-          />
+          {contentHydrated ? (
+            <NoteInput
+              ref={noteInputRef}
+              tab={tab}
+              editorTabs={editorTabs}
+              currentTab={currentView}
+              handleTabChange={handleTabChange}
+              hideHeader
+            />
+          ) : (
+            <SessionContentLoading />
+          )}
         </div>
       </div>
     </SessionSurface>
+  );
+}
+
+function useHydrateSessionContent(sessionId: string): boolean {
+  const store = main.UI.useStore(main.STORE_ID);
+  const [retryAttempt, setRetryAttempt] = React.useState(0);
+  const [hydrated, setHydrated] = React.useState(() =>
+    hydratedSessionIds.has(sessionId),
+  );
+
+  useEffect(() => {
+    if (hydratedSessionIds.has(sessionId)) {
+      setHydrated(true);
+      return;
+    }
+
+    if (!store) {
+      setHydrated(false);
+      return;
+    }
+
+    let active = true;
+    setHydrated(false);
+
+    void hydrateSessionContent(store, sessionId).then((success) => {
+      if (success) {
+        hydratedSessionIds.add(sessionId);
+      }
+      if (active) {
+        setHydrated(success);
+        if (!success) {
+          window.setTimeout(() => {
+            if (active) {
+              setRetryAttempt((attempt) => attempt + 1);
+            }
+          }, 1000);
+        }
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [store, sessionId, retryAttempt]);
+
+  return hydrated;
+}
+
+function SessionContentLoading() {
+  return (
+    <div className="flex h-full flex-col gap-3 px-4 py-5">
+      <div className="bg-muted h-5 w-3/5 animate-pulse rounded-md" />
+      <div className="bg-muted/80 h-4 w-4/5 animate-pulse rounded-md" />
+      <div className="bg-muted/70 h-4 w-2/3 animate-pulse rounded-md" />
+    </div>
   );
 }
 

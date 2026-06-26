@@ -21,6 +21,7 @@ type BuildContext = {
   tables: TablesContent;
   dataDir: string;
   changedSessionIds?: Set<string>;
+  deleteEmptyMemos: boolean;
 };
 
 export function buildNoteSaveOps(
@@ -28,8 +29,15 @@ export function buildNoteSaveOps(
   tables: TablesContent,
   dataDir: string,
   changedSessionIds?: Set<string>,
+  options: { deleteEmptyMemos?: boolean } = {},
 ): WriteOperation[] {
-  const ctx: BuildContext = { store, tables, dataDir, changedSessionIds };
+  const ctx: BuildContext = {
+    store,
+    tables,
+    dataDir,
+    changedSessionIds,
+    deleteEmptyMemos: options.deleteEmptyMemos ?? true,
+  };
 
   const enhancedNoteItems = collectEnhancedNotes(ctx);
   const { items: memoItems, deletePaths: memoDeletePaths } = collectMemos(ctx);
@@ -74,7 +82,7 @@ function collectMemos(ctx: BuildContext): {
   items: DocumentItem[];
   deletePaths: string[];
 } {
-  const { tables, dataDir, changedSessionIds } = ctx;
+  const { tables, dataDir, changedSessionIds, deleteEmptyMemos } = ctx;
   const items: DocumentItem[] = [];
   const deletePaths: string[] = [];
 
@@ -92,7 +100,9 @@ function collectMemos(ctx: BuildContext): {
       ? tryParseAndConvertToMarkdown(session.raw_md)
       : null;
     if (!markdown) {
-      deletePaths.push(memoPath);
+      if (deleteEmptyMemos) {
+        deletePaths.push(memoPath);
+      }
       continue;
     }
 

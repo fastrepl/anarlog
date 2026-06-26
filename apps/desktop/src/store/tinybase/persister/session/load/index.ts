@@ -24,15 +24,24 @@ export { createEmptyLoadedSessionData, type LoadedSessionData } from "./types";
 
 const LABEL = "SessionPersister";
 
+type LoadSessionDataOptions = {
+  includeContent?: boolean;
+};
+
 async function processFiles(
   files: Partial<Record<string, string>>,
   result: LoadedSessionData,
+  { includeContent = true }: LoadSessionDataOptions = {},
 ): Promise<void> {
   for (const [path, content] of Object.entries(files)) {
     if (!content) continue;
     if (path.endsWith(SESSION_META_FILE)) {
       processMetaFile(path, content, result);
     }
+  }
+
+  if (!includeContent) {
+    return;
   }
 
   for (const [path, content] of Object.entries(files)) {
@@ -54,13 +63,21 @@ async function processFiles(
 
 export async function loadAllSessionData(
   dataDir: string,
+  options: LoadSessionDataOptions = {},
 ): Promise<LoadResult<LoadedSessionData>> {
   const result = createEmptyLoadedSessionData();
   const sessionsDir = [dataDir, "sessions"].join(sep());
+  const includeContent = options.includeContent ?? true;
 
   const scanResult = await fsSyncCommands.scanAndRead(
     sessionsDir,
-    [SESSION_META_FILE, SESSION_TRANSCRIPT_FILE, `*${SESSION_NOTE_EXTENSION}`],
+    includeContent
+      ? [
+          SESSION_META_FILE,
+          SESSION_TRANSCRIPT_FILE,
+          `*${SESSION_NOTE_EXTENSION}`,
+        ]
+      : [SESSION_META_FILE],
     true,
     null,
   );
@@ -73,7 +90,7 @@ export async function loadAllSessionData(
     return err(scanResult.error);
   }
 
-  await processFiles(scanResult.data.files, result);
+  await processFiles(scanResult.data.files, result, { includeContent });
   return ok(result);
 }
 

@@ -33,7 +33,8 @@ export function createSessionPersister(store: Store) {
       { tableName: "enhanced_notes", foreignKey: "session_id" },
       { tableName: "session_key_facts", foreignKey: "session_id" },
     ],
-    loadAll: loadAllSessionData,
+    loadAll: (dataDir) =>
+      loadAllSessionData(dataDir, { includeContent: false }),
     loadSingle: loadSingleSession,
     save: (store, tables, dataDir, changedTables) => {
       let changedSessionIds: Set<string> | undefined;
@@ -58,13 +59,40 @@ export function createSessionPersister(store: Store) {
       const transcriptOps = saveScope.transcript
         ? buildTranscriptSaveOps(tables, dataDir, changedSessionIds)
         : [];
+      const deleteEmptyMemos =
+        !changedTables || hasSessionRawContentChange(changedTables);
       const noteOps = saveScope.note
-        ? buildNoteSaveOps(store, tables, dataDir, changedSessionIds)
+        ? buildNoteSaveOps(store, tables, dataDir, changedSessionIds, {
+            deleteEmptyMemos,
+          })
         : [];
 
       return {
         operations: [...sessionOps, ...transcriptOps, ...noteOps],
       };
     },
+  });
+}
+
+function hasSessionRawContentChange(
+  changedTables: Parameters<typeof getChangedSessionIds>[1],
+) {
+  const changedSessions = changedTables.sessions;
+  if (!changedSessions) {
+    return false;
+  }
+
+  return Object.values(changedSessions).some((rowChange) => {
+    const row =
+      Array.isArray(rowChange) && rowChange.length > 0
+        ? rowChange[0]
+        : rowChange;
+
+    return (
+      !!row &&
+      typeof row === "object" &&
+      !Array.isArray(row) &&
+      Object.prototype.hasOwnProperty.call(row, "raw_md")
+    );
   });
 }
