@@ -13,11 +13,13 @@ import { useToolRegistry } from "~/contexts/tool";
 import { useConfigValue } from "~/shared/config";
 import * as main from "~/store/tinybase/store/main";
 
-const FILE_CONTEXT_TOOL_GUIDANCE = `
+export const FILE_CONTEXT_TOOL_GUIDANCE = `
 Context and local-note tool guidance:
+- When no meeting note context is attached and the user asks a factual question that could be answered by meeting notes, use search_sessions with the key names, topics, and date hints before answering. If the result looks relevant, answer from the returned meeting context or call read_note with the returned session id for more detail.
 - When the user asks about "this note", "this meeting", "the current note", or pronouns that likely refer to the open note, use read_current_note before answering.
-- When the user asks to find or search for something in notes, use grep_notes. If the answer needs the full source after a match, use read_note with the returned session id.
+- When the user asks to find or search for exact wording in notes, use grep_notes. If the answer needs the full source after a match, use read_note with the returned session id.
 - When the user asks about people from the current note or related meetings, use list_related_notes and then read_note as needed.
+- Do not ask the user to open or share a meeting note until search_sessions, grep_notes, or read_note cannot find enough local context.
 - Do not assume note contents from chat history when a file-backed tool can read the current source of truth.
 
 Web search guidance:
@@ -26,7 +28,7 @@ Web search guidance:
 - Do not use web_search for questions that only need local notes, contacts, or calendar events.
 `.trim();
 
-function appendFileContextToolGuidance(
+export function appendFileContextToolGuidance(
   prompt: string | undefined,
 ): string | undefined {
   if (prompt === undefined) {

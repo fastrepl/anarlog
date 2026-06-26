@@ -105,6 +105,7 @@ export const buildSearchSessionsTool = (deps: ToolDependencies) =>
   tool({
     description: `
 Search for sessions (meeting notes) using query and filters.
+Use this first for open-ended questions about past meetings, people, decisions, or topics when the answer may be in meeting notes and no meeting note context is attached.
 Use filters.created_at.kind="relative" with recent_days for natural-language date ranges.
 Use an empty query string when the user only wants sessions by date/time filter.
 Returns relevant sessions with their content.

@@ -558,7 +558,7 @@ export const buildReadNoteTool = (deps: ToolDependencies) =>
 export const buildGrepNotesTool = (deps: ToolDependencies) =>
   tool({
     description:
-      "Lexically search local note files and transcripts. Use this for find/search requests before answering from memory. This is filesystem-backed text search, not vector search.",
+      "Lexically search local note files and transcripts for exact words or phrases. Use search_sessions first for open-ended questions about past meetings, people, decisions, or topics. This is filesystem-backed text search, not vector search.",
     inputSchema: z.object({
       query: z.string().describe("Text to search for in note files"),
       sessionIds: z
