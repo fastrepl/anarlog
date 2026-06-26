@@ -211,7 +211,7 @@ msgstr ""
 msgid "Audio"
 msgstr ""
 
-#: src/instruction/index.tsx:176
+#: src/instruction/index.tsx:188
 msgid "Authorize access in your browser, then return to Anarlog."
 msgstr ""
 
@@ -228,7 +228,7 @@ msgid "Automatically stop listening when the meeting app releases the microphone
 msgstr "Аутоматски заустави слушање када апликација за састанак пусти микрофон."
 
 #: src/calendar/components/apple/permission.tsx:161
-#: src/instruction/index.tsx:59
+#: src/instruction/index.tsx:63
 #: src/sidebar/custom-sidebar-header.tsx:54
 msgid "Back"
 msgstr ""
@@ -246,12 +246,8 @@ msgstr ""
 msgid "Browse"
 msgstr ""
 
-#: src/instruction/index.tsx:237
+#: src/instruction/index.tsx:277
 msgid "Browser handoff not working? Paste the callback link instead"
-msgstr ""
-
-#: src/instruction/index.tsx:79
-msgid "Browser step required"
 msgstr ""
 
 #: src/calendar/components/sidebar.tsx:328
@@ -360,7 +356,7 @@ msgstr ""
 msgid "Compare Free, Lite, and Pro before you sign in."
 msgstr ""
 
-#: src/instruction/index.tsx:201
+#: src/instruction/index.tsx:241
 msgid "Complete sign-in in your browser, then return to Anarlog."
 msgstr ""
 
@@ -368,7 +364,7 @@ msgstr ""
 msgid "Complete the sign-in flow in your browser, then come back here if Anarlog does not reconnect automatically."
 msgstr ""
 
-#: src/instruction/index.tsx:164
+#: src/instruction/index.tsx:170
 msgid "Complete your purchase"
 msgstr ""
 
@@ -392,6 +388,8 @@ msgid "Confirm"
 msgstr ""
 
 #. placeholder {0}: config.displayName
+#. placeholder {0}: integration.displayName
+#: src/instruction/index.tsx:185
 #: src/settings/todo/provider-content.tsx:75
 #: src/settings/todo/provider-content.tsx:118
 msgid "Connect {0}"
@@ -413,7 +411,7 @@ msgstr ""
 msgid "Connect Outlook"
 msgstr ""
 
-#: src/instruction/index.tsx:175
+#: src/instruction/index.tsx:186
 msgid "Connect your integration"
 msgstr ""
 
@@ -685,7 +683,7 @@ msgstr ""
 msgid "Find a note..."
 msgstr ""
 
-#: src/instruction/index.tsx:165
+#: src/instruction/index.tsx:171
 msgid "Finish checkout in your browser, then return to Anarlog."
 msgstr ""
 
@@ -1189,7 +1187,7 @@ msgstr ""
 msgid "Participants"
 msgstr ""
 
-#: src/instruction/index.tsx:223
+#: src/instruction/index.tsx:263
 msgid "Paste the browser URL here if the browser button did not reopen Anarlog."
 msgstr ""
 
@@ -1287,11 +1285,11 @@ msgstr ""
 msgid "Remove repository"
 msgstr ""
 
-#: src/instruction/index.tsx:166
+#: src/instruction/index.tsx:172
 msgid "Reopen checkout page"
 msgstr ""
 
-#: src/instruction/index.tsx:177
+#: src/instruction/index.tsx:190
 msgid "Reopen in browser"
 msgstr ""
 
@@ -1596,7 +1594,7 @@ msgstr ""
 msgid "Sign in to unlock powerful AI models, sync across devices, and personalization."
 msgstr ""
 
-#: src/instruction/index.tsx:200
+#: src/instruction/index.tsx:240
 msgid "Sign in to your account"
 msgstr ""
 
@@ -1693,7 +1691,7 @@ msgstr ""
 msgid "Stores your notes, recordings, and session data"
 msgstr ""
 
-#: src/instruction/index.tsx:219
+#: src/instruction/index.tsx:259
 msgid "Submit callback URL"
 msgstr ""
 

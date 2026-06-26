@@ -211,7 +211,7 @@ msgstr "Assignees:"
 msgid "Audio"
 msgstr "Audio"
 
-#: src/instruction/index.tsx:176
+#: src/instruction/index.tsx:188
 msgid "Authorize access in your browser, then return to Anarlog."
 msgstr "Authorize access in your browser, then return to Anarlog."
 
@@ -228,7 +228,7 @@ msgid "Automatically stop listening when the meeting app releases the microphone
 msgstr "Automatically stop listening when the meeting app releases the microphone."
 
 #: src/calendar/components/apple/permission.tsx:161
-#: src/instruction/index.tsx:59
+#: src/instruction/index.tsx:63
 #: src/sidebar/custom-sidebar-header.tsx:54
 msgid "Back"
 msgstr "Back"
@@ -246,13 +246,9 @@ msgstr "Batch"
 msgid "Browse"
 msgstr "Browse"
 
-#: src/instruction/index.tsx:237
+#: src/instruction/index.tsx:277
 msgid "Browser handoff not working? Paste the callback link instead"
 msgstr "Browser handoff not working? Paste the callback link instead"
-
-#: src/instruction/index.tsx:79
-msgid "Browser step required"
-msgstr "Browser step required"
 
 #: src/calendar/components/sidebar.tsx:328
 #: src/settings/general/permissions.tsx:191
@@ -360,7 +356,7 @@ msgstr "Company"
 msgid "Compare Free, Lite, and Pro before you sign in."
 msgstr "Compare Free, Lite, and Pro before you sign in."
 
-#: src/instruction/index.tsx:201
+#: src/instruction/index.tsx:241
 msgid "Complete sign-in in your browser, then return to Anarlog."
 msgstr "Complete sign-in in your browser, then return to Anarlog."
 
@@ -368,7 +364,7 @@ msgstr "Complete sign-in in your browser, then return to Anarlog."
 msgid "Complete the sign-in flow in your browser, then come back here if Anarlog does not reconnect automatically."
 msgstr "Complete the sign-in flow in your browser, then come back here if Anarlog does not reconnect automatically."
 
-#: src/instruction/index.tsx:164
+#: src/instruction/index.tsx:170
 msgid "Complete your purchase"
 msgstr "Complete your purchase"
 
@@ -392,6 +388,8 @@ msgid "Confirm"
 msgstr "Confirm"
 
 #. placeholder {0}: config.displayName
+#. placeholder {0}: integration.displayName
+#: src/instruction/index.tsx:185
 #: src/settings/todo/provider-content.tsx:75
 #: src/settings/todo/provider-content.tsx:118
 msgid "Connect {0}"
@@ -413,7 +411,7 @@ msgstr "Connect Google Calendar"
 msgid "Connect Outlook"
 msgstr "Connect Outlook"
 
-#: src/instruction/index.tsx:175
+#: src/instruction/index.tsx:186
 msgid "Connect your integration"
 msgstr "Connect your integration"
 
@@ -685,7 +683,7 @@ msgstr "Finalizing"
 msgid "Find a note..."
 msgstr "Find a note..."
 
-#: src/instruction/index.tsx:165
+#: src/instruction/index.tsx:171
 msgid "Finish checkout in your browser, then return to Anarlog."
 msgstr "Finish checkout in your browser, then return to Anarlog."
 
@@ -1189,7 +1187,7 @@ msgstr "Override the timezone used for the sidebar timeline"
 msgid "Participants"
 msgstr "Participants"
 
-#: src/instruction/index.tsx:223
+#: src/instruction/index.tsx:263
 msgid "Paste the browser URL here if the browser button did not reopen Anarlog."
 msgstr "Paste the browser URL here if the browser button did not reopen Anarlog."
 
@@ -1287,11 +1285,11 @@ msgstr "Reminders"
 msgid "Remove repository"
 msgstr "Remove repository"
 
-#: src/instruction/index.tsx:166
+#: src/instruction/index.tsx:172
 msgid "Reopen checkout page"
 msgstr "Reopen checkout page"
 
-#: src/instruction/index.tsx:177
+#: src/instruction/index.tsx:190
 msgid "Reopen in browser"
 msgstr "Reopen in browser"
 
@@ -1596,7 +1594,7 @@ msgstr "Sign in to unlock cloud transcription and AI models, plus Pro features l
 msgid "Sign in to unlock powerful AI models, sync across devices, and personalization."
 msgstr "Sign in to unlock powerful AI models, sync across devices, and personalization."
 
-#: src/instruction/index.tsx:200
+#: src/instruction/index.tsx:240
 msgid "Sign in to your account"
 msgstr "Sign in to your account"
 
@@ -1693,7 +1691,7 @@ msgstr "Stores app-wide settings and configurations"
 msgid "Stores your notes, recordings, and session data"
 msgstr "Stores your notes, recordings, and session data"
 
-#: src/instruction/index.tsx:219
+#: src/instruction/index.tsx:259
 msgid "Submit callback URL"
 msgstr "Submit callback URL"
 

@@ -21,7 +21,10 @@ export async function openIntegrationUrl(
     params.connection_id = connectionId;
   }
   const url = await buildWebAppUrl("/app/integration", params);
-  await openUrlWithInstruction(url, "integration", (u) =>
-    openerCommands.openUrl(u, null),
+  await openUrlWithInstruction(
+    url,
+    "integration",
+    (u) => openerCommands.openUrl(u, null),
+    { integrationId: nangoIntegrationId },
   );
 }

@@ -22,11 +22,17 @@ export async function openUrlWithInstruction(
   openUrl: (
     url: string,
   ) => Promise<{ status: "ok" | "error"; error?: unknown }>,
+  instructionSearch?: Record<string, string | undefined>,
 ) {
   await commands.windowSaveFrame({ type: "main" });
+  const search = Object.fromEntries(
+    Object.entries({ type: instructionType, url, ...instructionSearch }).filter(
+      ([, value]) => value !== undefined,
+    ),
+  );
   await commands.windowEmitNavigate(
     { type: "main" },
-    { path: "/app/instruction", search: { type: instructionType, url } },
+    { path: "/app/instruction", search },
   );
   await commands.windowSetFrameAnimated({ type: "main" }, "TopRight", 340, 500);
 

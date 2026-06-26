@@ -1,9 +1,11 @@
+import { Icon } from "@iconify-icon/react";
 import { Trans, useLingui } from "@lingui/react/macro";
-import { ChevronLeft, ExternalLink } from "lucide-react";
+import { ChevronLeft, ExternalLink, Github } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 
 import { commands as openerCommands } from "@hypr/plugin-opener2";
+import { OutlookIcon } from "@hypr/ui/components/icons/outlook";
 import { Button } from "@hypr/ui/components/ui/button";
 import { Input } from "@hypr/ui/components/ui/input";
 import { cn } from "@hypr/utils";
@@ -29,15 +31,17 @@ function useInstructionCleanup(onCleanup?: () => void) {
 function InstructionShell({
   title,
   description,
+  icon,
   onBack,
   action,
   children,
 }: {
   title: ReactNode;
   description: ReactNode;
+  icon?: ReactNode;
   onBack: () => void;
-  action?: React.ReactNode;
-  children?: React.ReactNode;
+  action?: ReactNode;
+  children?: ReactNode;
 }) {
   return (
     <div className="from-background via-card to-card relative flex h-full flex-col overflow-hidden bg-linear-to-b select-none">
@@ -66,19 +70,16 @@ function InstructionShell({
         className="relative z-10 flex flex-1 items-center justify-center p-6"
       >
         <div className="flex w-full max-w-sm flex-col items-center gap-6 px-10 pb-10 text-center">
-          <div className="border-border/70 bg-card/90 flex h-14 w-14 items-center justify-center rounded-[20px] border shadow-[0_6px_18px_rgba(28,25,23,0.05)]">
+          {icon ?? (
             <img
               src="/assets/anarlog-icon.png"
               alt=""
-              className="h-7 w-7 object-contain object-center"
+              className="h-14 w-14 object-contain object-center"
             />
-          </div>
+          )}
 
-          <div className="flex max-w-[17rem] flex-col gap-3">
-            <div className="text-muted-foreground text-[10px] font-medium tracking-[0.22em] uppercase">
-              <Trans>Browser step required</Trans>
-            </div>
-            <h2 className="text-foreground font-sans text-[22px] leading-[1.15] font-semibold sm:text-[28px]">
+          <div className="flex max-w-full flex-col gap-3">
+            <h2 className="text-foreground font-sans text-[22px] leading-[1.15] font-semibold break-words sm:text-[28px]">
               {title}
             </h2>
             <p className="text-muted-foreground text-sm leading-6">
@@ -107,12 +108,14 @@ function InstructionShell({
 function ExternalInstruction({
   title,
   description,
+  icon,
   actionLabel,
   onBack,
   url,
 }: {
   title: string;
   description: string;
+  icon?: ReactNode;
   actionLabel: string;
   onBack: () => void;
   url?: string;
@@ -121,6 +124,7 @@ function ExternalInstruction({
     <InstructionShell
       title={title}
       description={description}
+      icon={icon}
       onBack={onBack}
       action={
         url ? (
@@ -144,11 +148,13 @@ export function InstructionScreen({
   type,
   onBack,
   url,
+  integrationId,
   onCleanup,
 }: {
   type: InstructionType;
   onBack: () => void;
   url?: string;
+  integrationId?: string;
   onCleanup?: () => void;
 }) {
   const { t } = useLingui();
@@ -170,15 +176,49 @@ export function InstructionScreen({
     );
   }
 
+  const integration = getIntegrationInstruction(integrationId);
+
   return (
     <ExternalInstruction
-      title={t`Connect your integration`}
+      title={
+        integration
+          ? t`Connect ${integration.displayName}`
+          : t`Connect your integration`
+      }
       description={t`Authorize access in your browser, then return to Anarlog.`}
+      icon={integration?.icon}
       actionLabel={t`Reopen in browser`}
       onBack={onBack}
       url={url}
     />
   );
+}
+
+function getIntegrationInstruction(integrationId?: string):
+  | {
+      displayName: string;
+      icon: ReactNode;
+    }
+  | undefined {
+  switch (integrationId) {
+    case "google-calendar":
+      return {
+        displayName: "Google Calendar",
+        icon: <Icon icon="logos:google-calendar" width={56} height={56} />,
+      };
+    case "outlook":
+      return {
+        displayName: "Outlook",
+        icon: <OutlookIcon size={56} />,
+      };
+    case "github":
+      return {
+        displayName: "GitHub",
+        icon: <Github className="text-foreground size-14" strokeWidth={1.5} />,
+      };
+    default:
+      return undefined;
+  }
 }
 
 function SignInInstruction({ onBack }: { onBack: () => void }) {
