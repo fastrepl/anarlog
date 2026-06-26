@@ -12,7 +12,13 @@ const hoisted = vi.hoisted(() => ({
 }));
 
 vi.mock("./during-session", () => ({
-  DuringSessionAccessory: () => null,
+  DuringSessionAccessory: () => <div data-testid="during-session-accessory" />,
+}));
+
+vi.mock("./expand-toggle", () => ({
+  ExpandToggle: ({ label }: { label?: string }) => (
+    <button type="button">{label}</button>
+  ),
 }));
 
 vi.mock("~/stt/contexts", () => ({
@@ -295,7 +301,7 @@ describe("useSessionBottomAccessory", () => {
     expect(result.current.bottomBorderHandle).toBeNull();
   });
 
-  it("does not show a local bottom panel while live transcription is active", () => {
+  it("shows a local bottom panel while the current session has live transcription active", () => {
     hoisted.live.status = "active";
     hoisted.live.sessionId = "session-1";
 
@@ -308,8 +314,11 @@ describe("useSessionBottomAccessory", () => {
       }),
     );
 
-    expect(result.current.bottomAccessoryState).toBeNull();
-    expect(result.current.bottomAccessory).toBeNull();
-    expect(result.current.bottomBorderHandle).toBeNull();
+    expect(result.current.bottomAccessoryState).toEqual({
+      mode: "live",
+      expanded: false,
+    });
+    expect(result.current.bottomAccessory).not.toBeNull();
+    expect(result.current.bottomBorderHandle).not.toBeNull();
   });
 });
