@@ -66,7 +66,7 @@ msgstr "Accessibility"
 #: src/settings/general/account.tsx:76
 #: src/settings/general/account.tsx:104
 #: src/settings/general/account.tsx:139
-#: src/sidebar/settings.tsx:72
+#: src/sidebar/settings.tsx:73
 msgid "Account"
 msgstr "Account"
 
@@ -168,8 +168,8 @@ msgstr "Anarlog will sync your calendar to get meeting reminders"
 msgid "API Key"
 msgstr "API Key"
 
-#: src/settings/general/index.tsx:169
-#: src/sidebar/settings.tsx:70
+#: src/settings/general/index.tsx:171
+#: src/sidebar/settings.tsx:71
 msgid "App"
 msgstr "App"
 
@@ -257,7 +257,7 @@ msgstr "Browser step required"
 #: src/calendar/components/sidebar.tsx:328
 #: src/settings/general/permissions.tsx:191
 #: src/sidebar/calendar.tsx:10
-#: src/sidebar/settings.tsx:100
+#: src/sidebar/settings.tsx:106
 msgid "Calendar"
 msgstr "Calendar"
 
@@ -418,7 +418,7 @@ msgid "Connect your integration"
 msgstr "Connect your integration"
 
 #: src/sidebar/contacts.tsx:304
-#: src/sidebar/settings.tsx:105
+#: src/sidebar/settings.tsx:111
 msgid "Contacts"
 msgstr "Contacts"
 
@@ -463,8 +463,8 @@ msgstr "Customize"
 msgid "Dark"
 msgstr "Dark"
 
-#: src/settings/general/index.tsx:323
-#: src/sidebar/settings.tsx:71
+#: src/settings/general/index.tsx:325
+#: src/sidebar/settings.tsx:72
 msgid "Data"
 msgstr "Data"
 
@@ -517,6 +517,10 @@ msgstr "Describe the template purpose..."
 #: src/settings/general/notification.tsx:257
 msgid "Detection delay"
 msgstr "Detection delay"
+
+#: src/settings/personalization/index.tsx:61
+msgid "Dictionary"
+msgstr "Dictionary"
 
 #: src/settings/todo/provider-content.tsx:196
 #: src/settings/todo/provider-content.tsx:216
@@ -713,7 +717,7 @@ msgstr "Forever"
 msgid "Free"
 msgstr "Free"
 
-#: src/sidebar/settings.tsx:68
+#: src/sidebar/settings.tsx:69
 msgid "General"
 msgstr "General"
 
@@ -811,7 +815,7 @@ msgid "Insert below"
 msgstr "Insert below"
 
 #: src/settings/ai/llm/index.tsx:13
-#: src/sidebar/settings.tsx:80
+#: src/sidebar/settings.tsx:81
 msgid "Intelligence"
 msgstr "Intelligence"
 
@@ -839,7 +843,7 @@ msgstr "Keep Anarlog available from the menu bar."
 msgid "Keep recordings until manually deleted"
 msgstr "Keep recordings until manually deleted"
 
-#: src/settings/general/index.tsx:274
+#: src/settings/general/index.tsx:276
 msgid "Language & Region"
 msgstr "Language & Region"
 
@@ -980,6 +984,10 @@ msgstr "Moving existing data requires an empty folder. Uncheck Move to switch lo
 msgid "Name"
 msgstr "Name"
 
+#: src/settings/personalization/index.tsx:64
+msgid "Names, jargon, and product terms to prefer."
+msgstr "Names, jargon, and product terms to prefer."
+
 #: src/chat/components/toolbar-controls.tsx:64
 msgid "New chat"
 msgstr "New chat"
@@ -1078,8 +1086,8 @@ msgstr "Note breadcrumb"
 msgid "Notes"
 msgstr "Notes"
 
-#: src/settings/general/index.tsx:333
-#: src/sidebar/settings.tsx:73
+#: src/settings/general/index.tsx:335
+#: src/sidebar/settings.tsx:74
 msgid "Notifications"
 msgstr "Notifications"
 
@@ -1196,14 +1204,19 @@ msgstr "People"
 msgid "permission panel."
 msgstr "permission panel."
 
-#: src/settings/general/index.tsx:342
-#: src/sidebar/settings.tsx:93
+#: src/settings/general/index.tsx:344
+#: src/sidebar/settings.tsx:99
 msgid "Permissions"
 msgstr "Permissions"
 
 #: src/onboarding/index.tsx:205
 msgid "Permissions granted"
 msgstr "Permissions granted"
+
+#: src/settings/personalization/index.tsx:27
+#: src/sidebar/settings.tsx:84
+msgid "Personalization"
+msgstr "Personalization"
 
 #: src/contacts/details.tsx:483
 msgid "Phone"
@@ -1351,6 +1364,10 @@ msgstr "Respect Do-Not-Disturb mode"
 msgid "Retry"
 msgstr "Retry"
 
+#: src/settings/personalization/index.tsx:93
+msgid "Save"
+msgstr "Save"
+
 #: src/settings/general/storage/index.tsx:199
 msgid "Save audio after meeting"
 msgstr "Save audio after meeting"
@@ -1481,7 +1498,7 @@ msgid "Set as default"
 msgstr "Set as default"
 
 #: src/main/empty.tsx:52
-#: src/sidebar/settings.tsx:111
+#: src/sidebar/settings.tsx:117
 msgid "Settings"
 msgstr "Settings"
 
@@ -1714,7 +1731,7 @@ msgstr "Template actions"
 msgid "Template content with Jinja2: {{ variable }}, {% if condition %}"
 msgstr "Template content with Jinja2: {{ variable }}, {% if condition %}"
 
-#: src/sidebar/settings.tsx:83
+#: src/sidebar/settings.tsx:89
 #: src/templates/template-sidebar.tsx:298
 msgid "Templates"
 msgstr "Templates"
@@ -1752,7 +1769,7 @@ msgid "Transcript"
 msgstr "Transcript"
 
 #: src/settings/ai/stt/index.tsx:17
-#: src/sidebar/settings.tsx:79
+#: src/sidebar/settings.tsx:80
 msgid "Transcription"
 msgstr "Transcription"
 

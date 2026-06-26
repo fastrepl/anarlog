@@ -143,6 +143,11 @@ export const SETTINGS_MAPPING = {
       path: ["language", "spoken_languages"],
       default: "[]" as string,
     },
+    personalization_dictionary_terms: {
+      type: "string",
+      path: ["personalization", "dictionary_terms"],
+      default: "[]" as string,
+    },
     ignored_platforms: {
       type: "string",
       path: ["notification", "ignored_platforms"],

@@ -27,6 +27,8 @@ import { SettingsPageTitle } from "~/settings/page-title";
 import { useConfigValues } from "~/shared/config";
 import * as settings from "~/store/tinybase/store/settings";
 
+type GeneralFormValues = Omit<General, "personalization_dictionary_terms">;
+
 function useSettingsForm() {
   const settingsValue = useConfigValues([
     "autostart",
@@ -44,7 +46,7 @@ function useSettingsForm() {
   ] as const);
 
   const setPartialValues = settings.UI.useSetPartialValuesCallback(
-    (row: Partial<General>) =>
+    (row: Partial<GeneralFormValues>) =>
       ({
         ...row,
         spoken_languages: row.spoken_languages

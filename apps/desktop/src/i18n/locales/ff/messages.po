@@ -66,7 +66,7 @@ msgstr ""
 #: src/settings/general/account.tsx:76
 #: src/settings/general/account.tsx:104
 #: src/settings/general/account.tsx:139
-#: src/sidebar/settings.tsx:72
+#: src/sidebar/settings.tsx:73
 msgid "Account"
 msgstr ""
 
@@ -168,8 +168,8 @@ msgstr ""
 msgid "API Key"
 msgstr ""
 
-#: src/settings/general/index.tsx:169
-#: src/sidebar/settings.tsx:70
+#: src/settings/general/index.tsx:171
+#: src/sidebar/settings.tsx:71
 msgid "App"
 msgstr "Kuutorgal"
 
@@ -257,7 +257,7 @@ msgstr ""
 #: src/calendar/components/sidebar.tsx:328
 #: src/settings/general/permissions.tsx:191
 #: src/sidebar/calendar.tsx:10
-#: src/sidebar/settings.tsx:100
+#: src/sidebar/settings.tsx:106
 msgid "Calendar"
 msgstr ""
 
@@ -418,7 +418,7 @@ msgid "Connect your integration"
 msgstr ""
 
 #: src/sidebar/contacts.tsx:304
-#: src/sidebar/settings.tsx:105
+#: src/sidebar/settings.tsx:111
 msgid "Contacts"
 msgstr ""
 
@@ -463,8 +463,8 @@ msgstr ""
 msgid "Dark"
 msgstr ""
 
-#: src/settings/general/index.tsx:323
-#: src/sidebar/settings.tsx:71
+#: src/settings/general/index.tsx:325
+#: src/sidebar/settings.tsx:72
 msgid "Data"
 msgstr "Dowlaaji"
 
@@ -516,6 +516,10 @@ msgstr ""
 
 #: src/settings/general/notification.tsx:257
 msgid "Detection delay"
+msgstr ""
+
+#: src/settings/personalization/index.tsx:61
+msgid "Dictionary"
 msgstr ""
 
 #: src/settings/todo/provider-content.tsx:196
@@ -713,7 +717,7 @@ msgstr ""
 msgid "Free"
 msgstr ""
 
-#: src/sidebar/settings.tsx:68
+#: src/sidebar/settings.tsx:69
 msgid "General"
 msgstr ""
 
@@ -811,7 +815,7 @@ msgid "Insert below"
 msgstr ""
 
 #: src/settings/ai/llm/index.tsx:13
-#: src/sidebar/settings.tsx:80
+#: src/sidebar/settings.tsx:81
 msgid "Intelligence"
 msgstr ""
 
@@ -839,7 +843,7 @@ msgstr ""
 msgid "Keep recordings until manually deleted"
 msgstr ""
 
-#: src/settings/general/index.tsx:274
+#: src/settings/general/index.tsx:276
 msgid "Language & Region"
 msgstr "Ɗemngal e Diiwaan"
 
@@ -980,6 +984,10 @@ msgstr ""
 msgid "Name"
 msgstr ""
 
+#: src/settings/personalization/index.tsx:64
+msgid "Names, jargon, and product terms to prefer."
+msgstr ""
+
 #: src/chat/components/toolbar-controls.tsx:64
 msgid "New chat"
 msgstr ""
@@ -1078,8 +1086,8 @@ msgstr ""
 msgid "Notes"
 msgstr ""
 
-#: src/settings/general/index.tsx:333
-#: src/sidebar/settings.tsx:73
+#: src/settings/general/index.tsx:335
+#: src/sidebar/settings.tsx:74
 msgid "Notifications"
 msgstr "Noddaango"
 
@@ -1196,13 +1204,18 @@ msgstr ""
 msgid "permission panel."
 msgstr ""
 
-#: src/settings/general/index.tsx:342
-#: src/sidebar/settings.tsx:93
+#: src/settings/general/index.tsx:344
+#: src/sidebar/settings.tsx:99
 msgid "Permissions"
 msgstr ""
 
 #: src/onboarding/index.tsx:205
 msgid "Permissions granted"
+msgstr ""
+
+#: src/settings/personalization/index.tsx:27
+#: src/sidebar/settings.tsx:84
+msgid "Personalization"
 msgstr ""
 
 #: src/contacts/details.tsx:483
@@ -1351,6 +1364,10 @@ msgstr ""
 msgid "Retry"
 msgstr ""
 
+#: src/settings/personalization/index.tsx:93
+msgid "Save"
+msgstr ""
+
 #: src/settings/general/storage/index.tsx:199
 msgid "Save audio after meeting"
 msgstr ""
@@ -1481,7 +1498,7 @@ msgid "Set as default"
 msgstr ""
 
 #: src/main/empty.tsx:52
-#: src/sidebar/settings.tsx:111
+#: src/sidebar/settings.tsx:117
 msgid "Settings"
 msgstr ""
 
@@ -1714,7 +1731,7 @@ msgstr ""
 msgid "Template content with Jinja2: {{ variable }}, {% if condition %}"
 msgstr ""
 
-#: src/sidebar/settings.tsx:83
+#: src/sidebar/settings.tsx:89
 #: src/templates/template-sidebar.tsx:298
 msgid "Templates"
 msgstr ""
@@ -1752,7 +1769,7 @@ msgid "Transcript"
 msgstr ""
 
 #: src/settings/ai/stt/index.tsx:17
-#: src/sidebar/settings.tsx:79
+#: src/sidebar/settings.tsx:80
 msgid "Transcription"
 msgstr ""
 

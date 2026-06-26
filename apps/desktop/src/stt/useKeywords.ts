@@ -10,10 +10,13 @@ import retextStringify from "retext-stringify";
 import { unified } from "unified";
 import type { VFile } from "vfile";
 
+import { useConfigValue } from "~/shared/config";
 import * as main from "~/store/tinybase/store/main";
+import { normalizeKeywordList } from "~/stt/keywords";
 
 export function useKeywords(sessionId: string) {
   const rawMd = main.UI.useCell("sessions", sessionId, "raw_md", main.STORE_ID);
+  const dictionaryTerms = useConfigValue("personalization_dictionary_terms");
 
   return useMemo(() => {
     const { keywords, keyphrases } =
@@ -21,8 +24,12 @@ export function useKeywords(sessionId: string) {
         ? extractKeywordsFromMarkdown(rawMd)
         : { keywords: [], keyphrases: [] };
 
-    return combineKeywords([...keywords, ...keyphrases]);
-  }, [rawMd]);
+    return normalizeKeywordList([
+      ...dictionaryTerms,
+      ...keywords,
+      ...keyphrases,
+    ]);
+  }, [dictionaryTerms, rawMd]);
 }
 
 export const extractKeywordsFromMarkdown = (
@@ -99,9 +106,6 @@ const extractKeyphraseMatches = (phrase: Keyphrase): string[] =>
     const text = toString(match.nodes).trim();
     return text.length > 0 ? [text] : [];
   });
-
-const combineKeywords = (markdownWords: string[]): string[] =>
-  Array.from(new Set(markdownWords)).filter((keyword) => keyword.length >= 2);
 
 const removeCodeBlocks = (text: string): string =>
   text.replace(/```[\s\S]*?```/g, "").replace(/`[^`]+`/g, "");

@@ -8,6 +8,7 @@ import {
   CalendarIcon,
   DatabaseIcon,
   LockIcon,
+  SlidersHorizontalIcon,
   SmartphoneIcon,
   SparklesIcon,
   UserIcon,
@@ -78,6 +79,11 @@ export function SettingsNav() {
       items: [
         { id: "transcription", label: t`Transcription`, icon: AudioLinesIcon },
         { id: "intelligence", label: t`Intelligence`, icon: SparklesIcon },
+        {
+          id: "personalization",
+          label: t`Personalization`,
+          icon: SlidersHorizontalIcon,
+        },
         {
           action: "open-templates",
           label: t`Templates`,

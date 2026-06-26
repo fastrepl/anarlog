@@ -10,6 +10,7 @@ type ProviderRow = { type: "llm" | "stt"; base_url: string; api_key: string };
 
 const JSON_ARRAY_FIELDS = new Set([
   "spoken_languages",
+  "personalization_dictionary_terms",
   "ignored_platforms",
   "included_platforms",
   "ignored_recurring_series",
@@ -162,6 +163,7 @@ export function storeValuesToSettings(
     notification: {},
     general: {},
     language: {},
+    personalization: {},
   };
 
   for (const [key, config] of Object.entries(SETTINGS_MAPPING.values)) {

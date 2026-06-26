@@ -109,6 +109,9 @@ describe("settingsPersister roundtrip", () => {
         ai_language: "en",
         spoken_languages: ["en", "ko"],
       },
+      personalization: {
+        dictionary_terms: ["Anarlog", "Parakeet TDT"],
+      },
     };
 
     const [tables, values] = settingsToContent(original);
@@ -189,6 +192,7 @@ describe("settingsPersister roundtrip", () => {
       telemetry_consent: false,
       ai_language: "en",
       spoken_languages: '["en","ko"]',
+      personalization_dictionary_terms: '["Anarlog","Parakeet TDT"]',
       mic_active_threshold: 15,
     });
 
@@ -221,6 +225,7 @@ describe("settingsPersister roundtrip", () => {
       notification: {},
       general: {},
       language: {},
+      personalization: {},
     });
   });
 
@@ -427,6 +432,7 @@ describe("settingsPersister roundtrip", () => {
     expect(result.general).toEqual({});
     expect(result.notification).toEqual({});
     expect(result.language).toEqual({});
+    expect(result.personalization).toEqual({});
   });
 
   test("storeToSettings keeps non-default values and omits default ones", () => {

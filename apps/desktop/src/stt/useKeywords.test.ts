@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
 
+import {
+  formatDictionaryTerms,
+  normalizeKeywordList,
+  parseDictionaryTermsText,
+} from "./keywords";
 import { extractKeywordsFromMarkdown } from "./useKeywords";
 
 describe("extractKeywordsFromMarkdown", () => {
@@ -101,5 +106,26 @@ Next steps: testing and validation of the algorithms
     const result = extractKeywordsFromMarkdown(input);
     expect(result.keywords).toEqual(expect.arrayContaining(keywords));
     expect(result.keyphrases).toEqual(expect.arrayContaining(keyphrases));
+  });
+});
+
+describe("dictionary term helpers", () => {
+  it("parses newline and comma separated terms", () => {
+    expect(
+      parseDictionaryTermsText("Anarlog\nFastConformer, Parakeet TDT"),
+    ).toEqual(["Anarlog", "FastConformer", "Parakeet TDT"]);
+  });
+
+  it("normalizes duplicate terms while preserving first spelling", () => {
+    expect(normalizeKeywordList(["Anarlog", " anarlog ", "Parakeet"])).toEqual([
+      "Anarlog",
+      "Parakeet",
+    ]);
+  });
+
+  it("formats stored terms one per line", () => {
+    expect(formatDictionaryTerms(["Anarlog", "Parakeet TDT"])).toBe(
+      "Anarlog\nParakeet TDT",
+    );
   });
 });
