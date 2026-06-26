@@ -115,7 +115,10 @@ export async function extractEventContacts({
   });
 
   const contacts = normalizeExtractedContacts(
-    parseExtractionJson(result.text).contacts,
+    [
+      ...inferContactsFromEventText(context),
+      ...parseExtractionJson(result.text).contacts,
+    ],
     context.candidates,
   );
 
@@ -546,6 +549,56 @@ function trimEventText(value: string | undefined): string {
   return stripHtml(value).trim().slice(0, MAX_EVENT_TEXT_CHARS);
 }
 
+function inferContactsFromEventText(
+  context: EventContactExtractionContext,
+): ExtractedEventContact[] {
+  const contacts = new Map<string, ExtractedEventContact>();
+  const lines = [context.title, context.description]
+    .flatMap((value) => trimEventText(value).split(/\n+/))
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const addName = (value: string) => {
+    const name = cleanNameHint(
+      value
+        .replace(/^[\w\s]+:\s*/, "")
+        .replace(/<[^>]*@[^>]*>/g, "")
+        .replace(/\([^)]*(organizer|host|required|optional)[^)]*\)/gi, ""),
+    );
+    const key = normalizeName(name);
+    if (
+      !key ||
+      !isLikelyPersonName(name) ||
+      isSelfReference(name, context.candidates)
+    ) {
+      return;
+    }
+
+    contacts.set(key, { name });
+  };
+
+  for (const line of lines) {
+    const betweenMatch = line.match(
+      /\bbetween\s+(.+?)(?:\s+(?:at|on|for)\b|$)/i,
+    );
+    if (betweenMatch?.[1]) {
+      addDelimitedNames(betweenMatch[1], addName);
+    }
+
+    if (line.includes("<>")) {
+      addDelimitedNames(line, addName);
+    }
+  }
+
+  return Array.from(contacts.values());
+}
+
+function addDelimitedNames(value: string, addName: (name: string) => void) {
+  for (const part of value.split(/\s*(?:<>|<->)\s*|\s+\band\b\s+|\s+&\s+/i)) {
+    addName(part);
+  }
+}
+
 function stripHtml(value: string): string {
   return value
     .replace(/<br\s*\/?>/gi, "\n")
@@ -567,6 +620,7 @@ function normalizeExtractedContacts(
   candidates: EventContactCandidate[],
 ): ExtractedEventContact[] {
   const deduped = new Map<string, ExtractedEventContact>();
+  const keysByName = new Map<string, string>();
 
   for (const contact of contacts) {
     const name = cleanNameHint(contact.name ?? "");
@@ -591,24 +645,42 @@ function normalizeExtractedContacts(
       continue;
     }
 
-    const key = matchedEmail
-      ? `email:${matchedEmail}`
-      : `name:${normalizeName(name)}`;
-    if (!deduped.has(key)) {
+    const nameKey = normalizeName(name);
+    const key = matchedEmail ? `email:${matchedEmail}` : `name:${nameKey}`;
+    const existingKey = deduped.has(key) ? key : keysByName.get(nameKey);
+    const existingContact = existingKey ? deduped.get(existingKey) : undefined;
+    if (!existingContact) {
       deduped.set(key, normalizedContact);
-    } else if (
-      !deduped.get(key)?.companyName &&
-      normalizedContact.companyName
-    ) {
-      const existingContact = deduped.get(key);
-      if (!existingContact) {
-        continue;
-      }
-      deduped.set(key, {
-        ...existingContact,
-        companyName: normalizedContact.companyName,
-      });
+      keysByName.set(nameKey, key);
+      continue;
     }
+
+    const existingEmail = normalizeEmail(existingContact.email);
+    if (matchedEmail && existingEmail && existingEmail !== matchedEmail) {
+      deduped.set(key, normalizedContact);
+      keysByName.set(nameKey, key);
+      continue;
+    }
+
+    const mergedContact: ExtractedEventContact = { name: existingContact.name };
+    const mergedEmail = existingContact.email ?? normalizedContact.email;
+    const mergedCompanyName =
+      existingContact.companyName ?? normalizedContact.companyName;
+    if (mergedEmail) {
+      mergedContact.email = mergedEmail;
+    }
+    if (mergedCompanyName) {
+      mergedContact.companyName = mergedCompanyName;
+    }
+    const mergedKey = mergedContact.email
+      ? `email:${mergedContact.email}`
+      : `name:${nameKey}`;
+
+    if (existingKey && existingKey !== mergedKey) {
+      deduped.delete(existingKey);
+    }
+    deduped.set(mergedKey, mergedContact);
+    keysByName.set(nameKey, mergedKey);
   }
 
   return Array.from(deduped.values()).slice(0, MAX_CONTACTS_TO_EXTRACT);
