@@ -43,7 +43,7 @@ export function TrialEndedDialog({
             Maybe later
           </Button>
           <Button
-            className="bg-primary text-primary-foreground hover:bg-primary/90 h-8 rounded-full px-4 text-xs font-medium shadow-sm"
+            className="bg-primary text-primary-foreground hover:bg-primary/90 h-8 rounded-full px-4 text-xs font-medium shadow-sm dark:bg-white dark:text-black dark:hover:bg-white/90"
             onClick={() => {
               onUpgrade();
               onOpenChange(false);
