@@ -495,6 +495,7 @@ export function TimelineView({
                   selectedIds={selectedIds}
                   flatItemKeys={flatItemKeys}
                   upcomingItemKey={upcomingMeetingStatus?.itemKey}
+                  upcomingItemLabel={upcomingMeetingStatus?.label}
                   upcomingItemNodeRef={setUpcomingMeetingNodeRef}
                 />
               ) : (
@@ -520,6 +521,11 @@ export function TimelineView({
                           : undefined
                       }
                       isUpcoming={itemKey === upcomingMeetingStatus?.itemKey}
+                      upcomingLabel={
+                        itemKey === upcomingMeetingStatus?.itemKey
+                          ? upcomingMeetingStatus.label
+                          : undefined
+                      }
                     />
                   );
                 })
@@ -606,7 +612,7 @@ function SidebarUpcomingMeetingStatus({
       aria-live="polite"
       ariaLabel={`${title || t`Meeting`} ${label.toLowerCase()}`}
       data-sidebar-upcoming-meeting-status
-      className="border-destructive bg-destructive text-destructive-foreground shadow-md"
+      className="border-destructive bg-destructive text-destructive-foreground w-28 justify-center shadow-md"
       icon={<ArrowUpIcon aria-hidden className="size-3" strokeWidth={2.4} />}
       onClick={onClick}
     >
@@ -825,6 +831,7 @@ function TodayBucket({
   selectedIds,
   flatItemKeys,
   upcomingItemKey,
+  upcomingItemLabel,
   upcomingItemNodeRef,
 }: {
   items: TimelineItem[];
@@ -837,6 +844,7 @@ function TodayBucket({
   selectedIds: string[];
   flatItemKeys: string[];
   upcomingItemKey?: string;
+  upcomingItemLabel?: string;
   upcomingItemNodeRef: RefCallback<HTMLDivElement>;
 }) {
   const currentTimeMs = useCurrentTimeMs();
@@ -914,6 +922,9 @@ function TodayBucket({
             itemKey === upcomingItemKey ? upcomingItemNodeRef : undefined
           }
           isUpcoming={itemKey === upcomingItemKey}
+          upcomingLabel={
+            itemKey === upcomingItemKey ? upcomingItemLabel : undefined
+          }
         />
       );
 
@@ -977,6 +988,7 @@ function TodayBucket({
     selectedIds,
     flatItemKeys,
     upcomingItemKey,
+    upcomingItemLabel,
     upcomingItemNodeRef,
   ]);
 

@@ -103,9 +103,11 @@ export function getUpcomingMeetingStatus(
 
 function formatUpcomingMeetingLabel(diffMs: number): string {
   const totalSeconds = Math.max(1, Math.floor(diffMs / 1000));
-  if (totalSeconds < 60) {
-    return `Starts in ${totalSeconds}s`;
+  const minutes = Math.floor(totalSeconds / 60);
+
+  if (minutes < 1) {
+    return `In ${totalSeconds} ${totalSeconds === 1 ? "second" : "seconds"}`;
   }
 
-  return `Starts in ${Math.floor(totalSeconds / 60)}m`;
+  return `In ${minutes} ${minutes === 1 ? "minute" : "minutes"}`;
 }

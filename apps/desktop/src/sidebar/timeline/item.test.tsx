@@ -270,16 +270,50 @@ describe("TimelineItemComponent", () => {
         multiSelected={false}
         flatItemKeys={["event-event-standup"]}
         isUpcoming
+        upcomingLabel="In 4 minutes"
       />,
     );
 
     const rowButton = screen.getByText("Team standup").closest("button");
+    const countdown = screen.getByText("In 4 minutes");
 
     expect(rowButton?.className).toContain("bg-destructive/8");
-    expect(rowButton?.className).toContain("motion-safe:animate-pulse");
+    expect(rowButton?.className).not.toContain("motion-safe:animate-pulse");
     expect(rowButton?.className).not.toContain("shadow-[0_0_22px");
     expect(rowButton?.className).not.toContain("ring-1");
     expect(rowButton?.className).not.toContain("opacity-65");
+    expect(
+      countdown.getAttribute("data-sidebar-timeline-upcoming-countdown"),
+    ).toBe("true");
+    expect(countdown.className).toContain("bg-destructive");
+    expect(countdown.className).toContain("w-24");
+    expect(countdown.className).toContain("justify-center");
+  });
+
+  it("does not render a countdown chip on non-upcoming rows", () => {
+    render(
+      <TimelineItemComponent
+        item={{
+          type: "event",
+          id: "event-standup",
+          data: {
+            title: "Team standup",
+            started_at: "2024-01-15T10:30:00.000Z",
+            ended_at: "2024-01-15T11:00:00.000Z",
+            tracking_id_event: "tracking-standup",
+            has_recurrence_rules: false,
+          },
+        }}
+        precision="time"
+        selected={false}
+        timezone="UTC"
+        multiSelected={false}
+        flatItemKeys={["event-event-standup"]}
+        upcomingLabel="In 4 minutes"
+      />,
+    );
+
+    expect(screen.queryByText("In 4 minutes")).toBeNull();
   });
 
   it("exposes an arbitrary timeline row for visibility checks", () => {

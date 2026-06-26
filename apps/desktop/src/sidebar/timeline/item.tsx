@@ -53,6 +53,7 @@ export const TimelineItemComponent = memo(
     selectedNodeRef,
     itemNodeRef,
     isUpcoming,
+    upcomingLabel,
   }: {
     item: TimelineItem;
     precision: TimelinePrecision;
@@ -63,6 +64,7 @@ export const TimelineItemComponent = memo(
     selectedNodeRef?: RefCallback<HTMLDivElement>;
     itemNodeRef?: RefCallback<HTMLDivElement>;
     isUpcoming?: boolean;
+    upcomingLabel?: string;
   }) => {
     if (item.type === "event") {
       return (
@@ -76,6 +78,7 @@ export const TimelineItemComponent = memo(
           selectedNodeRef={selectedNodeRef}
           itemNodeRef={itemNodeRef}
           isUpcoming={isUpcoming}
+          upcomingLabel={upcomingLabel}
         />
       );
     }
@@ -90,6 +93,7 @@ export const TimelineItemComponent = memo(
         selectedNodeRef={selectedNodeRef}
         itemNodeRef={itemNodeRef}
         isUpcoming={isUpcoming}
+        upcomingLabel={upcomingLabel}
       />
     );
   },
@@ -117,6 +121,7 @@ function ItemBase({
   itemNodeRef,
   timelineSessionId,
   isUpcoming,
+  upcomingLabel,
 }: {
   title: string;
   displayTime: string;
@@ -139,10 +144,13 @@ function ItemBase({
   itemNodeRef?: RefCallback<HTMLDivElement>;
   timelineSessionId?: string;
   isUpcoming?: boolean;
+  upcomingLabel?: string;
 }) {
   const { t } = useLingui();
   const hasSelection = useTimelineSelection((s) => s.selectedIds.length > 0);
   const showLiveStop = isLive && onStop;
+  const showUpcomingCountdown =
+    Boolean(upcomingLabel) && Boolean(isUpcoming) && !isLive && !showSpinner;
   const showTrailingStatus = showLiveStop || showSpinner;
   const setItemRef = useCallback(
     (node: HTMLDivElement | null) => {
@@ -174,7 +182,7 @@ function ItemBase({
           !multiSelected && !selected && "hover:bg-accent/50",
           isUpcoming &&
             !isLive && [
-              "bg-destructive/8 text-foreground motion-safe:animate-pulse",
+              "bg-destructive/8 text-foreground",
               "hover:bg-destructive/12 focus-visible:ring-destructive/25",
             ],
           isLive && [
@@ -209,6 +217,17 @@ function ItemBase({
               </div>
             )}
           </div>
+          {showUpcomingCountdown ? (
+            <span
+              data-sidebar-timeline-upcoming-countdown
+              className={cn([
+                "bg-destructive text-destructive-foreground pointer-events-none shrink-0",
+                "inline-flex h-8 w-24 items-center justify-center rounded-lg px-2 text-xs leading-none font-medium whitespace-nowrap",
+              ])}
+            >
+              {upcomingLabel}
+            </span>
+          ) : null}
         </div>
       </InteractiveButton>
       {showSpinner ? (
@@ -270,6 +289,7 @@ const EventItem = memo(
     selectedNodeRef,
     itemNodeRef,
     isUpcoming,
+    upcomingLabel,
   }: {
     item: EventTimelineItem;
     precision: TimelinePrecision;
@@ -280,6 +300,7 @@ const EventItem = memo(
     selectedNodeRef?: RefCallback<HTMLDivElement>;
     itemNodeRef?: RefCallback<HTMLDivElement>;
     isUpcoming?: boolean;
+    upcomingLabel?: string;
   }) => {
     const { t } = useLingui();
     const store = main.UI.useStore(main.STORE_ID);
@@ -426,6 +447,7 @@ const EventItem = memo(
         selectedNodeRef={selected ? selectedNodeRef : undefined}
         itemNodeRef={itemNodeRef}
         isUpcoming={isUpcoming}
+        upcomingLabel={upcomingLabel}
       />
     );
   },
@@ -442,6 +464,7 @@ const SessionItem = memo(
     selectedNodeRef,
     itemNodeRef,
     isUpcoming,
+    upcomingLabel,
   }: {
     item: SessionTimelineItem;
     precision: TimelinePrecision;
@@ -452,6 +475,7 @@ const SessionItem = memo(
     selectedNodeRef?: RefCallback<HTMLDivElement>;
     itemNodeRef?: RefCallback<HTMLDivElement>;
     isUpcoming?: boolean;
+    upcomingLabel?: string;
   }) => {
     const { t } = useLingui();
     const store = main.UI.useStore(main.STORE_ID);
@@ -615,6 +639,7 @@ const SessionItem = memo(
         itemNodeRef={itemNodeRef}
         timelineSessionId={sessionId}
         isUpcoming={isUpcoming}
+        upcomingLabel={upcomingLabel}
         draggable
       />
     );

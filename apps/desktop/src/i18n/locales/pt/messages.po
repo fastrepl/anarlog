@@ -479,11 +479,11 @@ msgstr ""
 msgid "Delete"
 msgstr ""
 
-#: src/sidebar/timeline/item.tsx:398
+#: src/sidebar/timeline/item.tsx:419
 msgid "Delete All Recurring Events"
 msgstr ""
 
-#: src/sidebar/timeline/item.tsx:391
+#: src/sidebar/timeline/item.tsx:412
 msgid "Delete Event"
 msgstr ""
 
@@ -491,7 +491,7 @@ msgstr ""
 msgid "Delete model"
 msgstr ""
 
-#: src/sidebar/timeline/item.tsx:587
+#: src/sidebar/timeline/item.tsx:611
 msgid "Delete Note"
 msgstr ""
 
@@ -503,7 +503,7 @@ msgstr ""
 msgid "Delete Selected ({sessionCount})"
 msgstr ""
 
-#: src/sidebar/timeline/item.tsx:391
+#: src/sidebar/timeline/item.tsx:412
 msgid "Delete This Event"
 msgstr ""
 
@@ -739,7 +739,7 @@ msgstr ""
 msgid "Get started for free"
 msgstr ""
 
-#: src/sidebar/timeline/index.tsx:771
+#: src/sidebar/timeline/index.tsx:777
 msgid "Go back to now"
 msgstr ""
 
@@ -891,7 +891,7 @@ msgstr ""
 msgid "Match whole word"
 msgstr ""
 
-#: src/sidebar/timeline/index.tsx:607
+#: src/sidebar/timeline/index.tsx:613
 msgid "Meeting"
 msgstr ""
 
@@ -1014,7 +1014,7 @@ msgstr ""
 msgid "No description provided."
 msgstr ""
 
-#: src/sidebar/timeline/index.tsx:870
+#: src/sidebar/timeline/index.tsx:878
 msgid "No items today"
 msgstr ""
 
@@ -1077,7 +1077,7 @@ msgstr ""
 msgid "Notifications"
 msgstr "Notificações"
 
-#: src/sidebar/timeline/index.tsx:783
+#: src/sidebar/timeline/index.tsx:789
 msgid "Now"
 msgstr ""
 
@@ -1107,8 +1107,8 @@ msgstr ""
 msgid "Open Anarlog"
 msgstr ""
 
-#: src/sidebar/timeline/index.tsx:560
-#: src/sidebar/timeline/index.tsx:564
+#: src/sidebar/timeline/index.tsx:566
+#: src/sidebar/timeline/index.tsx:570
 msgid "Open calendar"
 msgstr ""
 
@@ -1120,12 +1120,12 @@ msgstr ""
 msgid "Open floating panel"
 msgstr ""
 
-#: src/sidebar/timeline/item.tsx:385
+#: src/sidebar/timeline/item.tsx:406
 msgid "Open in New Tab"
 msgstr ""
 
 #: src/session/components/outer-header/overflow/index.tsx:160
-#: src/sidebar/timeline/item.tsx:576
+#: src/sidebar/timeline/item.tsx:600
 msgid "Open in New Window"
 msgstr ""
 
@@ -1483,7 +1483,7 @@ msgstr ""
 msgid "Share usage data"
 msgstr "Compartilhar dados de uso"
 
-#: src/sidebar/timeline/item.tsx:373
+#: src/sidebar/timeline/item.tsx:394
 msgid "Show All Recurring Events"
 msgstr ""
 
@@ -1499,7 +1499,7 @@ msgstr ""
 msgid "Show Deleted Events"
 msgstr ""
 
-#: src/sidebar/timeline/item.tsx:379
+#: src/sidebar/timeline/item.tsx:400
 msgid "Show Event"
 msgstr ""
 
@@ -1508,7 +1508,7 @@ msgid "Show floating bar"
 msgstr "Mostrar barra flutuante"
 
 #: src/settings/ai/stt/select.tsx:726
-#: src/sidebar/timeline/item.tsx:581
+#: src/sidebar/timeline/item.tsx:605
 msgid "Show in Finder"
 msgstr ""
 
@@ -1524,7 +1524,7 @@ msgstr "Mostrar o controle flutuante compacto durante a escuta."
 msgid "Show the live transcript overlay by default while listening."
 msgstr ""
 
-#: src/sidebar/timeline/item.tsx:368
+#: src/sidebar/timeline/item.tsx:389
 msgid "Show This Event"
 msgstr ""
 
@@ -1637,7 +1637,7 @@ msgid "Stop"
 msgstr ""
 
 #: src/session/components/outer-header/index.tsx:292
-#: src/sidebar/timeline/item.tsx:225
+#: src/sidebar/timeline/item.tsx:244
 msgid "Stop listening"
 msgstr ""
 
@@ -1782,9 +1782,9 @@ msgstr ""
 #: src/session/components/title-input.tsx:385
 #: src/shared/open-note-dialog.tsx:107
 #: src/shared/ui/resource-list/preview-header.tsx:73
-#: src/sidebar/timeline/item.tsx:197
-#: src/sidebar/timeline/item.tsx:291
-#: src/sidebar/timeline/item.tsx:528
+#: src/sidebar/timeline/item.tsx:205
+#: src/sidebar/timeline/item.tsx:312
+#: src/sidebar/timeline/item.tsx:552
 #: src/templates/details.tsx:122
 #: src/templates/sections-editor.tsx:293
 msgid "Untitled"

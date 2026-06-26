@@ -191,15 +191,18 @@ vi.mock("./item", () => ({
     isUpcoming,
     item,
     itemNodeRef,
+    upcomingLabel,
   }: {
     isUpcoming?: boolean;
     item: { id: string };
     itemNodeRef?: (node: HTMLDivElement | null) => void;
+    upcomingLabel?: string;
   }) => (
     <div
       ref={itemNodeRef}
       data-testid={`timeline-item-${item.id}`}
       data-upcoming={isUpcoming ? "true" : undefined}
+      data-upcoming-label={upcomingLabel}
     />
   ),
 }));
@@ -709,13 +712,17 @@ describe("TimelineView", () => {
       y: 800,
     });
 
-    expect(chip?.textContent).toBe("Starts in 51s");
+    expect(chip?.textContent).toBe("In 51 seconds");
     expect(chip?.className).toContain("bg-destructive");
+    expect(chip?.className).toContain("w-28");
     expect(chip?.querySelector("svg")).toBeTruthy();
-    expect(chip?.getAttribute("aria-label")).toBe("Team standup starts in 51s");
+    expect(chip?.getAttribute("aria-label")).toBe("Team standup in 51 seconds");
     expect(screen.getByTestId("timeline-item-standup").dataset.upcoming).toBe(
       "true",
     );
+    expect(
+      screen.getByTestId("timeline-item-standup").dataset.upcomingLabel,
+    ).toBe("In 51 seconds");
     expect(
       container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
     ).toContain("h-12");
@@ -802,7 +809,7 @@ describe("TimelineView", () => {
     expect(
       container.querySelector("[data-sidebar-upcoming-meeting-status]")
         ?.textContent,
-    ).toBe("Starts in 1m");
+    ).toBe("In 1 minute");
   });
 
   it("hides the imminent meeting chip outside the start window", () => {
@@ -833,7 +840,7 @@ describe("TimelineView", () => {
     expect(
       container.querySelector("[data-sidebar-upcoming-meeting-status]")
         ?.textContent,
-    ).toBe("Starts in 5m");
+    ).toBe("In 5 minutes");
 
     vi.setSystemTime(new Date("2024-01-15T12:06:01.000Z"));
     mocks.currentTimeMs = Date.now();
