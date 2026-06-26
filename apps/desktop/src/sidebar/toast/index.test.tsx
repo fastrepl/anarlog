@@ -109,6 +109,36 @@ describe("ToastArea", () => {
     expect(toastContainer?.style.top).toBe("56px");
   });
 
+  it("keeps default placement centered while anchoring vertically to the main surface", () => {
+    const mainSurface = document.createElement("div");
+    mainSurface.setAttribute("data-chat-floating-anchor", "");
+    vi.spyOn(mainSurface, "getBoundingClientRect").mockReturnValue({
+      bottom: 552,
+      height: 500,
+      left: 200,
+      right: 800,
+      top: 52,
+      width: 600,
+      x: 200,
+      y: 52,
+      toJSON: () => ({}),
+    });
+    document.body.appendChild(mainSurface);
+
+    render(<ToastArea />);
+
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+
+    const toastContainer = screen
+      .getByText("Pro features available")
+      .closest(".fixed") as HTMLElement | null;
+
+    expect(toastContainer?.style.left).toBe("calc(50% + 0px)");
+    expect(toastContainer?.style.top).toBe("88px");
+  });
+
   it("positions the left sidebar toast relative to the main white surface", () => {
     const mainSurface = document.createElement("div");
     mainSurface.setAttribute("data-chat-floating-anchor", "");
@@ -177,7 +207,7 @@ describe("ToastArea", () => {
     expect(toastContainer?.style.top).toBe("88px");
   });
 
-  it("uses fallback placement immediately when left sidebar anchoring is disabled", () => {
+  it("preserves the main surface vertical anchor when left sidebar placement is disabled", () => {
     const mainSurface = document.createElement("div");
     mainSurface.setAttribute("data-chat-floating-anchor", "");
     vi.spyOn(mainSurface, "getBoundingClientRect").mockReturnValue({
