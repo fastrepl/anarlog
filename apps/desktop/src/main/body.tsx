@@ -79,6 +79,8 @@ export function ClassicMainBody() {
   const bodyRootRef = useRef<HTMLDivElement>(null);
   const leftSidebarPanelSizeRef = useRef(leftSidebarPanelSize);
   const leftSidebarResizeDraggingRef = useRef(false);
+  const [showIgnoredTimelineEvents, setShowIgnoredTimelineEvents] =
+    useState(false);
 
   const isOnboarding = currentTab?.type === "onboarding";
   const isChangelog = currentTab?.type === "changelog";
@@ -102,7 +104,9 @@ export function ClassicMainBody() {
   });
   const mainAreaTopDrag = useMainAreaTopWindowDrag(enableMainAreaTopDrag);
   const update = useDesktopUpdateControl();
-  const upcomingMeetingStatus = useSidebarUpcomingMeetingStatus();
+  const upcomingMeetingStatus = useSidebarUpcomingMeetingStatus({
+    showIgnored: showIgnoredTimelineEvents,
+  });
   const [leftSidebarResizing, setLeftSidebarResizing] = useState(false);
   const hasUpcomingMeetingBadge = upcomingMeetingStatus
     ? currentTab?.type !== "sessions" ||
@@ -312,7 +316,13 @@ export function ClassicMainBody() {
                     : "-translate-x-3 opacity-0",
                 ])}
               >
-                <ClassicMainSidebar forceMount />
+                <ClassicMainSidebar
+                  forceMount
+                  showIgnoredTimelineEvents={showIgnoredTimelineEvents}
+                  onShowIgnoredTimelineEventsChange={
+                    setShowIgnoredTimelineEvents
+                  }
+                />
               </div>
             </ResizablePanel>
             <ResizableHandle

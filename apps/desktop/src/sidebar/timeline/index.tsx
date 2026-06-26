@@ -26,7 +26,10 @@ import {
   useCurrentTimeMs,
   useSmartCurrentTime,
 } from "./realtime";
-import { getUpcomingMeetingStatus } from "./upcoming-meeting";
+import {
+  getUpcomingMeetingStatus,
+  useUpcomingMeetingLabelFormatter,
+} from "./upcoming-meeting";
 import {
   buildTimelineBuckets,
   calculateTodayIndicatorPlacement,
@@ -58,15 +61,20 @@ import { useListener } from "~/stt/contexts";
 
 export function TimelineView({
   showOpenCalendarButton = true,
+  showIgnoredEvents,
+  onShowIgnoredEventsChange,
   topChromeInset = false,
 }: {
   showOpenCalendarButton?: boolean;
+  showIgnoredEvents?: boolean;
+  onShowIgnoredEventsChange?: (showIgnored: boolean) => void;
   topChromeInset?: boolean;
 } = {}) {
   const { t } = useLingui();
   const timezone = useConfigValue("timezone") || undefined;
   const { timelineEventsTable, timelineSessionsTable } = useTimelineTables();
-  const [showIgnored, setShowIgnored] = useState(false);
+  const [uncontrolledShowIgnored, setUncontrolledShowIgnored] = useState(false);
+  const showIgnored = showIgnoredEvents ?? uncontrolledShowIgnored;
   const [isScrolledToTop, setIsScrolledToTop] = useState(true);
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(true);
 
@@ -90,9 +98,15 @@ export function TimelineView({
     [buckets],
   );
   const currentTimeMs = useCurrentTimeMs(1000);
+  const formatUpcomingMeetingLabel = useUpcomingMeetingLabelFormatter();
   const upcomingMeetingStatus = useMemo(
-    () => getUpcomingMeetingStatus(buckets, currentTimeMs),
-    [buckets, currentTimeMs],
+    () =>
+      getUpcomingMeetingStatus(
+        buckets,
+        currentTimeMs,
+        formatUpcomingMeetingLabel,
+      ),
+    [buckets, currentTimeMs, formatUpcomingMeetingLabel],
   );
   const [isUpcomingMeetingVisible, setIsUpcomingMeetingVisible] =
     useState(false);
@@ -319,8 +333,15 @@ export function TimelineView({
   }, [buckets, hasToday, currentTimeMs]);
 
   const toggleShowIgnored = useCallback(() => {
-    setShowIgnored((prev) => !prev);
-  }, []);
+    const nextShowIgnored = !showIgnored;
+
+    if (onShowIgnoredEventsChange) {
+      onShowIgnoredEventsChange(nextShowIgnored);
+      return;
+    }
+
+    setUncontrolledShowIgnored(nextShowIgnored);
+  }, [onShowIgnoredEventsChange, showIgnored]);
 
   const handleOpenCalendar = useCallback(() => {
     openNew({ type: "calendar" });

@@ -8,7 +8,13 @@ import { TimelineView } from "./timeline";
 
 import { useTabs } from "~/store/zustand/tabs";
 
-export function LeftSidebar() {
+export function LeftSidebar({
+  showIgnoredTimelineEvents,
+  onShowIgnoredTimelineEventsChange,
+}: {
+  showIgnoredTimelineEvents?: boolean;
+  onShowIgnoredTimelineEventsChange?: (showIgnored: boolean) => void;
+} = {}) {
   const currentTab = useTabs((state) => state.currentTab);
 
   const isSettingsMode = currentTab?.type === "settings";
@@ -37,7 +43,11 @@ export function LeftSidebar() {
           ) : isTemplatesMode ? (
             <TemplatesNav />
           ) : (
-            <TimelineView topChromeInset={isTimelineSidebarLayout} />
+            <TimelineView
+              showIgnoredEvents={showIgnoredTimelineEvents}
+              onShowIgnoredEventsChange={onShowIgnoredTimelineEventsChange}
+              topChromeInset={isTimelineSidebarLayout}
+            />
           )}
         </div>
       </div>

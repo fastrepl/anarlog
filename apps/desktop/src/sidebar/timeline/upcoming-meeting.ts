@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useLingui } from "@lingui/react/macro";
+import { useCallback, useMemo } from "react";
 
 import { useCurrentTimeMs } from "./realtime";
 import {
@@ -21,9 +22,14 @@ export type SidebarUpcomingMeetingStatus = {
   title: string;
 };
 
-export function useSidebarUpcomingMeetingStatus(): SidebarUpcomingMeetingStatus | null {
+export function useSidebarUpcomingMeetingStatus({
+  showIgnored = false,
+}: {
+  showIgnored?: boolean;
+} = {}): SidebarUpcomingMeetingStatus | null {
   const timezone = useConfigValue("timezone") || undefined;
   const { isIgnored } = useIgnoredEvents();
+  const formatLabel = useUpcomingMeetingLabelFormatter();
   const timelineEventsTable = main.UI.useResultTable(
     main.QUERIES.timelineEvents,
     main.STORE_ID,
@@ -37,7 +43,7 @@ export function useSidebarUpcomingMeetingStatus(): SidebarUpcomingMeetingStatus 
   return useMemo(() => {
     const windowData = deriveTimelineWindowData({
       isEventIgnored: isIgnored,
-      showIgnored: false,
+      showIgnored,
       timelineEventsTable,
       timelineSessionsTable,
       timezone,
@@ -48,10 +54,12 @@ export function useSidebarUpcomingMeetingStatus(): SidebarUpcomingMeetingStatus 
       timezone,
     });
 
-    return getUpcomingMeetingStatus(buckets, currentTimeMs);
+    return getUpcomingMeetingStatus(buckets, currentTimeMs, formatLabel);
   }, [
     currentTimeMs,
+    formatLabel,
     isIgnored,
+    showIgnored,
     timelineEventsTable,
     timelineSessionsTable,
     timezone,
@@ -61,6 +69,7 @@ export function useSidebarUpcomingMeetingStatus(): SidebarUpcomingMeetingStatus 
 export function getUpcomingMeetingStatus(
   buckets: TimelineBucket[],
   currentTimeMs: number,
+  formatLabel: (diffMs: number) => string = formatUpcomingMeetingLabelEnglish,
 ): SidebarUpcomingMeetingStatus | null {
   let nearest: { itemKey: string; title: string; diffMs: number } | null = null;
 
@@ -96,12 +105,32 @@ export function getUpcomingMeetingStatus(
 
   return {
     itemKey: nearest.itemKey,
-    label: formatUpcomingMeetingLabel(nearest.diffMs),
+    label: formatLabel(nearest.diffMs),
     title: nearest.title,
   };
 }
 
-function formatUpcomingMeetingLabel(diffMs: number): string {
+export function useUpcomingMeetingLabelFormatter(): (diffMs: number) => string {
+  const { t } = useLingui();
+
+  return useCallback(
+    (diffMs: number) => {
+      const totalSeconds = Math.max(1, Math.floor(diffMs / 1000));
+      const minutes = Math.floor(totalSeconds / 60);
+
+      if (minutes < 1) {
+        return totalSeconds === 1
+          ? t`In ${totalSeconds} second`
+          : t`In ${totalSeconds} seconds`;
+      }
+
+      return minutes === 1 ? t`In ${minutes} minute` : t`In ${minutes} minutes`;
+    },
+    [t],
+  );
+}
+
+function formatUpcomingMeetingLabelEnglish(diffMs: number): string {
   const totalSeconds = Math.max(1, Math.floor(diffMs / 1000));
   const minutes = Math.floor(totalSeconds / 60);
 

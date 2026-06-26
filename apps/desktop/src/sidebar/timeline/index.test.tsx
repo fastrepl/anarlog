@@ -30,7 +30,10 @@ const mocks = vi.hoisted(() => ({
 
 const lingui = vi.hoisted(() => {
   const t = (
-    input: TemplateStringsArray | { message?: string } | string,
+    input:
+      | TemplateStringsArray
+      | { message?: string; values?: Record<string, unknown> }
+      | string,
     ...values: unknown[]
   ) => {
     if (Array.isArray(input)) {
@@ -46,7 +49,11 @@ const lingui = vi.hoisted(() => {
     }
 
     if ("message" in input) {
-      return input.message ?? "";
+      return (input.message ?? "").replace(
+        /\{(\w+)\}/g,
+        (_match: string, key: string) =>
+          String(input.values?.[key] ?? `{${key}}`),
+      );
     }
 
     return "";
@@ -85,10 +92,6 @@ vi.mock("@lingui/react", () => ({
     _: lingui.t,
     t: lingui.t,
   }),
-}));
-
-vi.mock("@lingui/core/macro", () => ({
-  t: lingui.t,
 }));
 
 vi.mock("~/shared/config", () => ({

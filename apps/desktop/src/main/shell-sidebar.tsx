@@ -8,8 +8,12 @@ import { useTabs } from "~/store/zustand/tabs";
 
 export function ClassicMainSidebar({
   forceMount = false,
+  showIgnoredTimelineEvents,
+  onShowIgnoredTimelineEventsChange,
 }: {
   forceMount?: boolean;
+  showIgnoredTimelineEvents?: boolean;
+  onShowIgnoredTimelineEventsChange?: (showIgnored: boolean) => void;
 } = {}) {
   const { leftsidebar } = useShell();
   const currentTab = useTabs((state) => state.currentTab);
@@ -23,5 +27,10 @@ export function ClassicMainSidebar({
     return null;
   }
 
-  return <LeftSidebar />;
+  return (
+    <LeftSidebar
+      showIgnoredTimelineEvents={showIgnoredTimelineEvents}
+      onShowIgnoredTimelineEventsChange={onShowIgnoredTimelineEventsChange}
+    />
+  );
 }
