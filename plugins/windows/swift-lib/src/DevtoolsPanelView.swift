@@ -8,7 +8,6 @@ enum DevtoolsPanelLayout {
 }
 
 struct DevtoolsPanelView: View {
-  @State private var toastPreview = DevtoolsToastPreview.languageModel
   @State private var isCollapsed = false
 
   private let onCollapseChange: (Bool) -> Void
@@ -25,7 +24,6 @@ struct DevtoolsPanelView: View {
         ScrollView(showsIndicators: false) {
           VStack(spacing: 10) {
             navigationSection
-            meetingNotesSection
             toastsSection
             otaSection
             notificationsSection
@@ -88,9 +86,6 @@ struct DevtoolsPanelView: View {
       DevtoolsActionButton("Onboarding") {
         RustBridge.devtoolsPanelAction("navigation:onboarding")
       }
-      DevtoolsActionButton("Empty Tab") {
-        RustBridge.devtoolsPanelAction("navigation:empty")
-      }
       DevtoolsActionButton("Instruction: sign-in") {
         RustBridge.devtoolsPanelAction("instruction:sign-in")
       }
@@ -100,63 +95,19 @@ struct DevtoolsPanelView: View {
       DevtoolsActionButton("Instruction: integration") {
         RustBridge.devtoolsPanelAction("instruction:integration")
       }
-      DevtoolsActionButton("Changelog") {
-        RustBridge.devtoolsPanelAction("navigation:changelog")
-      }
     }
   }
 
   private var toastsSection: some View {
     DevtoolsSection(title: "TOASTS") {
-      Menu {
-        ForEach(DevtoolsToastPreview.allCases, id: \.self) { preview in
-          Button(preview.label) {
-            toastPreview = preview
-            showToastPreview(preview)
-          }
+      ForEach(DevtoolsToastPreview.allCases, id: \.self) { preview in
+        DevtoolsActionButton(preview.label) {
+          showToastPreview(preview)
         }
-      } label: {
-        HStack {
-          Text(toastPreview.label)
-            .font(.system(size: 12, weight: .medium))
-            .foregroundStyle(.primary)
-            .lineLimit(1)
-          Spacer()
-          Image(systemName: "chevron.up.chevron.down")
-            .font(.system(size: 10, weight: .semibold))
-            .foregroundStyle(.secondary)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 7)
-        .background(
-          RoundedRectangle(cornerRadius: 7, style: .continuous)
-            .fill(Color.white.opacity(0.70))
-        )
-        .overlay(
-          RoundedRectangle(cornerRadius: 7, style: .continuous)
-            .strokeBorder(Color.black.opacity(0.08), lineWidth: 1)
-        )
-      }
-      .menuStyle(.borderlessButton)
-
-      DevtoolsActionButton("Show in App") {
-        showToastPreview(toastPreview)
       }
 
-      DevtoolsActionButton("Clear Preview") {
-        RustBridge.devtoolsPanelAction("toasts:preview:clear")
-      }
-
-      DevtoolsActionButton("Reset Dismissed") {
-        RustBridge.devtoolsPanelAction("toasts:reset-dismissed")
-      }
-    }
-  }
-
-  private var meetingNotesSection: some View {
-    DevtoolsSection(title: "NOTES") {
-      DevtoolsActionButton("Populate Recurring") {
-        RustBridge.devtoolsPanelAction("notes:populate-recurring")
+      DevtoolsActionButton("Clear All Toasts", role: .destructive) {
+        RustBridge.devtoolsPanelAction("toasts:clear")
       }
     }
   }
@@ -178,7 +129,7 @@ struct DevtoolsPanelView: View {
       DevtoolsActionButton("Batch Done") {
         RustBridge.devtoolsPanelAction("notifications:batch-done")
       }
-      DevtoolsActionButton("Clear") {
+      DevtoolsActionButton("Clear", role: .destructive) {
         RustBridge.devtoolsPanelAction("notifications:clear")
       }
     }
@@ -198,7 +149,7 @@ struct DevtoolsPanelView: View {
       DevtoolsActionButton("Failed") {
         RustBridge.devtoolsPanelAction("ota:failed")
       }
-      DevtoolsActionButton("Clear") {
+      DevtoolsActionButton("Clear", role: .destructive) {
         RustBridge.devtoolsPanelAction("ota:clear")
       }
     }
@@ -217,20 +168,17 @@ struct DevtoolsPanelView: View {
 
   private var countdownSection: some View {
     DevtoolsSection(title: "COUNTDOWN") {
-      DevtoolsActionButton("+Note 20s") {
-        RustBridge.devtoolsPanelAction("countdown:note-20")
-      }
-      DevtoolsActionButton("+Note 60s") {
+      DevtoolsActionButton("Note 1m") {
         RustBridge.devtoolsPanelAction("countdown:note-60")
       }
-      DevtoolsActionButton("+Note 5m") {
-        RustBridge.devtoolsPanelAction("countdown:note-290")
+      DevtoolsActionButton("Note 5m") {
+        RustBridge.devtoolsPanelAction("countdown:note-300")
       }
-      DevtoolsActionButton("+Zoom 20s") {
-        RustBridge.devtoolsPanelAction("countdown:zoom-20")
-      }
-      DevtoolsActionButton("+Zoom 60s") {
+      DevtoolsActionButton("Zoom 1m") {
         RustBridge.devtoolsPanelAction("countdown:zoom-60")
+      }
+      DevtoolsActionButton("Zoom 5m") {
+        RustBridge.devtoolsPanelAction("countdown:zoom-300")
       }
     }
   }
