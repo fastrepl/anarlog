@@ -345,6 +345,17 @@ export const stopLiveSession = <T extends GeneralState>(
 ) => {
   const sessionId = get().live.sessionId;
 
+  if (sessionId) {
+    setLiveState(set, (live) => {
+      if (live.sessionId !== sessionId || live.status !== "active") {
+        return;
+      }
+
+      clearLiveInterval(live.intervalId);
+      markLiveFinalizing(live, sessionId);
+    });
+  }
+
   const program = Effect.gen(function* () {
     yield* stopSessionEffect();
   });
@@ -354,6 +365,23 @@ export const stopLiveSession = <T extends GeneralState>(
       onFailure: (cause) => {
         console.error("Failed to stop session:", cause);
         setLiveState(set, (live) => {
+          if (sessionId && live.sessionId === sessionId) {
+            delete live.finalizingBySession[sessionId];
+            if (live.status === "finalizing") {
+              const intervalId = setInterval(() => {
+                setLiveState(set, (currentLive) => {
+                  if (
+                    currentLive.sessionId === sessionId &&
+                    currentLive.status === "active"
+                  ) {
+                    currentLive.seconds += 1;
+                  }
+                });
+              }, 1000);
+              live.status = "active";
+              live.intervalId = intervalId;
+            }
+          }
           live.loading = false;
         });
       },

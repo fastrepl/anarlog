@@ -1,6 +1,70 @@
 import { create as mutate } from "mutative";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
+const {
+  getIdentifierMock,
+  runEventHooksMock,
+  setRecordingIndicatorMock,
+  stopCaptureMock,
+  vaultBaseMock,
+} = vi.hoisted(() => ({
+  getIdentifierMock: vi.fn(),
+  runEventHooksMock: vi.fn(),
+  setRecordingIndicatorMock: vi.fn(),
+  stopCaptureMock: vi.fn(),
+  vaultBaseMock: vi.fn(),
+}));
+
+vi.mock("@tauri-apps/api/app", () => ({
+  getIdentifier: getIdentifierMock,
+}));
+
+vi.mock("@hypr/plugin-detect", () => ({
+  commands: {
+    listMicUsingApplications: vi.fn(),
+  },
+}));
+
+vi.mock("@hypr/plugin-hooks", () => ({
+  commands: {
+    runEventHooks: runEventHooksMock,
+  },
+}));
+
+vi.mock("@hypr/plugin-icon", () => ({
+  commands: {
+    setRecordingIndicator: setRecordingIndicatorMock,
+  },
+}));
+
+vi.mock("@hypr/plugin-settings", () => ({
+  commands: {
+    vaultBase: vaultBaseMock,
+  },
+}));
+
+vi.mock("@hypr/plugin-transcription", () => ({
+  commands: {
+    setMicMuted: vi.fn(),
+    startCapture: vi.fn(),
+    startTranscription: vi.fn(),
+    stopCapture: stopCaptureMock,
+    stopTranscription: vi.fn(),
+    updateCaptureConfig: vi.fn(),
+  },
+  events: {
+    captureDataEvent: {
+      listen: vi.fn(),
+    },
+    captureLifecycleEvent: {
+      listen: vi.fn(),
+    },
+    captureStatusEvent: {
+      listen: vi.fn(),
+    },
+  },
+}));
+
 import { createListenerStore } from ".";
 import {
   getLiveCaptureUiMode,
@@ -13,6 +77,12 @@ let store: ReturnType<typeof createListenerStore>;
 describe("General Listener Slice", () => {
   beforeEach(() => {
     store = createListenerStore();
+    vi.clearAllMocks();
+    getIdentifierMock.mockResolvedValue("com.hyprnote.stable");
+    runEventHooksMock.mockResolvedValue({ status: "ok", data: null });
+    setRecordingIndicatorMock.mockResolvedValue({ status: "ok", data: null });
+    stopCaptureMock.mockResolvedValue({ status: "ok", data: null });
+    vaultBaseMock.mockResolvedValue({ status: "ok", data: "/tmp/anarlog" });
   });
 
   describe("Initial State", () => {
@@ -532,6 +602,27 @@ describe("General Listener Slice", () => {
     test("stop action exists and is callable", () => {
       const stop = store.getState().stop;
       expect(typeof stop).toBe("function");
+    });
+
+    test("marks the live session finalizing immediately when stop is requested", () => {
+      const intervalId = setInterval(() => {}, 1000);
+
+      store.setState((state) =>
+        mutate(state, (draft) => {
+          markLiveActive(draft.live, "session-1", intervalId, true, true, null);
+          draft.live.seconds = 42;
+        }),
+      );
+
+      store.getState().stop();
+
+      expect(store.getState().live.status).toBe("finalizing");
+      expect(store.getState().live.loading).toBe(true);
+      expect(store.getState().live.intervalId).toBeUndefined();
+      expect(store.getState().live.finalizingBySession["session-1"]).toEqual({
+        startedAtMs: expect.any(Number),
+        seconds: 42,
+      });
     });
   });
 
