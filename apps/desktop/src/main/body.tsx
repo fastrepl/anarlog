@@ -6,6 +6,7 @@ import {
   PanelLeftOpenIcon,
   SearchIcon,
   SquarePenIcon,
+  WrenchIcon,
 } from "lucide-react";
 import {
   type CSSProperties,
@@ -18,6 +19,10 @@ import {
   useState,
 } from "react";
 
+import {
+  commands as windowsCommands,
+  events as windowsEvents,
+} from "@hypr/plugin-windows";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -38,6 +43,7 @@ import { useClassicMainTabsShortcuts } from "./useTabsShortcuts";
 import { useShell } from "~/contexts/shell";
 import { GlobalLiveTranscriptAccessory } from "~/session/components/bottom-accessory/global-live";
 import { scrollElementByWheel } from "~/shared/dom/scroll-wheel";
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { NOTE_SURFACE_MIN_WIDTH_PX } from "~/shared/main/layout-widths";
 import { useOpenNoteDialog } from "~/shared/open-note-dialog";
 import { useNewNote } from "~/shared/useNewNote";
@@ -54,6 +60,7 @@ const LEFT_SIDEBAR_DEFAULT_WIDTH_PX = 200;
 const LEFT_SIDEBAR_MIN_WIDTH_PX = 200;
 const LEFT_SIDEBAR_MAX_WIDTH_PX = 360;
 const LEFT_SIDEBAR_FALLBACK_CONTAINER_WIDTH_PX = 1000;
+const showDevtoolsPanelButton = import.meta.env.DEV;
 
 type MainAreaWindowDragStart = {
   pointerId: number;
@@ -81,6 +88,39 @@ export function ClassicMainBody() {
   const leftSidebarResizeDraggingRef = useRef(false);
   const [showIgnoredTimelineEvents, setShowIgnoredTimelineEvents] =
     useState(false);
+  const [devtoolsPanelOpen, setDevtoolsPanelOpen] = useState(false);
+
+  useMountEffect(() => {
+    if (!showDevtoolsPanelButton) {
+      return;
+    }
+
+    let cancelled = false;
+    let unlistenDevtoolsAction: (() => void) | undefined;
+
+    windowsEvents.devtoolsPanelAction
+      .listen(({ payload }) => {
+        if (payload.action === "panel:opened") {
+          setDevtoolsPanelOpen(true);
+        }
+        if (payload.action === "panel:closed") {
+          setDevtoolsPanelOpen(false);
+        }
+      })
+      .then((unlisten) => {
+        if (cancelled) {
+          unlisten();
+          return;
+        }
+
+        unlistenDevtoolsAction = unlisten;
+      });
+
+    return () => {
+      cancelled = true;
+      unlistenDevtoolsAction?.();
+    };
+  });
 
   const isOnboarding = currentTab?.type === "onboarding";
   const isChangelog = currentTab?.type === "changelog";
@@ -117,6 +157,13 @@ export function ClassicMainBody() {
   const handleOpenNoteDialog = useCallback(() => {
     openNoteDialog.open();
   }, [openNoteDialog]);
+  const handleOpenDevtoolsPanel = useCallback(async () => {
+    const result = await windowsCommands.devtoolsPanelShow();
+
+    if (result.status === "error") {
+      console.error("Failed to show devtools panel:", result.error);
+    }
+  }, []);
   const applyLeftSidebarPanelSize = useCallback((size: number) => {
     const bodyRoot = bodyRootRef.current;
     if (!bodyRoot) {
@@ -241,8 +288,10 @@ export function ClassicMainBody() {
           >
             <SidebarTimelineChrome
               sidebarExpanded={leftsidebar.expanded}
+              devtoolsPanelOpen={devtoolsPanelOpen}
               onNewNote={createNewNote}
               onSearch={handleOpenNoteDialog}
+              onOpenDevtools={handleOpenDevtoolsPanel}
               onToggleSidebar={handleToggleLeftSidebar}
               hasUpcomingMeeting={hasUpcomingMeetingBadge}
               update={update}
@@ -542,15 +591,19 @@ function isMainAreaWindowDrag(
 }
 
 function SidebarTimelineChrome({
+  devtoolsPanelOpen,
   hasUpcomingMeeting,
   onNewNote,
+  onOpenDevtools,
   onSearch,
   onToggleSidebar,
   sidebarExpanded,
   update,
 }: {
+  devtoolsPanelOpen: boolean;
   hasUpcomingMeeting: boolean;
   onNewNote: () => void;
+  onOpenDevtools: () => void;
   onSearch: () => void;
   onToggleSidebar: () => void;
   sidebarExpanded: boolean;
@@ -591,6 +644,14 @@ function SidebarTimelineChrome({
             <LeftSurfaceChromeButton ariaLabel="New note" onClick={onNewNote}>
               <SquarePenIcon size={15} />
             </LeftSurfaceChromeButton>
+            {showDevtoolsPanelButton && !devtoolsPanelOpen ? (
+              <LeftSurfaceChromeButton
+                ariaLabel="Show devtools panel"
+                onClick={onOpenDevtools}
+              >
+                <WrenchIcon size={15} />
+              </LeftSurfaceChromeButton>
+            ) : null}
           </>
         ) : null}
       </div>

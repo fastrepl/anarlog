@@ -14,7 +14,30 @@ Object.defineProperty(globalThis.window, "__TAURI_INTERNALS__", {
         label: "main",
       },
     },
-    invoke: vi.fn().mockRejectedValue(new Error("not available in test")),
+    transformCallback: vi.fn((callback: unknown) => {
+      const callbackId = Math.trunc(Math.random() * Number.MAX_SAFE_INTEGER);
+      Object.assign(globalThis.window, {
+        [`_${callbackId}`]: callback,
+      });
+
+      return callbackId;
+    }),
+    unregisterCallback: vi.fn((callbackId: number) => {
+      delete (globalThis.window as unknown as Record<string, unknown>)[
+        `_${callbackId}`
+      ];
+    }),
+    invoke: vi.fn((command: string) =>
+      Promise.resolve(command === "plugin:event|listen" ? 0 : null),
+    ),
+  },
+  writable: true,
+  configurable: true,
+});
+
+Object.defineProperty(globalThis.window, "__TAURI_EVENT_PLUGIN_INTERNALS__", {
+  value: {
+    unregisterListener: vi.fn(),
   },
   writable: true,
   configurable: true,

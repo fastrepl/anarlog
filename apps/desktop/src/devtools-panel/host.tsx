@@ -57,6 +57,8 @@ type DevtoolsPanelAction =
   | "countdown:note-300"
   | "countdown:zoom-60"
   | "countdown:zoom-300"
+  | "panel:opened"
+  | "panel:closed"
   | "error:trigger";
 
 export function DevtoolsFloatingPanelHost() {
@@ -426,6 +428,9 @@ function useDevtoolsPanelActions() {
           return;
         case "countdown:zoom-300":
           createWithCountdown(300, "https://zoom.us/j/1234567890");
+          return;
+        case "panel:opened":
+        case "panel:closed":
           return;
         case "error:trigger":
           setShouldThrow(true);

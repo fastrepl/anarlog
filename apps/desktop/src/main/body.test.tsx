@@ -4,6 +4,7 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
 } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -21,6 +22,13 @@ const mocks = vi.hoisted(() => ({
   onPanelLayout: null as null | ((sizes: number[]) => void),
   onResizeDragging: null as null | ((isDragging: boolean) => void),
   tabContentRenderCount: 0,
+  devtoolsPanelActionListeners: [] as Array<
+    (event: { payload: { action: string } }) => void
+  >,
+  windowsCommands: {
+    devtoolsPanelHide: vi.fn(async () => ({ status: "ok" as const })),
+    devtoolsPanelShow: vi.fn(async () => ({ status: "ok" as const })),
+  },
 }));
 
 vi.mock("@hypr/ui/components/ui/resizable", () => ({
@@ -107,6 +115,25 @@ vi.mock("~/contexts/shell", () => ({
   }),
 }));
 
+vi.mock("@hypr/plugin-windows", () => ({
+  commands: mocks.windowsCommands,
+  events: {
+    devtoolsPanelAction: {
+      listen: vi.fn(
+        async (listener: (event: { payload: { action: string } }) => void) => {
+          mocks.devtoolsPanelActionListeners.push(listener);
+          return () => {
+            mocks.devtoolsPanelActionListeners =
+              mocks.devtoolsPanelActionListeners.filter(
+                (candidate) => candidate !== listener,
+              );
+          };
+        },
+      ),
+    },
+  },
+}));
+
 vi.mock("~/store/zustand/tabs", () => ({
   uniqueIdfromTab: (tab: { type: string }) => tab.type,
   useTabs: (
@@ -180,6 +207,9 @@ describe("ClassicMainBody", () => {
     mocks.onPanelLayout = null;
     mocks.onResizeDragging = null;
     mocks.tabContentRenderCount = 0;
+    mocks.devtoolsPanelActionListeners = [];
+    mocks.windowsCommands.devtoolsPanelHide.mockClear();
+    mocks.windowsCommands.devtoolsPanelShow.mockClear();
   });
 
   it("wraps the expanded left sidebar in a persistent resizable panel", () => {
@@ -367,6 +397,86 @@ describe("ClassicMainBody", () => {
       "flex-grow",
     );
     expect(mocks.leftsidebar.toggleExpanded).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows the devtools button until the panel opens, then restores it when closed", async () => {
+    render(<ClassicMainBody />);
+
+    const searchButton = screen.getByRole("button", { name: "Search" });
+    const newNoteButton = screen.getByRole("button", { name: "New note" });
+    const devtoolsButton = screen.getByRole("button", {
+      name: "Show devtools panel",
+    });
+
+    expect(searchButton.compareDocumentPosition(newNoteButton)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(newNoteButton.compareDocumentPosition(devtoolsButton)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(devtoolsButton.parentElement).toBe(newNoteButton.parentElement);
+
+    fireEvent.click(devtoolsButton);
+
+    expect(mocks.windowsCommands.devtoolsPanelShow).toHaveBeenCalledTimes(1);
+    expect(mocks.windowsCommands.devtoolsPanelHide).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("button", { name: "Show devtools panel" }),
+    ).toBeTruthy();
+
+    act(() => {
+      for (const listener of mocks.devtoolsPanelActionListeners) {
+        listener({ payload: { action: "panel:opened" } });
+      }
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("button", { name: "Show devtools panel" }),
+      ).toBeNull();
+    });
+
+    act(() => {
+      for (const listener of mocks.devtoolsPanelActionListeners) {
+        listener({ payload: { action: "panel:closed" } });
+      }
+    });
+
+    expect(
+      await screen.findByRole("button", { name: "Show devtools panel" }),
+    ).toBeTruthy();
+  });
+
+  it("hides the devtools button when the native panel is opened outside the sidebar", async () => {
+    render(<ClassicMainBody />);
+
+    expect(
+      screen.getByRole("button", { name: "Show devtools panel" }),
+    ).toBeTruthy();
+
+    await waitFor(() => {
+      expect(mocks.devtoolsPanelActionListeners).toHaveLength(1);
+    });
+
+    act(() => {
+      for (const listener of mocks.devtoolsPanelActionListeners) {
+        listener({ payload: { action: "panel:opened" } });
+      }
+    });
+
+    expect(
+      screen.queryByRole("button", { name: "Show devtools panel" }),
+    ).toBeNull();
+
+    act(() => {
+      for (const listener of mocks.devtoolsPanelActionListeners) {
+        listener({ payload: { action: "panel:closed" } });
+      }
+    });
+
+    expect(
+      await screen.findByRole("button", { name: "Show devtools panel" }),
+    ).toBeTruthy();
   });
 
   it("routes wheel gestures from sidebar chrome into the timeline scroller", () => {

@@ -22,14 +22,14 @@ final class DevtoolsPanelManager {
         self.position(panel, force: true)
         self.startFollowingActiveScreen()
         panel.orderFrontRegardless()
+        RustBridge.devtoolsPanelAction("panel:opened")
         return
       }
 
       let panel = self.createPanel()
       let hostingView = NSHostingView(
-        rootView: DevtoolsPanelView { [weak self, weak panel] isCollapsed in
-          guard let panel else { return }
-          self?.resize(panel, isCollapsed: isCollapsed)
+        rootView: DevtoolsPanelView { [weak self] in
+          self?.hide()
         })
       hostingView.frame = NSRect(
         x: 0,
@@ -46,6 +46,7 @@ final class DevtoolsPanelManager {
       panel.orderFrontRegardless()
       self.panel = panel
       self.startFollowingActiveScreen()
+      RustBridge.devtoolsPanelAction("panel:opened")
     }
   }
 
@@ -64,6 +65,7 @@ final class DevtoolsPanelManager {
         width: DevtoolsPanelLayout.containerWidth,
         height: DevtoolsPanelLayout.containerHeight)
       self.placement.resetActiveScreen()
+      RustBridge.devtoolsPanelAction("panel:closed")
     }
   }
 
@@ -98,23 +100,6 @@ final class DevtoolsPanelManager {
       let y = frame.maxY - size.height - DevtoolsPanelLayout.screenMargin
       return NSPoint(x: x, y: y)
     }
-  }
-
-  private func resize(_ panel: NSPanel, isCollapsed: Bool) {
-    let height =
-      isCollapsed
-      ? DevtoolsPanelLayout.collapsedHeight
-      : DevtoolsPanelLayout.containerHeight
-    let size = NSSize(width: DevtoolsPanelLayout.containerWidth, height: height)
-    targetPanelSize = size
-    guard abs(panel.frame.height - height) > 0.5 else { return }
-
-    let frame = NSRect(
-      x: panel.frame.minX,
-      y: panel.frame.maxY - height,
-      width: size.width,
-      height: size.height)
-    placement.setFrame(panel, to: frame, display: true, animate: true)
   }
 
   private func startFollowingActiveScreen() {

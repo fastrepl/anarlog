@@ -3,43 +3,34 @@ import SwiftUI
 enum DevtoolsPanelLayout {
   static let containerWidth: CGFloat = 300
   static let containerHeight: CGFloat = 560
-  static let collapsedHeight: CGFloat = 44
   static let screenMargin: CGFloat = 14
 }
 
 struct DevtoolsPanelView: View {
-  @State private var isCollapsed = false
+  private let onClose: () -> Void
 
-  private let onCollapseChange: (Bool) -> Void
-
-  init(onCollapseChange: @escaping (Bool) -> Void = { _ in }) {
-    self.onCollapseChange = onCollapseChange
+  init(onClose: @escaping () -> Void = {}) {
+    self.onClose = onClose
   }
 
   var body: some View {
     VStack(spacing: 0) {
       header
-      if !isCollapsed {
-        Divider()
-        ScrollView(showsIndicators: false) {
-          VStack(spacing: 10) {
-            navigationSection
-            toastsSection
-            otaSection
-            notificationsSection
-            billingSection
-            countdownSection
-            errorSection
-          }
-          .padding(10)
+      Divider()
+      ScrollView(showsIndicators: false) {
+        VStack(spacing: 10) {
+          navigationSection
+          toastsSection
+          otaSection
+          notificationsSection
+          billingSection
+          countdownSection
+          errorSection
         }
+        .padding(10)
       }
     }
-    .frame(
-      width: DevtoolsPanelLayout.containerWidth,
-      height: isCollapsed
-        ? DevtoolsPanelLayout.collapsedHeight : DevtoolsPanelLayout.containerHeight
-    )
+    .frame(width: DevtoolsPanelLayout.containerWidth, height: DevtoolsPanelLayout.containerHeight)
     .background(
       RoundedRectangle(cornerRadius: 12, style: .continuous)
         .fill(Color(nsColor: .windowBackgroundColor).opacity(0.96))
@@ -57,13 +48,9 @@ struct DevtoolsPanelView: View {
         .foregroundStyle(.primary)
       Spacer()
       Button {
-        let nextIsCollapsed = !isCollapsed
-        withAnimation(.easeInOut(duration: 0.16)) {
-          isCollapsed = nextIsCollapsed
-        }
-        onCollapseChange(nextIsCollapsed)
+        onClose()
       } label: {
-        Image(systemName: isCollapsed ? "chevron.down" : "chevron.up")
+        Image(systemName: "xmark")
           .font(.system(size: 11, weight: .bold))
           .foregroundStyle(.secondary)
           .frame(width: 24, height: 22)
@@ -74,7 +61,7 @@ struct DevtoolsPanelView: View {
           .contentShape(Rectangle())
       }
       .buttonStyle(.plain)
-      .accessibilityLabel(isCollapsed ? "Expand devtools" : "Collapse devtools")
+      .accessibilityLabel("Close devtools")
     }
     .padding(.horizontal, 12)
     .padding(.vertical, 10)
