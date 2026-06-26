@@ -2,8 +2,13 @@ import { memo, useCallback, useEffect, useMemo } from "react";
 
 import { cn } from "@hypr/utils";
 
+import { useSearch } from "../../search/context";
 import { useRenderedTranscriptData, useTranscriptOffset } from "./data-hooks";
-import { SegmentRenderer } from "./segment";
+import {
+  EMPTY_TRANSCRIPT_SEARCH,
+  SegmentRenderer,
+  type TranscriptSearchRenderState,
+} from "./segment";
 import {
   createSegmentKey,
   segmentsShallowEqual,
@@ -97,6 +102,7 @@ const SegmentsList = memo(
     maxSpeakerNumber?: number;
   }) => {
     const store = main.UI.useStore(main.STORE_ID);
+    const search = useSearch();
     const speakerLabelManager = useMemo(() => {
       if (!store) {
         return new SpeakerLabelManager();
@@ -104,6 +110,25 @@ const SegmentsList = memo(
       const ctx = defaultRenderLabelContext(store);
       return SpeakerLabelManager.fromSegments(segments, ctx, maxSpeakerNumber);
     }, [maxSpeakerNumber, segments, store]);
+    const transcriptSearch = useMemo<TranscriptSearchRenderState>(() => {
+      const query = search?.query.trim() ?? "";
+      if (!search?.isVisible || !query) {
+        return EMPTY_TRANSCRIPT_SEARCH;
+      }
+
+      return {
+        query,
+        activeMatchId: search.activeMatchId,
+        caseSensitive: search.caseSensitive,
+        wholeWord: search.wholeWord,
+      };
+    }, [
+      search?.activeMatchId,
+      search?.caseSensitive,
+      search?.isVisible,
+      search?.query,
+      search?.wholeWord,
+    ]);
 
     const seekAndPlay = useCallback(
       (word: SegmentWord) => {
@@ -143,6 +168,7 @@ const SegmentsList = memo(
               currentMs={currentMs}
               seekAndPlay={seekAndPlay}
               audioExists={audioExists}
+              search={transcriptSearch}
             />
           </div>
         ))}

@@ -94,28 +94,36 @@ export function getTranscriptMatches(
   const searchText = prepareText(fullText, opts.caseSensitive);
   const indices = findOccurrences(searchText, prepared, opts.wholeWord);
   const result: MatchResult[] = [];
+  let spanIndex = 0;
 
   for (const idx of indices) {
-    for (let i = 0; i < spanPositions.length; i++) {
-      const { start, end } = spanPositions[i];
-      if (idx >= start && idx < end) {
-        result.push({
-          element: allSpans[i],
-          id: allSpans[i].dataset.wordId || null,
-        });
-        break;
-      }
-      if (
-        i < spanPositions.length - 1 &&
-        idx >= end &&
-        idx < spanPositions[i + 1].start
-      ) {
-        result.push({
-          element: allSpans[i + 1],
-          id: allSpans[i + 1].dataset.wordId || null,
-        });
-        break;
-      }
+    while (
+      spanIndex < spanPositions.length - 1 &&
+      idx >= spanPositions[spanIndex].end &&
+      idx >= spanPositions[spanIndex + 1].start
+    ) {
+      spanIndex += 1;
+    }
+
+    const { start, end } = spanPositions[spanIndex];
+    if (idx >= start && idx < end) {
+      result.push({
+        element: allSpans[spanIndex],
+        id: allSpans[spanIndex].dataset.wordId || null,
+      });
+      continue;
+    }
+
+    if (
+      spanIndex < spanPositions.length - 1 &&
+      idx >= end &&
+      idx < spanPositions[spanIndex + 1].start
+    ) {
+      const nextSpan = allSpans[spanIndex + 1];
+      result.push({
+        element: nextSpan,
+        id: nextSpan.dataset.wordId || null,
+      });
     }
   }
 

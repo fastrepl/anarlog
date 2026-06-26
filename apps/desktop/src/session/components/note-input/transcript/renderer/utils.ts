@@ -46,6 +46,42 @@ export function groupWordsIntoLines(words: SegmentWord[]): SentenceLine[] {
   return lines;
 }
 
+export function getActiveLineIndex(
+  words: SegmentWord[],
+  offsetMs: number,
+  currentMs: number,
+): number | null {
+  if (currentMs <= 0 || words.length === 0) return null;
+
+  let lineIndex = 0;
+  let lineStartMs = words[0]!.start_ms;
+
+  for (let index = 0; index < words.length; index += 1) {
+    const word = words[index]!;
+    const text = word.text.trim();
+    const closesLine =
+      text.endsWith(".") ||
+      text.endsWith("?") ||
+      text.endsWith("!") ||
+      index === words.length - 1;
+
+    if (!closesLine) {
+      continue;
+    }
+
+    const start = offsetMs + lineStartMs;
+    const end = offsetMs + word.end_ms;
+    if (currentMs >= start && currentMs <= end) {
+      return lineIndex;
+    }
+
+    lineIndex += 1;
+    lineStartMs = words[index + 1]?.start_ms ?? lineStartMs;
+  }
+
+  return null;
+}
+
 export function formatTimestamp(ms: number): string {
   const totalSeconds = Math.floor(ms / 1000);
   const hours = Math.floor(totalSeconds / 3600);

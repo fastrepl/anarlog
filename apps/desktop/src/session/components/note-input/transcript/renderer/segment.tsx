@@ -3,11 +3,30 @@ import { memo, useMemo } from "react";
 import { cn } from "@hypr/utils";
 
 import { SegmentHeader } from "./segment-header";
-import { groupWordsIntoLines } from "./utils";
+import {
+  getActiveLineIndex,
+  groupWordsIntoLines,
+  type HighlightSegment,
+} from "./utils";
 import { WordSpan } from "./word-span";
 
+import { createHighlightSegments } from "~/session/components/note-input/search/matching";
 import type { Segment, SegmentWord } from "~/stt/live-segment";
 import { SpeakerLabelManager } from "~/stt/live-segment";
+
+export type TranscriptSearchRenderState = {
+  query: string;
+  activeMatchId: string | null;
+  caseSensitive: boolean;
+  wholeWord: boolean;
+};
+
+export const EMPTY_TRANSCRIPT_SEARCH: TranscriptSearchRenderState = {
+  query: "",
+  activeMatchId: null,
+  caseSensitive: false,
+  wholeWord: false,
+};
 
 function getSegmentTimeRange(
   segment: Segment,
@@ -30,6 +49,7 @@ export const SegmentRenderer = memo(
     currentMs,
     seekAndPlay,
     audioExists,
+    search,
   }: {
     segment: Segment;
     offsetMs: number;
@@ -38,11 +58,31 @@ export const SegmentRenderer = memo(
     currentMs: number;
     seekAndPlay: (word: SegmentWord) => void;
     audioExists: boolean;
+    search: TranscriptSearchRenderState;
   }) => {
     const lines = useMemo(
       () => groupWordsIntoLines(segment.words),
       [segment.words],
     );
+    const highlightSegmentsByWord = useMemo(() => {
+      if (!search.query) {
+        return null;
+      }
+
+      const highlights = new Map<SegmentWord, HighlightSegment[]>();
+      for (const word of segment.words) {
+        highlights.set(
+          word,
+          createHighlightSegments(
+            word.text,
+            search.query,
+            search.caseSensitive,
+            search.wholeWord,
+          ),
+        );
+      }
+      return highlights;
+    }, [search.caseSensitive, search.query, search.wholeWord, segment.words]);
 
     return (
       <section>
@@ -83,6 +123,12 @@ export const SegmentRenderer = memo(
                     displayText={word.text}
                     audioExists={audioExists}
                     onClickWord={seekAndPlay}
+                    highlightSegments={
+                      highlightSegmentsByWord?.get(word) ?? undefined
+                    }
+                    isActiveMatch={
+                      Boolean(word.id) && word.id === search.activeMatchId
+                    }
                   />
                 ))}
               </span>
@@ -104,7 +150,10 @@ export const SegmentRenderer = memo(
       return false;
     }
 
-    // Smart time comparison: only re-render if time change affects which line is active
+    if (!canReuseSegmentForSearch(prev, next)) {
+      return false;
+    }
+
     if (prev.currentMs === next.currentMs) return true;
 
     const range = getSegmentTimeRange(prev.segment, prev.offsetMs);
@@ -119,11 +168,41 @@ export const SegmentRenderer = memo(
       next.currentMs >= range.start &&
       next.currentMs <= range.end;
 
-    // If neither time is in this segment's range, no visual change
     if (!prevInRange && !nextInRange) return true;
 
-    // If both are in range, the active line might have changed — need to re-render
-    // If one is in range and the other isn't, definitely need to re-render
-    return false;
+    return (
+      getActiveLineIndex(prev.segment.words, prev.offsetMs, prev.currentMs) ===
+      getActiveLineIndex(next.segment.words, next.offsetMs, next.currentMs)
+    );
   },
 );
+
+function canReuseSegmentForSearch(
+  prev: { segment: Segment; search: TranscriptSearchRenderState },
+  next: { segment: Segment; search: TranscriptSearchRenderState },
+) {
+  if (
+    prev.search.query !== next.search.query ||
+    prev.search.caseSensitive !== next.search.caseSensitive ||
+    prev.search.wholeWord !== next.search.wholeWord
+  ) {
+    return false;
+  }
+
+  if (prev.search.activeMatchId === next.search.activeMatchId) {
+    return true;
+  }
+
+  return (
+    !segmentContainsWordId(prev.segment, prev.search.activeMatchId) &&
+    !segmentContainsWordId(next.segment, next.search.activeMatchId)
+  );
+}
+
+function segmentContainsWordId(segment: Segment, wordId: string | null) {
+  if (!wordId) {
+    return false;
+  }
+
+  return segment.words.some((word) => word.id === wordId);
+}
