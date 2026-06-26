@@ -69,4 +69,5 @@ enum Colors {
 enum CloseButtonConfig {
   static let size: CGFloat = 22
   static let symbolPointSize: CGFloat = 9.5
+  static let positionAdjustment = CGSize(width: -10, height: 10)
 }
