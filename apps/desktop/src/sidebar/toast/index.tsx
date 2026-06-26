@@ -30,7 +30,7 @@ type ToastAreaPosition = {
   left: number | string;
   top: number;
 };
-type MainSurfaceRect = {
+type ElementRect = {
   left: number;
   top: number;
   width: number;
@@ -39,6 +39,7 @@ type MainSurfaceRect = {
 const DEFAULT_TOP_OFFSET_PX = 56;
 const LEFT_SIDEBAR_TOP_OFFSET_PX = 36;
 const MAIN_SURFACE_SELECTOR = "[data-chat-floating-anchor]";
+const MAIN_CONTENT_PANEL_SELECTOR = "[data-main-content-panel]";
 
 export function ToastArea({
   placement = "default",
@@ -49,7 +50,8 @@ export function ToastArea({
   const { dismissToast, isDismissed } = useDismissedToasts();
   const shouldShowToast = useShouldShowToast();
   const contentOffset = useMainContentCenterOffset();
-  const mainSurfaceRect = useMainSurfaceRect();
+  const mainSurfaceRect = useElementRect(MAIN_SURFACE_SELECTOR);
+  const mainContentPanelRect = useElementRect(MAIN_CONTENT_PANEL_SELECTOR);
   const {
     hasActiveDownload,
     downloadProgress,
@@ -225,6 +227,7 @@ export function ToastArea({
   const position =
     getMainSurfacePosition({
       contentOffset,
+      mainContentPanelRect,
       mainSurfaceRect,
       placement,
     }) ?? getFallbackPosition({ contentOffset, placement });
@@ -311,39 +314,62 @@ function useMainContentCenterOffset() {
   return contentOffset;
 }
 
-function useMainSurfaceRect() {
-  const [rect, setRect] = useState<MainSurfaceRect | null>(null);
+function useElementRect(selector: string) {
+  const [rect, setRect] = useState<ElementRect | null>(null);
 
   useMountEffect(() => {
+    let observedElement: Element | null = null;
+
     const computeRect = () => {
-      const mainSurface = document.querySelector(MAIN_SURFACE_SELECTOR);
-      if (!mainSurface) {
+      const element = document.querySelector(selector);
+      if (!element) {
         setRect(null);
         return;
       }
 
-      const rect = mainSurface.getBoundingClientRect();
+      const rect = element.getBoundingClientRect();
       setRect({ left: rect.left, top: rect.top, width: rect.width });
     };
-
-    computeRect();
-    window.addEventListener("resize", computeRect);
-    window.addEventListener("scroll", computeRect, true);
 
     const resizeObserver =
       typeof ResizeObserver !== "undefined"
         ? new ResizeObserver(computeRect)
         : null;
+    const observeElement = () => {
+      const element = document.querySelector(selector);
+      if (element === observedElement) {
+        return;
+      }
 
-    const mainSurface = document.querySelector(MAIN_SURFACE_SELECTOR);
-    if (mainSurface) {
-      resizeObserver?.observe(mainSurface);
-    }
+      resizeObserver?.disconnect();
+      observedElement = element;
+
+      if (element) {
+        resizeObserver?.observe(element);
+      }
+    };
+    const mutationObserver =
+      typeof MutationObserver !== "undefined"
+        ? new MutationObserver(() => {
+            observeElement();
+            computeRect();
+          })
+        : null;
+
+    observeElement();
+    computeRect();
+    window.addEventListener("resize", computeRect);
+    window.addEventListener("scroll", computeRect, true);
+    mutationObserver?.observe(document.body, {
+      childList: true,
+      subtree: true,
+    });
 
     return () => {
       window.removeEventListener("resize", computeRect);
       window.removeEventListener("scroll", computeRect, true);
       resizeObserver?.disconnect();
+      mutationObserver?.disconnect();
     };
   });
 
@@ -352,23 +378,27 @@ function useMainSurfaceRect() {
 
 function getMainSurfacePosition({
   contentOffset,
+  mainContentPanelRect,
   mainSurfaceRect,
   placement,
 }: {
   contentOffset: number;
-  mainSurfaceRect: MainSurfaceRect | null;
+  mainContentPanelRect: ElementRect | null;
+  mainSurfaceRect: ElementRect | null;
   placement: ToastAreaPlacement;
 }): ToastAreaPosition | null {
-  if (!mainSurfaceRect) {
+  const verticalAnchorRect = mainSurfaceRect ?? mainContentPanelRect;
+  const horizontalAnchorRect = mainContentPanelRect ?? mainSurfaceRect;
+  if (!verticalAnchorRect || !horizontalAnchorRect) {
     return null;
   }
 
   return {
     left:
       placement === "left-sidebar"
-        ? mainSurfaceRect.left + mainSurfaceRect.width / 2
+        ? horizontalAnchorRect.left + horizontalAnchorRect.width / 2
         : `calc(50% + ${contentOffset}px)`,
-    top: mainSurfaceRect.top + LEFT_SIDEBAR_TOP_OFFSET_PX,
+    top: verticalAnchorRect.top + LEFT_SIDEBAR_TOP_OFFSET_PX,
   };
 }
 
