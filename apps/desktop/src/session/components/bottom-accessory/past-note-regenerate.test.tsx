@@ -1,13 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  renderHook,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const hoisted = vi.hoisted(() => ({
@@ -45,77 +37,9 @@ vi.mock("~/store/tinybase/store/main", () => ({
 }));
 
 import { buildPastSessionNotes, usePastSessionNotes } from "./past-notes";
-import { PostSessionAccessory } from "./post-session";
-
-vi.mock("@hypr/plugin-fs-sync", () => ({
-  commands: {
-    audioPath: vi.fn(),
-  },
-}));
-
-vi.mock("@hypr/ui/components/ui/button", () => ({
-  Button: ({
-    children,
-    ...props
-  }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
-    <button {...props}>{children}</button>
-  ),
-}));
-
-vi.mock("@hypr/ui/components/ui/spinner", () => ({
-  Spinner: () => <div data-testid="spinner" />,
-}));
-
-vi.mock("@hypr/ui/components/ui/tooltip", () => ({
-  Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  TooltipTrigger: ({ children }: { children: React.ReactNode }) => (
-    <>{children}</>
-  ),
-  TooltipContent: ({ children }: { children: React.ReactNode }) => (
-    <>{children}</>
-  ),
-}));
-
-vi.mock("~/audio-player", () => ({
-  Timeline: () => <div data-testid="timeline" />,
-  TimelineShell: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  TimelineMeta: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  useAudioPlayer: () => ({
-    audioExists: false,
-    deleteRecording: vi.fn(),
-    isDeletingRecording: false,
-  }),
-}));
-
-vi.mock("~/session/components/note-input/transcript", () => ({
-  Transcript: () => <div data-testid="transcript" />,
-}));
-
-vi.mock("~/session/components/note-input/transcript/export-data", () => ({
-  useTranscriptExportSegments: () => ({ data: [], isLoading: false }),
-  formatTranscriptExportSegments: () => "",
-}));
-
-vi.mock("~/session/components/note-input/transcript/state", () => ({
-  useTranscriptScreen: () => ({ kind: "empty" }),
-}));
 
 vi.mock("~/sidebar/toast/transient", () => ({
   showTransientToast: hoisted.showTransientToast,
-}));
-
-vi.mock("~/stt/contexts", () => ({
-  useListener: (selector: (state: Record<string, never>) => unknown) =>
-    selector({}),
-}));
-
-vi.mock("~/stt/useRunBatch", () => ({
-  useRunBatch: () => vi.fn(),
-  isStoppedTranscriptionError: vi.fn(() => false),
 }));
 
 beforeEach(() => {
@@ -130,97 +54,6 @@ afterEach(() => {
 });
 
 describe("insights regeneration", () => {
-  it("regenerates compiled insights from the insights panel", () => {
-    const regenerate = vi.fn();
-
-    render(
-      <PostSessionAccessory
-        sessionId="session-1"
-        isTranscriptExpanded
-        activeTab="insights"
-        pastNotes={[
-          {
-            sessionId: "session-0",
-            title: "Weekly Product Sync",
-            dateLabel: "May 28, 2026",
-            summary: "Ship the transcript panel.",
-            isGenerating: false,
-          },
-        ]}
-        onRegenerateInsights={regenerate}
-      />,
-    );
-
-    fireEvent.click(
-      screen.getByRole("button", { name: "Regenerate insights" }),
-    );
-
-    expect(regenerate).toHaveBeenCalledTimes(1);
-  });
-
-  it("disables the regenerate action while insights are generating", () => {
-    render(
-      <PostSessionAccessory
-        sessionId="session-1"
-        isTranscriptExpanded
-        activeTab="insights"
-        pastNotes={[
-          {
-            sessionId: "session-0",
-            title: "Weekly Product Sync",
-            dateLabel: "May 28, 2026",
-            summary: "Ship the transcript panel.",
-            isGenerating: true,
-          },
-        ]}
-        onRegenerateInsights={vi.fn()}
-      />,
-    );
-
-    expect(
-      screen.getByRole("button", { name: "Regenerate insights" }),
-    ).toHaveProperty("disabled", true);
-  });
-
-  it("disables regeneration while another insight source is generating", () => {
-    const regenerate = vi.fn();
-
-    render(
-      <PostSessionAccessory
-        sessionId="session-1"
-        isTranscriptExpanded
-        activeTab="insights"
-        pastNotes={[
-          {
-            sessionId: "session-0",
-            title: "Weekly Product Sync",
-            dateLabel: "May 28, 2026",
-            summary: "Ship the transcript panel.",
-            isGenerating: false,
-            isRegenerateDisabled: true,
-          },
-          {
-            sessionId: "session-2",
-            title: "Design Review",
-            dateLabel: "May 20, 2026",
-            summary: "Review final mocks.",
-            isGenerating: true,
-            isRegenerateDisabled: true,
-          },
-        ]}
-        onRegenerateInsights={regenerate}
-      />,
-    );
-
-    const button = screen.getByRole("button", {
-      name: "Regenerate insights",
-    });
-
-    expect(button).toHaveProperty("disabled", true);
-    fireEvent.click(button);
-    expect(regenerate).not.toHaveBeenCalled();
-  });
-
   it("keeps regeneration requests for saved past note facts", () => {
     const store = makeStore({
       sessions: {

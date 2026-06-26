@@ -343,10 +343,6 @@ msgstr "Closed"
 msgid "Collapse {0}"
 msgstr "Collapse {0}"
 
-#: src/session/components/bottom-accessory/index.tsx:205
-msgid "Collapse {label}"
-msgstr "Collapse {label}"
-
 #: src/task/resource-view.tsx:125
 #: src/task/resource-view.tsx:196
 msgid "comment"
@@ -623,10 +619,6 @@ msgstr "existing data to new location"
 msgid "Expand {0}"
 msgstr "Expand {0}"
 
-#: src/session/components/bottom-accessory/index.tsx:205
-msgid "Expand {label}"
-msgstr "Expand {label}"
-
 #: src/settings/general/storage/index.tsx:169
 msgid "Expire recordings after one day"
 msgstr "Expire recordings after one day"
@@ -807,10 +799,6 @@ msgstr "Insert above"
 #: src/templates/sections-editor.tsx:260
 msgid "Insert below"
 msgstr "Insert below"
-
-#: src/session/components/bottom-accessory/index.tsx:161
-msgid "Insights"
-msgstr "Insights"
 
 #: src/settings/ai/llm/index.tsx:13
 #: src/sidebar/settings.tsx:80
@@ -1264,18 +1252,9 @@ msgstr "Refresh billing status"
 msgid "Refresh calendars"
 msgstr "Refresh calendars"
 
-#: src/session/components/bottom-accessory/post-session.tsx:225
-#: src/session/components/bottom-accessory/post-session.tsx:243
-msgid "Regenerate insights"
-msgstr "Regenerate insights"
-
 #: src/chat/components/message/normal.tsx:91
 msgid "Regenerate message"
 msgstr "Regenerate message"
-
-#: src/session/components/bottom-accessory/post-session.tsx:243
-msgid "Regenerating insights"
-msgstr "Regenerating insights"
 
 #: src/contacts/details.tsx:335
 msgid "Related Notes"
@@ -1666,11 +1645,6 @@ msgstr "Stop listening"
 msgid "Stop response"
 msgstr "Stop response"
 
-#: src/session/components/bottom-accessory/post-session.tsx:335
-#: src/session/components/bottom-accessory/post-session.tsx:348
-msgid "Stop transcription"
-msgstr "Stop transcription"
-
 #: src/settings/general/app-settings.tsx:90
 msgid "Stop when meeting ends"
 msgstr "Stop when meeting ends"
@@ -1763,7 +1737,6 @@ msgstr "Timezone"
 msgid "Tip: The Anarlog team loves our users!"
 msgstr "Tip: The Anarlog team loves our users!"
 
-#: src/session/components/bottom-accessory/index.tsx:152
 #: src/session/components/note-input/header.tsx:618
 #: src/session/components/outer-header/overflow/export-modal.tsx:245
 #: src/session/components/outer-header/overflow/export-modal.tsx:295

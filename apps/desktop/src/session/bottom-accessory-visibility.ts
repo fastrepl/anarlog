@@ -12,12 +12,8 @@ export function shouldShowSessionBottomAccessory({
   sessionMode: string;
 }) {
   if (sessionMode === "running_batch") {
-    return bottomAccessoryState?.mode === "playback";
+    return false;
   }
 
-  return (
-    currentView.type !== "transcript" ||
-    bottomAccessoryState?.mode === "playback" ||
-    bottomAccessoryState?.mode === "transcript_only"
-  );
+  return currentView.type !== "transcript" || bottomAccessoryState !== null;
 }

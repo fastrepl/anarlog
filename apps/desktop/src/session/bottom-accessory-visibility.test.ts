@@ -3,17 +3,14 @@ import { describe, expect, it } from "vitest";
 import { shouldShowSessionBottomAccessory } from "./bottom-accessory-visibility";
 
 describe("shouldShowSessionBottomAccessory", () => {
-  it("keeps transcript-only insights reachable on the transcript tab", () => {
+  it("keeps the bottom area empty on inactive transcript views without accessory state", () => {
     expect(
       shouldShowSessionBottomAccessory({
         currentView: { type: "transcript" },
         sessionMode: "inactive",
-        bottomAccessoryState: {
-          mode: "transcript_only",
-          expanded: false,
-        },
+        bottomAccessoryState: null,
       }),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("preserves playback bottom controls on the transcript tab", () => {
@@ -29,17 +26,7 @@ describe("shouldShowSessionBottomAccessory", () => {
     ).toBe(true);
   });
 
-  it("keeps the bottom area empty on the transcript tab without accessory state", () => {
-    expect(
-      shouldShowSessionBottomAccessory({
-        currentView: { type: "transcript" },
-        sessionMode: "inactive",
-        bottomAccessoryState: null,
-      }),
-    ).toBe(false);
-  });
-
-  it("keeps batch transcription stop controls on the transcript tab", () => {
+  it("hides batch transcription bottom chrome on the transcript tab", () => {
     expect(
       shouldShowSessionBottomAccessory({
         currentView: { type: "transcript" },
@@ -49,10 +36,10 @@ describe("shouldShowSessionBottomAccessory", () => {
           expanded: false,
         },
       }),
-    ).toBe(true);
+    ).toBe(false);
   });
 
-  it("keeps batch transcription stop controls outside the transcript tab", () => {
+  it("hides batch transcription bottom chrome outside the transcript tab", () => {
     expect(
       shouldShowSessionBottomAccessory({
         currentView: { type: "raw" },
@@ -62,7 +49,7 @@ describe("shouldShowSessionBottomAccessory", () => {
           expanded: false,
         },
       }),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("hides batch transcription status without accessory state", () => {

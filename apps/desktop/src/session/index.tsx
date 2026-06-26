@@ -157,15 +157,11 @@ function TabContentNoteInner({
   );
   const mergeTranscriptSurface =
     bottomAccessoryState?.expanded === true &&
-    (bottomAccessoryState.mode === "playback" ||
-      bottomAccessoryState.mode === "transcript_only");
-  const canResizeTranscriptSurface =
-    bottomAccessoryState?.mode === "playback" ||
-    bottomAccessoryState?.mode === "transcript_only";
+    bottomAccessoryState.mode === "playback";
+  const canResizeTranscriptSurface = bottomAccessoryState?.mode === "playback";
   const hasResizableTranscriptSurface =
-    bottomAccessoryState?.mode === "transcript_only" ||
-    (bottomAccessoryState?.mode === "playback" &&
-      (hasTranscript || sessionMode === "running_batch"));
+    bottomAccessoryState?.mode === "playback" &&
+    (hasTranscript || sessionMode === "running_batch");
   const resizeTranscriptSurface =
     bottomAccessoryState?.expanded === true &&
     canResizeTranscriptSurface &&
