@@ -17,6 +17,13 @@ const mocks = vi.hoisted(() => ({
   toggleLeftSidebar: vi.fn(),
   isTauri: vi.fn(() => true),
   startDragging: vi.fn().mockResolvedValue(undefined),
+  devtoolsPanelActionListeners: [] as Array<
+    (event: { payload: { action: string } }) => void
+  >,
+  windowsCommands: {
+    devtoolsPanelHide: vi.fn(async () => ({ status: "ok" as const })),
+    devtoolsPanelShow: vi.fn(async () => ({ status: "ok" as const })),
+  },
   canGoBack: false,
   canGoNext: false,
   upcomingMeetingStatus: null as null | {
@@ -57,6 +64,25 @@ vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: () => ({
     startDragging: mocks.startDragging,
   }),
+}));
+
+vi.mock("@hypr/plugin-windows", () => ({
+  commands: mocks.windowsCommands,
+  events: {
+    devtoolsPanelAction: {
+      listen: vi.fn(
+        async (listener: (event: { payload: { action: string } }) => void) => {
+          mocks.devtoolsPanelActionListeners.push(listener);
+          return () => {
+            mocks.devtoolsPanelActionListeners =
+              mocks.devtoolsPanelActionListeners.filter(
+                (candidate) => candidate !== listener,
+              );
+          };
+        },
+      ),
+    },
+  },
 }));
 
 vi.mock("~/main/useTabsShortcuts", () => ({
@@ -105,23 +131,6 @@ vi.mock("~/contexts/shell", () => ({
   }),
 }));
 
-vi.mock("~/session/components/bottom-accessory/global-live", () => ({
-  GlobalLiveTranscriptAccessory: ({
-    children,
-    currentTab,
-  }: {
-    children: React.ReactNode;
-    currentTab: { type: string } | null;
-  }) => (
-    <div
-      data-current-tab-type={currentTab?.type ?? ""}
-      data-testid="global-live-transcript-accessory"
-    >
-      {children}
-    </div>
-  ),
-}));
-
 vi.mock("~/shared/open-note-dialog", () => ({
   useOpenNoteDialog: () => ({
     open: mocks.openSearch,
@@ -164,6 +173,9 @@ describe("ClassicMainBody", () => {
     mocks.toggleLeftSidebar.mockClear();
     mocks.isTauri.mockReturnValue(true);
     mocks.startDragging.mockClear();
+    mocks.devtoolsPanelActionListeners = [];
+    mocks.windowsCommands.devtoolsPanelHide.mockClear();
+    mocks.windowsCommands.devtoolsPanelShow.mockClear();
     mocks.canGoBack = false;
     mocks.canGoNext = false;
     mocks.upcomingMeetingStatus = null;

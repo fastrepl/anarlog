@@ -338,11 +338,6 @@ msgstr ""
 msgid "Closed"
 msgstr ""
 
-#. placeholder {0}: label ?? ""
-#: src/session/components/bottom-accessory/expand-toggle.tsx:43
-msgid "Collapse {0}"
-msgstr ""
-
 #: src/task/resource-view.tsx:125
 #: src/task/resource-view.tsx:196
 msgid "comment"
@@ -618,11 +613,6 @@ msgstr ""
 msgid "existing data to new location"
 msgstr ""
 
-#. placeholder {0}: label ?? ""
-#: src/session/components/bottom-accessory/expand-toggle.tsx:44
-msgid "Expand {0}"
-msgstr ""
-
 #: src/settings/general/storage/index.tsx:169
 msgid "Expire recordings after one day"
 msgstr ""
@@ -867,10 +857,6 @@ msgstr ""
 
 #: src/contacts/details.tsx:518
 msgid "LinkedIn"
-msgstr ""
-
-#: src/session/components/bottom-accessory/global-live.tsx:97
-msgid "Live"
 msgstr ""
 
 #: src/calendar/components/calendar-selection.tsx:76

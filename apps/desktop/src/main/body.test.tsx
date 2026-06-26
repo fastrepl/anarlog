@@ -167,14 +167,6 @@ vi.mock("./useTabsShortcuts", () => ({
   useClassicMainTabsShortcuts: () => ({ runEscapeShortcut: vi.fn() }),
 }));
 
-vi.mock("~/session/components/bottom-accessory/global-live", () => ({
-  GlobalLiveTranscriptAccessory: ({
-    children,
-  }: {
-    children: React.ReactNode;
-  }) => <div data-testid="global-live-accessory">{children}</div>,
-}));
-
 vi.mock("~/shared/open-note-dialog", () => ({
   useOpenNoteDialog: () => ({ open: vi.fn() }),
 }));

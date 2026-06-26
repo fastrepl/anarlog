@@ -1,54 +1,11 @@
 import { cleanup, renderHook } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-const hoisted = vi.hoisted(() => ({
-  live: {
-    status: "inactive" as "inactive" | "active" | "finalizing",
-    sessionId: null as string | null,
-    requestedLiveTranscription: true as boolean | null,
-    liveTranscriptionActive: true as boolean | null,
-  },
-  batch: {} as Record<string, { error: string | null }>,
-}));
-
-vi.mock("./during-session", () => ({
-  DuringSessionAccessory: () => <div data-testid="during-session-accessory" />,
-}));
-
-vi.mock("./expand-toggle", () => ({
-  ExpandToggle: ({ label }: { label?: string }) => (
-    <button type="button">{label}</button>
-  ),
-}));
-
-vi.mock("~/stt/contexts", () => ({
-  useListener: (
-    selector: (state: {
-      live: {
-        status: "inactive" | "active" | "finalizing";
-        sessionId: string | null;
-        requestedLiveTranscription: boolean | null;
-        liveTranscriptionActive: boolean | null;
-      };
-      batch: Record<string, { error: string | null }>;
-    }) => unknown,
-  ) =>
-    selector({
-      live: hoisted.live,
-      batch: hoisted.batch,
-    }),
-}));
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { useSessionBottomAccessory } from "./index";
 
 describe("useSessionBottomAccessory", () => {
   beforeEach(() => {
     cleanup();
-    hoisted.live.status = "inactive";
-    hoisted.live.sessionId = null;
-    hoisted.live.requestedLiveTranscription = true;
-    hoisted.live.liveTranscriptionActive = true;
-    hoisted.batch = {};
   });
 
   it("does not show bottom playback chrome for inactive sessions with audio", () => {
@@ -97,12 +54,6 @@ describe("useSessionBottomAccessory", () => {
   });
 
   it("does not render a bottom transcript panel after batch transcription fails without words", () => {
-    hoisted.batch = {
-      "session-1": {
-        error: "batch start failed: connection refused",
-      },
-    };
-
     const { result } = renderHook(() =>
       useSessionBottomAccessory({
         sessionId: "session-1",
@@ -118,12 +69,6 @@ describe("useSessionBottomAccessory", () => {
   });
 
   it("does not show insights for batch errors next to related meetings", () => {
-    hoisted.batch = {
-      "session-1": {
-        error: "batch start failed: connection refused",
-      },
-    };
-
     const { result } = renderHook(() =>
       useSessionBottomAccessory({
         sessionId: "session-1",
@@ -192,9 +137,6 @@ describe("useSessionBottomAccessory", () => {
   });
 
   it("hides the bottom accessory while recording for batch transcription", () => {
-    hoisted.live.requestedLiveTranscription = false;
-    hoisted.live.liveTranscriptionActive = false;
-
     const { result } = renderHook(() =>
       useSessionBottomAccessory({
         sessionId: "session-1",
@@ -225,9 +167,6 @@ describe("useSessionBottomAccessory", () => {
   });
 
   it("defers local transcript controls to the global live panel for another active session", () => {
-    hoisted.live.status = "active";
-    hoisted.live.sessionId = "live-session";
-
     const { result } = renderHook(() =>
       useSessionBottomAccessory({
         sessionId: "session-1",
@@ -243,9 +182,6 @@ describe("useSessionBottomAccessory", () => {
   });
 
   it("hides batch progress from the bottom accessory while another session is live", () => {
-    hoisted.live.status = "active";
-    hoisted.live.sessionId = "live-session";
-
     const { result } = renderHook(() =>
       useSessionBottomAccessory({
         sessionId: "session-1",
@@ -301,10 +237,7 @@ describe("useSessionBottomAccessory", () => {
     expect(result.current.bottomBorderHandle).toBeNull();
   });
 
-  it("shows a local bottom panel while the current session has live transcription active", () => {
-    hoisted.live.status = "active";
-    hoisted.live.sessionId = "session-1";
-
+  it("keeps local bottom chrome hidden while the current session has live transcription active", () => {
     const { result } = renderHook(() =>
       useSessionBottomAccessory({
         sessionId: "session-1",
@@ -314,11 +247,8 @@ describe("useSessionBottomAccessory", () => {
       }),
     );
 
-    expect(result.current.bottomAccessoryState).toEqual({
-      mode: "live",
-      expanded: false,
-    });
-    expect(result.current.bottomAccessory).not.toBeNull();
-    expect(result.current.bottomBorderHandle).not.toBeNull();
+    expect(result.current.bottomAccessoryState).toBeNull();
+    expect(result.current.bottomAccessory).toBeNull();
+    expect(result.current.bottomBorderHandle).toBeNull();
   });
 });

@@ -338,11 +338,6 @@ msgstr "Close chat"
 msgid "Closed"
 msgstr "Closed"
 
-#. placeholder {0}: label ?? ""
-#: src/session/components/bottom-accessory/expand-toggle.tsx:43
-msgid "Collapse {0}"
-msgstr "Collapse {0}"
-
 #: src/task/resource-view.tsx:125
 #: src/task/resource-view.tsx:196
 msgid "comment"
@@ -618,11 +613,6 @@ msgstr "Exclude apps from detection"
 msgid "existing data to new location"
 msgstr "existing data to new location"
 
-#. placeholder {0}: label ?? ""
-#: src/session/components/bottom-accessory/expand-toggle.tsx:44
-msgid "Expand {0}"
-msgstr "Expand {0}"
-
 #: src/settings/general/storage/index.tsx:169
 msgid "Expire recordings after one day"
 msgstr "Expire recordings after one day"
@@ -868,10 +858,6 @@ msgstr "Light"
 #: src/contacts/details.tsx:518
 msgid "LinkedIn"
 msgstr "LinkedIn"
-
-#: src/session/components/bottom-accessory/global-live.tsx:97
-msgid "Live"
-msgstr "Live"
 
 #: src/calendar/components/calendar-selection.tsx:76
 msgid "Loading calendars..."
