@@ -6,7 +6,7 @@ extension NotificationManager {
   }
 
   func buttonOverhang() -> CGFloat {
-    isMacOS26() ? 0 : Layout.buttonOverhang
+    Layout.buttonOverhang
   }
 
   func notificationCornerRadius() -> CGFloat {
