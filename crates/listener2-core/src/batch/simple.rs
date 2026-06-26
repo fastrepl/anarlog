@@ -370,10 +370,10 @@ where
                     error = %error,
                     "soniqo_channel_transcription_failed"
                 );
-                output.push(hypr_transcribe_soniqo::FileTranscript {
-                    text: String::new(),
-                    duration_seconds: 0.05,
-                });
+                output.push(hypr_transcribe_soniqo::FileTranscript::new(
+                    String::new(),
+                    0.05,
+                ));
             }
         }
     }
@@ -418,6 +418,7 @@ fn transcribe_soniqo_channel_chunks(
     mut on_chunk_completed: impl FnMut(),
 ) -> std::result::Result<hypr_transcribe_soniqo::FileTranscript, String> {
     let mut texts = Vec::new();
+    let mut transcript_chunks = Vec::new();
     let mut successful_chunks = 0usize;
     let mut failed_chunks = 0usize;
     let channel_index = plan.channel_index;
@@ -473,6 +474,12 @@ fn transcribe_soniqo_channel_chunks(
         let text = text.trim();
         if !text.is_empty() {
             texts.push(text.to_string());
+            transcript_chunks.push(hypr_transcribe_soniqo::FileTranscriptChunk {
+                text: text.to_string(),
+                start_seconds: chunk.sample_start as f64 / TARGET_SAMPLE_RATE as f64,
+                duration_seconds: (chunk.sample_end - chunk.sample_start) as f64
+                    / TARGET_SAMPLE_RATE as f64,
+            });
         }
     }
 
@@ -493,10 +500,17 @@ fn transcribe_soniqo_channel_chunks(
         );
     }
 
-    Ok(hypr_transcribe_soniqo::FileTranscript {
-        text: texts.join(" "),
-        duration_seconds: plan.duration_seconds,
-    })
+    if transcript_chunks.is_empty() {
+        return Ok(hypr_transcribe_soniqo::FileTranscript::new(
+            texts.join(" "),
+            plan.duration_seconds,
+        ));
+    }
+
+    Ok(hypr_transcribe_soniqo::FileTranscript::from_chunks(
+        transcript_chunks,
+        plan.duration_seconds,
+    ))
 }
 
 fn transcribe_soniqo_samples(
@@ -665,10 +679,10 @@ mod tests {
     #[test]
     fn collect_soniqo_channel_transcripts_keeps_channel_slots() {
         let transcripts = collect_soniqo_channel_transcripts([
-            Ok(hypr_transcribe_soniqo::FileTranscript {
-                text: "hello".to_string(),
-                duration_seconds: 1.0,
-            }),
+            Ok(hypr_transcribe_soniqo::FileTranscript::new(
+                "hello".to_string(),
+                1.0,
+            )),
             Err("native chunk failed".to_string()),
         ])
         .unwrap();
@@ -682,10 +696,10 @@ mod tests {
     fn collect_soniqo_channel_transcripts_preserves_later_channel_index() {
         let transcripts = collect_soniqo_channel_transcripts([
             Err("first failed".to_string()),
-            Ok(hypr_transcribe_soniqo::FileTranscript {
-                text: "system audio".to_string(),
-                duration_seconds: 1.0,
-            }),
+            Ok(hypr_transcribe_soniqo::FileTranscript::new(
+                "system audio".to_string(),
+                1.0,
+            )),
         ])
         .unwrap();
 

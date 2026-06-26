@@ -213,6 +213,40 @@ pub struct ModelDownloadState {
 pub struct FileTranscript {
     pub text: String,
     pub duration_seconds: f64,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub chunks: Vec<FileTranscriptChunk>,
+}
+
+impl FileTranscript {
+    pub fn new(text: String, duration_seconds: f64) -> Self {
+        Self {
+            text,
+            duration_seconds,
+            chunks: Vec::new(),
+        }
+    }
+
+    pub fn from_chunks(chunks: Vec<FileTranscriptChunk>, duration_seconds: f64) -> Self {
+        let text = chunks
+            .iter()
+            .map(|chunk| chunk.text.as_str())
+            .collect::<Vec<_>>()
+            .join(" ");
+
+        Self {
+            text,
+            duration_seconds,
+            chunks,
+        }
+    }
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileTranscriptChunk {
+    pub text: String,
+    pub start_seconds: f64,
+    pub duration_seconds: f64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -486,13 +520,7 @@ pub fn batch_response_from_text(
     text: String,
     duration_seconds: f64,
 ) -> batch::Response {
-    batch_response_from_channels(
-        model,
-        vec![FileTranscript {
-            text,
-            duration_seconds,
-        }],
-    )
+    batch_response_from_channels(model, vec![FileTranscript::new(text, duration_seconds)])
 }
 
 pub fn batch_response_from_channels(
@@ -500,10 +528,7 @@ pub fn batch_response_from_channels(
     channels: Vec<FileTranscript>,
 ) -> batch::Response {
     let channels = if channels.is_empty() {
-        vec![FileTranscript {
-            text: String::new(),
-            duration_seconds: 0.05,
-        }]
+        vec![FileTranscript::new(String::new(), 0.05)]
     } else {
         channels
     };
@@ -521,14 +546,20 @@ pub fn batch_response_from_channels(
                 .enumerate()
                 .map(|(channel_index, channel)| {
                     let transcript = normalize_transcript_text(&channel.text);
-                    let synthetic_duration = synthetic_text_duration(&transcript);
+                    let words = if channel.chunks.is_empty() {
+                        let synthetic_duration = synthetic_text_duration(&transcript);
+                        batch_words_from_text(
+                            &transcript,
+                            0.0,
+                            synthetic_duration,
+                            channel_index as i32,
+                        )
+                    } else {
+                        batch_words_from_chunks(&channel.chunks, channel_index as i32)
+                    };
                     batch::Channel {
                         alternatives: vec![batch::Alternatives {
-                            words: batch_words_from_text(
-                                &transcript,
-                                synthetic_duration,
-                                channel_index as i32,
-                            ),
+                            words,
                             transcript,
                             confidence: 1.0,
                         }],
@@ -596,7 +627,20 @@ fn stream_words_from_text(text: &str, start: f64, duration: f64) -> Vec<stream::
         .collect()
 }
 
-fn batch_words_from_text(text: &str, duration: f64, channel: i32) -> Vec<batch::Word> {
+fn batch_words_from_chunks(chunks: &[FileTranscriptChunk], channel: i32) -> Vec<batch::Word> {
+    chunks
+        .iter()
+        .flat_map(|chunk| {
+            let text = normalize_transcript_text(&chunk.text);
+            let duration = synthetic_text_duration(&text)
+                .min(chunk.duration_seconds.max(MIN_SYNTHETIC_DURATION_SECONDS));
+            let start = chunk.start_seconds.max(0.0);
+            batch_words_from_text(&text, start, duration, channel)
+        })
+        .collect()
+}
+
+fn batch_words_from_text(text: &str, start: f64, duration: f64, channel: i32) -> Vec<batch::Word> {
     let word_strs = split_words(text);
     let count = word_strs.len();
 
@@ -609,8 +653,8 @@ fn batch_words_from_text(text: &str, duration: f64, channel: i32) -> Vec<batch::
         .enumerate()
         .map(|(index, word)| batch::Word {
             word: word.to_string(),
-            start: (index as f64 / count as f64) * duration,
-            end: ((index + 1) as f64 / count as f64) * duration,
+            start: start + (index as f64 / count as f64) * duration,
+            end: start + ((index + 1) as f64 / count as f64) * duration,
             confidence: 1.0,
             channel,
             speaker: None,
@@ -742,6 +786,7 @@ mod platform {
         Ok(FileTranscript {
             text: result.text,
             duration_seconds: result.duration_seconds,
+            chunks: Vec::new(),
         })
     }
 
@@ -979,14 +1024,8 @@ mod tests {
         let response = batch_response_from_channels(
             SoniqoModel::Omnilingual,
             vec![
-                FileTranscript {
-                    text: "mic words".to_string(),
-                    duration_seconds: 2.0,
-                },
-                FileTranscript {
-                    text: "speaker words".to_string(),
-                    duration_seconds: 3.0,
-                },
+                FileTranscript::new("mic words".to_string(), 2.0),
+                FileTranscript::new("speaker words".to_string(), 3.0),
             ],
         );
 
@@ -1025,6 +1064,35 @@ mod tests {
         assert_eq!(words[3].end, 4.0 * SYNTHETIC_BATCH_WORD_SECONDS);
         assert!(words[3].end < 3.0);
         assert_eq!(response.metadata["duration"], 120.0);
+    }
+
+    #[test]
+    fn batch_response_offsets_synthetic_words_by_chunk_start() {
+        let response = batch_response_from_channels(
+            SoniqoModel::ParakeetBatch,
+            vec![FileTranscript::from_chunks(
+                vec![
+                    FileTranscriptChunk {
+                        text: "early words".to_string(),
+                        start_seconds: 0.0,
+                        duration_seconds: 29.5,
+                    },
+                    FileTranscriptChunk {
+                        text: "later words".to_string(),
+                        start_seconds: 29.5,
+                        duration_seconds: 29.5,
+                    },
+                ],
+                59.0,
+            )],
+        );
+        let words = &response.results.channels[0].alternatives[0].words;
+
+        assert_eq!(words[0].start, 0.0);
+        assert_eq!(words[1].start, SYNTHETIC_BATCH_WORD_SECONDS);
+        assert_eq!(words[2].start, 29.5);
+        assert_eq!(words[3].start, 29.5 + SYNTHETIC_BATCH_WORD_SECONDS);
+        assert_eq!(response.metadata["timing_source"], "synthetic_text");
     }
 
     #[test]
