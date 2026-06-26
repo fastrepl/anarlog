@@ -9,6 +9,7 @@ import {
 import { buildSearchCalendarEventsTool } from "./search-calendar-events";
 import { buildSearchContactsTool } from "./search-contacts";
 import { buildSearchSessionsTool } from "./search-sessions";
+import { buildApplySessionCorrectionTool } from "./session-correction";
 import type {
   CalendarEventSearchResult,
   ContactSearchResult,
@@ -72,6 +73,10 @@ export const buildChatTools = (deps: ToolDependencies) => ({
   ),
   web_search: withToolLogging("web_search", buildWebSearchTool(deps)),
   edit_summary: withToolLogging("edit_summary", buildEditSummaryTool(deps)),
+  apply_session_correction: withToolLogging(
+    "apply_session_correction",
+    buildApplySessionCorrectionTool(deps),
+  ),
 });
 
 type LocalTools = {
@@ -195,6 +200,30 @@ type LocalTools = {
         title: string;
         templateId?: string;
         position?: number;
+      }>;
+    };
+  };
+  apply_session_correction: {
+    input: {
+      sessionId?: string;
+      target?: "summary" | "transcript" | "summary_and_transcript";
+      enhancedNoteId?: string;
+      oldText: string;
+      newText: string;
+    };
+    output: {
+      status: string;
+      message?: string;
+      sessionId?: string;
+      summaryChanges?: Array<{
+        enhancedNoteId: string;
+        title: string;
+        replacements: number;
+      }>;
+      transcriptChanges?: Array<{
+        transcriptId: string;
+        wordReplacements: number;
+        memoReplacements: number;
       }>;
     };
   };
