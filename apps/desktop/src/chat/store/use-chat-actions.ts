@@ -83,7 +83,10 @@ export function useChatActions({
     (
       content: string,
       parts: HyprUIMessage["parts"],
-      sendMessage: (message: HyprUIMessage) => void,
+      sendMessage: (
+        message: HyprUIMessage,
+        options?: { chatGroupId?: string },
+      ) => void,
       contextRefs?: ContextRef[],
     ) => {
       const messageId = id();
@@ -120,7 +123,7 @@ export function useChatActions({
         metadata,
       });
 
-      sendMessage(uiMessage);
+      sendMessage(uiMessage, { chatGroupId: currentGroupId });
     },
     [
       groupId,

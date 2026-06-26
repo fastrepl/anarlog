@@ -46,7 +46,10 @@ export function ChatContent({
   layout?: "floating" | "right-panel";
   sessionId: string;
   messages: HyprUIMessage[];
-  sendMessage: (message: HyprUIMessage) => void;
+  sendMessage: (
+    message: HyprUIMessage,
+    options?: { chatGroupId?: string },
+  ) => void;
   regenerate: () => void;
   stop: () => void;
   status: ChatStatus;
@@ -55,7 +58,10 @@ export function ChatContent({
   handleSendMessage: (
     content: string,
     parts: HyprUIMessage["parts"],
-    sendMessage: (message: HyprUIMessage) => void,
+    sendMessage: (
+      message: HyprUIMessage,
+      options?: { chatGroupId?: string },
+    ) => void,
     contextRefs?: ContextRef[],
   ) => void;
   contextEntities: DisplayEntity[];

@@ -1,5 +1,5 @@
-import { useChat } from "@ai-sdk/react";
-import type { ChatStatus, LanguageModel, ToolSet } from "ai";
+import { Chat, useChat } from "@ai-sdk/react";
+import type { ChatStatus, ChatTransport, LanguageModel, ToolSet } from "ai";
 import {
   type ReactNode,
   useCallback,
@@ -31,7 +31,10 @@ export type ChatSessionRenderProps = {
   setMessages: (
     msgs: HyprUIMessage[] | ((prev: HyprUIMessage[]) => HyprUIMessage[]),
   ) => void;
-  sendMessage: (message: HyprUIMessage) => void;
+  sendMessage: (
+    message: HyprUIMessage,
+    options?: { chatGroupId?: string },
+  ) => void;
   regenerate: () => void;
   stop: () => void;
   status: ChatStatus;
@@ -55,6 +58,23 @@ interface ChatSessionProps {
   children: (props: ChatSessionRenderProps) => ReactNode;
 }
 
+function areMessagesEqual(a: HyprUIMessage[], b: HyprUIMessage[]) {
+  if (a.length !== b.length) {
+    return false;
+  }
+
+  return a.every((message, index) => {
+    const other = b[index];
+    return (
+      message.id === other?.id &&
+      message.role === other.role &&
+      JSON.stringify(message.parts) === JSON.stringify(other.parts) &&
+      JSON.stringify(message.metadata ?? {}) ===
+        JSON.stringify(other.metadata ?? {})
+    );
+  });
+}
+
 export function ChatSession({
   sessionId,
   chatGroupId,
@@ -66,10 +86,19 @@ export function ChatSession({
   children,
 }: ChatSessionProps) {
   const store = main.UI.useStore(main.STORE_ID);
+  const chatMessagesTable = main.UI.useTable("chat_messages", main.STORE_ID);
   const { user_id } = main.UI.useValues(main.STORE_ID);
 
   const [pendingManualRefs, setPendingManualRefs] = useState<ContextRef[]>([]);
   const [pendingDraftRefs, setPendingDraftRefs] = useState<ContextRef[]>([]);
+  const latestChatGroupIdRef = useRef(chatGroupId);
+  const latestStoreRef = useRef(store);
+  const latestUserIdRef = useRef(user_id);
+  const submittedChatGroupIdsRef = useRef(new Map<string, string>());
+
+  latestChatGroupIdRef.current = chatGroupId;
+  latestStoreRef.current = store;
+  latestUserIdRef.current = user_id;
 
   const onAddContextEntity = useCallback((ref: ContextRef) => {
     setPendingManualRefs((prev) =>
@@ -98,6 +127,90 @@ export function ChatSession({
     store,
   );
 
+  const persistedVisibleMessages = useMemo(
+    () =>
+      store && chatGroupId ? getVisibleChatMessages(store, chatGroupId) : [],
+    [store, chatGroupId, chatMessagesTable],
+  );
+
+  const chat = useMemo(
+    () =>
+      new Chat<HyprUIMessage>({
+        id: sessionId,
+        messages:
+          store && chatGroupId
+            ? getVisibleChatMessages(store, chatGroupId)
+            : [],
+        transport: transport ?? unavailableChatTransport,
+        onFinish: ({ message, messages, isAbort }) => {
+          const currentStore = latestStoreRef.current;
+          const currentUserId = latestUserIdRef.current;
+          const messageIndex = messages.findIndex((m) => m.id === message.id);
+          const lastMessageIndex =
+            messageIndex === -1 ? messages.length - 1 : messageIndex - 1;
+          let submittedUserMessage: HyprUIMessage | undefined;
+          for (let i = lastMessageIndex; i >= 0; i--) {
+            if (messages[i].role === "user") {
+              submittedUserMessage = messages[i];
+              break;
+            }
+          }
+          const submittedChatGroupId = submittedUserMessage
+            ? submittedChatGroupIdsRef.current.get(submittedUserMessage.id)
+            : undefined;
+          if (submittedUserMessage) {
+            submittedChatGroupIdsRef.current.delete(submittedUserMessage.id);
+          }
+
+          const persistedChatGroupId =
+            submittedUserMessage && currentStore
+              ? currentStore.getRow("chat_messages", submittedUserMessage.id)
+                  ?.chat_group_id
+              : undefined;
+          const targetChatGroupId =
+            (typeof persistedChatGroupId === "string" && persistedChatGroupId
+              ? persistedChatGroupId
+              : undefined) ??
+            submittedChatGroupId ??
+            latestChatGroupIdRef.current;
+
+          if (
+            isAbort ||
+            !targetChatGroupId ||
+            !currentStore ||
+            !currentUserId
+          ) {
+            return;
+          }
+
+          const sanitizedParts = stripEphemeralToolContext(message.parts);
+          const sanitizedMessage =
+            sanitizedParts === message.parts
+              ? message
+              : { ...message, parts: sanitizedParts };
+          if (!shouldPersistFinishedMessage(sanitizedMessage)) {
+            currentStore.delRow("chat_messages", sanitizedMessage.id);
+            return;
+          }
+          currentStore.setRow(
+            "chat_messages",
+            sanitizedMessage.id,
+            buildPersistedChatMessageRow({
+              message: sanitizedMessage,
+              chatGroupId: targetChatGroupId,
+              userId: currentUserId,
+              status: "ready",
+              existingRow: currentStore.getRow(
+                "chat_messages",
+                sanitizedMessage.id,
+              ),
+            }),
+          );
+        },
+      }),
+    [sessionId, store, transport],
+  );
+
   const {
     messages,
     sendMessage: chatSendMessage,
@@ -106,38 +219,33 @@ export function ChatSession({
     status,
     error,
     setMessages: chatSetMessages,
-  } = useChat<HyprUIMessage>({
-    id: sessionId,
-    messages:
-      store && chatGroupId ? getVisibleChatMessages(store, chatGroupId) : [],
-    transport: transport ?? undefined,
-    onFinish: ({ message, isAbort }) => {
-      if (isAbort || !chatGroupId || !store || !user_id) return;
-      const sanitizedParts = stripEphemeralToolContext(message.parts);
-      const sanitizedMessage =
-        sanitizedParts === message.parts
-          ? message
-          : { ...message, parts: sanitizedParts };
-      if (!shouldPersistFinishedMessage(sanitizedMessage)) {
-        store.delRow("chat_messages", sanitizedMessage.id);
-        return;
-      }
-      store.setRow(
-        "chat_messages",
-        sanitizedMessage.id,
-        buildPersistedChatMessageRow({
-          message: sanitizedMessage,
-          chatGroupId,
-          userId: user_id,
-          status: "ready",
-          existingRow: store.getRow("chat_messages", sanitizedMessage.id),
-        }),
-      );
-    },
-  });
+  } = useChat<HyprUIMessage>({ chat });
+
+  useEffect(() => {
+    if (
+      status !== "ready" ||
+      !chatGroupId ||
+      areMessagesEqual(messages, persistedVisibleMessages)
+    ) {
+      return;
+    }
+
+    chatSetMessages(persistedVisibleMessages);
+  }, [
+    chatGroupId,
+    messages,
+    persistedVisibleMessages,
+    status,
+    chatSetMessages,
+  ]);
 
   const sendMessage = useCallback(
-    (message: HyprUIMessage) => {
+    (message: HyprUIMessage, options?: { chatGroupId?: string }) => {
+      const targetChatGroupId =
+        options?.chatGroupId ?? latestChatGroupIdRef.current;
+      if (targetChatGroupId) {
+        submittedChatGroupIdsRef.current.set(message.id, targetChatGroupId);
+      }
       // HyprUIMessage is structurally compatible with CreateUIMessage<HyprUIMessage>:
       // no `text`/`files` so the SDK takes the `else` branch and uses message.id as the message id.
       void chatSendMessage(message as Parameters<typeof chatSendMessage>[0]);
@@ -218,3 +326,10 @@ export function ChatSession({
 
   return <div className="flex min-h-0 flex-1 flex-col">{content}</div>;
 }
+
+const unavailableChatTransport: ChatTransport<HyprUIMessage> = {
+  sendMessages: async () => {
+    throw new Error("Chat model is not ready");
+  },
+  reconnectToStream: async () => null,
+};
