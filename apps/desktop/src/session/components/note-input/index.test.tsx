@@ -22,13 +22,16 @@ vi.mock("./header", () => ({
     currentTab,
     editorTabs,
     handleTabChange,
+    isTranscribing,
   }: {
     currentTab: EditorView;
     editorTabs: EditorView[];
     handleTabChange: (view: EditorView) => void;
+    isTranscribing?: boolean;
   }) => (
     <div>
       <div data-testid="current-tab">{formatEditorView(currentTab)}</div>
+      <div data-testid="is-transcribing">{String(isTranscribing)}</div>
       {editorTabs.map((editorTab) => (
         <button
           key={formatEditorView(editorTab)}
@@ -176,5 +179,21 @@ describe("NoteInput tab selection", () => {
     );
 
     expect(screen.getByTestId("current-tab").textContent).toBe("transcript");
+  });
+
+  it("does not show the transcript spinner while a meeting is active", () => {
+    hoisted.sessionMode = "active";
+
+    renderNoteInput();
+
+    expect(screen.getByTestId("is-transcribing").textContent).toBe("false");
+  });
+
+  it("keeps the transcript spinner while finalizing", () => {
+    hoisted.sessionMode = "finalizing";
+
+    renderNoteInput();
+
+    expect(screen.getByTestId("is-transcribing").textContent).toBe("true");
   });
 });

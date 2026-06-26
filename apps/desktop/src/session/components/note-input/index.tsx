@@ -82,6 +82,8 @@ export const NoteInput = forwardRef<
       sessionMode === "active" ||
       sessionMode === "finalizing" ||
       sessionMode === "running_batch";
+    const shouldShowTranscriptSpinner =
+      sessionMode === "finalizing" || sessionMode === "running_batch";
 
     const { scrollRef, onBeforeTabChange } = useScrollPreservation(
       renderedCurrentTab.type === "enhanced"
@@ -184,7 +186,7 @@ export const NoteInput = forwardRef<
               editorTabs={editorTabs}
               currentTab={currentTab}
               handleTabChange={handleTabChange}
-              isTranscribing={isMeetingInProgress}
+              isTranscribing={shouldShowTranscriptSpinner}
             />
           </div>
         )}
