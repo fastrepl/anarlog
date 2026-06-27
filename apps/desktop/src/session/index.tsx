@@ -6,7 +6,11 @@ import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 
 import { CaretPositionProvider } from "./components/caret-position-context";
 import { FloatingActionButton } from "./components/floating";
-import { NoteInput, type NoteInputHandle } from "./components/note-input";
+import {
+  NoteInput,
+  shouldShowTranscriptTabSpinner,
+  type NoteInputHandle,
+} from "./components/note-input";
 import {
   Header as NoteInputHeader,
   useEditorTabs,
@@ -130,10 +134,7 @@ function TabContentNoteInner({
   const sessionId = tab.id;
   const { skipReason } = useAutoEnhance(tab);
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
-  const isTranscribing =
-    sessionMode === "active" ||
-    sessionMode === "finalizing" ||
-    sessionMode === "running_batch";
+  const isTranscribing = shouldShowTranscriptTabSpinner(sessionMode);
   useAutoFocusTitle({ sessionId, noteInputRef });
   usePendingUpload(sessionId);
 

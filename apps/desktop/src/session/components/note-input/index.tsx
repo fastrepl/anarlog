@@ -25,6 +25,7 @@ import { Transcript } from "./transcript";
 import { useCaretNearBottom } from "~/session/components/caret-position-context";
 import { useCurrentNoteTab } from "~/session/components/shared";
 import { useScrollPreservation } from "~/shared/hooks/useScrollPreservation";
+import type { SessionMode } from "~/store/zustand/listener/general";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 import { type EditorView as TabEditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
@@ -35,6 +36,10 @@ export interface NoteInputHandle {
   focusAtPixelWidth: (pixelWidth: number) => void;
   insertAtStartAndFocus: (content: string) => void;
   prepareForTabChange: () => void;
+}
+
+export function shouldShowTranscriptTabSpinner(sessionMode: SessionMode) {
+  return sessionMode === "finalizing" || sessionMode === "running_batch";
 }
 
 export const NoteInput = forwardRef<
@@ -90,7 +95,7 @@ export const NoteInput = forwardRef<
       sessionMode === "finalizing" ||
       sessionMode === "running_batch";
     const shouldShowTranscriptSpinner =
-      sessionMode === "finalizing" || sessionMode === "running_batch";
+      shouldShowTranscriptTabSpinner(sessionMode);
 
     const { scrollRef, onBeforeTabChange } = useScrollPreservation(
       renderedCurrentTab.type === "enhanced"

@@ -196,4 +196,12 @@ describe("NoteInput tab selection", () => {
 
     expect(screen.getByTestId("is-transcribing").textContent).toBe("true");
   });
+
+  it("keeps the transcript spinner while batch transcription is running", () => {
+    hoisted.sessionMode = "running_batch";
+
+    renderNoteInput();
+
+    expect(screen.getByTestId("is-transcribing").textContent).toBe("true");
+  });
 });
