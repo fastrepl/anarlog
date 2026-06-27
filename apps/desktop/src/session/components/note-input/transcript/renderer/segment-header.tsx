@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import { cn } from "@hypr/utils";
 
 import { SpeakerAssignPopover } from "./speaker-assign";
-import { getTimestampRange, useSegmentColorVars } from "./utils";
+import { useSegmentColorVars } from "./utils";
 
 import * as main from "~/store/tinybase/store/main";
 import type { Segment } from "~/stt/live-segment";
@@ -21,7 +21,6 @@ export function SegmentHeader({
 }) {
   const colorVars = useSegmentColorVars(segment.key);
   const label = useSpeakerLabel(segment.key, speakerLabelManager);
-  const timestamp = getTimestampRange(segment);
   const headerClassName = cn([
     "bg-card sticky top-0 z-20",
     "-mx-3 px-3 py-1",
@@ -39,9 +38,6 @@ export function SegmentHeader({
         color="var(--segment-color)"
         label={label}
       />
-      <span className="text-muted-foreground ml-auto shrink-0 tabular-nums">
-        {timestamp}
-      </span>
     </div>
   );
 }

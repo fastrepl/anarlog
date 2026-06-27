@@ -29,7 +29,7 @@ beforeEach(() => {
 });
 
 describe("SegmentHeader", () => {
-  it("keeps the speaker label and timestamp visible", () => {
+  it("keeps the speaker label visible without exposing timestamps", () => {
     render(
       <SegmentHeader
         transcriptId="transcript-1"
@@ -68,6 +68,6 @@ describe("SegmentHeader", () => {
     );
 
     expect(screen.getByRole("button", { name: "Speaker 3" })).toBeTruthy();
-    expect(screen.getByText("00:12 - 00:18")).toBeTruthy();
+    expect(screen.queryByText("00:12 - 00:18")).toBeNull();
   });
 });

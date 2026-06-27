@@ -1,7 +1,7 @@
 import chroma from "chroma-js";
 import { type CSSProperties, useMemo } from "react";
 
-import type { Segment, SegmentKey, SegmentWord } from "~/stt/live-segment";
+import type { SegmentKey, SegmentWord } from "~/stt/live-segment";
 
 export type HighlightSegment = { text: string; isMatch: boolean };
 
@@ -80,29 +80,6 @@ export function getActiveLineIndex(
   }
 
   return null;
-}
-
-export function formatTimestamp(ms: number): string {
-  const totalSeconds = Math.floor(ms / 1000);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-
-  if (hours > 0) {
-    return `${hours}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
-  }
-
-  return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
-}
-
-export function getTimestampRange(segment: Segment): string {
-  if (segment.words.length === 0) {
-    return "00:00 - 00:00";
-  }
-
-  const firstWord = segment.words[0]!;
-  const lastWord = segment.words[segment.words.length - 1]!;
-  return `${formatTimestamp(firstWord.start_ms)} - ${formatTimestamp(lastWord.end_ms)}`;
 }
 
 export function getSegmentColor(
