@@ -81,11 +81,6 @@ type MeetingPlatform = {
   iconResource: NotificationIconResource;
 };
 
-const IPHONE_CALL_ICON: NotificationIcon = {
-  type: "system_symbol",
-  name: "phone.fill",
-};
-
 const NOTIFICATION_ICON_RESOURCES = {
   calCom: "notification-icons/cal-com.png",
   calVideo: "notification-icons/cal-video.png",
@@ -98,6 +93,7 @@ const NOTIFICATION_ICON_RESOURCES = {
   line: "notification-icons/line.png",
   messenger: "notification-icons/messenger.png",
   microsoftTeams: "notification-icons/microsoft-teams.png",
+  phone: "notification-icons/phone.png",
   signal: "notification-icons/signal.png",
   slack: "notification-icons/slack.png",
   telegram: "notification-icons/telegram.png",
@@ -212,7 +208,7 @@ const MIC_APP_NOTIFICATION_OVERRIDES = [
     ]),
     names: new Set(["av capture", "avcapture", "avconferenced", "iphone call"]),
     displayName: "iPhone Call",
-    icon: IPHONE_CALL_ICON,
+    iconResource: "phone",
   },
   {
     ids: new Set(["com.apple.FaceTime"]),

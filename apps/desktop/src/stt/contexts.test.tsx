@@ -685,8 +685,8 @@ describe("ListenerProvider detect events", () => {
           },
           footer: null,
           icon: {
-            type: "system_symbol",
-            name: "phone.fill",
+            type: "path",
+            path: "/resources/notification-icons/phone.png",
           },
         }),
       ),
@@ -729,13 +729,13 @@ describe("ListenerProvider detect events", () => {
             text: "Ignore iPhone Call?",
             actionLabel: "Yes",
             icon: {
-              type: "system_symbol",
-              name: "phone.fill",
+              type: "path",
+              path: "/resources/notification-icons/phone.png",
             },
           },
           icon: {
-            type: "system_symbol",
-            name: "phone.fill",
+            type: "path",
+            path: "/resources/notification-icons/phone.png",
           },
         }),
       ),
