@@ -375,7 +375,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::get_dismissed_toasts::<tauri::Wry>,
             commands::set_dismissed_toasts::<tauri::Wry>,
             commands::get_env::<tauri::Wry>,
-            commands::show_devtool,
+            commands::show_devtool::<tauri::Wry>,
             commands::get_tinybase_values::<tauri::Wry>,
             commands::set_tinybase_values::<tauri::Wry>,
             commands::get_pinned_tabs::<tauri::Wry>,
