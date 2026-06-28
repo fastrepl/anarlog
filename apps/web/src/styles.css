@@ -321,6 +321,74 @@
     animation: dot-wave 3s ease-in-out infinite;
     opacity: 0.3;
   }
+
+  @keyframes stack-layer-device {
+    0%,
+    28%,
+    100% {
+      opacity: 1;
+      transform: translateY(-6px);
+    }
+
+    36%,
+    92% {
+      opacity: 0.24;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes stack-layer-key {
+    0%,
+    28%,
+    68%,
+    100% {
+      opacity: 0.24;
+      transform: translateY(0);
+    }
+
+    36%,
+    60% {
+      opacity: 1;
+      transform: translateY(-6px);
+    }
+  }
+
+  @keyframes stack-layer-hosted {
+    0%,
+    60%,
+    100% {
+      opacity: 0.24;
+      transform: translateY(0);
+    }
+
+    68%,
+    92% {
+      opacity: 1;
+      transform: translateY(-6px);
+    }
+  }
+
+  .animate-stack-layer-device,
+  .animate-stack-layer-key,
+  .animate-stack-layer-hosted {
+    animation-duration: 9s;
+    animation-iteration-count: infinite;
+    animation-timing-function: ease-in-out;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  .animate-stack-layer-device {
+    animation-name: stack-layer-device;
+  }
+
+  .animate-stack-layer-key {
+    animation-name: stack-layer-key;
+  }
+
+  .animate-stack-layer-hosted {
+    animation-name: stack-layer-hosted;
+  }
 }
 
 .bg-lined-notebook {

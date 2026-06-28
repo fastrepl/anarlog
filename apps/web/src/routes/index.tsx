@@ -1,10 +1,11 @@
 import { Icon } from "@iconify-icon/react";
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { ArrowRight, ChevronDown, KeyRound, WifiOff } from "lucide-react";
+import { ArrowRight, ChevronDown, Cloud, Cpu, KeyRound } from "lucide-react";
 import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 
 import { DancingSticks } from "@hypr/ui/components/ui/dancing-sticks";
+import { Spinner } from "@hypr/ui/components/ui/spinner";
 import { cn } from "@hypr/utils";
 
 import { SiteFooter } from "@/components/site-footer";
@@ -18,6 +19,7 @@ import {
   getSoftwareApplicationJsonLd,
   getStructuredDataGraph,
 } from "@/lib/seo";
+import { TEAM_MEMBERS } from "@/lib/team";
 
 const manifestoLetter = [
   "To the people who still take notes,",
@@ -25,8 +27,9 @@ const manifestoLetter = [
   "Most AI tools ask you to move your memory into their ecosystem and rules. Meeting notes should move the other way: back to files on your disk and software you can run offline.",
   "Files endure. Interfaces change. Your notes should survive us. Use on-device models or your own keys, not a service you cannot inspect.",
   "Anarlog is our attempt to build that meeting notepad.",
-  "John Jeong, Yujong Lee",
 ];
+
+const manifestoTeam = Object.values(TEAM_MEMBERS);
 
 const featureList = [
   "Bot-free meeting capture",
@@ -43,8 +46,9 @@ const privacyCommitments = [
     visual: "files",
   },
   {
-    title: "Choose the AI path",
-    description: "Use local models, or bring your own key when cloud AI fits.",
+    title: "Choose your stack",
+    description:
+      "Run on-device transcription, bring your own key, or use hosted AI.",
     visual: "key",
   },
   {
@@ -334,64 +338,65 @@ function Component() {
       <AnnouncementBanner />
 
       <div className="mx-auto w-full max-w-[700px] px-5 pt-4 pb-8 md:px-8 md:pt-4 md:pb-12">
-        <div className="min-w-0">
-          <section className="pt-10 pb-16 md:pt-12">
-            <h1 className="font-hand max-w-3xl text-6xl leading-[0.98] font-semibold tracking-normal text-balance md:text-8xl">
+        <div className="min-w-0 text-center">
+          <section className="pt-10 pb-20 md:pt-12 md:pb-24">
+            <h1 className="font-hand mx-auto max-w-3xl text-5xl leading-[0.98] font-semibold tracking-normal text-balance md:text-7xl">
               AI notepad for private meetings.
             </h1>
-            <p className="mt-6 max-w-2xl text-xl leading-9 text-[#363029]">
-              The open-source Granola alternative for private meetings, with
-              over 18k accumulated users worldwide. Record locally and choose
-              where AI runs.
+            <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#4f4940]">
+              Jot notes during the call. Anarlog turns them into an editable
+              summary.
             </p>
-            <div className="mt-8 flex flex-wrap gap-x-5 gap-y-3 text-sm">
+            <div className="mt-8 flex flex-wrap justify-center gap-x-5 gap-y-3 text-sm">
               <DownloadButton />
-              <a
-                href="https://github.com/fastrepl/anarlog"
-                className="inline-flex items-center gap-2 rounded-full border border-[#d8d0c5] px-5 py-3 font-medium text-[#181613] transition-colors hover:border-[#b8aea0] hover:bg-[#f7f4ef]"
-              >
-                <img
-                  src="https://upload.wikimedia.org/wikipedia/commons/9/91/Octicons-mark-github.svg"
-                  alt=""
-                  className="size-4"
-                  aria-hidden="true"
-                />
-                <span>GitHub</span>
-                <span className="text-[#756b5d]">
-                  {formattedGithubStars} stars
-                </span>
-              </a>
+              <GitHubButton formattedGithubStars={formattedGithubStars} />
             </div>
+            <HeroWorkflowDemo />
           </section>
 
           <CredibilityLogoMarquee />
-
-          <HowItWorksSection />
 
           <PrivacySection />
 
           <TestimonialsSection />
 
-          <section id="manifesto" className="py-10">
-            <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
-              Manifesto
-            </h2>
-            <div className="mt-7 max-w-3xl">
-              <div className="space-y-6 text-lg leading-8 text-[#363029]">
-                {manifestoLetter.slice(0, -1).map((paragraph) => (
-                  <p key={paragraph}>{paragraph}</p>
+          <section id="manifesto" className="pt-28 pb-14 md:pt-32 md:pb-16">
+            <article
+              className="mx-auto max-w-3xl overflow-hidden rounded-[3px] border border-[#eadfce] bg-[#fffaf0] px-7 py-9 text-left shadow-[0_18px_50px_rgba(68,54,36,0.12)] sm:px-10 sm:py-12"
+              style={{
+                backgroundImage:
+                  "linear-gradient(115deg, rgba(255, 250, 240, 0.9), rgba(246, 236, 218, 0.82)), url('/textures/crumpled-paper.png')",
+                backgroundPosition: "center",
+                backgroundSize: "cover",
+              }}
+            >
+              <div className="space-y-6 text-[#363029]">
+                {manifestoLetter.map((paragraph) => (
+                  <p key={paragraph} className="text-[18px] leading-8">
+                    {paragraph}
+                  </p>
                 ))}
               </div>
-              <div className="mt-10">
-                <p className="font-signature text-3xl leading-none font-normal">
-                  {manifestoLetter.at(-1)}
-                </p>
-                <p className="mt-5 font-sans text-base leading-none font-normal text-[#4f4940]">
-                  Fastrepl, Inc.
-                </p>
+              <div className="mt-10 flex flex-wrap items-center gap-x-5 gap-y-4">
+                {manifestoTeam.map((member) => (
+                  <div key={member.id} className="flex items-center gap-2.5">
+                    <img
+                      src={member.avatar}
+                      alt={`${member.name} profile photo`}
+                      className="size-10 rounded-full object-cover shadow-sm"
+                      decoding="async"
+                      loading="lazy"
+                    />
+                    <p className="text-sm font-medium text-[#363029]">
+                      {member.name}
+                    </p>
+                  </div>
+                ))}
               </div>
-            </div>
+            </article>
           </section>
+
+          <FinalCtaSection />
         </div>
       </div>
 
@@ -400,9 +405,59 @@ function Component() {
   );
 }
 
+function FinalCtaSection() {
+  return (
+    <section className="relative left-1/2 mt-10 w-screen -translate-x-1/2 py-20 md:mt-12 md:py-24">
+      <div className="mx-auto max-w-[700px] px-5 text-center md:px-8">
+        <h2 className="font-hand mx-auto max-w-3xl text-4xl leading-[0.98] font-semibold tracking-normal text-balance text-[#181613] md:text-5xl">
+          Keep your meeting notes yours.
+        </h2>
+        <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#4f4940]">
+          Try Anarlog today and be present in meetings.
+        </p>
+        <a
+          href={appleSiliconDownloadUrl}
+          className="mt-8 inline-flex items-center gap-2 rounded-full bg-[#181613] px-5 py-3 text-sm font-medium text-white"
+        >
+          <Icon
+            icon="simple-icons:apple"
+            width={16}
+            height={16}
+            className="shrink-0"
+            aria-hidden="true"
+          />
+          <span>Download for free</span>
+        </a>
+      </div>
+    </section>
+  );
+}
+
+function GitHubButton({
+  formattedGithubStars,
+}: {
+  formattedGithubStars: string;
+}) {
+  return (
+    <a
+      href="https://github.com/fastrepl/anarlog"
+      className="inline-flex items-center gap-2 rounded-full border border-[#d8d0c5] px-5 py-3 font-medium text-[#181613] transition-colors hover:border-[#b8aea0] hover:bg-[#f7f4ef]"
+    >
+      <img
+        src="https://upload.wikimedia.org/wikipedia/commons/9/91/Octicons-mark-github.svg"
+        alt=""
+        className="size-4"
+        aria-hidden="true"
+      />
+      <span>GitHub</span>
+      <span className="text-[#756b5d]">{formattedGithubStars} stars</span>
+    </a>
+  );
+}
+
 function CredibilityLogoMarquee() {
   return (
-    <section className="py-8" aria-labelledby="credibility-heading">
+    <section className="py-12 md:py-14" aria-labelledby="credibility-heading">
       <h2
         id="credibility-heading"
         className="font-hand text-3xl leading-none font-semibold text-[#756b5d]"
@@ -489,21 +544,20 @@ function TestimonialsSection() {
   };
 
   return (
-    <section className="pt-8 pb-2">
+    <section className="py-16 md:py-20">
       <div>
         <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
           What people say
         </h2>
-        <p className="text-color-secondary mt-6 text-lg leading-8">
-          See for yourself. Before Anarlog had this name, people kept pointing
-          at the same things: private meeting notes, no bot in the room, and
-          local control by default.
+        <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#4f4940]">
+          People were already asking for private meeting notes: no bot in the
+          room, local control by default.
         </p>
       </div>
 
       <div className="relative left-1/2 mx-auto mt-8 h-[19rem] w-screen max-w-[980px] -translate-x-1/2 overflow-visible px-5 sm:h-[18rem]">
         <div className="absolute top-0 left-1/2 z-0 flex h-[15.5rem] w-[calc(100%-2.5rem)] max-w-[380px] -translate-x-1/2 flex-col items-center justify-center text-center sm:h-[13.5rem] sm:w-[380px] sm:translate-y-[34px]">
-          <p className="font-hand text-3xl leading-none font-semibold text-[#756b5d] sm:text-4xl">
+          <p className="font-hand text-3xl leading-none font-semibold text-[#181613] sm:text-4xl">
             Try for yourself.
           </p>
           <div className="mt-6 flex items-center justify-center">
@@ -599,12 +653,12 @@ function TestimonialsSection() {
 
 function PrivacySection() {
   return (
-    <section className="py-10">
+    <section className="py-16 md:py-20">
       <div>
         <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
           What makes it different
         </h2>
-        <p className="mt-6 text-lg leading-8 text-[#4f4940]">
+        <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#4f4940]">
           Anarlog stays out of the participant list, keeps notes on disk, and
           lets you pick the AI path.
         </p>
@@ -616,13 +670,13 @@ function PrivacySection() {
             return (
               <div
                 key={commitment.title}
-                className="flex flex-col px-6 py-3 md:w-[31%] md:p-4"
+                className="flex flex-col px-6 py-3 text-left md:w-[31%] md:p-4"
               >
                 <PrivacyVisual type={commitment.visual} />
-                <h3 className="mt-3 text-sm font-semibold text-[#181613] md:mt-5">
-                  {commitment.title}
-                </h3>
-                <p className="mt-2 text-sm leading-6 text-[#4f4940]">
+                <p className="mt-3 text-sm leading-6 text-[#4f4940] md:mt-5">
+                  <span className="font-semibold text-[#181613]">
+                    {commitment.title}.
+                  </span>{" "}
                   {commitment.description}
                 </p>
               </div>
@@ -678,23 +732,90 @@ function PrivacyVisual({
 
   if (type === "key") {
     return (
-      <div className="flex h-20 items-center gap-4 select-none md:h-28 md:w-full">
-        <WifiOff className="size-6 shrink-0 text-[#756b5d]" />
-        <div className="relative flex min-w-0 flex-1 items-center overflow-hidden rounded-lg border border-neutral-200 px-3 py-4">
-          <KeyRound className="mr-2 size-4 shrink-0 text-stone-400" />
-          <span className="text-base tracking-wider text-stone-300">sk-</span>
-          <span className="text-base tracking-[0.2em] text-stone-400">
-            ***************
-          </span>
-          <div className="pointer-events-none absolute inset-y-0 right-0 w-16 bg-linear-to-l from-white to-transparent" />
-        </div>
+      <div className="flex h-20 items-center justify-center select-none md:h-28 md:w-full">
+        <svg
+          className="h-20 w-36 md:h-28 md:w-48"
+          viewBox="0 0 180 132"
+          role="img"
+          aria-label="AI stack options cycling between device, key, and hosted"
+        >
+          <g className="animate-stack-layer-device">
+            <path
+              d="M90 8 152 42 90 76 28 42Z"
+              fill="#fffaf0"
+              stroke="#181613"
+              strokeOpacity="0.34"
+            />
+            <path
+              d="M90 20 122 38 90 56 58 38Z"
+              fill="#181613"
+              opacity="0.07"
+            />
+            <Cpu
+              x={77}
+              y={28}
+              width={26}
+              height={26}
+              strokeWidth={1.7}
+              className="text-[#181613]"
+            />
+          </g>
+          <g className="animate-stack-layer-key">
+            <path
+              d="M90 34 152 68 90 102 28 68Z"
+              fill="#fffaf0"
+              stroke="#181613"
+              strokeOpacity="0.34"
+            />
+            <rect
+              x="58"
+              y="62"
+              width="64"
+              height="18"
+              rx="5"
+              fill="#fffaf0"
+              stroke="#181613"
+              strokeOpacity="0.26"
+            />
+            <KeyRound
+              x={68}
+              y={61}
+              width={18}
+              height={18}
+              strokeWidth={1.8}
+              className="text-[#181613]"
+            />
+            <path
+              d="M92 71h16"
+              stroke="#756b5d"
+              strokeLinecap="round"
+              strokeDasharray="2 5"
+            />
+          </g>
+          <g className="animate-stack-layer-hosted">
+            <path
+              d="M90 58 152 92 90 126 28 92Z"
+              fill="#fffaf0"
+              stroke="#181613"
+              strokeOpacity="0.34"
+            />
+            <Cloud
+              x={76}
+              y={84}
+              width={30}
+              height={30}
+              strokeWidth={1.8}
+              className="text-[#181613]"
+            />
+          </g>
+        </svg>
       </div>
     );
   }
 
   return (
     <div className="flex h-20 items-center select-none md:h-28 md:w-full">
-      <div className="flex items-center gap-3 rounded-2xl border border-neutral-200 bg-white py-2 pr-8 pl-4 shadow-lg md:w-full">
+      <div className="flex items-center gap-3 rounded-2xl border border-neutral-200 bg-white py-2 pr-8 pl-4 text-left shadow-[0_8px_18px_rgba(24,22,19,0.08)] md:w-full">
         <Icon icon="logos:google-meet" width={32} height={32} />
         <div className="flex flex-col gap-1">
           <span className="text-sm font-medium text-stone-800">
@@ -707,7 +828,7 @@ function PrivacyVisual({
   );
 }
 
-function HowItWorksSection() {
+function HeroWorkflowDemo() {
   const [typedText1, setTypedText1] = useState("");
   const [typedText2, setTypedText2] = useState("");
   const [enhancedLines, setEnhancedLines] = useState(0);
@@ -786,357 +907,171 @@ function HowItWorksSection() {
     };
   });
 
+  const isSummaryPhase = enhancedLines > 0;
+  const isGeneratingSummary = enhancedLines > 0 && enhancedLines < 6;
+
   return (
-    <section className="py-10">
-      <div>
-        <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
-          How it works
-        </h2>
-        <p className="mt-6 text-lg leading-8 text-[#4f4940]">
-          Jot notes during the call. Anarlog turns them into an editable
-          summary.
-        </p>
-      </div>
-      <div className="relative left-1/2 mt-8 hidden w-screen max-w-[1120px] -translate-x-1/2 sm:grid sm:grid-cols-2">
-        <div
-          className="pointer-events-none absolute right-0 bottom-0 left-0 z-10 h-36 bg-linear-to-t from-white to-transparent"
-          aria-hidden="true"
-        />
-        <div className="flex flex-col overflow-clip">
-          <div className="flex flex-col gap-4 p-8">
-            <p className="text-sm leading-6 text-neutral-600">
-              <span className="font-semibold">Take notes.</span> Anarlog records
-              from your device. No bot joins.
-            </p>
+    <div className="relative left-1/2 mt-10 w-screen max-w-[500px] -translate-x-1/2 px-8 pb-16 sm:px-10">
+      <div className="mx-auto max-w-[420px] overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-[0_24px_70px_rgba(24,22,19,0.08)]">
+        <div className="flex items-center gap-2 px-4 py-3">
+          <div className="flex gap-2">
+            <div className="h-3 w-3 rounded-full bg-red-400"></div>
+            <div className="h-3 w-3 rounded-full bg-yellow-400"></div>
+            <div className="h-3 w-3 rounded-full bg-green-400"></div>
           </div>
-          <div className="flex flex-1 items-center justify-center bg-stone-50/30 px-8 pb-0">
-            <div className="w-full max-w-lg overflow-hidden rounded-t-xl border border-b-0 border-neutral-200 bg-white shadow-lg">
-              <div className="flex items-center gap-2 px-4 py-3">
-                <div className="flex gap-2">
-                  <div className="h-3 w-3 rounded-full bg-red-400"></div>
-                  <div className="h-3 w-3 rounded-full bg-yellow-400"></div>
-                  <div className="h-3 w-3 rounded-full bg-green-400"></div>
-                </div>
-                <div className="ml-auto">
-                  <DancingSticks
-                    amplitude={isTypingActive ? 1 : 0}
-                    height={12}
-                    color="#a3a3a3"
-                  />
-                </div>
-              </div>
-              {/* Content area */}
-              <div className="min-h-[300px] space-y-3 p-6 text-sm">
-                <div className="text-neutral-700">ui update - moble</div>
-                <div className="text-neutral-700">api</div>
-                <div className="mt-4 text-neutral-700">new dash - urgnet</div>
-                <div className="text-neutral-700">a/b tst next wk</div>
-                <div className="mt-4 text-neutral-700">
-                  {typedText1}
-                  {typedText1 && typedText1.length < text1.length && (
-                    <span className="animate-pulse">|</span>
-                  )}
-                </div>
-                <div className="text-neutral-700">
-                  {typedText2}
-                  {typedText2 && typedText2.length < text2.length && (
-                    <span className="animate-pulse">|</span>
-                  )}
-                </div>
-              </div>
-            </div>
+          <div className="ml-auto flex h-4 w-6 items-center justify-end">
+            {isGeneratingSummary ? (
+              <Spinner size={12} className="text-neutral-500" />
+            ) : !isSummaryPhase ? (
+              <DancingSticks
+                amplitude={isTypingActive ? 1 : 0}
+                height={12}
+                color="#f87171"
+              />
+            ) : null}
           </div>
         </div>
-
-        <div className="flex flex-col overflow-clip">
-          <div className="flex flex-col gap-4 p-8">
-            <p className="text-sm leading-6 text-neutral-600">
-              <span className="font-semibold">After the call,</span> your notes
-              become an editable summary.
-            </p>
+        <div className="relative min-h-[260px] overflow-hidden text-left text-sm sm:min-h-[300px]">
+          <div
+            className={cn([
+              "absolute inset-0 space-y-3 p-5 transition-[opacity,transform] duration-500 sm:p-6",
+              isSummaryPhase
+                ? "-translate-y-3 opacity-0"
+                : "translate-y-0 opacity-100",
+            ])}
+          >
+            <div className="text-neutral-700">ui update - moble</div>
+            <div className="text-neutral-700">api</div>
+            <div className="mt-4 text-neutral-700">new dash - urgnet</div>
+            <div className="text-neutral-700">a/b tst next wk</div>
+            <div className="mt-4 text-neutral-700">
+              {typedText1}
+              {typedText1 && typedText1.length < text1.length && (
+                <span className="animate-pulse">|</span>
+              )}
+            </div>
+            <div className="text-neutral-700">
+              {typedText2}
+              {typedText2 && typedText2.length < text2.length && (
+                <span className="animate-pulse">|</span>
+              )}
+            </div>
           </div>
-          <div className="flex flex-1 items-start justify-center bg-stone-50/30 px-8 pb-0">
-            <div className="w-full max-w-lg overflow-hidden rounded-t-xl border border-b-0 border-neutral-200 bg-white shadow-lg">
-              <div className="flex items-center gap-2 px-4 py-3">
-                <div className="flex gap-2">
-                  <div className="h-3 w-3 rounded-full bg-red-400"></div>
-                  <div className="h-3 w-3 rounded-full bg-yellow-400"></div>
-                  <div className="h-3 w-3 rounded-full bg-green-400"></div>
-                </div>
-              </div>
-              {/* Content area */}
-              <div className="max-h-[300px] min-h-[300px] space-y-4 overflow-hidden p-6">
-                <div className="space-y-2">
-                  <h4
-                    className={cn(
-                      "font-semibold text-stone-700 transition-opacity duration-500",
-                      enhancedLines >= 1 ? "opacity-100" : "opacity-0",
-                    )}
-                  >
-                    Mobile UI Update and API Adjustments
-                  </h4>
-                  <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-700">
-                    <li
-                      className={cn(
-                        "transition-opacity duration-500",
-                        enhancedLines >= 1 ? "opacity-100" : "opacity-0",
-                      )}
-                    >
-                      Sarah presented the new mobile UI update, which includes a
-                      streamlined navigation bar and improved button placements
-                      for better accessibility.
-                    </li>
-                    <li
-                      className={cn(
-                        "transition-opacity duration-500",
-                        enhancedLines >= 2 ? "opacity-100" : "opacity-0",
-                      )}
-                    >
-                      Ben confirmed that API adjustments are needed to support
-                      dynamic UI changes, particularly for fetching personalized
-                      user data more efficiently.
-                    </li>
-                    <li
-                      className={cn(
-                        "transition-opacity duration-500",
-                        enhancedLines >= 3 ? "opacity-100" : "opacity-0",
-                      )}
-                    >
-                      The UI update will be implemented in phases, starting with
-                      core navigation improvements. Ben will ensure API
-                      modifications are completed before development begins.
-                    </li>
-                  </ul>
-                </div>
-                <div className="space-y-2">
-                  <h4
-                    className={cn(
-                      "font-semibold text-stone-700 transition-opacity duration-500",
-                      enhancedLines >= 4 ? "opacity-100" : "opacity-0",
-                    )}
-                  >
-                    New Dashboard – Urgent Priority
-                  </h4>
-                  <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-700">
-                    <li
-                      className={cn(
-                        "transition-opacity duration-500",
-                        enhancedLines >= 4 ? "opacity-100" : "opacity-0",
-                      )}
-                    >
-                      Alice emphasized that the new analytics dashboard must be
-                      prioritized due to increasing stakeholder demand.
-                    </li>
-                    <li
-                      className={cn(
-                        "transition-opacity duration-500",
-                        enhancedLines >= 5 ? "opacity-100" : "opacity-0",
-                      )}
-                    >
-                      The new dashboard will feature real-time user engagement
-                      metrics and a customizable reporting system.
-                    </li>
-                    <li
-                      className={cn(
-                        "transition-opacity duration-500",
-                        enhancedLines >= 6 ? "opacity-100" : "opacity-0",
-                      )}
-                    >
-                      Ben mentioned that backend infrastructure needs
-                      optimization to handle real-time data processing.
-                    </li>
-                    <li
-                      className={cn(
-                        "transition-opacity duration-500",
-                        enhancedLines >= 6 ? "opacity-100" : "opacity-0",
-                      )}
-                    >
-                      Mark stressed that the dashboard launch should align with
-                      marketing efforts to maximize user adoption.
-                    </li>
-                    <li
-                      className={cn(
-                        "transition-opacity duration-500",
-                        enhancedLines >= 6 ? "opacity-100" : "opacity-0",
-                      )}
-                    >
-                      Development will start immediately, and a basic prototype
-                      must be ready for stakeholder review next week.
-                    </li>
-                  </ul>
-                </div>
-              </div>
+          <div
+            className={cn([
+              "absolute inset-0 space-y-4 overflow-hidden p-5 text-left transition-[opacity,transform] duration-500 sm:p-6",
+              isSummaryPhase
+                ? "translate-y-0 opacity-100"
+                : "translate-y-3 opacity-0",
+            ])}
+          >
+            <div className="space-y-2">
+              <h4
+                className={cn([
+                  "font-semibold text-stone-700 transition-opacity duration-500",
+                  enhancedLines >= 1 ? "opacity-100" : "opacity-0",
+                ])}
+              >
+                Mobile UI Update and API Adjustments
+              </h4>
+              <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-700">
+                <li
+                  className={cn([
+                    "transition-opacity duration-500",
+                    enhancedLines >= 1 ? "opacity-100" : "opacity-0",
+                  ])}
+                >
+                  Sarah presented the new mobile UI update, which includes a
+                  streamlined navigation bar and improved button placements for
+                  better accessibility.
+                </li>
+                <li
+                  className={cn([
+                    "transition-opacity duration-500",
+                    enhancedLines >= 2 ? "opacity-100" : "opacity-0",
+                  ])}
+                >
+                  Ben confirmed that API adjustments are needed to support
+                  dynamic UI changes, particularly for fetching personalized
+                  user data more efficiently.
+                </li>
+                <li
+                  className={cn([
+                    "transition-opacity duration-500",
+                    enhancedLines >= 3 ? "opacity-100" : "opacity-0",
+                  ])}
+                >
+                  The UI update will be implemented in phases, starting with
+                  core navigation improvements. Ben will ensure API
+                  modifications are completed before development begins.
+                </li>
+              </ul>
+            </div>
+            <div className="space-y-2">
+              <h4
+                className={cn([
+                  "font-semibold text-stone-700 transition-opacity duration-500",
+                  enhancedLines >= 4 ? "opacity-100" : "opacity-0",
+                ])}
+              >
+                New Dashboard - Urgent Priority
+              </h4>
+              <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-700">
+                <li
+                  className={cn([
+                    "transition-opacity duration-500",
+                    enhancedLines >= 4 ? "opacity-100" : "opacity-0",
+                  ])}
+                >
+                  Alice emphasized that the new analytics dashboard must be
+                  prioritized due to increasing stakeholder demand.
+                </li>
+                <li
+                  className={cn([
+                    "transition-opacity duration-500",
+                    enhancedLines >= 5 ? "opacity-100" : "opacity-0",
+                  ])}
+                >
+                  The new dashboard will feature real-time user engagement
+                  metrics and a customizable reporting system.
+                </li>
+                <li
+                  className={cn([
+                    "transition-opacity duration-500",
+                    enhancedLines >= 6 ? "opacity-100" : "opacity-0",
+                  ])}
+                >
+                  Ben mentioned that backend infrastructure needs optimization
+                  to handle real-time data processing.
+                </li>
+                <li
+                  className={cn([
+                    "transition-opacity duration-500",
+                    enhancedLines >= 6 ? "opacity-100" : "opacity-0",
+                  ])}
+                >
+                  Mark stressed that the dashboard launch should align with
+                  marketing efforts to maximize user adoption.
+                </li>
+                <li
+                  className={cn([
+                    "transition-opacity duration-500",
+                    enhancedLines >= 6 ? "opacity-100" : "opacity-0",
+                  ])}
+                >
+                  Development will start immediately, and a basic prototype must
+                  be ready for stakeholder review next week.
+                </li>
+              </ul>
             </div>
           </div>
         </div>
       </div>
-
-      <div className="relative left-1/2 mt-8 w-screen max-w-[1120px] -translate-x-1/2 sm:hidden">
-        <div
-          className="pointer-events-none absolute right-0 bottom-0 left-0 z-10 h-28 bg-linear-to-t from-white to-transparent"
-          aria-hidden="true"
-        />
-        <div>
-          <div className="p-6">
-            <p className="mb-4 text-sm leading-6 text-neutral-600">
-              <span className="font-semibold">Take notes.</span> Anarlog records
-              from your device. No bot joins.
-            </p>
-          </div>
-          <div className="relative overflow-clip bg-stone-50/30 px-6 pb-0">
-            <div
-              className="pointer-events-none absolute right-0 bottom-0 left-0 z-10 h-20 bg-linear-to-t from-white to-transparent"
-              aria-hidden="true"
-            />
-            <div className="overflow-hidden rounded-t-lg border border-b-0 border-neutral-200 bg-white shadow-lg">
-              <div className="flex items-center gap-1.5 px-3 py-2">
-                <div className="flex gap-1.5">
-                  <div className="h-2 w-2 rounded-full bg-red-400"></div>
-                  <div className="h-2 w-2 rounded-full bg-yellow-400"></div>
-                  <div className="h-2 w-2 rounded-full bg-green-400"></div>
-                </div>
-                <div className="ml-auto">
-                  <DancingSticks
-                    amplitude={isTypingActive ? 1 : 0}
-                    height={10}
-                    color="#a3a3a3"
-                  />
-                </div>
-              </div>
-              <div className="min-h-[200px] space-y-2 p-4 text-xs">
-                <div className="text-neutral-700">ui update - moble</div>
-                <div className="text-neutral-700">api</div>
-                <div className="mt-3 text-neutral-700">new dash - urgnet</div>
-                <div className="text-neutral-700">a/b tst next wk</div>
-                <div className="mt-3 text-neutral-700">
-                  {typedText1}
-                  {typedText1 && typedText1.length < text1.length && (
-                    <span className="animate-pulse">|</span>
-                  )}
-                </div>
-                <div className="text-neutral-700">
-                  {typedText2}
-                  {typedText2 && typedText2.length < text2.length && (
-                    <span className="animate-pulse">|</span>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <div className="p-6">
-            <p className="mb-4 text-sm leading-6 text-neutral-600">
-              <span className="font-semibold">After the call,</span> your notes
-              become an editable summary.
-            </p>
-          </div>
-          <div className="overflow-clip bg-stone-50/30 px-6 pb-0">
-            <div className="overflow-hidden rounded-t-lg border border-b-0 border-neutral-200 bg-white shadow-lg">
-              <div className="flex items-center gap-1.5 px-3 py-2">
-                <div className="flex gap-1.5">
-                  <div className="h-2 w-2 rounded-full bg-red-400"></div>
-                  <div className="h-2 w-2 rounded-full bg-yellow-400"></div>
-                  <div className="h-2 w-2 rounded-full bg-green-400"></div>
-                </div>
-              </div>
-              <div className="max-h-[200px] min-h-[200px] space-y-3 overflow-hidden p-4">
-                <div className="space-y-2">
-                  <h4 className="text-sm font-semibold text-stone-700">
-                    Mobile UI Update and API Adjustments
-                  </h4>
-                  <ul className="list-disc space-y-2 pl-4 text-xs text-neutral-700">
-                    <li
-                      className={cn(
-                        "transition-opacity duration-500",
-                        enhancedLines >= 1 ? "opacity-100" : "opacity-0",
-                      )}
-                    >
-                      Sarah presented the new mobile UI update, which includes a
-                      streamlined navigation bar and improved button placements
-                      for better accessibility.
-                    </li>
-                    <li
-                      className={cn(
-                        "transition-opacity duration-500",
-                        enhancedLines >= 2 ? "opacity-100" : "opacity-0",
-                      )}
-                    >
-                      Ben confirmed that API adjustments are needed to support
-                      dynamic UI changes, particularly for fetching personalized
-                      user data more efficiently.
-                    </li>
-                    <li
-                      className={cn(
-                        "transition-opacity duration-500",
-                        enhancedLines >= 3 ? "opacity-100" : "opacity-0",
-                      )}
-                    >
-                      The UI update will be implemented in phases, starting with
-                      core navigation improvements. Ben will ensure API
-                      modifications are completed before development begins.
-                    </li>
-                  </ul>
-                </div>
-                <div className="space-y-2">
-                  <h4 className="text-sm font-semibold text-stone-700">
-                    New Dashboard – Urgent Priority
-                  </h4>
-                  <ul className="list-disc space-y-2 pl-4 text-xs text-neutral-700">
-                    <li
-                      className={cn(
-                        "transition-opacity duration-500",
-                        enhancedLines >= 4 ? "opacity-100" : "opacity-0",
-                      )}
-                    >
-                      Alice emphasized that the new analytics dashboard must be
-                      prioritized due to increasing stakeholder demand.
-                    </li>
-                    <li
-                      className={cn(
-                        "transition-opacity duration-500",
-                        enhancedLines >= 5 ? "opacity-100" : "opacity-0",
-                      )}
-                    >
-                      The new dashboard will feature real-time user engagement
-                      metrics and a customizable reporting system.
-                    </li>
-                    <li
-                      className={cn(
-                        "transition-opacity duration-500",
-                        enhancedLines >= 6 ? "opacity-100" : "opacity-0",
-                      )}
-                    >
-                      Ben mentioned that backend infrastructure needs
-                      optimization to handle real-time data processing.
-                    </li>
-                    <li
-                      className={cn(
-                        "transition-opacity duration-500",
-                        enhancedLines >= 6 ? "opacity-100" : "opacity-0",
-                      )}
-                    >
-                      Mark stressed that the dashboard launch should align with
-                      marketing efforts to maximize user adoption.
-                    </li>
-                    <li
-                      className={cn(
-                        "transition-opacity duration-500",
-                        enhancedLines >= 6 ? "opacity-100" : "opacity-0",
-                      )}
-                    >
-                      Development will start immediately, and a basic prototype
-                      must be ready for stakeholder review next week.
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
+      <div
+        className="pointer-events-none absolute right-0 bottom-0 left-0 z-10 h-28 bg-linear-to-t from-white to-transparent"
+        aria-hidden="true"
+      />
+    </div>
   );
 }
 
@@ -1148,7 +1083,7 @@ function AnnouncementBanner() {
         className="border-color-subtle text-color group inline-flex max-w-full items-center justify-center gap-2 rounded-full border bg-white px-4 py-2 text-center text-sm font-medium shadow-sm transition-colors hover:bg-neutral-50 md:px-5"
         aria-label="Visit Char v2"
       >
-        <span className="min-w-0">See what we're building next</span>
+        <span className="min-w-0">We're innovating the todo list too</span>
         <ArrowRight
           size={16}
           strokeWidth={2.2}
@@ -1196,10 +1131,11 @@ function DownloadButton() {
         href={appleSiliconDownloadUrl}
         className="inline-flex items-center gap-1 rounded-l-full bg-[#181613] py-3 pr-1 pl-4 text-[13px] text-white sm:pl-5 sm:text-sm"
       >
-        <img
-          src="https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg"
-          alt=""
-          className="size-4 invert"
+        <Icon
+          icon="simple-icons:apple"
+          width={16}
+          height={16}
+          className="shrink-0"
           aria-hidden="true"
         />
         <span>Download for Apple Silicon</span>
@@ -1223,10 +1159,11 @@ function DownloadButton() {
             href={appleIntelDownloadUrl}
             className="flex items-center gap-3 rounded-xl px-3 py-3 text-[#181613] transition-colors hover:bg-[#f7f4ef]"
           >
-            <img
-              src="https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg"
-              alt=""
-              className="size-5"
+            <Icon
+              icon="simple-icons:apple"
+              width={20}
+              height={20}
+              className="shrink-0"
               aria-hidden="true"
             />
             <span>Apple Intel</span>
