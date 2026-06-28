@@ -1,7 +1,9 @@
 Release:
+
 - https://github.com/sqliteai/sqlite-sync/releases/tag/1.0.12
 
 Docs:
+
 - https://docs.sqlitecloud.io/docs/sqlite-sync-introduction
 - https://docs.sqlitecloud.io/docs/sqlite-sync-getting-started
 - https://docs.sqlitecloud.io/docs/sqlite-sync-best-practices

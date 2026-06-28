@@ -17,4 +17,3 @@ Native macOS notification with two forms: Collapsed and Expanded.
 - `collapsed_confirm`: User clicks collapsed notification body
 - `collapsed_timeout`: Auto-dismiss timer completed
 - `dismiss`: User clicks close button
-

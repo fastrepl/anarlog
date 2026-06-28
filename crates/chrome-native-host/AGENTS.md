@@ -53,7 +53,7 @@ Two message types are sent by `background.js`:
   "muted": false,
   "participants": [
     { "name": "Alice", "is_self": true },
-    { "name": "Bob",   "is_self": false }
+    { "name": "Bob", "is_self": false }
   ]
 }
 ```
@@ -74,6 +74,7 @@ Any unknown `type` is silently ignored.
 
 Written to `{data_dir}/char/chrome_state.json` after every message.
 `data_dir` is platform-specific (`dirs::data_dir()`):
+
 - macOS: `~/Library/Application Support`
 - Linux: `~/.local/share`
 - Windows: `C:\Users\{user}\AppData\Roaming`
@@ -105,12 +106,12 @@ The watcher in `crates/detect` treats state older than 30 seconds as stale.
 
 ## Testable units
 
-| Function | What it does | How to test |
-|---|---|---|
-| `read_message` | Decodes framed bytes from a `Read` | Feed a `Cursor<Vec<u8>>` |
-| `process_message` | Maps `IncomingMessage` → `Option<MeetingState>` | Pure function, no I/O |
-| `write_state` | Atomically writes JSON to a `Path` | Pass a `tempdir` path |
-| `run` | Full loop: read → process → write | Pipe encoded messages through a `Cursor`, assert file contents |
+| Function          | What it does                                    | How to test                                                    |
+| ----------------- | ----------------------------------------------- | -------------------------------------------------------------- |
+| `read_message`    | Decodes framed bytes from a `Read`              | Feed a `Cursor<Vec<u8>>`                                       |
+| `process_message` | Maps `IncomingMessage` → `Option<MeetingState>` | Pure function, no I/O                                          |
+| `write_state`     | Atomically writes JSON to a `Path`              | Pass a `tempdir` path                                          |
+| `run`             | Full loop: read → process → write               | Pipe encoded messages through a `Cursor`, assert file contents |
 
 ## Bundle configuration
 

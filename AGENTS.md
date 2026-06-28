@@ -49,6 +49,7 @@ commands/<name>/
 ```
 
 Naming rules:
+
 - Types drop the command prefix: `App`, `Action`, `Effect`, `Runtime`, `RuntimeEvent`
 - `app.rs` → `app/mod.rs` with private submodules when state is complex
 - `ui.rs` → `ui/mod.rs` with sub-files when rendering is complex

@@ -22,16 +22,15 @@
 ## How Task represented
 
 Old thought:
+
 ```
 - `HTML` is allowed in `Commonmark`.
 - `<task id="<id>"></task>
 - This assume it can fetch info from `tasks` table to render UI.
 ```
 
-Current: ("char-task-id=t-123456")`
-`- [ ] some task title that is not yet done "char-task-id=t-123456"`
+Current: ("char-task-id=t-123456")``- [ ] some task title that is not yet done "char-task-id=t-123456"`
 
 ## Other Consideration
 
-- [Block-level Last-write-win](https://github.com/sqliteai/sqlite-sync/blob/1214933c940f0e3c36a610d101858cac1ee86cbc/docs/BLOCK-LWW.md?plain=1#L1
-)
+- [Block-level Last-write-win](https://github.com/sqliteai/sqlite-sync/blob/1214933c940f0e3c36a610d101858cac1ee86cbc/docs/BLOCK-LWW.md?plain=1#L1)

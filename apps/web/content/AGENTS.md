@@ -30,25 +30,30 @@ Anarlog is the open-source AI meeting notetaker. Free forever, MIT-licensed, run
 ## Core Features
 
 **Real-time transcription**
+
 - System audio capture (no bots joining calls, no calendar permissions)
 - Live transcript generated while user takes notes
 
 **AI summary**
+
 - Combines user notes + transcript to create structured summaries
 - User controls which AI processes their data
 
 **Your choice of AI stack**
+
 - Managed cloud service (kept through the Char→Anarlog migration window)
 - Bring your own API keys (OpenAI, Deepgram, Anthropic, others)
 - Run local models (via Ollama or LM Studio)
 
 **Plain markdown files**
+
 - Stored locally on user's device
 - Works with any tool (Obsidian, Notion, VS Code, etc.)
 - Future-proof format
 - Zero lock-in
 
 **Additional capabilities**
+
 - Floating panel for quick recording controls
 - Keyboard shortcuts
 - Custom templates for different meeting types
@@ -60,6 +65,7 @@ Anarlog is the open-source AI meeting notetaker. Free forever, MIT-licensed, run
 ## What Makes Anarlog Different
 
 **vs. Other AI notetakers (Granola, Otter, Fireflies, Fathom, tldv):**
+
 - Plain markdown files instead of proprietary databases
 - System audio capture instead of meeting bots
 - User's choice of AI provider instead of vendor lock-in
@@ -67,6 +73,7 @@ Anarlog is the open-source AI meeting notetaker. Free forever, MIT-licensed, run
 - Complete file ownership instead of platform dependency
 
 **Privacy approach:**
+
 - Anarlog doesn't store conversations
 - Every audio file, transcript, and note lives on the user's computer
 - User decides if data ever leaves their device
@@ -79,6 +86,7 @@ All meeting types: Zoom, Teams, Google Meet, phone calls, in-person conversation
 ## Brand Voice
 
 **We are:**
+
 - Direct and honest
 - Engineering-minded
 - Focused on fundamentals
@@ -86,6 +94,7 @@ All meeting types: Zoom, Teams, Google Meet, phone calls, in-person conversation
 - Pro-ownership
 
 **We are not:**
+
 - Corporate or overly polished
 - Privacy-paranoid (we're about control, not fear)
 - Feature-bloated

@@ -141,6 +141,7 @@ stay the same, so consumer code doesn't change.
 Import `db` and `useDrizzleLiveQuery` from `~/db`, and schema tables/operators from `@hypr/db`.
 
 Live query results come from Rust `subscribe` as raw objects (not through the Drizzle driver), so `mapRows` must handle two things:
+
 - **JSON parsing** for JSON text columns (e.g. `sections_json`, `targets_json`).
 - **snake_case → camelCase mapping.** Live rows use the raw SQLite column names (`pin_order`, `targets_json`), while Drizzle's `$inferSelect` uses camelCase (`pinOrder`, `targetsJson`). Define a separate `<Domain>LiveRow` type with snake_case keys for `mapRows`, distinct from the Drizzle inferred type. See `TemplateLiveRow` in `apps/desktop/src/templates/queries.ts` for the pattern.
 
