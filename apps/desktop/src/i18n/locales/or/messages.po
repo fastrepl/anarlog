@@ -38,19 +38,19 @@ msgstr ""
 msgid "<0>Transcription model</0> is needed to make Anarlog listen to your conversations."
 msgstr ""
 
-#: src/settings/general/storage/index.tsx:168
+#: src/settings/general/storage/index.tsx:167
 msgid "1 day"
 msgstr ""
 
-#: src/settings/general/storage/index.tsx:180
+#: src/settings/general/storage/index.tsx:179
 msgid "1 month"
 msgstr ""
 
-#: src/settings/general/storage/index.tsx:176
+#: src/settings/general/storage/index.tsx:175
 msgid "1 week"
 msgstr ""
 
-#: src/settings/general/storage/index.tsx:172
+#: src/settings/general/storage/index.tsx:171
 msgid "3 days"
 msgstr ""
 
@@ -181,7 +181,7 @@ msgstr "ଆପ୍"
 msgid "Appearance"
 msgstr ""
 
-#: src/settings/general/storage/index.tsx:404
+#: src/settings/general/storage/index.tsx:395
 msgid "Apply and Restart"
 msgstr ""
 
@@ -189,7 +189,7 @@ msgstr ""
 msgid "Apply to all"
 msgstr ""
 
-#: src/settings/general/storage/index.tsx:404
+#: src/settings/general/storage/index.tsx:395
 msgid "Applying..."
 msgstr ""
 
@@ -211,7 +211,7 @@ msgid "Assignees:"
 msgstr ""
 
 #: src/settings/general/permissions.tsx:158
-#: src/settings/general/storage/index.tsx:194
+#: src/settings/general/storage/index.tsx:193
 msgid "Audio"
 msgstr ""
 
@@ -242,7 +242,7 @@ msgstr ""
 msgid "Base URL"
 msgstr ""
 
-#: src/settings/general/storage/index.tsx:341
+#: src/settings/general/storage/index.tsx:332
 msgid "Browse"
 msgstr ""
 
@@ -279,7 +279,7 @@ msgstr ""
 msgid "Change"
 msgstr ""
 
-#: src/settings/general/storage/index.tsx:300
+#: src/settings/general/storage/index.tsx:291
 msgid "Change content location"
 msgstr ""
 
@@ -287,7 +287,7 @@ msgstr ""
 msgid "Chat history"
 msgstr ""
 
-#: src/settings/general/storage/index.tsx:280
+#: src/settings/general/storage/index.tsx:271
 msgid "Checking folder..."
 msgstr ""
 
@@ -307,7 +307,7 @@ msgstr ""
 msgid "Choose storage location"
 msgstr ""
 
-#: src/settings/general/storage/index.tsx:303
+#: src/settings/general/storage/index.tsx:294
 msgid "Choose where Anarlog should store data. (notes, settings, etc)"
 msgstr ""
 
@@ -424,7 +424,7 @@ msgstr ""
 msgid "Contacts"
 msgstr ""
 
-#: src/settings/general/storage/index.tsx:110
+#: src/settings/general/storage/index.tsx:109
 msgid "Content"
 msgstr ""
 
@@ -457,7 +457,7 @@ msgstr ""
 msgid "Created"
 msgstr ""
 
-#: src/settings/general/storage/index.tsx:121
+#: src/settings/general/storage/index.tsx:120
 msgid "Customize"
 msgstr ""
 
@@ -533,11 +533,11 @@ msgstr ""
 msgid "Disconnect private repo access."
 msgstr ""
 
-#: src/settings/general/storage/index.tsx:165
+#: src/settings/general/storage/index.tsx:164
 msgid "Do not keep recordings after processing"
 msgstr ""
 
-#: src/settings/general/storage/index.tsx:164
+#: src/settings/general/storage/index.tsx:163
 msgid "Don't save"
 msgstr ""
 
@@ -615,23 +615,23 @@ msgstr ""
 msgid "Exclude apps from detection"
 msgstr ""
 
-#: src/settings/general/storage/index.tsx:385
+#: src/settings/general/storage/index.tsx:376
 msgid "existing data to new location"
 msgstr ""
 
-#: src/settings/general/storage/index.tsx:169
+#: src/settings/general/storage/index.tsx:168
 msgid "Expire recordings after one day"
 msgstr ""
 
-#: src/settings/general/storage/index.tsx:181
+#: src/settings/general/storage/index.tsx:180
 msgid "Expire recordings after one month"
 msgstr ""
 
-#: src/settings/general/storage/index.tsx:177
+#: src/settings/general/storage/index.tsx:176
 msgid "Expire recordings after one week"
 msgstr ""
 
-#: src/settings/general/storage/index.tsx:173
+#: src/settings/general/storage/index.tsx:172
 msgid "Expire recordings after three days"
 msgstr ""
 
@@ -703,7 +703,7 @@ msgstr ""
 msgid "Float chat"
 msgstr ""
 
-#: src/settings/general/storage/index.tsx:327
+#: src/settings/general/storage/index.tsx:318
 msgid "Folder is not empty. Uncheck Move to use it as-is, or pick a dedicated empty folder (for example \"meetings\") for a full migration."
 msgstr ""
 
@@ -711,7 +711,7 @@ msgstr ""
 msgid "For enabled notifications"
 msgstr ""
 
-#: src/settings/general/storage/index.tsx:184
+#: src/settings/general/storage/index.tsx:183
 msgid "Forever"
 msgstr ""
 
@@ -845,7 +845,7 @@ msgstr ""
 msgid "Keep Anarlog available from the menu bar."
 msgstr ""
 
-#: src/settings/general/storage/index.tsx:185
+#: src/settings/general/storage/index.tsx:184
 msgid "Keep recordings until manually deleted"
 msgstr ""
 
@@ -972,7 +972,7 @@ msgstr ""
 msgid "More options"
 msgstr ""
 
-#: src/settings/general/storage/index.tsx:382
+#: src/settings/general/storage/index.tsx:373
 msgid "Move"
 msgstr ""
 
@@ -984,7 +984,7 @@ msgstr ""
 msgid "Move up"
 msgstr ""
 
-#: src/settings/general/storage/index.tsx:282
+#: src/settings/general/storage/index.tsx:273
 msgid "Moving existing data requires an empty folder. Uncheck Move to switch locations without migrating files."
 msgstr ""
 
@@ -1184,7 +1184,7 @@ msgid "Organization name"
 msgstr ""
 
 #: src/settings/general/permissions.tsx:189
-#: src/settings/general/storage/index.tsx:127
+#: src/settings/general/storage/index.tsx:126
 msgid "Others"
 msgstr ""
 
@@ -1388,7 +1388,7 @@ msgstr ""
 msgid "Save"
 msgstr ""
 
-#: src/settings/general/storage/index.tsx:199
+#: src/settings/general/storage/index.tsx:198
 msgid "Save audio after meeting"
 msgstr ""
 
@@ -1451,7 +1451,7 @@ msgstr ""
 msgid "See all templates"
 msgstr ""
 
-#: src/settings/general/storage/index.tsx:279
+#: src/settings/general/storage/index.tsx:270
 msgid "Select a different folder"
 msgstr ""
 
@@ -1693,7 +1693,7 @@ msgid "Stop when meeting ends"
 msgstr "ସଭା ସମାପ୍ତ ହେବା ପରେ ବନ୍ଦ କର |"
 
 #: src/onboarding/index.tsx:272
-#: src/settings/general/storage/index.tsx:104
+#: src/settings/general/storage/index.tsx:103
 msgid "Storage"
 msgstr ""
 
@@ -1705,11 +1705,11 @@ msgstr ""
 msgid "Storage Updated"
 msgstr ""
 
-#: src/settings/general/storage/index.tsx:128
+#: src/settings/general/storage/index.tsx:127
 msgid "Stores app-wide settings and configurations"
 msgstr ""
 
-#: src/settings/general/storage/index.tsx:111
+#: src/settings/general/storage/index.tsx:110
 msgid "Stores your notes, recordings, and session data"
 msgstr ""
 
@@ -1877,7 +1877,7 @@ msgstr ""
 msgid "View LinkedIn profile"
 msgstr ""
 
-#: src/settings/general/storage/index.tsx:347
+#: src/settings/general/storage/index.tsx:338
 msgid "Want to use with your vault?"
 msgstr ""
 

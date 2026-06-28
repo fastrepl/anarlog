@@ -1,12 +1,17 @@
 use std::path::{Path, PathBuf};
 
 use crate::path::is_uuid;
+use crate::{Error, Result};
 
-pub fn find_session_dir(sessions_base: &Path, session_id: &str) -> PathBuf {
-    if let Some(found) = find_session_dir_recursive(sessions_base, session_id) {
-        return found;
+pub fn find_session_dir(sessions_base: &Path, session_id: &str) -> Result<PathBuf> {
+    if !is_uuid(session_id) {
+        return Err(Error::Path("session_id_invalid".into()));
     }
-    sessions_base.join(session_id)
+
+    if let Some(found) = find_session_dir_recursive(sessions_base, session_id) {
+        return Ok(found);
+    }
+    Ok(sessions_base.join(session_id))
 }
 
 fn find_session_dir_recursive(dir: &Path, session_id: &str) -> Option<PathBuf> {
@@ -82,7 +87,7 @@ mod tests {
             .done()
             .build();
 
-        let result = find_session_dir(&env.path().join("sessions"), UUID_1);
+        let result = find_session_dir(&env.path().join("sessions"), UUID_1).unwrap();
         assert_eq!(result, env.folder_session_path("sessions", UUID_1));
     }
 
@@ -99,7 +104,7 @@ mod tests {
             .done()
             .build();
 
-        let result = find_session_dir(&env.path().join("sessions"), UUID_1);
+        let result = find_session_dir(&env.path().join("sessions"), UUID_1).unwrap();
         assert_eq!(
             result,
             env.path().join("sessions/work/project").join(UUID_1)
@@ -112,8 +117,19 @@ mod tests {
         let sessions = temp.child("sessions");
         sessions.create_dir_all().unwrap();
 
-        let result = find_session_dir(sessions.path(), UUID_1);
+        let result = find_session_dir(sessions.path(), UUID_1).unwrap();
         assert_eq!(result, sessions.path().join(UUID_1));
+    }
+
+    #[test]
+    fn find_session_rejects_non_uuid_session_id() {
+        let temp = TempDir::new().unwrap();
+        let sessions = temp.child("sessions");
+        sessions.create_dir_all().unwrap();
+
+        let result = find_session_dir(sessions.path(), "../outside");
+
+        assert!(matches!(result, Err(Error::Path(message)) if message == "session_id_invalid"));
     }
 
     #[test]

@@ -1,5 +1,6 @@
 use crate::error::{Result, SupportError};
 use crate::logs;
+use crate::redact;
 use crate::state::AppState;
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -48,7 +49,8 @@ pub(crate) async fn submit_bug_report(
     state: &AppState,
     input: BugReportInput<'_>,
 ) -> Result<String> {
-    let (description, title) = make_title(input.description, "Bug Report");
+    let redacted_description = redact::redact_pii(input.description);
+    let (description, title) = make_title(&redacted_description, "Bug Report");
 
     let body = hypr_template_support::render(hypr_template_support::SupportTemplate::BugReport(
         hypr_template_support::BugReport {
@@ -85,7 +87,8 @@ pub(crate) async fn submit_feature_request(
     state: &AppState,
     input: FeatureRequestInput<'_>,
 ) -> Result<String> {
-    let (description, title) = make_title(input.description, "Feature Request");
+    let redacted_description = redact::redact_pii(input.description);
+    let (description, title) = make_title(&redacted_description, "Feature Request");
 
     let body =
         hypr_template_support::render(hypr_template_support::SupportTemplate::FeatureRequest(
@@ -289,6 +292,7 @@ fn contains_any(text: &str, needles: &[&str]) -> bool {
 
 async fn attach_log_analysis(state: &AppState, issue_number: u64, log_text: &str) {
     let clean_logs = logs::strip_ansi_escapes(log_text);
+    let clean_logs = redact::redact_pii(&clean_logs);
 
     let log_summary =
         logs::analyze_logs(&state.config.openrouter.openrouter_api_key, &clean_logs).await;

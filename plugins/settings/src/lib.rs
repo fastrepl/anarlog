@@ -22,6 +22,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::copy_vault::<tauri::Wry>,
             commands::move_vault::<tauri::Wry>,
             commands::set_vault_base::<tauri::Wry>,
+            commands::is_empty_or_missing_dir::<tauri::Wry>,
             commands::load::<tauri::Wry>,
             commands::save::<tauri::Wry>,
             commands::obsidian_vaults::<tauri::Wry>,

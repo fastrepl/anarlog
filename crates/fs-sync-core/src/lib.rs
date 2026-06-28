@@ -16,7 +16,7 @@ pub mod types;
 pub use runtime::*;
 
 pub use error::{Error, Result};
-pub use path::{build_session_dir, is_uuid, normalize_folder_path};
+pub use path::{build_session_dir, is_uuid, normalize_folder_path, resolve_path_inside_base};
 pub use session::find_session_dir;
 pub use types::*;
 
@@ -89,6 +89,7 @@ impl FsSyncCore {
     }
 
     pub fn create_folder(&self, folder_path: &str) -> Result<()> {
+        let folder_path = normalize_folder_path(folder_path)?;
         let folder = self.sessions_dir.join(folder_path);
 
         if folder.exists() {
@@ -137,6 +138,10 @@ impl FsSyncCore {
     }
 
     pub fn delete_folder(&self, folder_path: &str) -> Result<()> {
+        let folder_path = normalize_folder_path(folder_path)?;
+        if folder_path.is_empty() {
+            return Err(Error::Path("folder_delete_root_not_allowed".into()));
+        }
         let folder = self.sessions_dir.join(folder_path);
 
         if !folder.exists() {
@@ -186,7 +191,7 @@ impl FsSyncCore {
         data: &[u8],
         filename: &str,
     ) -> Result<AttachmentSaveResult> {
-        let session_dir = self.resolve_session_dir(session_id);
+        let session_dir = self.resolve_session_dir(session_id)?;
         let attachments_dir = session_dir.join("attachments");
 
         std::fs::create_dir_all(&attachments_dir)?;
@@ -202,7 +207,7 @@ impl FsSyncCore {
     }
 
     pub fn attachment_list(&self, session_id: &str) -> Result<Vec<AttachmentInfo>> {
-        let session_dir = self.resolve_session_dir(session_id);
+        let session_dir = self.resolve_session_dir(session_id)?;
         let attachments_dir = session_dir.join("attachments");
 
         let mut attachments = Vec::new();
@@ -251,7 +256,7 @@ impl FsSyncCore {
     }
 
     pub fn attachment_read(&self, session_id: &str, attachment_id: &str) -> Result<Vec<u8>> {
-        let session_dir = self.resolve_session_dir(session_id);
+        let session_dir = self.resolve_session_dir(session_id)?;
         let attachments_dir = session_dir.join("attachments");
         let safe_attachment_id = sanitize_filename(attachment_id)?;
 
@@ -259,7 +264,7 @@ impl FsSyncCore {
     }
 
     pub fn attachment_remove(&self, session_id: &str, attachment_id: &str) -> Result<()> {
-        let session_dir = self.resolve_session_dir(session_id);
+        let session_dir = self.resolve_session_dir(session_id)?;
         let attachments_dir = session_dir.join("attachments");
 
         let entries = match std::fs::read_dir(&attachments_dir) {
@@ -288,7 +293,7 @@ impl FsSyncCore {
         Ok(())
     }
 
-    pub fn resolve_session_dir(&self, session_id: &str) -> PathBuf {
+    pub fn resolve_session_dir(&self, session_id: &str) -> Result<PathBuf> {
         find_session_dir(&self.sessions_dir, session_id)
     }
 }
@@ -559,6 +564,49 @@ mod tests {
     }
 
     #[test]
+    fn create_folder_rejects_traversal() {
+        let temp = TempDir::new().unwrap();
+        temp.child("sessions").create_dir_all().unwrap();
+        let core = FsSyncCore::new(temp.path().to_path_buf());
+
+        let result = core.create_folder("../outside");
+
+        assert!(
+            matches!(result, Err(Error::Path(message)) if message == "folder_path_traversal_not_allowed")
+        );
+        temp.child("outside").assert(predicates::path::missing());
+    }
+
+    #[test]
+    fn delete_folder_rejects_traversal() {
+        let temp = TempDir::new().unwrap();
+        temp.child("sessions").create_dir_all().unwrap();
+        temp.child("outside").create_dir_all().unwrap();
+        let core = FsSyncCore::new(temp.path().to_path_buf());
+
+        let result = core.delete_folder("../outside");
+
+        assert!(
+            matches!(result, Err(Error::Path(message)) if message == "folder_path_traversal_not_allowed")
+        );
+        temp.child("outside").assert(predicates::path::exists());
+    }
+
+    #[test]
+    fn delete_folder_rejects_root() {
+        let temp = TempDir::new().unwrap();
+        temp.child("sessions").create_dir_all().unwrap();
+        let core = FsSyncCore::new(temp.path().to_path_buf());
+
+        let result = core.delete_folder("");
+
+        assert!(
+            matches!(result, Err(Error::Path(message)) if message == "folder_delete_root_not_allowed")
+        );
+        temp.child("sessions").assert(predicates::path::exists());
+    }
+
+    #[test]
     fn attachment_save_dedup_naming() {
         let temp = TempDir::new().unwrap();
         temp.child("sessions")
@@ -610,6 +658,18 @@ mod tests {
 
         let core = FsSyncCore::new(temp.path().to_path_buf());
         core.attachment_remove(UUID_1, "missing.txt").unwrap();
+    }
+
+    #[test]
+    fn attachment_save_rejects_invalid_session_id() {
+        let temp = TempDir::new().unwrap();
+        temp.child("sessions").create_dir_all().unwrap();
+        let core = FsSyncCore::new(temp.path().to_path_buf());
+
+        let result = core.attachment_save("../outside", b"hello", "file.txt");
+
+        assert!(matches!(result, Err(Error::Path(message)) if message == "session_id_invalid"));
+        temp.child("outside").assert(predicates::path::missing());
     }
 
     #[test]

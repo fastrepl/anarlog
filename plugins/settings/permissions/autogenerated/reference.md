@@ -9,6 +9,7 @@ Default permissions for the plugin
 - `allow-copy-vault`
 - `allow-move-vault`
 - `allow-set-vault-base`
+- `allow-is-empty-or-missing-dir`
 - `allow-obsidian-vaults`
 - `allow-path`
 - `allow-load`
@@ -71,6 +72,32 @@ Enables the global_base command without any pre-configured scope.
 <td>
 
 Denies the global_base command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`settings:allow-is-empty-or-missing-dir`
+
+</td>
+<td>
+
+Enables the is_empty_or_missing_dir command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`settings:deny-is-empty-or-missing-dir`
+
+</td>
+<td>
+
+Denies the is_empty_or_missing_dir command without any pre-configured scope.
 
 </td>
 </tr>

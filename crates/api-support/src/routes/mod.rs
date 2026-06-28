@@ -13,25 +13,6 @@ use crate::state::AppState;
 pub use feedback::{FeedbackRequest, FeedbackResponse};
 
 pub async fn router(config: SupportConfig) -> Router {
-    let resolver = hypr_llm_proxy::StaticModelResolver::default()
-        .with_models(
-            hypr_llm_proxy::MODEL_KEY_DEFAULT,
-            vec![
-                "openai/gpt-oss-120b".into(),
-                "moonshotai/kimi-k2-0905".into(),
-            ],
-        )
-        .with_models(
-            hypr_llm_proxy::MODEL_KEY_TOOL_CALLING,
-            vec![
-                "anthropic/claude-haiku-4.5".into(),
-                "moonshotai/kimi-k2-0905:exacto".into(),
-            ],
-        );
-    let llm_config = hypr_llm_proxy::LlmProxyConfig::new(&config.openrouter)
-        .with_model_resolver(std::sync::Arc::new(resolver));
-    let llm_router = hypr_llm_proxy::router(llm_config);
-
     let state = AppState::new(config);
     let mcp = mcp_service(state.clone());
 
@@ -59,6 +40,5 @@ pub async fn router(config: SupportConfig) -> Router {
         )
         .nest("/support", Router::new().nest_service("/mcp", mcp))
         .nest("/support/chatwoot", chatwoot_routes)
-        .nest_service("/support/llm", llm_router)
         .with_state(state)
 }

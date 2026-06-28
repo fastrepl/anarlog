@@ -29,10 +29,12 @@ fn resolve_session_dir<R: tauri::Runtime>(
     session_id: &str,
 ) -> Result<PathBuf, String> {
     let base = app.settings().vault_base().map_err(|e| e.to_string())?;
-    Ok(find_session_dir(
-        &base.join("sessions").into_std_path_buf(),
-        session_id,
-    ))
+    find_session_dir(&base.join("sessions").into_std_path_buf(), session_id)
+        .map_err(|e| e.to_string())
+}
+
+fn resolve_vault_path(base: &Path, path: &str) -> Result<PathBuf, String> {
+    crate::path::resolve_path_inside_base(base, Path::new(path)).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -48,12 +50,19 @@ pub(crate) async fn write_json_batch<R: tauri::Runtime>(
     items: Vec<(Value, String)>,
 ) -> Result<(), String> {
     let base = app.settings().vault_base().map_err(|e| e.to_string())?;
+    let base_path = base
+        .as_std_path()
+        .canonicalize()
+        .map_err(|e| e.to_string())?;
+    let items: Vec<(Value, PathBuf)> = items
+        .into_iter()
+        .map(|(json, path)| resolve_vault_path(&base_path, &path).map(|path| (json, path)))
+        .collect::<Result<_, _>>()?;
 
     let relative_paths: Vec<String> = items
         .iter()
         .filter_map(|(_, path)| {
-            std::path::Path::new(path)
-                .strip_prefix(base.as_std_path())
+            path.strip_prefix(&base_path)
                 .ok()
                 .and_then(|p| p.to_str())
                 .map(|s| s.to_string())
@@ -64,7 +73,6 @@ pub(crate) async fn write_json_batch<R: tauri::Runtime>(
 
     spawn_blocking!({
         items.into_par_iter().try_for_each(|(json, path)| {
-            let path = std::path::Path::new(&path);
             if let Some(parent) = path.parent() {
                 std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
             }
@@ -81,12 +89,19 @@ pub(crate) async fn write_document_batch<R: tauri::Runtime>(
     items: Vec<(ParsedDocument, String)>,
 ) -> Result<(), String> {
     let base = app.settings().vault_base().map_err(|e| e.to_string())?;
+    let base_path = base
+        .as_std_path()
+        .canonicalize()
+        .map_err(|e| e.to_string())?;
+    let items: Vec<(ParsedDocument, PathBuf)> = items
+        .into_iter()
+        .map(|(doc, path)| resolve_vault_path(&base_path, &path).map(|path| (doc, path)))
+        .collect::<Result<_, _>>()?;
 
     let relative_paths: Vec<String> = items
         .iter()
         .filter_map(|(_, path)| {
-            std::path::Path::new(path)
-                .strip_prefix(base.as_std_path())
+            path.strip_prefix(&base_path)
                 .ok()
                 .and_then(|p| p.to_str())
                 .map(|s| s.to_string())
@@ -97,7 +112,6 @@ pub(crate) async fn write_document_batch<R: tauri::Runtime>(
 
     spawn_blocking!({
         items.into_par_iter().try_for_each(|(doc, path)| {
-            let path = std::path::Path::new(&path);
             if let Some(parent) = path.parent() {
                 std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
             }
@@ -356,10 +370,15 @@ pub(crate) async fn scan_and_read<R: tauri::Runtime>(
     path_filter: Option<String>,
 ) -> Result<ScanResult, String> {
     let base = app.settings().vault_base().map_err(|e| e.to_string())?;
+    let base_path = base
+        .as_std_path()
+        .canonicalize()
+        .map_err(|e| e.to_string())?;
+    let scan_dir = resolve_vault_path(&base_path, &scan_dir)?;
     spawn_blocking!({
         Ok(crate::scan::scan_and_read(
-            &PathBuf::from(&scan_dir),
-            base.as_std_path(),
+            &scan_dir,
+            &base_path,
             &file_patterns,
             recursive,
             path_filter.as_deref(),

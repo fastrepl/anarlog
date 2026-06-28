@@ -51,34 +51,10 @@ pub async fn send_message(
 ) -> Result<Json<MessageResponse>, SupportError> {
     let inbox_id = &state.config.chatwoot.chatwoot_inbox_identifier;
 
-    if payload.message_type == "outgoing" {
-        let account_id = state.config.chatwoot.chatwoot_account_id as i64;
-
-        let body = hypr_chatwoot::types::ConversationMessageCreatePayload {
-            content: payload.content,
-            message_type: Some(
-                hypr_chatwoot::types::ConversationMessageCreatePayloadMessageType::Outgoing,
-            ),
-            private: None,
-            content_type: None,
-            content_attributes: chatwoot::ai_content_attributes(),
-            campaign_id: None,
-            template_params: Default::default(),
-        };
-
-        let msg = state
-            .chatwoot
-            .create_a_new_message_in_a_conversation(account_id, conversation_id, &body)
-            .await
-            .map_err(|e| SupportError::Chatwoot(e.to_string()))?
-            .into_inner();
-
-        return Ok(Json(MessageResponse {
-            id: msg.id.map(|v| v.to_string()).unwrap_or_default(),
-            content: msg.content.clone(),
-            message_type: Some("outgoing".to_string()),
-            created_at: msg.created_at.map(|v| v.to_string()),
-        }));
+    if payload.message_type != "incoming" {
+        return Err(SupportError::InvalidRequest(
+            "message_type must be incoming".into(),
+        ));
     }
 
     let source_id = payload.source_id.as_deref().ok_or_else(|| {
@@ -103,6 +79,16 @@ pub async fn send_message(
         message_type: msg.message_type.map(chatwoot::MessageType::format),
         created_at: msg.created_at.map(|v| v.to_string()),
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_message_type_is_incoming() {
+        assert_eq!(default_message_type(), "incoming");
+    }
 }
 
 #[utoipa::path(

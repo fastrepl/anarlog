@@ -72,6 +72,17 @@ pub(crate) async fn set_vault_base<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
+pub(crate) async fn is_empty_or_missing_dir<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    path: String,
+) -> Result<bool, String> {
+    app.settings()
+        .is_empty_or_missing_dir(Utf8PathBuf::from(&path))
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub(crate) fn obsidian_vaults<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
 ) -> Result<Vec<ObsidianVault>, String> {

@@ -12,10 +12,32 @@ static UUID_RE: LazyLock<Regex> = LazyLock::new(|| {
         .unwrap()
 });
 
+static BEARER_TOKEN_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]{16,}").unwrap());
+
+static JWT_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b").unwrap()
+});
+
+static PROVIDER_KEY_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"\b(?:sk-or-v1-|(?:sk|ghp|github_pat)_)[A-Za-z0-9_=-]{16,}\b").unwrap()
+});
+
+static SECRET_ASSIGNMENT_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r"(?i)\b([a-z0-9_.-]*(?:api[_-]?key|token|secret|password|access[_-]?token|refresh[_-]?token)[a-z0-9_.-]*\s*[:=]\s*)([^\s,;]+)",
+    )
+    .unwrap()
+});
+
 pub(crate) fn redact_pii(text: &str) -> String {
     let text = EMAIL_RE.replace_all(text, "[email redacted]");
     let text = STRIPE_CUSTOMER_RE.replace_all(&text, "[stripe-id redacted]");
     let text = UUID_RE.replace_all(&text, "[id redacted]");
+    let text = BEARER_TOKEN_RE.replace_all(&text, "Bearer [token redacted]");
+    let text = JWT_RE.replace_all(&text, "[jwt redacted]");
+    let text = SECRET_ASSIGNMENT_RE.replace_all(&text, "${1}[secret redacted]");
+    let text = PROVIDER_KEY_RE.replace_all(&text, "[api-key redacted]");
     text.into_owned()
 }
 
@@ -58,5 +80,40 @@ mod tests {
     fn leaves_non_pii_unchanged() {
         let input = "App crashes on macOS 15.1 when clicking record button";
         assert_eq!(redact_pii(input), input);
+    }
+
+    #[test]
+    fn redacts_bearer_token() {
+        assert_eq!(
+            redact_pii("Authorization: Bearer abcdefghijklmnopqrstuvwxyz123456"),
+            "Authorization: Bearer [token redacted]"
+        );
+    }
+
+    #[test]
+    fn redacts_jwt() {
+        let input =
+            "jwt eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.signaturevalue";
+        assert_eq!(redact_pii(input), "jwt [jwt redacted]");
+    }
+
+    #[test]
+    fn redacts_provider_key() {
+        let openrouter_key = ["sk", "-or-v1-", "abcdefghijklmnopqrstuvwxyz"].concat();
+
+        assert_eq!(
+            redact_pii(&format!("OPENROUTER_API_KEY={openrouter_key}")),
+            "OPENROUTER_API_KEY=[secret redacted]"
+        );
+
+        assert_eq!(redact_pii(&openrouter_key), "[api-key redacted]");
+    }
+
+    #[test]
+    fn redacts_named_secret_assignment() {
+        assert_eq!(
+            redact_pii("refresh_token: abcdefghijklmnopqrstuvwxyz"),
+            "refresh_token: [secret redacted]"
+        );
     }
 }

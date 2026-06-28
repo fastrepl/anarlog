@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 use uuid::Uuid;
 
@@ -50,6 +50,58 @@ pub fn normalize_folder_path(path: &str) -> Result<String> {
     Ok(normalized.join("/"))
 }
 
+pub fn resolve_path_inside_base(base: &Path, path: &Path) -> Result<PathBuf> {
+    let base = base.canonicalize()?;
+    let candidate = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        base.join(path)
+    };
+    let candidate = normalize_absolute_path(&candidate)?;
+
+    let mut existing = candidate.as_path();
+    while !existing.exists() {
+        existing = existing
+            .parent()
+            .ok_or_else(|| crate::Error::Path("path_parent_missing".into()))?;
+    }
+
+    let existing_canonical = existing.canonicalize()?;
+    if !existing_canonical.starts_with(&base) {
+        return Err(crate::Error::Path("path_outside_base".into()));
+    }
+
+    let suffix = candidate
+        .strip_prefix(existing)
+        .map_err(|_| crate::Error::Path("path_outside_base".into()))?;
+    let resolved = existing_canonical.join(suffix);
+    if !resolved.starts_with(&base) {
+        return Err(crate::Error::Path("path_outside_base".into()));
+    }
+
+    Ok(resolved)
+}
+
+fn normalize_absolute_path(path: &Path) -> Result<PathBuf> {
+    let mut normalized = PathBuf::new();
+
+    for component in path.components() {
+        match component {
+            Component::Prefix(prefix) => normalized.push(prefix.as_os_str()),
+            Component::RootDir => normalized.push(component.as_os_str()),
+            Component::CurDir => {}
+            Component::Normal(segment) => normalized.push(segment),
+            Component::ParentDir => {
+                if !normalized.pop() {
+                    return Err(crate::Error::Path("path_traversal_not_allowed".into()));
+                }
+            }
+        }
+    }
+
+    Ok(normalized)
+}
+
 pub fn build_session_dir(
     sessions_base: &Path,
     folder_path: &str,
@@ -68,6 +120,8 @@ pub fn build_session_dir(
 mod tests {
     use super::*;
     use crate::test_fixtures::{UUID_1, UUID_2};
+    use assert_fs::fixture::PathChild;
+    use assert_fs::prelude::*;
     use std::path::PathBuf;
 
     #[test]
@@ -113,6 +167,59 @@ mod tests {
         assert_eq!(
             build_session_dir(&base, "work/project-a", UUID_1).unwrap(),
             base.join("work").join("project-a").join(UUID_1)
+        );
+    }
+
+    #[test]
+    fn resolve_path_inside_base_allows_existing_file() {
+        let temp = assert_fs::TempDir::new().unwrap();
+        let base = temp.path();
+        temp.child("note.txt").write_str("hello").unwrap();
+
+        let result = resolve_path_inside_base(base, &base.join("note.txt")).unwrap();
+
+        assert_eq!(result, base.canonicalize().unwrap().join("note.txt"));
+    }
+
+    #[test]
+    fn resolve_path_inside_base_allows_missing_child() {
+        let temp = assert_fs::TempDir::new().unwrap();
+        let base = temp.path();
+
+        let result = resolve_path_inside_base(base, Path::new("nested/note.txt")).unwrap();
+
+        assert_eq!(
+            result,
+            base.canonicalize().unwrap().join("nested").join("note.txt")
+        );
+    }
+
+    #[test]
+    fn resolve_path_inside_base_rejects_parent_traversal() {
+        let temp = assert_fs::TempDir::new().unwrap();
+        let base = temp.path();
+
+        let result = resolve_path_inside_base(base, Path::new("../outside.txt"));
+
+        assert!(
+            matches!(result, Err(crate::Error::Path(message)) if message == "path_outside_base")
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn resolve_path_inside_base_rejects_symlink_escape() {
+        let temp = assert_fs::TempDir::new().unwrap();
+        let base = temp.child("vault");
+        let outside = temp.child("outside");
+        base.create_dir_all().unwrap();
+        outside.create_dir_all().unwrap();
+        std::os::unix::fs::symlink(outside.path(), base.child("link").path()).unwrap();
+
+        let result = resolve_path_inside_base(base.path(), Path::new("link/file.txt"));
+
+        assert!(
+            matches!(result, Err(crate::Error::Path(message)) if message == "path_outside_base")
         );
     }
 }

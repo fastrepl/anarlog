@@ -50,6 +50,10 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Settings<'a, R, M> {
         hypr_storage::obsidian::list_vaults().map_err(Into::into)
     }
 
+    pub fn is_empty_or_missing_dir(&self, path: Utf8PathBuf) -> Result<bool, crate::Error> {
+        hypr_storage::vault::fs::is_empty_or_missing_dir(path.as_ref()).map_err(Into::into)
+    }
+
     pub async fn load(&self) -> crate::Result<serde_json::Value> {
         let snapshot = self.manager.state::<crate::state::StartupSnapshot>();
         snapshot.load().await

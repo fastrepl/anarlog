@@ -57,21 +57,6 @@
     "tantivy:default",
     "clipboard-manager:allow-write-image",
     "shell:allow-open",
-    {
-      "identifier": "shell:allow-execute",
-      "allow": [
-        {
-          "name": "exec-sh",
-          "cmd": "sh",
-          "args": [
-            "-c",
-            {
-              "validator": ".+"
-            }
-          ]
-        }
-      ]
-    },
     "misc:default",
     "fs-sync:default",
     "fs2:default",

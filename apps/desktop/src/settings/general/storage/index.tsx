@@ -5,7 +5,6 @@ import { FolderIcon, type LucideIcon, Settings2Icon } from "lucide-react";
 import { type ReactNode } from "react";
 import { useState } from "react";
 
-import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
 import { commands as settingsCommands } from "@hypr/plugin-settings";
 import { Button } from "@hypr/ui/components/ui/button";
@@ -260,17 +259,9 @@ function ChangeContentPathDialog({
     queryKey: ["path-empty-check", selectedPath],
     enabled: isNewPathChosen,
     queryFn: async () => {
-      const result = await fsSyncCommands.scanAndRead(
-        selectedPath!,
-        ["*"],
-        false,
-        null,
-      );
-      if (result.status === "error") return true; // dir doesn't exist yet → trivially empty, Rust will create it
-      return (
-        Object.keys(result.data.files).length === 0 &&
-        result.data.dirs.length === 0
-      );
+      const result = await settingsCommands.isEmptyOrMissingDir(selectedPath!);
+      if (result.status === "error") return true;
+      return result.data;
     },
   });
 

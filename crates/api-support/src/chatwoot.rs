@@ -128,15 +128,6 @@ pub fn action_cable_identifier(pubsub_token: &str) -> String {
     serde_json::json!({"channel": ACTION_CABLE_CHANNEL, "pubsub_token": pubsub_token}).to_string()
 }
 
-pub fn ai_content_attributes() -> serde_json::Map<String, serde_json::Value> {
-    let mut attrs = serde_json::Map::new();
-    attrs.insert(
-        "source".into(),
-        serde_json::Value::String(CONTENT_SOURCE_AI.into()),
-    );
-    attrs
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
