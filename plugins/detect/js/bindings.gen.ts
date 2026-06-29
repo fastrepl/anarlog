@@ -114,8 +114,9 @@ detectEvent: "plugin:detect:detect-event"
 export type AxRect = { x: number; y: number; width: number; height: number }
 export type DetectEvent = { type: "micDetected"; key: string; apps: InstalledApp[]; duration_secs: number } | { type: "micStopped"; apps: InstalledApp[] } | { type: "micMuted"; value: boolean } | { type: "sleepStateChanged"; value: boolean }
 export type InstalledApp = { id: string; name: string }
-export type MeetingAccessibilityInspection = { app: InstalledApp; pid: number; platform: MeetingPlatform; surface: MeetingSurface; accessibilityTrusted: boolean; windowTitle: string | null; participantStreams: MeetingParticipantStream[]; latestActiveSpeakers: string[]; chatTargets: MeetingChatTarget[]; warnings: string[] }
-export type MeetingChatSendResult = { sent: boolean; app: InstalledApp | null; platform: MeetingPlatform; surface: MeetingSurface; inputLabel: string | null; sendAction: string | null; warnings: string[] }
+export type MeetingAccessibilityInspection = { app: MeetingApp; pid: number; platform: MeetingPlatform; surface: MeetingSurface; accessibilityTrusted: boolean; windowTitle: string | null; participantStreams: MeetingParticipantStream[]; latestActiveSpeakers: string[]; chatTargets: MeetingChatTarget[]; warnings: string[] }
+export type MeetingApp = { id: string; name: string }
+export type MeetingChatSendResult = { sent: boolean; app: MeetingApp | null; platform: MeetingPlatform; surface: MeetingSurface; inputLabel: string | null; sendAction: string | null; warnings: string[] }
 export type MeetingChatTarget = { id: string; kind: string; label: string | null; bounds: AxRect | null; enabled: boolean | null; settable: boolean; confidence: number; signals: string[] }
 export type MeetingParticipantStream = { id: string; platform: MeetingPlatform; surface: MeetingSurface; participantName: string | null; label: string | null; bounds: AxRect | null; confidence: number; isActiveSpeaker: boolean; signals: string[] }
 export type MeetingPlatform = "zoom" | "googleMeet" | "microsoftTeams" | "slack" | "discord" | "unknown"

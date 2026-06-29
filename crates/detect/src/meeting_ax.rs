@@ -1,8 +1,6 @@
 #[cfg(target_os = "macos")]
 use std::collections::HashSet;
 
-use crate::InstalledApp;
-
 #[cfg(target_os = "macos")]
 use cidre::{arc, ax, cf, cg, ns};
 
@@ -56,6 +54,13 @@ pub struct AxRect {
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
+pub struct MeetingApp {
+    pub id: String,
+    pub name: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
 pub struct MeetingParticipantStream {
     pub id: String,
     pub platform: MeetingPlatform,
@@ -84,7 +89,7 @@ pub struct MeetingChatTarget {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct MeetingAccessibilityInspection {
-    pub app: InstalledApp,
+    pub app: MeetingApp,
     pub pid: i32,
     pub platform: MeetingPlatform,
     pub surface: MeetingSurface,
@@ -100,7 +105,7 @@ pub struct MeetingAccessibilityInspection {
 #[serde(rename_all = "camelCase")]
 pub struct MeetingChatSendResult {
     pub sent: bool,
-    pub app: Option<InstalledApp>,
+    pub app: Option<MeetingApp>,
     pub platform: MeetingPlatform,
     pub surface: MeetingSurface,
     pub input_label: Option<String>,
@@ -272,7 +277,7 @@ pub fn send_meeting_chat_message(_message: String) -> MeetingChatSendResult {
 }
 
 #[cfg(target_os = "macos")]
-fn running_meeting_apps() -> Vec<(InstalledApp, i32)> {
+fn running_meeting_apps() -> Vec<(MeetingApp, i32)> {
     let mut seen = HashSet::new();
     let mut apps = Vec::new();
 
@@ -295,7 +300,7 @@ fn running_meeting_apps() -> Vec<(InstalledApp, i32)> {
                 .map(|id| id.to_string())
                 .unwrap_or_else(|| bundle_id.to_string());
 
-            apps.push((InstalledApp { id, name }, pid));
+            apps.push((MeetingApp { id, name }, pid));
         }
     }
 
@@ -335,7 +340,7 @@ fn chat_element_score(node: &AxNode) -> f32 {
 
 #[cfg(target_os = "macos")]
 fn inspect_app(
-    app: InstalledApp,
+    app: MeetingApp,
     pid: i32,
     accessibility_trusted: bool,
 ) -> MeetingAccessibilityInspection {
