@@ -129,17 +129,66 @@ export const getGitHubStats = createServerFn({ method: "GET" }).handler(
   },
 );
 
+async function fetchStargazersFromRepoPage(count: number) {
+  try {
+    const response = await fetchGitHub(
+      `${GITHUB_REPO_URL}/stargazers`,
+      "text/html,application/xhtml+xml",
+    );
+
+    if (!response.ok) {
+      console.error("Failed to fetch GitHub stargazers page:", response.status);
+      return [];
+    }
+
+    const html = await response.text();
+    const stargazers: { username: string; avatar: string }[] = [];
+    const seen = new Set<string>();
+    const pattern =
+      /data-hovercard-url="\/users\/([^/"]+)\/hovercard"[\s\S]{0,300}?<img[^>]+src="([^"]+)"/g;
+
+    for (const match of html.matchAll(pattern)) {
+      const username = match[1];
+      const avatar = match[2]?.replaceAll("&amp;", "&");
+
+      if (!username || !avatar || seen.has(username)) {
+        continue;
+      }
+
+      seen.add(username);
+      stargazers.push({ username, avatar });
+
+      if (stargazers.length >= count) {
+        break;
+      }
+    }
+
+    return stargazers;
+  } catch (error) {
+    console.error("Failed to parse GitHub stargazers page:", error);
+    return [];
+  }
+}
+
 export const getStargazers = createServerFn({ method: "GET" }).handler(
   async () => {
+    const count = 42;
+
     try {
+      if (!env.GITHUB_TOKEN) {
+        const pageStargazers = await fetchStargazersFromRepoPage(count);
+        if (pageStargazers.length > 0) {
+          return pageStargazers;
+        }
+      }
+
       const repoStats = await fetchGitHubStatsFromApi();
       const totalStars = repoStats?.stars ?? 0;
 
       if (totalStars === 0) {
-        return [];
+        return fetchStargazersFromRepoPage(count);
       }
 
-      const count = 512;
       const perPage = 100;
       const numPages = Math.ceil(Math.min(count, totalStars) / perPage);
       const lastPage = Math.ceil(totalStars / perPage);
@@ -168,9 +217,14 @@ export const getStargazers = createServerFn({ method: "GET" }).handler(
         }
       }
 
-      return allStargazers.reverse().slice(0, count);
+      const stargazers = allStargazers.reverse().slice(0, count);
+      if (stargazers.length > 0) {
+        return stargazers;
+      }
+
+      return fetchStargazersFromRepoPage(count);
     } catch {
-      return [];
+      return fetchStargazersFromRepoPage(count);
     }
   },
 );

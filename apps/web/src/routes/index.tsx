@@ -10,7 +10,7 @@ import { cn } from "@hypr/utils";
 
 import { SiteFooter } from "@/components/site-footer";
 import { desktopSchemeSchema } from "@/functions/desktop-flow";
-import { getGitHubStats } from "@/functions/github";
+import { getGitHubStats, getStargazers } from "@/functions/github";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import {
   ANARLOG_SITE_URL,
@@ -303,9 +303,17 @@ export const Route = createFileRoute("/")({
     });
   },
   component: Component,
-  loader: async () => ({
-    githubStars: (await getGitHubStats()).stars ?? 8466,
-  }),
+  loader: async () => {
+    const [githubStats, stargazers] = await Promise.all([
+      getGitHubStats(),
+      getStargazers(),
+    ]);
+
+    return {
+      githubStars: githubStats.stars ?? 8466,
+      githubStargazers: stargazers,
+    };
+  },
   head: () => ({
     links: [{ rel: "canonical", href: ANARLOG_SITE_URL }],
     scripts: [
@@ -326,7 +334,7 @@ export const Route = createFileRoute("/")({
 });
 
 function Component() {
-  const { githubStars } = Route.useLoaderData();
+  const { githubStars, githubStargazers } = Route.useLoaderData();
   const formattedGithubStars = githubStars.toLocaleString("en-US");
 
   return (
@@ -345,7 +353,6 @@ function Component() {
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-x-5 gap-y-3 text-sm">
               <DownloadButton />
-              <GitHubButton formattedGithubStars={formattedGithubStars} />
             </div>
             <HeroWorkflowDemo />
           </section>
@@ -355,6 +362,11 @@ function Component() {
           <PrivacySection />
 
           <TestimonialsSection />
+
+          <OpenSourceSection
+            formattedGithubStars={formattedGithubStars}
+            stargazers={githubStargazers}
+          />
 
           <section id="manifesto" className="pt-28 pb-14 md:pt-32 md:pb-16">
             <article
@@ -463,25 +475,82 @@ function FinalCtaSection() {
   );
 }
 
-function GitHubButton({
+type GitHubStargazer = {
+  username: string;
+  avatar: string;
+};
+
+function OpenSourceSection({
   formattedGithubStars,
+  stargazers,
 }: {
   formattedGithubStars: string;
+  stargazers: GitHubStargazer[];
 }) {
+  const visibleStargazers = stargazers.slice(0, 24);
+
   return (
-    <a
-      href="https://github.com/fastrepl/anarlog"
-      className="inline-flex items-center gap-2 rounded-full border border-neutral-300 px-5 py-3 font-medium text-neutral-900 transition-colors hover:border-neutral-400 hover:bg-neutral-100"
+    <section
+      className="relative left-1/2 w-screen max-w-[880px] -translate-x-1/2 py-12 md:py-14"
+      aria-labelledby="open-source-heading"
     >
-      <img
-        src="https://upload.wikimedia.org/wikipedia/commons/9/91/Octicons-mark-github.svg"
-        alt=""
-        className="size-4"
-        aria-hidden="true"
-      />
-      <span>GitHub</span>
-      <span className="text-neutral-500">{formattedGithubStars} stars</span>
-    </a>
+      <div className="mx-auto max-w-[700px] px-5 md:px-8">
+        <h2
+          id="open-source-heading"
+          className="font-hand text-3xl leading-none font-semibold text-[#756b5d]"
+        >
+          Open source by default
+        </h2>
+        <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-[#4f4940]">
+          We deeply care about transparency. Anarlog is open source so anyone
+          can inspect how meeting memory is handled.
+        </p>
+
+        <a
+          href="https://github.com/fastrepl/anarlog"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-6 inline-flex items-center gap-2 rounded-full border border-neutral-300 bg-white px-5 py-3 text-sm font-medium text-neutral-900 transition-colors hover:border-neutral-400 hover:bg-neutral-100"
+        >
+          <Icon icon="mdi:github" width={18} height={18} aria-hidden="true" />
+          <span>{formattedGithubStars} stars on GitHub</span>
+        </a>
+      </div>
+
+      {visibleStargazers.length > 0 && (
+        <div className="relative mt-8 overflow-hidden px-5 md:px-8">
+          <div
+            className="pointer-events-none absolute inset-y-0 left-0 z-10 w-12 bg-linear-to-r from-white to-transparent md:w-20"
+            aria-hidden="true"
+          />
+          <div
+            className="pointer-events-none absolute inset-y-0 right-0 z-10 w-12 bg-linear-to-l from-white to-transparent md:w-20"
+            aria-hidden="true"
+          />
+          <div className="mx-auto grid max-w-[620px] grid-cols-6 gap-2 sm:grid-cols-12">
+            {visibleStargazers.map((stargazer) => (
+              <a
+                key={stargazer.username}
+                href={`https://github.com/${stargazer.username}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group aspect-square overflow-hidden rounded-[4px] border border-neutral-200 bg-neutral-100 transition-transform hover:-translate-y-0.5 hover:border-neutral-400"
+                aria-label={`${stargazer.username} on GitHub`}
+                title={stargazer.username}
+              >
+                <img
+                  src={stargazer.avatar}
+                  alt=""
+                  className="h-full w-full object-cover grayscale transition duration-200 group-hover:grayscale-0"
+                  loading="lazy"
+                  decoding="async"
+                />
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
   );
 }
 
