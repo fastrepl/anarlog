@@ -18,6 +18,7 @@ members = [
 ]
 exclude = [
   "plugins/apple-calendar",
+  "plugins/activity-capture",
   "plugins/extensions",
   "crates/vad-ext",
 ]

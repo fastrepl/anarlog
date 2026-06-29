@@ -6,6 +6,8 @@ Default permissions for the plugin
 
 - `allow-list-installed-applications`
 - `allow-list-mic-using-applications`
+- `allow-inspect-meeting-accessibility`
+- `allow-send-meeting-chat-message`
 - `allow-set-respect-do-not-disturb`
 - `allow-set-ignored-bundle-ids`
 - `allow-list-default-ignored-bundle-ids`
@@ -70,6 +72,32 @@ Enables the get_preferred_languages command without any pre-configured scope.
 <td>
 
 Denies the get_preferred_languages command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`detect:allow-inspect-meeting-accessibility`
+
+</td>
+<td>
+
+Enables the inspect_meeting_accessibility command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`detect:deny-inspect-meeting-accessibility`
+
+</td>
+<td>
+
+Denies the inspect_meeting_accessibility command without any pre-configured scope.
 
 </td>
 </tr>
@@ -174,6 +202,32 @@ Enables the reset_quit_handler command without any pre-configured scope.
 <td>
 
 Denies the reset_quit_handler command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`detect:allow-send-meeting-chat-message`
+
+</td>
+<td>
+
+Enables the send_meeting_chat_message command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`detect:deny-send-meeting-chat-message`
+
+</td>
+<td>
+
+Denies the send_meeting_chat_message command without any pre-configured scope.
 
 </td>
 </tr>

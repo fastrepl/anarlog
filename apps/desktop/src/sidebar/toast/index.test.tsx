@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   updateSettingsTabState: vi.fn(),
   clearDevtoolsPreview: vi.fn(),
   setToastActionTarget: vi.fn(),
+  setSettingValue: vi.fn(),
   sessionMode: "inactive",
 }));
 
@@ -35,7 +36,12 @@ vi.mock("~/shared/config", () => ({
     current_llm_model: "model",
     current_stt_provider: "local",
     current_stt_model: "model",
+    consent_auto_send_chat: true,
   }),
+}));
+
+vi.mock("~/settings/queries", () => ({
+  useSetSettingValue: () => mocks.setSettingValue,
 }));
 
 vi.mock("~/store/zustand/devtools-toast-preview", () => ({
@@ -94,6 +100,7 @@ describe("ToastArea", () => {
     mocks.updateSettingsTabState.mockClear();
     mocks.clearDevtoolsPreview.mockClear();
     mocks.setToastActionTarget.mockClear();
+    mocks.setSettingValue.mockClear();
     mocks.sessionMode = "inactive";
     useTransientToast.getState().clearToast();
   });

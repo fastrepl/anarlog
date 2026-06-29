@@ -5,6 +5,7 @@ mod error;
 mod language;
 #[cfg(feature = "list")]
 mod list;
+mod meeting_ax;
 #[cfg(feature = "mic")]
 mod mic;
 #[cfg(all(target_os = "macos", feature = "sleep"))]
@@ -30,6 +31,7 @@ pub use app::*;
 pub use language::*;
 #[cfg(feature = "list")]
 pub use list::*;
+pub use meeting_ax::*;
 #[cfg(feature = "mic")]
 pub use mic::*;
 

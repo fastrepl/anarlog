@@ -16,6 +16,7 @@ interface AppSettingsViewProps {
   showAppInDock: SettingItem;
   showTrayIcon: SettingItem;
   telemetryConsent: SettingItem;
+  consentAutoSendChat: SettingItem;
 }
 
 export function AppSettingsView({
@@ -26,6 +27,7 @@ export function AppSettingsView({
   showAppInDock,
   showTrayIcon,
   telemetryConsent,
+  consentAutoSendChat,
 }: AppSettingsViewProps) {
   return (
     <div className="flex flex-col gap-8">
@@ -94,6 +96,17 @@ export function AppSettingsView({
             }
             checked={autoStopMeetings.value}
             onChange={autoStopMeetings.onChange}
+          />
+          <SettingRow
+            title={<Trans>Send consent request to meeting chat</Trans>}
+            description={
+              <Trans>
+                When consent asking is configured, automatically post the
+                request in the meeting chat.
+              </Trans>
+            }
+            checked={consentAutoSendChat.value}
+            onChange={consentAutoSendChat.onChange}
           />
           <SettingRow
             title={<Trans>Show floating bar</Trans>}

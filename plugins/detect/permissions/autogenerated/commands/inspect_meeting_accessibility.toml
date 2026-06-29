@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-inspect-meeting-accessibility"
+description = "Enables the inspect_meeting_accessibility command without any pre-configured scope."
+commands.allow = ["inspect_meeting_accessibility"]
+
+[[permission]]
+identifier = "deny-inspect-meeting-accessibility"
+description = "Denies the inspect_meeting_accessibility command without any pre-configured scope."
+commands.deny = ["inspect_meeting_accessibility"]

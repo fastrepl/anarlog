@@ -20,6 +20,7 @@ function renderAppSettings({ floatingBar = true } = {}) {
       showAppInDock={setting()}
       showTrayIcon={setting()}
       telemetryConsent={setting()}
+      consentAutoSendChat={setting()}
     />,
   );
 }
