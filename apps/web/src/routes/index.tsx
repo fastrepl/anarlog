@@ -945,7 +945,23 @@ function HeroWorkflowDemo() {
 
   return (
     <div className="relative left-1/2 mt-10 w-screen max-w-[500px] -translate-x-1/2 px-8 pb-16 sm:px-10">
-      <div className="mx-auto max-w-[420px] overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-[0_24px_70px_rgba(24,22,19,0.08)]">
+      <div
+        className="pointer-events-none absolute top-10 bottom-24 left-8 z-0 w-12 rounded-full bg-neutral-950/10 blur-2xl sm:left-10"
+        aria-hidden="true"
+      />
+      <div
+        className="pointer-events-none absolute top-10 right-8 bottom-24 z-0 w-12 rounded-full bg-neutral-950/10 blur-2xl sm:right-10"
+        aria-hidden="true"
+      />
+      <div
+        className="relative z-10 mx-auto max-w-[420px] overflow-hidden rounded-xl border-x border-t border-neutral-200 bg-white shadow-[0_24px_70px_rgba(24,22,19,0.08)]"
+        style={{
+          WebkitMaskImage:
+            "linear-gradient(to bottom, black 0%, black calc(100% - 5rem), transparent 100%)",
+          maskImage:
+            "linear-gradient(to bottom, black 0%, black calc(100% - 5rem), transparent 100%)",
+        }}
+      >
         <div className="flex items-center gap-2 px-4 py-3">
           <div className="flex gap-2">
             <div className="h-3 w-3 rounded-full bg-red-400"></div>
