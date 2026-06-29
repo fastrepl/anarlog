@@ -194,12 +194,9 @@ export function BillingProvider({ children }: { children: ReactNode }) {
         trialEligibilityRefreshPendingRef.current = userId;
         void auth
           .refreshSession()
-          .then((session) => {
-            if (session) {
-              setTrialEligibilityRefreshedUserId(userId);
-            }
-          })
+          .catch(() => null)
           .finally(() => {
+            setTrialEligibilityRefreshedUserId(userId);
             trialEligibilityRefreshPendingRef.current = null;
           });
       }
