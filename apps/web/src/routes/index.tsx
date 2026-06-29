@@ -41,19 +41,15 @@ const featureList = [
 
 const privacyCommitments = [
   {
-    title: "Your notes stay yours",
-    description: "Audio, transcripts, and notes live as files on your device.",
+    description: "Audio, transcripts, and notes stay as files on your device.",
     visual: "files",
   },
   {
-    title: "Choose your stack",
-    description:
-      "Run on-device transcription, bring your own key, or use hosted AI.",
+    description: "Choose on-device models, your own key, or hosted AI.",
     visual: "key",
   },
   {
-    title: "No bots on calls",
-    description: "Capture system audio without adding a bot to the meeting.",
+    description: "Capture meeting audio without adding a bot to the call.",
     visual: "meeting",
   },
 ];
@@ -689,11 +685,11 @@ function PrivacySection() {
     <section className="py-16 md:py-20">
       <div>
         <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
-          What makes it different
+          Your data stays yours
         </h2>
         <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#4f4940]">
-          Anarlog stays out of the participant list, keeps notes on disk, and
-          lets you pick the AI path.
+          Anarlog is built around data you own, privacy you control, and notes
+          that stay useful outside our app.
         </p>
       </div>
 
@@ -702,14 +698,11 @@ function PrivacySection() {
           {privacyCommitments.map((commitment) => {
             return (
               <div
-                key={commitment.title}
-                className="flex flex-col px-6 py-3 text-left md:w-[31%] md:p-4"
+                key={commitment.description}
+                className="flex flex-col px-6 py-3 text-center md:w-[31%] md:p-4"
               >
                 <PrivacyVisual type={commitment.visual} />
-                <p className="mt-3 text-sm leading-6 text-[#4f4940] md:mt-5">
-                  <span className="font-semibold text-[#181613]">
-                    {commitment.title}.
-                  </span>{" "}
+                <p className="mx-auto mt-3 max-w-[15rem] text-sm leading-6 text-[#4f4940] md:mt-5">
                   {commitment.description}
                 </p>
               </div>
@@ -728,35 +721,35 @@ function PrivacyVisual({
 }) {
   if (type === "files") {
     return (
-      <div className="flex h-20 items-center justify-start gap-2 select-none md:h-28 md:w-full md:justify-between md:gap-1">
+      <div className="flex h-20 items-center justify-center gap-2 select-none md:h-28 md:w-full md:justify-between md:gap-1">
         <img
           src="/icons/file.webp"
           alt=""
-          className="w-10 rotate-[3deg] object-contain"
+          className="w-10 rotate-[3deg] object-contain transition-transform duration-300 ease-out hover:rotate-[7deg]"
           draggable={false}
         />
         <img
           src="/icons/file.webp"
           alt=""
-          className="w-10 rotate-[-5deg] object-contain"
+          className="w-10 rotate-[-5deg] object-contain transition-transform duration-300 ease-out hover:rotate-[-9deg]"
           draggable={false}
         />
         <img
           src="/icons/folderchar.svg"
           alt=""
-          className="w-14 object-contain"
+          className="w-14 object-contain transition-transform duration-300 ease-out hover:rotate-[3deg]"
           draggable={false}
         />
         <img
           src="/icons/file.webp"
           alt=""
-          className="w-10 rotate-[6deg] object-contain"
+          className="w-10 rotate-[6deg] object-contain transition-transform duration-300 ease-out hover:rotate-[10deg]"
           draggable={false}
         />
         <img
           src="/icons/file.webp"
           alt=""
-          className="w-10 rotate-[-4deg] object-contain"
+          className="w-10 rotate-[-4deg] object-contain transition-transform duration-300 ease-out hover:rotate-[-8deg]"
           draggable={false}
         />
       </div>
