@@ -322,6 +322,48 @@
     opacity: 0.3;
   }
 
+  @keyframes meeting-audio-bar {
+    0%,
+    100% {
+      transform: scaleY(0.58);
+    }
+
+    50% {
+      transform: scaleY(0.86);
+    }
+  }
+
+  @keyframes meeting-audio-bar-middle {
+    0%,
+    100% {
+      transform: scaleY(0.9);
+    }
+
+    50% {
+      transform: scaleY(1.16);
+    }
+  }
+
+  .meeting-audio-bar {
+    display: block;
+    width: 0.25rem;
+    height: 0.875rem;
+    border-radius: 999px;
+    background: #a8a29e;
+    animation: meeting-audio-bar 0.9s ease-in-out infinite;
+    transform-origin: center;
+  }
+
+  .meeting-audio-bar:nth-child(2) {
+    height: 1.125rem;
+    animation-name: meeting-audio-bar-middle;
+    animation-delay: 0.14s;
+  }
+
+  .meeting-audio-bar:nth-child(3) {
+    animation-delay: 0.28s;
+  }
+
   @keyframes ai-card-shuffle-cloud {
     0%,
     26% {
@@ -432,6 +474,11 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
+    .meeting-audio-bar {
+      animation: none;
+      transform: scaleY(0.7);
+    }
+
     .ai-option-card {
       animation: none;
     }

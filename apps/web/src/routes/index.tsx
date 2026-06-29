@@ -786,14 +786,27 @@ function PrivacyVisual({
   }
 
   return (
-    <div className="flex h-20 items-center select-none md:h-28 md:w-full">
-      <div className="flex items-center gap-3 rounded-2xl border border-neutral-200 bg-white py-2 pr-8 pl-4 text-left shadow-[0_8px_18px_rgba(24,22,19,0.08)] md:w-full">
-        <Icon icon="logos:google-meet" width={32} height={32} />
+    <div className="flex h-20 items-center justify-center select-none md:h-28 md:w-full">
+      <div className="flex items-center gap-3 rounded-2xl border border-neutral-200 bg-white py-2 pr-3 pl-4 text-left shadow-[0_3px_10px_rgba(24,22,19,0.04)] md:w-full">
+        <img
+          src="/icons/google-meet.svg"
+          alt=""
+          className="h-7 w-7 object-contain"
+          draggable={false}
+        />
         <div className="flex flex-col gap-1">
           <span className="text-sm font-medium text-stone-800">
             Sprint 3 planning
           </span>
           <span className="text-sm text-stone-400">5 participants</span>
+        </div>
+        <div
+          className="meeting-audio-bars ml-auto flex h-6 items-center gap-0.5"
+          aria-hidden="true"
+        >
+          <span className="meeting-audio-bar" />
+          <span className="meeting-audio-bar" />
+          <span className="meeting-audio-bar" />
         </div>
       </div>
     </div>
