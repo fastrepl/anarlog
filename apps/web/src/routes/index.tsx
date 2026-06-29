@@ -239,8 +239,8 @@ function TestimonialTweetCard({
           </a>
         </figcaption>
 
-        <blockquote className="flex flex-1 items-center py-3">
-          <p className="text-lg leading-[1.25] font-semibold text-balance text-[#181613]">
+        <blockquote className="flex flex-1 items-center justify-start py-3">
+          <p className="text-left text-lg leading-[1.25] font-semibold text-balance text-[#181613]">
             {renderPullQuote(testimonial.quote)}
           </p>
         </blockquote>
