@@ -10,14 +10,15 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as UpdatePasswordRouteImport } from './routes/update-password'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as FoundersRouteImport } from './routes/founders'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ViewRouteRouteImport } from './routes/_view/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ChangelogIndexRouteImport } from './routes/changelog/index'
 import { Route as BlogIndexRouteImport } from './routes/blog/index'
-import { Route as LegalSlugRouteImport } from './routes/legal/$slug'
 import { Route as ChangelogVersionRouteImport } from './routes/changelog/$version'
 import { Route as BlogSlugRouteImport } from './routes/blog/$slug'
 import { Route as ApiTemplatesRouteImport } from './routes/api/templates'
@@ -80,9 +81,19 @@ const UpdatePasswordRoute = UpdatePasswordRouteImport.update({
   path: '/update-password',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FoundersRoute = FoundersRouteImport.update({
@@ -112,11 +123,6 @@ const ChangelogIndexRoute = ChangelogIndexRouteImport.update({
 const BlogIndexRoute = BlogIndexRouteImport.update({
   id: '/blog/',
   path: '/blog/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LegalSlugRoute = LegalSlugRouteImport.update({
-  id: '/legal/$slug',
-  path: '/legal/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ChangelogVersionRoute = ChangelogVersionRouteImport.update({
@@ -412,7 +418,9 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/founders': typeof FoundersRoute
+  '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/terms': typeof TermsRoute
   '/update-password': typeof UpdatePasswordRoute
   '/app': typeof ViewAppRouteRouteWithChildren
   '/pricing': typeof ViewPricingRoute
@@ -421,7 +429,6 @@ export interface FileRoutesByFullPath {
   '/api/templates': typeof ApiTemplatesRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/changelog/$version': typeof ChangelogVersionRoute
-  '/legal/$slug': typeof LegalSlugRoute
   '/blog/': typeof BlogIndexRoute
   '/changelog/': typeof ChangelogIndexRoute
   '/app/account': typeof ViewAppAccountRoute
@@ -478,7 +485,9 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/founders': typeof FoundersRoute
+  '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/terms': typeof TermsRoute
   '/update-password': typeof UpdatePasswordRoute
   '/pricing': typeof ViewPricingRoute
   '/api/media-upload': typeof ApiMediaUploadRoute
@@ -486,7 +495,6 @@ export interface FileRoutesByTo {
   '/api/templates': typeof ApiTemplatesRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/changelog/$version': typeof ChangelogVersionRoute
-  '/legal/$slug': typeof LegalSlugRoute
   '/blog': typeof BlogIndexRoute
   '/changelog': typeof ChangelogIndexRoute
   '/app/account': typeof ViewAppAccountRoute
@@ -545,7 +553,9 @@ export interface FileRoutesById {
   '/_view': typeof ViewRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/founders': typeof FoundersRoute
+  '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/terms': typeof TermsRoute
   '/update-password': typeof UpdatePasswordRoute
   '/_view/app': typeof ViewAppRouteRouteWithChildren
   '/_view/pricing': typeof ViewPricingRoute
@@ -554,7 +564,6 @@ export interface FileRoutesById {
   '/api/templates': typeof ApiTemplatesRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/changelog/$version': typeof ChangelogVersionRoute
-  '/legal/$slug': typeof LegalSlugRoute
   '/blog/': typeof BlogIndexRoute
   '/changelog/': typeof ChangelogIndexRoute
   '/_view/app/account': typeof ViewAppAccountRoute
@@ -613,7 +622,9 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/founders'
+    | '/privacy'
     | '/reset-password'
+    | '/terms'
     | '/update-password'
     | '/app'
     | '/pricing'
@@ -622,7 +633,6 @@ export interface FileRouteTypes {
     | '/api/templates'
     | '/blog/$slug'
     | '/changelog/$version'
-    | '/legal/$slug'
     | '/blog/'
     | '/changelog/'
     | '/app/account'
@@ -679,7 +689,9 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/founders'
+    | '/privacy'
     | '/reset-password'
+    | '/terms'
     | '/update-password'
     | '/pricing'
     | '/api/media-upload'
@@ -687,7 +699,6 @@ export interface FileRouteTypes {
     | '/api/templates'
     | '/blog/$slug'
     | '/changelog/$version'
-    | '/legal/$slug'
     | '/blog'
     | '/changelog'
     | '/app/account'
@@ -745,7 +756,9 @@ export interface FileRouteTypes {
     | '/_view'
     | '/auth'
     | '/founders'
+    | '/privacy'
     | '/reset-password'
+    | '/terms'
     | '/update-password'
     | '/_view/app'
     | '/_view/pricing'
@@ -754,7 +767,6 @@ export interface FileRouteTypes {
     | '/api/templates'
     | '/blog/$slug'
     | '/changelog/$version'
-    | '/legal/$slug'
     | '/blog/'
     | '/changelog/'
     | '/_view/app/account'
@@ -813,14 +825,15 @@ export interface RootRouteChildren {
   ViewRouteRoute: typeof ViewRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   FoundersRoute: typeof FoundersRoute
+  PrivacyRoute: typeof PrivacyRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  TermsRoute: typeof TermsRoute
   UpdatePasswordRoute: typeof UpdatePasswordRoute
   ApiMediaUploadRoute: typeof ApiMediaUploadRoute
   ApiShortcutsRoute: typeof ApiShortcutsRoute
   ApiTemplatesRoute: typeof ApiTemplatesRoute
   BlogSlugRoute: typeof BlogSlugRoute
   ChangelogVersionRoute: typeof ChangelogVersionRoute
-  LegalSlugRoute: typeof LegalSlugRoute
   BlogIndexRoute: typeof BlogIndexRoute
   ChangelogIndexRoute: typeof ChangelogIndexRoute
   ApiAssetsSplatRoute: typeof ApiAssetsSplatRoute
@@ -867,11 +880,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UpdatePasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/reset-password': {
       id: '/reset-password'
       path: '/reset-password'
       fullPath: '/reset-password'
       preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/founders': {
@@ -914,13 +941,6 @@ declare module '@tanstack/react-router' {
       path: '/blog'
       fullPath: '/blog/'
       preLoaderRoute: typeof BlogIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/legal/$slug': {
-      id: '/legal/$slug'
-      path: '/legal/$slug'
-      fullPath: '/legal/$slug'
-      preLoaderRoute: typeof LegalSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/changelog/$version': {
@@ -1379,14 +1399,15 @@ const rootRouteChildren: RootRouteChildren = {
   ViewRouteRoute: ViewRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   FoundersRoute: FoundersRoute,
+  PrivacyRoute: PrivacyRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  TermsRoute: TermsRoute,
   UpdatePasswordRoute: UpdatePasswordRoute,
   ApiMediaUploadRoute: ApiMediaUploadRoute,
   ApiShortcutsRoute: ApiShortcutsRoute,
   ApiTemplatesRoute: ApiTemplatesRoute,
   BlogSlugRoute: BlogSlugRoute,
   ChangelogVersionRoute: ChangelogVersionRoute,
-  LegalSlugRoute: LegalSlugRoute,
   BlogIndexRoute: BlogIndexRoute,
   ChangelogIndexRoute: ChangelogIndexRoute,
   ApiAssetsSplatRoute: ApiAssetsSplatRoute,

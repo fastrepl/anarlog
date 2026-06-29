@@ -24,7 +24,8 @@ Allow: /docs
 Allow: /changelog
 Allow: /pricing
 Allow: /enterprise
-Allow: /legal/
+Allow: /privacy
+Allow: /terms
 Allow: /download
 Allow: /faq
 Allow: /about

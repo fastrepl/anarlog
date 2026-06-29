@@ -17,18 +17,10 @@ export function SiteFooter() {
         <Link to="/changelog/" className="hover:text-[#181613]">
           Changelog
         </Link>
-        <Link
-          to="/legal/$slug/"
-          params={{ slug: "privacy" }}
-          className="hover:text-[#181613]"
-        >
+        <Link to="/privacy/" className="hover:text-[#181613]">
           Privacy
         </Link>
-        <Link
-          to="/legal/$slug/"
-          params={{ slug: "terms" }}
-          className="hover:text-[#181613]"
-        >
+        <Link to="/terms/" className="hover:text-[#181613]">
           Terms
         </Link>
       </nav>

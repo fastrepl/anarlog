@@ -1,39 +1,27 @@
 import { MDXContent } from "@content-collections/mdx/react";
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { allLegals } from "content-collections";
+import { Link } from "@tanstack/react-router";
+import type { Legal } from "content-collections";
 
-import { mdxComponents } from "@/components/mdx-components";
 import { ANARLOG_SITE_URL } from "@/lib/seo";
 
-export const Route = createFileRoute("/legal/$slug")({
-  component: Component,
-  loader: async ({ params }) => {
-    const doc = allLegals.find((d) => d.slug === params.slug);
-    if (!doc) {
-      throw notFound();
-    }
-    return { doc };
-  },
-  head: ({ loaderData }) => {
-    const doc = loaderData?.doc;
-    if (!doc) return {};
-    const url = `${ANARLOG_SITE_URL}/legal/${doc.slug}`;
-    return {
-      links: [{ rel: "canonical", href: url }],
-      meta: [
-        { title: `${doc.title} — Anarlog` },
-        { name: "description", content: doc.summary || doc.title },
-        { property: "og:title", content: doc.title },
-        { property: "og:description", content: doc.summary || doc.title },
-        { property: "og:url", content: url },
-      ],
-    };
-  },
-});
+import { mdxComponents } from "./mdx-components";
 
-function Component() {
-  const { doc } = Route.useLoaderData();
+export function legalHead(doc: Legal, path: "/privacy" | "/terms") {
+  const url = `${ANARLOG_SITE_URL}${path}`;
 
+  return {
+    links: [{ rel: "canonical", href: url }],
+    meta: [
+      { title: `${doc.title} — Anarlog` },
+      { name: "description", content: doc.summary || doc.title },
+      { property: "og:title", content: doc.title },
+      { property: "og:description", content: doc.summary || doc.title },
+      { property: "og:url", content: url },
+    ],
+  };
+}
+
+export function LegalDocument({ doc }: { doc: Legal }) {
   return (
     <main className="mx-auto max-w-3xl px-6 py-16">
       <Link

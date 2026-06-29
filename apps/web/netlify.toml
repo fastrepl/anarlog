@@ -66,7 +66,7 @@ force = true
 
 [[redirects]]
 from = "https://hyprnote.com/legal/*"
-to = "https://char.com/legal/:splat"
+to = "https://anarlog.so/:splat"
 status = 301
 force = true
 
@@ -203,7 +203,7 @@ status = 301
 force = true
 
 # Domain migration: char.com -> anarlog.so (301 for SEO)
-# Char is shut down except for /blog/* and /legal/* which redirect to anarlog.so
+# Char is shut down except for /blog/* and root legal pages which redirect to anarlog.so
 
 [[redirects]]
 from = "https://char.com/blog/*"
@@ -218,13 +218,43 @@ status = 301
 force = true
 
 [[redirects]]
+from = "/legal/*"
+to = "/:splat"
+status = 301
+force = true
+
+[[redirects]]
 from = "https://char.com/legal/*"
-to = "https://anarlog.so/legal/:splat"
+to = "https://anarlog.so/:splat"
 status = 301
 force = true
 
 [[redirects]]
 from = "https://www.char.com/legal/*"
-to = "https://anarlog.so/legal/:splat"
+to = "https://anarlog.so/:splat"
+status = 301
+force = true
+
+[[redirects]]
+from = "https://char.com/privacy"
+to = "https://anarlog.so/privacy"
+status = 301
+force = true
+
+[[redirects]]
+from = "https://www.char.com/privacy"
+to = "https://anarlog.so/privacy"
+status = 301
+force = true
+
+[[redirects]]
+from = "https://char.com/terms"
+to = "https://anarlog.so/terms"
+status = 301
+force = true
+
+[[redirects]]
+from = "https://www.char.com/terms"
+to = "https://anarlog.so/terms"
 status = 301
 force = true

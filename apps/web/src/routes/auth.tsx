@@ -276,14 +276,14 @@ function LegalText() {
     <p className="mt-4 px-8 pb-8 text-center text-xs text-neutral-500">
       By signing up, you agree to our{" "}
       <a
-        href="https://anarlog.so/legal/terms"
+        href="https://anarlog.so/terms"
         className="underline hover:text-neutral-700"
       >
         Terms of Service
       </a>{" "}
       and{" "}
       <a
-        href="https://anarlog.so/legal/privacy"
+        href="https://anarlog.so/privacy"
         className="underline hover:text-neutral-700"
       >
         Privacy Policy
