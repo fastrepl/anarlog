@@ -197,7 +197,7 @@ msgstr "Applying..."
 msgid "Ask & search about anything, or be creative!"
 msgstr "Ask & search about anything, or be creative!"
 
-#: src/shared/chat-cta.tsx:31
+#: src/shared/chat-cta.tsx:32
 msgid "Ask Anarlog anything"
 msgstr "Ask Anarlog anything"
 
