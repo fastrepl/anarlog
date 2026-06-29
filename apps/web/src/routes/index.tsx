@@ -19,7 +19,7 @@ import {
   getSoftwareApplicationJsonLd,
   getStructuredDataGraph,
 } from "@/lib/seo";
-import { TEAM_MEMBERS } from "@/lib/team";
+import { MANIFESTO_SIGNERS } from "@/lib/team";
 
 const manifestoLetter = [
   "To the people who still take notes,",
@@ -29,7 +29,7 @@ const manifestoLetter = [
   "Anarlog is our attempt to build that meeting notepad.",
 ];
 
-const manifestoTeam = Object.values(TEAM_MEMBERS);
+const manifestoSigners = MANIFESTO_SIGNERS;
 
 const featureList = [
   "Bot-free meeting capture",
@@ -377,21 +377,55 @@ function Component() {
                   </p>
                 ))}
               </div>
-              <div className="mt-10 flex flex-wrap items-center gap-x-5 gap-y-4">
-                {manifestoTeam.map((member) => (
-                  <div key={member.id} className="flex items-center gap-2.5">
-                    <img
-                      src={member.avatar}
-                      alt={`${member.name} profile photo`}
-                      className="size-10 rounded-full object-cover shadow-sm"
-                      decoding="async"
-                      loading="lazy"
-                    />
-                    <p className="text-sm font-medium text-[#363029]">
-                      {member.name}
-                    </p>
+              <div className="mt-10 flex w-full flex-col items-start pt-2">
+                <div className="flex w-fit max-w-full flex-col items-start gap-3">
+                  <div className="flex -space-x-2">
+                    {manifestoSigners.map((member) =>
+                      member.links.twitter ? (
+                        <a
+                          key={member.id}
+                          href={member.links.twitter}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label={`${member.name} on X`}
+                          className="block rounded-full transition-transform hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#181613]"
+                        >
+                          <img
+                            src={member.avatar}
+                            alt=""
+                            width={30}
+                            height={30}
+                            className="size-[30px] rounded-full object-cover"
+                            decoding="async"
+                            loading="lazy"
+                          />
+                        </a>
+                      ) : (
+                        <span
+                          key={member.id}
+                          aria-label={`${member.name} profile picture`}
+                          className="block rounded-full"
+                          role="img"
+                        >
+                          <img
+                            src={member.avatar}
+                            alt=""
+                            width={30}
+                            height={30}
+                            className="size-[30px] rounded-full object-cover"
+                            decoding="async"
+                            loading="lazy"
+                          />
+                        </span>
+                      ),
+                    )}
                   </div>
-                ))}
+                  <p className="text-[12px] leading-none tracking-[0.04em] text-[#756b5d]">
+                    {manifestoSigners
+                      .map((member) => member.name.split(" ")[0])
+                      .join(", ")}
+                  </p>
+                </div>
               </div>
             </article>
           </section>
@@ -441,7 +475,7 @@ function GitHubButton({
   return (
     <a
       href="https://github.com/fastrepl/anarlog"
-      className="inline-flex items-center gap-2 rounded-full border border-[#d8d0c5] px-5 py-3 font-medium text-[#181613] transition-colors hover:border-[#b8aea0] hover:bg-[#f7f4ef]"
+      className="inline-flex items-center gap-2 rounded-full border border-neutral-300 px-5 py-3 font-medium text-neutral-900 transition-colors hover:border-neutral-400 hover:bg-neutral-100"
     >
       <img
         src="https://upload.wikimedia.org/wikipedia/commons/9/91/Octicons-mark-github.svg"
@@ -450,7 +484,7 @@ function GitHubButton({
         aria-hidden="true"
       />
       <span>GitHub</span>
-      <span className="text-[#756b5d]">{formattedGithubStars} stars</span>
+      <span className="text-neutral-500">{formattedGithubStars} stars</span>
     </a>
   );
 }
@@ -550,8 +584,7 @@ function TestimonialsSection() {
           What people say
         </h2>
         <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#4f4940]">
-          People were already asking for private meeting notes: no bot in the
-          room, local control by default.
+          It's clear they love Anarlog.
         </p>
       </div>
 

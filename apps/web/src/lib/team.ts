@@ -1,4 +1,4 @@
-export const TEAM_MEMBERS = {
+export const EDITORS = {
   john: {
     id: "john",
     name: "John Jeong",
@@ -25,6 +25,28 @@ export const TEAM_MEMBERS = {
       linkedin: "https://linkedin.com/in/yujong1ee",
     },
   },
+  artem: {
+    id: "artem",
+    name: "Artem",
+    email: "artem@hyprnote.com",
+    avatar: "/team/artem.jpg",
+    role: "",
+    bio: "",
+    links: {
+      twitter: "https://x.com/s_II_a",
+    },
+  },
+  sungbin: {
+    id: "sungbin",
+    name: "Sungbin",
+    email: "",
+    avatar: "/team/sungbin.png",
+    role: "",
+    bio: "",
+    links: {
+      twitter: "https://x.com/goranmoomin",
+    },
+  },
   harshika: {
     id: "harshika",
     name: "Harshika",
@@ -36,13 +58,18 @@ export const TEAM_MEMBERS = {
   },
 } as const;
 
-export const FOUNDERS = [TEAM_MEMBERS.john, TEAM_MEMBERS.yujong] as const;
+export const MANIFESTO_SIGNERS = [
+  EDITORS.john,
+  EDITORS.yujong,
+  EDITORS.artem,
+  EDITORS.sungbin,
+] as const;
 
 export const AUTHOR_AVATARS: Record<string, string> = Object.fromEntries(
-  Object.values(TEAM_MEMBERS).map((m) => [m.name, m.avatar]),
+  Object.values(EDITORS).map((m) => [m.name, m.avatar]),
 );
 
-export const AUTHORS = Object.values(TEAM_MEMBERS).map((m) => ({
+export const AUTHORS = Object.values(EDITORS).map((m) => ({
   name: m.name,
   avatar: m.avatar,
 }));
@@ -52,7 +79,6 @@ export const ADMIN_EMAILS = [
   "yujonglee.dev@gmail.com",
   "john@hyprnote.com",
   "marketing@hyprnote.com",
-  "harshika.alagh@gmail.com",
   "yunhyungjo@yonsei.ac.kr",
   "goranmoomin@daum.net",
   "artem@hyprnote.com",
