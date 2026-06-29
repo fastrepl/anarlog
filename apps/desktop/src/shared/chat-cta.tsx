@@ -28,6 +28,7 @@ export function ChatCTA({
   return (
     <button
       type="button"
+      data-chat-cta-trigger
       aria-label={ariaLabel ?? t`Ask Anarlog anything`}
       onClick={handleClick}
       className="group/anarlog-chat-cta relative h-10 w-40 max-w-full cursor-text focus-visible:outline-none"

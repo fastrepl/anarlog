@@ -48,6 +48,7 @@ describe("ChatCTA", () => {
     const surface = button.querySelector("[data-chat-cta-surface]");
     const label = screen.getByText("Ask anything");
 
+    expect(button.hasAttribute("data-chat-cta-trigger")).toBe(true);
     expect(button.className).toContain("h-10");
     expect(button.className).toContain("w-40");
     expect(button.className).toContain("cursor-text");

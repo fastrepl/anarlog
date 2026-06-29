@@ -20,6 +20,7 @@ import {
 
 import { useAudioPlayer } from "~/audio-player";
 import { useAudioTime } from "~/audio-player/provider";
+import { useShell } from "~/contexts/shell";
 import type { Segment } from "~/stt/live-segment";
 
 export function TranscriptViewer({
@@ -33,6 +34,7 @@ export function TranscriptViewer({
   currentActive: boolean;
   scrollRef: RefObject<HTMLDivElement | null>;
 }) {
+  const { chat } = useShell();
   const containerRef = useRef<HTMLDivElement>(null);
   const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(
     null,
@@ -92,17 +94,19 @@ export function TranscriptViewer({
   );
 
   const scrollChip =
-    currentActive && scrollTarget === "bottom" && !isAtBottom
-      ? {
-          label: "Go to bottom",
-          onClick: scrollToBottom,
-        }
-      : currentActive && scrollTarget === "top" && !isAtTop
+    chat.mode === "FloatingOpen"
+      ? null
+      : currentActive && scrollTarget === "bottom" && !isAtBottom
         ? {
-            label: "Go to top",
-            onClick: scrollToTop,
+            label: "Go to bottom",
+            onClick: scrollToBottom,
           }
-        : null;
+        : currentActive && scrollTarget === "top" && !isAtTop
+          ? {
+              label: "Go to top",
+              onClick: scrollToTop,
+            }
+          : null;
 
   const handleSelectionAction = (action: string, selectedText: string) => {
     if (action === "copy") {
@@ -151,14 +155,19 @@ export function TranscriptViewer({
 
       {scrollChip && (
         <button
+          data-transcript-scroll-chip
           onClick={scrollChip.onClick}
+          style={{
+            bottom:
+              "var(--transcript-scroll-chip-bottom, calc(3.75rem + env(safe-area-inset-bottom)))",
+          }}
           className={cn([
-            "absolute bottom-[calc(5rem+env(safe-area-inset-bottom))] left-1/2 z-30 -translate-x-1/2",
+            "absolute left-1/2 z-30 -translate-x-1/2",
             "rounded-full px-4 py-2",
             "from-muted to-accent text-foreground bg-linear-to-t",
             "shadow-xs hover:scale-[102%] hover:shadow-md active:scale-[98%]",
             "text-xs font-light",
-            "transition-opacity duration-150",
+            "transition-[bottom,opacity,transform,box-shadow] duration-150",
           ])}
         >
           {scrollChip.label}
