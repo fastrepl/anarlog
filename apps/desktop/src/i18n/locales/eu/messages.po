@@ -1472,6 +1472,10 @@ msgstr ""
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Bidali erabilera-analisi anonimoak Anarlog hobetzen laguntzeko."
 
+#: src/settings/general/app-settings.tsx
+msgid "Send consent request to meeting chat"
+msgstr ""
+
 #: src/contacts/organization-details.tsx
 msgid "Send email"
 msgstr ""
@@ -1851,6 +1855,10 @@ msgstr ""
 
 #: src/changelog/index.tsx
 msgid "What's new in {version}?"
+msgstr ""
+
+#: src/settings/general/app-settings.tsx
+msgid "When consent asking is configured, automatically post the request in the meeting chat."
 msgstr ""
 
 #: src/onboarding/index.tsx
