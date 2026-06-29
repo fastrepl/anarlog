@@ -95,23 +95,32 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     queryFn: async () => {
       const headers = auth?.getHeaders();
       if (!headers) {
-        return false;
+        return { canStartTrial: false, reason: "error" as const };
       }
       const client = createClient({ baseUrl: env.VITE_API_URL, headers });
       const { data, error } = await canStartTrialApi({ client });
       if (error) {
-        return false;
+        return { canStartTrial: false, reason: "error" as const };
       }
-      return data?.canStartTrial ?? false;
+      return {
+        canStartTrial: data?.canStartTrial ?? false,
+        reason: data?.reason ?? null,
+      };
     },
   });
 
   const canStartTrial = useMemo(
     () => ({
-      data: billing.isPaid ? false : (canTrialQuery.data ?? false),
+      data: billing.isPaid
+        ? false
+        : (canTrialQuery.data?.canStartTrial ?? false),
       isPending: canTrialQuery.isPending,
     }),
-    [billing.isPaid, canTrialQuery.data, canTrialQuery.isPending],
+    [
+      billing.isPaid,
+      canTrialQuery.data?.canStartTrial,
+      canTrialQuery.isPending,
+    ],
   );
 
   const upgradeToPro = useCallback(async () => {
@@ -152,6 +161,9 @@ export function BillingProvider({ children }: { children: ReactNode }) {
 
   const [trialStartedOpen, setTrialStartedOpen] = useState(false);
   const [trialEndedOpen, setTrialEndedOpen] = useState(false);
+  const [trialEligibilityRefreshedUserId, setTrialEligibilityRefreshedUserId] =
+    useState<string | null>(null);
+  const trialEligibilityRefreshPendingRef = useRef<string | null>(null);
   const hasTrial = billing.trialEnd !== null;
 
   useEffect(() => {
@@ -169,7 +181,36 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (hasTrial && !billing.isPaid) {
+    const isTrialIneligible =
+      !canTrialQuery.isPending && canTrialQuery.data?.reason === "not_eligible";
+
+    if (
+      isTrialIneligible &&
+      !hasTrial &&
+      !billing.isPaid &&
+      trialEligibilityRefreshedUserId !== userId
+    ) {
+      if (trialEligibilityRefreshPendingRef.current !== userId) {
+        trialEligibilityRefreshPendingRef.current = userId;
+        void auth
+          .refreshSession()
+          .then((session) => {
+            if (session) {
+              setTrialEligibilityRefreshedUserId(userId);
+            }
+          })
+          .finally(() => {
+            trialEligibilityRefreshPendingRef.current = null;
+          });
+      }
+      return;
+    }
+
+    const hasRecentTrial =
+      hasTrial ||
+      (isTrialIneligible && trialEligibilityRefreshedUserId === userId);
+
+    if (hasRecentTrial && !billing.isPaid) {
       const key = TRIAL_ENDED_SEEN_PREFIX + userId;
       if (!readSeen(key)) {
         setTrialEndedOpen(true);
@@ -182,6 +223,10 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     hasTrial,
     billing.isPaid,
     isReady,
+    canTrialQuery.data?.reason,
+    canTrialQuery.isPending,
+    trialEligibilityRefreshedUserId,
+    auth.refreshSession,
   ]);
 
   const value = useMemo<BillingContextValue>(
