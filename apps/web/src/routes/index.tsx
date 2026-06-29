@@ -765,83 +765,22 @@ function PrivacyVisual({
 
   if (type === "key") {
     return (
-      <div className="flex h-20 items-center justify-center select-none md:h-28 md:w-full">
-        <svg
-          className="h-20 w-36 md:h-28 md:w-48"
-          viewBox="0 0 180 132"
+      <div className="flex h-24 items-center justify-center select-none md:h-28 md:w-full">
+        <div
+          className="relative h-24 w-52 md:h-28 md:w-60"
           role="img"
-          aria-label="AI stack options cycling between device, key, and hosted"
+          aria-label="AI option cards cycling between cloud, key, and chip"
         >
-          <g className="animate-stack-layer-device">
-            <path
-              d="M90 8 152 42 90 76 28 42Z"
-              fill="#fffaf0"
-              stroke="#181613"
-              strokeOpacity="0.34"
-            />
-            <path
-              d="M90 20 122 38 90 56 58 38Z"
-              fill="#181613"
-              opacity="0.07"
-            />
-            <Cpu
-              x={77}
-              y={28}
-              width={26}
-              height={26}
-              strokeWidth={1.7}
-              className="text-[#181613]"
-            />
-          </g>
-          <g className="animate-stack-layer-key">
-            <path
-              d="M90 34 152 68 90 102 28 68Z"
-              fill="#fffaf0"
-              stroke="#181613"
-              strokeOpacity="0.34"
-            />
-            <rect
-              x="58"
-              y="62"
-              width="64"
-              height="18"
-              rx="5"
-              fill="#fffaf0"
-              stroke="#181613"
-              strokeOpacity="0.26"
-            />
-            <KeyRound
-              x={68}
-              y={61}
-              width={18}
-              height={18}
-              strokeWidth={1.8}
-              className="text-[#181613]"
-            />
-            <path
-              d="M92 71h16"
-              stroke="#756b5d"
-              strokeLinecap="round"
-              strokeDasharray="2 5"
-            />
-          </g>
-          <g className="animate-stack-layer-hosted">
-            <path
-              d="M90 58 152 92 90 126 28 92Z"
-              fill="#fffaf0"
-              stroke="#181613"
-              strokeOpacity="0.34"
-            />
-            <Cloud
-              x={76}
-              y={84}
-              width={30}
-              height={30}
-              strokeWidth={1.8}
-              className="text-[#181613]"
-            />
-          </g>
-        </svg>
+          <div className="ai-option-card ai-option-card-cloud">
+            <Cloud size={28} strokeWidth={2.5} aria-hidden="true" />
+          </div>
+          <div className="ai-option-card ai-option-card-key">
+            <KeyRound size={30} strokeWidth={2.3} aria-hidden="true" />
+          </div>
+          <div className="ai-option-card ai-option-card-chip">
+            <Cpu size={30} strokeWidth={2.3} aria-hidden="true" />
+          </div>
+        </div>
       </div>
     );
   }

@@ -322,72 +322,134 @@
     opacity: 0.3;
   }
 
-  @keyframes stack-layer-device {
+  @keyframes ai-card-shuffle-cloud {
     0%,
-    28%,
-    100% {
-      opacity: 1;
-      transform: translateY(-6px);
-    }
-
-    36%,
-    92% {
-      opacity: 0.24;
-      transform: translateY(0);
-    }
-  }
-
-  @keyframes stack-layer-key {
-    0%,
-    28%,
-    68%,
-    100% {
-      opacity: 0.24;
-      transform: translateY(0);
+    26% {
+      z-index: 3;
+      transform: translate(1.6rem, 0.45rem) rotate(8deg) scale(1);
     }
 
     36%,
     60% {
-      opacity: 1;
-      transform: translateY(-6px);
+      z-index: 1;
+      transform: translate(-1.75rem, 0.9rem) rotate(-14deg) scale(0.92);
     }
-  }
 
-  @keyframes stack-layer-hosted {
-    0%,
-    60%,
+    70%,
+    94% {
+      z-index: 2;
+      transform: translate(-0.15rem, 0.25rem) rotate(-5deg) scale(0.96);
+    }
+
     100% {
-      opacity: 0.24;
-      transform: translateY(0);
-    }
-
-    68%,
-    92% {
-      opacity: 1;
-      transform: translateY(-6px);
+      z-index: 3;
+      transform: translate(1.6rem, 0.45rem) rotate(8deg) scale(1);
     }
   }
 
-  .animate-stack-layer-device,
-  .animate-stack-layer-key,
-  .animate-stack-layer-hosted {
+  @keyframes ai-card-shuffle-key {
+    0%,
+    26% {
+      z-index: 2;
+      transform: translate(-0.15rem, 0.25rem) rotate(-5deg) scale(0.96);
+    }
+
+    36%,
+    60% {
+      z-index: 3;
+      transform: translate(1.6rem, 0.45rem) rotate(8deg) scale(1);
+    }
+
+    70%,
+    94% {
+      z-index: 1;
+      transform: translate(-1.75rem, 0.9rem) rotate(-14deg) scale(0.92);
+    }
+
+    100% {
+      z-index: 2;
+      transform: translate(-0.15rem, 0.25rem) rotate(-5deg) scale(0.96);
+    }
+  }
+
+  @keyframes ai-card-shuffle-chip {
+    0%,
+    26% {
+      z-index: 1;
+      transform: translate(-1.75rem, 0.9rem) rotate(-14deg) scale(0.92);
+    }
+
+    36%,
+    60% {
+      z-index: 2;
+      transform: translate(-0.15rem, 0.25rem) rotate(-5deg) scale(0.96);
+    }
+
+    70%,
+    94% {
+      z-index: 3;
+      transform: translate(1.6rem, 0.45rem) rotate(8deg) scale(1);
+    }
+
+    100% {
+      z-index: 1;
+      transform: translate(-1.75rem, 0.9rem) rotate(-14deg) scale(0.92);
+    }
+  }
+
+  .ai-option-card {
+    position: absolute;
+    top: 0.45rem;
+    left: 50%;
+    display: flex;
+    width: 3.75rem;
+    height: 4.875rem;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #dedbd3;
+    border-radius: 0.55rem;
+    background: linear-gradient(135deg, #ffffff 0%, #f4f3ef 100%);
+    box-shadow: 0 8px 18px rgba(28, 25, 23, 0.08);
+    color: #57534e;
+    margin-left: -1.875rem;
     animation-duration: 9s;
     animation-iteration-count: infinite;
     animation-timing-function: ease-in-out;
-    transform-box: fill-box;
     transform-origin: center;
+    will-change: transform;
   }
 
-  .animate-stack-layer-device {
-    animation-name: stack-layer-device;
+  .ai-option-card-cloud {
+    animation-name: ai-card-shuffle-cloud;
   }
 
-  .animate-stack-layer-key {
-    animation-name: stack-layer-key;
+  .ai-option-card-key {
+    animation-name: ai-card-shuffle-key;
   }
 
-  .animate-stack-layer-hosted {
-    animation-name: stack-layer-hosted;
+  .ai-option-card-chip {
+    animation-name: ai-card-shuffle-chip;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ai-option-card {
+      animation: none;
+    }
+
+    .ai-option-card-cloud {
+      z-index: 3;
+      transform: translate(1.6rem, 0.45rem) rotate(8deg) scale(1);
+    }
+
+    .ai-option-card-key {
+      z-index: 2;
+      transform: translate(-0.15rem, 0.25rem) rotate(-5deg) scale(0.96);
+    }
+
+    .ai-option-card-chip {
+      z-index: 1;
+      transform: translate(-1.75rem, 0.9rem) rotate(-14deg) scale(0.92);
+    }
   }
 }
 
