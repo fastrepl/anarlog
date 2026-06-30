@@ -28,6 +28,24 @@ import { cn } from "@hypr/utils";
 
 import { schema } from "../note/schema";
 
+export function selectionTouchesTitleHeading(state: EditorState): boolean {
+  const firstNode = state.doc.firstChild;
+  if (
+    !firstNode ||
+    firstNode.type !== state.schema.nodes.heading ||
+    firstNode.attrs.level !== 1 ||
+    state.selection.empty
+  ) {
+    return false;
+  }
+
+  const titleStart = 1;
+  const titleEnd = firstNode.nodeSize - 1;
+  const { from, to } = state.selection;
+
+  return from < titleEnd && to > titleStart;
+}
+
 function isMarkActive(state: EditorState, type: MarkType): boolean {
   const { from, $from, to, empty } = state.selection;
   if (empty) {
@@ -53,7 +71,9 @@ export function FormatToolbar() {
   const cleanupRef = useRef<(() => void) | null>(null);
 
   const editorState = useEditorState();
-  const hasSelection = editorState ? !editorState.selection.empty : false;
+  const shouldShowToolbar = editorState
+    ? !editorState.selection.empty && !selectionTouchesTitleHeading(editorState)
+    : false;
 
   const toggle = useEditorEventCallback((view, markType: MarkType) => {
     if (!view) return;
@@ -62,7 +82,7 @@ export function FormatToolbar() {
   });
 
   useEditorEffect((view) => {
-    if (!view || !hasSelection) {
+    if (!view || !shouldShowToolbar) {
       cleanupRef.current?.();
       cleanupRef.current = null;
       return;
@@ -103,7 +123,7 @@ export function FormatToolbar() {
     update();
   });
 
-  if (!hasSelection || !editorState) return null;
+  if (!shouldShowToolbar || !editorState) return null;
 
   return createPortal(
     <div
