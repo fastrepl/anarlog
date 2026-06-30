@@ -6,7 +6,8 @@ description: Create the next desktop changelog entry when asked to add a changel
 Determine the next desktop version by inspecting `.github/workflows/desktop_cd.yaml` and running:
 
 ```bash
-doxxer --config doxxer.desktop.toml
+doxxer --config doxxer.desktop.toml current
+doxxer --config doxxer.desktop.toml next patch
 ```
 
 Create the new markdown file in `packages/changelog/content` for that version.
