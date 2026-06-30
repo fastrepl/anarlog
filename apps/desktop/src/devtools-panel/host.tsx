@@ -104,8 +104,6 @@ function DevtoolsFloatingPanelSync() {
     let cancelled = false;
     let unlistenAction: (() => void) | undefined;
 
-    void showDevtoolsPanel();
-
     windowsEvents.devtoolsPanelAction
       .listen(({ payload }) => {
         actionHandlerRef.current(payload.action);
@@ -472,13 +470,6 @@ function useDevtoolsPanelActions() {
     handleAction,
     shouldThrow,
   };
-}
-
-async function showDevtoolsPanel() {
-  const result = await windowsCommands.devtoolsPanelShow();
-  if (result.status === "error") {
-    console.error("Failed to show Devtools panel:", result.error);
-  }
 }
 
 async function hideDevtoolsPanel() {
