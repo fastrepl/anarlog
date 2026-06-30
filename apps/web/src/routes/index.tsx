@@ -573,7 +573,7 @@ function CredibilityLogoMarquee() {
         {credibilityLogos.map((logo) => logo.name).join(", ")}
       </p>
 
-      <div className="relative left-1/2 w-screen -translate-x-1/2 overflow-hidden bg-white py-2 motion-reduce:overflow-visible">
+      <div className="relative left-1/2 w-screen -translate-x-1/2 overflow-hidden bg-white motion-reduce:overflow-visible">
         <div
           className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-linear-to-r from-white to-transparent motion-reduce:hidden md:w-32"
           aria-hidden="true"
