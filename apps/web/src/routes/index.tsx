@@ -55,19 +55,27 @@ const privacyCommitments = [
 ];
 
 const credibilityLogos = [
-  { name: "Databricks", src: "/icons/databricks.svg" },
+  { name: "Databricks", src: "/icons/databricks.svg", className: "max-h-5" },
   { name: "Cloudflare", src: "/icons/cloudflare.png" },
-  { name: "Amazon", src: "/icons/amazon.svg", className: "max-h-9" },
-  { name: "Meta", src: "/icons/meta.svg", className: "max-h-9" },
+  { name: "Amazon", src: "/icons/amazon.svg", className: "max-h-5" },
+  { name: "Meta", src: "/icons/meta.svg", className: "max-h-5" },
   { name: "Y Combinator", src: "/icons/yc.svg" },
-  { name: "Palantir", src: "/icons/palantir.svg" },
-  { name: "Apple", src: "/icons/apple.svg", className: "max-h-9" },
-  { name: "Disney", src: "/icons/disney.svg", className: "max-h-9" },
-  { name: "Richmond American", src: "/icons/richmond_american.svg" },
-  { name: "Adobe", src: "/icons/adobe.svg", className: "max-h-8" },
-  { name: "Wayfair", src: "/icons/wayfair.svg" },
-  { name: "Bain & Company", src: "/icons/bain.svg", className: "max-h-6" },
-  { name: "McKinsey & Company", src: "/icons/mckinsey.png" },
+  { name: "Palantir", src: "/icons/palantir.svg", className: "max-h-5" },
+  { name: "Apple", src: "/icons/apple.svg", className: "max-h-5" },
+  { name: "Disney", src: "/icons/disney.svg", className: "max-h-5" },
+  {
+    name: "Richmond American",
+    src: "/icons/richmond_american.svg",
+    className: "max-h-5",
+  },
+  { name: "Adobe", src: "/icons/adobe.svg", className: "max-h-5" },
+  { name: "Wayfair", src: "/icons/wayfair.svg", className: "max-h-5" },
+  { name: "Bain & Company", src: "/icons/bain.svg", className: "max-h-5" },
+  {
+    name: "McKinsey & Company",
+    src: "/icons/mckinsey.png",
+    className: "max-h-5",
+  },
 ];
 
 const testimonials = [
