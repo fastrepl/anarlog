@@ -573,7 +573,7 @@ function CredibilityLogoMarquee() {
         {credibilityLogos.map((logo) => logo.name).join(", ")}
       </p>
       <div
-        className="pointer-events-none absolute -top-[4.4rem] left-1/2 z-20 h-20 w-[15rem] -translate-x-[160%] text-neutral-950 max-sm:hidden"
+        className="pointer-events-none absolute -top-[4.4rem] left-1/2 z-20 h-20 w-[15rem] -translate-x-[160%] text-neutral-950 max-[899px]:hidden"
         aria-hidden="true"
       >
         <p className="absolute top-0 left-0 w-max -rotate-[3deg] font-['Reenie_Beanie','Patrick_Hand',cursive] text-[25px] leading-none font-normal whitespace-nowrap lg:text-[28px]">
@@ -644,7 +644,7 @@ function CredibilityLogoMarquee() {
       </div>
       <h2
         id="credibility-heading"
-        className="mt-1 font-['Reenie_Beanie','Patrick_Hand',cursive] text-[22px] leading-none font-normal text-neutral-950 sm:sr-only"
+        className="mt-1 font-['Reenie_Beanie','Patrick_Hand',cursive] text-[22px] leading-none font-normal text-neutral-950 min-[900px]:sr-only"
       >
         people love us at
       </h2>
