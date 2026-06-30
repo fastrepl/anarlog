@@ -126,6 +126,7 @@ export function useCanShowTranscript(
   return (
     hasTranscript ||
     (audioExists && !isLiveCapture) ||
+    isLiveCapture ||
     hasLiveSegments ||
     sessionMode === "running_batch" ||
     Boolean(batchError)

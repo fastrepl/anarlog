@@ -67,11 +67,11 @@ export function useEnsureDefaultSummary(sessionId: string) {
 
     const hasEnhancedNotes = enhancedNoteIds && enhancedNoteIds.length > 0;
     const templateId = selectedTemplateId || undefined;
+    const isLiveCapture =
+      sessionMode === "active" || sessionMode === "finalizing";
     const canCreateSummary =
-      hasTranscript ||
-      sessionMode === "finalizing" ||
-      sessionMode === "running_batch" ||
-      Boolean(batchError);
+      !isLiveCapture &&
+      (hasTranscript || sessionMode === "running_batch" || Boolean(batchError));
 
     if (!hasEnhancedNotes && canCreateSummary) {
       service.ensureNote(sessionId, templateId);

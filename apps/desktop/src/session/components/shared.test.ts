@@ -105,16 +105,16 @@ describe("useCurrentNoteTab", () => {
     expect(result.current).toEqual({ type: "raw" });
   });
 
-  it("normalizes active transcript view when no transcript evidence exists", () => {
+  it("keeps active transcript view when no transcript evidence exists", () => {
     hoisted.sessionMode = "active";
     hoisted.liveSessionId = "session-1";
 
     const { result } = renderHook(() => useCurrentNoteTab(tab));
 
-    expect(result.current).toEqual({ type: "raw" });
+    expect(result.current).toEqual({ type: "transcript" });
   });
 
-  it("normalizes active transcript view when only in-progress audio exists", () => {
+  it("keeps active transcript view when only in-progress audio exists", () => {
     hoisted.sessionMode = "active";
     hoisted.liveSessionId = "session-1";
 
@@ -122,7 +122,7 @@ describe("useCurrentNoteTab", () => {
       useCurrentNoteTab(tab, { audioExists: true }),
     );
 
-    expect(result.current).toEqual({ type: "raw" });
+    expect(result.current).toEqual({ type: "transcript" });
   });
 });
 
@@ -145,15 +145,22 @@ describe("useCanShowTranscript", () => {
     expect(result.current).toBe(true);
   });
 
-  it("ignores live segments from another active session while finalizing", () => {
+  it("shows the transcript while active before live segments arrive", () => {
+    hoisted.liveSessionId = "session-1";
+    hoisted.sessionMode = "active";
+
+    const { result } = renderHook(() => useCanShowTranscript("session-1"));
+
+    expect(result.current).toBe(true);
+  });
+
+  it("shows the transcript while finalizing", () => {
     hoisted.finalizingBySession = { "session-1": { startedAt: 1 } };
-    hoisted.liveSessionId = "session-2";
-    hoisted.liveSegments = [{ id: "segment-1" }];
     hoisted.sessionMode = "finalizing";
 
     const { result } = renderHook(() => useCanShowTranscript("session-1"));
 
-    expect(result.current).toBe(false);
+    expect(result.current).toBe(true);
   });
 });
 

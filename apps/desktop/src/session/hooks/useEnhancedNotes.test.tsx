@@ -111,6 +111,26 @@ describe("useEnsureDefaultSummary", () => {
     ).not.toHaveBeenCalled();
   });
 
+  it("does not create the summary row during active recording", async () => {
+    hoisted.sessionMode = "active";
+
+    renderHook(() => useEnsureDefaultSummary("session-1"));
+
+    await waitFor(() => {
+      expect(hoisted.service.ensureNote).not.toHaveBeenCalled();
+    });
+  });
+
+  it("does not create the summary row while finalizing recording", async () => {
+    hoisted.sessionMode = "finalizing";
+
+    renderHook(() => useEnsureDefaultSummary("session-1"));
+
+    await waitFor(() => {
+      expect(hoisted.service.ensureNote).not.toHaveBeenCalled();
+    });
+  });
+
   it("creates the summary row while batch transcription is running", async () => {
     hoisted.hasTranscript = false;
     hoisted.sessionMode = "running_batch";

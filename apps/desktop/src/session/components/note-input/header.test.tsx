@@ -152,6 +152,8 @@ vi.mock("~/session/components/shared", () => ({
     (audioExists &&
       hoisted.sessionMode !== "active" &&
       hoisted.sessionMode !== "finalizing") ||
+    hoisted.sessionMode === "active" ||
+    hoisted.sessionMode === "finalizing" ||
     (hoisted.liveSessionId === sessionId && hoisted.liveSegments.length > 0) ||
     hoisted.sessionMode === "running_batch",
 }));
@@ -670,7 +672,7 @@ describe("Header", () => {
     ]);
   });
 
-  it("omits the transcript tab for active meetings without transcript evidence", () => {
+  it("includes the transcript tab for active meetings before transcript evidence arrives", () => {
     hoisted.hasTranscript = false;
     hoisted.sessionMode = "active";
     hoisted.liveSessionId = "session-1";
@@ -682,6 +684,7 @@ describe("Header", () => {
     expect(result.current).toEqual([
       { type: "enhanced", id: "note-1" },
       { type: "raw" },
+      { type: "transcript" },
     ]);
   });
 
