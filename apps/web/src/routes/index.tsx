@@ -566,12 +566,40 @@ function OpenSourceSection({
 function CredibilityLogoMarquee() {
   return (
     <section
-      className="pt-0 pb-2 md:pb-0"
+      className="relative pt-0 pb-2 md:pb-0"
       aria-labelledby="credibility-heading"
     >
       <p className="sr-only">
         {credibilityLogos.map((logo) => logo.name).join(", ")}
       </p>
+      <div
+        className="pointer-events-none absolute -top-[4.4rem] left-1/2 z-20 h-20 w-[15rem] -translate-x-[12%] text-neutral-950 max-sm:hidden"
+        aria-hidden="true"
+      >
+        <p className="absolute top-0 left-[4.1rem] w-max -rotate-[3deg] font-['Reenie_Beanie','Patrick_Hand',cursive] text-[25px] leading-none font-normal whitespace-nowrap lg:text-[28px]">
+          ppl love us at
+        </p>
+        <svg
+          className="absolute top-[1.6rem] left-[0.2rem] h-[4.6rem] w-[6.8rem] rotate-[8deg] text-neutral-950"
+          viewBox="0 0 150 112"
+          fill="none"
+        >
+          <path
+            d="M102 8C62 7 36 20 33 47C31 69 53 81 68 67C82 54 49 43 39 60C28 78 53 89 116 83"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M101 70C106 76 111 80 119 83C113 88 107 92 100 95"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </div>
 
       <div className="relative left-1/2 w-screen -translate-x-1/2 overflow-hidden bg-white motion-reduce:overflow-visible">
         <div
@@ -616,9 +644,9 @@ function CredibilityLogoMarquee() {
       </div>
       <h2
         id="credibility-heading"
-        className="mt-2 text-xs leading-none font-medium text-[#756b5d] md:text-sm"
+        className="mt-1 font-['Reenie_Beanie','Patrick_Hand',cursive] text-[22px] leading-none font-normal text-neutral-950 sm:sr-only"
       >
-        Trusted by people in
+        ppl love us at
       </h2>
     </section>
   );
