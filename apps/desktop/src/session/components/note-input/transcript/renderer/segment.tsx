@@ -1,4 +1,4 @@
-import { memo, useMemo } from "react";
+import { Fragment, memo, useMemo } from "react";
 
 import { cn } from "@hypr/utils";
 
@@ -71,10 +71,11 @@ export const SegmentRenderer = memo(
 
       const highlights = new Map<SegmentWord, HighlightSegment[]>();
       for (const word of segment.words) {
+        const displayText = getWordDisplayText(word);
         highlights.set(
           word,
           createHighlightSegments(
-            word.text,
+            displayText,
             search.query,
             search.caseSensitive,
             search.wholeWord,
@@ -116,20 +117,23 @@ export const SegmentRenderer = memo(
                   isCurrentLine && "bg-yellow-100/50 dark:bg-yellow-900/30",
                 ])}
               >
+                {lineIdx > 0 ? " " : null}
                 {line.words.map((word, idx) => (
-                  <WordSpan
-                    key={word.id ?? `${word.start_ms}-${idx}`}
-                    word={word}
-                    displayText={word.text}
-                    audioExists={audioExists}
-                    onClickWord={seekAndPlay}
-                    highlightSegments={
-                      highlightSegmentsByWord?.get(word) ?? undefined
-                    }
-                    isActiveMatch={
-                      Boolean(word.id) && word.id === search.activeMatchId
-                    }
-                  />
+                  <Fragment key={word.id ?? `${word.start_ms}-${idx}`}>
+                    {idx > 0 ? " " : null}
+                    <WordSpan
+                      word={word}
+                      displayText={getWordDisplayText(word)}
+                      audioExists={audioExists}
+                      onClickWord={seekAndPlay}
+                      highlightSegments={
+                        highlightSegmentsByWord?.get(word) ?? undefined
+                      }
+                      isActiveMatch={
+                        Boolean(word.id) && word.id === search.activeMatchId
+                      }
+                    />
+                  </Fragment>
                 ))}
               </span>
             );
@@ -205,4 +209,8 @@ function segmentContainsWordId(segment: Segment, wordId: string | null) {
   }
 
   return segment.words.some((word) => word.id === wordId);
+}
+
+function getWordDisplayText(word: SegmentWord) {
+  return word.text.trim();
 }

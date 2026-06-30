@@ -38,6 +38,24 @@ describe("SegmentRenderer", () => {
     mocks.wordSpan.mockClear();
   });
 
+  it("keeps spaces between rendered words and lines", () => {
+    const segment = createSegment();
+    const seekAndPlay = vi.fn();
+    const view = render(
+      <SegmentRenderer
+        segment={segment}
+        offsetMs={0}
+        transcriptId="transcript-1"
+        currentMs={0}
+        seekAndPlay={seekAndPlay}
+        audioExists
+        search={EMPTY_TRANSCRIPT_SEARCH}
+      />,
+    );
+
+    expect(view.container.textContent).toBe("First line. Second line.");
+  });
+
   it("skips playback rerenders while the active line is unchanged", () => {
     const segment = createSegment();
     const seekAndPlay = vi.fn();
