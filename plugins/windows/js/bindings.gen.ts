@@ -349,6 +349,7 @@ export type FloatingBarSettingsChange = {
 };
 export type FloatingBarState = {
   amplitude: number;
+  title: string;
   status: FloatingBarStatus;
   colorScheme: FloatingBarColorScheme;
   opacity: number;
@@ -358,9 +359,17 @@ export type FloatingBarState = {
   liveCaptionPosition: LiveCaptionPosition;
   liveCaptionMinimized: boolean;
   liveCaptionToggleVisible: boolean;
+  transcriptBubbles: FloatingTranscriptBubble[];
 };
 export type FloatingBarStatus = "recording" | "error";
 export type FloatingBarStop = Record<string, never>;
+export type FloatingTranscriptBubble = {
+  id: string;
+  speakerLabel: string;
+  text: string;
+  isSelf: boolean;
+  isFinal: boolean;
+};
 export type JsonValue =
   | null
   | boolean

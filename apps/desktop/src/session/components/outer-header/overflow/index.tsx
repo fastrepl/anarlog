@@ -24,6 +24,7 @@ import { ExportModal } from "./export-modal";
 import { Listening } from "./listening";
 import { ShowInFinder } from "./misc";
 
+import { useMeetingFloatMainStore } from "~/meeting-float/hooks";
 import { openFloatingMeetingPanel } from "~/meeting-float/host";
 import {
   useCurrentNoteHasContent,
@@ -57,6 +58,7 @@ export function OverflowButton({
   const { uploadAudio, uploadTranscript } = useUploadFile(sessionId);
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
   const floatingBarEnabled = useConfigValue("floating_bar_enabled");
+  const main = useMeetingFloatMainStore();
   const settings = settingsStore.UI.useStore(settingsStore.STORE_ID);
   const isMeetingInProgress =
     sessionMode === "active" || sessionMode === "finalizing";
@@ -80,6 +82,7 @@ export function OverflowButton({
     void openFloatingMeetingPanel({
       sessionId,
       enabled: floatingBarEnabled,
+      main,
       store: settings,
     });
   };

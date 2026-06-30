@@ -17,10 +17,21 @@ pub enum FloatingBarColorScheme {
     Dark,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, specta::Type)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct FloatingTranscriptBubble {
+    pub id: String,
+    pub speaker_label: String,
+    pub text: String,
+    pub is_self: bool,
+    pub is_final: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct FloatingBarState {
     pub amplitude: f64,
+    pub title: String,
     pub status: FloatingBarStatus,
     pub color_scheme: FloatingBarColorScheme,
     pub opacity: f64,
@@ -30,6 +41,7 @@ pub struct FloatingBarState {
     pub live_caption_position: LiveCaptionPosition,
     pub live_caption_minimized: bool,
     pub live_caption_toggle_visible: bool,
+    pub transcript_bubbles: Vec<FloatingTranscriptBubble>,
 }
 
 #[cfg(target_os = "macos")]

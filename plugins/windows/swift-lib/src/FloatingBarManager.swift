@@ -1,4 +1,5 @@
 import Cocoa
+import Combine
 import SwiftUI
 
 final class FloatingBarManager {
@@ -10,8 +11,18 @@ final class FloatingBarManager {
   private let placement = FloatingPanelPositionController()
   private var displayChangeObserver: Any?
   private var followActiveScreenTimer: Timer?
+  private var cancellables = Set<AnyCancellable>()
 
-  private init() {}
+  private init() {
+    model.$isExpanded
+      .removeDuplicates()
+      .sink { [weak self] _ in
+        guard let self, let panel = self.panel else { return }
+        self.resize(panel)
+        self.position(panel, force: true)
+      }
+      .store(in: &cancellables)
+  }
 
   func show() {
     DispatchQueue.main.async { [weak self] in
@@ -68,8 +79,12 @@ final class FloatingBarManager {
       self.model.status = state.status
       self.model.amplitude = min(max(state.amplitude, 0), 1)
       self.model.colorScheme = state.colorScheme
+      self.model.title = state.title
       self.model.liveCaptionToggleVisible = state.liveCaptionToggleVisible
+      self.model.transcriptBubbles = state.transcriptBubbles
       self.settingsModel.apply(floatingBarState: state)
+      self.model.isExpanded =
+        state.liveCaptionToggleVisible && !self.settingsModel.liveCaptionMinimized
       if let panel = self.panel {
         self.resize(panel)
         self.position(panel, force: true)
@@ -82,7 +97,7 @@ final class FloatingBarManager {
       contentRect: NSRect(
         x: 0,
         y: 0,
-        width: FloatingBarLayout.containerWidth,
+        width: currentSize.width,
         height: currentSize.height),
       styleMask: [.borderless, .nonactivatingPanel],
       backing: .buffered,
@@ -131,10 +146,10 @@ final class FloatingBarManager {
   }
 
   private var currentSize: NSSize {
-    let controlCount: CGFloat = model.liveCaptionToggleVisible ? 3 : 2
-    return NSSize(
-      width: FloatingBarLayout.containerWidth,
-      height: FloatingBarLayout.containerHeight(forControlCount: controlCount))
+    FloatingBarLayout.containerSize(
+      isExpanded: model.isExpanded,
+      showsExpand: model.liveCaptionToggleVisible
+    )
   }
 
   private func startFollowingActiveScreen() {

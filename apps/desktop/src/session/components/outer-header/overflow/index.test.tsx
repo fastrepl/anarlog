@@ -13,6 +13,8 @@ const {
   useHasTranscriptMock,
   useListenerMock,
   useConfigValueMock,
+  useMeetingFloatMainStoreMock,
+  mainStoreMock,
   windowShowMock,
 } = vi.hoisted(() => ({
   uploadAudioMock: vi.fn(),
@@ -21,6 +23,8 @@ const {
   useHasTranscriptMock: vi.fn(),
   useListenerMock: vi.fn(),
   useConfigValueMock: vi.fn(),
+  useMeetingFloatMainStoreMock: vi.fn(),
+  mainStoreMock: { getCell: vi.fn() },
   windowShowMock: vi.fn(() => Promise.resolve({ status: "ok", data: null })),
 }));
 
@@ -77,6 +81,10 @@ vi.mock("~/meeting-float/host", () => ({
   openFloatingMeetingPanel: vi.fn(),
 }));
 
+vi.mock("~/meeting-float/hooks", () => ({
+  useMeetingFloatMainStore: useMeetingFloatMainStoreMock,
+}));
+
 vi.mock("@hypr/plugin-windows", () => ({
   commands: {
     windowShow: windowShowMock,
@@ -113,6 +121,7 @@ describe("OverflowButton", () => {
     useCurrentNoteHasContentMock.mockReturnValue(false);
     useHasTranscriptMock.mockReturnValue(true);
     useConfigValueMock.mockReturnValue(false);
+    useMeetingFloatMainStoreMock.mockReturnValue(mainStoreMock);
     useListenerMock.mockImplementation((selector) =>
       selector({
         getSessionMode: () => "inactive",
@@ -205,10 +214,13 @@ describe("OverflowButton", () => {
       screen.getByRole("button", { name: "Open floating panel" }),
     );
 
-    expect(openFloatingMeetingPanel).toHaveBeenCalledWith({
-      sessionId: "session-1",
-      enabled: true,
-    });
+    expect(openFloatingMeetingPanel).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: "session-1",
+        enabled: true,
+        main: mainStoreMock,
+      }),
+    );
   });
 
   it("opens the current note in a standalone window", () => {

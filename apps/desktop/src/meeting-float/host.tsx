@@ -5,6 +5,8 @@ import {
 } from "@hypr/plugin-windows";
 import type { GeneralStorage } from "@hypr/store";
 
+import { type MeetingFloatMainStore, useMeetingFloatMainStore } from "./hooks";
+
 import { useConfigValue } from "~/shared/config";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import * as settingsStore from "~/store/tinybase/store/settings";
@@ -42,8 +44,16 @@ type FloatingOverlaySettingsStorage = Pick<
   | "live_caption_minimized"
   | "live_caption_enabled"
 >;
+type FloatingTranscriptBubble = {
+  id: string;
+  speakerLabel: string;
+  text: string;
+  isSelf: boolean;
+  isFinal: boolean;
+};
 type FloatingRouteState = {
   sessionId: string;
+  title: string;
   amplitude: number;
   status: FloatingBarStatus;
   colorScheme: FloatingBarColorScheme;
@@ -54,6 +64,7 @@ type FloatingRouteState = {
   liveCaptionPosition: LiveCaptionPosition;
   liveCaptionMinimized: boolean;
   liveCaptionToggleVisible: boolean;
+  transcriptBubbles: FloatingTranscriptBubble[];
 };
 type LiveCaptionRouteState = {
   sessionId: string;
@@ -85,6 +96,7 @@ const LIVE_CAPTION_MIN_LINE_COUNT = 1;
 const LIVE_CAPTION_MAX_LINE_COUNT = 4;
 const LIVE_CAPTION_HORIZONTAL_PADDING_PX = 32;
 const LIVE_CAPTION_AVERAGE_CHARACTER_WIDTH_PX = 7.8;
+const FLOATING_TRANSCRIPT_BUBBLE_LIMIT = 6;
 
 const LIVE_CAPTION_POSITIONS: ReadonlySet<string> = new Set([
   "topCenter",
@@ -110,17 +122,22 @@ const FLOATING_OVERLAY_SETTING_KEYS = [
 export function FloatingMeetingWindowHost() {
   const floatingBarEnabled = useConfigValue("floating_bar_enabled");
   const store = settingsStore.UI.useStore(settingsStore.STORE_ID);
+  const main = useMeetingFloatMainStore();
 
   return (
     <>
       <FloatingOverlaySettingsEventSync />
       <LiveCaptionDefaultVisibilitySync store={store} />
       {floatingBarEnabled ? (
-        <FloatingMeetingWindowSync store={store} />
+        <FloatingMeetingWindowSync
+          key={main ? "main-store-ready" : "main-store-pending"}
+          store={store}
+          main={main}
+        />
       ) : (
         <FloatingMeetingWindowDisabled />
       )}
-      <LiveCaptionWindowSync store={store} />
+      <LiveCaptionWindowDisabled />
     </>
   );
 }
@@ -255,155 +272,19 @@ function FloatingMeetingWindowDisabled() {
   return null;
 }
 
-function LiveCaptionWindowSync({
-  store,
-}: {
-  store: SettingsStore | undefined;
-}) {
+function LiveCaptionWindowDisabled() {
   useMountEffect(() => {
-    let settings = getFloatingOverlaySettingsFromStore(store);
-    let routeState = getCurrentLiveCaptionRouteState(
-      listenerStore.getState(),
-      settings,
-    );
-    let syncQueued = false;
-    let syncRunning = false;
-    let syncRequested = false;
-    let cancelled = false;
-    let shownSessionId: string | null = null;
-    const unlisteners: Array<() => void> = [];
-
-    const shouldContinue = () => !cancelled;
-    const updateSettings = (nextSettings: FloatingOverlaySettings) => {
-      const nextRouteState = getLiveCaptionRouteState(
-        listenerStore.getState(),
-        nextSettings,
-      );
-
-      settings = nextSettings;
-      if (isSameLiveCaptionRouteState(nextRouteState, routeState)) {
-        return;
-      }
-
-      routeState = nextRouteState;
-      scheduleSync();
-    };
-
-    const sync = async () => {
-      if (!shouldContinue()) {
-        return;
-      }
-
-      const nextShownSessionId = await syncLiveCaptionWindow(
-        routeState,
-        shownSessionId,
-        shouldContinue,
-      );
-      if (!shouldContinue()) {
-        await hideLiveCaptionPanel();
-        return;
-      }
-
-      if (nextShownSessionId === "unavailable") {
-        return;
-      }
-
-      shownSessionId = nextShownSessionId;
-    };
-
-    const runQueuedSync = async () => {
-      if (syncRunning) {
-        syncRequested = true;
-        return;
-      }
-
-      syncRunning = true;
-      try {
-        do {
-          syncRequested = false;
-          await sync();
-        } while (syncRequested && !cancelled);
-      } finally {
-        syncRunning = false;
-      }
-    };
-
-    const scheduleSync = () => {
-      if (syncQueued) {
-        return;
-      }
-
-      syncQueued = true;
-      queueMicrotask(() => {
-        syncQueued = false;
-        if (cancelled) {
-          return;
-        }
-
-        void runQueuedSync();
-      });
-    };
-
-    scheduleSync();
-
-    const unsubscribe = listenerStore.subscribe((state, previousState) => {
-      const nextRouteState = getLiveCaptionRouteState(state, settings);
-      const previousRouteState = getLiveCaptionRouteState(
-        previousState,
-        settings,
-      );
-
-      if (isSameLiveCaptionRouteState(nextRouteState, previousRouteState)) {
-        return;
-      }
-
-      routeState = nextRouteState;
-      scheduleSync();
-    });
-
-    const settingsListenerIds = addFloatingOverlaySettingsListeners(
-      store,
-      () => {
-        updateSettings(getFloatingOverlaySettingsFromStore(store));
-      },
-    );
-    windowsEvents.floatingBarSettingsChange
-      .listen((event) => {
-        if (cancelled) {
-          return;
-        }
-
-        updateSettings(
-          mergeFloatingOverlaySettings(
-            settings,
-            getSettingsValuesFromNativeChange(event.payload),
-          ),
-        );
-      })
-      .then((unlisten) => {
-        if (cancelled) {
-          unlisten();
-          return;
-        }
-
-        unlisteners.push(unlisten);
-      });
-
-    return () => {
-      cancelled = true;
-      unsubscribe();
-      removeSettingsListeners(store, settingsListenerIds);
-      unlisteners.forEach((unlisten) => unlisten());
-      void hideLiveCaptionPanel();
-    };
+    void hideLiveCaptionPanel();
   });
 
   return null;
 }
 
 function FloatingMeetingWindowSync({
+  main,
   store,
 }: {
+  main: MeetingFloatMainStore | undefined;
   store: SettingsStore | undefined;
 }) {
   useMountEffect(() => {
@@ -413,6 +294,7 @@ function FloatingMeetingWindowSync({
       undefined,
       settings,
       getFloatingLiveCaptionToggleVisible(listenerStore.getState(), store),
+      main,
     );
     let syncQueued = false;
     let cancelled = false;
@@ -421,6 +303,14 @@ function FloatingMeetingWindowSync({
     const unlisteners: Array<() => void> = [];
 
     const shouldContinue = () => !cancelled;
+    const updateRouteState = (nextRouteState: FloatingRouteState | null) => {
+      if (isSameFloatingRouteState(nextRouteState, routeState)) {
+        return;
+      }
+
+      routeState = nextRouteState;
+      scheduleSync();
+    };
 
     const sync = async () => {
       if (!shouldContinue()) {
@@ -503,6 +393,7 @@ function FloatingMeetingWindowSync({
           state,
           store,
         ),
+        sessionTitle: getFloatingSessionTitle(state, main),
       });
       const previousRouteState = getFloatingRouteState(previousState, {
         colorScheme,
@@ -511,14 +402,12 @@ function FloatingMeetingWindowSync({
           previousState,
           store,
         ),
+        sessionTitle: getFloatingSessionTitle(previousState, main),
       });
 
-      if (isSameFloatingRouteState(nextRouteState, previousRouteState)) {
-        return;
+      if (!isSameFloatingRouteState(nextRouteState, previousRouteState)) {
+        updateRouteState(nextRouteState);
       }
-
-      routeState = nextRouteState;
-      scheduleSync();
     });
 
     const settingsListenerIds = addFloatingOverlaySettingsListeners(
@@ -530,15 +419,31 @@ function FloatingMeetingWindowSync({
           undefined,
           nextSettings,
           getFloatingLiveCaptionToggleVisible(listenerStore.getState(), store),
+          main,
         );
 
         settings = nextSettings;
-        if (isSameFloatingRouteState(nextRouteState, routeState)) {
-          return;
-        }
+        updateRouteState(nextRouteState);
+      },
+    );
 
-        routeState = nextRouteState;
-        scheduleSync();
+    const sessionTitleListenerId = main?.addCellListener(
+      "sessions",
+      null,
+      "title",
+      () => {
+        updateRouteState(
+          getCurrentFloatingRouteState(
+            listenerStore.getState(),
+            undefined,
+            settings,
+            getFloatingLiveCaptionToggleVisible(
+              listenerStore.getState(),
+              store,
+            ),
+            main,
+          ),
+        );
       },
     );
 
@@ -548,14 +453,10 @@ function FloatingMeetingWindowSync({
         undefined,
         settings,
         getFloatingLiveCaptionToggleVisible(listenerStore.getState(), store),
+        main,
       );
 
-      if (isSameFloatingRouteState(nextRouteState, routeState)) {
-        return;
-      }
-
-      routeState = nextRouteState;
-      scheduleSync();
+      updateRouteState(nextRouteState);
     });
 
     return () => {
@@ -563,6 +464,9 @@ function FloatingMeetingWindowSync({
       unsubscribe();
       unsubscribeAppliedTheme();
       removeSettingsListeners(store, settingsListenerIds);
+      if (sessionTitleListenerId) {
+        main?.delListener(sessionTitleListenerId);
+      }
       unlisteners.forEach((unlisten) => unlisten());
       void hideFloatingMeetingPanel();
     };
@@ -578,11 +482,13 @@ export function getFloatingRouteState(
     colorScheme = "dark",
     settings = DEFAULT_FLOATING_OVERLAY_SETTINGS,
     liveCaptionToggleVisible = false,
+    sessionTitle,
   }: {
     sessionId?: string;
     colorScheme?: FloatingBarColorScheme;
     settings?: FloatingOverlaySettings;
     liveCaptionToggleVisible?: boolean;
+    sessionTitle?: string | null;
   } = {},
 ): FloatingRouteState | null {
   if (state.live.status !== "active") {
@@ -599,6 +505,7 @@ export function getFloatingRouteState(
 
   return {
     sessionId: state.live.sessionId,
+    title: getFloatingTitle(sessionTitle),
     amplitude: Math.min(
       Math.hypot(state.live.amplitude.mic, state.live.amplitude.speaker),
       1,
@@ -612,6 +519,7 @@ export function getFloatingRouteState(
     liveCaptionPosition: settings.liveCaptionPosition,
     liveCaptionMinimized: settings.liveCaptionMinimized,
     liveCaptionToggleVisible,
+    transcriptBubbles: getFloatingTranscriptBubbles(state.liveSegments),
   };
 }
 
@@ -620,13 +528,89 @@ function getCurrentFloatingRouteState(
   sessionId?: string,
   settings: FloatingOverlaySettings = DEFAULT_FLOATING_OVERLAY_SETTINGS,
   liveCaptionToggleVisible = false,
+  main?: MeetingFloatMainStore,
 ): FloatingRouteState | null {
   return getFloatingRouteState(state, {
     sessionId,
     colorScheme: getCurrentFloatingBarColorScheme(),
     settings,
     liveCaptionToggleVisible,
+    sessionTitle: getFloatingSessionTitle(state, main),
   });
+}
+
+function getFloatingSessionTitle(
+  state: ListenerState,
+  main: MeetingFloatMainStore | undefined,
+) {
+  const sessionId = state.live.sessionId;
+  if (!sessionId) {
+    return null;
+  }
+
+  const title = main?.getCell("sessions", sessionId, "title");
+  return typeof title === "string" ? title : null;
+}
+
+function getFloatingTitle(title: string | null | undefined) {
+  const normalized = title?.trim();
+  return normalized || "Live transcript";
+}
+
+export function getFloatingTranscriptBubbles(
+  segments: ListenerState["liveSegments"],
+): FloatingTranscriptBubble[] {
+  return segments
+    .slice()
+    .sort((a, b) => a.start_ms - b.start_ms)
+    .map((segment) => {
+      const text = getFloatingSegmentText(segment);
+      if (!text) {
+        return null;
+      }
+
+      return {
+        id: segment.id,
+        speakerLabel: getFloatingSpeakerLabel(segment.key),
+        text,
+        isSelf:
+          segment.key.channel === "DirectMic" &&
+          segment.key.speaker_index == null,
+        isFinal: segment.words.every((word) => word.is_final),
+      };
+    })
+    .filter((bubble): bubble is FloatingTranscriptBubble => bubble !== null)
+    .slice(-FLOATING_TRANSCRIPT_BUBBLE_LIMIT);
+}
+
+function getFloatingSegmentText(
+  segment: ListenerState["liveSegments"][number],
+) {
+  const wordText = segment.words
+    .map((word) => word.text.trim())
+    .filter(Boolean)
+    .join(" ")
+    .replace(/\s+([,.?!;:])/g, "$1");
+
+  return (wordText || segment.text).trim().replace(/\s+/g, " ");
+}
+
+function getFloatingSpeakerLabel(
+  key: ListenerState["liveSegments"][number]["key"],
+) {
+  if (key.channel === "DirectMic" && key.speaker_index == null) {
+    return "You";
+  }
+
+  if (key.speaker_index != null) {
+    return `Speaker ${key.speaker_index + 1}`;
+  }
+
+  if (key.channel === "RemoteParty") {
+    return "Speaker";
+  }
+
+  return "Audio";
 }
 
 export function shouldShowFloatingLiveCaptionToggle({
@@ -694,13 +678,6 @@ export function getLiveCaptionRouteState(
   };
 }
 
-function getCurrentLiveCaptionRouteState(
-  state: ListenerState,
-  settings: FloatingOverlaySettings = DEFAULT_FLOATING_OVERLAY_SETTINGS,
-): LiveCaptionRouteState | null {
-  return getLiveCaptionRouteState(state, settings);
-}
-
 function subscribeToAppliedTheme(onStoreChange: () => void) {
   if (
     typeof document === "undefined" ||
@@ -766,23 +743,38 @@ function isSameFloatingRouteState(
     left?.liveCaptionLineCount === right?.liveCaptionLineCount &&
     left?.liveCaptionPosition === right?.liveCaptionPosition &&
     left?.liveCaptionMinimized === right?.liveCaptionMinimized &&
-    left?.liveCaptionToggleVisible === right?.liveCaptionToggleVisible
+    left?.liveCaptionToggleVisible === right?.liveCaptionToggleVisible &&
+    left?.title === right?.title &&
+    isSameFloatingTranscriptBubbles(
+      left?.transcriptBubbles,
+      right?.transcriptBubbles,
+    )
   );
 }
 
-function isSameLiveCaptionRouteState(
-  left: LiveCaptionRouteState | null,
-  right: LiveCaptionRouteState | null,
+function isSameFloatingTranscriptBubbles(
+  left: FloatingTranscriptBubble[] | undefined,
+  right: FloatingTranscriptBubble[] | undefined,
 ) {
-  return (
-    left?.sessionId === right?.sessionId &&
-    left?.text === right?.text &&
-    left?.opacity === right?.opacity &&
-    left?.width === right?.width &&
-    left?.lineCount === right?.lineCount &&
-    left?.position === right?.position &&
-    left?.minimized === right?.minimized
-  );
+  if (left === right) {
+    return true;
+  }
+
+  if (!left || !right || left.length !== right.length) {
+    return false;
+  }
+
+  return left.every((bubble, index) => {
+    const other = right[index];
+    return (
+      other &&
+      bubble.id === other.id &&
+      bubble.speakerLabel === other.speakerLabel &&
+      bubble.text === other.text &&
+      bubble.isSelf === other.isSelf &&
+      bubble.isFinal === other.isFinal
+    );
+  });
 }
 
 async function syncFloatingMeetingWindow(
@@ -806,33 +798,6 @@ async function syncFloatingMeetingWindow(
   );
   if (!shouldContinue()) {
     await hideFloatingMeetingPanel();
-    return null;
-  }
-
-  return ready ? routeState.sessionId : "unavailable";
-}
-
-async function syncLiveCaptionWindow(
-  routeState: LiveCaptionRouteState | null,
-  shownSessionId: string | null,
-  shouldContinue: () => boolean,
-): Promise<string | null | "unavailable"> {
-  if (!shouldContinue()) {
-    return null;
-  }
-
-  if (!routeState) {
-    await hideLiveCaptionPanel();
-    return null;
-  }
-
-  const ready = await showLiveCaptionWindow(
-    routeState,
-    shownSessionId !== routeState.sessionId,
-    shouldContinue,
-  );
-  if (!shouldContinue()) {
-    await hideLiveCaptionPanel();
     return null;
   }
 
@@ -863,6 +828,7 @@ async function showFloatingMeetingWindow(
 
   const updateResult = await windowsCommands.floatingBarUpdate({
     amplitude: routeState.amplitude,
+    title: routeState.title,
     status: routeState.status,
     colorScheme: routeState.colorScheme,
     opacity: routeState.opacity,
@@ -872,6 +838,7 @@ async function showFloatingMeetingWindow(
     liveCaptionPosition: routeState.liveCaptionPosition,
     liveCaptionMinimized: routeState.liveCaptionMinimized,
     liveCaptionToggleVisible: routeState.liveCaptionToggleVisible,
+    transcriptBubbles: routeState.transcriptBubbles,
   });
   if (!shouldContinue()) {
     await hideFloatingMeetingPanel();
@@ -883,49 +850,6 @@ async function showFloatingMeetingWindow(
       "Failed to update floating meeting panel:",
       updateResult.error,
     );
-    return false;
-  }
-
-  return true;
-}
-
-async function showLiveCaptionWindow(
-  routeState: LiveCaptionRouteState,
-  shouldShow: boolean,
-  shouldContinue: () => boolean = () => true,
-): Promise<boolean> {
-  if (!shouldContinue()) {
-    return false;
-  }
-
-  if (shouldShow) {
-    const showResult = await windowsCommands.liveCaptionShow();
-    if (!shouldContinue()) {
-      await hideLiveCaptionPanel();
-      return false;
-    }
-
-    if (showResult.status === "error") {
-      console.error("Failed to show live caption panel:", showResult.error);
-      return false;
-    }
-  }
-
-  const updateResult = await windowsCommands.liveCaptionUpdate({
-    text: routeState.text,
-    opacity: routeState.opacity,
-    width: routeState.width,
-    lineCount: routeState.lineCount,
-    position: routeState.position,
-    minimized: routeState.minimized,
-  });
-  if (!shouldContinue()) {
-    await hideLiveCaptionPanel();
-    return false;
-  }
-
-  if (updateResult.status === "error") {
-    console.error("Failed to update live caption panel:", updateResult.error);
     return false;
   }
 
@@ -1082,35 +1006,15 @@ function getSettingsValuesFromNativeChange(change: FloatingBarSettingsChange) {
   return values;
 }
 
-function mergeFloatingOverlaySettings(
-  settings: FloatingOverlaySettings,
-  values: Partial<FloatingOverlaySettingsStorage>,
-): FloatingOverlaySettings {
-  return {
-    ...settings,
-    floatingBarOpacity:
-      values.floating_bar_opacity ?? settings.floatingBarOpacity,
-    liveCaptionOpacity:
-      values.live_caption_opacity ?? settings.liveCaptionOpacity,
-    liveCaptionWidth: values.live_caption_width ?? settings.liveCaptionWidth,
-    liveCaptionLineCount:
-      values.live_caption_line_count ?? settings.liveCaptionLineCount,
-    liveCaptionPosition:
-      values.live_caption_position === undefined
-        ? settings.liveCaptionPosition
-        : normalizeLiveCaptionPosition(values.live_caption_position),
-    liveCaptionMinimized:
-      values.live_caption_minimized ?? settings.liveCaptionMinimized,
-  };
-}
-
 export async function openFloatingMeetingPanel({
   sessionId,
   enabled,
+  main,
   store,
 }: {
   sessionId?: string;
   enabled: boolean;
+  main?: MeetingFloatMainStore;
   store?: SettingsStore;
 }) {
   if (!enabled) {
@@ -1124,6 +1028,7 @@ export async function openFloatingMeetingPanel({
     sessionId,
     getFloatingOverlaySettingsFromStore(store),
     getFloatingLiveCaptionToggleVisible(state, store),
+    main,
   );
 
   if (!routeState) {

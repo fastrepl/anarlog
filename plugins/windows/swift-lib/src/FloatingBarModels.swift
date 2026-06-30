@@ -10,8 +10,17 @@ enum FloatingBarColorScheme: String, Codable {
   case dark
 }
 
+struct FloatingTranscriptBubblePayload: Codable, Identifiable {
+  let id: String
+  let speakerLabel: String
+  let text: String
+  let isSelf: Bool
+  let isFinal: Bool
+}
+
 struct FloatingBarStatePayload: Codable {
   let amplitude: Double
+  let title: String
   let status: FloatingBarStatus
   let colorScheme: FloatingBarColorScheme
   let opacity: Double
@@ -21,4 +30,5 @@ struct FloatingBarStatePayload: Codable {
   let liveCaptionPosition: LiveCaptionPosition
   let liveCaptionMinimized: Bool
   let liveCaptionToggleVisible: Bool
+  let transcriptBubbles: [FloatingTranscriptBubblePayload]
 }
