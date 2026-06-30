@@ -577,7 +577,7 @@ function CredibilityLogoMarquee() {
         aria-hidden="true"
       >
         <p className="absolute top-0 left-0 w-max -rotate-[3deg] font-['Reenie_Beanie','Patrick_Hand',cursive] text-[25px] leading-none font-normal whitespace-nowrap lg:text-[28px]">
-          ppl love us at
+          people love us at
         </p>
         <svg
           className="absolute top-[1.65rem] left-[1.15rem] h-[2.9rem] w-[4.65rem] rotate-[5deg] text-neutral-950"
@@ -646,7 +646,7 @@ function CredibilityLogoMarquee() {
         id="credibility-heading"
         className="mt-1 font-['Reenie_Beanie','Patrick_Hand',cursive] text-[22px] leading-none font-normal text-neutral-950 sm:sr-only"
       >
-        ppl love us at
+        people love us at
       </h2>
     </section>
   );
