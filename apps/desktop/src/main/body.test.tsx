@@ -8,6 +8,8 @@ import {
 } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { commands } from "~/types/tauri.gen";
+
 const mocks = vi.hoisted(() => ({
   currentTab: {
     active: true,
@@ -202,6 +204,8 @@ describe("ClassicMainBody", () => {
     mocks.devtoolsPanelActionListeners = [];
     mocks.windowsCommands.devtoolsPanelHide.mockClear();
     mocks.windowsCommands.devtoolsPanelShow.mockClear();
+    vi.mocked(commands.showDevtool).mockClear();
+    vi.mocked(commands.showDevtool).mockResolvedValue(true);
   });
 
   it("wraps the expanded left sidebar in a persistent resizable panel", () => {
@@ -396,7 +400,7 @@ describe("ClassicMainBody", () => {
 
     const searchButton = screen.getByRole("button", { name: "Search" });
     const newNoteButton = screen.getByRole("button", { name: "New note" });
-    const devtoolsButton = screen.getByRole("button", {
+    const devtoolsButton = await screen.findByRole("button", {
       name: "Show devtools panel",
     });
 
@@ -443,7 +447,7 @@ describe("ClassicMainBody", () => {
     render(<ClassicMainBody />);
 
     expect(
-      screen.getByRole("button", { name: "Show devtools panel" }),
+      await screen.findByRole("button", { name: "Show devtools panel" }),
     ).toBeTruthy();
 
     await waitFor(() => {
@@ -469,6 +473,20 @@ describe("ClassicMainBody", () => {
     expect(
       await screen.findByRole("button", { name: "Show devtools panel" }),
     ).toBeTruthy();
+  });
+
+  it("does not show the devtools button when devtools are disabled", async () => {
+    vi.mocked(commands.showDevtool).mockResolvedValue(false);
+
+    render(<ClassicMainBody />);
+
+    await waitFor(() => {
+      expect(commands.showDevtool).toHaveBeenCalledTimes(1);
+    });
+    expect(
+      screen.queryByRole("button", { name: "Show devtools panel" }),
+    ).toBeNull();
+    expect(mocks.devtoolsPanelActionListeners).toHaveLength(0);
   });
 
   it("routes wheel gestures from sidebar chrome into the timeline scroller", () => {
