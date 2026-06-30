@@ -573,7 +573,7 @@ function CredibilityLogoMarquee() {
         {credibilityLogos.map((logo) => logo.name).join(", ")}
       </p>
 
-      <div className="relative left-1/2 w-screen -translate-x-1/2 overflow-hidden bg-white py-3 motion-reduce:overflow-visible">
+      <div className="relative left-1/2 w-screen -translate-x-1/2 overflow-hidden bg-white py-2 motion-reduce:overflow-visible">
         <div
           className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-linear-to-r from-white to-transparent motion-reduce:hidden md:w-32"
           aria-hidden="true"
@@ -970,7 +970,7 @@ function HeroWorkflowDemo() {
   const isGeneratingSummary = enhancedLines > 0 && enhancedLines < 6;
 
   return (
-    <div className="relative left-1/2 mt-10 w-screen max-w-[500px] -translate-x-1/2 px-8 pb-2 sm:px-10">
+    <div className="relative left-1/2 mt-10 w-screen max-w-[500px] -translate-x-1/2 px-8 sm:px-10">
       <div
         className="pointer-events-none absolute top-10 bottom-24 left-8 z-0 w-12 rounded-full bg-neutral-950/10 blur-2xl sm:left-10"
         aria-hidden="true"
