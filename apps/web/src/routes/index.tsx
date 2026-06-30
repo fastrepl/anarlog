@@ -573,26 +573,26 @@ function CredibilityLogoMarquee() {
         {credibilityLogos.map((logo) => logo.name).join(", ")}
       </p>
       <div
-        className="pointer-events-none absolute -top-[4.4rem] left-1/2 z-20 h-20 w-[15rem] -translate-x-[76%] text-neutral-950 max-sm:hidden"
+        className="pointer-events-none absolute -top-[4.4rem] left-1/2 z-20 h-20 w-[15rem] -translate-x-[160%] text-neutral-950 max-sm:hidden"
         aria-hidden="true"
       >
         <p className="absolute top-0 left-0 w-max -rotate-[3deg] font-['Reenie_Beanie','Patrick_Hand',cursive] text-[25px] leading-none font-normal whitespace-nowrap lg:text-[28px]">
           ppl love us at
         </p>
         <svg
-          className="absolute top-[1.7rem] left-[1.55rem] h-[3.35rem] w-[5.7rem] rotate-[5deg] text-neutral-950"
-          viewBox="0 0 92 54"
+          className="absolute top-[1.65rem] left-[1.15rem] h-[2.9rem] w-[4.65rem] rotate-[5deg] text-neutral-950"
+          viewBox="0 0 74 46"
           fill="none"
         >
           <path
-            d="M8 8L70 36"
+            d="M7 8L56 30"
             stroke="currentColor"
             strokeWidth="2.1"
             strokeLinecap="round"
             strokeLinejoin="round"
           />
           <path
-            d="M56 28C62 34 66 36 72 37C66 40 61 43 54 47"
+            d="M44 22L57 30L42 37"
             stroke="currentColor"
             strokeWidth="2.1"
             strokeLinecap="round"
