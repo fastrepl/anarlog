@@ -1009,17 +1009,29 @@ function HeroWorkflowDemo() {
             <div className="text-neutral-700">api</div>
             <div className="mt-4 text-neutral-700">new dash - urgnet</div>
             <div className="text-neutral-700">a/b tst next wk</div>
-            <div className="mt-4 text-neutral-700">
+            <div className="mt-4 min-h-5 text-neutral-700">
               {typedText1}
-              {typedText1 && typedText1.length < text1.length && (
-                <span className="animate-pulse">|</span>
-              )}
+              <span
+                className={cn([
+                  typedText1 && typedText1.length < text1.length
+                    ? "animate-pulse"
+                    : "opacity-0",
+                ])}
+              >
+                |
+              </span>
             </div>
-            <div className="text-neutral-700">
+            <div className="min-h-5 text-neutral-700">
               {typedText2}
-              {typedText2 && typedText2.length < text2.length && (
-                <span className="animate-pulse">|</span>
-              )}
+              <span
+                className={cn([
+                  typedText2 && typedText2.length < text2.length
+                    ? "animate-pulse"
+                    : "opacity-0",
+                ])}
+              >
+                |
+              </span>
             </div>
           </div>
           <div
@@ -1101,7 +1113,7 @@ function HeroWorkflowDemo() {
                 <li
                   className={cn([
                     "transition-opacity duration-500",
-                    enhancedLines >= 6 ? "opacity-100" : "opacity-0",
+                    enhancedLines >= 5 ? "opacity-100" : "opacity-0",
                   ])}
                 >
                   Ben mentioned that backend infrastructure needs optimization
@@ -1110,7 +1122,7 @@ function HeroWorkflowDemo() {
                 <li
                   className={cn([
                     "transition-opacity duration-500",
-                    enhancedLines >= 6 ? "opacity-100" : "opacity-0",
+                    enhancedLines >= 5 ? "opacity-100" : "opacity-0",
                   ])}
                 >
                   Mark stressed that the dashboard launch should align with
@@ -1119,7 +1131,7 @@ function HeroWorkflowDemo() {
                 <li
                   className={cn([
                     "transition-opacity duration-500",
-                    enhancedLines >= 6 ? "opacity-100" : "opacity-0",
+                    enhancedLines >= 5 ? "opacity-100" : "opacity-0",
                   ])}
                 >
                   Development will start immediately, and a basic prototype must
