@@ -11,6 +11,7 @@ Default permissions for the plugin
 - `allow-get-mic-muted`
 - `allow-set-mic-muted`
 - `allow-get-capture-state`
+- `allow-get-capture-snapshot`
 - `allow-is-supported-languages-live`
 - `allow-suggest-providers-for-languages-live`
 - `allow-list-documented-language-codes-live`
@@ -55,6 +56,32 @@ Enables the export_to_vtt command without any pre-configured scope.
 <td>
 
 Denies the export_to_vtt command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:allow-get-capture-snapshot`
+
+</td>
+<td>
+
+Enables the get_capture_snapshot command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-get-capture-snapshot`
+
+</td>
+<td>
+
+Denies the get_capture_snapshot command without any pre-configured scope.
 
 </td>
 </tr>

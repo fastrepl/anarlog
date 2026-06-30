@@ -10,6 +10,7 @@ import type { TranscriptionParams } from "@hypr/plugin-transcription";
 import type { BatchActions, BatchState } from "./batch";
 import { runBatchSession } from "./general-batch";
 import {
+  attachLiveSession,
   startLiveSession,
   stopLiveSession,
   updateLiveSessionConfig,
@@ -41,6 +42,7 @@ export type GeneralActions = {
     },
   ) => Promise<boolean>;
   stop: () => void;
+  attachLiveSession: (sessionId: string) => Promise<void>;
   setMuted: (value: boolean) => void;
   setTriggerAppIds: (appIds: string[] | null) => void;
   updateCaptureConfig: (
@@ -117,6 +119,13 @@ export const createGeneralSlice = <
   },
   stop: () => {
     stopLiveSession(set, get);
+  },
+  attachLiveSession: async (sessionId) => {
+    if (!sessionId) {
+      return;
+    }
+
+    await attachLiveSession(set, get, sessionId);
   },
   setMuted: (value) => {
     set((state) =>

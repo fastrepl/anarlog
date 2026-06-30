@@ -3,12 +3,20 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const {
   getIdentifierMock,
+  getCaptureSnapshotMock,
+  listenCaptureDataMock,
+  listenCaptureLifecycleMock,
+  listenCaptureStatusMock,
   runEventHooksMock,
   setRecordingIndicatorMock,
   stopCaptureMock,
   vaultBaseMock,
 } = vi.hoisted(() => ({
   getIdentifierMock: vi.fn(),
+  getCaptureSnapshotMock: vi.fn(),
+  listenCaptureDataMock: vi.fn(),
+  listenCaptureLifecycleMock: vi.fn(),
+  listenCaptureStatusMock: vi.fn(),
   runEventHooksMock: vi.fn(),
   setRecordingIndicatorMock: vi.fn(),
   stopCaptureMock: vi.fn(),
@@ -45,6 +53,7 @@ vi.mock("@hypr/plugin-settings", () => ({
 
 vi.mock("@hypr/plugin-transcription", () => ({
   commands: {
+    getCaptureSnapshot: getCaptureSnapshotMock,
     setMicMuted: vi.fn(),
     startCapture: vi.fn(),
     startTranscription: vi.fn(),
@@ -54,13 +63,13 @@ vi.mock("@hypr/plugin-transcription", () => ({
   },
   events: {
     captureDataEvent: {
-      listen: vi.fn(),
+      listen: listenCaptureDataMock,
     },
     captureLifecycleEvent: {
-      listen: vi.fn(),
+      listen: listenCaptureLifecycleMock,
     },
     captureStatusEvent: {
-      listen: vi.fn(),
+      listen: listenCaptureStatusMock,
     },
   },
 }));
@@ -79,6 +88,19 @@ describe("General Listener Slice", () => {
     store = createListenerStore();
     vi.clearAllMocks();
     getIdentifierMock.mockResolvedValue("com.hyprnote.stable");
+    getCaptureSnapshotMock.mockResolvedValue({
+      status: "ok",
+      data: {
+        activeSessionId: null,
+        finalizingSessionIds: [],
+        liveTranscriptionActive: null,
+        requestedLiveTranscription: null,
+        state: "inactive",
+      },
+    });
+    listenCaptureDataMock.mockResolvedValue(() => {});
+    listenCaptureLifecycleMock.mockResolvedValue(() => {});
+    listenCaptureStatusMock.mockResolvedValue(() => {});
     runEventHooksMock.mockResolvedValue({ status: "ok", data: null });
     setRecordingIndicatorMock.mockResolvedValue({ status: "ok", data: null });
     stopCaptureMock.mockResolvedValue({ status: "ok", data: null });
@@ -630,6 +652,46 @@ describe("General Listener Slice", () => {
     test("start action exists and is callable", () => {
       const start = store.getState().start;
       expect(typeof start).toBe("function");
+    });
+
+    test("attachLiveSession hydrates the active native capture for the same session", async () => {
+      getCaptureSnapshotMock.mockResolvedValueOnce({
+        status: "ok",
+        data: {
+          activeSessionId: "session-a",
+          finalizingSessionIds: [],
+          liveTranscriptionActive: true,
+          requestedLiveTranscription: true,
+          state: "active",
+        },
+      });
+
+      await store.getState().attachLiveSession("session-a");
+
+      expect(store.getState().getSessionMode("session-a")).toBe("active");
+      expect(store.getState().live.sessionId).toBe("session-a");
+      expect(store.getState().live.liveTranscriptionActive).toBe(true);
+      expect(listenCaptureLifecycleMock).toHaveBeenCalledTimes(1);
+      expect(listenCaptureStatusMock).toHaveBeenCalledTimes(1);
+      expect(listenCaptureDataMock).toHaveBeenCalledTimes(1);
+    });
+
+    test("attachLiveSession does not mark a different active native capture as current", async () => {
+      getCaptureSnapshotMock.mockResolvedValueOnce({
+        status: "ok",
+        data: {
+          activeSessionId: "session-b",
+          finalizingSessionIds: [],
+          liveTranscriptionActive: true,
+          requestedLiveTranscription: true,
+          state: "active",
+        },
+      });
+
+      await store.getState().attachLiveSession("session-a");
+
+      expect(store.getState().getSessionMode("session-a")).toBe("inactive");
+      expect(store.getState().live.sessionId).toBeNull();
     });
 
     test("start returns false while another session is active", async () => {

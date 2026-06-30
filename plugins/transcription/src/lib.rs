@@ -75,6 +75,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             listener::commands::stop_capture::<tauri::Wry>,
             listener::commands::update_capture_config::<tauri::Wry>,
             listener::commands::get_capture_state::<tauri::Wry>,
+            listener::commands::get_capture_snapshot::<tauri::Wry>,
             listener::commands::is_supported_languages_live::<tauri::Wry>,
             listener::commands::suggest_providers_for_languages_live::<tauri::Wry>,
             listener::commands::list_documented_language_codes_live::<tauri::Wry>,
@@ -117,6 +118,7 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
 
             let audio = app.state::<Arc<dyn AudioProvider>>().inner().clone();
             let session_state_cache: SessionStateCache = Arc::new(StdMutex::new(HashMap::new()));
+            app.manage(session_state_cache.clone());
             let runtime = Arc::new(listener::TauriRuntime {
                 app: app_handle.clone(),
                 session_state_cache,

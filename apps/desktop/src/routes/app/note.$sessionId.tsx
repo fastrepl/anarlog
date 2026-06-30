@@ -6,6 +6,7 @@ import { ClassicMainLayout } from "~/main/layout";
 import { TabContentNote } from "~/session";
 import { StandaloneWindowShell } from "~/shared/window-shell";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
+import { useListener } from "~/stt/contexts";
 
 export const Route = createFileRoute("/app/note/$sessionId")({
   component: Component,
@@ -14,6 +15,7 @@ export const Route = createFileRoute("/app/note/$sessionId")({
 function Component() {
   const { sessionId } = Route.useParams();
   useCloseStandaloneNoteWindowOnEscape();
+  useAttachStandaloneNoteToLiveSession(sessionId);
   const tab = useStandaloneNoteTab(sessionId);
 
   return (
@@ -25,6 +27,14 @@ function Component() {
       </StandaloneWindowShell>
     </ClassicMainLayout>
   );
+}
+
+export function useAttachStandaloneNoteToLiveSession(sessionId: string) {
+  const attachLiveSession = useListener((state) => state.attachLiveSession);
+
+  useEffect(() => {
+    void attachLiveSession(sessionId);
+  }, [attachLiveSession, sessionId]);
 }
 
 export function useStandaloneNoteTab(sessionId: string) {

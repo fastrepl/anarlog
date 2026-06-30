@@ -12,6 +12,7 @@ import {
   type CaptureDataEvent,
   type CaptureConfigUpdate,
   type CaptureLifecycleEvent,
+  type CaptureSnapshot,
   type CaptureParams,
   type CaptureStatusEvent,
   type LiveTranscriptDelta,
@@ -255,6 +256,13 @@ export const startLiveSession = <T extends LiveStore>(
   targetSessionId: string,
   params: CaptureParams,
 ): Promise<boolean> => {
+  clearLiveEventUnlisteners(
+    get().live.eventUnlistenersBySession[targetSessionId],
+  );
+  setLiveState(set, (live) => {
+    delete live.eventUnlistenersBySession[targetSessionId];
+  });
+
   const handlers = createSessionEventHandlers(set, get, targetSessionId);
 
   const program = Effect.gen(function* () {
@@ -338,6 +346,92 @@ export const startLiveSession = <T extends LiveStore>(
     }),
   );
 };
+
+export const attachLiveSession = <T extends LiveStore>(
+  set: StoreApi<T>["setState"],
+  get: StoreApi<T>["getState"],
+  targetSessionId: string,
+): Promise<void> => {
+  const currentLive = get().live;
+  if (currentLive.eventUnlistenersBySession[targetSessionId]) {
+    return Promise.resolve();
+  }
+
+  const handlers = createSessionEventHandlers(set, get, targetSessionId);
+
+  const program = Effect.gen(function* () {
+    const unlisteners = yield* listenToAllSessionEvents(handlers);
+    setLiveState(set, (live) => {
+      live.eventUnlistenersBySession[targetSessionId] = unlisteners;
+    });
+
+    const snapshot = yield* fromResult(listenerCommands.getCaptureSnapshot());
+    applyCaptureSnapshot(set, get, targetSessionId, snapshot);
+  });
+
+  return Effect.runPromiseExit(program).then((exit) =>
+    Exit.match(exit, {
+      onFailure: (cause) => {
+        console.error("[listener] failed to attach live session:", cause);
+        clearLiveEventUnlisteners(
+          get().live.eventUnlistenersBySession[targetSessionId],
+        );
+        setLiveState(set, (live) => {
+          delete live.eventUnlistenersBySession[targetSessionId];
+        });
+      },
+      onSuccess: () => undefined,
+    }),
+  );
+};
+
+function applyCaptureSnapshot<T extends GeneralState>(
+  set: StoreApi<T>["setState"],
+  get: StoreApi<T>["getState"],
+  targetSessionId: string,
+  snapshot: CaptureSnapshot,
+) {
+  if (
+    snapshot.state === "active" &&
+    snapshot.activeSessionId === targetSessionId
+  ) {
+    const currentLive = get().live;
+    const intervalId =
+      currentLive.sessionId === targetSessionId && currentLive.intervalId
+        ? currentLive.intervalId
+        : setInterval(() => {
+            setLiveState(set, (live) => {
+              if (
+                live.sessionId === targetSessionId &&
+                live.status === "active"
+              ) {
+                live.seconds += 1;
+              }
+            });
+          }, 1000);
+
+    setLiveState(set, (live) => {
+      markLiveActive(
+        live,
+        targetSessionId,
+        intervalId,
+        snapshot.requestedLiveTranscription ?? true,
+        snapshot.liveTranscriptionActive ?? true,
+        null,
+      );
+    });
+    return;
+  }
+
+  if (
+    snapshot.state === "finalizing" &&
+    snapshot.finalizingSessionIds.includes(targetSessionId)
+  ) {
+    setLiveState(set, (live) => {
+      markLiveFinalizing(live, targetSessionId);
+    });
+  }
+}
 
 export const stopLiveSession = <T extends GeneralState>(
   set: StoreApi<T>["setState"],

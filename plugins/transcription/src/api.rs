@@ -10,6 +10,16 @@ pub enum CaptureState {
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct CaptureSnapshot {
+    pub state: CaptureState,
+    pub active_session_id: Option<String>,
+    pub finalizing_session_ids: Vec<String>,
+    pub requested_live_transcription: Option<bool>,
+    pub live_transcription_active: Option<bool>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
 pub struct CaptureParams {
     pub session_id: String,
     pub languages: Vec<hypr_language::Language>,
@@ -238,6 +248,18 @@ impl From<listener::State> for CaptureState {
             listener::State::Active => Self::Active,
             listener::State::Finalizing => Self::Finalizing,
             listener::State::Inactive => Self::Inactive,
+        }
+    }
+}
+
+impl From<listener::Snapshot> for CaptureSnapshot {
+    fn from(value: listener::Snapshot) -> Self {
+        Self {
+            state: CaptureState::from(value.state),
+            active_session_id: value.active_session_id,
+            finalizing_session_ids: value.finalizing_session_ids,
+            requested_live_transcription: None,
+            live_transcription_active: None,
         }
     }
 }

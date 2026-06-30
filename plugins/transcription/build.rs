@@ -6,6 +6,7 @@ const COMMANDS: &[&str] = &[
     "start_capture",
     "stop_capture",
     "get_capture_state",
+    "get_capture_snapshot",
     "is_supported_languages_live",
     "suggest_providers_for_languages_live",
     "list_documented_language_codes_live",

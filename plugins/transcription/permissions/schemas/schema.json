@@ -307,6 +307,18 @@
           "markdownDescription": "Denies the export_to_vtt command without any pre-configured scope."
         },
         {
+          "description": "Enables the get_capture_snapshot command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-capture-snapshot",
+          "markdownDescription": "Enables the get_capture_snapshot command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_capture_snapshot command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-capture-snapshot",
+          "markdownDescription": "Denies the get_capture_snapshot command without any pre-configured scope."
+        },
+        {
           "description": "Enables the get_capture_state command without any pre-configured scope.",
           "type": "string",
           "const": "allow-get-capture-state",
@@ -523,10 +535,10 @@
           "markdownDescription": "Denies the suggest_providers_for_languages_live command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-list-microphone-devices`\n- `allow-get-current-microphone-device`\n- `allow-start-capture`\n- `allow-stop-capture`\n- `allow-get-mic-muted`\n- `allow-set-mic-muted`\n- `allow-get-capture-state`\n- `allow-is-supported-languages-live`\n- `allow-suggest-providers-for-languages-live`\n- `allow-list-documented-language-codes-live`\n- `allow-render-transcript-segments`\n- `allow-start-transcription`\n- `allow-stop-transcription`\n- `allow-run-denoise`\n- `allow-parse-subtitle`\n- `allow-export-to-vtt`\n- `allow-is-supported-languages-batch`\n- `allow-suggest-providers-for-languages-batch`\n- `allow-list-documented-language-codes-batch`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-list-microphone-devices`\n- `allow-get-current-microphone-device`\n- `allow-start-capture`\n- `allow-stop-capture`\n- `allow-get-mic-muted`\n- `allow-set-mic-muted`\n- `allow-get-capture-state`\n- `allow-get-capture-snapshot`\n- `allow-is-supported-languages-live`\n- `allow-suggest-providers-for-languages-live`\n- `allow-list-documented-language-codes-live`\n- `allow-render-transcript-segments`\n- `allow-start-transcription`\n- `allow-stop-transcription`\n- `allow-run-denoise`\n- `allow-parse-subtitle`\n- `allow-export-to-vtt`\n- `allow-is-supported-languages-batch`\n- `allow-suggest-providers-for-languages-batch`\n- `allow-list-documented-language-codes-batch`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-list-microphone-devices`\n- `allow-get-current-microphone-device`\n- `allow-start-capture`\n- `allow-stop-capture`\n- `allow-get-mic-muted`\n- `allow-set-mic-muted`\n- `allow-get-capture-state`\n- `allow-is-supported-languages-live`\n- `allow-suggest-providers-for-languages-live`\n- `allow-list-documented-language-codes-live`\n- `allow-render-transcript-segments`\n- `allow-start-transcription`\n- `allow-stop-transcription`\n- `allow-run-denoise`\n- `allow-parse-subtitle`\n- `allow-export-to-vtt`\n- `allow-is-supported-languages-batch`\n- `allow-suggest-providers-for-languages-batch`\n- `allow-list-documented-language-codes-batch`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-list-microphone-devices`\n- `allow-get-current-microphone-device`\n- `allow-start-capture`\n- `allow-stop-capture`\n- `allow-get-mic-muted`\n- `allow-set-mic-muted`\n- `allow-get-capture-state`\n- `allow-get-capture-snapshot`\n- `allow-is-supported-languages-live`\n- `allow-suggest-providers-for-languages-live`\n- `allow-list-documented-language-codes-live`\n- `allow-render-transcript-segments`\n- `allow-start-transcription`\n- `allow-stop-transcription`\n- `allow-run-denoise`\n- `allow-parse-subtitle`\n- `allow-export-to-vtt`\n- `allow-is-supported-languages-batch`\n- `allow-suggest-providers-for-languages-batch`\n- `allow-list-documented-language-codes-batch`"
         }
       ]
     }

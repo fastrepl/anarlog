@@ -14,7 +14,7 @@ use crate::actors::{
     SessionConfigUpdate, SessionContext, SessionMsg, SessionParams, session_span,
     spawn_session_supervisor,
 };
-use crate::{ListenerRuntime, SessionLifecycleEvent, StartSessionError, State};
+use crate::{ListenerRuntime, SessionLifecycleEvent, Snapshot, StartSessionError, State};
 use hypr_audio::AudioProvider;
 
 pub enum RootMsg {
@@ -22,6 +22,7 @@ pub enum RootMsg {
     UpdateSessionConfig(SessionConfigUpdate, RpcReplyPort<()>),
     StopSession(RpcReplyPort<()>),
     GetState(RpcReplyPort<State>),
+    GetSnapshot(RpcReplyPort<Snapshot>),
 }
 
 pub struct RootArgs {
@@ -85,14 +86,10 @@ impl Actor for RootActor {
                 let _ = reply.send(());
             }
             RootMsg::GetState(reply) => {
-                let fsm_state = if state.active_supervisor.is_some() {
-                    State::Active
-                } else if !state.finalizing_sessions.is_empty() {
-                    State::Finalizing
-                } else {
-                    State::Inactive
-                };
-                let _ = reply.send(fsm_state);
+                let _ = reply.send(root_snapshot(state).state);
+            }
+            RootMsg::GetSnapshot(reply) => {
+                let _ = reply.send(root_snapshot(state));
             }
         }
         Ok(())
@@ -114,6 +111,31 @@ impl Actor for RootActor {
             }
         }
         Ok(())
+    }
+}
+
+fn root_snapshot(state: &RootState) -> Snapshot {
+    let active_session_id = state
+        .active_supervisor
+        .as_ref()
+        .and(state.active_session_id.clone());
+    let finalizing_session_ids = state
+        .finalizing_sessions
+        .keys()
+        .cloned()
+        .collect::<Vec<_>>();
+    let state = if active_session_id.is_some() {
+        State::Active
+    } else if !finalizing_session_ids.is_empty() {
+        State::Finalizing
+    } else {
+        State::Inactive
+    };
+
+    Snapshot {
+        state,
+        active_session_id,
+        finalizing_session_ids,
     }
 }
 

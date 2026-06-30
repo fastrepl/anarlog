@@ -1,6 +1,6 @@
 use ractor::{ActorRef, call_t, registry};
 
-use crate::{CaptureConfigUpdate, CaptureParams, CaptureState};
+use crate::{CaptureConfigUpdate, CaptureParams, CaptureSnapshot, CaptureState, SessionStateCache};
 use hypr_transcription_core::listener::{
     StartSessionError,
     actors::{RootActor, RootMsg, SessionParams, SourceActor, SourceMsg},
@@ -45,6 +45,47 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener<'a, R, M> {
         } else {
             CaptureState::Inactive
         }
+    }
+
+    #[tracing::instrument(skip_all)]
+    pub async fn get_capture_snapshot(&self) -> CaptureSnapshot {
+        let mut snapshot = if let Some(cell) = registry::where_is(RootActor::name()) {
+            let actor: ActorRef<RootMsg> = cell.into();
+            match call_t!(actor, RootMsg::GetSnapshot, 100) {
+                Ok(snapshot) => CaptureSnapshot::from(snapshot),
+                Err(_) => CaptureSnapshot {
+                    state: CaptureState::Inactive,
+                    active_session_id: None,
+                    finalizing_session_ids: vec![],
+                    requested_live_transcription: None,
+                    live_transcription_active: None,
+                },
+            }
+        } else {
+            CaptureSnapshot {
+                state: CaptureState::Inactive,
+                active_session_id: None,
+                finalizing_session_ids: vec![],
+                requested_live_transcription: None,
+                live_transcription_active: None,
+            }
+        };
+
+        let session_id = snapshot
+            .active_session_id
+            .as_ref()
+            .or_else(|| snapshot.finalizing_session_ids.first());
+        if let Some(session_id) = session_id
+            && let Some((requested, active)) = self
+                .manager
+                .try_state::<SessionStateCache>()
+                .and_then(|cache| cache.lock().ok()?.get(session_id).copied())
+        {
+            snapshot.requested_live_transcription = Some(requested);
+            snapshot.live_transcription_active = Some(active);
+        }
+
+        snapshot
     }
 
     #[tracing::instrument(skip_all)]
