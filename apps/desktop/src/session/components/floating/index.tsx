@@ -1,4 +1,4 @@
-import { RefreshCwIcon } from "lucide-react";
+import { RefreshCwIcon, SquareIcon } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import type { CSSProperties } from "react";
 import { useCallback } from "react";
@@ -12,6 +12,7 @@ import { FloatingButton } from "./shared";
 import { useAITask } from "~/ai/contexts";
 import { type LLMConnectionStatus, useLLMConnectionStatus } from "~/ai/hooks";
 import { getEnhancerService } from "~/services/enhancer";
+import { useEnhancedNoteActions } from "~/session/components/note-input/enhanced-actions";
 import { useRegenerateTranscript } from "~/session/components/note-input/transcript/actions";
 import {
   useCurrentNoteTab,
@@ -43,11 +44,12 @@ export function FloatingActionButton({
     audioExists,
   );
   const shouldShowListen = allowListening && canShowListen;
-  const shouldShowRegenerateTranscript = useShouldShowRegenerateTranscriptFab(
+  const transcriptAction = useTranscriptFloatingAction(
     tab,
     sessionMode,
     audioExists,
   );
+  const summaryAction = useSummaryFloatingAction(tab, sessionMode, audioExists);
   const shouldShowChat = useShouldShowChatFab(tab, sessionMode, audioExists);
   const generateSummaryNoteId = useGenerateSummaryNoteId(
     tab,
@@ -55,12 +57,15 @@ export function FloatingActionButton({
     audioExists,
   );
   const shouldShowGenerateSummary = generateSummaryNoteId !== null;
+  const shouldShowTranscriptAction = transcriptAction !== null;
+  const shouldShowSummaryAction = summaryAction !== null;
   const isCaretNearBottom = useCaretPosition()?.isCaretNearBottom ?? false;
   const showSkipReason = !!skipReason;
   const useChatHoverArea =
     !showSkipReason &&
+    !shouldShowTranscriptAction &&
+    !shouldShowSummaryAction &&
     !shouldShowGenerateSummary &&
-    !shouldShowRegenerateTranscript &&
     shouldShowChat;
   const tuckListenAction =
     !showSkipReason && shouldShowListen && isCaretNearBottom;
@@ -68,8 +73,9 @@ export function FloatingActionButton({
   if (
     !showSkipReason &&
     !shouldShowListen &&
+    !shouldShowTranscriptAction &&
+    !shouldShowSummaryAction &&
     !shouldShowGenerateSummary &&
-    !shouldShowRegenerateTranscript &&
     !shouldShowChat
   ) {
     return null;
@@ -107,11 +113,13 @@ export function FloatingActionButton({
             key={
               shouldShowListen
                 ? "listen"
-                : shouldShowGenerateSummary
-                  ? "generate-summary"
-                  : shouldShowRegenerateTranscript
-                    ? "regenerate-transcript"
-                    : "chat"
+                : shouldShowTranscriptAction
+                  ? `transcript-${transcriptAction.type}`
+                  : shouldShowSummaryAction
+                    ? `summary-${summaryAction.type}`
+                    : shouldShowGenerateSummary
+                      ? "generate-summary"
+                      : "chat"
             }
             aria-hidden={tuckListenAction}
             initial={{ opacity: 0 }}
@@ -134,13 +142,21 @@ export function FloatingActionButton({
           >
             {shouldShowListen ? (
               <ListenButton tab={tab} />
+            ) : transcriptAction ? (
+              <TranscriptActionButton
+                action={transcriptAction.type}
+                onClick={transcriptAction.onClick}
+              />
+            ) : summaryAction ? (
+              <SummaryActionButton
+                action={summaryAction.type}
+                onClick={summaryAction.onClick}
+              />
             ) : shouldShowGenerateSummary ? (
               <GenerateSummaryButton
                 tab={tab}
                 enhancedNoteId={generateSummaryNoteId}
               />
-            ) : shouldShowRegenerateTranscript ? (
-              <RegenerateTranscriptButton sessionId={tab.id} />
             ) : (
               <ChatCTA />
             )}
@@ -151,16 +167,58 @@ export function FloatingActionButton({
   );
 }
 
-function RegenerateTranscriptButton({ sessionId }: { sessionId: string }) {
-  const regenerateTranscript = useRegenerateTranscript(sessionId);
+function TranscriptActionButton({
+  action,
+  onClick,
+}: {
+  action: "regenerate" | "stop";
+  onClick: () => void;
+}) {
+  const label =
+    action === "stop" ? "Stop transcription" : "Regenerate transcript";
+  const Icon = action === "stop" ? SquareIcon : RefreshCwIcon;
 
   return (
     <FloatingButton
-      onClick={regenerateTranscript}
+      onClick={onClick}
       className="w-fit gap-2 px-4 whitespace-nowrap"
     >
       <span className="flex items-center gap-1.5">
-        <RefreshCwIcon className="size-3.5" /> Regenerate transcript
+        <Icon
+          className={cn([
+            "size-3.5",
+            action === "stop" ? "fill-current" : null,
+          ])}
+        />{" "}
+        {label}
+      </span>
+    </FloatingButton>
+  );
+}
+
+function SummaryActionButton({
+  action,
+  onClick,
+}: {
+  action: "regenerate" | "stop";
+  onClick: () => void;
+}) {
+  const label = action === "stop" ? "Stop summary" : "Regenerate summary";
+  const Icon = action === "stop" ? SquareIcon : RefreshCwIcon;
+
+  return (
+    <FloatingButton
+      onClick={onClick}
+      className="w-fit gap-2 px-4 whitespace-nowrap"
+    >
+      <span className="flex items-center gap-1.5">
+        <Icon
+          className={cn([
+            "size-3.5",
+            action === "stop" ? "fill-current" : null,
+          ])}
+        />{" "}
+        {label}
       </span>
     </FloatingButton>
   );
@@ -209,20 +267,87 @@ function GenerateSummaryButton({
   );
 }
 
-function useShouldShowRegenerateTranscriptFab(
+function useTranscriptFloatingAction(
   tab: Extract<Tab, { type: "sessions" }>,
   sessionMode: string,
   audioExists: boolean,
 ) {
   const currentTab = useCurrentNoteTab(tab, { audioExists });
-  const hasTranscript = useHasTranscript(tab.id);
+  const regenerateTranscript = useRegenerateTranscript(tab.id);
+  const stopTranscription = useListener((state) => state.stopTranscription);
 
-  return (
-    sessionMode === "inactive" &&
-    currentTab.type === "transcript" &&
-    audioExists &&
-    !hasTranscript
+  const handleStopTranscription = useCallback(() => {
+    void stopTranscription(tab.id);
+  }, [stopTranscription, tab.id]);
+
+  if (currentTab.type !== "transcript") {
+    return null;
+  }
+
+  if (sessionMode === "running_batch") {
+    return {
+      type: "stop" as const,
+      onClick: handleStopTranscription,
+    };
+  }
+
+  if (sessionMode === "inactive" && audioExists) {
+    return {
+      type: "regenerate" as const,
+      onClick: regenerateTranscript,
+    };
+  }
+
+  return null;
+}
+
+function useSummaryFloatingAction(
+  tab: Extract<Tab, { type: "sessions" }>,
+  sessionMode: string,
+  audioExists: boolean,
+) {
+  const currentTab = useCurrentNoteTab(tab, { audioExists });
+  const enhancedNoteId = currentTab.type === "enhanced" ? currentTab.id : null;
+  const { isGenerating, onCancel, onRegenerate } = useEnhancedNoteActions({
+    sessionId: tab.id,
+    enhancedNoteId,
+  });
+  const content = main.UI.useCell(
+    "enhanced_notes",
+    enhancedNoteId ?? "",
+    "content",
+    main.STORE_ID,
   );
+  const llmStatus = useLLMConnectionStatus();
+  const hasContent = hasStoredNoteContent(content);
+
+  const handleRegenerateSummary = useCallback(() => {
+    void onRegenerate(null);
+  }, [onRegenerate]);
+
+  if (!enhancedNoteId) {
+    return null;
+  }
+
+  if (isGenerating) {
+    return {
+      type: "stop" as const,
+      onClick: onCancel,
+    };
+  }
+
+  if (
+    sessionMode === "inactive" &&
+    hasContent &&
+    !isBlockingLLMStatus(llmStatus)
+  ) {
+    return {
+      type: "regenerate" as const,
+      onClick: handleRegenerateSummary,
+    };
+  }
+
+  return null;
 }
 
 function useShouldShowListeningFab(

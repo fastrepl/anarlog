@@ -817,7 +817,7 @@ msgstr ""
 msgid "Insert below"
 msgstr ""
 
-#: src/session/components/note-input/header.tsx:739
+#: src/session/components/note-input/header.tsx:769
 msgid "Insights"
 msgstr ""
 
@@ -1432,7 +1432,7 @@ msgstr ""
 msgid "Search people"
 msgstr ""
 
-#: src/session/components/note-input/header.tsx:1117
+#: src/session/components/note-input/header.tsx:1147
 #: src/templates/template-sidebar.tsx:354
 msgid "Search templates..."
 msgstr ""
@@ -1450,7 +1450,7 @@ msgstr ""
 msgid "Section actions"
 msgstr ""
 
-#: src/session/components/note-input/header.tsx:1183
+#: src/session/components/note-input/header.tsx:1213
 msgid "See all templates"
 msgstr ""
 
@@ -1508,7 +1508,7 @@ msgstr ""
 msgid "Send message"
 msgstr ""
 
-#: src/session/components/note-input/header.tsx:1222
+#: src/session/components/note-input/header.tsx:1254
 msgid "Session note tabs"
 msgstr ""
 
@@ -1783,7 +1783,7 @@ msgstr ""
 msgid "Tip: The Anarlog team loves our users!"
 msgstr ""
 
-#: src/session/components/note-input/header.tsx:620
+#: src/session/components/note-input/header.tsx:633
 #: src/session/components/outer-header/overflow/export-modal.tsx:245
 #: src/session/components/outer-header/overflow/export-modal.tsx:295
 #: src/session/components/outer-header/overflow/export-modal.tsx:350

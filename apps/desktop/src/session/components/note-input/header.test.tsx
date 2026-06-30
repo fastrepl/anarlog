@@ -21,6 +21,7 @@ type CapturedMenuItem =
 const hoisted = vi.hoisted(() => ({
   enhance: vi.fn(),
   regenerateTranscript: vi.fn(),
+  stopTranscription: vi.fn(),
   deleteRecording: vi.fn(),
   activeTemplateTitle: "Customer Call",
   audioExists: true,
@@ -263,6 +264,7 @@ vi.mock("~/stt/contexts", () => ({
       };
       liveSegments: unknown[];
       getSessionMode: () => string;
+      stopTranscription: (sessionId: string) => void;
     }) => unknown,
   ) =>
     selector({
@@ -273,6 +275,7 @@ vi.mock("~/stt/contexts", () => ({
       },
       liveSegments: hoisted.liveSegments,
       getSessionMode: () => hoisted.sessionMode,
+      stopTranscription: hoisted.stopTranscription,
     }),
 }));
 
@@ -292,6 +295,7 @@ describe("Header", () => {
   beforeEach(() => {
     hoisted.enhance.mockReset();
     hoisted.regenerateTranscript.mockReset();
+    hoisted.stopTranscription.mockReset();
     hoisted.deleteRecording.mockReset();
     hoisted.activeTemplateTitle = "Customer Call";
     hoisted.audioExists = true;
@@ -679,6 +683,53 @@ describe("Header", () => {
       transcriptTab.querySelector("[data-testid='tab-spinner']"),
     ).not.toBeNull();
     expect(transcriptTab.querySelector("svg")).toBeNull();
+  });
+
+  it("stops transcription from the active transcript tab spinner", () => {
+    const editorTabs: EditorView[] = [
+      { type: "enhanced", id: "note-1" },
+      { type: "raw" },
+      { type: "transcript" },
+    ];
+
+    render(
+      <Header
+        sessionId="session-1"
+        editorTabs={editorTabs}
+        currentTab={{ type: "transcript" }}
+        handleTabChange={vi.fn()}
+        isTranscribing
+        canStopTranscription
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Transcript" }));
+
+    expect(hoisted.stopTranscription).toHaveBeenCalledWith("session-1");
+  });
+
+  it("does not stop transcription from the active transcript tab while finalizing", () => {
+    const handleTabChange = vi.fn();
+    const editorTabs: EditorView[] = [
+      { type: "enhanced", id: "note-1" },
+      { type: "raw" },
+      { type: "transcript" },
+    ];
+
+    render(
+      <Header
+        sessionId="session-1"
+        editorTabs={editorTabs}
+        currentTab={{ type: "transcript" }}
+        handleTabChange={handleTabChange}
+        isTranscribing
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Transcript" }));
+
+    expect(hoisted.stopTranscription).not.toHaveBeenCalled();
+    expect(handleTabChange).toHaveBeenCalledWith({ type: "transcript" });
   });
 
   it("includes the transcript tab when saved audio exists without transcript rows", () => {

@@ -27,7 +27,10 @@ const hoisted = vi.hoisted(() => ({
   sessionMode: "inactive",
   sendEvent: vi.fn(),
   enhance: vi.fn(),
+  regenerateSummary: vi.fn(),
+  cancelSummary: vi.fn(),
   regenerateTranscript: vi.fn(),
+  stopTranscription: vi.fn(),
   updateSessionTabState: vi.fn(),
 }));
 
@@ -65,6 +68,17 @@ vi.mock("~/ai/contexts", () => ({
 
 vi.mock("~/ai/hooks", () => ({
   useLLMConnectionStatus: () => hoisted.llmStatus,
+  useLanguageModel: () => "model",
+  useAITaskTask: () => ({
+    isIdle:
+      hoisted.enhanceTaskStatus === undefined ||
+      hoisted.enhanceTaskStatus === "idle",
+    isGenerating: hoisted.enhanceTaskStatus === "generating",
+    isError: hoisted.enhanceTaskStatus === "error",
+    error: null,
+    start: hoisted.regenerateSummary,
+    cancel: hoisted.cancelSummary,
+  }),
 }));
 
 vi.mock("~/store/tinybase/store/main", () => ({
@@ -107,10 +121,14 @@ vi.mock("../caret-position-context", () => ({
 
 vi.mock("~/stt/contexts", () => ({
   useListener: (
-    selector: (state: { getSessionMode: () => string }) => unknown,
+    selector: (state: {
+      getSessionMode: () => string;
+      stopTranscription: (sessionId: string) => void;
+    }) => unknown,
   ) =>
     selector({
       getSessionMode: () => hoisted.sessionMode,
+      stopTranscription: hoisted.stopTranscription,
     }),
 }));
 
@@ -139,7 +157,10 @@ describe("FloatingActionButton", () => {
     hoisted.sessionMode = "inactive";
     hoisted.sendEvent.mockClear();
     hoisted.enhance.mockReset();
+    hoisted.regenerateSummary.mockReset();
+    hoisted.cancelSummary.mockReset();
     hoisted.regenerateTranscript.mockReset();
+    hoisted.stopTranscription.mockReset();
     hoisted.updateSessionTabState.mockClear();
   });
 
@@ -155,14 +176,25 @@ describe("FloatingActionButton", () => {
     ).not.toBeNull();
   });
 
-  it("shows the chat FAB on enhanced summary views", () => {
+  it("shows a regenerate summary FAB on enhanced summary views", () => {
     hoisted.currentTab = { type: "enhanced", id: "note-1" };
 
     render(<FloatingActionButton tab={tab} />);
 
     expect(
       screen.queryByRole("button", { name: "Ask Anarlog anything" }),
-    ).not.toBeNull();
+    ).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Regenerate summary" }));
+
+    expect(hoisted.regenerateSummary).toHaveBeenCalledWith({
+      model: "model",
+      args: {
+        sessionId: "session-1",
+        enhancedNoteId: "note-1",
+        templateId: undefined,
+      },
+    });
   });
 
   it("shows a generate summary FAB instead of chat for empty transcript-backed summaries", () => {
@@ -230,7 +262,7 @@ describe("FloatingActionButton", () => {
     ).toBeNull();
   });
 
-  it("shows the chat FAB while an empty enhanced summary is still generating", () => {
+  it("shows a stop summary FAB while an enhanced summary is generating", () => {
     hoisted.currentTab = { type: "enhanced", id: "note-1" };
     hoisted.enhanceTaskStatus = "generating";
     hoisted.enhancedContent = "";
@@ -240,7 +272,11 @@ describe("FloatingActionButton", () => {
 
     expect(
       screen.queryByRole("button", { name: "Ask Anarlog anything" }),
-    ).not.toBeNull();
+    ).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Stop summary" }));
+
+    expect(hoisted.cancelSummary).toHaveBeenCalledTimes(1);
   });
 
   it("keeps the chat FAB visible near the editor caret", () => {
@@ -356,6 +392,34 @@ describe("FloatingActionButton", () => {
     );
 
     expect(hoisted.regenerateTranscript).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows a regenerate transcript FAB on existing transcript views backed by audio", () => {
+    hoisted.currentTab = { type: "transcript" };
+    hoisted.hasTranscript = true;
+
+    render(<FloatingActionButton audioExists tab={tab} />);
+
+    expect(
+      screen.queryByRole("button", { name: "Ask Anarlog anything" }),
+    ).toBeNull();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Regenerate transcript" }),
+    );
+
+    expect(hoisted.regenerateTranscript).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows a stop transcript FAB while batch transcription is running", () => {
+    hoisted.currentTab = { type: "transcript" };
+    hoisted.sessionMode = "running_batch";
+
+    render(<FloatingActionButton audioExists tab={tab} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Stop transcription" }));
+
+    expect(hoisted.stopTranscription).toHaveBeenCalledWith("session-1");
   });
 
   it("hides the regenerate transcript FAB when audio is missing", () => {

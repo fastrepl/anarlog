@@ -8,13 +8,13 @@ import {
   PlusIcon,
   SearchIcon,
   SparklesIcon,
+  SquareIcon,
   XIcon,
 } from "lucide-react";
 import { LightbulbIcon } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import { json2md, parseJsonContent } from "@hypr/editor/markdown";
-import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 import {
   AppFloatingPanel,
   Popover,
@@ -26,9 +26,9 @@ import { sonnerToast } from "@hypr/ui/components/ui/toast";
 import { cn } from "@hypr/utils";
 
 import { useAITaskTask } from "~/ai/hooks";
-import { useLanguageModel, useLLMConnectionStatus } from "~/ai/hooks";
 import * as AudioPlayer from "~/audio-player";
 import { getEnhancerService } from "~/services/enhancer";
+import { useEnhancedNoteActions } from "~/session/components/note-input/enhanced-actions";
 import { useRegenerateTranscript } from "~/session/components/note-input/transcript/actions";
 import {
   buildTranscriptExportSegments,
@@ -36,7 +36,6 @@ import {
 } from "~/session/components/note-input/transcript/export-data";
 import { useSessionTranscriptRenderData } from "~/session/components/note-input/transcript/render-request-hooks";
 import { useCanShowTranscript } from "~/session/components/shared";
-import { shouldShowEmptySummaryConfigError } from "~/session/enhance-config";
 import { useEnsureDefaultSummary } from "~/session/hooks/useEnhancedNotes";
 import { useCanShowInsights } from "~/session/insights/past-notes";
 import {
@@ -48,6 +47,7 @@ import * as main from "~/store/tinybase/store/main";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 import { type EditorView } from "~/store/zustand/tabs/schema";
+import { useListener } from "~/stt/contexts";
 import {
   filterWebTemplatesAgainstUserTemplates,
   parseWebTemplates,
@@ -573,11 +573,13 @@ function HeaderTabEnhancedActive({
 function HeaderTabTranscript({
   isActive,
   isTranscribing,
+  canStopTranscription,
   onClick = () => {},
   sessionId,
 }: {
   isActive: boolean;
   isTranscribing: boolean;
+  canStopTranscription: boolean;
   onClick?: () => void;
   sessionId: string;
 }) {
@@ -595,6 +597,7 @@ function HeaderTabTranscript({
     <HeaderTabTranscriptActive
       isActive={isActive}
       isTranscribing={isTranscribing}
+      canStopTranscription={canStopTranscription}
       onClick={onClick}
       sessionId={sessionId}
     />
@@ -606,27 +609,45 @@ function HeaderTabTranscriptButton({
   isTranscribing,
   onClick,
   onContextMenu,
+  onStopTranscription,
 }: {
   isActive: boolean;
   isTranscribing: boolean;
   onClick?: () => void;
   onContextMenu?: React.MouseEventHandler<HTMLButtonElement>;
+  onStopTranscription?: () => void;
 }) {
   const { t } = useLingui();
+  const handleClick = useCallback(() => {
+    if (isTranscribing && onStopTranscription) {
+      onStopTranscription();
+      return;
+    }
+
+    onClick?.();
+  }, [isTranscribing, onClick, onStopTranscription]);
 
   return (
     <IconHeaderTab
       isActive={isActive}
       label={t`Transcript`}
       icon={
-        isTranscribing ? (
+        isTranscribing && onStopTranscription ? (
+          <span className="group/stop relative flex size-4 items-center justify-center">
+            <Spinner size={16} className="shrink-0 group-hover/stop:hidden" />
+            <SquareIcon className="hidden size-3 fill-current group-hover/stop:block" />
+          </span>
+        ) : isTranscribing ? (
           <Spinner size={16} className="shrink-0" />
         ) : (
           <AudioLinesIcon className="size-4" />
         )
       }
-      onClick={onClick}
+      onClick={handleClick}
       onContextMenu={onContextMenu}
+      title={
+        isTranscribing && onStopTranscription ? "Stop transcription" : undefined
+      }
     />
   );
 }
@@ -634,15 +655,18 @@ function HeaderTabTranscriptButton({
 function HeaderTabTranscriptActive({
   isActive,
   isTranscribing,
+  canStopTranscription,
   onClick,
   sessionId,
 }: {
   isActive: boolean;
   isTranscribing: boolean;
+  canStopTranscription: boolean;
   onClick?: () => void;
   sessionId: string;
 }) {
   const regenerate = useRegenerateTranscript(sessionId);
+  const stopTranscription = useListener((state) => state.stopTranscription);
   const { request: transcriptExportRequest } =
     useSessionTranscriptRenderData(sessionId);
   const { audioExists, deleteRecording, isDeletingRecording } =
@@ -674,6 +698,9 @@ function HeaderTabTranscriptActive({
   const handleDeleteRecording = useCallback(() => {
     void deleteRecording();
   }, [deleteRecording]);
+  const handleStopTranscription = useCallback(() => {
+    void stopTranscription(sessionId);
+  }, [sessionId, stopTranscription]);
   const contextMenu = useMemo<MenuItemDef[]>(() => {
     const items: MenuItemDef[] = [
       {
@@ -720,6 +747,9 @@ function HeaderTabTranscriptActive({
       isTranscribing={isTranscribing}
       onClick={onClick}
       onContextMenu={showContextMenu}
+      onStopTranscription={
+        canStopTranscription ? handleStopTranscription : undefined
+      }
     />
   );
 }
@@ -1195,12 +1225,14 @@ export function Header({
   currentTab,
   handleTabChange,
   isTranscribing = false,
+  canStopTranscription = false,
 }: {
   sessionId: string;
   editorTabs: EditorView[];
   currentTab: EditorView;
   handleTabChange: (view: EditorView) => void;
   isTranscribing?: boolean;
+  canStopTranscription?: boolean;
 }) {
   const { t } = useLingui();
   const store = main.UI.useStore(main.STORE_ID);
@@ -1293,6 +1325,7 @@ export function Header({
                     sessionId={sessionId}
                     isActive={currentTab.type === view.type}
                     isTranscribing={isTranscribing}
+                    canStopTranscription={canStopTranscription}
                     onClick={() => handleTabChange(view)}
                   />
                 );
@@ -1353,74 +1386,8 @@ function createEditorTabs({
   ];
 }
 
-function useEnhanceLogic(sessionId: string, enhancedNoteId: string) {
-  const model = useLanguageModel("enhance");
-  const llmStatus = useLLMConnectionStatus();
-  const taskId = createTaskId(enhancedNoteId, "enhance");
-  const [missingModelError, setMissingModelError] = useState<Error | null>(
-    null,
-  );
-
-  const noteTemplateId =
-    (main.UI.useCell(
-      "enhanced_notes",
-      enhancedNoteId,
-      "template_id",
-      main.STORE_ID,
-    ) as string | undefined) || undefined;
-
-  const enhanceTask = useAITaskTask(taskId, "enhance");
-
-  const onRegenerate = useCallback(
-    async (templateId: string | null) => {
-      if (!model) {
-        setMissingModelError(
-          new Error("Intelligence provider not configured."),
-        );
-        return;
-      }
-
-      setMissingModelError(null);
-
-      void analyticsCommands.event({
-        event: "note_enhanced",
-        is_auto: false,
-      });
-
-      await enhanceTask.start({
-        model,
-        args: {
-          sessionId,
-          enhancedNoteId,
-          templateId: templateId ?? noteTemplateId,
-        },
-      });
-    },
-    [model, enhanceTask.start, sessionId, enhancedNoteId, noteTemplateId],
-  );
-
-  useEffect(() => {
-    if (model && missingModelError) {
-      setMissingModelError(null);
-    }
-  }, [model, missingModelError]);
-
-  const isConfigError = shouldShowEmptySummaryConfigError(llmStatus);
-
-  const isIdleWithConfigError = enhanceTask.isIdle && isConfigError;
-
-  const error = missingModelError ?? enhanceTask.error;
-  const isError =
-    !!missingModelError || enhanceTask.isError || isIdleWithConfigError;
-
-  return {
-    isGenerating: enhanceTask.isGenerating,
-    isError,
-    error,
-    onRegenerate,
-    onCancel: enhanceTask.cancel,
-  };
-}
+const useEnhanceLogic = (sessionId: string, enhancedNoteId: string) =>
+  useEnhancedNoteActions({ sessionId, enhancedNoteId });
 
 function matchesTemplateSearch(
   template: {

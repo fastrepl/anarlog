@@ -203,6 +203,7 @@ export const NoteInput = forwardRef<
               currentTab={renderedCurrentTab}
               handleTabChange={handleTabChange}
               isTranscribing={shouldShowTranscriptSpinner}
+              canStopTranscription={sessionMode === "running_batch"}
             />
           </div>
         )}
