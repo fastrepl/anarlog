@@ -144,6 +144,7 @@ vi.mock("./types/tauri.gen", () => ({
     getOnboardingNeeded: vi
       .fn()
       .mockResolvedValue({ status: "ok", data: false }),
+    showDevtool: vi.fn().mockResolvedValue(true),
     getPinnedTabs: vi.fn().mockResolvedValue({ status: "ok", data: null }),
     setPinnedTabs: vi.fn().mockResolvedValue({ status: "ok", data: null }),
     getRecentlyOpenedSessions: vi

@@ -52,6 +52,7 @@ import {
   hasLeftSurfaceCustomSidebarTab,
 } from "~/sidebar/use-custom-sidebar";
 import { type Tab, uniqueIdfromTab, useTabs } from "~/store/zustand/tabs";
+import { commands } from "~/types/tauri.gen";
 
 const MAIN_AREA_TOP_DRAG_HEIGHT_PX = 48;
 const MAIN_AREA_WINDOW_DRAG_THRESHOLD_PX = 5;
@@ -60,7 +61,6 @@ const LEFT_SIDEBAR_MIN_WIDTH_PX = 200;
 const LEFT_SIDEBAR_MAX_WIDTH_PX = 360;
 const LEFT_SIDEBAR_COLLAPSED_SIZE = 0;
 const LEFT_SIDEBAR_FALLBACK_CONTAINER_WIDTH_PX = 1000;
-const showDevtoolsPanelButton = import.meta.env.DEV;
 
 type MainAreaWindowDragStart = {
   pointerId: number;
@@ -90,33 +90,49 @@ export function ClassicMainBody() {
   const leftSidebarResizeDraggingRef = useRef(false);
   const [showIgnoredTimelineEvents, setShowIgnoredTimelineEvents] =
     useState(false);
+  const [showDevtoolsPanelButton, setShowDevtoolsPanelButton] = useState(false);
   const [devtoolsPanelOpen, setDevtoolsPanelOpen] = useState(false);
 
   useMountEffect(() => {
-    if (!showDevtoolsPanelButton) {
-      return;
-    }
-
     let cancelled = false;
     let unlistenDevtoolsAction: (() => void) | undefined;
 
-    windowsEvents.devtoolsPanelAction
-      .listen(({ payload }) => {
-        if (payload.action === "panel:opened") {
-          setDevtoolsPanelOpen(true);
-        }
-        if (payload.action === "panel:closed") {
-          setDevtoolsPanelOpen(false);
-        }
-      })
-      .then((unlisten) => {
-        if (cancelled) {
-          unlisten();
-          return;
-        }
-
-        unlistenDevtoolsAction = unlisten;
+    const syncDevtoolsPanelButton = async () => {
+      const enabled = await commands.showDevtool().catch((error) => {
+        console.error("Failed to resolve devtools availability:", error);
+        return false;
       });
+
+      if (cancelled) {
+        return;
+      }
+
+      setShowDevtoolsPanelButton(enabled);
+
+      if (!enabled) {
+        return;
+      }
+
+      windowsEvents.devtoolsPanelAction
+        .listen(({ payload }) => {
+          if (payload.action === "panel:opened") {
+            setDevtoolsPanelOpen(true);
+          }
+          if (payload.action === "panel:closed") {
+            setDevtoolsPanelOpen(false);
+          }
+        })
+        .then((unlisten) => {
+          if (cancelled) {
+            unlisten();
+            return;
+          }
+
+          unlistenDevtoolsAction = unlisten;
+        });
+    };
+
+    void syncDevtoolsPanelButton();
 
     return () => {
       cancelled = true;
@@ -332,6 +348,7 @@ export function ClassicMainBody() {
           >
             <SidebarTimelineChrome
               sidebarExpanded={leftsidebar.expanded}
+              showDevtoolsPanelButton={showDevtoolsPanelButton}
               devtoolsPanelOpen={devtoolsPanelOpen}
               onNewNote={createNewNote}
               onSearch={handleOpenNoteDialog}
@@ -662,6 +679,7 @@ function SidebarTimelineChrome({
   onSearch,
   onToggleSidebar,
   sidebarExpanded,
+  showDevtoolsPanelButton,
   update,
 }: {
   devtoolsPanelOpen: boolean;
@@ -671,6 +689,7 @@ function SidebarTimelineChrome({
   onSearch: () => void;
   onToggleSidebar: () => void;
   sidebarExpanded: boolean;
+  showDevtoolsPanelButton: boolean;
   update: DesktopUpdateControl;
 }) {
   const updateVisible = Boolean(update.status && update.version);
