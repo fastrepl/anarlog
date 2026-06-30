@@ -1140,7 +1140,7 @@ function HeroWorkflowDemo() {
 
 function AnnouncementBanner() {
   return (
-    <div className="flex justify-center px-5 pt-6 md:pt-8">
+    <div className="flex justify-center px-5 pt-10 md:pt-12">
       <a
         href="https://char.com"
         className="char-announcement group relative inline-flex h-8 w-[15.25rem] max-w-full items-center justify-center text-center text-sm font-medium text-[#181613] opacity-75 transition-opacity hover:opacity-100"
