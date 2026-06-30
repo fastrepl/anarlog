@@ -56,6 +56,7 @@ const privacyCommitments = [
 
 const credibilityLogos = [
   { name: "Databricks", src: "/icons/databricks.svg" },
+  { name: "Cloudflare", src: "/icons/cloudflare.png" },
   { name: "Amazon", src: "/icons/amazon.svg", className: "max-h-9" },
   { name: "Meta", src: "/icons/meta.svg", className: "max-h-9" },
   { name: "Y Combinator", src: "/icons/yc.svg" },
@@ -66,6 +67,7 @@ const credibilityLogos = [
   { name: "Adobe", src: "/icons/adobe.svg", className: "max-h-8" },
   { name: "Wayfair", src: "/icons/wayfair.svg" },
   { name: "Bain & Company", src: "/icons/bain.svg", className: "max-h-6" },
+  { name: "McKinsey & Company", src: "/icons/mckinsey.png" },
 ];
 
 const testimonials = [
@@ -355,9 +357,8 @@ function Component() {
               <DownloadButton />
             </div>
             <HeroWorkflowDemo />
+            <CredibilityLogoMarquee />
           </section>
-
-          <CredibilityLogoMarquee />
 
           <PrivacySection />
 
@@ -557,20 +558,14 @@ function OpenSourceSection({
 function CredibilityLogoMarquee() {
   return (
     <section
-      className="pt-0 pb-6 md:pb-8"
+      className="pt-0 pb-2 md:pb-0"
       aria-labelledby="credibility-heading"
     >
-      <h2
-        id="credibility-heading"
-        className="font-hand text-base leading-none font-semibold text-[#756b5d] md:text-lg"
-      >
-        Trusted by people in
-      </h2>
       <p className="sr-only">
         {credibilityLogos.map((logo) => logo.name).join(", ")}
       </p>
 
-      <div className="relative left-1/2 mt-3 w-screen -translate-x-1/2 overflow-hidden bg-white py-4 motion-reduce:overflow-visible">
+      <div className="relative left-1/2 w-screen -translate-x-1/2 overflow-hidden bg-white py-3 motion-reduce:overflow-visible">
         <div
           className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-linear-to-r from-white to-transparent motion-reduce:hidden md:w-32"
           aria-hidden="true"
@@ -601,7 +596,7 @@ function CredibilityLogoMarquee() {
                   src={logo.src}
                   alt=""
                   className={cn([
-                    "h-7 w-auto max-w-none object-contain opacity-65 grayscale",
+                    "h-6 w-auto max-w-none object-contain opacity-65 grayscale",
                     logo.className,
                   ])}
                   draggable={false}
@@ -611,6 +606,12 @@ function CredibilityLogoMarquee() {
           ))}
         </div>
       </div>
+      <h2
+        id="credibility-heading"
+        className="mt-2 text-xs leading-none font-medium text-[#756b5d] md:text-sm"
+      >
+        Trusted by people in
+      </h2>
     </section>
   );
 }
@@ -961,7 +962,7 @@ function HeroWorkflowDemo() {
   const isGeneratingSummary = enhancedLines > 0 && enhancedLines < 6;
 
   return (
-    <div className="relative left-1/2 mt-10 w-screen max-w-[500px] -translate-x-1/2 px-8 pb-8 sm:px-10">
+    <div className="relative left-1/2 mt-10 w-screen max-w-[500px] -translate-x-1/2 px-8 pb-2 sm:px-10">
       <div
         className="pointer-events-none absolute top-10 bottom-24 left-8 z-0 w-12 rounded-full bg-neutral-950/10 blur-2xl sm:left-10"
         aria-hidden="true"
@@ -1000,10 +1001,8 @@ function HeroWorkflowDemo() {
         <div className="relative min-h-[260px] overflow-hidden text-left text-sm sm:min-h-[300px]">
           <div
             className={cn([
-              "absolute inset-0 space-y-3 p-5 transition-[opacity,transform] duration-500 sm:p-6",
-              isSummaryPhase
-                ? "-translate-y-3 opacity-0"
-                : "translate-y-0 opacity-100",
+              "absolute inset-0 space-y-3 p-5 transition-opacity duration-500 sm:p-6",
+              isSummaryPhase ? "opacity-0" : "opacity-100",
             ])}
           >
             <div className="text-neutral-700">ui update - moble</div>
@@ -1025,10 +1024,8 @@ function HeroWorkflowDemo() {
           </div>
           <div
             className={cn([
-              "absolute inset-0 space-y-4 overflow-hidden p-5 text-left transition-[opacity,transform] duration-500 sm:p-6",
-              isSummaryPhase
-                ? "translate-y-0 opacity-100"
-                : "translate-y-3 opacity-0",
+              "absolute inset-0 space-y-4 overflow-hidden p-5 text-left transition-opacity duration-500 sm:p-6",
+              isSummaryPhase ? "opacity-100" : "opacity-0",
             ])}
           >
             <div className="space-y-2">
