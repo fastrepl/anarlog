@@ -1316,7 +1316,73 @@ describe("ListenerProvider detect events", () => {
     );
   });
 
-  test("shows Cal Video for browser mic notifications with Cal video links", async () => {
+  test.each([
+    "https://app.cal.com/video/founder-call",
+    "https://cal.com/video/founder-call",
+  ])(
+    "shows Cal Video for browser mic notifications with %s",
+    async (meetingLink) => {
+      const store = createListenerStore();
+
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-06-24T02:09:00.000Z"));
+      (useStoreMock as any).mockReturnValue(
+        mockNearbyEventStore({
+          title: "Founder call",
+          started_at: "2026-06-24T02:09:00.000Z",
+          meeting_link: meetingLink,
+        }),
+      );
+
+      render(
+        <ListenerProvider store={store}>
+          <div>child</div>
+        </ListenerProvider>,
+      );
+
+      await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+
+      const handler = listenMock.mock.calls[0]?.[0];
+      expect(handler).toBeTypeOf("function");
+
+      handler({
+        payload: {
+          type: "micDetected",
+          key: "mic-1",
+          apps: [{ id: "at.studio.AsideBrowser", name: "Aside" }],
+          duration_secs: 15,
+        },
+      });
+
+      await vi.waitFor(() =>
+        expect(showNotificationMock).toHaveBeenCalledWith(
+          expect.objectContaining({
+            source: expect.objectContaining({
+              app_names: ["Cal Video"],
+              app_ids: ["at.studio.AsideBrowser"],
+              event_ids: ["event-1"],
+            }),
+            title: "Are you in Founder call right now?",
+            action_label: "Yes",
+            options: null,
+            footer: expect.objectContaining({
+              text: "Ignore Cal Video?",
+              icon: {
+                type: "path",
+                path: "/resources/notification-icons/cal-video.png",
+              },
+            }),
+            icon: {
+              type: "path",
+              path: "/resources/notification-icons/cal-video.png",
+            },
+          }),
+        ),
+      );
+    },
+  );
+
+  test("shows Cal Video for protocol-less Cal.com video text", async () => {
     const store = createListenerStore();
 
     vi.useFakeTimers();
@@ -1325,7 +1391,7 @@ describe("ListenerProvider detect events", () => {
       mockNearbyEventStore({
         title: "Founder call",
         started_at: "2026-06-24T02:09:00.000Z",
-        meeting_link: "https://app.cal.com/video/founder-call",
+        location: "cal.com/video/founder-call",
       }),
     );
 
@@ -1357,20 +1423,9 @@ describe("ListenerProvider detect events", () => {
             app_ids: ["at.studio.AsideBrowser"],
             event_ids: ["event-1"],
           }),
-          title: "Are you in Founder call right now?",
-          action_label: "Yes",
-          options: null,
           footer: expect.objectContaining({
             text: "Ignore Cal Video?",
-            icon: {
-              type: "path",
-              path: "/resources/notification-icons/cal-video.png",
-            },
           }),
-          icon: {
-            type: "path",
-            path: "/resources/notification-icons/cal-video.png",
-          },
         }),
       ),
     );

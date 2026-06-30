@@ -402,7 +402,8 @@ function detectMeetingPlatformFromUrl(value: string): MeetingPlatform | null {
       hostname === "app.cal.video" ||
       hostname === "cal.video" ||
       hostname.endsWith(".cal.video") ||
-      (hostname === "app.cal.com" && pathname.startsWith("/video/"))
+      ((hostname === "cal.com" || hostname === "app.cal.com") &&
+        pathname.startsWith("/video/"))
     ) {
       return MEETING_PLATFORMS.calVideo;
     }
@@ -503,7 +504,11 @@ function detectMeetingPlatformFromText(value: string): MeetingPlatform | null {
   if (/\bwebex\b/.test(normalized)) {
     return MEETING_PLATFORMS.webex;
   }
-  if (/\bcal video\b|(^|[^a-z0-9])cal\.video([^a-z0-9]|$)/.test(normalized)) {
+  if (
+    /\bcal video\b|(^|[^a-z0-9])cal\.video([^a-z0-9]|$)|(^|[^a-z0-9])cal\.com\/video\//.test(
+      normalized,
+    )
+  ) {
     return MEETING_PLATFORMS.calVideo;
   }
   if (/(^|[^a-z0-9])cal\.com([^a-z0-9]|$)/.test(normalized)) {
