@@ -105,8 +105,9 @@ export function TimelineView({
         buckets,
         currentTimeMs,
         formatUpcomingMeetingLabel,
+        t`Now`,
       ),
-    [buckets, currentTimeMs, formatUpcomingMeetingLabel],
+    [buckets, currentTimeMs, formatUpcomingMeetingLabel, t],
   );
   const [isUpcomingMeetingVisible, setIsUpcomingMeetingVisible] =
     useState(false);

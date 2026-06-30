@@ -5,7 +5,7 @@ import { useCurrentTimeMs } from "./realtime";
 import {
   buildTimelineBuckets,
   deriveTimelineWindowData,
-  getItemTimestamp,
+  getItemTimeRange,
   type TimelineBucket,
 } from "./utils";
 
@@ -28,6 +28,7 @@ export function useSidebarUpcomingMeetingStatus({
   showIgnored?: boolean;
 } = {}): SidebarUpcomingMeetingStatus | null {
   const timezone = useConfigValue("timezone") || undefined;
+  const { t } = useLingui();
   const { isIgnored } = useIgnoredEvents();
   const formatLabel = useUpcomingMeetingLabelFormatter();
   const timelineEventsTable = main.UI.useResultTable(
@@ -54,7 +55,12 @@ export function useSidebarUpcomingMeetingStatus({
       timezone,
     });
 
-    return getUpcomingMeetingStatus(buckets, currentTimeMs, formatLabel);
+    return getUpcomingMeetingStatus(
+      buckets,
+      currentTimeMs,
+      formatLabel,
+      t`Now`,
+    );
   }, [
     currentTimeMs,
     formatLabel,
@@ -62,6 +68,7 @@ export function useSidebarUpcomingMeetingStatus({
     showIgnored,
     timelineEventsTable,
     timelineSessionsTable,
+    t,
     timezone,
   ]);
 }
@@ -70,7 +77,10 @@ export function getUpcomingMeetingStatus(
   buckets: TimelineBucket[],
   currentTimeMs: number,
   formatLabel: (diffMs: number) => string = formatUpcomingMeetingLabelEnglish,
+  activeLabel = "Now",
 ): SidebarUpcomingMeetingStatus | null {
+  let active: { itemKey: string; title: string; endsAtMs: number } | null =
+    null;
   let nearest: { itemKey: string; title: string; diffMs: number } | null = null;
 
   for (const bucket of buckets) {
@@ -79,12 +89,31 @@ export function getUpcomingMeetingStatus(
         continue;
       }
 
-      const timestamp = getItemTimestamp(item);
-      if (!timestamp) {
+      const { start, end } = getItemTimeRange(item);
+      if (!start) {
         continue;
       }
 
-      const diffMs = timestamp.getTime() - currentTimeMs;
+      const startsAtMs = start.getTime();
+      const endsAtMs = end?.getTime();
+      if (
+        typeof endsAtMs === "number" &&
+        endsAtMs > startsAtMs &&
+        startsAtMs <= currentTimeMs &&
+        currentTimeMs <= endsAtMs
+      ) {
+        if (!active || endsAtMs < active.endsAtMs) {
+          active = {
+            itemKey: `${item.type}-${item.id}`,
+            title: item.data.title || "Untitled",
+            endsAtMs,
+          };
+        }
+
+        continue;
+      }
+
+      const diffMs = startsAtMs - currentTimeMs;
       if (diffMs <= 0 || diffMs > UPCOMING_MEETING_VISIBLE_WINDOW_MS) {
         continue;
       }
@@ -97,6 +126,14 @@ export function getUpcomingMeetingStatus(
         };
       }
     }
+  }
+
+  if (active) {
+    return {
+      itemKey: active.itemKey,
+      label: activeLabel,
+      title: active.title,
+    };
   }
 
   if (!nearest) {

@@ -500,7 +500,7 @@ msgstr ""
 msgid "Delete recording"
 msgstr ""
 
-#: src/sidebar/timeline/index.tsx:401
+#: src/sidebar/timeline/index.tsx:402
 msgid "Delete Selected ({sessionCount})"
 msgstr ""
 
@@ -739,7 +739,7 @@ msgstr ""
 msgid "Get started for free"
 msgstr ""
 
-#: src/sidebar/timeline/index.tsx:798
+#: src/sidebar/timeline/index.tsx:799
 msgid "Go back to now"
 msgstr ""
 
@@ -772,7 +772,7 @@ msgstr ""
 msgid "Help Anarlog listen to you"
 msgstr ""
 
-#: src/sidebar/timeline/index.tsx:410
+#: src/sidebar/timeline/index.tsx:411
 msgid "Hide Deleted Events"
 msgstr ""
 
@@ -788,19 +788,19 @@ msgstr ""
 msgid "If the browser does not reopen Anarlog, use the paste-link fallback in the sign-in instruction window."
 msgstr ""
 
-#: src/sidebar/timeline/upcoming-meeting.ts:127
+#: src/sidebar/timeline/upcoming-meeting.ts:164
 msgid "In {minutes} minute"
 msgstr ""
 
-#: src/sidebar/timeline/upcoming-meeting.ts:127
+#: src/sidebar/timeline/upcoming-meeting.ts:164
 msgid "In {minutes} minutes"
 msgstr ""
 
-#: src/sidebar/timeline/upcoming-meeting.ts:123
+#: src/sidebar/timeline/upcoming-meeting.ts:160
 msgid "In {totalSeconds} second"
 msgstr ""
 
-#: src/sidebar/timeline/upcoming-meeting.ts:124
+#: src/sidebar/timeline/upcoming-meeting.ts:161
 msgid "In {totalSeconds} seconds"
 msgstr ""
 
@@ -911,7 +911,7 @@ msgstr ""
 msgid "Match whole word"
 msgstr ""
 
-#: src/sidebar/timeline/index.tsx:634
+#: src/sidebar/timeline/index.tsx:635
 msgid "Meeting"
 msgstr ""
 
@@ -1038,7 +1038,7 @@ msgstr ""
 msgid "No description provided."
 msgstr ""
 
-#: src/sidebar/timeline/index.tsx:899
+#: src/sidebar/timeline/index.tsx:900
 msgid "No items today"
 msgstr ""
 
@@ -1101,7 +1101,9 @@ msgstr ""
 msgid "Notifications"
 msgstr "התראות"
 
-#: src/sidebar/timeline/index.tsx:810
+#: src/sidebar/timeline/index.tsx:108
+#: src/sidebar/timeline/index.tsx:811
+#: src/sidebar/timeline/upcoming-meeting.ts:62
 msgid "Now"
 msgstr ""
 
@@ -1131,8 +1133,8 @@ msgstr ""
 msgid "Open Anarlog"
 msgstr ""
 
-#: src/sidebar/timeline/index.tsx:587
-#: src/sidebar/timeline/index.tsx:591
+#: src/sidebar/timeline/index.tsx:588
+#: src/sidebar/timeline/index.tsx:592
 msgid "Open calendar"
 msgstr ""
 
@@ -1538,7 +1540,7 @@ msgstr ""
 msgid "Show app in Dock"
 msgstr ""
 
-#: src/sidebar/timeline/index.tsx:411
+#: src/sidebar/timeline/index.tsx:412
 msgid "Show Deleted Events"
 msgstr ""
 

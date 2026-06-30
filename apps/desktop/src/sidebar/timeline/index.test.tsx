@@ -37,11 +37,13 @@ const lingui = vi.hoisted(() => {
     ...values: unknown[]
   ) => {
     if (Array.isArray(input)) {
-      return input.reduce(
+      const message = input.reduce(
         (message, part, index) =>
           `${message}${part}${index < values.length ? String(values[index]) : ""}`,
         "",
       );
+
+      return message === "Now" ? "Localized now" : message;
     }
 
     if (typeof input === "string") {
@@ -49,6 +51,10 @@ const lingui = vi.hoisted(() => {
     }
 
     if ("message" in input) {
+      if (input.message === "Now") {
+        return "Localized now";
+      }
+
       return (input.message ?? "").replace(
         /\{(\w+)\}/g,
         (_match: string, key: string) =>
@@ -815,7 +821,7 @@ describe("TimelineView", () => {
     ).toBe("In 1 minute");
   });
 
-  it("hides the imminent meeting chip outside the start window", () => {
+  it("keeps the meeting chip visible until the scheduled end time", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
     mocks.currentTimeMs = Date.now();
@@ -846,6 +852,15 @@ describe("TimelineView", () => {
     ).toBe("In 5 minutes");
 
     vi.setSystemTime(new Date("2024-01-15T12:06:01.000Z"));
+    mocks.currentTimeMs = Date.now();
+    rerender(<TimelineView topChromeInset />);
+
+    expect(
+      container.querySelector("[data-sidebar-upcoming-meeting-status]")
+        ?.textContent,
+    ).toBe("Localized now");
+
+    vi.setSystemTime(new Date("2024-01-15T12:30:01.000Z"));
     mocks.currentTimeMs = Date.now();
     rerender(<TimelineView topChromeInset />);
 

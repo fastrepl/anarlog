@@ -130,4 +130,29 @@ describe("useSidebarUpcomingMeetingStatus", () => {
       title: "Deleted standup",
     });
   });
+
+  it("keeps the meeting status active until the scheduled end time", () => {
+    mocks.timelineEventsTable = {
+      standup: {
+        title: "Team standup",
+        started_at: "2024-01-15T11:55:00.000Z",
+        ended_at: "2024-01-15T12:30:00.000Z",
+        tracking_id_event: "event-standup",
+        has_recurrence_rules: false,
+      },
+    };
+
+    const active = renderHook(() => useSidebarUpcomingMeetingStatus());
+
+    expect(active.result.current).toMatchObject({
+      itemKey: "event-standup",
+      label: "Now",
+      title: "Team standup",
+    });
+
+    mocks.currentTimeMs = Date.parse("2024-01-15T12:30:01.000Z");
+    active.rerender();
+
+    expect(active.result.current).toBeNull();
+  });
 });

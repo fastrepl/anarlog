@@ -500,7 +500,7 @@ msgstr "Delete Note"
 msgid "Delete recording"
 msgstr "Delete recording"
 
-#: src/sidebar/timeline/index.tsx:401
+#: src/sidebar/timeline/index.tsx:402
 msgid "Delete Selected ({sessionCount})"
 msgstr "Delete Selected ({sessionCount})"
 
@@ -739,7 +739,7 @@ msgstr "Get started"
 msgid "Get started for free"
 msgstr "Get started for free"
 
-#: src/sidebar/timeline/index.tsx:798
+#: src/sidebar/timeline/index.tsx:799
 msgid "Go back to now"
 msgstr "Go back to now"
 
@@ -772,7 +772,7 @@ msgstr "Help Anarlog listen to others"
 msgid "Help Anarlog listen to you"
 msgstr "Help Anarlog listen to you"
 
-#: src/sidebar/timeline/index.tsx:410
+#: src/sidebar/timeline/index.tsx:411
 msgid "Hide Deleted Events"
 msgstr "Hide Deleted Events"
 
@@ -788,19 +788,19 @@ msgstr "Human"
 msgid "If the browser does not reopen Anarlog, use the paste-link fallback in the sign-in instruction window."
 msgstr "If the browser does not reopen Anarlog, use the paste-link fallback in the sign-in instruction window."
 
-#: src/sidebar/timeline/upcoming-meeting.ts:127
+#: src/sidebar/timeline/upcoming-meeting.ts:164
 msgid "In {minutes} minute"
 msgstr "In {minutes} minute"
 
-#: src/sidebar/timeline/upcoming-meeting.ts:127
+#: src/sidebar/timeline/upcoming-meeting.ts:164
 msgid "In {minutes} minutes"
 msgstr "In {minutes} minutes"
 
-#: src/sidebar/timeline/upcoming-meeting.ts:123
+#: src/sidebar/timeline/upcoming-meeting.ts:160
 msgid "In {totalSeconds} second"
 msgstr "In {totalSeconds} second"
 
-#: src/sidebar/timeline/upcoming-meeting.ts:124
+#: src/sidebar/timeline/upcoming-meeting.ts:161
 msgid "In {totalSeconds} seconds"
 msgstr "In {totalSeconds} seconds"
 
@@ -911,7 +911,7 @@ msgstr "Match case"
 msgid "Match whole word"
 msgstr "Match whole word"
 
-#: src/sidebar/timeline/index.tsx:634
+#: src/sidebar/timeline/index.tsx:635
 msgid "Meeting"
 msgstr "Meeting"
 
@@ -1038,7 +1038,7 @@ msgstr "No content."
 msgid "No description provided."
 msgstr "No description provided."
 
-#: src/sidebar/timeline/index.tsx:899
+#: src/sidebar/timeline/index.tsx:900
 msgid "No items today"
 msgstr "No items today"
 
@@ -1101,7 +1101,9 @@ msgstr "Notes"
 msgid "Notifications"
 msgstr "Notifications"
 
-#: src/sidebar/timeline/index.tsx:810
+#: src/sidebar/timeline/index.tsx:108
+#: src/sidebar/timeline/index.tsx:811
+#: src/sidebar/timeline/upcoming-meeting.ts:62
 msgid "Now"
 msgstr "Now"
 
@@ -1131,8 +1133,8 @@ msgstr "Open {0} settings"
 msgid "Open Anarlog"
 msgstr "Open Anarlog"
 
-#: src/sidebar/timeline/index.tsx:587
-#: src/sidebar/timeline/index.tsx:591
+#: src/sidebar/timeline/index.tsx:588
+#: src/sidebar/timeline/index.tsx:592
 msgid "Open calendar"
 msgstr "Open calendar"
 
@@ -1538,7 +1540,7 @@ msgstr "Show Anarlog in the Dock and app switcher."
 msgid "Show app in Dock"
 msgstr "Show app in Dock"
 
-#: src/sidebar/timeline/index.tsx:411
+#: src/sidebar/timeline/index.tsx:412
 msgid "Show Deleted Events"
 msgstr "Show Deleted Events"
 
