@@ -325,7 +325,7 @@ describe("EventListeners notification events", () => {
     });
   });
 
-  test("notification_confirm with mic_detected source sets triggerAppIds (regression: #5120 confirm path)", async () => {
+  test("notification_confirm with mic_detected source opens detected event and sets triggerAppIds", async () => {
     useMainStoreMock.mockReturnValue({} as never);
 
     render(<EventListeners />);
@@ -344,13 +344,22 @@ describe("EventListeners notification events", () => {
           type: "mic_detected",
           app_names: ["Zoom"],
           app_ids: ["us.zoom.xos"],
-          event_ids: [],
+          event_ids: ["event-1"],
         },
       },
     });
 
+    expect(getOrCreateSessionForEventIdMock).toHaveBeenCalledWith(
+      {},
+      "event-1",
+    );
+    expect(createSessionMock).not.toHaveBeenCalled();
     expect(setTriggerAppIdsMock).toHaveBeenCalledWith(["us.zoom.xos"]);
-    expect(openNewMock).toHaveBeenCalledTimes(1);
+    expect(openNewMock).toHaveBeenCalledWith({
+      type: "sessions",
+      id: "session-event",
+      state: { view: null, autoStart: true },
+    });
   });
 
   test("notification_option_selected with mic_detected source sets triggerAppIds", async () => {

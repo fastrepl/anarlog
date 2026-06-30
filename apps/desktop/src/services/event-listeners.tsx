@@ -376,7 +376,9 @@ function useNotificationEvents() {
           const eventId =
             payload.source?.type === "calendar_event"
               ? payload.source.event_id
-              : null;
+              : payload.source?.type === "mic_detected"
+                ? (payload.source.event_ids?.[0] ?? null)
+                : null;
           const sourceSessionId =
             payload.source?.type === "session"
               ? payload.source.session_id

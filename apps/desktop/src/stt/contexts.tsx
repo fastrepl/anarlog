@@ -75,6 +75,7 @@ type NearbyEvent = {
   meetingLink?: string;
   location?: string;
   description?: string;
+  participantNames: string[];
 };
 type MeetingPlatform = {
   displayName: string;
@@ -194,6 +195,7 @@ type MicAppNotificationOverride = {
   ids: Set<string>;
   names: Set<string>;
   displayName: string;
+  meetingPlatform?: MeetingPlatform;
   icon?: NotificationIcon;
   iconResource?: NotificationIconResource;
 };
@@ -223,6 +225,7 @@ const MIC_APP_NOTIFICATION_OVERRIDES = [
     ids: new Set(["us.zoom.xos"]),
     names: new Set(["zoom", "zoom helper", "zoom workplace"]),
     displayName: "Zoom",
+    meetingPlatform: MEETING_PLATFORMS.zoom,
     iconResource: "zoom",
   },
   {
@@ -234,6 +237,7 @@ const MIC_APP_NOTIFICATION_OVERRIDES = [
       "teams helper",
     ]),
     displayName: "Microsoft Teams",
+    meetingPlatform: MEETING_PLATFORMS.teams,
     iconResource: "microsoftTeams",
   },
   {
@@ -244,54 +248,63 @@ const MIC_APP_NOTIFICATION_OVERRIDES = [
     ]),
     names: new Set(["cisco webex", "webex", "webex helper", "webex meetings"]),
     displayName: "Webex",
+    meetingPlatform: MEETING_PLATFORMS.webex,
     iconResource: "webex",
   },
   {
     ids: new Set(["com.slack.Slack", "com.tinyspeck.slackmacgap"]),
     names: new Set(["slack", "slack helper"]),
     displayName: "Slack",
+    meetingPlatform: MEETING_PLATFORMS.slack,
     iconResource: "slack",
   },
   {
     ids: new Set(["com.kakao.KakaoTalkMac"]),
     names: new Set(["kakaotalk", "kakaotalk helper"]),
     displayName: "KakaoTalk",
+    meetingPlatform: MEETING_PLATFORMS.kakaotalk,
     iconResource: "kakaotalk",
   },
   {
     ids: new Set(["net.whatsapp.WhatsApp"]),
     names: new Set(["whatsapp", "whatsapp helper"]),
     displayName: "WhatsApp",
+    meetingPlatform: MEETING_PLATFORMS.whatsapp,
     iconResource: "whatsapp",
   },
   {
     ids: new Set(["com.hnc.Discord", "com.discordapp.Discord"]),
     names: new Set(["discord", "discord helper"]),
     displayName: "Discord",
+    meetingPlatform: MEETING_PLATFORMS.discord,
     iconResource: "discord",
   },
   {
     ids: new Set(["org.whispersystems.signal-desktop"]),
     names: new Set(["signal", "signal helper"]),
     displayName: "Signal",
+    meetingPlatform: MEETING_PLATFORMS.signal,
     iconResource: "signal",
   },
   {
     ids: new Set(["ru.keepcoder.Telegram", "ru.keepcoder.TelegramLite"]),
     names: new Set(["telegram", "telegram helper", "telegram lite"]),
     displayName: "Telegram",
+    meetingPlatform: MEETING_PLATFORMS.telegram,
     iconResource: "telegram",
   },
   {
     ids: new Set(["jp.naver.line.mac"]),
     names: new Set(["line", "line helper"]),
     displayName: "LINE",
+    meetingPlatform: MEETING_PLATFORMS.line,
     iconResource: "line",
   },
   {
     ids: new Set(["com.facebook.archon"]),
     names: new Set(["messenger", "messenger helper"]),
     displayName: "Messenger",
+    meetingPlatform: MEETING_PLATFORMS.messenger,
     iconResource: "messenger",
   },
 ] satisfies MicAppNotificationOverride[];
@@ -541,9 +554,19 @@ function detectMeetingPlatformFromText(value: string): MeetingPlatform | null {
 
 function getBrowserMeetingPlatform(
   apps: MicApp[],
-  nearbyEvents: NearbyEvent[],
+  event: NearbyEvent | null,
 ): MeetingPlatform | null {
-  if (!apps.some(isBrowserApp)) {
+  if (!apps.some(isBrowserApp) || !event) {
+    return null;
+  }
+
+  if (
+    apps.some(
+      (app) =>
+        !isBrowserApp(app) &&
+        getMicAppNotificationOverride(app)?.meetingPlatform,
+    )
+  ) {
     return null;
   }
 
@@ -553,18 +576,16 @@ function getBrowserMeetingPlatform(
     "description",
     "title",
   ] satisfies Array<keyof NearbyEvent>) {
-    for (const event of nearbyEvents) {
-      const value = event[field];
-      if (!value) {
-        continue;
-      }
+    const value = event[field];
+    if (!value) {
+      continue;
+    }
 
-      const platform = value.startsWith("http")
-        ? detectMeetingPlatformFromUrl(value)
-        : detectMeetingPlatformFromText(value);
-      if (platform) {
-        return platform;
-      }
+    const platform = value.startsWith("http")
+      ? detectMeetingPlatformFromUrl(value)
+      : detectMeetingPlatformFromText(value);
+    if (platform) {
+      return platform;
     }
   }
 
@@ -826,19 +847,71 @@ function getNearbyEvents(
           typeof event.location === "string" ? event.location : undefined,
         description:
           typeof event.description === "string" ? event.description : undefined,
+        participantNames: getEventParticipantNames(event.participants_json),
         startedAt: startTime,
       });
     }
   });
 
-  results.sort((a, b) => a.startedAt - b.startedAt);
-  return results.map(({ id, title, meetingLink, location, description }) => ({
-    id,
-    title,
-    meetingLink,
-    location,
-    description,
-  }));
+  results.sort(
+    (a, b) =>
+      Math.abs(a.startedAt - now) - Math.abs(b.startedAt - now) ||
+      a.startedAt - b.startedAt,
+  );
+  return results.map(
+    ({ id, title, meetingLink, location, description, participantNames }) => ({
+      id,
+      title,
+      meetingLink,
+      location,
+      description,
+      participantNames,
+    }),
+  );
+}
+
+function getEventParticipantNames(participantsJson: unknown): string[] {
+  if (typeof participantsJson !== "string" || !participantsJson) {
+    return [];
+  }
+
+  try {
+    const participants = JSON.parse(participantsJson);
+    if (!Array.isArray(participants)) {
+      return [];
+    }
+
+    return [
+      ...new Set(
+        participants
+          .filter((participant) => participant?.is_current_user !== true)
+          .map((participant) =>
+            typeof participant?.name === "string"
+              ? participant.name.trim()
+              : "",
+          )
+          .filter(Boolean),
+      ),
+    ];
+  } catch {
+    return [];
+  }
+}
+
+function getMicDetectedNotificationTitle(event: NearbyEvent | null): string {
+  if (!event) {
+    return "Are you in a meeting?";
+  }
+
+  if (event.participantNames.length === 1) {
+    return `Are you talking to ${event.participantNames[0]} right now?`;
+  }
+
+  if (event.participantNames.length === 2) {
+    return `Are you talking to ${event.participantNames[0]} and ${event.participantNames[1]} right now?`;
+  }
+
+  return `Are you in ${event.title} right now?`;
 }
 
 const useHandleDetectEvents = (store: ListenerStore) => {
@@ -968,9 +1041,10 @@ const useHandleDetectEvents = (store: ListenerStore) => {
               const nearbyEvents = currentTinybaseStore
                 ? getNearbyEvents(currentTinybaseStore)
                 : [];
+              const nearbyEvent = nearbyEvents[0] ?? null;
               const browserMeetingPlatform = getBrowserMeetingPlatform(
                 payload.apps,
-                nearbyEvents,
+                nearbyEvent,
               );
               const displayApps = getNotificationDisplayApps(
                 payload.apps,
@@ -991,10 +1065,6 @@ const useHandleDetectEvents = (store: ListenerStore) => {
                 payload.apps,
                 browserMeetingPlatform,
               );
-              const options =
-                nearbyEvents.length > 0
-                  ? nearbyEvents.map((e) => e.title)
-                  : null;
               const footer =
                 displayIgnorableApps.length > 0
                   ? {
@@ -1011,7 +1081,7 @@ const useHandleDetectEvents = (store: ListenerStore) => {
 
               void notificationCommands.showNotification({
                 key: payload.key,
-                title: "Are you in a meeting?",
+                title: getMicDetectedNotificationTitle(nearbyEvent),
                 message: "",
                 timeout: { secs: 15, nanos: 0 },
                 source: {
@@ -1020,14 +1090,14 @@ const useHandleDetectEvents = (store: ListenerStore) => {
                     getNotificationAppName(app),
                   ),
                   app_ids: appIds,
-                  event_ids: nearbyEvents.map((e) => e.id),
+                  event_ids: nearbyEvent ? [nearbyEvent.id] : [],
                 },
                 start_time: null,
                 participants: null,
                 event_details: null,
-                action_label: null,
+                action_label: "Yes",
                 action_variant: null,
-                options,
+                options: null,
                 footer,
                 icon: notificationIcon,
               });

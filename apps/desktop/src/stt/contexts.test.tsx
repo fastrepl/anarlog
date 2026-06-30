@@ -95,6 +95,7 @@ function mockNearbyEventStore(event: {
   meeting_link?: string;
   location?: string;
   description?: string;
+  participants_json?: string;
   is_all_day?: boolean;
 }) {
   return mockNearbyEventStoreMany([event]);
@@ -108,6 +109,7 @@ function mockNearbyEventStoreMany(
     meeting_link?: string;
     location?: string;
     description?: string;
+    participants_json?: string;
     is_all_day?: boolean;
   }>,
 ) {
@@ -126,6 +128,7 @@ function mockNearbyEventStoreMany(
         meeting_link: event.meeting_link,
         location: event.location,
         description: event.description,
+        participants_json: event.participants_json,
         is_all_day: event.is_all_day ?? false,
       };
     }),
@@ -784,7 +787,9 @@ describe("ListenerProvider detect events", () => {
             app_ids: ["at.studio.AsideBrowser"],
             event_ids: ["event-1"],
           },
-          options: ["Design sync"],
+          title: "Are you in Design sync right now?",
+          action_label: "Yes",
+          options: null,
           footer: {
             text: "Ignore Google Meet?",
             actionLabel: "Yes",
@@ -797,6 +802,108 @@ describe("ListenerProvider detect events", () => {
             type: "path",
             path: "/resources/notification-icons/google-meet.svg",
           },
+        }),
+      ),
+    );
+  });
+
+  test("uses event participants for nearby mic notification copy", async () => {
+    const store = createListenerStore();
+
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-24T02:09:00.000Z"));
+    (useStoreMock as any).mockReturnValue(
+      mockNearbyEventStore({
+        title: "Design sync",
+        started_at: "2026-06-24T02:09:00.000Z",
+        participants_json: JSON.stringify([
+          { name: "John", email: "john@example.com", is_current_user: true },
+          { name: "Artem", email: "artem@example.com" },
+        ]),
+      }),
+    );
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+
+    const handler = listenMock.mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf("function");
+
+    handler({
+      payload: {
+        type: "micDetected",
+        key: "mic-1",
+        apps: [{ id: "us.zoom.xos", name: "Zoom" }],
+        duration_secs: 15,
+      },
+    });
+
+    await vi.waitFor(() =>
+      expect(showNotificationMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Are you talking to Artem right now?",
+          source: expect.objectContaining({
+            event_ids: ["event-1"],
+          }),
+          action_label: "Yes",
+          options: null,
+        }),
+      ),
+    );
+  });
+
+  test("uses event title for nearby mic notification copy with several participants", async () => {
+    const store = createListenerStore();
+
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-24T02:09:00.000Z"));
+    (useStoreMock as any).mockReturnValue(
+      mockNearbyEventStore({
+        title: "Design sync",
+        started_at: "2026-06-24T02:09:00.000Z",
+        participants_json: JSON.stringify([
+          { name: "John", email: "john@example.com", is_current_user: true },
+          { name: "Artem", email: "artem@example.com" },
+          { name: "Ananya", email: "ananya@example.com" },
+          { name: "Maria", email: "maria@example.com" },
+        ]),
+      }),
+    );
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+
+    const handler = listenMock.mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf("function");
+
+    handler({
+      payload: {
+        type: "micDetected",
+        key: "mic-1",
+        apps: [{ id: "us.zoom.xos", name: "Zoom" }],
+        duration_secs: 15,
+      },
+    });
+
+    await vi.waitFor(() =>
+      expect(showNotificationMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Are you in Design sync right now?",
+          source: expect.objectContaining({
+            event_ids: ["event-1"],
+          }),
+          action_label: "Yes",
+          options: null,
         }),
       ),
     );
@@ -902,8 +1009,11 @@ describe("ListenerProvider detect events", () => {
         expect.objectContaining({
           source: expect.objectContaining({
             app_names: ["Google Meet"],
-            event_ids: ["event-1", "event-2"],
+            event_ids: ["event-2"],
           }),
+          title: "Are you in Design sync right now?",
+          action_label: "Yes",
+          options: null,
           footer: expect.objectContaining({
             text: "Ignore Google Meet?",
           }),
@@ -911,6 +1021,62 @@ describe("ListenerProvider detect events", () => {
             type: "path",
             path: "/resources/notification-icons/google-meet.svg",
           },
+        }),
+      ),
+    );
+  });
+
+  test("does not infer browser platform from a different nearby event", async () => {
+    const store = createListenerStore();
+
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-24T02:09:00.000Z"));
+    (useStoreMock as any).mockReturnValue(
+      mockNearbyEventStoreMany([
+        {
+          title: "Sales sync",
+          started_at: "2026-06-24T02:09:00.000Z",
+        },
+        {
+          title: "Design sync",
+          started_at: "2026-06-24T02:10:00.000Z",
+          meeting_link: "https://meet.google.com/abc-defg-hij",
+        },
+      ]),
+    );
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+
+    const handler = listenMock.mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf("function");
+
+    handler({
+      payload: {
+        type: "micDetected",
+        key: "mic-1",
+        apps: [{ id: "com.google.Chrome", name: "Google Chrome" }],
+        duration_secs: 15,
+      },
+    });
+
+    await vi.waitFor(() =>
+      expect(showNotificationMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          source: expect.objectContaining({
+            app_names: ["Google Chrome"],
+            event_ids: ["event-1"],
+          }),
+          title: "Are you in Sales sync right now?",
+          footer: expect.objectContaining({
+            text: "Ignore Google Chrome?",
+          }),
+          icon: { type: "bundle_id", bundle_id: "com.google.Chrome" },
         }),
       ),
     );
@@ -1092,7 +1258,7 @@ describe("ListenerProvider detect events", () => {
     );
   });
 
-  test("keeps main and footer icons aligned for mixed native and browser mic notifications", async () => {
+  test("does not let calendar video links override detected native meeting apps", async () => {
     const store = createListenerStore();
 
     vi.useFakeTimers();
@@ -1121,30 +1287,30 @@ describe("ListenerProvider detect events", () => {
         type: "micDetected",
         key: "mic-1",
         apps: [
-          { id: "us.zoom.xos", name: "Zoom" },
+          { id: "com.tinyspeck.slackmacgap", name: "Slack" },
           { id: "com.google.Chrome", name: "Google Chrome" },
         ],
         duration_secs: 15,
       },
     });
 
-    const zoomIcon = {
+    const slackIcon = {
       type: "path",
-      path: "/resources/notification-icons/zoom.svg",
+      path: "/resources/notification-icons/slack.svg",
     };
 
     await vi.waitFor(() =>
       expect(showNotificationMock).toHaveBeenCalledWith(
         expect.objectContaining({
           source: expect.objectContaining({
-            app_names: ["Zoom", "Google Meet"],
-            app_ids: ["us.zoom.xos", "com.google.Chrome"],
+            app_names: ["Slack", "Google Chrome"],
+            app_ids: ["com.tinyspeck.slackmacgap", "com.google.Chrome"],
           }),
           footer: expect.objectContaining({
-            text: "Ignore Zoom and Google Meet?",
-            icon: zoomIcon,
+            text: "Ignore Slack and Google Chrome?",
+            icon: slackIcon,
           }),
-          icon: zoomIcon,
+          icon: slackIcon,
         }),
       ),
     );
@@ -1191,6 +1357,9 @@ describe("ListenerProvider detect events", () => {
             app_ids: ["at.studio.AsideBrowser"],
             event_ids: ["event-1"],
           }),
+          title: "Are you in Founder call right now?",
+          action_label: "Yes",
+          options: null,
           footer: expect.objectContaining({
             text: "Ignore Cal Video?",
             icon: {

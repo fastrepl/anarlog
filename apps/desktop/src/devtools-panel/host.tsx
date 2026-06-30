@@ -264,21 +264,21 @@ function useDevtoolsPanelActions() {
   const showMicOptionsNotification = useCallback(async () => {
     await notificationCommands.showNotification({
       key: `devtool-mic-options-${crypto.randomUUID()}`,
-      title: "Are you in a meeting?",
+      title: "Are you in Design sync right now?",
       message: "",
       timeout: { secs: 15, nanos: 0 },
       source: {
         type: "mic_detected",
         app_names: ["Zoom", "Google Chrome"],
         app_ids: ["us.zoom.xos", "com.google.Chrome"],
-        event_ids: [],
+        event_ids: ["devtool-event-1"],
       },
       start_time: null,
       participants: null,
       event_details: null,
-      action_label: null,
+      action_label: "Yes",
       action_variant: null,
-      options: ["Design sync", "Customer call"],
+      options: null,
       footer: {
         text: "Ignore Zoom and Chrome?",
         actionLabel: "Yes",
