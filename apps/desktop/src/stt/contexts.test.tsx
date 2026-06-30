@@ -639,12 +639,12 @@ describe("ListenerProvider detect events", () => {
             actionLabel: "Yes",
             icon: {
               type: "path",
-              path: "/resources/notification-icons/zoom.png",
+              path: "/resources/notification-icons/zoom.svg",
             },
           },
           icon: {
             type: "path",
-            path: "/resources/notification-icons/zoom.png",
+            path: "/resources/notification-icons/zoom.svg",
           },
         }),
       ),
@@ -790,12 +790,12 @@ describe("ListenerProvider detect events", () => {
             actionLabel: "Yes",
             icon: {
               type: "path",
-              path: "/resources/notification-icons/google-meet.png",
+              path: "/resources/notification-icons/google-meet.svg",
             },
           },
           icon: {
             type: "path",
-            path: "/resources/notification-icons/google-meet.png",
+            path: "/resources/notification-icons/google-meet.svg",
           },
         }),
       ),
@@ -846,12 +846,12 @@ describe("ListenerProvider detect events", () => {
             text: "Ignore Microsoft Teams?",
             icon: {
               type: "path",
-              path: "/resources/notification-icons/microsoft-teams.png",
+              path: "/resources/notification-icons/microsoft-teams.svg",
             },
           }),
           icon: {
             type: "path",
-            path: "/resources/notification-icons/microsoft-teams.png",
+            path: "/resources/notification-icons/microsoft-teams.svg",
           },
         }),
       ),
@@ -909,7 +909,7 @@ describe("ListenerProvider detect events", () => {
           }),
           icon: {
             type: "path",
-            path: "/resources/notification-icons/google-meet.png",
+            path: "/resources/notification-icons/google-meet.svg",
           },
         }),
       ),
@@ -1130,7 +1130,7 @@ describe("ListenerProvider detect events", () => {
 
     const zoomIcon = {
       type: "path",
-      path: "/resources/notification-icons/zoom.png",
+      path: "/resources/notification-icons/zoom.svg",
     };
 
     await vi.waitFor(() =>
