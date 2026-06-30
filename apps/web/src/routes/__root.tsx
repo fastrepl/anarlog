@@ -24,7 +24,7 @@ interface RouterContext {
 }
 
 const FONT_STYLESHEETS = [
-  "https://fonts.googleapis.com/css2?family=Caveat:wght@400..700&family=Patrick+Hand&display=swap",
+  "https://fonts.googleapis.com/css2?family=Caveat:wght@400..700&family=Patrick+Hand&family=Reenie+Beanie&display=swap",
 ] as const;
 
 export const Route = createRootRouteWithContext<RouterContext>()({
