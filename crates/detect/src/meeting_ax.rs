@@ -172,6 +172,8 @@ pub fn send_meeting_chat_message(message: String) -> MeetingChatSendResult {
         };
     }
 
+    let mut last_recognized_failure = None;
+
     for (app, pid) in running_meeting_apps() {
         let mut warnings = Vec::new();
         let ax_app = ax::UiElement::with_app_pid(pid);
@@ -196,24 +198,44 @@ pub fn send_meeting_chat_message(message: String) -> MeetingChatSendResult {
 
         let surface = classify_surface(&app.id, &platform);
 
-        let mut chat_elements = Vec::new();
-        collect_chat_elements(&ax_app, 0, &mut chat_elements);
-        chat_elements
-            .sort_by(|a, b| chat_element_score(&b.node).total_cmp(&chat_element_score(&a.node)));
+        let mut chat_elements = collect_sorted_chat_elements(&ax_app);
 
-        let input = chat_elements.iter().find(|item| {
-            candidate_chat_target(&item.node).is_some_and(|target| target.kind == "input")
-        });
-        let Some(input) = input else {
+        if find_chat_input_index(&chat_elements).is_none() {
+            if let Some(control_index) = find_chat_open_control_index(&chat_elements) {
+                let control = &chat_elements[control_index];
+                let label = control_label(&control.node)
+                    .unwrap_or_else(|| "meeting chat control".to_string());
+
+                match control.element.perform_action(ax::action::press()) {
+                    Ok(_) => {
+                        warnings.push(format!("opened chat control via AX: {label}"));
+                        chat_elements = collect_sorted_chat_elements(&ax_app);
+                    }
+                    Err(error) => {
+                        warnings.push(format!("failed to open chat control via AX: {error:?}"));
+                    }
+                }
+            }
+        }
+
+        let Some(input_index) = find_chat_input_index(&chat_elements) else {
+            warnings.push(
+                "recognized meeting surface did not expose a writable chat input".to_string(),
+            );
+            last_recognized_failure = Some(MeetingChatSendResult {
+                sent: false,
+                app: Some(app),
+                platform,
+                surface,
+                input_label: None,
+                send_action: None,
+                warnings,
+            });
             continue;
         };
+        let input = &chat_elements[input_index];
 
-        let label = input
-            .node
-            .title
-            .clone()
-            .or_else(|| input.node.placeholder.clone())
-            .or_else(|| input.node.description.clone());
+        let label = control_label(&input.node);
 
         let message_value = cf::String::from_str(&message);
         let mut input_element = input.element.retained();
@@ -236,10 +258,8 @@ pub fn send_meeting_chat_message(message: String) -> MeetingChatSendResult {
             };
         }
 
-        if let Some(button) = chat_elements.iter().find(|item| {
-            candidate_chat_target(&item.node)
-                .is_some_and(|target| target.kind == "sendButton" && target.enabled != Some(false))
-        }) {
+        if let Some(button_index) = find_send_button_index(&chat_elements) {
+            let button = &chat_elements[button_index];
             if button.element.perform_action(ax::action::press()).is_ok() {
                 return MeetingChatSendResult {
                     sent: true,
@@ -263,6 +283,10 @@ pub fn send_meeting_chat_message(message: String) -> MeetingChatSendResult {
             send_action: None,
             warnings,
         };
+    }
+
+    if let Some(result) = last_recognized_failure {
+        return result;
     }
 
     MeetingChatSendResult {
@@ -321,6 +345,14 @@ fn running_meeting_apps() -> Vec<(MeetingApp, i32)> {
 }
 
 #[cfg(target_os = "macos")]
+fn collect_sorted_chat_elements(element: &ax::UiElement) -> Vec<AxChatElement> {
+    let mut elements = Vec::new();
+    collect_chat_elements(element, 0, &mut elements);
+    elements.sort_by(|a, b| chat_element_score(&b.node).total_cmp(&chat_element_score(&a.node)));
+    elements
+}
+
+#[cfg(target_os = "macos")]
 fn collect_chat_elements(element: &ax::UiElement, depth: usize, elements: &mut Vec<AxChatElement>) {
     if depth > MAX_TREE_DEPTH || elements.len() >= MAX_NODES {
         return;
@@ -349,6 +381,39 @@ fn chat_element_score(node: &AxNode) -> f32 {
     candidate_chat_target(node)
         .map(|target| target.confidence)
         .unwrap_or(0.0)
+}
+
+#[cfg(target_os = "macos")]
+fn find_chat_input_index(elements: &[AxChatElement]) -> Option<usize> {
+    elements.iter().position(|item| {
+        candidate_chat_target(&item.node)
+            .is_some_and(|target| target.kind == "input" && target.settable)
+    })
+}
+
+#[cfg(target_os = "macos")]
+fn find_send_button_index(elements: &[AxChatElement]) -> Option<usize> {
+    elements.iter().position(|item| {
+        candidate_chat_target(&item.node)
+            .is_some_and(|target| target.kind == "sendButton" && target.enabled != Some(false))
+    })
+}
+
+#[cfg(target_os = "macos")]
+fn find_chat_open_control_index(elements: &[AxChatElement]) -> Option<usize> {
+    elements.iter().position(|item| {
+        candidate_chat_target(&item.node)
+            .is_some_and(|target| target.kind == "openChatControl" && target.enabled != Some(false))
+    })
+}
+
+#[cfg(target_os = "macos")]
+fn control_label(node: &AxNode) -> Option<String> {
+    node.title
+        .clone()
+        .or_else(|| node.placeholder.clone())
+        .or_else(|| node.description.clone())
+        .or_else(|| node.value.clone())
 }
 
 #[cfg(target_os = "macos")]
@@ -625,12 +690,24 @@ fn candidate_stream(
         confidence += 0.2;
         signals.push("profile-child".to_string());
     }
-    if text.contains("speaking")
-        || text.contains("active speaker")
-        || text.contains("computer audio unmuted")
-    {
+    if text.contains("speaking") || text.contains("active speaker") {
         confidence += 0.25;
         signals.push("speaker-state-label".to_string());
+    }
+    if text.contains("computer audio unmuted")
+        || text.contains("no audio connected")
+        || text.contains("muted")
+    {
+        confidence += 0.15;
+        signals.push("audio-state-label".to_string());
+    }
+    if text.contains("participant id:")
+        || text.contains("(host")
+        || text.contains("(me")
+        || text.contains("organizer")
+    {
+        confidence += 0.35;
+        signals.push("participant-row-label".to_string());
     }
     if area >= MIN_VIDEO_AREA {
         confidence += 0.15;
@@ -667,10 +744,7 @@ fn participant_name_from_label(label: Option<&str>) -> Option<String> {
     let label = label?.trim();
 
     if let Some(name) = label.strip_prefix("Video render ") {
-        return Some(
-            name.trim_end_matches(", Computer audio unmuted")
-                .to_string(),
-        );
+        return Some(name.split(',').next().unwrap_or(name).trim().to_string());
     }
 
     if let Some(name) = label.strip_prefix("View ") {
@@ -704,6 +778,17 @@ fn candidate_chat_target(node: &AxNode) -> Option<MeetingChatTarget> {
     let mut signals = Vec::new();
     let mut kind = "unknown";
 
+    let is_button = role == "AXButton" || role == "AXMenuItem";
+    let is_send_button = text.contains("send") && is_button;
+    let is_chat_control = is_button
+        && !is_send_button
+        && (text == "axbutton chat"
+            || text == "axmenuitem chat"
+            || text.contains("meeting chat")
+            || text.contains("open chat")
+            || text.contains("show chat")
+            || text.contains(" chat"));
+
     if role == "AXTextArea" || role == "AXTextField" {
         confidence += 0.25;
         signals.push("text-input-role".to_string());
@@ -717,7 +802,12 @@ fn candidate_chat_target(node: &AxNode) -> Option<MeetingChatTarget> {
         confidence += 0.4;
         signals.push("chat-label".to_string());
     }
-    if text.contains("send") && role == "AXButton" {
+    if is_chat_control {
+        confidence += 0.45;
+        signals.push("open-chat-control".to_string());
+        kind = "openChatControl";
+    }
+    if is_send_button {
         confidence += 0.35;
         signals.push("send-button".to_string());
         kind = "sendButton";
@@ -800,7 +890,7 @@ mod tests {
     }
 
     #[test]
-    fn test_zoom_video_render_becomes_active_stream_candidate() {
+    fn test_zoom_video_render_becomes_stream_candidate_with_audio_state() {
         let nodes = vec![node(
             7,
             "AXGroup",
@@ -821,8 +911,39 @@ mod tests {
             streams[0].participant_name,
             Some("Ada Lovelace".to_string())
         );
-        assert!(streams[0].is_active_speaker);
+        assert!(!streams[0].is_active_speaker);
         assert!(streams[0].confidence > 0.6);
+        assert!(
+            streams[0]
+                .signals
+                .contains(&"audio-state-label".to_string())
+        );
+    }
+
+    #[test]
+    fn test_explicit_active_speaker_label_marks_stream_active() {
+        let nodes = vec![node(
+            9,
+            "AXGroup",
+            "Video render Grace Hopper, active speaker",
+            Some(AxRect {
+                x: 0.0,
+                y: 0.0,
+                width: 320.0,
+                height: 180.0,
+            }),
+        )];
+
+        let streams =
+            find_participant_streams(&MeetingPlatform::Zoom, &MeetingSurface::Native, &nodes);
+
+        assert_eq!(streams.len(), 1);
+        assert!(streams[0].is_active_speaker);
+        assert!(
+            streams[0]
+                .signals
+                .contains(&"speaker-state-label".to_string())
+        );
     }
 
     #[test]
@@ -842,6 +963,41 @@ mod tests {
         assert_eq!(target.kind, "input");
         assert!(target.settable);
         assert!(target.confidence > 0.7);
+    }
+
+    #[test]
+    fn test_chat_button_is_open_chat_control_not_input() {
+        let target = candidate_chat_target(&node(4, "AXButton", "Chat", None)).unwrap();
+
+        assert_eq!(target.kind, "openChatControl");
+        assert!(!target.settable);
+        assert!(target.signals.contains(&"open-chat-control".to_string()));
+    }
+
+    #[test]
+    fn test_zoom_participant_roster_row_becomes_stream_candidate() {
+        let streams = find_participant_streams(
+            &MeetingPlatform::Zoom,
+            &MeetingSurface::Native,
+            &[node(
+                11,
+                "AXStaticText",
+                "Ada Lovelace (Host, me, Participant ID:417329) No audio connected",
+                None,
+            )],
+        );
+
+        assert_eq!(streams.len(), 1);
+        assert!(
+            streams[0]
+                .signals
+                .contains(&"participant-row-label".to_string())
+        );
+        assert!(
+            streams[0]
+                .signals
+                .contains(&"audio-state-label".to_string())
+        );
     }
 
     #[test]
