@@ -13,20 +13,21 @@ enum FloatingBarLayout {
   static let expandedHeight: CGFloat = 430
   static let expandedCornerRadius: CGFloat = 20
   static let expandedPadding: CGFloat = 12
-  static let headerHeight: CGFloat = 32
-  static let headerIconSize: CGFloat = 30
   static let waveformWidth: CGFloat = 26
   static let waveformHeight: CGFloat = 14
   static let stopSquareSize: CGFloat = 9
   static let dragClickThreshold: CGFloat = 4
-  static let visualCenterOffset: CGFloat = 0
 
-  static func compactWidth(showsExpand: Bool) -> CGFloat {
+  static func compactControlsWidth(showsExpand: Bool) -> CGFloat {
     if showsExpand {
-      return compactStopWidth + compactGap + compactIconSize + inset * 2
+      return compactStopWidth + compactGap + compactIconSize
     }
 
-    return compactSoloStopWidth + inset * 2
+    return compactSoloStopWidth
+  }
+
+  static func compactWidth(showsExpand: Bool) -> CGFloat {
+    compactControlsWidth(showsExpand: showsExpand) + inset * 2
   }
 
   static func containerSize(isExpanded: Bool, showsExpand: Bool) -> NSSize {
@@ -63,103 +64,92 @@ struct FloatingBarView: View {
     .frame(
       width: containerSize.width,
       height: containerSize.height,
-      alignment: .top
+      alignment: .topTrailing
     )
     .contentShape(Rectangle())
     .simultaneousGesture(dragClickSuppressor)
   }
 
   private var compactPill: some View {
-    HStack(spacing: FloatingBarLayout.compactGap) {
-      audioControl(
-        width: model.liveCaptionToggleVisible
-          ? FloatingBarLayout.compactStopWidth : FloatingBarLayout.compactSoloStopWidth,
-        height: FloatingBarLayout.compactIconSize
+    floatingControls(isExpanded: false)
+      .frame(
+        width: FloatingBarLayout.compactControlsWidth(showsExpand: model.liveCaptionToggleVisible),
+        height: FloatingBarLayout.compactHeight
       )
-
-      if model.liveCaptionToggleVisible {
-        FloatingIconButton(
-          systemName: "arrow.up.left.and.arrow.down.right",
-          accessibilityLabel: "Expand live transcript",
-          color: primaryContentColor,
-          hoverFill: controlHoverFill,
-          size: FloatingBarLayout.compactIconSize,
-          action: { performClick { setExpanded(true) } }
-        )
-      }
-    }
-    .frame(
-      width: FloatingBarLayout.compactWidth(showsExpand: model.liveCaptionToggleVisible)
-        - FloatingBarLayout.inset * 2,
-      height: FloatingBarLayout.compactHeight
-    )
-    .background(
-      Capsule(style: .continuous)
-        .fill(surfaceColor)
-    )
-    .overlay(
-      Capsule(style: .continuous)
-        .strokeBorder(outerStrokeColor, lineWidth: 0.5)
-    )
-    .overlay(
-      Capsule(style: .continuous)
-        .strokeBorder(innerStrokeColor, lineWidth: 0.5)
-        .padding(1.5)
-    )
+      .background(
+        Capsule(style: .continuous)
+          .fill(surfaceColor)
+      )
+      .overlay(
+        Capsule(style: .continuous)
+          .strokeBorder(outerStrokeColor, lineWidth: 0.5)
+      )
+      .overlay(
+        Capsule(style: .continuous)
+          .strokeBorder(innerStrokeColor, lineWidth: 0.5)
+          .padding(1.5)
+      )
   }
 
   private var expandedPanel: some View {
-    VStack(spacing: 12) {
-      HStack(spacing: 8) {
-        Text(model.title)
-          .font(.system(size: 13, weight: .semibold))
-          .foregroundStyle(primaryContentColor)
-          .lineLimit(1)
-          .truncationMode(.tail)
+    ZStack(alignment: .topTrailing) {
+      VStack(spacing: 12) {
+        HStack {
+          Text(model.title)
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(primaryContentColor)
+            .lineLimit(1)
+            .truncationMode(.tail)
 
-        Spacer(minLength: 12)
-
-        audioControl(
-          width: 46,
-          height: FloatingBarLayout.headerIconSize
+          Spacer(minLength: 12)
+        }
+        .padding(.leading, FloatingBarLayout.expandedPadding)
+        .padding(
+          .trailing,
+          FloatingBarLayout.compactControlsWidth(showsExpand: model.liveCaptionToggleVisible)
+            + 12
         )
+        .frame(height: FloatingBarLayout.compactHeight)
 
-        FloatingIconButton(
-          systemName: "arrow.down.right.and.arrow.up.left",
-          accessibilityLabel: "Collapse live transcript",
-          color: primaryContentColor,
-          hoverFill: controlHoverFill,
-          size: FloatingBarLayout.headerIconSize,
-          action: { performClick { setExpanded(false) } }
-        )
-      }
-      .frame(height: FloatingBarLayout.headerHeight)
-
-      ScrollViewReader { proxy in
-        ScrollView(.vertical, showsIndicators: false) {
-          VStack(spacing: 8) {
-            ForEach(model.transcriptBubbles) { bubble in
-              TranscriptBubbleView(
-                bubble: bubble,
-                accentColor: accentColor,
-                primaryContentColor: primaryContentColor,
-                secondaryContentColor: secondaryContentColor,
-                colorScheme: model.colorScheme
-              )
-              .id(bubble.id)
+        ScrollViewReader { proxy in
+          ScrollView(.vertical, showsIndicators: false) {
+            VStack(spacing: 8) {
+              ForEach(model.transcriptBubbles) { bubble in
+                TranscriptBubbleView(
+                  bubble: bubble,
+                  accentColor: accentColor,
+                  primaryContentColor: primaryContentColor,
+                  secondaryContentColor: secondaryContentColor,
+                  colorScheme: model.colorScheme
+                )
+                .id(bubble.id)
+              }
+            }
+            .frame(maxWidth: .infinity, alignment: .bottom)
+          }
+          .frame(maxWidth: .infinity, maxHeight: .infinity)
+          .onChange(of: model.transcriptBubbles.last?.id) { _, bubbleId in
+            if let bubbleId {
+              proxy.scrollTo(bubbleId, anchor: .bottom)
             }
           }
-          .frame(maxWidth: .infinity, alignment: .bottom)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onChange(of: model.transcriptBubbles.last?.id) { _, bubbleId in
-          if let bubbleId {
-            proxy.scrollTo(bubbleId, anchor: .bottom)
-          }
-        }
+        .padding(.horizontal, FloatingBarLayout.expandedPadding)
+        .padding(.bottom, FloatingBarLayout.expandedPadding)
       }
+      .frame(
+        width: FloatingBarLayout.expandedWidth,
+        height: FloatingBarLayout.expandedHeight,
+        alignment: .top
+      )
+
+      floatingControls(isExpanded: true)
+        .frame(
+          width: FloatingBarLayout.compactControlsWidth(
+            showsExpand: model.liveCaptionToggleVisible),
+          height: FloatingBarLayout.compactHeight
+        )
     }
-    .padding(FloatingBarLayout.expandedPadding)
     .frame(
       width: FloatingBarLayout.expandedWidth,
       height: FloatingBarLayout.expandedHeight,
@@ -187,6 +177,28 @@ struct FloatingBarView: View {
       .strokeBorder(innerStrokeColor, lineWidth: 0.5)
       .padding(1.5)
     )
+  }
+
+  private func floatingControls(isExpanded: Bool) -> some View {
+    HStack(spacing: FloatingBarLayout.compactGap) {
+      audioControl(
+        width: model.liveCaptionToggleVisible
+          ? FloatingBarLayout.compactStopWidth : FloatingBarLayout.compactSoloStopWidth,
+        height: FloatingBarLayout.compactIconSize
+      )
+
+      if model.liveCaptionToggleVisible {
+        FloatingIconButton(
+          systemName: isExpanded
+            ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right",
+          accessibilityLabel: isExpanded ? "Collapse live transcript" : "Expand live transcript",
+          color: primaryContentColor,
+          hoverFill: controlHoverFill,
+          size: FloatingBarLayout.compactIconSize,
+          action: { performClick { setExpanded(!isExpanded) } }
+        )
+      }
+    }
   }
 
   private func audioControl(width: CGFloat, height: CGFloat) -> some View {

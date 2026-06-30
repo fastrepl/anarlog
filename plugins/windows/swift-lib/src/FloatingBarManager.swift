@@ -126,7 +126,7 @@ final class FloatingBarManager {
     ) { screen, size in
       let frame = screen.visibleFrame
       let x = frame.maxX - size.width - FloatingBarLayout.screenMargin
-      let y = frame.midY - size.height / 2 - FloatingBarLayout.visualCenterOffset
+      let y = frame.maxY - size.height - FloatingBarLayout.screenMargin
       return NSPoint(x: x, y: y)
     }
   }
@@ -135,13 +135,12 @@ final class FloatingBarManager {
     let size = currentSize
     guard panel.frame.size != size else { return }
 
-    panel.setFrame(
-      NSRect(
-        x: panel.frame.minX,
-        y: panel.frame.midY - size.height / 2,
-        width: size.width,
-        height: size.height),
-      display: true)
+    let frame = NSRect(
+      x: panel.frame.maxX - size.width,
+      y: panel.frame.maxY - size.height,
+      width: size.width,
+      height: size.height)
+    placement.setFrame(panel, to: frame, display: true, animate: false)
     panel.contentView?.frame = NSRect(origin: .zero, size: size)
   }
 
