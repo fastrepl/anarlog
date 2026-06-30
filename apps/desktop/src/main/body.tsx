@@ -24,6 +24,7 @@ import {
   events as windowsEvents,
 } from "@hypr/plugin-windows";
 import {
+  type ImperativePanelHandle,
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
@@ -57,6 +58,7 @@ const MAIN_AREA_WINDOW_DRAG_THRESHOLD_PX = 5;
 const LEFT_SIDEBAR_DEFAULT_WIDTH_PX = 200;
 const LEFT_SIDEBAR_MIN_WIDTH_PX = 200;
 const LEFT_SIDEBAR_MAX_WIDTH_PX = 360;
+const LEFT_SIDEBAR_COLLAPSED_SIZE = 0;
 const LEFT_SIDEBAR_FALLBACK_CONTAINER_WIDTH_PX = 1000;
 const showDevtoolsPanelButton = import.meta.env.DEV;
 
@@ -82,7 +84,9 @@ export function ClassicMainBody() {
     leftSidebarPanelConstraints.defaultSize,
   );
   const bodyRootRef = useRef<HTMLDivElement>(null);
+  const leftSidebarPanelRef = useRef<ImperativePanelHandle>(null);
   const leftSidebarPanelSizeRef = useRef(leftSidebarPanelSize);
+  const lastExpandedLeftSidebarPanelSizeRef = useRef(leftSidebarPanelSize);
   const leftSidebarResizeDraggingRef = useRef(false);
   const [showIgnoredTimelineEvents, setShowIgnoredTimelineEvents] =
     useState(false);
@@ -177,8 +181,16 @@ export function ClassicMainBody() {
         leftSidebarPanelSizeRef.current = sidebarSize;
         applyLeftSidebarPanelSize(sidebarSize);
 
+        if (sidebarSize > LEFT_SIDEBAR_COLLAPSED_SIZE) {
+          lastExpandedLeftSidebarPanelSizeRef.current = sidebarSize;
+        }
+
         if (!leftSidebarResizeDraggingRef.current) {
-          commitLeftSidebarPanelSize(sidebarSize);
+          commitLeftSidebarPanelSize(
+            sidebarSize > LEFT_SIDEBAR_COLLAPSED_SIZE
+              ? sidebarSize
+              : lastExpandedLeftSidebarPanelSizeRef.current,
+          );
         }
       }
     },
@@ -194,17 +206,59 @@ export function ClassicMainBody() {
       setLeftSidebarResizing(isDragging);
 
       if (!isDragging) {
-        commitLeftSidebarPanelSize(leftSidebarPanelSizeRef.current);
+        commitLeftSidebarPanelSize(
+          leftSidebarPanelSizeRef.current > LEFT_SIDEBAR_COLLAPSED_SIZE
+            ? leftSidebarPanelSizeRef.current
+            : lastExpandedLeftSidebarPanelSizeRef.current,
+        );
       }
     },
     [commitLeftSidebarPanelSize],
   );
+  const restoreLeftSidebarPanelSize = useCallback(() => {
+    const restoredSize = Math.max(
+      lastExpandedLeftSidebarPanelSizeRef.current,
+      leftSidebarPanelConstraints.minSize,
+    );
+
+    leftSidebarPanelSizeRef.current = restoredSize;
+    lastExpandedLeftSidebarPanelSizeRef.current = restoredSize;
+    commitLeftSidebarPanelSize(restoredSize);
+    applyLeftSidebarPanelSize(restoredSize);
+    resizeLeftSidebarPanel(leftSidebarPanelRef.current, restoredSize);
+  }, [
+    applyLeftSidebarPanelSize,
+    commitLeftSidebarPanelSize,
+    leftSidebarPanelConstraints.minSize,
+  ]);
+  const handleLeftSidebarPanelCollapse = useCallback(() => {
+    leftSidebarResizeDraggingRef.current = false;
+    setLeftSidebarResizing(false);
+    restoreLeftSidebarPanelSize();
+    leftsidebar.setExpanded(false);
+  }, [leftsidebar.setExpanded, restoreLeftSidebarPanelSize]);
   const handleToggleLeftSidebar = useCallback(() => {
     leftSidebarResizeDraggingRef.current = false;
     setLeftSidebarResizing(false);
-    commitLeftSidebarPanelSize(leftSidebarPanelSizeRef.current);
+
+    if (!leftsidebar.expanded) {
+      restoreLeftSidebarPanelSize();
+      leftsidebar.toggleExpanded();
+      return;
+    }
+
+    commitLeftSidebarPanelSize(
+      leftSidebarPanelSizeRef.current > LEFT_SIDEBAR_COLLAPSED_SIZE
+        ? leftSidebarPanelSizeRef.current
+        : lastExpandedLeftSidebarPanelSizeRef.current,
+    );
     leftsidebar.toggleExpanded();
-  }, [commitLeftSidebarPanelSize, leftsidebar.toggleExpanded]);
+  }, [
+    commitLeftSidebarPanelSize,
+    leftsidebar.expanded,
+    leftsidebar.toggleExpanded,
+    restoreLeftSidebarPanelSize,
+  ]);
   const handleLeftSidebarChromeWheel = useCallback(
     (event: WheelEvent<HTMLDivElement>) => {
       if (!showSidebarTimeline) {
@@ -333,11 +387,15 @@ export function ClassicMainBody() {
         {mountLeftSidebarPanel ? (
           <>
             <ResizablePanel
+              ref={leftSidebarPanelRef}
               id="classic-main-sidebar-left"
               order={1}
+              collapsible
+              collapsedSize={LEFT_SIDEBAR_COLLAPSED_SIZE}
               defaultSize={leftSidebarPanelConstraints.defaultSize}
               minSize={leftSidebarPanelConstraints.minSize}
               maxSize={leftSidebarPanelConstraints.maxSize}
+              onCollapse={handleLeftSidebarPanelCollapse}
               className={cn([
                 "min-h-0 overflow-hidden",
                 !leftsidebar.expanded && "pointer-events-none",
@@ -442,6 +500,27 @@ function getInitialMainAreaWidthPx() {
 
 function percentageFromPixels(widthPx: number, containerWidthPx: number) {
   return Math.min((widthPx / containerWidthPx) * 100, 100);
+}
+
+function resizeLeftSidebarPanel(
+  panel: ImperativePanelHandle | null,
+  size: number,
+) {
+  if (!panel) {
+    return;
+  }
+
+  try {
+    panel.resize(size);
+  } catch {
+    window.requestAnimationFrame(() => {
+      try {
+        panel.resize(size);
+      } catch {
+        // The panel can be layoutless while hidden; the CSS variables still restore visual width on reopen.
+      }
+    });
+  }
 }
 
 function useMainAreaTopWindowDrag(enabled: boolean) {

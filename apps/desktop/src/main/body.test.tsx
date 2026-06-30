@@ -6,6 +6,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import { forwardRef, useImperativeHandle } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -17,10 +18,21 @@ const mocks = vi.hoisted(() => ({
   } as ({ type: string } & Record<string, unknown>) | null,
   leftsidebar: {
     expanded: true,
+    setExpanded: vi.fn(),
     toggleExpanded: vi.fn(),
   },
+  onPanelCollapse: null as null | (() => void),
   onPanelLayout: null as null | ((sizes: number[]) => void),
   onResizeDragging: null as null | ((isDragging: boolean) => void),
+  leftSidebarPanelHandle: {
+    collapse: vi.fn(),
+    expand: vi.fn(),
+    getId: vi.fn(() => "classic-main-sidebar-left"),
+    getSize: vi.fn(() => 12.5),
+    isCollapsed: vi.fn(() => false),
+    isExpanded: vi.fn(() => true),
+    resize: vi.fn(),
+  },
   tabContentRenderCount: 0,
   devtoolsPanelActionListeners: [] as Array<
     (event: { payload: { action: string } }) => void
@@ -61,40 +73,61 @@ vi.mock("@hypr/ui/components/ui/resizable", () => ({
       </div>
     );
   },
-  ResizablePanel: ({
-    children,
-    className,
-    defaultSize,
-    id,
-    maxSize,
-    minSize,
-    order,
-    style,
-  }: {
-    children: React.ReactNode;
-    className?: string;
-    defaultSize?: number;
-    id?: string;
-    maxSize?: number;
-    minSize?: number;
-    order?: number;
-    style?: React.CSSProperties;
-  }) => (
-    <div
-      data-class-name={className}
-      data-default-size={defaultSize}
-      data-panel-id={id}
-      data-max-size={maxSize}
-      data-min-size={minSize}
-      data-flex-grow={style?.flexGrow}
-      data-max-width={style?.maxWidth}
-      data-min-width={style?.minWidth}
-      data-order={order}
-      data-transition={style?.transition}
-      data-testid="panel"
-    >
-      {children}
-    </div>
+  ResizablePanel: forwardRef(
+    (
+      {
+        children,
+        className,
+        collapsedSize,
+        collapsible,
+        defaultSize,
+        id,
+        maxSize,
+        minSize,
+        onCollapse,
+        order,
+        style,
+      }: {
+        children: React.ReactNode;
+        className?: string;
+        collapsedSize?: number;
+        collapsible?: boolean;
+        defaultSize?: number;
+        id?: string;
+        maxSize?: number;
+        minSize?: number;
+        onCollapse?: () => void;
+        order?: number;
+        style?: React.CSSProperties;
+      },
+      ref,
+    ) => {
+      useImperativeHandle(ref, () => mocks.leftSidebarPanelHandle);
+
+      if (id === "classic-main-sidebar-left") {
+        mocks.onPanelCollapse = onCollapse ?? null;
+      }
+
+      return (
+        <div
+          data-class-name={className}
+          data-collapsed-size={collapsedSize}
+          data-collapsible={collapsible}
+          data-default-size={defaultSize}
+          data-panel-id={id}
+          data-max-size={maxSize}
+          data-min-size={minSize}
+          data-flex-grow={style?.flexGrow}
+          data-max-width={style?.maxWidth}
+          data-min-width={style?.minWidth}
+          data-order={order}
+          data-transition={style?.transition}
+          data-testid="panel"
+        >
+          {children}
+        </div>
+      );
+    },
   ),
   ResizableHandle: ({
     className,
@@ -195,9 +228,18 @@ describe("ClassicMainBody", () => {
       type: "empty",
     };
     mocks.leftsidebar.expanded = true;
+    mocks.leftsidebar.setExpanded.mockClear();
     mocks.leftsidebar.toggleExpanded.mockClear();
+    mocks.onPanelCollapse = null;
     mocks.onPanelLayout = null;
     mocks.onResizeDragging = null;
+    mocks.leftSidebarPanelHandle.collapse.mockClear();
+    mocks.leftSidebarPanelHandle.expand.mockClear();
+    mocks.leftSidebarPanelHandle.getId.mockClear();
+    mocks.leftSidebarPanelHandle.getSize.mockClear();
+    mocks.leftSidebarPanelHandle.isCollapsed.mockClear();
+    mocks.leftSidebarPanelHandle.isExpanded.mockClear();
+    mocks.leftSidebarPanelHandle.resize.mockClear();
     mocks.tabContentRenderCount = 0;
     mocks.devtoolsPanelActionListeners = [];
     mocks.windowsCommands.devtoolsPanelHide.mockClear();
@@ -226,6 +268,8 @@ describe("ClassicMainBody", () => {
     expect(panels).toHaveLength(2);
     expect(panels[0]?.dataset.panelId).toBe("classic-main-sidebar-left");
     expect(panels[0]?.dataset.order).toBe("1");
+    expect(panels[0]?.dataset.collapsible).toBe("true");
+    expect(panels[0]?.dataset.collapsedSize).toBe("0");
     expect(panels[0]?.dataset.defaultSize).toBe("12.5");
     expect(panels[0]?.dataset.minSize).toBe("12.5");
     expect(panels[0]?.dataset.maxSize).toBe("22.5");
@@ -327,6 +371,28 @@ describe("ClassicMainBody", () => {
     );
   });
 
+  it("collapses the sidebar when the resize handle snaps below the threshold", () => {
+    render(<ClassicMainBody />);
+
+    const bodyRoot = screen.getByTestId("panel-group").parentElement;
+
+    act(() => {
+      mocks.onResizeDragging?.(true);
+      mocks.onPanelLayout?.([0, 100]);
+      mocks.onPanelCollapse?.();
+    });
+
+    expect(mocks.leftsidebar.setExpanded).toHaveBeenCalledWith(false);
+    expect(mocks.leftsidebar.toggleExpanded).not.toHaveBeenCalled();
+    expect(mocks.leftSidebarPanelHandle.resize).toHaveBeenCalledWith(12.5);
+    expect(bodyRoot?.style.getPropertyValue("--left-sidebar-panel-size")).toBe(
+      "12.5",
+    );
+    expect(bodyRoot?.style.getPropertyValue("--left-sidebar-panel-width")).toBe(
+      "12.5%",
+    );
+  });
+
   it("keeps the note content panel at least 500px wide", () => {
     mocks.currentTab = {
       active: true,
@@ -368,6 +434,18 @@ describe("ClassicMainBody", () => {
     expect(sidebarContent?.className).toContain("opacity-0");
     expect(sidebarContent?.getAttribute("aria-hidden")).toBe("true");
     expect(sidebarContent?.hasAttribute("inert")).toBe(true);
+  });
+
+  it("resizes the collapsed sidebar panel before reopening it", () => {
+    mocks.leftsidebar.expanded = false;
+
+    render(<ClassicMainBody />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Show sidebar" }));
+
+    expect(mocks.leftSidebarPanelHandle.resize).toHaveBeenCalledWith(12.5);
+    expect(mocks.leftSidebarPanelHandle.expand).not.toHaveBeenCalled();
+    expect(mocks.leftsidebar.toggleExpanded).toHaveBeenCalledTimes(1);
   });
 
   it("restores sidebar transitions when a resize is interrupted by collapse", () => {
