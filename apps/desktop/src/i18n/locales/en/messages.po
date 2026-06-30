@@ -1432,7 +1432,7 @@ msgstr "Search or type owner/repo"
 msgid "Search people"
 msgstr "Search people"
 
-#: src/session/components/note-input/header.tsx:1092
+#: src/session/components/note-input/header.tsx:1117
 #: src/templates/template-sidebar.tsx:354
 msgid "Search templates..."
 msgstr "Search templates..."
@@ -1450,7 +1450,7 @@ msgstr "Search..."
 msgid "Section actions"
 msgstr "Section actions"
 
-#: src/session/components/note-input/header.tsx:1158
+#: src/session/components/note-input/header.tsx:1183
 msgid "See all templates"
 msgstr "See all templates"
 
@@ -1508,7 +1508,7 @@ msgstr "Send email"
 msgid "Send message"
 msgstr "Send message"
 
-#: src/session/components/note-input/header.tsx:1197
+#: src/session/components/note-input/header.tsx:1222
 msgid "Session note tabs"
 msgstr "Session note tabs"
 

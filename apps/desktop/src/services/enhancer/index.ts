@@ -22,7 +22,7 @@ type QueueEmptySummaryResult =
 
 type EnhanceOpts = {
   isAuto?: boolean;
-  templateId?: string;
+  templateId?: string | null;
   targetNoteId?: string;
   templateTitle?: string;
 };
@@ -104,6 +104,21 @@ function shouldHydrateTemplateTitle(
     UUID_TITLE_RE.test(title) ||
     ISO_TITLE_RE.test(title)
   );
+}
+
+function resolveTemplateId(
+  opts: EnhanceOpts | undefined,
+  getSelectedTemplateId: () => string | undefined,
+) {
+  if (opts?.templateId === null) {
+    return undefined;
+  }
+
+  if (opts?.templateId) {
+    return opts.templateId || undefined;
+  }
+
+  return getSelectedTemplateId();
 }
 
 let instance: EnhancerService | null = null;
@@ -256,7 +271,7 @@ export class EnhancerService {
     const model = getModel();
     if (!model) return { type: "no_model" };
 
-    const templateId = opts?.templateId || getSelectedTemplateId();
+    const templateId = resolveTemplateId(opts, getSelectedTemplateId);
     const targetNoteId = opts?.targetNoteId
       ? this.getSessionEnhancedNoteId(sessionId, opts.targetNoteId)
       : undefined;

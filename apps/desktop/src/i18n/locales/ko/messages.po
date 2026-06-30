@@ -1432,7 +1432,7 @@ msgstr ""
 msgid "Search people"
 msgstr ""
 
-#: src/session/components/note-input/header.tsx:1092
+#: src/session/components/note-input/header.tsx:1117
 #: src/templates/template-sidebar.tsx:354
 msgid "Search templates..."
 msgstr ""
@@ -1450,7 +1450,7 @@ msgstr ""
 msgid "Section actions"
 msgstr ""
 
-#: src/session/components/note-input/header.tsx:1158
+#: src/session/components/note-input/header.tsx:1183
 msgid "See all templates"
 msgstr ""
 
@@ -1508,7 +1508,7 @@ msgstr ""
 msgid "Send message"
 msgstr ""
 
-#: src/session/components/note-input/header.tsx:1197
+#: src/session/components/note-input/header.tsx:1222
 msgid "Session note tabs"
 msgstr ""
 

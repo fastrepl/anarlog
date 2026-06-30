@@ -214,7 +214,7 @@ async function copyTextToClipboard(
 }
 
 type TemplateSelection = {
-  templateId: string;
+  templateId: string | null;
   title: string;
 };
 
@@ -468,7 +468,7 @@ function HeaderTabEnhancedActive({
       const result = getEnhancerService()?.enhance(sessionId, {
         templateId: selection.templateId,
         targetNoteId: enhancedNoteId,
-        templateTitle: selection.title,
+        templateTitle: selection.templateId ? selection.title : undefined,
       });
 
       if (
@@ -984,8 +984,26 @@ function TemplatePickerPopover({
       }>;
     }>
   >(() => {
+    const autoSection = {
+      key: "auto",
+      title: "Auto",
+      showHeader: false,
+      items: [
+        {
+          key: "auto",
+          title: "Auto",
+          onClick: () =>
+            handleUseTemplate({
+              templateId: null,
+              title: "Auto",
+            }),
+        },
+      ],
+    };
+
     if (!hasSearch) {
       return [
+        autoSection,
         {
           key: "templates",
           title: "Templates",
@@ -997,6 +1015,7 @@ function TemplatePickerPopover({
     }
 
     return [
+      autoSection,
       {
         key: "create",
         title: "Create new template",
@@ -1021,7 +1040,13 @@ function TemplatePickerPopover({
           ]
         : []),
     ];
-  }, [handleCreateTemplate, hasSearch, templateItems, trimmedSearch]);
+  }, [
+    handleCreateTemplate,
+    handleUseTemplate,
+    hasSearch,
+    templateItems,
+    trimmedSearch,
+  ]);
   const navigableResults = useMemo(
     () => resultSections.flatMap((section) => section.items),
     [resultSections],

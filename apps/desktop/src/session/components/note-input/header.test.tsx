@@ -596,6 +596,44 @@ describe("Header", () => {
     });
   });
 
+  it("replaces the current enhanced note with auto generation", () => {
+    hoisted.userTemplates = [
+      {
+        id: "template-2",
+        title: "Decision Log",
+        description: "",
+        pinned: false,
+        sections: [],
+      },
+    ];
+    hoisted.enhance.mockReturnValue({
+      type: "started",
+      noteId: "note-1",
+    });
+    const editorTabs: EditorView[] = [
+      { type: "enhanced", id: "note-1" },
+      { type: "raw" },
+    ];
+
+    render(
+      <Header
+        sessionId="session-1"
+        editorTabs={editorTabs}
+        currentTab={{ type: "enhanced", id: "note-1" }}
+        handleTabChange={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Customer Call" }));
+    fireEvent.click(screen.getByRole("button", { name: "Auto" }));
+
+    expect(hoisted.enhance).toHaveBeenCalledWith("session-1", {
+      templateId: null,
+      targetNoteId: "note-1",
+      templateTitle: undefined,
+    });
+  });
+
   it("shows a spinner in the active enhanced tab while generating", () => {
     hoisted.isGenerating = true;
     const editorTabs: EditorView[] = [

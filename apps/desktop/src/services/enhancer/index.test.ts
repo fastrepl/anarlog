@@ -323,6 +323,108 @@ describe("EnhancerService", () => {
         },
       });
     });
+
+    it("can replace a target note with no template when a default template is selected", () => {
+      const tables = createTables({
+        enhanced_notes: {
+          "note-1": {
+            session_id: "session-1",
+            template_id: "template-1",
+            title: "Customer Call",
+            content: "Generated summary",
+          },
+        },
+      });
+      const store = createMockStore(tables);
+      const generate = vi.fn().mockResolvedValue(undefined);
+      const aiTaskStore = createMockAITaskStore();
+      aiTaskStore.getState.mockReturnValue({
+        generate,
+        getState: vi.fn().mockReturnValue({ status: "success" }),
+      });
+      const deps = createDeps({
+        mainStore: store,
+        indexes: createMockIndexes(tables),
+        aiTaskStore,
+        getSelectedTemplateId: () => "template-default",
+      });
+      const service = new EnhancerService(deps);
+
+      const result = service.enhance("session-1", {
+        templateId: null,
+        targetNoteId: "note-1",
+      });
+
+      expect(result).toEqual({ type: "started", noteId: "note-1" });
+      expect(store.setPartialRow).toHaveBeenCalledWith(
+        "enhanced_notes",
+        "note-1",
+        {
+          content: "",
+          title: "Summary",
+          template_id: undefined,
+        },
+      );
+      expect(generate).toHaveBeenCalledWith("note-1-enhance", {
+        model: expect.anything(),
+        taskType: "enhance",
+        args: {
+          sessionId: "session-1",
+          enhancedNoteId: "note-1",
+          templateId: undefined,
+        },
+      });
+    });
+
+    it("uses the default template when a target note receives an undefined template", () => {
+      const tables = createTables({
+        enhanced_notes: {
+          "note-1": {
+            session_id: "session-1",
+            template_id: "template-1",
+            title: "Customer Call",
+            content: "Generated summary",
+          },
+        },
+      });
+      const store = createMockStore(tables);
+      const generate = vi.fn().mockResolvedValue(undefined);
+      const aiTaskStore = createMockAITaskStore();
+      aiTaskStore.getState.mockReturnValue({
+        generate,
+        getState: vi.fn().mockReturnValue({ status: "success" }),
+      });
+      const deps = createDeps({
+        mainStore: store,
+        indexes: createMockIndexes(tables),
+        aiTaskStore,
+        getSelectedTemplateId: () => "template-default",
+      });
+      const service = new EnhancerService(deps);
+
+      const result = service.enhance("session-1", {
+        templateId: undefined,
+        targetNoteId: "note-1",
+      });
+
+      expect(result).toEqual({ type: "started", noteId: "note-1" });
+      expect(store.setPartialRow).toHaveBeenCalledWith(
+        "enhanced_notes",
+        "note-1",
+        expect.objectContaining({
+          template_id: "template-default",
+        }),
+      );
+      expect(generate).toHaveBeenCalledWith("note-1-enhance", {
+        model: expect.anything(),
+        taskType: "enhance",
+        args: {
+          sessionId: "session-1",
+          enhancedNoteId: "note-1",
+          templateId: "template-default",
+        },
+      });
+    });
   });
 
   describe("queueAutoEnhanceIfSummaryEmpty()", () => {
