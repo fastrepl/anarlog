@@ -6,21 +6,42 @@ import { cn } from "@hypr/utils";
 import { streamdownComponents } from "../../streamdown";
 
 import { useAITaskTask } from "~/ai/hooks";
+import * as main from "~/store/tinybase/store/main";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 
 function SummaryTitleSpace() {
   return (
     <div
-      aria-hidden="true"
       data-testid="summary-title-space"
-      className="pointer-events-none mb-4 h-[1.875rem]"
-    />
+      className="pointer-events-none mb-3 flex h-[1.875rem] items-center"
+    >
+      <span
+        aria-hidden="true"
+        className="text-muted-foreground animate-pulse text-[1.5rem] leading-[1.875rem] font-semibold opacity-60"
+      >
+        <Trans>Generating title...</Trans>
+      </span>
+    </div>
   );
 }
 
-export function StreamingView({ enhancedNoteId }: { enhancedNoteId: string }) {
+export function StreamingView({
+  sessionId,
+  enhancedNoteId,
+}: {
+  sessionId: string;
+  enhancedNoteId: string;
+}) {
   const taskId = createTaskId(enhancedNoteId, "enhance");
   const { streamedText, isGenerating } = useAITaskTask(taskId, "enhance");
+  const sessionTitle = main.UI.useCell(
+    "sessions",
+    sessionId,
+    "title",
+    main.STORE_ID,
+  );
+  const shouldGenerateTitle =
+    typeof sessionTitle !== "string" || sessionTitle.trim().length === 0;
 
   if (streamedText.trim().length === 0) {
     return (
@@ -48,7 +69,7 @@ export function StreamingView({ enhancedNoteId }: { enhancedNoteId: string }) {
   return (
     <div className="pb-2">
       <div className="flex flex-col gap-1">
-        <SummaryTitleSpace />
+        {shouldGenerateTitle ? <SummaryTitleSpace /> : null}
         <Streamdown
           components={streamdownComponents}
           className={cn(["flex flex-col"])}

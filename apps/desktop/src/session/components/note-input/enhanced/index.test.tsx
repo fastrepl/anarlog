@@ -21,6 +21,7 @@ const hoisted = vi.hoisted(() => ({
     isHosted: true,
   } as LLMConnectionStatus,
   content: "",
+  sessionTitle: "",
 }));
 
 vi.mock("@hypr/ui/components/ui/spinner", () => ({
@@ -46,7 +47,10 @@ vi.mock("~/ai/hooks", () => ({
 vi.mock("~/store/tinybase/store/main", () => ({
   STORE_ID: "main",
   UI: {
-    useCell: () => hoisted.content,
+    useCell: (table: string, _id: string, cell: string) =>
+      table === "sessions" && cell === "title"
+        ? hoisted.sessionTitle
+        : hoisted.content,
   },
 }));
 
@@ -102,6 +106,7 @@ describe("Enhanced", () => {
       isHosted: true,
     };
     hoisted.content = "";
+    hoisted.sessionTitle = "";
   });
 
   it("renders an empty editor before the auto-enhance task is visible", () => {
@@ -146,7 +151,25 @@ describe("Enhanced", () => {
     expect(screen.queryByText("Enhanced editor")).toBeNull();
     expect(screen.getByText("Streaming summary")).not.toBeNull();
     expect(screen.getByTestId("summary-title-space")).not.toBeNull();
+    expect(screen.getByText("Generating title...")).not.toBeNull();
     expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("does not show the title placeholder while streaming for an already titled session", () => {
+    hoisted.sessionTitle = "Existing title";
+    hoisted.task = {
+      status: "generating",
+      error: undefined,
+      streamedText: "Streaming summary",
+      currentStep: undefined,
+      isGenerating: true,
+    };
+
+    render(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
+
+    expect(screen.getByText("Streaming summary")).not.toBeNull();
+    expect(screen.queryByTestId("summary-title-space")).toBeNull();
+    expect(screen.queryByText("Generating title...")).toBeNull();
   });
 
   it("renders the editor after an empty enhance task returns idle", () => {

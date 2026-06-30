@@ -63,7 +63,9 @@ export const Enhanced = forwardRef<
     }
 
     if (status === "generating") {
-      return <StreamingView enhancedNoteId={enhancedNoteId} />;
+      return (
+        <StreamingView sessionId={sessionId} enhancedNoteId={enhancedNoteId} />
+      );
     }
 
     return (
