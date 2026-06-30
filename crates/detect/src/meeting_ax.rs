@@ -11,11 +11,19 @@ const MEETING_APP_BUNDLES: &[&str] = &[
     "com.microsoft.teams",
     "com.tinyspeck.slackmacgap",
     "com.hnc.Discord",
+    "Cisco-Systems.Spark",
     "com.google.Chrome",
     "com.microsoft.edgemac",
     "org.mozilla.firefox",
     "com.apple.Safari",
+    "com.brave.Browser",
+    "com.vivaldi.Vivaldi",
+    "com.operasoftware.Opera",
     "company.thebrowser.Browser",
+    "ai.perplexity.comet",
+    "at.studio.AsideBrowser",
+    "company.thebrowser.dia",
+    "com.sigmaos.sigmaos.macos",
 ];
 
 #[cfg(target_os = "macos")]
@@ -33,6 +41,7 @@ pub enum MeetingPlatform {
     MicrosoftTeams,
     Slack,
     Discord,
+    Webex,
     Unknown,
 }
 
@@ -181,6 +190,10 @@ pub fn send_meeting_chat_message(message: String) -> MeetingChatSendResult {
             &nodes,
             classify_bundle(&app.id),
         );
+        if platform == MeetingPlatform::Unknown {
+            continue;
+        }
+
         let surface = classify_surface(&app.id, &platform);
 
         let mut chat_elements = Vec::new();
@@ -490,6 +503,7 @@ fn classify_bundle(bundle_id: &str) -> MeetingPlatform {
         "com.microsoft.teams2" | "com.microsoft.teams" => MeetingPlatform::MicrosoftTeams,
         "com.tinyspeck.slackmacgap" => MeetingPlatform::Slack,
         "com.hnc.Discord" => MeetingPlatform::Discord,
+        "Cisco-Systems.Spark" => MeetingPlatform::Webex,
         _ => MeetingPlatform::Unknown,
     }
 }
@@ -520,6 +534,12 @@ fn classify_platform(
         MeetingPlatform::Slack
     } else if has_text("discord.com") || has_text("voice connected") {
         MeetingPlatform::Discord
+    } else if has_text("webex.com")
+        || has_text("webex meeting")
+        || has_text("cisco webex")
+        || has_text("join-test.webex.com")
+    {
+        MeetingPlatform::Webex
     } else if is_browser_bundle(bundle_id) {
         MeetingPlatform::Unknown
     } else {
@@ -546,7 +566,14 @@ fn is_browser_bundle(bundle_id: &str) -> bool {
             | "com.microsoft.edgemac"
             | "org.mozilla.firefox"
             | "com.apple.Safari"
+            | "com.brave.Browser"
+            | "com.vivaldi.Vivaldi"
+            | "com.operasoftware.Opera"
             | "company.thebrowser.Browser"
+            | "ai.perplexity.comet"
+            | "at.studio.AsideBrowser"
+            | "company.thebrowser.dia"
+            | "com.sigmaos.sigmaos.macos"
     )
 }
 
@@ -832,5 +859,61 @@ mod tests {
             classify_surface("com.google.Chrome", &MeetingPlatform::GoogleMeet),
             MeetingSurface::Web
         );
+    }
+
+    #[test]
+    fn test_webex_native_bundle_classifies_native() {
+        assert_eq!(
+            classify_bundle("Cisco-Systems.Spark"),
+            MeetingPlatform::Webex
+        );
+        assert_eq!(
+            classify_surface("Cisco-Systems.Spark", &MeetingPlatform::Webex),
+            MeetingSurface::Native
+        );
+    }
+
+    #[test]
+    fn test_webex_browser_title_classifies_web() {
+        assert_eq!(
+            classify_platform(
+                "com.brave.Browser",
+                Some("Cisco Webex Meetings - Brave Browser"),
+                &[],
+                MeetingPlatform::Unknown,
+            ),
+            MeetingPlatform::Webex
+        );
+        assert_eq!(
+            classify_surface("com.brave.Browser", &MeetingPlatform::Webex),
+            MeetingSurface::Web
+        );
+    }
+
+    #[test]
+    fn test_validated_browser_bundles_are_web_surfaces() {
+        for bundle_id in [
+            "com.google.Chrome",
+            "com.microsoft.edgemac",
+            "org.mozilla.firefox",
+            "com.apple.Safari",
+            "com.brave.Browser",
+            "com.vivaldi.Vivaldi",
+            "com.operasoftware.Opera",
+            "company.thebrowser.Browser",
+            "ai.perplexity.comet",
+            "at.studio.AsideBrowser",
+            "company.thebrowser.dia",
+            "com.sigmaos.sigmaos.macos",
+        ] {
+            assert!(
+                is_browser_bundle(bundle_id),
+                "expected {bundle_id} to be treated as a browser"
+            );
+            assert_eq!(
+                classify_surface(bundle_id, &MeetingPlatform::Zoom),
+                MeetingSurface::Web
+            );
+        }
     }
 }
