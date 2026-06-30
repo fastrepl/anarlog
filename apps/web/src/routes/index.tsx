@@ -343,7 +343,7 @@ function Component() {
 
       <div className="mx-auto w-full max-w-[700px] px-5 pt-4 pb-8 md:px-8 md:pt-4 md:pb-12">
         <div className="min-w-0 text-center">
-          <section className="pt-10 pb-20 md:pt-12 md:pb-24">
+          <section className="pt-10 pb-2 md:pt-12 md:pb-4">
             <h1 className="font-hand mx-auto max-w-3xl text-5xl leading-[0.98] font-semibold tracking-normal text-balance md:text-7xl">
               AI notepad for private meetings.
             </h1>
@@ -556,10 +556,13 @@ function OpenSourceSection({
 
 function CredibilityLogoMarquee() {
   return (
-    <section className="py-12 md:py-14" aria-labelledby="credibility-heading">
+    <section
+      className="pt-0 pb-6 md:pb-8"
+      aria-labelledby="credibility-heading"
+    >
       <h2
         id="credibility-heading"
-        className="font-hand text-3xl leading-none font-semibold text-[#756b5d]"
+        className="font-hand text-base leading-none font-semibold text-[#756b5d] md:text-lg"
       >
         Trusted by people in
       </h2>
@@ -567,7 +570,7 @@ function CredibilityLogoMarquee() {
         {credibilityLogos.map((logo) => logo.name).join(", ")}
       </p>
 
-      <div className="relative left-1/2 mt-6 w-screen -translate-x-1/2 overflow-hidden bg-white py-4 motion-reduce:overflow-visible">
+      <div className="relative left-1/2 mt-3 w-screen -translate-x-1/2 overflow-hidden bg-white py-4 motion-reduce:overflow-visible">
         <div
           className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-linear-to-r from-white to-transparent motion-reduce:hidden md:w-32"
           aria-hidden="true"
@@ -958,7 +961,7 @@ function HeroWorkflowDemo() {
   const isGeneratingSummary = enhancedLines > 0 && enhancedLines < 6;
 
   return (
-    <div className="relative left-1/2 mt-10 w-screen max-w-[500px] -translate-x-1/2 px-8 pb-16 sm:px-10">
+    <div className="relative left-1/2 mt-10 w-screen max-w-[500px] -translate-x-1/2 px-8 pb-8 sm:px-10">
       <div
         className="pointer-events-none absolute top-10 bottom-24 left-8 z-0 w-12 rounded-full bg-neutral-950/10 blur-2xl sm:left-10"
         aria-hidden="true"
