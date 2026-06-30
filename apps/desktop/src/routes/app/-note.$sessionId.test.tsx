@@ -6,6 +6,12 @@ import { resetTabsStore } from "~/store/zustand/tabs/test-utils";
 const mocks = vi.hoisted(() => ({
   attachLiveSession: vi.fn(),
   close: vi.fn(),
+  listenerState: {
+    attachLiveSession: vi.fn(),
+    live: {
+      eventUnlistenersBySession: {} as Record<string, (() => void)[]>,
+    },
+  },
 }));
 
 vi.mock("@tauri-apps/api/window", () => ({
@@ -15,11 +21,8 @@ vi.mock("@tauri-apps/api/window", () => ({
 }));
 
 vi.mock("~/stt/contexts", () => ({
-  useListener: (
-    selector: (state: {
-      attachLiveSession: typeof mocks.attachLiveSession;
-    }) => unknown,
-  ) => selector({ attachLiveSession: mocks.attachLiveSession }),
+  useListener: (selector: (state: typeof mocks.listenerState) => unknown) =>
+    selector(mocks.listenerState),
 }));
 
 import {
@@ -32,6 +35,8 @@ import { useTabs } from "~/store/zustand/tabs";
 
 describe("standalone note window route", () => {
   beforeEach(() => {
+    mocks.listenerState.attachLiveSession = mocks.attachLiveSession;
+    mocks.listenerState.live.eventUnlistenersBySession = {};
     mocks.attachLiveSession.mockClear();
     mocks.close.mockClear();
     resetTabsStore();
@@ -87,6 +92,23 @@ describe("standalone note window route", () => {
     renderHook(() => useAttachStandaloneNoteToLiveSession("session-1"));
 
     expect(mocks.attachLiveSession).toHaveBeenCalledWith("session-1");
+  });
+
+  it("reattaches after standalone live session events are removed", () => {
+    const { rerender } = renderHook(() =>
+      useAttachStandaloneNoteToLiveSession("session-1"),
+    );
+    expect(mocks.attachLiveSession).toHaveBeenCalledTimes(1);
+
+    mocks.listenerState.live.eventUnlistenersBySession = {
+      "session-1": [vi.fn()],
+    };
+    rerender();
+    expect(mocks.attachLiveSession).toHaveBeenCalledTimes(1);
+
+    mocks.listenerState.live.eventUnlistenersBySession = {};
+    rerender();
+    expect(mocks.attachLiveSession).toHaveBeenCalledTimes(2);
   });
 });
 

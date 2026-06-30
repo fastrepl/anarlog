@@ -31,10 +31,17 @@ function Component() {
 
 export function useAttachStandaloneNoteToLiveSession(sessionId: string) {
   const attachLiveSession = useListener((state) => state.attachLiveSession);
+  const hasLiveSessionEvents = useListener((state) =>
+    Boolean(state.live.eventUnlistenersBySession[sessionId]),
+  );
 
   useEffect(() => {
+    if (hasLiveSessionEvents) {
+      return;
+    }
+
     void attachLiveSession(sessionId);
-  }, [attachLiveSession, sessionId]);
+  }, [attachLiveSession, hasLiveSessionEvents, sessionId]);
 }
 
 export function useStandaloneNoteTab(sessionId: string) {

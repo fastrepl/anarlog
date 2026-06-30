@@ -357,10 +357,28 @@ export const attachLiveSession = <T extends LiveStore>(
     return Promise.resolve();
   }
 
+  const pendingUnlisteners: (() => void)[] = [];
+  let registeredUnlisteners = pendingUnlisteners;
+  setLiveState(set, (live) => {
+    live.eventUnlistenersBySession[targetSessionId] = pendingUnlisteners;
+    if (!live.sessionId) {
+      live.sessionId = targetSessionId;
+    }
+  });
+
   const handlers = createSessionEventHandlers(set, get, targetSessionId);
 
   const program = Effect.gen(function* () {
     const unlisteners = yield* listenToAllSessionEvents(handlers);
+    if (
+      get().live.eventUnlistenersBySession[targetSessionId] !==
+      pendingUnlisteners
+    ) {
+      clearLiveEventUnlisteners(unlisteners);
+      return;
+    }
+
+    registeredUnlisteners = unlisteners;
     setLiveState(set, (live) => {
       live.eventUnlistenersBySession[targetSessionId] = unlisteners;
     });
@@ -373,11 +391,20 @@ export const attachLiveSession = <T extends LiveStore>(
     Exit.match(exit, {
       onFailure: (cause) => {
         console.error("[listener] failed to attach live session:", cause);
-        clearLiveEventUnlisteners(
-          get().live.eventUnlistenersBySession[targetSessionId],
-        );
+        clearLiveEventUnlisteners(registeredUnlisteners);
         setLiveState(set, (live) => {
-          delete live.eventUnlistenersBySession[targetSessionId];
+          if (
+            live.eventUnlistenersBySession[targetSessionId] ===
+            registeredUnlisteners
+          ) {
+            delete live.eventUnlistenersBySession[targetSessionId];
+          }
+          if (
+            live.sessionId === targetSessionId &&
+            live.status === "inactive"
+          ) {
+            live.sessionId = null;
+          }
         });
       },
       onSuccess: () => undefined,
@@ -396,6 +423,10 @@ function applyCaptureSnapshot<T extends GeneralState>(
     snapshot.activeSessionId === targetSessionId
   ) {
     const currentLive = get().live;
+    if (currentLive.sessionId !== targetSessionId) {
+      clearLiveInterval(currentLive.intervalId);
+    }
+
     const intervalId =
       currentLive.sessionId === targetSessionId && currentLive.intervalId
         ? currentLive.intervalId
@@ -428,9 +459,19 @@ function applyCaptureSnapshot<T extends GeneralState>(
     snapshot.finalizingSessionIds.includes(targetSessionId)
   ) {
     setLiveState(set, (live) => {
+      if (!live.sessionId) {
+        live.sessionId = targetSessionId;
+      }
       markLiveFinalizing(live, targetSessionId);
     });
+    return;
   }
+
+  setLiveState(set, (live) => {
+    if (live.sessionId === targetSessionId && live.status === "inactive") {
+      live.sessionId = null;
+    }
+  });
 }
 
 export const stopLiveSession = <T extends GeneralState>(
