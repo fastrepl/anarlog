@@ -434,6 +434,21 @@ fn propagates_direct_mic_channel_identity_forward() {
 }
 
 #[test]
+fn applies_direct_mic_channel_identity_to_provider_speakers() {
+    let finals = vec![fw_si("0", 0, 100, 0, 2)];
+    let assignments = vec![channel_human("self", ChannelProfile::DirectMic)];
+    let opts = SegmentBuilderOptions {
+        complete_channels: Some(vec![ChannelProfile::DirectMic]),
+        ..Default::default()
+    };
+
+    let result = build_segments(&finals, &[], &assignments, Some(&opts));
+
+    assert_eq!(result.len(), 1);
+    assert_eq!(result[0].key, key_speaker_human(0, 2, "self"));
+}
+
+#[test]
 fn propagates_remote_party_identity_when_channel_marked_complete() {
     let finals = vec![fw("0", 0, 100, 1), fw("1", 200, 300, 1)];
     let assignments = vec![channel_human("remote", ChannelProfile::RemoteParty)];

@@ -14,15 +14,25 @@ const ctx: RenderLabelContext = {
 };
 
 describe("SegmentKeyUtils", () => {
-  it("does not treat diarized direct-mic segments as self", () => {
+  it("treats diarized direct-mic segments as self", () => {
     const key: Parameters<typeof SegmentKeyUtils.isKnownSpeaker>[0] = {
       channel: "DirectMic",
       speaker_index: 2,
       speaker_human_id: null,
     };
 
-    expect(SegmentKeyUtils.isKnownSpeaker(key, ctx)).toBe(false);
-    expect(SegmentKeyUtils.renderLabel(key, ctx)).toBe("Speaker 3");
+    expect(SegmentKeyUtils.isKnownSpeaker(key, ctx)).toBe(true);
+    expect(SegmentKeyUtils.renderLabel(key, ctx)).toBe("Me");
+  });
+
+  it("does not label assigned direct-mic segments as self when the name is unavailable", () => {
+    const key: Parameters<typeof SegmentKeyUtils.renderLabel>[0] = {
+      channel: "DirectMic",
+      speaker_index: 1,
+      speaker_human_id: "remote",
+    };
+
+    expect(SegmentKeyUtils.renderLabel(key, ctx)).toBe("Speaker 2");
   });
 
   it("caps unknown speaker labels when a participant max is provided", () => {

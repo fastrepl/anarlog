@@ -253,6 +253,58 @@ describe("getFloatingTranscriptBubbles", () => {
       "segment-7",
     ]);
   });
+
+  it("labels diarized direct-mic bubbles as self", () => {
+    const bubbles = getFloatingTranscriptBubbles([
+      createSegment({
+        id: "local-mic",
+        key: {
+          channel: "DirectMic",
+          speaker_index: 2,
+          speaker_human_id: null,
+        },
+        start_ms: 0,
+        text: "hello",
+        words: [{ text: "hello" }],
+      }),
+    ]);
+
+    expect(bubbles).toEqual([
+      {
+        id: "local-mic",
+        speakerLabel: "You",
+        text: "hello",
+        isSelf: true,
+        isFinal: true,
+      },
+    ]);
+  });
+
+  it("labels assigned direct-mic bubbles as self", () => {
+    const bubbles = getFloatingTranscriptBubbles([
+      createSegment({
+        id: "assigned-mic",
+        key: {
+          channel: "DirectMic",
+          speaker_index: 1,
+          speaker_human_id: "participant-1",
+        },
+        start_ms: 0,
+        text: "hello",
+        words: [{ text: "hello" }],
+      }),
+    ]);
+
+    expect(bubbles).toEqual([
+      {
+        id: "assigned-mic",
+        speakerLabel: "You",
+        text: "hello",
+        isSelf: true,
+        isFinal: true,
+      },
+    ]);
+  });
 });
 
 describe("getCurrentFloatingBarColorScheme", () => {

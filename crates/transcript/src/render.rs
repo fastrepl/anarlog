@@ -349,6 +349,28 @@ mod tests {
     }
 
     #[test]
+    fn labels_diarized_direct_mic_as_self_without_remote_participant() {
+        let segments = render_transcript_segments(RenderTranscriptRequest {
+            transcripts: vec![RenderTranscriptInput {
+                started_at: Some(0),
+                words: vec![word_si("w1", " hello", 0, 100, 0, 2)],
+                assignments: vec![],
+            }],
+            participant_human_ids: vec![],
+            self_human_id: Some("self".to_string()),
+            humans: vec![RenderTranscriptHuman {
+                human_id: "self".to_string(),
+                name: "Me".to_string(),
+            }],
+        });
+
+        assert_eq!(segments.len(), 1);
+        assert_eq!(segments[0].speaker_label, "Me");
+        assert_eq!(segments[0].key.speaker_index, Some(2));
+        assert_eq!(segments[0].key.speaker_human_id.as_deref(), Some("self"));
+    }
+
+    #[test]
     fn normalizes_word_spacing_for_rendered_segments() {
         let words = normalize_rendered_segment_words(vec![
             SegmentWord {

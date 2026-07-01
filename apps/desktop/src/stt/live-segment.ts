@@ -109,7 +109,7 @@ export const SegmentKeyUtils = {
       return true;
     }
 
-    if (ctx && key.channel === "DirectMic" && key.speaker_index == null) {
+    if (ctx && key.channel === "DirectMic") {
       return Boolean(ctx.getSelfHumanId());
     }
 
@@ -121,14 +121,16 @@ export const SegmentKeyUtils = {
     ctx?: RenderLabelContext,
     manager?: SpeakerLabelManager,
   ): string => {
-    if (ctx && key.speaker_human_id) {
-      const human = ctx.getHumanName(key.speaker_human_id);
+    const assignedHumanId = key.speaker_human_id;
+
+    if (ctx && assignedHumanId != null) {
+      const human = ctx.getHumanName(assignedHumanId);
       if (human) {
         return human;
       }
     }
 
-    if (ctx && key.channel === "DirectMic" && key.speaker_index == null) {
+    if (ctx && key.channel === "DirectMic" && assignedHumanId == null) {
       const selfHumanId = ctx.getSelfHumanId();
       if (selfHumanId) {
         const selfHuman = ctx.getHumanName(selfHumanId);

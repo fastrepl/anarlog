@@ -32,26 +32,23 @@ pub fn channel_assignments_for_participants(
         _ => return vec![],
     };
 
-    let remote_id = unique_other_participant(participant_human_ids, self_id);
-    let remote_id = match remote_id {
-        Some(id) => id,
-        None => return vec![],
-    };
-
-    vec![
-        IdentityAssignment {
-            human_id: self_id.to_string(),
-            scope: IdentityScope::Channel {
-                channel: ChannelProfile::DirectMic,
-            },
+    let mut assignments = vec![IdentityAssignment {
+        human_id: self_id.to_string(),
+        scope: IdentityScope::Channel {
+            channel: ChannelProfile::DirectMic,
         },
-        IdentityAssignment {
+    }];
+
+    if let Some(remote_id) = unique_other_participant(participant_human_ids, self_id) {
+        assignments.push(IdentityAssignment {
             human_id: remote_id.to_string(),
             scope: IdentityScope::Channel {
                 channel: ChannelProfile::RemoteParty,
             },
-        },
-    ]
+        });
+    }
+
+    assignments
 }
 
 pub fn segment_options_for_participants(
@@ -95,5 +92,69 @@ fn unique_other_participant<'a>(
         Some(others[0])
     } else {
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn assigns_self_to_direct_mic_without_unique_remote() {
+        let assignments = channel_assignments_for_participants(&[], Some("self"));
+
+        assert_eq!(
+            assignments,
+            vec![IdentityAssignment {
+                human_id: "self".to_string(),
+                scope: IdentityScope::Channel {
+                    channel: ChannelProfile::DirectMic,
+                },
+            }]
+        );
+    }
+
+    #[test]
+    fn assigns_unique_remote_to_remote_party() {
+        let assignments = channel_assignments_for_participants(
+            &["self".to_string(), "remote".to_string()],
+            Some("self"),
+        );
+
+        assert_eq!(
+            assignments,
+            vec![
+                IdentityAssignment {
+                    human_id: "self".to_string(),
+                    scope: IdentityScope::Channel {
+                        channel: ChannelProfile::DirectMic,
+                    },
+                },
+                IdentityAssignment {
+                    human_id: "remote".to_string(),
+                    scope: IdentityScope::Channel {
+                        channel: ChannelProfile::RemoteParty,
+                    },
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn skips_remote_assignment_when_remote_is_ambiguous() {
+        let assignments = channel_assignments_for_participants(
+            &["remote-a".to_string(), "remote-b".to_string()],
+            Some("self"),
+        );
+
+        assert_eq!(
+            assignments,
+            vec![IdentityAssignment {
+                human_id: "self".to_string(),
+                scope: IdentityScope::Channel {
+                    channel: ChannelProfile::DirectMic,
+                },
+            }]
+        );
     }
 }
