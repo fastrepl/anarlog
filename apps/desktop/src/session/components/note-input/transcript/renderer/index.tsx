@@ -23,6 +23,8 @@ import { useAudioTime } from "~/audio-player/provider";
 import { useShell } from "~/contexts/shell";
 import type { Segment } from "~/stt/live-segment";
 
+const LIVE_TRANSCRIPT_PLACEHOLDER_ID = "__live-transcript__";
+
 export function TranscriptViewer({
   transcriptIds,
   liveSegments,
@@ -92,6 +94,12 @@ export function TranscriptViewer({
     [transcriptIds, liveSegments, shouldAutoScroll],
     shouldAutoScroll,
   );
+  const visibleTranscriptIds =
+    transcriptIds.length > 0
+      ? transcriptIds
+      : liveSegments.length > 0
+        ? [LIVE_TRANSCRIPT_PLACEHOLDER_ID]
+        : [];
 
   const scrollChip =
     chat.mode === "FloatingOpen"
@@ -126,15 +134,15 @@ export function TranscriptViewer({
           "pb-[calc(4rem+env(safe-area-inset-bottom))]",
         ])}
       >
-        {transcriptIds.map((transcriptId, index) => (
+        {visibleTranscriptIds.map((transcriptId, index) => (
           <div key={transcriptId} className="flex flex-col gap-8">
             <RenderTranscript
               scrollElement={scrollElement}
-              isLastTranscript={index === transcriptIds.length - 1}
+              isLastTranscript={index === visibleTranscriptIds.length - 1}
               shouldScrollToEnd={shouldScrollLastTranscriptToEnd}
               transcriptId={transcriptId}
               liveSegments={
-                index === transcriptIds.length - 1 && currentActive
+                index === visibleTranscriptIds.length - 1 && currentActive
                   ? liveSegments
                   : []
               }
@@ -143,7 +151,7 @@ export function TranscriptViewer({
               startPlayback={start}
               audioExists={audioExists}
             />
-            {index < transcriptIds.length - 1 && <TranscriptSeparator />}
+            {index < visibleTranscriptIds.length - 1 && <TranscriptSeparator />}
           </div>
         ))}
 

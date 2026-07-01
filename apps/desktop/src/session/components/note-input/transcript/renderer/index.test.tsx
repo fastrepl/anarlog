@@ -51,10 +51,20 @@ vi.mock("./selection-menu", () => ({
 }));
 
 vi.mock("./transcript", () => ({
-  RenderTranscript: ({ shouldScrollToEnd }: { shouldScrollToEnd: boolean }) => (
+  RenderTranscript: ({
+    liveSegments,
+    shouldScrollToEnd,
+    transcriptId,
+  }: {
+    liveSegments: unknown[];
+    shouldScrollToEnd: boolean;
+    transcriptId: string;
+  }) => (
     <div
       data-testid="render-transcript"
+      data-live-segment-count={String(liveSegments.length)}
       data-should-scroll-to-end={String(shouldScrollToEnd)}
+      data-transcript-id={transcriptId}
     />
   ),
 }));
@@ -113,6 +123,32 @@ describe("TranscriptViewer", () => {
         .getByTestId("render-transcript")
         .getAttribute("data-should-scroll-to-end"),
     ).toBe("true");
+  });
+
+  it("renders live segments before a transcript row exists", () => {
+    render(
+      <TranscriptViewer
+        transcriptIds={[]}
+        liveSegments={[
+          {
+            end_ms: 1000,
+            id: "segment-1",
+            key: { channel: "DirectMic" },
+            start_ms: 0,
+            text: "hello",
+            words: [],
+          },
+        ]}
+        currentActive
+        scrollRef={createRef()}
+      />,
+    );
+
+    const transcript = screen.getByTestId("render-transcript");
+    expect(transcript.getAttribute("data-live-segment-count")).toBe("1");
+    expect(transcript.getAttribute("data-transcript-id")).toBe(
+      "__live-transcript__",
+    );
   });
 
   it("does not show a scroll chip before scroll movement starts", () => {
