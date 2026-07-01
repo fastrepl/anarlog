@@ -216,6 +216,20 @@ vi.mock("~/sidebar/timeline/upcoming-meeting", () => ({
 
 import { ClassicMainBody } from "./body";
 
+function rectWithWidth(width: number) {
+  return {
+    bottom: 0,
+    height: 0,
+    left: 0,
+    right: width,
+    toJSON: () => ({}),
+    top: 0,
+    width,
+    x: 0,
+    y: 0,
+  } as DOMRect;
+}
+
 describe("ClassicMainBody", () => {
   beforeEach(() => {
     cleanup();
@@ -313,6 +327,141 @@ describe("ClassicMainBody", () => {
     expect(bodyRoot?.style.getPropertyValue("--left-sidebar-panel-width")).toBe(
       "24%",
     );
+  });
+
+  it("settles the startup left sidebar default against the rendered body width", async () => {
+    let bodyWidth = 1000;
+    const requestAnimationFrame = vi
+      .spyOn(window, "requestAnimationFrame")
+      .mockImplementation((callback) => {
+        callback(0);
+        return 1;
+      });
+    const cancelAnimationFrame = vi
+      .spyOn(window, "cancelAnimationFrame")
+      .mockImplementation(() => {});
+    const getBoundingClientRect = vi
+      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockImplementation(function (this: HTMLElement) {
+        if (this.querySelector("[data-testid='panel-group']")) {
+          return rectWithWidth(bodyWidth);
+        }
+
+        return rectWithWidth(0);
+      });
+
+    try {
+      render(<ClassicMainBody />);
+
+      await waitFor(() => {
+        expect(mocks.leftSidebarPanelHandle.resize).toHaveBeenCalledWith(20);
+      });
+
+      const panels = screen.getAllByTestId("panel");
+      expect(panels[0]?.dataset.defaultSize).toBe("20");
+      expect(panels[0]?.dataset.minSize).toBe("20");
+      expect(panels[0]?.dataset.maxSize).toBe("36");
+
+      const bodyRoot = screen.getByTestId("panel-group").parentElement;
+      expect(
+        bodyRoot?.style.getPropertyValue("--left-sidebar-panel-size"),
+      ).toBe("20");
+      expect(
+        bodyRoot?.style.getPropertyValue("--left-sidebar-panel-width"),
+      ).toBe("20%");
+
+      act(() => {
+        mocks.onPanelLayout?.([12.5, 87.5]);
+      });
+
+      expect(
+        bodyRoot?.style.getPropertyValue("--left-sidebar-panel-size"),
+      ).toBe("20");
+      expect(
+        bodyRoot?.style.getPropertyValue("--left-sidebar-panel-width"),
+      ).toBe("20%");
+
+      bodyWidth = 800;
+      fireEvent.resize(window);
+
+      await waitFor(() => {
+        expect(mocks.leftSidebarPanelHandle.resize).toHaveBeenCalledWith(25);
+      });
+
+      const resizedPanels = screen.getAllByTestId("panel");
+      expect(resizedPanels[0]?.dataset.defaultSize).toBe("25");
+      expect(resizedPanels[0]?.dataset.minSize).toBe("25");
+      expect(resizedPanels[0]?.dataset.maxSize).toBe("45");
+      expect(
+        bodyRoot?.style.getPropertyValue("--left-sidebar-panel-size"),
+      ).toBe("25");
+      expect(
+        bodyRoot?.style.getPropertyValue("--left-sidebar-panel-width"),
+      ).toBe("25%");
+    } finally {
+      requestAnimationFrame.mockRestore();
+      cancelAnimationFrame.mockRestore();
+      getBoundingClientRect.mockRestore();
+    }
+  });
+
+  it("syncs the default left sidebar width after the panel mounts", async () => {
+    let bodyWidth = 1000;
+    const requestAnimationFrame = vi
+      .spyOn(window, "requestAnimationFrame")
+      .mockImplementation((callback) => {
+        callback(0);
+        return 1;
+      });
+    const cancelAnimationFrame = vi
+      .spyOn(window, "cancelAnimationFrame")
+      .mockImplementation(() => {});
+    const getBoundingClientRect = vi
+      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockImplementation(function (this: HTMLElement) {
+        if (this.querySelector("[data-testid='panel-group']")) {
+          return rectWithWidth(bodyWidth);
+        }
+
+        return rectWithWidth(0);
+      });
+
+    try {
+      mocks.currentTab = {
+        active: true,
+        pinned: false,
+        slotId: "slot-onboarding",
+        type: "onboarding",
+      };
+
+      const { rerender } = render(<ClassicMainBody />);
+      expect(
+        screen
+          .getAllByTestId("panel")
+          .some(
+            (panel) => panel.dataset.panelId === "classic-main-sidebar-left",
+          ),
+      ).toBe(false);
+
+      mocks.currentTab = {
+        active: true,
+        pinned: false,
+        slotId: "slot-home",
+        type: "empty",
+      };
+
+      rerender(<ClassicMainBody />);
+      bodyWidth = 1000;
+      fireEvent.resize(window);
+
+      await waitFor(() => {
+        expect(mocks.leftSidebarPanelHandle.resize).toHaveBeenCalledWith(20);
+      });
+    } finally {
+      requestAnimationFrame.mockRestore();
+      cancelAnimationFrame.mockRestore();
+      getBoundingClientRect.mockRestore();
+    }
   });
 
   it("updates sidebar sizing during drag without rerendering tab content", () => {
