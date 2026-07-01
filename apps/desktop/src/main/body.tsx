@@ -43,7 +43,10 @@ import { useClassicMainTabsShortcuts } from "./useTabsShortcuts";
 import { useShell } from "~/contexts/shell";
 import { scrollElementByWheel } from "~/shared/dom/scroll-wheel";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
-import { NOTE_SURFACE_MIN_WIDTH_PX } from "~/shared/main/layout-widths";
+import {
+  NOTE_SURFACE_MIN_WIDTH_PX,
+  usesNoteSurfaceMinWidth,
+} from "~/shared/main/layout-widths";
 import { useOpenNoteDialog } from "~/shared/open-note-dialog";
 import { useNewNote } from "~/shared/useNewNote";
 import { useSidebarUpcomingMeetingStatus } from "~/sidebar/timeline/upcoming-meeting";
@@ -141,7 +144,7 @@ export function ClassicMainBody() {
   });
 
   const isOnboarding = currentTab?.type === "onboarding";
-  const isSessionTab = currentTab?.type === "sessions";
+  const reserveNoteSurfaceMinWidth = usesNoteSurfaceMinWidth(currentTab);
   const hasCustomSidebar = hasCustomSidebarTab(currentTab);
   const hasLeftSurfaceCustomSidebar =
     hasLeftSurfaceCustomSidebarTab(currentTab);
@@ -455,7 +458,9 @@ export function ClassicMainBody() {
           order={2}
           className="min-h-0 flex-1 overflow-hidden"
           style={{
-            minWidth: isSessionTab ? NOTE_SURFACE_MIN_WIDTH_PX : undefined,
+            minWidth: reserveNoteSurfaceMinWidth
+              ? NOTE_SURFACE_MIN_WIDTH_PX
+              : undefined,
           }}
         >
           <div

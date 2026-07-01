@@ -216,6 +216,19 @@ describe("MainChatPanels", () => {
     expect(screen.getAllByTestId("panel")[0]?.dataset.minWidth).toBe("700");
   });
 
+  it("reserves enough main-body width for the empty surface beside the sidebar", () => {
+    mocks.currentTab = { type: "empty" };
+    mocks.leftSidebarExpanded = true;
+
+    render(
+      <MainChatPanels>
+        <div data-testid="main-content" />
+      </MainChatPanels>,
+    );
+
+    expect(screen.getAllByTestId("panel")[0]?.dataset.minWidth).toBe("700");
+  });
+
   it("expands left when opening the sidebar would make a note surface narrower than 500px", () => {
     mocks.currentTab = { type: "sessions" };
     mocks.leftSidebarExpanded = true;
@@ -229,6 +242,26 @@ describe("MainChatPanels", () => {
         <div data-left-sidebar-chrome />
         <div data-chat-floating-anchor>
           <div data-session-surface />
+        </div>
+      </MainChatPanels>,
+    );
+
+    expect(mocks.windowExpandWidth).toHaveBeenCalledWith(60, null, false, true);
+  });
+
+  it("expands left when opening the sidebar would make the empty surface narrower than 500px", () => {
+    mocks.currentTab = { type: "empty" };
+    mocks.leftSidebarExpanded = true;
+    mockPanelWidths({
+      bodyPanelWidth: 640,
+      leftSidebarWidth: 200,
+    });
+
+    render(
+      <MainChatPanels>
+        <div data-left-sidebar-chrome />
+        <div data-chat-floating-anchor>
+          <div data-testid="empty-surface" />
         </div>
       </MainChatPanels>,
     );

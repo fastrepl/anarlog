@@ -8,7 +8,10 @@ import {
   ResizablePanelGroup,
 } from "@hypr/ui/components/ui/resizable";
 
-import { NOTE_SURFACE_MIN_WIDTH_PX } from "./layout-widths";
+import {
+  NOTE_SURFACE_MIN_WIDTH_PX,
+  usesNoteSurfaceMinWidth,
+} from "./layout-widths";
 
 import { ChatPanelFrame, ChatSessionHost } from "~/chat/components/chat-panel";
 import { PersistentChatPanel } from "~/chat/components/persistent-chat";
@@ -23,7 +26,7 @@ export function MainChatPanels({ children }: { children: React.ReactNode }) {
   const currentTab = useTabs((state) => state.currentTab);
   const bodyPanelContainerRef = useRef<HTMLDivElement>(null);
   const isRightPanelOpen = chat.mode === "RightPanelOpen";
-  const isSessionTab = currentTab?.type === "sessions";
+  const reserveNoteSurfaceMinWidth = usesNoteSurfaceMinWidth(currentTab);
   const collapseLeftSidebar = useCallback(() => {
     leftsidebar.setExpanded(false);
   }, [leftsidebar.setExpanded]);
@@ -34,7 +37,7 @@ export function MainChatPanels({ children }: { children: React.ReactNode }) {
 
   useNoteSurfaceWindowWidthGuard({
     bodyPanelContainerRef,
-    enabled: isSessionTab,
+    enabled: reserveNoteSurfaceMinWidth,
     leftPanelOpen: leftsidebar.expanded,
     collapseLeftPanel: collapseLeftSidebar,
     rightPanelOpen: isRightPanelOpen,
@@ -103,7 +106,7 @@ function getMainBodyMinWidth({
   currentTab: Tab | null;
   leftSidebarExpanded: boolean;
 }) {
-  if (currentTab?.type !== "sessions") {
+  if (!usesNoteSurfaceMinWidth(currentTab)) {
     return undefined;
   }
 

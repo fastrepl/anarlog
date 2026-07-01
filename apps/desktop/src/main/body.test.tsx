@@ -412,6 +412,20 @@ describe("ClassicMainBody", () => {
     expect(panels[1]?.dataset.minWidth).toBe("500");
   });
 
+  it("keeps the empty content panel at least 500px wide", () => {
+    mocks.currentTab = {
+      active: true,
+      pinned: false,
+      slotId: "slot-home",
+      type: "empty",
+    };
+
+    render(<ClassicMainBody />);
+
+    const panels = screen.getAllByTestId("panel");
+    expect(panels[1]?.dataset.minWidth).toBe("500");
+  });
+
   it("collapses the sidebar panel without unmounting the animated shell", () => {
     mocks.leftsidebar.expanded = false;
 
