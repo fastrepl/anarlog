@@ -4,6 +4,8 @@ mod error;
 mod error_detection;
 mod http_client;
 mod live;
+#[cfg(feature = "local")]
+mod local_soniqo_live;
 pub(crate) mod polling;
 mod providers;
 
@@ -31,7 +33,14 @@ pub use adapter::{StreamingBatchEvent, StreamingBatchStream};
 pub use batch::{BatchClient, BatchClientBuilder};
 pub use error::Error;
 pub use hypr_ws_client;
-pub use live::{DualHandle, FinalizeHandle, ListenClient, ListenClientBuilder, ListenClientDual};
+pub use live::{
+    DualHandle, FinalizeHandle, ListenClient, ListenClientBuilder, ListenClientDual,
+    ListenClientDualInput, ListenClientInput,
+};
+#[cfg(feature = "local")]
+pub use local_soniqo_live::{
+    LocalSoniqoLiveClient, LocalSoniqoLiveError, LocalSoniqoLiveHandle, LocalSoniqoLiveStream,
+};
 
 pub fn normalize_listen_params(mut params: ListenParams) -> ListenParams {
     params.languages = adapter::normalize_languages(&params.languages);

@@ -12669,6 +12669,7 @@ dependencies = [
  "tokio-stream",
  "tracing",
  "tracing-subscriber",
+ "transcribe-soniqo",
  "url",
  "ws-client",
 ]

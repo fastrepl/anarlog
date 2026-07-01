@@ -20,7 +20,7 @@ hypr-transcribe-soniqo = { workspace = true }
 hypr-transcript = { workspace = true }
 hypr-vad-masking = { workspace = true }
 
-owhisper-client = { workspace = true }
+owhisper-client = { workspace = true, features = ["local"] }
 owhisper-interface = { workspace = true }
 
 hound = { workspace = true }

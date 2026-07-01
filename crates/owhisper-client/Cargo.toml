@@ -5,13 +5,14 @@ edition = "2024"
 
 [features]
 default = []
-local = ["hypr-audio-utils"]
+local = ["hypr-audio-utils", "hypr-transcribe-soniqo"]
 
 [dependencies]
 hypr-am = { workspace = true }
 hypr-audio-utils = { workspace = true, optional = true }
 hypr-language = { workspace = true }
 hypr-observability = { workspace = true }
+hypr-transcribe-soniqo = { workspace = true, optional = true }
 hypr-ws-client = { workspace = true }
 soniox = { workspace = true }
 
