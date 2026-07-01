@@ -295,6 +295,18 @@
       "type": "string",
       "oneOf": [
         {
+          "description": "Enables the capture_meeting_chat_messages command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-capture-meeting-chat-messages",
+          "markdownDescription": "Enables the capture_meeting_chat_messages command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the capture_meeting_chat_messages command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-capture-meeting-chat-messages",
+          "markdownDescription": "Denies the capture_meeting_chat_messages command without any pre-configured scope."
+        },
+        {
           "description": "Enables the get_current_locale_identifier command without any pre-configured scope.",
           "type": "string",
           "const": "allow-get-current-locale-identifier",
@@ -439,10 +451,10 @@
           "markdownDescription": "Denies the set_respect_do_not_disturb command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-list-installed-applications`\n- `allow-list-mic-using-applications`\n- `allow-inspect-meeting-accessibility`\n- `allow-send-meeting-chat-message`\n- `allow-set-respect-do-not-disturb`\n- `allow-set-ignored-bundle-ids`\n- `allow-list-default-ignored-bundle-ids`\n- `allow-get-preferred-languages`\n- `allow-get-current-locale-identifier`\n- `allow-set-mic-active-threshold`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-list-installed-applications`\n- `allow-list-mic-using-applications`\n- `allow-inspect-meeting-accessibility`\n- `allow-send-meeting-chat-message`\n- `allow-capture-meeting-chat-messages`\n- `allow-set-respect-do-not-disturb`\n- `allow-set-ignored-bundle-ids`\n- `allow-list-default-ignored-bundle-ids`\n- `allow-get-preferred-languages`\n- `allow-get-current-locale-identifier`\n- `allow-set-mic-active-threshold`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-list-installed-applications`\n- `allow-list-mic-using-applications`\n- `allow-inspect-meeting-accessibility`\n- `allow-send-meeting-chat-message`\n- `allow-set-respect-do-not-disturb`\n- `allow-set-ignored-bundle-ids`\n- `allow-list-default-ignored-bundle-ids`\n- `allow-get-preferred-languages`\n- `allow-get-current-locale-identifier`\n- `allow-set-mic-active-threshold`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-list-installed-applications`\n- `allow-list-mic-using-applications`\n- `allow-inspect-meeting-accessibility`\n- `allow-send-meeting-chat-message`\n- `allow-capture-meeting-chat-messages`\n- `allow-set-respect-do-not-disturb`\n- `allow-set-ignored-bundle-ids`\n- `allow-list-default-ignored-bundle-ids`\n- `allow-get-preferred-languages`\n- `allow-get-current-locale-identifier`\n- `allow-set-mic-active-threshold`"
         }
       ]
     }

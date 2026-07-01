@@ -17,6 +17,7 @@ interface AppSettingsViewProps {
   showTrayIcon: SettingItem;
   telemetryConsent: SettingItem;
   meetingDisclosureAutoPost: SettingItem;
+  captureMeetingChat: SettingItem;
 }
 
 export function AppSettingsView({
@@ -28,6 +29,7 @@ export function AppSettingsView({
   showTrayIcon,
   telemetryConsent,
   meetingDisclosureAutoPost,
+  captureMeetingChat,
 }: AppSettingsViewProps) {
   return (
     <div className="flex flex-col gap-8">
@@ -107,6 +109,17 @@ export function AppSettingsView({
             }
             checked={meetingDisclosureAutoPost.value}
             onChange={meetingDisclosureAutoPost.onChange}
+          />
+          <SettingRow
+            title={<Trans>Capture meeting chat in Memos</Trans>}
+            description={
+              <Trans>
+                While listening, use Accessibility access to copy visible Zoom
+                or Slack meeting chat into the active note.
+              </Trans>
+            }
+            checked={captureMeetingChat.value}
+            onChange={captureMeetingChat.onChange}
           />
           <SettingRow
             title={<Trans>Show floating bar</Trans>}

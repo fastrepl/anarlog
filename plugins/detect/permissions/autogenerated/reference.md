@@ -8,6 +8,7 @@ Default permissions for the plugin
 - `allow-list-mic-using-applications`
 - `allow-inspect-meeting-accessibility`
 - `allow-send-meeting-chat-message`
+- `allow-capture-meeting-chat-messages`
 - `allow-set-respect-do-not-disturb`
 - `allow-set-ignored-bundle-ids`
 - `allow-list-default-ignored-bundle-ids`
@@ -23,6 +24,32 @@ Default permissions for the plugin
 <th>Description</th>
 </tr>
 
+
+<tr>
+<td>
+
+`detect:allow-capture-meeting-chat-messages`
+
+</td>
+<td>
+
+Enables the capture_meeting_chat_messages command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`detect:deny-capture-meeting-chat-messages`
+
+</td>
+<td>
+
+Denies the capture_meeting_chat_messages command without any pre-configured scope.
+
+</td>
+</tr>
 
 <tr>
 <td>

@@ -4,6 +4,7 @@ import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 import { commands as detectCommands } from "@hypr/plugin-detect";
 
 import { useListener } from "./contexts";
+import { startMeetingChatCapture } from "./meeting-chat-capture";
 import { getSessionKeywords } from "./useKeywords";
 import {
   canRunBatchTranscription,
@@ -135,6 +136,7 @@ export function useStartListening(sessionId: string) {
   const meetingDisclosureAutoSendChat = useConfigValue(
     "consent_auto_send_chat",
   );
+  const captureMeetingChat = useConfigValue("capture_meeting_chat");
 
   const start = useListener((state) => state.start);
   const { conn } = useSTTConnection();
@@ -144,13 +146,22 @@ export function useStartListening(sessionId: string) {
 
   const runBatchRef = useRef(runBatch);
   const canRunBatchRef = useRef(canRunBatchTranscription(conn));
+  const captureMeetingChatRef = useRef(captureMeetingChat);
   const meetingDisclosureStateRef = useRef(
     new Map<string, "sending" | "sent">(),
   );
+  const stopMeetingChatCaptureRef = useRef<(() => void) | null>(null);
   runBatchRef.current = runBatch;
   canRunBatchRef.current = canRunBatchTranscription(conn);
+  captureMeetingChatRef.current = captureMeetingChat;
+
+  const stopMeetingChatTasks = useCallback(() => {
+    stopMeetingChatCaptureRef.current?.();
+    stopMeetingChatCaptureRef.current = null;
+  }, []);
 
   const startListening = useCallback(async () => {
+    stopMeetingChatTasks();
     let transcriptId: string | null = null;
     const startedAt = Date.now();
     const memoMd = session?.raw_md ?? "";
@@ -169,6 +180,7 @@ export function useStartListening(sessionId: string) {
     });
 
     const onStopped: OnStoppedCallback = async (_sessionId, details) => {
+      stopMeetingChatTasks();
       await lastTranscriptWrite;
       if (transcriptWriteError) return;
 
@@ -268,8 +280,8 @@ export function useStartListening(sessionId: string) {
     );
 
     if (!started) {
+      stopMeetingChatTasks();
       await lastTranscriptWrite;
-
       if (transcriptId) {
         await softDeleteTranscript(transcriptId);
       }
@@ -277,6 +289,12 @@ export function useStartListening(sessionId: string) {
     }
 
     setLeftSidebarExpanded(false);
+
+    stopMeetingChatCaptureRef.current = startMeetingChatCapture({
+      sessionId,
+      isEnabled: () => captureMeetingChatRef.current,
+      excludedTexts: [MEETING_DISCLOSURE_MESSAGE],
+    });
 
     if (
       meetingDisclosureAutoSendChat &&
@@ -313,10 +331,11 @@ export function useStartListening(sessionId: string) {
     participantHumanIds,
     session,
     sessionId,
-    start,
-    spokenLanguages,
     setLeftSidebarExpanded,
     meetingDisclosureAutoSendChat,
+    spokenLanguages,
+    start,
+    stopMeetingChatTasks,
   ]);
 
   return startListening;

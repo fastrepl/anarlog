@@ -16,6 +16,10 @@ import { useNoteFileHandlerConfig } from "./file-handler";
 import { AppLinkView } from "~/editor-bridge/app-link-view";
 import { useMentionConfig } from "~/editor-bridge/mention-config";
 import { openEditorLink } from "~/editor-bridge/open-editor-link";
+import {
+  registerRawNoteEditor,
+  unregisterRawNoteEditor,
+} from "~/editor-bridge/raw-note-registry";
 import { sessionMentionDropConfig } from "~/editor-bridge/session-mention-drop";
 import { SessionNodeView } from "~/editor-bridge/session-view";
 import { hasStoredNoteContent } from "~/session/components/shared";
@@ -108,6 +112,20 @@ export const RawEditor = forwardRef<
     );
 
     const mentionConfig = useMentionConfig();
+    const handleViewReady = useCallback(
+      (view: EditorView) => {
+        registerRawNoteEditor(sessionId, view);
+        onViewReady?.(view);
+      },
+      [onViewReady, sessionId],
+    );
+    const handleViewDisposed = useCallback(
+      (view: EditorView) => {
+        unregisterRawNoteEditor(sessionId, view);
+        onViewDisposed?.(view);
+      },
+      [onViewDisposed, sessionId],
+    );
 
     return (
       <AudioDropTarget
@@ -130,8 +148,8 @@ export const RawEditor = forwardRef<
           }
           extraNodeViews={extraNodeViews}
           showFormatToolbar={showFormatToolbar}
-          onViewReady={onViewReady}
-          onViewDisposed={onViewDisposed}
+          onViewReady={handleViewReady}
+          onViewDisposed={handleViewDisposed}
         />
       </AudioDropTarget>
     );

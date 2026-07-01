@@ -53,6 +53,11 @@ type SessionSqlRow = {
   raw_body_format: string;
 };
 
+type SessionRawNoteSqlRow = {
+  raw_body: string;
+  raw_body_format: string;
+};
+
 type SessionSummarySqlRow = {
   id: string;
   title: string;
@@ -143,6 +148,19 @@ const SESSION_SELECT_SQL = `
     sessions.folder_path,
     sessions.event_json,
     sessions.title,
+    COALESCE(note.body, '') AS raw_body,
+    COALESCE(note.body_format, 'prosemirror_json') AS raw_body_format
+  FROM sessions
+  LEFT JOIN session_documents AS note
+    ON note.id = sessions.id
+    AND note.kind = 'note'
+    AND note.deleted_at IS NULL
+  WHERE sessions.id = ? AND sessions.deleted_at IS NULL
+  LIMIT 1
+`;
+
+const SESSION_RAW_NOTE_SELECT_SQL = `
+  SELECT
     COALESCE(note.body, '') AS raw_body,
     COALESCE(note.body_format, 'prosemirror_json') AS raw_body_format
   FROM sessions
@@ -560,28 +578,39 @@ export function updateSession(
     }
 
     if (changes.raw_md !== undefined) {
-      statements.push({
-        sql: `
-          INSERT INTO session_documents (
-            id, session_id, kind, body_format, body, created_by, updated_by,
-            created_at, updated_at, deleted_at
-          )
-          SELECT ?, ?, 'note', 'prosemirror_json', ?, owner_user_id,
-            owner_user_id, ?, ?, NULL
-          FROM sessions
-          WHERE id = ? AND deleted_at IS NULL
-          ON CONFLICT(id) DO UPDATE SET
-            body_format = excluded.body_format,
-            body = excluded.body,
-            updated_by = excluded.updated_by,
-            updated_at = excluded.updated_at,
-            deleted_at = NULL
-        `,
-        params: [sessionId, sessionId, changes.raw_md, now, now, sessionId],
-      });
+      statements.push(
+        createRawNoteUpsertStatement(sessionId, changes.raw_md, now),
+      );
     }
 
     if (statements.length > 0) await executeTransaction(statements);
+  });
+}
+
+export function appendSessionRawNote(
+  sessionId: string,
+  updater: (rawMd: string) => string | null,
+): Promise<boolean> {
+  return enqueueDatabaseWrite(`session:${sessionId}`, async () => {
+    const rows = await liveQueryClient.execute<SessionRawNoteSqlRow>(
+      SESSION_RAW_NOTE_SELECT_SQL,
+      [sessionId],
+    );
+    const row = rows[0];
+    if (!row) return false;
+
+    const rawMd = decodeRawNote(row.raw_body, row.raw_body_format);
+    const updatedRawMd = updater(rawMd);
+    if (updatedRawMd === null || updatedRawMd === rawMd) return false;
+
+    await executeTransaction([
+      createRawNoteUpsertStatement(
+        sessionId,
+        updatedRawMd,
+        new Date().toISOString(),
+      ),
+    ]);
+    return true;
   });
 }
 
@@ -968,6 +997,32 @@ function createEmptyNoteStatement(
   };
 }
 
+function createRawNoteUpsertStatement(
+  sessionId: string,
+  rawMd: string,
+  now: string,
+) {
+  return {
+    sql: `
+      INSERT INTO session_documents (
+        id, session_id, kind, body_format, body, created_by, updated_by,
+        created_at, updated_at, deleted_at
+      )
+      SELECT ?, ?, 'note', 'prosemirror_json', ?, owner_user_id,
+        owner_user_id, ?, ?, NULL
+      FROM sessions
+      WHERE id = ? AND deleted_at IS NULL
+      ON CONFLICT(id) DO UPDATE SET
+        body_format = excluded.body_format,
+        body = excluded.body,
+        updated_by = excluded.updated_by,
+        updated_at = excluded.updated_at,
+        deleted_at = NULL
+    `,
+    params: [sessionId, sessionId, rawMd, now, now, sessionId],
+  };
+}
+
 async function findSessionForEvent(
   event: EventSqlRow,
   preferredId?: string,
@@ -1059,15 +1114,6 @@ function hasNoteContent(body: string, format: string): boolean {
 }
 
 function mapSessionRow(row: SessionSqlRow): SessionRecord {
-  let rawMd = row.raw_body;
-  if (rawMd && row.raw_body_format === "markdown") {
-    try {
-      rawMd = JSON.stringify(md2json(rawMd));
-    } catch (error) {
-      console.error("[session] failed to decode imported Markdown", error);
-    }
-  }
-
   return {
     id: row.id,
     user_id: row.owner_user_id,
@@ -1075,8 +1121,19 @@ function mapSessionRow(row: SessionSqlRow): SessionRecord {
     folder_id: row.folder_path,
     event_json: row.event_json,
     title: row.title,
-    raw_md: rawMd,
+    raw_md: decodeRawNote(row.raw_body, row.raw_body_format),
   };
+}
+
+function decodeRawNote(body: string, bodyFormat: string): string {
+  if (!body || bodyFormat !== "markdown") return body;
+
+  try {
+    return JSON.stringify(md2json(body));
+  } catch (error) {
+    console.error("[session] failed to decode imported Markdown", error);
+    return body;
+  }
 }
 
 function mapSessionParticipantRow(

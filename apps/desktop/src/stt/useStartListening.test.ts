@@ -30,6 +30,8 @@ const {
   listMicUsingApplicationsMock,
   sendMeetingChatMessageMock,
   showTransientToastMock,
+  startMeetingChatCaptureMock,
+  stopMeetingChatCaptureMock,
 } = vi.hoisted(() => ({
   queueAutoEnhanceMock: vi.fn(),
   queueAutoEnhanceIfSummaryEmptyMock: vi.fn(),
@@ -52,6 +54,8 @@ const {
   listMicUsingApplicationsMock: vi.fn(),
   sendMeetingChatMessageMock: vi.fn(),
   showTransientToastMock: vi.fn(),
+  startMeetingChatCaptureMock: vi.fn(),
+  stopMeetingChatCaptureMock: vi.fn(),
 }));
 
 vi.mock("@hypr/plugin-transcription", () => ({
@@ -73,6 +77,10 @@ vi.mock("@hypr/plugin-detect", () => ({
 
 vi.mock("~/sidebar/toast/transient", () => ({
   showTransientToast: showTransientToastMock,
+}));
+
+vi.mock("./meeting-chat-capture", () => ({
+  startMeetingChatCapture: startMeetingChatCaptureMock,
 }));
 
 vi.mock("./useKeywords", () => ({
@@ -214,7 +222,7 @@ describe("useStartListening", () => {
     useConfigValueMock.mockImplementation((key) =>
       key === "ai_language"
         ? "en"
-        : key === "consent_auto_send_chat"
+        : key === "consent_auto_send_chat" || key === "capture_meeting_chat"
           ? false
           : [],
     );
@@ -244,6 +252,7 @@ describe("useStartListening", () => {
         warnings: [],
       },
     });
+    startMeetingChatCaptureMock.mockReturnValue(stopMeetingChatCaptureMock);
   });
 
   test("collapses the left sidebar after listening starts", async () => {
@@ -494,7 +503,7 @@ describe("useStartListening", () => {
     useConfigValueMock.mockImplementation((key) =>
       key === "ai_language"
         ? "de"
-        : key === "consent_auto_send_chat"
+        : key === "consent_auto_send_chat" || key === "capture_meeting_chat"
           ? false
           : ["en"],
     );
@@ -523,7 +532,7 @@ describe("useStartListening", () => {
     useConfigValueMock.mockImplementation((key) =>
       key === "ai_language"
         ? "en"
-        : key === "consent_auto_send_chat"
+        : key === "consent_auto_send_chat" || key === "capture_meeting_chat"
           ? false
           : ["ko"],
     );
@@ -552,7 +561,7 @@ describe("useStartListening", () => {
     useConfigValueMock.mockImplementation((key) =>
       key === "ai_language"
         ? "en"
-        : key === "consent_auto_send_chat"
+        : key === "consent_auto_send_chat" || key === "capture_meeting_chat"
           ? false
           : ["ko"],
     );
@@ -592,6 +601,7 @@ describe("useStartListening", () => {
     });
 
     expect(sendMeetingChatMessageMock).not.toHaveBeenCalled();
+    expect(listMicUsingApplicationsMock).not.toHaveBeenCalled();
   });
 
   test("posts the recording disclosure after listening starts when enabled", async () => {
@@ -600,7 +610,9 @@ describe("useStartListening", () => {
         ? "en"
         : key === "consent_auto_send_chat"
           ? true
-          : [],
+          : key === "capture_meeting_chat"
+            ? false
+            : [],
     );
 
     const { result } = renderHook(() => useStartListening("session-1"));
@@ -623,7 +635,9 @@ describe("useStartListening", () => {
         ? "en"
         : key === "consent_auto_send_chat"
           ? true
-          : [],
+          : key === "capture_meeting_chat"
+            ? false
+            : [],
     );
 
     const { result } = renderHook(() => useStartListening("session-1"));
@@ -803,5 +817,85 @@ describe("useStartListening", () => {
       variant: "warning",
     });
     warn.mockRestore();
+  });
+
+  test("starts dynamic capture with the disclosure text excluded", async () => {
+    let captureEnabled = true;
+    useConfigValueMock.mockImplementation((key: string) =>
+      key === "ai_language"
+        ? "en"
+        : key === "capture_meeting_chat"
+          ? captureEnabled
+          : key === "consent_auto_send_chat"
+            ? false
+            : [],
+    );
+
+    const { result, rerender } = renderHook(() =>
+      useStartListening("session-1"),
+    );
+
+    await act(async () => {
+      await result.current();
+    });
+
+    await waitFor(() => {
+      expect(startMeetingChatCaptureMock).toHaveBeenCalledWith({
+        sessionId: "session-1",
+        isEnabled: expect.any(Function),
+        excludedTexts: [
+          "I'm using Anarlog, a private meeting notepad, to record and transcribe this meeting. Learn more at https://anarlog.so. Please tell me here if you don't consent, and I'll stop.",
+        ],
+      });
+    });
+    const isEnabled = startMeetingChatCaptureMock.mock.calls[0]?.[0].isEnabled;
+    expect(isEnabled()).toBe(true);
+
+    captureEnabled = false;
+    rerender();
+    expect(isEnabled()).toBe(false);
+
+    const onStopped = startMock.mock.calls[0]?.[1]?.onStopped;
+    await act(async () => {
+      await onStopped?.("session-1", {
+        durationSeconds: 42,
+        audioPath: null,
+        requestedLiveTranscription: false,
+        liveTranscriptionActive: false,
+      });
+    });
+    expect(stopMeetingChatCaptureMock).toHaveBeenCalledOnce();
+  });
+
+  test("starts capture discovery before a supported meeting app is active", async () => {
+    useConfigValueMock.mockImplementation((key: string) =>
+      key === "ai_language"
+        ? "en"
+        : key === "capture_meeting_chat"
+          ? true
+          : key === "consent_auto_send_chat"
+            ? false
+            : [],
+    );
+    listMicUsingApplicationsMock.mockResolvedValue({
+      status: "ok",
+      data: [{ id: "com.google.Chrome", name: "Google Chrome" }],
+    });
+
+    const { result } = renderHook(() => useStartListening("session-1"));
+    await act(async () => {
+      await result.current();
+    });
+    await waitFor(() => {
+      expect(startMeetingChatCaptureMock).toHaveBeenCalledWith({
+        sessionId: "session-1",
+        isEnabled: expect.any(Function),
+        excludedTexts: [
+          "I'm using Anarlog, a private meeting notepad, to record and transcribe this meeting. Learn more at https://anarlog.so. Please tell me here if you don't consent, and I'll stop.",
+        ],
+      });
+    });
+
+    expect(listMicUsingApplicationsMock).not.toHaveBeenCalled();
   });
 });

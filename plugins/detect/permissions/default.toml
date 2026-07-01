@@ -5,6 +5,7 @@ permissions = [
     "allow-list-mic-using-applications",
     "allow-inspect-meeting-accessibility",
     "allow-send-meeting-chat-message",
+    "allow-capture-meeting-chat-messages",
     "allow-set-respect-do-not-disturb",
     "allow-set-ignored-bundle-ids",
     "allow-list-default-ignored-bundle-ids",

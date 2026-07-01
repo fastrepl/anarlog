@@ -44,6 +44,13 @@ const MEETING_APP_BUNDLES: &[&str] = &[
 ];
 
 #[cfg(target_os = "macos")]
+const CHAT_CAPTURE_APP_BUNDLES: &[&str] = &[
+    "us.zoom.xos",
+    "com.tinyspeck.slackmacgap",
+    "com.slack.Slack",
+];
+
+#[cfg(target_os = "macos")]
 const MAX_TREE_DEPTH: usize = 12;
 #[cfg(target_os = "macos")]
 const MAX_NODES: usize = 1800;
@@ -140,6 +147,28 @@ pub struct MeetingChatSendResult {
     pub warnings: Vec<String>,
 }
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct MeetingCapturedChatMessage {
+    pub id: String,
+    pub platform: MeetingPlatform,
+    pub surface: MeetingSurface,
+    pub sender: Option<String>,
+    pub timestamp: Option<String>,
+    pub text: String,
+    pub links: Vec<String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct MeetingChatCaptureResult {
+    pub app: Option<MeetingApp>,
+    pub platform: MeetingPlatform,
+    pub surface: MeetingSurface,
+    pub messages: Vec<MeetingCapturedChatMessage>,
+    pub warnings: Vec<String>,
+}
+
 #[cfg(target_os = "macos")]
 #[derive(Debug, Clone)]
 struct AxNode {
@@ -153,6 +182,7 @@ struct AxNode {
     settable_value: bool,
     bounds: Option<AxRect>,
     text: String,
+    within_slack_huddle_scope: bool,
 }
 
 #[cfg(target_os = "macos")]
@@ -416,6 +446,201 @@ fn running_meeting_apps() -> Vec<(MeetingApp, i32)> {
         .flat_map(|bundle_id| running_apps_for_bundle(bundle_id))
         .filter(|(_, pid)| seen.insert(*pid))
         .collect()
+}
+
+#[cfg(target_os = "macos")]
+fn select_active_bundle_ids(
+    supported_bundle_ids: &[&'static str],
+    active_bundle_ids: &[String],
+) -> Vec<&'static str> {
+    let active_bundle_ids = active_bundle_ids
+        .iter()
+        .map(String::as_str)
+        .collect::<HashSet<_>>();
+
+    supported_bundle_ids
+        .iter()
+        .copied()
+        .filter(|bundle_id| active_bundle_ids.contains(bundle_id))
+        .collect()
+}
+
+#[cfg(target_os = "macos")]
+fn zoom_chat_surface_is_visible(nodes: &[AxNode]) -> bool {
+    nodes.iter().any(|node| {
+        candidate_chat_target(node).is_some_and(|target| target.kind == "input" && target.settable)
+            || chat_message_text(node)
+                .and_then(|text| parse_zoom_chat_message(&text))
+                .is_some()
+    })
+}
+
+#[cfg(target_os = "macos")]
+fn slack_huddle_thread_capture_nodes(root: &SlackHuddleRoot) -> Option<Vec<AxNode>> {
+    let chat_elements = collect_sorted_chat_elements(&root.element);
+    if !matches!(
+        unique_matching_chat_element_index(&chat_elements, |element| {
+            is_slack_huddle_composer_in_thread(&element.node, &element.ancestors, &root.channel)
+        }),
+        UniqueMatch::One(_)
+    ) {
+        return None;
+    }
+
+    let mut scoped_nodes = Vec::new();
+    let mut ancestors = Vec::new();
+    let mut path = Vec::new();
+    let mut visited = 0;
+    collect_nodes_with_ancestors(
+        &root.element,
+        0,
+        &mut visited,
+        &mut path,
+        &mut ancestors,
+        &mut scoped_nodes,
+    );
+
+    let mut nodes = root
+        .nodes
+        .iter()
+        .filter(|node| is_enabled_slack_leave_control(node))
+        .cloned()
+        .collect::<Vec<_>>();
+    nodes.extend(
+        scoped_nodes
+            .into_iter()
+            .filter_map(|(mut node, ancestors)| {
+                slack_thread_container_path(&ancestors, &root.channel)?;
+                node.within_slack_huddle_scope = true;
+                Some(node)
+            }),
+    );
+    Some(nodes)
+}
+
+#[cfg(target_os = "macos")]
+fn collect_nodes_with_ancestors(
+    element: &ax::UiElement,
+    depth: usize,
+    visited: &mut usize,
+    path: &mut Vec<usize>,
+    ancestors: &mut Vec<AxAncestor>,
+    nodes: &mut Vec<(AxNode, Vec<AxAncestor>)>,
+) {
+    if depth > MAX_TREE_DEPTH || *visited >= MAX_NODES {
+        return;
+    }
+
+    let index = *visited;
+    *visited += 1;
+    let node = snapshot_node(element, index);
+    nodes.push((node.clone(), ancestors.clone()));
+    ancestors.push(AxAncestor {
+        path: path.clone(),
+        labels: node_labels(&node).map(str::to_string).collect(),
+    });
+
+    if let Ok(children) = element.children() {
+        for (child_index, child) in children.iter().enumerate() {
+            path.push(child_index);
+            collect_nodes_with_ancestors(child, depth + 1, visited, path, ancestors, nodes);
+            path.pop();
+        }
+    }
+    ancestors.pop();
+}
+
+#[cfg(target_os = "macos")]
+pub fn capture_meeting_chat_messages(bundle_ids: Vec<String>) -> MeetingChatCaptureResult {
+    let scoped_bundle_ids = select_active_bundle_ids(CHAT_CAPTURE_APP_BUNDLES, &bundle_ids);
+    if scoped_bundle_ids.len() != 1 {
+        return MeetingChatCaptureResult {
+            app: None,
+            platform: MeetingPlatform::Unknown,
+            surface: MeetingSurface::Unknown,
+            messages: Vec::new(),
+            warnings: vec![format!(
+                "meeting chat capture requires exactly one active supported meeting app; received {}",
+                scoped_bundle_ids.len()
+            )],
+        };
+    }
+
+    if !macos_accessibility_client::accessibility::application_is_trusted() {
+        return MeetingChatCaptureResult {
+            app: None,
+            platform: MeetingPlatform::Unknown,
+            surface: MeetingSurface::Unknown,
+            messages: Vec::new(),
+            warnings: vec!["macOS accessibility permission is not trusted".to_string()],
+        };
+    }
+
+    let bundle_id = scoped_bundle_ids[0];
+    let platform = classify_bundle(bundle_id);
+    let surface = classify_surface(bundle_id, &platform);
+    let mut warnings = Vec::new();
+    let mut candidates = Vec::new();
+
+    for (app, pid) in running_apps_for_bundle(bundle_id) {
+        let ax_app = ax::UiElement::with_app_pid(pid);
+        let _ = ax_app.set_messaging_timeout_secs(0.6);
+
+        match platform {
+            MeetingPlatform::Zoom => {
+                for root in
+                    collect_native_meeting_roots(&ax_app, &MeetingPlatform::Zoom, &mut warnings)
+                {
+                    if zoom_chat_surface_is_visible(&root.nodes) {
+                        candidates.push((app.clone(), root.nodes));
+                    }
+                }
+            }
+            MeetingPlatform::Slack => {
+                for root in collect_slack_huddle_roots(&ax_app, &mut warnings) {
+                    if let Some(nodes) = slack_huddle_thread_capture_nodes(&root) {
+                        candidates.push((app.clone(), nodes));
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    if candidates.len() != 1 {
+        warnings.push(format!(
+            "meeting chat capture requires exactly one validated visible chat surface; found {}",
+            candidates.len()
+        ));
+        return MeetingChatCaptureResult {
+            app: None,
+            platform,
+            surface,
+            messages: Vec::new(),
+            warnings,
+        };
+    }
+
+    let (app, nodes) = candidates.pop().unwrap();
+    let messages = extract_chat_messages(&platform, &surface, &nodes);
+    MeetingChatCaptureResult {
+        app: Some(app),
+        platform,
+        surface,
+        messages,
+        warnings,
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn capture_meeting_chat_messages(_bundle_ids: Vec<String>) -> MeetingChatCaptureResult {
+    MeetingChatCaptureResult {
+        app: None,
+        platform: MeetingPlatform::Unknown,
+        surface: MeetingSurface::Unknown,
+        messages: Vec::new(),
+        warnings: vec!["meeting chat AX capture is only available on macOS".to_string()],
+    }
 }
 
 #[cfg(target_os = "macos")]
@@ -1168,12 +1393,26 @@ fn collect_nodes(
     nodes: &mut Vec<AxNode>,
     warnings: &mut Vec<String>,
 ) {
+    collect_nodes_with_scope(element, depth, false, nodes, warnings);
+}
+
+#[cfg(target_os = "macos")]
+fn collect_nodes_with_scope(
+    element: &ax::UiElement,
+    depth: usize,
+    within_slack_huddle_scope: bool,
+    nodes: &mut Vec<AxNode>,
+    warnings: &mut Vec<String>,
+) {
     if depth > MAX_TREE_DEPTH || nodes.len() >= MAX_NODES {
         return;
     }
 
     let index = nodes.len();
-    nodes.push(snapshot_node(element, index));
+    let mut node = snapshot_node(element, index);
+    let within_slack_huddle_scope = within_slack_huddle_scope || is_slack_huddle_scope_node(&node);
+    node.within_slack_huddle_scope = within_slack_huddle_scope;
+    nodes.push(node);
 
     let children = match element.children() {
         Ok(children) => children,
@@ -1186,7 +1425,7 @@ fn collect_nodes(
             return;
         }
 
-        collect_nodes(child, depth + 1, nodes, warnings);
+        collect_nodes_with_scope(child, depth + 1, within_slack_huddle_scope, nodes, warnings);
     }
 }
 
@@ -1225,6 +1464,7 @@ fn snapshot_node(element: &ax::UiElement, index: usize) -> AxNode {
         settable_value,
         bounds,
         text,
+        within_slack_huddle_scope: false,
     }
 }
 
@@ -1880,6 +2120,308 @@ fn find_chat_targets(nodes: &[AxNode]) -> Vec<MeetingChatTarget> {
 }
 
 #[cfg(target_os = "macos")]
+fn slack_huddle_is_active(nodes: &[AxNode]) -> bool {
+    nodes.iter().any(|node| {
+        let role = node.role.as_deref().unwrap_or_default();
+        let label = slack_huddle_label(node);
+
+        matches!(role, "AXButton" | "AXMenuItem" | "AXGroup")
+            && (label.contains("leave huddle")
+                || label.contains("end huddle")
+                || label.contains("huddle controls"))
+    })
+}
+
+#[cfg(target_os = "macos")]
+fn is_slack_huddle_scope_node(node: &AxNode) -> bool {
+    let role = node.role.as_deref().unwrap_or_default();
+    let label = slack_huddle_label(node);
+    let is_huddle_chat_label = label == "huddle"
+        || label.contains("huddle chat")
+        || label.contains("huddle thread")
+        || label.contains("huddle messages")
+        || label.contains("huddle conversation");
+
+    match role {
+        "AXWindow" => is_huddle_chat_label,
+        "AXGroup" | "AXScrollArea" | "AXList" | "AXWebArea" | "AXSheet" => is_huddle_chat_label,
+        "AXButton" | "AXMenuItem" => {
+            label.contains("open huddle chat") || label.contains("show huddle chat")
+        }
+        _ => false,
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn slack_huddle_label(node: &AxNode) -> String {
+    [
+        node.title.as_deref(),
+        node.value.as_deref(),
+        node.description.as_deref(),
+        node.placeholder.as_deref(),
+    ]
+    .into_iter()
+    .flatten()
+    .collect::<Vec<_>>()
+    .join(" ")
+    .to_lowercase()
+}
+
+#[cfg(target_os = "macos")]
+fn extract_chat_messages(
+    platform: &MeetingPlatform,
+    surface: &MeetingSurface,
+    nodes: &[AxNode],
+) -> Vec<MeetingCapturedChatMessage> {
+    if *platform == MeetingPlatform::Slack && !slack_huddle_is_active(nodes) {
+        return Vec::new();
+    }
+
+    let mut seen = HashSet::new();
+    let mut messages = Vec::new();
+
+    for node in nodes {
+        if *platform == MeetingPlatform::Slack && !node.within_slack_huddle_scope {
+            continue;
+        }
+
+        let Some(raw_text) = chat_message_text(node) else {
+            continue;
+        };
+        let Some(parsed) = parse_chat_message(platform, &raw_text) else {
+            continue;
+        };
+        let signature = format!(
+            "{:?}|{}|{}|{}",
+            platform,
+            parsed.sender.as_deref().unwrap_or_default(),
+            parsed.timestamp.as_deref().unwrap_or_default(),
+            parsed.text
+        );
+        if !seen.insert(signature.clone()) {
+            continue;
+        }
+
+        messages.push(MeetingCapturedChatMessage {
+            id: format!("ax-chat-{signature}"),
+            platform: platform.clone(),
+            surface: surface.clone(),
+            sender: parsed.sender,
+            timestamp: parsed.timestamp,
+            links: extract_links(&parsed.text),
+            text: parsed.text,
+        });
+    }
+
+    if messages.len() > 80 {
+        messages.drain(..messages.len() - 80);
+    }
+    messages
+}
+
+#[cfg(target_os = "macos")]
+struct ParsedChatMessage {
+    sender: Option<String>,
+    timestamp: Option<String>,
+    text: String,
+}
+
+#[cfg(target_os = "macos")]
+fn chat_message_text(node: &AxNode) -> Option<String> {
+    let role = node.role.as_deref().unwrap_or_default();
+    if node.settable_value || matches!(role, "AXTextField" | "AXTextArea") {
+        return None;
+    }
+    if candidate_chat_target(node).is_some_and(|target| {
+        matches!(
+            target.kind.as_str(),
+            "input" | "sendButton" | "openChatControl"
+        )
+    }) {
+        return None;
+    }
+
+    let value = node
+        .value
+        .as_deref()
+        .or(node.title.as_deref())
+        .or(node.description.as_deref())?;
+    let text = normalize_chat_text(value);
+    if text.len() < 2 || is_chat_chrome_text(&text) {
+        return None;
+    }
+
+    Some(text)
+}
+
+#[cfg(target_os = "macos")]
+fn parse_chat_message(platform: &MeetingPlatform, raw_text: &str) -> Option<ParsedChatMessage> {
+    match platform {
+        MeetingPlatform::Zoom => parse_zoom_chat_message(raw_text),
+        MeetingPlatform::Slack => parse_slack_chat_message(raw_text),
+        _ => None,
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn parse_zoom_chat_message(raw_text: &str) -> Option<ParsedChatMessage> {
+    let lines = chat_lines(raw_text);
+    let first = lines.first()?.as_str();
+    if !first.starts_with("From ") {
+        return None;
+    }
+
+    let mut sender = first.trim_start_matches("From ").trim();
+    if let Some((name, _target)) = sender.split_once(" to ") {
+        sender = name.trim();
+    }
+
+    let mut timestamp = None;
+    let mut message_start = 1;
+    if let Some(line) = lines.get(1) {
+        if looks_like_time(line) {
+            timestamp = Some(line.clone());
+            message_start = 2;
+        }
+    }
+
+    let text = lines[message_start..].join("\n").trim().to_string();
+    (!text.is_empty()).then(|| ParsedChatMessage {
+        sender: non_empty_string(sender),
+        timestamp,
+        text,
+    })
+}
+
+#[cfg(target_os = "macos")]
+fn parse_slack_chat_message(raw_text: &str) -> Option<ParsedChatMessage> {
+    let lines = chat_lines(raw_text);
+    if lines.len() < 2 {
+        return None;
+    }
+
+    let first_line = lines[0].as_str();
+    let (sender, timestamp, message_start) =
+        if let Some((name, time)) = split_sender_time(first_line) {
+            (name, time.to_string(), 1)
+        } else if looks_like_time(&lines[1]) {
+            (first_line, lines[1].clone(), 2)
+        } else {
+            return None;
+        };
+
+    let text = lines[message_start..].join("\n").trim().to_string();
+    (!text.is_empty() && !is_chat_chrome_text(&text)).then(|| ParsedChatMessage {
+        sender: non_empty_string(sender),
+        timestamp: Some(timestamp),
+        text,
+    })
+}
+
+#[cfg(target_os = "macos")]
+fn chat_lines(text: &str) -> Vec<String> {
+    normalize_chat_text(text)
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .map(ToString::to_string)
+        .collect()
+}
+
+#[cfg(target_os = "macos")]
+fn normalize_chat_text(text: &str) -> String {
+    text.replace('\u{00a0}', " ")
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+#[cfg(target_os = "macos")]
+fn is_chat_chrome_text(text: &str) -> bool {
+    let lower = text.to_lowercase();
+    matches!(
+        lower.as_str(),
+        "chat"
+            | "meeting chat"
+            | "send"
+            | "send message"
+            | "send a message"
+            | "message everyone"
+            | "type a message"
+            | "conversation"
+            | "message list"
+            | "new messages"
+    ) || lower.starts_with("type a message")
+        || lower.starts_with("message everyone")
+        || lower.starts_with("send a message")
+}
+
+#[cfg(target_os = "macos")]
+fn split_sender_time(text: &str) -> Option<(&str, &str)> {
+    let trimmed = text.trim();
+    for suffix in [" AM", " PM", " am", " pm"] {
+        if let Some(without_period) = trimmed.strip_suffix(suffix) {
+            let (name, clock) = without_period.rsplit_once(' ')?;
+            let time_start = trimmed.len() - clock.len() - suffix.len();
+            let time = &trimmed[time_start..];
+            return looks_like_time(time).then_some((name.trim(), time.trim()));
+        }
+    }
+
+    let (name, time) = trimmed.rsplit_once(' ')?;
+    looks_like_time(time).then_some((name.trim(), time.trim()))
+}
+
+#[cfg(target_os = "macos")]
+fn looks_like_time(text: &str) -> bool {
+    let compact = text.trim().to_lowercase();
+    let meridiem = compact
+        .strip_suffix(" am")
+        .or_else(|| compact.strip_suffix(" pm"));
+    let time = meridiem.unwrap_or(&compact);
+    let Some((hour, minute)) = time.split_once(':') else {
+        return false;
+    };
+
+    let Ok(hour) = hour.parse::<u8>() else {
+        return false;
+    };
+    let Ok(minute) = minute.parse::<u8>() else {
+        return false;
+    };
+
+    minute < 60
+        && if meridiem.is_some() {
+            (1..=12).contains(&hour)
+        } else {
+            hour < 24
+        }
+}
+
+#[cfg(target_os = "macos")]
+fn non_empty_string(text: &str) -> Option<String> {
+    let text = text.trim();
+    (!text.is_empty()).then(|| text.to_string())
+}
+
+#[cfg(target_os = "macos")]
+fn extract_links(text: &str) -> Vec<String> {
+    text.split_whitespace()
+        .filter_map(|part| {
+            let link = part.trim_matches(|c: char| {
+                matches!(
+                    c,
+                    '"' | '\'' | '(' | ')' | '[' | ']' | '<' | '>' | ',' | '.'
+                )
+            });
+            (link.starts_with("http://") || link.starts_with("https://")).then(|| link.to_string())
+        })
+        .collect()
+}
+
+#[cfg(target_os = "macos")]
 fn candidate_chat_target(node: &AxNode) -> Option<MeetingChatTarget> {
     let role = node.role.as_deref().unwrap_or_default();
     let text = node.text.as_str();
@@ -1971,7 +2513,7 @@ impl From<cg::Rect> for AxRect {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, target_os = "macos"))]
 mod tests {
     use super::*;
 
@@ -1993,6 +2535,7 @@ mod tests {
                 &None,
                 &None,
             ),
+            within_slack_huddle_scope: false,
         }
     }
 
@@ -2519,6 +3062,174 @@ mod tests {
         assert_eq!(target.kind, "openChatControl");
         assert!(!target.settable);
         assert!(target.signals.contains(&"open-chat-control".to_string()));
+    }
+
+    #[test]
+    fn test_zoom_chat_message_parser_preserves_sender_time_text_and_links() {
+        let parsed = parse_chat_message(
+            &MeetingPlatform::Zoom,
+            "From Ada Lovelace to Everyone\n10:42 AM\nHere is the doc https://example.com/spec.",
+        )
+        .unwrap();
+
+        assert_eq!(parsed.sender, Some("Ada Lovelace".to_string()));
+        assert_eq!(parsed.timestamp, Some("10:42 AM".to_string()));
+        assert_eq!(parsed.text, "Here is the doc https://example.com/spec.");
+        assert_eq!(
+            extract_links(&parsed.text),
+            vec!["https://example.com/spec"]
+        );
+    }
+
+    #[test]
+    fn test_slack_chat_message_parser_handles_sender_time_prefix() {
+        let parsed = parse_chat_message(
+            &MeetingPlatform::Slack,
+            "Grace Hopper 9:03 PM\nShip it after the final check",
+        )
+        .unwrap();
+
+        assert_eq!(parsed.sender, Some("Grace Hopper".to_string()));
+        assert_eq!(parsed.timestamp, Some("9:03 PM".to_string()));
+        assert_eq!(parsed.text, "Ship it after the final check");
+    }
+
+    #[test]
+    fn test_chat_parsers_reject_unstructured_static_text() {
+        assert!(
+            parse_chat_message(
+                &MeetingPlatform::Zoom,
+                "Recording has started for this meeting"
+            )
+            .is_none()
+        );
+        assert!(parse_chat_message(&MeetingPlatform::Slack, "Channels\nGeneral").is_none());
+    }
+
+    #[test]
+    fn test_chat_parsers_reject_invalid_timestamps() {
+        assert!(!looks_like_time("99:99"));
+        assert!(!looks_like_time("13:00 PM"));
+        assert!(looks_like_time("23:59"));
+        assert!(looks_like_time("12:59 PM"));
+    }
+
+    #[test]
+    fn test_active_bundle_selection_is_scoped_and_deduplicated() {
+        let active_bundle_ids = vec![
+            "com.tinyspeck.slackmacgap".to_string(),
+            "com.google.Chrome".to_string(),
+            "com.tinyspeck.slackmacgap".to_string(),
+            "com.example.unrelated".to_string(),
+        ];
+
+        assert_eq!(
+            select_active_bundle_ids(CHAT_CAPTURE_APP_BUNDLES, &active_bundle_ids),
+            vec!["com.tinyspeck.slackmacgap"]
+        );
+        assert_eq!(
+            select_active_bundle_ids(MEETING_APP_BUNDLES, &active_bundle_ids),
+            vec!["com.tinyspeck.slackmacgap", "com.google.Chrome"]
+        );
+        assert!(select_active_bundle_ids(CHAT_CAPTURE_APP_BUNDLES, &[]).is_empty());
+    }
+
+    #[test]
+    fn test_slack_capture_requires_active_huddle_and_huddle_specific_scope() {
+        let active_control = node(0, "AXButton", "Leave huddle", None);
+        let channel_message = node(
+            1,
+            "AXStaticText",
+            "Grace Hopper 9:03 PM\nChannel-only message",
+            None,
+        );
+
+        assert!(
+            extract_chat_messages(
+                &MeetingPlatform::Slack,
+                &MeetingSurface::Native,
+                &[active_control.clone(), channel_message.clone()],
+            )
+            .is_empty()
+        );
+
+        let mut huddle_message = channel_message;
+        huddle_message.within_slack_huddle_scope = true;
+        assert!(
+            extract_chat_messages(
+                &MeetingPlatform::Slack,
+                &MeetingSurface::Native,
+                &[huddle_message.clone()],
+            )
+            .is_empty()
+        );
+
+        let messages = extract_chat_messages(
+            &MeetingPlatform::Slack,
+            &MeetingSurface::Native,
+            &[active_control, huddle_message],
+        );
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0].text, "Channel-only message");
+    }
+
+    #[test]
+    fn test_slack_huddle_scope_rejects_general_channel_containers() {
+        assert!(is_slack_huddle_scope_node(&node(
+            0,
+            "AXGroup",
+            "Huddle chat",
+            None,
+        )));
+        assert!(!is_slack_huddle_scope_node(&node(
+            1,
+            "AXGroup",
+            "#general conversation",
+            None,
+        )));
+        assert!(!slack_huddle_is_active(&[node(
+            2,
+            "AXStaticText",
+            "Someone mentioned leave huddle in a channel message",
+            None,
+        )]));
+    }
+
+    #[test]
+    fn test_extract_chat_messages_dedupes_visible_rows() {
+        let message = "From Ada Lovelace to Everyone\n10:42 AM\nDecision: keep the launch date";
+        let nodes = vec![
+            node(12, "AXStaticText", message, None),
+            node(13, "AXStaticText", message, None),
+        ];
+
+        let messages =
+            extract_chat_messages(&MeetingPlatform::Zoom, &MeetingSurface::Native, &nodes);
+
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0].sender, Some("Ada Lovelace".to_string()));
+        assert_eq!(messages[0].text, "Decision: keep the launch date");
+    }
+
+    #[test]
+    fn test_extract_chat_messages_retains_newest_eighty_rows() {
+        let nodes = (0..85)
+            .map(|index| {
+                node(
+                    index,
+                    "AXStaticText",
+                    &format!("From Ada to Everyone\nmessage {index}"),
+                    None,
+                )
+            })
+            .collect::<Vec<_>>();
+
+        let messages =
+            extract_chat_messages(&MeetingPlatform::Zoom, &MeetingSurface::Native, &nodes);
+
+        assert_eq!(messages.len(), 80);
+        assert_eq!(messages.first().unwrap().text, "message 5");
+        assert_eq!(messages.last().unwrap().text, "message 84");
     }
 
     #[test]
