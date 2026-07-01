@@ -56,7 +56,7 @@ export function OuterHeader({
             centerTitle && "justify-center",
             reserveCollapsedLiveControls ? "right-[153px]" : "right-[70px]",
             standaloneWindow
-              ? "left-[68px]"
+              ? "left-[76px]"
               : showSidebarTimelineHeaderGutter
                 ? "left-[104px]"
                 : showExpandedSidebarTimelineHeader

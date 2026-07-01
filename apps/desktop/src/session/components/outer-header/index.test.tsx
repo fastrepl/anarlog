@@ -313,7 +313,7 @@ describe("OuterHeader", () => {
     const title = screen.getByText("Session title");
     const titleSlot = title.parentElement?.parentElement;
 
-    expect(titleSlot?.className).toContain("left-[68px]");
+    expect(titleSlot?.className).toContain("left-[76px]");
     expect(titleSlot?.className).toContain("right-[70px]");
     expect(screen.queryByRole("button", { name: "Stop listening" })).toBeNull();
     expect(mocks.stopListening).not.toHaveBeenCalled();
@@ -336,7 +336,7 @@ describe("OuterHeader", () => {
     const header = container.firstElementChild;
 
     expect(header?.className).not.toContain("pl-[156px]");
-    expect(titleSlot?.className).toContain("left-[68px]");
+    expect(titleSlot?.className).toContain("left-[76px]");
     expect(titleSlot?.className).toContain("right-[70px]");
   });
 
