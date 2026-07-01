@@ -136,7 +136,11 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
         let app = self.manager.app_handle();
 
         if visible {
-            self.create_tray_menu()?;
+            if let Some(tray) = app.tray_by_id(TRAY_ID) {
+                tray.set_visible(true)?;
+            } else {
+                self.create_tray_menu()?;
+            }
             Self::refresh_icon(app)?;
         } else {
             if let Ok(mut task) = ANIMATION_TASK.lock()
@@ -144,7 +148,10 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
             {
                 handle.abort();
             }
-            let _ = app.remove_tray_by_id(TRAY_ID);
+
+            if let Some(tray) = app.tray_by_id(TRAY_ID) {
+                tray.set_visible(false)?;
+            }
         }
 
         Ok(())
