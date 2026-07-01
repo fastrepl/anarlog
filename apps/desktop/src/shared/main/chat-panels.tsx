@@ -129,7 +129,7 @@ function useNoteSurfaceWindowWidthGuard({
   leftPanelOpen: boolean;
   rightPanelOpen: boolean;
 }) {
-  const expansionCountRef = useRef(0);
+  const restorableExpansionCountRef = useRef(0);
   const lastVisibleBodyWidthRef = useRef<number | null>(null);
   const previousStateRef = useRef({
     enabled: false,
@@ -138,8 +138,8 @@ function useNoteSurfaceWindowWidthGuard({
   });
 
   const restoreWidthExpansions = useCallback(() => {
-    const restoreCount = expansionCountRef.current;
-    expansionCountRef.current = 0;
+    const restoreCount = restorableExpansionCountRef.current;
+    restorableExpansionCountRef.current = 0;
 
     for (let i = 0; i < restoreCount; i += 1) {
       void windowsCommands.windowRestoreWidth();
@@ -212,13 +212,18 @@ function useNoteSurfaceWindowWidthGuard({
     }
 
     const expandLeft = leftPanelJustOpened && !rightPanelJustOpened;
+    const restoreOnClose = !expandLeft;
 
-    expansionCountRef.current += 1;
+    if (restoreOnClose) {
+      restorableExpansionCountRef.current += 1;
+    }
+
     void windowsCommands.windowExpandWidth(
       widthDeficit,
       null,
       false,
       expandLeft,
+      restoreOnClose,
     );
   }, [
     bodyPanelContainerRef,

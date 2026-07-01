@@ -150,6 +150,7 @@ export const commands = {
     maxCurrentWidth: number | null,
     checkMonitorSpace: boolean,
     expandLeft: boolean,
+    restoreOnClose: boolean,
   ): Promise<Result<null, string>> {
     try {
       return {
@@ -159,6 +160,7 @@ export const commands = {
           maxCurrentWidth,
           checkMonitorSpace,
           expandLeft,
+          restoreOnClose,
         }),
       };
     } catch (e) {

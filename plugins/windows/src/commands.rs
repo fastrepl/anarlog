@@ -197,6 +197,7 @@ pub async fn window_expand_width(
     max_current_width: Option<u32>,
     check_monitor_space: bool,
     expand_left: bool,
+    restore_on_close: bool,
 ) -> Result<(), String> {
     if check_monitor_space {
         let outer_size = window.outer_size().map_err(|e| e.to_string())?;
@@ -254,7 +255,7 @@ pub async fn window_expand_width(
         })
         .map_err(|e| e.to_string())?;
 
-        if let Some(entry) = pushed {
+        if restore_on_close && let Some(entry) = pushed {
             app.state::<crate::WindowExpansions>()
                 .0
                 .lock()
@@ -281,17 +282,19 @@ pub async fn window_expand_width(
             }))
             .map_err(|e| e.to_string())?;
 
-        app.state::<crate::WindowExpansions>()
-            .0
-            .lock()
-            .unwrap()
-            .entry(window.label().to_string())
-            .or_default()
-            .push((
-                f64::from(outer_size.width),
-                f64::from(new_width),
-                expand_left,
-            ));
+        if restore_on_close {
+            app.state::<crate::WindowExpansions>()
+                .0
+                .lock()
+                .unwrap()
+                .entry(window.label().to_string())
+                .or_default()
+                .push((
+                    f64::from(outer_size.width),
+                    f64::from(new_width),
+                    expand_left,
+                ));
+        }
     }
 
     Ok(())

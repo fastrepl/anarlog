@@ -246,7 +246,13 @@ describe("MainChatPanels", () => {
       </MainChatPanels>,
     );
 
-    expect(mocks.windowExpandWidth).toHaveBeenCalledWith(60, null, false, true);
+    expect(mocks.windowExpandWidth).toHaveBeenCalledWith(
+      60,
+      null,
+      false,
+      true,
+      false,
+    );
   });
 
   it("expands left when opening the sidebar would make the empty surface narrower than 500px", () => {
@@ -266,7 +272,13 @@ describe("MainChatPanels", () => {
       </MainChatPanels>,
     );
 
-    expect(mocks.windowExpandWidth).toHaveBeenCalledWith(60, null, false, true);
+    expect(mocks.windowExpandWidth).toHaveBeenCalledWith(
+      60,
+      null,
+      false,
+      true,
+      false,
+    );
   });
 
   it("expands right when docked chat would make a note surface narrower than 500px", () => {
@@ -292,6 +304,7 @@ describe("MainChatPanels", () => {
       null,
       false,
       false,
+      true,
     );
   });
 
@@ -342,7 +355,40 @@ describe("MainChatPanels", () => {
       null,
       false,
       false,
+      true,
     );
+  });
+
+  it("does not restore window width after closing a left-sidebar expansion", () => {
+    mocks.currentTab = { type: "sessions" };
+    mocks.leftSidebarExpanded = true;
+    mockPanelWidths({
+      bodyPanelWidth: 640,
+      leftSidebarWidth: 200,
+    });
+
+    const renderPanels = () => (
+      <MainChatPanels>
+        <div data-left-sidebar-chrome />
+        <div data-chat-floating-anchor>
+          <div data-session-surface />
+        </div>
+      </MainChatPanels>
+    );
+    const { rerender } = render(renderPanels());
+
+    expect(mocks.windowExpandWidth).toHaveBeenCalledWith(
+      60,
+      null,
+      false,
+      true,
+      false,
+    );
+
+    mocks.leftSidebarExpanded = false;
+    rerender(renderPanels());
+
+    expect(mocks.windowRestoreWidth).not.toHaveBeenCalled();
   });
 
   it("restores window width expansions after the side panels close", () => {
@@ -369,6 +415,7 @@ describe("MainChatPanels", () => {
       null,
       false,
       false,
+      true,
     );
 
     mocks.chatMode = "FloatingClosed";
