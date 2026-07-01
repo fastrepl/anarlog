@@ -67,6 +67,7 @@ describe("LeftSidebar", () => {
       screen.getByTestId("timeline-view").getAttribute("data-top-chrome-inset"),
     ).toBe("true");
     expect(container.firstElementChild?.className).toContain("pt-0");
+    expect(container.firstElementChild?.className).not.toContain("pr-1");
   });
 
   it.each([
@@ -82,6 +83,7 @@ describe("LeftSidebar", () => {
 
     expect(screen.getByTestId(testId)).toBeTruthy();
     expect(classList).toContain("pt-11");
+    expect(classList).toContain("pr-1");
     expect(classList).not.toContain("pt-0");
   });
 });

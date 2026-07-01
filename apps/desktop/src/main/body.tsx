@@ -154,6 +154,7 @@ export function ClassicMainBody() {
   const hasLeftSurfaceCustomSidebar =
     hasLeftSurfaceCustomSidebarTab(currentTab);
   const showSidebarTimelineChrome = !hasCustomSidebar && !isOnboarding;
+  const canResizeLeftSidebarPanel = showSidebarTimelineChrome;
   const showSidebarTimeline = showSidebarTimelineChrome && leftsidebar.expanded;
   const mountLeftSidebarPanel = !isOnboarding;
   const showLeftSidebarPanel = mountLeftSidebarPanel && leftsidebar.expanded;
@@ -200,6 +201,13 @@ export function ClassicMainBody() {
         return;
       }
 
+      if (!canResizeLeftSidebarPanel) {
+        leftSidebarResizeDraggingRef.current = false;
+        setLeftSidebarResizing(false);
+        pendingLeftSidebarDefaultSizeRef.current = null;
+        return;
+      }
+
       const sidebarSize = sizes[0];
       if (typeof sidebarSize === "number") {
         const pendingDefaultSize = pendingLeftSidebarDefaultSizeRef.current;
@@ -243,6 +251,7 @@ export function ClassicMainBody() {
     [
       applyLeftSidebarPanelSize,
       commitLeftSidebarPanelSize,
+      canResizeLeftSidebarPanel,
       showLeftSidebarPanel,
     ],
   );
@@ -311,17 +320,22 @@ export function ClassicMainBody() {
     restoreLeftSidebarPanelSize,
   ]);
   const syncDefaultLeftSidebarPanelSize = useCallback(() => {
-    if (
-      !mountLeftSidebarPanel ||
-      leftSidebarResizeDraggingRef.current ||
-      !leftSidebarDefaultSizeTrackingRef.current
-    ) {
+    if (!mountLeftSidebarPanel || leftSidebarResizeDraggingRef.current) {
+      return;
+    }
+
+    if (!canResizeLeftSidebarPanel) {
+      leftSidebarResizeDraggingRef.current = false;
+      setLeftSidebarResizing(false);
+      pendingLeftSidebarDefaultSizeRef.current = null;
+    } else if (!leftSidebarDefaultSizeTrackingRef.current) {
       return;
     }
 
     const currentConstraints = leftSidebarPanelConstraintsRef.current;
 
     if (
+      canResizeLeftSidebarPanel &&
       !panelSizesAreEqual(
         leftSidebarPanelSizeRef.current,
         currentConstraints.defaultSize,
@@ -349,7 +363,9 @@ export function ClassicMainBody() {
     setLeftSidebarPanelConstraints(nextConstraints);
     leftSidebarPanelSizeRef.current = nextConstraints.defaultSize;
     lastExpandedLeftSidebarPanelSizeRef.current = nextConstraints.defaultSize;
-    pendingLeftSidebarDefaultSizeRef.current = nextConstraints.defaultSize;
+    pendingLeftSidebarDefaultSizeRef.current = canResizeLeftSidebarPanel
+      ? nextConstraints.defaultSize
+      : null;
     commitLeftSidebarPanelSize(nextConstraints.defaultSize);
     applyLeftSidebarPanelSize(nextConstraints.defaultSize);
 
@@ -361,6 +377,7 @@ export function ClassicMainBody() {
     });
   }, [
     applyLeftSidebarPanelSize,
+    canResizeLeftSidebarPanel,
     commitLeftSidebarPanelSize,
     mountLeftSidebarPanel,
   ]);
@@ -417,18 +434,22 @@ export function ClassicMainBody() {
   const leftSidebarChromeStyle = useMemo(
     () =>
       ({
-        width: "var(--left-sidebar-panel-width)",
+        width: canResizeLeftSidebarPanel
+          ? "var(--left-sidebar-panel-width)"
+          : LEFT_SIDEBAR_DEFAULT_WIDTH_PX,
         minWidth: LEFT_SIDEBAR_MIN_WIDTH_PX,
-        maxWidth: LEFT_SIDEBAR_MAX_WIDTH_PX,
+        maxWidth: canResizeLeftSidebarPanel
+          ? LEFT_SIDEBAR_MAX_WIDTH_PX
+          : LEFT_SIDEBAR_DEFAULT_WIDTH_PX,
       }) satisfies CSSProperties,
-    [],
+    [canResizeLeftSidebarPanel],
   );
-  const leftSidebarPanelStyle = useMemo(
-    () =>
-      ({
-        flexGrow: leftsidebar.expanded ? "var(--left-sidebar-panel-size)" : 0,
-        maxWidth: leftsidebar.expanded ? LEFT_SIDEBAR_MAX_WIDTH_PX : 0,
-        minWidth: leftsidebar.expanded ? LEFT_SIDEBAR_MIN_WIDTH_PX : 0,
+  const leftSidebarPanelStyle = useMemo(() => {
+    if (!leftsidebar.expanded) {
+      return {
+        flexGrow: 0,
+        maxWidth: 0,
+        minWidth: 0,
         transition:
           leftSidebarResizing && leftsidebar.expanded
             ? undefined
@@ -437,9 +458,45 @@ export function ClassicMainBody() {
                 "max-width 180ms ease-out",
                 "min-width 180ms ease-out",
               ].join(", "),
-      }) satisfies CSSProperties,
-    [leftSidebarResizing, leftsidebar.expanded],
-  );
+      } satisfies CSSProperties;
+    }
+
+    if (!canResizeLeftSidebarPanel) {
+      return {
+        flexBasis: LEFT_SIDEBAR_DEFAULT_WIDTH_PX,
+        flexGrow: 0,
+        maxWidth: LEFT_SIDEBAR_DEFAULT_WIDTH_PX,
+        minWidth: LEFT_SIDEBAR_DEFAULT_WIDTH_PX,
+        transition:
+          leftSidebarResizing && leftsidebar.expanded
+            ? undefined
+            : [
+                "flex-grow 180ms ease-out",
+                "max-width 180ms ease-out",
+                "min-width 180ms ease-out",
+              ].join(", "),
+      } satisfies CSSProperties;
+    }
+
+    return {
+      flexGrow: "var(--left-sidebar-panel-size)",
+      maxWidth: LEFT_SIDEBAR_MAX_WIDTH_PX,
+      minWidth: LEFT_SIDEBAR_MIN_WIDTH_PX,
+      transition:
+        leftSidebarResizing && leftsidebar.expanded
+          ? undefined
+          : [
+              "flex-grow 180ms ease-out",
+              "max-width 180ms ease-out",
+              "min-width 180ms ease-out",
+            ].join(", "),
+    } satisfies CSSProperties;
+  }, [canResizeLeftSidebarPanel, leftSidebarResizing, leftsidebar.expanded]);
+  const leftSidebarPanelRenderConstraints = canResizeLeftSidebarPanel
+    ? leftSidebarPanelConstraints
+    : createFixedLeftSidebarPanelConstraints(
+        leftSidebarPanelConstraints.defaultSize,
+      );
   const renderedLeftSidebarPanelSize = leftSidebarResizeDraggingRef.current
     ? leftSidebarPanelSizeRef.current
     : leftSidebarPanelSize;
@@ -519,7 +576,11 @@ export function ClassicMainBody() {
         </div>
       ) : null}
       <ResizablePanelGroup
-        autoSaveId={mountLeftSidebarPanel ? "classic-main-sidebar" : undefined}
+        autoSaveId={
+          mountLeftSidebarPanel && canResizeLeftSidebarPanel
+            ? "classic-main-sidebar"
+            : undefined
+        }
         dir="ltr"
         direction="horizontal"
         className="min-h-0 flex-1 overflow-hidden"
@@ -533,9 +594,9 @@ export function ClassicMainBody() {
               order={1}
               collapsible
               collapsedSize={LEFT_SIDEBAR_COLLAPSED_SIZE}
-              defaultSize={leftSidebarPanelConstraints.defaultSize}
-              minSize={leftSidebarPanelConstraints.minSize}
-              maxSize={leftSidebarPanelConstraints.maxSize}
+              defaultSize={leftSidebarPanelRenderConstraints.defaultSize}
+              minSize={leftSidebarPanelRenderConstraints.minSize}
+              maxSize={leftSidebarPanelRenderConstraints.maxSize}
               onCollapse={handleLeftSidebarPanelCollapse}
               className={cn([
                 "min-h-0 overflow-hidden",
@@ -566,11 +627,15 @@ export function ClassicMainBody() {
             <ResizableHandle
               className={cn([
                 "z-10 !bg-transparent after:w-2",
-                showLeftSidebarPanel
+                showLeftSidebarPanel && canResizeLeftSidebarPanel
                   ? "w-1"
                   : "pointer-events-none w-0 after:w-0",
               ])}
-              onDragging={handleLeftSidebarResizeDragging}
+              onDragging={
+                canResizeLeftSidebarPanel
+                  ? handleLeftSidebarResizeDragging
+                  : undefined
+              }
             />
           </>
         ) : null}
@@ -626,6 +691,14 @@ function createLeftSidebarPanelConstraints(widthPx?: number) {
       minSize,
       percentageFromPixels(LEFT_SIDEBAR_MAX_WIDTH_PX, containerWidthPx),
     ),
+  };
+}
+
+function createFixedLeftSidebarPanelConstraints(defaultSize: number) {
+  return {
+    defaultSize,
+    minSize: defaultSize,
+    maxSize: defaultSize,
   };
 }
 

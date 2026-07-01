@@ -117,6 +117,7 @@ vi.mock("@hypr/ui/components/ui/resizable", () => ({
           data-collapsible={collapsible}
           data-default-size={defaultSize}
           data-panel-id={id}
+          data-flex-basis={style?.flexBasis}
           data-max-size={maxSize}
           data-min-size={minSize}
           data-flex-grow={style?.flexGrow}
@@ -326,6 +327,64 @@ describe("ClassicMainBody", () => {
     );
     expect(bodyRoot?.style.getPropertyValue("--left-sidebar-panel-width")).toBe(
       "24%",
+    );
+  });
+
+  it.each([
+    ["settings", { state: { tab: "app" } }],
+    ["calendar", {}],
+    ["contacts", { state: { selected: null } }],
+    ["templates", { state: { selectedMineId: null, selectedWebIndex: null } }],
+  ])("keeps the %s left sidebar fixed", (type, extraTabState) => {
+    mocks.currentTab = {
+      active: true,
+      pinned: false,
+      slotId: `slot-${type}`,
+      type,
+      ...extraTabState,
+    };
+
+    render(<ClassicMainBody />);
+
+    expect(screen.getByTestId("panel-group").dataset.autoSaveId).toBe(
+      undefined,
+    );
+    expect(screen.getByTestId("resize-handle").dataset.className).toContain(
+      "pointer-events-none",
+    );
+    expect(screen.getByTestId("resize-handle").dataset.className).toContain(
+      "w-0",
+    );
+    expect(screen.getByTestId("resize-handle").dataset.className).toContain(
+      "after:w-0",
+    );
+    expect(mocks.onResizeDragging).toBeNull();
+
+    const panels = screen.getAllByTestId("panel");
+    expect(panels[0]?.dataset.defaultSize).toBe("12.5");
+    expect(panels[0]?.dataset.minSize).toBe("12.5");
+    expect(panels[0]?.dataset.maxSize).toBe("12.5");
+    expect(panels[0]?.dataset.flexGrow).toBe("0");
+    expect(panels[0]?.dataset.flexBasis).toBe("200");
+    expect(panels[0]?.dataset.minWidth).toBe("200");
+    expect(panels[0]?.dataset.maxWidth).toBe("200");
+
+    const sidebarChrome = document.querySelector<HTMLElement>(
+      "[data-left-sidebar-chrome]",
+    );
+    expect(sidebarChrome?.style.width).toBe("200px");
+    expect(sidebarChrome?.style.maxWidth).toBe("200px");
+
+    const bodyRoot = screen.getByTestId("panel-group").parentElement;
+    act(() => {
+      mocks.onPanelLayout?.([24, 76]);
+    });
+
+    expect(bodyRoot?.style.getPropertyValue("--left-sidebar-panel-size")).toBe(
+      "12.5",
+    );
+    expect(bodyRoot?.style.getPropertyValue("--left-sidebar-panel-width")).toBe(
+      "12.5%",
     );
   });
 
