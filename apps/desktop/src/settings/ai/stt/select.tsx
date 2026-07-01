@@ -369,6 +369,7 @@ type ModelCategory = "latest" | null;
 type ModelEntry = {
   id: string;
   isDownloaded: boolean;
+  providerId?: ProviderId;
   displayName?: string;
   isDeprecated?: boolean;
   category?: ModelCategory;
@@ -494,7 +495,12 @@ function useConfiguredMapping(): Record<
 
       if (provider.id === "hyprnote") {
         const models: ModelEntry[] = [
-          { id: "cloud", isDownloaded: billing.isPaid, category: "latest" },
+          {
+            id: "cloud",
+            isDownloaded: billing.isPaid,
+            providerId: provider.id,
+            category: "latest",
+          },
         ];
 
         if (isAppleSilicon) {
@@ -502,6 +508,7 @@ function useConfiguredMapping(): Record<
             models.push({
               id: model.key,
               isDownloaded: soniqoDownloaded[i]?.data ?? false,
+              providerId: provider.id,
               displayName: model.display_name,
               sizeBytes: model.size_bytes,
               mode: isRealtimeLocalModel(String(model.key))
@@ -526,6 +533,7 @@ function useConfiguredMapping(): Record<
           models: provider.models.map((model) => ({
             id: model,
             isDownloaded: true,
+            providerId: provider.id,
             mode: getProviderModelMode(provider.id, model),
           })),
         },
@@ -569,7 +577,7 @@ function ModelSelectItem({
       />
       <div className="flex shrink-0 items-center gap-2 text-[11px]">
         <LocalModelBackendBadge model={model.id} />
-        <ModelModeBadge mode={model.mode} />
+        <ModelModeBadge mode={model.mode} providerId={model.providerId} />
         {!model.isDownloaded && sizeLabel && (
           <span className="text-muted-foreground font-mono">{sizeLabel}</span>
         )}
@@ -665,13 +673,19 @@ function ModelSelectedValue({ model }: { model: ModelEntry }) {
         className={cn(["min-w-0", isDeprecated && "opacity-60"])}
         labelClassName={cn([isDeprecated && "text-muted-foreground"])}
       />
-      <ModelModeBadge mode={model.mode} />
+      <ModelModeBadge mode={model.mode} providerId={model.providerId} />
     </div>
   );
 }
 
-function ModelModeBadge({ mode }: { mode?: ModelEntry["mode"] }) {
-  if (!mode) {
+function ModelModeBadge({
+  mode,
+  providerId,
+}: {
+  mode?: ModelEntry["mode"];
+  providerId?: ProviderId;
+}) {
+  if (!mode || providerId === "soniox") {
     return null;
   }
 
