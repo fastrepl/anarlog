@@ -83,9 +83,15 @@ pub async fn list_connection_ids(
                 }
             }
             Err(e) => {
-                tracing::warn!(
-                    "failed to fetch remote connection ids: {e}; continuing with local providers only"
-                );
+                if is_local_api_base_url(api_base_url) {
+                    tracing::debug!(
+                        "failed to fetch remote connection ids from local API: {e}; continuing with local providers only"
+                    );
+                } else {
+                    tracing::warn!(
+                        "failed to fetch remote connection ids: {e}; continuing with local providers only"
+                    );
+                }
             }
         }
     }
@@ -97,6 +103,16 @@ pub async fn list_connection_ids(
             connection_ids,
         })
         .collect())
+}
+
+fn is_local_api_base_url(api_base_url: &str) -> bool {
+    reqwest::Url::parse(api_base_url)
+        .ok()
+        .and_then(|url| {
+            url.host_str()
+                .map(|host| matches!(host, "localhost" | "127.0.0.1" | "::1" | "[::1]"))
+        })
+        .unwrap_or(false)
 }
 
 pub async fn is_provider_enabled(
@@ -212,6 +228,15 @@ pub fn parse_meeting_link(text: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn detects_local_api_base_urls() {
+        assert!(is_local_api_base_url("http://localhost:3001"));
+        assert!(is_local_api_base_url("http://127.0.0.1:3001"));
+        assert!(is_local_api_base_url("http://[::1]:3001"));
+        assert!(!is_local_api_base_url("https://api.example.com"));
+        assert!(!is_local_api_base_url("not a url"));
+    }
 
     #[test]
     fn parse_meeting_link_real_world() {
