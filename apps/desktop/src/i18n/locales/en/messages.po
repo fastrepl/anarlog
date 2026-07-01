@@ -71,6 +71,7 @@ msgid "Account"
 msgstr "Account"
 
 #: src/contacts/shared.tsx:151
+#: src/settings/personalization/index.tsx:105
 #: src/settings/todo/github.tsx:206
 msgid "Add"
 msgstr "Add"
@@ -89,6 +90,10 @@ msgstr "Add {0} account"
 #: src/settings/general/spoken-languages.tsx:177
 msgid "Add language"
 msgstr "Add language"
+
+#: src/settings/personalization/index.tsx:84
+msgid "Add names, jargon, or product terms to prefer"
+msgstr "Add names, jargon, or product terms to prefer"
 
 #: src/contacts/details.tsx:554
 msgid "Add notes about this contact..."
@@ -519,7 +524,7 @@ msgstr "Describe the template purpose..."
 msgid "Detection delay"
 msgstr "Detection delay"
 
-#: src/settings/personalization/index.tsx:61
+#: src/settings/personalization/index.tsx:76
 msgid "Dictionary"
 msgstr "Dictionary"
 
@@ -609,6 +614,10 @@ msgstr "Enter your API key (optional)"
 #: src/settings/general/notification.tsx:213
 msgid "Event notifications"
 msgstr "Event notifications"
+
+#: src/settings/personalization/index.tsx:136
+msgid "Examples"
+msgstr "Examples"
 
 #: src/settings/general/notification.tsx:289
 msgid "Exclude apps from detection"
@@ -994,10 +1003,6 @@ msgstr "Moving existing data requires an empty folder. Uncheck Move to switch lo
 msgid "Name"
 msgstr "Name"
 
-#: src/settings/personalization/index.tsx:64
-msgid "Names, jargon, and product terms to prefer."
-msgstr "Names, jargon, and product terms to prefer."
-
 #: src/chat/components/toolbar-controls.tsx:64
 msgid "New chat"
 msgstr "New chat"
@@ -1225,7 +1230,7 @@ msgstr "Permissions"
 msgid "Permissions granted"
 msgstr "Permissions granted"
 
-#: src/settings/personalization/index.tsx:27
+#: src/settings/personalization/index.tsx:31
 #: src/sidebar/settings.tsx:103
 msgid "Personalization"
 msgstr "Personalization"
@@ -1299,6 +1304,10 @@ msgstr "Related Notes"
 #: src/settings/todo/provider-content.tsx:229
 msgid "Reminders"
 msgstr "Reminders"
+
+#: src/settings/personalization/index.tsx:126
+msgid "Remove {term}"
+msgstr "Remove {term}"
 
 #: src/settings/todo/github.tsx:170
 msgid "Remove repository"
@@ -1385,10 +1394,6 @@ msgstr "Retry"
 #: src/settings/ai/stt/select.tsx:757
 msgid "Runs after the recording finishes, not during the meeting."
 msgstr "Runs after the recording finishes, not during the meeting."
-
-#: src/settings/personalization/index.tsx:93
-msgid "Save"
-msgstr "Save"
 
 #: src/settings/general/storage/index.tsx:198
 msgid "Save audio after meeting"

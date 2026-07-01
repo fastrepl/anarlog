@@ -71,6 +71,7 @@ msgid "Account"
 msgstr ""
 
 #: src/contacts/shared.tsx:151
+#: src/settings/personalization/index.tsx:105
 #: src/settings/todo/github.tsx:206
 msgid "Add"
 msgstr ""
@@ -89,6 +90,10 @@ msgstr ""
 #: src/settings/general/spoken-languages.tsx:177
 msgid "Add language"
 msgstr "Добавить язык"
+
+#: src/settings/personalization/index.tsx:84
+msgid "Add names, jargon, or product terms to prefer"
+msgstr ""
 
 #: src/contacts/details.tsx:554
 msgid "Add notes about this contact..."
@@ -519,7 +524,7 @@ msgstr ""
 msgid "Detection delay"
 msgstr ""
 
-#: src/settings/personalization/index.tsx:61
+#: src/settings/personalization/index.tsx:76
 msgid "Dictionary"
 msgstr ""
 
@@ -608,6 +613,10 @@ msgstr ""
 
 #: src/settings/general/notification.tsx:213
 msgid "Event notifications"
+msgstr ""
+
+#: src/settings/personalization/index.tsx:136
+msgid "Examples"
 msgstr ""
 
 #: src/settings/general/notification.tsx:289
@@ -994,10 +1003,6 @@ msgstr ""
 msgid "Name"
 msgstr ""
 
-#: src/settings/personalization/index.tsx:64
-msgid "Names, jargon, and product terms to prefer."
-msgstr ""
-
 #: src/chat/components/toolbar-controls.tsx:64
 msgid "New chat"
 msgstr ""
@@ -1225,7 +1230,7 @@ msgstr ""
 msgid "Permissions granted"
 msgstr ""
 
-#: src/settings/personalization/index.tsx:27
+#: src/settings/personalization/index.tsx:31
 #: src/sidebar/settings.tsx:103
 msgid "Personalization"
 msgstr ""
@@ -1298,6 +1303,10 @@ msgstr ""
 
 #: src/settings/todo/provider-content.tsx:229
 msgid "Reminders"
+msgstr ""
+
+#: src/settings/personalization/index.tsx:126
+msgid "Remove {term}"
 msgstr ""
 
 #: src/settings/todo/github.tsx:170
@@ -1384,10 +1393,6 @@ msgstr ""
 #: src/settings/ai/shared/index.tsx:348
 #: src/settings/ai/stt/select.tsx:757
 msgid "Runs after the recording finishes, not during the meeting."
-msgstr ""
-
-#: src/settings/personalization/index.tsx:93
-msgid "Save"
 msgstr ""
 
 #: src/settings/general/storage/index.tsx:198
