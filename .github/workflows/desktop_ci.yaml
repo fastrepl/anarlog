@@ -42,7 +42,6 @@ jobs:
       - run: pnpm -F ui build
       - run: pnpm -F desktop typecheck
       - run: pnpm -F desktop test
-      - run: pnpm -F desktop i18n:check
       - uses: ./.github/actions/install_desktop_deps
         with:
           target: ${{ matrix.platform }}
@@ -140,9 +139,33 @@ jobs:
             --exclude activity-capture-macos \
             --exclude tauri-plugin-activity-capture
 
+  desktop_i18n:
+    if: ${{ !startsWith(github.head_ref || '', 'blog/') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - uses: ./.github/actions/pnpm_install
+      - run: pnpm -F desktop i18n:check
+
+  desktop_swift:
+    if: ${{ !startsWith(github.head_ref || '', 'blog/') }}
+    runs-on: depot-macos-15
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - run: swift build --package-path plugins/windows/swift-lib
+
   ci:
     if: always()
-    needs: [desktop_ci]
+    needs: [desktop_ci, desktop_i18n, desktop_swift]
     runs-on: ubuntu-latest
     steps:
       - run: exit 1
