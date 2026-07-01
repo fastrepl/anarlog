@@ -147,6 +147,26 @@ describe("OuterHeader", () => {
     expect(mocks.stopListening).toHaveBeenCalledTimes(1);
   });
 
+  it("hides the finalizing header button while the sidebar is collapsed", () => {
+    mocks.leftsidebar.expanded = false;
+    mocks.sessionModes = { "session-1": "finalizing" };
+
+    render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "raw" } as EditorView}
+        title={<span>Session title</span>}
+      />,
+    );
+
+    const title = screen.getByText("Session title");
+    const titleSlot = title.parentElement?.parentElement;
+
+    expect(screen.queryByRole("button", { name: "Finalizing" })).toBeNull();
+    expect(titleSlot?.className).toContain("right-[70px]");
+    expect(titleSlot?.className).not.toContain("right-[153px]");
+  });
+
   it("raises the tightened title field when the sidebar is collapsed", () => {
     mocks.leftsidebar.expanded = false;
 

@@ -326,5 +326,5 @@ function SidebarModeStopButton({
 }
 
 function isSidebarStopButtonMode(sessionMode: string) {
-  return sessionMode === "active" || sessionMode === "finalizing";
+  return sessionMode === "active";
 }
