@@ -17,8 +17,8 @@ use super::{ChannelSender, DEVICE_FINGERPRINT_HEADER, ListenerArgs, ListenerMsg,
 use crate::SessionErrorEvent;
 
 const SONIQO_ECHO_GATE_MIN_SAMPLES: usize = 512;
-const SONIQO_ECHO_GATE_MAX_LAG_SAMPLES: isize = 640;
-const SONIQO_ECHO_GATE_LAG_STEP_SAMPLES: isize = 160;
+const SONIQO_ECHO_GATE_MAX_LAG_SAMPLES: isize = 1600;
+const SONIQO_ECHO_GATE_LAG_STEP_SAMPLES: isize = 80;
 const SONIQO_ECHO_GATE_MIN_MIC_RMS: f32 = 0.0025;
 const SONIQO_ECHO_GATE_MIN_SPEAKER_RMS: f32 = 0.01;
 const SONIQO_ECHO_GATE_MIN_CORRELATION: f32 = 0.55;
@@ -927,6 +927,15 @@ mod tests {
     fn suppresses_soniqo_mic_when_chunk_is_echo_dominant() {
         let speaker = test_signal(1920, 0x1234_5678);
         let mut mic = delayed(&speaker, 160, 0.35);
+
+        assert!(suppress_soniqo_echo_dominant_mic(&mut mic, &speaker));
+        assert!(mic.iter().all(|sample| *sample == 0.0));
+    }
+
+    #[test]
+    fn suppresses_soniqo_mic_when_aec_residual_has_longer_capture_lag() {
+        let speaker = test_signal(2400, 0x1234_5678);
+        let mut mic = delayed(&speaker, 1120, 0.25);
 
         assert!(suppress_soniqo_echo_dominant_mic(&mut mic, &speaker));
         assert!(mic.iter().all(|sample| *sample == 0.0));
