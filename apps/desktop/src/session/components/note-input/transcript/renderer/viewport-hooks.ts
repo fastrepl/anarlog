@@ -66,8 +66,7 @@ export function useScrollDetection(
   }, [containerRef]);
 
   useEffect(() => {
-    if (active && !wasActiveRef.current) {
-      userScrolledAwayRef.current = false;
+    if (active && !wasActiveRef.current && !userScrolledAwayRef.current) {
       setAutoScrollEnabled(true);
       setScrollTarget(null);
     }

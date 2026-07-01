@@ -642,7 +642,6 @@ private struct TranscriptScrollObserver: NSViewRepresentable {
     context.coordinator.isPinnedToBottom = $isPinnedToBottom
     DispatchQueue.main.async {
       context.coordinator.bind(to: view.enclosingScrollView)
-      context.coordinator.updatePinnedState()
     }
   }
 
@@ -650,15 +649,11 @@ private struct TranscriptScrollObserver: NSViewRepresentable {
     var isPinnedToBottom: Binding<Bool>?
     private weak var scrollView: NSScrollView?
     private var boundsObserver: NSObjectProtocol?
-    private var frameObserver: NSObjectProtocol?
     private let threshold: CGFloat = 20
 
     deinit {
       if let boundsObserver {
         NotificationCenter.default.removeObserver(boundsObserver)
-      }
-      if let frameObserver {
-        NotificationCenter.default.removeObserver(frameObserver)
       }
     }
 
@@ -668,9 +663,6 @@ private struct TranscriptScrollObserver: NSViewRepresentable {
       if let boundsObserver {
         NotificationCenter.default.removeObserver(boundsObserver)
       }
-      if let frameObserver {
-        NotificationCenter.default.removeObserver(frameObserver)
-      }
 
       self.scrollView = scrollView
       guard let scrollView else { return }
@@ -679,15 +671,6 @@ private struct TranscriptScrollObserver: NSViewRepresentable {
       boundsObserver = NotificationCenter.default.addObserver(
         forName: NSView.boundsDidChangeNotification,
         object: scrollView.contentView,
-        queue: .main
-      ) { [weak self] _ in
-        self?.updatePinnedState()
-      }
-
-      scrollView.documentView?.postsFrameChangedNotifications = true
-      frameObserver = NotificationCenter.default.addObserver(
-        forName: NSView.frameDidChangeNotification,
-        object: scrollView.documentView,
         queue: .main
       ) { [weak self] _ in
         self?.updatePinnedState()
