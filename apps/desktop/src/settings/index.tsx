@@ -3,7 +3,6 @@ import { cn } from "@hypr/utils";
 import {
   SettingsAccount,
   SettingsApp,
-  SettingsData,
   SettingsNotifications,
   SettingsPermissions,
 } from "./general";
@@ -28,7 +27,8 @@ export function TabContentSettings({
 }
 
 function SettingsView({ tab }: { tab: Extract<Tab, { type: "settings" }> }) {
-  const activeTab = tab.state.tab ?? "app";
+  const requestedTab = tab.state.tab as string | undefined;
+  const activeTab = requestedTab === "data" ? "app" : (tab.state.tab ?? "app");
 
   const renderContent = () => {
     switch (activeTab) {
@@ -36,8 +36,6 @@ function SettingsView({ tab }: { tab: Extract<Tab, { type: "settings" }> }) {
         return <SettingsAccount />;
       case "app":
         return <SettingsApp />;
-      case "data":
-        return <SettingsData />;
       case "notifications":
         return <SettingsNotifications />;
       case "permissions":
@@ -50,6 +48,8 @@ function SettingsView({ tab }: { tab: Extract<Tab, { type: "settings" }> }) {
         return <LLM />;
       case "todo":
         return <SettingsTodo />;
+      default:
+        return <SettingsApp />;
     }
   };
 

@@ -265,6 +265,18 @@ describe("Basic Tab Actions", () => {
     ]);
   });
 
+  test("openNew falls back from legacy data settings tab to app", () => {
+    useTabs.getState().openNew({ type: "settings", state: { tab: "data" } });
+
+    expect(useTabs.getState()).toHaveCurrentTab({
+      type: "settings",
+      state: { tab: "app" },
+    });
+    expect(useTabs.getState()).toMatchTabsInOrder([
+      { type: "settings", active: true, state: { tab: "app" } },
+    ]);
+  });
+
   test("openNew preserves account settings tab requests", () => {
     useTabs.getState().openNew({ type: "settings", state: { tab: "account" } });
 

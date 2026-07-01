@@ -22,7 +22,6 @@ import { ThemeSelector } from "./theme";
 import { TimezoneSelector } from "./timezone";
 import { WeekStartSelector } from "./week-start";
 
-import { Data } from "~/settings/data";
 import { SettingsPageTitle } from "~/settings/page-title";
 import { useConfigValues } from "~/shared/config";
 import * as settings from "~/store/tinybase/store/settings";
@@ -292,16 +291,8 @@ export function SettingsApp() {
           </form.Field>
         </div>
       </div>
-    </div>
-  );
-}
 
-export function SettingsData() {
-  return (
-    <div className="flex flex-col gap-8">
-      <SettingsPageTitle title={<Trans>Data</Trans>} />
       <StorageSettingsView />
-      <Data />
     </div>
   );
 }

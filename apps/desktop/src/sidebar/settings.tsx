@@ -6,11 +6,11 @@ import {
   BellIcon,
   BookText,
   CalendarIcon,
-  DatabaseIcon,
+  CogIcon,
   LockIcon,
   SlidersHorizontalIcon,
-  SmartphoneIcon,
   SparklesIcon,
+  type LucideIcon,
   UserIcon,
   UsersIcon,
 } from "lucide-react";
@@ -23,11 +23,11 @@ import { CustomSidebarHeader } from "./custom-sidebar-header";
 import { type SettingsTab, useTabs } from "~/store/zustand/tabs";
 
 type SettingsNavItem =
-  | { id: SettingsTab; label: string; icon: typeof SmartphoneIcon }
+  | { id: SettingsTab; label: string; icon: LucideIcon }
   | {
       action: "open-templates" | "open-calendar" | "open-contacts";
       label: string;
-      icon: typeof SmartphoneIcon;
+      icon: LucideIcon;
     };
 
 type SettingsNavGroup = { label: string; items: SettingsNavItem[] };
@@ -68,10 +68,29 @@ export function SettingsNav() {
     {
       label: t`General`,
       items: [
-        { id: "app", label: t`App`, icon: SmartphoneIcon },
-        { id: "data", label: t`Data`, icon: DatabaseIcon },
+        { id: "app", label: t`App`, icon: CogIcon },
         { id: "account", label: t`Account`, icon: UserIcon },
         { id: "notifications", label: t`Notifications`, icon: BellIcon },
+      ],
+    },
+    {
+      label: t`Context`,
+      items: [
+        {
+          action: "open-calendar",
+          label: t`Calendar`,
+          icon: CalendarIcon,
+        },
+        {
+          action: "open-contacts",
+          label: t`Contacts`,
+          icon: UsersIcon,
+        },
+        {
+          action: "open-templates",
+          label: t`Templates`,
+          icon: BookText,
+        },
       ],
     },
     {
@@ -84,11 +103,6 @@ export function SettingsNav() {
           label: t`Personalization`,
           icon: SlidersHorizontalIcon,
         },
-        {
-          action: "open-templates",
-          label: t`Templates`,
-          icon: BookText,
-        },
       ],
     },
   ];
@@ -100,17 +114,6 @@ export function SettingsNav() {
       icon: LockIcon,
     });
   }
-
-  groups[0].items.push({
-    action: "open-calendar",
-    label: t`Calendar`,
-    icon: CalendarIcon,
-  });
-  groups[0].items.push({
-    action: "open-contacts",
-    label: t`Contacts`,
-    icon: UsersIcon,
-  });
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden">

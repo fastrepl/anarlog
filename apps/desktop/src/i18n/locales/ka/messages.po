@@ -66,7 +66,7 @@ msgstr ""
 #: src/settings/general/account.tsx:76
 #: src/settings/general/account.tsx:104
 #: src/settings/general/account.tsx:139
-#: src/sidebar/settings.tsx:73
+#: src/sidebar/settings.tsx:72
 msgid "Account"
 msgstr ""
 
@@ -172,7 +172,7 @@ msgstr ""
 msgid "API Key"
 msgstr ""
 
-#: src/settings/general/index.tsx:168
+#: src/settings/general/index.tsx:167
 #: src/sidebar/settings.tsx:71
 msgid "App"
 msgstr "აპი"
@@ -253,7 +253,7 @@ msgstr ""
 #: src/calendar/components/sidebar.tsx:325
 #: src/settings/general/permissions.tsx:191
 #: src/sidebar/calendar.tsx:10
-#: src/sidebar/settings.tsx:106
+#: src/sidebar/settings.tsx:81
 msgid "Calendar"
 msgstr ""
 
@@ -420,12 +420,16 @@ msgid "Connect your integration"
 msgstr ""
 
 #: src/sidebar/contacts.tsx:304
-#: src/sidebar/settings.tsx:111
+#: src/sidebar/settings.tsx:86
 msgid "Contacts"
 msgstr ""
 
 #: src/settings/general/storage/index.tsx:109
 msgid "Content"
+msgstr ""
+
+#: src/sidebar/settings.tsx:77
+msgid "Context"
 msgstr ""
 
 #: src/onboarding/calendar.tsx:569
@@ -463,11 +467,6 @@ msgstr ""
 
 #: src/settings/general/theme.tsx:35
 msgid "Dark"
-msgstr ""
-
-#: src/settings/general/index.tsx:302
-#: src/sidebar/settings.tsx:72
-msgid "Data"
 msgstr ""
 
 #: src/session/components/outer-header/metadata/date.tsx:88
@@ -822,7 +821,7 @@ msgid "Insights"
 msgstr ""
 
 #: src/settings/ai/llm/index.tsx:13
-#: src/sidebar/settings.tsx:81
+#: src/sidebar/settings.tsx:100
 msgid "Intelligence"
 msgstr ""
 
@@ -850,7 +849,7 @@ msgstr ""
 msgid "Keep recordings until manually deleted"
 msgstr ""
 
-#: src/settings/general/index.tsx:253
+#: src/settings/general/index.tsx:252
 msgid "Language & Region"
 msgstr "ენა და რეგიონი"
 
@@ -1097,8 +1096,8 @@ msgstr ""
 msgid "Notes"
 msgstr ""
 
-#: src/settings/general/index.tsx:312
-#: src/sidebar/settings.tsx:74
+#: src/settings/general/index.tsx:303
+#: src/sidebar/settings.tsx:73
 msgid "Notifications"
 msgstr "შეტყობინებები"
 
@@ -1217,8 +1216,8 @@ msgstr ""
 msgid "permission panel."
 msgstr ""
 
-#: src/settings/general/index.tsx:321
-#: src/sidebar/settings.tsx:99
+#: src/settings/general/index.tsx:312
+#: src/sidebar/settings.tsx:113
 msgid "Permissions"
 msgstr ""
 
@@ -1227,7 +1226,7 @@ msgid "Permissions granted"
 msgstr ""
 
 #: src/settings/personalization/index.tsx:27
-#: src/sidebar/settings.tsx:84
+#: src/sidebar/settings.tsx:103
 msgid "Personalization"
 msgstr ""
 
@@ -1521,7 +1520,7 @@ msgid "Set as default"
 msgstr ""
 
 #: src/main/empty.tsx:52
-#: src/sidebar/settings.tsx:117
+#: src/sidebar/settings.tsx:120
 msgid "Settings"
 msgstr ""
 
@@ -1747,7 +1746,7 @@ msgstr ""
 msgid "Template content with Jinja2: {{ variable }}, {% if condition %}"
 msgstr ""
 
-#: src/sidebar/settings.tsx:89
+#: src/sidebar/settings.tsx:91
 #: src/templates/template-sidebar.tsx:298
 msgid "Templates"
 msgstr ""
@@ -1785,7 +1784,7 @@ msgid "Transcript"
 msgstr ""
 
 #: src/settings/ai/stt/index.tsx:17
-#: src/sidebar/settings.tsx:80
+#: src/sidebar/settings.tsx:99
 msgid "Transcription"
 msgstr ""
 

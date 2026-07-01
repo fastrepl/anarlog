@@ -86,16 +86,17 @@ describe("SettingsNav", () => {
     [
       "General",
       "App",
-      "Data",
       "Account",
       "Notifications",
       "Permissions",
+      "Context",
       "Calendar",
       "Contacts",
+      "Templates",
       "AI",
       "Transcription",
       "Intelligence",
-      "Templates",
+      "Personalization",
     ].forEach((label) => {
       expect(screen.getByText(label)).toBeTruthy();
     });
