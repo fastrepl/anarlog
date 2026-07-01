@@ -15,11 +15,8 @@ const mocks = vi.hoisted(() => ({
   goNext: vi.fn(),
   sessionModes: {} as Record<string, string>,
   sessionEvents: {} as Record<string, any>,
-  stopListening: vi.fn(),
   nowMs: new Date("2026-06-05T09:50:00.000Z").getTime(),
   openUrl: vi.fn(),
-  isMainWebviewWindow: vi.fn(() => true),
-  requestMainListenerControl: vi.fn(),
   overflowProps: [] as Array<{
     allowListening?: boolean;
     standaloneWindow?: boolean;
@@ -51,19 +48,10 @@ vi.mock("./overflow", () => ({
   },
 }));
 
-vi.mock("@hypr/ui/components/ui/dancing-sticks", () => ({
-  DancingSticks: () => <span data-testid="dancing-sticks" />,
-}));
-
 vi.mock("@hypr/plugin-opener2", () => ({
   commands: {
     openUrl: mocks.openUrl,
   },
-}));
-
-vi.mock("~/stt/window-control", () => ({
-  isMainWebviewWindow: mocks.isMainWebviewWindow,
-  requestMainListenerControl: mocks.requestMainListenerControl,
 }));
 
 vi.mock("~/calendar/hooks", () => ({
@@ -97,15 +85,6 @@ vi.mock("~/stt/contexts", () => ({
     selector({
       getSessionMode: (sessionId: string) =>
         mocks.sessionModes[sessionId] ?? "inactive",
-      live: {
-        amplitude: {
-          mic: 0.5,
-          speaker: 0.25,
-        },
-        degraded: null,
-        muted: false,
-      },
-      stop: mocks.stopListening,
     }),
   ),
 }));
@@ -122,12 +101,8 @@ describe("OuterHeader", () => {
     mocks.goNext.mockClear();
     mocks.sessionModes = {};
     mocks.sessionEvents = {};
-    mocks.stopListening.mockClear();
     mocks.nowMs = new Date("2026-06-05T09:50:00.000Z").getTime();
     mocks.openUrl.mockClear();
-    mocks.isMainWebviewWindow.mockReset();
-    mocks.isMainWebviewWindow.mockReturnValue(true);
-    mocks.requestMainListenerControl.mockClear();
     mocks.overflowProps = [];
   });
 
@@ -135,7 +110,7 @@ describe("OuterHeader", () => {
     cleanup();
   });
 
-  it("shows a stop listening button for active sessions while the sidebar is collapsed", () => {
+  it("does not show a separate stop listening button for active sessions while the sidebar is collapsed", () => {
     mocks.leftsidebar.expanded = false;
     mocks.sessionModes = { "session-1": "active" };
 
@@ -147,25 +122,12 @@ describe("OuterHeader", () => {
       />,
     );
 
-    const stopButton = screen.getByRole("button", {
-      name: "Stop listening",
-    });
     const title = screen.getByText("Session title");
     const titleSlot = title.parentElement?.parentElement;
 
-    fireEvent.click(stopButton);
-
-    expect(titleSlot?.className).toContain("right-[153px]");
-    expect(titleSlot?.className).not.toContain("right-[70px]");
-    expect(screen.getByTestId("dancing-sticks")).not.toBeNull();
-    expect(stopButton.className).toContain("h-7");
-    expect(stopButton.className).toContain("w-20");
-    expect(stopButton.className).toContain("rounded-full");
-    expect(stopButton.className).toContain("dark:bg-red-950/50");
-    expect(stopButton.className).toContain("dark:text-red-300");
-    expect(stopButton.textContent).toContain("Stop");
-    expect(stopButton.getAttribute("data-tauri-drag-region")).toBe("false");
-    expect(mocks.stopListening).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: "Stop listening" })).toBeNull();
+    expect(titleSlot?.className).toContain("right-[70px]");
+    expect(titleSlot?.className).not.toContain("right-[153px]");
   });
 
   it("hides the finalizing header button while the sidebar is collapsed", () => {
@@ -318,10 +280,9 @@ describe("OuterHeader", () => {
     expect(screen.queryByRole("button", { name: "Stop listening" })).toBeNull();
   });
 
-  it("shows the dedicated stop button in standalone windows and delegates stop to main", () => {
+  it("does not show a separate stop button in standalone windows", () => {
     mocks.leftsidebar.expanded = true;
     mocks.sessionModes = { "session-1": "active" };
-    mocks.isMainWebviewWindow.mockReturnValue(false);
 
     render(
       <OuterHeader
@@ -336,18 +297,13 @@ describe("OuterHeader", () => {
     const titleSlot = title.parentElement?.parentElement;
 
     expect(titleSlot?.className).toContain("left-[76px]");
-    expect(titleSlot?.className).toContain("right-[153px]");
-    const stopButton = screen.getByRole("button", { name: "Stop listening" });
-    fireEvent.click(stopButton);
+    expect(titleSlot?.className).toContain("right-[70px]");
+    expect(titleSlot?.className).not.toContain("right-[153px]");
+    expect(screen.queryByRole("button", { name: "Stop listening" })).toBeNull();
 
     const overflowProps = mocks.overflowProps[mocks.overflowProps.length - 1];
     expect(overflowProps?.standaloneWindow).toBe(true);
     expect(overflowProps?.allowListening).toBeUndefined();
-    expect(mocks.requestMainListenerControl).toHaveBeenCalledWith(
-      "stop",
-      "session-1",
-    );
-    expect(mocks.stopListening).not.toHaveBeenCalled();
   });
 
   it("does not reserve collapsed sidebar gutter in standalone windows", () => {

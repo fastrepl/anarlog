@@ -2,12 +2,10 @@ import { useLingui } from "@lingui/react/macro";
 import {
   AlignLeftIcon,
   AudioLinesIcon,
-  CheckIcon,
   ChevronDownIcon,
   ChevronRightIcon,
   HeartIcon,
   PlusIcon,
-  RefreshCwIcon,
   SearchIcon,
   SparklesIcon,
   SquareIcon,
@@ -17,6 +15,7 @@ import { LightbulbIcon } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 
 import { json2md, parseJsonContent } from "@hypr/editor/markdown";
+import { DancingSticks } from "@hypr/ui/components/ui/dancing-sticks";
 import {
   AppFloatingPanel,
   Popover,
@@ -27,10 +26,7 @@ import { Spinner } from "@hypr/ui/components/ui/spinner";
 import { sonnerToast } from "@hypr/ui/components/ui/toast";
 import { cn } from "@hypr/utils";
 
-import {
-  isMainAITaskHostWindow,
-  requestMainEnhance,
-} from "~/ai/task-window-sync";
+import { useAITaskTask } from "~/ai/hooks";
 import * as AudioPlayer from "~/audio-player";
 import { getEnhancerService } from "~/services/enhancer";
 import { useEnhancedNoteActions } from "~/session/components/note-input/enhanced-actions";
@@ -40,7 +36,10 @@ import {
   formatTranscriptExportSegments,
 } from "~/session/components/note-input/transcript/export-data";
 import { useSessionTranscriptRenderData } from "~/session/components/note-input/transcript/render-request-hooks";
-import { useCanShowTranscript } from "~/session/components/shared";
+import {
+  useCanShowTranscript,
+  useHasTranscript,
+} from "~/session/components/shared";
 import { useEnsureDefaultSummary } from "~/session/hooks/useEnhancedNotes";
 import { useCanShowInsights } from "~/session/insights/past-notes";
 import {
@@ -49,9 +48,15 @@ import {
 } from "~/shared/hooks/useNativeContextMenu";
 import { useWebResources } from "~/shared/ui/resource-list";
 import * as main from "~/store/tinybase/store/main";
+import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 import { type EditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
+import { useStartListening } from "~/stt/useStartListening";
+import {
+  isMainWebviewWindow,
+  requestMainListenerControl,
+} from "~/stt/window-control";
 import {
   filterWebTemplatesAgainstUserTemplates,
   parseWebTemplates,
@@ -82,6 +87,7 @@ const ISO_TITLE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
 function IconHeaderTab({
   isActive,
   label,
+  hoverLabel,
   icon,
   onClick,
   onContextMenu,
@@ -91,6 +97,7 @@ function IconHeaderTab({
 }: {
   isActive: boolean;
   label: string;
+  hoverLabel?: string;
   icon: React.ReactNode;
   onClick?: () => void;
   onContextMenu?: React.MouseEventHandler<HTMLButtonElement>;
@@ -108,15 +115,30 @@ function IconHeaderTab({
       onClick={onClick}
       onContextMenu={onContextMenu}
       title={title}
+      data-hover-label={hoverLabel}
       className={iconHeaderTabClassName(
         isActive,
         size,
-        cn(["min-w-10 px-2", isActive ? "max-w-40 gap-1.5" : null, className]),
+        cn([
+          "min-w-10 px-2",
+          isActive ? "max-w-40 gap-1.5" : null,
+          hoverLabel
+            ? "after:hidden after:min-w-0 after:truncate after:text-xs after:font-medium after:content-[attr(data-hover-label)] hover:after:block"
+            : null,
+          className,
+        ]),
       )}
     >
       {icon}
       {isActive && (
-        <span className="min-w-0 truncate text-xs font-medium">{label}</span>
+        <span
+          className={cn([
+            "min-w-0 truncate text-xs font-medium",
+            hoverLabel ? "group-hover/header-tab:hidden" : null,
+          ])}
+        >
+          {label}
+        </span>
       )}
     </button>
   );
@@ -130,7 +152,7 @@ function iconHeaderTabClassName(
   const heightClassName = size === "tray" ? "h-[26px]" : "h-7";
 
   return cn([
-    "flex shrink-0 items-center justify-center rounded-full transition-colors select-none [&>svg]:shrink-0",
+    "group/header-tab flex shrink-0 items-center justify-center rounded-full transition-colors select-none [&>svg]:shrink-0",
     isActive
       ? [
           "text-foreground bg-white shadow-xs",
@@ -345,7 +367,6 @@ function HeaderTabEnhanced({
   if (!isActive) {
     return (
       <HeaderTabEnhancedInactive
-        sessionId={sessionId}
         enhancedNoteId={enhancedNoteId}
         onClick={onClick}
       />
@@ -386,7 +407,6 @@ function useEnhancedTabTitle(enhancedNoteId: string) {
 
   return {
     tabTitle,
-    templateId: templateId ?? null,
     templateTooltip:
       templateId && templateTitle
         ? `${templateTitle} was used to generate this summary.`
@@ -394,17 +414,22 @@ function useEnhancedTabTitle(enhancedNoteId: string) {
   };
 }
 
+function useEnhancedTabGenerating(enhancedNoteId: string) {
+  const taskId = createTaskId(enhancedNoteId, "enhance");
+  const enhanceTask = useAITaskTask(taskId, "enhance");
+
+  return enhanceTask.isGenerating;
+}
+
 function HeaderTabEnhancedInactive({
   onClick = () => {},
-  sessionId,
   enhancedNoteId,
 }: {
-  sessionId: string;
   enhancedNoteId: string;
   onClick?: () => void;
 }) {
   const { tabTitle, templateTooltip } = useEnhancedTabTitle(enhancedNoteId);
-  const { isGenerating } = useEnhanceLogic(sessionId, enhancedNoteId);
+  const isGenerating = useEnhancedTabGenerating(enhancedNoteId);
 
   return (
     <button
@@ -438,8 +463,7 @@ function HeaderTabEnhancedActive({
   onRemove?: () => void;
   onSelectNote?: (enhancedNoteId: string) => void;
 }) {
-  const { t } = useLingui();
-  const { isGenerating, isError, onCancel, onRegenerate } = useEnhanceLogic(
+  const { isGenerating, isError, onRegenerate } = useEnhanceLogic(
     sessionId,
     enhancedNoteId,
   );
@@ -449,8 +473,7 @@ function HeaderTabEnhancedActive({
     "content",
     main.STORE_ID,
   ) as string | undefined;
-  const { tabTitle, templateId, templateTooltip } =
-    useEnhancedTabTitle(enhancedNoteId);
+  const { tabTitle, templateTooltip } = useEnhancedTabTitle(enhancedNoteId);
   const noteMarkdown = useMemo(() => getStoredNoteMarkdown(content), [content]);
 
   const handleCopy = useCallback(() => {
@@ -462,29 +485,9 @@ function HeaderTabEnhancedActive({
   const handleRegenerate = useCallback(() => {
     void onRegenerate(null);
   }, [onRegenerate]);
-  const handleTabClick = useCallback(
-    (event: React.MouseEvent<HTMLButtonElement>) => {
-      event.stopPropagation();
-
-      if (isGenerating) {
-        event.preventDefault();
-        onCancel();
-      }
-    },
-    [isGenerating, onCancel],
-  );
-  const applyTemplate = useCallback(
+  const handleSelectTemplate = useCallback(
     (selection: TemplateSelection) => {
       if (isGenerating) {
-        return;
-      }
-
-      if (!isMainAITaskHostWindow()) {
-        void requestMainEnhance(sessionId, {
-          templateId: selection.templateId,
-          targetNoteId: enhancedNoteId,
-          templateTitle: selection.templateId ? selection.title : undefined,
-        });
         return;
       }
 
@@ -502,18 +505,6 @@ function HeaderTabEnhancedActive({
       }
     },
     [enhancedNoteId, isGenerating, onSelectNote, sessionId],
-  );
-  const handleSelectTemplate = useCallback(
-    (selection: TemplateSelection) => {
-      applyTemplate(selection);
-    },
-    [applyTemplate],
-  );
-  const handleRegenerateTemplate = useCallback(
-    (selection: TemplateSelection) => {
-      applyTemplate(selection);
-    },
-    [applyTemplate],
   );
   const contextMenu = useMemo<MenuItemDef[]>(() => {
     const items: MenuItemDef[] = [
@@ -563,22 +554,18 @@ function HeaderTabEnhancedActive({
       type="button"
       aria-label={tabTitle}
       aria-current="page"
-      onClick={handleTabClick}
+      aria-disabled={isGenerating}
+      tabIndex={isGenerating ? -1 : 0}
+      onClick={(event) => event.stopPropagation()}
       onPointerDown={(event) => event.stopPropagation()}
       onContextMenu={showContextMenu}
-      title={isGenerating ? "Stop summary" : templateTooltip}
-      data-hover-label={isGenerating ? t`Stop` : undefined}
+      title={templateTooltip}
       className={iconHeaderTabClassName(
         true,
         "tray",
         cn([
-          "group/summary-stop max-w-56 min-w-[62px] gap-1.5 pr-1.5 pl-2",
-          isGenerating
-            ? [
-                "w-[112px] min-w-[112px] cursor-pointer opacity-70",
-                "after:hidden after:min-w-0 after:truncate after:text-xs after:font-medium after:content-[attr(data-hover-label)] hover:after:block",
-              ]
-            : "cursor-pointer",
+          "max-w-56 min-w-[62px] gap-1.5 pr-1.5 pl-2",
+          isGenerating ? "cursor-not-allowed opacity-70" : "cursor-pointer",
           isError
             ? [
                 "text-red-600 hover:bg-red-50 hover:text-red-700 focus-visible:bg-red-50",
@@ -592,43 +579,20 @@ function HeaderTabEnhancedActive({
       )}
     >
       {isGenerating ? (
-        <SummaryGeneratingIcon />
+        <Spinner size={16} className="shrink-0" />
       ) : (
         <SparklesIcon className="size-4" />
       )}
-      <span
-        className={cn([
-          "min-w-0 truncate text-xs font-medium",
-          isGenerating ? "group-hover/summary-stop:hidden" : null,
-        ])}
-      >
-        {tabTitle}
-      </span>
-      <ChevronDownIcon
-        className={cn([
-          "size-3.5",
-          isGenerating ? "group-hover/summary-stop:hidden" : null,
-        ])}
-      />
+      <span className="min-w-0 truncate text-xs font-medium">{tabTitle}</span>
+      <ChevronDownIcon className="size-3.5" />
     </button>
   );
 
   return (
     <TemplatePickerPopover
-      selectedTemplateId={templateId}
       onSelectTemplate={handleSelectTemplate}
-      onRegenerateTemplate={handleRegenerateTemplate}
       trigger={templateMenuTrigger}
     />
-  );
-}
-
-function SummaryGeneratingIcon() {
-  return (
-    <span className="relative flex size-4 items-center justify-center">
-      <Spinner size={16} className="shrink-0 group-hover/summary-stop:hidden" />
-      <SquareIcon className="hidden size-3 fill-current group-hover/summary-stop:block" />
-    </span>
   );
 }
 
@@ -645,12 +609,15 @@ function HeaderTabTranscript({
   onClick?: () => void;
   sessionId: string;
 }) {
+  const liveState = useTranscriptLiveTabState(sessionId);
+
   if (!isActive) {
     return (
       <HeaderTabTranscriptButton
         isActive={isActive}
         isTranscribing={isTranscribing}
         onClick={onClick}
+        live={liveState.live}
       />
     );
   }
@@ -662,6 +629,8 @@ function HeaderTabTranscript({
       canStopTranscription={canStopTranscription}
       onClick={onClick}
       sessionId={sessionId}
+      live={liveState.live}
+      onStopLiveSession={liveState.onStopLiveSession}
     />
   );
 }
@@ -671,30 +640,61 @@ function HeaderTabTranscriptButton({
   isTranscribing,
   onClick,
   onContextMenu,
+  onResumeListening,
   onStopTranscription,
+  live,
 }: {
   isActive: boolean;
   isTranscribing: boolean;
   onClick?: () => void;
   onContextMenu?: React.MouseEventHandler<HTMLButtonElement>;
+  onResumeListening?: () => void;
   onStopTranscription?: () => void;
+  live?: {
+    amplitude: number;
+    degraded: boolean;
+    muted: boolean;
+  };
 }) {
   const { t } = useLingui();
+  const isLive = live !== undefined;
+  const canStop = Boolean(onStopTranscription);
+  const canResume = Boolean(onResumeListening);
   const handleClick = useCallback(() => {
-    if (isTranscribing && onStopTranscription) {
+    if ((isLive || isTranscribing) && canStop && onStopTranscription) {
       onStopTranscription();
       return;
     }
 
+    if (canResume && onResumeListening) {
+      onResumeListening();
+      return;
+    }
+
     onClick?.();
-  }, [isTranscribing, onClick, onStopTranscription]);
+  }, [
+    canResume,
+    canStop,
+    isLive,
+    isTranscribing,
+    onClick,
+    onResumeListening,
+    onStopTranscription,
+  ]);
 
   return (
     <IconHeaderTab
       isActive={isActive}
       label={t`Transcript`}
+      hoverLabel={
+        isLive && canStop ? t`Stop` : canResume ? t`Resume` : undefined
+      }
       icon={
-        isTranscribing && onStopTranscription ? (
+        live ? (
+          <HeaderTabTranscriptLiveIcon canStop={canStop} live={live} />
+        ) : canResume ? (
+          <HeaderTabTranscriptResumeIcon />
+        ) : isTranscribing && onStopTranscription ? (
           <span className="group/stop relative flex size-4 items-center justify-center">
             <Spinner size={16} className="shrink-0 group-hover/stop:hidden" />
             <SquareIcon className="hidden size-3 fill-current group-hover/stop:block" />
@@ -708,10 +708,122 @@ function HeaderTabTranscriptButton({
       onClick={handleClick}
       onContextMenu={onContextMenu}
       title={
-        isTranscribing && onStopTranscription ? "Stop transcription" : undefined
+        isLive && canStop
+          ? "Stop listening"
+          : canResume
+            ? "Resume listening"
+            : isTranscribing && onStopTranscription
+              ? "Stop transcription"
+              : undefined
       }
+      className={cn([
+        live
+          ? [
+              "group/transcript-live",
+              isActive ? "w-[98px] min-w-[98px] gap-1.5 pr-1.5 pl-2" : null,
+              live.degraded
+                ? [
+                    "bg-amber-50 text-amber-500 hover:bg-amber-100 hover:text-amber-600",
+                    "dark:bg-amber-950/50 dark:text-amber-300 dark:hover:bg-amber-950 dark:hover:text-amber-200",
+                  ]
+                : [
+                    "bg-red-50 text-red-500 hover:bg-red-100 hover:text-red-600",
+                    "dark:bg-red-950/50 dark:text-red-300 dark:hover:bg-red-950 dark:hover:text-red-200",
+                  ],
+            ]
+          : null,
+        canResume
+          ? [
+              "group/transcript-resume w-[98px] min-w-[98px] gap-1.5 px-2",
+              "hover:bg-red-50 hover:text-red-500",
+              "dark:hover:bg-red-950/50 dark:hover:text-red-300",
+            ]
+          : null,
+      ])}
     />
   );
+}
+
+function HeaderTabTranscriptLiveIcon({
+  canStop,
+  live,
+}: {
+  canStop: boolean;
+  live: {
+    amplitude: number;
+    degraded: boolean;
+    muted: boolean;
+  };
+}) {
+  const color = live.degraded ? "#f59e0b" : "#ef4444";
+
+  return (
+    <span className="relative flex size-4 items-center justify-center">
+      <span className={canStop ? "group-hover/transcript-live:hidden" : ""}>
+        {live.muted ? (
+          <AudioLinesIcon className="size-4" />
+        ) : (
+          <DancingSticks
+            amplitude={live.amplitude}
+            color={color}
+            height={16}
+            width={16}
+          />
+        )}
+      </span>
+      {canStop && (
+        <SquareIcon className="hidden size-3 fill-current group-hover/transcript-live:block" />
+      )}
+    </span>
+  );
+}
+
+function HeaderTabTranscriptResumeIcon() {
+  return (
+    <span className="relative flex size-4 items-center justify-center">
+      <AudioLinesIcon className="size-4 group-hover/transcript-resume:hidden" />
+      <span className="relative hidden size-3 items-center justify-center group-hover/transcript-resume:flex">
+        <span className="absolute size-3 animate-ping rounded-full bg-red-500/40 dark:bg-red-400/40" />
+        <span className="relative size-2 rounded-full bg-red-500 dark:bg-red-400" />
+      </span>
+    </span>
+  );
+}
+
+function useTranscriptLiveTabState(sessionId: string) {
+  const { amplitude, degraded, mode, muted, stop } = useListener((state) => {
+    const mode = state.getSessionMode(sessionId);
+    return {
+      amplitude: state.live.amplitude,
+      degraded: state.live.degraded,
+      mode,
+      muted: state.live.muted,
+      stop: state.stop,
+    };
+  });
+  const handleStopLiveSession = useCallback(() => {
+    if (!isMainWebviewWindow()) {
+      void requestMainListenerControl("stop", sessionId);
+      return;
+    }
+
+    stop();
+  }, [sessionId, stop]);
+  const isLiveSession = mode === "active" || mode === "finalizing";
+
+  return {
+    live: isLiveSession
+      ? {
+          amplitude: Math.min(Math.hypot(amplitude.mic, amplitude.speaker), 1),
+          degraded: Boolean(degraded),
+          muted,
+        }
+      : undefined,
+    onStopLiveSession:
+      isLiveSession && mode !== "finalizing"
+        ? handleStopLiveSession
+        : undefined,
+  };
 }
 
 function HeaderTabTranscriptActive({
@@ -720,14 +832,24 @@ function HeaderTabTranscriptActive({
   canStopTranscription,
   onClick,
   sessionId,
+  live,
+  onStopLiveSession,
 }: {
   isActive: boolean;
   isTranscribing: boolean;
   canStopTranscription: boolean;
   onClick?: () => void;
   sessionId: string;
+  live?: {
+    amplitude: number;
+    degraded: boolean;
+    muted: boolean;
+  };
+  onStopLiveSession?: () => void;
 }) {
   const regenerate = useRegenerateTranscript(sessionId);
+  const hasTranscript = useHasTranscript(sessionId);
+  const startListening = useStartListening(sessionId);
   const stopTranscription = useListener((state) => state.stopTranscription);
   const { request: transcriptExportRequest } =
     useSessionTranscriptRenderData(sessionId);
@@ -763,6 +885,14 @@ function HeaderTabTranscriptActive({
   const handleStopTranscription = useCallback(() => {
     void stopTranscription(sessionId);
   }, [sessionId, stopTranscription]);
+  const handleResumeListening = useCallback(() => {
+    if (!isMainWebviewWindow()) {
+      void requestMainListenerControl("start", sessionId);
+      return;
+    }
+
+    void startListening();
+  }, [sessionId, startListening]);
   const contextMenu = useMemo<MenuItemDef[]>(() => {
     const items: MenuItemDef[] = [
       {
@@ -809,8 +939,18 @@ function HeaderTabTranscriptActive({
       isTranscribing={isTranscribing}
       onClick={onClick}
       onContextMenu={showContextMenu}
+      live={live}
+      onResumeListening={
+        hasTranscript && !live && !isTranscribing && !canStopTranscription
+          ? handleResumeListening
+          : undefined
+      }
       onStopTranscription={
-        canStopTranscription ? handleStopTranscription : undefined
+        live
+          ? onStopLiveSession
+          : canStopTranscription
+            ? handleStopTranscription
+            : undefined
       }
     />
   );
@@ -865,13 +1005,9 @@ function useOpenTemplatesTab() {
 
 function TemplatePickerPopover({
   onSelectTemplate,
-  onRegenerateTemplate,
-  selectedTemplateId,
   trigger,
 }: {
   onSelectTemplate: (selection: TemplateSelection) => void;
-  onRegenerateTemplate: (selection: TemplateSelection) => void;
-  selectedTemplateId: string | null;
   trigger: React.ReactNode;
 }) {
   const { t } = useLingui();
@@ -902,16 +1038,6 @@ function TemplatePickerPopover({
       onSelectTemplate(selection);
     },
     [onSelectTemplate],
-  );
-  const handleRegenerateTemplate = useCallback(
-    (selection: TemplateSelection) => {
-      setOpen(false);
-      setSearch("");
-      resultRefs.current = [];
-
-      onRegenerateTemplate(selection);
-    },
-    [onRegenerateTemplate],
   );
 
   const handleOpenChange = useCallback((nextOpen: boolean) => {
@@ -1027,41 +1153,20 @@ function TemplatePickerPopover({
         ),
     );
   }, [searchQuery, webTemplates]);
-  const selectedTemplateExists = useMemo(() => {
-    if (selectedTemplateId === null) {
-      return true;
-    }
-
-    return (
-      userTemplates.some((template) => template.id === selectedTemplateId) ||
-      webTemplates.some((template) => template.slug === selectedTemplateId)
-    );
-  }, [selectedTemplateId, userTemplates, webTemplates]);
-  const effectiveSelectedTemplateId = selectedTemplateExists
-    ? selectedTemplateId
-    : null;
   const templateItems = useMemo<
     Array<{
       key: string;
       title: string;
       isFavorite?: boolean;
-      isSelected?: boolean;
       onClick: () => void;
-      onRegenerate?: () => void;
     }>
   >(() => {
     const favoriteItems = filteredFavoriteTemplates.map((template) => ({
       key: template.id,
       title: template.title || "Untitled",
       isFavorite: true,
-      isSelected: effectiveSelectedTemplateId === template.id,
       onClick: () =>
         handleUseTemplate({
-          templateId: template.id,
-          title: template.title || "Untitled",
-        }),
-      onRegenerate: () =>
-        handleRegenerateTemplate({
           templateId: template.id,
           title: template.title || "Untitled",
         }),
@@ -1070,14 +1175,8 @@ function TemplatePickerPopover({
     const userItems = filteredOtherTemplates.map((template) => ({
       key: template.id,
       title: template.title || "Untitled",
-      isSelected: effectiveSelectedTemplateId === template.id,
       onClick: () =>
         handleUseTemplate({
-          templateId: template.id,
-          title: template.title || "Untitled",
-        }),
-      onRegenerate: () =>
-        handleRegenerateTemplate({
           templateId: template.id,
           title: template.title || "Untitled",
         }),
@@ -1095,11 +1194,9 @@ function TemplatePickerPopover({
 
     return [...favoriteItems, ...otherItems];
   }, [
-    effectiveSelectedTemplateId,
     filteredFavoriteTemplates,
     filteredOtherTemplates,
     filteredWebTemplates,
-    handleRegenerateTemplate,
     handleWebTemplateClick,
     handleUseTemplate,
   ]);
@@ -1115,9 +1212,7 @@ function TemplatePickerPopover({
         key: string;
         title: string;
         isFavorite?: boolean;
-        isSelected?: boolean;
         onClick: () => void;
-        onRegenerate?: () => void;
       }>;
     }>
   >(() => {
@@ -1129,14 +1224,8 @@ function TemplatePickerPopover({
         {
           key: "auto",
           title: "Auto",
-          isSelected: effectiveSelectedTemplateId === null,
           onClick: () =>
             handleUseTemplate({
-              templateId: null,
-              title: "Auto",
-            }),
-          onRegenerate: () =>
-            handleRegenerateTemplate({
               templateId: null,
               title: "Auto",
             }),
@@ -1185,10 +1274,8 @@ function TemplatePickerPopover({
     ];
   }, [
     handleCreateTemplate,
-    handleRegenerateTemplate,
     handleUseTemplate,
     hasSearch,
-    effectiveSelectedTemplateId,
     templateItems,
     trimmedSearch,
   ]);
@@ -1277,7 +1364,7 @@ function TemplatePickerPopover({
               <div
                 className={cn(["scroll-fade-y max-h-80 overflow-y-auto p-2"])}
               >
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-3">
                   {resultSections.map((section) => (
                     <TemplateSection
                       key={section.key}
@@ -1299,9 +1386,7 @@ function TemplatePickerPopover({
                               }}
                               title={item.title}
                               isFavorite={item.isFavorite}
-                              isSelected={item.isSelected}
                               onClick={item.onClick}
-                              onRegenerate={item.onRegenerate}
                               onKeyDown={(e) =>
                                 handleResultKeyDown(e, itemIndex)
                               }
@@ -1323,7 +1408,7 @@ function TemplatePickerPopover({
           <button
             onClick={handleSeeAllTemplates}
             className={cn([
-              "flex h-7 w-full items-center justify-center gap-1 rounded-full px-3 text-xs font-medium",
+              "flex h-7 w-full items-center justify-center gap-1 rounded-lg px-3 text-xs font-medium",
               "text-muted-foreground hover:bg-accent hover:text-foreground transition-colors",
             ])}
           >
@@ -1560,7 +1645,7 @@ function TemplateSection({
   showHeader?: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-0.5">
+    <div className="flex flex-col gap-1">
       {showHeader ? (
         <div className="flex items-center gap-2 px-2">
           {icon}
@@ -1574,7 +1659,7 @@ function TemplateSection({
           </p>
         </div>
       ) : null}
-      <div className="flex flex-col gap-0.5">{children}</div>
+      <div className="flex flex-col gap-1">{children}</div>
     </div>
   );
 }
@@ -1583,61 +1668,34 @@ function TemplateResultButton({
   buttonRef,
   title,
   isFavorite = false,
-  isSelected = false,
   onClick,
-  onRegenerate,
   onKeyDown,
 }: {
   buttonRef?: React.Ref<HTMLButtonElement>;
   title: string;
   isFavorite?: boolean;
-  isSelected?: boolean;
   onClick: () => void;
-  onRegenerate?: () => void;
   onKeyDown?: (e: React.KeyboardEvent<HTMLButtonElement>) => void;
 }) {
   return (
-    <div
+    <button
+      ref={buttonRef}
       className={cn([
-        "group/template-row hover:bg-accent focus-within:bg-muted flex h-9 w-full items-center rounded-full px-3 transition-colors",
-        isSelected ? "bg-accent/70" : null,
+        "hover:bg-accent focus:bg-muted w-full rounded-md px-3 py-2 text-left transition-colors focus:outline-hidden",
+        "flex items-center gap-1.5",
       ])}
+      onClick={onClick}
+      onKeyDown={onKeyDown}
     >
-      <button
-        ref={buttonRef}
-        aria-current={isSelected ? "true" : undefined}
-        className="flex h-full min-w-0 flex-1 items-center gap-1.5 text-left focus:outline-hidden"
-        onClick={onClick}
-        onKeyDown={onKeyDown}
-      >
-        {isSelected ? <CheckIcon className="size-3.5 shrink-0" /> : null}
-        <span className="text-foreground min-w-0 truncate text-sm font-medium">
-          {title}
-        </span>
-        {isFavorite ? (
-          <HeartIcon
-            aria-hidden
-            className="size-3.5 shrink-0 fill-rose-500 text-rose-500"
-          />
-        ) : null}
-      </button>
-      {isSelected && onRegenerate ? (
-        <button
-          type="button"
-          aria-label={`Regenerate ${title}`}
-          title="Regenerate summary"
-          className={cn([
-            "text-muted-foreground hover:text-foreground focus:text-foreground",
-            "ml-2 flex size-6 shrink-0 items-center justify-center rounded-sm transition-colors focus:outline-hidden",
-          ])}
-          onClick={(event) => {
-            event.stopPropagation();
-            onRegenerate();
-          }}
-        >
-          <RefreshCwIcon className="size-3.5" />
-        </button>
+      <span className="text-foreground min-w-0 truncate text-sm font-medium">
+        {title}
+      </span>
+      {isFavorite ? (
+        <HeartIcon
+          aria-hidden
+          className="size-3.5 shrink-0 fill-rose-500 text-rose-500"
+        />
       ) : null}
-    </div>
+    </button>
   );
 }

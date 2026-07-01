@@ -20,18 +20,23 @@ type CapturedMenuItem =
 
 const hoisted = vi.hoisted(() => ({
   enhance: vi.fn(),
-  cancelSummary: vi.fn(),
   regenerateTranscript: vi.fn(),
+  startListening: vi.fn(),
+  stopListening: vi.fn(),
   stopTranscription: vi.fn(),
+  requestMainListenerControl: vi.fn(),
   deleteRecording: vi.fn(),
   activeTemplateTitle: "Customer Call",
-  enhancedTemplateId: "template-1" as string | undefined,
   audioExists: true,
   hasTranscript: true,
   canShowInsights: false,
   liveSegments: [] as unknown[],
   liveSessionId: null as string | null,
+  liveAmplitude: { mic: 0.5, speaker: 0.25 },
+  liveDegraded: null as unknown,
+  liveMuted: false,
   sessionMode: "inactive",
+  isMainWebviewWindow: true,
   isDeletingRecording: false,
   transcriptExportRequest: {},
   transcriptRenderDataCalls: 0,
@@ -120,6 +125,10 @@ vi.mock("@hypr/ui/components/ui/spinner", () => ({
   Spinner: () => <span data-testid="tab-spinner" />,
 }));
 
+vi.mock("@hypr/ui/components/ui/dancing-sticks", () => ({
+  DancingSticks: () => <span data-testid="dancing-sticks" />,
+}));
+
 vi.mock("~/audio-player", () => ({
   useAudioPlayer: () => ({
     audioExists: hoisted.audioExists,
@@ -135,7 +144,7 @@ vi.mock("~/ai/hooks", () => ({
     isError: false,
     error: null,
     start: vi.fn(),
-    cancel: hoisted.cancelSummary,
+    cancel: vi.fn(),
   }),
   useLanguageModel: () => "model",
   useLLMConnectionStatus: () => "connected",
@@ -229,7 +238,7 @@ vi.mock("~/store/tinybase/store/main", () => ({
       }
 
       if (table === "enhanced_notes" && cell === "template_id") {
-        return hoisted.enhancedTemplateId;
+        return "template-1";
       }
 
       if (table === "sessions" && cell === "raw_md") {
@@ -263,9 +272,13 @@ vi.mock("~/stt/contexts", () => ({
       live: {
         sessionId: string | null;
         finalizingBySession: Record<string, unknown>;
+        amplitude: { mic: number; speaker: number };
+        degraded: unknown;
+        muted: boolean;
       };
       liveSegments: unknown[];
-      getSessionMode: () => string;
+      getSessionMode: (sessionId?: string) => string;
+      stop: () => void;
       stopTranscription: (sessionId: string) => void;
     }) => unknown,
   ) =>
@@ -274,11 +287,24 @@ vi.mock("~/stt/contexts", () => ({
       live: {
         sessionId: hoisted.liveSessionId,
         finalizingBySession: {},
+        amplitude: hoisted.liveAmplitude,
+        degraded: hoisted.liveDegraded,
+        muted: hoisted.liveMuted,
       },
       liveSegments: hoisted.liveSegments,
       getSessionMode: () => hoisted.sessionMode,
+      stop: hoisted.stopListening,
       stopTranscription: hoisted.stopTranscription,
     }),
+}));
+
+vi.mock("~/stt/useStartListening", () => ({
+  useStartListening: () => hoisted.startListening,
+}));
+
+vi.mock("~/stt/window-control", () => ({
+  isMainWebviewWindow: () => hoisted.isMainWebviewWindow,
+  requestMainListenerControl: hoisted.requestMainListenerControl,
 }));
 
 vi.mock("~/templates", () => ({
@@ -287,12 +313,7 @@ vi.mock("~/templates", () => ({
   parseWebTemplates: () => [],
   useCreateTemplate: () => vi.fn(),
   useTemplateCreatorName: () => "You",
-  useUserTemplate: (templateId?: string) => ({
-    data:
-      templateId === "template-1"
-        ? { title: hoisted.activeTemplateTitle }
-        : undefined,
-  }),
+  useUserTemplate: () => ({ data: { title: hoisted.activeTemplateTitle } }),
   useUserTemplates: () => hoisted.userTemplates,
 }));
 
@@ -301,18 +322,23 @@ import { Header, useEditorTabs } from "./header";
 describe("Header", () => {
   beforeEach(() => {
     hoisted.enhance.mockReset();
-    hoisted.cancelSummary.mockReset();
     hoisted.regenerateTranscript.mockReset();
+    hoisted.startListening.mockReset();
+    hoisted.stopListening.mockReset();
     hoisted.stopTranscription.mockReset();
+    hoisted.requestMainListenerControl.mockReset();
     hoisted.deleteRecording.mockReset();
     hoisted.activeTemplateTitle = "Customer Call";
-    hoisted.enhancedTemplateId = "template-1";
     hoisted.audioExists = true;
     hoisted.hasTranscript = true;
     hoisted.canShowInsights = false;
     hoisted.liveSegments = [];
     hoisted.liveSessionId = null;
+    hoisted.liveAmplitude = { mic: 0.5, speaker: 0.25 };
+    hoisted.liveDegraded = null;
+    hoisted.liveMuted = false;
     hoisted.sessionMode = "inactive";
+    hoisted.isMainWebviewWindow = true;
     hoisted.isDeletingRecording = false;
     hoisted.transcriptExportRequest = {};
     hoisted.transcriptRenderDataCalls = 0;
@@ -609,129 +635,6 @@ describe("Header", () => {
     });
   });
 
-  it("marks the selected summary template and regenerates from its refresh action", () => {
-    hoisted.userTemplates = [
-      {
-        id: "template-1",
-        title: "Customer Call",
-        description: "",
-        pinned: false,
-        sections: [],
-      },
-      {
-        id: "template-2",
-        title: "Decision Log",
-        description: "",
-        pinned: false,
-        sections: [],
-      },
-    ];
-    hoisted.enhance.mockReturnValue({
-      type: "started",
-      noteId: "note-1",
-    });
-    const editorTabs: EditorView[] = [
-      { type: "enhanced", id: "note-1" },
-      { type: "raw" },
-    ];
-    const handleTabChange = vi.fn();
-
-    render(
-      <Header
-        sessionId="session-1"
-        editorTabs={editorTabs}
-        currentTab={{ type: "enhanced", id: "note-1" }}
-        handleTabChange={handleTabChange}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Customer Call" }));
-
-    const selectedTemplate = screen
-      .getAllByRole("button", { name: "Customer Call" })
-      .find((button) => button.getAttribute("aria-current") === "true");
-
-    expect(selectedTemplate).toBeDefined();
-    expect(selectedTemplate?.querySelector("svg")).not.toBeNull();
-
-    const unselectedTemplate = screen.getByRole("button", {
-      name: "Decision Log",
-    });
-
-    expect(selectedTemplate?.parentElement?.className).toContain("h-9");
-    expect(unselectedTemplate.parentElement?.className).toContain("h-9");
-    expect(selectedTemplate?.parentElement?.className).toContain(
-      "rounded-full",
-    );
-    expect(unselectedTemplate.parentElement?.className).toContain(
-      "rounded-full",
-    );
-    expect(
-      screen.getByRole("button", { name: /See all templates/ }).className,
-    ).toContain("rounded-full");
-
-    fireEvent.click(
-      screen.getByRole("button", { name: "Regenerate Customer Call" }),
-    );
-
-    expect(hoisted.enhance).toHaveBeenCalledWith("session-1", {
-      templateId: "template-1",
-      targetNoteId: "note-1",
-      templateTitle: "Customer Call",
-    });
-    expect(handleTabChange).toHaveBeenCalledWith({
-      type: "enhanced",
-      id: "note-1",
-    });
-  });
-
-  it("marks Auto as selected when the summary used the default template", () => {
-    hoisted.enhancedTemplateId = "missing-template";
-    hoisted.userTemplates = [
-      {
-        id: "template-2",
-        title: "Decision Log",
-        description: "",
-        pinned: false,
-        sections: [],
-      },
-    ];
-    hoisted.enhance.mockReturnValue({
-      type: "started",
-      noteId: "note-1",
-    });
-    const editorTabs: EditorView[] = [
-      { type: "enhanced", id: "note-1" },
-      { type: "raw" },
-    ];
-
-    render(
-      <Header
-        sessionId="session-1"
-        editorTabs={editorTabs}
-        currentTab={{ type: "enhanced", id: "note-1" }}
-        handleTabChange={vi.fn()}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Summary" }));
-
-    expect(
-      screen.getByRole("button", { name: "Auto" }).getAttribute("aria-current"),
-    ).toBe("true");
-    expect(
-      screen.getByRole("button", { name: "Decision Log" }).querySelector("svg"),
-    ).toBeNull();
-
-    fireEvent.click(screen.getByRole("button", { name: "Regenerate Auto" }));
-
-    expect(hoisted.enhance).toHaveBeenCalledWith("session-1", {
-      templateId: null,
-      targetNoteId: "note-1",
-      templateTitle: undefined,
-    });
-  });
-
   it("replaces the current enhanced note with auto generation", () => {
     hoisted.userTemplates = [
       {
@@ -786,71 +689,10 @@ describe("Header", () => {
       />,
     );
 
-    const summaryTab = screen.getByRole("button", { name: "Customer Call" });
-
     expect(screen.getByTestId("tab-spinner")).not.toBeNull();
-    expect(summaryTab.className).toContain("w-[112px]");
-    expect(summaryTab.getAttribute("data-hover-label")).toBe("Stop");
-    expect(summaryTab.textContent).toBe("Customer Call");
-  });
-
-  it("stops summary generation from the active enhanced tab spinner", () => {
-    hoisted.isGenerating = true;
-    const editorTabs: EditorView[] = [
-      { type: "enhanced", id: "note-1" },
-      { type: "raw" },
-    ];
-
-    render(
-      <Header
-        sessionId="session-1"
-        editorTabs={editorTabs}
-        currentTab={{ type: "enhanced", id: "note-1" }}
-        handleTabChange={vi.fn()}
-      />,
-    );
-
-    const summaryTab = screen.getByRole("button", { name: "Customer Call" });
-
-    expect(summaryTab.getAttribute("title")).toBe("Stop summary");
-    expect(summaryTab.className).toContain("w-[112px]");
-
-    fireEvent.click(summaryTab);
-
-    expect(hoisted.cancelSummary).toHaveBeenCalledTimes(1);
-    expect(screen.queryByPlaceholderText("Search templates...")).toBeNull();
-  });
-
-  it("switches to an inactive enhanced tab while summary generation continues", () => {
-    hoisted.isGenerating = true;
-    const handleTabChange = vi.fn();
-    const editorTabs: EditorView[] = [
-      { type: "enhanced", id: "note-1" },
-      { type: "raw" },
-    ];
-
-    render(
-      <Header
-        sessionId="session-1"
-        editorTabs={editorTabs}
-        currentTab={{ type: "raw" }}
-        handleTabChange={handleTabChange}
-      />,
-    );
-
-    const summaryTab = screen.getByRole("button", { name: "Customer Call" });
-
-    expect(summaryTab.getAttribute("title")).toBe(
-      "Customer Call was used to generate this summary.",
-    );
-
-    fireEvent.click(summaryTab);
-
-    expect(hoisted.cancelSummary).not.toHaveBeenCalled();
-    expect(handleTabChange).toHaveBeenCalledWith({
-      type: "enhanced",
-      id: "note-1",
-    });
+    expect(
+      screen.getByRole("button", { name: "Customer Call" }).textContent,
+    ).toBe("Customer Call");
   });
 
   it("shows a spinner in the transcript tab while transcribing", () => {
@@ -899,6 +741,212 @@ describe("Header", () => {
     fireEvent.click(screen.getByRole("button", { name: "Transcript" }));
 
     expect(hoisted.stopTranscription).toHaveBeenCalledWith("session-1");
+  });
+
+  it("resumes listening from the active transcript tab in the main window", () => {
+    const handleTabChange = vi.fn();
+    const editorTabs: EditorView[] = [
+      { type: "enhanced", id: "note-1" },
+      { type: "raw" },
+      { type: "transcript" },
+    ];
+
+    render(
+      <Header
+        sessionId="session-1"
+        editorTabs={editorTabs}
+        currentTab={{ type: "transcript" }}
+        handleTabChange={handleTabChange}
+      />,
+    );
+
+    const transcriptTab = screen.getByRole("button", { name: "Transcript" });
+
+    expect(transcriptTab.className).toContain("w-[98px]");
+    expect(transcriptTab.getAttribute("title")).toBe("Resume listening");
+    expect(transcriptTab.getAttribute("data-hover-label")).toBe("Resume");
+    expect(transcriptTab.textContent).toBe("Transcript");
+    expect(transcriptTab.querySelector(".animate-ping")).not.toBeNull();
+
+    fireEvent.click(transcriptTab);
+
+    expect(hoisted.startListening).toHaveBeenCalledTimes(1);
+    expect(hoisted.requestMainListenerControl).not.toHaveBeenCalled();
+    expect(handleTabChange).not.toHaveBeenCalled();
+  });
+
+  it("delegates resume listening from the active transcript tab in standalone windows", () => {
+    hoisted.isMainWebviewWindow = false;
+    const editorTabs: EditorView[] = [
+      { type: "enhanced", id: "note-1" },
+      { type: "raw" },
+      { type: "transcript" },
+    ];
+
+    render(
+      <Header
+        sessionId="session-1"
+        editorTabs={editorTabs}
+        currentTab={{ type: "transcript" }}
+        handleTabChange={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Transcript" }));
+
+    expect(hoisted.requestMainListenerControl).toHaveBeenCalledWith(
+      "start",
+      "session-1",
+    );
+    expect(hoisted.startListening).not.toHaveBeenCalled();
+  });
+
+  it("keeps inactive transcript tabs as navigation instead of resume actions", () => {
+    const handleTabChange = vi.fn();
+    const editorTabs: EditorView[] = [
+      { type: "enhanced", id: "note-1" },
+      { type: "raw" },
+      { type: "transcript" },
+    ];
+
+    render(
+      <Header
+        sessionId="session-1"
+        editorTabs={editorTabs}
+        currentTab={{ type: "raw" }}
+        handleTabChange={handleTabChange}
+      />,
+    );
+
+    const transcriptTab = screen.getByRole("button", { name: "Transcript" });
+
+    expect(transcriptTab.getAttribute("title")).toBeNull();
+
+    fireEvent.click(transcriptTab);
+
+    expect(handleTabChange).toHaveBeenCalledWith({ type: "transcript" });
+    expect(hoisted.startListening).not.toHaveBeenCalled();
+    expect(hoisted.requestMainListenerControl).not.toHaveBeenCalled();
+  });
+
+  it("shows live listening state on the inactive transcript tab without stopping on click", () => {
+    hoisted.sessionMode = "active";
+    const handleTabChange = vi.fn();
+    const editorTabs: EditorView[] = [
+      { type: "enhanced", id: "note-1" },
+      { type: "raw" },
+      { type: "transcript" },
+    ];
+
+    render(
+      <Header
+        sessionId="session-1"
+        editorTabs={editorTabs}
+        currentTab={{ type: "raw" }}
+        handleTabChange={handleTabChange}
+      />,
+    );
+
+    const transcriptTab = screen.getByRole("button", { name: "Transcript" });
+
+    expect(screen.getByTestId("dancing-sticks")).not.toBeNull();
+    expect(transcriptTab.className).toContain("bg-red-50");
+    expect(transcriptTab.getAttribute("title")).toBeNull();
+
+    fireEvent.click(transcriptTab);
+
+    expect(handleTabChange).toHaveBeenCalledWith({ type: "transcript" });
+    expect(hoisted.stopListening).not.toHaveBeenCalled();
+    expect(hoisted.requestMainListenerControl).not.toHaveBeenCalled();
+  });
+
+  it("stops a live meeting from the active transcript tab in the main window", () => {
+    hoisted.sessionMode = "active";
+    const handleTabChange = vi.fn();
+    const editorTabs: EditorView[] = [
+      { type: "enhanced", id: "note-1" },
+      { type: "raw" },
+      { type: "transcript" },
+    ];
+
+    render(
+      <Header
+        sessionId="session-1"
+        editorTabs={editorTabs}
+        currentTab={{ type: "transcript" }}
+        handleTabChange={handleTabChange}
+      />,
+    );
+
+    const transcriptTab = screen.getByRole("button", { name: "Transcript" });
+
+    expect(screen.getByTestId("dancing-sticks")).not.toBeNull();
+    expect(transcriptTab.className).toContain("bg-red-50");
+    expect(transcriptTab.getAttribute("title")).toBe("Stop listening");
+    expect(transcriptTab.getAttribute("data-hover-label")).toBe("Stop");
+
+    fireEvent.click(transcriptTab);
+
+    expect(hoisted.stopListening).toHaveBeenCalledTimes(1);
+    expect(hoisted.requestMainListenerControl).not.toHaveBeenCalled();
+    expect(handleTabChange).not.toHaveBeenCalled();
+  });
+
+  it("delegates live meeting stop from the active transcript tab in standalone windows", () => {
+    hoisted.sessionMode = "active";
+    hoisted.isMainWebviewWindow = false;
+    const editorTabs: EditorView[] = [
+      { type: "enhanced", id: "note-1" },
+      { type: "raw" },
+      { type: "transcript" },
+    ];
+
+    render(
+      <Header
+        sessionId="session-1"
+        editorTabs={editorTabs}
+        currentTab={{ type: "transcript" }}
+        handleTabChange={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Transcript" }));
+
+    expect(hoisted.requestMainListenerControl).toHaveBeenCalledWith(
+      "stop",
+      "session-1",
+    );
+    expect(hoisted.stopListening).not.toHaveBeenCalled();
+  });
+
+  it("does not stop a finalizing live meeting from the transcript tab", () => {
+    hoisted.sessionMode = "finalizing";
+    const handleTabChange = vi.fn();
+    const editorTabs: EditorView[] = [
+      { type: "enhanced", id: "note-1" },
+      { type: "raw" },
+      { type: "transcript" },
+    ];
+
+    render(
+      <Header
+        sessionId="session-1"
+        editorTabs={editorTabs}
+        currentTab={{ type: "transcript" }}
+        handleTabChange={handleTabChange}
+      />,
+    );
+
+    const transcriptTab = screen.getByRole("button", { name: "Transcript" });
+
+    expect(screen.getByTestId("dancing-sticks")).not.toBeNull();
+    expect(transcriptTab.getAttribute("title")).toBeNull();
+
+    fireEvent.click(transcriptTab);
+
+    expect(hoisted.stopListening).not.toHaveBeenCalled();
+    expect(hoisted.requestMainListenerControl).not.toHaveBeenCalled();
+    expect(handleTabChange).toHaveBeenCalledWith({ type: "transcript" });
   });
 
   it("does not stop transcription from the active transcript tab while finalizing", () => {

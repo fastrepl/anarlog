@@ -1,8 +1,7 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { ChevronDownIcon, HeadsetIcon, MicOff, VideoIcon } from "lucide-react";
+import { ChevronDownIcon, HeadsetIcon, VideoIcon } from "lucide-react";
 
 import { commands as openerCommands } from "@hypr/plugin-opener2";
-import { DancingSticks } from "@hypr/ui/components/ui/dancing-sticks";
 import { cn, safeParseDate } from "@hypr/utils";
 
 import { MetadataButton } from "./metadata";
@@ -17,10 +16,6 @@ import {
 import { useSessionEvent } from "~/store/tinybase/hooks";
 import type { EditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
-import {
-  isMainWebviewWindow,
-  requestMainListenerControl,
-} from "~/stt/window-control";
 
 export function OuterHeader({
   sessionId,
@@ -40,9 +35,6 @@ export function OuterHeader({
   const showSidebarTimelineHeaderGutter =
     !standaloneWindow && !leftsidebar.expanded;
   const showExpandedSidebarTimelineHeader = leftsidebar.expanded;
-  const reserveCollapsedLiveControls =
-    (showSidebarTimelineHeaderGutter || standaloneWindow) &&
-    isSidebarStopButtonMode(sessionMode);
 
   return (
     <div
@@ -59,7 +51,7 @@ export function OuterHeader({
           className={cn([
             "pointer-events-none absolute inset-y-0 flex items-center",
             centerTitle && "justify-center",
-            reserveCollapsedLiveControls ? "right-[153px]" : "right-[70px]",
+            "right-[70px]",
             standaloneWindow
               ? "left-[76px]"
               : showSidebarTimelineHeaderGutter
@@ -81,11 +73,6 @@ export function OuterHeader({
         data-tauri-drag-region
         className="relative z-10 ml-auto flex shrink-0 items-center gap-0 pr-1"
       >
-        <SidebarModeStopButton
-          sessionId={sessionId}
-          sessionMode={sessionMode}
-          standaloneWindow={standaloneWindow}
-        />
         <HeaderMeetingControl sessionId={sessionId} sessionMode={sessionMode} />
         <OverflowButton
           standaloneWindow={standaloneWindow}
@@ -240,111 +227,4 @@ function getMeetingDisplay(type: RemoteMeeting["type"]) {
         icon: <HeadsetIcon size={18} />,
       };
   }
-}
-
-function SidebarModeStopButton({
-  sessionId,
-  sessionMode,
-  standaloneWindow,
-}: {
-  sessionId: string;
-  sessionMode: string;
-  standaloneWindow: boolean;
-}) {
-  const { t } = useLingui();
-  const { leftsidebar } = useShell();
-  const { amplitude, degraded, muted, stop } = useListener((state) => ({
-    amplitude: state.live.amplitude,
-    degraded: state.live.degraded,
-    muted: state.live.muted,
-    stop: state.stop,
-  }));
-  const active = isSidebarStopButtonMode(sessionMode);
-  const finalizing = sessionMode === "finalizing";
-
-  if ((!standaloneWindow && leftsidebar.expanded) || !active) {
-    return null;
-  }
-
-  const handleStop = () => {
-    if (finalizing) {
-      return;
-    }
-
-    if (!isMainWebviewWindow()) {
-      void requestMainListenerControl("stop", sessionId);
-      return;
-    }
-
-    stop();
-  };
-
-  const accent = degraded ? "amber" : "red";
-  const colors = {
-    red: {
-      button:
-        "bg-red-50 text-red-500 hover:bg-red-100 hover:text-red-600 dark:bg-red-950/50 dark:text-red-300 dark:hover:bg-red-950 dark:hover:text-red-200",
-      sticks: "#ef4444",
-      stop: "bg-red-500",
-    },
-    amber: {
-      button:
-        "bg-amber-50 text-amber-500 hover:bg-amber-100 hover:text-amber-600 dark:bg-amber-950/50 dark:text-amber-300 dark:hover:bg-amber-950 dark:hover:text-amber-200",
-      sticks: "#f59e0b",
-      stop: "bg-amber-500",
-    },
-  }[accent];
-
-  return (
-    <button
-      type="button"
-      data-tauri-drag-region="false"
-      onClick={handleStop}
-      disabled={finalizing}
-      className={cn([
-        "group inline-flex items-center justify-center rounded-full text-sm font-medium",
-        finalizing
-          ? ["bg-muted text-muted-foreground cursor-wait"]
-          : [colors.button],
-        "h-7 w-20",
-        "disabled:pointer-events-none disabled:opacity-50",
-      ])}
-      aria-label={finalizing ? t`Finalizing` : t`Stop listening`}
-    >
-      {finalizing ? (
-        <div className="flex items-center gap-1.5">
-          <span className="animate-pulse">...</span>
-        </div>
-      ) : (
-        <>
-          <div
-            className={cn(["flex items-center gap-1.5", "group-hover:hidden"])}
-          >
-            {muted && <MicOff size={14} />}
-            <DancingSticks
-              amplitude={Math.min(
-                Math.hypot(amplitude.mic, amplitude.speaker),
-                1,
-              )}
-              color={colors.sticks}
-              height={18}
-              width={60}
-            />
-          </div>
-          <div
-            className={cn(["hidden items-center gap-1.5", "group-hover:flex"])}
-          >
-            <span className={cn(["size-2 rounded-none", colors.stop])} />
-            <span className="text-xs">
-              <Trans>Stop</Trans>
-            </span>
-          </div>
-        </>
-      )}
-    </button>
-  );
-}
-
-function isSidebarStopButtonMode(sessionMode: string) {
-  return sessionMode === "active";
 }

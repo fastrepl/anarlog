@@ -687,10 +687,6 @@ msgstr ""
 msgid "Filter synced items by {0}."
 msgstr ""
 
-#: src/session/components/outer-header/index.tsx:312
-msgid "Finalizing"
-msgstr ""
-
 #: src/shared/open-note-dialog.tsx:216
 msgid "Find a note..."
 msgstr ""
@@ -825,7 +821,7 @@ msgstr ""
 msgid "Insert below"
 msgstr ""
 
-#: src/session/components/note-input/header.tsx:831
+#: src/session/components/note-input/header.tsx:971
 msgid "Insights"
 msgstr ""
 
@@ -838,11 +834,11 @@ msgstr ""
 msgid "Job Title"
 msgstr ""
 
-#: src/session/components/outer-header/index.tsx:183
+#: src/session/components/outer-header/index.tsx:170
 msgid "Join"
 msgstr ""
 
-#: src/session/components/outer-header/index.tsx:163
+#: src/session/components/outer-header/index.tsx:150
 msgid "Join {name}"
 msgstr ""
 
@@ -943,7 +939,7 @@ msgstr ""
 msgid "Memo"
 msgstr ""
 
-#: src/session/components/note-input/header.tsx:272
+#: src/session/components/note-input/header.tsx:294
 msgid "Memos"
 msgstr ""
 
@@ -1385,6 +1381,10 @@ msgstr ""
 msgid "Respect Do-Not-Disturb mode"
 msgstr ""
 
+#: src/session/components/note-input/header.tsx:690
+msgid "Resume"
+msgstr ""
+
 #: src/chat/components/message/error.tsx:57
 #: src/session/components/note-input/enhanced/enhance-error.tsx:57
 msgid "Retry"
@@ -1436,7 +1436,7 @@ msgstr ""
 msgid "Search people"
 msgstr ""
 
-#: src/session/components/note-input/header.tsx:1262
+#: src/session/components/note-input/header.tsx:1349
 #: src/templates/template-sidebar.tsx:354
 msgid "Search templates..."
 msgstr ""
@@ -1454,7 +1454,7 @@ msgstr ""
 msgid "Section actions"
 msgstr ""
 
-#: src/session/components/note-input/header.tsx:1330
+#: src/session/components/note-input/header.tsx:1415
 msgid "See all templates"
 msgstr ""
 
@@ -1512,7 +1512,7 @@ msgstr ""
 msgid "Send message"
 msgstr ""
 
-#: src/session/components/note-input/header.tsx:1371
+#: src/session/components/note-input/header.tsx:1456
 msgid "Session note tabs"
 msgstr ""
 
@@ -1674,12 +1674,10 @@ msgstr ""
 msgid "Starting your trial..."
 msgstr ""
 
-#: src/session/components/note-input/header.tsx:570
-#: src/session/components/outer-header/index.tsx:339
+#: src/session/components/note-input/header.tsx:690
 msgid "Stop"
 msgstr ""
 
-#: src/session/components/outer-header/index.tsx:312
 #: src/sidebar/timeline/item.tsx:244
 msgid "Stop listening"
 msgstr ""
@@ -1780,7 +1778,7 @@ msgstr ""
 msgid "Tip: The Anarlog team loves our users!"
 msgstr ""
 
-#: src/session/components/note-input/header.tsx:695
+#: src/session/components/note-input/header.tsx:688
 #: src/session/components/outer-header/overflow/export-modal.tsx:245
 #: src/session/components/outer-header/overflow/export-modal.tsx:295
 #: src/session/components/outer-header/overflow/export-modal.tsx:350
