@@ -10,6 +10,7 @@ enum FloatingBarLayout {
   static let compactIconSize: CGFloat = 34
   static let compactGap: CGFloat = 4
   static let compactHorizontalPadding: CGFloat = 5
+  static let compactControlSurfaceInset: CGFloat = (compactHeight - compactIconSize) / 2
   static let compactCornerControlFactor: CGFloat = 0.55228475
   static let expandedWidth: CGFloat = 360
   static let expandedHeight: CGFloat = 430
@@ -90,8 +91,10 @@ struct FloatingBarView: View {
       FloatingBarLayout.compactHeight
       + (isBarHovered ? FloatingBarLayout.hoverHandleReservedHeight : 0)
     let width = FloatingBarLayout.compactWidth(showsExpand: model.liveCaptionToggleVisible)
-    let radius = FloatingBarLayout.compactHeight / 2
-    let pillShape = FloatingBarSurfaceShape(
+    let controlsWidth = FloatingBarLayout.compactControlsWidth(
+      showsExpand: model.liveCaptionToggleVisible)
+    let radius = isBarHovered ? height / 2 : FloatingBarLayout.compactHeight / 2
+    let surfaceShape = FloatingBarSurfaceShape(
       topRadius: radius,
       bottomRadius: radius,
       cornerControlFactor: FloatingBarLayout.compactCornerControlFactor
@@ -115,10 +118,20 @@ struct FloatingBarView: View {
         .transition(.opacity)
       }
 
+      if isBarHovered {
+        Capsule(style: .continuous)
+          .fill(compactControlSurfaceColor)
+          .frame(
+            width: controlsWidth,
+            height: FloatingBarLayout.compactIconSize
+          )
+          .padding(.bottom, FloatingBarLayout.compactControlSurfaceInset)
+          .transition(.opacity.combined(with: .scale(scale: 0.98)))
+      }
+
       floatingControls(isExpanded: false)
         .frame(
-          width: FloatingBarLayout.compactControlsWidth(
-            showsExpand: model.liveCaptionToggleVisible),
+          width: controlsWidth,
           height: FloatingBarLayout.compactHeight
         )
         .frame(
@@ -132,19 +145,19 @@ struct FloatingBarView: View {
       alignment: .bottom
     )
     .background(
-      pillShape
+      surfaceShape
         .fill(isBarHovered ? envelopeSurfaceColor : surfaceColor)
     )
     .overlay(
-      pillShape
+      surfaceShape
         .strokeBorder(outerStrokeColor, lineWidth: 0.5)
     )
     .overlay(
-      pillShape
+      surfaceShape
         .strokeBorder(innerStrokeColor, lineWidth: 0.5)
         .padding(1)
     )
-    .clipShape(pillShape)
+    .clipShape(surfaceShape)
     .animation(.easeOut(duration: 0.12), value: isBarHovered)
   }
 
@@ -347,26 +360,34 @@ struct FloatingBarView: View {
 
   private var surfaceColor: Color {
     if model.colorScheme == .dark {
-      return Color(red: 0.43, green: 0.44, blue: 0.40).opacity(primarySurfaceOpacity)
+      return Color(red: 0.36, green: 0.37, blue: 0.34).opacity(primarySurfaceOpacity)
     }
 
-    return Color(red: 0.86, green: 0.85, blue: 0.82).opacity(primarySurfaceOpacity)
+    return Color(red: 0.76, green: 0.75, blue: 0.71).opacity(primarySurfaceOpacity)
   }
 
   private var envelopeSurfaceColor: Color {
     if model.colorScheme == .dark {
-      return Color(red: 0.43, green: 0.44, blue: 0.40).opacity(envelopeSurfaceOpacity)
+      return Color(red: 0.36, green: 0.37, blue: 0.34).opacity(envelopeSurfaceOpacity)
     }
 
-    return Color(red: 0.86, green: 0.85, blue: 0.82).opacity(envelopeSurfaceOpacity)
+    return Color(red: 0.76, green: 0.75, blue: 0.71).opacity(envelopeSurfaceOpacity)
+  }
+
+  private var compactControlSurfaceColor: Color {
+    if model.colorScheme == .dark {
+      return Color(red: 0.49, green: 0.50, blue: 0.46).opacity(primarySurfaceOpacity)
+    }
+
+    return Color(red: 0.88, green: 0.87, blue: 0.83).opacity(primarySurfaceOpacity)
   }
 
   private var primarySurfaceOpacity: Double {
-    settings.floatingBarOpacity * 0.82
+    min(settings.floatingBarOpacity * 0.96, FloatingOverlayOpacity.maxFloatingBar)
   }
 
   private var envelopeSurfaceOpacity: Double {
-    min(settings.floatingBarOpacity * 1.08, FloatingOverlayOpacity.maxFloatingBar)
+    min(settings.floatingBarOpacity * 1.12, FloatingOverlayOpacity.maxFloatingBar)
   }
 
   private var primaryContentColor: Color {
