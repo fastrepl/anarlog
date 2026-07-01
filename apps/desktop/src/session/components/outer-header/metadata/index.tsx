@@ -65,7 +65,7 @@ const TriggerInner = forwardRef<
       aria-label={label}
       title={label}
       className={cn([
-        "rounded-full",
+        "size-7 rounded-full",
         "text-muted-foreground hover:bg-accent hover:text-foreground",
         open && "bg-muted text-foreground",
       ])}
