@@ -34,7 +34,7 @@ msgstr "{trialDaysRemaining} days left"
 msgid "<0>Language model</0> is needed to make Anarlog summarize and chat about your conversations."
 msgstr "<0>Language model</0> is needed to make Anarlog summarize and chat about your conversations."
 
-#: src/settings/ai/stt/select.tsx:154
+#: src/settings/ai/stt/select.tsx:159
 msgid "<0>Transcription model</0> is needed to make Anarlog listen to your conversations."
 msgstr "<0>Transcription model</0> is needed to make Anarlog listen to your conversations."
 
@@ -119,7 +119,7 @@ msgstr "Additional spoken languages"
 msgid "Advanced"
 msgstr "Advanced"
 
-#: src/settings/ai/stt/select.tsx:705
+#: src/settings/ai/stt/select.tsx:750
 msgid "After recording"
 msgstr "After recording"
 
@@ -261,7 +261,7 @@ msgstr "Calendar"
 msgid "Calendar connected"
 msgstr "Calendar connected"
 
-#: src/settings/ai/stt/select.tsx:710
+#: src/settings/ai/stt/select.tsx:755
 msgid "Can transcribe while the meeting is happening."
 msgstr "Can transcribe while the meeting is happening."
 
@@ -488,7 +488,7 @@ msgstr "Delete All Recurring Events"
 msgid "Delete Event"
 msgstr "Delete Event"
 
-#: src/settings/ai/stt/select.tsx:782
+#: src/settings/ai/stt/select.tsx:827
 msgid "Delete model"
 msgstr "Delete model"
 
@@ -545,7 +545,7 @@ msgstr "Don't save"
 msgid "Don't show notifications when Do-Not-Disturb is enabled on your system"
 msgstr "Don't show notifications when Do-Not-Disturb is enabled on your system"
 
-#: src/settings/ai/stt/select.tsx:657
+#: src/settings/ai/stt/select.tsx:708
 msgid "Download"
 msgstr "Download"
 
@@ -587,7 +587,7 @@ msgstr "Enhance contact"
 msgid "Enhance contact {label}"
 msgstr "Enhance contact {label}"
 
-#: src/settings/ai/stt/select.tsx:227
+#: src/settings/ai/stt/select.tsx:232
 msgid "Enter a model identifier"
 msgstr "Enter a model identifier"
 
@@ -870,7 +870,7 @@ msgstr "Light"
 msgid "LinkedIn"
 msgstr "LinkedIn"
 
-#: src/settings/ai/stt/select.tsx:705
+#: src/settings/ai/stt/select.tsx:750
 msgid "Live"
 msgstr "Live"
 
@@ -961,7 +961,7 @@ msgid "Microphone detection"
 msgstr "Microphone detection"
 
 #: src/settings/ai/llm/select.tsx:197
-#: src/settings/ai/stt/select.tsx:166
+#: src/settings/ai/stt/select.tsx:171
 msgid "Model being used"
 msgstr "Model being used"
 
@@ -1251,7 +1251,7 @@ msgstr "Preparing transcript..."
 msgid "Previous match"
 msgstr "Previous match"
 
-#: src/settings/ai/stt/select.tsx:202
+#: src/settings/ai/stt/select.tsx:207
 msgid "Pro"
 msgstr "Pro"
 
@@ -1383,7 +1383,7 @@ msgid "Retry"
 msgstr "Retry"
 
 #: src/settings/ai/shared/index.tsx:348
-#: src/settings/ai/stt/select.tsx:712
+#: src/settings/ai/stt/select.tsx:757
 msgid "Runs after the recording finishes, not during the meeting."
 msgstr "Runs after the recording finishes, not during the meeting."
 
@@ -1459,7 +1459,7 @@ msgid "Select a different folder"
 msgstr "Select a different folder"
 
 #: src/settings/ai/shared/model-combobox.tsx:163
-#: src/settings/ai/stt/select.tsx:244
+#: src/settings/ai/stt/select.tsx:249
 msgid "Select a model"
 msgstr "Select a model"
 
@@ -1468,7 +1468,7 @@ msgid "Select a person to view details"
 msgstr "Select a person to view details"
 
 #: src/settings/ai/llm/select.tsx:206
-#: src/settings/ai/stt/select.tsx:175
+#: src/settings/ai/stt/select.tsx:180
 msgid "Select a provider"
 msgstr "Select a provider"
 
@@ -1553,7 +1553,7 @@ msgstr "Show Event"
 msgid "Show floating bar"
 msgstr "Show floating bar"
 
-#: src/settings/ai/stt/select.tsx:767
+#: src/settings/ai/stt/select.tsx:812
 #: src/sidebar/timeline/item.tsx:605
 msgid "Show in Finder"
 msgstr "Show in Finder"
@@ -1851,11 +1851,11 @@ msgid "Upgrade to Pro for {0}"
 msgstr "Upgrade to Pro for {0}"
 
 #: src/settings/ai/llm/select.tsx:235
-#: src/settings/ai/stt/select.tsx:208
+#: src/settings/ai/stt/select.tsx:213
 msgid "Upgrade to Pro to use this provider."
 msgstr "Upgrade to Pro to use this provider."
 
-#: src/settings/ai/stt/select.tsx:657
+#: src/settings/ai/stt/select.tsx:708
 msgid "Upgrade to use"
 msgstr "Upgrade to use"
 

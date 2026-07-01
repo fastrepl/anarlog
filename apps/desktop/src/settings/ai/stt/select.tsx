@@ -52,7 +52,12 @@ import {
   requiresEntitlement,
 } from "~/settings/ai/shared/eligibility";
 import { useConfigValues } from "~/shared/config";
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { SettingsAlert } from "~/shared/ui/settings-alert";
+import {
+  showTransientToast,
+  useTransientToast,
+} from "~/sidebar/toast/transient";
 import * as settings from "~/store/tinybase/store/settings";
 import {
   isConfiguredSttModel,
@@ -284,24 +289,70 @@ export function SelectProviderAndModel() {
   );
 }
 
-export function TranscriptionLanguageWarningBanner() {
-  const hasLanguageWarning = useHasLanguageWarning();
+const TRANSCRIPTION_LANGUAGE_WARNING_TOAST_ID =
+  "transcription-language-warning";
+const dismissedTranscriptionLanguageWarningKeys = new Set<string>();
 
-  if (!hasLanguageWarning) {
+export function TranscriptionLanguageWarningToast() {
+  const warningKey = useTranscriptionLanguageWarningKey();
+
+  if (
+    !warningKey ||
+    dismissedTranscriptionLanguageWarningKeys.has(warningKey)
+  ) {
     return null;
   }
 
   return (
-    <div className="-mx-6 -mt-6 mb-6 border-b border-amber-200 bg-amber-50 px-6 py-3 dark:border-amber-900/60 dark:bg-amber-950/30">
-      <span className="flex items-center justify-center gap-2 text-center text-sm text-amber-600 dark:text-amber-200">
-        <AlertTriangle className="size-4 shrink-0" />
-        Selected model may not support all your spoken languages.
-      </span>
-    </div>
+    <TranscriptionLanguageWarningToastLifecycle
+      key={warningKey}
+      warningKey={warningKey}
+    />
   );
 }
 
-function useHasLanguageWarning() {
+function TranscriptionLanguageWarningToastLifecycle({
+  warningKey,
+}: {
+  warningKey: string;
+}) {
+  useMountEffect(() => {
+    showTransientToast(
+      {
+        id: TRANSCRIPTION_LANGUAGE_WARNING_TOAST_ID,
+        icon: <AlertTriangle className="size-4 shrink-0 text-amber-500" />,
+        description: "Model doesn't support all languages.",
+        anchor: "main-content-panel",
+        actions: [
+          {
+            label: "Dismiss",
+            onClick: () => {
+              dismissedTranscriptionLanguageWarningKeys.add(warningKey);
+              clearTranscriptionLanguageWarningToast();
+            },
+          },
+        ],
+        dismissible: false,
+        variant: "warning",
+      },
+      { durationMs: null },
+    );
+
+    return clearTranscriptionLanguageWarningToast;
+  });
+
+  return null;
+}
+
+function clearTranscriptionLanguageWarningToast() {
+  const { toast, clearToast } = useTransientToast.getState();
+
+  if (toast?.id === TRANSCRIPTION_LANGUAGE_WARNING_TOAST_ID) {
+    clearToast(toast.key);
+  }
+}
+
+function useTranscriptionLanguageWarningKey() {
   const { current_stt_provider, current_stt_model, spoken_languages } =
     useConfigValues([
       "current_stt_provider",
@@ -362,14 +413,21 @@ function useHasLanguageWarning() {
       !!spoken_languages?.length,
   });
 
-  return isConfigured && languageSupport.data === false && !hasError;
+  if (!isConfigured || languageSupport.data !== false || hasError) {
+    return null;
+  }
+
+  return [
+    current_stt_provider,
+    selectedSttModel,
+    ...(spoken_languages ?? []),
+  ].join(":");
 }
 
 type ModelCategory = "latest" | null;
 type ModelEntry = {
   id: string;
   isDownloaded: boolean;
-  providerId?: ProviderId;
   displayName?: string;
   isDeprecated?: boolean;
   category?: ModelCategory;
@@ -495,12 +553,7 @@ function useConfiguredMapping(): Record<
 
       if (provider.id === "hyprnote") {
         const models: ModelEntry[] = [
-          {
-            id: "cloud",
-            isDownloaded: billing.isPaid,
-            providerId: provider.id,
-            category: "latest",
-          },
+          { id: "cloud", isDownloaded: billing.isPaid, category: "latest" },
         ];
 
         if (isAppleSilicon) {
@@ -508,7 +561,6 @@ function useConfiguredMapping(): Record<
             models.push({
               id: model.key,
               isDownloaded: soniqoDownloaded[i]?.data ?? false,
-              providerId: provider.id,
               displayName: model.display_name,
               sizeBytes: model.size_bytes,
               mode: isRealtimeLocalModel(String(model.key))
@@ -533,7 +585,6 @@ function useConfiguredMapping(): Record<
           models: provider.models.map((model) => ({
             id: model,
             isDownloaded: true,
-            providerId: provider.id,
             mode: getProviderModelMode(provider.id, model),
           })),
         },
@@ -577,7 +628,7 @@ function ModelSelectItem({
       />
       <div className="flex shrink-0 items-center gap-2 text-[11px]">
         <LocalModelBackendBadge model={model.id} />
-        <ModelModeBadge mode={model.mode} providerId={model.providerId} />
+        <ModelModeBadge mode={model.mode} />
         {!model.isDownloaded && sizeLabel && (
           <span className="text-muted-foreground font-mono">{sizeLabel}</span>
         )}
@@ -673,19 +724,13 @@ function ModelSelectedValue({ model }: { model: ModelEntry }) {
         className={cn(["min-w-0", isDeprecated && "opacity-60"])}
         labelClassName={cn([isDeprecated && "text-muted-foreground"])}
       />
-      <ModelModeBadge mode={model.mode} providerId={model.providerId} />
+      <ModelModeBadge mode={model.mode} />
     </div>
   );
 }
 
-function ModelModeBadge({
-  mode,
-  providerId,
-}: {
-  mode?: ModelEntry["mode"];
-  providerId?: ProviderId;
-}) {
-  if (!mode || providerId === "soniox") {
+function ModelModeBadge({ mode }: { mode?: ModelEntry["mode"] }) {
+  if (!mode) {
     return null;
   }
 

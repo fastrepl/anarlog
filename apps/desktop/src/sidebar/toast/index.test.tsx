@@ -76,6 +76,7 @@ vi.mock("./useDismissedToasts", () => ({
 }));
 
 import { ToastArea } from "./index";
+import { showTransientToast, useTransientToast } from "./transient";
 
 describe("ToastArea", () => {
   beforeEach(() => {
@@ -86,9 +87,11 @@ describe("ToastArea", () => {
     mocks.updateSettingsTabState.mockClear();
     mocks.clearDevtoolsPreview.mockClear();
     mocks.setToastActionTarget.mockClear();
+    useTransientToast.getState().clearToast();
   });
 
   afterEach(() => {
+    useTransientToast.getState().clearToast();
     cleanup();
     document.body.innerHTML = "";
     vi.useRealTimers();
@@ -139,7 +142,7 @@ describe("ToastArea", () => {
     expect(toastContainer?.style.top).toBe("88px");
   });
 
-  it("positions the left sidebar toast relative to the main content panel", () => {
+  it("centers the left sidebar toast on the main content panel", () => {
     const mainContentPanel = document.createElement("div");
     mainContentPanel.setAttribute("data-main-content-panel", "");
     vi.spyOn(mainContentPanel, "getBoundingClientRect").mockReturnValue({
@@ -161,9 +164,9 @@ describe("ToastArea", () => {
       bottom: 520,
       height: 500,
       left: 300,
-      right: 900,
+      right: 700,
       top: 20,
-      width: 600,
+      width: 400,
       x: 300,
       y: 20,
       toJSON: () => ({}),
@@ -178,6 +181,60 @@ describe("ToastArea", () => {
 
     const toastContainer = screen
       .getByText("Pro features available")
+      .closest(".fixed") as HTMLElement | null;
+
+    expect(toastContainer?.style.left).toBe("600px");
+    expect(toastContainer?.style.top).toBe("56px");
+  });
+
+  it("centers anchored transient toasts on the main content panel", () => {
+    const mainContentPanel = document.createElement("div");
+    mainContentPanel.setAttribute("data-main-content-panel", "");
+    vi.spyOn(mainContentPanel, "getBoundingClientRect").mockReturnValue({
+      bottom: 520,
+      height: 500,
+      left: 200,
+      right: 1_000,
+      top: 20,
+      width: 800,
+      x: 200,
+      y: 20,
+      toJSON: () => ({}),
+    });
+    document.body.appendChild(mainContentPanel);
+
+    const mainSurface = document.createElement("div");
+    mainSurface.setAttribute("data-chat-floating-anchor", "");
+    vi.spyOn(mainSurface, "getBoundingClientRect").mockReturnValue({
+      bottom: 520,
+      height: 500,
+      left: 300,
+      right: 700,
+      top: 20,
+      width: 400,
+      x: 300,
+      y: 20,
+      toJSON: () => ({}),
+    });
+    document.body.appendChild(mainSurface);
+
+    showTransientToast(
+      {
+        id: "transcription-language-warning",
+        description: "Model doesn't support all languages.",
+        anchor: "main-content-panel",
+      },
+      { durationMs: null },
+    );
+
+    render(<ToastArea />);
+
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+
+    const toastContainer = screen
+      .getByText("Model doesn't support all languages.")
       .closest(".fixed") as HTMLElement | null;
 
     expect(toastContainer?.style.left).toBe("600px");

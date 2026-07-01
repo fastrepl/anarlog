@@ -12,6 +12,8 @@ export type DownloadProgress = {
   progress: number;
 };
 
+export type ToastAnchor = "main-content-panel";
+
 export type ToastType = {
   id: string;
   icon?: ReactNode;
@@ -23,7 +25,8 @@ export type ToastType = {
   dismissible: boolean;
   progress?: number;
   downloads?: DownloadProgress[];
-  variant?: "default" | "error";
+  variant?: "default" | "error" | "warning";
+  anchor?: ToastAnchor;
   gradient?: string;
 };
 

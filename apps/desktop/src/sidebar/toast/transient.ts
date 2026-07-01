@@ -17,7 +17,7 @@ type TransientToastState = {
   toast: TransientToast | null;
   showToast: (
     toast: TransientToastInput,
-    options?: { durationMs?: number },
+    options?: { durationMs?: number | null },
   ) => void;
   clearToast: (key?: string) => void;
 };
@@ -43,6 +43,10 @@ export const useTransientToast = create<TransientToastState>((set, get) => ({
 
     set({ toast: nextToast });
 
+    if (options?.durationMs === null) {
+      return;
+    }
+
     dismissTimer = setTimeout(() => {
       if (get().toast?.key === key) {
         set({ toast: null });
@@ -66,7 +70,7 @@ export const useTransientToast = create<TransientToastState>((set, get) => ({
 
 export function showTransientToast(
   toast: TransientToastInput,
-  options?: { durationMs?: number },
+  options?: { durationMs?: number | null },
 ) {
   useTransientToast.getState().showToast(toast, options);
 }

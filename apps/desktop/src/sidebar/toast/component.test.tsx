@@ -66,4 +66,33 @@ describe("Toast", () => {
     expect(action.className).toContain("bg-destructive");
     expect(action.className).toContain("text-destructive-foreground");
   });
+
+  it("does not truncate warning toast text", () => {
+    render(
+      <Toast
+        toast={{
+          id: "transcription-language-warning",
+          description: "Model doesn't support all languages.",
+          dismissible: false,
+          variant: "warning",
+          actions: [
+            {
+              label: "Dismiss",
+              onClick: vi.fn(),
+            },
+          ],
+        }}
+      />,
+    );
+
+    const description = screen.getByText(
+      "Model doesn't support all languages.",
+    );
+
+    expect(description.className).not.toContain("truncate");
+    expect(description.className).toContain("whitespace-nowrap");
+    expect(
+      screen.getByRole("button", { name: "Dismiss" }).parentElement?.className,
+    ).toContain("pl-2");
+  });
 });

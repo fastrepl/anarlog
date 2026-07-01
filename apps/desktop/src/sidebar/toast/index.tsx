@@ -216,8 +216,12 @@ export function ToastArea({
     transientToast,
   ]);
 
-  const displayToast = transientToast ?? devtoolsToast ?? currentToast;
+  const registryPriorityToast =
+    currentToast?.id === "downloading-model" ? currentToast : null;
+  const displayToast =
+    registryPriorityToast ?? transientToast ?? devtoolsToast ?? currentToast;
   const displayToastKey =
+    registryPriorityToast?.id ??
     transientToast?.key ??
     (devtoolsPreview && devtoolsToast
       ? `${devtoolsToast.id}:${devtoolsPreview.key}`
@@ -226,6 +230,7 @@ export function ToastArea({
   const dismissAction = displayToast?.dismissible ? handleDismiss : undefined;
   const position =
     getMainSurfacePosition({
+      anchor: displayToast?.anchor,
       contentOffset,
       mainContentPanelRect,
       mainSurfaceRect,
@@ -377,11 +382,13 @@ function useElementRect(selector: string) {
 }
 
 function getMainSurfacePosition({
+  anchor,
   contentOffset,
   mainContentPanelRect,
   mainSurfaceRect,
   placement,
 }: {
+  anchor?: "main-content-panel";
   contentOffset: number;
   mainContentPanelRect: ElementRect | null;
   mainSurfaceRect: ElementRect | null;
@@ -395,7 +402,7 @@ function getMainSurfacePosition({
 
   return {
     left:
-      placement === "left-sidebar"
+      anchor === "main-content-panel" || placement === "left-sidebar"
         ? horizontalAnchorRect.left + horizontalAnchorRect.width / 2
         : `calc(50% + ${contentOffset}px)`,
     top: verticalAnchorRect.top + LEFT_SIDEBAR_TOP_OFFSET_PX,

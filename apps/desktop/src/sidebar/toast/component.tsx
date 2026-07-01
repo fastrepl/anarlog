@@ -21,17 +21,21 @@ export function Toast({
           "border shadow-lg backdrop-blur-none",
           toast.variant === "error"
             ? "border-alert-border shadow-red-100 dark:shadow-red-950/30"
-            : "border-border",
+            : toast.variant === "warning"
+              ? "border-amber-200 bg-amber-50 text-amber-950 shadow-amber-100 dark:border-amber-800/60 dark:bg-amber-950 dark:text-amber-100 dark:shadow-amber-950/30"
+              : "border-border",
         ])}
       >
         {toast.icon ? <span className="shrink-0">{toast.icon}</span> : null}
 
         <div
           className={cn([
-            "max-w-50 truncate text-sm",
+            "min-w-0 text-sm",
             toast.variant === "error"
-              ? "text-alert-foreground"
-              : "text-muted-foreground",
+              ? "text-alert-foreground max-w-50 truncate"
+              : toast.variant === "warning"
+                ? "max-w-[min(720px,calc(100vw-16rem))] whitespace-nowrap text-amber-950 dark:text-amber-100"
+                : "text-muted-foreground max-w-50 truncate",
           ])}
         >
           {toast.description}
@@ -40,7 +44,12 @@ export function Toast({
         {progress !== null ? <ProgressPill progress={progress} /> : null}
 
         {actions.length > 0 ? (
-          <div className="flex items-center gap-1">
+          <div
+            className={cn([
+              "flex items-center gap-1",
+              toast.variant === "warning" && "pl-2",
+            ])}
+          >
             {actions.map((action, index) => (
               <button
                 key={action.label}
@@ -90,6 +99,10 @@ function getActions(
 function getActionClassName(toast: ToastType, index: number) {
   if (toast.variant === "error" && index === 0) {
     return "bg-destructive text-destructive-foreground hover:bg-destructive/90";
+  }
+
+  if (toast.variant === "warning" && index === 0) {
+    return "bg-amber-950 text-amber-50 hover:bg-amber-900 dark:bg-amber-100 dark:text-amber-950 dark:hover:bg-amber-200";
   }
 
   if (index === 0) {
