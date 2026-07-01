@@ -20,6 +20,7 @@ import {
 } from "@hypr/plugin-windows";
 import { Toaster } from "@hypr/ui/components/ui/toast";
 
+import { AITaskWindowSyncBridge } from "./ai/task-window-sync";
 import { createToolRegistry } from "./contexts/tool-registry/core";
 import { env } from "./env";
 import { AppI18nProvider } from "./i18n/provider";
@@ -80,6 +81,7 @@ function App() {
   return (
     <AppThemeProvider>
       <AppI18nProvider>
+        <AITaskWindowSyncBridge store={aiTaskStore} />
         <RouterProvider
           router={router}
           context={{

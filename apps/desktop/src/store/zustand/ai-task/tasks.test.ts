@@ -11,6 +11,37 @@ afterEach(() => {
 });
 
 describe("createTasksSlice", () => {
+  it("hydrates a remote task snapshot without an abort controller", () => {
+    let state: ReturnType<typeof createTasksSlice>;
+    const set = (updater: any) => {
+      state =
+        typeof updater === "function"
+          ? updater(state)
+          : { ...state, ...updater };
+    };
+    const get = () => state;
+    state = createTasksSlice(set, get, {
+      persistedStore: {} as any,
+      settingsStore: {} as any,
+    });
+
+    const taskId = "summary-1-enhance" as const;
+    state.syncRemoteTask(taskId, {
+      taskType: "enhance",
+      status: "generating",
+      streamedText: "Generated",
+      currentStep: { type: "generating" },
+    });
+
+    expect(state.tasks[taskId]).toMatchObject({
+      taskType: "enhance",
+      status: "generating",
+      streamedText: "Generated",
+      currentStep: { type: "generating" },
+      abortController: null,
+    });
+  });
+
   it("keeps a task generating until onSuccess finishes", async () => {
     let state: ReturnType<typeof createTasksSlice>;
     const set = (updater: any) => {

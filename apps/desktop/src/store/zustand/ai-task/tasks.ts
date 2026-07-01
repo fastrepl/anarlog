@@ -29,6 +29,11 @@ export type TasksActions = {
   ) => Promise<void>;
   cancel: (taskId: string) => void;
   reset: (taskId: string) => void;
+  syncRemoteTask: <T extends TaskType>(
+    taskId: TaskId<T>,
+    task: RemoteTaskState<T>,
+  ) => void;
+  syncRemoteTasks: (tasks: Record<string, RemoteTaskState>) => void;
   getState: <T extends TaskType>(taskId: TaskId<T>) => TaskState<T> | undefined;
 };
 
@@ -49,6 +54,14 @@ export type TaskState<T extends TaskType = TaskType> = {
   streamedText: string;
   error?: Error;
   abortController: AbortController | null;
+  currentStep?: TaskStepInfo<T>;
+};
+
+export type RemoteTaskState<T extends TaskType = TaskType> = {
+  taskType: T;
+  status: TaskStatus;
+  streamedText: string;
+  error?: { name?: string; message: string };
   currentStep?: TaskStepInfo<T>;
 };
 
@@ -116,6 +129,42 @@ export const createTasksSlice = <T extends TasksState & TasksActions>(
         }),
       );
     }
+  },
+  syncRemoteTask: <Task extends TaskType>(
+    taskId: TaskId<Task>,
+    task: RemoteTaskState<Task>,
+  ) => {
+    set((state) =>
+      mutate(state, (draft) => {
+        draft.tasks[taskId] = {
+          taskType: task.taskType,
+          status: task.status,
+          streamedText: task.streamedText,
+          error: task.error ? createSyncedTaskError(task.error) : undefined,
+          abortController: null,
+          currentStep: task.currentStep,
+        };
+      }),
+    );
+  },
+  syncRemoteTasks: (tasks) => {
+    set((state) =>
+      mutate(state, (draft) => {
+        draft.tasks = Object.fromEntries(
+          Object.entries(tasks).map(([taskId, task]) => [
+            taskId,
+            {
+              taskType: task.taskType,
+              status: task.status,
+              streamedText: task.streamedText,
+              error: task.error ? createSyncedTaskError(task.error) : undefined,
+              abortController: null,
+              currentStep: task.currentStep,
+            },
+          ]),
+        );
+      }),
+    );
   },
   generate: async <Task extends TaskType>(
     taskId: TaskId<Task>,
@@ -279,6 +328,14 @@ export const createTasksSlice = <T extends TasksState & TasksActions>(
     }
   },
 });
+
+function createSyncedTaskError(error: { name?: string; message: string }) {
+  const synced = new Error(error.message);
+  if (error.name) {
+    synced.name = error.name;
+  }
+  return synced;
+}
 
 export function extractUnderlyingError(err: unknown): Error {
   if (!(err instanceof Error)) {
