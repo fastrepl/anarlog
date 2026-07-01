@@ -27,6 +27,10 @@ import { Spinner } from "@hypr/ui/components/ui/spinner";
 import { sonnerToast } from "@hypr/ui/components/ui/toast";
 import { cn } from "@hypr/utils";
 
+import {
+  isMainAITaskHostWindow,
+  requestMainEnhance,
+} from "~/ai/task-window-sync";
 import * as AudioPlayer from "~/audio-player";
 import { getEnhancerService } from "~/services/enhancer";
 import { useEnhancedNoteActions } from "~/session/components/note-input/enhanced-actions";
@@ -472,6 +476,15 @@ function HeaderTabEnhancedActive({
   const applyTemplate = useCallback(
     (selection: TemplateSelection) => {
       if (isGenerating) {
+        return;
+      }
+
+      if (!isMainAITaskHostWindow()) {
+        void requestMainEnhance(sessionId, {
+          templateId: selection.templateId,
+          targetNoteId: enhancedNoteId,
+          templateTitle: selection.templateId ? selection.title : undefined,
+        });
         return;
       }
 
