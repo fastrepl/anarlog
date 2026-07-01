@@ -607,6 +607,14 @@ mod tests {
         out
     }
 
+    fn advance_signal(input: &[f32], advance_samples: usize) -> Vec<f32> {
+        let mut out = vec![0.0; input.len()];
+        for idx in 0..input.len().saturating_sub(advance_samples) {
+            out[idx] = input[idx + advance_samples];
+        }
+        out
+    }
+
     fn test_config(window_samples: usize) -> SyncProbeConfig {
         SyncProbeConfig {
             sample_rate: 16_000,
@@ -648,6 +656,26 @@ mod tests {
         assert_eq!(snapshot.state, SyncProbeState::Locked);
         assert_eq!(snapshot.stable_lag_samples, Some(delay as isize));
         assert_eq!(snapshot.accepted_window_count, 3);
+    }
+
+    #[test]
+    fn sync_probe_can_lock_negative_lag() {
+        let window = 4096;
+        let delay = 192;
+        let reference = excitation(window);
+        let observed = advance_signal(&reference, delay);
+        let mut probe = SyncProbe::new(test_config(window));
+
+        for _ in 0..2 {
+            let event = probe.observe(&reference, &observed).unwrap();
+            assert_eq!(event.snapshot().state, SyncProbeState::Acquiring);
+        }
+
+        let locked = probe.observe(&reference, &observed).unwrap();
+        let snapshot = locked.snapshot();
+
+        assert_eq!(snapshot.state, SyncProbeState::Locked);
+        assert_eq!(snapshot.stable_lag_samples, Some(-(delay as isize)));
     }
 
     #[test]

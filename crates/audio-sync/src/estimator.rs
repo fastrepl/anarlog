@@ -177,6 +177,14 @@ mod tests {
         out
     }
 
+    fn advance_signal(input: &[f32], advance_samples: usize) -> Vec<f32> {
+        let mut out = vec![0.0; input.len()];
+        for idx in 0..input.len().saturating_sub(advance_samples) {
+            out[idx] = input[idx + advance_samples];
+        }
+        out
+    }
+
     #[test]
     fn gcc_phat_estimates_positive_delay() {
         let window = 4096;
@@ -188,6 +196,20 @@ mod tests {
         let estimate = estimator.estimate(&reference, &observed).unwrap();
 
         assert_eq!(estimate.lag_samples, delay as isize);
+        assert!(estimate.peak_ratio > 1.0);
+    }
+
+    #[test]
+    fn gcc_phat_estimates_negative_delay() {
+        let window = 4096;
+        let delay = 192;
+        let reference = excitation(window);
+        let observed = advance_signal(&reference, delay);
+
+        let mut estimator = GccPhatLagEstimator::new(window, 512);
+        let estimate = estimator.estimate(&reference, &observed).unwrap();
+
+        assert_eq!(estimate.lag_samples, -(delay as isize));
         assert!(estimate.peak_ratio > 1.0);
     }
 }

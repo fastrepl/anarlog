@@ -165,15 +165,25 @@ async fn run_dual_loop(
                 while let Some((raw_mic, raw_speaker)) = joiner.pop_pair() {
                     let raw_mic = Arc::<[f32]>::from(raw_mic);
                     let raw_speaker = Arc::<[f32]>::from(raw_speaker);
-                    let aec_reference_speaker = aec_reference
+                    let aligned = aec_reference
                         .as_mut()
                         .map(|aligner| aligner.align(&raw_speaker, &raw_mic))
-                        .unwrap_or_else(|| Arc::clone(&raw_speaker));
+                        .unwrap_or_else(|| AecAlignedPair {
+                            mic: Arc::clone(&raw_mic),
+                            speaker: Arc::clone(&raw_speaker),
+                            alignment_changed: false,
+                        });
+                    if aligned.alignment_changed {
+                        if let Some(processor) = aec.as_mut() {
+                            processor.reset();
+                        }
+                        linear_echo_gain = None;
+                    }
                     let aec_mic = process_aec(
                         &mut aec,
                         &mut linear_echo_gain,
-                        &raw_mic,
-                        &aec_reference_speaker,
+                        &aligned.mic,
+                        &aligned.speaker,
                     );
                     if tx
                         .send(Ok(CaptureFrame {
@@ -199,11 +209,49 @@ async fn run_dual_loop(
 
 struct AecReferenceAligner {
     probe: SyncProbe,
-    delay_line: SampleDelayLine,
-    last_delay_samples: usize,
+    mic_delay_line: SampleDelayLine,
+    speaker_delay_line: SampleDelayLine,
+    last_alignment: AecAlignment,
     last_logged_state: Option<SyncProbeState>,
     last_logged_stable_lag_samples: Option<isize>,
     log_probe_events: bool,
+}
+
+struct AecAlignedPair {
+    mic: Arc<[f32]>,
+    speaker: Arc<[f32]>,
+    alignment_changed: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AecAlignment {
+    None,
+    DelayMic(usize),
+    DelaySpeaker(usize),
+}
+
+impl AecAlignment {
+    fn from_lag_samples(lag_samples: Option<isize>) -> Self {
+        match lag_samples {
+            Some(lag) if lag > 0 => Self::DelaySpeaker(lag as usize),
+            Some(lag) if lag < 0 => Self::DelayMic(lag.unsigned_abs()),
+            _ => Self::None,
+        }
+    }
+
+    fn mic_delay_samples(self) -> usize {
+        match self {
+            Self::DelayMic(samples) => samples,
+            Self::None | Self::DelaySpeaker(_) => 0,
+        }
+    }
+
+    fn speaker_delay_samples(self) -> usize {
+        match self {
+            Self::DelaySpeaker(samples) => samples,
+            Self::None | Self::DelayMic(_) => 0,
+        }
+    }
 }
 
 impl AecReferenceAligner {
@@ -215,15 +263,16 @@ impl AecReferenceAligner {
 
         Self {
             probe: SyncProbe::new(config),
-            delay_line: SampleDelayLine::new(max_delay_samples),
-            last_delay_samples: 0,
+            mic_delay_line: SampleDelayLine::new(max_delay_samples),
+            speaker_delay_line: SampleDelayLine::new(max_delay_samples),
+            last_alignment: AecAlignment::None,
             last_logged_state: None,
             last_logged_stable_lag_samples: None,
             log_probe_events: std::env::var(AUDIO_SYNC_PROBE_ENV).ok().as_deref() == Some("1"),
         }
     }
 
-    fn align(&mut self, raw_speaker: &[f32], raw_mic: &[f32]) -> Arc<[f32]> {
+    fn align(&mut self, raw_speaker: &[f32], raw_mic: &[f32]) -> AecAlignedPair {
         let observed = catch_unwind(AssertUnwindSafe(|| {
             self.probe.observe(raw_speaker, raw_mic)
         }));
@@ -235,44 +284,62 @@ impl AecReferenceAligner {
             }
         };
 
-        if let Some(event) = event {
-            self.update_delay(&event);
+        let alignment_changed = if let Some(event) = event {
+            let alignment_changed = self.update_alignment(&event);
             if self.log_probe_events {
                 self.log_probe_event(event);
             }
-        }
+            alignment_changed
+        } else {
+            false
+        };
 
-        Arc::<[f32]>::from(
-            self.delay_line
-                .process(raw_speaker, self.last_delay_samples),
-        )
+        let aligned_mic = self
+            .mic_delay_line
+            .process(raw_mic, self.last_alignment.mic_delay_samples());
+        let aligned_speaker = self
+            .speaker_delay_line
+            .process(raw_speaker, self.last_alignment.speaker_delay_samples());
+
+        AecAlignedPair {
+            mic: Arc::from(aligned_mic),
+            speaker: Arc::from(aligned_speaker),
+            alignment_changed,
+        }
     }
 
-    fn update_delay(&mut self, event: &SyncProbeEvent) {
+    fn update_alignment(&mut self, event: &SyncProbeEvent) -> bool {
         let snapshot = event.snapshot();
-        let next_delay = if matches!(
+        let next_alignment = if matches!(
             snapshot.state,
             SyncProbeState::Locked | SyncProbeState::Holdover
         ) {
-            snapshot
-                .stable_lag_samples
-                .filter(|lag| *lag > 0)
-                .map(|lag| lag as usize)
-                .unwrap_or(0)
+            AecAlignment::from_lag_samples(snapshot.stable_lag_samples)
         } else {
-            0
+            AecAlignment::None
         };
 
-        if next_delay != self.last_delay_samples {
+        if next_alignment != self.last_alignment {
             tracing::info!(
-                previous_delay_samples = self.last_delay_samples,
-                delay_samples = next_delay,
-                delay_ms = next_delay as f32 / self.probe.config().sample_rate as f32 * 1000.0,
+                previous_alignment = ?self.last_alignment,
+                alignment = ?next_alignment,
+                mic_delay_samples = next_alignment.mic_delay_samples(),
+                speaker_delay_samples = next_alignment.speaker_delay_samples(),
+                mic_delay_ms = next_alignment.mic_delay_samples() as f32
+                    / self.probe.config().sample_rate as f32
+                    * 1000.0,
+                speaker_delay_ms = next_alignment.speaker_delay_samples() as f32
+                    / self.probe.config().sample_rate as f32
+                    * 1000.0,
+                stable_lag_samples = snapshot.stable_lag_samples,
                 state = ?snapshot.state,
-                "aec_reference_delay_changed"
+                "aec_reference_alignment_changed"
             );
-            self.last_delay_samples = next_delay;
+            self.last_alignment = next_alignment;
+            return true;
         }
+
+        false
     }
 
     fn log_probe_event(&mut self, event: SyncProbeEvent) {
@@ -635,5 +702,23 @@ mod tests {
 
         assert_eq!(first, vec![0.0, 0.0, 1.0]);
         assert_eq!(second, vec![2.0]);
+    }
+
+    #[test]
+    fn aec_alignment_delays_speaker_for_positive_lag() {
+        let alignment = AecAlignment::from_lag_samples(Some(320));
+
+        assert_eq!(alignment, AecAlignment::DelaySpeaker(320));
+        assert_eq!(alignment.mic_delay_samples(), 0);
+        assert_eq!(alignment.speaker_delay_samples(), 320);
+    }
+
+    #[test]
+    fn aec_alignment_delays_mic_for_negative_lag() {
+        let alignment = AecAlignment::from_lag_samples(Some(-320));
+
+        assert_eq!(alignment, AecAlignment::DelayMic(320));
+        assert_eq!(alignment.mic_delay_samples(), 320);
+        assert_eq!(alignment.speaker_delay_samples(), 0);
     }
 }
