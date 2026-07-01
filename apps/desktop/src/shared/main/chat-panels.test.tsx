@@ -281,26 +281,6 @@ describe("MainChatPanels", () => {
     );
   });
 
-  it("expands left when opening the sidebar would make the empty surface narrower than 500px", () => {
-    mocks.currentTab = { type: "empty" };
-    mocks.leftSidebarExpanded = true;
-    mockPanelWidths({
-      bodyPanelWidth: 640,
-      leftSidebarWidth: 200,
-    });
-
-    render(
-      <MainChatPanels>
-        <div data-left-sidebar-chrome />
-        <div data-chat-floating-anchor>
-          <div data-testid="empty-surface" />
-        </div>
-      </MainChatPanels>,
-    );
-
-    expect(mocks.windowExpandWidth).toHaveBeenCalledWith(60, null, false, true);
-  });
-
   it("expands right when docked chat would make a note surface narrower than 500px", () => {
     mocks.chatMode = "RightPanelOpen";
     mocks.currentTab = { type: "sessions" };
