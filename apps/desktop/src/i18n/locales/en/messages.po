@@ -82,7 +82,7 @@ msgstr "Add \"{0}\""
 
 #. placeholder {0}: provider.displayName
 #: src/calendar/components/sidebar.tsx:225
-#: src/calendar/components/sidebar.tsx:307
+#: src/calendar/components/sidebar.tsx:304
 msgid "Add {0} account"
 msgstr "Add {0} account"
 
@@ -250,7 +250,7 @@ msgstr "Browse"
 msgid "Browser handoff not working? Paste the callback link instead"
 msgstr "Browser handoff not working? Paste the callback link instead"
 
-#: src/calendar/components/sidebar.tsx:328
+#: src/calendar/components/sidebar.tsx:325
 #: src/settings/general/permissions.tsx:191
 #: src/sidebar/calendar.tsx:10
 #: src/sidebar/settings.tsx:106
@@ -874,7 +874,7 @@ msgstr "LinkedIn"
 msgid "Live"
 msgstr "Live"
 
-#: src/calendar/components/calendar-selection.tsx:76
+#: src/calendar/components/calendar-selection.tsx:63
 msgid "Loading calendars..."
 msgstr "Loading calendars..."
 
@@ -1019,7 +1019,7 @@ msgstr "Next match"
 msgid "No apps found."
 msgstr "No apps found."
 
-#: src/calendar/components/calendar-selection.tsx:84
+#: src/calendar/components/calendar-selection.tsx:71
 msgid "No calendars found"
 msgstr "No calendars found"
 
@@ -1139,7 +1139,7 @@ msgstr "Open Anarlog"
 msgid "Open calendar"
 msgstr "Open calendar"
 
-#: src/calendar/components/calendar-selection.tsx:252
+#: src/calendar/components/calendar-selection.tsx:170
 msgid "Open calendar account actions"
 msgstr "Open calendar account actions"
 
@@ -1276,7 +1276,7 @@ msgstr "Reconnect required"
 msgid "Refresh billing status"
 msgstr "Refresh billing status"
 
-#: src/calendar/components/calendar-selection.tsx:91
+#: src/calendar/components/calendar-selection.tsx:78
 msgid "Refresh calendars"
 msgstr "Refresh calendars"
 
@@ -1840,12 +1840,12 @@ msgstr "Upgrade for private repos."
 msgid "Upgrade to connect"
 msgstr "Upgrade to connect"
 
-#: src/calendar/components/sidebar.tsx:300
+#: src/calendar/components/sidebar.tsx:297
 msgid "Upgrade to Pro"
 msgstr "Upgrade to Pro"
 
 #. placeholder {0}: provider.displayName
-#: src/calendar/components/sidebar.tsx:298
+#: src/calendar/components/sidebar.tsx:295
 msgid "Upgrade to Pro for {0}"
 msgstr "Upgrade to Pro for {0}"
 

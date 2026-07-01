@@ -1,21 +1,13 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import {
   CalendarOffIcon,
-  ChevronDown,
   CheckIcon,
   EllipsisIcon,
   Loader2Icon,
   RefreshCwIcon,
 } from "lucide-react";
-import { type MouseEvent, useMemo } from "react";
+import { type MouseEvent } from "react";
 
-import {
-  Accordion,
-  AccordionContent,
-  AccordionHeader,
-  AccordionItem,
-  AccordionTriggerPrimitive,
-} from "@hypr/ui/components/ui/accordion";
 import { cn } from "@hypr/utils";
 
 import {
@@ -55,11 +47,6 @@ export function CalendarSelection({
   disableHoverTone,
 }: CalendarSelectionProps) {
   const { t } = useLingui();
-  const defaultOpen = useMemo(
-    () => groups.map((group) => group.id ?? group.sourceName),
-    [groups],
-  );
-  const accordionKey = groups.length === 0 ? "empty" : "loaded";
 
   if (groups.length === 0) {
     return (
@@ -100,61 +87,42 @@ export function CalendarSelection({
     );
   }
 
-  if (groups.length === 1) {
-    return (
-      <div className={cn(["flex flex-col gap-1 px-2", className])}>
-        <CalendarGroupHeader group={groups[0]} />
-
-        {groups[0].calendars.map((cal) => (
-          <CalendarToggleRow
-            key={cal.id}
-            calendar={cal}
-            enabled={cal.enabled}
-            onToggle={(enabled) => onToggle(cal, enabled)}
-          />
-        ))}
-      </div>
-    );
-  }
-
   return (
-    <Accordion
-      key={accordionKey}
-      type="multiple"
-      defaultValue={defaultOpen}
-      className={cn(["divide-y", className])}
-    >
+    <div className={cn(["flex flex-col gap-3", className])}>
       {groups.map((group) => {
+        const showHeader =
+          groups.length > 1 || (group.menuItems?.length ?? 0) > 0;
+
         return (
-          <AccordionItem
+          <div
             key={group.id ?? group.sourceName}
-            value={group.id ?? group.sourceName}
-            className="group/group border-none px-2"
+            className="flex flex-col gap-1"
           >
-            <CalendarGroupAccordionHeader
-              group={group}
-              disableHoverTone={disableHoverTone}
-            />
-            <AccordionContent className="pb-2">
-              <div className="flex flex-col gap-1">
-                {group.calendars.map((cal) => (
-                  <CalendarToggleRow
-                    key={cal.id}
-                    calendar={cal}
-                    enabled={cal.enabled}
-                    onToggle={(enabled) => onToggle(cal, enabled)}
-                  />
-                ))}
-              </div>
-            </AccordionContent>
-          </AccordionItem>
+            {showHeader ? (
+              <CalendarGroupHeader
+                group={group}
+                disableHoverTone={disableHoverTone}
+              />
+            ) : null}
+
+            <div className="flex flex-col gap-1">
+              {group.calendars.map((cal) => (
+                <CalendarToggleRow
+                  key={cal.id}
+                  calendar={cal}
+                  enabled={cal.enabled}
+                  onToggle={(enabled) => onToggle(cal, enabled)}
+                />
+              ))}
+            </div>
+          </div>
         );
       })}
-    </Accordion>
+    </div>
   );
 }
 
-function CalendarGroupAccordionHeader({
+function CalendarGroupHeader({
   group,
   disableHoverTone,
 }: {
@@ -163,70 +131,20 @@ function CalendarGroupAccordionHeader({
 }) {
   const showContextMenu = useNativeContextMenu(group.menuItems ?? []);
   const hasMenu = (group.menuItems?.length ?? 0) > 0;
-  const hoverPadding = hasMenu
-    ? "group-hover/calendar-group-row:pr-12 group-focus-within/calendar-group-row:pr-12"
-    : "group-hover/calendar-group-row:pr-6 group-focus-within/calendar-group-row:pr-6";
 
   return (
     <div
       onContextMenu={hasMenu ? showContextMenu : undefined}
       className={cn([
-        "group/calendar-group-row relative -mx-2 flex items-center rounded-md px-2",
-        !disableHoverTone && "hover:bg-accent",
+        "flex items-center justify-between gap-2 py-1",
+        hasMenu && "group -mx-2 rounded-full px-2",
+        hasMenu && !disableHoverTone && "hover:bg-accent",
       ])}
-    >
-      <AccordionHeader className="min-w-0 flex-1">
-        <AccordionTriggerPrimitive
-          className={cn([
-            "flex w-full min-w-0 cursor-pointer items-center py-2 pr-0 text-left transition-[padding] duration-150 hover:no-underline",
-            hoverPadding,
-          ])}
-        >
-          <span className="text-muted-foreground truncate text-xs font-medium">
-            {group.sourceName}
-          </span>
-        </AccordionTriggerPrimitive>
-      </AccordionHeader>
-
-      <div
-        className={cn([
-          "pointer-events-none absolute top-1/2 right-1 flex -translate-y-1/2 items-center gap-0.5 opacity-0 transition-opacity duration-150",
-          "group-focus-within/calendar-group-row:opacity-100 group-hover/calendar-group-row:opacity-100",
-        ])}
-      >
-        {hasMenu && (
-          <CalendarGroupMenuButton
-            onClick={showContextMenu}
-            className="pointer-events-none opacity-100 group-focus-within/calendar-group-row:pointer-events-auto group-hover/calendar-group-row:pointer-events-auto"
-          />
-        )}
-
-        <ChevronDown
-          className={cn([
-            "text-muted-foreground pointer-events-none size-4 shrink-0 transition-transform duration-200",
-            "group-data-[state=open]/group:rotate-180",
-          ])}
-        />
-      </div>
-    </div>
-  );
-}
-
-function CalendarGroupHeader({ group }: { group: CalendarGroup }) {
-  const showContextMenu = useNativeContextMenu(group.menuItems ?? []);
-  const hasMenu = (group.menuItems?.length ?? 0) > 0;
-
-  if (!hasMenu) return null;
-
-  return (
-    <div
-      onContextMenu={showContextMenu}
-      className="group flex items-center justify-between gap-2 py-1"
     >
       <span className="text-muted-foreground truncate text-xs font-medium">
         {group.sourceName}
       </span>
-      <CalendarGroupMenuButton onClick={showContextMenu} />
+      {hasMenu ? <CalendarGroupMenuButton onClick={showContextMenu} /> : null}
     </div>
   );
 }
@@ -244,8 +162,8 @@ function CalendarGroupMenuButton({
       type="button"
       onClick={onClick}
       className={cn([
-        "text-muted-foreground shrink-0 rounded p-1 transition-colors",
-        "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
+        "text-muted-foreground shrink-0 rounded-full p-1 transition-colors",
+        "pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100",
         "hover:bg-accent hover:text-muted-foreground",
         className,
       ])}
@@ -271,7 +189,7 @@ function CalendarToggleRow({
     <button
       type="button"
       onClick={() => onToggle(!enabled)}
-      className="flex w-full items-center gap-2 py-1 text-left"
+      className="flex w-full items-center gap-2 py-1 pr-2 pl-0 text-left"
     >
       <div
         className={cn([

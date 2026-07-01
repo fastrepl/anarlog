@@ -82,7 +82,7 @@ msgstr ""
 
 #. placeholder {0}: provider.displayName
 #: src/calendar/components/sidebar.tsx:225
-#: src/calendar/components/sidebar.tsx:307
+#: src/calendar/components/sidebar.tsx:304
 msgid "Add {0} account"
 msgstr ""
 
@@ -250,7 +250,7 @@ msgstr ""
 msgid "Browser handoff not working? Paste the callback link instead"
 msgstr ""
 
-#: src/calendar/components/sidebar.tsx:328
+#: src/calendar/components/sidebar.tsx:325
 #: src/settings/general/permissions.tsx:191
 #: src/sidebar/calendar.tsx:10
 #: src/sidebar/settings.tsx:106
@@ -874,7 +874,7 @@ msgstr ""
 msgid "Live"
 msgstr ""
 
-#: src/calendar/components/calendar-selection.tsx:76
+#: src/calendar/components/calendar-selection.tsx:63
 msgid "Loading calendars..."
 msgstr ""
 
@@ -1019,7 +1019,7 @@ msgstr ""
 msgid "No apps found."
 msgstr ""
 
-#: src/calendar/components/calendar-selection.tsx:84
+#: src/calendar/components/calendar-selection.tsx:71
 msgid "No calendars found"
 msgstr ""
 
@@ -1139,7 +1139,7 @@ msgstr ""
 msgid "Open calendar"
 msgstr ""
 
-#: src/calendar/components/calendar-selection.tsx:252
+#: src/calendar/components/calendar-selection.tsx:170
 msgid "Open calendar account actions"
 msgstr ""
 
@@ -1276,7 +1276,7 @@ msgstr ""
 msgid "Refresh billing status"
 msgstr ""
 
-#: src/calendar/components/calendar-selection.tsx:91
+#: src/calendar/components/calendar-selection.tsx:78
 msgid "Refresh calendars"
 msgstr ""
 
@@ -1840,12 +1840,12 @@ msgstr ""
 msgid "Upgrade to connect"
 msgstr ""
 
-#: src/calendar/components/sidebar.tsx:300
+#: src/calendar/components/sidebar.tsx:297
 msgid "Upgrade to Pro"
 msgstr ""
 
 #. placeholder {0}: provider.displayName
-#: src/calendar/components/sidebar.tsx:298
+#: src/calendar/components/sidebar.tsx:295
 msgid "Upgrade to Pro for {0}"
 msgstr ""
 

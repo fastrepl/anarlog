@@ -1,6 +1,6 @@
 import { useLingui } from "@lingui/react/macro";
 import { platform } from "@tauri-apps/plugin-os";
-import { ChevronDown, PlusIcon } from "lucide-react";
+import { ChevronRight, PlusIcon } from "lucide-react";
 import { useCallback, useMemo, type MouseEvent } from "react";
 
 import type { ConnectionItem } from "@hypr/api-client";
@@ -125,7 +125,7 @@ export function CalendarSidebarContent({
         provider.disabled ? (
           <div
             key={provider.id}
-            className="border-border flex items-center gap-2 border-b py-3 opacity-50 last:border-none"
+            className="-mx-2 flex items-center gap-2 px-2 py-3 opacity-50"
           >
             <ProviderIcon provider={provider} />
             <span className="text-sm font-medium">{provider.displayName}</span>
@@ -246,16 +246,13 @@ function ProviderAccordionItem({
   const hasAddAccountButton = canAddAccount && !requiresPro;
 
   return (
-    <AccordionItem
-      value={provider.id}
-      className="group/provider border-border border-b last:border-none"
-    >
+    <AccordionItem value={provider.id} className="group/provider border-none">
       <div
         onContextMenu={
           providerMenuItems.length > 0 ? showProviderMenu : undefined
         }
         className={cn([
-          "group/row hover:bg-accent relative grid items-center gap-1 rounded-md",
+          "group/row hover:bg-accent relative -mx-2 grid items-center gap-1 rounded-full px-2",
           hasAddAccountButton
             ? "grid-cols-[minmax(0,1fr)_auto_auto]"
             : "grid-cols-[minmax(0,1fr)_auto]",
@@ -303,7 +300,7 @@ function ProviderAccordionItem({
           <button
             type="button"
             onClick={handleAddAccount}
-            className="text-muted-foreground hover:bg-accent hover:text-foreground shrink-0 rounded p-1 transition-colors"
+            className="text-muted-foreground hover:bg-accent hover:text-foreground shrink-0 rounded-full p-1 transition-colors"
             aria-label={t`Add ${provider.displayName} account`}
           >
             <PlusIcon className="size-4" />
@@ -311,10 +308,10 @@ function ProviderAccordionItem({
         ) : null}
 
         {!requiresPro && (
-          <ChevronDown
+          <ChevronRight
             className={cn([
-              "text-muted-foreground size-4 shrink-0 opacity-0 transition-all duration-200 group-focus-within/row:opacity-100 group-hover/row:opacity-100",
-              "group-data-[state=open]/provider:rotate-180",
+              "text-muted-foreground size-4 shrink-0 transition-transform duration-200",
+              "group-data-[state=open]/provider:rotate-90",
             ])}
           />
         )}
