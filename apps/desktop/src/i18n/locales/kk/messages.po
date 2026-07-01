@@ -147,7 +147,7 @@ msgstr ""
 msgid "Always ready without manually launching."
 msgstr "Қолмен іске қоспай-ақ әрқашан дайын."
 
-#: src/session/components/note-input/enhanced/streaming.tsx:54
+#: src/session/components/note-input/enhanced/streaming.tsx:64
 msgid "Analyzing structure..."
 msgstr ""
 
@@ -723,7 +723,7 @@ msgstr ""
 msgid "General"
 msgstr ""
 
-#: src/session/components/note-input/enhanced/streaming.tsx:22
+#: src/session/components/note-input/enhanced/streaming.tsx:28
 #: src/session/components/title-input.tsx:97
 msgid "Generating title..."
 msgstr ""
@@ -1779,7 +1779,7 @@ msgstr ""
 msgid "Timezone"
 msgstr ""
 
-#: src/session/components/note-input/enhanced/streaming.tsx:62
+#: src/session/components/note-input/enhanced/streaming.tsx:72
 msgid "Tip: The Anarlog team loves our users!"
 msgstr ""
 

@@ -385,6 +385,38 @@ describe("enhanceSuccess.onSuccess", () => {
     expect(startTask).not.toHaveBeenCalled();
   });
 
+  it("uses the in-flight title text when summary finalizes first", async () => {
+    const store = {
+      setPartialRow: vi.fn(),
+      getCell: vi.fn().mockReturnValue(""),
+      getValue: vi.fn().mockReturnValue("user-1"),
+      setRow: vi.fn(),
+      forEachRow: vi.fn(),
+    } as unknown as EnhanceSuccessParams["store"];
+    const params = createParams({
+      store,
+      getTaskState: vi.fn().mockReturnValue({
+        taskType: "title",
+        status: "generating",
+        streamedText: "Visible Streaming Title",
+        abortController: null,
+        currentStep: undefined,
+      }),
+    });
+
+    await enhanceSuccess.onSuccess?.(params);
+
+    expect(params.startTask).not.toHaveBeenCalled();
+    const persisted = (store.setPartialRow as ReturnType<typeof vi.fn>).mock
+      .calls[0][2].content;
+    expect(json2md(JSON.parse(persisted)).trim()).toBe(
+      "# Visible Streaming Title\n\n# Summary\n\n- Point",
+    );
+    expect(store.setPartialRow).toHaveBeenCalledWith("sessions", "session-1", {
+      title: "Visible Streaming Title",
+    });
+  });
+
   it("does not start title generation when title task is already running", async () => {
     const params = createParams({
       getTaskState: vi.fn().mockReturnValue({

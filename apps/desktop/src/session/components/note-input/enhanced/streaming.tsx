@@ -8,19 +8,26 @@ import { streamdownComponents } from "../../streamdown";
 import { useAITaskTask } from "~/ai/hooks";
 import * as main from "~/store/tinybase/store/main";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
+import { getPersistableGeneratedTitle } from "~/store/zustand/ai-task/task-configs/title-success";
 
-function SummaryTitleSpace() {
+function SummaryTitleSpace({ title }: { title: string }) {
   return (
     <div
       data-testid="summary-title-space"
-      className="pointer-events-none mb-3 flex h-[1.875rem] items-center"
+      className="pointer-events-none mb-4 flex min-h-[1.875rem] items-start"
     >
-      <span
-        aria-hidden="true"
-        className="text-muted-foreground animate-pulse text-[1.5rem] leading-[1.875rem] font-semibold opacity-60"
-      >
-        <Trans>Generating title...</Trans>
-      </span>
+      {title ? (
+        <h1 className="text-foreground text-[1.5rem] leading-[1.875rem] font-semibold">
+          {title}
+        </h1>
+      ) : (
+        <span
+          aria-hidden="true"
+          className="text-muted-foreground animate-pulse text-[1.5rem] leading-[1.875rem] font-semibold opacity-60"
+        >
+          <Trans>Generating title...</Trans>
+        </span>
+      )}
     </div>
   );
 }
@@ -34,14 +41,17 @@ export function StreamingView({
 }) {
   const taskId = createTaskId(enhancedNoteId, "enhance");
   const { streamedText, isGenerating } = useAITaskTask(taskId, "enhance");
+  const titleTaskId = createTaskId(sessionId, "title");
+  const { streamedText: streamedTitle } = useAITaskTask(titleTaskId, "title");
   const sessionTitle = main.UI.useCell(
     "sessions",
     sessionId,
     "title",
     main.STORE_ID,
   );
-  const shouldGenerateTitle =
-    typeof sessionTitle !== "string" || sessionTitle.trim().length === 0;
+  const title = typeof sessionTitle === "string" ? sessionTitle.trim() : "";
+  const generatedTitle = getPersistableGeneratedTitle(streamedTitle);
+  const visibleTitle = title || generatedTitle;
 
   if (streamedText.trim().length === 0) {
     return (
@@ -69,7 +79,7 @@ export function StreamingView({
   return (
     <div className="pb-2">
       <div className="flex flex-col gap-1">
-        {shouldGenerateTitle ? <SummaryTitleSpace /> : null}
+        <SummaryTitleSpace title={visibleTitle} />
         <Streamdown
           components={streamdownComponents}
           className={cn(["flex flex-col"])}

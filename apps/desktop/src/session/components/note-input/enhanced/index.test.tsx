@@ -6,7 +6,16 @@ import { Enhanced } from "./index";
 import type { LLMConnectionStatus } from "~/ai/hooks";
 
 const hoisted = vi.hoisted(() => ({
-  task: undefined as
+  enhanceTask: undefined as
+    | {
+        status: string;
+        error: Error | undefined;
+        streamedText: string;
+        currentStep: unknown;
+        isGenerating: boolean;
+      }
+    | undefined,
+  titleTask: undefined as
     | {
         status: string;
         error: Error | undefined;
@@ -33,14 +42,18 @@ vi.mock("streamdown", () => ({
 }));
 
 vi.mock("~/ai/hooks", () => ({
-  useAITaskTask: () => ({
-    status: hoisted.task?.status ?? "idle",
-    error: hoisted.task?.error,
-    streamedText: hoisted.task?.streamedText ?? "",
-    currentStep: hoisted.task?.currentStep,
-    hasTask: !!hoisted.task,
-    isGenerating: hoisted.task?.isGenerating ?? false,
-  }),
+  useAITaskTask: (_taskId: string, taskType: "enhance" | "title") => {
+    const task = taskType === "title" ? hoisted.titleTask : hoisted.enhanceTask;
+
+    return {
+      status: task?.status ?? "idle",
+      error: task?.error,
+      streamedText: task?.streamedText ?? "",
+      currentStep: task?.currentStep,
+      hasTask: !!task,
+      isGenerating: task?.isGenerating ?? false,
+    };
+  },
   useLLMConnectionStatus: () => hoisted.llmStatus,
 }));
 
@@ -99,7 +112,8 @@ describe("Enhanced", () => {
   });
 
   beforeEach(() => {
-    hoisted.task = undefined;
+    hoisted.enhanceTask = undefined;
+    hoisted.titleTask = undefined;
     hoisted.llmStatus = {
       status: "success",
       providerId: "hyprnote",
@@ -119,7 +133,7 @@ describe("Enhanced", () => {
   });
 
   it("shows a generating status before streamed text arrives", () => {
-    hoisted.task = {
+    hoisted.enhanceTask = {
       status: "generating",
       error: undefined,
       streamedText: "",
@@ -138,7 +152,7 @@ describe("Enhanced", () => {
   });
 
   it("renders streamed summary in the generating view", () => {
-    hoisted.task = {
+    hoisted.enhanceTask = {
       status: "generating",
       error: undefined,
       streamedText: "Streaming summary",
@@ -155,9 +169,9 @@ describe("Enhanced", () => {
     expect(screen.queryByRole("status")).toBeNull();
   });
 
-  it("does not show the title placeholder while streaming for an already titled session", () => {
+  it("keeps the title row while streaming for an already titled session", () => {
     hoisted.sessionTitle = "Existing title";
-    hoisted.task = {
+    hoisted.enhanceTask = {
       status: "generating",
       error: undefined,
       streamedText: "Streaming summary",
@@ -168,12 +182,36 @@ describe("Enhanced", () => {
     render(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
 
     expect(screen.getByText("Streaming summary")).not.toBeNull();
-    expect(screen.queryByTestId("summary-title-space")).toBeNull();
+    expect(screen.getByTestId("summary-title-space")).not.toBeNull();
+    expect(screen.getByText("Existing title")).not.toBeNull();
+    expect(screen.queryByText("Generating title...")).toBeNull();
+  });
+
+  it("shows the generated title while the summary is still streaming", () => {
+    hoisted.enhanceTask = {
+      status: "generating",
+      error: undefined,
+      streamedText: "Streaming summary",
+      currentStep: undefined,
+      isGenerating: true,
+    };
+    hoisted.titleTask = {
+      status: "success",
+      error: undefined,
+      streamedText: "Generated Session Title",
+      currentStep: undefined,
+      isGenerating: false,
+    };
+
+    render(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
+
+    expect(screen.getByTestId("summary-title-space")).not.toBeNull();
+    expect(screen.getByText("Generated Session Title")).not.toBeNull();
     expect(screen.queryByText("Generating title...")).toBeNull();
   });
 
   it("renders the editor after an empty enhance task returns idle", () => {
-    hoisted.task = {
+    hoisted.enhanceTask = {
       status: "idle",
       error: undefined,
       streamedText: "",

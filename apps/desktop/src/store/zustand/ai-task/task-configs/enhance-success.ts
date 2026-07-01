@@ -44,9 +44,9 @@ const onSuccess: NonNullable<TaskConfig<"enhance">["onSuccess"]> = async ({
     const titleTaskId = createTaskId(args.sessionId, "title");
     const titleTask = getTaskState(titleTaskId);
 
-    if (titleTask?.status === "success") {
+    if (titleTask?.status === "success" || titleTask?.status === "generating") {
       generatedTitle = getPersistableGeneratedTitle(titleTask.streamedText);
-    } else if (titleTask?.status !== "generating") {
+    } else {
       await startTask(titleTaskId, {
         model,
         taskType: "title",

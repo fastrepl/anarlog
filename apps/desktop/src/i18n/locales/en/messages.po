@@ -147,7 +147,7 @@ msgstr "Allow system audio access"
 msgid "Always ready without manually launching."
 msgstr "Always ready without manually launching."
 
-#: src/session/components/note-input/enhanced/streaming.tsx:54
+#: src/session/components/note-input/enhanced/streaming.tsx:64
 msgid "Analyzing structure..."
 msgstr "Analyzing structure..."
 
@@ -723,7 +723,7 @@ msgstr "Free"
 msgid "General"
 msgstr "General"
 
-#: src/session/components/note-input/enhanced/streaming.tsx:22
+#: src/session/components/note-input/enhanced/streaming.tsx:28
 #: src/session/components/title-input.tsx:97
 msgid "Generating title..."
 msgstr "Generating title..."
@@ -1779,7 +1779,7 @@ msgstr "Ticket"
 msgid "Timezone"
 msgstr "Timezone"
 
-#: src/session/components/note-input/enhanced/streaming.tsx:62
+#: src/session/components/note-input/enhanced/streaming.tsx:72
 msgid "Tip: The Anarlog team loves our users!"
 msgstr "Tip: The Anarlog team loves our users!"
 
