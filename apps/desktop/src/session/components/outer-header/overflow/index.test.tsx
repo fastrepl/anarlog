@@ -130,6 +130,8 @@ describe("OverflowButton", () => {
   });
 
   it("keeps upload actions available when the current note is empty", () => {
+    useHasTranscriptMock.mockReturnValue(false);
+
     render(
       <OverflowButton
         sessionId="session-1"
@@ -142,6 +144,20 @@ describe("OverflowButton", () => {
 
     expect(uploadAudioMock).toHaveBeenCalledTimes(1);
     expect(uploadTranscriptMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("hides upload actions when the session already has a transcript", () => {
+    render(
+      <OverflowButton
+        sessionId="session-1"
+        currentView={{ type: "enhanced", id: "note-1" } as EditorView}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Upload audio" })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Upload transcript" }),
+    ).toBeNull();
   });
 
   it("keeps the overflow trigger out of the header drag region", () => {
@@ -160,6 +176,7 @@ describe("OverflowButton", () => {
   });
 
   it("hides upload actions when the current note has content", () => {
+    useHasTranscriptMock.mockReturnValue(false);
     useCurrentNoteHasContentMock.mockReturnValue(true);
 
     render(
@@ -176,6 +193,7 @@ describe("OverflowButton", () => {
   });
 
   it("hides upload actions while a meeting is in progress", () => {
+    useHasTranscriptMock.mockReturnValue(false);
     useListenerMock.mockImplementation((selector) =>
       selector({
         getSessionMode: () => "active",

@@ -62,7 +62,8 @@ export function OverflowButton({
   const settings = settingsStore.UI.useStore(settingsStore.STORE_ID);
   const isMeetingInProgress =
     sessionMode === "active" || sessionMode === "finalizing";
-  const showUploadActions = !currentNoteHasContent && !isMeetingInProgress;
+  const showUploadActions =
+    !hasTranscript && !currentNoteHasContent && !isMeetingInProgress;
   const canOpenFloatingPanel =
     allowListening && floatingBarEnabled && sessionMode === "active";
   const openExportModal = () => {

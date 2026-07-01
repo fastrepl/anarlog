@@ -637,7 +637,7 @@ msgstr ""
 
 #: src/session/components/outer-header/overflow/export-modal.tsx:467
 #: src/session/components/outer-header/overflow/export-modal.tsx:552
-#: src/session/components/outer-header/overflow/index.tsx:115
+#: src/session/components/outer-header/overflow/index.tsx:116
 msgid "Export"
 msgstr ""
 
@@ -1143,7 +1143,7 @@ msgstr ""
 msgid "Open calendar account actions"
 msgstr ""
 
-#: src/session/components/outer-header/overflow/index.tsx:151
+#: src/session/components/outer-header/overflow/index.tsx:152
 msgid "Open floating panel"
 msgstr ""
 
@@ -1151,7 +1151,7 @@ msgstr ""
 msgid "Open in New Tab"
 msgstr ""
 
-#: src/session/components/outer-header/overflow/index.tsx:163
+#: src/session/components/outer-header/overflow/index.tsx:164
 #: src/sidebar/timeline/item.tsx:600
 msgid "Open in New Window"
 msgstr ""
@@ -1867,12 +1867,12 @@ msgid "Upgrade to use"
 msgstr ""
 
 #: src/session/components/floating/options-menu.tsx:134
-#: src/session/components/outer-header/overflow/index.tsx:130
+#: src/session/components/outer-header/overflow/index.tsx:131
 msgid "Upload audio"
 msgstr ""
 
 #: src/session/components/floating/options-menu.tsx:143
-#: src/session/components/outer-header/overflow/index.tsx:139
+#: src/session/components/outer-header/overflow/index.tsx:140
 msgid "Upload transcript"
 msgstr ""
 
