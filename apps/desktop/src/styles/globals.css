@@ -243,7 +243,9 @@
 
   [data-chat-floating-anchor]:has([data-chat-cta-trigger]:is(:hover, :focus-visible, :focus-within))
     [data-transcript-scroll-chip] {
-    --transcript-scroll-chip-bottom: calc(5rem + env(safe-area-inset-bottom));
+    --transcript-scroll-chip-bottom: calc(
+      3.75rem + env(safe-area-inset-bottom)
+    );
   }
 }
 

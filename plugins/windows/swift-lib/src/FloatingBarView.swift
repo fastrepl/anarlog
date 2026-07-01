@@ -219,8 +219,8 @@ struct FloatingBarView: View {
                     shouldAutoScrollTranscript = true
                   }
                 }
-                .padding(.bottom, 8)
-                .transition(.opacity.combined(with: .move(edge: .bottom)))
+                .padding(.bottom, 0)
+                .transition(.move(edge: .bottom))
               }
             }
             .animation(.easeOut(duration: 0.12), value: shouldAutoScrollTranscript)
@@ -476,27 +476,42 @@ struct FloatingBarView: View {
 
   private func transcriptBottomChip(action: @escaping () -> Void) -> some View {
     Button(action: action) {
-      HStack(spacing: 5) {
+      HStack(spacing: 6) {
         Image(systemName: "arrow.down")
-          .font(.system(size: 10, weight: .bold))
-        Text("Back to bottom")
-          .font(.system(size: 11, weight: .semibold))
+          .font(.system(size: 10, weight: .semibold))
+        Text("Go to bottom")
+          .font(.system(size: 11, weight: .medium))
       }
       .foregroundStyle(primaryContentColor)
-      .padding(.horizontal, 10)
-      .padding(.vertical, 6)
+      .padding(.horizontal, 12)
+      .padding(.vertical, 7)
       .background(
         Capsule(style: .continuous)
-          .fill(surfaceColor.opacity(0.92))
+          .fill(transcriptChipFillColor)
       )
       .overlay(
         Capsule(style: .continuous)
-          .strokeBorder(innerStrokeColor, lineWidth: 0.5)
+          .strokeBorder(transcriptChipStrokeColor, lineWidth: 0.5)
       )
-      .shadow(color: .black.opacity(0.12), radius: 8, y: 3)
     }
     .buttonStyle(.plain)
     .accessibilityLabel("Scroll transcript to bottom")
+  }
+
+  private var transcriptChipFillColor: Color {
+    if model.colorScheme == .dark {
+      return Color(red: 0.18, green: 0.18, blue: 0.17)
+    }
+
+    return Color(red: 0.95, green: 0.95, blue: 0.93)
+  }
+
+  private var transcriptChipStrokeColor: Color {
+    if model.colorScheme == .dark {
+      return Color(red: 0.36, green: 0.36, blue: 0.34)
+    }
+
+    return Color(red: 0.76, green: 0.75, blue: 0.72)
   }
 }
 

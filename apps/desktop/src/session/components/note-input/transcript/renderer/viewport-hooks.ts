@@ -9,6 +9,7 @@ import {
 
 export function useScrollDetection(
   containerRef: RefObject<HTMLDivElement | null>,
+  active = true,
 ) {
   const [isAtTop, setIsAtTop] = useState(true);
   const [isAtBottom, setIsAtBottom] = useState(true);
@@ -18,6 +19,7 @@ export function useScrollDetection(
   );
   const lastScrollTopRef = useRef(0);
   const userScrolledAwayRef = useRef(false);
+  const wasActiveRef = useRef(active);
 
   useEffect(() => {
     const element = containerRef.current;
@@ -63,6 +65,16 @@ export function useScrollDetection(
     return () => element.removeEventListener("scroll", handleScroll);
   }, [containerRef]);
 
+  useEffect(() => {
+    if (active && !wasActiveRef.current) {
+      userScrolledAwayRef.current = false;
+      setAutoScrollEnabled(true);
+      setScrollTarget(null);
+    }
+
+    wasActiveRef.current = active;
+  }, [active]);
+
   const scrollToBottom = () => {
     const element = containerRef.current;
     if (!element) {
@@ -101,6 +113,7 @@ export function useAutoScroll(
   const rafRef = useRef<number | null>(null);
   const lastHeightRef = useRef(0);
   const initialFlushRef = useRef(enabled);
+  const previousEnabledRef = useRef(enabled);
 
   useEffect(() => {
     const element = containerRef.current;
@@ -137,9 +150,12 @@ export function useAutoScroll(
     if (initialFlushRef.current) {
       initialFlushRef.current = false;
       schedule(true);
+    } else if (enabled && !previousEnabledRef.current) {
+      schedule(true);
     } else {
-      schedule();
+      schedule(enabled);
     }
+    previousEnabledRef.current = enabled;
 
     const resizeObserver = new ResizeObserver(() => {
       const nextHeight = element.scrollHeight;
@@ -147,7 +163,7 @@ export function useAutoScroll(
         return;
       }
       lastHeightRef.current = nextHeight;
-      schedule();
+      schedule(enabled);
     });
 
     const targets = new Set<Element>([element]);

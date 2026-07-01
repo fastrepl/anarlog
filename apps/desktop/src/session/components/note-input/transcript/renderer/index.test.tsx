@@ -184,6 +184,7 @@ describe("TranscriptViewer", () => {
     const button = screen.getByRole("button", { name: "Go to bottom" });
     button.click();
 
+    expect(button.firstElementChild?.tagName.toLowerCase()).toBe("svg");
     expect(screen.queryByRole("button", { name: "Go to top" })).toBeNull();
     expect(mocks.scrollToBottom).toHaveBeenCalledTimes(1);
   });
@@ -204,11 +205,41 @@ describe("TranscriptViewer", () => {
     const button = screen.getByRole("button", { name: "Go to top" });
     button.click();
 
-    expect(button.style.bottom).toBe(
-      "var(--transcript-scroll-chip-bottom, calc(3.75rem + env(safe-area-inset-bottom)))",
+    expect(button.firstElementChild?.tagName.toLowerCase()).toBe("svg");
+    expect(button.className).not.toContain("bg-linear-to-t");
+    expect(button.className).not.toContain("shadow");
+    expect(button.className).not.toContain("scale");
+    expect(button.style.top).toBe(
+      "var(--transcript-scroll-chip-top, calc(1.5rem + env(safe-area-inset-top)))",
     );
+    expect(button.style.bottom).toBe("");
     expect(screen.queryByRole("button", { name: "Go to bottom" })).toBeNull();
     expect(mocks.scrollToTop).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders the bottom chip near the bottom without translucent styling", () => {
+    mocks.scrollDetection.isAtTop = false;
+    mocks.scrollDetection.isAtBottom = false;
+    mocks.scrollDetection.scrollTarget = "bottom";
+
+    render(
+      <TranscriptViewer
+        transcriptIds={["transcript-1"]}
+        liveSegments={[]}
+        currentActive
+        scrollRef={createRef()}
+      />,
+    );
+
+    const button = screen.getByRole("button", { name: "Go to bottom" });
+
+    expect(button.style.bottom).toBe(
+      "var(--transcript-scroll-chip-bottom, calc(1.5rem + env(safe-area-inset-bottom)))",
+    );
+    expect(button.style.top).toBe("");
+    expect(button.className).not.toContain("/85");
+    expect(button.className).not.toContain("/90");
+    expect(button.className).not.toContain("opacity");
   });
 
   it("hides the scroll chip while floating chat is expanded", () => {
