@@ -26,7 +26,6 @@ enum FloatingBarLayout {
   static let hoverHandleDotSize: CGFloat = 1.6
   static let hoverHandleDotSpacing: CGFloat = 7
   static let hoverHandleHorizontalPadding: CGFloat = 17
-  static let hoverSurfaceTopRadius: CGFloat = 7
   static let dragClickThreshold: CGFloat = 4
 
   static func compactControlsWidth(showsExpand: Bool) -> CGFloat {
@@ -150,9 +149,7 @@ struct FloatingBarView: View {
 
   private var expandedPanel: some View {
     let surfaceShape = FloatingBarSurfaceShape(
-      topRadius: isBarHovered
-        ? FloatingBarLayout.hoverSurfaceTopRadius
-        : FloatingBarLayout.expandedCornerRadius,
+      topRadius: FloatingBarLayout.expandedCornerRadius,
       bottomRadius: FloatingBarLayout.expandedCornerRadius
     )
 
@@ -176,7 +173,7 @@ struct FloatingBarView: View {
 
             Spacer(minLength: 12)
           }
-          .padding(.leading, FloatingBarLayout.expandedPadding)
+          .padding(.leading, FloatingBarLayout.expandedPadding + 4)
           .padding(
             .trailing,
             FloatingBarLayout.compactControlsWidth(showsExpand: model.liveCaptionToggleVisible)
