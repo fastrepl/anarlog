@@ -11,6 +11,7 @@ final class FloatingBarManager {
   private let placement = FloatingPanelPositionController()
   private var displayChangeObserver: Any?
   private var followActiveScreenTimer: Timer?
+  private var isApplyingExternalState = false
   private var cancellables = Set<AnyCancellable>()
 
   private init() {
@@ -18,8 +19,11 @@ final class FloatingBarManager {
       .removeDuplicates()
       .sink { [weak self] _ in
         guard let self, let panel = self.panel else { return }
-        self.resize(panel)
-        self.position(panel, force: true)
+        guard !self.isApplyingExternalState else { return }
+        let didResize = self.resize(panel)
+        if !didResize {
+          self.position(panel, force: true)
+        }
       }
       .store(in: &cancellables)
   }
@@ -76,6 +80,7 @@ final class FloatingBarManager {
   func update(state: FloatingBarStatePayload) {
     DispatchQueue.main.async { [weak self] in
       guard let self else { return }
+      self.isApplyingExternalState = true
       self.model.status = state.status
       self.model.amplitude = min(max(state.amplitude, 0), 1)
       self.model.colorScheme = state.colorScheme
@@ -85,9 +90,12 @@ final class FloatingBarManager {
       self.settingsModel.apply(floatingBarState: state)
       self.model.isExpanded =
         state.liveCaptionToggleVisible && !self.settingsModel.liveCaptionMinimized
+      self.isApplyingExternalState = false
       if let panel = self.panel {
-        self.resize(panel)
-        self.position(panel, force: true)
+        let didResize = self.resize(panel)
+        if !didResize {
+          self.position(panel, force: true)
+        }
       }
     }
   }
@@ -99,7 +107,7 @@ final class FloatingBarManager {
         y: 0,
         width: currentSize.width,
         height: currentSize.height),
-      styleMask: [.borderless, .nonactivatingPanel],
+      styleMask: [.borderless, .nonactivatingPanel, .resizable],
       backing: .buffered,
       defer: false
     )
@@ -110,9 +118,10 @@ final class FloatingBarManager {
     panel.isOpaque = false
     panel.backgroundColor = .clear
     panel.hasShadow = false
-    panel.sharingType = .none
+    panel.sharingType = .readOnly
     panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
     panel.isMovableByWindowBackground = true
+    panel.minSize = currentSize
     panel.delegate = placement
     return panel
   }
@@ -131,23 +140,80 @@ final class FloatingBarManager {
     }
   }
 
-  private func resize(_ panel: NSPanel) {
+  private func resize(_ panel: NSPanel) -> Bool {
     let size = currentSize
-    guard panel.frame.size != size else { return }
+    let previousSize = panel.frame.size
+    panel.minSize = size
+    guard previousSize != size else { return false }
 
+    let previousLayout =
+      layout(matching: previousSize)
+      ?? FloatingBarWindowLayout(
+        isExpanded: !model.isExpanded,
+        showsExpand: model.liveCaptionToggleVisible)
+    let nextLayout = currentLayout
+    let previousAnchorOffset = controlAnchorOffset(for: previousLayout)
+    let nextAnchorOffset = controlAnchorOffset(for: nextLayout)
+    let anchor = NSPoint(
+      x: panel.frame.minX + previousAnchorOffset.x,
+      y: panel.frame.minY + previousAnchorOffset.y
+    )
     let frame = NSRect(
-      x: panel.frame.maxX - size.width,
-      y: panel.frame.maxY - size.height,
+      x: anchor.x - nextAnchorOffset.x,
+      y: anchor.y - nextAnchorOffset.y,
       width: size.width,
       height: size.height)
     placement.setFrame(panel, to: frame, display: true, animate: false)
     panel.contentView?.frame = NSRect(origin: .zero, size: size)
+    return true
   }
 
   private var currentSize: NSSize {
-    FloatingBarLayout.containerSize(
+    size(for: currentLayout)
+  }
+
+  private var currentLayout: FloatingBarWindowLayout {
+    FloatingBarWindowLayout(
       isExpanded: model.isExpanded,
       showsExpand: model.liveCaptionToggleVisible
+    )
+  }
+
+  private func size(for layout: FloatingBarWindowLayout) -> NSSize {
+    FloatingBarLayout.containerSize(
+      isExpanded: layout.isExpanded,
+      showsExpand: layout.showsExpand
+    )
+  }
+
+  private func layout(matching size: NSSize) -> FloatingBarWindowLayout? {
+    let candidates = [
+      FloatingBarWindowLayout(isExpanded: true, showsExpand: true),
+      FloatingBarWindowLayout(isExpanded: true, showsExpand: false),
+      FloatingBarWindowLayout(isExpanded: false, showsExpand: true),
+      FloatingBarWindowLayout(isExpanded: false, showsExpand: false),
+    ]
+
+    return candidates.first { candidate in
+      let candidateSize = self.size(for: candidate)
+      return abs(candidateSize.width - size.width) < 0.5
+        && abs(candidateSize.height - size.height) < 0.5
+    }
+  }
+
+  private func controlAnchorOffset(for layout: FloatingBarWindowLayout) -> NSPoint {
+    if layout.isExpanded {
+      return NSPoint(
+        x: FloatingBarLayout.inset + FloatingBarLayout.expandedWidth
+          - FloatingBarLayout.compactHorizontalPadding,
+        y: FloatingBarLayout.inset + FloatingBarLayout.expandedHeight
+      )
+    }
+
+    return NSPoint(
+      x: FloatingBarLayout.inset + FloatingBarLayout.compactHorizontalPadding
+        + FloatingBarLayout.compactControlsWidth(showsExpand: layout.showsExpand),
+      y: FloatingBarLayout.inset + FloatingBarLayout.compactHeight
     )
   }
 
@@ -181,4 +247,9 @@ final class FloatingBarManager {
     }
   }
 
+}
+
+private struct FloatingBarWindowLayout {
+  let isExpanded: Bool
+  let showsExpand: Bool
 }

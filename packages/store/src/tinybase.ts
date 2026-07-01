@@ -174,7 +174,6 @@ export const valueSchemaForTinybase = {
   live_caption_line_count: { type: "number" },
   live_caption_position: { type: "string" },
   live_caption_minimized: { type: "boolean" },
-  live_caption_enabled: { type: "boolean" },
   show_app_in_dock: { type: "boolean" },
   show_tray_icon: { type: "boolean" },
   save_recordings: { type: "boolean" },

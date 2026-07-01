@@ -289,8 +289,7 @@ export const generalSchema = z.object({
       "bottomCenter",
     ])
     .default("topCenter"),
-  live_caption_minimized: z.boolean().default(false),
-  live_caption_enabled: z.boolean().default(true),
+  live_caption_minimized: z.boolean().default(true),
   show_app_in_dock: z.boolean().default(true),
   show_tray_icon: z.boolean().default(true),
   telemetry_consent: z.boolean().default(true),

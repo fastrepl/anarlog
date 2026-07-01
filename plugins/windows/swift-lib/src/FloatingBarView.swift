@@ -9,13 +9,24 @@ enum FloatingBarLayout {
   static let compactSoloStopWidth: CGFloat = 78
   static let compactIconSize: CGFloat = 34
   static let compactGap: CGFloat = 4
+  static let compactHorizontalPadding: CGFloat = 5
+  static let compactCornerControlFactor: CGFloat = 0.55228475
   static let expandedWidth: CGFloat = 360
   static let expandedHeight: CGFloat = 430
-  static let expandedCornerRadius: CGFloat = 20
+  static let expandedCornerRadius: CGFloat = 21
   static let expandedPadding: CGFloat = 12
   static let waveformWidth: CGFloat = 26
-  static let waveformHeight: CGFloat = 14
+  static let waveformHeight: CGFloat = 20
   static let stopSquareSize: CGFloat = 9
+  static let hoverHandleGap: CGFloat = 2
+  static let hoverHandleTopPadding: CGFloat = 7
+  static let hoverHandleHeight: CGFloat = 12
+  static let hoverHandleReservedHeight: CGFloat =
+    hoverHandleTopPadding + hoverHandleHeight + hoverHandleGap
+  static let hoverHandleDotSize: CGFloat = 1.6
+  static let hoverHandleDotSpacing: CGFloat = 7
+  static let hoverHandleHorizontalPadding: CGFloat = 17
+  static let hoverSurfaceTopRadius: CGFloat = 7
   static let dragClickThreshold: CGFloat = 4
 
   static func compactControlsWidth(showsExpand: Bool) -> CGFloat {
@@ -27,19 +38,19 @@ enum FloatingBarLayout {
   }
 
   static func compactWidth(showsExpand: Bool) -> CGFloat {
-    compactControlsWidth(showsExpand: showsExpand) + inset * 2
+    compactControlsWidth(showsExpand: showsExpand) + compactHorizontalPadding * 2
   }
 
   static func containerSize(isExpanded: Bool, showsExpand: Bool) -> NSSize {
     if isExpanded {
       return NSSize(
         width: expandedWidth + inset * 2,
-        height: expandedHeight + inset * 2)
+        height: expandedHeight + hoverHandleReservedHeight + inset * 2)
     }
 
     return NSSize(
-      width: compactWidth(showsExpand: showsExpand),
-      height: compactHeight + inset * 2)
+      width: compactWidth(showsExpand: showsExpand) + inset * 2,
+      height: compactHeight + hoverHandleReservedHeight + inset * 2)
   }
 }
 
@@ -48,9 +59,12 @@ struct FloatingBarView: View {
   @ObservedObject var settings: FloatingOverlaySettingsModel
   let panelOrigin: () -> NSPoint?
   let movePanel: (NSPoint) -> Void
+  @State private var isBarHovered = false
   @State private var isStopHovered = false
+  @State private var shouldAutoScrollTranscript = true
   @State private var suppressNextClick = false
   @State private var dragStart: FloatingBarDragStart?
+  private let transcriptBottomAnchorId = "floating-transcript-bottom-anchor"
 
   var body: some View {
     Group {
@@ -64,119 +78,201 @@ struct FloatingBarView: View {
     .frame(
       width: containerSize.width,
       height: containerSize.height,
-      alignment: .topTrailing
+      alignment: .bottomTrailing
     )
     .contentShape(Rectangle())
     .simultaneousGesture(dragClickSuppressor)
+    .onHover { isBarHovered = $0 }
   }
 
   private var compactPill: some View {
-    floatingControls(isExpanded: false)
-      .frame(
-        width: FloatingBarLayout.compactControlsWidth(showsExpand: model.liveCaptionToggleVisible),
-        height: FloatingBarLayout.compactHeight
-      )
-      .background(
-        Capsule(style: .continuous)
-          .fill(surfaceColor)
-      )
-      .overlay(
-        Capsule(style: .continuous)
-          .strokeBorder(outerStrokeColor, lineWidth: 0.5)
-      )
-      .overlay(
-        Capsule(style: .continuous)
-          .strokeBorder(innerStrokeColor, lineWidth: 0.5)
-          .padding(1.5)
-      )
+    let height =
+      FloatingBarLayout.compactHeight
+      + (isBarHovered ? FloatingBarLayout.hoverHandleReservedHeight : 0)
+    let width = FloatingBarLayout.compactWidth(showsExpand: model.liveCaptionToggleVisible)
+    let radius = FloatingBarLayout.compactHeight / 2
+    let pillShape = FloatingBarSurfaceShape(
+      topRadius: radius,
+      bottomRadius: radius,
+      cornerControlFactor: FloatingBarLayout.compactCornerControlFactor
+    )
+
+    return ZStack(alignment: .bottom) {
+      if isBarHovered {
+        FloatingBarHoverHandle(
+          color: dragHandleDotColor,
+          width: width
+        )
+        .frame(height: FloatingBarLayout.hoverHandleHeight)
+        .padding(.top, FloatingBarLayout.hoverHandleTopPadding)
+        .frame(
+          width: width,
+          height: FloatingBarLayout.hoverHandleReservedHeight,
+          alignment: .top
+        )
+        .frame(maxHeight: .infinity, alignment: .top)
+        .accessibilityHidden(true)
+        .transition(.opacity)
+      }
+
+      floatingControls(isExpanded: false)
+        .frame(
+          width: FloatingBarLayout.compactControlsWidth(
+            showsExpand: model.liveCaptionToggleVisible),
+          height: FloatingBarLayout.compactHeight
+        )
+        .frame(
+          width: width,
+          height: FloatingBarLayout.compactHeight
+        )
+    }
+    .frame(
+      width: width,
+      height: height,
+      alignment: .bottom
+    )
+    .background(
+      pillShape
+        .fill(isBarHovered ? envelopeSurfaceColor : surfaceColor)
+    )
+    .overlay(
+      pillShape
+        .strokeBorder(outerStrokeColor, lineWidth: 0.5)
+    )
+    .overlay(
+      pillShape
+        .strokeBorder(innerStrokeColor, lineWidth: 0.5)
+        .padding(1)
+    )
+    .clipShape(pillShape)
+    .animation(.easeOut(duration: 0.12), value: isBarHovered)
   }
 
   private var expandedPanel: some View {
-    ZStack(alignment: .topTrailing) {
-      VStack(spacing: 12) {
-        HStack {
-          Text(model.title)
-            .font(.system(size: 13, weight: .semibold))
-            .foregroundStyle(primaryContentColor)
-            .lineLimit(1)
-            .truncationMode(.tail)
+    let surfaceShape = FloatingBarSurfaceShape(
+      topRadius: isBarHovered
+        ? FloatingBarLayout.hoverSurfaceTopRadius
+        : FloatingBarLayout.expandedCornerRadius,
+      bottomRadius: FloatingBarLayout.expandedCornerRadius
+    )
 
-          Spacer(minLength: 12)
-        }
-        .padding(.leading, FloatingBarLayout.expandedPadding)
-        .padding(
-          .trailing,
-          FloatingBarLayout.compactControlsWidth(showsExpand: model.liveCaptionToggleVisible)
-            + 12
-        )
-        .frame(height: FloatingBarLayout.compactHeight)
+    return VStack(spacing: FloatingBarLayout.hoverHandleGap) {
+      FloatingBarHoverHandle(
+        color: dragHandleDotColor,
+        width: FloatingBarLayout.expandedWidth
+      )
+      .opacity(isBarHovered ? 1 : 0)
+      .scaleEffect(isBarHovered ? 1 : 0.92)
+      .accessibilityHidden(true)
 
-        ScrollViewReader { proxy in
-          ScrollView(.vertical, showsIndicators: false) {
-            VStack(spacing: 8) {
-              ForEach(model.transcriptBubbles) { bubble in
-                TranscriptBubbleView(
-                  bubble: bubble,
-                  accentColor: accentColor,
-                  primaryContentColor: primaryContentColor,
-                  secondaryContentColor: secondaryContentColor,
-                  colorScheme: model.colorScheme
+      ZStack(alignment: .topTrailing) {
+        VStack(spacing: 12) {
+          HStack {
+            Text(model.title)
+              .font(.system(size: 13, weight: .semibold))
+              .foregroundStyle(primaryContentColor)
+              .lineLimit(1)
+              .truncationMode(.tail)
+
+            Spacer(minLength: 12)
+          }
+          .padding(.leading, FloatingBarLayout.expandedPadding)
+          .padding(
+            .trailing,
+            FloatingBarLayout.compactControlsWidth(showsExpand: model.liveCaptionToggleVisible)
+              + 12
+          )
+          .frame(height: FloatingBarLayout.compactHeight)
+
+          ScrollViewReader { proxy in
+            ZStack(alignment: .bottom) {
+              ScrollView(.vertical, showsIndicators: false) {
+                VStack(spacing: 8) {
+                  ForEach(Array(model.transcriptBubbles.enumerated()), id: \.element.id) {
+                    index, bubble in
+                    TranscriptBubbleView(
+                      bubble: bubble,
+                      showsSpeakerLabel: showsSpeakerLabel(at: index),
+                      colorScheme: model.colorScheme
+                    )
+                    .id(bubble.id)
+                  }
+                  Color.clear
+                    .frame(height: FloatingBarLayout.expandedPadding)
+                    .id(transcriptBottomAnchorId)
+                }
+                .frame(maxWidth: .infinity, alignment: .bottom)
+                .background(
+                  TranscriptScrollObserver(isPinnedToBottom: $shouldAutoScrollTranscript)
                 )
-                .id(bubble.id)
+              }
+              .frame(maxWidth: .infinity, maxHeight: .infinity)
+              .onChange(of: model.transcriptBubbles.last?.id) { _, bubbleId in
+                if bubbleId != nil, shouldAutoScrollTranscript {
+                  proxy.scrollTo(transcriptBottomAnchorId, anchor: .bottom)
+                }
+              }
+
+              if !shouldAutoScrollTranscript, model.transcriptBubbles.last?.id != nil {
+                transcriptBottomChip {
+                  performClick {
+                    withAnimation(.easeOut(duration: 0.16)) {
+                      proxy.scrollTo(transcriptBottomAnchorId, anchor: .bottom)
+                    }
+                    shouldAutoScrollTranscript = true
+                  }
+                }
+                .padding(.bottom, 8)
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
               }
             }
-            .frame(maxWidth: .infinity, alignment: .bottom)
+            .animation(.easeOut(duration: 0.12), value: shouldAutoScrollTranscript)
           }
-          .frame(maxWidth: .infinity, maxHeight: .infinity)
-          .onChange(of: model.transcriptBubbles.last?.id) { _, bubbleId in
-            if let bubbleId {
-              proxy.scrollTo(bubbleId, anchor: .bottom)
-            }
-          }
+          .padding(.horizontal, FloatingBarLayout.expandedPadding)
+          .padding(.bottom, FloatingBarLayout.expandedPadding)
         }
-        .padding(.horizontal, FloatingBarLayout.expandedPadding)
-        .padding(.bottom, FloatingBarLayout.expandedPadding)
+        .frame(
+          width: FloatingBarLayout.expandedWidth,
+          height: FloatingBarLayout.expandedHeight,
+          alignment: .top
+        )
+
+        floatingControls(isExpanded: true)
+          .frame(
+            width: FloatingBarLayout.compactControlsWidth(
+              showsExpand: model.liveCaptionToggleVisible),
+            height: FloatingBarLayout.compactHeight
+          )
+          .padding(.trailing, FloatingBarLayout.compactHorizontalPadding)
       }
       .frame(
         width: FloatingBarLayout.expandedWidth,
         height: FloatingBarLayout.expandedHeight,
         alignment: .top
       )
-
-      floatingControls(isExpanded: true)
-        .frame(
-          width: FloatingBarLayout.compactControlsWidth(
-            showsExpand: model.liveCaptionToggleVisible),
-          height: FloatingBarLayout.compactHeight
-        )
     }
+    .padding(.top, FloatingBarLayout.hoverHandleTopPadding)
     .frame(
       width: FloatingBarLayout.expandedWidth,
-      height: FloatingBarLayout.expandedHeight,
-      alignment: .top
+      height: FloatingBarLayout.expandedHeight
+        + (isBarHovered ? FloatingBarLayout.hoverHandleReservedHeight : 0),
+      alignment: .bottom
     )
     .background(
-      RoundedRectangle(
-        cornerRadius: FloatingBarLayout.expandedCornerRadius,
-        style: .continuous
-      )
-      .fill(surfaceColor)
+      surfaceShape
+        .fill(surfaceColor)
     )
     .overlay(
-      RoundedRectangle(
-        cornerRadius: FloatingBarLayout.expandedCornerRadius,
-        style: .continuous
-      )
-      .strokeBorder(outerStrokeColor, lineWidth: 0.5)
+      surfaceShape
+        .strokeBorder(outerStrokeColor, lineWidth: 0.5)
     )
     .overlay(
-      RoundedRectangle(
-        cornerRadius: FloatingBarLayout.expandedCornerRadius,
-        style: .continuous
-      )
-      .strokeBorder(innerStrokeColor, lineWidth: 0.5)
-      .padding(1.5)
+      surfaceShape
+        .strokeBorder(innerStrokeColor, lineWidth: 0.5)
+        .padding(1)
     )
+    .clipShape(surfaceShape)
+    .animation(.easeOut(duration: 0.12), value: isBarHovered)
   }
 
   private func floatingControls(isExpanded: Bool) -> some View {
@@ -205,26 +301,31 @@ struct FloatingBarView: View {
     Button(action: { performClick(RustBridge.stopListening) }) {
       Group {
         if isStopHovered {
-          Rectangle()
-            .fill(stopColor)
-            .frame(
-              width: FloatingBarLayout.stopSquareSize,
-              height: FloatingBarLayout.stopSquareSize
-            )
+          HStack(spacing: 6) {
+            Image(systemName: "stop.fill")
+              .font(.system(size: FloatingBarLayout.stopSquareSize, weight: .bold))
+            Text("Stop")
+              .font(.system(size: 12, weight: .semibold))
+          }
+          .foregroundStyle(stopColor)
         } else if model.status == .error {
           ErrorMark(color: errorAccentColor)
+            .frame(
+              width: FloatingBarLayout.waveformWidth,
+              height: FloatingBarLayout.waveformHeight
+            )
         } else {
           DancingBars(color: accentColor, amplitude: model.amplitude)
+            .frame(
+              width: FloatingBarLayout.waveformWidth,
+              height: FloatingBarLayout.waveformHeight
+            )
         }
       }
-      .frame(
-        width: FloatingBarLayout.waveformWidth,
-        height: FloatingBarLayout.waveformHeight
-      )
       .frame(width: width, height: height)
       .background(
         Capsule(style: .continuous)
-          .fill(isStopHovered ? accentColor.opacity(0.16) : controlHoverFill)
+          .fill(isStopHovered ? accentColor.opacity(0.18) : controlHoverFill)
       )
       .contentShape(Capsule(style: .continuous))
     }
@@ -246,10 +347,26 @@ struct FloatingBarView: View {
 
   private var surfaceColor: Color {
     if model.colorScheme == .dark {
-      return Color(red: 0.43, green: 0.44, blue: 0.40).opacity(settings.floatingBarOpacity)
+      return Color(red: 0.43, green: 0.44, blue: 0.40).opacity(primarySurfaceOpacity)
     }
 
-    return Color(red: 0.86, green: 0.85, blue: 0.82).opacity(settings.floatingBarOpacity)
+    return Color(red: 0.86, green: 0.85, blue: 0.82).opacity(primarySurfaceOpacity)
+  }
+
+  private var envelopeSurfaceColor: Color {
+    if model.colorScheme == .dark {
+      return Color(red: 0.43, green: 0.44, blue: 0.40).opacity(envelopeSurfaceOpacity)
+    }
+
+    return Color(red: 0.86, green: 0.85, blue: 0.82).opacity(envelopeSurfaceOpacity)
+  }
+
+  private var primarySurfaceOpacity: Double {
+    settings.floatingBarOpacity * 0.82
+  }
+
+  private var envelopeSurfaceOpacity: Double {
+    min(settings.floatingBarOpacity * 1.08, FloatingOverlayOpacity.maxFloatingBar)
   }
 
   private var primaryContentColor: Color {
@@ -276,6 +393,18 @@ struct FloatingBarView: View {
     primaryContentColor.opacity(model.colorScheme == .dark ? 0.28 : 0.18)
   }
 
+  private var dragHandleDotColor: Color {
+    primaryContentColor.opacity(model.colorScheme == .dark ? 0.48 : 0.36)
+  }
+
+  private var dragHandleSurfaceColor: Color {
+    if model.colorScheme == .dark {
+      return Color(red: 0.34, green: 0.35, blue: 0.32).opacity(settings.floatingBarOpacity)
+    }
+
+    return Color(red: 0.72, green: 0.72, blue: 0.68).opacity(settings.floatingBarOpacity)
+  }
+
   private var stopColor: Color {
     normalAccentColor
   }
@@ -285,7 +414,7 @@ struct FloatingBarView: View {
   }
 
   private var normalAccentColor: Color {
-    Color(red: 1, green: 0.45, blue: 0.48)
+    Color(red: 1, green: 0.20, blue: 0.30)
   }
 
   private var dragClickSuppressor: some Gesture {
@@ -337,11 +466,241 @@ struct FloatingBarView: View {
       LiveCaptionManager.shared.hide(clearText: false)
     }
   }
+
+  private func showsSpeakerLabel(at index: Int) -> Bool {
+    guard model.transcriptBubbles.indices.contains(index) else { return false }
+    guard index > model.transcriptBubbles.startIndex else { return true }
+
+    let bubble = model.transcriptBubbles[index]
+    let previousBubble = model.transcriptBubbles[index - 1]
+    return bubble.speakerLabel != previousBubble.speakerLabel
+      || bubble.isSelf != previousBubble.isSelf
+  }
+
+  private func transcriptBottomChip(action: @escaping () -> Void) -> some View {
+    Button(action: action) {
+      HStack(spacing: 5) {
+        Image(systemName: "arrow.down")
+          .font(.system(size: 10, weight: .bold))
+        Text("Back to bottom")
+          .font(.system(size: 11, weight: .semibold))
+      }
+      .foregroundStyle(primaryContentColor)
+      .padding(.horizontal, 10)
+      .padding(.vertical, 6)
+      .background(
+        Capsule(style: .continuous)
+          .fill(surfaceColor.opacity(0.92))
+      )
+      .overlay(
+        Capsule(style: .continuous)
+          .strokeBorder(innerStrokeColor, lineWidth: 0.5)
+      )
+      .shadow(color: .black.opacity(0.12), radius: 8, y: 3)
+    }
+    .buttonStyle(.plain)
+    .accessibilityLabel("Scroll transcript to bottom")
+  }
 }
 
 private struct FloatingBarDragStart {
   let panelOrigin: NSPoint
   let mouseLocation: NSPoint
+}
+
+private struct FloatingBarSurfaceShape: InsettableShape {
+  let topRadius: CGFloat
+  let bottomRadius: CGFloat
+  let cornerControlFactor: CGFloat
+  var insetAmount: CGFloat = 0
+
+  init(
+    topRadius: CGFloat,
+    bottomRadius: CGFloat,
+    cornerControlFactor: CGFloat = 0.447715,
+    insetAmount: CGFloat = 0
+  ) {
+    self.topRadius = topRadius
+    self.bottomRadius = bottomRadius
+    self.cornerControlFactor = cornerControlFactor
+    self.insetAmount = insetAmount
+  }
+
+  func path(in rect: CGRect) -> Path {
+    let insetRect = rect.insetBy(dx: insetAmount, dy: insetAmount)
+    let topRadius = min(topRadius, insetRect.width / 2, insetRect.height / 2)
+    let bottomRadius = min(bottomRadius, insetRect.width / 2, insetRect.height / 2)
+    let topControl = topRadius * cornerControlFactor
+    let bottomControl = bottomRadius * cornerControlFactor
+    var path = Path()
+
+    path.move(to: CGPoint(x: insetRect.minX + topRadius, y: insetRect.minY))
+    path.addLine(to: CGPoint(x: insetRect.maxX - topRadius, y: insetRect.minY))
+    path.addCurve(
+      to: CGPoint(x: insetRect.maxX, y: insetRect.minY + topRadius),
+      control1: CGPoint(x: insetRect.maxX - topRadius + topControl, y: insetRect.minY),
+      control2: CGPoint(x: insetRect.maxX, y: insetRect.minY + topRadius - topControl)
+    )
+    path.addLine(to: CGPoint(x: insetRect.maxX, y: insetRect.maxY - bottomRadius))
+    path.addCurve(
+      to: CGPoint(x: insetRect.maxX - bottomRadius, y: insetRect.maxY),
+      control1: CGPoint(x: insetRect.maxX, y: insetRect.maxY - bottomRadius + bottomControl),
+      control2: CGPoint(x: insetRect.maxX - bottomRadius + bottomControl, y: insetRect.maxY)
+    )
+    path.addLine(to: CGPoint(x: insetRect.minX + bottomRadius, y: insetRect.maxY))
+    path.addCurve(
+      to: CGPoint(x: insetRect.minX, y: insetRect.maxY - bottomRadius),
+      control1: CGPoint(x: insetRect.minX + bottomRadius - bottomControl, y: insetRect.maxY),
+      control2: CGPoint(x: insetRect.minX, y: insetRect.maxY - bottomRadius + bottomControl)
+    )
+    path.addLine(to: CGPoint(x: insetRect.minX, y: insetRect.minY + topRadius))
+    path.addCurve(
+      to: CGPoint(x: insetRect.minX + topRadius, y: insetRect.minY),
+      control1: CGPoint(x: insetRect.minX, y: insetRect.minY + topRadius - topControl),
+      control2: CGPoint(x: insetRect.minX + topRadius - topControl, y: insetRect.minY)
+    )
+    path.closeSubpath()
+    return path
+  }
+
+  func inset(by amount: CGFloat) -> FloatingBarSurfaceShape {
+    FloatingBarSurfaceShape(
+      topRadius: topRadius,
+      bottomRadius: bottomRadius,
+      cornerControlFactor: cornerControlFactor,
+      insetAmount: insetAmount + amount
+    )
+  }
+}
+
+private struct FloatingBarHoverHandle: View {
+  let color: Color
+  let width: CGFloat
+
+  var body: some View {
+    FloatingBarDotPattern(color: color)
+      .frame(
+        width: max(0, width - FloatingBarLayout.hoverHandleHorizontalPadding * 2),
+        height: FloatingBarLayout.hoverHandleHeight
+      )
+      .padding(.horizontal, FloatingBarLayout.hoverHandleHorizontalPadding)
+  }
+}
+
+private struct FloatingBarDotPattern: View {
+  let color: Color
+
+  var body: some View {
+    Canvas { context, size in
+      var y = FloatingBarLayout.hoverHandleDotSize / 2
+      while y <= size.height {
+        var x = FloatingBarLayout.hoverHandleDotSize / 2
+        while x <= size.width {
+          let rect = CGRect(
+            x: x - FloatingBarLayout.hoverHandleDotSize / 2,
+            y: y - FloatingBarLayout.hoverHandleDotSize / 2,
+            width: FloatingBarLayout.hoverHandleDotSize,
+            height: FloatingBarLayout.hoverHandleDotSize
+          )
+          context.fill(Path(ellipseIn: rect), with: .color(color))
+          x += FloatingBarLayout.hoverHandleDotSpacing
+        }
+        y += FloatingBarLayout.hoverHandleDotSpacing
+      }
+    }
+  }
+}
+
+private struct TranscriptScrollObserver: NSViewRepresentable {
+  @Binding var isPinnedToBottom: Bool
+
+  func makeCoordinator() -> Coordinator {
+    Coordinator()
+  }
+
+  func makeNSView(context: Context) -> NSView {
+    let view = NSView()
+    DispatchQueue.main.async {
+      context.coordinator.bind(to: view.enclosingScrollView)
+    }
+    return view
+  }
+
+  func updateNSView(_ view: NSView, context: Context) {
+    context.coordinator.isPinnedToBottom = $isPinnedToBottom
+    DispatchQueue.main.async {
+      context.coordinator.bind(to: view.enclosingScrollView)
+      context.coordinator.updatePinnedState()
+    }
+  }
+
+  final class Coordinator {
+    var isPinnedToBottom: Binding<Bool>?
+    private weak var scrollView: NSScrollView?
+    private var boundsObserver: NSObjectProtocol?
+    private var frameObserver: NSObjectProtocol?
+    private let threshold: CGFloat = 20
+
+    deinit {
+      if let boundsObserver {
+        NotificationCenter.default.removeObserver(boundsObserver)
+      }
+      if let frameObserver {
+        NotificationCenter.default.removeObserver(frameObserver)
+      }
+    }
+
+    func bind(to scrollView: NSScrollView?) {
+      guard self.scrollView !== scrollView else { return }
+
+      if let boundsObserver {
+        NotificationCenter.default.removeObserver(boundsObserver)
+      }
+      if let frameObserver {
+        NotificationCenter.default.removeObserver(frameObserver)
+      }
+
+      self.scrollView = scrollView
+      guard let scrollView else { return }
+
+      scrollView.contentView.postsBoundsChangedNotifications = true
+      boundsObserver = NotificationCenter.default.addObserver(
+        forName: NSView.boundsDidChangeNotification,
+        object: scrollView.contentView,
+        queue: .main
+      ) { [weak self] _ in
+        self?.updatePinnedState()
+      }
+
+      scrollView.documentView?.postsFrameChangedNotifications = true
+      frameObserver = NotificationCenter.default.addObserver(
+        forName: NSView.frameDidChangeNotification,
+        object: scrollView.documentView,
+        queue: .main
+      ) { [weak self] _ in
+        self?.updatePinnedState()
+      }
+
+      updatePinnedState()
+    }
+
+    func updatePinnedState() {
+      guard let scrollView, let documentView = scrollView.documentView else { return }
+
+      let visibleRect = scrollView.documentVisibleRect
+      let documentBounds = documentView.bounds
+      let isPinned: Bool
+      if documentView.isFlipped {
+        isPinned = visibleRect.maxY >= documentBounds.maxY - threshold
+      } else {
+        isPinned = visibleRect.minY <= documentBounds.minY + threshold
+      }
+
+      if isPinnedToBottom?.wrappedValue != isPinned {
+        isPinnedToBottom?.wrappedValue = isPinned
+      }
+    }
+  }
 }
 
 private struct FloatingIconButton: View {
@@ -373,9 +732,7 @@ private struct FloatingIconButton: View {
 
 private struct TranscriptBubbleView: View {
   let bubble: FloatingTranscriptBubblePayload
-  let accentColor: Color
-  let primaryContentColor: Color
-  let secondaryContentColor: Color
+  let showsSpeakerLabel: Bool
   let colorScheme: FloatingBarColorScheme
 
   var body: some View {
@@ -384,23 +741,26 @@ private struct TranscriptBubbleView: View {
         Spacer(minLength: 40)
       }
 
-      VStack(alignment: bubble.isSelf ? .trailing : .leading, spacing: 3) {
-        Text(bubble.speakerLabel)
-          .font(.system(size: 10, weight: .semibold))
-          .foregroundStyle(secondaryContentColor)
-          .lineLimit(1)
+      VStack(alignment: bubble.isSelf ? .trailing : .leading, spacing: 4) {
+        if showsSpeakerLabel {
+          Text(bubble.speakerLabel)
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundStyle(Color.white)
+            .lineLimit(1)
+            .padding(.horizontal, 3)
+        }
 
         Text(bubble.text)
-          .font(.system(size: 13, weight: .medium))
-          .foregroundStyle(primaryContentColor)
-          .multilineTextAlignment(bubble.isSelf ? .trailing : .leading)
+          .font(.system(size: 13, weight: .regular))
+          .foregroundStyle(Color.white)
+          .multilineTextAlignment(.leading)
+          .frame(maxWidth: .infinity, alignment: .leading)
           .fixedSize(horizontal: false, vertical: true)
+          .padding(.horizontal, 11)
+          .padding(.vertical, 8)
+          .background(bubbleBackground)
+          .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
       }
-      .padding(.horizontal, 11)
-      .padding(.vertical, 8)
-      .background(bubbleBackground)
-      .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
-      .opacity(bubble.isFinal ? 1 : 0.68)
 
       if !bubble.isSelf {
         Spacer(minLength: 40)
@@ -410,10 +770,10 @@ private struct TranscriptBubbleView: View {
 
   private var bubbleBackground: Color {
     if bubble.isSelf {
-      return accentColor.opacity(colorScheme == .dark ? 0.28 : 0.2)
+      return Color.black.opacity(colorScheme == .dark ? 0.34 : 0.24)
     }
 
-    return primaryContentColor.opacity(colorScheme == .dark ? 0.1 : 0.08)
+    return Color.black.opacity(colorScheme == .dark ? 0.28 : 0.2)
   }
 }
 
@@ -439,8 +799,8 @@ private struct DancingBars: View {
   private let barCount = 5
   private let barWidth: CGFloat = 3
   private let barSpacing: CGFloat = 2
-  private let minHeight: CGFloat = 2
-  private let maxHeight: CGFloat = 14
+  private let minHeight: CGFloat = 4
+  private let maxHeight: CGFloat = 20
 
   var body: some View {
     TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: false)) { timeline in

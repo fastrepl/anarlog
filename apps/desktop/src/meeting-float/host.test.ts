@@ -7,7 +7,6 @@ import {
   getFloatingRouteState,
   getFloatingTranscriptBubbles,
   getLiveCaptionDisplayText,
-  getLiveCaptionMinimizedForSessionDefault,
   getLiveCaptionRouteState,
   shouldShowFloatingLiveCaptionToggle,
 } from "./host";
@@ -101,7 +100,7 @@ describe("getFloatingRouteState", () => {
       liveCaptionWidth: 440,
       liveCaptionLineCount: 1,
       liveCaptionPosition: "topCenter",
-      liveCaptionMinimized: false,
+      liveCaptionMinimized: true,
       liveCaptionToggleVisible: false,
       transcriptBubbles: [],
     });
@@ -266,7 +265,7 @@ describe("getCurrentFloatingBarColorScheme", () => {
 });
 
 describe("getLiveCaptionRouteState", () => {
-  it("returns live caption state for active live transcription", () => {
+  it("hides live captions by default", () => {
     expect(
       getLiveCaptionRouteState(
         createListenerStateWithCaption(
@@ -277,6 +276,29 @@ describe("getLiveCaptionRouteState", () => {
           },
           "  we should ship this  ",
         ),
+      ),
+    ).toBeNull();
+  });
+
+  it("returns live caption state for active live transcription when expanded", () => {
+    expect(
+      getLiveCaptionRouteState(
+        createListenerStateWithCaption(
+          {
+            status: "active",
+            sessionId: "session-1",
+            liveTranscriptionActive: true,
+          },
+          "  we should ship this  ",
+        ),
+        {
+          floatingBarOpacity: 0.78,
+          liveCaptionOpacity: 0.3,
+          liveCaptionWidth: 440,
+          liveCaptionLineCount: 1,
+          liveCaptionPosition: "topCenter",
+          liveCaptionMinimized: false,
+        },
       ),
     ).toEqual({
       sessionId: "session-1",
@@ -307,7 +329,6 @@ describe("getLiveCaptionRouteState", () => {
           liveCaptionLineCount: 3,
           liveCaptionPosition: "bottomRight",
           liveCaptionMinimized: true,
-          liveCaptionEnabled: true,
         },
       ),
     ).toBeNull();
@@ -331,66 +352,9 @@ describe("getLiveCaptionRouteState", () => {
           liveCaptionLineCount: 3,
           liveCaptionPosition: "bottomRight",
           liveCaptionMinimized: true,
-          liveCaptionEnabled: true,
         },
       ),
     ).toBeNull();
-  });
-
-  it("hides captions when the default preference starts them hidden", () => {
-    expect(
-      getLiveCaptionRouteState(
-        createListenerStateWithCaption(
-          {
-            status: "active",
-            sessionId: "session-1",
-            liveTranscriptionActive: true,
-          },
-          "hello",
-        ),
-        {
-          floatingBarOpacity: 0.7,
-          liveCaptionOpacity: 0.66,
-          liveCaptionWidth: 520,
-          liveCaptionLineCount: 3,
-          liveCaptionPosition: "bottomRight",
-          liveCaptionMinimized: true,
-          liveCaptionEnabled: false,
-        },
-      ),
-    ).toBeNull();
-  });
-
-  it("does not hide captions directly from the default preference", () => {
-    expect(
-      getLiveCaptionRouteState(
-        createListenerStateWithCaption(
-          {
-            status: "active",
-            sessionId: "session-1",
-            liveTranscriptionActive: true,
-          },
-          "hello",
-        ),
-        {
-          floatingBarOpacity: 0.7,
-          liveCaptionOpacity: 0.66,
-          liveCaptionWidth: 520,
-          liveCaptionLineCount: 3,
-          liveCaptionPosition: "bottomRight",
-          liveCaptionMinimized: false,
-          liveCaptionEnabled: false,
-        },
-      ),
-    ).toEqual({
-      sessionId: "session-1",
-      text: "hello",
-      opacity: 0.66,
-      width: 520,
-      lineCount: 3,
-      position: "bottomRight",
-      minimized: false,
-    });
   });
   it("hides captions before live transcription is active", () => {
     expect(
@@ -418,6 +382,14 @@ describe("getLiveCaptionRouteState", () => {
           },
           " ",
         ),
+        {
+          floatingBarOpacity: 0.78,
+          liveCaptionOpacity: 0.3,
+          liveCaptionWidth: 440,
+          liveCaptionLineCount: 1,
+          liveCaptionPosition: "topCenter",
+          liveCaptionMinimized: false,
+        },
       ),
     ).toEqual({
       sessionId: "session-1",
@@ -460,20 +432,6 @@ describe("getLiveCaptionDisplayText", () => {
         liveCaptionLineCount: 1,
       }),
     ).toBe("hello there");
-  });
-});
-
-describe("getLiveCaptionMinimizedForSessionDefault", () => {
-  it("starts visible when the default preference is enabled", () => {
-    expect(
-      getLiveCaptionMinimizedForSessionDefault({ liveCaptionEnabled: true }),
-    ).toBe(false);
-  });
-
-  it("starts hidden when the default preference is disabled", () => {
-    expect(
-      getLiveCaptionMinimizedForSessionDefault({ liveCaptionEnabled: false }),
-    ).toBe(true);
   });
 });
 

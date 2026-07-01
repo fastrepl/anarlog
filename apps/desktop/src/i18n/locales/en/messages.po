@@ -143,7 +143,7 @@ msgstr "Allow microphone access"
 msgid "Allow system audio access"
 msgstr "Allow system audio access"
 
-#: src/settings/general/app-settings.tsx:39
+#: src/settings/general/app-settings.tsx:37
 msgid "Always ready without manually launching."
 msgstr "Always ready without manually launching."
 
@@ -172,7 +172,7 @@ msgstr "Anarlog will sync your calendar to get meeting reminders"
 msgid "API Key"
 msgstr "API Key"
 
-#: src/settings/general/index.tsx:171
+#: src/settings/general/index.tsx:168
 #: src/sidebar/settings.tsx:71
 msgid "App"
 msgstr "App"
@@ -223,11 +223,11 @@ msgstr "Authorize access in your browser, then return to Anarlog."
 msgid "Automatically detect when a meeting starts based on microphone activity."
 msgstr "Automatically detect when a meeting starts based on microphone activity."
 
-#: src/settings/general/app-settings.tsx:81
+#: src/settings/general/app-settings.tsx:79
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Automatically start listening when an event-backed note reaches its scheduled start time."
 
-#: src/settings/general/app-settings.tsx:92
+#: src/settings/general/app-settings.tsx:90
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Automatically stop listening when the meeting app releases the microphone."
 
@@ -465,7 +465,7 @@ msgstr "Customize"
 msgid "Dark"
 msgstr "Dark"
 
-#: src/settings/general/index.tsx:325
+#: src/settings/general/index.tsx:302
 #: src/sidebar/settings.tsx:72
 msgid "Data"
 msgstr "Data"
@@ -842,7 +842,7 @@ msgstr "Join {name}"
 msgid "Join our community and stay updated:"
 msgstr "Join our community and stay updated:"
 
-#: src/settings/general/app-settings.tsx:65
+#: src/settings/general/app-settings.tsx:63
 msgid "Keep Anarlog available from the menu bar."
 msgstr "Keep Anarlog available from the menu bar."
 
@@ -850,7 +850,7 @@ msgstr "Keep Anarlog available from the menu bar."
 msgid "Keep recordings until manually deleted"
 msgstr "Keep recordings until manually deleted"
 
-#: src/settings/general/index.tsx:276
+#: src/settings/general/index.tsx:253
 msgid "Language & Region"
 msgstr "Language & Region"
 
@@ -916,7 +916,7 @@ msgstr "Match whole word"
 msgid "Meeting"
 msgstr "Meeting"
 
-#: src/settings/general/app-settings.tsx:75
+#: src/settings/general/app-settings.tsx:73
 msgid "Meetings"
 msgstr "Meetings"
 
@@ -1097,7 +1097,7 @@ msgstr "Note breadcrumb"
 msgid "Notes"
 msgstr "Notes"
 
-#: src/settings/general/index.tsx:335
+#: src/settings/general/index.tsx:312
 #: src/sidebar/settings.tsx:74
 msgid "Notifications"
 msgstr "Notifications"
@@ -1217,7 +1217,7 @@ msgstr "People"
 msgid "permission panel."
 msgstr "permission panel."
 
-#: src/settings/general/index.tsx:344
+#: src/settings/general/index.tsx:321
 #: src/sidebar/settings.tsx:99
 msgid "Permissions"
 msgstr "Permissions"
@@ -1496,7 +1496,7 @@ msgstr "Select timezone"
 msgid "Select..."
 msgstr "Select..."
 
-#: src/settings/general/app-settings.tsx:47
+#: src/settings/general/app-settings.tsx:45
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Send anonymous usage analytics to help improve Anarlog."
 
@@ -1525,7 +1525,7 @@ msgstr "Set as default"
 msgid "Settings"
 msgstr "Settings"
 
-#: src/settings/general/app-settings.tsx:45
+#: src/settings/general/app-settings.tsx:43
 msgid "Share usage data"
 msgstr "Share usage data"
 
@@ -1533,11 +1533,11 @@ msgstr "Share usage data"
 msgid "Show All Recurring Events"
 msgstr "Show All Recurring Events"
 
-#: src/settings/general/app-settings.tsx:57
+#: src/settings/general/app-settings.tsx:55
 msgid "Show Anarlog in the Dock and app switcher."
 msgstr "Show Anarlog in the Dock and app switcher."
 
-#: src/settings/general/app-settings.tsx:55
+#: src/settings/general/app-settings.tsx:53
 msgid "Show app in Dock"
 msgstr "Show app in Dock"
 
@@ -1549,7 +1549,7 @@ msgstr "Show Deleted Events"
 msgid "Show Event"
 msgstr "Show Event"
 
-#: src/settings/general/app-settings.tsx:101
+#: src/settings/general/app-settings.tsx:99
 msgid "Show floating bar"
 msgstr "Show floating bar"
 
@@ -1558,23 +1558,15 @@ msgstr "Show floating bar"
 msgid "Show in Finder"
 msgstr "Show in Finder"
 
-#: src/settings/general/app-settings.tsx:109
-msgid "Show live transcript overlay"
-msgstr "Show live transcript overlay"
-
-#: src/settings/general/app-settings.tsx:103
+#: src/settings/general/app-settings.tsx:101
 msgid "Show the compact floating control while listening."
 msgstr "Show the compact floating control while listening."
-
-#: src/settings/general/app-settings.tsx:111
-msgid "Show the live transcript overlay by default while listening."
-msgstr "Show the live transcript overlay by default while listening."
 
 #: src/sidebar/timeline/item.tsx:389
 msgid "Show This Event"
 msgstr "Show This Event"
 
-#: src/settings/general/app-settings.tsx:63
+#: src/settings/general/app-settings.tsx:61
 msgid "Show tray icon"
 msgstr "Show tray icon"
 
@@ -1658,7 +1650,7 @@ msgstr "Something went wrong while generating the summary."
 msgid "Sort options"
 msgstr "Sort options"
 
-#: src/settings/general/app-settings.tsx:37
+#: src/settings/general/app-settings.tsx:35
 msgid "Start Anarlog at login"
 msgstr "Start Anarlog at login"
 
@@ -1666,7 +1658,7 @@ msgstr "Start Anarlog at login"
 msgid "Start Recording"
 msgstr "Start Recording"
 
-#: src/settings/general/app-settings.tsx:79
+#: src/settings/general/app-settings.tsx:77
 msgid "Start when meeting begins"
 msgstr "Start when meeting begins"
 
@@ -1691,7 +1683,7 @@ msgstr "Stop listening"
 msgid "Stop response"
 msgstr "Stop response"
 
-#: src/settings/general/app-settings.tsx:90
+#: src/settings/general/app-settings.tsx:88
 msgid "Stop when meeting ends"
 msgstr "Stop when meeting ends"
 

@@ -79,11 +79,6 @@ export const SETTINGS_MAPPING = {
     live_caption_minimized: {
       type: "boolean",
       path: ["general", "live_caption_minimized"],
-      default: false as boolean,
-    },
-    live_caption_enabled: {
-      type: "boolean",
-      path: ["general", "live_caption_enabled"],
       default: true as boolean,
     },
     show_app_in_dock: {

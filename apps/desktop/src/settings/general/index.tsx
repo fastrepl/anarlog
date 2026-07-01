@@ -35,7 +35,6 @@ function useSettingsForm() {
     "auto_start_scheduled_meetings",
     "auto_stop_meetings",
     "floating_bar_enabled",
-    "live_caption_enabled",
     "show_app_in_dock",
     "show_tray_icon",
     "notification_detect",
@@ -76,7 +75,6 @@ function useSettingsForm() {
         settingsValue.auto_start_scheduled_meetings,
       auto_stop_meetings: settingsValue.auto_stop_meetings,
       floating_bar_enabled: settingsValue.floating_bar_enabled,
-      live_caption_enabled: settingsValue.live_caption_enabled,
       show_app_in_dock: settingsValue.show_app_in_dock,
       show_tray_icon: settingsValue.show_tray_icon,
       notification_detect: settingsValue.notification_detect,
@@ -146,7 +144,6 @@ function useSettingsForm() {
           normalizedValue.auto_start_scheduled_meetings,
         auto_stop_meetings: normalizedValue.auto_stop_meetings,
         floating_bar_enabled: normalizedValue.floating_bar_enabled,
-        live_caption_enabled: normalizedValue.live_caption_enabled,
         show_app_in_dock: normalizedValue.show_app_in_dock,
         show_tray_icon: normalizedValue.show_tray_icon,
         notification_detect: normalizedValue.notification_detect,
@@ -179,82 +176,62 @@ export function SettingsApp() {
                   {(autoStopMeetingsField) => (
                     <form.Field name="floating_bar_enabled">
                       {(floatingBarEnabledField) => (
-                        <form.Field name="live_caption_enabled">
-                          {(liveCaptionEnabledField) => (
-                            <form.Field name="show_app_in_dock">
-                              {(showAppInDockField) => (
-                                <form.Field name="show_tray_icon">
-                                  {(showTrayIconField) => (
-                                    <form.Field name="telemetry_consent">
-                                      {(telemetryConsentField) => (
-                                        <AppSettingsView
-                                          autostart={{
-                                            value: autostartField.state.value,
-                                            onChange: (val) =>
-                                              autostartField.handleChange(val),
-                                          }}
-                                          autoStartScheduledMeetings={{
-                                            value:
-                                              autoStartScheduledMeetingsField
-                                                .state.value,
-                                            onChange: (val) =>
-                                              autoStartScheduledMeetingsField.handleChange(
-                                                val,
-                                              ),
-                                          }}
-                                          autoStopMeetings={{
-                                            value:
-                                              autoStopMeetingsField.state.value,
-                                            onChange: (val) =>
-                                              autoStopMeetingsField.handleChange(
-                                                val,
-                                              ),
-                                          }}
-                                          floatingBar={{
-                                            value:
-                                              floatingBarEnabledField.state
-                                                .value,
-                                            onChange: (val) =>
-                                              floatingBarEnabledField.handleChange(
-                                                val,
-                                              ),
-                                          }}
-                                          liveCaption={{
-                                            value:
-                                              liveCaptionEnabledField.state
-                                                .value,
-                                            onChange: (val) =>
-                                              liveCaptionEnabledField.handleChange(
-                                                val,
-                                              ),
-                                          }}
-                                          showAppInDock={{
-                                            value:
-                                              showAppInDockField.state.value,
-                                            onChange: (val) =>
-                                              showAppInDockField.handleChange(
-                                                val,
-                                              ),
-                                          }}
-                                          showTrayIcon={{
-                                            value:
-                                              showTrayIconField.state.value,
-                                            onChange: (val) =>
-                                              showTrayIconField.handleChange(
-                                                val,
-                                              ),
-                                          }}
-                                          telemetryConsent={{
-                                            value:
-                                              telemetryConsentField.state.value,
-                                            onChange: (val) =>
-                                              telemetryConsentField.handleChange(
-                                                val,
-                                              ),
-                                          }}
-                                        />
-                                      )}
-                                    </form.Field>
+                        <form.Field name="show_app_in_dock">
+                          {(showAppInDockField) => (
+                            <form.Field name="show_tray_icon">
+                              {(showTrayIconField) => (
+                                <form.Field name="telemetry_consent">
+                                  {(telemetryConsentField) => (
+                                    <AppSettingsView
+                                      autostart={{
+                                        value: autostartField.state.value,
+                                        onChange: (val) =>
+                                          autostartField.handleChange(val),
+                                      }}
+                                      autoStartScheduledMeetings={{
+                                        value:
+                                          autoStartScheduledMeetingsField.state
+                                            .value,
+                                        onChange: (val) =>
+                                          autoStartScheduledMeetingsField.handleChange(
+                                            val,
+                                          ),
+                                      }}
+                                      autoStopMeetings={{
+                                        value:
+                                          autoStopMeetingsField.state.value,
+                                        onChange: (val) =>
+                                          autoStopMeetingsField.handleChange(
+                                            val,
+                                          ),
+                                      }}
+                                      floatingBar={{
+                                        value:
+                                          floatingBarEnabledField.state.value,
+                                        onChange: (val) =>
+                                          floatingBarEnabledField.handleChange(
+                                            val,
+                                          ),
+                                      }}
+                                      showAppInDock={{
+                                        value: showAppInDockField.state.value,
+                                        onChange: (val) =>
+                                          showAppInDockField.handleChange(val),
+                                      }}
+                                      showTrayIcon={{
+                                        value: showTrayIconField.state.value,
+                                        onChange: (val) =>
+                                          showTrayIconField.handleChange(val),
+                                      }}
+                                      telemetryConsent={{
+                                        value:
+                                          telemetryConsentField.state.value,
+                                        onChange: (val) =>
+                                          telemetryConsentField.handleChange(
+                                            val,
+                                          ),
+                                      }}
+                                    />
                                   )}
                                 </form.Field>
                               )}

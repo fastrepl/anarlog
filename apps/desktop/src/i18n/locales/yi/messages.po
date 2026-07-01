@@ -143,7 +143,7 @@ msgstr ""
 msgid "Allow system audio access"
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:39
+#: src/settings/general/app-settings.tsx:37
 msgid "Always ready without manually launching."
 msgstr "שטענדיק גרייט אָן מאַניואַלי קאַטער."
 
@@ -172,7 +172,7 @@ msgstr ""
 msgid "API Key"
 msgstr ""
 
-#: src/settings/general/index.tsx:171
+#: src/settings/general/index.tsx:168
 #: src/sidebar/settings.tsx:71
 msgid "App"
 msgstr "אַפּ"
@@ -223,11 +223,11 @@ msgstr ""
 msgid "Automatically detect when a meeting starts based on microphone activity."
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:81
+#: src/settings/general/app-settings.tsx:79
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "אָטאַמאַטיק אָנהייב צוגעהערט ווען אַ געשעעניש-באַקט טאָן ריטשאַז זיין סקעדזשולד אָנהייב צייט."
 
-#: src/settings/general/app-settings.tsx:92
+#: src/settings/general/app-settings.tsx:90
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "אָטאַמאַטיק האַלטן צוגעהערט ווען די באַגעגעניש אַפּ ריליסיז די מיקראָפאָן."
 
@@ -465,7 +465,7 @@ msgstr ""
 msgid "Dark"
 msgstr ""
 
-#: src/settings/general/index.tsx:325
+#: src/settings/general/index.tsx:302
 #: src/sidebar/settings.tsx:72
 msgid "Data"
 msgstr "דאַטאַ"
@@ -842,7 +842,7 @@ msgstr ""
 msgid "Join our community and stay updated:"
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:65
+#: src/settings/general/app-settings.tsx:63
 msgid "Keep Anarlog available from the menu bar."
 msgstr ""
 
@@ -850,7 +850,7 @@ msgstr ""
 msgid "Keep recordings until manually deleted"
 msgstr ""
 
-#: src/settings/general/index.tsx:276
+#: src/settings/general/index.tsx:253
 msgid "Language & Region"
 msgstr "שפּראַך און געגנט"
 
@@ -916,7 +916,7 @@ msgstr ""
 msgid "Meeting"
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:75
+#: src/settings/general/app-settings.tsx:73
 msgid "Meetings"
 msgstr "מיטינגז"
 
@@ -1097,7 +1097,7 @@ msgstr ""
 msgid "Notes"
 msgstr ""
 
-#: src/settings/general/index.tsx:335
+#: src/settings/general/index.tsx:312
 #: src/sidebar/settings.tsx:74
 msgid "Notifications"
 msgstr "נאָטיפיקאַטיאָנס"
@@ -1217,7 +1217,7 @@ msgstr ""
 msgid "permission panel."
 msgstr ""
 
-#: src/settings/general/index.tsx:344
+#: src/settings/general/index.tsx:321
 #: src/sidebar/settings.tsx:99
 msgid "Permissions"
 msgstr ""
@@ -1496,7 +1496,7 @@ msgstr ""
 msgid "Select..."
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:47
+#: src/settings/general/app-settings.tsx:45
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "שיקן אַנאָנימע באַנוצערס אַנאַליטיקס צו העלפֿן פֿאַרבעסערן אַנאַלאָג."
 
@@ -1525,7 +1525,7 @@ msgstr ""
 msgid "Settings"
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:45
+#: src/settings/general/app-settings.tsx:43
 msgid "Share usage data"
 msgstr "ייַנטיילן באַניץ דאַטן"
 
@@ -1533,11 +1533,11 @@ msgstr "ייַנטיילן באַניץ דאַטן"
 msgid "Show All Recurring Events"
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:57
+#: src/settings/general/app-settings.tsx:55
 msgid "Show Anarlog in the Dock and app switcher."
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:55
+#: src/settings/general/app-settings.tsx:53
 msgid "Show app in Dock"
 msgstr ""
 
@@ -1549,7 +1549,7 @@ msgstr ""
 msgid "Show Event"
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:101
+#: src/settings/general/app-settings.tsx:99
 msgid "Show floating bar"
 msgstr ""
 
@@ -1558,23 +1558,15 @@ msgstr ""
 msgid "Show in Finder"
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:109
-msgid "Show live transcript overlay"
-msgstr ""
-
-#: src/settings/general/app-settings.tsx:103
+#: src/settings/general/app-settings.tsx:101
 msgid "Show the compact floating control while listening."
 msgstr "ווייַזן די סאָליד פלאָוטינג קאָנטראָל בשעת צוגעהערט."
-
-#: src/settings/general/app-settings.tsx:111
-msgid "Show the live transcript overlay by default while listening."
-msgstr ""
 
 #: src/sidebar/timeline/item.tsx:389
 msgid "Show This Event"
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:63
+#: src/settings/general/app-settings.tsx:61
 msgid "Show tray icon"
 msgstr ""
 
@@ -1658,7 +1650,7 @@ msgstr ""
 msgid "Sort options"
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:37
+#: src/settings/general/app-settings.tsx:35
 msgid "Start Anarlog at login"
 msgstr "אָנהייב אַנאַלאָג ביי לאָגין"
 
@@ -1666,7 +1658,7 @@ msgstr "אָנהייב אַנאַלאָג ביי לאָגין"
 msgid "Start Recording"
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:79
+#: src/settings/general/app-settings.tsx:77
 msgid "Start when meeting begins"
 msgstr "אָנהייב ווען באַגעגעניש הייבט זיך אָן"
 
@@ -1691,7 +1683,7 @@ msgstr ""
 msgid "Stop response"
 msgstr ""
 
-#: src/settings/general/app-settings.tsx:90
+#: src/settings/general/app-settings.tsx:88
 msgid "Stop when meeting ends"
 msgstr "האַלטן ווען באַגעגעניש ענדס"
 

@@ -25,7 +25,7 @@ final class FloatingOverlaySettingsModel: ObservableObject {
   @Published var liveCaptionWidth: Double = Double(LiveCaptionLayout.defaultWidth)
   @Published var liveCaptionLineCount: Int = LiveCaptionLayout.defaultLineCount
   @Published var liveCaptionPosition: LiveCaptionPosition = .topCenter
-  @Published var liveCaptionMinimized: Bool = false
+  @Published var liveCaptionMinimized: Bool = true
 
   private var pendingFloatingBarOpacity: Double?
   private var pendingLiveCaptionOpacity: Double?

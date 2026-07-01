@@ -32,7 +32,6 @@ type FloatingOverlaySettings = {
   liveCaptionLineCount: number;
   liveCaptionPosition: LiveCaptionPosition;
   liveCaptionMinimized: boolean;
-  liveCaptionEnabled: boolean;
 };
 type FloatingOverlaySettingsStorage = Pick<
   GeneralStorage,
@@ -42,7 +41,6 @@ type FloatingOverlaySettingsStorage = Pick<
   | "live_caption_line_count"
   | "live_caption_position"
   | "live_caption_minimized"
-  | "live_caption_enabled"
 >;
 type FloatingTranscriptBubble = {
   id: string;
@@ -82,8 +80,7 @@ const DEFAULT_FLOATING_OVERLAY_SETTINGS: FloatingOverlaySettings = {
   liveCaptionWidth: 440,
   liveCaptionLineCount: 1,
   liveCaptionPosition: "topCenter",
-  liveCaptionMinimized: false,
-  liveCaptionEnabled: true,
+  liveCaptionMinimized: true,
 };
 
 const FLOATING_BAR_MIN_OPACITY = 0.35;
@@ -114,7 +111,6 @@ const FLOATING_OVERLAY_SETTING_KEYS = [
   "live_caption_line_count",
   "live_caption_position",
   "live_caption_minimized",
-  "live_caption_enabled",
   "current_stt_provider",
   "current_stt_model",
 ] as const;
@@ -173,8 +169,9 @@ function getFloatingOverlaySettingsFromStore(
     liveCaptionPosition: normalizeLiveCaptionPosition(
       store?.getValue("live_caption_position"),
     ),
-    liveCaptionMinimized: store?.getValue("live_caption_minimized") === true,
-    liveCaptionEnabled: store?.getValue("live_caption_enabled") !== false,
+    liveCaptionMinimized:
+      (store?.getValue("live_caption_minimized") ??
+        DEFAULT_FLOATING_OVERLAY_SETTINGS.liveCaptionMinimized) === true,
   };
 }
 
@@ -234,21 +231,12 @@ function LiveCaptionDefaultVisibilitySync({
         return;
       }
 
-      if (state.live.liveTranscriptionActive !== true) {
-        return;
-      }
-
       if (appliedSessionId === state.live.sessionId) {
         return;
       }
 
       appliedSessionId = state.live.sessionId;
-      store.setValue(
-        "live_caption_minimized",
-        getLiveCaptionMinimizedForSessionDefault({
-          liveCaptionEnabled: store.getValue("live_caption_enabled") !== false,
-        }),
-      );
+      store.setValue("live_caption_minimized", true);
     };
 
     applyDefaultVisibility(listenerStore.getState());
@@ -621,14 +609,6 @@ export function shouldShowFloatingLiveCaptionToggle({
   liveTranscriptionActive: boolean;
 }) {
   return liveTranscriptionActive;
-}
-
-export function getLiveCaptionMinimizedForSessionDefault({
-  liveCaptionEnabled,
-}: {
-  liveCaptionEnabled: boolean;
-}) {
-  return !liveCaptionEnabled;
 }
 
 function getFloatingLiveCaptionToggleVisible(
