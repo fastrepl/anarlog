@@ -49,13 +49,15 @@ function collectEnhancedNotes(ctx: BuildContext): DocumentItem[] {
   const { tables, dataDir, changedSessionIds } = ctx;
 
   return Array.from(iterateTableRows(tables, "enhanced_notes"))
-    .filter((note) => note.content && note.session_id)
+    .filter((note) => note.session_id)
     .filter(
       (note) => !changedSessionIds || changedSessionIds.has(note.session_id!),
     )
     .map((note) => {
-      const markdown = tryParseAndConvertToMarkdown(note.content!);
-      if (!markdown) return null;
+      const markdown = note.content
+        ? tryParseAndConvertToMarkdown(note.content)
+        : "";
+      if (markdown === undefined) return null;
 
       const session = tables.sessions?.[note.session_id!];
       const sessionDir = buildSessionPath(
