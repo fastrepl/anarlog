@@ -7,6 +7,11 @@ describe("processOpenRouterModels", () => {
     expect(
       processOpenRouterModels([
         {
+          id: "anthropic/claude-sonnet-5",
+          supported_parameters: ["tools", "tool_choice"],
+          architecture: { input_modalities: ["text", "image"] },
+        },
+        {
           id: "mistralai/mistral-large-2512",
           supported_parameters: ["tools", "tool_choice"],
           architecture: { input_modalities: ["text"] },
@@ -24,6 +29,7 @@ describe("processOpenRouterModels", () => {
       ]),
     ).toEqual({
       models: [
+        "anthropic/claude-sonnet-5",
         "anthropic/claude-haiku-4-5-20251001",
         "mistralai/mistral-large-2512",
       ],
@@ -32,6 +38,7 @@ describe("processOpenRouterModels", () => {
         "anthropic/claude-haiku-4-5-20251001": {
           input_modalities: ["text", "image"],
         },
+        "anthropic/claude-sonnet-5": { input_modalities: ["text", "image"] },
         "mistralai/mistral-large-2512": { input_modalities: ["text"] },
         "mistralai/mistral-large-2508": { input_modalities: ["text"] },
       },

@@ -6,7 +6,7 @@ use utoipa::ToSchema;
 pub const MODEL_KEY_DEFAULT: &str = "default";
 pub const MODEL_KEY_TOOL_CALLING: &str = "tool_calling";
 pub const MODEL_KEY_AUDIO: &str = "audio";
-const MODEL_SONNET_5: &str = "anthropic/claude-sonnet-5";
+const MODEL_LATEST_SONNET: &str = "~anthropic/claude-sonnet-latest";
 
 #[derive(
     Debug,
@@ -48,14 +48,23 @@ impl Default for StaticModelResolver {
     fn default() -> Self {
         let mut models = HashMap::new();
 
-        models.insert(CharTask::Chat.to_string(), vec![MODEL_SONNET_5.into()]);
-        models.insert(CharTask::Title.to_string(), vec![MODEL_SONNET_5.into()]);
-        models.insert(CharTask::Enhance.to_string(), vec![MODEL_SONNET_5.into()]);
+        models.insert(CharTask::Chat.to_string(), vec![MODEL_LATEST_SONNET.into()]);
+        models.insert(
+            CharTask::Title.to_string(),
+            vec![MODEL_LATEST_SONNET.into()],
+        );
+        models.insert(
+            CharTask::Enhance.to_string(),
+            vec![MODEL_LATEST_SONNET.into()],
+        );
         models.insert(
             MODEL_KEY_TOOL_CALLING.to_owned(),
-            vec![MODEL_SONNET_5.into()],
+            vec![MODEL_LATEST_SONNET.into()],
         );
-        models.insert(MODEL_KEY_DEFAULT.to_owned(), vec![MODEL_SONNET_5.into()]);
+        models.insert(
+            MODEL_KEY_DEFAULT.to_owned(),
+            vec![MODEL_LATEST_SONNET.into()],
+        );
         models.insert(
             MODEL_KEY_AUDIO.to_owned(),
             vec![
@@ -130,7 +139,7 @@ mod tests {
                 false,
                 false,
                 None,
-                &[MODEL_SONNET_5],
+                &[MODEL_LATEST_SONNET],
             ),
             (
                 "by_tool_calling",
@@ -138,16 +147,16 @@ mod tests {
                 true,
                 false,
                 None,
-                &[MODEL_SONNET_5],
+                &[MODEL_LATEST_SONNET],
             ),
-            ("default", None, false, false, None, &[MODEL_SONNET_5]),
+            ("default", None, false, false, None, &[MODEL_LATEST_SONNET]),
             (
                 "task_overrides_tool_calling",
                 Some(CharTask::Chat),
                 true,
                 false,
                 None,
-                &[MODEL_SONNET_5],
+                &[MODEL_LATEST_SONNET],
             ),
             (
                 "with_models_custom_key",
@@ -163,7 +172,7 @@ mod tests {
                 false,
                 false,
                 None,
-                &[MODEL_SONNET_5],
+                &[MODEL_LATEST_SONNET],
             ),
             (
                 "audio_overrides_task",

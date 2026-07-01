@@ -54,6 +54,7 @@ const modelPriorityPatterns = [
   /(?:^|\/)gpt-5\.5-pro$/,
   /(?:^|\/)gpt-5\.5$/,
   /(?:^|\/)(?:chat-latest|gpt-chat-latest)$/,
+  /(?:^|\/)claude-sonnet-(?:5|latest)$/,
   /(?:^|\/)gpt-5\.4-pro$/,
   /(?:^|\/)gpt-5\.4$/,
   /(?:^|\/)gpt-5\.4-mini$/,
@@ -130,12 +131,7 @@ export const isOldModel = (id: string): boolean => {
   ) {
     return true;
   }
-  if (
-    /^claude-sonnet-4($|-)/.test(dashedName) &&
-    !/^claude-sonnet-4-6($|-)/.test(dashedName)
-  ) {
-    return true;
-  }
+  if (/^claude-sonnet-4($|-)/.test(dashedName)) return true;
   if (
     /^claude-haiku-4($|-)/.test(dashedName) &&
     !/^claude-haiku-4-5($|-)/.test(dashedName)

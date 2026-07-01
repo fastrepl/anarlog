@@ -32,6 +32,7 @@ import {
 import { cn } from "@hypr/utils";
 
 import type { ListModelsResult, ModelIgnoreReason } from "./list-common";
+import { displayLlmModelId } from "./model-display";
 
 import { useModelMetadata } from "~/ai/hooks";
 
@@ -68,10 +69,7 @@ const formatIgnoreReason = (reason: ModelIgnoreReason): string => {
 };
 
 const getDisplayName = (providerId: string, model: string): string => {
-  if (providerId === "hyprnote" && model === "Auto") {
-    return "Pro (Cloud)";
-  }
-  return model;
+  return displayLlmModelId(providerId, model);
 };
 
 export function ModelCombobox({
@@ -217,7 +215,7 @@ export function ModelCombobox({
                   <CommandItem
                     key={option}
                     tabIndex={0}
-                    value={option}
+                    value={`${option} ${getDisplayName(providerId, option)}`}
                     onSelect={() => {
                       handleSelect(option);
                     }}
@@ -243,7 +241,7 @@ export function ModelCombobox({
                     <CommandItem
                       key={`ignored-${option.id}`}
                       tabIndex={0}
-                      value={option.id}
+                      value={`${option.id} ${getDisplayName(providerId, option.id)}`}
                       onSelect={() => {
                         handleSelect(option.id);
                       }}
@@ -262,7 +260,9 @@ export function ModelCombobox({
                     >
                       <Tooltip delayDuration={10}>
                         <TooltipTrigger asChild>
-                          <span className="w-full truncate">{option.id}</span>
+                          <span className="w-full truncate">
+                            {getDisplayName(providerId, option.id)}
+                          </span>
                         </TooltipTrigger>
                         <TooltipContent side="right" className="text-xs">
                           <div className="flex flex-col gap-0.5">

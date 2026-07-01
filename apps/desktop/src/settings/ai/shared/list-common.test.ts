@@ -18,10 +18,12 @@ describe("isOldModel", () => {
     expect(isOldModel("claude-3-7-sonnet")).toBe(true);
     expect(isOldModel("anthropic/claude-opus-4.7")).toBe(true);
     expect(isOldModel("claude-sonnet-4-5")).toBe(true);
+    expect(isOldModel("claude-sonnet-4-6")).toBe(true);
 
     expect(isOldModel("claude-fable-5")).toBe(false);
     expect(isOldModel("claude-opus-4-8")).toBe(false);
-    expect(isOldModel("claude-sonnet-4-6")).toBe(false);
+    expect(isOldModel("claude-sonnet-5")).toBe(false);
+    expect(isOldModel("claude-sonnet-latest")).toBe(false);
     expect(isOldModel("claude-haiku-4-5-20251001")).toBe(false);
   });
 
@@ -43,6 +45,7 @@ describe("sortModelsByRecency", () => {
       sortModelsByRecency([
         "openai/gpt-5.4-mini",
         "anthropic/claude-sonnet-4.6",
+        "anthropic/claude-sonnet-5",
         "openai/gpt-5.5",
         "google/gemini-3.5-flash",
         "openai/chat-latest",
@@ -50,6 +53,7 @@ describe("sortModelsByRecency", () => {
     ).toEqual([
       "openai/gpt-5.5",
       "openai/chat-latest",
+      "anthropic/claude-sonnet-5",
       "openai/gpt-5.4-mini",
       "anthropic/claude-sonnet-4.6",
       "google/gemini-3.5-flash",

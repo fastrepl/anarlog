@@ -48,11 +48,11 @@ export const displayModelId = (model: string) => {
   }
 
   if (model === "u3-rt-pro") {
-    return "Universal-3 Pro Streaming";
+    return "Universal 3.5 Pro Realtime";
   }
 
   if (model === "universal-3-pro" || model === "universal") {
-    return "Universal-3 Pro";
+    return "Universal 3.5 Pro";
   }
 
   if (model === "whisper-rt") {
@@ -60,15 +60,15 @@ export const displayModelId = (model: string) => {
   }
 
   if (model === "stt-v5" || model === "stt-rt-v5" || model === "stt-async-v5") {
-    return "Soniox v5";
+    return "Soniox 5";
   }
 
   if (model === "stt-v4" || model === "stt-rt-v4" || model === "stt-async-v4") {
-    return "Soniox v4";
+    return "Soniox 4";
   }
 
   if (model === "stt-v3" || model === "stt-rt-v3" || model === "stt-async-v3") {
-    return "Soniox v3";
+    return "Soniox 3";
   }
 
   if (model === "solaria-1") {
@@ -97,6 +97,10 @@ export const displayModelId = (model: string) => {
 
   if (model === "gpt-4o-transcribe") {
     return "GPT-4o Transcribe";
+  }
+
+  if (model === "gpt-4o-transcribe-diarize") {
+    return "GPT-4o Transcribe Diarize";
   }
 
   if (model === "gpt-4o-mini-transcribe") {
@@ -182,21 +186,7 @@ const _PROVIDERS = [
       <Icon icon="simple-icons:deepgram" className="text-foreground size-4" />
     ),
     baseUrl: "https://api.deepgram.com/v1",
-    models: [
-      "nova-3-general",
-      "nova-3-medical",
-      "nova-2-general",
-      "nova-2-meeting",
-      "nova-2-phonecall",
-      "nova-2-finance",
-      "nova-2-conversationalai",
-      "nova-2-voicemail",
-      "nova-2-video",
-      "nova-2-medical",
-      "nova-2-drivethru",
-      "nova-2-automotive",
-      "nova-2-atc",
-    ],
+    models: ["nova-3-general", "nova-3-medical"],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
   },
   {
@@ -216,7 +206,12 @@ const _PROVIDERS = [
     badge: "Batch only",
     icon: <OpenAI size={14} />,
     baseUrl: "https://api.openai.com/v1",
-    models: ["gpt-4o-transcribe", "gpt-4o-mini-transcribe", "whisper-1"],
+    models: [
+      "gpt-4o-transcribe-diarize",
+      "gpt-4o-transcribe",
+      "gpt-4o-mini-transcribe",
+      "whisper-1",
+    ],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
   },
   {

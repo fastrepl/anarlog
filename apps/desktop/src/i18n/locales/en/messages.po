@@ -878,7 +878,7 @@ msgstr "Live"
 msgid "Loading calendars..."
 msgstr "Loading calendars..."
 
-#: src/settings/ai/shared/model-combobox.tsx:164
+#: src/settings/ai/shared/model-combobox.tsx:162
 msgid "Loading models..."
 msgstr "Loading models..."
 
@@ -1052,11 +1052,11 @@ msgstr "No matching languages found"
 msgid "No matching people"
 msgstr "No matching people"
 
-#: src/settings/ai/shared/model-combobox.tsx:208
+#: src/settings/ai/shared/model-combobox.tsx:206
 msgid "No models available."
 msgstr "No models available."
 
-#: src/settings/ai/shared/model-combobox.tsx:204
+#: src/settings/ai/shared/model-combobox.tsx:202
 msgid "No models ready to use."
 msgstr "No models ready to use."
 
@@ -1080,7 +1080,7 @@ msgstr "No recent chats"
 msgid "No related notes found"
 msgstr "No related notes found"
 
-#: src/settings/ai/shared/model-combobox.tsx:200
+#: src/settings/ai/shared/model-combobox.tsx:198
 #: src/settings/general/searchable-select.tsx:122
 msgid "No results found."
 msgstr "No results found."
@@ -1420,7 +1420,7 @@ msgstr "Search language..."
 msgid "Search or add company"
 msgstr "Search or add company"
 
-#: src/settings/ai/shared/model-combobox.tsx:187
+#: src/settings/ai/shared/model-combobox.tsx:185
 msgid "Search or create new"
 msgstr "Search or create new"
 
@@ -1458,7 +1458,7 @@ msgstr "See all templates"
 msgid "Select a different folder"
 msgstr "Select a different folder"
 
-#: src/settings/ai/shared/model-combobox.tsx:165
+#: src/settings/ai/shared/model-combobox.tsx:163
 #: src/settings/ai/stt/select.tsx:244
 msgid "Select a model"
 msgstr "Select a model"

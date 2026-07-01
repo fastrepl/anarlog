@@ -878,7 +878,7 @@ msgstr ""
 msgid "Loading calendars..."
 msgstr ""
 
-#: src/settings/ai/shared/model-combobox.tsx:164
+#: src/settings/ai/shared/model-combobox.tsx:162
 msgid "Loading models..."
 msgstr ""
 
@@ -1052,11 +1052,11 @@ msgstr "Nije pronađen nijedan odgovarajući jezik"
 msgid "No matching people"
 msgstr ""
 
-#: src/settings/ai/shared/model-combobox.tsx:208
+#: src/settings/ai/shared/model-combobox.tsx:206
 msgid "No models available."
 msgstr ""
 
-#: src/settings/ai/shared/model-combobox.tsx:204
+#: src/settings/ai/shared/model-combobox.tsx:202
 msgid "No models ready to use."
 msgstr ""
 
@@ -1080,7 +1080,7 @@ msgstr ""
 msgid "No related notes found"
 msgstr ""
 
-#: src/settings/ai/shared/model-combobox.tsx:200
+#: src/settings/ai/shared/model-combobox.tsx:198
 #: src/settings/general/searchable-select.tsx:122
 msgid "No results found."
 msgstr ""
@@ -1420,7 +1420,7 @@ msgstr "Pretraži jezik..."
 msgid "Search or add company"
 msgstr ""
 
-#: src/settings/ai/shared/model-combobox.tsx:187
+#: src/settings/ai/shared/model-combobox.tsx:185
 msgid "Search or create new"
 msgstr ""
 
@@ -1458,7 +1458,7 @@ msgstr ""
 msgid "Select a different folder"
 msgstr ""
 
-#: src/settings/ai/shared/model-combobox.tsx:165
+#: src/settings/ai/shared/model-combobox.tsx:163
 #: src/settings/ai/stt/select.tsx:244
 msgid "Select a model"
 msgstr ""
