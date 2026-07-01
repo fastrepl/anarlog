@@ -2,10 +2,12 @@ import { useLingui } from "@lingui/react/macro";
 import {
   AlignLeftIcon,
   AudioLinesIcon,
+  CheckIcon,
   ChevronDownIcon,
   ChevronRightIcon,
   HeartIcon,
   PlusIcon,
+  RefreshCwIcon,
   SearchIcon,
   SparklesIcon,
   SquareIcon,
@@ -25,7 +27,6 @@ import { Spinner } from "@hypr/ui/components/ui/spinner";
 import { sonnerToast } from "@hypr/ui/components/ui/toast";
 import { cn } from "@hypr/utils";
 
-import { useAITaskTask } from "~/ai/hooks";
 import * as AudioPlayer from "~/audio-player";
 import { getEnhancerService } from "~/services/enhancer";
 import { useEnhancedNoteActions } from "~/session/components/note-input/enhanced-actions";
@@ -44,7 +45,6 @@ import {
 } from "~/shared/hooks/useNativeContextMenu";
 import { useWebResources } from "~/shared/ui/resource-list";
 import * as main from "~/store/tinybase/store/main";
-import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 import { type EditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
@@ -341,6 +341,7 @@ function HeaderTabEnhanced({
   if (!isActive) {
     return (
       <HeaderTabEnhancedInactive
+        sessionId={sessionId}
         enhancedNoteId={enhancedNoteId}
         onClick={onClick}
       />
@@ -381,6 +382,7 @@ function useEnhancedTabTitle(enhancedNoteId: string) {
 
   return {
     tabTitle,
+    templateId: templateId ?? null,
     templateTooltip:
       templateId && templateTitle
         ? `${templateTitle} was used to generate this summary.`
@@ -388,22 +390,17 @@ function useEnhancedTabTitle(enhancedNoteId: string) {
   };
 }
 
-function useEnhancedTabGenerating(enhancedNoteId: string) {
-  const taskId = createTaskId(enhancedNoteId, "enhance");
-  const enhanceTask = useAITaskTask(taskId, "enhance");
-
-  return enhanceTask.isGenerating;
-}
-
 function HeaderTabEnhancedInactive({
   onClick = () => {},
+  sessionId,
   enhancedNoteId,
 }: {
+  sessionId: string;
   enhancedNoteId: string;
   onClick?: () => void;
 }) {
   const { tabTitle, templateTooltip } = useEnhancedTabTitle(enhancedNoteId);
-  const isGenerating = useEnhancedTabGenerating(enhancedNoteId);
+  const { isGenerating } = useEnhanceLogic(sessionId, enhancedNoteId);
 
   return (
     <button
@@ -437,7 +434,8 @@ function HeaderTabEnhancedActive({
   onRemove?: () => void;
   onSelectNote?: (enhancedNoteId: string) => void;
 }) {
-  const { isGenerating, isError, onRegenerate } = useEnhanceLogic(
+  const { t } = useLingui();
+  const { isGenerating, isError, onCancel, onRegenerate } = useEnhanceLogic(
     sessionId,
     enhancedNoteId,
   );
@@ -447,7 +445,8 @@ function HeaderTabEnhancedActive({
     "content",
     main.STORE_ID,
   ) as string | undefined;
-  const { tabTitle, templateTooltip } = useEnhancedTabTitle(enhancedNoteId);
+  const { tabTitle, templateId, templateTooltip } =
+    useEnhancedTabTitle(enhancedNoteId);
   const noteMarkdown = useMemo(() => getStoredNoteMarkdown(content), [content]);
 
   const handleCopy = useCallback(() => {
@@ -459,7 +458,18 @@ function HeaderTabEnhancedActive({
   const handleRegenerate = useCallback(() => {
     void onRegenerate(null);
   }, [onRegenerate]);
-  const handleSelectTemplate = useCallback(
+  const handleTabClick = useCallback(
+    (event: React.MouseEvent<HTMLButtonElement>) => {
+      event.stopPropagation();
+
+      if (isGenerating) {
+        event.preventDefault();
+        onCancel();
+      }
+    },
+    [isGenerating, onCancel],
+  );
+  const applyTemplate = useCallback(
     (selection: TemplateSelection) => {
       if (isGenerating) {
         return;
@@ -479,6 +489,18 @@ function HeaderTabEnhancedActive({
       }
     },
     [enhancedNoteId, isGenerating, onSelectNote, sessionId],
+  );
+  const handleSelectTemplate = useCallback(
+    (selection: TemplateSelection) => {
+      applyTemplate(selection);
+    },
+    [applyTemplate],
+  );
+  const handleRegenerateTemplate = useCallback(
+    (selection: TemplateSelection) => {
+      applyTemplate(selection);
+    },
+    [applyTemplate],
   );
   const contextMenu = useMemo<MenuItemDef[]>(() => {
     const items: MenuItemDef[] = [
@@ -528,18 +550,22 @@ function HeaderTabEnhancedActive({
       type="button"
       aria-label={tabTitle}
       aria-current="page"
-      aria-disabled={isGenerating}
-      tabIndex={isGenerating ? -1 : 0}
-      onClick={(event) => event.stopPropagation()}
+      onClick={handleTabClick}
       onPointerDown={(event) => event.stopPropagation()}
       onContextMenu={showContextMenu}
-      title={templateTooltip}
+      title={isGenerating ? "Stop summary" : templateTooltip}
+      data-hover-label={isGenerating ? t`Stop` : undefined}
       className={iconHeaderTabClassName(
         true,
         "tray",
         cn([
-          "max-w-56 min-w-[62px] gap-1.5 pr-1.5 pl-2",
-          isGenerating ? "cursor-not-allowed opacity-70" : "cursor-pointer",
+          "group/summary-stop max-w-56 min-w-[62px] gap-1.5 pr-1.5 pl-2",
+          isGenerating
+            ? [
+                "w-[112px] min-w-[112px] cursor-pointer opacity-70",
+                "after:hidden after:min-w-0 after:truncate after:text-xs after:font-medium after:content-[attr(data-hover-label)] hover:after:block",
+              ]
+            : "cursor-pointer",
           isError
             ? [
                 "text-red-600 hover:bg-red-50 hover:text-red-700 focus-visible:bg-red-50",
@@ -553,20 +579,43 @@ function HeaderTabEnhancedActive({
       )}
     >
       {isGenerating ? (
-        <Spinner size={16} className="shrink-0" />
+        <SummaryGeneratingIcon />
       ) : (
         <SparklesIcon className="size-4" />
       )}
-      <span className="min-w-0 truncate text-xs font-medium">{tabTitle}</span>
-      <ChevronDownIcon className="size-3.5" />
+      <span
+        className={cn([
+          "min-w-0 truncate text-xs font-medium",
+          isGenerating ? "group-hover/summary-stop:hidden" : null,
+        ])}
+      >
+        {tabTitle}
+      </span>
+      <ChevronDownIcon
+        className={cn([
+          "size-3.5",
+          isGenerating ? "group-hover/summary-stop:hidden" : null,
+        ])}
+      />
     </button>
   );
 
   return (
     <TemplatePickerPopover
+      selectedTemplateId={templateId}
       onSelectTemplate={handleSelectTemplate}
+      onRegenerateTemplate={handleRegenerateTemplate}
       trigger={templateMenuTrigger}
     />
+  );
+}
+
+function SummaryGeneratingIcon() {
+  return (
+    <span className="relative flex size-4 items-center justify-center">
+      <Spinner size={16} className="shrink-0 group-hover/summary-stop:hidden" />
+      <SquareIcon className="hidden size-3 fill-current group-hover/summary-stop:block" />
+    </span>
   );
 }
 
@@ -803,9 +852,13 @@ function useOpenTemplatesTab() {
 
 function TemplatePickerPopover({
   onSelectTemplate,
+  onRegenerateTemplate,
+  selectedTemplateId,
   trigger,
 }: {
   onSelectTemplate: (selection: TemplateSelection) => void;
+  onRegenerateTemplate: (selection: TemplateSelection) => void;
+  selectedTemplateId: string | null;
   trigger: React.ReactNode;
 }) {
   const { t } = useLingui();
@@ -836,6 +889,16 @@ function TemplatePickerPopover({
       onSelectTemplate(selection);
     },
     [onSelectTemplate],
+  );
+  const handleRegenerateTemplate = useCallback(
+    (selection: TemplateSelection) => {
+      setOpen(false);
+      setSearch("");
+      resultRefs.current = [];
+
+      onRegenerateTemplate(selection);
+    },
+    [onRegenerateTemplate],
   );
 
   const handleOpenChange = useCallback((nextOpen: boolean) => {
@@ -951,20 +1014,41 @@ function TemplatePickerPopover({
         ),
     );
   }, [searchQuery, webTemplates]);
+  const selectedTemplateExists = useMemo(() => {
+    if (selectedTemplateId === null) {
+      return true;
+    }
+
+    return (
+      userTemplates.some((template) => template.id === selectedTemplateId) ||
+      webTemplates.some((template) => template.slug === selectedTemplateId)
+    );
+  }, [selectedTemplateId, userTemplates, webTemplates]);
+  const effectiveSelectedTemplateId = selectedTemplateExists
+    ? selectedTemplateId
+    : null;
   const templateItems = useMemo<
     Array<{
       key: string;
       title: string;
       isFavorite?: boolean;
+      isSelected?: boolean;
       onClick: () => void;
+      onRegenerate?: () => void;
     }>
   >(() => {
     const favoriteItems = filteredFavoriteTemplates.map((template) => ({
       key: template.id,
       title: template.title || "Untitled",
       isFavorite: true,
+      isSelected: effectiveSelectedTemplateId === template.id,
       onClick: () =>
         handleUseTemplate({
+          templateId: template.id,
+          title: template.title || "Untitled",
+        }),
+      onRegenerate: () =>
+        handleRegenerateTemplate({
           templateId: template.id,
           title: template.title || "Untitled",
         }),
@@ -973,8 +1057,14 @@ function TemplatePickerPopover({
     const userItems = filteredOtherTemplates.map((template) => ({
       key: template.id,
       title: template.title || "Untitled",
+      isSelected: effectiveSelectedTemplateId === template.id,
       onClick: () =>
         handleUseTemplate({
+          templateId: template.id,
+          title: template.title || "Untitled",
+        }),
+      onRegenerate: () =>
+        handleRegenerateTemplate({
           templateId: template.id,
           title: template.title || "Untitled",
         }),
@@ -992,9 +1082,11 @@ function TemplatePickerPopover({
 
     return [...favoriteItems, ...otherItems];
   }, [
+    effectiveSelectedTemplateId,
     filteredFavoriteTemplates,
     filteredOtherTemplates,
     filteredWebTemplates,
+    handleRegenerateTemplate,
     handleWebTemplateClick,
     handleUseTemplate,
   ]);
@@ -1010,7 +1102,9 @@ function TemplatePickerPopover({
         key: string;
         title: string;
         isFavorite?: boolean;
+        isSelected?: boolean;
         onClick: () => void;
+        onRegenerate?: () => void;
       }>;
     }>
   >(() => {
@@ -1022,8 +1116,14 @@ function TemplatePickerPopover({
         {
           key: "auto",
           title: "Auto",
+          isSelected: effectiveSelectedTemplateId === null,
           onClick: () =>
             handleUseTemplate({
+              templateId: null,
+              title: "Auto",
+            }),
+          onRegenerate: () =>
+            handleRegenerateTemplate({
               templateId: null,
               title: "Auto",
             }),
@@ -1072,8 +1172,10 @@ function TemplatePickerPopover({
     ];
   }, [
     handleCreateTemplate,
+    handleRegenerateTemplate,
     handleUseTemplate,
     hasSearch,
+    effectiveSelectedTemplateId,
     templateItems,
     trimmedSearch,
   ]);
@@ -1162,7 +1264,7 @@ function TemplatePickerPopover({
               <div
                 className={cn(["scroll-fade-y max-h-80 overflow-y-auto p-2"])}
               >
-                <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-1">
                   {resultSections.map((section) => (
                     <TemplateSection
                       key={section.key}
@@ -1184,7 +1286,9 @@ function TemplatePickerPopover({
                               }}
                               title={item.title}
                               isFavorite={item.isFavorite}
+                              isSelected={item.isSelected}
                               onClick={item.onClick}
+                              onRegenerate={item.onRegenerate}
                               onKeyDown={(e) =>
                                 handleResultKeyDown(e, itemIndex)
                               }
@@ -1206,7 +1310,7 @@ function TemplatePickerPopover({
           <button
             onClick={handleSeeAllTemplates}
             className={cn([
-              "flex h-7 w-full items-center justify-center gap-1 rounded-lg px-3 text-xs font-medium",
+              "flex h-7 w-full items-center justify-center gap-1 rounded-full px-3 text-xs font-medium",
               "text-muted-foreground hover:bg-accent hover:text-foreground transition-colors",
             ])}
           >
@@ -1443,7 +1547,7 @@ function TemplateSection({
   showHeader?: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-0.5">
       {showHeader ? (
         <div className="flex items-center gap-2 px-2">
           {icon}
@@ -1457,7 +1561,7 @@ function TemplateSection({
           </p>
         </div>
       ) : null}
-      <div className="flex flex-col gap-1">{children}</div>
+      <div className="flex flex-col gap-0.5">{children}</div>
     </div>
   );
 }
@@ -1466,34 +1570,61 @@ function TemplateResultButton({
   buttonRef,
   title,
   isFavorite = false,
+  isSelected = false,
   onClick,
+  onRegenerate,
   onKeyDown,
 }: {
   buttonRef?: React.Ref<HTMLButtonElement>;
   title: string;
   isFavorite?: boolean;
+  isSelected?: boolean;
   onClick: () => void;
+  onRegenerate?: () => void;
   onKeyDown?: (e: React.KeyboardEvent<HTMLButtonElement>) => void;
 }) {
   return (
-    <button
-      ref={buttonRef}
+    <div
       className={cn([
-        "hover:bg-accent focus:bg-muted w-full rounded-md px-3 py-2 text-left transition-colors focus:outline-hidden",
-        "flex items-center gap-1.5",
+        "group/template-row hover:bg-accent focus-within:bg-muted flex h-9 w-full items-center rounded-full px-3 transition-colors",
+        isSelected ? "bg-accent/70" : null,
       ])}
-      onClick={onClick}
-      onKeyDown={onKeyDown}
     >
-      <span className="text-foreground min-w-0 truncate text-sm font-medium">
-        {title}
-      </span>
-      {isFavorite ? (
-        <HeartIcon
-          aria-hidden
-          className="size-3.5 shrink-0 fill-rose-500 text-rose-500"
-        />
+      <button
+        ref={buttonRef}
+        aria-current={isSelected ? "true" : undefined}
+        className="flex h-full min-w-0 flex-1 items-center gap-1.5 text-left focus:outline-hidden"
+        onClick={onClick}
+        onKeyDown={onKeyDown}
+      >
+        {isSelected ? <CheckIcon className="size-3.5 shrink-0" /> : null}
+        <span className="text-foreground min-w-0 truncate text-sm font-medium">
+          {title}
+        </span>
+        {isFavorite ? (
+          <HeartIcon
+            aria-hidden
+            className="size-3.5 shrink-0 fill-rose-500 text-rose-500"
+          />
+        ) : null}
+      </button>
+      {isSelected && onRegenerate ? (
+        <button
+          type="button"
+          aria-label={`Regenerate ${title}`}
+          title="Regenerate summary"
+          className={cn([
+            "text-muted-foreground hover:text-foreground focus:text-foreground",
+            "ml-2 flex size-6 shrink-0 items-center justify-center rounded-sm transition-colors focus:outline-hidden",
+          ])}
+          onClick={(event) => {
+            event.stopPropagation();
+            onRegenerate();
+          }}
+        >
+          <RefreshCwIcon className="size-3.5" />
+        </button>
       ) : null}
-    </button>
+    </div>
   );
 }

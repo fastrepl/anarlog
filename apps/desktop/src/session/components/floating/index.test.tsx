@@ -176,25 +176,17 @@ describe("FloatingActionButton", () => {
     ).not.toBeNull();
   });
 
-  it("shows a regenerate summary FAB on enhanced summary views", () => {
+  it("shows chat instead of a regenerate summary FAB on generated summaries", () => {
     hoisted.currentTab = { type: "enhanced", id: "note-1" };
 
     render(<FloatingActionButton tab={tab} />);
 
     expect(
       screen.queryByRole("button", { name: "Ask Anarlog anything" }),
+    ).not.toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Regenerate summary" }),
     ).toBeNull();
-
-    fireEvent.click(screen.getByRole("button", { name: "Regenerate summary" }));
-
-    expect(hoisted.regenerateSummary).toHaveBeenCalledWith({
-      model: "model",
-      args: {
-        sessionId: "session-1",
-        enhancedNoteId: "note-1",
-        templateId: undefined,
-      },
-    });
   });
 
   it("shows a generate summary FAB instead of chat for empty transcript-backed summaries", () => {
@@ -262,7 +254,7 @@ describe("FloatingActionButton", () => {
     ).toBeNull();
   });
 
-  it("shows a stop summary FAB while an enhanced summary is generating", () => {
+  it("hides the FAB while the visible summary is generating", () => {
     hoisted.currentTab = { type: "enhanced", id: "note-1" };
     hoisted.enhanceTaskStatus = "generating";
     hoisted.enhancedContent = "";
@@ -273,10 +265,7 @@ describe("FloatingActionButton", () => {
     expect(
       screen.queryByRole("button", { name: "Ask Anarlog anything" }),
     ).toBeNull();
-
-    fireEvent.click(screen.getByRole("button", { name: "Stop summary" }));
-
-    expect(hoisted.cancelSummary).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: "Stop summary" })).toBeNull();
   });
 
   it("keeps the chat FAB visible near the editor caret", () => {

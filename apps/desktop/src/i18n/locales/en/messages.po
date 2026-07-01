@@ -817,7 +817,7 @@ msgstr "Insert above"
 msgid "Insert below"
 msgstr "Insert below"
 
-#: src/session/components/note-input/header.tsx:769
+#: src/session/components/note-input/header.tsx:818
 msgid "Insights"
 msgstr "Insights"
 
@@ -1432,7 +1432,7 @@ msgstr "Search or type owner/repo"
 msgid "Search people"
 msgstr "Search people"
 
-#: src/session/components/note-input/header.tsx:1147
+#: src/session/components/note-input/header.tsx:1249
 #: src/templates/template-sidebar.tsx:354
 msgid "Search templates..."
 msgstr "Search templates..."
@@ -1450,7 +1450,7 @@ msgstr "Search..."
 msgid "Section actions"
 msgstr "Section actions"
 
-#: src/session/components/note-input/header.tsx:1213
+#: src/session/components/note-input/header.tsx:1317
 msgid "See all templates"
 msgstr "See all templates"
 
@@ -1508,7 +1508,7 @@ msgstr "Send email"
 msgid "Send message"
 msgstr "Send message"
 
-#: src/session/components/note-input/header.tsx:1254
+#: src/session/components/note-input/header.tsx:1358
 msgid "Session note tabs"
 msgstr "Session note tabs"
 
@@ -1670,6 +1670,7 @@ msgstr "Start with permissions"
 msgid "Starting your trial..."
 msgstr "Starting your trial..."
 
+#: src/session/components/note-input/header.tsx:557
 #: src/session/components/outer-header/index.tsx:319
 msgid "Stop"
 msgstr "Stop"
@@ -1775,7 +1776,7 @@ msgstr "Timezone"
 msgid "Tip: The Anarlog team loves our users!"
 msgstr "Tip: The Anarlog team loves our users!"
 
-#: src/session/components/note-input/header.tsx:633
+#: src/session/components/note-input/header.tsx:682
 #: src/session/components/outer-header/overflow/export-modal.tsx:245
 #: src/session/components/outer-header/overflow/export-modal.tsx:295
 #: src/session/components/outer-header/overflow/export-modal.tsx:350

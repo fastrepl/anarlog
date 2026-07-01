@@ -20,10 +20,12 @@ type CapturedMenuItem =
 
 const hoisted = vi.hoisted(() => ({
   enhance: vi.fn(),
+  cancelSummary: vi.fn(),
   regenerateTranscript: vi.fn(),
   stopTranscription: vi.fn(),
   deleteRecording: vi.fn(),
   activeTemplateTitle: "Customer Call",
+  enhancedTemplateId: "template-1" as string | undefined,
   audioExists: true,
   hasTranscript: true,
   canShowInsights: false,
@@ -133,7 +135,7 @@ vi.mock("~/ai/hooks", () => ({
     isError: false,
     error: null,
     start: vi.fn(),
-    cancel: vi.fn(),
+    cancel: hoisted.cancelSummary,
   }),
   useLanguageModel: () => "model",
   useLLMConnectionStatus: () => "connected",
@@ -227,7 +229,7 @@ vi.mock("~/store/tinybase/store/main", () => ({
       }
 
       if (table === "enhanced_notes" && cell === "template_id") {
-        return "template-1";
+        return hoisted.enhancedTemplateId;
       }
 
       if (table === "sessions" && cell === "raw_md") {
@@ -285,7 +287,12 @@ vi.mock("~/templates", () => ({
   parseWebTemplates: () => [],
   useCreateTemplate: () => vi.fn(),
   useTemplateCreatorName: () => "You",
-  useUserTemplate: () => ({ data: { title: hoisted.activeTemplateTitle } }),
+  useUserTemplate: (templateId?: string) => ({
+    data:
+      templateId === "template-1"
+        ? { title: hoisted.activeTemplateTitle }
+        : undefined,
+  }),
   useUserTemplates: () => hoisted.userTemplates,
 }));
 
@@ -294,10 +301,12 @@ import { Header, useEditorTabs } from "./header";
 describe("Header", () => {
   beforeEach(() => {
     hoisted.enhance.mockReset();
+    hoisted.cancelSummary.mockReset();
     hoisted.regenerateTranscript.mockReset();
     hoisted.stopTranscription.mockReset();
     hoisted.deleteRecording.mockReset();
     hoisted.activeTemplateTitle = "Customer Call";
+    hoisted.enhancedTemplateId = "template-1";
     hoisted.audioExists = true;
     hoisted.hasTranscript = true;
     hoisted.canShowInsights = false;
@@ -600,6 +609,129 @@ describe("Header", () => {
     });
   });
 
+  it("marks the selected summary template and regenerates from its refresh action", () => {
+    hoisted.userTemplates = [
+      {
+        id: "template-1",
+        title: "Customer Call",
+        description: "",
+        pinned: false,
+        sections: [],
+      },
+      {
+        id: "template-2",
+        title: "Decision Log",
+        description: "",
+        pinned: false,
+        sections: [],
+      },
+    ];
+    hoisted.enhance.mockReturnValue({
+      type: "started",
+      noteId: "note-1",
+    });
+    const editorTabs: EditorView[] = [
+      { type: "enhanced", id: "note-1" },
+      { type: "raw" },
+    ];
+    const handleTabChange = vi.fn();
+
+    render(
+      <Header
+        sessionId="session-1"
+        editorTabs={editorTabs}
+        currentTab={{ type: "enhanced", id: "note-1" }}
+        handleTabChange={handleTabChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Customer Call" }));
+
+    const selectedTemplate = screen
+      .getAllByRole("button", { name: "Customer Call" })
+      .find((button) => button.getAttribute("aria-current") === "true");
+
+    expect(selectedTemplate).toBeDefined();
+    expect(selectedTemplate?.querySelector("svg")).not.toBeNull();
+
+    const unselectedTemplate = screen.getByRole("button", {
+      name: "Decision Log",
+    });
+
+    expect(selectedTemplate?.parentElement?.className).toContain("h-9");
+    expect(unselectedTemplate.parentElement?.className).toContain("h-9");
+    expect(selectedTemplate?.parentElement?.className).toContain(
+      "rounded-full",
+    );
+    expect(unselectedTemplate.parentElement?.className).toContain(
+      "rounded-full",
+    );
+    expect(
+      screen.getByRole("button", { name: /See all templates/ }).className,
+    ).toContain("rounded-full");
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Regenerate Customer Call" }),
+    );
+
+    expect(hoisted.enhance).toHaveBeenCalledWith("session-1", {
+      templateId: "template-1",
+      targetNoteId: "note-1",
+      templateTitle: "Customer Call",
+    });
+    expect(handleTabChange).toHaveBeenCalledWith({
+      type: "enhanced",
+      id: "note-1",
+    });
+  });
+
+  it("marks Auto as selected when the summary used the default template", () => {
+    hoisted.enhancedTemplateId = "missing-template";
+    hoisted.userTemplates = [
+      {
+        id: "template-2",
+        title: "Decision Log",
+        description: "",
+        pinned: false,
+        sections: [],
+      },
+    ];
+    hoisted.enhance.mockReturnValue({
+      type: "started",
+      noteId: "note-1",
+    });
+    const editorTabs: EditorView[] = [
+      { type: "enhanced", id: "note-1" },
+      { type: "raw" },
+    ];
+
+    render(
+      <Header
+        sessionId="session-1"
+        editorTabs={editorTabs}
+        currentTab={{ type: "enhanced", id: "note-1" }}
+        handleTabChange={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Summary" }));
+
+    expect(
+      screen.getByRole("button", { name: "Auto" }).getAttribute("aria-current"),
+    ).toBe("true");
+    expect(
+      screen.getByRole("button", { name: "Decision Log" }).querySelector("svg"),
+    ).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Regenerate Auto" }));
+
+    expect(hoisted.enhance).toHaveBeenCalledWith("session-1", {
+      templateId: null,
+      targetNoteId: "note-1",
+      templateTitle: undefined,
+    });
+  });
+
   it("replaces the current enhanced note with auto generation", () => {
     hoisted.userTemplates = [
       {
@@ -654,10 +786,71 @@ describe("Header", () => {
       />,
     );
 
+    const summaryTab = screen.getByRole("button", { name: "Customer Call" });
+
     expect(screen.getByTestId("tab-spinner")).not.toBeNull();
-    expect(
-      screen.getByRole("button", { name: "Customer Call" }).textContent,
-    ).toBe("Customer Call");
+    expect(summaryTab.className).toContain("w-[112px]");
+    expect(summaryTab.getAttribute("data-hover-label")).toBe("Stop");
+    expect(summaryTab.textContent).toBe("Customer Call");
+  });
+
+  it("stops summary generation from the active enhanced tab spinner", () => {
+    hoisted.isGenerating = true;
+    const editorTabs: EditorView[] = [
+      { type: "enhanced", id: "note-1" },
+      { type: "raw" },
+    ];
+
+    render(
+      <Header
+        sessionId="session-1"
+        editorTabs={editorTabs}
+        currentTab={{ type: "enhanced", id: "note-1" }}
+        handleTabChange={vi.fn()}
+      />,
+    );
+
+    const summaryTab = screen.getByRole("button", { name: "Customer Call" });
+
+    expect(summaryTab.getAttribute("title")).toBe("Stop summary");
+    expect(summaryTab.className).toContain("w-[112px]");
+
+    fireEvent.click(summaryTab);
+
+    expect(hoisted.cancelSummary).toHaveBeenCalledTimes(1);
+    expect(screen.queryByPlaceholderText("Search templates...")).toBeNull();
+  });
+
+  it("switches to an inactive enhanced tab while summary generation continues", () => {
+    hoisted.isGenerating = true;
+    const handleTabChange = vi.fn();
+    const editorTabs: EditorView[] = [
+      { type: "enhanced", id: "note-1" },
+      { type: "raw" },
+    ];
+
+    render(
+      <Header
+        sessionId="session-1"
+        editorTabs={editorTabs}
+        currentTab={{ type: "raw" }}
+        handleTabChange={handleTabChange}
+      />,
+    );
+
+    const summaryTab = screen.getByRole("button", { name: "Customer Call" });
+
+    expect(summaryTab.getAttribute("title")).toBe(
+      "Customer Call was used to generate this summary.",
+    );
+
+    fireEvent.click(summaryTab);
+
+    expect(hoisted.cancelSummary).not.toHaveBeenCalled();
+    expect(handleTabChange).toHaveBeenCalledWith({
+      type: "enhanced",
+      id: "note-1",
+    });
   });
 
   it("shows a spinner in the transcript tab while transcribing", () => {
