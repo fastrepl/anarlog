@@ -56,7 +56,11 @@ pub(crate) async fn write_json_batch<R: tauri::Runtime>(
         .map_err(|e| e.to_string())?;
     let items: Vec<(Value, PathBuf)> = items
         .into_iter()
-        .map(|(json, path)| resolve_vault_path(&base_path, &path).map(|path| (json, path)))
+        .map(|(json, path)| {
+            resolve_vault_path(&base_path, &path)
+                .map(|resolved_path| (json, resolved_path))
+                .map_err(|e| format!("failed to resolve json path {path}: {e}"))
+        })
         .collect::<Result<_, _>>()?;
 
     let relative_paths: Vec<String> = items
@@ -73,11 +77,10 @@ pub(crate) async fn write_json_batch<R: tauri::Runtime>(
 
     spawn_blocking!({
         items.into_par_iter().try_for_each(|(json, path)| {
-            if let Some(parent) = path.parent() {
-                std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-            }
-            let content = crate::json::serialize(json)?;
-            std::fs::write(path, content).map_err(|e| e.to_string())
+            create_parent_dir_for_write(&path)?;
+            let content = crate::json::serialize(json)
+                .map_err(|e| format!("failed to serialize json for {}: {e}", path.display()))?;
+            write_file_with_context(&path, content)
         })
     })
 }
@@ -95,7 +98,11 @@ pub(crate) async fn write_document_batch<R: tauri::Runtime>(
         .map_err(|e| e.to_string())?;
     let items: Vec<(ParsedDocument, PathBuf)> = items
         .into_iter()
-        .map(|(doc, path)| resolve_vault_path(&base_path, &path).map(|path| (doc, path)))
+        .map(|(doc, path)| {
+            resolve_vault_path(&base_path, &path)
+                .map(|resolved_path| (doc, resolved_path))
+                .map_err(|e| format!("failed to resolve document path {path}: {e}"))
+        })
         .collect::<Result<_, _>>()?;
 
     let relative_paths: Vec<String> = items
@@ -112,13 +119,31 @@ pub(crate) async fn write_document_batch<R: tauri::Runtime>(
 
     spawn_blocking!({
         items.into_par_iter().try_for_each(|(doc, path)| {
-            if let Some(parent) = path.parent() {
-                std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-            }
-            let content = doc.render().map_err(|e| e.to_string())?;
-            std::fs::write(path, content).map_err(|e| e.to_string())
+            create_parent_dir_for_write(&path)?;
+            let content = doc
+                .render()
+                .map_err(|e| format!("failed to render document for {}: {e}", path.display()))?;
+            write_file_with_context(&path, content)
         })
     })
+}
+
+fn create_parent_dir_for_write(path: &Path) -> Result<(), String> {
+    let Some(parent) = path.parent() else {
+        return Ok(());
+    };
+
+    std::fs::create_dir_all(parent).map_err(|e| {
+        format!(
+            "failed to create parent directory {} for {}: {e}",
+            parent.display(),
+            path.display()
+        )
+    })
+}
+
+fn write_file_with_context(path: &Path, content: String) -> Result<(), String> {
+    std::fs::write(path, content).map_err(|e| format!("failed to write {}: {e}", path.display()))
 }
 
 #[tauri::command]
@@ -460,4 +485,23 @@ pub(crate) async fn attachment_remove<R: tauri::Runtime>(
             .attachment_remove(&session_id, &attachment_id)
             .map_err(|e| e.to_string())
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn create_parent_dir_error_includes_parent_and_target_paths() {
+        let temp = tempfile::tempdir().unwrap();
+        let blocker = temp.path().join("sessions");
+        std::fs::write(&blocker, "not a directory").unwrap();
+
+        let target = blocker.join("session-1").join("_meta.json");
+        let error = create_parent_dir_for_write(&target).unwrap_err();
+
+        assert!(error.contains("failed to create parent directory"));
+        assert!(error.contains(&target.parent().unwrap().display().to_string()));
+        assert!(error.contains(&target.display().to_string()));
+    }
 }

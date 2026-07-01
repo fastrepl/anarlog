@@ -74,6 +74,10 @@ pub fn resolve_path_inside_base(base: &Path, path: &Path) -> Result<PathBuf> {
     let suffix = candidate
         .strip_prefix(existing)
         .map_err(|_| crate::Error::Path("path_outside_base".into()))?;
+    if suffix.as_os_str().is_empty() {
+        return Ok(existing_canonical);
+    }
+
     let resolved = existing_canonical.join(suffix);
     if !resolved.starts_with(&base) {
         return Err(crate::Error::Path("path_outside_base".into()));
@@ -179,6 +183,18 @@ mod tests {
         let result = resolve_path_inside_base(base, &base.join("note.txt")).unwrap();
 
         assert_eq!(result, base.canonicalize().unwrap().join("note.txt"));
+    }
+
+    #[test]
+    fn resolve_path_inside_base_existing_file_is_writable() {
+        let temp = assert_fs::TempDir::new().unwrap();
+        let base = temp.path();
+        temp.child("note.txt").write_str("hello").unwrap();
+
+        let result = resolve_path_inside_base(base, Path::new("note.txt")).unwrap();
+
+        std::fs::write(&result, "updated").unwrap();
+        assert_eq!(std::fs::read_to_string(&result).unwrap(), "updated");
     }
 
     #[test]

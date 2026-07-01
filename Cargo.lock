@@ -18240,6 +18240,7 @@ dependencies = [
  "tauri-plugin-opener",
  "tauri-plugin-settings",
  "tauri-specta",
+ "tempfile",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
