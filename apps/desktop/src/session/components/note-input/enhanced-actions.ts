@@ -4,6 +4,11 @@ import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 
 import { useAITaskTask } from "~/ai/hooks";
 import { useLanguageModel, useLLMConnectionStatus } from "~/ai/hooks";
+import {
+  isMainAITaskHostWindow,
+  requestMainAITaskCancel,
+  requestMainEnhance,
+} from "~/ai/task-window-sync";
 import { shouldShowEmptySummaryConfigError } from "~/session/enhance-config";
 import * as main from "~/store/tinybase/store/main";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
@@ -49,6 +54,14 @@ export function useEnhancedNoteActions({
 
       setMissingModelError(null);
 
+      if (!isMainAITaskHostWindow()) {
+        void requestMainEnhance(sessionId, {
+          templateId: templateId ?? noteTemplateId,
+          targetNoteId: enhancedNoteId,
+        });
+        return;
+      }
+
       void analyticsCommands.event({
         event: "note_enhanced",
         is_auto: false,
@@ -70,12 +83,24 @@ export function useEnhancedNoteActions({
   const isIdleWithConfigError = enhanceTask.isIdle && isConfigError;
   const error = model ? enhanceTask.error : missingModelError;
   const isError = !!error || enhanceTask.isError || isIdleWithConfigError;
+  const onCancel = useCallback(() => {
+    if (!taskId) {
+      return;
+    }
+
+    if (!isMainAITaskHostWindow()) {
+      void requestMainAITaskCancel(taskId);
+      return;
+    }
+
+    enhanceTask.cancel();
+  }, [enhanceTask.cancel, taskId]);
 
   return {
     isGenerating: enhanceTask.isGenerating,
     isError,
     error,
     onRegenerate,
-    onCancel: enhanceTask.cancel,
+    onCancel,
   };
 }
