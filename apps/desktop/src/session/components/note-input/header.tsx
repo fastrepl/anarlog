@@ -721,15 +721,17 @@ function HeaderTabTranscriptButton({
           ? [
               "group/transcript-live",
               isActive ? "w-[98px] min-w-[98px] gap-1.5 pr-1.5 pl-2" : null,
-              live.degraded
-                ? [
-                    "bg-amber-50 text-amber-500 hover:bg-amber-100 hover:text-amber-600",
-                    "dark:bg-amber-950/50 dark:text-amber-300 dark:hover:bg-amber-950 dark:hover:text-amber-200",
-                  ]
-                : [
-                    "bg-red-50 text-red-500 hover:bg-red-100 hover:text-red-600",
-                    "dark:bg-red-950/50 dark:text-red-300 dark:hover:bg-red-950 dark:hover:text-red-200",
-                  ],
+              isActive
+                ? live.degraded
+                  ? [
+                      "bg-amber-50 text-amber-500 hover:bg-amber-100 hover:text-amber-600",
+                      "dark:bg-amber-950/50 dark:text-amber-300 dark:hover:bg-amber-950 dark:hover:text-amber-200",
+                    ]
+                  : [
+                      "bg-red-50 text-red-500 hover:bg-red-100 hover:text-red-600",
+                      "dark:bg-red-950/50 dark:text-red-300 dark:hover:bg-red-950 dark:hover:text-red-200",
+                    ]
+                : null,
             ]
           : null,
         canResume
