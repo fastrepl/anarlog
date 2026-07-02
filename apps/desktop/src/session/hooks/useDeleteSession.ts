@@ -1,5 +1,5 @@
 import { emitTo, listen } from "@tauri-apps/api/event";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getAllWebviewWindows } from "@tauri-apps/api/webviewWindow";
 import { useCallback, useEffect } from "react";
 
 import { getCurrentWebviewWindowLabel } from "@hypr/plugin-windows";
@@ -23,6 +23,20 @@ type SessionDeletedForUndoPayload = {
   sessionId: string;
   data: DeletedSessionData;
 };
+
+async function closeSessionNoteWindows(sessionId: string) {
+  try {
+    const noteWindowLabel = `note-${sessionId}`;
+    const windows = await getAllWebviewWindows();
+    await Promise.all(
+      windows
+        .filter((window) => window.label === noteWindowLabel)
+        .map((window) => window.close().catch(() => undefined)),
+    );
+  } catch {
+    // Closing note windows should not block the deletion path.
+  }
+}
 
 function isSessionDeletedForUndoPayload(
   payload: unknown,
@@ -64,21 +78,23 @@ export function useDeleteSession() {
       });
 
       void (async () => {
-        if (capturedData) {
-          if (windowLabel === "main") {
-            addDeletion(capturedData, () => {
-              void finalizeSessionDeletion(sessionId);
-            });
-          } else {
-            await emitTo("main", SESSION_DELETED_FOR_UNDO_EVENT, {
-              sessionId,
-              data: capturedData,
-            } satisfies SessionDeletedForUndoPayload);
+        try {
+          if (capturedData) {
+            if (windowLabel === "main") {
+              addDeletion(capturedData, () => {
+                void finalizeSessionDeletion(sessionId);
+              });
+            } else {
+              await emitTo("main", SESSION_DELETED_FOR_UNDO_EVENT, {
+                sessionId,
+                data: capturedData,
+              } satisfies SessionDeletedForUndoPayload);
+            }
           }
-        }
-
-        if (windowLabel === `note-${sessionId}`) {
-          await getCurrentWindow().close();
+        } catch {
+          // The note was already deleted locally, so still close matching windows.
+        } finally {
+          await closeSessionNoteWindows(sessionId);
         }
       })();
     },
@@ -87,10 +103,13 @@ export function useDeleteSession() {
 }
 
 export function useRemoteSessionDeletionUndoListener(active: boolean) {
+  const store = main.UI.useStore(main.STORE_ID);
+  const indexes = main.UI.useIndexes(main.STORE_ID);
+  const invalidateResource = useTabs((state) => state.invalidateResource);
   const addDeletion = useUndoDelete((state) => state.addDeletion);
 
   useEffect(() => {
-    if (!active) {
+    if (!active || !store) {
       return;
     }
 
@@ -102,9 +121,14 @@ export function useRemoteSessionDeletionUndoListener(active: boolean) {
         return;
       }
 
+      invalidateResource("sessions", payload.sessionId);
+      deleteSessionCascade(store, indexes, payload.sessionId, {
+        deferFilesystemDelete: true,
+      });
       addDeletion(payload.data, () => {
         void finalizeSessionDeletion(payload.sessionId);
       });
+      void closeSessionNoteWindows(payload.sessionId);
     }).then((fn) => {
       unlisten = fn;
     });
@@ -112,5 +136,5 @@ export function useRemoteSessionDeletionUndoListener(active: boolean) {
     return () => {
       unlisten?.();
     };
-  }, [active, addDeletion]);
+  }, [active, store, indexes, invalidateResource, addDeletion]);
 }

@@ -18,16 +18,19 @@ const mocks = vi.hoisted(() => {
     participants: [],
     tagSessions: [],
     enhancedNotes: [],
+    keyFacts: null,
     deletedAt: 1,
   };
 
   return {
     addDeletion: vi.fn(),
     captureSessionData: vi.fn(() => deletedSessionData),
-    close: vi.fn(() => Promise.resolve()),
     deleteSessionCascade: vi.fn(),
     emitTo: vi.fn(() => Promise.resolve()),
     finalizeSessionDeletion: vi.fn(),
+    getAllWebviewWindows: vi.fn<
+      () => Promise<Array<{ label: string; close: () => Promise<void> }>>
+    >(() => Promise.resolve([])),
     getCurrentWebviewWindowLabel: vi.fn(() => "main"),
     ignoreEvent: vi.fn(),
     indexes: {},
@@ -43,10 +46,8 @@ vi.mock("@tauri-apps/api/event", () => ({
   listen: mocks.listen,
 }));
 
-vi.mock("@tauri-apps/api/window", () => ({
-  getCurrentWindow: () => ({
-    close: mocks.close,
-  }),
+vi.mock("@tauri-apps/api/webviewWindow", () => ({
+  getAllWebviewWindows: mocks.getAllWebviewWindows,
 }));
 
 vi.mock("@hypr/plugin-windows", () => ({
@@ -103,8 +104,8 @@ describe("useDeleteSession", () => {
     cleanup();
     vi.clearAllMocks();
     mocks.captureSessionData.mockReturnValue(mocks.deletedSessionData);
-    mocks.close.mockResolvedValue(undefined);
     mocks.emitTo.mockResolvedValue(undefined);
+    mocks.getAllWebviewWindows.mockResolvedValue([]);
     mocks.getCurrentWebviewWindowLabel.mockReturnValue("main");
     mocks.listen.mockResolvedValue(vi.fn());
   });
@@ -137,11 +138,15 @@ describe("useDeleteSession", () => {
       expect.any(Function),
     );
     expect(mocks.emitTo).not.toHaveBeenCalled();
-    expect(mocks.close).not.toHaveBeenCalled();
   });
 
   it("forwards undo data to main and closes the matching note window", async () => {
+    const close = vi.fn(() => Promise.resolve());
     mocks.getCurrentWebviewWindowLabel.mockReturnValue("note-session-1");
+    mocks.getAllWebviewWindows.mockResolvedValue([
+      { label: "note-session-1", close },
+      { label: "note-session-2", close: vi.fn() },
+    ]);
     const { result } = renderHook(() => useDeleteSession());
 
     act(() => {
@@ -157,10 +162,44 @@ describe("useDeleteSession", () => {
           data: mocks.deletedSessionData,
         },
       );
-      expect(mocks.close).toHaveBeenCalled();
+      expect(close).toHaveBeenCalled();
     });
 
     expect(mocks.addDeletion).not.toHaveBeenCalled();
+  });
+
+  it("closes the matching note window when deleting from the main window", async () => {
+    const close = vi.fn(() => Promise.resolve());
+    mocks.getAllWebviewWindows.mockResolvedValue([
+      { label: "note-session-1", close },
+    ]);
+    const { result } = renderHook(() => useDeleteSession());
+
+    act(() => {
+      result.current("session-1");
+    });
+
+    await waitFor(() => {
+      expect(close).toHaveBeenCalled();
+    });
+  });
+
+  it("still closes the standalone note window when forwarding undo data fails", async () => {
+    const close = vi.fn(() => Promise.resolve());
+    mocks.getCurrentWebviewWindowLabel.mockReturnValue("note-session-1");
+    mocks.emitTo.mockRejectedValue(new Error("main window unavailable"));
+    mocks.getAllWebviewWindows.mockResolvedValue([
+      { label: "note-session-1", close },
+    ]);
+    const { result } = renderHook(() => useDeleteSession());
+
+    act(() => {
+      result.current("session-1");
+    });
+
+    await waitFor(() => {
+      expect(close).toHaveBeenCalled();
+    });
   });
 
   it("listens for forwarded standalone note deletions in the main window", async () => {
@@ -195,6 +234,16 @@ describe("useDeleteSession", () => {
     expect(mocks.addDeletion).toHaveBeenCalledWith(
       mocks.deletedSessionData,
       expect.any(Function),
+    );
+    expect(mocks.invalidateResource).toHaveBeenCalledWith(
+      "sessions",
+      "session-1",
+    );
+    expect(mocks.deleteSessionCascade).toHaveBeenCalledWith(
+      mocks.store,
+      mocks.indexes,
+      "session-1",
+      { deferFilesystemDelete: true },
     );
   });
 });
