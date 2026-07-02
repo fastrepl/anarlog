@@ -48,6 +48,10 @@ type FloatingTranscriptBubble = {
   text: string;
   isSelf: boolean;
   isFinal: boolean;
+  startMs: number;
+  endMs: number;
+  overlapsPrevious: boolean;
+  overlapsNext: boolean;
 };
 type FloatingRouteState = {
   sessionId: string;
@@ -93,6 +97,7 @@ const LIVE_CAPTION_MIN_LINE_COUNT = 1;
 const LIVE_CAPTION_MAX_LINE_COUNT = 4;
 const LIVE_CAPTION_HORIZONTAL_PADDING_PX = 32;
 const LIVE_CAPTION_AVERAGE_CHARACTER_WIDTH_PX = 7.8;
+const FLOATING_TRANSCRIPT_OVERLAP_THRESHOLD_MS = 300;
 
 const LIVE_CAPTION_POSITIONS: ReadonlySet<string> = new Set([
   "topCenter",
@@ -547,9 +552,14 @@ function getFloatingTitle(title: string | null | undefined) {
 export function getFloatingTranscriptBubbles(
   segments: ListenerState["liveSegments"],
 ): FloatingTranscriptBubble[] {
-  return segments
+  const bubbles = segments
     .slice()
-    .sort((a, b) => a.start_ms - b.start_ms)
+    .sort(
+      (a, b) =>
+        a.start_ms - b.start_ms ||
+        a.end_ms - b.end_ms ||
+        a.id.localeCompare(b.id),
+    )
     .map((segment) => {
       const text = getFloatingSegmentText(segment);
       if (!text) {
@@ -562,9 +572,23 @@ export function getFloatingTranscriptBubbles(
         text,
         isSelf: isFloatingSelfSpeaker(segment.key),
         isFinal: segment.words.every((word) => word.is_final),
+        startMs: segment.start_ms,
+        endMs: segment.end_ms,
+        overlapsPrevious: false,
+        overlapsNext: false,
       };
     })
     .filter((bubble): bubble is FloatingTranscriptBubble => bubble !== null);
+
+  return bubbles.map((bubble, index) => ({
+    ...bubble,
+    overlapsPrevious: bubbles
+      .slice(0, index)
+      .some((previous) => doFloatingTranscriptBubblesOverlap(previous, bubble)),
+    overlapsNext: bubbles
+      .slice(index + 1)
+      .some((next) => doFloatingTranscriptBubblesOverlap(bubble, next)),
+  }));
 }
 
 function getFloatingSegmentText(
@@ -601,6 +625,22 @@ function isFloatingSelfSpeaker(
   key: ListenerState["liveSegments"][number]["key"],
 ) {
   return key.channel === "DirectMic";
+}
+
+function doFloatingTranscriptBubblesOverlap(
+  left: FloatingTranscriptBubble,
+  right: FloatingTranscriptBubble,
+) {
+  if (
+    left.isSelf === right.isSelf &&
+    left.speakerLabel === right.speakerLabel
+  ) {
+    return false;
+  }
+
+  const overlapMs =
+    Math.min(left.endMs, right.endMs) - Math.max(left.startMs, right.startMs);
+  return overlapMs >= FLOATING_TRANSCRIPT_OVERLAP_THRESHOLD_MS;
 }
 
 export function shouldShowFloatingLiveCaptionToggle({
@@ -754,7 +794,11 @@ function isSameFloatingTranscriptBubbles(
       bubble.speakerLabel === other.speakerLabel &&
       bubble.text === other.text &&
       bubble.isSelf === other.isSelf &&
-      bubble.isFinal === other.isFinal
+      bubble.isFinal === other.isFinal &&
+      bubble.startMs === other.startMs &&
+      bubble.endMs === other.endMs &&
+      bubble.overlapsPrevious === other.overlapsPrevious &&
+      bubble.overlapsNext === other.overlapsNext
     );
   });
 }

@@ -737,14 +737,21 @@ private struct TranscriptBubbleView: View {
       }
 
       VStack(alignment: bubble.isSelf ? .trailing : .leading, spacing: 4) {
-        if showsSpeakerLabel {
-          Text(bubble.speakerLabel)
-            .font(.system(size: 10, weight: .semibold))
-            .foregroundStyle(Color.white)
-            .lineLimit(1)
-            .padding(.horizontal, 3)
+        if showsSpeakerLabel || isOverlapping {
+          HStack(spacing: 4) {
+            if bubble.isSelf {
+              overlapGlyph
+              speakerLabel
+            } else {
+              speakerLabel
+              overlapGlyph
+            }
+          }
+          .frame(maxWidth: .infinity, alignment: bubble.isSelf ? .trailing : .leading)
+          .padding(.horizontal, 3)
         }
 
+        let shape = RoundedRectangle(cornerRadius: 11, style: .continuous)
         Text(bubble.text)
           .font(.system(size: 13, weight: .regular))
           .foregroundStyle(Color.white)
@@ -753,8 +760,11 @@ private struct TranscriptBubbleView: View {
           .fixedSize(horizontal: false, vertical: true)
           .padding(.horizontal, 11)
           .padding(.vertical, 8)
-          .background(bubbleBackground)
-          .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+          .background(shape.fill(bubbleBackground))
+          .overlay(
+            shape
+              .strokeBorder(overlapStrokeColor, lineWidth: isOverlapping ? 1 : 0)
+          )
       }
 
       if !bubble.isSelf {
@@ -769,6 +779,37 @@ private struct TranscriptBubbleView: View {
     }
 
     return Color.black.opacity(colorScheme == .dark ? 0.28 : 0.2)
+  }
+
+  private var speakerLabel: some View {
+    Group {
+      if showsSpeakerLabel {
+        Text(bubble.speakerLabel)
+          .font(.system(size: 10, weight: .semibold))
+          .foregroundStyle(Color.white)
+          .lineLimit(1)
+      }
+    }
+  }
+
+  private var overlapGlyph: some View {
+    Group {
+      if isOverlapping {
+        Image(systemName: "arrow.left.and.right")
+          .font(.system(size: 8, weight: .bold))
+          .foregroundStyle(Color.white.opacity(0.72))
+          .frame(width: 12, height: 12)
+          .accessibilityLabel("Overlapping speech")
+      }
+    }
+  }
+
+  private var isOverlapping: Bool {
+    bubble.overlapsPrevious || bubble.overlapsNext
+  }
+
+  private var overlapStrokeColor: Color {
+    Color.white.opacity(colorScheme == .dark ? 0.26 : 0.34)
   }
 }
 

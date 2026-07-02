@@ -16,6 +16,10 @@ struct FloatingTranscriptBubblePayload: Codable, Identifiable {
   let text: String
   let isSelf: Bool
   let isFinal: Bool
+  let startMs: Double
+  let endMs: Double
+  let overlapsPrevious: Bool
+  let overlapsNext: Bool
 }
 
 struct FloatingBarStatePayload: Codable {
