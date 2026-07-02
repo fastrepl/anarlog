@@ -48,6 +48,10 @@ clap = { workspace = true, features = ["derive"] }
 hound = { workspace = true }
 hypr-audio-utils = { workspace = true }
 hypr-data = { workspace = true }
+hypr-language = { workspace = true }
 hypr-resampler = { workspace = true }
+hypr-transcribe-soniqo = { workspace = true }
+owhisper-client = { workspace = true, features = ["local"] }
+owhisper-interface = { workspace = true }
 rodio = { workspace = true }
 serial_test = { workspace = true }
