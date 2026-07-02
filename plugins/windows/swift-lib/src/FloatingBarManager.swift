@@ -17,12 +17,13 @@ final class FloatingBarManager {
   private init() {
     model.$isExpanded
       .removeDuplicates()
-      .sink { [weak self] _ in
+      .sink { [weak self] isExpanded in
         guard let self, let panel = self.panel else { return }
         guard !self.isApplyingExternalState else { return }
-        let didResize = self.resize(panel)
+        let layout = self.layout(isExpanded: isExpanded)
+        let didResize = self.resize(panel, to: layout)
         if !didResize {
-          self.position(panel, force: true)
+          self.position(panel, force: true, layout: layout)
         }
       }
       .store(in: &cancellables)
@@ -129,13 +130,18 @@ final class FloatingBarManager {
     return panel
   }
 
-  private func position(_ panel: NSPanel, force: Bool = false) {
-    let size = currentSize
+  private func position(
+    _ panel: NSPanel,
+    force: Bool = false,
+    layout targetLayout: FloatingBarWindowLayout? = nil
+  ) {
+    let layout = targetLayout ?? currentLayout
+    let size = size(for: layout)
     placement.position(
       panel,
       force: force,
       size: size,
-      anchorOffset: controlAnchorOffset(for: currentLayout)
+      anchorOffset: controlAnchorOffset(for: layout)
     ) { screen, size in
       let frame = screen.visibleFrame
       let x = frame.maxX - size.width - FloatingBarLayout.screenMargin
@@ -144,8 +150,12 @@ final class FloatingBarManager {
     }
   }
 
-  private func resize(_ panel: NSPanel) -> Bool {
-    let size = currentSize
+  private func resize(
+    _ panel: NSPanel,
+    to targetLayout: FloatingBarWindowLayout? = nil
+  ) -> Bool {
+    let nextLayout = targetLayout ?? currentLayout
+    let size = size(for: nextLayout)
     let previousSize = panel.frame.size
     panel.minSize = size
     guard previousSize != size else { return false }
@@ -153,9 +163,8 @@ final class FloatingBarManager {
     let previousLayout =
       layout(matching: previousSize)
       ?? FloatingBarWindowLayout(
-        isExpanded: !model.isExpanded,
+        isExpanded: !nextLayout.isExpanded,
         showsExpand: model.liveCaptionToggleVisible)
-    let nextLayout = currentLayout
     let previousAnchorOffset = controlAnchorOffset(for: previousLayout)
     let nextAnchorOffset = controlAnchorOffset(for: nextLayout)
     let anchor = placement.anchorPoint(for: panel, offset: previousAnchorOffset)
@@ -179,8 +188,12 @@ final class FloatingBarManager {
   }
 
   private var currentLayout: FloatingBarWindowLayout {
+    layout(isExpanded: model.isExpanded)
+  }
+
+  private func layout(isExpanded: Bool) -> FloatingBarWindowLayout {
     FloatingBarWindowLayout(
-      isExpanded: model.isExpanded,
+      isExpanded: isExpanded,
       showsExpand: model.liveCaptionToggleVisible
     )
   }
