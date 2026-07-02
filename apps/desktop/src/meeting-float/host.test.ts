@@ -226,7 +226,7 @@ describe("getFloatingRouteState", () => {
 });
 
 describe("getFloatingTranscriptBubbles", () => {
-  it("keeps only the most recent transcript bubbles", () => {
+  it("keeps all transcript bubbles in chronological order", () => {
     const bubbles = getFloatingTranscriptBubbles(
       Array.from({ length: 8 }, (_, index) =>
         createSegment({
@@ -244,6 +244,8 @@ describe("getFloatingTranscriptBubbles", () => {
     );
 
     expect(bubbles.map((bubble) => bubble.id)).toEqual([
+      "segment-0",
+      "segment-1",
       "segment-2",
       "segment-3",
       "segment-4",

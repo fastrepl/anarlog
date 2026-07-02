@@ -93,7 +93,6 @@ const LIVE_CAPTION_MIN_LINE_COUNT = 1;
 const LIVE_CAPTION_MAX_LINE_COUNT = 4;
 const LIVE_CAPTION_HORIZONTAL_PADDING_PX = 32;
 const LIVE_CAPTION_AVERAGE_CHARACTER_WIDTH_PX = 7.8;
-const FLOATING_TRANSCRIPT_BUBBLE_LIMIT = 6;
 
 const LIVE_CAPTION_POSITIONS: ReadonlySet<string> = new Set([
   "topCenter",
@@ -565,8 +564,7 @@ export function getFloatingTranscriptBubbles(
         isFinal: segment.words.every((word) => word.is_final),
       };
     })
-    .filter((bubble): bubble is FloatingTranscriptBubble => bubble !== null)
-    .slice(-FLOATING_TRANSCRIPT_BUBBLE_LIMIT);
+    .filter((bubble): bubble is FloatingTranscriptBubble => bubble !== null);
 }
 
 function getFloatingSegmentText(
