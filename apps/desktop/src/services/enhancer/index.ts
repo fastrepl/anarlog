@@ -189,10 +189,7 @@ export class EnhancerService {
 
   queueAutoEnhanceIfSummaryEmpty(sessionId: string): QueueEmptySummaryResult {
     const templateId = this.deps.getSelectedTemplateId();
-    const existingNoteId = this.getMatchingEnhancedNoteId(
-      sessionId,
-      templateId,
-    );
+    const existingNoteId = this.getAutoEnhancedNoteId(sessionId, templateId);
 
     if (existingNoteId && this.hasEnhancedNoteContent(existingNoteId)) {
       return { type: "summary_exists", noteId: existingNoteId };
@@ -271,12 +268,20 @@ export class EnhancerService {
     const model = getModel();
     if (!model) return { type: "no_model" };
 
-    const templateId = resolveTemplateId(opts, getSelectedTemplateId);
+    let templateId = resolveTemplateId(opts, getSelectedTemplateId);
     const targetNoteId = opts?.targetNoteId
       ? this.getSessionEnhancedNoteId(sessionId, opts.targetNoteId)
       : undefined;
+    const autoNoteId =
+      !targetNoteId && opts?.isAuto
+        ? this.getAutoEnhancedNoteId(sessionId, templateId)
+        : undefined;
+    if (autoNoteId) {
+      templateId = this.getEnhancedNoteTemplateId(autoNoteId);
+    }
+
     const enhancedNoteId =
-      targetNoteId ?? this.ensureNote(sessionId, templateId);
+      targetNoteId ?? autoNoteId ?? this.ensureNote(sessionId, templateId);
     const enhanceTaskId = createTaskId(enhancedNoteId, "enhance");
     const existingTask = aiTaskStore.getState().getState(enhanceTaskId);
     if (existingTask?.status === "generating") {
@@ -389,6 +394,43 @@ export class EnhancerService {
         | undefined;
       return (tid || undefined) === normalizedTemplateId;
     });
+  }
+
+  private getAutoEnhancedNoteId(
+    sessionId: string,
+    templateId?: string,
+  ): string | undefined {
+    return (
+      this.getMatchingEnhancedNoteId(sessionId, templateId) ??
+      this.getFirstEnhancedNoteId(sessionId)
+    );
+  }
+
+  private getFirstEnhancedNoteId(sessionId: string): string | undefined {
+    return this.getEnhancedNoteIds(sessionId).sort((a, b) => {
+      const aPosition =
+        (this.deps.mainStore.getCell("enhanced_notes", a, "position") as
+          | number
+          | undefined) ?? Number.MAX_SAFE_INTEGER;
+      const bPosition =
+        (this.deps.mainStore.getCell("enhanced_notes", b, "position") as
+          | number
+          | undefined) ?? Number.MAX_SAFE_INTEGER;
+
+      return aPosition - bPosition;
+    })[0];
+  }
+
+  private getEnhancedNoteTemplateId(
+    enhancedNoteId: string,
+  ): string | undefined {
+    return (
+      (this.deps.mainStore.getCell(
+        "enhanced_notes",
+        enhancedNoteId,
+        "template_id",
+      ) as string | undefined) || undefined
+    );
   }
 
   private hasEnhancedNoteContent(enhancedNoteId: string): boolean {

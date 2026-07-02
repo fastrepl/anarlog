@@ -190,6 +190,46 @@ describe("EnhancerService", () => {
       );
     });
 
+    it("auto-enhance reuses an existing note with its stored template", () => {
+      const tables = createTables({
+        enhanced_notes: {
+          "existing-note": {
+            session_id: "session-1",
+            template_id: "one-on-one",
+            content: "",
+          },
+        },
+      });
+      const store = createMockStore(tables);
+      const generate = vi.fn().mockResolvedValue(undefined);
+      const aiTaskStore = createMockAITaskStore();
+      aiTaskStore.getState.mockReturnValue({
+        generate,
+        getState: vi.fn().mockReturnValue(undefined),
+      });
+      const deps = createDeps({
+        mainStore: store,
+        indexes: createMockIndexes(tables),
+        aiTaskStore,
+        getSelectedTemplateId: () => undefined,
+      });
+      const service = new EnhancerService(deps);
+
+      const result = service.enhance("session-1", { isAuto: true });
+
+      expect(result).toEqual({ type: "started", noteId: "existing-note" });
+      expect(store.setRow).not.toHaveBeenCalled();
+      expect(generate).toHaveBeenCalledWith("existing-note-enhance", {
+        model: expect.anything(),
+        taskType: "enhance",
+        args: {
+          sessionId: "session-1",
+          enhancedNoteId: "existing-note",
+          templateId: "one-on-one",
+        },
+      });
+    });
+
     it("returns already_active when task is generating", () => {
       const tables = createTables({
         enhanced_notes: {
@@ -448,6 +488,33 @@ describe("EnhancerService", () => {
 
       const result = service.queueAutoEnhanceIfSummaryEmpty("session-1");
       expect(result).toEqual({ type: "summary_exists", noteId: "note-1" });
+      expect(aiTaskStore.getState().generate).not.toHaveBeenCalled();
+      expect((service as any).activeAutoEnhance.has("session-1")).toBe(false);
+    });
+
+    it("skips auto-enhance when an existing templated summary already has content", () => {
+      const tables = createTables({
+        enhanced_notes: {
+          "note-1": {
+            session_id: "session-1",
+            template_id: "one-on-one",
+            content: "Generated summary",
+          },
+        },
+      });
+      const store = createMockStore(tables);
+      const aiTaskStore = createMockAITaskStore();
+      const deps = createDeps({
+        mainStore: store,
+        indexes: createMockIndexes(tables),
+        aiTaskStore,
+        getSelectedTemplateId: () => undefined,
+      });
+      const service = new EnhancerService(deps);
+
+      const result = service.queueAutoEnhanceIfSummaryEmpty("session-1");
+      expect(result).toEqual({ type: "summary_exists", noteId: "note-1" });
+      expect(store.setRow).not.toHaveBeenCalled();
       expect(aiTaskStore.getState().generate).not.toHaveBeenCalled();
       expect((service as any).activeAutoEnhance.has("session-1")).toBe(false);
     });
