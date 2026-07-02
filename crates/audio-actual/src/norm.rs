@@ -144,6 +144,10 @@ mod tests {
 
         let sample_rate: u32 = audio.sample_rate().into();
         let mut normalized = audio.normalize();
+        let output_path = std::env::temp_dir().join(format!(
+            "audio_actual_normalized_output_{}.wav",
+            std::process::id()
+        ));
 
         let mut writer = {
             let spec = hound::WavSpec {
@@ -152,8 +156,7 @@ mod tests {
                 bits_per_sample: 32,
                 sample_format: hound::SampleFormat::Float,
             };
-            let output_path = std::path::Path::new("./normalized_output.wav");
-            hound::WavWriter::create(output_path, spec).unwrap()
+            hound::WavWriter::create(&output_path, spec).unwrap()
         };
 
         let mut stream = normalized.as_stream();
@@ -161,5 +164,6 @@ mod tests {
             writer.write_sample(sample).unwrap();
         }
         writer.finalize().unwrap();
+        let _ = std::fs::remove_file(output_path);
     }
 }
