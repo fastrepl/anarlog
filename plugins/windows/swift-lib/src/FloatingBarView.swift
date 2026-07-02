@@ -4,12 +4,12 @@ import SwiftUI
 enum FloatingBarLayout {
   static let inset: CGFloat = 4
   static let screenMargin: CGFloat = 8
-  static let compactHeight: CGFloat = 42
-  static let compactStopWidth: CGFloat = 72
-  static let compactSoloStopWidth: CGFloat = 78
-  static let compactIconSize: CGFloat = 34
-  static let compactGap: CGFloat = 4
-  static let compactHorizontalPadding: CGFloat = 5
+  static let compactHeight: CGFloat = 38
+  static let compactStopWidth: CGFloat = 62
+  static let compactSoloStopWidth: CGFloat = 68
+  static let compactIconSize: CGFloat = 30
+  static let compactGap: CGFloat = 3
+  static let compactHorizontalPadding: CGFloat = 4
   static let compactCornerControlFactor: CGFloat = 0.55228475
   static let expandedWidth: CGFloat = 360
   static let expandedHeight: CGFloat = 430

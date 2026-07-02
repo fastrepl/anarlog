@@ -49,7 +49,10 @@ final class FloatingBarManager {
           panelOrigin: { [weak self] in self?.panel?.frame.origin },
           movePanel: { [weak self] origin in
             guard let self, let panel = self.panel else { return }
-            self.placement.moveByUserDrag(panel, to: origin)
+            self.placement.moveByUserDrag(
+              panel,
+              to: origin,
+              anchorOffset: self.controlAnchorOffset(for: self.currentLayout))
           }))
       hostingView.frame = NSRect(
         x: 0,
@@ -131,7 +134,8 @@ final class FloatingBarManager {
     placement.position(
       panel,
       force: force,
-      size: size
+      size: size,
+      anchorOffset: controlAnchorOffset(for: currentLayout)
     ) { screen, size in
       let frame = screen.visibleFrame
       let x = frame.maxX - size.width - FloatingBarLayout.screenMargin
@@ -154,16 +158,18 @@ final class FloatingBarManager {
     let nextLayout = currentLayout
     let previousAnchorOffset = controlAnchorOffset(for: previousLayout)
     let nextAnchorOffset = controlAnchorOffset(for: nextLayout)
-    let anchor = NSPoint(
-      x: panel.frame.minX + previousAnchorOffset.x,
-      y: panel.frame.minY + previousAnchorOffset.y
-    )
+    let anchor = placement.anchorPoint(for: panel, offset: previousAnchorOffset)
     let frame = NSRect(
       x: anchor.x - nextAnchorOffset.x,
       y: anchor.y - nextAnchorOffset.y,
       width: size.width,
       height: size.height)
-    placement.setFrame(panel, to: frame, display: true, animate: false)
+    placement.setFrame(
+      panel,
+      to: frame,
+      display: true,
+      animate: false,
+      anchorOffset: nextAnchorOffset)
     panel.contentView?.frame = NSRect(origin: .zero, size: size)
     return true
   }

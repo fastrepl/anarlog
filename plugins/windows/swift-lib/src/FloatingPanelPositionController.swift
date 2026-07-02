@@ -3,6 +3,7 @@ import Cocoa
 final class FloatingPanelPositionController: NSObject, NSWindowDelegate {
   private var activeScreenId: CGDirectDisplayID?
   private var pinnedOrigin: NSPoint?
+  private var pinnedAnchor: NSPoint?
   private var isProgrammaticMove = false
   private var programmaticMoveId = 0
   private var programmaticOrigin: NSPoint?
@@ -12,15 +13,21 @@ final class FloatingPanelPositionController: NSObject, NSWindowDelegate {
     _ panel: NSPanel,
     force: Bool = false,
     size: NSSize? = nil,
+    anchorOffset: NSPoint? = nil,
     defaultOrigin: (NSScreen, NSSize) -> NSPoint
   ) {
     let panelSize = size ?? panel.frame.size
 
     if let pinnedOrigin {
       if force {
-        let origin = clampedOrigin(pinnedOrigin, size: panelSize)
+        let origin = clampedOrigin(
+          originForPinnedFrame(pinnedOrigin, anchorOffset: anchorOffset),
+          size: panelSize)
         move(panel, to: origin)
         self.pinnedOrigin = origin
+        self.pinnedAnchor = anchorOffset.map { anchorOffset in
+          NSPoint(x: origin.x + anchorOffset.x, y: origin.y + anchorOffset.y)
+        }
         let frame = NSRect(origin: origin, size: panelSize)
         activeScreenId =
           (screen(containing: frame) ?? panel.screen).flatMap { displayId(for: $0) }
@@ -38,7 +45,13 @@ final class FloatingPanelPositionController: NSObject, NSWindowDelegate {
     activeScreenId = screenId
   }
 
-  func setFrame(_ panel: NSPanel, to frame: NSRect, display: Bool, animate: Bool) {
+  func setFrame(
+    _ panel: NSPanel,
+    to frame: NSRect,
+    display: Bool,
+    animate: Bool,
+    anchorOffset: NSPoint? = nil
+  ) {
     let wasPinned = pinnedOrigin != nil
 
     performProgrammaticMove(expectedOrigin: frame.origin) {
@@ -48,6 +61,9 @@ final class FloatingPanelPositionController: NSObject, NSWindowDelegate {
 
     if wasPinned {
       pinnedOrigin = frame.origin
+      pinnedAnchor = anchorOffset.map { anchorOffset in
+        NSPoint(x: frame.origin.x + anchorOffset.x, y: frame.origin.y + anchorOffset.y)
+      }
       activeScreenId =
         (screen(containing: frame) ?? panel.screen).flatMap { displayId(for: $0) }
     }
@@ -59,11 +75,15 @@ final class FloatingPanelPositionController: NSObject, NSWindowDelegate {
 
   func clearPinnedOrigin() {
     pinnedOrigin = nil
+    pinnedAnchor = nil
   }
 
-  func moveByUserDrag(_ panel: NSPanel, to origin: NSPoint) {
+  func moveByUserDrag(_ panel: NSPanel, to origin: NSPoint, anchorOffset: NSPoint? = nil) {
     panel.setFrameOrigin(origin)
     pinnedOrigin = panel.frame.origin
+    pinnedAnchor = anchorOffset.map { anchorOffset in
+      NSPoint(x: panel.frame.origin.x + anchorOffset.x, y: panel.frame.origin.y + anchorOffset.y)
+    }
     activeScreenId = panel.screen.flatMap { displayId(for: $0) }
     programmaticOrigin = nil
   }
@@ -77,6 +97,7 @@ final class FloatingPanelPositionController: NSObject, NSWindowDelegate {
       width: size.width,
       height: size.height)
     pinnedOrigin = frame.origin
+    pinnedAnchor = nil
     activeScreenId =
       (screen(containing: frame) ?? panel.screen).flatMap { displayId(for: $0) }
   }
@@ -101,7 +122,13 @@ final class FloatingPanelPositionController: NSObject, NSWindowDelegate {
 
     programmaticOrigin = nil
     pinnedOrigin = origin
+    pinnedAnchor = nil
     activeScreenId = panel.screen.flatMap { displayId(for: $0) }
+  }
+
+  func anchorPoint(for panel: NSPanel, offset: NSPoint) -> NSPoint {
+    pinnedAnchor
+      ?? NSPoint(x: panel.frame.minX + offset.x, y: panel.frame.minY + offset.y)
   }
 
   private func move(_ panel: NSPanel, to origin: NSPoint) {
@@ -109,6 +136,14 @@ final class FloatingPanelPositionController: NSObject, NSWindowDelegate {
       panel.setFrameOrigin(origin)
       return panel.frame.origin
     }
+  }
+
+  private func originForPinnedFrame(_ origin: NSPoint, anchorOffset: NSPoint?) -> NSPoint {
+    guard let pinnedAnchor, let anchorOffset else { return origin }
+
+    return NSPoint(
+      x: pinnedAnchor.x - anchorOffset.x,
+      y: pinnedAnchor.y - anchorOffset.y)
   }
 
   private func performProgrammaticMove(expectedOrigin: NSPoint, updateFrame: () -> NSPoint) {
