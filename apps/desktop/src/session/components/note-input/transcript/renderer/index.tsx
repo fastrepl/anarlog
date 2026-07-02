@@ -102,16 +102,17 @@ export function TranscriptViewer({
         ? [LIVE_TRANSCRIPT_PLACEHOLDER_ID]
         : [];
 
+  const canShowScrollChip = !currentActive && (!isAtTop || !isAtBottom);
   const scrollChip =
-    chat.mode === "FloatingOpen"
+    chat.mode === "FloatingOpen" || !canShowScrollChip
       ? null
-      : currentActive && scrollTarget === "bottom" && !isAtBottom
+      : scrollTarget === "bottom" && !isAtBottom
         ? {
             icon: ArrowDownIcon,
             label: "Go to bottom",
             onClick: scrollToBottom,
           }
-        : currentActive && scrollTarget === "top" && !isAtTop
+        : scrollTarget === "top" && !isAtTop
           ? {
               icon: ArrowUpIcon,
               label: "Go to top",

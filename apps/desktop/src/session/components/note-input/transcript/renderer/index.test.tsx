@@ -167,7 +167,7 @@ describe("TranscriptViewer", () => {
     expect(screen.queryByRole("button", { name: "Go to top" })).toBeNull();
   });
 
-  it("shows the bottom chip after upward scroll movement", () => {
+  it("does not show the bottom chip after upward scroll movement in active sessions", () => {
     mocks.scrollDetection.isAtTop = false;
     mocks.scrollDetection.isAtBottom = false;
     mocks.scrollDetection.scrollTarget = "bottom";
@@ -181,6 +181,24 @@ describe("TranscriptViewer", () => {
       />,
     );
 
+    expect(screen.queryByRole("button", { name: "Go to bottom" })).toBeNull();
+    expect(mocks.scrollToBottom).not.toHaveBeenCalled();
+  });
+
+  it("shows the bottom chip after upward scroll movement in inactive sessions", () => {
+    mocks.scrollDetection.isAtTop = false;
+    mocks.scrollDetection.isAtBottom = false;
+    mocks.scrollDetection.scrollTarget = "bottom";
+
+    render(
+      <TranscriptViewer
+        transcriptIds={["transcript-1"]}
+        liveSegments={[]}
+        currentActive={false}
+        scrollRef={createRef()}
+      />,
+    );
+
     const button = screen.getByRole("button", { name: "Go to bottom" });
     button.click();
 
@@ -189,7 +207,7 @@ describe("TranscriptViewer", () => {
     expect(mocks.scrollToBottom).toHaveBeenCalledTimes(1);
   });
 
-  it("shows the top chip after downward scroll movement", () => {
+  it("does not show the top chip after downward scroll movement in active sessions", () => {
     mocks.scrollDetection.isAtTop = false;
     mocks.scrollDetection.scrollTarget = "top";
 
@@ -198,6 +216,23 @@ describe("TranscriptViewer", () => {
         transcriptIds={["transcript-1"]}
         liveSegments={[]}
         currentActive
+        scrollRef={createRef()}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Go to top" })).toBeNull();
+    expect(mocks.scrollToTop).not.toHaveBeenCalled();
+  });
+
+  it("shows the top chip after downward scroll movement in inactive sessions", () => {
+    mocks.scrollDetection.isAtTop = false;
+    mocks.scrollDetection.scrollTarget = "top";
+
+    render(
+      <TranscriptViewer
+        transcriptIds={["transcript-1"]}
+        liveSegments={[]}
+        currentActive={false}
         scrollRef={createRef()}
       />,
     );
@@ -226,7 +261,7 @@ describe("TranscriptViewer", () => {
       <TranscriptViewer
         transcriptIds={["transcript-1"]}
         liveSegments={[]}
-        currentActive
+        currentActive={false}
         scrollRef={createRef()}
       />,
     );
@@ -251,7 +286,7 @@ describe("TranscriptViewer", () => {
       <TranscriptViewer
         transcriptIds={["transcript-1"]}
         liveSegments={[]}
-        currentActive
+        currentActive={false}
         scrollRef={createRef()}
       />,
     );
