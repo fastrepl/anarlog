@@ -371,6 +371,10 @@ export type FloatingTranscriptBubble = {
   text: string;
   isSelf: boolean;
   isFinal: boolean;
+  startMs: number;
+  endMs: number;
+  overlapsPrevious: boolean;
+  overlapsNext: boolean;
 };
 export type JsonValue =
   | null

@@ -25,6 +25,10 @@ pub struct FloatingTranscriptBubble {
     pub text: String,
     pub is_self: bool,
     pub is_final: bool,
+    pub start_ms: f64,
+    pub end_ms: f64,
+    pub overlaps_previous: bool,
+    pub overlaps_next: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]

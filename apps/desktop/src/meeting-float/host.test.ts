@@ -163,6 +163,10 @@ describe("getFloatingRouteState", () => {
         text: "summary yep.",
         isSelf: true,
         isFinal: true,
+        startMs: 100,
+        endMs: 200,
+        overlapsPrevious: false,
+        overlapsNext: false,
       },
       {
         id: "remote-1",
@@ -170,6 +174,10 @@ describe("getFloatingRouteState", () => {
         text: "being bingo",
         isSelf: false,
         isFinal: false,
+        startMs: 200,
+        endMs: 300,
+        overlapsPrevious: false,
+        overlapsNext: false,
       },
     ]);
   });
@@ -277,6 +285,10 @@ describe("getFloatingTranscriptBubbles", () => {
         text: "hello",
         isSelf: true,
         isFinal: true,
+        startMs: 0,
+        endMs: 100,
+        overlapsPrevious: false,
+        overlapsNext: false,
       },
     ]);
   });
@@ -303,6 +315,52 @@ describe("getFloatingTranscriptBubbles", () => {
         text: "hello",
         isSelf: true,
         isFinal: true,
+        startMs: 0,
+        endMs: 100,
+        overlapsPrevious: false,
+        overlapsNext: false,
+      },
+    ]);
+  });
+
+  it("marks bubbles that overlap different speakers", () => {
+    const bubbles = getFloatingTranscriptBubbles([
+      createSegment({
+        id: "you",
+        key: {
+          channel: "DirectMic",
+          speaker_index: null,
+          speaker_human_id: null,
+        },
+        start_ms: 100,
+        end_ms: 900,
+        text: "how it changes",
+        words: [{ text: "how" }, { text: "it" }, { text: "changes" }],
+      }),
+      createSegment({
+        id: "speaker",
+        key: {
+          channel: "RemoteParty",
+          speaker_index: 0,
+          speaker_human_id: null,
+        },
+        start_ms: 500,
+        end_ms: 1100,
+        text: "ah how it changes",
+        words: [{ text: "ah" }, { text: "how" }, { text: "it" }],
+      }),
+    ]);
+
+    expect(bubbles).toMatchObject([
+      {
+        id: "you",
+        overlapsPrevious: false,
+        overlapsNext: true,
+      },
+      {
+        id: "speaker",
+        overlapsPrevious: true,
+        overlapsNext: false,
       },
     ]);
   });
