@@ -1519,6 +1519,7 @@ dependencies = [
  "audio-utils",
  "bytes",
  "cidre",
+ "clap",
  "cpal",
  "dasp",
  "data",
