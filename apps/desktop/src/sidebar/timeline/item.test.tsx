@@ -286,7 +286,9 @@ describe("TimelineItemComponent", () => {
       countdown.getAttribute("data-sidebar-timeline-upcoming-countdown"),
     ).toBe("true");
     expect(countdown.className).toContain("bg-destructive");
-    expect(countdown.className).toContain("w-24");
+    expect(countdown.className).toContain("rounded-full");
+    expect(countdown.className).toContain("text-[11px]");
+    expect(countdown.className).not.toContain("w-24");
     expect(countdown.className).toContain("justify-center");
   });
 

@@ -222,7 +222,7 @@ function ItemBase({
               data-sidebar-timeline-upcoming-countdown
               className={cn([
                 "bg-destructive text-destructive-foreground pointer-events-none shrink-0",
-                "inline-flex h-8 w-24 items-center justify-center rounded-lg px-2 text-xs leading-none font-medium whitespace-nowrap",
+                "inline-flex h-6 items-center justify-center rounded-full px-2 text-[11px] leading-none font-medium whitespace-nowrap",
               ])}
             >
               {upcomingLabel}
