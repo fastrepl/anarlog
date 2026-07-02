@@ -478,17 +478,17 @@ msgstr ""
 msgid "Date and time are required"
 msgstr ""
 
-#: src/session/components/outer-header/overflow/delete.tsx:98
+#: src/session/components/outer-header/overflow/delete.tsx:73
 #: src/templates/sections-editor.tsx:280
 #: src/templates/template-form.tsx:285
 msgid "Delete"
 msgstr ""
 
-#: src/sidebar/timeline/item.tsx:419
+#: src/sidebar/timeline/item.tsx:414
 msgid "Delete All Recurring Events"
 msgstr ""
 
-#: src/sidebar/timeline/item.tsx:412
+#: src/sidebar/timeline/item.tsx:407
 msgid "Delete Event"
 msgstr ""
 
@@ -496,11 +496,11 @@ msgstr ""
 msgid "Delete model"
 msgstr ""
 
-#: src/sidebar/timeline/item.tsx:611
+#: src/sidebar/timeline/item.tsx:575
 msgid "Delete Note"
 msgstr ""
 
-#: src/session/components/outer-header/overflow/delete.tsx:51
+#: src/session/components/outer-header/overflow/delete.tsx:44
 msgid "Delete recording"
 msgstr ""
 
@@ -508,11 +508,11 @@ msgstr ""
 msgid "Delete Selected ({sessionCount})"
 msgstr ""
 
-#: src/sidebar/timeline/item.tsx:412
+#: src/sidebar/timeline/item.tsx:407
 msgid "Delete This Event"
 msgstr ""
 
-#: src/session/components/outer-header/overflow/delete.tsx:49
+#: src/session/components/outer-header/overflow/delete.tsx:42
 msgid "Deleting..."
 msgstr ""
 
@@ -1147,12 +1147,12 @@ msgstr ""
 msgid "Open floating panel"
 msgstr ""
 
-#: src/sidebar/timeline/item.tsx:406
+#: src/sidebar/timeline/item.tsx:401
 msgid "Open in New Tab"
 msgstr ""
 
 #: src/session/components/outer-header/overflow/index.tsx:164
-#: src/sidebar/timeline/item.tsx:600
+#: src/sidebar/timeline/item.tsx:564
 msgid "Open in New Window"
 msgstr ""
 
@@ -1533,7 +1533,7 @@ msgstr ""
 msgid "Share usage data"
 msgstr "사용 데이터 공유"
 
-#: src/sidebar/timeline/item.tsx:394
+#: src/sidebar/timeline/item.tsx:389
 msgid "Show All Recurring Events"
 msgstr ""
 
@@ -1549,7 +1549,7 @@ msgstr ""
 msgid "Show Deleted Events"
 msgstr ""
 
-#: src/sidebar/timeline/item.tsx:400
+#: src/sidebar/timeline/item.tsx:395
 msgid "Show Event"
 msgstr ""
 
@@ -1558,7 +1558,7 @@ msgid "Show floating bar"
 msgstr ""
 
 #: src/settings/ai/stt/select.tsx:812
-#: src/sidebar/timeline/item.tsx:605
+#: src/sidebar/timeline/item.tsx:569
 msgid "Show in Finder"
 msgstr ""
 
@@ -1566,7 +1566,7 @@ msgstr ""
 msgid "Show the compact floating control while listening."
 msgstr "듣는 동안 작은 플로팅 컨트롤을 표시합니다."
 
-#: src/sidebar/timeline/item.tsx:389
+#: src/sidebar/timeline/item.tsx:384
 msgid "Show This Event"
 msgstr ""
 
@@ -1678,7 +1678,7 @@ msgstr ""
 msgid "Stop"
 msgstr ""
 
-#: src/sidebar/timeline/item.tsx:244
+#: src/sidebar/timeline/item.tsx:239
 msgid "Stop listening"
 msgstr ""
 
@@ -1823,9 +1823,9 @@ msgstr ""
 #: src/session/components/title-input.tsx:385
 #: src/shared/open-note-dialog.tsx:107
 #: src/shared/ui/resource-list/preview-header.tsx:73
-#: src/sidebar/timeline/item.tsx:205
-#: src/sidebar/timeline/item.tsx:312
-#: src/sidebar/timeline/item.tsx:552
+#: src/sidebar/timeline/item.tsx:200
+#: src/sidebar/timeline/item.tsx:307
+#: src/sidebar/timeline/item.tsx:543
 #: src/templates/details.tsx:122
 #: src/templates/sections-editor.tsx:293
 msgid "Untitled"

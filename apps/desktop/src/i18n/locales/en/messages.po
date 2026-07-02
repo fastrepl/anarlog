@@ -478,17 +478,17 @@ msgstr "Dark"
 msgid "Date and time are required"
 msgstr "Date and time are required"
 
-#: src/session/components/outer-header/overflow/delete.tsx:98
+#: src/session/components/outer-header/overflow/delete.tsx:73
 #: src/templates/sections-editor.tsx:280
 #: src/templates/template-form.tsx:285
 msgid "Delete"
 msgstr "Delete"
 
-#: src/sidebar/timeline/item.tsx:419
+#: src/sidebar/timeline/item.tsx:414
 msgid "Delete All Recurring Events"
 msgstr "Delete All Recurring Events"
 
-#: src/sidebar/timeline/item.tsx:412
+#: src/sidebar/timeline/item.tsx:407
 msgid "Delete Event"
 msgstr "Delete Event"
 
@@ -496,11 +496,11 @@ msgstr "Delete Event"
 msgid "Delete model"
 msgstr "Delete model"
 
-#: src/sidebar/timeline/item.tsx:611
+#: src/sidebar/timeline/item.tsx:575
 msgid "Delete Note"
 msgstr "Delete Note"
 
-#: src/session/components/outer-header/overflow/delete.tsx:51
+#: src/session/components/outer-header/overflow/delete.tsx:44
 msgid "Delete recording"
 msgstr "Delete recording"
 
@@ -508,11 +508,11 @@ msgstr "Delete recording"
 msgid "Delete Selected ({sessionCount})"
 msgstr "Delete Selected ({sessionCount})"
 
-#: src/sidebar/timeline/item.tsx:412
+#: src/sidebar/timeline/item.tsx:407
 msgid "Delete This Event"
 msgstr "Delete This Event"
 
-#: src/session/components/outer-header/overflow/delete.tsx:49
+#: src/session/components/outer-header/overflow/delete.tsx:42
 msgid "Deleting..."
 msgstr "Deleting..."
 
@@ -1147,12 +1147,12 @@ msgstr "Open calendar account actions"
 msgid "Open floating panel"
 msgstr "Open floating panel"
 
-#: src/sidebar/timeline/item.tsx:406
+#: src/sidebar/timeline/item.tsx:401
 msgid "Open in New Tab"
 msgstr "Open in New Tab"
 
 #: src/session/components/outer-header/overflow/index.tsx:164
-#: src/sidebar/timeline/item.tsx:600
+#: src/sidebar/timeline/item.tsx:564
 msgid "Open in New Window"
 msgstr "Open in New Window"
 
@@ -1533,7 +1533,7 @@ msgstr "Settings"
 msgid "Share usage data"
 msgstr "Share usage data"
 
-#: src/sidebar/timeline/item.tsx:394
+#: src/sidebar/timeline/item.tsx:389
 msgid "Show All Recurring Events"
 msgstr "Show All Recurring Events"
 
@@ -1549,7 +1549,7 @@ msgstr "Show app in Dock"
 msgid "Show Deleted Events"
 msgstr "Show Deleted Events"
 
-#: src/sidebar/timeline/item.tsx:400
+#: src/sidebar/timeline/item.tsx:395
 msgid "Show Event"
 msgstr "Show Event"
 
@@ -1558,7 +1558,7 @@ msgid "Show floating bar"
 msgstr "Show floating bar"
 
 #: src/settings/ai/stt/select.tsx:812
-#: src/sidebar/timeline/item.tsx:605
+#: src/sidebar/timeline/item.tsx:569
 msgid "Show in Finder"
 msgstr "Show in Finder"
 
@@ -1566,7 +1566,7 @@ msgstr "Show in Finder"
 msgid "Show the compact floating control while listening."
 msgstr "Show the compact floating control while listening."
 
-#: src/sidebar/timeline/item.tsx:389
+#: src/sidebar/timeline/item.tsx:384
 msgid "Show This Event"
 msgstr "Show This Event"
 
@@ -1678,7 +1678,7 @@ msgstr "Starting your trial..."
 msgid "Stop"
 msgstr "Stop"
 
-#: src/sidebar/timeline/item.tsx:244
+#: src/sidebar/timeline/item.tsx:239
 msgid "Stop listening"
 msgstr "Stop listening"
 
@@ -1823,9 +1823,9 @@ msgstr "Unnamed"
 #: src/session/components/title-input.tsx:385
 #: src/shared/open-note-dialog.tsx:107
 #: src/shared/ui/resource-list/preview-header.tsx:73
-#: src/sidebar/timeline/item.tsx:205
-#: src/sidebar/timeline/item.tsx:312
-#: src/sidebar/timeline/item.tsx:552
+#: src/sidebar/timeline/item.tsx:200
+#: src/sidebar/timeline/item.tsx:307
+#: src/sidebar/timeline/item.tsx:543
 #: src/templates/details.tsx:122
 #: src/templates/sections-editor.tsx:293
 msgid "Untitled"
