@@ -461,15 +461,20 @@ export function buildTimelineBuckets({
         return;
       }
 
+      const trackingId = getSessionTrackingId(row);
+      if (trackingId) {
+        if (seenEventKeys.has(trackingId)) {
+          return;
+        }
+
+        seenEventKeys.add(trackingId);
+      }
+
       items.push({
         type: "session",
         id: sessionId,
         data: row,
       });
-      const trackingId = getSessionTrackingId(row);
-      if (trackingId) {
-        seenEventKeys.add(trackingId);
-      }
     });
   }
 
@@ -487,6 +492,10 @@ export function buildTimelineBuckets({
       }
 
       if (!isPast(timeToCheck)) {
+        if (trackingId) {
+          seenEventKeys.add(trackingId);
+        }
+
         items.push({
           type: "event",
           id: eventId,

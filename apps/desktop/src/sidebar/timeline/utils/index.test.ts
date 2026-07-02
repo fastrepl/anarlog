@@ -359,6 +359,74 @@ describe("timeline utils", () => {
     expect(containsLinkedEvent).toBe(false);
   });
 
+  test("buildTimelineBuckets deduplicates event rows with the same tracking id", () => {
+    const timelineEventsTable: TimelineEventsTable = {
+      "event-a": {
+        title: "Team standup",
+        started_at: "2024-01-15T12:03:00.000Z",
+        ended_at: "2024-01-15T12:30:00.000Z",
+        calendar_id: "cal-1",
+        tracking_id_event: "event-standup",
+        has_recurrence_rules: false,
+      },
+      "event-b": {
+        title: "Team standup",
+        started_at: "2024-01-15T12:03:00.000Z",
+        ended_at: "2024-01-15T12:30:00.000Z",
+        calendar_id: "cal-1",
+        tracking_id_event: "event-standup",
+        has_recurrence_rules: false,
+      },
+    };
+
+    const buckets = buildTimelineBuckets({
+      timelineEventsTable,
+      timelineSessionsTable: null,
+    });
+
+    const eventItems = buckets
+      .flatMap((bucket) => bucket.items)
+      .filter((item) => item.type === "event");
+
+    expect(eventItems).toHaveLength(1);
+    expect(eventItems[0]?.id).toBe("event-a");
+  });
+
+  test("buildTimelineBuckets deduplicates event-backed sessions with the same tracking id", () => {
+    const timelineSessionsTable: TimelineSessionsTable = {
+      "session-a": {
+        title: "Team standup",
+        created_at: "2024-01-15T11:50:00.000Z",
+        event_json: JSON.stringify({
+          tracking_id: "event-standup",
+          started_at: "2024-01-15T12:03:00.000Z",
+          ended_at: "2024-01-15T12:30:00.000Z",
+        }),
+      },
+      "session-b": {
+        title: "Team standup",
+        created_at: "2024-01-15T11:55:00.000Z",
+        event_json: JSON.stringify({
+          tracking_id: "event-standup",
+          started_at: "2024-01-15T12:03:00.000Z",
+          ended_at: "2024-01-15T12:30:00.000Z",
+        }),
+      },
+    };
+
+    const buckets = buildTimelineBuckets({
+      timelineEventsTable: null,
+      timelineSessionsTable,
+    });
+
+    const sessionItems = buckets
+      .flatMap((bucket) => bucket.items)
+      .filter((item) => item.type === "session");
+
+    expect(sessionItems).toHaveLength(1);
+    expect(sessionItems[0]?.id).toBe("session-a");
+  });
+
   test("buildTimelineBuckets excludes past events but keeps related sessions", () => {
     const timelineEventsTable: TimelineEventsTable = {
       "event-past": {
