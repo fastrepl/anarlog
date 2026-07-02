@@ -821,7 +821,7 @@ msgstr ""
 msgid "Insert below"
 msgstr ""
 
-#: src/session/components/note-input/header.tsx:971
+#: src/session/components/note-input/header.tsx:973
 msgid "Insights"
 msgstr ""
 
@@ -1436,7 +1436,7 @@ msgstr ""
 msgid "Search people"
 msgstr ""
 
-#: src/session/components/note-input/header.tsx:1349
+#: src/session/components/note-input/header.tsx:1351
 #: src/templates/template-sidebar.tsx:354
 msgid "Search templates..."
 msgstr ""
@@ -1454,7 +1454,7 @@ msgstr ""
 msgid "Section actions"
 msgstr ""
 
-#: src/session/components/note-input/header.tsx:1415
+#: src/session/components/note-input/header.tsx:1417
 msgid "See all templates"
 msgstr ""
 
@@ -1512,7 +1512,7 @@ msgstr ""
 msgid "Send message"
 msgstr ""
 
-#: src/session/components/note-input/header.tsx:1456
+#: src/session/components/note-input/header.tsx:1458
 msgid "Session note tabs"
 msgstr ""
 

@@ -821,7 +821,7 @@ msgstr "Insert above"
 msgid "Insert below"
 msgstr "Insert below"
 
-#: src/session/components/note-input/header.tsx:971
+#: src/session/components/note-input/header.tsx:973
 msgid "Insights"
 msgstr "Insights"
 
@@ -1436,7 +1436,7 @@ msgstr "Search or type owner/repo"
 msgid "Search people"
 msgstr "Search people"
 
-#: src/session/components/note-input/header.tsx:1349
+#: src/session/components/note-input/header.tsx:1351
 #: src/templates/template-sidebar.tsx:354
 msgid "Search templates..."
 msgstr "Search templates..."
@@ -1454,7 +1454,7 @@ msgstr "Search..."
 msgid "Section actions"
 msgstr "Section actions"
 
-#: src/session/components/note-input/header.tsx:1415
+#: src/session/components/note-input/header.tsx:1417
 msgid "See all templates"
 msgstr "See all templates"
 
@@ -1512,7 +1512,7 @@ msgstr "Send email"
 msgid "Send message"
 msgstr "Send message"
 
-#: src/session/components/note-input/header.tsx:1456
+#: src/session/components/note-input/header.tsx:1458
 msgid "Session note tabs"
 msgstr "Session note tabs"
 
