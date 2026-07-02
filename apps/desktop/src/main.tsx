@@ -28,6 +28,7 @@ import { FloatingMeetingWindowHost } from "./meeting-float/host";
 import { routeTree } from "./routeTree.gen";
 import { EventListeners } from "./services/event-listeners";
 import { TaskManager } from "./services/task-manager";
+import { useRemoteSessionDeletionUndoListener } from "./session/hooks/useDeleteSession";
 import { RawEditorSyncBridge } from "./session/raw-editor-sync";
 import { ErrorComponent, NotFoundComponent } from "./shared/control";
 import { bootstrapThemeFromSettings } from "./shared/theme/apply";
@@ -116,6 +117,7 @@ function AppWithTiny() {
     return createManager().start();
   });
   const isMainWindow = getCurrentWebviewWindowLabel() === "main";
+  useRemoteSessionDeletionUndoListener(isMainWindow);
 
   return (
     <QueryClientProvider client={queryClient}>

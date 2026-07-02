@@ -23,23 +23,18 @@ import {
 } from "./utils";
 
 import { writeSessionContextDragData } from "~/chat/context/session-drag";
+import { useDeleteSession } from "~/session/hooks/useDeleteSession";
 import { useIsSessionEnhancing } from "~/session/hooks/useEnhancedNotes";
 import { getSessionEvent } from "~/session/utils";
 import { openStandaloneNoteWindow } from "~/session/window";
 import type { MenuItemDef } from "~/shared/hooks/useNativeContextMenu";
 import { InteractiveButton } from "~/shared/ui/interactive-button";
 import { useIgnoredEvents } from "~/store/tinybase/hooks";
-import {
-  captureSessionData,
-  deleteSessionCascade,
-  finalizeSessionDeletion,
-} from "~/store/tinybase/store/deleteSession";
 import * as main from "~/store/tinybase/store/main";
 import { getOrCreateSessionForEventId } from "~/store/tinybase/store/sessions";
 import { useSessionTitle } from "~/store/zustand/live-title";
 import { type TabInput, useTabs } from "~/store/zustand/tabs";
 import { useTimelineSelection } from "~/store/zustand/timeline-selection";
-import { useUndoDelete } from "~/store/zustand/undo-delete";
 import { useListener } from "~/stt/contexts";
 
 export const TimelineItemComponent = memo(
@@ -478,12 +473,8 @@ const SessionItem = memo(
     upcomingLabel?: string;
   }) => {
     const { t } = useLingui();
-    const store = main.UI.useStore(main.STORE_ID);
-    const indexes = main.UI.useIndexes(main.STORE_ID);
     const openCurrent = useTabs((state) => state.openCurrent);
-    const invalidateResource = useTabs((state) => state.invalidateResource);
-    const addDeletion = useUndoDelete((state) => state.addDeletion);
-    const { ignoreEvent } = useIgnoredEvents();
+    const deleteSession = useDeleteSession();
 
     const sessionId = item.id;
     const storeTitle = main.UI.useCell(
@@ -556,35 +547,8 @@ const SessionItem = memo(
     );
 
     const handleDelete = useCallback(() => {
-      if (!store) {
-        return;
-      }
-
-      if (sessionEvent?.tracking_id) {
-        ignoreEvent(sessionEvent.tracking_id);
-      }
-
-      const capturedData = captureSessionData(store, indexes, sessionId);
-
-      invalidateResource("sessions", sessionId);
-      void deleteSessionCascade(store, indexes, sessionId, {
-        deferFilesystemDelete: true,
-      });
-
-      if (capturedData) {
-        addDeletion(capturedData, () => {
-          void finalizeSessionDeletion(sessionId);
-        });
-      }
-    }, [
-      store,
-      indexes,
-      sessionId,
-      sessionEvent,
-      ignoreEvent,
-      invalidateResource,
-      addDeletion,
-    ]);
+      deleteSession(sessionId, sessionEvent?.tracking_id);
+    }, [deleteSession, sessionId, sessionEvent?.tracking_id]);
 
     const handleShowInFinder = useCallback(async () => {
       const result = await fsSyncCommands.sessionDir(sessionId);

@@ -1,4 +1,8 @@
-import { useCallback } from "react";
+import { emitTo, listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { useCallback, useEffect } from "react";
+
+import { getCurrentWebviewWindowLabel } from "@hypr/plugin-windows";
 
 import { useIgnoredEvents } from "~/store/tinybase/hooks";
 import {
@@ -8,7 +12,31 @@ import {
 } from "~/store/tinybase/store/deleteSession";
 import * as main from "~/store/tinybase/store/main";
 import { useTabs } from "~/store/zustand/tabs";
-import { useUndoDelete } from "~/store/zustand/undo-delete";
+import {
+  type DeletedSessionData,
+  useUndoDelete,
+} from "~/store/zustand/undo-delete";
+
+const SESSION_DELETED_FOR_UNDO_EVENT = "hypr://session-deleted-for-undo";
+
+type SessionDeletedForUndoPayload = {
+  sessionId: string;
+  data: DeletedSessionData;
+};
+
+function isSessionDeletedForUndoPayload(
+  payload: unknown,
+): payload is SessionDeletedForUndoPayload {
+  return (
+    typeof payload === "object" &&
+    payload !== null &&
+    "sessionId" in payload &&
+    typeof payload.sessionId === "string" &&
+    "data" in payload &&
+    typeof payload.data === "object" &&
+    payload.data !== null
+  );
+}
 
 export function useDeleteSession() {
   const store = main.UI.useStore(main.STORE_ID);
@@ -28,18 +56,61 @@ export function useDeleteSession() {
       }
 
       const capturedData = captureSessionData(store, indexes, sessionId);
+      const windowLabel = getCurrentWebviewWindowLabel();
 
       invalidateResource("sessions", sessionId);
-      void deleteSessionCascade(store, indexes, sessionId, {
+      deleteSessionCascade(store, indexes, sessionId, {
         deferFilesystemDelete: true,
       });
 
-      if (capturedData) {
-        addDeletion(capturedData, () => {
-          void finalizeSessionDeletion(sessionId);
-        });
-      }
+      void (async () => {
+        if (capturedData) {
+          if (windowLabel === "main") {
+            addDeletion(capturedData, () => {
+              void finalizeSessionDeletion(sessionId);
+            });
+          } else {
+            await emitTo("main", SESSION_DELETED_FOR_UNDO_EVENT, {
+              sessionId,
+              data: capturedData,
+            } satisfies SessionDeletedForUndoPayload);
+          }
+        }
+
+        if (windowLabel === `note-${sessionId}`) {
+          await getCurrentWindow().close();
+        }
+      })();
     },
     [store, indexes, ignoreEvent, invalidateResource, addDeletion],
   );
+}
+
+export function useRemoteSessionDeletionUndoListener(active: boolean) {
+  const addDeletion = useUndoDelete((state) => state.addDeletion);
+
+  useEffect(() => {
+    if (!active) {
+      return;
+    }
+
+    let unlisten: (() => void) | undefined;
+
+    void listen(SESSION_DELETED_FOR_UNDO_EVENT, (event) => {
+      const payload = event.payload;
+      if (!isSessionDeletedForUndoPayload(payload)) {
+        return;
+      }
+
+      addDeletion(payload.data, () => {
+        void finalizeSessionDeletion(payload.sessionId);
+      });
+    }).then((fn) => {
+      unlisten = fn;
+    });
+
+    return () => {
+      unlisten?.();
+    };
+  }, [active, addDeletion]);
 }
