@@ -2,6 +2,7 @@ use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::{Path, PathBuf};
+use std::process::{Child, Command, Stdio};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::Context;
@@ -66,6 +67,7 @@ struct RunSummary {
     provider: Option<String>,
     model: Option<String>,
     playback_file: Option<String>,
+    playback_engine: Option<String>,
     playback_volume: Option<f32>,
     transcript_jsonl: Option<String>,
     raw_mic_wav: String,
@@ -251,6 +253,10 @@ async fn main() -> anyhow::Result<()> {
         provider: args.provider,
         model: args.model,
         playback_file: args.playback_file.as_ref().map(|path| path_string(path)),
+        playback_engine: args
+            .playback_file
+            .as_ref()
+            .map(|_| playback_engine().to_string()),
         playback_volume: args.playback_file.as_ref().map(|_| args.playback_volume),
         transcript_jsonl: args.transcript_jsonl.as_ref().map(|path| path_string(path)),
         raw_mic_wav: path_string(&raw_mic_path),
@@ -445,6 +451,79 @@ fn write_wav(path: &Path, samples: &[f32], sample_rate: u32) -> anyhow::Result<(
 }
 
 fn start_playback(path: PathBuf, volume: f32) -> anyhow::Result<std::sync::mpsc::Sender<()>> {
+    start_playback_impl(path, volume)
+}
+
+fn playback_engine() -> &'static str {
+    #[cfg(target_os = "macos")]
+    {
+        "afplay"
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        "rodio"
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn start_playback_impl(path: PathBuf, volume: f32) -> anyhow::Result<std::sync::mpsc::Sender<()>> {
+    let (stop_tx, stop_rx) = std::sync::mpsc::channel::<()>();
+    let (ready_tx, ready_rx) = std::sync::mpsc::channel::<Result<(), String>>();
+
+    std::thread::spawn(move || {
+        let result = (|| -> anyhow::Result<()> {
+            let mut child = spawn_afplay(&path, volume)?;
+            let _ = ready_tx.send(Ok(()));
+
+            loop {
+                if stop_rx.try_recv().is_ok() {
+                    stop_playback_child(&mut child);
+                    return Ok(());
+                }
+
+                if child.try_wait()?.is_some() {
+                    child = spawn_afplay(&path, volume)?;
+                }
+
+                std::thread::sleep(Duration::from_millis(100));
+            }
+        })();
+
+        if let Err(error) = result {
+            let _ = ready_tx.send(Err(error.to_string()));
+        }
+    });
+
+    match ready_rx.recv().context("wait for playback startup")? {
+        Ok(()) => Ok(stop_tx),
+        Err(error) => Err(anyhow::anyhow!(error)),
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn spawn_afplay(path: &Path, volume: f32) -> anyhow::Result<Child> {
+    Command::new("afplay")
+        .arg("--volume")
+        .arg(volume.to_string())
+        .arg(path)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .with_context(|| format!("start afplay for {}", path.display()))
+}
+
+#[cfg(target_os = "macos")]
+fn stop_playback_child(child: &mut Child) {
+    if child.try_wait().ok().flatten().is_none() {
+        let _ = child.kill();
+    }
+    let _ = child.wait();
+}
+
+#[cfg(not(target_os = "macos"))]
+fn start_playback_impl(path: PathBuf, volume: f32) -> anyhow::Result<std::sync::mpsc::Sender<()>> {
     let (stop_tx, stop_rx) = std::sync::mpsc::channel::<()>();
     let (ready_tx, ready_rx) = std::sync::mpsc::channel::<Result<(), String>>();
 

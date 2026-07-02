@@ -148,21 +148,6 @@ where
     }
 }
 
-pub(crate) fn push_f32_to_ringbuf<P>(data: &[f32], producer: &mut P) -> PushStats
-where
-    P: Producer<Item = f32>,
-{
-    if data.is_empty() {
-        return PushStats::default();
-    }
-
-    let pushed = producer.push_slice(data);
-    PushStats {
-        pushed,
-        dropped: data.len() - pushed,
-    }
-}
-
 #[cfg_attr(not(any(target_os = "linux", target_os = "windows")), allow(dead_code))]
 pub(crate) fn push_f32le_bytes_first_channel_to_ringbuf<P>(
     data: &[u8],
