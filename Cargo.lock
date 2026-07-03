@@ -1519,7 +1519,6 @@ dependencies = [
  "audio-utils",
  "bytes",
  "cidre",
- "clap",
  "cpal",
  "dasp",
  "data",
@@ -1527,10 +1526,7 @@ dependencies = [
  "futures-channel",
  "futures-util",
  "hound",
- "language",
  "libpulse-binding",
- "owhisper-client",
- "owhisper-interface",
  "pin-project",
  "pipewire",
  "resampler",
@@ -1544,7 +1540,6 @@ dependencies = [
  "tokio-stream",
  "tokio-util",
  "tracing",
- "transcribe-soniqo",
  "wasapi",
 ]
 
