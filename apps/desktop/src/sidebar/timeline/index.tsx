@@ -160,6 +160,9 @@ export const TimelineView = memo(function TimelineView({
     }
     return keys;
   }, [buckets]);
+  const flatItemKeysRef = useRef(flatItemKeys);
+  flatItemKeysRef.current = flatItemKeys;
+  const getFlatItemKeys = useCallback(() => flatItemKeysRef.current, []);
   const flatSessionItemKeys = useMemo(
     () => flatItemKeys.filter(isSessionItemKey),
     [flatItemKeys],
@@ -516,7 +519,7 @@ export const TimelineView = memo(function TimelineView({
                   suppressCurrentTimeIndicator={hasActiveVisibleSession}
                   timezone={timezone}
                   selectedIds={selectedIds}
-                  flatItemKeys={flatItemKeys}
+                  getFlatItemKeys={getFlatItemKeys}
                   upcomingItemKey={upcomingMeetingStatus?.itemKey}
                   upcomingItemLabel={upcomingMeetingStatus?.label}
                   upcomingItemNodeRef={setUpcomingMeetingNodeRef}
@@ -534,7 +537,7 @@ export const TimelineView = memo(function TimelineView({
                       selected={selected}
                       timezone={timezone}
                       multiSelected={selectedIds.includes(itemKey)}
-                      flatItemKeys={flatItemKeys}
+                      getFlatItemKeys={getFlatItemKeys}
                       selectedNodeRef={
                         selected ? scrollSelectedSessionIntoView : undefined
                       }
@@ -852,7 +855,7 @@ function TodayBucket({
   suppressCurrentTimeIndicator,
   timezone,
   selectedIds,
-  flatItemKeys,
+  getFlatItemKeys,
   upcomingItemKey,
   upcomingItemLabel,
   upcomingItemNodeRef,
@@ -865,7 +868,7 @@ function TodayBucket({
   suppressCurrentTimeIndicator: boolean;
   timezone?: string;
   selectedIds: string[];
-  flatItemKeys: string[];
+  getFlatItemKeys: () => string[];
   upcomingItemKey?: string;
   upcomingItemLabel?: string;
   upcomingItemNodeRef: RefCallback<HTMLDivElement>;
@@ -939,7 +942,7 @@ function TodayBucket({
           selected={selected}
           timezone={timezone}
           multiSelected={selectedIds.includes(itemKey)}
-          flatItemKeys={flatItemKeys}
+          getFlatItemKeys={getFlatItemKeys}
           selectedNodeRef={selected ? selectedNodeRef : undefined}
           itemNodeRef={
             itemKey === upcomingItemKey ? upcomingItemNodeRef : undefined
@@ -1009,7 +1012,7 @@ function TodayBucket({
     suppressCurrentTimeIndicator,
     timezone,
     selectedIds,
-    flatItemKeys,
+    getFlatItemKeys,
     upcomingItemKey,
     upcomingItemLabel,
     upcomingItemNodeRef,

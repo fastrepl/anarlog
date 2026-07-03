@@ -37,87 +37,9 @@ import { useTabs } from "~/store/zustand/tabs";
 import { useTimelineSelection } from "~/store/zustand/timeline-selection";
 import { useListener } from "~/stt/contexts";
 
-export const TimelineItemComponent = memo(
-  ({
-    item,
-    precision,
-    selected,
-    timezone,
-    multiSelected,
-    flatItemKeys,
-    selectedNodeRef,
-    itemNodeRef,
-    isUpcoming,
-    upcomingLabel,
-  }: {
-    item: TimelineItem;
-    precision: TimelinePrecision;
-    selected: boolean;
-    timezone?: string;
-    multiSelected: boolean;
-    flatItemKeys: string[];
-    selectedNodeRef?: RefCallback<HTMLDivElement>;
-    itemNodeRef?: RefCallback<HTMLDivElement>;
-    isUpcoming?: boolean;
-    upcomingLabel?: string;
-  }) => {
-    if (item.type === "event") {
-      return (
-        <EventItem
-          item={item}
-          precision={precision}
-          selected={selected}
-          timezone={timezone}
-          multiSelected={multiSelected}
-          flatItemKeys={flatItemKeys}
-          selectedNodeRef={selectedNodeRef}
-          itemNodeRef={itemNodeRef}
-          isUpcoming={isUpcoming}
-          upcomingLabel={upcomingLabel}
-        />
-      );
-    }
-    return (
-      <SessionItem
-        item={item}
-        precision={precision}
-        selected={selected}
-        timezone={timezone}
-        multiSelected={multiSelected}
-        flatItemKeys={flatItemKeys}
-        selectedNodeRef={selectedNodeRef}
-        itemNodeRef={itemNodeRef}
-        isUpcoming={isUpcoming}
-        upcomingLabel={upcomingLabel}
-      />
-    );
-  },
-);
+const EMPTY_TIMELINE_ITEM_KEYS: string[] = [];
 
-function ItemBase({
-  title,
-  displayTime,
-  isLive,
-  amplitude,
-  showSpinner,
-  selected,
-  ignored,
-  muted,
-  multiSelected,
-  onClick,
-  onDoubleClick,
-  onCmdClick,
-  onShiftClick,
-  onStop,
-  onDragStart,
-  contextMenu,
-  draggable,
-  selectedNodeRef,
-  itemNodeRef,
-  timelineSessionId,
-  isUpcoming,
-  upcomingLabel,
-}: {
+type ItemBaseProps = {
   title: string;
   displayTime: string;
   isLive?: boolean;
@@ -140,7 +62,94 @@ function ItemBase({
   timelineSessionId?: string;
   isUpcoming?: boolean;
   upcomingLabel?: string;
-}) {
+};
+
+export const TimelineItemComponent = memo(
+  ({
+    item,
+    precision,
+    selected,
+    timezone,
+    multiSelected,
+    flatItemKeys,
+    getFlatItemKeys,
+    selectedNodeRef,
+    itemNodeRef,
+    isUpcoming,
+    upcomingLabel,
+  }: {
+    item: TimelineItem;
+    precision: TimelinePrecision;
+    selected: boolean;
+    timezone?: string;
+    multiSelected: boolean;
+    flatItemKeys?: string[];
+    getFlatItemKeys?: () => string[];
+    selectedNodeRef?: RefCallback<HTMLDivElement>;
+    itemNodeRef?: RefCallback<HTMLDivElement>;
+    isUpcoming?: boolean;
+    upcomingLabel?: string;
+  }) => {
+    const readFlatItemKeys =
+      getFlatItemKeys ?? (() => flatItemKeys ?? EMPTY_TIMELINE_ITEM_KEYS);
+
+    if (item.type === "event") {
+      return (
+        <EventItem
+          item={item}
+          precision={precision}
+          selected={selected}
+          timezone={timezone}
+          multiSelected={multiSelected}
+          getFlatItemKeys={readFlatItemKeys}
+          selectedNodeRef={selectedNodeRef}
+          itemNodeRef={itemNodeRef}
+          isUpcoming={isUpcoming}
+          upcomingLabel={upcomingLabel}
+        />
+      );
+    }
+    return (
+      <SessionItem
+        item={item}
+        precision={precision}
+        selected={selected}
+        timezone={timezone}
+        multiSelected={multiSelected}
+        getFlatItemKeys={readFlatItemKeys}
+        selectedNodeRef={selectedNodeRef}
+        itemNodeRef={itemNodeRef}
+        isUpcoming={isUpcoming}
+        upcomingLabel={upcomingLabel}
+      />
+    );
+  },
+);
+
+const ItemBase = memo(function ItemBase({
+  title,
+  displayTime,
+  isLive,
+  amplitude,
+  showSpinner,
+  selected,
+  ignored,
+  muted,
+  multiSelected,
+  onClick,
+  onDoubleClick,
+  onCmdClick,
+  onShiftClick,
+  onStop,
+  onDragStart,
+  contextMenu,
+  draggable,
+  selectedNodeRef,
+  itemNodeRef,
+  timelineSessionId,
+  isUpcoming,
+  upcomingLabel,
+}: ItemBaseProps) {
   const { t } = useLingui();
   const hasSelection = useTimelineSelection((s) => s.selectedIds.length > 0);
   const showLiveStop = isLive && onStop;
@@ -271,6 +280,33 @@ function ItemBase({
       ) : null}
     </div>
   );
+}, itemBasePropsAreEqual);
+
+function itemBasePropsAreEqual(prev: ItemBaseProps, next: ItemBaseProps) {
+  return (
+    prev.title === next.title &&
+    prev.displayTime === next.displayTime &&
+    prev.isLive === next.isLive &&
+    prev.amplitude === next.amplitude &&
+    prev.showSpinner === next.showSpinner &&
+    prev.selected === next.selected &&
+    prev.ignored === next.ignored &&
+    prev.muted === next.muted &&
+    prev.multiSelected === next.multiSelected &&
+    prev.onClick === next.onClick &&
+    prev.onDoubleClick === next.onDoubleClick &&
+    prev.onCmdClick === next.onCmdClick &&
+    prev.onShiftClick === next.onShiftClick &&
+    prev.onStop === next.onStop &&
+    prev.onDragStart === next.onDragStart &&
+    prev.contextMenu === next.contextMenu &&
+    prev.draggable === next.draggable &&
+    prev.selectedNodeRef === next.selectedNodeRef &&
+    prev.itemNodeRef === next.itemNodeRef &&
+    prev.timelineSessionId === next.timelineSessionId &&
+    prev.isUpcoming === next.isUpcoming &&
+    prev.upcomingLabel === next.upcomingLabel
+  );
 }
 
 const EventItem = memo(
@@ -280,7 +316,7 @@ const EventItem = memo(
     selected,
     timezone,
     multiSelected,
-    flatItemKeys,
+    getFlatItemKeys,
     selectedNodeRef,
     itemNodeRef,
     isUpcoming,
@@ -291,7 +327,7 @@ const EventItem = memo(
     selected: boolean;
     timezone?: string;
     multiSelected: boolean;
-    flatItemKeys: string[];
+    getFlatItemKeys: () => string[];
     selectedNodeRef?: RefCallback<HTMLDivElement>;
     itemNodeRef?: RefCallback<HTMLDivElement>;
     isUpcoming?: boolean;
@@ -343,8 +379,8 @@ const EventItem = memo(
     }, [itemKey]);
 
     const handleShiftClick = useCallback(() => {
-      useTimelineSelection.getState().selectRange(flatItemKeys, itemKey);
-    }, [flatItemKeys, itemKey]);
+      useTimelineSelection.getState().selectRange(getFlatItemKeys(), itemKey);
+    }, [getFlatItemKeys, itemKey]);
 
     const handleIgnore = useCallback(() => {
       if (!trackingIdEvent) return;
@@ -439,7 +475,7 @@ const SessionItem = memo(
     selected,
     timezone,
     multiSelected,
-    flatItemKeys,
+    getFlatItemKeys,
     selectedNodeRef,
     itemNodeRef,
     isUpcoming,
@@ -450,7 +486,7 @@ const SessionItem = memo(
     selected: boolean;
     timezone?: string;
     multiSelected: boolean;
-    flatItemKeys: string[];
+    getFlatItemKeys: () => string[];
     selectedNodeRef?: RefCallback<HTMLDivElement>;
     itemNodeRef?: RefCallback<HTMLDivElement>;
     isUpcoming?: boolean;
@@ -512,8 +548,8 @@ const SessionItem = memo(
     }, [itemKey]);
 
     const handleShiftClick = useCallback(() => {
-      useTimelineSelection.getState().selectRange(flatItemKeys, itemKey);
-    }, [flatItemKeys, itemKey]);
+      useTimelineSelection.getState().selectRange(getFlatItemKeys(), itemKey);
+    }, [getFlatItemKeys, itemKey]);
 
     const handleOpenStandaloneWindow = useCallback(() => {
       void openStandaloneNoteWindow(sessionId);
