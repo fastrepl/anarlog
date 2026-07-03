@@ -10,9 +10,8 @@ use crate::{FinalizeHandle, ListenClientDualInput, ListenClientInput};
 
 const FLUSH_INTERVAL: Duration = Duration::from_millis(250);
 const ECHO_GATE_MIN_SAMPLES: usize = 512;
-const ECHO_GATE_MAX_LAG_SAMPLES: usize = 3200;
-const ECHO_GATE_LAG_STEP_SAMPLES: usize = 80;
-const ECHO_GATE_REFERENCE_HISTORY_SAMPLES: usize = 4800;
+const ECHO_GATE_MAX_LAG_SAMPLES: isize = 1600;
+const ECHO_GATE_LAG_STEP_SAMPLES: isize = 80;
 const ECHO_GATE_MIN_MIC_RMS: f32 = 0.0025;
 const ECHO_GATE_MIN_SPEAKER_RMS: f32 = 0.01;
 const ECHO_GATE_MIN_CORRELATION: f32 = 0.55;
@@ -177,7 +176,6 @@ async fn run_dual(
     let mut spk_buffer = Vec::<f32>::new();
     let mut mic_cursor = 0.0;
     let mut spk_cursor = 0.0;
-    let mut echo_gate = EchoGate::default();
     let mut interval = tokio::time::interval(FLUSH_INTERVAL);
     interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
 
@@ -198,7 +196,7 @@ async fn run_dual(
                     MixedMessage::Audio((mic, spk)) => {
                         let mut mic_samples = i16_bytes_to_f32(&mic);
                         let spk_samples = i16_bytes_to_f32(&spk);
-                        if echo_gate.suppress_echo_dominant_mic(&mut mic_samples, &spk_samples) {
+                        if suppress_echo_dominant_mic(&mut mic_samples, &spk_samples) {
                             tracing::debug!("soniqo_echo_dominant_mic_chunk_suppressed");
                         }
                         mic_buffer.extend(mic_samples);
@@ -426,84 +424,21 @@ fn i16_bytes_to_f32(bytes: &Bytes) -> Vec<f32> {
         .collect()
 }
 
-#[derive(Default)]
-struct EchoGate {
-    speaker_history: Vec<f32>,
-}
-
-impl EchoGate {
-    fn suppress_echo_dominant_mic(&mut self, mic: &mut [f32], speaker: &[f32]) -> bool {
-        let score = self.best_echo_score(mic, speaker);
-        self.push_speaker(speaker);
-
-        let Some(score) = score else {
-            return false;
-        };
-
-        if !is_echo_dominant(score) {
-            return false;
-        }
-
-        mic.fill(0.0);
-        true
-    }
-
-    fn best_echo_score(&self, mic: &[f32], speaker: &[f32]) -> Option<EchoScore> {
-        let current = best_echo_score(mic, speaker);
-
-        if self.speaker_history.is_empty() {
-            return current;
-        }
-
-        let mut reference = Vec::with_capacity(self.speaker_history.len() + speaker.len());
-        reference.extend_from_slice(&self.speaker_history);
-        reference.extend_from_slice(speaker);
-
-        let history =
-            best_echo_score_against_reference(mic, &reference, self.speaker_history.len());
-
-        match (current, history) {
-            (Some(current), Some(history)) if current.correlation >= history.correlation => {
-                Some(current)
-            }
-            (Some(_), Some(history)) => Some(history),
-            (Some(current), None) => Some(current),
-            (None, Some(history)) => Some(history),
-            (None, None) => None,
-        }
-    }
-
-    fn push_speaker(&mut self, speaker: &[f32]) {
-        self.speaker_history.extend_from_slice(speaker);
-        let overflow = self
-            .speaker_history
-            .len()
-            .saturating_sub(ECHO_GATE_REFERENCE_HISTORY_SAMPLES);
-        if overflow > 0 {
-            self.speaker_history.drain(..overflow);
-        }
-    }
-}
-
-#[cfg(test)]
 fn suppress_echo_dominant_mic(mic: &mut [f32], speaker: &[f32]) -> bool {
     let Some(score) = best_echo_score(mic, speaker) else {
         return false;
     };
 
-    if !is_echo_dominant(score) {
+    if score.correlation < ECHO_GATE_MIN_CORRELATION
+        || score.residual_ratio > ECHO_GATE_MAX_RESIDUAL_RATIO
+        || score.mic_rms < ECHO_GATE_MIN_MIC_RMS
+        || score.speaker_rms < ECHO_GATE_MIN_SPEAKER_RMS
+    {
         return false;
     }
 
     mic.fill(0.0);
     true
-}
-
-fn is_echo_dominant(score: EchoScore) -> bool {
-    score.correlation >= ECHO_GATE_MIN_CORRELATION
-        && score.residual_ratio <= ECHO_GATE_MAX_RESIDUAL_RATIO
-        && score.mic_rms >= ECHO_GATE_MIN_MIC_RMS
-        && score.speaker_rms >= ECHO_GATE_MIN_SPEAKER_RMS
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -520,12 +455,12 @@ fn best_echo_score(mic: &[f32], speaker: &[f32]) -> Option<EchoScore> {
         return None;
     }
 
-    let max_lag = ECHO_GATE_MAX_LAG_SAMPLES.min(len - ECHO_GATE_MIN_SAMPLES);
+    let max_lag = ECHO_GATE_MAX_LAG_SAMPLES.min((len - ECHO_GATE_MIN_SAMPLES) as isize);
     let mut best = echo_score_at_lag(&mic[..len], &speaker[..len], 0);
     let mut lag = ECHO_GATE_LAG_STEP_SAMPLES;
 
     while lag <= max_lag {
-        for lag in [-(lag as isize), lag as isize] {
+        for lag in [-lag, lag] {
             if let Some(score) = echo_score_at_lag(&mic[..len], &speaker[..len], lag) {
                 if best
                     .map(|current| score.correlation > current.correlation)
@@ -541,68 +476,24 @@ fn best_echo_score(mic: &[f32], speaker: &[f32]) -> Option<EchoScore> {
     best
 }
 
-fn best_echo_score_against_reference(
-    mic: &[f32],
-    reference: &[f32],
-    current_start: usize,
-) -> Option<EchoScore> {
-    if mic.len() < ECHO_GATE_MIN_SAMPLES || reference.len() < ECHO_GATE_MIN_SAMPLES {
-        return None;
-    }
-
-    let max_lag = ECHO_GATE_MAX_LAG_SAMPLES as isize;
-    let mut best = echo_score_at_reference_lag(mic, reference, current_start, 0);
-    let mut lag = ECHO_GATE_LAG_STEP_SAMPLES as isize;
-
-    while lag <= max_lag {
-        for lag in [-lag, lag] {
-            if let Some(score) = echo_score_at_reference_lag(mic, reference, current_start, lag) {
-                if best
-                    .map(|current| score.correlation > current.correlation)
-                    .unwrap_or(true)
-                {
-                    best = Some(score);
-                }
-            }
-        }
-        lag += ECHO_GATE_LAG_STEP_SAMPLES as isize;
-    }
-
-    best
-}
-
 fn echo_score_at_lag(mic: &[f32], speaker: &[f32], lag: isize) -> Option<EchoScore> {
-    echo_score_at_reference_lag(mic, speaker, 0, lag)
-}
-
-fn echo_score_at_reference_lag(
-    mic: &[f32],
-    reference: &[f32],
-    current_start: usize,
-    lag: isize,
-) -> Option<EchoScore> {
-    let mic_len = mic.len() as isize;
-    let reference_len = reference.len() as isize;
-    let current_start = current_start as isize;
-    let mic_start = 0.max(lag - current_start);
-    let mic_end = mic_len.min(reference_len - current_start + lag);
-    if mic_end <= mic_start {
-        return None;
-    }
-
-    let mic_start = mic_start as usize;
-    let overlap = (mic_end as usize).saturating_sub(mic_start);
+    let len = mic.len().min(speaker.len());
+    let (mic_start, speaker_start) = if lag >= 0 {
+        (lag as usize, 0)
+    } else {
+        (0, lag.unsigned_abs())
+    };
+    let overlap = len.saturating_sub(mic_start.max(speaker_start));
     if overlap < ECHO_GATE_MIN_SAMPLES {
         return None;
     }
-    let reference_start = (current_start + mic_start as isize - lag) as usize;
 
     let mut mic_energy = 0.0;
     let mut speaker_energy = 0.0;
     let mut cross_energy = 0.0;
     for idx in 0..overlap {
         let mic_sample = mic[mic_start + idx];
-        let speaker_sample = reference[reference_start + idx];
+        let speaker_sample = speaker[speaker_start + idx];
         mic_energy += mic_sample * mic_sample;
         speaker_energy += speaker_sample * speaker_sample;
         cross_energy += mic_sample * speaker_sample;
@@ -670,58 +561,6 @@ mod tests {
 
         assert!(suppress_echo_dominant_mic(&mut mic, &speaker));
         assert!(mic.iter().all(|sample| *sample == 0.0));
-    }
-
-    #[test]
-    fn echo_gate_suppresses_mic_when_echo_lands_in_next_chunk() {
-        let first_speaker = test_signal(1920, 0x1234_5678);
-        let second_speaker = test_signal(1920, 0x8765_4321);
-        let mut first_mic = vec![0.0; first_speaker.len()];
-        let mut gate = EchoGate::default();
-
-        assert!(!gate.suppress_echo_dominant_mic(&mut first_mic, &first_speaker));
-
-        let delay = 2400;
-        let mut second_mic = vec![0.0; second_speaker.len()];
-        for (idx, sample) in second_mic.iter_mut().enumerate() {
-            let absolute_idx = first_speaker.len() + idx;
-            if absolute_idx >= delay {
-                let reference_idx = absolute_idx - delay;
-                if reference_idx < first_speaker.len() {
-                    *sample = first_speaker[reference_idx] * 0.25;
-                }
-            }
-        }
-
-        assert!(gate.suppress_echo_dominant_mic(&mut second_mic, &second_speaker));
-        assert!(second_mic.iter().all(|sample| *sample == 0.0));
-    }
-
-    #[test]
-    fn echo_gate_keeps_mic_when_local_speech_dominates_delayed_echo() {
-        let first_speaker = test_signal(1920, 0x1234_5678);
-        let second_speaker = test_signal(1920, 0x8765_4321);
-        let local = test_signal(1920, 0x2468_1357);
-        let mut first_mic = vec![0.0; first_speaker.len()];
-        let mut gate = EchoGate::default();
-
-        assert!(!gate.suppress_echo_dominant_mic(&mut first_mic, &first_speaker));
-
-        let delay = 2400;
-        let mut second_mic = local.iter().map(|sample| sample * 0.45).collect::<Vec<_>>();
-        for (idx, sample) in second_mic.iter_mut().enumerate() {
-            let absolute_idx = first_speaker.len() + idx;
-            if absolute_idx >= delay {
-                let reference_idx = absolute_idx - delay;
-                if reference_idx < first_speaker.len() {
-                    *sample += first_speaker[reference_idx] * 0.15;
-                }
-            }
-        }
-        let original = second_mic.clone();
-
-        assert!(!gate.suppress_echo_dominant_mic(&mut second_mic, &second_speaker));
-        assert_eq!(second_mic, original);
     }
 
     #[test]
