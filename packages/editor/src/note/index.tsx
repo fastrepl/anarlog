@@ -537,14 +537,22 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
       [taskSource, taskStorage],
     );
 
-    const onUpdate = useDebounceCallback((content: JSONContent) => {
+    const flushChange = useCallback(() => {
+      const view = viewRef.current;
+      if (!view) {
+        return;
+      }
+
+      const content = view.state.doc.toJSON() as JSONContent;
       syncTasks(content);
       if (!handleChange) {
         return;
       }
 
       handleChange(content);
-    }, 500);
+    }, [handleChange, syncTasks]);
+
+    const onUpdate = useDebounceCallback(flushChange, 500);
 
     const plugins = useMemo(
       () => [
@@ -674,8 +682,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
                 dispatchEditorTransaction({
                   view: this,
                   transaction: tr,
-                  onDocChanged: () =>
-                    onUpdate(this.state.doc.toJSON() as JSONContent),
+                  onDocChanged: () => onUpdate(),
                 });
               }}
               attributes={{
