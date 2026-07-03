@@ -96,6 +96,21 @@ export function useAudioTime(): TimeSnapshot {
   return useSyncExternalStore(timeStore.subscribe, timeStore.getSnapshot);
 }
 
+export function useAudioExists(sessionId: string): boolean {
+  const audioExists = useQuery({
+    queryKey: ["audio", sessionId, "exist"],
+    queryFn: () => fsSyncCommands.audioExist(sessionId),
+    select: (result) => {
+      if (result.status === "error") {
+        throw new Error(result.error);
+      }
+      return result.data;
+    },
+  });
+
+  return audioExists.data ?? false;
+}
+
 export function AudioPlayerProvider({
   sessionId,
   url,
@@ -113,17 +128,7 @@ export function AudioPlayerProvider({
   const [playbackRate, setPlaybackRateState] = useState(1);
   const timeStoreRef = useRef(new TimeStore());
   const stopRequestedRef = useRef(false);
-
-  const audioExists = useQuery({
-    queryKey: ["audio", sessionId, "exist"],
-    queryFn: () => fsSyncCommands.audioExist(sessionId),
-    select: (result) => {
-      if (result.status === "error") {
-        throw new Error(result.error);
-      }
-      return result.data;
-    },
-  });
+  const audioExistsValue = useAudioExists(sessionId);
 
   const registerContainer = useCallback((el: HTMLDivElement | null) => {
     setContainer((prev) => (prev === el ? prev : el));
@@ -327,8 +332,6 @@ export function AudioPlayerProvider({
       });
     },
   });
-
-  const audioExistsValue = audioExists.data ?? false;
 
   const value = useMemo<AudioPlayerContextValue>(
     () => ({

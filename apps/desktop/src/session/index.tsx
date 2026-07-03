@@ -42,49 +42,7 @@ export function TabContentNote({
   tab: Extract<Tab, { type: "sessions" }>;
 }) {
   const sessionMode = useListener((state) => state.getSessionMode(tab.id));
-  const canStartLiveSession = useListener((state) =>
-    state.canStartLiveSession(tab.id),
-  );
-  const updateSessionTabState = useTabs((state) => state.updateSessionTabState);
-  const { conn } = useSTTConnection();
-  const startListening = useStartListening(tab.id);
-  const hasAttemptedAutoStart = useRef(false);
-
-  useEffect(() => {
-    if (!tab.state.autoStart) {
-      hasAttemptedAutoStart.current = false;
-      return;
-    }
-
-    if (standaloneWindow) {
-      return;
-    }
-
-    if (hasAttemptedAutoStart.current) {
-      return;
-    }
-
-    if (!canStartLiveSession) {
-      return;
-    }
-
-    if (!conn) {
-      return;
-    }
-
-    hasAttemptedAutoStart.current = true;
-    startListening();
-    updateSessionTabState(tab, { ...tab.state, autoStart: null });
-  }, [
-    tab.id,
-    tab.state,
-    tab.state.autoStart,
-    standaloneWindow,
-    canStartLiveSession,
-    conn,
-    startListening,
-    updateSessionTabState,
-  ]);
+  const audioExists = AudioPlayer.useAudioExists(tab.id);
 
   const audioUrlQuery = useQuery({
     enabled: sessionMode !== "active" && sessionMode !== "finalizing",
@@ -101,12 +59,16 @@ export function TabContentNote({
 
   return (
     <CaretPositionProvider>
+      {tab.state.autoStart && !standaloneWindow ? (
+        <AutoStartListening tab={tab} />
+      ) : null}
       <SearchProvider>
         <AudioPlayer.Provider sessionId={tab.id} url={audioUrl ?? ""}>
           <TabContentNoteInner
             tab={tab}
             standaloneWindow={standaloneWindow}
             audioUrlReady={Boolean(audioUrl)}
+            audioExists={audioExists}
           />
         </AudioPlayer.Provider>
       </SearchProvider>
@@ -114,29 +76,126 @@ export function TabContentNote({
   );
 }
 
+function AutoStartListening({
+  tab,
+}: {
+  tab: Extract<Tab, { type: "sessions" }>;
+}) {
+  const canStartLiveSession = useListener((state) =>
+    state.canStartLiveSession(tab.id),
+  );
+  const updateSessionTabState = useTabs((state) => state.updateSessionTabState);
+  const { conn } = useSTTConnection();
+  const startListening = useStartListening(tab.id);
+  const hasAttemptedAutoStart = useRef(false);
+
+  useEffect(() => {
+    if (hasAttemptedAutoStart.current) {
+      return;
+    }
+
+    if (!canStartLiveSession) {
+      return;
+    }
+
+    if (!conn) {
+      return;
+    }
+
+    hasAttemptedAutoStart.current = true;
+    startListening();
+    updateSessionTabState(tab, { ...tab.state, autoStart: null });
+  }, [
+    tab,
+    tab.state,
+    canStartLiveSession,
+    conn,
+    startListening,
+    updateSessionTabState,
+  ]);
+
+  return null;
+}
+
 function TabContentNoteInner({
   tab,
   standaloneWindow,
   audioUrlReady,
+  audioExists,
 }: {
   tab: Extract<Tab, { type: "sessions" }>;
   standaloneWindow: boolean;
   audioUrlReady: boolean;
+  audioExists: boolean;
 }) {
   const noteInputRef = React.useRef<NoteInputHandle>(null);
 
-  const { audioExists } = AudioPlayer.useAudioPlayer();
-  const editorTabs = useEditorTabs({ sessionId: tab.id, audioExists });
-  const currentView = useCurrentNoteTab(tab, { audioExists });
-  const contentHydrated = useHydrateSessionContent(tab.id);
+  const sessionId = tab.id;
+  usePendingUpload(sessionId);
+
+  const hasTranscript = useHasTranscript(sessionId);
+  const sessionMode = useListener((state) => state.getSessionMode(sessionId));
+  const batchError = useListener((state) => state.batch[sessionId]?.error);
+  const hasLiveSegments = useListener(
+    (state) =>
+      state.live.sessionId === sessionId && state.liveSegments.length > 0,
+  );
+  const canShowTranscript = getCanShowTranscript({
+    audioExists,
+    batchError: Boolean(batchError),
+    hasLiveSegments,
+    hasTranscript,
+    sessionMode,
+  });
+  const canShowInsights = useCanShowInsights(sessionId);
+  const enhancedNoteIds =
+    main.UI.useSliceRowIds(
+      main.INDEXES.enhancedNotesBySession,
+      sessionId,
+      main.STORE_ID,
+    ) ?? [];
+  const firstEnhancedNoteId = enhancedNoteIds[0];
+  useEnsureDefaultSummaryFromState({
+    batchError: Boolean(batchError),
+    enhancedNoteCount: enhancedNoteIds.length,
+    hasTranscript,
+    sessionId,
+    sessionMode,
+  });
+  const contentHydrated = useHydrateSessionContent(sessionId);
   const updateSessionTabState = useTabs((state) => state.updateSessionTabState);
 
-  const sessionId = tab.id;
   const { skipReason } = useAutoEnhance(tab);
-  const sessionMode = useListener((state) => state.getSessionMode(sessionId));
   const isTranscribing = shouldShowTranscriptTabSpinner(sessionMode);
+  const isLiveSessionActive = sessionMode === "active";
+  const editorTabs = React.useMemo(
+    () =>
+      createEditorTabs({
+        enhancedNoteIds,
+        canShowInsights,
+        canShowTranscript,
+      }),
+    [enhancedNoteIds, canShowInsights, canShowTranscript],
+  );
+  const currentView = React.useMemo(() => {
+    if (tab.state.view?.type === "insights" && canShowInsights) {
+      return tab.state.view;
+    }
+
+    return computeCurrentNoteTab(
+      tab.state.view ?? null,
+      isLiveSessionActive,
+      firstEnhancedNoteId,
+      canShowTranscript,
+    );
+  }, [
+    tab.state.view,
+    isLiveSessionActive,
+    firstEnhancedNoteId,
+    canShowTranscript,
+    canShowInsights,
+  ]);
   useAutoFocusTitle({ sessionId, noteInputRef });
-  usePendingUpload(sessionId);
 
   const showTopAudioPlayer = shouldShowSessionTopAudioPlayer({
     audioExists,

@@ -17,10 +17,46 @@ import { useStartListening } from "~/stt/useStartListening";
 export function ListenActionButton({ sessionId }: { sessionId: string }) {
   const { shouldRender, isDisabled, warningMessage } =
     useListenButtonState(sessionId);
-  const { loading, stop } = useListener((state) => ({
-    loading: state.live.loading && state.live.sessionId === sessionId,
-    stop: state.stop,
-  }));
+  const loading = useListener(
+    (state) => state.live.loading && state.live.sessionId === sessionId,
+  );
+
+  if (loading) {
+    return <StopListeningButton />;
+  }
+
+  if (!shouldRender) {
+    return null;
+  }
+
+  return (
+    <StartListeningButton
+      sessionId={sessionId}
+      isDisabled={isDisabled}
+      warningMessage={warningMessage}
+    />
+  );
+}
+
+function StopListeningButton() {
+  const stop = useListener((state) => state.stop);
+
+  return (
+    <FloatingButton onClick={stop}>
+      <Spinner />
+    </FloatingButton>
+  );
+}
+
+function StartListeningButton({
+  sessionId,
+  isDisabled,
+  warningMessage,
+}: {
+  sessionId: string;
+  isDisabled: boolean;
+  warningMessage: string;
+}) {
   const startListening = useStartListening(sessionId);
   const openNew = useTabs((state) => state.openNew);
   const noteHasContent = useCurrentNoteHasContent(sessionId, { type: "raw" });
@@ -29,18 +65,6 @@ export function ListenActionButton({ sessionId }: { sessionId: string }) {
     startListening();
     openNew({ type: "settings", state: { tab: "transcription" } });
   }, [startListening, openNew]);
-
-  if (loading) {
-    return (
-      <FloatingButton onClick={stop}>
-        <Spinner />
-      </FloatingButton>
-    );
-  }
-
-  if (!shouldRender) {
-    return null;
-  }
 
   return (
     <div>
