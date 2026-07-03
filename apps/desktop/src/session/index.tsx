@@ -219,59 +219,62 @@ function TabContentNoteInner({
     [tab, updateSessionTabState],
   );
   return (
-    <SessionSurface
-      header={
-        <OuterHeader
-          sessionId={tab.id}
-          currentView={currentView}
-          standaloneWindow={standaloneWindow}
-          title={
-            <NoteInputHeader
-              sessionId={tab.id}
-              editorTabs={editorTabs}
-              currentTab={currentView}
-              handleTabChange={handleTabChange}
-              isTranscribing={isTranscribing}
-            />
-          }
-        />
-      }
-      floatingButton={
-        <FloatingActionButton
-          allowListening={!standaloneWindow}
-          audioExists={audioExists}
-          skipReason={skipReason}
-          tab={tab}
-        />
-      }
-    >
-      <div className="flex h-full min-h-0 flex-col">
-        {showTopAudioPlayer ? (
-          <div
-            data-session-top-audio-player
-            className="shrink-0 px-1 pt-1 pb-2"
-          >
-            <div className="border-border/70 bg-card/80 overflow-hidden rounded-[22px] border">
-              <AudioPlayer.Timeline contentClassName="py-1.5 pr-3 pl-1" />
+    <>
+      <SessionSurface
+        header={
+          <OuterHeader
+            sessionId={sessionId}
+            currentView={currentView}
+            standaloneWindow={standaloneWindow}
+            title={
+              <NoteInputHeader
+                sessionId={sessionId}
+                editorTabs={editorTabs}
+                currentTab={currentView}
+                handleTabChange={handleTabChange}
+                isTranscribing={isTranscribing}
+              />
+            }
+          />
+        }
+        floatingButton={
+          <FloatingActionButton
+            allowListening={!standaloneWindow}
+            audioExists={audioExists}
+            currentView={currentView}
+            skipReason={skipReason}
+            tab={tab}
+          />
+        }
+      >
+        <div className="flex h-full min-h-0 flex-col">
+          {showTopAudioPlayer ? (
+            <div
+              data-session-top-audio-player
+              className="shrink-0 px-1 pt-1 pb-2"
+            >
+              <div className="border-border/70 bg-card/80 overflow-hidden rounded-[22px] border">
+                <AudioPlayer.Timeline contentClassName="py-1.5 pr-3 pl-1" />
+              </div>
             </div>
+          ) : null}
+          <div className="min-h-0 flex-1">
+            {contentHydrated ? (
+              <NoteInput
+                ref={noteInputRef}
+                tab={tab}
+                editorTabs={editorTabs}
+                currentTab={currentView}
+                handleTabChange={handleTabChange}
+                hideHeader
+              />
+            ) : (
+              <SessionContentLoading />
+            )}
           </div>
-        ) : null}
-        <div className="min-h-0 flex-1">
-          {contentHydrated ? (
-            <NoteInput
-              ref={noteInputRef}
-              tab={tab}
-              editorTabs={editorTabs}
-              currentTab={currentView}
-              handleTabChange={handleTabChange}
-              hideHeader
-            />
-          ) : (
-            <SessionContentLoading />
-          )}
         </div>
-      </div>
-    </SessionSurface>
+      </SessionSurface>
+    </>
   );
 }
 

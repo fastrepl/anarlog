@@ -14,7 +14,6 @@ import { type LLMConnectionStatus, useLLMConnectionStatus } from "~/ai/hooks";
 import { getEnhancerService } from "~/services/enhancer";
 import { useRegenerateTranscript } from "~/session/components/note-input/transcript/actions";
 import {
-  useCurrentNoteTab,
   hasStoredNoteContent,
   useHasTranscript,
 } from "~/session/components/shared";
@@ -22,38 +21,72 @@ import { ChatCTA } from "~/shared/chat-cta";
 import * as main from "~/store/tinybase/store/main";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 import { useTabs } from "~/store/zustand/tabs";
-import type { Tab } from "~/store/zustand/tabs/schema";
+import type { EditorView, Tab } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
 
 export function FloatingActionButton({
   allowListening = true,
   audioExists = false,
+  currentView,
   skipReason = null,
   tab,
 }: {
   allowListening?: boolean;
   audioExists?: boolean;
+  currentView: EditorView;
   skipReason?: string | null;
   tab: Extract<Tab, { type: "sessions" }>;
 }) {
   const sessionMode = useListener((state) => state.getSessionMode(tab.id));
-  const canShowListen = useShouldShowListeningFab(
-    tab,
-    sessionMode,
-    audioExists,
+  const hasTranscript = useHasTranscript(tab.id);
+  const enhancedNoteId =
+    currentView.type === "enhanced" ? currentView.id : null;
+  const taskId = enhancedNoteId
+    ? createTaskId(enhancedNoteId, "enhance")
+    : null;
+  const taskStatus = useAITask((state) =>
+    taskId ? state.tasks[taskId]?.status : undefined,
   );
-  const shouldShowListen = allowListening && canShowListen;
-  const transcriptAction = useTranscriptFloatingAction(
-    tab,
-    sessionMode,
-    audioExists,
+  const llmStatus = useLLMConnectionStatus();
+  const enhancedContent = main.UI.useCell(
+    "enhanced_notes",
+    enhancedNoteId ?? "",
+    "content",
+    main.STORE_ID,
   );
-  const shouldShowChat = useShouldShowChatFab(tab, sessionMode, audioExists);
-  const generateSummaryNoteId = useGenerateSummaryNoteId(
-    tab,
-    sessionMode,
+  const regenerateTranscript = useRegenerateTranscript(tab.id);
+  const stopTranscription = useListener((state) => state.stopTranscription);
+  const handleStopTranscription = useCallback(() => {
+    void stopTranscription(tab.id);
+  }, [stopTranscription, tab.id]);
+  const shouldShowListen =
+    allowListening &&
+    sessionMode === "inactive" &&
+    currentView.type === "raw" &&
+    !hasTranscript;
+  const transcriptAction = getTranscriptFloatingAction({
     audioExists,
-  );
+    currentView,
+    handleStopTranscription,
+    regenerateTranscript,
+    sessionMode,
+  });
+  const generateSummaryNoteId = getGenerateSummaryNoteId({
+    currentView,
+    enhancedContent,
+    hasTranscript,
+    llmStatus,
+    sessionMode,
+    taskStatus,
+  });
+  const shouldShowChat = shouldShowChatFab({
+    currentView,
+    enhancedContent,
+    hasTranscript,
+    llmStatus,
+    sessionMode,
+    taskStatus,
+  });
   const shouldShowGenerateSummary = generateSummaryNoteId !== null;
   const shouldShowTranscriptAction = transcriptAction !== null;
   const isCaretNearBottom = useCaretPosition()?.isCaretNearBottom ?? false;
@@ -227,20 +260,20 @@ function GenerateSummaryButton({
   );
 }
 
-function useTranscriptFloatingAction(
-  tab: Extract<Tab, { type: "sessions" }>,
-  sessionMode: string,
-  audioExists: boolean,
-) {
-  const currentTab = useCurrentNoteTab(tab, { audioExists });
-  const regenerateTranscript = useRegenerateTranscript(tab.id);
-  const stopTranscription = useListener((state) => state.stopTranscription);
-
-  const handleStopTranscription = useCallback(() => {
-    void stopTranscription(tab.id);
-  }, [stopTranscription, tab.id]);
-
-  if (currentTab.type !== "transcript") {
+function getTranscriptFloatingAction({
+  audioExists,
+  currentView,
+  handleStopTranscription,
+  regenerateTranscript,
+  sessionMode,
+}: {
+  audioExists: boolean;
+  currentView: EditorView;
+  handleStopTranscription: () => void;
+  regenerateTranscript: () => void;
+  sessionMode: string;
+}) {
+  if (currentView.type !== "transcript") {
     return null;
   }
 
@@ -261,40 +294,23 @@ function useTranscriptFloatingAction(
   return null;
 }
 
-function useShouldShowListeningFab(
-  tab: Extract<Tab, { type: "sessions" }>,
-  sessionMode: string,
-  audioExists: boolean,
-) {
-  const currentTab = useCurrentNoteTab(tab, { audioExists });
-  const hasTranscript = useHasTranscript(tab.id);
-
-  return (
-    sessionMode === "inactive" && currentTab.type === "raw" && !hasTranscript
-  );
-}
-
-function useGenerateSummaryNoteId(
-  tab: Extract<Tab, { type: "sessions" }>,
-  sessionMode: string,
-  audioExists: boolean,
-) {
-  const hasTranscript = useHasTranscript(tab.id);
-  const currentTab = useCurrentNoteTab(tab, { audioExists });
-  const enhancedNoteId = currentTab.type === "enhanced" ? currentTab.id : null;
-  const taskId = enhancedNoteId
-    ? createTaskId(enhancedNoteId, "enhance")
-    : null;
-  const taskStatus = useAITask((state) =>
-    taskId ? state.tasks[taskId]?.status : undefined,
-  );
-  const llmStatus = useLLMConnectionStatus();
-  const content = main.UI.useCell(
-    "enhanced_notes",
-    enhancedNoteId ?? "",
-    "content",
-    main.STORE_ID,
-  );
+function getGenerateSummaryNoteId({
+  currentView,
+  enhancedContent,
+  hasTranscript,
+  llmStatus,
+  sessionMode,
+  taskStatus,
+}: {
+  currentView: EditorView;
+  enhancedContent: unknown;
+  hasTranscript: boolean;
+  llmStatus: LLMConnectionStatus;
+  sessionMode: string;
+  taskStatus: string | undefined;
+}) {
+  const enhancedNoteId =
+    currentView.type === "enhanced" ? currentView.id : null;
   const canStartEnhance =
     taskStatus === undefined ||
     taskStatus === "idle" ||
@@ -305,7 +321,7 @@ function useGenerateSummaryNoteId(
     hasTranscript &&
     enhancedNoteId &&
     canStartEnhance &&
-    !hasStoredNoteContent(content) &&
+    !hasStoredNoteContent(enhancedContent) &&
     !isBlockingLLMStatus(llmStatus)
   ) {
     return enhancedNoteId;
@@ -314,37 +330,31 @@ function useGenerateSummaryNoteId(
   return null;
 }
 
-function useShouldShowChatFab(
-  tab: Extract<Tab, { type: "sessions" }>,
-  sessionMode: string,
-  audioExists: boolean,
-) {
-  const hasTranscript = useHasTranscript(tab.id);
-  const currentTab = useCurrentNoteTab(tab, { audioExists });
-  const enhancedNoteId = currentTab.type === "enhanced" ? currentTab.id : null;
-  const taskId = enhancedNoteId
-    ? createTaskId(enhancedNoteId, "enhance")
-    : null;
-  const taskStatus = useAITask((state) =>
-    taskId ? state.tasks[taskId]?.status : undefined,
-  );
-  const llmStatus = useLLMConnectionStatus();
-  const content = main.UI.useCell(
-    "enhanced_notes",
-    enhancedNoteId ?? "",
-    "content",
-    main.STORE_ID,
-  );
+function shouldShowChatFab({
+  currentView,
+  enhancedContent,
+  hasTranscript,
+  llmStatus,
+  sessionMode,
+  taskStatus,
+}: {
+  currentView: EditorView;
+  enhancedContent: unknown;
+  hasTranscript: boolean;
+  llmStatus: LLMConnectionStatus;
+  sessionMode: string;
+  taskStatus: string | undefined;
+}) {
   const visibleTaskStatus = taskStatus ?? "idle";
-  const hasContent = hasStoredNoteContent(content);
+  const hasContent = hasStoredNoteContent(enhancedContent);
   const hasVisibleIssue =
-    currentTab.type === "enhanced" &&
+    currentView.type === "enhanced" &&
     (visibleTaskStatus === "error" ||
       (visibleTaskStatus === "idle" &&
         !hasContent &&
         isBlockingLLMStatus(llmStatus)));
   const hasVisibleGeneration =
-    currentTab.type === "enhanced" && visibleTaskStatus === "generating";
+    currentView.type === "enhanced" && visibleTaskStatus === "generating";
 
   const canShowForSessionMode =
     sessionMode === "inactive" || sessionMode === "active";

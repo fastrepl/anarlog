@@ -5,6 +5,7 @@ import { FloatingActionButton } from "./index";
 
 import type { LLMConnectionStatus } from "~/ai/hooks";
 import type { Tab } from "~/store/zustand/tabs";
+import type { EditorView } from "~/store/zustand/tabs/schema";
 
 const hoisted = vi.hoisted(() => ({
   currentTab: { type: "raw" } as
@@ -141,6 +142,16 @@ describe("FloatingActionButton", () => {
     slotId: "slot-1",
     state: { view: null, autoStart: null },
   } as Extract<Tab, { type: "sessions" }>;
+  const renderFloatingActionButton = (
+    props: Partial<React.ComponentProps<typeof FloatingActionButton>> = {},
+  ) =>
+    render(
+      <FloatingActionButton
+        currentView={hoisted.currentTab as EditorView}
+        tab={tab}
+        {...props}
+      />,
+    );
 
   beforeEach(() => {
     hoisted.currentTab = { type: "raw" };
@@ -169,7 +180,7 @@ describe("FloatingActionButton", () => {
   });
 
   it("shows the chat FAB on raw memo view after transcript exists", () => {
-    render(<FloatingActionButton tab={tab} />);
+    renderFloatingActionButton();
 
     expect(
       screen.queryByRole("button", { name: "Ask Anarlog anything" }),
@@ -179,7 +190,7 @@ describe("FloatingActionButton", () => {
   it("shows chat instead of a regenerate summary FAB on generated summaries", () => {
     hoisted.currentTab = { type: "enhanced", id: "note-1" };
 
-    render(<FloatingActionButton tab={tab} />);
+    renderFloatingActionButton();
 
     expect(
       screen.queryByRole("button", { name: "Ask Anarlog anything" }),
@@ -198,7 +209,7 @@ describe("FloatingActionButton", () => {
       noteId: "note-1",
     });
 
-    render(<FloatingActionButton tab={tab} />);
+    renderFloatingActionButton();
 
     expect(
       screen.queryByRole("button", { name: "Ask Anarlog anything" }),
@@ -220,7 +231,7 @@ describe("FloatingActionButton", () => {
     hoisted.enhanceTaskStatus = "success";
     hoisted.enhancedContent = "";
 
-    render(<FloatingActionButton tab={tab} />);
+    renderFloatingActionButton();
 
     expect(
       screen.queryByRole("button", { name: "Ask Anarlog anything" }),
@@ -234,7 +245,7 @@ describe("FloatingActionButton", () => {
     hoisted.currentTab = { type: "enhanced", id: "note-1" };
     hoisted.enhanceTaskStatus = "error";
 
-    render(<FloatingActionButton tab={tab} />);
+    renderFloatingActionButton();
 
     expect(
       screen.queryByRole("button", { name: "Ask Anarlog anything" }),
@@ -247,7 +258,7 @@ describe("FloatingActionButton", () => {
     hoisted.enhancedContent = "";
     hoisted.llmStatus = { status: "pending", reason: "missing_provider" };
 
-    render(<FloatingActionButton tab={tab} />);
+    renderFloatingActionButton();
 
     expect(
       screen.queryByRole("button", { name: "Ask Anarlog anything" }),
@@ -260,7 +271,7 @@ describe("FloatingActionButton", () => {
     hoisted.enhancedContent = "";
     hoisted.llmStatus = { status: "pending", reason: "missing_provider" };
 
-    render(<FloatingActionButton tab={tab} />);
+    renderFloatingActionButton();
 
     expect(
       screen.queryByRole("button", { name: "Ask Anarlog anything" }),
@@ -271,7 +282,7 @@ describe("FloatingActionButton", () => {
   it("keeps the chat FAB visible near the editor caret", () => {
     hoisted.isCaretNearBottom = true;
 
-    render(<FloatingActionButton tab={tab} />);
+    renderFloatingActionButton();
 
     const wrapper = screen.getByText("Ask Anarlog anything").parentElement;
     const hoverZone = wrapper?.parentElement;
@@ -293,7 +304,7 @@ describe("FloatingActionButton", () => {
   it("keeps the chat FAB visible during active meetings", () => {
     hoisted.sessionMode = "active";
 
-    render(<FloatingActionButton tab={tab} />);
+    renderFloatingActionButton();
 
     const wrapper = screen.getByText("Ask Anarlog anything").parentElement;
     const hoverZone = wrapper?.parentElement;
@@ -317,7 +328,7 @@ describe("FloatingActionButton", () => {
     hoisted.sessionMode = "active";
     hoisted.hasTranscript = false;
 
-    render(<FloatingActionButton tab={tab} />);
+    renderFloatingActionButton();
 
     const wrapper = screen.getByText("Ask Anarlog anything").parentElement;
 
@@ -333,7 +344,7 @@ describe("FloatingActionButton", () => {
   it("opens chat from the active meeting FAB", () => {
     hoisted.sessionMode = "active";
 
-    render(<FloatingActionButton tab={tab} />);
+    renderFloatingActionButton();
 
     fireEvent.click(
       screen.getByRole("button", { name: "Ask Anarlog anything" }),
@@ -346,7 +357,7 @@ describe("FloatingActionButton", () => {
     hoisted.hasTranscript = false;
     hoisted.isCaretNearBottom = true;
 
-    render(<FloatingActionButton tab={tab} />);
+    renderFloatingActionButton();
 
     const wrapper = screen.getByText("Start listening").parentElement;
 
@@ -359,7 +370,7 @@ describe("FloatingActionButton", () => {
   it("hides the listen FAB when listening is disabled", () => {
     hoisted.hasTranscript = false;
 
-    render(<FloatingActionButton allowListening={false} tab={tab} />);
+    renderFloatingActionButton({ allowListening: false });
 
     expect(
       screen.queryByRole("button", { name: "Start listening" }),
@@ -370,7 +381,7 @@ describe("FloatingActionButton", () => {
     hoisted.currentTab = { type: "transcript" };
     hoisted.hasTranscript = false;
 
-    render(<FloatingActionButton audioExists tab={tab} />);
+    renderFloatingActionButton({ audioExists: true });
 
     expect(
       screen.queryByRole("button", { name: "Ask Anarlog anything" }),
@@ -387,7 +398,7 @@ describe("FloatingActionButton", () => {
     hoisted.currentTab = { type: "transcript" };
     hoisted.hasTranscript = true;
 
-    render(<FloatingActionButton audioExists tab={tab} />);
+    renderFloatingActionButton({ audioExists: true });
 
     expect(
       screen.queryByRole("button", { name: "Ask Anarlog anything" }),
@@ -404,7 +415,7 @@ describe("FloatingActionButton", () => {
     hoisted.currentTab = { type: "transcript" };
     hoisted.sessionMode = "running_batch";
 
-    render(<FloatingActionButton audioExists tab={tab} />);
+    renderFloatingActionButton({ audioExists: true });
 
     fireEvent.click(screen.getByRole("button", { name: "Stop transcription" }));
 
@@ -415,7 +426,7 @@ describe("FloatingActionButton", () => {
     hoisted.currentTab = { type: "transcript" };
     hoisted.hasTranscript = false;
 
-    render(<FloatingActionButton tab={tab} />);
+    renderFloatingActionButton();
 
     expect(
       screen.queryByRole("button", { name: "Regenerate transcript" }),
@@ -423,12 +434,9 @@ describe("FloatingActionButton", () => {
   });
 
   it("shows a skip reason in the FAB slot instead of the chat FAB", () => {
-    render(
-      <FloatingActionButton
-        tab={tab}
-        skipReason="Not enough words recorded (3/5 minimum)"
-      />,
-    );
+    renderFloatingActionButton({
+      skipReason: "Not enough words recorded (3/5 minimum)",
+    });
 
     const status = screen.getByRole("status");
 
@@ -441,12 +449,9 @@ describe("FloatingActionButton", () => {
   });
 
   it("keeps a skip reason visible without tuck behavior", () => {
-    render(
-      <FloatingActionButton
-        tab={tab}
-        skipReason="Not enough words recorded (3/5 minimum)"
-      />,
-    );
+    renderFloatingActionButton({
+      skipReason: "Not enough words recorded (3/5 minimum)",
+    });
 
     const status = screen.getByRole("status");
 

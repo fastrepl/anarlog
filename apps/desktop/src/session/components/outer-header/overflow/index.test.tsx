@@ -9,7 +9,7 @@ import type { EditorView } from "~/store/zustand/tabs/schema";
 const {
   uploadAudioMock,
   uploadTranscriptMock,
-  useCurrentNoteHasContentMock,
+  currentNoteContent,
   useHasTranscriptMock,
   useListenerMock,
   useConfigValueMock,
@@ -19,7 +19,7 @@ const {
 } = vi.hoisted(() => ({
   uploadAudioMock: vi.fn(),
   uploadTranscriptMock: vi.fn(),
-  useCurrentNoteHasContentMock: vi.fn(),
+  currentNoteContent: { value: "" },
   useHasTranscriptMock: vi.fn(),
   useListenerMock: vi.fn(),
   useConfigValueMock: vi.fn(),
@@ -92,8 +92,19 @@ vi.mock("@hypr/plugin-windows", () => ({
 }));
 
 vi.mock("~/session/components/shared", () => ({
-  useCurrentNoteHasContent: useCurrentNoteHasContentMock,
+  hasStoredNoteContent: (value: unknown) =>
+    typeof value === "string" && value.trim().length > 0,
   useHasTranscript: useHasTranscriptMock,
+}));
+
+vi.mock("~/store/tinybase/store/main", () => ({
+  STORE_ID: "main",
+  UI: {
+    useCell: (_table: string, _row: string, cell: string) =>
+      cell === "raw_md" || cell === "content"
+        ? currentNoteContent.value
+        : undefined,
+  },
 }));
 
 vi.mock("~/shared/config", () => ({
@@ -118,7 +129,7 @@ describe("OverflowButton", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    useCurrentNoteHasContentMock.mockReturnValue(false);
+    currentNoteContent.value = "";
     useHasTranscriptMock.mockReturnValue(true);
     useConfigValueMock.mockReturnValue(false);
     useMeetingFloatMainStoreMock.mockReturnValue(mainStoreMock);
@@ -178,7 +189,7 @@ describe("OverflowButton", () => {
 
   it("hides upload actions when the current note has content", () => {
     useHasTranscriptMock.mockReturnValue(false);
-    useCurrentNoteHasContentMock.mockReturnValue(true);
+    currentNoteContent.value = "Existing content";
 
     render(
       <OverflowButton

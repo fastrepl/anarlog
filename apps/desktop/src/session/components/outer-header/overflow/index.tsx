@@ -27,11 +27,12 @@ import { ShowInFinder } from "./misc";
 import { useMeetingFloatMainStore } from "~/meeting-float/hooks";
 import { openFloatingMeetingPanel } from "~/meeting-float/host";
 import {
-  useCurrentNoteHasContent,
+  hasStoredNoteContent,
   useHasTranscript,
 } from "~/session/components/shared";
 import { openStandaloneNoteWindow } from "~/session/window";
 import { useConfigValue } from "~/shared/config";
+import * as main from "~/store/tinybase/store/main";
 import * as settingsStore from "~/store/tinybase/store/settings";
 import type { EditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
@@ -51,9 +52,10 @@ export function OverflowButton({
   const [open, setOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const hasTranscript = useHasTranscript(sessionId);
-  const currentNoteHasContent = useCurrentNoteHasContent(
+  const currentNoteHasContent = useUploadCurrentViewHasContent(
     sessionId,
     currentView,
+    hasTranscript,
   );
   const { uploadAudio, uploadTranscript } = useUploadFile(sessionId);
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
@@ -178,4 +180,28 @@ export function OverflowButton({
       />
     </>
   );
+}
+
+function useUploadCurrentViewHasContent(
+  sessionId: string,
+  currentView: EditorView,
+  hasTranscript: boolean,
+): boolean {
+  const rawMd = main.UI.useCell("sessions", sessionId, "raw_md", main.STORE_ID);
+  const enhancedContent = main.UI.useCell(
+    "enhanced_notes",
+    currentView.type === "enhanced" ? currentView.id : "",
+    "content",
+    main.STORE_ID,
+  );
+
+  if (currentView.type === "raw") {
+    return hasStoredNoteContent(rawMd);
+  }
+
+  if (currentView.type === "enhanced") {
+    return hasStoredNoteContent(enhancedContent);
+  }
+
+  return currentView.type === "transcript" ? hasTranscript : true;
 }
