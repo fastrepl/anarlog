@@ -16,12 +16,24 @@ import { normalizeKeywordList } from "~/stt/keywords";
 
 export function useKeywords(sessionId: string) {
   const rawMd = main.UI.useCell("sessions", sessionId, "raw_md", main.STORE_ID);
+  const title = main.UI.useCell("sessions", sessionId, "title", main.STORE_ID);
+  const eventJson = main.UI.useCell(
+    "sessions",
+    sessionId,
+    "event_json",
+    main.STORE_ID,
+  );
   const dictionaryTerms = useConfigValue("personalization_dictionary_terms");
 
   return useMemo(() => {
+    const sourceText = buildKeywordSourceText({
+      rawMd,
+      title,
+      eventJson,
+    });
     const { keywords, keyphrases } =
-      rawMd && typeof rawMd === "string"
-        ? extractKeywordsFromMarkdown(rawMd)
+      sourceText.length > 0
+        ? extractKeywordsFromMarkdown(sourceText)
         : { keywords: [], keyphrases: [] };
 
     return normalizeKeywordList([
@@ -29,7 +41,25 @@ export function useKeywords(sessionId: string) {
       ...keywords,
       ...keyphrases,
     ]);
-  }, [dictionaryTerms, rawMd]);
+  }, [dictionaryTerms, eventJson, rawMd, title]);
+}
+
+export function buildKeywordSourceText({
+  rawMd,
+  title,
+  eventJson,
+}: {
+  rawMd: unknown;
+  title: unknown;
+  eventJson: unknown;
+}): string {
+  return [
+    stringValue(rawMd),
+    stringValue(title),
+    ...eventKeywordFields(eventJson),
+  ]
+    .filter((value) => value.length > 0)
+    .join("\n");
 }
 
 export const extractKeywordsFromMarkdown = (
@@ -106,6 +136,27 @@ const extractKeyphraseMatches = (phrase: Keyphrase): string[] =>
     const text = toString(match.nodes).trim();
     return text.length > 0 ? [text] : [];
   });
+
+const stringValue = (value: unknown): string =>
+  typeof value === "string" ? value.trim() : "";
+
+const eventKeywordFields = (eventJson: unknown): string[] => {
+  if (typeof eventJson !== "string" || !eventJson) {
+    return [];
+  }
+
+  try {
+    const event = JSON.parse(eventJson);
+    return [event?.title, event?.description, event?.location].flatMap(
+      (value) => {
+        const text = stringValue(value);
+        return text ? [text] : [];
+      },
+    );
+  } catch {
+    return [];
+  }
+};
 
 const removeCodeBlocks = (text: string): string =>
   text.replace(/```[\s\S]*?```/g, "").replace(/`[^`]+`/g, "");

@@ -28,6 +28,15 @@ function createStore(tables: Record<string, Record<string, any>>) {
   } as any;
 }
 
+function createSettingsStore(values: Record<string, unknown> = {}) {
+  return {
+    getValue: vi.fn((key: string) => values[key]),
+    setValue: vi.fn((key: string, value: unknown) => {
+      values[key] = value;
+    }),
+  } as any;
+}
+
 function createIndexes(tables: Record<string, Record<string, any>>) {
   return {
     getSliceRowIds: vi.fn((indexId: string, sessionId: string) => {
@@ -257,6 +266,131 @@ describe("session correction chat tool internals", () => {
     ]);
   });
 
+  it("updates summary, transcript, and dictionary terms by default", async () => {
+    const tables = {
+      enhanced_notes: {
+        "note-1": {
+          session_id: "session-1",
+          title: "Summary",
+          content: summaryContent(
+            "Sam (from Airborne Brothers) liked the OpenWorld concept.",
+          ),
+        },
+      },
+      transcripts: {
+        "transcript-1": {
+          session_id: "session-1",
+          words: JSON.stringify([
+            { id: "w1", text: "sam", start_ms: 0, end_ms: 100, channel: 0 },
+            {
+              id: "w2",
+              text: "from",
+              start_ms: 100,
+              end_ms: 200,
+              channel: 0,
+            },
+            {
+              id: "w3",
+              text: "Airborne",
+              start_ms: 200,
+              end_ms: 300,
+              channel: 0,
+            },
+            {
+              id: "w4",
+              text: "Brothers,",
+              start_ms: 300,
+              end_ms: 400,
+              channel: 0,
+            },
+          ]),
+          memo_md: "Speaker 1: sam from Airborne Brothers, liked it.",
+        },
+      },
+    };
+    const store = createStore(tables);
+    const settingsStore = createSettingsStore({
+      personalization_dictionary_terms: JSON.stringify(["Anarlog"]),
+    });
+    const indexes = createIndexes(tables);
+    const tool = buildApplySessionCorrectionTool({
+      getStore: () => store,
+      getSettingsStore: () => settingsStore,
+      getIndexes: () => indexes,
+      getSessionId: () => "session-1",
+      getEnhancedNoteId: () => "note-1",
+    });
+
+    const result = await (tool as any).execute({
+      oldText: "Sam (from Airborne Brothers)",
+      newText: "Tim from Erebor",
+      dictionaryTerms: ["Erebor"],
+    });
+
+    expect(result).toMatchObject({
+      status: "applied",
+      summaryChanges: [{ enhancedNoteId: "note-1", replacements: 1 }],
+      transcriptChanges: [
+        {
+          transcriptId: "transcript-1",
+          wordReplacements: 1,
+          memoReplacements: 1,
+        },
+      ],
+      dictionaryChanges: { addedTerms: ["Erebor"] },
+    });
+    expect(tables.enhanced_notes["note-1"].content).toContain(
+      "Tim from Erebor liked the OpenWorld concept.",
+    );
+    expect(JSON.parse(tables.transcripts["transcript-1"].words)).toMatchObject([
+      { text: "Tim" },
+      { text: "from" },
+      { text: "Erebor" },
+    ]);
+    expect(tables.transcripts["transcript-1"].memo_md).toBe(
+      "Speaker 1: Tim from Erebor, liked it.",
+    );
+    expect(settingsStore.setValue).toHaveBeenCalledWith(
+      "personalization_dictionary_terms",
+      JSON.stringify(["Anarlog", "Erebor"]),
+    );
+  });
+
+  it("reports partial success when a requested target does not match", async () => {
+    const tables = {
+      enhanced_notes: {
+        "note-1": {
+          session_id: "session-1",
+          title: "Summary",
+          content: summaryContent("Discussed X roadmap."),
+        },
+      },
+      transcripts: {},
+    };
+    const store = createStore(tables);
+    const indexes = createIndexes(tables);
+    const tool = buildApplySessionCorrectionTool({
+      getStore: () => store,
+      getSettingsStore: () => createSettingsStore(),
+      getIndexes: () => indexes,
+      getSessionId: () => "session-1",
+      getEnhancedNoteId: () => "note-1",
+    });
+
+    const result = await (tool as any).execute({
+      oldText: "X roadmap",
+      newText: "Y roadmap",
+    });
+
+    expect(result).toMatchObject({
+      status: "partial",
+      message:
+        "Applied correction where matched, but no matching transcript text was found.",
+      summaryChanges: [{ enhancedNoteId: "note-1", replacements: 1 }],
+      transcriptChanges: [],
+    });
+  });
+
   it("returns an explicit error for a summary id outside the session", async () => {
     const tables = {
       enhanced_notes: {
@@ -272,6 +406,7 @@ describe("session correction chat tool internals", () => {
     const indexes = createIndexes(tables);
     const tool = buildApplySessionCorrectionTool({
       getStore: () => store,
+      getSettingsStore: () => createSettingsStore(),
       getIndexes: () => indexes,
       getSessionId: () => "session-1",
       getEnhancedNoteId: () => undefined,
@@ -315,6 +450,7 @@ describe("session correction chat tool internals", () => {
     const indexes = createIndexes(tables);
     const tool = buildApplySessionCorrectionTool({
       getStore: () => store,
+      getSettingsStore: () => createSettingsStore(),
       getIndexes: () => indexes,
       getSessionId: () => "session-1",
       getEnhancedNoteId: () => undefined,
@@ -364,6 +500,7 @@ describe("session correction chat tool internals", () => {
     const indexes = createIndexes(tables);
     const tool = buildApplySessionCorrectionTool({
       getStore: () => store,
+      getSettingsStore: () => createSettingsStore(),
       getIndexes: () => indexes,
       getSessionId: () => "session-1",
       getEnhancedNoteId: () => "note-1",
@@ -409,6 +546,7 @@ describe("session correction chat tool internals", () => {
     const indexes = createIndexes(tables);
     const tool = buildApplySessionCorrectionTool({
       getStore: () => store,
+      getSettingsStore: () => createSettingsStore(),
       getIndexes: () => indexes,
       getSessionId: () => "session-1",
       getEnhancedNoteId: () => "note-1",

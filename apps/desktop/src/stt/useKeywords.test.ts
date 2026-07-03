@@ -5,7 +5,10 @@ import {
   normalizeKeywordList,
   parseDictionaryTermsText,
 } from "./keywords";
-import { extractKeywordsFromMarkdown } from "./useKeywords";
+import {
+  buildKeywordSourceText,
+  extractKeywordsFromMarkdown,
+} from "./useKeywords";
 
 describe("extractKeywordsFromMarkdown", () => {
   const cases: Array<{
@@ -106,6 +109,30 @@ Next steps: testing and validation of the algorithms
     const result = extractKeywordsFromMarkdown(input);
     expect(result.keywords).toEqual(expect.arrayContaining(keywords));
     expect(result.keyphrases).toEqual(expect.arrayContaining(keyphrases));
+  });
+});
+
+describe("buildKeywordSourceText", () => {
+  it("includes session note, title, and event metadata", () => {
+    expect(
+      buildKeywordSourceText({
+        rawMd: "Discuss product launch",
+        title: "Erebor sync",
+        eventJson: JSON.stringify({
+          title: "OpenWorld review",
+          description: "Airborne Brothers follow-up",
+          location: "Zoom",
+        }),
+      }),
+    ).toBe(
+      [
+        "Discuss product launch",
+        "Erebor sync",
+        "OpenWorld review",
+        "Airborne Brothers follow-up",
+        "Zoom",
+      ].join("\n"),
+    );
   });
 });
 

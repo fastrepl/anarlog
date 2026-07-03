@@ -210,6 +210,7 @@ type LocalTools = {
       enhancedNoteId?: string;
       oldText: string;
       newText: string;
+      dictionaryTerms?: string[];
     };
     output: {
       status: string;
@@ -225,6 +226,9 @@ type LocalTools = {
         wordReplacements: number;
         memoReplacements: number;
       }>;
+      dictionaryChanges?: {
+        addedTerms: string[];
+      };
     };
   };
 };

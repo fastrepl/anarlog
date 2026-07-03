@@ -1,8 +1,10 @@
 import type { SearchFilters, SearchHit } from "~/search/contexts/engine/types";
 import type * as main from "~/store/tinybase/store/main";
+import type * as settings from "~/store/tinybase/store/settings";
 
 type Store = NonNullable<ReturnType<typeof main.UI.useStore>>;
 type Indexes = NonNullable<ReturnType<typeof main.UI.useIndexes>>;
+type SettingsStore = NonNullable<ReturnType<typeof settings.UI.useStore>>;
 
 export type ContactSearchResult = {
   id: string;
@@ -55,6 +57,7 @@ export interface ToolDependencies {
     limit: number,
   ) => Promise<CalendarEventSearchResult[]>;
   getStore: () => Store | undefined;
+  getSettingsStore: () => SettingsStore | undefined;
   getIndexes: () => Indexes | undefined;
   getSessionId: () => string | undefined;
   getEnhancedNoteId: () => string | undefined;

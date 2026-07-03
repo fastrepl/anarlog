@@ -6,9 +6,13 @@ import { json2md, md2json, parseJsonContent } from "@hypr/editor/markdown";
 import type { ToolDependencies } from "./types";
 
 import * as main from "~/store/tinybase/store/main";
+import { normalizeKeywordList } from "~/stt/keywords";
 
 type Store = NonNullable<ReturnType<typeof main.UI.useStore>>;
 type Indexes = NonNullable<ReturnType<typeof main.UI.useIndexes>>;
+type SettingsStore = NonNullable<
+  ReturnType<NonNullable<ToolDependencies["getSettingsStore"]>>
+>;
 
 type CorrectionTarget = "summary" | "transcript" | "summary_and_transcript";
 
@@ -37,6 +41,10 @@ type TranscriptChange = {
   transcriptId: string;
   wordReplacements: number;
   memoReplacements: number;
+};
+
+type DictionaryChange = {
+  addedTerms: string[];
 };
 
 function replaceExact(
@@ -157,10 +165,28 @@ function parseTranscriptWords(value: unknown): TranscriptWord[] {
   }
 }
 
+function trimTokenPunctuation(value: string): string {
+  return value.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "") || value;
+}
+
+function normalizeComparableToken(value: string): string {
+  return value
+    .normalize("NFKC")
+    .toLocaleLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, "");
+}
+
 function tokenizeReplacement(value: string): string[] {
   return value
     .split(/\s+/)
     .map((item) => item.trim())
+    .map(trimTokenPunctuation)
+    .filter(Boolean);
+}
+
+function tokenizeComparable(value: string): string[] {
+  return tokenizeReplacement(value)
+    .map(normalizeComparableToken)
     .filter(Boolean);
 }
 
@@ -173,7 +199,10 @@ function wordRangeMatchesAt(
     return false;
   }
 
-  return target.every((text, index) => words[start + index].text === text);
+  return target.every(
+    (text, index) =>
+      normalizeComparableToken(words[start + index].text ?? "") === text,
+  );
 }
 
 function buildReplacementWords(
@@ -217,7 +246,7 @@ function replaceTranscriptWords(
   oldText: string,
   newText: string,
 ): { words: TranscriptWord[]; count: number } {
-  const target = tokenizeReplacement(oldText);
+  const target = tokenizeComparable(oldText);
   const replacementTokens = tokenizeReplacement(newText);
   if (
     target.length === 0 ||
@@ -243,6 +272,71 @@ function replaceTranscriptWords(
   }
 
   return count === 0 ? { words, count: 0 } : { words: nextWords, count };
+}
+
+const TEXT_TOKEN_PATTERN = /[\p{L}\p{N}]+(?:['’_-][\p{L}\p{N}]+)*/gu;
+
+function findComparableTextTokens(
+  value: string,
+): Array<{ text: string; start: number; end: number }> {
+  return Array.from(value.matchAll(TEXT_TOKEN_PATTERN)).flatMap((match) => {
+    const start = match.index;
+    if (start === undefined) {
+      return [];
+    }
+
+    const text = normalizeComparableToken(match[0]);
+    return text ? [{ text, start, end: start + match[0].length }] : [];
+  });
+}
+
+function replaceLoosePhrase(
+  value: string,
+  oldText: string,
+  newText: string,
+): ReplacementResult {
+  const target = tokenizeComparable(oldText);
+  const tokens = findComparableTextTokens(value);
+  if (target.length === 0 || target.length > tokens.length) {
+    return { text: value, count: 0 };
+  }
+
+  const parts: string[] = [];
+  let cursor = 0;
+  let count = 0;
+
+  for (let index = 0; index < tokens.length; ) {
+    const matches = target.every(
+      (text, offset) => tokens[index + offset]?.text === text,
+    );
+    if (!matches) {
+      index++;
+      continue;
+    }
+
+    const first = tokens[index];
+    const last = tokens[index + target.length - 1];
+    parts.push(value.slice(cursor, first.start), newText);
+    cursor = last.end;
+    count++;
+    index += target.length;
+  }
+
+  if (count === 0) {
+    return { text: value, count: 0 };
+  }
+
+  parts.push(value.slice(cursor));
+  return { text: parts.join(""), count };
+}
+
+function replaceTranscriptText(
+  value: string,
+  oldText: string,
+  newText: string,
+): ReplacementResult {
+  const exact = replaceExact(value, oldText, newText);
+  return exact.count > 0 ? exact : replaceLoosePhrase(value, oldText, newText);
 }
 
 function applyTranscriptCorrection({
@@ -275,7 +369,11 @@ function applyTranscriptCorrection({
 
     const rawMemo = store.getCell("transcripts", transcriptId, "memo_md");
     const hasMemo = typeof rawMemo === "string" && rawMemo.length > 0;
-    const memoResult = replaceExact(hasMemo ? rawMemo : "", oldText, newText);
+    const memoResult = replaceTranscriptText(
+      hasMemo ? rawMemo : "",
+      oldText,
+      newText,
+    );
 
     if (wordResult.count === 0 && memoResult.count === 0) {
       continue;
@@ -310,6 +408,56 @@ function applyTranscriptCorrection({
   return changes;
 }
 
+function parseStoredDictionaryTerms(value: unknown): string[] {
+  if (typeof value !== "string") {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed)
+      ? normalizeKeywordList(parsed.filter((term) => typeof term === "string"))
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function dictionaryKey(value: string): string {
+  return value.trim().replace(/\s+/g, " ").toLocaleLowerCase();
+}
+
+function saveDictionaryTerms({
+  settingsStore,
+  terms,
+}: {
+  settingsStore?: SettingsStore;
+  terms?: string[];
+}): DictionaryChange {
+  if (!settingsStore || !terms || terms.length === 0) {
+    return { addedTerms: [] };
+  }
+
+  const currentTerms = parseStoredDictionaryTerms(
+    settingsStore.getValue("personalization_dictionary_terms"),
+  );
+  const currentKeys = new Set(currentTerms.map(dictionaryKey));
+  const addedTerms = normalizeKeywordList(terms).filter(
+    (term) => !currentKeys.has(dictionaryKey(term)),
+  );
+
+  if (addedTerms.length === 0) {
+    return { addedTerms: [] };
+  }
+
+  settingsStore.setValue(
+    "personalization_dictionary_terms",
+    JSON.stringify(normalizeKeywordList([...currentTerms, ...addedTerms])),
+  );
+
+  return { addedTerms };
+}
+
 function shouldEditSummary(target: CorrectionTarget): boolean {
   return target === "summary" || target === "summary_and_transcript";
 }
@@ -321,12 +469,16 @@ function shouldEditTranscript(target: CorrectionTarget): boolean {
 export const buildApplySessionCorrectionTool = (
   deps: Pick<
     ToolDependencies,
-    "getStore" | "getIndexes" | "getSessionId" | "getEnhancedNoteId"
+    | "getStore"
+    | "getSettingsStore"
+    | "getIndexes"
+    | "getSessionId"
+    | "getEnhancedNoteId"
   >,
 ) =>
   tool({
     description:
-      "Apply an exact correction to a session summary and/or transcript. Use this when the user corrects note content, for example 'it's not X but Y'. Read the note first if you need the exact old text.",
+      "Apply a correction to a session summary and/or transcript. Use this when the user corrects note content, for example 'it's not X but Y'. Prefer summary_and_transcript for factual meeting corrections unless the user explicitly asks for one target only. Read the note first if you need exact summary text.",
     inputSchema: z.object({
       sessionId: z
         .string()
@@ -335,7 +487,9 @@ export const buildApplySessionCorrectionTool = (
       target: z
         .enum(["summary", "transcript", "summary_and_transcript"])
         .default("summary_and_transcript")
-        .describe("Which session content to correct."),
+        .describe(
+          "Which session content to correct. Use summary only or transcript only when the user explicitly scopes the correction.",
+        ),
       enhancedNoteId: z
         .string()
         .optional()
@@ -347,6 +501,12 @@ export const buildApplySessionCorrectionTool = (
         .min(1)
         .describe("Exact text currently present in the note or transcript."),
       newText: z.string().describe("Replacement text."),
+      dictionaryTerms: z
+        .array(z.string().min(1))
+        .default([])
+        .describe(
+          "Uncommon names, company/product names, acronyms, or jargon from the correction to save for future transcription. Skip common names.",
+        ),
     }),
     execute: async (params: {
       sessionId?: string;
@@ -354,6 +514,7 @@ export const buildApplySessionCorrectionTool = (
       enhancedNoteId?: string;
       oldText: string;
       newText: string;
+      dictionaryTerms?: string[];
     }) => {
       const store = deps.getStore();
       const indexes = deps.getIndexes();
@@ -411,7 +572,8 @@ export const buildApplySessionCorrectionTool = (
             newText,
           })
         : [];
-      const transcriptChanges = shouldEditTranscript(target)
+      const editTranscript = shouldEditTranscript(target);
+      const transcriptChanges = editTranscript
         ? applyTranscriptCorrection({
             store,
             indexes,
@@ -430,11 +592,25 @@ export const buildApplySessionCorrectionTool = (
         };
       }
 
+      const dictionaryChanges = saveDictionaryTerms({
+        settingsStore: deps.getSettingsStore(),
+        terms: params.dictionaryTerms,
+      });
+      const missingTargets = [
+        editSummary && summaryChanges.length === 0 ? "summary" : null,
+        editTranscript && transcriptChanges.length === 0 ? "transcript" : null,
+      ].filter(Boolean);
+
       return {
-        status: "applied",
+        status: missingTargets.length > 0 ? "partial" : "applied",
+        message:
+          missingTargets.length > 0
+            ? `Applied correction where matched, but no matching ${missingTargets.join(" or ")} text was found.`
+            : undefined,
         sessionId,
         summaryChanges,
         transcriptChanges,
+        dictionaryChanges,
       };
     },
   });
@@ -443,5 +619,6 @@ export const sessionCorrectionTestInternals = {
   applySummaryCorrection,
   applyTranscriptCorrection,
   replaceExact,
+  replaceLoosePhrase,
   replaceTranscriptWords,
 };

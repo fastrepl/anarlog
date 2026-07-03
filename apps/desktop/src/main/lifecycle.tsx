@@ -47,10 +47,13 @@ function ToolRegistration() {
   const { search } = useSearchEngine();
   const store = main.UI.useStore(main.STORE_ID);
   const indexes = main.UI.useIndexes(main.STORE_ID);
+  const settingsStore = settings.UI.useStore(settings.STORE_ID);
   const storeRef = useRef(store);
   storeRef.current = store;
   const indexesRef = useRef(indexes);
   indexesRef.current = indexes;
+  const settingsStoreRef = useRef(settingsStore);
+  settingsStoreRef.current = settingsStore;
 
   const getContactSearchResults = useCallback(
     async (query: string, limit: number) => {
@@ -254,6 +257,7 @@ function ToolRegistration() {
         getContactSearchResults,
         getCalendarEventSearchResults,
         getStore: () => storeRef.current ?? undefined,
+        getSettingsStore: () => settingsStoreRef.current ?? undefined,
         getIndexes: () => indexesRef.current ?? undefined,
         getSessionId,
         getEnhancedNoteId,

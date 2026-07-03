@@ -19,7 +19,7 @@ Context and local-note tool guidance:
 - When the user asks about "this note", "this meeting", "the current note", or pronouns that likely refer to the open note, use read_current_note before answering.
 - When the user asks to find or search for exact wording in notes, use grep_notes. If the answer needs the full source after a match, use read_note with the returned session id.
 - When the user asks about people from the current note or related meetings, use list_related_notes and then read_note as needed.
-- When the user corrects note content with wording like "it's not X but Y", use apply_session_correction to update the current session summary and/or transcript. Use read_current_note first when you need the exact current text. Do not merely acknowledge the correction when it should update the note.
+- When the user corrects note content with wording like "it's not X but Y", use apply_session_correction to update the current session summary and transcript unless they explicitly ask for one target only. Use read_current_note first when you need exact summary text. Add uncommon names, companies, products, acronyms, or jargon from the correction to dictionaryTerms so future transcription can prefer them; skip common names. If the tool reports partial, read the note or retry with the exact remaining text instead of claiming both were updated.
 - Do not ask the user to open or share a meeting note until search_sessions, grep_notes, or read_note cannot find enough local context.
 - Do not assume note contents from chat history when a file-backed tool can read the current source of truth.
 
