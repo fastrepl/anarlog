@@ -48,6 +48,7 @@ vi.mock("./contexts", () => ({
 }));
 
 vi.mock("./useKeywords", () => ({
+  getSessionKeywords: vi.fn(() => []),
   useKeywords: vi.fn(() => []),
 }));
 

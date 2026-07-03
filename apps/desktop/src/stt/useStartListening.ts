@@ -4,7 +4,7 @@ import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 import type { TranscriptStorage } from "@hypr/store";
 
 import { useListener } from "./contexts";
-import { useKeywords } from "./useKeywords";
+import { getSessionKeywords } from "./useKeywords";
 import {
   canRunBatchTranscription,
   isStoppedTranscriptionError,
@@ -73,6 +73,7 @@ export function useStartListening(sessionId: string) {
 
   const aiLanguage = useConfigValue("ai_language");
   const spokenLanguages = useConfigValue("spoken_languages");
+  const dictionaryTerms = useConfigValue("personalization_dictionary_terms");
 
   const start = useListener((state) => state.start);
   const { conn } = useSTTConnection();
@@ -80,7 +81,6 @@ export function useStartListening(sessionId: string) {
   const { leftsidebar } = useShell();
   const setLeftSidebarExpanded = leftsidebar.setExpanded;
 
-  const keywords = useKeywords(sessionId);
   const runBatchRef = useRef(runBatch);
   const canRunBatchRef = useRef(canRunBatchTranscription(conn));
   runBatchRef.current = runBatch;
@@ -103,6 +103,11 @@ export function useStartListening(sessionId: string) {
     const transcriptAccumulatorRef: {
       current: TranscriptAccumulator | null;
     } = { current: null };
+    const keywords = getSessionKeywords({
+      store,
+      sessionId,
+      dictionaryTerms,
+    });
 
     const onStopped: OnStoppedCallback = async (_sessionId, details) => {
       transcriptAccumulatorRef.current?.dispose();
@@ -259,11 +264,11 @@ export function useStartListening(sessionId: string) {
   }, [
     aiLanguage,
     conn,
+    dictionaryTerms,
     store,
     indexes,
     sessionId,
     start,
-    keywords,
     user_id,
     spokenLanguages,
     setLeftSidebarExpanded,

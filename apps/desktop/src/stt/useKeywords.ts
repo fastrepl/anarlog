@@ -26,22 +26,62 @@ export function useKeywords(sessionId: string) {
   const dictionaryTerms = useConfigValue("personalization_dictionary_terms");
 
   return useMemo(() => {
-    const sourceText = buildKeywordSourceText({
+    return buildKeywords({
       rawMd,
       title,
       eventJson,
+      dictionaryTerms,
     });
-    const { keywords, keyphrases } =
-      sourceText.length > 0
-        ? extractKeywordsFromMarkdown(sourceText)
-        : { keywords: [], keyphrases: [] };
-
-    return normalizeKeywordList([
-      ...dictionaryTerms,
-      ...keywords,
-      ...keyphrases,
-    ]);
   }, [dictionaryTerms, eventJson, rawMd, title]);
+}
+
+type KeywordStore = {
+  getCell: (
+    tableId: "sessions",
+    rowId: string,
+    cellId: "raw_md" | "title" | "event_json",
+  ) => unknown;
+};
+
+export function getSessionKeywords({
+  store,
+  sessionId,
+  dictionaryTerms,
+}: {
+  store: KeywordStore;
+  sessionId: string;
+  dictionaryTerms: string[];
+}) {
+  return buildKeywords({
+    rawMd: store.getCell("sessions", sessionId, "raw_md"),
+    title: store.getCell("sessions", sessionId, "title"),
+    eventJson: store.getCell("sessions", sessionId, "event_json"),
+    dictionaryTerms,
+  });
+}
+
+export function buildKeywords({
+  rawMd,
+  title,
+  eventJson,
+  dictionaryTerms,
+}: {
+  rawMd: unknown;
+  title: unknown;
+  eventJson: unknown;
+  dictionaryTerms: string[];
+}) {
+  const sourceText = buildKeywordSourceText({
+    rawMd,
+    title,
+    eventJson,
+  });
+  const { keywords, keyphrases } =
+    sourceText.length > 0
+      ? extractKeywordsFromMarkdown(sourceText)
+      : { keywords: [], keyphrases: [] };
+
+  return normalizeKeywordList([...dictionaryTerms, ...keywords, ...keyphrases]);
 }
 
 export function buildKeywordSourceText({

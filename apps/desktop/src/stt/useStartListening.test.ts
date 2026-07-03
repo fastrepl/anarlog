@@ -1,6 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
+import { getSessionKeywords } from "./useKeywords";
 import { getPostCaptureAction } from "./useStartListening";
 import { useStartListening } from "./useStartListening";
 
@@ -60,6 +61,7 @@ vi.mock("./contexts", () => ({
 }));
 
 vi.mock("./useKeywords", () => ({
+  getSessionKeywords: vi.fn(() => []),
   useKeywords: vi.fn(() => []),
 }));
 
@@ -233,6 +235,29 @@ describe("useStartListening", () => {
     });
 
     expect(setLeftSidebarExpandedMock).not.toHaveBeenCalled();
+  });
+
+  test("reads keywords from the same pre-start snapshot as the transcript memo", async () => {
+    const calls: string[] = [];
+    vi.mocked(getSessionKeywords).mockImplementation(() => {
+      calls.push("keywords");
+      return ["launch"];
+    });
+    startMock.mockImplementation(async () => {
+      calls.push("start");
+      return true;
+    });
+
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    expect(calls).toEqual(["keywords", "start"]);
+    expect(startMock.mock.calls[0]?.[0]).toMatchObject({
+      keywords: ["launch"],
+    });
   });
 
   test("runs batch transcription after record-only capture stops", async () => {

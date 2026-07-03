@@ -5,7 +5,7 @@ import type { TranscriptStorage } from "@hypr/store";
 import { sonnerToast } from "@hypr/ui/components/ui/toast";
 
 import { useListener } from "./contexts";
-import { useKeywords } from "./useKeywords";
+import { getSessionKeywords } from "./useKeywords";
 import { useSTTConnection } from "./useSTTConnection";
 
 import { useAuth } from "~/auth";
@@ -203,9 +203,9 @@ export const useRunBatch = (sessionId: string) => {
   const { conn } = useSTTConnection();
   const auth = useAuth();
   const billing = useBillingAccess();
-  const keywords = useKeywords(sessionId);
   const aiLanguage = useConfigValue("ai_language");
   const spokenLanguages = useConfigValue("spoken_languages");
+  const dictionaryTerms = useConfigValue("personalization_dictionary_terms");
 
   return useCallback(
     async (filePath: string, options?: RunOptions) => {
@@ -264,6 +264,13 @@ export const useRunBatch = (sessionId: string) => {
 
       const createdAt = new Date().toISOString();
       const memoMd = store.getCell("sessions", sessionId, "raw_md");
+      const keywords =
+        options?.keywords ??
+        getSessionKeywords({
+          store,
+          sessionId,
+          dictionaryTerms,
+        });
       let transcriptId: string | null = null;
       const inferredNumSpeakers =
         options?.numSpeakers === undefined &&
@@ -395,7 +402,7 @@ export const useRunBatch = (sessionId: string) => {
         model: target.model,
         base_url: target.baseUrl,
         api_key: target.apiKey,
-        keywords: options?.keywords ?? keywords ?? [],
+        keywords,
         languages,
         num_speakers: options?.numSpeakers ?? inferredNumSpeakers,
         min_speakers: options?.minSpeakers,
@@ -426,8 +433,8 @@ export const useRunBatch = (sessionId: string) => {
       auth?.session?.access_token,
       aiLanguage,
       billing.isPaid,
+      dictionaryTerms,
       indexes,
-      keywords,
       spokenLanguages,
       startTranscription,
       sessionId,

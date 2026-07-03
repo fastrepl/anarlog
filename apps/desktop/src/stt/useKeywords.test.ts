@@ -8,6 +8,7 @@ import {
 import {
   buildKeywordSourceText,
   extractKeywordsFromMarkdown,
+  getSessionKeywords,
 } from "./useKeywords";
 
 describe("extractKeywordsFromMarkdown", () => {
@@ -133,6 +134,35 @@ describe("buildKeywordSourceText", () => {
         "Zoom",
       ].join("\n"),
     );
+  });
+});
+
+describe("getSessionKeywords", () => {
+  it("builds keywords from the current session snapshot", () => {
+    const cells = new Map([
+      ["raw_md", "Discuss #Launch and production systems"],
+      ["title", "Erebor sync"],
+      [
+        "event_json",
+        JSON.stringify({
+          title: "OpenWorld review",
+          description: "Airborne Brothers follow-up",
+          location: "Zoom",
+        }),
+      ],
+    ]);
+    const store = {
+      getCell: (_tableId: "sessions", _rowId: string, cellId: string) =>
+        cells.get(cellId),
+    };
+
+    expect(
+      getSessionKeywords({
+        store,
+        sessionId: "session-1",
+        dictionaryTerms: ["Anarlog"],
+      }),
+    ).toEqual(expect.arrayContaining(["Anarlog", "Launch"]));
   });
 });
 
