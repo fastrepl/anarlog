@@ -1568,7 +1568,7 @@ export function useEditorTabs({
   });
 }
 
-function createEditorTabs({
+export function createEditorTabs({
   enhancedNoteIds,
   canShowInsights,
   canShowTranscript,

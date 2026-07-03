@@ -12,14 +12,20 @@ import {
   type NoteInputHandle,
 } from "./components/note-input";
 import {
+  createEditorTabs,
   Header as NoteInputHeader,
-  useEditorTabs,
 } from "./components/note-input/header";
 import { SearchProvider } from "./components/note-input/search/context";
 import { OuterHeader } from "./components/outer-header";
 import { SessionSurface } from "./components/session-surface";
-import { useCurrentNoteTab } from "./components/shared";
+import {
+  computeCurrentNoteTab,
+  getCanShowTranscript,
+  useHasTranscript,
+} from "./components/shared";
 import { useAutoEnhance } from "./hooks/useAutoEnhance";
+import { useEnsureDefaultSummaryFromState } from "./hooks/useEnhancedNotes";
+import { useCanShowInsights } from "./insights/past-notes";
 import { shouldShowSessionTopAudioPlayer } from "./top-audio-player";
 
 import * as AudioPlayer from "~/audio-player";
@@ -155,14 +161,15 @@ function TabContentNoteInner({
       main.STORE_ID,
     ) ?? [];
   const firstEnhancedNoteId = enhancedNoteIds[0];
+  const contentHydrated = useHydrateSessionContent(sessionId);
   useEnsureDefaultSummaryFromState({
     batchError: Boolean(batchError),
+    enabled: contentHydrated,
     enhancedNoteCount: enhancedNoteIds.length,
     hasTranscript,
     sessionId,
     sessionMode,
   });
-  const contentHydrated = useHydrateSessionContent(sessionId);
   const updateSessionTabState = useTabs((state) => state.updateSessionTabState);
 
   const { skipReason } = useAutoEnhance(tab);

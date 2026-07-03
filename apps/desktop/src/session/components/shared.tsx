@@ -8,6 +8,7 @@ import { extractPlainText } from "~/search/contexts/engine/utils";
 import { useCanShowInsights } from "~/session/insights/past-notes";
 import { useMainStoreRowsRevision } from "~/store/tinybase/hooks";
 import * as main from "~/store/tinybase/store/main";
+import type { SessionMode } from "~/store/zustand/listener/general";
 import type { Tab } from "~/store/zustand/tabs/schema";
 import { type EditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
@@ -116,12 +117,35 @@ export function useCanShowTranscript(
   const hasTranscript = useHasTranscript(sessionId);
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
   const batchError = useListener((state) => state.batch[sessionId]?.error);
-  const isLiveCapture =
-    sessionMode === "active" || sessionMode === "finalizing";
   const hasLiveSegments = useListener(
     (state) =>
       state.live.sessionId === sessionId && state.liveSegments.length > 0,
   );
+
+  return getCanShowTranscript({
+    audioExists,
+    batchError: Boolean(batchError),
+    hasLiveSegments,
+    hasTranscript,
+    sessionMode,
+  });
+}
+
+export function getCanShowTranscript({
+  audioExists = false,
+  batchError = false,
+  hasLiveSegments = false,
+  hasTranscript,
+  sessionMode,
+}: {
+  audioExists?: boolean;
+  batchError?: boolean;
+  hasLiveSegments?: boolean;
+  hasTranscript: boolean;
+  sessionMode: SessionMode;
+}): boolean {
+  const isLiveCapture =
+    sessionMode === "active" || sessionMode === "finalizing";
 
   return (
     hasTranscript ||

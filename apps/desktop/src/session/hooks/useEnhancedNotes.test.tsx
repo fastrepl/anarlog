@@ -65,7 +65,10 @@ vi.mock("~/stt/contexts", () => ({
     }),
 }));
 
-import { useEnsureDefaultSummary } from "./useEnhancedNotes";
+import {
+  useEnsureDefaultSummary,
+  useEnsureDefaultSummaryFromState,
+} from "./useEnhancedNotes";
 
 describe("useEnsureDefaultSummary", () => {
   beforeEach(() => {
@@ -115,6 +118,23 @@ describe("useEnsureDefaultSummary", () => {
     hoisted.sessionMode = "active";
 
     renderHook(() => useEnsureDefaultSummary("session-1"));
+
+    await waitFor(() => {
+      expect(hoisted.service.ensureNote).not.toHaveBeenCalled();
+    });
+  });
+
+  it("does not create the summary row before hydration enables it", async () => {
+    renderHook(() =>
+      useEnsureDefaultSummaryFromState({
+        batchError: false,
+        enabled: false,
+        enhancedNoteCount: 0,
+        hasTranscript: true,
+        sessionId: "session-1",
+        sessionMode: "inactive",
+      }),
+    );
 
     await waitFor(() => {
       expect(hoisted.service.ensureNote).not.toHaveBeenCalled();

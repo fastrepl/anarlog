@@ -38,20 +38,95 @@ export interface NoteInputHandle {
   prepareForTabChange: () => void;
 }
 
+type NoteInputProps = {
+  tab: Extract<Tab, { type: "sessions" }>;
+  onNavigateToTitle?: (pixelWidth?: number) => void;
+  onScroll?: UIEventHandler<HTMLDivElement>;
+  editorTabs?: TabEditorView[];
+  currentTab?: TabEditorView;
+  handleTabChange?: (view: TabEditorView) => void;
+  hideHeader?: boolean;
+  sessionMode?: SessionMode;
+};
+
 export function shouldShowTranscriptTabSpinner(sessionMode: SessionMode) {
   return sessionMode === "finalizing" || sessionMode === "running_batch";
 }
 
-export const NoteInput = forwardRef<
+export const NoteInput = forwardRef<NoteInputHandle, NoteInputProps>(
+  function NoteInput(props, ref) {
+    if (
+      props.editorTabs &&
+      props.currentTab &&
+      props.handleTabChange &&
+      props.sessionMode !== undefined
+    ) {
+      return (
+        <NoteInputContent
+          {...props}
+          ref={ref}
+          editorTabs={props.editorTabs}
+          currentTab={props.currentTab}
+          commitTabChange={props.handleTabChange}
+          sessionMode={props.sessionMode}
+        />
+      );
+    }
+
+    return <NoteInputWithDerivedState {...props} ref={ref} />;
+  },
+);
+
+const NoteInputWithDerivedState = forwardRef<NoteInputHandle, NoteInputProps>(
+  function NoteInputWithDerivedState(
+    { tab, editorTabs, currentTab, handleTabChange, ...props },
+    ref,
+  ) {
+    const fallbackEditorTabs = useEditorTabs({ sessionId: tab.id });
+    const fallbackCurrentTab: TabEditorView = useCurrentNoteTab(tab);
+    const updateSessionTabState = useTabs(
+      (state) => state.updateSessionTabState,
+    );
+    const tabRef = useRef(tab);
+    tabRef.current = tab;
+    const sessionMode = useListener((state) => state.getSessionMode(tab.id));
+
+    const commitTabChange = useCallback(
+      (tabView: TabEditorView) => {
+        if (handleTabChange) {
+          handleTabChange(tabView);
+          return;
+        }
+
+        updateSessionTabState(tabRef.current, {
+          ...tabRef.current.state,
+          view: tabView,
+        });
+      },
+      [handleTabChange, updateSessionTabState],
+    );
+
+    return (
+      <NoteInputContent
+        {...props}
+        ref={ref}
+        tab={tab}
+        editorTabs={editorTabs ?? fallbackEditorTabs}
+        currentTab={currentTab ?? fallbackCurrentTab}
+        commitTabChange={commitTabChange}
+        sessionMode={props.sessionMode ?? sessionMode}
+      />
+    );
+  },
+);
+
+const NoteInputContent = forwardRef<
   NoteInputHandle,
-  {
-    tab: Extract<Tab, { type: "sessions" }>;
-    onNavigateToTitle?: (pixelWidth?: number) => void;
-    onScroll?: UIEventHandler<HTMLDivElement>;
-    editorTabs?: TabEditorView[];
-    currentTab?: TabEditorView;
-    handleTabChange?: (view: TabEditorView) => void;
-    hideHeader?: boolean;
+  Omit<NoteInputProps, "editorTabs" | "currentTab" | "handleTabChange"> & {
+    editorTabs: TabEditorView[];
+    currentTab: TabEditorView;
+    commitTabChange: (view: TabEditorView) => void;
+    sessionMode: SessionMode;
   }
 >(
   (
@@ -59,29 +134,19 @@ export const NoteInput = forwardRef<
       tab,
       onNavigateToTitle,
       onScroll,
-      editorTabs: providedEditorTabs,
-      currentTab: providedCurrentTab,
-      handleTabChange: providedHandleTabChange,
+      editorTabs,
+      currentTab,
+      commitTabChange,
       hideHeader = false,
+      sessionMode,
     },
     ref,
   ) => {
-    const fallbackEditorTabs = useEditorTabs({ sessionId: tab.id });
-    const updateSessionTabState = useTabs(
-      (state) => state.updateSessionTabState,
-    );
     const internalEditorRef = useRef<NoteEditorRef>(null);
     const [container, setContainer] = useState<HTMLDivElement | null>(null);
     const [view, setView] = useState<EditorView | null>(null);
 
     const sessionId = tab.id;
-
-    const tabRef = useRef(tab);
-    tabRef.current = tab;
-
-    const fallbackCurrentTab: TabEditorView = useCurrentNoteTab(tab);
-    const editorTabs = providedEditorTabs ?? fallbackEditorTabs;
-    const currentTab = providedCurrentTab ?? fallbackCurrentTab;
     const deferredCurrentTab = useDeferredValue(currentTab);
     const renderedCurrentTab = editorTabs.some((editorTab) =>
       isSameEditorView(editorTab, deferredCurrentTab),
@@ -89,7 +154,6 @@ export const NoteInput = forwardRef<
       ? deferredCurrentTab
       : currentTab;
 
-    const sessionMode = useListener((state) => state.getSessionMode(sessionId));
     const isMeetingInProgress =
       sessionMode === "active" ||
       sessionMode === "finalizing" ||
@@ -127,22 +191,9 @@ export const NoteInput = forwardRef<
         }
 
         onBeforeTabChange();
-        if (providedHandleTabChange) {
-          providedHandleTabChange(tabView);
-        } else {
-          updateSessionTabState(tabRef.current, {
-            ...tabRef.current.state,
-            view: tabView,
-          });
-        }
+        commitTabChange(tabView);
       },
-      [
-        currentTab,
-        onBeforeTabChange,
-        providedHandleTabChange,
-        renderedCurrentTab,
-        updateSessionTabState,
-      ],
+      [commitTabChange, currentTab, onBeforeTabChange, renderedCurrentTab],
     );
 
     const handleAdjacentViewShortcut = useCallback(

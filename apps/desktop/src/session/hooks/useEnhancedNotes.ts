@@ -6,6 +6,7 @@ import { useHasTranscript } from "~/session/components/shared";
 import * as main from "~/store/tinybase/store/main";
 import * as settings from "~/store/tinybase/store/settings";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
+import type { SessionMode } from "~/store/zustand/listener/general";
 import { useListener } from "~/stt/contexts";
 
 export function useEnhancedNotes(sessionId: string) {
@@ -54,35 +55,63 @@ export function useEnsureDefaultSummary(sessionId: string) {
     sessionId,
     main.STORE_ID,
   );
+  useEnsureDefaultSummaryFromState({
+    batchError: Boolean(batchError),
+    enhancedNoteCount: enhancedNoteIds?.length ?? 0,
+    hasTranscript,
+    sessionId,
+    sessionMode,
+  });
+}
+
+export function useEnsureDefaultSummaryFromState({
+  batchError,
+  enabled = true,
+  enhancedNoteCount,
+  hasTranscript,
+  sessionId,
+  sessionMode,
+}: {
+  batchError: boolean;
+  enabled?: boolean;
+  enhancedNoteCount: number;
+  hasTranscript: boolean;
+  sessionId: string;
+  sessionMode: SessionMode;
+}) {
   const selectedTemplateId = settings.UI.useValue(
     "selected_template_id",
     settings.STORE_ID,
   ) as string | undefined;
+  const templateId = selectedTemplateId || undefined;
 
   useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+
     const service = getEnhancerService();
     if (!service) {
       return;
     }
 
-    const hasEnhancedNotes = enhancedNoteIds && enhancedNoteIds.length > 0;
-    const templateId = selectedTemplateId || undefined;
     const isLiveCapture =
       sessionMode === "active" || sessionMode === "finalizing";
     const canCreateSummary =
       !isLiveCapture &&
-      (hasTranscript || sessionMode === "running_batch" || Boolean(batchError));
+      (hasTranscript || sessionMode === "running_batch" || batchError);
 
-    if (!hasEnhancedNotes && canCreateSummary) {
+    if (enhancedNoteCount === 0 && canCreateSummary) {
       service.ensureNote(sessionId, templateId);
     }
   }, [
     sessionId,
-    enhancedNoteIds?.length,
-    selectedTemplateId,
+    enhancedNoteCount,
+    templateId,
     hasTranscript,
     sessionMode,
     batchError,
+    enabled,
   ]);
 }
 
