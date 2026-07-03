@@ -1,5 +1,6 @@
 import { Plugin, PluginKey, type Transaction } from "prosemirror-state";
 
+import { getChangedTextblockRanges } from "./changed-ranges";
 import { isValidUrl, normalizeUrlHref } from "./url";
 
 const URL_CANDIDATE_REGEX =
@@ -76,26 +77,33 @@ export function autolinkPlugin() {
 
       let tr: Transaction | null = null;
 
-      newState.doc.descendants((node, pos, parent) => {
-        if (!node.isText || !node.text || parent?.type.spec.code) {
-          return;
-        }
+      const changedTextblockRanges = getChangedTextblockRanges(
+        newState.doc,
+        transactions,
+      );
 
-        for (const match of findAutolinkMatches(node.text)) {
-          const from = pos + match.start;
-          const to = pos + match.end;
-          if (newState.doc.rangeHasMark(from, to, linkType)) {
-            continue;
+      for (const range of changedTextblockRanges) {
+        newState.doc.nodesBetween(range.from, range.to, (node, pos, parent) => {
+          if (!node.isText || !node.text || parent?.type.spec.code) {
+            return;
           }
 
-          if (!tr) tr = newState.tr;
-          tr.addMark(
-            from,
-            to,
-            linkType.create({ href: match.href, target: null }),
-          );
-        }
-      });
+          for (const match of findAutolinkMatches(node.text)) {
+            const from = pos + match.start;
+            const to = pos + match.end;
+            if (newState.doc.rangeHasMark(from, to, linkType)) {
+              continue;
+            }
+
+            if (!tr) tr = newState.tr;
+            tr.addMark(
+              from,
+              to,
+              linkType.create({ href: match.href, target: null }),
+            );
+          }
+        });
+      }
 
       return tr;
     },

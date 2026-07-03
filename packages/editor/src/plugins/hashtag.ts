@@ -2,6 +2,8 @@ import { type Node as PMNode } from "prosemirror-model";
 import { Plugin, PluginKey } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
 
+import { getChangedTextblockRanges, type ChangedRange } from "./changed-ranges";
+
 const HASHTAG_REGEX = /#([\p{L}\p{N}_\p{Emoji}\p{Emoji_Component}]+)/gu;
 const LEADING_PUNCTUATION_REGEX = /^[([{<"'`]+/u;
 const HTTP_PREFIXES = ["http://", "https://", "www."];
@@ -77,24 +79,61 @@ export const hashtagPluginKey = new PluginKey("hashtagDecoration");
 export function hashtagPlugin() {
   return new Plugin({
     key: hashtagPluginKey,
+    state: {
+      init(_config, state) {
+        return buildHashtagDecorationSet(state.doc);
+      },
+      apply(tr, decorationSet) {
+        let next = decorationSet.map(tr.mapping, tr.doc);
+        if (!tr.docChanged) {
+          return next;
+        }
+
+        const changedTextblockRanges = getChangedTextblockRanges(tr.doc, [tr]);
+        for (const range of changedTextblockRanges) {
+          next = next.remove(next.find(range.from, range.to));
+        }
+
+        return next.add(
+          tr.doc,
+          buildHashtagDecorations(tr.doc, changedTextblockRanges),
+        );
+      },
+    },
     props: {
       decorations(state) {
-        const { doc } = state;
-        const decorations: Decoration[] = [];
-
-        doc.descendants((node: PMNode, pos: number) => {
-          if (!node.isText || !node.text) return;
-          for (const match of findHashtags(node.text)) {
-            decorations.push(
-              Decoration.inline(pos + match.start, pos + match.end, {
-                class: "hashtag",
-              }),
-            );
-          }
-        });
-
-        return DecorationSet.create(doc, decorations);
+        return hashtagPluginKey.getState(state);
       },
     },
   });
+}
+
+function buildHashtagDecorationSet(doc: PMNode) {
+  return DecorationSet.create(doc, buildHashtagDecorations(doc));
+}
+
+function buildHashtagDecorations(doc: PMNode, ranges?: ChangedRange[]) {
+  const decorations: Decoration[] = [];
+  const visitRange = (from: number, to: number) => {
+    doc.nodesBetween(from, to, (node: PMNode, pos: number) => {
+      if (!node.isText || !node.text) return;
+      for (const match of findHashtags(node.text)) {
+        decorations.push(
+          Decoration.inline(pos + match.start, pos + match.end, {
+            class: "hashtag",
+          }),
+        );
+      }
+    });
+  };
+
+  if (ranges) {
+    for (const range of ranges) {
+      visitRange(range.from, range.to);
+    }
+  } else {
+    visitRange(0, doc.content.size);
+  }
+
+  return decorations;
 }
