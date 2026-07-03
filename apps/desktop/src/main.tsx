@@ -140,8 +140,22 @@ function AppWithTiny() {
 initWindowsPlugin();
 
 const rootElement = document.getElementById("root")!;
+
+async function enableReactScanInDev() {
+  if (!import.meta.env.DEV) {
+    return;
+  }
+
+  try {
+    const { scan } = await import("react-scan");
+    scan({ enabled: true });
+  } catch (error) {
+    console.warn("Failed to start React Scan:", error);
+  }
+}
+
 async function renderApp() {
-  await bootstrapThemeFromSettings();
+  await Promise.all([bootstrapThemeFromSettings(), enableReactScanInDev()]);
   const root = ReactDOM.createRoot(rootElement);
   root.render(
     <StrictMode>
