@@ -634,7 +634,7 @@ describe("ClassicMainBody", () => {
     expect(panels[1]?.dataset.minWidth).toBe("500");
   });
 
-  it("collapses the sidebar panel without unmounting the animated shell", () => {
+  it("collapses the sidebar panel and unmounts hidden timeline content", () => {
     mocks.leftsidebar.expanded = false;
 
     render(<ClassicMainBody />);
@@ -643,7 +643,7 @@ describe("ClassicMainBody", () => {
 
     expect(resizeHandle.dataset.className).toContain("pointer-events-none");
     expect(resizeHandle.dataset.className).toContain("w-0");
-    expect(screen.getByTestId("classic-main-sidebar")).toBeTruthy();
+    expect(screen.queryByTestId("classic-main-sidebar")).toBeNull();
 
     const panels = screen.getAllByTestId("panel");
     expect(panels).toHaveLength(2);

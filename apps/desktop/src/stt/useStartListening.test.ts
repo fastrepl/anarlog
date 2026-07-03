@@ -18,6 +18,7 @@ const {
   useConfigValueMock,
   useSTTConnectionMock,
   isSupportedLanguagesLiveMock,
+  leftSidebarExpanded,
   setLeftSidebarExpandedMock,
   settingsUseStoreMock,
   deleteProcessedAudioForRetentionMock,
@@ -36,6 +37,7 @@ const {
   useConfigValueMock: vi.fn(),
   useSTTConnectionMock: vi.fn(),
   isSupportedLanguagesLiveMock: vi.fn(),
+  leftSidebarExpanded: { value: true },
   setLeftSidebarExpandedMock: vi.fn(),
   settingsUseStoreMock: vi.fn(),
   deleteProcessedAudioForRetentionMock: vi.fn(),
@@ -95,6 +97,7 @@ vi.mock("~/services/audio-retention", () => ({
 vi.mock("~/contexts/shell", () => ({
   useShell: vi.fn(() => ({
     leftsidebar: {
+      expanded: leftSidebarExpanded.value,
       setExpanded: setLeftSidebarExpandedMock,
     },
   })),
@@ -195,6 +198,7 @@ describe("useStartListening", () => {
     useConfigValueMock.mockImplementation((key) =>
       key === "ai_language" ? "en" : [],
     );
+    leftSidebarExpanded.value = true;
     settingsUseStoreMock.mockReturnValue(settingsStoreMock);
     mainStoreMock.getCell.mockImplementation(() => "");
     mainStoreMock.forEachRow.mockImplementation(() => {});
@@ -216,6 +220,18 @@ describe("useStartListening", () => {
   });
 
   test("collapses the left sidebar after listening starts", async () => {
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    expect(setLeftSidebarExpandedMock).toHaveBeenCalledWith(false);
+  });
+
+  test("sets the left sidebar collapsed after listening starts even if render state is stale", async () => {
+    leftSidebarExpanded.value = false;
+
     const { result } = renderHook(() => useStartListening("session-1"));
 
     await act(async () => {

@@ -616,7 +616,6 @@ export function ClassicMainBody() {
                 ])}
               >
                 <ClassicMainSidebar
-                  forceMount
                   showIgnoredTimelineEvents={showIgnoredTimelineEvents}
                   onShowIgnoredTimelineEventsChange={
                     setShowIgnoredTimelineEvents
