@@ -1,5 +1,10 @@
 import type { ChatStatus } from "ai";
-import { type WheelEvent, useEffect, useRef, useState } from "react";
+import { type WheelEvent, useLayoutEffect, useRef, useState } from "react";
+
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
+
+const AUTO_SCROLL_BOTTOM_THRESHOLD = 24;
+const PINNED_BOTTOM_THRESHOLD = 1;
 
 export function useChatAutoScroll(status: ChatStatus) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -30,8 +35,14 @@ export function useChatAutoScroll(status: ChatStatus) {
 
     const { scrollTop, clientHeight, scrollHeight } = scrollRef.current;
     const distanceFromBottom = scrollHeight - (scrollTop + clientHeight);
-    const nextIsAtBottom = distanceFromBottom <= 24;
+    const nextIsAtBottom = distanceFromBottom <= AUTO_SCROLL_BOTTOM_THRESHOLD;
+    const isPinnedAtBottom = distanceFromBottom <= PINNED_BOTTOM_THRESHOLD;
     setIsAtBottom(nextIsAtBottom);
+
+    if (pendingUserScrollIntentRef.current && !isPinnedAtBottom) {
+      shouldAutoScrollRef.current = false;
+      return;
+    }
 
     if (nextIsAtBottom) {
       shouldAutoScrollRef.current = true;
@@ -44,23 +55,25 @@ export function useChatAutoScroll(status: ChatStatus) {
   };
 
   const handleWheel = (event: WheelEvent<HTMLDivElement>) => {
+    if (event.deltaY < 0) {
+      shouldAutoScrollRef.current = false;
+      pendingUserScrollIntentRef.current = true;
+      setShowGoToRecent(false);
+      return;
+    }
+
     if (event.deltaY > 0 && !isAtBottom) {
+      pendingUserScrollIntentRef.current = false;
       setShowGoToRecent(true);
       return;
     }
 
-    if (event.deltaY < 0) {
-      setShowGoToRecent(false);
+    if (event.deltaY > 0) {
+      pendingUserScrollIntentRef.current = false;
     }
-
-    if (!isGenerating || event.deltaY >= 0) {
-      return;
-    }
-
-    pendingUserScrollIntentRef.current = true;
   };
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (isGenerating && !previousIsGeneratingRef.current) {
       shouldAutoScrollRef.current = true;
       pendingUserScrollIntentRef.current = false;
@@ -74,8 +87,8 @@ export function useChatAutoScroll(status: ChatStatus) {
     }
   });
 
-  useEffect(() => {
-    if (!contentRef.current) {
+  useMountEffect(() => {
+    if (!contentRef.current || typeof ResizeObserver === "undefined") {
       return;
     }
 
@@ -88,7 +101,7 @@ export function useChatAutoScroll(status: ChatStatus) {
     observer.observe(contentRef.current);
 
     return () => observer.disconnect();
-  }, []);
+  });
 
   return {
     contentRef,
