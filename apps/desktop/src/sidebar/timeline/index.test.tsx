@@ -844,7 +844,7 @@ describe("TimelineView", () => {
 
     vi.setSystemTime(new Date("2024-01-15T12:01:00.000Z"));
     mocks.currentTimeMs = Date.now();
-    rerender(<TimelineView topChromeInset />);
+    rerender(<TimelineView topChromeInset showOpenCalendarButton />);
 
     expect(
       container.querySelector("[data-sidebar-upcoming-meeting-status]")
@@ -853,7 +853,7 @@ describe("TimelineView", () => {
 
     vi.setSystemTime(new Date("2024-01-15T12:06:01.000Z"));
     mocks.currentTimeMs = Date.now();
-    rerender(<TimelineView topChromeInset />);
+    rerender(<TimelineView topChromeInset showIgnoredEvents={false} />);
 
     expect(
       container.querySelector("[data-sidebar-upcoming-meeting-status]")
@@ -862,7 +862,13 @@ describe("TimelineView", () => {
 
     vi.setSystemTime(new Date("2024-01-15T12:30:01.000Z"));
     mocks.currentTimeMs = Date.now();
-    rerender(<TimelineView topChromeInset />);
+    rerender(
+      <TimelineView
+        topChromeInset
+        showOpenCalendarButton
+        showIgnoredEvents={false}
+      />,
+    );
 
     expect(
       container.querySelector("[data-sidebar-upcoming-meeting-status]"),
@@ -1075,7 +1081,7 @@ describe("TimelineView", () => {
         created_at: "2024-01-15T23:59:00.000Z",
       },
     };
-    rerender(<TimelineView />);
+    rerender(<TimelineView showOpenCalendarButton />);
 
     const tomorrowHeading = screen.getByText("Tomorrow");
     const yesterdayHeading = screen.getByText("Yesterday");
@@ -1106,7 +1112,7 @@ describe("TimelineView", () => {
 
     vi.setSystemTime(new Date("2024-01-16T00:01:00.000Z"));
     mocks.currentTimeMs = Date.now();
-    rerender(<TimelineView />);
+    rerender(<TimelineView showOpenCalendarButton />);
 
     const staleTomorrowHeading = screen.getByText("Tomorrow");
     const staleTomorrowItem = screen.getByTestId("timeline-item-soon");

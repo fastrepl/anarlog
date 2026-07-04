@@ -1,3 +1,5 @@
+import { memo } from "react";
+
 import { ClassicMainBody } from "./body";
 import { resolveMainSurfaceChrome } from "./main-surface-chrome";
 
@@ -34,10 +36,16 @@ export function ClassicMainShellFrame() {
       edgeToEdge={isOnboarding}
       mainSurfaceChrome={isOnboarding ? undefined : mainSurfaceChrome}
     >
-      <MainShellBodyFrame>
-        <ClassicMainBody />
-      </MainShellBodyFrame>
+      <ClassicMainBodyHost />
       <ToastArea placement={showSidebarTimeline ? "left-sidebar" : "default"} />
     </MainShellScaffold>
   );
 }
+
+const ClassicMainBodyHost = memo(function ClassicMainBodyHost() {
+  return (
+    <MainShellBodyFrame>
+      <ClassicMainBody />
+    </MainShellBodyFrame>
+  );
+});

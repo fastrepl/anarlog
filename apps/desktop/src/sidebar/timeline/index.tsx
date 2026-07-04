@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import {
   type ReactNode,
+  memo,
   type RefCallback,
   type WheelEvent as ReactWheelEvent,
   useCallback,
@@ -59,7 +60,7 @@ import { useTimelineSelection } from "~/store/zustand/timeline-selection";
 import { useUndoDelete } from "~/store/zustand/undo-delete";
 import { useListener } from "~/stt/contexts";
 
-export function TimelineView({
+export const TimelineView = memo(function TimelineView({
   showOpenCalendarButton = true,
   showIgnoredEvents,
   onShowIgnoredEventsChange,
@@ -617,7 +618,7 @@ export function TimelineView({
       )}
     </div>
   );
-}
+});
 
 function SidebarUpcomingMeetingStatus({
   label,
