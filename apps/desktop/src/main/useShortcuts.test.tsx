@@ -126,9 +126,9 @@ vi.mock("~/stt/contexts", () => ({
     }),
 }));
 
-import { useClassicMainTabsShortcuts } from "~/main/useTabsShortcuts";
+import { useClassicMainShortcuts } from "~/main/useShortcuts";
 
-describe("useClassicMainTabsShortcuts", () => {
+describe("useClassicMainShortcuts", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     hoisted.chatMode = "FloatingClosed";
@@ -151,34 +151,19 @@ describe("useClassicMainTabsShortcuts", () => {
     vi.useRealTimers();
   });
 
-  it("binds mod+t to open a classic empty tab", () => {
-    renderHook(() => useClassicMainTabsShortcuts());
+  it("does not bind legacy tab shortcuts", () => {
+    renderHook(() => useClassicMainShortcuts());
 
-    const handler = hoisted.handlers.get("mod+t");
-    expect(handler).toBeTruthy();
-
-    handler?.();
-
-    expect(hoisted.openNew).toHaveBeenCalledWith({ type: "empty" });
-  });
-
-  it("binds mod+w to close the current note tab", () => {
-    hoisted.currentTab = {
-      active: true,
-      id: "session-1",
-      slotId: "slot-session",
-      type: "sessions",
-    };
-
-    renderHook(() => useClassicMainTabsShortcuts());
-
-    const handler = hoisted.handlers.get("mod+w");
-    expect(handler).toBeTruthy();
-
-    handler?.();
-
-    expect(hoisted.close).toHaveBeenCalledWith(hoisted.currentTab);
-    expect(hoisted.openCurrent).not.toHaveBeenCalled();
+    expect(hoisted.handlers.has("mod+t")).toBe(false);
+    expect(hoisted.handlers.has("mod+w")).toBe(false);
+    expect(
+      hoisted.handlers.has(
+        "mod+1, mod+2, mod+3, mod+4, mod+5, mod+6, mod+7, mod+8, mod+9",
+      ),
+    ).toBe(false);
+    expect(hoisted.handlers.has("mod+alt+left")).toBe(false);
+    expect(hoisted.handlers.has("mod+alt+right")).toBe(false);
+    expect(hoisted.handlers.has("mod+shift+t")).toBe(false);
   });
 
   it("selects an existing home view from a note on escape", () => {
@@ -195,7 +180,7 @@ describe("useClassicMainTabsShortcuts", () => {
     };
     hoisted.tabs = [homeTab, hoisted.currentTab];
 
-    renderHook(() => useClassicMainTabsShortcuts());
+    renderHook(() => useClassicMainShortcuts());
 
     dispatchEscape();
     vi.runOnlyPendingTimers();
@@ -212,7 +197,7 @@ describe("useClassicMainTabsShortcuts", () => {
       type: "sessions",
     };
 
-    const { result } = renderHook(() => useClassicMainTabsShortcuts());
+    const { result } = renderHook(() => useClassicMainShortcuts());
 
     result.current.runEscapeShortcut();
 
@@ -227,7 +212,7 @@ describe("useClassicMainTabsShortcuts", () => {
       type: "empty",
     };
 
-    const { result } = renderHook(() => useClassicMainTabsShortcuts());
+    const { result } = renderHook(() => useClassicMainShortcuts());
 
     hoisted.currentTab = {
       active: true,
@@ -254,7 +239,7 @@ describe("useClassicMainTabsShortcuts", () => {
     editor.addEventListener("keydown", (event) => event.stopPropagation());
     document.body.append(editor);
 
-    renderHook(() => useClassicMainTabsShortcuts());
+    renderHook(() => useClassicMainShortcuts());
 
     dispatchEscape(editor);
     vi.runOnlyPendingTimers();
@@ -280,7 +265,7 @@ describe("useClassicMainTabsShortcuts", () => {
     });
     document.body.append(editor);
 
-    renderHook(() => useClassicMainTabsShortcuts());
+    renderHook(() => useClassicMainShortcuts());
 
     dispatchEscape(editor);
     vi.runOnlyPendingTimers();
@@ -308,7 +293,7 @@ describe("useClassicMainTabsShortcuts", () => {
     });
     document.body.append(editor);
 
-    renderHook(() => useClassicMainTabsShortcuts());
+    renderHook(() => useClassicMainShortcuts());
 
     dispatchEscape(text);
     vi.runOnlyPendingTimers();
@@ -325,7 +310,7 @@ describe("useClassicMainTabsShortcuts", () => {
       slotId: "slot-session",
       type: "sessions",
     };
-    const { result } = renderHook(() => useClassicMainTabsShortcuts());
+    const { result } = renderHook(() => useClassicMainShortcuts());
     const target = document.createElement("input");
     target.addEventListener("keydown", (event) => {
       event.preventDefault();
@@ -357,7 +342,7 @@ describe("useClassicMainTabsShortcuts", () => {
     });
     document.body.append(target);
 
-    renderHook(() => useClassicMainTabsShortcuts());
+    renderHook(() => useClassicMainShortcuts());
 
     dispatchEscape(target);
     vi.runOnlyPendingTimers();
@@ -383,7 +368,7 @@ describe("useClassicMainTabsShortcuts", () => {
     surface.append(target);
     document.body.append(surface);
 
-    renderHook(() => useClassicMainTabsShortcuts());
+    renderHook(() => useClassicMainShortcuts());
 
     dispatchEscape(target);
     vi.runOnlyPendingTimers();
@@ -400,7 +385,7 @@ describe("useClassicMainTabsShortcuts", () => {
       slotId: "slot-session",
       type: "sessions",
     };
-    const { result } = renderHook(() => useClassicMainTabsShortcuts());
+    const { result } = renderHook(() => useClassicMainShortcuts());
     const target = document.createElement("input");
     target.addEventListener("keydown", (event) => {
       event.preventDefault();
@@ -435,7 +420,7 @@ describe("useClassicMainTabsShortcuts", () => {
     menu.dataset.editorEscapeConsumer = "true";
     document.body.append(editor, menu);
 
-    renderHook(() => useClassicMainTabsShortcuts());
+    renderHook(() => useClassicMainShortcuts());
 
     dispatchEscape(editor);
     vi.runOnlyPendingTimers();
@@ -464,7 +449,7 @@ describe("useClassicMainTabsShortcuts", () => {
     });
     document.body.append(editor, menu);
 
-    renderHook(() => useClassicMainTabsShortcuts());
+    renderHook(() => useClassicMainShortcuts());
 
     dispatchEscape(editor);
     vi.runOnlyPendingTimers();
@@ -487,7 +472,7 @@ describe("useClassicMainTabsShortcuts", () => {
     };
     hoisted.tabs = [homeTab, hoisted.currentTab];
 
-    renderHook(() => useClassicMainTabsShortcuts());
+    renderHook(() => useClassicMainShortcuts());
 
     dispatchEscape();
     vi.runOnlyPendingTimers();
@@ -518,7 +503,7 @@ describe("useClassicMainTabsShortcuts", () => {
       hoisted.currentTab,
     ];
 
-    renderHook(() => useClassicMainTabsShortcuts());
+    renderHook(() => useClassicMainShortcuts());
 
     dispatchEscape();
     vi.runOnlyPendingTimers();
@@ -538,7 +523,7 @@ describe("useClassicMainTabsShortcuts", () => {
     hoisted.canGoBack = true;
     hoisted.tabs = [hoisted.currentTab];
 
-    renderHook(() => useClassicMainTabsShortcuts());
+    renderHook(() => useClassicMainShortcuts());
 
     dispatchEscape();
     vi.runOnlyPendingTimers();
@@ -558,7 +543,7 @@ describe("useClassicMainTabsShortcuts", () => {
     hoisted.canGoBack = true;
     hoisted.tabs = [hoisted.currentTab];
 
-    renderHook(() => useClassicMainTabsShortcuts());
+    renderHook(() => useClassicMainShortcuts());
 
     dispatchEscape();
     vi.runOnlyPendingTimers();
@@ -584,7 +569,7 @@ describe("useClassicMainTabsShortcuts", () => {
     };
     hoisted.tabs = [reusedSlotTab, hoisted.currentTab];
 
-    renderHook(() => useClassicMainTabsShortcuts());
+    renderHook(() => useClassicMainShortcuts());
 
     dispatchEscape();
     vi.runOnlyPendingTimers();
@@ -602,7 +587,7 @@ describe("useClassicMainTabsShortcuts", () => {
       type: "sessions",
     };
 
-    renderHook(() => useClassicMainTabsShortcuts());
+    renderHook(() => useClassicMainShortcuts());
 
     dispatchEscape();
     vi.runOnlyPendingTimers();
@@ -619,7 +604,7 @@ describe("useClassicMainTabsShortcuts", () => {
       type: "sessions",
     };
 
-    const { rerender } = renderHook(() => useClassicMainTabsShortcuts());
+    const { rerender } = renderHook(() => useClassicMainShortcuts());
 
     dispatchEscape();
     hoisted.chatMode = "FloatingClosed";
@@ -638,7 +623,7 @@ describe("useClassicMainTabsShortcuts", () => {
       type: "sessions",
     };
 
-    renderHook(() => useClassicMainTabsShortcuts());
+    renderHook(() => useClassicMainShortcuts());
 
     dispatchEscape();
     vi.runOnlyPendingTimers();
@@ -654,7 +639,7 @@ describe("useClassicMainTabsShortcuts", () => {
       type: "sessions",
     };
 
-    renderHook(() => useClassicMainTabsShortcuts());
+    renderHook(() => useClassicMainShortcuts());
 
     const preventEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -684,7 +669,7 @@ describe("useClassicMainTabsShortcuts", () => {
     document.body.append(input);
     input.focus();
 
-    renderHook(() => useClassicMainTabsShortcuts());
+    renderHook(() => useClassicMainShortcuts());
 
     dispatchEscape(input);
     vi.runOnlyPendingTimers();

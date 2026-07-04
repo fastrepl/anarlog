@@ -38,7 +38,7 @@ import {
   SidebarTimelineUpdateButton,
   useDesktopUpdateControl,
 } from "./update-banner";
-import { useClassicMainTabsShortcuts } from "./useTabsShortcuts";
+import { useClassicMainShortcuts } from "./useShortcuts";
 
 import { useShell } from "~/contexts/shell";
 import { scrollElementByWheel } from "~/shared/dom/scroll-wheel";
@@ -80,7 +80,7 @@ type LeftSidebarSizeStyle = CSSProperties & {
 export function ClassicMainBody() {
   const { leftsidebar } = useShell();
   const currentTab = useTabs((state) => state.currentTab);
-  const { runEscapeShortcut } = useClassicMainTabsShortcuts();
+  const { runEscapeShortcut } = useClassicMainShortcuts();
   const [leftSidebarPanelConstraints, setLeftSidebarPanelConstraints] =
     useState(createLeftSidebarPanelConstraints);
   const [leftSidebarPanelSize, setLeftSidebarPanelSize] = useState(
