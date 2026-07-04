@@ -2,6 +2,7 @@ export { appLinkPastePlugin } from "./app-link-paste";
 export { autolinkPlugin } from "./autolink";
 export { clipboardPlugin, serializeClipboardText } from "./clipboard";
 export { clearMarksOnEnterPlugin } from "./clear-marks-on-enter";
+export { docChangeListenerPlugin } from "./doc-change-listener";
 export {
   clipNodeSpec,
   clipPastePlugin,

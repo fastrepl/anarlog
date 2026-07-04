@@ -34,8 +34,11 @@ import {
   MentionNodeView,
   withNodeViewErrorBoundary,
 } from "../node-views";
-import { type PlaceholderFunction, placeholderPlugin } from "../plugins";
-import { dispatchEditorTransaction } from "../transaction-guard";
+import {
+  docChangeListenerPlugin,
+  type PlaceholderFunction,
+  placeholderPlugin,
+} from "../plugins";
 import {
   type MentionConfig,
   MentionSuggestion,
@@ -227,6 +230,9 @@ export const ChatEditor = forwardRef<ChatEditorHandle, ChatEditorProps>(
 
       return [
         reactKeys(),
+        docChangeListenerPlugin((view) => {
+          onUpdateRef.current?.(view.state.doc.toJSON() as JSONContent);
+        }),
         keymap({
           "Mod-z": undo,
           "Mod-Shift-z": redo,
@@ -273,15 +279,6 @@ export const ChatEditor = forwardRef<ChatEditorHandle, ChatEditorProps>(
         <ProseMirror
           defaultState={defaultState}
           nodeViewComponents={nodeViews}
-          dispatchTransaction={function (this: EditorView, tr) {
-            dispatchEditorTransaction({
-              view: this,
-              transaction: tr,
-              onDocChanged: (view) => {
-                onUpdateRef.current?.(view.state.doc.toJSON() as JSONContent);
-              },
-            });
-          }}
           attributes={{
             spellCheck: "false",
             autoComplete: "off",
