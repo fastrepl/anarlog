@@ -9,7 +9,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { useHotkeys } from "react-hotkeys-hook";
 
 import type { NoteEditorRef } from "@hypr/editor/note";
 import { cn } from "@hypr/utils";
@@ -145,12 +144,6 @@ export const NoteInput = forwardRef<
       ],
     );
 
-    useTabShortcuts({
-      editorTabs,
-      currentTab,
-      handleTabChange,
-    });
-
     useEffect(() => {
       if (renderedCurrentTab.type === "raw" && isMeetingInProgress) {
         requestAnimationFrame(() => {
@@ -273,98 +266,4 @@ function isSameEditorView(left: TabEditorView, right: TabEditorView): boolean {
   }
 
   return true;
-}
-
-function useTabShortcuts({
-  editorTabs,
-  currentTab,
-  handleTabChange,
-}: {
-  editorTabs: TabEditorView[];
-  currentTab: TabEditorView;
-  handleTabChange: (view: TabEditorView) => void;
-}) {
-  useHotkeys(
-    "alt+s",
-    () => {
-      const enhancedTabs = editorTabs.filter((t) => t.type === "enhanced");
-      if (enhancedTabs.length === 0) return;
-
-      if (currentTab.type === "enhanced") {
-        const currentIndex = enhancedTabs.findIndex(
-          (t) => t.type === "enhanced" && t.id === currentTab.id,
-        );
-        const nextIndex = (currentIndex + 1) % enhancedTabs.length;
-        handleTabChange(enhancedTabs[nextIndex]);
-      } else {
-        handleTabChange(enhancedTabs[0]);
-      }
-    },
-    {
-      preventDefault: true,
-      enableOnFormTags: true,
-      enableOnContentEditable: true,
-    },
-    [currentTab, editorTabs, handleTabChange],
-  );
-
-  useHotkeys(
-    "alt+m",
-    () => {
-      const rawTab = editorTabs.find((t) => t.type === "raw");
-      if (rawTab && currentTab.type !== "raw") {
-        handleTabChange(rawTab);
-      }
-    },
-    {
-      preventDefault: true,
-      enableOnFormTags: true,
-      enableOnContentEditable: true,
-    },
-    [currentTab, editorTabs, handleTabChange],
-  );
-
-  useHotkeys(
-    "ctrl+alt+left",
-    () => {
-      const currentIndex = editorTabs.findIndex(
-        (t) =>
-          (t.type === "enhanced" &&
-            currentTab.type === "enhanced" &&
-            t.id === currentTab.id) ||
-          (t.type === currentTab.type && t.type !== "enhanced"),
-      );
-      if (currentIndex > 0) {
-        handleTabChange(editorTabs[currentIndex - 1]);
-      }
-    },
-    {
-      preventDefault: true,
-      enableOnFormTags: true,
-      enableOnContentEditable: true,
-    },
-    [currentTab, editorTabs, handleTabChange],
-  );
-
-  useHotkeys(
-    "ctrl+alt+right",
-    () => {
-      const currentIndex = editorTabs.findIndex(
-        (t) =>
-          (t.type === "enhanced" &&
-            currentTab.type === "enhanced" &&
-            t.id === currentTab.id) ||
-          (t.type === currentTab.type && t.type !== "enhanced"),
-      );
-      if (currentIndex >= 0 && currentIndex < editorTabs.length - 1) {
-        handleTabChange(editorTabs[currentIndex + 1]);
-      }
-    },
-    {
-      preventDefault: true,
-      enableOnFormTags: true,
-      enableOnContentEditable: true,
-    },
-    [currentTab, editorTabs, handleTabChange],
-  );
 }

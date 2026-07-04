@@ -85,8 +85,8 @@ vi.mock("@hypr/plugin-windows", () => ({
   },
 }));
 
-vi.mock("~/main/useTabsShortcuts", () => ({
-  useClassicMainTabsShortcuts: vi.fn(() => ({
+vi.mock("~/main/useShortcuts", () => ({
+  useClassicMainShortcuts: vi.fn(() => ({
     runEscapeShortcut: mocks.runEscapeShortcut,
   })),
 }));

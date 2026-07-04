@@ -199,8 +199,8 @@ vi.mock("./update-banner", () => ({
   useDesktopUpdateControl: () => ({ status: null, version: null }),
 }));
 
-vi.mock("./useTabsShortcuts", () => ({
-  useClassicMainTabsShortcuts: () => ({ runEscapeShortcut: vi.fn() }),
+vi.mock("./useShortcuts", () => ({
+  useClassicMainShortcuts: () => ({ runEscapeShortcut: vi.fn() }),
 }));
 
 vi.mock("~/shared/open-note-dialog", () => ({
