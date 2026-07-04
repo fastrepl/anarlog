@@ -122,7 +122,7 @@ vi.mock("@hypr/plugin-analytics", () => ({
 }));
 
 vi.mock("@hypr/ui/components/ui/spinner", () => ({
-  Spinner: () => <span data-testid="tab-spinner" />,
+  Spinner: () => <span data-testid="view-spinner" />,
 }));
 
 vi.mock("@hypr/ui/components/ui/dancing-sticks", () => ({
@@ -354,7 +354,7 @@ describe("Header", () => {
     cleanup();
   });
 
-  it("renders icon tabs and focuses summary before opening the template picker", () => {
+  it("renders icon views and focuses summary before opening the template picker", () => {
     const editorTabs: EditorView[] = [
       { type: "enhanced", id: "note-1" },
       { type: "raw" },
@@ -374,15 +374,17 @@ describe("Header", () => {
     const summaryTab = screen.getByRole("button", { name: "Customer Call" });
     const memoTab = screen.getByRole("button", { name: "Memos" });
     const transcriptTab = screen.getByRole("button", { name: "Transcript" });
-    const tabList = screen.getByRole("tablist");
+    const viewSwitcher = screen.getByRole("group", {
+      name: "Session note views",
+    });
 
     expect(summaryTab.getAttribute("data-state")).toBeNull();
-    expect(tabList.getAttribute("data-tauri-drag-region")).toBe("false");
-    expect(tabList.className).toContain("h-[30px]");
-    expect(tabList.className).toContain("p-[2px]");
-    expect(tabList.className).toContain("gap-[2px]");
-    expect(tabList.className).toContain("bg-foreground/10");
-    expect(tabList.className).toContain("dark:bg-accent/55");
+    expect(viewSwitcher.getAttribute("data-tauri-drag-region")).toBe("false");
+    expect(viewSwitcher.className).toContain("h-[30px]");
+    expect(viewSwitcher.className).toContain("p-[2px]");
+    expect(viewSwitcher.className).toContain("gap-[2px]");
+    expect(viewSwitcher.className).toContain("bg-foreground/10");
+    expect(viewSwitcher.className).toContain("dark:bg-accent/55");
     expect(summaryTab.getAttribute("aria-current")).toBeNull();
     expect(memoTab.getAttribute("aria-current")).toBe("page");
     expect(memoTab.textContent).toBe("Memos");
@@ -454,7 +456,7 @@ describe("Header", () => {
     });
   });
 
-  it("renders a raw-only memo tab without the tab tray", () => {
+  it("renders a raw-only memo view without the grouped view switcher", () => {
     render(
       <Header
         sessionId="session-1"
@@ -465,11 +467,13 @@ describe("Header", () => {
     );
 
     const memoTab = screen.getByRole("button", { name: "Memos" });
-    const tabList = screen.getByRole("tablist");
+    const viewSwitcher = screen.getByRole("group", {
+      name: "Session note views",
+    });
 
-    expect(tabList.className).not.toContain("h-[30px]");
-    expect(tabList.className).not.toContain("bg-foreground/10");
-    expect(tabList.className).not.toContain("rounded-full");
+    expect(viewSwitcher.className).not.toContain("h-[30px]");
+    expect(viewSwitcher.className).not.toContain("bg-foreground/10");
+    expect(viewSwitcher.className).not.toContain("rounded-full");
     expect(memoTab.textContent).toBe("Memos");
     expect(memoTab.className).toContain("h-7");
     expect(memoTab.className).toContain("bg-white");
@@ -689,7 +693,7 @@ describe("Header", () => {
       />,
     );
 
-    expect(screen.getByTestId("tab-spinner")).not.toBeNull();
+    expect(screen.getByTestId("view-spinner")).not.toBeNull();
     expect(
       screen.getByRole("button", { name: "Customer Call" }).textContent,
     ).toBe("Customer Call");
@@ -715,7 +719,7 @@ describe("Header", () => {
     const transcriptTab = screen.getByRole("button", { name: "Transcript" });
 
     expect(
-      transcriptTab.querySelector("[data-testid='tab-spinner']"),
+      transcriptTab.querySelector("[data-testid='view-spinner']"),
     ).not.toBeNull();
     expect(transcriptTab.querySelector("svg")).toBeNull();
   });

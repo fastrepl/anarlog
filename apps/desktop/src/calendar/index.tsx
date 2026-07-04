@@ -1,11 +1,11 @@
 import { CalendarView } from "./components/calendar-view";
 
-import { StandardTabWrapper } from "~/shared/main";
+import { StandardContentWrapper } from "~/shared/main";
 
 export function TabContentCalendar() {
   return (
-    <StandardTabWrapper>
+    <StandardContentWrapper>
       <CalendarView />
-    </StandardTabWrapper>
+    </StandardContentWrapper>
   );
 }

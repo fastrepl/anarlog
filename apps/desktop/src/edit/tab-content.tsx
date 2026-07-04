@@ -4,7 +4,7 @@ import { useCallback, useMemo } from "react";
 import { useStrictModeUnmount } from "./hooks";
 
 import { usePendingEditStore } from "~/chat/tools/pending-edit-store";
-import { StandardTabWrapper } from "~/shared/main";
+import { StandardContentWrapper } from "~/shared/main";
 import * as main from "~/store/tinybase/store/main";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 
@@ -47,16 +47,16 @@ export function TabContentEdit({ tab }: { tab: EditTab }) {
 
   if (!edit) {
     return (
-      <StandardTabWrapper>
+      <StandardContentWrapper>
         <div className="text-muted-foreground flex h-full items-center justify-center">
           This edit is no longer pending.
         </div>
-      </StandardTabWrapper>
+      </StandardContentWrapper>
     );
   }
 
   return (
-    <StandardTabWrapper>
+    <StandardContentWrapper>
       <div className="flex h-full flex-col">
         <div className="border-border flex items-start justify-between gap-3 border-b px-4 py-3">
           <div className="min-w-0 flex-1">
@@ -97,6 +97,6 @@ export function TabContentEdit({ tab }: { tab: EditTab }) {
           />
         </div>
       </div>
-    </StandardTabWrapper>
+    </StandardContentWrapper>
   );
 }

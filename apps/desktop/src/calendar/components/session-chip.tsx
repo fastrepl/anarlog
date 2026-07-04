@@ -24,7 +24,6 @@ import { useTabs } from "~/store/zustand/tabs";
 
 export function SessionChip({ sessionId }: { sessionId: string }) {
   const tz = useTimezone();
-  const openNew = useTabs((state) => state.openNew);
   const deleteSession = useDeleteSession();
   const session = main.UI.useResultRow(
     main.QUERIES.timelineSessions,
@@ -36,10 +35,6 @@ export function SessionChip({ sessionId }: { sessionId: string }) {
   const createdAt = session?.created_at
     ? format(toTz(session.created_at as string, tz), "h:mm a")
     : null;
-
-  const handleOpenNewTab = useCallback(() => {
-    openNew({ type: "sessions", id: sessionId });
-  }, [openNew, sessionId]);
 
   const handleShowInFinder = useCallback(async () => {
     const result = await fsSyncCommands.sessionDir(sessionId);
@@ -56,11 +51,6 @@ export function SessionChip({ sessionId }: { sessionId: string }) {
   const contextMenu = useMemo<MenuItemDef[]>(
     () => [
       {
-        id: "open-new-tab",
-        text: "Open in New Tab",
-        action: handleOpenNewTab,
-      },
-      {
         id: "show",
         text: "Show in Finder",
         action: handleShowInFinder,
@@ -72,7 +62,7 @@ export function SessionChip({ sessionId }: { sessionId: string }) {
         action: handleDelete,
       },
     ],
-    [handleOpenNewTab, handleShowInFinder, handleDelete],
+    [handleShowInFinder, handleDelete],
   );
   const showContextMenu = useNativeContextMenu(contextMenu);
 
@@ -119,12 +109,12 @@ function SessionPopoverContent({ sessionId }: { sessionId: string }) {
     sessionId,
     main.STORE_ID,
   );
-  const openNew = useTabs((state) => state.openNew);
+  const openCurrent = useTabs((state) => state.openCurrent);
   const tz = useTimezone();
 
   const handleOpen = useCallback(() => {
-    openNew({ type: "sessions", id: sessionId });
-  }, [openNew, sessionId]);
+    openCurrent({ type: "sessions", id: sessionId });
+  }, [openCurrent, sessionId]);
 
   if (!session) {
     return null;

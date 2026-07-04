@@ -1,6 +1,6 @@
 import { TemplateView } from "./template-body";
 
-import { StandardTabWrapper } from "~/shared/main";
+import { StandardContentWrapper } from "~/shared/main";
 import { type Tab } from "~/store/zustand/tabs";
 
 export { parseWebTemplates } from "./codec";
@@ -24,8 +24,8 @@ export function TabContentTemplate({
   tab: Extract<Tab, { type: "templates" }>;
 }) {
   return (
-    <StandardTabWrapper>
+    <StandardContentWrapper>
       <TemplateView tab={tab} />
-    </StandardTabWrapper>
+    </StandardContentWrapper>
   );
 }

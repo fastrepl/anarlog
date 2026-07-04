@@ -1,6 +1,6 @@
 import { Trans } from "@lingui/react/macro";
 
-import { StandardTabWrapper } from "~/shared/main";
+import { StandardContentWrapper } from "~/shared/main";
 import { type Tab } from "~/store/zustand/tabs";
 
 export function TabContentHuman({
@@ -9,10 +9,10 @@ export function TabContentHuman({
   tab: Extract<Tab, { type: "humans" }>;
 }) {
   return (
-    <StandardTabWrapper>
+    <StandardContentWrapper>
       <div>
         <Trans>Human</Trans>
       </div>
-    </StandardTabWrapper>
+    </StandardContentWrapper>
   );
 }

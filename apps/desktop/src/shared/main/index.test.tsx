@@ -40,18 +40,18 @@ vi.mock("@hypr/ui/components/ui/resizable", () => {
   };
 });
 
-import { StandardTabWrapper } from "./index";
+import { StandardContentWrapper } from "./index";
 
-describe("StandardTabWrapper", () => {
+describe("StandardContentWrapper", () => {
   beforeEach(() => {
     cleanup();
   });
 
   it("renders a single full-height main panel", () => {
     render(
-      <StandardTabWrapper>
+      <StandardContentWrapper>
         <div data-testid="main-area" />
-      </StandardTabWrapper>,
+      </StandardContentWrapper>,
     );
 
     expect(screen.getByTestId("panel-group").dataset.direction).toBe(
@@ -68,9 +68,9 @@ describe("StandardTabWrapper", () => {
 
   it("renders the floating button inside the main surface", () => {
     render(
-      <StandardTabWrapper floatingButton={<button>Record</button>}>
+      <StandardContentWrapper floatingButton={<button>Record</button>}>
         <div data-testid="main-area" />
-      </StandardTabWrapper>,
+      </StandardContentWrapper>,
     );
 
     expect(screen.getByRole("button", { name: "Record" })).toBeTruthy();

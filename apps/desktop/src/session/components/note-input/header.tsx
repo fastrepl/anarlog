@@ -84,7 +84,7 @@ const UUID_TITLE_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ISO_TITLE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
 
-function IconHeaderTab({
+function IconHeaderView({
   isActive,
   label,
   hoverLabel,
@@ -116,7 +116,7 @@ function IconHeaderTab({
       onContextMenu={onContextMenu}
       title={title}
       data-hover-label={hoverLabel}
-      className={iconHeaderTabClassName(
+      className={iconHeaderViewClassName(
         isActive,
         size,
         cn([
@@ -134,7 +134,7 @@ function IconHeaderTab({
         <span
           className={cn([
             "min-w-0 truncate text-xs font-medium",
-            hoverLabel ? "group-hover/header-tab:hidden" : null,
+            hoverLabel ? "group-hover/header-view:hidden" : null,
           ])}
         >
           {label}
@@ -144,7 +144,7 @@ function IconHeaderTab({
   );
 }
 
-function iconHeaderTabClassName(
+function iconHeaderViewClassName(
   isActive: boolean,
   size: "tray" | "standalone" = "tray",
   className?: string,
@@ -152,7 +152,7 @@ function iconHeaderTabClassName(
   const heightClassName = size === "tray" ? "h-[26px]" : "h-7";
 
   return cn([
-    "group/header-tab flex shrink-0 items-center justify-center rounded-full transition-colors select-none [&>svg]:shrink-0",
+    "group/header-view flex shrink-0 items-center justify-center rounded-full transition-colors select-none [&>svg]:shrink-0",
     isActive
       ? [
           "text-foreground bg-white shadow-xs",
@@ -229,7 +229,7 @@ async function copyTextToClipboard(
 
     return true;
   } catch (error) {
-    console.error("Failed to copy note tab content", error);
+    console.error("Failed to copy note content", error);
 
     if (messages) {
       sonnerToast.error(messages.error);
@@ -244,7 +244,7 @@ type TemplateSelection = {
   title: string;
 };
 
-function HeaderTabRaw({
+function HeaderViewRaw({
   isActive,
   onClick = () => {},
   sessionId,
@@ -257,7 +257,7 @@ function HeaderTabRaw({
 }) {
   if (!isActive) {
     return (
-      <HeaderTabRawButton
+      <HeaderViewRawButton
         isActive={isActive}
         onClick={onClick}
         standalone={standalone}
@@ -266,7 +266,7 @@ function HeaderTabRaw({
   }
 
   return (
-    <HeaderTabRawActive
+    <HeaderViewRawActive
       isActive={isActive}
       onClick={onClick}
       sessionId={sessionId}
@@ -275,7 +275,7 @@ function HeaderTabRaw({
   );
 }
 
-function HeaderTabRawButton({
+function HeaderViewRawButton({
   isActive,
   onClick,
   onContextMenu,
@@ -289,7 +289,7 @@ function HeaderTabRawButton({
   const { t } = useLingui();
 
   return (
-    <IconHeaderTab
+    <IconHeaderView
       isActive={isActive}
       label={t`Memos`}
       icon={<AlignLeftIcon className="size-4" />}
@@ -301,7 +301,7 @@ function HeaderTabRawButton({
   );
 }
 
-function HeaderTabRawActive({
+function HeaderViewRawActive({
   isActive,
   onClick,
   sessionId,
@@ -338,7 +338,7 @@ function HeaderTabRawActive({
   const showContextMenu = useNativeContextMenu(contextMenu);
 
   return (
-    <HeaderTabRawButton
+    <HeaderViewRawButton
       isActive={isActive}
       onClick={onClick}
       onContextMenu={showContextMenu}
@@ -347,7 +347,7 @@ function HeaderTabRawActive({
   );
 }
 
-function HeaderTabEnhanced({
+function HeaderViewEnhanced({
   isActive,
   onClick = () => {},
   sessionId,
@@ -366,7 +366,7 @@ function HeaderTabEnhanced({
 }) {
   if (!isActive) {
     return (
-      <HeaderTabEnhancedInactive
+      <HeaderViewEnhancedInactive
         enhancedNoteId={enhancedNoteId}
         onClick={onClick}
       />
@@ -374,7 +374,7 @@ function HeaderTabEnhanced({
   }
 
   return (
-    <HeaderTabEnhancedActive
+    <HeaderViewEnhancedActive
       sessionId={sessionId}
       enhancedNoteId={enhancedNoteId}
       canRemove={canRemove}
@@ -384,7 +384,7 @@ function HeaderTabEnhanced({
   );
 }
 
-function useEnhancedTabTitle(enhancedNoteId: string) {
+function useEnhancedViewTitle(enhancedNoteId: string) {
   const rawTitle = main.UI.useCell(
     "enhanced_notes",
     enhancedNoteId,
@@ -399,14 +399,14 @@ function useEnhancedTabTitle(enhancedNoteId: string) {
   ) as string | undefined;
   const { data: template } = useUserTemplate(templateId);
   const templateTitle = template?.title?.trim() || null;
-  const tabTitle = getEnhancedNoteTitle({
+  const viewTitle = getEnhancedNoteTitle({
     rawTitle,
     templateTitle,
     templateId,
   });
 
   return {
-    tabTitle,
+    viewTitle,
     templateTooltip:
       templateId && templateTitle
         ? `${templateTitle} was used to generate this summary.`
@@ -414,32 +414,32 @@ function useEnhancedTabTitle(enhancedNoteId: string) {
   };
 }
 
-function useEnhancedTabGenerating(enhancedNoteId: string) {
+function useEnhancedViewGenerating(enhancedNoteId: string) {
   const taskId = createTaskId(enhancedNoteId, "enhance");
   const enhanceTask = useAITaskTask(taskId, "enhance");
 
   return enhanceTask.isGenerating;
 }
 
-function HeaderTabEnhancedInactive({
+function HeaderViewEnhancedInactive({
   onClick = () => {},
   enhancedNoteId,
 }: {
   enhancedNoteId: string;
   onClick?: () => void;
 }) {
-  const { tabTitle, templateTooltip } = useEnhancedTabTitle(enhancedNoteId);
-  const isGenerating = useEnhancedTabGenerating(enhancedNoteId);
+  const { viewTitle, templateTooltip } = useEnhancedViewTitle(enhancedNoteId);
+  const isGenerating = useEnhancedViewGenerating(enhancedNoteId);
 
   return (
     <button
       data-main-area-window-drag-region
       data-tauri-drag-region="false"
       type="button"
-      aria-label={tabTitle}
+      aria-label={viewTitle}
       onClick={onClick}
       title={templateTooltip}
-      className={iconHeaderTabClassName(false, "tray", "min-w-10 px-2")}
+      className={iconHeaderViewClassName(false, "tray", "min-w-10 px-2")}
     >
       {isGenerating ? (
         <Spinner size={16} className="shrink-0" />
@@ -450,7 +450,7 @@ function HeaderTabEnhancedInactive({
   );
 }
 
-function HeaderTabEnhancedActive({
+function HeaderViewEnhancedActive({
   sessionId,
   enhancedNoteId,
   canRemove = false,
@@ -473,15 +473,15 @@ function HeaderTabEnhancedActive({
     "content",
     main.STORE_ID,
   ) as string | undefined;
-  const { tabTitle, templateTooltip } = useEnhancedTabTitle(enhancedNoteId);
+  const { viewTitle, templateTooltip } = useEnhancedViewTitle(enhancedNoteId);
   const noteMarkdown = useMemo(() => getStoredNoteMarkdown(content), [content]);
 
   const handleCopy = useCallback(() => {
     return copyTextToClipboard(noteMarkdown, {
-      success: `${tabTitle} copied to clipboard`,
-      error: `Failed to copy ${tabTitle}`,
+      success: `${viewTitle} copied to clipboard`,
+      error: `Failed to copy ${viewTitle}`,
     });
-  }, [noteMarkdown, tabTitle]);
+  }, [noteMarkdown, viewTitle]);
   const handleRegenerate = useCallback(() => {
     void onRegenerate(null);
   }, [onRegenerate]);
@@ -552,7 +552,7 @@ function HeaderTabEnhancedActive({
       data-main-area-window-drag-region
       data-tauri-drag-region="false"
       type="button"
-      aria-label={tabTitle}
+      aria-label={viewTitle}
       aria-current="page"
       aria-disabled={isGenerating}
       tabIndex={isGenerating ? -1 : 0}
@@ -560,7 +560,7 @@ function HeaderTabEnhancedActive({
       onPointerDown={(event) => event.stopPropagation()}
       onContextMenu={showContextMenu}
       title={templateTooltip}
-      className={iconHeaderTabClassName(
+      className={iconHeaderViewClassName(
         true,
         "tray",
         cn([
@@ -583,7 +583,7 @@ function HeaderTabEnhancedActive({
       ) : (
         <SparklesIcon className="size-4" />
       )}
-      <span className="min-w-0 truncate text-xs font-medium">{tabTitle}</span>
+      <span className="min-w-0 truncate text-xs font-medium">{viewTitle}</span>
       <ChevronDownIcon className="size-3.5" />
     </button>
   );
@@ -596,7 +596,7 @@ function HeaderTabEnhancedActive({
   );
 }
 
-function HeaderTabTranscript({
+function HeaderViewTranscript({
   isActive,
   isTranscribing,
   canStopTranscription,
@@ -609,11 +609,11 @@ function HeaderTabTranscript({
   onClick?: () => void;
   sessionId: string;
 }) {
-  const liveState = useTranscriptLiveTabState(sessionId);
+  const liveState = useTranscriptLiveViewState(sessionId);
 
   if (!isActive) {
     return (
-      <HeaderTabTranscriptButton
+      <HeaderViewTranscriptButton
         isActive={isActive}
         isTranscribing={isTranscribing}
         onClick={onClick}
@@ -623,7 +623,7 @@ function HeaderTabTranscript({
   }
 
   return (
-    <HeaderTabTranscriptActive
+    <HeaderViewTranscriptActive
       isActive={isActive}
       isTranscribing={isTranscribing}
       canStopTranscription={canStopTranscription}
@@ -635,7 +635,7 @@ function HeaderTabTranscript({
   );
 }
 
-function HeaderTabTranscriptButton({
+function HeaderViewTranscriptButton({
   isActive,
   isTranscribing,
   onClick,
@@ -683,7 +683,7 @@ function HeaderTabTranscriptButton({
   ]);
 
   return (
-    <IconHeaderTab
+    <IconHeaderView
       isActive={isActive}
       label={t`Transcript`}
       hoverLabel={
@@ -691,9 +691,9 @@ function HeaderTabTranscriptButton({
       }
       icon={
         live ? (
-          <HeaderTabTranscriptLiveIcon canStop={canStop} live={live} />
+          <HeaderViewTranscriptLiveIcon canStop={canStop} live={live} />
         ) : canResume ? (
-          <HeaderTabTranscriptResumeIcon />
+          <HeaderViewTranscriptResumeIcon />
         ) : isTranscribing && onStopTranscription ? (
           <span className="group/stop relative flex size-4 items-center justify-center">
             <Spinner size={16} className="shrink-0 group-hover/stop:hidden" />
@@ -746,7 +746,7 @@ function HeaderTabTranscriptButton({
   );
 }
 
-function HeaderTabTranscriptLiveIcon({
+function HeaderViewTranscriptLiveIcon({
   canStop,
   live,
 }: {
@@ -780,7 +780,7 @@ function HeaderTabTranscriptLiveIcon({
   );
 }
 
-function HeaderTabTranscriptResumeIcon() {
+function HeaderViewTranscriptResumeIcon() {
   return (
     <span className="relative flex size-4 items-center justify-center">
       <AudioLinesIcon className="size-4 group-hover/transcript-resume:hidden" />
@@ -792,7 +792,7 @@ function HeaderTabTranscriptResumeIcon() {
   );
 }
 
-function useTranscriptLiveTabState(sessionId: string) {
+function useTranscriptLiveViewState(sessionId: string) {
   const { amplitude, degraded, mode, muted, stop } = useListener((state) => {
     const mode = state.getSessionMode(sessionId);
     return {
@@ -828,7 +828,7 @@ function useTranscriptLiveTabState(sessionId: string) {
   };
 }
 
-function HeaderTabTranscriptActive({
+function HeaderViewTranscriptActive({
   isActive,
   isTranscribing,
   canStopTranscription,
@@ -936,7 +936,7 @@ function HeaderTabTranscriptActive({
   const showContextMenu = useNativeContextMenu(contextMenu);
 
   return (
-    <HeaderTabTranscriptButton
+    <HeaderViewTranscriptButton
       isActive={isActive}
       isTranscribing={isTranscribing}
       onClick={onClick}
@@ -958,7 +958,7 @@ function HeaderTabTranscriptActive({
   );
 }
 
-function HeaderTabInsights({
+function HeaderViewInsights({
   isActive,
   onClick = () => {},
 }: {
@@ -968,7 +968,7 @@ function HeaderTabInsights({
   const { t } = useLingui();
 
   return (
-    <IconHeaderTab
+    <IconHeaderView
       isActive={isActive}
       label={t`Insights`}
       icon={<LightbulbIcon className="size-4" />}
@@ -1444,7 +1444,7 @@ export function Header({
     (view): view is Extract<EditorView, { type: "enhanced" }> =>
       view.type === "enhanced",
   )?.id;
-  const shouldUseTabTray = editorTabs.length > 1;
+  const shouldUseViewSwitcher = editorTabs.length > 1;
 
   return (
     <div data-tauri-drag-region className="flex flex-col pl-1">
@@ -1454,12 +1454,12 @@ export function Header({
       >
         <div data-tauri-drag-region className="relative min-w-0 flex-1">
           <div
-            role="tablist"
-            aria-label={t`Session note tabs`}
+            role="group"
+            aria-label={t`Session note views`}
             data-tauri-drag-region="false"
             className={cn([
               "pointer-events-auto relative z-10 w-fit max-w-full overflow-visible",
-              shouldUseTabTray
+              shouldUseViewSwitcher
                 ? "bg-foreground/10 dark:bg-accent/55 flex h-[30px] items-center gap-[2px] rounded-full p-[2px]"
                 : null,
             ])}
@@ -1467,7 +1467,7 @@ export function Header({
             {editorTabs.map((view, index) => {
               if (view.type === "enhanced") {
                 return (
-                  <HeaderTabEnhanced
+                  <HeaderViewEnhanced
                     key={`enhanced-${view.id}`}
                     sessionId={sessionId}
                     enhancedNoteId={view.id}
@@ -1502,11 +1502,11 @@ export function Header({
 
               if (view.type === "raw") {
                 return (
-                  <HeaderTabRaw
+                  <HeaderViewRaw
                     key={view.type}
                     sessionId={sessionId}
                     isActive={currentTab.type === view.type}
-                    standalone={!shouldUseTabTray}
+                    standalone={!shouldUseViewSwitcher}
                     onClick={() => handleTabChange(view)}
                   />
                 );
@@ -1514,7 +1514,7 @@ export function Header({
 
               if (view.type === "insights") {
                 return (
-                  <HeaderTabInsights
+                  <HeaderViewInsights
                     key={view.type}
                     isActive={currentTab.type === view.type}
                     onClick={() => handleTabChange(view)}
@@ -1524,7 +1524,7 @@ export function Header({
 
               if (view.type === "transcript") {
                 return (
-                  <HeaderTabTranscript
+                  <HeaderViewTranscript
                     key={view.type}
                     sessionId={sessionId}
                     isActive={currentTab.type === view.type}

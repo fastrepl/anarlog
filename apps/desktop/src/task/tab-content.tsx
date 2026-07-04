@@ -6,7 +6,7 @@ import { cn } from "@hypr/utils";
 import { ResourceView } from "./resource-view";
 
 import { ChatCTA } from "~/shared/chat-cta";
-import { StandardTabWrapper } from "~/shared/main";
+import { StandardContentWrapper } from "~/shared/main";
 import { type Tab, type TaskResource } from "~/store/zustand/tabs";
 
 type TaskTab = Extract<Tab, { type: "task" }>;
@@ -63,7 +63,7 @@ export function TabContentTask({ tab }: { tab: TaskTab }) {
   const showNav = tab.resources.length > 1;
 
   return (
-    <StandardTabWrapper floatingButton={floatingButton}>
+    <StandardContentWrapper floatingButton={floatingButton}>
       <div
         ref={scrollRef}
         className="relative h-full overflow-auto"
@@ -97,7 +97,7 @@ export function TabContentTask({ tab }: { tab: TaskTab }) {
           ) : null}
         </div>
       </div>
-    </StandardTabWrapper>
+    </StandardContentWrapper>
   );
 }
 

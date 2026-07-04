@@ -37,7 +37,7 @@ vi.mock("~/contexts/shell", () => ({
 }));
 
 vi.mock("~/shared/main", () => ({
-  StandardTabWrapper: ({ children }: { children: React.ReactNode }) => (
+  StandardContentWrapper: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
 }));
