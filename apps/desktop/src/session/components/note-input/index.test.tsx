@@ -143,6 +143,7 @@ describe("NoteInput tab selection", () => {
   });
 
   beforeEach(() => {
+    hoisted.editorTabs = [{ type: "raw" }, { type: "transcript" }];
     hoisted.hotkeys = [];
     hoisted.onBeforeTabChange.mockClear();
     hoisted.sessionMode = "inactive";
@@ -156,6 +157,41 @@ describe("NoteInput tab selection", () => {
 
     expect(handleTabChange).toHaveBeenCalledWith({ type: "transcript" });
     expect(screen.getByTestId("current-tab").textContent).toBe("raw");
+  });
+
+  it("switches to the next note view with Command+Option+Right", () => {
+    hoisted.editorTabs = [
+      { type: "enhanced", id: "summary-1" },
+      { type: "raw" },
+      { type: "transcript" },
+    ];
+    const { handleTabChange } = renderNoteInput();
+
+    hoisted.hotkeys
+      .find((hotkey) => hotkey.keys === "mod+alt+right")
+      ?.callback();
+
+    expect(handleTabChange).toHaveBeenCalledWith({ type: "transcript" });
+    expect(hoisted.onBeforeTabChange).toHaveBeenCalledOnce();
+  });
+
+  it("switches to the previous note view with Command+Option+Left", () => {
+    hoisted.editorTabs = [
+      { type: "enhanced", id: "summary-1" },
+      { type: "raw" },
+      { type: "transcript" },
+    ];
+    const { handleTabChange } = renderNoteInput();
+
+    hoisted.hotkeys
+      .find((hotkey) => hotkey.keys === "mod+alt+left")
+      ?.callback();
+
+    expect(handleTabChange).toHaveBeenCalledWith({
+      type: "enhanced",
+      id: "summary-1",
+    });
+    expect(hoisted.onBeforeTabChange).toHaveBeenCalledOnce();
   });
 
   it("reflects the parent-selected tab in the header", () => {

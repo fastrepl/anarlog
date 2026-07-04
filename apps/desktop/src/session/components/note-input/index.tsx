@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useHotkeys } from "react-hotkeys-hook";
 
 import type { NoteEditorRef } from "@hypr/editor/note";
 import { cn } from "@hypr/utils";
@@ -142,6 +143,53 @@ export const NoteInput = forwardRef<
         renderedCurrentTab,
         updateSessionTabState,
       ],
+    );
+
+    const handleAdjacentViewShortcut = useCallback(
+      (direction: "previous" | "next") => {
+        if (editorTabs.length <= 1) {
+          return;
+        }
+
+        const currentIndex = editorTabs.findIndex((editorTab) =>
+          isSameEditorView(editorTab, renderedCurrentTab),
+        );
+        if (currentIndex === -1) {
+          return;
+        }
+
+        const nextIndex =
+          direction === "previous"
+            ? (currentIndex - 1 + editorTabs.length) % editorTabs.length
+            : (currentIndex + 1) % editorTabs.length;
+        const nextView = editorTabs[nextIndex];
+        if (nextView) {
+          handleTabChange(nextView);
+        }
+      },
+      [editorTabs, handleTabChange, renderedCurrentTab],
+    );
+
+    useHotkeys(
+      "mod+alt+left",
+      () => handleAdjacentViewShortcut("previous"),
+      {
+        preventDefault: true,
+        enableOnFormTags: true,
+        enableOnContentEditable: true,
+      },
+      [handleAdjacentViewShortcut],
+    );
+
+    useHotkeys(
+      "mod+alt+right",
+      () => handleAdjacentViewShortcut("next"),
+      {
+        preventDefault: true,
+        enableOnFormTags: true,
+        enableOnContentEditable: true,
+      },
+      [handleAdjacentViewShortcut],
     );
 
     useEffect(() => {
