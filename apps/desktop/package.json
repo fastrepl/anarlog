@@ -123,6 +123,7 @@
     "@dotenvx/dotenvx": "^1.61.0",
     "@lingui/babel-plugin-lingui-macro": "^6.0.1",
     "@lingui/cli": "^6.0.1",
+    "@lingui/format-po": "^6.0.1",
     "@lingui/vite-plugin": "^6.0.1",
     "@rolldown/plugin-babel": "^0.2.3",
     "@tanstack/react-router-devtools": "^1.166.13",

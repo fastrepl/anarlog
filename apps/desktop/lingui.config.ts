@@ -1,4 +1,5 @@
 import { defineConfig } from "@lingui/cli";
+import { formatter } from "@lingui/format-po";
 
 export default defineConfig({
   sourceLocale: "en",
@@ -114,6 +115,7 @@ export default defineConfig({
     "zu",
   ],
   compileNamespace: "ts",
+  format: formatter({ lineNumbers: false }),
   fallbackLocales: {
     default: "en",
   },
