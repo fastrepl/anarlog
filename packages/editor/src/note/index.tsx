@@ -18,7 +18,6 @@ import {
   PluginKey,
   Selection,
   TextSelection,
-  type Transaction,
 } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import {
@@ -52,6 +51,7 @@ import {
   clearMarksOnEnterPlugin,
   clipboardPlugin,
   clipPastePlugin,
+  docChangeListenerPlugin,
   ensureImageTrailingParagraphs,
   fileHandlerPlugin,
   getSearchState,
@@ -75,7 +75,6 @@ import {
   normalizeTaskContent,
   type TaskSource,
 } from "../tasks";
-import { dispatchEditorTransaction } from "../transaction-guard";
 import {
   FormatToolbar,
   type MentionConfig,
@@ -553,10 +552,13 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
     }, [handleChange, syncTasks]);
 
     const onUpdate = useDebounceCallback(flushChange, 500);
+    const onUpdateRef = useRef(onUpdate);
+    onUpdateRef.current = onUpdate;
 
     const plugins = useMemo(
       () => [
         reactKeys(),
+        docChangeListenerPlugin(() => onUpdateRef.current()),
         buildInputRules(),
         ...(enforceTitleHeading ? [titleHeadingPlugin()] : []),
         taskIdentityPlugin(),
@@ -675,16 +677,6 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
             <ProseMirror
               defaultState={defaultState}
               nodeViewComponents={nodeViews}
-              dispatchTransaction={function (
-                this: EditorView,
-                tr: Transaction,
-              ) {
-                dispatchEditorTransaction({
-                  view: this,
-                  transaction: tr,
-                  onDocChanged: () => onUpdate(),
-                });
-              }}
               attributes={{
                 spellCheck: "false",
                 autoComplete: "off",
