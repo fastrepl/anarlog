@@ -536,20 +536,17 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
       [taskSource, taskStorage],
     );
 
-    const flushChange = useCallback(() => {
-      const view = viewRef.current;
-      if (!view) {
-        return;
-      }
+    const flushChange = useCallback(
+      (content: JSONContent) => {
+        syncTasks(content);
+        if (!handleChange) {
+          return;
+        }
 
-      const content = view.state.doc.toJSON() as JSONContent;
-      syncTasks(content);
-      if (!handleChange) {
-        return;
-      }
-
-      handleChange(content);
-    }, [handleChange, syncTasks]);
+        handleChange(content);
+      },
+      [handleChange, syncTasks],
+    );
 
     const onUpdate = useDebounceCallback(flushChange, 500);
     const onUpdateRef = useRef(onUpdate);
@@ -558,7 +555,9 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
     const plugins = useMemo(
       () => [
         reactKeys(),
-        docChangeListenerPlugin(() => onUpdateRef.current()),
+        docChangeListenerPlugin((view) =>
+          onUpdateRef.current(view.state.doc.toJSON() as JSONContent),
+        ),
         buildInputRules(),
         ...(enforceTitleHeading ? [titleHeadingPlugin()] : []),
         taskIdentityPlugin(),
@@ -651,12 +650,18 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
           doc,
           plugins: view.state.plugins,
         });
+        onUpdate.cancel();
         view.updateState(state);
         previousContentRef.current = reconciledInitialContent;
       } catch {
         // invalid content
       }
-    }, [reconciledInitialContent, syncContentWhenFocused, enforceTitleHeading]);
+    }, [
+      reconciledInitialContent,
+      syncContentWhenFocused,
+      enforceTitleHeading,
+      onUpdate,
+    ]);
 
     const onViewReady = useCallback(
       (view: EditorView) => {
