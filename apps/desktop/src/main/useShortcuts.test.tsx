@@ -151,7 +151,7 @@ describe("useClassicMainShortcuts", () => {
     vi.useRealTimers();
   });
 
-  it("does not bind legacy tab shortcuts", () => {
+  it("does not bind removed shortcuts", () => {
     renderHook(() => useClassicMainShortcuts());
 
     expect(hoisted.handlers.has("mod+t")).toBe(false);
@@ -164,6 +164,7 @@ describe("useClassicMainShortcuts", () => {
     expect(hoisted.handlers.has("mod+alt+left")).toBe(false);
     expect(hoisted.handlers.has("mod+alt+right")).toBe(false);
     expect(hoisted.handlers.has("mod+shift+t")).toBe(false);
+    expect(hoisted.handlers.has("mod+shift+comma")).toBe(false);
   });
 
   it("selects an existing home view from a note on escape", () => {
