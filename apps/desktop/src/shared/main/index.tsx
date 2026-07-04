@@ -13,9 +13,8 @@ export {
   useSessionStatusBanner,
 } from "./session-status-banner";
 export { MainShellScaffold, type MainSurfaceChrome } from "./shell-scaffold";
-export { useScrollActiveTabIntoView } from "./tab-scroll";
 
-export function StandardTabWrapper({
+export function StandardContentWrapper({
   children,
   floatingButton,
   noBorder = false,

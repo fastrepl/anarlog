@@ -1123,10 +1123,6 @@ msgstr ""
 msgid "Open floating panel"
 msgstr ""
 
-#: src/sidebar/timeline/item.tsx
-msgid "Open in New Tab"
-msgstr ""
-
 #: src/session/components/outer-header/overflow/index.tsx
 #: src/sidebar/timeline/item.tsx
 msgid "Open in New Window"
@@ -1483,7 +1479,7 @@ msgid "Send message"
 msgstr ""
 
 #: src/session/components/note-input/header.tsx
-msgid "Session note tabs"
+msgid "Session note views"
 msgstr ""
 
 #: src/session/components/title-input.tsx

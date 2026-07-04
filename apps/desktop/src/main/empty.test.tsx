@@ -3,7 +3,7 @@ import type React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("~/shared/main", () => ({
-  StandardTabWrapper: ({
+  StandardContentWrapper: ({
     children,
     floatingButton,
   }: {

@@ -28,8 +28,6 @@ function useCalendarColor(calendarId: string | null): string | null {
 
 export function EventChip({ eventId }: { eventId: string }) {
   const tz = useTimezone();
-  const store = main.UI.useStore(main.STORE_ID);
-  const openNew = useTabs((state) => state.openNew);
   const { ignoreEvent, ignoreSeries } = useIgnoredEvents();
   const event = main.UI.useResultRow(
     main.QUERIES.timelineEvents,
@@ -48,15 +46,6 @@ export function EventChip({ eventId }: { eventId: string }) {
   const startedAt = event?.started_at
     ? format(toTz(event.started_at as string, tz), "h:mm a")
     : null;
-
-  const handleOpenNewTab = useCallback(() => {
-    if (!store || !title) {
-      return;
-    }
-
-    const sessionId = getOrCreateSessionForEventId(store, eventId, title);
-    openNew({ type: "sessions", id: sessionId });
-  }, [store, eventId, title, openNew]);
 
   const handleIgnore = useCallback(() => {
     if (!trackingId) {
@@ -77,12 +66,6 @@ export function EventChip({ eventId }: { eventId: string }) {
   const contextMenu = useMemo<MenuItemDef[]>(() => {
     const menu: MenuItemDef[] = [
       {
-        id: "open-new-tab",
-        text: "Open in New Tab",
-        action: handleOpenNewTab,
-      },
-      { separator: true },
-      {
         id: "ignore",
         text: recurrenceSeriesId ? "Delete This Event" : "Delete Event",
         action: handleIgnore,
@@ -98,7 +81,7 @@ export function EventChip({ eventId }: { eventId: string }) {
     }
 
     return menu;
-  }, [recurrenceSeriesId, handleOpenNewTab, handleIgnore, handleIgnoreSeries]);
+  }, [recurrenceSeriesId, handleIgnore, handleIgnoreSeries]);
   const showContextMenu = useNativeContextMenu(contextMenu);
 
   if (!event || !title) {
@@ -157,7 +140,7 @@ export function EventChip({ eventId }: { eventId: string }) {
 function EventPopoverContent({ eventId }: { eventId: string }) {
   const event = useEvent(eventId);
   const store = main.UI.useStore(main.STORE_ID);
-  const openNew = useTabs((state) => state.openNew);
+  const openCurrent = useTabs((state) => state.openCurrent);
 
   const eventRow = main.UI.useResultRow(
     main.QUERIES.timelineEvents,
@@ -169,8 +152,8 @@ function EventPopoverContent({ eventId }: { eventId: string }) {
     if (!store) return;
     const title = (eventRow?.title as string) || "Untitled";
     const sessionId = getOrCreateSessionForEventId(store, eventId, title);
-    openNew({ type: "sessions", id: sessionId });
-  }, [store, eventId, eventRow?.title, openNew]);
+    openCurrent({ type: "sessions", id: sessionId });
+  }, [store, eventId, eventRow?.title, openCurrent]);
 
   if (!event) {
     return null;

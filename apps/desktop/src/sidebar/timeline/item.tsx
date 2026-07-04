@@ -33,7 +33,7 @@ import { useIgnoredEvents } from "~/store/tinybase/hooks";
 import * as main from "~/store/tinybase/store/main";
 import { getOrCreateSessionForEventId } from "~/store/tinybase/store/sessions";
 import { useSessionTitle } from "~/store/zustand/live-title";
-import { type TabInput, useTabs } from "~/store/zustand/tabs";
+import { useTabs } from "~/store/zustand/tabs";
 import { useTimelineSelection } from "~/store/zustand/timeline-selection";
 import { useListener } from "~/stt/contexts";
 
@@ -300,7 +300,6 @@ const EventItem = memo(
     const { t } = useLingui();
     const store = main.UI.useStore(main.STORE_ID);
     const openCurrent = useTabs((state) => state.openCurrent);
-    const openNew = useTabs((state) => state.openNew);
 
     const eventId = item.id;
     const trackingIdEvent = item.data.tracking_id_event;
@@ -322,25 +321,21 @@ const EventItem = memo(
       [item.data.started_at, precision, timezone],
     );
 
-    const openEvent = useCallback(
-      (openInNewTab: boolean) => {
-        if (!store || !eventId) {
-          return;
-        }
+    const openEvent = useCallback(() => {
+      if (!store || !eventId) {
+        return;
+      }
 
-        const sessionId = getOrCreateSessionForEventId(store, eventId, title);
-        const tab: TabInput = { id: sessionId, type: "sessions" };
-        openInNewTab ? openNew(tab) : openCurrent(tab);
-      },
-      [eventId, store, title, openCurrent, openNew],
-    );
+      const sessionId = getOrCreateSessionForEventId(store, eventId, title);
+      openCurrent({ id: sessionId, type: "sessions" });
+    }, [eventId, store, title, openCurrent]);
 
     const itemKey = `event-${item.id}`;
     const muted = isTimelineItemInFuture(item);
 
     const handleClick = useCallback(() => {
       useTimelineSelection.getState().setAnchor(itemKey);
-      openEvent(false);
+      openEvent();
     }, [openEvent, itemKey]);
 
     const handleCmdClick = useCallback(() => {
@@ -371,10 +366,6 @@ const EventItem = memo(
       ignoreSeries(recurrenceSeriesId);
     }, [recurrenceSeriesId, ignoreSeries]);
 
-    const handleOpenNewTab = useCallback(() => {
-      openEvent(true);
-    }, [openEvent]);
-
     const contextMenu = useMemo(() => {
       if (ignored) {
         if (recurrenceSeriesId) {
@@ -397,12 +388,6 @@ const EventItem = memo(
       }
       const menu: MenuItemDef[] = [
         {
-          id: "open-new-tab",
-          text: t`Open in New Tab`,
-          action: handleOpenNewTab,
-        },
-        { separator: true as const },
-        {
           id: "ignore",
           text: recurrenceSeriesId ? t`Delete This Event` : t`Delete Event`,
           action: handleIgnore,
@@ -418,7 +403,6 @@ const EventItem = memo(
       return menu;
     }, [
       ignored,
-      handleOpenNewTab,
       handleIgnore,
       handleUnignore,
       handleUnignoreSeries,

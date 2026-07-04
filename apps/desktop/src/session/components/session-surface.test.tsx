@@ -2,7 +2,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("~/shared/main", () => ({
-  StandardTabWrapper: ({ children }: { children: React.ReactNode }) => (
+  StandardContentWrapper: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="standard-tab-wrapper">{children}</div>
   ),
 }));

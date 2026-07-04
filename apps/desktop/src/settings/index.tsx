@@ -11,7 +11,7 @@ import { SettingsTodo } from "./todo";
 import { LLM } from "~/settings/ai/llm";
 import { STT } from "~/settings/ai/stt";
 import { SettingsPersonalization } from "~/settings/personalization";
-import { StandardTabWrapper } from "~/shared/main";
+import { StandardContentWrapper } from "~/shared/main";
 import { type Tab } from "~/store/zustand/tabs";
 
 export function TabContentSettings({
@@ -20,9 +20,9 @@ export function TabContentSettings({
   tab: Extract<Tab, { type: "settings" }>;
 }) {
   return (
-    <StandardTabWrapper>
+    <StandardContentWrapper>
       <SettingsView tab={tab} />
-    </StandardTabWrapper>
+    </StandardContentWrapper>
   );
 }
 

@@ -10,7 +10,7 @@ import { useChangelogContent } from "./data";
 
 import { useShell } from "~/contexts/shell";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
-import { StandardTabWrapper } from "~/shared/main";
+import { StandardContentWrapper } from "~/shared/main";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 
 export { getLatestVersion } from "./data";
@@ -35,7 +35,7 @@ export function TabContentChangelog({
   const { content, loading } = useChangelogContent(current);
 
   return (
-    <StandardTabWrapper>
+    <StandardContentWrapper>
       <div className="flex h-full flex-col">
         <div data-tauri-drag-region className="shrink-0 pr-1 pl-3">
           <ChangelogHeader
@@ -54,7 +54,7 @@ export function TabContentChangelog({
           </div>
         </div>
       </div>
-    </StandardTabWrapper>
+    </StandardContentWrapper>
   );
 }
 

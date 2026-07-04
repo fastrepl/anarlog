@@ -350,6 +350,39 @@ describe("TimelineItemComponent", () => {
     expect(itemNodeRef.mock.calls.some(([node]) => node === row)).toBe(true);
   });
 
+  it("does not offer a new-tab action for event rows", () => {
+    render(
+      <TimelineItemComponent
+        item={{
+          type: "event",
+          id: "event-standup",
+          data: {
+            title: "Team standup",
+            started_at: "2024-01-15T10:30:00.000Z",
+            ended_at: "2024-01-15T11:00:00.000Z",
+            tracking_id_event: "tracking-standup",
+            has_recurrence_rules: false,
+          },
+        }}
+        precision="time"
+        selected={false}
+        timezone="UTC"
+        multiSelected={false}
+        flatItemKeys={["event-event-standup"]}
+      />,
+    );
+
+    const menu = mocks.nativeContextMenus.find((items) =>
+      items.some((item) => item.id === "ignore"),
+    );
+
+    expect(menu?.map((item) => item.id).filter(Boolean)).toEqual(["ignore"]);
+    expect(menu?.find((item) => item.id === "ignore")).toMatchObject({
+      id: "ignore",
+      text: "Delete Event",
+    });
+  });
+
   it("renders finalizing session spinner at the end of the row", () => {
     mocks.sessionMode = "finalizing";
     mocks.storeTitle = "Finalizing Note";
@@ -450,7 +483,7 @@ describe("TimelineItemComponent", () => {
     });
   });
 
-  it("offers a standalone window action instead of a new tab action for session rows", () => {
+  it("offers a standalone window action for session rows", () => {
     render(
       <TimelineItemComponent
         item={{
@@ -473,7 +506,6 @@ describe("TimelineItemComponent", () => {
       items.some((item) => item.id === "open-new-window"),
     );
 
-    expect(menu?.some((item) => item.text === "Open in New Tab")).toBe(false);
     const openWindowItem = menu?.find((item) => item.id === "open-new-window");
 
     expect(openWindowItem).toMatchObject({

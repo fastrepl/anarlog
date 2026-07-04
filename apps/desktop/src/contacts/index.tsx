@@ -5,7 +5,7 @@ import type { ContactsSelection } from "@hypr/plugin-windows";
 import { DetailsColumn } from "./details";
 import { OrganizationDetailsColumn } from "./organization-details";
 
-import { StandardTabWrapper } from "~/shared/main";
+import { StandardContentWrapper } from "~/shared/main";
 import * as main from "~/store/tinybase/store/main";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 
@@ -15,9 +15,9 @@ export function TabContentContact({
   tab: Extract<Tab, { type: "contacts" }>;
 }) {
   return (
-    <StandardTabWrapper>
+    <StandardContentWrapper>
       <ContactView tab={tab} />
-    </StandardTabWrapper>
+    </StandardContentWrapper>
   );
 }
 
