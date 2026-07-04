@@ -1,6 +1,5 @@
 import { useCallback, useRef } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
-import { useShallow } from "zustand/shallow";
 
 import { useShell } from "~/contexts/shell";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
@@ -9,12 +8,7 @@ import { uniqueIdfromTab, useTabs } from "~/store/zustand/tabs";
 
 export function useMainShortcuts() {
   const runEscapeShortcut = useMainEscapeShortcutAction();
-  const { currentTab, openNew } = useTabs(
-    useShallow((state) => ({
-      currentTab: state.currentTab,
-      openNew: state.openNew,
-    })),
-  );
+  const currentTab = useTabs((state) => state.currentTab);
   const { chat } = useShell();
 
   const newNote = useNewNote();
@@ -88,17 +82,6 @@ export function useMainShortcuts() {
       enableOnContentEditable: true,
     },
     [chat, currentTab, newNote, newNoteCurrent],
-  );
-
-  useHotkeys(
-    "mod+shift+comma",
-    () => openNew({ type: "settings", state: { tab: "transcription" } }),
-    {
-      preventDefault: true,
-      enableOnFormTags: true,
-      enableOnContentEditable: true,
-    },
-    [openNew],
   );
 
   const newNoteAndListen = useNewNoteAndListen();
