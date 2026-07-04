@@ -69,6 +69,14 @@ describe("imageTrailingParagraphPlugin", () => {
     expect(state.doc.textContent).toBe("hello!world");
     expect(state.doc.childCount).toBe(2);
   });
+
+  it("handles edits at document boundaries", () => {
+    let state = createState([schema.node("paragraph")]);
+
+    state = state.applyTransaction(state.tr.insertText("x", 1)).state;
+
+    expect(state.doc.textContent).toBe("x");
+  });
 });
 
 function createState(content: Parameters<typeof schema.node>[2]) {
