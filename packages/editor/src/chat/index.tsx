@@ -11,7 +11,6 @@ import {
   chainCommands,
   createParagraphNear,
   deleteSelection,
-  exitCode,
   joinBackward,
   joinForward,
   liftEmptyBlock,
@@ -228,17 +227,6 @@ export const ChatEditor = forwardRef<ChatEditorHandle, ChatEditorProps>(
           "Mod-z": undo,
           "Mod-Shift-z": redo,
           ...(!mac ? { "Mod-y": redo } : {}),
-          "Mod-Enter": submitCommand,
-          "Shift-Enter": chainCommands(exitCode, (state, dispatch) => {
-            if (dispatch) {
-              dispatch(
-                state.tr
-                  .replaceSelectionWith(chatSchema.nodes.hardBreak.create())
-                  .scrollIntoView(),
-              );
-            }
-            return true;
-          }),
           Enter: enterCommand,
           Backspace: chainCommands(
             deleteSelection,

@@ -122,6 +122,18 @@ describe("buildInputRules", () => {
 });
 
 describe("buildKeymap", () => {
+  it("does not handle Shift+Enter as a hard break shortcut", () => {
+    const doc = schema.node("doc", null, [
+      schema.node("paragraph", null, [schema.text("hello")]),
+    ]);
+    const { handled, state } = runKeyDownAtEnd(doc, "Enter", {
+      shiftKey: true,
+    });
+
+    expect(handled).not.toBe(true);
+    expect(state.doc.toJSON()).toEqual(doc.toJSON());
+  });
+
   it("merges task item text backward without changing the list structure", () => {
     const doc = schema.node("doc", null, [
       schema.node("taskList", null, [
@@ -273,6 +285,40 @@ describe("buildKeymap", () => {
     });
   });
 });
+
+function runKeyDownAtEnd(
+  doc: ReturnType<typeof schema.node>,
+  key: string,
+  init?: KeyboardEventInit,
+) {
+  const keymap = buildKeymap();
+  let state = EditorState.create({
+    schema,
+    doc,
+    selection: Selection.atEnd(doc),
+    plugins: [keymap],
+  });
+  const view = {
+    get state() {
+      return state;
+    },
+    dispatch(tr: Transaction) {
+      state = state.apply(tr);
+    },
+    endOfTextblock: () => false,
+  } as Pick<EditorView, "dispatch" | "endOfTextblock" | "state"> as EditorView;
+  const handleKeyDown = keymap.props.handleKeyDown;
+
+  const handled = handleKeyDown?.(
+    view,
+    new KeyboardEvent("keydown", {
+      key,
+      ...init,
+    }),
+  );
+
+  return { handled, state };
+}
 
 function runBackspaceAtTextStart(
   doc: ReturnType<typeof schema.node>,

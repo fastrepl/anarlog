@@ -2,7 +2,6 @@ import {
   chainCommands,
   createParagraphNear,
   deleteSelection,
-  exitCode,
   joinBackward,
   joinForward,
   liftEmptyBlock,
@@ -394,8 +393,6 @@ const mac =
     : false;
 
 export function buildKeymap(onNavigateToTitle?: (pixelWidth?: number) => void) {
-  const hardBreak = schema.nodes.hardBreak;
-
   const keys: Record<string, Command> = {};
 
   keys["Mod-z"] = undo;
@@ -405,17 +402,6 @@ export function buildKeymap(onNavigateToTitle?: (pixelWidth?: number) => void) {
   keys["Mod-b"] = toggleMark(schema.marks.bold);
   keys["Mod-i"] = toggleMark(schema.marks.italic);
   keys["Mod-`"] = toggleMark(schema.marks.code);
-
-  const hardBreakCmd: Command = chainCommands(exitCode, (state, dispatch) => {
-    if (dispatch) {
-      dispatch(
-        state.tr.replaceSelectionWith(hardBreak.create()).scrollIntoView(),
-      );
-    }
-    return true;
-  });
-  keys["Shift-Enter"] = hardBreakCmd;
-  if (mac) keys["Mod-Enter"] = hardBreakCmd;
 
   const exitCodeBlockOnEmptyLine: Command = (state, dispatch) => {
     const { $from } = state.selection;
