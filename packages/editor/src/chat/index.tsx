@@ -220,6 +220,10 @@ export const ChatEditor = forwardRef<ChatEditorHandle, ChatEditorProps>(
         submitShortcut === "enter"
           ? submitCommand
           : chainCommands(createParagraphNear, liftEmptyBlock, splitBlock);
+      const shiftEnterCommand =
+        submitShortcut === "enter"
+          ? chainCommands(createParagraphNear, liftEmptyBlock, splitBlock)
+          : undefined;
 
       return [
         reactKeys(),
@@ -227,6 +231,10 @@ export const ChatEditor = forwardRef<ChatEditorHandle, ChatEditorProps>(
           "Mod-z": undo,
           "Mod-Shift-z": redo,
           ...(!mac ? { "Mod-y": redo } : {}),
+          ...(submitShortcut === "mod-enter"
+            ? { "Mod-Enter": submitCommand }
+            : {}),
+          ...(shiftEnterCommand ? { "Shift-Enter": shiftEnterCommand } : {}),
           Enter: enterCommand,
           Backspace: chainCommands(
             deleteSelection,
