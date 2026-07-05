@@ -1,0 +1,83 @@
+---
+meta_title: "On-Device vs Cloud AI: A Founder's Guide to Meeting Notes Privacy"
+meta_description: "On-device vs cloud AI for meeting notes — what actually leaves your laptop, who can subpoena it, and why the distinction matters for founders handling diligence, board, and customer calls."
+author:
+  - "John Jeong"
+category: "Founders' notes"
+date: "2026-07-06"
+featured: false
+ready_for_review: true
+---
+
+Most "AI meeting notes" tools are cloud products wearing a local UI. You click record on your laptop, the audio leaves your machine, a third party transcribes and summarizes it, and you get a tidy note back. That's the deal. It's fast, it's cheap, and it works. It also means every word your investors, customers, and employees say in a meeting is sitting on someone else's disk, governed by someone else's retention policy, accessible by someone else's support staff.
+
+This is a founder's guide to the difference — written by one. Not a privacy pamphlet. A working breakdown of where your meeting data actually lives, who can get to it, and how that changes the risk profile of the company you're building.
+
+## The two architectures, plainly
+
+**Cloud AI notetakers** (Otter, Fireflies, tl;dv, Fathom, Read, Tactiq) capture your audio — either by a bot joining the call or by streaming system audio to their servers — and run transcription and summarization on infrastructure they control. You get the result back as a web page or an exported doc. The audio, transcript, and summary all live in their database until you delete it, if they actually delete it.
+
+**On-device AI notetakers** capture audio locally, transcribe it locally (or with a provider you chose and paid for directly), and write the transcript and notes to files on your machine. Nothing hits a vendor's database unless you explicitly send it there. [Anarlog](https://anarlog.so/) is the one I'm building — open source, MIT, plain markdown on disk — but the argument applies to any tool that keeps the audio and the model on your side of the wire.
+
+The distinction isn't "cloud bad, local good." It's "who holds the data when something goes wrong."
+
+## What "on-device" actually has to mean
+
+A lot of tools market themselves as "private" while quietly shipping your audio to a third party. If you're evaluating one, here's the checklist I use:
+
+**1. Where does the audio get captured?**
+
+If a meeting bot joins your Zoom call, that bot is operated by the notetaker's servers. Your audio is on their infrastructure the moment it transcribes a word. This is how Otter, Fireflies, tl;dv, Fathom, and Read all work. The bot *is* the data pipeline.
+
+A real on-device tool captures system audio with your OS's native APIs. No bot. No third party in the call. Anarlog does this. So does your laptop's built-in voice memos app, for that matter — the capture mechanism isn't new, most notetakers just chose not to use it because it's harder to monetize.
+
+**2. Where does the transcript get generated?**
+
+Cloud tools send the audio to their STT provider (often their own, often a third party like AssemblyAI or Deepgram) and store the transcript in their database.
+
+On-device tools either run a local model (Whisper, Parakeet) on your CPU/GPU, or let you bring your own API key for a cloud STT provider. The critical difference with the BYOK path: the vendor doesn't see your data. You're paying OpenAI or Deepgram directly, under their enterprise terms, and the notetaker is just a thin client. If you want true air-gap, you run the local model.
+
+**3. Where does the summary get generated?**
+
+Same logic. Cloud notetakers run the LLM on their backend and store the output. On-device tools either call an LLM API with your key (data passes through the LLM provider, not the notetaker) or run a local model via Ollama or LM Studio.
+
+**4. Where do the notes live afterward?**
+
+This is the one most founders skip. Cloud notetakers store your transcript and notes in their database, tied to your account. Deleting them is a support ticket, if it happens at all. Retention policies vary and change. Anarlog writes plain markdown files to your local filesystem. No database, no account, no retention policy to audit. You `rm` the file and it's gone.
+
+## Why this matters more for founders than for employees
+
+Employees worry about their boss reading their notes. Founders worry about:
+
+**Due diligence.** Your acquisition target's legal team will ask what AI tools you use and where the data lives. If the answer is "Otter has every call from the last 18 months," that's a data room question you don't want to be answering. If the answer is "we use an open-source tool, notes live on the founder's laptop, no vendor has access" — the question goes away.
+
+**Board calls.** Your board has investors who sit on other boards. The companies they invest in compete with you. If your board meeting audio and transcripts are sitting in a notetaker's database, accessible to that vendor's staff, you've created an information leak you can't fully map.
+
+**Customer calls.** Your largest customers have their own data processing agreements. Enterprise legal teams increasingly ask whether the vendor of your notetaker has SOC 2, where data is stored, and whether it's used for training. "On-device, no vendor sees it" is the only answer that survives every procurement questionnaire without negotiation.
+
+**Litigation.** Notes are discoverable. Cloud notetaker databases are subpoena-able — you don't control the vendor's retention, and you can't guarantee deletion. Local files you control. You decide what to keep.
+
+## The tradeoff nobody talks about
+
+On-device isn't free. You give up:
+
+- **Cross-device sync out of the box.** Markdown files on one laptop don't magically appear on your phone. You handle sync yourself (iCloud, Syncthing, git) and you live with the consequences.
+- **Team features.** Cloud notetakers have shared workspaces, comment threads, @mentions. On-device tools are single-player by default. For a founder pre-Series A, that's fine. For a 200-person org, it's a real gap.
+- **Convenience.** Cloud tools require zero setup. On-device requires picking a model, maybe pointing at Ollama, and understanding the tradeoffs. It's 20 minutes of config for years of ownership. Most founders I know would make that trade. Most employees won't, and shouldn't have to.
+
+The honest framing isn't "on-device for everyone." It's: the people handling the most sensitive conversations in a company — founders, execs, legal, security — should be the ones on a setup where the data never leaves their machine. Everyone else can use whatever works.
+
+## What I'd actually do
+
+If I were advising a founder setting up their stack today:
+
+1. **Use a tool that captures system audio, not a meeting bot.** The bot is the leak. This rules out Otter, Fireflies, tl;dv, Fathom, Read, and Tactiq. It keeps Anarlog, Meetily, and a handful of smaller projects.
+2. **Run the LLM locally if the meeting is sensitive, BYOK if it's not.** Local models (via Ollama) are good enough for meeting notes now. Use them for diligence, board, and legal calls. For standups, a BYOK API key to whatever provider you already trust is fine.
+3. **Store notes as files, not in a database.** Markdown on disk. Versioned with git if you want history. No vendor retention policy to read. This is the Anarlog default and it's the part I'd argue most strongly for — it's the difference between *owning* your notes and *renting* them.
+4. **Audit the path of your audio.** If you can't draw the diagram of where your audio goes and who can see it, you're using the wrong tool.
+
+## The bottom line
+
+The on-device vs cloud distinction for meeting notes isn't a privacy preference — it's a data ownership decision with real legal and competitive consequences. Cloud notetakers are optimized for convenience; on-device tools are optimized for control. As a founder, the calls you take are the highest-leverage information in your company. Treat the notes from those calls the way you'd treat the cap table.
+
+[Anarlog](https://anarlog.so/) is open source, MIT licensed, and writes plain markdown to your disk. No bot, no account, no database. Bring your own LLM or run one locally. [Read the source](https://github.com/fastrepl/anarlog) and verify any of the claims above.
