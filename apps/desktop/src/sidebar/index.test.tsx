@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   currentTab: { type: "empty" } as { type: string } | null,
@@ -54,6 +54,10 @@ describe("LeftSidebar", () => {
     mocks.currentTab = { type: "empty" };
   });
 
+  afterEach(() => {
+    cleanup();
+  });
+
   it("uses the timeline layout without a duplicate sidebar top offset", () => {
     const { container } = render(<LeftSidebar />);
 
@@ -68,6 +72,21 @@ describe("LeftSidebar", () => {
     ).toBe("true");
     expect(container.firstElementChild?.className).toContain("pt-0");
     expect(container.firstElementChild?.className).not.toContain("pr-1");
+  });
+
+  it("renders timeline header as normal sidebar content", () => {
+    render(
+      <LeftSidebar timelineHeader={<div data-testid="timeline-header" />} />,
+    );
+
+    expect(
+      screen
+        .getByTestId("timeline-header")
+        .parentElement?.contains(screen.getByTestId("timeline-view")),
+    ).toBe(true);
+    expect(
+      screen.getByTestId("timeline-view").getAttribute("data-top-chrome-inset"),
+    ).toBe("false");
   });
 
   it.each([

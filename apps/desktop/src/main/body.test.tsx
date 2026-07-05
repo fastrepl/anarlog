@@ -43,6 +43,10 @@ const mocks = vi.hoisted(() => ({
     devtoolsPanelHide: vi.fn(async () => ({ status: "ok" as const })),
     devtoolsPanelShow: vi.fn(async () => ({ status: "ok" as const })),
   },
+  updateControl: {
+    status: null as null | "available" | "downloading" | "ready" | "failed",
+    version: null as string | null,
+  },
 }));
 
 vi.mock("@hypr/ui/components/ui/resizable", () => ({
@@ -178,10 +182,17 @@ vi.mock("~/store/zustand/tabs", () => ({
 }));
 
 vi.mock("./shell-sidebar", () => ({
-  ClassicMainSidebar: ({ forceMount = false }: { forceMount?: boolean }) =>
+  ClassicMainSidebar: ({
+    forceMount = false,
+    timelineHeader,
+  }: {
+    forceMount?: boolean;
+    timelineHeader?: React.ReactNode;
+  }) =>
     (forceMount || mocks.leftsidebar.expanded) &&
     mocks.currentTab?.type !== "onboarding" ? (
       <aside data-testid="classic-main-sidebar">
+        {timelineHeader}
         <div data-sidebar-timeline-scroll />
       </aside>
     ) : null,
@@ -196,7 +207,7 @@ vi.mock("./tab-content", () => ({
 
 vi.mock("./update-banner", () => ({
   SidebarTimelineUpdateButton: () => <button type="button">Update</button>,
-  useDesktopUpdateControl: () => ({ status: null, version: null }),
+  useDesktopUpdateControl: () => mocks.updateControl,
 }));
 
 vi.mock("./useShortcuts", () => ({
@@ -261,6 +272,8 @@ describe("ClassicMainBody", () => {
     mocks.devtoolsPanelActionListeners = [];
     mocks.windowsCommands.devtoolsPanelHide.mockClear();
     mocks.windowsCommands.devtoolsPanelShow.mockClear();
+    mocks.updateControl.status = null;
+    mocks.updateControl.version = null;
     vi.mocked(commands.showDevtool).mockClear();
     vi.mocked(commands.showDevtool).mockResolvedValue(true);
   });
@@ -275,6 +288,7 @@ describe("ClassicMainBody", () => {
     expect(screen.getByTestId("panel-group").dataset.autoSaveId).toBe(
       "classic-main-sidebar",
     );
+    expect(screen.getByTestId("panel-group").previousElementSibling).toBeNull();
     expect(screen.getByTestId("classic-main-sidebar")).toBeTruthy();
     expect(screen.getByTestId("resize-handle").dataset.className).toContain(
       "after:w-2",
@@ -305,13 +319,16 @@ describe("ClassicMainBody", () => {
     const sidebarChrome = document.querySelector<HTMLElement>(
       "[data-left-sidebar-chrome]",
     );
+    const sidebarTimelineHeader = document.querySelector<HTMLElement>(
+      "[data-sidebar-timeline-header]",
+    );
 
     expect(sidebarContent?.className).toContain("translate-x-0");
     expect(sidebarContent?.getAttribute("aria-hidden")).toBe("false");
-    expect(sidebarChrome?.style.width).toBe("var(--left-sidebar-panel-width)");
-    expect(sidebarChrome?.style.minWidth).toBe("200px");
-    expect(sidebarChrome?.style.maxWidth).toBe("360px");
-    expect(sidebarChrome?.className).not.toContain("w-[200px]");
+    expect(sidebarChrome).toBeNull();
+    expect(sidebarTimelineHeader).toBeTruthy();
+    expect(sidebarTimelineHeader?.className).toContain("h-12");
+    expect(sidebarTimelineHeader?.className).not.toContain("absolute");
 
     const bodyRoot = screen.getByTestId("panel-group").parentElement;
     expect(bodyRoot?.getAttribute("style")).toContain(
@@ -557,6 +574,18 @@ describe("ClassicMainBody", () => {
     );
   });
 
+  it("keeps the update button in the fixed sidebar control group", () => {
+    mocks.updateControl.status = "available";
+    mocks.updateControl.version = "1.0.34";
+
+    render(<ClassicMainBody />);
+
+    const searchButton = screen.getByRole("button", { name: "Search" });
+    const updateButton = screen.getByRole("button", { name: "Update" });
+
+    expect(updateButton.parentElement).toBe(searchButton.parentElement);
+  });
+
   it("keeps near-equal sidebar size commits in sync with drag-time CSS variables", () => {
     render(<ClassicMainBody />);
 
@@ -789,31 +818,41 @@ describe("ClassicMainBody", () => {
     expect(mocks.devtoolsPanelActionListeners).toHaveLength(0);
   });
 
-  it("routes wheel gestures from sidebar chrome into the timeline scroller", () => {
+  it("renders expanded sidebar controls in the sidebar layout", () => {
     render(<ClassicMainBody />);
 
     const sidebarChrome = document.querySelector<HTMLElement>(
       "[data-left-sidebar-chrome]",
     );
-    const timelineScroller = document.querySelector<HTMLElement>(
+    const timelineHeader = document.querySelector<HTMLElement>(
+      "[data-sidebar-timeline-header]",
+    );
+    const sidebarToggle = screen.getByRole("button", { name: "Hide sidebar" });
+    const searchButton = screen.getByRole("button", { name: "Search" });
+
+    expect(sidebarChrome).toBeNull();
+    expect(timelineHeader).toBeInstanceOf(HTMLElement);
+    expect(timelineHeader?.parentElement?.dataset.testid).toBe(
+      "classic-main-sidebar",
+    );
+    expect(searchButton.parentElement).toBe(sidebarToggle.parentElement);
+
+    const scroller = document.querySelector<HTMLElement>(
       "[data-sidebar-timeline-scroll]",
     );
-
-    expect(sidebarChrome).toBeInstanceOf(HTMLElement);
-    expect(timelineScroller).toBeInstanceOf(HTMLElement);
-
-    Object.defineProperty(timelineScroller, "clientHeight", {
+    expect(scroller).toBeInstanceOf(HTMLElement);
+    Object.defineProperty(scroller, "clientHeight", {
       configurable: true,
       value: 200,
     });
-    Object.defineProperty(timelineScroller, "scrollHeight", {
+    Object.defineProperty(scroller, "scrollHeight", {
       configurable: true,
       value: 1200,
     });
 
-    fireEvent.wheel(sidebarChrome!, { deltaY: 96 });
+    fireEvent.wheel(timelineHeader!, { deltaY: 80 });
 
-    expect(timelineScroller!.scrollTop).toBe(96);
+    expect(scroller?.scrollTop).toBe(80);
   });
 
   it("does not reserve a sidebar panel during onboarding", () => {

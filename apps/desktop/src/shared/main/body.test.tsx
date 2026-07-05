@@ -119,7 +119,16 @@ vi.mock("~/sidebar/timeline/upcoming-meeting", () => ({
 }));
 
 vi.mock("~/main/shell-sidebar", () => ({
-  ClassicMainSidebar: () => <div data-testid="main-sidebar" />,
+  ClassicMainSidebar: ({
+    timelineHeader,
+  }: {
+    timelineHeader?: React.ReactNode;
+  }) => (
+    <div data-testid="main-sidebar">
+      {timelineHeader}
+      <div data-sidebar-timeline-scroll />
+    </div>
+  ),
 }));
 
 vi.mock("~/contexts/shell", () => ({
@@ -208,7 +217,9 @@ describe("ClassicMainBody", () => {
     const newNoteButton = screen.getByRole("button", { name: "New note" });
     const chrome = sidebarToggle.parentElement?.parentElement;
     const chromeFrame = chrome?.parentElement;
-    const topArea = chrome?.parentElement?.parentElement;
+    const timelineHeader = document.querySelector<HTMLElement>(
+      "[data-sidebar-timeline-header]",
+    );
 
     fireEvent.click(searchButton);
     fireEvent.click(newNoteButton);
@@ -224,13 +235,13 @@ describe("ClassicMainBody", () => {
     expect(sidebarToggle.parentElement?.className.split(" ")).not.toContain(
       "gap-0.5",
     );
-    expect(chrome?.className).toContain("justify-between");
+    expect(chrome?.className).toContain("items-center");
     expect(chrome?.className).toContain("w-full");
+    expect(chromeFrame).toBe(timelineHeader);
     expect(chromeFrame?.className).toContain("pr-1");
     expect(chromeFrame?.className).not.toContain("pr-3");
-    expect(topArea?.className).toContain("h-12");
-    expect(topArea?.className).toContain("absolute");
-    expect(topArea?.className).toContain("left-0");
+    expect(timelineHeader?.className).toContain("h-12");
+    expect(timelineHeader?.className).not.toContain("absolute");
     expect(chrome?.hasAttribute("data-tauri-drag-region")).toBe(true);
     expect(
       sidebarToggle.parentElement?.hasAttribute("data-tauri-drag-region"),
@@ -295,7 +306,7 @@ describe("ClassicMainBody", () => {
     expect(mocks.toggleLeftSidebar).toHaveBeenCalledTimes(1);
   });
 
-  it("shows the update button at the far edge of the expanded sidebar chrome row", () => {
+  it("shows the update button in the expanded sidebar control group", () => {
     mocks.sidebarUpdateControl.status = "available";
     mocks.sidebarUpdateControl.version = "1.0.34";
 
@@ -307,16 +318,22 @@ describe("ClassicMainBody", () => {
     const updateButton = screen.getByTestId("sidebar-update-button");
     const chrome = sidebarToggle.parentElement?.parentElement;
     const chromeFrame = chrome?.parentElement;
+    const timelineHeader = document.querySelector<HTMLElement>(
+      "[data-sidebar-timeline-header]",
+    );
 
     expect(updateButton).toBeTruthy();
-    expect(updateButton.parentElement).toBe(chrome);
-    expect(updateButton.parentElement).not.toBe(sidebarToggle.parentElement);
+    expect(updateButton.parentElement).toBe(sidebarToggle.parentElement);
     expect(searchButton.compareDocumentPosition(newNoteButton)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(newNoteButton.compareDocumentPosition(updateButton)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
     expect(searchButton.parentElement).toBe(sidebarToggle.parentElement);
     expect(newNoteButton.parentElement).toBe(sidebarToggle.parentElement);
-    expect(chrome?.className).toContain("justify-between");
+    expect(chrome?.className).toContain("items-center");
+    expect(chromeFrame).toBe(timelineHeader);
     expect(chromeFrame?.className).toContain("pr-1");
     expect(chromeFrame?.className).not.toContain("pr-3");
     expect(
@@ -324,7 +341,7 @@ describe("ClassicMainBody", () => {
     ).toBeNull();
   });
 
-  it("shows ready updates at the far edge of the expanded sidebar chrome row", () => {
+  it("shows ready updates in the expanded sidebar control group", () => {
     mocks.sidebarUpdateControl.status = "ready";
     mocks.sidebarUpdateControl.version = "1.0.34";
 
@@ -332,11 +349,9 @@ describe("ClassicMainBody", () => {
 
     const sidebarToggle = screen.getByRole("button", { name: "Hide sidebar" });
     const updateButton = screen.getByTestId("sidebar-update-button");
-    const chrome = sidebarToggle.parentElement?.parentElement;
 
     expect(updateButton).toBeTruthy();
-    expect(updateButton.parentElement).toBe(chrome);
-    expect(updateButton.parentElement).not.toBe(sidebarToggle.parentElement);
+    expect(updateButton.parentElement).toBe(sidebarToggle.parentElement);
   });
 
   it("shows an update badge on the collapsed sidebar toggle", () => {
@@ -427,7 +442,7 @@ describe("ClassicMainBody", () => {
 
     const sidebarToggle = screen.getByRole("button", { name: "Hide sidebar" });
     const chrome = sidebarToggle.parentElement?.parentElement;
-    const topArea = chrome?.parentElement?.parentElement;
+    const timelineHeader = chrome?.parentElement;
 
     expect(screen.queryByTestId("timeline-update-banner")).toBeNull();
     expect(screen.queryByRole("button", { name: "Go back" })).toBeNull();
@@ -437,8 +452,8 @@ describe("ClassicMainBody", () => {
     expect(sidebarToggle.parentElement?.className.split(" ")).not.toContain(
       "gap-0.5",
     );
-    expect(topArea?.className).toContain("h-12");
-    expect(topArea?.className).toContain("absolute");
+    expect(timelineHeader?.className).toContain("h-12");
+    expect(timelineHeader?.className).not.toContain("absolute");
     expect(screen.getByTestId("main-tab-content").textContent).toContain(
       "changelog",
     );

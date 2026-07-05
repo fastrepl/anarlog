@@ -12,7 +12,7 @@ import {
   type CSSProperties,
   type MouseEvent,
   type PointerEvent,
-  type WheelEvent,
+  type WheelEvent as ReactWheelEvent,
   useCallback,
   useMemo,
   useRef,
@@ -156,6 +156,8 @@ export function ClassicMainBody() {
   const showSidebarTimelineChrome = !hasCustomSidebar && !isOnboarding;
   const canResizeLeftSidebarPanel = showSidebarTimelineChrome;
   const showSidebarTimeline = showSidebarTimelineChrome && leftsidebar.expanded;
+  const showCollapsedSidebarTimelineChrome =
+    showSidebarTimelineChrome && !leftsidebar.expanded;
   const mountLeftSidebarPanel = !isOnboarding;
   const showLeftSidebarPanel = mountLeftSidebarPanel && leftsidebar.expanded;
   const showLeftSurfaceChromeBack = hasLeftSurfaceCustomSidebar;
@@ -319,6 +321,16 @@ export function ClassicMainBody() {
     leftsidebar.toggleExpanded,
     restoreLeftSidebarPanelSize,
   ]);
+  const handleSidebarTimelineHeaderWheel = useCallback(
+    (event: ReactWheelEvent<HTMLDivElement>) => {
+      const scroller = event.currentTarget
+        .closest("[data-left-sidebar-panel-content]")
+        ?.querySelector<HTMLElement>("[data-sidebar-timeline-scroll]");
+
+      scrollElementByWheel(scroller ?? null, event);
+    },
+    [],
+  );
   const syncDefaultLeftSidebarPanelSize = useCallback(() => {
     if (!mountLeftSidebarPanel || leftSidebarResizeDraggingRef.current) {
       return;
@@ -416,21 +428,6 @@ export function ClassicMainBody() {
       resizeObserver?.disconnect();
     };
   });
-  const handleLeftSidebarChromeWheel = useCallback(
-    (event: WheelEvent<HTMLDivElement>) => {
-      if (!showSidebarTimeline) {
-        return;
-      }
-
-      const timelineScroller =
-        event.currentTarget.parentElement?.querySelector<HTMLElement>(
-          "[data-sidebar-timeline-scroll]",
-        ) ?? null;
-
-      scrollElementByWheel(timelineScroller, event);
-    },
-    [showSidebarTimeline],
-  );
   const leftSidebarChromeStyle = useMemo(
     () =>
       ({
@@ -504,6 +501,26 @@ export function ClassicMainBody() {
     "--left-sidebar-panel-size": `${renderedLeftSidebarPanelSize}`,
     "--left-sidebar-panel-width": `${renderedLeftSidebarPanelSize}%`,
   } as LeftSidebarSizeStyle;
+  const timelineHeader = showSidebarTimeline ? (
+    <div
+      data-tauri-drag-region
+      data-sidebar-timeline-header
+      className="flex h-12 shrink-0 items-start pt-[9px] pr-1 pl-[76px]"
+      onWheelCapture={handleSidebarTimelineHeaderWheel}
+    >
+      <SidebarTimelineChrome
+        sidebarExpanded
+        showDevtoolsPanelButton={showDevtoolsPanelButton}
+        devtoolsPanelOpen={devtoolsPanelOpen}
+        onNewNote={createNewNote}
+        onSearch={handleOpenNoteDialog}
+        onOpenDevtools={handleOpenDevtoolsPanel}
+        onToggleSidebar={handleToggleLeftSidebar}
+        hasUpcomingMeeting={hasUpcomingMeetingBadge}
+        update={update}
+      />
+    </div>
+  ) : null;
 
   return (
     <div
@@ -511,16 +528,15 @@ export function ClassicMainBody() {
       style={leftSidebarSizeStyle}
       className="relative flex h-full min-w-0 flex-1 flex-col"
     >
-      {isOnboarding ? null : showSidebarTimelineChrome ? (
+      {isOnboarding ||
+      showSidebarTimeline ? null : showCollapsedSidebarTimelineChrome ? (
         <div
           data-tauri-drag-region
           data-left-sidebar-chrome
           style={leftSidebarChromeStyle}
-          onWheel={handleLeftSidebarChromeWheel}
           className={cn([
             "absolute top-0 z-40 h-12",
-            leftsidebar.expanded ? "left-0" : "left-1",
-            !leftsidebar.expanded && "pointer-events-none",
+            "pointer-events-none left-1",
           ])}
         >
           <div
@@ -528,7 +544,7 @@ export function ClassicMainBody() {
             className="flex h-full min-w-0 items-start pt-[9px] pr-1 pl-[76px]"
           >
             <SidebarTimelineChrome
-              sidebarExpanded={leftsidebar.expanded}
+              sidebarExpanded={false}
               showDevtoolsPanelButton={showDevtoolsPanelButton}
               devtoolsPanelOpen={devtoolsPanelOpen}
               onNewNote={createNewNote}
@@ -616,6 +632,7 @@ export function ClassicMainBody() {
                 ])}
               >
                 <ClassicMainSidebar
+                  timelineHeader={timelineHeader}
                   showIgnoredTimelineEvents={showIgnoredTimelineEvents}
                   onShowIgnoredTimelineEventsChange={
                     setShowIgnoredTimelineEvents
@@ -911,10 +928,7 @@ function SidebarTimelineChrome({
     : null;
 
   return (
-    <div
-      data-tauri-drag-region
-      className="flex w-full items-center justify-between"
-    >
+    <div data-tauri-drag-region className="flex w-full items-center">
       <div data-tauri-drag-region className="flex items-center gap-0">
         <LeftSurfaceChromeButton
           ariaLabel={sidebarExpanded ? "Hide sidebar" : "Show sidebar"}
@@ -943,12 +957,12 @@ function SidebarTimelineChrome({
                 <WrenchIcon size={15} />
               </LeftSurfaceChromeButton>
             ) : null}
+            {showUpdateButton ? (
+              <SidebarTimelineUpdateButton update={update} />
+            ) : null}
           </>
         ) : null}
       </div>
-      {showUpdateButton ? (
-        <SidebarTimelineUpdateButton update={update} />
-      ) : null}
     </div>
   );
 }

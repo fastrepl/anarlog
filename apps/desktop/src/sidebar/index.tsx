@@ -1,3 +1,5 @@
+import { type ReactNode } from "react";
+
 import { cn } from "@hypr/utils";
 
 import { CalendarNav } from "./calendar";
@@ -9,9 +11,11 @@ import { TimelineView } from "./timeline";
 import { useTabs } from "~/store/zustand/tabs";
 
 export function LeftSidebar({
+  timelineHeader,
   showIgnoredTimelineEvents,
   onShowIgnoredTimelineEventsChange,
 }: {
+  timelineHeader?: ReactNode;
   showIgnoredTimelineEvents?: boolean;
   onShowIgnoredTimelineEventsChange?: (showIgnored: boolean) => void;
 } = {}) {
@@ -34,6 +38,7 @@ export function LeftSidebar({
       ])}
     >
       <div className="flex flex-1 flex-col gap-1 overflow-hidden">
+        {isTimelineSidebarLayout ? timelineHeader : null}
         <div className="relative min-h-0 flex-1 overflow-hidden">
           {isSettingsMode ? (
             <SettingsNav />
@@ -47,7 +52,7 @@ export function LeftSidebar({
             <TimelineView
               showIgnoredEvents={showIgnoredTimelineEvents}
               onShowIgnoredEventsChange={onShowIgnoredTimelineEventsChange}
-              topChromeInset={isTimelineSidebarLayout}
+              topChromeInset={isTimelineSidebarLayout && !timelineHeader}
             />
           )}
         </div>

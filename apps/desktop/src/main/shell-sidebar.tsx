@@ -1,3 +1,5 @@
+import { type ReactNode } from "react";
+
 import { useShell } from "~/contexts/shell";
 import { LeftSidebar } from "~/sidebar";
 import {
@@ -8,10 +10,12 @@ import { useTabs } from "~/store/zustand/tabs";
 
 export function ClassicMainSidebar({
   forceMount = false,
+  timelineHeader,
   showIgnoredTimelineEvents,
   onShowIgnoredTimelineEventsChange,
 }: {
   forceMount?: boolean;
+  timelineHeader?: ReactNode;
   showIgnoredTimelineEvents?: boolean;
   onShowIgnoredTimelineEventsChange?: (showIgnored: boolean) => void;
 } = {}) {
@@ -29,6 +33,7 @@ export function ClassicMainSidebar({
 
   return (
     <LeftSidebar
+      timelineHeader={timelineHeader}
       showIgnoredTimelineEvents={showIgnoredTimelineEvents}
       onShowIgnoredTimelineEventsChange={onShowIgnoredTimelineEventsChange}
     />
