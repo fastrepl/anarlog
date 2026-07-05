@@ -11,6 +11,7 @@ import {
   finalizeSessionDeletion,
 } from "~/store/tinybase/store/deleteSession";
 import * as main from "~/store/tinybase/store/main";
+import { listenerStore } from "~/store/zustand/listener/instance";
 import { useTabs } from "~/store/zustand/tabs";
 import {
   type DeletedSessionData,
@@ -71,6 +72,15 @@ export function useDeleteSession() {
 
       const capturedData = captureSessionData(store, indexes, sessionId);
       const windowLabel = getCurrentWebviewWindowLabel();
+      const listenerState = listenerStore.getState();
+      const live = listenerState.live;
+
+      if (
+        live.sessionId === sessionId &&
+        (live.status === "active" || live.loading)
+      ) {
+        listenerState.stop();
+      }
 
       invalidateResource("sessions", sessionId);
       deleteSessionCascade(store, indexes, sessionId, {

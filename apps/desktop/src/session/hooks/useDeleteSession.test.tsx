@@ -35,6 +35,8 @@ const mocks = vi.hoisted(() => {
     ignoreEvent: vi.fn(),
     indexes: {},
     invalidateResource: vi.fn(),
+    listenerGetState: vi.fn(),
+    listenerStop: vi.fn(),
     listen: vi.fn(),
     store: {},
     deletedSessionData,
@@ -74,6 +76,12 @@ vi.mock("~/store/tinybase/store/main", () => ({
   },
 }));
 
+vi.mock("~/store/zustand/listener/instance", () => ({
+  listenerStore: {
+    getState: mocks.listenerGetState,
+  },
+}));
+
 vi.mock("~/store/zustand/tabs", () => ({
   useTabs: (
     selector: (state: {
@@ -107,6 +115,14 @@ describe("useDeleteSession", () => {
     mocks.emitTo.mockResolvedValue(undefined);
     mocks.getAllWebviewWindows.mockResolvedValue([]);
     mocks.getCurrentWebviewWindowLabel.mockReturnValue("main");
+    mocks.listenerGetState.mockReturnValue({
+      live: {
+        sessionId: null,
+        status: "inactive",
+        loading: false,
+      },
+      stop: mocks.listenerStop,
+    });
     mocks.listen.mockResolvedValue(vi.fn());
   });
 
@@ -138,6 +154,45 @@ describe("useDeleteSession", () => {
       expect.any(Function),
     );
     expect(mocks.emitTo).not.toHaveBeenCalled();
+  });
+
+  it("stops listening before deleting the active session", () => {
+    mocks.listenerGetState.mockReturnValue({
+      live: {
+        sessionId: "session-1",
+        status: "active",
+        loading: false,
+      },
+      stop: mocks.listenerStop,
+    });
+    const { result } = renderHook(() => useDeleteSession());
+
+    act(() => {
+      result.current("session-1");
+    });
+
+    expect(mocks.listenerStop).toHaveBeenCalledTimes(1);
+    expect(mocks.listenerStop.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.deleteSessionCascade.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("does not stop listening when deleting an inactive session", () => {
+    mocks.listenerGetState.mockReturnValue({
+      live: {
+        sessionId: "session-2",
+        status: "active",
+        loading: false,
+      },
+      stop: mocks.listenerStop,
+    });
+    const { result } = renderHook(() => useDeleteSession());
+
+    act(() => {
+      result.current("session-1");
+    });
+
+    expect(mocks.listenerStop).not.toHaveBeenCalled();
   });
 
   it("forwards undo data to main and closes the matching note window", async () => {
