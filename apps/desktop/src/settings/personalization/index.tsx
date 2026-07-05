@@ -1,6 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { useForm } from "@tanstack/react-form";
-import { PlusIcon, XIcon } from "lucide-react";
+import { CircleMinusIcon, PlusIcon } from "lucide-react";
 
 import { Button } from "@hypr/ui/components/ui/button";
 import {
@@ -14,8 +14,6 @@ import { SettingsPageTitle } from "~/settings/page-title";
 import { useConfigValue } from "~/shared/config";
 import * as settings from "~/store/tinybase/store/settings";
 import { normalizeKeywordList, parseDictionaryTermsText } from "~/stt/keywords";
-
-const EXAMPLE_DICTIONARY_TERMS = ["Anarlog", "FastConformer", "Parakeet TDT"];
 
 export function SettingsPersonalization() {
   const terms = useConfigValue("personalization_dictionary_terms");
@@ -76,11 +74,11 @@ export function DictionarySettings({
         <Trans>Dictionary</Trans>
       </h2>
 
-      <InputGroup className="bg-card min-h-12 rounded-full shadow-none">
+      <InputGroup className="border-border/60 bg-card has-[[data-slot=input-group-control]:focus-visible]:border-border/70 min-h-12 rounded-full shadow-none has-[[data-slot=input-group-control]:focus-visible]:ring-0">
         <form.Field name="term">
           {(field) => (
             <InputGroupInput
-              className="h-12 px-4 py-3"
+              className="h-12 py-3 pr-6 pl-4"
               placeholder={t`Add names, jargon, or product terms to prefer`}
               value={field.state.value}
               onChange={(event) => field.handleChange(event.target.value)}
@@ -88,14 +86,13 @@ export function DictionarySettings({
             />
           )}
         </form.Field>
-        <InputGroupAddon align="inline-end" className="pr-1.5">
+        <InputGroupAddon align="inline-end" className="pr-2.5">
           <form.Subscribe selector={(state) => state.values.term}>
             {(value) => (
               <InputGroupButton
                 type="submit"
                 size="sm"
-                variant="secondary"
-                className="h-10 rounded-full px-4 shadow-none"
+                className="h-10 rounded-full px-5 shadow-xs"
                 disabled={
                   appendDictionaryTerms(normalizedTerms, value).length ===
                   normalizedTerms.length
@@ -109,48 +106,55 @@ export function DictionarySettings({
         </InputGroupAddon>
       </InputGroup>
 
-      {normalizedTerms.length > 0 ? (
-        <div className="border-border bg-card divide-border divide-y overflow-hidden rounded-2xl border">
-          {normalizedTerms.map((term) => (
-            <div
-              key={term}
-              className="flex min-h-12 items-center justify-between gap-3 px-4 py-3"
-            >
-              <span className="text-sm">{term}</span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="text-muted-foreground hover:text-foreground size-7 shrink-0"
-                onClick={() => removeTerm(term)}
-                aria-label={t`Remove ${term}`}
-              >
-                <XIcon className="size-3.5" />
-              </Button>
+      <form.Subscribe selector={(state) => state.values.term}>
+        {(value) => {
+          const visibleTerms = getVisibleDictionaryTerms(
+            normalizedTerms,
+            value,
+          );
+
+          return visibleTerms.length > 0 ? (
+            <div className="border-border bg-card divide-border divide-y overflow-hidden rounded-2xl border">
+              {visibleTerms.map((term) => (
+                <div
+                  key={term}
+                  className="group flex min-h-12 items-center justify-between gap-3 py-3 pr-3 pl-4"
+                >
+                  <span className="text-sm">{term}</span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="text-muted-foreground hover:text-foreground size-7 shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                    onClick={() => removeTerm(term)}
+                    aria-label={t`Remove ${term}`}
+                  >
+                    <CircleMinusIcon className="size-4" />
+                  </Button>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      ) : (
-        <div className="border-border bg-card flex flex-col gap-3 rounded-2xl border px-4 py-4">
-          <p className="text-muted-foreground text-sm">
-            <Trans>Examples</Trans>
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {EXAMPLE_DICTIONARY_TERMS.map((term) => (
-              <span
-                key={term}
-                className="border-border bg-muted text-muted-foreground rounded-full border px-3 py-1.5 text-sm"
-              >
-                {term}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
+          ) : null;
+        }}
+      </form.Subscribe>
     </form>
   );
 }
 
 function appendDictionaryTerms(terms: string[], value: string): string[] {
   return normalizeKeywordList([...terms, ...parseDictionaryTermsText(value)]);
+}
+
+function getVisibleDictionaryTerms(terms: string[], value: string): string[] {
+  const queries = parseDictionaryTermsText(value).map((term) =>
+    term.toLocaleLowerCase(),
+  );
+  if (queries.length === 0) {
+    return terms;
+  }
+
+  return terms.filter((term) => {
+    const key = term.toLocaleLowerCase();
+    return queries.some((query) => key.includes(query) || query.includes(key));
+  });
 }

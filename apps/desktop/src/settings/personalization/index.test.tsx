@@ -47,12 +47,12 @@ describe("DictionarySettings", () => {
     cleanup();
   });
 
-  it("shows example terms when the dictionary is empty", () => {
+  it("only shows the input when the dictionary is empty", () => {
     render(<DictionarySettings terms={[]} onSave={vi.fn()} />);
 
-    expect(screen.getByText("Examples")).toBeTruthy();
-    expect(screen.getByText("FastConformer")).toBeTruthy();
-    expect(screen.queryByText("No dictionary terms yet.")).toBeNull();
+    expect(screen.getByRole("textbox")).toBeTruthy();
+    expect(screen.queryByText("Examples")).toBeNull();
+    expect(screen.queryByText("FastConformer")).toBeNull();
   });
 
   it("adds entered terms and keeps them normalized", async () => {
@@ -90,7 +90,8 @@ describe("DictionarySettings", () => {
   });
 
   it("does not enable adding duplicate terms", async () => {
-    render(<DictionarySettings terms={["Anarlog"]} onSave={vi.fn()} />);
+    const onSave = vi.fn();
+    render(<DictionarySettings terms={["Anarlog"]} onSave={onSave} />);
 
     fireEvent.change(screen.getByRole("textbox"), {
       target: { value: "anarlog" },
@@ -100,5 +101,25 @@ describe("DictionarySettings", () => {
       name: "Add",
     }) as HTMLButtonElement;
     await waitFor(() => expect(addButton.disabled).toBe(true));
+    fireEvent.click(addButton);
+
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it("shows relevant saved terms while typing", async () => {
+    render(
+      <DictionarySettings
+        terms={["Anarlog", "FastConformer", "Parakeet TDT"]}
+        onSave={vi.fn()}
+      />,
+    );
+
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "fast" },
+    });
+
+    await waitFor(() => expect(screen.getByText("FastConformer")).toBeTruthy());
+    expect(screen.queryByText("Anarlog")).toBeNull();
+    expect(screen.queryByText("Parakeet TDT")).toBeNull();
   });
 });
