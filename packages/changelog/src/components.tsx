@@ -30,53 +30,79 @@ function flattenTextContent(node: React.ReactNode): string {
 const changelogLinkClassName =
   "text-blue-600 underline decoration-blue-400/40 underline-offset-2 hover:text-blue-700 dark:text-blue-400 dark:decoration-blue-500/50 dark:hover:text-blue-300";
 
-const changelogBodyClassName = "text-foreground/85";
+const changelogHeadingClassName =
+  "mt-4 mb-1 min-h-6 font-semibold text-[#374151] first:mt-0 dark:text-[#e7e5e4]";
+const changelogBodyClassName = "text-foreground";
 
 const baseChangelogComponents = {
+  h1: ({ children }: { children?: React.ReactNode }) => (
+    <h1 className={cn([changelogHeadingClassName, "text-base leading-6"])}>
+      {children}
+    </h1>
+  ),
   h2: ({ children }: { children?: React.ReactNode }) => (
-    <h2 className="text-foreground mt-6 mb-3 pt-6 text-base font-semibold first:mt-0 first:pt-0">
+    <h2 className={cn([changelogHeadingClassName, "text-sm leading-5"])}>
       {children}
     </h2>
   ),
   h3: ({ children }: { children?: React.ReactNode }) => (
-    <h3 className="text-foreground mt-5 mb-2 text-sm font-semibold">
+    <h3 className={cn([changelogHeadingClassName, "text-sm leading-5"])}>
       {children}
     </h3>
   ),
   h4: ({ children }: { children?: React.ReactNode }) => (
-    <h4 className="text-foreground mt-4 mb-2 text-sm font-medium">
+    <h4 className={cn([changelogHeadingClassName, "text-sm leading-5"])}>
       {children}
     </h4>
   ),
+  h5: ({ children }: { children?: React.ReactNode }) => (
+    <h5 className={cn([changelogHeadingClassName, "text-sm leading-5"])}>
+      {children}
+    </h5>
+  ),
+  h6: ({ children }: { children?: React.ReactNode }) => (
+    <h6 className={cn([changelogHeadingClassName, "text-xs leading-4"])}>
+      {children}
+    </h6>
+  ),
   p: ({ children }: { children?: React.ReactNode }) => (
-    <p className={cn(["my-2", changelogBodyClassName])}>{children}</p>
+    <p
+      className={cn([
+        "mb-1 leading-5 [text-wrap:wrap]",
+        changelogBodyClassName,
+      ])}
+    >
+      {children}
+    </p>
   ),
   strong: ({ children }: { children?: React.ReactNode }) => (
-    <strong className="text-foreground font-semibold">{children}</strong>
+    <strong className="font-semibold text-[#374151] dark:text-[#e7e5e4]">
+      {children}
+    </strong>
   ),
   em: ({ children }: { children?: React.ReactNode }) => (
     <em className="italic">{children}</em>
   ),
   code: ({ children }: { children?: React.ReactNode }) => (
-    <code className="bg-muted text-foreground rounded px-1 py-0.5 text-[0.85em]">
+    <code className="rounded-[0.4rem] border border-[#e5e5e5] px-[0.3em] py-[0.15em] align-middle font-mono text-[0.85rem] leading-none text-black dark:border-[#57534e] dark:text-[#e7e5e4]">
       {children}
     </code>
   ),
   ul: ({ children }: { children?: React.ReactNode }) => (
-    <ul className={cn(["my-2 list-disc pl-6", changelogBodyClassName])}>
+    <ul className={cn(["mb-1 list-disc pl-6", changelogBodyClassName])}>
       {children}
     </ul>
   ),
   ol: ({ children }: { children?: React.ReactNode }) => (
-    <ol className={cn(["my-2 list-decimal pl-6", changelogBodyClassName])}>
+    <ol className={cn(["mb-1 list-decimal pl-6", changelogBodyClassName])}>
       {children}
     </ol>
   ),
   li: ({ children }: { children?: React.ReactNode }) => (
-    <li className="my-0.5">{children}</li>
+    <li className="mb-1">{children}</li>
   ),
   blockquote: ({ children }: { children?: React.ReactNode }) => (
-    <blockquote className="border-border text-muted-foreground my-4 border-l-2 pl-4 italic">
+    <blockquote className="mb-1 border-l-[3px] border-black pl-2 dark:border-[#a8a29e]">
       {children}
     </blockquote>
   ),
