@@ -6,9 +6,11 @@ import {
   parseDictionaryTermsText,
 } from "./keywords";
 import {
+  buildKeywords,
   buildKeywordSourceText,
   extractKeywordsFromMarkdown,
   getSessionKeywords,
+  type KeywordStore,
 } from "./useKeywords";
 
 describe("extractKeywordsFromMarkdown", () => {
@@ -158,11 +160,130 @@ describe("getSessionKeywords", () => {
 
     expect(
       getSessionKeywords({
-        store,
+        store: store as unknown as KeywordStore,
         sessionId: "session-1",
         dictionaryTerms: ["Anarlog"],
       }),
     ).toEqual(expect.arrayContaining(["Anarlog", "Launch"]));
+  });
+
+  it("prioritizes mapped participants and attached event attendees", () => {
+    const tables = {
+      sessions: new Map([
+        [
+          "session-1",
+          {
+            raw_md: "Discuss #Launch and production systems",
+            title: "Erebor sync",
+            event_json: JSON.stringify({
+              tracking_id: "tracking-1",
+              calendar_id: "calendar-1",
+              title: "OpenWorld review",
+              description: "Airborne Brothers follow-up",
+              location: "Zoom",
+            }),
+          },
+        ],
+      ]),
+      mapping_session_participant: new Map([
+        [
+          "mapping-1",
+          {
+            session_id: "session-1",
+            human_id: "human-1",
+          },
+        ],
+        [
+          "mapping-2",
+          {
+            session_id: "other-session",
+            human_id: "human-2",
+          },
+        ],
+        [
+          "mapping-3",
+          {
+            session_id: "session-1",
+            human_id: "human-3",
+            source: "excluded",
+          },
+        ],
+      ]),
+      humans: new Map([
+        ["human-1", { name: "Alice Kim" }],
+        ["human-2", { name: "Bob Stone" }],
+        ["human-3", { name: "Hidden Person" }],
+      ]),
+      events: new Map([
+        [
+          "event-1",
+          {
+            tracking_id_event: "tracking-1",
+            calendar_id: "calendar-1",
+            participants_json: JSON.stringify([
+              { name: "Alice Kim", email: "alice@example.com" },
+              { name: "Mina Park", email: "mina@example.com" },
+              {
+                name: "John Jeong",
+                email: "john@example.com",
+                is_current_user: true,
+              },
+            ]),
+          },
+        ],
+      ]),
+    };
+    const store = {
+      getCell: (tableId: keyof typeof tables, rowId: string, cellId: string) =>
+        (tables[tableId].get(rowId) as Record<string, unknown> | undefined)?.[
+          cellId
+        ],
+      forEachRow: (
+        tableId: "mapping_session_participant" | "events",
+        callback: (rowId: string, forEachCell: unknown) => void,
+      ) => {
+        for (const rowId of tables[tableId].keys()) {
+          callback(rowId, undefined);
+        }
+      },
+    };
+
+    const result = getSessionKeywords({
+      store: store as unknown as KeywordStore,
+      sessionId: "session-1",
+      dictionaryTerms: ["Anarlog"],
+    });
+
+    expect(result.slice(0, 3)).toEqual(["Alice Kim", "Mina Park", "Anarlog"]);
+    expect(result).toEqual(expect.arrayContaining(["Launch"]));
+    expect(result).not.toContain("Bob Stone");
+    expect(result).not.toContain("Hidden Person");
+    expect(result).not.toContain("John Jeong");
+  });
+});
+
+describe("buildKeywords", () => {
+  it("dedupes higher-priority hints and caps the result", () => {
+    const result = buildKeywords({
+      rawMd: "",
+      title: "",
+      eventJson: "",
+      sessionParticipantTerms: ["Alice Kim"],
+      eventParticipantTerms: ["alice kim", "Mina Park"],
+      dictionaryTerms: Array.from(
+        { length: 60 },
+        (_, index) => `Term ${index}`,
+      ),
+    });
+
+    expect(result).toHaveLength(50);
+    expect(result.slice(0, 4)).toEqual([
+      "Alice Kim",
+      "Mina Park",
+      "Term 0",
+      "Term 1",
+    ]);
+    expect(result).not.toContain("alice kim");
   });
 });
 

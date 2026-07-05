@@ -14,6 +14,8 @@ import { useConfigValue } from "~/shared/config";
 import * as main from "~/store/tinybase/store/main";
 import { normalizeKeywordList } from "~/stt/keywords";
 
+const MAX_TRANSCRIPTION_HINTS = 50;
+
 export function useKeywords(sessionId: string) {
   const rawMd = main.UI.useCell("sessions", sessionId, "raw_md", main.STORE_ID);
   const title = main.UI.useCell("sessions", sessionId, "title", main.STORE_ID);
@@ -23,6 +25,12 @@ export function useKeywords(sessionId: string) {
     "event_json",
     main.STORE_ID,
   );
+  const participantMappings = main.UI.useTable(
+    "mapping_session_participant",
+    main.STORE_ID,
+  );
+  const humans = main.UI.useTable("humans", main.STORE_ID);
+  const events = main.UI.useTable("events", main.STORE_ID);
   const dictionaryTerms = useConfigValue("personalization_dictionary_terms");
 
   return useMemo(() => {
@@ -30,17 +38,32 @@ export function useKeywords(sessionId: string) {
       rawMd,
       title,
       eventJson,
+      sessionParticipantTerms: getSessionParticipantNamesFromTables(
+        participantMappings,
+        humans,
+        sessionId,
+      ),
+      eventParticipantTerms: getAttachedEventParticipantNamesFromTable(
+        events,
+        eventJson,
+      ),
       dictionaryTerms,
     });
-  }, [dictionaryTerms, eventJson, rawMd, title]);
+  }, [
+    dictionaryTerms,
+    eventJson,
+    events,
+    humans,
+    participantMappings,
+    rawMd,
+    sessionId,
+    title,
+  ]);
 }
 
-type KeywordStore = {
-  getCell: (
-    tableId: "sessions",
-    rowId: string,
-    cellId: "raw_md" | "title" | "event_json",
-  ) => unknown;
+export type KeywordStore = {
+  getCell: main.Store["getCell"];
+  forEachRow?: main.Store["forEachRow"];
 };
 
 export function getSessionKeywords({
@@ -52,10 +75,30 @@ export function getSessionKeywords({
   sessionId: string;
   dictionaryTerms: string[];
 }) {
+  return getSessionTranscriptionHints({
+    store,
+    sessionId,
+    dictionaryTerms,
+  });
+}
+
+export function getSessionTranscriptionHints({
+  store,
+  sessionId,
+  dictionaryTerms,
+}: {
+  store: KeywordStore;
+  sessionId: string;
+  dictionaryTerms: string[];
+}) {
+  const eventJson = store.getCell("sessions", sessionId, "event_json");
+
   return buildKeywords({
     rawMd: store.getCell("sessions", sessionId, "raw_md"),
     title: store.getCell("sessions", sessionId, "title"),
-    eventJson: store.getCell("sessions", sessionId, "event_json"),
+    eventJson,
+    sessionParticipantTerms: getSessionParticipantNames(store, sessionId),
+    eventParticipantTerms: getAttachedEventParticipantNames(store, eventJson),
     dictionaryTerms,
   });
 }
@@ -64,11 +107,15 @@ export function buildKeywords({
   rawMd,
   title,
   eventJson,
+  sessionParticipantTerms = [],
+  eventParticipantTerms = [],
   dictionaryTerms,
 }: {
   rawMd: unknown;
   title: unknown;
   eventJson: unknown;
+  sessionParticipantTerms?: string[];
+  eventParticipantTerms?: string[];
   dictionaryTerms: string[];
 }) {
   const sourceText = buildKeywordSourceText({
@@ -81,7 +128,13 @@ export function buildKeywords({
       ? extractKeywordsFromMarkdown(sourceText)
       : { keywords: [], keyphrases: [] };
 
-  return normalizeKeywordList([...dictionaryTerms, ...keywords, ...keyphrases]);
+  return normalizeKeywordList([
+    ...sessionParticipantTerms,
+    ...eventParticipantTerms,
+    ...dictionaryTerms,
+    ...keywords,
+    ...keyphrases,
+  ]).slice(0, MAX_TRANSCRIPTION_HINTS);
 }
 
 export function buildKeywordSourceText({
@@ -193,6 +246,158 @@ const eventKeywordFields = (eventJson: unknown): string[] => {
         return text ? [text] : [];
       },
     );
+  } catch {
+    return [];
+  }
+};
+
+const getSessionParticipantNames = (
+  store: KeywordStore,
+  sessionId: string,
+): string[] => {
+  if (!store.forEachRow) {
+    return [];
+  }
+
+  const names: string[] = [];
+  store.forEachRow("mapping_session_participant", (mappingId, _forEachCell) => {
+    const mappedSessionId = store.getCell(
+      "mapping_session_participant",
+      mappingId,
+      "session_id",
+    );
+    const source = store.getCell(
+      "mapping_session_participant",
+      mappingId,
+      "source",
+    );
+    if (mappedSessionId !== sessionId || source === "excluded") {
+      return;
+    }
+
+    const humanId = stringValue(
+      store.getCell("mapping_session_participant", mappingId, "human_id"),
+    );
+    if (!humanId) {
+      return;
+    }
+
+    const name = stringValue(store.getCell("humans", humanId, "name"));
+    if (name) {
+      names.push(name);
+    }
+  });
+
+  return names;
+};
+
+const getSessionParticipantNamesFromTables = (
+  mappings: TableRows,
+  humans: TableRows,
+  sessionId: string,
+): string[] =>
+  Object.values(mappings).flatMap((mapping) => {
+    if (mapping?.session_id !== sessionId || mapping.source === "excluded") {
+      return [];
+    }
+
+    const humanId = stringValue(mapping.human_id);
+    if (!humanId) {
+      return [];
+    }
+
+    const name = stringValue(humans[humanId]?.name);
+    return name ? [name] : [];
+  });
+
+const getAttachedEventParticipantNames = (
+  store: KeywordStore,
+  eventJson: unknown,
+): string[] => {
+  if (!store.forEachRow) {
+    return [];
+  }
+
+  const sessionEvent = parseSessionEvent(eventJson);
+  if (!sessionEvent) {
+    return [];
+  }
+
+  let participantsJson: unknown;
+  store.forEachRow("events", (eventId, _forEachCell) => {
+    if (participantsJson !== undefined) {
+      return;
+    }
+
+    const trackingId = store.getCell("events", eventId, "tracking_id_event");
+    const calendarId = store.getCell("events", eventId, "calendar_id");
+    if (
+      trackingId === sessionEvent.trackingId &&
+      calendarId === sessionEvent.calendarId
+    ) {
+      participantsJson = store.getCell("events", eventId, "participants_json");
+    }
+  });
+
+  return parseEventParticipantNames(participantsJson);
+};
+
+type TableRows = Record<string, Record<string, unknown> | undefined>;
+
+const getAttachedEventParticipantNamesFromTable = (
+  events: TableRows,
+  eventJson: unknown,
+): string[] => {
+  const sessionEvent = parseSessionEvent(eventJson);
+  if (!sessionEvent) {
+    return [];
+  }
+
+  const event = Object.values(events).find(
+    (event) =>
+      event?.tracking_id_event === sessionEvent.trackingId &&
+      event?.calendar_id === sessionEvent.calendarId,
+  );
+
+  return parseEventParticipantNames(event?.participants_json);
+};
+
+const parseSessionEvent = (
+  eventJson: unknown,
+): { trackingId: string; calendarId: string } | null => {
+  if (typeof eventJson !== "string" || !eventJson) {
+    return null;
+  }
+
+  try {
+    const event = JSON.parse(eventJson);
+    const trackingId = stringValue(event?.tracking_id);
+    const calendarId = stringValue(event?.calendar_id);
+    return trackingId && calendarId ? { trackingId, calendarId } : null;
+  } catch {
+    return null;
+  }
+};
+
+const parseEventParticipantNames = (participantsJson: unknown): string[] => {
+  if (typeof participantsJson !== "string" || !participantsJson) {
+    return [];
+  }
+
+  try {
+    const participants = JSON.parse(participantsJson);
+    if (!Array.isArray(participants)) {
+      return [];
+    }
+
+    return participants.flatMap((participant) => {
+      if (participant?.is_current_user === true) {
+        return [];
+      }
+
+      const name = stringValue(participant?.name);
+      return name ? [name] : [];
+    });
   } catch {
     return [];
   }
