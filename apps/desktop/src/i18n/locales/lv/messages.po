@@ -599,10 +599,6 @@ msgstr ""
 msgid "Event notifications"
 msgstr ""
 
-#: src/settings/personalization/index.tsx
-msgid "Examples"
-msgstr ""
-
 #: src/settings/general/notification.tsx
 msgid "Exclude apps from detection"
 msgstr ""
