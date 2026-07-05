@@ -64,10 +64,14 @@ export function OverflowButton({
   const settings = settingsStore.UI.useStore(settingsStore.STORE_ID);
   const isMeetingInProgress =
     sessionMode === "active" || sessionMode === "finalizing";
+  const showListeningAction =
+    allowListening && (!hasTranscript || isMeetingInProgress);
   const showUploadActions =
     !hasTranscript && !currentNoteHasContent && !isMeetingInProgress;
   const canOpenFloatingPanel =
     allowListening && floatingBarEnabled && sessionMode === "active";
+  const hasMeetingActions =
+    showListeningAction || showUploadActions || canOpenFloatingPanel;
   const openExportModal = () => {
     setOpen(false);
     requestAnimationFrame(() => setIsExportModalOpen(true));
@@ -119,7 +123,7 @@ export function OverflowButton({
               </span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            {allowListening && (
+            {showListeningAction && (
               <Listening sessionId={sessionId} hasTranscript={hasTranscript} />
             )}
             {showUploadActions && (
@@ -155,7 +159,7 @@ export function OverflowButton({
                 </span>
               </DropdownMenuItem>
             )}
-            <DropdownMenuSeparator />
+            {hasMeetingActions && <DropdownMenuSeparator />}
             {!standaloneWindow && (
               <DropdownMenuItem
                 onClick={handleOpenStandaloneWindow}

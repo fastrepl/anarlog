@@ -172,6 +172,30 @@ describe("OverflowButton", () => {
     ).toBeNull();
   });
 
+  it("renders one separator when no meeting actions are visible", () => {
+    const { container } = render(
+      <OverflowButton
+        sessionId="session-1"
+        currentView={{ type: "enhanced", id: "note-1" } as EditorView}
+      />,
+    );
+
+    expect(container.querySelectorAll("hr")).toHaveLength(1);
+  });
+
+  it("separates visible meeting actions from the static actions", () => {
+    useHasTranscriptMock.mockReturnValue(false);
+
+    const { container } = render(
+      <OverflowButton
+        sessionId="session-1"
+        currentView={{ type: "enhanced", id: "note-1" } as EditorView}
+      />,
+    );
+
+    expect(container.querySelectorAll("hr")).toHaveLength(2);
+  });
+
   it("keeps the overflow trigger out of the header drag region", () => {
     const { container } = render(
       <OverflowButton
