@@ -46,10 +46,6 @@ vi.mock("./header", () => ({
   useEditorTabs: () => hoisted.editorTabs,
 }));
 
-vi.mock("./insights", () => ({
-  Insights: () => <div data-testid="insights" />,
-}));
-
 vi.mock("./raw", () => ({
   RawEditor: () => <div data-testid="raw-editor" />,
 }));

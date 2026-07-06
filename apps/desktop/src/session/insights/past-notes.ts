@@ -200,48 +200,6 @@ export function usePastSessionNotes(
   };
 }
 
-export function useCanShowInsights(sessionId: string): boolean {
-  const useTable =
-    (main.UI.useTable as typeof main.UI.useTable | undefined) ??
-    ((() => undefined) as unknown as typeof main.UI.useTable);
-  const useValue =
-    (main.UI.useValue as typeof main.UI.useValue | undefined) ??
-    ((() => undefined) as unknown as typeof main.UI.useValue);
-  const store = main.UI.useStore(main.STORE_ID);
-  const sessionsTable = useTable("sessions", main.STORE_ID);
-  const participantsTable = useTable(
-    "mapping_session_participant",
-    main.STORE_ID,
-  );
-  const humansTable = useTable("humans", main.STORE_ID);
-  const enhancedNotesTable = useTable("enhanced_notes", main.STORE_ID);
-  const keyFactsTable = useTable("session_key_facts", main.STORE_ID);
-  const userId = useValue("user_id", main.STORE_ID);
-
-  return useMemo(() => {
-    if (!store || typeof store.getRow !== "function") {
-      return false;
-    }
-
-    return (
-      buildPastSessionNotes(
-        store,
-        sessionId,
-        typeof userId === "string" ? userId : null,
-      ).notes.length > 0
-    );
-  }, [
-    store,
-    sessionId,
-    userId,
-    sessionsTable,
-    participantsTable,
-    humansTable,
-    enhancedNotesTable,
-    keyFactsTable,
-  ]);
-}
-
 export function buildPastSessionNotes(
   store: MainStore,
   sessionId: string,

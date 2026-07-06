@@ -25,7 +25,6 @@ import {
 } from "./components/shared";
 import { useAutoEnhance } from "./hooks/useAutoEnhance";
 import { useEnsureDefaultSummaryFromState } from "./hooks/useEnhancedNotes";
-import { useCanShowInsights } from "./insights/past-notes";
 import { shouldShowSessionTopAudioPlayer } from "./top-audio-player";
 
 import * as AudioPlayer from "~/audio-player";
@@ -153,7 +152,6 @@ function TabContentNoteInner({
     hasTranscript,
     sessionMode,
   });
-  const canShowInsights = useCanShowInsights(sessionId);
   const enhancedNoteIds =
     main.UI.useSliceRowIds(
       main.INDEXES.enhancedNotesBySession,
@@ -179,16 +177,11 @@ function TabContentNoteInner({
     () =>
       createEditorTabs({
         enhancedNoteIds,
-        canShowInsights,
         canShowTranscript,
       }),
-    [enhancedNoteIds, canShowInsights, canShowTranscript],
+    [enhancedNoteIds, canShowTranscript],
   );
   const currentView = React.useMemo(() => {
-    if (tab.state.view?.type === "insights" && canShowInsights) {
-      return tab.state.view;
-    }
-
     return computeCurrentNoteTab(
       tab.state.view ?? null,
       isLiveSessionActive,
@@ -200,7 +193,6 @@ function TabContentNoteInner({
     isLiveSessionActive,
     firstEnhancedNoteId,
     canShowTranscript,
-    canShowInsights,
   ]);
   useAutoFocusTitle({ sessionId, noteInputRef });
 
@@ -266,6 +258,7 @@ function TabContentNoteInner({
                 editorTabs={editorTabs}
                 currentTab={currentView}
                 handleTabChange={handleTabChange}
+                sessionMode={sessionMode}
                 hideHeader
               />
             ) : (

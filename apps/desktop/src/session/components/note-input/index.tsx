@@ -16,7 +16,6 @@ import { cn } from "@hypr/utils";
 
 import { Enhanced } from "./enhanced";
 import { Header, useEditorTabs } from "./header";
-import { Insights } from "./insights";
 import { RawEditor } from "./raw";
 import { SearchBar } from "./search/bar";
 import { useSearch } from "./search/context";
@@ -317,8 +316,7 @@ const NoteInputContent = forwardRef<
             className={cn([
               "h-full px-3",
               "pt-2",
-              renderedCurrentTab.type === "transcript" ||
-              renderedCurrentTab.type === "insights"
+              renderedCurrentTab.type === "transcript"
                 ? "overflow-hidden pb-0"
                 : "scroll-fade-y overflow-auto pb-6",
             ])}
@@ -344,9 +342,6 @@ const NoteInputContent = forwardRef<
             )}
             {renderedCurrentTab.type === "transcript" && (
               <Transcript sessionId={sessionId} scrollRef={scrollRef} />
-            )}
-            {renderedCurrentTab.type === "insights" && (
-              <Insights sessionId={sessionId} />
             )}
           </div>
         </div>

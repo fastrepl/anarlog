@@ -5,8 +5,6 @@ crate::common_derives! {
         Raw,
         #[serde(rename = "transcript")]
         Transcript,
-        #[serde(rename = "insights")]
-        Insights,
         #[serde(rename = "enhanced")]
         Enhanced { id: String },
         #[serde(rename = "attachments")]

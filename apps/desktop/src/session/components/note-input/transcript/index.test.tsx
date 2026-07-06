@@ -1,6 +1,6 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import { createRef } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Transcript } from "./index";
 
@@ -86,6 +86,10 @@ describe("Transcript", () => {
   let transcriptRowListener: (() => void) | null;
   let transcriptWordsJson: string;
 
+  afterEach(() => {
+    cleanup();
+  });
+
   beforeEach(() => {
     transcriptRowListener = null;
     transcriptWordsJson = "[]";
@@ -149,6 +153,19 @@ describe("Transcript", () => {
     view.rerender(<Transcript sessionId={sessionId} scrollRef={scrollRef} />);
 
     expect(screen.queryByTestId("transcript-viewer")).not.toBeNull();
+  });
+
+  it("shows finalizing status over existing transcript content", () => {
+    listenerState = {
+      ...listenerState,
+      getSessionMode: () => "finalizing",
+    };
+    transcriptWordsJson = '[{"id":"word-1","text":" Hello"}]';
+
+    render(<Transcript sessionId={sessionId} scrollRef={createRef()} />);
+
+    expect(screen.getByText("Finalizing transcript...")).not.toBeNull();
+    expect(screen.getByTestId("transcript-viewer")).not.toBeNull();
   });
 
   it("shows recording state for record-only capture sessions", () => {

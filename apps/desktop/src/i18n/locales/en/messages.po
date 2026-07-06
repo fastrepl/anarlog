@@ -799,10 +799,6 @@ msgstr "Insert above"
 msgid "Insert below"
 msgstr "Insert below"
 
-#: src/session/components/note-input/header.tsx
-msgid "Insights"
-msgstr "Insights"
-
 #: src/settings/ai/llm/index.tsx
 #: src/sidebar/settings.tsx
 msgid "Intelligence"
@@ -1245,17 +1241,9 @@ msgstr "Refresh billing status"
 msgid "Refresh calendars"
 msgstr "Refresh calendars"
 
-#: src/session/components/note-input/insights.tsx
-msgid "Regenerate insights"
-msgstr "Regenerate insights"
-
 #: src/chat/components/message/normal.tsx
 msgid "Regenerate message"
 msgstr "Regenerate message"
-
-#: src/session/components/note-input/insights.tsx
-msgid "Regenerating insights"
-msgstr "Regenerating insights"
 
 #: src/contacts/details.tsx
 msgid "Related Notes"

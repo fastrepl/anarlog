@@ -11,7 +11,6 @@ import {
   SquareIcon,
   XIcon,
 } from "lucide-react";
-import { LightbulbIcon } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 
 import { json2md, parseJsonContent } from "@hypr/editor/markdown";
@@ -41,7 +40,6 @@ import {
   useHasTranscript,
 } from "~/session/components/shared";
 import { useEnsureDefaultSummary } from "~/session/hooks/useEnhancedNotes";
-import { useCanShowInsights } from "~/session/insights/past-notes";
 import {
   type MenuItemDef,
   useNativeContextMenu,
@@ -958,25 +956,6 @@ function HeaderViewTranscriptActive({
   );
 }
 
-function HeaderViewInsights({
-  isActive,
-  onClick = () => {},
-}: {
-  isActive: boolean;
-  onClick?: () => void;
-}) {
-  const { t } = useLingui();
-
-  return (
-    <IconHeaderView
-      isActive={isActive}
-      label={t`Insights`}
-      icon={<LightbulbIcon className="size-4" />}
-      onClick={onClick}
-    />
-  );
-}
-
 function useOpenTemplatesTab() {
   const openNew = useTabs((state) => state.openNew);
   const selectTab = useTabs((state) => state.select);
@@ -1512,16 +1491,6 @@ export function Header({
                 );
               }
 
-              if (view.type === "insights") {
-                return (
-                  <HeaderViewInsights
-                    key={view.type}
-                    isActive={currentTab.type === view.type}
-                    onClick={() => handleTabChange(view)}
-                  />
-                );
-              }
-
               if (view.type === "transcript") {
                 return (
                   <HeaderViewTranscript
@@ -1553,7 +1522,6 @@ export function useEditorTabs({
 }): EditorView[] {
   useEnsureDefaultSummary(sessionId);
   const canShowTranscript = useCanShowTranscript(sessionId, { audioExists });
-  const canShowInsights = useCanShowInsights(sessionId);
 
   const enhancedNoteIds = main.UI.useSliceRowIds(
     main.INDEXES.enhancedNotesBySession,
@@ -1563,18 +1531,15 @@ export function useEditorTabs({
 
   return createEditorTabs({
     enhancedNoteIds: enhancedNoteIds || [],
-    canShowInsights,
     canShowTranscript,
   });
 }
 
 export function createEditorTabs({
   enhancedNoteIds,
-  canShowInsights,
   canShowTranscript,
 }: {
   enhancedNoteIds: string[];
-  canShowInsights: boolean;
   canShowTranscript: boolean;
 }): EditorView[] {
   const enhancedTabs: EditorView[] = enhancedNoteIds.map((id) => ({
@@ -1584,7 +1549,6 @@ export function createEditorTabs({
 
   return [
     ...enhancedTabs,
-    ...(canShowInsights ? [{ type: "insights" } as const] : []),
     { type: "raw" },
     ...(canShowTranscript ? [{ type: "transcript" } as const] : []),
   ];

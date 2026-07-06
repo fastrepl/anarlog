@@ -335,7 +335,6 @@ export type DevtoolsPanelAction = { action: string };
 export type EditorView =
   | { type: "raw" }
   | { type: "transcript" }
-  | { type: "insights" }
   | { type: "enhanced"; id: string }
   | { type: "attachments" };
 export type ExtensionsState = { selectedExtension: string | null };
