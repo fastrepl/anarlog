@@ -185,8 +185,8 @@ Options:
   --allow-scheduled-subscriptions          Include subscriptions with schedules attached
   --allow-pending-updates                  Include subscriptions with pending updates
   --allow-multi-item-subscriptions         Include subscriptions with more than one item
-  --use-stripe-cli                         Use the logged-in Stripe CLI for read-only dry runs
-  --apply                                  Apply updates. Requires STRIPE_SECRET_KEY
+  --use-stripe-cli                         Use the logged-in Stripe CLI for dry runs or apply
+  --apply                                  Apply updates. Requires STRIPE_SECRET_KEY unless --use-stripe-cli is passed
   -h, --help                               Show this help message
 
 Examples:
@@ -214,10 +214,6 @@ const allowMultiItemSubscriptions =
 const useStripeCli = values["use-stripe-cli"] ?? false;
 const allowedStatuses = parseStatuses(values.statuses);
 
-if (shouldApply && useStripeCli) {
-  throw new Error("--use-stripe-cli is dry-run only; use STRIPE_SECRET_KEY");
-}
-
 const stripe = createStripeAdapter({
   useStripeCli,
   stripeSecretKey: Bun.env.STRIPE_SECRET_KEY,
@@ -234,7 +230,9 @@ console.log(
   `Statuses: ${Array.from(allowedStatuses).join(", ")} | include_cancel_at_period_end=${includeCancelAtPeriodEnd} | allow_scheduled=${allowScheduledSubscriptions} | allow_pending_updates=${allowPendingUpdates} | allow_multi_item=${allowMultiItemSubscriptions}`,
 );
 if (useStripeCli) {
-  console.log("Stripe client: logged-in Stripe CLI (read-only dry run)");
+  console.log(
+    `Stripe client: logged-in Stripe CLI (${shouldApply ? "write apply" : "read-only dry run"})`,
+  );
 }
 if (subscriptionFilter) {
   console.log(`Subscription filter: ${subscriptionFilter}`);
@@ -329,7 +327,7 @@ for (const [index, candidate] of allCandidates.entries()) {
         quantity: candidate.quantity,
       },
       {
-        idempotencyKey: `anarlog-pro-price-migration:${candidate.subscriptionItemId}:${candidate.targetPriceId}`,
+        idempotencyKey: `anarlog-pro-price-migration-v3:${candidate.subscriptionItemId}:${candidate.targetPriceId}`,
       },
     );
 
@@ -386,7 +384,11 @@ function createStripeAdapter({
 
   return {
     retrievePrice: (priceId) => client.prices.retrieve(priceId),
-    listSubscriptions: (input) => client.subscriptions.list(input),
+    listSubscriptions: ({ startingAfter, ...input }) =>
+      client.subscriptions.list({
+        ...input,
+        starting_after: startingAfter,
+      }),
     updateSubscriptionItem: (itemId, params, options) =>
       client.subscriptionItems.update(itemId, params, options),
   };
@@ -420,8 +422,45 @@ function createStripeCliAdapter(): StripeAdapter {
 
       return runStripeCli(args) as Promise<Stripe.ApiList<Stripe.Subscription>>;
     },
-    updateSubscriptionItem: async () => {
-      throw new Error("--use-stripe-cli does not support --apply");
+    updateSubscriptionItem: async (itemId, params, options) => {
+      const price = params.price;
+      const prorationBehavior = params.proration_behavior;
+      const quantity = params.quantity;
+      const idempotencyKey = options.idempotencyKey;
+
+      if (!price) {
+        throw new Error("Stripe CLI update requires params.price");
+      }
+
+      if (!prorationBehavior) {
+        throw new Error("Stripe CLI update requires params.proration_behavior");
+      }
+
+      if (typeof quantity !== "number") {
+        throw new Error("Stripe CLI update requires numeric params.quantity");
+      }
+
+      if (!idempotencyKey) {
+        throw new Error("Stripe CLI update requires an idempotency key");
+      }
+
+      return runStripeCli([
+        "subscription_items",
+        "update",
+        itemId,
+        "-d",
+        `price=${price}`,
+        "-d",
+        `quantity=${quantity}`,
+        "-d",
+        `proration_behavior=${prorationBehavior}`,
+        "--idempotency",
+        idempotencyKey,
+        "--stripe-version",
+        STRIPE_API_VERSION,
+        "--live",
+        "--confirm",
+      ]) as Promise<Stripe.SubscriptionItem>;
     },
   };
 }
@@ -444,7 +483,14 @@ async function runStripeCli(args: string[]) {
     );
   }
 
-  return JSON.parse(stdout);
+  const parsed = JSON.parse(stdout);
+
+  if (typeof parsed === "object" && parsed !== null && "error" in parsed) {
+    const error = parsed.error as { message?: string };
+    throw new Error(error.message ?? JSON.stringify(parsed.error));
+  }
+
+  return parsed;
 }
 
 function parsePositiveInteger(
