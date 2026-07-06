@@ -1,11 +1,124 @@
 import Stripe from "stripe";
 import { parseArgs } from "util";
 
-const HARDCODED_OLD_MONTHLY_PRICE_ID = "price_1RsWbzEABq1oJeLy4hfpEFJT";
-const HARDCODED_OLD_YEARLY_PRICE_ID = "price_1RsuVFEABq1oJeLy6mPncvSp";
-const HARDCODED_NEW_MONTHLY_PRICE_ID = "price_1T2Z8ZEABq1oJeLyqbCPC7cl";
-const HARDCODED_NEW_YEARLY_PRICE_ID = "price_1T2Z8IEABq1oJeLyNN5InKs4";
 const STRIPE_API_VERSION = "2026-02-25.clover";
+
+const NEW_PRO_MONTHLY_PRICE_ID = "price_1TqFp7EABq1oJeLyfkW0WJll";
+const NEW_PRO_YEARLY_PRICE_ID = "price_1TqFp7EABq1oJeLybI27ilbF";
+
+const PRICE_RULES = [
+  {
+    key: "pro_monthly_25_to_15",
+    sourceLabel: "Pro $25/month",
+    interval: "month",
+    oldAmount: 2500,
+    newAmount: 1500,
+    oldPriceId: "price_1T2Z8ZEABq1oJeLyqbCPC7cl",
+    newPriceId: NEW_PRO_MONTHLY_PRICE_ID,
+  },
+  {
+    key: "lite_product_monthly_8_to_15",
+    sourceLabel: "Lite product $8/month",
+    interval: "month",
+    oldAmount: 800,
+    newAmount: 1500,
+    oldPriceId: "price_1TFMmIEABq1oJeLy1qgN1kG9",
+    newPriceId: NEW_PRO_MONTHLY_PRICE_ID,
+  },
+  {
+    key: "legacy_pro_monthly_8_to_15",
+    sourceLabel: "Legacy Pro $8/month",
+    interval: "month",
+    oldAmount: 800,
+    newAmount: 1500,
+    oldPriceId: "price_1RsWbzEABq1oJeLy4hfpEFJT",
+    newPriceId: NEW_PRO_MONTHLY_PRICE_ID,
+  },
+  {
+    key: "pro_yearly_250_to_150",
+    sourceLabel: "Pro $250/year",
+    interval: "year",
+    oldAmount: 25000,
+    newAmount: 15000,
+    oldPriceId: "price_1T2Z8IEABq1oJeLyNN5InKs4",
+    newPriceId: NEW_PRO_YEARLY_PRICE_ID,
+  },
+  {
+    key: "legacy_yearly_59_to_150",
+    sourceLabel: "Legacy $59/year",
+    interval: "year",
+    oldAmount: 5900,
+    newAmount: 15000,
+    oldPriceId: "price_1RsuVFEABq1oJeLy6mPncvSp",
+    newPriceId: NEW_PRO_YEARLY_PRICE_ID,
+  },
+  {
+    key: "legacy_yearly_179_to_150",
+    sourceLabel: "Legacy $179/year",
+    interval: "year",
+    oldAmount: 17900,
+    newAmount: 15000,
+    oldPriceId: "price_1RXyR9EABq1oJeLyFOdCx29M",
+    newPriceId: NEW_PRO_YEARLY_PRICE_ID,
+  },
+  {
+    key: "legacy_monthly_35_to_15",
+    sourceLabel: "Legacy $35/month",
+    interval: "month",
+    oldAmount: 3500,
+    newAmount: 1500,
+    oldPriceId: "price_1RMxR4EABq1oJeLyOpEFuV2Q",
+    newPriceId: NEW_PRO_MONTHLY_PRICE_ID,
+  },
+] as const;
+
+type Rule = (typeof PRICE_RULES)[number];
+type BillingInterval = Rule["interval"];
+type SkipReason =
+  | "status"
+  | "cancel_at_period_end"
+  | "scheduled"
+  | "pending_update"
+  | "multi_item_subscription"
+  | "matching_item_count"
+  | "subscription_filter";
+
+type Candidate = {
+  ruleKey: Rule["key"];
+  sourceLabel: Rule["sourceLabel"];
+  subscriptionId: string;
+  subscriptionItemId: string;
+  customerId: string | null;
+  status: Stripe.Subscription.Status;
+  quantity: number;
+  currentPeriodEnd: number;
+  cancelAtPeriodEnd: boolean;
+  sourcePriceId: string;
+  targetPriceId: string;
+  amountDelta: number;
+  interval: BillingInterval;
+};
+
+type RuleStats = {
+  scanned: number;
+  matched: number;
+  skipped: Record<SkipReason, number>;
+};
+
+type StripeAdapter = {
+  retrievePrice: (priceId: string) => Promise<Stripe.Price>;
+  listSubscriptions: (input: {
+    price: string;
+    status: "all";
+    limit: number;
+    startingAfter?: string;
+  }) => Promise<Stripe.ApiList<Stripe.Subscription>>;
+  updateSubscriptionItem: (
+    itemId: string,
+    params: Stripe.SubscriptionItemUpdateParams,
+    options: Stripe.RequestOptions,
+  ) => Promise<Stripe.SubscriptionItem>;
+};
 
 const { values } = parseArgs({
   args: Bun.argv.slice(2),
@@ -22,6 +135,9 @@ const { values } = parseArgs({
     "allow-scheduled-subscriptions": {
       type: "boolean",
     },
+    "exclude-cancel-at-period-end": {
+      type: "boolean",
+    },
     help: {
       type: "boolean",
       short: "h",
@@ -32,24 +148,15 @@ const { values } = parseArgs({
     limit: {
       type: "string",
     },
-    "new-monthly-price": {
-      type: "string",
-    },
-    "new-yearly-price": {
-      type: "string",
-    },
-    "old-monthly-price": {
-      type: "string",
-    },
-    "old-yearly-price": {
-      type: "string",
-    },
     statuses: {
       type: "string",
-      default: "active,trialing,past_due",
+      default: "active,trialing,past_due,unpaid,paused",
     },
     subscription: {
       type: "string",
+    },
+    "use-stripe-cli": {
+      type: "boolean",
     },
   },
   strict: true,
@@ -60,32 +167,30 @@ if (values.help) {
   console.log(`
 Usage: bun stripe-migrate-legacy-pro-prices.ts [options]
 
-Migrates the legacy Char Pro prices:
-  - $8/month  -> $25/month
-  - $59/year  -> $250/year
+Migrates paid Anarlog subscriptions to the single Pro price set:
+  - monthly sources -> $15/month Pro
+  - yearly sources  -> $150/year Pro
 
 The script updates matching subscription items with proration_behavior=none, so
-same-interval subscriptions keep their current renewal date and pick up the new
-price on the next renewal.
+subscriptions keep their current billing cycle and pick up the new price on the
+next invoice or renewal. It never adds a second subscription item.
 
 Options:
-  --old-monthly-price <price_id>           Override the baked-in legacy $8/month price ID
-  --old-yearly-price <price_id>            Override the baked-in legacy $59/year price ID
-  --new-monthly-price <price_id>           Override the baked-in $25/month price ID
-  --new-yearly-price <price_id>            Override the baked-in $250/year price ID
   --statuses <csv>                         Subscription statuses to include
-                                           Default: active,trialing,past_due
+                                           Default: active,trialing,past_due,unpaid,paused
   --limit <n>                              Only process the first n matches
   --subscription <subscription_id>         Restrict to a single subscription
-  --include-cancel-at-period-end           Include subscriptions already set to cancel
+  --exclude-cancel-at-period-end           Skip subscriptions already set to cancel
+  --include-cancel-at-period-end           Accepted for compatibility; included by default
   --allow-scheduled-subscriptions          Include subscriptions with schedules attached
   --allow-pending-updates                  Include subscriptions with pending updates
   --allow-multi-item-subscriptions         Include subscriptions with more than one item
-  --apply                                  Apply updates. Without this, dry-run only
+  --use-stripe-cli                         Use the logged-in Stripe CLI for read-only dry runs
+  --apply                                  Apply updates. Requires STRIPE_SECRET_KEY
   -h, --help                               Show this help message
 
 Examples:
-  bun stripe-migrate-legacy-pro-prices.ts
+  bun stripe-migrate-legacy-pro-prices.ts --use-stripe-cli
 
   bun stripe-migrate-legacy-pro-prices.ts \\
     --subscription sub_123 \\
@@ -94,96 +199,43 @@ Examples:
   process.exit(0);
 }
 
-const STRIPE_SECRET_KEY = Bun.env.STRIPE_SECRET_KEY;
-
-if (!STRIPE_SECRET_KEY) {
-  throw new Error("Missing required environment variable STRIPE_SECRET_KEY");
-}
-
-const oldMonthlyPriceId =
-  values["old-monthly-price"] ?? HARDCODED_OLD_MONTHLY_PRICE_ID;
-const oldYearlyPriceId =
-  values["old-yearly-price"] ?? HARDCODED_OLD_YEARLY_PRICE_ID;
-const newMonthlyPriceId =
-  values["new-monthly-price"] ?? HARDCODED_NEW_MONTHLY_PRICE_ID;
-const newYearlyPriceId =
-  values["new-yearly-price"] ?? HARDCODED_NEW_YEARLY_PRICE_ID;
-
 const limit = parsePositiveInteger(values.limit, "--limit");
 const subscriptionFilter = values.subscription ?? null;
 const shouldApply = values.apply ?? false;
 const includeCancelAtPeriodEnd =
-  values["include-cancel-at-period-end"] ?? false;
+  values["exclude-cancel-at-period-end"] === true
+    ? false
+    : (values["include-cancel-at-period-end"] ?? true);
 const allowScheduledSubscriptions =
   values["allow-scheduled-subscriptions"] ?? false;
 const allowPendingUpdates = values["allow-pending-updates"] ?? false;
 const allowMultiItemSubscriptions =
   values["allow-multi-item-subscriptions"] ?? false;
-
+const useStripeCli = values["use-stripe-cli"] ?? false;
 const allowedStatuses = parseStatuses(values.statuses);
 
-const stripe = new Stripe(STRIPE_SECRET_KEY, {
-  apiVersion: STRIPE_API_VERSION,
-  maxNetworkRetries: 2,
+if (shouldApply && useStripeCli) {
+  throw new Error("--use-stripe-cli is dry-run only; use STRIPE_SECRET_KEY");
+}
+
+const stripe = createStripeAdapter({
+  useStripeCli,
+  stripeSecretKey: Bun.env.STRIPE_SECRET_KEY,
 });
 
-const PRICE_RULES = [
-  {
-    key: "monthly",
-    interval: "month",
-    oldAmount: 800,
-    newAmount: 2500,
-    oldPriceId: oldMonthlyPriceId,
-    newPriceId: newMonthlyPriceId,
-  },
-  {
-    key: "yearly",
-    interval: "year",
-    oldAmount: 5900,
-    newAmount: 25000,
-    oldPriceId: oldYearlyPriceId,
-    newPriceId: newYearlyPriceId,
-  },
-] as const;
-
-type Rule = (typeof PRICE_RULES)[number];
-type SkipReason =
-  | "status"
-  | "cancel_at_period_end"
-  | "scheduled"
-  | "pending_update"
-  | "multi_item_subscription"
-  | "matching_item_count"
-  | "subscription_filter";
-
-type Candidate = {
-  ruleKey: Rule["key"];
-  subscriptionId: string;
-  subscriptionItemId: string;
-  customerId: string | null;
-  status: Stripe.Subscription.Status;
-  quantity: number;
-  currentPeriodEnd: number;
-  cancelAtPeriodEnd: boolean;
-  targetPriceId: string;
-};
-
-type RuleStats = {
-  scanned: number;
-  matched: number;
-  skipped: Record<SkipReason, number>;
-};
-
-const livemode = await validateConfiguredPrices(PRICE_RULES);
+const livemode = await validateConfiguredPrices(PRICE_RULES, stripe);
 
 console.log(
-  `${shouldApply ? "Applying" : "Dry run"} legacy price migration in ${
+  `${shouldApply ? "Applying" : "Dry run"} Anarlog Pro price migration in ${
     livemode ? "live" : "test"
   } mode`,
 );
 console.log(
   `Statuses: ${Array.from(allowedStatuses).join(", ")} | include_cancel_at_period_end=${includeCancelAtPeriodEnd} | allow_scheduled=${allowScheduledSubscriptions} | allow_pending_updates=${allowPendingUpdates} | allow_multi_item=${allowMultiItemSubscriptions}`,
 );
+if (useStripeCli) {
+  console.log("Stripe client: logged-in Stripe CLI (read-only dry run)");
+}
 if (subscriptionFilter) {
   console.log(`Subscription filter: ${subscriptionFilter}`);
 }
@@ -198,6 +250,7 @@ let remainingLimit = limit;
 for (const rule of PRICE_RULES) {
   const { candidates, stats } = await collectCandidatesForRule(
     rule,
+    stripe,
     remainingLimit,
   );
   allCandidates.push(...candidates);
@@ -222,11 +275,12 @@ allCandidates.sort((a, b) => {
 for (const rule of PRICE_RULES) {
   const stats = statsByRule.get(rule.key) ?? emptyStats();
   console.log(
-    `[${rule.key}] scanned=${stats.scanned} matched=${stats.matched} skipped=${formatSkipped(stats.skipped)}`,
+    `[${rule.key}] ${rule.oldPriceId} -> ${rule.newPriceId} scanned=${stats.scanned} matched=${stats.matched} skipped=${formatSkipped(stats.skipped)}`,
   );
 }
 
 console.log(`Total candidates: ${allCandidates.length}`);
+printCandidateSummary(allCandidates);
 
 if (allCandidates.length > 0) {
   console.table(
@@ -267,7 +321,7 @@ for (const [index, candidate] of allCandidates.entries()) {
   );
 
   try {
-    const updated = await stripe.subscriptionItems.update(
+    const updated = await stripe.updateSubscriptionItem(
       candidate.subscriptionItemId,
       {
         price: candidate.targetPriceId,
@@ -275,7 +329,7 @@ for (const [index, candidate] of allCandidates.entries()) {
         quantity: candidate.quantity,
       },
       {
-        idempotencyKey: `legacy-price-migration:${candidate.subscriptionItemId}:${candidate.targetPriceId}`,
+        idempotencyKey: `anarlog-pro-price-migration:${candidate.subscriptionItemId}:${candidate.targetPriceId}`,
       },
     );
 
@@ -308,6 +362,91 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
+function createStripeAdapter({
+  useStripeCli,
+  stripeSecretKey,
+}: {
+  useStripeCli: boolean;
+  stripeSecretKey: string | undefined;
+}): StripeAdapter {
+  if (useStripeCli) {
+    return createStripeCliAdapter();
+  }
+
+  if (!stripeSecretKey) {
+    throw new Error(
+      "Missing STRIPE_SECRET_KEY. For read-only dry runs with an authenticated Stripe CLI, pass --use-stripe-cli.",
+    );
+  }
+
+  const client = new Stripe(stripeSecretKey, {
+    apiVersion: STRIPE_API_VERSION,
+    maxNetworkRetries: 2,
+  });
+
+  return {
+    retrievePrice: (priceId) => client.prices.retrieve(priceId),
+    listSubscriptions: (input) => client.subscriptions.list(input),
+    updateSubscriptionItem: (itemId, params, options) =>
+      client.subscriptionItems.update(itemId, params, options),
+  };
+}
+
+function createStripeCliAdapter(): StripeAdapter {
+  return {
+    retrievePrice: async (priceId) =>
+      runStripeCli([
+        "prices",
+        "retrieve",
+        priceId,
+        "--live",
+      ]) as Promise<Stripe.Price>,
+    listSubscriptions: async ({ price, status, limit, startingAfter }) => {
+      const args = [
+        "subscriptions",
+        "list",
+        "--price",
+        price,
+        "--status",
+        status,
+        "--limit",
+        String(limit),
+        "--live",
+      ];
+
+      if (startingAfter) {
+        args.push("--starting-after", startingAfter);
+      }
+
+      return runStripeCli(args) as Promise<Stripe.ApiList<Stripe.Subscription>>;
+    },
+    updateSubscriptionItem: async () => {
+      throw new Error("--use-stripe-cli does not support --apply");
+    },
+  };
+}
+
+async function runStripeCli(args: string[]) {
+  const proc = Bun.spawn(["stripe", ...args], {
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+
+  if (exitCode !== 0) {
+    throw new Error(
+      `stripe ${args.join(" ")} failed with exit ${exitCode}: ${stderr || stdout}`,
+    );
+  }
+
+  return JSON.parse(stdout);
+}
+
 function parsePositiveInteger(
   value: string | undefined,
   label: string,
@@ -324,7 +463,9 @@ function parsePositiveInteger(
   return parsed;
 }
 
-function parseStatuses(value: string): Set<Stripe.Subscription.Status> {
+function parseStatuses(
+  value: string | undefined,
+): Set<Stripe.Subscription.Status> {
   const knownStatuses = new Set<string>([
     "incomplete",
     "incomplete_expired",
@@ -336,7 +477,7 @@ function parseStatuses(value: string): Set<Stripe.Subscription.Status> {
     "paused",
   ]);
 
-  const statuses = value
+  const statuses = (value ?? "")
     .split(",")
     .map((status) => status.trim())
     .filter(Boolean);
@@ -356,29 +497,24 @@ function parseStatuses(value: string): Set<Stripe.Subscription.Status> {
 
 async function validateConfiguredPrices(
   rules: readonly Rule[],
+  stripe: StripeAdapter,
 ): Promise<boolean> {
-  const prices = await Promise.all(
-    rules.flatMap((rule) => [
-      stripe.prices.retrieve(rule.oldPriceId),
-      stripe.prices.retrieve(rule.newPriceId),
-    ]),
+  const uniquePriceIds = Array.from(
+    new Set(rules.flatMap((rule) => [rule.oldPriceId, rule.newPriceId])),
   );
+  const prices = await Promise.all(
+    uniquePriceIds.map((priceId) => stripe.retrievePrice(priceId)),
+  );
+  const pricesById = new Map(prices.map((price) => [price.id, price]));
 
   const livemodeSet = new Set(prices.map((price) => price.livemode));
   if (livemodeSet.size !== 1) {
     throw new Error("Configured prices mix live and test mode Stripe objects");
   }
 
-  const productIds = new Set(prices.map((price) => price.product));
-  if (productIds.size !== 1) {
-    throw new Error(
-      "Configured prices do not all belong to the same Stripe product",
-    );
-  }
-
   for (const rule of rules) {
-    const oldPrice = prices.find((price) => price.id === rule.oldPriceId);
-    const newPrice = prices.find((price) => price.id === rule.newPriceId);
+    const oldPrice = pricesById.get(rule.oldPriceId);
+    const newPrice = pricesById.get(rule.newPriceId);
 
     if (!oldPrice || !newPrice) {
       throw new Error(`Failed to load prices for ${rule.key}`);
@@ -387,18 +523,18 @@ async function validateConfiguredPrices(
     assertPrice(oldPrice, {
       amount: rule.oldAmount,
       interval: rule.interval,
-      label: `${rule.key} old price`,
+      label: `${rule.key} source price`,
       requireActive: false,
     });
     assertPrice(newPrice, {
       amount: rule.newAmount,
       interval: rule.interval,
-      label: `${rule.key} new price`,
+      label: `${rule.key} target price`,
       requireActive: true,
     });
 
     console.log(
-      `[${rule.key}] ${formatPrice(oldPrice)} -> ${formatPrice(newPrice)}`,
+      `[${rule.key}] ${formatPrice(oldPrice)} -> ${formatPrice(newPrice)} product ${getProductId(oldPrice)} -> ${getProductId(newPrice)}`,
     );
   }
 
@@ -409,7 +545,7 @@ function assertPrice(
   price: Stripe.Price,
   expected: {
     amount: number;
-    interval: "month" | "year";
+    interval: BillingInterval;
     label: string;
     requireActive: boolean;
   },
@@ -449,80 +585,159 @@ function assertPrice(
 
 async function collectCandidatesForRule(
   rule: Rule,
+  stripe: StripeAdapter,
   remainingLimit: number | null,
 ): Promise<{ candidates: Candidate[]; stats: RuleStats }> {
   const candidates: Candidate[] = [];
   const stats = emptyStats();
+  let startingAfter: string | undefined;
 
-  for await (const subscription of stripe.subscriptions.list({
-    limit: 100,
-    price: rule.oldPriceId,
-    status: "all",
-  })) {
-    stats.scanned++;
-
-    if (subscriptionFilter && subscription.id !== subscriptionFilter) {
-      stats.skipped.subscription_filter++;
-      continue;
-    }
-
-    if (!allowedStatuses.has(subscription.status)) {
-      stats.skipped.status++;
-      continue;
-    }
-
-    if (!includeCancelAtPeriodEnd && subscription.cancel_at_period_end) {
-      stats.skipped.cancel_at_period_end++;
-      continue;
-    }
-
-    if (!allowScheduledSubscriptions && subscription.schedule) {
-      stats.skipped.scheduled++;
-      continue;
-    }
-
-    if (!allowPendingUpdates && subscription.pending_update) {
-      stats.skipped.pending_update++;
-      continue;
-    }
-
-    const matchingItems = subscription.items.data.filter(
-      (item) => item.price.id === rule.oldPriceId,
-    );
-
-    if (matchingItems.length !== 1) {
-      stats.skipped.matching_item_count++;
-      continue;
-    }
-
-    if (!allowMultiItemSubscriptions && subscription.items.data.length !== 1) {
-      stats.skipped.multi_item_subscription++;
-      continue;
-    }
-
-    const item = matchingItems[0];
-    candidates.push({
-      ruleKey: rule.key,
-      subscriptionId: subscription.id,
-      subscriptionItemId: item.id,
-      customerId:
-        typeof subscription.customer === "string"
-          ? subscription.customer
-          : (subscription.customer?.id ?? null),
-      status: subscription.status,
-      quantity: item.quantity ?? 1,
-      currentPeriodEnd: item.current_period_end,
-      cancelAtPeriodEnd: subscription.cancel_at_period_end,
-      targetPriceId: rule.newPriceId,
+  while (true) {
+    const subscriptions = await stripe.listSubscriptions({
+      price: rule.oldPriceId,
+      status: "all",
+      limit: 100,
+      startingAfter,
     });
-    stats.matched++;
 
-    if (remainingLimit !== null && candidates.length >= remainingLimit) {
-      break;
+    for (const subscription of subscriptions.data) {
+      stats.scanned++;
+
+      if (subscriptionFilter && subscription.id !== subscriptionFilter) {
+        stats.skipped.subscription_filter++;
+        continue;
+      }
+
+      if (!allowedStatuses.has(subscription.status)) {
+        stats.skipped.status++;
+        continue;
+      }
+
+      if (!includeCancelAtPeriodEnd && subscription.cancel_at_period_end) {
+        stats.skipped.cancel_at_period_end++;
+        continue;
+      }
+
+      if (!allowScheduledSubscriptions && subscription.schedule) {
+        stats.skipped.scheduled++;
+        continue;
+      }
+
+      if (!allowPendingUpdates && subscription.pending_update) {
+        stats.skipped.pending_update++;
+        continue;
+      }
+
+      const matchingItems = subscription.items.data.filter(
+        (item) => item.price.id === rule.oldPriceId,
+      );
+
+      if (matchingItems.length !== 1) {
+        stats.skipped.matching_item_count++;
+        continue;
+      }
+
+      if (
+        !allowMultiItemSubscriptions &&
+        subscription.items.data.length !== 1
+      ) {
+        stats.skipped.multi_item_subscription++;
+        continue;
+      }
+
+      const item = matchingItems[0];
+      candidates.push({
+        ruleKey: rule.key,
+        sourceLabel: rule.sourceLabel,
+        subscriptionId: subscription.id,
+        subscriptionItemId: item.id,
+        customerId:
+          typeof subscription.customer === "string"
+            ? subscription.customer
+            : (subscription.customer?.id ?? null),
+        status: subscription.status,
+        quantity: item.quantity ?? 1,
+        currentPeriodEnd: item.current_period_end,
+        cancelAtPeriodEnd: subscription.cancel_at_period_end,
+        sourcePriceId: rule.oldPriceId,
+        targetPriceId: rule.newPriceId,
+        amountDelta: rule.newAmount - rule.oldAmount,
+        interval: rule.interval,
+      });
+      stats.matched++;
+
+      if (remainingLimit !== null && candidates.length >= remainingLimit) {
+        return { candidates, stats };
+      }
+    }
+
+    if (!subscriptions.has_more) {
+      return { candidates, stats };
+    }
+
+    startingAfter = subscriptions.data.at(-1)?.id;
+    if (!startingAfter) {
+      return { candidates, stats };
     }
   }
+}
 
-  return { candidates, stats };
+function printCandidateSummary(candidates: Candidate[]) {
+  const summaries = PRICE_RULES.map((rule) => {
+    const ruleCandidates = candidates.filter(
+      (candidate) => candidate.ruleKey === rule.key,
+    );
+
+    return {
+      rule: rule.key,
+      source: rule.sourceLabel,
+      sourcePrice: rule.oldPriceId,
+      targetPrice: rule.newPriceId,
+      candidates: ruleCandidates.length,
+      statuses: formatStatusCounts(ruleCandidates),
+      cancelAtPeriodEnd: ruleCandidates.filter(
+        (candidate) => candidate.cancelAtPeriodEnd,
+      ).length,
+      annual: rule.interval === "year",
+      priceIncrease: rule.newAmount > rule.oldAmount,
+      amountChange: formatUnitAmount(rule.newAmount - rule.oldAmount),
+    };
+  });
+
+  console.log("Candidate summary:");
+  console.table(summaries);
+
+  const priceIncreaseCandidates = candidates.filter(
+    (candidate) => candidate.amountDelta > 0,
+  ).length;
+  const annualCandidates = candidates.filter(
+    (candidate) => candidate.interval === "year",
+  ).length;
+  const cancelAtPeriodEndCandidates = candidates.filter(
+    (candidate) => candidate.cancelAtPeriodEnd,
+  ).length;
+
+  console.log(
+    `Flags: price_increase_candidates=${priceIncreaseCandidates} annual_candidates=${annualCandidates} cancel_at_period_end_candidates=${cancelAtPeriodEndCandidates}`,
+  );
+}
+
+function formatStatusCounts(candidates: Candidate[]): string {
+  const statusCounts = new Map<Stripe.Subscription.Status, number>();
+
+  for (const candidate of candidates) {
+    statusCounts.set(
+      candidate.status,
+      (statusCounts.get(candidate.status) ?? 0) + 1,
+    );
+  }
+
+  return (
+    Array.from(statusCounts.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([status, count]) => `${status}:${count}`)
+      .join(", ") || "none"
+  );
 }
 
 function emptyStats(): RuleStats {
@@ -559,7 +774,16 @@ function formatUnitAmount(amount: number | null): string {
     return "unknown";
   }
 
-  return `$${(amount / 100).toFixed(2)}`;
+  const sign = amount < 0 ? "-" : "";
+  return `${sign}$${(Math.abs(amount) / 100).toFixed(2)}`;
+}
+
+function getProductId(price: Stripe.Price): string {
+  if (typeof price.product === "string") {
+    return price.product;
+  }
+
+  return price.product.id;
 }
 
 function unixToIso(timestamp: number): string {
