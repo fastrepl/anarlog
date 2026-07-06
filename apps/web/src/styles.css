@@ -769,14 +769,14 @@
   min-width: 100%;
   width: max-content;
   border-collapse: separate;
-  border-spacing: 0 0.375rem;
+  border-spacing: 0 0.25rem;
   font-family: var(--font-sans);
   white-space: nowrap;
 }
 
 .blog-prose
   :where(th):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
-  padding: 0.75rem;
+  padding: 0.625rem 0.75rem;
   background: #eee7db;
   color: #4f4940;
   font-family: var(--font-sans);
@@ -788,7 +788,7 @@
 
 .blog-prose
   :where(td):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
-  padding: 0.875rem 0.75rem;
+  padding: 0.625rem 0.75rem;
   background: #faf7f1;
   color: #363029;
   font-family: var(--font-sans);
