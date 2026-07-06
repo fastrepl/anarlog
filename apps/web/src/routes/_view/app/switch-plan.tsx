@@ -5,7 +5,7 @@ import { createPlanSwitchSession } from "@/functions/billing";
 import { desktopSchemeSchema } from "@/functions/desktop-flow";
 
 const validateSearch = z.object({
-  targetPlan: z.enum(["lite", "pro"]),
+  targetPlan: z.enum(["pro"]).catch("pro").optional(),
   targetPeriod: z.enum(["monthly", "yearly"]).catch("monthly"),
   scheme: desktopSchemeSchema.optional(),
 });

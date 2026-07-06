@@ -1,9 +1,21 @@
 import { Icon } from "@iconify-icon/react";
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { ArrowRight, ChevronDown, Cloud, Cpu, KeyRound } from "lucide-react";
+import {
+  ArrowRight,
+  ChevronDown,
+  Cloud,
+  Cpu,
+  KeyRound,
+  type LucideIcon,
+} from "lucide-react";
 import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 
+import {
+  MARKETING_PLAN_TIERS,
+  type MarketingPlanData,
+  PlanFeatureList,
+} from "@hypr/pricing";
 import { DancingSticks } from "@hypr/ui/components/ui/dancing-sticks";
 import { Spinner } from "@hypr/ui/components/ui/spinner";
 import { cn } from "@hypr/utils";
@@ -12,6 +24,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { desktopSchemeSchema } from "@/functions/desktop-flow";
 import { getGitHubStats, getStargazers } from "@/functions/github";
 import { useMountEffect } from "@/hooks/useMountEffect";
+import { appleIntelDownloadUrl, appleSiliconDownloadUrl } from "@/lib/download";
 import {
   ANARLOG_SITE_URL,
   ROOT_DESCRIPTION,
@@ -205,7 +218,7 @@ function TestimonialTweetCard({
         onMoveToSide();
       }}
       className={cn([
-        "border-color-subtle absolute rounded-lg border bg-white p-5 text-left transition-[transform,box-shadow,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] select-none motion-reduce:transition-none sm:p-5",
+        "border-color-subtle absolute rounded-[3px] border bg-white p-5 text-left transition-[transform,box-shadow,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] select-none motion-reduce:transition-none sm:p-5",
         className,
       ])}
       style={style}
@@ -258,11 +271,6 @@ function TestimonialTweetCard({
     </article>
   );
 }
-
-const appleSiliconDownloadUrl =
-  "https://cdn.crabnebula.app/download/fastrepl/hyprnote2/latest/platform/dmg-aarch64?channel=stable";
-const appleIntelDownloadUrl =
-  "https://cdn.crabnebula.app/download/fastrepl/hyprnote2/latest/platform/dmg-x86_64?channel=stable";
 
 const authCallbackSearchSchema = z.object({
   code: z.string().optional(),
@@ -377,6 +385,8 @@ function Component() {
             stargazers={githubStargazers}
           />
 
+          <PricingSection />
+
           <section id="manifesto" className="pt-28 pb-14 md:pt-32 md:pb-16">
             <article
               className="mx-auto max-w-3xl overflow-hidden rounded-[3px] border border-[#eadfce] bg-[#fffaf0] px-7 py-9 text-left shadow-[0_18px_50px_rgba(68,54,36,0.12)] sm:px-10 sm:py-12"
@@ -453,6 +463,96 @@ function Component() {
 
       <SiteFooter />
     </main>
+  );
+}
+
+function PricingSection() {
+  return (
+    <section id="pricing" className="pt-24 pb-8 md:pt-28 md:pb-10">
+      <div>
+        <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
+          Simple pricing
+        </h2>
+        <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#4f4940]">
+          Start with local meeting notes for free. Upgrade when you want hosted
+          transcription, AI, sync, and sharing.
+        </p>
+      </div>
+
+      <div className="relative left-1/2 mt-8 grid w-screen max-w-[760px] -translate-x-1/2 grid-cols-1 gap-4 px-5 text-left md:grid-cols-2 md:px-8">
+        {MARKETING_PLAN_TIERS.map((plan) => (
+          <PricingCard key={plan.id} plan={plan} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function PricingCard({ plan }: { plan: MarketingPlanData }) {
+  const visibleFeatures = plan.features.filter(
+    (feature) => feature.included === true,
+  );
+
+  return (
+    <article
+      className={cn([
+        "flex min-h-[30rem] flex-col rounded-[3px] border bg-white p-6 shadow-[0_16px_46px_rgba(24,22,19,0.08)]",
+        plan.popular
+          ? "border-neutral-200"
+          : "border-neutral-200 shadow-[0_10px_32px_rgba(24,22,19,0.05)]",
+      ])}
+    >
+      <div className="flex items-start">
+        <h3 className="font-hand text-3xl leading-none font-semibold text-[#181613]">
+          {plan.name}
+        </h3>
+      </div>
+
+      <p className="mt-4 min-h-[4.5rem] text-sm leading-6 text-[#4f4940]">
+        {plan.description}
+      </p>
+
+      <div className="mt-5 min-h-[4rem]">
+        {plan.price ? (
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+            <span className="font-hand text-5xl leading-none font-semibold text-[#181613]">
+              ${plan.price.monthly}
+            </span>
+            <span className="text-sm text-[#756b5d]">/month</span>
+            {plan.price.yearly != null ? (
+              <span className="text-sm text-[#756b5d]">
+                or ${plan.price.yearly}/year
+              </span>
+            ) : null}
+          </div>
+        ) : (
+          <div className="flex items-baseline gap-2">
+            <span className="font-hand text-5xl leading-none font-semibold text-[#181613]">
+              $0
+            </span>
+            <span className="text-sm text-[#756b5d]">/month</span>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-5">
+        <PlanFeatureList features={visibleFeatures} dense />
+      </div>
+
+      <div className="mt-auto pt-6">
+        <a
+          href={appleSiliconDownloadUrl}
+          className={cn([
+            "flex h-11 w-full items-center justify-center rounded-full text-sm font-medium transition-all hover:scale-[102%] active:scale-[98%]",
+            plan.popular
+              ? "bg-[#181613] text-white hover:bg-[#4f4940]"
+              : "bg-[#f4efe6] text-[#181613] hover:bg-[#eadfce]",
+          ])}
+        >
+          {plan.price ? "Start 14-day trial" : "Download for free"}
+        </a>
+      </div>
+    </article>
   );
 }
 
@@ -873,15 +973,21 @@ function PrivacyVisual({
           role="img"
           aria-label="AI option cards cycling between cloud, key, and chip"
         >
-          <div className="ai-option-card ai-option-card-cloud">
-            <Cloud size={28} strokeWidth={2.5} aria-hidden="true" />
-          </div>
-          <div className="ai-option-card ai-option-card-key">
-            <KeyRound size={30} strokeWidth={2.3} aria-hidden="true" />
-          </div>
-          <div className="ai-option-card ai-option-card-chip">
-            <Cpu size={30} strokeWidth={2.3} aria-hidden="true" />
-          </div>
+          <AiOptionPlayingCard
+            className="ai-option-card-cloud ai-option-card-red"
+            rank="C"
+            IconComponent={Cloud}
+          />
+          <AiOptionPlayingCard
+            className="ai-option-card-key"
+            rank="K"
+            IconComponent={KeyRound}
+          />
+          <AiOptionPlayingCard
+            className="ai-option-card-chip"
+            rank="O"
+            IconComponent={Cpu}
+          />
         </div>
       </div>
     );
@@ -911,6 +1017,32 @@ function PrivacyVisual({
           <span className="meeting-audio-bar" />
         </div>
       </div>
+    </div>
+  );
+}
+
+function AiOptionPlayingCard({
+  className,
+  rank,
+  IconComponent,
+}: {
+  className: string;
+  rank: string;
+  IconComponent: LucideIcon;
+}) {
+  return (
+    <div className={cn(["ai-option-card", className])}>
+      <span className="ai-option-card-corner ai-option-card-corner-top">
+        <span>{rank}</span>
+        <IconComponent aria-hidden="true" />
+      </span>
+      <div className="ai-option-card-face">
+        <IconComponent aria-hidden="true" />
+      </div>
+      <span className="ai-option-card-corner ai-option-card-corner-bottom">
+        <span>{rank}</span>
+        <IconComponent aria-hidden="true" />
+      </span>
     </div>
   );
 }

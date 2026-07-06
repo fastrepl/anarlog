@@ -3,7 +3,14 @@ import { Link } from "@tanstack/react-router";
 export function SiteFooter() {
   return (
     <footer className="mx-auto flex w-full max-w-[700px] flex-wrap items-center justify-between gap-5 px-5 py-8 text-sm text-[#4f4940] md:px-8">
-      <p className="text-sm text-[#756b5d]">Fastrepl © 2026</p>
+      <a
+        href="https://fastrepl.com"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-sm text-[#756b5d] hover:text-[#181613]"
+      >
+        Fastrepl © 2026
+      </a>
       <nav className="flex flex-wrap gap-x-5 gap-y-2">
         <a
           href="https://github.com/fastrepl/anarlog"

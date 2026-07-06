@@ -441,24 +441,73 @@
 
   .ai-option-card {
     position: absolute;
-    top: 0.45rem;
+    top: 0.2rem;
     left: 50%;
     display: flex;
-    width: 3.75rem;
-    height: 4.875rem;
+    width: 4.25rem;
+    height: 5.75rem;
     align-items: center;
     justify-content: center;
-    border: 1px solid #dedbd3;
-    border-radius: 0.55rem;
-    background: linear-gradient(135deg, #ffffff 0%, #f4f3ef 100%);
-    box-shadow: 0 8px 18px rgba(28, 25, 23, 0.08);
-    color: #57534e;
-    margin-left: -1.875rem;
+    overflow: hidden;
+    border: 1.5px solid #d6d3cc;
+    border-radius: 0.42rem;
+    background: #fffefa;
+    box-shadow: 0 10px 18px rgba(24, 22, 19, 0.14);
+    color: #181613;
+    margin-left: -2.125rem;
     animation-duration: 9s;
     animation-iteration-count: infinite;
     animation-timing-function: ease-in-out;
     transform-origin: center;
     will-change: transform;
+  }
+
+  .ai-option-card-red {
+    color: #e11d2e;
+  }
+
+  .ai-option-card-face {
+    display: flex;
+    width: 2.35rem;
+    height: 2.35rem;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ai-option-card-face svg {
+    width: 2rem;
+    height: 2rem;
+    stroke-width: 2.4;
+  }
+
+  .ai-option-card-corner {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.05rem;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 0.82rem;
+    font-weight: 700;
+    line-height: 0.86;
+    letter-spacing: 0;
+  }
+
+  .ai-option-card-corner svg {
+    width: 0.6rem;
+    height: 0.6rem;
+    stroke-width: 3;
+  }
+
+  .ai-option-card-corner-top {
+    top: 0.42rem;
+    left: 0.42rem;
+  }
+
+  .ai-option-card-corner-bottom {
+    right: 0.42rem;
+    bottom: 0.42rem;
+    transform: rotate(180deg);
   }
 
   .ai-option-card-cloud {

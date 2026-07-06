@@ -6,6 +6,7 @@ import type { ComponentProps } from "react";
 
 import { mdxComponents } from "@/components/mdx-components";
 import { SiteFooter } from "@/components/site-footer";
+import { appleSiliconDownloadUrl } from "@/lib/download";
 import { ANARLOG_SITE_URL, getBlogOgImageUrl } from "@/lib/seo";
 
 const blogMdxComponents = {
@@ -140,13 +141,13 @@ function BlogArticleCta() {
             Try Anarlog for private, local-first meeting notes on your Mac.
           </p>
         </div>
-        <Link
-          to="/download/"
+        <a
+          href={appleSiliconDownloadUrl}
           className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-full bg-[#181613] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#363029]"
         >
           Try for free
           <ArrowRight size={17} strokeWidth={2.2} aria-hidden="true" />
-        </Link>
+        </a>
       </div>
     </aside>
   );

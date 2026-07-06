@@ -1,9 +1,11 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
+import { appleSiliconDownloadUrl } from "@/lib/download";
+
 export const Route = createFileRoute("/_view/download/apple-silicon")({
   beforeLoad: async () => {
     throw redirect({
-      href: "https://desktop2.hyprnote.com/download/latest/dmg-aarch64?channel=stable",
+      href: appleSiliconDownloadUrl,
     } as any);
   },
 });

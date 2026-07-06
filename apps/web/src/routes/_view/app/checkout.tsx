@@ -6,7 +6,7 @@ import { desktopSchemeSchema } from "@/functions/desktop-flow";
 
 const validateSearch = z.object({
   period: z.enum(["monthly", "yearly"]).catch("monthly"),
-  plan: z.enum(["lite", "pro"]).catch("pro"),
+  plan: z.enum(["pro"]).catch("pro").optional(),
   scheme: desktopSchemeSchema.optional(),
 });
 

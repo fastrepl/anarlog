@@ -1,4 +1,4 @@
-export type PlanTier = "free" | "lite" | "pro";
+export type PlanTier = "free" | "pro";
 export type PlanFeature = {
   label: string;
   included: boolean | "partial";
@@ -9,7 +9,7 @@ export type TierAction =
   | {
       label: string;
       style: "current" | "upgrade" | "downgrade";
-      targetPlan: "lite" | "pro";
+      targetPlan: "pro";
     }
   | { label: string; style: "current"; targetPlan?: undefined }
   | null;
@@ -34,30 +34,17 @@ export const PLAN_TIERS: PlanTierData[] = [
       { label: "On-device Transcription", included: true },
       { label: "Save Audio Recordings", included: true },
       { label: "Audio Player", included: true },
-      { label: "Bring Your Own Key", included: true },
+      { label: "Bring Your Own Key (STT & LLM)", included: true },
       { label: "Export to Various Formats", included: true },
       { label: "Local-first", included: true },
       { label: "Custom Default Folder", included: true },
       { label: "Templates", included: true },
       { label: "Shortcuts", included: true },
       { label: "Chat", included: true },
-      { label: "Integrations", included: false },
-      { label: "Cloud Services (STT & LLM)", included: false },
-      { label: "Cloud Sync", included: false },
-      { label: "Shareable Links", included: false },
-    ],
-  },
-  {
-    id: "lite",
-    name: "Lite",
-    price: "$8",
-    period: "/month",
-    subtitle: null,
-    features: [
-      { label: "Everything in Free", included: true },
-      { label: "Cloud Services (STT & LLM)", included: true },
-      { label: "Speaker Identification", included: "partial" },
-      { label: "Advanced Templates", included: false },
+      { label: "Connect to Google Calendar", included: false },
+      { label: "Connect to Outlook Calendar", included: false },
+      { label: "Cloud Transcription", included: false },
+      { label: "Cloud LLM", included: false },
       { label: "Cloud Sync", included: false },
       { label: "Shareable Links", included: false },
     ],
@@ -65,14 +52,17 @@ export const PLAN_TIERS: PlanTierData[] = [
   {
     id: "pro",
     name: "Pro",
-    price: "$25",
+    price: "$15",
     period: "/month",
-    subtitle: "or $250/year",
+    subtitle: "or $150/year",
     features: [
-      { label: "Everything in Lite", included: true },
-      { label: "Change Playback Rates", included: true },
+      { label: "Everything in Free", included: true },
+      { label: "Cloud Transcription", included: true },
+      { label: "Cloud LLM", included: true },
+      { label: "Speaker Identification", included: "partial" },
       { label: "Advanced Templates", included: true },
-      { label: "Integrations", included: true },
+      { label: "Connect to Google Calendar", included: true },
+      { label: "Connect to Outlook Calendar", included: true },
       { label: "Cloud Sync", included: "partial" },
       { label: "Shareable Links", included: "partial" },
     ],
@@ -99,7 +89,7 @@ export const MARKETING_PLAN_TIERS: MarketingPlanData[] = [
       { label: "On-device Transcription", included: true },
       { label: "Save Audio Recordings", included: true },
       { label: "Audio Player", included: true },
-      { label: "Bring Your Own Key", included: true },
+      { label: "Bring Your Own Key (STT & LLM)", included: true },
       { label: "Export to Various Formats", included: true },
       {
         label: "Custom Default Folder",
@@ -112,49 +102,28 @@ export const MARKETING_PLAN_TIERS: MarketingPlanData[] = [
       { label: "Templates", included: true },
       { label: "Transcript Editor", included: "partial" },
       { label: "Shortcuts", included: "partial" },
-      { label: "Cloud Services (STT & LLM)", included: false },
+      { label: "Cloud Transcription", included: false },
+      { label: "Cloud LLM", included: false },
       { label: "Speaker Identification", included: false },
-    ],
-  },
-  {
-    id: "lite",
-    name: "Lite",
-    price: {
-      monthly: 8,
-      yearly: null,
-    },
-    description:
-      "Unlimited cloud transcription and AI models without the complexity. No API keys needed — just sign in and go.",
-    features: [
-      { label: "Everything in Free", included: true },
-      { label: "Cloud Services (STT & LLM)", included: true },
-      { label: "Speaker Identification", included: "partial" },
-      { label: "Change Playback Rates", included: false },
-      { label: "Integrations", included: false },
-      { label: "Advanced Templates", included: false },
-      { label: "Cloud Sync", included: false },
-      { label: "Shareable Links", included: false },
     ],
   },
   {
     id: "pro",
     name: "Pro",
     price: {
-      monthly: 25,
-      yearly: 250,
+      monthly: 15,
+      yearly: 150,
     },
     description:
-      "Everything in Lite, plus advanced sharing and team features out of the box.",
+      "Hosted transcription and AI models, speaker identification, calendar connections, and advanced workflow features.",
     popular: true,
     features: [
-      { label: "Everything in Lite", included: true },
-      { label: "Change Playback Rates", included: true },
-      {
-        label: "Integrations",
-        included: true,
-        tooltip:
-          "Google Calendar is available now. Additional integrations are in progress.",
-      },
+      { label: "Everything in Free", included: true },
+      { label: "Cloud Transcription", included: true },
+      { label: "Cloud LLM", included: true },
+      { label: "Speaker Identification", included: "partial" },
+      { label: "Connect to Google Calendar", included: true },
+      { label: "Connect to Outlook Calendar", included: true },
       { label: "Advanced Templates", included: "partial" },
       {
         label: "Connect to OpenClaw",
@@ -177,8 +146,7 @@ export const MARKETING_PLAN_TIERS: MarketingPlanData[] = [
 
 export const TIER_ORDER: Record<PlanTier, number> = {
   free: 0,
-  lite: 1,
-  pro: 2,
+  pro: 1,
 };
 
 export function getActionForTier(
@@ -201,13 +169,11 @@ export function getActionForTier(
         targetPlan: "pro",
       };
     }
-    if (tierId === "lite" || tierId === "pro") {
-      return {
-        label: tierId === "lite" ? "Get Lite" : "Get Pro",
-        style: "upgrade",
-        targetPlan: tierId,
-      };
-    }
+    return {
+      label: "Get Pro",
+      style: "upgrade",
+      targetPlan: "pro",
+    };
   }
 
   if (tierId === "free") {
@@ -215,10 +181,7 @@ export function getActionForTier(
   }
 
   return {
-    label:
-      direction === "upgrade"
-        ? `Upgrade to ${tierId === "pro" ? "Pro" : "Lite"}`
-        : `Switch to ${tierId === "pro" ? "Pro" : "Lite"}`,
+    label: direction === "upgrade" ? "Upgrade to Pro" : "Switch to Pro",
     style: direction,
     targetPlan: tierId,
   };

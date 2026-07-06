@@ -1,6 +1,6 @@
 import type { SubscriptionStatus, SupabaseJwtPayload } from "./jwt";
 
-export type Plan = "free" | "trial" | "lite" | "pro";
+export type Plan = "free" | "trial" | "pro";
 
 export type BillingInfo = {
   entitlements: string[];
@@ -37,24 +37,18 @@ export function deriveBillingInfo(
 
   const hasProEntitlement = entitlements.includes("hyprnote_pro");
   const hasLiteEntitlement = entitlements.includes("hyprnote_lite");
+  const hasPaidEntitlement = hasProEntitlement || hasLiteEntitlement;
 
-  const isPro = hasProEntitlement || isTrialing;
-  const isLite = hasLiteEntitlement && !hasProEntitlement;
+  const isPro = hasPaidEntitlement || isTrialing;
+  const isLite = false;
   const isPaid =
-    hasProEntitlement ||
-    hasLiteEntitlement ||
-    isTrialing ||
-    subscriptionStatus === "active";
+    hasPaidEntitlement || isTrialing || subscriptionStatus === "active";
 
   const plan: Plan = isTrialing
     ? "trial"
-    : hasProEntitlement
+    : hasPaidEntitlement || subscriptionStatus === "active"
       ? "pro"
-      : hasLiteEntitlement
-        ? "lite"
-        : subscriptionStatus === "active"
-          ? "lite"
-          : "free";
+      : "free";
 
   return {
     entitlements,

@@ -132,7 +132,7 @@ export function SettingsAccount() {
     );
   }
 
-  const currentTier = plan === "trial" ? "pro" : plan;
+  const currentTier = plan === "free" ? "free" : "pro";
 
   return (
     <div className="flex flex-col gap-8">
@@ -214,8 +214,7 @@ function PlanBillingSection({
     }
   }, []);
 
-  const planLabel =
-    currentTier === "free" ? t`Free` : currentTier === "lite" ? "Lite" : "Pro";
+  const planLabel = currentTier === "free" ? t`Free` : "Pro";
   const trialDaysText =
     trialDaysRemaining == null
       ? null
@@ -310,19 +309,11 @@ function PlanBillingSection({
         plan: action.targetPlan,
       });
 
-      if (isPaid && action.targetPlan) {
-        const url = await buildWebAppUrl("/app/switch-plan", {
-          targetPlan: action.targetPlan,
-          targetPeriod: "monthly",
-        });
-        await openBillingUrl(url);
-      } else {
-        const url = await buildWebAppUrl("/app/checkout", {
-          plan: action.targetPlan,
-          period: "monthly",
-        });
-        await openBillingUrl(url);
-      }
+      const url = await buildWebAppUrl("/app/checkout", {
+        plan: action.targetPlan,
+        period: "monthly",
+      });
+      await openBillingUrl(url);
     };
 
     const isBusy = actionPending || startTrialMutation.isPending;
@@ -420,12 +411,7 @@ function GuestPlanSection({ onSignIn }: { onSignIn: () => Promise<void> }) {
       );
     }
 
-    const label =
-      action.targetPlan === "lite"
-        ? t`Sign in for Lite`
-        : action.targetPlan === "pro"
-          ? t`Sign in for Pro`
-          : t`Sign in`;
+    const label = action.targetPlan === "pro" ? t`Sign in for Pro` : t`Sign in`;
 
     if (compact) {
       return (
@@ -457,7 +443,7 @@ function GuestPlanSection({ onSignIn }: { onSignIn: () => Promise<void> }) {
           <Trans>Plans</Trans>
         </h2>
         <p className="text-muted-foreground text-sm">
-          <Trans>Compare Free, Lite, and Pro before you sign in.</Trans>
+          <Trans>Compare Free and Pro before you sign in.</Trans>
         </p>
       </div>
 
@@ -499,7 +485,7 @@ function PlanTierList({
   return (
     <div ref={containerRef}>
       {isWide ? (
-        <div className="divide-border border-border grid grid-cols-3 divide-x border-t">
+        <div className="divide-border border-border grid grid-cols-2 divide-x border-t">
           {PLAN_TIERS.map((tier) => {
             const isCurrent = tier.id === currentTier;
             const action = getActionForTier(

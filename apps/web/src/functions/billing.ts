@@ -69,20 +69,7 @@ const getBillingReturnUrl = (scheme?: z.infer<typeof desktopSchemeSchema>) => {
   return `${appOrigin}/app/account`;
 };
 
-const getTargetPriceId = ({
-  plan,
-  period,
-}: {
-  plan: "lite" | "pro";
-  period: "monthly" | "yearly";
-}) => {
-  if (plan === "lite") {
-    return requireEnv(
-      env.STRIPE_LITE_MONTHLY_PRICE_ID,
-      "STRIPE_LITE_MONTHLY_PRICE_ID",
-    );
-  }
-
+const getProPriceId = (period: "monthly" | "yearly") => {
   if (period === "yearly") {
     return requireEnv(env.STRIPE_YEARLY_PRICE_ID, "STRIPE_YEARLY_PRICE_ID");
   }
@@ -146,13 +133,11 @@ async function ensureStripeCustomerId(
 async function createCheckoutUrl({
   supabase,
   user,
-  plan,
   period,
   scheme,
 }: {
   supabase: SupabaseClient;
   user: AuthUser & { email?: string | null };
-  plan: "lite" | "pro";
   period: "monthly" | "yearly";
   scheme?: z.infer<typeof desktopSchemeSchema>;
 }) {
@@ -175,7 +160,7 @@ async function createCheckoutUrl({
     cancel_url: `${appOrigin}/app/account`,
     line_items: [
       {
-        price: getTargetPriceId({ plan, period }),
+        price: getProPriceId(period),
         quantity: 1,
       },
     ],
@@ -187,7 +172,7 @@ async function createCheckoutUrl({
 
 const createCheckoutSessionInput = z.object({
   period: z.enum(["monthly", "yearly"]),
-  plan: z.enum(["lite", "pro"]).default("pro"),
+  plan: z.enum(["pro"]).default("pro").optional(),
   scheme: desktopSchemeSchema.optional(),
 });
 
@@ -232,14 +217,13 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
         email: user.email,
         user_metadata: user.user_metadata,
       },
-      plan: data.plan,
       period: data.period,
       scheme: data.scheme,
     });
   });
 
 const createPlanSwitchSessionInput = z.object({
-  targetPlan: z.enum(["lite", "pro"]),
+  targetPlan: z.enum(["pro"]).default("pro").optional(),
   targetPeriod: z.enum(["monthly", "yearly"]).default("monthly"),
   scheme: desktopSchemeSchema.optional(),
 });
@@ -271,7 +255,6 @@ export const createPlanSwitchSession = createServerFn({ method: "POST" })
           email: user.email,
           user_metadata: user.user_metadata,
         },
-        plan: data.targetPlan,
         period: data.targetPeriod,
         scheme: data.scheme,
       });
@@ -290,7 +273,6 @@ export const createPlanSwitchSession = createServerFn({ method: "POST" })
           email: user.email,
           user_metadata: user.user_metadata,
         },
-        plan: data.targetPlan,
         period: data.targetPeriod,
         scheme: data.scheme,
       });
@@ -304,7 +286,6 @@ export const createPlanSwitchSession = createServerFn({ method: "POST" })
           email: user.email,
           user_metadata: user.user_metadata,
         },
-        plan: data.targetPlan,
         period: data.targetPeriod,
         scheme: data.scheme,
       });
@@ -323,10 +304,7 @@ export const createPlanSwitchSession = createServerFn({ method: "POST" })
           items: [
             {
               id: subscriptionItemId,
-              price: getTargetPriceId({
-                plan: data.targetPlan,
-                period: data.targetPeriod,
-              }),
+              price: getProPriceId(data.targetPeriod),
             },
           ],
         },

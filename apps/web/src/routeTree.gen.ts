@@ -13,7 +13,6 @@ import { Route as UpdatePasswordRouteImport } from './routes/update-password'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as PrivacyRouteImport } from './routes/privacy'
-import { Route as FoundersRouteImport } from './routes/founders'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ViewRouteRouteImport } from './routes/_view/route'
 import { Route as IndexRouteImport } from './routes/index'
@@ -24,16 +23,11 @@ import { Route as BlogSlugRouteImport } from './routes/blog/$slug'
 import { Route as ApiTemplatesRouteImport } from './routes/api/templates'
 import { Route as ApiShortcutsRouteImport } from './routes/api/shortcuts'
 import { Route as ApiMediaUploadRouteImport } from './routes/api/media-upload'
-import { Route as ViewPricingRouteImport } from './routes/_view/pricing'
 import { Route as ViewAppRouteRouteImport } from './routes/_view/app/route'
-import { Route as ViewDownloadIndexRouteImport } from './routes/_view/download/index'
 import { Route as ViewAppIndexRouteImport } from './routes/_view/app/index'
 import { Route as ApiWebhooksSlackInteractiveRouteImport } from './routes/api/webhooks/slack-interactive'
 import { Route as ApiTweetIdRouteImport } from './routes/api/tweet.$id'
 import { Route as ApiAssetsSplatRouteImport } from './routes/api/assets.$'
-import { Route as ViewDownloadWindowsRouteImport } from './routes/_view/download/windows'
-import { Route as ViewDownloadLinuxDebRouteImport } from './routes/_view/download/linux-deb'
-import { Route as ViewDownloadLinuxAppimageRouteImport } from './routes/_view/download/linux-appimage'
 import { Route as ViewDownloadAppleSiliconRouteImport } from './routes/_view/download/apple-silicon'
 import { Route as ViewDownloadAppleIntelRouteImport } from './routes/_view/download/apple-intel'
 import { Route as ViewCallbackSignoutRouteImport } from './routes/_view/callback/signout'
@@ -97,11 +91,6 @@ const PrivacyRoute = PrivacyRouteImport.update({
   path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
-const FoundersRoute = FoundersRouteImport.update({
-  id: '/founders',
-  path: '/founders',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
@@ -151,19 +140,9 @@ const ApiMediaUploadRoute = ApiMediaUploadRouteImport.update({
   path: '/api/media-upload',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ViewPricingRoute = ViewPricingRouteImport.update({
-  id: '/pricing',
-  path: '/pricing',
-  getParentRoute: () => ViewRouteRoute,
-} as any)
 const ViewAppRouteRoute = ViewAppRouteRouteImport.update({
   id: '/app',
   path: '/app',
-  getParentRoute: () => ViewRouteRoute,
-} as any)
-const ViewDownloadIndexRoute = ViewDownloadIndexRouteImport.update({
-  id: '/download/',
-  path: '/download/',
   getParentRoute: () => ViewRouteRoute,
 } as any)
 const ViewAppIndexRoute = ViewAppIndexRouteImport.update({
@@ -187,22 +166,6 @@ const ApiAssetsSplatRoute = ApiAssetsSplatRouteImport.update({
   path: '/api/assets/$',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ViewDownloadWindowsRoute = ViewDownloadWindowsRouteImport.update({
-  id: '/download/windows',
-  path: '/download/windows',
-  getParentRoute: () => ViewRouteRoute,
-} as any)
-const ViewDownloadLinuxDebRoute = ViewDownloadLinuxDebRouteImport.update({
-  id: '/download/linux-deb',
-  path: '/download/linux-deb',
-  getParentRoute: () => ViewRouteRoute,
-} as any)
-const ViewDownloadLinuxAppimageRoute =
-  ViewDownloadLinuxAppimageRouteImport.update({
-    id: '/download/linux-appimage',
-    path: '/download/linux-appimage',
-    getParentRoute: () => ViewRouteRoute,
-  } as any)
 const ViewDownloadAppleSiliconRoute =
   ViewDownloadAppleSiliconRouteImport.update({
     id: '/download/apple-silicon',
@@ -423,13 +386,11 @@ const ApiAdminBlogUploadImageRoute = ApiAdminBlogUploadImageRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
-  '/founders': typeof FoundersRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
   '/update-password': typeof UpdatePasswordRoute
   '/app': typeof ViewAppRouteRouteWithChildren
-  '/pricing': typeof ViewPricingRoute
   '/api/media-upload': typeof ApiMediaUploadRoute
   '/api/shortcuts': typeof ApiShortcutsRoute
   '/api/templates': typeof ApiTemplatesRoute
@@ -448,14 +409,10 @@ export interface FileRoutesByFullPath {
   '/callback/signout': typeof ViewCallbackSignoutRoute
   '/download/apple-intel': typeof ViewDownloadAppleIntelRoute
   '/download/apple-silicon': typeof ViewDownloadAppleSiliconRoute
-  '/download/linux-appimage': typeof ViewDownloadLinuxAppimageRoute
-  '/download/linux-deb': typeof ViewDownloadLinuxDebRoute
-  '/download/windows': typeof ViewDownloadWindowsRoute
   '/api/assets/$': typeof ApiAssetsSplatRoute
   '/api/tweet/$id': typeof ApiTweetIdRoute
   '/api/webhooks/slack-interactive': typeof ApiWebhooksSlackInteractiveRoute
   '/app/': typeof ViewAppIndexRoute
-  '/download/': typeof ViewDownloadIndexRoute
   '/api/admin/blog/upload-image': typeof ApiAdminBlogUploadImageRoute
   '/api/admin/content/audit': typeof ApiAdminContentAuditRoute
   '/api/admin/content/create': typeof ApiAdminContentCreateRoute
@@ -491,12 +448,10 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
-  '/founders': typeof FoundersRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
   '/update-password': typeof UpdatePasswordRoute
-  '/pricing': typeof ViewPricingRoute
   '/api/media-upload': typeof ApiMediaUploadRoute
   '/api/shortcuts': typeof ApiShortcutsRoute
   '/api/templates': typeof ApiTemplatesRoute
@@ -515,14 +470,10 @@ export interface FileRoutesByTo {
   '/callback/signout': typeof ViewCallbackSignoutRoute
   '/download/apple-intel': typeof ViewDownloadAppleIntelRoute
   '/download/apple-silicon': typeof ViewDownloadAppleSiliconRoute
-  '/download/linux-appimage': typeof ViewDownloadLinuxAppimageRoute
-  '/download/linux-deb': typeof ViewDownloadLinuxDebRoute
-  '/download/windows': typeof ViewDownloadWindowsRoute
   '/api/assets/$': typeof ApiAssetsSplatRoute
   '/api/tweet/$id': typeof ApiTweetIdRoute
   '/api/webhooks/slack-interactive': typeof ApiWebhooksSlackInteractiveRoute
   '/app': typeof ViewAppIndexRoute
-  '/download': typeof ViewDownloadIndexRoute
   '/api/admin/blog/upload-image': typeof ApiAdminBlogUploadImageRoute
   '/api/admin/content/audit': typeof ApiAdminContentAuditRoute
   '/api/admin/content/create': typeof ApiAdminContentCreateRoute
@@ -560,13 +511,11 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_view': typeof ViewRouteRouteWithChildren
   '/auth': typeof AuthRoute
-  '/founders': typeof FoundersRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
   '/update-password': typeof UpdatePasswordRoute
   '/_view/app': typeof ViewAppRouteRouteWithChildren
-  '/_view/pricing': typeof ViewPricingRoute
   '/api/media-upload': typeof ApiMediaUploadRoute
   '/api/shortcuts': typeof ApiShortcutsRoute
   '/api/templates': typeof ApiTemplatesRoute
@@ -585,14 +534,10 @@ export interface FileRoutesById {
   '/_view/callback/signout': typeof ViewCallbackSignoutRoute
   '/_view/download/apple-intel': typeof ViewDownloadAppleIntelRoute
   '/_view/download/apple-silicon': typeof ViewDownloadAppleSiliconRoute
-  '/_view/download/linux-appimage': typeof ViewDownloadLinuxAppimageRoute
-  '/_view/download/linux-deb': typeof ViewDownloadLinuxDebRoute
-  '/_view/download/windows': typeof ViewDownloadWindowsRoute
   '/api/assets/$': typeof ApiAssetsSplatRoute
   '/api/tweet/$id': typeof ApiTweetIdRoute
   '/api/webhooks/slack-interactive': typeof ApiWebhooksSlackInteractiveRoute
   '/_view/app/': typeof ViewAppIndexRoute
-  '/_view/download/': typeof ViewDownloadIndexRoute
   '/api/admin/blog/upload-image': typeof ApiAdminBlogUploadImageRoute
   '/api/admin/content/audit': typeof ApiAdminContentAuditRoute
   '/api/admin/content/create': typeof ApiAdminContentCreateRoute
@@ -630,13 +575,11 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
-    | '/founders'
     | '/privacy'
     | '/reset-password'
     | '/terms'
     | '/update-password'
     | '/app'
-    | '/pricing'
     | '/api/media-upload'
     | '/api/shortcuts'
     | '/api/templates'
@@ -655,14 +598,10 @@ export interface FileRouteTypes {
     | '/callback/signout'
     | '/download/apple-intel'
     | '/download/apple-silicon'
-    | '/download/linux-appimage'
-    | '/download/linux-deb'
-    | '/download/windows'
     | '/api/assets/$'
     | '/api/tweet/$id'
     | '/api/webhooks/slack-interactive'
     | '/app/'
-    | '/download/'
     | '/api/admin/blog/upload-image'
     | '/api/admin/content/audit'
     | '/api/admin/content/create'
@@ -698,12 +637,10 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
-    | '/founders'
     | '/privacy'
     | '/reset-password'
     | '/terms'
     | '/update-password'
-    | '/pricing'
     | '/api/media-upload'
     | '/api/shortcuts'
     | '/api/templates'
@@ -722,14 +659,10 @@ export interface FileRouteTypes {
     | '/callback/signout'
     | '/download/apple-intel'
     | '/download/apple-silicon'
-    | '/download/linux-appimage'
-    | '/download/linux-deb'
-    | '/download/windows'
     | '/api/assets/$'
     | '/api/tweet/$id'
     | '/api/webhooks/slack-interactive'
     | '/app'
-    | '/download'
     | '/api/admin/blog/upload-image'
     | '/api/admin/content/audit'
     | '/api/admin/content/create'
@@ -766,13 +699,11 @@ export interface FileRouteTypes {
     | '/'
     | '/_view'
     | '/auth'
-    | '/founders'
     | '/privacy'
     | '/reset-password'
     | '/terms'
     | '/update-password'
     | '/_view/app'
-    | '/_view/pricing'
     | '/api/media-upload'
     | '/api/shortcuts'
     | '/api/templates'
@@ -791,14 +722,10 @@ export interface FileRouteTypes {
     | '/_view/callback/signout'
     | '/_view/download/apple-intel'
     | '/_view/download/apple-silicon'
-    | '/_view/download/linux-appimage'
-    | '/_view/download/linux-deb'
-    | '/_view/download/windows'
     | '/api/assets/$'
     | '/api/tweet/$id'
     | '/api/webhooks/slack-interactive'
     | '/_view/app/'
-    | '/_view/download/'
     | '/api/admin/blog/upload-image'
     | '/api/admin/content/audit'
     | '/api/admin/content/create'
@@ -836,7 +763,6 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ViewRouteRoute: typeof ViewRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
-  FoundersRoute: typeof FoundersRoute
   PrivacyRoute: typeof PrivacyRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   TermsRoute: typeof TermsRoute
@@ -914,13 +840,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/founders': {
-      id: '/founders'
-      path: '/founders'
-      fullPath: '/founders'
-      preLoaderRoute: typeof FoundersRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/auth': {
       id: '/auth'
       path: '/auth'
@@ -991,25 +910,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiMediaUploadRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_view/pricing': {
-      id: '/_view/pricing'
-      path: '/pricing'
-      fullPath: '/pricing'
-      preLoaderRoute: typeof ViewPricingRouteImport
-      parentRoute: typeof ViewRouteRoute
-    }
     '/_view/app': {
       id: '/_view/app'
       path: '/app'
       fullPath: '/app'
       preLoaderRoute: typeof ViewAppRouteRouteImport
-      parentRoute: typeof ViewRouteRoute
-    }
-    '/_view/download/': {
-      id: '/_view/download/'
-      path: '/download'
-      fullPath: '/download/'
-      preLoaderRoute: typeof ViewDownloadIndexRouteImport
       parentRoute: typeof ViewRouteRoute
     }
     '/_view/app/': {
@@ -1039,27 +944,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/assets/$'
       preLoaderRoute: typeof ApiAssetsSplatRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/_view/download/windows': {
-      id: '/_view/download/windows'
-      path: '/download/windows'
-      fullPath: '/download/windows'
-      preLoaderRoute: typeof ViewDownloadWindowsRouteImport
-      parentRoute: typeof ViewRouteRoute
-    }
-    '/_view/download/linux-deb': {
-      id: '/_view/download/linux-deb'
-      path: '/download/linux-deb'
-      fullPath: '/download/linux-deb'
-      preLoaderRoute: typeof ViewDownloadLinuxDebRouteImport
-      parentRoute: typeof ViewRouteRoute
-    }
-    '/_view/download/linux-appimage': {
-      id: '/_view/download/linux-appimage'
-      path: '/download/linux-appimage'
-      fullPath: '/download/linux-appimage'
-      preLoaderRoute: typeof ViewDownloadLinuxAppimageRouteImport
-      parentRoute: typeof ViewRouteRoute
     }
     '/_view/download/apple-silicon': {
       id: '/_view/download/apple-silicon'
@@ -1382,32 +1266,22 @@ const ViewAppRouteRouteWithChildren = ViewAppRouteRoute._addFileChildren(
 
 interface ViewRouteRouteChildren {
   ViewAppRouteRoute: typeof ViewAppRouteRouteWithChildren
-  ViewPricingRoute: typeof ViewPricingRoute
   ViewCallbackAuthRoute: typeof ViewCallbackAuthRoute
   ViewCallbackBillingRoute: typeof ViewCallbackBillingRoute
   ViewCallbackIntegrationRoute: typeof ViewCallbackIntegrationRoute
   ViewCallbackSignoutRoute: typeof ViewCallbackSignoutRoute
   ViewDownloadAppleIntelRoute: typeof ViewDownloadAppleIntelRoute
   ViewDownloadAppleSiliconRoute: typeof ViewDownloadAppleSiliconRoute
-  ViewDownloadLinuxAppimageRoute: typeof ViewDownloadLinuxAppimageRoute
-  ViewDownloadLinuxDebRoute: typeof ViewDownloadLinuxDebRoute
-  ViewDownloadWindowsRoute: typeof ViewDownloadWindowsRoute
-  ViewDownloadIndexRoute: typeof ViewDownloadIndexRoute
 }
 
 const ViewRouteRouteChildren: ViewRouteRouteChildren = {
   ViewAppRouteRoute: ViewAppRouteRouteWithChildren,
-  ViewPricingRoute: ViewPricingRoute,
   ViewCallbackAuthRoute: ViewCallbackAuthRoute,
   ViewCallbackBillingRoute: ViewCallbackBillingRoute,
   ViewCallbackIntegrationRoute: ViewCallbackIntegrationRoute,
   ViewCallbackSignoutRoute: ViewCallbackSignoutRoute,
   ViewDownloadAppleIntelRoute: ViewDownloadAppleIntelRoute,
   ViewDownloadAppleSiliconRoute: ViewDownloadAppleSiliconRoute,
-  ViewDownloadLinuxAppimageRoute: ViewDownloadLinuxAppimageRoute,
-  ViewDownloadLinuxDebRoute: ViewDownloadLinuxDebRoute,
-  ViewDownloadWindowsRoute: ViewDownloadWindowsRoute,
-  ViewDownloadIndexRoute: ViewDownloadIndexRoute,
 }
 
 const ViewRouteRouteWithChildren = ViewRouteRoute._addFileChildren(
@@ -1418,7 +1292,6 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ViewRouteRoute: ViewRouteRouteWithChildren,
   AuthRoute: AuthRoute,
-  FoundersRoute: FoundersRoute,
   PrivacyRoute: PrivacyRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   TermsRoute: TermsRoute,

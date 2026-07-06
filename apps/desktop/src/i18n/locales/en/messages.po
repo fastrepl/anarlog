@@ -353,8 +353,8 @@ msgid "Company"
 msgstr "Company"
 
 #: src/settings/general/account.tsx
-msgid "Compare Free, Lite, and Pro before you sign in."
-msgstr "Compare Free, Lite, and Pro before you sign in."
+msgid "Compare Free and Pro before you sign in."
+msgstr "Compare Free and Pro before you sign in."
 
 #: src/instruction/index.tsx
 msgid "Complete sign-in in your browser, then return to Anarlog."
@@ -1527,10 +1527,6 @@ msgstr "Show tray icon"
 #: src/settings/general/account.tsx
 msgid "Sign in"
 msgstr "Sign in"
-
-#: src/settings/general/account.tsx
-msgid "Sign in for Lite"
-msgstr "Sign in for Lite"
 
 #: src/settings/todo/github.tsx
 msgid "Sign in for private repo access."

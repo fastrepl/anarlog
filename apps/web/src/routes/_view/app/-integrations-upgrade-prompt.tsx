@@ -34,9 +34,9 @@ export function UpgradePrompt({
       </div>
 
       <div className="flex flex-col gap-3">
-        <Link to="/pricing/" className={integrationButtonClassName("primary")}>
+        <a href="/#pricing" className={integrationButtonClassName("primary")}>
           Upgrade
-        </Link>
+        </a>
 
         {flow === "desktop" ? (
           <button
