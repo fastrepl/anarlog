@@ -72,6 +72,7 @@
     "rehype-slug": "^6.0.0",
     "remark-gfm": "^4.0.1",
     "semver": "7.6.3",
+    "sharp": "^0.34.5",
     "shiki": "^3.23.0",
     "streamdown": "^2.5.0",
     "stripe": "^20.4.1",

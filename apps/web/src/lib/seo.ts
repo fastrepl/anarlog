@@ -6,6 +6,10 @@ export const ROOT_DESCRIPTION =
 export const ROOT_KEYWORDS =
   "private meeting notes, bot-free AI notes, local transcription, AI meeting notes, AI notetaker, meeting transcription, meeting summaries, BYOK AI, open source note taking, local AI";
 
+export function getBlogOgImageUrl(slug: string) {
+  return `${ANARLOG_SITE_URL}/api/og/blog/${encodeURIComponent(slug)}`;
+}
+
 type StructuredDataNode = Record<string, unknown>;
 
 export function getStructuredDataGraph(nodes: StructuredDataNode[]) {

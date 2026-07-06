@@ -6,7 +6,7 @@ import type { ComponentProps } from "react";
 
 import { mdxComponents } from "@/components/mdx-components";
 import { SiteFooter } from "@/components/site-footer";
-import { ANARLOG_SITE_URL } from "@/lib/seo";
+import { ANARLOG_SITE_URL, getBlogOgImageUrl } from "@/lib/seo";
 
 const blogMdxComponents = {
   ...mdxComponents,
@@ -26,6 +26,7 @@ export const Route = createFileRoute("/blog/$slug")({
     const article = loaderData?.article;
     if (!article) return {};
     const url = `${ANARLOG_SITE_URL}/blog/${article.slug}`;
+    const imageUrl = getBlogOgImageUrl(article.slug);
     return {
       links: [{ rel: "canonical", href: url }],
       meta: [
@@ -38,6 +39,13 @@ export const Route = createFileRoute("/blog/$slug")({
         { property: "og:description", content: article.meta_description },
         { property: "og:url", content: url },
         { property: "og:type", content: "article" },
+        { property: "og:image", content: imageUrl },
+        { property: "og:image:width", content: "1200" },
+        { property: "og:image:height", content: "630" },
+        { name: "twitter:card", content: "summary_large_image" },
+        { name: "twitter:title", content: article.meta_title || article.title },
+        { name: "twitter:description", content: article.meta_description },
+        { name: "twitter:image", content: imageUrl },
       ],
     };
   },

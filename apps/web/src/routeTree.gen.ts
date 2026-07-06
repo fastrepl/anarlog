@@ -45,6 +45,7 @@ import { Route as ViewAppPortalRouteImport } from './routes/_view/app/portal'
 import { Route as ViewAppIntegrationRouteImport } from './routes/_view/app/integration'
 import { Route as ViewAppCheckoutRouteImport } from './routes/_view/app/checkout'
 import { Route as ViewAppAccountRouteImport } from './routes/_view/app/account'
+import { Route as ApiOgBlogSlugRouteImport } from './routes/api/og/blog/$slug'
 import { Route as ApiAdminStarsResearchRouteImport } from './routes/api/admin/stars/research'
 import { Route as ApiAdminStarsPipelineRouteImport } from './routes/api/admin/stars/pipeline'
 import { Route as ApiAdminStarsLeadsRouteImport } from './routes/api/admin/stars/leads'
@@ -257,6 +258,11 @@ const ViewAppAccountRoute = ViewAppAccountRouteImport.update({
   id: '/account',
   path: '/account',
   getParentRoute: () => ViewAppRouteRoute,
+} as any)
+const ApiOgBlogSlugRoute = ApiOgBlogSlugRouteImport.update({
+  id: '/api/og/blog/$slug',
+  path: '/api/og/blog/$slug',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAdminStarsResearchRoute = ApiAdminStarsResearchRouteImport.update({
   id: '/api/admin/stars/research',
@@ -480,6 +486,7 @@ export interface FileRoutesByFullPath {
   '/api/admin/stars/leads': typeof ApiAdminStarsLeadsRoute
   '/api/admin/stars/pipeline': typeof ApiAdminStarsPipelineRoute
   '/api/admin/stars/research': typeof ApiAdminStarsResearchRoute
+  '/api/og/blog/$slug': typeof ApiOgBlogSlugRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -546,6 +553,7 @@ export interface FileRoutesByTo {
   '/api/admin/stars/leads': typeof ApiAdminStarsLeadsRoute
   '/api/admin/stars/pipeline': typeof ApiAdminStarsPipelineRoute
   '/api/admin/stars/research': typeof ApiAdminStarsResearchRoute
+  '/api/og/blog/$slug': typeof ApiOgBlogSlugRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -615,6 +623,7 @@ export interface FileRoutesById {
   '/api/admin/stars/leads': typeof ApiAdminStarsLeadsRoute
   '/api/admin/stars/pipeline': typeof ApiAdminStarsPipelineRoute
   '/api/admin/stars/research': typeof ApiAdminStarsResearchRoute
+  '/api/og/blog/$slug': typeof ApiOgBlogSlugRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -684,6 +693,7 @@ export interface FileRouteTypes {
     | '/api/admin/stars/leads'
     | '/api/admin/stars/pipeline'
     | '/api/admin/stars/research'
+    | '/api/og/blog/$slug'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -750,6 +760,7 @@ export interface FileRouteTypes {
     | '/api/admin/stars/leads'
     | '/api/admin/stars/pipeline'
     | '/api/admin/stars/research'
+    | '/api/og/blog/$slug'
   id:
     | '__root__'
     | '/'
@@ -818,6 +829,7 @@ export interface FileRouteTypes {
     | '/api/admin/stars/leads'
     | '/api/admin/stars/pipeline'
     | '/api/admin/stars/research'
+    | '/api/og/blog/$slug'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -869,6 +881,7 @@ export interface RootRouteChildren {
   ApiAdminStarsLeadsRoute: typeof ApiAdminStarsLeadsRoute
   ApiAdminStarsPipelineRoute: typeof ApiAdminStarsPipelineRoute
   ApiAdminStarsResearchRoute: typeof ApiAdminStarsResearchRoute
+  ApiOgBlogSlugRoute: typeof ApiOgBlogSlugRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1124,6 +1137,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/app/account'
       preLoaderRoute: typeof ViewAppAccountRouteImport
       parentRoute: typeof ViewAppRouteRoute
+    }
+    '/api/og/blog/$slug': {
+      id: '/api/og/blog/$slug'
+      path: '/api/og/blog/$slug'
+      fullPath: '/api/og/blog/$slug'
+      preLoaderRoute: typeof ApiOgBlogSlugRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/admin/stars/research': {
       id: '/api/admin/stars/research'
@@ -1443,6 +1463,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAdminStarsLeadsRoute: ApiAdminStarsLeadsRoute,
   ApiAdminStarsPipelineRoute: ApiAdminStarsPipelineRoute,
   ApiAdminStarsResearchRoute: ApiAdminStarsResearchRoute,
+  ApiOgBlogSlugRoute: ApiOgBlogSlugRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
