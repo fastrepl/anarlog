@@ -1,7 +1,7 @@
 import { MDXContent } from "@content-collections/mdx/react";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { type Article, allArticles } from "content-collections";
-import { Download } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import type { ComponentProps } from "react";
 
 import { mdxComponents } from "@/components/mdx-components";
@@ -109,7 +109,7 @@ function Component() {
           <MDXContent code={article.mdx} components={blogMdxComponents} />
         </article>
 
-        <BlogDownloadCta />
+        <BlogArticleCta />
       </div>
 
       <SiteFooter />
@@ -125,11 +125,11 @@ function BlogTable({ children, ...props }: ComponentProps<"table">) {
   );
 }
 
-function BlogDownloadCta() {
+function BlogArticleCta() {
   return (
     <aside
-      aria-label="Download Anarlog"
-      className="mt-20 border-y border-[#eee8df] bg-[#faf7f1] px-5 py-8 md:px-7"
+      aria-label="Try Anarlog for free"
+      className="border-color-subtle mt-20 border-y bg-[#faf7f1] px-5 py-8 md:px-7"
     >
       <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
         <div>
@@ -137,15 +137,15 @@ function BlogDownloadCta() {
             Take notes without inviting a bot
           </p>
           <p className="mt-3 max-w-xl text-base leading-7 text-[#4f4940]">
-            Download Anarlog for private, local-first meeting notes on your Mac.
+            Try Anarlog for private, local-first meeting notes on your Mac.
           </p>
         </div>
         <Link
           to="/download/"
           className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-full bg-[#181613] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#363029]"
         >
-          <Download size={17} strokeWidth={2.2} aria-hidden="true" />
-          Download app
+          Try for free
+          <ArrowRight size={17} strokeWidth={2.2} aria-hidden="true" />
         </Link>
       </div>
     </aside>
