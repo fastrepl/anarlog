@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "NODE_OPTIONS='--max-old-space-size=8192' VITE_APP_URL=\"http://localhost:3000\" VITE_API_URL=\"http://localhost:3001\" dotenvx run --ignore MISSING_ENV_FILE -f ../../.env.supabase -f .env -- vite dev --port 3000",
     "build": "NODE_OPTIONS='--max-old-space-size=8192' vite build && cp public/sitemap.xml dist/client/sitemap.xml && pagefind --site ./dist/client",
+    "media:napkin": "node scripts/napkin-to-supabase.mjs",
     "serve": "vite preview",
     "test": "node --test",
     "typecheck": "tsc --project tsconfig.json --noEmit"
