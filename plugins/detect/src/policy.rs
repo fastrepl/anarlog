@@ -53,9 +53,21 @@ impl AppCategory {
             ],
             Self::ScreenRecording => &[
                 "so.cap.desktop",
+                "so.cap.desktop.dev",
                 "com.timpler.screenstudio",
                 "com.loom.desktop",
                 "com.obsproject.obs-studio",
+                "pl.maketheweb.cleanshotx",
+                "com.getcleanshot.app-setapp",
+                "com.wulkano.kap",
+                "com.wulkano.kap.helper",
+                "net.telestream.screenflow10",
+                "com.techsmith.camtasia",
+                "com.techsmith.camtasia2024",
+                "com.TechSmith.Snagit",
+                "com.TechSmith.Snagit2024",
+                "com.apple.QuickTimePlayerX",
+                "com.apple.screenshot.launcher",
             ],
             Self::AIAssistant => &[
                 "com.openai.chat",
@@ -226,6 +238,14 @@ mod tests {
         );
         assert_eq!(
             AppCategory::find_category("so.cap.desktop"),
+            Some(AppCategory::ScreenRecording)
+        );
+        assert_eq!(
+            AppCategory::find_category("pl.maketheweb.cleanshotx"),
+            Some(AppCategory::ScreenRecording)
+        );
+        assert_eq!(
+            AppCategory::find_category("com.apple.QuickTimePlayerX"),
             Some(AppCategory::ScreenRecording)
         );
         assert_eq!(

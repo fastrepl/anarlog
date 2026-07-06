@@ -18,6 +18,20 @@ fn aqua_voice() -> hypr_detect::InstalledApp {
     }
 }
 
+fn screen_studio() -> hypr_detect::InstalledApp {
+    hypr_detect::InstalledApp {
+        id: "com.timpler.screenstudio".to_string(),
+        name: "Screen Studio".to_string(),
+    }
+}
+
+fn snagit_2024() -> hypr_detect::InstalledApp {
+    hypr_detect::InstalledApp {
+        id: "com.TechSmith.Snagit2024".to_string(),
+        name: "Snagit 2024".to_string(),
+    }
+}
+
 fn slack() -> hypr_detect::InstalledApp {
     hypr_detect::InstalledApp {
         id: "com.tinyspeck.slackmacgap".to_string(),
@@ -107,6 +121,25 @@ async fn test_filtered_app_no_event() {
         h.take_events().is_empty(),
         "categorized app should not emit MicDetected"
     );
+}
+
+#[tokio::test(start_paused = true)]
+async fn test_screen_recording_app_no_event() {
+    for app in [screen_studio(), snagit_2024()] {
+        let h = Harness::new();
+
+        h.mic_started(app);
+        assert!(
+            h.take_events().is_empty(),
+            "screen recording app should not start a timer"
+        );
+
+        h.advance_secs(15).await;
+        assert!(
+            h.take_events().is_empty(),
+            "screen recording app should not emit MicDetected"
+        );
+    }
 }
 
 #[tokio::test(start_paused = true)]
