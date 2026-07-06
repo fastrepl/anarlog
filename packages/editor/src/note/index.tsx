@@ -189,6 +189,34 @@ function isSameContent(
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
+export function shouldReplaceEditorContent({
+  currentContent,
+  nextContent,
+  hasFocus,
+  isComposing,
+  syncContentWhenFocused,
+}: {
+  currentContent: JSONContent;
+  nextContent: JSONContent;
+  hasFocus: boolean;
+  isComposing: boolean;
+  syncContentWhenFocused: boolean;
+}) {
+  if (isSameContent(currentContent, nextContent)) {
+    return false;
+  }
+
+  if (isComposing) {
+    return false;
+  }
+
+  if (hasFocus && !syncContentWhenFocused) {
+    return false;
+  }
+
+  return true;
+}
+
 function wrapNodeViewComponents(nodeViews?: NodeViewComponents) {
   if (!nodeViews) {
     return {};
@@ -636,8 +664,15 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
         return;
       }
 
-      if (view.hasFocus() && !syncContentWhenFocused) {
-        previousContentRef.current = reconciledInitialContent;
+      if (
+        !shouldReplaceEditorContent({
+          currentContent,
+          nextContent: reconciledInitialContent,
+          hasFocus: view.hasFocus(),
+          isComposing: view.composing,
+          syncContentWhenFocused,
+        })
+      ) {
         return;
       }
 
