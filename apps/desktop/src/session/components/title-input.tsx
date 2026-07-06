@@ -309,6 +309,10 @@ const TitleInputInner = memo(
       );
 
       const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (isComposingKeyEvent(e)) {
+          return;
+        }
+
         if (e.key === "ArrowUp") {
           e.preventDefault();
           return;
@@ -446,6 +450,14 @@ const TitleInputInner = memo(
     },
   ),
 );
+
+function isComposingKeyEvent(event: React.KeyboardEvent<HTMLInputElement>) {
+  return (
+    event.nativeEvent.isComposing ||
+    event.key === "Process" ||
+    event.keyCode === 229
+  );
+}
 
 function getTitleFadeMask({
   showStartFade,

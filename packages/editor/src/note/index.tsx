@@ -182,6 +182,13 @@ const baseNodeViews = {
   }),
 };
 
+const COMPOSITION_SYNC_GRACE_MS = 500;
+
+export type CompositionState = {
+  active: boolean;
+  endedAt: number;
+};
+
 function isSameContent(
   left: JSONContent | undefined,
   right: JSONContent | undefined,
@@ -231,6 +238,44 @@ function wrapNodeViewComponents(nodeViews?: NodeViewComponents) {
       }),
     ]),
   ) as NodeViewComponents;
+}
+
+export function getEditorCompositionWaitMs(
+  view: Pick<EditorView, "composing">,
+  compositionState: CompositionState,
+) {
+  if (view.composing || compositionState.active) {
+    return COMPOSITION_SYNC_GRACE_MS;
+  }
+
+  return Math.max(
+    COMPOSITION_SYNC_GRACE_MS - (Date.now() - compositionState.endedAt),
+    0,
+  );
+}
+
+function createCompositionStatePlugin(
+  setCompositionActive: (active: boolean) => void,
+) {
+  return new Plugin({
+    key: new PluginKey("imeCompositionState"),
+    props: {
+      handleDOMEvents: {
+        compositionstart() {
+          setCompositionActive(true);
+          return false;
+        },
+        compositionupdate() {
+          setCompositionActive(true);
+          return false;
+        },
+        compositionend() {
+          setCompositionActive(false);
+          return false;
+        },
+      },
+    },
+  });
 }
 
 function createSessionMentionDropPlugin(config: SessionMentionDropConfig) {
@@ -531,6 +576,10 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
     );
     const viewRef = useRef<EditorView | null>(null);
     const commandsRef = useRef<EditorCommands>(noopCommands);
+    const compositionStateRef = useRef<CompositionState>({
+      active: false,
+      endedAt: 0,
+    });
 
     useImperativeHandle(
       ref,
@@ -580,9 +629,17 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
     const onUpdateRef = useRef(onUpdate);
     onUpdateRef.current = onUpdate;
 
+    const setCompositionActive = useCallback((active: boolean) => {
+      compositionStateRef.current = {
+        active,
+        endedAt: active ? 0 : Date.now(),
+      };
+    }, []);
+
     const plugins = useMemo(
       () => [
         reactKeys(),
+        createCompositionStatePlugin(setCompositionActive),
         docChangeListenerPlugin((view) =>
           onUpdateRef.current(view.state.doc.toJSON() as JSONContent),
         ),
@@ -619,6 +676,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
         onNavigateToTitle,
         onLinkOpen,
         enforceTitleHeading,
+        setCompositionActive,
       ],
     );
     const nodeViews = useMemo(
@@ -647,50 +705,71 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
     }, [reconciledInitialContent, plugins, enforceTitleHeading]);
 
     useEffect(() => {
-      const view = viewRef.current;
-      if (!view) return;
-      if (previousContentRef.current === reconciledInitialContent) return;
+      let retryTimeout: ReturnType<typeof setTimeout> | undefined;
 
-      if (
-        !reconciledInitialContent ||
-        reconciledInitialContent.type !== "doc"
-      ) {
-        return;
-      }
+      const syncContent = () => {
+        const view = viewRef.current;
+        if (!view) return;
+        if (previousContentRef.current === reconciledInitialContent) return;
 
-      const currentContent = view.state.doc.toJSON() as JSONContent;
-      if (isSameContent(currentContent, reconciledInitialContent)) {
-        previousContentRef.current = reconciledInitialContent;
-        return;
-      }
-
-      if (
-        !shouldReplaceEditorContent({
-          currentContent,
-          nextContent: reconciledInitialContent,
-          hasFocus: view.hasFocus(),
-          isComposing: view.composing,
-          syncContentWhenFocused,
-        })
-      ) {
-        return;
-      }
-
-      try {
-        let doc = PMNode.fromJSON(schema, reconciledInitialContent);
-        if (enforceTitleHeading) {
-          doc = normalizeTitleHeadingDoc(doc);
+        if (
+          !reconciledInitialContent ||
+          reconciledInitialContent.type !== "doc"
+        ) {
+          return;
         }
-        const state = EditorState.create({
-          doc,
-          plugins: view.state.plugins,
-        });
-        onUpdate.cancel();
-        view.updateState(state);
-        previousContentRef.current = reconciledInitialContent;
-      } catch {
-        // invalid content
-      }
+
+        const currentContent = view.state.doc.toJSON() as JSONContent;
+        if (isSameContent(currentContent, reconciledInitialContent)) {
+          previousContentRef.current = reconciledInitialContent;
+          return;
+        }
+
+        const compositionWaitMs = getEditorCompositionWaitMs(
+          view,
+          compositionStateRef.current,
+        );
+        if (compositionWaitMs > 0) {
+          retryTimeout = setTimeout(syncContent, compositionWaitMs);
+          return;
+        }
+
+        if (
+          !shouldReplaceEditorContent({
+            currentContent,
+            nextContent: reconciledInitialContent,
+            hasFocus: view.hasFocus(),
+            isComposing: false,
+            syncContentWhenFocused,
+          })
+        ) {
+          return;
+        }
+
+        try {
+          let doc = PMNode.fromJSON(schema, reconciledInitialContent);
+          if (enforceTitleHeading) {
+            doc = normalizeTitleHeadingDoc(doc);
+          }
+          const state = EditorState.create({
+            doc,
+            plugins: view.state.plugins,
+          });
+          onUpdate.cancel();
+          view.updateState(state);
+          previousContentRef.current = reconciledInitialContent;
+        } catch {
+          // invalid content
+        }
+      };
+
+      syncContent();
+
+      return () => {
+        if (retryTimeout) {
+          clearTimeout(retryTimeout);
+        }
+      };
     }, [
       reconciledInitialContent,
       syncContentWhenFocused,
@@ -704,6 +783,17 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
         syncTasks(view.state.doc.toJSON() as JSONContent);
       },
       [onViewReadyProp, syncTasks],
+    );
+
+    const handleViewDisposed = useCallback(
+      (view: EditorView) => {
+        compositionStateRef.current = {
+          active: false,
+          endedAt: 0,
+        };
+        onViewDisposed?.(view);
+      },
+      [onViewDisposed],
     );
 
     return (
@@ -734,7 +824,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
               <ViewCapture
                 viewRef={viewRef}
                 onViewReady={onViewReady}
-                onViewDisposed={onViewDisposed}
+                onViewDisposed={handleViewDisposed}
               />
               <EditorCommandsBridge commandsRef={commandsRef} />
               {showFormatToolbar && <FormatToolbar />}

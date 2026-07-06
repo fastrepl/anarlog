@@ -8,6 +8,7 @@ import { TitleInput } from "./title-input";
 
 const hoisted = vi.hoisted(() => ({
   clearLiveTitle: vi.fn(),
+  setStoreTitle: vi.fn(),
   setLiveTitle: vi.fn(),
   storeTitle: "Untitled" as string | undefined,
   store: {
@@ -27,7 +28,7 @@ vi.mock("~/store/tinybase/store/main", () => ({
   STORE_ID: "main",
   UI: {
     useCell: () => hoisted.storeTitle,
-    useSetPartialRowCallback: () => vi.fn(),
+    useSetPartialRowCallback: () => hoisted.setStoreTitle,
     useStore: () => hoisted.store,
   },
 }));
@@ -83,6 +84,28 @@ describe("TitleInput", () => {
     });
 
     expect(hoisted.clearLiveTitle).not.toHaveBeenCalled();
+  });
+
+  it("does not handle IME confirmation keys as title navigation", () => {
+    const onTransferContentToEditor = vi.fn();
+    const onFocusEditorAtStart = vi.fn();
+    renderTitleInput({
+      onFocusEditorAtStart,
+      onTransferContentToEditor,
+    });
+
+    const input = screen.getByPlaceholderText("Untitled");
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "안" } });
+    fireEvent.keyDown(input, {
+      key: "Enter",
+      keyCode: 229,
+    });
+
+    expect(hoisted.setStoreTitle).not.toHaveBeenCalled();
+    expect(hoisted.clearLiveTitle).not.toHaveBeenCalled();
+    expect(onTransferContentToEditor).not.toHaveBeenCalled();
+    expect(onFocusEditorAtStart).not.toHaveBeenCalled();
   });
 
   it("left-aligns the empty title field without a generate button", () => {
