@@ -68,4 +68,3 @@ Create a clean horizontal workflow diagram for an Anarlog blog post. The figure
 should explain a private, bot-free meeting minutes workflow for teams evaluating
 meeting minutes software.
 ```
-
