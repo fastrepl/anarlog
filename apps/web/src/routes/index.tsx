@@ -496,10 +496,10 @@ function PricingCard({ plan }: { plan: MarketingPlanData }) {
   return (
     <article
       className={cn([
-        "flex min-h-[30rem] flex-col rounded-[3px] border bg-white p-6 shadow-[0_16px_46px_rgba(24,22,19,0.08)]",
+        "flex min-h-[30rem] flex-col rounded-[3px] border bg-white p-6 transition-all duration-200",
         plan.popular
-          ? "border-neutral-200"
-          : "border-neutral-200 shadow-[0_10px_32px_rgba(24,22,19,0.05)]",
+          ? "border-[#181613]/30 shadow-[0_22px_60px_rgba(24,22,19,0.14)] ring-1 ring-[#181613]/10"
+          : "border-neutral-200 opacity-[0.58] shadow-[0_10px_32px_rgba(24,22,19,0.05)] focus-within:opacity-100 focus-within:shadow-[0_16px_46px_rgba(24,22,19,0.08)] hover:opacity-100 hover:shadow-[0_16px_46px_rgba(24,22,19,0.08)]",
       ])}
     >
       <div className="flex items-start">
