@@ -13,7 +13,7 @@ function Image({
     <img
       src={src}
       alt={alt ?? ""}
-      className="my-6 w-full rounded-md border border-neutral-200"
+      className="my-6 w-full rounded-md"
       {...rest}
     />
   );
