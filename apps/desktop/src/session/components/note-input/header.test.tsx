@@ -935,12 +935,16 @@ describe("Header", () => {
         editorTabs={editorTabs}
         currentTab={{ type: "transcript" }}
         handleTabChange={handleTabChange}
+        isTranscribing
       />,
     );
 
     const transcriptTab = screen.getByRole("button", { name: "Transcript" });
 
-    expect(screen.getByTestId("dancing-sticks")).not.toBeNull();
+    expect(
+      transcriptTab.querySelector("[data-testid='view-spinner']"),
+    ).not.toBeNull();
+    expect(screen.queryByTestId("dancing-sticks")).toBeNull();
     expect(transcriptTab.getAttribute("title")).toBeNull();
 
     fireEvent.click(transcriptTab);

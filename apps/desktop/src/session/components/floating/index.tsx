@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "motion/react";
 import type { CSSProperties } from "react";
 import { useCallback } from "react";
 
+import { Spinner } from "@hypr/ui/components/ui/spinner";
 import { cn } from "@hypr/utils";
 
 import { useCaretPosition } from "../caret-position-context";
@@ -89,10 +90,12 @@ export function FloatingActionButton({
   });
   const shouldShowGenerateSummary = generateSummaryNoteId !== null;
   const shouldShowTranscriptAction = transcriptAction !== null;
+  const shouldShowFinalizing = sessionMode === "finalizing";
   const isCaretNearBottom = useCaretPosition()?.isCaretNearBottom ?? false;
   const showSkipReason = !!skipReason;
   const useChatHoverArea =
     !showSkipReason &&
+    !shouldShowFinalizing &&
     !shouldShowTranscriptAction &&
     !shouldShowGenerateSummary &&
     shouldShowChat;
@@ -101,6 +104,7 @@ export function FloatingActionButton({
 
   if (
     !showSkipReason &&
+    !shouldShowFinalizing &&
     !shouldShowListen &&
     !shouldShowTranscriptAction &&
     !shouldShowGenerateSummary &&
@@ -139,13 +143,15 @@ export function FloatingActionButton({
         ) : (
           <motion.div
             key={
-              shouldShowListen
-                ? "listen"
-                : shouldShowTranscriptAction
-                  ? `transcript-${transcriptAction.type}`
-                  : shouldShowGenerateSummary
-                    ? "generate-summary"
-                    : "chat"
+              shouldShowFinalizing
+                ? "finalizing"
+                : shouldShowListen
+                  ? "listen"
+                  : shouldShowTranscriptAction
+                    ? `transcript-${transcriptAction.type}`
+                    : shouldShowGenerateSummary
+                      ? "generate-summary"
+                      : "chat"
             }
             aria-hidden={tuckListenAction}
             initial={{ opacity: 0 }}
@@ -166,7 +172,9 @@ export function FloatingActionButton({
                 : "pointer-events-auto visible",
             ])}
           >
-            {shouldShowListen ? (
+            {shouldShowFinalizing ? (
+              <FinalizingButton />
+            ) : shouldShowListen ? (
               <ListenButton tab={tab} />
             ) : transcriptAction ? (
               <TranscriptActionButton
@@ -185,6 +193,19 @@ export function FloatingActionButton({
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+function FinalizingButton() {
+  return (
+    <FloatingButton
+      disabled
+      className="w-fit gap-2 px-4 whitespace-nowrap opacity-100"
+    >
+      <span className="flex items-center gap-1.5">
+        <Spinner size={14} /> Preparing transcript...
+      </span>
+    </FloatingButton>
   );
 }
 

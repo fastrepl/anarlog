@@ -35,6 +35,10 @@ const hoisted = vi.hoisted(() => ({
   updateSessionTabState: vi.fn(),
 }));
 
+vi.mock("@hypr/ui/components/ui/spinner", () => ({
+  Spinner: () => <span data-testid="spinner" />,
+}));
+
 vi.mock("./listen", () => ({
   ListenButton: () => <button type="button">Start listening</button>,
 }));
@@ -351,6 +355,22 @@ describe("FloatingActionButton", () => {
     );
 
     expect(hoisted.sendEvent).toHaveBeenCalledWith({ type: "OPEN" });
+  });
+
+  it("shows a finalizing indicator after live listening stops", () => {
+    hoisted.sessionMode = "finalizing";
+
+    renderFloatingActionButton();
+
+    const button = screen.getByRole("button", {
+      name: "Preparing transcript...",
+    });
+
+    expect(button.hasAttribute("disabled")).toBe(true);
+    expect(screen.getByTestId("spinner")).not.toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Ask Anarlog anything" }),
+    ).toBeNull();
   });
 
   it("tucks the listen FAB near the editor caret instead of scroll state", () => {

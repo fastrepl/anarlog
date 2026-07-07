@@ -809,20 +809,19 @@ function useTranscriptLiveViewState(sessionId: string) {
 
     stop();
   }, [sessionId, stop]);
-  const isLiveSession = mode === "active" || mode === "finalizing";
-
   return {
-    live: isLiveSession
-      ? {
-          amplitude: Math.min(Math.hypot(amplitude.mic, amplitude.speaker), 1),
-          degraded: Boolean(degraded),
-          muted,
-        }
-      : undefined,
-    onStopLiveSession:
-      isLiveSession && mode !== "finalizing"
-        ? handleStopLiveSession
+    live:
+      mode === "active"
+        ? {
+            amplitude: Math.min(
+              Math.hypot(amplitude.mic, amplitude.speaker),
+              1,
+            ),
+            degraded: Boolean(degraded),
+            muted,
+          }
         : undefined,
+    onStopLiveSession: mode === "active" ? handleStopLiveSession : undefined,
   };
 }
 
