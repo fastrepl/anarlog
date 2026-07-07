@@ -226,7 +226,7 @@ function BlogArticleCta() {
   return (
     <aside
       aria-label="Try Anarlog for free"
-      className="border-color-subtle mt-20 border-y bg-[#faf7f1] px-5 py-8 md:px-7"
+      className="border-color-subtle mt-20 rounded-sm border bg-[#faf7f1] px-5 py-8 md:px-7"
     >
       <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
         <div>
