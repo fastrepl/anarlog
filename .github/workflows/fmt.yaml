@@ -11,6 +11,8 @@ jobs:
     runs-on: depot-ubuntu-24.04-4
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
         with:
           run_install: false
@@ -23,7 +25,14 @@ jobs:
         with:
           path: ~/.cache/dprint/cache/plugins
           key: dprint-${{ hashFiles('dprint.json') }}
-      - run: pnpm fmt:check
-      - uses: dprint/check@v2.3
-        with:
-          config-path: dprint.json
+      - name: Check formatting
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [ -n "$BASE_SHA" ] && git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
+            git diff --name-only --diff-filter=ACMR -z "$BASE_SHA" "$HEAD_SHA" | xargs -0 --no-run-if-empty pnpm exec dprint check
+          else
+            pnpm fmt:check
+          fi

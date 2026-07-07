@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "fmt:check": "echo 'TODO'",
+    "fmt:check": "dprint check",
     "fmt": "dprint fmt",
     "lint": "oxlint --type-aware || eslint",
     "plugin:hello-world:install": "pnpm --dir examples/plugins/hello-world install:dev"
