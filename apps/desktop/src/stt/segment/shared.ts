@@ -15,7 +15,8 @@ export {
 export const ChannelProfileSchema = Schema.Enums(ChannelProfile);
 
 export const defaultRenderLabelContext = (
-  store: Pick<Store, "getValue" | "getRow">,
+  store: Pick<Store, "getValue" | "getRow" | "forEachRow" | "getCell">,
+  sessionId?: string | null,
 ): RenderLabelContext => {
   return {
     getSelfHumanId: () => {
@@ -25,6 +26,37 @@ export const defaultRenderLabelContext = (
     getHumanName: (id: string) => {
       const human = store.getRow("humans", id);
       return typeof human.name === "string" ? human.name : undefined;
+    },
+    getParticipantHumanIds: () => {
+      if (!sessionId) {
+        return [];
+      }
+
+      const humanIds: string[] = [];
+      store.forEachRow(
+        "mapping_session_participant",
+        (mappingId, _forEachCell) => {
+          const mappingSessionId = store.getCell(
+            "mapping_session_participant",
+            mappingId,
+            "session_id",
+          );
+          if (mappingSessionId !== sessionId) {
+            return;
+          }
+
+          const humanId = store.getCell(
+            "mapping_session_participant",
+            mappingId,
+            "human_id",
+          );
+          if (typeof humanId === "string" && humanId) {
+            humanIds.push(humanId);
+          }
+        },
+      );
+
+      return [...new Set(humanIds)];
     },
   };
 };

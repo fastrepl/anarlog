@@ -206,16 +206,18 @@ struct FloatingBarView: View {
               .frame(maxWidth: .infinity, maxHeight: .infinity)
               .onChange(of: model.transcriptBubbles.last?.id) { _, bubbleId in
                 if bubbleId != nil, shouldAutoScrollTranscript {
-                  proxy.scrollTo(transcriptBottomAnchorId, anchor: .bottom)
+                  scrollTranscriptToBottom(proxy)
                 }
+              }
+              .onAppear {
+                shouldAutoScrollTranscript = true
+                scrollTranscriptToBottom(proxy)
               }
 
               if !shouldAutoScrollTranscript, model.transcriptBubbles.last?.id != nil {
                 transcriptBottomChip {
                   performClick {
-                    withAnimation(.easeOut(duration: 0.16)) {
-                      proxy.scrollTo(transcriptBottomAnchorId, anchor: .bottom)
-                    }
+                    scrollTranscriptToBottom(proxy, animated: true)
                     shouldAutoScrollTranscript = true
                   }
                 }
@@ -472,6 +474,18 @@ struct FloatingBarView: View {
     let previousBubble = model.transcriptBubbles[index - 1]
     return bubble.speakerLabel != previousBubble.speakerLabel
       || bubble.isSelf != previousBubble.isSelf
+  }
+
+  private func scrollTranscriptToBottom(_ proxy: ScrollViewProxy, animated: Bool = false) {
+    DispatchQueue.main.async {
+      if animated {
+        withAnimation(.easeOut(duration: 0.16)) {
+          proxy.scrollTo(transcriptBottomAnchorId, anchor: .bottom)
+        }
+      } else {
+        proxy.scrollTo(transcriptBottomAnchorId, anchor: .bottom)
+      }
+    }
   }
 
   private func transcriptBottomChip(action: @escaping () -> Void) -> some View {

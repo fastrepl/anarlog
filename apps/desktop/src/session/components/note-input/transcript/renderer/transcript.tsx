@@ -14,6 +14,7 @@ import {
   segmentsShallowEqual,
   useStableSegments,
 } from "./segment-hooks";
+import { useSpeakerLabelContextVersion } from "./speaker-label-context";
 
 import * as main from "~/store/tinybase/store/main";
 import {
@@ -102,14 +103,21 @@ const SegmentsList = memo(
     maxSpeakerNumber?: number;
   }) => {
     const store = main.UI.useStore(main.STORE_ID);
+    const sessionId = store?.getCell("transcripts", transcriptId, "session_id");
+    const contextVersion = useSpeakerLabelContextVersion(
+      typeof sessionId === "string" ? sessionId : null,
+    );
     const search = useSearch();
     const speakerLabelManager = useMemo(() => {
       if (!store) {
         return new SpeakerLabelManager();
       }
-      const ctx = defaultRenderLabelContext(store);
+      const ctx = defaultRenderLabelContext(
+        store,
+        typeof sessionId === "string" ? sessionId : null,
+      );
       return SpeakerLabelManager.fromSegments(segments, ctx, maxSpeakerNumber);
-    }, [maxSpeakerNumber, segments, store]);
+    }, [contextVersion, maxSpeakerNumber, segments, sessionId, store]);
     const transcriptSearch = useMemo<TranscriptSearchRenderState>(() => {
       const query = search?.query.trim() ?? "";
       if (!search?.isVisible || !query) {

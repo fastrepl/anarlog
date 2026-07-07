@@ -12,6 +12,7 @@ import {
 } from "./host";
 
 import { createListenerStore } from "~/store/zustand/listener";
+import type { RenderLabelContext } from "~/stt/live-segment";
 
 type ListenerLiveState = ReturnType<
   ReturnType<typeof createListenerStore>["getState"]
@@ -293,20 +294,54 @@ describe("getFloatingTranscriptBubbles", () => {
     ]);
   });
 
+  it("labels remote bubbles as the unique other participant", () => {
+    const ctx: RenderLabelContext = {
+      getSelfHumanId: () => "self",
+      getHumanName: (id) => (id === "remote" ? "Artem" : undefined),
+      getParticipantHumanIds: () => ["self", "remote"],
+    };
+    const bubbles = getFloatingTranscriptBubbles(
+      [
+        createSegment({
+          id: "remote",
+          key: {
+            channel: "RemoteParty",
+            speaker_index: 0,
+            speaker_human_id: null,
+          },
+          start_ms: 0,
+          text: "hello",
+          words: [{ text: "hello" }],
+        }),
+      ],
+      ctx,
+    );
+
+    expect(bubbles[0]?.speakerLabel).toBe("Artem");
+  });
+
   it("labels assigned direct-mic bubbles as self", () => {
-    const bubbles = getFloatingTranscriptBubbles([
-      createSegment({
-        id: "assigned-mic",
-        key: {
-          channel: "DirectMic",
-          speaker_index: 1,
-          speaker_human_id: "participant-1",
-        },
-        start_ms: 0,
-        text: "hello",
-        words: [{ text: "hello" }],
-      }),
-    ]);
+    const ctx: RenderLabelContext = {
+      getSelfHumanId: () => "self",
+      getHumanName: (id) => (id === "participant-1" ? "Artem" : undefined),
+      getParticipantHumanIds: () => ["self", "participant-1"],
+    };
+    const bubbles = getFloatingTranscriptBubbles(
+      [
+        createSegment({
+          id: "assigned-mic",
+          key: {
+            channel: "DirectMic",
+            speaker_index: 1,
+            speaker_human_id: "participant-1",
+          },
+          start_ms: 0,
+          text: "hello",
+          words: [{ text: "hello" }],
+        }),
+      ],
+      ctx,
+    );
 
     expect(bubbles).toEqual([
       {

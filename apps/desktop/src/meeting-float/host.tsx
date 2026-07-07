@@ -11,6 +11,8 @@ import { useConfigValue } from "~/shared/config";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import * as settingsStore from "~/store/tinybase/store/settings";
 import { listenerStore } from "~/store/zustand/listener/instance";
+import { SegmentKeyUtils, type RenderLabelContext } from "~/stt/live-segment";
+import { defaultRenderLabelContext } from "~/stt/segment/shared";
 
 type ListenerState = ReturnType<typeof listenerStore.getState>;
 export type SettingsStore = NonNullable<
@@ -303,6 +305,17 @@ function FloatingMeetingWindowSync({
       routeState = nextRouteState;
       scheduleSync();
     };
+    const refreshCurrentRouteState = () => {
+      updateRouteState(
+        getCurrentFloatingRouteState(
+          listenerStore.getState(),
+          undefined,
+          settings,
+          getFloatingLiveCaptionToggleVisible(listenerStore.getState(), store),
+          main,
+        ),
+      );
+    };
 
     const sync = async () => {
       if (!shouldContinue()) {
@@ -386,6 +399,7 @@ function FloatingMeetingWindowSync({
           store,
         ),
         sessionTitle: getFloatingSessionTitle(state, main),
+        speakerLabelContext: getFloatingSpeakerLabelContext(state, main),
       });
       const previousRouteState = getFloatingRouteState(previousState, {
         colorScheme,
@@ -395,6 +409,10 @@ function FloatingMeetingWindowSync({
           store,
         ),
         sessionTitle: getFloatingSessionTitle(previousState, main),
+        speakerLabelContext: getFloatingSpeakerLabelContext(
+          previousState,
+          main,
+        ),
       });
 
       if (!isSameFloatingRouteState(nextRouteState, previousRouteState)) {
@@ -423,32 +441,19 @@ function FloatingMeetingWindowSync({
       "sessions",
       null,
       "title",
-      () => {
-        updateRouteState(
-          getCurrentFloatingRouteState(
-            listenerStore.getState(),
-            undefined,
-            settings,
-            getFloatingLiveCaptionToggleVisible(
-              listenerStore.getState(),
-              store,
-            ),
-            main,
-          ),
-        );
-      },
+      refreshCurrentRouteState,
+    );
+    const participantListenerId = main?.addTableListener(
+      "mapping_session_participant",
+      refreshCurrentRouteState,
+    );
+    const humanListenerId = main?.addTableListener(
+      "humans",
+      refreshCurrentRouteState,
     );
 
     const unsubscribeAppliedTheme = subscribeToAppliedTheme(() => {
-      const nextRouteState = getCurrentFloatingRouteState(
-        listenerStore.getState(),
-        undefined,
-        settings,
-        getFloatingLiveCaptionToggleVisible(listenerStore.getState(), store),
-        main,
-      );
-
-      updateRouteState(nextRouteState);
+      refreshCurrentRouteState();
     });
 
     return () => {
@@ -458,6 +463,12 @@ function FloatingMeetingWindowSync({
       removeSettingsListeners(store, settingsListenerIds);
       if (sessionTitleListenerId) {
         main?.delListener(sessionTitleListenerId);
+      }
+      if (participantListenerId) {
+        main?.delListener(participantListenerId);
+      }
+      if (humanListenerId) {
+        main?.delListener(humanListenerId);
       }
       unlisteners.forEach((unlisten) => unlisten());
       void hideFloatingMeetingPanel();
@@ -475,12 +486,14 @@ export function getFloatingRouteState(
     settings = DEFAULT_FLOATING_OVERLAY_SETTINGS,
     liveCaptionToggleVisible = false,
     sessionTitle,
+    speakerLabelContext,
   }: {
     sessionId?: string;
     colorScheme?: FloatingBarColorScheme;
     settings?: FloatingOverlaySettings;
     liveCaptionToggleVisible?: boolean;
     sessionTitle?: string | null;
+    speakerLabelContext?: RenderLabelContext;
   } = {},
 ): FloatingRouteState | null {
   if (state.live.status !== "active") {
@@ -511,7 +524,10 @@ export function getFloatingRouteState(
     liveCaptionPosition: settings.liveCaptionPosition,
     liveCaptionMinimized: settings.liveCaptionMinimized,
     liveCaptionToggleVisible,
-    transcriptBubbles: getFloatingTranscriptBubbles(state.liveSegments),
+    transcriptBubbles: getFloatingTranscriptBubbles(
+      state.liveSegments,
+      speakerLabelContext,
+    ),
   };
 }
 
@@ -528,6 +544,7 @@ function getCurrentFloatingRouteState(
     settings,
     liveCaptionToggleVisible,
     sessionTitle: getFloatingSessionTitle(state, main),
+    speakerLabelContext: getFloatingSpeakerLabelContext(state, main),
   });
 }
 
@@ -551,6 +568,7 @@ function getFloatingTitle(title: string | null | undefined) {
 
 export function getFloatingTranscriptBubbles(
   segments: ListenerState["liveSegments"],
+  speakerLabelContext?: RenderLabelContext,
 ): FloatingTranscriptBubble[] {
   const bubbles = segments
     .slice()
@@ -568,7 +586,7 @@ export function getFloatingTranscriptBubbles(
 
       return {
         id: segment.id,
-        speakerLabel: getFloatingSpeakerLabel(segment.key),
+        speakerLabel: getFloatingSpeakerLabel(segment.key, speakerLabelContext),
         text,
         isSelf: isFloatingSelfSpeaker(segment.key),
         isFinal: segment.words.every((word) => word.is_final),
@@ -605,9 +623,14 @@ function getFloatingSegmentText(
 
 function getFloatingSpeakerLabel(
   key: ListenerState["liveSegments"][number]["key"],
+  ctx?: RenderLabelContext,
 ) {
   if (isFloatingSelfSpeaker(key)) {
     return "You";
+  }
+
+  if (ctx) {
+    return SegmentKeyUtils.renderLabel(key, ctx);
   }
 
   if (key.speaker_index != null) {
@@ -619,6 +642,17 @@ function getFloatingSpeakerLabel(
   }
 
   return "Audio";
+}
+
+function getFloatingSpeakerLabelContext(
+  state: ListenerState,
+  main: MeetingFloatMainStore | undefined,
+): RenderLabelContext | undefined {
+  if (!main || !state.live.sessionId) {
+    return undefined;
+  }
+
+  return defaultRenderLabelContext(main, state.live.sessionId);
 }
 
 function isFloatingSelfSpeaker(

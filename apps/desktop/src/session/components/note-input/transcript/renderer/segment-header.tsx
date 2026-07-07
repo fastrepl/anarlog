@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { cn } from "@hypr/utils";
 
 import { SpeakerAssignPopover } from "./speaker-assign";
+import { useSpeakerLabelContextVersion } from "./speaker-label-context";
 import { useSegmentColorVars } from "./utils";
 
 import * as main from "~/store/tinybase/store/main";
@@ -20,7 +21,7 @@ export function SegmentHeader({
   speakerLabelManager?: SpeakerLabelManager;
 }) {
   const colorVars = useSegmentColorVars(segment.key);
-  const label = useSpeakerLabel(segment.key, speakerLabelManager);
+  const label = useSpeakerLabel(segment.key, transcriptId, speakerLabelManager);
   const headerClassName = cn([
     "bg-card sticky top-0 z-20",
     "-mx-3 px-3 py-1",
@@ -42,14 +43,25 @@ export function SegmentHeader({
   );
 }
 
-function useSpeakerLabel(key: Segment["key"], manager?: SpeakerLabelManager) {
+function useSpeakerLabel(
+  key: Segment["key"],
+  transcriptId: string,
+  manager?: SpeakerLabelManager,
+) {
   const store = main.UI.useStore(main.STORE_ID);
+  const sessionId = store?.getCell("transcripts", transcriptId, "session_id");
+  const contextVersion = useSpeakerLabelContextVersion(
+    typeof sessionId === "string" ? sessionId : null,
+  );
 
   return useMemo(() => {
     if (!store) {
       return SegmentKeyUtils.renderLabel(key, undefined, manager);
     }
-    const ctx = defaultRenderLabelContext(store);
+    const ctx = defaultRenderLabelContext(
+      store,
+      typeof sessionId === "string" ? sessionId : null,
+    );
     return SegmentKeyUtils.renderLabel(key, ctx, manager);
-  }, [key, manager, store]);
+  }, [contextVersion, key, manager, sessionId, store]);
 }
