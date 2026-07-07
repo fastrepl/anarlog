@@ -15,6 +15,7 @@ const baseParams = {
   hasProLlmConfigured: false,
   isAiTranscriptionTabActive: false,
   isAiIntelligenceTabActive: false,
+  isBatchTranscribingInActiveTranscriptTab: false,
   hasActiveDownload: false,
   downloadProgress: null,
   downloadingModel: null,
@@ -53,6 +54,34 @@ describe("sidebar toast registry", () => {
     expect(toast?.id).toBe("missing-stt");
     expect(toast?.description).toBe("Transcription model needed");
     expect(toast?.primaryAction?.label).toBe("Add");
+  });
+
+  it("hides local STT loading while the active transcript tab shows batch progress", () => {
+    const toast = getToastToShow(
+      createToastRegistry({
+        ...baseParams,
+        localSttStatus: "loading",
+        isLocalSttModel: true,
+        isBatchTranscribingInActiveTranscriptTab: true,
+      }),
+      () => false,
+    );
+
+    expect(toast).toBeNull();
+  });
+
+  it("shows local STT loading outside active transcript batch progress", () => {
+    const toast = getToastToShow(
+      createToastRegistry({
+        ...baseParams,
+        localSttStatus: "loading",
+        isLocalSttModel: true,
+      }),
+      () => false,
+    );
+
+    expect(toast?.id).toBe("local-stt-loading");
+    expect(toast?.description).toBe("Starting transcription...");
   });
 
   it("renders the pro upgrade toast without an icon", () => {

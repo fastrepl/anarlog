@@ -24,6 +24,7 @@ import {
   isConfiguredSttModel,
   isHyprnoteCloudSttModel,
 } from "~/stt/capabilities";
+import { useListener } from "~/stt/contexts";
 
 type ToastAreaPlacement = "default" | "left-sidebar";
 type ToastAreaPosition = {
@@ -97,6 +98,16 @@ export function ToastArea({
     currentTab.state?.tab === "transcription";
   const isAiIntelligenceTabActive =
     currentTab?.type === "settings" && currentTab.state?.tab === "intelligence";
+  const activeTranscriptSessionId =
+    currentTab?.type === "sessions" &&
+    currentTab.state.view?.type === "transcript"
+      ? currentTab.id
+      : null;
+  const isBatchTranscribingInActiveTranscriptTab = useListener((state) =>
+    activeTranscriptSessionId
+      ? state.getSessionMode(activeTranscriptSessionId) === "running_batch"
+      : false,
+  );
 
   const openNew = useTabs((state) => state.openNew);
   const updateSettingsTabState = useTabs(
@@ -139,6 +150,7 @@ export function ToastArea({
         hasProLlmConfigured,
         isAiTranscriptionTabActive,
         isAiIntelligenceTabActive,
+        isBatchTranscribingInActiveTranscriptTab,
         hasActiveDownload,
         downloadProgress,
         downloadingModel,
@@ -158,6 +170,7 @@ export function ToastArea({
       hasProLlmConfigured,
       isAiTranscriptionTabActive,
       isAiIntelligenceTabActive,
+      isBatchTranscribingInActiveTranscriptTab,
       hasActiveDownload,
       downloadProgress,
       downloadingModel,

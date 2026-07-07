@@ -20,6 +20,7 @@ type ToastRegistryParams = {
   hasProLlmConfigured: boolean;
   isAiTranscriptionTabActive: boolean;
   isAiIntelligenceTabActive: boolean;
+  isBatchTranscribingInActiveTranscriptTab: boolean;
   hasActiveDownload: boolean;
   downloadProgress: number | null;
   downloadingModel: string | null;
@@ -47,6 +48,7 @@ export function createToastRegistry({
   hasProLlmConfigured,
   isAiTranscriptionTabActive,
   isAiIntelligenceTabActive,
+  isBatchTranscribingInActiveTranscriptTab,
   hasActiveDownload,
   downloadProgress,
   downloadingModel,
@@ -82,7 +84,10 @@ export function createToastRegistry({
         dismissible: false,
       },
       condition: () =>
-        isLocalSttModel && localSttStatus === "loading" && !hasActiveDownload,
+        isLocalSttModel &&
+        localSttStatus === "loading" &&
+        !hasActiveDownload &&
+        !isBatchTranscribingInActiveTranscriptTab,
     },
     {
       toast: {

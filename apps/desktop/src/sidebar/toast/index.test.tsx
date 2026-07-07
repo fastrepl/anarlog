@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   updateSettingsTabState: vi.fn(),
   clearDevtoolsPreview: vi.fn(),
   setToastActionTarget: vi.fn(),
+  sessionMode: "inactive",
 }));
 
 vi.mock("~/auth", () => ({
@@ -68,6 +69,12 @@ vi.mock("~/store/zustand/toast-action", () => ({
   ) => selector({ setTarget: mocks.setToastActionTarget }),
 }));
 
+vi.mock("~/stt/contexts", () => ({
+  useListener: (
+    selector: (state: { getSessionMode: () => string }) => unknown,
+  ) => selector({ getSessionMode: () => mocks.sessionMode }),
+}));
+
 vi.mock("./useDismissedToasts", () => ({
   useDismissedToasts: () => ({
     dismissToast: mocks.dismissToast,
@@ -87,6 +94,7 @@ describe("ToastArea", () => {
     mocks.updateSettingsTabState.mockClear();
     mocks.clearDevtoolsPreview.mockClear();
     mocks.setToastActionTarget.mockClear();
+    mocks.sessionMode = "inactive";
     useTransientToast.getState().clearToast();
   });
 
