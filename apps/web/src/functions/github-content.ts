@@ -1829,7 +1829,7 @@ Auto-generated PR from admin panel.`;
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              reviewers: ["harshikaalagh-netizen"],
+              reviewers: ["computelesscomputer"],
             }),
           },
         );

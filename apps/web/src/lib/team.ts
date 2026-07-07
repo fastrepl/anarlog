@@ -47,15 +47,6 @@ export const EDITORS = {
       twitter: "https://x.com/goranmoomin",
     },
   },
-  harshika: {
-    id: "harshika",
-    name: "Harshika",
-    email: "harshika.alagh@gmail.com",
-    avatar: "/api/assets/team/harshika.jpeg",
-    role: "",
-    bio: "",
-    links: {},
-  },
 } as const;
 
 export const MANIFESTO_SIGNERS = [
