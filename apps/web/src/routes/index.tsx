@@ -1033,15 +1033,13 @@ function AiOptionPlayingCard({
   return (
     <div className={cn(["ai-option-card", className])}>
       <span className="ai-option-card-corner ai-option-card-corner-top">
-        <span>{rank}</span>
-        <IconComponent aria-hidden="true" />
+        <span className="ai-option-card-rank">{rank}</span>
       </span>
       <div className="ai-option-card-face">
         <IconComponent aria-hidden="true" />
       </div>
       <span className="ai-option-card-corner ai-option-card-corner-bottom">
-        <span>{rank}</span>
-        <IconComponent aria-hidden="true" />
+        <span className="ai-option-card-rank">{rank}</span>
       </span>
     </div>
   );

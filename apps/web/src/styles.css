@@ -483,20 +483,16 @@
   .ai-option-card-corner {
     position: absolute;
     display: flex;
-    flex-direction: column;
     align-items: center;
-    gap: 0.05rem;
-    font-family: Georgia, "Times New Roman", serif;
     font-size: 0.82rem;
     font-weight: 700;
     line-height: 0.86;
     letter-spacing: 0;
   }
 
-  .ai-option-card-corner svg {
-    width: 0.6rem;
-    height: 0.6rem;
-    stroke-width: 3;
+  .ai-option-card-rank {
+    font-family: Georgia, "Times New Roman", serif;
+    font-weight: 700;
   }
 
   .ai-option-card-corner-top {
