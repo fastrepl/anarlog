@@ -1013,6 +1013,10 @@ msgstr "No description provided."
 msgid "No items today"
 msgstr "No items today"
 
+#: src/settings/personalization/index.tsx
+msgid "No match"
+msgstr "No match"
+
 #: src/settings/general/main-language.tsx
 #: src/settings/general/spoken-languages.tsx
 msgid "No matching languages found"

@@ -50,7 +50,12 @@ describe("DictionarySettings", () => {
   it("only shows the input when the dictionary is empty", () => {
     render(<DictionarySettings terms={[]} onSave={vi.fn()} />);
 
-    expect(screen.getByRole("textbox")).toBeTruthy();
+    const input = screen.getByRole("textbox");
+
+    expect(input).toBeTruthy();
+    expect(input.closest("[data-slot='input-group']")?.className).toContain(
+      "border-border",
+    );
     expect(screen.queryByText("Examples")).toBeNull();
     expect(screen.queryByText("FastConformer")).toBeNull();
   });
@@ -106,6 +111,22 @@ describe("DictionarySettings", () => {
     expect(onSave).not.toHaveBeenCalled();
   });
 
+  it("emphasizes the add button while typing", async () => {
+    render(<DictionarySettings terms={["Anarlog"]} onSave={vi.fn()} />);
+
+    const addButton = screen.getByRole("button", {
+      name: "Add",
+    }) as HTMLButtonElement;
+
+    expect(addButton.className).not.toContain("bg-[#2f6f68]");
+
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "FastConformer" },
+    });
+
+    await waitFor(() => expect(addButton.className).toContain("bg-[#2f6f68]"));
+  });
+
   it("shows relevant saved terms while typing", async () => {
     render(
       <DictionarySettings
@@ -121,5 +142,24 @@ describe("DictionarySettings", () => {
     await waitFor(() => expect(screen.getByText("FastConformer")).toBeTruthy());
     expect(screen.queryByText("Anarlog")).toBeNull();
     expect(screen.queryByText("Parakeet TDT")).toBeNull();
+  });
+
+  it("shows no match below the input when typed text has no saved match", async () => {
+    render(
+      <DictionarySettings
+        terms={["Anarlog", "FastConformer"]}
+        onSave={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText("No match")).toBeNull();
+
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "parakeet" },
+    });
+
+    await waitFor(() => expect(screen.getByText("No match")).toBeTruthy());
+    expect(screen.queryByText("Anarlog")).toBeNull();
+    expect(screen.queryByText("FastConformer")).toBeNull();
   });
 });

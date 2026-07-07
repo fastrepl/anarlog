@@ -9,6 +9,7 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@hypr/ui/components/ui/input-group";
+import { cn } from "@hypr/utils";
 
 import { SettingsPageTitle } from "~/settings/page-title";
 import { useConfigValue } from "~/shared/config";
@@ -74,7 +75,7 @@ export function DictionarySettings({
         <Trans>Dictionary</Trans>
       </h2>
 
-      <InputGroup className="border-border/60 bg-card has-[[data-slot=input-group-control]:focus-visible]:border-border/70 min-h-12 rounded-full shadow-none has-[[data-slot=input-group-control]:focus-visible]:ring-0">
+      <InputGroup className="border-border bg-card has-[[data-slot=input-group-control]:focus-visible]:border-border min-h-12 rounded-full shadow-none has-[[data-slot=input-group-control]:focus-visible]:ring-0">
         <form.Field name="term">
           {(field) => (
             <InputGroupInput
@@ -88,20 +89,29 @@ export function DictionarySettings({
         </form.Field>
         <InputGroupAddon align="inline-end" className="pr-2.5">
           <form.Subscribe selector={(state) => state.values.term}>
-            {(value) => (
-              <InputGroupButton
-                type="submit"
-                size="sm"
-                className="h-10 rounded-full px-5 shadow-xs"
-                disabled={
-                  appendDictionaryTerms(normalizedTerms, value).length ===
-                  normalizedTerms.length
-                }
-              >
-                <PlusIcon className="size-3.5" />
-                <Trans>Add</Trans>
-              </InputGroupButton>
-            )}
+            {(value) => {
+              const hasInput = parseDictionaryTermsText(value).length > 0;
+              const canAdd =
+                appendDictionaryTerms(normalizedTerms, value).length !==
+                normalizedTerms.length;
+
+              return (
+                <InputGroupButton
+                  type="submit"
+                  size="sm"
+                  className={cn([
+                    "h-10 rounded-full px-5 shadow-xs",
+                    hasInput
+                      ? "bg-[#2f6f68] text-white hover:bg-[#285f59] hover:text-white dark:bg-white dark:text-black dark:shadow-[0_0_0_1px_rgba(255,255,255,0.24)] dark:hover:bg-white/90 dark:hover:text-black"
+                      : null,
+                  ])}
+                  disabled={!canAdd}
+                >
+                  <PlusIcon className="size-3.5" />
+                  <Trans>Add</Trans>
+                </InputGroupButton>
+              );
+            }}
           </form.Subscribe>
         </InputGroupAddon>
       </InputGroup>
@@ -112,8 +122,17 @@ export function DictionarySettings({
             normalizedTerms,
             value,
           );
+          const hasSearch = parseDictionaryTermsText(value).length > 0;
 
-          return visibleTerms.length > 0 ? (
+          if (visibleTerms.length === 0) {
+            return hasSearch ? (
+              <p className="text-muted-foreground px-4 text-sm">
+                <Trans>No match</Trans>
+              </p>
+            ) : null;
+          }
+
+          return (
             <div className="border-border bg-card divide-border divide-y overflow-hidden rounded-2xl border">
               {visibleTerms.map((term) => (
                 <div
@@ -134,7 +153,7 @@ export function DictionarySettings({
                 </div>
               ))}
             </div>
-          ) : null;
+          );
         }}
       </form.Subscribe>
     </form>
