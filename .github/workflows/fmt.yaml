@@ -32,7 +32,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ -n "$BASE_SHA" ] && git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
-            git diff --name-only --diff-filter=ACMR -z "$BASE_SHA" "$HEAD_SHA" | xargs -0 --no-run-if-empty pnpm exec dprint check
+            git diff --name-only --diff-filter=ACMR -z "$BASE_SHA" "$HEAD_SHA" | xargs -0 --no-run-if-empty pnpm exec dprint check --allow-no-files
           else
             pnpm fmt:check
           fi

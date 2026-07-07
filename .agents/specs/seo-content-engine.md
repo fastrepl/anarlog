@@ -17,8 +17,10 @@ founder/product/category narrative unless explicitly requested otherwise.
 
 ## Cadence
 
-- Publish or refresh about 6 posts per month.
-- Space posts roughly every 4 days.
+- Publish or refresh about 6 posts per month as the baseline, but prioritize a
+  natural 3-4 day gap over exact monthly arithmetic.
+- Schedule each next post randomly 3 or 4 days after the latest published/dated
+  post. If the latest post is dated today, count from today.
 - Default monthly mix:
   - 3 top-of-funnel posts or refreshes.
   - 2 conversion posts or refreshes.
