@@ -24,6 +24,10 @@ import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 import { useTabs } from "~/store/zustand/tabs";
 import type { EditorView, Tab } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
+import {
+  isMainWebviewWindow,
+  requestMainListenerControl,
+} from "~/stt/window-control";
 
 export function FloatingActionButton({
   allowListening = true,
@@ -56,7 +60,18 @@ export function FloatingActionButton({
     main.STORE_ID,
   );
   const regenerateTranscript = useRegenerateTranscript(tab.id);
-  const stopTranscription = useListener((state) => state.stopTranscription);
+  const { stop, stopTranscription } = useListener((state) => ({
+    stop: state.stop,
+    stopTranscription: state.stopTranscription,
+  }));
+  const handleStopLiveSession = useCallback(() => {
+    if (!isMainWebviewWindow()) {
+      void requestMainListenerControl("stop", tab.id);
+      return;
+    }
+
+    stop();
+  }, [stop, tab.id]);
   const handleStopTranscription = useCallback(() => {
     void stopTranscription(tab.id);
   }, [stopTranscription, tab.id]);
@@ -68,6 +83,7 @@ export function FloatingActionButton({
   const transcriptAction = getTranscriptFloatingAction({
     audioExists,
     currentView,
+    handleStopLiveSession,
     handleStopTranscription,
     regenerateTranscript,
     sessionMode,
@@ -213,12 +229,16 @@ function TranscriptActionButton({
   action,
   onClick,
 }: {
-  action: "regenerate" | "stop";
+  action: "regenerate" | "stop-live" | "stop-transcription";
   onClick: () => void;
 }) {
   const label =
-    action === "stop" ? "Stop transcription" : "Regenerate transcript";
-  const Icon = action === "stop" ? SquareIcon : RefreshCwIcon;
+    action === "stop-live"
+      ? "Stop listening"
+      : action === "stop-transcription"
+        ? "Stop transcription"
+        : "Regenerate transcript";
+  const Icon = action === "regenerate" ? RefreshCwIcon : SquareIcon;
 
   return (
     <FloatingButton
@@ -229,7 +249,7 @@ function TranscriptActionButton({
         <Icon
           className={cn([
             "size-3.5",
-            action === "stop" ? "fill-current" : null,
+            action !== "regenerate" ? "fill-current" : null,
           ])}
         />{" "}
         {label}
@@ -284,12 +304,14 @@ function GenerateSummaryButton({
 function getTranscriptFloatingAction({
   audioExists,
   currentView,
+  handleStopLiveSession,
   handleStopTranscription,
   regenerateTranscript,
   sessionMode,
 }: {
   audioExists: boolean;
   currentView: EditorView;
+  handleStopLiveSession: () => void;
   handleStopTranscription: () => void;
   regenerateTranscript: () => void;
   sessionMode: string;
@@ -298,9 +320,16 @@ function getTranscriptFloatingAction({
     return null;
   }
 
+  if (sessionMode === "active") {
+    return {
+      type: "stop-live" as const,
+      onClick: handleStopLiveSession,
+    };
+  }
+
   if (sessionMode === "running_batch") {
     return {
-      type: "stop" as const,
+      type: "stop-transcription" as const,
       onClick: handleStopTranscription,
     };
   }

@@ -31,7 +31,10 @@ const hoisted = vi.hoisted(() => ({
   regenerateSummary: vi.fn(),
   cancelSummary: vi.fn(),
   regenerateTranscript: vi.fn(),
+  stopListening: vi.fn(),
   stopTranscription: vi.fn(),
+  requestMainListenerControl: vi.fn(),
+  isMainWebviewWindow: true,
   updateSessionTabState: vi.fn(),
 }));
 
@@ -128,13 +131,20 @@ vi.mock("~/stt/contexts", () => ({
   useListener: (
     selector: (state: {
       getSessionMode: () => string;
+      stop: () => void;
       stopTranscription: (sessionId: string) => void;
     }) => unknown,
   ) =>
     selector({
       getSessionMode: () => hoisted.sessionMode,
+      stop: hoisted.stopListening,
       stopTranscription: hoisted.stopTranscription,
     }),
+}));
+
+vi.mock("~/stt/window-control", () => ({
+  isMainWebviewWindow: () => hoisted.isMainWebviewWindow,
+  requestMainListenerControl: hoisted.requestMainListenerControl,
 }));
 
 describe("FloatingActionButton", () => {
@@ -175,7 +185,10 @@ describe("FloatingActionButton", () => {
     hoisted.regenerateSummary.mockReset();
     hoisted.cancelSummary.mockReset();
     hoisted.regenerateTranscript.mockReset();
+    hoisted.stopListening.mockReset();
     hoisted.stopTranscription.mockReset();
+    hoisted.requestMainListenerControl.mockReset();
+    hoisted.isMainWebviewWindow = true;
     hoisted.updateSessionTabState.mockClear();
   });
 
@@ -440,6 +453,34 @@ describe("FloatingActionButton", () => {
     fireEvent.click(screen.getByRole("button", { name: "Stop transcription" }));
 
     expect(hoisted.stopTranscription).toHaveBeenCalledWith("session-1");
+  });
+
+  it("shows a stop listening FAB while live recording is active", () => {
+    hoisted.currentTab = { type: "transcript" };
+    hoisted.sessionMode = "active";
+
+    renderFloatingActionButton({ audioExists: true });
+
+    fireEvent.click(screen.getByRole("button", { name: "Stop listening" }));
+
+    expect(hoisted.stopListening).toHaveBeenCalledTimes(1);
+    expect(hoisted.requestMainListenerControl).not.toHaveBeenCalled();
+  });
+
+  it("delegates live recording stop from standalone windows", () => {
+    hoisted.currentTab = { type: "transcript" };
+    hoisted.sessionMode = "active";
+    hoisted.isMainWebviewWindow = false;
+
+    renderFloatingActionButton({ audioExists: true });
+
+    fireEvent.click(screen.getByRole("button", { name: "Stop listening" }));
+
+    expect(hoisted.requestMainListenerControl).toHaveBeenCalledWith(
+      "stop",
+      "session-1",
+    );
+    expect(hoisted.stopListening).not.toHaveBeenCalled();
   });
 
   it("hides the regenerate transcript FAB when audio is missing", () => {
