@@ -111,7 +111,7 @@ describe("DictionarySettings", () => {
     expect(onSave).not.toHaveBeenCalled();
   });
 
-  it("emphasizes the add button while typing", async () => {
+  it("uses an inverted add button while typing", async () => {
     render(<DictionarySettings terms={["Anarlog"]} onSave={vi.fn()} />);
 
     const addButton = screen.getByRole("button", {
@@ -119,12 +119,17 @@ describe("DictionarySettings", () => {
     }) as HTMLButtonElement;
 
     expect(addButton.className).not.toContain("bg-[#2f6f68]");
+    expect(addButton.className).not.toContain("bg-black");
 
     fireEvent.change(screen.getByRole("textbox"), {
       target: { value: "FastConformer" },
     });
 
-    await waitFor(() => expect(addButton.className).toContain("bg-[#2f6f68]"));
+    await waitFor(() => expect(addButton.className).toContain("bg-black"));
+    expect(addButton.className).toContain("text-white");
+    expect(addButton.className).toContain("dark:bg-white");
+    expect(addButton.className).toContain("dark:text-black");
+    expect(addButton.className).not.toContain("bg-[#2f6f68]");
   });
 
   it("shows relevant saved terms while typing", async () => {

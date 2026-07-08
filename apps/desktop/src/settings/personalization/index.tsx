@@ -98,11 +98,12 @@ export function DictionarySettings({
               return (
                 <InputGroupButton
                   type="submit"
+                  variant="ghost"
                   size="sm"
                   className={cn([
-                    "h-10 rounded-full px-5 shadow-xs",
+                    "h-10 rounded-full px-5",
                     hasInput
-                      ? "bg-[#2f6f68] text-white hover:bg-[#285f59] hover:text-white dark:bg-white dark:text-black dark:shadow-[0_0_0_1px_rgba(255,255,255,0.24)] dark:hover:bg-white/90 dark:hover:text-black"
+                      ? "bg-black text-white hover:bg-black/90 hover:text-white dark:bg-white dark:text-black dark:hover:bg-white/90 dark:hover:text-black"
                       : null,
                   ])}
                   disabled={!canAdd}
