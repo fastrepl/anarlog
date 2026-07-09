@@ -1,6 +1,6 @@
 # Anarlog SEO Content Engine
 
-Last updated: 2026-07-07 KST.
+Last updated: 2026-07-09 KST.
 
 This is the operating note for autonomous Anarlog blog work. It complements
 `apps/web/content/AGENTS.md`, which remains the source of truth for positioning
@@ -8,23 +8,29 @@ and voice.
 
 ## Goal
 
-Use Anarlog's existing SEO traction to drive acquisition. Ship useful posts on a
-steady cadence, refresh posts that are close to ranking wins, and keep blog media
-clean in Supabase.
+Use Anarlog's existing SEO traction to drive acquisition. Ship genuinely useful
+posts on a steady cadence, refresh posts that are close to ranking wins, and
+keep blog media clean in Supabase.
 
 Anarlog is the SEO-led acquisition product. Char/Charpedia content should remain
 founder/product/category narrative unless explicitly requested otherwise.
 
 ## Cadence
 
-- Publish or refresh about 6 posts per month as the baseline, but prioritize a
-  natural 3-4 day gap over exact monthly arithmetic.
-- Schedule each next post randomly 3 or 4 days after the latest published/dated
+- Publish or refresh on a natural 1-2 day gap when we have something genuinely
+  useful to ship.
+- Schedule each next post randomly 1 or 2 days after the latest published/dated
   post. If the latest post is dated today, count from today.
-- Default monthly mix:
-  - 3 top-of-funnel posts or refreshes.
-  - 2 conversion posts or refreshes.
-  - 1 landing-page-support or strategic refresh post.
+- Do not publish thin, generic, or mechanically padded posts just to hit
+  cadence. If the content is not helpful, skip the slot and reset from the next
+  real publish date.
+- Default rolling mix:
+  - Top-of-funnel posts or refreshes for meeting workflows, privacy, and
+    category education.
+  - Conversion posts or refreshes for competitor alternatives and
+    platform-specific pages.
+  - Landing-page-support or strategic refresh posts when they strengthen
+    conversion paths.
 
 ## Post Types
 
@@ -47,6 +53,56 @@ founder/product/category narrative unless explicitly requested otherwise.
   - Platform pages where Anarlog already has a relevant article.
   - Strategic privacy/local/bot-free terms when they strengthen category
     positioning, even if exact volume is small.
+
+## Competitor Tracking
+
+Track both product competitors and SERP competitors.
+
+Primary product competitors:
+
+- Otter.ai
+- Fireflies.ai
+- tl;dv
+- Read.ai
+- Granola
+- Plaud AI
+- Fathom
+- Tactiq
+- Jamie
+- Notta
+- Noota
+- Meetily
+
+SERP/content competitors to watch opportunistically:
+
+- Zapier
+- Microsoft
+- Zoom
+- Reddit
+- YouTube
+- Product review sites and app marketplaces
+
+Current pattern from July 2026 research:
+
+- Otter, Fireflies, Read, and Fathom increasingly message around AI agents,
+  workflow automation, meeting knowledge, and CRM/productivity integrations.
+- Granola, Jamie, Fathom, Tactiq, and tl;dv now all have some form of bot-free
+  or no-bot messaging, so Anarlog should not rely on "bot-free" alone.
+- Anarlog's sharper angle should combine bot-free capture with privacy,
+  local-first/user-controlled workflows, and genuinely useful meeting memory.
+- Competitor blogs are publishing a mix of product updates, SEO comparison
+  pages, platform/how-to content, privacy/security explainers, and role/workflow
+  guides.
+
+Research each competitor before writing conversion content:
+
+- Homepage positioning and current headline.
+- Blog/content hub categories.
+- Comparison/alternatives pages they already rank with.
+- Privacy/security claims.
+- Bot/no-bot behavior.
+- Integrations and workflow promises.
+- Any recent launch that changes the comparison.
 
 ## Current First-Cycle Targets
 
