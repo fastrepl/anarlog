@@ -32,7 +32,7 @@ describe("useEventCountdown", () => {
       useEventCountdown("session-1", { onExpire }),
     );
 
-    expect(result.current.label).toBe("meeting starts in 2s");
+    expect(result.current.label).toBe("starts in 2s");
 
     act(() => {
       vi.advanceTimersByTime(2000);

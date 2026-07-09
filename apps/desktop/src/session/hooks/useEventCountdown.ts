@@ -49,11 +49,7 @@ export function useEventCountdown(
       const totalSeconds = Math.floor(diff / 1000);
       const mins = Math.floor(totalSeconds / 60);
       const secs = totalSeconds % 60;
-      setLabel(
-        mins > 0
-          ? `meeting starts in ${mins}m ${secs}s`
-          : `meeting starts in ${secs}s`,
-      );
+      setLabel(mins > 0 ? `starts in ${mins}m ${secs}s` : `starts in ${secs}s`);
     };
 
     update();

@@ -37,7 +37,7 @@ export function ListenButton({
     tab,
     updateSessionTabState,
   ]);
-  const countdown = useEventCountdown(tab.id, {
+  useEventCountdown(tab.id, {
     onExpire: handleCountdownExpire,
   });
 
@@ -49,14 +49,5 @@ export function ListenButton({
     return null;
   }
 
-  return (
-    <div className="flex flex-col items-center gap-2">
-      {countdown.label && (
-        <div className="text-muted-foreground text-xs whitespace-nowrap">
-          <span>{countdown.label}</span>
-        </div>
-      )}
-      <ListenActionButton sessionId={tab.id} />
-    </div>
-  );
+  return <ListenActionButton sessionId={tab.id} />;
 }

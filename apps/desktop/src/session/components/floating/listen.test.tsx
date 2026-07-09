@@ -44,7 +44,7 @@ vi.mock("~/session/hooks/useEventCountdown", () => ({
     if (options?.onExpire) {
       countdownCallbacks.push(options.onExpire);
     }
-    return { label: "meeting starts in 1s" };
+    return { label: "starts in 1s" };
   },
 }));
 
@@ -95,6 +95,7 @@ describe("floating ListenButton", () => {
     expect(
       screen.getByRole("button", { name: "Listen session-1" }),
     ).not.toBeNull();
+    expect(screen.queryByText("starts in 1s")).toBeNull();
     expect(screen.queryByRole("button", { name: /Join/ })).toBeNull();
   });
 });

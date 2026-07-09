@@ -137,6 +137,7 @@ describe("OuterHeader", () => {
 
   afterEach(() => {
     cleanup();
+    vi.useRealTimers();
   });
 
   it("does not show a separate stop listening button for active sessions while the sidebar is collapsed", () => {
@@ -391,6 +392,69 @@ describe("OuterHeader", () => {
       null,
     );
     expect(mocks.startListening).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows the meeting countdown to the left of the header action", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-05T09:55:30.000Z"));
+    mocks.nowMs = Date.now();
+    mocks.sessionEvents = {
+      "session-1": {
+        title: "Design Review",
+        started_at: "2026-06-05T10:00:00.000Z",
+        ended_at: "2026-06-05T10:30:00.000Z",
+        meeting_link: "https://meet.google.com/abc-defg-hij",
+      },
+    };
+
+    render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "raw" } as EditorView}
+        title={<span>Session title</span>}
+      />,
+    );
+
+    const countdown = screen.getByText("starts in 4m 30s");
+    const joinButton = screen.getByRole("button", { name: "Join & record" });
+
+    expect(countdown.getAttribute("data-header-meeting-countdown")).toBe(
+      "true",
+    );
+    expect(countdown.className).toContain("font-mono");
+    expect(
+      countdown.compareDocumentPosition(joinButton) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(joinButton.textContent).not.toContain("starts in");
+  });
+
+  it("hides the meeting countdown while listening is active", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-05T09:55:30.000Z"));
+    mocks.nowMs = Date.now();
+    mocks.sessionModes = { "session-1": "active" };
+    mocks.sessionEvents = {
+      "session-1": {
+        title: "Design Review",
+        started_at: "2026-06-05T10:00:00.000Z",
+        ended_at: "2026-06-05T10:30:00.000Z",
+        meeting_link: "https://meet.google.com/abc-defg-hij",
+      },
+    };
+
+    render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "raw" } as EditorView}
+        title={<span>Session title</span>}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Stop" })).not.toBeNull();
+    expect(
+      document.querySelector("[data-header-meeting-countdown]"),
+    ).toBeNull();
   });
 
   it("shows record before a meeting without a video link", () => {

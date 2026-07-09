@@ -16,6 +16,7 @@ import { OverflowButton } from "./overflow";
 
 import { useNow } from "~/calendar/hooks";
 import { useShell } from "~/contexts/shell";
+import { useEventCountdown } from "~/session/hooks/useEventCountdown";
 import {
   getRemoteMeeting,
   type RemoteMeeting,
@@ -138,6 +139,7 @@ function HeaderMeetingActionPill({
   const ended = !!endedAt && endedAt.getTime() <= now.getTime();
   const hasTranscript = useHasTranscript(sessionId);
   const { t } = useLingui();
+  const countdown = useEventCountdown(sessionId);
   const start = useCallback(() => {
     if (!isMainWebviewWindow()) {
       void requestMainListenerControl("start", sessionId);
@@ -204,44 +206,59 @@ function HeaderMeetingActionPill({
     };
   })();
   const disabled = sessionMode === "finalizing";
+  const showCountdown =
+    Boolean(countdown.label) &&
+    sessionMode !== "active" &&
+    sessionMode !== "running_batch" &&
+    sessionMode !== "finalizing";
 
   return (
-    <div className="border-border bg-card text-foreground mr-1 flex h-7 max-w-56 shrink-0 items-center overflow-hidden rounded-full border">
-      <button
-        type="button"
-        data-tauri-drag-region="false"
-        aria-label={action.label}
-        title={action.title}
-        disabled={disabled}
-        onClick={action.onClick}
-        className={cn([
-          "flex h-full min-w-0 items-center gap-1.5 py-0 pr-1.5 pl-2.5",
-          "text-sm font-medium",
-          "hover:bg-accent transition-colors",
-          disabled && "cursor-default opacity-60 hover:bg-transparent",
-        ])}
-      >
-        {action.icon}
-        <span className="truncate">{action.label}</span>
-      </button>
-      <MetadataButton
-        sessionId={sessionId}
-        renderTrigger={({ open, label: metadataLabel }) => (
-          <button
-            type="button"
-            data-tauri-drag-region="false"
-            aria-label={metadataLabel}
-            title={metadataLabel}
-            className={cn([
-              "text-muted-foreground flex h-full w-5 shrink-0 items-center justify-center",
-              "hover:bg-accent hover:text-foreground transition-colors",
-              open && "bg-accent text-foreground",
-            ])}
-          >
-            <ChevronDownIcon size={14} />
-          </button>
-        )}
-      />
+    <div className="mr-1 flex min-w-0 shrink-0 items-center gap-2">
+      {showCountdown ? (
+        <div
+          data-header-meeting-countdown
+          className="text-muted-foreground max-w-40 truncate font-mono text-xs whitespace-nowrap"
+        >
+          {countdown.label}
+        </div>
+      ) : null}
+      <div className="border-border bg-card text-foreground flex h-7 max-w-56 shrink-0 items-center overflow-hidden rounded-full border">
+        <button
+          type="button"
+          data-tauri-drag-region="false"
+          aria-label={action.label}
+          title={action.title}
+          disabled={disabled}
+          onClick={action.onClick}
+          className={cn([
+            "flex h-full min-w-0 items-center gap-1.5 py-0 pr-1.5 pl-2.5",
+            "text-sm font-medium",
+            "hover:bg-accent transition-colors",
+            disabled && "cursor-default opacity-60 hover:bg-transparent",
+          ])}
+        >
+          {action.icon}
+          <span className="truncate">{action.label}</span>
+        </button>
+        <MetadataButton
+          sessionId={sessionId}
+          renderTrigger={({ open, label: metadataLabel }) => (
+            <button
+              type="button"
+              data-tauri-drag-region="false"
+              aria-label={metadataLabel}
+              title={metadataLabel}
+              className={cn([
+                "text-muted-foreground flex h-full w-5 shrink-0 items-center justify-center",
+                "hover:bg-accent hover:text-foreground transition-colors",
+                open && "bg-accent text-foreground",
+              ])}
+            >
+              <ChevronDownIcon size={14} />
+            </button>
+          )}
+        />
+      </div>
     </div>
   );
 }
