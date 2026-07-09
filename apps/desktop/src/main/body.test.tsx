@@ -327,7 +327,7 @@ describe("ClassicMainBody", () => {
     expect(sidebarContent?.getAttribute("aria-hidden")).toBe("false");
     expect(sidebarChrome).toBeNull();
     expect(sidebarTimelineHeader).toBeTruthy();
-    expect(sidebarTimelineHeader?.className).toContain("h-12");
+    expect(sidebarTimelineHeader?.className).toContain("h-9");
     expect(sidebarTimelineHeader?.className).not.toContain("absolute");
 
     const bodyRoot = screen.getByTestId("panel-group").parentElement;

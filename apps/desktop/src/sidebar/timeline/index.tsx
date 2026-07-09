@@ -64,11 +64,13 @@ export const TimelineView = memo(function TimelineView({
   showOpenCalendarButton = true,
   showIgnoredEvents,
   onShowIgnoredEventsChange,
+  topChipsOverlapHeader = false,
   topChromeInset = false,
 }: {
   showOpenCalendarButton?: boolean;
   showIgnoredEvents?: boolean;
   onShowIgnoredEventsChange?: (showIgnored: boolean) => void;
+  topChipsOverlapHeader?: boolean;
   topChromeInset?: boolean;
 } = {}) {
   const { t } = useLingui();
@@ -198,12 +200,19 @@ export const TimelineView = memo(function TimelineView({
     ? reserveOpenCalendarChipSpace
       ? "h-14"
       : "h-12"
-    : "h-8";
+    : topChipsOverlapHeader
+      ? "h-9"
+      : "h-8";
   const bucketHeaderTopClassName = topChromeInset
     ? showOpenCalendarChip
       ? "top-14"
       : "top-12"
     : "top-0";
+  const topChipStackTopClassName = topChromeInset
+    ? "top-4"
+    : topChipsOverlapHeader
+      ? "top-1"
+      : "top-2";
   const selectedSessionScrollFrameRef = useRef<number | null>(null);
   const scrollSelectedSessionIntoView = useCallback<
     RefCallback<HTMLDivElement>
@@ -502,7 +511,7 @@ export const TimelineView = memo(function TimelineView({
                 className={cn([
                   "sticky z-20",
                   bucketHeaderTopClassName,
-                  "bg-background/95 py-1 pr-1 pl-3 backdrop-blur",
+                  "bg-background/95 pt-0 pr-1 pb-1 pl-3 backdrop-blur",
                 ])}
               >
                 <div className="text-foreground text-base font-bold">
@@ -584,7 +593,7 @@ export const TimelineView = memo(function TimelineView({
           data-sidebar-timeline-top-chip-stack
           className={cn([
             "absolute left-1/2 z-20 flex -translate-x-1/2 transform flex-col items-center gap-2",
-            topChromeInset ? "top-8" : "top-2",
+            topChipStackTopClassName,
           ])}
         >
           {showOpenCalendarChip && (

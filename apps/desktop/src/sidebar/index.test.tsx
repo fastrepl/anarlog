@@ -14,14 +14,17 @@ vi.mock("~/store/zustand/tabs", () => ({
 vi.mock("~/sidebar/timeline", () => ({
   TimelineView: ({
     showOpenCalendarButton = true,
+    topChipsOverlapHeader = false,
     topChromeInset = false,
   }: {
     showOpenCalendarButton?: boolean;
+    topChipsOverlapHeader?: boolean;
     topChromeInset?: boolean;
   }) => (
     <div
       data-testid="timeline-view"
       data-show-open-calendar-button={String(showOpenCalendarButton)}
+      data-top-chips-overlap-header={String(topChipsOverlapHeader)}
       data-top-chrome-inset={String(topChromeInset)}
     />
   ),
@@ -70,6 +73,11 @@ describe("LeftSidebar", () => {
     expect(
       screen.getByTestId("timeline-view").getAttribute("data-top-chrome-inset"),
     ).toBe("true");
+    expect(
+      screen
+        .getByTestId("timeline-view")
+        .getAttribute("data-top-chips-overlap-header"),
+    ).toBe("false");
     expect(container.firstElementChild?.className).toContain("pt-0");
     expect(container.firstElementChild?.className).not.toContain("pr-1");
   });
@@ -87,6 +95,11 @@ describe("LeftSidebar", () => {
     expect(
       screen.getByTestId("timeline-view").getAttribute("data-top-chrome-inset"),
     ).toBe("false");
+    expect(
+      screen
+        .getByTestId("timeline-view")
+        .getAttribute("data-top-chips-overlap-header"),
+    ).toBe("true");
   });
 
   it.each([

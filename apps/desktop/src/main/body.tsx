@@ -505,7 +505,7 @@ export function ClassicMainBody() {
     <div
       data-tauri-drag-region
       data-sidebar-timeline-header
-      className="flex h-12 shrink-0 items-start pt-[9px] pr-1 pl-[76px]"
+      className="flex h-9 shrink-0 items-start pt-[9px] pr-1 pl-[76px]"
       onWheelCapture={handleSidebarTimelineHeaderWheel}
     >
       <SidebarTimelineChrome

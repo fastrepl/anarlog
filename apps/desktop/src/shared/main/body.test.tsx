@@ -240,7 +240,7 @@ describe("ClassicMainBody", () => {
     expect(chromeFrame).toBe(timelineHeader);
     expect(chromeFrame?.className).toContain("pr-1");
     expect(chromeFrame?.className).not.toContain("pr-3");
-    expect(timelineHeader?.className).toContain("h-12");
+    expect(timelineHeader?.className).toContain("h-9");
     expect(timelineHeader?.className).not.toContain("absolute");
     expect(chrome?.hasAttribute("data-tauri-drag-region")).toBe(true);
     expect(
@@ -452,7 +452,7 @@ describe("ClassicMainBody", () => {
     expect(sidebarToggle.parentElement?.className.split(" ")).not.toContain(
       "gap-0.5",
     );
-    expect(timelineHeader?.className).toContain("h-12");
+    expect(timelineHeader?.className).toContain("h-9");
     expect(timelineHeader?.className).not.toContain("absolute");
     expect(screen.getByTestId("main-tab-content").textContent).toContain(
       "changelog",

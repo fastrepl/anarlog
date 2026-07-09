@@ -53,6 +53,9 @@ export function LeftSidebar({
               showIgnoredEvents={showIgnoredTimelineEvents}
               onShowIgnoredEventsChange={onShowIgnoredTimelineEventsChange}
               topChromeInset={isTimelineSidebarLayout && !timelineHeader}
+              topChipsOverlapHeader={
+                isTimelineSidebarLayout && !!timelineHeader
+              }
             />
           )}
         </div>

@@ -287,7 +287,7 @@ describe("TimelineView", () => {
     expect(
       container.querySelector("[data-sidebar-timeline-top-chip-stack]")
         ?.className,
-    ).toContain("top-8");
+    ).toContain("top-4");
     expect(
       container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
     ).toContain("h-14");
@@ -464,6 +464,32 @@ describe("TimelineView", () => {
     fireEvent.click(calendarButton);
 
     expect(mocks.openNew).toHaveBeenCalledWith({ type: "calendar" });
+  });
+
+  it("keeps overlapping header chips inside the visible timeline", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
+    mocks.currentTimeMs = Date.now();
+    mocks.smartCurrentTimeMs = Date.now();
+    mocks.timelineSessionsTable = {
+      later: {
+        title: "Quarterly planning",
+        created_at: "2024-01-17T12:00:00.000Z",
+      },
+    };
+
+    const { container } = render(<TimelineView topChipsOverlapHeader />);
+
+    expect(
+      container.querySelector("[data-sidebar-timeline-root]")?.className,
+    ).not.toContain("-mt-3");
+    expect(
+      container.querySelector("[data-sidebar-timeline-top-chip-stack]")
+        ?.className,
+    ).toContain("top-1");
+    expect(
+      container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
+    ).toContain("h-9");
   });
 
   it("selects all visible notes with Cmd+A after a sidebar note selection", () => {
@@ -738,7 +764,7 @@ describe("TimelineView", () => {
     expect(
       container.querySelector("[data-sidebar-timeline-top-chip-stack]")
         ?.className,
-    ).toContain("top-8");
+    ).toContain("top-4");
     expect(screen.queryByText("Now")).toBeNull();
 
     fireEvent.click(chip!);
@@ -894,7 +920,7 @@ describe("TimelineView", () => {
     expect(
       container.querySelector("[data-sidebar-timeline-top-chip-stack]")
         ?.className,
-    ).toContain("top-8");
+    ).toContain("top-4");
     expect(
       container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
     ).toContain("h-12");
