@@ -287,10 +287,10 @@ describe("TimelineView", () => {
     expect(
       container.querySelector("[data-sidebar-timeline-top-chip-stack]")
         ?.className,
-    ).toContain("top-11");
+    ).toContain("top-8");
     expect(
       container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
-    ).toContain("h-18");
+    ).toContain("h-14");
     expect(queryTopOccluder(container)?.className).toContain("h-12");
 
     fireEvent.click(calendarButton);
@@ -317,7 +317,7 @@ describe("TimelineView", () => {
     );
 
     expect(scroller).toBeInstanceOf(HTMLDivElement);
-    expect(topSpacer?.className).toContain("h-18");
+    expect(topSpacer?.className).toContain("h-14");
 
     Object.defineProperty(scroller, "clientHeight", {
       configurable: true,
@@ -331,7 +331,7 @@ describe("TimelineView", () => {
     fireEvent.scroll(scroller!);
 
     expect(screen.queryByRole("button", { name: "Open calendar" })).toBeNull();
-    expect(topSpacer?.className).toContain("h-18");
+    expect(topSpacer?.className).toContain("h-14");
     expect(queryTopFade(container)).toBeNull();
     expect(queryTopOccluder(container)?.className).toContain("bg-background");
   });
@@ -456,10 +456,10 @@ describe("TimelineView", () => {
     expect(
       container.querySelector("[data-sidebar-timeline-top-chip-stack]")
         ?.className,
-    ).toContain("top-5");
+    ).toContain("top-2");
     expect(
       container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
-    ).toContain("h-10");
+    ).toContain("h-8");
 
     fireEvent.click(calendarButton);
 
@@ -738,7 +738,7 @@ describe("TimelineView", () => {
     expect(
       container.querySelector("[data-sidebar-timeline-top-chip-stack]")
         ?.className,
-    ).toContain("top-11");
+    ).toContain("top-8");
     expect(screen.queryByText("Now")).toBeNull();
 
     fireEvent.click(chip!);
@@ -894,7 +894,7 @@ describe("TimelineView", () => {
     expect(
       container.querySelector("[data-sidebar-timeline-top-chip-stack]")
         ?.className,
-    ).toContain("top-11");
+    ).toContain("top-8");
     expect(
       container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
     ).toContain("h-12");
