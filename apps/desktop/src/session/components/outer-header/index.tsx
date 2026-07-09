@@ -1,5 +1,11 @@
-import { Trans, useLingui } from "@lingui/react/macro";
-import { ChevronDownIcon, HeadsetIcon, VideoIcon } from "lucide-react";
+import { useLingui } from "@lingui/react/macro";
+import {
+  ChevronDownIcon,
+  HeadsetIcon,
+  SquareIcon,
+  VideoIcon,
+} from "lucide-react";
+import { useCallback } from "react";
 
 import { commands as openerCommands } from "@hypr/plugin-opener2";
 import { cn, safeParseDate } from "@hypr/utils";
@@ -16,6 +22,11 @@ import {
 import { useSessionEvent } from "~/store/tinybase/hooks";
 import type { EditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
+import { useStartListening } from "~/stt/useStartListening";
+import {
+  isMainWebviewWindow,
+  requestMainListenerControl,
+} from "~/stt/window-control";
 
 export function OuterHeader({
   sessionId,
@@ -92,85 +103,124 @@ function HeaderMeetingControl({
   sessionMode: string;
 }) {
   const sessionEvent = useSessionEvent(sessionId);
-
-  if (!sessionEvent) {
-    return <MetadataButton sessionId={sessionId} />;
-  }
+  const now = useNow();
 
   return (
-    <EventMeetingControl
+    <HeaderMeetingActionPill
       sessionId={sessionId}
       event={sessionEvent}
+      now={now}
       sessionMode={sessionMode}
     />
   );
 }
 
-function EventMeetingControl({
+function HeaderMeetingActionPill({
   sessionId,
   event,
+  now,
   sessionMode,
 }: {
   sessionId: string;
-  event: {
-    ended_at?: string;
-    meeting_link?: string;
-  };
+  event: { ended_at?: string; meeting_link?: string } | null;
+  now: Date;
   sessionMode: string;
 }) {
-  const now = useNow();
-  const remote = getRemoteMeeting(event.meeting_link);
-  const inProgress =
-    sessionMode === "active" ||
-    sessionMode === "finalizing" ||
-    sessionMode === "running_batch";
-  const endedAt = event.ended_at ? safeParseDate(event.ended_at) : null;
+  const startListening = useStartListening(sessionId);
+  const { stop, stopTranscription } = useListener((state) => ({
+    stop: state.stop,
+    stopTranscription: state.stopTranscription,
+  }));
+  const remote = getRemoteMeeting(event?.meeting_link);
+  const meetingLink = event?.meeting_link || null;
+  const endedAt = event?.ended_at ? safeParseDate(event.ended_at) : null;
   const ended = !!endedAt && endedAt.getTime() <= now.getTime();
-
-  if (inProgress) {
-    return <MetadataButton sessionId={sessionId} />;
-  }
-
-  if (remote && !ended) {
-    return <HeaderMeetingJoinButton sessionId={sessionId} remote={remote} />;
-  }
-
-  return <MetadataButton sessionId={sessionId} />;
-}
-
-function HeaderMeetingJoinButton({
-  sessionId,
-  remote,
-}: {
-  sessionId: string;
-  remote: RemoteMeeting;
-}) {
   const { t } = useLingui();
-  const { icon, name } = getMeetingDisplay(remote.type);
-  const label = t`Join ${name}`;
-  const handleJoin = () => {
-    void openerCommands.openUrl(remote.url, null);
-  };
+  const start = useCallback(() => {
+    if (!isMainWebviewWindow()) {
+      void requestMainListenerControl("start", sessionId);
+      return;
+    }
+
+    void startListening();
+  }, [sessionId, startListening]);
+  const stopListening = useCallback(() => {
+    if (!isMainWebviewWindow()) {
+      void requestMainListenerControl("stop", sessionId);
+      return;
+    }
+
+    stop();
+  }, [sessionId, stop]);
+  const action = (() => {
+    if (sessionMode === "active") {
+      return {
+        label: t`Stop`,
+        title: t`Stop listening`,
+        icon: <SquareIcon className="size-3 fill-current" />,
+        onClick: stopListening,
+      };
+    }
+
+    if (sessionMode === "running_batch") {
+      return {
+        label: t`Stop`,
+        title: t`Stop transcription`,
+        icon: <SquareIcon className="size-3 fill-current" />,
+        onClick: () => {
+          void stopTranscription(sessionId);
+        },
+      };
+    }
+
+    if (meetingLink && !ended) {
+      return {
+        label: t`Join & start`,
+        title: t`Join meeting and start listening`,
+        icon: remote ? getMeetingDisplay(remote.type).icon : undefined,
+        onClick: () => {
+          void openerCommands.openUrl(meetingLink, null);
+          start();
+        },
+      };
+    }
+
+    if (ended) {
+      return {
+        label: t`Resume`,
+        title: t`Resume listening`,
+        icon: undefined,
+        onClick: start,
+      };
+    }
+
+    return {
+      label: t`Start listening`,
+      title: t`Start listening`,
+      icon: undefined,
+      onClick: start,
+    };
+  })();
+  const disabled = sessionMode === "finalizing";
 
   return (
     <div className="border-border bg-card text-foreground mr-1 flex h-7 max-w-56 shrink-0 items-center overflow-hidden rounded-full border">
       <button
         type="button"
         data-tauri-drag-region="false"
-        aria-label={label}
-        title={label}
-        onClick={handleJoin}
+        aria-label={action.label}
+        title={action.title}
+        disabled={disabled}
+        onClick={action.onClick}
         className={cn([
           "flex h-full min-w-0 items-center gap-1.5 px-2.5",
           "text-sm font-medium",
           "hover:bg-accent transition-colors",
+          disabled && "cursor-default opacity-60 hover:bg-transparent",
         ])}
       >
-        <span>
-          <Trans>Join</Trans>
-        </span>
-        {icon}
-        <span className="truncate">{name}</span>
+        {action.icon}
+        <span className="truncate">{action.label}</span>
       </button>
       <MetadataButton
         sessionId={sessionId}

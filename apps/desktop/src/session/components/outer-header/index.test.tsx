@@ -17,6 +17,11 @@ const mocks = vi.hoisted(() => ({
   sessionEvents: {} as Record<string, any>,
   nowMs: new Date("2026-06-05T09:50:00.000Z").getTime(),
   openUrl: vi.fn(),
+  startListening: vi.fn(),
+  stopListening: vi.fn(),
+  stopTranscription: vi.fn(),
+  requestMainListenerControl: vi.fn(),
+  isMainWebviewWindow: true,
   overflowProps: [] as Array<{
     allowListening?: boolean;
     standaloneWindow?: boolean;
@@ -85,8 +90,19 @@ vi.mock("~/stt/contexts", () => ({
     selector({
       getSessionMode: (sessionId: string) =>
         mocks.sessionModes[sessionId] ?? "inactive",
+      stop: mocks.stopListening,
+      stopTranscription: mocks.stopTranscription,
     }),
   ),
+}));
+
+vi.mock("~/stt/useStartListening", () => ({
+  useStartListening: () => mocks.startListening,
+}));
+
+vi.mock("~/stt/window-control", () => ({
+  isMainWebviewWindow: () => mocks.isMainWebviewWindow,
+  requestMainListenerControl: mocks.requestMainListenerControl,
 }));
 
 import { OuterHeader } from "./index";
@@ -103,6 +119,11 @@ describe("OuterHeader", () => {
     mocks.sessionEvents = {};
     mocks.nowMs = new Date("2026-06-05T09:50:00.000Z").getTime();
     mocks.openUrl.mockClear();
+    mocks.startListening.mockClear();
+    mocks.stopListening.mockClear();
+    mocks.stopTranscription.mockClear();
+    mocks.requestMainListenerControl.mockClear();
+    mocks.isMainWebviewWindow = true;
     mocks.overflowProps = [];
   });
 
@@ -327,7 +348,7 @@ describe("OuterHeader", () => {
     expect(titleSlot?.className).toContain("right-[70px]");
   });
 
-  it("shows a header join control before a remote meeting", () => {
+  it("shows a join-and-start pill before a remote meeting with a video link", () => {
     mocks.sessionEvents = {
       "session-1": {
         title: "Design Review",
@@ -346,25 +367,51 @@ describe("OuterHeader", () => {
       />,
     );
 
-    const joinButton = screen.getByRole("button", { name: "Join Meet" });
+    const joinButton = screen.getByRole("button", { name: "Join & start" });
     const metadataButton = screen.getByRole("button", {
       name: "Open event metadata",
     });
 
     fireEvent.click(joinButton);
 
-    expect(joinButton.getAttribute("aria-label")).toBe("Join Meet");
-    expect(joinButton.textContent).toContain("Join");
-    expect(joinButton.textContent).toContain("Meet");
+    expect(joinButton.getAttribute("aria-label")).toBe("Join & start");
+    expect(joinButton.textContent).toContain("Join & start");
     expect(joinButton.getAttribute("data-tauri-drag-region")).toBe("false");
     expect(metadataButton.getAttribute("data-tauri-drag-region")).toBe("false");
     expect(mocks.openUrl).toHaveBeenCalledWith(
       "https://meet.google.com/abc-defg-hij",
       null,
     );
+    expect(mocks.startListening).toHaveBeenCalledTimes(1);
   });
 
-  it("shows metadata without the join control while the meeting is in progress", () => {
+  it("shows start listening before a meeting without a video link", () => {
+    mocks.sessionEvents = {
+      "session-1": {
+        title: "Design Review",
+        started_at: "2026-06-05T10:00:00.000Z",
+        ended_at: "2026-06-05T10:30:00.000Z",
+      },
+    };
+    mocks.nowMs = new Date("2026-06-05T09:55:00.000Z").getTime();
+
+    render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "raw" } as EditorView}
+        title={<span>Session title</span>}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Start listening" }));
+
+    expect(mocks.startListening).toHaveBeenCalledTimes(1);
+    expect(
+      screen.getByRole("button", { name: "Open event metadata" }),
+    ).not.toBeNull();
+  });
+
+  it("shows stop while the meeting is in progress", () => {
     mocks.sessionEvents = {
       "session-1": {
         title: "Design Review",
@@ -383,13 +430,16 @@ describe("OuterHeader", () => {
       />,
     );
 
-    expect(screen.queryByRole("button", { name: "Join Meet" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Stop" }));
+
+    expect(screen.queryByRole("button", { name: "Join & start" })).toBeNull();
     expect(
       screen.getByRole("button", { name: "Open event metadata" }),
     ).not.toBeNull();
+    expect(mocks.stopListening).toHaveBeenCalledTimes(1);
   });
 
-  it("shows the calendar metadata button after the meeting is over", () => {
+  it("shows resume after the meeting is over", () => {
     mocks.sessionEvents = {
       "session-1": {
         title: "Design Review",
@@ -412,7 +462,10 @@ describe("OuterHeader", () => {
       name: "Open event metadata",
     });
 
-    expect(screen.queryByRole("button", { name: "Join Meet" })).toBeNull();
-    expect(metadataButton.textContent).toBe("Metadata");
+    fireEvent.click(screen.getByRole("button", { name: "Resume" }));
+
+    expect(screen.queryByRole("button", { name: "Join & start" })).toBeNull();
+    expect(metadataButton.getAttribute("data-tauri-drag-region")).toBe("false");
+    expect(mocks.startListening).toHaveBeenCalledTimes(1);
   });
 });

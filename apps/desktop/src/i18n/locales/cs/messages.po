@@ -809,11 +809,11 @@ msgid "Job Title"
 msgstr ""
 
 #: src/session/components/outer-header/index.tsx
-msgid "Join"
+msgid "Join & start"
 msgstr ""
 
 #: src/session/components/outer-header/index.tsx
-msgid "Join {name}"
+msgid "Join meeting and start listening"
 msgstr ""
 
 #: src/onboarding/final.tsx
@@ -1336,8 +1336,12 @@ msgstr ""
 msgid "Respect Do-Not-Disturb mode"
 msgstr ""
 
-#: src/session/components/note-input/header.tsx
+#: src/session/components/outer-header/index.tsx
 msgid "Resume"
+msgstr ""
+
+#: src/session/components/outer-header/index.tsx
+msgid "Resume listening"
 msgstr ""
 
 #: src/chat/components/message/error.tsx
@@ -1603,6 +1607,10 @@ msgstr ""
 msgid "Start Anarlog at login"
 msgstr "Spustit Anarlog při přihlášení"
 
+#: src/session/components/outer-header/index.tsx
+msgid "Start listening"
+msgstr ""
+
 #: src/main/empty.tsx
 msgid "Start Recording"
 msgstr ""
@@ -1619,16 +1627,21 @@ msgstr ""
 msgid "Starting your trial..."
 msgstr ""
 
-#: src/session/components/note-input/header.tsx
+#: src/session/components/outer-header/index.tsx
 msgid "Stop"
 msgstr ""
 
+#: src/session/components/outer-header/index.tsx
 #: src/sidebar/timeline/item.tsx
 msgid "Stop listening"
 msgstr ""
 
 #: src/chat/components/input/index.tsx
 msgid "Stop response"
+msgstr ""
+
+#: src/session/components/outer-header/index.tsx
+msgid "Stop transcription"
 msgstr ""
 
 #: src/settings/general/app-settings.tsx

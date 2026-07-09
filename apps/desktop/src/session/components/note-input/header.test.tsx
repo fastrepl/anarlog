@@ -720,7 +720,8 @@ describe("Header", () => {
     expect(transcriptTab.querySelector("svg")).toBeNull();
   });
 
-  it("stops transcription from the active transcript tab spinner", () => {
+  it("keeps the active transcript tab spinner as navigation", () => {
+    const handleTabChange = vi.fn();
     const editorTabs: EditorView[] = [
       { type: "enhanced", id: "note-1" },
       { type: "raw" },
@@ -732,18 +733,18 @@ describe("Header", () => {
         sessionId="session-1"
         editorTabs={editorTabs}
         currentTab={{ type: "transcript" }}
-        handleTabChange={vi.fn()}
+        handleTabChange={handleTabChange}
         isTranscribing
-        canStopTranscription
       />,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Transcript" }));
 
-    expect(hoisted.stopTranscription).toHaveBeenCalledWith("session-1");
+    expect(handleTabChange).toHaveBeenCalledWith({ type: "transcript" });
+    expect(hoisted.stopTranscription).not.toHaveBeenCalled();
   });
 
-  it("resumes listening from the active transcript tab in the main window", () => {
+  it("keeps active transcript tabs as navigation instead of resume actions", () => {
     const handleTabChange = vi.fn();
     const editorTabs: EditorView[] = [
       { type: "enhanced", id: "note-1" },
@@ -762,21 +763,21 @@ describe("Header", () => {
 
     const transcriptTab = screen.getByRole("button", { name: "Transcript" });
 
-    expect(transcriptTab.className).toContain("w-[98px]");
-    expect(transcriptTab.getAttribute("title")).toBe("Resume listening");
-    expect(transcriptTab.getAttribute("data-hover-label")).toBe("Resume");
+    expect(transcriptTab.getAttribute("title")).toBeNull();
+    expect(transcriptTab.getAttribute("data-hover-label")).toBeNull();
     expect(transcriptTab.textContent).toBe("Transcript");
-    expect(transcriptTab.querySelector(".animate-ping")).not.toBeNull();
+    expect(transcriptTab.querySelector(".animate-ping")).toBeNull();
 
     fireEvent.click(transcriptTab);
 
-    expect(hoisted.startListening).toHaveBeenCalledTimes(1);
+    expect(handleTabChange).toHaveBeenCalledWith({ type: "transcript" });
+    expect(hoisted.startListening).not.toHaveBeenCalled();
     expect(hoisted.requestMainListenerControl).not.toHaveBeenCalled();
-    expect(handleTabChange).not.toHaveBeenCalled();
   });
 
-  it("delegates resume listening from the active transcript tab in standalone windows", () => {
+  it("does not delegate resume listening from the transcript tab in standalone windows", () => {
     hoisted.isMainWebviewWindow = false;
+    const handleTabChange = vi.fn();
     const editorTabs: EditorView[] = [
       { type: "enhanced", id: "note-1" },
       { type: "raw" },
@@ -788,16 +789,14 @@ describe("Header", () => {
         sessionId="session-1"
         editorTabs={editorTabs}
         currentTab={{ type: "transcript" }}
-        handleTabChange={vi.fn()}
+        handleTabChange={handleTabChange}
       />,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Transcript" }));
 
-    expect(hoisted.requestMainListenerControl).toHaveBeenCalledWith(
-      "start",
-      "session-1",
-    );
+    expect(handleTabChange).toHaveBeenCalledWith({ type: "transcript" });
+    expect(hoisted.requestMainListenerControl).not.toHaveBeenCalled();
     expect(hoisted.startListening).not.toHaveBeenCalled();
   });
 
@@ -863,7 +862,7 @@ describe("Header", () => {
     expect(hoisted.requestMainListenerControl).not.toHaveBeenCalled();
   });
 
-  it("stops a live meeting from the active transcript tab in the main window", () => {
+  it("keeps active live transcript tabs as navigation instead of stop actions", () => {
     hoisted.sessionMode = "active";
     const handleTabChange = vi.fn();
     const editorTabs: EditorView[] = [
@@ -885,19 +884,20 @@ describe("Header", () => {
 
     expect(screen.getByTestId("dancing-sticks")).not.toBeNull();
     expect(transcriptTab.className).toContain("bg-red-50");
-    expect(transcriptTab.getAttribute("title")).toBe("Stop listening");
-    expect(transcriptTab.getAttribute("data-hover-label")).toBe("Stop");
+    expect(transcriptTab.getAttribute("title")).toBeNull();
+    expect(transcriptTab.getAttribute("data-hover-label")).toBeNull();
 
     fireEvent.click(transcriptTab);
 
-    expect(hoisted.stopListening).toHaveBeenCalledTimes(1);
+    expect(handleTabChange).toHaveBeenCalledWith({ type: "transcript" });
+    expect(hoisted.stopListening).not.toHaveBeenCalled();
     expect(hoisted.requestMainListenerControl).not.toHaveBeenCalled();
-    expect(handleTabChange).not.toHaveBeenCalled();
   });
 
-  it("delegates live meeting stop from the active transcript tab in standalone windows", () => {
+  it("does not delegate live meeting stop from the transcript tab in standalone windows", () => {
     hoisted.sessionMode = "active";
     hoisted.isMainWebviewWindow = false;
+    const handleTabChange = vi.fn();
     const editorTabs: EditorView[] = [
       { type: "enhanced", id: "note-1" },
       { type: "raw" },
@@ -909,16 +909,14 @@ describe("Header", () => {
         sessionId="session-1"
         editorTabs={editorTabs}
         currentTab={{ type: "transcript" }}
-        handleTabChange={vi.fn()}
+        handleTabChange={handleTabChange}
       />,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Transcript" }));
 
-    expect(hoisted.requestMainListenerControl).toHaveBeenCalledWith(
-      "stop",
-      "session-1",
-    );
+    expect(handleTabChange).toHaveBeenCalledWith({ type: "transcript" });
+    expect(hoisted.requestMainListenerControl).not.toHaveBeenCalled();
     expect(hoisted.stopListening).not.toHaveBeenCalled();
   });
 

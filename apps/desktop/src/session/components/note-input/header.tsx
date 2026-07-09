@@ -8,7 +8,6 @@ import {
   PlusIcon,
   SearchIcon,
   SparklesIcon,
-  SquareIcon,
   XIcon,
 } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
@@ -35,10 +34,7 @@ import {
   formatTranscriptExportSegments,
 } from "~/session/components/note-input/transcript/export-data";
 import { useSessionTranscriptRenderData } from "~/session/components/note-input/transcript/render-request-hooks";
-import {
-  useCanShowTranscript,
-  useHasTranscript,
-} from "~/session/components/shared";
+import { useCanShowTranscript } from "~/session/components/shared";
 import { useEnsureDefaultSummary } from "~/session/hooks/useEnhancedNotes";
 import {
   type MenuItemDef,
@@ -50,11 +46,6 @@ import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 import { type EditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
-import { useStartListening } from "~/stt/useStartListening";
-import {
-  isMainWebviewWindow,
-  requestMainListenerControl,
-} from "~/stt/window-control";
 import {
   filterWebTemplatesAgainstUserTemplates,
   parseWebTemplates,
@@ -597,13 +588,11 @@ function HeaderViewEnhancedActive({
 function HeaderViewTranscript({
   isActive,
   isTranscribing,
-  canStopTranscription,
   onClick = () => {},
   sessionId,
 }: {
   isActive: boolean;
   isTranscribing: boolean;
-  canStopTranscription: boolean;
   onClick?: () => void;
   sessionId: string;
 }) {
@@ -624,11 +613,9 @@ function HeaderViewTranscript({
     <HeaderViewTranscriptActive
       isActive={isActive}
       isTranscribing={isTranscribing}
-      canStopTranscription={canStopTranscription}
       onClick={onClick}
       sessionId={sessionId}
       live={liveState.live}
-      onStopLiveSession={liveState.onStopLiveSession}
     />
   );
 }
@@ -638,16 +625,12 @@ function HeaderViewTranscriptButton({
   isTranscribing,
   onClick,
   onContextMenu,
-  onResumeListening,
-  onStopTranscription,
   live,
 }: {
   isActive: boolean;
   isTranscribing: boolean;
   onClick?: () => void;
   onContextMenu?: React.MouseEventHandler<HTMLButtonElement>;
-  onResumeListening?: () => void;
-  onStopTranscription?: () => void;
   live?: {
     amplitude: number;
     degraded: boolean;
@@ -655,65 +638,24 @@ function HeaderViewTranscriptButton({
   };
 }) {
   const { t } = useLingui();
-  const isLive = live !== undefined;
-  const canStop = Boolean(onStopTranscription);
-  const canResume = Boolean(onResumeListening);
-  const handleClick = useCallback(() => {
-    if ((isLive || isTranscribing) && canStop && onStopTranscription) {
-      onStopTranscription();
-      return;
-    }
-
-    if (canResume && onResumeListening) {
-      onResumeListening();
-      return;
-    }
-
-    onClick?.();
-  }, [
-    canResume,
-    canStop,
-    isLive,
-    isTranscribing,
-    onClick,
-    onResumeListening,
-    onStopTranscription,
-  ]);
 
   return (
     <IconHeaderView
       isActive={isActive}
       label={t`Transcript`}
-      hoverLabel={
-        isLive && canStop ? t`Stop` : canResume ? t`Resume` : undefined
-      }
+      hoverLabel={undefined}
       icon={
         live ? (
-          <HeaderViewTranscriptLiveIcon canStop={canStop} live={live} />
-        ) : canResume ? (
-          <HeaderViewTranscriptResumeIcon />
-        ) : isTranscribing && onStopTranscription ? (
-          <span className="group/stop relative flex size-4 items-center justify-center">
-            <Spinner size={16} className="shrink-0 group-hover/stop:hidden" />
-            <SquareIcon className="hidden size-3 fill-current group-hover/stop:block" />
-          </span>
+          <HeaderViewTranscriptLiveIcon live={live} />
         ) : isTranscribing ? (
           <Spinner size={16} className="shrink-0" />
         ) : (
           <AudioLinesIcon className="size-4" />
         )
       }
-      onClick={handleClick}
+      onClick={onClick}
       onContextMenu={onContextMenu}
-      title={
-        isLive && canStop
-          ? "Stop listening"
-          : canResume
-            ? "Resume listening"
-            : isTranscribing && onStopTranscription
-              ? "Stop transcription"
-              : undefined
-      }
+      title={undefined}
       className={cn([
         live
           ? [
@@ -732,23 +674,14 @@ function HeaderViewTranscriptButton({
                 : null,
             ]
           : null,
-        canResume
-          ? [
-              "group/transcript-resume w-[98px] min-w-[98px] gap-1.5 px-2",
-              "hover:bg-red-50 hover:text-red-500",
-              "dark:hover:bg-red-950/50 dark:hover:text-red-300",
-            ]
-          : null,
       ])}
     />
   );
 }
 
 function HeaderViewTranscriptLiveIcon({
-  canStop,
   live,
 }: {
-  canStop: boolean;
   live: {
     amplitude: number;
     degraded: boolean;
@@ -759,56 +692,30 @@ function HeaderViewTranscriptLiveIcon({
 
   return (
     <span className="relative flex size-4 items-center justify-center">
-      <span className={canStop ? "group-hover/transcript-live:hidden" : ""}>
-        {live.muted ? (
-          <AudioLinesIcon className="size-4" />
-        ) : (
-          <DancingSticks
-            amplitude={live.amplitude}
-            color={color}
-            height={16}
-            width={16}
-          />
-        )}
-      </span>
-      {canStop && (
-        <SquareIcon className="hidden size-3 fill-current group-hover/transcript-live:block" />
+      {live.muted ? (
+        <AudioLinesIcon className="size-4" />
+      ) : (
+        <DancingSticks
+          amplitude={live.amplitude}
+          color={color}
+          height={16}
+          width={16}
+        />
       )}
     </span>
   );
 }
 
-function HeaderViewTranscriptResumeIcon() {
-  return (
-    <span className="relative flex size-4 items-center justify-center">
-      <AudioLinesIcon className="size-4 group-hover/transcript-resume:hidden" />
-      <span className="relative hidden size-3 items-center justify-center group-hover/transcript-resume:flex">
-        <span className="absolute size-3 animate-ping rounded-full bg-red-500/40 dark:bg-red-400/40" />
-        <span className="relative size-2 rounded-full bg-red-500 dark:bg-red-400" />
-      </span>
-    </span>
-  );
-}
-
 function useTranscriptLiveViewState(sessionId: string) {
-  const { amplitude, degraded, mode, muted, stop } = useListener((state) => {
+  const { amplitude, degraded, mode, muted } = useListener((state) => {
     const mode = state.getSessionMode(sessionId);
     return {
       amplitude: state.live.amplitude,
       degraded: state.live.degraded,
       mode,
       muted: state.live.muted,
-      stop: state.stop,
     };
   });
-  const handleStopLiveSession = useCallback(() => {
-    if (!isMainWebviewWindow()) {
-      void requestMainListenerControl("stop", sessionId);
-      return;
-    }
-
-    stop();
-  }, [sessionId, stop]);
   return {
     live:
       mode === "active"
@@ -821,22 +728,18 @@ function useTranscriptLiveViewState(sessionId: string) {
             muted,
           }
         : undefined,
-    onStopLiveSession: mode === "active" ? handleStopLiveSession : undefined,
   };
 }
 
 function HeaderViewTranscriptActive({
   isActive,
   isTranscribing,
-  canStopTranscription,
   onClick,
   sessionId,
   live,
-  onStopLiveSession,
 }: {
   isActive: boolean;
   isTranscribing: boolean;
-  canStopTranscription: boolean;
   onClick?: () => void;
   sessionId: string;
   live?: {
@@ -844,12 +747,8 @@ function HeaderViewTranscriptActive({
     degraded: boolean;
     muted: boolean;
   };
-  onStopLiveSession?: () => void;
 }) {
   const regenerate = useRegenerateTranscript(sessionId);
-  const hasTranscript = useHasTranscript(sessionId);
-  const startListening = useStartListening(sessionId);
-  const stopTranscription = useListener((state) => state.stopTranscription);
   const { request: transcriptExportRequest } =
     useSessionTranscriptRenderData(sessionId);
   const { audioExists, deleteRecording, isDeletingRecording } =
@@ -881,17 +780,6 @@ function HeaderViewTranscriptActive({
   const handleDeleteRecording = useCallback(() => {
     void deleteRecording();
   }, [deleteRecording]);
-  const handleStopTranscription = useCallback(() => {
-    void stopTranscription(sessionId);
-  }, [sessionId, stopTranscription]);
-  const handleResumeListening = useCallback(() => {
-    if (!isMainWebviewWindow()) {
-      void requestMainListenerControl("start", sessionId);
-      return;
-    }
-
-    void startListening();
-  }, [sessionId, startListening]);
   const contextMenu = useMemo<MenuItemDef[]>(() => {
     const items: MenuItemDef[] = [
       {
@@ -939,18 +827,6 @@ function HeaderViewTranscriptActive({
       onClick={onClick}
       onContextMenu={showContextMenu}
       live={live}
-      onResumeListening={
-        hasTranscript && !live && !isTranscribing && !canStopTranscription
-          ? handleResumeListening
-          : undefined
-      }
-      onStopTranscription={
-        live
-          ? onStopLiveSession
-          : canStopTranscription
-            ? handleStopTranscription
-            : undefined
-      }
     />
   );
 }
@@ -1407,14 +1283,12 @@ export function Header({
   currentTab,
   handleTabChange,
   isTranscribing = false,
-  canStopTranscription = false,
 }: {
   sessionId: string;
   editorTabs: EditorView[];
   currentTab: EditorView;
   handleTabChange: (view: EditorView) => void;
   isTranscribing?: boolean;
-  canStopTranscription?: boolean;
 }) {
   const { t } = useLingui();
   const store = main.UI.useStore(main.STORE_ID);
@@ -1497,7 +1371,6 @@ export function Header({
                     sessionId={sessionId}
                     isActive={currentTab.type === view.type}
                     isTranscribing={isTranscribing}
-                    canStopTranscription={canStopTranscription}
                     onClick={() => handleTabChange(view)}
                   />
                 );
