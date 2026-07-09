@@ -294,7 +294,7 @@ function HeaderViewRawButton({
       onClick={onClick}
       onContextMenu={onContextMenu}
       size={standalone ? "standalone" : "tray"}
-      className={standalone ? "border-border/70 border shadow-xs" : undefined}
+      className={standalone ? "border-border/70 border shadow-none" : undefined}
     />
   );
 }
