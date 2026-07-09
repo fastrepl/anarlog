@@ -181,7 +181,7 @@ function HeaderMeetingJoinButton({
             aria-label={metadataLabel}
             title={metadataLabel}
             className={cn([
-              "border-border text-muted-foreground flex h-full w-[26px] shrink-0 items-center justify-start border-l pl-[5px]",
+              "text-muted-foreground flex h-full w-[26px] shrink-0 items-center justify-start pl-[5px]",
               "hover:bg-accent hover:text-foreground transition-colors",
               open && "bg-accent text-foreground",
             ])}
