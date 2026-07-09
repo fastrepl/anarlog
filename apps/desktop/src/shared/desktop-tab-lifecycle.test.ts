@@ -10,6 +10,11 @@ import {
   createSessionTab,
 } from "~/store/zustand/tabs/test-utils";
 
+const flushAsyncCleanup = () =>
+  new Promise((resolve) => {
+    setTimeout(resolve, 0);
+  });
+
 describe("desktop tab lifecycle", () => {
   describe("initializeDesktopTabs", () => {
     it("restores pinned tabs and recent notes without opening a startup tab", async () => {
@@ -73,9 +78,10 @@ describe("desktop tab lifecycle", () => {
   });
 
   describe("createSessionTabCloseHandler", () => {
-    it("cleans up empty sessions on close", () => {
+    it("cleans up empty sessions on close", async () => {
       const invalidateSessionResource = vi.fn();
       const deleteSessionFn = vi.fn();
+      const hydrateSessionContentFn = vi.fn().mockResolvedValue(true);
       const handler = createSessionTabCloseHandler({
         store: {} as Parameters<
           typeof createSessionTabCloseHandler
@@ -87,10 +93,17 @@ describe("desktop tab lifecycle", () => {
         getSessionMode: vi.fn().mockReturnValue(null),
         isSessionEmptyFn: vi.fn().mockReturnValue(true),
         deleteSessionFn,
+        hydrateSessionContentFn,
       });
 
       handler(createSessionTab({ id: "session-1" }));
 
+      await flushAsyncCleanup();
+
+      expect(hydrateSessionContentFn).toHaveBeenCalledWith(
+        expect.anything(),
+        "session-1",
+      );
       expect(invalidateSessionResource).toHaveBeenCalledWith("session-1");
       expect(deleteSessionFn).toHaveBeenCalledWith(
         expect.anything(),
@@ -98,6 +111,66 @@ describe("desktop tab lifecycle", () => {
         "session-1",
         { deferFilesystemDelete: true },
       );
+    });
+
+    it("keeps restored sessions when hydration finds content", async () => {
+      const invalidateSessionResource = vi.fn();
+      const deleteSessionFn = vi.fn();
+      const hydrateSessionContentFn = vi.fn().mockResolvedValue(true);
+      const isSessionEmptyFn = vi
+        .fn()
+        .mockReturnValueOnce(true)
+        .mockReturnValueOnce(false);
+      const handler = createSessionTabCloseHandler({
+        store: {} as Parameters<
+          typeof createSessionTabCloseHandler
+        >[0]["store"],
+        indexes: {} as Parameters<
+          typeof createSessionTabCloseHandler
+        >[0]["indexes"],
+        invalidateSessionResource,
+        getSessionMode: vi.fn().mockReturnValue(null),
+        isSessionEmptyFn,
+        deleteSessionFn,
+        hydrateSessionContentFn,
+      });
+
+      handler(createSessionTab({ id: "session-1" }));
+
+      await flushAsyncCleanup();
+
+      expect(hydrateSessionContentFn).toHaveBeenCalledWith(
+        expect.anything(),
+        "session-1",
+      );
+      expect(deleteSessionFn).not.toHaveBeenCalled();
+      expect(invalidateSessionResource).not.toHaveBeenCalled();
+    });
+
+    it("skips cleanup when hydration fails", async () => {
+      const invalidateSessionResource = vi.fn();
+      const deleteSessionFn = vi.fn();
+      const hydrateSessionContentFn = vi.fn().mockResolvedValue(false);
+      const handler = createSessionTabCloseHandler({
+        store: {} as Parameters<
+          typeof createSessionTabCloseHandler
+        >[0]["store"],
+        indexes: {} as Parameters<
+          typeof createSessionTabCloseHandler
+        >[0]["indexes"],
+        invalidateSessionResource,
+        getSessionMode: vi.fn().mockReturnValue(null),
+        isSessionEmptyFn: vi.fn().mockReturnValue(true),
+        deleteSessionFn,
+        hydrateSessionContentFn,
+      });
+
+      handler(createSessionTab({ id: "session-1" }));
+
+      await flushAsyncCleanup();
+
+      expect(deleteSessionFn).not.toHaveBeenCalled();
+      expect(invalidateSessionResource).not.toHaveBeenCalled();
     });
 
     it("skips cleanup for non-inactive sessions and non-session tabs", () => {

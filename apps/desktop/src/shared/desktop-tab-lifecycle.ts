@@ -1,6 +1,7 @@
 import { isTauri } from "@tauri-apps/api/core";
 import { useEffect, useRef } from "react";
 
+import { hydrateSessionContent } from "~/store/tinybase/persister/session/hydrate";
 import { deleteSessionCascade } from "~/store/tinybase/store/deleteSession";
 import { isSessionEmpty } from "~/store/tinybase/store/sessions";
 import { listenerStore } from "~/store/zustand/listener/instance";
@@ -32,6 +33,7 @@ type SessionTabCloseHandlerOptions = {
   getSessionMode?: (sessionId: string) => string | null | undefined;
   isSessionEmptyFn?: typeof isSessionEmpty;
   deleteSessionFn?: typeof deleteSessionCascade;
+  hydrateSessionContentFn?: typeof hydrateSessionContent;
 };
 
 export async function initializeDesktopTabs({
@@ -65,6 +67,7 @@ export function createSessionTabCloseHandler({
     listenerStore.getState().getSessionMode(sessionId),
   isSessionEmptyFn = isSessionEmpty,
   deleteSessionFn = deleteSessionCascade,
+  hydrateSessionContentFn = hydrateSessionContent,
 }: SessionTabCloseHandlerOptions) {
   return (tab: Tab) => {
     if (tab.type !== "sessions") {
@@ -85,9 +88,18 @@ export function createSessionTabCloseHandler({
       return;
     }
 
-    invalidateSessionResource(sessionId);
-    void deleteSessionFn(store, indexes, sessionId, {
-      deferFilesystemDelete: true,
+    void (async () => {
+      const hydrated = await hydrateSessionContentFn(store, sessionId);
+      if (!hydrated || !isSessionEmptyFn(store, sessionId)) {
+        return;
+      }
+
+      invalidateSessionResource(sessionId);
+      deleteSessionFn(store, indexes, sessionId, {
+        deferFilesystemDelete: true,
+      });
+    })().catch((error) => {
+      console.error("session close cleanup", error);
     });
   };
 }
