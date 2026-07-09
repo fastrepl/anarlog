@@ -801,12 +801,12 @@ msgid "Job Title"
 msgstr "Job Title"
 
 #: src/session/components/outer-header/index.tsx
-msgid "Join & start"
-msgstr "Join & start"
+msgid "Join & record"
+msgstr "Join & record"
 
 #: src/session/components/outer-header/index.tsx
-msgid "Join meeting and start listening"
-msgstr "Join meeting and start listening"
+msgid "Join meeting and record"
+msgstr "Join meeting and record"
 
 #: src/onboarding/final.tsx
 msgid "Join our community and stay updated:"
@@ -1229,6 +1229,10 @@ msgstr "Recent"
 msgid "Reconnect required"
 msgstr "Reconnect required"
 
+#: src/session/components/outer-header/index.tsx
+msgid "Record"
+msgstr "Record"
+
 #: src/settings/general/account.tsx
 msgid "Refresh billing status"
 msgstr "Refresh billing status"
@@ -1598,10 +1602,6 @@ msgstr "Sort options"
 #: src/settings/general/app-settings.tsx
 msgid "Start Anarlog at login"
 msgstr "Start Anarlog at login"
-
-#: src/session/components/outer-header/index.tsx
-msgid "Start listening"
-msgstr "Start listening"
 
 #: src/main/empty.tsx
 msgid "Start Recording"

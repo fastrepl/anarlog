@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
   stopTranscription: vi.fn(),
   requestMainListenerControl: vi.fn(),
   isMainWebviewWindow: true,
+  hasTranscriptBySession: {} as Record<string, boolean>,
   overflowProps: [] as Array<{
     allowListening?: boolean;
     standaloneWindow?: boolean;
@@ -51,6 +52,12 @@ vi.mock("./overflow", () => ({
     mocks.overflowProps.push(props);
     return <button type="button">More</button>;
   },
+}));
+
+vi.mock("../shared", () => ({
+  RecordingIcon: () => <div data-testid="recording-icon" />,
+  useHasTranscript: (sessionId: string) =>
+    mocks.hasTranscriptBySession[sessionId] ?? false,
 }));
 
 vi.mock("@hypr/plugin-opener2", () => ({
@@ -124,6 +131,7 @@ describe("OuterHeader", () => {
     mocks.stopTranscription.mockClear();
     mocks.requestMainListenerControl.mockClear();
     mocks.isMainWebviewWindow = true;
+    mocks.hasTranscriptBySession = {};
     mocks.overflowProps = [];
   });
 
@@ -348,7 +356,7 @@ describe("OuterHeader", () => {
     expect(titleSlot?.className).toContain("right-[70px]");
   });
 
-  it("shows a join-and-start pill before a remote meeting with a video link", () => {
+  it("shows a join-and-record pill before a remote meeting with a video link", () => {
     mocks.sessionEvents = {
       "session-1": {
         title: "Design Review",
@@ -367,15 +375,15 @@ describe("OuterHeader", () => {
       />,
     );
 
-    const joinButton = screen.getByRole("button", { name: "Join & start" });
+    const joinButton = screen.getByRole("button", { name: "Join & record" });
     const metadataButton = screen.getByRole("button", {
       name: "Open event metadata",
     });
 
     fireEvent.click(joinButton);
 
-    expect(joinButton.getAttribute("aria-label")).toBe("Join & start");
-    expect(joinButton.textContent).toContain("Join & start");
+    expect(joinButton.getAttribute("aria-label")).toBe("Join & record");
+    expect(joinButton.textContent).toContain("Join & record");
     expect(joinButton.getAttribute("data-tauri-drag-region")).toBe("false");
     expect(metadataButton.getAttribute("data-tauri-drag-region")).toBe("false");
     expect(mocks.openUrl).toHaveBeenCalledWith(
@@ -385,7 +393,7 @@ describe("OuterHeader", () => {
     expect(mocks.startListening).toHaveBeenCalledTimes(1);
   });
 
-  it("shows start listening before a meeting without a video link", () => {
+  it("shows record before a meeting without a video link", () => {
     mocks.sessionEvents = {
       "session-1": {
         title: "Design Review",
@@ -403,12 +411,33 @@ describe("OuterHeader", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Start listening" }));
+    fireEvent.click(screen.getByRole("button", { name: "Record" }));
 
     expect(mocks.startListening).toHaveBeenCalledTimes(1);
     expect(
       screen.getByRole("button", { name: "Open event metadata" }),
     ).not.toBeNull();
+  });
+
+  it("shows resume when an inactive session already has a transcript", () => {
+    mocks.hasTranscriptBySession = { "session-1": true };
+
+    render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "transcript" } as EditorView}
+        title={<span>Session title</span>}
+      />,
+    );
+
+    const resumeButton = screen.getByRole("button", { name: "Resume" });
+
+    fireEvent.click(resumeButton);
+
+    expect(resumeButton.title).toBe("Resume listening");
+    expect(screen.queryByRole("button", { name: "Record" })).toBeNull();
+    expect(screen.getByTestId("recording-icon")).not.toBeNull();
+    expect(mocks.startListening).toHaveBeenCalledTimes(1);
   });
 
   it("shows stop while the meeting is in progress", () => {
@@ -430,9 +459,14 @@ describe("OuterHeader", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Stop" }));
+    const stopButton = screen.getByRole("button", { name: "Stop" });
 
-    expect(screen.queryByRole("button", { name: "Join & start" })).toBeNull();
+    fireEvent.click(stopButton);
+
+    expect(stopButton.querySelector("svg")?.getAttribute("class")).toContain(
+      "text-red-500",
+    );
+    expect(screen.queryByRole("button", { name: "Join & record" })).toBeNull();
     expect(
       screen.getByRole("button", { name: "Open event metadata" }),
     ).not.toBeNull();
@@ -464,7 +498,8 @@ describe("OuterHeader", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Resume" }));
 
-    expect(screen.queryByRole("button", { name: "Join & start" })).toBeNull();
+    expect(screen.getByTestId("recording-icon")).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "Join & record" })).toBeNull();
     expect(metadataButton.getAttribute("data-tauri-drag-region")).toBe("false");
     expect(mocks.startListening).toHaveBeenCalledTimes(1);
   });

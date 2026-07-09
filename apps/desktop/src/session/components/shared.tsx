@@ -146,7 +146,12 @@ export function getCanShowTranscript({
 }
 
 export function RecordingIcon() {
-  return <div className="size-3 rounded-full bg-red-500" />;
+  return (
+    <span className="relative flex size-3 items-center justify-center">
+      <span className="absolute size-2.5 animate-ping rounded-full bg-red-500/40" />
+      <span className="relative size-2 rounded-full bg-red-500" />
+    </span>
+  );
 }
 
 export function useListenButtonState(sessionId: string) {

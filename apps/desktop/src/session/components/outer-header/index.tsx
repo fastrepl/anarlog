@@ -10,6 +10,7 @@ import { useCallback } from "react";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
 import { cn, safeParseDate } from "@hypr/utils";
 
+import { RecordingIcon, useHasTranscript } from "../shared";
 import { MetadataButton } from "./metadata";
 import { OverflowButton } from "./overflow";
 
@@ -135,6 +136,7 @@ function HeaderMeetingActionPill({
   const meetingLink = event?.meeting_link || null;
   const endedAt = event?.ended_at ? safeParseDate(event.ended_at) : null;
   const ended = !!endedAt && endedAt.getTime() <= now.getTime();
+  const hasTranscript = useHasTranscript(sessionId);
   const { t } = useLingui();
   const start = useCallback(() => {
     if (!isMainWebviewWindow()) {
@@ -157,7 +159,7 @@ function HeaderMeetingActionPill({
       return {
         label: t`Stop`,
         title: t`Stop listening`,
-        icon: <SquareIcon className="size-3 fill-current" />,
+        icon: <SquareIcon className="size-3 fill-current text-red-500" />,
         onClick: stopListening,
       };
     }
@@ -166,7 +168,7 @@ function HeaderMeetingActionPill({
       return {
         label: t`Stop`,
         title: t`Stop transcription`,
-        icon: <SquareIcon className="size-3 fill-current" />,
+        icon: <SquareIcon className="size-3 fill-current text-red-500" />,
         onClick: () => {
           void stopTranscription(sessionId);
         },
@@ -175,8 +177,8 @@ function HeaderMeetingActionPill({
 
     if (meetingLink && !ended) {
       return {
-        label: t`Join & start`,
-        title: t`Join meeting and start listening`,
+        label: t`Join & record`,
+        title: t`Join meeting and record`,
         icon: remote ? getMeetingDisplay(remote.type).icon : undefined,
         onClick: () => {
           void openerCommands.openUrl(meetingLink, null);
@@ -189,15 +191,15 @@ function HeaderMeetingActionPill({
       return {
         label: t`Resume`,
         title: t`Resume listening`,
-        icon: undefined,
+        icon: <RecordingIcon />,
         onClick: start,
       };
     }
 
     return {
-      label: t`Start listening`,
-      title: t`Start listening`,
-      icon: undefined,
+      label: hasTranscript ? t`Resume` : t`Record`,
+      title: hasTranscript ? t`Resume listening` : t`Record`,
+      icon: <RecordingIcon />,
       onClick: start,
     };
   })();
@@ -213,7 +215,7 @@ function HeaderMeetingActionPill({
         disabled={disabled}
         onClick={action.onClick}
         className={cn([
-          "flex h-full min-w-0 items-center gap-1.5 px-2.5",
+          "flex h-full min-w-0 items-center gap-1.5 py-0 pr-1.5 pl-2.5",
           "text-sm font-medium",
           "hover:bg-accent transition-colors",
           disabled && "cursor-default opacity-60 hover:bg-transparent",
@@ -231,7 +233,7 @@ function HeaderMeetingActionPill({
             aria-label={metadataLabel}
             title={metadataLabel}
             className={cn([
-              "text-muted-foreground flex h-full w-[26px] shrink-0 items-center justify-start pl-[5px]",
+              "text-muted-foreground flex h-full w-5 shrink-0 items-center justify-center",
               "hover:bg-accent hover:text-foreground transition-colors",
               open && "bg-accent text-foreground",
             ])}
