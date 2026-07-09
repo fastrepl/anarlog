@@ -154,14 +154,13 @@ export function useUpcomingMeetingLabelFormatter(): (diffMs: number) => string {
     (diffMs: number) => {
       const totalSeconds = Math.max(1, Math.floor(diffMs / 1000));
       const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
 
       if (minutes < 1) {
-        return totalSeconds === 1
-          ? t`In ${totalSeconds} second`
-          : t`In ${totalSeconds} seconds`;
+        return t`In ${totalSeconds}s`;
       }
 
-      return minutes === 1 ? t`In ${minutes} minute` : t`In ${minutes} minutes`;
+      return t`In ${minutes}m ${seconds}s`;
     },
     [t],
   );
@@ -170,10 +169,11 @@ export function useUpcomingMeetingLabelFormatter(): (diffMs: number) => string {
 function formatUpcomingMeetingLabelEnglish(diffMs: number): string {
   const totalSeconds = Math.max(1, Math.floor(diffMs / 1000));
   const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
 
   if (minutes < 1) {
-    return `In ${totalSeconds} ${totalSeconds === 1 ? "second" : "seconds"}`;
+    return `In ${totalSeconds}s`;
   }
 
-  return `In ${minutes} ${minutes === 1 ? "minute" : "minutes"}`;
+  return `In ${minutes}m ${seconds}s`;
 }

@@ -721,17 +721,17 @@ describe("TimelineView", () => {
       y: 800,
     });
 
-    expect(chip?.textContent).toBe("In 51 seconds");
+    expect(chip?.textContent).toBe("In 51s");
     expect(chip?.className).toContain("bg-destructive");
     expect(chip?.className).toContain("w-28");
     expect(chip?.querySelector("svg")).toBeTruthy();
-    expect(chip?.getAttribute("aria-label")).toBe("Team standup in 51 seconds");
+    expect(chip?.getAttribute("aria-label")).toBe("Team standup in 51s");
     expect(screen.getByTestId("timeline-item-standup").dataset.upcoming).toBe(
       "true",
     );
     expect(
       screen.getByTestId("timeline-item-standup").dataset.upcomingLabel,
-    ).toBe("In 51 seconds");
+    ).toBe("In 51s");
     expect(
       container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
     ).toContain("h-12");
@@ -798,7 +798,7 @@ describe("TimelineView", () => {
     ).toBeNull();
   });
 
-  it("rounds upcoming meeting minutes down to elapsed whole minutes", () => {
+  it("shows upcoming meeting minutes with remaining seconds", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
     mocks.currentTimeMs = Date.now();
@@ -818,7 +818,7 @@ describe("TimelineView", () => {
     expect(
       container.querySelector("[data-sidebar-upcoming-meeting-status]")
         ?.textContent,
-    ).toBe("In 1 minute");
+    ).toBe("In 1m 1s");
   });
 
   it("keeps the meeting chip visible until the scheduled end time", () => {
@@ -849,7 +849,7 @@ describe("TimelineView", () => {
     expect(
       container.querySelector("[data-sidebar-upcoming-meeting-status]")
         ?.textContent,
-    ).toBe("In 5 minutes");
+    ).toBe("In 5m 0s");
 
     vi.setSystemTime(new Date("2024-01-15T12:06:01.000Z"));
     mocks.currentTimeMs = Date.now();

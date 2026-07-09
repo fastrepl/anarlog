@@ -772,20 +772,12 @@ msgid "If the browser does not reopen Anarlog, use the paste-link fallback in th
 msgstr "If the browser does not reopen Anarlog, use the paste-link fallback in the sign-in instruction window."
 
 #: src/sidebar/timeline/upcoming-meeting.ts
-msgid "In {minutes} minute"
-msgstr "In {minutes} minute"
+msgid "In {minutes}m {seconds}s"
+msgstr "In {minutes}m {seconds}s"
 
 #: src/sidebar/timeline/upcoming-meeting.ts
-msgid "In {minutes} minutes"
-msgstr "In {minutes} minutes"
-
-#: src/sidebar/timeline/upcoming-meeting.ts
-msgid "In {totalSeconds} second"
-msgstr "In {totalSeconds} second"
-
-#: src/sidebar/timeline/upcoming-meeting.ts
-msgid "In {totalSeconds} seconds"
-msgstr "In {totalSeconds} seconds"
+msgid "In {totalSeconds}s"
+msgstr "In {totalSeconds}s"
 
 #: src/session/components/outer-header/overflow/export-modal.tsx
 msgid "Include"

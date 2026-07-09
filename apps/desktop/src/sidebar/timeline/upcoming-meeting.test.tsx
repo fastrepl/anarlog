@@ -126,7 +126,7 @@ describe("useSidebarUpcomingMeetingStatus", () => {
 
     expect(visible.result.current).toMatchObject({
       itemKey: "event-standup",
-      label: "In 3 minutes",
+      label: "In 3m 0s",
       title: "Deleted standup",
     });
   });
