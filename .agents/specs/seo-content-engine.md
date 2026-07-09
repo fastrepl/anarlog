@@ -40,6 +40,31 @@ founder/product/category narrative unless explicitly requested otherwise.
   pages that compare tools while routing readers toward Anarlog's private,
   local-first, bot-free positioning.
 
+## Narrative Arc
+
+Lead with privacy for prosumers and individuals, then bridge that trust into an
+enterprise security narrative.
+
+- Prosumer/individual entry point: "I want useful AI meeting notes without
+  handing every sensitive conversation to a random cloud bot."
+- Team expansion point: "If privacy matters this much for my own meetings, it
+  matters even more for my team's internal discussions."
+- Enterprise bridge: "Anarlog is built for organizations that care about data
+  privacy, meeting security, and user-controlled workflows."
+
+Content should make this progression feel natural:
+
+- Start with user-level privacy, local-first control, bot-free capture, and
+  sensitive meeting use cases.
+- Add team-level workflows around shared meeting memory, controlled access, and
+  less social friction in calls.
+- Later, build enterprise pages around security, data handling, compliance
+  posture, deployment controls, and procurement-ready trust materials.
+
+Do not make enterprise claims before the product and proof points support them.
+Use "privacy-first" and "security-conscious" as the bridge until formal
+enterprise security assets are ready.
+
 ## Keyword Workflow
 
 - Use Semrush as the source for keyword and SERP research. Do not fall back to
@@ -90,6 +115,9 @@ Current pattern from July 2026 research:
   or no-bot messaging, so Anarlog should not rely on "bot-free" alone.
 - Anarlog's sharper angle should combine bot-free capture with privacy,
   local-first/user-controlled workflows, and genuinely useful meeting memory.
+- The acquisition narrative should begin with privacy for individuals and
+  prosumers, then mature into enterprise security and organizational data
+  privacy as teams adopt it.
 - Competitor blogs are publishing a mix of product updates, SEO comparison
   pages, platform/how-to content, privacy/security explainers, and role/workflow
   guides.

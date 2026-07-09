@@ -24,6 +24,40 @@ Anarlog should position around the combination of:
 - practical meeting notes that people can actually use,
 - and honest comparisons that do not overclaim.
 
+## Privacy-To-Enterprise Narrative
+
+The acquisition story should start with prosumers and individuals, then grow
+into the enterprise security conversation.
+
+Stage 1: individual privacy.
+
+- "I want AI meeting notes, but I do not want every sensitive conversation
+  handled by a cloud bot."
+- Target readers: founders, operators, consultants, engineers, researchers,
+  executives, and anyone taking sensitive meetings.
+- Content themes: private AI notetaker, local AI meeting notes, bot-free meeting
+  assistant, AI notes for sensitive meetings, data-retention explainers.
+
+Stage 2: team trust.
+
+- "If my own meetings deserve privacy, my team's conversations deserve it too."
+- Target readers: small teams, startups, agencies, product teams, customer
+  teams, and leadership groups.
+- Content themes: shared meeting memory, internal meeting privacy, team meeting
+  notes without bots, access control, workflow ownership.
+
+Stage 3: enterprise security.
+
+- "Our organization cares about data privacy and meeting security; is Anarlog a
+  fit?"
+- Target readers: IT, security, operations, legal, and procurement.
+- Content themes: security posture, data handling, compliance readiness,
+  deployment controls, admin workflows, vendor risk.
+
+Important guardrail: do not overclaim enterprise readiness before the product,
+security posture, and proof assets support it. Use individual privacy and
+team-level trust as the credible path into enterprise demand.
+
 ## Tracked Competitors
 
 | Competitor | Primary angle | Content pattern | Anarlog response |
@@ -82,6 +116,9 @@ The angle should be honest use-case fit:
 - Meeting minutes software
 - AI notetaker for sensitive meetings
 - Best AI notetaker for in-person meetings
+- AI meeting notes for founders
+- AI meeting notes for consultants
+- AI meeting notes for confidential meetings
 
 ### Trust And Privacy Pages
 
@@ -91,6 +128,9 @@ The angle should be honest use-case fit:
 - Is Granola private?
 - AI notetaker consent guide
 - Can you transcribe meetings without sending data to the cloud?
+- Meeting notes data privacy guide
+- AI meeting notetaker security checklist
+- How to evaluate AI meeting tools for sensitive conversations
 
 ## Analysis Checklist
 
@@ -115,6 +155,8 @@ Before writing or refreshing a competitor page:
 - Do not write generic "best AI notetaker" filler; every section should help a
   user decide.
 - Prefer specific use-case fit over generic ranking language.
+- Do not overstate enterprise compliance/security claims before the underlying
+  product and proof points are ready.
 
 ## Research Sources To Recheck
 
@@ -134,4 +176,3 @@ Starting URLs:
 - https://www.plaud.ai/
 - https://www.notta.ai/en
 - https://www.noota.io/
-
