@@ -24,10 +24,6 @@ import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 import { useTabs } from "~/store/zustand/tabs";
 import type { EditorView, Tab } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
-import {
-  isMainWebviewWindow,
-  requestMainListenerControl,
-} from "~/stt/window-control";
 
 export function FloatingActionButton({
   allowListening = true,
@@ -60,18 +56,9 @@ export function FloatingActionButton({
     main.STORE_ID,
   );
   const regenerateTranscript = useRegenerateTranscript(tab.id);
-  const { stop, stopTranscription } = useListener((state) => ({
-    stop: state.stop,
+  const { stopTranscription } = useListener((state) => ({
     stopTranscription: state.stopTranscription,
   }));
-  const handleStopLiveSession = useCallback(() => {
-    if (!isMainWebviewWindow()) {
-      void requestMainListenerControl("stop", tab.id);
-      return;
-    }
-
-    stop();
-  }, [stop, tab.id]);
   const handleStopTranscription = useCallback(() => {
     void stopTranscription(tab.id);
   }, [stopTranscription, tab.id]);
@@ -83,7 +70,6 @@ export function FloatingActionButton({
   const transcriptAction = getTranscriptFloatingAction({
     audioExists,
     currentView,
-    handleStopLiveSession,
     handleStopTranscription,
     regenerateTranscript,
     sessionMode,
@@ -229,15 +215,13 @@ function TranscriptActionButton({
   action,
   onClick,
 }: {
-  action: "regenerate" | "stop-live" | "stop-transcription";
+  action: "regenerate" | "stop-transcription";
   onClick: () => void;
 }) {
   const label =
-    action === "stop-live"
-      ? "Stop listening"
-      : action === "stop-transcription"
-        ? "Stop transcription"
-        : "Regenerate transcript";
+    action === "stop-transcription"
+      ? "Stop transcription"
+      : "Regenerate transcript";
   const Icon = action === "regenerate" ? RefreshCwIcon : SquareIcon;
 
   return (
@@ -304,27 +288,18 @@ function GenerateSummaryButton({
 function getTranscriptFloatingAction({
   audioExists,
   currentView,
-  handleStopLiveSession,
   handleStopTranscription,
   regenerateTranscript,
   sessionMode,
 }: {
   audioExists: boolean;
   currentView: EditorView;
-  handleStopLiveSession: () => void;
   handleStopTranscription: () => void;
   regenerateTranscript: () => void;
   sessionMode: string;
 }) {
   if (currentView.type !== "transcript") {
     return null;
-  }
-
-  if (sessionMode === "active") {
-    return {
-      type: "stop-live" as const,
-      onClick: handleStopLiveSession,
-    };
   }
 
   if (sessionMode === "running_batch") {

@@ -455,32 +455,20 @@ describe("FloatingActionButton", () => {
     expect(hoisted.stopTranscription).toHaveBeenCalledWith("session-1");
   });
 
-  it("shows a stop listening FAB while live recording is active", () => {
+  it("keeps the chat FAB on active transcript views", () => {
     hoisted.currentTab = { type: "transcript" };
     hoisted.sessionMode = "active";
 
     renderFloatingActionButton({ audioExists: true });
 
-    fireEvent.click(screen.getByRole("button", { name: "Stop listening" }));
-
-    expect(hoisted.stopListening).toHaveBeenCalledTimes(1);
-    expect(hoisted.requestMainListenerControl).not.toHaveBeenCalled();
-  });
-
-  it("delegates live recording stop from standalone windows", () => {
-    hoisted.currentTab = { type: "transcript" };
-    hoisted.sessionMode = "active";
-    hoisted.isMainWebviewWindow = false;
-
-    renderFloatingActionButton({ audioExists: true });
-
-    fireEvent.click(screen.getByRole("button", { name: "Stop listening" }));
-
-    expect(hoisted.requestMainListenerControl).toHaveBeenCalledWith(
-      "stop",
-      "session-1",
+    fireEvent.click(
+      screen.getByRole("button", { name: "Ask Anarlog anything" }),
     );
+
+    expect(screen.queryByRole("button", { name: "Stop listening" })).toBeNull();
+    expect(hoisted.sendEvent).toHaveBeenCalledWith({ type: "OPEN" });
     expect(hoisted.stopListening).not.toHaveBeenCalled();
+    expect(hoisted.requestMainListenerControl).not.toHaveBeenCalled();
   });
 
   it("hides the regenerate transcript FAB when audio is missing", () => {
