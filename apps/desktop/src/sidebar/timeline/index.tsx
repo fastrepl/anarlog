@@ -531,6 +531,7 @@ export const TimelineView = memo(function TimelineView({
                   getFlatItemKeys={getFlatItemKeys}
                   upcomingItemKey={upcomingMeetingStatus?.itemKey}
                   upcomingItemLabel={upcomingMeetingStatus?.label}
+                  upcomingItemProgress={upcomingMeetingStatus?.progress}
                   upcomingItemNodeRef={setUpcomingMeetingNodeRef}
                 />
               ) : (
@@ -559,6 +560,11 @@ export const TimelineView = memo(function TimelineView({
                       upcomingLabel={
                         itemKey === upcomingMeetingStatus?.itemKey
                           ? upcomingMeetingStatus.label
+                          : undefined
+                      }
+                      upcomingProgress={
+                        itemKey === upcomingMeetingStatus?.itemKey
+                          ? upcomingMeetingStatus.progress
                           : undefined
                       }
                     />
@@ -867,6 +873,7 @@ function TodayBucket({
   getFlatItemKeys,
   upcomingItemKey,
   upcomingItemLabel,
+  upcomingItemProgress,
   upcomingItemNodeRef,
 }: {
   items: TimelineItem[];
@@ -880,6 +887,7 @@ function TodayBucket({
   getFlatItemKeys: () => string[];
   upcomingItemKey?: string;
   upcomingItemLabel?: string;
+  upcomingItemProgress?: number;
   upcomingItemNodeRef: RefCallback<HTMLDivElement>;
 }) {
   const currentTimeMs = useCurrentTimeMs();
@@ -960,6 +968,9 @@ function TodayBucket({
           upcomingLabel={
             itemKey === upcomingItemKey ? upcomingItemLabel : undefined
           }
+          upcomingProgress={
+            itemKey === upcomingItemKey ? upcomingItemProgress : undefined
+          }
         />
       );
 
@@ -1024,6 +1035,7 @@ function TodayBucket({
     getFlatItemKeys,
     upcomingItemKey,
     upcomingItemLabel,
+    upcomingItemProgress,
     upcomingItemNodeRef,
   ]);
 

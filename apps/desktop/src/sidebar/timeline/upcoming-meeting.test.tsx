@@ -127,6 +127,7 @@ describe("useSidebarUpcomingMeetingStatus", () => {
     expect(visible.result.current).toMatchObject({
       itemKey: "event-standup",
       label: "In 3m 0s",
+      progress: 0.6,
       title: "Deleted standup",
     });
   });
@@ -147,6 +148,7 @@ describe("useSidebarUpcomingMeetingStatus", () => {
     expect(active.result.current).toMatchObject({
       itemKey: "event-standup",
       label: "Now",
+      progress: 1,
       title: "Team standup",
     });
 

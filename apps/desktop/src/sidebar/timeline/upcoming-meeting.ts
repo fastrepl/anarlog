@@ -20,6 +20,7 @@ export type SidebarUpcomingMeetingStatus = {
   itemKey: string;
   label: string;
   title: string;
+  progress?: number;
 };
 
 export function useSidebarUpcomingMeetingStatus({
@@ -132,6 +133,7 @@ export function getUpcomingMeetingStatus(
     return {
       itemKey: active.itemKey,
       label: activeLabel,
+      progress: 1,
       title: active.title,
     };
   }
@@ -143,8 +145,13 @@ export function getUpcomingMeetingStatus(
   return {
     itemKey: nearest.itemKey,
     label: formatLabel(nearest.diffMs),
+    progress: getUpcomingMeetingProgress(nearest.diffMs),
     title: nearest.title,
   };
+}
+
+function getUpcomingMeetingProgress(diffMs: number): number {
+  return Math.max(0, Math.min(diffMs / UPCOMING_MEETING_VISIBLE_WINDOW_MS, 1));
 }
 
 export function useUpcomingMeetingLabelFormatter(): (diffMs: number) => string {

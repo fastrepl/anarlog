@@ -61,7 +61,7 @@ type ItemBaseProps = {
   itemNodeRef?: RefCallback<HTMLDivElement>;
   timelineSessionId?: string;
   isUpcoming?: boolean;
-  upcomingLabel?: string;
+  upcomingProgress?: number;
 };
 
 export const TimelineItemComponent = memo(
@@ -76,7 +76,7 @@ export const TimelineItemComponent = memo(
     selectedNodeRef,
     itemNodeRef,
     isUpcoming,
-    upcomingLabel,
+    upcomingProgress,
   }: {
     item: TimelineItem;
     precision: TimelinePrecision;
@@ -89,6 +89,7 @@ export const TimelineItemComponent = memo(
     itemNodeRef?: RefCallback<HTMLDivElement>;
     isUpcoming?: boolean;
     upcomingLabel?: string;
+    upcomingProgress?: number;
   }) => {
     const readFlatItemKeys =
       getFlatItemKeys ?? (() => flatItemKeys ?? EMPTY_TIMELINE_ITEM_KEYS);
@@ -105,7 +106,7 @@ export const TimelineItemComponent = memo(
           selectedNodeRef={selectedNodeRef}
           itemNodeRef={itemNodeRef}
           isUpcoming={isUpcoming}
-          upcomingLabel={upcomingLabel}
+          upcomingProgress={upcomingProgress}
         />
       );
     }
@@ -120,7 +121,7 @@ export const TimelineItemComponent = memo(
         selectedNodeRef={selectedNodeRef}
         itemNodeRef={itemNodeRef}
         isUpcoming={isUpcoming}
-        upcomingLabel={upcomingLabel}
+        upcomingProgress={upcomingProgress}
       />
     );
   },
@@ -148,13 +149,20 @@ const ItemBase = memo(function ItemBase({
   itemNodeRef,
   timelineSessionId,
   isUpcoming,
-  upcomingLabel,
+  upcomingProgress,
 }: ItemBaseProps) {
   const { t } = useLingui();
   const hasSelection = useTimelineSelection((s) => s.selectedIds.length > 0);
   const showLiveStop = isLive && onStop;
-  const showUpcomingCountdown =
-    Boolean(upcomingLabel) && Boolean(isUpcoming) && !isLive && !showSpinner;
+  const showUpcomingGauge =
+    typeof upcomingProgress === "number" &&
+    Boolean(isUpcoming) &&
+    !isLive &&
+    !showSpinner;
+  const upcomingGaugePercent =
+    typeof upcomingProgress === "number"
+      ? Math.round(Math.max(0, Math.min(upcomingProgress, 1)) * 100)
+      : 0;
   const showTrailingStatus = showLiveStop || showSpinner;
   const setItemRef = useCallback(
     (node: HTMLDivElement | null) => {
@@ -179,6 +187,7 @@ const ItemBase = memo(function ItemBase({
         contextMenu={hasSelection ? undefined : contextMenu}
         className={cn([
           "w-full rounded-lg px-3 py-2 text-left",
+          showUpcomingGauge && "pl-4",
           showTrailingStatus && "pr-10",
           ignored ? "cursor-default" : "cursor-pointer",
           multiSelected && "bg-accent",
@@ -221,19 +230,21 @@ const ItemBase = memo(function ItemBase({
               </div>
             )}
           </div>
-          {showUpcomingCountdown ? (
-            <span
-              data-sidebar-timeline-upcoming-countdown
-              className={cn([
-                "bg-destructive text-destructive-foreground pointer-events-none shrink-0",
-                "inline-flex h-6 items-center justify-center rounded-full px-2 text-[11px] leading-none font-medium whitespace-nowrap",
-              ])}
-            >
-              {upcomingLabel}
-            </span>
-          ) : null}
         </div>
       </InteractiveButton>
+      {showUpcomingGauge ? (
+        <div
+          aria-hidden
+          data-sidebar-timeline-upcoming-gauge
+          className="bg-destructive/20 pointer-events-none absolute top-2 bottom-2 left-1.5 w-0.5 overflow-hidden rounded-full"
+        >
+          <div
+            data-sidebar-timeline-upcoming-gauge-fill
+            className="bg-destructive absolute bottom-0 left-0 w-full rounded-full transition-[height] duration-300 ease-linear"
+            style={{ height: `${upcomingGaugePercent}%` }}
+          />
+        </div>
+      ) : null}
       {showSpinner ? (
         <div
           aria-hidden
@@ -305,7 +316,7 @@ function itemBasePropsAreEqual(prev: ItemBaseProps, next: ItemBaseProps) {
     prev.itemNodeRef === next.itemNodeRef &&
     prev.timelineSessionId === next.timelineSessionId &&
     prev.isUpcoming === next.isUpcoming &&
-    prev.upcomingLabel === next.upcomingLabel
+    prev.upcomingProgress === next.upcomingProgress
   );
 }
 
@@ -320,7 +331,7 @@ const EventItem = memo(
     selectedNodeRef,
     itemNodeRef,
     isUpcoming,
-    upcomingLabel,
+    upcomingProgress,
   }: {
     item: EventTimelineItem;
     precision: TimelinePrecision;
@@ -331,7 +342,7 @@ const EventItem = memo(
     selectedNodeRef?: RefCallback<HTMLDivElement>;
     itemNodeRef?: RefCallback<HTMLDivElement>;
     isUpcoming?: boolean;
-    upcomingLabel?: string;
+    upcomingProgress?: number;
   }) => {
     const { t } = useLingui();
     const store = main.UI.useStore(main.STORE_ID);
@@ -462,7 +473,7 @@ const EventItem = memo(
         selectedNodeRef={selected ? selectedNodeRef : undefined}
         itemNodeRef={itemNodeRef}
         isUpcoming={isUpcoming}
-        upcomingLabel={upcomingLabel}
+        upcomingProgress={upcomingProgress}
       />
     );
   },
@@ -479,7 +490,7 @@ const SessionItem = memo(
     selectedNodeRef,
     itemNodeRef,
     isUpcoming,
-    upcomingLabel,
+    upcomingProgress,
   }: {
     item: SessionTimelineItem;
     precision: TimelinePrecision;
@@ -490,7 +501,7 @@ const SessionItem = memo(
     selectedNodeRef?: RefCallback<HTMLDivElement>;
     itemNodeRef?: RefCallback<HTMLDivElement>;
     isUpcoming?: boolean;
-    upcomingLabel?: string;
+    upcomingProgress?: number;
   }) => {
     const { t } = useLingui();
     const openCurrent = useTabs((state) => state.openCurrent);
@@ -623,7 +634,7 @@ const SessionItem = memo(
         itemNodeRef={itemNodeRef}
         timelineSessionId={sessionId}
         isUpcoming={isUpcoming}
-        upcomingLabel={upcomingLabel}
+        upcomingProgress={upcomingProgress}
         draggable
       />
     );

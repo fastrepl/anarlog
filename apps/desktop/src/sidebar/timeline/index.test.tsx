@@ -201,17 +201,20 @@ vi.mock("./item", () => ({
     item,
     itemNodeRef,
     upcomingLabel,
+    upcomingProgress,
   }: {
     isUpcoming?: boolean;
     item: { id: string };
     itemNodeRef?: (node: HTMLDivElement | null) => void;
     upcomingLabel?: string;
+    upcomingProgress?: number;
   }) => (
     <div
       ref={itemNodeRef}
       data-testid={`timeline-item-${item.id}`}
       data-upcoming={isUpcoming ? "true" : undefined}
       data-upcoming-label={upcomingLabel}
+      data-upcoming-progress={upcomingProgress}
     />
   ),
 }));
@@ -758,6 +761,9 @@ describe("TimelineView", () => {
     expect(
       screen.getByTestId("timeline-item-standup").dataset.upcomingLabel,
     ).toBe("In 51s");
+    expect(
+      screen.getByTestId("timeline-item-standup").dataset.upcomingProgress,
+    ).toBe("0.17");
     expect(
       container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
     ).toContain("h-12");
