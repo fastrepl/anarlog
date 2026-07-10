@@ -11,8 +11,8 @@ import {
 import { useLanguageModel } from "~/ai/hooks";
 import type { ContextRef } from "~/chat/context/entities";
 import type { HyprUIMessage } from "~/chat/types";
+import { useOwnerUserId } from "~/shared/owner-user";
 import { id } from "~/shared/utils";
-import * as main from "~/store/tinybase/store/main";
 
 export function useChatActions({
   groupId,
@@ -21,7 +21,7 @@ export function useChatActions({
   groupId: string | undefined;
   onGroupCreated: (newGroupId: string) => void;
 }) {
-  const { user_id } = main.UI.useValues(main.STORE_ID);
+  const ownerUserId = useOwnerUserId();
   const titleModel = useLanguageModel("title");
 
   const queueChatTitleGeneration = useCallback(
@@ -68,7 +68,7 @@ export function useChatActions({
       ) => void,
       contextRefs?: ContextRef[],
     ) => {
-      if (!user_id) {
+      if (!ownerUserId) {
         console.error("Cannot persist chat message without an owner user id");
         return;
       }
@@ -89,7 +89,7 @@ export function useChatActions({
       const message = buildPersistedChatMessage({
         message: uiMessage,
         chatGroupId: currentGroupId,
-        ownerUserId: user_id,
+        ownerUserId,
         status: "ready",
         content,
       });
@@ -99,7 +99,7 @@ export function useChatActions({
       const persist = fallbackTitle
         ? createChatGroupWithMessage({
             groupId: currentGroupId,
-            ownerUserId: user_id,
+            ownerUserId,
             title: fallbackTitle,
             createdAt: message.createdAt,
             message,
@@ -123,7 +123,7 @@ export function useChatActions({
           console.error("Failed to persist outgoing chat message", error);
         });
     },
-    [groupId, user_id, onGroupCreated, queueChatTitleGeneration],
+    [groupId, ownerUserId, onGroupCreated, queueChatTitleGeneration],
   );
 
   return { handleSendMessage };

@@ -22,11 +22,8 @@ vi.mock("~/shared/utils", () => ({
   id: () => mocks.ids.shift(),
 }));
 
-vi.mock("~/store/tinybase/store/main", () => ({
-  STORE_ID: "main",
-  UI: {
-    useValues: () => ({ user_id: "user-1" }),
-  },
+vi.mock("~/shared/owner-user", () => ({
+  useOwnerUserId: () => "user-1",
 }));
 
 import { useChatActions } from "./use-chat-actions";

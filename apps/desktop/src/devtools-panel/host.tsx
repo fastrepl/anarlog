@@ -13,7 +13,8 @@ import { useBillingAccess } from "~/auth/billing";
 import { TrialEndedDialog } from "~/billing/trial-ended-dialog";
 import { TrialStartedDialog } from "~/billing/trial-started-dialog";
 import { executeTransaction } from "~/db";
-import { useDevtoolsStore, useDevtoolsUserId } from "~/devtools-panel/hooks";
+import { useDevtoolsUserId } from "~/devtools-panel/hooks";
+import { createSession, updateSession } from "~/session/queries";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import {
   type DevtoolsOtaPreviewStatus,
@@ -134,7 +135,6 @@ function DevtoolsFloatingPanelSync() {
 
 function useDevtoolsPanelActions() {
   const openNew = useTabs((s) => s.openNew);
-  const store = useDevtoolsStore();
   const user_id = useDevtoolsUserId();
   const { trialDaysRemaining, upgradeToPro } = useBillingAccess();
   const showToastPreview = useDevtoolsToastPreview(
@@ -330,12 +330,11 @@ function useDevtoolsPanelActions() {
   }, []);
 
   const createWithCountdown = useCallback(
-    (seconds: number, meetingLink?: string) => {
-      if (!store) {
+    async (seconds: number, meetingLink?: string) => {
+      if (!user_id) {
         return;
       }
 
-      const sessionId = crypto.randomUUID();
       const started_at = new Date(Date.now() + seconds * 1000).toISOString();
       const event_json = JSON.stringify({
         tracking_id: "devtool-test",
@@ -350,16 +349,18 @@ function useDevtoolsPanelActions() {
         ...(meetingLink ? { meeting_link: meetingLink } : {}),
       });
 
-      store.setRow("sessions", sessionId, {
-        user_id: user_id ?? "",
+      const sessionId = await createSession(
+        meetingLink ? "Countdown Test (Zoom)" : "Countdown Test",
+        user_id,
+      );
+      await updateSession(sessionId, {
         created_at: new Date().toISOString(),
-        title: meetingLink ? "Countdown Test (Zoom)" : "Countdown Test",
         event_json,
       });
 
       openNew({ type: "sessions", id: sessionId });
     },
-    [openNew, store, user_id],
+    [openNew, user_id],
   );
 
   const handleAction = useCallback(
@@ -435,16 +436,16 @@ function useDevtoolsPanelActions() {
           setTrialEndedOpen(true);
           return;
         case "countdown:note-60":
-          createWithCountdown(60);
+          void createWithCountdown(60);
           return;
         case "countdown:note-300":
-          createWithCountdown(300);
+          void createWithCountdown(300);
           return;
         case "countdown:zoom-60":
-          createWithCountdown(60, "https://zoom.us/j/1234567890");
+          void createWithCountdown(60, "https://zoom.us/j/1234567890");
           return;
         case "countdown:zoom-300":
-          createWithCountdown(300, "https://zoom.us/j/1234567890");
+          void createWithCountdown(300, "https://zoom.us/j/1234567890");
           return;
         case "panel:opened":
         case "panel:closed":

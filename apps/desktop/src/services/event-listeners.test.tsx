@@ -11,7 +11,8 @@ const {
   updaterListenMock,
   maybeEmitUpdatedMock,
   getCurrentWebviewWindowLabelMock,
-  useMainStoreMock,
+  liveQuerySubscribeMock,
+  listenerSubscribeMock,
   useConfigValueMock,
   useConfigValuesMock,
   setSettingValueMock,
@@ -28,7 +29,8 @@ const {
   updaterListenMock: vi.fn(),
   maybeEmitUpdatedMock: vi.fn(),
   getCurrentWebviewWindowLabelMock: vi.fn(() => "main"),
-  useMainStoreMock: vi.fn(() => null),
+  liveQuerySubscribeMock: vi.fn(),
+  listenerSubscribeMock: vi.fn(),
   useConfigValueMock: vi.fn((): string[] => []),
   useConfigValuesMock: vi.fn(),
   setSettingValueMock: vi.fn(async () => {}),
@@ -65,10 +67,9 @@ vi.mock("@hypr/plugin-windows", () => ({
   getCurrentWebviewWindowLabel: getCurrentWebviewWindowLabelMock,
 }));
 
-vi.mock("~/store/tinybase/store/main", () => ({
-  STORE_ID: "main-store",
-  UI: {
-    useStore: useMainStoreMock,
+vi.mock("~/db", () => ({
+  liveQueryClient: {
+    subscribe: liveQuerySubscribeMock,
   },
 }));
 
@@ -98,18 +99,9 @@ vi.mock("~/store/zustand/tabs", () => ({
 vi.mock("~/store/zustand/listener/instance", () => ({
   listenerStore: {
     getState: getListenerStateMock,
+    subscribe: listenerSubscribeMock,
   },
 }));
-
-function createMainStore(overrides: Record<string, unknown> = {}) {
-  return {
-    addTableListener: vi.fn(() => "main-listener"),
-    delListener: vi.fn(),
-    forEachRow: vi.fn(),
-    getValue: vi.fn(),
-    ...overrides,
-  };
-}
 
 describe("EventListeners notification events", () => {
   beforeEach(() => {
@@ -117,7 +109,8 @@ describe("EventListeners notification events", () => {
     updaterListenMock.mockReset();
     maybeEmitUpdatedMock.mockReset();
     getCurrentWebviewWindowLabelMock.mockReset();
-    useMainStoreMock.mockReset();
+    liveQuerySubscribeMock.mockReset();
+    listenerSubscribeMock.mockReset();
     useConfigValueMock.mockReset();
     useConfigValuesMock.mockReset();
     setSettingValueMock.mockReset();
@@ -136,7 +129,13 @@ describe("EventListeners notification events", () => {
     createSessionMock.mockResolvedValue("session-new");
     getOrCreateSessionForEventIdMock.mockResolvedValue("session-event");
     getCalendarEventStartedAtMock.mockResolvedValue(null);
-    useMainStoreMock.mockReturnValue(null);
+    liveQuerySubscribeMock.mockImplementation(
+      async (_sql, _params, handlers) => {
+        handlers.onData([]);
+        return async () => {};
+      },
+    );
+    listenerSubscribeMock.mockReturnValue(() => {});
     useConfigValueMock.mockReturnValue([]);
     useConfigValuesMock.mockReturnValue({
       ai_language: "en",
@@ -191,8 +190,6 @@ describe("EventListeners notification events", () => {
   });
 
   test("notification_accept with auto-stop prompt stops the active session", async () => {
-    useMainStoreMock.mockReturnValue(createMainStore() as never);
-
     render(<EventListeners />);
 
     await vi.waitFor(() =>
@@ -217,16 +214,6 @@ describe("EventListeners notification events", () => {
 
   test("live capture config sync mounts without auth providers", async () => {
     vi.useFakeTimers();
-
-    const mainStore = {
-      addTableListener: vi.fn(() => "main-listener"),
-      delListener: vi.fn(),
-      forEachRow: vi.fn(),
-      getValue: vi.fn((key: string) =>
-        key === "user_id" ? "human-self" : undefined,
-      ),
-    };
-    useMainStoreMock.mockReturnValue(mainStore as never);
     useConfigValuesMock.mockReturnValue({
       ai_language: "ko",
       spoken_languages: ["ko"],
@@ -236,23 +223,28 @@ describe("EventListeners notification events", () => {
 
     render(<EventListeners />);
 
-    expect(mainStore.addTableListener).toHaveBeenCalledWith(
-      "mapping_session_participant",
-      expect.any(Function),
+    await vi.waitFor(() =>
+      expect(liveQuerySubscribeMock).toHaveBeenCalledTimes(1),
     );
+    const handlers = liveQuerySubscribeMock.mock.calls[0]?.[2];
+    handlers.onData([
+      {
+        session_id: "session-1",
+        owner_user_id: "human-self",
+        human_id: "human-remote",
+      },
+    ]);
     await vi.runOnlyPendingTimersAsync();
 
     expect(updateCaptureConfigMock).toHaveBeenCalledWith({
       session_id: "session-1",
       languages: ["ko"],
-      participant_human_ids: [],
+      participant_human_ids: ["human-remote"],
       self_human_id: "human-self",
     });
   });
 
   test("notification_confirm with auto-stop prompt ignores collapsed body click", async () => {
-    useMainStoreMock.mockReturnValue(createMainStore() as never);
-
     render(<EventListeners />);
 
     await vi.waitFor(() =>
@@ -276,8 +268,6 @@ describe("EventListeners notification events", () => {
   });
 
   test("notification_confirm with session source opens that session", async () => {
-    useMainStoreMock.mockReturnValue(null);
-
     render(<EventListeners />);
 
     await vi.waitFor(() =>
@@ -304,8 +294,6 @@ describe("EventListeners notification events", () => {
   });
 
   test("notification_confirm with batch key opens that session without source", async () => {
-    useMainStoreMock.mockReturnValue(createMainStore() as never);
-
     render(<EventListeners />);
 
     await vi.waitFor(() =>
@@ -332,8 +320,6 @@ describe("EventListeners notification events", () => {
   });
 
   test("notification_confirm with mic_detected source opens detected event and sets triggerAppIds", async () => {
-    useMainStoreMock.mockReturnValue(createMainStore() as never);
-
     render(<EventListeners />);
 
     await vi.waitFor(() =>
@@ -368,8 +354,6 @@ describe("EventListeners notification events", () => {
   });
 
   test("notification_option_selected with mic_detected source sets triggerAppIds", async () => {
-    useMainStoreMock.mockReturnValue(createMainStore() as never);
-
     render(<EventListeners />);
 
     await vi.waitFor(() =>
@@ -397,8 +381,6 @@ describe("EventListeners notification events", () => {
   });
 
   test("notification_confirm opens without waiting for the legacy store", async () => {
-    useMainStoreMock.mockReturnValue(null);
-
     render(<EventListeners />);
 
     await vi.waitFor(() =>

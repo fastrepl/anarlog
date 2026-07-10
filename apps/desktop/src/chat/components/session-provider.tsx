@@ -29,7 +29,7 @@ import {
 import { stripEphemeralToolContext } from "~/chat/tools/strip-ephemeral-tool-context";
 import { useTransport } from "~/chat/transport/use-transport";
 import type { HyprUIMessage } from "~/chat/types";
-import * as main from "~/store/tinybase/store/main";
+import { useOwnerUserId } from "~/shared/owner-user";
 
 export type ChatSessionRenderProps = {
   sessionId: string;
@@ -91,18 +91,18 @@ export function ChatSession({
   unstyled = false,
   children,
 }: ChatSessionProps) {
-  const { user_id } = main.UI.useValues(main.STORE_ID);
+  const ownerUserId = useOwnerUserId();
   const persistedMessages = usePersistedChatMessages(chatGroupId);
 
   const [pendingManualRefs, setPendingManualRefs] = useState<ContextRef[]>([]);
   const [pendingDraftRefs, setPendingDraftRefs] = useState<ContextRef[]>([]);
   const latestChatGroupIdRef = useRef(chatGroupId);
-  const latestUserIdRef = useRef(user_id);
+  const latestUserIdRef = useRef(ownerUserId);
   const initialMessagesRef = useRef<HyprUIMessage[]>([]);
   const submittedChatGroupIdsRef = useRef(new Map<string, string>());
 
   latestChatGroupIdRef.current = chatGroupId;
-  latestUserIdRef.current = user_id;
+  latestUserIdRef.current = ownerUserId;
 
   const onAddContextEntity = useCallback((ref: ContextRef) => {
     setPendingManualRefs((prev) =>
@@ -128,7 +128,7 @@ export function ChatSession({
     modelOverride,
     extraTools,
     systemPromptOverride,
-    user_id || undefined,
+    ownerUserId || undefined,
   );
 
   const persistedVisibleMessages = useMemo(

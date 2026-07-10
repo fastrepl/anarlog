@@ -68,12 +68,8 @@ vi.mock("~/chat/transport/use-transport", () => ({
   }),
 }));
 
-vi.mock("~/store/tinybase/store/main", () => ({
-  STORE_ID: "main",
-  UI: {
-    useStore: () => mocks.store,
-    useValues: () => ({ user_id: "user-1" }),
-  },
+vi.mock("~/shared/owner-user", () => ({
+  useOwnerUserId: () => "user-1",
 }));
 
 import { ChatSession, type ChatSessionRenderProps } from "./session-provider";

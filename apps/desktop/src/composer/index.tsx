@@ -25,12 +25,12 @@ import { useChatGroup } from "~/chat/store/queries";
 import { useChatActions } from "~/chat/store/use-chat-actions";
 import { useShell } from "~/contexts/shell";
 import { useMentionConfig } from "~/editor-bridge/mention-config";
-import * as main from "~/store/tinybase/store/main";
+import { useOwnerUserId } from "~/shared/owner-user";
 
 export function ComposerScreen() {
   const { chat } = useShell();
   const model = useLanguageModel("chat");
-  const { user_id } = main.UI.useValues(main.STORE_ID);
+  const userId = useOwnerUserId();
   const currentChatGroup = useChatGroup(chat.groupId);
   const { handleSendMessage } = useChatActions({
     groupId: chat.groupId,
@@ -58,7 +58,7 @@ export function ComposerScreen() {
     [],
   );
 
-  if (!user_id) {
+  if (!userId) {
     return <div className="h-screen w-screen bg-transparent" />;
   }
 

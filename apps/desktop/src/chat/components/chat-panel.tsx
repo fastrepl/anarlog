@@ -13,7 +13,7 @@ import { useChatAppearance } from "~/chat/hooks/use-chat-appearance";
 import { useChatActions } from "~/chat/store/use-chat-actions";
 import { chatFloatingPanelClassNames } from "~/chat/surface";
 import { useShell } from "~/contexts/shell";
-import * as main from "~/store/tinybase/store/main";
+import { useOwnerUserId } from "~/shared/owner-user";
 
 export function ChatView({
   layout = "floating",
@@ -46,9 +46,9 @@ export function ChatSessionHost({
   const { chat } = useShell();
   const { groupId, sessionId } = chat;
   const { currentSessionId } = useSessionTab();
-  const { user_id } = main.UI.useValues(main.STORE_ID);
+  const ownerUserId = useOwnerUserId();
 
-  if (!user_id) {
+  if (!ownerUserId) {
     return <>{children(null)}</>;
   }
 

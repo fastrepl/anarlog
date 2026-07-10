@@ -8,12 +8,12 @@ import {
 import { getCurrentWebviewWindowLabel } from "@hypr/plugin-windows";
 
 import { getCalendarEventStartedAt } from "~/calendar/queries";
+import { liveQueryClient } from "~/db";
 import { createSession, getOrCreateSessionForEventId } from "~/session/queries";
 import { setSettingValue } from "~/settings/queries";
 import { useConfigValue, useConfigValues } from "~/shared/config";
 import { useLatestRef } from "~/shared/hooks/useLatestRef";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
-import * as main from "~/store/tinybase/store/main";
 import { listenerStore } from "~/store/zustand/listener/instance";
 import { useTabs } from "~/store/zustand/tabs";
 import { parseAutoStopEndedNotificationKey } from "~/stt/auto-stop-notification";
@@ -23,7 +23,26 @@ import {
   getTranscriptionLanguages,
 } from "~/stt/capabilities";
 
-type MainStore = NonNullable<ReturnType<typeof main.UI.useStore>>;
+type CaptureIdentitySqlRow = {
+  session_id: string;
+  owner_user_id: string;
+  human_id: string | null;
+};
+
+const CAPTURE_IDENTITY_SQL = `
+  SELECT
+    session.id AS session_id,
+    session.owner_user_id,
+    participant.human_id
+  FROM sessions AS session
+  LEFT JOIN session_participants AS participant
+    ON participant.session_id = session.id
+    AND participant.human_id <> ''
+    AND participant.source <> 'excluded'
+    AND participant.deleted_at IS NULL
+  WHERE session.deleted_at IS NULL
+  ORDER BY session.id, participant.human_id
+`;
 
 const LIVE_CAPTURE_CONFIG_DEBOUNCE_MS = 750;
 
@@ -90,30 +109,22 @@ function handleAutoStopEndedNotification(
   return true;
 }
 
-function getSessionParticipantHumanIds(store: MainStore, sessionId: string) {
+function getSessionParticipantHumanIds(
+  rows: CaptureIdentitySqlRow[],
+  sessionId: string,
+) {
   const seen = new Set<string>();
   const participantHumanIds: string[] = [];
 
-  store.forEachRow("mapping_session_participant", (mappingId, _forEachCell) => {
-    const sid = store.getCell(
-      "mapping_session_participant",
-      mappingId,
-      "session_id",
-    );
-    if (sid !== sessionId) return;
-
-    const humanId = store.getCell(
-      "mapping_session_participant",
-      mappingId,
-      "human_id",
-    );
-    if (typeof humanId !== "string" || !humanId || seen.has(humanId)) {
-      return;
+  for (const row of rows) {
+    const humanId = row.human_id;
+    if (row.session_id !== sessionId || !humanId || seen.has(humanId)) {
+      continue;
     }
 
     seen.add(humanId);
     participantHumanIds.push(humanId);
-  });
+  }
 
   return participantHumanIds;
 }
@@ -154,7 +165,6 @@ function getLiveConfigLanguages(aiLanguage: string, spokenLanguages: string[]) {
 }
 
 function LiveCaptureConfigSync() {
-  const store = main.UI.useStore(main.STORE_ID);
   const settingsValues = useConfigValues([
     "ai_language",
     "spoken_languages",
@@ -162,25 +172,18 @@ function LiveCaptureConfigSync() {
     "current_stt_model",
   ] as const);
 
-  if (!store) {
-    return null;
-  }
-
   const settingsSignature = JSON.stringify(settingsValues);
   return (
     <LiveCaptureConfigSyncReady
       key={settingsSignature}
       settingsValues={settingsValues}
-      store={store as MainStore}
     />
   );
 }
 
 function LiveCaptureConfigSyncReady({
-  store,
   settingsValues,
 }: {
-  store: MainStore;
   settingsValues: {
     ai_language: string;
     spoken_languages: string[];
@@ -191,8 +194,16 @@ function LiveCaptureConfigSyncReady({
   useMountEffect(() => {
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
     let lastSignature: string | null = null;
+    let rows: CaptureIdentitySqlRow[] = [];
+    let hasSnapshot = false;
+    let cancelled = false;
+    let unsubscribeDatabase: (() => Promise<void>) | null = null;
 
     const pushConfig = async () => {
+      if (!hasSnapshot) {
+        return;
+      }
+
       const live = listenerStore.getState().live;
       if (live.status !== "active" || !live.sessionId) {
         return;
@@ -212,15 +223,15 @@ function LiveCaptureConfigSyncReady({
         return;
       }
 
-      const selfHumanId = store.getValue("user_id");
+      const session = rows.find((row) => row.session_id === live.sessionId);
       const nextConfig = {
         session_id: live.sessionId,
         languages: liveConfig.languages,
         participant_human_ids: getSessionParticipantHumanIds(
-          store,
+          rows,
           live.sessionId,
         ),
-        self_human_id: typeof selfHumanId === "string" ? selfHumanId : null,
+        self_human_id: session?.owner_user_id || null,
       };
       const signature = createCaptureConfigSignature(nextConfig);
       if (signature === lastSignature) {
@@ -246,18 +257,42 @@ function LiveCaptureConfigSyncReady({
       }, LIVE_CAPTURE_CONFIG_DEBOUNCE_MS);
     };
 
-    const mainListenerIds = [
-      store.addTableListener("mapping_session_participant", schedulePush),
-    ];
-    schedulePush();
+    const unsubscribeListener = listenerStore.subscribe(schedulePush);
+    void liveQueryClient
+      .subscribe<CaptureIdentitySqlRow>(CAPTURE_IDENTITY_SQL, [], {
+        onData: (nextRows) => {
+          rows = nextRows;
+          hasSnapshot = true;
+          schedulePush();
+        },
+        onError: (error) => {
+          console.error(
+            "[listener] failed to read live capture identities",
+            error,
+          );
+        },
+      })
+      .then((unsubscribe) => {
+        if (cancelled) {
+          void unsubscribe();
+        } else {
+          unsubscribeDatabase = unsubscribe;
+        }
+      })
+      .catch((error) => {
+        console.error(
+          "[listener] failed to subscribe to live capture identities",
+          error,
+        );
+      });
 
     return () => {
+      cancelled = true;
       if (timeoutId) {
         clearTimeout(timeoutId);
       }
-      for (const listenerId of mainListenerIds) {
-        store.delListener(listenerId);
-      }
+      unsubscribeListener();
+      void unsubscribeDatabase?.();
     };
   });
 

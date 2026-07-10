@@ -11,8 +11,8 @@ import {
 
 import { executeTransaction, liveQueryClient } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
+import { useOwnerUserId } from "~/shared/owner-user";
 import { DEFAULT_USER_ID } from "~/shared/utils";
-import * as main from "~/store/tinybase/store/main";
 
 export type SqliteTaskRow = {
   id: string;
@@ -48,11 +48,11 @@ const defaultDependencies: TaskStorageDependencies = {
 };
 
 export function useStoreBackedTaskStorage(): TaskStorage {
-  const { user_id } = main.UI.useValues(main.STORE_ID);
+  const ownerUserId = useOwnerUserId();
 
   return useMemo(
-    () => createSqliteTaskStorage(user_id || DEFAULT_USER_ID),
-    [user_id],
+    () => createSqliteTaskStorage(ownerUserId || DEFAULT_USER_ID),
+    [ownerUserId],
   );
 }
 
