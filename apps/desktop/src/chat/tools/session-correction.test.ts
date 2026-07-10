@@ -1,255 +1,219 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { md2json } from "@hypr/editor/markdown";
+import { json2md, md2json, parseJsonContent } from "@hypr/editor/markdown";
+
+const mocks = vi.hoisted(() => ({
+  applySessionContentCorrections: vi.fn(),
+  loadSessionContentSnapshot: vi.fn(),
+  updateSettingValue: vi.fn(),
+}));
+
+vi.mock("~/session/content-mutations", () => ({
+  applySessionContentCorrections: mocks.applySessionContentCorrections,
+}));
+
+vi.mock("~/session/content-queries", () => ({
+  loadSessionContentSnapshot: mocks.loadSessionContentSnapshot,
+}));
+
+vi.mock("~/settings/queries", () => ({
+  updateSettingValue: mocks.updateSettingValue,
+}));
 
 import {
   buildApplySessionCorrectionTool,
   sessionCorrectionTestInternals,
 } from "./session-correction";
 
-const settingsMocks = vi.hoisted(() => ({
-  updateSettingValue: vi.fn(),
-}));
-
-vi.mock("~/settings/queries", () => ({
-  updateSettingValue: settingsMocks.updateSettingValue,
-}));
-
-function createStore(tables: Record<string, Record<string, any>>) {
+function summary(markdown: string, id = "note-1", title = "Summary") {
+  const content = JSON.stringify(md2json(markdown));
   return {
-    getCell: vi.fn((table: string, rowId: string, cellId: string) => {
-      return tables[table]?.[rowId]?.[cellId];
-    }),
-    setCell: vi.fn(
-      (table: string, rowId: string, cellId: string, value: unknown) => {
-        tables[table][rowId][cellId] = value;
-      },
-    ),
-    setPartialRow: vi.fn(
-      (table: string, rowId: string, partial: Record<string, unknown>) => {
-        tables[table][rowId] = {
-          ...tables[table][rowId],
-          ...partial,
-        };
-      },
-    ),
-  } as any;
+    id,
+    title,
+    markdown,
+    content,
+    contentFormat: "prosemirror_json",
+    templateId: "",
+    position: 0,
+  };
 }
 
-function createIndexes(tables: Record<string, Record<string, any>>) {
+function transcript({
+  words,
+  memo,
+}: {
+  words: Array<Record<string, unknown>>;
+  memo: string;
+}) {
   return {
-    getSliceRowIds: vi.fn((indexId: string, sessionId: string) => {
-      if (indexId === "enhancedNotesBySession") {
-        return Object.keys(tables.enhanced_notes ?? {}).filter(
-          (id) => tables.enhanced_notes[id]?.session_id === sessionId,
-        );
-      }
-
-      if (indexId === "transcriptBySession") {
-        return Object.keys(tables.transcripts ?? {}).filter(
-          (id) => tables.transcripts[id]?.session_id === sessionId,
-        );
-      }
-
-      return [];
-    }),
-  } as any;
+    id: "transcript-1",
+    started_at: 0,
+    ended_at: 400,
+    memo,
+    wordsJson: JSON.stringify(words),
+    words,
+    speaker_hints: [],
+  };
 }
 
-function summaryContent(markdown: string) {
-  return JSON.stringify(md2json(markdown));
+function snapshot({
+  notes = [],
+  transcripts = [],
+  sessionId = "session-1",
+}: {
+  notes?: ReturnType<typeof summary>[];
+  transcripts?: ReturnType<typeof transcript>[];
+  sessionId?: string;
+} = {}) {
+  return {
+    sessionId,
+    title: "Planning",
+    createdAt: "2026-07-10T09:00:00.000Z",
+    event: null,
+    eventId: null,
+    rawMarkdown: "",
+    enhancedNotes: notes,
+    transcripts,
+    participants: [],
+  };
 }
 
-describe("session correction chat tool internals", () => {
+function buildTool({
+  sessionId = "session-1",
+  enhancedNoteId,
+}: {
+  sessionId?: string;
+  enhancedNoteId?: string;
+} = {}) {
+  return buildApplySessionCorrectionTool({
+    getSessionId: () => sessionId,
+    getEnhancedNoteId: () => enhancedNoteId,
+  });
+}
+
+describe("session correction chat tool", () => {
   beforeEach(() => {
-    settingsMocks.updateSettingValue.mockReset();
+    vi.clearAllMocks();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.applySessionContentCorrections.mockResolvedValue(undefined);
+    mocks.updateSettingValue.mockImplementation(async (_key, update) =>
+      update("[]"),
+    );
   });
 
-  it("applies exact summary corrections to matching enhanced notes", () => {
-    const tables = {
-      enhanced_notes: {
-        "note-1": {
-          session_id: "session-1",
-          title: "Summary",
-          content: summaryContent("Discussed X roadmap."),
-        },
-        "note-2": {
-          session_id: "session-1",
-          title: "Tasks",
-          content: summaryContent("No correction here."),
-        },
-      },
-    };
-    const store = createStore(tables);
-    const indexes = createIndexes(tables);
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
-    const changes = sessionCorrectionTestInternals.applySummaryCorrection({
-      store,
-      indexes,
-      sessionId: "session-1",
+  it("plans exact summary replacements without mutating the snapshot", () => {
+    const note = summary("Discussed X roadmap.");
+
+    const plan = sessionCorrectionTestInternals.planSummaryCorrections({
+      notes: [note],
       oldText: "X roadmap",
       newText: "Y roadmap",
     });
 
-    expect(changes).toEqual([
+    expect(plan.changes).toEqual([
       {
         enhancedNoteId: "note-1",
         title: "Summary",
         replacements: 1,
       },
     ]);
-    expect(tables.enhanced_notes["note-1"].content).toContain("Y roadmap");
-    expect(tables.enhanced_notes["note-2"].content).toContain(
-      "No correction here.",
+    expect(json2md(parseJsonContent(plan.updates[0]?.nextContent))).toContain(
+      "Y roadmap",
     );
+    expect(note.markdown).toContain("X roadmap");
   });
 
-  it("updates transcript words and memo markdown for exact corrections", () => {
-    const tables = {
-      transcripts: {
-        "transcript-1": {
-          session_id: "session-1",
-          words: JSON.stringify([
-            { id: "w1", text: "It", start_ms: 0, end_ms: 100, channel: 0 },
-            { id: "w2", text: "is", start_ms: 100, end_ms: 200, channel: 0 },
-            { id: "w3", text: "X", start_ms: 200, end_ms: 300, channel: 0 },
-          ]),
-          memo_md: "Speaker 1: It is X",
-        },
-      },
-    };
-    const store = createStore(tables);
-    const indexes = createIndexes(tables);
+  it("plans transcript word and memo corrections together", () => {
+    const source = transcript({
+      words: [
+        { id: "w1", text: "It", start_ms: 0, end_ms: 100, channel: 0 },
+        { id: "w2", text: "is", start_ms: 100, end_ms: 200, channel: 0 },
+        { id: "w3", text: "X", start_ms: 200, end_ms: 300, channel: 0 },
+      ],
+      memo: "Speaker 1: It is X",
+    });
 
-    const changes = sessionCorrectionTestInternals.applyTranscriptCorrection({
-      store,
-      indexes,
-      sessionId: "session-1",
+    const plan = sessionCorrectionTestInternals.planTranscriptCorrections({
+      transcripts: [source] as any,
       oldText: "X",
       newText: "Y",
     });
 
-    expect(changes).toEqual([
+    expect(plan.changes).toEqual([
       {
         transcriptId: "transcript-1",
         wordReplacements: 1,
         memoReplacements: 1,
       },
     ]);
-    expect(JSON.parse(tables.transcripts["transcript-1"].words)).toMatchObject([
+    expect(JSON.parse(plan.updates[0]!.nextWordsJson)).toMatchObject([
       { text: "It" },
       { text: "is" },
       { text: "Y" },
     ]);
-    expect(tables.transcripts["transcript-1"].memo_md).toBe(
-      "Speaker 1: It is Y",
-    );
+    expect(plan.updates[0]?.nextMemo).toBe("Speaker 1: It is Y");
+    expect(source.memo).toBe("Speaker 1: It is X");
   });
 
-  it("updates every matching transcript word span when memo has repeated text", () => {
-    const tables = {
-      transcripts: {
-        "transcript-1": {
-          session_id: "session-1",
-          words: JSON.stringify([
+  it("updates every repeated transcript phrase", () => {
+    const plan = sessionCorrectionTestInternals.planTranscriptCorrections({
+      transcripts: [
+        transcript({
+          words: [
             { id: "w1", text: "X", start_ms: 0, end_ms: 100, channel: 0 },
             { id: "w2", text: "then", start_ms: 100, end_ms: 200, channel: 0 },
             { id: "w3", text: "X", start_ms: 200, end_ms: 300, channel: 0 },
-          ]),
-          memo_md: "Speaker 1: X then X",
-        },
-      },
-    };
-    const store = createStore(tables);
-    const indexes = createIndexes(tables);
-
-    const changes = sessionCorrectionTestInternals.applyTranscriptCorrection({
-      store,
-      indexes,
-      sessionId: "session-1",
+          ],
+          memo: "Speaker 1: X then X",
+        }),
+      ] as any,
       oldText: "X",
       newText: "Y",
     });
 
-    expect(changes).toEqual([
-      {
-        transcriptId: "transcript-1",
-        wordReplacements: 2,
-        memoReplacements: 2,
-      },
-    ]);
-    expect(JSON.parse(tables.transcripts["transcript-1"].words)).toMatchObject([
-      { text: "Y" },
-      { text: "then" },
-      { text: "Y" },
-    ]);
-    expect(tables.transcripts["transcript-1"].memo_md).toBe(
-      "Speaker 1: Y then Y",
-    );
+    expect(plan.changes[0]).toMatchObject({
+      wordReplacements: 2,
+      memoReplacements: 2,
+    });
+    expect(plan.updates[0]?.nextMemo).toBe("Speaker 1: Y then Y");
   });
 
-  it("does not partially update transcript rows when words and memo do not both match", () => {
-    const tables = {
-      transcripts: {
-        "transcript-1": {
-          session_id: "session-1",
-          words: JSON.stringify([
+  it("does not plan a partial transcript row update", () => {
+    const plan = sessionCorrectionTestInternals.planTranscriptCorrections({
+      transcripts: [
+        transcript({
+          words: [
             { id: "w1", text: "X", start_ms: 0, end_ms: 100, channel: 0 },
-          ]),
-          memo_md: "Speaker 1: no correction here",
-        },
-      },
-    };
-    const store = createStore(tables);
-    const indexes = createIndexes(tables);
-
-    const changes = sessionCorrectionTestInternals.applyTranscriptCorrection({
-      store,
-      indexes,
-      sessionId: "session-1",
+          ],
+          memo: "Speaker 1: no correction here",
+        }),
+      ] as any,
       oldText: "X",
       newText: "Y",
     });
 
-    expect(changes).toEqual([]);
-    expect(store.setCell).not.toHaveBeenCalled();
-    expect(JSON.parse(tables.transcripts["transcript-1"].words)).toMatchObject([
-      { text: "X" },
-    ]);
-    expect(tables.transcripts["transcript-1"].memo_md).toBe(
-      "Speaker 1: no correction here",
-    );
+    expect(plan).toEqual({ changes: [], updates: [] });
   });
 
   it("does not remove transcript words for blank replacement text", () => {
-    const tables = {
-      transcripts: {
-        "transcript-1": {
-          session_id: "session-1",
-          words: JSON.stringify([
+    const plan = sessionCorrectionTestInternals.planTranscriptCorrections({
+      transcripts: [
+        transcript({
+          words: [
             { id: "w1", text: "X", start_ms: 0, end_ms: 100, channel: 0 },
-          ]),
-          memo_md: "Speaker 1: X",
-        },
-      },
-    };
-    const store = createStore(tables);
-    const indexes = createIndexes(tables);
-
-    const changes = sessionCorrectionTestInternals.applyTranscriptCorrection({
-      store,
-      indexes,
-      sessionId: "session-1",
+          ],
+          memo: "Speaker 1: X",
+        }),
+      ] as any,
       oldText: "X",
       newText: "   ",
     });
 
-    expect(changes).toEqual([]);
-    expect(store.setCell).not.toHaveBeenCalled();
-    expect(JSON.parse(tables.transcripts["transcript-1"].words)).toMatchObject([
-      { text: "X" },
-    ]);
-    expect(tables.transcripts["transcript-1"].memo_md).toBe("Speaker 1: X");
+    expect(plan).toEqual({ changes: [], updates: [] });
   });
 
   it("can replace transcript phrases with a different word count", () => {
@@ -269,65 +233,52 @@ describe("session correction chat tool internals", () => {
     ]);
   });
 
-  it("updates summary, transcript, and dictionary terms by default", async () => {
-    const tables = {
-      enhanced_notes: {
-        "note-1": {
-          session_id: "session-1",
-          title: "Summary",
-          content: summaryContent(
-            "Sam (from Airborne Brothers) liked the OpenWorld concept.",
-          ),
-        },
-      },
-      transcripts: {
-        "transcript-1": {
-          session_id: "session-1",
-          words: JSON.stringify([
-            { id: "w1", text: "sam", start_ms: 0, end_ms: 100, channel: 0 },
-            {
-              id: "w2",
-              text: "from",
-              start_ms: 100,
-              end_ms: 200,
-              channel: 0,
-            },
-            {
-              id: "w3",
-              text: "Airborne",
-              start_ms: 200,
-              end_ms: 300,
-              channel: 0,
-            },
-            {
-              id: "w4",
-              text: "Brothers,",
-              start_ms: 300,
-              end_ms: 400,
-              channel: 0,
-            },
-          ]),
-          memo_md: "Speaker 1: sam from Airborne Brothers, liked it.",
-        },
-      },
-    };
-    const store = createStore(tables);
-    let persistedDictionary = "";
-    settingsMocks.updateSettingValue.mockImplementation(
-      async (_key, update) => {
-        persistedDictionary = update(JSON.stringify(["Anarlog"]));
-        return persistedDictionary;
-      },
+  it("commits summary and transcript corrections before dictionary terms", async () => {
+    mocks.loadSessionContentSnapshot.mockResolvedValue(
+      snapshot({
+        notes: [
+          summary("Sam (from Airborne Brothers) liked the OpenWorld concept."),
+        ],
+        transcripts: [
+          transcript({
+            words: [
+              { id: "w1", text: "sam", start_ms: 0, end_ms: 100, channel: 0 },
+              {
+                id: "w2",
+                text: "from",
+                start_ms: 100,
+                end_ms: 200,
+                channel: 0,
+              },
+              {
+                id: "w3",
+                text: "Airborne",
+                start_ms: 200,
+                end_ms: 300,
+                channel: 0,
+              },
+              {
+                id: "w4",
+                text: "Brothers,",
+                start_ms: 300,
+                end_ms: 400,
+                channel: 0,
+              },
+            ],
+            memo: "Speaker 1: sam from Airborne Brothers, liked it.",
+          }),
+        ],
+      }),
     );
-    const indexes = createIndexes(tables);
-    const tool = buildApplySessionCorrectionTool({
-      getStore: () => store,
-      getIndexes: () => indexes,
-      getSessionId: () => "session-1",
-      getEnhancedNoteId: () => "note-1",
+    let persistedDictionary = "";
+    mocks.updateSettingValue.mockImplementation(async (_key, update) => {
+      persistedDictionary = update(JSON.stringify(["Anarlog"]));
+      return persistedDictionary;
     });
 
-    const result = await (tool as any).execute({
+    const result = await (
+      buildTool({ enhancedNoteId: "note-1" }) as any
+    ).execute({
       oldText: "Sam (from Airborne Brothers)",
       newText: "Tim from Erebor",
       dictionaryTerms: ["Erebor"],
@@ -345,45 +296,25 @@ describe("session correction chat tool internals", () => {
       ],
       dictionaryChanges: { addedTerms: ["Erebor"] },
     });
-    expect(tables.enhanced_notes["note-1"].content).toContain(
-      "Tim from Erebor liked the OpenWorld concept.",
+    expect(mocks.applySessionContentCorrections).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: "session-1",
+        summaries: [expect.objectContaining({ id: "note-1" })],
+        transcripts: [expect.objectContaining({ id: "transcript-1" })],
+      }),
     );
-    expect(JSON.parse(tables.transcripts["transcript-1"].words)).toMatchObject([
-      { text: "Tim" },
-      { text: "from" },
-      { text: "Erebor" },
-    ]);
-    expect(tables.transcripts["transcript-1"].memo_md).toBe(
-      "Speaker 1: Tim from Erebor, liked it.",
-    );
-    expect(settingsMocks.updateSettingValue).toHaveBeenCalledWith(
-      "personalization_dictionary_terms",
-      expect.any(Function),
-    );
+    expect(
+      mocks.applySessionContentCorrections.mock.invocationCallOrder[0],
+    ).toBeLessThan(mocks.updateSettingValue.mock.invocationCallOrder[0]);
     expect(persistedDictionary).toBe(JSON.stringify(["Anarlog", "Erebor"]));
   });
 
   it("reports partial success when a requested target does not match", async () => {
-    const tables = {
-      enhanced_notes: {
-        "note-1": {
-          session_id: "session-1",
-          title: "Summary",
-          content: summaryContent("Discussed X roadmap."),
-        },
-      },
-      transcripts: {},
-    };
-    const store = createStore(tables);
-    const indexes = createIndexes(tables);
-    const tool = buildApplySessionCorrectionTool({
-      getStore: () => store,
-      getIndexes: () => indexes,
-      getSessionId: () => "session-1",
-      getEnhancedNoteId: () => "note-1",
-    });
+    mocks.loadSessionContentSnapshot.mockResolvedValue(
+      snapshot({ notes: [summary("Discussed X roadmap.")] }),
+    );
 
-    const result = await (tool as any).execute({
+    const result = await (buildTool() as any).execute({
       oldText: "X roadmap",
       newText: "Y roadmap",
     });
@@ -398,26 +329,11 @@ describe("session correction chat tool internals", () => {
   });
 
   it("returns an explicit error for a summary id outside the session", async () => {
-    const tables = {
-      enhanced_notes: {
-        "note-1": {
-          session_id: "session-1",
-          title: "Summary",
-          content: summaryContent("Discussed X roadmap."),
-        },
-      },
-      transcripts: {},
-    };
-    const store = createStore(tables);
-    const indexes = createIndexes(tables);
-    const tool = buildApplySessionCorrectionTool({
-      getStore: () => store,
-      getIndexes: () => indexes,
-      getSessionId: () => "session-1",
-      getEnhancedNoteId: () => undefined,
-    });
+    mocks.loadSessionContentSnapshot.mockResolvedValue(
+      snapshot({ notes: [summary("Discussed X roadmap.")] }),
+    );
 
-    const result = await (tool as any).execute({
+    const result = await (buildTool() as any).execute({
       target: "summary",
       enhancedNoteId: "missing-note",
       oldText: "X roadmap",
@@ -429,38 +345,25 @@ describe("session correction chat tool internals", () => {
       message: "The requested summary does not belong to the target session.",
       sessionId: "session-1",
     });
-    expect(store.setPartialRow).not.toHaveBeenCalled();
+    expect(mocks.applySessionContentCorrections).not.toHaveBeenCalled();
   });
 
-  it("still applies transcript correction when an invalid summary id is provided for the default target", async () => {
-    const tables = {
-      enhanced_notes: {
-        "note-1": {
-          session_id: "session-1",
-          title: "Summary",
-          content: summaryContent("No correction here."),
-        },
-      },
-      transcripts: {
-        "transcript-1": {
-          session_id: "session-1",
-          words: JSON.stringify([
-            { id: "w1", text: "X", start_ms: 0, end_ms: 100, channel: 0 },
-          ]),
-          memo_md: "Speaker 1: X",
-        },
-      },
-    };
-    const store = createStore(tables);
-    const indexes = createIndexes(tables);
-    const tool = buildApplySessionCorrectionTool({
-      getStore: () => store,
-      getIndexes: () => indexes,
-      getSessionId: () => "session-1",
-      getEnhancedNoteId: () => undefined,
-    });
+  it("still corrects the transcript when the default target has an invalid summary id", async () => {
+    mocks.loadSessionContentSnapshot.mockResolvedValue(
+      snapshot({
+        notes: [summary("No correction here.")],
+        transcripts: [
+          transcript({
+            words: [
+              { id: "w1", text: "X", start_ms: 0, end_ms: 100, channel: 0 },
+            ],
+            memo: "Speaker 1: X",
+          }),
+        ],
+      }),
+    );
 
-    const result = await (tool as any).execute({
+    const result = await (buildTool() as any).execute({
       enhancedNoteId: "missing-note",
       oldText: "X",
       newText: "Y",
@@ -468,93 +371,52 @@ describe("session correction chat tool internals", () => {
 
     expect(result).toMatchObject({
       status: "applied",
-      sessionId: "session-1",
       summaryChanges: [],
-      transcriptChanges: [
-        {
-          transcriptId: "transcript-1",
-          wordReplacements: 1,
-          memoReplacements: 1,
-        },
-      ],
+      transcriptChanges: [{ transcriptId: "transcript-1" }],
     });
-    expect(JSON.parse(tables.transcripts["transcript-1"].words)).toMatchObject([
-      { text: "Y" },
-    ]);
-    expect(tables.transcripts["transcript-1"].memo_md).toBe("Speaker 1: Y");
   });
 
   it("defaults summary correction to the active enhanced note", async () => {
-    const tables = {
-      enhanced_notes: {
-        "note-1": {
-          session_id: "session-1",
-          title: "Summary",
-          content: summaryContent("Discussed X roadmap."),
-        },
-        "note-2": {
-          session_id: "session-1",
-          title: "Other",
-          content: summaryContent("Discussed X roadmap."),
-        },
-      },
-      transcripts: {},
-    };
-    const store = createStore(tables);
-    const indexes = createIndexes(tables);
-    const tool = buildApplySessionCorrectionTool({
-      getStore: () => store,
-      getIndexes: () => indexes,
-      getSessionId: () => "session-1",
-      getEnhancedNoteId: () => "note-1",
-    });
+    mocks.loadSessionContentSnapshot.mockResolvedValue(
+      snapshot({
+        notes: [
+          summary("Discussed X roadmap.", "note-1", "Summary"),
+          summary("Discussed X roadmap.", "note-2", "Other"),
+        ],
+      }),
+    );
 
-    const result = await (tool as any).execute({
+    const result = await (
+      buildTool({ enhancedNoteId: "note-1" }) as any
+    ).execute({
       target: "summary",
       oldText: "X roadmap",
       newText: "Y roadmap",
     });
 
-    expect(result).toMatchObject({
-      status: "applied",
-      summaryChanges: [
-        {
-          enhancedNoteId: "note-1",
-          title: "Summary",
-          replacements: 1,
-        },
-      ],
-    });
-    expect(tables.enhanced_notes["note-1"].content).toContain("Y roadmap");
-    expect(tables.enhanced_notes["note-2"].content).toContain("X roadmap");
+    expect(result.summaryChanges).toEqual([
+      {
+        enhancedNoteId: "note-1",
+        title: "Summary",
+        replacements: 1,
+      },
+    ]);
+    expect(
+      mocks.applySessionContentCorrections.mock.calls[0][0].summaries,
+    ).toEqual([expect.objectContaining({ id: "note-1" })]);
   });
 
-  it("does not use the active enhanced note for explicit session corrections", async () => {
-    const tables = {
-      enhanced_notes: {
-        "note-1": {
-          session_id: "session-1",
-          title: "Current",
-          content: summaryContent("Discussed X roadmap."),
-        },
-        "note-2": {
-          session_id: "session-2",
-          title: "Target",
-          content: summaryContent("Discussed X roadmap."),
-        },
-      },
-      transcripts: {},
-    };
-    const store = createStore(tables);
-    const indexes = createIndexes(tables);
-    const tool = buildApplySessionCorrectionTool({
-      getStore: () => store,
-      getIndexes: () => indexes,
-      getSessionId: () => "session-1",
-      getEnhancedNoteId: () => "note-1",
-    });
+  it("does not use the active summary for an explicit session", async () => {
+    mocks.loadSessionContentSnapshot.mockResolvedValue(
+      snapshot({
+        sessionId: "session-2",
+        notes: [summary("Discussed X roadmap.", "note-2", "Target")],
+      }),
+    );
 
-    const result = await (tool as any).execute({
+    const result = await (
+      buildTool({ enhancedNoteId: "note-1" }) as any
+    ).execute({
       sessionId: "session-2",
       target: "summary",
       oldText: "X roadmap",
@@ -564,15 +426,53 @@ describe("session correction chat tool internals", () => {
     expect(result).toMatchObject({
       status: "applied",
       sessionId: "session-2",
-      summaryChanges: [
-        {
-          enhancedNoteId: "note-2",
-          title: "Target",
-          replacements: 1,
-        },
-      ],
+      summaryChanges: [{ enhancedNoteId: "note-2", title: "Target" }],
     });
-    expect(tables.enhanced_notes["note-1"].content).toContain("X roadmap");
-    expect(tables.enhanced_notes["note-2"].content).toContain("Y roadmap");
+  });
+
+  it("reports a stale transaction instead of saving dictionary terms", async () => {
+    mocks.loadSessionContentSnapshot.mockResolvedValue(
+      snapshot({ notes: [summary("Discussed X roadmap.")] }),
+    );
+    mocks.applySessionContentCorrections.mockRejectedValueOnce(
+      new Error("expected 1 row"),
+    );
+
+    const result = await (buildTool() as any).execute({
+      target: "summary",
+      oldText: "X roadmap",
+      newText: "Y roadmap",
+      dictionaryTerms: ["Y"],
+    });
+
+    expect(result).toEqual({
+      status: "error",
+      message:
+        "The note changed before the correction could be committed. Read the note and retry.",
+      sessionId: "session-1",
+    });
+    expect(mocks.updateSettingValue).not.toHaveBeenCalled();
+  });
+
+  it("does not report a durable correction as failed when dictionary storage fails", async () => {
+    mocks.loadSessionContentSnapshot.mockResolvedValue(
+      snapshot({ notes: [summary("Discussed X roadmap.")] }),
+    );
+    mocks.updateSettingValue.mockRejectedValueOnce(new Error("settings busy"));
+
+    const result = await (buildTool() as any).execute({
+      target: "summary",
+      oldText: "X roadmap",
+      newText: "Y roadmap",
+      dictionaryTerms: ["Y roadmap"],
+    });
+
+    expect(result).toMatchObject({
+      status: "applied",
+      message:
+        "The correction was applied, but dictionary terms could not be saved.",
+      summaryChanges: [{ enhancedNoteId: "note-1" }],
+      dictionaryChanges: { addedTerms: [] },
+    });
   });
 });

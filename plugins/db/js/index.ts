@@ -3,10 +3,15 @@ import { Channel, invoke } from "@tauri-apps/api/core";
 import type {
   LegacyImportReport,
   SubscriptionRegistration,
-  TransactionStatement,
 } from "./bindings.gen";
 
-export type { LegacyImportReport, TransactionStatement } from "./bindings.gen";
+export type { LegacyImportReport } from "./bindings.gen";
+
+export type TransactionStatement = {
+  sql: string;
+  params: unknown[];
+  expectedRowsAffected?: number;
+};
 
 export type QueryEvent<T = Record<string, unknown>> =
   | { event: "result"; data: T[] }

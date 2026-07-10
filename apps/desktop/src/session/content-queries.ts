@@ -51,6 +51,8 @@ export type SessionContentSnapshot = {
     id: string;
     title: string;
     markdown: string;
+    content: string;
+    contentFormat: string;
     templateId: string;
     position: number;
   }>;
@@ -59,6 +61,7 @@ export type SessionContentSnapshot = {
     started_at: number;
     ended_at: number | null;
     memo: string;
+    wordsJson: string;
     words: WordWithId[];
     speaker_hints: SpeakerHintWithId[];
   }>;
@@ -180,6 +183,8 @@ function mapSessionContentRow(
       id: note.id,
       title: note.title,
       markdown: bodyToMarkdown(note.body, note.body_format),
+      content: note.body,
+      contentFormat: note.body_format,
       templateId: note.template_id,
       position: Number(note.sort_order),
     }))
@@ -195,6 +200,7 @@ function mapSessionContentRow(
       ended_at:
         transcript.ended_at_ms == null ? null : Number(transcript.ended_at_ms),
       memo: transcript.memo,
+      wordsJson: transcript.words_json,
       words: parseJsonArray<WordWithId>(transcript.words_json),
       speaker_hints: parseJsonArray<SpeakerHintWithId>(
         transcript.speaker_hints_json,

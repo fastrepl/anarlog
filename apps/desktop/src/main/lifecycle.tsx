@@ -42,12 +42,6 @@ export function ClassicMainServices() {
 function ToolRegistration() {
   const auth = useAuth();
   const { search } = useSearchEngine();
-  const store = main.UI.useStore(main.STORE_ID);
-  const indexes = main.UI.useIndexes(main.STORE_ID);
-  const storeRef = useRef(store);
-  storeRef.current = store;
-  const indexesRef = useRef(indexes);
-  indexesRef.current = indexes;
 
   const getContactSearchResults = searchContacts;
 
@@ -66,8 +60,6 @@ function ToolRegistration() {
         search,
         getContactSearchResults,
         getCalendarEventSearchResults,
-        getStore: () => storeRef.current ?? undefined,
-        getIndexes: () => indexesRef.current ?? undefined,
         getSessionId,
         getEnhancedNoteId,
         openEditTab,

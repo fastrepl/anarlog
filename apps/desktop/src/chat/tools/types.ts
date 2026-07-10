@@ -1,8 +1,4 @@
 import type { SearchFilters, SearchHit } from "~/search/contexts/engine/types";
-import type * as main from "~/store/tinybase/store/main";
-
-type Store = NonNullable<ReturnType<typeof main.UI.useStore>>;
-type Indexes = NonNullable<ReturnType<typeof main.UI.useIndexes>>;
 
 export type ContactSearchResult = {
   id: string;
@@ -54,8 +50,6 @@ export interface ToolDependencies {
     query: string,
     limit: number,
   ) => Promise<CalendarEventSearchResult[]>;
-  getStore: () => Store | undefined;
-  getIndexes: () => Indexes | undefined;
   getSessionId: () => string | undefined;
   getEnhancedNoteId: () => string | undefined;
   openEditTab: (requestId: string) => void;
