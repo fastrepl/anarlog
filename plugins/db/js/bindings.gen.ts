@@ -14,6 +14,14 @@ async execute(sql: string, params: JsonValue[]) : Promise<Result<JsonValue[], st
     else return { status: "error", error: e  as any };
 }
 },
+async executeTransaction(statements: TransactionStatement[]) : Promise<Result<number[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:db|execute_transaction", { statements }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async executeProxy(sql: string, params: JsonValue[], method: string) : Promise<Result<ExecuteProxyResult, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:db|execute_proxy", { sql, params, method }) };
@@ -78,6 +86,7 @@ export type QueryEvent = { event: "result"; data: JsonValue[] } | { event: "erro
 export type StorageMigrationState = { phase: string; latestRunId: string; parityVerified: boolean; cutoverAt: string | null; rollbackUntil: string | null; lastError: string; updatedAt: string }
 export type SubscriptionRegistration = { id: string; analysis: DependencyAnalysis }
 export type TAURI_CHANNEL<TSend> = null
+export type TransactionStatement = { sql: string; params: JsonValue[] }
 
 /** tauri-specta globals **/
 

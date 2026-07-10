@@ -3,9 +3,10 @@ import { Channel, invoke } from "@tauri-apps/api/core";
 import type {
   LegacyImportReport,
   SubscriptionRegistration,
+  TransactionStatement,
 } from "./bindings.gen";
 
-export type { LegacyImportReport } from "./bindings.gen";
+export type { LegacyImportReport, TransactionStatement } from "./bindings.gen";
 
 export type QueryEvent<T = Record<string, unknown>> =
   | { event: "result"; data: T[] }
@@ -17,6 +18,12 @@ export async function execute<T = Record<string, unknown>>(
   params: unknown[] = [],
 ): Promise<T[]> {
   return invoke("plugin:db|execute", { sql, params });
+}
+
+export async function executeTransaction(
+  statements: TransactionStatement[],
+): Promise<number[]> {
+  return invoke("plugin:db|execute_transaction", { statements });
 }
 
 // Drizzle proxy path: returns raw positional rows in sqlite-proxy format.

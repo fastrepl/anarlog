@@ -16,6 +16,15 @@ export type DrizzleProxyClient = {
   ): Promise<ProxyQueryResult>;
 };
 
+export type TransactionStatement = {
+  sql: string;
+  params: unknown[];
+};
+
+export type TransactionClient = {
+  executeTransaction(statements: TransactionStatement[]): Promise<number[]>;
+};
+
 export type LiveQueryClient = {
   execute<T = Row>(sql: string, params?: unknown[]): Promise<T[]>;
   subscribe<T = Row>(

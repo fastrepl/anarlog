@@ -5,7 +5,7 @@ use hypr_db_execute::{DbExecutor, ProxyQueryMethod, ProxyQueryResult};
 use hypr_db_reactive::{LiveQueryRuntime, QueryEventSink, SubscriptionRegistration};
 use tauri::ipc::Channel;
 
-use crate::{QueryEvent, Result};
+use crate::{QueryEvent, Result, TransactionStatement};
 
 #[derive(Clone)]
 pub struct QueryEventChannel(Channel<QueryEvent>);
@@ -67,6 +67,28 @@ impl PluginDbRuntime {
         Ok(self.executor.execute(sql, params).await?)
     }
 
+    pub async fn execute_transaction(
+        &self,
+        statements: Vec<TransactionStatement>,
+    ) -> Result<Vec<u64>> {
+        self.ensure_app_schema().await?;
+        let mut transaction = self.db.pool().begin_with("BEGIN IMMEDIATE").await?;
+        let mut rows_affected = Vec::with_capacity(statements.len());
+
+        for statement in statements {
+            let result = bind_params(
+                sqlx::query(sqlx::AssertSqlSafe(statement.sql.as_str())),
+                &statement.params,
+            )
+            .execute(&mut *transaction)
+            .await?;
+            rows_affected.push(result.rows_affected());
+        }
+
+        transaction.commit().await?;
+        Ok(rows_affected)
+    }
+
     pub async fn execute_proxy(
         &self,
         sql: String,
@@ -90,6 +112,29 @@ impl PluginDbRuntime {
     pub async fn unsubscribe(&self, subscription_id: &str) -> hypr_db_reactive::Result<()> {
         self.live_query_runtime.unsubscribe(subscription_id).await
     }
+}
+
+fn bind_params<'q>(
+    mut query: sqlx::query::Query<'q, sqlx::Sqlite, sqlx::sqlite::SqliteArguments>,
+    params: &[serde_json::Value],
+) -> sqlx::query::Query<'q, sqlx::Sqlite, sqlx::sqlite::SqliteArguments> {
+    for param in params {
+        query = match param {
+            serde_json::Value::Null => query.bind(None::<String>),
+            serde_json::Value::Bool(value) => query.bind(*value),
+            serde_json::Value::Number(value) => {
+                if let Some(integer) = value.as_i64() {
+                    query.bind(integer)
+                } else {
+                    query.bind(value.as_f64().unwrap_or_default())
+                }
+            }
+            serde_json::Value::String(value) => query.bind(value.clone()),
+            other => query.bind(other.to_string()),
+        };
+    }
+
+    query
 }
 
 pub async fn open_app_db(db_path: Option<&Path>) -> Result<Db> {

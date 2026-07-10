@@ -1,6 +1,6 @@
 use tauri::ipc::Channel;
 
-use crate::{ExecuteProxyResult, ManagedState, QueryEvent};
+use crate::{ExecuteProxyResult, ManagedState, QueryEvent, TransactionStatement};
 
 #[tauri::command]
 #[specta::specta]
@@ -11,6 +11,18 @@ pub(crate) async fn execute(
 ) -> Result<Vec<serde_json::Value>, String> {
     state
         .execute(sql, params)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn execute_transaction(
+    state: tauri::State<'_, ManagedState>,
+    statements: Vec<TransactionStatement>,
+) -> Result<Vec<u64>, String> {
+    state
+        .execute_transaction(statements)
         .await
         .map_err(|error| error.to_string())
 }

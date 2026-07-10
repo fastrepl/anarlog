@@ -1,9 +1,21 @@
-import type { LiveQueryClient } from "@hypr/db-runtime";
-import type { DrizzleProxyClient } from "@hypr/db-runtime";
-import { execute, executeProxy, subscribe } from "@hypr/plugin-db";
+import type {
+  DrizzleProxyClient,
+  LiveQueryClient,
+  TransactionClient,
+} from "@hypr/db-runtime";
+import {
+  execute,
+  executeProxy,
+  executeTransaction,
+  subscribe,
+} from "@hypr/plugin-db";
 
 export const tauriLiveQueryClient: LiveQueryClient & DrizzleProxyClient = {
   execute,
   executeProxy,
   subscribe,
+};
+
+export const tauriTransactionClient: TransactionClient = {
+  executeTransaction,
 };

@@ -11,6 +11,13 @@ const PLUGIN_NAME: &str = "db";
 
 pub type ManagedState = std::sync::Arc<runtime::PluginDbRuntime>;
 
+#[derive(Debug, Clone, serde::Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct TransactionStatement {
+    pub sql: String,
+    pub params: Vec<serde_json::Value>,
+}
+
 #[derive(Debug, Clone, serde::Serialize, specta::Type, sqlx::FromRow)]
 #[serde(rename_all = "camelCase")]
 pub struct StorageMigrationState {
@@ -95,6 +102,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
         .plugin_name(PLUGIN_NAME)
         .commands(tauri_specta::collect_commands![
             commands::execute,
+            commands::execute_transaction,
             commands::execute_proxy,
             commands::get_legacy_import_report,
             commands::run_legacy_import,
@@ -299,6 +307,68 @@ mod test {
                 "title": "Template 1",
             })]
         );
+    }
+
+    #[tokio::test]
+    async fn execute_transaction_commits_every_statement_atomically() {
+        let (_dir, runtime) = setup_unmigrated_runtime().await;
+
+        let rows_affected = runtime
+            .execute_transaction(vec![
+                TransactionStatement {
+                    sql: "INSERT INTO templates (id, title) VALUES (?, ?)".to_string(),
+                    params: vec![json!("template-1"), json!("Template 1")],
+                },
+                TransactionStatement {
+                    sql: "INSERT INTO templates (id, title) VALUES (?, ?)".to_string(),
+                    params: vec![json!("template-2"), json!("Template 2")],
+                },
+            ])
+            .await
+            .unwrap();
+
+        assert_eq!(rows_affected, vec![1, 1]);
+
+        let rows = runtime
+            .execute(
+                "SELECT id FROM templates WHERE id IN (?, ?) ORDER BY id".to_string(),
+                vec![json!("template-1"), json!("template-2")],
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(
+            rows,
+            vec![json!({ "id": "template-1" }), json!({ "id": "template-2" })]
+        );
+    }
+
+    #[tokio::test]
+    async fn execute_transaction_rolls_back_when_a_statement_fails() {
+        let (_dir, runtime) = setup_runtime().await;
+
+        let result = runtime
+            .execute_transaction(vec![
+                TransactionStatement {
+                    sql: "INSERT INTO templates (id, title) VALUES (?, ?)".to_string(),
+                    params: vec![json!("template-rollback"), json!("Rollback")],
+                },
+                TransactionStatement {
+                    sql: "INSERT INTO missing_table (id) VALUES (?)".to_string(),
+                    params: vec![json!("fail")],
+                },
+            ])
+            .await;
+
+        assert!(result.is_err());
+        let rows = runtime
+            .execute(
+                "SELECT id FROM templates WHERE id = ?".to_string(),
+                vec![json!("template-rollback")],
+            )
+            .await
+            .unwrap();
+        assert!(rows.is_empty());
     }
 
     #[tokio::test]

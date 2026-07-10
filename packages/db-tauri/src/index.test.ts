@@ -1,14 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { executeMock, executeProxyMock, subscribeMock } = vi.hoisted(() => ({
-  executeMock: vi.fn(),
-  executeProxyMock: vi.fn(),
-  subscribeMock: vi.fn(),
-}));
+const { executeMock, executeProxyMock, executeTransactionMock, subscribeMock } =
+  vi.hoisted(() => ({
+    executeMock: vi.fn(),
+    executeProxyMock: vi.fn(),
+    executeTransactionMock: vi.fn(),
+    subscribeMock: vi.fn(),
+  }));
 
 vi.mock("@hypr/plugin-db", () => ({
   execute: executeMock,
   executeProxy: executeProxyMock,
+  executeTransaction: executeTransactionMock,
   subscribe: subscribeMock,
 }));
 
@@ -62,5 +65,16 @@ describe("@hypr/db-tauri", () => {
     ).resolves.toEqual({ rows: [[1]] });
 
     expect(executeProxyMock).toHaveBeenCalledWith("SELECT 1", [], "all");
+  });
+
+  it("delegates transactions to the db plugin", async () => {
+    const { tauriTransactionClient } = await import("./index");
+    const statements = [{ sql: "UPDATE test SET value = ?", params: [1] }];
+    executeTransactionMock.mockResolvedValue([1]);
+
+    await expect(
+      tauriTransactionClient.executeTransaction(statements),
+    ).resolves.toEqual([1]);
+    expect(executeTransactionMock).toHaveBeenCalledWith(statements);
   });
 });
