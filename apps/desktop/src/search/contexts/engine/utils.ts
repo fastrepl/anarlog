@@ -188,17 +188,3 @@ export function flattenTranscript(transcript: unknown): string {
 
   return "";
 }
-
-export function collectCells(
-  persistedStore: any,
-  table: string,
-  rowId: string,
-  fields: string[],
-): Record<string, unknown> {
-  return fields.reduce<Record<string, unknown>>((acc, field) => {
-    acc[field] = persistedStore.getCell(table, rowId, field);
-    return acc;
-  }, {});
-}
-
-export { collectEnhancedNotesContent } from "~/store/tinybase/store/utils";

@@ -1,25 +1,13 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { createContext, useCallback, useContext, useState } from "react";
 
 import { commands as tantivy } from "@hypr/plugin-tantivy";
 
 import { buildTantivyFilters } from "./filters";
-import { indexHumans, indexOrganizations, indexSessions } from "./indexing";
-import {
-  createHumanListener,
-  createOrganizationListener,
-  createSessionListener,
-} from "./listeners";
+import { createSearchIndexSync } from "./indexing";
 import type { SearchEntityType, SearchFilters, SearchHit } from "./types";
 import { normalizeQuery } from "./utils";
 
-import { type Store as MainStore } from "~/store/tinybase/store/main";
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 export type {
   SearchDocument,
@@ -38,60 +26,28 @@ const SearchEngineContext = createContext<{
 
 export function SearchEngineProvider({
   children,
-  store,
 }: {
   children: React.ReactNode;
-  store?: MainStore;
 }) {
   const [isIndexing, setIsIndexing] = useState(true);
-  const listenerIds = useRef<string[]>([]);
 
-  useEffect(() => {
-    if (!store) {
-      return;
-    }
-
-    const initializeIndex = async () => {
-      setIsIndexing(true);
-
-      try {
-        await indexSessions(store);
-        await indexHumans(store);
-        await indexOrganizations(store);
-
-        const listener1 = store.addRowListener(
-          "sessions",
-          null,
-          createSessionListener(),
-        );
-        const listener2 = store.addRowListener(
-          "humans",
-          null,
-          createHumanListener(),
-        );
-        const listener3 = store.addRowListener(
-          "organizations",
-          null,
-          createOrganizationListener(),
-        );
-
-        listenerIds.current = [listener1, listener2, listener3];
-      } catch (error) {
+  useMountEffect(() => {
+    const sync = createSearchIndexSync();
+    let disposed = false;
+    void sync
+      .start()
+      .catch((error) => {
         console.error("Failed to create search index:", error);
-      } finally {
-        setIsIndexing(false);
-      }
-    };
-
-    void initializeIndex();
+      })
+      .finally(() => {
+        if (!disposed) setIsIndexing(false);
+      });
 
     return () => {
-      listenerIds.current.forEach((id) => {
-        store.delListener(id);
-      });
-      listenerIds.current = [];
+      disposed = true;
+      void sync.stop();
     };
-  }, [store]);
+  });
 
   const search = useCallback(
     async (
