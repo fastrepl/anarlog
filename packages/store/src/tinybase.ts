@@ -12,7 +12,6 @@ import {
   sessionKeyFactsSchema,
   sessionSchema,
   tagSchema,
-  taskSchema,
   transcriptSchema,
 } from "./zod";
 
@@ -95,17 +94,6 @@ export const tableSchemaForTinybase = {
     content: { type: "string" },
     source_hash: { type: "string" },
   } as const satisfies InferTinyBaseSchema<typeof sessionKeyFactsSchema>,
-  tasks: {
-    user_id: { type: "string" },
-    task_id: { type: "string" },
-    source_id: { type: "string" },
-    source_type: { type: "string" },
-    source_order: { type: "number" },
-    status: { type: "string" },
-    text_preview: { type: "string" },
-    body_json: { type: "string" },
-    due_date: { type: "string" },
-  } as const satisfies InferTinyBaseSchema<typeof taskSchema>,
 } as const satisfies TablesSchema;
 
 export const valueSchemaForTinybase = {

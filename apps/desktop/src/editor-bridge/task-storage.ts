@@ -9,268 +9,376 @@ import {
   type TaskSource,
 } from "@hypr/editor/tasks";
 
+import { executeTransaction, liveQueryClient } from "~/db";
+import { enqueueDatabaseWrite } from "~/db/write-queue";
 import { DEFAULT_USER_ID } from "~/shared/utils";
 import * as main from "~/store/tinybase/store/main";
 
-export function useStoreBackedTaskStorage(): TaskStorage | undefined {
-  const store = main.UI.useStore(main.STORE_ID);
-  const indexes = main.UI.useIndexes(main.STORE_ID);
+export type SqliteTaskRow = {
+  id: string;
+  source_type: string;
+  source_id: string;
+  source_order: number;
+  status: string;
+  text: string;
+  body_json: string;
+  due_at: string;
+};
 
-  return useMemo(
-    () =>
-      store && indexes
-        ? createStoreBackedTaskStorage(store, indexes)
-        : undefined,
-    [indexes, store],
-  );
-}
+export type TaskStorageDependencies = {
+  subscribe: typeof liveQueryClient.subscribe;
+  executeTransaction: typeof executeTransaction;
+  enqueueWrite: (key: string, write: () => Promise<void>) => Promise<void>;
+  now: () => string;
+};
 
-type TaskStore = NonNullable<ReturnType<typeof main.UI.useStore>>;
-type TaskIndexes = NonNullable<ReturnType<typeof main.UI.useIndexes>>;
+type SourceSubscription = {
+  active: boolean;
+  listeners: Set<() => void>;
+  unsubscribePromise: Promise<() => Promise<void>>;
+};
 
 const emptyTasks: TaskRecord[] = [];
 
-export function createStoreBackedTaskStorage(
-  store: TaskStore,
-  indexes: TaskIndexes,
+const defaultDependencies: TaskStorageDependencies = {
+  subscribe: liveQueryClient.subscribe.bind(liveQueryClient),
+  executeTransaction,
+  enqueueWrite: enqueueDatabaseWrite,
+  now: () => new Date().toISOString(),
+};
+
+export function useStoreBackedTaskStorage(): TaskStorage {
+  const { user_id } = main.UI.useValues(main.STORE_ID);
+
+  return useMemo(
+    () => createSqliteTaskStorage(user_id || DEFAULT_USER_ID),
+    [user_id],
+  );
+}
+
+export function createSqliteTaskStorage(
+  ownerUserId = DEFAULT_USER_ID,
+  dependencies: TaskStorageDependencies = defaultDependencies,
 ): TaskStorage {
   const sourceSnapshots = new Map<string, TaskRecord[]>();
-  const taskSnapshots = new Map<string, TaskRecord | null>();
+  const taskSnapshots = new Map<string, TaskRecord>();
+  const subscriptions = new Map<string, SourceSubscription>();
 
-  const refreshSourceSnapshot = (source: TaskSource) => {
+  const updateSourceSnapshot = (
+    source: TaskSource,
+    rows: SqliteTaskRow[],
+  ): boolean => {
     const sourceKey = createTaskSourceKey(source);
     const previousTasks = sourceSnapshots.get(sourceKey) ?? emptyTasks;
-    const nextTasks = getTaskRecordsForSource(store, indexes, source);
-    const tasks = areSameTaskSets(previousTasks, nextTasks)
-      ? previousTasks
-      : nextTasks;
-    sourceSnapshots.set(sourceKey, tasks);
+    const nextTasks = rows
+      .map(sqliteTaskRowToRecord)
+      .filter((task): task is TaskRecord => task !== null);
+    if (areSameTaskSets(previousTasks, nextTasks)) {
+      return false;
+    }
 
-    const previousTaskIds = new Set(previousTasks.map((task) => task.taskId));
-    tasks.forEach((task) => {
+    sourceSnapshots.set(sourceKey, nextTasks);
+    const nextTaskIds = new Set(nextTasks.map((task) => task.taskId));
+    previousTasks.forEach((task) => {
+      const cachedTask = taskSnapshots.get(task.taskId);
+      if (
+        !nextTaskIds.has(task.taskId) &&
+        cachedTask?.sourceType === source.type &&
+        cachedTask.sourceId === source.id
+      ) {
+        taskSnapshots.delete(task.taskId);
+      }
+    });
+    nextTasks.forEach((task) => {
       const previousTask = taskSnapshots.get(task.taskId);
       taskSnapshots.set(
         task.taskId,
         previousTask && isSameTask(previousTask, task) ? previousTask : task,
       );
-      previousTaskIds.delete(task.taskId);
     });
-    previousTaskIds.forEach((taskId) => {
-      taskSnapshots.delete(taskId);
-    });
-  };
-
-  const invalidateTaskSnapshot = (taskId: string) => {
-    taskSnapshots.delete(taskId);
+    return true;
   };
 
   return {
     getTasksForSource(source) {
-      const sourceKey = createTaskSourceKey(source);
-      const snapshot = sourceSnapshots.get(sourceKey);
-
-      if (snapshot) {
-        return snapshot;
-      }
-
-      refreshSourceSnapshot(source);
-      return sourceSnapshots.get(sourceKey) ?? emptyTasks;
+      return sourceSnapshots.get(createTaskSourceKey(source)) ?? emptyTasks;
     },
     subscribeSource(source, listener) {
       const sourceKey = createTaskSourceKey(source);
-      const rowListenerIds = new Map<string, string | number>();
-      let notify = () => {};
+      let subscription = subscriptions.get(sourceKey);
 
-      const refreshRowListeners = () => {
-        const nextRowIds = new Set(getTaskRowIdsForSource(indexes, source));
+      if (!subscription) {
+        const listeners = new Set<() => void>();
+        subscription = {
+          active: true,
+          listeners,
+          unsubscribePromise: Promise.resolve(async () => {}),
+        };
+        const currentSubscription = subscription;
+        currentSubscription.unsubscribePromise = dependencies
+          .subscribe<SqliteTaskRow>(
+            `
+            SELECT
+              id,
+              source_type,
+              source_id,
+              source_order,
+              status,
+              text,
+              body_json,
+              due_at
+            FROM action_items
+            WHERE source_type = ? AND source_id = ? AND deleted_at IS NULL
+            ORDER BY source_order, id
+          `,
+            [source.type, source.id],
+            {
+              onData: (rows) => {
+                if (
+                  currentSubscription.active &&
+                  updateSourceSnapshot(source, rows)
+                ) {
+                  currentSubscription.listeners.forEach((notify) => notify());
+                }
+              },
+              onError: (error) => {
+                console.error(
+                  `[tasks] failed to subscribe to ${sourceKey}`,
+                  error,
+                );
+              },
+            },
+          )
+          .catch((error) => {
+            if (currentSubscription.active) {
+              console.error(
+                `[tasks] failed to start subscription for ${sourceKey}`,
+                error,
+              );
+            }
+            return async () => {};
+          });
+        subscriptions.set(sourceKey, currentSubscription);
+      }
 
-        for (const [rowId, listenerId] of rowListenerIds.entries()) {
-          if (!nextRowIds.has(rowId)) {
-            store.delListener(String(listenerId));
-            rowListenerIds.delete(rowId);
-          }
+      subscription.listeners.add(listener);
+      const currentSubscription = subscription;
+      return () => {
+        currentSubscription.listeners.delete(listener);
+        if (currentSubscription.listeners.size > 0) {
+          return;
         }
 
-        nextRowIds.forEach((rowId) => {
-          if (rowListenerIds.has(rowId)) {
-            return;
-          }
-
-          rowListenerIds.set(
-            rowId,
-            store.addRowListener("tasks", rowId, () => {
-              notify();
-            }),
-          );
-        });
-      };
-
-      notify = () => {
-        refreshRowListeners();
-        refreshSourceSnapshot(source);
-        listener();
-      };
-
-      refreshRowListeners();
-      refreshSourceSnapshot(source);
-      const sliceListenerId = indexes.addSliceRowIdsListener(
-        main.INDEXES.tasksBySource,
-        sourceKey,
-        notify,
-      );
-
-      return () => {
-        store.delListener(String(sliceListenerId));
-        rowListenerIds.forEach((listenerId) => {
-          store.delListener(String(listenerId));
-        });
+        currentSubscription.active = false;
+        if (subscriptions.get(sourceKey) === currentSubscription) {
+          subscriptions.delete(sourceKey);
+        }
+        void currentSubscription.unsubscribePromise
+          .then((unsubscribe) => unsubscribe())
+          .catch((error) => {
+            console.error(
+              `[tasks] failed to unsubscribe from ${sourceKey}`,
+              error,
+            );
+          });
       };
     },
     getTask(taskId) {
-      if (taskSnapshots.has(taskId)) {
-        return taskSnapshots.get(taskId) ?? null;
-      }
-
-      const row = store.getRow("tasks", taskId);
-      const task = row ? taskRowToRecord(taskId, row) : null;
-      taskSnapshots.set(taskId, task);
-      return task;
+      return taskSnapshots.get(taskId) ?? null;
     },
     upsertTasksForSource(source, tasks) {
-      const sourceRowIds = getTaskRowIdsForSource(indexes, source);
-      const nextTaskIds = new Set(tasks.map((task) => task.taskId));
-      const currentTasks = getTaskRecordsForSource(store, indexes, source);
+      const currentTasks =
+        sourceSnapshots.get(createTaskSourceKey(source)) ?? emptyTasks;
       if (areSameTaskSets(currentTasks, tasks)) {
         return;
       }
 
-      store.transaction(() => {
-        sourceRowIds.forEach((rowId) => {
-          if (!nextTaskIds.has(rowId)) {
-            store.delRow("tasks", rowId);
-          }
-        });
+      const now = dependencies.now();
+      const retainedTaskIds = tasks.map((task) => task.taskId);
+      const statements = [
+        {
+          sql: `
+            UPDATE action_items
+            SET deleted_at = ?, updated_at = ?, updated_by = ?
+            WHERE source_type = ?
+              AND source_id = ?
+              AND deleted_at IS NULL
+              AND id NOT IN (SELECT value FROM json_each(?))
+          `,
+          params: [
+            now,
+            now,
+            ownerUserId,
+            source.type,
+            source.id,
+            JSON.stringify(retainedTaskIds),
+          ],
+        },
+        ...tasks.map((task) =>
+          buildTaskUpsertStatement(task, ownerUserId, now),
+        ),
+      ];
 
-        tasks.forEach((task) => {
-          setTaskRecord(store, task);
-          taskSnapshots.set(task.taskId, task);
-        });
-      });
-      refreshSourceSnapshot(source);
+      persistTaskStatements(dependencies, statements);
     },
     removeTasksForSource(source, taskIds) {
-      const sourceTaskIds = new Set(getTaskRowIdsForSource(indexes, source));
-
-      store.transaction(() => {
-        taskIds.forEach((taskId) => {
-          if (sourceTaskIds.has(taskId)) {
-            store.delRow("tasks", taskId);
-            invalidateTaskSnapshot(taskId);
-          }
-        });
-      });
-      refreshSourceSnapshot(source);
-    },
-    moveTasksToSource(taskIds, nextSource, insertionOrder) {
-      const affectedSources = new Set<string>([
-        createTaskSourceKey(nextSource),
-      ]);
-      const updates = taskIds
-        .map((taskId, index) => {
-          const currentTask =
-            taskSnapshots.get(taskId) ?? getTaskRecord(store, taskId);
-          if (!currentTask) {
-            return null;
-          }
-
-          const nextTask = {
-            ...currentTask,
-            sourceId: nextSource.id,
-            sourceType: nextSource.type,
-            sourceOrder: insertionOrder + index,
-          };
-
-          return isSameTask(currentTask, nextTask)
-            ? null
-            : { taskId, currentTask, nextTask };
-        })
-        .filter(
-          (
-            update,
-          ): update is {
-            taskId: string;
-            currentTask: TaskRecord;
-            nextTask: TaskRecord;
-          } => update !== null,
-        );
-
-      if (updates.length === 0) {
+      if (taskIds.length === 0) {
         return;
       }
 
-      store.transaction(() => {
-        updates.forEach(({ taskId, currentTask, nextTask }) => {
-          affectedSources.add(
-            createTaskSourceKey({
-              type: currentTask.sourceType,
-              id: currentTask.sourceId,
-            }),
-          );
-          store.setPartialRow("tasks", taskId, {
-            source_id: nextTask.sourceId,
-            source_type: nextTask.sourceType,
-            source_order: nextTask.sourceOrder,
-          });
-          invalidateTaskSnapshot(taskId);
-        });
-      });
+      const now = dependencies.now();
+      persistTaskStatements(dependencies, [
+        {
+          sql: `
+            UPDATE action_items
+            SET deleted_at = ?, updated_at = ?, updated_by = ?
+            WHERE source_type = ?
+              AND source_id = ?
+              AND deleted_at IS NULL
+              AND id IN (SELECT value FROM json_each(?))
+          `,
+          params: [
+            now,
+            now,
+            ownerUserId,
+            source.type,
+            source.id,
+            JSON.stringify(taskIds),
+          ],
+        },
+      ]);
+    },
+    moveTasksToSource(taskIds, nextSource, insertionOrder) {
+      if (taskIds.length === 0) {
+        return;
+      }
 
-      affectedSources.forEach((sourceKey) => {
-        const [type, ...idParts] = sourceKey.split(":");
-        refreshSourceSnapshot({ type, id: idParts.join(":") });
-      });
+      const now = dependencies.now();
+      persistTaskStatements(
+        dependencies,
+        taskIds.map((taskId, index) => ({
+          sql: `
+            UPDATE action_items
+            SET
+              session_id = ?,
+              source_type = ?,
+              source_id = ?,
+              source_order = ?,
+              updated_at = ?,
+              updated_by = ?
+            WHERE id = ? AND deleted_at IS NULL
+          `,
+          params: [
+            nextSource.type === "session" ? nextSource.id : "",
+            nextSource.type,
+            nextSource.id,
+            insertionOrder + index,
+            now,
+            ownerUserId,
+            taskId,
+          ],
+        })),
+      );
     },
   };
 }
 
-function setTaskRecord(store: TaskStore, task: TaskRecord): void {
-  store.setRow("tasks", task.taskId, {
-    user_id:
-      (store.getValue("user_id") as string | undefined) ?? DEFAULT_USER_ID,
-    task_id: task.taskId,
-    source_id: task.sourceId,
-    source_type: task.sourceType,
-    source_order: task.sourceOrder,
-    status: task.status,
-    text_preview: task.textPreview,
-    body_json: JSON.stringify(task.body),
-    due_date: task.dueDate ?? "",
-  });
-}
-
-function getTaskRecordsForSource(
-  store: TaskStore,
-  indexes: TaskIndexes,
-  source: TaskSource,
-): TaskRecord[] {
-  return getTaskRowIdsForSource(indexes, source)
-    .map((rowId) => {
-      const row = store.getRow("tasks", rowId);
-      return row ? taskRowToRecord(rowId, row) : null;
+function persistTaskStatements(
+  dependencies: TaskStorageDependencies,
+  statements: Array<{ sql: string; params: unknown[] }>,
+) {
+  void dependencies
+    .enqueueWrite("tasks", async () => {
+      await dependencies.executeTransaction(statements);
     })
-    .filter((task): task is TaskRecord => task !== null);
+    .catch((error) => {
+      console.error("[tasks] failed to persist task changes", error);
+    });
 }
 
-function getTaskRecord(store: TaskStore, taskId: string) {
-  const row = store.getRow("tasks", taskId);
-  return row ? taskRowToRecord(taskId, row) : null;
+function buildTaskUpsertStatement(
+  task: TaskRecord,
+  ownerUserId: string,
+  now: string,
+) {
+  return {
+    sql: `
+      INSERT INTO action_items (
+        id,
+        workspace_id,
+        session_id,
+        source_type,
+        source_id,
+        source_order,
+        assignee_human_id,
+        status,
+        text,
+        body_json,
+        due_at,
+        created_by,
+        updated_by,
+        metadata_json,
+        created_at,
+        updated_at,
+        deleted_at
+      )
+      VALUES (?, '', ?, ?, ?, ?, '', ?, ?, ?, ?, ?, ?, '{}', ?, ?, NULL)
+      ON CONFLICT(id) DO UPDATE SET
+        session_id = excluded.session_id,
+        source_type = excluded.source_type,
+        source_id = excluded.source_id,
+        source_order = excluded.source_order,
+        status = excluded.status,
+        text = excluded.text,
+        body_json = excluded.body_json,
+        due_at = excluded.due_at,
+        updated_by = excluded.updated_by,
+        updated_at = excluded.updated_at,
+        deleted_at = NULL
+    `,
+    params: [
+      task.taskId,
+      task.sourceType === "session" ? task.sourceId : "",
+      task.sourceType,
+      task.sourceId,
+      task.sourceOrder,
+      task.status,
+      task.textPreview,
+      JSON.stringify(task.body),
+      task.dueDate ?? "",
+      ownerUserId,
+      ownerUserId,
+      now,
+      now,
+    ],
+  };
 }
 
-function getTaskRowIdsForSource(indexes: TaskIndexes, source: TaskSource) {
-  return indexes.getSliceRowIds(
-    main.INDEXES.tasksBySource,
-    createTaskSourceKey(source),
-  );
+function sqliteTaskRowToRecord(row: SqliteTaskRow): TaskRecord | null {
+  const sourceOrder = Number(row.source_order);
+  if (
+    !row.id ||
+    !row.source_id ||
+    !row.source_type ||
+    !Number.isFinite(sourceOrder) ||
+    (row.status !== "todo" &&
+      row.status !== "in_progress" &&
+      row.status !== "done")
+  ) {
+    return null;
+  }
+
+  const body = parseTaskBody(row.body_json, row.text);
+  return {
+    taskId: row.id,
+    sourceId: row.source_id,
+    sourceType: row.source_type,
+    sourceOrder,
+    status: row.status,
+    textPreview: row.text || getTextPreview(body),
+    body,
+    dueDate: row.due_at || undefined,
+  };
 }
 
 function areSameTaskSets(left: TaskRecord[], right: TaskRecord[]) {
@@ -281,53 +389,6 @@ function areSameTaskSets(left: TaskRecord[], right: TaskRecord[]) {
   return left.every((task, index) => isSameTask(task, right[index]!));
 }
 
-function taskRowToRecord(
-  rowId: string,
-  row: Record<string, unknown>,
-): TaskRecord | null {
-  const taskId =
-    typeof row.task_id === "string" && row.task_id ? row.task_id : rowId;
-  const sourceId = row.source_id;
-  const sourceType = row.source_type;
-  const sourceOrder =
-    typeof row.source_order === "number"
-      ? row.source_order
-      : typeof row.order === "number"
-        ? row.order
-        : null;
-  const status = row.status;
-
-  if (
-    typeof taskId !== "string" ||
-    typeof sourceId !== "string" ||
-    typeof sourceType !== "string" ||
-    typeof sourceOrder !== "number" ||
-    (status !== "todo" && status !== "in_progress" && status !== "done")
-  ) {
-    return null;
-  }
-
-  const body = parseTaskBody(row.body_json, row.text);
-  const textPreview =
-    typeof row.text_preview === "string" && row.text_preview
-      ? row.text_preview
-      : getTextPreview(body);
-
-  return {
-    taskId,
-    sourceId,
-    sourceType,
-    sourceOrder,
-    status,
-    textPreview,
-    body,
-    dueDate:
-      typeof row.due_date === "string" && row.due_date
-        ? row.due_date
-        : undefined,
-  };
-}
-
 function parseTaskBody(bodyJson: unknown, legacyText: unknown): JSONContent[] {
   if (typeof bodyJson === "string" && bodyJson) {
     try {
@@ -335,9 +396,7 @@ function parseTaskBody(bodyJson: unknown, legacyText: unknown): JSONContent[] {
       if (Array.isArray(parsed)) {
         return parsed as JSONContent[];
       }
-    } catch {
-      // Ignore malformed legacy data.
-    }
+    } catch {}
   }
 
   if (typeof legacyText === "string" && legacyText) {

@@ -58,7 +58,6 @@ export const StoreComponent = () => {
     persisters.sessionPersister,
     persisters.organizationPersister,
     persisters.humanPersister,
-    persisters.taskPersister,
   ].filter((persister) => persister !== undefined);
 
   const synchronizer = useCreateSynchronizer(store, async (store) =>
@@ -234,21 +233,6 @@ export const StoreComponent = () => {
         INDEXES.mentionsByTarget,
         "mapping_mention",
         "target_id",
-      )
-      .setIndexDefinition(
-        INDEXES.tasksBySource,
-        "tasks",
-        (getCell) => {
-          const sourceType = getCell("source_type");
-          const sourceId = getCell("source_id");
-
-          if (typeof sourceType !== "string" || typeof sourceId !== "string") {
-            return "";
-          }
-
-          return `${sourceType}:${sourceId}`;
-        },
-        "source_order",
       ),
   );
 
@@ -311,7 +295,6 @@ export const INDEXES = {
   enhancedNotesByTemplate: "enhancedNotesByTemplate",
   mentionsBySource: "mentionsBySource",
   mentionsByTarget: "mentionsByTarget",
-  tasksBySource: "tasksBySource",
 } as const;
 
 export const RELATIONSHIPS = {

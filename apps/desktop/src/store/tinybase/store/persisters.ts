@@ -10,7 +10,6 @@ import { registerSaveHandler } from "./save";
 import { useHumanPersister } from "~/store/tinybase/persister/human";
 import { useOrganizationPersister } from "~/store/tinybase/persister/organization";
 import { useSessionPersister } from "~/store/tinybase/persister/session";
-import { useTaskPersister } from "~/store/tinybase/persister/tasks";
 import { useValuesPersister } from "~/store/tinybase/persister/values";
 
 export function useMainPersisters(store: Store) {
@@ -18,7 +17,6 @@ export function useMainPersisters(store: Store) {
   const sessionPersister = useSessionPersister(store);
   const organizationPersister = useOrganizationPersister(store);
   const humanPersister = useHumanPersister(store);
-  const taskPersister = useTaskPersister(store);
 
   useEffect(() => {
     if (getCurrentWebviewWindowLabel() !== "main") {
@@ -30,7 +28,6 @@ export function useMainPersisters(store: Store) {
       { id: "session", persister: sessionPersister },
       { id: "organization", persister: organizationPersister },
       { id: "human", persister: humanPersister },
-      { id: "task", persister: taskPersister },
     ];
 
     const unsubscribes = persisters
@@ -52,7 +49,6 @@ export function useMainPersisters(store: Store) {
     sessionPersister,
     organizationPersister,
     humanPersister,
-    taskPersister,
   ]);
 
   useInitializeStore(store, {
@@ -66,6 +62,5 @@ export function useMainPersisters(store: Store) {
     sessionPersister,
     organizationPersister,
     humanPersister,
-    taskPersister,
   };
 }
