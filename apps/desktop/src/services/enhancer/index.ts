@@ -3,9 +3,17 @@ import type { LanguageModel } from "ai";
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 
 import { getEligibility } from "./eligibility";
+import {
+  type EnhancerNote,
+  ensureSummaryDocument,
+  replaceSummaryDocumentTemplate,
+  updateSummaryDocumentTitleIfCurrent,
+} from "./storage";
 
-import type { Store as MainStore } from "~/store/tinybase/store/main";
-import { INDEXES } from "~/store/tinybase/store/main";
+import {
+  loadSessionContentSnapshot,
+  type SessionContentSnapshot,
+} from "~/session/content-queries";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 import type { TasksActions } from "~/store/zustand/ai-task/tasks";
 import { listenerStore } from "~/store/zustand/listener/instance";
@@ -33,8 +41,6 @@ type EnhancerEvent =
   | { type: "auto-enhance-no-model"; sessionId: string };
 
 type EnhancerDeps = {
-  mainStore: MainStore;
-  indexes: { getSliceRowIds: (indexId: string, sliceId: string) => string[] };
   aiTaskStore: {
     getState: () => Pick<TasksActions, "generate" | "getState" | "reset">;
   };
@@ -169,36 +175,37 @@ export class EnhancerService {
   }
 
   private emit(event: EnhancerEvent) {
-    this.eventListeners.forEach((fn) => fn(event));
+    this.eventListeners.forEach((listener) => listener(event));
   }
 
-  checkEligibility(sessionId: string) {
-    const transcriptIds = this.getTranscriptIds(sessionId);
-    return getEligibility(
-      transcriptIds.length > 0,
-      transcriptIds,
-      this.deps.mainStore,
-    );
+  async checkEligibility(sessionId: string) {
+    const snapshot = await this.loadSession(sessionId);
+    return getEligibility(snapshot.transcripts);
   }
 
   queueAutoEnhance(sessionId: string) {
     if (this.activeAutoEnhance.has(sessionId)) return;
     this.activeAutoEnhance.add(sessionId);
-    this.tryAutoEnhance(sessionId, 0);
+    void this.tryAutoEnhance(sessionId, 0).catch((error) => {
+      this.handleAutoEnhanceError(sessionId, error);
+    });
   }
 
-  queueAutoEnhanceIfSummaryEmpty(sessionId: string): QueueEmptySummaryResult {
+  async queueAutoEnhanceIfSummaryEmpty(
+    sessionId: string,
+  ): Promise<QueueEmptySummaryResult> {
+    const snapshot = await this.loadSession(sessionId);
     const templateId = this.deps.getSelectedTemplateId();
-    const existingNoteId = this.getAutoEnhancedNoteId(sessionId, templateId);
+    const existingNote = getAutoEnhancedNote(snapshot, templateId);
 
-    if (existingNoteId && this.hasEnhancedNoteContent(existingNoteId)) {
-      return { type: "summary_exists", noteId: existingNoteId };
+    if (existingNote && hasSummaryContent(existingNote.content)) {
+      return { type: "summary_exists", noteId: existingNote.id };
     }
 
-    if (!existingNoteId) {
-      const eligibility = this.checkEligibility(sessionId);
+    if (!existingNote) {
+      const eligibility = getEligibility(snapshot.transcripts);
       if (!eligibility.eligible && eligibility.wordCount > 0) {
-        this.ensureNote(sessionId, templateId);
+        await this.ensureNote(sessionId, templateId);
       }
     }
 
@@ -206,13 +213,19 @@ export class EnhancerService {
     return { type: "queued" };
   }
 
-  private tryAutoEnhance(sessionId: string, attempt: number) {
-    const eligibility = this.checkEligibility(sessionId);
+  private async tryAutoEnhance(sessionId: string, attempt: number) {
+    if (!this.activeAutoEnhance.has(sessionId)) return;
+
+    const eligibility = await this.checkEligibility(sessionId);
+    if (!this.activeAutoEnhance.has(sessionId)) return;
+
     if (!eligibility.eligible) {
       if (attempt < 20) {
         const timer = setTimeout(() => {
           this.pendingRetries.delete(sessionId);
-          this.tryAutoEnhance(sessionId, attempt + 1);
+          void this.tryAutoEnhance(sessionId, attempt + 1).catch((error) => {
+            this.handleAutoEnhanceError(sessionId, error);
+          });
         }, 500);
         this.pendingRetries.set(sessionId, timer);
         return;
@@ -227,7 +240,8 @@ export class EnhancerService {
       return;
     }
 
-    const result = this.enhance(sessionId, { isAuto: true });
+    const result = await this.enhance(sessionId, { isAuto: true });
+    if (!this.activeAutoEnhance.has(sessionId)) return;
 
     if (result.type === "no_model") {
       this.activeAutoEnhance.delete(sessionId);
@@ -243,6 +257,14 @@ export class EnhancerService {
     });
   }
 
+  private handleAutoEnhanceError(sessionId: string, error: unknown) {
+    this.activeAutoEnhance.delete(sessionId);
+    this.clearRetry(sessionId);
+    const reason = error instanceof Error ? error.message : String(error);
+    console.error("[enhancer] auto-enhance failed", error);
+    this.emit({ type: "auto-enhance-skipped", sessionId, reason });
+  }
+
   private clearRetry(sessionId: string) {
     const timer = this.pendingRetries.get(sessionId);
     if (timer) {
@@ -251,253 +273,188 @@ export class EnhancerService {
     }
   }
 
-  // Reset enhance task states so auto-enhance can re-run after transcript redo.
-  // Without this, tasks with status "success" from a prior run would be skipped.
-  resetEnhanceTasks(sessionId: string) {
-    const enhancedNoteIds = this.getEnhancedNoteIds(sessionId);
+  async resetEnhanceTasks(sessionId: string): Promise<void> {
+    const snapshot = await this.loadSession(sessionId);
     const { aiTaskStore } = this.deps;
-    for (const noteId of enhancedNoteIds) {
-      aiTaskStore.getState().reset(createTaskId(noteId, "enhance"));
+    for (const note of snapshot.enhancedNotes) {
+      aiTaskStore.getState().reset(createTaskId(note.id, "enhance"));
     }
   }
 
-  enhance(sessionId: string, opts?: EnhanceOpts): EnhanceResult {
+  async enhance(sessionId: string, opts?: EnhanceOpts): Promise<EnhanceResult> {
     const { aiTaskStore, getModel, getLLMConn, getSelectedTemplateId } =
       this.deps;
 
     const model = getModel();
     if (!model) return { type: "no_model" };
 
+    const snapshot = await this.loadSession(sessionId);
     let templateId = resolveTemplateId(opts, getSelectedTemplateId);
-    const targetNoteId = opts?.targetNoteId
-      ? this.getSessionEnhancedNoteId(sessionId, opts.targetNoteId)
+    const targetNote = opts?.targetNoteId
+      ? getSessionEnhancedNote(snapshot, opts.targetNoteId)
       : undefined;
-    const autoNoteId =
-      !targetNoteId && opts?.isAuto
-        ? this.getAutoEnhancedNoteId(sessionId, templateId)
+    const autoNote =
+      !targetNote && opts?.isAuto
+        ? getAutoEnhancedNote(snapshot, templateId)
         : undefined;
-    if (autoNoteId) {
-      templateId = this.getEnhancedNoteTemplateId(autoNoteId);
+    if (autoNote) {
+      templateId = autoNote.templateId || undefined;
     }
 
-    const enhancedNoteId =
-      targetNoteId ?? autoNoteId ?? this.ensureNote(sessionId, templateId);
-    const enhanceTaskId = createTaskId(enhancedNoteId, "enhance");
+    let note =
+      targetNote ??
+      autoNote ??
+      (await this.ensureNoteRecord(sessionId, templateId));
+    const enhanceTaskId = createTaskId(note.id, "enhance");
     const existingTask = aiTaskStore.getState().getState(enhanceTaskId);
     if (existingTask?.status === "generating") {
-      return { type: "already_active", noteId: enhancedNoteId };
+      return { type: "already_active", noteId: note.id };
     }
 
-    if (targetNoteId) {
-      this.replaceNoteTemplate(targetNoteId, templateId, opts?.templateTitle);
+    if (targetNote) {
+      await this.replaceNoteTemplate(
+        sessionId,
+        targetNote.id,
+        templateId,
+        opts?.templateTitle,
+      );
+      note = {
+        ...targetNote,
+        title: opts?.templateTitle?.trim() || "Summary",
+        markdown: "",
+        content: "",
+        contentFormat: "prosemirror_json",
+        templateId: templateId ?? "",
+      };
     }
 
-    if (
-      existingTask?.status === "success" &&
-      this.hasEnhancedNoteContent(enhancedNoteId)
-    ) {
-      return { type: "already_active", noteId: enhancedNoteId };
+    if (existingTask?.status === "success" && hasSummaryContent(note.content)) {
+      return { type: "already_active", noteId: note.id };
     }
 
     const llmConn = getLLMConn();
-    void analyticsCommands.event({
-      event: "note_enhanced",
-      is_auto: opts?.isAuto ?? false,
-      llm_provider: llmConn?.providerId,
-      llm_model: llmConn?.modelId,
-      template_id: templateId,
-    });
+    try {
+      await analyticsCommands.event({
+        event: "note_enhanced",
+        is_auto: opts?.isAuto ?? false,
+        llm_provider: llmConn?.providerId,
+        llm_model: llmConn?.modelId,
+        template_id: templateId,
+      });
+    } catch (error) {
+      console.error("[enhancer] failed to record analytics", error);
+    }
 
     void aiTaskStore.getState().generate(enhanceTaskId, {
       model,
       taskType: "enhance",
-      args: { sessionId, enhancedNoteId, templateId },
+      args: { sessionId, enhancedNoteId: note.id, templateId },
     });
 
-    return { type: "started", noteId: enhancedNoteId };
+    return { type: "started", noteId: note.id };
   }
 
-  private getTranscriptIds(sessionId: string): string[] {
-    return this.deps.indexes.getSliceRowIds(
-      INDEXES.transcriptBySession,
-      sessionId,
-    );
+  async ensureNote(sessionId: string, templateId?: string): Promise<string> {
+    return (await this.ensureNoteRecord(sessionId, templateId)).id;
   }
 
-  private getEnhancedNoteIds(sessionId: string): string[] {
-    return this.deps.indexes.getSliceRowIds(
-      INDEXES.enhancedNotesBySession,
-      sessionId,
-    );
-  }
-
-  private getSessionEnhancedNoteId(
-    sessionId: string,
-    enhancedNoteId: string,
-  ): string | undefined {
-    const noteSessionId = this.deps.mainStore.getCell(
-      "enhanced_notes",
-      enhancedNoteId,
-      "session_id",
-    );
-
-    return noteSessionId === sessionId ? enhancedNoteId : undefined;
-  }
-
-  ensureNote(sessionId: string, templateId?: string): string {
-    const store = this.deps.mainStore;
-    const normalizedTemplateId = templateId || undefined;
-
-    const existingIds = this.getEnhancedNoteIds(sessionId);
-    const existingId = this.getMatchingEnhancedNoteId(
-      sessionId,
-      normalizedTemplateId,
-    );
-    if (existingId) {
-      if (normalizedTemplateId) {
-        void this.hydrateTemplateTitle(existingId, normalizedTemplateId);
-      }
-
-      return existingId;
-    }
-
-    const enhancedNoteId = crypto.randomUUID();
-    const userId = store.getValue("user_id");
-    const nextPosition = existingIds.length + 1;
-
-    store.setRow("enhanced_notes", enhancedNoteId, {
-      user_id: userId || "",
-      session_id: sessionId,
-      content: "",
-      position: nextPosition,
-      title: "Summary",
-      template_id: normalizedTemplateId,
-    });
-
-    if (normalizedTemplateId) {
-      void this.hydrateTemplateTitle(enhancedNoteId, normalizedTemplateId);
-    }
-
-    return enhancedNoteId;
-  }
-
-  private getMatchingEnhancedNoteId(
+  private async ensureNoteRecord(
     sessionId: string,
     templateId?: string,
-  ): string | undefined {
-    const normalizedTemplateId = templateId || undefined;
-    const store = this.deps.mainStore;
-
-    return this.getEnhancedNoteIds(sessionId).find((id) => {
-      const tid = store.getCell("enhanced_notes", id, "template_id") as
-        | string
-        | undefined;
-      return (tid || undefined) === normalizedTemplateId;
-    });
+  ): Promise<EnhancerNote> {
+    const note = await ensureSummaryDocument(sessionId, templateId);
+    if (templateId) {
+      void this.hydrateTemplateTitle(sessionId, note.id, templateId);
+    }
+    return note;
   }
 
-  private getAutoEnhancedNoteId(
+  private async replaceNoteTemplate(
     sessionId: string,
-    templateId?: string,
-  ): string | undefined {
-    return (
-      this.getMatchingEnhancedNoteId(sessionId, templateId) ??
-      this.getFirstEnhancedNoteId(sessionId)
-    );
-  }
-
-  private getFirstEnhancedNoteId(sessionId: string): string | undefined {
-    return this.getEnhancedNoteIds(sessionId).sort((a, b) => {
-      const aPosition =
-        (this.deps.mainStore.getCell("enhanced_notes", a, "position") as
-          | number
-          | undefined) ?? Number.MAX_SAFE_INTEGER;
-      const bPosition =
-        (this.deps.mainStore.getCell("enhanced_notes", b, "position") as
-          | number
-          | undefined) ?? Number.MAX_SAFE_INTEGER;
-
-      return aPosition - bPosition;
-    })[0];
-  }
-
-  private getEnhancedNoteTemplateId(
-    enhancedNoteId: string,
-  ): string | undefined {
-    return (
-      (this.deps.mainStore.getCell(
-        "enhanced_notes",
-        enhancedNoteId,
-        "template_id",
-      ) as string | undefined) || undefined
-    );
-  }
-
-  private hasEnhancedNoteContent(enhancedNoteId: string): boolean {
-    return hasSummaryContent(
-      this.deps.mainStore.getCell("enhanced_notes", enhancedNoteId, "content"),
-    );
-  }
-
-  private replaceNoteTemplate(
-    enhancedNoteId: string,
+    noteId: string,
     templateId: string | undefined,
     templateTitle: string | undefined,
   ) {
-    const normalizedTemplateId = templateId || undefined;
     const title = templateTitle?.trim() || "Summary";
-
-    this.deps.mainStore.setPartialRow("enhanced_notes", enhancedNoteId, {
-      content: "",
+    await replaceSummaryDocumentTemplate({
+      sessionId,
+      noteId,
+      templateId,
       title,
-      template_id: normalizedTemplateId,
     });
 
-    if (normalizedTemplateId && !templateTitle?.trim()) {
-      void this.hydrateTemplateTitle(enhancedNoteId, normalizedTemplateId);
+    if (templateId && !templateTitle?.trim()) {
+      void this.hydrateTemplateTitle(sessionId, noteId, templateId);
     }
   }
 
   private async hydrateTemplateTitle(
-    enhancedNoteId: string,
+    sessionId: string,
+    noteId: string,
     templateId: string,
   ): Promise<void> {
-    let template: Awaited<ReturnType<typeof getTemplateById>>;
     try {
-      template = await getTemplateById(templateId);
+      const template = await getTemplateById(templateId);
+      const title = template?.title?.trim();
+      if (!title) return;
+
+      const snapshot = await this.loadSession(sessionId);
+      const note = getSessionEnhancedNote(snapshot, noteId);
+      if (
+        !note ||
+        note.templateId !== templateId ||
+        !shouldHydrateTemplateTitle(note.title, templateId)
+      ) {
+        return;
+      }
+
+      await updateSummaryDocumentTitleIfCurrent({
+        sessionId,
+        noteId,
+        templateId,
+        currentTitle: note.title,
+        nextTitle: title,
+      });
     } catch (error) {
       console.error("[enhancer] failed to hydrate template title", error);
-      return;
     }
-
-    const title = template?.title?.trim();
-    if (!title) {
-      return;
-    }
-
-    const currentTemplateId = this.deps.mainStore.getCell(
-      "enhanced_notes",
-      enhancedNoteId,
-      "template_id",
-    );
-    if (currentTemplateId !== templateId) {
-      return;
-    }
-
-    const currentTitle = this.deps.mainStore.getCell(
-      "enhanced_notes",
-      enhancedNoteId,
-      "title",
-    ) as string | undefined;
-    if (!shouldHydrateTemplateTitle(currentTitle, templateId)) {
-      return;
-    }
-
-    this.deps.mainStore.setCell(
-      "enhanced_notes",
-      enhancedNoteId,
-      "title",
-      title,
-    );
   }
+
+  private async loadSession(sessionId: string) {
+    const snapshot = await loadSessionContentSnapshot(sessionId);
+    if (!snapshot) {
+      throw new Error(`Session ${sessionId} no longer exists`);
+    }
+    return snapshot;
+  }
+}
+
+function getSessionEnhancedNote(
+  snapshot: SessionContentSnapshot,
+  noteId: string,
+): EnhancerNote | undefined {
+  return snapshot.enhancedNotes.find((note) => note.id === noteId);
+}
+
+function getMatchingEnhancedNote(
+  snapshot: SessionContentSnapshot,
+  templateId?: string,
+): EnhancerNote | undefined {
+  const normalizedTemplateId = templateId ?? "";
+  return snapshot.enhancedNotes.find(
+    (note) => note.templateId === normalizedTemplateId,
+  );
+}
+
+function getAutoEnhancedNote(
+  snapshot: SessionContentSnapshot,
+  templateId?: string,
+): EnhancerNote | undefined {
+  return (
+    getMatchingEnhancedNote(snapshot, templateId) ??
+    [...snapshot.enhancedNotes].sort(
+      (left, right) =>
+        left.position - right.position || left.id.localeCompare(right.id),
+    )[0]
+  );
 }

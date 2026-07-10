@@ -1,23 +1,12 @@
-import type * as main from "~/store/tinybase/store/main";
-
 export const MIN_WORDS_FOR_ENHANCEMENT = 5;
 
 export function countTranscriptWords(
-  transcriptIds: string[],
-  store: main.Store | undefined,
+  transcripts: ReadonlyArray<{ words: readonly unknown[] }>,
 ): number {
-  if (!store) return 0;
-
-  let totalWordCount = 0;
-  for (const transcriptId of transcriptIds) {
-    const wordsJson = store.getCell("transcripts", transcriptId, "words") as
-      | string
-      | undefined;
-    if (wordsJson) {
-      totalWordCount += (JSON.parse(wordsJson) as unknown[]).length;
-    }
-  }
-  return totalWordCount;
+  return transcripts.reduce(
+    (total, transcript) => total + transcript.words.length,
+    0,
+  );
 }
 
 type EligibilityResult =
@@ -25,15 +14,13 @@ type EligibilityResult =
   | { eligible: false; reason: string; wordCount: number };
 
 export function getEligibility(
-  hasTranscript: boolean,
-  transcriptIds: string[],
-  store: main.Store | undefined,
+  transcripts: ReadonlyArray<{ words: readonly unknown[] }>,
 ): EligibilityResult {
-  if (!hasTranscript) {
+  if (transcripts.length === 0) {
     return { eligible: false, reason: "No transcript recorded", wordCount: 0 };
   }
 
-  const wordCount = countTranscriptWords(transcriptIds, store);
+  const wordCount = countTranscriptWords(transcripts);
 
   if (wordCount < MIN_WORDS_FOR_ENHANCEMENT) {
     return {

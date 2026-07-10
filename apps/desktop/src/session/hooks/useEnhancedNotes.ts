@@ -77,7 +77,11 @@ export function useEnsureDefaultSummaryFromState({
       (hasTranscript || sessionMode === "running_batch" || batchError);
 
     if (enhancedNoteCount === 0 && canCreateSummary) {
-      service.ensureNote(sessionId, templateId);
+      void Promise.resolve(service.ensureNote(sessionId, templateId)).catch(
+        (error) => {
+          console.error("[enhancer] failed to create default summary", error);
+        },
+      );
     }
   }, [
     sessionId,

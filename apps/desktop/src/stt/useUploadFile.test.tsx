@@ -86,7 +86,9 @@ vi.mock("./useRunBatch", () => ({
 vi.mock("~/services/enhancer", () => ({
   getEnhancerService: vi.fn(() => ({
     enhance: enhanceMock,
-    queueAutoEnhanceIfSummaryEmpty: vi.fn(),
+    queueAutoEnhanceIfSummaryEmpty: vi.fn().mockResolvedValue({
+      type: "queued",
+    }),
   })),
 }));
 
@@ -124,6 +126,7 @@ describe("useUploadFile", () => {
     audioImportListenMock.mockResolvedValue(vi.fn());
     runBatchMock.mockResolvedValue(undefined);
     createTranscriptMock.mockResolvedValue(undefined);
+    enhanceMock.mockResolvedValue({ type: "started", noteId: "note-1" });
     useSessionMock.mockReturnValue({
       id: "session-1",
       user_id: "user-1",

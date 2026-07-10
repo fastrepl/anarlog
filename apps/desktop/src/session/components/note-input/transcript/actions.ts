@@ -26,7 +26,7 @@ export function useRegenerateTranscript(sessionId: string) {
 
     try {
       await runBatch(audioPath);
-      getEnhancerService()?.queueAutoEnhanceIfSummaryEmpty(sessionId);
+      await getEnhancerService()?.queueAutoEnhanceIfSummaryEmpty(sessionId);
     } catch (error) {
       if (isStoppedTranscriptionError(error)) {
         return;

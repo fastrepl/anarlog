@@ -12,7 +12,6 @@ import { useSearchEngine } from "~/search/contexts/engine";
 import { initEnhancerService } from "~/services/enhancer";
 import { useConfigValue } from "~/shared/config";
 import { useDesktopTabLifecycle } from "~/shared/desktop-tab-lifecycle";
-import * as main from "~/store/tinybase/store/main";
 import { useTabs } from "~/store/zustand/tabs";
 import { MainListenerControlBridge } from "~/stt/window-control";
 
@@ -80,13 +79,12 @@ function ToolRegistration() {
 }
 
 function EnhancerInit() {
-  const { persistedStore, aiTaskStore } = useRouteContext({
+  const { aiTaskStore } = useRouteContext({
     from: "__root__",
   });
 
   const model = useLanguageModel("enhance");
   const { conn: llmConn } = useLLMConnection();
-  const indexes = main.UI.useIndexes(main.STORE_ID);
   const selectedTemplateId = useConfigValue("selected_template_id");
 
   const modelRef = useRef(model);
@@ -97,11 +95,9 @@ function EnhancerInit() {
   templateIdRef.current = selectedTemplateId;
 
   useEffect(() => {
-    if (!persistedStore || !aiTaskStore || !indexes) return;
+    if (!aiTaskStore) return;
 
     const service = initEnhancerService({
-      mainStore: persistedStore,
-      indexes,
       aiTaskStore,
       getModel: () => modelRef.current,
       getLLMConn: () => llmConnRef.current,
@@ -109,7 +105,7 @@ function EnhancerInit() {
     });
 
     return () => service.dispose();
-  }, [persistedStore, aiTaskStore, indexes]);
+  }, [aiTaskStore]);
 
   return null;
 }

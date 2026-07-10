@@ -70,20 +70,32 @@ export function useUploadFile(sessionId: string) {
   });
 
   const triggerEnhance = useCallback(() => {
-    const result = getEnhancerService()?.enhance(sessionId);
-    if (
-      (result?.type === "started" || result?.type === "already_active") &&
-      sessionTab
-    ) {
-      updateSessionTabState(sessionTab, {
-        ...sessionTab.state,
-        view: { type: "enhanced", id: result.noteId },
+    const service = getEnhancerService();
+    if (!service) return;
+
+    void Promise.resolve(service.enhance(sessionId))
+      .then((result) => {
+        if (
+          (result.type === "started" || result.type === "already_active") &&
+          sessionTab
+        ) {
+          updateSessionTabState(sessionTab, {
+            ...sessionTab.state,
+            view: { type: "enhanced", id: result.noteId },
+          });
+        }
+      })
+      .catch((error) => {
+        console.error("[enhancer] failed to enhance uploaded file", error);
       });
-    }
   }, [sessionId, sessionTab, updateSessionTabState]);
 
   const triggerEnhanceIfSummaryEmpty = useCallback(() => {
-    getEnhancerService()?.queueAutoEnhanceIfSummaryEmpty(sessionId);
+    void Promise.resolve(
+      getEnhancerService()?.queueAutoEnhanceIfSummaryEmpty(sessionId),
+    ).catch((error) => {
+      console.error("[enhancer] failed to queue uploaded file", error);
+    });
   }, [sessionId]);
 
   const applyEstimatedAudioNoteDate = useCallback(

@@ -466,18 +466,26 @@ function HeaderViewEnhancedActive({
         return;
       }
 
-      const result = getEnhancerService()?.enhance(sessionId, {
-        templateId: selection.templateId,
-        targetNoteId: enhancedNoteId,
-        templateTitle: selection.templateId ? selection.title : undefined,
-      });
-
-      if (
-        (result?.type === "started" || result?.type === "already_active") &&
-        result.noteId
-      ) {
-        onSelectNote?.(result.noteId);
+      const service = getEnhancerService();
+      if (!service) {
+        return;
       }
+
+      void Promise.resolve(
+        service.enhance(sessionId, {
+          templateId: selection.templateId,
+          targetNoteId: enhancedNoteId,
+          templateTitle: selection.templateId ? selection.title : undefined,
+        }),
+      )
+        .then((result) => {
+          if (result.type === "started" || result.type === "already_active") {
+            onSelectNote?.(result.noteId);
+          }
+        })
+        .catch((error) => {
+          console.error("[enhancer] failed to replace summary template", error);
+        });
     },
     [enhancedNoteId, isGenerating, onSelectNote, sessionId],
   );

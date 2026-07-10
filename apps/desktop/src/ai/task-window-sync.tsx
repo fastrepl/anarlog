@@ -119,10 +119,14 @@ function MainAITaskWindowSyncBridge({ store }: { store: AITaskStore }) {
         return;
       }
 
-      getEnhancerService()?.enhance(
-        event.payload.sessionId,
-        event.payload.opts,
-      );
+      void Promise.resolve(
+        getEnhancerService()?.enhance(
+          event.payload.sessionId,
+          event.payload.opts,
+        ),
+      ).catch((error) => {
+        console.error("[enhancer] remote enhancement failed", error);
+      });
     }).then((unlisten) => {
       if (active) {
         enhanceUnlisten = unlisten;

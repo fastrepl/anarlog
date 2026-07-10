@@ -4,6 +4,7 @@ import {
   render,
   renderHook,
   screen,
+  waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -570,7 +571,7 @@ describe("Header", () => {
     ).toEqual(["Copy"]);
   });
 
-  it("replaces the current enhanced note when changing templates", () => {
+  it("replaces the current enhanced note when changing templates", async () => {
     hoisted.userTemplates = [
       {
         id: "template-2",
@@ -580,7 +581,7 @@ describe("Header", () => {
         sections: [],
       },
     ];
-    hoisted.enhance.mockReturnValue({
+    hoisted.enhance.mockResolvedValue({
       type: "started",
       noteId: "note-1",
     });
@@ -607,10 +608,12 @@ describe("Header", () => {
       targetNoteId: "note-1",
       templateTitle: "Decision Log",
     });
-    expect(handleTabChange).toHaveBeenCalledWith({
-      type: "enhanced",
-      id: "note-1",
-    });
+    await waitFor(() =>
+      expect(handleTabChange).toHaveBeenCalledWith({
+        type: "enhanced",
+        id: "note-1",
+      }),
+    );
   });
 
   it("replaces the current enhanced note with auto generation", () => {
@@ -623,7 +626,7 @@ describe("Header", () => {
         sections: [],
       },
     ];
-    hoisted.enhance.mockReturnValue({
+    hoisted.enhance.mockResolvedValue({
       type: "started",
       noteId: "note-1",
     });

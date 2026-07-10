@@ -128,10 +128,10 @@ export function useStartListening(sessionId: string) {
         hadTranscriptBeforeStart &&
         (transcriptId !== null || postCaptureAction === "batch_then_enhance");
       if (shouldRegenerateExistingSummary) {
-        service?.resetEnhanceTasks(sessionId);
+        await service?.resetEnhanceTasks(sessionId);
         service?.queueAutoEnhance(sessionId);
       } else {
-        service?.queueAutoEnhanceIfSummaryEmpty(sessionId);
+        await service?.queueAutoEnhanceIfSummaryEmpty(sessionId);
       }
 
       await deleteProcessedAudioForRetention(audioRetention, sessionId);
