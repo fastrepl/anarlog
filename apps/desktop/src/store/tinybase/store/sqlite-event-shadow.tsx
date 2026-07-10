@@ -1,4 +1,4 @@
-import { calendars, eq, events, sql } from "@hypr/db";
+import { eq, events, sql } from "@hypr/db";
 
 import type { Store } from "./main";
 import {
@@ -8,19 +8,6 @@ import {
 } from "./sqlite-table-shadow";
 
 import { db } from "~/db";
-
-type SqliteCalendarRow = {
-  id: string;
-  tracking_id_calendar: string;
-  name: string;
-  enabled: number | boolean;
-  provider: string;
-  source: string;
-  color: string;
-  connection_id: string;
-  created_at: string;
-  deleted_at: string | null;
-};
 
 type SqliteEventRow = {
   id: string;
@@ -40,44 +27,6 @@ type SqliteEventRow = {
   participants_json: unknown;
   created_at: string;
   deleted_at: string | null;
-};
-
-const CALENDAR_SHADOW_CONFIG: SqliteTableShadowConfig<
-  "calendars",
-  SqliteCalendarRow
-> = {
-  label: "SqliteCalendarShadow",
-  tableId: "calendars",
-  selectSql: `
-    SELECT
-      id,
-      tracking_id_calendar,
-      name,
-      enabled,
-      provider,
-      source,
-      color,
-      connection_id,
-      created_at,
-      deleted_at
-    FROM calendars
-    ORDER BY name, id
-  `,
-  fromSqlite: (row) =>
-    normalizeCalendarRow({
-      user_id: "",
-      created_at: row.created_at,
-      tracking_id_calendar: row.tracking_id_calendar,
-      name: row.name,
-      enabled: Boolean(row.enabled),
-      provider: row.provider,
-      source: row.source,
-      color: row.color,
-      connection_id: row.connection_id,
-    }),
-  normalize: normalizeCalendarRow,
-  isDeleted: (row) => row.deleted_at !== null,
-  persist: persistCalendarChanges,
 };
 
 const EVENT_SHADOW_CONFIG: SqliteTableShadowConfig<"events", SqliteEventRow> = {
@@ -129,33 +78,8 @@ const EVENT_SHADOW_CONFIG: SqliteTableShadowConfig<"events", SqliteEventRow> = {
   persist: persistEventChanges,
 };
 
-export function SqliteCalendarShadow({ store }: { store: Store }) {
-  return (
-    <>
-      <SqliteTableShadow config={CALENDAR_SHADOW_CONFIG} store={store} />
-      <SqliteTableShadow config={EVENT_SHADOW_CONFIG} store={store} />
-    </>
-  );
-}
-
-export function normalizeCalendarRow(
-  row: Partial<MainTableRow<"calendars">>,
-): MainTableRow<"calendars"> {
-  return {
-    user_id: typeof row.user_id === "string" ? row.user_id : "",
-    created_at: typeof row.created_at === "string" ? row.created_at : "",
-    tracking_id_calendar:
-      typeof row.tracking_id_calendar === "string"
-        ? row.tracking_id_calendar
-        : "",
-    name: typeof row.name === "string" ? row.name : "",
-    enabled: typeof row.enabled === "boolean" ? row.enabled : false,
-    provider: typeof row.provider === "string" ? row.provider : "",
-    source: typeof row.source === "string" ? row.source : "",
-    color: typeof row.color === "string" ? row.color : "#888",
-    connection_id:
-      typeof row.connection_id === "string" ? row.connection_id : "",
-  };
+export function SqliteEventShadow({ store }: { store: Store }) {
+  return <SqliteTableShadow config={EVENT_SHADOW_CONFIG} store={store} />;
 }
 
 export function normalizeEventRow(
@@ -187,56 +111,6 @@ export function normalizeEventRow(
     participants_json:
       typeof row.participants_json === "string" ? row.participants_json : "",
   };
-}
-
-async function persistCalendarChanges(
-  rows: Array<[string, MainTableRow<"calendars">]>,
-  deletedIds: string[],
-) {
-  const now = new Date().toISOString();
-  for (const chunk of chunks(rows, 40)) {
-    await db
-      .insert(calendars)
-      .values(
-        chunk.map(([id, value]) => {
-          const row = normalizeCalendarRow(value);
-          return {
-            id,
-            trackingIdCalendar: row.tracking_id_calendar,
-            name: row.name,
-            enabled: row.enabled,
-            provider: row.provider,
-            source: row.source,
-            color: row.color,
-            connectionId: row.connection_id,
-            createdAt: row.created_at || now,
-            updatedAt: now,
-            deletedAt: null,
-          };
-        }),
-      )
-      .onConflictDoUpdate({
-        target: calendars.id,
-        set: {
-          trackingIdCalendar: sql`excluded.tracking_id_calendar`,
-          name: sql`excluded.name`,
-          enabled: sql`excluded.enabled`,
-          provider: sql`excluded.provider`,
-          source: sql`excluded.source`,
-          color: sql`excluded.color`,
-          connectionId: sql`excluded.connection_id`,
-          deletedAt: null,
-          updatedAt: sql`strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`,
-        },
-      });
-  }
-
-  await softDelete(deletedIds, async (id, deletedAt) => {
-    await db
-      .update(calendars)
-      .set({ deletedAt, updatedAt: deletedAt })
-      .where(eq(calendars.id, id));
-  });
 }
 
 async function persistEventChanges(
@@ -295,12 +169,13 @@ async function persistEventChanges(
       });
   }
 
-  await softDelete(deletedIds, async (id, deletedAt) => {
+  const deletedAt = new Date().toISOString();
+  for (const id of deletedIds) {
     await db
       .update(events)
       .set({ deletedAt, updatedAt: deletedAt })
       .where(eq(events.id, id));
-  });
+  }
 }
 
 function encodeJson(value: unknown): string {
@@ -314,16 +189,6 @@ function parseJson(value: string): unknown {
     return JSON.parse(value);
   } catch {
     return null;
-  }
-}
-
-async function softDelete(
-  ids: string[],
-  deleteRow: (id: string, deletedAt: string) => Promise<void>,
-) {
-  const deletedAt = new Date().toISOString();
-  for (const id of ids) {
-    await deleteRow(id, deletedAt);
   }
 }
 

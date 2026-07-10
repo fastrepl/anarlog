@@ -10,42 +10,34 @@ import {
 } from "@hypr/ui/components/ui/popover";
 import { cn } from "@hypr/utils";
 
-import { toTz, useCalendar, useTimezone } from "~/calendar/hooks";
+import { toTz, useTimezone } from "~/calendar/hooks";
 import { useIgnoredEvents } from "~/calendar/ignored-events";
 import { EventDisplay } from "~/session/components/outer-header/metadata";
+import { getOrCreateSessionForEventId } from "~/session/queries";
 import {
   type MenuItemDef,
   useNativeContextMenu,
 } from "~/shared/hooks/useNativeContextMenu";
-import { useEvent } from "~/store/tinybase/hooks";
-import * as main from "~/store/tinybase/store/main";
-import { getOrCreateSessionForEventId } from "~/store/tinybase/store/sessions";
+import type { TimelineEventRow } from "~/sidebar/timeline/utils";
 import { useTabs } from "~/store/zustand/tabs";
 
-function useCalendarColor(calendarId: string | null): string | null {
-  const calendar = useCalendar(calendarId);
-  return calendar?.color || null;
-}
-
-export function EventChip({ eventId }: { eventId: string }) {
+export function EventChip({
+  eventId,
+  event,
+}: {
+  eventId: string;
+  event: TimelineEventRow | undefined;
+}) {
   const tz = useTimezone();
   const { ignoreEvent, ignoreSeries } = useIgnoredEvents();
-  const event = main.UI.useResultRow(
-    main.QUERIES.timelineEvents,
-    eventId,
-    main.STORE_ID,
-  );
-  const calendarColor = useCalendarColor(
-    (event?.calendar_id as string) ?? null,
-  );
-  const title = event?.title as string | undefined;
-  const trackingId = event?.tracking_id_event as string | undefined;
-  const recurrenceSeriesId = event?.recurrence_series_id as string | undefined;
+  const title = event?.title ?? undefined;
+  const trackingId = event?.tracking_id_event ?? undefined;
+  const recurrenceSeriesId = event?.recurrence_series_id ?? undefined;
   const isAllDay = !!event?.is_all_day;
-  const color = calendarColor ?? "#888";
+  const color = event?.calendar_color || "#888";
 
   const startedAt = event?.started_at
-    ? format(toTz(event.started_at as string, tz), "h:mm a")
+    ? format(toTz(event.started_at, tz), "h:mm a")
     : null;
 
   const handleIgnore = useCallback(() => {
@@ -131,38 +123,45 @@ export function EventChip({ eventId }: { eventId: string }) {
         onClick={(e) => e.stopPropagation()}
       >
         <AppFloatingPanel>
-          <EventPopoverContent eventId={eventId} />
+          <EventPopoverContent eventId={eventId} event={event} />
         </AppFloatingPanel>
       </PopoverContent>
     </Popover>
   );
 }
 
-function EventPopoverContent({ eventId }: { eventId: string }) {
-  const event = useEvent(eventId);
-  const store = main.UI.useStore(main.STORE_ID);
+function EventPopoverContent({
+  eventId,
+  event,
+}: {
+  eventId: string;
+  event: TimelineEventRow;
+}) {
   const openCurrent = useTabs((state) => state.openCurrent);
 
-  const eventRow = main.UI.useResultRow(
-    main.QUERIES.timelineEvents,
-    eventId,
-    main.STORE_ID,
-  );
-
   const handleOpen = useCallback(() => {
-    if (!store) return;
-    const title = (eventRow?.title as string) || "Untitled";
-    const sessionId = getOrCreateSessionForEventId(store, eventId, title);
-    openCurrent({ type: "sessions", id: sessionId });
-  }, [store, eventId, eventRow?.title, openCurrent]);
-
-  if (!event) {
-    return null;
-  }
+    void getOrCreateSessionForEventId(eventId, event.title || "Untitled")
+      .then((sessionId) => {
+        openCurrent({ type: "sessions", id: sessionId });
+      })
+      .catch((error) => {
+        console.error("[calendar] failed to open event note", error);
+      });
+  }, [eventId, event.title, openCurrent]);
 
   return (
     <div className="flex flex-col gap-3 p-4">
-      <EventDisplay event={event} />
+      <EventDisplay
+        event={{
+          title: event.title ?? undefined,
+          startedAt: event.started_at ?? undefined,
+          endedAt: event.ended_at ?? undefined,
+          location: event.location ?? undefined,
+          meetingLink: event.meeting_link ?? undefined,
+          description: event.description ?? undefined,
+          calendarId: event.calendar_id ?? undefined,
+        }}
+      />
       <Button
         size="sm"
         className="bg-primary text-primary-foreground hover:bg-primary/90 min-h-8 w-full"

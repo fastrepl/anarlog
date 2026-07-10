@@ -9,7 +9,7 @@ import {
   CalendarSelection,
 } from "~/calendar/components/calendar-selection";
 import type { CalendarProvider } from "~/calendar/components/shared";
-import * as main from "~/store/tinybase/store/main";
+import { setCalendarEnabled, useCalendarRows } from "~/calendar/queries";
 
 export function OAuthCalendarSelection({
   groups,
@@ -34,33 +34,27 @@ export function OAuthCalendarSelection({
 
 export function useOAuthCalendarSelection(config: CalendarProvider) {
   const queryClient = useQueryClient();
-  const store = main.UI.useStore(main.STORE_ID);
-  const calendars = main.UI.useTable("calendars", main.STORE_ID);
+  const calendars = useCalendarRows(config.id);
   const { cancelDebouncedSync, status, scheduleDebouncedSync, scheduleSync } =
     useSync();
 
   const { groups, connectionSourceMap } = useMemo(() => {
-    const providerCalendars = Object.entries(calendars).filter(
-      ([_, cal]) => cal.provider === config.id,
-    );
-
     const sourceMap = new Map<string, string>();
 
-    for (const [_, cal] of providerCalendars) {
-      // HACK: derive connection_id -> source mapping from calendar entries
+    for (const cal of calendars) {
       if (cal.source && cal.connection_id) {
-        sourceMap.set(cal.connection_id as string, cal.source as string);
+        sourceMap.set(cal.connection_id, cal.source);
       }
     }
 
     const nonNullSources = new Set(
-      providerCalendars
-        .map(([_, cal]) => {
+      calendars
+        .map((cal) => {
           if (cal.source) {
             return cal.source;
           }
           if (cal.connection_id) {
-            return sourceMap.get(cal.connection_id as string);
+            return sourceMap.get(cal.connection_id);
           }
           return undefined;
         })
@@ -74,9 +68,8 @@ export function useOAuthCalendarSelection(config: CalendarProvider) {
       { connectionId?: string; calendars: CalendarItem[] }
     >();
 
-    for (const [id, cal] of providerCalendars) {
-      const connectionId =
-        typeof cal.connection_id === "string" ? cal.connection_id : undefined;
+    for (const cal of calendars) {
+      const connectionId = cal.connection_id || undefined;
       const source =
         cal.source ||
         (connectionId ? sourceMap.get(connectionId) : undefined) ||
@@ -90,7 +83,7 @@ export function useOAuthCalendarSelection(config: CalendarProvider) {
         group.connectionId = connectionId;
       }
       group.calendars.push({
-        id,
+        id: cal.id,
         title: cal.name ?? "Untitled",
         color: cal.color ?? "#4285f4",
         enabled: cal.enabled ?? false,
@@ -105,14 +98,17 @@ export function useOAuthCalendarSelection(config: CalendarProvider) {
       })),
       connectionSourceMap: sourceMap,
     };
-  }, [calendars, config.id]);
+  }, [calendars, config.displayName]);
 
   const handleToggle = useCallback(
     (calendar: CalendarItem, enabled: boolean) => {
-      store?.setPartialRow("calendars", calendar.id, { enabled });
-      scheduleDebouncedSync();
+      void setCalendarEnabled(calendar.id, enabled)
+        .then(scheduleDebouncedSync)
+        .catch((error) => {
+          console.error("[calendar] failed to update calendar", error);
+        });
     },
-    [store, scheduleDebouncedSync],
+    [scheduleDebouncedSync],
   );
 
   const handleRefresh = useCallback(() => {

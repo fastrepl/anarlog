@@ -2,7 +2,6 @@ import type { TablesSchema } from "tinybase/with-schemas";
 
 import type { InferTinyBaseSchema } from "./shared";
 import {
-  calendarSchema,
   chatGroupSchema,
   chatMessageSchema,
   dailyNoteSchema,
@@ -60,17 +59,6 @@ export const tableSchemaForTinybase = {
     pinned: { type: "boolean" },
     pin_order: { type: "number" },
   } as const satisfies InferTinyBaseSchema<typeof organizationSchema>,
-  calendars: {
-    user_id: { type: "string" },
-    created_at: { type: "string" },
-    tracking_id_calendar: { type: "string" },
-    name: { type: "string" },
-    enabled: { type: "boolean" },
-    provider: { type: "string" },
-    source: { type: "string" },
-    color: { type: "string" },
-    connection_id: { type: "string" },
-  } as const satisfies InferTinyBaseSchema<typeof calendarSchema>,
   events: {
     user_id: { type: "string" },
     created_at: { type: "string" },

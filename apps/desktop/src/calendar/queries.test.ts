@@ -20,6 +20,10 @@ describe("calendar SQLite queries", () => {
           has_recurrence_rules: 0,
           recurrence_series_id: "",
           is_all_day: 1,
+          location: "Room 1",
+          meeting_link: "https://meet.example.com/planning",
+          description: "Weekly plan",
+          calendar_color: "#4285f4",
         },
       ]),
     ).toEqual({
@@ -32,6 +36,10 @@ describe("calendar SQLite queries", () => {
         has_recurrence_rules: false,
         recurrence_series_id: "",
         is_all_day: true,
+        location: "Room 1",
+        meeting_link: "https://meet.example.com/planning",
+        description: "Weekly plan",
+        calendar_color: "#4285f4",
       },
     });
   });

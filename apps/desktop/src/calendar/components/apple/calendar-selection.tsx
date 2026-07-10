@@ -7,8 +7,8 @@ import {
   type CalendarItem,
   CalendarSelection,
 } from "~/calendar/components/calendar-selection";
+import { setCalendarEnabled, useCalendarRows } from "~/calendar/queries";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
-import * as main from "~/store/tinybase/store/main";
 
 const SUBSCRIBED_SOURCE_NAME = "Subscribed Calendars";
 
@@ -43,20 +43,15 @@ export function useAppleCalendarSelection() {
   const { cancelDebouncedSync, status, scheduleDebouncedSync, scheduleSync } =
     useSync();
 
-  const store = main.UI.useStore(main.STORE_ID);
-  const calendars = main.UI.useTable("calendars", main.STORE_ID);
+  const calendars = useCalendarRows("apple");
 
   const groups = useMemo((): CalendarGroup[] => {
-    const appleCalendars = Object.entries(calendars).filter(
-      ([_, cal]) => cal.provider === "apple",
-    );
-
     const grouped = new Map<string, CalendarItem[]>();
-    for (const [id, cal] of appleCalendars) {
+    for (const cal of calendars) {
       const source = cal.source || "Apple Calendar";
       if (!grouped.has(source)) grouped.set(source, []);
       grouped.get(source)!.push({
-        id,
+        id: cal.id,
         title: cal.name || "Untitled",
         color: cal.color ?? "#888",
         enabled: cal.enabled ?? false,
@@ -77,10 +72,13 @@ export function useAppleCalendarSelection() {
 
   const handleToggle = useCallback(
     (calendar: CalendarItem, enabled: boolean) => {
-      store?.setPartialRow("calendars", calendar.id, { enabled });
-      scheduleDebouncedSync();
+      void setCalendarEnabled(calendar.id, enabled)
+        .then(scheduleDebouncedSync)
+        .catch((error) => {
+          console.error("[calendar] failed to update calendar", error);
+        });
     },
-    [store, scheduleDebouncedSync],
+    [scheduleDebouncedSync],
   );
 
   const handleRefresh = useCallback(() => {

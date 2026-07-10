@@ -1,6 +1,7 @@
 import type { EventParticipant } from "@hypr/store";
 
-import { useLiveQuery } from "~/db";
+import { executeTransaction, useLiveQuery } from "~/db";
+import { enqueueDatabaseWrite } from "~/db/write-queue";
 import type {
   TimelineEventRow,
   TimelineEventsTable,
@@ -59,18 +60,24 @@ export function useTimelineEventsTable(): TimelineEventsTable {
   >({
     sql: `
       SELECT
-        id,
-        title,
-        started_at,
-        ended_at,
-        calendar_id,
-        tracking_id_event,
-        has_recurrence_rules,
-        recurrence_series_id,
-        is_all_day
-      FROM events
-      WHERE deleted_at IS NULL
-      ORDER BY started_at, id
+        event.id,
+        event.title,
+        event.started_at,
+        event.ended_at,
+        event.calendar_id,
+        event.tracking_id_event,
+        event.has_recurrence_rules,
+        event.recurrence_series_id,
+        event.is_all_day,
+        event.location,
+        event.meeting_link,
+        event.description,
+        calendar.color AS calendar_color
+      FROM events AS event
+      LEFT JOIN calendars AS calendar
+        ON calendar.id = event.calendar_id AND calendar.deleted_at IS NULL
+      WHERE event.deleted_at IS NULL
+      ORDER BY event.started_at, event.id
     `,
     mapRows: mapTimelineEventRows,
   });
@@ -154,6 +161,60 @@ export function useEnabledCalendarRows(): CalendarRow[] {
   });
 
   return data;
+}
+
+export function useCalendarRows(provider?: string): CalendarRow[] {
+  const { data = EMPTY_CALENDARS } = useLiveQuery<
+    CalendarSqlRow,
+    CalendarRow[]
+  >({
+    sql: `
+      SELECT
+        id,
+        tracking_id_calendar,
+        name,
+        enabled,
+        provider,
+        source,
+        color,
+        connection_id,
+        created_at
+      FROM calendars
+      WHERE deleted_at IS NULL AND (? = '' OR provider = ?)
+      ORDER BY name, id
+    `,
+    params: [provider ?? "", provider ?? ""],
+    mapRows: (rows) => rows.map(normalizeCalendarRow),
+  });
+
+  return data;
+}
+
+export function setCalendarEnabled(
+  calendarId: string,
+  enabled: boolean,
+): Promise<void> {
+  return enqueueDatabaseWrite(`calendar-selection:${calendarId}`, async () => {
+    const now = new Date().toISOString();
+    await executeTransaction([
+      {
+        sql: `
+          UPDATE calendars
+          SET enabled = ?, updated_at = ?
+          WHERE id = ? AND deleted_at IS NULL
+        `,
+        params: [Number(enabled), now, calendarId],
+      },
+      {
+        sql: `
+          UPDATE events
+          SET deleted_at = ?, updated_at = ?
+          WHERE calendar_id = ? AND deleted_at IS NULL AND ? = 0
+        `,
+        params: [now, now, calendarId, Number(enabled)],
+      },
+    ]);
+  });
 }
 
 export function useSessionEventParticipants(

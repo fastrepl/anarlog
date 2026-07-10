@@ -60,7 +60,6 @@ export const StoreComponent = () => {
     persisters.humanPersister,
     persisters.eventPersister,
     persisters.chatPersister,
-    persisters.calendarPersister,
     persisters.dailyNotePersister,
     persisters.taskPersister,
   ].filter((persister) => persister !== undefined);
@@ -158,14 +157,6 @@ export const StoreComponent = () => {
 
             group("started_at", "min").as("min_started_at");
             group("ended_at", "max").as("max_ended_at");
-          },
-        )
-        .setQueryDefinition(
-          QUERIES.enabledCalendars,
-          "calendars",
-          ({ select, where }) => {
-            select("provider");
-            where("enabled", true);
           },
         ),
     [],
@@ -339,7 +330,6 @@ export const QUERIES = {
   visibleHumans: "visibleHumans",
   sessionParticipantsWithDetails: "sessionParticipantsWithDetails",
   sessionRecordingTimes: "sessionRecordingTimes",
-  enabledCalendars: "enabledCalendars",
 } as const;
 
 export const METRICS = {
@@ -421,9 +411,6 @@ interface _QueryResultRows {
     session_id: string;
     min_started_at: number;
     max_ended_at: number;
-  };
-  enabledCalendars: {
-    provider: string;
   };
 }
 

@@ -12,6 +12,10 @@ import {
 } from "./queries";
 
 import { useConfigValue } from "~/shared/config";
+import type {
+  TimelineEventsTable,
+  TimelineSessionsTable,
+} from "~/sidebar/timeline/utils";
 
 export function useTimezone() {
   return useConfigValue("timezone") || undefined;
@@ -83,6 +87,8 @@ export function useEnabledCalendars(): EnabledCalendar[] {
 export type CalendarData = {
   eventIdsByDate: Record<string, string[]>;
   sessionIdsByDate: Record<string, string[]>;
+  eventsById: NonNullable<TimelineEventsTable>;
+  sessionsById: NonNullable<TimelineSessionsTable>;
 };
 
 function compareNullableDates(a: string | undefined, b: string | undefined) {
@@ -170,6 +176,11 @@ export function useCalendarData(): CalendarData {
       }
     }
 
-    return { eventIdsByDate, sessionIdsByDate };
+    return {
+      eventIdsByDate,
+      sessionIdsByDate,
+      eventsById: eventsTable ?? {},
+      sessionsById: sessionsTable ?? {},
+    };
   }, [eventsTable, sessionsTable, tz, isIgnored]);
 }

@@ -7,7 +7,6 @@ import { isLegacyDataPersistenceDisabled } from "./legacy-persistence";
 import { type Store } from "./main";
 import { registerSaveHandler } from "./save";
 
-import { useCalendarPersister } from "~/store/tinybase/persister/calendar";
 import { useChatPersister } from "~/store/tinybase/persister/chat";
 import { useDailyNotePersister } from "~/store/tinybase/persister/daily-note";
 import { useEventsPersister } from "~/store/tinybase/persister/events";
@@ -24,7 +23,6 @@ export function useMainPersisters(store: Store) {
   const humanPersister = useHumanPersister(store);
   const eventPersister = useEventsPersister(store);
   const chatPersister = useChatPersister(store);
-  const calendarPersister = useCalendarPersister(store);
   const dailyNotePersister = useDailyNotePersister(store);
   const taskPersister = useTaskPersister(store);
 
@@ -40,7 +38,6 @@ export function useMainPersisters(store: Store) {
       { id: "human", persister: humanPersister },
       { id: "event", persister: eventPersister },
       { id: "chat", persister: chatPersister },
-      { id: "calendar", persister: calendarPersister },
       { id: "dailyNote", persister: dailyNotePersister },
       { id: "task", persister: taskPersister },
     ];
@@ -66,7 +63,6 @@ export function useMainPersisters(store: Store) {
     humanPersister,
     eventPersister,
     chatPersister,
-    calendarPersister,
     dailyNotePersister,
     taskPersister,
   ]);
@@ -84,7 +80,6 @@ export function useMainPersisters(store: Store) {
     humanPersister,
     eventPersister,
     chatPersister,
-    calendarPersister,
     dailyNotePersister,
     taskPersister,
   };

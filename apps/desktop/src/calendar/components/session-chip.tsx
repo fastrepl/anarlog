@@ -19,21 +19,22 @@ import {
   type MenuItemDef,
   useNativeContextMenu,
 } from "~/shared/hooks/useNativeContextMenu";
-import * as main from "~/store/tinybase/store/main";
+import type { TimelineSessionRow } from "~/sidebar/timeline/utils";
 import { useTabs } from "~/store/zustand/tabs";
 
-export function SessionChip({ sessionId }: { sessionId: string }) {
+export function SessionChip({
+  sessionId,
+  session,
+}: {
+  sessionId: string;
+  session: TimelineSessionRow | undefined;
+}) {
   const tz = useTimezone();
   const deleteSession = useDeleteSession();
-  const session = main.UI.useResultRow(
-    main.QUERIES.timelineSessions,
-    sessionId,
-    main.STORE_ID,
-  );
-  const title = session?.title as string | undefined;
-  const eventJson = session?.event_json as string | null | undefined;
+  const title = session?.title ?? undefined;
+  const eventJson = session?.event_json;
   const createdAt = session?.created_at
-    ? format(toTz(session.created_at as string, tz), "h:mm a")
+    ? format(toTz(session.created_at, tz), "h:mm a")
     : null;
 
   const handleShowInFinder = useCallback(async () => {
@@ -96,19 +97,20 @@ export function SessionChip({ sessionId }: { sessionId: string }) {
         onClick={(e) => e.stopPropagation()}
       >
         <AppFloatingPanel>
-          <SessionPopoverContent sessionId={sessionId} />
+          <SessionPopoverContent sessionId={sessionId} session={session} />
         </AppFloatingPanel>
       </PopoverContent>
     </Popover>
   );
 }
 
-function SessionPopoverContent({ sessionId }: { sessionId: string }) {
-  const session = main.UI.useResultRow(
-    main.QUERIES.timelineSessions,
-    sessionId,
-    main.STORE_ID,
-  );
+function SessionPopoverContent({
+  sessionId,
+  session,
+}: {
+  sessionId: string;
+  session: TimelineSessionRow;
+}) {
   const openCurrent = useTabs((state) => state.openCurrent);
   const tz = useTimezone();
 
@@ -116,18 +118,14 @@ function SessionPopoverContent({ sessionId }: { sessionId: string }) {
     openCurrent({ type: "sessions", id: sessionId });
   }, [openCurrent, sessionId]);
 
-  if (!session) {
-    return null;
-  }
-
   const createdAt = session.created_at
-    ? format(toTz(session.created_at as string, tz), "MMM d, yyyy h:mm a")
+    ? format(toTz(session.created_at, tz), "MMM d, yyyy h:mm a")
     : null;
 
   return (
     <div className="flex flex-col gap-3 p-4">
       <div className="text-foreground text-base font-medium">
-        {session.title as string}
+        {session.title}
       </div>
       <div className="bg-accent h-px" />
       {createdAt && (

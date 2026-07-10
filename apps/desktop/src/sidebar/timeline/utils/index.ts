@@ -14,7 +14,6 @@ function toTZ(date: Date, timezone?: string): Date {
   return timezone ? new TZDate(date, timezone) : date;
 }
 
-// comes from QUERIES.timelineEvents
 export type TimelineEventRow = {
   title?: string | null;
   started_at?: string | null;
@@ -24,9 +23,12 @@ export type TimelineEventRow = {
   has_recurrence_rules: boolean;
   recurrence_series_id?: string | null;
   is_all_day?: boolean | null;
+  location?: string | null;
+  meeting_link?: string | null;
+  description?: string | null;
+  calendar_color?: string | null;
 };
 
-// comes from QUERIES.timelineSessions
 export type TimelineSessionRow = {
   title?: string | null;
   created_at?: string | null;
