@@ -54,6 +54,16 @@ export const StoreComponent = () => {
   );
 
   const persisters = useMainPersisters(store as Store);
+  const legacyPersisters = [
+    persisters.sessionPersister,
+    persisters.organizationPersister,
+    persisters.humanPersister,
+    persisters.eventPersister,
+    persisters.chatPersister,
+    persisters.calendarPersister,
+    persisters.dailyNotePersister,
+    persisters.taskPersister,
+  ].filter((persister) => persister !== undefined);
 
   const synchronizer = useCreateSynchronizer(store, async (store) =>
     createBroadcastChannelSynchronizer(
@@ -315,6 +325,7 @@ export const StoreComponent = () => {
 
   return createElement(SqliteSessionShadow, {
     enabled: Object.values(persisters).every(Boolean),
+    legacyPersisters,
     store: store as Store,
   });
 };

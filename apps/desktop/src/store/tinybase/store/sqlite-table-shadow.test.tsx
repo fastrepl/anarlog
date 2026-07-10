@@ -7,12 +7,20 @@ import { SqliteTableShadow } from "./sqlite-table-shadow";
 import { createTestMainStore } from "~/store/tinybase/persister/testing/mocks";
 
 const mocks = vi.hoisted(() => ({
+  saveHandlers: new Map<string, () => Promise<void>>(),
   subscribe: vi.fn(),
 }));
 
 vi.mock("~/db", () => ({
   liveQueryClient: {
     subscribe: mocks.subscribe,
+  },
+}));
+
+vi.mock("./save", () => ({
+  registerSaveHandler: (id: string, handler: () => Promise<void>) => {
+    mocks.saveHandlers.set(id, handler);
+    return () => mocks.saveHandlers.delete(id);
   },
 }));
 
@@ -53,6 +61,7 @@ describe("SqliteTableShadow", () => {
 
   afterEach(() => {
     cleanup();
+    mocks.saveHandlers.clear();
     vi.clearAllMocks();
   });
 
@@ -158,5 +167,45 @@ describe("SqliteTableShadow", () => {
 
     expect(store.hasRow("tags", "tag-1")).toBe(false);
     expect(persist).not.toHaveBeenCalled();
+  });
+
+  it("keeps the app save barrier open until a pending SQLite write finishes", async () => {
+    let releaseWrite: (() => void) | undefined;
+    persist = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          releaseWrite = resolve;
+        }),
+    );
+    config = { ...config, persist };
+    const store = createTestMainStore();
+    render(<SqliteTableShadow config={config} store={store} />);
+
+    await waitFor(() => expect(mocks.subscribe).toHaveBeenCalledOnce());
+    act(() => {
+      onData([
+        {
+          id: "tag-1",
+          owner_user_id: "user-1",
+          name: "work",
+          deleted_at: null,
+        },
+      ]);
+      store.setCell("tags", "tag-1", "name", "updated");
+    });
+
+    const flush = mocks.saveHandlers.get("sqlite-shadow:tags");
+    expect(flush).toBeDefined();
+    const flushPromise = flush!();
+    let settled = false;
+    void flushPromise.then(() => {
+      settled = true;
+    });
+
+    await waitFor(() => expect(persist).toHaveBeenCalled());
+    expect(settled).toBe(false);
+    releaseWrite?.();
+    await flushPromise;
+    expect(settled).toBe(true);
   });
 });

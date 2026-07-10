@@ -3,16 +3,18 @@ use sqlx::SqlitePool;
 use crate::{EventRow, UpsertEvent};
 
 pub async fn get_event(pool: &SqlitePool, id: &str) -> Result<Option<EventRow>, sqlx::Error> {
-    sqlx::query_as::<_, EventRow>("SELECT * FROM events WHERE id = ?")
+    sqlx::query_as::<_, EventRow>("SELECT * FROM events WHERE id = ? AND deleted_at IS NULL")
         .bind(id)
         .fetch_optional(pool)
         .await
 }
 
 pub async fn list_events(pool: &SqlitePool) -> Result<Vec<EventRow>, sqlx::Error> {
-    sqlx::query_as::<_, EventRow>("SELECT * FROM events ORDER BY started_at")
-        .fetch_all(pool)
-        .await
+    sqlx::query_as::<_, EventRow>(
+        "SELECT * FROM events WHERE deleted_at IS NULL ORDER BY started_at",
+    )
+    .fetch_all(pool)
+    .await
 }
 
 pub async fn upsert_event(pool: &SqlitePool, input: UpsertEvent<'_>) -> Result<(), sqlx::Error> {
@@ -37,6 +39,7 @@ pub async fn upsert_event(pool: &SqlitePool, input: UpsertEvent<'_>) -> Result<(
            is_all_day = excluded.is_all_day, \
            provider = excluded.provider, \
            participants_json = excluded.participants_json, \
+           deleted_at = NULL, \
            updated_at = excluded.updated_at",
     )
     .bind(input.id)
@@ -96,10 +99,15 @@ pub async fn insert_event_if_missing(
 }
 
 pub async fn delete_event(pool: &SqlitePool, id: &str) -> Result<(), sqlx::Error> {
-    sqlx::query("DELETE FROM events WHERE id = ?")
-        .bind(id)
-        .execute(pool)
-        .await?;
+    sqlx::query(
+        "UPDATE events
+         SET deleted_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now'),
+             updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+         WHERE id = ?",
+    )
+    .bind(id)
+    .execute(pool)
+    .await?;
 
     Ok(())
 }
@@ -108,10 +116,15 @@ pub async fn delete_events_by_calendar_id(
     pool: &SqlitePool,
     calendar_id: &str,
 ) -> Result<u64, sqlx::Error> {
-    let result = sqlx::query("DELETE FROM events WHERE calendar_id = ?")
-        .bind(calendar_id)
-        .execute(pool)
-        .await?;
+    let result = sqlx::query(
+        "UPDATE events
+         SET deleted_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now'),
+             updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+         WHERE calendar_id = ? AND deleted_at IS NULL",
+    )
+    .bind(calendar_id)
+    .execute(pool)
+    .await?;
 
     Ok(result.rows_affected())
 }

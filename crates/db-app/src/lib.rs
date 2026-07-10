@@ -49,6 +49,11 @@ pub const APP_MIGRATION_STEPS: &[hypr_db_migrate::MigrationStep] = &[
         scope: hypr_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260710231809_import_target_audit.sql"),
     },
+    hypr_db_migrate::MigrationStep {
+        id: "20260711000000_calendar_event_tombstones",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260711000000_calendar_event_tombstones.sql"),
+    },
 ];
 
 pub fn schema() -> hypr_db_migrate::DbSchema {

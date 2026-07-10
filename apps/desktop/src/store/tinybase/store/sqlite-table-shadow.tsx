@@ -1,6 +1,8 @@
 import type { Row, Table } from "tinybase/with-schemas";
 
 import type { Schemas, Store } from "./main";
+import { registerSaveHandler } from "./save";
+import { markSqliteShadowReady } from "./sqlite-shadow-cutover";
 
 import { liveQueryClient } from "~/db";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
@@ -38,6 +40,9 @@ export function SqliteTableShadow<K extends MainTableId, TSqliteRow>({
     let syncing = false;
     let pendingSqliteRows: TSqliteRow[] | undefined;
     let persistedFingerprints = new Map<string, string>();
+    let syncError: unknown;
+    let idleWaiters: Array<() => void> = [];
+    let readyReported = false;
 
     const installTableListener = () => {
       if (tableListenerId) return;
@@ -90,12 +95,15 @@ export function SqliteTableShadow<K extends MainTableId, TSqliteRow>({
       installTableListener();
       if (Object.keys(nextRows).length !== Object.keys(sqliteRows).length) {
         schedule();
+      } else {
+        reportReady();
       }
     };
 
     const sync = async () => {
       if (syncing || disposed) return;
       syncing = true;
+      syncError = undefined;
 
       try {
         while (requested && !disposed) {
@@ -113,6 +121,7 @@ export function SqliteTableShadow<K extends MainTableId, TSqliteRow>({
           persistedFingerprints = fingerprints;
         }
       } catch (error) {
+        syncError = error;
         console.error(`[${config.label}]`, error);
       } finally {
         syncing = false;
@@ -120,6 +129,14 @@ export function SqliteTableShadow<K extends MainTableId, TSqliteRow>({
           const rows = pendingSqliteRows;
           pendingSqliteRows = undefined;
           applySqliteRows(rows);
+        }
+        if (requested && !disposed) {
+          queueMicrotask(sync);
+        } else {
+          reportReady();
+          const waiters = idleWaiters;
+          idleWaiters = [];
+          waiters.forEach((resolve) => resolve());
         }
       }
     };
@@ -129,6 +146,38 @@ export function SqliteTableShadow<K extends MainTableId, TSqliteRow>({
       requested = true;
       queueMicrotask(sync);
     }
+
+    function reportReady() {
+      if (
+        readyReported ||
+        !initialized ||
+        syncing ||
+        requested ||
+        pendingSqliteRows ||
+        syncError
+      ) {
+        return;
+      }
+      readyReported = true;
+      void markSqliteShadowReady(config.tableId).catch((error) => {
+        console.error(`[${config.label}] failed to mark SQLite cutover`, error);
+      });
+    }
+
+    const flush = async () => {
+      schedule();
+      while (syncing || requested) {
+        await new Promise<void>((resolve) => idleWaiters.push(resolve));
+      }
+      if (syncError) {
+        throw syncError;
+      }
+    };
+
+    const unregisterSaveHandler = registerSaveHandler(
+      `sqlite-shadow:${config.tableId}`,
+      flush,
+    );
 
     void liveQueryClient
       .subscribe<TSqliteRow>(config.selectSql, [], {
@@ -160,6 +209,7 @@ export function SqliteTableShadow<K extends MainTableId, TSqliteRow>({
       if (tableListenerId) {
         store.delListener(tableListenerId);
       }
+      unregisterSaveHandler();
       void unsubscribe?.();
     };
   });

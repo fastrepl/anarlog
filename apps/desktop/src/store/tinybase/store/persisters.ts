@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { getCurrentWebviewWindowLabel } from "@hypr/plugin-windows";
 
 import { useInitializeStore } from "./initialize";
+import { isLegacyDataPersistenceDisabled } from "./legacy-persistence";
 import { type Store } from "./main";
 import { registerSaveHandler } from "./save";
 
@@ -48,6 +49,9 @@ export function useMainPersisters(store: Store) {
       .filter(({ persister }) => persister)
       .map(({ id, persister }) =>
         registerSaveHandler(id, async () => {
+          if (id !== "values" && isLegacyDataPersistenceDisabled()) {
+            return;
+          }
           await persister!.save();
         }),
       );

@@ -3,16 +3,18 @@ use sqlx::SqlitePool;
 use crate::{CalendarRow, UpsertCalendar};
 
 pub async fn get_calendar(pool: &SqlitePool, id: &str) -> Result<Option<CalendarRow>, sqlx::Error> {
-    sqlx::query_as::<_, CalendarRow>("SELECT * FROM calendars WHERE id = ?")
+    sqlx::query_as::<_, CalendarRow>("SELECT * FROM calendars WHERE id = ? AND deleted_at IS NULL")
         .bind(id)
         .fetch_optional(pool)
         .await
 }
 
 pub async fn list_calendars(pool: &SqlitePool) -> Result<Vec<CalendarRow>, sqlx::Error> {
-    sqlx::query_as::<_, CalendarRow>("SELECT * FROM calendars ORDER BY name")
-        .fetch_all(pool)
-        .await
+    sqlx::query_as::<_, CalendarRow>(
+        "SELECT * FROM calendars WHERE deleted_at IS NULL ORDER BY name",
+    )
+    .fetch_all(pool)
+    .await
 }
 
 pub async fn upsert_calendar(
@@ -31,6 +33,7 @@ pub async fn upsert_calendar(
            source = excluded.source, \
            color = excluded.color, \
            connection_id = excluded.connection_id, \
+           deleted_at = NULL, \
            updated_at = excluded.updated_at",
     )
     .bind(input.id)
@@ -74,10 +77,15 @@ pub async fn insert_calendar_if_missing(
 }
 
 pub async fn delete_calendar(pool: &SqlitePool, id: &str) -> Result<(), sqlx::Error> {
-    sqlx::query("DELETE FROM calendars WHERE id = ?")
-        .bind(id)
-        .execute(pool)
-        .await?;
+    sqlx::query(
+        "UPDATE calendars
+         SET deleted_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now'),
+             updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+         WHERE id = ?",
+    )
+    .bind(id)
+    .execute(pool)
+    .await?;
 
     Ok(())
 }

@@ -29,6 +29,7 @@ export const calendars = sqliteTable(
     connectionId: text("connection_id").notNull().default(""),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
+    deletedAt: text("deleted_at"),
   },
   (table) => [index("idx_calendars_provider").on(table.provider)],
 );
@@ -61,6 +62,7 @@ export const events = sqliteTable(
     participantsJson: text("participants_json", { mode: "json" }),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
+    deletedAt: text("deleted_at"),
   },
   (table) => [
     index("idx_events_calendar_id").on(table.calendarId),

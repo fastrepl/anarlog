@@ -8,9 +8,16 @@ import {
 } from "@hypr/plugin-db";
 import type { SessionStorage } from "@hypr/store";
 
+import {
+  cutoverLegacyDataPersistence,
+  type LegacyPersister,
+} from "./legacy-persistence";
 import type { Store } from "./main";
+import { SqliteCalendarShadow } from "./sqlite-calendar-shadow";
+import { SqliteChatShadow } from "./sqlite-chat-shadow";
 import { SqliteContactsShadow } from "./sqlite-contacts-shadow";
 import { SqliteDocumentShadow } from "./sqlite-document-shadow";
+import { SqliteProductivityShadow } from "./sqlite-productivity-shadow";
 import { SqliteSessionRelationsShadow } from "./sqlite-session-relations-shadow";
 import {
   type MainTableRow,
@@ -59,9 +66,11 @@ const SESSION_SNAPSHOT_SQL = `
 
 export function SqliteSessionShadow({
   enabled,
+  legacyPersisters,
   store,
 }: {
   enabled: boolean;
+  legacyPersisters: LegacyPersister[];
   store: Store;
 }) {
   const reportQuery = useQuery({
@@ -83,7 +92,31 @@ export function SqliteSessionShadow({
     return null;
   }
 
-  return <MountedSqliteSessionShadow store={store} />;
+  return (
+    <LegacyPersistenceCutover persisters={legacyPersisters}>
+      <MountedSqliteSessionShadow store={store} />
+    </LegacyPersistenceCutover>
+  );
+}
+
+function LegacyPersistenceCutover({
+  children,
+  persisters,
+}: {
+  children: React.ReactNode;
+  persisters: LegacyPersister[];
+}) {
+  const cutoverQuery = useQuery({
+    queryKey: ["disable-legacy-main-persisters"],
+    queryFn: async () => {
+      await cutoverLegacyDataPersistence(persisters);
+      return true;
+    },
+    retry: false,
+    staleTime: Infinity,
+  });
+
+  return cutoverQuery.data ? children : null;
 }
 
 function MountedSqliteSessionShadow({ store }: { store: Store }) {
@@ -94,6 +127,9 @@ function MountedSqliteSessionShadow({ store }: { store: Store }) {
       <SqliteDocumentShadow store={store} />
       <SqliteSessionRelationsShadow store={store} />
       <SqliteContactsShadow store={store} />
+      <SqliteCalendarShadow store={store} />
+      <SqliteChatShadow store={store} />
+      <SqliteProductivityShadow store={store} />
     </>
   );
 }
