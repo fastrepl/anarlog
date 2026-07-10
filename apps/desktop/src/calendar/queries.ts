@@ -46,6 +46,13 @@ export function useTimelineTables(): {
   timelineEventsTable: TimelineEventsTable;
   timelineSessionsTable: TimelineSessionsTable;
 } {
+  const timelineEventsTable = useTimelineEventsTable();
+  const timelineSessionsTable = useTimelineSessionsTable();
+
+  return { timelineEventsTable, timelineSessionsTable };
+}
+
+export function useTimelineEventsTable(): TimelineEventsTable {
   const { data: timelineEventsTable = EMPTY_EVENTS } = useLiveQuery<
     TimelineEventSqlRow,
     Record<string, TimelineEventRow>
@@ -67,6 +74,11 @@ export function useTimelineTables(): {
     `,
     mapRows: mapTimelineEventRows,
   });
+
+  return timelineEventsTable;
+}
+
+export function useTimelineSessionsTable(): TimelineSessionsTable {
   const { data: timelineSessionsTable = EMPTY_SESSIONS } = useLiveQuery<
     TimelineSessionSqlRow,
     Record<string, TimelineSessionRow>
@@ -85,7 +97,7 @@ export function useTimelineTables(): {
     mapRows: mapTimelineSessionRows,
   });
 
-  return { timelineEventsTable, timelineSessionsTable };
+  return timelineSessionsTable;
 }
 
 export function useCalendarRow(

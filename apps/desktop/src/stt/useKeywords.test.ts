@@ -1,4 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const execute = vi.hoisted(() => vi.fn());
+
+vi.mock("~/db", () => ({
+  liveQueryClient: { execute },
+  useLiveQuery: vi.fn(() => ({ data: undefined })),
+}));
 
 import {
   formatDictionaryTerms,
@@ -10,8 +17,12 @@ import {
   buildKeywordSourceText,
   extractKeywordsFromMarkdown,
   getSessionKeywords,
-  type KeywordStore,
 } from "./useKeywords";
+
+beforeEach(() => {
+  execute.mockReset();
+  execute.mockResolvedValue([]);
+});
 
 describe("extractKeywordsFromMarkdown", () => {
   const cases: Array<{
@@ -140,124 +151,59 @@ describe("buildKeywordSourceText", () => {
 });
 
 describe("getSessionKeywords", () => {
-  it("builds keywords from the current session snapshot", () => {
-    const cells = new Map([
-      ["raw_md", "Discuss #Launch and production systems"],
-      ["title", "Erebor sync"],
-      [
-        "event_json",
-        JSON.stringify({
+  it("builds keywords from the current session snapshot", async () => {
+    execute.mockResolvedValue([
+      {
+        raw_md: "Discuss #Launch and production systems",
+        title: "Erebor sync",
+        event_json: JSON.stringify({
           title: "OpenWorld review",
           description: "Airborne Brothers follow-up",
           location: "Zoom",
         }),
-      ],
+        participant_names_json: "[]",
+        event_participants_json: "[]",
+      },
     ]);
-    const store = {
-      getCell: (_tableId: "sessions", _rowId: string, cellId: string) =>
-        cells.get(cellId),
-    };
 
-    expect(
+    await expect(
       getSessionKeywords({
-        store: store as unknown as KeywordStore,
         sessionId: "session-1",
         dictionaryTerms: ["Anarlog"],
       }),
-    ).toEqual(expect.arrayContaining(["Anarlog", "Launch"]));
+    ).resolves.toEqual(expect.arrayContaining(["Anarlog", "Launch"]));
   });
 
-  it("prioritizes mapped participants and attached event attendees", () => {
-    const tables = {
-      sessions: new Map([
-        [
-          "session-1",
+  it("prioritizes mapped participants and attached event attendees", async () => {
+    execute.mockResolvedValue([
+      {
+        raw_md: "Discuss #Launch and production systems",
+        title: "Erebor sync",
+        event_json: JSON.stringify({
+          title: "OpenWorld review",
+          description: "Airborne Brothers follow-up",
+          location: "Zoom",
+        }),
+        participant_names_json: JSON.stringify(["Alice Kim"]),
+        event_participants_json: JSON.stringify([
+          { name: "Alice Kim", email: "alice@example.com" },
+          { name: "Mina Park", email: "mina@example.com" },
           {
-            raw_md: "Discuss #Launch and production systems",
-            title: "Erebor sync",
-            event_json: JSON.stringify({
-              tracking_id: "tracking-1",
-              calendar_id: "calendar-1",
-              title: "OpenWorld review",
-              description: "Airborne Brothers follow-up",
-              location: "Zoom",
-            }),
+            name: "John Jeong",
+            email: "john@example.com",
+            is_current_user: true,
           },
-        ],
-      ]),
-      mapping_session_participant: new Map([
-        [
-          "mapping-1",
-          {
-            session_id: "session-1",
-            human_id: "human-1",
-          },
-        ],
-        [
-          "mapping-2",
-          {
-            session_id: "other-session",
-            human_id: "human-2",
-          },
-        ],
-        [
-          "mapping-3",
-          {
-            session_id: "session-1",
-            human_id: "human-3",
-            source: "excluded",
-          },
-        ],
-      ]),
-      humans: new Map([
-        ["human-1", { name: "Alice Kim" }],
-        ["human-2", { name: "Bob Stone" }],
-        ["human-3", { name: "Hidden Person" }],
-      ]),
-      events: new Map([
-        [
-          "event-1",
-          {
-            tracking_id_event: "tracking-1",
-            calendar_id: "calendar-1",
-            participants_json: JSON.stringify([
-              { name: "Alice Kim", email: "alice@example.com" },
-              { name: "Mina Park", email: "mina@example.com" },
-              {
-                name: "John Jeong",
-                email: "john@example.com",
-                is_current_user: true,
-              },
-            ]),
-          },
-        ],
-      ]),
-    };
-    const store = {
-      getCell: (tableId: keyof typeof tables, rowId: string, cellId: string) =>
-        (tables[tableId].get(rowId) as Record<string, unknown> | undefined)?.[
-          cellId
-        ],
-      forEachRow: (
-        tableId: "mapping_session_participant" | "events",
-        callback: (rowId: string, forEachCell: unknown) => void,
-      ) => {
-        for (const rowId of tables[tableId].keys()) {
-          callback(rowId, undefined);
-        }
+        ]),
       },
-    };
+    ]);
 
-    const result = getSessionKeywords({
-      store: store as unknown as KeywordStore,
+    const result = await getSessionKeywords({
       sessionId: "session-1",
       dictionaryTerms: ["Anarlog"],
     });
 
     expect(result.slice(0, 3)).toEqual(["Alice Kim", "Mina Park", "Anarlog"]);
     expect(result).toEqual(expect.arrayContaining(["Launch"]));
-    expect(result).not.toContain("Bob Stone");
-    expect(result).not.toContain("Hidden Person");
     expect(result).not.toContain("John Jeong");
   });
 });

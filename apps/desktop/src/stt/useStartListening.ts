@@ -18,10 +18,9 @@ import {
 } from "~/services/audio-retention";
 import { getEnhancerService } from "~/services/enhancer";
 import { useSession, useSessionHasTranscript } from "~/session/queries";
-import { getSessionEventById } from "~/session/utils";
+import { getSessionEvent } from "~/session/utils";
 import { useConfigValue } from "~/shared/config";
 import { id } from "~/shared/utils";
-import * as main from "~/store/tinybase/store/main";
 import type {
   LiveTranscriptPersistCallback,
   OnStoppedCallback,
@@ -56,7 +55,6 @@ export function getPostCaptureAction(
 }
 
 export function useStartListening(sessionId: string) {
-  const store = main.UI.useStore(main.STORE_ID);
   const session = useSession(sessionId);
   const hadTranscriptBeforeStart = useSessionHasTranscript(sessionId);
   const participantHumanIds = useSessionParticipantHumanIds(sessionId);
@@ -80,10 +78,6 @@ export function useStartListening(sessionId: string) {
   canRunBatchRef.current = canRunBatchTranscription(conn);
 
   const startListening = useCallback(async () => {
-    if (!store) {
-      return;
-    }
-
     let transcriptId: string | null = null;
     const startedAt = Date.now();
     const memoMd = session?.raw_md ?? "";
@@ -96,8 +90,7 @@ export function useStartListening(sessionId: string) {
         console.error("[listener] failed to persist transcript", error);
       });
     };
-    const keywords = getSessionKeywords({
-      store,
+    const keywords = await getSessionKeywords({
       sessionId,
       dictionaryTerms,
     });
@@ -214,7 +207,9 @@ export function useStartListening(sessionId: string) {
 
     void analyticsCommands.event({
       event: "session_started",
-      has_calendar_event: !!getSessionEventById(store, sessionId),
+      has_calendar_event: Boolean(
+        getSessionEvent({ event_json: session?.event_json }),
+      ),
       ...(conn
         ? {
             stt_provider: conn.provider,
@@ -230,7 +225,6 @@ export function useStartListening(sessionId: string) {
     hadTranscriptBeforeStart,
     participantHumanIds,
     session,
-    store,
     sessionId,
     start,
     spokenLanguages,

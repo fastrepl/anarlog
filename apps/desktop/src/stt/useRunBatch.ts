@@ -14,10 +14,9 @@ import {
   deleteProcessedAudioForRetention,
   normalizeAudioRetention,
 } from "~/services/audio-retention";
-import { useSession } from "~/session/queries";
+import { useSession, useSessionParticipants } from "~/session/queries";
 import { useConfigValue } from "~/shared/config";
 import { id } from "~/shared/utils";
-import * as main from "~/store/tinybase/store/main";
 import type { BatchPersistCallback } from "~/store/zustand/listener/transcript";
 import {
   getTranscriptionLanguages,
@@ -38,7 +37,6 @@ type RunOptions = {
   maxSpeakers?: number;
 };
 
-type Store = NonNullable<ReturnType<typeof main.UI.useStore>>;
 type BatchTarget = {
   provider: TranscriptionParams["provider"];
   model: string;
@@ -152,29 +150,12 @@ export function isStoppedTranscriptionError(error: unknown) {
 }
 
 export function getSessionSpeakerCount(
-  store: Store,
-  sessionId: string,
+  participantHumanIds: Iterable<string>,
   selfHumanId?: string | null,
 ): number | undefined {
-  const humanIds = new Set<string>();
-
-  store.forEachRow("mapping_session_participant", (mappingId, _forEachCell) => {
-    const sid = store.getCell(
-      "mapping_session_participant",
-      mappingId,
-      "session_id",
-    );
-    if (sid !== sessionId) return;
-
-    const humanId = store.getCell(
-      "mapping_session_participant",
-      mappingId,
-      "human_id",
-    );
-    if (typeof humanId === "string" && humanId) {
-      humanIds.add(humanId);
-    }
-  });
+  const humanIds = new Set(
+    Array.from(participantHumanIds).filter((humanId) => Boolean(humanId)),
+  );
 
   if (typeof selfHumanId === "string" && selfHumanId) {
     humanIds.add(selfHumanId);
@@ -184,8 +165,8 @@ export function getSessionSpeakerCount(
 }
 
 export const useRunBatch = (sessionId: string) => {
-  const store = main.UI.useStore(main.STORE_ID);
   const session = useSession(sessionId);
+  const participants = useSessionParticipants(sessionId);
 
   const startTranscription = useListener((state) => state.startTranscription);
   const { conn } = useSTTConnection();
@@ -200,7 +181,7 @@ export const useRunBatch = (sessionId: string) => {
 
   return useCallback(
     async (filePath: string, options?: RunOptions) => {
-      if (!store || !startTranscription) {
+      if (!startTranscription) {
         throw new Error(
           "STT connection is not available. Please configure your speech-to-text provider.",
         );
@@ -257,17 +238,21 @@ export const useRunBatch = (sessionId: string) => {
       const memoMd = session?.raw_md ?? "";
       const keywords =
         options?.keywords ??
-        getSessionKeywords({
-          store,
+        (await getSessionKeywords({
           sessionId,
           dictionaryTerms,
-        });
+        }));
       let transcriptId: string | null = null;
       const inferredNumSpeakers =
         options?.numSpeakers === undefined &&
         options?.minSpeakers === undefined &&
         options?.maxSpeakers === undefined
-          ? getSessionSpeakerCount(store, sessionId, session?.user_id)
+          ? getSessionSpeakerCount(
+              participants
+                .filter((participant) => participant.source !== "excluded")
+                .map((participant) => participant.humanId),
+              session?.user_id,
+            )
           : undefined;
 
       const handlePersist: BatchPersistCallback | undefined =
@@ -396,10 +381,10 @@ export const useRunBatch = (sessionId: string) => {
       billing.isPaid,
       dictionaryTerms,
       session,
+      participants,
       spokenLanguages,
       startTranscription,
       sessionId,
-      store,
     ],
   );
 };

@@ -14,6 +14,7 @@ const {
   useListenerMock,
   useStoreMock,
   useSessionMock,
+  useSessionParticipantsMock,
   useSTTConnectionMock,
   useAuthMock,
   useBillingAccessMock,
@@ -29,6 +30,7 @@ const {
   useListenerMock: vi.fn(),
   useStoreMock: vi.fn(),
   useSessionMock: vi.fn(),
+  useSessionParticipantsMock: vi.fn(),
   useSTTConnectionMock: vi.fn(),
   useAuthMock: vi.fn(),
   useBillingAccessMock: vi.fn(),
@@ -46,7 +48,7 @@ vi.mock("./contexts", () => ({
 }));
 
 vi.mock("./useKeywords", () => ({
-  getSessionKeywords: vi.fn(() => []),
+  getSessionKeywords: vi.fn(async () => []),
   useKeywords: vi.fn(() => []),
 }));
 
@@ -82,6 +84,7 @@ vi.mock("~/services/audio-retention", () => ({
 
 vi.mock("~/session/queries", () => ({
   useSession: useSessionMock,
+  useSessionParticipants: useSessionParticipantsMock,
 }));
 
 vi.mock("~/shared/config", () => ({
@@ -273,6 +276,7 @@ describe("useRunBatch", () => {
       user_id: "user-1",
       raw_md: "Existing memo",
     });
+    useSessionParticipantsMock.mockReturnValue([]);
     useSTTConnectionMock.mockReturnValue({
       conn: {
         provider: "deepgram",
@@ -474,37 +478,12 @@ describe("useRunBatch", () => {
 
 describe("getSessionSpeakerCount", () => {
   test("counts distinct session participants plus the current user", () => {
-    const rows = new Map([
-      ["mapping-1", { session_id: "session-1", human_id: "human-a" }],
-      ["mapping-2", { session_id: "session-1", human_id: "human-a" }],
-      ["mapping-3", { session_id: "session-1", human_id: "human-b" }],
-      ["mapping-4", { session_id: "other-session", human_id: "human-c" }],
-    ]);
-    const store = {
-      forEachRow: (_table: string, callback: (rowId: string) => void) => {
-        for (const rowId of rows.keys()) callback(rowId);
-      },
-      getCell: (_table: string, rowId: string, cellId: string) =>
-        rows.get(rowId)?.[cellId as "session_id" | "human_id"],
-    };
-
-    expect(getSessionSpeakerCount(store as any, "session-1", "self")).toBe(3);
+    expect(
+      getSessionSpeakerCount(["human-a", "human-a", "human-b"], "self"),
+    ).toBe(3);
   });
 
   test("returns undefined until at least two speakers are known", () => {
-    const rows = new Map([
-      ["mapping-1", { session_id: "session-1", human_id: "human-a" }],
-    ]);
-    const store = {
-      forEachRow: (_table: string, callback: (rowId: string) => void) => {
-        for (const rowId of rows.keys()) callback(rowId);
-      },
-      getCell: (_table: string, rowId: string, cellId: string) =>
-        rows.get(rowId)?.[cellId as "session_id" | "human_id"],
-    };
-
-    expect(getSessionSpeakerCount(store as any, "session-1", null)).toBe(
-      undefined,
-    );
+    expect(getSessionSpeakerCount(["human-a"], null)).toBe(undefined);
   });
 });

@@ -29,6 +29,7 @@ import {
   deleteHuman,
   mergeHumans,
   reorderPinnedContacts,
+  searchContacts,
   toggleContactPin,
   updateHuman,
   useHumans,
@@ -120,6 +121,37 @@ describe("contact SQLite queries", () => {
         pinned: false,
         pinOrder: null,
       },
+    ]);
+  });
+
+  it("searches canonical contacts with organization details", async () => {
+    mocks.execute.mockResolvedValue([
+      {
+        id: "human-1",
+        name: "Alice",
+        email: "alice@example.com",
+        phone: "",
+        job_title: "Engineer",
+        organization_name: "Example",
+        memo: "Customer lead",
+      },
+    ]);
+
+    await expect(searchContacts("  ALICE ", 5)).resolves.toEqual([
+      {
+        id: "human-1",
+        name: "Alice",
+        email: "alice@example.com",
+        phone: null,
+        jobTitle: "Engineer",
+        organization: "Example",
+        memo: "Customer lead",
+      },
+    ]);
+    expect(mocks.execute).toHaveBeenCalledWith(expect.any(String), [
+      "alice",
+      "alice",
+      5,
     ]);
   });
 

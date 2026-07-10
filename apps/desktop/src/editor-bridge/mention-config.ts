@@ -2,22 +2,14 @@ import { useMemo } from "react";
 
 import type { MentionConfig } from "@hypr/editor/widgets";
 
+import { useTimelineSessionsTable } from "~/calendar/queries";
+import { useHumans, useOrganizations } from "~/contacts/queries";
 import { useSearchEngine } from "~/search/contexts/engine";
-import * as main from "~/store/tinybase/store/main";
 
 export function useMentionConfig(): MentionConfig {
-  const sessions = main.UI.useResultTable(
-    main.QUERIES.timelineSessions,
-    main.STORE_ID,
-  );
-  const humans = main.UI.useResultTable(
-    main.QUERIES.visibleHumans,
-    main.STORE_ID,
-  );
-  const organizations = main.UI.useResultTable(
-    main.QUERIES.visibleOrganizations,
-    main.STORE_ID,
-  );
+  const sessions = useTimelineSessionsTable();
+  const humans = useHumans();
+  const organizations = useOrganizations();
   const { search } = useSearchEngine();
 
   return useMemo(
@@ -41,22 +33,28 @@ export function useMentionConfig(): MentionConfig {
             });
           }
         } else {
-          Object.entries(sessions).forEach(([rowId, row]) => {
+          Object.entries(sessions ?? {}).forEach(([rowId, row]) => {
             const title = row.title as string | undefined;
             if (title) {
               results.push({ id: rowId, type: "session", label: title });
             }
           });
-          Object.entries(humans).forEach(([rowId, row]) => {
-            const name = row.name as string | undefined;
-            if (name) {
-              results.push({ id: rowId, type: "human", label: name });
+          humans.forEach((human) => {
+            if (human.name) {
+              results.push({
+                id: human.id,
+                type: "human",
+                label: human.name,
+              });
             }
           });
-          Object.entries(organizations).forEach(([rowId, row]) => {
-            const name = row.name as string | undefined;
-            if (name) {
-              results.push({ id: rowId, type: "organization", label: name });
+          organizations.forEach((organization) => {
+            if (organization.name) {
+              results.push({
+                id: organization.id,
+                type: "organization",
+                label: organization.name,
+              });
             }
           });
         }

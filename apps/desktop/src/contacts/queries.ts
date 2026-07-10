@@ -1,8 +1,4 @@
-import {
-  executeTransaction,
-  liveQueryClient,
-  useLiveQuery,
-} from "~/db";
+import { executeTransaction, liveQueryClient, useLiveQuery } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
 import { DEFAULT_USER_ID, id } from "~/shared/utils";
 
@@ -66,6 +62,26 @@ export type HumanSessionRecord = {
   id: string;
   title: string;
   createdAt: string;
+};
+
+type ContactSearchSqlRow = {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  job_title: string;
+  organization_name: string;
+  memo: string;
+};
+
+export type ContactSearchRecord = {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  jobTitle: string | null;
+  organization: string | null;
+  memo: string | null;
 };
 
 const EMPTY_HUMANS: HumanRecord[] = [];
@@ -137,6 +153,52 @@ export function useHumanSessions(humanId: string): HumanSessionRecord[] {
       })),
   });
   return data;
+}
+
+export async function searchContacts(
+  query: string,
+  limit: number,
+): Promise<ContactSearchRecord[]> {
+  const normalizedQuery = query.trim().toLowerCase();
+  const rows = await liveQueryClient.execute<ContactSearchSqlRow>(
+    `
+      SELECT
+        humans.id,
+        humans.name,
+        humans.email,
+        humans.phone,
+        humans.job_title,
+        COALESCE(organizations.name, '') AS organization_name,
+        humans.memo
+      FROM humans
+      LEFT JOIN organizations
+        ON organizations.id = humans.organization_id
+        AND organizations.deleted_at IS NULL
+      WHERE humans.deleted_at IS NULL
+        AND (
+          ? = '' OR lower(
+            humans.name || char(10) ||
+            humans.email || char(10) ||
+            humans.phone || char(10) ||
+            humans.job_title || char(10) ||
+            humans.memo || char(10) ||
+            COALESCE(organizations.name, '')
+          ) LIKE '%' || ? || '%'
+        )
+      ORDER BY humans.created_at DESC, humans.id
+      LIMIT ?
+    `,
+    [normalizedQuery, normalizedQuery, limit],
+  );
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    email: row.email || null,
+    phone: row.phone || null,
+    jobTitle: row.job_title || null,
+    organization: row.organization_name || null,
+    memo: row.memo || null,
+  }));
 }
 
 export function createHuman({
@@ -337,13 +399,9 @@ export function mergeHumans(
 ): Promise<void> {
   return enqueueDatabaseWrite("contacts:merge", async () => {
     const primaryId =
-      duplicateHumanId === DEFAULT_USER_ID
-        ? duplicateHumanId
-        : selectedHumanId;
+      duplicateHumanId === DEFAULT_USER_ID ? duplicateHumanId : selectedHumanId;
     const duplicateId =
-      duplicateHumanId === DEFAULT_USER_ID
-        ? selectedHumanId
-        : duplicateHumanId;
+      duplicateHumanId === DEFAULT_USER_ID ? selectedHumanId : duplicateHumanId;
     const rows = await liveQueryClient.execute<HumanSqlRow>(
       `
         SELECT

@@ -10,95 +10,119 @@ import retextStringify from "retext-stringify";
 import { unified } from "unified";
 import type { VFile } from "vfile";
 
+import { useSessionEventParticipants } from "~/calendar/queries";
+import { liveQueryClient } from "~/db";
+import { useSession, useSessionParticipants } from "~/session/queries";
 import { useConfigValue } from "~/shared/config";
-import * as main from "~/store/tinybase/store/main";
 import { normalizeKeywordList } from "~/stt/keywords";
 
 const MAX_TRANSCRIPTION_HINTS = 50;
 
 export function useKeywords(sessionId: string) {
-  const rawMd = main.UI.useCell("sessions", sessionId, "raw_md", main.STORE_ID);
-  const title = main.UI.useCell("sessions", sessionId, "title", main.STORE_ID);
-  const eventJson = main.UI.useCell(
-    "sessions",
-    sessionId,
-    "event_json",
-    main.STORE_ID,
-  );
-  const participantMappings = main.UI.useTable(
-    "mapping_session_participant",
-    main.STORE_ID,
-  );
-  const humans = main.UI.useTable("humans", main.STORE_ID);
-  const events = main.UI.useTable("events", main.STORE_ID);
+  const session = useSession(sessionId);
+  const participants = useSessionParticipants(sessionId);
+  const eventParticipants = useSessionEventParticipants(sessionId);
   const dictionaryTerms = useConfigValue("personalization_dictionary_terms");
 
-  return useMemo(() => {
-    return buildKeywords({
-      rawMd,
-      title,
-      eventJson,
-      sessionParticipantTerms: getSessionParticipantNamesFromTables(
-        participantMappings,
-        humans,
-        sessionId,
-      ),
-      eventParticipantTerms: getAttachedEventParticipantNamesFromTable(
-        events,
-        eventJson,
-      ),
-      dictionaryTerms,
-    });
-  }, [
-    dictionaryTerms,
-    eventJson,
-    events,
-    humans,
-    participantMappings,
-    rawMd,
-    sessionId,
-    title,
-  ]);
+  return useMemo(
+    () =>
+      buildKeywords({
+        rawMd: session?.raw_md,
+        title: session?.title,
+        eventJson: session?.event_json,
+        sessionParticipantTerms: participants.flatMap((participant) =>
+          participant.source !== "excluded" && participant.name
+            ? [participant.name]
+            : [],
+        ),
+        eventParticipantTerms: eventParticipants.flatMap((participant) =>
+          !participant.is_current_user && participant.name
+            ? [participant.name]
+            : [],
+        ),
+        dictionaryTerms,
+      }),
+    [dictionaryTerms, eventParticipants, participants, session],
+  );
 }
 
-export type KeywordStore = {
-  getCell: main.Store["getCell"];
-  forEachRow?: main.Store["forEachRow"];
+type KeywordSnapshotSqlRow = {
+  raw_md: string;
+  title: string;
+  event_json: string;
+  participant_names_json: string;
+  event_participants_json: string;
 };
 
-export function getSessionKeywords({
-  store,
+export async function getSessionKeywords({
   sessionId,
   dictionaryTerms,
 }: {
-  store: KeywordStore;
   sessionId: string;
   dictionaryTerms: string[];
-}) {
-  return getSessionTranscriptionHints({
-    store,
-    sessionId,
-    dictionaryTerms,
-  });
-}
-
-export function getSessionTranscriptionHints({
-  store,
-  sessionId,
-  dictionaryTerms,
-}: {
-  store: KeywordStore;
-  sessionId: string;
-  dictionaryTerms: string[];
-}) {
-  const eventJson = store.getCell("sessions", sessionId, "event_json");
+}): Promise<string[]> {
+  const [snapshot] = await liveQueryClient.execute<KeywordSnapshotSqlRow>(
+    `
+      SELECT
+        COALESCE(note.body, '') AS raw_md,
+        session.title,
+        session.event_json,
+        COALESCE((
+          SELECT json_group_array(name)
+          FROM (
+            SELECT COALESCE(NULLIF(human.name, ''), participant.display_name) AS name
+            FROM session_participants AS participant
+            LEFT JOIN humans AS human
+              ON human.id = participant.human_id
+              AND human.deleted_at IS NULL
+            WHERE participant.session_id = session.id
+              AND participant.source <> 'excluded'
+              AND participant.deleted_at IS NULL
+              AND COALESCE(NULLIF(human.name, ''), participant.display_name) <> ''
+            ORDER BY name, participant.id
+          )
+        ), '[]') AS participant_names_json,
+        COALESCE((
+          SELECT event.participants_json
+          FROM events AS event
+          WHERE event.deleted_at IS NULL
+            AND (
+              event.id = session.event_id
+              OR (
+                event.tracking_id_event = CASE
+                  WHEN json_valid(session.event_json)
+                  THEN json_extract(session.event_json, '$.tracking_id')
+                  ELSE ''
+                END
+                AND event.calendar_id = CASE
+                  WHEN json_valid(session.event_json)
+                  THEN json_extract(session.event_json, '$.calendar_id')
+                  ELSE ''
+                END
+              )
+            )
+          ORDER BY event.started_at, event.id
+          LIMIT 1
+        ), '[]') AS event_participants_json
+      FROM sessions AS session
+      LEFT JOIN session_documents AS note
+        ON note.id = session.id
+        AND note.kind = 'note'
+        AND note.deleted_at IS NULL
+      WHERE session.id = ? AND session.deleted_at IS NULL
+      LIMIT 1
+    `,
+    [sessionId],
+  );
 
   return buildKeywords({
-    rawMd: store.getCell("sessions", sessionId, "raw_md"),
-    title: store.getCell("sessions", sessionId, "title"),
-    eventJson,
-    sessionParticipantTerms: getSessionParticipantNames(store, sessionId),
-    eventParticipantTerms: getAttachedEventParticipantNames(store, eventJson),
+    rawMd: snapshot?.raw_md,
+    title: snapshot?.title,
+    eventJson: snapshot?.event_json,
+    sessionParticipantTerms: parseStringList(snapshot?.participant_names_json),
+    eventParticipantTerms: parseEventParticipantNames(
+      snapshot?.event_participants_json,
+    ),
     dictionaryTerms,
   });
 }
@@ -251,131 +275,15 @@ const eventKeywordFields = (eventJson: unknown): string[] => {
   }
 };
 
-const getSessionParticipantNames = (
-  store: KeywordStore,
-  sessionId: string,
-): string[] => {
-  if (!store.forEachRow) {
-    return [];
-  }
-
-  const names: string[] = [];
-  store.forEachRow("mapping_session_participant", (mappingId, _forEachCell) => {
-    const mappedSessionId = store.getCell(
-      "mapping_session_participant",
-      mappingId,
-      "session_id",
-    );
-    const source = store.getCell(
-      "mapping_session_participant",
-      mappingId,
-      "source",
-    );
-    if (mappedSessionId !== sessionId || source === "excluded") {
-      return;
-    }
-
-    const humanId = stringValue(
-      store.getCell("mapping_session_participant", mappingId, "human_id"),
-    );
-    if (!humanId) {
-      return;
-    }
-
-    const name = stringValue(store.getCell("humans", humanId, "name"));
-    if (name) {
-      names.push(name);
-    }
-  });
-
-  return names;
-};
-
-const getSessionParticipantNamesFromTables = (
-  mappings: TableRows,
-  humans: TableRows,
-  sessionId: string,
-): string[] =>
-  Object.values(mappings).flatMap((mapping) => {
-    if (mapping?.session_id !== sessionId || mapping.source === "excluded") {
-      return [];
-    }
-
-    const humanId = stringValue(mapping.human_id);
-    if (!humanId) {
-      return [];
-    }
-
-    const name = stringValue(humans[humanId]?.name);
-    return name ? [name] : [];
-  });
-
-const getAttachedEventParticipantNames = (
-  store: KeywordStore,
-  eventJson: unknown,
-): string[] => {
-  if (!store.forEachRow) {
-    return [];
-  }
-
-  const sessionEvent = parseSessionEvent(eventJson);
-  if (!sessionEvent) {
-    return [];
-  }
-
-  let participantsJson: unknown;
-  store.forEachRow("events", (eventId, _forEachCell) => {
-    if (participantsJson !== undefined) {
-      return;
-    }
-
-    const trackingId = store.getCell("events", eventId, "tracking_id_event");
-    const calendarId = store.getCell("events", eventId, "calendar_id");
-    if (
-      trackingId === sessionEvent.trackingId &&
-      calendarId === sessionEvent.calendarId
-    ) {
-      participantsJson = store.getCell("events", eventId, "participants_json");
-    }
-  });
-
-  return parseEventParticipantNames(participantsJson);
-};
-
-type TableRows = Record<string, Record<string, unknown> | undefined>;
-
-const getAttachedEventParticipantNamesFromTable = (
-  events: TableRows,
-  eventJson: unknown,
-): string[] => {
-  const sessionEvent = parseSessionEvent(eventJson);
-  if (!sessionEvent) {
-    return [];
-  }
-
-  const event = Object.values(events).find(
-    (event) =>
-      event?.tracking_id_event === sessionEvent.trackingId &&
-      event?.calendar_id === sessionEvent.calendarId,
-  );
-
-  return parseEventParticipantNames(event?.participants_json);
-};
-
-const parseSessionEvent = (
-  eventJson: unknown,
-): { trackingId: string; calendarId: string } | null => {
-  if (typeof eventJson !== "string" || !eventJson) {
-    return null;
-  }
-
+const parseStringList = (value: unknown): string[] => {
+  if (typeof value !== "string" || !value) return [];
   try {
-    const event = JSON.parse(eventJson);
-    const trackingId = stringValue(event?.tracking_id);
-    const calendarId = stringValue(event?.calendar_id);
-    return trackingId && calendarId ? { trackingId, calendarId } : null;
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed)
+      ? parsed.filter((entry): entry is string => typeof entry === "string")
+      : [];
   } catch {
-    return null;
+    return [];
   }
 };
 

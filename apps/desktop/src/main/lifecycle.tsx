@@ -5,6 +5,7 @@ import { useLanguageModel, useLLMConnection } from "~/ai/hooks";
 import { useAuth } from "~/auth";
 import { useSessionTab } from "~/chat/components/use-session-tab";
 import { buildChatTools } from "~/chat/tools";
+import { searchContacts } from "~/contacts/queries";
 import { useRegisterTools } from "~/contexts/tool";
 import { useSearchEngine } from "~/search/contexts/engine";
 import { initEnhancerService } from "~/services/enhancer";
@@ -48,78 +49,7 @@ function ToolRegistration() {
   const indexesRef = useRef(indexes);
   indexesRef.current = indexes;
 
-  const getContactSearchResults = useCallback(
-    async (query: string, limit: number) => {
-      if (!store) {
-        return [];
-      }
-
-      const q = query.trim().toLowerCase();
-      const rows: Array<{
-        id: string;
-        name: string;
-        email: string | null;
-        phone: string | null;
-        jobTitle: string | null;
-        organization: string | null;
-        memo: string | null;
-        createdAt: number;
-      }> = [];
-
-      store.forEachRow("humans", (rowId, _forEachCell) => {
-        const row = store.getRow("humans", rowId);
-        if (!row) {
-          return;
-        }
-
-        const orgId =
-          typeof row.org_id === "string" && row.org_id ? row.org_id : null;
-        const orgName = orgId
-          ? (store.getCell("organizations", orgId, "name") as string | null)
-          : null;
-
-        const name = typeof row.name === "string" ? row.name : "";
-        const email =
-          typeof row.email === "string" && row.email ? row.email : null;
-        const phone =
-          typeof row.phone === "string" && row.phone ? row.phone : null;
-        const jobTitle =
-          typeof row.job_title === "string" && row.job_title
-            ? row.job_title
-            : null;
-        const memo = typeof row.memo === "string" && row.memo ? row.memo : null;
-
-        const searchable = [name, email, phone, jobTitle, memo, orgName]
-          .filter(Boolean)
-          .join("\n")
-          .toLowerCase();
-
-        if (q && !searchable.includes(q)) {
-          return;
-        }
-
-        const createdAt = Date.parse((row.created_at as string) || "") || 0;
-
-        rows.push({
-          id: rowId,
-          name,
-          email,
-          phone,
-          jobTitle,
-          organization: orgName,
-          memo,
-          createdAt,
-        });
-      });
-
-      rows.sort((a, b) => b.createdAt - a.createdAt);
-
-      return rows
-        .slice(0, limit)
-        .map(({ createdAt: _createdAt, ...row }) => row);
-    },
-    [store],
-  );
+  const getContactSearchResults = searchContacts;
 
   const getCalendarEventSearchResults = useCallback(
     async (query: string, limit: number) => {

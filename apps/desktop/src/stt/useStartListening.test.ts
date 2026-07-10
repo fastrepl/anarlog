@@ -67,7 +67,7 @@ vi.mock("./contexts", () => ({
 }));
 
 vi.mock("./useKeywords", () => ({
-  getSessionKeywords: vi.fn(() => []),
+  getSessionKeywords: vi.fn(async () => []),
   useKeywords: vi.fn(() => []),
 }));
 
@@ -110,7 +110,7 @@ vi.mock("~/contexts/shell", () => ({
 }));
 
 vi.mock("~/session/utils", () => ({
-  getSessionEventById: vi.fn(() => null),
+  getSessionEvent: vi.fn(() => null),
 }));
 
 vi.mock("~/session/queries", () => ({
@@ -268,7 +268,7 @@ describe("useStartListening", () => {
 
   test("reads keywords from the same pre-start snapshot as the transcript memo", async () => {
     const calls: string[] = [];
-    vi.mocked(getSessionKeywords).mockImplementation(() => {
+    vi.mocked(getSessionKeywords).mockImplementation(async () => {
       calls.push("keywords");
       return ["launch"];
     });
