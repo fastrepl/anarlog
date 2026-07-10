@@ -11,7 +11,7 @@ import { StreamingView } from "./streaming";
 import { useAITaskTask } from "~/ai/hooks";
 import { useLLMConnectionStatus } from "~/ai/hooks";
 import { shouldShowEmptySummaryConfigError } from "~/session/enhance-config";
-import * as main from "~/store/tinybase/store/main";
+import { useEnhancedNote } from "~/session/queries";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 
 export const Enhanced = forwardRef<
@@ -37,20 +37,10 @@ export const Enhanced = forwardRef<
     const taskId = createTaskId(enhancedNoteId, "enhance");
     const llmStatus = useLLMConnectionStatus();
     const { status, error } = useAITaskTask(taskId, "enhance");
-    const content = main.UI.useCell(
-      "enhanced_notes",
-      enhancedNoteId,
-      "content",
-      main.STORE_ID,
-    );
+    const enhancedNote = useEnhancedNote(enhancedNoteId);
+    const content = enhancedNote?.content;
 
     const hasContent = typeof content === "string" && content.trim().length > 0;
-
-    const isConfigError = shouldShowEmptySummaryConfigError(llmStatus);
-
-    if (status === "idle" && isConfigError && !hasContent) {
-      return <ConfigError status={llmStatus} />;
-    }
 
     if (status === "error") {
       return (
@@ -68,11 +58,22 @@ export const Enhanced = forwardRef<
       );
     }
 
+    if (!enhancedNote) {
+      return null;
+    }
+
+    const isConfigError = shouldShowEmptySummaryConfigError(llmStatus);
+
+    if (status === "idle" && isConfigError && !hasContent) {
+      return <ConfigError status={llmStatus} />;
+    }
+
     return (
       <EnhancedEditor
         ref={ref}
         sessionId={sessionId}
         enhancedNoteId={enhancedNoteId}
+        content={enhancedNote.content}
         onNavigateToTitle={onNavigateToTitle}
         onViewReady={onViewReady}
         onViewDisposed={onViewDisposed}

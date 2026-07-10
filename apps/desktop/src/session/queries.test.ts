@@ -28,10 +28,12 @@ vi.mock("~/db", () => ({
 
 import {
   buildSessionTombstoneStatements,
+  deleteEnhancedNote,
   getOrCreateSessionForEventId,
   isSessionEmpty,
   restoreDeletedSession,
   softDeleteSession,
+  updateEnhancedNoteContent,
   updateSession,
 } from "./queries";
 
@@ -88,6 +90,51 @@ describe("session SQLite operations", () => {
     expect(statements[0].params).toContain("Updated title");
     expect(statements[1].sql).toContain("session_documents");
     expect(statements[1].params).toContain('{"type":"doc"}');
+  });
+
+  it("commits enhanced note content and the derived session title together", async () => {
+    mocks.executeTransaction.mockResolvedValueOnce([1, 1]);
+
+    await updateEnhancedNoteContent(
+      "enhanced-note-1",
+      "session-1",
+      '{"type":"doc"}',
+      "Edited title",
+    );
+
+    const statements = mocks.executeTransaction.mock.calls[0][0] as Array<{
+      sql: string;
+      params: unknown[];
+    }>;
+    expect(statements).toHaveLength(2);
+    expect(statements[0].sql).toContain("UPDATE session_documents");
+    expect(statements[0].params).toContain("enhanced-note-1");
+    expect(statements[0].params).toContain('{"type":"doc"}');
+    expect(statements[1].sql).toContain("UPDATE sessions");
+    expect(statements[1].params).toContain("session-1");
+    expect(statements[1].params).toContain("Edited title");
+  });
+
+  it("soft-deletes an enhanced note instead of removing its data", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-10T12:00:00.000Z"));
+    mocks.executeTransaction.mockResolvedValueOnce([1]);
+
+    await deleteEnhancedNote("enhanced-note-1");
+
+    const statements = mocks.executeTransaction.mock.calls[0][0] as Array<{
+      sql: string;
+      params: unknown[];
+    }>;
+    expect(statements).toHaveLength(1);
+    expect(statements[0].sql).toContain("UPDATE session_documents");
+    expect(statements[0].sql).toContain("deleted_at IS NULL");
+    expect(statements[0].sql).not.toContain("DELETE FROM");
+    expect(statements[0].params).toEqual([
+      "2026-07-10T12:00:00.000Z",
+      "2026-07-10T12:00:00.000Z",
+      "enhanced-note-1",
+    ]);
   });
 
   it("creates an event note with an in-transaction deduplication predicate", async () => {

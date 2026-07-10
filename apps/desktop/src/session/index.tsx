@@ -24,20 +24,20 @@ import {
   useHasTranscript,
 } from "./components/shared";
 import { useAutoEnhance } from "./hooks/useAutoEnhance";
-import { useEnsureDefaultSummaryFromState } from "./hooks/useEnhancedNotes";
+import {
+  useEnhancedNotes,
+  useEnsureDefaultSummaryFromState,
+} from "./hooks/useEnhancedNotes";
 import { shouldShowSessionTopAudioPlayer } from "./top-audio-player";
 
 import * as AudioPlayer from "~/audio-player";
-import { hydrateSessionContent } from "~/store/tinybase/persister/session/hydrate";
-import * as main from "~/store/tinybase/store/main";
+import { useSession } from "~/session/queries";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 import { useListener } from "~/stt/contexts";
 import { consumePendingUpload } from "~/stt/pending-upload";
 import { useStartListening } from "~/stt/useStartListening";
 import { useSTTConnection } from "~/stt/useSTTConnection";
 import { useUploadFile } from "~/stt/useUploadFile";
-
-const hydratedSessionIds = new Set<string>();
 
 export function TabContentNote({
   standaloneWindow = false,
@@ -152,13 +152,7 @@ function TabContentNoteInner({
     hasTranscript,
     sessionMode,
   });
-  const enhancedNoteIds =
-    main.UI.useSliceRowIds(
-      main.INDEXES.enhancedNotesBySession,
-      sessionId,
-      main.STORE_ID,
-    ) ?? [];
-  const firstEnhancedNoteId = enhancedNoteIds[0];
+  const enhancedNoteIds = useEnhancedNotes(sessionId);
   const contentHydrated = useHydrateSessionContent(sessionId);
   useEnsureDefaultSummaryFromState({
     batchError: Boolean(batchError),
@@ -185,15 +179,10 @@ function TabContentNoteInner({
     return computeCurrentNoteTab(
       tab.state.view ?? null,
       isLiveSessionActive,
-      firstEnhancedNoteId,
+      enhancedNoteIds,
       canShowTranscript,
     );
-  }, [
-    tab.state.view,
-    isLiveSessionActive,
-    firstEnhancedNoteId,
-    canShowTranscript,
-  ]);
+  }, [tab.state.view, isLiveSessionActive, enhancedNoteIds, canShowTranscript]);
   useAutoFocusTitle({ sessionId, noteInputRef });
 
   const showTopAudioPlayer = shouldShowSessionTopAudioPlayer({
@@ -272,48 +261,7 @@ function TabContentNoteInner({
 }
 
 function useHydrateSessionContent(sessionId: string): boolean {
-  const store = main.UI.useStore(main.STORE_ID);
-  const [retryAttempt, setRetryAttempt] = React.useState(0);
-  const [hydrated, setHydrated] = React.useState(() =>
-    hydratedSessionIds.has(sessionId),
-  );
-
-  useEffect(() => {
-    if (hydratedSessionIds.has(sessionId)) {
-      setHydrated(true);
-      return;
-    }
-
-    if (!store) {
-      setHydrated(false);
-      return;
-    }
-
-    let active = true;
-    setHydrated(false);
-
-    void hydrateSessionContent(store, sessionId).then((success) => {
-      if (success) {
-        hydratedSessionIds.add(sessionId);
-      }
-      if (active) {
-        setHydrated(success);
-        if (!success) {
-          window.setTimeout(() => {
-            if (active) {
-              setRetryAttempt((attempt) => attempt + 1);
-            }
-          }, 1000);
-        }
-      }
-    });
-
-    return () => {
-      active = false;
-    };
-  }, [store, sessionId, retryAttempt]);
-
-  return hydrated;
+  return useSession(sessionId) !== null;
 }
 
 function SessionContentLoading() {
@@ -347,7 +295,7 @@ function useAutoFocusTitle({
   noteInputRef: React.RefObject<NoteInputHandle | null>;
 }) {
   const autoFocusedSessionRef = useRef<string | null>(null);
-  const title = main.UI.useCell("sessions", sessionId, "title", main.STORE_ID);
+  const title = useSession(sessionId)?.title;
 
   useEffect(() => {
     if (autoFocusedSessionRef.current === sessionId) return;

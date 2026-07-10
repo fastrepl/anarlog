@@ -30,6 +30,7 @@ const hoisted = vi.hoisted(() => ({
     isHosted: true,
   } as LLMConnectionStatus,
   content: "",
+  noteExists: true,
   sessionTitle: "",
 }));
 
@@ -57,14 +58,10 @@ vi.mock("~/ai/hooks", () => ({
   useLLMConnectionStatus: () => hoisted.llmStatus,
 }));
 
-vi.mock("~/store/tinybase/store/main", () => ({
-  STORE_ID: "main",
-  UI: {
-    useCell: (table: string, _id: string, cell: string) =>
-      table === "sessions" && cell === "title"
-        ? hoisted.sessionTitle
-        : hoisted.content,
-  },
+vi.mock("~/session/queries", () => ({
+  useEnhancedNote: () =>
+    hoisted.noteExists ? { content: hoisted.content } : null,
+  useSession: () => ({ title: hoisted.sessionTitle }),
 }));
 
 vi.mock("./config-error", () => ({
@@ -73,8 +70,10 @@ vi.mock("./config-error", () => ({
 
 vi.mock("./editor", () => ({
   EnhancedEditor: ({
+    content,
     contentOverride,
   }: {
+    content: string;
     contentOverride?: { content?: unknown[] };
   }) => {
     const collectText = (value: unknown): string => {
@@ -96,6 +95,7 @@ vi.mock("./editor", () => ({
     return (
       <div>
         <span>Enhanced editor</span>
+        <span>{content}</span>
         {contentOverride ? <span>{collectText(contentOverride)}</span> : null}
       </div>
     );
@@ -120,6 +120,7 @@ describe("Enhanced", () => {
       isHosted: true,
     };
     hoisted.content = "";
+    hoisted.noteExists = true;
     hoisted.sessionTitle = "";
   });
 
@@ -298,5 +299,21 @@ describe("Enhanced", () => {
 
     expect(screen.getByText("Enhanced editor")).not.toBeNull();
     expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("waits for SQLite hydration and mounts the editor with stored content", () => {
+    hoisted.noteExists = false;
+    const view = render(
+      <Enhanced sessionId="session-1" enhancedNoteId="note-1" />,
+    );
+
+    expect(screen.queryByText("Enhanced editor")).toBeNull();
+
+    hoisted.noteExists = true;
+    hoisted.content = "Stored summary";
+    view.rerender(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
+
+    expect(screen.getByText("Enhanced editor")).not.toBeNull();
+    expect(screen.getByText("Stored summary")).not.toBeNull();
   });
 });

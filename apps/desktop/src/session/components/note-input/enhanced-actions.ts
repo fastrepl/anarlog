@@ -10,7 +10,7 @@ import {
   requestMainEnhance,
 } from "~/ai/task-window-sync";
 import { shouldShowEmptySummaryConfigError } from "~/session/enhance-config";
-import * as main from "~/store/tinybase/store/main";
+import { useEnhancedNote } from "~/session/queries";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 
 export function useEnhancedNoteActions({
@@ -30,12 +30,7 @@ export function useEnhancedNoteActions({
   );
 
   const noteTemplateId =
-    (main.UI.useCell(
-      "enhanced_notes",
-      enhancedNoteId ?? "",
-      "template_id",
-      main.STORE_ID,
-    ) as string | undefined) || undefined;
+    useEnhancedNote(enhancedNoteId ?? "")?.templateId || undefined;
 
   const enhanceTask = useAITaskTask(taskId, "enhance");
 

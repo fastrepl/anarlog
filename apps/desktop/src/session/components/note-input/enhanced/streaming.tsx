@@ -6,7 +6,7 @@ import { cn } from "@hypr/utils";
 import { streamdownComponents } from "../../streamdown";
 
 import { useAITaskTask } from "~/ai/hooks";
-import * as main from "~/store/tinybase/store/main";
+import { useSession } from "~/session/queries";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 import { getPersistableGeneratedTitle } from "~/store/zustand/ai-task/task-configs/title-success";
 
@@ -43,13 +43,7 @@ export function StreamingView({
   const { streamedText, isGenerating } = useAITaskTask(taskId, "enhance");
   const titleTaskId = createTaskId(sessionId, "title");
   const { streamedText: streamedTitle } = useAITaskTask(titleTaskId, "title");
-  const sessionTitle = main.UI.useCell(
-    "sessions",
-    sessionId,
-    "title",
-    main.STORE_ID,
-  );
-  const title = typeof sessionTitle === "string" ? sessionTitle.trim() : "";
+  const title = useSession(sessionId)?.title.trim() ?? "";
   const generatedTitle = getPersistableGeneratedTitle(streamedTitle);
   const visibleTitle = title || generatedTitle;
 

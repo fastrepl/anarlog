@@ -12,8 +12,7 @@ import { EnhancedEditor } from "./editor";
 const hoisted = vi.hoisted(() => ({
   content: JSON.stringify({ type: "doc", content: [] }),
   sessionTitle: "Weekly sync",
-  persistContent: vi.fn(),
-  persistSessionTitle: vi.fn(),
+  persistContent: vi.fn(() => Promise.resolve()),
   fileUpload: vi.fn(),
   processAudioFile: vi.fn(),
   showWindow: vi.fn(),
@@ -80,21 +79,10 @@ vi.mock("~/stt/useUploadFile", () => ({
   useUploadFile: () => ({ processAudioFile: hoisted.processAudioFile }),
 }));
 
-vi.mock("~/store/tinybase/store/main", () => ({
-  STORE_ID: "main",
-  UI: {
-    useCell: (table: string, _row: string, cell: string) => {
-      if (table === "sessions" && cell === "title") {
-        return hoisted.sessionTitle;
-      }
-
-      return hoisted.content;
-    },
-    useSetPartialRowCallback: (table: string) =>
-      table === "sessions"
-        ? hoisted.persistSessionTitle
-        : hoisted.persistContent,
-  },
+vi.mock("~/session/queries", () => ({
+  useEnhancedNote: () => ({ content: hoisted.content }),
+  useSession: () => ({ title: hoisted.sessionTitle }),
+  useUpdateEnhancedNoteContent: () => hoisted.persistContent,
 }));
 
 describe("EnhancedEditor", () => {
@@ -106,8 +94,7 @@ describe("EnhancedEditor", () => {
     hoisted.noteEditorProps = [];
     hoisted.content = JSON.stringify({ type: "doc", content: [] });
     hoisted.sessionTitle = "Weekly sync";
-    hoisted.persistContent = vi.fn();
-    hoisted.persistSessionTitle = vi.fn();
+    hoisted.persistContent = vi.fn(() => Promise.resolve());
     hoisted.fileUpload = vi.fn();
     hoisted.processAudioFile = vi.fn();
     hoisted.showWindow.mockReset();
@@ -130,7 +117,13 @@ describe("EnhancedEditor", () => {
       ],
     });
 
-    render(<EnhancedEditor sessionId="session-1" enhancedNoteId="note-1" />);
+    render(
+      <EnhancedEditor
+        sessionId="session-1"
+        enhancedNoteId="note-1"
+        content={hoisted.content}
+      />,
+    );
 
     const props = hoisted.noteEditorProps[hoisted.noteEditorProps.length - 1];
 
@@ -157,7 +150,13 @@ describe("EnhancedEditor", () => {
   });
 
   it("persists content and updates the session title from the first line", () => {
-    render(<EnhancedEditor sessionId="session-1" enhancedNoteId="note-1" />);
+    render(
+      <EnhancedEditor
+        sessionId="session-1"
+        enhancedNoteId="note-1"
+        content={hoisted.content}
+      />,
+    );
 
     const props = hoisted.noteEditorProps[hoisted.noteEditorProps.length - 1];
     const input = {
@@ -173,8 +172,10 @@ describe("EnhancedEditor", () => {
 
     (props?.handleChange as (input: unknown) => void)(input);
 
-    expect(hoisted.persistContent).toHaveBeenCalledWith(input);
-    expect(hoisted.persistSessionTitle).toHaveBeenCalledWith("Edited title");
+    expect(hoisted.persistContent).toHaveBeenCalledWith(
+      JSON.stringify(input),
+      "Edited title",
+    );
   });
 
   it("keeps streamed previews syncing while focused", () => {
@@ -189,6 +190,7 @@ describe("EnhancedEditor", () => {
       <EnhancedEditor
         sessionId="session-1"
         enhancedNoteId="note-1"
+        content={hoisted.content}
         contentOverride={contentOverride}
       />,
     );
@@ -215,7 +217,13 @@ describe("EnhancedEditor", () => {
   });
 
   it("routes dropped audio files to transcription", () => {
-    render(<EnhancedEditor sessionId="session-1" enhancedNoteId="note-1" />);
+    render(
+      <EnhancedEditor
+        sessionId="session-1"
+        enhancedNoteId="note-1"
+        content={hoisted.content}
+      />,
+    );
 
     const props = hoisted.noteEditorProps[hoisted.noteEditorProps.length - 1];
     const fileHandlerConfig = props?.fileHandlerConfig as {
@@ -228,7 +236,13 @@ describe("EnhancedEditor", () => {
   });
 
   it("keeps non-audio files available when audio is dropped with attachments", () => {
-    render(<EnhancedEditor sessionId="session-1" enhancedNoteId="note-1" />);
+    render(
+      <EnhancedEditor
+        sessionId="session-1"
+        enhancedNoteId="note-1"
+        content={hoisted.content}
+      />,
+    );
 
     const props = hoisted.noteEditorProps[hoisted.noteEditorProps.length - 1];
     const fileHandlerConfig = props?.fileHandlerConfig as {
@@ -245,7 +259,13 @@ describe("EnhancedEditor", () => {
   });
 
   it("only imports the first audio file from a multi-audio drop", () => {
-    render(<EnhancedEditor sessionId="session-1" enhancedNoteId="note-1" />);
+    render(
+      <EnhancedEditor
+        sessionId="session-1"
+        enhancedNoteId="note-1"
+        content={hoisted.content}
+      />,
+    );
 
     const props = hoisted.noteEditorProps[hoisted.noteEditorProps.length - 1];
     const fileHandlerConfig = props?.fileHandlerConfig as {
@@ -264,7 +284,13 @@ describe("EnhancedEditor", () => {
   });
 
   it("shows an audio upload overlay and intercepts audio drops", async () => {
-    render(<EnhancedEditor sessionId="session-1" enhancedNoteId="note-1" />);
+    render(
+      <EnhancedEditor
+        sessionId="session-1"
+        enhancedNoteId="note-1"
+        content={hoisted.content}
+      />,
+    );
 
     const file = new File(["audio"], "clip.m4a", { type: "" });
     const dataTransfer = audioDataTransfer(file);

@@ -177,6 +177,14 @@ vi.mock("~/services/enhancer", () => ({
   getEnhancerService: () => ({ enhance: hoisted.enhance }),
 }));
 
+vi.mock("~/session/queries", () => ({
+  useEnhancedNote: () => ({
+    content: "",
+    templateId: "template-1",
+    title: "Summary",
+  }),
+}));
+
 vi.mock("~/session/components/note-input/transcript/actions", () => ({
   useRegenerateTranscript: () => hoisted.regenerateTranscript,
 }));
