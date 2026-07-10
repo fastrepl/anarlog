@@ -12,7 +12,6 @@ import { useRunBatch } from "./useRunBatch";
 const {
   startTranscriptionMock,
   useListenerMock,
-  useStoreMock,
   useSessionMock,
   useSessionParticipantsMock,
   useSTTConnectionMock,
@@ -28,7 +27,6 @@ const {
 } = vi.hoisted(() => ({
   startTranscriptionMock: vi.fn(),
   useListenerMock: vi.fn(),
-  useStoreMock: vi.fn(),
   useSessionMock: vi.fn(),
   useSessionParticipantsMock: vi.fn(),
   useSTTConnectionMock: vi.fn(),
@@ -127,61 +125,10 @@ vi.mock("~/stt/capabilities", () => {
   };
 });
 
-vi.mock("~/store/tinybase/store/main", () => ({
-  STORE_ID: "main",
-  UI: {
-    useStore: useStoreMock,
-  },
-}));
-
 vi.mock("~/stt/queries", () => ({
   appendTranscriptWordsAndHints: appendTranscriptWordsAndHintsMock,
   createTranscript: createTranscriptMock,
 }));
-
-function createStore() {
-  const tables = {
-    sessions: new Map<string, Record<string, unknown>>([
-      ["session-1", { raw_md: "Existing memo" }],
-    ]),
-    transcripts: new Map<string, Record<string, unknown>>(),
-    mapping_session_participant: new Map<string, Record<string, unknown>>(),
-  };
-
-  return {
-    tables,
-    forEachRow: (
-      tableId: keyof typeof tables,
-      callback: (rowId: string) => void,
-    ) => {
-      for (const rowId of tables[tableId].keys()) callback(rowId);
-    },
-    getCell: (tableId: keyof typeof tables, rowId: string, cellId: string) =>
-      tables[tableId].get(rowId)?.[cellId],
-    setCell: (
-      tableId: keyof typeof tables,
-      rowId: string,
-      cellId: string,
-      value: unknown,
-    ) => {
-      tables[tableId].set(rowId, {
-        ...tables[tableId].get(rowId),
-        [cellId]: value,
-      });
-    },
-    setRow: (
-      tableId: keyof typeof tables,
-      rowId: string,
-      row: Record<string, unknown>,
-    ) => {
-      tables[tableId].set(rowId, row);
-    },
-    delRow: (tableId: keyof typeof tables, rowId: string) => {
-      tables[tableId].delete(rowId);
-    },
-    transaction: (callback: () => void) => callback(),
-  };
-}
 
 describe("getBatchProvider", () => {
   test("maps pyannote to the batch transcription provider", () => {
@@ -270,7 +217,6 @@ describe("useRunBatch", () => {
     useListenerMock.mockImplementation((selector) =>
       selector({ startTranscription: startTranscriptionMock }),
     );
-    useStoreMock.mockReturnValue(createStore());
     useSessionMock.mockReturnValue({
       id: "session-1",
       user_id: "user-1",

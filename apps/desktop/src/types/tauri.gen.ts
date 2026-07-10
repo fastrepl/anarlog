@@ -52,14 +52,6 @@ async getTinybaseValues() : Promise<Result<string | null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async setTinybaseValues(v: string) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("set_tinybase_values", { v }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
 async getPinnedTabs() : Promise<Result<string | null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_pinned_tabs") };
@@ -103,6 +95,8 @@ async setRecentlyOpenedSessions(v: string) : Promise<Result<null, string>> {
 
 
 /** user-defined types **/
+
+
 
 /** tauri-specta globals **/
 

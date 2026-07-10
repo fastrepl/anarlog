@@ -16,7 +16,18 @@ pub async fn import_legacy_data<R: tauri::Runtime>(
     }
 
     let vault_base = resolve_startup_vault_base(app)?;
-    legacy_vault::import_legacy_vault(pool, &vault_base, false).await?;
+    let run_id = legacy_vault::import_legacy_vault(pool, &vault_base, false).await?;
+    require_verified_import(pool, &run_id).await
+}
+
+async fn require_verified_import(pool: &SqlitePool, run_id: &str) -> crate::Result<()> {
+    if legacy_import_required(pool).await? {
+        return Err(std::io::Error::other(format!(
+            "legacy import {run_id} did not pass parity verification; source files were left unchanged",
+        ))
+        .into());
+    }
+
     Ok(())
 }
 
@@ -151,6 +162,9 @@ mod tests {
         .unwrap();
 
         assert!(!legacy_import_required(db.pool()).await.unwrap());
+        require_verified_import(db.pool(), "verified-run")
+            .await
+            .unwrap();
 
         sqlx::query(
             "UPDATE storage_migration_state
@@ -162,5 +176,26 @@ mod tests {
         .unwrap();
 
         assert!(legacy_import_required(db.pool()).await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn incomplete_import_prevents_cutover() {
+        let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
+        hypr_db_app::prepare_schema(&db).await.unwrap();
+
+        let error = require_verified_import(db.pool(), "run-with-errors")
+            .await
+            .unwrap_err();
+
+        assert!(
+            error
+                .to_string()
+                .contains("did not pass parity verification")
+        );
+        assert!(
+            error
+                .to_string()
+                .contains("source files were left unchanged")
+        );
     }
 }

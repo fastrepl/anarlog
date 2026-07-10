@@ -5,36 +5,28 @@ import { commands as store2Commands } from "@hypr/plugin-store2";
 import { flushDatabaseWrites } from "~/db/write-queue";
 import { commands } from "~/types/tauri.gen";
 
-const saveHandlers = new Map<string, () => Promise<void>>();
 let pendingAutomaticRelaunch = false;
 let automaticRelaunchTimeout: ReturnType<typeof setTimeout> | null = null;
 
-export function registerSaveHandler(id: string, handler: () => Promise<void>) {
-  saveHandlers.set(id, handler);
-  return () => {
-    saveHandlers.delete(id);
-  };
+async function saveApplicationState(): Promise<void> {
+  await Promise.all([flushDatabaseWrites(), store2Commands.save()]);
 }
 
-export async function save(): Promise<void> {
-  await Promise.all([
-    flushDatabaseWrites(),
-    ...Array.from(saveHandlers.values()).map((handler) => handler()),
-    store2Commands.save(),
-  ]);
-}
-
-export async function relaunch(): Promise<void> {
-  await save();
+async function relaunch(): Promise<void> {
+  await saveApplicationState();
   await tauriRelaunch();
 }
 
 async function getOnboardingNeeded() {
-  const result = await commands.getOnboardingNeeded().catch(() => null);
-  if (result?.status !== "ok") {
+  try {
+    const result = await commands.getOnboardingNeeded();
+    if (result.status !== "ok") {
+      return false;
+    }
+    return result.data;
+  } catch {
     return false;
   }
-  return result.data;
 }
 
 export async function scheduleAutomaticRelaunch(

@@ -43,7 +43,7 @@ describe("automatic relaunch", () => {
   });
 
   test("schedules an immediate relaunch when onboarding is already done", async () => {
-    const { scheduleAutomaticRelaunch } = await import("./save");
+    const { scheduleAutomaticRelaunch } = await import("./relaunch");
 
     await expect(scheduleAutomaticRelaunch(2000)).resolves.toBe("scheduled");
 
@@ -59,7 +59,7 @@ describe("automatic relaunch", () => {
 
   test("defers relaunch while onboarding is still required", async () => {
     getOnboardingNeededMock.mockResolvedValue({ status: "ok", data: true });
-    const { scheduleAutomaticRelaunch } = await import("./save");
+    const { scheduleAutomaticRelaunch } = await import("./relaunch");
 
     await expect(scheduleAutomaticRelaunch()).resolves.toBe("deferred");
 
@@ -73,7 +73,7 @@ describe("automatic relaunch", () => {
       data: true,
     });
     const { flushAutomaticRelaunch, scheduleAutomaticRelaunch } =
-      await import("./save");
+      await import("./relaunch");
 
     await scheduleAutomaticRelaunch();
 

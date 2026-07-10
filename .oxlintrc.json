@@ -20,52 +20,6 @@
       "rules": {
         "hypr/no-raw-tinybase": "error"
       }
-    },
-    {
-      "files": [
-        "apps/desktop/src/store/tinybase/**",
-        "apps/desktop/src/**/hooks/**",
-        "apps/desktop/src/**/hooks.ts",
-        "apps/desktop/src/**/hooks.tsx",
-        "apps/desktop/src/**/*.test.ts",
-        "apps/desktop/src/**/*.test.tsx",
-        "apps/desktop/src/**/*.spec.ts",
-        "apps/desktop/src/**/*.spec.tsx"
-      ],
-      "rules": {
-        "hypr/no-raw-tinybase": "off"
-      }
-    },
-    {
-      "files": [
-        "apps/desktop/src/ai/**",
-        "apps/desktop/src/auth/**",
-        "apps/desktop/src/calendar/**",
-        "apps/desktop/src/chat/**",
-        "apps/desktop/src/composer/**",
-        "apps/desktop/src/contacts/**",
-        "apps/desktop/src/edit/**",
-        "apps/desktop/src/editor-bridge/**",
-        "apps/desktop/src/folders/**",
-        "apps/desktop/src/main.tsx",
-        "apps/desktop/src/main/**",
-        "apps/desktop/src/main2/**",
-        "apps/desktop/src/onboarding/**",
-        "apps/desktop/src/search/**",
-        "apps/desktop/src/services/**",
-        "apps/desktop/src/session/**",
-        "apps/desktop/src/settings/**",
-        "apps/desktop/src/shared/**",
-        "apps/desktop/src/sidebar/**",
-        "apps/desktop/src/store/zustand/**",
-        "apps/desktop/src/stt/**",
-        "apps/desktop/src/templates/template-body.tsx",
-        "apps/desktop/src/templates/template-form.tsx",
-        "apps/desktop/src/templates/utils.ts"
-      ],
-      "rules": {
-        "hypr/no-raw-tinybase": "off"
-      }
     }
   ]
 }

@@ -6,7 +6,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { StrictMode, useMemo } from "react";
 import ReactDOM from "react-dom/client";
-import { Provider as TinyBaseProvider, useStores } from "tinybase/ui-react";
 import { createManager } from "tinytick";
 import {
   Provider as TinyTickProvider,
@@ -34,11 +33,6 @@ import { initializeApplicationSettings } from "./settings/queries";
 import { ErrorComponent, NotFoundComponent } from "./shared/control";
 import { bootstrapThemeFromSettings } from "./shared/theme/apply";
 import { AppThemeProvider } from "./shared/theme/provider";
-import {
-  type Store,
-  STORE_ID,
-  StoreComponent,
-} from "./store/tinybase/store/main";
 import { createAITaskStore } from "./store/zustand/ai-task";
 import { listenerStore } from "./store/zustand/listener/instance";
 
@@ -59,20 +53,7 @@ declare module "@tanstack/react-router" {
 }
 
 function App() {
-  const stores = useStores();
-
-  const store = stores[STORE_ID] as unknown as Store;
-
-  const aiTaskStore = useMemo(() => {
-    if (!store) {
-      return null;
-    }
-    return createAITaskStore();
-  }, [store]);
-
-  if (!store || !aiTaskStore) {
-    return <div className="bg-background h-screen w-screen" />;
-  }
+  const aiTaskStore = useMemo(() => createAITaskStore(), []);
 
   return (
     <AppThemeProvider>
@@ -81,8 +62,6 @@ function App() {
         <RouterProvider
           router={router}
           context={{
-            persistedStore: store,
-            internalStore: store,
             listenerStore,
             aiTaskStore,
             toolRegistry,
@@ -107,7 +86,7 @@ if (env.VITE_SENTRY_DSN) {
   });
 }
 
-function AppWithTiny() {
+function AppRoot() {
   const manager = useCreateManager(() => {
     return createManager().start();
   });
@@ -117,14 +96,11 @@ function AppWithTiny() {
   return (
     <QueryClientProvider client={queryClient}>
       <TinyTickProvider manager={manager}>
-        <TinyBaseProvider>
-          <StoreComponent />
-          <App />
-          {isMainWindow ? <TaskManager /> : null}
-          {isMainWindow ? <FloatingMeetingWindowHost /> : null}
-          {isMainWindow ? <EventListeners /> : null}
-          <Toaster />
-        </TinyBaseProvider>
+        <App />
+        {isMainWindow ? <TaskManager /> : null}
+        {isMainWindow ? <FloatingMeetingWindowHost /> : null}
+        {isMainWindow ? <EventListeners /> : null}
+        <Toaster />
       </TinyTickProvider>
     </QueryClientProvider>
   );
@@ -158,7 +134,7 @@ async function renderApp() {
   const root = ReactDOM.createRoot(rootElement);
   root.render(
     <StrictMode>
-      <AppWithTiny />
+      <AppRoot />
     </StrictMode>,
   );
 }

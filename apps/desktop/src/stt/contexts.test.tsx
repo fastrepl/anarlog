@@ -46,13 +46,6 @@ vi.mock("@hypr/plugin-notification", () => ({
   },
 }));
 
-vi.mock("~/store/tinybase/store/main", () => ({
-  STORE_ID: "test-store",
-  UI: {
-    useStore: useStoreMock,
-  },
-}));
-
 vi.mock("~/calendar/queries", () => ({
   getNearbyCalendarEvents: getNearbyCalendarEventsMock,
 }));

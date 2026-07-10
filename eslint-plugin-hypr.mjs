@@ -81,83 +81,34 @@ const awaitTauriCommands = {
   },
 };
 
-const BANNED_TINYBASE_IMPORT_PREFIXES = [
-  "tinybase/ui-react",
-  "tinybase/synchronizers",
-];
-
-const BANNED_TINYBASE_EXACT_IMPORTS = new Set([
-  "tinybase/with-schemas",
-  "tinybase",
-]);
-
-const BANNED_MAIN_STORE_IMPORTS = new Set([
-  "~/store/tinybase/store/main",
-  "~/store/tinybase/hooks",
-]);
-
-const BANNED_MAIN_STORE_IMPORT_PREFIXES = ["~/store/tinybase/hooks/"];
-
 const noRawTinybase = {
   meta: {
     type: "problem",
     docs: {
       description:
-        "Ban direct main-store TinyBase access outside designated boundary hooks. Consumers of ~/store/tinybase/store/main must go through domain hooks (~/<domain>/hooks/*) so the main store can be swapped in one place.",
+        "Prevent TinyBase from being reintroduced into the SQLite-backed desktop app.",
     },
     messages: {
       bannedImport:
-        "Raw TinyBase import '{{source}}' is not allowed in desktop consumer code. For main-store data, wrap reads/writes in a domain hook module (e.g. ~/<domain>/hooks/) and import from there instead.",
-      bannedMainStoreImport:
-        "Direct import of main-store module '{{source}}' is not allowed in consumer code. Use a domain hook from ~/<domain>/hooks/ instead. If this file is the boundary hook module, add its path to the rule's allowlist in .oxlintrc.json.",
+        "TinyBase import '{{source}}' is not allowed. Use the canonical SQLite domain queries and mutations instead.",
     },
   },
   create(context) {
     return {
       ImportDeclaration(node) {
-        if (node.importKind === "type") return;
-
         const source = node.source.value;
         if (typeof source !== "string") return;
 
-        if (BANNED_TINYBASE_EXACT_IMPORTS.has(source)) {
+        if (
+          source === "tinybase" ||
+          source.startsWith("tinybase/") ||
+          source === "@hypr/tinybase-utils" ||
+          source.startsWith("@hypr/tinybase-utils/") ||
+          source.startsWith("~/store/tinybase/")
+        ) {
           context.report({
             node,
             messageId: "bannedImport",
-            data: { source },
-          });
-          return;
-        }
-
-        for (const prefix of BANNED_TINYBASE_IMPORT_PREFIXES) {
-          if (source === prefix || source.startsWith(prefix + "/")) {
-            context.report({
-              node,
-              messageId: "bannedImport",
-              data: { source },
-            });
-            return;
-          }
-        }
-
-        const isBannedMainStore =
-          BANNED_MAIN_STORE_IMPORTS.has(source) ||
-          BANNED_MAIN_STORE_IMPORT_PREFIXES.some((prefix) =>
-            source.startsWith(prefix),
-          );
-
-        if (isBannedMainStore) {
-          const hasRuntimeSpecifier = node.specifiers.some(
-            (s) =>
-              s.type === "ImportNamespaceSpecifier" ||
-              s.type === "ImportDefaultSpecifier" ||
-              (s.type === "ImportSpecifier" && s.importKind !== "type"),
-          );
-          if (!hasRuntimeSpecifier) return;
-
-          context.report({
-            node,
-            messageId: "bannedMainStoreImport",
             data: { source },
           });
         }

@@ -12,7 +12,6 @@ const {
   startMock,
   runBatchMock,
   useListenerMock,
-  useStoreMock,
   useSessionMock,
   useSessionHasTranscriptMock,
   useSessionParticipantHumanIdsMock,
@@ -25,7 +24,6 @@ const {
   leftSidebarExpanded,
   setLeftSidebarExpandedMock,
   deleteProcessedAudioForRetentionMock,
-  mainStoreMock,
 } = vi.hoisted(() => ({
   queueAutoEnhanceMock: vi.fn(),
   queueAutoEnhanceIfSummaryEmptyMock: vi.fn(),
@@ -33,7 +31,6 @@ const {
   startMock: vi.fn(),
   runBatchMock: vi.fn(),
   useListenerMock: vi.fn(),
-  useStoreMock: vi.fn(),
   useSessionMock: vi.fn(),
   useSessionHasTranscriptMock: vi.fn(),
   useSessionParticipantHumanIdsMock: vi.fn(),
@@ -46,14 +43,6 @@ const {
   leftSidebarExpanded: { value: true },
   setLeftSidebarExpandedMock: vi.fn(),
   deleteProcessedAudioForRetentionMock: vi.fn(),
-  mainStoreMock: {
-    getCell: vi.fn((_table: string, _rowId: string, _cell: string) => ""),
-    forEachRow: vi.fn(),
-    setRow: vi.fn(),
-    setCell: vi.fn(),
-    delRow: vi.fn(),
-    transaction: vi.fn((fn: () => void) => fn()),
-  },
 }));
 
 vi.mock("@hypr/plugin-transcription", () => ({
@@ -124,13 +113,6 @@ vi.mock("~/shared/config", () => ({
 
 vi.mock("~/shared/utils", () => ({
   id: vi.fn(() => "generated-id"),
-}));
-
-vi.mock("~/store/tinybase/store/main", () => ({
-  STORE_ID: "main",
-  UI: {
-    useStore: useStoreMock,
-  },
 }));
 
 vi.mock("~/stt/queries", () => ({
@@ -213,8 +195,6 @@ describe("useStartListening", () => {
       key === "ai_language" ? "en" : [],
     );
     leftSidebarExpanded.value = true;
-    mainStoreMock.getCell.mockImplementation(() => "");
-    mainStoreMock.forEachRow.mockImplementation(() => {});
     useSTTConnectionMock.mockReturnValue({
       conn: {
         provider: "hyprnote",
@@ -223,7 +203,6 @@ describe("useStartListening", () => {
         apiKey: "",
       },
     });
-    useStoreMock.mockReturnValue(mainStoreMock);
     startMock.mockResolvedValue(true);
     runBatchMock.mockResolvedValue(undefined);
     isSupportedLanguagesLiveMock.mockResolvedValue({

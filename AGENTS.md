@@ -2,7 +2,7 @@
 
 Tauri desktop note-taking app (`apps/desktop/`) with a web app (`apps/web/`).
 Uses pnpm workspaces.
-TinyBase as the primary data store (schema at `packages/store/src/tinybase.ts`), Zustand for UI state, TipTap for the editor. Sessions are the core entity — all notes are backed by sessions.
+SQLite is the primary data store (schema and migrations in `crates/db-app/`, desktop transport in `plugins/db/`), Zustand is used for UI state, and TipTap powers the editor. Sessions are the core entity — all notes are backed by sessions.
 
 ## Commands
 

@@ -7,7 +7,7 @@ import { commands as sfxCommands } from "@hypr/plugin-sfx";
 
 import { OnboardingButton } from "./shared";
 
-import { flushAutomaticRelaunch } from "~/store/tinybase/store/save";
+import { flushAutomaticRelaunch } from "~/shared/relaunch";
 import { commands } from "~/types/tauri.gen";
 
 const SOCIALS = [

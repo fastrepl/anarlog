@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import { commands as settingsCommands } from "@hypr/plugin-settings";
 
-import { scheduleAutomaticRelaunch } from "~/store/tinybase/store/save";
+import { scheduleAutomaticRelaunch } from "~/shared/relaunch";
 
 export function useChangeContentPathWizard({
   open,

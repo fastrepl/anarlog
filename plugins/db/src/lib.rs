@@ -123,12 +123,7 @@ pub fn init<R: tauri::Runtime>(
         .invoke_handler(specta_builder.invoke_handler())
         .setup(move |app, _| {
             hypr_tauri_utils::block_on(hypr_db_app::prepare_schema(db.as_ref()))?;
-
-            let pool = db.pool().clone();
-            let app_handle = app.app_handle().clone();
-            hypr_tauri_utils::spawn("import legacy tinybase json", async move {
-                import::import_legacy_data(&app_handle, &pool).await
-            });
+            hypr_tauri_utils::block_on(import::import_legacy_data(app.app_handle(), db.pool()))?;
             app.manage(std::sync::Arc::new(runtime::PluginDbRuntime::new(db)));
             Ok(())
         })

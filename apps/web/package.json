@@ -79,7 +79,6 @@
     "stripe": "^20.4.1",
     "tailwind-scrollbar-hide": "^4.0.0",
     "tailwindcss": "^4.2.2",
-    "tinybase": "^7.3.5",
     "unpic": "^4.2.2",
     "usehooks-ts": "^3.1.1",
     "zod": "^4.3.6"

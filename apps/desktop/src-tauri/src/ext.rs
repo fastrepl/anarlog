@@ -10,7 +10,6 @@ pub trait AppExt<R: tauri::Runtime> {
     fn set_dismissed_toasts(&self, v: Vec<String>) -> Result<(), String>;
 
     fn get_tinybase_values(&self) -> Result<Option<String>, String>;
-    fn set_tinybase_values(&self, v: String) -> Result<(), String>;
 
     fn get_pinned_tabs(&self) -> Result<Option<String>, String>;
     fn set_pinned_tabs(&self, v: String) -> Result<(), String>;
@@ -69,15 +68,6 @@ impl<R: tauri::Runtime, T: tauri::Manager<R>> AppExt<R> for T {
         store
             .get(StoreKey::TinybaseValues)
             .map_err(|e| e.to_string())
-    }
-
-    #[tracing::instrument(skip_all)]
-    fn set_tinybase_values(&self, v: String) -> Result<(), String> {
-        let store = self.desktop_store()?;
-        store
-            .set(StoreKey::TinybaseValues, v)
-            .map_err(|e| e.to_string())?;
-        store.save().map_err(|e| e.to_string())
     }
 
     #[tracing::instrument(skip_all)]

@@ -67,13 +67,6 @@ vi.mock("~/contexts/shell", () => ({
   useShell: () => ({ chat: mocks.chat }),
 }));
 
-vi.mock("~/store/tinybase/store/main", () => ({
-  STORE_ID: "main",
-  UI: {
-    useValues: () => ({ user_id: "user-1" }),
-  },
-}));
-
 import { ChatView } from "./chat-panel";
 
 describe("ChatView", () => {

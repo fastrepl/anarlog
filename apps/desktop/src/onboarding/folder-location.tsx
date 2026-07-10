@@ -9,7 +9,7 @@ import { commands as settingsCommands } from "@hypr/plugin-settings";
 
 import { ObsidianVaultList } from "~/settings/general/storage/obsidian-vault-list";
 import { displayPath } from "~/settings/general/storage/path-utils";
-import { scheduleAutomaticRelaunch } from "~/store/tinybase/store/save";
+import { scheduleAutomaticRelaunch } from "~/shared/relaunch";
 
 export function FolderLocationSection({
   onContinue,

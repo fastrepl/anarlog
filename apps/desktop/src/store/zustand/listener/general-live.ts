@@ -32,7 +32,7 @@ import {
 } from "./general-shared";
 import type { TranscriptActions, TranscriptState } from "./transcript";
 
-import { buildSessionPath } from "~/store/tinybase/persister/shared/paths";
+import { getSessionResourcePath } from "~/session/resource-path";
 import { fromResult } from "~/stt/fromResult";
 
 type EventListeners = {
@@ -289,7 +289,7 @@ export const startLiveSession = <T extends LiveStore>(
       catch: (error) => error,
     });
 
-    const sessionPath = buildSessionPath(dataDirPath, targetSessionId);
+    const sessionPath = getSessionResourcePath(dataDirPath, targetSessionId);
     const app_meeting = micUsingApps?.[0] ?? null;
     const triggerAppIds = getAutoStopTriggerAppIds(micUsingApps, bundleId);
 
@@ -533,7 +533,7 @@ export const stopLiveSession = <T extends GeneralState>(
           getIdentifier().catch(() => "com.hyprnote.stable"),
         ])
           .then(([dataDirPath, bundleId]) => {
-            const sessionPath = buildSessionPath(dataDirPath, sessionId);
+            const sessionPath = getSessionResourcePath(dataDirPath, sessionId);
             return hooksCommands.runEventHooks({
               afterListeningStopped: {
                 args: {
