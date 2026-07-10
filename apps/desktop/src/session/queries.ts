@@ -52,6 +52,10 @@ type SessionSqlRow = {
   raw_body_format: string;
 };
 
+type SessionTranscriptStateSqlRow = {
+  has_transcript: boolean | number;
+};
+
 type EnhancedNoteSqlRow = {
   id: string;
   session_id: string;
@@ -127,6 +131,27 @@ export function useUpdateSession(sessionId: string) {
     (changes: SessionChanges) => updateSession(sessionId, changes),
     [sessionId],
   );
+}
+
+export function useSessionHasTranscript(sessionId: string): boolean {
+  const { data = false } = useLiveQuery<SessionTranscriptStateSqlRow, boolean>({
+    sql: `
+      SELECT EXISTS (
+        SELECT 1
+        FROM transcripts
+        WHERE session_id = ?
+          AND deleted_at IS NULL
+          AND CASE
+            WHEN json_valid(words_json) THEN json_array_length(words_json)
+            ELSE 0
+          END > 0
+      ) AS has_transcript
+    `,
+    params: [sessionId],
+    enabled: Boolean(sessionId),
+    mapRows: (rows) => Boolean(rows[0]?.has_transcript),
+  });
+  return sessionId ? data : false;
 }
 
 export function useEnhancedNoteRecords(

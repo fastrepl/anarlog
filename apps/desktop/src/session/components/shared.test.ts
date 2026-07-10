@@ -5,6 +5,7 @@ import { computeCurrentNoteTab } from "./compute-note-tab";
 import {
   hasStoredNoteContent,
   useCanShowTranscript,
+  useCurrentNoteHasContent,
   useCurrentNoteTab,
 } from "./shared";
 
@@ -15,6 +16,8 @@ const hoisted = vi.hoisted(() => ({
   enhancedNoteIds: ["note-1"] as string[],
   finalizingBySession: {} as Record<string, unknown>,
   hasTranscript: false,
+  rawMd: "",
+  enhancedContent: "",
   liveSegments: [] as unknown[],
   liveSessionId: null as string | null,
   sessionMode: "inactive",
@@ -43,35 +46,11 @@ vi.mock("~/stt/contexts", () => ({
     }),
 }));
 
-vi.mock("~/stt/utils", () => ({
-  parseTranscriptWords: () =>
-    hoisted.hasTranscript ? [{ text: "Hello" }] : [],
-}));
-
-vi.mock("~/store/tinybase/store/main", () => ({
-  INDEXES: {
-    enhancedNotesBySession: "enhancedNotesBySession",
-    transcriptBySession: "transcriptBySession",
-  },
-  STORE_ID: "main",
-  UI: {
-    useCell: () => "",
-    useSliceRowIds: (indexId: string) => {
-      if (indexId === "enhancedNotesBySession") {
-        return hoisted.enhancedNoteIds;
-      }
-
-      if (indexId === "transcriptBySession") {
-        return ["transcript-1"];
-      }
-
-      return [];
-    },
-    useStore: () => ({
-      addRowListener: vi.fn(() => "listener-1"),
-      delListener: vi.fn(),
-    }),
-  },
+vi.mock("~/session/queries", () => ({
+  useEnhancedNote: () => ({ content: hoisted.enhancedContent }),
+  useEnhancedNoteRecords: () => hoisted.enhancedNoteIds.map((id) => ({ id })),
+  useSession: () => ({ raw_md: hoisted.rawMd }),
+  useSessionHasTranscript: () => hoisted.hasTranscript,
 }));
 
 describe("useCurrentNoteTab", () => {
@@ -86,6 +65,8 @@ describe("useCurrentNoteTab", () => {
     hoisted.enhancedNoteIds = ["note-1"];
     hoisted.finalizingBySession = {};
     hoisted.hasTranscript = false;
+    hoisted.rawMd = "";
+    hoisted.enhancedContent = "";
     hoisted.liveSegments = [];
     hoisted.liveSessionId = null;
     hoisted.sessionMode = "inactive";
@@ -123,6 +104,47 @@ describe("useCurrentNoteTab", () => {
     );
 
     expect(result.current).toEqual({ type: "transcript" });
+  });
+});
+
+describe("useCurrentNoteHasContent", () => {
+  beforeEach(() => {
+    hoisted.hasTranscript = false;
+    hoisted.rawMd = "";
+    hoisted.enhancedContent = "";
+  });
+
+  it("reads raw note content from SQLite", () => {
+    hoisted.rawMd = "Meeting notes";
+
+    const { result } = renderHook(() =>
+      useCurrentNoteHasContent("session-1", { type: "raw" }),
+    );
+
+    expect(result.current).toBe(true);
+  });
+
+  it("reads enhanced note content from SQLite", () => {
+    hoisted.enhancedContent = "Summary";
+
+    const { result } = renderHook(() =>
+      useCurrentNoteHasContent("session-1", {
+        type: "enhanced",
+        id: "note-1",
+      }),
+    );
+
+    expect(result.current).toBe(true);
+  });
+
+  it("reads transcript presence from SQLite", () => {
+    hoisted.hasTranscript = true;
+
+    const { result } = renderHook(() =>
+      useCurrentNoteHasContent("session-1", { type: "transcript" }),
+    );
+
+    expect(result.current).toBe(true);
   });
 });
 
@@ -201,14 +223,14 @@ describe("computeCurrentNoteTab", () => {
       const result = computeCurrentNoteTab(
         { type: "enhanced", id: "note-1" },
         true,
-        "note-1",
+        ["note-1"],
         false,
       );
       expect(result).toEqual({ type: "enhanced", id: "note-1" });
     });
 
     it("preserves raw view", () => {
-      const result = computeCurrentNoteTab({ type: "raw" }, true, "note-1");
+      const result = computeCurrentNoteTab({ type: "raw" }, true, ["note-1"]);
       expect(result).toEqual({ type: "raw" });
     });
 
@@ -216,7 +238,7 @@ describe("computeCurrentNoteTab", () => {
       const result = computeCurrentNoteTab(
         { type: "transcript" },
         true,
-        "note-1",
+        ["note-1"],
         true,
       );
       expect(result).toEqual({ type: "transcript" });
@@ -226,14 +248,14 @@ describe("computeCurrentNoteTab", () => {
       const result = computeCurrentNoteTab(
         { type: "transcript" },
         true,
-        "note-1",
+        ["note-1"],
         false,
       );
       expect(result).toEqual({ type: "raw" });
     });
 
     it("returns raw view when no persisted view", () => {
-      const result = computeCurrentNoteTab(null, true, "note-1");
+      const result = computeCurrentNoteTab(null, true, ["note-1"]);
       expect(result).toEqual({ type: "raw" });
     });
   });
@@ -243,14 +265,14 @@ describe("computeCurrentNoteTab", () => {
       const result = computeCurrentNoteTab(
         { type: "enhanced", id: "note-1" },
         false,
-        "note-1",
+        ["note-1"],
         false,
       );
       expect(result).toEqual({ type: "enhanced", id: "note-1" });
     });
 
     it("respects persisted raw view", () => {
-      const result = computeCurrentNoteTab({ type: "raw" }, false, "note-1");
+      const result = computeCurrentNoteTab({ type: "raw" }, false, ["note-1"]);
       expect(result).toEqual({ type: "raw" });
     });
 
@@ -258,7 +280,7 @@ describe("computeCurrentNoteTab", () => {
       const result = computeCurrentNoteTab(
         { type: "transcript" },
         false,
-        "note-1",
+        ["note-1"],
         true,
       );
       expect(result).toEqual({ type: "transcript" });
@@ -268,7 +290,7 @@ describe("computeCurrentNoteTab", () => {
       const result = computeCurrentNoteTab(
         { type: "transcript" },
         false,
-        "note-1",
+        ["note-1"],
         false,
       );
       expect(result).toEqual({ type: "raw" });
@@ -278,7 +300,7 @@ describe("computeCurrentNoteTab", () => {
       const result = computeCurrentNoteTab(
         { type: "attachments" },
         false,
-        "note-1",
+        ["note-1"],
         false,
       );
       expect(result).toEqual({ type: "raw" });
@@ -288,20 +310,30 @@ describe("computeCurrentNoteTab", () => {
       const result = computeCurrentNoteTab(
         { type: "enhanced", id: "note-1" },
         false,
-        undefined,
+        [],
         false,
       );
       expect(result).toEqual({ type: "raw" });
     });
 
     it("defaults to enhanced view when available and no persisted view", () => {
-      const result = computeCurrentNoteTab(null, false, "note-1");
+      const result = computeCurrentNoteTab(null, false, ["note-1"]);
       expect(result).toEqual({ type: "enhanced", id: "note-1" });
     });
 
     it("defaults to raw when no enhanced notes and no persisted view", () => {
-      const result = computeCurrentNoteTab(null, false, undefined);
+      const result = computeCurrentNoteTab(null, false, []);
       expect(result).toEqual({ type: "raw" });
+    });
+
+    it("falls back to the migrated summary when the persisted summary id is stale", () => {
+      const result = computeCurrentNoteTab(
+        { type: "enhanced", id: "legacy-summary" },
+        false,
+        ["sqlite-summary"],
+      );
+
+      expect(result).toEqual({ type: "enhanced", id: "sqlite-summary" });
     });
   });
 });

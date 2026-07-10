@@ -5,38 +5,21 @@ import { Button } from "@hypr/ui/components/ui/button";
 import { computeCurrentNoteTab } from "./compute-note-tab";
 
 import { extractPlainText } from "~/search/contexts/engine/utils";
-import { useMainStoreRowsRevision } from "~/store/tinybase/hooks";
-import * as main from "~/store/tinybase/store/main";
+import {
+  useEnhancedNote,
+  useEnhancedNoteRecords,
+  useSession,
+  useSessionHasTranscript,
+} from "~/session/queries";
 import type { SessionMode } from "~/store/zustand/listener/general";
 import type { Tab } from "~/store/zustand/tabs/schema";
 import { type EditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
-import { parseTranscriptWords } from "~/stt/utils";
 
 export { computeCurrentNoteTab } from "./compute-note-tab";
 
 export function useHasTranscript(sessionId: string): boolean {
-  const transcriptIds =
-    main.UI.useSliceRowIds(
-      main.INDEXES.transcriptBySession,
-      sessionId,
-      main.STORE_ID,
-    ) ?? [];
-  const transcriptRowsRevision = useMainStoreRowsRevision(
-    "transcripts",
-    transcriptIds,
-  );
-  const store = main.UI.useStore(main.STORE_ID);
-
-  return useMemo(() => {
-    if (!store) {
-      return false;
-    }
-
-    return transcriptIds.some(
-      (transcriptId) => parseTranscriptWords(store, transcriptId).length > 0,
-    );
-  }, [store, transcriptIds, transcriptRowsRevision]);
+  return useSessionHasTranscript(sessionId);
 }
 
 export function hasStoredNoteContent(value: unknown): boolean {
@@ -48,14 +31,9 @@ export function useCurrentNoteHasContent(
   currentView: EditorView,
 ): boolean {
   const hasTranscript = useHasTranscript(sessionId);
-  const rawMd = main.UI.useCell("sessions", sessionId, "raw_md", main.STORE_ID);
+  const rawMd = useSession(sessionId)?.raw_md;
   const enhancedNoteId = currentView.type === "enhanced" ? currentView.id : "";
-  const enhancedContent = main.UI.useCell(
-    "enhanced_notes",
-    enhancedNoteId,
-    "content",
-    main.STORE_ID,
-  );
+  const enhancedContent = useEnhancedNote(enhancedNoteId)?.content;
 
   if (currentView.type === "enhanced") {
     return hasStoredNoteContent(enhancedContent);
@@ -76,26 +54,16 @@ export function useCurrentNoteTab(
   const isLiveSessionActive = sessionMode === "active";
   const canShowTranscript = useCanShowTranscript(tab.id, { audioExists });
 
-  const enhancedNoteIds = main.UI.useSliceRowIds(
-    main.INDEXES.enhancedNotesBySession,
-    tab.id,
-    main.STORE_ID,
-  );
-  const firstEnhancedNoteId = enhancedNoteIds?.[0];
+  const enhancedNoteIds = useEnhancedNoteRecords(tab.id).map((note) => note.id);
 
   return useMemo(() => {
     return computeCurrentNoteTab(
       tab.state.view ?? null,
       isLiveSessionActive,
-      firstEnhancedNoteId,
+      enhancedNoteIds,
       canShowTranscript,
     );
-  }, [
-    tab.state.view,
-    isLiveSessionActive,
-    firstEnhancedNoteId,
-    canShowTranscript,
-  ]);
+  }, [tab.state.view, isLiveSessionActive, enhancedNoteIds, canShowTranscript]);
 }
 
 export function useCanShowTranscript(

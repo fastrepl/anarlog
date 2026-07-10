@@ -3,9 +3,12 @@ import type { EditorView } from "~/store/zustand/tabs/schema";
 export function computeCurrentNoteTab(
   tabView: EditorView | null,
   isLiveSessionActive: boolean,
-  firstEnhancedNoteId: string | undefined,
+  enhancedNoteIds: readonly string[],
   canShowTranscript = false,
 ): EditorView {
+  const firstEnhancedNoteId = enhancedNoteIds[0];
+  const hasEnhancedNote = (id: string) => enhancedNoteIds.includes(id);
+
   if (isLiveSessionActive) {
     if (tabView?.type === "raw") {
       return tabView;
@@ -13,7 +16,7 @@ export function computeCurrentNoteTab(
     if (tabView?.type === "transcript" && canShowTranscript) {
       return tabView;
     }
-    if (tabView?.type === "enhanced" && firstEnhancedNoteId) {
+    if (tabView?.type === "enhanced" && hasEnhancedNote(tabView.id)) {
       return tabView;
     }
     return { type: "raw" };
@@ -23,8 +26,12 @@ export function computeCurrentNoteTab(
     if (tabView.type === "raw") {
       return tabView;
     }
-    if (tabView.type === "enhanced" && firstEnhancedNoteId) {
-      return tabView;
+    if (tabView.type === "enhanced") {
+      return hasEnhancedNote(tabView.id)
+        ? tabView
+        : firstEnhancedNoteId
+          ? { type: "enhanced", id: firstEnhancedNoteId }
+          : { type: "raw" };
     }
     if (tabView.type === "transcript" && canShowTranscript) {
       return tabView;
