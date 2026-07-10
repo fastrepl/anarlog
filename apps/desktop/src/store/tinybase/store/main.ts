@@ -1,3 +1,4 @@
+import { createElement } from "react";
 import { createBroadcastChannelSynchronizer } from "tinybase/synchronizers/synchronizer-broadcast-channel/with-schemas";
 import * as _UI from "tinybase/ui-react/with-schemas";
 import {
@@ -14,6 +15,7 @@ import { SCHEMA, type Schemas } from "@hypr/store";
 import { format } from "@hypr/utils";
 
 import { useMainPersisters } from "./persisters";
+import { SqliteSessionShadow } from "./sqlite-session-shadow";
 
 import { getSessionEvent } from "~/session/utils";
 
@@ -51,7 +53,7 @@ export const StoreComponent = () => {
       .setValuesSchema(SCHEMA.value),
   );
 
-  useMainPersisters(store as Store);
+  const { sessionPersister } = useMainPersisters(store as Store);
 
   const synchronizer = useCreateSynchronizer(store, async (store) =>
     createBroadcastChannelSynchronizer(
@@ -311,7 +313,10 @@ export const StoreComponent = () => {
   useProvideSynchronizer(STORE_ID, synchronizer);
   useProvideCheckpoints(STORE_ID, checkpoints!);
 
-  return null;
+  return createElement(SqliteSessionShadow, {
+    enabled: Boolean(sessionPersister),
+    store: store as Store,
+  });
 };
 
 export const rowIdOfChange = (table: string, row: string) => `${table}:${row}`;

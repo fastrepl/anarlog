@@ -5,6 +5,8 @@ import type {
   SubscriptionRegistration,
 } from "./bindings.gen";
 
+export type { LegacyImportReport } from "./bindings.gen";
+
 export type QueryEvent<T = Record<string, unknown>> =
   | { event: "result"; data: T[] }
   | { event: "error"; data: string };

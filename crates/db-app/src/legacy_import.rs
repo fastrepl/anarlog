@@ -300,6 +300,7 @@ pub async fn begin_legacy_import_run(
     source_root: &str,
     dry_run: bool,
 ) -> Result<(), sqlx::Error> {
+    let mut transaction = pool.begin().await?;
     sqlx::query(
         "INSERT INTO migration_import_runs \
          (id, importer_version, source_root, dry_run, status) \
@@ -309,8 +310,25 @@ pub async fn begin_legacy_import_run(
     .bind(LEGACY_IMPORTER_VERSION)
     .bind(source_root)
     .bind(dry_run)
-    .execute(pool)
+    .execute(&mut *transaction)
     .await?;
+
+    if !dry_run {
+        sqlx::query(
+            "UPDATE storage_migration_state
+             SET phase = 'shadow',
+                 latest_run_id = ?,
+                 parity_verified = 0,
+                 last_error = '',
+                 updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+             WHERE id = 'legacy_v1'",
+        )
+        .bind(run_id)
+        .execute(&mut *transaction)
+        .await?;
+    }
+
+    transaction.commit().await?;
 
     Ok(())
 }
@@ -548,6 +566,7 @@ pub async fn finish_legacy_import_run(
         "UPDATE storage_migration_state
          SET latest_run_id = ?,
              importer_version = ?,
+             parity_verified = CASE WHEN ? = 'completed' THEN 1 ELSE 0 END,
              last_error = CASE WHEN ? = 'completed' THEN '' ELSE ? END,
              updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
          WHERE id = 'legacy_v1'
@@ -557,6 +576,7 @@ pub async fn finish_legacy_import_run(
     )
     .bind(run_id)
     .bind(LEGACY_IMPORTER_VERSION)
+    .bind(status)
     .bind(status)
     .bind(status)
     .bind(run_id)
@@ -1512,6 +1532,41 @@ mod tests {
                 .await
                 .unwrap()
         );
+    }
+
+    #[tokio::test]
+    async fn successful_run_marks_import_parity_verified() {
+        let db = test_db().await;
+        begin_legacy_import_run(db.pool(), "run-1", "/vault", false)
+            .await
+            .unwrap();
+        apply_legacy_import_item(
+            db.pool(),
+            LegacyImportItem {
+                id: "item-1",
+                run_id: "run-1",
+                source_path: "sessions/session-1/_meta.json",
+                source_kind: "session_meta",
+                source_sha256: "hash-1",
+            },
+            &session_batch(),
+            false,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(
+            finish_legacy_import_run(db.pool(), "run-1").await.unwrap(),
+            "completed"
+        );
+
+        let parity_verified: bool = sqlx::query_scalar(
+            "SELECT parity_verified FROM storage_migration_state WHERE id = 'legacy_v1'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert!(parity_verified);
     }
 
     #[tokio::test]
