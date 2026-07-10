@@ -1,14 +1,35 @@
-import type { ChatMessageStatus, ChatMessageStorage } from "@hypr/store";
+import type { ChatMessageStatus } from "@hypr/store";
 
 import { hasRenderableContent } from "~/chat/message-content";
 import type { HyprUIMessage } from "~/chat/types";
-import * as main from "~/store/tinybase/store/main";
 
-type ChatStore = NonNullable<ReturnType<typeof main.UI.useStore>>;
+export type ChatMessageRecord = {
+  id: string;
+  ownerUserId: string;
+  createdAt: string;
+  chatGroupId: string;
+  role: string;
+  content: string;
+  metadataJson: string;
+  partsJson: string;
+  status: ChatMessageStatus;
+};
+
+export type ChatMessageSqlRow = {
+  id: string;
+  owner_user_id: string;
+  created_at: string;
+  chat_group_id: string;
+  role: string;
+  content: string;
+  metadata_json: string;
+  parts_json: string;
+  status: string;
+};
 
 export type PersistedChatMessage = {
   id: string;
-  row: ChatMessageStorage;
+  record: ChatMessageRecord;
   status: ChatMessageStatus;
   message: HyprUIMessage;
 };
@@ -49,10 +70,10 @@ function extractTextContent(parts: HyprUIMessage["parts"]) {
 
 function getCreatedAt(
   message: HyprUIMessage,
-  existingRow?: Partial<ChatMessageStorage>,
+  existingRecord?: Partial<ChatMessageRecord>,
 ) {
-  if (existingRow?.created_at) {
-    return existingRow.created_at;
+  if (existingRecord?.createdAt) {
+    return existingRecord.createdAt;
   }
 
   const createdAt = message.metadata?.createdAt;
@@ -63,87 +84,68 @@ function getCreatedAt(
   return new Date().toISOString();
 }
 
-export function buildPersistedChatMessageRow({
+export function buildPersistedChatMessage({
   message,
   chatGroupId,
-  userId,
+  ownerUserId,
   status,
-  existingRow,
+  content,
+  existingRecord,
 }: {
   message: HyprUIMessage;
   chatGroupId: string;
-  userId: string;
+  ownerUserId: string;
   status: ChatMessageStatus;
-  existingRow?: Partial<ChatMessageStorage>;
-}): ChatMessageStorage {
+  content?: string;
+  existingRecord?: Partial<ChatMessageRecord>;
+}): ChatMessageRecord {
   return {
-    user_id: userId,
-    created_at: getCreatedAt(message, existingRow),
-    chat_group_id: chatGroupId,
+    id: message.id,
+    ownerUserId,
+    createdAt: getCreatedAt(message, existingRecord),
+    chatGroupId,
     role: message.role,
-    content: extractTextContent(message.parts),
-    metadata: JSON.stringify(message.metadata ?? {}),
-    parts: JSON.stringify(message.parts),
+    content: content ?? extractTextContent(message.parts),
+    metadataJson: JSON.stringify(message.metadata ?? {}),
+    partsJson: JSON.stringify(message.parts),
     status,
   };
 }
 
 export function rowToPersistedChatMessage(
-  id: string,
-  row: Record<string, unknown>,
+  row: ChatMessageSqlRow,
 ): PersistedChatMessage {
   const status = normalizeChatMessageStatus(row.status);
   const message: HyprUIMessage = {
-    id,
+    id: row.id,
     role: row.role as "user" | "assistant",
-    parts: parseJson(row.parts as string | undefined, []),
-    metadata: parseJson(row.metadata as string | undefined, {}),
+    parts: parseJson(row.parts_json, []),
+    metadata: parseJson(row.metadata_json, {}),
   };
 
   return {
-    id,
+    id: row.id,
     status,
     message,
-    row: {
-      user_id: String(row.user_id ?? ""),
-      created_at: String(row.created_at ?? ""),
-      chat_group_id: String(row.chat_group_id ?? ""),
-      role: String(row.role ?? ""),
-      content: String(row.content ?? ""),
-      metadata: String(row.metadata ?? "{}"),
-      parts: String(row.parts ?? "[]"),
+    record: {
+      id: row.id,
+      ownerUserId: row.owner_user_id,
+      createdAt: row.created_at,
+      chatGroupId: row.chat_group_id,
+      role: row.role,
+      content: row.content,
+      metadataJson: row.metadata_json || "{}",
+      partsJson: row.parts_json || "[]",
       status,
     },
   };
-}
-
-export function getPersistedChatMessages(
-  store: ChatStore,
-  chatGroupId: string,
-): PersistedChatMessage[] {
-  const messages: PersistedChatMessage[] = [];
-
-  store.forEachRow("chat_messages", (messageId, _forEachCell) => {
-    const row = store.getRow("chat_messages", messageId);
-    if (!row || row.chat_group_id !== chatGroupId) {
-      return;
-    }
-
-    messages.push(rowToPersistedChatMessage(messageId as string, row));
-  });
-
-  return messages.sort(
-    (a, b) =>
-      new Date(a.row.created_at || 0).getTime() -
-      new Date(b.row.created_at || 0).getTime(),
-  );
 }
 
 export function shouldHidePersistedMessage(message: PersistedChatMessage) {
   return (
     message.message.role === "assistant" &&
     !hasRenderableContent(message.message) &&
-    !(message.row.content ?? "").trim()
+    !message.record.content.trim()
   );
 }
 
@@ -152,10 +154,9 @@ export function shouldPersistFinishedMessage(message: HyprUIMessage): boolean {
 }
 
 export function getVisibleChatMessages(
-  store: ChatStore,
-  chatGroupId: string,
+  messages: PersistedChatMessage[],
 ): HyprUIMessage[] {
-  return getPersistedChatMessages(store, chatGroupId)
+  return messages
     .filter((message) => !shouldHidePersistedMessage(message))
     .map((message) => message.message);
 }

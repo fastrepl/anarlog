@@ -13,7 +13,6 @@ import {
   type LegacyPersister,
 } from "./legacy-persistence";
 import type { Store } from "./main";
-import { SqliteChatShadow } from "./sqlite-chat-shadow";
 import { SqliteContactsShadow } from "./sqlite-contacts-shadow";
 import { SqliteDocumentShadow } from "./sqlite-document-shadow";
 import { SqliteProductivityShadow } from "./sqlite-productivity-shadow";
@@ -126,7 +125,6 @@ function MountedSqliteSessionShadow({ store }: { store: Store }) {
       <SqliteDocumentShadow store={store} />
       <SqliteSessionRelationsShadow store={store} />
       <SqliteContactsShadow store={store} />
-      <SqliteChatShadow store={store} />
       <SqliteProductivityShadow store={store} />
     </>
   );

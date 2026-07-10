@@ -57,13 +57,8 @@ vi.mock("@hypr/ui/components/ui/dropdown-menu", () => ({
   ),
 }));
 
-vi.mock("~/store/tinybase/store/main", () => ({
-  STORE_ID: "main",
-  UI: {
-    useCell: () => undefined,
-    useRow: () => undefined,
-    useSortedRowIds: () => [],
-  },
+vi.mock("~/chat/store/queries", () => ({
+  useRecentChatGroups: () => [],
 }));
 
 import { ChatToolbarControls } from "./toolbar-controls";

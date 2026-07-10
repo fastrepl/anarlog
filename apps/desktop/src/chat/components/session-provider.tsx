@@ -15,11 +15,17 @@ import {
   useChatContextPipeline,
 } from "~/chat/context/use-chat-context-pipeline";
 import {
-  buildPersistedChatMessageRow,
-  getPersistedChatMessages,
+  buildPersistedChatMessage,
   getVisibleChatMessages,
   shouldPersistFinishedMessage,
 } from "~/chat/store/persisted-messages";
+import {
+  deleteChatMessage,
+  deleteChatMessagesExcept,
+  getChatMessageGroupId,
+  upsertChatMessage,
+  usePersistedChatMessages,
+} from "~/chat/store/queries";
 import { stripEphemeralToolContext } from "~/chat/tools/strip-ephemeral-tool-context";
 import { useTransport } from "~/chat/transport/use-transport";
 import type { HyprUIMessage } from "~/chat/types";
@@ -86,18 +92,17 @@ export function ChatSession({
   children,
 }: ChatSessionProps) {
   const store = main.UI.useStore(main.STORE_ID);
-  const chatMessagesTable = main.UI.useTable("chat_messages", main.STORE_ID);
   const { user_id } = main.UI.useValues(main.STORE_ID);
+  const persistedMessages = usePersistedChatMessages(chatGroupId);
 
   const [pendingManualRefs, setPendingManualRefs] = useState<ContextRef[]>([]);
   const [pendingDraftRefs, setPendingDraftRefs] = useState<ContextRef[]>([]);
   const latestChatGroupIdRef = useRef(chatGroupId);
-  const latestStoreRef = useRef(store);
   const latestUserIdRef = useRef(user_id);
+  const initialMessagesRef = useRef<HyprUIMessage[]>([]);
   const submittedChatGroupIdsRef = useRef(new Map<string, string>());
 
   latestChatGroupIdRef.current = chatGroupId;
-  latestStoreRef.current = store;
   latestUserIdRef.current = user_id;
 
   const onAddContextEntity = useCallback((ref: ContextRef) => {
@@ -128,22 +133,18 @@ export function ChatSession({
   );
 
   const persistedVisibleMessages = useMemo(
-    () =>
-      store && chatGroupId ? getVisibleChatMessages(store, chatGroupId) : [],
-    [store, chatGroupId, chatMessagesTable],
+    () => getVisibleChatMessages(persistedMessages),
+    [persistedMessages],
   );
+  initialMessagesRef.current = persistedVisibleMessages;
 
   const chat = useMemo(
     () =>
       new Chat<HyprUIMessage>({
         id: sessionId,
-        messages:
-          store && chatGroupId
-            ? getVisibleChatMessages(store, chatGroupId)
-            : [],
+        messages: initialMessagesRef.current,
         transport: transport ?? unavailableChatTransport,
         onFinish: ({ message, messages, isAbort }) => {
-          const currentStore = latestStoreRef.current;
           const currentUserId = latestUserIdRef.current;
           const messageIndex = messages.findIndex((m) => m.id === message.id);
           const lastMessageIndex =
@@ -162,53 +163,56 @@ export function ChatSession({
             submittedChatGroupIdsRef.current.delete(submittedUserMessage.id);
           }
 
-          const persistedChatGroupId =
-            submittedUserMessage && currentStore
-              ? currentStore.getRow("chat_messages", submittedUserMessage.id)
-                  ?.chat_group_id
-              : undefined;
-          const targetChatGroupId =
-            (typeof persistedChatGroupId === "string" && persistedChatGroupId
-              ? persistedChatGroupId
-              : undefined) ??
-            submittedChatGroupId ??
-            latestChatGroupIdRef.current;
-
-          if (
-            isAbort ||
-            !targetChatGroupId ||
-            !currentStore ||
-            !currentUserId
-          ) {
+          if (isAbort || !currentUserId) {
             return;
           }
 
-          const sanitizedParts = stripEphemeralToolContext(message.parts);
-          const sanitizedMessage =
-            sanitizedParts === message.parts
-              ? message
-              : { ...message, parts: sanitizedParts };
-          if (!shouldPersistFinishedMessage(sanitizedMessage)) {
-            currentStore.delRow("chat_messages", sanitizedMessage.id);
-            return;
-          }
-          currentStore.setRow(
-            "chat_messages",
-            sanitizedMessage.id,
-            buildPersistedChatMessageRow({
-              message: sanitizedMessage,
-              chatGroupId: targetChatGroupId,
-              userId: currentUserId,
-              status: "ready",
-              existingRow: currentStore.getRow(
-                "chat_messages",
-                sanitizedMessage.id,
-              ),
-            }),
-          );
+          void (async () => {
+            let persistedChatGroupId: string | null = null;
+            if (!submittedChatGroupId && submittedUserMessage) {
+              try {
+                persistedChatGroupId = await getChatMessageGroupId(
+                  submittedUserMessage.id,
+                );
+              } catch (error) {
+                console.error(
+                  "Failed to resolve the persisted chat message group",
+                  error,
+                );
+              }
+            }
+            const targetChatGroupId =
+              submittedChatGroupId ??
+              persistedChatGroupId ??
+              latestChatGroupIdRef.current;
+            if (!targetChatGroupId) {
+              return;
+            }
+
+            const sanitizedParts = stripEphemeralToolContext(message.parts);
+            const sanitizedMessage =
+              sanitizedParts === message.parts
+                ? message
+                : { ...message, parts: sanitizedParts };
+            if (!shouldPersistFinishedMessage(sanitizedMessage)) {
+              await deleteChatMessage(targetChatGroupId, sanitizedMessage.id);
+              return;
+            }
+
+            await upsertChatMessage(
+              buildPersistedChatMessage({
+                message: sanitizedMessage,
+                chatGroupId: targetChatGroupId,
+                ownerUserId: currentUserId,
+                status: "ready",
+              }),
+            );
+          })().catch((error) => {
+            console.error("Failed to persist finished chat message", error);
+          });
         },
       }),
-    [sessionId, store, transport],
+    [sessionId, transport],
   );
 
   const {
@@ -254,31 +258,35 @@ export function ChatSession({
   );
 
   const regenerate = useCallback(() => {
-    if (!store || !chatGroupId) return;
+    if (!chatGroupId) return;
     for (let i = messages.length - 1; i >= 0; i--) {
       if (messages[i].role !== "assistant") {
         continue;
       }
 
-      store.delRow("chat_messages", messages[i].id);
-      break;
+      void deleteChatMessage(chatGroupId, messages[i].id)
+        .then(() => chatRegenerate())
+        .catch((error) => {
+          console.error("Failed to remove regenerated chat message", error);
+        });
+      return;
     }
     void chatRegenerate();
-  }, [store, chatGroupId, messages, chatRegenerate]);
+  }, [chatGroupId, messages, chatRegenerate]);
 
   const setMessages = useCallback(
     (next: HyprUIMessage[] | ((prev: HyprUIMessage[]) => HyprUIMessage[])) => {
       chatSetMessages(next);
-      if (!store || !chatGroupId) return;
+      if (!chatGroupId) return;
       const resolved = typeof next === "function" ? next(messages) : next;
-      const nextIds = new Set(resolved.map((m) => m.id));
-      store.transaction(() => {
-        getPersistedChatMessages(store, chatGroupId).forEach(({ id }) => {
-          if (!nextIds.has(id)) store.delRow("chat_messages", id);
-        });
+      void deleteChatMessagesExcept(
+        chatGroupId,
+        resolved.map((message) => message.id),
+      ).catch((error) => {
+        console.error("Failed to reconcile persisted chat messages", error);
       });
     },
-    [chatGroupId, messages, chatSetMessages, store],
+    [chatGroupId, messages, chatSetMessages],
   );
 
   const prevUserMsgCountRef = useRef(0);

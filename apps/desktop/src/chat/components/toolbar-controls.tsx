@@ -19,7 +19,10 @@ import {
 } from "@hypr/ui/components/ui/dropdown-menu";
 import { cn, formatDistanceToNow } from "@hypr/utils";
 
-import * as main from "~/store/tinybase/store/main";
+import {
+  type ChatGroupRecord,
+  useRecentChatGroups,
+} from "~/chat/store/queries";
 
 export function ChatToolbarControls({
   currentChatGroupId,
@@ -152,14 +155,7 @@ function ChatGroups({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const isDark = surface === "dark";
 
-  const recentChatGroupIds = main.UI.useSortedRowIds(
-    "chat_groups",
-    "created_at",
-    true,
-    0,
-    5,
-    main.STORE_ID,
-  );
+  const recentChatGroups = useRecentChatGroups(5);
 
   return (
     <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
@@ -204,13 +200,13 @@ function ChatGroups({
               Recent Chats
             </h4>
           </div>
-          {recentChatGroupIds.length > 0 ? (
+          {recentChatGroups.length > 0 ? (
             <div className="flex flex-col gap-0.5">
-              {recentChatGroupIds.map((groupId) => (
+              {recentChatGroups.map((chatGroup) => (
                 <ChatGroupItem
-                  key={groupId}
-                  groupId={groupId}
-                  isActive={groupId === currentChatGroupId}
+                  key={chatGroup.id}
+                  chatGroup={chatGroup}
+                  isActive={chatGroup.id === currentChatGroupId}
                   onSelect={(id) => {
                     onSelectChat(id);
                     setIsDropdownOpen(false);
@@ -233,22 +229,16 @@ function ChatGroups({
 }
 
 function ChatGroupItem({
-  groupId,
+  chatGroup,
   isActive,
   onSelect,
 }: {
-  groupId: string;
+  chatGroup: ChatGroupRecord;
   isActive: boolean;
   onSelect: (groupId: string) => void;
 }) {
-  const chatGroup = main.UI.useRow("chat_groups", groupId, main.STORE_ID);
-
-  if (!chatGroup) {
-    return null;
-  }
-
-  const formattedTime = chatGroup.created_at
-    ? formatDistanceToNow(new Date(chatGroup.created_at), {
+  const formattedTime = chatGroup.createdAt
+    ? formatDistanceToNow(new Date(chatGroup.createdAt), {
         addSuffix: true,
       })
     : "";
@@ -256,7 +246,7 @@ function ChatGroupItem({
   return (
     <Button
       variant="ghost"
-      onClick={() => onSelect(groupId)}
+      onClick={() => onSelect(chatGroup.id)}
       className={cn([
         "group h-auto w-full justify-start px-2.5 py-1.5",
         isActive

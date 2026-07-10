@@ -7,17 +7,23 @@ import {
 } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { PersistedChatMessage } from "~/chat/store/persisted-messages";
+
 const mocks = vi.hoisted(() => ({
   chatRegenerate: vi.fn(),
   chatSendMessage: vi.fn(),
   chatSetMessages: vi.fn(),
   chatStop: vi.fn(),
   chatInits: [] as unknown[],
-  chatMessagesTable: {} as Record<string, unknown>,
+  deleteChatMessage: vi.fn().mockResolvedValue(undefined),
+  deleteChatMessagesExcept: vi.fn().mockResolvedValue(undefined),
+  getChatMessageGroupId: vi.fn().mockResolvedValue(null),
   messages: [] as unknown[],
+  persistedMessages: [] as PersistedChatMessage[],
   status: "ready",
-  store: null as unknown,
+  store: {} as unknown,
   transport: {} as unknown,
+  upsertChatMessage: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@ai-sdk/react", () => ({
@@ -47,6 +53,14 @@ vi.mock("~/chat/context/use-chat-context-pipeline", () => ({
   }),
 }));
 
+vi.mock("~/chat/store/queries", () => ({
+  deleteChatMessage: mocks.deleteChatMessage,
+  deleteChatMessagesExcept: mocks.deleteChatMessagesExcept,
+  getChatMessageGroupId: mocks.getChatMessageGroupId,
+  upsertChatMessage: mocks.upsertChatMessage,
+  usePersistedChatMessages: () => mocks.persistedMessages,
+}));
+
 vi.mock("~/chat/transport/use-transport", () => ({
   useTransport: () => ({
     transport: mocks.transport,
@@ -58,62 +72,29 @@ vi.mock("~/store/tinybase/store/main", () => ({
   STORE_ID: "main",
   UI: {
     useStore: () => mocks.store,
-    useTable: () => mocks.chatMessagesTable,
     useValues: () => ({ user_id: "user-1" }),
   },
 }));
 
 import { ChatSession, type ChatSessionRenderProps } from "./session-provider";
 
-import { buildPersistedChatMessageRow } from "~/chat/store/persisted-messages";
+import {
+  buildPersistedChatMessage,
+  type ChatMessageRecord,
+} from "~/chat/store/persisted-messages";
 import type { HyprUIMessage } from "~/chat/types";
 
-type FakeStore = ReturnType<typeof createStore>;
-
-function createStore(rows: Record<string, Record<string, unknown>>) {
-  const table = new Map(Object.entries(rows));
-
-  return {
-    delRow: vi.fn((tableName: string, rowId: string) => {
-      if (tableName === "chat_messages") {
-        table.delete(rowId);
-      }
-    }),
-    forEachRow: vi.fn(
-      (
-        tableName: string,
-        callback: (rowId: string, forEachCell: () => void) => void,
-      ) => {
-        if (tableName !== "chat_messages") {
-          return;
-        }
-        table.forEach((_row, rowId) => callback(rowId, () => {}));
-      },
-    ),
-    getRow: vi.fn((tableName: string, rowId: string) => {
-      if (tableName !== "chat_messages") {
-        return undefined;
-      }
-      return table.get(rowId);
-    }),
-    setRow: vi.fn(
-      (tableName: string, rowId: string, row: Record<string, unknown>) => {
-        if (tableName === "chat_messages") {
-          table.set(rowId, row);
-        }
-      },
-    ),
-    transaction: vi.fn((callback: () => void) => callback()),
-  };
-}
-
-function persistedAssistantRow(message: HyprUIMessage) {
-  return buildPersistedChatMessageRow({
+function persistedMessage(
+  message: HyprUIMessage,
+  chatGroupId = "group-1",
+): PersistedChatMessage {
+  const record: ChatMessageRecord = buildPersistedChatMessage({
     message,
-    chatGroupId: "group-1",
-    userId: "user-1",
+    chatGroupId,
+    ownerUserId: "user-1",
     status: "ready",
-  }) as unknown as Record<string, unknown>;
+  });
+  return { id: message.id, message, record, status: "ready" };
 }
 
 function renderSession() {
@@ -131,111 +112,55 @@ function renderSession() {
 describe("ChatSession", () => {
   beforeEach(() => {
     cleanup();
-    mocks.chatRegenerate.mockClear();
-    mocks.chatSendMessage.mockClear();
-    mocks.chatSetMessages.mockClear();
-    mocks.chatStop.mockClear();
+    vi.clearAllMocks();
     mocks.chatInits = [];
-    mocks.chatMessagesTable = {};
     mocks.messages = [];
+    mocks.persistedMessages = [];
     mocks.status = "ready";
-    mocks.store = createStore({});
+    mocks.store = {};
     mocks.transport = {};
+    mocks.deleteChatMessage.mockResolvedValue(undefined);
+    mocks.deleteChatMessagesExcept.mockResolvedValue(undefined);
+    mocks.getChatMessageGroupId.mockResolvedValue(null);
+    mocks.upsertChatMessage.mockResolvedValue(undefined);
   });
 
-  it("does not delete the previous persisted assistant when retrying an unpersisted empty assistant", () => {
+  it("does not delete the previous assistant when retrying an unpersisted empty assistant", async () => {
     const previousAssistant: HyprUIMessage = {
       id: "assistant-previous",
       role: "assistant",
       parts: [{ type: "text", text: "Previous answer" }],
-      metadata: { createdAt: Date.parse("2024-01-01T00:00:01Z") },
     };
-    const store = createStore({
-      "assistant-previous": persistedAssistantRow(previousAssistant),
-    });
-    mocks.store = store;
+    mocks.persistedMessages = [persistedMessage(previousAssistant)];
     mocks.messages = [
-      {
-        id: "user-1",
-        role: "user",
-        parts: [{ type: "text", text: "First question" }],
-      },
+      { id: "user-1", role: "user", parts: [{ type: "text", text: "Q1" }] },
       previousAssistant,
-      {
-        id: "user-2",
-        role: "user",
-        parts: [{ type: "text", text: "Retry question" }],
-      },
-      {
-        id: "assistant-empty",
-        role: "assistant",
-        parts: [],
-      },
+      { id: "user-2", role: "user", parts: [{ type: "text", text: "Q2" }] },
+      { id: "assistant-empty", role: "assistant", parts: [] },
     ];
 
     renderSession();
-
     fireEvent.click(screen.getByRole("button", { name: "Regenerate" }));
 
-    expect(store.delRow).toHaveBeenCalledWith(
-      "chat_messages",
+    await waitFor(() => expect(mocks.chatRegenerate).toHaveBeenCalledOnce());
+    expect(mocks.deleteChatMessage).toHaveBeenCalledWith(
+      "group-1",
       "assistant-empty",
     );
-    expect(
-      (store as FakeStore).getRow("chat_messages", "assistant-previous"),
-    ).toBeDefined();
-    expect(mocks.chatRegenerate).toHaveBeenCalledTimes(1);
-  });
-
-  it("deletes the persisted row for the in-memory assistant being regenerated", () => {
-    const assistant: HyprUIMessage = {
-      id: "assistant-current",
-      role: "assistant",
-      parts: [{ type: "text", text: "Current answer" }],
-      metadata: { createdAt: Date.parse("2024-01-01T00:00:01Z") },
-    };
-    const store = createStore({
-      "assistant-current": persistedAssistantRow(assistant),
-    });
-    mocks.store = store;
-    mocks.messages = [
-      {
-        id: "user-1",
-        role: "user",
-        parts: [{ type: "text", text: "Question" }],
-      },
-      assistant,
-    ];
-
-    renderSession();
-
-    fireEvent.click(screen.getByRole("button", { name: "Regenerate" }));
-
-    expect(store.delRow).toHaveBeenCalledWith(
-      "chat_messages",
-      "assistant-current",
+    expect(mocks.deleteChatMessage).not.toHaveBeenCalledWith(
+      "group-1",
+      "assistant-previous",
     );
-    expect(store.getRow("chat_messages", "assistant-current")).toBeUndefined();
-    expect(mocks.chatRegenerate).toHaveBeenCalledTimes(1);
   });
 
-  it("deletes the last assistant row when a trailing user message is present", () => {
+  it("tombstones the last assistant before regeneration", async () => {
     const assistant: HyprUIMessage = {
       id: "assistant-current",
       role: "assistant",
       parts: [{ type: "text", text: "Current answer" }],
-      metadata: { createdAt: Date.parse("2024-01-01T00:00:01Z") },
     };
-    const store = createStore({
-      "assistant-current": persistedAssistantRow(assistant),
-    });
-    mocks.store = store;
     mocks.messages = [
-      {
-        id: "user-1",
-        role: "user",
-        parts: [{ type: "text", text: "Question" }],
-      },
+      { id: "user-1", role: "user", parts: [{ type: "text", text: "Q" }] },
       assistant,
       {
         id: "user-2",
@@ -245,18 +170,19 @@ describe("ChatSession", () => {
     ];
 
     renderSession();
-
     fireEvent.click(screen.getByRole("button", { name: "Regenerate" }));
 
-    expect(store.delRow).toHaveBeenCalledWith(
-      "chat_messages",
+    await waitFor(() => expect(mocks.chatRegenerate).toHaveBeenCalledOnce());
+    expect(mocks.deleteChatMessage).toHaveBeenCalledWith(
+      "group-1",
       "assistant-current",
     );
-    expect(store.getRow("chat_messages", "assistant-current")).toBeUndefined();
-    expect(mocks.chatRegenerate).toHaveBeenCalledTimes(1);
+    expect(mocks.deleteChatMessage.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.chatRegenerate.mock.invocationCallOrder[0],
+    );
   });
 
-  it("recreates the sdk chat when transport becomes ready", () => {
+  it("recreates the SDK chat when transport becomes ready", () => {
     const initialTransport = {};
     const readyTransport = {};
     mocks.transport = initialTransport;
@@ -283,17 +209,12 @@ describe("ChatSession", () => {
     );
   });
 
-  it("syncs sdk messages when persisted chat rows load later", async () => {
-    const store = createStore({});
-    mocks.store = store;
-    mocks.chatMessagesTable = {};
+  it("syncs SDK messages when SQLite rows load later", async () => {
     const userMessage: HyprUIMessage = {
       id: "user-1",
       role: "user",
       parts: [{ type: "text", text: "Question" }],
-      metadata: { createdAt: Date.parse("2024-01-01T00:00:00Z") },
     };
-
     const { rerender } = render(
       <ChatSession chatGroupId="group-1" sessionId="session-1">
         {() => null}
@@ -301,17 +222,7 @@ describe("ChatSession", () => {
     );
     expect(mocks.chatInits).toHaveLength(1);
 
-    store.setRow(
-      "chat_messages",
-      userMessage.id,
-      buildPersistedChatMessageRow({
-        message: userMessage,
-        chatGroupId: "group-1",
-        userId: "user-1",
-        status: "ready",
-      }) as unknown as Record<string, unknown>,
-    );
-    mocks.chatMessagesTable = { [userMessage.id]: true };
+    mocks.persistedMessages = [persistedMessage(userMessage)];
     rerender(
       <ChatSession chatGroupId="group-1" sessionId="session-1">
         {() => null}
@@ -324,7 +235,7 @@ describe("ChatSession", () => {
     expect(mocks.chatInits).toHaveLength(1);
   });
 
-  it("keeps the sdk chat when first send creates a chat group", () => {
+  it("keeps the SDK chat when first send creates a chat group", () => {
     const { rerender } = render(
       <ChatSession sessionId="session-1">{() => null}</ChatSession>,
     );
@@ -338,29 +249,21 @@ describe("ChatSession", () => {
     expect(mocks.chatInits).toHaveLength(1);
   });
 
-  it("does not replace streaming sdk messages with stale persisted rows", () => {
+  it("does not replace streaming SDK messages with stale SQLite rows", () => {
     const userMessage: HyprUIMessage = {
       id: "user-1",
       role: "user",
       parts: [{ type: "text", text: "Question" }],
-      metadata: { createdAt: Date.parse("2024-01-01T00:00:00Z") },
     };
-    const assistantMessage: HyprUIMessage = {
-      id: "assistant-1",
-      role: "assistant",
-      parts: [{ type: "text", text: "Partial answer" }],
-      metadata: { createdAt: Date.parse("2024-01-01T00:00:01Z") },
-    };
-    const store = createStore({
-      "user-1": buildPersistedChatMessageRow({
-        message: userMessage,
-        chatGroupId: "group-1",
-        userId: "user-1",
-        status: "ready",
-      }) as unknown as Record<string, unknown>,
-    });
-    mocks.store = store;
-    mocks.messages = [userMessage, assistantMessage];
+    mocks.persistedMessages = [persistedMessage(userMessage)];
+    mocks.messages = [
+      userMessage,
+      {
+        id: "assistant-1",
+        role: "assistant",
+        parts: [{ type: "text", text: "Partial answer" }],
+      },
+    ];
     mocks.status = "streaming";
 
     render(
@@ -372,11 +275,8 @@ describe("ChatSession", () => {
     expect(mocks.chatSetMessages).not.toHaveBeenCalled();
   });
 
-  it("persists a first-send assistant response to the newly created group", () => {
-    const store = createStore({});
-    mocks.store = store;
+  it("persists a first-send assistant response to the newly created group", async () => {
     const captured: { send?: ChatSessionRenderProps["sendMessage"] } = {};
-
     render(
       <ChatSession sessionId="session-1">
         {(props) => {
@@ -386,17 +286,17 @@ describe("ChatSession", () => {
       </ChatSession>,
     );
 
-    const sendMessage = captured.send;
-    expect(sendMessage).toBeDefined();
-    sendMessage!(
-      {
-        id: "user-1",
-        role: "user",
-        parts: [{ type: "text", text: "Question" }],
-      },
-      { chatGroupId: "new-group" },
-    );
-
+    const userMessage: HyprUIMessage = {
+      id: "user-1",
+      role: "user",
+      parts: [{ type: "text", text: "Question" }],
+    };
+    captured.send!(userMessage, { chatGroupId: "new-group" });
+    const assistant: HyprUIMessage = {
+      id: "assistant-1",
+      role: "assistant",
+      parts: [{ type: "text", text: "Answer" }],
+    };
     const onFinish = mocks.chatInits[0] as {
       onFinish: (params: {
         message: HyprUIMessage;
@@ -404,45 +304,70 @@ describe("ChatSession", () => {
         isAbort: boolean;
       }) => void;
     };
-    const userMessage: HyprUIMessage = {
-      id: "user-1",
-      role: "user",
-      parts: [{ type: "text", text: "Question" }],
-    };
     onFinish.onFinish({
       isAbort: false,
-      message: {
-        id: "assistant-1",
-        role: "assistant",
-        parts: [{ type: "text", text: "Answer" }],
-        metadata: { createdAt: Date.parse("2024-01-01T00:00:01Z") },
-      },
-      messages: [
-        userMessage,
-        {
-          id: "assistant-1",
-          role: "assistant",
-          parts: [{ type: "text", text: "Answer" }],
-          metadata: { createdAt: Date.parse("2024-01-01T00:00:01Z") },
-        },
-      ],
+      message: assistant,
+      messages: [userMessage, assistant],
     });
 
-    expect(store.setRow).toHaveBeenCalledWith(
-      "chat_messages",
-      "assistant-1",
+    await waitFor(() => expect(mocks.upsertChatMessage).toHaveBeenCalledOnce());
+    expect(mocks.upsertChatMessage).toHaveBeenCalledWith(
       expect.objectContaining({
-        chat_group_id: "new-group",
+        id: "assistant-1",
+        chatGroupId: "new-group",
         content: "Answer",
       }),
     );
   });
 
-  it("persists overlapping assistant responses to their submitted groups", () => {
-    const store = createStore({});
-    mocks.store = store;
-    const captured: { send?: ChatSessionRenderProps["sendMessage"] } = {};
+  it("falls back to the selected group when persisted routing lookup fails", async () => {
+    const lookupError = new Error("database unavailable");
+    mocks.getChatMessageGroupId.mockRejectedValue(lookupError);
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const userMessage: HyprUIMessage = {
+      id: "user-1",
+      role: "user",
+      parts: [{ type: "text", text: "Question" }],
+    };
+    const assistant: HyprUIMessage = {
+      id: "assistant-1",
+      role: "assistant",
+      parts: [{ type: "text", text: "Answer" }],
+    };
+    render(
+      <ChatSession chatGroupId="group-1" sessionId="session-1">
+        {() => null}
+      </ChatSession>,
+    );
+    const onFinish = mocks.chatInits[0] as {
+      onFinish: (params: {
+        message: HyprUIMessage;
+        messages: HyprUIMessage[];
+        isAbort: boolean;
+      }) => void;
+    };
 
+    onFinish.onFinish({
+      isAbort: false,
+      message: assistant,
+      messages: [userMessage, assistant],
+    });
+
+    await waitFor(() => expect(mocks.upsertChatMessage).toHaveBeenCalledOnce());
+    expect(mocks.upsertChatMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ chatGroupId: "group-1" }),
+    );
+    expect(consoleError).toHaveBeenCalledWith(
+      "Failed to resolve the persisted chat message group",
+      lookupError,
+    );
+    consoleError.mockRestore();
+  });
+
+  it("persists overlapping assistant responses to their submitted groups", async () => {
+    const captured: { send?: ChatSessionRenderProps["sendMessage"] } = {};
     render(
       <ChatSession chatGroupId="initial-group" sessionId="session-1">
         {(props) => {
@@ -476,15 +401,12 @@ describe("ChatSession", () => {
       id: "assistant-1",
       role: "assistant",
       parts: [{ type: "text", text: "First answer" }],
-      metadata: { createdAt: Date.parse("2024-01-01T00:00:01Z") },
     };
     const assistantTwo: HyprUIMessage = {
       id: "assistant-2",
       role: "assistant",
       parts: [{ type: "text", text: "Second answer" }],
-      metadata: { createdAt: Date.parse("2024-01-01T00:00:02Z") },
     };
-
     onFinish.onFinish({
       isAbort: false,
       message: assistantOne,
@@ -496,21 +418,14 @@ describe("ChatSession", () => {
       messages: [userOne, assistantOne, userTwo, assistantTwo],
     });
 
-    expect(store.setRow).toHaveBeenCalledWith(
-      "chat_messages",
-      "assistant-1",
-      expect.objectContaining({
-        chat_group_id: "group-1",
-        content: "First answer",
-      }),
+    await waitFor(() =>
+      expect(mocks.upsertChatMessage).toHaveBeenCalledTimes(2),
     );
-    expect(store.setRow).toHaveBeenCalledWith(
-      "chat_messages",
-      "assistant-2",
-      expect.objectContaining({
-        chat_group_id: "group-2",
-        content: "Second answer",
-      }),
+    expect(mocks.upsertChatMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "assistant-1", chatGroupId: "group-1" }),
+    );
+    expect(mocks.upsertChatMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "assistant-2", chatGroupId: "group-2" }),
     );
   });
 });

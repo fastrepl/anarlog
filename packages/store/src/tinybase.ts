@@ -2,8 +2,6 @@ import type { TablesSchema } from "tinybase/with-schemas";
 
 import type { InferTinyBaseSchema } from "./shared";
 import {
-  chatGroupSchema,
-  chatMessageSchema,
   dailyNoteSchema,
   enhancedNoteSchema,
   generalSchema,
@@ -82,21 +80,6 @@ export const tableSchemaForTinybase = {
     target_id: { type: "string" },
     target_type: { type: "string" },
   } as const satisfies InferTinyBaseSchema<typeof mappingMentionSchema>,
-  chat_groups: {
-    user_id: { type: "string" },
-    created_at: { type: "string" },
-    title: { type: "string" },
-  } as const satisfies InferTinyBaseSchema<typeof chatGroupSchema>,
-  chat_messages: {
-    user_id: { type: "string" },
-    created_at: { type: "string" },
-    chat_group_id: { type: "string" },
-    role: { type: "string" },
-    content: { type: "string" },
-    metadata: { type: "string" },
-    parts: { type: "string" },
-    status: { type: "string" },
-  } as const satisfies InferTinyBaseSchema<typeof chatMessageSchema>,
   enhanced_notes: {
     user_id: { type: "string" },
     session_id: { type: "string" },

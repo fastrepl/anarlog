@@ -58,7 +58,6 @@ export const StoreComponent = () => {
     persisters.sessionPersister,
     persisters.organizationPersister,
     persisters.humanPersister,
-    persisters.chatPersister,
     persisters.dailyNotePersister,
     persisters.taskPersister,
   ].filter((persister) => persister !== undefined);
@@ -216,12 +215,6 @@ export const StoreComponent = () => {
         "session_id",
       )
       .setIndexDefinition(
-        INDEXES.chatMessagesByGroup,
-        "chat_messages",
-        "chat_group_id",
-        "created_at",
-      )
-      .setIndexDefinition(
         INDEXES.enhancedNotesBySession,
         "enhanced_notes",
         "session_id",
@@ -314,7 +307,6 @@ export const INDEXES = {
   sessionByDateWithoutEvent: "sessionByDateWithoutEvent",
   sessionsByEventTrackingId: "sessionsByEventTrackingId",
   tagSessionsBySession: "tagSessionsBySession",
-  chatMessagesByGroup: "chatMessagesByGroup",
   sessionsByHuman: "sessionsByHuman",
   enhancedNotesBySession: "enhancedNotesBySession",
   enhancedNotesByTemplate: "enhancedNotesByTemplate",

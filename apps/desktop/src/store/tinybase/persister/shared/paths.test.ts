@@ -1,7 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 
 import {
-  buildChatPath,
   buildEntityFilePath,
   buildEntityPath,
   buildSessionPath,
@@ -45,22 +44,6 @@ describe("buildSessionPath", () => {
     expect(
       buildSessionPath(dataDir, "session-123", "work/project-a/meetings"),
     ).toBe("/data/hyprnote/sessions/work/project-a/meetings/session-123");
-  });
-});
-
-describe("buildChatPath", () => {
-  const dataDir = "/data/hyprnote";
-
-  test("builds chat path", () => {
-    expect(buildChatPath(dataDir, "chat-456")).toBe(
-      "/data/hyprnote/chats/chat-456",
-    );
-  });
-
-  test("builds chat path with uuid", () => {
-    expect(buildChatPath(dataDir, "550e8400-e29b-41d4-a716-446655440000")).toBe(
-      "/data/hyprnote/chats/550e8400-e29b-41d4-a716-446655440000",
-    );
   });
 });
 

@@ -13,14 +13,14 @@ TinyBase `settings` store is out of scope unless the plan is explicitly
 expanded to include it.
 
 - [x] `templates` — already Drizzle, no Phase 0 needed
-- [ ] `calendars`
+- [x] `calendars`
   - [x] Phase 0 reads (PR 2: `useCalendar`, `useEnabledCalendars`)
-  - [ ] Phase 0 writes — `services/calendar/ctx.ts` has a cross-domain
+  - [x] Phase 0 writes — `services/calendar/ctx.ts` has a cross-domain
         calendars+events transaction; lands with events PR
-  - [ ] Phase 1 — Rust migration + ops exist
-- [ ] `events`
-  - [ ] Phase 0
-  - [ ] Phase 1 — Rust migration + ops exist
+  - [x] Phase 1 — Rust migration + ops exist
+- [x] `events`
+  - [x] Phase 0
+  - [x] Phase 1 — Rust migration + ops exist
 - [ ] `sessions`
 - [ ] `transcripts`
 - [ ] `humans`
@@ -33,8 +33,8 @@ expanded to include it.
 - [ ] `mapping_tag_session`
 - [ ] `mapping_mention`
 - [ ] `tags`
-- [ ] `chat_groups`
-- [ ] `chat_messages`
+- [x] `chat_groups`
+- [x] `chat_messages`
   - [x] Phase 0 writes (partial) — `chat/store/*`
   - [ ] Phase 0 reads
   - [ ] Phase 1

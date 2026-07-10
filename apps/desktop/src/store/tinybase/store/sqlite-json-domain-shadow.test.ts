@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { normalizeChatMessageRow } from "./sqlite-chat-shadow";
 import {
   normalizeDailyNoteRow,
   normalizeMentionRow,
@@ -8,24 +7,6 @@ import {
 } from "./sqlite-productivity-shadow";
 
 describe("SQLite JSON-domain row normalization", () => {
-  it("preserves structured chat payloads as opaque JSON text", () => {
-    expect(
-      normalizeChatMessageRow({
-        user_id: "user-1",
-        created_at: "created",
-        chat_group_id: "group-1",
-        role: "assistant",
-        content: "Done",
-        metadata: '{"model":"test"}',
-        parts: '[{"type":"text"}]',
-        status: "ready",
-      }),
-    ).toMatchObject({
-      metadata: '{"model":"test"}',
-      parts: '[{"type":"text"}]',
-    });
-  });
-
   it("preserves task identity, ordering, and body JSON", () => {
     expect(
       normalizeTaskRow({

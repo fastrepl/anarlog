@@ -15,8 +15,6 @@ export const SQLITE_SHADOWED_TABLES = [
   "tags",
   "mapping_tag_session",
   "mapping_mention",
-  "chat_groups",
-  "chat_messages",
   "enhanced_notes",
   "session_key_facts",
   "tasks",

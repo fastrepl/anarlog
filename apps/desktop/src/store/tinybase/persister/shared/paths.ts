@@ -6,7 +6,6 @@ export const SESSION_META_FILE = "_meta.json";
 export const SESSION_TRANSCRIPT_FILE = "transcript.json";
 export const SESSION_NOTE_EXTENSION = ".md";
 export const SESSION_MEMO_FILE = "_memo.md";
-export const CHAT_MESSAGES_FILE = "messages.json";
 
 export async function getDataDir(): Promise<string> {
   const result = await settingsCommands.vaultBase();
@@ -26,10 +25,6 @@ export function buildSessionPath(
     return [dataDir, "sessions", ...folderParts, sessionId].join(sep());
   }
   return [dataDir, "sessions", sessionId].join(sep());
-}
-
-export function buildChatPath(dataDir: string, chatGroupId: string): string {
-  return [dataDir, "chats", chatGroupId].join(sep());
 }
 
 export function buildEntityPath(dataDir: string, dirName: string): string {
@@ -69,16 +64,5 @@ export function createMarkdownEntityParser(dirName: string) {
       return null;
     }
     return filename.slice(0, -3);
-  };
-}
-
-export function createFolderEntityParser(dirName: string) {
-  return (path: string): string | null => {
-    const parts = path.split("/");
-    const dirIndex = parts.indexOf(dirName);
-    if (dirIndex === -1 || dirIndex + 1 >= parts.length) {
-      return null;
-    }
-    return parts[dirIndex + 1] || null;
   };
 }

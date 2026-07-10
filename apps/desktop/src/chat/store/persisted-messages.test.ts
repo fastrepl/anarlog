@@ -1,14 +1,33 @@
 import { describe, expect, test } from "vitest";
 
 import {
-  buildPersistedChatMessageRow,
+  buildPersistedChatMessage,
+  getVisibleChatMessages,
   normalizeChatMessageStatus,
   rowToPersistedChatMessage,
   shouldHidePersistedMessage,
   shouldPersistFinishedMessage,
+  type ChatMessageSqlRow,
 } from "./persisted-messages";
 
 import type { HyprUIMessage } from "~/chat/types";
+
+function chatMessageRow(
+  overrides: Partial<ChatMessageSqlRow> = {},
+): ChatMessageSqlRow {
+  return {
+    id: "assistant-1",
+    owner_user_id: "user-1",
+    created_at: "2024-01-01T00:00:01.000Z",
+    chat_group_id: "group-1",
+    role: "assistant",
+    content: "Hello",
+    metadata_json: '{"createdAt":1704067201000}',
+    parts_json: '[{"type":"text","text":"Hello"}]',
+    status: "ready",
+    ...overrides,
+  };
+}
 
 describe("persisted chat messages", () => {
   test("defaults unknown status to ready", () => {
@@ -16,7 +35,7 @@ describe("persisted chat messages", () => {
     expect(normalizeChatMessageStatus("unexpected")).toBe("ready");
   });
 
-  test("builds a persisted row from a UI message", () => {
+  test("builds a canonical SQLite record from a UI message", () => {
     const message: HyprUIMessage = {
       id: "assistant-1",
       role: "assistant",
@@ -25,35 +44,27 @@ describe("persisted chat messages", () => {
     };
 
     expect(
-      buildPersistedChatMessageRow({
+      buildPersistedChatMessage({
         message,
         chatGroupId: "group-1",
-        userId: "user-1",
+        ownerUserId: "user-1",
         status: "streaming",
       }),
     ).toEqual({
-      user_id: "user-1",
-      created_at: "2024-01-01T00:00:01.000Z",
-      chat_group_id: "group-1",
+      id: "assistant-1",
+      ownerUserId: "user-1",
+      createdAt: "2024-01-01T00:00:01.000Z",
+      chatGroupId: "group-1",
       role: "assistant",
       content: "Hello",
-      metadata: '{"createdAt":1704067201000}',
-      parts: '[{"type":"text","text":"Hello"}]',
+      metadataJson: '{"createdAt":1704067201000}',
+      partsJson: '[{"type":"text","text":"Hello"}]',
       status: "streaming",
     });
   });
 
-  test("parses persisted rows back into UI messages", () => {
-    const parsed = rowToPersistedChatMessage("assistant-1", {
-      user_id: "user-1",
-      created_at: "2024-01-01T00:00:01.000Z",
-      chat_group_id: "group-1",
-      role: "assistant",
-      content: "Hello",
-      metadata: '{"createdAt":1704067201000}',
-      parts: '[{"type":"text","text":"Hello"}]',
-      status: "ready",
-    });
+  test("parses canonical SQLite rows back into UI messages", () => {
+    const parsed = rowToPersistedChatMessage(chatMessageRow());
 
     expect(parsed.status).toBe("ready");
     expect(parsed.message).toEqual({
@@ -65,50 +76,24 @@ describe("persisted chat messages", () => {
   });
 
   test("hides empty assistant messages regardless of status", () => {
-    expect(
-      shouldHidePersistedMessage(
-        rowToPersistedChatMessage("assistant-1", {
-          user_id: "user-1",
-          created_at: "2024-01-01T00:00:01.000Z",
-          chat_group_id: "group-1",
-          role: "assistant",
-          content: "",
-          metadata: "{}",
-          parts: "[]",
-          status: "streaming",
-        }),
-      ),
-    ).toBe(true);
+    const empty = rowToPersistedChatMessage(
+      chatMessageRow({ content: "", parts_json: "[]", status: "streaming" }),
+    );
+    const readyEmpty = rowToPersistedChatMessage(
+      chatMessageRow({
+        id: "assistant-ready",
+        content: "",
+        parts_json: "[]",
+      }),
+    );
+    const visible = rowToPersistedChatMessage(
+      chatMessageRow({ status: "streaming" }),
+    );
 
-    expect(
-      shouldHidePersistedMessage(
-        rowToPersistedChatMessage("assistant-ready", {
-          user_id: "user-1",
-          created_at: "2024-01-01T00:00:01.000Z",
-          chat_group_id: "group-1",
-          role: "assistant",
-          content: "",
-          metadata: "{}",
-          parts: "[]",
-          status: "ready",
-        }),
-      ),
-    ).toBe(true);
-
-    expect(
-      shouldHidePersistedMessage(
-        rowToPersistedChatMessage("assistant-2", {
-          user_id: "user-1",
-          created_at: "2024-01-01T00:00:02.000Z",
-          chat_group_id: "group-1",
-          role: "assistant",
-          content: "Visible",
-          metadata: "{}",
-          parts: '[{"type":"text","text":"Visible"}]',
-          status: "streaming",
-        }),
-      ),
-    ).toBe(false);
+    expect(shouldHidePersistedMessage(empty)).toBe(true);
+    expect(shouldHidePersistedMessage(readyEmpty)).toBe(true);
+    expect(shouldHidePersistedMessage(visible)).toBe(false);
+    expect(getVisibleChatMessages([empty, visible])).toEqual([visible.message]);
   });
 
   test("does not persist empty finished assistant messages", () => {

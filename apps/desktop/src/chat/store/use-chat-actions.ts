@@ -1,7 +1,12 @@
 import { useCallback } from "react";
 
 import { createFallbackChatTitle, generateChatTitle } from "./chat-title";
-import { useCreateChatMessage } from "./useCreateChatMessage";
+import { buildPersistedChatMessage } from "./persisted-messages";
+import {
+  createChatGroupWithMessage,
+  setChatGroupTitleIfCurrent,
+  upsertChatMessage,
+} from "./queries";
 
 import { useLanguageModel } from "~/ai/hooks";
 import type { ContextRef } from "~/chat/context/entities";
@@ -17,31 +22,7 @@ export function useChatActions({
   onGroupCreated: (newGroupId: string) => void;
 }) {
   const { user_id } = main.UI.useValues(main.STORE_ID);
-  const store = main.UI.useStore(main.STORE_ID);
   const titleModel = useLanguageModel("title");
-
-  const createChatGroup = main.UI.useSetRowCallback(
-    "chat_groups",
-    (p: { groupId: string; title: string }) => p.groupId,
-    (p: { groupId: string; title: string }) => ({
-      user_id,
-      created_at: new Date().toISOString(),
-      title: p.title,
-    }),
-    [user_id],
-    main.STORE_ID,
-  );
-
-  const setChatGroupTitle = main.UI.useSetCellCallback(
-    "chat_groups",
-    (p: { groupId: string; title: string }) => p.groupId,
-    "title",
-    (p: { groupId: string; title: string }) => p.title,
-    [],
-    main.STORE_ID,
-  );
-
-  const createChatMessage = useCreateChatMessage();
 
   const queueChatTitleGeneration = useCallback(
     (params: {
@@ -64,19 +45,17 @@ export function useChatActions({
             return;
           }
 
-          const currentTitle = store?.getCell("chat_groups", groupId, "title");
-
-          if (currentTitle !== fallbackTitle) {
-            return;
-          }
-
-          setChatGroupTitle({ groupId, title });
+          return setChatGroupTitleIfCurrent({
+            groupId,
+            expectedTitle: fallbackTitle,
+            title,
+          });
         })
         .catch((error) => {
           console.error("Failed to generate chat title", error);
         });
     },
-    [setChatGroupTitle, store, titleModel],
+    [titleModel],
   );
 
   const handleSendMessage = useCallback(
@@ -89,6 +68,11 @@ export function useChatActions({
       ) => void,
       contextRefs?: ContextRef[],
     ) => {
+      if (!user_id) {
+        console.error("Cannot persist chat message without an owner user id");
+        return;
+      }
+
       const messageId = id();
       const metadata = {
         createdAt: Date.now(),
@@ -101,37 +85,45 @@ export function useChatActions({
         metadata,
       };
 
-      let currentGroupId = groupId;
-      if (!currentGroupId) {
-        currentGroupId = id();
-        const fallbackTitle = createFallbackChatTitle(content);
-        createChatGroup({ groupId: currentGroupId, title: fallbackTitle });
-        onGroupCreated(currentGroupId);
-        queueChatTitleGeneration({
-          groupId: currentGroupId,
-          fallbackTitle,
-          initialRequest: content,
-        });
-      }
-
-      createChatMessage({
-        id: messageId,
-        chat_group_id: currentGroupId,
+      const currentGroupId = groupId ?? id();
+      const message = buildPersistedChatMessage({
+        message: uiMessage,
+        chatGroupId: currentGroupId,
+        ownerUserId: user_id,
+        status: "ready",
         content,
-        role: "user",
-        parts,
-        metadata,
       });
+      const fallbackTitle = groupId
+        ? undefined
+        : createFallbackChatTitle(content);
+      const persist = fallbackTitle
+        ? createChatGroupWithMessage({
+            groupId: currentGroupId,
+            ownerUserId: user_id,
+            title: fallbackTitle,
+            createdAt: message.createdAt,
+            message,
+          })
+        : upsertChatMessage(message);
 
-      sendMessage(uiMessage, { chatGroupId: currentGroupId });
+      void persist
+        .then(() => {
+          if (fallbackTitle) {
+            onGroupCreated(currentGroupId);
+            queueChatTitleGeneration({
+              groupId: currentGroupId,
+              fallbackTitle,
+              initialRequest: content,
+            });
+          }
+
+          sendMessage(uiMessage, { chatGroupId: currentGroupId });
+        })
+        .catch((error) => {
+          console.error("Failed to persist outgoing chat message", error);
+        });
     },
-    [
-      groupId,
-      createChatGroup,
-      createChatMessage,
-      onGroupCreated,
-      queueChatTitleGeneration,
-    ],
+    [groupId, user_id, onGroupCreated, queueChatTitleGeneration],
   );
 
   return { handleSendMessage };
