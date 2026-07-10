@@ -9,9 +9,9 @@ import type { ResolvedChatContext } from "./index";
 import { useLanguageModel } from "~/ai/hooks";
 import type { ContextRef } from "~/chat/context/entities";
 import { hydrateSessionContextFromFs } from "~/chat/context/session-context-hydrator";
+import { loadHuman, loadOrganization } from "~/contacts/queries";
 import { useToolRegistry } from "~/contexts/tool";
 import { useConfigValue } from "~/shared/config";
-import * as main from "~/store/tinybase/store/main";
 
 export const FILE_CONTEXT_TOOL_GUIDANCE = `
 Context and local-note tool guidance:
@@ -43,35 +43,16 @@ export function appendFileContextToolGuidance(
   return `${prompt.trim()}\n\n${FILE_CONTEXT_TOOL_GUIDANCE}`;
 }
 
-function renderHumanContext(
-  store: ReturnType<typeof main.UI.useStore>,
-  humanId: string,
-): string | null {
-  if (!store) {
-    return null;
-  }
+async function renderHumanContext(humanId: string): Promise<string | null> {
+  const human = await loadHuman(humanId);
+  if (!human) return null;
+  const organization = await loadOrganization(human.organizationId);
 
-  const human = store.getRow("humans", humanId);
-  const orgId = typeof human.org_id === "string" ? human.org_id : "";
-  const organization =
-    orgId && store.hasRow("organizations", orgId)
-      ? store.getRow("organizations", orgId)
-      : {};
-
-  const name =
-    typeof human.name === "string" && human.name.trim() ? human.name : null;
-  const email =
-    typeof human.email === "string" && human.email.trim() ? human.email : null;
-  const jobTitle =
-    typeof human.job_title === "string" && human.job_title.trim()
-      ? human.job_title
-      : null;
-  const organizationName =
-    typeof organization.name === "string" && organization.name.trim()
-      ? organization.name
-      : null;
-  const memo =
-    typeof human.memo === "string" && human.memo.trim() ? human.memo : null;
+  const name = human.name.trim() || null;
+  const email = human.email.trim() || null;
+  const jobTitle = human.jobTitle.trim() || null;
+  const organizationName = organization?.name.trim() || null;
+  const memo = human.memo.trim() || null;
 
   if (!name && !email) {
     return null;
@@ -87,19 +68,11 @@ function renderHumanContext(
   return [`Referenced contact: ${name ?? email}`, ...details].join("\n");
 }
 
-function renderOrganizationContext(
-  store: ReturnType<typeof main.UI.useStore>,
+async function renderOrganizationContext(
   organizationId: string,
-): string | null {
-  if (!store) {
-    return null;
-  }
-
-  const organization = store.getRow("organizations", organizationId);
-  const name =
-    typeof organization.name === "string" && organization.name.trim()
-      ? organization.name
-      : null;
+): Promise<string | null> {
+  const organization = await loadOrganization(organizationId);
+  const name = organization?.name.trim() || null;
 
   return name ? `Referenced organization: ${name}` : null;
 }
@@ -108,7 +81,7 @@ export function useTransport(
   modelOverride?: LanguageModel,
   extraTools?: ToolSet,
   systemPromptOverride?: string,
-  store?: ReturnType<typeof main.UI.useStore>,
+  userId?: string,
 ) {
   const registry = useToolRegistry();
   const configuredModel = useLanguageModel("chat");
@@ -124,13 +97,13 @@ export function useTransport(
 
     let stale = false;
 
-    templateCommands
-      .render({
-        chatSystem: {
-          language,
-        },
-      })
-      .then((result) => {
+    void (async () => {
+      try {
+        const result = await templateCommands.render({
+          chatSystem: {
+            language,
+          },
+        });
         if (stale) {
           return;
         }
@@ -140,13 +113,13 @@ export function useTransport(
         } else {
           setSystemPrompt("");
         }
-      })
-      .catch((error) => {
+      } catch (error) {
         console.error(error);
         if (!stale) {
           setSystemPrompt("");
         }
-      });
+      }
+    })();
 
     return () => {
       stale = true;
@@ -188,13 +161,10 @@ export function useTransport(
       tools,
       effectiveSystemPrompt,
       async (ref: ContextRef) => {
-        if (!store) {
-          return null;
-        }
         if (ref.kind === "session") {
           const context = await hydrateSessionContextFromFs(
-            store,
             ref.sessionId,
+            userId,
           );
           return context
             ? ({ kind: "session", context } satisfies ResolvedChatContext)
@@ -202,19 +172,19 @@ export function useTransport(
         }
 
         if (ref.kind === "human") {
-          const text = renderHumanContext(store, ref.humanId);
+          const text = await renderHumanContext(ref.humanId);
           return text
             ? ({ kind: "text", text } satisfies ResolvedChatContext)
             : null;
         }
 
-        const text = renderOrganizationContext(store, ref.organizationId);
+        const text = await renderOrganizationContext(ref.organizationId);
         return text
           ? ({ kind: "text", text } satisfies ResolvedChatContext)
           : null;
       },
     );
-  }, [model, tools, effectiveSystemPrompt, store]);
+  }, [model, tools, effectiveSystemPrompt, userId]);
 
   return {
     transport,

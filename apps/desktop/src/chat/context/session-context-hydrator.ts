@@ -2,9 +2,11 @@ import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 import type { SessionContentData } from "@hypr/plugin-fs-sync";
 import type { SessionContext, Transcript } from "@hypr/plugin-template";
 
-import type * as main from "~/store/tinybase/store/main";
+import { loadHumansByIds } from "~/contacts/queries";
+import { loadSessionParticipantHumanIds } from "~/session/queries";
 import {
-  buildRenderTranscriptRequestFromFsTranscript,
+  buildRenderTranscriptRequestFromRows,
+  collectAssignedHumanIdsFromTranscriptRows,
   renderTranscriptSegments,
 } from "~/stt/render-transcript";
 
@@ -26,17 +28,23 @@ function extractEventName(event: unknown): string | null {
 
 async function buildTranscript(
   transcriptData: SessionContentData["transcript"],
-  store: ReturnType<typeof main.UI.useStore>,
-  sessionId: string,
+  humans: Array<{ id: string; name: string }>,
+  participantHumanIds: string[],
+  selfHumanId?: string,
 ): Promise<Transcript | null> {
   const transcripts = transcriptData?.transcripts ?? [];
   if (transcripts.length === 0) {
     return null;
   }
-  const request = buildRenderTranscriptRequestFromFsTranscript(
-    transcriptData,
-    store,
-    sessionId,
+  const request = buildRenderTranscriptRequestFromRows(
+    transcripts,
+    {
+      selfHumanId,
+      humans: humans
+        .filter((human) => human.name)
+        .map((human) => ({ human_id: human.id, name: human.name })),
+    },
+    participantHumanIds,
   );
   if (!request) {
     return null;
@@ -63,8 +71,8 @@ async function buildTranscript(
 }
 
 export async function hydrateSessionContextFromFs(
-  store: ReturnType<typeof main.UI.useStore>,
   sessionId: string,
+  selfHumanId?: string,
 ): Promise<SessionContext | null> {
   const result = await fsSyncCommands.loadSessionContent(sessionId);
   if (result.status === "error") {
@@ -72,28 +80,35 @@ export async function hydrateSessionContextFromFs(
   }
 
   const payload = result.data;
-  const participants =
-    payload.meta?.participants
-      ?.map((participant) => {
-        const row = store?.getRow("humans", participant.humanId);
-        if (!row || typeof row.name !== "string" || !row.name) {
-          return null;
-        }
-
-        return {
-          name: row.name,
-          jobTitle:
-            typeof row.job_title === "string" && row.job_title
-              ? row.job_title
-              : null,
-        };
-      })
-      .filter(
-        (
-          participant,
-        ): participant is { name: string; jobTitle: string | null } =>
-          Boolean(participant),
-      ) ?? [];
+  const sqliteParticipantHumanIds =
+    await loadSessionParticipantHumanIds(sessionId);
+  const legacyParticipantHumanIds =
+    payload.meta?.participants?.map((participant) => participant.humanId) ?? [];
+  const participantHumanIds = [
+    ...new Set(
+      [...sqliteParticipantHumanIds, ...legacyParticipantHumanIds].filter(
+        Boolean,
+      ),
+    ),
+  ];
+  const assignedHumanIds = collectAssignedHumanIdsFromTranscriptRows(
+    payload.transcript?.transcripts ?? [],
+  );
+  const humanIds = [
+    ...new Set(
+      [...participantHumanIds, ...assignedHumanIds, selfHumanId ?? ""].filter(
+        Boolean,
+      ),
+    ),
+  ];
+  const humans = await loadHumansByIds(humanIds);
+  const humansById = new Map(humans.map((human) => [human.id, human]));
+  const participants = participantHumanIds.flatMap((humanId) => {
+    const human = humansById.get(humanId);
+    return human?.name
+      ? [{ name: human.name, jobTitle: human.jobTitle || null }]
+      : [];
+  });
 
   const enhancedContent = payload.notes
     .slice()
@@ -104,8 +119,9 @@ export async function hydrateSessionContextFromFs(
 
   const transcript = await buildTranscript(
     payload.transcript,
-    store,
-    sessionId,
+    humans,
+    participantHumanIds,
+    selfHumanId,
   );
   const eventName = extractEventName(payload.meta?.event);
 

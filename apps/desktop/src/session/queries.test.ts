@@ -32,6 +32,7 @@ import {
   deleteEnhancedNote,
   getOrCreateSessionForEventId,
   isSessionEmpty,
+  loadSessionParticipantHumanIds,
   loadSessionEvent,
   removeSessionParticipant,
   restoreDeletedSession,
@@ -81,6 +82,20 @@ describe("session SQLite operations", () => {
       calendar_id: "calendar-1",
       title: "Planning",
     });
+  });
+
+  it("loads active non-excluded participant identities", async () => {
+    mocks.execute.mockResolvedValueOnce([
+      { human_id: "human-1" },
+      { human_id: "human-2" },
+    ]);
+
+    await expect(loadSessionParticipantHumanIds("session-1")).resolves.toEqual([
+      "human-1",
+      "human-2",
+    ]);
+    expect(mocks.execute.mock.calls[0][0]).toContain("source <> 'excluded'");
+    expect(mocks.execute.mock.calls[0][1]).toEqual(["session-1"]);
   });
 
   it("returns the existing note for an event without writing", async () => {

@@ -91,7 +91,6 @@ export function ChatSession({
   unstyled = false,
   children,
 }: ChatSessionProps) {
-  const store = main.UI.useStore(main.STORE_ID);
   const { user_id } = main.UI.useValues(main.STORE_ID);
   const persistedMessages = usePersistedChatMessages(chatGroupId);
 
@@ -129,7 +128,7 @@ export function ChatSession({
     modelOverride,
     extraTools,
     systemPromptOverride,
-    store,
+    user_id || undefined,
   );
 
   const persistedVisibleMessages = useMemo(
@@ -308,7 +307,6 @@ export function ChatSession({
     messages,
     currentSessionId,
     pendingManualRefs: pendingMessageRefs,
-    store,
   });
 
   const content = children({

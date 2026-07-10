@@ -9,77 +9,64 @@ import {
 import { extractContextRefsFromMessages } from "./refs";
 
 import type { HyprUIMessage } from "~/chat/types";
-import type * as main from "~/store/tinybase/store/main";
+import { useHumans, useOrganizations } from "~/contacts/queries";
+import { useSessionSummaries } from "~/session/queries";
 
 function getSessionDisplayData(
-  store: ReturnType<typeof main.UI.useStore>,
+  sessions: ReturnType<typeof useSessionSummaries>,
   sessionId: string,
 ): { title: string | null; date: string | null } {
-  if (!store) {
-    return { title: null, date: null };
-  }
-  const row = store.getRow("sessions", sessionId);
+  const row = sessions.find((session) => session.id === sessionId);
   return {
-    title: typeof row.title === "string" && row.title.trim() ? row.title : null,
-    date:
-      typeof row.created_at === "string" && row.created_at.trim()
-        ? row.created_at
-        : null,
+    title: row?.title.trim() || null,
+    date: row?.created_at.trim() || null,
   };
 }
 
 function getHumanDisplayData(
-  store: ReturnType<typeof main.UI.useStore>,
+  humans: ReturnType<typeof useHumans>,
+  organizations: ReturnType<typeof useOrganizations>,
   humanId: string,
 ): {
   name: string | null;
   email: string | null;
   organizationName: string | null;
 } {
-  if (!store) {
-    return { name: null, email: null, organizationName: null };
-  }
-
-  const row = store.getRow("humans", humanId);
-  const orgId = typeof row.org_id === "string" ? row.org_id : null;
-  const organization =
-    orgId && store.hasRow("organizations", orgId)
-      ? store.getRow("organizations", orgId)
-      : {};
+  const row = humans.find((human) => human.id === humanId);
+  const organization = organizations.find(
+    (candidate) => candidate.id === row?.organizationId,
+  );
 
   return {
-    name: typeof row.name === "string" && row.name.trim() ? row.name : null,
-    email: typeof row.email === "string" && row.email.trim() ? row.email : null,
-    organizationName:
-      typeof organization.name === "string" && organization.name.trim()
-        ? organization.name
-        : null,
+    name: row?.name.trim() || null,
+    email: row?.email.trim() || null,
+    organizationName: organization?.name.trim() || null,
   };
 }
 
 function getOrganizationDisplayData(
-  store: ReturnType<typeof main.UI.useStore>,
+  organizations: ReturnType<typeof useOrganizations>,
   organizationId: string,
 ): { name: string | null } {
-  if (!store) {
-    return { name: null };
-  }
-
-  const row = store.getRow("organizations", organizationId);
+  const row = organizations.find(
+    (organization) => organization.id === organizationId,
+  );
   return {
-    name: typeof row.name === "string" && row.name.trim() ? row.name : null,
+    name: row?.name.trim() || null,
   };
 }
 
 function toDisplayEntity(
   ref: ContextRef,
-  store: ReturnType<typeof main.UI.useStore>,
+  sessions: ReturnType<typeof useSessionSummaries>,
+  humans: ReturnType<typeof useHumans>,
+  organizations: ReturnType<typeof useOrganizations>,
   removable: boolean,
 ): ContextEntity {
   if (ref.kind === "session") {
     return {
       ...ref,
-      ...getSessionDisplayData(store, ref.sessionId),
+      ...getSessionDisplayData(sessions, ref.sessionId),
       removable,
     };
   }
@@ -87,14 +74,14 @@ function toDisplayEntity(
   if (ref.kind === "human") {
     return {
       ...ref,
-      ...getHumanDisplayData(store, ref.humanId),
+      ...getHumanDisplayData(humans, organizations, ref.humanId),
       removable,
     };
   }
 
   return {
     ...ref,
-    ...getOrganizationDisplayData(store, ref.organizationId),
+    ...getOrganizationDisplayData(organizations, ref.organizationId),
     removable,
   };
 }
@@ -103,7 +90,6 @@ type UseChatContextPipelineParams = {
   messages: HyprUIMessage[];
   currentSessionId?: string;
   pendingManualRefs: ContextRef[];
-  store: ReturnType<typeof main.UI.useStore>;
 };
 
 export type DisplayEntity = ContextEntity & { pending: boolean };
@@ -112,11 +98,13 @@ export function useChatContextPipeline({
   messages,
   currentSessionId,
   pendingManualRefs,
-  store,
 }: UseChatContextPipelineParams): {
   contextEntities: DisplayEntity[];
   pendingRefs: ContextRef[];
 } {
+  const sessions = useSessionSummaries();
+  const humans = useHumans();
+  const organizations = useOrganizations();
   const committedRefs = useMemo(
     () => extractContextRefsFromMessages(messages),
     [messages],
@@ -143,17 +131,26 @@ export function useChatContextPipeline({
   }, [currentSessionId, pendingManualRefs]);
 
   const committedEntities = useMemo(
-    () => committedRefs.map((ref) => toDisplayEntity(ref, store, false)),
-    [committedRefs, store],
+    () =>
+      committedRefs.map((ref) =>
+        toDisplayEntity(ref, sessions, humans, organizations, false),
+      ),
+    [committedRefs, humans, organizations, sessions],
   );
 
   // Pending manual refs are removable; pending auto-current is not.
   const pendingEntities = useMemo(
     () =>
       pendingRefs.map((ref) =>
-        toDisplayEntity(ref, store, ref.source === "manual"),
+        toDisplayEntity(
+          ref,
+          sessions,
+          humans,
+          organizations,
+          ref.source === "manual",
+        ),
       ),
-    [pendingRefs, store],
+    [humans, organizations, pendingRefs, sessions],
   );
 
   const rawEntities = useMemo(

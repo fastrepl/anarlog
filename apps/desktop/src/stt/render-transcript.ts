@@ -1,7 +1,4 @@
-import type {
-  SessionContentData,
-  TranscriptSpeakerHint,
-} from "@hypr/plugin-fs-sync";
+import type { TranscriptSpeakerHint } from "@hypr/plugin-fs-sync";
 import { commands as listenerCommands } from "@hypr/plugin-transcription";
 import type {
   IdentityAssignment,
@@ -196,18 +193,6 @@ export function collectAssignedHumanIdsFromTranscriptRows(
   }
 
   return [...humanIds];
-}
-
-export function buildRenderTranscriptRequestFromFsTranscript(
-  transcriptData: SessionContentData["transcript"],
-  store?: ReturnType<typeof main.UI.useStore>,
-  sessionId?: string,
-): RenderTranscriptRequest | null {
-  return buildRenderTranscriptRequest(
-    transcriptData?.transcripts ?? [],
-    store ? collectRenderHumans(store) : undefined,
-    store ? collectSessionParticipantHumanIds(store, sessionId) : undefined,
-  );
 }
 
 function buildRenderTranscriptRequest(

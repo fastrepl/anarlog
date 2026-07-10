@@ -28,6 +28,7 @@ type EventSqlRow = {
 };
 
 type HumanEmailSqlRow = { id: string; email: string };
+type ParticipantHumanSqlRow = { human_id: string };
 type SessionIdentitySqlRow = { id: string };
 type SessionEventSqlRow = { event_json: string };
 type SessionDeleteSqlRow = { id: string; title: string };
@@ -321,6 +322,25 @@ export function useSessionParticipant(
     mapRows: (rows) => (rows[0] ? mapSessionParticipantRow(rows[0]) : null),
   });
   return mappingId ? data : null;
+}
+
+export async function loadSessionParticipantHumanIds(
+  sessionId: string,
+): Promise<string[]> {
+  if (!sessionId) return [];
+  const rows = await liveQueryClient.execute<ParticipantHumanSqlRow>(
+    `
+      SELECT DISTINCT human_id
+      FROM session_participants
+      WHERE session_id = ?
+        AND human_id <> ''
+        AND source <> 'excluded'
+        AND deleted_at IS NULL
+      ORDER BY human_id
+    `,
+    [sessionId],
+  );
+  return rows.map((row) => row.human_id);
 }
 
 export function addSessionParticipant(

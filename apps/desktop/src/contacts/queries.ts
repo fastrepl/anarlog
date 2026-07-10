@@ -129,6 +129,59 @@ export function useOrganizations(): OrganizationRecord[] {
   return data;
 }
 
+export async function loadHuman(humanId: string): Promise<HumanRecord | null> {
+  if (!humanId) return null;
+  const rows = await loadHumansByIds([humanId]);
+  return rows[0] ?? null;
+}
+
+export async function loadHumansByIds(
+  humanIds: readonly string[],
+): Promise<HumanRecord[]> {
+  const uniqueIds = [...new Set(humanIds.filter(Boolean))].sort();
+  if (uniqueIds.length === 0) return [];
+
+  const rows = await liveQueryClient.execute<HumanSqlRow>(
+    `
+      SELECT
+        id,
+        owner_user_id,
+        created_at,
+        organization_id,
+        name,
+        email,
+        phone,
+        job_title,
+        linkedin_username,
+        memo,
+        pinned,
+        pin_order
+      FROM humans
+      WHERE id IN (${uniqueIds.map(() => "?").join(", ")})
+        AND deleted_at IS NULL
+      ORDER BY id
+    `,
+    uniqueIds,
+  );
+  return rows.map(mapHumanRow);
+}
+
+export async function loadOrganization(
+  organizationId: string,
+): Promise<OrganizationRecord | null> {
+  if (!organizationId) return null;
+  const rows = await liveQueryClient.execute<OrganizationSqlRow>(
+    `
+      SELECT id, owner_user_id, created_at, name, memo, pinned, pin_order
+      FROM organizations
+      WHERE id = ? AND deleted_at IS NULL
+      LIMIT 1
+    `,
+    [organizationId],
+  );
+  return rows[0] ? mapOrganizationRow(rows[0]) : null;
+}
+
 export function useHumanSessions(humanId: string): HumanSessionRecord[] {
   const { data = EMPTY_HUMAN_SESSIONS } = useLiveQuery<
     HumanSessionSqlRow,

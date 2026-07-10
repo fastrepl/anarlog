@@ -27,6 +27,9 @@ import {
   applyContactEnhancement,
   createHuman,
   deleteHuman,
+  loadHuman,
+  loadHumansByIds,
+  loadOrganization,
   mergeHumans,
   reorderPinnedContacts,
   searchContacts,
@@ -122,6 +125,55 @@ describe("contact SQLite queries", () => {
         pinOrder: null,
       },
     ]);
+  });
+
+  it("loads deduplicated human records directly from SQLite", async () => {
+    mocks.execute.mockResolvedValue([
+      {
+        id: "human-1",
+        owner_user_id: "user-1",
+        created_at: "2026-07-10T12:00:00.000Z",
+        organization_id: "organization-1",
+        name: "Alice",
+        email: "alice@example.com",
+        phone: "",
+        job_title: "Engineer",
+        linkedin_username: "alice",
+        memo: "Lead",
+        pinned: 0,
+        pin_order: null,
+      },
+    ]);
+
+    await expect(loadHumansByIds(["human-1", "human-1", ""])).resolves.toEqual([
+      expect.objectContaining({
+        id: "human-1",
+        organizationId: "organization-1",
+        jobTitle: "Engineer",
+      }),
+    ]);
+    expect(mocks.execute).toHaveBeenCalledWith(expect.any(String), ["human-1"]);
+
+    await expect(loadHuman("")).resolves.toBeNull();
+  });
+
+  it("loads one active organization directly from SQLite", async () => {
+    mocks.execute.mockResolvedValue([
+      {
+        id: "organization-1",
+        owner_user_id: "user-1",
+        created_at: "2026-07-10T12:00:00.000Z",
+        name: "Example",
+        memo: "Customer",
+        pinned: 0,
+        pin_order: null,
+      },
+    ]);
+
+    await expect(loadOrganization("organization-1")).resolves.toEqual(
+      expect.objectContaining({ id: "organization-1", name: "Example" }),
+    );
+    expect(mocks.execute.mock.calls[0][0]).toContain("deleted_at IS NULL");
   });
 
   it("searches canonical contacts with organization details", async () => {
