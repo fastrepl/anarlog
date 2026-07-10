@@ -16,7 +16,7 @@ export function FloatingActionButton(_props: {
     <div
       className={cn([
         "absolute left-1/2 z-30 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-end justify-center",
-        "pointer-events-none bottom-3 h-10 w-40 pb-0",
+        "pointer-events-none bottom-3 h-10 w-[180px] pb-0",
       ])}
     >
       <AnimatePresence mode="wait" initial={false}>
