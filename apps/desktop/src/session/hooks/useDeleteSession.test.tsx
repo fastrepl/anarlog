@@ -7,25 +7,14 @@ const mocks = vi.hoisted(() => {
   const deletedSessionData: DeletedSessionData = {
     session: {
       id: "session-1",
-      user_id: "user-1",
-      created_at: "2026-01-01T00:00:00Z",
-      folder_id: "",
-      event_json: "",
       title: "Deleted note",
-      raw_md: "",
     },
-    transcripts: [],
-    participants: [],
-    tagSessions: [],
-    enhancedNotes: [],
-    keyFacts: null,
+    tombstone: "2026-01-01T00:00:00Z",
     deletedAt: 1,
   };
 
   return {
     addDeletion: vi.fn(),
-    captureSessionData: vi.fn(() => deletedSessionData),
-    deleteSessionCascade: vi.fn(),
     emitTo: vi.fn(() => Promise.resolve()),
     finalizeSessionDeletion: vi.fn(),
     getAllWebviewWindows: vi.fn<
@@ -33,12 +22,11 @@ const mocks = vi.hoisted(() => {
     >(() => Promise.resolve([])),
     getCurrentWebviewWindowLabel: vi.fn(() => "main"),
     ignoreEvent: vi.fn(),
-    indexes: {},
     invalidateResource: vi.fn(),
     listenerGetState: vi.fn(),
     listenerStop: vi.fn(),
     listen: vi.fn(),
-    store: {},
+    softDeleteSession: vi.fn(() => Promise.resolve(deletedSessionData)),
     deletedSessionData,
   };
 });
@@ -62,18 +50,9 @@ vi.mock("~/store/tinybase/hooks", () => ({
   }),
 }));
 
-vi.mock("~/store/tinybase/store/deleteSession", () => ({
-  captureSessionData: mocks.captureSessionData,
-  deleteSessionCascade: mocks.deleteSessionCascade,
+vi.mock("~/session/queries", () => ({
   finalizeSessionDeletion: mocks.finalizeSessionDeletion,
-}));
-
-vi.mock("~/store/tinybase/store/main", () => ({
-  STORE_ID: "main",
-  UI: {
-    useStore: () => mocks.store,
-    useIndexes: () => mocks.indexes,
-  },
+  softDeleteSession: mocks.softDeleteSession,
 }));
 
 vi.mock("~/store/zustand/listener/instance", () => ({
@@ -111,7 +90,7 @@ describe("useDeleteSession", () => {
   beforeEach(() => {
     cleanup();
     vi.clearAllMocks();
-    mocks.captureSessionData.mockReturnValue(mocks.deletedSessionData);
+    mocks.softDeleteSession.mockResolvedValue(mocks.deletedSessionData);
     mocks.emitTo.mockResolvedValue(undefined);
     mocks.getAllWebviewWindows.mockResolvedValue([]);
     mocks.getCurrentWebviewWindowLabel.mockReturnValue("main");
@@ -126,37 +105,29 @@ describe("useDeleteSession", () => {
     mocks.listen.mockResolvedValue(vi.fn());
   });
 
-  it("adds the undo deletion locally in the main window", () => {
+  it("adds the undo deletion locally in the main window", async () => {
     const { result } = renderHook(() => useDeleteSession());
 
     act(() => {
       result.current("session-1", "tracking-1");
     });
 
+    await waitFor(() => {
+      expect(mocks.addDeletion).toHaveBeenCalledWith(
+        mocks.deletedSessionData,
+        expect.any(Function),
+      );
+    });
     expect(mocks.ignoreEvent).toHaveBeenCalledWith("tracking-1");
-    expect(mocks.captureSessionData).toHaveBeenCalledWith(
-      mocks.store,
-      mocks.indexes,
-      "session-1",
-    );
+    expect(mocks.softDeleteSession).toHaveBeenCalledWith("session-1");
     expect(mocks.invalidateResource).toHaveBeenCalledWith(
       "sessions",
       "session-1",
     );
-    expect(mocks.deleteSessionCascade).toHaveBeenCalledWith(
-      mocks.store,
-      mocks.indexes,
-      "session-1",
-      { deferFilesystemDelete: true },
-    );
-    expect(mocks.addDeletion).toHaveBeenCalledWith(
-      mocks.deletedSessionData,
-      expect.any(Function),
-    );
     expect(mocks.emitTo).not.toHaveBeenCalled();
   });
 
-  it("stops listening before deleting the active session", () => {
+  it("stops listening before deleting the active session", async () => {
     mocks.listenerGetState.mockReturnValue({
       live: {
         sessionId: "session-1",
@@ -171,9 +142,12 @@ describe("useDeleteSession", () => {
       result.current("session-1");
     });
 
+    await waitFor(() => {
+      expect(mocks.softDeleteSession).toHaveBeenCalledWith("session-1");
+    });
     expect(mocks.listenerStop).toHaveBeenCalledTimes(1);
     expect(mocks.listenerStop.mock.invocationCallOrder[0]).toBeLessThan(
-      mocks.deleteSessionCascade.mock.invocationCallOrder[0],
+      mocks.softDeleteSession.mock.invocationCallOrder[0],
     );
   });
 
@@ -294,11 +268,6 @@ describe("useDeleteSession", () => {
       "sessions",
       "session-1",
     );
-    expect(mocks.deleteSessionCascade).toHaveBeenCalledWith(
-      mocks.store,
-      mocks.indexes,
-      "session-1",
-      { deferFilesystemDelete: true },
-    );
+    expect(mocks.softDeleteSession).not.toHaveBeenCalled();
   });
 });

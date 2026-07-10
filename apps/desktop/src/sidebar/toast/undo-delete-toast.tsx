@@ -5,8 +5,7 @@ import { createPortal } from "react-dom";
 
 import { cn } from "@hypr/utils";
 
-import { restoreSessionData } from "~/store/tinybase/store/deleteSession";
-import * as main from "~/store/tinybase/store/main";
+import { restoreDeletedSession } from "~/session/queries";
 import { useTabs } from "~/store/zustand/tabs";
 import { UNDO_TIMEOUT_MS, useUndoDelete } from "~/store/zustand/undo-delete";
 
@@ -63,7 +62,6 @@ function useToastGroups(): ToastGroup[] {
 }
 
 function useRestoreGroup() {
-  const store = main.UI.useStore(main.STORE_ID);
   const queryClient = useQueryClient();
   const pendingDeletions = useUndoDelete((state) => state.pendingDeletions);
   const clearDeletion = useUndoDelete((state) => state.clearDeletion);
@@ -72,41 +70,33 @@ function useRestoreGroup() {
 
   return useCallback(
     (group: ToastGroup) => {
-      if (!store) return;
+      void (async () => {
+        for (const sessionId of group.sessionIds) {
+          const pending = pendingDeletions[sessionId];
+          if (!pending) continue;
+          await restoreDeletedSession(pending.data);
+          void queryClient.invalidateQueries({
+            predicate: (query) =>
+              query.queryKey.length >= 2 &&
+              query.queryKey[0] === "audio" &&
+              query.queryKey[1] === sessionId,
+          });
+        }
 
-      for (const sessionId of group.sessionIds) {
-        const pending = pendingDeletions[sessionId];
-        if (!pending) continue;
-        restoreSessionData(store, pending.data);
-        void queryClient.invalidateQueries({
-          predicate: (query) =>
-            query.queryKey.length >= 2 &&
-            query.queryKey[0] === "audio" &&
-            query.queryKey[1] === sessionId,
-        });
-      }
+        if (group.sessionIds.length > 0) {
+          openCurrent({ type: "sessions", id: group.sessionIds[0] });
+        }
 
-      if (group.sessionIds.length > 0) {
-        openCurrent({
-          type: "sessions",
-          id: group.sessionIds[0],
-        });
-      }
-
-      if (group.isBatch) {
-        clearBatch(group.key);
-      } else {
-        clearDeletion(group.sessionIds[0]);
-      }
+        if (group.isBatch) {
+          clearBatch(group.key);
+        } else {
+          clearDeletion(group.sessionIds[0]);
+        }
+      })().catch((error) => {
+        console.error("[undo-delete] failed to restore session", error);
+      });
     },
-    [
-      store,
-      pendingDeletions,
-      openCurrent,
-      clearDeletion,
-      clearBatch,
-      queryClient,
-    ],
+    [pendingDeletions, openCurrent, clearDeletion, clearBatch, queryClient],
   );
 }
 

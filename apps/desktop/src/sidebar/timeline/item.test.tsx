@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   openNew: vi.fn(),
   sessionMode: "inactive",
   stop: vi.fn(),
+  getOrCreateSessionForEventId: vi.fn(() => Promise.resolve("session-event")),
   storeTitle: "Live Note",
   nativeContextMenus: [] as Array<
     Array<{
@@ -68,6 +69,10 @@ vi.mock("~/session/hooks/useEnhancedNotes", () => ({
   useIsSessionEnhancing: () => false,
 }));
 
+vi.mock("~/session/queries", () => ({
+  getOrCreateSessionForEventId: mocks.getOrCreateSessionForEventId,
+}));
+
 vi.mock("~/shared/hooks/useNativeContextMenu", () => ({
   useNativeContextMenu: (
     menu: Array<{
@@ -92,25 +97,8 @@ vi.mock("~/store/tinybase/hooks", () => ({
   }),
 }));
 
-vi.mock("~/store/tinybase/store/deleteSession", () => ({
-  captureSessionData: vi.fn(() => null),
-  deleteSessionCascade: vi.fn(),
-  finalizeSessionDeletion: vi.fn(),
-}));
-
-vi.mock("~/store/tinybase/store/main", () => ({
-  STORE_ID: "main",
-  UI: {
-    useCell: () => mocks.storeTitle,
-    useIndexes: () => ({}),
-    useRow: () => null,
-    useStore: () => ({}),
-  },
-}));
-
 vi.mock("~/store/zustand/live-title", () => ({
-  useSessionTitle: (_sessionId: string, storeTitle: string | undefined) =>
-    storeTitle,
+  useSessionTitle: () => mocks.storeTitle,
 }));
 
 vi.mock("~/store/zustand/tabs", () => ({

@@ -12,7 +12,7 @@ const mocks = vi.hoisted(() => ({
   currentTab: { type: "empty" } as
     | { type: "empty" }
     | { type: "sessions"; id: string },
-  addDeletion: vi.fn(),
+  deleteSession: vi.fn(),
   configValue: undefined as string | undefined,
   currentTimeMs: undefined as number | undefined,
   isAnchorVisible: true,
@@ -111,6 +111,10 @@ vi.mock("~/calendar/queries", () => ({
   }),
 }));
 
+vi.mock("~/session/hooks/useDeleteSession", () => ({
+  useDeleteSession: () => mocks.deleteSession,
+}));
+
 vi.mock("~/shared/hooks/useNativeContextMenu", () => ({
   useNativeContextMenu: () => vi.fn(),
 }));
@@ -119,20 +123,6 @@ vi.mock("~/store/tinybase/hooks", () => ({
   useIgnoredEvents: () => ({
     isIgnored: mocks.isIgnored,
   }),
-}));
-
-vi.mock("~/store/tinybase/store/deleteSession", () => ({
-  captureSessionData: vi.fn(),
-  deleteSessionCascade: vi.fn(),
-  finalizeSessionDeletion: vi.fn(),
-}));
-
-vi.mock("~/store/tinybase/store/main", () => ({
-  STORE_ID: "main",
-  UI: {
-    useIndexes: () => null,
-    useStore: () => null,
-  },
 }));
 
 vi.mock("~/store/zustand/tabs", () => ({
@@ -151,13 +141,6 @@ vi.mock("~/store/zustand/timeline-selection", () => ({
       clear: mocks.clearSelection,
       selectAll: mocks.selectAll,
       selectedIds: mocks.timelineSelectionSelectedIds,
-    }),
-}));
-
-vi.mock("~/store/zustand/undo-delete", () => ({
-  useUndoDelete: (selector: (state: unknown) => unknown) =>
-    selector({
-      addDeletion: mocks.addDeletion,
     }),
 }));
 

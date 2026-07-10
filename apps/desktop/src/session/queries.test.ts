@@ -1,0 +1,229 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({
+  analyticsEvent: vi.fn(() => Promise.resolve()),
+  execute: vi.fn(),
+  executeTransaction: vi.fn(
+    (_statements: Array<{ sql: string; params: unknown[] }>) =>
+      Promise.resolve([1]),
+  ),
+}));
+
+vi.mock("@hypr/plugin-analytics", () => ({
+  commands: { event: mocks.analyticsEvent },
+}));
+
+vi.mock("@hypr/plugin-fs-sync", () => ({
+  commands: {
+    deleteSessionFolder: vi.fn(() =>
+      Promise.resolve({ status: "ok", data: null }),
+    ),
+  },
+}));
+
+vi.mock("~/db", () => ({
+  executeTransaction: mocks.executeTransaction,
+  liveQueryClient: { execute: mocks.execute },
+}));
+
+import {
+  buildSessionTombstoneStatements,
+  getOrCreateSessionForEventId,
+  isSessionEmpty,
+  restoreDeletedSession,
+  softDeleteSession,
+} from "./queries";
+
+const event = {
+  id: "event-1",
+  tracking_id_event: "external-event-1",
+  calendar_id: "calendar-1",
+  title: "Planning",
+  started_at: "2026-07-10T09:00:00.000Z",
+  ended_at: "2026-07-10T10:00:00.000Z",
+  location: "Room 1",
+  meeting_link: "https://meet.example/1",
+  description: "Plan",
+  recurrence_series_id: "series-1",
+  has_recurrence_rules: 1,
+  is_all_day: 0,
+  provider: "google",
+  participants_json: JSON.stringify([
+    { name: "Alice", email: "alice@example.com" },
+  ]),
+};
+
+describe("session SQLite operations", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  it("returns the existing note for an event without writing", async () => {
+    mocks.execute
+      .mockResolvedValueOnce([event])
+      .mockResolvedValueOnce([{ id: "session-existing" }]);
+
+    await expect(getOrCreateSessionForEventId("event-1")).resolves.toBe(
+      "session-existing",
+    );
+    expect(mocks.executeTransaction).not.toHaveBeenCalled();
+  });
+
+  it("creates an event note with an in-transaction deduplication predicate", async () => {
+    mocks.execute
+      .mockResolvedValueOnce([event])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: "session-created" }]);
+    mocks.executeTransaction.mockResolvedValueOnce([1]);
+
+    await expect(getOrCreateSessionForEventId("event-1")).resolves.toBe(
+      "session-created",
+    );
+
+    const statements = mocks.executeTransaction.mock.calls[0][0] as Array<{
+      sql: string;
+      params: unknown[];
+    }>;
+    expect(statements[0].sql).toContain("WHERE NOT EXISTS");
+    expect(statements[0].params).toContain("external-event-1");
+    expect(
+      statements.some((statement) => statement.sql.includes("humans")),
+    ).toBe(true);
+    expect(
+      statements.some((statement) =>
+        statement.sql.includes("session_participants"),
+      ),
+    ).toBe(true);
+  });
+
+  it("tombstones the session and every owned child with one timestamp", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-10T12:00:00.000Z"));
+    mocks.execute.mockResolvedValueOnce([
+      { id: "session-1", title: "Planning" },
+    ]);
+    mocks.executeTransaction.mockResolvedValueOnce([1, 1, 1, 1, 1, 1, 1, 1]);
+
+    const deleted = await softDeleteSession("session-1");
+
+    expect(deleted).toEqual({
+      session: { id: "session-1", title: "Planning" },
+      tombstone: "2026-07-10T12:00:00.000Z",
+      deletedAt: Date.parse("2026-07-10T12:00:00.000Z"),
+    });
+    const statements = mocks.executeTransaction.mock.calls[0][0] as Array<{
+      sql: string;
+      params: unknown[];
+    }>;
+    expect(statements).toHaveLength(8);
+    expect(
+      statements.every((statement) =>
+        statement.sql.includes("deleted_at IS NULL"),
+      ),
+    ).toBe(true);
+    expect(
+      statements.every((statement) =>
+        statement.params.includes("2026-07-10T12:00:00.000Z"),
+      ),
+    ).toBe(true);
+  });
+
+  it("does not register a deletion when another window won the tombstone", async () => {
+    mocks.execute.mockResolvedValueOnce([
+      { id: "session-1", title: "Planning" },
+    ]);
+    mocks.executeTransaction.mockResolvedValueOnce([0, 0, 0, 0, 0, 0, 0, 0]);
+
+    await expect(softDeleteSession("session-1")).resolves.toBeNull();
+  });
+
+  it("recognizes a blank SQLite session", async () => {
+    mocks.execute.mockResolvedValueOnce([
+      {
+        title: "",
+        event_json: "",
+        note_body: JSON.stringify({
+          type: "doc",
+          content: [{ type: "paragraph" }],
+        }),
+        note_body_format: "prosemirror_json",
+        transcript_count: 0,
+        enhanced_note_count: 0,
+        manual_participant_count: 0,
+        tag_count: 0,
+      },
+    ]);
+
+    await expect(isSessionEmpty("session-1")).resolves.toBe(true);
+  });
+
+  it.each([
+    ["title", { title: "Named note", event_json: "" }],
+    ["note body", { note_body: "Written content" }],
+    ["transcript", { transcript_count: 1 }],
+    ["enhanced note", { enhanced_note_count: 1 }],
+    ["manual participant", { manual_participant_count: 1 }],
+    ["tag", { tag_count: 1 }],
+  ])("keeps a session with %s data", async (_label, overrides) => {
+    mocks.execute.mockResolvedValueOnce([
+      {
+        title: "",
+        event_json: "event",
+        note_body: "",
+        note_body_format: "prosemirror_json",
+        transcript_count: 0,
+        enhanced_note_count: 0,
+        manual_participant_count: 0,
+        tag_count: 0,
+        ...overrides,
+      },
+    ]);
+
+    await expect(isSessionEmpty("session-1")).resolves.toBe(false);
+  });
+
+  it("restores only rows carrying the deletion's exact tombstone", async () => {
+    mocks.executeTransaction.mockResolvedValueOnce([1, 1, 1, 1, 1, 1, 1, 1]);
+    await restoreDeletedSession({
+      session: { id: "session-1", title: "Planning" },
+      tombstone: "2026-07-10T12:00:00.000Z",
+      deletedAt: 1,
+    });
+
+    const statements = mocks.executeTransaction.mock.calls[0][0] as Array<{
+      sql: string;
+      params: unknown[];
+    }>;
+    expect(statements).toHaveLength(8);
+    expect(
+      statements.every((statement) => statement.sql.includes("deleted_at = ?")),
+    ).toBe(true);
+    expect(statements.every((statement) => statement.params[0] === null)).toBe(
+      true,
+    );
+  });
+
+  it("covers all session-owned tables in the tombstone transaction", () => {
+    const sql = buildSessionTombstoneStatements(
+      "session-1",
+      "2026-07-10T12:00:00.000Z",
+    )
+      .map((statement) => statement.sql)
+      .join("\n");
+
+    for (const table of [
+      "sessions",
+      "session_documents",
+      "transcripts",
+      "session_participants",
+      "session_tags",
+      "action_items",
+      "session_attachments",
+      "entity_mentions",
+    ]) {
+      expect(sql).toContain(table);
+    }
+  });
+});

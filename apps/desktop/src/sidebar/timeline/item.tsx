@@ -25,13 +25,12 @@ import {
 import { writeSessionContextDragData } from "~/chat/context/session-drag";
 import { useDeleteSession } from "~/session/hooks/useDeleteSession";
 import { useIsSessionEnhancing } from "~/session/hooks/useEnhancedNotes";
+import { getOrCreateSessionForEventId } from "~/session/queries";
 import { getSessionEvent } from "~/session/utils";
 import { openStandaloneNoteWindow } from "~/session/window";
 import type { MenuItemDef } from "~/shared/hooks/useNativeContextMenu";
 import { InteractiveButton } from "~/shared/ui/interactive-button";
 import { useIgnoredEvents } from "~/store/tinybase/hooks";
-import * as main from "~/store/tinybase/store/main";
-import { getOrCreateSessionForEventId } from "~/store/tinybase/store/sessions";
 import { useSessionTitle } from "~/store/zustand/live-title";
 import { useTabs } from "~/store/zustand/tabs";
 import { useTimelineSelection } from "~/store/zustand/timeline-selection";
@@ -345,7 +344,6 @@ const EventItem = memo(
     upcomingProgress?: number;
   }) => {
     const { t } = useLingui();
-    const store = main.UI.useStore(main.STORE_ID);
     const openCurrent = useTabs((state) => state.openCurrent);
 
     const eventId = item.id;
@@ -369,13 +367,15 @@ const EventItem = memo(
     );
 
     const openEvent = useCallback(() => {
-      if (!store || !eventId) {
-        return;
-      }
-
-      const sessionId = getOrCreateSessionForEventId(store, eventId, title);
-      openCurrent({ id: sessionId, type: "sessions" });
-    }, [eventId, store, title, openCurrent]);
+      if (!eventId) return;
+      void getOrCreateSessionForEventId(eventId, title)
+        .then((sessionId) => {
+          openCurrent({ id: sessionId, type: "sessions" });
+        })
+        .catch((error) => {
+          console.error("[timeline] failed to open event note", error);
+        });
+    }, [eventId, title, openCurrent]);
 
     const itemKey = `event-${item.id}`;
     const muted = isTimelineItemInFuture(item);
@@ -508,13 +508,7 @@ const SessionItem = memo(
     const deleteSession = useDeleteSession();
 
     const sessionId = item.id;
-    const storeTitle = main.UI.useCell(
-      "sessions",
-      sessionId,
-      "title",
-      main.STORE_ID,
-    ) as string | undefined;
-    const title = useSessionTitle(sessionId, storeTitle);
+    const title = useSessionTitle(sessionId, item.data.title ?? undefined);
 
     const { sessionMode, stop, amplitude } = useListener((state) => {
       const sessionMode = state.getSessionMode(sessionId);
@@ -531,10 +525,7 @@ const SessionItem = memo(
     const showSpinner =
       !selected && !isLive && (isFinalizing || isEnhancing || isBatching);
 
-    const sessionEvent = useMemo(
-      () => getSessionEvent(item.data),
-      [item.data.event_json],
-    );
+    const sessionEvent = getSessionEvent(item.data);
 
     const displayTime = useMemo(
       () =>

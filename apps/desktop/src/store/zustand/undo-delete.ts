@@ -1,69 +1,13 @@
 import { create } from "zustand";
 
-type SessionRow = {
+type DeletedSession = {
   id: string;
-  user_id: string;
-  created_at: string;
-  folder_id: string;
-  event_json: string;
   title: string;
-  raw_md: string;
-};
-
-type TranscriptRow = {
-  id: string;
-  user_id: string;
-  created_at: string;
-  session_id: string;
-  started_at: number;
-  ended_at?: number;
-  words: string;
-  speaker_hints: string;
-  memo_md: string;
-};
-
-type ParticipantRow = {
-  id: string;
-  user_id: string;
-  session_id: string;
-  human_id: string;
-  source: string;
-};
-
-type TagSessionRow = {
-  id: string;
-  user_id: string;
-  tag_id: string;
-  session_id: string;
-};
-
-type EnhancedNoteRow = {
-  id: string;
-  user_id: string;
-  session_id: string;
-  content: string;
-  template_id: string;
-  position: number;
-  title: string;
-};
-
-type SessionKeyFactsRow = {
-  id: string;
-  user_id: string;
-  session_id: string;
-  created_at: string;
-  updated_at: string;
-  content: string;
-  source_hash: string;
 };
 
 export type DeletedSessionData = {
-  session: SessionRow;
-  transcripts: TranscriptRow[];
-  participants: ParticipantRow[];
-  tagSessions: TagSessionRow[];
-  enhancedNotes: EnhancedNoteRow[];
-  keyFacts: SessionKeyFactsRow | null;
+  session: DeletedSession;
+  tombstone: string;
   deletedAt: number;
 };
 

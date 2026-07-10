@@ -80,96 +80,56 @@ describe("desktop tab lifecycle", () => {
   describe("createSessionTabCloseHandler", () => {
     it("cleans up empty sessions on close", async () => {
       const invalidateSessionResource = vi.fn();
-      const deleteSessionFn = vi.fn();
-      const hydrateSessionContentFn = vi.fn().mockResolvedValue(true);
+      const deleteSessionFn = vi.fn().mockResolvedValue({ session: {} });
       const handler = createSessionTabCloseHandler({
-        store: {} as Parameters<
-          typeof createSessionTabCloseHandler
-        >[0]["store"],
-        indexes: {} as Parameters<
-          typeof createSessionTabCloseHandler
-        >[0]["indexes"],
         invalidateSessionResource,
         getSessionMode: vi.fn().mockReturnValue(null),
-        isSessionEmptyFn: vi.fn().mockReturnValue(true),
+        isSessionEmptyFn: vi.fn().mockResolvedValue(true),
         deleteSessionFn,
-        hydrateSessionContentFn,
       });
 
       handler(createSessionTab({ id: "session-1" }));
 
       await flushAsyncCleanup();
 
-      expect(hydrateSessionContentFn).toHaveBeenCalledWith(
-        expect.anything(),
-        "session-1",
-      );
       expect(invalidateSessionResource).toHaveBeenCalledWith("session-1");
-      expect(deleteSessionFn).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.anything(),
-        "session-1",
-        { deferFilesystemDelete: true },
-      );
+      expect(deleteSessionFn).toHaveBeenCalledWith("session-1");
     });
 
-    it("keeps restored sessions when hydration finds content", async () => {
+    it("keeps sessions that contain SQLite data", async () => {
       const invalidateSessionResource = vi.fn();
       const deleteSessionFn = vi.fn();
-      const hydrateSessionContentFn = vi.fn().mockResolvedValue(true);
-      const isSessionEmptyFn = vi
-        .fn()
-        .mockReturnValueOnce(true)
-        .mockReturnValueOnce(false);
+      const isSessionEmptyFn = vi.fn().mockResolvedValue(false);
       const handler = createSessionTabCloseHandler({
-        store: {} as Parameters<
-          typeof createSessionTabCloseHandler
-        >[0]["store"],
-        indexes: {} as Parameters<
-          typeof createSessionTabCloseHandler
-        >[0]["indexes"],
         invalidateSessionResource,
         getSessionMode: vi.fn().mockReturnValue(null),
         isSessionEmptyFn,
         deleteSessionFn,
-        hydrateSessionContentFn,
       });
 
       handler(createSessionTab({ id: "session-1" }));
 
       await flushAsyncCleanup();
 
-      expect(hydrateSessionContentFn).toHaveBeenCalledWith(
-        expect.anything(),
-        "session-1",
-      );
       expect(deleteSessionFn).not.toHaveBeenCalled();
       expect(invalidateSessionResource).not.toHaveBeenCalled();
     });
 
-    it("skips cleanup when hydration fails", async () => {
+    it("does not invalidate when the SQLite delete loses a race", async () => {
       const invalidateSessionResource = vi.fn();
-      const deleteSessionFn = vi.fn();
-      const hydrateSessionContentFn = vi.fn().mockResolvedValue(false);
+      const deleteSessionFn = vi.fn().mockResolvedValue(null);
       const handler = createSessionTabCloseHandler({
-        store: {} as Parameters<
-          typeof createSessionTabCloseHandler
-        >[0]["store"],
-        indexes: {} as Parameters<
-          typeof createSessionTabCloseHandler
-        >[0]["indexes"],
         invalidateSessionResource,
         getSessionMode: vi.fn().mockReturnValue(null),
-        isSessionEmptyFn: vi.fn().mockReturnValue(true),
+        isSessionEmptyFn: vi.fn().mockResolvedValue(true),
         deleteSessionFn,
-        hydrateSessionContentFn,
       });
 
       handler(createSessionTab({ id: "session-1" }));
 
       await flushAsyncCleanup();
 
-      expect(deleteSessionFn).not.toHaveBeenCalled();
+      expect(deleteSessionFn).toHaveBeenCalledWith("session-1");
       expect(invalidateSessionResource).not.toHaveBeenCalled();
     });
 
@@ -178,15 +138,9 @@ describe("desktop tab lifecycle", () => {
         const invalidateSessionResource = vi.fn();
         const deleteSessionFn = vi.fn();
         const handler = createSessionTabCloseHandler({
-          store: {} as Parameters<
-            typeof createSessionTabCloseHandler
-          >[0]["store"],
-          indexes: {} as Parameters<
-            typeof createSessionTabCloseHandler
-          >[0]["indexes"],
           invalidateSessionResource,
           getSessionMode: vi.fn().mockReturnValue(sessionMode),
-          isSessionEmptyFn: vi.fn().mockReturnValue(true),
+          isSessionEmptyFn: vi.fn().mockResolvedValue(true),
           deleteSessionFn,
         });
 

@@ -45,20 +45,14 @@ import {
 } from "./utils";
 
 import { useTimelineTables } from "~/calendar/queries";
+import { useDeleteSession } from "~/session/hooks/useDeleteSession";
 import { useConfigValue } from "~/shared/config";
 import { scrollElementByWheel } from "~/shared/dom/scroll-wheel";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
 import { useIgnoredEvents } from "~/store/tinybase/hooks";
-import {
-  captureSessionData,
-  deleteSessionCascade,
-  finalizeSessionDeletion,
-} from "~/store/tinybase/store/deleteSession";
-import * as main from "~/store/tinybase/store/main";
 import { useTabs } from "~/store/zustand/tabs";
 import { useTimelineSelection } from "~/store/zustand/timeline-selection";
-import { useUndoDelete } from "~/store/zustand/undo-delete";
 import { useListener } from "~/stt/contexts";
 
 export const TimelineView = memo(function TimelineView({
@@ -144,15 +138,11 @@ export const TimelineView = memo(function TimelineView({
     return currentTab?.type === "sessions" ? currentTab.id : undefined;
   }, [currentTab]);
 
-  const store = main.UI.useStore(main.STORE_ID);
-
   const selectedIds = useTimelineSelection((s) => s.selectedIds);
   const anchorId = useTimelineSelection((s) => s.anchorId);
   const selectAll = useTimelineSelection((s) => s.selectAll);
   const clearSelection = useTimelineSelection((s) => s.clear);
-  const indexes = main.UI.useIndexes(main.STORE_ID);
-  const invalidateResource = useTabs((state) => state.invalidateResource);
-  const addDeletion = useUndoDelete((state) => state.addDeletion);
+  const deleteSession = useDeleteSession();
 
   const flatItemKeys = useMemo(() => {
     const keys: string[] = [];
@@ -363,10 +353,6 @@ export const TimelineView = memo(function TimelineView({
   }, [openNew]);
 
   const handleDeleteSelected = useCallback(() => {
-    if (!store || !indexes) {
-      return;
-    }
-
     const sessionIds = selectedIds
       .filter((key) => key.startsWith("session-"))
       .map((key) => key.replace("session-", ""));
@@ -374,33 +360,11 @@ export const TimelineView = memo(function TimelineView({
     const batchId = sessionIds.length > 1 ? crypto.randomUUID() : undefined;
 
     for (const sessionId of sessionIds) {
-      const capturedData = captureSessionData(store, indexes, sessionId);
-
-      invalidateResource("sessions", sessionId);
-      void deleteSessionCascade(store, indexes, sessionId, {
-        deferFilesystemDelete: true,
-      });
-
-      if (capturedData) {
-        addDeletion(
-          capturedData,
-          () => {
-            void finalizeSessionDeletion(sessionId);
-          },
-          batchId,
-        );
-      }
+      deleteSession(sessionId, undefined, batchId);
     }
 
     clearSelection();
-  }, [
-    store,
-    indexes,
-    selectedIds,
-    invalidateResource,
-    addDeletion,
-    clearSelection,
-  ]);
+  }, [selectedIds, deleteSession, clearSelection]);
 
   const sessionCount = useMemo(
     () => selectedIds.filter((key) => key.startsWith("session-")).length,

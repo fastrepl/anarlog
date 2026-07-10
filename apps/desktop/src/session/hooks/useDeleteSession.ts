@@ -4,13 +4,8 @@ import { useCallback, useEffect } from "react";
 
 import { getCurrentWebviewWindowLabel } from "@hypr/plugin-windows";
 
+import { finalizeSessionDeletion, softDeleteSession } from "~/session/queries";
 import { useIgnoredEvents } from "~/store/tinybase/hooks";
-import {
-  captureSessionData,
-  deleteSessionCascade,
-  finalizeSessionDeletion,
-} from "~/store/tinybase/store/deleteSession";
-import * as main from "~/store/tinybase/store/main";
 import { listenerStore } from "~/store/zustand/listener/instance";
 import { useTabs } from "~/store/zustand/tabs";
 import {
@@ -54,23 +49,12 @@ function isSessionDeletedForUndoPayload(
 }
 
 export function useDeleteSession() {
-  const store = main.UI.useStore(main.STORE_ID);
-  const indexes = main.UI.useIndexes(main.STORE_ID);
   const invalidateResource = useTabs((state) => state.invalidateResource);
   const addDeletion = useUndoDelete((state) => state.addDeletion);
   const { ignoreEvent } = useIgnoredEvents();
 
   return useCallback(
-    (sessionId: string, trackingId?: string | null) => {
-      if (!store) {
-        return;
-      }
-
-      if (trackingId) {
-        ignoreEvent(trackingId);
-      }
-
-      const capturedData = captureSessionData(store, indexes, sessionId);
+    (sessionId: string, trackingId?: string | null, batchId?: string) => {
       const windowLabel = getCurrentWebviewWindowLabel();
       const listenerState = listenerStore.getState();
       const live = listenerState.live;
@@ -82,44 +66,45 @@ export function useDeleteSession() {
         listenerState.stop();
       }
 
-      invalidateResource("sessions", sessionId);
-      deleteSessionCascade(store, indexes, sessionId, {
-        deferFilesystemDelete: true,
-      });
-
       void (async () => {
         try {
-          if (capturedData) {
-            if (windowLabel === "main") {
-              addDeletion(capturedData, () => {
-                void finalizeSessionDeletion(sessionId);
-              });
+          const deletedData = await softDeleteSession(sessionId);
+          if (!deletedData) return;
+
+          if (trackingId) ignoreEvent(trackingId);
+          invalidateResource("sessions", sessionId);
+          if (windowLabel === "main") {
+            const finalize = () => {
+              void finalizeSessionDeletion(sessionId);
+            };
+            if (batchId) {
+              addDeletion(deletedData, finalize, batchId);
             } else {
-              await emitTo("main", SESSION_DELETED_FOR_UNDO_EVENT, {
-                sessionId,
-                data: capturedData,
-              } satisfies SessionDeletedForUndoPayload);
+              addDeletion(deletedData, finalize);
             }
+          } else {
+            await emitTo("main", SESSION_DELETED_FOR_UNDO_EVENT, {
+              sessionId,
+              data: deletedData,
+            } satisfies SessionDeletedForUndoPayload);
           }
-        } catch {
-          // The note was already deleted locally, so still close matching windows.
+        } catch (error) {
+          console.error("[delete-session] failed to finish deletion", error);
         } finally {
           await closeSessionNoteWindows(sessionId);
         }
       })();
     },
-    [store, indexes, ignoreEvent, invalidateResource, addDeletion],
+    [ignoreEvent, invalidateResource, addDeletion],
   );
 }
 
 export function useRemoteSessionDeletionUndoListener(active: boolean) {
-  const store = main.UI.useStore(main.STORE_ID);
-  const indexes = main.UI.useIndexes(main.STORE_ID);
   const invalidateResource = useTabs((state) => state.invalidateResource);
   const addDeletion = useUndoDelete((state) => state.addDeletion);
 
   useEffect(() => {
-    if (!active || !store) {
+    if (!active) {
       return;
     }
 
@@ -132,9 +117,6 @@ export function useRemoteSessionDeletionUndoListener(active: boolean) {
       }
 
       invalidateResource("sessions", payload.sessionId);
-      deleteSessionCascade(store, indexes, payload.sessionId, {
-        deferFilesystemDelete: true,
-      });
       addDeletion(payload.data, () => {
         void finalizeSessionDeletion(payload.sessionId);
       });
@@ -146,5 +128,5 @@ export function useRemoteSessionDeletionUndoListener(active: boolean) {
     return () => {
       unlisten?.();
     };
-  }, [active, store, indexes, invalidateResource, addDeletion]);
+  }, [active, invalidateResource, addDeletion]);
 }

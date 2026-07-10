@@ -1,9 +1,7 @@
 import { isTauri } from "@tauri-apps/api/core";
 import { useEffect, useRef } from "react";
 
-import { hydrateSessionContent } from "~/store/tinybase/persister/session/hydrate";
-import { deleteSessionCascade } from "~/store/tinybase/store/deleteSession";
-import { isSessionEmpty } from "~/store/tinybase/store/sessions";
+import { isSessionEmpty, softDeleteSession } from "~/session/queries";
 import { listenerStore } from "~/store/zustand/listener/instance";
 import {
   restorePinnedTabsToStore,
@@ -11,9 +9,6 @@ import {
   type Tab,
   useTabs,
 } from "~/store/zustand/tabs";
-
-type SessionStore = Parameters<typeof deleteSessionCascade>[0];
-type SessionIndexes = Parameters<typeof deleteSessionCascade>[1];
 
 type InitializeDesktopTabsOptions = {
   getTabs: () => Tab[];
@@ -27,13 +22,10 @@ type InitializeDesktopTabsOptions = {
 };
 
 type SessionTabCloseHandlerOptions = {
-  store: SessionStore;
-  indexes: SessionIndexes;
   invalidateSessionResource: (sessionId: string) => void;
   getSessionMode?: (sessionId: string) => string | null | undefined;
   isSessionEmptyFn?: typeof isSessionEmpty;
-  deleteSessionFn?: typeof deleteSessionCascade;
-  hydrateSessionContentFn?: typeof hydrateSessionContent;
+  deleteSessionFn?: typeof softDeleteSession;
 };
 
 export async function initializeDesktopTabs({
@@ -60,14 +52,11 @@ export async function initializeDesktopTabs({
 }
 
 export function createSessionTabCloseHandler({
-  store,
-  indexes,
   invalidateSessionResource,
   getSessionMode = (sessionId) =>
     listenerStore.getState().getSessionMode(sessionId),
   isSessionEmptyFn = isSessionEmpty,
-  deleteSessionFn = deleteSessionCascade,
-  hydrateSessionContentFn = hydrateSessionContent,
+  deleteSessionFn = softDeleteSession,
 }: SessionTabCloseHandlerOptions) {
   return (tab: Tab) => {
     if (tab.type !== "sessions") {
@@ -84,20 +73,11 @@ export function createSessionTabCloseHandler({
       return;
     }
 
-    if (!isSessionEmptyFn(store, sessionId)) {
-      return;
-    }
-
     void (async () => {
-      const hydrated = await hydrateSessionContentFn(store, sessionId);
-      if (!hydrated || !isSessionEmptyFn(store, sessionId)) {
-        return;
-      }
+      if (!(await isSessionEmptyFn(sessionId))) return;
 
-      invalidateSessionResource(sessionId);
-      deleteSessionFn(store, indexes, sessionId, {
-        deferFilesystemDelete: true,
-      });
+      const deleted = await deleteSessionFn(sessionId);
+      if (deleted) invalidateSessionResource(sessionId);
     })().catch((error) => {
       console.error("session close cleanup", error);
     });
@@ -105,13 +85,9 @@ export function createSessionTabCloseHandler({
 }
 
 export function useDesktopTabLifecycle({
-  store,
-  indexes,
   onEmpty,
   onZeroTabs,
 }: {
-  store: SessionStore | null | undefined;
-  indexes: SessionIndexes | null | undefined;
   onEmpty?: (() => void) | null;
   onZeroTabs?: (() => void) | null;
 }) {
@@ -147,19 +123,12 @@ export function useDesktopTabLifecycle({
   }, [registerCanClose]);
 
   useEffect(() => {
-    if (!store || !indexes) {
-      registerOnClose(null);
-      return;
-    }
-
     registerOnClose(
       createSessionTabCloseHandler({
-        store,
-        indexes,
         invalidateSessionResource: (sessionId) => {
           useTabs.getState().invalidateResource("sessions", sessionId);
         },
       }),
     );
-  }, [indexes, registerOnClose, store]);
+  }, [registerOnClose]);
 }
