@@ -29,7 +29,6 @@ import { routeTree } from "./routeTree.gen";
 import { EventListeners } from "./services/event-listeners";
 import { TaskManager } from "./services/task-manager";
 import { useRemoteSessionDeletionUndoListener } from "./session/hooks/useDeleteSession";
-import { RawEditorSyncBridge } from "./session/raw-editor-sync";
 import { ErrorComponent, NotFoundComponent } from "./shared/control";
 import { bootstrapThemeFromSettings } from "./shared/theme/apply";
 import { AppThemeProvider } from "./shared/theme/provider";
@@ -125,7 +124,6 @@ function AppWithTiny() {
         <TinyBaseProvider>
           <StoreComponent />
           <SettingsStoreComponent />
-          <RawEditorSyncBridge />
           <App />
           {isMainWindow ? <TaskManager /> : null}
           {isMainWindow ? <FloatingMeetingWindowHost /> : null}

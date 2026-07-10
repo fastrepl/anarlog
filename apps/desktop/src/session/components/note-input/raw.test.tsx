@@ -13,7 +13,7 @@ import { RawEditor } from "./raw";
 const hoisted = vi.hoisted(() => ({
   rawMd: JSON.stringify({ type: "doc", content: [] }),
   sessionTitle: "Weekly sync",
-  persistChange: vi.fn(),
+  persistChange: vi.fn(() => Promise.resolve()),
   fileUpload: vi.fn(),
   processAudioFile: vi.fn(),
   showWindow: vi.fn(),
@@ -76,8 +76,12 @@ vi.mock("~/session/components/shared", () => ({
   hasStoredNoteContent: (value: unknown) => Boolean(value),
 }));
 
-vi.mock("~/session/raw-editor-sync", () => ({
-  emitRawEditorSync: vi.fn(),
+vi.mock("~/session/queries", () => ({
+  useSession: () => ({
+    raw_md: hoisted.rawMd,
+    title: hoisted.sessionTitle,
+  }),
+  useUpdateSession: () => hoisted.persistChange,
 }));
 
 vi.mock("~/shared/hooks/useFileUpload", () => ({
@@ -94,24 +98,6 @@ vi.mock("~/stt/useUploadFile", () => ({
   useUploadFile: () => ({ processAudioFile: hoisted.processAudioFile }),
 }));
 
-vi.mock("~/store/tinybase/store/main", () => ({
-  STORE_ID: "main",
-  UI: {
-    useCell: (table: string, _row: string, cell: string) => {
-      if (table === "sessions" && cell === "raw_md") {
-        return hoisted.rawMd;
-      }
-
-      if (table === "sessions" && cell === "title") {
-        return hoisted.sessionTitle;
-      }
-
-      return undefined;
-    },
-    useSetPartialRowCallback: () => hoisted.persistChange,
-  },
-}));
-
 describe("RawEditor", () => {
   afterEach(() => {
     cleanup();
@@ -121,7 +107,7 @@ describe("RawEditor", () => {
     hoisted.noteEditorProps = [];
     hoisted.rawMd = JSON.stringify({ type: "doc", content: [] });
     hoisted.sessionTitle = "Weekly sync";
-    hoisted.persistChange = vi.fn();
+    hoisted.persistChange = vi.fn(() => Promise.resolve());
     hoisted.fileUpload = vi.fn();
     hoisted.processAudioFile = vi.fn();
     hoisted.showWindow.mockReset();

@@ -32,6 +32,7 @@ import {
   isSessionEmpty,
   restoreDeletedSession,
   softDeleteSession,
+  updateSession,
 } from "./queries";
 
 const event = {
@@ -68,6 +69,25 @@ describe("session SQLite operations", () => {
       "session-existing",
     );
     expect(mocks.executeTransaction).not.toHaveBeenCalled();
+  });
+
+  it("commits title and raw note changes in one ordered transaction", async () => {
+    mocks.executeTransaction.mockResolvedValueOnce([1, 1]);
+
+    await updateSession("session-1", {
+      title: "Updated title",
+      raw_md: '{"type":"doc"}',
+    });
+
+    const statements = mocks.executeTransaction.mock.calls[0][0] as Array<{
+      sql: string;
+      params: unknown[];
+    }>;
+    expect(statements).toHaveLength(2);
+    expect(statements[0].sql).toContain("UPDATE sessions");
+    expect(statements[0].params).toContain("Updated title");
+    expect(statements[1].sql).toContain("session_documents");
+    expect(statements[1].params).toContain('{"type":"doc"}');
   });
 
   it("creates an event note with an in-transaction deduplication predicate", async () => {

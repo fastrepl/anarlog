@@ -1,5 +1,5 @@
 import type { EditorView } from "prosemirror-view";
-import { forwardRef, useCallback, useEffect, useMemo, useRef } from "react";
+import { forwardRef, useCallback, useMemo, useRef } from "react";
 
 import { parseJsonContent } from "@hypr/editor/markdown";
 import {
@@ -19,12 +19,11 @@ import { openEditorLink } from "~/editor-bridge/open-editor-link";
 import { sessionMentionDropConfig } from "~/editor-bridge/session-mention-drop";
 import { SessionNodeView } from "~/editor-bridge/session-view";
 import { hasStoredNoteContent } from "~/session/components/shared";
-import { emitRawEditorSync } from "~/session/raw-editor-sync";
+import { useSession, useUpdateSession } from "~/session/queries";
 import {
   ensureFirstLineTitle,
   extractFirstLineTitle,
 } from "~/session/title-content";
-import * as main from "~/store/tinybase/store/main";
 
 const extraNodeViews = { appLink: AppLinkView, session: SessionNodeView };
 
@@ -52,49 +51,36 @@ export const RawEditor = forwardRef<
     },
     ref,
   ) => {
-    const rawMd = main.UI.useCell(
-      "sessions",
-      sessionId,
-      "raw_md",
-      main.STORE_ID,
-    );
-    const sessionTitle = main.UI.useCell(
-      "sessions",
-      sessionId,
-      "title",
-      main.STORE_ID,
-    ) as string | undefined;
+    const session = useSession(sessionId);
+    const rawMd = session?.raw_md ?? "";
+    const sessionTitle = session?.title;
+    const updateSession = useUpdateSession(sessionId);
     const { audioDropTargetProps, fileHandlerConfig, isAudioDragActive } =
       useNoteFileHandlerConfig(sessionId);
-    const syncSourceId = useRawEditorSyncSourceId();
-
     const initialContent = useMemo<JSONContent>(
-      () =>
-        ensureFirstLineTitle(parseJsonContent(rawMd as string), sessionTitle),
+      () => ensureFirstLineTitle(parseJsonContent(rawMd), sessionTitle),
       [rawMd, sessionTitle],
     );
 
-    const persistChange = main.UI.useSetPartialRowCallback(
-      "sessions",
-      sessionId,
+    const persistChange = useCallback(
       (input: JSONContent) => {
         const title = extractFirstLineTitle(input);
-        return {
+        return updateSession({
           raw_md: JSON.stringify(input),
           ...(title !== null || hasStoredNoteContent(rawMd)
             ? { title: title ?? "" }
             : {}),
-        };
+        });
       },
-      [rawMd],
-      main.STORE_ID,
+      [rawMd, updateSession],
     );
 
     const hasTrackedWriteRef = useRef(false);
-
-    useEffect(() => {
+    const trackedSessionIdRef = useRef(sessionId);
+    if (trackedSessionIdRef.current !== sessionId) {
+      trackedSessionIdRef.current = sessionId;
       hasTrackedWriteRef.current = false;
-    }, [sessionId]);
+    }
 
     const hasNonEmptyText = useCallback(
       (node?: JSONContent): boolean =>
@@ -105,26 +91,19 @@ export const RawEditor = forwardRef<
 
     const handleChange = useCallback(
       (input: JSONContent) => {
-        const nextRawMd = JSON.stringify(input);
-        persistChange(input);
-        emitRawEditorSync({
-          sessionId,
-          rawMd: nextRawMd,
-          sourceId: syncSourceId,
+        void persistChange(input).catch((error) => {
+          console.error("[raw-editor] failed to persist note", error);
         });
 
         if (!hasTrackedWriteRef.current) {
           const hasContent = hasNonEmptyText(input);
           if (hasContent) {
             hasTrackedWriteRef.current = true;
-            void analyticsCommands.event({
-              event: "note_edited",
-              has_content: true,
-            });
+            void trackNoteEdited();
           }
         }
       },
-      [persistChange, sessionId, syncSourceId, hasNonEmptyText],
+      [persistChange, hasNonEmptyText],
     );
 
     const mentionConfig = useMentionConfig();
@@ -158,11 +137,13 @@ export const RawEditor = forwardRef<
   },
 );
 
-function useRawEditorSyncSourceId() {
-  const sourceIdRef = useRef<string | null>(null);
-  if (!sourceIdRef.current) {
-    sourceIdRef.current = crypto.randomUUID();
+async function trackNoteEdited() {
+  try {
+    await analyticsCommands.event({
+      event: "note_edited",
+      has_content: true,
+    });
+  } catch (error) {
+    console.error("[raw-editor] failed to record note analytics", error);
   }
-
-  return sourceIdRef.current;
 }

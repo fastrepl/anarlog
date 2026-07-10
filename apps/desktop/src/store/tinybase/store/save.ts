@@ -2,6 +2,7 @@ import { relaunch as tauriRelaunch } from "@tauri-apps/plugin-process";
 
 import { commands as store2Commands } from "@hypr/plugin-store2";
 
+import { flushDatabaseWrites } from "~/db/write-queue";
 import { commands } from "~/types/tauri.gen";
 
 const saveHandlers = new Map<string, () => Promise<void>>();
@@ -17,6 +18,7 @@ export function registerSaveHandler(id: string, handler: () => Promise<void>) {
 
 export async function save(): Promise<void> {
   await Promise.all([
+    flushDatabaseWrites(),
     ...Array.from(saveHandlers.values()).map((handler) => handler()),
     store2Commands.save(),
   ]);

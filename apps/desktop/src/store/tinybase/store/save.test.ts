@@ -2,6 +2,9 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 const saveMock = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
 const relaunchMock = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
+const flushDatabaseWritesMock = vi
+  .fn<() => Promise<void>>()
+  .mockResolvedValue(undefined);
 const getOnboardingNeededMock = vi
   .fn<() => Promise<{ status: "ok"; data: boolean }>>()
   .mockResolvedValue({ status: "ok", data: false });
@@ -14,6 +17,10 @@ vi.mock("@hypr/plugin-store2", () => ({
 
 vi.mock("@tauri-apps/plugin-process", () => ({
   relaunch: relaunchMock,
+}));
+
+vi.mock("~/db/write-queue", () => ({
+  flushDatabaseWrites: flushDatabaseWritesMock,
 }));
 
 vi.mock("~/types/tauri.gen", () => ({
@@ -46,6 +53,7 @@ describe("automatic relaunch", () => {
     await vi.advanceTimersByTimeAsync(2000);
 
     expect(saveMock).toHaveBeenCalledTimes(1);
+    expect(flushDatabaseWritesMock).toHaveBeenCalledTimes(1);
     expect(relaunchMock).toHaveBeenCalledTimes(1);
   });
 

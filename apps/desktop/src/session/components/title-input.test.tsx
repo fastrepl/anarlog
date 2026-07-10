@@ -8,12 +8,9 @@ import { TitleInput } from "./title-input";
 
 const hoisted = vi.hoisted(() => ({
   clearLiveTitle: vi.fn(),
-  setStoreTitle: vi.fn(),
+  setStoreTitle: vi.fn((_title?: string) => Promise.resolve()),
   setLiveTitle: vi.fn(),
   storeTitle: "Untitled" as string | undefined,
-  store: {
-    getCell: vi.fn(() => "Untitled"),
-  },
 }));
 
 vi.mock("usehooks-ts", () => ({
@@ -24,13 +21,10 @@ vi.mock("~/ai/hooks", () => ({
   useTitleGenerating: () => false,
 }));
 
-vi.mock("~/store/tinybase/store/main", () => ({
-  STORE_ID: "main",
-  UI: {
-    useCell: () => hoisted.storeTitle,
-    useSetPartialRowCallback: () => hoisted.setStoreTitle,
-    useStore: () => hoisted.store,
-  },
+vi.mock("~/session/queries", () => ({
+  useSession: () => ({ title: hoisted.storeTitle }),
+  useUpdateSession: () => (changes: { title?: string }) =>
+    hoisted.setStoreTitle(changes.title),
 }));
 
 vi.mock("~/store/zustand/live-title", () => ({
@@ -69,7 +63,6 @@ describe("TitleInput", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     hoisted.storeTitle = "Untitled";
-    hoisted.store.getCell.mockImplementation(() => "Untitled");
   });
 
   afterEach(() => {

@@ -1,9 +1,12 @@
-import { json2md } from "@hypr/editor/markdown";
+import { useCallback } from "react";
+
+import { json2md, md2json } from "@hypr/editor/markdown";
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 import type { EventParticipant, SessionEvent } from "@hypr/store";
 
-import { executeTransaction, liveQueryClient } from "~/db";
+import { executeTransaction, liveQueryClient, useLiveQuery } from "~/db";
+import { enqueueDatabaseWrite } from "~/db/write-queue";
 import { DEFAULT_USER_ID, id } from "~/shared/utils";
 import type { DeletedSessionData } from "~/store/zustand/undo-delete";
 
@@ -37,6 +40,131 @@ type SessionEmptySqlRow = {
   manual_participant_count: number;
   tag_count: number;
 };
+
+type SessionSqlRow = {
+  id: string;
+  owner_user_id: string;
+  created_at: string;
+  folder_path: string;
+  event_json: string;
+  title: string;
+  raw_body: string;
+  raw_body_format: string;
+};
+
+export type SessionRecord = {
+  id: string;
+  user_id: string;
+  created_at: string;
+  folder_id: string;
+  event_json: string;
+  title: string;
+  raw_md: string;
+};
+
+export type SessionChanges = Partial<
+  Pick<
+    SessionRecord,
+    "created_at" | "event_json" | "folder_id" | "raw_md" | "title"
+  >
+>;
+
+const SESSION_SELECT_SQL = `
+  SELECT
+    sessions.id,
+    sessions.owner_user_id,
+    sessions.created_at,
+    sessions.folder_path,
+    sessions.event_json,
+    sessions.title,
+    COALESCE(note.body, '') AS raw_body,
+    COALESCE(note.body_format, 'prosemirror_json') AS raw_body_format
+  FROM sessions
+  LEFT JOIN session_documents AS note
+    ON note.id = sessions.id
+    AND note.kind = 'note'
+    AND note.deleted_at IS NULL
+  WHERE sessions.id = ? AND sessions.deleted_at IS NULL
+  LIMIT 1
+`;
+
+export function useSession(sessionId: string): SessionRecord | null {
+  const { data = null } = useLiveQuery<SessionSqlRow, SessionRecord | null>({
+    sql: SESSION_SELECT_SQL,
+    params: [sessionId],
+    enabled: Boolean(sessionId),
+    mapRows: (rows) => {
+      const row = rows[0];
+      return row ? mapSessionRow(row) : null;
+    },
+  });
+  return data;
+}
+
+export function useUpdateSession(sessionId: string) {
+  return useCallback(
+    (changes: SessionChanges) => updateSession(sessionId, changes),
+    [sessionId],
+  );
+}
+
+export function updateSession(
+  sessionId: string,
+  changes: SessionChanges,
+): Promise<void> {
+  return enqueueDatabaseWrite(`session:${sessionId}`, async () => {
+    const now = new Date().toISOString();
+    const assignments: string[] = [];
+    const params: unknown[] = [];
+
+    for (const [column, value] of [
+      ["title", changes.title],
+      ["created_at", changes.created_at],
+      ["folder_path", changes.folder_id],
+      ["event_json", changes.event_json],
+    ] as const) {
+      if (value === undefined) continue;
+      assignments.push(`${column} = ?`);
+      params.push(value);
+    }
+
+    const statements: Array<{ sql: string; params: unknown[] }> = [];
+    if (assignments.length > 0) {
+      statements.push({
+        sql: `
+          UPDATE sessions
+          SET ${assignments.join(", ")}, updated_at = ?
+          WHERE id = ? AND deleted_at IS NULL
+        `,
+        params: [...params, now, sessionId],
+      });
+    }
+
+    if (changes.raw_md !== undefined) {
+      statements.push({
+        sql: `
+          INSERT INTO session_documents (
+            id, session_id, kind, body_format, body, created_by, updated_by,
+            created_at, updated_at, deleted_at
+          )
+          SELECT ?, ?, 'note', 'prosemirror_json', ?, owner_user_id,
+            owner_user_id, ?, ?, NULL
+          FROM sessions
+          WHERE id = ? AND deleted_at IS NULL
+          ON CONFLICT(id) DO UPDATE SET
+            body_format = excluded.body_format,
+            body = excluded.body,
+            updated_by = excluded.updated_by,
+            updated_at = excluded.updated_at,
+            deleted_at = NULL
+        `,
+        params: [sessionId, sessionId, changes.raw_md, now, now, sessionId],
+      });
+    }
+
+    if (statements.length > 0) await executeTransaction(statements);
+  });
+}
 
 export async function createSession(
   title = "",
@@ -500,6 +628,27 @@ function hasNoteContent(body: string, format: string): boolean {
 
   markdown = markdown.trim();
   return Boolean(markdown && markdown !== "&nbsp;");
+}
+
+function mapSessionRow(row: SessionSqlRow): SessionRecord {
+  let rawMd = row.raw_body;
+  if (rawMd && row.raw_body_format === "markdown") {
+    try {
+      rawMd = JSON.stringify(md2json(rawMd));
+    } catch (error) {
+      console.error("[session] failed to decode imported Markdown", error);
+    }
+  }
+
+  return {
+    id: row.id,
+    user_id: row.owner_user_id,
+    created_at: row.created_at,
+    folder_id: row.folder_path,
+    event_json: row.event_json,
+    title: row.title,
+    raw_md: rawMd,
+  };
 }
 
 async function trackNoteCreated(hasEventId: boolean): Promise<void> {

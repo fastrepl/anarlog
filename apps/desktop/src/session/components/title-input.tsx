@@ -16,7 +16,7 @@ import { useResizeObserver } from "usehooks-ts";
 import { cn } from "@hypr/utils";
 
 import { useTitleGenerating } from "~/ai/hooks";
-import * as main from "~/store/tinybase/store/main";
+import { useSession, useUpdateSession } from "~/session/queries";
 import { useLiveTitle } from "~/store/zustand/live-title";
 import { type Tab } from "~/store/zustand/tabs";
 
@@ -54,12 +54,7 @@ export const TitleInput = forwardRef<
     const wasGenerating = usePrevious(isGenerating);
     const [showRevealAnimation, setShowRevealAnimation] = useState(false);
     const [generatedTitle, setGeneratedTitle] = useState<string | null>(null);
-    const storeTitle = main.UI.useCell(
-      "sessions",
-      sessionId,
-      "title",
-      main.STORE_ID,
-    ) as string | undefined;
+    const storeTitle = useSession(sessionId)?.title;
 
     const editorId = view ? "active" : "inactive";
     const inputRef = useRef<TitleInputHandle>(null);
@@ -161,12 +156,8 @@ const TitleInputInner = memo(
       ref,
     ) => {
       const { t } = useLingui();
-      const storeTitle = main.UI.useCell(
-        "sessions",
-        sessionId,
-        "title",
-        main.STORE_ID,
-      ) as string | undefined;
+      const storeTitle = useSession(sessionId)?.title;
+      const updateSession = useUpdateSession(sessionId);
       const [draftTitle, setDraftTitle] = useState<string | null>(null);
       const [isOverflowing, setIsOverflowing] = useState(false);
       const [overflowDistance, setOverflowDistance] = useState(0);
@@ -300,12 +291,12 @@ const TitleInputInner = memo(
         requestAnimationFrame(() => updateOverflowState());
       }, [title, updateOverflowState]);
 
-      const setStoreTitle = main.UI.useSetPartialRowCallback(
-        "sessions",
-        sessionId,
-        (title: string) => ({ title }),
-        [],
-        main.STORE_ID,
+      const setStoreTitle = useCallback(
+        (title: string) =>
+          updateSession({ title }).catch((error) => {
+            console.error("[title-input] failed to persist title", error);
+          }),
+        [updateSession],
       );
 
       const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -328,7 +319,7 @@ const TitleInputInner = memo(
           const afterCursor = input.value.slice(cursorPos);
 
           setDraftTitle(beforeCursor);
-          setStoreTitle(beforeCursor);
+          void setStoreTitle(beforeCursor);
           clearLiveTitle(sessionId);
 
           if (afterCursor) {
@@ -404,8 +395,9 @@ const TitleInputInner = memo(
             }}
             onBlur={(e) => {
               setIsTitleFocused(false);
-              setStoreTitle(e.target.value);
-              setDraftTitle(null);
+              void setStoreTitle(e.target.value).finally(() => {
+                setDraftTitle(null);
+              });
               clearLiveTitle(sessionId);
               updateOverflowState(e.target);
             }}
