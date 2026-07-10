@@ -1,15 +1,14 @@
 import { tool } from "ai";
 import { z } from "zod";
 
-import { json2md, md2json, parseJsonContent } from "@hypr/editor/markdown";
+import { md2json } from "@hypr/editor/markdown";
 
 import type { ToolDependencies } from "./types";
 
 import { usePendingEditStore } from "~/chat/tools/pending-edit-store";
+import { loadSessionContentSnapshot } from "~/session/content-queries";
+import { updateEnhancedNoteContent } from "~/session/queries";
 import { id } from "~/shared/utils";
-import * as main from "~/store/tinybase/store/main";
-
-type Store = NonNullable<ReturnType<typeof main.UI.useStore>>;
 
 type SummaryCandidate = {
   enhancedNoteId: string;
@@ -19,40 +18,22 @@ type SummaryCandidate = {
 };
 
 function listSummaryCandidates(
-  store: Store,
-  noteIds: string[],
+  notes: NonNullable<
+    Awaited<ReturnType<typeof loadSessionContentSnapshot>>
+  >["enhancedNotes"],
 ): SummaryCandidate[] {
-  return noteIds.map((enhancedNoteId) => {
-    const title = store.getCell("enhanced_notes", enhancedNoteId, "title");
-    const templateId = store.getCell(
-      "enhanced_notes",
-      enhancedNoteId,
-      "template_id",
-    );
-    const position = store.getCell(
-      "enhanced_notes",
-      enhancedNoteId,
-      "position",
-    );
-
-    return {
-      enhancedNoteId,
-      title: typeof title === "string" && title.trim() ? title : "Summary",
-      templateId:
-        typeof templateId === "string" && templateId ? templateId : undefined,
-      position: typeof position === "number" ? position : undefined,
-    };
-  });
+  return notes.map((note) => ({
+    enhancedNoteId: note.id,
+    title: note.title.trim() || "Summary",
+    templateId: note.templateId || undefined,
+    position: note.position,
+  }));
 }
 
 export const buildEditSummaryTool = (
   deps: Pick<
     ToolDependencies,
-    | "getStore"
-    | "getIndexes"
-    | "getSessionId"
-    | "getEnhancedNoteId"
-    | "openEditTab"
+    "getSessionId" | "getEnhancedNoteId" | "openEditTab"
   >,
 ) =>
   tool({
@@ -78,12 +59,10 @@ export const buildEditSummaryTool = (
       enhancedNoteId?: string;
       content: string;
     }) => {
-      const store = deps.getStore();
-      const indexes = deps.getIndexes();
       const activeSessionId = deps.getSessionId();
       const sessionId = params.sessionId ?? activeSessionId;
 
-      if (!store || !indexes || !sessionId) {
+      if (!sessionId) {
         return {
           status: "error",
           message:
@@ -91,10 +70,9 @@ export const buildEditSummaryTool = (
         };
       }
 
-      const noteIds = indexes.getSliceRowIds(
-        main.INDEXES.enhancedNotesBySession,
-        sessionId,
-      );
+      const snapshot = await loadSessionContentSnapshot(sessionId);
+      const notes = snapshot?.enhancedNotes ?? [];
+      const noteIds = notes.map((note) => note.id);
 
       if (noteIds.length === 0) {
         return {
@@ -107,7 +85,7 @@ export const buildEditSummaryTool = (
 
       const requestedEnhancedNoteId = params.enhancedNoteId;
       const activeEnhancedNoteId = deps.getEnhancedNoteId();
-      const candidates = listSummaryCandidates(store, noteIds);
+      const candidates = listSummaryCandidates(notes);
 
       if (requestedEnhancedNoteId && !noteIdSet.has(requestedEnhancedNoteId)) {
         return {
@@ -118,14 +96,7 @@ export const buildEditSummaryTool = (
       }
 
       const defaultEnhancedNoteId =
-        noteIds.find((id) => {
-          const templateId = store.getCell(
-            "enhanced_notes",
-            id,
-            "template_id",
-          ) as string | undefined;
-          return !templateId;
-        }) ?? null;
+        notes.find((note) => !note.templateId)?.id ?? null;
 
       const enhancedNoteId =
         (requestedEnhancedNoteId && noteIdSet.has(requestedEnhancedNoteId)
@@ -146,10 +117,8 @@ export const buildEditSummaryTool = (
         };
       }
 
-      const raw = store.getCell("enhanced_notes", enhancedNoteId, "content") as
-        | string
-        | undefined;
-      const currentContent = json2md(parseJsonContent(raw));
+      const currentContent =
+        notes.find((note) => note.id === enhancedNoteId)?.markdown ?? "";
 
       const requestId = id();
       const approved = await new Promise<boolean>((resolve) => {
@@ -170,9 +139,11 @@ export const buildEditSummaryTool = (
 
       try {
         const json = md2json(params.content);
-        store.setPartialRow("enhanced_notes", enhancedNoteId, {
-          content: JSON.stringify(json),
-        });
+        await updateEnhancedNoteContent(
+          enhancedNoteId,
+          sessionId,
+          JSON.stringify(json),
+        );
       } catch {
         return {
           status: "error",

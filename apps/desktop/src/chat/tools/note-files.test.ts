@@ -1,40 +1,73 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { noteFileTestInternals } from "./note-files";
+const mocks = vi.hoisted(() => ({
+  loadActiveSessionIds: vi.fn(),
+  loadSessionContentSnapshot: vi.fn(),
+}));
+
+vi.mock("~/session/content-queries", () => ({
+  loadActiveSessionIds: mocks.loadActiveSessionIds,
+  loadSessionContentSnapshot: mocks.loadSessionContentSnapshot,
+}));
+
+import {
+  buildGrepNotesTool,
+  buildReadCurrentNoteTool,
+  noteFileTestInternals,
+} from "./note-files";
+
+const snapshot = {
+  sessionId: "session-1",
+  title: "Customer call",
+  createdAt: "2026-06-02T00:00:00.000Z",
+  event: { title: "Customer sync" },
+  eventId: "event-1",
+  rawMarkdown: "Discussed contract renewal timing.",
+  enhancedNotes: [],
+  transcripts: [],
+  participants: [
+    { humanId: "human-1", name: "Ada Lovelace", jobTitle: "Founder" },
+  ],
+};
 
 describe("note file chat tools", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.loadActiveSessionIds.mockResolvedValue(["session-1"]);
+    mocks.loadSessionContentSnapshot.mockResolvedValue(snapshot);
+  });
+
   it("extracts raw, enhanced, and transcript sections from session files", () => {
     const sections = noteFileTestInternals.buildNoteSections({
-      rawMemoMarkdown: "Raw memo",
-      notes: [
+      rawMarkdown: "Raw memo",
+      enhancedNotes: [
         {
+          id: "summary-1",
           title: "Summary",
           markdown: "Enhanced note",
           position: 1,
         },
       ],
-      transcript: {
-        transcripts: [
-          {
-            id: "transcript-1",
-            session_id: "session-1",
-            words: [
-              {
-                text: "Hello",
-                start_ms: 0,
-                end_ms: 100,
-                channel: 0,
-              },
-              {
-                text: "world",
-                start_ms: 100,
-                end_ms: 200,
-                channel: 0,
-              },
-            ],
-          },
-        ],
-      },
+      transcripts: [
+        {
+          id: "transcript-1",
+          memo: "",
+          words: [
+            {
+              text: "Hello",
+              start_ms: 0,
+              end_ms: 100,
+              channel: 0,
+            },
+            {
+              text: "world",
+              start_ms: 100,
+              end_ms: 200,
+              channel: 0,
+            },
+          ],
+        },
+      ],
     } as any);
 
     expect(sections).toEqual([
@@ -67,6 +100,34 @@ describe("note file chat tools", () => {
     expect(result?.sessionId).toBe("session-1");
     expect(result?.snippets[0]?.section).toBe("Transcript");
     expect(result?.snippets[0]?.text).toContain("contract renewal");
+  });
+
+  it("reads and searches canonical SQLite note snapshots", async () => {
+    const readTool = buildReadCurrentNoteTool({
+      getSessionId: () => "session-1",
+    } as any);
+    const readResult = await (readTool as any).execute({});
+
+    expect(readResult).toMatchObject({
+      status: "ok",
+      sessionId: "session-1",
+      title: "Customer call",
+      participants: ["Ada Lovelace"],
+    });
+    expect(readResult.contextText).toContain("contract renewal timing");
+
+    const grepTool = buildGrepNotesTool({} as any);
+    const grepResult = await (grepTool as any).execute({
+      query: "contract renewal",
+    });
+
+    expect(grepResult).toMatchObject({
+      query: "contract renewal",
+      scanned: 1,
+      results: [expect.objectContaining({ sessionId: "session-1" })],
+    });
+    expect(mocks.loadActiveSessionIds).toHaveBeenCalledOnce();
+    expect(mocks.loadSessionContentSnapshot).toHaveBeenCalledWith("session-1");
   });
 
   it("returns metadata snippets for participant matches", () => {

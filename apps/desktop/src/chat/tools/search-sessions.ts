@@ -4,7 +4,6 @@ import { z } from "zod";
 import type { ToolDependencies } from "./types";
 
 import type { SearchFilters } from "~/search/contexts/engine/types";
-import { getSessionSearchTimestamp } from "~/search/contexts/engine/utils";
 
 const gteSchema = z
   .number()
@@ -131,7 +130,6 @@ Returns relevant sessions with their content.
       filters?: SearchSessionsFiltersInput;
       limit?: number;
     }) => {
-      const store = deps.getStore();
       const query = params.query ?? "";
       const createdAtFilter = params.filters?.created_at;
       const effectiveFilters: SearchFilters | null = createdAtFilter
@@ -152,19 +150,13 @@ Returns relevant sessions with their content.
       const hits = await deps.search(query, effectiveFilters);
       const sessionHits = hits.filter((hit) => hit.document.type === "session");
       const limit = params.limit ?? 5;
-      const results = sessionHits.slice(0, limit).map((hit) => {
-        const sessionRow = store?.getRow("sessions", hit.document.id);
-
-        return {
-          id: hit.document.id,
-          title: hit.document.title,
-          excerpt: hit.document.content.slice(0, 180),
-          score: hit.score,
-          created_at: sessionRow
-            ? getSessionSearchTimestamp(sessionRow)
-            : hit.document.created_at,
-        };
-      });
+      const results = sessionHits.slice(0, limit).map((hit) => ({
+        id: hit.document.id,
+        title: hit.document.title,
+        excerpt: hit.document.content.slice(0, 180),
+        score: hit.score,
+        created_at: hit.document.created_at,
+      }));
 
       return { results };
     },

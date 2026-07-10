@@ -1,21 +1,20 @@
 import { tool } from "ai";
 import { z } from "zod";
 
-import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
-import type { SessionContentData } from "@hypr/plugin-fs-sync";
-
 import { CONTEXT_TEXT_FIELD } from "./context-text";
 import type { ToolDependencies } from "./types";
 
-import type * as main from "~/store/tinybase/store/main";
+import {
+  loadActiveSessionIds,
+  loadSessionContentSnapshot,
+  type SessionContentSnapshot,
+} from "~/session/content-queries";
 
 const DEFAULT_READ_MAX_CHARS = 16_000;
 const MAX_READ_CHARS = 30_000;
 const DEFAULT_SEARCH_LIMIT = 5;
 const MAX_SEARCH_LIMIT = 10;
 const SNIPPET_RADIUS = 180;
-
-type Store = ReturnType<typeof main.UI.useStore>;
 
 type NoteSection = {
   title: string;
@@ -30,6 +29,7 @@ type LoadedNoteFile = {
   eventId: string | null;
   participantIds: string[];
   participants: string[];
+  participantNamesById?: Record<string, string>;
   sections: NoteSection[];
 };
 
@@ -81,18 +81,11 @@ function extractEventName(event: unknown): string | null {
   return null;
 }
 
-function getParticipantName(store: Store, humanId: string): string | null {
-  const row = store?.getRow("humans", humanId);
-  const name = row?.name;
-  return typeof name === "string" && name.trim() ? name.trim() : null;
-}
-
 function extractTranscriptText(
-  transcript: SessionContentData["transcript"],
+  transcripts: SessionContentSnapshot["transcripts"],
 ): string | null {
-  const transcripts = transcript?.transcripts ?? [];
   const chunks = transcripts.flatMap((item) => {
-    const memo = typeof item.memo_md === "string" ? item.memo_md.trim() : "";
+    const memo = item.memo.trim();
     if (memo) {
       return [memo];
     }
@@ -105,30 +98,28 @@ function extractTranscriptText(
   return chunks.length > 0 ? chunks.join("\n\n") : null;
 }
 
-function buildNoteSections(payload: SessionContentData): NoteSection[] {
+function buildNoteSections(snapshot: SessionContentSnapshot): NoteSection[] {
   const sections: NoteSection[] = [];
 
-  if (payload.rawMemoMarkdown?.trim()) {
+  if (snapshot.rawMarkdown.trim()) {
     sections.push({
       title: "Raw note",
-      text: payload.rawMemoMarkdown.trim(),
+      text: snapshot.rawMarkdown.trim(),
     });
   }
 
-  for (const note of payload.notes
-    .slice()
-    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))) {
-    if (!note.markdown?.trim()) {
+  for (const note of snapshot.enhancedNotes) {
+    if (!note.markdown.trim()) {
       continue;
     }
 
     sections.push({
-      title: note.title?.trim() || "Enhanced note",
+      title: note.title.trim() || "Enhanced note",
       text: note.markdown.trim(),
     });
   }
 
-  const transcriptText = extractTranscriptText(payload.transcript);
+  const transcriptText = extractTranscriptText(snapshot.transcripts);
   if (transcriptText) {
     sections.push({
       title: "Transcript",
@@ -172,47 +163,45 @@ function limitText(
   };
 }
 
-async function loadNoteFile(
-  sessionId: string,
-  store: Store,
-): Promise<LoadedNoteFile | null> {
-  const result = await fsSyncCommands.loadSessionContent(sessionId);
-  if (result.status === "error") {
-    return null;
-  }
+async function loadNoteFile(sessionId: string): Promise<LoadedNoteFile | null> {
+  const snapshot = await loadSessionContentSnapshot(sessionId);
+  if (!snapshot) return null;
 
-  const payload = result.data;
-  const participantIds =
-    payload.meta?.participants
-      ?.map((participant) => participant.humanId)
-      .filter((humanId): humanId is string => Boolean(humanId)) ?? [];
-  const participants = participantIds.flatMap((humanId) => {
-    const name = getParticipantName(store, humanId);
-    return name ? [name] : [];
-  });
+  const participantIds = snapshot.participants.map(
+    (participant) => participant.humanId,
+  );
+  const participants = snapshot.participants
+    .map((participant) => participant.name.trim())
+    .filter(Boolean);
+  const participantNamesById = Object.fromEntries(
+    snapshot.participants.flatMap((participant) =>
+      participant.name.trim()
+        ? [[participant.humanId, participant.name.trim()]]
+        : [],
+    ),
+  );
 
   return {
     sessionId,
-    title: payload.meta?.title?.trim() || "Untitled",
-    date: payload.meta?.createdAt ?? null,
-    eventName: extractEventName(payload.meta?.event),
-    eventId: payload.meta?.eventId ?? null,
+    title: snapshot.title.trim() || "Untitled",
+    date: snapshot.createdAt || null,
+    eventName: extractEventName(snapshot.event),
+    eventId: snapshot.eventId,
     participantIds,
     participants,
-    sections: buildNoteSections(payload),
+    participantNamesById,
+    sections: buildNoteSections(snapshot),
   };
 }
 
 async function readNoteOutput({
   sessionId,
-  store,
   maxChars,
 }: {
   sessionId: string;
-  store: Store;
   maxChars: number;
 }) {
-  const note = await loadNoteFile(sessionId, store);
+  const note = await loadNoteFile(sessionId);
   if (!note) {
     return {
       status: "error" as const,
@@ -238,14 +227,6 @@ async function readNoteOutput({
     truncated: limited.truncated,
     [CONTEXT_TEXT_FIELD]: limited.text,
   };
-}
-
-function getSessionIds(store: Store): string[] {
-  const ids: string[] = [];
-  store?.forEachRow("sessions", (rowId: string, _forEachCell: unknown) => {
-    ids.push(rowId);
-  });
-  return ids;
 }
 
 function queryTerms(query: string): string[] {
@@ -358,16 +339,14 @@ function searchNote(note: LoadedNoteFile, query: string): SearchMatch | null {
   };
 }
 
-async function grepNoteFiles({
+async function grepNotes({
   query,
   sessionIds,
   limit,
-  store,
 }: {
   query: string;
   sessionIds?: string[];
   limit: number;
-  store: Store;
 }) {
   const trimmedQuery = query.trim();
   if (!trimmedQuery) {
@@ -378,11 +357,13 @@ async function grepNoteFiles({
     };
   }
 
-  const candidateIds = sessionIds?.length ? sessionIds : getSessionIds(store);
+  const candidateIds = sessionIds?.length
+    ? sessionIds
+    : await loadActiveSessionIds();
   const results: SearchMatch[] = [];
 
   for (const sessionId of candidateIds) {
-    const note = await loadNoteFile(sessionId, store);
+    const note = await loadNoteFile(sessionId);
     if (!note) {
       continue;
     }
@@ -402,16 +383,15 @@ async function grepNoteFiles({
 }
 
 function sharedParticipantReasons(
-  store: Store,
   baseIds: Set<string>,
-  candidateIds: string[],
+  candidate: LoadedNoteFile,
 ): string[] {
-  return candidateIds.flatMap((humanId) => {
+  return candidate.participantIds.flatMap((humanId) => {
     if (!baseIds.has(humanId)) {
       return [];
     }
 
-    const name = getParticipantName(store, humanId);
+    const name = candidate.participantNamesById?.[humanId];
     return [`shared participant${name ? `: ${name}` : ""}`];
   });
 }
@@ -435,14 +415,12 @@ function getDateDistanceDays(
 
 async function listRelatedNotes({
   sessionId,
-  store,
   limit,
 }: {
   sessionId: string;
-  store: Store;
   limit: number;
 }) {
-  const base = await loadNoteFile(sessionId, store);
+  const base = await loadNoteFile(sessionId);
   if (!base) {
     return {
       status: "error" as const,
@@ -461,12 +439,12 @@ async function listRelatedNotes({
     reasons: string[];
   }> = [];
 
-  for (const candidateId of getSessionIds(store)) {
+  for (const candidateId of await loadActiveSessionIds()) {
     if (candidateId === sessionId) {
       continue;
     }
 
-    const candidate = await loadNoteFile(candidateId, store);
+    const candidate = await loadNoteFile(candidateId);
     if (!candidate) {
       continue;
     }
@@ -480,9 +458,8 @@ async function listRelatedNotes({
     }
 
     const participantReasons = sharedParticipantReasons(
-      store,
       baseParticipantIds,
-      candidate.participantIds,
+      candidate,
     );
     if (participantReasons.length > 0) {
       reasons.push(...participantReasons);
@@ -518,7 +495,7 @@ async function listRelatedNotes({
 export const buildReadCurrentNoteTool = (deps: ToolDependencies) =>
   tool({
     description:
-      "Read the currently open note/meeting from local note files. Use this before answering questions about 'this note', 'this meeting', or the active note.",
+      "Read the currently open local note/meeting. Use this before answering questions about 'this note', 'this meeting', or the active note.",
     inputSchema: z.object({
       maxChars: maxCharsSchema,
     }),
@@ -533,16 +510,15 @@ export const buildReadCurrentNoteTool = (deps: ToolDependencies) =>
 
       return readNoteOutput({
         sessionId,
-        store: deps.getStore(),
         maxChars: clampMaxChars(params.maxChars),
       });
     },
   });
 
-export const buildReadNoteTool = (deps: ToolDependencies) =>
+export const buildReadNoteTool = (_deps: ToolDependencies) =>
   tool({
     description:
-      "Read a specific note/meeting by session id from local note files, including raw note, enhanced notes, transcript, participants, and event metadata.",
+      "Read a specific local note/meeting by session id, including raw note, enhanced notes, transcript, participants, and event metadata.",
     inputSchema: z.object({
       sessionId: z.string().describe("Session id for the note to read"),
       maxChars: maxCharsSchema,
@@ -550,15 +526,14 @@ export const buildReadNoteTool = (deps: ToolDependencies) =>
     execute: async (params: { sessionId: string; maxChars?: number }) =>
       readNoteOutput({
         sessionId: params.sessionId,
-        store: deps.getStore(),
         maxChars: clampMaxChars(params.maxChars),
       }),
   });
 
-export const buildGrepNotesTool = (deps: ToolDependencies) =>
+export const buildGrepNotesTool = (_deps: ToolDependencies) =>
   tool({
     description:
-      "Lexically search local note files and transcripts for exact words or phrases. Use search_sessions first for open-ended questions about past meetings, people, decisions, or topics. This is filesystem-backed text search, not vector search.",
+      "Lexically search local notes and transcripts for exact words or phrases. Use search_sessions first for open-ended questions about past meetings, people, decisions, or topics. This is SQLite-backed text search, not vector search.",
     inputSchema: z.object({
       query: z.string().describe("Text to search for in note files"),
       sessionIds: z
@@ -578,11 +553,10 @@ export const buildGrepNotesTool = (deps: ToolDependencies) =>
       sessionIds?: string[];
       limit?: number;
     }) =>
-      grepNoteFiles({
+      grepNotes({
         query: params.query,
         sessionIds: params.sessionIds,
         limit: Math.min(params.limit ?? DEFAULT_SEARCH_LIMIT, MAX_SEARCH_LIMIT),
-        store: deps.getStore(),
       }),
   });
 
@@ -617,7 +591,6 @@ export const buildListRelatedNotesTool = (deps: ToolDependencies) =>
 
       return listRelatedNotes({
         sessionId,
-        store: deps.getStore(),
         limit: Math.min(params.limit ?? DEFAULT_SEARCH_LIMIT, MAX_SEARCH_LIMIT),
       });
     },

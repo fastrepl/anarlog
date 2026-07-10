@@ -8,7 +8,7 @@ import type { ResolvedChatContext } from "./index";
 
 import { useLanguageModel } from "~/ai/hooks";
 import type { ContextRef } from "~/chat/context/entities";
-import { hydrateSessionContextFromFs } from "~/chat/context/session-context-hydrator";
+import { hydrateSessionContext } from "~/chat/context/session-context-hydrator";
 import { loadHuman, loadOrganization } from "~/contacts/queries";
 import { useToolRegistry } from "~/contexts/tool";
 import { useConfigValue } from "~/shared/config";
@@ -162,10 +162,7 @@ export function useTransport(
       effectiveSystemPrompt,
       async (ref: ContextRef) => {
         if (ref.kind === "session") {
-          const context = await hydrateSessionContextFromFs(
-            ref.sessionId,
-            userId,
-          );
+          const context = await hydrateSessionContext(ref.sessionId, userId);
           return context
             ? ({ kind: "session", context } satisfies ResolvedChatContext)
             : null;
