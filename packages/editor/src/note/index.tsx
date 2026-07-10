@@ -43,7 +43,6 @@ import {
   withNodeViewErrorBoundary,
 } from "../node-views";
 import {
-  appLinkPastePlugin,
   autolinkPlugin,
   type FileHandlerConfig,
   type PlaceholderFunction,
@@ -658,7 +657,6 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
         placeholderPlugin(placeholderComponent),
         clearMarksOnEnterPlugin(),
         clipPastePlugin(),
-        appLinkPastePlugin(),
         autolinkPlugin(),
         linkBoundaryGuardPlugin(),
         ...(onLinkOpen ? [linkOpenPlugin(onLinkOpen)] : []),
