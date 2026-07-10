@@ -47,7 +47,7 @@ pub async fn get_legacy_import_report(
     } else {
         sqlx::query_as::<_, crate::LegacyImportRun>(
             "SELECT id, importer_version, source_root, dry_run, status, discovered_count,
-                    imported_count, skipped_count, conflict_count, error_count, started_at,
+                    imported_count, matched_count, skipped_count, conflict_count, error_count, started_at,
                     completed_at, error
              FROM migration_import_runs
              WHERE id = ?",
@@ -62,10 +62,24 @@ pub async fn get_legacy_import_report(
     } else {
         sqlx::query_as::<_, crate::LegacyImportItemReport>(
             "SELECT source_path, source_kind, source_sha256, status, discovered_count,
-                    imported_count, skipped_count, conflict_count, error
+                    imported_count, matched_count, skipped_count, conflict_count, error
              FROM migration_import_items
              WHERE run_id = ?
              ORDER BY source_path",
+        )
+        .bind(&state.latest_run_id)
+        .fetch_all(pool)
+        .await?
+    };
+
+    let targets = if state.latest_run_id.is_empty() {
+        Vec::new()
+    } else {
+        sqlx::query_as::<_, crate::LegacyImportTargetReport>(
+            "SELECT source_path, table_name, target_id, status, error
+             FROM migration_import_targets
+             WHERE run_id = ?
+             ORDER BY table_name, target_id, source_path",
         )
         .bind(&state.latest_run_id)
         .fetch_all(pool)
@@ -76,6 +90,7 @@ pub async fn get_legacy_import_report(
         state,
         latest_run,
         items,
+        targets,
     })
 }
 

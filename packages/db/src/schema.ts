@@ -381,6 +381,7 @@ export const migrationImportRuns = sqliteTable("migration_import_runs", {
   status: text("status").notNull().default("running"),
   discoveredCount: integer("discovered_count").notNull().default(0),
   importedCount: integer("imported_count").notNull().default(0),
+  matchedCount: integer("matched_count").notNull().default(0),
   skippedCount: integer("skipped_count").notNull().default(0),
   conflictCount: integer("conflict_count").notNull().default(0),
   errorCount: integer("error_count").notNull().default(0),
@@ -400,6 +401,7 @@ export const migrationImportItems = sqliteTable(
     status: text("status").notNull().default("pending"),
     discoveredCount: integer("discovered_count").notNull().default(0),
     importedCount: integer("imported_count").notNull().default(0),
+    matchedCount: integer("matched_count").notNull().default(0),
     skippedCount: integer("skipped_count").notNull().default(0),
     conflictCount: integer("conflict_count").notNull().default(0),
     error: text("error").notNull().default(""),
@@ -411,6 +413,34 @@ export const migrationImportItems = sqliteTable(
     index("idx_migration_import_items_source").on(
       table.sourcePath,
       table.sourceSha256,
+    ),
+  ],
+);
+
+export const migrationImportTargets = sqliteTable(
+  "migration_import_targets",
+  {
+    id: text("id").primaryKey().notNull(),
+    runId: text("run_id").notNull().default(""),
+    itemId: text("item_id").notNull().default(""),
+    sourcePath: text("source_path").notNull().default(""),
+    sourceKind: text("source_kind").notNull().default(""),
+    tableName: text("table_name").notNull().default(""),
+    targetId: text("target_id").notNull().default(""),
+    status: text("status").notNull().default("pending"),
+    error: text("error").notNull().default(""),
+    createdAt: text("created_at").notNull().default(currentTimestamp),
+  },
+  (table) => [
+    index("idx_migration_import_targets_run_id").on(table.runId),
+    index("idx_migration_import_targets_table").on(
+      table.runId,
+      table.tableName,
+      table.status,
+    ),
+    index("idx_migration_import_targets_source").on(
+      table.sourcePath,
+      table.targetId,
     ),
   ],
 );

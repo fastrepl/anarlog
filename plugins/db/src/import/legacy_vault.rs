@@ -1070,6 +1070,15 @@ mod tests {
             .unwrap();
         assert_eq!(report.items.len(), 13);
         assert!(report.items.iter().all(|item| item.status == "unchanged"));
-        assert_eq!(report.latest_run.unwrap().status, "completed");
+        assert_eq!(report.targets.len(), 18);
+        assert!(
+            report
+                .targets
+                .iter()
+                .all(|target| target.status == "unchanged")
+        );
+        let latest_run = report.latest_run.unwrap();
+        assert_eq!(latest_run.status, "completed");
+        assert_eq!(latest_run.matched_count, 18);
     }
 }

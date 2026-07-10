@@ -44,6 +44,11 @@ pub const APP_MIGRATION_STEPS: &[hypr_db_migrate::MigrationStep] = &[
         scope: hypr_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260710223922_canonical_data_model.sql"),
     },
+    hypr_db_migrate::MigrationStep {
+        id: "20260710231809_import_target_audit",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260710231809_import_target_audit.sql"),
+    },
 ];
 
 pub fn schema() -> hypr_db_migrate::DbSchema {
@@ -210,6 +215,7 @@ mod tests {
                 "humans",
                 "migration_import_items",
                 "migration_import_runs",
+                "migration_import_targets",
                 "organizations",
                 "session_attachments",
                 "session_documents",

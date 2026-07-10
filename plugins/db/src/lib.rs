@@ -33,6 +33,7 @@ pub struct LegacyImportRun {
     pub status: String,
     pub discovered_count: i64,
     pub imported_count: i64,
+    pub matched_count: i64,
     pub skipped_count: i64,
     pub conflict_count: i64,
     pub error_count: i64,
@@ -50,8 +51,19 @@ pub struct LegacyImportItemReport {
     pub status: String,
     pub discovered_count: i64,
     pub imported_count: i64,
+    pub matched_count: i64,
     pub skipped_count: i64,
     pub conflict_count: i64,
+    pub error: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, specta::Type, sqlx::FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct LegacyImportTargetReport {
+    pub source_path: String,
+    pub table_name: String,
+    pub target_id: String,
+    pub status: String,
     pub error: String,
 }
 
@@ -61,6 +73,7 @@ pub struct LegacyImportReport {
     pub state: StorageMigrationState,
     pub latest_run: Option<LegacyImportRun>,
     pub items: Vec<LegacyImportItemReport>,
+    pub targets: Vec<LegacyImportTargetReport>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type, PartialEq)]

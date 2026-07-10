@@ -30,6 +30,52 @@ pub enum LegacyImportRow {
     AppSetting(LegacyAppSetting),
 }
 
+impl LegacyImportRow {
+    fn table_name(&self) -> &'static str {
+        match self {
+            Self::Calendar(_) => "calendars",
+            Self::Event(_) => "events",
+            Self::Template(_) => "templates",
+            Self::Organization(_) => "organizations",
+            Self::Human(_) => "humans",
+            Self::Session(_) => "sessions",
+            Self::Document(_) => "session_documents",
+            Self::Transcript(_) => "transcripts",
+            Self::Participant(_) => "session_participants",
+            Self::ActionItem(_) => "action_items",
+            Self::Attachment(_) => "session_attachments",
+            Self::Tag(_) => "tags",
+            Self::SessionTag(_) => "session_tags",
+            Self::ChatGroup(_) => "chat_groups",
+            Self::ChatMessage(_) => "chat_messages",
+            Self::DailyNote(_) => "daily_notes",
+            Self::AppSetting(_) => "app_settings",
+        }
+    }
+
+    fn id(&self) -> &str {
+        match self {
+            Self::Calendar(row) => &row.id,
+            Self::Event(row) => &row.id,
+            Self::Template(row) => &row.id,
+            Self::Organization(row) => &row.id,
+            Self::Human(row) => &row.id,
+            Self::Session(row) => &row.id,
+            Self::Document(row) => &row.id,
+            Self::Transcript(row) => &row.id,
+            Self::Participant(row) => &row.id,
+            Self::ActionItem(row) => &row.id,
+            Self::Attachment(row) => &row.id,
+            Self::Tag(row) => &row.id,
+            Self::SessionTag(row) => &row.id,
+            Self::ChatGroup(row) => &row.id,
+            Self::ChatMessage(row) => &row.id,
+            Self::DailyNote(row) => &row.id,
+            Self::AppSetting(row) => &row.id,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct LegacyCalendar {
     pub id: String,
@@ -243,6 +289,7 @@ pub struct LegacyImportItem<'a> {
 pub struct LegacyImportItemResult {
     pub discovered_count: i64,
     pub imported_count: i64,
+    pub matched_count: i64,
     pub skipped_count: i64,
     pub conflict_count: i64,
 }
@@ -280,7 +327,7 @@ pub async fn legacy_source_already_imported(
            JOIN migration_import_runs AS run ON run.id = item.run_id
            WHERE item.source_path = ?
              AND item.source_sha256 = ?
-             AND item.status IN ('complete', 'conflict')
+             AND item.status IN ('complete', 'unchanged')
              AND run.importer_version = ?
              AND run.dry_run = 0
          )",
@@ -299,15 +346,15 @@ pub async fn record_legacy_import_unchanged(
     let result = sqlx::query(
         "INSERT INTO migration_import_items \
          (id, run_id, source_path, source_kind, source_sha256, status, discovered_count, \
-          imported_count, skipped_count, conflict_count, error, completed_at) \
+          imported_count, matched_count, skipped_count, conflict_count, error, completed_at) \
          SELECT ?, ?, previous.source_path, previous.source_kind, previous.source_sha256, \
-                'unchanged', previous.discovered_count, 0, 0, 0, '', \
+                'unchanged', previous.discovered_count, 0, previous.discovered_count, 0, 0, '', \
                 strftime('%Y-%m-%dT%H:%M:%fZ', 'now') \
          FROM migration_import_items AS previous \
          JOIN migration_import_runs AS previous_run ON previous_run.id = previous.run_id \
          WHERE previous.source_path = ? \
            AND previous.source_sha256 = ? \
-           AND previous.status IN ('complete', 'conflict', 'unchanged') \
+           AND previous.status IN ('complete', 'unchanged') \
            AND previous_run.importer_version = ? \
            AND previous_run.dry_run = 0 \
          ORDER BY previous.created_at DESC \
@@ -321,6 +368,34 @@ pub async fn record_legacy_import_unchanged(
     .execute(pool)
     .await?;
 
+    if result.rows_affected() > 0 {
+        sqlx::query(
+            "INSERT INTO migration_import_targets \
+             (id, run_id, item_id, source_path, source_kind, table_name, target_id, status) \
+             SELECT DISTINCT ? || ':' || previous.table_name || ':' || previous.target_id, \
+                    ?, ?, ?, ?, previous.table_name, previous.target_id, 'unchanged' \
+             FROM migration_import_targets AS previous \
+             JOIN migration_import_items AS previous_item ON previous_item.id = previous.item_id \
+             JOIN migration_import_runs AS previous_run ON previous_run.id = previous.run_id \
+             WHERE previous_item.source_path = ? \
+               AND previous_item.source_sha256 = ? \
+               AND previous_item.status IN ('complete', 'unchanged') \
+               AND previous_run.importer_version = ? \
+               AND previous_run.dry_run = 0 \
+             ORDER BY previous.created_at DESC",
+        )
+        .bind(item.id)
+        .bind(item.run_id)
+        .bind(item.id)
+        .bind(item.source_path)
+        .bind(item.source_kind)
+        .bind(item.source_path)
+        .bind(item.source_sha256)
+        .bind(LEGACY_IMPORTER_VERSION)
+        .execute(pool)
+        .await?;
+    }
+
     Ok(result.rows_affected() > 0)
 }
 
@@ -332,24 +407,30 @@ pub async fn apply_legacy_import_item(
 ) -> Result<LegacyImportItemResult, sqlx::Error> {
     let mut transaction = pool.begin().await?;
     let mut imported_count = 0_i64;
+    let mut matched_count = 0_i64;
+    let mut conflict_count = 0_i64;
 
-    if !dry_run {
-        for row in &batch.rows {
-            if insert_row_if_missing(&mut transaction, row).await? {
-                imported_count += 1;
-            }
+    for row in &batch.rows {
+        let outcome = if dry_run {
+            InsertOutcome::DryRun
+        } else {
+            insert_row_if_missing(&mut transaction, row).await?
+        };
+        match outcome {
+            InsertOutcome::Inserted => imported_count += 1,
+            InsertOutcome::Matched => matched_count += 1,
+            InsertOutcome::Conflict => conflict_count += 1,
+            InsertOutcome::DryRun => {}
         }
+        record_import_target(&mut transaction, &item, row, outcome).await?;
     }
 
     let discovered_count = i64::try_from(batch.rows.len()).unwrap_or(i64::MAX)
         + i64::try_from(batch.skipped_count).unwrap_or(i64::MAX);
     let skipped_count = i64::try_from(batch.skipped_count).unwrap_or(i64::MAX);
-    let conflict_count = if dry_run {
-        0
-    } else {
-        i64::try_from(batch.rows.len()).unwrap_or(i64::MAX) - imported_count
-    };
-    let status = if skipped_count > 0 || !batch.warning.is_empty() {
+    let status = if dry_run {
+        "dry_run"
+    } else if skipped_count > 0 || !batch.warning.is_empty() {
         "partial"
     } else if conflict_count > 0 {
         "conflict"
@@ -360,8 +441,8 @@ pub async fn apply_legacy_import_item(
     sqlx::query(
         "INSERT INTO migration_import_items \
          (id, run_id, source_path, source_kind, source_sha256, status, \
-          discovered_count, imported_count, skipped_count, conflict_count, error, completed_at) \
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))",
+          discovered_count, imported_count, matched_count, skipped_count, conflict_count, error, completed_at) \
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))",
     )
     .bind(item.id)
     .bind(item.run_id)
@@ -371,6 +452,7 @@ pub async fn apply_legacy_import_item(
     .bind(status)
     .bind(discovered_count)
     .bind(imported_count)
+    .bind(matched_count)
     .bind(skipped_count)
     .bind(conflict_count)
     .bind(&batch.warning)
@@ -382,6 +464,7 @@ pub async fn apply_legacy_import_item(
     Ok(LegacyImportItemResult {
         discovered_count,
         imported_count,
+        matched_count,
         skipped_count,
         conflict_count,
     })
@@ -418,6 +501,7 @@ pub async fn finish_legacy_import_run(
         "SELECT
            COALESCE(SUM(discovered_count), 0) AS discovered_count,
            COALESCE(SUM(imported_count), 0) AS imported_count,
+           COALESCE(SUM(matched_count), 0) AS matched_count,
            COALESCE(SUM(skipped_count), 0) AS skipped_count,
            COALESCE(SUM(conflict_count), 0) AS conflict_count,
            COALESCE(SUM(CASE WHEN status IN ('error', 'partial') THEN 1 ELSE 0 END), 0) AS error_count
@@ -442,6 +526,7 @@ pub async fn finish_legacy_import_run(
          SET status = ?,
              discovered_count = ?,
              imported_count = ?,
+             matched_count = ?,
              skipped_count = ?,
              conflict_count = ?,
              error_count = ?,
@@ -451,6 +536,7 @@ pub async fn finish_legacy_import_run(
     .bind(status)
     .bind(aggregate.get::<i64, _>("discovered_count"))
     .bind(aggregate.get::<i64, _>("imported_count"))
+    .bind(aggregate.get::<i64, _>("matched_count"))
     .bind(skipped_count)
     .bind(conflict_count)
     .bind(error_count)
@@ -512,10 +598,55 @@ pub async fn fail_legacy_import_run(
     Ok(())
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum InsertOutcome {
+    Inserted,
+    Matched,
+    Conflict,
+    DryRun,
+}
+
+impl InsertOutcome {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Inserted => "inserted",
+            Self::Matched => "matched",
+            Self::Conflict => "conflict",
+            Self::DryRun => "dry_run",
+        }
+    }
+}
+
+async fn record_import_target(
+    transaction: &mut Transaction<'_, Sqlite>,
+    item: &LegacyImportItem<'_>,
+    row: &LegacyImportRow,
+    outcome: InsertOutcome,
+) -> Result<(), sqlx::Error> {
+    let id = format!("{}:{}:{}", item.id, row.table_name(), row.id());
+    sqlx::query(
+        "INSERT INTO migration_import_targets \
+         (id, run_id, item_id, source_path, source_kind, table_name, target_id, status) \
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    )
+    .bind(id)
+    .bind(item.run_id)
+    .bind(item.id)
+    .bind(item.source_path)
+    .bind(item.source_kind)
+    .bind(row.table_name())
+    .bind(row.id())
+    .bind(outcome.as_str())
+    .execute(&mut **transaction)
+    .await?;
+
+    Ok(())
+}
+
 async fn insert_row_if_missing(
     transaction: &mut Transaction<'_, Sqlite>,
     row: &LegacyImportRow,
-) -> Result<bool, sqlx::Error> {
+) -> Result<InsertOutcome, sqlx::Error> {
     let result = match row {
         LegacyImportRow::Calendar(row) => sqlx::query(
             "INSERT INTO calendars \
@@ -790,7 +921,443 @@ async fn insert_row_if_missing(
         .await?,
     };
 
-    Ok(result.rows_affected() > 0)
+    if result.rows_affected() > 0 {
+        Ok(InsertOutcome::Inserted)
+    } else if row_matches_existing(transaction, row).await? {
+        Ok(InsertOutcome::Matched)
+    } else {
+        Ok(InsertOutcome::Conflict)
+    }
+}
+
+async fn row_matches_existing(
+    transaction: &mut Transaction<'_, Sqlite>,
+    row: &LegacyImportRow,
+) -> Result<bool, sqlx::Error> {
+    match row {
+        LegacyImportRow::Calendar(row) => {
+            sqlx::query_scalar(
+                "SELECT EXISTS(
+               SELECT 1 FROM calendars
+               WHERE id = ?
+                 AND tracking_id_calendar IS ?
+                 AND name IS ?
+                 AND enabled IS ?
+                 AND provider IS ?
+                 AND source IS ?
+                 AND color IS ?
+                 AND connection_id IS ?
+             )",
+            )
+            .bind(&row.id)
+            .bind(&row.tracking_id_calendar)
+            .bind(&row.name)
+            .bind(row.enabled)
+            .bind(&row.provider)
+            .bind(&row.source)
+            .bind(&row.color)
+            .bind(&row.connection_id)
+            .fetch_one(&mut **transaction)
+            .await
+        }
+        LegacyImportRow::Event(row) => {
+            sqlx::query_scalar(
+                "SELECT EXISTS(
+               SELECT 1 FROM events
+               WHERE id = ?
+                 AND tracking_id_event IS ?
+                 AND calendar_id IS ?
+                 AND title IS ?
+                 AND started_at IS ?
+                 AND ended_at IS ?
+                 AND location IS ?
+                 AND meeting_link IS ?
+                 AND description IS ?
+                 AND note IS ?
+                 AND recurrence_series_id IS ?
+                 AND has_recurrence_rules IS ?
+                 AND is_all_day IS ?
+                 AND provider IS ?
+                 AND participants_json IS ?
+             )",
+            )
+            .bind(&row.id)
+            .bind(&row.tracking_id_event)
+            .bind(&row.calendar_id)
+            .bind(&row.title)
+            .bind(&row.started_at)
+            .bind(&row.ended_at)
+            .bind(&row.location)
+            .bind(&row.meeting_link)
+            .bind(&row.description)
+            .bind(&row.note)
+            .bind(&row.recurrence_series_id)
+            .bind(row.has_recurrence_rules)
+            .bind(row.is_all_day)
+            .bind(&row.provider)
+            .bind(&row.participants_json)
+            .fetch_one(&mut **transaction)
+            .await
+        }
+        LegacyImportRow::Template(row) => {
+            sqlx::query_scalar(
+                "SELECT EXISTS(
+               SELECT 1 FROM templates
+               WHERE id = ?
+                 AND title IS ?
+                 AND description IS ?
+                 AND pinned IS ?
+                 AND pin_order IS ?
+                 AND category IS ?
+                 AND targets_json IS ?
+                 AND sections_json IS ?
+             )",
+            )
+            .bind(&row.id)
+            .bind(&row.title)
+            .bind(&row.description)
+            .bind(row.pinned)
+            .bind(row.pin_order)
+            .bind(&row.category)
+            .bind(&row.targets_json)
+            .bind(&row.sections_json)
+            .fetch_one(&mut **transaction)
+            .await
+        }
+        LegacyImportRow::Organization(row) => {
+            sqlx::query_scalar(
+                "SELECT EXISTS(
+               SELECT 1 FROM organizations
+               WHERE id = ?
+                 AND owner_user_id IS ?
+                 AND name IS ?
+                 AND memo IS ?
+                 AND pinned IS ?
+                 AND pin_order IS ?
+             )",
+            )
+            .bind(&row.id)
+            .bind(&row.owner_user_id)
+            .bind(&row.name)
+            .bind(&row.memo)
+            .bind(row.pinned)
+            .bind(row.pin_order)
+            .fetch_one(&mut **transaction)
+            .await
+        }
+        LegacyImportRow::Human(row) => {
+            sqlx::query_scalar(
+                "SELECT EXISTS(
+               SELECT 1 FROM humans
+               WHERE id = ?
+                 AND owner_user_id IS ?
+                 AND organization_id IS ?
+                 AND name IS ?
+                 AND email IS ?
+                 AND phone IS ?
+                 AND job_title IS ?
+                 AND linkedin_username IS ?
+                 AND memo IS ?
+                 AND pinned IS ?
+                 AND pin_order IS ?
+             )",
+            )
+            .bind(&row.id)
+            .bind(&row.owner_user_id)
+            .bind(&row.organization_id)
+            .bind(&row.name)
+            .bind(&row.email)
+            .bind(&row.phone)
+            .bind(&row.job_title)
+            .bind(&row.linkedin_username)
+            .bind(&row.memo)
+            .bind(row.pinned)
+            .bind(row.pin_order)
+            .fetch_one(&mut **transaction)
+            .await
+        }
+        LegacyImportRow::Session(row) => {
+            sqlx::query_scalar(
+                "SELECT EXISTS(
+               SELECT 1 FROM sessions
+               WHERE id = ?
+                 AND owner_user_id IS ?
+                 AND title IS ?
+                 AND created_at IS ?
+                 AND started_at IS ?
+                 AND ended_at IS ?
+                 AND event_id IS ?
+                 AND external_event_id IS ?
+                 AND external_provider IS ?
+                 AND series_id IS ?
+                 AND event_json IS ?
+                 AND folder_path IS ?
+                 AND deleted_at IS NULL
+             )",
+            )
+            .bind(&row.id)
+            .bind(&row.owner_user_id)
+            .bind(&row.title)
+            .bind(&row.created_at)
+            .bind(&row.started_at)
+            .bind(&row.ended_at)
+            .bind(&row.event_id)
+            .bind(&row.external_event_id)
+            .bind(&row.external_provider)
+            .bind(&row.series_id)
+            .bind(&row.event_json)
+            .bind(&row.folder_path)
+            .fetch_one(&mut **transaction)
+            .await
+        }
+        LegacyImportRow::Document(row) => {
+            sqlx::query_scalar(
+                "SELECT EXISTS(
+               SELECT 1 FROM session_documents
+               WHERE id = ?
+                 AND session_id IS ?
+                 AND kind IS ?
+                 AND template_id IS ?
+                 AND title IS ?
+                 AND body_format IS ?
+                 AND body IS ?
+                 AND source_hash IS ?
+                 AND sort_order IS ?
+                 AND created_by IS ?
+                 AND created_at IS ?
+                 AND updated_at IS ?
+                 AND deleted_at IS NULL
+             )",
+            )
+            .bind(&row.id)
+            .bind(&row.session_id)
+            .bind(&row.kind)
+            .bind(&row.template_id)
+            .bind(&row.title)
+            .bind(&row.body_format)
+            .bind(&row.body)
+            .bind(&row.source_hash)
+            .bind(row.sort_order)
+            .bind(&row.created_by)
+            .bind(&row.created_at)
+            .bind(&row.updated_at)
+            .fetch_one(&mut **transaction)
+            .await
+        }
+        LegacyImportRow::Transcript(row) => {
+            sqlx::query_scalar(
+                "SELECT EXISTS(
+               SELECT 1 FROM transcripts
+               WHERE id = ?
+                 AND owner_user_id IS ?
+                 AND session_id IS ?
+                 AND started_at_ms IS ?
+                 AND ended_at_ms IS ?
+                 AND memo IS ?
+                 AND words_json IS ?
+                 AND speaker_hints_json IS ?
+                 AND created_at IS ?
+                 AND deleted_at IS NULL
+             )",
+            )
+            .bind(&row.id)
+            .bind(&row.owner_user_id)
+            .bind(&row.session_id)
+            .bind(row.started_at_ms)
+            .bind(row.ended_at_ms)
+            .bind(&row.memo)
+            .bind(&row.words_json)
+            .bind(&row.speaker_hints_json)
+            .bind(&row.created_at)
+            .fetch_one(&mut **transaction)
+            .await
+        }
+        LegacyImportRow::Participant(row) => {
+            sqlx::query_scalar(
+                "SELECT EXISTS(
+               SELECT 1 FROM session_participants
+               WHERE id = ?
+                 AND owner_user_id IS ?
+                 AND session_id IS ?
+                 AND human_id IS ?
+                 AND source IS ?
+                 AND deleted_at IS NULL
+             )",
+            )
+            .bind(&row.id)
+            .bind(&row.owner_user_id)
+            .bind(&row.session_id)
+            .bind(&row.human_id)
+            .bind(&row.source)
+            .fetch_one(&mut **transaction)
+            .await
+        }
+        LegacyImportRow::ActionItem(row) => {
+            sqlx::query_scalar(
+                "SELECT EXISTS(
+               SELECT 1 FROM action_items
+               WHERE id = ?
+                 AND created_by IS ?
+                 AND session_id IS ?
+                 AND source_type IS ?
+                 AND source_id IS ?
+                 AND source_order IS ?
+                 AND status IS ?
+                 AND text IS ?
+                 AND body_json IS ?
+                 AND due_at IS ?
+                 AND deleted_at IS NULL
+             )",
+            )
+            .bind(&row.id)
+            .bind(&row.owner_user_id)
+            .bind(&row.session_id)
+            .bind(&row.source_type)
+            .bind(&row.source_id)
+            .bind(row.source_order)
+            .bind(&row.status)
+            .bind(&row.text)
+            .bind(&row.body_json)
+            .bind(&row.due_at)
+            .fetch_one(&mut **transaction)
+            .await
+        }
+        LegacyImportRow::Attachment(row) => {
+            sqlx::query_scalar(
+                "SELECT EXISTS(
+               SELECT 1 FROM session_attachments
+               WHERE id = ?
+                 AND session_id IS ?
+                 AND filename IS ?
+                 AND relative_path IS ?
+                 AND content_type IS ?
+                 AND size_bytes IS ?
+                 AND sha256 IS ?
+                 AND source_id IS ?
+                 AND deleted_at IS NULL
+             )",
+            )
+            .bind(&row.id)
+            .bind(&row.session_id)
+            .bind(&row.filename)
+            .bind(&row.relative_path)
+            .bind(&row.content_type)
+            .bind(row.size_bytes)
+            .bind(&row.sha256)
+            .bind(&row.source_id)
+            .fetch_one(&mut **transaction)
+            .await
+        }
+        LegacyImportRow::Tag(row) => {
+            sqlx::query_scalar(
+                "SELECT EXISTS(
+               SELECT 1 FROM tags
+               WHERE id = ? AND owner_user_id IS ? AND name IS ?
+             )",
+            )
+            .bind(&row.id)
+            .bind(&row.owner_user_id)
+            .bind(&row.name)
+            .fetch_one(&mut **transaction)
+            .await
+        }
+        LegacyImportRow::SessionTag(row) => {
+            sqlx::query_scalar(
+                "SELECT EXISTS(
+               SELECT 1 FROM session_tags
+               WHERE id = ?
+                 AND owner_user_id IS ?
+                 AND session_id IS ?
+                 AND tag_id IS ?
+                 AND deleted_at IS NULL
+             )",
+            )
+            .bind(&row.id)
+            .bind(&row.owner_user_id)
+            .bind(&row.session_id)
+            .bind(&row.tag_id)
+            .fetch_one(&mut **transaction)
+            .await
+        }
+        LegacyImportRow::ChatGroup(row) => {
+            sqlx::query_scalar(
+                "SELECT EXISTS(
+               SELECT 1 FROM chat_groups
+               WHERE id = ?
+                 AND owner_user_id IS ?
+                 AND title IS ?
+                 AND created_at IS ?
+                 AND deleted_at IS NULL
+             )",
+            )
+            .bind(&row.id)
+            .bind(&row.owner_user_id)
+            .bind(&row.title)
+            .bind(&row.created_at)
+            .fetch_one(&mut **transaction)
+            .await
+        }
+        LegacyImportRow::ChatMessage(row) => {
+            sqlx::query_scalar(
+                "SELECT EXISTS(
+               SELECT 1 FROM chat_messages
+               WHERE id = ?
+                 AND chat_group_id IS ?
+                 AND owner_user_id IS ?
+                 AND role IS ?
+                 AND content IS ?
+                 AND metadata_json IS ?
+                 AND parts_json IS ?
+                 AND status IS ?
+                 AND created_at IS ?
+                 AND deleted_at IS NULL
+             )",
+            )
+            .bind(&row.id)
+            .bind(&row.chat_group_id)
+            .bind(&row.owner_user_id)
+            .bind(&row.role)
+            .bind(&row.content)
+            .bind(&row.metadata_json)
+            .bind(&row.parts_json)
+            .bind(&row.status)
+            .bind(&row.created_at)
+            .fetch_one(&mut **transaction)
+            .await
+        }
+        LegacyImportRow::DailyNote(row) => {
+            sqlx::query_scalar(
+                "SELECT EXISTS(
+               SELECT 1 FROM daily_notes
+               WHERE id = ?
+                 AND owner_user_id IS ?
+                 AND note_date IS ?
+                 AND body_format IS ?
+                 AND body IS ?
+                 AND deleted_at IS NULL
+             )",
+            )
+            .bind(&row.id)
+            .bind(&row.owner_user_id)
+            .bind(&row.note_date)
+            .bind(&row.body_format)
+            .bind(&row.body)
+            .fetch_one(&mut **transaction)
+            .await
+        }
+        LegacyImportRow::AppSetting(row) => {
+            sqlx::query_scalar(
+                "SELECT EXISTS(
+               SELECT 1 FROM app_settings
+               WHERE id = ? AND value_json IS ?
+             )",
+            )
+            .bind(&row.id)
+            .bind(&row.value_json)
+            .fetch_one(&mut **transaction)
+            .await
+        }
+    }
 }
 
 #[cfg(test)]
@@ -852,6 +1419,11 @@ mod tests {
         begin_legacy_import_run(db.pool(), "run-2", "/vault", false)
             .await
             .unwrap();
+        let mut conflicting_batch = session_batch();
+        let LegacyImportRow::Session(session) = &mut conflicting_batch.rows[0] else {
+            panic!("expected session");
+        };
+        session.title = "Conflicting legacy title".to_string();
         let result = apply_legacy_import_item(
             db.pool(),
             LegacyImportItem {
@@ -861,7 +1433,7 @@ mod tests {
                 source_kind: "session_meta",
                 source_sha256: "hash-2",
             },
-            &session_batch(),
+            &conflicting_batch,
             false,
         )
         .await
@@ -940,6 +1512,52 @@ mod tests {
                 .await
                 .unwrap()
         );
+    }
+
+    #[tokio::test]
+    async fn identical_shared_rows_are_matched_instead_of_reported_as_conflicts() {
+        let db = test_db().await;
+        let batch = LegacyImportBatch {
+            rows: vec![LegacyImportRow::Tag(LegacyTag {
+                id: "work".to_string(),
+                owner_user_id: "user-1".to_string(),
+                name: "work".to_string(),
+            })],
+            ..Default::default()
+        };
+
+        for run in 1..=2 {
+            let run_id = format!("run-{run}");
+            let item_id = format!("item-{run}");
+            let source_path = format!("sessions/session-{run}/_meta.json");
+            let source_hash = format!("hash-{run}");
+            begin_legacy_import_run(db.pool(), &run_id, "/vault", false)
+                .await
+                .unwrap();
+            let result = apply_legacy_import_item(
+                db.pool(),
+                LegacyImportItem {
+                    id: &item_id,
+                    run_id: &run_id,
+                    source_path: &source_path,
+                    source_kind: "session_meta",
+                    source_sha256: &source_hash,
+                },
+                &batch,
+                false,
+            )
+            .await
+            .unwrap();
+
+            if run == 1 {
+                assert_eq!(result.imported_count, 1);
+                assert_eq!(result.matched_count, 0);
+            } else {
+                assert_eq!(result.imported_count, 0);
+                assert_eq!(result.matched_count, 1);
+                assert_eq!(result.conflict_count, 0);
+            }
+        }
     }
 
     #[tokio::test]
