@@ -104,6 +104,13 @@ vi.mock("~/shared/config", () => ({
   useConfigValue: () => mocks.configValue,
 }));
 
+vi.mock("~/calendar/queries", () => ({
+  useTimelineTables: () => ({
+    timelineEventsTable: mocks.timelineEventsTable,
+    timelineSessionsTable: mocks.timelineSessionsTable,
+  }),
+}));
+
 vi.mock("~/shared/hooks/useNativeContextMenu", () => ({
   useNativeContextMenu: () => vi.fn(),
 }));
@@ -121,17 +128,9 @@ vi.mock("~/store/tinybase/store/deleteSession", () => ({
 }));
 
 vi.mock("~/store/tinybase/store/main", () => ({
-  QUERIES: {
-    timelineEvents: "timelineEvents",
-    timelineSessions: "timelineSessions",
-  },
   STORE_ID: "main",
   UI: {
     useIndexes: () => null,
-    useResultTable: (query: string) =>
-      query === "timelineEvents"
-        ? mocks.timelineEventsTable
-        : mocks.timelineSessionsTable,
     useStore: () => null,
   },
 }));

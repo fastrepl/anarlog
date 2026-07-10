@@ -9,9 +9,9 @@ import {
   type TimelineBucket,
 } from "./utils";
 
+import { useTimelineTables } from "~/calendar/queries";
 import { useConfigValue } from "~/shared/config";
 import { useIgnoredEvents } from "~/store/tinybase/hooks";
-import * as main from "~/store/tinybase/store/main";
 
 const UPCOMING_MEETING_VISIBLE_WINDOW_MS = 5 * 60 * 1000;
 const UPCOMING_MEETING_STATUS_TICK_MS = 1000;
@@ -32,14 +32,7 @@ export function useSidebarUpcomingMeetingStatus({
   const { t } = useLingui();
   const { isIgnored } = useIgnoredEvents();
   const formatLabel = useUpcomingMeetingLabelFormatter();
-  const timelineEventsTable = main.UI.useResultTable(
-    main.QUERIES.timelineEvents,
-    main.STORE_ID,
-  );
-  const timelineSessionsTable = main.UI.useResultTable(
-    main.QUERIES.timelineSessions,
-    main.STORE_ID,
-  );
+  const { timelineEventsTable, timelineSessionsTable } = useTimelineTables();
   const currentTimeMs = useCurrentTimeMs(UPCOMING_MEETING_STATUS_TICK_MS);
 
   return useMemo(() => {

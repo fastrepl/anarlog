@@ -61,24 +61,17 @@ vi.mock("~/shared/config", () => ({
   useConfigValue: () => undefined,
 }));
 
+vi.mock("~/calendar/queries", () => ({
+  useTimelineTables: () => ({
+    timelineEventsTable: mocks.timelineEventsTable,
+    timelineSessionsTable: mocks.timelineSessionsTable,
+  }),
+}));
+
 vi.mock("~/store/tinybase/hooks", () => ({
   useIgnoredEvents: () => ({
     isIgnored: mocks.isIgnored,
   }),
-}));
-
-vi.mock("~/store/tinybase/store/main", () => ({
-  QUERIES: {
-    timelineEvents: "timelineEvents",
-    timelineSessions: "timelineSessions",
-  },
-  STORE_ID: "main",
-  UI: {
-    useResultTable: (query: string) =>
-      query === "timelineEvents"
-        ? mocks.timelineEventsTable
-        : mocks.timelineSessionsTable,
-  },
 }));
 
 vi.mock("./realtime", () => ({

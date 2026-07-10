@@ -44,6 +44,7 @@ import {
   type TimelineSessionsTable,
 } from "./utils";
 
+import { useTimelineTables } from "~/calendar/queries";
 import { useConfigValue } from "~/shared/config";
 import { scrollElementByWheel } from "~/shared/dom/scroll-wheel";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
@@ -1092,22 +1093,6 @@ function isTimelineItemVisible(
     itemRect.bottom > containerRect.top + margin &&
     itemRect.top < containerRect.bottom - margin
   );
-}
-
-function useTimelineTables(): {
-  timelineEventsTable: TimelineEventsTable;
-  timelineSessionsTable: TimelineSessionsTable;
-} {
-  const timelineEventsTable = main.UI.useResultTable(
-    main.QUERIES.timelineEvents,
-    main.STORE_ID,
-  );
-  const timelineSessionsTable = main.UI.useResultTable(
-    main.QUERIES.timelineSessions,
-    main.STORE_ID,
-  );
-
-  return { timelineEventsTable, timelineSessionsTable };
 }
 
 function useTimelineData({
