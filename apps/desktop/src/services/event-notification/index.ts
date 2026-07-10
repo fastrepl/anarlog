@@ -1,92 +1,75 @@
 import { commands as notificationCommands } from "@hypr/plugin-notification";
 
-import type * as main from "~/store/tinybase/store/main";
-import type * as settings from "~/store/tinybase/store/settings";
+import { getIgnoredEventSets } from "~/calendar/ignored-events";
+import { liveQueryClient } from "~/db";
 
 export const EVENT_NOTIFICATION_TASK_ID = "eventNotification";
-export const EVENT_NOTIFICATION_INTERVAL = 30 * 1000; // 30 sec
+export const EVENT_NOTIFICATION_INTERVAL = 30 * 1000;
 
-const NOTIFY_WINDOW_MS = 5 * 60 * 1000; // 5 minutes before
-const NOTIFIED_EVENTS_TTL_MS = 10 * 60 * 1000; // 10 minutes TTL for cleanup
+const NOTIFY_WINDOW_MS = 5 * 60 * 1000;
+const NOTIFIED_EVENTS_TTL_MS = 10 * 60 * 1000;
 
 export type NotifiedEventsMap = Map<string, number>;
 
-export function checkEventNotifications(
-  store: main.Store,
-  settingsStore: settings.Store,
+type NotificationEventRow = {
+  id: string;
+  title: string;
+  started_at: string;
+  tracking_id_event: string;
+  recurrence_series_id: string;
+};
+
+export async function checkEventNotifications(
+  notificationEnabled: boolean,
   notifiedEvents: NotifiedEventsMap,
-) {
-  const notificationEnabled = settingsStore?.getValue("notification_event");
-  if (!notificationEnabled || !store) {
-    return;
-  }
+): Promise<void> {
+  if (!notificationEnabled) return;
 
   const now = Date.now();
-
   for (const [key, timestamp] of notifiedEvents) {
-    if (now - timestamp > NOTIFIED_EVENTS_TTL_MS) {
-      notifiedEvents.delete(key);
-    }
+    if (now - timestamp > NOTIFIED_EVENTS_TTL_MS) notifiedEvents.delete(key);
   }
 
-  const ignoredIds = new Set<string>();
-  const ignoredSeriesIds = new Set<string>();
+  const [{ ignoredIds, ignoredSeriesIds }, events] = await Promise.all([
+    getIgnoredEventSets(),
+    liveQueryClient.execute<NotificationEventRow>(`
+      SELECT
+        id,
+        title,
+        started_at,
+        tracking_id_event,
+        recurrence_series_id
+      FROM events
+      WHERE deleted_at IS NULL AND started_at <> ''
+      ORDER BY started_at, id
+    `),
+  ]);
 
-  try {
-    const raw = store.getValue("ignored_events") as string | undefined;
-    if (raw) {
-      for (const e of JSON.parse(raw) as Array<{
-        tracking_id: string;
-      }>) {
-        ignoredIds.add(e.tracking_id);
-      }
-    }
-  } catch {}
-
-  try {
-    const raw = store.getValue("ignored_recurring_series") as
-      | string
-      | undefined;
-    if (raw) {
-      for (const e of JSON.parse(raw) as Array<{ id: string }>) {
-        ignoredSeriesIds.add(e.id);
-      }
-    }
-  } catch {}
-
-  store.forEachRow("events", (eventId, _forEachCell) => {
-    const event = store.getRow("events", eventId);
-    if (!event?.started_at) return;
-
-    const startTime = new Date(String(event.started_at));
+  for (const event of events) {
+    const startTime = new Date(event.started_at);
     const timeUntilStart = startTime.getTime() - now;
-    const notificationKey = `event-${eventId}-${startTime.getTime()}`;
+    const notificationKey = `event-${event.id}-${startTime.getTime()}`;
 
-    const trackingId = event.tracking_id_event as string | undefined;
-    const recurrenceSeriesId = event.recurrence_series_id as string | undefined;
-
-    if (trackingId) {
-      if (ignoredIds.has(trackingId)) return;
-      if (recurrenceSeriesId && ignoredSeriesIds.has(recurrenceSeriesId))
-        return;
+    if (
+      event.tracking_id_event &&
+      (ignoredIds.has(event.tracking_id_event) ||
+        (event.recurrence_series_id &&
+          ignoredSeriesIds.has(event.recurrence_series_id)))
+    ) {
+      continue;
     }
 
     if (timeUntilStart > 0 && timeUntilStart <= NOTIFY_WINDOW_MS) {
-      if (notifiedEvents.has(notificationKey)) {
-        return;
-      }
-
+      if (notifiedEvents.has(notificationKey)) continue;
       notifiedEvents.set(notificationKey, now);
-
-      const title = String(event.title || "Upcoming Event");
-      const minutesUntil = Math.ceil(timeUntilStart / 60000);
+      const minutesUntil = Math.ceil(timeUntilStart / 60_000);
 
       void notificationCommands.showNotification({
         key: notificationKey,
-        title: title,
+        title: event.title || "Upcoming Event",
         message: `Starting in ${minutesUntil} minute${minutesUntil !== 1 ? "s" : ""}`,
         timeout: null,
-        source: { type: "calendar_event", event_id: eventId },
+        source: { type: "calendar_event", event_id: event.id },
         start_time: Math.floor(startTime.getTime() / 1000),
         participants: null,
         event_details: null,
@@ -99,5 +82,5 @@ export function checkEventNotifications(
     } else if (timeUntilStart <= 0) {
       notifiedEvents.delete(notificationKey);
     }
-  });
+  }
 }

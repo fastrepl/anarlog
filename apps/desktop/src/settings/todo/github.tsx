@@ -18,8 +18,9 @@ import type { TodoProvider } from "./shared";
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing";
 import { useConnections } from "~/auth/useConnections";
+import { useSetSettingValue } from "~/settings/queries";
+import { useConfigValue } from "~/shared/config";
 import { openIntegrationUrl } from "~/shared/integration";
-import * as settings from "~/store/tinybase/store/settings";
 
 async function searchGitHubRepos(query: string): Promise<string[]> {
   const resp = await fetch(
@@ -54,17 +55,11 @@ export function GitHubTodoProviderContent({
     [connections, config.nangoIntegrationId],
   );
 
-  const repository =
-    settings.UI.useValue("todo_github_repository", settings.STORE_ID) ?? "";
+  const repository = useConfigValue("todo_github_repository") ?? "";
   const normalizedRepository = repository.trim();
   const hasRepository = normalizedRepository.length > 0;
 
-  const setRepository = settings.UI.useSetValueCallback(
-    "todo_github_repository",
-    (value: string) => value,
-    [],
-    settings.STORE_ID,
-  );
+  const setRepository = useSetSettingValue("todo_github_repository");
 
   useEffect(() => {
     const id = setTimeout(() => setDebouncedInput(inputValue), 300);

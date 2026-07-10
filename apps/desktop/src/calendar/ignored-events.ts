@@ -2,6 +2,10 @@ import { useCallback, useMemo } from "react";
 
 import { executeTransaction, liveQueryClient, useLiveQuery } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
+import {
+  LEGACY_MAIN_VALUES_ID,
+  LEGACY_SETTINGS_ID,
+} from "~/settings/legacy-snapshots";
 
 type IgnoredEvent = { tracking_id: string; last_seen: string };
 type IgnoredRecurringSeries = { id: string; last_seen: string };
@@ -9,7 +13,6 @@ type AppSettingSqlRow = { id?: string; value_json: string | null };
 
 const IGNORED_EVENTS_ID = "ignored_events";
 const IGNORED_SERIES_ID = "ignored_recurring_series";
-const LEGACY_SETTINGS_ID = "legacy_settings_document";
 
 export function useIgnoredEvents() {
   const ignoredEvents = useSettingList<IgnoredEvent>(IGNORED_EVENTS_ID);
@@ -80,6 +83,34 @@ export function useIgnoredEvents() {
   };
 }
 
+export async function getIgnoredEventSets(): Promise<{
+  ignoredIds: Set<string>;
+  ignoredSeriesIds: Set<string>;
+}> {
+  const rows = await liveQueryClient.execute<AppSettingSqlRow>(
+    `
+      SELECT id, value_json
+      FROM app_settings
+      WHERE id IN (?, ?, ?, ?)
+    `,
+    [
+      IGNORED_EVENTS_ID,
+      IGNORED_SERIES_ID,
+      LEGACY_MAIN_VALUES_ID,
+      LEGACY_SETTINGS_ID,
+    ],
+  );
+  const events = resolveSettingList<IgnoredEvent>(rows, IGNORED_EVENTS_ID);
+  const series = resolveSettingList<IgnoredRecurringSeries>(
+    rows,
+    IGNORED_SERIES_ID,
+  );
+  return {
+    ignoredIds: new Set(events.map((event) => event.tracking_id)),
+    ignoredSeriesIds: new Set(series.map((entry) => entry.id)),
+  };
+}
+
 function useSettingList<T>(id: string): T[] {
   const { data = EMPTY_LIST } = useLiveQuery<AppSettingSqlRow, T[]>({
     sql: `
@@ -91,10 +122,23 @@ function useSettingList<T>(id: string): T[] {
             ELSE NULL
           END
         FROM app_settings
+        WHERE id = ?),
+        (SELECT
+          CASE
+            WHEN json_valid(value_json) THEN json_extract(value_json, ?)
+            ELSE NULL
+          END
+        FROM app_settings
         WHERE id = ?)
       ) AS value_json
     `,
-    params: [id, `$.${id}`, LEGACY_SETTINGS_ID],
+    params: [
+      id,
+      `$.${id}`,
+      LEGACY_MAIN_VALUES_ID,
+      `$.${id}`,
+      LEGACY_SETTINGS_ID,
+    ],
     mapRows: (rows) => parseSettingList<T>(rows[0]?.value_json),
   });
   return data;
@@ -110,15 +154,12 @@ async function mutateSettingList<T>(
         `
           SELECT id, value_json
           FROM app_settings
-          WHERE id IN (?, ?)
+          WHERE id IN (?, ?, ?)
         `,
-        [id, LEGACY_SETTINGS_ID],
+        [id, LEGACY_MAIN_VALUES_ID, LEGACY_SETTINGS_ID],
       );
       const direct = rows.find((row) => row.id === id);
-      const legacy = rows.find((row) => row.id === LEGACY_SETTINGS_ID);
-      const current = direct
-        ? parseSettingList<T>(direct.value_json)
-        : parseLegacySettingList<T>(legacy?.value_json, id);
+      const current = resolveSettingList<T>(rows, id);
       const nextJson = JSON.stringify(mutation(current));
       const now = new Date().toISOString();
       const [updated = 0] = await executeTransaction([
@@ -146,6 +187,34 @@ async function mutateSettingList<T>(
 
     throw new Error(`Setting ${id} changed too frequently`);
   });
+}
+
+function resolveSettingList<T>(rows: AppSettingSqlRow[], id: string): T[] {
+  const direct = rows.find((row) => row.id === id);
+  if (direct) return parseSettingList<T>(direct.value_json);
+  const legacyMain = rows.find((row) => row.id === LEGACY_MAIN_VALUES_ID);
+  if (hasLegacySetting(legacyMain?.value_json, id)) {
+    return parseLegacySettingList<T>(legacyMain?.value_json, id);
+  }
+  const legacySettings = rows.find((row) => row.id === LEGACY_SETTINGS_ID);
+  return parseLegacySettingList<T>(legacySettings?.value_json, id);
+}
+
+function hasLegacySetting(
+  value: string | null | undefined,
+  id: string,
+): boolean {
+  if (!value) return false;
+  try {
+    const document = JSON.parse(value);
+    return (
+      document !== null &&
+      typeof document === "object" &&
+      Object.prototype.hasOwnProperty.call(document, id)
+    );
+  } catch {
+    return false;
+  }
 }
 
 function parseLegacySettingList<T>(

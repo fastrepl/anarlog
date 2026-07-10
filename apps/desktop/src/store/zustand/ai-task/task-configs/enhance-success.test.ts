@@ -51,7 +51,6 @@ function createParams(
     },
     transformedArgs: createTransformedArgs(),
     store,
-    settingsStore: {} as EnhanceSuccessParams["settingsStore"],
     signal: new AbortController().signal,
     startTask: vi.fn().mockResolvedValue(undefined),
     getTaskState: vi.fn().mockReturnValue(undefined),

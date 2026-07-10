@@ -12,7 +12,9 @@ const {
   maybeEmitUpdatedMock,
   getCurrentWebviewWindowLabelMock,
   useMainStoreMock,
-  useSettingsStoreMock,
+  useConfigValueMock,
+  useConfigValuesMock,
+  setSettingValueMock,
   openNewMock,
   createSessionMock,
   getOrCreateSessionForEventIdMock,
@@ -26,7 +28,9 @@ const {
   maybeEmitUpdatedMock: vi.fn(),
   getCurrentWebviewWindowLabelMock: vi.fn(() => "main"),
   useMainStoreMock: vi.fn(() => null),
-  useSettingsStoreMock: vi.fn(() => null),
+  useConfigValueMock: vi.fn((): string[] => []),
+  useConfigValuesMock: vi.fn(),
+  setSettingValueMock: vi.fn(async () => {}),
   openNewMock: vi.fn(),
   createSessionMock: vi.fn(() => "session-new"),
   getOrCreateSessionForEventIdMock: vi.fn(() => "session-event"),
@@ -66,17 +70,13 @@ vi.mock("~/store/tinybase/store/main", () => ({
   },
 }));
 
-vi.mock("~/store/tinybase/store/settings", () => ({
-  STORE_ID: "settings-store",
-  SETTINGS_MAPPING: {
-    values: {
-      ai_language: { default: "en" },
-      spoken_languages: { default: "[]" },
-    },
-  },
-  UI: {
-    useStore: useSettingsStoreMock,
-  },
+vi.mock("~/shared/config", () => ({
+  useConfigValue: useConfigValueMock,
+  useConfigValues: useConfigValuesMock,
+}));
+
+vi.mock("~/settings/queries", () => ({
+  setSettingValue: setSettingValueMock,
 }));
 
 vi.mock("~/store/tinybase/store/sessions", () => ({
@@ -95,6 +95,16 @@ vi.mock("~/store/zustand/listener/instance", () => ({
   },
 }));
 
+function createMainStore(overrides: Record<string, unknown> = {}) {
+  return {
+    addTableListener: vi.fn(() => "main-listener"),
+    delListener: vi.fn(),
+    forEachRow: vi.fn(),
+    getValue: vi.fn(),
+    ...overrides,
+  };
+}
+
 describe("EventListeners notification events", () => {
   beforeEach(() => {
     notificationListenMock.mockReset();
@@ -102,7 +112,9 @@ describe("EventListeners notification events", () => {
     maybeEmitUpdatedMock.mockReset();
     getCurrentWebviewWindowLabelMock.mockReset();
     useMainStoreMock.mockReset();
-    useSettingsStoreMock.mockReset();
+    useConfigValueMock.mockReset();
+    useConfigValuesMock.mockReset();
+    setSettingValueMock.mockReset();
     openNewMock.mockReset();
     createSessionMock.mockReset();
     getOrCreateSessionForEventIdMock.mockReset();
@@ -117,7 +129,14 @@ describe("EventListeners notification events", () => {
     createSessionMock.mockReturnValue("session-new");
     getOrCreateSessionForEventIdMock.mockReturnValue("session-event");
     useMainStoreMock.mockReturnValue(null);
-    useSettingsStoreMock.mockReturnValue(null);
+    useConfigValueMock.mockReturnValue([]);
+    useConfigValuesMock.mockReturnValue({
+      ai_language: "en",
+      spoken_languages: [],
+      current_stt_provider: undefined,
+      current_stt_model: undefined,
+    });
+    setSettingValueMock.mockResolvedValue(undefined);
     getListenerStateMock.mockReturnValue({
       setTriggerAppIds: setTriggerAppIdsMock,
       stop: stopMock,
@@ -132,11 +151,7 @@ describe("EventListeners notification events", () => {
   });
 
   test("stores mic-detected footer actions as ignored platforms", async () => {
-    const settingsStore = {
-      getValue: vi.fn(() => JSON.stringify(["com.existing.app"])),
-      setValue: vi.fn(),
-    };
-    useSettingsStoreMock.mockReturnValue(settingsStore as never);
+    useConfigValueMock.mockReturnValue(["com.existing.app"]);
 
     render(<EventListeners />);
 
@@ -160,7 +175,7 @@ describe("EventListeners notification events", () => {
       },
     });
 
-    expect(settingsStore.setValue).toHaveBeenCalledWith(
+    expect(setSettingValueMock).toHaveBeenCalledWith(
       "ignored_platforms",
       JSON.stringify(["com.existing.app", "us.zoom.xos"]),
     );
@@ -168,7 +183,7 @@ describe("EventListeners notification events", () => {
   });
 
   test("notification_accept with auto-stop prompt stops the active session", async () => {
-    useMainStoreMock.mockReturnValue({} as never);
+    useMainStoreMock.mockReturnValue(createMainStore() as never);
 
     render(<EventListeners />);
 
@@ -203,28 +218,13 @@ describe("EventListeners notification events", () => {
         key === "user_id" ? "human-self" : undefined,
       ),
     };
-    const settingsStore = {
-      addValueListener: vi.fn(() => "settings-listener"),
-      delListener: vi.fn(),
-      getValue: vi.fn((key: string) => {
-        if (key === "ai_language") {
-          return "ko";
-        }
-        if (key === "spoken_languages") {
-          return JSON.stringify(["ko"]);
-        }
-        if (key === "current_stt_provider") {
-          return "soniox";
-        }
-        if (key === "current_stt_model") {
-          return "stt-v4";
-        }
-        return undefined;
-      }),
-    };
-
     useMainStoreMock.mockReturnValue(mainStore as never);
-    useSettingsStoreMock.mockReturnValue(settingsStore as never);
+    useConfigValuesMock.mockReturnValue({
+      ai_language: "ko",
+      spoken_languages: ["ko"],
+      current_stt_provider: "soniox",
+      current_stt_model: "stt-v4",
+    });
 
     render(<EventListeners />);
 
@@ -232,8 +232,6 @@ describe("EventListeners notification events", () => {
       "mapping_session_participant",
       expect.any(Function),
     );
-    expect(settingsStore.addValueListener).toHaveBeenCalledTimes(4);
-
     await vi.runOnlyPendingTimersAsync();
 
     expect(updateCaptureConfigMock).toHaveBeenCalledWith({
@@ -245,7 +243,7 @@ describe("EventListeners notification events", () => {
   });
 
   test("notification_confirm with auto-stop prompt ignores collapsed body click", async () => {
-    useMainStoreMock.mockReturnValue({} as never);
+    useMainStoreMock.mockReturnValue(createMainStore() as never);
 
     render(<EventListeners />);
 
@@ -298,7 +296,7 @@ describe("EventListeners notification events", () => {
   });
 
   test("notification_confirm with batch key opens that session without source", async () => {
-    useMainStoreMock.mockReturnValue({} as never);
+    useMainStoreMock.mockReturnValue(createMainStore() as never);
 
     render(<EventListeners />);
 
@@ -326,7 +324,8 @@ describe("EventListeners notification events", () => {
   });
 
   test("notification_confirm with mic_detected source opens detected event and sets triggerAppIds", async () => {
-    useMainStoreMock.mockReturnValue({} as never);
+    const mainStore = createMainStore();
+    useMainStoreMock.mockReturnValue(mainStore as never);
 
     render(<EventListeners />);
 
@@ -350,7 +349,7 @@ describe("EventListeners notification events", () => {
     });
 
     expect(getOrCreateSessionForEventIdMock).toHaveBeenCalledWith(
-      {},
+      mainStore,
       "event-1",
     );
     expect(createSessionMock).not.toHaveBeenCalled();
@@ -363,7 +362,7 @@ describe("EventListeners notification events", () => {
   });
 
   test("notification_option_selected with mic_detected source sets triggerAppIds", async () => {
-    useMainStoreMock.mockReturnValue({} as never);
+    useMainStoreMock.mockReturnValue(createMainStore() as never);
 
     render(<EventListeners />);
 
@@ -418,7 +417,7 @@ describe("EventListeners notification events", () => {
     expect(setTriggerAppIdsMock).not.toHaveBeenCalled();
     expect(openNewMock).not.toHaveBeenCalled();
 
-    useMainStoreMock.mockReturnValue({} as never);
+    useMainStoreMock.mockReturnValue(createMainStore() as never);
     rerender(<EventListeners />);
 
     await vi.waitFor(() =>
@@ -431,13 +430,15 @@ describe("EventListeners notification events", () => {
     vi.spyOn(Date, "now").mockReturnValue(
       new Date("2026-05-15T12:00:00.000Z").getTime(),
     );
-    useMainStoreMock.mockReturnValue({
-      getRow: vi.fn((table: string, rowId: string) =>
-        table === "events" && rowId === "evt-1"
-          ? { started_at: "2026-05-15T12:02:00.000Z" }
-          : undefined,
-      ),
-    } as never);
+    useMainStoreMock.mockReturnValue(
+      createMainStore({
+        getRow: vi.fn((table: string, rowId: string) =>
+          table === "events" && rowId === "evt-1"
+            ? { started_at: "2026-05-15T12:02:00.000Z" }
+            : undefined,
+        ),
+      }) as never,
+    );
 
     render(<EventListeners />);
 
@@ -467,13 +468,15 @@ describe("EventListeners notification events", () => {
     vi.spyOn(Date, "now").mockReturnValue(
       new Date("2026-05-15T12:02:00.000Z").getTime(),
     );
-    useMainStoreMock.mockReturnValue({
-      getRow: vi.fn((table: string, rowId: string) =>
-        table === "events" && rowId === "evt-1"
-          ? { started_at: "2026-05-15T12:00:00.000Z" }
-          : undefined,
-      ),
-    } as never);
+    useMainStoreMock.mockReturnValue(
+      createMainStore({
+        getRow: vi.fn((table: string, rowId: string) =>
+          table === "events" && rowId === "evt-1"
+            ? { started_at: "2026-05-15T12:00:00.000Z" }
+            : undefined,
+        ),
+      }) as never,
+    );
 
     render(<EventListeners />);
 

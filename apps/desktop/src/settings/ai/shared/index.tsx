@@ -32,7 +32,11 @@ import {
 } from "./eligibility";
 
 import { useBillingAccess } from "~/auth/billing";
-import * as settings from "~/store/tinybase/store/settings";
+import {
+  useAiProvider,
+  useAiProviders,
+  useSetAiProvider,
+} from "~/settings/providers";
 
 export * from "./hypr-cloud-button";
 export * from "./model-combobox";
@@ -115,15 +119,7 @@ function useIsProviderConfigured(
   providers: readonly ProviderConfig[],
 ) {
   const billing = useBillingAccess();
-  const query =
-    providerType === "stt"
-      ? settings.QUERIES.sttProviders
-      : settings.QUERIES.llmProviders;
-
-  const configuredProviders = settings.UI.useResultTable(
-    query,
-    settings.STORE_ID,
-  );
+  const configuredProviders = useAiProviders(providerType);
   const providerDef = providers.find((p) => p.id === providerId);
   const config = configuredProviders[providerRowId(providerType, providerId)];
 
@@ -413,19 +409,10 @@ export function StyledStreamdown({
 }
 
 function useProvider(providerType: ProviderType, id: string) {
-  const rowId = providerRowId(providerType, id);
-  const providerRow = settings.UI.useRow(
-    "ai_providers",
-    rowId,
-    settings.STORE_ID,
-  );
-  const setProvider = settings.UI.useSetPartialRowCallback(
-    "ai_providers",
-    rowId,
-    (row: Partial<AIProvider>) => row,
-    [rowId],
-    settings.STORE_ID,
-  ) as (row: Partial<AIProvider>) => void;
+  const providerRow = useAiProvider(providerType, id);
+  const setProvider = useSetAiProvider(providerType, id) as (
+    row: Partial<AIProvider>,
+  ) => void;
 
   const { data } = aiProviderSchema.safeParse(providerRow);
   return [data, setProvider] as const;

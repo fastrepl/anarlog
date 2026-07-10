@@ -10,8 +10,8 @@ import { collectEnhanceImageContext } from "./enhance-images";
 
 import { getSessionEventById } from "~/session/utils";
 import { modelSupportsImageInput } from "~/settings/ai/shared/model-capabilities";
+import type { SettingValues } from "~/settings/schema";
 import type { Store as MainStore } from "~/store/tinybase/store/main";
-import type { Store as SettingsStore } from "~/store/tinybase/store/settings";
 import {
   buildRenderTranscriptRequestFromStore,
   renderTranscriptSegments,
@@ -40,7 +40,7 @@ export const enhanceTransform: Pick<TaskConfig<"enhance">, "transformArgs"> = {
 async function transformArgs(
   args: TaskArgsMap["enhance"],
   store: MainStore,
-  settingsStore: SettingsStore,
+  settingsValues: SettingValues,
 ): Promise<TaskArgsMapTransformed["enhance"]> {
   const { sessionId, templateId } = args;
 
@@ -53,14 +53,14 @@ async function transformArgs(
         sections: templateRecord.sections,
       }
     : null;
-  const language = getLanguage(settingsStore);
+  const language = getLanguage(settingsValues);
   const segments = await getTranscriptSegmentsFromMeta(
     sessionContext.transcriptsMeta,
     store,
   );
   const imageContext = modelSupportsImageInput(
-    getOptionalSettingsValue(settingsStore, "current_llm_provider"),
-    getOptionalSettingsValue(settingsStore, "current_llm_model"),
+    getOptionalSettingsValue(settingsValues, "current_llm_provider"),
+    getOptionalSettingsValue(settingsValues, "current_llm_model"),
   )
     ? await collectEnhanceImageContext(sessionId, [
         sessionContext.preMeetingMemo,
@@ -124,16 +124,16 @@ function formatTranscripts(
   return [];
 }
 
-function getLanguage(settingsStore: SettingsStore): string | null {
-  const value = settingsStore.getValue("ai_language");
+function getLanguage(settingsValues: SettingValues): string | null {
+  const value = settingsValues.ai_language;
   return typeof value === "string" && value.length > 0 ? value : null;
 }
 
 function getOptionalSettingsValue(
-  settingsStore: SettingsStore,
-  valueId: string,
+  settingsValues: SettingValues,
+  valueId: "current_llm_provider" | "current_llm_model",
 ): string | undefined {
-  const value = settingsStore.getValue(valueId as any);
+  const value = settingsValues[valueId];
   return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 

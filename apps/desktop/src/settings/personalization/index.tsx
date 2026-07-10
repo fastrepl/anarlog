@@ -12,18 +12,13 @@ import {
 import { cn } from "@hypr/utils";
 
 import { SettingsPageTitle } from "~/settings/page-title";
+import { useSetSettingValue } from "~/settings/queries";
 import { useConfigValue } from "~/shared/config";
-import * as settings from "~/store/tinybase/store/settings";
 import { normalizeKeywordList, parseDictionaryTermsText } from "~/stt/keywords";
 
 export function SettingsPersonalization() {
   const terms = useConfigValue("personalization_dictionary_terms");
-  const setTerms = settings.UI.useSetValueCallback(
-    "personalization_dictionary_terms",
-    (value: string) => value,
-    [],
-    settings.STORE_ID,
-  );
+  const setTerms = useSetSettingValue("personalization_dictionary_terms");
 
   return (
     <div className="flex flex-col gap-8">

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { md2json } from "@hypr/editor/markdown";
 
@@ -6,6 +6,14 @@ import {
   buildApplySessionCorrectionTool,
   sessionCorrectionTestInternals,
 } from "./session-correction";
+
+const settingsMocks = vi.hoisted(() => ({
+  updateSettingValue: vi.fn(),
+}));
+
+vi.mock("~/settings/queries", () => ({
+  updateSettingValue: settingsMocks.updateSettingValue,
+}));
 
 function createStore(tables: Record<string, Record<string, any>>) {
   return {
@@ -25,15 +33,6 @@ function createStore(tables: Record<string, Record<string, any>>) {
         };
       },
     ),
-  } as any;
-}
-
-function createSettingsStore(values: Record<string, unknown> = {}) {
-  return {
-    getValue: vi.fn((key: string) => values[key]),
-    setValue: vi.fn((key: string, value: unknown) => {
-      values[key] = value;
-    }),
   } as any;
 }
 
@@ -62,6 +61,10 @@ function summaryContent(markdown: string) {
 }
 
 describe("session correction chat tool internals", () => {
+  beforeEach(() => {
+    settingsMocks.updateSettingValue.mockReset();
+  });
+
   it("applies exact summary corrections to matching enhanced notes", () => {
     const tables = {
       enhanced_notes: {
@@ -309,13 +312,16 @@ describe("session correction chat tool internals", () => {
       },
     };
     const store = createStore(tables);
-    const settingsStore = createSettingsStore({
-      personalization_dictionary_terms: JSON.stringify(["Anarlog"]),
-    });
+    let persistedDictionary = "";
+    settingsMocks.updateSettingValue.mockImplementation(
+      async (_key, update) => {
+        persistedDictionary = update(JSON.stringify(["Anarlog"]));
+        return persistedDictionary;
+      },
+    );
     const indexes = createIndexes(tables);
     const tool = buildApplySessionCorrectionTool({
       getStore: () => store,
-      getSettingsStore: () => settingsStore,
       getIndexes: () => indexes,
       getSessionId: () => "session-1",
       getEnhancedNoteId: () => "note-1",
@@ -350,10 +356,11 @@ describe("session correction chat tool internals", () => {
     expect(tables.transcripts["transcript-1"].memo_md).toBe(
       "Speaker 1: Tim from Erebor, liked it.",
     );
-    expect(settingsStore.setValue).toHaveBeenCalledWith(
+    expect(settingsMocks.updateSettingValue).toHaveBeenCalledWith(
       "personalization_dictionary_terms",
-      JSON.stringify(["Anarlog", "Erebor"]),
+      expect.any(Function),
     );
+    expect(persistedDictionary).toBe(JSON.stringify(["Anarlog", "Erebor"]));
   });
 
   it("reports partial success when a requested target does not match", async () => {
@@ -371,7 +378,6 @@ describe("session correction chat tool internals", () => {
     const indexes = createIndexes(tables);
     const tool = buildApplySessionCorrectionTool({
       getStore: () => store,
-      getSettingsStore: () => createSettingsStore(),
       getIndexes: () => indexes,
       getSessionId: () => "session-1",
       getEnhancedNoteId: () => "note-1",
@@ -406,7 +412,6 @@ describe("session correction chat tool internals", () => {
     const indexes = createIndexes(tables);
     const tool = buildApplySessionCorrectionTool({
       getStore: () => store,
-      getSettingsStore: () => createSettingsStore(),
       getIndexes: () => indexes,
       getSessionId: () => "session-1",
       getEnhancedNoteId: () => undefined,
@@ -450,7 +455,6 @@ describe("session correction chat tool internals", () => {
     const indexes = createIndexes(tables);
     const tool = buildApplySessionCorrectionTool({
       getStore: () => store,
-      getSettingsStore: () => createSettingsStore(),
       getIndexes: () => indexes,
       getSessionId: () => "session-1",
       getEnhancedNoteId: () => undefined,
@@ -500,7 +504,6 @@ describe("session correction chat tool internals", () => {
     const indexes = createIndexes(tables);
     const tool = buildApplySessionCorrectionTool({
       getStore: () => store,
-      getSettingsStore: () => createSettingsStore(),
       getIndexes: () => indexes,
       getSessionId: () => "session-1",
       getEnhancedNoteId: () => "note-1",
@@ -546,7 +549,6 @@ describe("session correction chat tool internals", () => {
     const indexes = createIndexes(tables);
     const tool = buildApplySessionCorrectionTool({
       getStore: () => store,
-      getSettingsStore: () => createSettingsStore(),
       getIndexes: () => indexes,
       getSessionId: () => "session-1",
       getEnhancedNoteId: () => "note-1",

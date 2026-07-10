@@ -7,9 +7,9 @@ import type { AIProviderStorage } from "@hypr/store";
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing";
 import { env } from "~/env";
-import { providerRowId } from "~/settings/ai/shared";
 import { type ProviderId } from "~/settings/ai/stt/shared";
-import * as settings from "~/store/tinybase/store/settings";
+import { useAiProvider } from "~/settings/providers";
+import { useConfigValues } from "~/shared/config";
 import {
   isHyprnoteCloudSttModel,
   isHyprnoteLocalSttModel,
@@ -18,18 +18,17 @@ import {
 export const useSTTConnection = () => {
   const auth = useAuth();
   const billing = useBillingAccess();
-  const { current_stt_provider, current_stt_model } = settings.UI.useValues(
-    settings.STORE_ID,
-  ) as {
+  const { current_stt_provider, current_stt_model } = useConfigValues([
+    "current_stt_provider",
+    "current_stt_model",
+  ] as const) as {
     current_stt_provider: ProviderId | undefined;
     current_stt_model: string | undefined;
   };
 
-  const providerConfig = settings.UI.useRow(
-    "ai_providers",
-    current_stt_provider ? providerRowId("stt", current_stt_provider) : "",
-    settings.STORE_ID,
-  ) as AIProviderStorage | undefined;
+  const providerConfig = useAiProvider("stt", current_stt_provider) as
+    | AIProviderStorage
+    | undefined;
 
   const localModel = isHyprnoteLocalSttModel(
     current_stt_provider,

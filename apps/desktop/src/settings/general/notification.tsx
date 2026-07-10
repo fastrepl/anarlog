@@ -42,8 +42,8 @@ import {
   toggleIgnoredApp,
 } from "./notification-app-options";
 
+import { useSetSettingValues } from "~/settings/queries";
 import { useConfigValues } from "~/shared/config";
-import * as settings from "~/store/tinybase/store/settings";
 
 export function NotificationSettingsView() {
   const { t } = useLingui();
@@ -96,47 +96,7 @@ export function NotificationSettingsView() {
     return defaultIgnoredBundleIds.includes(bundleId);
   };
 
-  const handleSetNotificationEvent = settings.UI.useSetValueCallback(
-    "notification_event",
-    (value: boolean) => value,
-    [],
-    settings.STORE_ID,
-  );
-
-  const handleSetNotificationDetect = settings.UI.useSetValueCallback(
-    "notification_detect",
-    (value: boolean) => value,
-    [],
-    settings.STORE_ID,
-  );
-
-  const handleSetRespectDnd = settings.UI.useSetValueCallback(
-    "respect_dnd",
-    (value: boolean) => value,
-    [],
-    settings.STORE_ID,
-  );
-
-  const handleSetIgnoredPlatforms = settings.UI.useSetValueCallback(
-    "ignored_platforms",
-    (value: string) => value,
-    [],
-    settings.STORE_ID,
-  );
-
-  const handleSetIncludedPlatforms = settings.UI.useSetValueCallback(
-    "included_platforms",
-    (value: string) => value,
-    [],
-    settings.STORE_ID,
-  );
-
-  const handleSetMicActiveThreshold = settings.UI.useSetValueCallback(
-    "mic_active_threshold",
-    (value: number) => value,
-    [],
-    settings.STORE_ID,
-  );
+  const setSettingValues = useSetSettingValues();
 
   const form = useForm({
     defaultValues: {
@@ -153,12 +113,14 @@ export function NotificationSettingsView() {
       },
     },
     onSubmit: async ({ value }) => {
-      handleSetNotificationEvent(value.notification_event);
-      handleSetNotificationDetect(value.notification_detect);
-      handleSetRespectDnd(value.respect_dnd);
-      handleSetIgnoredPlatforms(JSON.stringify(value.ignored_platforms));
-      handleSetIncludedPlatforms(JSON.stringify(value.included_platforms));
-      handleSetMicActiveThreshold(value.mic_active_threshold);
+      setSettingValues({
+        notification_event: value.notification_event,
+        notification_detect: value.notification_detect,
+        respect_dnd: value.respect_dnd,
+        ignored_platforms: JSON.stringify(value.ignored_platforms),
+        included_platforms: JSON.stringify(value.included_platforms),
+        mic_active_threshold: value.mic_active_threshold,
+      });
     },
   });
 

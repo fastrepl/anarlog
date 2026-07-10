@@ -12,7 +12,6 @@ import { useBillingAccess } from "~/auth/billing";
 import { env } from "~/env";
 import { waitForBillingUpdate } from "~/shared/billing";
 import { configurePaidSettings } from "~/shared/config/configure-paid-settings";
-import * as settings from "~/store/tinybase/store/settings";
 
 export type TrialPhase =
   | "checking"
@@ -24,7 +23,6 @@ export type TrialPhase =
 export function useTrialFlow(onContinue: () => void) {
   const auth = useAuth();
   const billing = useBillingAccess();
-  const store = settings.UI.useStore(settings.STORE_ID);
   const hasTriggeredRef = useRef(false);
 
   const mutation = useMutation({
@@ -66,7 +64,7 @@ export function useTrialFlow(onContinue: () => void) {
         event: "trial_flow_skipped",
         properties: { reason: "already_paid" },
       });
-      if (store) configurePaidSettings(store);
+      void configurePaidSettings();
       setTimeout(onContinue, 1500);
       return;
     }
@@ -77,14 +75,14 @@ export function useTrialFlow(onContinue: () => void) {
         event: "trial_flow_skipped",
         properties: { reason: "already_trialing" },
       });
-      if (store) configurePaidSettings(store);
+      void configurePaidSettings();
       setTimeout(onContinue, 1500);
       return;
     }
 
     hasTriggeredRef.current = true;
     mutation.mutate();
-  }, [auth, billing, store, mutation, onContinue]);
+  }, [auth, billing, mutation, onContinue]);
 
   if (!auth?.session) return null;
   if (!billing.isReady) return "checking" as const;

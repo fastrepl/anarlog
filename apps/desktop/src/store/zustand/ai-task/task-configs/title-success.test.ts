@@ -26,7 +26,6 @@ function createParams(
     args: { sessionId: "session-1" },
     transformedArgs: {} as TitleSuccessParams["transformedArgs"],
     store,
-    settingsStore: {} as TitleSuccessParams["settingsStore"],
     signal: new AbortController().signal,
     startTask: vi.fn().mockResolvedValue(undefined),
     getTaskState: vi.fn().mockReturnValue(undefined),

@@ -34,8 +34,8 @@ import { cn } from "@hypr/utils";
 import { displayPath } from "./path-utils";
 import { useChangeContentPathWizard } from "./use-storage-wizard";
 
+import { useSetSettingValues } from "~/settings/queries";
 import { useConfigValue } from "~/shared/config";
-import * as settings from "~/store/tinybase/store/settings";
 
 const AUDIO_RETENTION_OPTIONS = [
   {
@@ -147,14 +147,13 @@ export function StorageSettingsView() {
 function AudioRetentionRow() {
   const { t } = useLingui();
   const audioRetention = useConfigValue("audio_retention") || "forever";
-  const setAudioRetention = settings.UI.useSetPartialValuesCallback(
-    (value: string) => ({
+  const setSettingValues = useSetSettingValues();
+  const setAudioRetention = (value: string) => {
+    setSettingValues({
       audio_retention: value,
       save_recordings: value !== "none",
-    }),
-    [],
-    settings.STORE_ID,
-  );
+    });
+  };
   const selectedOption =
     AUDIO_RETENTION_OPTIONS.find((option) => option.value === audioRetention) ??
     AUDIO_RETENTION_OPTIONS[AUDIO_RETENTION_OPTIONS.length - 1]!;

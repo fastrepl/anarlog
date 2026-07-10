@@ -23,8 +23,9 @@ import {
 } from "./queries";
 import { SectionsList } from "./sections-editor";
 
+import { useSetSettingValue } from "~/settings/queries";
+import { useConfigValue } from "~/shared/config";
 import { TemplateCategoryLabel } from "~/shared/ui/template-category-label";
-import * as settings from "~/store/tinybase/store/settings";
 
 function parseTargets(value: string) {
   return value
@@ -156,18 +157,13 @@ export function TemplateForm({
   const [actionsOpen, setActionsOpen] = useState(false);
   const didInitializeForm = useRef(false);
 
-  const selectedTemplateId = settings.UI.useValue(
-    "selected_template_id",
-    settings.STORE_ID,
-  ) as string | undefined;
+  const selectedTemplateId = useConfigValue("selected_template_id");
   const isDefault = selectedTemplateId === id;
 
-  const setSelectedTemplateId = settings.UI.useSetValueCallback(
-    "selected_template_id",
-    () => (isDefault ? "" : id),
-    [id, isDefault],
-    settings.STORE_ID,
-  );
+  const setDefaultTemplateId = useSetSettingValue("selected_template_id");
+  const setSelectedTemplateId = () => {
+    setDefaultTemplateId(isDefault ? "" : id);
+  };
 
   const form = useForm({
     defaultValues: {

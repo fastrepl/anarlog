@@ -40,11 +40,8 @@ vi.mock("~/session/queries", () => ({
   useEnhancedNoteRecords: () => hoisted.enhancedNoteIds.map((id) => ({ id })),
 }));
 
-vi.mock("~/store/tinybase/store/settings", () => ({
-  STORE_ID: "settings",
-  UI: {
-    useValue: () => hoisted.selectedTemplateId,
-  },
+vi.mock("~/shared/config", () => ({
+  useConfigValue: () => hoisted.selectedTemplateId,
 }));
 
 vi.mock("~/stt/contexts", () => ({

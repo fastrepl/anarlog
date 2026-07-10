@@ -9,25 +9,20 @@ import {
   SelectValue,
 } from "@hypr/ui/components/ui/select";
 
+import { useSetSettingValue } from "~/settings/queries";
 import { useConfigValue } from "~/shared/config";
 import {
   applyDocumentTheme,
   writeStoredThemePreference,
 } from "~/shared/theme/apply";
 import type { ThemePreference } from "~/shared/theme/resolve";
-import * as settings from "~/store/tinybase/store/settings";
 
 const THEME_OPTIONS: ThemePreference[] = ["light", "dark", "system"];
 
 export function ThemeSelector() {
   const { t } = useLingui();
   const value = useConfigValue("theme") as ThemePreference;
-  const setTheme = settings.UI.useSetValueCallback(
-    "theme",
-    (next: string) => next,
-    [],
-    settings.STORE_ID,
-  );
+  const setTheme = useSetSettingValue("theme");
 
   const options = useMemo(
     () => [

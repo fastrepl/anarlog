@@ -9,9 +9,9 @@ import { useRegisterTools } from "~/contexts/tool";
 import { useSearchEngine } from "~/search/contexts/engine";
 import { initEnhancerService } from "~/services/enhancer";
 import { getSessionEvent } from "~/session/utils";
+import { useConfigValue } from "~/shared/config";
 import { useDesktopTabLifecycle } from "~/shared/desktop-tab-lifecycle";
 import * as main from "~/store/tinybase/store/main";
-import * as settings from "~/store/tinybase/store/settings";
 import { useTabs } from "~/store/zustand/tabs";
 import { MainListenerControlBridge } from "~/stt/window-control";
 
@@ -43,13 +43,10 @@ function ToolRegistration() {
   const { search } = useSearchEngine();
   const store = main.UI.useStore(main.STORE_ID);
   const indexes = main.UI.useIndexes(main.STORE_ID);
-  const settingsStore = settings.UI.useStore(settings.STORE_ID);
   const storeRef = useRef(store);
   storeRef.current = store;
   const indexesRef = useRef(indexes);
   indexesRef.current = indexes;
-  const settingsStoreRef = useRef(settingsStore);
-  settingsStoreRef.current = settingsStore;
 
   const getContactSearchResults = useCallback(
     async (query: string, limit: number) => {
@@ -253,7 +250,6 @@ function ToolRegistration() {
         getContactSearchResults,
         getCalendarEventSearchResults,
         getStore: () => storeRef.current ?? undefined,
-        getSettingsStore: () => settingsStoreRef.current ?? undefined,
         getIndexes: () => indexesRef.current ?? undefined,
         getSessionId,
         getEnhancedNoteId,
@@ -282,10 +278,7 @@ function EnhancerInit() {
   const model = useLanguageModel("enhance");
   const { conn: llmConn } = useLLMConnection();
   const indexes = main.UI.useIndexes(main.STORE_ID);
-  const selectedTemplateId = settings.UI.useValue(
-    "selected_template_id",
-    settings.STORE_ID,
-  ) as string | undefined;
+  const selectedTemplateId = useConfigValue("selected_template_id");
 
   const modelRef = useRef(model);
   modelRef.current = model;

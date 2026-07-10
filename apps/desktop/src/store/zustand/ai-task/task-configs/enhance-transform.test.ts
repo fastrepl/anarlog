@@ -40,11 +40,7 @@ function createStore() {
   } as any;
 }
 
-function createSettingsStore() {
-  return {
-    getValue: vi.fn(() => "en"),
-  } as any;
-}
+const settingsValues = { ai_language: "en" } as const;
 
 describe("enhanceTransform.transformArgs", () => {
   let consoleError: ReturnType<typeof vi.spyOn>;
@@ -74,7 +70,7 @@ describe("enhanceTransform.transformArgs", () => {
         templateId: "template-1",
       },
       createStore(),
-      createSettingsStore(),
+      settingsValues,
     );
 
     expect(result.template).toEqual({
@@ -94,7 +90,7 @@ describe("enhanceTransform.transformArgs", () => {
         templateId: "template-1",
       },
       createStore(),
-      createSettingsStore(),
+      settingsValues,
     );
 
     expect(result.template).toBeNull();
@@ -143,20 +139,10 @@ describe("enhanceTransform.transformArgs", () => {
       },
       store,
       {
-        getValue: vi.fn((valueId: string) => {
-          if (valueId === "current_llm_provider") {
-            return "openai";
-          }
-          if (valueId === "current_llm_model") {
-            return "gpt-4o";
-          }
-          if (valueId === "ai_language") {
-            return "en";
-          }
-
-          return "";
-        }),
-      } as any,
+        current_llm_provider: "openai",
+        current_llm_model: "gpt-4o",
+        ai_language: "en",
+      },
     );
 
     expect(mocks.collectEnhanceImageContext).toHaveBeenCalledWith("session-1", [

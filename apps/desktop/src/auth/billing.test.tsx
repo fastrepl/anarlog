@@ -8,7 +8,6 @@ import { commands as authCommands } from "@hypr/plugin-auth";
 import { BillingProvider } from "./billing";
 
 const refreshSession = vi.fn();
-const setValue = vi.fn();
 
 vi.mock("./context", () => ({
   useAuth: () => ({
@@ -43,14 +42,6 @@ vi.mock("@hypr/plugin-opener2", () => ({
 
 vi.mock("@hypr/plugin-windows", () => ({
   openUrlWithInstruction: vi.fn(),
-}));
-
-vi.mock("~/store/tinybase/store/settings", () => ({
-  STORE_ID: "settings",
-  UI: {
-    useStore: () => ({ setValue }),
-    useValues: () => ({ current_llm_provider: "" }),
-  },
 }));
 
 vi.mock("../billing/trial-ended-dialog", () => ({
@@ -94,7 +85,6 @@ describe("BillingProvider", () => {
     });
 
     refreshSession.mockReset();
-    setValue.mockReset();
 
     vi.mocked(authCommands.decodeClaims).mockResolvedValue({
       status: "ok",

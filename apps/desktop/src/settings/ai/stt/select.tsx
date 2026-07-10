@@ -51,6 +51,8 @@ import {
   getProviderSelectionBlockers,
   requiresEntitlement,
 } from "~/settings/ai/shared/eligibility";
+import { useAiProviders } from "~/settings/providers";
+import { useSetSettingValue } from "~/settings/queries";
 import { useConfigValues } from "~/shared/config";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { SettingsAlert } from "~/shared/ui/settings-alert";
@@ -58,7 +60,6 @@ import {
   showTransientToast,
   useTransientToast,
 } from "~/sidebar/toast/transient";
-import * as settings from "~/store/tinybase/store/settings";
 import {
   isConfiguredSttModel,
   isHyprnoteLocalSttModel,
@@ -102,19 +103,9 @@ export function SelectProviderAndModel() {
     (model) => model.id === displayedSttModel,
   );
 
-  const handleSelectProvider = settings.UI.useSetValueCallback(
-    "current_stt_provider",
-    (provider: string) => provider,
-    [],
-    settings.STORE_ID,
-  );
+  const handleSelectProvider = useSetSettingValue("current_stt_provider");
 
-  const handleSelectModel = settings.UI.useSetValueCallback(
-    "current_stt_model",
-    (model: string) => model,
-    [],
-    settings.STORE_ID,
-  );
+  const handleSelectModel = useSetSettingValue("current_stt_model");
   const lastSelectedModelsRef = useRef<Record<string, string>>(
     current_stt_provider && selectedSttModel
       ? { [current_stt_provider]: selectedSttModel }
@@ -503,10 +494,7 @@ function useConfiguredMapping(): Record<
   }
 > {
   const billing = useBillingAccess();
-  const configuredProviders = settings.UI.useResultTable(
-    settings.QUERIES.sttProviders,
-    settings.STORE_ID,
-  );
+  const configuredProviders = useAiProviders("stt");
 
   const targetArch = useQuery({
     queryKey: ["target-arch"],

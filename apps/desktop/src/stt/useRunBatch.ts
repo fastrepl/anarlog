@@ -10,12 +10,14 @@ import { useSTTConnection } from "./useSTTConnection";
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing";
 import { env } from "~/env";
-import { deleteProcessedAudioForRetention } from "~/services/audio-retention";
+import {
+  deleteProcessedAudioForRetention,
+  normalizeAudioRetention,
+} from "~/services/audio-retention";
 import { useSession } from "~/session/queries";
 import { useConfigValue } from "~/shared/config";
 import { id } from "~/shared/utils";
 import * as main from "~/store/tinybase/store/main";
-import * as settings from "~/store/tinybase/store/settings";
 import type { BatchPersistCallback } from "~/store/zustand/listener/transcript";
 import {
   getTranscriptionLanguages,
@@ -183,7 +185,6 @@ export function getSessionSpeakerCount(
 
 export const useRunBatch = (sessionId: string) => {
   const store = main.UI.useStore(main.STORE_ID);
-  const settingsStore = settings.UI.useStore(settings.STORE_ID);
   const session = useSession(sessionId);
 
   const startTranscription = useListener((state) => state.startTranscription);
@@ -193,6 +194,9 @@ export const useRunBatch = (sessionId: string) => {
   const aiLanguage = useConfigValue("ai_language");
   const spokenLanguages = useConfigValue("spoken_languages");
   const dictionaryTerms = useConfigValue("personalization_dictionary_terms");
+  const audioRetention = normalizeAudioRetention(
+    useConfigValue("audio_retention"),
+  );
 
   return useCallback(
     async (filePath: string, options?: RunOptions) => {
@@ -382,25 +386,19 @@ export const useRunBatch = (sessionId: string) => {
 
       if (transcriptWriteError) throw transcriptWriteError;
 
-      if (settingsStore) {
-        await deleteProcessedAudioForRetention(
-          store as main.Store,
-          settingsStore as settings.Store,
-          sessionId,
-        );
-      }
+      await deleteProcessedAudioForRetention(audioRetention, sessionId);
     },
     [
       conn,
       auth?.session?.access_token,
       aiLanguage,
+      audioRetention,
       billing.isPaid,
       dictionaryTerms,
       session,
       spokenLanguages,
       startTranscription,
       sessionId,
-      settingsStore,
       store,
     ],
   );

@@ -1,18 +1,19 @@
-import * as settings from "~/store/tinybase/store/settings";
+import { getStoredSettingValues, setSettingValues } from "~/settings/queries";
+import type { SettingValues } from "~/settings/schema";
 
-type SettingsStore = NonNullable<ReturnType<typeof settings.UI.useStore>>;
+export async function configurePaidSettings(): Promise<void> {
+  const { values } = await getStoredSettingValues();
+  const updates: SettingValues = {};
 
-export function configurePaidSettings(store: SettingsStore): void {
-  const currentSttProvider = store.getValue("current_stt_provider");
-  const currentLlmProvider = store.getValue("current_llm_provider");
-
-  if (!currentSttProvider) {
-    store.setValue("current_stt_provider", "hyprnote");
-    store.setValue("current_stt_model", "cloud");
+  if (!values.current_stt_provider) {
+    updates.current_stt_provider = "hyprnote";
+    updates.current_stt_model = "cloud";
   }
 
-  if (!currentLlmProvider) {
-    store.setValue("current_llm_provider", "hyprnote");
-    store.setValue("current_llm_model", "Auto");
+  if (!values.current_llm_provider) {
+    updates.current_llm_provider = "hyprnote";
+    updates.current_llm_model = "Auto";
   }
+
+  await setSettingValues(updates);
 }

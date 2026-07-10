@@ -18,12 +18,12 @@ import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing";
 import { env } from "~/env";
 import { type ProviderId, PROVIDERS } from "~/settings/ai/llm/shared";
-import { providerRowId } from "~/settings/ai/shared";
 import {
   getProviderSelectionBlockers,
   type ProviderEligibilityContext,
 } from "~/settings/ai/shared/eligibility";
-import * as settings from "~/store/tinybase/store/settings";
+import { useAiProvider } from "~/settings/providers";
+import { useConfigValues } from "~/shared/config";
 
 type LanguageModelV3 = Parameters<typeof wrapLanguageModel>[0]["model"];
 
@@ -81,14 +81,13 @@ export const useLLMConnection = (): LLMConnectionResult => {
   const auth = useAuth();
   const billing = useBillingAccess();
 
-  const { current_llm_provider, current_llm_model } = settings.UI.useValues(
-    settings.STORE_ID,
-  );
-  const providerConfig = settings.UI.useRow(
-    "ai_providers",
-    current_llm_provider ? providerRowId("llm", current_llm_provider) : "",
-    settings.STORE_ID,
-  ) as AIProviderStorage | undefined;
+  const { current_llm_provider, current_llm_model } = useConfigValues([
+    "current_llm_provider",
+    "current_llm_model",
+  ] as const);
+  const providerConfig = useAiProvider("llm", current_llm_provider) as
+    | AIProviderStorage
+    | undefined;
 
   return useMemo<LLMConnectionResult>(
     () =>

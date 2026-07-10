@@ -24,10 +24,8 @@ const {
   isSupportedLanguagesLiveMock,
   leftSidebarExpanded,
   setLeftSidebarExpandedMock,
-  settingsUseStoreMock,
   deleteProcessedAudioForRetentionMock,
   mainStoreMock,
-  settingsStoreMock,
 } = vi.hoisted(() => ({
   queueAutoEnhanceMock: vi.fn(),
   queueAutoEnhanceIfSummaryEmptyMock: vi.fn(),
@@ -47,7 +45,6 @@ const {
   isSupportedLanguagesLiveMock: vi.fn(),
   leftSidebarExpanded: { value: true },
   setLeftSidebarExpandedMock: vi.fn(),
-  settingsUseStoreMock: vi.fn(),
   deleteProcessedAudioForRetentionMock: vi.fn(),
   mainStoreMock: {
     getCell: vi.fn((_table: string, _rowId: string, _cell: string) => ""),
@@ -57,7 +54,6 @@ const {
     delRow: vi.fn(),
     transaction: vi.fn((fn: () => void) => fn()),
   },
-  settingsStoreMock: { id: "settings-store" },
 }));
 
 vi.mock("@hypr/plugin-transcription", () => ({
@@ -100,6 +96,8 @@ vi.mock("~/services/enhancer", () => ({
 
 vi.mock("~/services/audio-retention", () => ({
   deleteProcessedAudioForRetention: deleteProcessedAudioForRetentionMock,
+  normalizeAudioRetention: (value: unknown) =>
+    typeof value === "string" ? value : "forever",
 }));
 
 vi.mock("~/contexts/shell", () => ({
@@ -132,13 +130,6 @@ vi.mock("~/store/tinybase/store/main", () => ({
   STORE_ID: "main",
   UI: {
     useStore: useStoreMock,
-  },
-}));
-
-vi.mock("~/store/tinybase/store/settings", () => ({
-  STORE_ID: "settings",
-  UI: {
-    useStore: settingsUseStoreMock,
   },
 }));
 
@@ -222,7 +213,6 @@ describe("useStartListening", () => {
       key === "ai_language" ? "en" : [],
     );
     leftSidebarExpanded.value = true;
-    settingsUseStoreMock.mockReturnValue(settingsStoreMock);
     mainStoreMock.getCell.mockImplementation(() => "");
     mainStoreMock.forEachRow.mockImplementation(() => {});
     useSTTConnectionMock.mockReturnValue({
@@ -323,8 +313,7 @@ describe("useStartListening", () => {
       "session-1",
     );
     expect(deleteProcessedAudioForRetentionMock).toHaveBeenCalledWith(
-      mainStoreMock,
-      settingsStoreMock,
+      "forever",
       "session-1",
     );
   });
@@ -352,8 +341,7 @@ describe("useStartListening", () => {
       "session-1",
     );
     expect(deleteProcessedAudioForRetentionMock).toHaveBeenCalledWith(
-      mainStoreMock,
-      settingsStoreMock,
+      "forever",
       "session-1",
     );
   });

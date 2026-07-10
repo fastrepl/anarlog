@@ -41,9 +41,10 @@ import {
 } from "~/settings/ai/shared/list-openai";
 import { listOpenRouterModels } from "~/settings/ai/shared/list-openrouter";
 import { ModelCombobox } from "~/settings/ai/shared/model-combobox";
+import { useAiProviders } from "~/settings/providers";
+import { useSetSettingValue } from "~/settings/queries";
 import { useConfigValues } from "~/shared/config";
 import { SettingsAlert } from "~/shared/ui/settings-alert";
-import * as settings from "~/store/tinybase/store/settings";
 
 export function SelectProviderAndModel() {
   const { t } = useLingui();
@@ -68,18 +69,8 @@ export function SelectProviderAndModel() {
   );
   const hasError = isConfigured && health.status === "error";
 
-  const handleSelectProvider = settings.UI.useSetValueCallback(
-    "current_llm_provider",
-    (provider: string) => provider,
-    [],
-    settings.STORE_ID,
-  );
-  const handleSelectModel = settings.UI.useSetValueCallback(
-    "current_llm_model",
-    (model: string) => model,
-    [],
-    settings.STORE_ID,
-  );
+  const handleSelectProvider = useSetSettingValue("current_llm_provider");
+  const handleSelectModel = useSetSettingValue("current_llm_model");
   const lastSelectedModelsRef = useRef<Record<string, string>>(
     current_llm_provider && current_llm_model
       ? { [current_llm_provider]: current_llm_model }
@@ -364,10 +355,7 @@ export function getLlmProviderStatus({
 function useConfiguredMapping(): Record<string, ProviderStatus> {
   const auth = useAuth();
   const billing = useBillingAccess();
-  const configuredProviders = settings.UI.useResultTable(
-    settings.QUERIES.llmProviders,
-    settings.STORE_ID,
-  );
+  const configuredProviders = useAiProviders("llm");
 
   const mapping = useMemo(() => {
     return Object.fromEntries(

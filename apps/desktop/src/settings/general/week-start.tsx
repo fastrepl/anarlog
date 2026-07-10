@@ -9,8 +9,8 @@ import {
   SelectValue,
 } from "@hypr/ui/components/ui/select";
 
+import { useSetSettingValue } from "~/settings/queries";
 import { useConfigValue } from "~/shared/config";
-import * as settings from "~/store/tinybase/store/settings";
 
 function getSystemWeekStart(): "sunday" | "monday" {
   const locale = navigator.language || "en-US";
@@ -25,12 +25,7 @@ function getSystemWeekStart(): "sunday" | "monday" {
 export function WeekStartSelector() {
   const { t } = useLingui();
   const value = useConfigValue("week_start");
-  const setWeekStart = settings.UI.useSetValueCallback(
-    "week_start",
-    (val: string) => val,
-    [],
-    settings.STORE_ID,
-  );
+  const setWeekStart = useSetSettingValue("week_start");
 
   const systemDefault = useMemo(() => getSystemWeekStart(), []);
 

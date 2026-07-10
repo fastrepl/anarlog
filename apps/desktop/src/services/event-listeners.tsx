@@ -8,13 +8,15 @@ import {
 } from "@hypr/plugin-updater2";
 import { getCurrentWebviewWindowLabel } from "@hypr/plugin-windows";
 
+import { setSettingValue } from "~/settings/queries";
+import { useConfigValue, useConfigValues } from "~/shared/config";
+import { useLatestRef } from "~/shared/hooks/useLatestRef";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import * as main from "~/store/tinybase/store/main";
 import {
   createSession,
   getOrCreateSessionForEventId,
 } from "~/store/tinybase/store/sessions";
-import * as settings from "~/store/tinybase/store/settings";
 import { listenerStore } from "~/store/zustand/listener/instance";
 import { useTabs } from "~/store/zustand/tabs";
 import { parseAutoStopEndedNotificationKey } from "~/stt/auto-stop-notification";
@@ -25,26 +27,8 @@ import {
 } from "~/stt/capabilities";
 
 type MainStore = NonNullable<ReturnType<typeof main.UI.useStore>>;
-type SettingsStore = NonNullable<ReturnType<typeof settings.UI.useStore>>;
 
 const LIVE_CAPTURE_CONFIG_DEBOUNCE_MS = 750;
-
-function parseIgnoredPlatforms(value: unknown) {
-  if (typeof value !== "string") {
-    return [];
-  }
-
-  try {
-    const parsed = JSON.parse(value);
-    return Array.isArray(parsed)
-      ? parsed.filter(
-          (bundleId): bundleId is string => typeof bundleId === "string",
-        )
-      : [];
-  } catch {
-    return [];
-  }
-}
 
 function shouldAutoStartNotificationSession(
   store: MainStore,
@@ -148,40 +132,31 @@ function parseStringArray(value: unknown, fallback: string[]) {
   }
 }
 
-function getSettingsDefault(key: "ai_language" | "spoken_languages") {
-  const mapping = settings.SETTINGS_MAPPING?.values[key];
-  return mapping && "default" in mapping ? mapping.default : undefined;
-}
-
-function getLiveConfigLanguages(settingsStore: SettingsStore) {
-  const aiLanguageValue = settingsStore.getValue("ai_language");
-  const aiLanguage =
-    typeof aiLanguageValue === "string"
-      ? aiLanguageValue
-      : typeof getSettingsDefault("ai_language") === "string"
-        ? getSettingsDefault("ai_language")
-        : undefined;
-
+function getLiveConfigLanguages(aiLanguage: string, spokenLanguages: string[]) {
   return getTranscriptionLanguages(
-    aiLanguage,
-    parseStringArray(
-      settingsStore.getValue("spoken_languages"),
-      parseStringArray(getSettingsDefault("spoken_languages"), []),
-    ),
+    aiLanguage || undefined,
+    parseStringArray(spokenLanguages, []),
   );
 }
 
 function LiveCaptureConfigSync() {
   const store = main.UI.useStore(main.STORE_ID);
-  const settingsStore = settings.UI.useStore(settings.STORE_ID);
+  const settingsValues = useConfigValues([
+    "ai_language",
+    "spoken_languages",
+    "current_stt_provider",
+    "current_stt_model",
+  ] as const);
 
-  if (!store || !settingsStore) {
+  if (!store) {
     return null;
   }
 
+  const settingsSignature = JSON.stringify(settingsValues);
   return (
     <LiveCaptureConfigSyncReady
-      settingsStore={settingsStore as SettingsStore}
+      key={settingsSignature}
+      settingsValues={settingsValues}
       store={store as MainStore}
     />
   );
@@ -189,10 +164,15 @@ function LiveCaptureConfigSync() {
 
 function LiveCaptureConfigSyncReady({
   store,
-  settingsStore,
+  settingsValues,
 }: {
   store: MainStore;
-  settingsStore: SettingsStore;
+  settingsValues: {
+    ai_language: string;
+    spoken_languages: string[];
+    current_stt_provider: string | undefined;
+    current_stt_model: string | undefined;
+  };
 }) {
   useMountEffect(() => {
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -204,12 +184,13 @@ function LiveCaptureConfigSyncReady({
         return;
       }
 
-      const languages = getLiveConfigLanguages(settingsStore);
-      const provider = settingsStore.getValue("current_stt_provider");
-      const model = settingsStore.getValue("current_stt_model");
+      const languages = getLiveConfigLanguages(
+        settingsValues.ai_language,
+        settingsValues.spoken_languages,
+      );
       const liveConfig = await getLiveTranscriptionConfig({
-        provider: typeof provider === "string" ? provider : undefined,
-        model: typeof model === "string" ? model : undefined,
+        provider: settingsValues.current_stt_provider,
+        model: settingsValues.current_stt_model,
         languages,
       });
 
@@ -254,13 +235,6 @@ function LiveCaptureConfigSyncReady({
     const mainListenerIds = [
       store.addTableListener("mapping_session_participant", schedulePush),
     ];
-    const settingsListenerIds = [
-      settingsStore.addValueListener("ai_language", schedulePush),
-      settingsStore.addValueListener("spoken_languages", schedulePush),
-      settingsStore.addValueListener("current_stt_provider", schedulePush),
-      settingsStore.addValueListener("current_stt_model", schedulePush),
-    ];
-
     schedulePush();
 
     return () => {
@@ -269,9 +243,6 @@ function LiveCaptureConfigSyncReady({
       }
       for (const listenerId of mainListenerIds) {
         store.delListener(listenerId);
-      }
-      for (const listenerId of settingsListenerIds) {
-        settingsStore.delListener(listenerId);
       }
     };
   });
@@ -309,21 +280,15 @@ function useUpdaterEvents() {
 
 function useNotificationEvents() {
   const store = main.UI.useStore(main.STORE_ID);
-  const settingsStore = settings.UI.useStore(settings.STORE_ID);
+  const ignoredPlatforms = useConfigValue("ignored_platforms");
   const openNew = useTabs((state) => state.openNew);
   const pendingAutoStart = useRef<{
     eventId: string | null;
     triggerAppIds: string[] | null;
   } | null>(null);
-  const storeRef = useRef(store);
-  const settingsStoreRef = useRef(settingsStore);
-  const openNewRef = useRef(openNew);
-
-  useEffect(() => {
-    storeRef.current = store;
-    settingsStoreRef.current = settingsStore;
-    openNewRef.current = openNew;
-  }, [store, settingsStore, openNew]);
+  const storeRef = useLatestRef(store);
+  const ignoredPlatformsRef = useLatestRef(ignoredPlatforms);
+  const openNewRef = useLatestRef(openNew);
 
   useEffect(() => {
     if (pendingAutoStart.current && store) {
@@ -456,19 +421,12 @@ function useNotificationEvents() {
             return;
           }
 
-          const currentSettingsStore = settingsStoreRef.current;
-          if (!currentSettingsStore) {
-            return;
-          }
-
           const appIds = payload.source.app_ids ?? [];
           if (appIds.length === 0) {
             return;
           }
 
-          const ignoredPlatforms = parseIgnoredPlatforms(
-            currentSettingsStore.getValue("ignored_platforms"),
-          );
+          const ignoredPlatforms = ignoredPlatformsRef.current;
           const nextIgnoredPlatforms = [
             ...new Set([...ignoredPlatforms, ...appIds]),
           ];
@@ -477,10 +435,12 @@ function useNotificationEvents() {
             return;
           }
 
-          currentSettingsStore.setValue(
+          void setSettingValue(
             "ignored_platforms",
             JSON.stringify(nextIgnoredPlatforms),
-          );
+          ).catch((error) => {
+            console.error("[notification] failed to ignore platforms", error);
+          });
         }
       })
       .then((f) => {

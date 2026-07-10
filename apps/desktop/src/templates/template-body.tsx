@@ -4,7 +4,7 @@ import { TemplateDetailsColumn } from "./details";
 import { getTemplateCopyTitle, type UserTemplateDraft } from "./queries";
 import { useTemplateTab } from "./utils";
 
-import * as settings from "~/store/tinybase/store/settings";
+import { setSettingValue } from "~/settings/queries";
 import { type Tab } from "~/store/zustand/tabs";
 
 export function TemplateView({
@@ -23,8 +23,6 @@ export function TemplateView({
     deleteTemplate,
     toggleTemplateFavorite,
   } = useTemplateTab(tab);
-  const settingsStore = settings.UI.useStore(settings.STORE_ID);
-
   const handleDeleteTemplate = useCallback(
     async (id: string) => {
       await deleteTemplate(id);
@@ -66,11 +64,10 @@ export function TemplateView({
 
   const handleSetDefaultTemplate = useCallback(
     async (draft: UserTemplateDraft) => {
-      if (!settingsStore) return;
       const id = await cloneAsMine(draft);
-      if (id) settingsStore.setValue("selected_template_id", id);
+      if (id) await setSettingValue("selected_template_id", id);
     },
-    [cloneAsMine, settingsStore],
+    [cloneAsMine],
   );
 
   const handleDuplicateTemplate = useCallback(

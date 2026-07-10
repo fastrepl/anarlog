@@ -1,5 +1,12 @@
-import * as settings from "~/store/tinybase/store/settings";
-import type { SettingsValueKey } from "~/store/tinybase/store/settings";
+import {
+  useStoredSettingValues,
+  type StoredSettingValues,
+} from "~/settings/queries";
+import {
+  SETTING_DEFINITIONS,
+  type SettingKey,
+  type SettingValue,
+} from "~/settings/schema";
 
 type JsonParsedKeys =
   | "spoken_languages"
@@ -7,91 +14,73 @@ type JsonParsedKeys =
   | "ignored_platforms"
   | "included_platforms";
 
-type ConfigValueType<K extends SettingsValueKey> = K extends JsonParsedKeys
+type ConfigValueType<K extends SettingKey> = K extends JsonParsedKeys
   ? string[]
-  : (typeof settings.SETTINGS_MAPPING.values)[K] extends { default: infer D }
-    ? D
-    : undefined;
+  : K extends keyof typeof SETTING_DEFINITIONS
+    ? "default" extends keyof (typeof SETTING_DEFINITIONS)[K]
+      ? SettingValue<K>
+      : SettingValue<K> | undefined
+    : never;
 
-function tryParseJSON<T>(value: any, fallback: T): T {
-  if (typeof value !== "string") {
-    return value;
-  }
-  try {
-    return JSON.parse(value);
-  } catch {
-    return fallback;
-  }
-}
+const JSON_PARSED_KEYS = new Set<SettingKey>([
+  "spoken_languages",
+  "personalization_dictionary_terms",
+  "ignored_platforms",
+  "included_platforms",
+]);
 
-export function useConfigValue<K extends SettingsValueKey>(
+export function useConfigValue<K extends SettingKey>(
   key: K,
 ): ConfigValueType<K> {
-  const storedValue = settings.UI.useValue(key, settings.STORE_ID);
-  const hasStoredValue = settings.UI.useHasValue(key, settings.STORE_ID);
-  const legacySaveRecordings = settings.UI.useValue(
-    "save_recordings",
-    settings.STORE_ID,
-  );
-  const mapping = settings.SETTINGS_MAPPING.values[key];
-  const defaultValue = "default" in mapping ? mapping.default : undefined;
+  return resolveConfigValue(key, useStoredSettingValues());
+}
+
+export function useConfigValues<K extends SettingKey>(
+  keys: readonly K[],
+): { [P in K]: ConfigValueType<P> } {
+  const stored = useStoredSettingValues();
+  const result = {} as { [P in K]: ConfigValueType<P> };
+  for (const key of keys) result[key] = resolveConfigValue(key, stored);
+  return result;
+}
+
+export function resolveConfigValue<K extends SettingKey>(
+  key: K,
+  { values, hasValues }: StoredSettingValues,
+): ConfigValueType<K> {
+  const definition = SETTING_DEFINITIONS[key];
+  const defaultValue = "default" in definition ? definition.default : undefined;
 
   if (
     key === "audio_retention" &&
-    legacySaveRecordings === false &&
-    !hasStoredValue
+    values.save_recordings === false &&
+    !hasValues.has("audio_retention")
   ) {
     return "none" as ConfigValueType<K>;
   }
 
-  if (hasStoredValue) {
-    if (
-      key === "ignored_platforms" ||
-      key === "included_platforms" ||
-      key === "spoken_languages" ||
-      key === "personalization_dictionary_terms"
-    ) {
-      return tryParseJSON(
-        storedValue,
-        JSON.parse(defaultValue as string),
-      ) as ConfigValueType<K>;
-    }
-    return storedValue as ConfigValueType<K>;
+  const value = hasValues.has(key) ? values[key] : defaultValue;
+  if (JSON_PARSED_KEYS.has(key)) {
+    return parseStringArray(
+      value,
+      parseStringArray(defaultValue, []),
+    ) as ConfigValueType<K>;
   }
 
-  return defaultValue as ConfigValueType<K>;
+  return value as ConfigValueType<K>;
 }
 
-export function useConfigValues<K extends SettingsValueKey>(
-  keys: readonly K[],
-): { [P in K]: ConfigValueType<P> } {
-  const allValues = settings.UI.useValues(settings.STORE_ID);
-
-  const result = {} as { [P in K]: ConfigValueType<P> };
-
-  for (const key of keys) {
-    const storedValue = allValues[key];
-    const mapping = settings.SETTINGS_MAPPING.values[key];
-    const defaultValue = "default" in mapping ? mapping.default : undefined;
-
-    if (storedValue !== undefined) {
-      if (
-        key === "ignored_platforms" ||
-        key === "included_platforms" ||
-        key === "spoken_languages" ||
-        key === "personalization_dictionary_terms"
-      ) {
-        result[key] = tryParseJSON(
-          storedValue,
-          defaultValue,
-        ) as ConfigValueType<K>;
-      } else {
-        result[key] = storedValue as ConfigValueType<K>;
-      }
-    } else {
-      result[key] = defaultValue as ConfigValueType<K>;
-    }
+function parseStringArray(value: unknown, fallback: string[]): string[] {
+  if (Array.isArray(value)) {
+    return value.filter((entry): entry is string => typeof entry === "string");
   }
-
-  return result;
+  if (typeof value !== "string") return fallback;
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed)
+      ? parsed.filter((entry): entry is string => typeof entry === "string")
+      : fallback;
+  } catch {
+    return fallback;
+  }
 }

@@ -5,14 +5,12 @@ import { json2md, md2json, parseJsonContent } from "@hypr/editor/markdown";
 
 import type { ToolDependencies } from "./types";
 
+import { updateSettingValue } from "~/settings/queries";
 import * as main from "~/store/tinybase/store/main";
 import { normalizeKeywordList } from "~/stt/keywords";
 
 type Store = NonNullable<ReturnType<typeof main.UI.useStore>>;
 type Indexes = NonNullable<ReturnType<typeof main.UI.useIndexes>>;
-type SettingsStore = NonNullable<
-  ReturnType<NonNullable<ToolDependencies["getSettingsStore"]>>
->;
 
 type CorrectionTarget = "summary" | "transcript" | "summary_and_transcript";
 
@@ -427,32 +425,26 @@ function dictionaryKey(value: string): string {
   return value.trim().replace(/\s+/g, " ").toLocaleLowerCase();
 }
 
-function saveDictionaryTerms({
-  settingsStore,
-  terms,
-}: {
-  settingsStore?: SettingsStore;
-  terms?: string[];
-}): DictionaryChange {
-  if (!settingsStore || !terms || terms.length === 0) {
+async function saveDictionaryTerms(
+  terms?: string[],
+): Promise<DictionaryChange> {
+  if (!terms || terms.length === 0) {
     return { addedTerms: [] };
   }
 
-  const currentTerms = parseStoredDictionaryTerms(
-    settingsStore.getValue("personalization_dictionary_terms"),
-  );
-  const currentKeys = new Set(currentTerms.map(dictionaryKey));
-  const addedTerms = normalizeKeywordList(terms).filter(
-    (term) => !currentKeys.has(dictionaryKey(term)),
-  );
-
-  if (addedTerms.length === 0) {
-    return { addedTerms: [] };
-  }
-
-  settingsStore.setValue(
+  let addedTerms: string[] = [];
+  await updateSettingValue(
     "personalization_dictionary_terms",
-    JSON.stringify(normalizeKeywordList([...currentTerms, ...addedTerms])),
+    (storedValue) => {
+      const currentTerms = parseStoredDictionaryTerms(storedValue);
+      const currentKeys = new Set(currentTerms.map(dictionaryKey));
+      addedTerms = normalizeKeywordList(terms).filter(
+        (term) => !currentKeys.has(dictionaryKey(term)),
+      );
+      return JSON.stringify(
+        normalizeKeywordList([...currentTerms, ...addedTerms]),
+      );
+    },
   );
 
   return { addedTerms };
@@ -469,11 +461,7 @@ function shouldEditTranscript(target: CorrectionTarget): boolean {
 export const buildApplySessionCorrectionTool = (
   deps: Pick<
     ToolDependencies,
-    | "getStore"
-    | "getSettingsStore"
-    | "getIndexes"
-    | "getSessionId"
-    | "getEnhancedNoteId"
+    "getStore" | "getIndexes" | "getSessionId" | "getEnhancedNoteId"
   >,
 ) =>
   tool({
@@ -592,10 +580,9 @@ export const buildApplySessionCorrectionTool = (
         };
       }
 
-      const dictionaryChanges = saveDictionaryTerms({
-        settingsStore: deps.getSettingsStore(),
-        terms: params.dictionaryTerms,
-      });
+      const dictionaryChanges = await saveDictionaryTerms(
+        params.dictionaryTerms,
+      );
       const missingTargets = [
         editSummary && summaryChanges.length === 0 ? "summary" : null,
         editTranscript && transcriptChanges.length === 0 ? "transcript" : null,

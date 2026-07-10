@@ -29,6 +29,8 @@ import { routeTree } from "./routeTree.gen";
 import { EventListeners } from "./services/event-listeners";
 import { TaskManager } from "./services/task-manager";
 import { useRemoteSessionDeletionUndoListener } from "./session/hooks/useDeleteSession";
+import { refreshLegacySettingsSnapshots } from "./settings/legacy-snapshots";
+import { initializeApplicationSettings } from "./settings/queries";
 import { ErrorComponent, NotFoundComponent } from "./shared/control";
 import { bootstrapThemeFromSettings } from "./shared/theme/apply";
 import { AppThemeProvider } from "./shared/theme/provider";
@@ -37,11 +39,6 @@ import {
   STORE_ID,
   StoreComponent,
 } from "./store/tinybase/store/main";
-import {
-  STORE_ID as SETTINGS_STORE_ID,
-  type Store as SettingsStore,
-  StoreComponent as SettingsStoreComponent,
-} from "./store/tinybase/store/settings";
 import { createAITaskStore } from "./store/zustand/ai-task";
 import { listenerStore } from "./store/zustand/listener/instance";
 
@@ -65,16 +62,15 @@ function App() {
   const stores = useStores();
 
   const store = stores[STORE_ID] as unknown as Store;
-  const settingsStore = stores[SETTINGS_STORE_ID] as unknown as SettingsStore;
 
   const aiTaskStore = useMemo(() => {
-    if (!store || !settingsStore) {
+    if (!store) {
       return null;
     }
-    return createAITaskStore({ persistedStore: store, settingsStore });
-  }, [store, settingsStore]);
+    return createAITaskStore({ persistedStore: store });
+  }, [store]);
 
-  if (!store || !settingsStore || !aiTaskStore) {
+  if (!store || !aiTaskStore) {
     return <div className="bg-background h-screen w-screen" />;
   }
 
@@ -123,7 +119,6 @@ function AppWithTiny() {
       <TinyTickProvider manager={manager}>
         <TinyBaseProvider>
           <StoreComponent />
-          <SettingsStoreComponent />
           <App />
           {isMainWindow ? <TaskManager /> : null}
           {isMainWindow ? <FloatingMeetingWindowHost /> : null}
@@ -153,6 +148,12 @@ async function enableReactScanInDev() {
 }
 
 async function renderApp() {
+  await refreshLegacySettingsSnapshots().catch((error) => {
+    console.error("Failed to refresh legacy settings snapshots", error);
+  });
+  await initializeApplicationSettings().catch((error) => {
+    console.error("Failed to initialize application settings", error);
+  });
   await Promise.all([bootstrapThemeFromSettings(), enableReactScanInDev()]);
   const root = ReactDOM.createRoot(rootElement);
   root.render(

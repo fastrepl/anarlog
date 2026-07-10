@@ -10,8 +10,8 @@ import {
   type TaskType,
 } from "./task-configs";
 
+import { getStoredSettingValues } from "~/settings/queries";
 import type { Store as MainStore } from "~/store/tinybase/store/main";
-import type { Store as SettingsStore } from "~/store/tinybase/store/settings";
 
 export type TasksState = {
   tasks: Record<string, TaskState>;
@@ -83,7 +83,7 @@ const initialState: TasksState = {
 export const createTasksSlice = <T extends TasksState & TasksActions>(
   set: StoreApi<T>["setState"],
   get: StoreApi<T>["getState"],
-  deps: { persistedStore: MainStore; settingsStore: SettingsStore },
+  deps: { persistedStore: MainStore },
 ): TasksState & TasksActions => ({
   ...initialState,
   getState: <Task extends TaskType>(
@@ -197,10 +197,11 @@ export const createTasksSlice = <T extends TasksState & TasksActions>(
         }),
       );
 
+      const { values: settingsValues } = await getStoredSettingValues();
       const enrichedArgs = await taskConfig.transformArgs(
         config.args,
         deps.persistedStore,
-        deps.settingsStore,
+        settingsValues,
       );
       let fullText = "";
 
@@ -263,7 +264,6 @@ export const createTasksSlice = <T extends TasksState & TasksActions>(
           args: config.args,
           transformedArgs: enrichedArgs,
           store: deps.persistedStore,
-          settingsStore: deps.settingsStore,
           signal: abortController.signal,
           startTask: (nextTaskId, nextConfig) =>
             get().generate(nextTaskId, nextConfig),

@@ -20,7 +20,6 @@ const {
   useConfigValueMock,
   isSupportedLanguagesBatchMock,
   sonnerToastMessageMock,
-  settingsUseStoreMock,
   deleteProcessedAudioForRetentionMock,
   createTranscriptMock,
   appendTranscriptWordsAndHintsMock,
@@ -36,7 +35,6 @@ const {
   useConfigValueMock: vi.fn(),
   isSupportedLanguagesBatchMock: vi.fn(),
   sonnerToastMessageMock: vi.fn(),
-  settingsUseStoreMock: vi.fn(),
   deleteProcessedAudioForRetentionMock: vi.fn(),
   createTranscriptMock: vi.fn(),
   appendTranscriptWordsAndHintsMock: vi.fn(),
@@ -78,6 +76,8 @@ vi.mock("~/env", () => ({
 
 vi.mock("~/services/audio-retention", () => ({
   deleteProcessedAudioForRetention: deleteProcessedAudioForRetentionMock,
+  normalizeAudioRetention: (value: unknown) =>
+    typeof value === "string" ? value : "forever",
 }));
 
 vi.mock("~/session/queries", () => ({
@@ -128,13 +128,6 @@ vi.mock("~/store/tinybase/store/main", () => ({
   STORE_ID: "main",
   UI: {
     useStore: useStoreMock,
-  },
-}));
-
-vi.mock("~/store/tinybase/store/settings", () => ({
-  STORE_ID: "settings",
-  UI: {
-    useStore: settingsUseStoreMock,
   },
 }));
 
@@ -300,7 +293,6 @@ describe("useRunBatch", () => {
     useConfigValueMock.mockImplementation((key) =>
       key === "ai_language" ? "en" : [],
     );
-    settingsUseStoreMock.mockReturnValue({ id: "settings-store" });
   });
 
   test("waits for streamed SQLite persists before retention", async () => {

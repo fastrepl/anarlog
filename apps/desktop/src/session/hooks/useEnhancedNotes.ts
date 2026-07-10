@@ -7,7 +7,7 @@ import {
   useEnhancedNote as useSqliteEnhancedNote,
   useEnhancedNoteRecords,
 } from "~/session/queries";
-import * as settings from "~/store/tinybase/store/settings";
+import { useConfigValue } from "~/shared/config";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 import type { SessionMode } from "~/store/zustand/listener/general";
 import { useListener } from "~/stt/contexts";
@@ -57,10 +57,7 @@ export function useEnsureDefaultSummaryFromState({
   sessionId: string;
   sessionMode: SessionMode;
 }) {
-  const selectedTemplateId = settings.UI.useValue(
-    "selected_template_id",
-    settings.STORE_ID,
-  ) as string | undefined;
+  const selectedTemplateId = useConfigValue("selected_template_id");
   const templateId = selectedTemplateId || undefined;
 
   useEffect(() => {

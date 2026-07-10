@@ -15,8 +15,8 @@ import { titleSuccess } from "./title-success";
 import { titleTransform } from "./title-transform";
 import { titleWorkflow } from "./title-workflow";
 
+import type { SettingValues } from "~/settings/schema";
 import type { Store as MainStore } from "~/store/tinybase/store/main";
-import type { Store as SettingsStore } from "~/store/tinybase/store/settings";
 import { StreamTransform } from "~/store/zustand/ai-task/shared/transform_infra";
 import type { TaskState, TaskStepInfo } from "~/store/zustand/ai-task/tasks";
 
@@ -52,7 +52,7 @@ export interface TaskConfig<T extends TaskType = TaskType> {
   transformArgs: (
     args: TaskArgsMap[T],
     store: MainStore,
-    settingsStore: SettingsStore,
+    settingsValues: SettingValues,
   ) => Promise<TaskArgsMapTransformed[T]>;
   executeWorkflow: (params: {
     model: LanguageModel;
@@ -69,7 +69,6 @@ export interface TaskConfig<T extends TaskType = TaskType> {
     args: TaskArgsMap[T];
     transformedArgs: TaskArgsMapTransformed[T];
     store: MainStore;
-    settingsStore: SettingsStore;
     signal: AbortSignal;
     startTask: <K extends TaskType>(
       taskId: TaskId<K>,

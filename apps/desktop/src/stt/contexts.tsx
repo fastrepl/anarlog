@@ -18,8 +18,8 @@ import {
 } from "./auto-stop-notification";
 
 import { getSessionEventById } from "~/session/utils";
+import { useConfigValue } from "~/shared/config";
 import * as main from "~/store/tinybase/store/main";
-import * as settings from "~/store/tinybase/store/settings";
 import {
   createListenerStore,
   type ListenerStore,
@@ -923,10 +923,10 @@ const useHandleDetectEvents = (store: ListenerStore) => {
   const stop = useStore(store, (state) => state.stop);
   const setMuted = useStore(store, (state) => state.setMuted);
   const tinybaseStore = main.UI.useStore(main.STORE_ID);
-  const settingsStore = settings.UI.useStore(settings.STORE_ID);
+  const autoStopMeetings = useConfigValue("auto_stop_meetings");
 
   const tinybaseStoreRef = useRef(tinybaseStore);
-  const settingsStoreRef = useRef(settingsStore);
+  const autoStopMeetingsRef = useRef(autoStopMeetings);
   const pendingAutoStopRef = useRef<{
     timeout: ReturnType<typeof setTimeout>;
     requireMicSnapshot: boolean;
@@ -934,8 +934,8 @@ const useHandleDetectEvents = (store: ListenerStore) => {
   const pendingMicDetectedPromptRef = useRef(false);
   useEffect(() => {
     tinybaseStoreRef.current = tinybaseStore;
-    settingsStoreRef.current = settingsStore;
-  }, [tinybaseStore, settingsStore]);
+    autoStopMeetingsRef.current = autoStopMeetings;
+  }, [autoStopMeetings, tinybaseStore]);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
@@ -1111,8 +1111,7 @@ const useHandleDetectEvents = (store: ListenerStore) => {
             }
           })();
         } else if (payload.type === "micStopped") {
-          const autoStopEnabled =
-            settingsStoreRef.current?.getValue("auto_stop_meetings") !== false;
+          const autoStopEnabled = autoStopMeetingsRef.current !== false;
           if (!autoStopEnabled) {
             return;
           }

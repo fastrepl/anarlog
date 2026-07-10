@@ -2,12 +2,10 @@ import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 
 import {
   AUDIO_RETENTION_DURATION_MS,
-  normalizeAudioRetention as normalizeAudioRetentionPolicy,
   type AudioRetentionPolicy,
 } from "./audio-retention-policy";
 
-import type * as main from "~/store/tinybase/store/main";
-import type * as settings from "~/store/tinybase/store/settings";
+import { liveQueryClient } from "~/db";
 import { listenerStore } from "~/store/zustand/listener/instance";
 
 export const AUDIO_RETENTION_TASK_ID = "audio-retention-cleanup";
@@ -43,56 +41,27 @@ export function sessionAudioExpired(
   return nowMs >= createdAtMs + AUDIO_RETENTION_DURATION_MS[policy];
 }
 
-function getAudioRetentionPolicy(settingsStore: settings.Store) {
-  const hasAudioRetention = settingsStore.hasValue("audio_retention");
-  const policy = normalizeAudioRetentionPolicy(
-    settingsStore.getValue("audio_retention"),
+async function sessionHasTranscriptWords(sessionId: string): Promise<boolean> {
+  const rows = await liveQueryClient.execute<{ has_words: number }>(
+    `
+      SELECT EXISTS(
+        SELECT 1
+        FROM transcripts
+        WHERE session_id = ?
+          AND deleted_at IS NULL
+          AND json_valid(words_json)
+          AND json_array_length(words_json) > 0
+      ) AS has_words
+    `,
+    [sessionId],
   );
-  const saveRecordings = settingsStore.getValue("save_recordings");
-
-  if (!hasAudioRetention && saveRecordings === false) {
-    return "none";
-  }
-
-  return policy;
-}
-
-function sessionHasTranscriptWords(store: main.Store, sessionId: string) {
-  let hasWords = false;
-
-  store.forEachRow("transcripts", (transcriptId, _forEachCell) => {
-    if (hasWords) {
-      return;
-    }
-
-    if (
-      store.getCell("transcripts", transcriptId, "session_id") !== sessionId
-    ) {
-      return;
-    }
-
-    const wordsJson = store.getCell("transcripts", transcriptId, "words");
-    if (typeof wordsJson !== "string" || !wordsJson) {
-      return;
-    }
-
-    try {
-      const words = JSON.parse(wordsJson);
-      hasWords = Array.isArray(words) && words.length > 0;
-    } catch {
-      hasWords = false;
-    }
-  });
-
-  return hasWords;
+  return rows[0]?.has_words === 1;
 }
 
 export async function deleteProcessedAudioForRetention(
-  store: main.Store,
-  settingsStore: settings.Store,
+  policy: AudioRetentionPolicy,
   sessionId: string,
 ) {
-  const policy = getAudioRetentionPolicy(settingsStore);
   if (policy !== "none") {
     return false;
   }
@@ -101,7 +70,7 @@ export async function deleteProcessedAudioForRetention(
     return false;
   }
 
-  if (!sessionHasTranscriptWords(store, sessionId)) {
+  if (!(await sessionHasTranscriptWords(sessionId))) {
     return false;
   }
 
@@ -126,54 +95,71 @@ export async function deleteProcessedAudioForRetention(
 }
 
 export async function cleanupExpiredAudio(
-  store: main.Store,
-  settingsStore: settings.Store,
+  policy: AudioRetentionPolicy,
   nowMs = Date.now(),
 ) {
-  const policy = getAudioRetentionPolicy(settingsStore);
   if (policy === "forever") {
     return [];
   }
 
   const deletes: Promise<void>[] = [];
   const deletedSessionIds: string[] = [];
+  const sessions = await liveQueryClient.execute<{
+    id: string;
+    created_at: string;
+    has_words: number;
+  }>(`
+    SELECT
+      session.id,
+      session.created_at,
+      EXISTS(
+        SELECT 1
+        FROM transcripts AS transcript
+        WHERE transcript.session_id = session.id
+          AND transcript.deleted_at IS NULL
+          AND json_valid(transcript.words_json)
+          AND json_array_length(transcript.words_json) > 0
+      ) AS has_words
+    FROM sessions AS session
+    WHERE session.deleted_at IS NULL
+    ORDER BY session.created_at, session.id
+  `);
 
-  store.forEachRow("sessions", (sessionId, _forEachCell) => {
-    if (listenerStore.getState().getSessionMode(sessionId) !== "inactive") {
-      return;
+  for (const session of sessions) {
+    if (listenerStore.getState().getSessionMode(session.id) !== "inactive") {
+      continue;
     }
 
-    if (policy === "none" && !sessionHasTranscriptWords(store, sessionId)) {
-      return;
+    if (policy === "none" && session.has_words !== 1) {
+      continue;
     }
 
-    const createdAt = store.getCell("sessions", sessionId, "created_at");
-    if (!sessionAudioExpired(createdAt, policy, nowMs)) {
-      return;
+    if (!sessionAudioExpired(session.created_at, policy, nowMs)) {
+      continue;
     }
 
     deletes.push(
       fsSyncCommands
-        .audioDelete(sessionId)
+        .audioDelete(session.id)
         .then((result) => {
           if (result.status === "error") {
             console.error("[audio-retention] failed to delete audio", {
-              sessionId,
+              sessionId: session.id,
               error: result.error,
             });
             return;
           }
 
-          deletedSessionIds.push(sessionId);
+          deletedSessionIds.push(session.id);
         })
         .catch((error) => {
           console.error("[audio-retention] failed to delete audio", {
-            sessionId,
+            sessionId: session.id,
             error,
           });
         }),
     );
-  });
+  }
 
   await Promise.all(deletes);
 

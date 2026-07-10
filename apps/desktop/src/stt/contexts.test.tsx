@@ -16,13 +16,13 @@ const {
   listenMock,
   showNotificationMock,
   useStoreMock,
-  useSettingsStoreMock,
+  useConfigValueMock,
 } = vi.hoisted(() => ({
   listMicUsingApplicationsMock: vi.fn(),
   listenMock: vi.fn(),
   showNotificationMock: vi.fn(),
   useStoreMock: vi.fn(() => null),
-  useSettingsStoreMock: vi.fn(() => null),
+  useConfigValueMock: vi.fn(() => true),
 }));
 
 vi.mock("@hypr/plugin-detect", () => ({
@@ -49,11 +49,8 @@ vi.mock("~/store/tinybase/store/main", () => ({
   },
 }));
 
-vi.mock("~/store/tinybase/store/settings", () => ({
-  STORE_ID: "settings-store",
-  UI: {
-    useStore: useSettingsStoreMock,
-  },
+vi.mock("~/shared/config", () => ({
+  useConfigValue: useConfigValueMock,
 }));
 
 function setStoreActive(
@@ -147,9 +144,9 @@ describe("ListenerProvider detect events", () => {
     listenMock.mockReset();
     showNotificationMock.mockReset();
     useStoreMock.mockReset();
-    useSettingsStoreMock.mockReset();
+    useConfigValueMock.mockReset();
     useStoreMock.mockReturnValue(null);
-    useSettingsStoreMock.mockReturnValue(null);
+    useConfigValueMock.mockReturnValue(true);
     listenMock.mockResolvedValue(() => {});
     listMicUsingApplicationsMock.mockResolvedValue({ status: "ok", data: [] });
     vi.useRealTimers();
@@ -273,11 +270,7 @@ describe("ListenerProvider detect events", () => {
 
     store.setState({ stop: stopSpy });
     store.getState().setTriggerAppIds(["us.zoom.xos"]);
-    useSettingsStoreMock.mockReturnValue({
-      getValue: vi.fn((key: string) =>
-        key === "auto_stop_meetings" ? false : undefined,
-      ),
-    } as any);
+    useConfigValueMock.mockReturnValue(false);
 
     render(
       <ListenerProvider store={store}>

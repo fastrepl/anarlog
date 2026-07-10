@@ -28,7 +28,8 @@ import { configurePaidSettings } from "../shared/config/configure-paid-settings"
 import { buildWebAppUrl } from "../shared/utils";
 import { useAuth } from "./context";
 
-import * as settings from "~/store/tinybase/store/settings";
+import { setSettingValues } from "~/settings/queries";
+import { useConfigValue } from "~/shared/config";
 
 async function getClaimsFromToken(
   accessToken: string,
@@ -77,8 +78,7 @@ function markSeen(key: string): void {
 
 export function BillingProvider({ children }: { children: ReactNode }) {
   const auth = useAuth();
-  const settingsStore = settings.UI.useStore(settings.STORE_ID);
-  const { current_llm_provider } = settings.UI.useValues(settings.STORE_ID);
+  const currentLlmProvider = useConfigValue("current_llm_provider");
 
   const claimsQuery = useQuery({
     queryKey: ["tokenInfo", auth?.session?.access_token ?? ""],
@@ -135,29 +135,25 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (current_llm_provider !== "hyprnote") {
+    if (currentLlmProvider !== "hyprnote") {
       return;
     }
 
-    settingsStore?.setValue("current_llm_provider", "");
-    settingsStore?.setValue("current_llm_model", "");
-  }, [
-    auth?.session?.user.id,
-    billing.isPaid,
-    current_llm_provider,
-    isReady,
-    settingsStore,
-  ]);
+    void setSettingValues({
+      current_llm_provider: "",
+      current_llm_model: "",
+    });
+  }, [auth?.session?.user.id, billing.isPaid, currentLlmProvider, isReady]);
 
   const prevIsPaidRef = useRef(billing.isPaid);
   useEffect(() => {
     const wasPaid = prevIsPaidRef.current;
     prevIsPaidRef.current = billing.isPaid;
 
-    if (!wasPaid && billing.isPaid && isReady && settingsStore) {
-      configurePaidSettings(settingsStore);
+    if (!wasPaid && billing.isPaid && isReady) {
+      void configurePaidSettings();
     }
-  }, [billing.isPaid, isReady, settingsStore]);
+  }, [billing.isPaid, isReady]);
 
   const [trialStartedOpen, setTrialStartedOpen] = useState(false);
   const [trialEndedOpen, setTrialEndedOpen] = useState(false);

@@ -4,6 +4,17 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { TASK_CONFIGS } from "./task-configs";
 import { createTasksSlice, extractUnderlyingError } from "./tasks";
 
+const mocks = vi.hoisted(() => ({
+  getStoredSettingValues: vi.fn(async () => ({
+    values: {},
+    hasValues: new Set(),
+  })),
+}));
+
+vi.mock("~/settings/queries", () => ({
+  getStoredSettingValues: mocks.getStoredSettingValues,
+}));
+
 const originalEnhanceConfig = { ...TASK_CONFIGS.enhance };
 
 afterEach(() => {
@@ -22,7 +33,6 @@ describe("createTasksSlice", () => {
     const get = () => state;
     state = createTasksSlice(set, get, {
       persistedStore: {} as any,
-      settingsStore: {} as any,
     });
 
     const taskId = "summary-1-enhance" as const;
@@ -53,7 +63,6 @@ describe("createTasksSlice", () => {
     const get = () => state;
     state = createTasksSlice(set, get, {
       persistedStore: {} as any,
-      settingsStore: {} as any,
     });
 
     let resolveOnSuccess: () => void;
@@ -109,7 +118,6 @@ describe("createTasksSlice", () => {
     const get = () => state;
     state = createTasksSlice(set, get, {
       persistedStore: {} as any,
-      settingsStore: {} as any,
     });
 
     let resolveOnSuccess: () => void;

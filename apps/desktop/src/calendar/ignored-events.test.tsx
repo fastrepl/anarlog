@@ -92,6 +92,38 @@ describe("SQLite ignored events", () => {
     ]);
   });
 
+  it("promotes ignored events recovered from the legacy main values", async () => {
+    mocks.execute.mockResolvedValueOnce([
+      {
+        id: "legacy_main_values_document",
+        value_json: JSON.stringify({
+          ignored_events: JSON.stringify([
+            { tracking_id: "event-main", last_seen: "legacy" },
+          ]),
+        }),
+      },
+      {
+        id: "legacy_settings_document",
+        value_json: JSON.stringify({
+          ignored_events: JSON.stringify([
+            { tracking_id: "event-settings", last_seen: "older" },
+          ]),
+        }),
+      },
+    ]);
+
+    const { result } = renderHook(() => useIgnoredEvents());
+    act(() => result.current.ignoreEvent("event-new"));
+
+    await waitFor(() => expect(mocks.executeTransaction).toHaveBeenCalled());
+
+    const statement = mocks.executeTransaction.mock.calls[0][0][0];
+    expect(JSON.parse(String(statement.params[1]))).toEqual([
+      { tracking_id: "event-main", last_seen: "legacy" },
+      { tracking_id: "event-new", last_seen: expect.any(String) },
+    ]);
+  });
+
   it("retries an optimistic update without dropping concurrent entries", async () => {
     mocks.execute
       .mockResolvedValueOnce([

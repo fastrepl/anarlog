@@ -1,18 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const loadSettings = vi.hoisted(() => vi.fn());
+const getStoredSettingValues = vi.hoisted(() => vi.fn());
 
-vi.mock("@hypr/plugin-settings", () => ({
-  commands: {
-    load: loadSettings,
-  },
+vi.mock("~/settings/queries", () => ({
+  getStoredSettingValues,
 }));
 
 import {
   bootstrapThemeFromSettings,
   normalizeThemePreference,
   resolveBootIsDark,
-  themePreferenceFromSettings,
 } from "./apply";
 
 function mockSystemTheme(prefersDark: boolean) {
@@ -24,7 +21,13 @@ function mockSystemTheme(prefersDark: boolean) {
 }
 
 beforeEach(() => {
-  loadSettings.mockReset();
+  const values = new Map<string, string>();
+  vi.stubGlobal("localStorage", {
+    clear: () => values.clear(),
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => values.set(key, value),
+  });
+  getStoredSettingValues.mockReset();
   localStorage.clear();
   document.documentElement.className = "";
   mockSystemTheme(false);
@@ -32,6 +35,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllGlobals();
 });
 
 describe("normalizeThemePreference", () => {
@@ -44,21 +48,6 @@ describe("normalizeThemePreference", () => {
   it("falls back to system for missing or invalid values", () => {
     expect(normalizeThemePreference(null)).toBe("system");
     expect(normalizeThemePreference("invalid")).toBe("system");
-  });
-});
-
-describe("themePreferenceFromSettings", () => {
-  it("reads the persisted general.theme value", () => {
-    expect(
-      themePreferenceFromSettings({
-        general: { theme: "dark" },
-      }),
-    ).toBe("dark");
-  });
-
-  it("falls back to system when theme is missing", () => {
-    expect(themePreferenceFromSettings({ general: {} })).toBe("system");
-    expect(themePreferenceFromSettings(undefined)).toBe("system");
   });
 });
 
@@ -83,9 +72,9 @@ describe("resolveBootIsDark", () => {
 
 describe("bootstrapThemeFromSettings", () => {
   it("applies persisted settings before resolving when load is prompt", async () => {
-    loadSettings.mockResolvedValue({
-      status: "ok",
-      data: { general: { theme: "dark" } },
+    getStoredSettingValues.mockResolvedValue({
+      values: { theme: "dark" },
+      hasValues: new Set(["theme"]),
     });
 
     await bootstrapThemeFromSettings({ timeoutMs: 100 });
@@ -98,10 +87,10 @@ describe("bootstrapThemeFromSettings", () => {
     vi.useFakeTimers();
 
     let resolveLoad!: (value: {
-      status: "ok";
-      data: { general: { theme: "dark" } };
+      values: { theme: string };
+      hasValues: Set<string>;
     }) => void;
-    loadSettings.mockReturnValue(
+    getStoredSettingValues.mockReturnValue(
       new Promise((resolve) => {
         resolveLoad = resolve;
       }),
@@ -119,8 +108,8 @@ describe("bootstrapThemeFromSettings", () => {
     expect(localStorage.getItem("hypr-theme")).toBe(null);
 
     resolveLoad({
-      status: "ok",
-      data: { general: { theme: "dark" } },
+      values: { theme: "dark" },
+      hasValues: new Set(["theme"]),
     });
     await Promise.resolve();
 

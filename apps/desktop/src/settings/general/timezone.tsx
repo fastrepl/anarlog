@@ -6,8 +6,8 @@ import {
   type SearchableSelectOption,
 } from "./searchable-select";
 
+import { useSetSettingValue } from "~/settings/queries";
 import { useConfigValue } from "~/shared/config";
-import * as settings from "~/store/tinybase/store/settings";
 
 const COMMON_TIMEZONES = [
   { value: "Pacific/Honolulu", label: "Hawaii", detail: "UTC-10" },
@@ -37,12 +37,7 @@ const COMMON_TIMEZONES = [
 export function TimezoneSelector() {
   const { t } = useLingui();
   const value = useConfigValue("timezone");
-  const setTimezone = settings.UI.useSetValueCallback(
-    "timezone",
-    (val: string) => val,
-    [],
-    settings.STORE_ID,
-  );
+  const setTimezone = useSetSettingValue("timezone");
 
   const systemTimezone = useMemo(() => {
     return Intl.DateTimeFormat().resolvedOptions().timeZone;
