@@ -1,4 +1,4 @@
-import { actionItems, dailyNotes, entityMentions, eq, sql } from "@hypr/db";
+import { actionItems, entityMentions, eq, sql } from "@hypr/db";
 
 import type { Store } from "./main";
 import {
@@ -20,14 +20,6 @@ type SqliteTaskRow = {
   text: string;
   body_json: string;
   due_at: string;
-  deleted_at: string | null;
-};
-
-type SqliteDailyNoteRow = {
-  id: string;
-  owner_user_id: string;
-  note_date: string;
-  body: string;
   deleted_at: string | null;
 };
 
@@ -77,28 +69,6 @@ const TASK_SHADOW_CONFIG: SqliteTableShadowConfig<"tasks", SqliteTaskRow> = {
   persist: persistTaskChanges,
 };
 
-const DAILY_NOTE_SHADOW_CONFIG: SqliteTableShadowConfig<
-  "daily_notes",
-  SqliteDailyNoteRow
-> = {
-  label: "SqliteDailyNoteShadow",
-  tableId: "daily_notes",
-  selectSql: `
-    SELECT id, owner_user_id, note_date, body, deleted_at
-    FROM daily_notes
-    ORDER BY note_date, id
-  `,
-  fromSqlite: (row) =>
-    normalizeDailyNoteRow({
-      user_id: row.owner_user_id,
-      date: row.note_date,
-      content: row.body,
-    }),
-  normalize: normalizeDailyNoteRow,
-  isDeleted: (row) => row.deleted_at !== null,
-  persist: persistDailyNoteChanges,
-};
-
 const MENTION_SHADOW_CONFIG: SqliteTableShadowConfig<
   "mapping_mention",
   SqliteMentionRow
@@ -134,7 +104,6 @@ export function SqliteProductivityShadow({ store }: { store: Store }) {
   return (
     <>
       <SqliteTableShadow config={TASK_SHADOW_CONFIG} store={store} />
-      <SqliteTableShadow config={DAILY_NOTE_SHADOW_CONFIG} store={store} />
       <SqliteTableShadow config={MENTION_SHADOW_CONFIG} store={store} />
     </>
   );
@@ -153,16 +122,6 @@ export function normalizeTaskRow(
     text_preview: typeof row.text_preview === "string" ? row.text_preview : "",
     body_json: typeof row.body_json === "string" ? row.body_json : "{}",
     due_date: typeof row.due_date === "string" ? row.due_date : "",
-  };
-}
-
-export function normalizeDailyNoteRow(
-  row: Partial<MainTableRow<"daily_notes">>,
-): MainTableRow<"daily_notes"> {
-  return {
-    user_id: typeof row.user_id === "string" ? row.user_id : "",
-    date: typeof row.date === "string" ? row.date : "",
-    content: typeof row.content === "string" ? row.content : "",
   };
 }
 
@@ -234,51 +193,6 @@ async function persistTaskChanges(
       .update(actionItems)
       .set({ deletedAt, updatedAt: deletedAt })
       .where(eq(actionItems.id, id));
-  });
-}
-
-async function persistDailyNoteChanges(
-  rows: Array<[string, MainTableRow<"daily_notes">]>,
-  deletedIds: string[],
-) {
-  const now = new Date().toISOString();
-  for (const chunk of chunks(rows, 40)) {
-    await db
-      .insert(dailyNotes)
-      .values(
-        chunk.map(([id, value]) => {
-          const row = normalizeDailyNoteRow(value);
-          return {
-            id,
-            workspaceId: "",
-            ownerUserId: row.user_id,
-            noteDate: row.date,
-            bodyFormat: "prosemirror_json",
-            body: row.content,
-            createdAt: now,
-            updatedAt: now,
-            deletedAt: null,
-          };
-        }),
-      )
-      .onConflictDoUpdate({
-        target: dailyNotes.id,
-        set: {
-          ownerUserId: sql`excluded.owner_user_id`,
-          noteDate: sql`excluded.note_date`,
-          bodyFormat: "prosemirror_json",
-          body: sql`excluded.body`,
-          deletedAt: null,
-          updatedAt: sql`strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`,
-        },
-      });
-  }
-
-  await softDelete(deletedIds, async (id, deletedAt) => {
-    await db
-      .update(dailyNotes)
-      .set({ deletedAt, updatedAt: deletedAt })
-      .where(eq(dailyNotes.id, id));
   });
 }
 

@@ -7,7 +7,6 @@ import { isLegacyDataPersistenceDisabled } from "./legacy-persistence";
 import { type Store } from "./main";
 import { registerSaveHandler } from "./save";
 
-import { useDailyNotePersister } from "~/store/tinybase/persister/daily-note";
 import { useHumanPersister } from "~/store/tinybase/persister/human";
 import { useOrganizationPersister } from "~/store/tinybase/persister/organization";
 import { useSessionPersister } from "~/store/tinybase/persister/session";
@@ -19,7 +18,6 @@ export function useMainPersisters(store: Store) {
   const sessionPersister = useSessionPersister(store);
   const organizationPersister = useOrganizationPersister(store);
   const humanPersister = useHumanPersister(store);
-  const dailyNotePersister = useDailyNotePersister(store);
   const taskPersister = useTaskPersister(store);
 
   useEffect(() => {
@@ -32,7 +30,6 @@ export function useMainPersisters(store: Store) {
       { id: "session", persister: sessionPersister },
       { id: "organization", persister: organizationPersister },
       { id: "human", persister: humanPersister },
-      { id: "dailyNote", persister: dailyNotePersister },
       { id: "task", persister: taskPersister },
     ];
 
@@ -55,7 +52,6 @@ export function useMainPersisters(store: Store) {
     sessionPersister,
     organizationPersister,
     humanPersister,
-    dailyNotePersister,
     taskPersister,
   ]);
 
@@ -70,7 +66,6 @@ export function useMainPersisters(store: Store) {
     sessionPersister,
     organizationPersister,
     humanPersister,
-    dailyNotePersister,
     taskPersister,
   };
 }

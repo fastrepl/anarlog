@@ -43,7 +43,7 @@ describe("createJsonFilePersister", () => {
 
   test("returns a persister object with expected methods", () => {
     const persister = createJsonFilePersister(store, {
-      tableName: "daily_notes",
+      tableName: "tasks",
       filename: "test.json",
       label: "test",
     });
@@ -59,8 +59,14 @@ describe("createJsonFilePersister", () => {
       const mockData = {
         "item-1": {
           user_id: "user-1",
-          date: "2024-01-01",
-          content: "Test note",
+          task_id: "item-1",
+          source_id: "session-1",
+          source_type: "session",
+          source_order: 0,
+          status: "todo",
+          text_preview: "Test task",
+          body_json: "{}",
+          due_date: "",
         },
       };
       fs2Mocks.readTextFile.mockResolvedValue({
@@ -69,7 +75,7 @@ describe("createJsonFilePersister", () => {
       });
 
       const persister = createJsonFilePersister(store, {
-        tableName: "daily_notes",
+        tableName: "tasks",
         filename: "test.json",
         label: "test",
       });
@@ -78,7 +84,7 @@ describe("createJsonFilePersister", () => {
       expect(fs2Mocks.readTextFile).toHaveBeenCalledWith(
         `${MOCK_DATA_DIR}/test.json`,
       );
-      expect(store.getTable("daily_notes")).toEqual(mockData);
+      expect(store.getTable("tasks")).toEqual(mockData);
     });
 
     test("handles file not found gracefully", async () => {
@@ -88,26 +94,32 @@ describe("createJsonFilePersister", () => {
       });
 
       const persister = createJsonFilePersister(store, {
-        tableName: "daily_notes",
+        tableName: "tasks",
         filename: "nonexistent.json",
         label: "test",
       });
       await persister.load();
 
-      expect(store.getTable("daily_notes")).toEqual({});
+      expect(store.getTable("tasks")).toEqual({});
     });
   });
 
   describe("save", () => {
     test("saves table data to json file", async () => {
-      store.setRow("daily_notes", "item-1", {
+      store.setRow("tasks", "item-1", {
         user_id: "user-1",
-        date: "2024-01-01",
-        content: "Test note",
+        task_id: "item-1",
+        source_id: "session-1",
+        source_type: "session",
+        source_order: 0,
+        status: "todo",
+        text_preview: "Test task",
+        body_json: "{}",
+        due_date: "",
       });
 
       const persister = createJsonFilePersister(store, {
-        tableName: "daily_notes",
+        tableName: "tasks",
         filename: "test.json",
         label: "test",
       });
@@ -118,12 +130,12 @@ describe("createJsonFilePersister", () => {
       ]);
 
       const writtenData = fsSyncMocks.writeJsonBatch.mock.calls[0][0][0][0];
-      expect(writtenData["item-1"].content).toBe("Test note");
+      expect(writtenData["item-1"].text_preview).toBe("Test task");
     });
 
     test("writes empty object when table is empty", async () => {
       const persister = createJsonFilePersister(store, {
-        tableName: "daily_notes",
+        tableName: "tasks",
         filename: "test.json",
         label: "test",
       });

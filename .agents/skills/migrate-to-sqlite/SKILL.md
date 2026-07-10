@@ -35,6 +35,9 @@ expanded to include it.
 - [ ] `tags`
 - [x] `chat_groups`
 - [x] `chat_messages`
+- [ ] `session_key_facts`
+- [ ] `tasks`
+- [x] `daily_notes`
   - [x] Phase 0 writes (partial) — `chat/store/*`
   - [ ] Phase 0 reads
   - [ ] Phase 1

@@ -18,7 +18,6 @@ export const SQLITE_SHADOWED_TABLES = [
   "enhanced_notes",
   "session_key_facts",
   "tasks",
-  "daily_notes",
 ] as const satisfies readonly MainTableId[];
 
 const expectedTables = new Set<MainTableId>(SQLITE_SHADOWED_TABLES);

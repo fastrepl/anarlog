@@ -2,7 +2,6 @@ import type { TablesSchema } from "tinybase/with-schemas";
 
 import type { InferTinyBaseSchema } from "./shared";
 import {
-  dailyNoteSchema,
   enhancedNoteSchema,
   generalSchema,
   humanSchema,
@@ -107,11 +106,6 @@ export const tableSchemaForTinybase = {
     body_json: { type: "string" },
     due_date: { type: "string" },
   } as const satisfies InferTinyBaseSchema<typeof taskSchema>,
-  daily_notes: {
-    user_id: { type: "string" },
-    date: { type: "string" },
-    content: { type: "string" },
-  } as const satisfies InferTinyBaseSchema<typeof dailyNoteSchema>,
 } as const satisfies TablesSchema;
 
 export const valueSchemaForTinybase = {

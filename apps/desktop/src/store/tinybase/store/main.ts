@@ -58,7 +58,6 @@ export const StoreComponent = () => {
     persisters.sessionPersister,
     persisters.organizationPersister,
     persisters.humanPersister,
-    persisters.dailyNotePersister,
     persisters.taskPersister,
   ].filter((persister) => persister !== undefined);
 

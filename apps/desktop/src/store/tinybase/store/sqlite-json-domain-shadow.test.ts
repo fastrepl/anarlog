@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  normalizeDailyNoteRow,
   normalizeMentionRow,
   normalizeTaskRow,
 } from "./sqlite-productivity-shadow";
@@ -28,14 +27,7 @@ describe("SQLite JSON-domain row normalization", () => {
     });
   });
 
-  it("preserves daily note content and mention endpoints", () => {
-    expect(
-      normalizeDailyNoteRow({
-        user_id: "user-1",
-        date: "2026-07-11",
-        content: '{"type":"doc"}',
-      }),
-    ).toMatchObject({ date: "2026-07-11", content: '{"type":"doc"}' });
+  it("preserves mention endpoints", () => {
     expect(
       normalizeMentionRow({
         user_id: "user-1",
