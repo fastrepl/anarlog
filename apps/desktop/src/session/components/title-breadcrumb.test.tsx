@@ -7,11 +7,8 @@ const mocks = vi.hoisted(() => ({
   folderId: "",
 }));
 
-vi.mock("~/store/tinybase/store/main", () => ({
-  STORE_ID: "main",
-  UI: {
-    useCell: () => mocks.folderId,
-  },
+vi.mock("~/session/queries", () => ({
+  useSession: () => ({ folder_id: mocks.folderId }),
 }));
 
 describe("NoteTitleBreadcrumb", () => {

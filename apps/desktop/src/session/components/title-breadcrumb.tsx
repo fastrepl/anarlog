@@ -4,7 +4,7 @@ import { useMemo } from "react";
 
 import { cn } from "@hypr/utils";
 
-import * as main from "~/store/tinybase/store/main";
+import { useSession } from "~/session/queries";
 
 export function NoteTitleBreadcrumb({
   sessionId,
@@ -14,12 +14,7 @@ export function NoteTitleBreadcrumb({
   title: React.ReactNode;
 }) {
   const { t } = useLingui();
-  const folderId = main.UI.useCell(
-    "sessions",
-    sessionId,
-    "folder_id",
-    main.STORE_ID,
-  ) as string | undefined;
+  const folderId = useSession(sessionId)?.folder_id;
   const folderChain = useFolderChain(folderId);
 
   return (

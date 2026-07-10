@@ -92,19 +92,8 @@ vi.mock("@hypr/plugin-windows", () => ({
 }));
 
 vi.mock("~/session/components/shared", () => ({
-  hasStoredNoteContent: (value: unknown) =>
-    typeof value === "string" && value.trim().length > 0,
+  useCurrentNoteHasContent: () => currentNoteContent.value.trim().length > 0,
   useHasTranscript: useHasTranscriptMock,
-}));
-
-vi.mock("~/store/tinybase/store/main", () => ({
-  STORE_ID: "main",
-  UI: {
-    useCell: (_table: string, _row: string, cell: string) =>
-      cell === "raw_md" || cell === "content"
-        ? currentNoteContent.value
-        : undefined,
-  },
 }));
 
 vi.mock("~/shared/config", () => ({

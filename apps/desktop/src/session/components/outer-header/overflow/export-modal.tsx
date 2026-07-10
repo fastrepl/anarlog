@@ -18,9 +18,14 @@ import { cn } from "@hypr/utils";
 import { formatDate, formatDuration } from "./export-utils";
 
 import { useTranscriptExportSegments } from "~/session/components/note-input/transcript/export-data";
-import { useSessionEvent } from "~/store/tinybase/hooks";
-import * as main from "~/store/tinybase/store/main";
+import {
+  useEnhancedNote,
+  useSession,
+  useSessionParticipants,
+} from "~/session/queries";
+import { getSessionEvent } from "~/session/utils";
 import type { EditorView } from "~/store/zustand/tabs/schema";
+import { useSessionTranscripts } from "~/stt/queries";
 
 type FileFormat = "pdf" | "txt" | "md" | "org";
 
@@ -68,101 +73,42 @@ export function ExportModal({
   const [includeSummary, setIncludeSummary] = useState(true);
   const [includeTranscript, setIncludeTranscript] = useState(false);
 
-  const store = main.UI.useStore(main.STORE_ID);
-  const queries = main.UI.useQueries(main.STORE_ID);
-
-  const sessionTitle = main.UI.useCell(
-    "sessions",
-    sessionId,
-    "title",
-    main.STORE_ID,
-  ) as string | undefined;
-
-  const sessionCreatedAt = main.UI.useCell(
-    "sessions",
-    sessionId,
-    "created_at",
-    main.STORE_ID,
-  ) as string | undefined;
-
-  const event = useSessionEvent(sessionId);
+  const session = useSession(sessionId);
+  const sessionTitle = session?.title;
+  const sessionCreatedAt = session?.created_at;
+  const event = session ? getSessionEvent(session) : null;
   const eventTitle = event?.title;
-
-  const rawMd = main.UI.useCell(
-    "sessions",
-    sessionId,
-    "raw_md",
-    main.STORE_ID,
-  ) as string | undefined;
+  const rawMd = session?.raw_md;
 
   const enhancedNoteId = currentView.type === "enhanced" ? currentView.id : "";
-  const enhancedNoteContent = main.UI.useCell(
-    "enhanced_notes",
-    enhancedNoteId,
-    "content",
-    main.STORE_ID,
-  ) as string | undefined;
+  const enhancedNoteContent = useEnhancedNote(enhancedNoteId)?.content;
+  const participants = useSessionParticipants(sessionId);
 
-  const participantNames = useMemo((): string[] => {
-    if (!queries) return [];
-
-    const names: string[] = [];
-    queries.forEachResultRow(
-      main.QUERIES.sessionParticipantsWithDetails,
-      (rowId) => {
-        const participantSessionId = queries.getResultCell(
-          main.QUERIES.sessionParticipantsWithDetails,
-          rowId,
-          "session_id",
-        );
-        if (participantSessionId === sessionId) {
-          const name = queries.getResultCell(
-            main.QUERIES.sessionParticipantsWithDetails,
-            rowId,
-            "human_name",
-          );
-          if (name && typeof name === "string") {
-            names.push(name);
-          }
-        }
-      },
-    );
-    return names;
-  }, [queries, sessionId]);
+  const participantNames = useMemo(
+    () => participants.map((participant) => participant.name).filter(Boolean),
+    [participants],
+  );
 
   const { data: transcriptItems, isLoading: isTranscriptLoading } =
     useTranscriptExportSegments(sessionId);
 
-  const transcriptIds = main.UI.useSliceRowIds(
-    main.INDEXES.transcriptBySession,
-    sessionId,
-    main.STORE_ID,
-  );
+  const transcripts = useSessionTranscripts(sessionId);
 
   const transcriptDuration = useMemo((): string | null => {
-    if (!store || !transcriptIds || transcriptIds.length === 0) {
+    if (transcripts.length === 0) {
       return null;
     }
 
     let minStartedAt: number | null = null;
     let maxEndedAt: number | null = null;
 
-    for (const transcriptId of transcriptIds) {
-      const startedAt = store.getCell(
-        "transcripts",
-        transcriptId,
-        "started_at",
-      );
-      const endedAt = store.getCell("transcripts", transcriptId, "ended_at");
-
-      if (typeof startedAt === "number") {
-        if (minStartedAt === null || startedAt < minStartedAt) {
-          minStartedAt = startedAt;
-        }
+    for (const transcript of transcripts) {
+      if (minStartedAt === null || transcript.startedAt < minStartedAt) {
+        minStartedAt = transcript.startedAt;
       }
-      if (typeof endedAt === "number") {
-        if (maxEndedAt === null || endedAt > maxEndedAt) {
-          maxEndedAt = endedAt;
+      if (transcript.endedAt !== undefined) {
+        if (maxEndedAt === null || transcript.endedAt > maxEndedAt) {
+          maxEndedAt = transcript.endedAt;
         }
       }
     }
@@ -171,7 +117,7 @@ export function ExportModal({
       return formatDuration(minStartedAt, maxEndedAt);
     }
     return null;
-  }, [store, transcriptIds]);
+  }, [transcripts]);
 
   const getMemoMd = (): string => {
     if (!rawMd) return "";

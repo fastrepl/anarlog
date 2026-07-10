@@ -37,11 +37,16 @@ import { useSessionTranscriptRenderData } from "~/session/components/note-input/
 import { useCanShowTranscript } from "~/session/components/shared";
 import { useEnsureDefaultSummary } from "~/session/hooks/useEnhancedNotes";
 import {
+  deleteEnhancedNote,
+  useEnhancedNote,
+  useEnhancedNoteRecords,
+  useSession,
+} from "~/session/queries";
+import {
   type MenuItemDef,
   useNativeContextMenu,
 } from "~/shared/hooks/useNativeContextMenu";
 import { useWebResources } from "~/shared/ui/resource-list";
-import * as main from "~/store/tinybase/store/main";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 import { type EditorView } from "~/store/zustand/tabs/schema";
@@ -301,12 +306,7 @@ function HeaderViewRawActive({
   sessionId: string;
   standalone: boolean;
 }) {
-  const rawMd = main.UI.useCell(
-    "sessions",
-    sessionId,
-    "raw_md",
-    main.STORE_ID,
-  ) as string | undefined;
+  const rawMd = useSession(sessionId)?.raw_md;
   const memoMarkdown = useMemo(() => getStoredNoteMarkdown(rawMd), [rawMd]);
   const contextMenu = useMemo<MenuItemDef[]>(
     () => [
@@ -374,18 +374,9 @@ function HeaderViewEnhanced({
 }
 
 function useEnhancedViewTitle(enhancedNoteId: string) {
-  const rawTitle = main.UI.useCell(
-    "enhanced_notes",
-    enhancedNoteId,
-    "title",
-    main.STORE_ID,
-  );
-  const templateId = main.UI.useCell(
-    "enhanced_notes",
-    enhancedNoteId,
-    "template_id",
-    main.STORE_ID,
-  ) as string | undefined;
+  const enhancedNote = useEnhancedNote(enhancedNoteId);
+  const rawTitle = enhancedNote?.title;
+  const templateId = enhancedNote?.templateId;
   const { data: template } = useUserTemplate(templateId);
   const templateTitle = template?.title?.trim() || null;
   const viewTitle = getEnhancedNoteTitle({
@@ -456,12 +447,7 @@ function HeaderViewEnhancedActive({
     sessionId,
     enhancedNoteId,
   );
-  const content = main.UI.useCell(
-    "enhanced_notes",
-    enhancedNoteId,
-    "content",
-    main.STORE_ID,
-  ) as string | undefined;
+  const content = useEnhancedNote(enhancedNoteId)?.content;
   const { viewTitle, templateTooltip } = useEnhancedViewTitle(enhancedNoteId);
   const noteMarkdown = useMemo(() => getStoredNoteMarkdown(content), [content]);
 
@@ -1291,7 +1277,6 @@ export function Header({
   isTranscribing?: boolean;
 }) {
   const { t } = useLingui();
-  const store = main.UI.useStore(main.STORE_ID);
   const primaryEnhancedTabId = editorTabs.find(
     (view): view is Extract<EditorView, { type: "enhanced" }> =>
       view.type === "enhanced",
@@ -1336,7 +1321,12 @@ export function Header({
                               handleTabChange(previousView);
                             }
 
-                            store?.delRow("enhanced_notes", view.id);
+                            void deleteEnhancedNote(view.id).catch((error) => {
+                              console.error(
+                                "[session-header] failed to remove summary",
+                                error,
+                              );
+                            });
                           }
                         : undefined
                     }
@@ -1395,14 +1385,12 @@ export function useEditorTabs({
   useEnsureDefaultSummary(sessionId);
   const canShowTranscript = useCanShowTranscript(sessionId, { audioExists });
 
-  const enhancedNoteIds = main.UI.useSliceRowIds(
-    main.INDEXES.enhancedNotesBySession,
-    sessionId,
-    main.STORE_ID,
+  const enhancedNoteIds = useEnhancedNoteRecords(sessionId).map(
+    (note) => note.id,
   );
 
   return createEditorTabs({
-    enhancedNoteIds: enhancedNoteIds || [],
+    enhancedNoteIds,
     canShowTranscript,
   });
 }

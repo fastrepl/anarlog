@@ -178,11 +178,14 @@ vi.mock("~/services/enhancer", () => ({
 }));
 
 vi.mock("~/session/queries", () => ({
+  deleteEnhancedNote: vi.fn(() => Promise.resolve()),
   useEnhancedNote: () => ({
     content: "",
     templateId: "template-1",
     title: "Summary",
   }),
+  useEnhancedNoteRecords: () => [{ id: "note-1" }],
+  useSession: () => ({ raw_md: "" }),
 }));
 
 vi.mock("~/session/components/note-input/transcript/actions", () => ({
@@ -223,39 +226,6 @@ vi.mock("~/shared/hooks/useNativeContextMenu", () => ({
 
 vi.mock("~/shared/ui/resource-list", () => ({
   useWebResources: () => ({ data: [], isLoading: false }),
-}));
-
-vi.mock("~/store/tinybase/store/main", () => ({
-  STORE_ID: "main",
-  INDEXES: {
-    enhancedNotesBySession: "enhancedNotesBySession",
-  },
-  UI: {
-    useCell: (table: string, _row: string, cell: string) => {
-      if (table === "enhanced_notes" && cell === "title") {
-        return "Summary";
-      }
-
-      if (table === "enhanced_notes" && cell === "content") {
-        return "";
-      }
-
-      if (table === "enhanced_notes" && cell === "template_id") {
-        return "template-1";
-      }
-
-      if (table === "sessions" && cell === "raw_md") {
-        return "";
-      }
-
-      return undefined;
-    },
-    useSliceRowIds: () => ["note-1"],
-    useStore: () => ({
-      delRow: vi.fn(),
-      setPartialRow: vi.fn(),
-    }),
-  },
 }));
 
 vi.mock("~/store/zustand/tabs", () => ({
