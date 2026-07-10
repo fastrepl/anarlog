@@ -1,21 +1,19 @@
 import { useMemo } from "react";
 
-import type {
-  RenderTranscriptHuman,
-  RenderTranscriptRequest,
-} from "@hypr/plugin-transcription";
+import type { RenderTranscriptRequest } from "@hypr/plugin-transcription";
 
-import { getUniqueRowIds, useStoreRowsRevision } from "~/store/tinybase/hooks";
-import * as main from "~/store/tinybase/store/main";
+import {
+  type TranscriptRecord,
+  useSessionParticipantHumanIds,
+  useSessionTranscripts,
+  useTranscript,
+  useTranscriptHumans,
+} from "~/stt/queries";
 import {
   buildRenderTranscriptRequestFromRows,
   collectAssignedHumanIdsFromTranscriptRows,
-  type RenderTranscriptRequestHumans,
   type TranscriptRow,
 } from "~/stt/render-transcript";
-import { parseTranscriptHints, parseTranscriptWords } from "~/stt/utils";
-
-type UiStore = NonNullable<ReturnType<typeof main.UI.useStore>>;
 
 export type TranscriptRowWithId = {
   transcriptId: string;
@@ -26,84 +24,44 @@ export function useTranscriptRenderData(transcriptId: string): {
   request: RenderTranscriptRequest | null;
   transcriptRows: TranscriptRowWithId[];
 } {
-  const sessionId = main.UI.useCell(
-    "transcripts",
-    transcriptId,
-    "session_id",
-    main.STORE_ID,
+  const transcript = useTranscript(transcriptId);
+  const transcripts = useMemo(
+    () => (transcript ? [transcript] : emptyTranscripts),
+    [transcript],
   );
 
-  return useRenderData(sessionId ?? "", [transcriptId]);
+  return useRenderData(transcript?.sessionId ?? "", transcripts);
 }
 
 export function useSessionTranscriptRenderData(sessionId: string): {
   request: RenderTranscriptRequest | null;
   transcriptRows: TranscriptRowWithId[];
 } {
-  const transcriptIds =
-    main.UI.useSliceRowIds(
-      main.INDEXES.transcriptBySession,
-      sessionId,
-      main.STORE_ID,
-    ) ?? emptyIds;
+  const transcripts = useSessionTranscripts(sessionId);
 
-  return useRenderData(sessionId, transcriptIds);
-}
-
-export function useTranscriptRowsRevision(rowIds: readonly string[]): number {
-  const store = main.UI.useStore(main.STORE_ID);
-
-  return useStoreRowsRevision(store, "transcripts", rowIds);
+  return useRenderData(sessionId, transcripts);
 }
 
 function useRenderData(
   sessionId: string,
-  transcriptIds: readonly string[],
+  transcripts: readonly TranscriptRecord[],
 ): {
   request: RenderTranscriptRequest | null;
   transcriptRows: TranscriptRowWithId[];
 } {
-  const store = main.UI.useStore(main.STORE_ID);
-  const selfHumanId = main.UI.useValue("user_id", main.STORE_ID);
-  const participantMappingIds =
-    main.UI.useSliceRowIds(
-      main.INDEXES.sessionParticipantsBySession,
-      sessionId,
-      main.STORE_ID,
-    ) ?? emptyIds;
-
-  const transcriptRowsRevision = useStoreRowsRevision(
-    store,
-    "transcripts",
-    transcriptIds,
-  );
-  const participantRowsRevision = useStoreRowsRevision(
-    store,
-    "mapping_session_participant",
-    participantMappingIds,
-  );
-
-  const transcriptIdsKey = getRowIdsKey(transcriptIds);
-  const participantMappingIdsKey = getRowIdsKey(participantMappingIds);
+  const participantHumanIds = useSessionParticipantHumanIds(sessionId);
+  const selfHumanId = transcripts[0]?.ownerUserId;
 
   const transcriptRows = useMemo(() => {
-    if (!store || transcriptIds.length === 0) {
-      return [];
-    }
-
-    return transcriptIds.map((transcriptId) => ({
-      transcriptId,
-      row: getTranscriptRow(store, transcriptId),
+    return transcripts.map((transcript) => ({
+      transcriptId: transcript.id,
+      row: {
+        started_at: transcript.startedAt,
+        words: transcript.words,
+        speaker_hints: transcript.speakerHints,
+      },
     }));
-  }, [store, transcriptIdsKey, transcriptRowsRevision]);
-
-  const participantHumanIds = useMemo(() => {
-    if (!store || participantMappingIds.length === 0) {
-      return [];
-    }
-
-    return collectParticipantHumanIds(store, participantMappingIds);
-  }, [store, participantMappingIdsKey, participantRowsRevision]);
+  }, [transcripts]);
 
   const assignedHumanIds = useMemo(
     () =>
@@ -115,92 +73,28 @@ function useRenderData(
 
   const humanIds = useMemo(
     () =>
-      getUniqueRowIds([
-        ...participantHumanIds,
-        ...assignedHumanIds,
-        typeof selfHumanId === "string" ? selfHumanId : "",
-      ]),
+      [
+        ...new Set([
+          ...participantHumanIds,
+          ...assignedHumanIds,
+          selfHumanId ?? "",
+        ]),
+      ].filter(Boolean),
     [assignedHumanIds, participantHumanIds, selfHumanId],
   );
-  const humanIdsKey = getRowIdsKey(humanIds);
-  const humanRowsRevision = useStoreRowsRevision(store, "humans", humanIds);
-
-  const humans = useMemo(() => {
-    if (!store) {
-      return undefined;
-    }
-
-    return collectRenderHumans(store, humanIds, selfHumanId);
-  }, [store, humanIdsKey, humanRowsRevision, selfHumanId]);
+  const humans = useTranscriptHumans(humanIds);
 
   const request = useMemo(
     () =>
       buildRenderTranscriptRequestFromRows(
         transcriptRows.map((transcriptRow) => transcriptRow.row),
-        humans,
+        { humans, selfHumanId },
         participantHumanIds,
       ),
-    [humans, participantHumanIds, transcriptRows],
+    [humans, participantHumanIds, selfHumanId, transcriptRows],
   );
 
   return { request, transcriptRows };
 }
 
-function getTranscriptRow(store: UiStore, transcriptId: string): TranscriptRow {
-  const startedAt = store.getCell("transcripts", transcriptId, "started_at");
-
-  return {
-    started_at: typeof startedAt === "number" ? startedAt : null,
-    words: parseTranscriptWords(store, transcriptId),
-    speaker_hints: parseTranscriptHints(store, transcriptId),
-  };
-}
-
-function collectParticipantHumanIds(
-  store: Pick<UiStore, "getCell">,
-  participantMappingIds: readonly string[],
-): string[] {
-  const humanIds: string[] = [];
-
-  for (const mappingId of participantMappingIds) {
-    const humanId = store.getCell(
-      "mapping_session_participant",
-      mappingId,
-      "human_id",
-    );
-
-    if (typeof humanId === "string" && humanId) {
-      humanIds.push(humanId);
-    }
-  }
-
-  return getUniqueRowIds(humanIds);
-}
-
-function collectRenderHumans(
-  store: Pick<UiStore, "getRow">,
-  humanIds: readonly string[],
-  selfHumanId: unknown,
-): RenderTranscriptRequestHumans {
-  const humans: RenderTranscriptHuman[] = [];
-
-  for (const humanId of humanIds) {
-    const row = store.getRow("humans", humanId);
-    if (typeof row.name !== "string" || !row.name) {
-      continue;
-    }
-
-    humans.push({ human_id: humanId, name: row.name });
-  }
-
-  return {
-    selfHumanId: typeof selfHumanId === "string" ? selfHumanId : undefined,
-    humans,
-  };
-}
-
-function getRowIdsKey(rowIds: readonly string[]): string {
-  return getUniqueRowIds(rowIds).join("\u0000");
-}
-
-const emptyIds: string[] = [];
+const emptyTranscripts: TranscriptRecord[] = [];

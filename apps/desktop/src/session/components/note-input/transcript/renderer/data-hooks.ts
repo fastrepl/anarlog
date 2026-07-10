@@ -2,22 +2,17 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 
 import { TRANSCRIPT_RENDER_CACHE_TIME_MS } from "../cache";
-import {
-  useTranscriptRenderData,
-  useTranscriptRowsRevision,
-} from "../render-request-hooks";
+import { useTranscriptRenderData } from "../render-request-hooks";
 
-import * as main from "~/store/tinybase/store/main";
 import {
   getMaxSpeakerNumberForParticipants,
   type Segment,
 } from "~/stt/live-segment";
+import { useSessionTranscripts, useTranscript } from "~/stt/queries";
 import {
   getRenderTranscriptRequestKey,
   renderTranscriptSegments,
 } from "~/stt/render-transcript";
-
-const emptyIds: string[] = [];
 
 export function useRenderedTranscriptSegments(transcriptId: string): Segment[] {
   return useRenderedTranscriptData(transcriptId).segments;
@@ -62,50 +57,20 @@ export function useRenderedTranscriptData(transcriptId: string): {
 }
 
 export function useTranscriptOffset(transcriptId: string): number {
-  const store = main.UI.useStore(main.STORE_ID);
-  const sessionId = main.UI.useCell(
-    "transcripts",
-    transcriptId,
-    "session_id",
-    main.STORE_ID,
-  );
-
-  const transcriptIds =
-    main.UI.useSliceRowIds(
-      main.INDEXES.transcriptBySession,
-      sessionId ?? "",
-      main.STORE_ID,
-    ) ?? emptyIds;
-  const transcriptRowsRevision = useTranscriptRowsRevision(transcriptIds);
+  const transcript = useTranscript(transcriptId);
+  const transcripts = useSessionTranscripts(transcript?.sessionId ?? "");
 
   return useMemo(() => {
-    if (!store) {
+    if (!transcript) {
       return 0;
     }
 
-    const transcriptStartedAt = store.getCell(
-      "transcripts",
-      transcriptId,
-      "started_at",
+    const earliestStartedAt = Math.min(
+      ...transcripts.map((current) => current.startedAt),
     );
-    if (typeof transcriptStartedAt !== "number") {
-      return 0;
-    }
-
-    let earliestStartedAt = Number.POSITIVE_INFINITY;
-    for (const currentTranscriptId of transcriptIds ?? []) {
-      const startedAt = store.getCell(
-        "transcripts",
-        currentTranscriptId,
-        "started_at",
-      );
-      if (typeof startedAt === "number" && startedAt < earliestStartedAt) {
-        earliestStartedAt = startedAt;
-      }
-    }
 
     return Number.isFinite(earliestStartedAt)
-      ? transcriptStartedAt - earliestStartedAt
+      ? transcript.startedAt - earliestStartedAt
       : 0;
-  }, [store, transcriptId, transcriptIds, transcriptRowsRevision]);
+  }, [transcript, transcripts]);
 }

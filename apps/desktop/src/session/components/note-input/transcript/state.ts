@@ -1,14 +1,10 @@
-import { useMemo } from "react";
-
 import type { DegradedError } from "@hypr/plugin-transcription";
 
 import { useAudioPlayer } from "~/audio-player";
-import { useMainStoreRowsRevision } from "~/store/tinybase/hooks";
-import * as main from "~/store/tinybase/store/main";
 import { getLiveCaptureUiMode } from "~/store/zustand/listener/general-shared";
 import { useListener } from "~/stt/contexts";
 import type { Segment } from "~/stt/live-segment";
-import { parseTranscriptWords } from "~/stt/utils";
+import { useSessionTranscripts } from "~/stt/queries";
 
 type ListeningStatus = "listening" | "finalizing";
 type BatchPhase = "importing" | "transcribing";
@@ -106,32 +102,14 @@ export function useTranscriptScreen({
 }
 
 function useTranscriptContent(sessionId: string) {
-  const transcriptIds =
-    main.UI.useSliceRowIds(
-      main.INDEXES.transcriptBySession,
-      sessionId,
-      main.STORE_ID,
-    ) ?? [];
-  const transcriptRowsRevision = useMainStoreRowsRevision(
-    "transcripts",
-    transcriptIds,
-  );
+  const transcripts = useSessionTranscripts(sessionId);
   const liveSegments = useListener((state) => state.liveSegments);
-  const store = main.UI.useStore(main.STORE_ID);
-
-  const hasTranscriptWords = useMemo(() => {
-    if (!store) {
-      return false;
-    }
-
-    return transcriptIds.some(
-      (transcriptId) => parseTranscriptWords(store, transcriptId).length > 0,
-    );
-  }, [store, transcriptIds, transcriptRowsRevision]);
 
   return {
-    transcriptIds,
+    transcriptIds: transcripts.map((transcript) => transcript.id),
     liveSegments,
-    hasTranscriptWords,
+    hasTranscriptWords: transcripts.some(
+      (transcript) => transcript.words.length > 0,
+    ),
   };
 }

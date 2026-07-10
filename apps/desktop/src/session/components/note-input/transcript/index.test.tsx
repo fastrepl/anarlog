@@ -1,32 +1,18 @@
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { createRef } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Transcript } from "./index";
 
-const {
-  useSliceRowIdsMock,
-  useStoreMock,
-  useListenerMock,
-  useAudioPlayerMock,
-} = vi.hoisted(() => ({
-  useSliceRowIdsMock: vi.fn(),
-  useStoreMock: vi.fn(),
-  useListenerMock: vi.fn(),
-  useAudioPlayerMock: vi.fn(),
-}));
+const { useListenerMock, useAudioPlayerMock, useSessionTranscriptsMock } =
+  vi.hoisted(() => ({
+    useListenerMock: vi.fn(),
+    useAudioPlayerMock: vi.fn(),
+    useSessionTranscriptsMock: vi.fn(),
+  }));
 
-vi.mock("~/store/tinybase/store/main", () => ({
-  STORE_ID: "main",
-  INDEXES: {
-    transcriptBySession: "transcriptBySession",
-  },
-  UI: {
-    useSliceRowIds: useSliceRowIdsMock,
-    useStore: useStoreMock,
-    useCheckpoints: vi.fn(() => null),
-    useIndexes: vi.fn(() => null),
-  },
+vi.mock("~/stt/queries", () => ({
+  useSessionTranscripts: useSessionTranscriptsMock,
 }));
 
 vi.mock("~/stt/contexts", () => ({
@@ -83,16 +69,14 @@ describe("Transcript", () => {
     partialWordsByChannel: Record<number, unknown[]>;
     partialHintsByChannel: Record<number, unknown[]>;
   };
-  let transcriptRowListener: (() => void) | null;
-  let transcriptWordsJson: string;
+  let transcripts: Array<{ id: string; words: unknown[] }>;
 
   afterEach(() => {
     cleanup();
   });
 
   beforeEach(() => {
-    transcriptRowListener = null;
-    transcriptWordsJson = "[]";
+    transcripts = [{ id: transcriptId, words: [] }];
 
     listenerState = {
       getSessionMode: () => "active",
@@ -107,32 +91,7 @@ describe("Transcript", () => {
       partialHintsByChannel: {},
     };
 
-    useSliceRowIdsMock.mockReturnValue([transcriptId]);
-    useStoreMock.mockReturnValue({
-      addRowListener: vi.fn(
-        (tableId: string, rowId: string, listener: () => void) => {
-          if (tableId === "transcripts" && rowId === transcriptId) {
-            transcriptRowListener = listener;
-          }
-
-          return "listener-1";
-        },
-      ),
-      delListener: vi.fn(),
-      getCell: vi.fn(
-        (tableId: string, rowId: string, cellId: "words" | "speaker_hints") => {
-          if (
-            tableId === "transcripts" &&
-            rowId === transcriptId &&
-            cellId === "words"
-          ) {
-            return transcriptWordsJson;
-          }
-
-          return undefined;
-        },
-      ),
-    });
+    useSessionTranscriptsMock.mockImplementation(() => transcripts);
     useListenerMock.mockImplementation((selector) => selector(listenerState));
     useAudioPlayerMock.mockReturnValue({ audioExists: false });
   });
@@ -145,10 +104,9 @@ describe("Transcript", () => {
 
     expect(screen.getByTestId("listening-state").textContent).toBe("listening");
 
-    transcriptWordsJson = '[{"id":"word-1","text":" Hello"}]';
-    act(() => {
-      transcriptRowListener?.();
-    });
+    transcripts = [
+      { id: transcriptId, words: [{ id: "word-1", text: " Hello" }] },
+    ];
 
     view.rerender(<Transcript sessionId={sessionId} scrollRef={scrollRef} />);
 
@@ -160,7 +118,9 @@ describe("Transcript", () => {
       ...listenerState,
       getSessionMode: () => "finalizing",
     };
-    transcriptWordsJson = '[{"id":"word-1","text":" Hello"}]';
+    transcripts = [
+      { id: transcriptId, words: [{ id: "word-1", text: " Hello" }] },
+    ];
 
     render(<Transcript sessionId={sessionId} scrollRef={createRef()} />);
 

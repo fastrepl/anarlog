@@ -17,21 +17,11 @@ vi.mock("@tanstack/react-query", () => ({
 
 vi.mock("../render-request-hooks", () => ({
   useTranscriptRenderData: mocks.useTranscriptRenderData,
-  useTranscriptRowsRevision: vi.fn(() => 0),
 }));
 
-vi.mock("~/store/tinybase/store/main", () => ({
-  STORE_ID: "main",
-  UI: {
-    useCell: vi.fn(() => "session-1"),
-    useSliceRowIds: vi.fn(() => ["transcript-1"]),
-    useStore: vi.fn(() => ({
-      getCell: vi.fn(() => 0),
-    })),
-  },
-  INDEXES: {
-    transcriptBySession: "transcriptBySession",
-  },
+vi.mock("~/stt/queries", () => ({
+  useSessionTranscripts: vi.fn(() => []),
+  useTranscript: vi.fn(() => null),
 }));
 
 vi.mock("~/stt/render-transcript", () => ({
