@@ -35,6 +35,27 @@ pub(crate) async fn execute_proxy(
 
 #[tauri::command]
 #[specta::specta]
+pub(crate) async fn get_legacy_import_report(
+    state: tauri::State<'_, ManagedState>,
+) -> Result<crate::LegacyImportReport, String> {
+    crate::import::get_legacy_import_report(state.pool())
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn run_legacy_import(
+    state: tauri::State<'_, ManagedState>,
+    dry_run: bool,
+) -> Result<String, String> {
+    crate::import::rerun_legacy_import(state.pool(), dry_run)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub(crate) async fn subscribe(
     state: tauri::State<'_, ManagedState>,
     sql: String,

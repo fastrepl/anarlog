@@ -1,27 +1,82 @@
 mod calendars;
 mod events;
+mod legacy_vault;
 mod templates;
 
 use std::path::PathBuf;
 
 use sqlx::SqlitePool;
 
-use calendars::import_legacy_calendars_from_path;
-use events::import_legacy_events_from_path;
-use templates::import_legacy_templates_from_path;
-
-const CALENDARS_FILENAME: &str = "calendars.json";
-const EVENTS_FILENAME: &str = "events.json";
-const TEMPLATES_FILENAME: &str = "templates.json";
-
 pub async fn import_legacy_data<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     pool: &SqlitePool,
 ) -> crate::Result<()> {
     let vault_base = resolve_startup_vault_base(app)?;
-    import_legacy_calendars_from_path(pool, &vault_base.join(CALENDARS_FILENAME)).await?;
-    import_legacy_events_from_path(pool, &vault_base.join(EVENTS_FILENAME)).await?;
-    import_legacy_templates_from_path(pool, &vault_base.join(TEMPLATES_FILENAME)).await
+    legacy_vault::import_legacy_vault(pool, &vault_base, false).await?;
+    Ok(())
+}
+
+pub async fn rerun_legacy_import(pool: &SqlitePool, dry_run: bool) -> crate::Result<String> {
+    let source_root = sqlx::query_scalar::<_, String>(
+        "SELECT source_root
+         FROM migration_import_runs
+         WHERE dry_run = 0 AND source_root <> ''
+         ORDER BY started_at DESC
+         LIMIT 1",
+    )
+    .fetch_optional(pool)
+    .await?
+    .ok_or_else(|| std::io::Error::other("no legacy import source has been recorded"))?;
+
+    legacy_vault::import_legacy_vault(pool, std::path::Path::new(&source_root), dry_run).await
+}
+
+pub async fn get_legacy_import_report(
+    pool: &SqlitePool,
+) -> crate::Result<crate::LegacyImportReport> {
+    let state = sqlx::query_as::<_, crate::StorageMigrationState>(
+        "SELECT phase, latest_run_id, parity_verified, cutover_at, rollback_until, last_error, updated_at
+         FROM storage_migration_state
+         WHERE id = 'legacy_v1'",
+    )
+    .fetch_one(pool)
+    .await?;
+
+    let latest_run = if state.latest_run_id.is_empty() {
+        None
+    } else {
+        sqlx::query_as::<_, crate::LegacyImportRun>(
+            "SELECT id, importer_version, source_root, dry_run, status, discovered_count,
+                    imported_count, skipped_count, conflict_count, error_count, started_at,
+                    completed_at, error
+             FROM migration_import_runs
+             WHERE id = ?",
+        )
+        .bind(&state.latest_run_id)
+        .fetch_optional(pool)
+        .await?
+    };
+
+    let items = if state.latest_run_id.is_empty() {
+        Vec::new()
+    } else {
+        sqlx::query_as::<_, crate::LegacyImportItemReport>(
+            "SELECT source_path, source_kind, source_sha256, status, discovered_count,
+                    imported_count, skipped_count, conflict_count, error
+             FROM migration_import_items
+             WHERE run_id = ?
+             ORDER BY source_path",
+        )
+        .bind(&state.latest_run_id)
+        .fetch_all(pool)
+        .await?
+    };
+
+    Ok(crate::LegacyImportReport {
+        state,
+        latest_run,
+        items,
+    })
 }
 
 fn resolve_startup_vault_base<R: tauri::Runtime>(

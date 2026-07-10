@@ -18038,8 +18038,10 @@ dependencies = [
  "db-execute",
  "db-migrate",
  "db-reactive",
+ "fs-sync-core",
  "serde",
  "serde_json",
+ "sha2 0.11.0",
  "specta",
  "specta-typescript",
  "sqlx",
@@ -18051,6 +18053,7 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.18",
  "tokio",
+ "uuid",
 ]
 
 [[package]]

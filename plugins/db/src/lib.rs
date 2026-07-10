@@ -11,6 +11,58 @@ const PLUGIN_NAME: &str = "db";
 
 pub type ManagedState = std::sync::Arc<runtime::PluginDbRuntime>;
 
+#[derive(Debug, Clone, serde::Serialize, specta::Type, sqlx::FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct StorageMigrationState {
+    pub phase: String,
+    pub latest_run_id: String,
+    pub parity_verified: bool,
+    pub cutover_at: Option<String>,
+    pub rollback_until: Option<String>,
+    pub last_error: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, specta::Type, sqlx::FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct LegacyImportRun {
+    pub id: String,
+    pub importer_version: i64,
+    pub source_root: String,
+    pub dry_run: bool,
+    pub status: String,
+    pub discovered_count: i64,
+    pub imported_count: i64,
+    pub skipped_count: i64,
+    pub conflict_count: i64,
+    pub error_count: i64,
+    pub started_at: String,
+    pub completed_at: Option<String>,
+    pub error: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, specta::Type, sqlx::FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct LegacyImportItemReport {
+    pub source_path: String,
+    pub source_kind: String,
+    pub source_sha256: String,
+    pub status: String,
+    pub discovered_count: i64,
+    pub imported_count: i64,
+    pub skipped_count: i64,
+    pub conflict_count: i64,
+    pub error: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct LegacyImportReport {
+    pub state: StorageMigrationState,
+    pub latest_run: Option<LegacyImportRun>,
+    pub items: Vec<LegacyImportItemReport>,
+}
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type, PartialEq)]
 pub struct ExecuteProxyResult {
     rows: Vec<serde_json::Value>,
@@ -31,6 +83,8 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
         .commands(tauri_specta::collect_commands![
             commands::execute,
             commands::execute_proxy,
+            commands::get_legacy_import_report,
+            commands::run_legacy_import,
             commands::subscribe,
             commands::unsubscribe,
         ])

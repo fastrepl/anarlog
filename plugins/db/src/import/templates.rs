@@ -1,41 +1,4 @@
-use std::path::Path;
-
-use hypr_db_app::UpsertTemplate;
-use sqlx::SqlitePool;
-
-pub async fn import_legacy_templates_from_path(
-    pool: &SqlitePool,
-    path: &Path,
-) -> crate::Result<()> {
-    if !path.exists() {
-        return Ok(());
-    }
-
-    let templates = read_template_file(path)?;
-    for template in templates {
-        hypr_db_app::insert_template_if_missing(
-            pool,
-            UpsertTemplate {
-                id: &template.id,
-                title: &template.title,
-                description: &template.description,
-                pinned: template.pinned,
-                pin_order: template.pin_order,
-                category: template.category.as_deref(),
-                targets_json: template.targets_json.as_deref(),
-                sections_json: &template.sections_json,
-            },
-        )
-        .await?;
-    }
-
-    Ok(())
-}
-
-fn read_template_file(path: &Path) -> crate::Result<Vec<ParsedTemplate>> {
-    let content = std::fs::read_to_string(path)?;
-    Ok(parse_template_file(&content))
-}
+use hypr_db_app::{LegacyImportBatch, LegacyImportRow, LegacyTemplate as ImportedTemplate};
 
 fn parse_template_file(content: &str) -> Vec<ParsedTemplate> {
     let Ok(value) = serde_json::from_str::<serde_json::Value>(content) else {
@@ -58,6 +21,35 @@ fn parse_template_file(content: &str) -> Vec<ParsedTemplate> {
             sections_json: normalize_sections_json(row.get("sections")),
         })
         .collect()
+}
+
+pub(super) fn parse_legacy_templates(content: &str) -> Result<LegacyImportBatch, String> {
+    let value =
+        serde_json::from_str::<serde_json::Value>(content).map_err(|error| error.to_string())?;
+    if !value.is_object() {
+        return Err("JSON root is not an object".to_string());
+    }
+
+    let rows = parse_template_file(content)
+        .into_iter()
+        .map(|template| {
+            LegacyImportRow::Template(ImportedTemplate {
+                id: template.id,
+                title: template.title,
+                description: template.description,
+                pinned: template.pinned,
+                pin_order: template.pin_order,
+                category: template.category,
+                targets_json: template.targets_json,
+                sections_json: template.sections_json,
+            })
+        })
+        .collect();
+
+    Ok(LegacyImportBatch {
+        rows,
+        ..Default::default()
+    })
 }
 
 fn get_string(value: &serde_json::Value, key: &str) -> String {
@@ -196,13 +188,6 @@ struct ParsedTemplate {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hypr_db_core::Db;
-
-    async fn test_db() -> Db {
-        let db = Db::connect_memory_plain().await.unwrap();
-        hypr_db_app::prepare_schema(&db).await.unwrap();
-        db
-    }
 
     #[test]
     fn parse_template_file_accepts_string_and_json_shapes() {
@@ -254,140 +239,6 @@ mod tests {
                 { "title": "Wins", "description": "" },
                 { "title": "Risks", "description": "" }
             ])
-        );
-    }
-
-    #[tokio::test]
-    async fn import_legacy_templates_from_path_imports_missing_templates_without_overwriting() {
-        let db = test_db().await;
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join(super::super::TEMPLATES_FILENAME);
-        std::fs::write(
-            &path,
-            r#"{
-              "template-1": {
-
-                "title": "Weekly",
-                "description": "Agenda",
-                "pinned": true,
-                "pin_order": 4,
-                "category": "meetings",
-                "targets": "[\"eng\"]",
-                "sections": "[{\"title\":\"Notes\",\"description\":\"Capture\"}]"
-              }
-            }"#,
-        )
-        .unwrap();
-
-        import_legacy_templates_from_path(db.pool(), &path)
-            .await
-            .unwrap();
-
-        let row = hypr_db_app::get_template(db.pool(), "template-1")
-            .await
-            .unwrap()
-            .unwrap();
-        assert_eq!(row.title, "Weekly");
-        assert_eq!(row.targets_json.as_deref(), Some("[\"eng\"]"));
-
-        std::fs::write(
-            &path,
-            r#"{
-              "template-1": {
-
-                "title": "Changed Existing",
-                "description": "Should not overwrite",
-                "sections": "[{\"title\":\"Ignored\",\"description\":\"Ignored\"}]"
-              },
-              "template-2": {
-
-                "title": "Changed",
-                "description": "Should import",
-                "sections": "[]"
-              }
-            }"#,
-        )
-        .unwrap();
-
-        import_legacy_templates_from_path(db.pool(), &path)
-            .await
-            .unwrap();
-
-        let existing_row = hypr_db_app::get_template(db.pool(), "template-1")
-            .await
-            .unwrap()
-            .unwrap();
-        assert_eq!(existing_row.title, "Weekly");
-        assert_eq!(existing_row.description, "Agenda");
-
-        let imported_row = hypr_db_app::get_template(db.pool(), "template-2")
-            .await
-            .unwrap()
-            .unwrap();
-        assert_eq!(imported_row.title, "Changed");
-        assert_eq!(imported_row.description, "Should import");
-    }
-
-    #[tokio::test]
-    async fn import_legacy_templates_from_path_preserves_seeded_rows_and_adds_missing_ones() {
-        let db = test_db().await;
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join(super::super::TEMPLATES_FILENAME);
-
-        hypr_db_app::upsert_template(
-            db.pool(),
-            UpsertTemplate {
-                id: "template-1",
-                title: "Seeded",
-                description: "Keep this",
-                pinned: false,
-                pin_order: None,
-                category: None,
-                targets_json: None,
-                sections_json: "[]",
-            },
-        )
-        .await
-        .unwrap();
-
-        std::fs::write(
-            &path,
-            r#"{
-              "template-1": {
-
-                "title": "Legacy Existing",
-                "description": "Should stay ignored",
-                "sections": "[{\"title\":\"Ignored\",\"description\":\"Ignored\"}]"
-              },
-              "template-2": {
-
-                "title": "Legacy New",
-                "description": "Should be inserted",
-                "sections": "[{\"title\":\"Notes\",\"description\":\"Added\"}]"
-              }
-            }"#,
-        )
-        .unwrap();
-
-        import_legacy_templates_from_path(db.pool(), &path)
-            .await
-            .unwrap();
-
-        let seeded_row = hypr_db_app::get_template(db.pool(), "template-1")
-            .await
-            .unwrap()
-            .unwrap();
-        assert_eq!(seeded_row.title, "Seeded");
-        assert_eq!(seeded_row.description, "Keep this");
-
-        let inserted_row = hypr_db_app::get_template(db.pool(), "template-2")
-            .await
-            .unwrap()
-            .unwrap();
-        assert_eq!(inserted_row.title, "Legacy New");
-        assert_eq!(
-            serde_json::from_str::<serde_json::Value>(&inserted_row.sections_json).unwrap(),
-            serde_json::json!([{ "title": "Notes", "description": "Added" }])
         );
     }
 }

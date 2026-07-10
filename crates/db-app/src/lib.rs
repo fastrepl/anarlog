@@ -5,6 +5,7 @@ mod calendar_types;
 mod cloudsync;
 mod event_ops;
 mod event_types;
+mod legacy_import;
 mod template_ops;
 mod template_types;
 
@@ -13,6 +14,7 @@ pub use calendar_types::*;
 pub use cloudsync::*;
 pub use event_ops::*;
 pub use event_types::*;
+pub use legacy_import::*;
 pub use template_ops::*;
 pub use template_types::*;
 
@@ -36,6 +38,11 @@ pub const APP_MIGRATION_STEPS: &[hypr_db_migrate::MigrationStep] = &[
         id: "20260624000000_repair_templates",
         scope: hypr_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260624000000_repair_templates.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260710223922_canonical_data_model",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260710223922_canonical_data_model.sql"),
     },
 ];
 
@@ -170,6 +177,8 @@ mod tests {
 
         assert!(tables.contains(&"_sqlx_migrations".to_string()));
         assert!(tables.contains(&"templates".to_string()));
+        assert!(tables.contains(&"sessions".to_string()));
+        assert!(tables.contains(&"migration_import_runs".to_string()));
     }
 
     #[tokio::test]
@@ -188,7 +197,30 @@ mod tests {
 
         assert_eq!(
             tables,
-            vec!["_sqlx_migrations", "calendars", "events", "templates"]
+            vec![
+                "_sqlx_migrations",
+                "action_items",
+                "app_settings",
+                "calendars",
+                "chat_groups",
+                "chat_messages",
+                "daily_notes",
+                "entity_mentions",
+                "events",
+                "humans",
+                "migration_import_items",
+                "migration_import_runs",
+                "organizations",
+                "session_attachments",
+                "session_documents",
+                "session_participants",
+                "session_tags",
+                "sessions",
+                "storage_migration_state",
+                "tags",
+                "templates",
+                "transcripts",
+            ]
         );
     }
 
@@ -265,48 +297,72 @@ mod tests {
     }
 
     #[test]
-    fn cloudsync_registry_starts_with_templates_disabled() {
+    fn cloudsync_registry_declares_domain_tables_disabled_until_sync_rollout() {
         let registry = cloudsync_table_registry();
 
-        assert_eq!(registry.len(), 1);
-        assert_eq!(registry[0].table_name, "templates");
-        assert!(!registry[0].enabled);
-        assert!(!cloudsync_alter_guard_required("templates"));
+        assert_eq!(registry.len(), 17);
+        assert!(registry.iter().all(|table| !table.enabled));
+        assert!(registry.iter().any(|table| table.table_name == "sessions"));
+        assert!(
+            registry
+                .iter()
+                .any(|table| table.table_name == "session_documents")
+        );
+        assert!(
+            !registry
+                .iter()
+                .any(|table| table.table_name == "migration_import_runs")
+        );
+        assert!(!cloudsync_alter_guard_required("sessions"));
     }
 
     #[tokio::test]
-    async fn templates_table_matches_cloudsync_schema_requirements() {
+    async fn registered_tables_match_cloudsync_schema_requirements() {
         let db = test_db().await;
 
-        let rows = sqlx::query(
-            "SELECT name, type, \"notnull\", dflt_value, pk
-             FROM pragma_table_info('templates')
-             ORDER BY cid",
-        )
-        .fetch_all(db.pool())
-        .await
-        .unwrap();
+        for table in cloudsync_table_registry() {
+            let rows = sqlx::query(
+                "SELECT name, type, \"notnull\", dflt_value, pk
+                 FROM pragma_table_info(?)
+                 ORDER BY cid",
+            )
+            .bind(&table.table_name)
+            .fetch_all(db.pool())
+            .await
+            .unwrap();
 
-        let pk_columns: Vec<_> = rows
-            .iter()
-            .filter(|row| row.get::<i64, _>("pk") > 0)
-            .collect();
-        assert_eq!(pk_columns.len(), 1);
-
-        let pk = pk_columns[0];
-        assert_eq!(pk.get::<String, _>("name"), "id");
-        assert_eq!(pk.get::<String, _>("type").to_uppercase(), "TEXT");
-        assert_eq!(pk.get::<i64, _>("notnull"), 1);
-
-        for row in rows
-            .iter()
-            .filter(|row| row.get::<i64, _>("pk") == 0 && row.get::<i64, _>("notnull") == 1)
-        {
-            assert!(
-                row.get::<Option<String>, _>("dflt_value").is_some(),
-                "column {} must define a DEFAULT value for SQLite Sync compatibility",
-                row.get::<String, _>("name")
+            let pk_columns: Vec<_> = rows
+                .iter()
+                .filter(|row| row.get::<i64, _>("pk") > 0)
+                .collect();
+            assert_eq!(
+                pk_columns.len(),
+                1,
+                "{} must have one primary key",
+                table.table_name
             );
+
+            let pk = pk_columns[0];
+            assert_eq!(pk.get::<String, _>("name"), "id", "{}", table.table_name);
+            assert_eq!(
+                pk.get::<String, _>("type").to_uppercase(),
+                "TEXT",
+                "{}",
+                table.table_name
+            );
+            assert_eq!(pk.get::<i64, _>("notnull"), 1, "{}", table.table_name);
+
+            for row in rows
+                .iter()
+                .filter(|row| row.get::<i64, _>("pk") == 0 && row.get::<i64, _>("notnull") == 1)
+            {
+                assert!(
+                    row.get::<Option<String>, _>("dflt_value").is_some(),
+                    "{}.{} must define a DEFAULT value for SQLite Sync compatibility",
+                    table.table_name,
+                    row.get::<String, _>("name")
+                );
+            }
         }
     }
 

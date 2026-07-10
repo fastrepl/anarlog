@@ -1,118 +1,66 @@
 use std::collections::HashMap;
-use std::path::Path;
 
-use hypr_db_app::UpsertCalendar;
-use sqlx::SqlitePool;
+use hypr_db_app::{LegacyCalendar as ImportedCalendar, LegacyImportBatch, LegacyImportRow};
 
-pub async fn import_legacy_calendars_from_path(
-    pool: &SqlitePool,
-    path: &Path,
-) -> crate::Result<()> {
-    if !path.exists() {
-        return Ok(());
-    }
+pub(super) fn parse_legacy_calendars(content: &str) -> Result<LegacyImportBatch, String> {
+    let table = serde_json::from_str::<HashMap<String, serde_json::Value>>(content)
+        .map_err(|error| error.to_string())?;
+    let rows = table
+        .into_iter()
+        .map(|(id, row)| {
+            LegacyImportRow::Calendar(ImportedCalendar {
+                id,
+                tracking_id_calendar: row
+                    .get("tracking_id_calendar")
+                    .and_then(|value| value.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+                name: row
+                    .get("name")
+                    .and_then(|value| value.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+                enabled: row
+                    .get("enabled")
+                    .and_then(|value| value.as_bool())
+                    .unwrap_or(false),
+                provider: row
+                    .get("provider")
+                    .and_then(|value| value.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+                source: row
+                    .get("source")
+                    .and_then(|value| value.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+                color: row
+                    .get("color")
+                    .and_then(|value| value.as_str())
+                    .unwrap_or("#888")
+                    .to_string(),
+                connection_id: row
+                    .get("connection_id")
+                    .and_then(|value| value.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+            })
+        })
+        .collect();
 
-    let calendars = read_calendars_file(path)?;
-    for calendar in calendars {
-        hypr_db_app::insert_calendar_if_missing(
-            pool,
-            UpsertCalendar {
-                id: &calendar.id,
-                tracking_id_calendar: &calendar.tracking_id_calendar,
-                name: &calendar.name,
-                enabled: calendar.enabled,
-                provider: &calendar.provider,
-                source: &calendar.source,
-                color: &calendar.color,
-                connection_id: &calendar.connection_id,
-            },
-        )
-        .await?;
-    }
-
-    Ok(())
-}
-
-struct LegacyCalendar {
-    id: String,
-    tracking_id_calendar: String,
-    name: String,
-    enabled: bool,
-    provider: String,
-    source: String,
-    color: String,
-    connection_id: String,
-}
-
-fn read_calendars_file(path: &Path) -> crate::Result<Vec<LegacyCalendar>> {
-    let content = std::fs::read_to_string(path)?;
-    let Ok(table) = serde_json::from_str::<HashMap<String, serde_json::Value>>(&content) else {
-        return Ok(Vec::new());
-    };
-
-    let mut calendars = Vec::new();
-    for (id, row) in table {
-        calendars.push(LegacyCalendar {
-            id,
-            tracking_id_calendar: row
-                .get("tracking_id_calendar")
-                .and_then(|value| value.as_str())
-                .unwrap_or("")
-                .to_string(),
-            name: row
-                .get("name")
-                .and_then(|value| value.as_str())
-                .unwrap_or("")
-                .to_string(),
-            enabled: row
-                .get("enabled")
-                .and_then(|value| value.as_bool())
-                .unwrap_or(false),
-            provider: row
-                .get("provider")
-                .and_then(|value| value.as_str())
-                .unwrap_or("")
-                .to_string(),
-            source: row
-                .get("source")
-                .and_then(|value| value.as_str())
-                .unwrap_or("")
-                .to_string(),
-            color: row
-                .get("color")
-                .and_then(|value| value.as_str())
-                .unwrap_or("#888")
-                .to_string(),
-            connection_id: row
-                .get("connection_id")
-                .and_then(|value| value.as_str())
-                .unwrap_or("")
-                .to_string(),
-        });
-    }
-
-    Ok(calendars)
+    Ok(LegacyImportBatch {
+        rows,
+        ..Default::default()
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hypr_db_core::Db;
 
-    async fn test_db() -> Db {
-        let db = Db::connect_memory_plain().await.unwrap();
-        hypr_db_app::prepare_schema(&db).await.unwrap();
-        db
-    }
-
-    #[tokio::test]
-    async fn import_legacy_calendars_from_path_imports_rows() {
-        let db = test_db().await;
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("calendars.json");
-
-        std::fs::write(
-            &path,
+    #[test]
+    fn parse_legacy_calendars_preserves_rows() {
+        let batch = parse_legacy_calendars(
             r##"{
               "cal-1": {
                 "tracking_id_calendar": "track-1",
@@ -127,13 +75,10 @@ mod tests {
         )
         .unwrap();
 
-        import_legacy_calendars_from_path(db.pool(), &path)
-            .await
-            .unwrap();
-
-        let rows = hypr_db_app::list_calendars(db.pool()).await.unwrap();
-        assert_eq!(rows.len(), 1);
-        assert_eq!(rows[0].id, "cal-1");
-        assert_eq!(rows[0].name, "Work");
+        let LegacyImportRow::Calendar(calendar) = &batch.rows[0] else {
+            panic!("expected calendar");
+        };
+        assert_eq!(calendar.id, "cal-1");
+        assert_eq!(calendar.name, "Work");
     }
 }

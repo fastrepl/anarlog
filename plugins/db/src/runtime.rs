@@ -47,6 +47,10 @@ impl PluginDbRuntime {
         }
     }
 
+    pub fn pool(&self) -> &sqlx::SqlitePool {
+        self.db.pool()
+    }
+
     async fn ensure_app_schema(&self) -> Result<()> {
         self.schema_ready
             .get_or_try_init(|| async { hypr_db_app::prepare_schema(self.db.as_ref()).await })

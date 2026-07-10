@@ -1,6 +1,9 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 
-import type { SubscriptionRegistration } from "./bindings.gen";
+import type {
+  LegacyImportReport,
+  SubscriptionRegistration,
+} from "./bindings.gen";
 
 export type QueryEvent<T = Record<string, unknown>> =
   | { event: "result"; data: T[] }
@@ -21,6 +24,14 @@ export async function executeProxy(
   method: "run" | "all" | "get" | "values",
 ): Promise<{ rows: unknown[] }> {
   return invoke("plugin:db|execute_proxy", { sql, params, method });
+}
+
+export async function getLegacyImportReport(): Promise<LegacyImportReport> {
+  return invoke("plugin:db|get_legacy_import_report");
+}
+
+export async function runLegacyImport(dryRun = false): Promise<string> {
+  return invoke("plugin:db|run_legacy_import", { dryRun });
 }
 
 export async function subscribe<T = Record<string, unknown>>(
