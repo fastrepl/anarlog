@@ -22,17 +22,14 @@ vi.mock("@handlewithcare/react-prosemirror", () => ({
       callback(hoisted.view),
 }));
 
-vi.mock("~/store/tinybase/store/main", () => ({
-  STORE_ID: "main",
-  UI: {
-    useRow: () => ({
-      created_at: "2026-04-06T00:00:00.000Z",
-      event_json: JSON.stringify({
-        started_at: "2026-04-06T02:30:00.000Z",
-        ended_at: "2026-04-06T01:00:00.000Z",
-      }),
+vi.mock("~/session/queries", () => ({
+  useSession: () => ({
+    created_at: "2026-04-06T00:00:00.000Z",
+    event_json: JSON.stringify({
+      started_at: "2026-04-06T02:30:00.000Z",
+      ended_at: "2026-04-06T01:00:00.000Z",
     }),
-  },
+  }),
 }));
 
 vi.mock("~/calendar/hooks", () => ({

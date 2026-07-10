@@ -13,8 +13,8 @@ import { useHotkeys } from "react-hotkeys-hook";
 
 import { cn } from "@hypr/utils";
 
+import { useSessionSummaries } from "~/session/queries";
 import { useMainContentCenterOffset } from "~/shared/main/content-offset";
-import * as main from "~/store/tinybase/store/main";
 import { useTabs } from "~/store/zustand/tabs";
 
 const MAX_RECENT_DISPLAY = 5;
@@ -93,23 +93,20 @@ export function OpenNoteDialog({
     (state) => state.recentlyOpenedSessionIds,
   );
 
-  const sessionIds = main.UI.useRowIds("sessions", main.STORE_ID);
-  const store = main.UI.useStore(main.STORE_ID);
+  const sessions = useSessionSummaries();
 
   const sessionsMap = useMemo(() => {
-    if (!store || !sessionIds) return new Map<string, Session>();
-
-    const map = new Map<string, Session>();
-    for (const id of sessionIds) {
-      map.set(id, {
-        id,
-        title:
-          (store.getCell("sessions", id, "title") as string) || t`Untitled`,
-        createdAt: store.getCell("sessions", id, "created_at") as string,
-      });
-    }
-    return map;
-  }, [sessionIds, store]);
+    return new Map<string, Session>(
+      sessions.map((session) => [
+        session.id,
+        {
+          id: session.id,
+          title: session.title || t`Untitled`,
+          createdAt: session.created_at,
+        },
+      ]),
+    );
+  }, [sessions, t]);
 
   const allSessionsSortedByDate = useMemo(() => {
     return Array.from(sessionsMap.values()).sort((a, b) => {

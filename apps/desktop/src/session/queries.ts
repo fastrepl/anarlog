@@ -53,6 +53,12 @@ type SessionSqlRow = {
   raw_body_format: string;
 };
 
+type SessionSummarySqlRow = {
+  id: string;
+  title: string;
+  created_at: string;
+};
+
 type SessionTranscriptStateSqlRow = {
   has_transcript: boolean | number;
 };
@@ -97,6 +103,12 @@ export type SessionChanges = Partial<
   >
 >;
 
+export type SessionSummaryRecord = {
+  id: string;
+  title: string;
+  created_at: string;
+};
+
 export type EnhancedNoteRecord = {
   id: string;
   sessionId: string;
@@ -121,6 +133,7 @@ export type SessionParticipantRecord = {
 
 const EMPTY_ENHANCED_NOTES: EnhancedNoteRecord[] = [];
 const EMPTY_SESSION_PARTICIPANTS: SessionParticipantRecord[] = [];
+const EMPTY_SESSION_SUMMARIES: SessionSummaryRecord[] = [];
 
 const SESSION_SELECT_SQL = `
   SELECT
@@ -152,6 +165,41 @@ export function useSession(sessionId: string): SessionRecord | null {
     },
   });
   return sessionId ? data : null;
+}
+
+export function useSessionSummary(
+  sessionId: string,
+): SessionSummaryRecord | null {
+  const { data = null } = useLiveQuery<
+    SessionSummarySqlRow,
+    SessionSummaryRecord | null
+  >({
+    sql: `
+      SELECT id, title, created_at
+      FROM sessions
+      WHERE id = ? AND deleted_at IS NULL
+      LIMIT 1
+    `,
+    params: [sessionId],
+    enabled: Boolean(sessionId),
+    mapRows: (rows) => rows[0] ?? null,
+  });
+  return sessionId ? data : null;
+}
+
+export function useSessionSummaries(): SessionSummaryRecord[] {
+  const { data = EMPTY_SESSION_SUMMARIES } = useLiveQuery<
+    SessionSummarySqlRow,
+    SessionSummaryRecord[]
+  >({
+    sql: `
+      SELECT id, title, created_at
+      FROM sessions
+      WHERE deleted_at IS NULL
+      ORDER BY created_at DESC, id
+    `,
+  });
+  return data;
 }
 
 export async function loadSessionEvent(

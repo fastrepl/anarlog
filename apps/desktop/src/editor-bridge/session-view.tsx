@@ -16,8 +16,8 @@ import {
 import { cn, safeParseDate } from "@hypr/utils";
 
 import { toTz, useTimezone } from "~/calendar/hooks";
+import { useSession } from "~/session/queries";
 import { getSessionEvent } from "~/session/utils";
-import * as main from "~/store/tinybase/store/main";
 import { useTabs } from "~/store/zustand/tabs";
 import { useListener } from "~/stt/contexts";
 
@@ -28,14 +28,14 @@ export const SessionNodeView = forwardRef<
   const { node, getPos } = nodeProps;
   const sessionId = node.attrs.sessionId as string;
 
-  const session = main.UI.useRow("sessions", sessionId, main.STORE_ID);
+  const session = useSession(sessionId);
   const tz = useTimezone();
   const liveSessionId = useListener((state) => state.live.sessionId);
   const liveStatus = useListener((state) => state.live.status);
   const isRecording =
     liveSessionId === sessionId &&
     (liveStatus === "active" || liveStatus === "finalizing");
-  const event = useMemo(() => getSessionEvent(session), [session]);
+  const event = useMemo(() => getSessionEvent(session ?? {}), [session]);
   const displayTime = useMemo(() => {
     if (event?.is_all_day) {
       return null;
