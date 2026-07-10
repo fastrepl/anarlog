@@ -62,9 +62,7 @@ export async function fetchIncomingEvents(ctx: Ctx): Promise<{
     const { event, eventParticipants } =
       await normalizeCalendarEvent(calendarEvent);
     events.push(event);
-    if (eventParticipants.length > 0) {
-      participants.set(event.tracking_id_event, eventParticipants);
-    }
+    participants.set(event.tracking_id_event, eventParticipants);
   }
 
   return { events, participants };

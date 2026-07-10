@@ -1,9 +1,2 @@
-export {
-  executeForEventsSync,
-  syncEvents,
-  syncSessionEmbeddedEvents,
-} from "./events";
-export {
-  executeForParticipantsSync,
-  syncSessionParticipants,
-} from "./participants";
+export { syncEvents, syncSessionEmbeddedEvents } from "./events";
+export { syncSessionParticipants } from "./participants";

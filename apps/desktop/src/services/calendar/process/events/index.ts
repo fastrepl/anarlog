@@ -1,4 +1,4 @@
-export { executeForEventsSync, syncSessionEmbeddedEvents } from "./execute";
+export { syncSessionEmbeddedEvents } from "./execute";
 export { syncEvents } from "./sync";
 export type {
   EventId,

@@ -5,64 +5,28 @@ import type { ExistingEvent, IncomingEvent } from "../../fetch/types";
 import { syncEvents } from "./sync";
 import type { EventsSyncInput } from "./types";
 
-function createMockStore(config: {
-  eventToSession?: Map<string, string>;
-  nonEmptySessions?: Set<string>;
-}) {
-  const eventToSession = config.eventToSession ?? new Map();
-  const nonEmptySessions = config.nonEmptySessions ?? new Set();
-
-  const sessionToEvent = new Map<string, string>();
-  for (const [eventId, sessionId] of eventToSession) {
-    sessionToEvent.set(sessionId, eventId);
-  }
-
-  return {
-    getRow: (table: string, id: string) => {
-      if (table === "sessions") {
-        const eventId = sessionToEvent.get(id);
-        if (!eventId) return {};
-        const hasContent = nonEmptySessions.has(id);
-        return {
-          event_id: eventId,
-          raw_md: hasContent ? "some content" : "",
-        };
-      }
-      return {};
-    },
-    forEachRow: (table: string, callback: (rowId: string) => void) => {
-      if (table === "sessions") {
-        for (const sessionId of sessionToEvent.keys()) {
-          callback(sessionId);
-        }
-      }
-    },
-  } as unknown as Ctx["store"];
-}
-
 function createMockCtx(
   overrides: Partial<Ctx> & {
     eventToSession?: Map<string, string>;
     nonEmptySessions?: Set<string>;
   } = {},
 ): Ctx {
-  const store = createMockStore({
-    eventToSession: overrides.eventToSession,
-    nonEmptySessions: overrides.nonEmptySessions,
-  });
+  const {
+    eventToSession: _eventToSession,
+    nonEmptySessions: _sessions,
+    ...ctx
+  } = overrides;
 
   return {
     provider: "apple" as const,
     connectionId: "apple",
-    userId: "user-1",
     from: new Date("2024-01-01"),
     to: new Date("2024-02-01"),
     calendarIds: overrides.calendarIds ?? new Set(["cal-1"]),
     calendarTrackingIdToId:
       overrides.calendarTrackingIdToId ??
       new Map([["tracking-cal-1", "cal-1"]]),
-    store,
-    ...overrides,
+    ...ctx,
   };
 }
 
@@ -88,12 +52,19 @@ function createExistingEvent(
     id: "event-1",
     tracking_id_event: "existing-1",
     calendar_id: "cal-1",
-    user_id: "user-1",
     created_at: "2024-01-01T00:00:00Z",
     title: "Existing Event",
     started_at: "2024-01-15T10:00:00Z",
     ended_at: "2024-01-15T11:00:00Z",
+    location: "",
+    meeting_link: "",
+    description: "",
+    note: "",
+    recurrence_series_id: "",
+    has_recurrence_rules: false,
+    is_all_day: false,
     provider: "apple",
+    deleted_at: null,
     ...overrides,
   };
 }
@@ -147,6 +118,41 @@ describe("syncEvents", () => {
     );
 
     expect(result.toDelete).toContain("event-1");
+  });
+
+  test("resurrects a tombstoned event instead of allocating a new id", () => {
+    const result = syncEvents(
+      createMockCtx(),
+      syncInput({
+        incoming: [createIncomingEvent({ tracking_id_event: "existing-1" })],
+        existing: [
+          createExistingEvent({
+            deleted_at: "2024-01-10T00:00:00Z",
+          }),
+        ],
+      }),
+    );
+
+    expect(result.toUpdate.map((event) => event.id)).toEqual(["event-1"]);
+    expect(result.toAdd).toEqual([]);
+    expect(result.toDelete).toEqual([]);
+  });
+
+  test("keeps one durable row when duplicate active events exist", () => {
+    const result = syncEvents(
+      createMockCtx(),
+      syncInput({
+        incoming: [createIncomingEvent({ tracking_id_event: "existing-1" })],
+        existing: [
+          createExistingEvent({ id: "event-1" }),
+          createExistingEvent({ id: "event-duplicate" }),
+        ],
+      }),
+    );
+
+    expect(result.toUpdate.map((event) => event.id)).toEqual(["event-1"]);
+    expect(result.toDelete).toEqual(["event-duplicate"]);
+    expect(result.toAdd).toEqual([]);
   });
 
   describe("removed calendar cleanup", () => {

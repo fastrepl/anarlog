@@ -6,7 +6,6 @@ import {
   useRef,
   useState,
 } from "react";
-import type { Queries } from "tinybase/with-schemas";
 import {
   useScheduleTaskRunCallback,
   useTaskRunRunning,
@@ -17,7 +16,6 @@ import {
   CALENDAR_SYNC_TASK_ID,
   syncCalendarEventsForRange,
 } from "~/services/calendar";
-import * as main from "~/store/tinybase/store/main";
 
 export const TOGGLE_SYNC_DEBOUNCE_MS = 5000;
 
@@ -35,8 +33,6 @@ interface SyncContextValue {
 const SyncContext = createContext<SyncContextValue | null>(null);
 
 export function SyncProvider({ children }: { children: React.ReactNode }) {
-  const store = main.UI.useStore(main.STORE_ID);
-  const queries = main.UI.useQueries(main.STORE_ID);
   const scheduleEventSync = useScheduleTaskRunCallback(
     CALENDAR_SYNC_TASK_ID,
     undefined,
@@ -52,7 +48,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
   const isTaskRunning = useTaskRunRunning(pendingTaskRunId ?? "");
   const isSyncing = pendingTaskRunId !== null && isTaskRunning === true;
   const isRangeSyncing = rangeSyncCount > 0;
-  const canSync = Boolean(store && queries);
+  const canSync = true;
 
   const status: SyncStatus =
     isSyncing || isRangeSyncing
@@ -105,23 +101,14 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
 
   const syncRange = useCallback(
     async (range: CalendarSyncRange, signal?: AbortSignal) => {
-      if (!store || !queries) {
-        return;
-      }
-
       setRangeSyncCount((count) => count + 1);
       try {
-        await syncCalendarEventsForRange(
-          store as main.Store,
-          queries as Queries<main.Schemas>,
-          range,
-          { signal },
-        );
+        await syncCalendarEventsForRange(range, { signal });
       } finally {
         setRangeSyncCount((count) => Math.max(0, count - 1));
       }
     },
-    [store, queries],
+    [],
   );
 
   return (

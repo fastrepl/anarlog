@@ -1,4 +1,3 @@
-export { executeForParticipantsSync } from "./execute";
 export { syncSessionParticipants } from "./sync";
 export type {
   HumanToCreate,

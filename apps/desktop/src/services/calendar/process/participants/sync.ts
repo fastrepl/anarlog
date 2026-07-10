@@ -1,4 +1,3 @@
-import type { Ctx } from "../../ctx";
 import type { EventParticipant } from "../../fetch/types";
 import type {
   HumanToCreate,
@@ -7,140 +6,122 @@ import type {
   ParticipantsSyncOutput,
 } from "./types";
 
-import { findSessionByTrackingId } from "~/session/utils";
 import { id } from "~/shared/utils";
-import type { Store } from "~/store/tinybase/store/main";
 
-export function syncSessionParticipants(
-  ctx: Ctx,
-  input: ParticipantsSyncInput,
-): ParticipantsSyncOutput {
+export function syncSessionParticipants({
+  incomingParticipants,
+  snapshot,
+}: ParticipantsSyncInput): ParticipantsSyncOutput {
   const output: ParticipantsSyncOutput = {
     toDelete: [],
     toAdd: [],
     humansToCreate: [],
   };
-
-  const humansByEmail = buildHumansByEmailIndex(ctx.store);
-  const humansToCreateMap = new Map<string, HumanToCreate>();
-
-  for (const [trackingId, participants] of input.incomingParticipants) {
-    const sessionId = findSessionByTrackingId(ctx.store, trackingId);
-    if (!sessionId) {
-      continue;
+  const sessionsByTrackingId = new Map<
+    string,
+    (typeof snapshot.sessions)[number]
+  >();
+  for (const session of snapshot.sessions) {
+    if (!sessionsByTrackingId.has(session.trackingId)) {
+      sessionsByTrackingId.set(session.trackingId, session);
     }
+  }
+  const humansByEmail = new Map<string, string>();
+  for (const human of snapshot.humans) {
+    const email = human.email.trim().toLowerCase();
+    if (email && !humansByEmail.has(email)) {
+      humansByEmail.set(email, human.id);
+    }
+  }
+  const mappingsBySession = new Map<
+    string,
+    Map<string, (typeof snapshot.mappings)[number]>
+  >();
+  for (const mapping of snapshot.mappings) {
+    const sessionMappings =
+      mappingsBySession.get(mapping.sessionId) ?? new Map();
+    if (!sessionMappings.has(mapping.humanId)) {
+      sessionMappings.set(mapping.humanId, mapping);
+    }
+    mappingsBySession.set(mapping.sessionId, sessionMappings);
+  }
+  const humansToCreate = new Map<string, HumanToCreate>();
 
-    const sessionOutput = computeSessionParticipantChanges(
-      ctx.store,
-      sessionId,
-      participants,
+  for (const [trackingId, eventParticipants] of incomingParticipants) {
+    const session = sessionsByTrackingId.get(trackingId);
+    if (!session) continue;
+
+    const changes = computeSessionParticipantChanges({
+      sessionId: session.id,
+      ownerUserId: session.ownerUserId,
+      eventParticipants,
       humansByEmail,
-      humansToCreateMap,
-    );
-
-    output.toDelete.push(...sessionOutput.toDelete);
-    output.toAdd.push(...sessionOutput.toAdd);
+      humansToCreate,
+      existingMappings:
+        mappingsBySession.get(session.id) ??
+        new Map<string, (typeof snapshot.mappings)[number]>(),
+    });
+    output.toDelete.push(...changes.toDelete);
+    output.toAdd.push(...changes.toAdd);
   }
 
-  output.humansToCreate = Array.from(humansToCreateMap.values());
-
+  output.humansToCreate = Array.from(humansToCreate.values());
   return output;
 }
 
-function buildHumansByEmailIndex(store: Store): Map<string, string> {
-  const humansByEmail = new Map<string, string>();
+function computeSessionParticipantChanges({
+  sessionId,
+  ownerUserId,
+  eventParticipants,
+  humansByEmail,
+  humansToCreate,
+  existingMappings,
+}: {
+  sessionId: string;
+  ownerUserId: string;
+  eventParticipants: EventParticipant[];
+  humansByEmail: Map<string, string>;
+  humansToCreate: Map<string, HumanToCreate>;
+  existingMappings: Map<
+    string,
+    { id: string; humanId: string; source: string }
+  >;
+}): { toDelete: string[]; toAdd: ParticipantMappingToAdd[] } {
+  const eventHumans = new Map<string, { humanId: string; email: string }>();
 
-  store.forEachRow("humans", (humanId, _forEachCell) => {
-    const human = store.getRow("humans", humanId);
-    const email = human?.email;
-    if (email && typeof email === "string" && email.trim()) {
-      humansByEmail.set(email.toLowerCase(), humanId);
-    }
-  });
-
-  return humansByEmail;
-}
-
-function computeSessionParticipantChanges(
-  store: Store,
-  sessionId: string,
-  eventParticipants: EventParticipant[],
-  humansByEmail: Map<string, string>,
-  humansToCreateMap: Map<string, HumanToCreate>,
-): { toDelete: string[]; toAdd: ParticipantMappingToAdd[] } {
-  const eventHumanIds = new Set<string>();
   for (const participant of eventParticipants) {
-    if (!participant.email) {
-      continue;
-    }
+    const email = participant.email?.trim();
+    if (!email) continue;
 
-    const emailLower = participant.email.toLowerCase();
-    let humanId = humansByEmail.get(emailLower);
-
+    const emailKey = email.toLowerCase();
+    let humanId = humansByEmail.get(emailKey);
     if (!humanId) {
-      const existing = humansToCreateMap.get(emailLower);
-      if (existing) {
-        humanId = existing.id;
-      } else {
-        humanId = id();
-        humansToCreateMap.set(emailLower, {
-          id: humanId,
-          name: participant.name || participant.email,
-          email: participant.email,
-        });
-        humansByEmail.set(emailLower, humanId);
-      }
+      humanId = id();
+      humansByEmail.set(emailKey, humanId);
+      humansToCreate.set(emailKey, {
+        id: humanId,
+        ownerUserId,
+        name: participant.name || email,
+        email,
+      });
     }
-
-    eventHumanIds.add(humanId);
+    eventHumans.set(humanId, { humanId, email });
   }
-
-  const existingMappings = getExistingMappings(store, sessionId);
 
   const toAdd: ParticipantMappingToAdd[] = [];
   const toDelete: string[] = [];
-
-  for (const humanId of eventHumanIds) {
+  for (const { humanId, email } of eventHumans.values()) {
     const existing = existingMappings.get(humanId);
     if (!existing) {
-      toAdd.push({ sessionId, humanId });
-    } else if (existing.source === "excluded") {
-      continue;
+      toAdd.push({ sessionId, humanId, email });
     }
   }
 
   for (const [humanId, mapping] of existingMappings) {
-    if (mapping.source === "auto" && !eventHumanIds.has(humanId)) {
+    if (mapping.source === "auto" && !eventHumans.has(humanId)) {
       toDelete.push(mapping.id);
     }
   }
 
   return { toDelete, toAdd };
-}
-
-type MappingInfo = {
-  id: string;
-  humanId: string;
-  source: string | undefined;
-};
-
-function getExistingMappings(
-  store: Store,
-  sessionId: string,
-): Map<string, MappingInfo> {
-  const mappings = new Map<string, MappingInfo>();
-
-  store.forEachRow("mapping_session_participant", (mappingId, _forEachCell) => {
-    const mapping = store.getRow("mapping_session_participant", mappingId);
-    if (mapping?.session_id === sessionId && mapping.human_id) {
-      const humanId = mapping.human_id;
-      mappings.set(humanId, {
-        id: mappingId,
-        humanId,
-        source: mapping.source,
-      });
-    }
-  });
-
-  return mappings;
 }

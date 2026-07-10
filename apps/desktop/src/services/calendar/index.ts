@@ -1,5 +1,3 @@
-import type { Queries } from "tinybase/with-schemas";
-
 import type { CalendarProviderType } from "@hypr/plugin-calendar";
 
 import {
@@ -14,43 +12,42 @@ import {
   fetchIncomingEvents,
 } from "./fetch";
 import {
-  executeForEventsSync,
-  executeForParticipantsSync,
   syncEvents,
   syncSessionEmbeddedEvents,
   syncSessionParticipants,
 } from "./process";
+import {
+  applyConnectionSync,
+  loadParticipantSyncSnapshot,
+  loadSessionsForTrackingIds,
+} from "./storage";
 
-import type { Schemas, Store } from "~/store/tinybase/store/main";
+import { enqueueDatabaseWrite } from "~/db/write-queue";
 
 export const CALENDAR_SYNC_TASK_ID = "calendarSync";
 export type { CalendarSyncRange };
+
 type CalendarSyncOptions = {
   signal?: AbortSignal;
 };
 
-export async function syncCalendarEvents(
-  store: Store,
-  queries: Queries<Schemas>,
-): Promise<void> {
-  await Promise.all([
-    new Promise((resolve) => setTimeout(resolve, 250)),
-    run(store, queries),
-  ]);
+export function syncCalendarEvents(): Promise<void> {
+  return enqueueDatabaseWrite("calendar-sync", async () => {
+    await Promise.all([
+      new Promise((resolve) => setTimeout(resolve, 250)),
+      run(),
+    ]);
+  });
 }
 
-export async function syncCalendarEventsForRange(
-  store: Store,
-  queries: Queries<Schemas>,
+export function syncCalendarEventsForRange(
   range: CalendarSyncRange,
   options: CalendarSyncOptions = {},
 ): Promise<void> {
-  await run(store, queries, range, options);
+  return enqueueDatabaseWrite("calendar-sync", () => run(range, options));
 }
 
 async function run(
-  store: Store,
-  queries: Queries<Schemas>,
   range?: CalendarSyncRange,
   options: CalendarSyncOptions = {},
 ) {
@@ -59,7 +56,7 @@ async function run(
   const providerConnections = await getProviderConnections();
   if (isAborted(options.signal)) return;
 
-  await syncCalendars(store, providerConnections);
+  await syncCalendars(providerConnections);
   if (isAborted(options.signal)) return;
 
   for (const { provider, connection_ids } of providerConnections) {
@@ -67,14 +64,7 @@ async function run(
       if (isAborted(options.signal)) return;
 
       try {
-        await runForConnection(
-          store,
-          queries,
-          provider,
-          connectionId,
-          range,
-          options,
-        );
+        await runForConnection(provider, connectionId, range, options);
       } catch (error) {
         console.error(
           `[calendar-sync] Error syncing ${provider} (${connectionId}): ${error}`,
@@ -85,17 +75,13 @@ async function run(
 }
 
 async function runForConnection(
-  store: Store,
-  queries: Queries<Schemas>,
   provider: CalendarProviderType,
   connectionId: string,
   range?: CalendarSyncRange,
   options: CalendarSyncOptions = {},
 ) {
-  const ctx = createCtx(store, queries, provider, connectionId, range);
-  if (!ctx || isAborted(options.signal)) {
-    return;
-  }
+  const ctx = await createCtx(provider, connectionId, range);
+  if (isAborted(options.signal)) return;
 
   let incoming;
   let incomingParticipants;
@@ -116,28 +102,36 @@ async function runForConnection(
 
   if (isAborted(options.signal)) return;
 
-  const existing = fetchExistingEvents(ctx);
+  const existing = await fetchExistingEvents(ctx, incoming);
   if (isAborted(options.signal)) return;
 
-  const eventsOut = syncEvents(ctx, {
+  const events = syncEvents(ctx, {
     incoming,
     existing,
     incomingParticipants,
   });
+  const sessions = await loadSessionsForTrackingIds(
+    incoming.map((event) => event.tracking_id_event),
+  );
   if (isAborted(options.signal)) return;
 
-  executeForEventsSync(ctx, eventsOut);
-  if (isAborted(options.signal)) return;
-
-  syncSessionEmbeddedEvents(ctx, incoming);
-  if (isAborted(options.signal)) return;
-
-  const participantsOut = syncSessionParticipants(ctx, {
+  const sessionUpdates = syncSessionEmbeddedEvents(ctx, incoming, sessions);
+  const participantSnapshot = await loadParticipantSyncSnapshot(
+    sessions,
     incomingParticipants,
-  });
+  );
   if (isAborted(options.signal)) return;
 
-  executeForParticipantsSync(ctx, participantsOut);
+  const participants = syncSessionParticipants({
+    incomingParticipants,
+    snapshot: participantSnapshot,
+  });
+  await applyConnectionSync({
+    ctx,
+    events,
+    sessionUpdates,
+    participants,
+  });
 }
 
 function isAborted(signal: AbortSignal | undefined) {

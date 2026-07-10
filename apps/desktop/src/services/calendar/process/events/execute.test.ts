@@ -4,61 +4,13 @@ import type { SessionEvent } from "@hypr/store";
 
 import type { Ctx } from "../../ctx";
 import type { IncomingEvent } from "../../fetch/types";
+import type { SessionSyncRow } from "../../storage";
 import { syncSessionEmbeddedEvents } from "./execute";
 
-type MockStoreData = {
-  sessions: Record<string, Record<string, unknown>>;
-  events: Record<string, Record<string, unknown>>;
-  values: Record<string, string>;
-};
-
-function createMockStore(data: MockStoreData) {
+function createMockCtx(overrides: Partial<Ctx> = {}): Ctx {
   return {
-    getRow: (table: string, id: string) => {
-      if (table === "sessions") return data.sessions[id] ?? {};
-      if (table === "events") return data.events[id] ?? {};
-      return {};
-    },
-    forEachRow: (
-      table: string,
-      callback: (id: string, forEachCell: unknown) => void,
-    ) => {
-      const tableData =
-        table === "sessions"
-          ? data.sessions
-          : table === "events"
-            ? data.events
-            : {};
-      for (const id of Object.keys(tableData)) {
-        callback(id, () => {});
-      }
-    },
-    setPartialRow: (
-      table: string,
-      id: string,
-      row: Record<string, unknown>,
-    ) => {
-      if (table === "sessions") {
-        data.sessions[id] = { ...data.sessions[id], ...row };
-      }
-    },
-    transaction: (fn: () => void) => fn(),
-    getValue: (key: string) => data.values[key],
-    setValue: (key: string, value: string) => {
-      data.values[key] = value;
-    },
-  } as unknown as Ctx["store"];
-}
-
-function createMockCtx(
-  storeData: MockStoreData,
-  overrides: Partial<Ctx> = {},
-): Ctx {
-  return {
-    store: createMockStore(storeData),
-    provider: "apple" as const,
+    provider: "apple",
     connectionId: "apple",
-    userId: "user-1",
     from: new Date("2024-01-01"),
     to: new Date("2024-02-01"),
     calendarIds: new Set(["cal-1"]),
@@ -80,6 +32,18 @@ function makeSessionEvent(overrides: Partial<SessionEvent> = {}): SessionEvent {
   };
 }
 
+function makeSession(
+  id: string,
+  event: SessionEvent = makeSessionEvent(),
+): SessionSyncRow {
+  return {
+    id,
+    ownerUserId: "user-1",
+    eventJson: JSON.stringify(event),
+    trackingId: event.tracking_id,
+  };
+}
+
 function makeIncomingEvent(
   overrides: Partial<IncomingEvent> = {},
 ): IncomingEvent {
@@ -96,135 +60,82 @@ function makeIncomingEvent(
 }
 
 describe("syncSessionEmbeddedEvents", () => {
-  test("updates session embedded event for non-recurring event", () => {
-    const storeData: MockStoreData = {
-      sessions: {
-        "session-1": {
-          event_json: JSON.stringify(makeSessionEvent()),
-        },
-      },
-      events: {},
-      values: {},
-    };
-    const ctx = createMockCtx(storeData);
-
-    syncSessionEmbeddedEvents(ctx, [
-      makeIncomingEvent({ title: "Updated Title" }),
-    ]);
-
-    const updated = JSON.parse(
-      storeData.sessions["session-1"].event_json as string,
+  test("builds an update for a matching non-recurring event", () => {
+    const updates = syncSessionEmbeddedEvents(
+      createMockCtx(),
+      [makeIncomingEvent({ title: "Updated Title" })],
+      [makeSession("session-1")],
     );
-    expect(updated.title).toBe("Updated Title");
-    expect(updated.tracking_id).toBe("track-1");
+
+    expect(updates).toHaveLength(1);
+    const event = JSON.parse(updates[0].eventJson);
+    expect(event.title).toBe("Updated Title");
+    expect(event.tracking_id).toBe("track-1");
   });
 
-  test("matches recurring events by unique tracking_id per occurrence", () => {
-    const storeData: MockStoreData = {
-      sessions: {
-        "session-jan15": {
-          event_json: JSON.stringify(
-            makeSessionEvent({
-              tracking_id: "recurring-1:2024-01-15",
-              has_recurrence_rules: true,
-              started_at: "2024-01-15T10:00:00Z",
-            }),
-          ),
-        },
-        "session-jan22": {
-          event_json: JSON.stringify(
-            makeSessionEvent({
-              tracking_id: "recurring-1:2024-01-22",
-              has_recurrence_rules: true,
-              started_at: "2024-01-22T10:00:00Z",
-            }),
-          ),
-        },
-      },
-      events: {},
-      values: {},
-    };
-    const ctx = createMockCtx(storeData);
+  test("matches recurring events by occurrence tracking id", () => {
+    const jan15 = makeSession(
+      "session-jan15",
+      makeSessionEvent({ tracking_id: "recurring-1:2024-01-15" }),
+    );
+    const jan22 = makeSession(
+      "session-jan22",
+      makeSessionEvent({ tracking_id: "recurring-1:2024-01-22" }),
+    );
 
-    syncSessionEmbeddedEvents(ctx, [
-      makeIncomingEvent({
-        tracking_id_event: "recurring-1:2024-01-15",
-        has_recurrence_rules: true,
-        started_at: "2024-01-15T10:00:00Z",
-        title: "Updated Jan 15",
+    const updates = syncSessionEmbeddedEvents(
+      createMockCtx(),
+      [
+        makeIncomingEvent({
+          tracking_id_event: "recurring-1:2024-01-15",
+          has_recurrence_rules: true,
+          title: "Updated Jan 15",
+        }),
+      ],
+      [jan15, jan22],
+    );
+
+    expect(updates.map((update) => update.sessionId)).toEqual([
+      "session-jan15",
+    ]);
+  });
+
+  test("skips sessions without a matching event", () => {
+    const updates = syncSessionEmbeddedEvents(
+      createMockCtx(),
+      [makeIncomingEvent()],
+      [
+        {
+          id: "session-1",
+          ownerUserId: "user-1",
+          eventJson: "",
+          trackingId: "other-event",
+        },
+      ],
+    );
+
+    expect(updates).toEqual([]);
+  });
+
+  test("does nothing when incoming events are empty", () => {
+    expect(
+      syncSessionEmbeddedEvents(
+        createMockCtx(),
+        [],
+        [makeSession("session-1")],
+      ),
+    ).toEqual([]);
+  });
+
+  test("resolves the canonical calendar id", () => {
+    const updates = syncSessionEmbeddedEvents(
+      createMockCtx({
+        calendarTrackingIdToId: new Map([["tracking-cal-new", "cal-new"]]),
       }),
-    ]);
-
-    const jan15 = JSON.parse(
-      storeData.sessions["session-jan15"].event_json as string,
+      [makeIncomingEvent({ tracking_id_calendar: "tracking-cal-new" })],
+      [makeSession("session-1")],
     );
-    expect(jan15.title).toBe("Updated Jan 15");
 
-    const jan22 = JSON.parse(
-      storeData.sessions["session-jan22"].event_json as string,
-    );
-    expect(jan22.title).toBe("Old Title");
-  });
-
-  test("skips sessions without embedded events", () => {
-    const storeData: MockStoreData = {
-      sessions: {
-        "session-1": { title: "No Event" },
-      },
-      events: {},
-      values: {},
-    };
-    const ctx = createMockCtx(storeData);
-
-    syncSessionEmbeddedEvents(ctx, [makeIncomingEvent()]);
-
-    expect(storeData.sessions["session-1"].event_json).toBeUndefined();
-  });
-
-  test("does nothing when incoming events is empty", () => {
-    const original = makeSessionEvent();
-    const storeData: MockStoreData = {
-      sessions: {
-        "session-1": {
-          event_json: JSON.stringify(original),
-        },
-      },
-      events: {},
-      values: {},
-    };
-    const ctx = createMockCtx(storeData);
-
-    syncSessionEmbeddedEvents(ctx, []);
-
-    const result = JSON.parse(
-      storeData.sessions["session-1"].event_json as string,
-    );
-    expect(result.title).toBe("Old Title");
-  });
-
-  test("resolves calendar_id from calendarTrackingIdToId map", () => {
-    const storeData: MockStoreData = {
-      sessions: {
-        "session-1": {
-          event_json: JSON.stringify(
-            makeSessionEvent({ calendar_id: "old-cal" }),
-          ),
-        },
-      },
-      events: {},
-      values: {},
-    };
-    const ctx = createMockCtx(storeData, {
-      calendarTrackingIdToId: new Map([["tracking-cal-new", "cal-new"]]),
-    });
-
-    syncSessionEmbeddedEvents(ctx, [
-      makeIncomingEvent({ tracking_id_calendar: "tracking-cal-new" }),
-    ]);
-
-    const result = JSON.parse(
-      storeData.sessions["session-1"].event_json as string,
-    );
-    expect(result.calendar_id).toBe("cal-new");
+    expect(JSON.parse(updates[0].eventJson).calendar_id).toBe("cal-new");
   });
 });

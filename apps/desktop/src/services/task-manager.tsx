@@ -1,6 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
-import type { Queries } from "tinybase/with-schemas";
 import {
   useScheduleTaskRun,
   useScheduleTaskRunCallback,
@@ -24,14 +23,11 @@ import {
 } from "./event-notification";
 
 import { useConfigValue } from "~/shared/config";
-import * as main from "~/store/tinybase/store/main";
 
 const CALENDAR_SYNC_INTERVAL = 60 * 1000; // 60 sec
 
 export function TaskManager() {
   const queryClient = useQueryClient();
-  const store = main.UI.useStore(main.STORE_ID);
-  const queries = main.UI.useQueries(main.STORE_ID);
 
   const notificationEvent = useConfigValue("notification_event");
   const audioRetention = normalizeAudioRetention(
@@ -40,11 +36,8 @@ export function TaskManager() {
   const notifiedEventsRef = useRef<NotifiedEventsMap>(new Map());
 
   useSetTask(CALENDAR_SYNC_TASK_ID, async () => {
-    await syncCalendarEvents(
-      store as main.Store,
-      queries as Queries<main.Schemas>,
-    );
-  }, [store, queries]);
+    await syncCalendarEvents();
+  }, []);
 
   useScheduleTaskRun(CALENDAR_SYNC_TASK_ID, undefined, 0, {
     repeatDelay: CALENDAR_SYNC_INTERVAL,
