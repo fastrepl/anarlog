@@ -53,7 +53,7 @@ export const StoreComponent = () => {
       .setValuesSchema(SCHEMA.value),
   );
 
-  const { sessionPersister } = useMainPersisters(store as Store);
+  const persisters = useMainPersisters(store as Store);
 
   const synchronizer = useCreateSynchronizer(store, async (store) =>
     createBroadcastChannelSynchronizer(
@@ -314,7 +314,7 @@ export const StoreComponent = () => {
   useProvideCheckpoints(STORE_ID, checkpoints!);
 
   return createElement(SqliteSessionShadow, {
-    enabled: Boolean(sessionPersister),
+    enabled: Object.values(persisters).every(Boolean),
     store: store as Store,
   });
 };

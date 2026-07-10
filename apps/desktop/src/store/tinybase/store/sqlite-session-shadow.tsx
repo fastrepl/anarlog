@@ -9,6 +9,7 @@ import {
 import type { SessionStorage } from "@hypr/store";
 
 import type { Store } from "./main";
+import { SqliteContactsShadow } from "./sqlite-contacts-shadow";
 import { SqliteDocumentShadow } from "./sqlite-document-shadow";
 import { SqliteSessionRelationsShadow } from "./sqlite-session-relations-shadow";
 import {
@@ -92,6 +93,7 @@ function MountedSqliteSessionShadow({ store }: { store: Store }) {
       <SqliteTranscriptShadow store={store} />
       <SqliteDocumentShadow store={store} />
       <SqliteSessionRelationsShadow store={store} />
+      <SqliteContactsShadow store={store} />
     </>
   );
 }
