@@ -20,189 +20,57 @@ import { Textarea } from "@hypr/ui/components/ui/textarea";
 import { cn } from "@hypr/utils";
 
 import { ContactFacehash, getContactBgClass } from "./shared";
-
-import * as main from "~/store/tinybase/store/main";
+import {
+  createOrganization,
+  type HumanRecord,
+  mergeHumans,
+  type OrganizationRecord,
+  updateHuman,
+  useHumanSessions,
+} from "./queries";
 
 export function DetailsColumn({
-  selectedHumanId,
+  human,
+  humans,
+  organizations,
   handleSessionClick,
 }: {
-  selectedHumanId?: string | null;
+  human: HumanRecord | null;
+  humans: HumanRecord[];
+  organizations: OrganizationRecord[];
   handleSessionClick: (id: string) => void;
 }) {
   const { t } = useLingui();
-  const selectedPersonData = main.UI.useRow(
-    "humans",
-    selectedHumanId ?? "",
-    main.STORE_ID,
+  const personSessions = useHumanSessions(human?.id ?? "");
+  const duplicatesWithData = React.useMemo(
+    () =>
+      human?.email
+        ? humans.filter(
+            (candidate) =>
+              candidate.id !== human.id && candidate.email === human.email,
+          )
+        : [],
+    [human, humans],
   );
-  const mappingIdsByHuman = main.UI.useSliceRowIds(
-    main.INDEXES.sessionsByHuman,
-    selectedHumanId ?? "",
-    main.STORE_ID,
-  );
-
-  const allMappings = main.UI.useTable(
-    "mapping_session_participant",
-    main.STORE_ID,
-  );
-  const allSessions = main.UI.useTable("sessions", main.STORE_ID);
-
-  const personSessions = React.useMemo(() => {
-    if (!mappingIdsByHuman || mappingIdsByHuman.length === 0) {
-      return [];
-    }
-
-    return mappingIdsByHuman
-      .map((mappingId: string) => {
-        const mapping = allMappings[mappingId];
-        if (!mapping || !mapping.session_id || mapping.source === "excluded") {
-          return null;
-        }
-
-        const sessionId = mapping.session_id as string;
-        const session = allSessions[sessionId];
-        if (!session) {
-          return null;
-        }
-
-        return {
-          id: sessionId,
-          ...session,
-        };
-      })
-      .filter(
-        (session: any): session is NonNullable<typeof session> =>
-          session !== null,
-      );
-  }, [mappingIdsByHuman, allMappings, allSessions]);
-
-  const email = main.UI.useCell(
-    "humans",
-    selectedHumanId ?? "",
-    "email",
-    main.STORE_ID,
-  ) as string | undefined;
-
-  const duplicateHumanIds = main.UI.useSliceRowIds(
-    main.INDEXES.humansByEmail,
-    email ?? "",
-    main.STORE_ID,
-  );
-
-  const duplicates = React.useMemo(() => {
-    if (!email || !duplicateHumanIds || duplicateHumanIds.length <= 1) {
-      return [];
-    }
-    return duplicateHumanIds.filter((id) => id !== selectedHumanId);
-  }, [email, duplicateHumanIds, selectedHumanId]);
-
-  const allHumans = main.UI.useTable("humans", main.STORE_ID);
-
-  const duplicatesWithData = React.useMemo(() => {
-    return duplicates
-      .map((id) => {
-        const data = allHumans[id];
-        if (!data) return null;
-        return { id, ...data };
-      })
-      .filter((dup): dup is NonNullable<typeof dup> => dup !== null);
-  }, [duplicates, allHumans]);
-
-  const store = main.UI.useStore(main.STORE_ID);
 
   const handleMergeContacts = useCallback(
     (duplicateId: string) => {
-      if (!store || !selectedHumanId) return;
-
-      const userId = store.getValue("user_id") as string;
-
-      let primaryId = selectedHumanId;
-      let dupId = duplicateId;
-
-      if (duplicateId === userId) {
-        primaryId = duplicateId;
-        dupId = selectedHumanId;
-      }
-
-      const duplicateData = store.getRow("humans", dupId);
-      const primaryData = store.getRow("humans", primaryId);
-
-      store.transaction(() => {
-        const allMappingIds = store.getRowIds("mapping_session_participant");
-        allMappingIds.forEach((mappingId) => {
-          const mapping = store.getRow(
-            "mapping_session_participant",
-            mappingId,
-          );
-          if (mapping.human_id === dupId) {
-            store.setPartialRow("mapping_session_participant", mappingId, {
-              human_id: primaryId,
-            });
-          }
-        });
-
-        if (duplicateData && primaryData) {
-          const mergedFields: Record<string, any> = {};
-
-          if (duplicateData.job_title) {
-            if (primaryData.job_title) {
-              mergedFields.job_title = `${primaryData.job_title}, ${duplicateData.job_title}`;
-            } else {
-              mergedFields.job_title = duplicateData.job_title;
-            }
-          }
-
-          if (duplicateData.linkedin_username) {
-            if (primaryData.linkedin_username) {
-              mergedFields.linkedin_username = `${primaryData.linkedin_username}, ${duplicateData.linkedin_username}`;
-            } else {
-              mergedFields.linkedin_username = duplicateData.linkedin_username;
-            }
-          }
-
-          if (duplicateData.phone) {
-            if (primaryData.phone) {
-              mergedFields.phone = `${primaryData.phone}, ${duplicateData.phone}`;
-            } else {
-              mergedFields.phone = duplicateData.phone;
-            }
-          }
-
-          if (duplicateData.memo) {
-            if (primaryData.memo) {
-              mergedFields.memo = `${primaryData.memo}, ${duplicateData.memo}`;
-            } else {
-              mergedFields.memo = duplicateData.memo;
-            }
-          }
-
-          if (!primaryData.org_id && duplicateData.org_id) {
-            mergedFields.org_id = duplicateData.org_id;
-          }
-
-          if (Object.keys(mergedFields).length > 0) {
-            store.setPartialRow("humans", primaryId, mergedFields);
-          }
-        }
-
-        store.delRow("humans", dupId);
+      if (!human) return;
+      void mergeHumans(human.id, duplicateId).catch((error) => {
+        console.error("[contacts] failed to merge contacts", error);
       });
     },
-    [store, selectedHumanId],
+    [human],
   );
 
   const facehashName = String(
-    selectedPersonData?.name ||
-      selectedPersonData?.email ||
-      selectedHumanId ||
-      "",
+    human?.name || human?.email || human?.id || "",
   );
   const bgClass = getContactBgClass(facehashName);
 
   return (
     <div className="flex h-full flex-1 flex-col">
-      {selectedPersonData && selectedHumanId ? (
+      {human ? (
         <>
           <div
             data-tauri-drag-region
@@ -292,24 +160,57 @@ export function DetailsColumn({
                   <Trans>Name</Trans>
                 </div>
                 <div className="flex-1">
-                  <EditablePersonNameField personId={selectedHumanId} />
+                  <EditablePersonNameField
+                    key={`${human.id}:name`}
+                    personId={human.id}
+                    value={human.name}
+                  />
                 </div>
               </div>
-              <EditablePersonJobTitleField personId={selectedHumanId} />
+              <EditablePersonJobTitleField
+                key={`${human.id}:job-title`}
+                personId={human.id}
+                value={human.jobTitle}
+              />
 
               <div className="border-border flex items-center border-b px-4 py-3">
                 <div className="text-muted-foreground w-28 text-sm">
                   <Trans>Company</Trans>
                 </div>
                 <div className="flex-1">
-                  <EditPersonOrganizationSelector personId={selectedHumanId} />
+                  <EditPersonOrganizationSelector
+                    personId={human.id}
+                    organization={
+                      organizations.find(
+                        (organization) =>
+                          organization.id === human.organizationId,
+                      ) ?? null
+                    }
+                    organizations={organizations}
+                  />
                 </div>
               </div>
 
-              <EditablePersonEmailField personId={selectedHumanId} />
-              <EditablePersonPhoneField personId={selectedHumanId} />
-              <EditablePersonLinkedInField personId={selectedHumanId} />
-              <EditablePersonMemoField personId={selectedHumanId} />
+              <EditablePersonEmailField
+                key={`${human.id}:email`}
+                personId={human.id}
+                value={human.email}
+              />
+              <EditablePersonPhoneField
+                key={`${human.id}:phone`}
+                personId={human.id}
+                value={human.phone}
+              />
+              <EditablePersonLinkedInField
+                key={`${human.id}:linkedin`}
+                personId={human.id}
+                value={human.linkedinUsername}
+              />
+              <EditablePersonMemoField
+                key={`${human.id}:memo`}
+                personId={human.id}
+                value={human.memo}
+              />
             </div>
 
             {personSessions.length > 0 && (
@@ -336,7 +237,7 @@ export function DetailsColumn({
               </h3>
               <div className="flex flex-col gap-2">
                 {personSessions.length > 0 ? (
-                  personSessions.map((session: any) => (
+                  personSessions.map((session) => (
                     <button
                       key={session.id}
                       onClick={() => handleSessionClick(session.id)}
@@ -348,14 +249,9 @@ export function DetailsColumn({
                           {session.title || t`Untitled Note`}
                         </span>
                       </div>
-                      {session.summary && (
-                        <p className="text-muted-foreground mt-1 line-clamp-2 text-xs">
-                          {session.summary}
-                        </p>
-                      )}
-                      {session.created_at && (
+                      {session.createdAt && (
                         <div className="text-muted-foreground mt-1 text-xs">
-                          {new Date(session.created_at).toLocaleDateString()}
+                          {new Date(session.createdAt).toLocaleDateString()}
                         </div>
                       )}
                     </button>
@@ -382,41 +278,35 @@ export function DetailsColumn({
   );
 }
 
-function EditablePersonNameField({ personId }: { personId: string }) {
+function EditablePersonNameField({
+  personId,
+  value,
+}: {
+  personId: string;
+  value: string;
+}) {
   const { t } = useLingui();
-  const value = main.UI.useCell("humans", personId, "name", main.STORE_ID);
-
-  const handleChange = main.UI.useSetCellCallback(
-    "humans",
-    personId,
-    "name",
-    (e: React.ChangeEvent<HTMLInputElement>) => e.target.value,
-    [],
-    main.STORE_ID,
-  );
 
   return (
     <Input
-      value={(value as string) || ""}
-      onChange={handleChange}
+      defaultValue={value}
+      onChange={(event) =>
+        persistHumanUpdate(personId, { name: event.target.value })
+      }
       placeholder={t`Name`}
       className="h-7 border-none p-0 text-base shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
     />
   );
 }
 
-function EditablePersonJobTitleField({ personId }: { personId: string }) {
+function EditablePersonJobTitleField({
+  personId,
+  value,
+}: {
+  personId: string;
+  value: string;
+}) {
   const { t } = useLingui();
-  const value = main.UI.useCell("humans", personId, "job_title", main.STORE_ID);
-
-  const handleChange = main.UI.useSetCellCallback(
-    "humans",
-    personId,
-    "job_title",
-    (e: React.ChangeEvent<HTMLInputElement>) => e.target.value,
-    [],
-    main.STORE_ID,
-  );
 
   return (
     <div className="border-border flex items-center border-b px-4 py-3">
@@ -425,8 +315,10 @@ function EditablePersonJobTitleField({ personId }: { personId: string }) {
       </div>
       <div className="flex-1">
         <Input
-          value={(value as string) || ""}
-          onChange={handleChange}
+          defaultValue={value}
+          onChange={(event) =>
+            persistHumanUpdate(personId, { jobTitle: event.target.value })
+          }
           placeholder={t`Software Engineer`}
           className="h-7 border-none p-0 text-base shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
         />
@@ -435,18 +327,13 @@ function EditablePersonJobTitleField({ personId }: { personId: string }) {
   );
 }
 
-function EditablePersonEmailField({ personId }: { personId: string }) {
-  const value = main.UI.useCell("humans", personId, "email", main.STORE_ID);
-
-  const handleChange = main.UI.useSetCellCallback(
-    "humans",
-    personId,
-    "email",
-    (e: React.ChangeEvent<HTMLInputElement>) => e.target.value,
-    [],
-    main.STORE_ID,
-  );
-
+function EditablePersonEmailField({
+  personId,
+  value,
+}: {
+  personId: string;
+  value: string;
+}) {
   return (
     <div className="border-border flex items-center border-b px-4 py-3">
       <div className="text-muted-foreground w-28 text-sm">
@@ -455,8 +342,10 @@ function EditablePersonEmailField({ personId }: { personId: string }) {
       <div className="flex-1">
         <Input
           type="email"
-          value={(value as string) || ""}
-          onChange={handleChange}
+          defaultValue={value}
+          onChange={(event) =>
+            persistHumanUpdate(personId, { email: event.target.value })
+          }
           placeholder="john@example.com"
           className="h-7 border-none p-0 text-base shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
         />
@@ -465,18 +354,13 @@ function EditablePersonEmailField({ personId }: { personId: string }) {
   );
 }
 
-function EditablePersonPhoneField({ personId }: { personId: string }) {
-  const value = main.UI.useCell("humans", personId, "phone", main.STORE_ID);
-
-  const handleChange = main.UI.useSetCellCallback(
-    "humans",
-    personId,
-    "phone",
-    (e: React.ChangeEvent<HTMLInputElement>) => e.target.value,
-    [],
-    main.STORE_ID,
-  );
-
+function EditablePersonPhoneField({
+  personId,
+  value,
+}: {
+  personId: string;
+  value: string;
+}) {
   return (
     <div className="border-border flex items-center border-b px-4 py-3">
       <div className="text-muted-foreground w-28 text-sm">
@@ -485,8 +369,10 @@ function EditablePersonPhoneField({ personId }: { personId: string }) {
       <div className="flex-1">
         <Input
           type="tel"
-          value={(value as string) || ""}
-          onChange={handleChange}
+          defaultValue={value}
+          onChange={(event) =>
+            persistHumanUpdate(personId, { phone: event.target.value })
+          }
           placeholder="+1 (555) 123-4567"
           className="h-7 border-none p-0 text-base shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
         />
@@ -495,23 +381,13 @@ function EditablePersonPhoneField({ personId }: { personId: string }) {
   );
 }
 
-function EditablePersonLinkedInField({ personId }: { personId: string }) {
-  const value = main.UI.useCell(
-    "humans",
-    personId,
-    "linkedin_username",
-    main.STORE_ID,
-  );
-
-  const handleChange = main.UI.useSetCellCallback(
-    "humans",
-    personId,
-    "linkedin_username",
-    (e: React.ChangeEvent<HTMLInputElement>) => e.target.value,
-    [],
-    main.STORE_ID,
-  );
-
+function EditablePersonLinkedInField({
+  personId,
+  value,
+}: {
+  personId: string;
+  value: string;
+}) {
   return (
     <div className="border-border flex items-center border-b px-4 py-3">
       <div className="text-muted-foreground w-28 text-sm">
@@ -519,8 +395,12 @@ function EditablePersonLinkedInField({ personId }: { personId: string }) {
       </div>
       <div className="flex-1">
         <Input
-          value={(value as string) || ""}
-          onChange={handleChange}
+          defaultValue={value}
+          onChange={(event) =>
+            persistHumanUpdate(personId, {
+              linkedinUsername: event.target.value,
+            })
+          }
           placeholder="https://www.linkedin.com/in/johntopia/"
           className="h-7 border-none p-0 text-base shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
         />
@@ -529,18 +409,14 @@ function EditablePersonLinkedInField({ personId }: { personId: string }) {
   );
 }
 
-function EditablePersonMemoField({ personId }: { personId: string }) {
+function EditablePersonMemoField({
+  personId,
+  value,
+}: {
+  personId: string;
+  value: string;
+}) {
   const { t } = useLingui();
-  const value = main.UI.useCell("humans", personId, "memo", main.STORE_ID);
-
-  const handleChange = main.UI.useSetCellCallback(
-    "humans",
-    personId,
-    "memo",
-    (e: React.ChangeEvent<HTMLTextAreaElement>) => e.target.value,
-    [],
-    main.STORE_ID,
-  );
 
   return (
     <div className="border-border flex border-b px-4 py-3">
@@ -549,8 +425,10 @@ function EditablePersonMemoField({ personId }: { personId: string }) {
       </div>
       <div className="flex-1">
         <Textarea
-          value={(value as string) || ""}
-          onChange={handleChange}
+          defaultValue={value}
+          onChange={(event) =>
+            persistHumanUpdate(personId, { memo: event.target.value })
+          }
           placeholder={t`Add notes about this contact...`}
           className="min-h-[80px] resize-none border-none px-0 py-2 text-base shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
           rows={3}
@@ -560,25 +438,21 @@ function EditablePersonMemoField({ personId }: { personId: string }) {
   );
 }
 
-function EditPersonOrganizationSelector({ personId }: { personId: string }) {
+function EditPersonOrganizationSelector({
+  personId,
+  organization,
+  organizations,
+}: {
+  personId: string;
+  organization: OrganizationRecord | null;
+  organizations: OrganizationRecord[];
+}) {
   const [open, setOpen] = useState(false);
-  const orgId = main.UI.useCell("humans", personId, "org_id", main.STORE_ID) as
-    | string
-    | null;
-  const organization = main.UI.useRow(
-    "organizations",
-    orgId ?? "",
-    main.STORE_ID,
-  );
-
-  const handleChange = main.UI.useSetCellCallback(
-    "humans",
-    personId,
-    "org_id",
-    (newOrgId: string | null) => newOrgId ?? "",
-    [],
-    main.STORE_ID,
-  );
+  const handleChange = (organizationId: string | null) => {
+    persistHumanUpdate(personId, {
+      organizationId: organizationId ?? "",
+    });
+  };
 
   const handleRemoveOrganization = () => {
     handleChange(null);
@@ -613,6 +487,7 @@ function EditPersonOrganizationSelector({ personId }: { personId: string }) {
       <PopoverContent variant="app" align="start" side="bottom">
         <AppFloatingPanel className="p-3">
           <OrganizationControl
+            organizations={organizations}
             onChange={handleChange}
             closePopover={() => setOpen(false)}
           />
@@ -623,31 +498,20 @@ function EditPersonOrganizationSelector({ personId }: { personId: string }) {
 }
 
 function OrganizationControl({
+  organizations: allOrganizations,
   onChange,
   closePopover,
 }: {
+  organizations: OrganizationRecord[];
   onChange: (orgId: string | null) => void;
   closePopover: () => void;
 }) {
   const { t } = useLingui();
   const [searchTerm, setSearchTerm] = useState("");
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
-  const userId = main.UI.useValue("user_id", main.STORE_ID);
-
-  const organizationsData = main.UI.useResultTable(
-    main.QUERIES.visibleOrganizations,
-    main.STORE_ID,
-  );
-
-  const allOrganizations = Object.entries(organizationsData).map(
-    ([id, data]) => ({
-      id,
-      ...(data as any),
-    }),
-  );
 
   const organizations = searchTerm.trim()
-    ? allOrganizations.filter((org: any) =>
+    ? allOrganizations.filter((org) =>
         org.name.toLowerCase().includes(searchTerm.toLowerCase()),
       )
     : allOrganizations;
@@ -655,23 +519,16 @@ function OrganizationControl({
   const showCreateOption = searchTerm.trim() && organizations.length === 0;
   const itemCount = organizations.length + (showCreateOption ? 1 : 0);
 
-  const createOrganization = main.UI.useSetRowCallback(
-    "organizations",
-    (p: { name: string; orgId: string }) => p.orgId,
-    (p: { name: string; orgId: string }) => ({
-      user_id: userId || "",
-      name: p.name,
-      created_at: new Date().toISOString(),
-    }),
-    [userId],
-    main.STORE_ID,
-  );
-
-  const handleCreateOrganization = () => {
-    const orgId = crypto.randomUUID();
-    createOrganization({ orgId, name: searchTerm.trim() });
-    onChange(orgId);
-    closePopover();
+  const handleCreateOrganization = async () => {
+    try {
+      const organizationId = await createOrganization({
+        name: searchTerm.trim(),
+      });
+      onChange(organizationId);
+      closePopover();
+    } catch (error) {
+      console.error("[contacts] failed to create organization", error);
+    }
   };
 
   const handleSubmit = (e: React.SyntheticEvent<HTMLFormElement>) => {
@@ -690,7 +547,7 @@ function OrganizationControl({
       if (highlightedIndex >= 0 && highlightedIndex < organizations.length) {
         selectOrganization(organizations[highlightedIndex].id);
       } else if (showCreateOption) {
-        handleCreateOrganization();
+        void handleCreateOrganization();
       }
     }
   };
@@ -727,7 +584,7 @@ function OrganizationControl({
 
           {searchTerm.trim() && (
             <div className="border-border flex w-full flex-col overflow-hidden rounded-xs border">
-              {organizations.map((org: any, index: number) => (
+              {organizations.map((org, index) => (
                 <button
                   key={org.id}
                   type="button"
@@ -754,7 +611,7 @@ function OrganizationControl({
                       ? "bg-muted"
                       : "hover:bg-accent",
                   ].join(" ")}
-                  onClick={() => handleCreateOrganization()}
+                  onClick={() => void handleCreateOrganization()}
                   onMouseEnter={() => setHighlightedIndex(organizations.length)}
                 >
                   <span className="bg-accent mr-2 flex size-5 shrink-0 items-center justify-center rounded-full">
@@ -773,7 +630,7 @@ function OrganizationControl({
 
           {!searchTerm.trim() && organizations.length > 0 && (
             <div className="custom-scrollbar border-border flex max-h-[40vh] w-full flex-col overflow-hidden overflow-y-auto rounded-xs border">
-              {organizations.map((org: any, index: number) => (
+              {organizations.map((org, index) => (
                 <button
                   key={org.id}
                   type="button"
@@ -796,4 +653,13 @@ function OrganizationControl({
       </form>
     </div>
   );
+}
+
+function persistHumanUpdate(
+  personId: string,
+  changes: Parameters<typeof updateHuman>[1],
+): void {
+  void updateHuman(personId, changes).catch((error) => {
+    console.error("[contacts] failed to update contact", error);
+  });
 }

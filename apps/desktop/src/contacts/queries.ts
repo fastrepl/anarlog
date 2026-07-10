@@ -1,6 +1,10 @@
-import { executeTransaction, useLiveQuery } from "~/db";
+import {
+  executeTransaction,
+  liveQueryClient,
+  useLiveQuery,
+} from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
-import { id } from "~/shared/utils";
+import { DEFAULT_USER_ID, id } from "~/shared/utils";
 
 type HumanSqlRow = {
   id: string;
@@ -32,7 +36,41 @@ export type HumanRecord = {
   pinOrder: number | null;
 };
 
+type OrganizationSqlRow = {
+  id: string;
+  owner_user_id: string;
+  created_at: string;
+  name: string;
+  memo: string;
+  pinned: boolean | number;
+  pin_order: number | null;
+};
+
+export type OrganizationRecord = {
+  id: string;
+  userId: string;
+  createdAt: string;
+  name: string;
+  memo: string;
+  pinned: boolean;
+  pinOrder: number | null;
+};
+
+type HumanSessionSqlRow = {
+  id: string;
+  title: string;
+  created_at: string;
+};
+
+export type HumanSessionRecord = {
+  id: string;
+  title: string;
+  createdAt: string;
+};
+
 const EMPTY_HUMANS: HumanRecord[] = [];
+const EMPTY_ORGANIZATIONS: OrganizationRecord[] = [];
+const EMPTY_HUMAN_SESSIONS: HumanSessionRecord[] = [];
 
 export function useHumans(): HumanRecord[] {
   const { data = EMPTY_HUMANS } = useLiveQuery<HumanSqlRow, HumanRecord[]>({
@@ -59,12 +97,54 @@ export function useHumans(): HumanRecord[] {
   return data;
 }
 
+export function useOrganizations(): OrganizationRecord[] {
+  const { data = EMPTY_ORGANIZATIONS } = useLiveQuery<
+    OrganizationSqlRow,
+    OrganizationRecord[]
+  >({
+    sql: `
+      SELECT id, owner_user_id, created_at, name, memo, pinned, pin_order
+      FROM organizations
+      WHERE deleted_at IS NULL
+      ORDER BY name, id
+    `,
+    mapRows: (rows) => rows.map(mapOrganizationRow),
+  });
+  return data;
+}
+
+export function useHumanSessions(humanId: string): HumanSessionRecord[] {
+  const { data = EMPTY_HUMAN_SESSIONS } = useLiveQuery<
+    HumanSessionSqlRow,
+    HumanSessionRecord[]
+  >({
+    sql: `
+      SELECT DISTINCT sessions.id, sessions.title, sessions.created_at
+      FROM session_participants
+      INNER JOIN sessions ON sessions.id = session_participants.session_id
+      WHERE session_participants.human_id = ?
+        AND session_participants.source <> 'excluded'
+        AND session_participants.deleted_at IS NULL
+        AND sessions.deleted_at IS NULL
+      ORDER BY sessions.created_at DESC, sessions.id
+    `,
+    params: [humanId],
+    mapRows: (rows) =>
+      rows.map((row) => ({
+        id: row.id,
+        title: row.title,
+        createdAt: row.created_at,
+      })),
+  });
+  return data;
+}
+
 export function createHuman({
-  ownerUserId,
+  ownerUserId = DEFAULT_USER_ID,
   name,
   email = "",
 }: {
-  ownerUserId: string;
+  ownerUserId?: string;
   name: string;
   email?: string;
 }): Promise<string> {
@@ -85,6 +165,258 @@ export function createHuman({
       },
     ]);
     return humanId;
+  });
+}
+
+export function createOrganization({
+  ownerUserId = DEFAULT_USER_ID,
+  name,
+}: {
+  ownerUserId?: string;
+  name: string;
+}): Promise<string> {
+  const organizationId = id();
+  const now = new Date().toISOString();
+
+  return enqueueDatabaseWrite(`organization:${organizationId}`, async () => {
+    await executeTransaction([
+      {
+        sql: `
+          INSERT INTO organizations (
+            id, workspace_id, owner_user_id, name, memo, pinned, pin_order,
+            metadata_json, created_at, updated_at, deleted_at
+          ) VALUES (?, '', ?, ?, '', 0, NULL, '{}', ?, ?, NULL)
+        `,
+        params: [organizationId, ownerUserId, name, now, now],
+      },
+    ]);
+    return organizationId;
+  });
+}
+
+export function updateHuman(
+  humanId: string,
+  changes: Partial<
+    Pick<
+      HumanRecord,
+      | "name"
+      | "email"
+      | "phone"
+      | "jobTitle"
+      | "linkedinUsername"
+      | "memo"
+      | "organizationId"
+    >
+  >,
+): Promise<void> {
+  const columns = {
+    name: "name",
+    email: "email",
+    phone: "phone",
+    jobTitle: "job_title",
+    linkedinUsername: "linkedin_username",
+    memo: "memo",
+    organizationId: "organization_id",
+  } as const;
+  const assignments: string[] = [];
+  const params: unknown[] = [];
+
+  for (const [key, value] of Object.entries(changes) as Array<
+    [keyof typeof columns, string]
+  >) {
+    assignments.push(`${columns[key]} = ?`);
+    params.push(value);
+  }
+  if (assignments.length === 0) return Promise.resolve();
+
+  return enqueueDatabaseWrite(`human:${humanId}`, async () => {
+    await executeTransaction([
+      {
+        sql: `
+          UPDATE humans
+          SET ${assignments.join(", ")}, updated_at = ?
+          WHERE id = ? AND deleted_at IS NULL
+        `,
+        params: [...params, new Date().toISOString(), humanId],
+      },
+    ]);
+  });
+}
+
+export function updateOrganization(
+  organizationId: string,
+  changes: Partial<Pick<OrganizationRecord, "name" | "memo">>,
+): Promise<void> {
+  const assignments: string[] = [];
+  const params: unknown[] = [];
+  if (changes.name !== undefined) {
+    assignments.push("name = ?");
+    params.push(changes.name);
+  }
+  if (changes.memo !== undefined) {
+    assignments.push("memo = ?");
+    params.push(changes.memo);
+  }
+  if (assignments.length === 0) return Promise.resolve();
+
+  return enqueueDatabaseWrite(`organization:${organizationId}`, async () => {
+    await executeTransaction([
+      {
+        sql: `
+          UPDATE organizations
+          SET ${assignments.join(", ")}, updated_at = ?
+          WHERE id = ? AND deleted_at IS NULL
+        `,
+        params: [...params, new Date().toISOString(), organizationId],
+      },
+    ]);
+  });
+}
+
+export function deleteHuman(humanId: string): Promise<void> {
+  return softDeleteContact("humans", humanId);
+}
+
+export function deleteOrganization(organizationId: string): Promise<void> {
+  return softDeleteContact("organizations", organizationId);
+}
+
+export function toggleContactPin(
+  type: "human" | "organization",
+  contactId: string,
+): Promise<void> {
+  const table = type === "human" ? "humans" : "organizations";
+  return enqueueDatabaseWrite("contacts:pin-order", async () => {
+    await executeTransaction([
+      {
+        sql: `
+          UPDATE ${table}
+          SET
+            pin_order = CASE
+              WHEN pinned = 1 THEN NULL
+              ELSE COALESCE((
+                SELECT MAX(pin_order)
+                FROM (
+                  SELECT pin_order FROM humans WHERE deleted_at IS NULL
+                  UNION ALL
+                  SELECT pin_order FROM organizations WHERE deleted_at IS NULL
+                )
+              ), 0) + 1
+            END,
+            pinned = CASE WHEN pinned = 1 THEN 0 ELSE 1 END,
+            updated_at = ?
+          WHERE id = ? AND deleted_at IS NULL
+        `,
+        params: [new Date().toISOString(), contactId],
+      },
+    ]);
+  });
+}
+
+export function reorderPinnedContacts(
+  contacts: Array<{ type: "human" | "organization"; id: string }>,
+): Promise<void> {
+  return enqueueDatabaseWrite("contacts:pin-order", async () => {
+    const now = new Date().toISOString();
+    await executeTransaction(
+      contacts.map((contact, index) => ({
+        sql: `
+          UPDATE ${contact.type === "human" ? "humans" : "organizations"}
+          SET pin_order = ?, updated_at = ?
+          WHERE id = ? AND pinned = 1 AND deleted_at IS NULL
+        `,
+        params: [index, now, contact.id],
+      })),
+    );
+  });
+}
+
+export function mergeHumans(
+  selectedHumanId: string,
+  duplicateHumanId: string,
+): Promise<void> {
+  return enqueueDatabaseWrite("contacts:merge", async () => {
+    const primaryId =
+      duplicateHumanId === DEFAULT_USER_ID
+        ? duplicateHumanId
+        : selectedHumanId;
+    const duplicateId =
+      duplicateHumanId === DEFAULT_USER_ID
+        ? selectedHumanId
+        : duplicateHumanId;
+    const rows = await liveQueryClient.execute<HumanSqlRow>(
+      `
+        SELECT
+          id, owner_user_id, created_at, organization_id, name, email, phone,
+          job_title, linkedin_username, memo, pinned, pin_order
+        FROM humans
+        WHERE id IN (?, ?) AND deleted_at IS NULL
+      `,
+      [primaryId, duplicateId],
+    );
+    const primary = rows.find((row) => row.id === primaryId);
+    const duplicate = rows.find((row) => row.id === duplicateId);
+    if (!primary || !duplicate) {
+      throw new Error("Both contacts must exist before they can be merged");
+    }
+
+    const now = new Date().toISOString();
+    await executeTransaction([
+      {
+        sql: `
+          UPDATE session_participants AS duplicate_mapping
+          SET deleted_at = ?, updated_at = ?
+          WHERE duplicate_mapping.human_id = ?
+            AND duplicate_mapping.deleted_at IS NULL
+            AND EXISTS (
+              SELECT 1
+              FROM session_participants AS primary_mapping
+              WHERE primary_mapping.session_id = duplicate_mapping.session_id
+                AND primary_mapping.human_id = ?
+                AND primary_mapping.deleted_at IS NULL
+            )
+        `,
+        params: [now, now, duplicateId, primaryId],
+      },
+      {
+        sql: `
+          UPDATE session_participants
+          SET human_id = ?, updated_at = ?
+          WHERE human_id = ? AND deleted_at IS NULL
+        `,
+        params: [primaryId, now, duplicateId],
+      },
+      {
+        sql: `
+          UPDATE humans
+          SET
+            job_title = ?,
+            linkedin_username = ?,
+            phone = ?,
+            memo = ?,
+            organization_id = ?,
+            updated_at = ?
+          WHERE id = ? AND deleted_at IS NULL
+        `,
+        params: [
+          mergeText(primary.job_title, duplicate.job_title),
+          mergeText(primary.linkedin_username, duplicate.linkedin_username),
+          mergeText(primary.phone, duplicate.phone),
+          mergeText(primary.memo, duplicate.memo),
+          primary.organization_id || duplicate.organization_id,
+          now,
+          primaryId,
+        ],
+      },
+      {
+        sql: `
+          UPDATE humans
+          SET deleted_at = ?, updated_at = ?
+          WHERE id = ? AND deleted_at IS NULL
+        `,
+        params: [now, now, duplicateId],
+      },
+    ]);
   });
 }
 
@@ -183,4 +515,40 @@ function mapHumanRow(row: HumanSqlRow): HumanRecord {
     pinned: Boolean(row.pinned),
     pinOrder: row.pin_order,
   };
+}
+
+function mapOrganizationRow(row: OrganizationSqlRow): OrganizationRecord {
+  return {
+    id: row.id,
+    userId: row.owner_user_id,
+    createdAt: row.created_at,
+    name: row.name,
+    memo: row.memo,
+    pinned: Boolean(row.pinned),
+    pinOrder: row.pin_order,
+  };
+}
+
+function softDeleteContact(
+  table: "humans" | "organizations",
+  contactId: string,
+): Promise<void> {
+  return enqueueDatabaseWrite(`${table}:${contactId}`, async () => {
+    const now = new Date().toISOString();
+    await executeTransaction([
+      {
+        sql: `
+          UPDATE ${table}
+          SET deleted_at = ?, updated_at = ?
+          WHERE id = ? AND deleted_at IS NULL
+        `,
+        params: [now, now, contactId],
+      },
+    ]);
+  });
+}
+
+function mergeText(primary: string, duplicate: string): string {
+  if (!duplicate) return primary;
+  return primary ? `${primary}, ${duplicate}` : duplicate;
 }

@@ -3,58 +3,30 @@ import React, { useCallback } from "react";
 
 import { cn } from "@hypr/utils";
 
+import {
+  type OrganizationRecord,
+  toggleContactPin,
+} from "~/contacts/queries";
 import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
-import * as main from "~/store/tinybase/store/main";
 
 export function OrganizationItem({
-  organizationId,
+  organization,
   active,
   onClick,
   onDelete,
 }: {
-  organizationId: string;
+  organization: OrganizationRecord;
   active: boolean;
   onClick: () => void;
   onDelete?: (id: string) => void;
 }) {
-  const organization = main.UI.useRow(
-    "organizations",
-    organizationId,
-    main.STORE_ID,
-  );
   const isPinned = Boolean(organization.pinned);
-  const store = main.UI.useStore(main.STORE_ID);
 
   const togglePin = useCallback(() => {
-    if (!store) return;
-
-    const currentPinned = store.getCell(
-      "organizations",
-      organizationId,
-      "pinned",
-    );
-    if (currentPinned) {
-      store.setPartialRow("organizations", organizationId, {
-        pinned: false,
-        pin_order: 0,
-      });
-    } else {
-      const allOrgs = store.getTable("organizations");
-      const allHumans = store.getTable("humans");
-      const maxOrgOrder = Object.values(allOrgs).reduce((max, o) => {
-        const order = (o.pin_order as number | undefined) ?? 0;
-        return Math.max(max, order);
-      }, 0);
-      const maxHumanOrder = Object.values(allHumans).reduce((max, h) => {
-        const order = (h.pin_order as number | undefined) ?? 0;
-        return Math.max(max, order);
-      }, 0);
-      store.setPartialRow("organizations", organizationId, {
-        pinned: true,
-        pin_order: Math.max(maxOrgOrder, maxHumanOrder) + 1,
-      });
-    }
-  }, [store, organizationId]);
+    void toggleContactPin("organization", organization.id).catch((error) => {
+      console.error("[contacts] failed to toggle organization pin", error);
+    });
+  }, [organization.id]);
 
   const showContextMenu = useNativeContextMenu([
     {
@@ -65,7 +37,7 @@ export function OrganizationItem({
     {
       id: "delete-org",
       text: "Delete Organization",
-      action: () => onDelete?.(organizationId),
+      action: () => onDelete?.(organization.id),
     },
   ]);
 
@@ -76,10 +48,6 @@ export function OrganizationItem({
     },
     [togglePin],
   );
-
-  if (!organization) {
-    return null;
-  }
 
   return (
     <div

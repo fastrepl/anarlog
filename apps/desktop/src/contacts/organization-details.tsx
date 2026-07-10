@@ -8,34 +8,29 @@ import { Input } from "@hypr/ui/components/ui/input";
 import { cn } from "@hypr/utils";
 
 import { ContactFacehash, getContactBgClass } from "./shared";
-
-import * as main from "~/store/tinybase/store/main";
+import {
+  type HumanRecord,
+  type OrganizationRecord,
+  updateOrganization,
+} from "./queries";
 
 export function OrganizationDetailsColumn({
-  selectedOrganizationId,
+  organization,
+  humans,
   onPersonClick,
 }: {
-  selectedOrganizationId?: string | null;
+  organization: OrganizationRecord | null;
+  humans: HumanRecord[];
   onPersonClick?: (personId: string) => void;
 }) {
   const { t } = useLingui();
-  const selectedOrgData = main.UI.useRow(
-    "organizations",
-    selectedOrganizationId ?? "",
-    main.STORE_ID,
-  );
-
-  const peopleInOrg = main.UI.useSliceRowIds(
-    main.INDEXES.humansByOrg,
-    selectedOrganizationId ?? "",
-    main.STORE_ID,
-  );
-
-  const allHumans = main.UI.useTable("humans", main.STORE_ID);
+  const peopleInOrg = organization
+    ? humans.filter((human) => human.organizationId === organization.id)
+    : [];
 
   return (
     <div className="flex flex-1 flex-col">
-      {selectedOrgData && selectedOrganizationId ? (
+      {organization ? (
         <>
           <div
             data-tauri-drag-region
@@ -54,7 +49,8 @@ export function OrganizationDetailsColumn({
                 </div>
                 <div className="flex-1">
                   <EditableOrganizationNameField
-                    organizationId={selectedOrganizationId}
+                    key={organization.id}
+                    organization={organization}
                   />
                 </div>
               </div>
@@ -65,37 +61,34 @@ export function OrganizationDetailsColumn({
                 <Trans>People</Trans>
                 <span className="text-muted-foreground font-normal">
                   {" "}
-                  &middot; {peopleInOrg?.length ?? 0}{" "}
-                  {(peopleInOrg?.length ?? 0) === 1 ? t`member` : t`members`}
+                  &middot; {peopleInOrg.length}{" "}
+                  {peopleInOrg.length === 1 ? t`member` : t`members`}
                 </span>
               </h3>
               <div className="overflow-y-auto" style={{ maxHeight: "55vh" }}>
-                {(peopleInOrg?.length ?? 0) > 0 ? (
+                {peopleInOrg.length > 0 ? (
                   <div className="grid grid-cols-3 gap-4">
-                    {peopleInOrg.map((humanId: string) => {
-                      const human = allHumans[humanId];
-                      if (!human) {
-                        return null;
-                      }
-
+                    {peopleInOrg.map((human) => {
                       return (
                         <div
-                          key={humanId}
+                          key={human.id}
                           className="border-border bg-card cursor-pointer rounded-lg border p-4 transition-all hover:shadow-xs"
-                          onClick={() => onPersonClick?.(humanId)}
+                          onClick={() => onPersonClick?.(human.id)}
                         >
                           <div className="flex flex-col items-center gap-3 text-center">
                             <div
                               className={cn([
                                 "shrink-0 rounded-full",
                                 getContactBgClass(
-                                  String(human.name || human.email || humanId),
+                                  String(
+                                    human.name || human.email || human.id,
+                                  ),
                                 ),
                               ])}
                             >
                               <ContactFacehash
                                 name={String(
-                                  human.name || human.email || humanId,
+                                  human.name || human.email || human.id,
                                 )}
                                 size={48}
                                 interactive={false}
@@ -103,7 +96,7 @@ export function OrganizationDetailsColumn({
                                 colorClasses={[
                                   getContactBgClass(
                                     String(
-                                      human.name || human.email || humanId,
+                                      human.name || human.email || human.id,
                                     ),
                                   ),
                                 ]}
@@ -113,9 +106,9 @@ export function OrganizationDetailsColumn({
                               <div className="truncate text-sm font-semibold">
                                 {human.name || human.email || t`Unnamed`}
                               </div>
-                              {human.job_title && (
+                              {human.jobTitle && (
                                 <div className="text-muted-foreground mt-1 truncate text-xs">
-                                  {human.job_title as string}
+                                  {human.jobTitle}
                                 </div>
                               )}
                             </div>
@@ -136,14 +129,14 @@ export function OrganizationDetailsColumn({
                                   <Mail />
                                 </Button>
                               )}
-                              {human.linkedin_username && (
+                              {human.linkedinUsername && (
                                 <Button
                                   variant="ghost"
                                   size="icon"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     const v = String(
-                                      human.linkedin_username ?? "",
+                                      human.linkedinUsername,
                                     );
                                     const href = /^https?:\/\//i.test(v)
                                       ? v
@@ -184,31 +177,22 @@ export function OrganizationDetailsColumn({
 }
 
 function EditableOrganizationNameField({
-  organizationId,
+  organization,
 }: {
-  organizationId: string;
+  organization: OrganizationRecord;
 }) {
   const { t } = useLingui();
-  const value = main.UI.useCell(
-    "organizations",
-    organizationId,
-    "name",
-    main.STORE_ID,
-  );
-
-  const handleChange = main.UI.useSetCellCallback(
-    "organizations",
-    organizationId,
-    "name",
-    (e: React.ChangeEvent<HTMLInputElement>) => e.target.value,
-    [],
-    main.STORE_ID,
-  );
 
   return (
     <Input
-      value={(value as string) || ""}
-      onChange={handleChange}
+      defaultValue={organization.name}
+      onChange={(event) => {
+        void updateOrganization(organization.id, {
+          name: event.target.value,
+        }).catch((error) => {
+          console.error("[contacts] failed to update organization", error);
+        });
+      }}
       placeholder={t`Organization name`}
       className="h-7 border-none p-0 text-base shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
     />

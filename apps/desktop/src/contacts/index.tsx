@@ -1,12 +1,12 @@
-import { useCallback, useEffect } from "react";
+import { useCallback } from "react";
 
 import type { ContactsSelection } from "@hypr/plugin-windows";
 
 import { DetailsColumn } from "./details";
 import { OrganizationDetailsColumn } from "./organization-details";
+import { useHumans, useOrganizations } from "./queries";
 
 import { StandardContentWrapper } from "~/shared/main";
-import * as main from "~/store/tinybase/store/main";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 
 export function TabContentContact({
@@ -28,6 +28,8 @@ function ContactView({ tab }: { tab: Extract<Tab, { type: "contacts" }> }) {
   const openCurrent = useTabs((state) => state.openCurrent);
 
   const selected = tab.state.selected;
+  const humans = useHumans();
+  const organizations = useOrganizations();
 
   const setSelected = useCallback(
     (value: ContactsSelection | null) => {
@@ -43,46 +45,38 @@ function ContactView({ tab }: { tab: Extract<Tab, { type: "contacts" }> }) {
     [openCurrent],
   );
 
-  const allHumanIds = main.UI.useResultSortedRowIds(
-    main.QUERIES.visibleHumans,
-    "name",
-    false,
-    0,
-    undefined,
-    main.STORE_ID,
-  );
-
-  const allOrgIds = main.UI.useResultSortedRowIds(
-    main.QUERIES.visibleOrganizations,
-    "name",
-    false,
-    0,
-    undefined,
-    main.STORE_ID,
-  );
-
-  useEffect(() => {
-    if (!selected) {
-      if (allHumanIds.length > 0) {
-        setSelected({ type: "person", id: allHumanIds[0] });
-      } else if (allOrgIds.length > 0) {
-        setSelected({ type: "organization", id: allOrgIds[0] });
-      }
-    }
-  }, [allHumanIds, allOrgIds, selected, setSelected]);
+  const effectiveSelection =
+    selected ??
+    (humans[0]
+      ? ({ type: "person", id: humans[0].id } as const)
+      : organizations[0]
+        ? ({ type: "organization", id: organizations[0].id } as const)
+        : null);
 
   return (
     <div className="h-full">
-      {selected?.type === "organization" ? (
+      {effectiveSelection?.type === "organization" ? (
         <OrganizationDetailsColumn
-          selectedOrganizationId={selected.id}
+          organization={
+            organizations.find(
+              (organization) => organization.id === effectiveSelection.id,
+            ) ?? null
+          }
+          humans={humans}
           onPersonClick={(personId) =>
             setSelected({ type: "person", id: personId })
           }
         />
       ) : (
         <DetailsColumn
-          selectedHumanId={selected?.type === "person" ? selected.id : null}
+          human={
+            effectiveSelection?.type === "person"
+              ? (humans.find((human) => human.id === effectiveSelection.id) ??
+                null)
+              : null
+          }
+          humans={humans}
+          organizations={organizations}
           handleSessionClick={handleSessionClick}
         />
       )}

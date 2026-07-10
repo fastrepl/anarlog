@@ -8,13 +8,25 @@ import type { ContactsSelection } from "@hypr/plugin-windows";
 import { NewPersonForm } from "~/contacts/new-person-form";
 import { OrganizationItem } from "~/contacts/organization-item";
 import { PersonItem } from "~/contacts/person-item";
+import {
+  deleteHuman,
+  deleteOrganization,
+  type HumanRecord,
+  type OrganizationRecord,
+  reorderPinnedContacts,
+  useHumans,
+  useOrganizations,
+} from "~/contacts/queries";
 import { ColumnHeader, type SortOption } from "~/contacts/shared";
-import * as main from "~/store/tinybase/store/main";
 import { useTabs } from "~/store/zustand/tabs";
 
 type ContactItem =
-  | { kind: "person"; id: string }
-  | { kind: "organization"; id: string };
+  | { kind: "person"; id: string; person: HumanRecord }
+  | {
+      kind: "organization";
+      id: string;
+      organization: OrganizationRecord;
+    };
 
 export function ContactsNav() {
   const currentTab = useTabs((state) => state.currentTab);
@@ -35,34 +47,26 @@ export function ContactsNav() {
     [currentTab, updateContactsTabState],
   );
 
-  const deletePersonFromStore = main.UI.useDelRowCallback(
-    "humans",
-    (human_id: string) => human_id,
-    main.STORE_ID,
-  );
-
   const handleDeletePerson = useCallback(
     (id: string) => {
       invalidateResource("humans", id);
-      deletePersonFromStore(id);
+      void deleteHuman(id).catch((error) => {
+        console.error("[contacts] failed to delete contact", error);
+      });
       setSelected(null);
     },
-    [invalidateResource, deletePersonFromStore, setSelected],
-  );
-
-  const deleteOrganizationFromStore = main.UI.useDelRowCallback(
-    "organizations",
-    (org_id: string) => org_id,
-    main.STORE_ID,
+    [invalidateResource, setSelected],
   );
 
   const handleDeleteOrganization = useCallback(
     (id: string) => {
       invalidateResource("organizations" as const, id);
-      deleteOrganizationFromStore(id);
+      void deleteOrganization(id).catch((error) => {
+        console.error("[contacts] failed to delete organization", error);
+      });
       setSelected(null);
     },
-    [invalidateResource, deleteOrganizationFromStore, setSelected],
+    [invalidateResource, setSelected],
   );
 
   return (
@@ -101,192 +105,98 @@ function ContactsList({
     [],
   );
 
-  const allHumans = main.UI.useTable("humans", main.STORE_ID);
-  const allOrgs = main.UI.useTable("organizations", main.STORE_ID);
-  const store = main.UI.useStore(main.STORE_ID);
-
-  const alphabeticalHumanIds = main.UI.useResultSortedRowIds(
-    main.QUERIES.visibleHumans,
-    "name",
-    false,
-    0,
-    undefined,
-    main.STORE_ID,
-  );
-  const reverseAlphabeticalHumanIds = main.UI.useResultSortedRowIds(
-    main.QUERIES.visibleHumans,
-    "name",
-    true,
-    0,
-    undefined,
-    main.STORE_ID,
-  );
-  const newestHumanIds = main.UI.useResultSortedRowIds(
-    main.QUERIES.visibleHumans,
-    "created_at",
-    true,
-    0,
-    undefined,
-    main.STORE_ID,
-  );
-  const oldestHumanIds = main.UI.useResultSortedRowIds(
-    main.QUERIES.visibleHumans,
-    "created_at",
-    false,
-    0,
-    undefined,
-    main.STORE_ID,
-  );
-
-  const alphabeticalOrgIds = main.UI.useResultSortedRowIds(
-    main.QUERIES.visibleOrganizations,
-    "name",
-    false,
-    0,
-    undefined,
-    main.STORE_ID,
-  );
-  const reverseAlphabeticalOrgIds = main.UI.useResultSortedRowIds(
-    main.QUERIES.visibleOrganizations,
-    "name",
-    true,
-    0,
-    undefined,
-    main.STORE_ID,
-  );
-  const newestOrgIds = main.UI.useResultSortedRowIds(
-    main.QUERIES.visibleOrganizations,
-    "created_at",
-    true,
-    0,
-    undefined,
-    main.STORE_ID,
-  );
-  const oldestOrgIds = main.UI.useResultSortedRowIds(
-    main.QUERIES.visibleOrganizations,
-    "created_at",
-    false,
-    0,
-    undefined,
-    main.STORE_ID,
-  );
-
-  const sortedHumanIds =
-    sortOption === "alphabetical"
-      ? alphabeticalHumanIds
-      : sortOption === "reverse-alphabetical"
-        ? reverseAlphabeticalHumanIds
-        : sortOption === "newest"
-          ? newestHumanIds
-          : oldestHumanIds;
-
-  const sortedOrgIds =
-    sortOption === "alphabetical"
-      ? alphabeticalOrgIds
-      : sortOption === "reverse-alphabetical"
-        ? reverseAlphabeticalOrgIds
-        : sortOption === "newest"
-          ? newestOrgIds
-          : oldestOrgIds;
-
-  const { pinnedHumanIds, unpinnedHumanIds } = useMemo(() => {
-    const pinned = sortedHumanIds.filter((id) => allHumans[id]?.pinned);
-    const unpinned = sortedHumanIds.filter((id) => !allHumans[id]?.pinned);
-
-    const sortedPinned = [...pinned].sort((a, b) => {
-      const orderA =
-        (allHumans[a]?.pin_order as number | undefined) ?? Infinity;
-      const orderB =
-        (allHumans[b]?.pin_order as number | undefined) ?? Infinity;
-      return orderA - orderB;
-    });
-
-    return { pinnedHumanIds: sortedPinned, unpinnedHumanIds: unpinned };
-  }, [sortedHumanIds, allHumans]);
-
-  const { pinnedOrgIds, unpinnedOrgIds } = useMemo(() => {
-    const pinned = sortedOrgIds.filter((id) => allOrgs[id]?.pinned);
-    const unpinned = sortedOrgIds.filter((id) => !allOrgs[id]?.pinned);
-
-    const sortedPinned = [...pinned].sort((a, b) => {
-      const orderA = (allOrgs[a]?.pin_order as number | undefined) ?? Infinity;
-      const orderB = (allOrgs[b]?.pin_order as number | undefined) ?? Infinity;
-      return orderA - orderB;
-    });
-
-    return { pinnedOrgIds: sortedPinned, unpinnedOrgIds: unpinned };
-  }, [sortedOrgIds, allOrgs]);
+  const humans = useHumans();
+  const organizations = useOrganizations();
 
   const { pinnedItems, nonPinnedItems } = useMemo(() => {
     const q = searchValue.toLowerCase().trim();
-
-    const filterHuman = (id: string) => {
-      if (!q) return true;
-      const human = allHumans[id];
-      const name = (human?.name ?? "").toLowerCase();
-      const email = (human?.email ?? "").toLowerCase();
-      const phone = (human?.phone ?? "").toLowerCase();
-      return name.includes(q) || email.includes(q) || phone.includes(q);
+    const compare = (
+      a: { name: string; createdAt: string },
+      b: {
+        name: string;
+        createdAt: string;
+      },
+    ) => {
+      if (sortOption === "alphabetical") return a.name.localeCompare(b.name);
+      if (sortOption === "reverse-alphabetical") {
+        return b.name.localeCompare(a.name);
+      }
+      const byCreatedAt = a.createdAt.localeCompare(b.createdAt);
+      return sortOption === "newest" ? -byCreatedAt : byCreatedAt;
     };
-
-    const filterOrg = (id: string) => {
-      if (!q) return true;
-      const name = (allOrgs[id]?.name ?? "").toLowerCase();
-      return name.includes(q);
-    };
-
-    const allPinned = [
-      ...pinnedHumanIds.filter(filterHuman).map((id) => ({
-        kind: "person" as const,
-        id,
-        pin_order: (allHumans[id]?.pin_order as number | undefined) ?? Infinity,
-      })),
-      ...pinnedOrgIds.filter(filterOrg).map((id) => ({
+    const filteredHumans = humans
+      .filter((human) => {
+        if (!q) return true;
+        return [human.name, human.email, human.phone].some((value) =>
+          value.toLowerCase().includes(q),
+        );
+      })
+      .sort(compare);
+    const filteredOrganizations = organizations
+      .filter(
+        (organization) => !q || organization.name.toLowerCase().includes(q),
+      )
+      .sort(compare);
+    const allPinned: ContactItem[] = [
+      ...filteredHumans
+        .filter((human) => human.pinned)
+        .map((person) => ({
+          kind: "person" as const,
+          id: person.id,
+          person,
+        })),
+      ...filteredOrganizations
+        .filter((organization) => organization.pinned)
+        .map((organization) => ({
+          kind: "organization" as const,
+          id: organization.id,
+          organization,
+        })),
+    ].sort((a, b) => {
+      const aOrder =
+        a.kind === "person" ? a.person.pinOrder : a.organization.pinOrder;
+      const bOrder =
+        b.kind === "person" ? b.person.pinOrder : b.organization.pinOrder;
+      return (aOrder ?? Infinity) - (bOrder ?? Infinity);
+    });
+    const unpinnedOrgs: ContactItem[] = filteredOrganizations
+      .filter((organization) => !organization.pinned)
+      .map((organization) => ({
         kind: "organization" as const,
-        id,
-        pin_order: (allOrgs[id]?.pin_order as number | undefined) ?? Infinity,
-      })),
-    ]
-      .sort((a, b) => a.pin_order - b.pin_order)
-      .map(({ kind, id }) => ({ kind, id }));
-
-    const unpinnedOrgs: ContactItem[] = unpinnedOrgIds
-      .filter(filterOrg)
-      .map((id) => ({ kind: "organization" as const, id }));
-
-    const unpinnedPeople: ContactItem[] = unpinnedHumanIds
-      .filter(filterHuman)
-      .map((id) => ({ kind: "person" as const, id }));
+        id: organization.id,
+        organization,
+      }));
+    const unpinnedPeople: ContactItem[] = filteredHumans
+      .filter((human) => !human.pinned)
+      .map((person) => ({ kind: "person" as const, id: person.id, person }));
 
     return {
       pinnedItems: allPinned,
       nonPinnedItems: [...unpinnedOrgs, ...unpinnedPeople],
     };
-  }, [
-    pinnedHumanIds,
-    unpinnedHumanIds,
-    pinnedOrgIds,
-    unpinnedOrgIds,
-    allOrgs,
-    allHumans,
-    searchValue,
-  ]);
+  }, [humans, organizations, searchValue, sortOption]);
 
   const handleReorderPinned = useCallback(
     (newOrder: string[]) => {
-      if (!store) return;
-      store.transaction(() => {
-        newOrder.forEach((id, index) => {
-          const item = pinnedItems.find((i) => i.id === id);
-          if (item?.kind === "person") {
-            store.setCell("humans", id, "pin_order", index);
-          } else if (item?.kind === "organization") {
-            store.setCell("organizations", id, "pin_order", index);
-          }
-        });
+      const contacts = newOrder.flatMap((id) => {
+        const item = pinnedItems.find((candidate) => candidate.id === id);
+        return item
+          ? [
+              {
+                type:
+                  item.kind === "person"
+                    ? ("human" as const)
+                    : ("organization" as const),
+                id,
+              },
+            ]
+          : [];
+      });
+      void reorderPinnedContacts(contacts).catch((error) => {
+        console.error("[contacts] failed to reorder pins", error);
       });
     },
-    [store, pinnedItems],
+    [pinnedItems],
   );
 
   const handleAdd = useCallback(() => {
@@ -331,14 +241,14 @@ function ContactsList({
                 {item.kind === "person" ? (
                   <PersonItem
                     active={isActive(item)}
-                    humanId={item.id}
+                    person={item.person}
                     onClick={() => setSelected({ type: "person", id: item.id })}
                     onDelete={onDeletePerson}
                   />
                 ) : (
                   <OrganizationItem
                     active={isActive(item)}
-                    organizationId={item.id}
+                    organization={item.organization}
                     onClick={() =>
                       setSelected({ type: "organization", id: item.id })
                     }
@@ -356,7 +266,7 @@ function ContactsList({
                 <PersonItem
                   key={`pinned-person-${item.id}`}
                   active={isActive(item)}
-                  humanId={item.id}
+                  person={item.person}
                   onClick={() => setSelected({ type: "person", id: item.id })}
                   onDelete={onDeletePerson}
                 />
@@ -364,7 +274,7 @@ function ContactsList({
                 <OrganizationItem
                   key={`pinned-org-${item.id}`}
                   active={isActive(item)}
-                  organizationId={item.id}
+                  organization={item.organization}
                   onClick={() =>
                     setSelected({ type: "organization", id: item.id })
                   }
@@ -382,7 +292,7 @@ function ContactsList({
             <PersonItem
               key={`person-${item.id}`}
               active={isActive(item)}
-              humanId={item.id}
+              person={item.person}
               onClick={() => setSelected({ type: "person", id: item.id })}
               onDelete={onDeletePerson}
             />
@@ -390,7 +300,7 @@ function ContactsList({
             <OrganizationItem
               key={`org-${item.id}`}
               active={isActive(item)}
-              organizationId={item.id}
+              organization={item.organization}
               onClick={() => setSelected({ type: "organization", id: item.id })}
               onDelete={onDeleteOrganization}
             />

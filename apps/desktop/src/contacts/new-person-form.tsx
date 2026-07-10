@@ -2,7 +2,7 @@ import { useLingui } from "@lingui/react/macro";
 import { CornerDownLeft } from "lucide-react";
 import React, { useState } from "react";
 
-import * as main from "~/store/tinybase/store/main";
+import { createHuman } from "~/contacts/queries";
 
 export function NewPersonForm({
   onSave,
@@ -13,38 +13,21 @@ export function NewPersonForm({
 }) {
   const { t } = useLingui();
   const [name, setName] = useState("");
-  const userId = main.UI.useValue("user_id", main.STORE_ID);
 
-  const createHuman = main.UI.useSetRowCallback(
-    "humans",
-    (p: { name: string; humanId: string }) => p.humanId,
-    (p: { name: string; humanId: string }) => ({
-      user_id: userId || "",
-      created_at: new Date().toISOString(),
-      name: p.name,
-      email: "",
-      phone: "",
-      org_id: "",
-      job_title: "",
-      linkedin_username: "",
-      memo: "",
-      pinned: false,
-    }),
-    [userId],
-    main.STORE_ID,
-  );
-
-  const handleAdd = () => {
-    const humanId = crypto.randomUUID();
-    createHuman({ humanId, name: name.trim() });
-    setName("");
-    onSave(humanId);
+  const handleAdd = async () => {
+    try {
+      const humanId = await createHuman({ name: name.trim() });
+      setName("");
+      onSave(humanId);
+    } catch (error) {
+      console.error("[contacts] failed to create contact", error);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (name.trim()) {
-      handleAdd();
+      void handleAdd();
     }
   };
 
@@ -52,7 +35,7 @@ export function NewPersonForm({
     if (e.key === "Enter") {
       e.preventDefault();
       if (name.trim()) {
-        handleAdd();
+        void handleAdd();
       }
     }
     if (e.key === "Escape") {
