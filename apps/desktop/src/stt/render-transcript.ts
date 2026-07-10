@@ -8,10 +8,8 @@ import type {
   RenderedTranscriptSegment,
 } from "@hypr/plugin-transcription";
 
-import type * as main from "~/store/tinybase/store/main";
 import type { SegmentWord } from "~/stt/live-segment";
 import type { TranscriptWordMetadata } from "~/stt/timing";
-import { parseTranscriptHints, parseTranscriptWords } from "~/stt/utils";
 
 export type RenderedTranscriptSegmentWithWordMetadata = Omit<
   RenderedTranscriptSegment,
@@ -139,26 +137,6 @@ export function getRenderTranscriptRequestKey(
     assignmentCount,
     hash.toString(36),
   ].join(":");
-}
-
-export function buildRenderTranscriptRequestFromStore(
-  store: NonNullable<ReturnType<typeof main.UI.useStore>>,
-  transcriptIds: string[],
-): RenderTranscriptRequest | null {
-  const sessionId = getSessionIdForTranscripts(store, transcriptIds);
-  const transcripts = transcriptIds.map((transcriptId) => ({
-    started_at: asNumber(
-      store.getCell("transcripts", transcriptId, "started_at"),
-    ),
-    words: parseTranscriptWords(store, transcriptId),
-    speaker_hints: parseTranscriptHints(store, transcriptId),
-  }));
-
-  return buildRenderTranscriptRequest(
-    transcripts,
-    collectRenderHumans(store),
-    collectSessionParticipantHumanIds(store, sessionId),
-  );
 }
 
 export function buildRenderTranscriptRequestFromRows(
@@ -384,81 +362,6 @@ function parseHintValue(value: unknown): unknown {
   }
 
   return value;
-}
-
-function collectRenderHumans(
-  store: Pick<main.Store, "forEachRow" | "getValue" | "getRow">,
-): RenderTranscriptRequestHumans {
-  const humans: RenderTranscriptHuman[] = [];
-
-  store.forEachRow("humans", (humanId, _forEachCell) => {
-    const row = store.getRow("humans", humanId);
-    if (typeof row.name !== "string" || !row.name) {
-      return;
-    }
-
-    humans.push({
-      human_id: humanId,
-      name: row.name,
-    });
-  });
-
-  const selfHumanId = store.getValue("user_id");
-
-  return {
-    selfHumanId: typeof selfHumanId === "string" ? selfHumanId : undefined,
-    humans,
-  };
-}
-
-function getSessionIdForTranscripts(
-  store: Pick<main.Store, "getCell">,
-  transcriptIds: string[],
-): string | undefined {
-  for (const transcriptId of transcriptIds) {
-    const sessionId = store.getCell("transcripts", transcriptId, "session_id");
-    if (typeof sessionId === "string" && sessionId) {
-      return sessionId;
-    }
-  }
-
-  return undefined;
-}
-
-function collectSessionParticipantHumanIds(
-  store: Pick<main.Store, "forEachRow" | "getCell">,
-  sessionId?: string,
-): string[] {
-  if (!sessionId) {
-    return [];
-  }
-
-  const participantHumanIds: string[] = [];
-  store.forEachRow("mapping_session_participant", (mappingId, _forEachCell) => {
-    const mappingSessionId = store.getCell(
-      "mapping_session_participant",
-      mappingId,
-      "session_id",
-    );
-    if (mappingSessionId !== sessionId) {
-      return;
-    }
-
-    const humanId = store.getCell(
-      "mapping_session_participant",
-      mappingId,
-      "human_id",
-    );
-    if (typeof humanId === "string" && humanId) {
-      participantHumanIds.push(humanId);
-    }
-  });
-
-  return participantHumanIds;
-}
-
-function asNumber(value: unknown): number | null {
-  return typeof value === "number" ? value : null;
 }
 
 function normalizeRenderTranscriptRequest(

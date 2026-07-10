@@ -1,83 +1,105 @@
-import { parseJsonContent } from "@hypr/editor/markdown";
+import { md2json, parseJsonContent } from "@hypr/editor/markdown";
 
 import type { TaskConfig } from ".";
 
+import {
+  applyGeneratedSessionTitle,
+  type SessionDocumentContentUpdate,
+} from "~/session/content-mutations";
+import { loadSessionContentSnapshot } from "~/session/content-queries";
 import { ensureFirstLineTitle } from "~/session/title-content";
 import { hasLiveSessionTitleDraft } from "~/store/zustand/live-title";
 
-const onSuccess: NonNullable<TaskConfig<"title">["onSuccess"]> = ({
+const onSuccess: NonNullable<TaskConfig<"title">["onSuccess"]> = async ({
   text,
   args,
-  store,
 }) => {
   if (args.skipPersist) {
     return;
   }
 
-  persistGeneratedTitle({
+  await persistGeneratedTitle({
     text,
     args,
-    store,
   });
 };
 
-export function persistGeneratedTitle({
+export async function persistGeneratedTitle({
   text,
   args,
-  store,
 }: {
   text: string;
   args: { sessionId: string };
-  store: Parameters<NonNullable<TaskConfig<"title">["onSuccess"]>>[0]["store"];
-}) {
+}): Promise<boolean> {
   if (!text) {
-    return;
+    return false;
   }
 
   const trimmed = getPersistableGeneratedTitle(text);
   if (!trimmed) {
-    return;
-  }
-
-  const currentTitle = store.getCell("sessions", args.sessionId, "title");
-  if (typeof currentTitle === "string" && currentTitle.trim()) {
-    return;
+    return false;
   }
 
   if (hasLiveSessionTitleDraft(args.sessionId)) {
-    return;
+    return false;
   }
 
-  const row: { title: string; raw_md?: string } = { title: trimmed };
-  const rawMd = store.getCell("sessions", args.sessionId, "raw_md");
-  if (typeof rawMd === "string" && rawMd.trim()) {
-    row.raw_md = JSON.stringify(
-      ensureFirstLineTitle(parseJsonContent(rawMd), trimmed),
-    );
+  const snapshot = await loadSessionContentSnapshot(args.sessionId);
+  if (!snapshot || snapshot.title.trim()) {
+    return false;
   }
 
-  store.setPartialRow("sessions", args.sessionId, row);
-  store.forEachRow("enhanced_notes", (enhancedNoteId, _forEachCell) => {
-    const sessionId = store.getCell(
-      "enhanced_notes",
-      enhancedNoteId,
-      "session_id",
-    );
-    if (sessionId !== args.sessionId) {
-      return;
-    }
+  if (hasLiveSessionTitleDraft(args.sessionId)) {
+    return false;
+  }
 
-    const content = store.getCell("enhanced_notes", enhancedNoteId, "content");
-    if (typeof content !== "string" || !content.trim()) {
-      return;
-    }
-
-    store.setPartialRow("enhanced_notes", enhancedNoteId, {
-      content: JSON.stringify(
-        ensureFirstLineTitle(parseJsonContent(content), trimmed),
+  const documents: SessionDocumentContentUpdate[] = [];
+  if (snapshot.rawNoteId && snapshot.rawContent.trim()) {
+    documents.push(
+      createTitledDocumentUpdate(
+        snapshot.rawNoteId,
+        snapshot.rawContent,
+        snapshot.rawContentFormat,
+        trimmed,
       ),
-    });
+    );
+  }
+  documents.push(
+    ...snapshot.enhancedNotes
+      .filter((note) => note.content.trim())
+      .map((note) =>
+        createTitledDocumentUpdate(
+          note.id,
+          note.content,
+          note.contentFormat,
+          trimmed,
+        ),
+      ),
+  );
+
+  await applyGeneratedSessionTitle({
+    sessionId: args.sessionId,
+    currentTitle: snapshot.title,
+    nextTitle: trimmed,
+    documents,
   });
+  return true;
+}
+
+function createTitledDocumentUpdate(
+  id: string,
+  content: string,
+  contentFormat: string,
+  title: string,
+): SessionDocumentContentUpdate {
+  const parsed =
+    contentFormat === "markdown" ? md2json(content) : parseJsonContent(content);
+  return {
+    id,
+    currentContent: content,
+    currentContentFormat: contentFormat,
+    nextContent: JSON.stringify(ensureFirstLineTitle(parsed, title)),
+  };
 }
 
 export function getPersistableGeneratedTitle(text: string): string {

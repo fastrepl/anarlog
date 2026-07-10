@@ -5,6 +5,11 @@ import { enhanceTransform } from "./enhance-transform";
 const mocks = vi.hoisted(() => ({
   collectEnhanceImageContext: vi.fn(),
   getTemplateById: vi.fn(),
+  loadSessionContentSnapshot: vi.fn(),
+  loadHumansByIds: vi.fn(),
+  buildRenderTranscriptRequestFromRows: vi.fn(),
+  collectAssignedHumanIdsFromTranscriptRows: vi.fn(),
+  renderTranscriptSegments: vi.fn(),
 }));
 
 vi.mock("./enhance-images", () => ({
@@ -15,29 +20,48 @@ vi.mock("~/templates/queries", () => ({
   getTemplateById: mocks.getTemplateById,
 }));
 
-vi.mock("~/stt/render-transcript", () => ({
-  buildRenderTranscriptRequestFromStore: vi.fn(() => null),
-  renderTranscriptSegments: vi.fn(),
+vi.mock("~/session/content-queries", () => ({
+  loadSessionContentSnapshot: mocks.loadSessionContentSnapshot,
 }));
 
-function createStore() {
+vi.mock("~/contacts/queries", () => ({
+  loadHumansByIds: mocks.loadHumansByIds,
+}));
+
+vi.mock("~/stt/render-transcript", () => ({
+  buildRenderTranscriptRequestFromRows:
+    mocks.buildRenderTranscriptRequestFromRows,
+  collectAssignedHumanIdsFromTranscriptRows:
+    mocks.collectAssignedHumanIdsFromTranscriptRows,
+  renderTranscriptSegments: mocks.renderTranscriptSegments,
+}));
+
+function createSnapshot() {
   return {
-    forEachRow: vi.fn(),
-    getCell: vi.fn((tableId: string, _rowId: string, cellId: string) => {
-      if (tableId === "sessions" && cellId === "title") {
-        return "Weekly Review";
-      }
-
-      return "";
-    }),
-    getRow: vi.fn((tableId: string) => {
-      if (tableId === "sessions") {
-        return { title: "Weekly Review" };
-      }
-
-      return undefined;
-    }),
-  } as any;
+    sessionId: "session-1",
+    ownerUserId: "user-1",
+    title: "Weekly Review",
+    createdAt: "2026-07-10T00:00:00.000Z",
+    event: null,
+    eventId: null,
+    rawNoteId: "session-1",
+    rawContent: "![post](asset://localhost/post.png)",
+    rawContentFormat: "markdown",
+    rawMarkdown: "![post](asset://localhost/post.png)",
+    enhancedNotes: [],
+    transcripts: [
+      {
+        id: "transcript-1",
+        started_at: 100,
+        ended_at: 200,
+        memo: "![pre](asset://localhost/pre.png)",
+        wordsJson: "[]",
+        words: [],
+        speaker_hints: [],
+      },
+    ],
+    participants: [{ humanId: "human-1", name: "Alice", jobTitle: "Engineer" }],
+  };
 }
 
 const settingsValues = { ai_language: "en" } as const;
@@ -49,6 +73,11 @@ describe("enhanceTransform.transformArgs", () => {
     vi.clearAllMocks();
     mocks.collectEnhanceImageContext.mockResolvedValue([]);
     mocks.getTemplateById.mockResolvedValue(null);
+    mocks.loadSessionContentSnapshot.mockResolvedValue(createSnapshot());
+    mocks.loadHumansByIds.mockResolvedValue([{ id: "human-1", name: "Alice" }]);
+    mocks.collectAssignedHumanIdsFromTranscriptRows.mockReturnValue([]);
+    mocks.buildRenderTranscriptRequestFromRows.mockReturnValue(null);
+    mocks.renderTranscriptSegments.mockResolvedValue([]);
     consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
   });
 
@@ -69,7 +98,6 @@ describe("enhanceTransform.transformArgs", () => {
         enhancedNoteId: "note-1",
         templateId: "template-1",
       },
-      createStore(),
       settingsValues,
     );
 
@@ -78,6 +106,9 @@ describe("enhanceTransform.transformArgs", () => {
       description: "Daily sync",
       sections: [{ title: "Updates", description: null }],
     });
+    expect(result.participants).toEqual([
+      { name: "Alice", jobTitle: "Engineer" },
+    ]);
   });
 
   it("falls back to generic enhancement when template loading fails", async () => {
@@ -89,7 +120,6 @@ describe("enhanceTransform.transformArgs", () => {
         enhancedNoteId: "note-1",
         templateId: "template-1",
       },
-      createStore(),
       settingsValues,
     );
 
@@ -101,43 +131,12 @@ describe("enhanceTransform.transformArgs", () => {
     );
   });
 
-  it("collects image context from pre- and post-meeting memo content", async () => {
-    const store = createStore();
-    store.forEachRow.mockImplementation(
-      (tableId: string, callback: (rowId: string) => void) => {
-        if (tableId === "transcripts") {
-          callback("transcript-1");
-        }
-      },
-    );
-    store.getCell.mockImplementation(
-      (tableId: string, _rowId: string, cellId: string) => {
-        if (tableId === "sessions" && cellId === "title") {
-          return "Weekly Review";
-        }
-        if (tableId === "sessions" && cellId === "raw_md") {
-          return "![post](asset://localhost/post.png)";
-        }
-        if (tableId === "transcripts" && cellId === "session_id") {
-          return "session-1";
-        }
-        if (tableId === "transcripts" && cellId === "started_at") {
-          return 100;
-        }
-        if (tableId === "transcripts" && cellId === "memo_md") {
-          return "![pre](asset://localhost/pre.png)";
-        }
-
-        return "";
-      },
-    );
-
+  it("collects image context from canonical transcript and note content", async () => {
     await enhanceTransform.transformArgs(
       {
         sessionId: "session-1",
         enhancedNoteId: "note-1",
       },
-      store,
       {
         current_llm_provider: "openai",
         current_llm_model: "gpt-4o",
@@ -149,5 +148,41 @@ describe("enhanceTransform.transformArgs", () => {
       "![pre](asset://localhost/pre.png)",
       "![post](asset://localhost/post.png)",
     ]);
+  });
+
+  it("builds speaker identity context from SQLite humans", async () => {
+    mocks.collectAssignedHumanIdsFromTranscriptRows.mockReturnValue([
+      "human-2",
+    ]);
+
+    await enhanceTransform.transformArgs(
+      { sessionId: "session-1", enhancedNoteId: "note-1" },
+      settingsValues,
+    );
+
+    expect(mocks.loadHumansByIds).toHaveBeenCalledWith([
+      "user-1",
+      "human-1",
+      "human-2",
+    ]);
+    expect(mocks.buildRenderTranscriptRequestFromRows).toHaveBeenCalledWith(
+      expect.any(Array),
+      {
+        selfHumanId: "user-1",
+        humans: [{ human_id: "human-1", name: "Alice" }],
+      },
+      ["human-1"],
+    );
+  });
+
+  it("rejects generation when the session no longer exists", async () => {
+    mocks.loadSessionContentSnapshot.mockResolvedValue(null);
+
+    await expect(
+      enhanceTransform.transformArgs(
+        { sessionId: "missing", enhancedNoteId: "note-1" },
+        settingsValues,
+      ),
+    ).rejects.toThrow("Session missing no longer exists");
   });
 });

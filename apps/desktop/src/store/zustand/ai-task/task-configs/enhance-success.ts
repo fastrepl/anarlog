@@ -4,26 +4,22 @@ import { createTaskId, type TaskConfig } from ".";
 import {
   appendTagLineToMarkdown,
   extractEnhanceTagNames,
-  upsertSessionTags,
 } from "./summary-tags";
 import {
   getPersistableGeneratedTitle,
   persistGeneratedTitle,
 } from "./title-success";
 
+import { persistGeneratedEnhancedNote } from "~/session/content-mutations";
+import { loadSessionContentSnapshot } from "~/session/content-queries";
 import { ensureMarkdownFirstLineTitle } from "~/session/title-content";
 import { hasLiveSessionTitleDraft } from "~/store/zustand/live-title";
-
-type EnhanceSuccessParams = Parameters<
-  NonNullable<TaskConfig<"enhance">["onSuccess"]>
->[0];
 
 const onSuccess: NonNullable<TaskConfig<"enhance">["onSuccess"]> = async ({
   text,
   args,
   transformedArgs,
   model,
-  store,
   startTask,
   getTaskState,
   signal,
@@ -34,9 +30,12 @@ const onSuccess: NonNullable<TaskConfig<"enhance">["onSuccess"]> = async ({
 
   const tagNames = extractEnhanceTagNames(text, transformedArgs);
   const textWithTags = appendTagLineToMarkdown(text, tagNames);
-  const currentTitle = store.getCell("sessions", args.sessionId, "title");
-  let trimmedTitle =
-    typeof currentTitle === "string" ? currentTitle.trim() : "";
+  const initialSnapshot = await loadSessionContentSnapshot(args.sessionId);
+  if (!initialSnapshot) {
+    throw new Error(`Session ${args.sessionId} no longer exists`);
+  }
+
+  let trimmedTitle = initialSnapshot.title.trim();
   let generatedTitle = "";
   let shouldPersistGeneratedTitle = false;
 
@@ -64,63 +63,49 @@ const onSuccess: NonNullable<TaskConfig<"enhance">["onSuccess"]> = async ({
     if (signal.aborted) {
       return;
     }
-
-    const updatedTitle = store.getCell("sessions", args.sessionId, "title");
-    trimmedTitle = typeof updatedTitle === "string" ? updatedTitle.trim() : "";
-    if (
-      !trimmedTitle &&
-      !hasLiveSessionTitleDraft(args.sessionId) &&
-      generatedTitle
-    ) {
-      trimmedTitle = generatedTitle;
-      shouldPersistGeneratedTitle = true;
-    }
   }
 
-  const didPersist = persistEnhancedNoteContent({
-    text: textWithTags,
-    title: trimmedTitle,
-    args,
-    store,
+  const snapshot = await loadSessionContentSnapshot(args.sessionId);
+  if (!snapshot) {
+    throw new Error(`Session ${args.sessionId} no longer exists`);
+  }
+  const note = snapshot.enhancedNotes.find(
+    (candidate) => candidate.id === args.enhancedNoteId,
+  );
+  if (!note) {
+    throw new Error(`Summary ${args.enhancedNoteId} no longer exists`);
+  }
+
+  trimmedTitle = snapshot.title.trim();
+  if (
+    !trimmedTitle &&
+    !hasLiveSessionTitleDraft(args.sessionId) &&
+    generatedTitle
+  ) {
+    trimmedTitle = generatedTitle;
+    shouldPersistGeneratedTitle = true;
+  }
+
+  const titledText = ensureMarkdownFirstLineTitle(textWithTags, trimmedTitle);
+  await persistGeneratedEnhancedNote({
+    sessionId: args.sessionId,
+    ownerUserId: snapshot.ownerUserId,
+    note: {
+      id: note.id,
+      currentContent: note.content,
+      currentContentFormat: note.contentFormat,
+      nextContent: JSON.stringify(md2json(titledText)),
+    },
     tagNames,
   });
 
-  if (didPersist && shouldPersistGeneratedTitle) {
-    persistGeneratedTitle({
+  if (shouldPersistGeneratedTitle) {
+    await persistGeneratedTitle({
       text: generatedTitle,
       args: { sessionId: args.sessionId },
-      store,
     });
   }
 };
-
-function persistEnhancedNoteContent({
-  text,
-  title,
-  args,
-  store,
-  tagNames,
-}: {
-  text: string;
-  title: string;
-  args: EnhanceSuccessParams["args"];
-  store: EnhanceSuccessParams["store"];
-  tagNames: string[];
-}): boolean {
-  const titledText = ensureMarkdownFirstLineTitle(text, title);
-
-  try {
-    const jsonContent = md2json(titledText);
-    store.setPartialRow("enhanced_notes", args.enhancedNoteId, {
-      content: JSON.stringify(jsonContent),
-    });
-    upsertSessionTags(store, args.sessionId, tagNames);
-    return true;
-  } catch (error) {
-    console.error("Failed to convert markdown to JSON:", error);
-    return false;
-  }
-}
 
 export const enhanceSuccess: Pick<TaskConfig<"enhance">, "onSuccess"> = {
   onSuccess,

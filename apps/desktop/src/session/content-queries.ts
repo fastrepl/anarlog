@@ -5,10 +5,12 @@ import type { SpeakerHintWithId, WordWithId } from "~/stt/types";
 
 type SessionContentSqlRow = {
   id: string;
+  owner_user_id: string;
   title: string;
   created_at: string;
   event_json: string;
   event_id: string;
+  raw_note_id: string;
   raw_body: string;
   raw_body_format: string;
   enhanced_notes_json: string;
@@ -42,10 +44,14 @@ type ParticipantJson = {
 
 export type SessionContentSnapshot = {
   sessionId: string;
+  ownerUserId: string;
   title: string;
   createdAt: string;
   event: unknown;
   eventId: string | null;
+  rawNoteId: string | null;
+  rawContent: string;
+  rawContentFormat: string;
   rawMarkdown: string;
   enhancedNotes: Array<{
     id: string;
@@ -75,10 +81,12 @@ export type SessionContentSnapshot = {
 const SESSION_CONTENT_SQL = `
   SELECT
     session.id,
+    session.owner_user_id,
     session.title,
     session.created_at,
     session.event_json,
     COALESCE(NULLIF(session.event_id, ''), NULLIF(session.external_event_id, ''), '') AS event_id,
+    COALESCE(note.id, '') AS raw_note_id,
     COALESCE(note.body, '') AS raw_body,
     COALESCE(note.body_format, 'prosemirror_json') AS raw_body_format,
     COALESCE((
@@ -225,10 +233,14 @@ function mapSessionContentRow(
 
   return {
     sessionId: row.id,
+    ownerUserId: row.owner_user_id,
     title: row.title,
     createdAt: row.created_at,
     event: parseJson(row.event_json),
     eventId: row.event_id || null,
+    rawNoteId: row.raw_note_id || null,
+    rawContent: row.raw_body,
+    rawContentFormat: row.raw_body_format,
     rawMarkdown: bodyToMarkdown(row.raw_body, row.raw_body_format),
     enhancedNotes,
     transcripts,

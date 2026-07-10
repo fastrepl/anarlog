@@ -11,7 +11,6 @@ import {
 } from "./task-configs";
 
 import { getStoredSettingValues } from "~/settings/queries";
-import type { Store as MainStore } from "~/store/tinybase/store/main";
 
 export type TasksState = {
   tasks: Record<string, TaskState>;
@@ -83,7 +82,6 @@ const initialState: TasksState = {
 export const createTasksSlice = <T extends TasksState & TasksActions>(
   set: StoreApi<T>["setState"],
   get: StoreApi<T>["getState"],
-  deps: { persistedStore: MainStore },
 ): TasksState & TasksActions => ({
   ...initialState,
   getState: <Task extends TaskType>(
@@ -200,7 +198,6 @@ export const createTasksSlice = <T extends TasksState & TasksActions>(
       const { values: settingsValues } = await getStoredSettingValues();
       const enrichedArgs = await taskConfig.transformArgs(
         config.args,
-        deps.persistedStore,
         settingsValues,
       );
       let fullText = "";
@@ -229,7 +226,6 @@ export const createTasksSlice = <T extends TasksState & TasksActions>(
         args: enrichedArgs,
         onProgress,
         signal: abortController.signal,
-        store: deps.persistedStore,
       });
 
       const transforms = taskConfig.transforms ?? [];
@@ -256,22 +252,17 @@ export const createTasksSlice = <T extends TasksState & TasksActions>(
         }
       }
 
-      try {
-        await taskConfig.onSuccess?.({
-          taskId,
-          text: fullText,
-          model: config.model,
-          args: config.args,
-          transformedArgs: enrichedArgs,
-          store: deps.persistedStore,
-          signal: abortController.signal,
-          startTask: (nextTaskId, nextConfig) =>
-            get().generate(nextTaskId, nextConfig),
-          getTaskState: (nextTaskId) => getTaskState(get().tasks, nextTaskId),
-        });
-      } catch (error) {
-        console.error("Task post-success hook failed:", error);
-      }
+      await taskConfig.onSuccess?.({
+        taskId,
+        text: fullText,
+        model: config.model,
+        args: config.args,
+        transformedArgs: enrichedArgs,
+        signal: abortController.signal,
+        startTask: (nextTaskId, nextConfig) =>
+          get().generate(nextTaskId, nextConfig),
+        getTaskState: (nextTaskId) => getTaskState(get().tasks, nextTaskId),
+      });
 
       checkAbort();
 

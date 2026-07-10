@@ -1,8 +1,7 @@
 import type { TaskArgsMap, TaskArgsMapTransformed, TaskConfig } from ".";
 
+import { loadSessionContentSnapshot } from "~/session/content-queries";
 import type { SettingValues } from "~/settings/schema";
-import type { Store as MainStore } from "~/store/tinybase/store/main";
-import { collectEnhancedNotesContent } from "~/store/tinybase/store/utils";
 
 export const titleTransform: Pick<TaskConfig<"title">, "transformArgs"> = {
   transformArgs,
@@ -10,11 +9,22 @@ export const titleTransform: Pick<TaskConfig<"title">, "transformArgs"> = {
 
 async function transformArgs(
   args: TaskArgsMap["title"],
-  store: MainStore,
   settingsValues: SettingValues,
 ): Promise<TaskArgsMapTransformed["title"]> {
+  const snapshot = args.enhancedNote
+    ? null
+    : await loadSessionContentSnapshot(args.sessionId);
+  if (!args.enhancedNote && !snapshot) {
+    throw new Error(`Session ${args.sessionId} no longer exists`);
+  }
+
   const enhancedNote =
-    args.enhancedNote ?? collectEnhancedNotesContent(store, args.sessionId);
+    args.enhancedNote ??
+    snapshot?.enhancedNotes
+      .map((note) => note.markdown)
+      .filter(Boolean)
+      .join("\n\n") ??
+    "";
   const language = getLanguage(settingsValues);
   return { language, enhancedNote };
 }

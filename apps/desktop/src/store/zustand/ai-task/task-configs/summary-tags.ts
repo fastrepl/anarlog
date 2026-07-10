@@ -1,8 +1,5 @@
 import type { TaskArgsMapTransformed } from ".";
 
-import { DEFAULT_USER_ID } from "~/shared/utils";
-import type { Store } from "~/store/tinybase/store/main";
-
 type EnhanceArgs = TaskArgsMapTransformed["enhance"];
 
 const TAG_NAME_RE = /^[\p{L}_][\p{L}\p{N}_-]*$/u;
@@ -40,35 +37,6 @@ export function appendTagLineToMarkdown(
   const tagLine = normalizedTagNames.map((tagName) => `#${tagName}`).join(" ");
 
   return body ? `${body}\n\n${tagLine}` : tagLine;
-}
-
-export function upsertSessionTags(
-  store: Store,
-  sessionId: string,
-  tagNames: string[],
-): void {
-  const normalizedTagNames = normalizeTagNames(tagNames);
-  if (normalizedTagNames.length === 0) {
-    return;
-  }
-
-  const userIdValue = store.getValue("user_id");
-  const userId =
-    typeof userIdValue === "string" && userIdValue.trim()
-      ? userIdValue
-      : DEFAULT_USER_ID;
-
-  for (const tagName of normalizedTagNames) {
-    store.setRow("tags", tagName, {
-      user_id: userId,
-      name: tagName,
-    });
-    store.setRow("mapping_tag_session", `${sessionId}:${tagName}`, {
-      user_id: userId,
-      tag_id: tagName,
-      session_id: sessionId,
-    });
-  }
 }
 
 function extractHashtagNames(sources: Array<string | null | undefined>) {

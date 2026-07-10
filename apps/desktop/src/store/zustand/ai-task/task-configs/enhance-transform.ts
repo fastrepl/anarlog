@@ -4,17 +4,23 @@ import type {
   Session,
   Transcript,
 } from "@hypr/plugin-template";
+import { sessionEventSchema } from "@hypr/store";
 
 import type { TaskArgsMap, TaskArgsMapTransformed, TaskConfig } from ".";
 import { collectEnhanceImageContext } from "./enhance-images";
 
-import { getSessionEventById } from "~/session/utils";
+import { loadHumansByIds } from "~/contacts/queries";
+import {
+  loadSessionContentSnapshot,
+  type SessionContentSnapshot,
+} from "~/session/content-queries";
 import { modelSupportsImageInput } from "~/settings/ai/shared/model-capabilities";
 import type { SettingValues } from "~/settings/schema";
-import type { Store as MainStore } from "~/store/tinybase/store/main";
 import {
-  buildRenderTranscriptRequestFromStore,
+  buildRenderTranscriptRequestFromRows,
+  collectAssignedHumanIdsFromTranscriptRows,
   renderTranscriptSegments,
+  type TranscriptRow,
 } from "~/stt/render-transcript";
 import { getTemplateById } from "~/templates/queries";
 
@@ -39,12 +45,15 @@ export const enhanceTransform: Pick<TaskConfig<"enhance">, "transformArgs"> = {
 
 async function transformArgs(
   args: TaskArgsMap["enhance"],
-  store: MainStore,
   settingsValues: SettingValues,
 ): Promise<TaskArgsMapTransformed["enhance"]> {
   const { sessionId, templateId } = args;
+  const snapshot = await loadSessionContentSnapshot(sessionId);
+  if (!snapshot) {
+    throw new Error(`Session ${sessionId} no longer exists`);
+  }
 
-  const sessionContext = getSessionContext(sessionId, store);
+  const sessionContext = getSessionContext(snapshot);
   const templateRecord = await loadTemplate(templateId);
   const template = templateRecord
     ? {
@@ -54,10 +63,7 @@ async function transformArgs(
       }
     : null;
   const language = getLanguage(settingsValues);
-  const segments = await getTranscriptSegmentsFromMeta(
-    sessionContext.transcriptsMeta,
-    store,
-  );
+  const segments = await getTranscriptSegments(snapshot);
   const imageContext = modelSupportsImageInput(
     getOptionalSettingsValue(settingsValues, "current_llm_provider"),
     getOptionalSettingsValue(settingsValues, "current_llm_model"),
@@ -99,20 +105,21 @@ function formatTranscripts(
 ): Transcript[] {
   if (segments.length > 0 && transcriptsMeta.length > 0) {
     const startedAt = transcriptsMeta.reduce(
-      (min, t) => Math.min(min, t.startedAt),
+      (min, transcript) => Math.min(min, transcript.startedAt),
       Number.POSITIVE_INFINITY,
     );
     const endedAt = transcriptsMeta.reduce(
-      (max, t) => Math.max(max, t.endedAt ?? t.startedAt),
+      (max, transcript) =>
+        Math.max(max, transcript.endedAt ?? transcript.startedAt),
       Number.NEGATIVE_INFINITY,
     );
 
     return [
       {
         segments: segments.map(
-          (s): Segment => ({
-            speaker: s.speaker_label,
-            text: s.text,
+          (segment): Segment => ({
+            speaker: segment.speaker_label,
+            text: segment.text,
           }),
         ),
         startedAt: Number.isFinite(startedAt) ? startedAt : null,
@@ -137,99 +144,83 @@ function getOptionalSettingsValue(
   return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
-function getSessionContext(sessionId: string, store: MainStore) {
-  const transcriptsMeta = collectTranscripts(sessionId, store);
-  const rawMd = getStringCell(store, "sessions", sessionId, "raw_md");
-
-  const earliest =
-    transcriptsMeta.length > 0
-      ? transcriptsMeta.reduce((a, b) => (a.startedAt <= b.startedAt ? a : b))
-      : null;
-  const preMeetingMemo = earliest?.memoMd ?? "";
+function getSessionContext(snapshot: SessionContentSnapshot) {
+  const transcriptsMeta = snapshot.transcripts.map((transcript) => ({
+    id: transcript.id,
+    startedAt: transcript.started_at,
+    endedAt: transcript.ended_at,
+    memoMd: transcript.memo,
+  }));
 
   return {
-    preMeetingMemo,
-    postMeetingMemo: rawMd,
-    session: getSessionData(sessionId, store),
-    participants: getParticipants(sessionId, store),
+    preMeetingMemo: transcriptsMeta[0]?.memoMd ?? "",
+    postMeetingMemo: snapshot.rawMarkdown,
+    session: getSessionData(snapshot),
+    participants: getParticipants(snapshot),
     transcriptsMeta,
   };
 }
 
-function getSessionData(sessionId: string, store: MainStore): Session {
-  const rawTitle = getStringCell(store, "sessions", sessionId, "title");
-  const parsed = getSessionEventById(store, sessionId);
-
-  if (parsed) {
-    const eventTitle = parsed.title;
+function getSessionData(snapshot: SessionContentSnapshot): Session {
+  const parsed = sessionEventSchema.safeParse(snapshot.event);
+  if (parsed.success) {
+    const eventTitle = parsed.data.title;
     return {
-      title: eventTitle || rawTitle || null,
-      startedAt: parsed.started_at ?? null,
-      endedAt: parsed.ended_at ?? null,
+      title: eventTitle || snapshot.title || null,
+      startedAt: parsed.data.started_at ?? null,
+      endedAt: parsed.data.ended_at ?? null,
       event: {
-        name: eventTitle || rawTitle || "",
+        name: eventTitle || snapshot.title || "",
       },
     };
   }
 
   return {
-    title: rawTitle || null,
+    title: snapshot.title || null,
     startedAt: null,
     endedAt: null,
     event: null,
   };
 }
 
-function getParticipants(sessionId: string, store: MainStore): Participant[] {
-  const participants: Participant[] = [];
-
-  store.forEachRow("mapping_session_participant", (mappingId, _forEachCell) => {
-    const mappingSessionId = getOptionalStringCell(
-      store,
-      "mapping_session_participant",
-      mappingId,
-      "session_id",
-    );
-    if (mappingSessionId !== sessionId) {
-      return;
-    }
-
-    const humanId = getOptionalStringCell(
-      store,
-      "mapping_session_participant",
-      mappingId,
-      "human_id",
-    );
-    if (!humanId) {
-      return;
-    }
-
-    const name = getStringCell(store, "humans", humanId, "name");
-    if (!name) {
-      return;
-    }
-
-    participants.push({
-      name,
-      jobTitle:
-        getOptionalStringCell(store, "humans", humanId, "job_title") ?? null,
-    });
-  });
-
-  return participants;
+function getParticipants(snapshot: SessionContentSnapshot): Participant[] {
+  return snapshot.participants
+    .filter((participant) => participant.name)
+    .map((participant) => ({
+      name: participant.name,
+      jobTitle: participant.jobTitle || null,
+    }));
 }
 
-async function getTranscriptSegmentsFromMeta(
-  transcripts: TranscriptMeta[],
-  store: MainStore,
+async function getTranscriptSegments(
+  snapshot: SessionContentSnapshot,
 ): Promise<SegmentPayload[]> {
-  if (transcripts.length === 0) {
+  if (snapshot.transcripts.length === 0) {
     return [];
   }
 
-  const request = buildRenderTranscriptRequestFromStore(
-    store,
-    transcripts.map((transcript) => transcript.id),
+  const transcriptRows: TranscriptRow[] = snapshot.transcripts.map(
+    (transcript) => ({
+      started_at: transcript.started_at,
+      words: transcript.words,
+      speaker_hints: transcript.speaker_hints,
+    }),
+  );
+  const humanIds = [
+    snapshot.ownerUserId,
+    ...snapshot.participants.map((participant) => participant.humanId),
+    ...collectAssignedHumanIdsFromTranscriptRows(transcriptRows),
+  ];
+  const humans = await loadHumansByIds(humanIds);
+  const request = buildRenderTranscriptRequestFromRows(
+    transcriptRows,
+    {
+      selfHumanId: snapshot.ownerUserId || undefined,
+      humans: humans
+        .filter((human) => human.name)
+        .map((human) => ({ human_id: human.id, name: human.name })),
+    },
+    snapshot.participants.map((participant) => participant.humanId),
   );
   if (!request) {
     return [];
@@ -237,47 +228,14 @@ async function getTranscriptSegmentsFromMeta(
 
   const segments = await renderTranscriptSegments(request);
 
-  const normalizedSegments = segments.reduce<SegmentPayload[]>(
-    (acc, segment) => {
-      if (segment.words.length === 0) {
-        return acc;
+  return segments
+    .reduce<SegmentPayload[]>((result, segment) => {
+      if (segment.words.length > 0) {
+        result.push(toSegmentPayload(segment));
       }
-
-      acc.push(toSegmentPayload(segment));
-      return acc;
-    },
-    [],
-  );
-
-  return normalizedSegments.sort((a, b) => a.start_ms - b.start_ms);
-}
-
-function collectTranscripts(
-  sessionId: string,
-  store: MainStore,
-): TranscriptMeta[] {
-  const transcripts: TranscriptMeta[] = [];
-
-  store.forEachRow("transcripts", (transcriptId, _forEachCell) => {
-    const transcriptSessionId = getOptionalStringCell(
-      store,
-      "transcripts",
-      transcriptId,
-      "session_id",
-    );
-    if (transcriptSessionId !== sessionId) {
-      return;
-    }
-
-    const startedAt =
-      getNumberCell(store, "transcripts", transcriptId, "started_at") ?? 0;
-    const endedAt =
-      getNumberCell(store, "transcripts", transcriptId, "ended_at") ?? null;
-    const memoMd = getStringCell(store, "transcripts", transcriptId, "memo_md");
-    transcripts.push({ id: transcriptId, startedAt, endedAt, memoMd });
-  });
-
-  return transcripts;
+      return result;
+    }, [])
+    .sort((left, right) => left.start_ms - right.start_ms);
 }
 
 function toSegmentPayload(
@@ -294,34 +252,4 @@ function toSegmentPayload(
       end_ms: word.end_ms,
     })),
   };
-}
-
-function getStringCell(
-  store: MainStore,
-  tableId: any,
-  rowId: string,
-  columnId: string,
-): string {
-  const value = store.getCell(tableId, rowId, columnId);
-  return typeof value === "string" ? value : "";
-}
-
-function getOptionalStringCell(
-  store: MainStore,
-  tableId: any,
-  rowId: string,
-  columnId: string,
-): string | undefined {
-  const value = store.getCell(tableId, rowId, columnId);
-  return typeof value === "string" && value.length > 0 ? value : undefined;
-}
-
-function getNumberCell(
-  store: MainStore,
-  tableId: any,
-  rowId: string,
-  columnId: string,
-): number | undefined {
-  const value = store.getCell(tableId, rowId, columnId);
-  return typeof value === "number" ? value : undefined;
 }

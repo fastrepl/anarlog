@@ -20,10 +20,12 @@ describe("session content SQLite snapshots", () => {
     mocks.execute.mockResolvedValueOnce([
       {
         id: "session-1",
+        owner_user_id: "user-1",
         title: "Planning",
         created_at: "2026-07-10T09:00:00.000Z",
         event_json: JSON.stringify({ title: "Weekly planning" }),
         event_id: "event-1",
+        raw_note_id: "session-1",
         raw_body: JSON.stringify({
           type: "doc",
           content: [
@@ -84,10 +86,13 @@ describe("session content SQLite snapshots", () => {
 
     expect(snapshot).toMatchObject({
       sessionId: "session-1",
+      ownerUserId: "user-1",
       title: "Planning",
       createdAt: "2026-07-10T09:00:00.000Z",
       event: { title: "Weekly planning" },
       eventId: "event-1",
+      rawNoteId: "session-1",
+      rawContentFormat: "prosemirror_json",
       enhancedNotes: [
         { id: "summary-1", markdown: "First summary", position: 1 },
         { id: "summary-2", markdown: "Second summary", position: 2 },

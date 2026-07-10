@@ -67,7 +67,7 @@ function App() {
     if (!store) {
       return null;
     }
-    return createAITaskStore({ persistedStore: store });
+    return createAITaskStore();
   }, [store]);
 
   if (!store || !aiTaskStore) {

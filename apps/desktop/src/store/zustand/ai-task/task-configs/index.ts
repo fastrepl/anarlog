@@ -16,7 +16,6 @@ import { titleTransform } from "./title-transform";
 import { titleWorkflow } from "./title-workflow";
 
 import type { SettingValues } from "~/settings/schema";
-import type { Store as MainStore } from "~/store/tinybase/store/main";
 import { StreamTransform } from "~/store/zustand/ai-task/shared/transform_infra";
 import type { TaskState, TaskStepInfo } from "~/store/zustand/ai-task/tasks";
 
@@ -51,7 +50,6 @@ export function createTaskId<T extends TaskType>(
 export interface TaskConfig<T extends TaskType = TaskType> {
   transformArgs: (
     args: TaskArgsMap[T],
-    store: MainStore,
     settingsValues: SettingValues,
   ) => Promise<TaskArgsMapTransformed[T]>;
   executeWorkflow: (params: {
@@ -59,7 +57,6 @@ export interface TaskConfig<T extends TaskType = TaskType> {
     args: TaskArgsMapTransformed[T];
     onProgress: (step: TaskStepInfo<T>) => void;
     signal: AbortSignal;
-    store: MainStore;
   }) => AsyncIterable<TextStreamPart<any>>;
   transforms?: StreamTransform[];
   onSuccess?: (params: {
@@ -68,7 +65,6 @@ export interface TaskConfig<T extends TaskType = TaskType> {
     model: LanguageModel;
     args: TaskArgsMap[T];
     transformedArgs: TaskArgsMapTransformed[T];
-    store: MainStore;
     signal: AbortSignal;
     startTask: <K extends TaskType>(
       taskId: TaskId<K>,
