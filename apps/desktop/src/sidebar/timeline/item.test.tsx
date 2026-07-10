@@ -87,7 +87,7 @@ vi.mock("~/shared/hooks/useNativeContextMenu", () => ({
   },
 }));
 
-vi.mock("~/store/tinybase/hooks", () => ({
+vi.mock("~/calendar/ignored-events", () => ({
   useIgnoredEvents: () => ({
     ignoreEvent: mocks.ignoreEvent,
     ignoreSeries: vi.fn(),

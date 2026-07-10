@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-import { useSessionEvent } from "~/store/tinybase/hooks";
+import { useSessionEvent } from "~/session/hooks/useSessionEvent";
 
 const FIVE_MINUTES = 5 * 60 * 1000;
 

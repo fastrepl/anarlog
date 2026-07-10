@@ -7,7 +7,7 @@ const { useSessionEventMock } = vi.hoisted(() => ({
   useSessionEventMock: vi.fn(),
 }));
 
-vi.mock("~/store/tinybase/hooks", () => ({
+vi.mock("~/session/hooks/useSessionEvent", () => ({
   useSessionEvent: useSessionEventMock,
 }));
 

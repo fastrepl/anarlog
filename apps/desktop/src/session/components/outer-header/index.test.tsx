@@ -76,7 +76,7 @@ vi.mock("~/contexts/shell", () => ({
   }),
 }));
 
-vi.mock("~/store/tinybase/hooks", () => ({
+vi.mock("~/session/hooks/useSessionEvent", () => ({
   useSessionEvent: (sessionId: string) =>
     mocks.sessionEvents[sessionId] ?? null,
 }));

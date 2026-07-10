@@ -5,7 +5,9 @@ import {
   applyExtractedContactToHuman,
   applyExtractedContacts,
   buildEventContactExtractionContext,
+  buildEventContactExtractionContextFromRecords,
   extractEventContacts,
+  planExtractedContactToHuman,
 } from "./event-contact-extraction";
 
 import { createTestMainStore } from "~/store/tinybase/persister/testing/mocks";
@@ -89,6 +91,66 @@ describe("event contact extraction", () => {
       }
 
       return { status: "error", error: "Unexpected template" };
+    });
+  });
+
+  test("builds extraction context from canonical participant records", () => {
+    const context = buildEventContactExtractionContextFromRecords({
+      sessionEvent: {
+        tracking_id: "event-1",
+        calendar_id: "calendar-1",
+        title: "Planning",
+        started_at: "2026-07-10T09:00:00.000Z",
+        ended_at: "2026-07-10T10:00:00.000Z",
+        is_all_day: false,
+        has_recurrence_rules: false,
+      },
+      currentUserId: "user-1",
+      participants: [
+        {
+          humanId: "human-1",
+          name: "Alice",
+          email: "alice@example.com",
+          source: "manual",
+        },
+      ],
+      eventParticipants: [
+        { name: "Bob", email: "bob@example.com", is_organizer: true },
+      ],
+    });
+
+    expect(context.candidates).toEqual([
+      expect.objectContaining({ humanId: "human-1", name: "Alice" }),
+      expect.objectContaining({ name: "Bob", isOrganizer: true }),
+    ]);
+  });
+
+  test("plans durable contact fields without mutating a store", () => {
+    const { result, changes } = planExtractedContactToHuman({
+      humanId: "human-1",
+      userId: "user-1",
+      human: {
+        name: "Alice Kim",
+        email: "",
+        organizationId: "",
+      },
+      currentUser: { name: "John", email: "john@example.com" },
+      mappingSource: "manual",
+      contacts: [
+        {
+          name: "Alice Kim",
+          email: "alice@example.com",
+          companyName: "Example",
+        },
+      ],
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({ matched: true, updated: 1, skipped: 0 }),
+    );
+    expect(changes).toEqual({
+      email: "alice@example.com",
+      companyName: "Example",
     });
   });
 

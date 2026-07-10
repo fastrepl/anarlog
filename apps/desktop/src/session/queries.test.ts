@@ -32,6 +32,7 @@ import {
   deleteEnhancedNote,
   getOrCreateSessionForEventId,
   isSessionEmpty,
+  removeSessionParticipant,
   restoreDeletedSession,
   softDeleteSession,
   updateEnhancedNoteContent,
@@ -96,12 +97,24 @@ describe("session SQLite operations", () => {
   it("links a human to a session without creating duplicate active mappings", async () => {
     await addSessionParticipant("session-1", "human-1");
 
+    const statements = mocks.executeTransaction.mock.calls[0][0];
+    expect(statements[0].sql).toContain("source = 'excluded'");
+    expect(statements[0].sql).toContain("? <> 'auto'");
+    expect(statements[1].sql).toContain("INSERT INTO session_participants");
+    expect(statements[1].sql).toContain("NOT EXISTS");
+    expect(statements[1].params).toContain("session-1");
+    expect(statements[1].params).toContain("human-1");
+    expect(statements[1].params).toContain("manual");
+  });
+
+  it("excludes auto participants and tombstones manual participants", async () => {
+    await removeSessionParticipant("mapping-1");
+
     const statement = mocks.executeTransaction.mock.calls[0][0][0];
-    expect(statement.sql).toContain("INSERT INTO session_participants");
-    expect(statement.sql).toContain("NOT EXISTS");
-    expect(statement.params).toContain("session-1");
-    expect(statement.params).toContain("human-1");
-    expect(statement.params).toContain("manual");
+    expect(statement.sql).toContain("source = 'auto'");
+    expect(statement.sql).toContain("THEN 'excluded'");
+    expect(statement.sql).toContain("deleted_at = CASE");
+    expect(statement.params).toContain("mapping-1");
   });
 
   it("commits enhanced note content and the derived session title together", async () => {

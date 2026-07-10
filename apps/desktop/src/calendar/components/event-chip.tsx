@@ -11,12 +11,13 @@ import {
 import { cn } from "@hypr/utils";
 
 import { toTz, useCalendar, useTimezone } from "~/calendar/hooks";
+import { useIgnoredEvents } from "~/calendar/ignored-events";
 import { EventDisplay } from "~/session/components/outer-header/metadata";
 import {
   type MenuItemDef,
   useNativeContextMenu,
 } from "~/shared/hooks/useNativeContextMenu";
-import { useEvent, useIgnoredEvents } from "~/store/tinybase/hooks";
+import { useEvent } from "~/store/tinybase/hooks";
 import * as main from "~/store/tinybase/store/main";
 import { getOrCreateSessionForEventId } from "~/store/tinybase/store/sessions";
 import { useTabs } from "~/store/zustand/tabs";

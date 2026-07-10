@@ -44,7 +44,7 @@ vi.mock("@hypr/plugin-windows", () => ({
   getCurrentWebviewWindowLabel: mocks.getCurrentWebviewWindowLabel,
 }));
 
-vi.mock("~/store/tinybase/hooks", () => ({
+vi.mock("~/calendar/ignored-events", () => ({
   useIgnoredEvents: () => ({
     ignoreEvent: mocks.ignoreEvent,
   }),

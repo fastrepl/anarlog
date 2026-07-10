@@ -13,16 +13,28 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { ParticipantChip } from "./chip";
 import { ParticipantDropdown } from "./dropdown";
 import {
-  applyExtractedContactToHuman,
-  buildEventContactExtractionContext,
+  buildEventContactExtractionContextFromRecords,
   extractEventContacts,
+  planExtractedContactToHuman,
 } from "./event-contact-extraction";
 
 import { useLanguageModel } from "~/ai/hooks";
+import { useSessionEventParticipants } from "~/calendar/queries";
+import {
+  applyContactEnhancement,
+  createHuman,
+  useHumans,
+} from "~/contacts/queries";
+import {
+  addSessionParticipant,
+  removeSessionParticipant,
+  useSession,
+  useSessionParticipants,
+} from "~/session/queries";
+import { getSessionEvent } from "~/session/utils";
 import { useAutoCloser } from "~/shared/hooks/useAutoCloser";
 import { showTransientToast } from "~/sidebar/toast/transient";
-import { useSessionEvent } from "~/store/tinybase/hooks";
-import * as main from "~/store/tinybase/store/main";
+import { removeHumanSpeakerAssignments } from "~/stt/queries";
 
 export function ParticipantInput({ sessionId }: { sessionId: string }) {
   const {
@@ -155,56 +167,38 @@ type Candidate = {
   isNew?: boolean;
 };
 
-function useSessionParticipants(sessionId: string) {
-  const queries = main.UI.useQueries(main.STORE_ID);
-
-  const mappingIds = main.UI.useSliceRowIds(
-    main.INDEXES.sessionParticipantsBySession,
-    sessionId,
-    main.STORE_ID,
-  ) as string[];
-
+function useParticipantMappings(sessionId: string) {
+  const participants = useSessionParticipants(sessionId);
+  const activeParticipants = useMemo(
+    () =>
+      participants.filter((participant) => participant.source !== "excluded"),
+    [participants],
+  );
   const existingHumanIds = useMemo(() => {
-    if (!queries) {
-      return new Set<string>();
-    }
+    return new Set(
+      activeParticipants.map((participant) => participant.humanId),
+    );
+  }, [activeParticipants]);
 
-    const ids = new Set<string>();
-    for (const mappingId of mappingIds) {
-      const result = queries.getResultRow(
-        main.QUERIES.sessionParticipantsWithDetails,
-        mappingId,
-      );
-      if (result?.human_id) {
-        ids.add(result.human_id as string);
-      }
-    }
-    return ids;
-  }, [mappingIds, queries]);
-
-  return { mappingIds, existingHumanIds };
+  return {
+    participants: activeParticipants,
+    mappingIds: activeParticipants.map((participant) => participant.id),
+    existingHumanIds,
+  };
 }
 
 function useCandidateSearch(
   inputValue: string,
   existingHumanIds: Set<string>,
 ): Candidate[] {
-  const store = main.UI.useStore(main.STORE_ID);
-  const allHumanIds = main.UI.useRowIds("humans", main.STORE_ID) as string[];
+  const humans = useHumans();
 
   return useMemo(() => {
     const searchLower = inputValue.toLowerCase();
-    return allHumanIds
-      .filter((humanId: string) => !existingHumanIds.has(humanId))
-      .map((humanId: string) => {
-        const human = store?.getRow("humans", humanId);
-        if (!human) {
-          return null;
-        }
-
-        const name = (human.name || "") as string;
-        const email = (human.email || "") as string;
-        const phone = (human.phone || "") as string;
+    return humans
+      .filter((human) => !existingHumanIds.has(human.id))
+      .map((human) => {
+        const { name, email, phone } = human;
         const nameMatch = name.toLowerCase().includes(searchLower);
         const emailMatch = email.toLowerCase().includes(searchLower);
         const phoneMatch = phone.toLowerCase().includes(searchLower);
@@ -214,17 +208,17 @@ function useCandidateSearch(
         }
 
         return {
-          id: humanId,
+          id: human.id,
           name,
           email,
           phone,
-          orgId: human.org_id as string | undefined,
-          jobTitle: human.job_title as string | undefined,
+          orgId: human.organizationId || undefined,
+          jobTitle: human.jobTitle || undefined,
           isNew: false,
         };
       })
       .filter((h): h is NonNullable<typeof h> => h !== null);
-  }, [inputValue, allHumanIds, existingHumanIds, store]);
+  }, [inputValue, existingHumanIds, humans]);
 }
 
 function useDropdownOptions(
@@ -256,35 +250,42 @@ function useDropdownOptions(
   }, [inputValue, candidates]);
 }
 
-function useParticipantMutations(sessionId: string, mappingIds: string[]) {
-  const store = main.UI.useStore(main.STORE_ID);
-  const userId = main.UI.useValue("user_id", main.STORE_ID);
-
-  const createHuman = useCreateHuman(userId || "");
-  const linkHumanToSession = useLinkHumanToSession(userId || "", sessionId);
+function useParticipantMutations(
+  sessionId: string,
+  participants: ReturnType<typeof useSessionParticipants>,
+) {
+  const session = useSession(sessionId);
 
   const addParticipant = useCallback(
     (option: Candidate) => {
-      if (!userId) {
-        return;
-      }
-
-      if (option.isNew) {
-        const humanId = createHuman(option.name);
-        linkHumanToSession(humanId);
-      } else {
-        linkHumanToSession(option.id);
-      }
+      void (async () => {
+        let humanId = option.id;
+        if (option.isNew) {
+          if (!session?.user_id) return;
+          humanId = await createHuman({
+            ownerUserId: session.user_id,
+            name: option.name,
+          });
+        }
+        await addSessionParticipant(sessionId, humanId);
+      })().catch((error) => {
+        console.error("[participants] failed to add participant", error);
+      });
     },
-    [userId, createHuman, linkHumanToSession],
+    [session?.user_id, sessionId],
   );
 
   const deleteLastParticipant = useCallback(() => {
-    if (mappingIds.length > 0 && store) {
-      const lastMappingId = mappingIds[mappingIds.length - 1];
-      store.delRow("mapping_session_participant", lastMappingId);
-    }
-  }, [mappingIds, store]);
+    const participant = participants[participants.length - 1];
+    if (!participant) return;
+
+    void (async () => {
+      await removeHumanSpeakerAssignments(sessionId, participant.humanId);
+      await removeSessionParticipant(participant.id);
+    })().catch((error) => {
+      console.error("[participants] failed to remove participant", error);
+    });
+  }, [participants, sessionId]);
 
   return { addParticipant, deleteLastParticipant };
 }
@@ -294,12 +295,13 @@ function useParticipantInput(sessionId: string) {
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
 
-  const { mappingIds, existingHumanIds } = useSessionParticipants(sessionId);
+  const { participants, mappingIds, existingHumanIds } =
+    useParticipantMappings(sessionId);
   const candidates = useCandidateSearch(inputValue, existingHumanIds);
   const dropdownOptions = useDropdownOptions(inputValue, candidates);
   const { addParticipant, deleteLastParticipant } = useParticipantMutations(
     sessionId,
-    mappingIds,
+    participants,
   );
   const activeSelectedIndex =
     dropdownOptions.length > 0
@@ -342,9 +344,12 @@ function useParticipantInput(sessionId: string) {
 }
 
 function useEventContactEnhancement(sessionId: string) {
-  const store = main.UI.useStore(main.STORE_ID);
-  const userId = main.UI.useValue("user_id", main.STORE_ID);
-  const sessionEvent = useSessionEvent(sessionId);
+  const session = useSession(sessionId);
+  const userId = session?.user_id;
+  const sessionEvent = session ? getSessionEvent(session) : null;
+  const participants = useSessionParticipants(sessionId);
+  const humans = useHumans();
+  const eventParticipants = useSessionEventParticipants(sessionId);
   const model = useLanguageModel("title");
 
   const showEnhancementButtons = Boolean(
@@ -354,25 +359,35 @@ function useEventContactEnhancement(sessionId: string) {
   const { isPending, mutate, variables } = useMutation({
     mutationKey: ["event-contact-enhancement", sessionId],
     mutationFn: async (humanId: string) => {
-      if (!store || !sessionEvent) {
+      if (!sessionEvent || !userId) {
         throw new Error("Event unavailable");
       }
 
-      const context = buildEventContactExtractionContext(
-        store,
-        sessionId,
+      const context = buildEventContactExtractionContextFromRecords({
         sessionEvent,
-      );
+        currentUserId: userId,
+        participants,
+        eventParticipants,
+      });
       const extraction = await extractEventContacts({ model, context });
-      const applied = applyExtractedContactToHuman(
-        store,
-        sessionId,
-        humanId,
-        extraction.contacts,
-        {
-          userId: typeof userId === "string" ? userId : undefined,
-        },
+      const participant = participants.find(
+        (candidate) => candidate.humanId === humanId,
       );
+      const human = humans.find((candidate) => candidate.id === humanId);
+      const currentUser = humans.find((candidate) => candidate.id === userId);
+      const { result: applied, changes } = planExtractedContactToHuman({
+        humanId,
+        userId,
+        human,
+        currentUser,
+        mappingSource: participant?.source,
+        contacts: extraction.contacts,
+      });
+      await applyContactEnhancement({
+        humanId,
+        ownerUserId: userId,
+        changes,
+      });
 
       return { extraction, applied, humanId };
     },
@@ -427,59 +442,4 @@ function useEventContactEnhancement(sessionId: string) {
     enhancingHumanId: isPending ? variables : undefined,
     showEnhancementButtons,
   };
-}
-
-function useLinkHumanToSession(
-  userId: string,
-  sessionId: string,
-): (humanId: string) => void {
-  const linkMapping = main.UI.useSetRowCallback(
-    "mapping_session_participant",
-    () => crypto.randomUUID(),
-    (p: { humanId: string }) => ({
-      user_id: userId,
-      created_at: new Date().toISOString(),
-      session_id: sessionId,
-      human_id: p.humanId,
-      source: "manual",
-    }),
-    [userId, sessionId],
-    main.STORE_ID,
-  );
-
-  return useCallback(
-    (humanId: string) => {
-      linkMapping({ humanId });
-    },
-    [linkMapping],
-  );
-}
-
-function useCreateHuman(userId: string): (name: string) => string {
-  const createHuman = main.UI.useSetRowCallback(
-    "humans",
-    (p: { name: string; humanId: string }) => p.humanId,
-    (p: { name: string; humanId: string }) => ({
-      user_id: userId,
-      created_at: new Date().toISOString(),
-      name: p.name,
-      email: "",
-      phone: "",
-      org_id: "",
-      job_title: "",
-      linkedin_username: "",
-      memo: "",
-    }),
-    [userId],
-    main.STORE_ID,
-  );
-
-  return useCallback(
-    (name: string) => {
-      const humanId = crypto.randomUUID();
-      createHuman({ name, humanId });
-      return humanId;
-    },
-    [createHuman],
-  );
 }

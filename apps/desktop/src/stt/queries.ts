@@ -16,6 +16,8 @@ import type { SpeakerHintWithId, WordWithId } from "~/stt/types";
 import {
   applyLiveTranscriptDelta,
   createTranscriptAccumulator,
+  parseTranscriptHints,
+  updateTranscriptHints,
   upsertSpeakerAssignment,
 } from "~/stt/utils";
 
@@ -322,6 +324,37 @@ export function softDeleteTranscript(transcriptId: string): Promise<void> {
   });
 }
 
+export async function removeHumanSpeakerAssignments(
+  sessionId: string,
+  humanId: string,
+): Promise<void> {
+  const transcripts = await liveQueryClient.execute<{ id: string }>(
+    `
+      SELECT id
+      FROM transcripts
+      WHERE session_id = ? AND deleted_at IS NULL
+      ORDER BY started_at_ms, created_at, id
+    `,
+    [sessionId],
+  );
+
+  await Promise.all(
+    transcripts.map((transcript) =>
+      mutateTranscript(transcript.id, (store) => {
+        const hints = parseTranscriptHints(store, transcript.id);
+        const filtered = hints.filter(
+          (hint) =>
+            hint.type !== "user_speaker_assignment" ||
+            parseAssignedHumanId(hint.value) !== humanId,
+        );
+        if (filtered.length !== hints.length) {
+          updateTranscriptHints(store, transcript.id, filtered);
+        }
+      }),
+    ),
+  );
+}
+
 function mapTranscriptRow(row: TranscriptSqlRow): TranscriptRecord {
   return {
     id: row.id,
@@ -458,4 +491,22 @@ function assertJsonArray(value: string, rowId: string, field: string): void {
   }
 
   throw new Error(`Transcript ${rowId} has invalid ${field} data`);
+}
+
+function parseAssignedHumanId(value: unknown): string | undefined {
+  let parsed = value;
+  if (typeof value === "string") {
+    try {
+      parsed = JSON.parse(value);
+    } catch {
+      return undefined;
+    }
+  }
+
+  if (!parsed || typeof parsed !== "object" || !("human_id" in parsed)) {
+    return undefined;
+  }
+
+  const humanId = (parsed as { human_id?: unknown }).human_id;
+  return typeof humanId === "string" ? humanId : undefined;
 }

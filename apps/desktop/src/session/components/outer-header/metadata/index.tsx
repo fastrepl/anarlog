@@ -14,8 +14,8 @@ import { cn, safeFormat, safeParseDate, TZDate } from "@hypr/utils";
 import { DateEditor } from "./date";
 import { ParticipantsDisplay } from "./participants";
 
+import { useSessionEvent } from "~/session/hooks/useSessionEvent";
 import { useConfigValue } from "~/shared/config";
-import { useSessionEvent } from "~/store/tinybase/hooks";
 
 export function MetadataButton({
   sessionId,

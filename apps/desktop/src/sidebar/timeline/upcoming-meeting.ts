@@ -9,9 +9,9 @@ import {
   type TimelineBucket,
 } from "./utils";
 
+import { useIgnoredEvents } from "~/calendar/ignored-events";
 import { useTimelineTables } from "~/calendar/queries";
 import { useConfigValue } from "~/shared/config";
-import { useIgnoredEvents } from "~/store/tinybase/hooks";
 
 const UPCOMING_MEETING_VISIBLE_WINDOW_MS = 5 * 60 * 1000;
 const UPCOMING_MEETING_STATUS_TICK_MS = 1000;

@@ -68,7 +68,7 @@ vi.mock("~/calendar/queries", () => ({
   }),
 }));
 
-vi.mock("~/store/tinybase/hooks", () => ({
+vi.mock("~/calendar/ignored-events", () => ({
   useIgnoredEvents: () => ({
     isIgnored: mocks.isIgnored,
   }),

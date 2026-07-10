@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { safeParseDate } from "@hypr/utils";
 import { TZDate } from "@hypr/utils";
 
+import { useIgnoredEvents } from "./ignored-events";
 import {
   useCalendarRow,
   useEnabledCalendarRows,
@@ -11,7 +12,6 @@ import {
 } from "./queries";
 
 import { useConfigValue } from "~/shared/config";
-import { useIgnoredEvents } from "~/store/tinybase/hooks";
 
 export function useTimezone() {
   return useConfigValue("timezone") || undefined;

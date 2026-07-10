@@ -11,9 +11,12 @@ import {
 } from "@hypr/ui/components/ui/tooltip";
 import { cn } from "@hypr/utils";
 
-import * as main from "~/store/tinybase/store/main";
+import {
+  removeSessionParticipant,
+  useSessionParticipant,
+} from "~/session/queries";
 import { useTabs } from "~/store/zustand/tabs/index";
-import { parseTranscriptHints, updateTranscriptHints } from "~/stt/utils";
+import { removeHumanSpeakerAssignments } from "~/stt/queries";
 
 export function ParticipantChip({
   mappingId,
@@ -34,7 +37,6 @@ export function ParticipantChip({
     mappingId,
     assignedHumanId,
     sessionId,
-    source,
   });
 
   const handleClick = useCallback(() => {
@@ -140,104 +142,43 @@ function EnhanceContactButton({
 }
 
 function useParticipantDetails(mappingId: string) {
-  const result = main.UI.useResultRow(
-    main.QUERIES.sessionParticipantsWithDetails,
-    mappingId,
-    main.STORE_ID,
-  );
-  const source = main.UI.useCell(
-    "mapping_session_participant",
-    mappingId,
-    "source",
-    main.STORE_ID,
-  );
+  const participant = useSessionParticipant(mappingId);
 
-  if (!result) {
+  if (!participant) {
     return null;
   }
 
   return {
     mappingId,
-    humanId: result.human_id as string,
-    humanName: (result.human_name as string) || "",
-    humanEmail: (result.human_email as string | undefined) || undefined,
-    humanJobTitle: (result.human_job_title as string | undefined) || undefined,
-    humanLinkedinUsername:
-      (result.human_linkedin_username as string | undefined) || undefined,
-    orgId: (result.org_id as string | undefined) || undefined,
-    orgName: result.org_name as string | undefined,
-    sessionId: result.session_id as string,
-    source: source as string | undefined,
+    humanId: participant.humanId,
+    humanName: participant.name,
+    humanEmail: participant.email || undefined,
+    humanJobTitle: participant.jobTitle || undefined,
+    humanLinkedinUsername: participant.linkedinUsername || undefined,
+    orgId: participant.organizationId || undefined,
+    orgName: participant.organizationName || undefined,
+    sessionId: participant.sessionId,
+    source: participant.source,
   };
-}
-
-function parseHumanIdFromHintValue(value: unknown): string | undefined {
-  let data = value;
-  if (typeof value === "string") {
-    try {
-      data = JSON.parse(value);
-    } catch {
-      return undefined;
-    }
-  }
-
-  if (data && typeof data === "object" && "human_id" in data) {
-    const humanId = (data as Record<string, unknown>).human_id;
-    return typeof humanId === "string" ? humanId : undefined;
-  }
-
-  return undefined;
 }
 
 function useRemoveParticipant({
   mappingId,
   assignedHumanId,
   sessionId,
-  source,
 }: {
   mappingId: string;
   assignedHumanId: string | undefined;
   sessionId: string | undefined;
-  source: string | undefined;
 }) {
-  const store = main.UI.useStore(main.STORE_ID);
-  const indexes = main.UI.useIndexes(main.STORE_ID);
-
   return useCallback(() => {
-    if (!store) {
-      return;
-    }
-
-    if (assignedHumanId && sessionId && indexes) {
-      const transcriptIds = indexes.getSliceRowIds(
-        main.INDEXES.transcriptBySession,
-        sessionId,
-      );
-
-      for (const transcriptId of transcriptIds) {
-        const hints = parseTranscriptHints(store, transcriptId);
-        if (hints.length === 0) continue;
-
-        const filteredHints = hints.filter((hint) => {
-          if (hint.type !== "user_speaker_assignment") {
-            return true;
-          }
-          const hintHumanId = parseHumanIdFromHintValue(hint.value);
-          return hintHumanId !== assignedHumanId;
-        });
-
-        if (filteredHints.length !== hints.length) {
-          updateTranscriptHints(store, transcriptId, filteredHints);
-        }
+    void (async () => {
+      if (assignedHumanId && sessionId) {
+        await removeHumanSpeakerAssignments(sessionId, assignedHumanId);
       }
-    }
-
-    if (source === "auto") {
-      store.setPartialRow("mapping_session_participant", mappingId, {
-        source: "excluded",
-      });
-    } else {
-      store.delRow("mapping_session_participant", mappingId);
-    }
-  }, [store, indexes, mappingId, assignedHumanId, sessionId, source]);
+      await removeSessionParticipant(mappingId);
+    })().catch((error) => {
+      console.error("[participants] failed to remove participant", error);
+    });
+  }, [mappingId, assignedHumanId, sessionId]);
 }

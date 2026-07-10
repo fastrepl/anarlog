@@ -58,10 +58,15 @@ type SessionTranscriptStateSqlRow = {
 
 type SessionParticipantSqlRow = {
   id: string;
+  session_id: string;
   human_id: string;
   source: string;
   name: string;
   email: string;
+  job_title: string;
+  linkedin_username: string;
+  organization_id: string;
+  organization_name: string;
 };
 
 type EnhancedNoteSqlRow = {
@@ -102,10 +107,15 @@ export type EnhancedNoteRecord = {
 
 export type SessionParticipantRecord = {
   id: string;
+  sessionId: string;
   humanId: string;
   source: string;
   name: string;
   email: string;
+  jobTitle: string;
+  linkedinUsername: string;
+  organizationId: string;
+  organizationName: string;
 };
 
 const EMPTY_ENHANCED_NOTES: EnhancedNoteRecord[] = [];
@@ -181,29 +191,65 @@ export function useSessionParticipants(
     sql: `
       SELECT
         participant.id,
+        participant.session_id,
         participant.human_id,
         participant.source,
         COALESCE(NULLIF(human.name, ''), participant.display_name) AS name,
-        COALESCE(NULLIF(human.email, ''), participant.email) AS email
+        COALESCE(NULLIF(human.email, ''), participant.email) AS email,
+        COALESCE(human.job_title, '') AS job_title,
+        COALESCE(human.linkedin_username, '') AS linkedin_username,
+        COALESCE(human.organization_id, '') AS organization_id,
+        COALESCE(organization.name, '') AS organization_name
       FROM session_participants AS participant
       LEFT JOIN humans AS human
         ON human.id = participant.human_id AND human.deleted_at IS NULL
+      LEFT JOIN organizations AS organization
+        ON organization.id = human.organization_id
+        AND organization.deleted_at IS NULL
       WHERE participant.session_id = ?
         AND participant.deleted_at IS NULL
       ORDER BY name, email, participant.id
     `,
     params: [sessionId],
     enabled: Boolean(sessionId),
-    mapRows: (rows) =>
-      rows.map((row) => ({
-        id: row.id,
-        humanId: row.human_id,
-        source: row.source,
-        name: row.name,
-        email: row.email,
-      })),
+    mapRows: (rows) => rows.map(mapSessionParticipantRow),
   });
   return sessionId ? data : EMPTY_SESSION_PARTICIPANTS;
+}
+
+export function useSessionParticipant(
+  mappingId: string,
+): SessionParticipantRecord | null {
+  const { data = null } = useLiveQuery<
+    SessionParticipantSqlRow,
+    SessionParticipantRecord | null
+  >({
+    sql: `
+      SELECT
+        participant.id,
+        participant.session_id,
+        participant.human_id,
+        participant.source,
+        COALESCE(NULLIF(human.name, ''), participant.display_name) AS name,
+        COALESCE(NULLIF(human.email, ''), participant.email) AS email,
+        COALESCE(human.job_title, '') AS job_title,
+        COALESCE(human.linkedin_username, '') AS linkedin_username,
+        COALESCE(human.organization_id, '') AS organization_id,
+        COALESCE(organization.name, '') AS organization_name
+      FROM session_participants AS participant
+      LEFT JOIN humans AS human
+        ON human.id = participant.human_id AND human.deleted_at IS NULL
+      LEFT JOIN organizations AS organization
+        ON organization.id = human.organization_id
+        AND organization.deleted_at IS NULL
+      WHERE participant.id = ? AND participant.deleted_at IS NULL
+      LIMIT 1
+    `,
+    params: [mappingId],
+    enabled: Boolean(mappingId),
+    mapRows: (rows) => (rows[0] ? mapSessionParticipantRow(rows[0]) : null),
+  });
+  return mappingId ? data : null;
 }
 
 export function addSessionParticipant(
@@ -211,10 +257,28 @@ export function addSessionParticipant(
   humanId: string,
   source = "manual",
 ): Promise<void> {
-  return enqueueDatabaseWrite(`session:${sessionId}`, async () => {
+  return enqueueDatabaseWrite("session-participants", async () => {
     const participantId = id();
     const now = new Date().toISOString();
     await executeTransaction([
+      {
+        sql: `
+          UPDATE session_participants
+          SET source = ?, updated_at = ?
+          WHERE id = (
+            SELECT id
+            FROM session_participants
+            WHERE session_id = ?
+              AND human_id = ?
+              AND source = 'excluded'
+              AND deleted_at IS NULL
+              AND ? <> 'auto'
+            ORDER BY created_at, id
+            LIMIT 1
+          )
+        `,
+        params: [source, now, sessionId, humanId, source],
+      },
       {
         sql: `
           INSERT INTO session_participants (
@@ -237,6 +301,25 @@ export function addSessionParticipant(
             )
         `,
         params: [participantId, source, now, now, humanId, sessionId],
+      },
+    ]);
+  });
+}
+
+export function removeSessionParticipant(mappingId: string): Promise<void> {
+  return enqueueDatabaseWrite("session-participants", async () => {
+    const now = new Date().toISOString();
+    await executeTransaction([
+      {
+        sql: `
+          UPDATE session_participants
+          SET
+            source = CASE WHEN source = 'auto' THEN 'excluded' ELSE source END,
+            deleted_at = CASE WHEN source = 'auto' THEN NULL ELSE ? END,
+            updated_at = ?
+          WHERE id = ? AND deleted_at IS NULL
+        `,
+        params: [now, now, mappingId],
       },
     ]);
   });
@@ -913,6 +996,23 @@ function mapSessionRow(row: SessionSqlRow): SessionRecord {
     event_json: row.event_json,
     title: row.title,
     raw_md: rawMd,
+  };
+}
+
+function mapSessionParticipantRow(
+  row: SessionParticipantSqlRow,
+): SessionParticipantRecord {
+  return {
+    id: row.id,
+    sessionId: row.session_id,
+    humanId: row.human_id,
+    source: row.source,
+    name: row.name,
+    email: row.email,
+    jobTitle: row.job_title,
+    linkedinUsername: row.linkedin_username,
+    organizationId: row.organization_id,
+    organizationName: row.organization_name,
   };
 }
 

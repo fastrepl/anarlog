@@ -52,6 +52,7 @@ import {
   assignTranscriptSpeaker,
   createLiveTranscript,
   createTranscript,
+  removeHumanSpeakerAssignments,
   useSessionParticipantHumanIds,
   useSessionTranscripts,
   useTranscript,
@@ -354,6 +355,37 @@ describe("transcript SQLite queries", () => {
         word_id: "word-1",
         type: "user_speaker_assignment",
       }),
+    ]);
+  });
+
+  it("removes one human's assignments from every session transcript", async () => {
+    mocks.execute
+      .mockResolvedValueOnce([{ id: "transcript-1" }])
+      .mockResolvedValueOnce([
+        {
+          words_json: "[]",
+          speaker_hints_json: JSON.stringify([
+            {
+              id: "assignment-1",
+              word_id: "word-1",
+              type: "user_speaker_assignment",
+              value: JSON.stringify({ human_id: "human-1" }),
+            },
+            {
+              id: "assignment-2",
+              word_id: "word-2",
+              type: "user_speaker_assignment",
+              value: JSON.stringify({ human_id: "human-2" }),
+            },
+          ]),
+        },
+      ]);
+
+    await removeHumanSpeakerAssignments("session-1", "human-1");
+
+    const statement = mocks.executeTransaction.mock.calls[0]?.[0]?.[0];
+    expect(JSON.parse(String(statement?.params[1]))).toEqual([
+      expect.objectContaining({ id: "assignment-2" }),
     ]);
   });
 });

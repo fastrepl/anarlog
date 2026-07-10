@@ -18,7 +18,7 @@ vi.mock("~/db", () => ({
 
 vi.mock("~/shared/utils", () => ({ id: () => "human-new" }));
 
-import { createHuman, useHumans } from "./queries";
+import { applyContactEnhancement, createHuman, useHumans } from "./queries";
 
 describe("contact SQLite queries", () => {
   beforeEach(() => {
@@ -77,5 +77,27 @@ describe("contact SQLite queries", () => {
     expect(statement.sql).toContain("INSERT INTO humans");
     expect(statement.params).toContain("human-new");
     expect(statement.params).toContain("alice@example.com");
+  });
+
+  it("creates an organization and updates the human atomically", async () => {
+    mocks.executeTransaction.mockResolvedValueOnce([1, 1]);
+
+    await applyContactEnhancement({
+      humanId: "human-1",
+      ownerUserId: "user-1",
+      changes: {
+        name: "Alice Kim",
+        email: "alice@example.com",
+        companyName: "Example",
+      },
+    });
+
+    const statements = mocks.executeTransaction.mock.calls[0][0];
+    expect(statements).toHaveLength(2);
+    expect(statements[0]?.sql).toContain("INSERT INTO organizations");
+    expect(statements[0]?.sql).toContain("NOT EXISTS");
+    expect(statements[1]?.sql).toContain("UPDATE humans");
+    expect(statements[1]?.sql).toContain("organization_id = CASE");
+    expect(statements[1]?.params).toContain("human-1");
   });
 });

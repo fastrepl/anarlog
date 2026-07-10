@@ -41,7 +41,7 @@ vi.mock("~/shared/config", () => ({
   useConfigValue: () => undefined,
 }));
 
-vi.mock("~/store/tinybase/hooks", () => ({
+vi.mock("~/session/hooks/useSessionEvent", () => ({
   useSessionEvent: () => mocks.sessionEvent,
 }));
 

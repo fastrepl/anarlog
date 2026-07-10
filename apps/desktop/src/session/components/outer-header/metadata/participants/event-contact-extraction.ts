@@ -59,6 +59,12 @@ export type ApplyContactEnhancementResult = ApplyExtractedContactsResult & {
   matched: boolean;
 };
 
+export type ContactEnhancementChanges = {
+  name?: string;
+  email?: string;
+  companyName?: string;
+};
+
 const aiExtractionSchema = z.object({
   contacts: z
     .array(
@@ -87,6 +93,114 @@ export function buildEventContactExtractionContext(
     description: sessionEvent?.description,
     candidates,
   };
+}
+
+export function buildEventContactExtractionContextFromRecords({
+  sessionEvent,
+  currentUserId,
+  participants,
+  eventParticipants,
+}: {
+  sessionEvent: SessionEvent | null;
+  currentUserId: string;
+  participants: Array<{
+    humanId: string;
+    name: string;
+    email: string;
+    source: string;
+  }>;
+  eventParticipants: EventParticipant[];
+}): EventContactExtractionContext {
+  return {
+    title: sessionEvent?.title,
+    description: sessionEvent?.description,
+    candidates: dedupeCandidates([
+      ...participants
+        .filter((participant) => participant.source !== "excluded")
+        .map((participant) => ({
+          humanId: participant.humanId,
+          name: participant.name,
+          email: participant.email,
+          isCurrentUser: participant.humanId === currentUserId,
+        })),
+      ...eventParticipants.map((participant) => ({
+        name: participant.name,
+        email: participant.email,
+        isCurrentUser: participant.is_current_user,
+        isOrganizer: participant.is_organizer,
+      })),
+    ]),
+  };
+}
+
+export function planExtractedContactToHuman({
+  humanId,
+  userId,
+  human,
+  currentUser,
+  mappingSource,
+  contacts,
+}: {
+  humanId: string;
+  userId: string;
+  human: { name: string; email: string; organizationId: string } | undefined;
+  currentUser: { name: string; email: string } | undefined;
+  mappingSource: string | undefined;
+  contacts: ExtractedEventContact[];
+}): {
+  result: ApplyContactEnhancementResult;
+  changes: ContactEnhancementChanges;
+} {
+  const normalizedContacts = normalizeExtractedContacts(contacts, []);
+  const result: ApplyContactEnhancementResult = {
+    created: 0,
+    updated: 0,
+    linked: 0,
+    skipped: 0,
+    contacts: [],
+    matched: false,
+  };
+  const changes: ContactEnhancementChanges = {};
+
+  if (
+    normalizedContacts.length === 0 ||
+    !human ||
+    !mappingSource ||
+    mappingSource === "excluded"
+  ) {
+    if (normalizedContacts.length > 0) result.skipped += 1;
+    return { result, changes };
+  }
+
+  const contact = findContactForHuman(human, normalizedContacts);
+  if (!contact) {
+    if (humanId === userId) {
+      result.matched = true;
+      result.contacts.push(normalizedContacts[0]!);
+      result.skipped += 1;
+    }
+    return { result, changes };
+  }
+
+  result.matched = true;
+  result.contacts.push(contact);
+  if (humanId === userId || isCurrentUserContact(contact, currentUser)) {
+    result.skipped += 1;
+    return { result, changes };
+  }
+
+  if (shouldUpdateHumanName(human.name, contact.email)) {
+    changes.name = contact.name;
+  }
+  if (shouldUpdateHumanEmail(human.email, contact.email)) {
+    changes.email = contact.email;
+  }
+  if (!human.organizationId && contact.companyName) {
+    changes.companyName = contact.companyName;
+  }
+  if (Object.keys(changes).length > 0) result.updated = 1;
+
+  return { result, changes };
 }
 
 export async function extractEventContacts({

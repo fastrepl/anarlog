@@ -4,8 +4,8 @@ import { useCallback, useEffect } from "react";
 
 import { getCurrentWebviewWindowLabel } from "@hypr/plugin-windows";
 
+import { useIgnoredEvents } from "~/calendar/ignored-events";
 import { finalizeSessionDeletion, softDeleteSession } from "~/session/queries";
-import { useIgnoredEvents } from "~/store/tinybase/hooks";
 import { listenerStore } from "~/store/zustand/listener/instance";
 import { useTabs } from "~/store/zustand/tabs";
 import {

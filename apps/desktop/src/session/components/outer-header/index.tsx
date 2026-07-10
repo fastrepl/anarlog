@@ -21,7 +21,7 @@ import {
   getRemoteMeeting,
   type RemoteMeeting,
 } from "~/session/hooks/useRemoteMeeting";
-import { useSessionEvent } from "~/store/tinybase/hooks";
+import { useSessionEvent } from "~/session/hooks/useSessionEvent";
 import type { EditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
 import { useStartListening } from "~/stt/useStartListening";
