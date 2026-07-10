@@ -19,6 +19,7 @@ export type DrizzleProxyClient = {
 export type TransactionStatement = {
   sql: string;
   params: unknown[];
+  expectedRowsAffected?: number;
 };
 
 export type TransactionClient = {

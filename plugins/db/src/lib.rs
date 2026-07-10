@@ -16,6 +16,8 @@ pub type ManagedState = std::sync::Arc<runtime::PluginDbRuntime>;
 pub struct TransactionStatement {
     pub sql: String,
     pub params: Vec<serde_json::Value>,
+    #[serde(default)]
+    pub expected_rows_affected: Option<u64>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, specta::Type, sqlx::FromRow)]
@@ -318,10 +320,12 @@ mod test {
                 TransactionStatement {
                     sql: "INSERT INTO templates (id, title) VALUES (?, ?)".to_string(),
                     params: vec![json!("template-1"), json!("Template 1")],
+                    expected_rows_affected: None,
                 },
                 TransactionStatement {
                     sql: "INSERT INTO templates (id, title) VALUES (?, ?)".to_string(),
                     params: vec![json!("template-2"), json!("Template 2")],
+                    expected_rows_affected: None,
                 },
             ])
             .await
@@ -352,15 +356,52 @@ mod test {
                 TransactionStatement {
                     sql: "INSERT INTO templates (id, title) VALUES (?, ?)".to_string(),
                     params: vec![json!("template-rollback"), json!("Rollback")],
+                    expected_rows_affected: None,
                 },
                 TransactionStatement {
                     sql: "INSERT INTO missing_table (id) VALUES (?)".to_string(),
                     params: vec![json!("fail")],
+                    expected_rows_affected: None,
                 },
             ])
             .await;
 
         assert!(result.is_err());
+        let rows = runtime
+            .execute(
+                "SELECT id FROM templates WHERE id = ?".to_string(),
+                vec![json!("template-rollback")],
+            )
+            .await
+            .unwrap();
+        assert!(rows.is_empty());
+    }
+
+    #[tokio::test]
+    async fn execute_transaction_rolls_back_when_affected_rows_do_not_match() {
+        let (_dir, runtime) = setup_runtime().await;
+
+        let result = runtime
+            .execute_transaction(vec![
+                TransactionStatement {
+                    sql: "INSERT INTO templates (id, title) VALUES (?, ?)".to_string(),
+                    params: vec![json!("template-rollback"), json!("Rollback")],
+                    expected_rows_affected: Some(1),
+                },
+                TransactionStatement {
+                    sql: "UPDATE templates SET title = ? WHERE id = ?".to_string(),
+                    params: vec![json!("Missing"), json!("missing-template")],
+                    expected_rows_affected: Some(1),
+                },
+            ])
+            .await;
+
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("statement 1 affected 0 rows; expected 1")
+        );
         let rows = runtime
             .execute(
                 "SELECT id FROM templates WHERE id = ?".to_string(),

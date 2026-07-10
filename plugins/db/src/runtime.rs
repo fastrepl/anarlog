@@ -75,14 +75,24 @@ impl PluginDbRuntime {
         let mut transaction = self.db.pool().begin_with("BEGIN IMMEDIATE").await?;
         let mut rows_affected = Vec::with_capacity(statements.len());
 
-        for statement in statements {
+        for (statement_index, statement) in statements.into_iter().enumerate() {
             let result = bind_params(
                 sqlx::query(sqlx::AssertSqlSafe(statement.sql.as_str())),
                 &statement.params,
             )
             .execute(&mut *transaction)
             .await?;
-            rows_affected.push(result.rows_affected());
+            let actual = result.rows_affected();
+            if let Some(expected) = statement.expected_rows_affected
+                && actual != expected
+            {
+                return Err(crate::Error::UnexpectedRowsAffected {
+                    statement_index,
+                    expected,
+                    actual,
+                });
+            }
+            rows_affected.push(actual);
         }
 
         transaction.commit().await?;

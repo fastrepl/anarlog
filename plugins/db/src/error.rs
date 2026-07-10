@@ -18,6 +18,12 @@ pub enum Error {
     Execute(#[from] hypr_db_execute::Error),
     #[error(transparent)]
     Reactive(#[from] hypr_db_reactive::Error),
+    #[error("transaction statement {statement_index} affected {actual} rows; expected {expected}")]
+    UnexpectedRowsAffected {
+        statement_index: usize,
+        expected: u64,
+        actual: u64,
+    },
 }
 
 impl Serialize for Error {

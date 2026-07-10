@@ -86,7 +86,7 @@ export type QueryEvent = { event: "result"; data: JsonValue[] } | { event: "erro
 export type StorageMigrationState = { phase: string; latestRunId: string; parityVerified: boolean; cutoverAt: string | null; rollbackUntil: string | null; lastError: string; updatedAt: string }
 export type SubscriptionRegistration = { id: string; analysis: DependencyAnalysis }
 export type TAURI_CHANNEL<TSend> = null
-export type TransactionStatement = { sql: string; params: JsonValue[] }
+export type TransactionStatement = { sql: string; params: JsonValue[]; expectedRowsAffected?: number }
 
 /** tauri-specta globals **/
 

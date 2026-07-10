@@ -69,7 +69,13 @@ describe("@hypr/db-tauri", () => {
 
   it("delegates transactions to the db plugin", async () => {
     const { tauriTransactionClient } = await import("./index");
-    const statements = [{ sql: "UPDATE test SET value = ?", params: [1] }];
+    const statements = [
+      {
+        sql: "UPDATE test SET value = ?",
+        params: [1],
+        expectedRowsAffected: 1,
+      },
+    ];
     executeTransactionMock.mockResolvedValue([1]);
 
     await expect(
