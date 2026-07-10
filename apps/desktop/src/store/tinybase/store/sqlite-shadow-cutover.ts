@@ -14,7 +14,6 @@ export const SQLITE_SHADOWED_TABLES = [
   "mapping_session_participant",
   "tags",
   "mapping_tag_session",
-  "mapping_mention",
   "enhanced_notes",
   "session_key_facts",
 ] as const satisfies readonly MainTableId[];

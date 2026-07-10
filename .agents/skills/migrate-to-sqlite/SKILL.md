@@ -31,7 +31,7 @@ expanded to include it.
   - [ ] Phase 1
 - [ ] `mapping_session_participant`
 - [ ] `mapping_tag_session`
-- [ ] `mapping_mention`
+- [x] `mapping_mention`
 - [ ] `tags`
 - [x] `chat_groups`
 - [x] `chat_messages`

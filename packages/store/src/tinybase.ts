@@ -5,7 +5,6 @@ import {
   enhancedNoteSchema,
   generalSchema,
   humanSchema,
-  mappingMentionSchema,
   mappingSessionParticipantSchema,
   mappingTagSessionSchema,
   organizationSchema,
@@ -71,13 +70,6 @@ export const tableSchemaForTinybase = {
     tag_id: { type: "string" },
     session_id: { type: "string" },
   } as const satisfies InferTinyBaseSchema<typeof mappingTagSessionSchema>,
-  mapping_mention: {
-    user_id: { type: "string" },
-    source_id: { type: "string" },
-    source_type: { type: "string" },
-    target_id: { type: "string" },
-    target_type: { type: "string" },
-  } as const satisfies InferTinyBaseSchema<typeof mappingMentionSchema>,
   enhanced_notes: {
     user_id: { type: "string" },
     session_id: { type: "string" },

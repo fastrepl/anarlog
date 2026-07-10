@@ -15,7 +15,6 @@ import {
 import type { Store } from "./main";
 import { SqliteContactsShadow } from "./sqlite-contacts-shadow";
 import { SqliteDocumentShadow } from "./sqlite-document-shadow";
-import { SqliteProductivityShadow } from "./sqlite-productivity-shadow";
 import { SqliteSessionRelationsShadow } from "./sqlite-session-relations-shadow";
 import {
   type MainTableRow,
@@ -125,7 +124,6 @@ function MountedSqliteSessionShadow({ store }: { store: Store }) {
       <SqliteDocumentShadow store={store} />
       <SqliteSessionRelationsShadow store={store} />
       <SqliteContactsShadow store={store} />
-      <SqliteProductivityShadow store={store} />
     </>
   );
 }
