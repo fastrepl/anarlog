@@ -14,10 +14,11 @@ import userPromptTemplate from "./past-note-key-facts.user.md.jinja?raw";
 
 import { useLanguageModel } from "~/ai/hooks";
 import { deterministicGenerationSettings } from "~/ai/model-settings";
+import { executeTransaction, useLiveQuery } from "~/db";
+import { enqueueDatabaseWrite } from "~/db/write-queue";
 import { extractPlainText } from "~/search/contexts/engine/utils";
 import { getSessionEvent } from "~/session/utils";
 import { showTransientToast } from "~/sidebar/toast/transient";
-import * as main from "~/store/tinybase/store/main";
 
 export type PastSessionNote = {
   sessionId: string;
@@ -48,7 +49,43 @@ export type PastSessionNotesResult = {
   regenerateAll: () => void;
 };
 
-type MainStore = NonNullable<ReturnType<typeof main.UI.useStore>>;
+type PastSessionRow = {
+  id: string;
+  user_id: string;
+  title: string;
+  created_at: string;
+  event_json: string;
+};
+
+type PastParticipantRow = {
+  session_id: string;
+  human_id: string;
+  user_id: string;
+  source: string;
+  name: string;
+};
+
+type PastEnhancedNoteRow = {
+  session_id: string;
+  content: string;
+  position: number;
+};
+
+type PastKeyFactsRow = {
+  session_id: string;
+  user_id: string;
+  created_at: string;
+  updated_at: string;
+  content: string;
+  source_hash: string;
+};
+
+export type PastSessionNotesData = {
+  sessions: Record<string, PastSessionRow>;
+  participants: PastParticipantRow[];
+  enhancedNotes: PastEnhancedNoteRow[];
+  keyFacts: Record<string, PastKeyFactsRow>;
+};
 
 const MAX_PAST_NOTES = 8;
 const MAX_SOURCE_LENGTH = 6000;
@@ -56,6 +93,10 @@ const MAX_KEY_FACTS = 3;
 const KEY_FACTS_GENERATION_TIMEOUT_MS = 30_000;
 const SPACE_REGEX = /\s+/g;
 const GENERIC_TITLE_KEYS = new Set(["new note", "untitled"]);
+const EMPTY_SESSIONS: Record<string, PastSessionRow> = {};
+const EMPTY_PARTICIPANTS: PastParticipantRow[] = [];
+const EMPTY_ENHANCED_NOTES: PastEnhancedNoteRow[] = [];
+const EMPTY_KEY_FACTS: Record<string, PastKeyFactsRow> = {};
 
 const keyFactsSchema = z.object({
   facts: z.array(z.string()).min(1).max(MAX_KEY_FACTS),
@@ -70,67 +111,39 @@ export function usePastSessionNotes(
     [sessionId],
   );
   const activeMutationCount = useIsMutating({ mutationKey });
-  const store = main.UI.useStore(main.STORE_ID);
-  const sessionsTable = main.UI.useTable(
-    enabled ? "sessions" : ("__disabled_past_notes_sessions" as "sessions"),
-    main.STORE_ID,
-  );
-  const participantsTable = main.UI.useTable(
-    enabled
-      ? "mapping_session_participant"
-      : ("__disabled_past_notes_participants" as "mapping_session_participant"),
-    main.STORE_ID,
-  );
-  const humansTable = main.UI.useTable(
-    enabled ? "humans" : ("__disabled_past_notes_humans" as "humans"),
-    main.STORE_ID,
-  );
-  const enhancedNotesTable = main.UI.useTable(
-    enabled
-      ? "enhanced_notes"
-      : ("__disabled_past_notes_enhanced" as "enhanced_notes"),
-    main.STORE_ID,
-  );
-  const keyFactsTable = main.UI.useTable(
-    enabled
-      ? "session_key_facts"
-      : ("__disabled_past_notes_key_facts" as "session_key_facts"),
-    main.STORE_ID,
-  );
-  const userId = main.UI.useValue("user_id", main.STORE_ID);
+  const { sessions, participants, enhancedNotes, keyFacts } =
+    usePastSessionNotesData(enabled);
+  const userId = sessions[sessionId]?.user_id || null;
   const model = useLanguageModel("enhance");
 
   const built = useMemo(() => {
-    if (!enabled || !store) {
+    if (!enabled) {
       return { notes: [], missing: [], requests: [] };
     }
 
     return buildPastSessionNotes(
-      store,
+      { sessions, participants, enhancedNotes, keyFacts },
       sessionId,
-      typeof userId === "string" ? userId : null,
+      userId,
     );
   }, [
-    store,
     enabled,
     sessionId,
     userId,
-    sessionsTable,
-    participantsTable,
-    humansTable,
-    enhancedNotesTable,
-    keyFactsTable,
+    sessions,
+    participants,
+    enhancedNotes,
+    keyFacts,
   ]);
 
   const mutation = useMutation({
     mutationKey,
     mutationFn: async (requests: PastSessionNoteRequest[]) => {
-      if (!store || !model || requests.length === 0) {
+      if (!model || requests.length === 0) {
         return;
       }
 
       await generateAndSavePastSessionNotes({
-        store,
         model,
         requests,
       });
@@ -200,8 +213,98 @@ export function usePastSessionNotes(
   };
 }
 
+function usePastSessionNotesData(enabled: boolean): PastSessionNotesData {
+  const { data: sessions = EMPTY_SESSIONS } = useLiveQuery<
+    PastSessionRow,
+    Record<string, PastSessionRow>
+  >({
+    sql: `
+      SELECT
+        id,
+        owner_user_id AS user_id,
+        title,
+        created_at,
+        event_json
+      FROM sessions
+      WHERE deleted_at IS NULL
+      ORDER BY created_at, id
+    `,
+    enabled,
+    mapRows: (rows) =>
+      Object.fromEntries(rows.map((row) => [row.id, row])) as Record<
+        string,
+        PastSessionRow
+      >,
+  });
+  const { data: participants = EMPTY_PARTICIPANTS } = useLiveQuery<
+    PastParticipantRow,
+    PastParticipantRow[]
+  >({
+    sql: `
+      SELECT
+        participant.session_id,
+        participant.human_id,
+        participant.owner_user_id AS user_id,
+        participant.source,
+        COALESCE(
+          NULLIF(human.name, ''),
+          NULLIF(participant.display_name, ''),
+          participant.human_id
+        ) AS name
+      FROM session_participants AS participant
+      LEFT JOIN humans AS human
+        ON human.id = participant.human_id AND human.deleted_at IS NULL
+      WHERE participant.deleted_at IS NULL
+      ORDER BY participant.session_id, participant.created_at, participant.id
+    `,
+    enabled,
+    mapRows: (rows) => rows,
+  });
+  const { data: enhancedNotes = EMPTY_ENHANCED_NOTES } = useLiveQuery<
+    PastEnhancedNoteRow,
+    PastEnhancedNoteRow[]
+  >({
+    sql: `
+      SELECT
+        session_id,
+        body AS content,
+        sort_order AS position
+      FROM session_documents
+      WHERE kind = 'enhanced_note' AND deleted_at IS NULL
+      ORDER BY session_id, sort_order, created_at, id
+    `,
+    enabled,
+    mapRows: (rows) => rows,
+  });
+  const { data: keyFacts = EMPTY_KEY_FACTS } = useLiveQuery<
+    PastKeyFactsRow,
+    Record<string, PastKeyFactsRow>
+  >({
+    sql: `
+      SELECT
+        session_id,
+        created_by AS user_id,
+        created_at,
+        updated_at,
+        body AS content,
+        source_hash
+      FROM session_documents
+      WHERE kind = 'key_facts' AND deleted_at IS NULL
+      ORDER BY updated_at, id
+    `,
+    enabled,
+    mapRows: (rows) => {
+      const result: Record<string, PastKeyFactsRow> = {};
+      for (const row of rows) result[row.session_id] = row;
+      return result;
+    },
+  });
+
+  return { sessions, participants, enhancedNotes, keyFacts };
+}
+
 export function buildPastSessionNotes(
-  store: MainStore,
+  data: PastSessionNotesData,
   sessionId: string,
   userId: string | null,
 ): {
@@ -209,13 +312,13 @@ export function buildPastSessionNotes(
   missing: PastSessionNoteRequest[];
   requests: PastSessionNoteRequest[];
 } {
-  const currentSession = store.getRow("sessions", sessionId);
+  const currentSession = data.sessions[sessionId];
   if (!currentSession) {
     return { notes: [], missing: [], requests: [] };
   }
 
   const currentParticipantIds = getSessionParticipantIds(
-    store,
+    data.participants,
     sessionId,
     userId,
   );
@@ -233,14 +336,10 @@ export function buildPastSessionNotes(
     isMissing: boolean;
   }> = [];
 
-  store.forEachRow("sessions", (candidateSessionId, _forEachCell) => {
+  for (const candidateSession of Object.values(data.sessions)) {
+    const candidateSessionId = candidateSession.id;
     if (candidateSessionId === sessionId) {
-      return;
-    }
-
-    const candidateSession = store.getRow("sessions", candidateSessionId);
-    if (!candidateSession) {
-      return;
+      continue;
     }
 
     const candidateTimestamp = getSessionTimestamp(candidateSession);
@@ -249,12 +348,12 @@ export function buildPastSessionNotes(
       candidateTimestamp > 0 &&
       candidateTimestamp >= currentTimestamp
     ) {
-      return;
+      continue;
     }
 
     const candidateEvent = getSessionEvent(candidateSession);
     const candidateParticipantIds = getSessionParticipantIds(
-      store,
+      data.participants,
       candidateSessionId,
       userId,
     );
@@ -268,21 +367,28 @@ export function buildPastSessionNotes(
         candidateTitleKey: getSessionTitleKey(candidateSession),
       })
     ) {
-      return;
+      continue;
     }
 
-    const source = getSessionKeyFactsSource(store, candidateSessionId);
+    const source = getSessionKeyFactsSource(
+      data.enhancedNotes,
+      candidateSessionId,
+    );
     if (!source) {
-      return;
+      continue;
     }
 
     const title = getSessionTitle(candidateSession);
     const dateLabel = formatSessionDate(candidateSession);
     const sourceHash = createSourceHash([title, dateLabel, source].join("\n"));
-    const saved = getSavedKeyFacts(store, candidateSessionId, sourceHash);
+    const saved = getSavedKeyFacts(
+      data.keyFacts,
+      candidateSessionId,
+      sourceHash,
+    );
     const ownerUserId = getSessionUserId(candidateSession, userId);
     const participantNames = getSessionParticipantNames(
-      store,
+      data.participants,
       new Set([...currentParticipantIds, ...candidateParticipantIds]),
     );
     const request = {
@@ -308,7 +414,7 @@ export function buildPastSessionNotes(
       request,
       isMissing: !saved,
     });
-  });
+  }
 
   const selected = items
     .sort((a, b) => b.note.dateMs - a.note.dateMs)
@@ -325,11 +431,9 @@ export function buildPastSessionNotes(
 }
 
 async function generateAndSavePastSessionNotes({
-  store,
   model,
   requests,
 }: {
-  store: MainStore;
   model: LanguageModel;
   requests: PastSessionNoteRequest[];
 }) {
@@ -347,27 +451,95 @@ async function generateAndSavePastSessionNotes({
   }
 
   const now = new Date().toISOString();
-  store.transaction(() => {
-    for (const row of rows) {
-      const existingCreatedAt = store.getCell(
-        "session_key_facts",
-        row.sessionId,
-        "created_at",
-      );
-
-      store.setRow("session_key_facts", row.sessionId, {
-        user_id: row.userId,
-        session_id: row.sessionId,
-        created_at:
-          typeof existingCreatedAt === "string" && existingCreatedAt
-            ? existingCreatedAt
-            : now,
-        updated_at: now,
-        content: row.content,
-        source_hash: row.sourceHash,
-      });
-    }
+  await enqueueDatabaseWrite("session-key-facts", async () => {
+    await executeTransaction(buildSessionKeyFactsStatements(rows, now));
   });
+}
+
+export function buildSessionKeyFactsStatements(
+  rows: Array<{
+    sessionId: string;
+    userId: string;
+    content: string;
+    sourceHash: string;
+  }>,
+  now: string,
+): Array<{ sql: string; params: unknown[] }> {
+  return rows.flatMap((row) => [
+    {
+      sql: `
+        UPDATE session_documents
+        SET
+          body = ?,
+          source_hash = ?,
+          updated_by = ?,
+          updated_at = ?,
+          deleted_at = NULL
+        WHERE session_id = ?
+          AND kind = 'key_facts'
+          AND deleted_at IS NULL
+          AND EXISTS (
+            SELECT 1
+            FROM sessions
+            WHERE id = ? AND deleted_at IS NULL
+          )
+      `,
+      params: [
+        row.content,
+        row.sourceHash,
+        row.userId,
+        now,
+        row.sessionId,
+        row.sessionId,
+      ],
+    },
+    {
+      sql: `
+        INSERT INTO session_documents (
+          id, workspace_id, session_id, kind, template_id, title,
+          body_format, body, source_hash, generation_metadata_json,
+          sort_order, created_by, updated_by, created_at, updated_at,
+          deleted_at
+        )
+        SELECT ?, '', ?, 'key_facts', '', 'Key facts', 'markdown', ?, ?,
+          '{}', 0, ?, ?, ?, ?, NULL
+        WHERE EXISTS (
+          SELECT 1
+          FROM sessions
+          WHERE id = ? AND deleted_at IS NULL
+        )
+          AND NOT EXISTS (
+            SELECT 1
+            FROM session_documents
+            WHERE session_id = ?
+              AND kind = 'key_facts'
+              AND deleted_at IS NULL
+          )
+        ON CONFLICT(id) DO UPDATE SET
+          session_id = excluded.session_id,
+          kind = excluded.kind,
+          title = excluded.title,
+          body_format = excluded.body_format,
+          body = excluded.body,
+          source_hash = excluded.source_hash,
+          updated_by = excluded.updated_by,
+          updated_at = excluded.updated_at,
+          deleted_at = NULL
+      `,
+      params: [
+        `${row.sessionId}:key_facts`,
+        row.sessionId,
+        row.content,
+        row.sourceHash,
+        row.userId,
+        row.userId,
+        now,
+        now,
+        row.sessionId,
+        row.sessionId,
+      ],
+    },
+  ]);
 }
 
 async function generatePastSessionKeyFacts({
@@ -434,12 +606,13 @@ function normalizeFacts(facts: string[]): string[] {
 }
 
 function getSavedKeyFacts(
-  store: MainStore,
+  keyFacts: Record<string, PastKeyFactsRow>,
   sessionId: string,
   sourceHash: string,
 ): string | null {
-  const row = store.getRow("session_key_facts", sessionId);
+  const row = keyFacts[sessionId];
   if (
+    !row ||
     row.session_id !== sessionId ||
     row.source_hash !== sourceHash ||
     !row.content?.trim()
@@ -451,22 +624,12 @@ function getSavedKeyFacts(
 }
 
 function getSessionKeyFactsSource(
-  store: MainStore,
+  enhancedNotes: PastEnhancedNoteRow[],
   sessionId: string,
 ): string | null {
-  const summaries: Array<{ content: string; position: number }> = [];
-
-  store.forEachRow("enhanced_notes", (noteId, _forEachCell) => {
-    const note = store.getRow("enhanced_notes", noteId);
-    if (note.session_id !== sessionId || !note.content?.trim()) {
-      return;
-    }
-
-    summaries.push({
-      content: note.content,
-      position: typeof note.position === "number" ? note.position : 0,
-    });
-  });
+  const summaries = enhancedNotes.filter(
+    (note) => note.session_id === sessionId && note.content.trim(),
+  );
 
   summaries.sort((a, b) => a.position - b.position);
   const summaryText = cleanSourceText(
@@ -497,20 +660,19 @@ function truncateAtWord(text: string, maxLength: number): string {
 }
 
 function getSessionParticipantIds(
-  store: MainStore,
+  participants: PastParticipantRow[],
   sessionId: string,
   userId: string | null,
 ): Set<string> {
   const participantIds = new Set<string>();
 
-  store.forEachRow("mapping_session_participant", (mappingId, _forEachCell) => {
-    const mapping = store.getRow("mapping_session_participant", mappingId);
+  for (const mapping of participants) {
     if (
       mapping.session_id !== sessionId ||
       mapping.source === "excluded" ||
       !mapping.human_id
     ) {
-      return;
+      continue;
     }
 
     const ownerUserId =
@@ -523,24 +685,26 @@ function getSessionParticipantIds(
     if (!isCurrentUser) {
       participantIds.add(mapping.human_id);
     }
-  });
+  }
 
   return participantIds;
 }
 
 function getSessionParticipantNames(
-  store: MainStore,
+  participants: PastParticipantRow[],
   participantIds: Set<string>,
 ): string[] {
+  const namesByHumanId = new Map<string, string>();
+  for (const participant of participants) {
+    if (participant.name.trim()) {
+      namesByHumanId.set(participant.human_id, participant.name.trim());
+    }
+  }
   const seen = new Set<string>();
   const names: string[] = [];
 
   for (const participantId of participantIds) {
-    const human = store.getRow("humans", participantId);
-    const name =
-      typeof human.name === "string" && human.name.trim()
-        ? human.name.trim()
-        : participantId;
+    const name = namesByHumanId.get(participantId) || participantId;
     const key = name.toLowerCase();
     if (seen.has(key)) {
       continue;

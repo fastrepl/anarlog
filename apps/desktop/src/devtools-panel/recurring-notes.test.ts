@@ -1,36 +1,56 @@
-import { describe, expect, test } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({
+  executeTransaction: vi.fn(
+    (_statements: Array<{ sql: string; params: unknown[] }>) =>
+      Promise.resolve([1]),
+  ),
+}));
+
+vi.mock("~/db", () => ({
+  executeTransaction: mocks.executeTransaction,
+}));
+
+vi.mock("~/db/write-queue", () => ({
+  enqueueDatabaseWrite: (_key: string, operation: () => Promise<unknown>) =>
+    operation(),
+}));
 
 import { populateRecurringMeetingNotes } from "./recurring-notes";
 
-import { buildPastSessionNotes } from "~/session/insights/past-notes";
-import { createTestMainStore } from "~/store/tinybase/persister/testing/mocks";
-import type { Store } from "~/store/tinybase/store/main";
-
 describe("populateRecurringMeetingNotes", () => {
-  test("seeds a recurring session with cached past note facts", () => {
-    const store = createTestMainStore() as Store;
-    const sessionId = populateRecurringMeetingNotes({
-      store,
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  test("seeds recurring sessions and cached facts in one SQLite transaction", async () => {
+    const sessionId = await populateRecurringMeetingNotes({
       userId: "user-1",
       now: new Date("2026-06-03T10:00:00.000Z"),
     });
 
-    const result = buildPastSessionNotes(store, sessionId, "user-1");
-
     expect(sessionId).toBe("devtools-recurring-notes-current");
-    expect(result.missing).toHaveLength(0);
-    expect(result.notes.map((note) => note.sessionId)).toEqual([
-      "devtools-recurring-notes-week-1",
-      "devtools-recurring-notes-week-2",
-      "devtools-recurring-notes-week-3",
-    ]);
-    expect(result.notes[0]?.summary).toContain(
-      "Transcript controls shipped with a condensed panel layout.",
-    );
+    expect(mocks.executeTransaction).toHaveBeenCalledTimes(1);
+
+    const statements = mocks.executeTransaction.mock.calls[0][0];
     expect(
-      store
-        .getRowIds("mapping_session_participant")
-        .filter((rowId) => rowId.startsWith(`${sessionId}:`)),
-    ).toHaveLength(3);
+      statements.filter((statement) =>
+        statement.sql.includes("INSERT INTO sessions"),
+      ),
+    ).toHaveLength(4);
+    expect(
+      statements.filter((statement) =>
+        statement.sql.includes("INSERT INTO session_participants"),
+      ),
+    ).toHaveLength(12);
+    const keyFactInserts = statements.filter(
+      (statement) =>
+        statement.sql.includes("INSERT INTO session_documents") &&
+        statement.sql.includes("'key_facts'"),
+    );
+    expect(keyFactInserts).toHaveLength(3);
+    expect(keyFactInserts[0]?.params).toContain(
+      "Transcript controls shipped with a condensed panel layout.\nAlex owns the launch checklist and analytics confirmation.\nMaya wants another empty-state pass after beta feedback.",
+    );
   });
 });

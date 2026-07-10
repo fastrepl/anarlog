@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { buildPastSessionNotes } from "./past-notes";
+import { buildPastSessionNotes, type PastSessionNotesData } from "./past-notes";
 
 describe("buildPastSessionNotes", () => {
   it("builds descending past notes from recurring and same-title sessions", () => {
-    const store = makeStore({
+    const data = makeData({
       sessions: {
         current: {
           title: "Weekly Product Sync",
@@ -126,7 +126,7 @@ describe("buildPastSessionNotes", () => {
       },
     });
 
-    const result = buildPastSessionNotes(store, "current", "self");
+    const result = buildPastSessionNotes(data, "current", "self");
 
     expect(result.notes).toEqual([
       {
@@ -157,7 +157,7 @@ describe("buildPastSessionNotes", () => {
   });
 
   it("does not treat matching participants alone as related past notes", () => {
-    const store = makeStore({
+    const data = makeData({
       sessions: {
         current: {
           title: "Design sync",
@@ -200,33 +200,55 @@ describe("buildPastSessionNotes", () => {
       },
     });
 
-    const result = buildPastSessionNotes(store, "current", "self");
+    const result = buildPastSessionNotes(data, "current", "self");
 
     expect(result.notes).toEqual([]);
     expect(result.missing).toEqual([]);
   });
 });
 
-function makeStore(
+function makeData(
   tables: Record<string, Record<string, Record<string, unknown>>>,
-) {
+): PastSessionNotesData {
   return {
-    getRow: (tableId: string, rowId: string) => tables[tableId]?.[rowId] ?? {},
-    getCell: (tableId: string, rowId: string, cellId: string) =>
-      tables[tableId]?.[rowId]?.[cellId],
-    forEachRow: (
-      tableId: string,
-      callback: (rowId: string, forEachCell: unknown) => void,
-    ) => {
-      for (const rowId of Object.keys(tables[tableId] ?? {})) {
-        callback(rowId, () => {});
-      }
-    },
-    setRow: (tableId: string, rowId: string, row: Record<string, unknown>) => {
-      tables[tableId] = {
-        ...(tables[tableId] ?? {}),
-        [rowId]: row,
-      };
-    },
-  } as any;
+    sessions: Object.fromEntries(
+      Object.entries(tables.sessions ?? {}).map(([id, row]) => [
+        id,
+        {
+          id,
+          user_id: String(row.user_id ?? "self"),
+          title: String(row.title ?? ""),
+          created_at: String(row.created_at ?? ""),
+          event_json: String(row.event_json ?? ""),
+        },
+      ]),
+    ),
+    participants: Object.values(tables.mapping_session_participant ?? {}).map(
+      (row) => ({
+        session_id: String(row.session_id ?? ""),
+        human_id: String(row.human_id ?? ""),
+        user_id: String(row.user_id ?? ""),
+        source: String(row.source ?? ""),
+        name: String(row.name ?? row.human_id ?? ""),
+      }),
+    ),
+    enhancedNotes: Object.values(tables.enhanced_notes ?? {}).map((row) => ({
+      session_id: String(row.session_id ?? ""),
+      content: String(row.content ?? ""),
+      position: Number(row.position ?? 0),
+    })),
+    keyFacts: Object.fromEntries(
+      Object.values(tables.session_key_facts ?? {}).map((row) => [
+        String(row.session_id ?? ""),
+        {
+          session_id: String(row.session_id ?? ""),
+          user_id: String(row.user_id ?? ""),
+          created_at: String(row.created_at ?? ""),
+          updated_at: String(row.updated_at ?? ""),
+          content: String(row.content ?? ""),
+          source_hash: String(row.source_hash ?? ""),
+        },
+      ]),
+    ),
+  };
 }

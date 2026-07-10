@@ -3,8 +3,11 @@ import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const hoisted = vi.hoisted(() => ({
-  store: null as ReturnType<typeof makeStore> | null,
-  userId: "self",
+  data: null as ReturnType<typeof makeData> | null,
+  executeTransaction: vi.fn(
+    (_statements: Array<{ sql: string; params: unknown[] }>) =>
+      Promise.resolve([1]),
+  ),
   generateText: vi.fn(),
   showTransientToast: vi.fn(),
 }));
@@ -27,24 +30,49 @@ vi.mock("~/ai/hooks", () => ({
   useLanguageModel: () => ({ id: "model-1" }),
 }));
 
-vi.mock("~/store/tinybase/store/main", () => ({
-  STORE_ID: "main",
-  UI: {
-    useStore: () => hoisted.store,
-    useTable: () => ({}),
-    useValue: () => hoisted.userId,
+vi.mock("~/db", () => ({
+  executeTransaction: hoisted.executeTransaction,
+  useLiveQuery: (options: {
+    sql: string;
+    enabled?: boolean;
+    mapRows: (rows: Array<Record<string, unknown>>) => unknown;
+  }) => {
+    if (options.enabled === false) return {};
+    const data = hoisted.data ?? {
+      sessions: {},
+      participants: [],
+      enhancedNotes: [],
+      keyFacts: {},
+    };
+    const rows = options.sql.includes("FROM sessions")
+      ? Object.values(data.sessions)
+      : options.sql.includes("FROM session_participants")
+        ? data.participants
+        : options.sql.includes("kind = 'enhanced_note'")
+          ? data.enhancedNotes
+          : Object.values(data.keyFacts);
+    return { data: options.mapRows(rows) };
   },
 }));
 
-import { buildPastSessionNotes, usePastSessionNotes } from "./past-notes";
+vi.mock("~/db/write-queue", () => ({
+  enqueueDatabaseWrite: (_key: string, operation: () => Promise<unknown>) =>
+    operation(),
+}));
+
+import {
+  buildPastSessionNotes,
+  type PastSessionNotesData,
+  usePastSessionNotes,
+} from "./past-notes";
 
 vi.mock("~/sidebar/toast/transient", () => ({
   showTransientToast: hoisted.showTransientToast,
 }));
 
 beforeEach(() => {
-  hoisted.store = null;
-  hoisted.userId = "self";
+  hoisted.data = null;
+  hoisted.executeTransaction.mockClear();
   hoisted.generateText.mockReset();
   hoisted.showTransientToast.mockReset();
 });
@@ -55,7 +83,7 @@ afterEach(() => {
 
 describe("insights regeneration", () => {
   it("keeps regeneration requests for saved past note facts", () => {
-    const store = makeStore({
+    const data = makeData({
       sessions: {
         current: {
           title: "Weekly Product Sync",
@@ -92,19 +120,19 @@ describe("insights regeneration", () => {
         },
       },
     });
-    const first = buildPastSessionNotes(store, "current", "self");
+    const first = buildPastSessionNotes(data, "current", "self");
     const request = first.requests[0]!;
 
-    store.setRow("session_key_facts", "previous", {
+    data.keyFacts.previous = {
       user_id: "self",
       session_id: "previous",
       created_at: "2026-05-28T11:00:00.000Z",
       updated_at: "2026-05-28T11:00:00.000Z",
       content: "Alex committed to send pricing by Friday.",
       source_hash: request.sourceHash,
-    });
+    };
 
-    const second = buildPastSessionNotes(store, "current", "self");
+    const second = buildPastSessionNotes(data, "current", "self");
 
     expect(second.missing).toHaveLength(0);
     expect(second.requests.map((request) => request.sessionId)).toEqual([
@@ -113,7 +141,7 @@ describe("insights regeneration", () => {
   });
 
   it("recovers from failed related meeting fact regeneration", async () => {
-    hoisted.store = makeStore({
+    hoisted.data = makeData({
       sessions: {
         current: {
           title: "Weekly Product Sync",
@@ -150,16 +178,16 @@ describe("insights regeneration", () => {
         },
       },
     });
-    const first = buildPastSessionNotes(hoisted.store, "current", "self");
+    const first = buildPastSessionNotes(hoisted.data, "current", "self");
     const request = first.requests[0]!;
-    hoisted.store.setRow("session_key_facts", "previous", {
+    hoisted.data.keyFacts.previous = {
       user_id: "self",
       session_id: "previous",
       created_at: "2026-05-28T11:00:00.000Z",
       updated_at: "2026-05-28T11:00:00.000Z",
       content: "Alex committed to send pricing by Friday.",
       source_hash: request.sourceHash,
-    });
+    };
     hoisted.generateText.mockRejectedValueOnce(new Error("timed out"));
     hoisted.generateText.mockResolvedValueOnce({
       output: {
@@ -216,33 +244,61 @@ describe("insights regeneration", () => {
         totalMs: 30_000,
       },
     });
+    await waitFor(() =>
+      expect(hoisted.executeTransaction).toHaveBeenCalledTimes(1),
+    );
+    const statements = hoisted.executeTransaction.mock.calls[0][0];
+    expect(statements).toHaveLength(2);
+    expect(statements[0].sql).toContain("UPDATE session_documents");
+    expect(statements[0].sql).toContain("session_id = ?");
+    expect(statements[1].sql).toContain("INSERT INTO session_documents");
+    expect(statements[1].sql).toContain("ON CONFLICT(id) DO UPDATE");
     consoleError.mockRestore();
   });
 });
 
-function makeStore(
+function makeData(
   tables: Record<string, Record<string, Record<string, any>>>,
-) {
+): PastSessionNotesData {
   return {
-    getRow: (tableId: string, rowId: string) => tables[tableId]?.[rowId] ?? {},
-    getCell: (tableId: string, rowId: string, cellId: string) =>
-      tables[tableId]?.[rowId]?.[cellId],
-    forEachRow: (
-      tableId: string,
-      callback: (rowId: string, forEachCell: unknown) => void,
-    ) => {
-      for (const rowId of Object.keys(tables[tableId] ?? {})) {
-        callback(rowId, () => {});
-      }
-    },
-    setRow: (tableId: string, rowId: string, row: Record<string, any>) => {
-      tables[tableId] = {
-        ...(tables[tableId] ?? {}),
-        [rowId]: row,
-      };
-    },
-    transaction: (callback: () => void) => {
-      callback();
-    },
-  } as any;
+    sessions: Object.fromEntries(
+      Object.entries(tables.sessions ?? {}).map(([id, row]) => [
+        id,
+        {
+          id,
+          user_id: String(row.user_id ?? "self"),
+          title: String(row.title ?? ""),
+          created_at: String(row.created_at ?? ""),
+          event_json: String(row.event_json ?? ""),
+        },
+      ]),
+    ),
+    participants: Object.values(tables.mapping_session_participant ?? {}).map(
+      (row) => ({
+        session_id: String(row.session_id ?? ""),
+        human_id: String(row.human_id ?? ""),
+        user_id: String(row.user_id ?? ""),
+        source: String(row.source ?? ""),
+        name: String(row.name ?? row.human_id ?? ""),
+      }),
+    ),
+    enhancedNotes: Object.values(tables.enhanced_notes ?? {}).map((row) => ({
+      session_id: String(row.session_id ?? ""),
+      content: String(row.content ?? ""),
+      position: Number(row.position ?? 0),
+    })),
+    keyFacts: Object.fromEntries(
+      Object.values(tables.session_key_facts ?? {}).map((row) => [
+        String(row.session_id ?? ""),
+        {
+          session_id: String(row.session_id ?? ""),
+          user_id: String(row.user_id ?? ""),
+          created_at: String(row.created_at ?? ""),
+          updated_at: String(row.updated_at ?? ""),
+          content: String(row.content ?? ""),
+          source_hash: String(row.source_hash ?? ""),
+        },
+      ]),
+    ),
+  };
 }
