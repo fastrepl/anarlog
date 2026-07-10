@@ -69,6 +69,7 @@ describe("toSqliteSessionRow", () => {
       folder_path: "",
       raw_md: "# Notes",
       raw_body_format: "markdown",
+      deleted_at: null,
     });
 
     expect(JSON.parse(row.raw_md as string)).toMatchObject({ type: "doc" });

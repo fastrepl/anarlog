@@ -9,10 +9,17 @@ import {
 import type { SessionStorage } from "@hypr/store";
 
 import type { Store } from "./main";
+import { SqliteDocumentShadow } from "./sqlite-document-shadow";
+import { SqliteSessionRelationsShadow } from "./sqlite-session-relations-shadow";
+import {
+  type MainTableRow,
+  SqliteTableShadow,
+  type SqliteTableShadowConfig,
+} from "./sqlite-table-shadow";
+import { SqliteTranscriptShadow } from "./sqlite-transcript-shadow";
 
-import { db, liveQueryClient } from "~/db";
+import { db } from "~/db";
 import { getSessionEvent } from "~/session/utils";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 type TinyBaseSessionRow = Partial<SessionStorage>;
 type NewSessionRow = typeof sessions.$inferInsert;
@@ -27,6 +34,7 @@ type SqliteSessionSnapshotRow = {
   folder_path: string;
   raw_md: string;
   raw_body_format: string;
+  deleted_at: string | null;
 };
 
 const SESSION_SNAPSHOT_SQL = `
@@ -38,13 +46,13 @@ const SESSION_SNAPSHOT_SQL = `
     sessions.event_json,
     sessions.folder_path,
     COALESCE(session_documents.body, '') AS raw_md,
-    COALESCE(session_documents.body_format, 'prosemirror_json') AS raw_body_format
+    COALESCE(session_documents.body_format, 'prosemirror_json') AS raw_body_format,
+    sessions.deleted_at
   FROM sessions
   LEFT JOIN session_documents
     ON session_documents.id = sessions.id
     AND session_documents.kind = 'note'
     AND session_documents.deleted_at IS NULL
-  WHERE sessions.deleted_at IS NULL
   ORDER BY sessions.created_at, sessions.id
 `;
 
@@ -78,120 +86,32 @@ export function SqliteSessionShadow({
 }
 
 function MountedSqliteSessionShadow({ store }: { store: Store }) {
-  useMountEffect(() => {
-    let disposed = false;
-    let tableListenerId: string | undefined;
-    let unsubscribe: (() => Promise<void>) | undefined;
-    let applyingSqliteSnapshot = false;
-    let initialized = false;
-    let requested = false;
-    let syncing = false;
-    let pendingSqliteRows: SqliteSessionSnapshotRow[] | undefined;
-    let persistedFingerprints = new Map<string, string>();
-
-    const installTableListener = () => {
-      if (tableListenerId) return;
-      tableListenerId = String(store.addTableListener("sessions", schedule));
-    };
-
-    const applySqliteRows = (rows: SqliteSessionSnapshotRow[]) => {
-      const sqliteRows = Object.fromEntries(
-        rows.map((row) => [row.id, fromSqliteSessionRow(row)]),
-      );
-      const nextRows = initialized
-        ? sqliteRows
-        : { ...store.getTable("sessions"), ...sqliteRows };
-
-      applyingSqliteSnapshot = true;
-      try {
-        store.setTable("sessions", nextRows);
-        persistedFingerprints = fingerprintTable(sqliteRows);
-        initialized = true;
-      } finally {
-        applyingSqliteSnapshot = false;
-      }
-
-      installTableListener();
-      if (Object.keys(nextRows).length !== Object.keys(sqliteRows).length) {
-        schedule();
-      }
-    };
-
-    const sync = async () => {
-      if (syncing || disposed) return;
-      syncing = true;
-
-      try {
-        while (requested && !disposed) {
-          requested = false;
-          const rows = Object.entries(store.getTable("sessions")) as Array<
-            [string, TinyBaseSessionRow]
-          >;
-          const fingerprints = fingerprintEntries(rows);
-          const changedRows = rows.filter(
-            ([id]) => persistedFingerprints.get(id) !== fingerprints.get(id),
-          );
-          const deletedIds = [...persistedFingerprints.keys()].filter(
-            (id) => !fingerprints.has(id),
-          );
-
-          await persistSessionChanges(changedRows, deletedIds);
-          persistedFingerprints = fingerprints;
-        }
-      } catch (error) {
-        console.error("[SqliteSessionShadow]", error);
-      } finally {
-        syncing = false;
-        if (pendingSqliteRows && !disposed) {
-          const rows = pendingSqliteRows;
-          pendingSqliteRows = undefined;
-          applySqliteRows(rows);
-        }
-      }
-    };
-
-    function schedule() {
-      if (applyingSqliteSnapshot || disposed) return;
-      requested = true;
-      queueMicrotask(sync);
-    }
-
-    void liveQueryClient
-      .subscribe<SqliteSessionSnapshotRow>(SESSION_SNAPSHOT_SQL, [], {
-        onData: (rows) => {
-          if (disposed) return;
-          if (initialized && (syncing || requested)) {
-            pendingSqliteRows = rows;
-            return;
-          }
-          applySqliteRows(rows);
-        },
-        onError: (error) => {
-          console.error("[SqliteSessionShadow]", error);
-        },
-      })
-      .then((dispose) => {
-        if (disposed) {
-          void dispose();
-          return;
-        }
-        unsubscribe = dispose;
-      })
-      .catch((error) => {
-        console.error("[SqliteSessionShadow]", error);
-      });
-
-    return () => {
-      disposed = true;
-      if (tableListenerId) {
-        store.delListener(tableListenerId);
-      }
-      void unsubscribe?.();
-    };
-  });
-
-  return null;
+  return (
+    <>
+      <SqliteTableShadow config={SESSION_SHADOW_CONFIG} store={store} />
+      <SqliteTranscriptShadow store={store} />
+      <SqliteDocumentShadow store={store} />
+      <SqliteSessionRelationsShadow store={store} />
+    </>
+  );
 }
+
+const SESSION_SHADOW_CONFIG: SqliteTableShadowConfig<
+  "sessions",
+  SqliteSessionSnapshotRow
+> = {
+  label: "SqliteSessionShadow",
+  tableId: "sessions",
+  selectSql: SESSION_SNAPSHOT_SQL,
+  fromSqlite: fromSqliteSessionRow as (
+    row: SqliteSessionSnapshotRow,
+  ) => MainTableRow<"sessions">,
+  isDeleted: (row) => row.deleted_at !== null,
+  normalize: normalizeTinyBaseSessionRow as (
+    row: MainTableRow<"sessions">,
+  ) => MainTableRow<"sessions">,
+  persist: persistSessionChanges,
+};
 
 async function persistSessionChanges(
   rows: Array<[string, TinyBaseSessionRow]>,
@@ -344,19 +264,6 @@ function normalizeTinyBaseSessionRow(row: TinyBaseSessionRow) {
     title: typeof row.title === "string" ? row.title : "",
     raw_md: typeof row.raw_md === "string" ? row.raw_md : "",
   };
-}
-
-function fingerprintTable(table: Record<string, TinyBaseSessionRow>) {
-  return fingerprintEntries(Object.entries(table));
-}
-
-function fingerprintEntries(rows: Array<[string, TinyBaseSessionRow]>) {
-  return new Map(
-    rows.map(([id, row]) => [
-      id,
-      JSON.stringify(normalizeTinyBaseSessionRow(row)),
-    ]),
-  );
 }
 
 function chunks<T>(items: T[], size: number): T[][] {
