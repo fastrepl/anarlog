@@ -1,4 +1,4 @@
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import {
@@ -13,8 +13,7 @@ const {
   startTranscriptionMock,
   useListenerMock,
   useStoreMock,
-  useIndexesMock,
-  useValuesMock,
+  useSessionMock,
   useSTTConnectionMock,
   useAuthMock,
   useBillingAccessMock,
@@ -23,14 +22,14 @@ const {
   sonnerToastMessageMock,
   settingsUseStoreMock,
   deleteProcessedAudioForRetentionMock,
-  saveMock,
+  createTranscriptMock,
+  appendTranscriptWordsAndHintsMock,
   idMock,
 } = vi.hoisted(() => ({
   startTranscriptionMock: vi.fn(),
   useListenerMock: vi.fn(),
   useStoreMock: vi.fn(),
-  useIndexesMock: vi.fn(),
-  useValuesMock: vi.fn(),
+  useSessionMock: vi.fn(),
   useSTTConnectionMock: vi.fn(),
   useAuthMock: vi.fn(),
   useBillingAccessMock: vi.fn(),
@@ -39,7 +38,8 @@ const {
   sonnerToastMessageMock: vi.fn(),
   settingsUseStoreMock: vi.fn(),
   deleteProcessedAudioForRetentionMock: vi.fn(),
-  saveMock: vi.fn(),
+  createTranscriptMock: vi.fn(),
+  appendTranscriptWordsAndHintsMock: vi.fn(),
   idMock: vi.fn(),
 }));
 
@@ -78,6 +78,10 @@ vi.mock("~/env", () => ({
 
 vi.mock("~/services/audio-retention", () => ({
   deleteProcessedAudioForRetention: deleteProcessedAudioForRetentionMock,
+}));
+
+vi.mock("~/session/queries", () => ({
+  useSession: useSessionMock,
 }));
 
 vi.mock("~/shared/config", () => ({
@@ -122,13 +126,8 @@ vi.mock("~/stt/capabilities", () => {
 
 vi.mock("~/store/tinybase/store/main", () => ({
   STORE_ID: "main",
-  INDEXES: {
-    transcriptBySession: "transcriptBySession",
-  },
   UI: {
     useStore: useStoreMock,
-    useIndexes: useIndexesMock,
-    useValues: useValuesMock,
   },
 }));
 
@@ -139,8 +138,9 @@ vi.mock("~/store/tinybase/store/settings", () => ({
   },
 }));
 
-vi.mock("~/store/tinybase/store/save", () => ({
-  save: saveMock,
+vi.mock("~/stt/queries", () => ({
+  appendTranscriptWordsAndHints: appendTranscriptWordsAndHintsMock,
+  createTranscript: createTranscriptMock,
 }));
 
 function createStore() {
@@ -267,17 +267,19 @@ describe("useRunBatch", () => {
 
     let nextId = 0;
     idMock.mockImplementation(() => `generated-${++nextId}`);
-    saveMock.mockResolvedValue(undefined);
+    createTranscriptMock.mockResolvedValue(undefined);
+    appendTranscriptWordsAndHintsMock.mockResolvedValue(undefined);
     deleteProcessedAudioForRetentionMock.mockResolvedValue(undefined);
     isSupportedLanguagesBatchMock.mockResolvedValue(true);
     useListenerMock.mockImplementation((selector) =>
       selector({ startTranscription: startTranscriptionMock }),
     );
     useStoreMock.mockReturnValue(createStore());
-    useIndexesMock.mockReturnValue({
-      getSliceRowIds: vi.fn(() => []),
+    useSessionMock.mockReturnValue({
+      id: "session-1",
+      user_id: "user-1",
+      raw_md: "Existing memo",
     });
-    useValuesMock.mockReturnValue({ user_id: "user-1" });
     useSTTConnectionMock.mockReturnValue({
       conn: {
         provider: "deepgram",
@@ -301,7 +303,14 @@ describe("useRunBatch", () => {
     settingsUseStoreMock.mockReturnValue({ id: "settings-store" });
   });
 
-  test("saves once after streamed default batch persists finish", async () => {
+  test("waits for streamed SQLite persists before retention", async () => {
+    let resolveAppend: (() => void) | undefined;
+    appendTranscriptWordsAndHintsMock.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveAppend = resolve;
+        }),
+    );
     startTranscriptionMock.mockImplementation(async (_params, options) => {
       options.handlePersist(
         [{ text: "hello", start_ms: 0, end_ms: 100, channel: 0 }],
@@ -314,14 +323,21 @@ describe("useRunBatch", () => {
     });
 
     const { result } = renderHook(() => useRunBatch("session-1"));
+    const run = result.current("/tmp/session.wav");
 
-    await act(async () => {
-      await result.current("/tmp/session.wav");
+    await waitFor(() => {
+      expect(appendTranscriptWordsAndHintsMock).toHaveBeenCalledTimes(1);
     });
+    expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
 
-    expect(saveMock).toHaveBeenCalledTimes(1);
+    resolveAppend?.();
+    await act(async () => await run);
+
+    expect(createTranscriptMock).toHaveBeenCalledTimes(1);
     expect(deleteProcessedAudioForRetentionMock).toHaveBeenCalledTimes(1);
-    expect(saveMock.mock.invocationCallOrder[0]).toBeLessThan(
+    expect(
+      appendTranscriptWordsAndHintsMock.mock.invocationCallOrder[0],
+    ).toBeLessThan(
       deleteProcessedAudioForRetentionMock.mock.invocationCallOrder[0],
     );
   });
@@ -342,7 +358,8 @@ describe("useRunBatch", () => {
     });
 
     expect(handlePersist).toHaveBeenCalledTimes(1);
-    expect(saveMock).not.toHaveBeenCalled();
+    expect(createTranscriptMock).not.toHaveBeenCalled();
+    expect(appendTranscriptWordsAndHintsMock).not.toHaveBeenCalled();
   });
 
   test("flushes default batch persists before rethrowing transcription errors", async () => {
@@ -362,7 +379,7 @@ describe("useRunBatch", () => {
       }),
     ).rejects.toThrow("provider failed");
 
-    expect(saveMock).toHaveBeenCalledTimes(1);
+    expect(createTranscriptMock).toHaveBeenCalledTimes(1);
     expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
   });
 

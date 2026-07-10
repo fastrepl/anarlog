@@ -9,26 +9,32 @@ const {
   audioImportDataMock,
   audioImportMock,
   audioImportListenMock,
+  parseSubtitleMock,
+  createTranscriptMock,
+  enhanceMock,
   handleBatchFailedMock,
   handleBatchStartedMock,
   updateBatchProgressMock,
   clearBatchSessionMock,
   runBatchMock,
-  useStoreMock,
-  useValuesMock,
+  useSessionMock,
+  updateSessionMock,
   useTabsMock,
   updateSessionTabStateMock,
 } = vi.hoisted(() => ({
   audioImportDataMock: vi.fn(),
   audioImportMock: vi.fn(),
   audioImportListenMock: vi.fn(),
+  parseSubtitleMock: vi.fn(),
+  createTranscriptMock: vi.fn(),
+  enhanceMock: vi.fn(),
   handleBatchFailedMock: vi.fn(),
   handleBatchStartedMock: vi.fn(),
   updateBatchProgressMock: vi.fn(),
   clearBatchSessionMock: vi.fn(),
   runBatchMock: vi.fn(),
-  useStoreMock: vi.fn(),
-  useValuesMock: vi.fn(),
+  useSessionMock: vi.fn(),
+  updateSessionMock: vi.fn(),
   useTabsMock: vi.fn(),
   updateSessionTabStateMock: vi.fn(),
 }));
@@ -58,6 +64,10 @@ vi.mock("@hypr/plugin-fs-sync", () => ({
   },
 }));
 
+vi.mock("@hypr/plugin-transcription", () => ({
+  commands: { parseSubtitle: parseSubtitleMock },
+}));
+
 vi.mock("./contexts", () => ({
   useListener: (selector: (state: unknown) => unknown) =>
     selector({
@@ -75,35 +85,23 @@ vi.mock("./useRunBatch", () => ({
 
 vi.mock("~/services/enhancer", () => ({
   getEnhancerService: vi.fn(() => ({
-    enhance: vi.fn(),
+    enhance: enhanceMock,
     queueAutoEnhanceIfSummaryEmpty: vi.fn(),
   })),
 }));
 
-vi.mock("~/store/tinybase/store/main", () => ({
-  STORE_ID: "main",
-  UI: {
-    useStore: useStoreMock,
-    useValues: useValuesMock,
-  },
+vi.mock("~/session/queries", () => ({
+  useSession: useSessionMock,
+  useUpdateSession: () => updateSessionMock,
 }));
 
 vi.mock("~/store/zustand/tabs", () => ({
   useTabs: useTabsMock,
 }));
 
-function createStore() {
-  const sessions = new Map<string, Record<string, unknown>>([
-    ["session-1", { event_json: "" }],
-  ]);
-
-  return {
-    getCell: (tableId: string, rowId: string, cellId: string) =>
-      tableId === "sessions" ? sessions.get(rowId)?.[cellId] : undefined,
-    setCell: vi.fn(),
-    setRow: vi.fn(),
-  };
-}
+vi.mock("~/stt/queries", () => ({
+  createTranscript: createTranscriptMock,
+}));
 
 function createWrapper() {
   const queryClient = new QueryClient({
@@ -125,8 +123,14 @@ describe("useUploadFile", () => {
     });
     audioImportListenMock.mockResolvedValue(vi.fn());
     runBatchMock.mockResolvedValue(undefined);
-    useStoreMock.mockReturnValue(createStore());
-    useValuesMock.mockReturnValue({ user_id: "user-1" });
+    createTranscriptMock.mockResolvedValue(undefined);
+    useSessionMock.mockReturnValue({
+      id: "session-1",
+      user_id: "user-1",
+      raw_md: "",
+      event_json: "",
+    });
+    updateSessionMock.mockResolvedValue(undefined);
     useTabsMock.mockImplementation((selector) =>
       selector({
         tabs: [],
@@ -196,4 +200,56 @@ describe("useUploadFile", () => {
       );
     },
   );
+
+  test("persists imported subtitles before enhancing", async () => {
+    let resolveWrite: (() => void) | undefined;
+    createTranscriptMock.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveWrite = resolve;
+        }),
+    );
+    parseSubtitleMock.mockResolvedValue({
+      status: "ok",
+      data: {
+        tokens: [{ text: "Hello", start_time: 0, end_time: 500 }],
+      },
+    });
+    const { result } = renderHook(() => useUploadFile("session-1"), {
+      wrapper: createWrapper(),
+    });
+
+    act(() => {
+      result.current.processFile("/tmp/session.vtt", "transcript");
+    });
+
+    await waitFor(() => {
+      expect(createTranscriptMock).toHaveBeenCalledTimes(1);
+    });
+    expect(enhanceMock).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveWrite?.();
+    });
+    await waitFor(() => {
+      expect(enhanceMock).toHaveBeenCalledWith("session-1");
+    });
+    expect(createTranscriptMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: "session-1",
+        ownerUserId: "user-1",
+        source: "subtitle_import",
+        words: [
+          expect.objectContaining({
+            text: "Hello",
+            start_ms: 0,
+            end_ms: 500,
+          }),
+        ],
+      }),
+    );
+    expect(createTranscriptMock.mock.invocationCallOrder[0]).toBeLessThan(
+      enhanceMock.mock.invocationCallOrder[0],
+    );
+  });
 });

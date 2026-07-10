@@ -1,7 +1,6 @@
 import { useCallback, useRef } from "react";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
-import type { TranscriptStorage } from "@hypr/store";
 
 import { useListener } from "./contexts";
 import { getSessionKeywords } from "./useKeywords";
@@ -15,6 +14,7 @@ import { useSTTConnection } from "./useSTTConnection";
 import { useShell } from "~/contexts/shell";
 import { deleteProcessedAudioForRetention } from "~/services/audio-retention";
 import { getEnhancerService } from "~/services/enhancer";
+import { useSession, useSessionHasTranscript } from "~/session/queries";
 import { getSessionEventById } from "~/session/utils";
 import { useConfigValue } from "~/shared/config";
 import { id } from "~/shared/utils";
@@ -29,23 +29,11 @@ import {
   getTranscriptionLanguages,
 } from "~/stt/capabilities";
 import {
-  createTranscriptAccumulator,
-  parseTranscriptWords,
-  type TranscriptAccumulator,
-} from "~/stt/utils";
-
-function hasTranscriptContent(
-  store: main.Store,
-  indexes: ReturnType<typeof main.UI.useIndexes> | undefined,
-  sessionId: string,
-) {
-  const transcriptIds =
-    indexes?.getSliceRowIds(main.INDEXES.transcriptBySession, sessionId) ?? [];
-
-  return transcriptIds.some(
-    (transcriptId) => parseTranscriptWords(store, transcriptId).length > 0,
-  );
-}
+  applyLiveTranscriptDeltaToDatabase,
+  createLiveTranscript,
+  softDeleteTranscript,
+  useSessionParticipantHumanIds,
+} from "~/stt/queries";
 
 export function getPostCaptureAction(
   details: {
@@ -66,10 +54,11 @@ export function getPostCaptureAction(
 }
 
 export function useStartListening(sessionId: string) {
-  const { user_id } = main.UI.useValues(main.STORE_ID);
   const store = main.UI.useStore(main.STORE_ID);
-  const indexes = main.UI.useIndexes(main.STORE_ID);
   const settingsStore = settings.UI.useStore(settings.STORE_ID);
+  const session = useSession(sessionId);
+  const hadTranscriptBeforeStart = useSessionHasTranscript(sessionId);
+  const participantHumanIds = useSessionParticipantHumanIds(sessionId);
 
   const aiLanguage = useConfigValue("ai_language");
   const spokenLanguages = useConfigValue("spoken_languages");
@@ -93,16 +82,16 @@ export function useStartListening(sessionId: string) {
 
     let transcriptId: string | null = null;
     const startedAt = Date.now();
-    const memoMd = store.getCell("sessions", sessionId, "raw_md");
+    const memoMd = session?.raw_md ?? "";
     const createdAt = new Date().toISOString();
-    const hadTranscriptBeforeStart = hasTranscriptContent(
-      store as main.Store,
-      indexes ?? undefined,
-      sessionId,
-    );
-    const transcriptAccumulatorRef: {
-      current: TranscriptAccumulator | null;
-    } = { current: null };
+    let lastTranscriptWrite = Promise.resolve();
+    let transcriptWriteError: unknown;
+    const trackTranscriptWrite = (write: Promise<void>) => {
+      lastTranscriptWrite = write.catch((error) => {
+        transcriptWriteError = error;
+        console.error("[listener] failed to persist transcript", error);
+      });
+    };
     const keywords = getSessionKeywords({
       store,
       sessionId,
@@ -110,8 +99,8 @@ export function useStartListening(sessionId: string) {
     });
 
     const onStopped: OnStoppedCallback = async (_sessionId, details) => {
-      transcriptAccumulatorRef.current?.dispose();
-      transcriptAccumulatorRef.current = null;
+      await lastTranscriptWrite;
+      if (transcriptWriteError) return;
 
       const postCaptureAction = getPostCaptureAction(
         details,
@@ -164,54 +153,29 @@ export function useStartListening(sessionId: string) {
 
       if (!transcriptId) {
         transcriptId = id();
-        const transcriptRow = {
-          session_id: sessionId,
-          user_id: user_id ?? "",
-          created_at: createdAt,
-          started_at: startedAt,
-          words: "[]",
-          speaker_hints: "[]",
-          memo_md: typeof memoMd === "string" ? memoMd : "",
-        } satisfies TranscriptStorage;
-
-        store.setRow("transcripts", transcriptId, transcriptRow);
-        transcriptAccumulatorRef.current = createTranscriptAccumulator(
-          store,
-          transcriptId,
-          { words: [], hints: [] },
+        trackTranscriptWrite(
+          createLiveTranscript(
+            {
+              id: transcriptId,
+              sessionId,
+              ownerUserId: session?.user_id ?? "",
+              createdAt,
+              startedAt,
+              memo: memoMd,
+              source: "live_capture",
+              provider: conn?.provider,
+              model: conn?.model,
+            },
+            delta,
+          ),
         );
+        return;
       }
 
-      transcriptAccumulatorRef.current ??= createTranscriptAccumulator(
-        store,
-        transcriptId,
+      trackTranscriptWrite(
+        applyLiveTranscriptDeltaToDatabase(transcriptId, delta),
       );
-
-      store.transaction(() => {
-        transcriptAccumulatorRef.current?.applyLiveDelta(delta);
-      });
     };
-
-    const participantHumanIds: string[] = [];
-    store.forEachRow(
-      "mapping_session_participant",
-      (mappingId, _forEachCell) => {
-        const sid = store.getCell(
-          "mapping_session_participant",
-          mappingId,
-          "session_id",
-        );
-        if (sid !== sessionId) return;
-        const hid = store.getCell(
-          "mapping_session_participant",
-          mappingId,
-          "human_id",
-        );
-        if (typeof hid === "string" && hid) {
-          participantHumanIds.push(hid);
-        }
-      },
-    );
 
     const languages = getTranscriptionLanguages(aiLanguage, spokenLanguages);
     const liveTranscriptionConfig = await getLiveTranscriptionConfig({
@@ -231,7 +195,7 @@ export function useStartListening(sessionId: string) {
         keywords,
         transcription_mode: liveTranscriptionConfig.transcriptionMode,
         participant_human_ids: participantHumanIds,
-        self_human_id: typeof user_id === "string" ? user_id : null,
+        self_human_id: session?.user_id || null,
       },
       {
         handlePersist,
@@ -240,11 +204,10 @@ export function useStartListening(sessionId: string) {
     );
 
     if (!started) {
-      transcriptAccumulatorRef.current?.dispose();
-      transcriptAccumulatorRef.current = null;
+      await lastTranscriptWrite;
 
       if (transcriptId) {
-        store.delRow("transcripts", transcriptId);
+        await softDeleteTranscript(transcriptId);
       }
       return;
     }
@@ -265,11 +228,12 @@ export function useStartListening(sessionId: string) {
     aiLanguage,
     conn,
     dictionaryTerms,
+    hadTranscriptBeforeStart,
+    participantHumanIds,
+    session,
     store,
-    indexes,
     sessionId,
     start,
-    user_id,
     spokenLanguages,
     setLeftSidebarExpanded,
     settingsStore,

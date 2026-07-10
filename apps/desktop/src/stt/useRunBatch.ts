@@ -1,7 +1,6 @@
 import { useCallback } from "react";
 
 import type { TranscriptionParams } from "@hypr/plugin-transcription";
-import type { TranscriptStorage } from "@hypr/store";
 import { sonnerToast } from "@hypr/ui/components/ui/toast";
 
 import { useListener } from "./contexts";
@@ -12,6 +11,7 @@ import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing";
 import { env } from "~/env";
 import { deleteProcessedAudioForRetention } from "~/services/audio-retention";
+import { useSession } from "~/session/queries";
 import { useConfigValue } from "~/shared/config";
 import { id } from "~/shared/utils";
 import * as main from "~/store/tinybase/store/main";
@@ -21,11 +21,8 @@ import {
   getTranscriptionLanguages,
   isSupportedLanguagesBatch,
 } from "~/stt/capabilities";
+import { appendTranscriptWordsAndHints, createTranscript } from "~/stt/queries";
 import type { SpeakerHintWithId, WordWithId } from "~/stt/types";
-import {
-  createTranscriptAccumulator,
-  type TranscriptAccumulator,
-} from "~/stt/utils";
 
 type RunOptions = {
   handlePersist?: BatchPersistCallback;
@@ -184,20 +181,10 @@ export function getSessionSpeakerCount(
   return humanIds.size > 1 ? humanIds.size : undefined;
 }
 
-async function saveCompletedBatchTranscript(): Promise<void> {
-  try {
-    const { save } = await import("~/store/tinybase/store/save");
-    await save();
-  } catch (error) {
-    console.error("[runBatch] failed to save completed transcript", error);
-  }
-}
-
 export const useRunBatch = (sessionId: string) => {
   const store = main.UI.useStore(main.STORE_ID);
-  const indexes = main.UI.useIndexes(main.STORE_ID);
-  const { user_id } = main.UI.useValues(main.STORE_ID);
   const settingsStore = settings.UI.useStore(settings.STORE_ID);
+  const session = useSession(sessionId);
 
   const startTranscription = useListener((state) => state.startTranscription);
   const { conn } = useSTTConnection();
@@ -263,7 +250,7 @@ export const useRunBatch = (sessionId: string) => {
       }
 
       const createdAt = new Date().toISOString();
-      const memoMd = store.getCell("sessions", sessionId, "raw_md");
+      const memoMd = session?.raw_md ?? "";
       const keywords =
         options?.keywords ??
         getSessionKeywords({
@@ -276,15 +263,19 @@ export const useRunBatch = (sessionId: string) => {
         options?.numSpeakers === undefined &&
         options?.minSpeakers === undefined &&
         options?.maxSpeakers === undefined
-          ? getSessionSpeakerCount(store, sessionId, user_id)
+          ? getSessionSpeakerCount(store, sessionId, session?.user_id)
           : undefined;
 
       const handlePersist: BatchPersistCallback | undefined =
         options?.handlePersist;
-      let wroteDefaultTranscript = false;
-      const transcriptAccumulatorRef: {
-        current: TranscriptAccumulator | null;
-      } = { current: null };
+      let lastTranscriptWrite = Promise.resolve();
+      let transcriptWriteError: unknown;
+      const trackTranscriptWrite = (write: Promise<void>) => {
+        lastTranscriptWrite = write.catch((error) => {
+          transcriptWriteError = error;
+          console.error("[runBatch] failed to persist transcript", error);
+        });
+      };
 
       const persist =
         handlePersist ??
@@ -292,51 +283,6 @@ export const useRunBatch = (sessionId: string) => {
           if (words.length === 0) {
             return;
           }
-
-          if (!transcriptId) {
-            transcriptId = id();
-            const currentTranscriptId = transcriptId;
-
-            const transcriptRow = {
-              session_id: sessionId,
-              user_id: user_id ?? "",
-              created_at: createdAt,
-              started_at: Date.now(),
-              words: "[]",
-              speaker_hints: "[]",
-              memo_md: typeof memoMd === "string" ? memoMd : "",
-            } satisfies TranscriptStorage;
-
-            store.transaction(() => {
-              const transcriptIds =
-                indexes?.getSliceRowIds(
-                  main.INDEXES.transcriptBySession,
-                  sessionId,
-                ) ?? [];
-
-              for (const existingTranscriptId of transcriptIds) {
-                store.delRow("transcripts", existingTranscriptId);
-              }
-
-              store.setRow("transcripts", currentTranscriptId, transcriptRow);
-            });
-
-            transcriptAccumulatorRef.current = createTranscriptAccumulator(
-              store,
-              currentTranscriptId,
-              { words: [], hints: [] },
-            );
-          }
-
-          const currentTranscriptId = transcriptId;
-          if (!currentTranscriptId) {
-            return;
-          }
-
-          transcriptAccumulatorRef.current ??= createTranscriptAccumulator(
-            store,
-            currentTranscriptId,
-          );
 
           const newWords: WordWithId[] = [];
           const newWordIds: string[] = [];
@@ -384,15 +330,34 @@ export const useRunBatch = (sessionId: string) => {
             });
           });
 
-          store.transaction(() => {
-            transcriptAccumulatorRef.current?.appendWordsAndHints(
-              newWords,
-              newHints,
-              persistOptions,
+          if (!transcriptId) {
+            transcriptId = id();
+            trackTranscriptWrite(
+              createTranscript({
+                id: transcriptId,
+                sessionId,
+                ownerUserId: session?.user_id ?? "",
+                createdAt,
+                startedAt: Date.now(),
+                memo: memoMd,
+                source: "batch_transcription",
+                provider: target.provider,
+                model: target.model,
+                words: newWords,
+                speakerHints: newHints,
+                replaceSession: true,
+              }),
             );
-          });
-
-          wroteDefaultTranscript = true;
+          } else {
+            trackTranscriptWrite(
+              appendTranscriptWordsAndHints(
+                transcriptId,
+                newWords,
+                newHints,
+                persistOptions,
+              ),
+            );
+          }
         });
 
       const params: TranscriptionParams = {
@@ -412,13 +377,10 @@ export const useRunBatch = (sessionId: string) => {
       try {
         await startTranscription(params, { handlePersist: persist });
       } finally {
-        if (!handlePersist && wroteDefaultTranscript) {
-          await saveCompletedBatchTranscript();
-        }
-
-        transcriptAccumulatorRef.current?.dispose();
-        transcriptAccumulatorRef.current = null;
+        await lastTranscriptWrite;
       }
+
+      if (transcriptWriteError) throw transcriptWriteError;
 
       if (settingsStore) {
         await deleteProcessedAudioForRetention(
@@ -434,13 +396,12 @@ export const useRunBatch = (sessionId: string) => {
       aiLanguage,
       billing.isPaid,
       dictionaryTerms,
-      indexes,
+      session,
       spokenLanguages,
       startTranscription,
       sessionId,
       settingsStore,
       store,
-      user_id,
     ],
   );
 };

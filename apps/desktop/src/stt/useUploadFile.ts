@@ -10,7 +10,6 @@ import {
   events as fsSyncEvents,
 } from "@hypr/plugin-fs-sync";
 import { commands as listener2Commands } from "@hypr/plugin-transcription";
-import type { TranscriptStorage } from "@hypr/store";
 
 import { estimateUploadedAudioSessionCreatedAt } from "./audio-note-date";
 import { useListener } from "./contexts";
@@ -19,8 +18,9 @@ import { ChannelProfile } from "./segment";
 import { isStoppedTranscriptionError, useRunBatch } from "./useRunBatch";
 
 import { getEnhancerService } from "~/services/enhancer";
-import * as main from "~/store/tinybase/store/main";
+import { useSession, useUpdateSession } from "~/session/queries";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
+import { createTranscript } from "~/stt/queries";
 
 export const AUDIO_EXTENSIONS = [
   "wav",
@@ -58,8 +58,8 @@ export function useUploadFile(sessionId: string) {
   const updateBatchProgress = useListener((state) => state.updateBatchProgress);
   const clearBatchSession = useListener((state) => state.clearBatchSession);
 
-  const store = main.UI.useStore(main.STORE_ID) as main.Store | undefined;
-  const { user_id } = main.UI.useValues(main.STORE_ID);
+  const session = useSession(sessionId);
+  const updateSession = useUpdateSession(sessionId);
   const updateSessionTabState = useTabs((state) => state.updateSessionTabState);
   const sessionTab = useTabs((state) => {
     const found = state.tabs.find(
@@ -89,12 +89,7 @@ export function useUploadFile(sessionId: string) {
   const applyEstimatedAudioNoteDate = useCallback(
     async (filePath: string) => {
       try {
-        if (!store) {
-          return;
-        }
-
-        const eventJson = store.getCell("sessions", sessionId, "event_json");
-        if (typeof eventJson === "string" && eventJson.trim()) {
+        if (session?.event_json.trim()) {
           return;
         }
 
@@ -110,23 +105,18 @@ export function useUploadFile(sessionId: string) {
           return;
         }
 
-        store.setCell("sessions", sessionId, "created_at", estimatedCreatedAt);
+        await updateSession({ created_at: estimatedCreatedAt });
       } catch (error) {
         console.error("[upload] audio metadata inspection failed:", error);
       }
     },
-    [sessionId, store],
+    [session?.event_json, updateSession],
   );
 
   const applyDroppedAudioNoteDate = useCallback(
     async (file: File) => {
       try {
-        if (!store) {
-          return;
-        }
-
-        const eventJson = store.getCell("sessions", sessionId, "event_json");
-        if (typeof eventJson === "string" && eventJson.trim()) {
+        if (session?.event_json.trim()) {
           return;
         }
 
@@ -134,17 +124,14 @@ export function useUploadFile(sessionId: string) {
           return;
         }
 
-        store.setCell(
-          "sessions",
-          sessionId,
-          "created_at",
-          new Date(file.lastModified).toISOString(),
-        );
+        await updateSession({
+          created_at: new Date(file.lastModified).toISOString(),
+        });
       } catch (error) {
         console.error("[upload] dropped audio date inspection failed:", error);
       }
     },
-    [sessionId, store],
+    [session?.event_json, updateSession],
   );
 
   const importWithProgress = useCallback(
@@ -260,48 +247,53 @@ export function useUploadFile(sessionId: string) {
 
         const program = pipe(
           fromResult(listener2Commands.parseSubtitle(filePath)),
-          Effect.tap((subtitle) =>
-            Effect.sync(() => {
-              if (!store || subtitle.tokens.length === 0) {
-                return;
-              }
+          Effect.tap((subtitle) => {
+            if (subtitle.tokens.length === 0) {
+              return Effect.void;
+            }
 
-              const transcriptId = crypto.randomUUID();
-              const createdAt = new Date().toISOString();
-              const memoMd = store.getCell("sessions", sessionId, "raw_md");
+            const transcriptId = crypto.randomUUID();
+            const createdAt = new Date().toISOString();
 
-              const words = subtitle.tokens.map((token) => ({
-                id: crypto.randomUUID(),
-                transcript_id: transcriptId,
-                text: token.text,
-                start_ms: token.start_time,
-                end_ms: token.end_time,
-                channel: ChannelProfile.MixedCapture,
-                user_id: user_id ?? "",
-                created_at: new Date().toISOString(),
-              }));
+            const words = subtitle.tokens.map((token) => ({
+              id: crypto.randomUUID(),
+              transcript_id: transcriptId,
+              text: token.text,
+              start_ms: token.start_time,
+              end_ms: token.end_time,
+              channel: ChannelProfile.MixedCapture,
+              user_id: session?.user_id ?? "",
+              created_at: new Date().toISOString(),
+            }));
 
-              const transcriptRow = {
-                session_id: sessionId,
-                user_id: user_id ?? "",
-                created_at: createdAt,
-                started_at: Date.now(),
-                words: JSON.stringify(words),
-                speaker_hints: "[]",
-                memo_md: typeof memoMd === "string" ? memoMd : "",
-              } satisfies TranscriptStorage;
+            return Effect.tryPromise({
+              try: () =>
+                createTranscript({
+                  id: transcriptId,
+                  sessionId,
+                  ownerUserId: session?.user_id ?? "",
+                  createdAt,
+                  startedAt: Date.now(),
+                  memo: session?.raw_md ?? "",
+                  source: "subtitle_import",
+                  words,
+                }),
+              catch: (error) =>
+                error instanceof Error ? error : new Error(String(error)),
+            }).pipe(
+              Effect.tap(() =>
+                Effect.sync(() => {
+                  void analyticsCommands.event({
+                    event: "file_uploaded",
+                    file_type: "transcript",
+                    token_count: subtitle.tokens.length,
+                  });
 
-              store.setRow("transcripts", transcriptId, transcriptRow);
-
-              void analyticsCommands.event({
-                event: "file_uploaded",
-                file_type: "transcript",
-                token_count: subtitle.tokens.length,
-              });
-
-              triggerEnhance();
-            }),
-          ),
+                  triggerEnhance();
+                }),
+              ),
+            );
+          }),
         );
 
         Effect.runPromise(program).catch((error) => {
@@ -324,12 +316,11 @@ export function useUploadFile(sessionId: string) {
     },
     [
       sessionId,
-      store,
+      session,
       triggerEnhance,
       applyEstimatedAudioNoteDate,
       importWithProgress,
       runAudioImport,
-      user_id,
     ],
   );
 
