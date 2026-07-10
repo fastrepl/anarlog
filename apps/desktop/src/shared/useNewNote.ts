@@ -1,10 +1,9 @@
-import { useRouteContext } from "@tanstack/react-router";
 import { downloadDir } from "@tauri-apps/api/path";
 import { open as selectFile } from "@tauri-apps/plugin-dialog";
 import { useCallback } from "react";
 import { useShallow } from "zustand/shallow";
 
-import { createSession } from "~/store/tinybase/store/sessions";
+import { createSession } from "~/session/queries";
 import { useTabs } from "~/store/zustand/tabs";
 import { useListener } from "~/stt/contexts";
 import { setPendingUpload } from "~/stt/pending-upload";
@@ -14,9 +13,6 @@ export function useNewNote({
 }: {
   behavior?: "new" | "current";
 } = {}) {
-  const { persistedStore } = useRouteContext({
-    from: "__root__",
-  });
   const { openNew, openCurrent } = useTabs(
     useShallow((state) => ({
       openNew: state.openNew,
@@ -25,14 +21,15 @@ export function useNewNote({
   );
 
   const handler = useCallback(() => {
-    if (!persistedStore) {
-      return;
-    }
-
-    const sessionId = createSession(persistedStore);
     const ff = behavior === "new" ? openNew : openCurrent;
-    ff({ type: "sessions", id: sessionId });
-  }, [persistedStore, openNew, openCurrent, behavior]);
+    void createSession()
+      .then((sessionId) => {
+        ff({ type: "sessions", id: sessionId });
+      })
+      .catch((error) => {
+        console.error("[session] failed to create note", error);
+      });
+  }, [openNew, openCurrent, behavior]);
 
   return handler;
 }
@@ -42,9 +39,6 @@ export function useNewNoteAndListen({
 }: {
   behavior?: "new" | "current";
 } = {}) {
-  const { persistedStore } = useRouteContext({
-    from: "__root__",
-  });
   const { openNew, openCurrent } = useTabs(
     useShallow((state) => ({
       openNew: state.openNew,
@@ -63,18 +57,19 @@ export function useNewNoteAndListen({
       return;
     }
 
-    if (!persistedStore) {
-      return;
-    }
-
-    const sessionId = createSession(persistedStore);
     const ff = behavior === "new" ? openNew : openCurrent;
-    ff({
-      type: "sessions",
-      id: sessionId,
-      state: { view: null, autoStart: true },
-    });
-  }, [status, liveSessionId, persistedStore, openNew, openCurrent, behavior]);
+    void createSession()
+      .then((sessionId) => {
+        ff({
+          type: "sessions",
+          id: sessionId,
+          state: { view: null, autoStart: true },
+        });
+      })
+      .catch((error) => {
+        console.error("[session] failed to create listening note", error);
+      });
+  }, [status, liveSessionId, openNew, openCurrent, behavior]);
 
   return handler;
 }
@@ -85,9 +80,6 @@ const AUDIO_FILTERS = [
 const TRANSCRIPT_FILTERS = [{ name: "Transcript", extensions: ["vtt", "srt"] }];
 
 export function useNewNoteAndUpload() {
-  const { persistedStore } = useRouteContext({
-    from: "__root__",
-  });
   const openNew = useTabs((state) => state.openNew);
 
   const handler = useCallback(
@@ -106,11 +98,7 @@ export function useNewNoteAndUpload() {
         return;
       }
 
-      if (!persistedStore) {
-        return;
-      }
-
-      const sessionId = createSession(persistedStore);
+      const sessionId = await createSession();
       setPendingUpload(sessionId, { kind, filePath });
       openNew({
         type: "sessions",
@@ -118,7 +106,7 @@ export function useNewNoteAndUpload() {
         state: { view: null, autoStart: null },
       });
     },
-    [persistedStore, openNew],
+    [openNew],
   );
 
   return handler;

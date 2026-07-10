@@ -43,7 +43,7 @@ describe("createJsonFilePersister", () => {
 
   test("returns a persister object with expected methods", () => {
     const persister = createJsonFilePersister(store, {
-      tableName: "events",
+      tableName: "daily_notes",
       filename: "test.json",
       label: "test",
     });
@@ -59,18 +59,8 @@ describe("createJsonFilePersister", () => {
       const mockData = {
         "item-1": {
           user_id: "user-1",
-          created_at: "2024-01-01T00:00:00Z",
-          tracking_id_event: "tracking-1",
-          calendar_id: "cal-1",
-          title: "Test Event",
-          started_at: "2024-01-01T10:00:00Z",
-          ended_at: "2024-01-01T11:00:00Z",
-          location: "",
-          meeting_link: "",
-          description: "",
-          note: "",
-          is_all_day: false,
-          recurrence_series_id: "",
+          date: "2024-01-01",
+          content: "Test note",
         },
       };
       fs2Mocks.readTextFile.mockResolvedValue({
@@ -79,7 +69,7 @@ describe("createJsonFilePersister", () => {
       });
 
       const persister = createJsonFilePersister(store, {
-        tableName: "events",
+        tableName: "daily_notes",
         filename: "test.json",
         label: "test",
       });
@@ -88,7 +78,7 @@ describe("createJsonFilePersister", () => {
       expect(fs2Mocks.readTextFile).toHaveBeenCalledWith(
         `${MOCK_DATA_DIR}/test.json`,
       );
-      expect(store.getTable("events")).toEqual(mockData);
+      expect(store.getTable("daily_notes")).toEqual(mockData);
     });
 
     test("handles file not found gracefully", async () => {
@@ -98,36 +88,26 @@ describe("createJsonFilePersister", () => {
       });
 
       const persister = createJsonFilePersister(store, {
-        tableName: "events",
+        tableName: "daily_notes",
         filename: "nonexistent.json",
         label: "test",
       });
       await persister.load();
 
-      expect(store.getTable("events")).toEqual({});
+      expect(store.getTable("daily_notes")).toEqual({});
     });
   });
 
   describe("save", () => {
     test("saves table data to json file", async () => {
-      store.setRow("events", "item-1", {
+      store.setRow("daily_notes", "item-1", {
         user_id: "user-1",
-        created_at: "2024-01-01T00:00:00Z",
-        tracking_id_event: "tracking-1",
-        calendar_id: "cal-1",
-        title: "Test Event",
-        started_at: "2024-01-01T10:00:00Z",
-        ended_at: "2024-01-01T11:00:00Z",
-        location: "",
-        meeting_link: "",
-        description: "",
-        note: "",
-        is_all_day: false,
-        recurrence_series_id: "",
+        date: "2024-01-01",
+        content: "Test note",
       });
 
       const persister = createJsonFilePersister(store, {
-        tableName: "events",
+        tableName: "daily_notes",
         filename: "test.json",
         label: "test",
       });
@@ -138,12 +118,12 @@ describe("createJsonFilePersister", () => {
       ]);
 
       const writtenData = fsSyncMocks.writeJsonBatch.mock.calls[0][0][0][0];
-      expect(writtenData["item-1"].title).toBe("Test Event");
+      expect(writtenData["item-1"].content).toBe("Test note");
     });
 
     test("writes empty object when table is empty", async () => {
       const persister = createJsonFilePersister(store, {
-        tableName: "events",
+        tableName: "daily_notes",
         filename: "test.json",
         label: "test",
       });

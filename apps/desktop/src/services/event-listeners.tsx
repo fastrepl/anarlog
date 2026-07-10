@@ -1,5 +1,4 @@
 import { type UnlistenFn } from "@tauri-apps/api/event";
-import { useEffect, useRef } from "react";
 
 import { events as notificationEvents } from "@hypr/plugin-notification";
 import {
@@ -8,15 +7,13 @@ import {
 } from "@hypr/plugin-updater2";
 import { getCurrentWebviewWindowLabel } from "@hypr/plugin-windows";
 
+import { getCalendarEventStartedAt } from "~/calendar/queries";
+import { createSession, getOrCreateSessionForEventId } from "~/session/queries";
 import { setSettingValue } from "~/settings/queries";
 import { useConfigValue, useConfigValues } from "~/shared/config";
 import { useLatestRef } from "~/shared/hooks/useLatestRef";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import * as main from "~/store/tinybase/store/main";
-import {
-  createSession,
-  getOrCreateSessionForEventId,
-} from "~/store/tinybase/store/sessions";
 import { listenerStore } from "~/store/zustand/listener/instance";
 import { useTabs } from "~/store/zustand/tabs";
 import { parseAutoStopEndedNotificationKey } from "~/stt/auto-stop-notification";
@@ -30,11 +27,10 @@ type MainStore = NonNullable<ReturnType<typeof main.UI.useStore>>;
 
 const LIVE_CAPTURE_CONFIG_DEBOUNCE_MS = 750;
 
-function shouldAutoStartNotificationSession(
-  store: MainStore,
+async function shouldAutoStartNotificationSession(
   eventId: string | null,
   triggerAppIds: string[] | null,
-): boolean {
+): Promise<boolean> {
   if (triggerAppIds && triggerAppIds.length > 0) {
     return true;
   }
@@ -43,13 +39,31 @@ function shouldAutoStartNotificationSession(
     return true;
   }
 
-  const startedAt = store.getRow("events", eventId)?.started_at;
+  const startedAt = await getCalendarEventStartedAt(eventId);
   if (!startedAt) {
     return false;
   }
 
   const startTime = new Date(String(startedAt)).getTime();
   return !Number.isNaN(startTime) && startTime <= Date.now();
+}
+
+async function createNotificationSession(
+  eventId: string | null,
+  triggerAppIds: string[] | null,
+): Promise<{ sessionId: string; autoStart: boolean }> {
+  const sessionId = eventId
+    ? await getOrCreateSessionForEventId(eventId)
+    : await createSession();
+
+  if (triggerAppIds && triggerAppIds.length > 0) {
+    listenerStore.getState().setTriggerAppIds(triggerAppIds);
+  }
+
+  return {
+    sessionId,
+    autoStart: await shouldAutoStartNotificationSession(eventId, triggerAppIds),
+  };
 }
 
 function handleAutoStopEndedNotification(
@@ -252,8 +266,9 @@ function LiveCaptureConfigSyncReady({
 
 function useUpdaterEvents() {
   const openNew = useTabs((state) => state.openNew);
+  const openNewRef = useLatestRef(openNew);
 
-  useEffect(() => {
+  useMountEffect(() => {
     if (getCurrentWebviewWindowLabel() !== "main") {
       return;
     }
@@ -262,60 +277,29 @@ function useUpdaterEvents() {
 
     void updaterEvents.updatedEvent
       .listen(({ payload: { previous, current } }) => {
-        openNew({
+        openNewRef.current({
           type: "changelog",
           state: { previous, current },
         });
       })
-      .then((f) => {
+      .then(async (f) => {
         unlisten = f;
-        updaterCommands.maybeEmitUpdated();
+        await updaterCommands.maybeEmitUpdated();
       });
 
     return () => {
       unlisten?.();
     };
-  }, [openNew]);
+  });
 }
 
 function useNotificationEvents() {
-  const store = main.UI.useStore(main.STORE_ID);
   const ignoredPlatforms = useConfigValue("ignored_platforms");
   const openNew = useTabs((state) => state.openNew);
-  const pendingAutoStart = useRef<{
-    eventId: string | null;
-    triggerAppIds: string[] | null;
-  } | null>(null);
-  const storeRef = useLatestRef(store);
   const ignoredPlatformsRef = useLatestRef(ignoredPlatforms);
   const openNewRef = useLatestRef(openNew);
 
-  useEffect(() => {
-    if (pendingAutoStart.current && store) {
-      const { eventId, triggerAppIds } = pendingAutoStart.current;
-      pendingAutoStart.current = null;
-      const sessionId = eventId
-        ? getOrCreateSessionForEventId(store, eventId)
-        : createSession(store);
-
-      if (triggerAppIds && triggerAppIds.length > 0) {
-        listenerStore.getState().setTriggerAppIds(triggerAppIds);
-      }
-      const autoStart = shouldAutoStartNotificationSession(
-        store,
-        eventId,
-        triggerAppIds,
-      );
-
-      openNew({
-        type: "sessions",
-        id: sessionId,
-        state: { view: null, autoStart: autoStart ? true : null },
-      });
-    }
-  }, [store, openNew]);
-
-  useEffect(() => {
+  useMountEffect(() => {
     if (getCurrentWebviewWindowLabel() !== "main") {
       return;
     }
@@ -352,7 +336,6 @@ function useNotificationEvents() {
             payload.source?.type === "mic_detected"
               ? (payload.source.app_ids ?? null)
               : null;
-          const currentStore = storeRef.current;
           if (sourceSessionId) {
             openNewRef.current({
               type: "sessions",
@@ -362,45 +345,31 @@ function useNotificationEvents() {
             return;
           }
 
-          if (!currentStore) {
-            pendingAutoStart.current = { eventId, triggerAppIds };
-            return;
-          }
-          const sessionId = eventId
-            ? getOrCreateSessionForEventId(currentStore, eventId)
-            : createSession(currentStore);
-
-          if (triggerAppIds && triggerAppIds.length > 0) {
-            listenerStore.getState().setTriggerAppIds(triggerAppIds);
-          }
-          const autoStart = shouldAutoStartNotificationSession(
-            currentStore,
-            eventId,
-            triggerAppIds,
-          );
-
-          openNewRef.current({
-            type: "sessions",
-            id: sessionId,
-            state: { view: null, autoStart: autoStart ? true : null },
-          });
+          void createNotificationSession(eventId, triggerAppIds)
+            .then(({ sessionId, autoStart }) => {
+              openNewRef.current({
+                type: "sessions",
+                id: sessionId,
+                state: { view: null, autoStart: autoStart ? true : null },
+              });
+            })
+            .catch((error) => {
+              console.error(
+                "[notification] failed to open notification session",
+                error,
+              );
+            });
         } else if (payload.type === "notification_option_selected") {
-          const currentStore = storeRef.current;
-          if (!currentStore) return;
-
           const selectedIndex = payload.selected_index;
           const eventIds =
             payload.source?.type === "mic_detected"
               ? (payload.source.event_ids ?? [])
               : [];
 
-          const sessionId =
+          const sessionPromise =
             selectedIndex < eventIds.length
-              ? getOrCreateSessionForEventId(
-                  currentStore,
-                  eventIds[selectedIndex],
-                )
-              : createSession(currentStore);
+              ? getOrCreateSessionForEventId(eventIds[selectedIndex])
+              : createSession();
 
           if (payload.source?.type === "mic_detected") {
             const triggerAppIds = payload.source.app_ids ?? [];
@@ -411,11 +380,20 @@ function useNotificationEvents() {
               );
           }
 
-          openNewRef.current({
-            type: "sessions",
-            id: sessionId,
-            state: { view: null, autoStart: true },
-          });
+          void sessionPromise
+            .then((sessionId) => {
+              openNewRef.current({
+                type: "sessions",
+                id: sessionId,
+                state: { view: null, autoStart: true },
+              });
+            })
+            .catch((error) => {
+              console.error(
+                "[notification] failed to open selected event",
+                error,
+              );
+            });
         } else if (payload.type === "notification_footer_action") {
           if (payload.source?.type !== "mic_detected") {
             return;
@@ -455,7 +433,7 @@ function useNotificationEvents() {
       cancelled = true;
       unlisten?.();
     };
-  }, []);
+  });
 }
 
 export function EventListeners() {

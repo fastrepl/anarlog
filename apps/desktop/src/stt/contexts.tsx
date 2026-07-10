@@ -17,9 +17,12 @@ import {
   createAutoStopEndedNotificationKey,
 } from "./auto-stop-notification";
 
-import { getSessionEventById } from "~/session/utils";
+import {
+  getNearbyCalendarEvents,
+  type NearbyCalendarEvent,
+} from "~/calendar/queries";
+import { loadSessionEvent } from "~/session/queries";
 import { useConfigValue } from "~/shared/config";
-import * as main from "~/store/tinybase/store/main";
 import {
   createListenerStore,
   type ListenerStore,
@@ -67,16 +70,8 @@ const BROWSER_AUTO_STOP_APP_IDS = new Set([
 
 const UNRELIABLE_AUTO_STOP_APP_IDS = new Set(["com.kakao.KakaoTalkMac"]);
 
-type MainStore = NonNullable<ReturnType<typeof main.UI.useStore>>;
 type MicApp = { id: string; name: string };
-type NearbyEvent = {
-  id: string;
-  title: string;
-  meetingLink?: string;
-  location?: string;
-  description?: string;
-  participantNames: string[];
-};
+type NearbyEvent = NearbyCalendarEvent;
 type MeetingPlatform = {
   displayName: string;
   iconResource: NotificationIconResource;
@@ -687,26 +682,24 @@ function parseEventTimeMs(value: string | undefined): number | null {
   return Number.isNaN(ms) ? null : ms;
 }
 
-function shouldPromptBeforeAutoStopping({
+async function shouldPromptBeforeAutoStopping({
   appIds,
-  tinybaseStore,
   sessionId,
   nowMs,
 }: {
   appIds: string[];
-  tinybaseStore: MainStore | null | undefined;
   sessionId: string | null;
   nowMs: number;
-}) {
+}): Promise<boolean> {
   if (!appIds.some((id) => BROWSER_AUTO_STOP_APP_IDS.has(id))) {
     return false;
   }
 
-  if (!tinybaseStore || !sessionId) {
+  if (!sessionId) {
     return false;
   }
 
-  const event = getSessionEventById(tinybaseStore, sessionId);
+  const event = await loadSessionEvent(sessionId);
   if (!event || event.is_all_day) {
     return false;
   }
@@ -773,7 +766,7 @@ async function showMeetingEndedPrompt({
 }) {
   const app = getPrimaryStoppedApp(stoppedTriggerAppIds, stoppedApps);
 
-  void notificationCommands.showNotification({
+  await notificationCommands.showNotification({
     key: createAutoStopEndedNotificationKey(sessionId),
     title: "Did your meeting end?",
     message: `Anarlog will stop listening in ${AUTO_STOP_CONFIRM_TIMEOUT_SECONDS} seconds.`,
@@ -825,84 +818,6 @@ export const useListener = <T,>(
   return useStore(store, useShallow(selector));
 };
 
-function getNearbyEvents(
-  tinybaseStore: NonNullable<ReturnType<typeof main.UI.useStore>>,
-): NearbyEvent[] {
-  const now = Date.now();
-  const windowMs = 15 * 60 * 1000;
-  const results: (NearbyEvent & { startedAt: number })[] = [];
-
-  tinybaseStore.forEachRow("events", (eventId, _forEachCell) => {
-    const event = tinybaseStore.getRow("events", eventId);
-    if (!event?.started_at) return;
-    if (event.is_all_day) return;
-
-    const startTime = new Date(String(event.started_at)).getTime();
-    if (isNaN(startTime)) return;
-
-    if (Math.abs(startTime - now) <= windowMs) {
-      results.push({
-        id: eventId,
-        title: String(event.title || "Untitled Event"),
-        meetingLink:
-          typeof event.meeting_link === "string"
-            ? event.meeting_link
-            : undefined,
-        location:
-          typeof event.location === "string" ? event.location : undefined,
-        description:
-          typeof event.description === "string" ? event.description : undefined,
-        participantNames: getEventParticipantNames(event.participants_json),
-        startedAt: startTime,
-      });
-    }
-  });
-
-  results.sort(
-    (a, b) =>
-      Math.abs(a.startedAt - now) - Math.abs(b.startedAt - now) ||
-      a.startedAt - b.startedAt,
-  );
-  return results.map(
-    ({ id, title, meetingLink, location, description, participantNames }) => ({
-      id,
-      title,
-      meetingLink,
-      location,
-      description,
-      participantNames,
-    }),
-  );
-}
-
-function getEventParticipantNames(participantsJson: unknown): string[] {
-  if (typeof participantsJson !== "string" || !participantsJson) {
-    return [];
-  }
-
-  try {
-    const participants = JSON.parse(participantsJson);
-    if (!Array.isArray(participants)) {
-      return [];
-    }
-
-    return [
-      ...new Set(
-        participants
-          .filter((participant) => participant?.is_current_user !== true)
-          .map((participant) =>
-            typeof participant?.name === "string"
-              ? participant.name.trim()
-              : "",
-          )
-          .filter(Boolean),
-      ),
-    ];
-  } catch {
-    return [];
-  }
-}
-
 function getMicDetectedNotificationTitle(event: NearbyEvent | null): string {
   if (!event) {
     return "Are you in a meeting?";
@@ -922,20 +837,15 @@ function getMicDetectedNotificationTitle(event: NearbyEvent | null): string {
 const useHandleDetectEvents = (store: ListenerStore) => {
   const stop = useStore(store, (state) => state.stop);
   const setMuted = useStore(store, (state) => state.setMuted);
-  const tinybaseStore = main.UI.useStore(main.STORE_ID);
   const autoStopMeetings = useConfigValue("auto_stop_meetings");
 
-  const tinybaseStoreRef = useRef(tinybaseStore);
   const autoStopMeetingsRef = useRef(autoStopMeetings);
+  autoStopMeetingsRef.current = autoStopMeetings;
   const pendingAutoStopRef = useRef<{
     timeout: ReturnType<typeof setTimeout>;
     requireMicSnapshot: boolean;
   } | null>(null);
   const pendingMicDetectedPromptRef = useRef(false);
-  useEffect(() => {
-    tinybaseStoreRef.current = tinybaseStore;
-    autoStopMeetingsRef.current = autoStopMeetings;
-  }, [autoStopMeetings, tinybaseStore]);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
@@ -1004,9 +914,8 @@ const useHandleDetectEvents = (store: ListenerStore) => {
 
       const sessionId = store.getState().live.sessionId;
       if (
-        shouldPromptBeforeAutoStopping({
+        await shouldPromptBeforeAutoStopping({
           appIds: candidateAppIds,
-          tinybaseStore: tinybaseStoreRef.current,
           sessionId,
           nowMs: Date.now(),
         })
@@ -1042,10 +951,10 @@ const useHandleDetectEvents = (store: ListenerStore) => {
 
           void (async () => {
             try {
-              const currentTinybaseStore = tinybaseStoreRef.current;
-              const nearbyEvents = currentTinybaseStore
-                ? getNearbyEvents(currentTinybaseStore)
-                : [];
+              const nearbyEvents = await getNearbyCalendarEvents(
+                Date.now(),
+                15 * 60 * 1000,
+              );
               const nearbyEvent = nearbyEvents[0] ?? null;
               const browserMeetingPlatform = getBrowserMeetingPlatform(
                 payload.apps,
@@ -1084,7 +993,7 @@ const useHandleDetectEvents = (store: ListenerStore) => {
                 return;
               }
 
-              void notificationCommands.showNotification({
+              await notificationCommands.showNotification({
                 key: payload.key,
                 title: getMicDetectedNotificationTitle(nearbyEvent),
                 message: "",

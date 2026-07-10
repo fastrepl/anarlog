@@ -58,7 +58,6 @@ export const StoreComponent = () => {
     persisters.sessionPersister,
     persisters.organizationPersister,
     persisters.humanPersister,
-    persisters.eventPersister,
     persisters.chatPersister,
     persisters.dailyNotePersister,
     persisters.taskPersister,
@@ -87,16 +86,6 @@ export const StoreComponent = () => {
     store,
     (store) =>
       createQueries(store)
-        .setQueryDefinition(QUERIES.timelineEvents, "events", ({ select }) => {
-          select("title");
-          select("started_at");
-          select("ended_at");
-          select("calendar_id");
-          select("tracking_id_event");
-          select("has_recurrence_rules");
-          select("recurrence_series_id");
-          select("is_all_day");
-        })
         .setQueryDefinition(
           QUERIES.timelineSessions,
           "sessions",
@@ -187,26 +176,6 @@ export const StoreComponent = () => {
         "transcripts",
         "session_id",
         "created_at",
-      )
-      .setIndexDefinition(
-        INDEXES.eventsByDate,
-        "events",
-        (getCell) => {
-          const cell = getCell("started_at");
-          if (!cell) {
-            return "";
-          }
-
-          const d = new Date(cell);
-          if (isNaN(d.getTime())) {
-            return "";
-          }
-
-          return format(d, "yyyy-MM-dd");
-        },
-        "started_at",
-        (a, b) => a.localeCompare(b),
-        (a, b) => String(a).localeCompare(String(b)),
       )
       .setIndexDefinition(
         INDEXES.sessionByDateWithoutEvent,
@@ -324,7 +293,6 @@ export const StoreComponent = () => {
 export const rowIdOfChange = (table: string, row: string) => `${table}:${row}`;
 
 export const QUERIES = {
-  timelineEvents: "timelineEvents",
   timelineSessions: "timelineSessions",
   visibleOrganizations: "visibleOrganizations",
   visibleHumans: "visibleHumans",
@@ -343,7 +311,6 @@ export const INDEXES = {
   sessionParticipantsBySession: "sessionParticipantsBySession",
   sessionsByFolder: "sessionsByFolder",
   transcriptBySession: "transcriptBySession",
-  eventsByDate: "eventsByDate",
   sessionByDateWithoutEvent: "sessionByDateWithoutEvent",
   sessionsByEventTrackingId: "sessionsByEventTrackingId",
   tagSessionsBySession: "tagSessionsBySession",
@@ -363,16 +330,6 @@ export const RELATIONSHIPS = {
 type QueryId = (typeof QUERIES)[keyof typeof QUERIES];
 
 interface _QueryResultRows {
-  timelineEvents: {
-    title: string;
-    started_at: string;
-    ended_at: string;
-    calendar_id: string;
-    tracking_id_event: string;
-    has_recurrence_rules: boolean;
-    recurrence_series_id: string;
-    is_all_day: boolean;
-  };
   timelineSessions: {
     title: string;
     created_at: string;

@@ -29,6 +29,7 @@ type EventSqlRow = {
 
 type HumanEmailSqlRow = { id: string; email: string };
 type SessionIdentitySqlRow = { id: string };
+type SessionEventSqlRow = { event_json: string };
 type SessionDeleteSqlRow = { id: string; title: string };
 type SessionEmptySqlRow = {
   title: string;
@@ -151,6 +152,28 @@ export function useSession(sessionId: string): SessionRecord | null {
     },
   });
   return sessionId ? data : null;
+}
+
+export async function loadSessionEvent(
+  sessionId: string,
+): Promise<SessionEvent | null> {
+  const rows = await liveQueryClient.execute<SessionEventSqlRow>(
+    `
+      SELECT event_json
+      FROM sessions
+      WHERE id = ? AND deleted_at IS NULL
+      LIMIT 1
+    `,
+    [sessionId],
+  );
+  const eventJson = rows[0]?.event_json;
+  if (!eventJson) return null;
+
+  try {
+    return JSON.parse(eventJson) as SessionEvent;
+  } catch {
+    return null;
+  }
 }
 
 export function useUpdateSession(sessionId: string) {

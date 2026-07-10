@@ -2,6 +2,7 @@ import { renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  execute: vi.fn(),
   executeTransaction: vi.fn(),
   liveRows: [] as Array<Record<string, unknown>>,
   liveQueryOptions: null as null | {
@@ -13,6 +14,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("~/db", () => ({
   executeTransaction: mocks.executeTransaction,
+  liveQueryClient: { execute: mocks.execute },
   useLiveQuery: (options: {
     sql: string;
     params?: unknown[];
@@ -30,13 +32,20 @@ vi.mock("~/db/write-queue", () => ({
   ): Promise<unknown> => write(),
 }));
 
-import { setCalendarEnabled, useCalendarRows } from "./queries";
+import {
+  getCalendarEventStartedAt,
+  getNearbyCalendarEvents,
+  searchCalendarEvents,
+  setCalendarEnabled,
+  useCalendarRows,
+} from "./queries";
 
 describe("calendar SQLite selection", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mocks.liveRows = [];
     mocks.liveQueryOptions = null;
+    mocks.execute.mockResolvedValue([]);
     mocks.executeTransaction.mockResolvedValue([]);
   });
 
@@ -77,5 +86,77 @@ describe("calendar SQLite selection", () => {
     expect(statements[1].sql).toContain("UPDATE events");
     expect(statements[1].sql).toContain("deleted_at");
     expect(statements[1].params).toContain("calendar-1");
+  });
+
+  test("reads an event start time from SQLite", async () => {
+    mocks.execute.mockResolvedValue([
+      { started_at: "2026-07-10T09:00:00.000Z" },
+    ]);
+
+    await expect(getCalendarEventStartedAt("event-1")).resolves.toBe(
+      "2026-07-10T09:00:00.000Z",
+    );
+    expect(mocks.execute.mock.calls[0][1]).toEqual(["event-1"]);
+  });
+
+  test("maps event search results and linked sessions", async () => {
+    mocks.execute.mockResolvedValue([
+      {
+        id: "event-1",
+        title: "Planning",
+        started_at: "2026-07-10T09:00:00.000Z",
+        ended_at: "",
+        location: "Room 1",
+        meeting_link: "",
+        description: "Weekly plan",
+        participant_count: 2,
+        linked_session_id: "session-1",
+      },
+    ]);
+
+    await expect(searchCalendarEvents(" Plan ", 5)).resolves.toEqual([
+      {
+        id: "event-1",
+        title: "Planning",
+        startedAt: "2026-07-10T09:00:00.000Z",
+        endedAt: null,
+        location: "Room 1",
+        meetingLink: null,
+        description: "Weekly plan",
+        participantCount: 2,
+        linkedSessionId: "session-1",
+      },
+    ]);
+    expect(mocks.execute.mock.calls[0][1]).toEqual(["plan", "plan", 5]);
+  });
+
+  test("returns nearby event participant names without the current user", async () => {
+    mocks.execute.mockResolvedValue([
+      {
+        id: "event-1",
+        title: "Planning",
+        started_at: "2026-07-10T09:00:00.000Z",
+        meeting_link: "https://meet.example.com/planning",
+        location: "Room 1",
+        description: "Weekly plan",
+        participants_json: JSON.stringify([
+          { name: "Alice", is_current_user: false },
+          { name: "John", is_current_user: true },
+          { name: "Alice", is_current_user: false },
+        ]),
+      },
+    ]);
+
+    await expect(getNearbyCalendarEvents(1000, 500)).resolves.toEqual([
+      {
+        id: "event-1",
+        title: "Planning",
+        meetingLink: "https://meet.example.com/planning",
+        location: "Room 1",
+        description: "Weekly plan",
+        participantNames: ["Alice"],
+      },
+    ]);
+    expect(mocks.execute.mock.calls[0][1]).toEqual([1000, 500, 1000]);
   });
 });

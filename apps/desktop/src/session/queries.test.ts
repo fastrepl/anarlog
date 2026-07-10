@@ -32,6 +32,7 @@ import {
   deleteEnhancedNote,
   getOrCreateSessionForEventId,
   isSessionEmpty,
+  loadSessionEvent,
   removeSessionParticipant,
   restoreDeletedSession,
   softDeleteSession,
@@ -62,6 +63,24 @@ describe("session SQLite operations", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useRealTimers();
+  });
+
+  it("loads embedded event metadata from the canonical session", async () => {
+    mocks.execute.mockResolvedValueOnce([
+      {
+        event_json: JSON.stringify({
+          tracking_id: "event-1",
+          calendar_id: "calendar-1",
+          title: "Planning",
+        }),
+      },
+    ]);
+
+    await expect(loadSessionEvent("session-1")).resolves.toMatchObject({
+      tracking_id: "event-1",
+      calendar_id: "calendar-1",
+      title: "Planning",
+    });
   });
 
   it("returns the existing note for an event without writing", async () => {

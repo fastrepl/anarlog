@@ -12,6 +12,7 @@ import {
 import { useBillingAccess } from "~/auth/billing";
 import { TrialEndedDialog } from "~/billing/trial-ended-dialog";
 import { TrialStartedDialog } from "~/billing/trial-started-dialog";
+import { executeTransaction } from "~/db";
 import { useDevtoolsStore, useDevtoolsUserId } from "~/devtools-panel/hooks";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import {
@@ -181,35 +182,53 @@ function useDevtoolsPanelActions() {
     [showMainWindow, showOtaPreview],
   );
 
+  const clearNotifications = useCallback(async () => {
+    try {
+      await notificationCommands.clearNotifications();
+    } catch (error) {
+      console.error("[devtools] failed to clear notifications", error);
+    }
+  }, []);
+
   const showCalendarNotification = useCallback(async () => {
     const eventId = `devtool-event-${crypto.randomUUID()}`;
     const startedAt = new Date(Date.now() + 5 * 60 * 1000);
     const endedAt = new Date(startedAt.getTime() + 30 * 60 * 1000);
+    const now = new Date().toISOString();
 
-    store?.setRow("events", eventId, {
-      user_id: user_id ?? "",
-      created_at: new Date().toISOString(),
-      tracking_id_event: eventId,
-      calendar_id: "devtool-calendar",
-      title: "Devtool design sync",
-      started_at: startedAt.toISOString(),
-      ended_at: endedAt.toISOString(),
-      location: "Conference Room",
-      meeting_link: "https://zoom.us/j/1234567890",
-      description: "Notification test event",
-      note: "",
-      recurrence_series_id: "",
-      has_recurrence_rules: false,
-      is_all_day: false,
-      provider: "google",
-      participants_json: JSON.stringify([
-        {
-          name: "Ada Lovelace",
-          email: "ada@example.com",
-          status: "accepted",
-        },
-      ]),
-    });
+    await executeTransaction([
+      {
+        sql: `
+          INSERT INTO events (
+            id, tracking_id_event, calendar_id, title, started_at, ended_at,
+            location, meeting_link, description, note, recurrence_series_id,
+            has_recurrence_rules, is_all_day, provider, participants_json,
+            created_at, updated_at, deleted_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '', '', 0, 0, ?, ?, ?, ?, NULL)
+        `,
+        params: [
+          eventId,
+          eventId,
+          "devtool-calendar",
+          "Devtool design sync",
+          startedAt.toISOString(),
+          endedAt.toISOString(),
+          "Conference Room",
+          "https://zoom.us/j/1234567890",
+          "Notification test event",
+          "google",
+          JSON.stringify([
+            {
+              name: "Ada Lovelace",
+              email: "ada@example.com",
+              status: "accepted",
+            },
+          ]),
+          now,
+          now,
+        ],
+      },
+    ]);
 
     await notificationCommands.showNotification({
       key: `devtool-calendar-${eventId}`,
@@ -236,7 +255,7 @@ function useDevtoolsPanelActions() {
       footer: null,
       icon: null,
     });
-  }, [store, user_id]);
+  }, []);
 
   const showMicDetectedNotification = useCallback(async () => {
     await notificationCommands.showNotification({
@@ -407,7 +426,7 @@ function useDevtoolsPanelActions() {
           void showBatchCompletedNotification("devtool", { force: true });
           return;
         case "notifications:clear":
-          void notificationCommands.clearNotifications();
+          void clearNotifications();
           return;
         case "billing:trial-started":
           setTrialStartedOpen(true);
@@ -439,6 +458,7 @@ function useDevtoolsPanelActions() {
     },
     [
       createWithCountdown,
+      clearNotifications,
       showAutoStopNotification,
       showCalendarNotification,
       showInstruction,

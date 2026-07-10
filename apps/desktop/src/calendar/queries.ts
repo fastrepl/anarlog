@@ -1,6 +1,6 @@
 import type { EventParticipant } from "@hypr/store";
 
-import { executeTransaction, useLiveQuery } from "~/db";
+import { executeTransaction, liveQueryClient, useLiveQuery } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
 import type {
   TimelineEventRow,
@@ -33,6 +33,51 @@ type CalendarSqlRow = {
 };
 
 type EventParticipantsSqlRow = { participants_json: string };
+
+type CalendarEventStartSqlRow = { started_at: string };
+
+type CalendarEventSearchSqlRow = {
+  id: string;
+  title: string;
+  started_at: string;
+  ended_at: string;
+  location: string;
+  meeting_link: string;
+  description: string;
+  participant_count: number;
+  linked_session_id: string;
+};
+
+export type CalendarEventSearchResult = {
+  id: string;
+  title: string;
+  startedAt: string | null;
+  endedAt: string | null;
+  location: string | null;
+  meetingLink: string | null;
+  description: string | null;
+  participantCount: number;
+  linkedSessionId: string | null;
+};
+
+type NearbyCalendarEventSqlRow = {
+  id: string;
+  title: string;
+  started_at: string;
+  meeting_link: string;
+  location: string;
+  description: string;
+  participants_json: string | null;
+};
+
+export type NearbyCalendarEvent = {
+  id: string;
+  title: string;
+  meetingLink?: string;
+  location?: string;
+  description?: string;
+  participantNames: string[];
+};
 
 export type CalendarRow = Omit<CalendarSqlRow, "enabled"> & {
   enabled: boolean;
@@ -215,6 +260,141 @@ export function setCalendarEnabled(
       },
     ]);
   });
+}
+
+export async function getCalendarEventStartedAt(
+  eventId: string,
+): Promise<string | null> {
+  const rows = await liveQueryClient.execute<CalendarEventStartSqlRow>(
+    `
+      SELECT started_at
+      FROM events
+      WHERE id = ? AND deleted_at IS NULL
+      LIMIT 1
+    `,
+    [eventId],
+  );
+  return rows[0]?.started_at || null;
+}
+
+export async function searchCalendarEvents(
+  query: string,
+  limit: number,
+): Promise<CalendarEventSearchResult[]> {
+  const normalizedQuery = query.trim().toLowerCase();
+  const rows = await liveQueryClient.execute<CalendarEventSearchSqlRow>(
+    `
+      SELECT
+        event.id,
+        event.title,
+        event.started_at,
+        event.ended_at,
+        event.location,
+        event.meeting_link,
+        event.description,
+        CASE
+          WHEN json_valid(event.participants_json)
+            AND json_type(event.participants_json) = 'array'
+          THEN json_array_length(event.participants_json)
+          ELSE 0
+        END AS participant_count,
+        COALESCE((
+          SELECT session.id
+          FROM sessions AS session
+          WHERE session.deleted_at IS NULL
+            AND (
+              session.event_id = event.id
+              OR (
+                event.tracking_id_event <> ''
+                AND session.external_event_id = event.tracking_id_event
+              )
+              OR (
+                json_valid(session.event_json)
+                AND json_extract(session.event_json, '$.tracking_id') =
+                  event.tracking_id_event
+                AND json_extract(session.event_json, '$.calendar_id') =
+                  event.calendar_id
+              )
+            )
+          ORDER BY session.created_at, session.id
+          LIMIT 1
+        ), '') AS linked_session_id
+      FROM events AS event
+      WHERE event.deleted_at IS NULL
+        AND (
+          ? = ''
+          OR instr(
+            lower(
+              event.title || char(10) ||
+              event.location || char(10) ||
+              event.meeting_link || char(10) ||
+              event.description
+            ),
+            ?
+          ) > 0
+        )
+      ORDER BY julianday(event.started_at) DESC, event.id
+      LIMIT ?
+    `,
+    [normalizedQuery, normalizedQuery, limit],
+  );
+
+  return rows.map((row) => ({
+    id: row.id,
+    title: row.title || "Untitled event",
+    startedAt: row.started_at || null,
+    endedAt: row.ended_at || null,
+    location: row.location || null,
+    meetingLink: row.meeting_link || null,
+    description: row.description || null,
+    participantCount: Number(row.participant_count) || 0,
+    linkedSessionId: row.linked_session_id || null,
+  }));
+}
+
+export async function getNearbyCalendarEvents(
+  nowMs: number,
+  windowMs: number,
+): Promise<NearbyCalendarEvent[]> {
+  const rows = await liveQueryClient.execute<NearbyCalendarEventSqlRow>(
+    `
+      SELECT
+        id,
+        title,
+        started_at,
+        meeting_link,
+        location,
+        description,
+        participants_json
+      FROM events
+      WHERE deleted_at IS NULL
+        AND is_all_day = 0
+        AND started_at <> ''
+        AND abs(
+          ((julianday(started_at) - 2440587.5) * 86400000) - ?
+        ) <= ?
+      ORDER BY abs(
+        ((julianday(started_at) - 2440587.5) * 86400000) - ?
+      ), julianday(started_at), id
+    `,
+    [nowMs, windowMs, nowMs],
+  );
+
+  return rows.map((row) => ({
+    id: row.id,
+    title: row.title || "Untitled Event",
+    meetingLink: row.meeting_link || undefined,
+    location: row.location || undefined,
+    description: row.description || undefined,
+    participantNames: [
+      ...new Set(
+        parseEventParticipants(row.participants_json ?? undefined)
+          .filter((participant) => participant.is_current_user !== true)
+          .map((participant) => participant.name?.trim() ?? "")
+          .filter(Boolean),
+      ),
+    ],
+  }));
 }
 
 export function useSessionEventParticipants(

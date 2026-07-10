@@ -11,7 +11,6 @@ export const SQLITE_SHADOWED_TABLES = [
   "transcripts",
   "humans",
   "organizations",
-  "events",
   "mapping_session_participant",
   "tags",
   "mapping_tag_session",
