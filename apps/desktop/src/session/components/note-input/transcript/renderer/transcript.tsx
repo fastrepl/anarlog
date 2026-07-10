@@ -14,18 +14,14 @@ import {
   segmentsShallowEqual,
   useStableSegments,
 } from "./segment-hooks";
-import { useSpeakerLabelContextVersion } from "./speaker-label-context";
 
-import * as main from "~/store/tinybase/store/main";
 import {
   mergeRenderedAndLiveSegments,
   type Segment,
   type SegmentWord,
 } from "~/stt/live-segment";
-import {
-  defaultRenderLabelContext,
-  SpeakerLabelManager,
-} from "~/stt/segment/shared";
+import { useTranscriptLabelContext } from "~/stt/queries";
+import { SpeakerLabelManager } from "~/stt/segment/shared";
 import { isTranscriptWordSeekable } from "~/stt/timing";
 
 export function RenderTranscript({
@@ -102,22 +98,17 @@ const SegmentsList = memo(
     audioExists: boolean;
     maxSpeakerNumber?: number;
   }) => {
-    const store = main.UI.useStore(main.STORE_ID);
-    const sessionId = store?.getCell("transcripts", transcriptId, "session_id");
-    const contextVersion = useSpeakerLabelContextVersion(
-      typeof sessionId === "string" ? sessionId : null,
-    );
+    const labelContext = useTranscriptLabelContext(transcriptId);
     const search = useSearch();
     const speakerLabelManager = useMemo(() => {
-      if (!store) {
-        return new SpeakerLabelManager();
-      }
-      const ctx = defaultRenderLabelContext(
-        store,
-        typeof sessionId === "string" ? sessionId : null,
-      );
-      return SpeakerLabelManager.fromSegments(segments, ctx, maxSpeakerNumber);
-    }, [contextVersion, maxSpeakerNumber, segments, sessionId, store]);
+      return labelContext
+        ? SpeakerLabelManager.fromSegments(
+            segments,
+            labelContext,
+            maxSpeakerNumber,
+          )
+        : new SpeakerLabelManager();
+    }, [labelContext, maxSpeakerNumber, segments]);
     const transcriptSearch = useMemo<TranscriptSearchRenderState>(() => {
       const query = search?.query.trim() ?? "";
       if (!search?.isVisible || !query) {

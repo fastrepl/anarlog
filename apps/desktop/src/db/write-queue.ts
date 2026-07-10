@@ -1,10 +1,10 @@
-const tails = new Map<string, Promise<void>>();
-const pending = new Set<Promise<void>>();
+const tails = new Map<string, Promise<unknown>>();
+const pending = new Set<Promise<unknown>>();
 
-export function enqueueDatabaseWrite(
+export function enqueueDatabaseWrite<T>(
   key: string,
-  write: () => Promise<void>,
-): Promise<void> {
+  write: () => Promise<T>,
+): Promise<T> {
   const previous = tails.get(key) ?? Promise.resolve();
   const next = previous.catch(() => {}).then(write);
 
@@ -28,7 +28,7 @@ export async function flushDatabaseWrites(): Promise<void> {
   }
 }
 
-function finishWrite(key: string, write: Promise<void>) {
+function finishWrite(key: string, write: Promise<unknown>) {
   pending.delete(write);
   if (tails.get(key) === write) tails.delete(key);
 }

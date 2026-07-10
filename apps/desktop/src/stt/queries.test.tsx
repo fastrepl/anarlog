@@ -49,12 +49,14 @@ vi.mock("~/db", () => ({
 import {
   applyLiveTranscriptDeltaToDatabase,
   appendTranscriptWordsAndHints,
+  assignTranscriptSpeaker,
   createLiveTranscript,
   createTranscript,
   useSessionParticipantHumanIds,
   useSessionTranscripts,
   useTranscript,
   useTranscriptHumans,
+  useTranscriptLabelContext,
 } from "./queries";
 
 describe("transcript SQLite queries", () => {
@@ -158,6 +160,36 @@ describe("transcript SQLite queries", () => {
       { human_id: "human-2", name: "Bob" },
     ]);
     expect(mocks.queryOptions[0]?.params).toEqual(["human-1", "human-2"]);
+  });
+
+  it("builds speaker labels from canonical owner, participant, and human rows", () => {
+    mocks.transcriptRows = [
+      {
+        id: "transcript-1",
+        owner_user_id: "self",
+        session_id: "session-1",
+        started_at_ms: 1000,
+        ended_at_ms: null,
+        words_json: "[]",
+        speaker_hints_json: "[]",
+      },
+    ];
+    mocks.participantRows = [{ human_id: "self" }, { human_id: "human-1" }];
+    mocks.humanRows = [
+      { id: "self", name: "John" },
+      { id: "human-1", name: "Alice" },
+    ];
+
+    const { result } = renderHook(() =>
+      useTranscriptLabelContext("transcript-1"),
+    );
+
+    expect(result.current?.getSelfHumanId()).toBe("self");
+    expect(result.current?.getHumanName("human-1")).toBe("Alice");
+    expect(result.current?.getParticipantHumanIds?.()).toEqual([
+      "self",
+      "human-1",
+    ]);
   });
 
   it("creates the first live transcript delta in one insert", async () => {
@@ -285,6 +317,44 @@ describe("transcript SQLite queries", () => {
       appendTranscriptWordsAndHints("transcript-1", [], []),
     ).rejects.toThrow("invalid words data");
     expect(mocks.executeTransaction).not.toHaveBeenCalled();
+  });
+
+  it("persists speaker assignments through the optimistic transcript update", async () => {
+    mocks.execute.mockResolvedValueOnce([
+      {
+        words_json: JSON.stringify([
+          {
+            id: "word-1",
+            text: "Hello",
+            start_ms: 0,
+            end_ms: 500,
+            channel: 1,
+          },
+        ]),
+        speaker_hints_json: "[]",
+      },
+    ]);
+
+    await assignTranscriptSpeaker({
+      transcriptId: "transcript-1",
+      segmentKey: {
+        channel: "RemoteParty",
+        speaker_index: 0,
+        speaker_human_id: null,
+      },
+      humanId: "human-1",
+      anchorWordId: "word-1",
+      mode: "all",
+      wordIds: ["word-1"],
+    });
+
+    const statement = mocks.executeTransaction.mock.calls[0]?.[0]?.[0];
+    expect(JSON.parse(String(statement?.params[1]))).toEqual([
+      expect.objectContaining({
+        word_id: "word-1",
+        type: "user_speaker_assignment",
+      }),
+    ]);
   });
 });
 

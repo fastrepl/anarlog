@@ -27,6 +27,7 @@ vi.mock("~/db", () => ({
 }));
 
 import {
+  addSessionParticipant,
   buildSessionTombstoneStatements,
   deleteEnhancedNote,
   getOrCreateSessionForEventId,
@@ -90,6 +91,17 @@ describe("session SQLite operations", () => {
     expect(statements[0].params).toContain("Updated title");
     expect(statements[1].sql).toContain("session_documents");
     expect(statements[1].params).toContain('{"type":"doc"}');
+  });
+
+  it("links a human to a session without creating duplicate active mappings", async () => {
+    await addSessionParticipant("session-1", "human-1");
+
+    const statement = mocks.executeTransaction.mock.calls[0][0][0];
+    expect(statement.sql).toContain("INSERT INTO session_participants");
+    expect(statement.sql).toContain("NOT EXISTS");
+    expect(statement.params).toContain("session-1");
+    expect(statement.params).toContain("human-1");
+    expect(statement.params).toContain("manual");
   });
 
   it("commits enhanced note content and the derived session title together", async () => {

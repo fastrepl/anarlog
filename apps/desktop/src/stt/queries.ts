@@ -1,3 +1,5 @@
+import { useMemo } from "react";
+
 import type {
   LiveTranscriptDelta,
   RenderTranscriptHuman,
@@ -5,8 +7,11 @@ import type {
 
 import { executeTransaction, liveQueryClient, useLiveQuery } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
-import type { SegmentKey } from "~/stt/live-segment";
-import type { TranscriptRow } from "~/stt/render-transcript";
+import type { RenderLabelContext, SegmentKey } from "~/stt/live-segment";
+import {
+  collectAssignedHumanIdsFromTranscriptRows,
+  type TranscriptRow,
+} from "~/stt/render-transcript";
 import type { SpeakerHintWithId, WordWithId } from "~/stt/types";
 import {
   applyLiveTranscriptDelta,
@@ -148,6 +153,46 @@ export function useTranscriptHumans(
       rows.map((row) => ({ human_id: row.id, name: row.name })),
   });
   return uniqueIds.length > 0 ? data : EMPTY_HUMANS;
+}
+
+export function useTranscriptLabelContext(
+  transcriptId: string,
+): RenderLabelContext | undefined {
+  const transcript = useTranscript(transcriptId);
+  const participantHumanIds = useSessionParticipantHumanIds(
+    transcript?.sessionId ?? "",
+  );
+  const assignedHumanIds = useMemo(
+    () =>
+      transcript
+        ? collectAssignedHumanIdsFromTranscriptRows([
+            { speaker_hints: transcript.speakerHints },
+          ])
+        : EMPTY_IDS,
+    [transcript],
+  );
+  const humanIds = useMemo(
+    () => [
+      ...new Set([
+        ...participantHumanIds,
+        ...assignedHumanIds,
+        transcript?.ownerUserId ?? "",
+      ]),
+    ],
+    [assignedHumanIds, participantHumanIds, transcript?.ownerUserId],
+  );
+  const humans = useTranscriptHumans(humanIds);
+
+  return useMemo(() => {
+    if (!transcript) return undefined;
+
+    const names = new Map(humans.map((human) => [human.human_id, human.name]));
+    return {
+      getSelfHumanId: () => transcript.ownerUserId || undefined,
+      getHumanName: (humanId) => names.get(humanId),
+      getParticipantHumanIds: () => participantHumanIds,
+    };
+  }, [humans, participantHumanIds, transcript]);
 }
 
 export function createTranscript(input: TranscriptInsert): Promise<void> {

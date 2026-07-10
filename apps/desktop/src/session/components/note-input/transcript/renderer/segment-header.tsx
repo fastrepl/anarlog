@@ -3,13 +3,11 @@ import { useMemo } from "react";
 import { cn } from "@hypr/utils";
 
 import { SpeakerAssignPopover } from "./speaker-assign";
-import { useSpeakerLabelContextVersion } from "./speaker-label-context";
 import { useSegmentColorVars } from "./utils";
 
-import * as main from "~/store/tinybase/store/main";
 import type { Segment } from "~/stt/live-segment";
 import { SegmentKeyUtils, SpeakerLabelManager } from "~/stt/live-segment";
-import { defaultRenderLabelContext } from "~/stt/segment/shared";
+import { useTranscriptLabelContext } from "~/stt/queries";
 
 export function SegmentHeader({
   segment,
@@ -48,20 +46,10 @@ function useSpeakerLabel(
   transcriptId: string,
   manager?: SpeakerLabelManager,
 ) {
-  const store = main.UI.useStore(main.STORE_ID);
-  const sessionId = store?.getCell("transcripts", transcriptId, "session_id");
-  const contextVersion = useSpeakerLabelContextVersion(
-    typeof sessionId === "string" ? sessionId : null,
-  );
+  const labelContext = useTranscriptLabelContext(transcriptId);
 
-  return useMemo(() => {
-    if (!store) {
-      return SegmentKeyUtils.renderLabel(key, undefined, manager);
-    }
-    const ctx = defaultRenderLabelContext(
-      store,
-      typeof sessionId === "string" ? sessionId : null,
-    );
-    return SegmentKeyUtils.renderLabel(key, ctx, manager);
-  }, [contextVersion, key, manager, sessionId, store]);
+  return useMemo(
+    () => SegmentKeyUtils.renderLabel(key, labelContext, manager),
+    [key, labelContext, manager],
+  );
 }

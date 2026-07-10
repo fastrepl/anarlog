@@ -56,6 +56,14 @@ type SessionTranscriptStateSqlRow = {
   has_transcript: boolean | number;
 };
 
+type SessionParticipantSqlRow = {
+  id: string;
+  human_id: string;
+  source: string;
+  name: string;
+  email: string;
+};
+
 type EnhancedNoteSqlRow = {
   id: string;
   session_id: string;
@@ -92,7 +100,16 @@ export type EnhancedNoteRecord = {
   position: number;
 };
 
+export type SessionParticipantRecord = {
+  id: string;
+  humanId: string;
+  source: string;
+  name: string;
+  email: string;
+};
+
 const EMPTY_ENHANCED_NOTES: EnhancedNoteRecord[] = [];
+const EMPTY_SESSION_PARTICIPANTS: SessionParticipantRecord[] = [];
 
 const SESSION_SELECT_SQL = `
   SELECT
@@ -152,6 +169,77 @@ export function useSessionHasTranscript(sessionId: string): boolean {
     mapRows: (rows) => Boolean(rows[0]?.has_transcript),
   });
   return sessionId ? data : false;
+}
+
+export function useSessionParticipants(
+  sessionId: string,
+): SessionParticipantRecord[] {
+  const { data = EMPTY_SESSION_PARTICIPANTS } = useLiveQuery<
+    SessionParticipantSqlRow,
+    SessionParticipantRecord[]
+  >({
+    sql: `
+      SELECT
+        participant.id,
+        participant.human_id,
+        participant.source,
+        COALESCE(NULLIF(human.name, ''), participant.display_name) AS name,
+        COALESCE(NULLIF(human.email, ''), participant.email) AS email
+      FROM session_participants AS participant
+      LEFT JOIN humans AS human
+        ON human.id = participant.human_id AND human.deleted_at IS NULL
+      WHERE participant.session_id = ?
+        AND participant.deleted_at IS NULL
+      ORDER BY name, email, participant.id
+    `,
+    params: [sessionId],
+    enabled: Boolean(sessionId),
+    mapRows: (rows) =>
+      rows.map((row) => ({
+        id: row.id,
+        humanId: row.human_id,
+        source: row.source,
+        name: row.name,
+        email: row.email,
+      })),
+  });
+  return sessionId ? data : EMPTY_SESSION_PARTICIPANTS;
+}
+
+export function addSessionParticipant(
+  sessionId: string,
+  humanId: string,
+  source = "manual",
+): Promise<void> {
+  return enqueueDatabaseWrite(`session:${sessionId}`, async () => {
+    const participantId = id();
+    const now = new Date().toISOString();
+    await executeTransaction([
+      {
+        sql: `
+          INSERT INTO session_participants (
+            id, workspace_id, owner_user_id, session_id, human_id,
+            display_name, email, role, source, metadata_json, created_at,
+            updated_at, deleted_at
+          )
+          SELECT ?, '', session.owner_user_id, session.id, human.id,
+            human.name, human.email, '', ?, '{}', ?, ?, NULL
+          FROM sessions AS session
+          JOIN humans AS human ON human.id = ? AND human.deleted_at IS NULL
+          WHERE session.id = ?
+            AND session.deleted_at IS NULL
+            AND NOT EXISTS (
+              SELECT 1
+              FROM session_participants AS existing
+              WHERE existing.session_id = session.id
+                AND existing.human_id = human.id
+                AND existing.deleted_at IS NULL
+            )
+        `,
+        params: [participantId, source, now, now, humanId, sessionId],
+      },
+    ]);
+  });
 }
 
 export function useEnhancedNoteRecords(

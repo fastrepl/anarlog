@@ -1,3 +1,5 @@
+import type { EventParticipant } from "@hypr/store";
+
 import { useLiveQuery } from "~/db";
 import type {
   TimelineEventRow,
@@ -29,6 +31,8 @@ type CalendarSqlRow = {
   created_at: string;
 };
 
+type EventParticipantsSqlRow = { participants_json: string };
+
 export type CalendarRow = Omit<CalendarSqlRow, "enabled"> & {
   enabled: boolean;
 };
@@ -36,6 +40,7 @@ export type CalendarRow = Omit<CalendarSqlRow, "enabled"> & {
 const EMPTY_EVENTS: Record<string, TimelineEventRow> = {};
 const EMPTY_SESSIONS: Record<string, TimelineSessionRow> = {};
 const EMPTY_CALENDARS: CalendarRow[] = [];
+const EMPTY_EVENT_PARTICIPANTS: EventParticipant[] = [];
 
 export function useTimelineTables(): {
   timelineEventsTable: TimelineEventsTable;
@@ -139,6 +144,44 @@ export function useEnabledCalendarRows(): CalendarRow[] {
   return data;
 }
 
+export function useSessionEventParticipants(
+  sessionId: string,
+): EventParticipant[] {
+  const { data = EMPTY_EVENT_PARTICIPANTS } = useLiveQuery<
+    EventParticipantsSqlRow,
+    EventParticipant[]
+  >({
+    sql: `
+      SELECT event.participants_json
+      FROM sessions AS session
+      JOIN events AS event
+        ON event.deleted_at IS NULL
+        AND (
+          event.id = session.event_id
+          OR (
+            event.tracking_id_event = CASE
+              WHEN json_valid(session.event_json)
+              THEN json_extract(session.event_json, '$.tracking_id')
+              ELSE ''
+            END
+            AND event.calendar_id = CASE
+              WHEN json_valid(session.event_json)
+              THEN json_extract(session.event_json, '$.calendar_id')
+              ELSE ''
+            END
+          )
+        )
+      WHERE session.id = ? AND session.deleted_at IS NULL
+      ORDER BY event.started_at, event.id
+      LIMIT 1
+    `,
+    params: [sessionId],
+    enabled: Boolean(sessionId),
+    mapRows: (rows) => parseEventParticipants(rows[0]?.participants_json),
+  });
+  return sessionId ? data : EMPTY_EVENT_PARTICIPANTS;
+}
+
 export function mapTimelineEventRows(
   rows: TimelineEventSqlRow[],
 ): Record<string, TimelineEventRow> {
@@ -162,4 +205,19 @@ export function mapTimelineSessionRows(
 
 function normalizeCalendarRow(row: CalendarSqlRow): CalendarRow {
   return { ...row, enabled: Boolean(row.enabled) };
+}
+
+export function parseEventParticipants(
+  value: string | undefined,
+): EventParticipant[] {
+  if (!value) return EMPTY_EVENT_PARTICIPANTS;
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed)
+      ? (parsed as EventParticipant[])
+      : EMPTY_EVENT_PARTICIPANTS;
+  } catch {
+    return EMPTY_EVENT_PARTICIPANTS;
+  }
 }

@@ -1,4 +1,10 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import {
   createElement,
   type MouseEvent,
@@ -20,21 +26,17 @@ import {
 import type { Segment } from "~/stt/live-segment";
 
 const {
-  useCellMock,
-  useQueriesMock,
-  useRowIdsMock,
-  useSliceRowIdsMock,
-  useStoreMock,
-  useTableMock,
-  useValueMock,
+  assignTranscriptSpeakerMock,
+  addSessionParticipantMock,
+  createHumanMock,
+  useHumansMock,
+  useSessionParticipantsMock,
 } = vi.hoisted(() => ({
-  useCellMock: vi.fn(),
-  useQueriesMock: vi.fn(),
-  useRowIdsMock: vi.fn(),
-  useSliceRowIdsMock: vi.fn(),
-  useStoreMock: vi.fn(),
-  useTableMock: vi.fn(),
-  useValueMock: vi.fn(),
+  assignTranscriptSpeakerMock: vi.fn(),
+  addSessionParticipantMock: vi.fn(),
+  createHumanMock: vi.fn(),
+  useHumansMock: vi.fn(),
+  useSessionParticipantsMock: vi.fn(),
 }));
 
 vi.mock("@hypr/ui/components/ui/popover", async () => {
@@ -115,28 +117,34 @@ vi.mock("@hypr/ui/components/ui/checkbox", () => ({
     }),
 }));
 
-vi.mock("~/store/tinybase/store/main", () => ({
-  STORE_ID: "main",
-  INDEXES: {
-    sessionParticipantsBySession: "sessionParticipantsBySession",
-  },
-  QUERIES: {
-    sessionParticipantsWithDetails: "sessionParticipantsWithDetails",
-  },
-  UI: {
-    useCell: useCellMock,
-    useQueries: useQueriesMock,
-    useRowIds: useRowIdsMock,
-    useSliceRowIds: useSliceRowIdsMock,
-    useStore: useStoreMock,
-    useTable: useTableMock,
-    useValue: useValueMock,
-  },
+vi.mock("~/calendar/queries", () => ({
+  useSessionEventParticipants: () => [],
+}));
+
+vi.mock("~/contacts/queries", () => ({
+  createHuman: createHumanMock,
+  useHumans: useHumansMock,
+}));
+
+vi.mock("~/session/queries", () => ({
+  addSessionParticipant: addSessionParticipantMock,
+  useSession: () => ({ user_id: "user-1" }),
+  useSessionParticipants: useSessionParticipantsMock,
+}));
+
+vi.mock("~/stt/queries", () => ({
+  assignTranscriptSpeaker: assignTranscriptSpeakerMock,
+  useTranscript: () => ({ sessionId: "session-1" }),
 }));
 
 beforeEach(() => {
   cleanup();
   vi.clearAllMocks();
+  assignTranscriptSpeakerMock.mockResolvedValue(undefined);
+  addSessionParticipantMock.mockResolvedValue(undefined);
+  createHumanMock.mockResolvedValue("human-new");
+  useHumansMock.mockReturnValue([{ id: "human-1", name: "Alice", email: "" }]);
+  useSessionParticipantsMock.mockReturnValue([]);
 });
 
 function option(
@@ -153,46 +161,7 @@ function option(
 }
 
 describe("SpeakerAssignPopover", () => {
-  it("assigns only after confirmation and defaults to all matching segments", () => {
-    const cells = new Map([
-      [
-        "words",
-        JSON.stringify([
-          {
-            id: "word-1",
-            text: "hello",
-            start_ms: 0,
-            end_ms: 100,
-            channel: 1,
-          },
-        ]),
-      ],
-      ["speaker_hints", JSON.stringify([])],
-    ]);
-    const store = {
-      getCell: vi.fn((_tableId: string, _rowId: string, cellId: string) =>
-        cells.get(cellId),
-      ),
-      setCell: vi.fn(
-        (_tableId: string, _rowId: string, cellId: string, value: string) => {
-          cells.set(cellId, value);
-        },
-      ),
-      getRow: vi.fn(() => ({
-        name: "Alice",
-        email: "",
-      })),
-      setRow: vi.fn(),
-    };
-
-    useCellMock.mockReturnValue("session-1");
-    useQueriesMock.mockReturnValue({ getResultRow: vi.fn() });
-    useRowIdsMock.mockReturnValue(["human-1"]);
-    useSliceRowIdsMock.mockReturnValue([]);
-    useStoreMock.mockReturnValue(store);
-    useTableMock.mockReturnValue({});
-    useValueMock.mockReturnValue("user-1");
-
+  it("assigns only after confirmation and defaults to all matching segments", async () => {
     render(
       createElement(SpeakerAssignPopover, {
         segment: {
@@ -235,62 +204,27 @@ describe("SpeakerAssignPopover", () => {
     fireEvent.click(trigger);
     expect(trigger.className.split(/\s+/)).toContain("underline");
     fireEvent.click(screen.getByRole("button", { name: "Alice" }));
-    expect(cells.get("speaker_hints")).toBe(JSON.stringify([]));
+    expect(assignTranscriptSpeakerMock).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
 
-    expect(cells.get("speaker_hints")).toBe(
-      JSON.stringify([
-        {
-          id: "word-1:user_speaker_assignment",
-          word_id: "word-1",
-          type: "user_speaker_assignment",
-          value: JSON.stringify({ human_id: "human-1" }),
+    await waitFor(() => {
+      expect(assignTranscriptSpeakerMock).toHaveBeenCalledWith({
+        transcriptId: "transcript-1",
+        segmentKey: {
+          channel: "RemoteParty",
+          speaker_index: 2,
+          speaker_human_id: null,
         },
-      ]),
-    );
+        humanId: "human-1",
+        anchorWordId: "word-1",
+        mode: "all",
+        wordIds: ["word-1"],
+      });
+    });
   });
 
-  it("uses segment scope when the matching-segments checkbox is off", () => {
-    const cells = new Map([
-      [
-        "words",
-        JSON.stringify([
-          {
-            id: "word-1",
-            text: "hello",
-            start_ms: 0,
-            end_ms: 100,
-            channel: 1,
-          },
-        ]),
-      ],
-      ["speaker_hints", JSON.stringify([])],
-    ]);
-    const store = {
-      getCell: vi.fn((_tableId: string, _rowId: string, cellId: string) =>
-        cells.get(cellId),
-      ),
-      setCell: vi.fn(
-        (_tableId: string, _rowId: string, cellId: string, value: string) => {
-          cells.set(cellId, value);
-        },
-      ),
-      getRow: vi.fn(() => ({
-        name: "Alice",
-        email: "",
-      })),
-      setRow: vi.fn(),
-    };
-
-    useCellMock.mockReturnValue("session-1");
-    useQueriesMock.mockReturnValue({ getResultRow: vi.fn() });
-    useRowIdsMock.mockReturnValue(["human-1"]);
-    useSliceRowIdsMock.mockReturnValue([]);
-    useStoreMock.mockReturnValue(store);
-    useTableMock.mockReturnValue({});
-    useValueMock.mockReturnValue("user-1");
-
+  it("uses segment scope when the matching-segments checkbox is off", async () => {
     render(
       createElement(SpeakerAssignPopover, {
         segment: {
@@ -325,20 +259,17 @@ describe("SpeakerAssignPopover", () => {
     fireEvent.click(screen.getByRole("button", { name: "Alice" }));
     fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
 
-    expect(cells.get("speaker_hints")).toBe(
-      JSON.stringify([
-        {
-          id: "word-1:user_speaker_assignment:segment",
-          word_id: "word-1",
-          type: "user_speaker_assignment",
-          value: JSON.stringify({
-            human_id: "human-1",
-            scope: "segment",
-            word_ids: ["word-1"],
-          }),
-        },
-      ]),
-    );
+    await waitFor(() => {
+      expect(assignTranscriptSpeakerMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          transcriptId: "transcript-1",
+          humanId: "human-1",
+          anchorWordId: "word-1",
+          mode: "segment",
+          wordIds: ["word-1"],
+        }),
+      );
+    });
   });
 });
 

@@ -2,7 +2,7 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import { SearchIcon } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
-import type { EventParticipant, SessionEvent } from "@hypr/store";
+import type { EventParticipant } from "@hypr/store";
 import { Checkbox } from "@hypr/ui/components/ui/checkbox";
 import {
   AppFloatingPanel,
@@ -12,9 +12,15 @@ import {
 } from "@hypr/ui/components/ui/popover";
 import { cn } from "@hypr/utils";
 
-import * as main from "~/store/tinybase/store/main";
+import { useSessionEventParticipants } from "~/calendar/queries";
+import { createHuman, useHumans } from "~/contacts/queries";
+import {
+  addSessionParticipant,
+  useSession,
+  useSessionParticipants,
+} from "~/session/queries";
 import type { Segment } from "~/stt/live-segment";
-import { upsertSpeakerAssignment } from "~/stt/utils";
+import { assignTranscriptSpeaker, useTranscript } from "~/stt/queries";
 
 type AssignmentMode = "all" | "segment";
 
@@ -34,14 +40,7 @@ export function SpeakerAssignPopover({
   onAssigned?: (humanId: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const store = main.UI.useStore(main.STORE_ID);
-
-  const sessionId = main.UI.useCell(
-    "transcripts",
-    transcriptId,
-    "session_id",
-    main.STORE_ID,
-  ) as string | undefined;
+  const sessionId = useTranscript(transcriptId)?.sessionId;
 
   const handleOpenChange = useCallback((nextOpen: boolean) => {
     setOpen(nextOpen);
@@ -49,24 +48,26 @@ export function SpeakerAssignPopover({
 
   const handleAssign = useCallback(
     (humanId: string, assignmentMode: AssignmentMode) => {
-      if (!store || segment.words.length === 0) return;
+      if (segment.words.length === 0) return;
       const anchorWordId = getAssignmentAnchorWordId(segment);
       if (!anchorWordId) return;
-      upsertSpeakerAssignment(
-        store,
+      void assignTranscriptSpeaker({
         transcriptId,
-        segment.key,
+        segmentKey: segment.key,
         humanId,
         anchorWordId,
-        {
-          mode: assignmentMode,
-          wordIds: getAssignmentWordIds(segment),
-        },
-      );
-      onAssigned?.(humanId);
-      handleOpenChange(false);
+        mode: assignmentMode,
+        wordIds: getAssignmentWordIds(segment),
+      })
+        .then(() => {
+          onAssigned?.(humanId);
+          handleOpenChange(false);
+        })
+        .catch((error) => {
+          console.error("[transcript] failed to assign speaker", error);
+        });
     },
-    [handleOpenChange, onAssigned, store, transcriptId, segment],
+    [handleOpenChange, onAssigned, transcriptId, segment],
   );
 
   return (
@@ -279,93 +280,72 @@ function ParticipantList({
   onSelect: (humanId: string, mode: AssignmentMode) => void;
 }) {
   const { t } = useLingui();
-  const queries = main.UI.useQueries(main.STORE_ID);
-  const store = main.UI.useStore(main.STORE_ID);
-  const userId = main.UI.useValue("user_id", main.STORE_ID) as
-    | string
-    | undefined;
-  const allHumanIds = main.UI.useRowIds("humans", main.STORE_ID) as string[];
-  const eventsTable = main.UI.useTable("events", main.STORE_ID);
-  const sessionEventJson = main.UI.useCell(
-    "sessions",
+  const session = useSession(sessionId ?? "");
+  const participantRecords = useSessionParticipants(sessionId ?? "");
+  const humanRecords = useHumans();
+  const attachedEventParticipants = useSessionEventParticipants(
     sessionId ?? "",
-    "event_json",
-    main.STORE_ID,
-  ) as string | undefined;
-
-  const mappingIds = main.UI.useSliceRowIds(
-    main.INDEXES.sessionParticipantsBySession,
-    sessionId ?? "",
-    main.STORE_ID,
-  ) as string[];
+  );
 
   const [query, setQuery] = useState("");
   const [selectedOption, setSelectedOption] =
     useState<SpeakerParticipantOption | null>(null);
   const [applyToAllMatching, setApplyToAllMatching] = useState(true);
+  const [assigning, setAssigning] = useState(false);
 
-  const participants = useMemo(() => {
-    if (!queries) return [];
-    return mappingIds
-      .map((mappingId): SpeakerParticipantOption | null => {
-        const result = queries.getResultRow(
-          main.QUERIES.sessionParticipantsWithDetails,
-          mappingId,
-        );
-        if (!result?.human_id) return null;
-        const name = ((result.human_name as string | undefined) || "").trim();
-        const email = ((result.human_email as string | undefined) || "").trim();
-        return {
-          id: result.human_id as string,
-          name: name || email || t`Unknown`,
-          email: email || undefined,
-          isSessionParticipant: true,
-        };
-      })
-      .filter((p): p is SpeakerParticipantOption => p !== null);
-  }, [mappingIds, queries, t]);
-
-  const participantIds = useMemo(
-    () => new Set(participants.map((participant) => participant.id)),
-    [participants],
+  const participants = useMemo(
+    () =>
+      participantRecords
+        .map((participant): SpeakerParticipantOption | null => {
+          if (!participant.humanId) return null;
+          const name = participant.name.trim();
+          const email = participant.email.trim();
+          return {
+            id: participant.humanId,
+            name: name || email || t`Unknown`,
+            email: email || undefined,
+            isSessionParticipant: true,
+          };
+        })
+        .filter((participant): participant is SpeakerParticipantOption =>
+          Boolean(participant),
+        ),
+    [participantRecords, t],
   );
 
-  const contacts = useMemo(() => {
-    if (!store) return [];
+  const contacts = useMemo(
+    () =>
+      humanRecords
+        .map((human): SpeakerParticipantOption | null => {
+          const name = human.name.trim();
+          const email = human.email.trim();
+          if (!name && !email) return null;
 
-    return allHumanIds
-      .map((humanId): SpeakerParticipantOption | null => {
-        const human = store.getRow("humans", humanId);
-        if (!human) {
-          return null;
-        }
-
-        const name = ((human.name as string | undefined) || "").trim();
-        const email = ((human.email as string | undefined) || "").trim();
-        if (!name && !email) {
-          return null;
-        }
-
-        return {
-          id: humanId,
-          name: name || email,
-          email: email || undefined,
-          isSessionParticipant: false,
-        };
-      })
-      .filter((p): p is SpeakerParticipantOption => p !== null);
-  }, [allHumanIds, store]);
+          return {
+            id: human.id,
+            name: name || email,
+            email: email || undefined,
+            isSessionParticipant: false,
+          };
+        })
+        .filter((contact): contact is SpeakerParticipantOption =>
+          Boolean(contact),
+        ),
+    [humanRecords],
+  );
 
   const eventParticipants = useMemo(
     () =>
       buildEventSpeakerParticipantOptions({
-        eventParticipants: getAttachedEventParticipants(
-          eventsTable,
-          sessionEventJson,
-        ),
+        eventParticipants: attachedEventParticipants,
         contacts,
       }),
-    [contacts, eventsTable, sessionEventJson],
+    [attachedEventParticipants, contacts],
+  );
+
+  const participantIds = useMemo(
+    () => new Set(participants.map((participant) => participant.id)),
+    [participants],
   );
 
   const groups = useMemo(
@@ -390,44 +370,14 @@ function ParticipantList({
   const hasPeopleGroup = groups.some((group) => group.title === "People");
 
   const linkHumanToSession = useCallback(
-    (humanId: string) => {
-      if (!store || !sessionId || !userId || participantIds.has(humanId)) {
+    async (humanId: string) => {
+      if (!sessionId || participantIds.has(humanId)) {
         return;
       }
 
-      store.setRow("mapping_session_participant", crypto.randomUUID(), {
-        user_id: userId,
-        session_id: sessionId,
-        human_id: humanId,
-        source: "manual",
-      });
+      await addSessionParticipant(sessionId, humanId);
     },
-    [participantIds, sessionId, store, userId],
-  );
-
-  const createHuman = useCallback(
-    (name: string, email?: string) => {
-      if (!store || !userId) {
-        return null;
-      }
-
-      const humanId = crypto.randomUUID();
-      store.setRow("humans", humanId, {
-        user_id: userId,
-        created_at: new Date().toISOString(),
-        name,
-        email: email ?? "",
-        phone: "",
-        org_id: "",
-        job_title: "",
-        linkedin_username: "",
-        memo: "",
-        pinned: false,
-        pin_order: 0,
-      });
-      return humanId;
-    },
-    [store, userId],
+    [participantIds, sessionId],
   );
 
   const handleSelect = useCallback((option: SpeakerParticipantOption) => {
@@ -435,7 +385,7 @@ function ParticipantList({
   }, []);
 
   const getCurrentHumanId = useCallback(
-    (option: SpeakerParticipantOption) => {
+    async (option: SpeakerParticipantOption) => {
       if (!option.isNew) {
         return option.id;
       }
@@ -450,9 +400,16 @@ function ParticipantList({
             (contact) => contact.name.trim().toLowerCase() === name,
           );
 
-      return existingContact?.id ?? createHuman(option.name, option.email);
+      if (existingContact) return existingContact.id;
+      if (!session?.user_id) return null;
+
+      return createHuman({
+        ownerUserId: session.user_id,
+        name: option.name,
+        email: option.email,
+      });
     },
-    [contacts, createHuman],
+    [contacts, session?.user_id],
   );
 
   const handleConfirm = useCallback(() => {
@@ -460,14 +417,17 @@ function ParticipantList({
       return;
     }
 
-    const mode: AssignmentMode = applyToAllMatching ? "all" : "segment";
-    const humanId = getCurrentHumanId(selectedOption);
-    if (!humanId) {
-      return;
-    }
-
-    linkHumanToSession(humanId);
-    onSelect(humanId, mode);
+    setAssigning(true);
+    void getCurrentHumanId(selectedOption)
+      .then(async (humanId) => {
+        if (!humanId) return;
+        await linkHumanToSession(humanId);
+        onSelect(humanId, applyToAllMatching ? "all" : "segment");
+      })
+      .catch((error) => {
+        console.error("[transcript] failed to prepare speaker", error);
+      })
+      .finally(() => setAssigning(false));
   }, [
     applyToAllMatching,
     getCurrentHumanId,
@@ -559,7 +519,7 @@ function ParticipantList({
             "hover:bg-primary/90",
             "disabled:pointer-events-none disabled:opacity-50",
           ])}
-          disabled={!selectedOption}
+          disabled={!selectedOption || assigning}
           onClick={handleConfirm}
         >
           <Trans>Confirm</Trans>
@@ -576,49 +536,6 @@ function getSpeakerParticipantDedupeKeys(
     `id:${option.id}`,
     option.email ? `email:${option.email.toLowerCase()}` : null,
   ].filter((key): key is string => key !== null);
-}
-
-function getAttachedEventParticipants(
-  eventsTable: Record<string, Record<string, unknown>> | undefined,
-  sessionEventJson: string | undefined,
-): EventParticipant[] {
-  if (!eventsTable || !sessionEventJson) {
-    return [];
-  }
-
-  let sessionEvent: SessionEvent;
-  try {
-    sessionEvent = JSON.parse(sessionEventJson) as SessionEvent;
-  } catch {
-    return [];
-  }
-
-  if (!sessionEvent.tracking_id) {
-    return [];
-  }
-
-  for (const event of Object.values(eventsTable)) {
-    if (
-      event.tracking_id_event !== sessionEvent.tracking_id ||
-      event.calendar_id !== sessionEvent.calendar_id
-    ) {
-      continue;
-    }
-
-    const participantsJson = event.participants_json;
-    if (typeof participantsJson !== "string") {
-      return [];
-    }
-
-    try {
-      const parsed = JSON.parse(participantsJson);
-      return Array.isArray(parsed) ? (parsed as EventParticipant[]) : [];
-    } catch {
-      return [];
-    }
-  }
-
-  return [];
 }
 
 function ParticipantOptionButton({

@@ -46,4 +46,10 @@ describe("database write queue", () => {
     await flush;
     expect(flushed).toHaveBeenCalledOnce();
   });
+
+  it("returns a serialized write's result", async () => {
+    await expect(
+      enqueueDatabaseWrite("human:1", async () => "human-1"),
+    ).resolves.toBe("human-1");
+  });
 });

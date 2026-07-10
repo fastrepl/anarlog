@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { mapTimelineEventRows, mapTimelineSessionRows } from "./queries";
+import {
+  mapTimelineEventRows,
+  mapTimelineSessionRows,
+  parseEventParticipants,
+} from "./queries";
 
 describe("calendar SQLite queries", () => {
   it("keys timeline events by ID and normalizes SQLite booleans", () => {
@@ -51,5 +55,15 @@ describe("calendar SQLite queries", () => {
         folder_id: "sessions/2026-07-10/session-1",
       },
     });
+  });
+
+  it("parses attached event participants without trusting malformed JSON", () => {
+    expect(
+      parseEventParticipants(
+        JSON.stringify([{ name: "Alice", email: "alice@example.com" }]),
+      ),
+    ).toEqual([{ name: "Alice", email: "alice@example.com" }]);
+    expect(parseEventParticipants("not-json")).toEqual([]);
+    expect(parseEventParticipants("{}")).toEqual([]);
   });
 });
