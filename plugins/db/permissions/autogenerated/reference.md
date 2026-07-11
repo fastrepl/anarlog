@@ -6,6 +6,7 @@ Default permissions for the plugin
 
 - `allow-execute`
 - `allow-execute-proxy`
+- `allow-execute-transaction`
 - `allow-subscribe`
 - `allow-unsubscribe`
 
@@ -66,6 +67,32 @@ Enables the execute_proxy command without any pre-configured scope.
 <td>
 
 Denies the execute_proxy command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:allow-execute-transaction`
+
+</td>
+<td>
+
+Enables the execute_transaction command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:deny-execute-transaction`
+
+</td>
+<td>
+
+Denies the execute_transaction command without any pre-configured scope.
 
 </td>
 </tr>

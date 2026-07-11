@@ -110,6 +110,7 @@ pub async fn main() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_opener2::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_tracing::init())
         .plugin(tauri_plugin_analytics::init())
         .plugin(tauri_plugin_agent::init())
         .plugin(tauri_plugin_db::init(db.clone()))
@@ -118,7 +119,6 @@ pub async fn main() {
         .plugin(tauri_plugin_calendar::init())
         .plugin(tauri_plugin_todo::init())
         .plugin(tauri_plugin_auth::init())
-        .plugin(tauri_plugin_tracing::init())
         .plugin(tauri_plugin_hooks::init())
         .plugin(tauri_plugin_icon::init())
         .plugin(tauri_plugin_shell::init())
@@ -191,7 +191,7 @@ pub async fn main() {
 
     let root_supervisor_ctx_for_run = root_supervisor_ctx.clone();
 
-    let app = builder
+    let app_result = builder
         .invoke_handler(specta_builder.invoke_handler())
         .on_window_event(tauri_plugin_windows::on_window_event)
         .setup(move |app| {
@@ -255,8 +255,12 @@ pub async fn main() {
 
             Ok(())
         })
-        .build(context)
-        .unwrap();
+        .build(context);
+
+    let app = match app_result {
+        Ok(app) => app,
+        Err(error) => exit_after_startup_failure(&error),
+    };
 
     match get_onboarding_flag() {
         None => {}
@@ -335,6 +339,29 @@ pub async fn main() {
     });
 }
 
+fn startup_failure_message(error: &impl std::fmt::Display) -> String {
+    format!("Anarlog failed to start: {error}")
+}
+
+fn exit_after_startup_failure(error: &impl std::fmt::Display) -> ! {
+    let message = startup_failure_message(error);
+    eprintln!("{message}");
+    tracing::error!(error = %error, "desktop startup failed");
+    sentry::capture_message(&message, sentry::Level::Error);
+
+    #[cfg(target_os = "macos")]
+    {
+        let _ = std::process::Command::new("/usr/bin/osascript")
+            .args([
+                "-e",
+                "display alert \"Anarlog could not start\" message \"Your existing data was left unchanged. Please restart the app. If the problem continues, contact support.\" as critical buttons {\"OK\"} default button \"OK\"",
+            ])
+            .spawn();
+    }
+
+    std::process::exit(1);
+}
+
 fn get_onboarding_flag() -> Option<bool> {
     let parse_value = |v: &str| -> Option<bool> {
         match v {
@@ -388,6 +415,16 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[test]
+    fn startup_failure_message_includes_the_original_error() {
+        let message = startup_failure_message(&"legacy import did not pass parity verification");
+
+        assert_eq!(
+            message,
+            "Anarlog failed to start: legacy import did not pass parity verification"
+        );
+    }
 
     #[test]
     fn export_types() {

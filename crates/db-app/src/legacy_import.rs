@@ -74,6 +74,10 @@ impl LegacyImportRow {
             Self::AppSetting(row) => &row.id,
         }
     }
+
+    fn existing_sqlite_is_authoritative(&self) -> bool {
+        matches!(self, Self::Calendar(_) | Self::Event(_) | Self::Template(_))
+    }
 }
 
 #[derive(Debug)]
@@ -436,7 +440,7 @@ pub async fn apply_legacy_import_item(
         };
         match outcome {
             InsertOutcome::Inserted => imported_count += 1,
-            InsertOutcome::Matched => matched_count += 1,
+            InsertOutcome::Matched | InsertOutcome::RetainedExisting => matched_count += 1,
             InsertOutcome::Conflict => conflict_count += 1,
             InsertOutcome::DryRun => {}
         }
@@ -622,6 +626,7 @@ pub async fn fail_legacy_import_run(
 enum InsertOutcome {
     Inserted,
     Matched,
+    RetainedExisting,
     Conflict,
     DryRun,
 }
@@ -631,6 +636,7 @@ impl InsertOutcome {
         match self {
             Self::Inserted => "inserted",
             Self::Matched => "matched",
+            Self::RetainedExisting => "retained_existing",
             Self::Conflict => "conflict",
             Self::DryRun => "dry_run",
         }
@@ -945,6 +951,8 @@ async fn insert_row_if_missing(
         Ok(InsertOutcome::Inserted)
     } else if row_matches_existing(transaction, row).await? {
         Ok(InsertOutcome::Matched)
+    } else if row.existing_sqlite_is_authoritative() {
+        Ok(InsertOutcome::RetainedExisting)
     } else {
         Ok(InsertOutcome::Conflict)
     }
@@ -1470,6 +1478,114 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn preexisting_sqlite_domains_retain_newer_rows_without_blocking_parity() {
+        let db = test_db().await;
+        sqlx::query(
+            "INSERT INTO calendars \
+             (id, tracking_id_calendar, name, enabled, provider, source, color, connection_id) \
+             VALUES ('calendar-1', 'tracking-1', 'Work', 0, 'google', 'work@example.com', '#123456', 'connection-1')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO events \
+             (id, tracking_id_event, calendar_id, title, started_at, ended_at, location, \
+              meeting_link, description, note, recurrence_series_id, has_recurrence_rules, \
+              is_all_day, provider, participants_json) \
+             VALUES ('event-1', 'tracking-event-1', 'calendar-1', 'Updated title', \
+                     '2026-07-11T10:00:00Z', '2026-07-11T11:00:00Z', '', '', '', '', '', 0, 0, \
+                     'google', '[]')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        begin_legacy_import_run(db.pool(), "run-1", "/vault", false)
+            .await
+            .unwrap();
+        let batch = LegacyImportBatch {
+            rows: vec![
+                LegacyImportRow::Calendar(LegacyCalendar {
+                    id: "calendar-1".to_string(),
+                    tracking_id_calendar: "tracking-1".to_string(),
+                    name: "Work".to_string(),
+                    enabled: true,
+                    provider: "google".to_string(),
+                    source: "work@example.com".to_string(),
+                    color: "#123456".to_string(),
+                    connection_id: "connection-1".to_string(),
+                }),
+                LegacyImportRow::Event(LegacyEvent {
+                    id: "event-1".to_string(),
+                    tracking_id_event: "tracking-event-1".to_string(),
+                    calendar_id: "calendar-1".to_string(),
+                    title: "Stale title".to_string(),
+                    started_at: "2026-07-11T09:00:00Z".to_string(),
+                    ended_at: "2026-07-11T10:00:00Z".to_string(),
+                    location: String::new(),
+                    meeting_link: String::new(),
+                    description: String::new(),
+                    note: String::new(),
+                    recurrence_series_id: String::new(),
+                    has_recurrence_rules: false,
+                    is_all_day: false,
+                    provider: "google".to_string(),
+                    participants_json: Some("[]".to_string()),
+                }),
+            ],
+            ..Default::default()
+        };
+
+        let result = apply_legacy_import_item(
+            db.pool(),
+            LegacyImportItem {
+                id: "item-1",
+                run_id: "run-1",
+                source_path: "calendar-data.json",
+                source_kind: "calendar_data",
+                source_sha256: "hash-1",
+            },
+            &batch,
+            false,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(result.imported_count, 0);
+        assert_eq!(result.matched_count, 2);
+        assert_eq!(result.conflict_count, 0);
+        assert_eq!(
+            finish_legacy_import_run(db.pool(), "run-1").await.unwrap(),
+            "completed"
+        );
+
+        let target_statuses: Vec<String> = sqlx::query_scalar(
+            "SELECT status FROM migration_import_targets WHERE run_id = 'run-1' ORDER BY target_id",
+        )
+        .fetch_all(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(
+            target_statuses,
+            vec!["retained_existing", "retained_existing"]
+        );
+
+        let calendar_enabled: bool =
+            sqlx::query_scalar("SELECT enabled FROM calendars WHERE id = 'calendar-1'")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        let event_title: String =
+            sqlx::query_scalar("SELECT title FROM events WHERE id = 'event-1'")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        assert!(!calendar_enabled);
+        assert_eq!(event_title, "Updated title");
+    }
+
+    #[tokio::test]
     async fn dry_run_records_counts_without_writing_domain_rows() {
         let db = test_db().await;
         begin_legacy_import_run(db.pool(), "run-1", "/vault", true)
@@ -1656,6 +1772,7 @@ mod tests {
                 .await
                 .unwrap();
         assert_eq!(title, "My Standup");
+        finish_legacy_import_run(db.pool(), "run-1").await.unwrap();
 
         sqlx::query(
             "UPDATE templates SET updated_at = '2099-01-01T00:00:00Z' \
@@ -1680,7 +1797,7 @@ mod tests {
             })],
             ..Default::default()
         };
-        apply_legacy_import_item(
+        let result = apply_legacy_import_item(
             db.pool(),
             LegacyImportItem {
                 id: "item-2",
@@ -1694,6 +1811,20 @@ mod tests {
         )
         .await
         .unwrap();
+
+        assert_eq!(result.matched_count, 1);
+        assert_eq!(result.conflict_count, 0);
+        let target_status: String = sqlx::query_scalar(
+            "SELECT status FROM migration_import_targets WHERE run_id = 'run-2' AND target_id = 'default-daily-standup'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(target_status, "retained_existing");
+        assert_eq!(
+            finish_legacy_import_run(db.pool(), "run-2").await.unwrap(),
+            "completed"
+        );
 
         let title: String =
             sqlx::query_scalar("SELECT title FROM templates WHERE id = 'default-daily-standup'")
