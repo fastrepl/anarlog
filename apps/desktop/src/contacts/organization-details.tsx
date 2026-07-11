@@ -7,12 +7,12 @@ import { Button } from "@hypr/ui/components/ui/button";
 import { Input } from "@hypr/ui/components/ui/input";
 import { cn } from "@hypr/utils";
 
-import { ContactFacehash, getContactBgClass } from "./shared";
 import {
   type HumanRecord,
   type OrganizationRecord,
   updateOrganization,
 } from "./queries";
+import { ContactFacehash, getContactBgClass } from "./shared";
 
 export function OrganizationDetailsColumn({
   organization,
@@ -80,9 +80,7 @@ export function OrganizationDetailsColumn({
                               className={cn([
                                 "shrink-0 rounded-full",
                                 getContactBgClass(
-                                  String(
-                                    human.name || human.email || human.id,
-                                  ),
+                                  String(human.name || human.email || human.id),
                                 ),
                               ])}
                             >
@@ -135,9 +133,7 @@ export function OrganizationDetailsColumn({
                                   size="icon"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    const v = String(
-                                      human.linkedinUsername,
-                                    );
+                                    const v = String(human.linkedinUsername);
                                     const href = /^https?:\/\//i.test(v)
                                       ? v
                                       : `https://www.linkedin.com/in/${v.replace(/^@/, "")}`;

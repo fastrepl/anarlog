@@ -3,10 +3,7 @@ import React, { useCallback } from "react";
 
 import { cn } from "@hypr/utils";
 
-import {
-  type OrganizationRecord,
-  toggleContactPin,
-} from "~/contacts/queries";
+import { type OrganizationRecord, toggleContactPin } from "~/contacts/queries";
 import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
 
 export function OrganizationItem({

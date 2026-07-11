@@ -19,7 +19,6 @@ import {
 import { Textarea } from "@hypr/ui/components/ui/textarea";
 import { cn } from "@hypr/utils";
 
-import { ContactFacehash, getContactBgClass } from "./shared";
 import {
   createOrganization,
   type HumanRecord,
@@ -28,6 +27,7 @@ import {
   updateHuman,
   useHumanSessions,
 } from "./queries";
+import { ContactFacehash, getContactBgClass } from "./shared";
 
 export function DetailsColumn({
   human,
@@ -63,9 +63,7 @@ export function DetailsColumn({
     [human],
   );
 
-  const facehashName = String(
-    human?.name || human?.email || human?.id || "",
-  );
+  const facehashName = String(human?.name || human?.email || human?.id || "");
   const bgClass = getContactBgClass(facehashName);
 
   return (
