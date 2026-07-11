@@ -1,9 +1,21 @@
+mod check_update;
 mod new_note;
+mod open;
+mod quit;
+mod restart;
+mod settings;
 
+pub use check_update::DockCheckUpdate;
 pub use new_note::DockNewNote;
+pub use open::DockOpen;
+pub use quit::DockQuit;
+pub use restart::DockRestart;
+pub use settings::DockSettings;
 
 pub trait DockMenuItem {
-    const TITLE: &'static str;
+    const SEPARATOR_BEFORE: bool = false;
+
+    fn title(app: &tauri::AppHandle<tauri::Wry>) -> String;
     fn handle(app: &tauri::AppHandle<tauri::Wry>);
 }
 
@@ -18,10 +30,17 @@ macro_rules! dock_menu_items {
 
             let menu = NSMenu::new(mtm);
             menu.setAutoenablesItems(false);
+            let app = $crate::APP_HANDLE
+                .get()
+                .expect("dock menu app handle should be initialized");
 
             $(
                 {
-                    let title = NSString::from_str(<$item as DockMenuItem>::TITLE);
+                    if <$item as DockMenuItem>::SEPARATOR_BEFORE {
+                        menu.addItem(&NSMenuItem::separatorItem(mtm));
+                    }
+
+                    let title = NSString::from_str(&<$item as DockMenuItem>::title(app));
                     let key_equivalent = NSString::from_str("");
                     let sel_name = std::ffi::CString::new(concat!(stringify!($variant), ":")).unwrap();
                     let sel = objc2::runtime::Sel::register(&sel_name);
@@ -76,4 +95,9 @@ macro_rules! dock_menu_items {
 #[cfg(target_os = "macos")]
 dock_menu_items! {
     handleDockNewNote => DockNewNote,
+    handleDockOpen => DockOpen,
+    handleDockSettings => DockSettings,
+    handleDockCheckUpdate => DockCheckUpdate,
+    handleDockRestart => DockRestart,
+    handleDockQuit => DockQuit,
 }

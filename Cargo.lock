@@ -18169,6 +18169,7 @@ dependencies = [
  "objc2-foundation",
  "tauri",
  "tauri-plugin",
+ "tauri-plugin-hypr-tray",
  "tauri-plugin-windows",
 ]
 
