@@ -97,7 +97,7 @@ export const SETTING_DEFINITIONS = {
   ai_language: {
     type: "string",
     path: ["language", "ai_language"],
-    default: "" as string,
+    default: "en" as string,
   },
   spoken_languages: {
     type: "string",

@@ -1,5 +1,6 @@
 import { Trans } from "@lingui/react/macro";
 import { useForm } from "@tanstack/react-form";
+import { Loader2Icon } from "lucide-react";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 
@@ -19,23 +20,29 @@ import { TimezoneSelector } from "./timezone";
 import { WeekStartSelector } from "./week-start";
 
 import { SettingsPageTitle } from "~/settings/page-title";
-import { useSetSettingValues } from "~/settings/queries";
-import { useConfigValues } from "~/shared/config";
+import {
+  type StoredSettingValues,
+  useSetSettingValues,
+  useStoredSettingValuesQuery,
+} from "~/settings/queries";
+import { resolveConfigValues } from "~/shared/config";
 
-function useSettingsForm() {
-  const settingsValue = useConfigValues([
-    "autostart",
-    "auto_start_scheduled_meetings",
-    "auto_stop_meetings",
-    "floating_bar_enabled",
-    "show_app_in_dock",
-    "show_tray_icon",
-    "notification_detect",
-    "telemetry_consent",
-    "ai_language",
-    "spoken_languages",
-    "current_stt_provider",
-  ] as const);
+const SETTINGS_FORM_KEYS = [
+  "autostart",
+  "auto_start_scheduled_meetings",
+  "auto_stop_meetings",
+  "floating_bar_enabled",
+  "show_app_in_dock",
+  "show_tray_icon",
+  "notification_detect",
+  "telemetry_consent",
+  "ai_language",
+  "spoken_languages",
+  "current_stt_provider",
+] as const;
+
+function useSettingsForm(storedSettings: StoredSettingValues) {
+  const settingsValue = resolveConfigValues(SETTINGS_FORM_KEYS, storedSettings);
 
   const setSettingValues = useSetSettingValues();
 
@@ -114,7 +121,31 @@ function useSettingsForm() {
 }
 
 export function SettingsApp() {
-  const { form } = useSettingsForm();
+  const { data, isLoading, error } = useStoredSettingValuesQuery();
+
+  if (error) {
+    throw error;
+  }
+  if (isLoading || !data) {
+    return (
+      <div className="flex min-h-48 items-center justify-center">
+        <Loader2Icon
+          aria-label="Loading settings"
+          className="text-muted-foreground size-5 animate-spin"
+        />
+      </div>
+    );
+  }
+
+  return <SettingsAppContent storedSettings={data} />;
+}
+
+function SettingsAppContent({
+  storedSettings,
+}: {
+  storedSettings: StoredSettingValues;
+}) {
+  const { form } = useSettingsForm(storedSettings);
 
   return (
     <div className="flex flex-col gap-8">

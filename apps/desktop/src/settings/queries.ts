@@ -44,11 +44,8 @@ const JSON_ARRAY_KEYS = new Set<SettingKey>([
   "included_platforms",
 ]);
 
-export function useStoredSettingValues(): StoredSettingValues {
-  const { data = EMPTY_STORED_SETTINGS } = useLiveQuery<
-    AppSettingRow,
-    StoredSettingValues
-  >({
+export function useStoredSettingValuesQuery() {
+  return useLiveQuery<AppSettingRow, StoredSettingValues>({
     sql: `
       SELECT id, value_json
       FROM app_settings
@@ -56,6 +53,10 @@ export function useStoredSettingValues(): StoredSettingValues {
     `,
     mapRows: parseSettingRows,
   });
+}
+
+export function useStoredSettingValues(): StoredSettingValues {
+  const { data = EMPTY_STORED_SETTINGS } = useStoredSettingValuesQuery();
   return data;
 }
 

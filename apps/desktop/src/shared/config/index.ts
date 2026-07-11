@@ -38,7 +38,13 @@ export function useConfigValue<K extends SettingKey>(
 export function useConfigValues<K extends SettingKey>(
   keys: readonly K[],
 ): { [P in K]: ConfigValueType<P> } {
-  const stored = useStoredSettingValues();
+  return resolveConfigValues(keys, useStoredSettingValues());
+}
+
+export function resolveConfigValues<K extends SettingKey>(
+  keys: readonly K[],
+  stored: StoredSettingValues,
+): { [P in K]: ConfigValueType<P> } {
   const result = {} as { [P in K]: ConfigValueType<P> };
   for (const key of keys) result[key] = resolveConfigValue(key, stored);
   return result;

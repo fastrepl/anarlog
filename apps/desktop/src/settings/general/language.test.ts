@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 import {
   CORE_TRANSCRIPTION_LANGUAGE_CODES,
   getAdditionalSpokenLanguages,
+  parseLocale,
 } from "./language";
 
 describe("getAdditionalSpokenLanguages", () => {
@@ -21,6 +22,16 @@ describe("getAdditionalSpokenLanguages", () => {
       "ko",
       "ja",
     ]);
+  });
+
+  test("ignores malformed stored spoken languages", () => {
+    expect(getAdditionalSpokenLanguages("en", ["not a locale", "ko"])).toEqual([
+      "ko",
+    ]);
+  });
+
+  test("uses a valid fallback while the main language is loading", () => {
+    expect(parseLocale("")).toEqual({ language: "en" });
   });
 });
 
