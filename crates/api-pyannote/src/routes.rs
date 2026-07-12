@@ -249,6 +249,7 @@ mod tests {
                 entitlements: vec![],
                 subscription_status: None,
                 trial_end: None,
+                has_payment_method: None,
             },
         }))
     }

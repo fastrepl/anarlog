@@ -110,6 +110,7 @@ describe("BillingProvider", () => {
         entitlements: [],
         subscription_status: null,
         trial_end: null,
+        has_payment_method: null,
       },
     });
 
@@ -154,6 +155,7 @@ describe("BillingProvider", () => {
         entitlements: [],
         subscription_status: "trialing",
         trial_end: Math.floor(Date.now() / 1000) + 6 * 24 * 60 * 60,
+        has_payment_method: false,
       },
     });
 
@@ -163,6 +165,33 @@ describe("BillingProvider", () => {
       const reminder = screen.getByTestId("trial-payment-reminder-dialog");
       expect(reminder.getAttribute("data-open")).toBe("true");
       expect(reminder.getAttribute("data-days-remaining")).toBe("6");
+    });
+  });
+
+  it("does not remind trial users who already added a payment method", async () => {
+    vi.mocked(localStorage.getItem).mockImplementation((key: string) =>
+      key.startsWith("anarlog:trial_started_seen:") ? "1" : null,
+    );
+    vi.mocked(authCommands.decodeClaims).mockResolvedValue({
+      status: "ok",
+      data: {
+        sub: "user-1",
+        email: "test@example.com",
+        entitlements: [],
+        subscription_status: "trialing",
+        trial_end: Math.floor(Date.now() / 1000) + 6 * 24 * 60 * 60,
+        has_payment_method: true,
+      },
+    });
+
+    renderBillingProvider();
+
+    await waitFor(() => {
+      expect(
+        screen
+          .getByTestId("trial-payment-reminder-dialog")
+          .getAttribute("data-open"),
+      ).toBe("false");
     });
   });
 });

@@ -17,6 +17,7 @@ export type SupabaseJwtPayload = {
   entitlements?: string[];
   subscription_status?: SubscriptionStatus | null;
   trial_end?: number | null;
+  has_payment_method?: boolean | null;
 };
 
 export type JwksVerifier = {

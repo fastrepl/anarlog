@@ -1,5 +1,5 @@
 begin;
-select plan(11);
+select plan(13);
 
 select tests.create_supabase_user('pro', 'pro@example.com');
 select tests.create_supabase_user('free', 'free@example.com');
@@ -109,8 +109,8 @@ insert into stripe.customers (id)
 values ('cus_trialing')
 on conflict (id) do nothing;
 
-insert into stripe.subscriptions (id, customer, status, trial_end, created)
-values ('sub_trialing', 'cus_trialing', 'trialing', '1738627200', 1000)
+insert into stripe.subscriptions (id, customer, status, trial_end, default_payment_method, created)
+values ('sub_trialing', 'cus_trialing', 'trialing', '1738627200', 'pm_trialing', 1000)
 on conflict (id) do nothing;
 
 select results_eq(
@@ -141,6 +141,21 @@ select results_eq(
   $$,
   array['1738627200'],
   'custom_access_token_hook sets trial_end for trialing user'
+);
+
+select results_eq(
+  $$
+  select (
+    public.custom_access_token_hook(
+      jsonb_build_object(
+        'user_id', tests.get_supabase_uid('trialing')::text,
+        'claims', '{}'::jsonb
+      )
+    ) -> 'claims' -> 'has_payment_method'
+  )::text
+  $$,
+  array['true'],
+  'custom_access_token_hook detects a trial payment method'
 );
 
 select tests.create_supabase_user('active', 'active@example.com');
@@ -183,6 +198,19 @@ select is(
   ),
   null,
   'custom_access_token_hook does not set subscription_status for user without subscription'
+);
+
+select is(
+  (
+    public.custom_access_token_hook(
+      jsonb_build_object(
+        'user_id', tests.get_supabase_uid('active')::text,
+        'claims', '{}'::jsonb
+      )
+    ) -> 'claims' -> 'has_payment_method'
+  ),
+  'false'::jsonb,
+  'custom_access_token_hook reports a missing payment method'
 );
 
 select * from finish();

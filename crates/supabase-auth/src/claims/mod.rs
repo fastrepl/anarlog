@@ -30,6 +30,8 @@ pub struct Claims {
     #[serde(default, with = "chrono::serde::ts_seconds_option")]
     #[specta(type = Option<i64>)]
     pub trial_end: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub has_payment_method: Option<bool>,
 }
 
 impl Claims {
@@ -81,7 +83,8 @@ mod tests {
             "email": "test@example.com",
             "entitlements": ["hyprnote_pro"],
             "subscription_status": "trialing",
-            "trial_end": 1771406553
+            "trial_end": 1771406553,
+            "has_payment_method": true
         }"#;
         let token = make_test_token(payload);
 
@@ -94,6 +97,7 @@ mod tests {
             Some(SubscriptionStatus::Trialing)
         ));
         assert_eq!(claims.trial_end.unwrap().year(), 2026);
+        assert_eq!(claims.has_payment_method, Some(true));
     }
 
     #[test]
@@ -107,6 +111,7 @@ mod tests {
         assert!(claims.entitlements.is_empty());
         assert!(claims.subscription_status.is_none());
         assert!(claims.trial_end.is_none());
+        assert!(claims.has_payment_method.is_none());
     }
 
     #[test]

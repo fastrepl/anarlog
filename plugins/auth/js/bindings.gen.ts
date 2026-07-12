@@ -67,7 +67,7 @@ async getAccountInfo() : Promise<Result<AccountInfo | null, string>> {
 /** user-defined types **/
 
 export type AccountInfo = { userId: string; email: string | null; fullName: string | null; avatarUrl: string | null; stripeCustomerId: string | null }
-export type Claims = { sub: string; email?: string | null; entitlements?: string[]; subscription_status?: SubscriptionStatus | null; trial_end?: number | null }
+export type Claims = { sub: string; email?: string | null; entitlements?: string[]; subscription_status?: SubscriptionStatus | null; trial_end?: number | null; has_payment_method?: boolean | null }
 export type SubscriptionStatus = "incomplete" | "incomplete_expired" | "trialing" | "active" | "past_due" | "canceled" | "unpaid" | "paused"
 
 /** tauri-specta globals **/

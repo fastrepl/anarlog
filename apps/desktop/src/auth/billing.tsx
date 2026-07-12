@@ -46,6 +46,7 @@ async function getClaimsFromToken(
     entitlements: result.data.entitlements,
     subscription_status: result.data.subscription_status,
     trial_end: result.data.trial_end,
+    has_payment_method: result.data.has_payment_method,
   };
 }
 
@@ -216,7 +217,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
             ? 7
             : null;
 
-      if (reminderThreshold) {
+      if (reminderThreshold && !claimsQuery.data?.has_payment_method) {
         const reminderKey = `${TRIAL_PAYMENT_REMINDER_SEEN_PREFIX}${userId}:${reminderThreshold}`;
         if (!readSeen(reminderKey)) {
           setTrialPaymentReminderThreshold(reminderThreshold);
@@ -269,6 +270,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     auth?.session?.user.id,
     billing.isTrialing,
     billing.trialDaysRemaining,
+    claimsQuery.data?.has_payment_method,
     hasTrial,
     billing.isPaid,
     isReady,
