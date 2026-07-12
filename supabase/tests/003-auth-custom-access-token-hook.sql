@@ -105,12 +105,12 @@ update public.profiles
 set stripe_customer_id = 'cus_trialing'
 where id = tests.get_supabase_uid('trialing');
 
-insert into stripe.customers (id)
-values ('cus_trialing')
+insert into stripe.customers (id, invoice_settings)
+values ('cus_trialing', '{"default_payment_method":"pm_trialing"}')
 on conflict (id) do nothing;
 
-insert into stripe.subscriptions (id, customer, status, trial_end, default_payment_method, created)
-values ('sub_trialing', 'cus_trialing', 'trialing', '1738627200', 'pm_trialing', 1000)
+insert into stripe.subscriptions (id, customer, status, trial_end, created)
+values ('sub_trialing', 'cus_trialing', 'trialing', '1738627200', 1000)
 on conflict (id) do nothing;
 
 select results_eq(
@@ -155,7 +155,7 @@ select results_eq(
   )::text
   $$,
   array['true'],
-  'custom_access_token_hook detects a trial payment method'
+  'custom_access_token_hook detects a customer-level trial payment method'
 );
 
 select tests.create_supabase_user('active', 'active@example.com');

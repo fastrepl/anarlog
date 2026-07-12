@@ -14,12 +14,14 @@ interface TrialStartedDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   trialDaysRemaining: number | null;
+  hasPaymentMethod: boolean;
 }
 
 export function TrialStartedDialog({
   open,
   onOpenChange,
   trialDaysRemaining,
+  hasPaymentMethod,
 }: TrialStartedDialogProps) {
   const days = trialDaysRemaining ?? 14;
 
@@ -32,8 +34,9 @@ export function TrialStartedDialog({
             Your Pro trial just started
           </DialogTitle>
           <DialogDescription className="text-foreground w-full text-center text-[13px] leading-[1.36]">
-            Your {days}-day Pro trial starts now. Add a payment method before it
-            ends to keep Pro.
+            {hasPaymentMethod
+              ? `Your ${days}-day Pro trial starts now. Pro will continue automatically when it ends.`
+              : `Your ${days}-day Pro trial starts now. Add a payment method before it ends to keep Pro.`}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="px-4 pt-4 pb-4 sm:justify-center">
