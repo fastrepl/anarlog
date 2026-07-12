@@ -16,6 +16,7 @@ vi.mock("~/shared/utils", () => ({
   id: mocks.id,
 }));
 
+import { syncEvents } from "./process/events";
 import {
   applyCalendarInventory,
   applyConnectionSync,
@@ -224,5 +225,70 @@ describe("calendar SQLite storage", () => {
     expect(sql).toContain("UPDATE session_participants");
     expect(sql).toContain("INSERT INTO session_participants");
     expect(sql).not.toContain("DELETE FROM");
+  });
+
+  test("normalizes missing optional fields when updating events", async () => {
+    const ctx = {
+      provider: "google" as const,
+      connectionId: "conn-work",
+      from: new Date("2026-06-01T00:00:00.000Z"),
+      to: new Date("2026-06-02T00:00:00.000Z"),
+      calendarIds: new Set(["cal-work"]),
+      calendarTrackingIdToId: new Map([["primary", "cal-work"]]),
+    };
+    const events = syncEvents(ctx, {
+      incoming: [
+        {
+          tracking_id_event: "tracking-1",
+          tracking_id_calendar: "primary",
+          title: "Updated meeting",
+          started_at: "2026-06-01T10:00:00.000Z",
+          ended_at: "2026-06-01T11:00:00.000Z",
+          location: undefined,
+          meeting_link: undefined,
+          description: undefined,
+          recurrence_series_id: undefined,
+          has_recurrence_rules: false,
+          is_all_day: false,
+        },
+      ],
+      existing: [
+        {
+          id: "event-1",
+          tracking_id_event: "tracking-1",
+          calendar_id: "cal-work",
+          title: "Meeting",
+          started_at: "2026-06-01T10:00:00.000Z",
+          ended_at: "2026-06-01T11:00:00.000Z",
+          location: "Room 1",
+          meeting_link: "https://meet.example.com/room",
+          description: "Description",
+          note: "",
+          recurrence_series_id: "series-1",
+          has_recurrence_rules: false,
+          is_all_day: false,
+          provider: "google",
+          created_at: "2026-01-01T00:00:00.000Z",
+          deleted_at: null,
+        },
+      ],
+      incomingParticipants: new Map(),
+    });
+
+    await applyConnectionSync({
+      ctx,
+      events,
+      sessionUpdates: [],
+      participants: { humansToCreate: [], toDelete: [], toAdd: [] },
+    });
+
+    const statements = mocks.executeTransaction.mock.calls[0][0] as Array<{
+      sql: string;
+      params: unknown[];
+    }>;
+    const update = statements.find((statement) =>
+      statement.sql.includes("UPDATE events"),
+    );
+    expect(update?.params.slice(5, 9)).toEqual(["", "", "", ""]);
   });
 });
