@@ -44,6 +44,9 @@ async getEnv(key: string) : Promise<string> {
 async showDevtool() : Promise<boolean> {
     return await TAURI_INVOKE("show_devtool");
 },
+async completeAppExit() : Promise<void> {
+    await TAURI_INVOKE("complete_app_exit");
+},
 async getTinybaseValues() : Promise<Result<string | null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_tinybase_values") };

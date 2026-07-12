@@ -10,12 +10,31 @@ use db::open_desktop_db;
 use ext::*;
 use store::*;
 
-use tauri::Manager;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+use tauri::Emitter;
 use tauri_plugin_permissions::{Permission, PermissionsPluginExt};
 use tauri_plugin_windows::{AppWindow, WindowsPluginExt};
 
 #[cfg(any(feature = "dev", feature = "devtools"))]
 const STAGING_BUNDLE_ID: &str = "com.hyprnote.staging";
+
+const APP_EXIT_REQUESTED_EVENT: &str = "app-exit-requested";
+static EXIT_FLUSH_COMPLETE: AtomicBool = AtomicBool::new(false);
+
+fn mark_exit_flush_complete() {
+    EXIT_FLUSH_COMPLETE.store(true, Ordering::SeqCst);
+}
+
+fn should_force_quit() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        return hypr_intercept::should_force_quit();
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    false
+}
 
 fn create_audio_provider(_bundle_id: &str) -> std::sync::Arc<dyn hypr_audio_actual::AudioProvider> {
     #[cfg(any(feature = "dev", feature = "devtools"))]
@@ -302,23 +321,20 @@ pub async fn main() {
         tauri::RunEvent::Reopen { .. } => {
             AppWindow::Main.show(app).unwrap();
         }
-        #[cfg(target_os = "macos")]
         tauri::RunEvent::ExitRequested { api, .. } => {
             if let Some(ref ctx) = root_supervisor_ctx_for_run {
                 ctx.mark_exiting();
             }
 
-            if hypr_intercept::should_force_quit() {
+            if EXIT_FLUSH_COMPLETE.load(Ordering::SeqCst) || should_force_quit() {
                 return;
             }
 
             api.prevent_exit();
-
-            for (_, window) in app.webview_windows() {
-                let _ = window.close();
+            if app.emit_to("main", APP_EXIT_REQUESTED_EVENT, ()).is_err() {
+                mark_exit_flush_complete();
+                app.exit(0);
             }
-
-            let _ = app.set_activation_policy(tauri::ActivationPolicy::Accessory);
         }
         tauri::RunEvent::Exit => {
             {
@@ -403,6 +419,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::set_dismissed_toasts::<tauri::Wry>,
             commands::get_env::<tauri::Wry>,
             commands::show_devtool::<tauri::Wry>,
+            commands::complete_app_exit::<tauri::Wry>,
             commands::get_tinybase_values::<tauri::Wry>,
             commands::get_pinned_tabs::<tauri::Wry>,
             commands::set_pinned_tabs::<tauri::Wry>,

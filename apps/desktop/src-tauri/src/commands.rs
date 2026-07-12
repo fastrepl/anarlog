@@ -55,6 +55,13 @@ pub fn show_devtool<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> bool {
 
 #[tauri::command]
 #[specta::specta]
+pub fn complete_app_exit<R: tauri::Runtime>(app: tauri::AppHandle<R>) {
+    crate::mark_exit_flush_complete();
+    app.exit(0);
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn get_tinybase_values<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
 ) -> Result<Option<String>, String> {

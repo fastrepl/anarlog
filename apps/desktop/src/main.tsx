@@ -30,6 +30,7 @@ import { TaskManager } from "./services/task-manager";
 import { useRemoteSessionDeletionUndoListener } from "./session/hooks/useDeleteSession";
 import { refreshLegacySettingsSnapshots } from "./settings/legacy-snapshots";
 import { initializeApplicationSettings } from "./settings/queries";
+import { initializeAppExitFlush } from "./shared/app-exit";
 import { ErrorComponent, NotFoundComponent } from "./shared/control";
 import { bootstrapThemeFromSettings } from "./shared/theme/apply";
 import { AppThemeProvider } from "./shared/theme/provider";
@@ -107,6 +108,12 @@ function AppRoot() {
 }
 
 initWindowsPlugin();
+
+if (getCurrentWebviewWindowLabel() === "main") {
+  void initializeAppExitFlush().catch((error) => {
+    console.error("Failed to initialize the exit flush listener", error);
+  });
+}
 
 const rootElement = document.getElementById("root")!;
 

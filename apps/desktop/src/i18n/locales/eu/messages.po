@@ -858,6 +858,7 @@ msgid "Loading models..."
 msgstr ""
 
 #: src/changelog/index.tsx
+#: src/settings/general/account.tsx
 #: src/task/resource-view.tsx
 msgid "Loading..."
 msgstr ""
