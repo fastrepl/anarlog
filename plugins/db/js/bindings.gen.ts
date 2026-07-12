@@ -38,6 +38,22 @@ async getLegacyImportReport() : Promise<Result<LegacyImportReport, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async getLegacyCleanupStatus() : Promise<Result<LegacyCleanupStatus, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:db|get_legacy_cleanup_status") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async cleanupLegacyFiles() : Promise<Result<LegacyCleanupResult, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:db|cleanup_legacy_files") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async runLegacyImport(dryRun: boolean) : Promise<Result<string, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:db|run_legacy_import", { dryRun }) };
@@ -78,6 +94,8 @@ export type DependencyAnalysis = { kind: "reactive"; data: { targets: Dependency
 export type DependencyTarget = { kind: "table"; data: string } | { kind: "virtual_table"; data: string }
 export type ExecuteProxyResult = { rows: JsonValue[] }
 export type JsonValue = null | boolean | number | string | JsonValue[] | Partial<{ [key in string]: JsonValue }>
+export type LegacyCleanupResult = { deletedFileCount: number; deletedBytes: number }
+export type LegacyCleanupStatus = { migrationVerified: boolean; available: boolean; alreadyCleaned: boolean; fileCount: number; totalBytes: number; sourceRoot: string; blockingReason: string | null }
 export type LegacyImportItemReport = { sourcePath: string; sourceKind: string; sourceSha256: string; status: string; discoveredCount: number; importedCount: number; matchedCount: number; skippedCount: number; conflictCount: number; error: string }
 export type LegacyImportReport = { state: StorageMigrationState; latestRun: LegacyImportRun | null; items: LegacyImportItemReport[]; targets: LegacyImportTargetReport[] }
 export type LegacyImportRun = { id: string; importerVersion: number; sourceRoot: string; dryRun: boolean; status: string; discoveredCount: number; importedCount: number; matchedCount: number; skippedCount: number; conflictCount: number; errorCount: number; startedAt: string; completedAt: string | null; error: string }

@@ -1,4 +1,5 @@
 mod calendars;
+mod cleanup;
 mod events;
 mod legacy_vault;
 mod templates;
@@ -124,6 +125,16 @@ pub async fn get_legacy_import_report(
         items,
         targets,
     })
+}
+
+pub async fn get_legacy_cleanup_status(
+    pool: &SqlitePool,
+) -> crate::Result<crate::LegacyCleanupStatus> {
+    cleanup::get_status(pool).await
+}
+
+pub async fn cleanup_legacy_files(pool: &SqlitePool) -> crate::Result<crate::LegacyCleanupResult> {
+    cleanup::execute(pool).await
 }
 
 fn resolve_startup_vault_base<R: tauri::Runtime>(

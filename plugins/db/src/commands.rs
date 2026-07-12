@@ -57,6 +57,26 @@ pub(crate) async fn get_legacy_import_report(
 
 #[tauri::command]
 #[specta::specta]
+pub(crate) async fn get_legacy_cleanup_status(
+    state: tauri::State<'_, ManagedState>,
+) -> Result<crate::LegacyCleanupStatus, String> {
+    crate::import::get_legacy_cleanup_status(state.pool())
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn cleanup_legacy_files(
+    state: tauri::State<'_, ManagedState>,
+) -> Result<crate::LegacyCleanupResult, String> {
+    crate::import::cleanup_legacy_files(state.pool())
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub(crate) async fn run_legacy_import(
     state: tauri::State<'_, ManagedState>,
     dry_run: bool,

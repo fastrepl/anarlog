@@ -22,6 +22,11 @@ msgstr ""
 msgid "{0} opened on"
 msgstr ""
 
+#. placeholder {0}: status.fileCount
+#: src/settings/general/storage/legacy-cleanup.tsx
+msgid "{0} verified legacy files can be removed"
+msgstr ""
+
 #: src/settings/general/account.tsx
 msgid "{trialDaysRemaining} day left"
 msgstr ""
@@ -160,6 +165,10 @@ msgstr ""
 msgid "Anarlog can hear your voice"
 msgstr ""
 
+#: src/settings/general/storage/legacy-cleanup.tsx
+msgid "Anarlog could not verify the migration status"
+msgstr ""
+
 #: src/onboarding/index.tsx
 msgid "Anarlog needs access to your microphone and system audio to record and transcribe your meetings"
 msgstr ""
@@ -181,16 +190,8 @@ msgstr "App"
 msgid "Appearance"
 msgstr ""
 
-#: src/settings/general/storage/index.tsx
-msgid "Apply and Restart"
-msgstr ""
-
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 msgid "Apply to all"
-msgstr ""
-
-#: src/settings/general/storage/index.tsx
-msgid "Applying..."
 msgstr ""
 
 #: src/chat/components/input/index.tsx
@@ -211,8 +212,11 @@ msgid "Assignees:"
 msgstr ""
 
 #: src/settings/general/permissions.tsx
-#: src/settings/general/storage/index.tsx
 msgid "Audio"
+msgstr ""
+
+#: src/settings/general/storage/index.tsx
+msgid "Audio file retention"
 msgstr ""
 
 #: src/instruction/index.tsx
@@ -241,10 +245,6 @@ msgstr ""
 msgid "Base URL"
 msgstr ""
 
-#: src/settings/general/storage/index.tsx
-msgid "Browse"
-msgstr ""
-
 #: src/instruction/index.tsx
 msgid "Browser handoff not working? Paste the callback link instead"
 msgstr ""
@@ -265,6 +265,7 @@ msgid "Can transcribe while the meeting is happening."
 msgstr ""
 
 #: src/settings/general/account.tsx
+#: src/settings/general/storage/legacy-cleanup.tsx
 #: src/settings/todo/github.tsx
 msgid "Cancel"
 msgstr ""
@@ -277,16 +278,12 @@ msgstr ""
 msgid "Change"
 msgstr ""
 
-#: src/settings/general/storage/index.tsx
-msgid "Change content location"
-msgstr ""
-
 #: src/chat/components/toolbar-controls.tsx
 msgid "Chat history"
 msgstr ""
 
-#: src/settings/general/storage/index.tsx
-msgid "Checking folder..."
+#: src/settings/general/storage/legacy-cleanup.tsx
+msgid "Checking migration..."
 msgstr ""
 
 #: src/onboarding/account/after-login.tsx
@@ -305,8 +302,16 @@ msgstr ""
 msgid "Choose storage location"
 msgstr ""
 
-#: src/settings/general/storage/index.tsx
-msgid "Choose where Anarlog should store data. (notes, settings, etc)"
+#: src/settings/general/storage/legacy-cleanup.tsx
+msgid "Clean Up"
+msgstr ""
+
+#: src/settings/general/storage/legacy-cleanup.tsx
+msgid "Clean up legacy files?"
+msgstr ""
+
+#: src/settings/general/storage/legacy-cleanup.tsx
+msgid "Cleaning up..."
 msgstr ""
 
 #: src/contacts/shared.tsx
@@ -419,10 +424,6 @@ msgstr ""
 msgid "Contacts"
 msgstr ""
 
-#: src/settings/general/storage/index.tsx
-msgid "Content"
-msgstr ""
-
 #: src/sidebar/settings.tsx
 msgid "Context"
 msgstr ""
@@ -453,10 +454,6 @@ msgstr ""
 
 #: src/session/components/outer-header/overflow/export-modal.tsx
 msgid "Created"
-msgstr ""
-
-#: src/settings/general/storage/index.tsx
-msgid "Customize"
 msgstr ""
 
 #: src/settings/general/theme.tsx
@@ -523,10 +520,6 @@ msgstr ""
 
 #: src/settings/todo/github.tsx
 msgid "Disconnect private repo access."
-msgstr ""
-
-#: src/settings/general/storage/index.tsx
-msgid "Do not keep recordings after processing"
 msgstr ""
 
 #: src/settings/general/storage/index.tsx
@@ -603,26 +596,6 @@ msgstr ""
 msgid "Exclude apps from detection"
 msgstr ""
 
-#: src/settings/general/storage/index.tsx
-msgid "existing data to new location"
-msgstr ""
-
-#: src/settings/general/storage/index.tsx
-msgid "Expire recordings after one day"
-msgstr ""
-
-#: src/settings/general/storage/index.tsx
-msgid "Expire recordings after one month"
-msgstr ""
-
-#: src/settings/general/storage/index.tsx
-msgid "Expire recordings after one week"
-msgstr ""
-
-#: src/settings/general/storage/index.tsx
-msgid "Expire recordings after three days"
-msgstr ""
-
 #: src/session/components/outer-header/overflow/export-modal.tsx
 #: src/session/components/outer-header/overflow/index.tsx
 msgid "Export"
@@ -683,10 +656,6 @@ msgstr ""
 
 #: src/chat/components/toolbar-controls.tsx
 msgid "Float chat"
-msgstr ""
-
-#: src/settings/general/storage/index.tsx
-msgid "Folder is not empty. Uncheck Move to use it as-is, or pick a dedicated empty folder (for example \"meetings\") for a full migration."
 msgstr ""
 
 #: src/settings/general/notification.tsx
@@ -816,10 +785,6 @@ msgstr ""
 msgid "Keep Anarlog available from the menu bar."
 msgstr ""
 
-#: src/settings/general/storage/index.tsx
-msgid "Keep recordings until manually deleted"
-msgstr ""
-
 #: src/settings/general/index.tsx
 msgid "Language & Region"
 msgstr "Språk og region"
@@ -830,6 +795,10 @@ msgstr "Språk for sammendrag, chatter og AI-genererte svar"
 
 #: src/chat/components/message/error.tsx
 msgid "Learn how to fix this"
+msgstr ""
+
+#: src/settings/general/storage/legacy-cleanup.tsx
+msgid "Legacy JSON and Markdown files were removed"
 msgstr ""
 
 #: src/settings/general/theme.tsx
@@ -927,6 +896,18 @@ msgstr ""
 msgid "Microphone detection"
 msgstr ""
 
+#: src/settings/general/storage/legacy-cleanup.tsx
+msgid "Migration complete"
+msgstr ""
+
+#: src/settings/general/storage/legacy-cleanup.tsx
+msgid "Migration needs attention"
+msgstr ""
+
+#: src/settings/general/storage/legacy-cleanup.tsx
+msgid "Migration status unavailable"
+msgstr ""
+
 #: src/settings/ai/llm/select.tsx
 #: src/settings/ai/stt/select.tsx
 msgid "Model being used"
@@ -940,20 +921,12 @@ msgstr ""
 msgid "More options"
 msgstr ""
 
-#: src/settings/general/storage/index.tsx
-msgid "Move"
-msgstr ""
-
 #: src/templates/sections-editor.tsx
 msgid "Move down"
 msgstr ""
 
 #: src/templates/sections-editor.tsx
 msgid "Move up"
-msgstr ""
-
-#: src/settings/general/storage/index.tsx
-msgid "Moving existing data requires an empty folder. Uncheck Move to switch locations without migrating files."
 msgstr ""
 
 #: src/contacts/details.tsx
@@ -1003,6 +976,10 @@ msgstr ""
 
 #: src/sidebar/timeline/index.tsx
 msgid "No items today"
+msgstr ""
+
+#: src/settings/general/storage/legacy-cleanup.tsx
+msgid "No legacy JSON or Markdown files remain"
 msgstr ""
 
 #: src/settings/personalization/index.tsx
@@ -1147,7 +1124,6 @@ msgid "Organization name"
 msgstr ""
 
 #: src/settings/general/permissions.tsx
-#: src/settings/general/storage/index.tsx
 msgid "Others"
 msgstr ""
 
@@ -1350,10 +1326,6 @@ msgstr ""
 msgid "Runs after the recording finishes, not during the meeting."
 msgstr ""
 
-#: src/settings/general/storage/index.tsx
-msgid "Save audio after meeting"
-msgstr ""
-
 #: src/session/components/outer-header/metadata/date.tsx
 msgid "Save date"
 msgstr ""
@@ -1410,10 +1382,6 @@ msgstr ""
 
 #: src/session/components/note-input/header.tsx
 msgid "See all templates"
-msgstr ""
-
-#: src/settings/general/storage/index.tsx
-msgid "Select a different folder"
 msgstr ""
 
 #: src/settings/ai/shared/model-combobox.tsx
@@ -1599,6 +1567,10 @@ msgstr ""
 msgid "Sort options"
 msgstr ""
 
+#: src/settings/general/storage/legacy-cleanup.tsx
+msgid "SQLite migration verification is incomplete"
+msgstr ""
+
 #: src/settings/general/app-settings.tsx
 msgid "Start Anarlog at login"
 msgstr "Start Anarlog ved pålogging"
@@ -1653,14 +1625,6 @@ msgstr ""
 msgid "Storage Updated"
 msgstr ""
 
-#: src/settings/general/storage/index.tsx
-msgid "Stores app-wide settings and configurations"
-msgstr ""
-
-#: src/settings/general/storage/index.tsx
-msgid "Stores your notes, recordings, and session data"
-msgstr ""
-
 #: src/instruction/index.tsx
 msgid "Submit callback URL"
 msgstr ""
@@ -1711,6 +1675,12 @@ msgstr "Hovedspråket er alltid inkludert for transkripsjon"
 
 #: src/chat/components/message/loading.tsx
 msgid "Thinking..."
+msgstr ""
+
+#. placeholder {0}: status.fileCount
+#. placeholder {1}: formatBytes(status.totalBytes)
+#: src/settings/general/storage/legacy-cleanup.tsx
+msgid "This will remove {0} legacy files and free {1}. Your app data will not be affected because the migration to SQLite is complete."
 msgstr ""
 
 #: src/settings/todo/index.tsx
@@ -1805,12 +1775,12 @@ msgstr ""
 msgid "Upload transcript"
 msgstr ""
 
-#: src/contacts/organization-details.tsx
-msgid "View LinkedIn profile"
+#: src/settings/general/storage/legacy-cleanup.tsx
+msgid "Verifying the SQLite migration status"
 msgstr ""
 
-#: src/settings/general/storage/index.tsx
-msgid "Want to use with your vault?"
+#: src/contacts/organization-details.tsx
+msgid "View LinkedIn profile"
 msgstr ""
 
 #: src/settings/general/week-start.tsx

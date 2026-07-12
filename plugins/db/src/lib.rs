@@ -85,6 +85,25 @@ pub struct LegacyImportReport {
     pub targets: Vec<LegacyImportTargetReport>,
 }
 
+#[derive(Debug, Clone, serde::Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct LegacyCleanupStatus {
+    pub migration_verified: bool,
+    pub available: bool,
+    pub already_cleaned: bool,
+    pub file_count: u64,
+    pub total_bytes: u64,
+    pub source_root: String,
+    pub blocking_reason: Option<String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct LegacyCleanupResult {
+    pub deleted_file_count: u64,
+    pub deleted_bytes: u64,
+}
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type, PartialEq)]
 pub struct ExecuteProxyResult {
     rows: Vec<serde_json::Value>,
@@ -107,6 +126,8 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::execute_transaction,
             commands::execute_proxy,
             commands::get_legacy_import_report,
+            commands::get_legacy_cleanup_status,
+            commands::cleanup_legacy_files,
             commands::run_legacy_import,
             commands::subscribe,
             commands::unsubscribe,

@@ -1,11 +1,17 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 
 import type {
+  LegacyCleanupResult,
+  LegacyCleanupStatus,
   LegacyImportReport,
   SubscriptionRegistration,
 } from "./bindings.gen";
 
-export type { LegacyImportReport } from "./bindings.gen";
+export type {
+  LegacyCleanupResult,
+  LegacyCleanupStatus,
+  LegacyImportReport,
+} from "./bindings.gen";
 
 export type TransactionStatement = {
   sql: string;
@@ -42,6 +48,14 @@ export async function executeProxy(
 
 export async function getLegacyImportReport(): Promise<LegacyImportReport> {
   return invoke("plugin:db|get_legacy_import_report");
+}
+
+export async function getLegacyCleanupStatus(): Promise<LegacyCleanupStatus> {
+  return invoke("plugin:db|get_legacy_cleanup_status");
+}
+
+export async function cleanupLegacyFiles(): Promise<LegacyCleanupResult> {
+  return invoke("plugin:db|cleanup_legacy_files");
 }
 
 export async function runLegacyImport(dryRun = false): Promise<string> {

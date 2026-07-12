@@ -7,6 +7,8 @@ Default permissions for the plugin
 - `allow-execute`
 - `allow-execute-proxy`
 - `allow-execute-transaction`
+- `allow-get-legacy-cleanup-status`
+- `allow-cleanup-legacy-files`
 - `allow-subscribe`
 - `allow-unsubscribe`
 
@@ -18,6 +20,32 @@ Default permissions for the plugin
 <th>Description</th>
 </tr>
 
+
+<tr>
+<td>
+
+`db:allow-cleanup-legacy-files`
+
+</td>
+<td>
+
+Enables the cleanup_legacy_files command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:deny-cleanup-legacy-files`
+
+</td>
+<td>
+
+Denies the cleanup_legacy_files command without any pre-configured scope.
+
+</td>
+</tr>
 
 <tr>
 <td>
@@ -93,6 +121,84 @@ Enables the execute_transaction command without any pre-configured scope.
 <td>
 
 Denies the execute_transaction command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:allow-get-legacy-cleanup-status`
+
+</td>
+<td>
+
+Enables the get_legacy_cleanup_status command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:deny-get-legacy-cleanup-status`
+
+</td>
+<td>
+
+Denies the get_legacy_cleanup_status command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:allow-get-legacy-import-report`
+
+</td>
+<td>
+
+Enables the get_legacy_import_report command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:deny-get-legacy-import-report`
+
+</td>
+<td>
+
+Denies the get_legacy_import_report command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:allow-run-legacy-import`
+
+</td>
+<td>
+
+Enables the run_legacy_import command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:deny-run-legacy-import`
+
+</td>
+<td>
+
+Denies the run_legacy_import command without any pre-configured scope.
 
 </td>
 </tr>

@@ -4,6 +4,8 @@ permissions = [
   "allow-execute",
   "allow-execute-proxy",
   "allow-execute-transaction",
+  "allow-get-legacy-cleanup-status",
+  "allow-cleanup-legacy-files",
   "allow-subscribe",
   "allow-unsubscribe",
 ]
