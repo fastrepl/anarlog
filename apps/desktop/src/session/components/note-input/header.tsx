@@ -1184,9 +1184,11 @@ function TemplatePickerPopover({
       <PopoverContent variant="app" className="w-80" align="start">
         <div className="flex flex-col gap-1">
           <AppFloatingPanel className="flex flex-col overflow-hidden">
-            <div className="border-border border-b py-2">
+            <div className="border-border border-b py-1">
               <div
-                className={cn(["flex h-9 items-center gap-2 rounded-md px-3"])}
+                className={cn([
+                  "flex h-8 items-center gap-2 rounded-md px-2.5",
+                ])}
               >
                 <SearchIcon className="text-muted-foreground h-4 w-4" />
                 <input
@@ -1212,9 +1214,9 @@ function TemplatePickerPopover({
 
             <div className="relative">
               <div
-                className={cn(["scroll-fade-y max-h-80 overflow-y-auto p-2"])}
+                className={cn(["scroll-fade-y max-h-80 overflow-y-auto p-1.5"])}
               >
-                <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-0">
                   {resultSections.map((section) => (
                     <TemplateSection
                       key={section.key}
@@ -1479,7 +1481,7 @@ function TemplateSection({
   showHeader?: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-0.5">
       {showHeader ? (
         <div className="flex items-center gap-2 px-2">
           {icon}
@@ -1493,7 +1495,7 @@ function TemplateSection({
           </p>
         </div>
       ) : null}
-      <div className="flex flex-col gap-1">{children}</div>
+      <div className="flex flex-col gap-0">{children}</div>
     </div>
   );
 }
@@ -1515,7 +1517,7 @@ function TemplateResultButton({
     <button
       ref={buttonRef}
       className={cn([
-        "hover:bg-accent focus:bg-muted w-full rounded-md px-3 py-2 text-left transition-colors focus:outline-hidden",
+        "hover:bg-accent focus:bg-muted h-8 w-full rounded-md px-2.5 text-left transition-colors focus:outline-hidden",
         "flex items-center gap-1.5",
       ])}
       onClick={onClick}
