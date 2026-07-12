@@ -22,6 +22,7 @@ import {
   useToggleTemplateFavorite,
 } from "./queries";
 import { SectionsList } from "./sections-editor";
+import { TemplateIconPicker } from "./template-icon-picker";
 
 import { useSetSettingValue } from "~/settings/queries";
 import { useConfigValue } from "~/shared/config";
@@ -169,6 +170,7 @@ export function TemplateForm({
     defaultValues: {
       title: template.title ?? "",
       description: template.description ?? "",
+      icon: template.icon,
       targets: template.targets ?? [],
       sections: template.sections ?? [],
     },
@@ -204,6 +206,7 @@ export function TemplateForm({
     form.reset({
       title: template.title ?? "",
       description: template.description ?? "",
+      icon: template.icon,
       targets: template.targets ?? [],
       sections: template.sections ?? [],
     });
@@ -289,9 +292,17 @@ export function TemplateForm({
       <div className="relative min-h-0 flex-1 overflow-hidden">
         <div className="scroll-fade-y h-full overflow-y-auto px-6 pt-3 pb-6">
           <div className="min-w-0">
-            <form.Field name="title">
-              {(field) => (
-                <div className="flex min-w-0 items-baseline gap-2">
+            <div className="flex min-w-0 items-center gap-2">
+              <form.Field name="icon">
+                {(field) => (
+                  <TemplateIconPicker
+                    value={field.state.value}
+                    onChange={field.handleChange}
+                  />
+                )}
+              </form.Field>
+              <form.Field name="title">
+                {(field) => (
                   <div className="relative max-w-full min-w-0">
                     <span
                       aria-hidden="true"
@@ -306,9 +317,9 @@ export function TemplateForm({
                       className="absolute inset-0 h-auto w-full max-w-full min-w-0 border-0 px-0 py-0 text-lg font-semibold shadow-none focus-visible:ring-0 md:text-lg"
                     />
                   </div>
-                </div>
-              )}
-            </form.Field>
+                )}
+              </form.Field>
+            </div>
             <form.Field name="description">
               {(field) => (
                 <Textarea

@@ -6,6 +6,7 @@ pub struct TemplateRow {
     pub pinned: bool,
     pub pin_order: Option<i64>,
     pub category: Option<String>,
+    pub icon_json: String,
     pub targets_json: Option<String>,
     pub sections_json: String,
     pub created_at: String,

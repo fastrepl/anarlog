@@ -73,6 +73,10 @@ msgstr "Accessibility"
 msgid "Account"
 msgstr "Account"
 
+#: src/templates/template-icon-picker.tsx
+msgid "Activity"
+msgstr "Activity"
+
 #: src/contacts/shared.tsx
 #: src/settings/personalization/index.tsx
 #: src/settings/todo/github.tsx
@@ -176,6 +180,10 @@ msgstr "Anarlog needs access to your microphone and system audio to record and t
 #: src/onboarding/index.tsx
 msgid "Anarlog will sync your calendar to get meeting reminders"
 msgstr "Anarlog will sync your calendar to get meeting reminders"
+
+#: src/templates/template-icon-picker.tsx
+msgid "Animals & Nature"
+msgstr "Animals & Nature"
 
 #: src/settings/ai/shared/index.tsx
 msgid "API Key"
@@ -294,6 +302,10 @@ msgstr "Checking trial eligibility..."
 msgid "Choose a file format and what to include."
 msgstr "Choose a file format and what to include."
 
+#: src/templates/template-icon-picker.tsx
+msgid "Choose custom color"
+msgstr "Choose custom color"
+
 #: src/settings/general/theme.tsx
 msgid "Choose light, dark, or match your system setting."
 msgstr "Choose light, dark, or match your system setting."
@@ -301,6 +313,10 @@ msgstr "Choose light, dark, or match your system setting."
 #: src/onboarding/folder-location.tsx
 msgid "Choose storage location"
 msgstr "Choose storage location"
+
+#: src/templates/template-icon-picker.tsx
+msgid "Choose template icon"
+msgstr "Choose template icon"
 
 #: src/settings/general/storage/legacy-cleanup.tsx
 msgid "Clean Up"
@@ -555,6 +571,10 @@ msgstr "Eligible for free trial"
 msgid "Email"
 msgstr "Email"
 
+#: src/templates/template-icon-picker.tsx
+msgid "Emojis"
+msgstr "Emojis"
+
 #. placeholder {0}: permissionName.toLowerCase()
 #: src/onboarding/permissions.tsx
 msgid "Enable {0}"
@@ -654,9 +674,17 @@ msgstr "Finish sign-in"
 msgid "First day of the week in the calendar view"
 msgstr "First day of the week in the calendar view"
 
+#: src/templates/template-icon-picker.tsx
+msgid "Flags"
+msgstr "Flags"
+
 #: src/chat/components/toolbar-controls.tsx
 msgid "Float chat"
 msgstr "Float chat"
+
+#: src/templates/template-icon-picker.tsx
+msgid "Food & Drink"
+msgstr "Food & Drink"
 
 #: src/settings/general/notification.tsx
 msgid "For enabled notifications"
@@ -669,6 +697,10 @@ msgstr "Forever"
 #: src/settings/general/account.tsx
 msgid "Free"
 msgstr "Free"
+
+#: src/templates/template-icon-picker.tsx
+msgid "Frequently used"
+msgstr "Frequently used"
 
 #: src/sidebar/settings.tsx
 msgid "General"
@@ -735,6 +767,10 @@ msgstr "How long the mic must be active before triggering"
 #: src/contacts/humans.tsx
 msgid "Human"
 msgstr "Human"
+
+#: src/templates/template-icon-picker.tsx
+msgid "Icons"
+msgstr "Icons"
 
 #: src/settings/general/account.tsx
 msgid "If the browser does not reopen Anarlog, use the paste-link fallback in the sign-in instruction window."
@@ -822,7 +858,6 @@ msgid "Loading models..."
 msgstr "Loading models..."
 
 #: src/changelog/index.tsx
-#: src/settings/general/account.tsx
 #: src/task/resource-view.tsx
 msgid "Loading..."
 msgstr "Loading..."
@@ -974,6 +1009,14 @@ msgstr "No content."
 msgid "No description provided."
 msgstr "No description provided."
 
+#: src/templates/template-icon-picker.tsx
+msgid "No emoji found"
+msgstr "No emoji found"
+
+#: src/templates/template-icon-picker.tsx
+msgid "No icons found"
+msgstr "No icons found"
+
 #: src/sidebar/timeline/index.tsx
 msgid "No items today"
 msgstr "No items today"
@@ -1049,6 +1092,10 @@ msgstr "Notifications"
 #: src/sidebar/timeline/upcoming-meeting.ts
 msgid "Now"
 msgstr "Now"
+
+#: src/templates/template-icon-picker.tsx
+msgid "Objects"
+msgstr "Objects"
 
 #: src/contacts/shared.tsx
 msgid "Oldest"
@@ -1334,6 +1381,14 @@ msgstr "Save date"
 msgid "Search contacts..."
 msgstr "Search contacts..."
 
+#: src/templates/template-icon-picker.tsx
+msgid "Search emoji..."
+msgstr "Search emoji..."
+
+#: src/templates/template-icon-picker.tsx
+msgid "Search icons..."
+msgstr "Search icons..."
+
 #: src/settings/general/notification.tsx
 msgid "Search installed apps to exclude them. Click an excluded app to include it again."
 msgstr "Search installed apps to exclude them. Click an excluded app to include it again."
@@ -1555,6 +1610,10 @@ msgstr "Skip"
 msgid "Skipped"
 msgstr "Skipped"
 
+#: src/templates/template-icon-picker.tsx
+msgid "Smileys & People"
+msgstr "Smileys & People"
+
 #: src/contacts/details.tsx
 msgid "Software Engineer"
 msgstr "Software Engineer"
@@ -1638,6 +1697,10 @@ msgstr "Summary"
 msgid "Sunday"
 msgstr "Sunday"
 
+#: src/templates/template-icon-picker.tsx
+msgid "Symbols"
+msgstr "Symbols"
+
 #: src/settings/general/theme.tsx
 msgid "System"
 msgstr "System"
@@ -1704,6 +1767,10 @@ msgstr "Transcript"
 #: src/sidebar/settings.tsx
 msgid "Transcription"
 msgstr "Transcription"
+
+#: src/templates/template-icon-picker.tsx
+msgid "Travel & Places"
+msgstr "Travel & Places"
 
 #: src/settings/general/account.tsx
 msgid "Trial"

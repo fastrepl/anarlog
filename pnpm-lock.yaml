@@ -69,6 +69,9 @@ importers:
       '@ai-sdk/react':
         specifier: ^3.0.160
         version: 3.0.160(react@19.2.5)(zod@4.3.6)
+      '@emoji-mart/data':
+        specifier: ^1.2.1
+        version: 1.2.1
       '@floating-ui/react':
         specifier: ^0.27.19
         version: 0.27.19(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
@@ -300,6 +303,9 @@ importers:
       react:
         specifier: ^19.2.5
         version: 19.2.5
+      react-colorful:
+        specifier: ^5.6.1
+        version: 5.6.1(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       react-dom:
         specifier: ^19.2.5
         version: 19.2.5(react@19.2.5)

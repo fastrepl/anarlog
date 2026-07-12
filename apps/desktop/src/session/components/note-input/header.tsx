@@ -53,11 +53,14 @@ import { type EditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
 import {
   filterWebTemplatesAgainstUserTemplates,
+  DEFAULT_TEMPLATE_ICON,
   parseWebTemplates,
+  TemplateIconGlyph,
   useCreateTemplate,
   useUserTemplate,
   useUserTemplates,
   type WebTemplate,
+  type TemplateIcon,
 } from "~/templates";
 
 function getStoredNoteMarkdown(content: string | undefined) {
@@ -904,6 +907,7 @@ function TemplatePickerPopover({
         title: template.title,
         description: template.description,
         category: template.category,
+        icon: template.icon,
         targets: template.targets,
         sections: template.sections ?? [],
       });
@@ -1007,6 +1011,7 @@ function TemplatePickerPopover({
     Array<{
       key: string;
       title: string;
+      icon: TemplateIcon;
       isFavorite?: boolean;
       onClick: () => void;
     }>
@@ -1014,6 +1019,7 @@ function TemplatePickerPopover({
     const favoriteItems = filteredFavoriteTemplates.map((template) => ({
       key: template.id,
       title: template.title || "Untitled",
+      icon: template.icon,
       isFavorite: true,
       onClick: () =>
         handleUseTemplate({
@@ -1025,6 +1031,7 @@ function TemplatePickerPopover({
     const userItems = filteredOtherTemplates.map((template) => ({
       key: template.id,
       title: template.title || "Untitled",
+      icon: template.icon,
       onClick: () =>
         handleUseTemplate({
           templateId: template.id,
@@ -1035,6 +1042,7 @@ function TemplatePickerPopover({
     const webItems = filteredWebTemplates.map((template, index) => ({
       key: template.slug || `library-${index}`,
       title: template.title || "Untitled",
+      icon: template.icon,
       onClick: () => handleWebTemplateClick(template),
     }));
 
@@ -1061,6 +1069,7 @@ function TemplatePickerPopover({
       items: Array<{
         key: string;
         title: string;
+        icon: TemplateIcon;
         isFavorite?: boolean;
         onClick: () => void;
       }>;
@@ -1074,6 +1083,11 @@ function TemplatePickerPopover({
         {
           key: "auto",
           title: "Auto",
+          icon: {
+            type: "icon",
+            value: "sparkles",
+            color: "#9ca3af",
+          } satisfies TemplateIcon,
           onClick: () =>
             handleUseTemplate({
               templateId: null,
@@ -1107,6 +1121,7 @@ function TemplatePickerPopover({
           {
             key: `create-${trimmedSearch}`,
             title: trimmedSearch,
+            icon: DEFAULT_TEMPLATE_ICON,
             onClick: () => handleCreateTemplate(trimmedSearch),
           },
         ],
@@ -1237,6 +1252,7 @@ function TemplatePickerPopover({
                                 resultRefs.current[itemIndex] = node;
                               }}
                               title={item.title}
+                              icon={item.icon}
                               isFavorite={item.isFavorite}
                               onClick={item.onClick}
                               onKeyDown={(e) =>
@@ -1503,12 +1519,14 @@ function TemplateSection({
 function TemplateResultButton({
   buttonRef,
   title,
+  icon,
   isFavorite = false,
   onClick,
   onKeyDown,
 }: {
   buttonRef?: React.Ref<HTMLButtonElement>;
   title: string;
+  icon: TemplateIcon;
   isFavorite?: boolean;
   onClick: () => void;
   onKeyDown?: (e: React.KeyboardEvent<HTMLButtonElement>) => void;
@@ -1523,6 +1541,7 @@ function TemplateResultButton({
       onClick={onClick}
       onKeyDown={onKeyDown}
     >
+      <TemplateIconGlyph icon={icon} className="size-4 text-sm" />
       <span className="text-foreground min-w-0 truncate text-sm font-medium">
         {title}
       </span>

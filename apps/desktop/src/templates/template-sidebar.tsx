@@ -14,6 +14,7 @@ import { cn } from "@hypr/utils";
 
 import { type WebTemplate } from "./codec";
 import { getTemplateCopyTitle, type UserTemplate } from "./queries";
+import { TemplateIconGlyph } from "./template-icon";
 import { useTemplateTab } from "./utils";
 
 import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
@@ -53,6 +54,7 @@ export function TemplatesSidebarContent({
         title: getTemplateCopyTitle(template.title),
         description: template.description ?? "",
         category: template.category,
+        icon: template.icon,
         targets: template.targets,
         sections: template.sections.map((section) => ({ ...section })),
       });
@@ -419,7 +421,10 @@ export function TemplatesSidebarContent({
                       ])}
                     >
                       <div className="flex items-center gap-2">
-                        <BookText className="text-muted-foreground h-4 w-4 shrink-0" />
+                        <TemplateIconGlyph
+                          icon={item.template.icon}
+                          className="size-4 text-sm"
+                        />
                         <div className="min-w-0 flex-1">
                           <div className="truncate font-medium">
                             {item.title}
@@ -506,7 +511,7 @@ function TemplateListItem({
       ])}
     >
       <div className="flex items-center gap-2">
-        <BookText className="text-muted-foreground h-4 w-4 shrink-0" />
+        <TemplateIconGlyph icon={template.icon} className="size-4 text-sm" />
         <div className="min-w-0 flex-1">
           <div className="truncate font-medium">
             {template.title?.trim() || "Untitled"}

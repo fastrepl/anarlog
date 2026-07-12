@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { WebTemplate } from "./codec";
 import type { UserTemplate } from "./queries";
+import { DEFAULT_TEMPLATE_ICON } from "./template-icon";
 import {
   filterWebTemplatesAgainstUserTemplates,
   resolveTemplateTabSelection,
@@ -12,6 +13,7 @@ const userTemplate: UserTemplate = {
   title: "Standup",
   description: "",
   pinned: false,
+  icon: DEFAULT_TEMPLATE_ICON,
   sections: [],
 };
 
@@ -20,6 +22,7 @@ const webTemplate: WebTemplate = {
   title: "Community Standup",
   description: "",
   category: "",
+  icon: DEFAULT_TEMPLATE_ICON,
   sections: [],
 };
 

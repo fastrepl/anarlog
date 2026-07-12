@@ -73,6 +73,10 @@ msgstr ""
 msgid "Account"
 msgstr ""
 
+#: src/templates/template-icon-picker.tsx
+msgid "Activity"
+msgstr ""
+
 #: src/contacts/shared.tsx
 #: src/settings/personalization/index.tsx
 #: src/settings/todo/github.tsx
@@ -175,6 +179,10 @@ msgstr ""
 
 #: src/onboarding/index.tsx
 msgid "Anarlog will sync your calendar to get meeting reminders"
+msgstr ""
+
+#: src/templates/template-icon-picker.tsx
+msgid "Animals & Nature"
 msgstr ""
 
 #: src/settings/ai/shared/index.tsx
@@ -294,12 +302,20 @@ msgstr ""
 msgid "Choose a file format and what to include."
 msgstr ""
 
+#: src/templates/template-icon-picker.tsx
+msgid "Choose custom color"
+msgstr ""
+
 #: src/settings/general/theme.tsx
 msgid "Choose light, dark, or match your system setting."
 msgstr ""
 
 #: src/onboarding/folder-location.tsx
 msgid "Choose storage location"
+msgstr ""
+
+#: src/templates/template-icon-picker.tsx
+msgid "Choose template icon"
 msgstr ""
 
 #: src/settings/general/storage/legacy-cleanup.tsx
@@ -555,6 +571,10 @@ msgstr ""
 msgid "Email"
 msgstr ""
 
+#: src/templates/template-icon-picker.tsx
+msgid "Emojis"
+msgstr ""
+
 #. placeholder {0}: permissionName.toLowerCase()
 #: src/onboarding/permissions.tsx
 msgid "Enable {0}"
@@ -654,8 +674,16 @@ msgstr ""
 msgid "First day of the week in the calendar view"
 msgstr ""
 
+#: src/templates/template-icon-picker.tsx
+msgid "Flags"
+msgstr ""
+
 #: src/chat/components/toolbar-controls.tsx
 msgid "Float chat"
+msgstr ""
+
+#: src/templates/template-icon-picker.tsx
+msgid "Food & Drink"
 msgstr ""
 
 #: src/settings/general/notification.tsx
@@ -668,6 +696,10 @@ msgstr ""
 
 #: src/settings/general/account.tsx
 msgid "Free"
+msgstr ""
+
+#: src/templates/template-icon-picker.tsx
+msgid "Frequently used"
 msgstr ""
 
 #: src/sidebar/settings.tsx
@@ -734,6 +766,10 @@ msgstr ""
 
 #: src/contacts/humans.tsx
 msgid "Human"
+msgstr ""
+
+#: src/templates/template-icon-picker.tsx
+msgid "Icons"
 msgstr ""
 
 #: src/settings/general/account.tsx
@@ -822,7 +858,6 @@ msgid "Loading models..."
 msgstr ""
 
 #: src/changelog/index.tsx
-#: src/settings/general/account.tsx
 #: src/task/resource-view.tsx
 msgid "Loading..."
 msgstr ""
@@ -974,6 +1009,14 @@ msgstr ""
 msgid "No description provided."
 msgstr ""
 
+#: src/templates/template-icon-picker.tsx
+msgid "No emoji found"
+msgstr ""
+
+#: src/templates/template-icon-picker.tsx
+msgid "No icons found"
+msgstr ""
+
 #: src/sidebar/timeline/index.tsx
 msgid "No items today"
 msgstr ""
@@ -1048,6 +1091,10 @@ msgstr "Ilmoitukset"
 #: src/sidebar/timeline/index.tsx
 #: src/sidebar/timeline/upcoming-meeting.ts
 msgid "Now"
+msgstr ""
+
+#: src/templates/template-icon-picker.tsx
+msgid "Objects"
 msgstr ""
 
 #: src/contacts/shared.tsx
@@ -1334,6 +1381,14 @@ msgstr ""
 msgid "Search contacts..."
 msgstr ""
 
+#: src/templates/template-icon-picker.tsx
+msgid "Search emoji..."
+msgstr ""
+
+#: src/templates/template-icon-picker.tsx
+msgid "Search icons..."
+msgstr ""
+
 #: src/settings/general/notification.tsx
 msgid "Search installed apps to exclude them. Click an excluded app to include it again."
 msgstr ""
@@ -1555,6 +1610,10 @@ msgstr ""
 msgid "Skipped"
 msgstr ""
 
+#: src/templates/template-icon-picker.tsx
+msgid "Smileys & People"
+msgstr ""
+
 #: src/contacts/details.tsx
 msgid "Software Engineer"
 msgstr ""
@@ -1638,6 +1697,10 @@ msgstr ""
 msgid "Sunday"
 msgstr ""
 
+#: src/templates/template-icon-picker.tsx
+msgid "Symbols"
+msgstr ""
+
 #: src/settings/general/theme.tsx
 msgid "System"
 msgstr ""
@@ -1703,6 +1766,10 @@ msgstr ""
 #: src/settings/ai/stt/index.tsx
 #: src/sidebar/settings.tsx
 msgid "Transcription"
+msgstr ""
+
+#: src/templates/template-icon-picker.tsx
+msgid "Travel & Places"
 msgstr ""
 
 #: src/settings/general/account.tsx

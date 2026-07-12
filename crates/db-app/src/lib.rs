@@ -54,6 +54,11 @@ pub const APP_MIGRATION_STEPS: &[hypr_db_migrate::MigrationStep] = &[
         scope: hypr_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260711000000_calendar_event_tombstones.sql"),
     },
+    hypr_db_migrate::MigrationStep {
+        id: "20260712170000_template_icons",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260712170000_template_icons.sql"),
+    },
 ];
 
 pub fn schema() -> hypr_db_migrate::DbSchema {
@@ -121,6 +126,19 @@ async fn repair_missing_core_tables(
             .await?;
     }
 
+    let has_icon_json = sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS(SELECT 1 FROM pragma_table_info('templates') WHERE name = 'icon_json')",
+    )
+    .fetch_one(pool)
+    .await?;
+    if !has_icon_json {
+        sqlx::query(include_str!(
+            "../migrations/20260712170000_template_icons.sql"
+        ))
+        .execute(pool)
+        .await?;
+    }
+
     if templates_missing_before_migration {
         sqlx::query(include_str!(
             "../migrations/20260524000000_default_templates.sql"
@@ -169,6 +187,12 @@ mod tests {
                 validate_cloudsync_table: cloudsync_alter_guard_required,
             },
         )
+        .await
+        .unwrap();
+        sqlx::query(include_str!(
+            "../migrations/20260712170000_template_icons.sql"
+        ))
+        .execute(db.pool())
         .await
         .unwrap();
         db
@@ -278,6 +302,16 @@ mod tests {
             .await
             .unwrap();
         assert!(row_count > 0);
+
+        let icon_json: String =
+            sqlx::query_scalar("SELECT icon_json FROM templates ORDER BY id LIMIT 1")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        assert_eq!(
+            icon_json,
+            r##"{"type":"icon","value":"notebook-tabs","color":"#9ca3af"}"##
+        );
     }
 
     #[tokio::test]

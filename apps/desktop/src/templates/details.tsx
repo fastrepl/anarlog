@@ -111,6 +111,7 @@ function WebTemplatePreview({
     title: template.title ?? "",
     description: template.description ?? "",
     category: template.category,
+    icon: template.icon,
     targets: template.targets,
     sections: template.sections ?? [],
   };

@@ -10,6 +10,9 @@ export const templates = sqliteTable("templates", {
   pinned: integer("pinned", { mode: "boolean" }).notNull().default(false),
   pinOrder: integer("pin_order"),
   category: text("category"),
+  iconJson: text("icon_json", { mode: "json" })
+    .notNull()
+    .default('{"type":"icon","value":"notebook-tabs","color":"#9ca3af"}'),
   targetsJson: text("targets_json", { mode: "json" }),
   sectionsJson: text("sections_json", { mode: "json" }).notNull().default("[]"),
   createdAt: text("created_at").notNull(),

@@ -6,6 +6,7 @@ import {
   parseStoredTemplateTargets,
   parseWebTemplates,
 } from "./codec";
+import { DEFAULT_TEMPLATE_ICON } from "./template-icon";
 
 describe("parseStoredTemplateSections", () => {
   it("parses canonical JSON text from SQLite", () => {
@@ -89,6 +90,7 @@ describe("parseWebTemplates", () => {
         title: "1:1 Meeting",
         description: "For structured one-on-one meetings",
         category: "Management",
+        icon: DEFAULT_TEMPLATE_ICON,
         targets: ["Manager", "Team Lead"],
         sections: [
           { title: "Updates", description: "What changed?" },
@@ -96,6 +98,18 @@ describe("parseWebTemplates", () => {
         ],
       },
     ]);
+  });
+
+  it("parses a web template emoji", () => {
+    expect(
+      parseWebTemplates([
+        {
+          title: "Launch",
+          icon: { type: "emoji", value: "🚀" },
+          sections: [],
+        },
+      ])[0]?.icon,
+    ).toEqual({ type: "emoji", value: "🚀" });
   });
 
   it("drops malformed web templates instead of repairing them", () => {

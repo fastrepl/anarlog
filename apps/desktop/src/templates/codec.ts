@@ -1,10 +1,13 @@
 import type { TemplateSection } from "@hypr/store";
 
+import { normalizeTemplateIcon, type TemplateIcon } from "./template-icon";
+
 export type WebTemplate = {
   slug: string;
   title: string;
   description: string;
   category: string;
+  icon: TemplateIcon;
   targets?: string[];
   sections: TemplateSection[];
 };
@@ -256,6 +259,7 @@ function parseWebTemplate(
     description:
       typeof template.description === "string" ? template.description : "",
     category: typeof template.category === "string" ? template.category : "",
+    icon: normalizeTemplateIcon(template.icon ?? template.icon_json),
     targets: validateTargets(
       template.targets ?? undefined,
       `web template ${template.title} targets`,

@@ -48,6 +48,7 @@ const hoisted = vi.hoisted(() => ({
     title: string;
     description: string;
     pinned: boolean;
+    icon?: { type: "emoji"; value: string };
     sections: unknown[];
   }>,
 }));
@@ -282,6 +283,16 @@ vi.mock("~/stt/window-control", () => ({
 }));
 
 vi.mock("~/templates", () => ({
+  DEFAULT_TEMPLATE_ICON: {
+    type: "icon",
+    value: "notebook-tabs",
+    color: "#9ca3af",
+  },
+  TemplateIconGlyph: ({ icon }: { icon?: { type: string; value: string } }) => (
+    <span aria-hidden data-testid="template-icon">
+      {icon?.value}
+    </span>
+  ),
   filterWebTemplatesAgainstUserTemplates: () => [],
   getTemplateCreatorLabel: () => "You",
   parseWebTemplates: () => [],

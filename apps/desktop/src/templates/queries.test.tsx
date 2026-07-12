@@ -11,6 +11,7 @@ import {
   useUserTemplate,
   useUserTemplates,
 } from "./queries";
+import { DEFAULT_TEMPLATE_ICON } from "./template-icon";
 
 type SubscribeOptions<T> = {
   onData: (rows: T[]) => void;
@@ -70,6 +71,7 @@ describe("template queries", () => {
           pinned: true,
           pin_order: 2,
           category: "meetings",
+          icon_json: '{"type":"emoji","value":"☀️"}',
           targets_json: '["engineering"]',
           sections_json: '[{"title":"Notes","description":"Capture updates"}]',
           created_at: "2026-04-14T00:00:00Z",
@@ -90,6 +92,7 @@ describe("template queries", () => {
           pinned: true,
           pinOrder: 2,
           category: "meetings",
+          icon: { type: "emoji", value: "☀️" },
           targets: ["engineering"],
           sections: [{ title: "Notes", description: "Capture updates" }],
         },
@@ -101,6 +104,7 @@ describe("template queries", () => {
         pinned: true,
         pinOrder: 2,
         category: "meetings",
+        icon: { type: "emoji", value: "☀️" },
         targets: ["engineering"],
         sections: [{ title: "Notes", description: "Capture updates" }],
       });
@@ -130,6 +134,7 @@ describe("template queries", () => {
           pinned: false,
           pin_order: null,
           category: null,
+          icon_json: "{",
           targets_json: "{",
           sections_json: '[{"title":"","description":""}]',
           created_at: "2026-04-14T00:00:00Z",
@@ -147,6 +152,7 @@ describe("template queries", () => {
           pinned: false,
           pinOrder: undefined,
           category: undefined,
+          icon: DEFAULT_TEMPLATE_ICON,
           targets: undefined,
           sections: [{ title: "", description: "" }],
         },
@@ -164,6 +170,7 @@ describe("template queries", () => {
           0,
           null,
           null,
+          '{"type":"icon","value":"target","color":"#5b67d8"}',
           '["engineering"]',
           '[{"title":"Notes","description":"Capture updates"}]',
           "2026-04-14T00:00:00Z",
@@ -179,6 +186,7 @@ describe("template queries", () => {
       pinned: false,
       pinOrder: undefined,
       category: undefined,
+      icon: { type: "icon", value: "target", color: "#5b67d8" },
       targets: ["engineering"],
       sections: [{ title: "Notes", description: "Capture updates" }],
     });
@@ -201,7 +209,15 @@ describe("template queries", () => {
     expect(createdId).toEqual(expect.any(String));
     expect(executeProxyMock).toHaveBeenCalledWith(
       expect.stringContaining('insert into "templates"'),
-      [createdId, "New Template", "", 0, null, "[]"],
+      [
+        createdId,
+        "New Template",
+        "",
+        0,
+        JSON.stringify(DEFAULT_TEMPLATE_ICON),
+        null,
+        "[]",
+      ],
       "run",
     );
     expect(executeProxyMock).toHaveBeenCalledWith(
