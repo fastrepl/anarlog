@@ -480,6 +480,7 @@ function useDevtoolsPanelActions() {
           open={trialStartedOpen}
           onOpenChange={setTrialStartedOpen}
           trialDaysRemaining={trialDaysRemaining}
+          hasPaymentMethod={false}
         />
         <TrialEndedDialog
           open={trialEndedOpen}

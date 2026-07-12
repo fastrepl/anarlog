@@ -297,6 +297,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
         open={trialStartedOpen}
         onOpenChange={setTrialStartedOpen}
         trialDaysRemaining={billing.trialDaysRemaining}
+        hasPaymentMethod={claimsQuery.data?.has_payment_method === true}
       />
       <TrialPaymentReminderDialog
         open={trialPaymentReminderOpen}
