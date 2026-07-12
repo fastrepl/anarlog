@@ -59,6 +59,19 @@ struct SourceFile {
     kind: SourceKind,
 }
 
+#[derive(Debug)]
+struct SourceDiscovery {
+    files: Vec<SourceFile>,
+    shadowed_summaries: Vec<ShadowedSummary>,
+}
+
+#[derive(Debug)]
+struct ShadowedSummary {
+    hidden_relative_path: String,
+    canonical_relative_path: String,
+    hidden_document: LegacyDocument,
+}
+
 pub async fn import_legacy_vault(
     pool: &SqlitePool,
     vault_base: &Path,
@@ -69,15 +82,15 @@ pub async fn import_legacy_vault(
     let source_root = vault_base.to_string_lossy();
     hypr_db_app::begin_legacy_import_run(pool, &run_id, &source_root, dry_run).await?;
 
-    let sources = match discover_sources(vault_base) {
-        Ok(sources) => sources,
+    let discovery = match discover_sources(vault_base) {
+        Ok(discovery) => discovery,
         Err(error) => {
             hypr_db_app::fail_legacy_import_run(pool, &run_id, &error.to_string()).await?;
             return Err(error.into());
         }
     };
 
-    for source in sources {
+    for source in discovery.files {
         let bytes = match std::fs::read(&source.path) {
             Ok(bytes) => bytes,
             Err(error) => {
@@ -132,6 +145,15 @@ pub async fn import_legacy_vault(
 
         match parse_source(vault_base, &source, &bytes, &source_sha256) {
             Ok(batch) => {
+                if !dry_run
+                    && let Some(shadowed) = discovery
+                        .shadowed_summaries
+                        .iter()
+                        .find(|summary| summary.canonical_relative_path == source.relative_path)
+                    && let Some(LegacyImportRow::Document(document)) = batch.rows.first()
+                {
+                    promote_canonical_summary(pool, shadowed, document).await?;
+                }
                 hypr_db_app::apply_legacy_import_item(pool, item, &batch, dry_run).await?;
             }
             Err(error) => {
@@ -144,21 +166,31 @@ pub async fn import_legacy_vault(
     Ok(run_id)
 }
 
-fn discover_sources(vault_base: &Path) -> std::io::Result<Vec<SourceFile>> {
+fn discover_sources(vault_base: &Path) -> std::io::Result<SourceDiscovery> {
     if !vault_base.exists() {
-        return Ok(Vec::new());
+        return Ok(SourceDiscovery {
+            files: Vec::new(),
+            shadowed_summaries: Vec::new(),
+        });
     }
 
     let mut files = Vec::new();
-    collect_files(vault_base, vault_base, &mut files)?;
+    let mut shadowed_summaries = Vec::new();
+    collect_files(vault_base, vault_base, &mut files, &mut shadowed_summaries)?;
     files.sort_by(|left, right| left.relative_path.cmp(&right.relative_path));
-    Ok(files)
+    shadowed_summaries
+        .sort_by(|left, right| left.hidden_relative_path.cmp(&right.hidden_relative_path));
+    Ok(SourceDiscovery {
+        files,
+        shadowed_summaries,
+    })
 }
 
 fn collect_files(
     vault_base: &Path,
     directory: &Path,
     files: &mut Vec<SourceFile>,
+    shadowed_summaries: &mut Vec<ShadowedSummary>,
 ) -> std::io::Result<()> {
     let mut entries = std::fs::read_dir(directory)?.collect::<Result<Vec<_>, _>>()?;
     entries.sort_by_key(std::fs::DirEntry::file_name);
@@ -166,11 +198,15 @@ fn collect_files(
     for entry in entries {
         let path = entry.path();
         if path.is_dir() {
-            collect_files(vault_base, &path, files)?;
+            collect_files(vault_base, &path, files, shadowed_summaries)?;
             continue;
         }
 
         let relative_path = normalized_relative_path(vault_base, &path);
+        if let Some(shadowed) = shadowed_summary(vault_base, &path, &relative_path) {
+            shadowed_summaries.push(shadowed);
+            continue;
+        }
         if let Some(kind) = classify_source(&relative_path) {
             files.push(SourceFile {
                 path,
@@ -179,6 +215,124 @@ fn collect_files(
             });
         }
     }
+
+    Ok(())
+}
+
+fn shadowed_summary(
+    vault_base: &Path,
+    path: &Path,
+    relative_path: &str,
+) -> Option<ShadowedSummary> {
+    if path.file_name()?.to_str()? != ".md" {
+        return None;
+    }
+
+    let canonical_path = path.with_file_name("_summary.md");
+    let hidden_bytes = std::fs::read(path).ok()?;
+    let canonical_bytes = std::fs::read(&canonical_path).ok()?;
+    let hidden_content = std::str::from_utf8(&hidden_bytes).ok()?;
+    let canonical_content = std::str::from_utf8(&canonical_bytes).ok()?;
+    let hidden_hash = sha256(&hidden_bytes);
+    let canonical_hash = sha256(&canonical_bytes);
+    let hidden = parse_session_document(vault_base, path, hidden_content, &hidden_hash).ok()?;
+    let canonical = parse_session_document(
+        vault_base,
+        &canonical_path,
+        canonical_content,
+        &canonical_hash,
+    )
+    .ok()?;
+    let Some(LegacyImportRow::Document(hidden_document)) = hidden.rows.into_iter().next() else {
+        return None;
+    };
+    let Some(LegacyImportRow::Document(canonical_document)) = canonical.rows.into_iter().next()
+    else {
+        return None;
+    };
+
+    if hidden_document.id != canonical_document.id
+        || hidden_document.session_id != canonical_document.session_id
+    {
+        return None;
+    }
+
+    Some(ShadowedSummary {
+        hidden_relative_path: relative_path.to_string(),
+        canonical_relative_path: normalized_relative_path(vault_base, &canonical_path),
+        hidden_document,
+    })
+}
+
+async fn promote_canonical_summary(
+    pool: &SqlitePool,
+    shadowed: &ShadowedSummary,
+    canonical: &LegacyDocument,
+) -> Result<(), sqlx::Error> {
+    let hidden = &shadowed.hidden_document;
+    sqlx::query(
+        "UPDATE session_documents
+         SET session_id = ?, kind = ?, template_id = ?, title = ?, body_format = ?, body = ?,
+             source_hash = ?, sort_order = ?, created_by = ?, updated_by = ?, created_at = ?,
+             updated_at = ?
+         WHERE id = ?
+           AND session_id IS ?
+           AND kind IS ?
+           AND template_id IS ?
+           AND title IS ?
+           AND body_format IS ?
+           AND body IS ?
+           AND source_hash IS ?
+           AND sort_order IS ?
+           AND created_by IS ?
+           AND created_at IS ?
+           AND updated_at IS ?
+           AND deleted_at IS NULL
+           AND EXISTS (
+             SELECT 1 FROM storage_migration_state
+             WHERE id = 'legacy_v1' AND parity_verified = 0
+           )
+           AND EXISTS (
+             SELECT 1
+             FROM migration_import_targets AS target
+             JOIN migration_import_items AS item ON item.id = target.item_id
+             JOIN migration_import_runs AS run ON run.id = target.run_id
+             WHERE target.table_name = 'session_documents'
+               AND target.target_id = session_documents.id
+               AND target.source_path = ?
+               AND target.status = 'inserted'
+               AND item.source_sha256 = ?
+               AND run.dry_run = 0
+           )",
+    )
+    .bind(&canonical.session_id)
+    .bind(&canonical.kind)
+    .bind(&canonical.template_id)
+    .bind(&canonical.title)
+    .bind(&canonical.body_format)
+    .bind(&canonical.body)
+    .bind(&canonical.source_hash)
+    .bind(canonical.sort_order)
+    .bind(&canonical.created_by)
+    .bind(&canonical.created_by)
+    .bind(&canonical.created_at)
+    .bind(&canonical.updated_at)
+    .bind(&hidden.id)
+    .bind(&hidden.session_id)
+    .bind(&hidden.kind)
+    .bind(&hidden.template_id)
+    .bind(&hidden.title)
+    .bind(&hidden.body_format)
+    .bind(&hidden.body)
+    .bind(&hidden.source_hash)
+    .bind(hidden.sort_order)
+    .bind(&hidden.created_by)
+    .bind(&hidden.created_at)
+    .bind(&hidden.updated_at)
+    .bind(&shadowed.hidden_relative_path)
+    .bind(&hidden.source_hash)
+    .execute(pool)
+    .await?;
 
     Ok(())
 }
@@ -921,6 +1075,163 @@ mod tests {
         .unwrap();
         assert!(!error.is_empty());
         assert_eq!(row_count(&db, "SELECT COUNT(*) FROM daily_notes").await, 1);
+    }
+
+    #[tokio::test]
+    async fn canonical_summary_shadows_same_id_hidden_artifact() {
+        let db = test_db().await;
+        let dir = tempfile::tempdir().unwrap();
+        let session_dir = dir.path().join("sessions/session-1");
+        std::fs::create_dir_all(&session_dir).unwrap();
+        std::fs::write(
+            session_dir.join("_meta.json"),
+            r#"{"id":"session-1","created_at":"2026-07-12T01:00:00Z","title":"Planning"}"#,
+        )
+        .unwrap();
+        std::fs::write(
+            session_dir.join(".md"),
+            "---\nid: summary-1\nsession_id: session-1\ntemplate_id: ''\ntitle: Summary\n---\n\nStale summary",
+        )
+        .unwrap();
+        std::fs::write(
+            session_dir.join("_summary.md"),
+            "---\nid: summary-1\nsession_id: session-1\ntitle: Summary\n---\n\nCurrent summary",
+        )
+        .unwrap();
+
+        let run_id = import_legacy_vault(db.pool(), dir.path(), false)
+            .await
+            .unwrap();
+
+        let status: String =
+            sqlx::query_scalar("SELECT status FROM migration_import_runs WHERE id = ?")
+                .bind(&run_id)
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        let body: String =
+            sqlx::query_scalar("SELECT body FROM session_documents WHERE id = 'summary-1'")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        let hidden_item_count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM migration_import_items \
+             WHERE run_id = ? AND source_path = 'sessions/session-1/.md'",
+        )
+        .bind(&run_id)
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+
+        assert_eq!(status, "completed");
+        assert_eq!(body, "Current summary");
+        assert_eq!(hidden_item_count, 0);
+    }
+
+    #[tokio::test]
+    async fn failed_hidden_summary_import_is_repaired_from_canonical_source() {
+        let db = test_db().await;
+        let dir = tempfile::tempdir().unwrap();
+        let session_dir = dir.path().join("sessions/session-1");
+        std::fs::create_dir_all(&session_dir).unwrap();
+        let meta = r#"{"id":"session-1","created_at":"2026-07-12T01:00:00Z","title":"Planning"}"#;
+        let hidden = "---\nid: summary-1\nsession_id: session-1\ntemplate_id: ''\ntitle: Summary\n---\n\nStale summary";
+        let canonical =
+            "---\nid: summary-1\nsession_id: session-1\ntitle: Summary\n---\n\nCurrent summary";
+        std::fs::write(session_dir.join("_meta.json"), meta).unwrap();
+        std::fs::write(session_dir.join(".md"), hidden).unwrap();
+        std::fs::write(session_dir.join("_summary.md"), canonical).unwrap();
+
+        let failed_run_id = "failed-run";
+        hypr_db_app::begin_legacy_import_run(
+            db.pool(),
+            failed_run_id,
+            &dir.path().to_string_lossy(),
+            false,
+        )
+        .await
+        .unwrap();
+        for (item_id, source_path, source_kind, source_hash, batch) in [
+            (
+                "meta-item",
+                "sessions/session-1/_meta.json",
+                "session_meta",
+                sha256(meta.as_bytes()),
+                parse_session_meta(dir.path(), &session_dir.join("_meta.json"), meta).unwrap(),
+            ),
+            (
+                "hidden-item",
+                "sessions/session-1/.md",
+                "session_document",
+                sha256(hidden.as_bytes()),
+                parse_session_document(
+                    dir.path(),
+                    &session_dir.join(".md"),
+                    hidden,
+                    &sha256(hidden.as_bytes()),
+                )
+                .unwrap(),
+            ),
+            (
+                "canonical-item",
+                "sessions/session-1/_summary.md",
+                "session_document",
+                sha256(canonical.as_bytes()),
+                parse_session_document(
+                    dir.path(),
+                    &session_dir.join("_summary.md"),
+                    canonical,
+                    &sha256(canonical.as_bytes()),
+                )
+                .unwrap(),
+            ),
+        ] {
+            hypr_db_app::apply_legacy_import_item(
+                db.pool(),
+                LegacyImportItem {
+                    id: item_id,
+                    run_id: failed_run_id,
+                    source_path,
+                    source_kind,
+                    source_sha256: &source_hash,
+                },
+                &batch,
+                false,
+            )
+            .await
+            .unwrap();
+        }
+        assert_eq!(
+            hypr_db_app::finish_legacy_import_run(db.pool(), failed_run_id)
+                .await
+                .unwrap(),
+            "completed_with_issues"
+        );
+
+        let recovery_run_id = import_legacy_vault(db.pool(), dir.path(), false)
+            .await
+            .unwrap();
+        let body: String =
+            sqlx::query_scalar("SELECT body FROM session_documents WHERE id = 'summary-1'")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        let status: String =
+            sqlx::query_scalar("SELECT status FROM migration_import_runs WHERE id = ?")
+                .bind(&recovery_run_id)
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        let parity_verified: bool = sqlx::query_scalar(
+            "SELECT parity_verified FROM storage_migration_state WHERE id = 'legacy_v1'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+
+        assert_eq!(body, "Current summary");
+        assert_eq!(status, "completed");
+        assert!(parity_verified);
     }
 
     #[tokio::test]
