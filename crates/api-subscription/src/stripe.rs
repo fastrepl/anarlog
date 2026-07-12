@@ -41,7 +41,14 @@ pub(crate) async fn get_or_create_customer(
 
     let email = supabase.get_user_email(auth_token).await?;
 
-    let metadata: HashMap<String, String> = [("userId".to_string(), user_id.to_string())].into();
+    let metadata: HashMap<String, String> = [
+        ("userId".to_string(), user_id.to_string()),
+        (
+            "posthog_person_distinct_id".to_string(),
+            user_id.to_string(),
+        ),
+    ]
+    .into();
 
     let mut create_customer = CreateCustomer::new().metadata(metadata);
 

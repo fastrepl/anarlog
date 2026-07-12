@@ -12,6 +12,7 @@ export const env = createEnv({
     SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
     STRIPE_SECRET_KEY: z.string().min(1),
     STRIPE_WEBHOOK_SECRET: z.string().min(1),
+    POSTHOG_API_KEY: z.string().min(1).optional(),
   },
   runtimeEnv: Bun.env,
   emptyStringAsUndefined: true,

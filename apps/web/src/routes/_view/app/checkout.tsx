@@ -8,6 +8,13 @@ const validateSearch = z.object({
   period: z.enum(["monthly", "yearly"]).catch("monthly"),
   plan: z.enum(["pro"]).catch("pro").optional(),
   scheme: desktopSchemeSchema.optional(),
+  trial: z
+    .enum(["true", "false"])
+    .catch("false")
+    .transform((value) => value === "true"),
+  source: z
+    .enum(["onboarding", "settings", "trial_ended", "feature_gate", "unknown"])
+    .catch("unknown"),
 });
 
 export const Route = createFileRoute("/_view/app/checkout")({
@@ -20,6 +27,8 @@ export const Route = createFileRoute("/_view/app/checkout")({
           period: search.period,
           plan: search.plan,
           scheme: search.scheme,
+          trial: search.trial,
+          source: search.source,
         },
       }));
     } catch (e) {
@@ -30,6 +39,16 @@ export const Route = createFileRoute("/_view/app/checkout")({
       throw redirect({ href: url } as any);
     }
 
-    throw redirect({ to: "/app/account/" });
+    const params = new URLSearchParams({
+      checkout: "failed",
+      checkout_type: search.trial ? "trial" : "paid",
+      source: search.source,
+    });
+    if (search.scheme) {
+      params.set("scheme", search.scheme);
+      throw redirect({ href: `/callback/billing?${params.toString()}` } as any);
+    }
+
+    throw redirect({ href: `/app/account?${params.toString()}` } as any);
   },
 });

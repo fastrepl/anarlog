@@ -445,6 +445,9 @@ importers:
       pg:
         specifier: ^8.20.0
         version: 8.20.0
+      posthog-node:
+        specifier: ^5.29.2
+        version: 5.29.2(rxjs@7.8.2)
       stripe:
         specifier: ^20.4.1
         version: 20.4.1(@types/node@25.6.0)

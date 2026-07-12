@@ -1,6 +1,7 @@
 import * as Sentry from "@sentry/bun";
 import { Hono } from "hono";
 
+import { captureBillingEvent } from "../analytics";
 import { syncBillingBridge } from "../billing-bridge";
 import { env } from "../env";
 import type { AppBindings } from "../hono-bindings";
@@ -58,6 +59,18 @@ webhook.post("/stripe", async (c) => {
       tags: { webhook: "stripe", event_type: stripeEvent.type },
     });
     return c.json({ error: "billing_bridge_sync_failed" }, 500);
+  }
+
+  try {
+    await captureBillingEvent(stripeEvent);
+  } catch (error) {
+    Sentry.captureException(error, {
+      tags: {
+        webhook: "stripe",
+        step: "posthog",
+        event_type: stripeEvent.type,
+      },
+    });
   }
 
   return c.json({ ok: true }, 200);

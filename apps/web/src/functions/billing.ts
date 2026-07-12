@@ -5,7 +5,6 @@ import { z } from "zod";
 import {
   canStartTrial as canStartTrialApi,
   deleteAccount as deleteAccountApi,
-  startTrial as startTrialApi,
 } from "@hypr/api-client";
 import { createClient } from "@hypr/api-client/client";
 
@@ -112,6 +111,7 @@ async function ensureStripeCustomerId(
     email: user.email ?? undefined,
     metadata: {
       userId: user.id,
+      posthog_person_distinct_id: user.id,
     },
   });
 
@@ -135,29 +135,46 @@ async function createCheckoutUrl({
   user,
   period,
   scheme,
+  trial = false,
+  source = "unknown",
 }: {
   supabase: SupabaseClient;
   user: AuthUser & { email?: string | null };
   period: "monthly" | "yearly";
   scheme?: z.infer<typeof desktopSchemeSchema>;
+  trial?: boolean;
+  source?:
+    | "onboarding"
+    | "settings"
+    | "trial_ended"
+    | "feature_gate"
+    | "unknown";
 }) {
   const stripe = getStripeClient();
   const stripeCustomerId = await ensureStripeCustomerId(supabase, user);
 
-  const successParams = new URLSearchParams({ success: "true" });
+  const checkoutType = trial ? "trial" : "paid";
+  const successParams = new URLSearchParams({
+    success: "true",
+    checkout: checkoutType,
+    source,
+  });
   if (scheme) {
     successParams.set("scheme", scheme);
   }
   const appOrigin = getRequestAppOrigin();
 
   const successUrl = scheme
-    ? getBillingReturnUrl(scheme)
+    ? `${getBillingReturnUrl(scheme)}&checkout=${checkoutType}&source=${source}`
     : `${appOrigin}/app/account?${successParams.toString()}`;
+  const cancelUrl = scheme
+    ? `${getBillingReturnUrl(scheme)}&checkout=canceled&checkout_type=${checkoutType}&source=${source}`
+    : `${appOrigin}/app/account?checkout=canceled&checkout_type=${checkoutType}&source=${source}`;
 
   const checkout = await stripe.checkout.sessions.create({
     customer: stripeCustomerId,
     success_url: successUrl,
-    cancel_url: `${appOrigin}/app/account`,
+    cancel_url: cancelUrl,
     line_items: [
       {
         price: getProPriceId(period),
@@ -165,6 +182,27 @@ async function createCheckoutUrl({
       },
     ],
     mode: "subscription",
+    payment_method_collection: trial ? "always" : undefined,
+    metadata: {
+      checkout_type: checkoutType,
+      source,
+      user_id: user.id,
+    },
+    subscription_data: {
+      metadata: {
+        checkout_type: checkoutType,
+        source,
+        user_id: user.id,
+      },
+      ...(trial
+        ? {
+            trial_period_days: 14,
+            trial_settings: {
+              end_behavior: { missing_payment_method: "cancel" as const },
+            },
+          }
+        : {}),
+    },
   });
 
   return { url: checkout.url, stripeCustomerId };
@@ -174,6 +212,10 @@ const createCheckoutSessionInput = z.object({
   period: z.enum(["monthly", "yearly"]),
   plan: z.enum(["pro"]).default("pro").optional(),
   scheme: desktopSchemeSchema.optional(),
+  trial: z.boolean().default(false),
+  source: z
+    .enum(["onboarding", "settings", "trial_ended", "feature_gate", "unknown"])
+    .default("unknown"),
 });
 
 export const createCheckoutSession = createServerFn({ method: "POST" })
@@ -186,6 +228,25 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
 
     if (!user?.id) {
       throw new Error("Unauthorized");
+    }
+
+    if (data.trial) {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+
+      if (!accessToken) {
+        throw new Error("Unauthorized");
+      }
+
+      const client = createClient({
+        baseUrl: env.VITE_API_URL,
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const { data: eligibility, error } = await canStartTrialApi({ client });
+
+      if (error || !eligibility?.canStartTrial) {
+        throw new Error("Trial is not available for this account");
+      }
     }
 
     const stripe = getStripeClient();
@@ -219,6 +280,8 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       },
       period: data.period,
       scheme: data.scheme,
+      trial: data.trial,
+      source: data.source,
     });
   });
 
@@ -423,35 +486,6 @@ export const canStartTrial = createServerFn({ method: "POST" }).handler(
     }
 
     return data?.canStartTrial ?? false;
-  },
-);
-
-export const startTrial = createServerFn({ method: "POST" }).handler(
-  async () => {
-    const supabase = getSupabaseServerClient();
-    const { data: sessionData } = await supabase.auth.getSession();
-
-    if (!sessionData.session) {
-      throw new Error("Unauthorized");
-    }
-
-    const client = createClient({
-      baseUrl: env.VITE_API_URL,
-      headers: {
-        Authorization: `Bearer ${sessionData.session.access_token}`,
-      },
-    });
-
-    const { data, error } = await startTrialApi({
-      client,
-      query: { interval: "monthly" },
-    });
-
-    if (error) {
-      throw new Error("Failed to start trial");
-    }
-
-    return { started: data?.started ?? false };
   },
 );
 

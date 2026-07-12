@@ -12,6 +12,7 @@ import {
 
 import { canStartTrial as canStartTrialApi } from "@hypr/api-client";
 import { createClient } from "@hypr/api-client/client";
+import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 import { commands as authCommands } from "@hypr/plugin-auth";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
 import { openUrlWithInstruction } from "@hypr/plugin-windows";
@@ -22,6 +23,7 @@ import {
 } from "@hypr/supabase";
 
 import { TrialEndedDialog } from "../billing/trial-ended-dialog";
+import { TrialPaymentReminderDialog } from "../billing/trial-payment-reminder-dialog";
 import { TrialStartedDialog } from "../billing/trial-started-dialog";
 import { env } from "../env";
 import { configurePaidSettings } from "../shared/config/configure-paid-settings";
@@ -59,6 +61,8 @@ const BillingContext = createContext<BillingContextValue | null>(null);
 
 const TRIAL_STARTED_SEEN_PREFIX = "anarlog:trial_started_seen:";
 const TRIAL_ENDED_SEEN_PREFIX = "anarlog:trial_ended_seen:";
+const TRIAL_PAYMENT_REMINDER_SEEN_PREFIX =
+  "anarlog:trial_payment_reminder_seen:";
 
 function readSeen(key: string): boolean {
   try {
@@ -123,8 +127,32 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     ],
   );
 
-  const upgradeToPro = useCallback(async () => {
-    const url = await buildWebAppUrl("/app/checkout", { period: "monthly" });
+  const openUpgrade = useCallback(
+    async (source: "feature_gate" | "trial_ended") => {
+      void analyticsCommands.event({
+        event: "upgrade_clicked",
+        plan: "pro",
+        period: "monthly",
+        source,
+      });
+
+      const url = await buildWebAppUrl("/app/checkout", {
+        period: "monthly",
+        source,
+      });
+      await openUrlWithInstruction(url, "billing", (u) =>
+        openerCommands.openUrl(u, null),
+      );
+    },
+    [],
+  );
+
+  const upgradeToPro = useCallback(() => {
+    void openUpgrade("feature_gate");
+  }, [openUpgrade]);
+
+  const openBillingPortal = useCallback(async () => {
+    const url = await buildWebAppUrl("/app/portal");
     await openUrlWithInstruction(url, "billing", (u) =>
       openerCommands.openUrl(u, null),
     );
@@ -156,6 +184,10 @@ export function BillingProvider({ children }: { children: ReactNode }) {
   }, [billing.isPaid, isReady]);
 
   const [trialStartedOpen, setTrialStartedOpen] = useState(false);
+  const [trialPaymentReminderOpen, setTrialPaymentReminderOpen] =
+    useState(false);
+  const [trialPaymentReminderThreshold, setTrialPaymentReminderThreshold] =
+    useState<3 | 7 | null>(null);
   const [trialEndedOpen, setTrialEndedOpen] = useState(false);
   const [trialEligibilityRefreshedUserId, setTrialEligibilityRefreshedUserId] =
     useState<string | null>(null);
@@ -173,6 +205,29 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       if (!readSeen(key)) {
         setTrialStartedOpen(true);
         markSeen(key);
+        return;
+      }
+
+      const daysRemaining = billing.trialDaysRemaining;
+      const reminderThreshold =
+        daysRemaining != null && daysRemaining <= 3
+          ? 3
+          : daysRemaining != null && daysRemaining <= 7
+            ? 7
+            : null;
+
+      if (reminderThreshold) {
+        const reminderKey = `${TRIAL_PAYMENT_REMINDER_SEEN_PREFIX}${userId}:${reminderThreshold}`;
+        if (!readSeen(reminderKey)) {
+          setTrialPaymentReminderThreshold(reminderThreshold);
+          setTrialPaymentReminderOpen(true);
+          markSeen(reminderKey);
+          void analyticsCommands.event({
+            event: "trial_payment_reminder_shown",
+            days_remaining: daysRemaining,
+            reminder_threshold: reminderThreshold,
+          });
+        }
       }
       return;
     }
@@ -213,6 +268,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
   }, [
     auth?.session?.user.id,
     billing.isTrialing,
+    billing.trialDaysRemaining,
     hasTrial,
     billing.isPaid,
     isReady,
@@ -240,10 +296,23 @@ export function BillingProvider({ children }: { children: ReactNode }) {
         onOpenChange={setTrialStartedOpen}
         trialDaysRemaining={billing.trialDaysRemaining}
       />
+      <TrialPaymentReminderDialog
+        open={trialPaymentReminderOpen}
+        onOpenChange={setTrialPaymentReminderOpen}
+        daysRemaining={billing.trialDaysRemaining ?? 0}
+        onAddPaymentMethod={() => {
+          void analyticsCommands.event({
+            event: "trial_payment_method_clicked",
+            days_remaining: billing.trialDaysRemaining,
+            reminder_threshold: trialPaymentReminderThreshold,
+          });
+          void openBillingPortal();
+        }}
+      />
       <TrialEndedDialog
         open={trialEndedOpen}
         onOpenChange={setTrialEndedOpen}
-        onUpgrade={upgradeToPro}
+        onUpgrade={() => void openUpgrade("trial_ended")}
       />
     </BillingContext.Provider>
   );

@@ -27,6 +27,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: superfly/flyctl-actions/setup-flyctl@master
+      - uses: ./.github/actions/infisical_install
+      - run: |
+          set -euo pipefail
+
+          posthog_api_key="$(
+            infisical secrets get POSTHOG_API_KEY \
+              --token="$INFISICAL_TOKEN" \
+              --env=prod \
+              --projectId="$INFISICAL_PROJECT_ID" \
+              --path=/anarlog/ai \
+              --output=json |
+              python3 -c 'import json, sys; print(json.load(sys.stdin)[0]["secretValue"])'
+          )"
+          flyctl secrets set POSTHOG_API_KEY="$posthog_api_key" --stage --app hyprnote-stripe
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          INFISICAL_TOKEN: ${{ secrets.INFISICAL_TOKEN }}
+          INFISICAL_PROJECT_ID: ${{ secrets.INFISICAL_PROJECT_ID }}
       - run: flyctl deploy --config apps/stripe/fly.toml --dockerfile apps/stripe/Dockerfile --remote-only
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

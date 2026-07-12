@@ -50,7 +50,7 @@ export async function syncBillingBridge(event: Stripe.Event) {
 const isCustomerEvent = (eventType: string) =>
   CUSTOMER_EVENTS.includes(eventType as Stripe.Event.Type);
 
-const getCustomerId = (
+export const getCustomerId = (
   eventObject: Stripe.Event.Data.Object,
 ): string | null => {
   const obj = eventObject as {
@@ -73,7 +73,7 @@ const getCustomerId = (
   return null;
 };
 
-const getStripeCustomer = async (customerId: string) => {
+export const getStripeCustomer = async (customerId: string) => {
   const customer = await stripe.customers.retrieve(customerId);
 
   if (isDeletedCustomer(customer)) {
@@ -88,7 +88,9 @@ const isDeletedCustomer = (
 ): customer is Stripe.DeletedCustomer =>
   "deleted" in customer && customer.deleted === true;
 
-const getUserIdFromCustomer = (customer: Stripe.Customer): string | null => {
+export const getUserIdFromCustomer = (
+  customer: Stripe.Customer,
+): string | null => {
   const metadata = customer.metadata ?? {};
 
   return (

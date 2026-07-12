@@ -9,8 +9,6 @@ import {
   useState,
 } from "react";
 
-import { startTrial } from "@hypr/api-client";
-import { createClient } from "@hypr/api-client/client";
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
 import { openUrlWithInstruction } from "@hypr/plugin-windows";
@@ -26,9 +24,7 @@ import { cn } from "@hypr/utils";
 
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing";
-import { env } from "~/env";
 import { SettingsPageTitle } from "~/settings/page-title";
-import { waitForBillingUpdate } from "~/shared/billing";
 import { buildWebAppUrl } from "~/shared/utils";
 
 export function SettingsAccount() {
@@ -176,30 +172,7 @@ function PlanBillingSection({
   isPaid: boolean;
 }) {
   const { t } = useLingui();
-  const auth = useAuth();
   const { canStartTrial: canStartTrialQuery } = useBillingAccess();
-
-  const startTrialMutation = useMutation({
-    mutationFn: async () => {
-      const headers = auth?.getHeaders();
-      if (!headers) {
-        throw new Error("Not authenticated");
-      }
-      const client = createClient({ baseUrl: env.VITE_API_URL, headers });
-      const { error } = await startTrial({
-        client,
-        query: { interval: "monthly" },
-      });
-      if (error) {
-        throw error;
-      }
-    },
-    onSuccess: async () => {
-      await waitForBillingUpdate(
-        () => auth?.refreshSession() ?? Promise.resolve(),
-      );
-    },
-  });
 
   const [actionPending, setActionPending] = useState(false);
 
@@ -299,7 +272,19 @@ function PlanBillingSection({
 
     const handleClick = async () => {
       if (action.label === "Start free trial") {
-        startTrialMutation.mutate();
+        void analyticsCommands.event({
+          event: "trial_checkout_started",
+          plan: "pro",
+          period: "monthly",
+          source: "settings",
+        });
+
+        const url = await buildWebAppUrl("/app/checkout", {
+          period: "monthly",
+          trial: "true",
+          source: "settings",
+        });
+        await openBillingUrl(url);
         return;
       }
       if (!action.targetPlan) return;
@@ -307,21 +292,20 @@ function PlanBillingSection({
       void analyticsCommands.event({
         event: "upgrade_clicked",
         plan: action.targetPlan,
+        period: "monthly",
+        source: "settings",
       });
 
       const url = await buildWebAppUrl("/app/checkout", {
         plan: action.targetPlan,
         period: "monthly",
+        source: "settings",
       });
       await openBillingUrl(url);
     };
 
-    const isBusy = actionPending || startTrialMutation.isPending;
-
-    const label =
-      action.label === "Start free trial" && startTrialMutation.isPending
-        ? t`Loading...`
-        : action.label;
+    const isBusy = actionPending;
+    const label = action.label;
 
     if (compact) {
       return (

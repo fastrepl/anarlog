@@ -17,6 +17,15 @@ const validateSearch = z
     success: z.coerce.boolean(),
     trial: z.enum(["started"]),
     scheme: desktopSchemeSchema,
+    checkout: z.enum(["trial", "paid", "canceled", "failed"]),
+    checkout_type: z.enum(["trial", "paid"]),
+    source: z.enum([
+      "onboarding",
+      "settings",
+      "trial_ended",
+      "feature_gate",
+      "unknown",
+    ]),
   })
   .partial();
 
@@ -29,10 +38,16 @@ export const Route = createFileRoute("/_view/app/account")({
 function Component() {
   const { user } = Route.useLoaderData();
   const search = Route.useSearch();
-  const { identify: identifyPosthog } = useAnalytics();
+  const { identify: identifyPosthog, track } = useAnalytics();
 
   useEffect(() => {
     if (!search.success && search.trial !== "started") {
+      if (search.checkout === "canceled" || search.checkout === "failed") {
+        track(`checkout_${search.checkout}`, {
+          checkout_type: search.checkout_type ?? "unknown",
+          entry_source: search.source ?? "unknown",
+        });
+      }
       return;
     }
 
@@ -63,7 +78,16 @@ function Component() {
     };
 
     void syncBillingAnalytics();
-  }, [identifyPosthog, search.scheme, search.success, search.trial]);
+  }, [
+    identifyPosthog,
+    search.checkout,
+    search.checkout_type,
+    search.scheme,
+    search.source,
+    search.success,
+    search.trial,
+    track,
+  ]);
 
   return (
     <div>
