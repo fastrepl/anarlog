@@ -25,7 +25,7 @@ export function AudioDropTarget({
           role="status"
           className={cn([
             "pointer-events-none absolute inset-0 z-30 flex items-center justify-center rounded-lg border border-dashed",
-            "border-border/70 bg-background/90 text-muted-foreground dark:bg-background/85 shadow-inner backdrop-blur-[1px]",
+            "border-border/70 bg-background text-muted-foreground shadow-inner",
             "[background-image:radial-gradient(circle_at_center,_rgba(113,113,122,0.34)_1px,_transparent_1px)]",
             "[background-size:18px_18px]",
           ])}

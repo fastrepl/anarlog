@@ -317,7 +317,7 @@ const NoteInputContent = forwardRef<
               "pt-2",
               renderedCurrentTab.type === "transcript"
                 ? "overflow-hidden pb-0"
-                : "scroll-fade-y overflow-auto pb-6",
+                : "overflow-auto pb-6",
             ])}
           >
             {renderedCurrentTab.type === "enhanced" && (
