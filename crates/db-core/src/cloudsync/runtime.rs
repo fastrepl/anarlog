@@ -47,6 +47,7 @@ impl Db {
     }
 
     pub async fn cloudsync_start(&self) -> Result<(), CloudsyncRuntimeError> {
+        let _lifecycle = self.cloudsync_lifecycle.lock().await;
         if !self.cloudsync_enabled {
             let mut runtime = self.cloudsync_runtime.lock().unwrap();
             runtime.running = false;
@@ -67,18 +68,27 @@ impl Db {
         };
 
         for table in config.enabled_tables() {
-            self.cloudsync_init(
-                &table.table_name,
-                table.crdt_algo.as_deref(),
-                table.init_flags,
-            )
-            .await?;
+            if let Err(error) = self
+                .cloudsync_init(
+                    &table.table_name,
+                    table.crdt_algo.as_deref(),
+                    table.init_flags,
+                )
+                .await
+            {
+                self.cleanup_failed_cloudsync_start(false).await;
+                return Err(error.into());
+            }
         }
 
-        self.cloudsync_network_init(&config.connection_string)
-            .await?;
-        self.apply_cloudsync_auth(&config.auth).await?;
-
+        if let Err(error) = self.cloudsync_network_init(&config.connection_string).await {
+            self.cleanup_failed_cloudsync_start(true).await;
+            return Err(error.into());
+        }
+        if let Err(error) = self.apply_cloudsync_auth(&config.auth).await {
+            self.cleanup_failed_cloudsync_start(true).await;
+            return Err(error.into());
+        }
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
         let pool = self.pool.clone();
         let connection = Arc::clone(&self.cloudsync_connection);
@@ -114,6 +124,7 @@ impl Db {
     }
 
     pub async fn cloudsync_stop(&self) -> Result<(), CloudsyncRuntimeError> {
+        let _lifecycle = self.cloudsync_lifecycle.lock().await;
         let should_cleanup = self.stop_cloudsync_task().await;
 
         if !self.cloudsync_enabled {
@@ -142,34 +153,61 @@ impl Db {
         &self,
         discard_unsent_changes: bool,
     ) -> Result<(), CloudsyncRuntimeError> {
+        let _lifecycle = self.cloudsync_lifecycle.lock().await;
         let network_initialized = self.cloudsync_runtime.lock().unwrap().network_initialized;
 
-        if !self.cloudsync_enabled || !network_initialized {
+        if !self.cloudsync_enabled {
             self.cloudsync_runtime.lock().unwrap().config = None;
             return Ok(());
         }
 
-        let has_unsent_changes = self.cloudsync_network_has_unsent_changes().await?;
+        let has_unsent_changes =
+            network_initialized && self.cloudsync_network_has_unsent_changes().await?;
         if has_unsent_changes && !discard_unsent_changes {
             return Err(CloudsyncRuntimeError::UnsentChanges);
         }
 
         self.stop_cloudsync_task().await;
-        self.cloudsync_network_logout().await?;
-        self.cloudsync_network_cleanup().await?;
-        if self.has_cloudsync() {
-            self.cloudsync_terminate().await?;
-        }
+        let logout_result = if network_initialized {
+            self.cloudsync_network_logout().await
+        } else {
+            Ok(())
+        };
+        let cleanup_result = self.cloudsync_network_cleanup().await;
+        let terminate_result = if self.has_cloudsync() {
+            self.cloudsync_terminate().await
+        } else {
+            Ok(())
+        };
         self.cloudsync_connection.lock().await.take();
 
+        let logout_error = logout_result
+            .as_ref()
+            .err()
+            .map(|error| (error.to_string(), error.kind()));
+
         let mut runtime = self.cloudsync_runtime.lock().unwrap();
-        runtime.config = None;
         runtime.network_initialized = false;
-        runtime.last_sync = None;
-        runtime.last_sync_at_ms = None;
-        runtime.last_error = None;
-        runtime.last_error_kind = None;
-        runtime.consecutive_failures = 0;
+        if let Some((error, kind)) = logout_error {
+            runtime.last_error = Some(error);
+            runtime.last_error_kind = Some(kind);
+        } else {
+            runtime.config = None;
+            runtime.last_sync = None;
+            runtime.last_sync_at_ms = None;
+            runtime.last_error = None;
+            runtime.last_error_kind = None;
+            runtime.consecutive_failures = 0;
+        }
+        drop(runtime);
+
+        logout_result?;
+        if network_initialized {
+            cleanup_result?;
+        } else if let Err(error) = cleanup_result {
+            tracing::warn!(%error, "cloudsync cleanup after partial startup failed");
+        }
+        terminate_result?;
         Ok(())
     }
 
@@ -268,15 +306,154 @@ impl Db {
 
         network_initialized
     }
+
+    async fn cleanup_failed_cloudsync_start(&self, cleanup_network: bool) {
+        if cleanup_network && let Err(error) = self.cloudsync_network_cleanup().await {
+            tracing::warn!(%error, "cloudsync cleanup after failed startup failed");
+        }
+        if self.has_cloudsync()
+            && let Err(error) = self.cloudsync_terminate().await
+        {
+            tracing::warn!(%error, "cloudsync termination after failed startup failed");
+        }
+        self.cloudsync_connection.lock().await.take();
+
+        let mut runtime = self.cloudsync_runtime.lock().unwrap();
+        runtime.running = false;
+        runtime.network_initialized = false;
+        runtime.task = None;
+    }
 }
 
 fn record_sync_result(runtime: &Mutex<CloudsyncRuntimeState>, result: CloudsyncNetworkResult) {
     let mut runtime = runtime.lock().unwrap();
     runtime.last_sync = Some(result);
+
+    if let Some(error) = runtime.last_sync.as_ref().and_then(embedded_sync_error) {
+        runtime.consecutive_failures = runtime.consecutive_failures.saturating_add(1);
+        runtime.last_error = Some(error);
+        runtime.last_error_kind = Some(hypr_cloudsync::ErrorKind::Fatal);
+        return;
+    }
+
     runtime.last_sync_at_ms = Some(now_ms());
     runtime.last_error = None;
     runtime.last_error_kind = None;
     runtime.consecutive_failures = 0;
+}
+
+fn embedded_sync_error(result: &CloudsyncNetworkResult) -> Option<String> {
+    let mut errors = Vec::new();
+
+    if let Some(send) = &result.send {
+        if !send.status.eq_ignore_ascii_case("synced")
+            && !send.status.eq_ignore_ascii_case("syncing")
+        {
+            errors.push(format!("send status: {}", send.status));
+        }
+        if let Some(last_failure) = &send.last_failure {
+            errors.push(format!("send failure: {last_failure}"));
+        }
+    }
+
+    if let Some(receive) = &result.receive {
+        if let Some(error) = &receive.error {
+            errors.push(format!("receive error: {error}"));
+        }
+        if let Some(last_failure) = &receive.last_failure {
+            errors.push(format!("receive failure: {last_failure}"));
+        }
+    }
+
+    (!errors.is_empty()).then(|| errors.join("; "))
+}
+
+#[cfg(test)]
+#[allow(clippy::items_after_test_module)]
+mod tests {
+    use super::*;
+
+    fn test_cloudsync_config() -> CloudsyncRuntimeConfig {
+        CloudsyncRuntimeConfig {
+            connection_string: "sqlitecloud://demo.invalid/app.db?apikey=demo".to_string(),
+            auth: super::super::CloudsyncAuth::None,
+            tables: Vec::new(),
+            sync_interval_ms: 30_000,
+            wait_ms: Some(500),
+            max_retries: Some(1),
+        }
+    }
+
+    #[test]
+    fn embedded_sync_failures_update_runtime_error_state() {
+        let runtime = Mutex::new(CloudsyncRuntimeState::default());
+        let result = CloudsyncNetworkResult {
+            send: Some(hypr_cloudsync::NetworkSendResult {
+                status: "failed".to_string(),
+                local_version: 4,
+                server_version: 3,
+                last_failure: None,
+            }),
+            receive: Some(hypr_cloudsync::NetworkReceiveResult {
+                rows: 0,
+                tables: Vec::new(),
+                error: Some("schema mismatch".to_string()),
+                last_failure: None,
+            }),
+        };
+
+        record_sync_result(&runtime, result);
+
+        let runtime = runtime.lock().unwrap();
+        assert!(runtime.last_sync.is_some());
+        assert!(runtime.last_sync_at_ms.is_none());
+        assert_eq!(runtime.consecutive_failures, 1);
+        assert_eq!(
+            runtime.last_error_kind,
+            Some(hypr_cloudsync::ErrorKind::Fatal)
+        );
+        assert!(
+            runtime
+                .last_error
+                .as_deref()
+                .unwrap()
+                .contains("schema mismatch")
+        );
+    }
+
+    #[test]
+    fn embedded_sync_in_progress_does_not_update_runtime_error_state() {
+        let runtime = Mutex::new(CloudsyncRuntimeState::default());
+        let result = CloudsyncNetworkResult {
+            send: Some(hypr_cloudsync::NetworkSendResult {
+                status: "syncing".to_string(),
+                local_version: 4,
+                server_version: 3,
+                last_failure: None,
+            }),
+            receive: None,
+        };
+
+        record_sync_result(&runtime, result);
+
+        let runtime = runtime.lock().unwrap();
+        assert!(runtime.last_sync_at_ms.is_some());
+        assert!(runtime.last_error.is_none());
+        assert_eq!(runtime.consecutive_failures, 0);
+    }
+
+    #[tokio::test]
+    async fn logout_releases_connection_after_partial_startup() {
+        let mut db = Db::connect_memory_plain().await.unwrap();
+        db.cloudsync_enabled = true;
+        db.cloudsync_configure(test_cloudsync_config()).unwrap();
+        *db.cloudsync_connection.lock().await = Some(db.pool.acquire().await.unwrap());
+
+        db.cloudsync_logout(false).await.unwrap();
+
+        assert!(db.cloudsync_connection.lock().await.is_none());
+        assert!(db.cloudsync_runtime.lock().unwrap().config.is_none());
+    }
 }
 
 fn record_sync_error(runtime: &Mutex<CloudsyncRuntimeState>, error: &hypr_cloudsync::Error) {
@@ -285,7 +462,6 @@ fn record_sync_error(runtime: &Mutex<CloudsyncRuntimeState>, error: &hypr_clouds
     runtime.last_error = Some(error.to_string());
     runtime.last_error_kind = Some(error.kind());
 }
-
 const MAX_BACKOFF_SECS: u64 = 300;
 
 async fn cloudsync_background_loop(

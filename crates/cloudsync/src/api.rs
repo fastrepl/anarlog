@@ -20,7 +20,7 @@ pub async fn init<'e, E>(
     init_flags: Option<i64>,
 ) -> Result<(), Error>
 where
-    E: Executor<'e, Database = Sqlite> + Copy,
+    E: Executor<'e, Database = Sqlite>,
 {
     match (crdt_algo, init_flags) {
         (None, None) => {
