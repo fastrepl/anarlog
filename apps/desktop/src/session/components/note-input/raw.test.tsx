@@ -248,6 +248,7 @@ describe("RawEditor", () => {
     expect(
       screen.getByText("Drop to upload and transcribe audio"),
     ).not.toBeNull();
+    expect(screen.getByRole("status").className).not.toContain("backdrop-blur");
     expect(
       screen.getByText("WAV, MP3, OGG, MP4, M4A, FLAC, WEBM, or AAC audio"),
     ).not.toBeNull();

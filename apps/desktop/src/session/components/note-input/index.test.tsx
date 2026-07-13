@@ -255,6 +255,9 @@ describe("NoteInput tab selection", () => {
     renderNoteInput();
 
     expect(
+      screen.getByTestId("raw-editor").parentElement?.className,
+    ).not.toContain("scroll-fade-y");
+    expect(
       hoisted.rawEditorProps[hoisted.rawEditorProps.length - 1],
     ).toMatchObject({
       rawMd: "stored memo",
