@@ -402,23 +402,35 @@ mod tests {
     }
 
     #[test]
-    fn cloudsync_registry_declares_domain_tables_disabled_until_sync_rollout() {
+    fn cloudsync_registry_enables_only_the_initial_meeting_slice() {
         let registry = cloudsync_table_registry();
+        let enabled: Vec<&str> = registry
+            .iter()
+            .filter(|table| table.enabled)
+            .map(|table| table.table_name.as_str())
+            .collect();
 
         assert_eq!(registry.len(), 17);
-        assert!(registry.iter().all(|table| !table.enabled));
-        assert!(registry.iter().any(|table| table.table_name == "sessions"));
-        assert!(
-            registry
-                .iter()
-                .any(|table| table.table_name == "session_documents")
+        assert_eq!(
+            enabled,
+            vec![
+                "action_items",
+                "humans",
+                "organizations",
+                "session_attachments",
+                "session_documents",
+                "session_participants",
+                "sessions",
+                "transcripts",
+            ]
         );
         assert!(
             !registry
                 .iter()
                 .any(|table| table.table_name == "migration_import_runs")
         );
-        assert!(!cloudsync_alter_guard_required("sessions"));
+        assert!(cloudsync_alter_guard_required("sessions"));
+        assert!(!cloudsync_alter_guard_required("calendars"));
     }
 
     #[tokio::test]
