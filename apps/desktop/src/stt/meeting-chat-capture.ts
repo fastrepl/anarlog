@@ -1,109 +1,138 @@
-import { parseJsonContent } from "@hypr/editor/markdown";
-import type { JSONContent } from "@hypr/editor/note";
 import { commands as detectCommands } from "@hypr/plugin-detect";
 import type { MeetingCapturedChatMessage } from "@hypr/plugin-detect";
 
-import {
-  appendRawNoteParagraphs,
-  getRawNoteEditorContent,
-} from "~/editor-bridge/raw-note-registry";
-import { appendSessionRawNote, updateSession } from "~/session/queries";
+import { showTransientToast } from "~/sidebar/toast/transient";
+import { persistMeetingChatRecords } from "~/stt/meeting-chat-records";
 
 const MEETING_CHAT_CAPTURE_INTERVAL_MS = 5_000;
-
-export function appendCapturedMeetingChatMessagesToRawMd(
-  rawMd: string | undefined,
-  messages: MeetingCapturedChatMessage[],
-  seenSignatures: ReadonlySet<string>,
-) {
-  const doc = parseJsonContent(rawMd);
-  const content = [...(doc.content ?? [])];
-  const existingLines = new Set(content.map(extractNoteText));
-  const pendingSignatures = new Set<string>();
-  const paragraphs: JSONContent[] = [];
-  const processedSignatures: string[] = [];
-
-  for (const message of messages) {
-    const signature = getCapturedMeetingChatSignature(message);
-    if (seenSignatures.has(signature) || pendingSignatures.has(signature)) {
-      continue;
-    }
-
-    const paragraph = buildCapturedMeetingChatParagraph(message);
-    const line = extractNoteText(paragraph);
-    if (existingLines.has(line)) {
-      processedSignatures.push(signature);
-      continue;
-    }
-
-    pendingSignatures.add(signature);
-    paragraphs.push(paragraph);
-    processedSignatures.push(signature);
-  }
-
-  if (paragraphs.length === 0) {
-    return {
-      rawMd: rawMd ?? JSON.stringify(doc),
-      appended: 0,
-      paragraphs,
-      processedSignatures,
-    };
-  }
-
-  return {
-    rawMd: JSON.stringify({
-      ...doc,
-      content: [...content, ...paragraphs],
-    }),
-    appended: paragraphs.length,
-    paragraphs,
-    processedSignatures,
-  };
-}
+const SUPPORTED_MEETING_CHAT_BUNDLE_IDS = new Set([
+  "us.zoom.xos",
+  "com.tinyspeck.slackmacgap",
+]);
 
 export function startMeetingChatCapture({
   sessionId,
-  bundleIds,
+  isEnabled,
+  excludedTexts = [],
 }: {
   sessionId: string;
-  bundleIds: string[];
+  isEnabled: () => boolean;
+  excludedTexts?: string[];
 }) {
+  const excludedMessages = new Set(excludedTexts.map(normalizeMessageText));
   const seenSignatures = new Set<string>();
+  let baselineBundleId: string | null = null;
   let stopped = false;
   let inFlight = false;
+  let lastWarning = "";
 
   const capture = async () => {
     if (stopped || inFlight) {
       return;
     }
+    if (!isEnabled()) {
+      baselineBundleId = null;
+      return;
+    }
 
     inFlight = true;
     try {
-      const result = await detectCommands.captureMeetingChatMessages(bundleIds);
-      if (stopped) {
+      const applications = await detectCommands.listMicUsingApplications();
+      if (stopped || !isEnabled()) {
+        baselineBundleId = null;
         return;
       }
-      if (result.status === "error") {
-        console.warn("[listener] failed to capture meeting chat", result.error);
-        return;
-      }
-      if (result.data.messages.length === 0) {
+      if (applications.status === "error") {
+        baselineBundleId = null;
+        console.warn(
+          "[listener] failed to identify active meeting app",
+          applications.error,
+        );
         return;
       }
 
-      const processedSignatures = await persistCapturedMeetingChatMessages({
-        sessionId,
-        messages: result.data.messages,
-        seenSignatures,
-        isStopped: () => stopped,
-      });
-      if (stopped) {
+      const bundleIds = [
+        ...new Set(
+          applications.data
+            .map((app) => app.id)
+            .filter((bundleId) =>
+              SUPPORTED_MEETING_CHAT_BUNDLE_IDS.has(bundleId),
+            ),
+        ),
+      ];
+      if (bundleIds.length !== 1) {
+        baselineBundleId = null;
         return;
       }
-      for (const signature of processedSignatures) {
+
+      const bundleId = bundleIds[0];
+      const result = await detectCommands.captureMeetingChatMessages([
+        bundleId,
+      ]);
+      if (stopped || !isEnabled()) {
+        baselineBundleId = null;
+        return;
+      }
+      if (result.status === "error") {
+        baselineBundleId = null;
+        console.warn("[listener] failed to capture meeting chat", result.error);
+        return;
+      }
+
+      showCaptureWarning(result.data.warnings, lastWarning);
+      lastWarning = result.data.warnings.join("\n");
+
+      if (result.data.app?.id !== bundleId) {
+        baselineBundleId = null;
+        return;
+      }
+
+      const messages = result.data.messages.filter(
+        (message) => !excludedMessages.has(normalizeMessageText(message.text)),
+      );
+      if (baselineBundleId !== bundleId) {
+        baselineBundleId = bundleId;
+        for (const message of messages) {
+          seenSignatures.add(getCapturedMeetingChatSignature(message));
+        }
+        return;
+      }
+
+      const pendingSignatures = new Set<string>();
+      const entries = messages.flatMap((message) => {
+        const sourceSignature = getCapturedMeetingChatSignature(message);
+        if (
+          seenSignatures.has(sourceSignature) ||
+          pendingSignatures.has(sourceSignature)
+        ) {
+          return [];
+        }
+
+        pendingSignatures.add(sourceSignature);
+        return [{ message, sourceSignature }];
+      });
+      if (entries.length === 0) {
+        return;
+      }
+
+      let persistedSignatures: string[];
+      try {
+        persistedSignatures = await persistMeetingChatRecords({
+          sessionId,
+          entries,
+        });
+      } catch (error) {
+        console.warn("[listener] failed to persist meeting chat", error);
+        return;
+      }
+      if (stopped || !isEnabled()) {
+        return;
+      }
+      for (const signature of persistedSignatures) {
         seenSignatures.add(signature);
       }
     } catch (error) {
+      baselineBundleId = null;
       console.warn("[listener] failed to capture meeting chat", error);
     } finally {
       inFlight = false;
@@ -121,127 +150,24 @@ export function startMeetingChatCapture({
   };
 }
 
-async function persistCapturedMeetingChatMessages({
-  sessionId,
-  messages,
-  seenSignatures,
-  isStopped,
-}: {
-  sessionId: string;
-  messages: MeetingCapturedChatMessage[];
-  seenSignatures: ReadonlySet<string>;
-  isStopped: () => boolean;
-}) {
-  const editorContent = getRawNoteEditorContent(sessionId);
-  if (editorContent) {
-    const next = appendCapturedMeetingChatMessagesToRawMd(
-      JSON.stringify(editorContent),
-      messages,
-      seenSignatures,
-    );
-    if (next.appended === 0) {
-      return next.processedSignatures;
-    }
-    if (isStopped()) {
-      return [];
-    }
-
-    const editorResult = appendRawNoteParagraphs(sessionId, next.paragraphs);
-    if (editorResult.status === "deferred") {
-      return [];
-    }
-    if (editorResult.status === "updated") {
-      try {
-        await updateSession(sessionId, { raw_md: editorResult.rawMd });
-      } catch (error) {
-        console.warn(
-          "[listener] failed to persist captured meeting chat",
-          error,
-        );
-      }
-      return next.processedSignatures;
-    }
+function showCaptureWarning(warnings: string[], previousWarning: string) {
+  const warning = warnings.join("\n");
+  if (warning && warning !== previousWarning) {
+    console.warn("[listener] meeting chat capture warning", warning);
   }
-
-  let processedSignatures: string[] = [];
-  await appendSessionRawNote(sessionId, (rawMd) => {
-    if (isStopped()) {
-      return null;
-    }
-
-    const next = appendCapturedMeetingChatMessagesToRawMd(
-      rawMd,
-      messages,
-      seenSignatures,
+  if (
+    warning.includes("accessibility permission") &&
+    warning !== previousWarning
+  ) {
+    showTransientToast(
+      {
+        id: "meeting-chat-capture-warning",
+        description:
+          "Meeting chat capture needs Accessibility permission in Settings",
+        variant: "warning",
+      },
+      { durationMs: 6_000 },
     );
-    processedSignatures = next.processedSignatures;
-    return next.appended > 0 ? next.rawMd : null;
-  });
-  return processedSignatures;
-}
-
-function buildCapturedMeetingChatParagraph(
-  message: MeetingCapturedChatMessage,
-): JSONContent {
-  const platform = formatMeetingPlatform(message.platform);
-  const metadata = [message.timestamp, message.sender]
-    .filter((value): value is string => typeof value === "string" && !!value)
-    .join(" ");
-  const prefix = metadata
-    ? `[${platform} chat] ${metadata}: `
-    : `[${platform} chat] `;
-
-  return {
-    type: "paragraph",
-    content: [
-      { type: "text", text: prefix },
-      ...buildLinkedText(message.text, message.links),
-    ],
-  };
-}
-
-function buildLinkedText(text: string, links: string[]): JSONContent[] {
-  const uniqueLinks = [...new Set(links.filter(Boolean))];
-  const content: JSONContent[] = [];
-  let cursor = 0;
-
-  while (cursor < text.length) {
-    const nextLink = uniqueLinks
-      .map((link) => ({ link, index: text.indexOf(link, cursor) }))
-      .filter(({ index }) => index >= 0)
-      .sort((left, right) => left.index - right.index)[0];
-
-    if (!nextLink) {
-      content.push({ type: "text", text: text.slice(cursor) });
-      break;
-    }
-    if (nextLink.index > cursor) {
-      content.push({
-        type: "text",
-        text: text.slice(cursor, nextLink.index),
-      });
-    }
-    content.push({
-      type: "text",
-      text: nextLink.link,
-      marks: [{ type: "link", attrs: { href: nextLink.link } }],
-    });
-    cursor = nextLink.index + nextLink.link.length;
-  }
-
-  return content.length > 0 ? content : [{ type: "text", text }];
-}
-
-function formatMeetingPlatform(
-  platform: MeetingCapturedChatMessage["platform"],
-) {
-  switch (platform) {
-    case "zoom":
-      return "Zoom";
-    case "slack":
-      return "Slack";
-    default:
-      return "Meeting";
   }
 }
 
@@ -257,9 +183,6 @@ function getCapturedMeetingChatSignature(message: MeetingCapturedChatMessage) {
       ].join("\n");
 }
 
-function extractNoteText(node: JSONContent): string {
-  return [
-    node.text ?? "",
-    ...(node.content?.map((child) => extractNoteText(child)) ?? []),
-  ].join("");
+function normalizeMessageText(text: string) {
+  return text.replace(/\s+/g, " ").trim();
 }

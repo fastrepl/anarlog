@@ -1,5 +1,5 @@
 #[cfg(target_os = "macos")]
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 #[cfg(target_os = "macos")]
 use cidre::{arc, ax, cf, cg, ns};
@@ -76,6 +76,13 @@ pub enum MeetingSurface {
     Native,
     Web,
     Unknown,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum MeetingChatDirection {
+    Incoming,
+    Outgoing,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type, PartialEq)]
@@ -155,6 +162,7 @@ pub struct MeetingCapturedChatMessage {
     pub surface: MeetingSurface,
     pub sender: Option<String>,
     pub timestamp: Option<String>,
+    pub direction: Option<MeetingChatDirection>,
     pub text: String,
     pub links: Vec<String>,
 }
@@ -174,6 +182,7 @@ pub struct MeetingChatCaptureResult {
 struct AxNode {
     index: usize,
     role: Option<String>,
+    identifier: Option<String>,
     title: Option<String>,
     value: Option<String>,
     description: Option<String>,
@@ -182,6 +191,8 @@ struct AxNode {
     settable_value: bool,
     bounds: Option<AxRect>,
     text: String,
+    within_zoom_meeting_scope: bool,
+    within_zoom_chat_scope: bool,
     within_slack_huddle_scope: bool,
 }
 
@@ -467,12 +478,7 @@ fn select_active_bundle_ids(
 
 #[cfg(target_os = "macos")]
 fn zoom_chat_surface_is_visible(nodes: &[AxNode]) -> bool {
-    nodes.iter().any(|node| {
-        candidate_chat_target(node).is_some_and(|target| target.kind == "input" && target.settable)
-            || chat_message_text(node)
-                .and_then(|text| parse_zoom_chat_message(&text))
-                .is_some()
-    })
+    meeting_chat_surface_is_visible(&MeetingPlatform::Zoom, nodes)
 }
 
 #[cfg(target_os = "macos")]
@@ -1393,13 +1399,15 @@ fn collect_nodes(
     nodes: &mut Vec<AxNode>,
     warnings: &mut Vec<String>,
 ) {
-    collect_nodes_with_scope(element, depth, false, nodes, warnings);
+    collect_nodes_with_scope(element, depth, false, false, false, nodes, warnings);
 }
 
 #[cfg(target_os = "macos")]
 fn collect_nodes_with_scope(
     element: &ax::UiElement,
     depth: usize,
+    within_zoom_meeting_scope: bool,
+    within_zoom_chat_scope: bool,
     within_slack_huddle_scope: bool,
     nodes: &mut Vec<AxNode>,
     warnings: &mut Vec<String>,
@@ -1410,7 +1418,11 @@ fn collect_nodes_with_scope(
 
     let index = nodes.len();
     let mut node = snapshot_node(element, index);
+    let within_zoom_meeting_scope = within_zoom_meeting_scope || is_zoom_meeting_scope_node(&node);
+    let within_zoom_chat_scope = within_zoom_chat_scope || is_zoom_chat_scope_node(&node);
     let within_slack_huddle_scope = within_slack_huddle_scope || is_slack_huddle_scope_node(&node);
+    node.within_zoom_meeting_scope = within_zoom_meeting_scope;
+    node.within_zoom_chat_scope = within_zoom_chat_scope;
     node.within_slack_huddle_scope = within_slack_huddle_scope;
     nodes.push(node);
 
@@ -1425,13 +1437,22 @@ fn collect_nodes_with_scope(
             return;
         }
 
-        collect_nodes_with_scope(child, depth + 1, within_slack_huddle_scope, nodes, warnings);
+        collect_nodes_with_scope(
+            child,
+            depth + 1,
+            within_zoom_meeting_scope,
+            within_zoom_chat_scope,
+            within_slack_huddle_scope,
+            nodes,
+            warnings,
+        );
     }
 }
 
 #[cfg(target_os = "macos")]
 fn snapshot_node(element: &ax::UiElement, index: usize) -> AxNode {
     let role = element.role().ok().map(|role| role.to_string());
+    let identifier = string_attr(element, ax::attr::id());
     let title = string_attr(element, ax::attr::title());
     let value = string_attr(element, ax::attr::value());
     let description = string_attr(element, ax::attr::desc());
@@ -1456,6 +1477,7 @@ fn snapshot_node(element: &ax::UiElement, index: usize) -> AxNode {
     AxNode {
         index,
         role,
+        identifier,
         title,
         value,
         description,
@@ -1464,6 +1486,8 @@ fn snapshot_node(element: &ax::UiElement, index: usize) -> AxNode {
         settable_value,
         bounds,
         text,
+        within_zoom_meeting_scope: false,
+        within_zoom_chat_scope: false,
         within_slack_huddle_scope: false,
     }
 }
@@ -2120,22 +2144,39 @@ fn find_chat_targets(nodes: &[AxNode]) -> Vec<MeetingChatTarget> {
 }
 
 #[cfg(target_os = "macos")]
+fn is_zoom_meeting_scope_node(node: &AxNode) -> bool {
+    if node.role.as_deref() != Some("AXWindow") {
+        return false;
+    }
+
+    let title = node.title.as_deref().unwrap_or_default().to_lowercase();
+    title.contains("zoom meeting")
+}
+
+#[cfg(target_os = "macos")]
+fn is_zoom_chat_scope_node(node: &AxNode) -> bool {
+    if node.identifier.as_deref() == Some("ZMTextMessageCellView") {
+        return true;
+    }
+
+    node.role.as_deref() == Some("AXTable") && chat_scope_label(node).contains("chat list")
+}
+
+#[cfg(target_os = "macos")]
 fn slack_huddle_is_active(nodes: &[AxNode]) -> bool {
     nodes.iter().any(|node| {
         let role = node.role.as_deref().unwrap_or_default();
-        let label = slack_huddle_label(node);
+        let label = chat_scope_label(node);
 
-        matches!(role, "AXButton" | "AXMenuItem" | "AXGroup")
-            && (label.contains("leave huddle")
-                || label.contains("end huddle")
-                || label.contains("huddle controls"))
+        matches!(role, "AXButton" | "AXMenuItem")
+            && (label.starts_with("leave huddle") || label.starts_with("end huddle"))
     })
 }
 
 #[cfg(target_os = "macos")]
 fn is_slack_huddle_scope_node(node: &AxNode) -> bool {
     let role = node.role.as_deref().unwrap_or_default();
-    let label = slack_huddle_label(node);
+    let label = chat_scope_label(node);
     let is_huddle_chat_label = label == "huddle"
         || label.contains("huddle chat")
         || label.contains("huddle thread")
@@ -2153,7 +2194,7 @@ fn is_slack_huddle_scope_node(node: &AxNode) -> bool {
 }
 
 #[cfg(target_os = "macos")]
-fn slack_huddle_label(node: &AxNode) -> String {
+fn chat_scope_label(node: &AxNode) -> String {
     [
         node.title.as_deref(),
         node.value.as_deref(),
@@ -2168,6 +2209,36 @@ fn slack_huddle_label(node: &AxNode) -> String {
 }
 
 #[cfg(target_os = "macos")]
+fn meeting_chat_surface_is_visible(platform: &MeetingPlatform, nodes: &[AxNode]) -> bool {
+    nodes.iter().any(|node| match platform {
+        MeetingPlatform::Zoom => {
+            node.within_zoom_meeting_scope
+                && (node.within_zoom_chat_scope || is_explicit_chat_input(node))
+        }
+        MeetingPlatform::Slack => node.within_slack_huddle_scope && is_chat_input(node),
+        _ => false,
+    })
+}
+
+#[cfg(target_os = "macos")]
+fn is_chat_input(node: &AxNode) -> bool {
+    candidate_chat_target(node).is_some_and(|target| target.kind == "input")
+}
+
+#[cfg(target_os = "macos")]
+fn is_explicit_chat_input(node: &AxNode) -> bool {
+    if !is_chat_input(node) {
+        return false;
+    }
+
+    let label = chat_scope_label(node);
+    label.contains("send a message")
+        || label.contains("message everyone")
+        || label.contains("type a message")
+        || label.contains("meeting chat")
+}
+
+#[cfg(target_os = "macos")]
 fn extract_chat_messages(
     platform: &MeetingPlatform,
     surface: &MeetingSurface,
@@ -2177,10 +2248,15 @@ fn extract_chat_messages(
         return Vec::new();
     }
 
-    let mut seen = HashSet::new();
+    let mut signature_counts = HashMap::<String, usize>::new();
     let mut messages = Vec::new();
 
     for node in nodes {
+        if *platform == MeetingPlatform::Zoom
+            && (!node.within_zoom_meeting_scope || !node.within_zoom_chat_scope)
+        {
+            continue;
+        }
         if *platform == MeetingPlatform::Slack && !node.within_slack_huddle_scope {
             continue;
         }
@@ -2198,14 +2274,14 @@ fn extract_chat_messages(
             parsed.timestamp.as_deref().unwrap_or_default(),
             parsed.text
         );
-        if !seen.insert(signature.clone()) {
-            continue;
-        }
+        let occurrence = signature_counts.entry(signature.clone()).or_default();
+        *occurrence += 1;
 
         messages.push(MeetingCapturedChatMessage {
-            id: format!("ax-chat-{signature}"),
+            id: format!("ax-chat-{signature}|occurrence={occurrence}"),
             platform: platform.clone(),
             surface: surface.clone(),
+            direction: meeting_chat_direction(platform, parsed.sender.as_deref()),
             sender: parsed.sender,
             timestamp: parsed.timestamp,
             links: extract_links(&parsed.text),
@@ -2217,6 +2293,25 @@ fn extract_chat_messages(
         messages.drain(..messages.len() - 80);
     }
     messages
+}
+
+#[cfg(target_os = "macos")]
+fn meeting_chat_direction(
+    platform: &MeetingPlatform,
+    sender: Option<&str>,
+) -> Option<MeetingChatDirection> {
+    if *platform != MeetingPlatform::Zoom {
+        return None;
+    }
+
+    sender.map(|sender| {
+        let sender = sender.trim().to_lowercase();
+        if matches!(sender.as_str(), "you" | "me") || sender.ends_with(" (you)") {
+            MeetingChatDirection::Outgoing
+        } else {
+            MeetingChatDirection::Incoming
+        }
+    })
 }
 
 #[cfg(target_os = "macos")]
@@ -2267,6 +2362,20 @@ fn parse_chat_message(platform: &MeetingPlatform, raw_text: &str) -> Option<Pars
 fn parse_zoom_chat_message(raw_text: &str) -> Option<ParsedChatMessage> {
     let lines = chat_lines(raw_text);
     let first = lines.first()?.as_str();
+
+    if lines.len() == 1 {
+        let (sender, message_and_time) = first.split_once(", ")?;
+        let (text, timestamp) = message_and_time.rsplit_once(", ")?;
+        if looks_like_time(timestamp) {
+            let text = text.trim();
+            return (!sender.trim().is_empty() && !text.is_empty()).then(|| ParsedChatMessage {
+                sender: non_empty_string(sender),
+                timestamp: Some(timestamp.trim().to_string()),
+                text: text.to_string(),
+            });
+        }
+    }
+
     if !first.starts_with("From ") {
         return None;
     }
@@ -2296,6 +2405,10 @@ fn parse_zoom_chat_message(raw_text: &str) -> Option<ParsedChatMessage> {
 #[cfg(target_os = "macos")]
 fn parse_slack_chat_message(raw_text: &str) -> Option<ParsedChatMessage> {
     let lines = chat_lines(raw_text);
+    if lines.len() == 1 {
+        return parse_slack_accessibility_description(&lines[0]);
+    }
+
     if lines.len() < 2 {
         return None;
     }
@@ -2319,6 +2432,35 @@ fn parse_slack_chat_message(raw_text: &str) -> Option<ParsedChatMessage> {
 }
 
 #[cfg(target_os = "macos")]
+fn parse_slack_accessibility_description(line: &str) -> Option<ParsedChatMessage> {
+    let line = line.trim().trim_end_matches('.');
+    let (sender, message_and_time) = line.split_once(": ")?;
+
+    for (separator, _) in message_and_time.rmatch_indices(". ") {
+        let text = message_and_time[..separator].trim();
+        let timestamp = message_and_time[separator + 2..].trim();
+        let Some((date, time)) = timestamp.rsplit_once(" at ") else {
+            continue;
+        };
+
+        if !sender.trim().is_empty()
+            && !text.is_empty()
+            && !date.trim().is_empty()
+            && looks_like_time(time)
+            && !is_chat_chrome_text(text)
+        {
+            return Some(ParsedChatMessage {
+                sender: non_empty_string(sender),
+                timestamp: Some(time.trim().to_string()),
+                text: text.to_string(),
+            });
+        }
+    }
+
+    None
+}
+
+#[cfg(target_os = "macos")]
 fn chat_lines(text: &str) -> Vec<String> {
     normalize_chat_text(text)
         .lines()
@@ -2330,7 +2472,7 @@ fn chat_lines(text: &str) -> Vec<String> {
 
 #[cfg(target_os = "macos")]
 fn normalize_chat_text(text: &str) -> String {
-    text.replace('\u{00a0}', " ")
+    text.replace(['\u{00a0}', '\u{202f}'], " ")
         .lines()
         .map(str::trim)
         .filter(|line| !line.is_empty())
@@ -2521,6 +2663,7 @@ mod tests {
         AxNode {
             index,
             role: Some(role.to_string()),
+            identifier: None,
             title: Some(title.to_string()),
             value: None,
             description: None,
@@ -2535,6 +2678,8 @@ mod tests {
                 &None,
                 &None,
             ),
+            within_zoom_meeting_scope: false,
+            within_zoom_chat_scope: false,
             within_slack_huddle_scope: false,
         }
     }
@@ -2548,6 +2693,13 @@ mod tests {
             path: path.to_vec(),
             labels: vec![label.to_string()],
         }
+    }
+
+    fn zoom_message_node(index: usize, text: &str) -> AxNode {
+        let mut node = node(index, "AXStaticText", text, None);
+        node.within_zoom_meeting_scope = true;
+        node.within_zoom_chat_scope = true;
+        node
     }
 
     #[test]
@@ -3056,6 +3208,52 @@ mod tests {
     }
 
     #[test]
+    fn test_visible_empty_chat_surface_can_establish_a_capture_baseline() {
+        let mut zoom_chat_list = node(4, "AXTable", "Chat list", None);
+        zoom_chat_list.within_zoom_meeting_scope = true;
+        zoom_chat_list.within_zoom_chat_scope = true;
+        assert!(meeting_chat_surface_is_visible(
+            &MeetingPlatform::Zoom,
+            &[zoom_chat_list],
+        ));
+
+        let mut zoom_rename_input = node(5, "AXTextField", "Display name", None);
+        zoom_rename_input.settable_value = true;
+        zoom_rename_input.within_zoom_meeting_scope = true;
+        zoom_rename_input.text = node_text(
+            &zoom_rename_input.role,
+            &zoom_rename_input.title,
+            &zoom_rename_input.value,
+            &zoom_rename_input.description,
+            &zoom_rename_input.placeholder,
+        );
+        assert!(!meeting_chat_surface_is_visible(
+            &MeetingPlatform::Zoom,
+            &[zoom_rename_input],
+        ));
+
+        let mut slack_input = node(6, "AXTextArea", "Message to test", None);
+        slack_input.settable_value = true;
+        slack_input.within_slack_huddle_scope = true;
+        slack_input.text = node_text(
+            &slack_input.role,
+            &slack_input.title,
+            &slack_input.value,
+            &slack_input.description,
+            &slack_input.placeholder,
+        );
+        assert!(meeting_chat_surface_is_visible(
+            &MeetingPlatform::Slack,
+            &[slack_input],
+        ));
+
+        assert!(!meeting_chat_surface_is_visible(
+            &MeetingPlatform::Slack,
+            &[node(7, "AXTextArea", "Search", None)],
+        ));
+    }
+
+    #[test]
     fn test_chat_button_is_open_chat_control_not_input() {
         let target = candidate_chat_target(&node(4, "AXButton", "Chat", None)).unwrap();
 
@@ -3082,6 +3280,94 @@ mod tests {
     }
 
     #[test]
+    fn test_zoom_chat_message_parser_handles_current_native_row_description() {
+        let parsed = parse_chat_message(
+            &MeetingPlatform::Zoom,
+            "You, ANLG-76 AX integration 5844 https://example.com/ax-test, 4:16\u{202f}PM",
+        )
+        .unwrap();
+
+        assert_eq!(parsed.sender, Some("You".to_string()));
+        assert_eq!(parsed.timestamp, Some("4:16 PM".to_string()));
+        assert_eq!(
+            parsed.text,
+            "ANLG-76 AX integration 5844 https://example.com/ax-test"
+        );
+        assert_eq!(
+            extract_links(&parsed.text),
+            vec!["https://example.com/ax-test"]
+        );
+    }
+
+    #[test]
+    fn test_zoom_chat_direction_uses_native_self_sender_label() {
+        assert_eq!(
+            meeting_chat_direction(&MeetingPlatform::Zoom, Some("You")),
+            Some(MeetingChatDirection::Outgoing)
+        );
+        assert_eq!(
+            meeting_chat_direction(&MeetingPlatform::Zoom, Some("Ada")),
+            Some(MeetingChatDirection::Incoming)
+        );
+        assert_eq!(
+            meeting_chat_direction(&MeetingPlatform::Slack, Some("You")),
+            None
+        );
+    }
+
+    #[test]
+    fn test_zoom_capture_requires_zoom_meeting_window_scope() {
+        assert!(is_zoom_meeting_scope_node(&node(
+            0,
+            "AXWindow",
+            "Zoom Meeting",
+            None,
+        )));
+        assert!(is_zoom_meeting_scope_node(&node(
+            1,
+            "AXWindow",
+            "John Jeong's Zoom Meeting",
+            None,
+        )));
+        assert!(!is_zoom_meeting_scope_node(&node(
+            2,
+            "AXWindow",
+            "Zoom Workplace",
+            None,
+        )));
+
+        let mut chat_row = node(3, "AXGroup", "You, meeting chat message, 4:16 PM", None);
+        chat_row.identifier = Some("ZMTextMessageCellView".to_string());
+        assert!(is_zoom_chat_scope_node(&chat_row));
+
+        let mut meeting_caption = node(
+            4,
+            "AXStaticText",
+            "Ada, confidential caption, 4:16 PM",
+            None,
+        );
+        meeting_caption.within_zoom_meeting_scope = true;
+        assert!(
+            extract_chat_messages(
+                &MeetingPlatform::Zoom,
+                &MeetingSurface::Native,
+                &[meeting_caption],
+            )
+            .is_empty()
+        );
+
+        let team_chat_message = node(3, "AXStaticText", "You, private team chat, 4:16 PM", None);
+        assert!(
+            extract_chat_messages(
+                &MeetingPlatform::Zoom,
+                &MeetingSurface::Native,
+                &[team_chat_message],
+            )
+            .is_empty()
+        );
+    }
+
+    #[test]
     fn test_slack_chat_message_parser_handles_sender_time_prefix() {
         let parsed = parse_chat_message(
             &MeetingPlatform::Slack,
@@ -3092,6 +3378,35 @@ mod tests {
         assert_eq!(parsed.sender, Some("Grace Hopper".to_string()));
         assert_eq!(parsed.timestamp, Some("9:03 PM".to_string()));
         assert_eq!(parsed.text, "Ship it after the final check");
+    }
+
+    #[test]
+    fn test_slack_chat_message_parser_handles_native_accessibility_description() {
+        let parsed = parse_chat_message(
+            &MeetingPlatform::Slack,
+            "John Jeong: @Artem lorem ipsum. Friday at 5:50\u{202f}PM.",
+        )
+        .unwrap();
+
+        assert_eq!(parsed.sender, Some("John Jeong".to_string()));
+        assert_eq!(parsed.timestamp, Some("5:50 PM".to_string()));
+        assert_eq!(parsed.text, "@Artem lorem ipsum");
+    }
+
+    #[test]
+    fn test_past_slack_huddle_thread_is_not_captured_without_active_huddle() {
+        let mut message = node(
+            0,
+            "AXGroup",
+            "John Jeong: @Artem lorem ipsum. Friday at 5:50 PM.",
+            None,
+        );
+        message.within_slack_huddle_scope = true;
+
+        assert!(
+            extract_chat_messages(&MeetingPlatform::Slack, &MeetingSurface::Native, &[message],)
+                .is_empty()
+        );
     }
 
     #[test]
@@ -3196,31 +3511,27 @@ mod tests {
     }
 
     #[test]
-    fn test_extract_chat_messages_dedupes_visible_rows() {
+    fn test_extract_chat_messages_keeps_repeated_source_rows_distinct() {
         let message = "From Ada Lovelace to Everyone\n10:42 AM\nDecision: keep the launch date";
         let nodes = vec![
-            node(12, "AXStaticText", message, None),
-            node(13, "AXStaticText", message, None),
+            zoom_message_node(12, message),
+            zoom_message_node(13, message),
         ];
 
         let messages =
             extract_chat_messages(&MeetingPlatform::Zoom, &MeetingSurface::Native, &nodes);
 
-        assert_eq!(messages.len(), 1);
+        assert_eq!(messages.len(), 2);
         assert_eq!(messages[0].sender, Some("Ada Lovelace".to_string()));
         assert_eq!(messages[0].text, "Decision: keep the launch date");
+        assert_ne!(messages[0].id, messages[1].id);
     }
 
     #[test]
     fn test_extract_chat_messages_retains_newest_eighty_rows() {
         let nodes = (0..85)
             .map(|index| {
-                node(
-                    index,
-                    "AXStaticText",
-                    &format!("From Ada to Everyone\nmessage {index}"),
-                    None,
-                )
+                zoom_message_node(index, &format!("From Ada to Everyone\nmessage {index}"))
             })
             .collect::<Vec<_>>();
 

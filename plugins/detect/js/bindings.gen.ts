@@ -210,6 +210,7 @@ export type MeetingCapturedChatMessage = {
   surface: MeetingSurface;
   sender: string | null;
   timestamp: string | null;
+  direction: MeetingChatDirection | null;
   text: string;
   links: string[];
 };
@@ -220,6 +221,7 @@ export type MeetingChatCaptureResult = {
   messages: MeetingCapturedChatMessage[];
   warnings: string[];
 };
+export type MeetingChatDirection = "incoming" | "outgoing";
 export type MeetingChatSendResult = {
   sent: boolean;
   app: MeetingApp | null;

@@ -12,14 +12,11 @@ import { cn } from "@hypr/utils";
 
 import { AudioDropTarget } from "./audio-drop-target";
 import { useNoteFileHandlerConfig } from "./file-handler";
+import { MeetingChatHighlights } from "./meeting-chat-highlights";
 
 import { AppLinkView } from "~/editor-bridge/app-link-view";
 import { useMentionConfig } from "~/editor-bridge/mention-config";
 import { openEditorLink } from "~/editor-bridge/open-editor-link";
-import {
-  registerRawNoteEditor,
-  unregisterRawNoteEditor,
-} from "~/editor-bridge/raw-note-registry";
 import { sessionMentionDropConfig } from "~/editor-bridge/session-mention-drop";
 import { SessionNodeView } from "~/editor-bridge/session-view";
 import { hasStoredNoteContent } from "~/session/components/shared";
@@ -112,45 +109,35 @@ export const RawEditor = forwardRef<
     );
 
     const mentionConfig = useMentionConfig();
-    const handleViewReady = useCallback(
-      (view: EditorView) => {
-        registerRawNoteEditor(sessionId, view);
-        onViewReady?.(view);
-      },
-      [onViewReady, sessionId],
-    );
-    const handleViewDisposed = useCallback(
-      (view: EditorView) => {
-        unregisterRawNoteEditor(sessionId, view);
-        onViewDisposed?.(view);
-      },
-      [onViewDisposed, sessionId],
-    );
-
     return (
       <AudioDropTarget
         targetProps={audioDropTargetProps}
         isActive={isAudioDragActive}
       >
-        <NoteEditor
-          ref={ref}
-          className={cn(["session-note-editor", className])}
-          key={`session-${sessionId}-raw`}
-          initialContent={initialContent}
-          handleChange={handleChange}
-          mentionConfig={mentionConfig}
-          sessionMentionDropConfig={sessionMentionDropConfig}
-          onNavigateToTitle={onNavigateToTitle}
-          onLinkOpen={openEditorLink}
-          fileHandlerConfig={fileHandlerConfig}
-          taskSource={
-            syncTasks ? { type: "session_raw_note", id: sessionId } : undefined
-          }
-          extraNodeViews={extraNodeViews}
-          showFormatToolbar={showFormatToolbar}
-          onViewReady={handleViewReady}
-          onViewDisposed={handleViewDisposed}
-        />
+        <>
+          <NoteEditor
+            ref={ref}
+            className={cn(["session-note-editor", className])}
+            key={`session-${sessionId}-raw`}
+            initialContent={initialContent}
+            handleChange={handleChange}
+            mentionConfig={mentionConfig}
+            sessionMentionDropConfig={sessionMentionDropConfig}
+            onNavigateToTitle={onNavigateToTitle}
+            onLinkOpen={openEditorLink}
+            fileHandlerConfig={fileHandlerConfig}
+            taskSource={
+              syncTasks
+                ? { type: "session_raw_note", id: sessionId }
+                : undefined
+            }
+            extraNodeViews={extraNodeViews}
+            showFormatToolbar={showFormatToolbar}
+            onViewReady={onViewReady}
+            onViewDisposed={onViewDisposed}
+          />
+          <MeetingChatHighlights sessionId={sessionId} />
+        </>
       </AudioDropTarget>
     );
   },
