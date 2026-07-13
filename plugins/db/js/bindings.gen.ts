@@ -109,6 +109,54 @@ async unsubscribe(subscriptionId: string) : Promise<Result<null, string>> {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async configureCloudsync(configJson: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:db|configure_cloudsync", { configJson }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async startCloudsync() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:db|start_cloudsync") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async stopCloudsync() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:db|stop_cloudsync") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getCloudsyncStatus() : Promise<Result<JsonValue, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:db|get_cloudsync_status") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async syncCloudsyncNow() : Promise<Result<JsonValue, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:db|sync_cloudsync_now") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async logoutCloudsync(discardUnsentChanges: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:db|logout_cloudsync", { discardUnsentChanges }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
