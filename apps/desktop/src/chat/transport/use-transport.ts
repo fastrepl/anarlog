@@ -13,15 +13,17 @@ import { loadHuman, loadOrganization } from "~/contacts/queries";
 import { useToolRegistry } from "~/contexts/tool";
 import { useConfigValue } from "~/shared/config";
 
-export const FILE_CONTEXT_TOOL_GUIDANCE = `
-Context and local-note tool guidance:
-- When no meeting note context is attached and the user asks a factual question that could be answered by meeting notes, use search_sessions with the key names, topics, and date hints before answering. If the result looks relevant, answer from the returned meeting context or call read_note with the returned session id for more detail.
-- When the user asks about "this note", "this meeting", "the current note", or pronouns that likely refer to the open note, use read_current_note before answering.
-- When the user asks to find or search for exact wording in notes, use grep_notes. If the answer needs the full source after a match, use read_note with the returned session id.
-- When the user asks about people from the current note or related meetings, use list_related_notes and then read_note as needed.
-- When the user corrects note content with wording like "it's not X but Y", use apply_session_correction to update the current session summary and transcript unless they explicitly ask for one target only. Use read_current_note first when you need exact summary text. Add uncommon names, companies, products, acronyms, or jargon from the correction to dictionaryTerms so future transcription can prefer them; skip common names. If the tool reports partial, read the note or retry with the exact remaining text instead of claiming both were updated.
-- Do not ask the user to open or share a meeting note until search_sessions, grep_notes, or read_note cannot find enough local context.
-- Do not assume note contents from chat history when a file-backed tool can read the current source of truth.
+export const MEETING_CONTEXT_TOOL_GUIDANCE = `
+Context and local meeting tool guidance:
+- Use list_meetings for recent meetings, title or ID lookup, pagination, and exact recurring-series filtering. Never guess a meeting ID.
+- Use search_meetings for open-ended questions about topics, people, decisions, or date ranges across meeting content. Use search_meeting_content when the user needs exact wording from notes or transcripts.
+- After resolving an ID, use get_meeting for the canonical note, summaries, participants, and action items. Use get_meeting_transcript separately for bounded transcript pages, following pagination.next_offset only when more context is needed.
+- Use get_recurring_meeting_history for meetings in the same recurring series. Use find_related_meetings only for broader relationships such as shared participants or nearby dates.
+- When the user refers to the current meeting, prefer the attached meeting context. Do not fetch it again unless the task needs newer structured data.
+- When the user corrects note content with wording like "it's not X but Y", use apply_session_correction to update the current session summary and transcript unless they explicitly ask for one target only. Add uncommon names, companies, products, acronyms, or jargon from the correction to dictionaryTerms so future transcription can prefer them; skip common names. If the tool reports partial, use get_meeting or retry with the exact remaining text instead of claiming both were updated.
+- Do not ask the user to open or share a meeting until list_meetings, search_meetings, search_meeting_content, and get_meeting cannot find enough local context.
+- Use typed meeting tools instead of constructing shell commands, crawling files, or accessing SQLite directly.
+- Do not assume meeting contents from chat history when a typed tool can read the current source of truth.
 
 Web search guidance:
 - Use web_search for public websites, URLs, companies, products, people, news, or current facts that may be outside local notes.
@@ -29,7 +31,7 @@ Web search guidance:
 - Do not use web_search for questions that only need local notes, contacts, or calendar events.
 `.trim();
 
-export function appendFileContextToolGuidance(
+export function appendMeetingContextToolGuidance(
   prompt: string | undefined,
 ): string | undefined {
   if (prompt === undefined) {
@@ -37,10 +39,10 @@ export function appendFileContextToolGuidance(
   }
 
   if (!prompt.trim()) {
-    return FILE_CONTEXT_TOOL_GUIDANCE;
+    return MEETING_CONTEXT_TOOL_GUIDANCE;
   }
 
-  return `${prompt.trim()}\n\n${FILE_CONTEXT_TOOL_GUIDANCE}`;
+  return `${prompt.trim()}\n\n${MEETING_CONTEXT_TOOL_GUIDANCE}`;
 }
 
 async function renderHumanContext(humanId: string): Promise<string | null> {
@@ -126,7 +128,7 @@ export function useTransport(
     };
   }, [language, systemPromptOverride]);
 
-  const effectiveSystemPrompt = appendFileContextToolGuidance(
+  const effectiveSystemPrompt = appendMeetingContextToolGuidance(
     systemPromptOverride ?? systemPrompt,
   );
   const isSystemPromptReady =

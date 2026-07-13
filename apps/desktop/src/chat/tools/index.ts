@@ -1,14 +1,28 @@
+import type {
+  GetMeetingInput,
+  GetMeetingTranscriptInput,
+  GetRecurringMeetingHistoryInput,
+  ListMeetingsInput,
+  Meeting,
+  MeetingPage,
+  TranscriptPage,
+} from "@hypr/plugin-db";
+
 import { CONTEXT_TEXT_FIELD } from "./context-text";
 import { buildEditSummaryTool } from "./edit-summary";
 import {
-  buildGrepNotesTool,
-  buildListRelatedNotesTool,
-  buildReadCurrentNoteTool,
-  buildReadNoteTool,
+  buildGetMeetingTool,
+  buildGetMeetingTranscriptTool,
+  buildGetRecurringMeetingHistoryTool,
+  buildListMeetingsTool,
+} from "./meetings";
+import {
+  buildFindRelatedMeetingsTool,
+  buildSearchMeetingContentTool,
 } from "./note-files";
 import { buildSearchCalendarEventsTool } from "./search-calendar-events";
 import { buildSearchContactsTool } from "./search-contacts";
-import { buildSearchSessionsTool } from "./search-sessions";
+import { buildSearchMeetingsTool } from "./search-meetings";
 import { buildApplySessionCorrectionTool } from "./session-correction";
 import type {
   CalendarEventSearchResult,
@@ -34,14 +48,20 @@ function withToolLogging<T extends { execute?: (...args: any[]) => any }>(
   return {
     ...toolDef,
     execute: async (...args: Parameters<NonNullable<T["execute"]>>) => {
-      console.log(`[chat/tool:start] ${name}`, ...args);
+      if (import.meta.env.DEV) {
+        console.log(`[chat/tool:start] ${name}`);
+      }
 
       try {
         const result = await toolDef.execute!(...args);
-        console.log(`[chat/tool:result] ${name}`, result);
+        if (import.meta.env.DEV) {
+          console.log(`[chat/tool:result] ${name}`);
+        }
         return result;
       } catch (error) {
-        console.error(`[chat/tool:error] ${name}`, error);
+        if (import.meta.env.DEV) {
+          console.error(`[chat/tool:error] ${name}`);
+        }
         throw error;
       }
     },
@@ -49,19 +69,27 @@ function withToolLogging<T extends { execute?: (...args: any[]) => any }>(
 }
 
 export const buildChatTools = (deps: ToolDependencies) => ({
-  read_current_note: withToolLogging(
-    "read_current_note",
-    buildReadCurrentNoteTool(deps),
+  list_meetings: withToolLogging("list_meetings", buildListMeetingsTool()),
+  get_meeting: withToolLogging("get_meeting", buildGetMeetingTool()),
+  get_meeting_transcript: withToolLogging(
+    "get_meeting_transcript",
+    buildGetMeetingTranscriptTool(),
   ),
-  read_note: withToolLogging("read_note", buildReadNoteTool(deps)),
-  grep_notes: withToolLogging("grep_notes", buildGrepNotesTool(deps)),
-  list_related_notes: withToolLogging(
-    "list_related_notes",
-    buildListRelatedNotesTool(deps),
+  get_recurring_meeting_history: withToolLogging(
+    "get_recurring_meeting_history",
+    buildGetRecurringMeetingHistoryTool(),
   ),
-  search_sessions: withToolLogging(
-    "search_sessions",
-    buildSearchSessionsTool(deps),
+  search_meeting_content: withToolLogging(
+    "search_meeting_content",
+    buildSearchMeetingContentTool(deps),
+  ),
+  find_related_meetings: withToolLogging(
+    "find_related_meetings",
+    buildFindRelatedMeetingsTool(deps),
+  ),
+  search_meetings: withToolLogging(
+    "search_meetings",
+    buildSearchMeetingsTool(deps),
   ),
   search_contacts: withToolLogging(
     "search_contacts",
@@ -80,44 +108,30 @@ export const buildChatTools = (deps: ToolDependencies) => ({
 });
 
 type LocalTools = {
-  read_current_note: {
-    input: { maxChars?: number };
-    output: {
-      status: "ok" | "error";
-      message?: string;
-      sessionId?: string;
-      title?: string;
-      date?: string | null;
-      event?: string | null;
-      participants?: string[];
-      sections?: Array<{ title: string; characters: number }>;
-      truncated?: boolean;
-      contextText?: string | null;
-    };
+  list_meetings: {
+    input: ListMeetingsInput;
+    output: MeetingPage;
   };
-  read_note: {
-    input: { sessionId: string; maxChars?: number };
-    output: {
-      status: "ok" | "error";
-      message?: string;
-      sessionId: string;
-      title?: string;
-      date?: string | null;
-      event?: string | null;
-      participants?: string[];
-      sections?: Array<{ title: string; characters: number }>;
-      truncated?: boolean;
-      contextText?: string | null;
-    };
+  get_meeting: {
+    input: GetMeetingInput;
+    output: Meeting;
   };
-  grep_notes: {
-    input: { query: string; sessionIds?: string[]; limit?: number };
+  get_meeting_transcript: {
+    input: GetMeetingTranscriptInput;
+    output: TranscriptPage;
+  };
+  get_recurring_meeting_history: {
+    input: GetRecurringMeetingHistoryInput;
+    output: MeetingPage;
+  };
+  search_meeting_content: {
+    input: { query: string; meeting_ids?: string[]; limit?: number };
     output: {
       query: string;
       scanned?: number;
       message?: string;
       results: Array<{
-        sessionId: string;
+        meeting_id: string;
         title: string;
         date: string | null;
         score: number;
@@ -125,15 +139,15 @@ type LocalTools = {
       }>;
     };
   };
-  list_related_notes: {
-    input: { sessionId?: string; limit?: number };
+  find_related_meetings: {
+    input: { meeting_id?: string; limit?: number };
     output: {
       status: "ok" | "error";
       message?: string;
-      sessionId?: string;
+      meeting_id?: string;
       title?: string;
       results: Array<{
-        sessionId: string;
+        meeting_id: string;
         title: string;
         date: string | null;
         score: number;
@@ -141,7 +155,7 @@ type LocalTools = {
       }>;
     };
   };
-  search_sessions: {
+  search_meetings: {
     input: {
       query?: string;
       filters?: {

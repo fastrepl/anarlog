@@ -1,17 +1,40 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 
 import type {
+  GetMeetingInput,
+  GetMeetingTranscriptInput as GeneratedGetMeetingTranscriptInput,
+  GetRecurringMeetingHistoryInput as GeneratedGetRecurringMeetingHistoryInput,
   LegacyCleanupResult,
   LegacyCleanupStatus,
   LegacyImportReport,
+  ListMeetingsInput as GeneratedListMeetingsInput,
+  Meeting,
+  MeetingPage,
   SubscriptionRegistration,
+  TranscriptPage,
 } from "./bindings.gen";
 
 export type {
+  GetMeetingInput,
   LegacyCleanupResult,
   LegacyCleanupStatus,
   LegacyImportReport,
+  Meeting,
+  MeetingPage,
+  TranscriptPage,
 } from "./bindings.gen";
+
+export type ListMeetingsInput = Partial<GeneratedListMeetingsInput>;
+export type GetMeetingTranscriptInput = Pick<
+  GeneratedGetMeetingTranscriptInput,
+  "meeting_id"
+> &
+  Partial<Omit<GeneratedGetMeetingTranscriptInput, "meeting_id">>;
+export type GetRecurringMeetingHistoryInput = Pick<
+  GeneratedGetRecurringMeetingHistoryInput,
+  "meeting_id"
+> &
+  Partial<Omit<GeneratedGetRecurringMeetingHistoryInput, "meeting_id">>;
 
 export type TransactionStatement = {
   sql: string;
@@ -22,6 +45,28 @@ export type TransactionStatement = {
 export type QueryEvent<T = Record<string, unknown>> =
   | { event: "result"; data: T[] }
   | { event: "error"; data: string };
+
+export async function listMeetings(
+  input: ListMeetingsInput,
+): Promise<MeetingPage> {
+  return invoke("plugin:db|list_meetings", { input });
+}
+
+export async function getMeeting(input: GetMeetingInput): Promise<Meeting> {
+  return invoke("plugin:db|get_meeting", { input });
+}
+
+export async function getMeetingTranscript(
+  input: GetMeetingTranscriptInput,
+): Promise<TranscriptPage> {
+  return invoke("plugin:db|get_meeting_transcript", { input });
+}
+
+export async function getRecurringMeetingHistory(
+  input: GetRecurringMeetingHistoryInput,
+): Promise<MeetingPage> {
+  return invoke("plugin:db|get_recurring_meeting_history", { input });
+}
 
 // Generic query path: returns named object rows for app-level SQL consumers.
 export async function execute<T = Record<string, unknown>>(

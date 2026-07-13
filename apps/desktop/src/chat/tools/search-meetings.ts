@@ -8,26 +8,26 @@ import type { SearchFilters } from "~/search/contexts/engine/types";
 const gteSchema = z
   .number()
   .optional()
-  .describe("Include sessions on or after this Unix timestamp in milliseconds");
+  .describe("Include meetings on or after this Unix timestamp in milliseconds");
 const lteSchema = z
   .number()
   .optional()
   .describe(
-    "Include sessions on or before this Unix timestamp in milliseconds",
+    "Include meetings on or before this Unix timestamp in milliseconds",
   );
 const gtSchema = z
   .number()
   .optional()
-  .describe("Include sessions after this Unix timestamp in milliseconds");
+  .describe("Include meetings after this Unix timestamp in milliseconds");
 const ltSchema = z
   .number()
   .optional()
-  .describe("Include sessions before this Unix timestamp in milliseconds");
+  .describe("Include meetings before this Unix timestamp in milliseconds");
 const eqSchema = z
   .number()
   .optional()
   .describe(
-    "Include only sessions at this exact Unix timestamp in milliseconds",
+    "Include only meetings at this exact Unix timestamp in milliseconds",
   );
 
 const absoluteCreatedAtFilterSchema = z
@@ -62,18 +62,18 @@ const relativeCreatedAtFilterSchema = z
 const createdAtFilterSchema = z
   .union([absoluteCreatedAtFilterSchema, relativeCreatedAtFilterSchema])
   .describe(
-    "Date filter for sessions. Uses event started_at for event-backed sessions, otherwise session created_at.",
+    "Date filter for meetings. Uses event started_at for event-backed meetings, otherwise meeting created_at.",
   );
 
-const searchSessionsFiltersSchema = z
+const searchMeetingsFiltersSchema = z
   .object({
     created_at: createdAtFilterSchema.optional(),
   })
   .optional()
-  .describe("Optional session filters");
+  .describe("Optional meeting filters");
 
 type AbsoluteCreatedAtFilter = z.infer<typeof absoluteCreatedAtFilterSchema>;
-type SearchSessionsFiltersInput = z.infer<typeof searchSessionsFiltersSchema>;
+type SearchMeetingsFiltersInput = z.infer<typeof searchMeetingsFiltersSchema>;
 
 function getRecentDaysFilter(
   days: number,
@@ -100,34 +100,34 @@ function getRecentDaysFilter(
   };
 }
 
-export const buildSearchSessionsTool = (deps: ToolDependencies) =>
+export const buildSearchMeetingsTool = (deps: ToolDependencies) =>
   tool({
     description: `
-Search for sessions (meeting notes) using query and filters.
+Search for meetings using note and transcript content plus optional date filters.
 Use this first for open-ended questions about past meetings, people, decisions, or topics when the answer may be in meeting notes and no meeting note context is attached.
 Use filters.created_at.kind="relative" with recent_days for natural-language date ranges.
-Use an empty query string when the user only wants sessions by date/time filter.
-Returns relevant sessions with their content.
+Use an empty query string when the user only wants meetings by date/time filter.
+Returns relevant meetings with matching content excerpts.
 `.trim(),
     inputSchema: z.object({
       query: z
         .string()
         .optional()
         .describe(
-          "Optional text query for finding relevant sessions. Omit this when filtering only by date/time.",
+          "Optional text query for finding relevant meetings. Omit this when filtering only by date/time.",
         ),
-      filters: searchSessionsFiltersSchema,
+      filters: searchMeetingsFiltersSchema,
       limit: z
         .number()
         .int()
         .min(0)
         .max(10)
         .optional()
-        .describe("Maximum number of sessions to return"),
+        .describe("Maximum number of meetings to return"),
     }),
     execute: async (params: {
       query?: string;
-      filters?: SearchSessionsFiltersInput;
+      filters?: SearchMeetingsFiltersInput;
       limit?: number;
     }) => {
       const query = params.query ?? "";
@@ -148,9 +148,9 @@ Returns relevant sessions with their content.
         : null;
 
       const hits = await deps.search(query, effectiveFilters);
-      const sessionHits = hits.filter((hit) => hit.document.type === "session");
+      const meetingHits = hits.filter((hit) => hit.document.type === "session");
       const limit = params.limit ?? 5;
-      const results = sessionHits.slice(0, limit).map((hit) => ({
+      const results = meetingHits.slice(0, limit).map((hit) => ({
         id: hit.document.id,
         title: hit.document.title,
         excerpt: hit.document.content.slice(0, 180),

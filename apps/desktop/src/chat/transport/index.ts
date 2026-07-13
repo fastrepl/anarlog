@@ -18,7 +18,7 @@ import { extractContextRefsFromMessages } from "../context/refs";
 import { CONTEXT_TEXT_FIELD } from "../tools/context-text";
 import type { HyprUIMessage } from "../types";
 import {
-  getSessionIdsFromSearchOutput,
+  getMeetingIdsFromSearchOutput,
   hasContextText,
   isRecord,
   isToolOutputPart,
@@ -99,11 +99,11 @@ export class CustomChatTransport implements ChatTransport<HyprUIMessage> {
     return result;
   }
 
-  private async hydrateSearchOutput(
+  private async hydrateMeetingSearchOutput(
     output: unknown,
     cache: Map<string, string | null>,
   ): Promise<unknown> {
-    const sessionIds = getSessionIdsFromSearchOutput(output);
+    const sessionIds = getMeetingIdsFromSearchOutput(output);
     if (sessionIds.length === 0) return output;
 
     const refs: ContextRef[] = sessionIds.map((sessionId) => ({
@@ -122,7 +122,7 @@ export class CustomChatTransport implements ChatTransport<HyprUIMessage> {
     };
   }
 
-  private async expandSearchSessionsOutput(
+  private async expandSearchMeetingsOutput(
     part: ToolOutputPart,
     cache: Map<string, string | null>,
   ): Promise<ToolOutputPart> {
@@ -130,7 +130,7 @@ export class CustomChatTransport implements ChatTransport<HyprUIMessage> {
       return part;
     }
 
-    const output = await this.hydrateSearchOutput(part.output, cache);
+    const output = await this.hydrateMeetingSearchOutput(part.output, cache);
     if (output === part.output) return part;
 
     return {
@@ -140,13 +140,13 @@ export class CustomChatTransport implements ChatTransport<HyprUIMessage> {
   }
 
   private buildHydratingToolSet(cache: Map<string, string | null>): ToolSet {
-    const searchTool = this.tools.search_sessions;
-    if (!searchTool || typeof searchTool !== "object") {
+    const meetingSearchTool = this.tools.search_meetings;
+    if (!meetingSearchTool || typeof meetingSearchTool !== "object") {
       return this.tools;
     }
 
     const execute = (
-      searchTool as {
+      meetingSearchTool as {
         execute?: (...args: unknown[]) => Promise<unknown>;
       }
     ).execute;
@@ -156,14 +156,14 @@ export class CustomChatTransport implements ChatTransport<HyprUIMessage> {
 
     return {
       ...this.tools,
-      search_sessions: {
-        ...searchTool,
+      search_meetings: {
+        ...meetingSearchTool,
         execute: async (...args: unknown[]) => {
           const output = await execute(...args);
           if (hasContextText(output)) {
             return output;
           }
-          return this.hydrateSearchOutput(output, cache);
+          return this.hydrateMeetingSearchOutput(output, cache);
         },
       },
     };
@@ -229,9 +229,10 @@ export class CustomChatTransport implements ChatTransport<HyprUIMessage> {
           msg.parts.map((part) => {
             if (
               isToolOutputPart(part) &&
-              part.type === "tool-search_sessions"
+              (part.type === "tool-search_meetings" ||
+                part.type === "tool-search_sessions")
             ) {
-              return this.expandSearchSessionsOutput(part, cache);
+              return this.expandSearchMeetingsOutput(part, cache);
             }
             return part;
           }),

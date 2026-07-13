@@ -11,8 +11,8 @@ vi.mock("~/session/content-queries", () => ({
 }));
 
 import {
-  buildGrepNotesTool,
   buildReadCurrentNoteTool,
+  buildSearchMeetingContentTool,
   noteFileTestInternals,
 } from "./note-files";
 
@@ -116,15 +116,15 @@ describe("note file chat tools", () => {
     });
     expect(readResult.contextText).toContain("contract renewal timing");
 
-    const grepTool = buildGrepNotesTool({} as any);
-    const grepResult = await (grepTool as any).execute({
+    const contentSearchTool = buildSearchMeetingContentTool({} as any);
+    const contentSearchResult = await (contentSearchTool as any).execute({
       query: "contract renewal",
     });
 
-    expect(grepResult).toMatchObject({
+    expect(contentSearchResult).toMatchObject({
       query: "contract renewal",
       scanned: 1,
-      results: [expect.objectContaining({ sessionId: "session-1" })],
+      results: [expect.objectContaining({ meeting_id: "session-1" })],
     });
     expect(mocks.loadActiveSessionIds).toHaveBeenCalledOnce();
     expect(mocks.loadSessionContentSnapshot).toHaveBeenCalledWith("session-1");

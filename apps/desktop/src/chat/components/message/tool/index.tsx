@@ -1,6 +1,6 @@
 import { ToolEditSummary } from "./edit-summary";
 import { ToolGeneric } from "./generic";
-import { ToolSearchSessions } from "./search";
+import { ToolSearchMeetings } from "./search-meetings";
 import { ToolUpdatePromptTemplate } from "./update-prompt-template";
 
 import type { Part } from "~/chat/components/message/types";
@@ -8,7 +8,9 @@ import type { Part } from "~/chat/components/message/types";
 type ToolComponent = (props: { part: Part }) => React.ReactNode;
 
 const toolRegistry: Record<string, ToolComponent> = {
-  "tool-search_sessions": ToolSearchSessions as ToolComponent,
+  "tool-list_meetings": ToolSearchMeetings as ToolComponent,
+  "tool-search_meetings": ToolSearchMeetings as ToolComponent,
+  "tool-search_sessions": ToolSearchMeetings as ToolComponent,
   "tool-edit_summary": ToolEditSummary as ToolComponent,
   "tool-update_prompt_template": ToolUpdatePromptTemplate as ToolComponent,
 };

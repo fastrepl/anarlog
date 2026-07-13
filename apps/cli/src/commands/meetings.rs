@@ -1,9 +1,10 @@
 use crate::cli::{DocumentKind, ExportFormat, MeetingCommand};
-use crate::context::{
-    Meeting, MeetingExport, list_meetings_page, load_transcripts, recurring_meetings_page,
-    transcript_page,
+use crate::{Result, output};
+use hypr_agent_access::{
+    Document, GetMeetingInput, GetMeetingTranscriptInput, GetRecurringMeetingHistoryInput,
+    ListMeetingsInput, MeetingListItem, get_meeting, get_meeting_export, get_meeting_transcript,
+    get_recurring_meeting_history, list_meetings,
 };
-use crate::{Error, Result, output};
 
 pub async fn run(db: &hypr_db_core::Db, command: MeetingCommand, json: bool) -> Result<()> {
     match command {
@@ -13,9 +14,16 @@ pub async fn run(db: &hypr_db_core::Db, command: MeetingCommand, json: bool) -> 
             limit,
             offset,
         } => {
-            let page =
-                list_meetings_page(db, query.as_deref(), series_id.as_deref(), limit, offset)
-                    .await?;
+            let page = list_meetings(
+                db.pool(),
+                ListMeetingsInput {
+                    query,
+                    series_id,
+                    limit: Some(limit),
+                    offset: Some(offset),
+                },
+            )
+            .await?;
             let rendered = if json {
                 output::json("meetings.list", &page.meetings, Some(&page.pagination))?
             } else {
@@ -25,7 +33,7 @@ pub async fn run(db: &hypr_db_core::Db, command: MeetingCommand, json: bool) -> 
             Ok(())
         }
         MeetingCommand::Get { id } => {
-            let meeting = Meeting::load(db, &id).await?;
+            let meeting = get_meeting(db.pool(), GetMeetingInput { meeting_id: id }).await?;
             let rendered = if json {
                 output::json("meetings.get", &meeting, None)?
             } else {
@@ -35,7 +43,13 @@ pub async fn run(db: &hypr_db_core::Db, command: MeetingCommand, json: bool) -> 
             Ok(())
         }
         MeetingCommand::Note { id, kind } => {
-            let meeting = Meeting::load(db, &id).await?;
+            let meeting = get_meeting(
+                db.pool(),
+                GetMeetingInput {
+                    meeting_id: id.clone(),
+                },
+            )
+            .await?;
             if json {
                 match kind {
                     DocumentKind::Note => {
@@ -60,7 +74,7 @@ pub async fn run(db: &hypr_db_core::Db, command: MeetingCommand, json: bool) -> 
                 DocumentKind::Note => meeting
                     .note
                     .map(|note| note.markdown)
-                    .ok_or_else(|| Error::NotFound(format!("note for meeting '{id}'")))?,
+                    .ok_or_else(|| crate::Error::NotFound(format!("note for meeting '{id}'")))?,
                 DocumentKind::Summary => render_documents(&meeting.summaries),
                 DocumentKind::All => {
                     let mut documents = meeting.note.into_iter().collect::<Vec<_>>();
@@ -72,19 +86,38 @@ pub async fn run(db: &hypr_db_core::Db, command: MeetingCommand, json: bool) -> 
             Ok(())
         }
         MeetingCommand::Transcript { id, limit, offset } => {
-            ensure_session_exists(db, &id).await?;
-            let transcripts = load_transcripts(db, &id).await?;
-            let page = transcript_page(&id, &transcripts, offset, limit);
+            let page = get_meeting_transcript(
+                db.pool(),
+                GetMeetingTranscriptInput {
+                    meeting_id: id,
+                    offset: Some(offset),
+                    limit: Some(limit),
+                },
+            )
+            .await?;
             let rendered = if json {
-                output::json("meetings.transcript", &page.content, Some(&page.pagination))?
+                let content = serde_json::json!({
+                    "meeting_id": &page.meeting_id,
+                    "text": &page.text,
+                    "words": &page.words,
+                });
+                output::json("meetings.transcript", &content, Some(&page.pagination))?
             } else {
-                page.content.text
+                page.text
             };
             output::emit(&rendered);
             Ok(())
         }
         MeetingCommand::History { id, limit, offset } => {
-            let page = recurring_meetings_page(db, &id, limit, offset).await?;
+            let page = get_recurring_meeting_history(
+                db.pool(),
+                GetRecurringMeetingHistoryInput {
+                    meeting_id: id,
+                    limit: Some(limit),
+                    offset: Some(offset),
+                },
+            )
+            .await?;
             let rendered = if json {
                 output::json("meetings.history", &page.meetings, Some(&page.pagination))?
             } else {
@@ -99,7 +132,7 @@ pub async fn run(db: &hypr_db_core::Db, command: MeetingCommand, json: bool) -> 
             output: path,
             force,
         } => {
-            let meeting = MeetingExport::load(db, &id).await?;
+            let meeting = get_meeting_export(db.pool(), id).await?;
             let content = match (format, json) {
                 (ExportFormat::Markdown, false) => meeting.to_markdown(),
                 (ExportFormat::Json, false) => output::raw_json(&meeting)?,
@@ -118,19 +151,7 @@ pub async fn run(db: &hypr_db_core::Db, command: MeetingCommand, json: bool) -> 
     }
 }
 
-async fn ensure_session_exists(db: &hypr_db_core::Db, id: &str) -> Result<()> {
-    let exists = hypr_db_app::get_session(db.pool(), id)
-        .await
-        .map_err(|error| Error::operation("load meeting", error.to_string()))?
-        .is_some();
-    if exists {
-        Ok(())
-    } else {
-        Err(Error::NotFound(format!("meeting '{id}'")))
-    }
-}
-
-fn render_list(meetings: &[hypr_db_app::SessionListItem]) -> String {
+fn render_list(meetings: &[MeetingListItem]) -> String {
     if meetings.is_empty() {
         return "No meetings found.".to_string();
     }
@@ -165,7 +186,7 @@ fn render_list(meetings: &[hypr_db_app::SessionListItem]) -> String {
     lines.join("\n")
 }
 
-fn render_documents(documents: &[crate::context::Document]) -> String {
+fn render_documents(documents: &[Document]) -> String {
     documents
         .iter()
         .filter(|document| !document.markdown.trim().is_empty())
@@ -199,7 +220,7 @@ mod tests {
 
     #[test]
     fn list_render_is_bounded_and_contains_ids() {
-        let rendered = render_list(&[hypr_db_app::SessionListItem {
+        let rendered = render_list(&[MeetingListItem {
             id: "meeting-1".to_string(),
             title: "A very long planning meeting title that should not own the terminal"
                 .to_string(),

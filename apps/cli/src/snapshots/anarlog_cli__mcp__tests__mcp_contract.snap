@@ -45,7 +45,7 @@ expression: "serde_json::json!({\n    \"protocol_version\": info.protocol_versio
         "required": [
           "meeting_id"
         ],
-        "title": "MeetingParams",
+        "title": "GetMeetingInput",
         "type": "object"
       },
       "name": "get_meeting"
@@ -88,7 +88,7 @@ expression: "serde_json::json!({\n    \"protocol_version\": info.protocol_versio
         "required": [
           "meeting_id"
         ],
-        "title": "TranscriptParams",
+        "title": "GetMeetingTranscriptInput",
         "type": "object"
       },
       "name": "get_meeting_transcript"
@@ -131,7 +131,7 @@ expression: "serde_json::json!({\n    \"protocol_version\": info.protocol_versio
         "required": [
           "meeting_id"
         ],
-        "title": "HistoryParams",
+        "title": "GetRecurringMeetingHistoryInput",
         "type": "object"
       },
       "name": "get_recurring_meeting_history"
@@ -181,7 +181,7 @@ expression: "serde_json::json!({\n    \"protocol_version\": info.protocol_versio
             ]
           }
         },
-        "title": "ListMeetingsParams",
+        "title": "ListMeetingsInput",
         "type": "object"
       },
       "name": "list_meetings"

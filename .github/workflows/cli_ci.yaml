@@ -13,6 +13,7 @@ on:
       - apps/cli/**
       - apps/web/netlify.toml
       - apps/web/public/llms.txt
+      - crates/agent-access/**
       - crates/cloudsync/**
       - crates/cli-docs/**
       - crates/db-app/**
@@ -36,6 +37,7 @@ on:
       - apps/cli/**
       - apps/web/netlify.toml
       - apps/web/public/llms.txt
+      - crates/agent-access/**
       - crates/cloudsync/**
       - crates/cli-docs/**
       - crates/db-app/**
@@ -71,6 +73,7 @@ jobs:
           node-version: "22"
       - uses: ./.github/actions/rust_install
       - run: |
+          cargo test --locked -p agent-access
           cargo test --locked -p anarlog-cli
           cargo test --locked -p db-app --lib
           cargo test --locked -p db-core --lib
@@ -78,6 +81,7 @@ jobs:
           cargo test --locked -p tiptap
       - run: |
           cargo clippy --locked \
+            -p agent-access \
             -p anarlog-cli \
             -p db-app \
             -p db-core \

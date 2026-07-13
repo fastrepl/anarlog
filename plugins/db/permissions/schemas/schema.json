@@ -367,6 +367,54 @@
           "markdownDescription": "Denies the get_legacy_import_report command without any pre-configured scope."
         },
         {
+          "description": "Enables the get_meeting command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-meeting",
+          "markdownDescription": "Enables the get_meeting command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_meeting command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-meeting",
+          "markdownDescription": "Denies the get_meeting command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_meeting_transcript command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-meeting-transcript",
+          "markdownDescription": "Enables the get_meeting_transcript command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_meeting_transcript command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-meeting-transcript",
+          "markdownDescription": "Denies the get_meeting_transcript command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_recurring_meeting_history command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-recurring-meeting-history",
+          "markdownDescription": "Enables the get_recurring_meeting_history command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_recurring_meeting_history command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-recurring-meeting-history",
+          "markdownDescription": "Denies the get_recurring_meeting_history command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the list_meetings command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-list-meetings",
+          "markdownDescription": "Enables the list_meetings command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the list_meetings command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-list-meetings",
+          "markdownDescription": "Denies the list_meetings command without any pre-configured scope."
+        },
+        {
           "description": "Enables the run_legacy_import command without any pre-configured scope.",
           "type": "string",
           "const": "allow-run-legacy-import",
@@ -403,10 +451,10 @@
           "markdownDescription": "Denies the unsubscribe command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-execute`\n- `allow-execute-proxy`\n- `allow-execute-transaction`\n- `allow-get-legacy-cleanup-status`\n- `allow-cleanup-legacy-files`\n- `allow-subscribe`\n- `allow-unsubscribe`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-execute`\n- `allow-execute-proxy`\n- `allow-execute-transaction`\n- `allow-list-meetings`\n- `allow-get-meeting`\n- `allow-get-meeting-transcript`\n- `allow-get-recurring-meeting-history`\n- `allow-get-legacy-cleanup-status`\n- `allow-cleanup-legacy-files`\n- `allow-subscribe`\n- `allow-unsubscribe`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-execute`\n- `allow-execute-proxy`\n- `allow-execute-transaction`\n- `allow-get-legacy-cleanup-status`\n- `allow-cleanup-legacy-files`\n- `allow-subscribe`\n- `allow-unsubscribe`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-execute`\n- `allow-execute-proxy`\n- `allow-execute-transaction`\n- `allow-list-meetings`\n- `allow-get-meeting`\n- `allow-get-meeting-transcript`\n- `allow-get-recurring-meeting-history`\n- `allow-get-legacy-cleanup-status`\n- `allow-cleanup-legacy-files`\n- `allow-subscribe`\n- `allow-unsubscribe`"
         }
       ]
     }

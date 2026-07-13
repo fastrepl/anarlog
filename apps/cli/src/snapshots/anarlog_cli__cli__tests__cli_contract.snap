@@ -191,7 +191,7 @@ expression: contract
           "synopsis": "anarlog meetings transcript [--limit] [--offset] [-h] <id>"
         },
         {
-          "about": "List other meetings from the same recurring series",
+          "about": "List meetings from the same recurring series",
           "arguments": [
             {
               "name": "ID",

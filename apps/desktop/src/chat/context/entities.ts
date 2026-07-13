@@ -98,12 +98,18 @@ function isToolOutputAvailablePart(
   );
 }
 
-function parseSearchSessionsOutput(output: unknown): ContextEntity[] {
-  if (!isRecord(output) || !Array.isArray(output.results)) {
+function parseSearchMeetingsOutput(output: unknown): ContextEntity[] {
+  if (!isRecord(output)) {
     return [];
   }
 
-  return output.results.flatMap((item): ContextEntity[] => {
+  const results = Array.isArray(output.results)
+    ? output.results
+    : Array.isArray(output.meetings)
+      ? output.meetings
+      : [];
+
+  return results.flatMap((item): ContextEntity[] => {
     if (
       !isRecord(item) ||
       (typeof item.id !== "string" && typeof item.id !== "number")
@@ -127,7 +133,9 @@ const toolEntityExtractors: Record<
   string,
   (output: unknown) => ContextEntity[]
 > = {
-  search_sessions: parseSearchSessionsOutput,
+  list_meetings: parseSearchMeetingsOutput,
+  search_meetings: parseSearchMeetingsOutput,
+  search_sessions: parseSearchMeetingsOutput,
 };
 
 export function extractToolContextEntities(

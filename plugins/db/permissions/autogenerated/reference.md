@@ -7,6 +7,10 @@ Default permissions for the plugin
 - `allow-execute`
 - `allow-execute-proxy`
 - `allow-execute-transaction`
+- `allow-list-meetings`
+- `allow-get-meeting`
+- `allow-get-meeting-transcript`
+- `allow-get-recurring-meeting-history`
 - `allow-get-legacy-cleanup-status`
 - `allow-cleanup-legacy-files`
 - `allow-subscribe`
@@ -173,6 +177,110 @@ Enables the get_legacy_import_report command without any pre-configured scope.
 <td>
 
 Denies the get_legacy_import_report command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:allow-get-meeting`
+
+</td>
+<td>
+
+Enables the get_meeting command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:deny-get-meeting`
+
+</td>
+<td>
+
+Denies the get_meeting command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:allow-get-meeting-transcript`
+
+</td>
+<td>
+
+Enables the get_meeting_transcript command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:deny-get-meeting-transcript`
+
+</td>
+<td>
+
+Denies the get_meeting_transcript command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:allow-get-recurring-meeting-history`
+
+</td>
+<td>
+
+Enables the get_recurring_meeting_history command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:deny-get-recurring-meeting-history`
+
+</td>
+<td>
+
+Denies the get_recurring_meeting_history command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:allow-list-meetings`
+
+</td>
+<td>
+
+Enables the list_meetings command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:deny-list-meetings`
+
+</td>
+<td>
+
+Denies the list_meetings command without any pre-configured scope.
 
 </td>
 </tr>

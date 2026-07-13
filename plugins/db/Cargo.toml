@@ -8,6 +8,7 @@ links = "tauri-plugin-db"
 description = ""
 
 [dependencies]
+hypr-agent-access = { workspace = true }
 hypr-db-app = { workspace = true }
 hypr-db-core = { workspace = true }
 hypr-db-execute = { workspace = true }

@@ -4,6 +4,50 @@ use crate::{ExecuteProxyResult, ManagedState, QueryEvent, TransactionStatement};
 
 #[tauri::command]
 #[specta::specta]
+pub(crate) async fn list_meetings(
+    state: tauri::State<'_, ManagedState>,
+    input: hypr_agent_access::ListMeetingsInput,
+) -> Result<hypr_agent_access::MeetingPage, String> {
+    hypr_agent_access::list_meetings(state.pool(), input)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn get_meeting(
+    state: tauri::State<'_, ManagedState>,
+    input: hypr_agent_access::GetMeetingInput,
+) -> Result<hypr_agent_access::Meeting, String> {
+    hypr_agent_access::get_meeting(state.pool(), input)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn get_meeting_transcript(
+    state: tauri::State<'_, ManagedState>,
+    input: hypr_agent_access::GetMeetingTranscriptInput,
+) -> Result<hypr_agent_access::TranscriptPage, String> {
+    hypr_agent_access::get_meeting_transcript(state.pool(), input)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn get_recurring_meeting_history(
+    state: tauri::State<'_, ManagedState>,
+    input: hypr_agent_access::GetRecurringMeetingHistoryInput,
+) -> Result<hypr_agent_access::MeetingPage, String> {
+    hypr_agent_access::get_recurring_meeting_history(state.pool(), input)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub(crate) async fn execute(
     state: tauri::State<'_, ManagedState>,
     sql: String,

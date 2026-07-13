@@ -2,63 +2,18 @@ use std::sync::Arc;
 
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::*;
-use rmcp::schemars::{self, JsonSchema};
 use rmcp::{
     ErrorData as McpError, RoleServer, ServerHandler, ServiceExt, service::RequestContext, tool,
     tool_handler, tool_router,
 };
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::Error;
-use crate::context::{
-    DEFAULT_LIST_LIMIT, DEFAULT_TRANSCRIPT_LIMIT, MAX_LIST_LIMIT, MAX_TRANSCRIPT_LIMIT, Meeting,
-    list_meetings_page, load_transcripts, recurring_meetings_page, transcript_page,
-};
+use hypr_agent_access as access;
 
 #[derive(Clone)]
 struct AnarlogMcpServer {
     db: Arc<hypr_db_core::Db>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-struct ListMeetingsParams {
-    #[schemars(description = "Case-insensitive title or meeting id substring")]
-    query: Option<String>,
-    #[schemars(description = "Exact recurring series id")]
-    series_id: Option<String>,
-    #[schemars(description = "Maximum results; defaults to 20 and is capped at 200")]
-    #[schemars(range(min = 1, max = 200))]
-    limit: Option<u32>,
-    #[schemars(description = "Number of results to skip; defaults to 0")]
-    offset: Option<u32>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-struct MeetingParams {
-    #[schemars(description = "Anarlog meeting id")]
-    meeting_id: String,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-struct TranscriptParams {
-    #[schemars(description = "Anarlog meeting id")]
-    meeting_id: String,
-    #[schemars(description = "Word offset; defaults to 0")]
-    offset: Option<u32>,
-    #[schemars(description = "Maximum words; defaults to 200 and is capped at 500")]
-    #[schemars(range(min = 1, max = 500))]
-    limit: Option<u32>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-struct HistoryParams {
-    #[schemars(description = "A meeting id used to resolve its recurring series")]
-    meeting_id: String,
-    #[schemars(description = "Maximum meetings; defaults to 20 and is capped at 200")]
-    #[schemars(range(min = 1, max = 200))]
-    limit: Option<u32>,
-    #[schemars(description = "Number of meetings to skip; defaults to 0")]
-    offset: Option<u32>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -95,20 +50,11 @@ impl AnarlogMcpServer {
     )]
     async fn list_meetings(
         &self,
-        Parameters(params): Parameters<ListMeetingsParams>,
+        Parameters(input): Parameters<access::ListMeetingsInput>,
     ) -> std::result::Result<CallToolResult, McpError> {
-        let page = list_meetings_page(
-            self.db.as_ref(),
-            params.query.as_deref(),
-            params.series_id.as_deref(),
-            params
-                .limit
-                .unwrap_or(DEFAULT_LIST_LIMIT)
-                .clamp(1, MAX_LIST_LIMIT),
-            params.offset.unwrap_or(0),
-        )
-        .await
-        .map_err(command_error)?;
+        let page = access::list_meetings(self.db.pool(), input)
+            .await
+            .map_err(command_error)?;
         structured(&page)
     }
 
@@ -123,9 +69,9 @@ impl AnarlogMcpServer {
     )]
     async fn get_meeting(
         &self,
-        Parameters(params): Parameters<MeetingParams>,
+        Parameters(input): Parameters<access::GetMeetingInput>,
     ) -> std::result::Result<CallToolResult, McpError> {
-        let meeting = Meeting::load(self.db.as_ref(), &params.meeting_id)
+        let meeting = access::get_meeting(self.db.pool(), input)
             .await
             .map_err(command_error)?;
         structured(&meeting)
@@ -142,21 +88,11 @@ impl AnarlogMcpServer {
     )]
     async fn get_meeting_transcript(
         &self,
-        Parameters(params): Parameters<TranscriptParams>,
+        Parameters(input): Parameters<access::GetMeetingTranscriptInput>,
     ) -> std::result::Result<CallToolResult, McpError> {
-        ensure_meeting(self.db.as_ref(), &params.meeting_id).await?;
-        let transcripts = load_transcripts(self.db.as_ref(), &params.meeting_id)
+        let page = access::get_meeting_transcript(self.db.pool(), input)
             .await
             .map_err(command_error)?;
-        let page = transcript_page(
-            &params.meeting_id,
-            &transcripts,
-            params.offset.unwrap_or(0),
-            params
-                .limit
-                .unwrap_or(DEFAULT_TRANSCRIPT_LIMIT)
-                .clamp(1, MAX_TRANSCRIPT_LIMIT),
-        );
         structured(&page)
     }
 
@@ -171,19 +107,11 @@ impl AnarlogMcpServer {
     )]
     async fn get_recurring_meeting_history(
         &self,
-        Parameters(params): Parameters<HistoryParams>,
+        Parameters(input): Parameters<access::GetRecurringMeetingHistoryInput>,
     ) -> std::result::Result<CallToolResult, McpError> {
-        let page = recurring_meetings_page(
-            self.db.as_ref(),
-            &params.meeting_id,
-            params
-                .limit
-                .unwrap_or(DEFAULT_LIST_LIMIT)
-                .clamp(1, MAX_LIST_LIMIT),
-            params.offset.unwrap_or(0),
-        )
-        .await
-        .map_err(command_error)?;
+        let page = access::get_recurring_meeting_history(self.db.pool(), input)
+            .await
+            .map_err(command_error)?;
         structured(&page)
     }
 }
@@ -223,20 +151,20 @@ impl ServerHandler for AnarlogMcpServer {
             })
             .transpose()?
             .unwrap_or(0);
-        let meetings = hypr_db_app::list_sessions(
+        let page = access::list_meetings(
             self.db.pool(),
-            hypr_db_app::ListSessions {
+            access::ListMeetingsInput {
                 query: None,
                 series_id: None,
-                limit: DEFAULT_LIST_LIMIT,
-                offset,
+                limit: Some(access::DEFAULT_LIST_LIMIT),
+                offset: Some(offset),
             },
         )
         .await
-        .map_err(internal_error)?;
-        let next_cursor = (meetings.len() == DEFAULT_LIST_LIMIT as usize)
-            .then(|| (offset + DEFAULT_LIST_LIMIT).to_string());
-        let resources = meetings
+        .map_err(command_error)?;
+        let next_cursor = page.pagination.next_offset.map(|offset| offset.to_string());
+        let resources = page
+            .meetings
             .into_iter()
             .map(|meeting| {
                 let name = if meeting.title.trim().is_empty() {
@@ -292,9 +220,10 @@ impl ServerHandler for AnarlogMcpServer {
         let request = parse_resource_uri(&params.uri)?;
         let contents = match request {
             ResourceRequest::Meeting { meeting_id } => {
-                let meeting = Meeting::load(self.db.as_ref(), &meeting_id)
-                    .await
-                    .map_err(command_error)?;
+                let meeting =
+                    access::get_meeting(self.db.pool(), access::GetMeetingInput { meeting_id })
+                        .await
+                        .map_err(command_error)?;
                 ResourceContents::text(meeting.to_markdown(), params.uri)
                     .with_mime_type("text/markdown")
             }
@@ -303,26 +232,32 @@ impl ServerHandler for AnarlogMcpServer {
                 offset,
                 limit,
             } => {
-                ensure_meeting(self.db.as_ref(), &meeting_id).await?;
-                let transcripts = load_transcripts(self.db.as_ref(), &meeting_id)
-                    .await
-                    .map_err(command_error)?;
-                let page = transcript_page(&meeting_id, &transcripts, offset, limit);
-                ResourceContents::text(page.content.text, params.uri).with_mime_type("text/plain")
-            }
-            ResourceRequest::Series { series_id } => {
-                let meetings = hypr_db_app::list_sessions(
+                let page = access::get_meeting_transcript(
                     self.db.pool(),
-                    hypr_db_app::ListSessions {
-                        query: None,
-                        series_id: Some(&series_id),
-                        limit: 100,
-                        offset: 0,
+                    access::GetMeetingTranscriptInput {
+                        meeting_id,
+                        offset: Some(offset),
+                        limit: Some(limit),
                     },
                 )
                 .await
-                .map_err(internal_error)?;
-                let text = meetings
+                .map_err(command_error)?;
+                ResourceContents::text(page.text, params.uri).with_mime_type("text/plain")
+            }
+            ResourceRequest::Series { series_id } => {
+                let page = access::list_meetings(
+                    self.db.pool(),
+                    access::ListMeetingsInput {
+                        query: None,
+                        series_id: Some(series_id),
+                        limit: Some(100),
+                        offset: Some(0),
+                    },
+                )
+                .await
+                .map_err(command_error)?;
+                let text = page
+                    .meetings
                     .into_iter()
                     .map(|meeting| {
                         let title = if meeting.title.is_empty() {
@@ -359,24 +294,6 @@ pub async fn serve(db: Arc<hypr_db_core::Db>) -> crate::Result<()> {
     Ok(())
 }
 
-async fn ensure_meeting(
-    db: &hypr_db_core::Db,
-    meeting_id: &str,
-) -> std::result::Result<(), McpError> {
-    let exists = hypr_db_app::get_session(db.pool(), meeting_id)
-        .await
-        .map_err(internal_error)?
-        .is_some();
-    if exists {
-        Ok(())
-    } else {
-        Err(McpError::invalid_params(
-            format!("meeting '{meeting_id}' not found"),
-            None,
-        ))
-    }
-}
-
 fn parse_resource_uri(uri: &str) -> std::result::Result<ResourceRequest, McpError> {
     let url = url::Url::parse(uri)
         .map_err(|_| McpError::invalid_params("invalid Anarlog resource URI", None))?;
@@ -404,7 +321,7 @@ fn parse_resource_uri(uri: &str) -> std::result::Result<ResourceRequest, McpErro
         }),
         ("meetings", [meeting_id, "transcript"]) => {
             let mut offset = 0;
-            let mut limit = DEFAULT_TRANSCRIPT_LIMIT;
+            let mut limit = access::DEFAULT_TRANSCRIPT_LIMIT;
             for (key, value) in url.query_pairs() {
                 match key.as_ref() {
                     "offset" => {
@@ -423,7 +340,7 @@ fn parse_resource_uri(uri: &str) -> std::result::Result<ResourceRequest, McpErro
             Ok(ResourceRequest::Transcript {
                 meeting_id: (*meeting_id).to_string(),
                 offset,
-                limit: limit.clamp(1, MAX_TRANSCRIPT_LIMIT),
+                limit: limit.clamp(1, access::MAX_TRANSCRIPT_LIMIT),
             })
         }
         ("series", [series_id]) => Ok(ResourceRequest::Series {
@@ -446,9 +363,11 @@ fn internal_error(error: impl std::fmt::Display) -> McpError {
     McpError::internal_error(error.to_string(), None)
 }
 
-fn command_error(error: Error) -> McpError {
+fn command_error(error: access::Error) -> McpError {
     match error {
-        Error::NotFound(what) => McpError::invalid_params(format!("{what} not found"), None),
+        access::Error::NotFound(what) => {
+            McpError::invalid_params(format!("{what} not found"), None)
+        }
         other => internal_error(other),
     }
 }
@@ -472,7 +391,7 @@ mod tests {
             ResourceRequest::Transcript {
                 meeting_id: "meeting-1".to_string(),
                 offset: 4,
-                limit: MAX_TRANSCRIPT_LIMIT,
+                limit: access::MAX_TRANSCRIPT_LIMIT,
             }
         );
         assert!(parse_resource_uri("file:///tmp/meeting").is_err());
@@ -503,7 +422,7 @@ mod tests {
         let server = AnarlogMcpServer::new(Arc::new(db));
 
         let result = server
-            .list_meetings(Parameters(ListMeetingsParams {
+            .list_meetings(Parameters(access::ListMeetingsInput {
                 query: Some("plan".to_string()),
                 series_id: None,
                 limit: None,
@@ -540,12 +459,12 @@ mod tests {
         let resources = client.list_all_resources().await.unwrap();
         insta::assert_json_snapshot!(
             "mcp_contract",
-            serde_json::json!({
+            canonicalize_json(serde_json::json!({
                 "protocol_version": info.protocol_version,
                 "instructions": info.instructions,
                 "tools": tools,
                 "resource_templates": templates,
-            })
+            }))
         );
 
         let mut tool_names = tools
@@ -636,5 +555,22 @@ mod tests {
         client.cancel().await.unwrap();
         let server = server_handle.await.unwrap().unwrap();
         server.cancel().await.unwrap();
+    }
+
+    fn canonicalize_json(value: Value) -> Value {
+        match value {
+            Value::Object(object) => Value::Object(
+                object
+                    .into_iter()
+                    .map(|(key, value)| (key, canonicalize_json(value)))
+                    .collect::<std::collections::BTreeMap<_, _>>()
+                    .into_iter()
+                    .collect(),
+            ),
+            Value::Array(values) => {
+                Value::Array(values.into_iter().map(canonicalize_json).collect())
+            }
+            value => value,
+        }
     }
 }

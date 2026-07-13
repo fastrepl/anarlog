@@ -2,7 +2,6 @@
 
 mod cli;
 mod commands;
-mod context;
 mod db;
 mod error;
 mod mcp;

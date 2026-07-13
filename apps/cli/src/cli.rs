@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use clap::{Parser, Subcommand, ValueEnum};
 
-use crate::context::{DEFAULT_TRANSCRIPT_LIMIT, MAX_TRANSCRIPT_LIMIT};
+use hypr_agent_access::{DEFAULT_TRANSCRIPT_LIMIT, MAX_TRANSCRIPT_LIMIT};
 
 #[derive(Debug, Parser)]
 #[command(name = "anarlog", version, about = "Query local Anarlog meeting data")]
@@ -74,7 +74,7 @@ pub enum MeetingCommand {
         #[arg(long, default_value_t = 0, help = "Word offset")]
         offset: u32,
     },
-    /// List other meetings from the same recurring series
+    /// List meetings from the same recurring series
     History {
         id: String,
         #[arg(long, default_value_t = 20, value_parser = clap::value_parser!(u32).range(1..=200), help = "Maximum meetings (1-200)")]
@@ -232,7 +232,24 @@ mod tests {
     fn cli_contract_matches_snapshot() {
         let contract: serde_json::Value =
             serde_json::from_str(&cli_docs::generate_json(&Args::command())).unwrap();
-        insta::assert_json_snapshot!("cli_contract", contract);
+        insta::assert_json_snapshot!("cli_contract", canonicalize_json(contract));
+    }
+
+    fn canonicalize_json(value: serde_json::Value) -> serde_json::Value {
+        match value {
+            serde_json::Value::Object(object) => serde_json::Value::Object(
+                object
+                    .into_iter()
+                    .map(|(key, value)| (key, canonicalize_json(value)))
+                    .collect::<std::collections::BTreeMap<_, _>>()
+                    .into_iter()
+                    .collect(),
+            ),
+            serde_json::Value::Array(values) => {
+                serde_json::Value::Array(values.into_iter().map(canonicalize_json).collect())
+            }
+            value => value,
+        }
     }
 
     fn collect_leaf_commands(command: &clap::Command, prefix: &str, paths: &mut Vec<String>) {

@@ -339,7 +339,7 @@ function searchNote(note: LoadedNoteFile, query: string): SearchMatch | null {
   };
 }
 
-async function grepNotes({
+async function searchMeetingContent({
   query,
   sessionIds,
   limit,
@@ -530,16 +530,16 @@ export const buildReadNoteTool = (_deps: ToolDependencies) =>
       }),
   });
 
-export const buildGrepNotesTool = (_deps: ToolDependencies) =>
+export const buildSearchMeetingContentTool = (_deps: ToolDependencies) =>
   tool({
     description:
-      "Lexically search local notes and transcripts for exact words or phrases. Use search_sessions first for open-ended questions about past meetings, people, decisions, or topics. This is SQLite-backed text search, not vector search.",
+      "Search local meeting notes and transcripts for exact words or phrases. Use search_meetings first for open-ended questions about past meetings, people, decisions, or topics. This is lexical content search, not vector search.",
     inputSchema: z.object({
-      query: z.string().describe("Text to search for in note files"),
-      sessionIds: z
+      query: z.string().describe("Text to search for in meeting content"),
+      meeting_ids: z
         .array(z.string())
         .optional()
-        .describe("Optional session ids to restrict the file search"),
+        .describe("Optional meeting ids to restrict the content search"),
       limit: z
         .number()
         .int()
@@ -550,26 +550,34 @@ export const buildGrepNotesTool = (_deps: ToolDependencies) =>
     }),
     execute: async (params: {
       query: string;
-      sessionIds?: string[];
+      meeting_ids?: string[];
       limit?: number;
-    }) =>
-      grepNotes({
+    }) => {
+      const result = await searchMeetingContent({
         query: params.query,
-        sessionIds: params.sessionIds,
+        sessionIds: params.meeting_ids,
         limit: Math.min(params.limit ?? DEFAULT_SEARCH_LIMIT, MAX_SEARCH_LIMIT),
-      }),
+      });
+      return {
+        ...result,
+        results: result.results.map(({ sessionId, ...match }) => ({
+          ...match,
+          meeting_id: sessionId,
+        })),
+      };
+    },
   });
 
-export const buildListRelatedNotesTool = (deps: ToolDependencies) =>
+export const buildFindRelatedMeetingsTool = (deps: ToolDependencies) =>
   tool({
     description:
-      "List notes related to the current or given note by shared participants, the same calendar event, or nearby dates. Use this when the user asks about people or related meetings.",
+      "Find meetings related to the current or given meeting by shared participants, the same calendar event, or nearby dates.",
     inputSchema: z.object({
-      sessionId: z
+      meeting_id: z
         .string()
         .optional()
         .describe(
-          "Session id to find related notes for. Defaults to the currently open note.",
+          "Meeting id to find related meetings for. Defaults to the currently open meeting.",
         ),
       limit: z
         .number()
@@ -577,22 +585,31 @@ export const buildListRelatedNotesTool = (deps: ToolDependencies) =>
         .min(1)
         .max(MAX_SEARCH_LIMIT)
         .optional()
-        .describe("Maximum related notes to return"),
+        .describe("Maximum related meetings to return"),
     }),
-    execute: async (params: { sessionId?: string; limit?: number }) => {
-      const sessionId = params.sessionId ?? deps.getSessionId();
+    execute: async (params: { meeting_id?: string; limit?: number }) => {
+      const sessionId = params.meeting_id ?? deps.getSessionId();
       if (!sessionId) {
         return {
           status: "error" as const,
-          message: "No note is currently open",
+          message: "No meeting is currently open",
           results: [],
         };
       }
 
-      return listRelatedNotes({
+      const result = await listRelatedNotes({
         sessionId,
         limit: Math.min(params.limit ?? DEFAULT_SEARCH_LIMIT, MAX_SEARCH_LIMIT),
       });
+      const { sessionId: resolvedMeetingId, ...related } = result;
+      return {
+        ...related,
+        meeting_id: resolvedMeetingId,
+        results: result.results.map(({ sessionId, ...meeting }) => ({
+          ...meeting,
+          meeting_id: sessionId,
+        })),
+      };
     },
   });
 

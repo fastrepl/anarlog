@@ -14,40 +14,45 @@ import { useToolState } from "./shared";
 
 import { Disclosure } from "~/chat/components/message/shared";
 import { ToolRenderer } from "~/chat/components/message/types";
-import { useSessionSummary } from "~/session/queries";
 import { useTabs } from "~/store/zustand/tabs";
 
-type Renderer = ToolRenderer<"tool-search_sessions">;
+type Renderer = ToolRenderer<"tool-search_meetings">;
 type Part = Parameters<Renderer>[0]["part"];
-type SearchResult = {
+type MeetingSearchResult = {
   id: string;
   title: string;
   excerpt: string;
   score: number;
-  created_at: number;
+  created_at: number | string;
 };
 
-function parseSearchResults(output: unknown): SearchResult[] {
-  if (!output || typeof output !== "object" || !("results" in output)) {
+function parseMeetingSearchResults(output: unknown): MeetingSearchResult[] {
+  if (!output || typeof output !== "object") {
     return [];
   }
 
-  const { results } = output as { results?: unknown };
-  if (!Array.isArray(results)) {
+  const record = output as { results?: unknown; meetings?: unknown };
+  const results = Array.isArray(record.results)
+    ? record.results
+    : Array.isArray(record.meetings)
+      ? record.meetings
+      : null;
+  if (!results) {
     return [];
   }
 
-  return results.flatMap((result): SearchResult[] => {
+  return results.flatMap((result): MeetingSearchResult[] => {
     if (!result || typeof result !== "object") {
       return [];
     }
 
-    const { id, title, excerpt, score, created_at } = result as {
+    const { id, title, excerpt, score, created_at, started_at } = result as {
       id?: unknown;
       title?: unknown;
       excerpt?: unknown;
       score?: unknown;
       created_at?: unknown;
+      started_at?: unknown;
     };
     if (typeof id !== "string") {
       return [];
@@ -59,7 +64,12 @@ function parseSearchResults(output: unknown): SearchResult[] {
         title: typeof title === "string" ? title : "Untitled",
         excerpt: typeof excerpt === "string" ? excerpt : "",
         score: typeof score === "number" ? score : 0,
-        created_at: typeof created_at === "number" ? created_at : 0,
+        created_at:
+          typeof started_at === "string" && started_at
+            ? started_at
+            : typeof created_at === "number" || typeof created_at === "string"
+              ? created_at
+              : 0,
       },
     ];
   });
@@ -70,12 +80,12 @@ function formatSearchInput(input: Part["input"] | undefined): {
   details: string[];
 } {
   if (!input) {
-    return { titleQuery: "sessions", details: [] };
+    return { titleQuery: "meetings", details: [] };
   }
 
   const details: string[] = [];
   const rawQuery = typeof input.query === "string" ? input.query.trim() : "";
-  const titleQuery = rawQuery || "sessions";
+  const titleQuery = rawQuery || "meetings";
 
   if (!rawQuery) {
     details.push("Query: none");
@@ -119,7 +129,7 @@ function formatSearchInput(input: Part["input"] | undefined): {
   return { titleQuery, details };
 }
 
-export const ToolSearchSessions: Renderer = ({ part }) => {
+export const ToolSearchMeetings: Renderer = ({ part }) => {
   const { running: disabled } = useToolState(part);
 
   return (
@@ -155,7 +165,7 @@ function RenderContent({ part }: { part: Part }) {
   const { details } = formatSearchInput(part.input);
 
   if (part.state === "output-available") {
-    const results = parseSearchResults(part.output);
+    const results = parseMeetingSearchResults(part.output);
 
     if (!results || results.length === 0) {
       return (
@@ -193,7 +203,7 @@ function RenderContent({ part }: { part: Part }) {
                 >
                   <Card className="bg-muted h-full">
                     <CardContent className="px-2 py-0.5">
-                      <RenderSession result={result} />
+                      <RenderMeeting result={result} />
                     </CardContent>
                   </Card>
                 </CarouselItem>
@@ -220,9 +230,8 @@ function RenderContent({ part }: { part: Part }) {
   ) : null;
 }
 
-function RenderSession({ result }: { result: SearchResult }) {
+function RenderMeeting({ result }: { result: MeetingSearchResult }) {
   const { id: sessionId } = result;
-  const session = useSessionSummary(sessionId);
   const openNew = useTabs((state) => state.openNew);
 
   const handleClick = useCallback(() => {
@@ -233,14 +242,6 @@ function RenderSession({ result }: { result: SearchResult }) {
     if (!result.created_at) return null;
     return new Date(result.created_at).toLocaleString();
   }, [result.created_at]);
-
-  if (!session) {
-    return (
-      <div className="text-muted-foreground text-xs italic">
-        Session unavailable
-      </div>
-    );
-  }
 
   return (
     <button

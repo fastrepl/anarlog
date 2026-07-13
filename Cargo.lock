@@ -221,6 +221,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "agent-access"
+version = "0.1.0"
+dependencies = [
+ "db-app",
+ "db-core",
+ "schemars 1.2.1",
+ "serde",
+ "serde_json",
+ "specta",
+ "sqlx",
+ "thiserror 2.0.18",
+ "tiptap",
+ "tokio",
+]
+
+[[package]]
 name = "agent-core"
 version = "0.1.0"
 dependencies = [
@@ -362,6 +378,7 @@ dependencies = [
 name = "anarlog-cli"
 version = "0.1.0"
 dependencies = [
+ "agent-access",
  "clap",
  "cli-docs",
  "db-app",
@@ -374,7 +391,6 @@ dependencies = [
  "sqlx",
  "tempfile",
  "thiserror 2.0.18",
- "tiptap",
  "tokio",
  "url",
 ]
@@ -18055,6 +18071,7 @@ dependencies = [
 name = "tauri-plugin-db"
 version = "0.1.0"
 dependencies = [
+ "agent-access",
  "anyhow",
  "db-app",
  "db-core",
