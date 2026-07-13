@@ -6,7 +6,7 @@ import { cn } from "@hypr/utils";
 
 import { Toast } from "./component";
 import {
-  CONSENT_AUTO_SEND_CHAT_TOAST_ID,
+  MEETING_DISCLOSURE_AUTO_POST_TOAST_ID,
   createDevtoolsToastPreview,
   createToastRegistry,
   getToastToShow,
@@ -118,7 +118,9 @@ export function ToastArea({
     (state) => state.updateSettingsTabState,
   );
   const setToastActionTarget = useToastAction((state) => state.setTarget);
-  const setConsentAutoSendChat = useSetSettingValue("consent_auto_send_chat");
+  const setMeetingDisclosureAutoPost = useSetSettingValue(
+    "consent_auto_send_chat",
+  );
 
   const handleSignIn = useCallback(async () => {
     await auth?.signIn();
@@ -144,12 +146,12 @@ export function ToastArea({
     openAiTab("transcription");
   }, [openAiTab, setToastActionTarget]);
 
-  const handleEnableConsentAutoSendChat = useCallback(() => {
-    setConsentAutoSendChat(true);
-  }, [setConsentAutoSendChat]);
+  const handleEnableMeetingDisclosureAutoPost = useCallback(() => {
+    setMeetingDisclosureAutoPost(true);
+  }, [setMeetingDisclosureAutoPost]);
 
-  const handleDismissConsentAutoSendChat = useCallback(() => {
-    dismissToast(CONSENT_AUTO_SEND_CHAT_TOAST_ID);
+  const handleDismissMeetingDisclosureAutoPost = useCallback(() => {
+    dismissToast(MEETING_DISCLOSURE_AUTO_POST_TOAST_ID);
   }, [dismissToast]);
 
   const registry = useMemo(
@@ -159,7 +161,7 @@ export function ToastArea({
         isAuthLoading,
         hasLLMConfigured,
         hasSttConfigured,
-        consentAutoSendChatEnabled: consent_auto_send_chat,
+        meetingDisclosureAutoPostEnabled: consent_auto_send_chat,
         hasProSttConfigured,
         hasProLlmConfigured,
         isAiTranscriptionTabActive,
@@ -174,8 +176,10 @@ export function ToastArea({
         onSignIn: handleSignIn,
         onOpenLLMSettings: handleOpenLLMSettings,
         onOpenSTTSettings: handleOpenSTTSettings,
-        onEnableConsentAutoSendChat: handleEnableConsentAutoSendChat,
-        onDismissConsentAutoSendChat: handleDismissConsentAutoSendChat,
+        onEnableMeetingDisclosureAutoPost:
+          handleEnableMeetingDisclosureAutoPost,
+        onDismissMeetingDisclosureAutoPost:
+          handleDismissMeetingDisclosureAutoPost,
       }),
     [
       isAuthenticated,
@@ -197,8 +201,8 @@ export function ToastArea({
       handleSignIn,
       handleOpenLLMSettings,
       handleOpenSTTSettings,
-      handleEnableConsentAutoSendChat,
-      handleDismissConsentAutoSendChat,
+      handleEnableMeetingDisclosureAutoPost,
+      handleDismissMeetingDisclosureAutoPost,
     ],
   );
 

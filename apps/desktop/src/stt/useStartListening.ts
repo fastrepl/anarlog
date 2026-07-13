@@ -22,6 +22,7 @@ import { useSession, useSessionHasTranscript } from "~/session/queries";
 import { getSessionEvent } from "~/session/utils";
 import { useConfigValue } from "~/shared/config";
 import { id } from "~/shared/utils";
+import { showTransientToast } from "~/sidebar/toast/transient";
 import type {
   LiveTranscriptPersistCallback,
   OnStoppedCallback,
@@ -37,10 +38,26 @@ import {
   useSessionParticipantHumanIds,
 } from "~/stt/queries";
 
-const CONSENT_CHAT_MESSAGE =
-  "I'm using Anarlog, a private meeting notepad, to record and transcribe this meeting. Learn more at https://anarlog.so. Please reply here if you do not consent.";
+export const MEETING_DISCLOSURE_MESSAGE =
+  "I'm using Anarlog, a private meeting notepad, to record and transcribe this meeting. Learn more at https://anarlog.so. Please tell me here if you don't consent, and I'll stop.";
 
-export async function sendConsentRequestToMeetingChat() {
+type MeetingDisclosureOutcome =
+  | { status: "sent" }
+  | { status: "notSent"; reason: string };
+
+function meetingDisclosureFailure(reason: unknown): MeetingDisclosureOutcome {
+  const detail = reason instanceof Error ? reason.message : String(reason);
+  console.warn("[listener] meeting disclosure was not sent", reason);
+  showTransientToast({
+    id: "meeting-disclosure-send-failed",
+    description:
+      "Recording started, but Anarlog could not post the Slack Huddle disclosure.",
+    variant: "warning",
+  });
+  return { status: "notSent", reason: detail };
+}
+
+export async function sendMeetingRecordingDisclosure(): Promise<MeetingDisclosureOutcome> {
   let micAppsResult: Awaited<
     ReturnType<typeof detectCommands.listMicUsingApplications>
   >;
@@ -48,52 +65,42 @@ export async function sendConsentRequestToMeetingChat() {
   try {
     micAppsResult = await detectCommands.listMicUsingApplications();
   } catch (error) {
-    console.warn("[listener] failed to find the mic-active meeting app", error);
-    return;
+    return meetingDisclosureFailure(error);
   }
 
   if (micAppsResult.status === "error") {
-    console.warn(
-      "[listener] failed to find the mic-active meeting app",
-      micAppsResult.error,
-    );
-    return;
+    return meetingDisclosureFailure(micAppsResult.error);
   }
 
   const micActiveBundleIds = [
     ...new Set(micAppsResult.data.map((app) => app.id.trim()).filter(Boolean)),
   ];
   if (micActiveBundleIds.length === 0) {
-    console.warn(
-      "[listener] consent message was not sent",
-      "no mic-active app was found",
-    );
-    return;
+    return meetingDisclosureFailure("no mic-active app was found");
   }
 
   let result: Awaited<ReturnType<typeof detectCommands.sendMeetingChatMessage>>;
 
   try {
     result = await detectCommands.sendMeetingChatMessage(
-      CONSENT_CHAT_MESSAGE,
+      MEETING_DISCLOSURE_MESSAGE,
       micActiveBundleIds,
     );
   } catch (error) {
-    console.warn("[listener] failed to send consent message", error);
-    return;
+    return meetingDisclosureFailure(error);
   }
 
   if (result.status === "error") {
-    console.warn("[listener] failed to send consent message", result.error);
-    return;
+    return meetingDisclosureFailure(result.error);
   }
 
   if (!result.data.sent) {
-    console.warn(
-      "[listener] consent message was not sent",
-      result.data.warnings,
+    return meetingDisclosureFailure(
+      result.data.warnings.join("; ") || "meeting chat mutation was rejected",
     );
   }
+
+  return { status: "sent" };
 }
 
 export function getPostCaptureAction(
@@ -125,7 +132,9 @@ export function useStartListening(sessionId: string) {
   const audioRetention = normalizeAudioRetention(
     useConfigValue("audio_retention"),
   );
-  const consentAutoSendChat = useConfigValue("consent_auto_send_chat");
+  const meetingDisclosureAutoSendChat = useConfigValue(
+    "consent_auto_send_chat",
+  );
 
   const start = useListener((state) => state.start);
   const { conn } = useSTTConnection();
@@ -135,6 +144,9 @@ export function useStartListening(sessionId: string) {
 
   const runBatchRef = useRef(runBatch);
   const canRunBatchRef = useRef(canRunBatchTranscription(conn));
+  const meetingDisclosureStateRef = useRef(
+    new Map<string, "sending" | "sent">(),
+  );
   runBatchRef.current = runBatch;
   canRunBatchRef.current = canRunBatchTranscription(conn);
 
@@ -266,8 +278,18 @@ export function useStartListening(sessionId: string) {
 
     setLeftSidebarExpanded(false);
 
-    if (consentAutoSendChat) {
-      void sendConsentRequestToMeetingChat();
+    if (
+      meetingDisclosureAutoSendChat &&
+      !meetingDisclosureStateRef.current.has(sessionId)
+    ) {
+      meetingDisclosureStateRef.current.set(sessionId, "sending");
+      void sendMeetingRecordingDisclosure().then((outcome) => {
+        if (outcome.status === "sent") {
+          meetingDisclosureStateRef.current.set(sessionId, "sent");
+        } else {
+          meetingDisclosureStateRef.current.delete(sessionId);
+        }
+      });
     }
 
     void analyticsCommands.event({
@@ -294,7 +316,7 @@ export function useStartListening(sessionId: string) {
     start,
     spokenLanguages,
     setLeftSidebarExpanded,
-    consentAutoSendChat,
+    meetingDisclosureAutoSendChat,
   ]);
 
   return startListening;

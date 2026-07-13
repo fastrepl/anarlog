@@ -171,7 +171,7 @@ function SettingsAppContent({
                                 <form.Field name="telemetry_consent">
                                   {(telemetryConsentField) => (
                                     <form.Field name="consent_auto_send_chat">
-                                      {(consentAutoSendChatField) => (
+                                      {(meetingDisclosureAutoPostField) => (
                                         <AppSettingsView
                                           autostart={{
                                             value: autostartField.state.value,
@@ -228,12 +228,12 @@ function SettingsAppContent({
                                                 val,
                                               ),
                                           }}
-                                          consentAutoSendChat={{
+                                          meetingDisclosureAutoPost={{
                                             value:
-                                              consentAutoSendChatField.state
-                                                .value,
+                                              meetingDisclosureAutoPostField
+                                                .state.value,
                                             onChange: (val) =>
-                                              consentAutoSendChatField.handleChange(
+                                              meetingDisclosureAutoPostField.handleChange(
                                                 val,
                                               ),
                                           }}

@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import { getSessionKeywords } from "./useKeywords";
 import {
   getPostCaptureAction,
-  sendConsentRequestToMeetingChat,
+  sendMeetingRecordingDisclosure,
   useStartListening,
 } from "./useStartListening";
 
@@ -29,6 +29,7 @@ const {
   deleteProcessedAudioForRetentionMock,
   listMicUsingApplicationsMock,
   sendMeetingChatMessageMock,
+  showTransientToastMock,
 } = vi.hoisted(() => ({
   queueAutoEnhanceMock: vi.fn(),
   queueAutoEnhanceIfSummaryEmptyMock: vi.fn(),
@@ -50,6 +51,7 @@ const {
   deleteProcessedAudioForRetentionMock: vi.fn(),
   listMicUsingApplicationsMock: vi.fn(),
   sendMeetingChatMessageMock: vi.fn(),
+  showTransientToastMock: vi.fn(),
 }));
 
 vi.mock("@hypr/plugin-transcription", () => ({
@@ -67,6 +69,10 @@ vi.mock("@hypr/plugin-detect", () => ({
     listMicUsingApplications: listMicUsingApplicationsMock,
     sendMeetingChatMessage: sendMeetingChatMessageMock,
   },
+}));
+
+vi.mock("~/sidebar/toast/transient", () => ({
+  showTransientToast: showTransientToastMock,
 }));
 
 vi.mock("./useKeywords", () => ({
@@ -578,7 +584,7 @@ describe("useStartListening", () => {
     });
   });
 
-  test("does not send the consent chat message when auto-send is disabled", async () => {
+  test("does not send the recording disclosure when auto-post is disabled", async () => {
     const { result } = renderHook(() => useStartListening("session-1"));
 
     await act(async () => {
@@ -588,7 +594,7 @@ describe("useStartListening", () => {
     expect(sendMeetingChatMessageMock).not.toHaveBeenCalled();
   });
 
-  test("sends the consent chat message after listening starts when auto-send is enabled", async () => {
+  test("posts the recording disclosure after listening starts when enabled", async () => {
     useConfigValueMock.mockImplementation((key: string) =>
       key === "ai_language"
         ? "en"
@@ -605,10 +611,36 @@ describe("useStartListening", () => {
 
     await waitFor(() => {
       expect(sendMeetingChatMessageMock).toHaveBeenCalledWith(
-        "I'm using Anarlog, a private meeting notepad, to record and transcribe this meeting. Learn more at https://anarlog.so. Please reply here if you do not consent.",
+        "I'm using Anarlog, a private meeting notepad, to record and transcribe this meeting. Learn more at https://anarlog.so. Please tell me here if you don't consent, and I'll stop.",
         ["com.tinyspeck.slackmacgap"],
       );
     });
+  });
+
+  test("posts the recording disclosure once across repeated successful starts", async () => {
+    useConfigValueMock.mockImplementation((key: string) =>
+      key === "ai_language"
+        ? "en"
+        : key === "consent_auto_send_chat"
+          ? true
+          : [],
+    );
+
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+    await waitFor(() => {
+      expect(sendMeetingChatMessageMock).toHaveBeenCalledTimes(1);
+    });
+
+    await act(async () => {
+      await result.current();
+    });
+
+    expect(startMock).toHaveBeenCalledTimes(2);
+    expect(sendMeetingChatMessageMock).toHaveBeenCalledTimes(1);
   });
 
   test("scopes a manual Zoom start without targeting an unrelated Slack Huddle", async () => {
@@ -705,9 +737,15 @@ describe("useStartListening", () => {
       );
     });
     expect(warn).toHaveBeenCalledWith(
-      "[listener] consent message was not sent",
-      ["expected exactly one recognized meeting app bundle"],
+      "[listener] meeting disclosure was not sent",
+      "expected exactly one recognized meeting app bundle",
     );
+    expect(showTransientToastMock).toHaveBeenCalledWith({
+      id: "meeting-disclosure-send-failed",
+      description:
+        "Recording started, but Anarlog could not post the Slack Huddle disclosure.",
+      variant: "warning",
+    });
     warn.mockRestore();
   });
 
@@ -735,20 +773,35 @@ describe("useStartListening", () => {
       expect(listMicUsingApplicationsMock).toHaveBeenCalledTimes(1);
     });
     expect(sendMeetingChatMessageMock).not.toHaveBeenCalled();
+    expect(showTransientToastMock).toHaveBeenCalledWith({
+      id: "meeting-disclosure-send-failed",
+      description:
+        "Recording started, but Anarlog could not post the Slack Huddle disclosure.",
+      variant: "warning",
+    });
     warn.mockRestore();
   });
 
-  test("handles a rejected consent chat command", async () => {
+  test("returns a typed failure and warns when disclosure mutation rejects", async () => {
     const error = new Error("IPC unavailable");
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     sendMeetingChatMessageMock.mockRejectedValueOnce(error);
 
-    await expect(sendConsentRequestToMeetingChat()).resolves.toBeUndefined();
+    await expect(sendMeetingRecordingDisclosure()).resolves.toEqual({
+      status: "notSent",
+      reason: "IPC unavailable",
+    });
 
     expect(warn).toHaveBeenCalledWith(
-      "[listener] failed to send consent message",
+      "[listener] meeting disclosure was not sent",
       error,
     );
+    expect(showTransientToastMock).toHaveBeenCalledWith({
+      id: "meeting-disclosure-send-failed",
+      description:
+        "Recording started, but Anarlog could not post the Slack Huddle disclosure.",
+      variant: "warning",
+    });
     warn.mockRestore();
   });
 });

@@ -12,7 +12,7 @@ function setting(value = true) {
 
 function renderAppSettings({
   floatingBar = true,
-  consentAutoSendChat = setting(),
+  meetingDisclosureAutoPost = setting(),
 } = {}) {
   return {
     ...render(
@@ -24,10 +24,10 @@ function renderAppSettings({
         showAppInDock={setting()}
         showTrayIcon={setting()}
         telemetryConsent={setting()}
-        consentAutoSendChat={consentAutoSendChat}
+        meetingDisclosureAutoPost={meetingDisclosureAutoPost}
       />,
     ),
-    consentAutoSendChat,
+    meetingDisclosureAutoPost,
   };
 }
 
@@ -48,16 +48,16 @@ describe("AppSettingsView", () => {
     expect(screen.getByText("Show floating bar")).toBeTruthy();
   });
 
-  it("updates the consent chat setting from the meetings switch", () => {
-    const consentAutoSendChat = setting(false);
-    renderAppSettings({ consentAutoSendChat });
+  it("updates the recording disclosure setting from the meetings switch", () => {
+    const meetingDisclosureAutoPost = setting(false);
+    renderAppSettings({ meetingDisclosureAutoPost });
 
     fireEvent.click(
       screen.getByRole("switch", {
-        name: "Send consent request to Slack Huddles",
+        name: "Post recording disclosure to Slack Huddles",
       }),
     );
 
-    expect(consentAutoSendChat.onChange).toHaveBeenCalledWith(true);
+    expect(meetingDisclosureAutoPost.onChange).toHaveBeenCalledWith(true);
   });
 });

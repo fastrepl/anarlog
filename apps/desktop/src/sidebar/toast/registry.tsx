@@ -16,7 +16,7 @@ type ToastRegistryParams = {
   isAuthLoading: boolean;
   hasLLMConfigured: boolean;
   hasSttConfigured: boolean;
-  consentAutoSendChatEnabled: boolean;
+  meetingDisclosureAutoPostEnabled: boolean;
   hasProSttConfigured: boolean;
   hasProLlmConfigured: boolean;
   isAiTranscriptionTabActive: boolean;
@@ -31,8 +31,8 @@ type ToastRegistryParams = {
   onSignIn: () => void | Promise<void>;
   onOpenLLMSettings: () => void;
   onOpenSTTSettings: () => void;
-  onEnableConsentAutoSendChat: () => void | Promise<void>;
-  onDismissConsentAutoSendChat: () => void | Promise<void>;
+  onEnableMeetingDisclosureAutoPost: () => void | Promise<void>;
+  onDismissMeetingDisclosureAutoPost: () => void | Promise<void>;
 };
 
 type DevtoolsToastPreviewParams = {
@@ -42,14 +42,14 @@ type DevtoolsToastPreviewParams = {
   onOpenSTTSettings: () => void;
 };
 
-export const CONSENT_AUTO_SEND_CHAT_TOAST_ID = "consent-auto-send-chat";
+export const MEETING_DISCLOSURE_AUTO_POST_TOAST_ID = "consent-auto-send-chat";
 
 export function createToastRegistry({
   isAuthenticated,
   isAuthLoading,
   hasLLMConfigured,
   hasSttConfigured,
-  consentAutoSendChatEnabled,
+  meetingDisclosureAutoPostEnabled,
   hasProSttConfigured,
   hasProLlmConfigured,
   isAiTranscriptionTabActive,
@@ -64,8 +64,8 @@ export function createToastRegistry({
   onSignIn,
   onOpenLLMSettings,
   onOpenSTTSettings,
-  onEnableConsentAutoSendChat,
-  onDismissConsentAutoSendChat,
+  onEnableMeetingDisclosureAutoPost,
+  onDismissMeetingDisclosureAutoPost,
 }: ToastRegistryParams): ToastRegistryEntry[] {
   const downloadTitle =
     activeDownloads.length === 1 && downloadingModel
@@ -141,16 +141,16 @@ export function createToastRegistry({
     },
     {
       toast: {
-        id: CONSENT_AUTO_SEND_CHAT_TOAST_ID,
-        description: "Auto-send consent in Slack Huddles?",
+        id: MEETING_DISCLOSURE_AUTO_POST_TOAST_ID,
+        description: "Auto-post a recording disclosure in Slack Huddles?",
         actions: [
           {
             label: "Enable",
-            onClick: onEnableConsentAutoSendChat,
+            onClick: onEnableMeetingDisclosureAutoPost,
           },
           {
             label: "Not now",
-            onClick: onDismissConsentAutoSendChat,
+            onClick: onDismissMeetingDisclosureAutoPost,
           },
         ],
         dismissible: false,
@@ -158,7 +158,7 @@ export function createToastRegistry({
       condition: () =>
         hasSttConfigured &&
         hasLLMConfigured &&
-        !consentAutoSendChatEnabled &&
+        !meetingDisclosureAutoPostEnabled &&
         !isAiTranscriptionTabActive,
     },
     {

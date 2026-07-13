@@ -236,7 +236,7 @@ msgid "Automatically detect when a meeting starts based on microphone activity."
 msgstr ""
 
 #: src/settings/general/app-settings.tsx
-msgid "Automatically post the consent request in the active Slack Huddle."
+msgid "Automatically post a disclosure in the active Slack Huddle after recording starts. Recording continues if posting fails."
 msgstr ""
 
 #: src/settings/general/app-settings.tsx
@@ -1223,6 +1223,10 @@ msgstr ""
 msgid "Plans"
 msgstr ""
 
+#: src/settings/general/app-settings.tsx
+msgid "Post recording disclosure to Slack Huddles"
+msgstr ""
+
 #: src/session/components/outer-header/overflow/export-modal.tsx
 msgid "Preparing transcript..."
 msgstr ""
@@ -1475,10 +1479,6 @@ msgstr ""
 #: src/settings/general/app-settings.tsx
 msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Dërgo analitikë anonime përdorimi për të ndihmuar në përmirësimin e Anarlog."
-
-#: src/settings/general/app-settings.tsx
-msgid "Send consent request to Slack Huddles"
-msgstr ""
 
 #: src/contacts/organization-details.tsx
 msgid "Send email"

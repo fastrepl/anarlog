@@ -10,15 +10,32 @@ const MEETING_APP_BUNDLES: &[&str] = &[
     "com.microsoft.teams2",
     "com.microsoft.teams",
     "com.tinyspeck.slackmacgap",
+    "com.slack.Slack",
     "com.hnc.Discord",
+    "com.discordapp.Discord",
     "Cisco-Systems.Spark",
+    "com.cisco.webex",
+    "com.cisco.webexmeetingsapp",
     "com.google.Chrome",
+    "com.google.Chrome.canary",
     "com.microsoft.edgemac",
+    "com.microsoft.edgemac.Beta",
+    "com.microsoft.edgemac.Canary",
+    "com.microsoft.edgemac.Dev",
     "org.mozilla.firefox",
+    "org.mozilla.firefoxdeveloperedition",
+    "org.mozilla.nightly",
     "com.apple.Safari",
+    "com.apple.SafariTechnologyPreview",
     "com.brave.Browser",
+    "com.brave.Browser.beta",
+    "com.brave.Browser.nightly",
+    "org.chromium.Chromium",
     "com.vivaldi.Vivaldi",
     "com.operasoftware.Opera",
+    "com.operasoftware.OperaDeveloper",
+    "com.operasoftware.OperaGX",
+    "com.operasoftware.OperaNext",
     "company.thebrowser.Browser",
     "ai.perplexity.comet",
     "at.studio.AsideBrowser",
@@ -568,7 +585,7 @@ fn send_slack_huddle_chat_message(
         Ok(current) if chat_input_is_owned(&current, message) => {}
         Ok(_) => {
             warnings.push(
-                "Slack Huddle composer changed while preparing the consent message; nothing was sent or cleared"
+                "Slack Huddle composer changed while preparing the disclosure message; nothing was sent or cleared"
                     .to_string(),
             );
             return slack_chat_failure(app, surface, label, warnings);
@@ -1428,9 +1445,11 @@ fn classify_bundle(bundle_id: &str) -> MeetingPlatform {
     match bundle_id {
         "us.zoom.xos" => MeetingPlatform::Zoom,
         "com.microsoft.teams2" | "com.microsoft.teams" => MeetingPlatform::MicrosoftTeams,
-        "com.tinyspeck.slackmacgap" => MeetingPlatform::Slack,
-        "com.hnc.Discord" => MeetingPlatform::Discord,
-        "Cisco-Systems.Spark" => MeetingPlatform::Webex,
+        "com.tinyspeck.slackmacgap" | "com.slack.Slack" => MeetingPlatform::Slack,
+        "com.hnc.Discord" | "com.discordapp.Discord" => MeetingPlatform::Discord,
+        "Cisco-Systems.Spark" | "com.cisco.webex" | "com.cisco.webexmeetingsapp" => {
+            MeetingPlatform::Webex
+        }
         _ => MeetingPlatform::Unknown,
     }
 }
@@ -1600,12 +1619,25 @@ fn is_browser_bundle(bundle_id: &str) -> bool {
     matches!(
         bundle_id,
         "com.google.Chrome"
+            | "com.google.Chrome.canary"
             | "com.microsoft.edgemac"
+            | "com.microsoft.edgemac.Beta"
+            | "com.microsoft.edgemac.Canary"
+            | "com.microsoft.edgemac.Dev"
             | "org.mozilla.firefox"
+            | "org.mozilla.firefoxdeveloperedition"
+            | "org.mozilla.nightly"
             | "com.apple.Safari"
+            | "com.apple.SafariTechnologyPreview"
             | "com.brave.Browser"
+            | "com.brave.Browser.beta"
+            | "com.brave.Browser.nightly"
+            | "org.chromium.Chromium"
             | "com.vivaldi.Vivaldi"
             | "com.operasoftware.Opera"
+            | "com.operasoftware.OperaDeveloper"
+            | "com.operasoftware.OperaGX"
+            | "com.operasoftware.OperaNext"
             | "company.thebrowser.Browser"
             | "ai.perplexity.comet"
             | "at.studio.AsideBrowser"
@@ -2156,8 +2188,11 @@ mod tests {
         assert!(has_nonempty_draft(&first));
         first.value = Some(" \n ".to_string());
         assert!(!has_nonempty_draft(&first));
-        assert!(chat_input_is_owned("consent", "consent"));
-        assert!(!chat_input_is_owned("consent plus user text", "consent"));
+        assert!(chat_input_is_owned("disclosure", "disclosure"));
+        assert!(!chat_input_is_owned(
+            "disclosure plus user text",
+            "disclosure"
+        ));
     }
 
     #[test]
@@ -2359,7 +2394,7 @@ mod tests {
 
     #[test]
     fn test_meeting_chat_message_validation() {
-        assert!(validate_meeting_chat_message("consent message").is_ok());
+        assert!(validate_meeting_chat_message("disclosure message").is_ok());
         assert!(validate_meeting_chat_message(" \n\t ").is_err());
         assert!(validate_meeting_chat_message(&"x".repeat(2_000)).is_ok());
         assert!(validate_meeting_chat_message(&"x".repeat(2_001)).is_err());
@@ -2368,6 +2403,7 @@ mod tests {
     #[test]
     fn test_chat_mutation_is_fail_closed_for_unvalidated_platforms() {
         assert!(supports_meeting_chat_mutation("com.tinyspeck.slackmacgap"));
+        assert!(supports_meeting_chat_mutation("com.slack.Slack"));
         for bundle_id in [
             "us.zoom.xos",
             "com.microsoft.teams2",
@@ -2376,6 +2412,49 @@ mod tests {
             "com.google.Chrome",
         ] {
             assert!(!supports_meeting_chat_mutation(bundle_id));
+        }
+    }
+
+    #[test]
+    fn test_established_native_bundle_aliases_are_classified() {
+        for (bundle_id, platform) in [
+            ("com.slack.Slack", MeetingPlatform::Slack),
+            ("com.cisco.webex", MeetingPlatform::Webex),
+            ("com.cisco.webexmeetingsapp", MeetingPlatform::Webex),
+            ("com.discordapp.Discord", MeetingPlatform::Discord),
+        ] {
+            assert!(MEETING_APP_BUNDLES.contains(&bundle_id));
+            assert_eq!(classify_bundle(bundle_id), platform);
+            assert_eq!(
+                classify_surface(bundle_id, &platform),
+                MeetingSurface::Native
+            );
+        }
+    }
+
+    #[test]
+    fn test_established_browser_variants_are_recognized_as_web_surfaces() {
+        for bundle_id in [
+            "com.apple.SafariTechnologyPreview",
+            "com.google.Chrome.canary",
+            "com.microsoft.edgemac.Beta",
+            "com.microsoft.edgemac.Canary",
+            "com.microsoft.edgemac.Dev",
+            "org.mozilla.firefoxdeveloperedition",
+            "org.mozilla.nightly",
+            "com.brave.Browser.beta",
+            "com.brave.Browser.nightly",
+            "org.chromium.Chromium",
+            "com.operasoftware.OperaDeveloper",
+            "com.operasoftware.OperaGX",
+            "com.operasoftware.OperaNext",
+        ] {
+            assert!(MEETING_APP_BUNDLES.contains(&bundle_id));
+            assert!(is_browser_bundle(bundle_id));
+            assert_eq!(
+                classify_surface(bundle_id, &MeetingPlatform::Unknown),
+                MeetingSurface::Web
+            );
         }
     }
 

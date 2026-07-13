@@ -16,7 +16,7 @@ interface AppSettingsViewProps {
   showAppInDock: SettingItem;
   showTrayIcon: SettingItem;
   telemetryConsent: SettingItem;
-  consentAutoSendChat: SettingItem;
+  meetingDisclosureAutoPost: SettingItem;
 }
 
 export function AppSettingsView({
@@ -27,7 +27,7 @@ export function AppSettingsView({
   showAppInDock,
   showTrayIcon,
   telemetryConsent,
-  consentAutoSendChat,
+  meetingDisclosureAutoPost,
 }: AppSettingsViewProps) {
   return (
     <div className="flex flex-col gap-8">
@@ -98,15 +98,15 @@ export function AppSettingsView({
             onChange={autoStopMeetings.onChange}
           />
           <SettingRow
-            title={<Trans>Send consent request to Slack Huddles</Trans>}
+            title={<Trans>Post recording disclosure to Slack Huddles</Trans>}
             description={
               <Trans>
-                Automatically post the consent request in the active Slack
-                Huddle.
+                Automatically post a disclosure in the active Slack Huddle after
+                recording starts. Recording continues if posting fails.
               </Trans>
             }
-            checked={consentAutoSendChat.value}
-            onChange={consentAutoSendChat.onChange}
+            checked={meetingDisclosureAutoPost.value}
+            onChange={meetingDisclosureAutoPost.onChange}
           />
           <SettingRow
             title={<Trans>Show floating bar</Trans>}

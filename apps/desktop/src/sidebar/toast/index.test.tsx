@@ -135,7 +135,7 @@ describe("ToastArea", () => {
     expect(toastContainer?.style.top).toBe("56px");
   });
 
-  it("enables consent chat auto-send without permanently dismissing on write", () => {
+  it("enables recording disclosure auto-post without permanently dismissing on write", () => {
     mocks.consentAutoSendChat = false;
     render(<ToastArea />);
 
@@ -150,7 +150,7 @@ describe("ToastArea", () => {
     expect(screen.queryByRole("button", { name: "Hide" })).toBeNull();
   });
 
-  it("dismisses the consent chat opt-in from Not now", () => {
+  it("dismisses the recording disclosure opt-in from Not now", () => {
     mocks.consentAutoSendChat = false;
     render(<ToastArea />);
 
