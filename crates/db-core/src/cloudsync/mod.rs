@@ -8,6 +8,6 @@ pub use ops::{cloudsync_begin_alter_on, cloudsync_commit_alter_on};
 pub(crate) use state::CloudsyncBackgroundTask;
 pub(crate) use state::CloudsyncRuntimeState;
 pub use types::{
-    CloudsyncAuth, CloudsyncRuntimeConfig, CloudsyncRuntimeError, CloudsyncStatus,
-    CloudsyncTableSpec,
+    CloudsyncAuth, CloudsyncNetworkResult, CloudsyncRuntimeConfig, CloudsyncRuntimeError,
+    CloudsyncStatus, CloudsyncTableSpec,
 };

@@ -1,14 +1,44 @@
+use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 
 use crate::error::Error;
+
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+pub struct NetworkResult {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub send: Option<NetworkSendResult>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub receive: Option<NetworkReceiveResult>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NetworkSendResult {
+    pub status: String,
+    pub local_version: i64,
+    pub server_version: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_failure: Option<serde_json::Value>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NetworkReceiveResult {
+    pub rows: i64,
+    pub tables: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_failure: Option<serde_json::Value>,
+}
 
 async fn query_with_optional_params(
     pool: &SqlitePool,
     fn_name: &str,
     wait_ms: Option<i64>,
     max_retries: Option<i64>,
-) -> Result<i64, Error> {
-    Ok(match (wait_ms, max_retries) {
+) -> Result<NetworkResult, Error> {
+    let response: String = match (wait_ms, max_retries) {
         (None, None) => {
             sqlx::query_scalar(sqlx::AssertSqlSafe(format!("SELECT {fn_name}()")))
                 .fetch_one(pool)
@@ -33,7 +63,9 @@ async fn query_with_optional_params(
                 .fetch_one(pool)
                 .await?
         }
-    })
+    };
+
+    Ok(serde_json::from_str(&response)?)
 }
 
 /// https://docs.sqlitecloud.io/docs/sqlite-sync-api-cloudsync-network-init
@@ -89,7 +121,7 @@ pub async fn network_send_changes(
     pool: &SqlitePool,
     wait_ms: Option<i64>,
     max_retries: Option<i64>,
-) -> Result<i64, Error> {
+) -> Result<NetworkResult, Error> {
     query_with_optional_params(pool, "cloudsync_network_send_changes", wait_ms, max_retries).await
 }
 
@@ -98,7 +130,7 @@ pub async fn network_check_changes(
     pool: &SqlitePool,
     wait_ms: Option<i64>,
     max_retries: Option<i64>,
-) -> Result<i64, Error> {
+) -> Result<NetworkResult, Error> {
     query_with_optional_params(
         pool,
         "cloudsync_network_check_changes",
@@ -131,6 +163,59 @@ pub async fn network_sync(
     pool: &SqlitePool,
     wait_ms: Option<i64>,
     max_retries: Option<i64>,
-) -> Result<i64, Error> {
+) -> Result<NetworkResult, Error> {
     query_with_optional_params(pool, "cloudsync_network_sync", wait_ms, max_retries).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_full_sync_result() {
+        let result: NetworkResult = serde_json::from_str(
+            r#"{
+                "send": {
+                    "status": "synced",
+                    "localVersion": 12,
+                    "serverVersion": 12,
+                    "lastFailure": {"message": "previous apply failed"}
+                },
+                "receive": {
+                    "rows": 3,
+                    "tables": ["sessions", "notes"],
+                    "error": "schema hash mismatch",
+                    "lastFailure": {"message": "previous check failed"}
+                }
+            }"#,
+        )
+        .unwrap();
+
+        assert_eq!(result.send.as_ref().unwrap().status, "synced");
+        assert_eq!(result.send.as_ref().unwrap().local_version, 12);
+        assert_eq!(result.receive.as_ref().unwrap().rows, 3);
+        assert_eq!(
+            result.receive.as_ref().unwrap().tables,
+            ["sessions", "notes"]
+        );
+        assert_eq!(
+            result.receive.as_ref().unwrap().error.as_deref(),
+            Some("schema hash mismatch")
+        );
+    }
+
+    #[test]
+    fn parses_scoped_network_results() {
+        let send: NetworkResult = serde_json::from_str(
+            r#"{"send":{"status":"syncing","localVersion":8,"serverVersion":7}}"#,
+        )
+        .unwrap();
+        let receive: NetworkResult =
+            serde_json::from_str(r#"{"receive":{"rows":2,"tables":["sessions"]}}"#).unwrap();
+
+        assert!(send.send.is_some());
+        assert!(send.receive.is_none());
+        assert!(receive.send.is_none());
+        assert_eq!(receive.receive.unwrap().rows, 2);
+    }
 }

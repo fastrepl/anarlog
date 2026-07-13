@@ -16,12 +16,12 @@ pub use api::{
 pub use bundle::bundled_extension_path;
 pub use error::{Error, ErrorKind};
 pub use network::{
-    network_check_changes, network_cleanup, network_has_unsent_changes, network_init,
-    network_logout, network_reset_sync_version, network_send_changes, network_set_apikey,
-    network_set_token, network_sync,
+    NetworkReceiveResult, NetworkResult, NetworkSendResult, network_check_changes, network_cleanup,
+    network_has_unsent_changes, network_init, network_logout, network_reset_sync_version,
+    network_send_changes, network_set_apikey, network_set_token, network_sync,
 };
 
-pub const CLOUDSYNC_VERSION: &str = "1.0.12";
+pub const CLOUDSYNC_VERSION: &str = "1.0.20";
 
 pub fn apply(options: SqliteConnectOptions) -> Result<(SqliteConnectOptions, PathBuf), Error> {
     let extension_path = bundled_extension_path()?;
@@ -64,6 +64,45 @@ mod tests {
 
         let version = version(&pool).await.unwrap();
 
-        assert!(!version.is_empty());
+        assert_eq!(version, CLOUDSYNC_VERSION);
+        pool.close().await;
+    }
+
+    #[tokio::test]
+    async fn reopens_initialized_database() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("cloudsync.db");
+
+        let options = SqliteConnectOptions::new()
+            .filename(&path)
+            .create_if_missing(true);
+        let (options, _) = apply(options).unwrap();
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(options)
+            .await
+            .unwrap();
+        sqlx::query(
+            "CREATE TABLE items (
+                id INTEGER PRIMARY KEY NOT NULL,
+                value TEXT NOT NULL DEFAULT ''
+            )",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        init(&pool, "items", None, Some(1)).await.unwrap();
+        pool.close().await;
+
+        let options = SqliteConnectOptions::new().filename(&path);
+        let (options, _) = apply(options).unwrap();
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(options)
+            .await
+            .unwrap();
+
+        assert_eq!(version(&pool).await.unwrap(), CLOUDSYNC_VERSION);
+        pool.close().await;
     }
 }

@@ -17,12 +17,12 @@ pub async fn init<'e, E>(
     executor: E,
     table_name: &str,
     crdt_algo: Option<&str>,
-    force: Option<bool>,
+    init_flags: Option<i64>,
 ) -> Result<(), Error>
 where
     E: Executor<'e, Database = Sqlite> + Copy,
 {
-    match (crdt_algo, force) {
+    match (crdt_algo, init_flags) {
         (None, None) => {
             sqlx::query("SELECT cloudsync_init(?)")
                 .bind(table_name)
@@ -36,18 +36,18 @@ where
                 .fetch_optional(executor)
                 .await?;
         }
-        (None, Some(force)) => {
+        (None, Some(init_flags)) => {
             sqlx::query("SELECT cloudsync_init(?, NULL, ?)")
                 .bind(table_name)
-                .bind(force)
+                .bind(init_flags)
                 .fetch_optional(executor)
                 .await?;
         }
-        (Some(crdt_algo), Some(force)) => {
+        (Some(crdt_algo), Some(init_flags)) => {
             sqlx::query("SELECT cloudsync_init(?, ?, ?)")
                 .bind(table_name)
                 .bind(crdt_algo)
-                .bind(force)
+                .bind(init_flags)
                 .fetch_optional(executor)
                 .await?;
         }

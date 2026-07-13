@@ -6,15 +6,15 @@
 	<dict>
 		<key>ios-arm64/CloudSync.framework/CloudSync</key>
 		<data>
-		9nGmWbHSlisRaK3zj8zwSj5XVjU=
+		yQNaP6eZRevLldv5D6MmhQboTEI=
 		</data>
 		<key>ios-arm64/CloudSync.framework/Headers/CloudSync.h</key>
 		<data>
-		4XY7uJWyTS5yux27cDc7wQbV+H8=
+		weRuz3Xu2KaArkEJi5tKaj9o0aY=
 		</data>
 		<key>ios-arm64/CloudSync.framework/Info.plist</key>
 		<data>
-		5InZP1To1By3QQuhmbeDHVVn3zY=
+		3AZWwk915emLNfA8g24hJXF4isY=
 		</data>
 		<key>ios-arm64/CloudSync.framework/Modules/module.modulemap</key>
 		<data>
@@ -22,19 +22,39 @@
 		</data>
 		<key>ios-arm64/CloudSync.framework/_CodeSignature/CodeResources</key>
 		<data>
-		t+5lvJs7P1pdAdJnu/dntl3P69A=
+		aWsLHRnEmuDquOVU9+7clrUilTw=
+		</data>
+		<key>ios-arm64_x86_64-maccatalyst/CloudSync.framework/CloudSync</key>
+		<data>
+		IN77lA7KX+ZHAnkDb4cnPRXIkCo=
+		</data>
+		<key>ios-arm64_x86_64-maccatalyst/CloudSync.framework/Headers/CloudSync.h</key>
+		<data>
+		weRuz3Xu2KaArkEJi5tKaj9o0aY=
+		</data>
+		<key>ios-arm64_x86_64-maccatalyst/CloudSync.framework/Info.plist</key>
+		<data>
+		3AZWwk915emLNfA8g24hJXF4isY=
+		</data>
+		<key>ios-arm64_x86_64-maccatalyst/CloudSync.framework/Modules/module.modulemap</key>
+		<data>
+		ro9xghwl6x7oHnWfH0PiOV6up+o=
+		</data>
+		<key>ios-arm64_x86_64-maccatalyst/CloudSync.framework/_CodeSignature/CodeResources</key>
+		<data>
+		aWsLHRnEmuDquOVU9+7clrUilTw=
 		</data>
 		<key>ios-arm64_x86_64-simulator/CloudSync.framework/CloudSync</key>
 		<data>
-		2x7HX6KT5NfJ7ZAYKQpO04qdDxE=
+		W2UCjg4ktBfL2hmDV0yCwE5XvVI=
 		</data>
 		<key>ios-arm64_x86_64-simulator/CloudSync.framework/Headers/CloudSync.h</key>
 		<data>
-		4XY7uJWyTS5yux27cDc7wQbV+H8=
+		weRuz3Xu2KaArkEJi5tKaj9o0aY=
 		</data>
 		<key>ios-arm64_x86_64-simulator/CloudSync.framework/Info.plist</key>
 		<data>
-		5InZP1To1By3QQuhmbeDHVVn3zY=
+		3AZWwk915emLNfA8g24hJXF4isY=
 		</data>
 		<key>ios-arm64_x86_64-simulator/CloudSync.framework/Modules/module.modulemap</key>
 		<data>
@@ -42,15 +62,15 @@
 		</data>
 		<key>ios-arm64_x86_64-simulator/CloudSync.framework/_CodeSignature/CodeResources</key>
 		<data>
-		t+5lvJs7P1pdAdJnu/dntl3P69A=
+		aWsLHRnEmuDquOVU9+7clrUilTw=
 		</data>
 		<key>macos-arm64_x86_64/CloudSync.framework/Versions/A/CloudSync</key>
 		<data>
-		eSWfuI5e9dU3zb6nyihcwqT2Mmc=
+		WCwO1p/cD4Ff22whxli+T6C+P6k=
 		</data>
 		<key>macos-arm64_x86_64/CloudSync.framework/Versions/A/Headers/CloudSync.h</key>
 		<data>
-		4XY7uJWyTS5yux27cDc7wQbV+H8=
+		weRuz3Xu2KaArkEJi5tKaj9o0aY=
 		</data>
 		<key>macos-arm64_x86_64/CloudSync.framework/Versions/A/Modules/module.modulemap</key>
 		<data>
@@ -58,11 +78,11 @@
 		</data>
 		<key>macos-arm64_x86_64/CloudSync.framework/Versions/A/Resources/Info.plist</key>
 		<data>
-		5InZP1To1By3QQuhmbeDHVVn3zY=
+		3AZWwk915emLNfA8g24hJXF4isY=
 		</data>
 		<key>macos-arm64_x86_64/CloudSync.framework/Versions/A/_CodeSignature/CodeResources</key>
 		<data>
-		M3clxqFzoRc9voTN1fVFed6l8Y0=
+		ZeKRY7cyZjnEHl0g/F4eIZ1YVnI=
 		</data>
 	</dict>
 	<key>files2</key>
@@ -71,33 +91,33 @@
 		<dict>
 			<key>hash</key>
 			<data>
-			9nGmWbHSlisRaK3zj8zwSj5XVjU=
+			yQNaP6eZRevLldv5D6MmhQboTEI=
 			</data>
 			<key>hash2</key>
 			<data>
-			inFLLXeutnmS9yrRxwNH6GkZwvSuVXUm9Prhirk5VF4=
+			hXLnTbt0tQvFqVnkhafsXLVzvtk2mDEWlANkiNBFm5Y=
 			</data>
 		</dict>
 		<key>ios-arm64/CloudSync.framework/Headers/CloudSync.h</key>
 		<dict>
 			<key>hash</key>
 			<data>
-			4XY7uJWyTS5yux27cDc7wQbV+H8=
+			weRuz3Xu2KaArkEJi5tKaj9o0aY=
 			</data>
 			<key>hash2</key>
 			<data>
-			WFCTuVJDNJFl50DWvvMLCvdCEj8uhPDlLske2imebc4=
+			vt8Pif3pcy5/qtMxBvtQ2GoJMefYMMlIKCBaZrwQQzs=
 			</data>
 		</dict>
 		<key>ios-arm64/CloudSync.framework/Info.plist</key>
 		<dict>
 			<key>hash</key>
 			<data>
-			5InZP1To1By3QQuhmbeDHVVn3zY=
+			3AZWwk915emLNfA8g24hJXF4isY=
 			</data>
 			<key>hash2</key>
 			<data>
-			21dxgXQsoEolmnpaA7lxLi13eoYcHh2+v0ucOxf4Vvg=
+			XoR4ja1T0uOi4xIvY2lfZrIZUYqq3tQyB1EDdY4HO3I=
 			</data>
 		</dict>
 		<key>ios-arm64/CloudSync.framework/Modules/module.modulemap</key>
@@ -115,44 +135,99 @@
 		<dict>
 			<key>hash</key>
 			<data>
-			t+5lvJs7P1pdAdJnu/dntl3P69A=
+			aWsLHRnEmuDquOVU9+7clrUilTw=
 			</data>
 			<key>hash2</key>
 			<data>
-			lw+Dx3S0F3i2RYWsOKG9j1hKu2ycw1aK7aI1iKBcp3w=
+			vAZSDwpFyeZ5fmo2NKg44V4tHvDaGnd7VRFZoTaMi20=
+			</data>
+		</dict>
+		<key>ios-arm64_x86_64-maccatalyst/CloudSync.framework/CloudSync</key>
+		<dict>
+			<key>hash</key>
+			<data>
+			IN77lA7KX+ZHAnkDb4cnPRXIkCo=
+			</data>
+			<key>hash2</key>
+			<data>
+			r4jgXSy/iAoGGs721Td6gIRaNPQRJSCxPrpXipv1g9w=
+			</data>
+		</dict>
+		<key>ios-arm64_x86_64-maccatalyst/CloudSync.framework/Headers/CloudSync.h</key>
+		<dict>
+			<key>hash</key>
+			<data>
+			weRuz3Xu2KaArkEJi5tKaj9o0aY=
+			</data>
+			<key>hash2</key>
+			<data>
+			vt8Pif3pcy5/qtMxBvtQ2GoJMefYMMlIKCBaZrwQQzs=
+			</data>
+		</dict>
+		<key>ios-arm64_x86_64-maccatalyst/CloudSync.framework/Info.plist</key>
+		<dict>
+			<key>hash</key>
+			<data>
+			3AZWwk915emLNfA8g24hJXF4isY=
+			</data>
+			<key>hash2</key>
+			<data>
+			XoR4ja1T0uOi4xIvY2lfZrIZUYqq3tQyB1EDdY4HO3I=
+			</data>
+		</dict>
+		<key>ios-arm64_x86_64-maccatalyst/CloudSync.framework/Modules/module.modulemap</key>
+		<dict>
+			<key>hash</key>
+			<data>
+			ro9xghwl6x7oHnWfH0PiOV6up+o=
+			</data>
+			<key>hash2</key>
+			<data>
+			bIwPn3WW18gPsoCQuL+cYaEBTMqTFCR6Y8FSln2GcXQ=
+			</data>
+		</dict>
+		<key>ios-arm64_x86_64-maccatalyst/CloudSync.framework/_CodeSignature/CodeResources</key>
+		<dict>
+			<key>hash</key>
+			<data>
+			aWsLHRnEmuDquOVU9+7clrUilTw=
+			</data>
+			<key>hash2</key>
+			<data>
+			vAZSDwpFyeZ5fmo2NKg44V4tHvDaGnd7VRFZoTaMi20=
 			</data>
 		</dict>
 		<key>ios-arm64_x86_64-simulator/CloudSync.framework/CloudSync</key>
 		<dict>
 			<key>hash</key>
 			<data>
-			2x7HX6KT5NfJ7ZAYKQpO04qdDxE=
+			W2UCjg4ktBfL2hmDV0yCwE5XvVI=
 			</data>
 			<key>hash2</key>
 			<data>
-			FI8s8WOm27VOyPu/zevhxGii5mULqUyM8IJectHE/kY=
+			phoWhrSXv7WxejAsTEfIpPtiUIItQWcTdGGwKghr75c=
 			</data>
 		</dict>
 		<key>ios-arm64_x86_64-simulator/CloudSync.framework/Headers/CloudSync.h</key>
 		<dict>
 			<key>hash</key>
 			<data>
-			4XY7uJWyTS5yux27cDc7wQbV+H8=
+			weRuz3Xu2KaArkEJi5tKaj9o0aY=
 			</data>
 			<key>hash2</key>
 			<data>
-			WFCTuVJDNJFl50DWvvMLCvdCEj8uhPDlLske2imebc4=
+			vt8Pif3pcy5/qtMxBvtQ2GoJMefYMMlIKCBaZrwQQzs=
 			</data>
 		</dict>
 		<key>ios-arm64_x86_64-simulator/CloudSync.framework/Info.plist</key>
 		<dict>
 			<key>hash</key>
 			<data>
-			5InZP1To1By3QQuhmbeDHVVn3zY=
+			3AZWwk915emLNfA8g24hJXF4isY=
 			</data>
 			<key>hash2</key>
 			<data>
-			21dxgXQsoEolmnpaA7lxLi13eoYcHh2+v0ucOxf4Vvg=
+			XoR4ja1T0uOi4xIvY2lfZrIZUYqq3tQyB1EDdY4HO3I=
 			</data>
 		</dict>
 		<key>ios-arm64_x86_64-simulator/CloudSync.framework/Modules/module.modulemap</key>
@@ -170,11 +245,11 @@
 		<dict>
 			<key>hash</key>
 			<data>
-			t+5lvJs7P1pdAdJnu/dntl3P69A=
+			aWsLHRnEmuDquOVU9+7clrUilTw=
 			</data>
 			<key>hash2</key>
 			<data>
-			lw+Dx3S0F3i2RYWsOKG9j1hKu2ycw1aK7aI1iKBcp3w=
+			vAZSDwpFyeZ5fmo2NKg44V4tHvDaGnd7VRFZoTaMi20=
 			</data>
 		</dict>
 		<key>macos-arm64_x86_64/CloudSync.framework/CloudSync</key>
@@ -201,22 +276,22 @@
 		<dict>
 			<key>hash</key>
 			<data>
-			eSWfuI5e9dU3zb6nyihcwqT2Mmc=
+			WCwO1p/cD4Ff22whxli+T6C+P6k=
 			</data>
 			<key>hash2</key>
 			<data>
-			wLBMcksNrrD171YCtzrC5G1h5t2OtZU4sSWDkuwu9Vs=
+			2WcLOhI4YHkJ8LzYGtInmHX2aWejbBOsnGI+va6IBNg=
 			</data>
 		</dict>
 		<key>macos-arm64_x86_64/CloudSync.framework/Versions/A/Headers/CloudSync.h</key>
 		<dict>
 			<key>hash</key>
 			<data>
-			4XY7uJWyTS5yux27cDc7wQbV+H8=
+			weRuz3Xu2KaArkEJi5tKaj9o0aY=
 			</data>
 			<key>hash2</key>
 			<data>
-			WFCTuVJDNJFl50DWvvMLCvdCEj8uhPDlLske2imebc4=
+			vt8Pif3pcy5/qtMxBvtQ2GoJMefYMMlIKCBaZrwQQzs=
 			</data>
 		</dict>
 		<key>macos-arm64_x86_64/CloudSync.framework/Versions/A/Modules/module.modulemap</key>
@@ -234,22 +309,22 @@
 		<dict>
 			<key>hash</key>
 			<data>
-			5InZP1To1By3QQuhmbeDHVVn3zY=
+			3AZWwk915emLNfA8g24hJXF4isY=
 			</data>
 			<key>hash2</key>
 			<data>
-			21dxgXQsoEolmnpaA7lxLi13eoYcHh2+v0ucOxf4Vvg=
+			XoR4ja1T0uOi4xIvY2lfZrIZUYqq3tQyB1EDdY4HO3I=
 			</data>
 		</dict>
 		<key>macos-arm64_x86_64/CloudSync.framework/Versions/A/_CodeSignature/CodeResources</key>
 		<dict>
 			<key>hash</key>
 			<data>
-			M3clxqFzoRc9voTN1fVFed6l8Y0=
+			ZeKRY7cyZjnEHl0g/F4eIZ1YVnI=
 			</data>
 			<key>hash2</key>
 			<data>
-			3P3+zHIqE5892daBqh+lduaqLXebkS+wez5AwFEgDCI=
+			lzw7im61aKoPdx8dC/t+4mxnMuWMkkF9+6IkNHfmrFc=
 			</data>
 		</dict>
 		<key>macos-arm64_x86_64/CloudSync.framework/Versions/Current</key>

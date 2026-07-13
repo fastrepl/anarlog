@@ -1,15 +1,18 @@
+use std::sync::Arc;
+
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 
-use super::CloudsyncRuntimeConfig;
+use super::{CloudsyncNetworkResult, CloudsyncRuntimeConfig};
 
 #[derive(Default, Debug)]
 pub(crate) struct CloudsyncRuntimeState {
+    pub(crate) sync_lock: Arc<tokio::sync::Mutex<()>>,
     pub(crate) config: Option<CloudsyncRuntimeConfig>,
     pub(crate) running: bool,
     pub(crate) network_initialized: bool,
     pub(crate) task: Option<CloudsyncBackgroundTask>,
-    pub(crate) last_sync_downloaded_count: Option<i64>,
+    pub(crate) last_sync: Option<CloudsyncNetworkResult>,
     pub(crate) last_sync_at_ms: Option<u64>,
     pub(crate) last_error: Option<String>,
     pub(crate) last_error_kind: Option<hypr_cloudsync::ErrorKind>,

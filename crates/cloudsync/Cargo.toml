@@ -5,8 +5,11 @@ edition = "2024"
 
 [dependencies]
 dirs = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
 sqlx = { workspace = true, features = ["runtime-tokio", "sqlite", "sqlite-unbundled"] }
 thiserror = { workspace = true }
 
 [dev-dependencies]
+tempfile = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt"] }
