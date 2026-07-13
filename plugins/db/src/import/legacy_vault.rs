@@ -430,11 +430,17 @@ fn parse_session_meta(
     let series_id = event
         .and_then(|event| value_string(event.get("recurrence_series_id")))
         .unwrap_or_default();
+    let stored_title = value_string(meta.get("title")).unwrap_or_default();
+    let title = if stored_title.trim().is_empty() {
+        recover_title_from_summary(path).unwrap_or(stored_title)
+    } else {
+        stored_title
+    };
 
     batch.rows.push(LegacyImportRow::Session(LegacySession {
         id: session_id.clone(),
         owner_user_id: value_string(meta.get("user_id")).unwrap_or_default(),
-        title: value_string(meta.get("title")).unwrap_or_default(),
+        title,
         created_at: value_string(meta.get("created_at")).unwrap_or_default(),
         started_at,
         ended_at,
@@ -525,6 +531,29 @@ fn parse_session_meta(
     }
 
     Ok(batch)
+}
+
+fn recover_title_from_summary(meta_path: &Path) -> Option<String> {
+    let content = std::fs::read_to_string(meta_path.with_file_name("_summary.md")).ok()?;
+    let document = ParsedDocument::from_str(&content).ok()?;
+    let title = document
+        .content
+        .trim_start()
+        .lines()
+        .next()?
+        .strip_prefix("# ")?
+        .trim();
+
+    if title.is_empty()
+        || matches!(
+            title.to_ascii_lowercase().as_str(),
+            "summary" | "untitled" | "untitled note"
+        )
+    {
+        return None;
+    }
+
+    Some(title.to_string())
 }
 
 fn parse_session_document(
@@ -1126,6 +1155,34 @@ mod tests {
         assert_eq!(status, "completed");
         assert_eq!(body, "Current summary");
         assert_eq!(hidden_item_count, 0);
+    }
+
+    #[tokio::test]
+    async fn empty_session_title_is_recovered_from_summary_heading() {
+        let db = test_db().await;
+        let dir = tempfile::tempdir().unwrap();
+        let session_dir = dir.path().join("sessions/session-1");
+        std::fs::create_dir_all(&session_dir).unwrap();
+        std::fs::write(
+            session_dir.join("_meta.json"),
+            r#"{"id":"session-1","created_at":"2026-07-12T01:00:00Z","title":""}"#,
+        )
+        .unwrap();
+        std::fs::write(
+            session_dir.join("_summary.md"),
+            "---\nid: summary-1\nsession_id: session-1\ntitle: Summary\n---\n\n# Transcript Test Utterances\n\nDetails",
+        )
+        .unwrap();
+
+        import_legacy_vault(db.pool(), dir.path(), false)
+            .await
+            .unwrap();
+
+        let title: String = sqlx::query_scalar("SELECT title FROM sessions WHERE id = 'session-1'")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        assert_eq!(title, "Transcript Test Utterances");
     }
 
     #[tokio::test]

@@ -59,6 +59,11 @@ pub const APP_MIGRATION_STEPS: &[hypr_db_migrate::MigrationStep] = &[
         scope: hypr_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260712170000_template_icons.sql"),
     },
+    hypr_db_migrate::MigrationStep {
+        id: "20260713164500_repair_empty_session_titles",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260713164500_repair_empty_session_titles.sql"),
+    },
 ];
 
 pub fn schema() -> hypr_db_migrate::DbSchema {
@@ -257,6 +262,57 @@ mod tests {
                 "transcripts",
             ]
         );
+    }
+
+    #[tokio::test]
+    async fn migration_repairs_empty_titles_from_summary_headings() {
+        let db = Db::connect_memory_plain().await.unwrap();
+        hypr_db_migrate::migrate(
+            &db,
+            hypr_db_migrate::DbSchema {
+                steps: &APP_MIGRATION_STEPS[..APP_MIGRATION_STEPS.len() - 1],
+                validate_cloudsync_table: cloudsync_alter_guard_required,
+            },
+        )
+        .await
+        .unwrap();
+
+        sqlx::query(
+            "INSERT INTO sessions (id, title)
+             VALUES ('json', ''), ('markdown', '   '), ('generic', ''), ('existing', 'Keep Me')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO session_documents
+             (id, session_id, kind, body_format, body, sort_order)
+             VALUES
+             ('json-summary', 'json', 'summary', 'prosemirror_json',
+              '{\"type\":\"doc\",\"content\":[{\"type\":\"heading\",\"attrs\":{\"level\":1},\"content\":[{\"type\":\"text\",\"text\":\"Transcript Test \"},{\"type\":\"text\",\"text\":\"Utterances\"}]}]}', 0),
+             ('markdown-summary', 'markdown', 'summary', 'markdown',
+              char(10) || '# Markdown Title' || char(10) || char(10) || 'Details', 0),
+             ('generic-summary', 'generic', 'summary', 'markdown', '# Summary' || char(10) || 'Details', 0),
+             ('existing-summary', 'existing', 'summary', 'markdown', '# Replacement' || char(10) || 'Details', 0)",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        hypr_db_migrate::migrate(&db, schema()).await.unwrap();
+
+        let titles =
+            sqlx::query_as::<_, (String, String)>("SELECT id, title FROM sessions ORDER BY id")
+                .fetch_all(db.pool())
+                .await
+                .unwrap()
+                .into_iter()
+                .collect::<std::collections::HashMap<_, _>>();
+
+        assert_eq!(titles["json"], "Transcript Test Utterances");
+        assert_eq!(titles["markdown"], "Markdown Title");
+        assert_eq!(titles["generic"], "");
+        assert_eq!(titles["existing"], "Keep Me");
     }
 
     #[tokio::test]
