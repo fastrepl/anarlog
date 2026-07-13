@@ -23,52 +23,6 @@ export interface PlanTierData {
   features: PlanFeature[];
 }
 
-export const PLAN_TIERS: PlanTierData[] = [
-  {
-    id: "free",
-    name: "Free",
-    price: "$0",
-    period: "/month",
-    subtitle: null,
-    features: [
-      { label: "On-device Transcription", included: true },
-      { label: "Save Audio Recordings", included: true },
-      { label: "Audio Player", included: true },
-      { label: "Bring Your Own Key (STT & LLM)", included: true },
-      { label: "Export to Various Formats", included: true },
-      { label: "Local-first", included: true },
-      { label: "Custom Default Folder", included: true },
-      { label: "Templates", included: true },
-      { label: "Shortcuts", included: true },
-      { label: "Chat", included: true },
-      { label: "Connect to Google Calendar", included: false },
-      { label: "Connect to Outlook Calendar", included: false },
-      { label: "Cloud Transcription", included: false },
-      { label: "Cloud LLM", included: false },
-      { label: "Cloud Sync", included: false },
-      { label: "Shareable Links", included: false },
-    ],
-  },
-  {
-    id: "pro",
-    name: "Pro",
-    price: "$15",
-    period: "/month",
-    subtitle: "or $150/year",
-    features: [
-      { label: "Everything in Free", included: true },
-      { label: "Cloud Transcription", included: true },
-      { label: "Cloud LLM", included: true },
-      { label: "Speaker Identification", included: "partial" },
-      { label: "Advanced Templates", included: true },
-      { label: "Connect to Google Calendar", included: true },
-      { label: "Connect to Outlook Calendar", included: true },
-      { label: "Cloud Sync", included: "partial" },
-      { label: "Shareable Links", included: "partial" },
-    ],
-  },
-];
-
 export interface MarketingPlanData {
   id: PlanTier;
   name: string;
@@ -143,6 +97,15 @@ export const MARKETING_PLAN_TIERS: MarketingPlanData[] = [
     ],
   },
 ];
+
+export const PLAN_TIERS: PlanTierData[] = MARKETING_PLAN_TIERS.map((plan) => ({
+  id: plan.id,
+  name: plan.name,
+  price: plan.price ? `$${plan.price.monthly}` : "$0",
+  period: "/month",
+  subtitle: plan.price?.yearly ? `or $${plan.price.yearly}/year` : null,
+  features: plan.features.filter((feature) => feature.included === true),
+}));
 
 export const TIER_ORDER: Record<PlanTier, number> = {
   free: 0,
