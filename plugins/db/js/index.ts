@@ -42,6 +42,56 @@ export type TransactionStatement = {
   expectedRowsAffected?: number;
 };
 
+export type CloudsyncAuth =
+  | { type: "none" }
+  | { type: "api_key"; api_key: string }
+  | { type: "token"; token: string };
+
+export type CloudsyncTableSpec = {
+  table_name: string;
+  crdt_algo?: string;
+  init_flags?: number;
+  enabled: boolean;
+};
+
+export type CloudsyncRuntimeConfig = {
+  connection_string: string;
+  auth: CloudsyncAuth;
+  tables: CloudsyncTableSpec[];
+  sync_interval_ms: number;
+  wait_ms?: number;
+  max_retries?: number;
+};
+
+export type CloudsyncNetworkResult = {
+  send?: {
+    status: string;
+    localVersion: number;
+    serverVersion: number;
+    lastFailure?: unknown;
+  };
+  receive?: {
+    rows: number;
+    tables: string[];
+    error?: string;
+    lastFailure?: unknown;
+  };
+};
+
+export type CloudsyncStatus = {
+  cloudsync_enabled: boolean;
+  extension_loaded: boolean;
+  configured: boolean;
+  running: boolean;
+  network_initialized: boolean;
+  last_sync: CloudsyncNetworkResult | null;
+  last_sync_at_ms: number | null;
+  has_unsent_changes: boolean | null;
+  last_error: string | null;
+  last_error_kind: "transient" | "auth" | "fatal" | null;
+  consecutive_failures: number;
+};
+
 export type QueryEvent<T = Record<string, unknown>> =
   | { event: "result"; data: T[] }
   | { event: "error"; data: string };
@@ -105,6 +155,36 @@ export async function cleanupLegacyFiles(): Promise<LegacyCleanupResult> {
 
 export async function runLegacyImport(dryRun = false): Promise<string> {
   return invoke("plugin:db|run_legacy_import", { dryRun });
+}
+
+export async function configureCloudsync(
+  config: CloudsyncRuntimeConfig,
+): Promise<void> {
+  return invoke("plugin:db|configure_cloudsync", {
+    configJson: JSON.stringify(config),
+  });
+}
+
+export async function startCloudsync(): Promise<void> {
+  return invoke("plugin:db|start_cloudsync");
+}
+
+export async function stopCloudsync(): Promise<void> {
+  return invoke("plugin:db|stop_cloudsync");
+}
+
+export async function getCloudsyncStatus(): Promise<CloudsyncStatus> {
+  return invoke("plugin:db|get_cloudsync_status");
+}
+
+export async function syncCloudsyncNow(): Promise<CloudsyncNetworkResult> {
+  return invoke("plugin:db|sync_cloudsync_now");
+}
+
+export async function logoutCloudsync(
+  discardUnsentChanges = false,
+): Promise<void> {
+  return invoke("plugin:db|logout_cloudsync", { discardUnsentChanges });
 }
 
 export async function subscribe<T = Record<string, unknown>>(
