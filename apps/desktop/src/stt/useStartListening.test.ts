@@ -2,8 +2,11 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { getSessionKeywords } from "./useKeywords";
-import { getPostCaptureAction } from "./useStartListening";
-import { useStartListening } from "./useStartListening";
+import {
+  getPostCaptureAction,
+  sendConsentRequestToMeetingChat,
+  useStartListening,
+} from "./useStartListening";
 
 const {
   queueAutoEnhanceMock,
@@ -254,6 +257,13 @@ describe("useStartListening", () => {
 
   test("keeps the left sidebar state when listening fails to start", async () => {
     startMock.mockResolvedValue(false);
+    useConfigValueMock.mockImplementation((key: string) =>
+      key === "ai_language"
+        ? "en"
+        : key === "consent_auto_send_chat"
+          ? true
+          : [],
+    );
 
     const { result } = renderHook(() => useStartListening("session-1"));
 
@@ -262,6 +272,7 @@ describe("useStartListening", () => {
     });
 
     expect(setLeftSidebarExpandedMock).not.toHaveBeenCalled();
+    expect(sendMeetingChatMessageMock).not.toHaveBeenCalled();
   });
 
   test("reads keywords from the same pre-start snapshot as the transcript memo", async () => {
@@ -589,5 +600,19 @@ describe("useStartListening", () => {
         "Anarlog is recording and transcribing this meeting. Please reply here if you do not consent.",
       );
     });
+  });
+
+  test("handles a rejected consent chat command", async () => {
+    const error = new Error("IPC unavailable");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    sendMeetingChatMessageMock.mockRejectedValueOnce(error);
+
+    await expect(sendConsentRequestToMeetingChat()).resolves.toBeUndefined();
+
+    expect(warn).toHaveBeenCalledWith(
+      "[listener] failed to send consent message",
+      error,
+    );
+    warn.mockRestore();
   });
 });

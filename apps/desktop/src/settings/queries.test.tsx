@@ -137,6 +137,27 @@ describe("SQLite settings", () => {
     ]);
   });
 
+  it("migrates and persists the consent chat auto-send setting", async () => {
+    const imported = parseSettingRows([
+      {
+        id: "legacy_settings_document",
+        value_json: JSON.stringify({
+          general: { consent_auto_send_chat: true },
+        }),
+      },
+    ]);
+
+    expect(imported.values.consent_auto_send_chat).toBe(true);
+
+    await setSettingValues({ consent_auto_send_chat: false });
+
+    const statement = mocks.executeTransaction.mock.calls[0][0][0];
+    expect(statement.params.slice(0, 2)).toEqual([
+      "consent_auto_send_chat",
+      JSON.stringify(false),
+    ]);
+  });
+
   it("persists OS language defaults only when no stored values exist", async () => {
     let rows: Array<{ id: string; value_json: string }> = [];
     mocks.execute.mockImplementation(async () => rows);

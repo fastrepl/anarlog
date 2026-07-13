@@ -142,18 +142,18 @@ export function createToastRegistry({
     {
       toast: {
         id: CONSENT_AUTO_SEND_CHAT_TOAST_ID,
-        title: "Send consent in chat?",
-        description:
-          "Anarlog can automatically post the consent request in meeting chat when consent asking is configured.",
-        primaryAction: {
-          label: "Yes",
-          onClick: onEnableConsentAutoSendChat,
-        },
-        secondaryAction: {
-          label: "Dismiss",
-          onClick: onDismissConsentAutoSendChat,
-        },
-        dismissible: true,
+        description: "Auto-send consent in Slack Huddles?",
+        actions: [
+          {
+            label: "Enable",
+            onClick: onEnableConsentAutoSendChat,
+          },
+          {
+            label: "Not now",
+            onClick: onDismissConsentAutoSendChat,
+          },
+        ],
+        dismissible: false,
       },
       condition: () =>
         hasSttConfigured &&

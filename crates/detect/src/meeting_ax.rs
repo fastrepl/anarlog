@@ -32,6 +32,7 @@ const MAX_TREE_DEPTH: usize = 12;
 const MAX_NODES: usize = 1800;
 #[cfg(target_os = "macos")]
 const MIN_VIDEO_AREA: f64 = 18_000.0;
+const MAX_MEETING_CHAT_MESSAGE_CHARS: usize = 2_000;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -140,7 +141,53 @@ struct AxNode {
 #[cfg(target_os = "macos")]
 struct AxChatElement {
     node: AxNode,
+    ancestors: Vec<AxAncestor>,
     element: arc::R<ax::UiElement>,
+}
+
+#[cfg(target_os = "macos")]
+#[derive(Debug, Clone)]
+struct AxAncestor {
+    path: Vec<usize>,
+    labels: Vec<String>,
+}
+
+#[cfg(target_os = "macos")]
+struct SlackHuddleRoot {
+    channel: String,
+    label: String,
+    nodes: Vec<AxNode>,
+    element: arc::R<ax::UiElement>,
+}
+
+#[cfg(target_os = "macos")]
+struct BrowserMeetingRoot {
+    platform: MeetingPlatform,
+    window_title: Option<String>,
+    nodes: Vec<AxNode>,
+}
+
+#[cfg(target_os = "macos")]
+struct NativeMeetingRoot {
+    window_title: Option<String>,
+    nodes: Vec<AxNode>,
+}
+
+#[cfg(target_os = "macos")]
+#[derive(Debug, PartialEq, Eq)]
+enum UniqueMatch {
+    Missing,
+    One(usize),
+    Ambiguous,
+}
+
+#[cfg(target_os = "macos")]
+fn unique_scope_for_count(count: usize) -> UniqueMatch {
+    match count {
+        0 => UniqueMatch::Missing,
+        1 => UniqueMatch::One(0),
+        _ => UniqueMatch::Ambiguous,
+    }
 }
 
 #[cfg(target_os = "macos")]
@@ -157,8 +204,32 @@ pub fn inspect_meeting_accessibility() -> Vec<MeetingAccessibilityInspection> {
     Vec::new()
 }
 
+fn validate_meeting_chat_message(message: &str) -> Result<(), &'static str> {
+    if message.trim().is_empty() {
+        return Err("meeting chat message must not be empty");
+    }
+
+    if message.chars().count() > MAX_MEETING_CHAT_MESSAGE_CHARS {
+        return Err("meeting chat message exceeds the 2000 character safety limit");
+    }
+
+    Ok(())
+}
+
 #[cfg(target_os = "macos")]
 pub fn send_meeting_chat_message(message: String) -> MeetingChatSendResult {
+    if let Err(warning) = validate_meeting_chat_message(&message) {
+        return MeetingChatSendResult {
+            sent: false,
+            app: None,
+            platform: MeetingPlatform::Unknown,
+            surface: MeetingSurface::Unknown,
+            input_label: None,
+            send_action: None,
+            warnings: vec![warning.to_string()],
+        };
+    }
+
     let accessibility_trusted = macos_accessibility_client::accessibility::application_is_trusted();
     if !accessibility_trusted {
         return MeetingChatSendResult {
@@ -172,121 +243,50 @@ pub fn send_meeting_chat_message(message: String) -> MeetingChatSendResult {
         };
     }
 
-    let mut last_recognized_failure = None;
-
-    for (app, pid) in running_meeting_apps() {
-        let mut warnings = Vec::new();
+    let mut validated_apps = Vec::new();
+    let mut warnings = Vec::new();
+    for (app, pid) in running_meeting_apps()
+        .into_iter()
+        .filter(|(app, _)| supports_meeting_chat_mutation(&app.id))
+    {
         let ax_app = ax::UiElement::with_app_pid(pid);
         let _ = ax_app.set_messaging_timeout_secs(0.6);
-
-        let mut nodes = Vec::new();
-        collect_nodes(&ax_app, 0, &mut nodes, &mut warnings);
-        let window_title = nodes.iter().find_map(|node| {
-            (node.role.as_deref() == Some("AXWindow"))
-                .then(|| node.title.clone())
-                .flatten()
-        });
-        let platform = classify_platform(
-            &app.id,
-            window_title.as_deref(),
-            &nodes,
-            classify_bundle(&app.id),
-        );
-        if platform == MeetingPlatform::Unknown {
-            continue;
-        }
-
-        let surface = classify_surface(&app.id, &platform);
-
-        let mut chat_elements = collect_sorted_chat_elements(&ax_app);
-
-        if find_chat_input_index(&chat_elements).is_none() {
-            if let Some(control_index) = find_chat_open_control_index(&chat_elements) {
-                let control = &chat_elements[control_index];
-                let label = control_label(&control.node)
-                    .unwrap_or_else(|| "meeting chat control".to_string());
-
-                match control.element.perform_action(ax::action::press()) {
-                    Ok(_) => {
-                        warnings.push(format!("opened chat control via AX: {label}"));
-                        chat_elements = collect_sorted_chat_elements(&ax_app);
-                    }
-                    Err(error) => {
-                        warnings.push(format!("failed to open chat control via AX: {error:?}"));
-                    }
-                }
-            }
-        }
-
-        let Some(input_index) = find_chat_input_index(&chat_elements) else {
-            warnings.push(
-                "recognized meeting surface did not expose a writable chat input".to_string(),
+        let mut roots = collect_slack_huddle_roots(&ax_app, &mut warnings);
+        if roots.len() > 1 {
+            warnings.push(format!(
+                "refusing to send because Slack exposed {} active Huddle windows",
+                roots.len()
+            ));
+            return slack_chat_failure(
+                &app,
+                &classify_surface(&app.id, &MeetingPlatform::Slack),
+                None,
+                warnings,
             );
-            last_recognized_failure = Some(MeetingChatSendResult {
-                sent: false,
-                app: Some(app),
-                platform,
-                surface,
-                input_label: None,
-                send_action: None,
-                warnings,
-            });
-            continue;
-        };
-        let input = &chat_elements[input_index];
-
-        let label = control_label(&input.node);
-
-        let message_value = cf::String::from_str(&message);
-        let mut input_element = input.element.retained();
-        let _ = input_element.perform_action(ax::action::press());
-
-        if let Err(error) = input_element.set_attr(ax::attr::value(), message_value.as_type_ref()) {
-            warnings.push(format!("failed to set chat input value: {error:?}"));
-            continue;
         }
-
-        if input_element.perform_action(ax::action::confirm()).is_ok() {
-            return MeetingChatSendResult {
-                sent: true,
-                app: Some(app),
-                platform,
-                surface,
-                input_label: label,
-                send_action: Some("confirm".to_string()),
-                warnings,
-            };
+        if let Some(root) = roots.pop() {
+            validated_apps.push((app, root));
         }
+    }
 
-        if let Some(button_index) = find_send_button_index(&chat_elements) {
-            let button = &chat_elements[button_index];
-            if button.element.perform_action(ax::action::press()).is_ok() {
-                return MeetingChatSendResult {
-                    sent: true,
-                    app: Some(app),
-                    platform,
-                    surface,
-                    input_label: label,
-                    send_action: Some("sendButton".to_string()),
-                    warnings,
-                };
-            }
-        }
-
-        warnings.push("chat input was writable, but no send action succeeded".to_string());
+    if validated_apps.len() > 1 {
         return MeetingChatSendResult {
             sent: false,
-            app: Some(app),
-            platform,
-            surface,
-            input_label: label,
+            app: None,
+            platform: MeetingPlatform::Slack,
+            surface: MeetingSurface::Unknown,
+            input_label: None,
             send_action: None,
-            warnings,
+            warnings: vec![
+                "refusing to send because multiple running Slack apps expose active Huddles"
+                    .to_string(),
+            ],
         };
     }
 
-    if let Some(result) = last_recognized_failure {
-        return result;
+    if let Some((app, root)) = validated_apps.pop() {
+        let surface = classify_surface(&app.id, &MeetingPlatform::Slack);
+        return send_slack_huddle_chat_message(&app, &surface, root, &message, warnings);
     }
 
     MeetingChatSendResult {
@@ -296,7 +296,10 @@ pub fn send_meeting_chat_message(message: String) -> MeetingChatSendResult {
         surface: MeetingSurface::Unknown,
         input_label: None,
         send_action: None,
-        warnings: vec!["no supported running meeting chat target found".to_string()],
+        warnings: vec![
+            "no uniquely validated Slack Huddle is active; AX chat mutation for other meeting platforms is disabled until their window and composer can be paired safely"
+                .to_string(),
+        ],
     }
 }
 
@@ -345,35 +348,610 @@ fn running_meeting_apps() -> Vec<(MeetingApp, i32)> {
 }
 
 #[cfg(target_os = "macos")]
-fn collect_sorted_chat_elements(element: &ax::UiElement) -> Vec<AxChatElement> {
-    let mut elements = Vec::new();
-    collect_chat_elements(element, 0, &mut elements);
-    elements.sort_by(|a, b| chat_element_score(&b.node).total_cmp(&chat_element_score(&a.node)));
-    elements
+fn send_slack_huddle_chat_message(
+    app: &MeetingApp,
+    surface: &MeetingSurface,
+    mut root: SlackHuddleRoot,
+    message: &str,
+    mut warnings: Vec<String>,
+) -> MeetingChatSendResult {
+    let mut refreshed_nodes = Vec::new();
+    collect_nodes(&root.element, 0, &mut refreshed_nodes, &mut warnings);
+    let Some((label, channel)) = slack_huddle_context(&refreshed_nodes) else {
+        warnings.push("the validated Slack Huddle changed before send".to_string());
+        return slack_chat_failure(app, surface, None, warnings);
+    };
+    if channel != root.channel {
+        warnings.push(format!(
+            "the validated Slack Huddle changed from {} to {channel} before send",
+            root.channel
+        ));
+        return slack_chat_failure(app, surface, None, warnings);
+    }
+    root.label = label;
+    root.nodes = refreshed_nodes;
+    let mut chat_elements = collect_sorted_chat_elements(&root.element);
+    let mut input_match = unique_matching_chat_element_index(&chat_elements, |element| {
+        is_slack_huddle_composer_in_thread(&element.node, &element.ancestors, &root.channel)
+    });
+
+    if input_match == UniqueMatch::Missing {
+        match unique_matching_chat_element_index(&chat_elements, |element| {
+            is_slack_thread_control(&element.node)
+        }) {
+            UniqueMatch::One(control_index) => {
+                let control = &chat_elements[control_index];
+                let label = inspection_label(&control.node)
+                    .unwrap_or_else(|| "Slack Huddle thread control".to_string());
+
+                match control.element.perform_action(ax::action::press()) {
+                    Ok(_) => {
+                        warnings.push(format!("opened Slack Huddle thread via AX: {label}"));
+                        (chat_elements, input_match) =
+                            collect_until_unique_match(&root.element, |element| {
+                                is_slack_huddle_composer_in_thread(
+                                    &element.node,
+                                    &element.ancestors,
+                                    &root.channel,
+                                )
+                            });
+                    }
+                    Err(error) => {
+                        warnings.push(format!(
+                            "failed to open Slack Huddle thread via AX: {error:?}"
+                        ));
+                        return slack_chat_failure(app, surface, None, warnings);
+                    }
+                }
+            }
+            UniqueMatch::Missing => {
+                warnings.push(
+                    "validated Slack Huddle did not expose its composer or thread control"
+                        .to_string(),
+                );
+                return slack_chat_failure(app, surface, None, warnings);
+            }
+            UniqueMatch::Ambiguous => {
+                warnings.push(
+                    "validated Slack Huddle exposed multiple thread controls; refusing to open one"
+                        .to_string(),
+                );
+                return slack_chat_failure(app, surface, None, warnings);
+            }
+        }
+    }
+
+    let input_index = match input_match {
+        UniqueMatch::One(index) => index,
+        UniqueMatch::Missing => {
+            warnings.push(format!(
+                "Slack Huddle thread did not expose the expected composer for {}",
+                root.channel
+            ));
+            return slack_chat_failure(app, surface, None, warnings);
+        }
+        UniqueMatch::Ambiguous => {
+            warnings.push(format!(
+                "Slack Huddle exposed multiple composers for {}; refusing to choose one",
+                root.channel
+            ));
+            return slack_chat_failure(app, surface, None, warnings);
+        }
+    };
+
+    let input = &chat_elements[input_index];
+    let Some(thread_container_path) =
+        slack_thread_container_path(&input.ancestors, &root.channel).map(<[usize]>::to_vec)
+    else {
+        warnings.push("Slack Huddle composer lost its thread container before send".to_string());
+        return slack_chat_failure(app, surface, None, warnings);
+    };
+    let label = inspection_label(&input.node);
+    let mut input_element = input.element.retained();
+    let _ = input_element.perform_action(ax::action::press());
+    let original_value = match chat_input_value(&input_element) {
+        Ok(value) if value.trim().is_empty() => value,
+        Ok(_) => {
+            warnings.push("refusing to overwrite an existing Slack Huddle draft".to_string());
+            return slack_chat_failure(app, surface, label, warnings);
+        }
+        Err(error) => {
+            warnings.push(format!(
+                "could not verify that the Slack Huddle composer was empty: {error}"
+            ));
+            return slack_chat_failure(app, surface, label, warnings);
+        }
+    };
+
+    let message_value = cf::String::from_str(message);
+    if let Err(error) = input_element.set_attr(ax::attr::value(), message_value.as_type_ref()) {
+        restore_chat_input_if_owned(&mut input_element, message, &original_value, &mut warnings);
+        warnings.push(format!(
+            "failed to set Slack Huddle composer value: {error:?}"
+        ));
+        return slack_chat_failure(app, surface, label, warnings);
+    }
+
+    let (refreshed_elements, send_button_match) =
+        collect_until_unique_match(&root.element, |element| {
+            is_slack_send_now_in_thread(
+                &element.node,
+                &element.ancestors,
+                &root.channel,
+                &thread_container_path,
+            )
+        });
+    let button_index = match send_button_match {
+        UniqueMatch::One(index) => index,
+        UniqueMatch::Missing => {
+            restore_chat_input_if_owned(
+                &mut input_element,
+                message,
+                &original_value,
+                &mut warnings,
+            );
+            warnings.push(
+                "Slack Huddle composer did not expose an enabled Send now button".to_string(),
+            );
+            return slack_chat_failure(app, surface, label, warnings);
+        }
+        UniqueMatch::Ambiguous => {
+            restore_chat_input_if_owned(
+                &mut input_element,
+                message,
+                &original_value,
+                &mut warnings,
+            );
+            warnings.push(
+                "Slack Huddle exposed multiple enabled Send now buttons; refusing to choose one"
+                    .to_string(),
+            );
+            return slack_chat_failure(app, surface, label, warnings);
+        }
+    };
+
+    match chat_input_value(&input_element) {
+        Ok(current) if chat_input_is_owned(&current, message) => {}
+        Ok(_) => {
+            warnings.push(
+                "Slack Huddle composer changed while preparing the consent message; nothing was sent or cleared"
+                    .to_string(),
+            );
+            return slack_chat_failure(app, surface, label, warnings);
+        }
+        Err(error) => {
+            warnings.push(format!(
+                "could not revalidate the Slack Huddle composer before send: {error}"
+            ));
+            return slack_chat_failure(app, surface, label, warnings);
+        }
+    }
+
+    let button = &refreshed_elements[button_index];
+    match button.element.perform_action(ax::action::press()) {
+        Ok(_) => MeetingChatSendResult {
+            sent: true,
+            app: Some(app.clone()),
+            platform: MeetingPlatform::Slack,
+            surface: surface.clone(),
+            input_label: label,
+            send_action: Some("sendButton".to_string()),
+            warnings,
+        },
+        Err(error) => {
+            restore_chat_input_if_owned(
+                &mut input_element,
+                message,
+                &original_value,
+                &mut warnings,
+            );
+            warnings.push(format!("failed to press Slack Huddle Send now: {error:?}"));
+            slack_chat_failure(app, surface, label, warnings)
+        }
+    }
 }
 
 #[cfg(target_os = "macos")]
-fn collect_chat_elements(element: &ax::UiElement, depth: usize, elements: &mut Vec<AxChatElement>) {
-    if depth > MAX_TREE_DEPTH || elements.len() >= MAX_NODES {
-        return;
+fn slack_chat_failure(
+    app: &MeetingApp,
+    surface: &MeetingSurface,
+    input_label: Option<String>,
+    warnings: Vec<String>,
+) -> MeetingChatSendResult {
+    MeetingChatSendResult {
+        sent: false,
+        app: Some(app.clone()),
+        platform: MeetingPlatform::Slack,
+        surface: surface.clone(),
+        input_label,
+        send_action: None,
+        warnings,
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn chat_input_value(input: &ax::UiElement) -> Result<String, String> {
+    let value = input
+        .attr_value(ax::attr::value())
+        .map_err(|error| format!("{error:?}"))?;
+    value
+        .try_as_string()
+        .map(|value| value.to_string())
+        .ok_or_else(|| "AXValue was not a string".to_string())
+}
+
+#[cfg(target_os = "macos")]
+fn restore_chat_input_if_owned(
+    input: &mut arc::R<ax::UiElement>,
+    injected_message: &str,
+    original_value: &str,
+    warnings: &mut Vec<String>,
+) {
+    match chat_input_value(input) {
+        Ok(current) if chat_input_is_owned(&current, injected_message) => {
+            let original = cf::String::from_str(original_value);
+            if let Err(error) = input.set_attr(ax::attr::value(), original.as_type_ref()) {
+                warnings.push(format!(
+                    "failed to restore the unsent Slack Huddle composer: {error:?}"
+                ));
+            }
+        }
+        Ok(_) => warnings.push(
+            "Slack Huddle composer changed concurrently; its current value was left untouched"
+                .to_string(),
+        ),
+        Err(error) => warnings.push(format!(
+            "could not verify ownership of the Slack Huddle composer during cleanup: {error}"
+        )),
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn collect_slack_huddle_roots(
+    ax_app: &ax::UiElement,
+    warnings: &mut Vec<String>,
+) -> Vec<SlackHuddleRoot> {
+    let mut windows = Vec::new();
+    let mut visited = 0;
+    collect_window_elements(ax_app, 0, &mut visited, &mut windows);
+
+    windows
+        .into_iter()
+        .filter_map(|element| {
+            let mut nodes = Vec::new();
+            collect_nodes(&element, 0, &mut nodes, warnings);
+            let (label, channel) = slack_huddle_context(&nodes)?;
+            Some(SlackHuddleRoot {
+                channel,
+                label,
+                nodes,
+                element,
+            })
+        })
+        .collect()
+}
+
+#[cfg(target_os = "macos")]
+fn collect_native_meeting_roots(
+    ax_app: &ax::UiElement,
+    platform: &MeetingPlatform,
+    warnings: &mut Vec<String>,
+) -> Vec<NativeMeetingRoot> {
+    let mut windows = Vec::new();
+    let mut visited = 0;
+    collect_window_elements(ax_app, 0, &mut visited, &mut windows);
+
+    windows
+        .into_iter()
+        .filter_map(|window| {
+            let window_title = string_attr(&window, ax::attr::title());
+            let mut nodes = Vec::new();
+            collect_nodes(&window, 0, &mut nodes, warnings);
+            native_meeting_window_is_validated(platform, &nodes).then_some(NativeMeetingRoot {
+                window_title,
+                nodes,
+            })
+        })
+        .collect()
+}
+
+#[cfg(target_os = "macos")]
+fn native_meeting_window_is_validated(platform: &MeetingPlatform, nodes: &[AxNode]) -> bool {
+    match platform {
+        MeetingPlatform::Zoom => nodes.iter().any(is_zoom_participant_evidence),
+        MeetingPlatform::Discord => nodes.iter().any(|node| {
+            node_labels(node).any(|label| label.trim().eq_ignore_ascii_case("voice connected"))
+        }),
+        MeetingPlatform::GoogleMeet
+        | MeetingPlatform::MicrosoftTeams
+        | MeetingPlatform::Webex
+        | MeetingPlatform::Unknown => false,
+        MeetingPlatform::Slack => slack_huddle_context(nodes).is_some(),
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn collect_browser_meeting_roots(
+    ax_app: &ax::UiElement,
+    warnings: &mut Vec<String>,
+) -> (Vec<BrowserMeetingRoot>, bool) {
+    let focused_web_area = focused_web_area_element(ax_app);
+    let mut windows = Vec::new();
+    let mut visited = 0;
+    let mut has_unscoped_meeting_window = false;
+    collect_window_elements(ax_app, 0, &mut visited, &mut windows);
+
+    let roots = windows
+        .into_iter()
+        .filter_map(|window| {
+            let window_title = string_attr(&window, ax::attr::title());
+            let Some(web_area) =
+                active_web_area_element(&window, focused_web_area.as_deref())
+            else {
+                if window_title
+                    .as_deref()
+                    .is_some_and(|title| !browser_title_platform_signals(title).is_empty())
+                {
+                    has_unscoped_meeting_window = true;
+                    warnings.push(
+                        "a meeting-like browser window did not expose one active AXWebArea; it was excluded"
+                            .to_string(),
+                    );
+                }
+                return None;
+            };
+
+            let web_area_node = snapshot_node(&web_area, 0);
+            let web_area_url = url_attr(&web_area).or_else(|| {
+                web_area_node.value.as_ref().and_then(|value| {
+                    value
+                        .starts_with("http")
+                        .then_some(value.clone())
+                })
+            });
+            let mut nodes = Vec::new();
+            collect_nodes(&web_area, 0, &mut nodes, warnings);
+            let platform = classify_browser_context(
+                web_area_url.as_deref(),
+                window_title.as_deref(),
+                Some(&web_area_node),
+                &nodes,
+            );
+            if platform == MeetingPlatform::Unknown {
+                let has_url_signal = browser_platform_from_url(web_area_url.as_deref()).is_some();
+                let has_title_signal = window_title
+                    .as_deref()
+                    .is_some_and(|title| !browser_title_platform_signals(title).is_empty());
+                if has_url_signal || has_title_signal
+                {
+                    has_unscoped_meeting_window = true;
+                    warnings.push(
+                        "a browser window lacked matching meeting-origin and title/control signals; it was excluded"
+                            .to_string(),
+                    );
+                }
+                return None;
+            }
+
+            Some(BrowserMeetingRoot {
+                platform,
+                window_title,
+                nodes,
+            })
+        })
+        .collect();
+
+    (roots, has_unscoped_meeting_window)
+}
+
+#[cfg(target_os = "macos")]
+fn focused_web_area_element(ax_app: &ax::UiElement) -> Option<arc::R<ax::UiElement>> {
+    let mut element = ax_app.focused_ui_element().ok()?;
+    for _ in 0..=MAX_TREE_DEPTH {
+        if element
+            .role()
+            .ok()
+            .is_some_and(|role| role.to_string() == "AXWebArea")
+        {
+            return Some(element);
+        }
+        element = element.parent().ok()?;
+    }
+    None
+}
+
+#[cfg(target_os = "macos")]
+fn active_web_area_element(
+    window: &ax::UiElement,
+    focused_web_area: Option<&ax::UiElement>,
+) -> Option<arc::R<ax::UiElement>> {
+    if let Some(focused_web_area) = focused_web_area {
+        let belongs_to_window = focused_web_area
+            .window()
+            .ok()
+            .is_some_and(|focused_window| focused_window.equal(window));
+        if belongs_to_window {
+            return Some(focused_web_area.retained());
+        }
     }
 
-    let index = elements.len();
-    let node = snapshot_node(element, index);
-    if candidate_chat_target(&node).is_some() {
-        elements.push(AxChatElement {
-            node,
-            element: element.retained(),
-        });
+    let mut web_areas = Vec::new();
+    let mut visited = 0;
+    collect_web_area_elements(window, 0, &mut visited, &mut web_areas);
+    (web_areas.len() == 1).then(|| web_areas.remove(0))
+}
+
+#[cfg(target_os = "macos")]
+fn collect_web_area_elements(
+    element: &ax::UiElement,
+    depth: usize,
+    visited: &mut usize,
+    web_areas: &mut Vec<arc::R<ax::UiElement>>,
+) {
+    if depth > MAX_TREE_DEPTH || *visited >= MAX_NODES {
+        return;
+    }
+    *visited += 1;
+
+    if element
+        .role()
+        .ok()
+        .is_some_and(|role| role.to_string() == "AXWebArea")
+    {
+        web_areas.push(element.retained());
+        return;
     }
 
     let Ok(children) = element.children() else {
         return;
     };
-
     for child in children.iter() {
-        collect_chat_elements(child, depth + 1, elements);
+        collect_web_area_elements(child, depth + 1, visited, web_areas);
     }
+}
+
+#[cfg(target_os = "macos")]
+fn collect_window_elements(
+    element: &ax::UiElement,
+    depth: usize,
+    visited: &mut usize,
+    windows: &mut Vec<arc::R<ax::UiElement>>,
+) {
+    if depth > MAX_TREE_DEPTH || *visited >= MAX_NODES {
+        return;
+    }
+    *visited += 1;
+
+    if element
+        .role()
+        .ok()
+        .is_some_and(|role| role.to_string() == "AXWindow")
+    {
+        windows.push(element.retained());
+        return;
+    }
+
+    let Ok(children) = element.children() else {
+        return;
+    };
+    for child in children.iter() {
+        collect_window_elements(child, depth + 1, visited, windows);
+    }
+}
+
+#[cfg(all(target_os = "macos", test))]
+fn unique_matching_index<'a>(
+    nodes: impl Iterator<Item = (usize, &'a AxNode)>,
+    predicate: impl Fn(&AxNode) -> bool,
+) -> UniqueMatch {
+    let mut found = None;
+    for (index, node) in nodes {
+        if !predicate(node) {
+            continue;
+        }
+        if found.is_some() {
+            return UniqueMatch::Ambiguous;
+        }
+        found = Some(index);
+    }
+
+    found.map_or(UniqueMatch::Missing, UniqueMatch::One)
+}
+
+#[cfg(target_os = "macos")]
+fn unique_matching_chat_element_index(
+    elements: &[AxChatElement],
+    predicate: impl Fn(&AxChatElement) -> bool,
+) -> UniqueMatch {
+    let mut found = None;
+    for (index, element) in elements.iter().enumerate() {
+        if !predicate(element) {
+            continue;
+        }
+        if found.is_some() {
+            return UniqueMatch::Ambiguous;
+        }
+        found = Some(index);
+    }
+
+    found.map_or(UniqueMatch::Missing, UniqueMatch::One)
+}
+
+#[cfg(target_os = "macos")]
+fn collect_until_unique_match(
+    element: &ax::UiElement,
+    predicate: impl Fn(&AxChatElement) -> bool,
+) -> (Vec<AxChatElement>, UniqueMatch) {
+    for attempt in 0..3 {
+        let elements = collect_sorted_chat_elements(element);
+        let target_match = unique_matching_chat_element_index(&elements, &predicate);
+        if target_match != UniqueMatch::Missing || attempt == 2 {
+            return (elements, target_match);
+        }
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+
+    unreachable!()
+}
+
+#[cfg(target_os = "macos")]
+fn collect_sorted_chat_elements(element: &ax::UiElement) -> Vec<AxChatElement> {
+    let mut elements = Vec::new();
+    let mut ancestors = Vec::new();
+    let mut path = Vec::new();
+    let mut visited = 0;
+    collect_chat_elements(
+        element,
+        0,
+        &mut visited,
+        &mut path,
+        &mut ancestors,
+        &mut elements,
+    );
+    elements.sort_by(|a, b| chat_element_score(&b.node).total_cmp(&chat_element_score(&a.node)));
+    elements
+}
+
+#[cfg(target_os = "macos")]
+fn collect_chat_elements(
+    element: &ax::UiElement,
+    depth: usize,
+    visited: &mut usize,
+    path: &mut Vec<usize>,
+    ancestors: &mut Vec<AxAncestor>,
+    elements: &mut Vec<AxChatElement>,
+) {
+    if depth > MAX_TREE_DEPTH || *visited >= MAX_NODES {
+        return;
+    }
+
+    let index = *visited;
+    *visited += 1;
+    let node = snapshot_node(element, index);
+    if candidate_chat_target(&node).is_some() {
+        elements.push(AxChatElement {
+            node: node.clone(),
+            ancestors: ancestors.clone(),
+            element: element.retained(),
+        });
+    }
+
+    ancestors.push(AxAncestor {
+        path: path.clone(),
+        labels: node_labels(&node).map(str::to_string).collect(),
+    });
+
+    let Ok(children) = element.children() else {
+        ancestors.pop();
+        return;
+    };
+
+    for (child_index, child) in children.iter().enumerate() {
+        path.push(child_index);
+        collect_chat_elements(child, depth + 1, visited, path, ancestors, elements);
+        path.pop();
+    }
+    ancestors.pop();
 }
 
 #[cfg(target_os = "macos")]
@@ -384,36 +962,11 @@ fn chat_element_score(node: &AxNode) -> f32 {
 }
 
 #[cfg(target_os = "macos")]
-fn find_chat_input_index(elements: &[AxChatElement]) -> Option<usize> {
-    elements.iter().position(|item| {
-        candidate_chat_target(&item.node)
-            .is_some_and(|target| target.kind == "input" && target.settable)
-    })
-}
-
-#[cfg(target_os = "macos")]
-fn find_send_button_index(elements: &[AxChatElement]) -> Option<usize> {
-    elements.iter().position(|item| {
-        candidate_chat_target(&item.node)
-            .is_some_and(|target| target.kind == "sendButton" && target.enabled != Some(false))
-    })
-}
-
-#[cfg(target_os = "macos")]
-fn find_chat_open_control_index(elements: &[AxChatElement]) -> Option<usize> {
-    elements.iter().position(|item| {
-        candidate_chat_target(&item.node)
-            .is_some_and(|target| target.kind == "openChatControl" && target.enabled != Some(false))
-    })
-}
-
-#[cfg(target_os = "macos")]
-fn control_label(node: &AxNode) -> Option<String> {
+fn inspection_label(node: &AxNode) -> Option<String> {
     node.title
         .clone()
         .or_else(|| node.placeholder.clone())
         .or_else(|| node.description.clone())
-        .or_else(|| node.value.clone())
 }
 
 #[cfg(target_os = "macos")]
@@ -426,21 +979,83 @@ fn inspect_app(
     let bundle_platform = classify_bundle(&app.id);
     let mut window_title = None;
     let mut nodes = Vec::new();
+    let mut scoped_platform = None;
 
     if accessibility_trusted {
         let ax_app = ax::UiElement::with_app_pid(pid);
         let _ = ax_app.set_messaging_timeout_secs(0.6);
-        collect_nodes(&ax_app, 0, &mut nodes, &mut warnings);
-        window_title = nodes.iter().find_map(|node| {
-            (node.role.as_deref() == Some("AXWindow"))
-                .then(|| node.title.clone())
-                .flatten()
-        });
+        if bundle_platform == MeetingPlatform::Slack {
+            let mut roots = collect_slack_huddle_roots(&ax_app, &mut warnings);
+            match roots.len() {
+                0 => warnings.push(
+                    "Slack is running without a uniquely validated active Huddle".to_string(),
+                ),
+                1 => {
+                    let root = roots.remove(0);
+                    window_title = Some(root.label);
+                    nodes = root.nodes;
+                }
+                count => warnings.push(format!(
+                    "Slack exposed {count} active Huddle windows; inspection is scoped to none"
+                )),
+            }
+        } else if is_browser_bundle(&app.id) {
+            let (mut roots, has_unscoped_meeting_window) =
+                collect_browser_meeting_roots(&ax_app, &mut warnings);
+            let root_match = if has_unscoped_meeting_window {
+                UniqueMatch::Ambiguous
+            } else {
+                unique_scope_for_count(roots.len())
+            };
+            match root_match {
+                UniqueMatch::Missing => warnings.push(
+                    "browser inspection found no uniquely scoped meeting AXWindow and active AXWebArea"
+                        .to_string(),
+                ),
+                UniqueMatch::One(index) => {
+                    let root = roots.remove(index);
+                    scoped_platform = Some(root.platform);
+                    window_title = root.window_title;
+                    nodes = root.nodes;
+                }
+                UniqueMatch::Ambiguous => warnings.push(
+                    "browser meeting window scope was ambiguous; inspection is scoped to none"
+                        .to_string(),
+                ),
+            }
+        } else if bundle_platform != MeetingPlatform::Unknown {
+            let mut roots = collect_native_meeting_roots(&ax_app, &bundle_platform, &mut warnings);
+            match unique_scope_for_count(roots.len()) {
+                UniqueMatch::Missing => {
+                    warnings.push(
+                        "native app exposed no evidence-backed meeting AXWindow; inspection is scoped to none"
+                            .to_string(),
+                    );
+                }
+                UniqueMatch::One(index) => {
+                    let root = roots.remove(index);
+                    scoped_platform = Some(bundle_platform.clone());
+                    window_title = root.window_title;
+                    nodes = root.nodes;
+                }
+                UniqueMatch::Ambiguous => {
+                    warnings.push(
+                        "native app exposed multiple meeting AXWindows; inspection is scoped to none"
+                            .to_string(),
+                    );
+                }
+            }
+        } else {
+            scoped_platform = Some(MeetingPlatform::Unknown);
+            warnings.push("app bundle has no validated meeting inspection path".to_string());
+        }
     } else {
         warnings.push("macOS accessibility permission is not trusted".to_string());
     }
 
-    let platform = classify_platform(&app.id, window_title.as_deref(), &nodes, bundle_platform);
+    let platform = scoped_platform.unwrap_or_else(|| {
+        classify_platform(&app.id, window_title.as_deref(), &nodes, bundle_platform)
+    });
     let surface = classify_surface(&app.id, &platform);
     let participant_streams = find_participant_streams(&platform, &surface, &nodes);
     let latest_active_speakers = participant_streams
@@ -453,7 +1068,13 @@ fn inspect_app(
                 .or_else(|| stream.label.clone())
         })
         .collect();
-    let chat_targets = find_chat_targets(&nodes);
+    let chat_targets = match &platform {
+        MeetingPlatform::Unknown => Vec::new(),
+        MeetingPlatform::Slack => slack_huddle_context(&nodes)
+            .map(|(_, channel)| find_slack_chat_targets(&nodes, &channel))
+            .unwrap_or_default(),
+        _ => find_chat_targets(&nodes),
+    };
 
     MeetingAccessibilityInspection {
         app,
@@ -513,7 +1134,14 @@ fn snapshot_node(element: &ax::UiElement, index: usize) -> AxNode {
         .and_then(|frame| frame.cg_rect())
         .or_else(|| rect_from_position_and_size(element))
         .map(AxRect::from);
-    let text = node_text(&role, &title, &value, &description, &placeholder);
+    let text = searchable_node_text(
+        &role,
+        &title,
+        &value,
+        &description,
+        &placeholder,
+        settable_value,
+    );
 
     AxNode {
         index,
@@ -533,6 +1161,22 @@ fn snapshot_node(element: &ax::UiElement, index: usize) -> AxNode {
 fn string_attr(element: &ax::UiElement, attr: &ax::Attr) -> Option<String> {
     let value = element.attr_value(attr).ok()?;
     value.try_as_string().map(|s| s.to_string())
+}
+
+#[cfg(target_os = "macos")]
+fn url_attr(element: &ax::UiElement) -> Option<String> {
+    let value = element.attr_value(ax::attr::url()).ok()?;
+    if let Some(value) = value.try_as_string() {
+        return Some(value.to_string());
+    }
+    if value.get_type_id() != cf::Url::type_id() {
+        return None;
+    }
+
+    let value_ref: &cf::Type = &value;
+    // AXURL is a CFURL on some browsers and a CFString on others.
+    let url = unsafe { &*(std::ptr::from_ref(value_ref).cast::<cf::Url>()) };
+    Some(url.cf_string().to_string())
 }
 
 #[cfg(target_os = "macos")]
@@ -562,6 +1206,170 @@ fn node_text(
 }
 
 #[cfg(target_os = "macos")]
+fn searchable_node_text(
+    role: &Option<String>,
+    title: &Option<String>,
+    value: &Option<String>,
+    description: &Option<String>,
+    placeholder: &Option<String>,
+    settable_value: bool,
+) -> String {
+    let hidden_value = None;
+    node_text(
+        role,
+        title,
+        if settable_value || is_text_input_role(role) {
+            &hidden_value
+        } else {
+            value
+        },
+        description,
+        placeholder,
+    )
+}
+
+#[cfg(target_os = "macos")]
+fn is_text_input_role(role: &Option<String>) -> bool {
+    matches!(
+        role.as_deref(),
+        Some("AXTextArea") | Some("AXTextField") | Some("AXSecureTextField")
+    )
+}
+
+#[cfg(target_os = "macos")]
+fn node_labels(node: &AxNode) -> impl Iterator<Item = &str> {
+    [
+        node.title.as_deref(),
+        node.placeholder.as_deref(),
+        node.description.as_deref(),
+        (!node.settable_value && !is_text_input_role(&node.role))
+            .then_some(node.value.as_deref())
+            .flatten(),
+    ]
+    .into_iter()
+    .flatten()
+}
+
+#[cfg(target_os = "macos")]
+fn slack_huddle_context(nodes: &[AxNode]) -> Option<(String, String)> {
+    let has_leave_control = nodes.iter().any(is_enabled_slack_leave_control);
+    if !has_leave_control {
+        return None;
+    }
+
+    nodes.iter().find_map(|node| {
+        node_labels(node).find_map(|label| {
+            slack_huddle_channel_from_label(label).map(|channel| (label.to_string(), channel))
+        })
+    })
+}
+
+#[cfg(target_os = "macos")]
+fn slack_huddle_channel_from_label(label: &str) -> Option<String> {
+    const PREFIX: &str = "huddle in ";
+
+    let label = label.trim();
+    let lower = label.to_ascii_lowercase();
+    let start = lower.find(PREFIX)? + PREFIX.len();
+    let mut channel = label[start..].trim();
+
+    for suffix in [" (private channel)", " - slack", " | slack", " — slack"] {
+        if channel.to_ascii_lowercase().ends_with(suffix) {
+            channel = channel[..channel.len() - suffix.len()].trim_end();
+            break;
+        }
+    }
+
+    (!channel.is_empty()).then_some(channel.to_string())
+}
+
+#[cfg(target_os = "macos")]
+fn is_enabled_slack_leave_control(node: &AxNode) -> bool {
+    matches!(node.role.as_deref(), Some("AXButton") | Some("AXMenuItem"))
+        && node.enabled != Some(false)
+        && node_labels(node).any(|label| label.trim().eq_ignore_ascii_case("leave huddle"))
+}
+
+#[cfg(target_os = "macos")]
+fn is_slack_huddle_composer(node: &AxNode, channel: &str) -> bool {
+    let expected = format!("message to {channel}");
+    matches!(
+        node.role.as_deref(),
+        Some("AXTextArea") | Some("AXTextField")
+    ) && node.enabled != Some(false)
+        && node.settable_value
+        && node_labels(node).any(|label| label.trim().eq_ignore_ascii_case(&expected))
+}
+
+#[cfg(target_os = "macos")]
+fn slack_thread_container_path<'a>(
+    ancestors: &'a [AxAncestor],
+    channel: &str,
+) -> Option<&'a [usize]> {
+    ancestors.iter().rev().find_map(|ancestor| {
+        ancestor
+            .labels
+            .iter()
+            .find(|label| is_slack_thread_container_label(label, channel))
+            .map(|_| ancestor.path.as_slice())
+    })
+}
+
+#[cfg(target_os = "macos")]
+fn is_slack_thread_container_label(label: &str, channel: &str) -> bool {
+    let label = label.trim().to_ascii_lowercase();
+    let expected = format!("thread in {}", channel.trim()).to_ascii_lowercase();
+    label == expected || label.starts_with(&format!("{expected} ("))
+}
+
+#[cfg(target_os = "macos")]
+fn is_slack_huddle_composer_in_thread(
+    node: &AxNode,
+    ancestors: &[AxAncestor],
+    channel: &str,
+) -> bool {
+    is_slack_huddle_composer(node, channel)
+        && slack_thread_container_path(ancestors, channel).is_some()
+}
+
+#[cfg(target_os = "macos")]
+fn is_slack_send_now_in_thread(
+    node: &AxNode,
+    ancestors: &[AxAncestor],
+    channel: &str,
+    thread_path: &[usize],
+) -> bool {
+    is_slack_send_now_button(node)
+        && slack_thread_container_path(ancestors, channel) == Some(thread_path)
+}
+
+#[cfg(target_os = "macos")]
+fn is_slack_thread_control(node: &AxNode) -> bool {
+    matches!(node.role.as_deref(), Some("AXButton") | Some("AXMenuItem"))
+        && node.enabled != Some(false)
+        && node_labels(node).any(|label| label.trim().eq_ignore_ascii_case("show/hide thread"))
+}
+
+#[cfg(target_os = "macos")]
+fn is_slack_send_now_button(node: &AxNode) -> bool {
+    matches!(node.role.as_deref(), Some("AXButton") | Some("AXMenuItem"))
+        && node.enabled != Some(false)
+        && node_labels(node).any(|label| label.trim().eq_ignore_ascii_case("send now"))
+}
+
+#[cfg(all(target_os = "macos", test))]
+fn has_nonempty_draft(node: &AxNode) -> bool {
+    node.value
+        .as_ref()
+        .is_some_and(|value| !value.trim().is_empty())
+}
+
+#[cfg(target_os = "macos")]
+fn chat_input_is_owned(current_value: &str, injected_message: &str) -> bool {
+    current_value == injected_message
+}
+
+#[cfg(target_os = "macos")]
 fn classify_bundle(bundle_id: &str) -> MeetingPlatform {
     match bundle_id {
         "us.zoom.xos" => MeetingPlatform::Zoom,
@@ -574,38 +1382,148 @@ fn classify_bundle(bundle_id: &str) -> MeetingPlatform {
 }
 
 #[cfg(target_os = "macos")]
-fn classify_platform(
-    bundle_id: &str,
-    window_title: Option<&str>,
-    nodes: &[AxNode],
-    bundle_platform: MeetingPlatform,
-) -> MeetingPlatform {
-    if bundle_platform != MeetingPlatform::Unknown {
-        return bundle_platform;
-    }
+fn supports_meeting_chat_mutation(bundle_id: &str) -> bool {
+    classify_bundle(bundle_id) == MeetingPlatform::Slack
+}
 
-    let title = window_title.unwrap_or_default().to_lowercase();
-    let has_text = |needle: &str| {
-        title.contains(needle) || nodes.iter().any(|node| node.text.contains(needle))
+#[cfg(target_os = "macos")]
+fn classify_browser_context(
+    web_area_url: Option<&str>,
+    window_title: Option<&str>,
+    active_web_area: Option<&AxNode>,
+    nodes: &[AxNode],
+) -> MeetingPlatform {
+    let Some(platform) = browser_platform_from_url(web_area_url) else {
+        return MeetingPlatform::Unknown;
     };
 
-    if has_text("meet.google.com") || has_text("google meet") {
-        MeetingPlatform::GoogleMeet
-    } else if has_text("teams.microsoft.com") || has_text("microsoft teams") {
-        MeetingPlatform::MicrosoftTeams
-    } else if has_text("zoom.us") || has_text("zoom meeting") {
-        MeetingPlatform::Zoom
-    } else if has_text("slack.com") || has_text("huddle") {
-        MeetingPlatform::Slack
-    } else if has_text("discord.com") || has_text("voice connected") {
-        MeetingPlatform::Discord
-    } else if has_text("webex.com")
-        || has_text("webex meeting")
-        || has_text("cisco webex")
-        || has_text("join-test.webex.com")
+    let mut title_platforms = window_title
+        .into_iter()
+        .chain(active_web_area.into_iter().flat_map(node_labels))
+        .flat_map(browser_title_platform_signals)
+        .collect::<Vec<_>>();
+    title_platforms.dedup();
+    if title_platforms.iter().any(|signal| signal != &platform) {
+        return MeetingPlatform::Unknown;
+    }
+    let has_matching_title = title_platforms.contains(&platform);
+    let has_matching_control = nodes
+        .iter()
+        .any(|node| is_platform_meeting_control(&platform, node));
+
+    if has_matching_title || has_matching_control {
+        platform
+    } else {
+        MeetingPlatform::Unknown
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn browser_platform_from_url(url: Option<&str>) -> Option<MeetingPlatform> {
+    let url = url::Url::parse(url?).ok()?;
+    if url.scheme() != "https" {
+        return None;
+    }
+    let host = url.host_str()?.to_ascii_lowercase();
+
+    if host == "meet.google.com" {
+        Some(MeetingPlatform::GoogleMeet)
+    } else if matches!(host.as_str(), "teams.microsoft.com" | "teams.live.com") {
+        Some(MeetingPlatform::MicrosoftTeams)
+    } else if host == "zoom.us" || host.ends_with(".zoom.us") {
+        Some(MeetingPlatform::Zoom)
+    } else if host == "webex.com" || host.ends_with(".webex.com") {
+        Some(MeetingPlatform::Webex)
+    } else if matches!(host.as_str(), "slack.com" | "app.slack.com") {
+        Some(MeetingPlatform::Slack)
+    } else if matches!(
+        host.as_str(),
+        "discord.com" | "canary.discord.com" | "ptb.discord.com"
+    ) {
+        Some(MeetingPlatform::Discord)
+    } else {
+        None
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn browser_title_platform_signals(text: &str) -> Vec<MeetingPlatform> {
+    let text = text.to_ascii_lowercase();
+    let mut platforms = Vec::new();
+
+    if text.contains("google meet") {
+        platforms.push(MeetingPlatform::GoogleMeet);
+    }
+    if text.contains("microsoft teams") || text.contains("teams meeting") {
+        platforms.push(MeetingPlatform::MicrosoftTeams);
+    }
+    if text.contains("zoom meeting") {
+        platforms.push(MeetingPlatform::Zoom);
+    }
+    if text.contains("huddle") && text.contains("slack") {
+        platforms.push(MeetingPlatform::Slack);
+    }
+    if text.contains("discord") && (text.contains("voice") || text.contains("call")) {
+        platforms.push(MeetingPlatform::Discord);
+    }
+    if text.contains("webex meeting") || text.contains("cisco webex") {
+        platforms.push(MeetingPlatform::Webex);
+    }
+
+    platforms
+}
+
+#[cfg(target_os = "macos")]
+fn is_platform_meeting_control(platform: &MeetingPlatform, node: &AxNode) -> bool {
+    if !matches!(node.role.as_deref(), Some("AXButton") | Some("AXMenuItem"))
+        || node.enabled == Some(false)
     {
-        MeetingPlatform::Webex
-    } else if is_browser_bundle(bundle_id) {
+        return false;
+    }
+
+    node_labels(node).any(|label| {
+        let label = label.trim().to_ascii_lowercase();
+        match platform {
+            MeetingPlatform::GoogleMeet => matches!(
+                label.as_str(),
+                "leave call"
+                    | "turn on microphone"
+                    | "turn off microphone"
+                    | "turn on camera"
+                    | "turn off camera"
+                    | "present now"
+            ),
+            MeetingPlatform::MicrosoftTeams => matches!(
+                label.as_str(),
+                "hang up"
+                    | "mute microphone"
+                    | "unmute microphone"
+                    | "turn camera on"
+                    | "turn camera off"
+            ),
+            MeetingPlatform::Zoom => matches!(
+                label.as_str(),
+                "leave meeting" | "end meeting" | "mute my audio" | "unmute my audio"
+            ),
+            MeetingPlatform::Slack => label == "leave huddle",
+            MeetingPlatform::Discord => label == "disconnect",
+            MeetingPlatform::Webex => matches!(
+                label.as_str(),
+                "leave meeting" | "end meeting" | "mute me" | "unmute me"
+            ),
+            MeetingPlatform::Unknown => false,
+        }
+    })
+}
+
+#[cfg(target_os = "macos")]
+fn classify_platform(
+    bundle_id: &str,
+    _window_title: Option<&str>,
+    _nodes: &[AxNode],
+    bundle_platform: MeetingPlatform,
+) -> MeetingPlatform {
+    if is_browser_bundle(bundle_id) {
         MeetingPlatform::Unknown
     } else {
         bundle_platform
@@ -648,6 +1566,10 @@ fn find_participant_streams(
     surface: &MeetingSurface,
     nodes: &[AxNode],
 ) -> Vec<MeetingParticipantStream> {
+    if *platform == MeetingPlatform::Unknown {
+        return Vec::new();
+    }
+
     let mut streams = nodes
         .iter()
         .filter_map(|node| candidate_stream(platform, surface, node))
@@ -659,6 +1581,86 @@ fn find_participant_streams(
 }
 
 #[cfg(target_os = "macos")]
+fn is_zoom_participant_evidence(node: &AxNode) -> bool {
+    zoom_participant_evidence_label(node).is_some()
+}
+
+#[cfg(target_os = "macos")]
+fn zoom_participant_evidence_label(node: &AxNode) -> Option<&str> {
+    let role = node.role.as_deref()?;
+    let labels = node_labels(node).collect::<Vec<_>>();
+    let has_audio_or_speaker_state = labels.iter().any(|label| {
+        let label = label.to_ascii_lowercase();
+        label.contains("computer audio")
+            || label.contains("no audio connected")
+            || label.contains("active speaker")
+            || label.contains("speaking")
+    });
+
+    if matches!(role, "AXGroup" | "AXCell")
+        && has_audio_or_speaker_state
+        && let Some(label) = labels.iter().copied().find(|label| {
+            let label = label.trim();
+            let lower = label.to_ascii_lowercase();
+            let is_video_render = lower
+                .strip_prefix("video render ")
+                .and_then(|rest| rest.split_once(','))
+                .is_some_and(|(name, state)| {
+                    !name.trim().is_empty()
+                        && (state.contains("computer audio")
+                            || state.contains("no audio connected")
+                            || state.contains("active speaker")
+                            || state.contains("speaking"))
+                });
+            is_video_render || lower == "video tile"
+        })
+    {
+        return Some(label);
+    }
+
+    if matches!(role, "AXStaticText" | "AXCell" | "AXRow" | "AXGroup") {
+        return labels.into_iter().find(|label| {
+            let lower = label.to_ascii_lowercase();
+            lower.contains("participant id:")
+                && (lower.contains("computer audio")
+                    || lower.contains("no audio connected")
+                    || lower.contains("(host")
+                    || lower.contains("(me"))
+        });
+    }
+
+    None
+}
+
+#[cfg(target_os = "macos")]
+fn slack_participant_evidence_label(node: &AxNode) -> Option<&str> {
+    if node.role.as_deref() != Some("AXCell") {
+        return None;
+    }
+
+    node_labels(node).find(|label| {
+        let label = label.trim();
+        let lower = label.to_ascii_lowercase();
+        lower.starts_with("view ")
+            && lower.ends_with("'s profile")
+            && !label[5..label.len() - "'s profile".len()].trim().is_empty()
+    })
+}
+
+#[cfg(target_os = "macos")]
+fn participant_evidence_label<'a>(
+    platform: &MeetingPlatform,
+    surface: &MeetingSurface,
+    node: &'a AxNode,
+) -> Option<&'a str> {
+    match (platform, surface) {
+        (MeetingPlatform::Zoom, MeetingSurface::Native) => zoom_participant_evidence_label(node),
+        (MeetingPlatform::Slack, MeetingSurface::Native) => slack_participant_evidence_label(node),
+        _ => None,
+    }
+}
+
+#[cfg(target_os = "macos")]
 fn candidate_stream(
     platform: &MeetingPlatform,
     surface: &MeetingSurface,
@@ -666,64 +1668,43 @@ fn candidate_stream(
 ) -> Option<MeetingParticipantStream> {
     let role = node.role.as_deref().unwrap_or_default();
     let text = node.text.as_str();
+    let evidence_label = participant_evidence_label(platform, surface, node)?;
     let area = node
         .bounds
         .as_ref()
         .map(|r| r.width * r.height)
         .unwrap_or(0.0);
     let mut signals = Vec::new();
-    let mut confidence = 0.0;
+    let mut confidence = 0.55;
 
-    if role == "AXImage" {
-        confidence += 0.25;
-        signals.push("image-role".to_string());
-    }
     if role == "AXGroup" && area >= MIN_VIDEO_AREA {
         confidence += 0.15;
         signals.push("large-group".to_string());
     }
-    if text.contains("video render") || text.contains("video tile") || text.contains("video") {
-        confidence += 0.45;
+    if evidence_label
+        .to_ascii_lowercase()
+        .starts_with("video render ")
+        || evidence_label.trim().eq_ignore_ascii_case("video tile")
+    {
         signals.push("video-label".to_string());
-    }
-    if text.contains("profile") {
-        confidence += 0.2;
-        signals.push("profile-child".to_string());
+    } else {
+        signals.push("participant-row-label".to_string());
     }
     if text.contains("speaking") || text.contains("active speaker") {
         confidence += 0.25;
         signals.push("speaker-state-label".to_string());
     }
-    if text.contains("computer audio unmuted")
-        || text.contains("no audio connected")
-        || text.contains("muted")
-    {
+    if text.contains("computer audio") || text.contains("no audio connected") {
         confidence += 0.15;
         signals.push("audio-state-label".to_string());
-    }
-    if text.contains("participant id:")
-        || text.contains("(host")
-        || text.contains("(me")
-        || text.contains("organizer")
-    {
-        confidence += 0.35;
-        signals.push("participant-row-label".to_string());
     }
     if area >= MIN_VIDEO_AREA {
         confidence += 0.15;
         signals.push("video-sized-bounds".to_string());
     }
 
-    if confidence < 0.35 {
-        return None;
-    }
-
-    let label = node
-        .title
-        .clone()
-        .or_else(|| node.description.clone())
-        .or_else(|| node.value.clone());
-    let participant_name = participant_name_from_label(label.as_deref());
+    let label = Some(evidence_label.to_string());
+    let participant_name = participant_name_from_evidence(platform, evidence_label);
     let is_active_speaker = signals.iter().any(|signal| signal == "speaker-state-label");
 
     Some(MeetingParticipantStream {
@@ -740,22 +1721,64 @@ fn candidate_stream(
 }
 
 #[cfg(target_os = "macos")]
-fn participant_name_from_label(label: Option<&str>) -> Option<String> {
-    let label = label?.trim();
+fn participant_name_from_evidence(
+    platform: &MeetingPlatform,
+    evidence_label: &str,
+) -> Option<String> {
+    let label = evidence_label.trim();
+    match platform {
+        MeetingPlatform::Zoom => {
+            let lower = label.to_ascii_lowercase();
+            if lower.starts_with("video render ") {
+                return label["Video render ".len()..]
+                    .split(',')
+                    .next()
+                    .map(str::trim)
+                    .filter(|name| !name.is_empty())
+                    .map(str::to_string);
+            }
 
-    if let Some(name) = label.strip_prefix("Video render ") {
-        return Some(name.split(',').next().unwrap_or(name).trim().to_string());
+            let end = label
+                .find('(')
+                .or_else(|| lower.find("participant id:"))
+                .unwrap_or(label.len());
+            label[..end]
+                .trim()
+                .strip_suffix(',')
+                .map(str::trim)
+                .filter(|name| !name.is_empty())
+                .map(str::to_string)
+        }
+        MeetingPlatform::Slack => {
+            let lower = label.to_ascii_lowercase();
+            if !lower.starts_with("view ") || !lower.ends_with("'s profile") {
+                return None;
+            }
+            Some(
+                label["View ".len()..label.len() - "'s profile".len()]
+                    .trim()
+                    .to_string(),
+            )
+        }
+        _ => None,
     }
+}
 
-    if let Some(name) = label.strip_prefix("View ") {
-        return Some(name.trim_end_matches("'s profile").to_string());
-    }
+#[cfg(target_os = "macos")]
+fn find_slack_chat_targets(nodes: &[AxNode], channel: &str) -> Vec<MeetingChatTarget> {
+    let mut targets = nodes
+        .iter()
+        .filter(|node| {
+            is_slack_huddle_composer(node, channel)
+                || is_slack_thread_control(node)
+                || is_slack_send_now_button(node)
+        })
+        .filter_map(candidate_chat_target)
+        .collect::<Vec<_>>();
 
-    if label.len() <= 80 && !label.eq_ignore_ascii_case("video") {
-        Some(label.to_string())
-    } else {
-        None
-    }
+    targets.sort_by(|a, b| b.confidence.total_cmp(&a.confidence));
+    targets.truncate(16);
+    targets
 }
 
 #[cfg(target_os = "macos")]
@@ -780,6 +1803,12 @@ fn candidate_chat_target(node: &AxNode) -> Option<MeetingChatTarget> {
 
     let is_button = role == "AXButton" || role == "AXMenuItem";
     let is_send_button = text.contains("send") && is_button;
+    let is_text_input = role == "AXTextArea" || role == "AXTextField";
+    let has_chat_input_label = text.contains("send a message")
+        || text.contains("message everyone")
+        || text.contains("message to ")
+        || text.contains("type a message")
+        || text.contains("chat");
     let is_chat_control = is_button
         && !is_send_button
         && (text == "axbutton chat"
@@ -787,18 +1816,15 @@ fn candidate_chat_target(node: &AxNode) -> Option<MeetingChatTarget> {
             || text.contains("meeting chat")
             || text.contains("open chat")
             || text.contains("show chat")
+            || text.contains("show/hide thread")
             || text.contains(" chat"));
 
-    if role == "AXTextArea" || role == "AXTextField" {
+    if is_text_input {
         confidence += 0.25;
         signals.push("text-input-role".to_string());
         kind = "input";
     }
-    if text.contains("send a message")
-        || text.contains("message everyone")
-        || text.contains("type a message")
-        || text.contains("chat")
-    {
+    if has_chat_input_label {
         confidence += 0.4;
         signals.push("chat-label".to_string());
     }
@@ -823,6 +1849,10 @@ fn candidate_chat_target(node: &AxNode) -> Option<MeetingChatTarget> {
         kind = "input";
     }
 
+    if kind == "input" && (!is_text_input || !node.settable_value || !has_chat_input_label) {
+        return None;
+    }
+
     if confidence < 0.35 {
         return None;
     }
@@ -834,8 +1864,7 @@ fn candidate_chat_target(node: &AxNode) -> Option<MeetingChatTarget> {
             .title
             .clone()
             .or_else(|| node.placeholder.clone())
-            .or_else(|| node.description.clone())
-            .or_else(|| node.value.clone()),
+            .or_else(|| node.description.clone()),
         bounds: node.bounds.clone(),
         enabled: node.enabled,
         settable: node.settable_value,
@@ -881,10 +1910,24 @@ mod tests {
         }
     }
 
+    fn ancestor(label: &str) -> AxAncestor {
+        ancestor_at(label, &[0])
+    }
+
+    fn ancestor_at(label: &str, path: &[usize]) -> AxAncestor {
+        AxAncestor {
+            path: path.to_vec(),
+            labels: vec![label.to_string()],
+        }
+    }
+
     #[test]
     fn test_participant_name_from_zoom_video_render_label() {
         assert_eq!(
-            participant_name_from_label(Some("Video render Ada Lovelace, Computer audio unmuted")),
+            participant_name_from_evidence(
+                &MeetingPlatform::Zoom,
+                "Video render Ada Lovelace, Computer audio unmuted",
+            ),
             Some("Ada Lovelace".to_string())
         );
     }
@@ -947,6 +1990,342 @@ mod tests {
     }
 
     #[test]
+    fn test_slack_profile_row_is_participant_without_claiming_audio_is_speaking() {
+        let streams = find_participant_streams(
+            &MeetingPlatform::Slack,
+            &MeetingSurface::Native,
+            &[
+                node(12, "AXCell", "View John Jeong's profile", None),
+                node(13, "AXStaticText", "Audio", None),
+            ],
+        );
+
+        assert_eq!(streams.len(), 1);
+        assert_eq!(streams[0].participant_name, Some("John Jeong".to_string()));
+        assert!(!streams[0].is_active_speaker);
+    }
+
+    #[test]
+    fn test_slack_huddle_requires_huddle_label_and_enabled_leave_control() {
+        let mut composer = node(2, "AXTextArea", "Message to test", None);
+        composer.settable_value = true;
+        let mut disabled_leave = node(1, "AXButton", "Leave Huddle", None);
+        disabled_leave.enabled = Some(false);
+
+        assert_eq!(slack_huddle_context(&[composer.clone()]), None);
+        assert_eq!(
+            slack_huddle_context(&[node(0, "AXWindow", "Huddle in test", None), disabled_leave,]),
+            None
+        );
+        assert_eq!(
+            slack_huddle_context(&[
+                node(0, "AXWindow", "Huddle in  test", None),
+                node(1, "AXButton", "Leave Huddle", None),
+                composer,
+            ]),
+            Some(("Huddle in  test".to_string(), "test".to_string()))
+        );
+    }
+
+    #[test]
+    fn test_ordinary_slack_composer_is_not_a_huddle_composer() {
+        let mut composer = node(2, "AXTextArea", "Message #general", None);
+        composer.settable_value = true;
+
+        assert!(!is_slack_huddle_composer(&composer, "test"));
+        assert!(candidate_chat_target(&composer).is_none());
+        assert_eq!(slack_huddle_context(&[composer]), None);
+    }
+
+    #[test]
+    fn test_slack_hidden_thread_control_is_recognized() {
+        let control = node(3, "AXButton", "Show/hide Thread", None);
+
+        assert!(is_slack_thread_control(&control));
+        assert_eq!(
+            candidate_chat_target(&control).unwrap().kind,
+            "openChatControl"
+        );
+    }
+
+    #[test]
+    fn test_slack_composer_and_send_button_must_share_live_thread_container() {
+        let mut composer = node(4, "AXTextArea", "Message to test", None);
+        composer.settable_value = true;
+        let thread = [
+            ancestor("Thread in test (private channel)"),
+            ancestor("composer"),
+        ];
+        let other_thread = [ancestor("Thread in random (private channel)")];
+        let duplicate_label_other_path = [ancestor_at("Thread in test (private channel)", &[9, 4])];
+
+        assert!(is_slack_huddle_composer_in_thread(
+            &composer, &thread, "test"
+        ));
+        assert!(!is_slack_huddle_composer_in_thread(&composer, &[], "test"));
+
+        let mut send = node(5, "AXButton", "Send now", None);
+        send.enabled = Some(false);
+        assert!(!is_slack_send_now_in_thread(&send, &thread, "test", &[0]));
+
+        send.enabled = Some(true);
+        assert!(is_slack_send_now_in_thread(&send, &thread, "test", &[0]));
+        assert!(!is_slack_send_now_in_thread(
+            &send,
+            &other_thread,
+            "test",
+            &[0]
+        ));
+        assert!(!is_slack_send_now_in_thread(
+            &send,
+            &duplicate_label_other_path,
+            "test",
+            &[0]
+        ));
+    }
+
+    #[test]
+    fn test_slack_composer_selection_fails_on_ambiguity_and_drafts() {
+        let mut first = node(4, "AXTextArea", "Message to test", None);
+        first.settable_value = true;
+        let mut second = first.clone();
+        second.index = 5;
+
+        assert_eq!(
+            unique_matching_index([&first, &second].into_iter().enumerate(), |node| {
+                is_slack_huddle_composer(node, "test")
+            },),
+            UniqueMatch::Ambiguous
+        );
+
+        first.value = Some("existing draft".to_string());
+        assert!(has_nonempty_draft(&first));
+        first.value = Some(" \n ".to_string());
+        assert!(!has_nonempty_draft(&first));
+        assert!(chat_input_is_owned("consent", "consent"));
+        assert!(!chat_input_is_owned("consent plus user text", "consent"));
+    }
+
+    #[test]
+    fn test_chat_inspection_does_not_use_writable_value_as_label() {
+        let mut input = node(6, "AXTextArea", "", None);
+        input.title = None;
+        input.settable_value = true;
+        input.value = Some("private draft".to_string());
+        input.text = searchable_node_text(
+            &input.role,
+            &input.title,
+            &input.value,
+            &input.description,
+            &input.placeholder,
+            input.settable_value,
+        );
+
+        assert!(!input.text.contains("private draft"));
+        assert!(candidate_chat_target(&input).is_none());
+        assert_eq!(inspection_label(&input), None);
+
+        let mut read_only_input = input.clone();
+        read_only_input.settable_value = false;
+        read_only_input.value = Some("private read-only text".to_string());
+        read_only_input.text = searchable_node_text(
+            &read_only_input.role,
+            &read_only_input.title,
+            &read_only_input.value,
+            &read_only_input.description,
+            &read_only_input.placeholder,
+            read_only_input.settable_value,
+        );
+        assert!(!read_only_input.text.contains("private read-only text"));
+        assert_eq!(node_labels(&read_only_input).count(), 0);
+
+        let mut participant = node(
+            7,
+            "AXImage",
+            "",
+            Some(AxRect {
+                x: 0.0,
+                y: 0.0,
+                width: 200.0,
+                height: 100.0,
+            }),
+        );
+        participant.title = None;
+        participant.settable_value = true;
+        participant.value = Some("private participant value".to_string());
+        participant.text = searchable_node_text(
+            &participant.role,
+            &participant.title,
+            &participant.value,
+            &participant.description,
+            &participant.placeholder,
+            participant.settable_value,
+        );
+        assert!(
+            candidate_stream(
+                &MeetingPlatform::Slack,
+                &MeetingSurface::Native,
+                &participant,
+            )
+            .is_none()
+        );
+
+        let mut secure_input = read_only_input.clone();
+        secure_input.role = Some("AXSecureTextField".to_string());
+        secure_input.value = Some("private password".to_string());
+        secure_input.text = searchable_node_text(
+            &secure_input.role,
+            &secure_input.title,
+            &secure_input.value,
+            &secure_input.description,
+            &secure_input.placeholder,
+            secure_input.settable_value,
+        );
+        assert!(!secure_input.text.contains("private password"));
+        assert_eq!(node_labels(&secure_input).count(), 0);
+    }
+
+    #[test]
+    fn test_private_video_text_and_large_images_are_not_participant_streams() {
+        let private_nodes = [
+            node(20, "AXStaticText", "Private video notes", None),
+            node(
+                21,
+                "AXImage",
+                "Private camera preview",
+                Some(AxRect {
+                    x: 0.0,
+                    y: 0.0,
+                    width: 640.0,
+                    height: 480.0,
+                }),
+            ),
+        ];
+
+        for platform in [
+            MeetingPlatform::Zoom,
+            MeetingPlatform::GoogleMeet,
+            MeetingPlatform::MicrosoftTeams,
+            MeetingPlatform::Slack,
+            MeetingPlatform::Discord,
+            MeetingPlatform::Webex,
+        ] {
+            assert!(
+                find_participant_streams(&platform, &MeetingSurface::Native, &private_nodes)
+                    .is_empty(),
+                "unexpected participant for {platform:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_zoom_participant_anchor_is_platform_and_surface_specific() {
+        let participant = node(
+            22,
+            "AXGroup",
+            "Video render Ada Lovelace, Computer audio unmuted",
+            None,
+        );
+
+        assert!(
+            candidate_stream(
+                &MeetingPlatform::Zoom,
+                &MeetingSurface::Native,
+                &participant,
+            )
+            .is_some()
+        );
+        assert!(
+            candidate_stream(&MeetingPlatform::Zoom, &MeetingSurface::Web, &participant,).is_none()
+        );
+        for platform in [
+            MeetingPlatform::MicrosoftTeams,
+            MeetingPlatform::Discord,
+            MeetingPlatform::Webex,
+        ] {
+            assert!(candidate_stream(&platform, &MeetingSurface::Native, &participant).is_none());
+        }
+    }
+
+    #[test]
+    fn test_native_meeting_window_validation_is_evidence_backed() {
+        let settings = [
+            node(0, "AXWindow", "Zoom Workplace Settings", None),
+            node(1, "AXStaticText", "Video", None),
+            node(2, "AXButton", "Camera preview", None),
+        ];
+        let zoom_meeting = [node(
+            3,
+            "AXGroup",
+            "Video render Ada Lovelace, Computer audio unmuted",
+            None,
+        )];
+        let discord_voice = [node(4, "AXStaticText", "Voice connected", None)];
+
+        assert!(!native_meeting_window_is_validated(
+            &MeetingPlatform::Zoom,
+            &settings,
+        ));
+        assert!(native_meeting_window_is_validated(
+            &MeetingPlatform::Zoom,
+            &zoom_meeting,
+        ));
+        assert!(native_meeting_window_is_validated(
+            &MeetingPlatform::Discord,
+            &discord_voice,
+        ));
+        for platform in [MeetingPlatform::MicrosoftTeams, MeetingPlatform::Webex] {
+            assert!(!native_meeting_window_is_validated(
+                &platform,
+                &zoom_meeting,
+            ));
+        }
+    }
+
+    #[test]
+    fn test_unknown_browser_surface_does_not_emit_participant_streams() {
+        let streams = find_participant_streams(
+            &MeetingPlatform::Unknown,
+            &MeetingSurface::Unknown,
+            &[node(
+                8,
+                "AXGroup",
+                "Video render Private Browser Content, active speaker",
+                Some(AxRect {
+                    x: 0.0,
+                    y: 0.0,
+                    width: 320.0,
+                    height: 180.0,
+                }),
+            )],
+        );
+
+        assert!(streams.is_empty());
+    }
+
+    #[test]
+    fn test_meeting_chat_message_validation() {
+        assert!(validate_meeting_chat_message("consent message").is_ok());
+        assert!(validate_meeting_chat_message(" \n\t ").is_err());
+        assert!(validate_meeting_chat_message(&"x".repeat(2_000)).is_ok());
+        assert!(validate_meeting_chat_message(&"x".repeat(2_001)).is_err());
+    }
+
+    #[test]
+    fn test_chat_mutation_is_fail_closed_for_unvalidated_platforms() {
+        assert!(supports_meeting_chat_mutation("com.tinyspeck.slackmacgap"));
+        for bundle_id in [
+            "us.zoom.xos",
+            "com.microsoft.teams2",
+            "com.hnc.Discord",
+            "Cisco-Systems.Spark",
+            "com.google.Chrome",
+        ] {
+            assert!(!supports_meeting_chat_mutation(bundle_id));
+        }
+    }
+
+    #[test]
     fn test_chat_input_candidate_requires_chat_signal() {
         let mut chat = node(3, "AXTextArea", "Send a message", None);
         chat.settable_value = true;
@@ -1002,12 +2381,13 @@ mod tests {
 
     #[test]
     fn test_browser_title_classifies_meet_web() {
+        let web_area = node(16, "AXWebArea", "Team sync - Google Meet", None);
         assert_eq!(
-            classify_platform(
-                "com.google.Chrome",
+            classify_browser_context(
+                Some("https://meet.google.com/abc-defg-hij"),
                 Some("Team sync - Google Meet - Google Chrome"),
+                Some(&web_area),
                 &[],
-                MeetingPlatform::Unknown,
             ),
             MeetingPlatform::GoogleMeet
         );
@@ -1015,6 +2395,87 @@ mod tests {
             classify_surface("com.google.Chrome", &MeetingPlatform::GoogleMeet),
             MeetingSurface::Web
         );
+    }
+
+    #[test]
+    fn test_browser_background_tab_nodes_cannot_classify_active_window() {
+        let background_meet_node = node(
+            17,
+            "AXButton",
+            "Team sync - Google Meet background tab",
+            None,
+        );
+
+        assert_eq!(
+            classify_platform(
+                "com.google.Chrome",
+                Some("Inbox - Google Chrome"),
+                &[background_meet_node],
+                MeetingPlatform::Unknown,
+            ),
+            MeetingPlatform::Unknown
+        );
+    }
+
+    #[test]
+    fn test_browser_active_web_area_can_validate_one_platform_but_not_conflicts() {
+        let meet_web_area = node(18, "AXWebArea", "Team sync - Google Meet", None);
+        let generic_web_area = node(19, "AXWebArea", "Document", None);
+        assert_eq!(
+            classify_browser_context(
+                Some("https://meet.google.com/abc-defg-hij"),
+                Some("Google Chrome"),
+                Some(&meet_web_area),
+                &[],
+            ),
+            MeetingPlatform::GoogleMeet
+        );
+
+        assert_eq!(
+            classify_browser_context(
+                Some("https://meet.google.com/abc-defg-hij"),
+                Some("Zoom Meeting - Google Chrome"),
+                Some(&meet_web_area),
+                &[],
+            ),
+            MeetingPlatform::Unknown
+        );
+
+        assert_eq!(
+            classify_browser_context(
+                Some("https://meet.google.com/abc-defg-hij"),
+                Some("Google Chrome"),
+                Some(&generic_web_area),
+                &[],
+            ),
+            MeetingPlatform::Unknown
+        );
+        assert_eq!(
+            classify_browser_context(
+                Some("https://meet.google.com/abc-defg-hij"),
+                Some("Google Chrome"),
+                Some(&generic_web_area),
+                &[node(20, "AXButton", "Leave call", None)],
+            ),
+            MeetingPlatform::GoogleMeet
+        );
+
+        assert_eq!(
+            classify_browser_context(
+                Some("https://www.google.com/search?q=Google+Meet"),
+                Some("Google Meet - Google Search"),
+                Some(&meet_web_area),
+                &[],
+            ),
+            MeetingPlatform::Unknown
+        );
+    }
+
+    #[test]
+    fn test_browser_meeting_window_scope_must_be_unique() {
+        assert_eq!(unique_scope_for_count(0), UniqueMatch::Missing);
+        assert_eq!(unique_scope_for_count(1), UniqueMatch::One(0));
+        assert_eq!(unique_scope_for_count(2), UniqueMatch::Ambiguous);
     }
 
     #[test]
@@ -1031,12 +2492,13 @@ mod tests {
 
     #[test]
     fn test_webex_browser_title_classifies_web() {
+        let web_area = node(21, "AXWebArea", "Cisco Webex Meetings", None);
         assert_eq!(
-            classify_platform(
-                "com.brave.Browser",
+            classify_browser_context(
+                Some("https://fastrepl.webex.com/meet/team"),
                 Some("Cisco Webex Meetings - Brave Browser"),
+                Some(&web_area),
                 &[],
-                MeetingPlatform::Unknown,
             ),
             MeetingPlatform::Webex
         );

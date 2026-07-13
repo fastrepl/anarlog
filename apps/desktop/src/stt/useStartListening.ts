@@ -41,8 +41,14 @@ const CONSENT_CHAT_MESSAGE =
   "Anarlog is recording and transcribing this meeting. Please reply here if you do not consent.";
 
 export async function sendConsentRequestToMeetingChat() {
-  const result =
-    await detectCommands.sendMeetingChatMessage(CONSENT_CHAT_MESSAGE);
+  let result: Awaited<ReturnType<typeof detectCommands.sendMeetingChatMessage>>;
+
+  try {
+    result = await detectCommands.sendMeetingChatMessage(CONSENT_CHAT_MESSAGE);
+  } catch (error) {
+    console.warn("[listener] failed to send consent message", error);
+    return;
+  }
 
   if (result.status === "error") {
     console.warn("[listener] failed to send consent message", result.error);

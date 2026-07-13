@@ -7,6 +7,8 @@ const COMMANDS: &[&str] = &[
     "get_preferred_languages",
     "get_current_locale_identifier",
     "set_mic_active_threshold",
+    "inspect_meeting_accessibility",
+    "send_meeting_chat_message",
 ];
 
 fn main() {

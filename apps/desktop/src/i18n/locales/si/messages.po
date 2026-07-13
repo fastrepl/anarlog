@@ -236,6 +236,10 @@ msgid "Automatically detect when a meeting starts based on microphone activity."
 msgstr ""
 
 #: src/settings/general/app-settings.tsx
+msgid "Automatically post the consent request in the active Slack Huddle."
+msgstr ""
+
+#: src/settings/general/app-settings.tsx
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "සිදුවීම් පිටුබලය සහිත සටහනක් එහි නියමිත ආරම්භක වේලාවට ළඟා වූ විට ස්වයංක්‍රීයව සවන් දීම ආරම්භ කරන්න."
 
@@ -1473,7 +1477,7 @@ msgid "Send anonymous usage analytics to help improve Anarlog."
 msgstr "Anarlog වැඩිදියුණු කිරීමට උදවු කිරීමට නිර්නාමික භාවිත විශ්ලේෂණ යවන්න."
 
 #: src/settings/general/app-settings.tsx
-msgid "Send consent request to meeting chat"
+msgid "Send consent request to Slack Huddles"
 msgstr ""
 
 #: src/contacts/organization-details.tsx
@@ -1855,10 +1859,6 @@ msgstr ""
 
 #: src/changelog/index.tsx
 msgid "What's new in {version}?"
-msgstr ""
-
-#: src/settings/general/app-settings.tsx
-msgid "When consent asking is configured, automatically post the request in the meeting chat."
 msgstr ""
 
 #: src/onboarding/index.tsx

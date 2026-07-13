@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AppSettingsView } from "./app-settings";
@@ -10,19 +10,25 @@ function setting(value = true) {
   };
 }
 
-function renderAppSettings({ floatingBar = true } = {}) {
-  return render(
-    <AppSettingsView
-      autostart={setting()}
-      autoStartScheduledMeetings={setting()}
-      autoStopMeetings={setting()}
-      floatingBar={setting(floatingBar)}
-      showAppInDock={setting()}
-      showTrayIcon={setting()}
-      telemetryConsent={setting()}
-      consentAutoSendChat={setting()}
-    />,
-  );
+function renderAppSettings({
+  floatingBar = true,
+  consentAutoSendChat = setting(),
+} = {}) {
+  return {
+    ...render(
+      <AppSettingsView
+        autostart={setting()}
+        autoStartScheduledMeetings={setting()}
+        autoStopMeetings={setting()}
+        floatingBar={setting(floatingBar)}
+        showAppInDock={setting()}
+        showTrayIcon={setting()}
+        telemetryConsent={setting()}
+        consentAutoSendChat={consentAutoSendChat}
+      />,
+    ),
+    consentAutoSendChat,
+  };
 }
 
 describe("AppSettingsView", () => {
@@ -40,5 +46,18 @@ describe("AppSettingsView", () => {
     renderAppSettings({ floatingBar: false });
 
     expect(screen.getByText("Show floating bar")).toBeTruthy();
+  });
+
+  it("updates the consent chat setting from the meetings switch", () => {
+    const consentAutoSendChat = setting(false);
+    renderAppSettings({ consentAutoSendChat });
+
+    fireEvent.click(
+      screen.getByRole("switch", {
+        name: "Send consent request to Slack Huddles",
+      }),
+    );
+
+    expect(consentAutoSendChat.onChange).toHaveBeenCalledWith(true);
   });
 });

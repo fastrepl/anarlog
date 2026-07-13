@@ -98,11 +98,11 @@ export function AppSettingsView({
             onChange={autoStopMeetings.onChange}
           />
           <SettingRow
-            title={<Trans>Send consent request to meeting chat</Trans>}
+            title={<Trans>Send consent request to Slack Huddles</Trans>}
             description={
               <Trans>
-                When consent asking is configured, automatically post the
-                request in the meeting chat.
+                Automatically post the consent request in the active Slack
+                Huddle.
               </Trans>
             }
             checked={consentAutoSendChat.value}

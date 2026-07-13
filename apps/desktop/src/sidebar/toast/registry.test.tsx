@@ -119,9 +119,12 @@ describe("sidebar toast registry", () => {
     );
 
     expect(toast?.id).toBe(CONSENT_AUTO_SEND_CHAT_TOAST_ID);
-    expect(toast?.title).toBe("Send consent in chat?");
-    expect(toast?.primaryAction?.label).toBe("Yes");
-    expect(toast?.secondaryAction?.label).toBe("Dismiss");
+    expect(toast?.description).toBe("Auto-send consent in Slack Huddles?");
+    expect(toast?.actions?.map((action) => action.label)).toEqual([
+      "Enable",
+      "Not now",
+    ]);
+    expect(toast?.dismissible).toBe(false);
   });
 
   it("does not offer consent chat auto-send when enabled or dismissed", () => {

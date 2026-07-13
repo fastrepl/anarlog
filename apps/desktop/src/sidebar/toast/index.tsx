@@ -146,8 +146,7 @@ export function ToastArea({
 
   const handleEnableConsentAutoSendChat = useCallback(() => {
     setConsentAutoSendChat(true);
-    dismissToast(CONSENT_AUTO_SEND_CHAT_TOAST_ID);
-  }, [dismissToast, setConsentAutoSendChat]);
+  }, [setConsentAutoSendChat]);
 
   const handleDismissConsentAutoSendChat = useCallback(() => {
     dismissToast(CONSENT_AUTO_SEND_CHAT_TOAST_ID);

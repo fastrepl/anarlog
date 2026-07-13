@@ -1,4 +1,10 @@
-import { act, cleanup, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -9,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   clearDevtoolsPreview: vi.fn(),
   setToastActionTarget: vi.fn(),
   setSettingValue: vi.fn(),
+  consentAutoSendChat: true,
   sessionMode: "inactive",
 }));
 
@@ -36,7 +43,7 @@ vi.mock("~/shared/config", () => ({
     current_llm_model: "model",
     current_stt_provider: "local",
     current_stt_model: "model",
-    consent_auto_send_chat: true,
+    consent_auto_send_chat: mocks.consentAutoSendChat,
   }),
 }));
 
@@ -101,6 +108,7 @@ describe("ToastArea", () => {
     mocks.clearDevtoolsPreview.mockClear();
     mocks.setToastActionTarget.mockClear();
     mocks.setSettingValue.mockClear();
+    mocks.consentAutoSendChat = true;
     mocks.sessionMode = "inactive";
     useTransientToast.getState().clearToast();
   });
@@ -125,6 +133,35 @@ describe("ToastArea", () => {
 
     expect(toastContainer?.style.left).toBe("calc(50% + 0px)");
     expect(toastContainer?.style.top).toBe("56px");
+  });
+
+  it("enables consent chat auto-send without permanently dismissing on write", () => {
+    mocks.consentAutoSendChat = false;
+    render(<ToastArea />);
+
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Enable" }));
+
+    expect(mocks.setSettingValue).toHaveBeenCalledWith(true);
+    expect(mocks.dismissToast).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Hide" })).toBeNull();
+  });
+
+  it("dismisses the consent chat opt-in from Not now", () => {
+    mocks.consentAutoSendChat = false;
+    render(<ToastArea />);
+
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Not now" }));
+
+    expect(mocks.setSettingValue).not.toHaveBeenCalled();
+    expect(mocks.dismissToast).toHaveBeenCalledWith("consent-auto-send-chat");
   });
 
   it("keeps default placement centered while anchoring vertically to the main surface", () => {
