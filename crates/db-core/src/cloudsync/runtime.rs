@@ -2,7 +2,8 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use backon::{ExponentialBuilder, Retryable};
-use sqlx::SqlitePool;
+use sqlx::pool::PoolConnection;
+use sqlx::{Sqlite, SqlitePool};
 use tokio::sync::oneshot;
 
 use super::state::{CloudsyncBackgroundTask, CloudsyncRuntimeState};
@@ -80,16 +81,16 @@ impl Db {
 
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
         let pool = self.pool.clone();
+        let connection = Arc::clone(&self.cloudsync_connection);
         let runtime_state = Arc::clone(&self.cloudsync_runtime);
-        let sync_lock = self.cloudsync_runtime.lock().unwrap().sync_lock.clone();
         let wait_ms = config.wait_ms;
         let max_retries = config.max_retries;
         let sync_interval_ms = config.sync_interval_ms;
         let join_handle = tokio::spawn(async move {
             cloudsync_background_loop(
                 pool,
+                connection,
                 runtime_state,
-                sync_lock,
                 sync_interval_ms,
                 wait_ms,
                 max_retries,
@@ -122,8 +123,6 @@ impl Db {
             return Ok(());
         }
 
-        let sync_lock = self.cloudsync_runtime.lock().unwrap().sync_lock.clone();
-        let _sync_guard = sync_lock.lock().await;
         if should_cleanup {
             self.cloudsync_network_cleanup().await?;
         }
@@ -131,6 +130,7 @@ impl Db {
         if self.has_cloudsync() {
             self.cloudsync_terminate().await?;
         }
+        self.cloudsync_connection.lock().await.take();
 
         let mut runtime = self.cloudsync_runtime.lock().unwrap();
         runtime.network_initialized = false;
@@ -149,8 +149,6 @@ impl Db {
             return Ok(());
         }
 
-        let sync_lock = self.cloudsync_runtime.lock().unwrap().sync_lock.clone();
-        let _sync_guard = sync_lock.lock().await;
         let has_unsent_changes = self.cloudsync_network_has_unsent_changes().await?;
         if has_unsent_changes && !discard_unsent_changes {
             return Err(CloudsyncRuntimeError::UnsentChanges);
@@ -162,6 +160,7 @@ impl Db {
         if self.has_cloudsync() {
             self.cloudsync_terminate().await?;
         }
+        self.cloudsync_connection.lock().await.take();
 
         let mut runtime = self.cloudsync_runtime.lock().unwrap();
         runtime.config = None;
@@ -237,13 +236,11 @@ impl Db {
             (config.wait_ms, config.max_retries)
         };
 
-        let sync_lock = self.cloudsync_runtime.lock().unwrap().sync_lock.clone();
-        let _sync_guard = sync_lock.lock().await;
         if !self.cloudsync_runtime.lock().unwrap().network_initialized {
             return Err(CloudsyncRuntimeError::NotStarted);
         }
 
-        match hypr_cloudsync::network_sync(&self.pool, wait_ms, max_retries).await {
+        match self.cloudsync_network_sync(wait_ms, max_retries).await {
             Ok(result) => {
                 record_sync_result(&self.cloudsync_runtime, result.clone());
                 Ok(result)
@@ -293,8 +290,8 @@ const MAX_BACKOFF_SECS: u64 = 300;
 
 async fn cloudsync_background_loop(
     pool: SqlitePool,
+    connection: Arc<tokio::sync::Mutex<Option<PoolConnection<Sqlite>>>>,
     runtime_state: Arc<Mutex<CloudsyncRuntimeState>>,
-    sync_lock: Arc<tokio::sync::Mutex<()>>,
     sync_interval_ms: u64,
     wait_ms: Option<i64>,
     max_retries: Option<i64>,
@@ -309,11 +306,10 @@ async fn cloudsync_background_loop(
                 let state = Arc::clone(&runtime_state);
 
                 let result = (|| {
+                    let connection = Arc::clone(&connection);
                     let pool = pool.clone();
-                    let sync_lock = Arc::clone(&sync_lock);
                     async move {
-                        let _guard = sync_lock.lock().await;
-                        hypr_cloudsync::network_sync(&pool, wait_ms, max_retries).await
+                        sync_cloudsync_connection(&pool, &connection, wait_ms, max_retries).await
                     }
                 })
                     .retry(
@@ -354,6 +350,25 @@ async fn cloudsync_background_loop(
             }
         }
     }
+}
+
+async fn sync_cloudsync_connection(
+    pool: &SqlitePool,
+    connection: &tokio::sync::Mutex<Option<PoolConnection<Sqlite>>>,
+    wait_ms: Option<i64>,
+    max_retries: Option<i64>,
+) -> Result<CloudsyncNetworkResult, hypr_cloudsync::Error> {
+    let mut connection = connection.lock().await;
+    if connection.is_none() {
+        *connection = Some(pool.acquire().await?);
+    }
+    let result =
+        hypr_cloudsync::network_sync(&mut **connection.as_mut().unwrap(), wait_ms, max_retries)
+            .await;
+    if pool.options().get_max_connections() == 1 {
+        connection.take();
+    }
+    result
 }
 
 fn now_ms() -> u64 {

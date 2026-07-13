@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 
@@ -7,7 +5,6 @@ use super::{CloudsyncNetworkResult, CloudsyncRuntimeConfig};
 
 #[derive(Default, Debug)]
 pub(crate) struct CloudsyncRuntimeState {
-    pub(crate) sync_lock: Arc<tokio::sync::Mutex<()>>,
     pub(crate) config: Option<CloudsyncRuntimeConfig>,
     pub(crate) running: bool,
     pub(crate) network_initialized: bool,

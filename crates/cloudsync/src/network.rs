@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use sqlx::SqlitePool;
+use sqlx::{Executor, Sqlite};
 
 use crate::error::Error;
 
@@ -32,35 +32,38 @@ pub struct NetworkReceiveResult {
     pub last_failure: Option<serde_json::Value>,
 }
 
-async fn query_with_optional_params(
-    pool: &SqlitePool,
+async fn query_with_optional_params<'e, E>(
+    executor: E,
     fn_name: &str,
     wait_ms: Option<i64>,
     max_retries: Option<i64>,
-) -> Result<NetworkResult, Error> {
+) -> Result<NetworkResult, Error>
+where
+    E: Executor<'e, Database = Sqlite>,
+{
     let response: String = match (wait_ms, max_retries) {
         (None, None) => {
             sqlx::query_scalar(sqlx::AssertSqlSafe(format!("SELECT {fn_name}()")))
-                .fetch_one(pool)
+                .fetch_one(executor)
                 .await?
         }
         (Some(wait_ms), None) => {
             sqlx::query_scalar(sqlx::AssertSqlSafe(format!("SELECT {fn_name}(?)")))
                 .bind(wait_ms)
-                .fetch_one(pool)
+                .fetch_one(executor)
                 .await?
         }
         (None, Some(max_retries)) => {
             sqlx::query_scalar(sqlx::AssertSqlSafe(format!("SELECT {fn_name}(NULL, ?)")))
                 .bind(max_retries)
-                .fetch_one(pool)
+                .fetch_one(executor)
                 .await?
         }
         (Some(wait_ms), Some(max_retries)) => {
             sqlx::query_scalar(sqlx::AssertSqlSafe(format!("SELECT {fn_name}(?, ?)")))
                 .bind(wait_ms)
                 .bind(max_retries)
-                .fetch_one(pool)
+                .fetch_one(executor)
                 .await?
         }
     };
@@ -69,70 +72,97 @@ async fn query_with_optional_params(
 }
 
 /// https://docs.sqlitecloud.io/docs/sqlite-sync-api-cloudsync-network-init
-pub async fn network_init(pool: &SqlitePool, connection_string: &str) -> Result<(), Error> {
+pub async fn network_init<'e, E>(executor: E, connection_string: &str) -> Result<(), Error>
+where
+    E: Executor<'e, Database = Sqlite>,
+{
     sqlx::query("SELECT cloudsync_network_init(?)")
         .bind(connection_string)
-        .fetch_optional(pool)
+        .fetch_optional(executor)
         .await?;
 
     Ok(())
 }
 
 /// https://docs.sqlitecloud.io/docs/sqlite-sync-api-cloudsync-network-set-apikey
-pub async fn network_set_apikey(pool: &SqlitePool, api_key: &str) -> Result<(), Error> {
+pub async fn network_set_apikey<'e, E>(executor: E, api_key: &str) -> Result<(), Error>
+where
+    E: Executor<'e, Database = Sqlite>,
+{
     sqlx::query("SELECT cloudsync_network_set_apikey(?)")
         .bind(api_key)
-        .fetch_optional(pool)
+        .fetch_optional(executor)
         .await?;
 
     Ok(())
 }
 
 /// https://docs.sqlitecloud.io/docs/sqlite-sync-api-cloudsync-network-set-token
-pub async fn network_set_token(pool: &SqlitePool, token: &str) -> Result<(), Error> {
+pub async fn network_set_token<'e, E>(executor: E, token: &str) -> Result<(), Error>
+where
+    E: Executor<'e, Database = Sqlite>,
+{
     sqlx::query("SELECT cloudsync_network_set_token(?)")
         .bind(token)
-        .fetch_optional(pool)
+        .fetch_optional(executor)
         .await?;
 
     Ok(())
 }
 
 /// https://docs.sqlitecloud.io/docs/sqlite-sync-api-cloudsync-network-cleanup
-pub async fn network_cleanup(pool: &SqlitePool) -> Result<(), Error> {
+pub async fn network_cleanup<'e, E>(executor: E) -> Result<(), Error>
+where
+    E: Executor<'e, Database = Sqlite>,
+{
     sqlx::query("SELECT cloudsync_network_cleanup()")
-        .fetch_optional(pool)
+        .fetch_optional(executor)
         .await?;
 
     Ok(())
 }
 
 /// https://docs.sqlitecloud.io/docs/sqlite-sync-api-cloudsync-network-has-unsent-changes
-pub async fn network_has_unsent_changes(pool: &SqlitePool) -> Result<bool, Error> {
+pub async fn network_has_unsent_changes<'e, E>(executor: E) -> Result<bool, Error>
+where
+    E: Executor<'e, Database = Sqlite>,
+{
     Ok(
         sqlx::query_scalar("SELECT cloudsync_network_has_unsent_changes()")
-            .fetch_one(pool)
+            .fetch_one(executor)
             .await?,
     )
 }
 
 /// https://docs.sqlitecloud.io/docs/sqlite-sync-api-cloudsync-network-send-changes
-pub async fn network_send_changes(
-    pool: &SqlitePool,
+pub async fn network_send_changes<'e, E>(
+    executor: E,
     wait_ms: Option<i64>,
     max_retries: Option<i64>,
-) -> Result<NetworkResult, Error> {
-    query_with_optional_params(pool, "cloudsync_network_send_changes", wait_ms, max_retries).await
+) -> Result<NetworkResult, Error>
+where
+    E: Executor<'e, Database = Sqlite>,
+{
+    query_with_optional_params(
+        executor,
+        "cloudsync_network_send_changes",
+        wait_ms,
+        max_retries,
+    )
+    .await
 }
 
 /// https://docs.sqlitecloud.io/docs/sqlite-sync-api-cloudsync-network-check-changes
-pub async fn network_check_changes(
-    pool: &SqlitePool,
+pub async fn network_check_changes<'e, E>(
+    executor: E,
     wait_ms: Option<i64>,
     max_retries: Option<i64>,
-) -> Result<NetworkResult, Error> {
+) -> Result<NetworkResult, Error>
+where
+    E: Executor<'e, Database = Sqlite>,
+{
     query_with_optional_params(
-        pool,
+        executor,
         "cloudsync_network_check_changes",
         wait_ms,
         max_retries,
@@ -141,30 +171,39 @@ pub async fn network_check_changes(
 }
 
 /// https://docs.sqlitecloud.io/docs/sqlite-sync-api-cloudsync-network-reset-sync-version
-pub async fn network_reset_sync_version(pool: &SqlitePool) -> Result<(), Error> {
+pub async fn network_reset_sync_version<'e, E>(executor: E) -> Result<(), Error>
+where
+    E: Executor<'e, Database = Sqlite>,
+{
     sqlx::query("SELECT cloudsync_network_reset_sync_version()")
-        .fetch_optional(pool)
+        .fetch_optional(executor)
         .await?;
 
     Ok(())
 }
 
 /// https://docs.sqlitecloud.io/docs/sqlite-sync-api-cloudsync-network-logout
-pub async fn network_logout(pool: &SqlitePool) -> Result<(), Error> {
+pub async fn network_logout<'e, E>(executor: E) -> Result<(), Error>
+where
+    E: Executor<'e, Database = Sqlite>,
+{
     sqlx::query("SELECT cloudsync_network_logout()")
-        .fetch_optional(pool)
+        .fetch_optional(executor)
         .await?;
 
     Ok(())
 }
 
 /// https://docs.sqlitecloud.io/docs/sqlite-sync-api-cloudsync-network-sync
-pub async fn network_sync(
-    pool: &SqlitePool,
+pub async fn network_sync<'e, E>(
+    executor: E,
     wait_ms: Option<i64>,
     max_retries: Option<i64>,
-) -> Result<NetworkResult, Error> {
-    query_with_optional_params(pool, "cloudsync_network_sync", wait_ms, max_retries).await
+) -> Result<NetworkResult, Error>
+where
+    E: Executor<'e, Database = Sqlite>,
+{
+    query_with_optional_params(executor, "cloudsync_network_sync", wait_ms, max_retries).await
 }
 
 #[cfg(test)]
