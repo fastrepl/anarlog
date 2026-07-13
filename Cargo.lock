@@ -3466,6 +3466,7 @@ name = "cloudsync"
 version = "0.1.0"
 dependencies = [
  "dirs 6.0.0",
+ "libsqlite3-sys",
  "serde",
  "serde_json",
  "sqlx",
@@ -4523,7 +4524,6 @@ dependencies = [
  "backon",
  "cloudsync",
  "db-change",
- "libsqlite3-sys",
  "serde",
  "sqlx",
  "tempfile",

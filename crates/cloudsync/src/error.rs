@@ -26,6 +26,8 @@ pub enum Error {
     InvalidNetworkResponse(#[from] serde_json::Error),
     #[error("no cache directory is available for the bundled cloudsync extension")]
     MissingCacheDir,
+    #[error("failed to register the cloudsync close hook: sqlite error {0}")]
+    CloseHookRegistration(i32),
     #[error(
         "the bundled cloudsync extension is not available for this target; supported targets: {SUPPORTED_CLOUDSYNC_TARGETS}"
     )]

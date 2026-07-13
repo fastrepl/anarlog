@@ -8,7 +8,6 @@ hypr-cloudsync = { workspace = true }
 hypr-db-change = { workspace = true }
 
 backon = { workspace = true }
-libsqlite3-sys = "0.35"
 serde = { workspace = true, features = ["derive"] }
 sqlx = { workspace = true, features = ["runtime-tokio", "sqlite"] }
 thiserror = { workspace = true }

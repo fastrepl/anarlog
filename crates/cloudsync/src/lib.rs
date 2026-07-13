@@ -2,6 +2,7 @@
 
 mod api;
 mod bundle;
+mod close;
 mod error;
 mod network;
 
@@ -24,6 +25,7 @@ pub use network::{
 pub const CLOUDSYNC_VERSION: &str = "1.0.20";
 
 pub fn apply(options: SqliteConnectOptions) -> Result<(SqliteConnectOptions, PathBuf), Error> {
+    close::install_terminate_on_close()?;
     let extension_path = bundled_extension_path()?;
 
     #[allow(unsafe_code)]
@@ -103,6 +105,41 @@ mod tests {
             .unwrap();
 
         assert_eq!(version(&pool).await.unwrap(), CLOUDSYNC_VERSION);
+        pool.close().await;
+    }
+
+    #[tokio::test]
+    async fn terminates_each_pool_connection_before_close() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("cloudsync.db");
+        let options = SqliteConnectOptions::new()
+            .filename(&path)
+            .create_if_missing(true);
+        let (options, _) = apply(options).unwrap();
+        let pool = SqlitePoolOptions::new()
+            .max_connections(4)
+            .connect_with(options)
+            .await
+            .unwrap();
+
+        let mut connections = Vec::new();
+        for index in 0..4 {
+            let mut connection = pool.acquire().await.unwrap();
+            let table = format!("items_{index}");
+            let sql = format!(
+                "CREATE TABLE {table} (id INTEGER PRIMARY KEY NOT NULL, value TEXT NOT NULL DEFAULT '')"
+            );
+            sqlx::query(sqlx::AssertSqlSafe(sql.as_str()))
+                .execute(&mut *connection)
+                .await
+                .unwrap();
+            init(&mut *connection, &table, None, Some(1)).await.unwrap();
+            connections.push(connection);
+        }
+
+        for connection in connections {
+            connection.close().await.unwrap();
+        }
         pool.close().await;
     }
 }
