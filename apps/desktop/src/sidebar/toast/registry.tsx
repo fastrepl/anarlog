@@ -16,6 +16,7 @@ type ToastRegistryParams = {
   isAuthLoading: boolean;
   hasLLMConfigured: boolean;
   hasSttConfigured: boolean;
+  meetingDisclosureAutoPostEnabled: boolean;
   hasProSttConfigured: boolean;
   hasProLlmConfigured: boolean;
   isAiTranscriptionTabActive: boolean;
@@ -30,6 +31,8 @@ type ToastRegistryParams = {
   onSignIn: () => void | Promise<void>;
   onOpenLLMSettings: () => void;
   onOpenSTTSettings: () => void;
+  onEnableMeetingDisclosureAutoPost: () => void | Promise<void>;
+  onDismissMeetingDisclosureAutoPost: () => void | Promise<void>;
 };
 
 type DevtoolsToastPreviewParams = {
@@ -39,11 +42,14 @@ type DevtoolsToastPreviewParams = {
   onOpenSTTSettings: () => void;
 };
 
+export const MEETING_DISCLOSURE_AUTO_POST_TOAST_ID = "consent-auto-send-chat";
+
 export function createToastRegistry({
   isAuthenticated,
   isAuthLoading,
   hasLLMConfigured,
   hasSttConfigured,
+  meetingDisclosureAutoPostEnabled,
   hasProSttConfigured,
   hasProLlmConfigured,
   isAiTranscriptionTabActive,
@@ -58,6 +64,8 @@ export function createToastRegistry({
   onSignIn,
   onOpenLLMSettings,
   onOpenSTTSettings,
+  onEnableMeetingDisclosureAutoPost,
+  onDismissMeetingDisclosureAutoPost,
 }: ToastRegistryParams): ToastRegistryEntry[] {
   const downloadTitle =
     activeDownloads.length === 1 && downloadingModel
@@ -138,6 +146,29 @@ export function createToastRegistry({
       },
       condition: () =>
         hasSttConfigured && !hasLLMConfigured && !isAiIntelligenceTabActive,
+    },
+    {
+      toast: {
+        id: MEETING_DISCLOSURE_AUTO_POST_TOAST_ID,
+        description:
+          "Auto-post a recording disclosure when the active meeting chat supports safe posting? This does not confirm consent.",
+        actions: [
+          {
+            label: "Enable",
+            onClick: onEnableMeetingDisclosureAutoPost,
+          },
+          {
+            label: "Not now",
+            onClick: onDismissMeetingDisclosureAutoPost,
+          },
+        ],
+        dismissible: false,
+      },
+      condition: () =>
+        hasSttConfigured &&
+        hasLLMConfigured &&
+        !meetingDisclosureAutoPostEnabled &&
+        !isAiTranscriptionTabActive,
     },
     {
       toast: {

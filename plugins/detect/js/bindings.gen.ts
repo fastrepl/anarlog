@@ -54,6 +54,14 @@ async listDefaultIgnoredBundleIds() : Promise<Result<string[], string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async sendMeetingChatMessage(message: string, micActiveBundleIds: string[]) : Promise<Result<MeetingChatSendResult, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:detect|send_meeting_chat_message", { message, micActiveBundleIds }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async captureMeetingChatMessages(bundleIds: string[]) : Promise<Result<MeetingChatCaptureResult, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:detect|capture_meeting_chat_messages", { bundleIds }) };
@@ -109,6 +117,7 @@ export type MeetingApp = { id: string; name: string }
 export type MeetingCapturedChatMessage = { id: string; platform: MeetingPlatform; surface: MeetingSurface; sender: string | null; timestamp: string | null; direction: MeetingChatDirection | null; text: string; links: string[] }
 export type MeetingChatCaptureResult = { app: MeetingApp | null; platform: MeetingPlatform; surface: MeetingSurface; contextId: string | null; messages: MeetingCapturedChatMessage[]; warnings: string[] }
 export type MeetingChatDirection = "incoming" | "outgoing"
+export type MeetingChatSendResult = { sent: boolean; app: MeetingApp | null; platform: MeetingPlatform; surface: MeetingSurface; inputLabel: string | null; sendAction: string | null; warnings: string[] }
 export type MeetingPlatform = "zoom" | "googleMeet" | "microsoftTeams" | "slack" | "discord" | "webex" | "unknown"
 export type MeetingSurface = "native" | "web" | "unknown"
 

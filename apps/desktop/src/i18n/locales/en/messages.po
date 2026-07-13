@@ -245,6 +245,10 @@ msgid "Automatically open the meeting link when scheduled listening starts."
 msgstr "Automatically open the meeting link when scheduled listening starts."
 
 #: src/settings/general/app-settings.tsx
+msgid "Automatically post a disclosure after listening starts when the active meeting chat supports safe posting. Posting failure does not stop listening. A disclosure does not confirm participant consent."
+msgstr "Automatically post a disclosure after listening starts when the active meeting chat supports safe posting. Posting failure does not stop listening. A disclosure does not confirm participant consent."
+
+#: src/settings/general/app-settings.tsx
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Automatically start listening when an event-backed note reaches its scheduled start time."
 
@@ -1254,6 +1258,10 @@ msgstr "Plan & Billing"
 #: src/settings/general/account.tsx
 msgid "Plans"
 msgstr "Plans"
+
+#: src/settings/general/app-settings.tsx
+msgid "Post recording disclosure in meeting chat"
+msgstr "Post recording disclosure in meeting chat"
 
 #: src/session/components/outer-header/overflow/export-modal.tsx
 msgid "Preparing transcript..."

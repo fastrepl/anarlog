@@ -47,6 +47,26 @@ pub(crate) async fn list_default_ignored_bundle_ids<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
+pub(crate) async fn send_meeting_chat_message<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    message: String,
+    mic_active_bundle_ids: Vec<String>,
+) -> Result<hypr_detect::MeetingChatSendResult, String> {
+    let current_mic_apps = app
+        .detect()
+        .list_mic_using_applications()
+        .map_err(|error| error.to_string())?;
+    let verified_bundle_ids =
+        intersect_mic_active_bundle_ids(&mic_active_bundle_ids, &current_mic_apps);
+
+    Ok(hypr_detect::send_meeting_chat_message(
+        message,
+        verified_bundle_ids,
+    ))
+}
+
+#[tauri::command]
+#[specta::specta]
 pub(crate) async fn capture_meeting_chat_messages<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     bundle_ids: Vec<String>,

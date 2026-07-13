@@ -6,6 +6,7 @@ Default permissions for the plugin
 
 - `allow-list-installed-applications`
 - `allow-list-mic-using-applications`
+- `allow-send-meeting-chat-message`
 - `allow-capture-meeting-chat-messages`
 - `allow-set-respect-do-not-disturb`
 - `allow-set-ignored-bundle-ids`
@@ -201,6 +202,32 @@ Enables the reset_quit_handler command without any pre-configured scope.
 <td>
 
 Denies the reset_quit_handler command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`detect:allow-send-meeting-chat-message`
+
+</td>
+<td>
+
+Enables the send_meeting_chat_message command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`detect:deny-send-meeting-chat-message`
+
+</td>
+<td>
+
+Denies the send_meeting_chat_message command without any pre-configured scope.
 
 </td>
 </tr>

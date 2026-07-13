@@ -66,6 +66,10 @@ vi.mock("~/shared/config", () => ({
   useConfigValues: () => mocks.config,
 }));
 
+vi.mock("~/settings/queries", () => ({
+  useSetSettingValue: () => mocks.setSettingValue,
+}));
+
 vi.mock("~/store/zustand/devtools-toast-preview", () => ({
   useDevtoolsToastPreview: (
     selector: (state: { preview: null; clearPreview: () => void }) => unknown,

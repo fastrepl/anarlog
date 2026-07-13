@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from "react";
 import { sonnerToast } from "@hypr/ui/components/ui/toast";
 
 import {
+  MEETING_DISCLOSURE_AUTO_POST_TOAST_ID,
   createDevtoolsToastPreview,
   createToastRegistry,
   getToastToShow,
@@ -13,6 +14,7 @@ import { useDismissedToasts } from "./useDismissedToasts";
 import { useAuth } from "~/auth";
 import { useCloudsyncInitialSyncProgress } from "~/auth/cloudsync-progress";
 import { useNotifications } from "~/contexts/notifications";
+import { useSetSettingValue } from "~/settings/queries";
 import { useConfigValues } from "~/shared/config";
 import { useLatestRef } from "~/shared/hooks/useLatestRef";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
@@ -45,11 +47,13 @@ export function ToastNotifications() {
     current_llm_model,
     current_stt_provider,
     current_stt_model,
+    consent_auto_send_chat,
   } = useConfigValues([
     "current_llm_provider",
     "current_llm_model",
     "current_stt_provider",
     "current_stt_model",
+    "consent_auto_send_chat",
   ] as const);
   const hasLLMConfigured = !!(current_llm_provider && current_llm_model);
   const hasSttConfigured = isConfiguredSttModel(
@@ -88,6 +92,9 @@ export function ToastNotifications() {
     (state) => state.updateSettingsTabState,
   );
   const setToastActionTarget = useToastAction((state) => state.setTarget);
+  const setMeetingDisclosureAutoPost = useSetSettingValue(
+    "consent_auto_send_chat",
+  );
 
   const handleSignIn = useCallback(async () => {
     await auth?.signIn();
@@ -113,6 +120,14 @@ export function ToastNotifications() {
     openAiTab("transcription");
   }, [openAiTab, setToastActionTarget]);
 
+  const handleEnableMeetingDisclosureAutoPost = useCallback(() => {
+    setMeetingDisclosureAutoPost(true);
+  }, [setMeetingDisclosureAutoPost]);
+
+  const handleDismissMeetingDisclosureAutoPost = useCallback(() => {
+    dismissToast(MEETING_DISCLOSURE_AUTO_POST_TOAST_ID);
+  }, [dismissToast]);
+
   const registry = useMemo(
     () =>
       createToastRegistry({
@@ -120,6 +135,7 @@ export function ToastNotifications() {
         isAuthLoading,
         hasLLMConfigured,
         hasSttConfigured,
+        meetingDisclosureAutoPostEnabled: consent_auto_send_chat,
         hasProSttConfigured,
         hasProLlmConfigured,
         isAiTranscriptionTabActive,
@@ -137,12 +153,17 @@ export function ToastNotifications() {
         onSignIn: handleSignIn,
         onOpenLLMSettings: handleOpenLLMSettings,
         onOpenSTTSettings: handleOpenSTTSettings,
+        onEnableMeetingDisclosureAutoPost:
+          handleEnableMeetingDisclosureAutoPost,
+        onDismissMeetingDisclosureAutoPost:
+          handleDismissMeetingDisclosureAutoPost,
       }),
     [
       isAuthenticated,
       isAuthLoading,
       hasLLMConfigured,
       hasSttConfigured,
+      consent_auto_send_chat,
       hasProSttConfigured,
       hasProLlmConfigured,
       isAiTranscriptionTabActive,
@@ -157,6 +178,8 @@ export function ToastNotifications() {
       handleSignIn,
       handleOpenLLMSettings,
       handleOpenSTTSettings,
+      handleEnableMeetingDisclosureAutoPost,
+      handleDismissMeetingDisclosureAutoPost,
     ],
   );
 

@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AppSettingsView } from "./app-settings";
@@ -13,6 +13,7 @@ function setting(value = true) {
 function renderAppSettings({
   autoStartScheduledMeetings = true,
   floatingBar = true,
+  meetingDisclosureAutoPost = setting(),
   captureMeetingChat = setting(false),
 } = {}) {
   return {
@@ -26,9 +27,11 @@ function renderAppSettings({
         showAppInDock={setting()}
         showTrayIcon={setting()}
         telemetryConsent={setting()}
+        meetingDisclosureAutoPost={meetingDisclosureAutoPost}
         captureMeetingChat={captureMeetingChat}
       />,
     ),
+    meetingDisclosureAutoPost,
     captureMeetingChat,
   };
 }
@@ -59,12 +62,36 @@ describe("AppSettingsView", () => {
     ).toBe(true);
   });
 
+  it("updates the recording disclosure setting from the meetings switch", () => {
+    const meetingDisclosureAutoPost = setting(false);
+    renderAppSettings({ meetingDisclosureAutoPost });
+
+    fireEvent.click(
+      screen.getByRole("switch", {
+        name: "Post recording disclosure in meeting chat",
+      }),
+    );
+
+    expect(meetingDisclosureAutoPost.onChange).toHaveBeenCalledWith(true);
+  });
+
   it("discloses Accessibility-based meeting chat capture", () => {
     renderAppSettings();
 
     expect(screen.getByText("Capture meeting chat in Memos")).toBeTruthy();
     expect(
       screen.getByText(/supported meeting apps and browser meetings/),
+    ).toBeTruthy();
+  });
+
+  it("clarifies that a recording disclosure does not confirm consent", () => {
+    renderAppSettings();
+
+    expect(
+      screen.getByText(/active meeting chat supports safe posting/),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(/A disclosure does not confirm participant consent/),
     ).toBeTruthy();
   });
 });
