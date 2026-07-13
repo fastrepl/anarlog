@@ -27,6 +27,7 @@ function PermissionBlock({
   isPending,
   onAction,
   opensSettingsWhenDenied = true,
+  showActionIndicator = true,
 }: {
   enabledLabel: string;
   enableLabel: string;
@@ -38,6 +39,7 @@ function PermissionBlock({
   isPending: boolean;
   onAction: () => void;
   opensSettingsWhenDenied?: boolean;
+  showActionIndicator?: boolean;
 }) {
   const { t } = useLingui();
   const isAuthorized = status === "authorized";
@@ -104,7 +106,7 @@ function PermissionBlock({
           {body}
         </p>
       </div>
-      {!isAuthorized && (
+      {!isAuthorized && showActionIndicator && (
         <div className="text-primary-foreground/80 inline-flex shrink-0 items-center gap-1 text-xs font-medium">
           <span className="hidden @[480px]:inline">{ctaLabel}</span>
           <ArrowRightIcon className="size-3.5 transition-transform group-hover:translate-x-0.5" />
@@ -181,6 +183,7 @@ function PermissionsSectionContent({
           status={mic.status}
           isPending={mic.isPending}
           onAction={() => handleAction(mic)}
+          showActionIndicator={!accessibility}
         />
 
         <PermissionBlock
@@ -193,6 +196,7 @@ function PermissionsSectionContent({
           status={systemAudio.status}
           isPending={systemAudio.isPending}
           onAction={() => handleAction(systemAudio)}
+          showActionIndicator={!accessibility}
         />
 
         {accessibility && (
@@ -207,6 +211,7 @@ function PermissionsSectionContent({
             isPending={accessibility.isPending}
             onAction={accessibility.request}
             opensSettingsWhenDenied={false}
+            showActionIndicator={false}
           />
         )}
       </div>

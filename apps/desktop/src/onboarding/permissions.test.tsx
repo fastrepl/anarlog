@@ -69,6 +69,8 @@ describe("PermissionsSection", () => {
         "Read meeting controls, visible chat, and participant status",
       ),
     ).toBeTruthy();
+    expect(screen.queryByText("Open settings")).toBeNull();
+    expect(screen.queryByText("Allow access")).toBeNull();
   });
 
   it("waits for all three macOS permissions before continuing", () => {
