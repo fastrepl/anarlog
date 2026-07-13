@@ -295,6 +295,18 @@
       "type": "string",
       "oneOf": [
         {
+          "description": "Enables the delete_secret command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-delete-secret",
+          "markdownDescription": "Enables the delete_secret command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the delete_secret command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-delete-secret",
+          "markdownDescription": "Denies the delete_secret command without any pre-configured scope."
+        },
+        {
           "description": "Enables the get_bool command without any pre-configured scope.",
           "type": "string",
           "const": "allow-get-bool",
@@ -317,6 +329,18 @@
           "type": "string",
           "const": "deny-get-number",
           "markdownDescription": "Denies the get_number command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_secret command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-secret",
+          "markdownDescription": "Enables the get_secret command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_secret command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-secret",
+          "markdownDescription": "Denies the get_secret command without any pre-configured scope."
         },
         {
           "description": "Enables the get_str command without any pre-configured scope.",
@@ -367,6 +391,18 @@
           "markdownDescription": "Denies the set_number command without any pre-configured scope."
         },
         {
+          "description": "Enables the set_secret command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-secret",
+          "markdownDescription": "Enables the set_secret command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_secret command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-secret",
+          "markdownDescription": "Denies the set_secret command without any pre-configured scope."
+        },
+        {
           "description": "Enables the set_str command without any pre-configured scope.",
           "type": "string",
           "const": "allow-set-str",
@@ -379,10 +415,10 @@
           "markdownDescription": "Denies the set_str command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-save`\n- `allow-get-bool`\n- `allow-get-number`\n- `allow-get-str`\n- `allow-set-bool`\n- `allow-set-number`\n- `allow-set-str`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-save`\n- `allow-delete-secret`\n- `allow-get-bool`\n- `allow-get-number`\n- `allow-get-secret`\n- `allow-get-str`\n- `allow-set-bool`\n- `allow-set-number`\n- `allow-set-secret`\n- `allow-set-str`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-save`\n- `allow-get-bool`\n- `allow-get-number`\n- `allow-get-str`\n- `allow-set-bool`\n- `allow-set-number`\n- `allow-set-str`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-save`\n- `allow-delete-secret`\n- `allow-get-bool`\n- `allow-get-number`\n- `allow-get-secret`\n- `allow-get-str`\n- `allow-set-bool`\n- `allow-set-number`\n- `allow-set-secret`\n- `allow-set-str`"
         }
       ]
     }

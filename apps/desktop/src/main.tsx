@@ -29,6 +29,7 @@ import { EventListeners } from "./services/event-listeners";
 import { TaskManager } from "./services/task-manager";
 import { useRemoteSessionDeletionUndoListener } from "./session/hooks/useDeleteSession";
 import { refreshLegacySettingsSnapshots } from "./settings/legacy-snapshots";
+import { migratePlaintextAiProviderApiKeys } from "./settings/providers";
 import { initializeApplicationSettings } from "./settings/queries";
 import { initializeAppExitFlush } from "./shared/app-exit";
 import { ErrorComponent, NotFoundComponent } from "./shared/control";
@@ -136,6 +137,9 @@ async function renderApp() {
   });
   await initializeApplicationSettings().catch((error) => {
     console.error("Failed to initialize application settings", error);
+  });
+  await migratePlaintextAiProviderApiKeys().catch((error) => {
+    console.error("Failed to migrate AI provider credentials", error);
   });
   await Promise.all([bootstrapThemeFromSettings(), enableReactScanInDev()]);
   const root = ReactDOM.createRoot(rootElement);

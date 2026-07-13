@@ -34,7 +34,6 @@ import { cn } from "@hypr/utils";
 import { useSttSettings } from "./context";
 import { HealthStatusIndicator, useConnectionHealth } from "./health";
 import { LocalModelBackendBadge, LocalModelLabel } from "./model-icon";
-import { getPreferredProviderModel } from "./selection";
 import {
   displayModelLabel,
   displayModelTitle,
@@ -69,6 +68,10 @@ import {
   isSupportedLanguagesLive,
   isSupportedLocalSttModel,
 } from "~/stt/capabilities";
+import {
+  getDefaultSttModel,
+  getPreferredProviderModel,
+} from "~/stt/model-selection";
 
 export function SelectProviderAndModel() {
   const { t } = useLingui();
@@ -124,11 +127,14 @@ export function SelectProviderAndModel() {
 
     const providerId = provider as ProviderId;
     const nextModels = configuredProviders[providerId]?.models ?? [];
-    const nextModel = getPreferredProviderModel(
-      lastSelectedModelsRef.current[provider],
-      nextModels,
-      { allowSavedModelWithoutChoices: providerId === "custom" },
-    );
+    const nextModel =
+      getPreferredProviderModel(
+        lastSelectedModelsRef.current[provider],
+        nextModels,
+        { allowSavedModelWithoutChoices: providerId === "custom" },
+      ) ||
+      getDefaultSttModel(providerId) ||
+      "";
 
     rememberModel(provider, nextModel);
     handleSelectProvider(provider);

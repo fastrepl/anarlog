@@ -1,4 +1,7 @@
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
+
+import { commands as store2Commands } from "@hypr/plugin-store2";
 
 import { executeTransaction, liveQueryClient, useLiveQuery } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
@@ -14,19 +17,38 @@ export type AiProviderConfig = {
 type AppSettingRow = { id: string; value_json: string };
 
 const LEGACY_SETTINGS_ID = "legacy_settings_document";
+const PROVIDER_SECRET_SCOPE = "ai-provider-api-keys";
 const EMPTY_PROVIDERS: Record<string, AiProviderConfig> = {};
+const EMPTY_ROWS: AppSettingRow[] = [];
 
 export function useAiProviders(
   type: AiProviderType,
 ): Record<string, AiProviderConfig> {
-  const { data = EMPTY_PROVIDERS } = useLiveQuery<
+  const { data: rows = EMPTY_ROWS, isLoading } = useLiveQuery<
     AppSettingRow,
-    Record<string, AiProviderConfig>
+    AppSettingRow[]
   >({
     sql: `SELECT id, value_json FROM app_settings ORDER BY id`,
-    mapRows: (rows) => parseAiProviders(rows, type),
+    mapRows: (rows) => rows,
   });
-  return data;
+  const providers = parseAiProviders(rows, type);
+  const providerIds = Object.keys(providers).sort();
+  const { data: secureApiKeys = EMPTY_PROVIDERS } = useQuery({
+    queryKey: ["ai-provider-api-keys", type, providerIds],
+    queryFn: () => loadAiProviderApiKeys(rows, type),
+    enabled: !isLoading,
+    staleTime: Infinity,
+  });
+
+  return Object.fromEntries(
+    Object.entries(providers).map(([rowId, provider]) => [
+      rowId,
+      {
+        ...provider,
+        api_key: secureApiKeys[rowId]?.api_key ?? provider.api_key,
+      },
+    ]),
+  );
 }
 
 export function useAiProvider(
@@ -44,68 +66,146 @@ export function setAiProvider(
 ): Promise<void> {
   const storageId = providerStorageId(type, providerId);
   return enqueueDatabaseWrite(storageId, async () => {
-    for (let attempt = 0; attempt < 5; attempt += 1) {
-      const rows = await liveQueryClient.execute<AppSettingRow>(
-        `
+    const previousApiKey = await getProviderApiKey(type, providerId);
+
+    try {
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        const rows = await liveQueryClient.execute<AppSettingRow>(
+          `
           SELECT id, value_json
           FROM app_settings
           WHERE id IN (?, ?)
         `,
-        [storageId, LEGACY_SETTINGS_ID],
-      );
-      const direct = rows.find((row) => row.id === storageId);
-      const legacy = parseLegacyProvider(
-        rows.find((row) => row.id === LEGACY_SETTINGS_ID)?.value_json,
-        type,
-        providerId,
-      );
-      const current = direct
-        ? (parseProviderValue(direct.value_json, type) ?? legacy)
-        : legacy;
-      const next: AiProviderConfig = {
-        type,
-        base_url: changes.base_url ?? current?.base_url ?? "",
-        api_key: changes.api_key ?? current?.api_key ?? "",
-      };
-      const now = new Date().toISOString();
-      const [updated = 0] = await executeTransaction([
-        direct
-          ? {
-              sql: `
+          [storageId, LEGACY_SETTINGS_ID],
+        );
+        const direct = rows.find((row) => row.id === storageId);
+        const legacy = parseLegacyProvider(
+          rows.find((row) => row.id === LEGACY_SETTINGS_ID)?.value_json,
+          type,
+          providerId,
+        );
+        const current = direct
+          ? (parseProviderValue(direct.value_json, type) ?? legacy)
+          : legacy;
+        const next: AiProviderConfig = {
+          type,
+          base_url: changes.base_url ?? current?.base_url ?? "",
+          api_key: changes.api_key ?? previousApiKey ?? current?.api_key ?? "",
+        };
+        await setProviderApiKey(type, providerId, next.api_key);
+
+        const persisted = { ...next, api_key: "" };
+        const now = new Date().toISOString();
+        const statements = [
+          direct
+            ? {
+                sql: `
                 UPDATE app_settings
                 SET value_json = ?, updated_at = ?
                 WHERE id = ? AND value_json = ?
               `,
-              params: [JSON.stringify(next), now, storageId, direct.value_json],
-            }
-          : {
-              sql: `
+                params: [
+                  JSON.stringify(persisted),
+                  now,
+                  storageId,
+                  direct.value_json,
+                ],
+              }
+            : {
+                sql: `
                 INSERT INTO app_settings (id, value_json, updated_at)
                 VALUES (?, ?, ?)
                 ON CONFLICT(id) DO NOTHING
               `,
-              params: [storageId, JSON.stringify(next), now],
-            },
-      ]);
-      if (updated === 1) return;
-    }
+                params: [storageId, JSON.stringify(persisted), now],
+              },
+        ];
 
-    throw new Error(`Provider ${type}:${providerId} changed too frequently`);
+        const legacyRow = rows.find((row) => row.id === LEGACY_SETTINGS_ID);
+        const redactedLegacy = redactLegacyProviderApiKey(
+          legacyRow?.value_json,
+          type,
+          providerId,
+        );
+        if (legacyRow && redactedLegacy) {
+          statements.push({
+            sql: `
+            UPDATE app_settings
+            SET value_json = ?, updated_at = ?
+            WHERE id = ?
+          `,
+            params: [redactedLegacy, now, LEGACY_SETTINGS_ID],
+          });
+        }
+
+        const [updated = 0] = await executeTransaction(statements);
+        if (updated === 1) return;
+      }
+
+      throw new Error(`Provider ${type}:${providerId} changed too frequently`);
+    } catch (error) {
+      await setProviderApiKey(type, providerId, previousApiKey ?? "");
+      throw error;
+    }
   });
 }
 
 export function useSetAiProvider(type: AiProviderType, providerId: string) {
+  const queryClient = useQueryClient();
+
   return useCallback(
     (changes: Partial<Pick<AiProviderConfig, "base_url" | "api_key">>) => {
-      void setAiProvider(type, providerId, changes).catch((error) => {
-        console.error(
-          `[settings] failed to update provider ${type}:${providerId}`,
-          error,
-        );
-      });
+      void setAiProvider(type, providerId, changes)
+        .then(() =>
+          queryClient.invalidateQueries({
+            queryKey: ["ai-provider-api-keys", type],
+          }),
+        )
+        .catch((error) => {
+          console.error(
+            `[settings] failed to update provider ${type}:${providerId}`,
+            error,
+          );
+        });
     },
-    [providerId, type],
+    [providerId, queryClient, type],
   );
+}
+
+export async function loadAiProviderApiKeys(
+  rows: AppSettingRow[],
+  type: AiProviderType,
+): Promise<Record<string, AiProviderConfig>> {
+  const providers = parseAiProviders(rows, type);
+  const hydrated: Record<string, AiProviderConfig> = {};
+
+  for (const [rowId, provider] of Object.entries(providers)) {
+    const providerId = rowId.slice(`${type}:`.length);
+    const apiKey = provider.api_key.trim();
+
+    hydrated[rowId] = {
+      ...provider,
+      api_key: apiKey || (await getProviderApiKey(type, providerId)) || "",
+    };
+  }
+
+  return hydrated;
+}
+
+export async function migratePlaintextAiProviderApiKeys(): Promise<void> {
+  let rows = await liveQueryClient.execute<AppSettingRow>(
+    `SELECT id, value_json FROM app_settings ORDER BY id`,
+  );
+  const migratedLlm = await migratePlaintextProviderApiKeys(rows, "llm");
+  if (migratedLlm) {
+    rows = await liveQueryClient.execute<AppSettingRow>(
+      `SELECT id, value_json FROM app_settings ORDER BY id`,
+    );
+  }
+  const migratedStt = await migratePlaintextProviderApiKeys(rows, "stt");
+  if (migratedLlm || migratedStt) {
+    await liveQueryClient.execute(`PRAGMA wal_checkpoint(TRUNCATE)`);
+  }
 }
 
 export function parseAiProviders(
@@ -183,6 +283,157 @@ function parseObjectValue(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {};
+}
+
+async function getProviderApiKey(
+  type: AiProviderType,
+  providerId: string,
+): Promise<string | null> {
+  const result = await store2Commands.getSecret(
+    PROVIDER_SECRET_SCOPE,
+    providerRowId(type, providerId),
+  );
+  if (result.status === "error") {
+    throw new Error(result.error);
+  }
+  return result.data;
+}
+
+async function setProviderApiKey(
+  type: AiProviderType,
+  providerId: string,
+  apiKey: string,
+): Promise<void> {
+  const key = providerRowId(type, providerId);
+  const result = apiKey
+    ? await store2Commands.setSecret(PROVIDER_SECRET_SCOPE, key, apiKey)
+    : await store2Commands.deleteSecret(PROVIDER_SECRET_SCOPE, key);
+  if (result.status === "error") {
+    throw new Error(result.error);
+  }
+}
+
+async function migratePlaintextProviderApiKeys(
+  rows: AppSettingRow[],
+  type: AiProviderType,
+): Promise<boolean> {
+  const legacyRow = rows.find((row) => row.id === LEGACY_SETTINGS_ID);
+  const legacyProviders = parseAiProviders(legacyRow ? [legacyRow] : [], type);
+  const directProviders = parseAiProviders(
+    rows.filter((row) => row.id.startsWith(providerStorageId(type, ""))),
+    type,
+  );
+  const rowIds = new Set([
+    ...Object.keys(legacyProviders),
+    ...Object.keys(directProviders),
+  ]);
+  const providerIds: string[] = [];
+
+  for (const rowId of rowIds) {
+    const providerId = rowId.slice(`${type}:`.length);
+    const directApiKey = directProviders[rowId]?.api_key.trim() ?? "";
+    const legacyApiKey = legacyProviders[rowId]?.api_key.trim() ?? "";
+    if (!directApiKey && !legacyApiKey) continue;
+
+    const existingApiKey = await getProviderApiKey(type, providerId);
+    if (!existingApiKey) {
+      await setProviderApiKey(type, providerId, directApiKey || legacyApiKey);
+    }
+    providerIds.push(providerId);
+  }
+
+  if (providerIds.length > 0) {
+    await redactPlaintextProviderApiKeys(rows, type, providerIds);
+  }
+
+  return providerIds.length > 0;
+}
+
+async function redactPlaintextProviderApiKeys(
+  rows: AppSettingRow[],
+  type: AiProviderType,
+  providerIds: string[],
+): Promise<void> {
+  const migrated = new Set(providerIds);
+  const now = new Date().toISOString();
+  const statements = rows.flatMap((row) => {
+    const prefix = providerStorageId(type, "");
+    if (!row.id.startsWith(prefix)) {
+      return [];
+    }
+
+    const providerId = row.id.slice(prefix.length);
+    const config = parseProviderValue(row.value_json, type);
+    if (!migrated.has(providerId) || !config?.api_key) {
+      return [];
+    }
+
+    return [
+      {
+        sql: `
+          UPDATE app_settings
+          SET value_json = ?, updated_at = ?
+          WHERE id = ? AND value_json = ?
+        `,
+        params: [
+          JSON.stringify({ ...config, api_key: "" }),
+          now,
+          row.id,
+          row.value_json,
+        ],
+      },
+    ];
+  });
+
+  const legacyRow = rows.find((row) => row.id === LEGACY_SETTINGS_ID);
+  if (legacyRow) {
+    let redactedLegacy = legacyRow.value_json;
+    for (const providerId of providerIds) {
+      redactedLegacy =
+        redactLegacyProviderApiKey(redactedLegacy, type, providerId) ??
+        redactedLegacy;
+    }
+    if (redactedLegacy !== legacyRow.value_json) {
+      statements.push({
+        sql: `
+          UPDATE app_settings
+          SET value_json = ?, updated_at = ?
+          WHERE id = ?
+        `,
+        params: [redactedLegacy, now, LEGACY_SETTINGS_ID],
+      });
+    }
+  }
+
+  if (statements.length > 0) {
+    await executeTransaction([
+      { sql: `PRAGMA secure_delete = ON`, params: [] },
+      ...statements,
+    ]);
+  }
+}
+
+function redactLegacyProviderApiKey(
+  valueJson: string | undefined,
+  type: AiProviderType,
+  providerId: string,
+): string | null {
+  if (!valueJson) return null;
+
+  try {
+    const document = JSON.parse(valueJson) as Record<string, unknown>;
+    const ai = parseObjectValue(document.ai);
+    const providers = parseObjectValue(ai[type]);
+    const provider = parseObjectValue(providers[providerId]);
+    if (typeof provider.api_key !== "string" || !provider.api_key) {
+      return null;
+    }
+
+    provider.api_key = "";
+    return JSON.stringify(document);
+  } catch {
+    return null;
+  }
 }
 
 function providerStorageId(type: AiProviderType, providerId: string): string {

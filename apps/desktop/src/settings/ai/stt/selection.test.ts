@@ -1,6 +1,18 @@
 import { describe, expect, test } from "vitest";
 
-import { getPreferredProviderModel } from "./selection";
+import { getDefaultSttModel, getPreferredProviderModel } from "./selection";
+
+describe("getDefaultSttModel", () => {
+  test("repairs external providers with their first supported model", () => {
+    expect(getDefaultSttModel("deepgram")).toBe("nova-3-general");
+    expect(getDefaultSttModel("soniox")).toBe("stt-rt-v5");
+  });
+
+  test("does not invent a model for custom or Anarlog providers", () => {
+    expect(getDefaultSttModel("custom")).toBeUndefined();
+    expect(getDefaultSttModel("hyprnote")).toBeUndefined();
+  });
+});
 
 describe("getPreferredProviderModel", () => {
   test("returns the remembered model when it is still available", () => {

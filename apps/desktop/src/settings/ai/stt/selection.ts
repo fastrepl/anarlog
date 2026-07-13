@@ -1,1 +1,4 @@
-export { getPreferredProviderModel } from "~/stt/model-selection";
+export {
+  getDefaultSttModel,
+  getPreferredProviderModel,
+} from "~/stt/model-selection";

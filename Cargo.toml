@@ -182,6 +182,7 @@ hypr-whisper-local = { path = "crates/whisper-local", package = "whisper-local" 
 hypr-whisper-local-model = { path = "crates/whisper-local-model", package = "whisper-local-model" }
 hypr-ws-client = { path = "crates/ws-client", package = "ws-client" }
 hypr-ws-utils = { path = "crates/ws-utils", package = "ws-utils" }
+keyring = "4.1.4"
 legacy-db-core = { path = "legacy/db-core", package = "legacy-db-core" }
 legacy-db-parser = { path = "legacy/db-parser", package = "db-parser" }
 legacy-db-user = { path = "legacy/db-user", package = "db-user" }

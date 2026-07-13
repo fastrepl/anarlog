@@ -24,7 +24,10 @@ import {
   isConfiguredSttModel,
   isHyprnoteLocalSttModel,
 } from "~/stt/capabilities";
-import { normalizeStoredSttModel } from "~/stt/model-selection";
+import {
+  getDefaultSttModel,
+  normalizeStoredSttModel,
+} from "~/stt/model-selection";
 
 type AppSettingRow = { id: string; value_json: string };
 
@@ -93,25 +96,29 @@ export async function initializeApplicationSettings(): Promise<void> {
   const languageResult = await detectCommands
     .getPreferredLanguages()
     .catch(() => null);
-  const languageUpdates: SettingValues = {};
+  const updates: SettingValues = {};
 
   if (languageResult?.status === "ok" && languageResult.data.length > 0) {
     if (!stored.hasValues.has("ai_language")) {
-      languageUpdates.ai_language = languageResult.data[0];
+      updates.ai_language = languageResult.data[0];
     }
     if (!stored.hasValues.has("spoken_languages")) {
-      languageUpdates.spoken_languages = JSON.stringify(languageResult.data);
+      updates.spoken_languages = JSON.stringify(languageResult.data);
     }
   }
 
-  if (Object.keys(languageUpdates).length > 0) {
-    await setSettingValues(languageUpdates);
+  if (!stored.values.current_stt_model) {
+    const defaultModel = getDefaultSttModel(stored.values.current_stt_provider);
+    if (defaultModel) {
+      updates.current_stt_model = defaultModel;
+    }
   }
 
+  if (Object.keys(updates).length > 0) {
+    await setSettingValues(updates);
+  }
   const current =
-    Object.keys(languageUpdates).length > 0
-      ? await getStoredSettingValues()
-      : stored;
+    Object.keys(updates).length > 0 ? await getStoredSettingValues() : stored;
   applySettingSideEffects(current.values);
 }
 

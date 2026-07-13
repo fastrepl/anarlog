@@ -163,6 +163,31 @@ describe("SQLite settings", () => {
     );
   });
 
+  it("repairs a selected external transcription provider with no model", async () => {
+    let rows = [
+      {
+        id: "current_stt_provider",
+        value_json: JSON.stringify("deepgram"),
+      },
+      { id: "current_stt_model", value_json: JSON.stringify("") },
+    ];
+    mocks.execute.mockImplementation(async () => rows);
+    mocks.executeTransaction.mockImplementation(async (statements) => {
+      rows = statements.map((statement) => ({
+        id: String(statement.params[0]),
+        value_json: String(statement.params[1]),
+      }));
+      return statements.map(() => 1);
+    });
+
+    await initializeApplicationSettings();
+
+    const statements = mocks.executeTransaction.mock.calls[0][0];
+    expect(statements.map((statement) => statement.params.slice(0, 2))).toEqual(
+      [["current_stt_model", JSON.stringify("nova-3-general")]],
+    );
+  });
+
   it("updates against the latest SQLite value inside the write queue", async () => {
     mocks.execute.mockResolvedValue([
       {
