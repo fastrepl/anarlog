@@ -19,6 +19,7 @@ const hoisted = vi.hoisted(() => ({
   showWindow: vi.fn(),
   unminimizeWindow: vi.fn(),
   focusWindow: vi.fn(),
+  meetingChatRecords: [] as unknown[],
   noteEditorProps: [] as Record<string, unknown>[],
 }));
 
@@ -50,6 +51,10 @@ vi.mock("@hypr/plugin-analytics", () => ({
   commands: {
     event: vi.fn(),
   },
+}));
+
+vi.mock("@hypr/plugin-opener2", () => ({
+  commands: { openUrl: vi.fn() },
 }));
 
 vi.mock("~/editor-bridge/app-link-view", () => ({
@@ -97,6 +102,20 @@ function RawEditor({
   );
 }
 
+vi.mock("~/stt/meeting-chat-records", () => ({
+  formatMeetingPlatform: (platform: string) =>
+    ({
+      zoom: "Zoom",
+      googleMeet: "Google Meet",
+      microsoftTeams: "Microsoft Teams",
+      slack: "Slack",
+      discord: "Discord",
+      webex: "Webex",
+      unknown: "Meeting app",
+    })[platform] ?? "Meeting app",
+  useMeetingChatRecords: () => hoisted.meetingChatRecords,
+}));
+
 vi.mock("~/shared/hooks/useFileUpload", () => ({
   useFileUpload: () => hoisted.fileUpload,
 }));
@@ -123,6 +142,7 @@ describe("RawEditor", () => {
     hoisted.persistChange = vi.fn(() => Promise.resolve());
     hoisted.fileUpload = vi.fn();
     hoisted.processAudioFile = vi.fn();
+    hoisted.meetingChatRecords = [];
     hoisted.showWindow.mockReset();
     hoisted.unminimizeWindow.mockReset();
     hoisted.focusWindow.mockReset();
@@ -149,6 +169,28 @@ describe("RawEditor", () => {
         },
       ],
     });
+  });
+
+  it("renders captured chat without mutating the active memo editor", () => {
+    const { rerender } = render(<RawEditor sessionId="session-1" />);
+    hoisted.meetingChatRecords = [
+      {
+        id: "msg-1",
+        platform: "zoom",
+        surface: "native",
+        sender: "Ada",
+        timestamp: "10:42 AM",
+        direction: "incoming",
+        text: "Review this together",
+        links: [],
+        capturedAt: "2026-07-13T10:00:00.000Z",
+      },
+    ];
+
+    rerender(<RawEditor sessionId="session-1" />);
+
+    expect(screen.getByText("Review this together")).not.toBeNull();
+    expect(hoisted.persistChange).not.toHaveBeenCalled();
   });
 
   it("routes dropped audio files to transcription", () => {

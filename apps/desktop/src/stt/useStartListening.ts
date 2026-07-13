@@ -3,6 +3,7 @@ import { useCallback, useRef } from "react";
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 
 import { useListener } from "./contexts";
+import { startMeetingChatCapture } from "./meeting-chat-capture";
 import { getSessionKeywords } from "./useKeywords";
 import {
   canRunBatchTranscription,
@@ -75,10 +76,17 @@ export function useStartListening(sessionId: string) {
 
   const runBatchRef = useRef(runBatch);
   const canRunBatchRef = useRef(canRunBatchTranscription(conn));
+  const stopMeetingChatCaptureRef = useRef<(() => void) | null>(null);
   runBatchRef.current = runBatch;
   canRunBatchRef.current = canRunBatchTranscription(conn);
 
+  const stopMeetingChatTasks = useCallback(() => {
+    stopMeetingChatCaptureRef.current?.();
+    stopMeetingChatCaptureRef.current = null;
+  }, []);
+
   const startListening = useCallback(async () => {
+    stopMeetingChatTasks();
     let transcriptId: string | null = null;
     const startedAt = Date.now();
     const memoMd = session?.raw_md ?? "";
@@ -97,6 +105,7 @@ export function useStartListening(sessionId: string) {
     });
 
     const onStopped: OnStoppedCallback = async (_sessionId, details) => {
+      stopMeetingChatTasks();
       await lastTranscriptWrite;
       if (transcriptWriteError) return;
 
@@ -196,8 +205,8 @@ export function useStartListening(sessionId: string) {
     );
 
     if (!started) {
+      stopMeetingChatTasks();
       await lastTranscriptWrite;
-
       if (transcriptId) {
         await softDeleteTranscript(transcriptId);
       }
@@ -205,6 +214,10 @@ export function useStartListening(sessionId: string) {
     }
 
     setLeftSidebarExpanded(false);
+
+    stopMeetingChatCaptureRef.current = startMeetingChatCapture({
+      sessionId,
+    });
 
     void analyticsCommands.event({
       event: "session_started",
@@ -227,9 +240,10 @@ export function useStartListening(sessionId: string) {
     participantHumanIds,
     session,
     sessionId,
-    start,
-    spokenLanguages,
     setLeftSidebarExpanded,
+    spokenLanguages,
+    start,
+    stopMeetingChatTasks,
   ]);
 
   return startListening;

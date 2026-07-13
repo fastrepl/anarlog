@@ -54,6 +54,14 @@ async listDefaultIgnoredBundleIds() : Promise<Result<string[], string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async captureMeetingChatMessages(bundleIds: string[]) : Promise<Result<MeetingChatCaptureResult, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:detect|capture_meeting_chat_messages", { bundleIds }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async getPreferredLanguages() : Promise<Result<string[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:detect|get_preferred_languages") };
@@ -97,6 +105,12 @@ detectEvent: "plugin:detect:detect-event"
 
 export type DetectEvent = { type: "micDetected"; key: string; apps: InstalledApp[]; duration_secs: number } | { type: "micStopped"; apps: InstalledApp[] } | { type: "micMuted"; value: boolean } | { type: "sleepStateChanged"; value: boolean }
 export type InstalledApp = { id: string; name: string }
+export type MeetingApp = { id: string; name: string }
+export type MeetingCapturedChatMessage = { id: string; platform: MeetingPlatform; surface: MeetingSurface; sender: string | null; timestamp: string | null; direction: MeetingChatDirection | null; text: string; links: string[] }
+export type MeetingChatCaptureResult = { app: MeetingApp | null; platform: MeetingPlatform; surface: MeetingSurface; contextId: string | null; messages: MeetingCapturedChatMessage[]; warnings: string[] }
+export type MeetingChatDirection = "incoming" | "outgoing"
+export type MeetingPlatform = "zoom" | "googleMeet" | "microsoftTeams" | "slack" | "discord" | "webex" | "unknown"
+export type MeetingSurface = "native" | "web" | "unknown"
 
 /** tauri-specta globals **/
 

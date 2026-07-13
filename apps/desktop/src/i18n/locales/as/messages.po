@@ -59,6 +59,7 @@ msgstr ""
 msgid "A to Z"
 msgstr ""
 
+#: src/onboarding/permissions.tsx
 #: src/settings/general/permissions.tsx
 msgid "Accessibility"
 msgstr ""
@@ -141,18 +142,6 @@ msgstr ""
 msgid "All Notes"
 msgstr ""
 
-#: src/onboarding/permissions.tsx
-msgid "Allow access"
-msgstr ""
-
-#: src/onboarding/permissions.tsx
-msgid "Allow microphone access"
-msgstr ""
-
-#: src/onboarding/permissions.tsx
-msgid "Allow system audio access"
-msgstr ""
-
 #: src/settings/general/app-settings.tsx
 msgid "Always ready without manually launching."
 msgstr "হস্তচালিতভাৱে আৰম্ভ নকৰাকৈ সদায় সাজু।"
@@ -169,6 +158,10 @@ msgstr ""
 msgid "Anarlog can hear your voice"
 msgstr ""
 
+#: src/onboarding/permissions.tsx
+msgid "Anarlog can read meeting details"
+msgstr ""
+
 #: src/settings/general/storage/legacy-cleanup.tsx
 msgid "Anarlog could not verify the migration status"
 msgstr ""
@@ -179,6 +172,10 @@ msgstr ""
 
 #: src/onboarding/index.tsx
 msgid "Anarlog needs access to your microphone and system audio to record and transcribe your meetings"
+msgstr ""
+
+#: src/onboarding/index.tsx
+msgid "Anarlog needs microphone and system audio to transcribe your meetings, plus Accessibility to read meeting controls, visible chat, and participant status."
 msgstr ""
 
 #: src/onboarding/index.tsx
@@ -292,6 +289,10 @@ msgstr ""
 
 #: src/session/components/outer-header/metadata/date.tsx
 msgid "Cancel date edit"
+msgstr ""
+
+#: src/settings/general/app-settings.tsx
+msgid "Capture meeting chat in Memos"
 msgstr ""
 
 #: src/onboarding/folder-location.tsx
@@ -778,6 +779,10 @@ msgstr ""
 msgid "Help Anarlog listen to you"
 msgstr ""
 
+#: src/onboarding/permissions.tsx
+msgid "Help Anarlog read meeting activity"
+msgstr ""
+
 #: src/sidebar/timeline/index.tsx
 msgid "Hide Deleted Events"
 msgstr ""
@@ -904,10 +909,6 @@ msgstr ""
 msgid "Main language"
 msgstr "মূল ভাষা"
 
-#: src/onboarding/permissions.tsx
-msgid "Manage"
-msgstr ""
-
 #: src/settings/general/account.tsx
 msgid "Manage billing"
 msgstr ""
@@ -922,6 +923,10 @@ msgstr ""
 
 #: src/sidebar/timeline/index.tsx
 msgid "Meeting"
+msgstr ""
+
+#: src/onboarding/permissions.tsx
+msgid "Meeting details access turned on"
 msgstr ""
 
 #: src/settings/general/app-settings.tsx
@@ -1185,10 +1190,6 @@ msgstr ""
 msgid "Open repository on GitHub"
 msgstr ""
 
-#: src/onboarding/permissions.tsx
-msgid "Open settings"
-msgstr ""
-
 #: src/calendar/components/apple/permission.tsx
 #: src/settings/todo/provider-content.tsx
 msgid "or"
@@ -1268,6 +1269,10 @@ msgstr ""
 
 #: src/settings/general/account.tsx
 msgid "Pro trial"
+msgstr ""
+
+#: src/onboarding/permissions.tsx
+msgid "Read meeting controls, visible chat, and participant status"
 msgstr ""
 
 #: src/onboarding/index.tsx
@@ -1366,7 +1371,7 @@ msgid "Required to capture other participants' voices in meetings"
 msgstr ""
 
 #: src/settings/general/permissions.tsx
-msgid "Required to detect meeting apps and sync mute status"
+msgid "Required to read meeting controls, visible chat, and participant status"
 msgstr ""
 
 #: src/settings/general/permissions.tsx
@@ -1909,6 +1914,14 @@ msgstr ""
 msgid "Upload transcript"
 msgstr ""
 
+#: src/onboarding/permissions.tsx
+msgid "Use system audio to capture other speakers"
+msgstr ""
+
+#: src/onboarding/permissions.tsx
+msgid "Use your microphone to capture your voice"
+msgstr ""
+
 #: src/settings/general/storage/legacy-cleanup.tsx
 msgid "Verifying the SQLite migration status"
 msgstr ""
@@ -1931,6 +1944,10 @@ msgstr ""
 
 #: src/onboarding/index.tsx
 msgid "Where your notes and recordings are stored"
+msgstr ""
+
+#: src/settings/general/app-settings.tsx
+msgid "While listening, use Accessibility access to copy visible chat from supported meeting apps and browser meetings into the active note."
 msgstr ""
 
 #: src/task/tab-content.tsx

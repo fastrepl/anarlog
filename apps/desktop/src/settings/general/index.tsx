@@ -37,6 +37,7 @@ const SETTINGS_FORM_KEYS = [
   "show_tray_icon",
   "notification_detect",
   "telemetry_consent",
+  "capture_meeting_chat",
   "ai_language",
   "spoken_languages",
   "current_stt_provider",
@@ -59,6 +60,7 @@ function useSettingsForm(storedSettings: StoredSettingValues) {
       show_tray_icon: settingsValue.show_tray_icon,
       notification_detect: settingsValue.notification_detect,
       telemetry_consent: settingsValue.telemetry_consent,
+      capture_meeting_chat: settingsValue.capture_meeting_chat,
       ai_language: settingsValue.ai_language,
       spoken_languages: getAdditionalSpokenLanguages(
         settingsValue.ai_language,
@@ -97,6 +99,7 @@ function useSettingsForm(storedSettings: StoredSettingValues) {
         show_tray_icon: normalizedValue.show_tray_icon,
         notification_detect: normalizedValue.notification_detect,
         telemetry_consent: normalizedValue.telemetry_consent,
+        capture_meeting_chat: normalizedValue.capture_meeting_chat,
         ai_language: normalizedValue.ai_language,
         spoken_languages: JSON.stringify(normalizedValue.spoken_languages),
       });
@@ -114,6 +117,7 @@ function useSettingsForm(storedSettings: StoredSettingValues) {
         show_tray_icon: normalizedValue.show_tray_icon,
         notification_detect: normalizedValue.notification_detect,
         telemetry_consent: normalizedValue.telemetry_consent,
+        capture_meeting_chat: normalizedValue.capture_meeting_chat,
       });
       void analyticsCommands.setProperties({
         set: {
@@ -174,6 +178,8 @@ function SettingsAppContent({
                                   {(showTrayIconField) => (
                                     <form.Field name="telemetry_consent">
                                       {(telemetryConsentField) => (
+                                    <form.Field name="capture_meeting_chat">
+                                      {(captureMeetingChatField) => (
                                         <AppSettingsView
                                           autostart={{
                                             value: autostartField.state.value,
@@ -236,6 +242,15 @@ function SettingsAppContent({
                                               telemetryConsentField.state.value,
                                             onChange: (val) =>
                                               telemetryConsentField.handleChange(
+                                                val,
+                                              ),
+                                          }}
+                                          captureMeetingChat={{
+                                            value:
+                                              captureMeetingChatField.state
+                                                .value,
+                                            onChange: (val) =>
+                                              captureMeetingChatField.handleChange(
                                                 val,
                                               ),
                                           }}

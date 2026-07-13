@@ -13,19 +13,24 @@ function setting(value = true) {
 function renderAppSettings({
   autoStartScheduledMeetings = true,
   floatingBar = true,
+  captureMeetingChat = setting(false),
 } = {}) {
-  return render(
-    <AppSettingsView
-      autostart={setting()}
-      autoJoinScheduledMeetings={setting()}
-      autoStartScheduledMeetings={setting(autoStartScheduledMeetings)}
-      autoStopMeetings={setting()}
-      floatingBar={setting(floatingBar)}
-      showAppInDock={setting()}
-      showTrayIcon={setting()}
-      telemetryConsent={setting()}
-    />,
-  );
+  return {
+    ...render(
+      <AppSettingsView
+        autostart={setting()}
+        autoJoinScheduledMeetings={setting()}
+        autoStartScheduledMeetings={setting(autoStartScheduledMeetings)}
+        autoStopMeetings={setting()}
+        floatingBar={setting(floatingBar)}
+        showAppInDock={setting()}
+        showTrayIcon={setting()}
+        telemetryConsent={setting()}
+        captureMeetingChat={captureMeetingChat}
+      />,
+    ),
+    captureMeetingChat,
+  };
 }
 
 describe("AppSettingsView", () => {
@@ -44,7 +49,6 @@ describe("AppSettingsView", () => {
 
     expect(screen.getByText("Show floating bar")).toBeTruthy();
   });
-
   it("only enables automatic joining when scheduled listening is enabled", () => {
     renderAppSettings({ autoStartScheduledMeetings: false });
 
@@ -53,5 +57,14 @@ describe("AppSettingsView", () => {
         .getByRole("switch", { name: "Join scheduled meetings" })
         .hasAttribute("disabled"),
     ).toBe(true);
+  });
+
+  it("discloses Accessibility-based meeting chat capture", () => {
+    renderAppSettings();
+
+    expect(screen.getByText("Capture meeting chat in Memos")).toBeTruthy();
+    expect(
+      screen.getByText(/supported meeting apps and browser meetings/),
+    ).toBeTruthy();
   });
 });

@@ -1,9 +1,8 @@
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { getSessionKeywords } from "./useKeywords";
-import { getPostCaptureAction } from "./useStartListening";
-import { useStartListening } from "./useStartListening";
+import { getPostCaptureAction, useStartListening } from "./useStartListening";
 
 const {
   queueAutoEnhanceMock,
@@ -24,6 +23,8 @@ const {
   leftSidebarExpanded,
   setLeftSidebarExpandedMock,
   deleteProcessedAudioForRetentionMock,
+  startMeetingChatCaptureMock,
+  stopMeetingChatCaptureMock,
 } = vi.hoisted(() => ({
   queueAutoEnhanceMock: vi.fn(),
   queueAutoEnhanceIfSummaryEmptyMock: vi.fn(),
@@ -43,6 +44,8 @@ const {
   leftSidebarExpanded: { value: true },
   setLeftSidebarExpandedMock: vi.fn(),
   deleteProcessedAudioForRetentionMock: vi.fn(),
+  startMeetingChatCaptureMock: vi.fn(),
+  stopMeetingChatCaptureMock: vi.fn(),
 }));
 
 vi.mock("@hypr/plugin-transcription", () => ({
@@ -53,6 +56,10 @@ vi.mock("@hypr/plugin-transcription", () => ({
 
 vi.mock("./contexts", () => ({
   useListener: useListenerMock,
+}));
+
+vi.mock("./meeting-chat-capture", () => ({
+  startMeetingChatCapture: startMeetingChatCaptureMock,
 }));
 
 vi.mock("./useKeywords", () => ({
@@ -209,7 +216,11 @@ describe("useStartListening", () => {
     applyLiveTranscriptDeltaToDatabaseMock.mockResolvedValue(undefined);
     softDeleteTranscriptMock.mockResolvedValue(undefined);
     useConfigValueMock.mockImplementation((key) =>
-      key === "ai_language" ? "en" : [],
+      key === "ai_language"
+        ? "en"
+        : key === "capture_meeting_chat"
+          ? false
+          : [],
     );
     leftSidebarExpanded.value = true;
     useSTTConnectionMock.mockReturnValue({
@@ -226,6 +237,7 @@ describe("useStartListening", () => {
       status: "ok",
       data: true,
     });
+    startMeetingChatCaptureMock.mockReturnValue(stopMeetingChatCaptureMock);
   });
 
   test("collapses the left sidebar after listening starts", async () => {
@@ -469,7 +481,11 @@ describe("useStartListening", () => {
 
   test("keeps supported non-English realtime local models live", async () => {
     useConfigValueMock.mockImplementation((key) =>
-      key === "ai_language" ? "de" : ["en"],
+      key === "ai_language"
+        ? "de"
+        : key === "capture_meeting_chat"
+          ? false
+          : ["en"],
     );
     useSTTConnectionMock.mockReturnValue({
       conn: {
@@ -494,7 +510,11 @@ describe("useStartListening", () => {
 
   test("keeps realtime local transcription live by filtering unsupported extra spoken languages", async () => {
     useConfigValueMock.mockImplementation((key) =>
-      key === "ai_language" ? "en" : ["ko"],
+      key === "ai_language"
+        ? "en"
+        : key === "capture_meeting_chat"
+          ? false
+          : ["ko"],
     );
     useSTTConnectionMock.mockReturnValue({
       conn: {
@@ -519,7 +539,11 @@ describe("useStartListening", () => {
 
   test("uses the main language for Deepgram live capture when extras are unsupported", async () => {
     useConfigValueMock.mockImplementation((key) =>
-      key === "ai_language" ? "en" : ["ko"],
+      key === "ai_language"
+        ? "en"
+        : key === "capture_meeting_chat"
+          ? false
+          : ["ko"],
     );
     useSTTConnectionMock.mockReturnValue({
       conn: {
@@ -546,6 +570,58 @@ describe("useStartListening", () => {
     expect(startMock.mock.calls[0]?.[0]).toMatchObject({
       languages: ["en"],
       transcription_mode: undefined,
+    });
+  });
+
+  test("starts dynamic capture with no message exclusions", async () => {
+    let captureEnabled = true;
+    useConfigValueMock.mockImplementation((key: string) =>
+      key === "ai_language"
+        ? "en"
+        : key === "capture_meeting_chat"
+          ? captureEnabled
+          : [],
+    );
+
+    const { result, rerender } = renderHook(() =>
+      useStartListening("session-1"),
+    );
+
+    await act(async () => {
+      await result.current();
+    });
+
+    await waitFor(() => {
+      expect(startMeetingChatCaptureMock).toHaveBeenCalledWith({
+        sessionId: "session-1",
+      });
+    });
+
+    const onStopped = startMock.mock.calls[0]?.[1]?.onStopped;
+    await act(async () => {
+      await onStopped?.("session-1", {
+        durationSeconds: 42,
+        audioPath: null,
+        requestedLiveTranscription: false,
+        liveTranscriptionActive: false,
+      });
+    });
+    expect(stopMeetingChatCaptureMock).toHaveBeenCalledOnce();
+  });
+
+  test("starts capture discovery before a supported meeting app is active", async () => {
+    useConfigValueMock.mockImplementation((key: string) =>
+      key === "ai_language" ? "en" : key === "capture_meeting_chat" ? true : [],
+    );
+
+    const { result } = renderHook(() => useStartListening("session-1"));
+    await act(async () => {
+      await result.current();
+    });
+    await waitFor(() => {
+      expect(startMeetingChatCaptureMock).toHaveBeenCalledWith({
+        sessionId: "session-1",
+      });
     });
   });
 });
