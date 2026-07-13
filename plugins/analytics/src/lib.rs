@@ -89,7 +89,13 @@ mod test {
         ctx.config_mut().identifier = "com.hyprnote.dev".to_string();
         ctx.config_mut().version = Some("0.0.1".to_string());
 
-        builder.plugin(init()).build(ctx).unwrap()
+        builder
+            .plugin(tauri_plugin_store::Builder::default().build())
+            .plugin(tauri_plugin_store2::init())
+            .plugin(tauri_plugin_misc::init())
+            .plugin(init())
+            .build(ctx)
+            .unwrap()
     }
 
     #[tokio::test]

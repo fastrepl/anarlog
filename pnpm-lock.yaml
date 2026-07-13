@@ -1319,61 +1319,18 @@ importers:
 
   packages/utils:
     dependencies:
-      '@ai-sdk/openai-compatible':
-        specifier: ^2.0.41
-        version: 2.0.41(zod@4.3.6)
       '@date-fns/tz':
         specifier: ^1.4.1
         version: 1.4.1
-      '@hypr/plugin-transcription':
-        specifier: workspace:^
-        version: link:../../plugins/transcription
-      '@hypr/plugin-windows':
-        specifier: workspace:^
-        version: link:../../plugins/windows
-      '@tauri-apps/api':
-        specifier: ^2.10.1
-        version: 2.10.1
-      '@tauri-apps/plugin-http':
-        specifier: ^2.5.8
-        version: 2.5.8
-      ai:
-        specifier: ^6.0.158
-        version: 6.0.158(zod@4.3.6)
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
       date-fns:
         specifier: ^4.1.0
         version: 4.1.0
-      mutative:
-        specifier: ^1.3.0
-        version: 1.3.0
-      p-debounce:
-        specifier: ^4.0.0
-        version: 4.0.0
-      react:
-        specifier: ^19.2.3
-        version: 19.2.5
-      react-hotkeys-hook:
-        specifier: ^4.6.2
-        version: 4.6.2(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       tailwind-merge:
         specifier: ^2.6.1
         version: 2.6.1
-      tauri-plugin-keygen-api:
-        specifier: github:bagindo/tauri-plugin-keygen#v2
-        version: https://codeload.github.com/bagindo/tauri-plugin-keygen/tar.gz/e0de03a76a5c82c36adb347e43e4bff4f78c87de
-      zustand:
-        specifier: ^5.0.12
-        version: 5.0.12(@types/react@19.2.14)(immer@11.1.4)(react@19.2.5)(use-sync-external-store@1.6.0(react@19.2.5))
-    devDependencies:
-      '@types/react':
-        specifier: ^19.2.14
-        version: 19.2.14
-      vitest:
-        specifier: ^4.1.4
-        version: 4.1.4(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(jsdom@27.4.0(@noble/hashes@1.8.0))(vite@8.0.8(@types/node@25.6.0)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))
 
   plugins/agent:
     dependencies:

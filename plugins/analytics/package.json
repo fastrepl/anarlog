@@ -3,7 +3,7 @@
   "private": true,
   "main": "./js/index.ts",
   "scripts": {
-    "codegen": "cargo test -p tauri-plugin-apple-calendar",
+    "codegen": "cargo test -p tauri-plugin-analytics",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

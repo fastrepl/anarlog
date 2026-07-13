@@ -17996,6 +17996,7 @@ dependencies = [
  "tauri",
  "tauri-plugin",
  "tauri-plugin-misc",
+ "tauri-plugin-store",
  "tauri-plugin-store2",
  "tauri-specta",
  "thiserror 2.0.18",
