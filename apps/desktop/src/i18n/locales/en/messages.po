@@ -142,18 +142,6 @@ msgstr "AI-generated summary of all interactions and notes with this contact wil
 msgid "All Notes"
 msgstr "All Notes"
 
-#: src/onboarding/permissions.tsx
-msgid "Allow Accessibility access"
-msgstr "Allow Accessibility access"
-
-#: src/onboarding/permissions.tsx
-msgid "Allow microphone access"
-msgstr "Allow microphone access"
-
-#: src/onboarding/permissions.tsx
-msgid "Allow system audio access"
-msgstr "Allow system audio access"
-
 #: src/settings/general/app-settings.tsx
 msgid "Always ready without manually launching."
 msgstr "Always ready without manually launching."
@@ -767,6 +755,10 @@ msgstr "Help Anarlog listen to others"
 #: src/onboarding/permissions.tsx
 msgid "Help Anarlog listen to you"
 msgstr "Help Anarlog listen to you"
+
+#: src/onboarding/permissions.tsx
+msgid "Help Anarlog read meeting activity"
+msgstr "Help Anarlog read meeting activity"
 
 #: src/sidebar/timeline/index.tsx
 msgid "Hide Deleted Events"
@@ -1849,6 +1841,14 @@ msgstr "Upload audio"
 #: src/session/components/outer-header/overflow/index.tsx
 msgid "Upload transcript"
 msgstr "Upload transcript"
+
+#: src/onboarding/permissions.tsx
+msgid "Use system audio to capture other speakers"
+msgstr "Use system audio to capture other speakers"
+
+#: src/onboarding/permissions.tsx
+msgid "Use your microphone to capture your voice"
+msgstr "Use your microphone to capture your voice"
 
 #: src/settings/general/storage/legacy-cleanup.tsx
 msgid "Verifying the SQLite migration status"

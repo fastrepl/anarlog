@@ -142,18 +142,6 @@ msgstr ""
 msgid "All Notes"
 msgstr ""
 
-#: src/onboarding/permissions.tsx
-msgid "Allow Accessibility access"
-msgstr ""
-
-#: src/onboarding/permissions.tsx
-msgid "Allow microphone access"
-msgstr ""
-
-#: src/onboarding/permissions.tsx
-msgid "Allow system audio access"
-msgstr ""
-
 #: src/settings/general/app-settings.tsx
 msgid "Always ready without manually launching."
 msgstr "Alati valmis ilma käsitsi käivitamata."
@@ -766,6 +754,10 @@ msgstr ""
 
 #: src/onboarding/permissions.tsx
 msgid "Help Anarlog listen to you"
+msgstr ""
+
+#: src/onboarding/permissions.tsx
+msgid "Help Anarlog read meeting activity"
 msgstr ""
 
 #: src/sidebar/timeline/index.tsx
@@ -1848,6 +1840,14 @@ msgstr ""
 #: src/session/components/floating/options-menu.tsx
 #: src/session/components/outer-header/overflow/index.tsx
 msgid "Upload transcript"
+msgstr ""
+
+#: src/onboarding/permissions.tsx
+msgid "Use system audio to capture other speakers"
+msgstr ""
+
+#: src/onboarding/permissions.tsx
+msgid "Use your microphone to capture your voice"
 msgstr ""
 
 #: src/settings/general/storage/legacy-cleanup.tsx

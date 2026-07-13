@@ -61,9 +61,9 @@ describe("PermissionsSection", () => {
   it("collects Accessibility permission on macOS", () => {
     const { container } = render(<PermissionsSection />);
 
-    expect(screen.getByText("Allow microphone access")).toBeTruthy();
-    expect(screen.getByText("Allow system audio access")).toBeTruthy();
-    expect(screen.getByText("Allow Accessibility access")).toBeTruthy();
+    expect(screen.getByText("Help Anarlog listen to you")).toBeTruthy();
+    expect(screen.getByText("Help Anarlog listen to others")).toBeTruthy();
+    expect(screen.getByText("Help Anarlog read meeting activity")).toBeTruthy();
     expect(
       screen
         .getByRole("button", { name: "Enable accessibility" })
@@ -99,7 +99,7 @@ describe("PermissionsSection", () => {
 
     render(<PermissionsSection onContinue={onContinue} />);
 
-    expect(screen.queryByText("Allow Accessibility access")).toBeNull();
+    expect(screen.queryByText("Help Anarlog read meeting activity")).toBeNull();
     expect(mocks.usePermission).not.toHaveBeenCalledWith("accessibility");
     expect(onContinue).toHaveBeenCalledTimes(1);
   });
