@@ -13,6 +13,7 @@ import { Route as UpdatePasswordRouteImport } from './routes/update-password'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as DiscordRouteImport } from './routes/discord'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ViewRouteRouteImport } from './routes/_view/route'
 import { Route as IndexRouteImport } from './routes/index'
@@ -89,6 +90,11 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DiscordRoute = DiscordRouteImport.update({
+  id: '/discord',
+  path: '/discord',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -386,6 +392,7 @@ const ApiAdminBlogUploadImageRoute = ApiAdminBlogUploadImageRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/discord': typeof DiscordRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
@@ -448,6 +455,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/discord': typeof DiscordRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
@@ -511,6 +519,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_view': typeof ViewRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/discord': typeof DiscordRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
@@ -575,6 +584,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/discord'
     | '/privacy'
     | '/reset-password'
     | '/terms'
@@ -637,6 +647,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/discord'
     | '/privacy'
     | '/reset-password'
     | '/terms'
@@ -699,6 +710,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_view'
     | '/auth'
+    | '/discord'
     | '/privacy'
     | '/reset-password'
     | '/terms'
@@ -763,6 +775,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ViewRouteRoute: typeof ViewRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  DiscordRoute: typeof DiscordRoute
   PrivacyRoute: typeof PrivacyRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   TermsRoute: typeof TermsRoute
@@ -838,6 +851,13 @@ declare module '@tanstack/react-router' {
       path: '/privacy'
       fullPath: '/privacy'
       preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/discord': {
+      id: '/discord'
+      path: '/discord'
+      fullPath: '/discord'
+      preLoaderRoute: typeof DiscordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -1292,6 +1312,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ViewRouteRoute: ViewRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  DiscordRoute: DiscordRoute,
   PrivacyRoute: PrivacyRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   TermsRoute: TermsRoute,

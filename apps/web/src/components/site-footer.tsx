@@ -18,6 +18,9 @@ export function SiteFooter() {
         >
           GitHub
         </a>
+        <Link to="/discord/" className="hover:text-[#181613]">
+          Discord
+        </Link>
         <Link to="/blog/" className="hover:text-[#181613]">
           Blog
         </Link>
