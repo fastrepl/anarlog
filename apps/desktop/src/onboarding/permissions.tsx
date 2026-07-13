@@ -1,16 +1,19 @@
 import { useLingui } from "@lingui/react/macro";
+import { platform } from "@tauri-apps/plugin-os";
 import {
+  AccessibilityIcon,
   ArrowRightIcon,
   CheckIcon,
   MicIcon,
   type LucideIcon,
   Volume2Icon,
 } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 
 import { type PermissionStatus } from "@hypr/plugin-permissions";
 import { cn } from "@hypr/utils";
 
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { usePermission } from "~/shared/hooks/usePermissions";
 
 function PermissionBlock({
@@ -23,6 +26,7 @@ function PermissionBlock({
   status,
   isPending,
   onAction,
+  opensSettingsWhenDenied = true,
 }: {
   enabledLabel: string;
   enableLabel: string;
@@ -33,10 +37,12 @@ function PermissionBlock({
   status: PermissionStatus | undefined;
   isPending: boolean;
   onAction: () => void;
+  opensSettingsWhenDenied?: boolean;
 }) {
   const { t } = useLingui();
   const isAuthorized = status === "authorized";
-  const opensSettings = isAuthorized || status === "denied";
+  const opensSettings =
+    isAuthorized || (opensSettingsWhenDenied && status === "denied");
   const title = isAuthorized ? enabledLabel : enableLabel;
   const body = isAuthorized ? enabledBody : enableBody;
   const ctaLabel = isAuthorized
@@ -108,10 +114,28 @@ function PermissionBlock({
   );
 }
 
-export function PermissionsSection({
+function ContinueWhenComplete({
   onContinue,
+  hasContinuedRef,
 }: {
   onContinue?: () => void;
+  hasContinuedRef: { current: boolean };
+}) {
+  useMountEffect(() => {
+    if (hasContinuedRef.current) return;
+    hasContinuedRef.current = true;
+    onContinue?.();
+  });
+
+  return null;
+}
+
+function PermissionsSectionContent({
+  onContinue,
+  accessibility,
+}: {
+  onContinue?: () => void;
+  accessibility?: ReturnType<typeof usePermission>;
 }) {
   const { t } = useLingui();
   const mic = usePermission("microphone");
@@ -119,13 +143,9 @@ export function PermissionsSection({
   const hasContinuedRef = useRef(false);
 
   const isComplete =
-    mic.status === "authorized" && systemAudio.status === "authorized";
-
-  useEffect(() => {
-    if (!isComplete || hasContinuedRef.current) return;
-    hasContinuedRef.current = true;
-    onContinue?.();
-  }, [isComplete, onContinue]);
+    mic.status === "authorized" &&
+    systemAudio.status === "authorized" &&
+    (!accessibility || accessibility.status === "authorized");
 
   const handleAction = (perm: ReturnType<typeof usePermission>) => {
     if (perm.status === "denied") {
@@ -136,30 +156,83 @@ export function PermissionsSection({
   };
 
   return (
-    <div className="@container flex items-stretch gap-3">
-      <PermissionBlock
-        enabledLabel={t`Anarlog can hear your voice`}
-        enableLabel={t`Allow microphone access`}
-        enabledBody={t`Microphone access turned on`}
-        enableBody={t`Help Anarlog listen to you`}
-        Icon={MicIcon}
-        permissionName={t`Microphone`}
-        status={mic.status}
-        isPending={mic.isPending}
-        onAction={() => handleAction(mic)}
-      />
+    <div className="@container">
+      {isComplete && (
+        <ContinueWhenComplete
+          onContinue={onContinue}
+          hasContinuedRef={hasContinuedRef}
+        />
+      )}
 
-      <PermissionBlock
-        enabledLabel={t`Anarlog can hear others`}
-        enableLabel={t`Allow system audio access`}
-        enabledBody={t`System audio enabled`}
-        enableBody={t`Help Anarlog listen to others`}
-        Icon={Volume2Icon}
-        permissionName={t`System audio`}
-        status={systemAudio.status}
-        isPending={systemAudio.isPending}
-        onAction={() => handleAction(systemAudio)}
-      />
+      <div
+        className={cn([
+          "grid grid-cols-1 items-stretch gap-3",
+          "@[480px]:grid-cols-2",
+          accessibility && "@[720px]:grid-cols-3",
+        ])}
+      >
+        <PermissionBlock
+          enabledLabel={t`Anarlog can hear your voice`}
+          enableLabel={t`Allow microphone access`}
+          enabledBody={t`Microphone access turned on`}
+          enableBody={t`Help Anarlog listen to you`}
+          Icon={MicIcon}
+          permissionName={t`Microphone`}
+          status={mic.status}
+          isPending={mic.isPending}
+          onAction={() => handleAction(mic)}
+        />
+
+        <PermissionBlock
+          enabledLabel={t`Anarlog can hear others`}
+          enableLabel={t`Allow system audio access`}
+          enabledBody={t`System audio enabled`}
+          enableBody={t`Help Anarlog listen to others`}
+          Icon={Volume2Icon}
+          permissionName={t`System audio`}
+          status={systemAudio.status}
+          isPending={systemAudio.isPending}
+          onAction={() => handleAction(systemAudio)}
+        />
+
+        {accessibility && (
+          <PermissionBlock
+            enabledLabel={t`Anarlog can read meeting details`}
+            enableLabel={t`Allow Accessibility access`}
+            enabledBody={t`Meeting details access turned on`}
+            enableBody={t`Read meeting controls, visible chat, and participant status`}
+            Icon={AccessibilityIcon}
+            permissionName={t`Accessibility`}
+            status={accessibility.status}
+            isPending={accessibility.isPending}
+            onAction={accessibility.request}
+            opensSettingsWhenDenied={false}
+          />
+        )}
+      </div>
     </div>
   );
+}
+
+function MacOSPermissionsSection({ onContinue }: { onContinue?: () => void }) {
+  const accessibility = usePermission("accessibility");
+
+  return (
+    <PermissionsSectionContent
+      onContinue={onContinue}
+      accessibility={accessibility}
+    />
+  );
+}
+
+export function PermissionsSection({
+  onContinue,
+}: {
+  onContinue?: () => void;
+}) {
+  if (platform() === "macos") {
+    return <MacOSPermissionsSection onContinue={onContinue} />;
+  }
+
+  return <PermissionsSectionContent onContinue={onContinue} />;
 }

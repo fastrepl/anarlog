@@ -58,7 +58,7 @@ function PermissionRow({
           isAuthorized && "bg-muted text-foreground hover:bg-accent",
         ])}
         aria-label={
-          isAuthorized
+          isAuthorized || isDenied
             ? t`Open ${title.toLowerCase()} settings`
             : t`Request ${title.toLowerCase()} permission`
         }
@@ -120,7 +120,7 @@ export function Permissions() {
 
       <PermissionRow
         title={t`Accessibility`}
-        description={t`Required to detect meeting apps and sync mute status`}
+        description={t`Required to read meeting controls, visible chat, and participant status`}
         status={accessibility.status}
         isPending={accessibility.isPending}
         onRequest={accessibility.request}

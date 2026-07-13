@@ -63,6 +63,7 @@ msgstr "3 days"
 msgid "A to Z"
 msgstr "A to Z"
 
+#: src/onboarding/permissions.tsx
 #: src/settings/general/permissions.tsx
 msgid "Accessibility"
 msgstr "Accessibility"
@@ -146,6 +147,10 @@ msgid "Allow access"
 msgstr "Allow access"
 
 #: src/onboarding/permissions.tsx
+msgid "Allow Accessibility access"
+msgstr "Allow Accessibility access"
+
+#: src/onboarding/permissions.tsx
 msgid "Allow microphone access"
 msgstr "Allow microphone access"
 
@@ -169,6 +174,10 @@ msgstr "Anarlog can hear others"
 msgid "Anarlog can hear your voice"
 msgstr "Anarlog can hear your voice"
 
+#: src/onboarding/permissions.tsx
+msgid "Anarlog can read meeting details"
+msgstr "Anarlog can read meeting details"
+
 #: src/settings/general/storage/legacy-cleanup.tsx
 msgid "Anarlog could not verify the migration status"
 msgstr "Anarlog could not verify the migration status"
@@ -176,6 +185,10 @@ msgstr "Anarlog could not verify the migration status"
 #: src/onboarding/index.tsx
 msgid "Anarlog needs access to your microphone and system audio to record and transcribe your meetings"
 msgstr "Anarlog needs access to your microphone and system audio to record and transcribe your meetings"
+
+#: src/onboarding/index.tsx
+msgid "Anarlog needs microphone and system audio to transcribe your meetings, plus Accessibility to read meeting controls, visible chat, and participant status."
+msgstr "Anarlog needs microphone and system audio to transcribe your meetings, plus Accessibility to read meeting controls, visible chat, and participant status."
 
 #: src/onboarding/index.tsx
 msgid "Anarlog will sync your calendar to get meeting reminders"
@@ -893,6 +906,10 @@ msgstr "Match whole word"
 msgid "Meeting"
 msgstr "Meeting"
 
+#: src/onboarding/permissions.tsx
+msgid "Meeting details access turned on"
+msgstr "Meeting details access turned on"
+
 #: src/settings/general/app-settings.tsx
 msgid "Meetings"
 msgstr "Meetings"
@@ -1243,6 +1260,10 @@ msgstr "Pro"
 msgid "Pro trial"
 msgstr "Pro trial"
 
+#: src/onboarding/permissions.tsx
+msgid "Read meeting controls, visible chat, and participant status"
+msgstr "Read meeting controls, visible chat, and participant status"
+
 #: src/onboarding/index.tsx
 msgid "Ready to go"
 msgstr "Ready to go"
@@ -1335,8 +1356,8 @@ msgid "Required to capture other participants' voices in meetings"
 msgstr "Required to capture other participants' voices in meetings"
 
 #: src/settings/general/permissions.tsx
-msgid "Required to detect meeting apps and sync mute status"
-msgstr "Required to detect meeting apps and sync mute status"
+msgid "Required to read meeting controls, visible chat, and participant status"
+msgstr "Required to read meeting controls, visible chat, and participant status"
 
 #: src/settings/general/permissions.tsx
 msgid "Required to record your voice during meetings and calls"

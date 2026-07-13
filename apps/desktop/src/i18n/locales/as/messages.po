@@ -63,6 +63,7 @@ msgstr ""
 msgid "A to Z"
 msgstr ""
 
+#: src/onboarding/permissions.tsx
 #: src/settings/general/permissions.tsx
 msgid "Accessibility"
 msgstr ""
@@ -146,6 +147,10 @@ msgid "Allow access"
 msgstr ""
 
 #: src/onboarding/permissions.tsx
+msgid "Allow Accessibility access"
+msgstr ""
+
+#: src/onboarding/permissions.tsx
 msgid "Allow microphone access"
 msgstr ""
 
@@ -169,12 +174,20 @@ msgstr ""
 msgid "Anarlog can hear your voice"
 msgstr ""
 
+#: src/onboarding/permissions.tsx
+msgid "Anarlog can read meeting details"
+msgstr ""
+
 #: src/settings/general/storage/legacy-cleanup.tsx
 msgid "Anarlog could not verify the migration status"
 msgstr ""
 
 #: src/onboarding/index.tsx
 msgid "Anarlog needs access to your microphone and system audio to record and transcribe your meetings"
+msgstr ""
+
+#: src/onboarding/index.tsx
+msgid "Anarlog needs microphone and system audio to transcribe your meetings, plus Accessibility to read meeting controls, visible chat, and participant status."
 msgstr ""
 
 #: src/onboarding/index.tsx
@@ -893,6 +906,10 @@ msgstr ""
 msgid "Meeting"
 msgstr ""
 
+#: src/onboarding/permissions.tsx
+msgid "Meeting details access turned on"
+msgstr ""
+
 #: src/settings/general/app-settings.tsx
 msgid "Meetings"
 msgstr "সভাসমূহ"
@@ -1243,6 +1260,10 @@ msgstr ""
 msgid "Pro trial"
 msgstr ""
 
+#: src/onboarding/permissions.tsx
+msgid "Read meeting controls, visible chat, and participant status"
+msgstr ""
+
 #: src/onboarding/index.tsx
 msgid "Ready to go"
 msgstr ""
@@ -1335,7 +1356,7 @@ msgid "Required to capture other participants' voices in meetings"
 msgstr ""
 
 #: src/settings/general/permissions.tsx
-msgid "Required to detect meeting apps and sync mute status"
+msgid "Required to read meeting controls, visible chat, and participant status"
 msgstr ""
 
 #: src/settings/general/permissions.tsx

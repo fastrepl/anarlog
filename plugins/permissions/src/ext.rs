@@ -35,6 +35,12 @@ pub enum Permission {
 }
 
 #[cfg(target_os = "macos")]
+fn should_check_via_sidecar(permission: Permission) -> bool {
+    // Accessibility trust is process-scoped, so a helper cannot report the app's status.
+    !matches!(permission, Permission::Accessibility)
+}
+
+#[cfg(target_os = "macos")]
 #[link(name = "IOKit", kind = "framework")]
 unsafe extern "C" {
     fn IOHIDCheckAccess(request_type: u32) -> u32;
@@ -77,14 +83,16 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Permissions<'a, R, M> {
     pub async fn check(&self, permission: Permission) -> Result<PermissionStatus, crate::Error> {
         #[cfg(target_os = "macos")]
         {
-            if let Some(status) = self.check_sidecar(permission).await {
-                return Ok(status);
-            }
+            if should_check_via_sidecar(permission) {
+                if let Some(status) = self.check_sidecar(permission).await {
+                    return Ok(status);
+                }
 
-            tracing::warn!(
-                ?permission,
-                "sidecar unavailable, falling back to in-process check"
-            );
+                tracing::warn!(
+                    ?permission,
+                    "sidecar unavailable, falling back to in-process check"
+                );
+            }
         }
 
         match permission {
@@ -641,6 +649,31 @@ impl<R: tauri::Runtime, T: tauri::Manager<R>> PermissionsPluginExt<R> for T {
         Permissions {
             manager: self,
             _runtime: std::marker::PhantomData,
+        }
+    }
+}
+
+#[cfg(all(test, target_os = "macos"))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn accessibility_check_bypasses_sidecar() {
+        assert!(!should_check_via_sidecar(Permission::Accessibility));
+    }
+
+    #[test]
+    fn other_permission_checks_keep_using_sidecar() {
+        for permission in [
+            Permission::Calendar,
+            Permission::Reminders,
+            Permission::Contacts,
+            Permission::Microphone,
+            Permission::SystemAudio,
+            Permission::ScreenRecording,
+            Permission::InputMonitoring,
+        ] {
+            assert!(should_check_via_sidecar(permission));
         }
     }
 }
