@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use hypr_db_core::Db;
 
-const DEV_BUNDLE_ID: &str = "com.hyprnote.dev";
 const DB_FILENAME: &str = "app.db";
 
 pub async fn open_desktop_db(identifier: &str) -> Arc<Db> {
@@ -19,10 +18,6 @@ pub async fn open_desktop_db(identifier: &str) -> Arc<Db> {
 }
 
 fn desktop_db_dir(identifier: &str) -> Option<std::path::PathBuf> {
-    if identifier == DEV_BUNDLE_ID {
-        return None;
-    }
-
     let data_dir = dirs::data_dir().expect("data_dir must be available");
     let default_dir =
         hypr_storage::global::compute_default_base(identifier).expect("data_dir must be available");
@@ -32,5 +27,17 @@ fn desktop_db_dir(identifier: &str) -> Option<std::path::PathBuf> {
         Some(identifier_dir)
     } else {
         Some(default_dir)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dev_uses_an_isolated_persistent_database() {
+        let db_dir = desktop_db_dir("com.hyprnote.dev").unwrap();
+
+        assert!(db_dir.ends_with("com.hyprnote.dev"));
     }
 }
