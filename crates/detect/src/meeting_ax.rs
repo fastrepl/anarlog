@@ -79,6 +79,8 @@ const MEETING_APP_BUNDLES: &[MeetingAppBundle] = &[
 const MAX_TREE_DEPTH: usize = 18;
 #[cfg(target_os = "macos")]
 const MAX_NODES: usize = 1800;
+#[cfg(target_os = "macos")]
+const MIN_VIDEO_AREA: f64 = 18_000.0;
 const MAX_MEETING_CHAT_MESSAGE_CHARS: usize = 2_000;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type, PartialEq, Eq)]
@@ -108,13 +110,12 @@ pub enum MeetingChatDirection {
     Outgoing,
 }
 
-#[cfg(target_os = "macos")]
-#[derive(Debug, Clone, PartialEq)]
-struct AxRect {
-    x: f64,
-    y: f64,
-    width: f64,
-    height: f64,
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type, PartialEq)]
+pub struct AxRect {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
@@ -122,6 +123,20 @@ struct AxRect {
 pub struct MeetingApp {
     pub id: String,
     pub name: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct MeetingParticipantStream {
+    pub id: String,
+    pub platform: MeetingPlatform,
+    pub surface: MeetingSurface,
+    pub participant_name: Option<String>,
+    pub label: Option<String>,
+    pub bounds: Option<AxRect>,
+    pub confidence: f32,
+    pub is_active_speaker: bool,
+    pub signals: Vec<String>,
 }
 
 #[cfg(target_os = "macos")]
@@ -133,6 +148,20 @@ struct MeetingChatTarget {
     confidence: f32,
     #[cfg(test)]
     signals: Vec<String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct MeetingAccessibilityInspection {
+    pub app: MeetingApp,
+    pub pid: i32,
+    pub platform: MeetingPlatform,
+    pub surface: MeetingSurface,
+    pub accessibility_trusted: bool,
+    pub window_title: Option<String>,
+    pub participant_streams: Vec<MeetingParticipantStream>,
+    pub active_speakers: Vec<String>,
+    pub warnings: Vec<String>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
@@ -174,7 +203,6 @@ pub struct MeetingChatCaptureResult {
 #[cfg(target_os = "macos")]
 #[derive(Debug, Clone)]
 struct AxNode {
-    #[cfg(test)]
     index: usize,
     tree_path: Vec<usize>,
     element_hash: Option<usize>,
@@ -218,7 +246,6 @@ struct SlackHuddleRoot {
 #[cfg(target_os = "macos")]
 struct BrowserMeetingRoot {
     platform: MeetingPlatform,
-    #[cfg(test)]
     window_title: Option<String>,
     web_area_url: Option<String>,
     nodes: Vec<AxNode>,
@@ -254,6 +281,20 @@ fn unique_scope_for_search(count: usize, complete: bool) -> UniqueMatch {
     } else {
         UniqueMatch::Ambiguous
     }
+}
+
+#[cfg(target_os = "macos")]
+pub fn inspect_meeting_accessibility() -> Vec<MeetingAccessibilityInspection> {
+    let accessibility_trusted = macos_accessibility_client::accessibility::application_is_trusted();
+    running_meeting_apps()
+        .into_iter()
+        .map(|(app, pid)| inspect_app(app, pid, accessibility_trusted))
+        .collect()
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn inspect_meeting_accessibility() -> Vec<MeetingAccessibilityInspection> {
+    Vec::new()
 }
 
 fn validate_meeting_chat_message(message: &str) -> Result<(), &'static str> {
@@ -440,6 +481,17 @@ fn running_apps_for_bundle(bundle_id: &str) -> Vec<(MeetingApp, i32)> {
     }
 
     apps
+}
+
+#[cfg(target_os = "macos")]
+fn running_meeting_apps() -> Vec<(MeetingApp, i32)> {
+    let mut seen = HashSet::new();
+
+    MEETING_APP_BUNDLES
+        .iter()
+        .flat_map(|bundle| running_apps_for_bundle(bundle.id))
+        .filter(|(_, pid)| seen.insert(*pid))
+        .collect()
 }
 
 #[cfg(target_os = "macos")]
@@ -1535,7 +1587,6 @@ fn collect_browser_meeting_roots(
 
             Some(BrowserMeetingRoot {
                 platform,
-                #[cfg(test)]
                 window_title,
                 web_area_url,
                 nodes,
@@ -1813,6 +1864,120 @@ fn inspection_label(node: &AxNode) -> Option<String> {
 }
 
 #[cfg(target_os = "macos")]
+fn inspect_app(
+    app: MeetingApp,
+    pid: i32,
+    accessibility_trusted: bool,
+) -> MeetingAccessibilityInspection {
+    let mut warnings = Vec::new();
+    let bundle_platform = classify_bundle(&app.id);
+    let mut window_title = None;
+    let mut nodes = Vec::new();
+    let mut scoped_platform = None;
+
+    if accessibility_trusted {
+        let ax_app = ax::UiElement::with_app_pid(pid);
+        let _ = ax_app.set_messaging_timeout_secs(0.6);
+        if bundle_platform == MeetingPlatform::Slack {
+            let mut roots = collect_slack_huddle_roots(&ax_app, &mut warnings);
+            match roots.len() {
+                0 => warnings.push(
+                    "Slack is running without a uniquely validated active Huddle".to_string(),
+                ),
+                1 => {
+                    let root = roots.remove(0);
+                    window_title = Some(root.label);
+                    nodes = root.nodes;
+                }
+                count => warnings.push(format!(
+                    "Slack exposed {count} active Huddle windows; inspection is scoped to none"
+                )),
+            }
+        } else if is_browser_bundle(&app.id) {
+            let (mut roots, has_unscoped_meeting_window) =
+                collect_browser_meeting_roots(&ax_app, &mut warnings);
+            let root_match = if has_unscoped_meeting_window {
+                UniqueMatch::Ambiguous
+            } else {
+                unique_scope_for_count(roots.len())
+            };
+            match root_match {
+                UniqueMatch::Missing => warnings.push(
+                    "browser inspection found no uniquely scoped meeting AXWindow and active AXWebArea"
+                        .to_string(),
+                ),
+                UniqueMatch::One(index) => {
+                    let root = roots.remove(index);
+                    scoped_platform = Some(root.platform);
+                    window_title = root.window_title;
+                    nodes = root.nodes;
+                }
+                UniqueMatch::Ambiguous => warnings.push(
+                    "browser meeting window scope was ambiguous; inspection is scoped to none"
+                        .to_string(),
+                ),
+            }
+        } else if bundle_platform != MeetingPlatform::Unknown {
+            let mut roots = collect_native_meeting_roots(&ax_app, &bundle_platform, &mut warnings);
+            match unique_scope_for_count(roots.len()) {
+                UniqueMatch::Missing => {
+                    warnings.push(
+                        "native app exposed no evidence-backed meeting AXWindow; inspection is scoped to none"
+                            .to_string(),
+                    );
+                }
+                UniqueMatch::One(index) => {
+                    let root = roots.remove(index);
+                    scoped_platform = Some(bundle_platform.clone());
+                    window_title = root.window_title;
+                    nodes = root.nodes;
+                }
+                UniqueMatch::Ambiguous => {
+                    warnings.push(
+                        "native app exposed multiple meeting AXWindows; inspection is scoped to none"
+                            .to_string(),
+                    );
+                }
+            }
+        } else {
+            scoped_platform = Some(MeetingPlatform::Unknown);
+            warnings.push("app bundle has no validated meeting inspection path".to_string());
+        }
+    } else {
+        warnings.push("macOS accessibility permission is not trusted".to_string());
+    }
+
+    let platform = scoped_platform.unwrap_or_else(|| {
+        classify_platform(&app.id, window_title.as_deref(), &nodes, bundle_platform)
+    });
+    let surface = classify_surface(&app.id, &platform);
+    let participant_streams = find_participant_streams(&platform, &surface, &nodes);
+    let mut active_speaker_names = HashSet::new();
+    let active_speakers = participant_streams
+        .iter()
+        .filter(|stream| stream.is_active_speaker)
+        .filter_map(|stream| {
+            stream
+                .participant_name
+                .clone()
+                .or_else(|| stream.label.clone())
+        })
+        .filter(|name| active_speaker_names.insert(name.trim().to_ascii_lowercase()))
+        .collect();
+    MeetingAccessibilityInspection {
+        app,
+        pid,
+        platform,
+        surface,
+        accessibility_trusted,
+        window_title,
+        participant_streams,
+        active_speakers,
+        warnings,
+    }
+}
+
+#[cfg(target_os = "macos")]
 fn collect_nodes(
     element: &ax::UiElement,
     depth: usize,
@@ -1893,7 +2058,7 @@ fn collect_nodes_with_scope(
 }
 
 #[cfg(target_os = "macos")]
-fn snapshot_node(element: &ax::UiElement, _index: usize) -> AxNode {
+fn snapshot_node(element: &ax::UiElement, index: usize) -> AxNode {
     let element_hash = Some(element.hash());
     let role = element.role().ok().map(|role| role.to_string());
     let identifier = string_attr(element, ax::attr::id());
@@ -1919,8 +2084,7 @@ fn snapshot_node(element: &ax::UiElement, _index: usize) -> AxNode {
     );
 
     AxNode {
-        #[cfg(test)]
-        index: _index,
+        index,
         tree_path: Vec::new(),
         element_hash,
         role,
@@ -2323,6 +2487,20 @@ fn is_platform_active_call_control(platform: &MeetingPlatform, node: &AxNode) ->
 }
 
 #[cfg(target_os = "macos")]
+fn classify_platform(
+    bundle_id: &str,
+    _window_title: Option<&str>,
+    _nodes: &[AxNode],
+    bundle_platform: MeetingPlatform,
+) -> MeetingPlatform {
+    if is_browser_bundle(bundle_id) {
+        MeetingPlatform::Unknown
+    } else {
+        bundle_platform
+    }
+}
+
+#[cfg(target_os = "macos")]
 fn classify_surface(bundle_id: &str, platform: &MeetingPlatform) -> MeetingSurface {
     if is_browser_bundle(bundle_id) {
         MeetingSurface::Web
@@ -2348,6 +2526,50 @@ fn is_meeting_app_bundle(bundle_id: &str) -> bool {
 #[cfg(target_os = "macos")]
 fn is_browser_bundle(bundle_id: &str) -> bool {
     meeting_app_bundle(bundle_id).is_some_and(|bundle| bundle.kind == MeetingAppBundleKind::Browser)
+}
+
+#[cfg(target_os = "macos")]
+fn find_participant_streams(
+    platform: &MeetingPlatform,
+    surface: &MeetingSurface,
+    nodes: &[AxNode],
+) -> Vec<MeetingParticipantStream> {
+    if *platform == MeetingPlatform::Unknown {
+        return Vec::new();
+    }
+
+    let mut streams = nodes
+        .iter()
+        .filter_map(|node| candidate_stream(platform, surface, node).map(|stream| (stream, node)))
+        .collect::<Vec<_>>();
+
+    streams.sort_by(|a, b| b.0.confidence.total_cmp(&a.0.confidence));
+    let mut retained_nodes: Vec<(String, &AxNode)> = Vec::new();
+    streams.retain(|(stream, node)| {
+        let duplicate = stream.participant_name.as_deref().is_some_and(|name| {
+            retained_nodes.iter().any(|(retained_name, retained)| {
+                retained_name.eq_ignore_ascii_case(name)
+                    && same_participant_ax_identity(retained, node)
+            })
+        });
+        if !duplicate && let Some(name) = stream.participant_name.clone() {
+            retained_nodes.push((name, node));
+        }
+        !duplicate
+    });
+    streams.truncate(24);
+    streams.into_iter().map(|(stream, _)| stream).collect()
+}
+
+#[cfg(target_os = "macos")]
+fn same_participant_ax_identity(left: &AxNode, right: &AxNode) -> bool {
+    left.element_hash
+        .zip(right.element_hash)
+        .is_some_and(|(left, right)| left == right)
+        || (!left.tree_path.is_empty()
+            && !right.tree_path.is_empty()
+            && (left.tree_path.starts_with(&right.tree_path)
+                || right.tree_path.starts_with(&left.tree_path)))
 }
 
 #[cfg(target_os = "macos")]
@@ -2395,6 +2617,268 @@ fn zoom_meeting_evidence_label(node: &AxNode) -> Option<&str> {
     }
 
     None
+}
+
+#[cfg(target_os = "macos")]
+fn zoom_participant_evidence_label(node: &AxNode) -> Option<&str> {
+    let role = node.role.as_deref()?;
+    if matches!(role, "AXGroup" | "AXCell" | "AXRow")
+        && let Some(label) = node_labels(node).find(|label| has_explicit_speaker_state(label))
+    {
+        return Some(label);
+    }
+
+    zoom_meeting_evidence_label(node)
+}
+
+#[cfg(target_os = "macos")]
+fn slack_participant_evidence_label(node: &AxNode) -> Option<&str> {
+    if node.role.as_deref() != Some("AXCell") {
+        return None;
+    }
+
+    node_labels(node).find(|label| {
+        let label = label.trim();
+        let lower = label.to_ascii_lowercase();
+        lower.starts_with("view ")
+            && lower.ends_with("'s profile")
+            && !label[5..label.len() - "'s profile".len()].trim().is_empty()
+    })
+}
+
+#[cfg(target_os = "macos")]
+fn explicit_web_speaker_evidence_label(node: &AxNode) -> Option<&str> {
+    if !matches!(
+        node.role.as_deref(),
+        Some("AXGroup") | Some("AXCell") | Some("AXRow")
+    ) {
+        return None;
+    }
+
+    node_labels(node).find(|label| has_explicit_speaker_state(label))
+}
+
+#[cfg(target_os = "macos")]
+fn participant_evidence_label<'a>(
+    platform: &MeetingPlatform,
+    surface: &MeetingSurface,
+    node: &'a AxNode,
+) -> Option<&'a str> {
+    match (platform, surface) {
+        (MeetingPlatform::Zoom, MeetingSurface::Native) => zoom_participant_evidence_label(node),
+        (MeetingPlatform::Zoom, MeetingSurface::Web) => zoom_participant_evidence_label(node)
+            .or_else(|| explicit_web_speaker_evidence_label(node)),
+        (MeetingPlatform::Slack, MeetingSurface::Native) => slack_participant_evidence_label(node),
+        (
+            MeetingPlatform::GoogleMeet
+            | MeetingPlatform::MicrosoftTeams
+            | MeetingPlatform::Slack
+            | MeetingPlatform::Webex,
+            MeetingSurface::Web,
+        ) => explicit_web_speaker_evidence_label(node),
+        _ => None,
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn candidate_stream(
+    platform: &MeetingPlatform,
+    surface: &MeetingSurface,
+    node: &AxNode,
+) -> Option<MeetingParticipantStream> {
+    let role = node.role.as_deref().unwrap_or_default();
+    let text = node.text.as_str();
+    let evidence_label = participant_evidence_label(platform, surface, node)?;
+    let area = node
+        .bounds
+        .as_ref()
+        .map(|r| r.width * r.height)
+        .unwrap_or(0.0);
+    let mut signals = Vec::new();
+    let mut confidence = 0.55;
+
+    if role == "AXGroup" && area >= MIN_VIDEO_AREA {
+        confidence += 0.15;
+        signals.push("large-group".to_string());
+    }
+    if evidence_label
+        .to_ascii_lowercase()
+        .starts_with("video render ")
+        || evidence_label.trim().eq_ignore_ascii_case("video tile")
+    {
+        signals.push("video-label".to_string());
+    } else {
+        signals.push("participant-row-label".to_string());
+    }
+    if node_labels(node).any(has_explicit_speaker_state) {
+        confidence += 0.25;
+        signals.push("speaker-state-label".to_string());
+    }
+    if text.contains("computer audio") || text.contains("no audio connected") {
+        confidence += 0.15;
+        signals.push("audio-state-label".to_string());
+    }
+    if area >= MIN_VIDEO_AREA {
+        confidence += 0.15;
+        signals.push("video-sized-bounds".to_string());
+    }
+
+    let label = Some(evidence_label.to_string());
+    let participant_name = participant_name_from_evidence(platform, evidence_label);
+    let is_active_speaker = signals.iter().any(|signal| signal == "speaker-state-label");
+
+    Some(MeetingParticipantStream {
+        id: node.element_hash.map_or_else(
+            || format!("ax-node-{}", node.index),
+            |hash| format!("ax-element-{hash:x}"),
+        ),
+        platform: platform.clone(),
+        surface: surface.clone(),
+        participant_name,
+        label,
+        bounds: node.bounds.clone(),
+        confidence,
+        is_active_speaker,
+        signals,
+    })
+}
+
+#[cfg(target_os = "macos")]
+fn participant_name_from_evidence(
+    platform: &MeetingPlatform,
+    evidence_label: &str,
+) -> Option<String> {
+    let label = evidence_label.trim();
+    let lower = label.to_ascii_lowercase();
+    match platform {
+        MeetingPlatform::Zoom => {
+            if lower == "video tile" {
+                return None;
+            }
+
+            if let Some(name) = participant_name_from_speaker_label(label) {
+                return Some(name);
+            }
+
+            if lower.starts_with("video render ") {
+                return label["Video render ".len()..]
+                    .split(',')
+                    .next()
+                    .map(str::trim)
+                    .filter(|name| !name.is_empty())
+                    .map(str::to_string);
+            }
+
+            let end = label
+                .find('(')
+                .or_else(|| lower.find("participant id:"))
+                .unwrap_or(label.len());
+            let name = label[..end].trim().trim_end_matches(',').trim();
+            (!name.is_empty()).then(|| name.to_string())
+        }
+        MeetingPlatform::Slack if lower.starts_with("view ") && lower.ends_with("'s profile") => {
+            Some(
+                label["View ".len()..label.len() - "'s profile".len()]
+                    .trim()
+                    .to_string(),
+            )
+        }
+        MeetingPlatform::GoogleMeet
+        | MeetingPlatform::MicrosoftTeams
+        | MeetingPlatform::Slack
+        | MeetingPlatform::Webex => participant_name_from_speaker_label(label),
+        MeetingPlatform::Discord | MeetingPlatform::Unknown => None,
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn participant_name_from_speaker_label(label: &str) -> Option<String> {
+    let label = label.trim();
+    let lower = label.to_ascii_lowercase();
+    let name = if lower.starts_with("active speaker: ") {
+        &label["active speaker: ".len()..]
+    } else if lower.ends_with(" is speaking") {
+        &label[..label.len() - " is speaking".len()]
+    } else if let Some(index) = explicit_speaker_marker_index(&lower, ", active speaker") {
+        &label[..index]
+    } else if let Some(index) = explicit_speaker_marker_index(&lower, ", speaking") {
+        &label[..index]
+    } else {
+        return None;
+    };
+
+    let name = name
+        .trim()
+        .trim_end_matches(" (You)")
+        .trim_end_matches(" (you)")
+        .trim();
+    let name = if name.to_ascii_lowercase().starts_with("video render ") {
+        name["video render ".len()..].trim()
+    } else {
+        name
+    };
+    let is_false_state = matches!(
+        name.to_ascii_lowercase().as_str(),
+        "false" | "none" | "off" | "no"
+    );
+    (!name.is_empty() && !is_false_state && is_plausible_participant_name(name))
+        .then(|| name.to_string())
+}
+
+#[cfg(target_os = "macos")]
+fn is_plausible_participant_name(name: &str) -> bool {
+    let name = name.trim();
+    if name.is_empty()
+        || name.chars().count() > 80
+        || name
+            .chars()
+            .any(|character| matches!(character, '\n' | '\r' | '?' | '!'))
+    {
+        return false;
+    }
+
+    let words = name
+        .split_whitespace()
+        .map(|word| {
+            word.trim_matches(|character: char| !character.is_alphanumeric())
+                .to_ascii_lowercase()
+        })
+        .filter(|word| !word.is_empty())
+        .collect::<Vec<_>>();
+    const GENERIC_SUBJECTS: &[&str] = &[
+        "anybody",
+        "anyone",
+        "everybody",
+        "everyone",
+        "nobody",
+        "participant",
+        "participants",
+        "person",
+        "somebody",
+        "someone",
+        "speaker",
+        "speakers",
+        "what",
+        "who",
+    ];
+
+    !words.is_empty()
+        && words.len() <= 6
+        && !words
+            .iter()
+            .any(|word| GENERIC_SUBJECTS.contains(&word.as_str()))
+}
+
+#[cfg(target_os = "macos")]
+fn explicit_speaker_marker_index(label: &str, marker: &str) -> Option<usize> {
+    let index = label.find(marker)?;
+    let suffix = &label[index + marker.len()..];
+    (suffix.is_empty() || suffix == " (you)").then_some(index)
+}
+
+#[cfg(target_os = "macos")]
+fn has_explicit_speaker_state(label: &str) -> bool {
+    participant_name_from_speaker_label(label).is_some()
 }
 
 #[cfg(target_os = "macos")]
@@ -3140,6 +3624,151 @@ mod tests {
     }
 
     #[test]
+    fn test_participant_name_from_zoom_video_render_label() {
+        assert_eq!(
+            participant_name_from_evidence(
+                &MeetingPlatform::Zoom,
+                "Video render Ada Lovelace, Computer audio unmuted",
+            ),
+            Some("Ada Lovelace".to_string())
+        );
+    }
+
+    #[test]
+    fn test_zoom_video_render_becomes_stream_candidate_with_audio_state() {
+        let nodes = vec![node(
+            7,
+            "AXGroup",
+            "Video render Ada Lovelace, Computer audio unmuted",
+            Some(AxRect {
+                x: 0.0,
+                y: 0.0,
+                width: 320.0,
+                height: 180.0,
+            }),
+        )];
+
+        let streams =
+            find_participant_streams(&MeetingPlatform::Zoom, &MeetingSurface::Native, &nodes);
+
+        assert_eq!(streams.len(), 1);
+        assert_eq!(
+            streams[0].participant_name,
+            Some("Ada Lovelace".to_string())
+        );
+        assert!(!streams[0].is_active_speaker);
+        assert!(streams[0].confidence > 0.6);
+        assert!(
+            streams[0]
+                .signals
+                .contains(&"audio-state-label".to_string())
+        );
+    }
+
+    #[test]
+    fn test_explicit_active_speaker_label_marks_stream_active() {
+        let nodes = vec![node(
+            9,
+            "AXGroup",
+            "Video render Grace Hopper, active speaker",
+            Some(AxRect {
+                x: 0.0,
+                y: 0.0,
+                width: 320.0,
+                height: 180.0,
+            }),
+        )];
+
+        let streams =
+            find_participant_streams(&MeetingPlatform::Zoom, &MeetingSurface::Native, &nodes);
+
+        assert_eq!(streams.len(), 1);
+        assert!(streams[0].is_active_speaker);
+        assert!(
+            streams[0]
+                .signals
+                .contains(&"speaker-state-label".to_string())
+        );
+    }
+
+    #[test]
+    fn test_zoom_prefers_named_speaker_state_over_generic_video_tile() {
+        let mut tile = fixture_node(9, "AXGroup", "Video tile", &[0, 1]);
+        tile.description = Some("Grace Hopper is speaking".to_string());
+        tile.text = node_text(
+            &tile.role,
+            &tile.title,
+            &tile.value,
+            &tile.description,
+            &tile.placeholder,
+        );
+
+        let streams =
+            find_participant_streams(&MeetingPlatform::Zoom, &MeetingSurface::Native, &[tile]);
+
+        assert_eq!(streams.len(), 1);
+        assert_eq!(
+            streams[0].participant_name,
+            Some("Grace Hopper".to_string())
+        );
+        assert_eq!(streams[0].id, "ax-element-1009");
+        assert!(streams[0].is_active_speaker);
+    }
+
+    #[test]
+    fn test_participant_streams_deduplicate_repeated_named_ax_nodes() {
+        let first = fixture_node(9, "AXGroup", "Grace Hopper is speaking", &[0, 1]);
+        let second = fixture_node(10, "AXRow", "Grace Hopper is speaking", &[0, 1, 0]);
+
+        let streams = find_participant_streams(
+            &MeetingPlatform::Zoom,
+            &MeetingSurface::Native,
+            &[first, second],
+        );
+
+        assert_eq!(streams.len(), 1);
+        assert_eq!(
+            streams[0].participant_name,
+            Some("Grace Hopper".to_string())
+        );
+    }
+
+    #[test]
+    fn test_participant_streams_keep_distinct_people_with_the_same_name() {
+        let first = fixture_node(11, "AXGroup", "Alex Kim is speaking", &[0, 1]);
+        let second = fixture_node(12, "AXGroup", "Alex Kim is speaking", &[0, 2]);
+
+        let streams = find_participant_streams(
+            &MeetingPlatform::Zoom,
+            &MeetingSurface::Native,
+            &[first, second],
+        );
+
+        assert_eq!(streams.len(), 2);
+        assert!(
+            streams
+                .iter()
+                .all(|stream| stream.participant_name.as_deref() == Some("Alex Kim"))
+        );
+    }
+
+    #[test]
+    fn test_slack_profile_row_is_participant_without_claiming_audio_is_speaking() {
+        let streams = find_participant_streams(
+            &MeetingPlatform::Slack,
+            &MeetingSurface::Native,
+            &[
+                node(12, "AXCell", "View John Jeong's profile", None),
+                node(13, "AXStaticText", "Audio", None),
+            ],
+        );
+
+        assert_eq!(streams.len(), 1);
+        assert_eq!(streams[0].participant_name, Some("John Jeong".to_string()));
+        assert!(!streams[0].is_active_speaker);
+    }
+
+    #[test]
     fn test_slack_huddle_requires_huddle_label_and_enabled_leave_control() {
         let mut composer = node(2, "AXTextArea", "Message to test", None);
         composer.settable_value = true;
@@ -3281,6 +3910,37 @@ mod tests {
         assert!(!read_only_input.text.contains("private read-only text"));
         assert_eq!(node_labels(&read_only_input).count(), 0);
 
+        let mut participant = node(
+            7,
+            "AXImage",
+            "",
+            Some(AxRect {
+                x: 0.0,
+                y: 0.0,
+                width: 200.0,
+                height: 100.0,
+            }),
+        );
+        participant.title = None;
+        participant.settable_value = true;
+        participant.value = Some("private participant value".to_string());
+        participant.text = searchable_node_text(
+            &participant.role,
+            &participant.title,
+            &participant.value,
+            &participant.description,
+            &participant.placeholder,
+            participant.settable_value,
+        );
+        assert!(
+            candidate_stream(
+                &MeetingPlatform::Slack,
+                &MeetingSurface::Native,
+                &participant,
+            )
+            .is_none()
+        );
+
         let mut secure_input = read_only_input.clone();
         secure_input.role = Some("AXSecureTextField".to_string());
         secure_input.value = Some("private password".to_string());
@@ -3294,6 +3954,68 @@ mod tests {
         );
         assert!(!secure_input.text.contains("private password"));
         assert_eq!(node_labels(&secure_input).count(), 0);
+    }
+
+    #[test]
+    fn test_private_video_text_and_large_images_are_not_participant_streams() {
+        let private_nodes = [
+            node(20, "AXStaticText", "Private video notes", None),
+            node(
+                21,
+                "AXImage",
+                "Private camera preview",
+                Some(AxRect {
+                    x: 0.0,
+                    y: 0.0,
+                    width: 640.0,
+                    height: 480.0,
+                }),
+            ),
+        ];
+
+        for platform in [
+            MeetingPlatform::Zoom,
+            MeetingPlatform::GoogleMeet,
+            MeetingPlatform::MicrosoftTeams,
+            MeetingPlatform::Slack,
+            MeetingPlatform::Discord,
+            MeetingPlatform::Webex,
+        ] {
+            assert!(
+                find_participant_streams(&platform, &MeetingSurface::Native, &private_nodes)
+                    .is_empty(),
+                "unexpected participant for {platform:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_zoom_participant_anchor_is_platform_specific_across_surfaces() {
+        let participant = node(
+            22,
+            "AXGroup",
+            "Video render Ada Lovelace, Computer audio unmuted",
+            None,
+        );
+
+        assert!(
+            candidate_stream(
+                &MeetingPlatform::Zoom,
+                &MeetingSurface::Native,
+                &participant,
+            )
+            .is_some()
+        );
+        assert!(
+            candidate_stream(&MeetingPlatform::Zoom, &MeetingSurface::Web, &participant,).is_some()
+        );
+        for platform in [
+            MeetingPlatform::MicrosoftTeams,
+            MeetingPlatform::Discord,
+            MeetingPlatform::Webex,
+        ] {
+            assert!(candidate_stream(&platform, &MeetingSurface::Native, &participant).is_none());
+        }
     }
 
     #[test]
@@ -3337,6 +4059,27 @@ mod tests {
             &MeetingPlatform::Webex,
             &[fixture_node(6, "AXButton", "Leave meeting", &[0])],
         ));
+    }
+
+    #[test]
+    fn test_unknown_browser_surface_does_not_emit_participant_streams() {
+        let streams = find_participant_streams(
+            &MeetingPlatform::Unknown,
+            &MeetingSurface::Unknown,
+            &[node(
+                8,
+                "AXGroup",
+                "Video render Private Browser Content, active speaker",
+                Some(AxRect {
+                    x: 0.0,
+                    y: 0.0,
+                    width: 320.0,
+                    height: 180.0,
+                }),
+            )],
+        );
+
+        assert!(streams.is_empty());
     }
 
     #[test]
@@ -3969,6 +4712,94 @@ mod tests {
     }
 
     #[test]
+    fn test_web_speaker_mapping_requires_an_explicit_accessibility_state() {
+        for platform in [
+            MeetingPlatform::Zoom,
+            MeetingPlatform::GoogleMeet,
+            MeetingPlatform::MicrosoftTeams,
+            MeetingPlatform::Slack,
+            MeetingPlatform::Webex,
+        ] {
+            let speaker = fixture_node(40, "AXGroup", "Ada Lovelace, active speaker", &[4, 0]);
+            let stream = candidate_stream(&platform, &MeetingSurface::Web, &speaker)
+                .unwrap_or_else(|| panic!("failed to map {platform:?} speaker"));
+            assert_eq!(stream.participant_name.as_deref(), Some("Ada Lovelace"));
+            assert!(stream.is_active_speaker);
+
+            let chat_text = fixture_node(
+                41,
+                "AXStaticText",
+                "We should discuss active speaker behavior",
+                &[4, 1],
+            );
+            assert!(candidate_stream(&platform, &MeetingSurface::Web, &chat_text).is_none());
+        }
+
+        for label in [
+            "Ada Lovelace, speaking French",
+            "Ada Lovelace, speaking=false",
+            "Ada Lovelace, active speaker=false",
+            "Ada Lovelace, active speaker (false)",
+            "Ada Lovelace, active speaker, false",
+            "Ada Lovelace, speaking, French",
+            "Active speaker: false",
+            "who is speaking",
+            "We should discuss who is speaking",
+            "someone is speaking",
+        ] {
+            let false_state = fixture_node(42, "AXGroup", label, &[4, 2]);
+            assert!(
+                candidate_stream(
+                    &MeetingPlatform::GoogleMeet,
+                    &MeetingSurface::Web,
+                    &false_state,
+                )
+                .is_none()
+            );
+        }
+
+        let false_zoom_state = fixture_node(
+            43,
+            "AXGroup",
+            "Video render Ada Lovelace, speaking=false",
+            &[4, 3],
+        );
+        assert!(
+            candidate_stream(
+                &MeetingPlatform::Zoom,
+                &MeetingSurface::Native,
+                &false_zoom_state,
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn test_zoom_participant_names_cover_web_speaker_and_native_roster_labels() {
+        assert_eq!(
+            participant_name_from_evidence(
+                &MeetingPlatform::Zoom,
+                "Video render Grace Hopper is speaking",
+            )
+            .as_deref(),
+            Some("Grace Hopper")
+        );
+        assert_eq!(
+            participant_name_from_evidence(&MeetingPlatform::Zoom, "Ada Lovelace, active speaker",)
+                .as_deref(),
+            Some("Ada Lovelace")
+        );
+        assert_eq!(
+            participant_name_from_evidence(
+                &MeetingPlatform::Zoom,
+                "Ada Lovelace (Host, me, Participant ID:417329) No audio connected",
+            )
+            .as_deref(),
+            Some("Ada Lovelace")
+        );
+    }
+
+    #[test]
     fn test_past_slack_huddle_thread_is_not_captured_without_active_huddle() {
         let mut message = node(
             0,
@@ -4218,6 +5049,32 @@ mod tests {
     }
 
     #[test]
+    fn test_zoom_participant_roster_row_becomes_stream_candidate() {
+        let streams = find_participant_streams(
+            &MeetingPlatform::Zoom,
+            &MeetingSurface::Native,
+            &[node(
+                11,
+                "AXStaticText",
+                "Ada Lovelace (Host, me, Participant ID:417329) No audio connected",
+                None,
+            )],
+        );
+
+        assert_eq!(streams.len(), 1);
+        assert!(
+            streams[0]
+                .signals
+                .contains(&"participant-row-label".to_string())
+        );
+        assert!(
+            streams[0]
+                .signals
+                .contains(&"audio-state-label".to_string())
+        );
+    }
+
+    #[test]
     fn test_browser_title_classifies_meet_web() {
         let web_area = node(16, "AXWebArea", "Team sync - Google Meet", None);
         assert_eq!(
@@ -4232,6 +5089,26 @@ mod tests {
         assert_eq!(
             classify_surface("com.google.Chrome", &MeetingPlatform::GoogleMeet),
             MeetingSurface::Web
+        );
+    }
+
+    #[test]
+    fn test_browser_background_tab_nodes_cannot_classify_active_window() {
+        let background_meet_node = node(
+            17,
+            "AXButton",
+            "Team sync - Google Meet background tab",
+            None,
+        );
+
+        assert_eq!(
+            classify_platform(
+                "com.google.Chrome",
+                Some("Inbox - Google Chrome"),
+                &[background_meet_node],
+                MeetingPlatform::Unknown,
+            ),
+            MeetingPlatform::Unknown
         );
     }
 
