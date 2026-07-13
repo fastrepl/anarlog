@@ -6,7 +6,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { forwardRef, useImperativeHandle } from "react";
+import { forwardRef, useImperativeHandle, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { commands } from "~/types/tauri.gen";
@@ -47,6 +47,16 @@ const mocks = vi.hoisted(() => ({
     status: null as null | "available" | "downloading" | "ready" | "failed",
     version: null as string | null,
   },
+  upcomingMeetingStatus: null as null | {
+    itemKey: string;
+    label: string;
+    title: string;
+  },
+  setUpcomingMeetingStatus: null as
+    | null
+    | ((
+        status: null | { itemKey: string; label: string; title: string },
+      ) => void),
 }));
 
 vi.mock("@hypr/ui/components/ui/resizable", () => ({
@@ -223,7 +233,11 @@ vi.mock("~/shared/useNewNote", () => ({
 }));
 
 vi.mock("~/sidebar/timeline/upcoming-meeting", () => ({
-  useSidebarUpcomingMeetingStatus: () => null,
+  useSidebarUpcomingMeetingStatus: () => {
+    const [status, setStatus] = useState(mocks.upcomingMeetingStatus);
+    mocks.setUpcomingMeetingStatus = setStatus;
+    return status;
+  },
 }));
 
 import { ClassicMainBody } from "./body";
@@ -274,6 +288,8 @@ describe("ClassicMainBody", () => {
     mocks.windowsCommands.devtoolsPanelShow.mockClear();
     mocks.updateControl.status = null;
     mocks.updateControl.version = null;
+    mocks.upcomingMeetingStatus = null;
+    mocks.setUpcomingMeetingStatus = null;
     vi.mocked(commands.showDevtool).mockClear();
     vi.mocked(commands.showDevtool).mockResolvedValue(true);
   });
@@ -572,6 +588,25 @@ describe("ClassicMainBody", () => {
     expect(bodyRoot?.style.getPropertyValue("--left-sidebar-panel-size")).toBe(
       "18",
     );
+  });
+
+  it("updates the upcoming meeting badge without rerendering tab content", () => {
+    mocks.leftsidebar.expanded = false;
+    render(<ClassicMainBody />);
+    const initialRenderCount = mocks.tabContentRenderCount;
+
+    act(() => {
+      mocks.setUpcomingMeetingStatus?.({
+        itemKey: "event-standup",
+        label: "In 1m",
+        title: "Team standup",
+      });
+    });
+
+    expect(
+      screen.getByTestId("collapsed-sidebar-upcoming-meeting-badge"),
+    ).toBeTruthy();
+    expect(mocks.tabContentRenderCount).toBe(initialRenderCount);
   });
 
   it("keeps the update button in the fixed sidebar control group", () => {

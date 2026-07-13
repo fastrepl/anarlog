@@ -165,14 +165,9 @@ export function ClassicMainBody() {
     showSidebarTimelineChrome || hasLeftSurfaceCustomSidebar;
   const mainAreaTopDrag = useMainAreaTopWindowDrag(enableMainAreaTopDrag);
   const update = useDesktopUpdateControl();
-  const upcomingMeetingStatus = useSidebarUpcomingMeetingStatus({
-    showIgnored: showIgnoredTimelineEvents,
-  });
   const [leftSidebarResizing, setLeftSidebarResizing] = useState(false);
-  const hasUpcomingMeetingBadge = upcomingMeetingStatus
-    ? currentTab?.type !== "sessions" ||
-      upcomingMeetingStatus.itemKey !== `session-${currentTab.id}`
-    : false;
+  const currentSessionId =
+    currentTab?.type === "sessions" ? currentTab.id : undefined;
   const createNewNote = useNewNote();
   const openNoteDialog = useOpenNoteDialog();
   const handleOpenNoteDialog = useCallback(() => {
@@ -508,15 +503,16 @@ export function ClassicMainBody() {
       className="flex h-9 shrink-0 items-start pt-[9px] pr-1 pl-[76px]"
       onWheelCapture={handleSidebarTimelineHeaderWheel}
     >
-      <SidebarTimelineChrome
+      <SidebarTimelineChromeWithUpcomingMeeting
+        currentSessionId={currentSessionId}
         sidebarExpanded
         showDevtoolsPanelButton={showDevtoolsPanelButton}
+        showIgnoredTimelineEvents={showIgnoredTimelineEvents}
         devtoolsPanelOpen={devtoolsPanelOpen}
         onNewNote={createNewNote}
         onSearch={handleOpenNoteDialog}
         onOpenDevtools={handleOpenDevtoolsPanel}
         onToggleSidebar={handleToggleLeftSidebar}
-        hasUpcomingMeeting={hasUpcomingMeetingBadge}
         update={update}
       />
     </div>
@@ -543,15 +539,16 @@ export function ClassicMainBody() {
             data-tauri-drag-region
             className="flex h-full min-w-0 items-start pt-[9px] pr-1 pl-[76px]"
           >
-            <SidebarTimelineChrome
+            <SidebarTimelineChromeWithUpcomingMeeting
+              currentSessionId={currentSessionId}
               sidebarExpanded={false}
               showDevtoolsPanelButton={showDevtoolsPanelButton}
+              showIgnoredTimelineEvents={showIgnoredTimelineEvents}
               devtoolsPanelOpen={devtoolsPanelOpen}
               onNewNote={createNewNote}
               onSearch={handleOpenNoteDialog}
               onOpenDevtools={handleOpenDevtoolsPanel}
               onToggleSidebar={handleToggleLeftSidebar}
-              hasUpcomingMeeting={hasUpcomingMeetingBadge}
               update={update}
             />
           </div>
@@ -893,6 +890,52 @@ function isMainAreaWindowDrag(
   return (
     deltaX * deltaX + deltaY * deltaY >=
     MAIN_AREA_WINDOW_DRAG_THRESHOLD_PX * MAIN_AREA_WINDOW_DRAG_THRESHOLD_PX
+  );
+}
+
+function SidebarTimelineChromeWithUpcomingMeeting({
+  currentSessionId,
+  devtoolsPanelOpen,
+  onNewNote,
+  onOpenDevtools,
+  onSearch,
+  onToggleSidebar,
+  sidebarExpanded,
+  showDevtoolsPanelButton,
+  showIgnoredTimelineEvents,
+  update,
+}: {
+  currentSessionId?: string;
+  devtoolsPanelOpen: boolean;
+  onNewNote: () => void;
+  onOpenDevtools: () => void;
+  onSearch: () => void;
+  onToggleSidebar: () => void;
+  sidebarExpanded: boolean;
+  showDevtoolsPanelButton: boolean;
+  showIgnoredTimelineEvents: boolean;
+  update: DesktopUpdateControl;
+}) {
+  const upcomingMeetingStatus = useSidebarUpcomingMeetingStatus({
+    showIgnored: showIgnoredTimelineEvents,
+  });
+  const hasUpcomingMeeting = upcomingMeetingStatus
+    ? !currentSessionId ||
+      upcomingMeetingStatus.itemKey !== `session-${currentSessionId}`
+    : false;
+
+  return (
+    <SidebarTimelineChrome
+      devtoolsPanelOpen={devtoolsPanelOpen}
+      hasUpcomingMeeting={hasUpcomingMeeting}
+      onNewNote={onNewNote}
+      onOpenDevtools={onOpenDevtools}
+      onSearch={onSearch}
+      onToggleSidebar={onToggleSidebar}
+      sidebarExpanded={sidebarExpanded}
+      showDevtoolsPanelButton={showDevtoolsPanelButton}
+      update={update}
+    />
   );
 }
 

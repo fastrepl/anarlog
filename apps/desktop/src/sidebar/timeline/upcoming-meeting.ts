@@ -1,7 +1,6 @@
 import { useLingui } from "@lingui/react/macro";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useSyncExternalStore } from "react";
 
-import { useCurrentTimeMs } from "./realtime";
 import {
   buildTimelineBuckets,
   deriveTimelineWindowData,
@@ -14,7 +13,7 @@ import { useTimelineTables } from "~/calendar/queries";
 import { useConfigValue } from "~/shared/config";
 
 const UPCOMING_MEETING_VISIBLE_WINDOW_MS = 5 * 60 * 1000;
-const UPCOMING_MEETING_STATUS_TICK_MS = 1000;
+const UPCOMING_MEETING_STATUS_TICK_MS = 1_000;
 
 export type SidebarUpcomingMeetingStatus = {
   itemKey: string;
@@ -33,9 +32,9 @@ export function useSidebarUpcomingMeetingStatus({
   const { isIgnored } = useIgnoredEvents();
   const formatLabel = useUpcomingMeetingLabelFormatter();
   const { timelineEventsTable, timelineSessionsTable } = useTimelineTables();
-  const currentTimeMs = useCurrentTimeMs(UPCOMING_MEETING_STATUS_TICK_MS);
+  const currentDay = useCurrentDay(timezone);
 
-  return useMemo(() => {
+  const buckets = useMemo(() => {
     const windowData = deriveTimelineWindowData({
       isEventIgnored: isIgnored,
       showIgnored,
@@ -43,28 +42,140 @@ export function useSidebarUpcomingMeetingStatus({
       timelineSessionsTable,
       timezone,
     });
-    const buckets = buildTimelineBuckets({
+
+    return buildTimelineBuckets({
       timelineEventsTable: windowData.timelineEventsTable,
       timelineSessionsTable: windowData.timelineSessionsTable,
       timezone,
     });
-
-    return getUpcomingMeetingStatus(
-      buckets,
-      currentTimeMs,
-      formatLabel,
-      t`Now`,
-    );
   }, [
-    currentTimeMs,
-    formatLabel,
     isIgnored,
+    currentDay,
     showIgnored,
     timelineEventsTable,
     timelineSessionsTable,
-    t,
     timezone,
   ]);
+
+  return useUpcomingMeetingStatus(buckets, formatLabel, t`Now`);
+}
+
+function useCurrentDay(timezone: string | undefined) {
+  const store = useMemo(() => createCurrentDayStore(timezone), [timezone]);
+  return useSyncExternalStore(
+    store.subscribe,
+    store.getSnapshot,
+    store.getSnapshot,
+  );
+}
+
+function createCurrentDayStore(timezone: string | undefined) {
+  const getCurrentDay = () =>
+    new Intl.DateTimeFormat("en-CA", {
+      day: "2-digit",
+      month: "2-digit",
+      timeZone: timezone,
+      year: "numeric",
+    }).format(new Date());
+  let currentDay = getCurrentDay();
+
+  const subscribe = (listener: () => void) => {
+    const refresh = () => {
+      const nextDay = getCurrentDay();
+      if (nextDay === currentDay) return;
+      currentDay = nextDay;
+      listener();
+    };
+    const interval = setInterval(refresh, 60_000);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    refresh();
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  };
+
+  return {
+    getSnapshot: () => currentDay,
+    subscribe,
+  };
+}
+
+export function useUpcomingMeetingStatus(
+  buckets: TimelineBucket[],
+  formatLabel: (diffMs: number) => string,
+  activeLabel: string,
+): SidebarUpcomingMeetingStatus | null {
+  const store = useMemo(
+    () => createUpcomingMeetingStatusStore(buckets, formatLabel, activeLabel),
+    [activeLabel, buckets, formatLabel],
+  );
+
+  return useSyncExternalStore(
+    store.subscribe,
+    store.getSnapshot,
+    store.getSnapshot,
+  );
+}
+
+function createUpcomingMeetingStatusStore(
+  buckets: TimelineBucket[],
+  formatLabel: (diffMs: number) => string,
+  activeLabel: string,
+) {
+  const getCurrentStatus = () =>
+    getUpcomingMeetingStatus(
+      buckets,
+      Math.floor(Date.now() / UPCOMING_MEETING_STATUS_TICK_MS) *
+        UPCOMING_MEETING_STATUS_TICK_MS,
+      formatLabel,
+      activeLabel,
+    );
+  let status = getCurrentStatus();
+  const listeners = new Set<() => void>();
+
+  const refresh = () => {
+    const nextStatus = getCurrentStatus();
+    if (upcomingMeetingStatusesAreEqual(status, nextStatus)) {
+      return;
+    }
+
+    status = nextStatus;
+    listeners.forEach((listener) => listener());
+  };
+
+  const subscribe = (listener: () => void) => {
+    listeners.add(listener);
+    const interval = setInterval(refresh, UPCOMING_MEETING_STATUS_TICK_MS);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        refresh();
+      }
+    };
+
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    refresh();
+
+    return () => {
+      listeners.delete(listener);
+      clearInterval(interval);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  };
+
+  return {
+    getSnapshot: () => status,
+    subscribe,
+  };
 }
 
 export function getUpcomingMeetingStatus(
@@ -145,6 +256,21 @@ export function getUpcomingMeetingStatus(
 
 function getUpcomingMeetingProgress(diffMs: number): number {
   return Math.max(0, Math.min(diffMs / UPCOMING_MEETING_VISIBLE_WINDOW_MS, 1));
+}
+
+function upcomingMeetingStatusesAreEqual(
+  left: SidebarUpcomingMeetingStatus | null,
+  right: SidebarUpcomingMeetingStatus | null,
+) {
+  return (
+    left === right ||
+    (left !== null &&
+      right !== null &&
+      left.itemKey === right.itemKey &&
+      left.label === right.label &&
+      left.title === right.title &&
+      left.progress === right.progress)
+  );
 }
 
 export function useUpcomingMeetingLabelFormatter(): (diffMs: number) => string {

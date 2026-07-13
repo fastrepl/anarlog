@@ -195,7 +195,7 @@ const ItemBase = memo(function ItemBase({
           isUpcoming &&
             !isLive && [
               "bg-destructive/8 text-foreground",
-              "hover:bg-destructive/12 focus-visible:ring-destructive/25",
+              "focus-visible:ring-destructive/25",
             ],
           isLive && [
             "bg-destructive text-destructive-foreground hover:bg-destructive/90",

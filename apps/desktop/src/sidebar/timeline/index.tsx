@@ -28,7 +28,7 @@ import {
   useSmartCurrentTime,
 } from "./realtime";
 import {
-  getUpcomingMeetingStatus,
+  useUpcomingMeetingStatus,
   useUpcomingMeetingLabelFormatter,
 } from "./upcoming-meeting";
 import {
@@ -95,17 +95,12 @@ export const TimelineView = memo(function TimelineView({
     () => buckets.some((bucket) => bucket.label === "Today"),
     [buckets],
   );
-  const currentTimeMs = useCurrentTimeMs(1000);
+  const indicatorTimeMs = useCurrentTimeMs();
   const formatUpcomingMeetingLabel = useUpcomingMeetingLabelFormatter();
-  const upcomingMeetingStatus = useMemo(
-    () =>
-      getUpcomingMeetingStatus(
-        buckets,
-        currentTimeMs,
-        formatUpcomingMeetingLabel,
-        t`Now`,
-      ),
-    [buckets, currentTimeMs, formatUpcomingMeetingLabel, t],
+  const upcomingMeetingStatus = useUpcomingMeetingStatus(
+    buckets,
+    formatUpcomingMeetingLabel,
+    t`Now`,
   );
   const [isUpcomingMeetingVisible, setIsUpcomingMeetingVisible] =
     useState(false);
@@ -335,7 +330,7 @@ export const TimelineView = memo(function TimelineView({
       return -1;
     }
     return getFallbackIndicatorIndex(buckets, Date.now());
-  }, [buckets, hasToday, currentTimeMs]);
+  }, [buckets, hasToday, indicatorTimeMs]);
 
   const toggleShowIgnored = useCallback(() => {
     const nextShowIgnored = !showIgnored;

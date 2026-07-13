@@ -271,6 +271,8 @@ describe("TimelineItemComponent", () => {
     );
 
     expect(rowButton?.className).toContain("bg-destructive/8");
+    expect(rowButton?.className).toContain("hover:bg-accent/50");
+    expect(rowButton?.className).not.toContain("hover:bg-destructive/12");
     expect(rowButton?.className).toContain("pl-4");
     expect(rowButton?.className).not.toContain("motion-safe:animate-pulse");
     expect(rowButton?.className).not.toContain("shadow-[0_0_22px");
