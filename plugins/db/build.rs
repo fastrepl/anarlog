@@ -12,6 +12,12 @@ const COMMANDS: &[&str] = &[
     "run_legacy_import",
     "subscribe",
     "unsubscribe",
+    "configure_cloudsync",
+    "start_cloudsync",
+    "stop_cloudsync",
+    "get_cloudsync_status",
+    "sync_cloudsync_now",
+    "logout_cloudsync",
 ];
 
 fn main() {
