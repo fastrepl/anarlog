@@ -159,3 +159,66 @@ pub(crate) async fn unsubscribe(
         .await
         .map_err(|error| error.to_string())
 }
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn configure_cloudsync(
+    state: tauri::State<'_, ManagedState>,
+    config_json: String,
+) -> Result<(), String> {
+    state
+        .configure_cloudsync(config_json)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn start_cloudsync(state: tauri::State<'_, ManagedState>) -> Result<(), String> {
+    state
+        .start_cloudsync()
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn stop_cloudsync(state: tauri::State<'_, ManagedState>) -> Result<(), String> {
+    state
+        .stop_cloudsync()
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn get_cloudsync_status(
+    state: tauri::State<'_, ManagedState>,
+) -> Result<serde_json::Value, String> {
+    state
+        .cloudsync_status()
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn sync_cloudsync_now(
+    state: tauri::State<'_, ManagedState>,
+) -> Result<serde_json::Value, String> {
+    state
+        .sync_cloudsync_now()
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn logout_cloudsync(
+    state: tauri::State<'_, ManagedState>,
+    discard_unsent_changes: bool,
+) -> Result<(), String> {
+    state
+        .logout_cloudsync(discard_unsent_changes)
+        .await
+        .map_err(|error| error.to_string())
+}

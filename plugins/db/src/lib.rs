@@ -135,12 +135,25 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::run_legacy_import,
             commands::subscribe,
             commands::unsubscribe,
+            commands::configure_cloudsync,
+            commands::start_cloudsync,
+            commands::stop_cloudsync,
+            commands::get_cloudsync_status,
+            commands::sync_cloudsync_now,
+            commands::logout_cloudsync,
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }
 
 pub fn init<R: tauri::Runtime>(
     db: std::sync::Arc<hypr_db_core::Db>,
+) -> tauri::plugin::TauriPlugin<R> {
+    init_with_cloudsync(db, None)
+}
+
+pub fn init_with_cloudsync<R: tauri::Runtime>(
+    db: std::sync::Arc<hypr_db_core::Db>,
+    startup_config: Option<hypr_db_core::CloudsyncRuntimeConfig>,
 ) -> tauri::plugin::TauriPlugin<R> {
     let specta_builder = make_specta_builder();
 
@@ -149,6 +162,22 @@ pub fn init<R: tauri::Runtime>(
         .setup(move |app, _| {
             hypr_tauri_utils::block_on(hypr_db_app::prepare_schema(db.as_ref()))?;
             hypr_tauri_utils::block_on(import::import_legacy_data(app.app_handle(), db.pool()))?;
+            if let Some(config) = startup_config.clone() {
+                if let Err(error) = db.cloudsync_configure(config) {
+                    tracing::warn!(%error, "failed to configure startup cloudsync");
+                } else {
+                    let sync_db = std::sync::Arc::clone(&db);
+                    tauri::async_runtime::spawn(async move {
+                        if let Err(error) = sync_db.cloudsync_start().await {
+                            tracing::warn!(%error, "failed to start cloudsync");
+                            return;
+                        }
+                        if let Err(error) = sync_db.cloudsync_trigger_sync().await {
+                            tracing::warn!(%error, "initial cloudsync failed");
+                        }
+                    });
+                }
+            }
             app.manage(std::sync::Arc::new(runtime::PluginDbRuntime::new(db)));
             Ok(())
         })
@@ -454,6 +483,41 @@ mod test {
 
         let event = next_event(&events, 0).await.unwrap();
         assert!(matches!(event, QueryEvent::Result(rows) if !rows.is_empty()));
+    }
+
+    #[tokio::test]
+    async fn cloudsync_transport_stays_inert_until_configured() {
+        let (_dir, runtime) = setup_runtime().await;
+
+        let status = runtime.cloudsync_status().await.unwrap();
+        assert_eq!(status["cloudsync_enabled"], false);
+        assert_eq!(status["configured"], false);
+
+        runtime
+            .configure_cloudsync(
+                serde_json::json!({
+                    "connection_string": "managed-database-id",
+                    "auth": { "type": "token", "token": "test-token" },
+                    "tables": hypr_db_app::cloudsync_table_registry(),
+                    "sync_interval_ms": 30_000,
+                    "wait_ms": 5_000,
+                    "max_retries": 3
+                })
+                .to_string(),
+            )
+            .unwrap();
+        runtime.start_cloudsync().await.unwrap();
+
+        let status = runtime.cloudsync_status().await.unwrap();
+        assert_eq!(status["configured"], true);
+        assert_eq!(status["running"], false);
+        assert_eq!(status["network_initialized"], false);
+
+        runtime.logout_cloudsync(false).await.unwrap();
+        assert_eq!(
+            runtime.cloudsync_status().await.unwrap()["configured"],
+            false
+        );
     }
 
     #[tokio::test]
