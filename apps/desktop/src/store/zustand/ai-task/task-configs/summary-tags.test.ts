@@ -10,6 +10,7 @@ function createEnhanceArgs(
 ): Parameters<typeof extractEnhanceTagNames>[1] {
   return {
     language: "en",
+    customInstructions: "",
     session: {
       title: "Weekly Review",
       startedAt: null,

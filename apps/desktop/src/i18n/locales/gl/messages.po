@@ -198,6 +198,10 @@ msgstr "Aplicación"
 msgid "Appearance"
 msgstr ""
 
+#: src/settings/personalization/index.tsx
+msgid "Applied to every generated or regenerated meeting summary."
+msgstr ""
+
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 msgid "Apply to all"
 msgstr ""
@@ -610,6 +614,10 @@ msgstr ""
 
 #: src/settings/general/notification.tsx
 msgid "Event notifications"
+msgstr ""
+
+#: src/settings/personalization/index.tsx
+msgid "Example: Start with a two-sentence overview, then list decisions and action items with owners. Do not use headings."
 msgstr ""
 
 #: src/settings/general/notification.tsx
@@ -1342,6 +1350,10 @@ msgstr ""
 msgid "Reset"
 msgstr ""
 
+#: src/settings/personalization/index.tsx
+msgid "Reset to default"
+msgstr ""
+
 #: src/settings/general/notification.tsx
 msgid "Respect Do-Not-Disturb mode"
 msgstr ""
@@ -1362,6 +1374,10 @@ msgstr ""
 #: src/settings/ai/shared/index.tsx
 #: src/settings/ai/stt/select.tsx
 msgid "Runs after the recording finishes, not during the meeting."
+msgstr ""
+
+#: src/settings/personalization/index.tsx
+msgid "Save"
 msgstr ""
 
 #: src/session/components/outer-header/metadata/date.tsx
@@ -1684,6 +1700,10 @@ msgstr ""
 msgid "Summary"
 msgstr ""
 
+#: src/settings/personalization/index.tsx
+msgid "Summary instructions"
+msgstr ""
+
 #: src/settings/general/week-start.tsx
 msgid "Sunday"
 msgstr ""
@@ -1726,6 +1746,10 @@ msgstr ""
 #: src/settings/general/spoken-languages.tsx
 msgid "The main language is always included for transcription"
 msgstr "O idioma principal sempre se inclúe para a transcrición"
+
+#: src/settings/personalization/index.tsx
+msgid "These instructions take priority over the selected template when they conflict. Clear them to use templates as written."
+msgstr ""
 
 #: src/chat/components/message/loading.tsx
 msgid "Thinking..."

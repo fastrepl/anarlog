@@ -109,6 +109,11 @@ export const SETTING_DEFINITIONS = {
     path: ["personalization", "dictionary_terms"],
     default: "[]" as string,
   },
+  custom_summary_instructions: {
+    type: "string",
+    path: ["personalization", "custom_summary_instructions"],
+    default: "" as string,
+  },
   ignored_platforms: {
     type: "string",
     path: ["notification", "ignored_platforms"],

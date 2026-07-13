@@ -42,3 +42,11 @@ You are an expert at creating structured, comprehensive meeting summaries in {{ 
   {% if language|is_korean %}
 - 문장 끝을 **"-했습니다" 대신 "-했음"**처럼 간결하게 줄임.
   {% endif %}
+  {% if !custom_instructions.is_empty() %}
+
+# Custom Summary Instructions
+
+For structure, formatting, tone, and emphasis, these instructions take precedence over the Format Requirements or Output Template. They do not override the requirements to stay accurate, use only the provided source material, and return only the summary.
+
+{{ custom_instructions }}
+{% endif %}

@@ -198,6 +198,10 @@ msgstr "App"
 msgid "Appearance"
 msgstr "Appearance"
 
+#: src/settings/personalization/index.tsx
+msgid "Applied to every generated or regenerated meeting summary."
+msgstr "Applied to every generated or regenerated meeting summary."
+
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 msgid "Apply to all"
 msgstr "Apply to all"
@@ -611,6 +615,10 @@ msgstr "Enter your API key (optional)"
 #: src/settings/general/notification.tsx
 msgid "Event notifications"
 msgstr "Event notifications"
+
+#: src/settings/personalization/index.tsx
+msgid "Example: Start with a two-sentence overview, then list decisions and action items with owners. Do not use headings."
+msgstr "Example: Start with a two-sentence overview, then list decisions and action items with owners. Do not use headings."
 
 #: src/settings/general/notification.tsx
 msgid "Exclude apps from detection"
@@ -1342,6 +1350,10 @@ msgstr "Required to sync Apple Calendar events into Anarlog"
 msgid "Reset"
 msgstr "Reset"
 
+#: src/settings/personalization/index.tsx
+msgid "Reset to default"
+msgstr "Reset to default"
+
 #: src/settings/general/notification.tsx
 msgid "Respect Do-Not-Disturb mode"
 msgstr "Respect Do-Not-Disturb mode"
@@ -1363,6 +1375,10 @@ msgstr "Retry"
 #: src/settings/ai/stt/select.tsx
 msgid "Runs after the recording finishes, not during the meeting."
 msgstr "Runs after the recording finishes, not during the meeting."
+
+#: src/settings/personalization/index.tsx
+msgid "Save"
+msgstr "Save"
 
 #: src/session/components/outer-header/metadata/date.tsx
 msgid "Save date"
@@ -1684,6 +1700,10 @@ msgstr "Submit callback URL"
 msgid "Summary"
 msgstr "Summary"
 
+#: src/settings/personalization/index.tsx
+msgid "Summary instructions"
+msgstr "Summary instructions"
+
 #: src/settings/general/week-start.tsx
 msgid "Sunday"
 msgstr "Sunday"
@@ -1726,6 +1746,10 @@ msgstr "The app will restart after onboarding to apply your storage changes"
 #: src/settings/general/spoken-languages.tsx
 msgid "The main language is always included for transcription"
 msgstr "The main language is always included for transcription"
+
+#: src/settings/personalization/index.tsx
+msgid "These instructions take priority over the selected template when they conflict. Clear them to use templates as written."
+msgstr "These instructions take priority over the selected template when they conflict. Clear them to use templates as written."
 
 #: src/chat/components/message/loading.tsx
 msgid "Thinking..."

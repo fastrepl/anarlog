@@ -62,6 +62,7 @@ function createSnapshot(title = "") {
 function createTransformedArgs(): EnhanceSuccessParams["transformedArgs"] {
   return {
     language: "en",
+    customInstructions: "",
     session: {
       title: "Weekly Review",
       startedAt: null,

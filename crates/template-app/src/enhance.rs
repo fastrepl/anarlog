@@ -6,6 +6,7 @@ common_derives! {
     #[template(path = "enhance.system.md.jinja")]
     pub struct EnhanceSystem {
         pub language: Option<String>,
+        pub custom_instructions: String,
     }
 }
 
@@ -32,13 +33,30 @@ mod tests {
         test_language_as_specified,
         EnhanceSystem {
             language: Some("ko".to_string()),
+            custom_instructions: String::new(),
         },
         |v| { v.contains("Korean") }
     );
 
+    tpl_assert!(
+        test_custom_instructions,
+        EnhanceSystem {
+            language: None,
+            custom_instructions: "Start with decisions and do not use headings.".to_string(),
+        },
+        |v| {
+            v.contains("# Custom Summary Instructions")
+                && v.contains("take precedence over the Format Requirements or Output Template")
+                && v.contains("Start with decisions and do not use headings.")
+        }
+    );
+
     tpl_snapshot!(
         test_enhance_system_formatting,
-        EnhanceSystem { language: None },
+        EnhanceSystem {
+            language: None,
+            custom_instructions: String::new(),
+        },
         fixed_date = "2025-01-01",
         @r#"
     # General Instructions

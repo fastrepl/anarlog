@@ -40,7 +40,76 @@ vi.mock("@lingui/react/macro", () => ({
   }),
 }));
 
-import { DictionarySettings } from "./index";
+import { DictionarySettings, SummaryInstructionsSettings } from "./index";
+
+describe("SummaryInstructionsSettings", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("explains that instructions take priority over conflicting templates", () => {
+    render(
+      <SummaryInstructionsSettings
+        instructions="Keep it brief"
+        onSave={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        /These instructions take priority over the selected template when they conflict/,
+      ),
+    ).toBeTruthy();
+    expect(
+      (
+        screen.getByRole("textbox", {
+          name: "Summary instructions",
+        }) as HTMLTextAreaElement
+      ).value,
+    ).toBe("Keep it brief");
+  });
+
+  it("saves trimmed instructions explicitly", async () => {
+    const onSave = vi.fn();
+    render(<SummaryInstructionsSettings instructions="" onSave={onSave} />);
+
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Summary instructions" }),
+      { target: { value: "  Use a short executive summary.  " } },
+    );
+
+    const saveButton = screen.getByRole("button", {
+      name: "Save",
+    }) as HTMLButtonElement;
+    await waitFor(() => expect(saveButton.disabled).toBe(false));
+    fireEvent.click(saveButton);
+
+    await waitFor(() =>
+      expect(onSave).toHaveBeenCalledWith("Use a short executive summary."),
+    );
+  });
+
+  it("resets saved instructions to the built-in behavior", () => {
+    const onSave = vi.fn();
+    render(
+      <SummaryInstructionsSettings
+        instructions="Use a table"
+        onSave={onSave}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Reset to default" }));
+
+    expect(onSave).toHaveBeenCalledWith("");
+    expect(
+      (
+        screen.getByRole("textbox", {
+          name: "Summary instructions",
+        }) as HTMLTextAreaElement
+      ).value,
+    ).toBe("");
+  });
+});
 
 describe("DictionarySettings", () => {
   afterEach(() => {

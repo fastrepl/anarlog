@@ -63,6 +63,7 @@ async function transformArgs(
       }
     : null;
   const language = getLanguage(settingsValues);
+  const customInstructions = getCustomInstructions(settingsValues);
   const segments = await getTranscriptSegments(snapshot);
   const imageContext = modelSupportsImageInput(
     getOptionalSettingsValue(settingsValues, "current_llm_provider"),
@@ -76,6 +77,7 @@ async function transformArgs(
 
   return {
     language,
+    customInstructions,
     session: sessionContext.session,
     participants: sessionContext.participants,
     template,
@@ -134,6 +136,11 @@ function formatTranscripts(
 function getLanguage(settingsValues: SettingValues): string | null {
   const value = settingsValues.ai_language;
   return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function getCustomInstructions(settingsValues: SettingValues): string {
+  const value = settingsValues.custom_summary_instructions;
+  return typeof value === "string" ? value.trim() : "";
 }
 
 function getOptionalSettingsValue(

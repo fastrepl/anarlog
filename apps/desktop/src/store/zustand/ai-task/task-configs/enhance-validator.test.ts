@@ -107,4 +107,15 @@ describe("createEnhanceValidator", () => {
       expect(v("# Any Heading Works")).toEqual({ valid: true });
     });
   });
+
+  describe("custom formatting override", () => {
+    it("allows custom instructions to replace heading and template format requirements", () => {
+      const v = createEnhanceValidator(template, {
+        overrideTemplateFormatting: true,
+      });
+
+      expect(v("Decisions\n- Ship it")).toEqual({ valid: true });
+      expect(v("# Custom Heading")).toEqual({ valid: true });
+    });
+  });
 });

@@ -111,6 +111,18 @@ describe("enhanceTransform.transformArgs", () => {
     ]);
   });
 
+  it("includes custom summary instructions from personalization settings", async () => {
+    const result = await enhanceTransform.transformArgs(
+      { sessionId: "session-1", enhancedNoteId: "note-1" },
+      {
+        ...settingsValues,
+        custom_summary_instructions: "  Start with decisions.  ",
+      },
+    );
+
+    expect(result.customInstructions).toBe("Start with decisions.");
+  });
+
   it("falls back to generic enhancement when template loading fails", async () => {
     mocks.getTemplateById.mockRejectedValue(new Error("Failed query"));
 

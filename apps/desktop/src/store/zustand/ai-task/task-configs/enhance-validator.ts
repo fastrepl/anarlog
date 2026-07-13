@@ -81,11 +81,18 @@ function matchSectionHeading(title: string): EarlyValidatorFn {
 
 export function createEnhanceValidator(
   template: EnhanceTemplate | null,
+  {
+    overrideTemplateFormatting = false,
+  }: { overrideTemplateFormatting?: boolean } = {},
 ): EarlyValidatorFn {
-  const steps: PipeStep[] = [stripPreamble(), requireH1()];
+  const steps: PipeStep[] = [stripPreamble()];
 
-  if (template?.sections?.length) {
-    steps.push(matchSectionHeading(template.sections[0].title));
+  if (!overrideTemplateFormatting) {
+    steps.push(requireH1());
+
+    if (template?.sections?.length) {
+      steps.push(matchSectionHeading(template.sections[0].title));
+    }
   }
 
   return pipe(...steps);

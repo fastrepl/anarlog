@@ -80,6 +80,7 @@ async function getSystemPrompt(args: TaskArgsMapTransformed["enhance"]) {
   const result = await templateCommands.render({
     enhanceSystem: {
       language: args.language,
+      customInstructions: args.customInstructions,
     },
   });
 
@@ -248,7 +249,9 @@ async function* generateSummary(params: {
 
   onProgress({ type: "generating" });
 
-  const validator = createEnhanceValidator(args.template);
+  const validator = createEnhanceValidator(args.template, {
+    overrideTemplateFormatting: args.customInstructions.trim().length > 0,
+  });
 
   yield* withEarlyValidationRetry(
     (retrySignal, { previousFeedback }) => {
