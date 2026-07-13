@@ -283,6 +283,10 @@ msgstr "Cancel"
 msgid "Cancel date edit"
 msgstr "Cancel date edit"
 
+#: src/settings/general/app-settings.tsx
+msgid "Capture meeting chat in Memos"
+msgstr "Capture meeting chat in Memos"
+
 #: src/onboarding/folder-location.tsx
 msgid "Change"
 msgstr "Change"
@@ -1873,6 +1877,10 @@ msgstr "What's new in {version}?"
 #: src/onboarding/index.tsx
 msgid "Where your notes and recordings are stored"
 msgstr "Where your notes and recordings are stored"
+
+#: src/settings/general/app-settings.tsx
+msgid "While listening, use Accessibility access to copy visible Zoom or Slack meeting chat into the active note."
+msgstr "While listening, use Accessibility access to copy visible Zoom or Slack meeting chat into the active note."
 
 #: src/task/tab-content.tsx
 msgid "Work on this task"
