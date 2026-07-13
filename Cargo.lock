@@ -4815,6 +4815,7 @@ version = "0.0.0"
 dependencies = [
  "audio-actual",
  "audio-mock",
+ "db-app",
  "db-core",
  "dirs 6.0.0",
  "host",
@@ -18148,6 +18149,7 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.18",
  "tokio",
+ "tracing",
  "uuid",
 ]
 
