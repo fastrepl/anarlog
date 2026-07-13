@@ -27,51 +27,49 @@ force = true
 
 [[redirects]]
 from = "/skill.md"
-to = "https://anarlog.mintlify.site/docs/skill.md"
+to = "https://docs.anarlog.so/skill.md"
 status = 200
 force = true
-headers = { Origin = "anarlog.mintlify.site" }
+headers = { Origin = "docs.anarlog.so" }
 
 [[redirects]]
 from = "/skills"
-to = "/docs/agents/skills"
+to = "https://docs.anarlog.so/agents/skills"
 status = 301
 force = true
 
 [[redirects]]
 from = "/.well-known/skills/*"
-to = "https://anarlog.mintlify.site/docs/.well-known/skills/:splat"
+to = "https://docs.anarlog.so/.well-known/skills/:splat"
 status = 200
 force = true
-headers = { Origin = "anarlog.mintlify.site" }
+headers = { Origin = "docs.anarlog.so" }
 
 [[redirects]]
 from = "/.well-known/agent-skills/*"
-to = "https://anarlog.mintlify.site/docs/.well-known/agent-skills/:splat"
+to = "https://docs.anarlog.so/.well-known/agent-skills/:splat"
 status = 200
 force = true
-headers = { Origin = "anarlog.mintlify.site" }
+headers = { Origin = "docs.anarlog.so" }
 
 [[redirects]]
 from = "/.well-known/vercel/*"
-to = "https://anarlog.mintlify.site/.well-known/vercel/:splat"
+to = "https://docs.anarlog.so/.well-known/vercel/:splat"
 status = 200
 force = true
-headers = { Origin = "anarlog.mintlify.site" }
+headers = { Origin = "docs.anarlog.so" }
 
 [[redirects]]
 from = "/docs"
-to = "https://anarlog.mintlify.site/docs"
-status = 200
+to = "https://docs.anarlog.so"
+status = 301
 force = true
-headers = { Origin = "anarlog.mintlify.site" }
 
 [[redirects]]
 from = "/docs/*"
-to = "https://anarlog.mintlify.site/docs/:splat"
-status = 200
+to = "https://docs.anarlog.so/:splat"
+status = 301
 force = true
-headers = { Origin = "anarlog.mintlify.site" }
 
 # Domain migration: hyprnote.com -> char.com (301 for SEO)
 # Exclude /admin, /app, /api, /webhook from redirects.

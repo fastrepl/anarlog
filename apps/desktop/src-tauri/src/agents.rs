@@ -27,7 +27,7 @@ mod tests {
         assert!(AGENTS_CONTENT.contains("--db-path ABSOLUTE_APP_DB"));
         assert!(AGENTS_CONTENT.contains("Do not use `find`,"));
         assert!(AGENTS_CONTENT.contains("direct SQLite queries"));
-        assert!(AGENTS_CONTENT.contains("https://anarlog.so/docs"));
-        assert!(AGENTS_CONTENT.contains("https://anarlog.so/skill.md"));
+        assert!(AGENTS_CONTENT.contains("https://docs.anarlog.so"));
+        assert!(AGENTS_CONTENT.contains("https://docs.anarlog.so/skill.md"));
     }
 }

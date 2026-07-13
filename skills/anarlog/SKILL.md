@@ -11,7 +11,7 @@ Use Anarlog's read-only data surfaces. Prefer the MCP server when its tools are 
 
 1. If `list_meetings`, `get_meeting`, `get_meeting_transcript`, and `get_recurring_meeting_history` are available, use MCP.
 2. Otherwise, check `anarlog --version` and use CLI commands with `--json`.
-3. If neither surface is available, direct the user to [installation](https://anarlog.so/docs/installation). Do not install software unless the user asks.
+3. If neither surface is available, direct the user to [installation](https://docs.anarlog.so/installation). Do not install software unless the user asks.
 
 Never query or modify Anarlog's SQLite database directly. The CLI and MCP server own compatibility with the application schema.
 

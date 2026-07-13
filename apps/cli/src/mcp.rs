@@ -131,7 +131,7 @@ impl ServerHandler for AnarlogMcpServer {
             env!("CARGO_PKG_VERSION"),
         ))
         .with_instructions(
-            "Read-only, local access to Anarlog meeting data. Start with list_meetings to resolve a meeting_id, then call get_meeting for notes, summaries, participants, and action items. Request transcript pages with get_meeting_transcript and continue with pagination.next_offset; each page is capped at 500 words. Use get_recurring_meeting_history for series context. Never invent meeting ids, access SQLite directly, or claim a write occurred: every tool is idempotent and performs no writes. Documentation: https://anarlog.so/docs",
+            "Read-only, local access to Anarlog meeting data. Start with list_meetings to resolve a meeting_id, then call get_meeting for notes, summaries, participants, and action items. Request transcript pages with get_meeting_transcript and continue with pagination.next_offset; each page is capped at 500 words. Use get_recurring_meeting_history for series context. Never invent meeting ids, access SQLite directly, or claim a write occurred: every tool is idempotent and performs no writes. Documentation: https://docs.anarlog.so",
         )
     }
 
@@ -405,7 +405,7 @@ mod tests {
         assert!(info.capabilities.resources.is_some());
         let instructions = info.instructions.unwrap();
         assert!(instructions.contains("Start with list_meetings"));
-        assert!(instructions.contains("https://anarlog.so/docs"));
+        assert!(instructions.contains("https://docs.anarlog.so"));
         assert!(instructions.contains("performs no writes"));
     }
 

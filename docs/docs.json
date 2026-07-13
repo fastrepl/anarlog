@@ -8,6 +8,11 @@
     "dark": "#5D430D"
   },
   "favicon": "/favicon.svg",
+  "seo": {
+    "metatags": {
+      "canonical": "https://docs.anarlog.so"
+    }
+  },
   "navigation": {
     "pages": [
       {

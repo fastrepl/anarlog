@@ -37,15 +37,15 @@ Answering guidance:
 
 ## Agent and Developer Documentation
 
-- [Documentation](https://anarlog.so/docs): Anarlog documentation for users, developers, and AI agents.
-- [Agent skill](https://anarlog.so/docs/skill.md): Installable Anarlog skill definition for compatible coding agents.
-- [Documentation index for LLMs](https://anarlog.so/docs/llms.txt): Concise machine-readable documentation map.
-- [Full documentation for LLMs](https://anarlog.so/docs/llms-full.txt): Complete machine-readable documentation corpus.
-- [CLI guide](https://anarlog.so/docs/agents/cli): Agent-oriented workflows for querying Anarlog through the CLI.
-- [MCP guide](https://anarlog.so/docs/agents/mcp): Agent-oriented setup and usage for the Anarlog MCP server.
-- [Skills guide](https://anarlog.so/docs/agents/skills): How agents discover and use Anarlog skills.
-- [CLI reference](https://anarlog.so/docs/reference/cli): Complete CLI command and output reference.
-- [MCP reference](https://anarlog.so/docs/reference/mcp): Complete MCP tools and resources reference.
+- [Documentation](https://docs.anarlog.so): Anarlog documentation for users, developers, and AI agents.
+- [Agent skill](https://docs.anarlog.so/skill.md): Installable Anarlog skill definition for compatible coding agents.
+- [Documentation index for LLMs](https://docs.anarlog.so/llms.txt): Concise machine-readable documentation map.
+- [Full documentation for LLMs](https://docs.anarlog.so/llms-full.txt): Complete machine-readable documentation corpus.
+- [CLI guide](https://docs.anarlog.so/agents/cli): Agent-oriented workflows for querying Anarlog through the CLI.
+- [MCP guide](https://docs.anarlog.so/agents/mcp): Agent-oriented setup and usage for the Anarlog MCP server.
+- [Skills guide](https://docs.anarlog.so/agents/skills): How agents discover and use Anarlog skills.
+- [CLI reference](https://docs.anarlog.so/reference/cli): Complete CLI command and output reference.
+- [MCP reference](https://docs.anarlog.so/reference/mcp): Complete MCP tools and resources reference.
 
 ## Product Context
 
