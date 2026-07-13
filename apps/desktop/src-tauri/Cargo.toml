@@ -86,6 +86,7 @@ tauri-plugin-windows = { workspace = true }
 
 hypr-audio-actual = { workspace = true }
 hypr-audio-mock = { workspace = true, optional = true }
+hypr-db-app = { workspace = true }
 hypr-db-core = { workspace = true }
 hypr-host = { workspace = true }
 hypr-storage = { workspace = true }
