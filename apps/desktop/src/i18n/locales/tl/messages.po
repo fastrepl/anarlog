@@ -744,7 +744,6 @@ msgid "Go to recent"
 msgstr ""
 
 #: src/calendar/components/apple/permission.tsx
-#: src/settings/general/permissions.tsx
 msgid "Having trouble?"
 msgstr ""
 
@@ -1106,7 +1105,6 @@ msgid "Only public repositories are supported."
 msgstr ""
 
 #: src/calendar/components/apple/permission.tsx
-#: src/settings/general/permissions.tsx
 #: src/task/resource-view.tsx
 msgid "Open"
 msgstr ""
@@ -1157,7 +1155,6 @@ msgid "Open settings"
 msgstr ""
 
 #: src/calendar/components/apple/permission.tsx
-#: src/settings/general/permissions.tsx
 #: src/settings/todo/provider-content.tsx
 msgid "or"
 msgstr ""
@@ -1193,7 +1190,6 @@ msgid "People"
 msgstr ""
 
 #: src/calendar/components/apple/permission.tsx
-#: src/settings/general/permissions.tsx
 msgid "permission panel."
 msgstr ""
 
@@ -1327,10 +1323,6 @@ msgid "Request {0} permission"
 msgstr ""
 
 #: src/settings/general/permissions.tsx
-msgid "Request,"
-msgstr ""
-
-#: src/settings/general/permissions.tsx
 msgid "Required to capture other participants' voices in meetings"
 msgstr ""
 
@@ -1347,7 +1339,6 @@ msgid "Required to sync Apple Calendar events into Anarlog"
 msgstr ""
 
 #: src/calendar/components/apple/permission.tsx
-#: src/settings/general/permissions.tsx
 msgid "Reset"
 msgstr ""
 
@@ -1871,7 +1862,6 @@ msgid "Work on this task"
 msgstr ""
 
 #: src/calendar/components/apple/permission.tsx
-#: src/settings/general/permissions.tsx
 msgid "You can"
 msgstr ""
 
