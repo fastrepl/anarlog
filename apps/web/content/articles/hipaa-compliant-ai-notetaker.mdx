@@ -1,0 +1,114 @@
+---
+meta_title: "HIPAA Compliant AI Notetaker: What Actually Works in 2026"
+meta_description: "Most AI notetakers become Business Associates the moment patient audio hits their cloud. Here's how to evaluate HIPAA compliant AI notetaking — and what actually works."
+author:
+  - "John Jeong"
+category: "Guides"
+date: "2026-07-13"
+featured: false
+ready_for_review: true
+---
+
+If you work in healthcare, behavioral health, telehealth, or any practice that discusses protected health information (PHI) during meetings, you've probably looked at AI notetakers and immediately hit a wall. The tool transcribes well. The summary is useful. But the moment patient audio leaves your device and lands on a vendor's server, you've created a Business Associate relationship under HIPAA — and now you need a BAA, a risk assessment, and a data processing agreement before you can legally use it.
+
+Most AI notetakers are not built for this. They were built for sales teams and productivity, then retrofitted with "HIPAA compliance" on higher tiers. That retrofit usually means: sign a BAA, pay more, and trust that the vendor's cloud handles PHI correctly. Some do. Otter offers a BAA on their Business plan ($30/seat/month). Fireflies offers one on their Enterprise tier. Read AI gates HIPAA behind Enterprise+ ($39.75/seat/month). Fellow includes it at Enterprise ($25/seat/month, 10-user minimum).
+
+But a signed BAA doesn't change the architecture. If the vendor's bot joins your telehealth call, records the audio, sends it to their cloud for transcription and summarization, and stores it on their servers — PHI is in their infrastructure. The BAA makes that legal. It doesn't make it low-risk.
+
+This guide covers what a genuinely HIPAA-conscious AI notetaking workflow looks like, what to check in vendor agreements, and when a local-first architecture eliminates the Business Associate problem entirely.
+
+## The core HIPAA problem with AI notetakers
+
+HIPAA defines a Business Associate as any entity that "creates, receives, maintains, or transmits" PHI on behalf of a covered entity. If your AI notetaker processes audio containing patient information — even transiently, even just for transcription — and that processing happens on the vendor's servers, they are a Business Associate.
+
+This triggers three obligations:
+
+1. **A signed BAA** is required before any PHI can be shared. No BAA, no PHI. This alone disqualifies free tiers and most standard plans.
+2. **A security risk analysis** under the HIPAA Security Rule. You need to assess the vendor's safeguards: encryption, access controls, audit logs, breach notification procedures.
+3. **Ongoing vendor management.** HIPAA doesn't let you sign a BAA and forget. You're responsible for monitoring the vendor's compliance posture for the duration of the relationship.
+
+The practical result: adopting a cloud-based AI notetaker in a healthcare setting is a procurement project, not a product trial. Legal review, IT security review, and compliance sign-off all happen before the first meeting is transcribed.
+
+## What cloud-based AI notetakers actually do with your data
+
+When Otter, Fireflies, or Read AI joins your meeting as a bot, here's the data flow:
+
+1. The bot joins as a visible participant (Zoom, Teams, Google Meet).
+2. Meeting audio is streamed to the vendor's cloud servers.
+3. Cloud-based speech-to-text transcribes the audio.
+4. A cloud LLM generates the summary, action items, and other outputs.
+5. The transcript, summary, and potentially the raw audio are stored on the vendor's infrastructure.
+
+Every step involves PHI touching the vendor's systems. A BAA covers this legally, but the attack surface is real: the vendor's storage, the vendor's model training pipeline, the vendor's access controls, the vendor's breach history.
+
+Some vendors explicitly state they don't train on your data. Otter's Business plan, Fireflies' Enterprise tier, and Fellow all say they don't use customer data for model training. That's good. But "we don't train on your data" and "your data never touches our servers" are fundamentally different claims. The first is a policy. The second is an architectural guarantee.
+
+## When local-first eliminates the Business Associate problem
+
+A local-first AI notetaker changes the equation. If the tool captures audio on your device, transcribes it on your device (or on infrastructure you control), and stores the output as files on your device, then no third party "creates, receives, maintains, or transmits" PHI on your behalf. There is no Business Associate because there is no third party processing PHI.
+
+This is the architecture anarlog is built around:
+
+- **System audio capture, no bot.** Anarlog records microphone and system audio directly from your machine. No bot joins the call. No calendar integration that auto-joins meetings. You press record; it captures locally.
+- **Local transcription.** Speech-to-text runs on your device using Whisper models. The audio never leaves your machine for transcription.
+- **Bring your own LLM.** If you want AI summaries, you choose the provider. You can use a HIPAA-eligible API endpoint (Azure OpenAI with a BAA, for example), run a local model via Ollama, or skip the LLM entirely and work with the raw transcript.
+- **Markdown on disk.** Transcripts and notes are stored as plain markdown files in a directory you control. No vendor database. No proprietary storage format.
+
+The key distinction: even when you use a cloud LLM with anarlog, you're sending a transcript (text you've already reviewed and can redact) to a provider you've chosen and have a BAA with — not streaming raw patient audio to a notetaker vendor's infrastructure by default. You control what leaves your device, when, and to whom.
+
+This doesn't mean local-first is automatically HIPAA compliant. You still need to implement your own safeguards: device encryption, access controls, secure disposal of audio files, and a risk analysis for any LLM provider you connect. But the scope of that analysis is dramatically smaller because the vendor surface area is dramatically smaller.
+
+## Practical checklist: evaluating an AI notetaker for HIPAA
+
+Whether you choose a cloud-based or local-first tool, run through this before the first patient meeting:
+
+**Business Associate Agreement**
+- Is a BAA available? On which plan? What's the cost per seat?
+- Does the BAA cover all PHI touchpoints (audio, transcripts, summaries, stored data)?
+- What's the breach notification timeline in the BAA? (HIPAA requires 60 days; some vendors offer faster.)
+
+**Data flow and architecture**
+- Where does audio capture happen? (Vendor cloud vs. your device)
+- Where does transcription happen?
+- Where does LLM summarization happen?
+- Where are transcripts and summaries stored?
+- Is raw audio retained? For how long? Can it be disabled?
+
+**Data use and training**
+- Does the vendor train models on your data? Is this opt-out or opt-in?
+- Is the "no training" commitment in the BAA or just the marketing page?
+- Are subprocessors used? For what? Are they covered under the BAA?
+
+**Access and security**
+- SSO/SAML available?
+- Role-based access controls?
+- Audit logs of who accessed what?
+- Encryption at rest and in transit?
+- Data residency options (US-only, EU-only)?
+
+**Termination and data deletion**
+- What happens to your data when you end the contract?
+- Is deletion verified and documented?
+- How long does the vendor retain data after termination?
+
+## Cloud vs. local-first: the decision framework
+
+| Factor | Cloud-based (Otter, Fireflies, Read AI) | Local-first (anarlog) |
+| --- | --- | --- |
+| BAA required | Yes, for the notetaker vendor | Only for LLM provider if you use one |
+| PHI in vendor infrastructure | Yes | No (unless you send transcripts to a cloud LLM) |
+| Bot joins call | Usually yes | No |
+| Deployment flexibility | SaaS only | Local, on-prem, hybrid |
+| IT security review scope | Full vendor stack | Your device + chosen LLM endpoint |
+| Setup complexity | Lower (sign up, sign BAA) | Higher (install, configure models) |
+| Best for | Teams that want turnkey setup and can manage vendor risk | Practices that want minimal PHI exposure and control over the full stack |
+
+There's no universally right answer. A large hospital system with a dedicated compliance team might be comfortable with a cloud vendor that has a strong BAA and SOC 2 Type 2 certification. A small behavioral health practice, a solo telehealth provider, or a research team handling sensitive interviews might prefer the local-first approach where the default is "nothing leaves the device."
+
+## Bottom line
+
+HIPAA compliant AI notetaking is less about which tool has the right certifications and more about understanding where PHI flows. A BAA makes cloud processing legal, but it doesn't reduce the surface area — it just shifts the risk to a vendor you've contracted with.
+
+If your priority is minimizing the number of systems that touch patient data, a local-first architecture is the strongest starting point. Capture locally, transcribe locally, store as files you control, and only send data to a cloud LLM when you've reviewed the transcript, redacted as needed, and have a BAA with that specific provider.
+
+Anarlog is built for this workflow: open-source, no bot, markdown on disk, and your choice of AI stack. [Try it free](/) or [contact us](mailto:founders@anarlog.so) about enterprise deployment for healthcare organizations.
