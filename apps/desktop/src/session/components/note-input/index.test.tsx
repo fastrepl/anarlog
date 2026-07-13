@@ -70,10 +70,6 @@ vi.mock("./transcript", () => ({
   Transcript: () => <div data-testid="transcript" />,
 }));
 
-vi.mock("~/session/components/caret-position-context", () => ({
-  useCaretNearBottom: vi.fn(),
-}));
-
 vi.mock("~/session/components/shared", () => ({
   useCurrentNoteTab: () => ({ type: "raw" }),
 }));

@@ -26,7 +26,7 @@
     "@ai-sdk/react": "^3.0.160",
     "@emoji-mart/data": "^1.2.1",
     "@floating-ui/react": "^0.27.19",
-    "@handlewithcare/react-prosemirror": "^3.0.1",
+    "@handlewithcare/react-prosemirror": "^3.2.6",
     "@hypr/api-client": "workspace:*",
     "@hypr/changelog": "workspace:^",
     "@hypr/db": "workspace:*",

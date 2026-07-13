@@ -21,7 +21,7 @@
   },
   "dependencies": {
     "@floating-ui/dom": "^1.7.6",
-    "@handlewithcare/react-prosemirror": "^3.0.1",
+    "@handlewithcare/react-prosemirror": "^3.2.6",
     "@hypr/plugin-opener2": "workspace:*",
     "@hypr/store": "workspace:*",
     "@hypr/utils": "workspace:^",

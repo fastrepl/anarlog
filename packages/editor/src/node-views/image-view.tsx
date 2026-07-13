@@ -1,7 +1,7 @@
 import {
   type NodeViewComponentProps,
   useEditorEventCallback,
-  useEditorState,
+  useIsNodeSelected,
 } from "@handlewithcare/react-prosemirror";
 import type { NodeSpec } from "prosemirror-model";
 import { forwardRef, useCallback, useRef, useState } from "react";
@@ -105,15 +105,7 @@ export const ResizableImageView = forwardRef<
     },
   );
 
-  // to detect whether a nodeview is selected:
-  // see: https://discuss.prosemirror.net/t/is-this-the-right-way-to-determine-if-a-nodeview-is-selected/2208/2
-  // also: https://github.com/handlewithcarecollective/react-prosemirror/issues/161
-  const pos = getSafeNodePos(getPos);
-  const { selection } = useEditorState();
-  const isSelected =
-    pos !== null &&
-    pos >= selection.from &&
-    pos + node.nodeSize <= selection.to;
+  const isSelected = useIsNodeSelected();
 
   // we register all resize event handlers during resize start and unregister them on resize end.
   // all drag state lives inside this callback scope.

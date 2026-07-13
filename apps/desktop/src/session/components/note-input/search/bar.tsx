@@ -21,6 +21,8 @@ import { cn } from "@hypr/utils";
 
 import { useSearch } from "./context";
 
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
+
 function ToggleButton({
   active,
   onClick,
@@ -102,9 +104,12 @@ export function SearchBar({
   const searchInputRef = useRef<HTMLInputElement>(null);
   const replaceInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
+  useMountEffect(() => {
     searchInputRef.current?.focus();
-  }, []);
+
+    const editor = editorRef.current;
+    return () => editor?.commands.setSearch("", false);
+  });
 
   useEffect(() => {
     if (search?.showReplace) {

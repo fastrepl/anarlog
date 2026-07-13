@@ -1,7 +1,7 @@
 import {
   type NodeViewComponentProps,
   useEditorEventCallback,
-  useEditorState,
+  useIsNodeSelected,
 } from "@handlewithcare/react-prosemirror";
 import type { NodeSpec } from "prosemirror-model";
 import { forwardRef, type ReactNode } from "react";
@@ -72,13 +72,7 @@ export const TaskItemView = forwardRef<
   const { node, getPos } = nodeProps;
   const status = normalizeTaskStatus(node.attrs.status, node.attrs.checked);
   const taskId = node.attrs.taskId as string | null;
-
-  const pos = getSafeNodePos(getPos);
-  const { selection } = useEditorState();
-  const isSelected =
-    pos !== null &&
-    pos >= selection.from &&
-    pos + node.nodeSize <= selection.to - 1;
+  const isSelected = useIsNodeSelected();
 
   const handleToggle = useEditorEventCallback((view) => {
     if (!view) return;

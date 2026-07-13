@@ -1,4 +1,3 @@
-import type { EditorView } from "prosemirror-view";
 import {
   forwardRef,
   type UIEventHandler,
@@ -7,7 +6,6 @@ import {
   useEffect,
   useImperativeHandle,
   useRef,
-  useState,
 } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
@@ -21,7 +19,6 @@ import { SearchBar } from "./search/bar";
 import { useSearch } from "./search/context";
 import { Transcript } from "./transcript";
 
-import { useCaretNearBottom } from "~/session/components/caret-position-context";
 import { useCurrentNoteTab } from "~/session/components/shared";
 import { useScrollPreservation } from "~/shared/hooks/useScrollPreservation";
 import type { SessionMode } from "~/store/zustand/listener/general";
@@ -146,9 +143,6 @@ const NoteInputContent = forwardRef<
     ref,
   ) => {
     const internalEditorRef = useRef<NoteEditorRef>(null);
-    const [container, setContainer] = useState<HTMLDivElement | null>(null);
-    const [view, setView] = useState<EditorView | null>(null);
-
     const sessionId = tab.id;
     const deferredCurrentTab = useDeferredValue(currentTab);
     const renderedCurrentTab = editorTabs.some((editorTab) =>
@@ -254,22 +248,6 @@ const NoteInputContent = forwardRef<
       }
     }, [renderedCurrentTab, isMeetingInProgress]);
 
-    const handleViewReady = useCallback((editorView: EditorView) => {
-      setView(editorView);
-    }, []);
-
-    const handleViewDisposed = useCallback((editorView: EditorView) => {
-      setView((currentView) =>
-        currentView === editorView ? null : currentView,
-      );
-    }, []);
-
-    useCaretNearBottom({
-      view,
-      container,
-      enabled: true,
-    });
-
     const search = useSearch();
     const showSearchBar = search?.isVisible ?? false;
     const isEditableTab =
@@ -310,10 +288,7 @@ const NoteInputContent = forwardRef<
 
         <div className="relative flex-1 overflow-hidden">
           <div
-            ref={(node) => {
-              scrollRef.current = node;
-              setContainer(node);
-            }}
+            ref={scrollRef}
             onClick={handleContainerClick}
             onScroll={onScroll}
             className={cn([
@@ -331,8 +306,6 @@ const NoteInputContent = forwardRef<
                 sessionTitle={sessionTitle}
                 enhancedNoteId={renderedCurrentTab.id}
                 onNavigateToTitle={onNavigateToTitle}
-                onViewReady={handleViewReady}
-                onViewDisposed={handleViewDisposed}
               />
             )}
             {renderedCurrentTab.type === "raw" && (
@@ -342,8 +315,6 @@ const NoteInputContent = forwardRef<
                 rawMd={rawMd}
                 sessionTitle={sessionTitle}
                 onNavigateToTitle={onNavigateToTitle}
-                onViewReady={handleViewReady}
-                onViewDisposed={handleViewDisposed}
               />
             )}
             {renderedCurrentTab.type === "transcript" && (

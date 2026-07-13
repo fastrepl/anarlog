@@ -76,8 +76,8 @@ importers:
         specifier: ^0.27.19
         version: 0.27.19(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       '@handlewithcare/react-prosemirror':
-        specifier: ^3.0.1
-        version: 3.0.1(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.7)(react-dom@19.2.5(react@19.2.5))(react-reconciler@0.33.0(react@19.2.5))(react@19.2.5)
+        specifier: ^3.2.6
+        version: 3.2.6(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.7)(react-dom@19.2.5(react@19.2.5))(react-reconciler@0.33.0(react@19.2.5))(react@19.2.5)
       '@hypr/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
@@ -1077,8 +1077,8 @@ importers:
         specifier: ^1.7.6
         version: 1.7.6
       '@handlewithcare/react-prosemirror':
-        specifier: ^3.0.1
-        version: 3.0.1(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.7)(react-dom@19.2.5(react@19.2.5))(react-reconciler@0.33.0(react@19.2.5))(react@19.2.5)
+        specifier: ^3.2.6
+        version: 3.2.6(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.7)(react-dom@19.2.5(react@19.2.5))(react-reconciler@0.33.0(react@19.2.5))(react@19.2.5)
       '@hypr/plugin-opener2':
         specifier: workspace:*
         version: link:../../plugins/opener2
@@ -3268,16 +3268,26 @@ packages:
     engines: {node: '>=6'}
     hasBin: true
 
-  '@handlewithcare/react-prosemirror@3.0.1':
-    resolution: {integrity: sha512-09Mn1ayFqxtcgC7MxxKD3/TP8bhDbvZTP5f6/BhnD+oPaH0OjqxCzTwM7a6HkP64LiUvThFiG2VYludbhRe+5g==}
+  '@handlewithcare/react-prosemirror@3.2.6':
+    resolution: {integrity: sha512-RjoLygr/TOGM7Zn8HsL8ikzNIobQsDQsK4shlBS7KEWP/MvYCBmFEDxY/KB/erzzAQ9yzeeJ2CRHebJ3AoYiCA==}
     engines: {node: '>=16.9'}
     peerDependencies:
+      '@tiptap/core': ^3.0.0
+      '@tiptap/pm': ^3.0.0
+      '@tiptap/react': ^3.0.0
       prosemirror-model: ^1.0.0
       prosemirror-state: ^1.0.0
       prosemirror-view: 1.41.7
       react: '>=17 <20'
       react-dom: '>=17 <20'
       react-reconciler: '>=0.26.1 <=0.33.0'
+    peerDependenciesMeta:
+      '@tiptap/core':
+        optional: true
+      '@tiptap/pm':
+        optional: true
+      '@tiptap/react':
+        optional: true
 
   '@hey-api/codegen-core@0.6.1':
     resolution: {integrity: sha512-khTIpxhKEAqmRmeLUnAFJQs4Sbg9RPokovJk9rRcC8B5MWH1j3/BRSqfpAIiJUBDU1+nbVg2RVCV+eQ174cdvw==}
@@ -17321,7 +17331,7 @@ snapshots:
       protobufjs: 7.5.4
       yargs: 17.7.2
 
-  '@handlewithcare/react-prosemirror@3.0.1(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.7)(react-dom@19.2.5(react@19.2.5))(react-reconciler@0.33.0(react@19.2.5))(react@19.2.5)':
+  '@handlewithcare/react-prosemirror@3.2.6(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.7)(react-dom@19.2.5(react@19.2.5))(react-reconciler@0.33.0(react@19.2.5))(react@19.2.5)':
     dependencies:
       classnames: 2.5.1
       prosemirror-model: 1.25.4

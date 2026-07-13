@@ -4,7 +4,6 @@ import React, { useEffect, useRef } from "react";
 
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 
-import { CaretPositionProvider } from "./components/caret-position-context";
 import { FloatingActionButton } from "./components/floating";
 import {
   NoteInput,
@@ -63,7 +62,7 @@ export function TabContentNote({
   const audioUrl = audioUrlQuery.data;
 
   return (
-    <CaretPositionProvider>
+    <>
       {tab.state.autoStart && !standaloneWindow ? (
         <AutoStartListening tab={tab} />
       ) : null}
@@ -77,7 +76,7 @@ export function TabContentNote({
           />
         </AudioPlayer.Provider>
       </SearchProvider>
-    </CaretPositionProvider>
+    </>
   );
 }
 
