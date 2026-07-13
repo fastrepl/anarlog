@@ -23,6 +23,8 @@ pub struct Env {
     #[serde(flatten)]
     pub supabase: hypr_api_env::SupabaseEnv,
     #[serde(flatten)]
+    pub sync: hypr_api_sync::SyncEnv,
+    #[serde(flatten)]
     pub nango: hypr_api_env::NangoEnv,
     #[serde(flatten)]
     pub stripe: hypr_api_env::StripeEnv,

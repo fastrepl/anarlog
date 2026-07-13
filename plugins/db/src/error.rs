@@ -21,6 +21,8 @@ pub enum Error {
     #[error(transparent)]
     Cloudsync(#[from] hypr_db_core::CloudsyncRuntimeError),
     #[error(transparent)]
+    CloudsyncWorkspace(#[from] hypr_db_app::CloudsyncWorkspaceError),
+    #[error(transparent)]
     Json(#[from] serde_json::Error),
     #[error("transaction statement {statement_index} affected {actual} rows; expected {expected}")]
     UnexpectedRowsAffected {

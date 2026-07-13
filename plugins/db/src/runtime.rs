@@ -7,6 +7,8 @@ use tauri::ipc::Channel;
 
 use crate::{QueryEvent, Result, TransactionStatement};
 
+const DEFAULT_CLOUDSYNC_INTERVAL_MS: u64 = 30_000;
+
 #[derive(Clone)]
 pub struct QueryEventChannel(Channel<QueryEvent>);
 
@@ -123,9 +125,55 @@ impl PluginDbRuntime {
         self.live_query_runtime.unsubscribe(subscription_id).await
     }
 
-    pub fn configure_cloudsync(&self, config_json: String) -> Result<()> {
+    pub async fn configure_cloudsync(&self, config_json: String) -> Result<()> {
         let config = serde_json::from_str(&config_json)?;
-        self.db.cloudsync_configure(config)?;
+        self.db.cloudsync_configure(config).await?;
+        Ok(())
+    }
+
+    pub async fn configure_cloudsync_token(
+        &self,
+        database_id: String,
+        token: String,
+        workspace_id: String,
+    ) -> Result<()> {
+        self.ensure_app_schema().await?;
+        self.db.cloudsync_suspend().await?;
+        hypr_db_app::claim_cloudsync_workspace(self.db.pool(), &workspace_id).await?;
+
+        self.apply_cloudsync_config_fail_closed(hypr_db_core::CloudsyncRuntimeConfig {
+            connection_string: database_id,
+            auth: hypr_db_core::CloudsyncAuth::Token { token },
+            tables: hypr_db_app::cloudsync_table_registry().to_vec(),
+            sync_interval_ms: DEFAULT_CLOUDSYNC_INTERVAL_MS,
+            wait_ms: Some(5_000),
+            max_retries: Some(3),
+        })
+        .await
+    }
+
+    pub async fn claim_cloudsync_account(&self, account_user_id: String) -> Result<()> {
+        self.ensure_app_schema().await?;
+        self.db.cloudsync_suspend().await?;
+        hypr_db_app::claim_cloudsync_workspace(self.db.pool(), &account_user_id).await?;
+        Ok(())
+    }
+
+    async fn apply_cloudsync_config_fail_closed(
+        &self,
+        config: hypr_db_core::CloudsyncRuntimeConfig,
+    ) -> Result<()> {
+        let result = async {
+            self.db.cloudsync_reconfigure(config).await?;
+            self.db.cloudsync_start().await
+        }
+        .await;
+
+        if let Err(error) = result {
+            let _ = self.db.cloudsync_suspend().await;
+            return Err(error.into());
+        }
+
         Ok(())
     }
 
@@ -137,6 +185,11 @@ impl PluginDbRuntime {
 
     pub async fn stop_cloudsync(&self) -> Result<()> {
         self.db.cloudsync_stop().await?;
+        Ok(())
+    }
+
+    pub async fn suspend_cloudsync(&self) -> Result<()> {
+        self.db.cloudsync_suspend().await?;
         Ok(())
     }
 
@@ -197,4 +250,50 @@ pub async fn open_app_db(db_path: Option<&Path>) -> Result<Db> {
     hypr_db_app::prepare_schema(&db).await?;
 
     Ok(db)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn failed_cloudsync_start_clears_new_credentials() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("app.db");
+        let db = Db::open(DbOpenOptions {
+            storage: DbStorage::Local(&db_path),
+            cloudsync_enabled: true,
+            journal_mode_wal: true,
+            foreign_keys: true,
+            max_connections: Some(4),
+        })
+        .await
+        .unwrap();
+        hypr_db_app::prepare_schema(&db).await.unwrap();
+        let runtime = PluginDbRuntime::new(std::sync::Arc::new(db));
+
+        runtime
+            .apply_cloudsync_config_fail_closed(hypr_db_core::CloudsyncRuntimeConfig {
+                connection_string: "managed-database-id".to_string(),
+                auth: hypr_db_core::CloudsyncAuth::Token {
+                    token: "secret-token".to_string(),
+                },
+                tables: vec![hypr_db_core::CloudsyncTableSpec {
+                    table_name: "missing_table".to_string(),
+                    crdt_algo: None,
+                    init_flags: None,
+                    enabled: true,
+                }],
+                sync_interval_ms: DEFAULT_CLOUDSYNC_INTERVAL_MS,
+                wait_ms: Some(5_000),
+                max_retries: Some(3),
+            })
+            .await
+            .unwrap_err();
+
+        let status = runtime.cloudsync_status().await.unwrap();
+        assert_eq!(status["configured"], false);
+        assert_eq!(status["running"], false);
+        assert_eq!(status["network_initialized"], false);
+    }
 }

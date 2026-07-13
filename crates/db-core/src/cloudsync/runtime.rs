@@ -1,7 +1,8 @@
+use std::future::Future;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use backon::{ExponentialBuilder, Retryable};
+use backon::{BackoffBuilder, ExponentialBuilder};
 use sqlx::pool::PoolConnection;
 use sqlx::{Sqlite, SqlitePool};
 use tokio::sync::oneshot;
@@ -14,7 +15,15 @@ use super::types::{
 use crate::Db;
 
 impl Db {
-    pub fn cloudsync_configure(
+    pub async fn cloudsync_configure(
+        &self,
+        config: CloudsyncRuntimeConfig,
+    ) -> Result<(), CloudsyncRuntimeError> {
+        let _lifecycle = self.cloudsync_lifecycle.lock().await;
+        self.cloudsync_configure_locked(config)
+    }
+
+    fn cloudsync_configure_locked(
         &self,
         config: CloudsyncRuntimeConfig,
     ) -> Result<(), CloudsyncRuntimeError> {
@@ -31,16 +40,17 @@ impl Db {
         &self,
         config: CloudsyncRuntimeConfig,
     ) -> Result<(), CloudsyncRuntimeError> {
+        let _lifecycle = self.cloudsync_lifecycle.lock().await;
         let was_running = self.cloudsync_runtime.lock().unwrap().running;
 
         if was_running {
-            self.cloudsync_stop().await?;
+            self.cloudsync_stop_locked().await?;
         }
 
-        self.cloudsync_configure(config)?;
+        self.cloudsync_configure_locked(config)?;
 
         if was_running {
-            self.cloudsync_start().await?;
+            self.cloudsync_start_locked().await?;
         }
 
         Ok(())
@@ -48,6 +58,10 @@ impl Db {
 
     pub async fn cloudsync_start(&self) -> Result<(), CloudsyncRuntimeError> {
         let _lifecycle = self.cloudsync_lifecycle.lock().await;
+        self.cloudsync_start_locked().await
+    }
+
+    async fn cloudsync_start_locked(&self) -> Result<(), CloudsyncRuntimeError> {
         let needs_cleanup = {
             let runtime = self.cloudsync_runtime.lock().unwrap();
             !runtime.running && (runtime.network_initialized || runtime.task.is_some())
@@ -55,7 +69,6 @@ impl Db {
         if needs_cleanup {
             self.cloudsync_stop_locked().await?;
         }
-
         if !self.cloudsync_enabled {
             let mut runtime = self.cloudsync_runtime.lock().unwrap();
             runtime.running = false;
@@ -93,7 +106,12 @@ impl Db {
             self.cleanup_failed_cloudsync_start(true).await;
             return Err(error.into());
         }
-        if let Err(error) = self.apply_cloudsync_auth(&config.auth).await {
+        if let Err(error) = authenticate_cloudsync_network(
+            || self.apply_cloudsync_auth(&config.auth),
+            || self.cloudsync_network_cleanup(),
+        )
+        .await
+        {
             self.cleanup_failed_cloudsync_start(true).await;
             return Err(error.into());
         }
@@ -138,27 +156,51 @@ impl Db {
 
     async fn cloudsync_stop_locked(&self) -> Result<(), CloudsyncRuntimeError> {
         let should_cleanup = self.stop_cloudsync_task().await;
+        let mut first_error = None;
 
-        if !self.cloudsync_enabled {
-            let mut runtime = self.cloudsync_runtime.lock().unwrap();
-            runtime.network_initialized = false;
-            runtime.last_error = None;
-            return Ok(());
+        if self.cloudsync_enabled
+            && should_cleanup
+            && let Err(error) = self.cloudsync_network_cleanup().await
+        {
+            first_error = Some(CloudsyncRuntimeError::from(error));
         }
 
-        if should_cleanup {
-            self.cloudsync_network_cleanup().await?;
+        if self.cloudsync_enabled
+            && self.has_cloudsync()
+            && let Err(error) = self.cloudsync_terminate().await
+            && first_error.is_none()
+        {
+            first_error = Some(CloudsyncRuntimeError::from(error));
         }
 
-        if self.has_cloudsync() {
-            self.cloudsync_terminate().await?;
+        let pinned_connection = self.cloudsync_connection.lock().await.take();
+        if let Some(connection) = pinned_connection
+            && let Err(error) = connection.close().await
+            && first_error.is_none()
+        {
+            first_error = Some(CloudsyncRuntimeError::from(hypr_cloudsync::Error::from(
+                error,
+            )));
         }
-        self.cloudsync_connection.lock().await.take();
 
         let mut runtime = self.cloudsync_runtime.lock().unwrap();
         runtime.network_initialized = false;
         runtime.last_error = None;
-        Ok(())
+        first_error.map_or(Ok(()), Err)
+    }
+
+    pub async fn cloudsync_suspend(&self) -> Result<(), CloudsyncRuntimeError> {
+        let _lifecycle = self.cloudsync_lifecycle.lock().await;
+        let stop_result = self.cloudsync_stop_locked().await;
+
+        let mut runtime = self.cloudsync_runtime.lock().unwrap();
+        runtime.config = None;
+        runtime.last_sync = None;
+        runtime.last_sync_at_ms = None;
+        runtime.last_error = None;
+        runtime.last_error_kind = None;
+        runtime.consecutive_failures = 0;
+        stop_result
     }
 
     pub async fn cloudsync_logout(
@@ -224,6 +266,7 @@ impl Db {
     }
 
     pub async fn cloudsync_status(&self) -> Result<CloudsyncStatus, CloudsyncRuntimeError> {
+        let _lifecycle = self.cloudsync_lifecycle.lock().await;
         let (
             config,
             running,
@@ -271,6 +314,7 @@ impl Db {
     pub async fn cloudsync_trigger_sync(
         &self,
     ) -> Result<CloudsyncNetworkResult, CloudsyncRuntimeError> {
+        let _lifecycle = self.cloudsync_lifecycle.lock().await;
         if !self.cloudsync_enabled {
             let mut runtime = self.cloudsync_runtime.lock().unwrap();
             runtime.last_error = None;
@@ -337,6 +381,29 @@ impl Db {
     }
 }
 
+async fn authenticate_cloudsync_network<A, AF, C, CF>(
+    authenticate: A,
+    cleanup: C,
+) -> Result<(), hypr_cloudsync::Error>
+where
+    A: FnOnce() -> AF,
+    AF: Future<Output = Result<(), hypr_cloudsync::Error>>,
+    C: FnOnce() -> CF,
+    CF: Future<Output = Result<(), hypr_cloudsync::Error>>,
+{
+    if let Err(auth_error) = authenticate().await {
+        if let Err(cleanup_error) = cleanup().await {
+            tracing::warn!(
+                error = %cleanup_error,
+                "failed to clean up cloudsync network after authentication failure",
+            );
+        }
+        return Err(auth_error);
+    }
+
+    Ok(())
+}
+
 fn record_sync_result(runtime: &Mutex<CloudsyncRuntimeState>, result: CloudsyncNetworkResult) {
     let mut runtime = runtime.lock().unwrap();
     runtime.last_sync = Some(result);
@@ -396,6 +463,9 @@ mod tests {
         }
     }
 
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    use crate::{CloudsyncAuth, CloudsyncTableSpec, DbOpenOptions, DbStorage};
     #[test]
     fn embedded_sync_failures_update_runtime_error_state() {
         let runtime = Mutex::new(CloudsyncRuntimeState::default());
@@ -458,13 +528,149 @@ mod tests {
     async fn logout_releases_connection_after_partial_startup() {
         let mut db = Db::connect_memory_plain().await.unwrap();
         db.cloudsync_enabled = true;
-        db.cloudsync_configure(test_cloudsync_config()).unwrap();
+        db.cloudsync_configure(test_cloudsync_config())
+            .await
+            .unwrap();
         *db.cloudsync_connection.lock().await = Some(db.pool.acquire().await.unwrap());
 
         db.cloudsync_logout(false).await.unwrap();
 
         assert!(db.cloudsync_connection.lock().await.is_none());
         assert!(db.cloudsync_runtime.lock().unwrap().config.is_none());
+    }
+
+    #[tokio::test]
+    async fn authentication_failure_cleans_up_initialized_network() {
+        let cleanup_called = AtomicBool::new(false);
+
+        let error = authenticate_cloudsync_network(
+            || async {
+                Err::<(), _>(hypr_cloudsync::Error::from(std::io::Error::other(
+                    "authentication rejected",
+                )))
+            },
+            || async {
+                cleanup_called.store(true, Ordering::SeqCst);
+                Ok::<(), hypr_cloudsync::Error>(())
+            },
+        )
+        .await
+        .unwrap_err();
+
+        assert!(cleanup_called.load(Ordering::SeqCst));
+        assert!(error.to_string().contains("authentication rejected"));
+    }
+
+    #[tokio::test]
+    async fn configure_start_and_suspend_transitions_are_serialized() {
+        let db = Db::open(DbOpenOptions {
+            storage: DbStorage::Memory,
+            cloudsync_enabled: false,
+            journal_mode_wal: false,
+            foreign_keys: true,
+            max_connections: Some(1),
+        })
+        .await
+        .unwrap();
+        db.cloudsync_configure(CloudsyncRuntimeConfig {
+            connection_string: "managed-database-id".to_string(),
+            auth: CloudsyncAuth::None,
+            tables: Vec::new(),
+            sync_interval_ms: 30_000,
+            wait_ms: Some(5_000),
+            max_retries: Some(3),
+        })
+        .await
+        .unwrap();
+
+        let lifecycle = db.cloudsync_lifecycle.lock().await;
+        let mut configure = Box::pin(db.cloudsync_configure(CloudsyncRuntimeConfig {
+            connection_string: "next-managed-database-id".to_string(),
+            auth: CloudsyncAuth::None,
+            tables: Vec::new(),
+            sync_interval_ms: 45_000,
+            wait_ms: Some(5_000),
+            max_retries: Some(3),
+        }));
+        tokio::select! {
+            biased;
+            result = &mut configure => panic!("configure bypassed lifecycle lock: {result:?}"),
+            _ = tokio::task::yield_now() => {}
+        }
+
+        let mut start = Box::pin(db.cloudsync_start());
+        tokio::select! {
+            biased;
+            result = &mut start => panic!("start bypassed lifecycle lock: {result:?}"),
+            _ = tokio::task::yield_now() => {}
+        }
+
+        let mut suspend = Box::pin(db.cloudsync_suspend());
+        tokio::select! {
+            biased;
+            result = &mut suspend => panic!("suspend bypassed lifecycle lock: {result:?}"),
+            _ = tokio::task::yield_now() => {}
+        }
+
+        drop(lifecycle);
+        configure.await.unwrap();
+        start.await.unwrap();
+        suspend.await.unwrap();
+
+        let status = db.cloudsync_status().await.unwrap();
+        assert!(!status.configured);
+        assert!(!status.running);
+        assert!(!status.network_initialized);
+    }
+
+    #[tokio::test]
+    async fn status_and_manual_sync_wait_for_suspend_teardown() {
+        let db = Db::open(DbOpenOptions {
+            storage: DbStorage::Memory,
+            cloudsync_enabled: false,
+            journal_mode_wal: false,
+            foreign_keys: true,
+            max_connections: Some(1),
+        })
+        .await
+        .unwrap();
+        db.cloudsync_configure(CloudsyncRuntimeConfig {
+            connection_string: "managed-database-id".to_string(),
+            auth: CloudsyncAuth::None,
+            tables: Vec::new(),
+            sync_interval_ms: 30_000,
+            wait_ms: Some(5_000),
+            max_retries: Some(3),
+        })
+        .await
+        .unwrap();
+
+        let lifecycle = db.cloudsync_lifecycle.lock().await;
+        let mut suspend = Box::pin(db.cloudsync_suspend());
+        tokio::select! {
+            biased;
+            result = &mut suspend => panic!("suspend bypassed lifecycle lock: {result:?}"),
+            _ = tokio::task::yield_now() => {}
+        }
+
+        let mut status = Box::pin(db.cloudsync_status());
+        tokio::select! {
+            biased;
+            result = &mut status => panic!("status bypassed lifecycle lock: {result:?}"),
+            _ = tokio::task::yield_now() => {}
+        }
+
+        let mut trigger = Box::pin(db.cloudsync_trigger_sync());
+        tokio::select! {
+            biased;
+            result = &mut trigger => panic!("manual sync bypassed lifecycle lock: {result:?}"),
+            _ = tokio::task::yield_now() => {}
+        }
+
+        drop(lifecycle);
+        suspend.await.unwrap();
+        assert!(!status.await.unwrap().configured);
+        assert_eq!(trigger.await.unwrap(), CloudsyncNetworkResult::default());
     }
 
     #[tokio::test]
@@ -488,6 +694,7 @@ mod tests {
             wait_ms: Some(5_000),
             max_retries: Some(3),
         })
+        .await
         .unwrap();
         db.cloudsync_start().await.unwrap();
         {
@@ -541,6 +748,102 @@ mod tests {
         assert_eq!(marker_count, 0);
         db.cloudsync_stop().await.unwrap();
     }
+
+    #[tokio::test]
+    async fn suspend_interrupts_active_retry_backoff() {
+        let db = Db::connect_memory_plain().await.unwrap();
+        let (shutdown_tx, mut shutdown_rx) = oneshot::channel();
+        let (retry_started_tx, retry_started_rx) = oneshot::channel();
+        let join_handle = tokio::spawn(async move {
+            let _ = retry_started_tx.send(());
+            assert!(!wait_for_retry_or_shutdown(Duration::from_secs(60), &mut shutdown_rx).await);
+        });
+        {
+            let mut runtime = db.cloudsync_runtime.lock().unwrap();
+            runtime.running = true;
+            runtime.task = Some(CloudsyncBackgroundTask {
+                shutdown_tx: Some(shutdown_tx),
+                join_handle,
+            });
+        }
+        retry_started_rx.await.unwrap();
+
+        tokio::time::timeout(Duration::from_secs(1), db.cloudsync_suspend())
+            .await
+            .expect("suspend waited for retry backoff")
+            .unwrap();
+
+        assert!(!db.cloudsync_status().await.unwrap().running);
+    }
+
+    #[tokio::test]
+    async fn suspend_stops_runtime_and_clears_in_memory_credentials() {
+        let db = Db::open(DbOpenOptions {
+            storage: DbStorage::Memory,
+            cloudsync_enabled: false,
+            journal_mode_wal: false,
+            foreign_keys: true,
+            max_connections: Some(1),
+        })
+        .await
+        .unwrap();
+        db.cloudsync_configure(CloudsyncRuntimeConfig {
+            connection_string: "managed-database-id".to_string(),
+            auth: CloudsyncAuth::Token {
+                token: "secret-token".to_string(),
+            },
+            tables: vec![CloudsyncTableSpec {
+                table_name: "sessions".to_string(),
+                crdt_algo: None,
+                init_flags: None,
+                enabled: true,
+            }],
+            sync_interval_ms: 30_000,
+            wait_ms: Some(5_000),
+            max_retries: Some(3),
+        })
+        .await
+        .unwrap();
+
+        db.cloudsync_start().await.unwrap();
+        db.cloudsync_suspend().await.unwrap();
+
+        let status = db.cloudsync_status().await.unwrap();
+        assert!(!status.configured);
+        assert!(!status.running);
+        assert!(!status.network_initialized);
+    }
+
+    #[tokio::test]
+    async fn suspend_clears_runtime_state_when_native_teardown_fails() {
+        let db = Db::connect_memory().await.unwrap();
+        db.cloudsync_configure(CloudsyncRuntimeConfig {
+            connection_string: "managed-database-id".to_string(),
+            auth: CloudsyncAuth::Token {
+                token: "secret-token".to_string(),
+            },
+            tables: Vec::new(),
+            sync_interval_ms: 30_000,
+            wait_ms: Some(5_000),
+            max_retries: Some(3),
+        })
+        .await
+        .unwrap();
+        {
+            let mut runtime = db.cloudsync_runtime.lock().unwrap();
+            runtime.running = true;
+            runtime.network_initialized = true;
+        }
+        db.pool().close().await;
+
+        db.cloudsync_suspend().await.unwrap_err();
+
+        let status = db.cloudsync_status().await.unwrap();
+        assert!(!status.configured);
+        assert!(!status.running);
+        assert!(!status.network_initialized);
+        assert!(db.cloudsync_connection.lock().await.is_none());
+    }
 }
 
 fn record_sync_error(runtime: &Mutex<CloudsyncRuntimeState>, error: &hypr_cloudsync::Error) {
@@ -566,35 +869,18 @@ async fn cloudsync_background_loop(
         tokio::select! {
             _ = &mut shutdown_rx => break,
             _ = tokio::time::sleep(base_interval) => {
-                let state = Arc::clone(&runtime_state);
-
-                let result = (|| {
-                    let connection = Arc::clone(&connection);
-                    let pool = pool.clone();
-                    async move {
-                        sync_cloudsync_connection(&pool, &connection, wait_ms, max_retries).await
-                    }
-                })
-                    .retry(
-                        ExponentialBuilder::default()
-                            .with_min_delay(base_interval)
-                            .with_max_delay(Duration::from_secs(MAX_BACKOFF_SECS))
-                            .with_jitter(),
-                    )
-                    .when(|e| e.kind() == hypr_cloudsync::ErrorKind::Transient)
-                    .notify(|e, dur| {
-                        let mut runtime = state.lock().unwrap();
-                        runtime.consecutive_failures = runtime.consecutive_failures.saturating_add(1);
-                        runtime.last_error = Some(e.to_string());
-                        runtime.last_error_kind = Some(e.kind());
-                        tracing::warn!(
-                            error = %e,
-                            retry_after = ?dur,
-                            failures = runtime.consecutive_failures,
-                            "cloudsync transient error, retrying",
-                        );
-                    })
-                    .await;
+                let Some(result) = sync_cloudsync_with_retry(
+                    &pool,
+                    &connection,
+                    &runtime_state,
+                    base_interval,
+                    wait_ms,
+                    max_retries,
+                    &mut shutdown_rx,
+                )
+                .await else {
+                    break;
+                };
 
                 match result {
                     Ok(result) => {
@@ -612,6 +898,61 @@ async fn cloudsync_background_loop(
                 }
             }
         }
+    }
+}
+
+async fn sync_cloudsync_with_retry(
+    pool: &SqlitePool,
+    connection: &tokio::sync::Mutex<Option<PoolConnection<Sqlite>>>,
+    runtime_state: &Mutex<CloudsyncRuntimeState>,
+    base_interval: Duration,
+    wait_ms: Option<i64>,
+    max_retries: Option<i64>,
+    shutdown_rx: &mut oneshot::Receiver<()>,
+) -> Option<Result<CloudsyncNetworkResult, hypr_cloudsync::Error>> {
+    let mut backoff = ExponentialBuilder::default()
+        .with_min_delay(base_interval)
+        .with_max_delay(Duration::from_secs(MAX_BACKOFF_SECS))
+        .with_jitter()
+        .build();
+
+    loop {
+        match sync_cloudsync_connection(pool, connection, wait_ms, max_retries).await {
+            Err(error) if error.kind() == hypr_cloudsync::ErrorKind::Transient => {
+                let Some(retry_after) = backoff.next() else {
+                    return Some(Err(error));
+                };
+
+                let failures = {
+                    let mut runtime = runtime_state.lock().unwrap();
+                    runtime.consecutive_failures = runtime.consecutive_failures.saturating_add(1);
+                    runtime.last_error = Some(error.to_string());
+                    runtime.last_error_kind = Some(error.kind());
+                    runtime.consecutive_failures
+                };
+                tracing::warn!(
+                    error = %error,
+                    retry_after = ?retry_after,
+                    failures,
+                    "cloudsync transient error, retrying",
+                );
+
+                if !wait_for_retry_or_shutdown(retry_after, shutdown_rx).await {
+                    return None;
+                }
+            }
+            result => return Some(result),
+        }
+    }
+}
+
+async fn wait_for_retry_or_shutdown(
+    retry_after: Duration,
+    shutdown_rx: &mut oneshot::Receiver<()>,
+) -> bool {
+    tokio::select! {
+        _ = &mut *shutdown_rx => false,
+        _ = tokio::time::sleep(retry_after) => true,
     }
 }
 

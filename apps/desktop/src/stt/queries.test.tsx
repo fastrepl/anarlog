@@ -224,25 +224,28 @@ describe("transcript SQLite queries", () => {
     }>;
     expect(statements).toHaveLength(1);
     expect(statements[0]?.sql).toContain("INSERT INTO transcripts");
+    expect(statements[0]?.sql).toContain("session.workspace_id");
     expect(statements[0]?.params.slice(0, 8)).toEqual([
       "transcript-1",
       "user-1",
-      "session-1",
       "live_capture",
       "soniox",
       "stt-rt-v3",
       "",
       1000,
+      null,
     ]);
-    expect(JSON.parse(String(statements[0]?.params[10]))).toEqual([
+    expect(JSON.parse(String(statements[0]?.params[9]))).toEqual([
       expect.objectContaining({ id: "word-1", text: "Hello" }),
     ]);
-    expect(JSON.parse(String(statements[0]?.params[11]))).toEqual([
+    expect(JSON.parse(String(statements[0]?.params[10]))).toEqual([
       expect.objectContaining({
         word_id: "word-1",
         type: "provider_speaker_index",
       }),
     ]);
+    const params = statements[0]?.params ?? [];
+    expect(params[params.length - 1]).toBe("session-1");
   });
 
   it("tombstones old session transcripts in the same replacement transaction", async () => {

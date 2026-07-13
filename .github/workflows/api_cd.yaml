@@ -34,9 +34,10 @@ jobs:
       - run: |
           set -euo pipefail
 
-          secrets_json="$(mktemp)"
+          ai_secrets_json="$(mktemp)"
+          cloudsync_secrets_json="$(mktemp)"
           secrets_file="$(mktemp)"
-          trap 'rm -f "$secrets_json" "$secrets_file"' EXIT
+          trap 'rm -f "$ai_secrets_json" "$cloudsync_secrets_json" "$secrets_file"' EXIT
 
           infisical export \
             --token="$INFISICAL_TOKEN" \
@@ -44,19 +45,45 @@ jobs:
             --projectId="$INFISICAL_PROJECT_ID" \
             --path="/anarlog/ai" \
             --format=json \
-            --output-file="$secrets_json"
+            --output-file="$ai_secrets_json"
 
-          python3 - "$secrets_json" "$secrets_file" <<'PY'
+          infisical export \
+            --token="$INFISICAL_TOKEN" \
+            --env="$INFISICAL_ENV" \
+            --projectId="$INFISICAL_PROJECT_ID" \
+            --path="/anarlog/cloudsync" \
+            --format=json \
+            --output-file="$cloudsync_secrets_json"
+
+          python3 - "$ai_secrets_json" "$cloudsync_secrets_json" "$secrets_file" <<'PY'
           import json
           import sys
 
-          with open(sys.argv[1]) as source:
-              secrets = json.load(source)
+          cloudsync_runtime_keys = {
+              "ANARLOG_CLOUDSYNC_DATABASE_ID",
+              "ANARLOG_CLOUDSYNC_TOKEN_TTL_SECONDS",
+              "SQLITECLOUD_PROJECT_URL",
+              "SQLITECLOUD_TOKEN_ISSUER_API_KEY",
+          }
+          sources = (
+              (sys.argv[1], None),
+              (sys.argv[2], cloudsync_runtime_keys),
+          )
 
-          with open(sys.argv[2], "w") as target:
-              for secret in secrets:
-                  key = secret["key"]
-                  value = secret.get("value", "")
+          secrets_by_key = {}
+          for source_path, allowed_keys in sources:
+              with open(source_path) as source:
+                  for secret in json.load(source):
+                      key = secret["key"]
+                      if allowed_keys is not None and key not in allowed_keys:
+                          continue
+                      value = secret.get("value", "")
+                      if key in secrets_by_key and secrets_by_key[key] != value:
+                          raise ValueError(f"Conflicting Infisical secret: {key}")
+                      secrets_by_key[key] = value
+
+          with open(sys.argv[-1], "w") as target:
+              for key, value in secrets_by_key.items():
                   value = value.replace("\r\n", "\n").replace("\r", "\n").replace("\n", "\\n")
                   target.write(f"{key}={value}\n")
           PY

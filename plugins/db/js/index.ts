@@ -165,12 +165,34 @@ export async function configureCloudsync(
   });
 }
 
+export async function configureCloudsyncToken(
+  databaseId: string,
+  token: string,
+  workspaceId: string,
+): Promise<void> {
+  return invoke("plugin:db|configure_cloudsync_token", {
+    databaseId,
+    token,
+    workspaceId,
+  });
+}
+
+export async function claimCloudsyncAccount(
+  accountUserId: string,
+): Promise<void> {
+  return invoke("plugin:db|claim_cloudsync_account", { accountUserId });
+}
+
 export async function startCloudsync(): Promise<void> {
   return invoke("plugin:db|start_cloudsync");
 }
 
 export async function stopCloudsync(): Promise<void> {
   return invoke("plugin:db|stop_cloudsync");
+}
+
+export async function suspendCloudsync(): Promise<void> {
+  return invoke("plugin:db|suspend_cloudsync");
 }
 
 export async function getCloudsyncStatus(): Promise<CloudsyncStatus> {

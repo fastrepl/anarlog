@@ -118,6 +118,22 @@ async configureCloudsync(configJson: string) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async claimCloudsyncAccount(accountUserId: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:db|claim_cloudsync_account", { accountUserId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async configureCloudsyncToken(databaseId: string, token: string, workspaceId: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:db|configure_cloudsync_token", { databaseId, token, workspaceId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async startCloudsync() : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:db|start_cloudsync") };
@@ -129,6 +145,14 @@ async startCloudsync() : Promise<Result<null, string>> {
 async stopCloudsync() : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:db|stop_cloudsync") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async suspendCloudsync() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:db|suspend_cloudsync") };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };

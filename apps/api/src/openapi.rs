@@ -19,6 +19,7 @@ use utoipa::{Modify, OpenApi};
         (name = "mail", description = "Mail management"),
         (name = "ticket", description = "Ticket management"),
         (name = "nango", description = "Integration management via Nango"),
+        (name = "sync", description = "CloudSync credential management"),
         (name = "subscription", description = "Subscription and trial management")
     ),
     modifiers(&SecurityAddon)
@@ -37,6 +38,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
     let nango_doc = with_path_prefix(hypr_api_nango::openapi(), "/nango");
     let subscription_doc = with_path_prefix(hypr_api_subscription::openapi(), "/subscription");
     let support_doc = hypr_api_support::openapi();
+    let sync_doc = with_path_prefix(hypr_api_sync::openapi(), "/sync");
 
     doc.merge(stt_doc);
     doc.merge(llm_doc);
@@ -47,6 +49,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
     doc.merge(nango_doc);
     doc.merge(subscription_doc);
     doc.merge(support_doc);
+    doc.merge(sync_doc);
 
     apply_bearer_auth_to_protected_paths(&mut doc);
 
@@ -114,6 +117,7 @@ fn apply_bearer_auth_to_protected_paths(doc: &mut utoipa::openapi::OpenApi) {
             || path.starts_with("/subscription")
             || path.starts_with("/nango")
             || path.starts_with("/pyannote")
+            || path.starts_with("/sync")
         {
             set_operation_security(item);
         }

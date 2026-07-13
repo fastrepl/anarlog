@@ -136,8 +136,11 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::subscribe,
             commands::unsubscribe,
             commands::configure_cloudsync,
+            commands::claim_cloudsync_account,
+            commands::configure_cloudsync_token,
             commands::start_cloudsync,
             commands::stop_cloudsync,
+            commands::suspend_cloudsync,
             commands::get_cloudsync_status,
             commands::sync_cloudsync_now,
             commands::logout_cloudsync,
@@ -163,7 +166,7 @@ pub fn init_with_cloudsync<R: tauri::Runtime>(
             hypr_tauri_utils::block_on(hypr_db_app::prepare_schema(db.as_ref()))?;
             hypr_tauri_utils::block_on(import::import_legacy_data(app.app_handle(), db.pool()))?;
             if let Some(config) = startup_config.clone() {
-                if let Err(error) = db.cloudsync_configure(config) {
+                if let Err(error) = hypr_tauri_utils::block_on(db.cloudsync_configure(config)) {
                     tracing::warn!(%error, "failed to configure startup cloudsync");
                 } else {
                     let sync_db = std::sync::Arc::clone(&db);
@@ -505,6 +508,7 @@ mod test {
                 })
                 .to_string(),
             )
+            .await
             .unwrap();
         runtime.start_cloudsync().await.unwrap();
 
@@ -514,6 +518,124 @@ mod test {
         assert_eq!(status["network_initialized"], false);
 
         runtime.logout_cloudsync(false).await.unwrap();
+        assert_eq!(
+            runtime.cloudsync_status().await.unwrap()["configured"],
+            false
+        );
+    }
+
+    #[tokio::test]
+    async fn token_configuration_claims_workspace_and_can_be_suspended() {
+        let (_dir, runtime) = setup_runtime().await;
+        let local_workspace = hypr_db_app::ensure_cloudsync_workspace_binding(runtime.pool())
+            .await
+            .unwrap();
+        sqlx::query(
+            "INSERT INTO sessions (id, workspace_id, title) VALUES ('session', ?, 'Session')",
+        )
+        .bind(local_workspace)
+        .execute(runtime.pool())
+        .await
+        .unwrap();
+
+        runtime
+            .configure_cloudsync_token(
+                "managed-database-id".to_string(),
+                "token".to_string(),
+                "user-a".to_string(),
+            )
+            .await
+            .unwrap();
+
+        let workspace_id: String =
+            sqlx::query_scalar("SELECT workspace_id FROM sessions WHERE id = 'session'")
+                .fetch_one(runtime.pool())
+                .await
+                .unwrap();
+        assert_eq!(workspace_id, "user-a");
+        assert_eq!(
+            runtime.cloudsync_status().await.unwrap()["configured"],
+            true
+        );
+
+        runtime.suspend_cloudsync().await.unwrap();
+        assert_eq!(
+            runtime.cloudsync_status().await.unwrap()["configured"],
+            false
+        );
+    }
+
+    #[tokio::test]
+    async fn account_claim_is_durable_without_a_cloudsync_token() {
+        let (_dir, runtime) = setup_runtime().await;
+        let local_workspace = hypr_db_app::ensure_cloudsync_workspace_binding(runtime.pool())
+            .await
+            .unwrap();
+        sqlx::query(
+            "INSERT INTO sessions (id, workspace_id, title) VALUES ('session', ?, 'Session')",
+        )
+        .bind(&local_workspace)
+        .execute(runtime.pool())
+        .await
+        .unwrap();
+
+        runtime
+            .claim_cloudsync_account("user-a".to_string())
+            .await
+            .unwrap();
+
+        let binding: (String, String) = sqlx::query_as(
+            "SELECT json_extract(value_json, '$.workspace_id'),
+                    json_extract(value_json, '$.account_user_id')
+             FROM app_settings WHERE id = 'cloudsync_workspace_binding'",
+        )
+        .fetch_one(runtime.pool())
+        .await
+        .unwrap();
+        let workspace_id: String =
+            sqlx::query_scalar("SELECT workspace_id FROM sessions WHERE id = 'session'")
+                .fetch_one(runtime.pool())
+                .await
+                .unwrap();
+
+        assert_eq!(binding, ("user-a".to_string(), "user-a".to_string()));
+        assert_eq!(workspace_id, "user-a");
+        runtime
+            .claim_cloudsync_account("user-a".to_string())
+            .await
+            .unwrap();
+        assert!(
+            runtime
+                .claim_cloudsync_account("user-b".to_string())
+                .await
+                .unwrap_err()
+                .to_string()
+                .contains("different account")
+        );
+    }
+
+    #[tokio::test]
+    async fn account_switch_leaves_cloudsync_suspended() {
+        let (_dir, runtime) = setup_runtime().await;
+        runtime
+            .configure_cloudsync_token(
+                "managed-database-id".to_string(),
+                "token-a".to_string(),
+                "user-a".to_string(),
+            )
+            .await
+            .unwrap();
+
+        let error = runtime
+            .configure_cloudsync_token(
+                "managed-database-id".to_string(),
+                "token-b".to_string(),
+                "user-b".to_string(),
+            )
+            .await
+            .unwrap_err();
+
+        assert!(error.to_string().contains("different account"));
         assert_eq!(
             runtime.cloudsync_status().await.unwrap()["configured"],
             false

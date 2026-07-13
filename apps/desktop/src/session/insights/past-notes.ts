@@ -505,13 +505,10 @@ export function buildSessionKeyFactsStatements(
           sort_order, created_by, updated_by, created_at, updated_at,
           deleted_at
         )
-        SELECT ?, '', ?, 'key_facts', '', 'Key facts', 'markdown', ?, ?,
-          '{}', 0, ?, ?, ?, ?, NULL
-        WHERE EXISTS (
-          SELECT 1
-          FROM sessions
-          WHERE id = ? AND deleted_at IS NULL
-        )
+        SELECT ?, session.workspace_id, session.id, 'key_facts', '',
+          'Key facts', 'markdown', ?, ?, '{}', 0, ?, ?, ?, ?, NULL
+        FROM sessions AS session
+        WHERE session.id = ? AND session.deleted_at IS NULL
           AND NOT EXISTS (
             SELECT 1
             FROM session_documents
@@ -532,7 +529,6 @@ export function buildSessionKeyFactsStatements(
       `,
       params: [
         `${row.sessionId}:key_facts`,
-        row.sessionId,
         row.content,
         row.sourceHash,
         row.userId,

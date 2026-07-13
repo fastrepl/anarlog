@@ -220,12 +220,15 @@ export function createTranscript(input: TranscriptInsert): Promise<void> {
           model, language, started_at_ms, ended_at_ms, audio_attachment_id,
           memo, words_json, speaker_hints_json, metadata_json, created_at,
           updated_at, deleted_at
-        ) VALUES (?, '', ?, ?, ?, ?, ?, ?, ?, ?, '', ?, ?, ?, '{}', ?, ?, NULL)
+        )
+        SELECT ?, session.workspace_id, ?, session.id, ?, ?, ?, ?, ?, ?, '',
+          ?, ?, ?, '{}', ?, ?, NULL
+        FROM sessions AS session
+        WHERE session.id = ? AND session.deleted_at IS NULL
       `,
       params: [
         input.id,
         input.ownerUserId,
-        input.sessionId,
         input.source ?? "",
         input.provider ?? "",
         input.model ?? "",
@@ -237,6 +240,7 @@ export function createTranscript(input: TranscriptInsert): Promise<void> {
         JSON.stringify(input.speakerHints ?? []),
         input.createdAt,
         now,
+        input.sessionId,
       ],
     });
 

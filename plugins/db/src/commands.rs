@@ -168,6 +168,33 @@ pub(crate) async fn configure_cloudsync(
 ) -> Result<(), String> {
     state
         .configure_cloudsync(config_json)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn configure_cloudsync_token(
+    state: tauri::State<'_, ManagedState>,
+    database_id: String,
+    token: String,
+    workspace_id: String,
+) -> Result<(), String> {
+    state
+        .configure_cloudsync_token(database_id, token, workspace_id)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn claim_cloudsync_account(
+    state: tauri::State<'_, ManagedState>,
+    account_user_id: String,
+) -> Result<(), String> {
+    state
+        .claim_cloudsync_account(account_user_id)
+        .await
         .map_err(|error| error.to_string())
 }
 
@@ -185,6 +212,15 @@ pub(crate) async fn start_cloudsync(state: tauri::State<'_, ManagedState>) -> Re
 pub(crate) async fn stop_cloudsync(state: tauri::State<'_, ManagedState>) -> Result<(), String> {
     state
         .stop_cloudsync()
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn suspend_cloudsync(state: tauri::State<'_, ManagedState>) -> Result<(), String> {
+    state
+        .suspend_cloudsync()
         .await
         .map_err(|error| error.to_string())
 }

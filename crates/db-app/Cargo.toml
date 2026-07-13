@@ -8,7 +8,9 @@ hypr-db-core = { workspace = true }
 hypr-db-migrate = { workspace = true }
 
 serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
 sqlx = { workspace = true, features = ["runtime-tokio", "sqlite", "sqlite-unbundled", "macros"] }
+uuid = { workspace = true, features = ["v4"] }
 
 [features]
 default = []

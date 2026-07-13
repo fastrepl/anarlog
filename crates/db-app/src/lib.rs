@@ -123,6 +123,7 @@ pub fn schema() -> hypr_db_migrate::DbSchema {
 pub enum AppSchemaError {
     Migrate(hypr_db_migrate::MigrateError),
     Sqlx(sqlx::Error),
+    CloudsyncWorkspace(CloudsyncWorkspaceError),
 }
 
 impl std::fmt::Display for AppSchemaError {
@@ -130,6 +131,7 @@ impl std::fmt::Display for AppSchemaError {
         match self {
             Self::Migrate(error) => write!(f, "{error}"),
             Self::Sqlx(error) => write!(f, "{error}"),
+            Self::CloudsyncWorkspace(error) => write!(f, "{error}"),
         }
     }
 }
@@ -148,10 +150,17 @@ impl From<sqlx::Error> for AppSchemaError {
     }
 }
 
+impl From<CloudsyncWorkspaceError> for AppSchemaError {
+    fn from(error: CloudsyncWorkspaceError) -> Self {
+        Self::CloudsyncWorkspace(error)
+    }
+}
+
 pub async fn prepare_schema(db: &hypr_db_core::Db) -> Result<(), AppSchemaError> {
     let templates_missing_before_migration = !templates_table_exists(db.pool()).await?;
     hypr_db_migrate::migrate(db, schema()).await?;
     repair_missing_core_tables(db.pool(), templates_missing_before_migration).await?;
+    ensure_cloudsync_workspace_binding(db.pool()).await?;
     Ok(())
 }
 

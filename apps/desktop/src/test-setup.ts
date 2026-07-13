@@ -51,6 +51,8 @@ vi.mock("@tauri-apps/api/path", () => ({
 }));
 
 vi.mock("@hypr/plugin-db", () => ({
+  claimCloudsyncAccount: vi.fn().mockResolvedValue(undefined),
+  configureCloudsyncToken: vi.fn().mockResolvedValue(undefined),
   execute: vi.fn().mockResolvedValue([]),
   executeProxy: vi.fn().mockResolvedValue({ rows: [] }),
   executeTransaction: vi.fn().mockResolvedValue([]),
@@ -59,6 +61,7 @@ vi.mock("@hypr/plugin-db", () => ({
   getRecurringMeetingHistory: vi.fn(),
   listMeetings: vi.fn(),
   subscribe: vi.fn().mockResolvedValue(() => Promise.resolve()),
+  suspendCloudsync: vi.fn().mockResolvedValue(undefined),
 }));
 
 function translate(

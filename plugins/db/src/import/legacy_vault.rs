@@ -59,6 +59,25 @@ struct SourceFile {
     kind: SourceKind,
 }
 
+impl SourceFile {
+    fn import_sort_key(&self) -> (&str, u8, &str) {
+        let group = match self.kind {
+            SourceKind::Attachment => self
+                .relative_path
+                .split_once("/attachments/")
+                .map_or(self.relative_path.as_str(), |(directory, _)| directory),
+            SourceKind::SessionMeta | SourceKind::SessionDocument | SourceKind::Transcript => self
+                .relative_path
+                .rsplit_once('/')
+                .map_or(self.relative_path.as_str(), |(directory, _)| directory),
+            _ => self.relative_path.as_str(),
+        };
+        let dependency_order = u8::from(self.kind != SourceKind::SessionMeta);
+
+        (group, dependency_order, self.relative_path.as_str())
+    }
+}
+
 #[derive(Debug)]
 struct SourceDiscovery {
     files: Vec<SourceFile>,
@@ -177,7 +196,7 @@ fn discover_sources(vault_base: &Path) -> std::io::Result<SourceDiscovery> {
     let mut files = Vec::new();
     let mut shadowed_summaries = Vec::new();
     collect_files(vault_base, vault_base, &mut files, &mut shadowed_summaries)?;
-    files.sort_by(|left, right| left.relative_path.cmp(&right.relative_path));
+    files.sort_by(|left, right| left.import_sort_key().cmp(&right.import_sort_key()));
     shadowed_summaries
         .sort_by(|left, right| left.hidden_relative_path.cmp(&right.hidden_relative_path));
     Ok(SourceDiscovery {
@@ -1406,13 +1425,29 @@ mod tests {
             ("daily_notes", "SELECT COUNT(*) FROM daily_notes", 1),
             ("chat_groups", "SELECT COUNT(*) FROM chat_groups", 1),
             ("chat_messages", "SELECT COUNT(*) FROM chat_messages", 1),
-            ("app_settings", "SELECT COUNT(*) FROM app_settings", 1),
+            ("app_settings", "SELECT COUNT(*) FROM app_settings", 2),
             ("calendars", "SELECT COUNT(*) FROM calendars", 1),
             ("events", "SELECT COUNT(*) FROM events", 1),
             ("templates", "SELECT COUNT(*) FROM templates", 18),
         ] {
             assert_eq!(row_count(&db, query).await, expected, "{table}");
         }
+        assert_eq!(
+            row_count(
+                &db,
+                "SELECT COUNT(*) FROM app_settings WHERE id = 'cloudsync_workspace_binding'",
+            )
+            .await,
+            1,
+        );
+        assert_eq!(
+            row_count(
+                &db,
+                "SELECT COUNT(*) FROM app_settings WHERE id = 'legacy_settings_document'",
+            )
+            .await,
+            1,
+        );
 
         let run_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM migration_import_runs")
             .fetch_one(db.pool())

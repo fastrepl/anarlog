@@ -34,6 +34,9 @@ it("reuses an existing onboarding welcome note", async () => {
 
   await expect(getOrCreateWelcomeSession()).resolves.toBe("welcome-session");
   expect(mocks.createSession).not.toHaveBeenCalled();
+  expect(mocks.execute).toHaveBeenCalledWith(expect.any(String), [
+    "anarlog-onboarding-demo-v1",
+  ]);
 });
 
 it("creates a prerecorded demo note with normal meeting metadata", async () => {

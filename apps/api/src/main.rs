@@ -116,6 +116,18 @@ async fn app() -> Router {
                 .allow_burst(NonZeroU32::new(5).unwrap()),
         )
         .build();
+    let sync_rate_limit = rate_limit::RateLimitState::builder()
+        .pro(
+            governor::Quota::with_period(Duration::from_secs(30))
+                .unwrap()
+                .allow_burst(NonZeroU32::new(20).unwrap()),
+        )
+        .free(
+            governor::Quota::with_period(Duration::from_secs(30))
+                .unwrap()
+                .allow_burst(NonZeroU32::new(20).unwrap()),
+        )
+        .build();
 
     let auth_state_paid = paid_auth_state(&env.supabase.supabase_url);
     let auth_state_basic = AuthState::new(&env.supabase.supabase_url);
@@ -144,6 +156,8 @@ async fn app() -> Router {
         jina_api_key: env.jina_api_key.clone(),
     };
     let pyannote_config = hypr_api_pyannote::PyannoteConfig::new(&env.pyannote);
+    let sync_config = hypr_api_sync::SyncConfig::from_env(&env.sync)
+        .unwrap_or_else(|error| panic!("Failed to load environment: {error}"));
 
     use hypr_api_nango::NangoIntegrationId;
 
@@ -173,6 +187,20 @@ async fn app() -> Router {
             auth_state_paid,
             auth::require_auth,
         ));
+
+    let sync_routes = match sync_config {
+        Some(config) => hypr_api_sync::router(hypr_api_sync::AppState::new(config))
+            .route_layer(middleware::from_fn_with_state(
+                sync_rate_limit,
+                rate_limit::rate_limit,
+            ))
+            .route_layer(middleware::from_fn(auth::sentry_and_analytics))
+            .route_layer(middleware::from_fn_with_state(
+                AuthState::new(&env.supabase.supabase_url),
+                auth::require_auth,
+            )),
+        None => Router::new(),
+    };
 
     let integration_routes = Router::new()
         .nest("/calendar", hypr_api_calendar::router())
@@ -242,6 +270,7 @@ async fn app() -> Router {
         .merge(support_routes)
         .merge(webhook_routes)
         .merge(paid_routes)
+        .nest("/sync", sync_routes)
         .merge(integration_routes)
         .merge(integration_management_routes)
         .merge(auth_routes)

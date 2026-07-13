@@ -395,7 +395,9 @@ mod tests {
         assert!(!db.cloudsync_enabled());
         assert!(!db.has_cloudsync());
 
-        db.cloudsync_configure(test_cloudsync_config()).unwrap();
+        db.cloudsync_configure(test_cloudsync_config())
+            .await
+            .unwrap();
         db.cloudsync_start().await.unwrap();
 
         let status = db.cloudsync_status().await.unwrap();
@@ -421,7 +423,9 @@ mod tests {
     #[tokio::test]
     async fn configure_rejects_live_runtime_changes() {
         let db = Db::connect_memory_plain().await.unwrap();
-        db.cloudsync_configure(test_cloudsync_config()).unwrap();
+        db.cloudsync_configure(test_cloudsync_config())
+            .await
+            .unwrap();
         db.cloudsync_runtime.lock().unwrap().running = true;
 
         let error = db
@@ -429,6 +433,7 @@ mod tests {
                 connection_string: "sqlitecloud://demo.invalid/other.db?apikey=demo".to_string(),
                 ..test_cloudsync_config()
             })
+            .await
             .unwrap_err();
 
         assert!(matches!(error, CloudsyncRuntimeError::RestartRequired));
@@ -455,7 +460,9 @@ mod tests {
         })
         .await
         .unwrap();
-        db.cloudsync_configure(test_cloudsync_config()).unwrap();
+        db.cloudsync_configure(test_cloudsync_config())
+            .await
+            .unwrap();
         {
             let mut runtime = db.cloudsync_runtime.lock().unwrap();
             runtime.running = true;

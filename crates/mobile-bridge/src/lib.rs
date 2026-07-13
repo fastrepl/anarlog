@@ -264,11 +264,15 @@ impl MobileDbBridge {
             .map_err(|error| BridgeError::InvalidCloudsyncConfigJson {
                 reason: error.to_string(),
             })?;
-        let live_query_runtime =
-            self.with_state(|state| Ok(Arc::clone(&state.live_query_runtime)))?;
-        live_query_runtime
-            .db()
-            .cloudsync_configure(config)
+        let (runtime, live_query_runtime) = self.with_state(|state| {
+            Ok((
+                Arc::clone(&state.runtime),
+                Arc::clone(&state.live_query_runtime),
+            ))
+        })?;
+        runtime
+            .handle()
+            .block_on(live_query_runtime.db().cloudsync_configure(config))
             .map_err(cloudsync_runtime_error)
     }
 

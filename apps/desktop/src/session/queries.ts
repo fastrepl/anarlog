@@ -357,7 +357,7 @@ export function addSessionParticipant(
             display_name, email, role, source, metadata_json, created_at,
             updated_at, deleted_at
           )
-          SELECT ?, '', session.owner_user_id, session.id, human.id,
+          SELECT ?, session.workspace_id, session.owner_user_id, session.id, human.id,
             human.name, human.email, '', ?, '{}', ?, ?, NULL
           FROM sessions AS session
           JOIN humans AS human ON human.id = ? AND human.deleted_at IS NULL
@@ -563,11 +563,11 @@ export function updateSession(
       statements.push({
         sql: `
           INSERT INTO session_documents (
-            id, session_id, kind, body_format, body, created_by, updated_by,
-            created_at, updated_at, deleted_at
+            id, workspace_id, session_id, kind, body_format, body, created_by,
+            updated_by, created_at, updated_at, deleted_at
           )
-          SELECT ?, ?, 'note', 'prosemirror_json', ?, owner_user_id,
-            owner_user_id, ?, ?, NULL
+          SELECT ?, workspace_id, id, 'note', 'prosemirror_json', ?,
+            owner_user_id, owner_user_id, ?, ?, NULL
           FROM sessions
           WHERE id = ? AND deleted_at IS NULL
           ON CONFLICT(id) DO UPDATE SET
@@ -577,7 +577,7 @@ export function updateSession(
             updated_at = excluded.updated_at,
             deleted_at = NULL
         `,
-        params: [sessionId, sessionId, changes.raw_md, now, now, sessionId],
+        params: [sessionId, changes.raw_md, now, now, sessionId],
       });
     }
 
@@ -598,37 +598,53 @@ export async function createSession(
     {
       sql: `
         INSERT INTO sessions (
-          id, owner_user_id, title, event_json, created_at, updated_at,
-          deleted_at
-        ) VALUES (?, ?, ?, ?, ?, ?, NULL)
+          id, workspace_id, owner_user_id, title, event_json, created_at,
+          updated_at, deleted_at
+        ) VALUES (
+          ?, NULLIF((
+            SELECT json_extract(value_json, '$.workspace_id')
+            FROM app_settings
+            WHERE id = 'cloudsync_workspace_binding'
+          ), ''), COALESCE(
+            NULLIF(NULLIF(?, ''), '${DEFAULT_USER_ID}'),
+            NULLIF((
+              SELECT json_extract(value_json, '$.workspace_id')
+              FROM app_settings
+              WHERE id = 'cloudsync_workspace_binding'
+            ), '')
+          ), ?, ?, ?, ?, NULL
+        )
       `,
       params: [sessionId, userId, title, initial?.event_json ?? "", now, now],
     },
-    createEmptyNoteStatement(
-      sessionId,
-      userId,
-      now,
-      false,
-      initial?.raw_md ?? "",
-    ),
+    createEmptyNoteStatement(sessionId, now, initial?.raw_md ?? ""),
     {
       sql: `
-        INSERT INTO humans (id, owner_user_id, updated_at, deleted_at)
-        VALUES (?, ?, ?, NULL)
+        INSERT INTO humans (
+          id, workspace_id, owner_user_id, updated_at, deleted_at
+        )
+        SELECT session.owner_user_id, session.workspace_id,
+          session.owner_user_id, ?, NULL
+        FROM sessions AS session
+        WHERE session.id = ? AND session.deleted_at IS NULL
         ON CONFLICT(id) DO UPDATE SET
           deleted_at = NULL,
           updated_at = excluded.updated_at
       `,
-      params: [userId, userId, now],
+      params: [now, sessionId],
     },
     {
       sql: `
         INSERT INTO session_participants (
-          id, owner_user_id, session_id, human_id, source, created_at,
-          updated_at, deleted_at
-        ) VALUES (?, ?, ?, ?, 'manual', ?, ?, NULL)
+          id, workspace_id, owner_user_id, session_id, human_id, source,
+          created_at, updated_at, deleted_at
+        )
+        SELECT ?, session.workspace_id, session.owner_user_id, session.id,
+          session.owner_user_id, 'manual', ?, ?, NULL
+        FROM sessions AS session
+        WHERE session.id = ? AND session.deleted_at IS NULL
       `,
-      params: [participantId, userId, sessionId, userId, now, now],
+      params: [participantId, now, now, sessionId],
     },
   ]);
 
@@ -683,11 +699,22 @@ export async function getOrCreateSessionForEventId(
     {
       sql: `
         INSERT INTO sessions (
-          id, owner_user_id, title, created_at, updated_at, started_at,
-          ended_at, event_id, external_event_id, external_provider, series_id,
-          event_json, deleted_at
+          id, workspace_id, owner_user_id, title, created_at, updated_at,
+          started_at, ended_at, event_id, external_event_id, external_provider,
+          series_id, event_json, deleted_at
         )
-        SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL
+        SELECT ?, NULLIF((
+          SELECT json_extract(value_json, '$.workspace_id')
+          FROM app_settings
+          WHERE id = 'cloudsync_workspace_binding'
+        ), ''), COALESCE(
+          NULLIF(NULLIF(?, ''), '${DEFAULT_USER_ID}'),
+          NULLIF((
+            SELECT json_extract(value_json, '$.workspace_id')
+            FROM app_settings
+            WHERE id = 'cloudsync_workspace_binding'
+          ), '')
+        ), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL
         WHERE NOT EXISTS (
           SELECT 1
           FROM sessions
@@ -713,7 +740,7 @@ export async function getOrCreateSessionForEventId(
         event.tracking_id_event,
       ],
     },
-    createEmptyNoteStatement(sessionId, userId, now, true),
+    createEmptyNoteStatement(sessionId, now),
   ];
 
   const seenEmails = new Set<string>();
@@ -729,21 +756,26 @@ export async function getOrCreateSessionForEventId(
       statements.push({
         sql: `
           INSERT INTO humans (
-            id, owner_user_id, name, email, created_at, updated_at, deleted_at
+            id, workspace_id, owner_user_id, name, email, created_at,
+            updated_at, deleted_at
           )
-          SELECT ?, ?, ?, ?, ?, ?, NULL
-          WHERE EXISTS (
-            SELECT 1 FROM sessions WHERE id = ? AND deleted_at IS NULL
-          )
+          SELECT ?, session.workspace_id, session.owner_user_id, ?, ?, ?, ?, NULL
+          FROM sessions AS session
+          WHERE session.id = ? AND session.deleted_at IS NULL
+            AND NOT EXISTS (
+              SELECT 1
+              FROM humans
+              WHERE lower(email) = lower(?) AND deleted_at IS NULL
+            )
         `,
         params: [
           humanId,
-          userId,
           participant.name || email,
           email,
           now,
           now,
           sessionId,
+          email,
         ],
       });
     }
@@ -751,29 +783,26 @@ export async function getOrCreateSessionForEventId(
     statements.push({
       sql: `
         INSERT INTO session_participants (
-          id, owner_user_id, session_id, human_id, display_name, email,
-          source, created_at, updated_at, deleted_at
+          id, workspace_id, owner_user_id, session_id, human_id, display_name,
+          email, source, created_at, updated_at, deleted_at
         )
-        SELECT ?, ?, ?, ?, ?, ?, 'auto', ?, ?, NULL
-        WHERE EXISTS (
-          SELECT 1 FROM sessions WHERE id = ? AND deleted_at IS NULL
-        )
+        SELECT ?, session.workspace_id, session.owner_user_id, session.id,
+          ?, ?, ?, 'auto', ?, ?, NULL
+        FROM sessions AS session
+        WHERE session.id = ? AND session.deleted_at IS NULL
           AND NOT EXISTS (
             SELECT 1
             FROM session_participants
-            WHERE session_id = ? AND human_id = ? AND deleted_at IS NULL
+            WHERE session_id = session.id AND human_id = ? AND deleted_at IS NULL
           )
       `,
       params: [
         id(),
-        userId,
-        sessionId,
         humanId,
         participant.name || email,
         email,
         now,
         now,
-        sessionId,
         sessionId,
         humanId,
       ],
@@ -946,25 +975,19 @@ export function buildSessionTombstoneStatements(
   return statements;
 }
 
-function createEmptyNoteStatement(
-  sessionId: string,
-  userId: string,
-  now: string,
-  onlyIfSessionExists = false,
-  body = "",
-) {
+function createEmptyNoteStatement(sessionId: string, now: string, body = "") {
   return {
     sql: `
       INSERT INTO session_documents (
-        id, session_id, kind, body_format, body, created_by, updated_by,
-        created_at, updated_at, deleted_at
+        id, workspace_id, session_id, kind, body_format, body, created_by,
+        updated_by, created_at, updated_at, deleted_at
       )
-      ${onlyIfSessionExists ? "SELECT ?, ?, 'note', 'prosemirror_json', ?, ?, ?, ?, ?, NULL" : "VALUES (?, ?, 'note', 'prosemirror_json', ?, ?, ?, ?, ?, NULL)"}
-      ${onlyIfSessionExists ? "WHERE EXISTS (SELECT 1 FROM sessions WHERE id = ? AND deleted_at IS NULL)" : ""}
+      SELECT ?, workspace_id, id, 'note', 'prosemirror_json', ?,
+        owner_user_id, owner_user_id, ?, ?, NULL
+      FROM sessions
+      WHERE id = ? AND deleted_at IS NULL
     `,
-    params: onlyIfSessionExists
-      ? [sessionId, sessionId, body, userId, userId, now, now, sessionId]
-      : [sessionId, sessionId, body, userId, userId, now, now],
+    params: [sessionId, body, now, now, sessionId],
   };
 }
 

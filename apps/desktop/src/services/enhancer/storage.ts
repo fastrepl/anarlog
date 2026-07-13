@@ -37,12 +37,12 @@ export function ensureSummaryDocument(
       {
         sql: `
           INSERT INTO session_documents (
-            id, session_id, kind, template_id, title, body_format, body,
-            sort_order, created_by, updated_by, created_at, updated_at,
-            deleted_at
+            id, workspace_id, session_id, kind, template_id, title,
+            body_format, body, sort_order, created_by, updated_by, created_at,
+            updated_at, deleted_at
           )
           SELECT
-            ?, id, ?, ?, 'Summary', 'prosemirror_json', '', ?,
+            ?, workspace_id, id, ?, ?, 'Summary', 'prosemirror_json', '', ?,
             owner_user_id, owner_user_id, ?, ?, NULL
           FROM sessions
           WHERE id = ? AND deleted_at IS NULL

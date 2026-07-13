@@ -47,13 +47,12 @@ async function findOrCreateWelcomeSession(): Promise<string> {
     `
       SELECT id
       FROM sessions
-      WHERE owner_user_id = ?
-        AND deleted_at IS NULL
+      WHERE deleted_at IS NULL
         AND json_extract(event_json, '$.tracking_id') = ?
       ORDER BY created_at, id
       LIMIT 1
     `,
-    [DEFAULT_USER_ID, TRACKING_ID],
+    [TRACKING_ID],
   );
   if (rows[0]) return rows[0].id;
 

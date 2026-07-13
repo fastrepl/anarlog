@@ -26,6 +26,7 @@ vi.mock("~/shared/utils", () => ({
 import {
   applyContactEnhancement,
   createHuman,
+  createOrganization,
   deleteHuman,
   loadHuman,
   loadHumansByIds,
@@ -95,8 +96,26 @@ describe("contact SQLite queries", () => {
 
     const statement = mocks.executeTransaction.mock.calls[0][0][0];
     expect(statement.sql).toContain("INSERT INTO humans");
+    expect(statement.sql).toContain("cloudsync_workspace_binding");
+    expect(statement.sql).toContain("NULLIF((");
+    expect(statement.sql).not.toContain("COALESCE((");
     expect(statement.params).toContain("human-new");
     expect(statement.params).toContain("alice@example.com");
+  });
+
+  it("defaults new contact ownership to the bound workspace", async () => {
+    await createHuman({ name: "Alice" });
+    await createOrganization({ name: "Example" });
+
+    const humanStatement = mocks.executeTransaction.mock.calls[0][0][0];
+    const organizationStatement = mocks.executeTransaction.mock.calls[1][0][0];
+    for (const statement of [humanStatement, organizationStatement]) {
+      expect(statement.sql).toContain(
+        "NULLIF(NULLIF(?, ''), '00000000-0000-0000-0000-000000000000')",
+      );
+      expect(statement.sql).toContain("cloudsync_workspace_binding");
+      expect(statement.params[1]).toBe("00000000-0000-0000-0000-000000000000");
+    }
   });
 
   it("maps canonical organization rows", () => {
@@ -303,6 +322,48 @@ describe("contact SQLite queries", () => {
     );
   });
 
+  it("keeps the bound self human when it is selected as the duplicate", async () => {
+    mocks.execute.mockResolvedValue([
+      {
+        id: "human-other",
+        owner_user_id: "user-1",
+        created_at: "first",
+        organization_id: "",
+        name: "Alice",
+        email: "alice@example.com",
+        phone: "",
+        job_title: "",
+        linkedin_username: "",
+        memo: "",
+        pinned: 0,
+        pin_order: null,
+      },
+      {
+        id: "user-1",
+        owner_user_id: "user-1",
+        created_at: "second",
+        organization_id: "",
+        name: "Me",
+        email: "me@example.com",
+        phone: "",
+        job_title: "",
+        linkedin_username: "",
+        memo: "",
+        pinned: 0,
+        pin_order: null,
+      },
+    ]);
+
+    await mergeHumans("human-other", "user-1");
+
+    const statements = mocks.executeTransaction.mock.calls[0][0];
+    expect(statements[1].params[0]).toBe("user-1");
+    expect(statements[1].params[2]).toBe("human-other");
+    expect(statements[3].params[statements[3].params.length - 1]).toBe(
+      "human-other",
+    );
+  });
+
   it("creates an organization and updates the human atomically", async () => {
     mocks.executeTransaction.mockResolvedValueOnce([1, 1]);
 
@@ -319,6 +380,7 @@ describe("contact SQLite queries", () => {
     const statements = mocks.executeTransaction.mock.calls[0][0];
     expect(statements).toHaveLength(2);
     expect(statements[0]?.sql).toContain("INSERT INTO organizations");
+    expect(statements[0]?.sql).toContain("cloudsync_workspace_binding");
     expect(statements[0]?.sql).toContain("NOT EXISTS");
     expect(statements[1]?.sql).toContain("UPDATE humans");
     expect(statements[1]?.sql).toContain("organization_id = CASE");

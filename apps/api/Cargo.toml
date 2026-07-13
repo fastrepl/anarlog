@@ -14,6 +14,7 @@ hypr-api-pyannote = { workspace = true }
 hypr-api-research = { workspace = true }
 hypr-api-subscription = { workspace = true }
 hypr-api-support = { workspace = true }
+hypr-api-sync = { workspace = true }
 hypr-api-ticket = { workspace = true }
 hypr-linear = { workspace = true }
 hypr-llm-proxy = { workspace = true }

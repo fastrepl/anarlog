@@ -1,6 +1,6 @@
 import type { SessionEvent } from "@hypr/store";
 
-import { executeTransaction } from "~/db";
+import { executeTransaction, liveQueryClient } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
 import {
   buildPastSessionNotes,
@@ -10,6 +10,12 @@ import {
 import { DEFAULT_USER_ID } from "~/shared/utils";
 
 type SqlStatement = { sql: string; params: unknown[] };
+type SeedParticipant = {
+  humanId: string;
+  name: string;
+  email: string;
+  jobTitle: string;
+};
 
 const CURRENT_SESSION_ID = "devtools-recurring-notes-current";
 const SERIES_ID = "devtools-recurring-product-sync";
@@ -93,7 +99,13 @@ export async function populateRecurringMeetingNotes({
   userId: string | null | undefined;
   now?: Date;
 }): Promise<string> {
-  const ownerUserId = normalizeUserId(userId);
+  const workspaceId = await loadCloudsyncWorkspaceId();
+  const ownerUserId = normalizeUserId(userId, workspaceId);
+  const currentSessionId = namespacedId(workspaceId, CURRENT_SESSION_ID);
+  const participants = PARTICIPANTS.map((participant) => ({
+    ...participant,
+    humanId: namespacedId(workspaceId, participant.humanId),
+  }));
   const createdAt = now.toISOString();
   const statements: SqlStatement[] = [];
   const data: PastSessionNotesData = {
@@ -103,19 +115,21 @@ export async function populateRecurringMeetingNotes({
     keyFacts: {},
   };
 
-  for (const participant of PARTICIPANTS) {
-    statements.push(buildHumanStatement(participant, ownerUserId, createdAt));
+  for (const participant of participants) {
+    statements.push(
+      buildHumanStatement(participant, workspaceId, ownerUserId, createdAt),
+    );
   }
 
   const seeds = [
     {
-      sessionId: CURRENT_SESSION_ID,
+      sessionId: currentSessionId,
       startedAt: now,
       rawMd:
         "Use the Insights tab to inspect cached facts from previous occurrences.",
     },
     ...PAST_NOTES.map((note) => ({
-      sessionId: note.sessionId,
+      sessionId: namespacedId(workspaceId, note.sessionId),
       startedAt: new Date(now.getTime() - note.daysAgo * DAY_MS),
       rawMd: note.rawMd,
     })),
@@ -137,7 +151,7 @@ export async function populateRecurringMeetingNotes({
       position: 0,
     });
     data.participants.push(
-      ...PARTICIPANTS.map((participant) => ({
+      ...participants.map((participant) => ({
         session_id: seed.sessionId,
         human_id: participant.humanId,
         user_id: ownerUserId,
@@ -148,21 +162,26 @@ export async function populateRecurringMeetingNotes({
     statements.push(
       ...buildSessionStatements({
         ownerUserId,
+        workspaceId,
         sessionId: seed.sessionId,
         startedAt: seed.startedAt,
         rawMd: seed.rawMd,
         event,
         eventJson,
+        participants,
       }),
     );
   }
 
   const factsBySessionId = new Map<string, string>(
-    PAST_NOTES.map((note) => [note.sessionId, note.facts.join("\n")]),
+    PAST_NOTES.map((note) => [
+      namespacedId(workspaceId, note.sessionId),
+      note.facts.join("\n"),
+    ]),
   );
   const { missing } = buildPastSessionNotes(
     data,
-    CURRENT_SESSION_ID,
+    currentSessionId,
     ownerUserId,
   );
   statements.push(
@@ -188,33 +207,39 @@ export async function populateRecurringMeetingNotes({
     await executeTransaction(statements);
   });
 
-  return CURRENT_SESSION_ID;
+  return currentSessionId;
 }
 
 function buildSessionStatements({
   ownerUserId,
+  workspaceId,
   sessionId,
   startedAt,
   rawMd,
   event,
   eventJson,
+  participants,
 }: {
   ownerUserId: string;
+  workspaceId: string;
   sessionId: string;
   startedAt: Date;
   rawMd: string;
   event: SessionEvent;
   eventJson: string;
+  participants: SeedParticipant[];
 }): SqlStatement[] {
   const createdAt = startedAt.toISOString();
   const statements: SqlStatement[] = [
     {
       sql: `
         INSERT INTO sessions (
-          id, owner_user_id, title, created_at, updated_at, started_at,
-          ended_at, series_id, event_json, deleted_at
+          id, workspace_id, owner_user_id, title, created_at, updated_at,
+          started_at, ended_at, series_id, event_json, deleted_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
+        VALUES (
+          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL
+        )
         ON CONFLICT(id) DO UPDATE SET
           owner_user_id = excluded.owner_user_id,
           title = excluded.title,
@@ -228,6 +253,7 @@ function buildSessionStatements({
       `,
       params: [
         sessionId,
+        workspaceId,
         ownerUserId,
         MEETING_TITLE,
         createdAt,
@@ -258,14 +284,16 @@ function buildSessionStatements({
     }),
   ];
 
-  for (const participant of PARTICIPANTS) {
+  for (const participant of participants) {
     statements.push({
       sql: `
         INSERT INTO session_participants (
-          id, owner_user_id, session_id, human_id, display_name, email,
-          source, created_at, updated_at, deleted_at
+          id, workspace_id, owner_user_id, session_id, human_id, display_name,
+          email, source, created_at, updated_at, deleted_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, 'auto', ?, ?, NULL)
+        SELECT ?, session.workspace_id, ?, session.id, ?, ?, ?, 'auto', ?, ?, NULL
+        FROM sessions AS session
+        WHERE session.id = ? AND session.deleted_at IS NULL
         ON CONFLICT(id) DO UPDATE SET
           owner_user_id = excluded.owner_user_id,
           session_id = excluded.session_id,
@@ -279,12 +307,12 @@ function buildSessionStatements({
       params: [
         `${sessionId}:${participant.humanId}`,
         ownerUserId,
-        sessionId,
         participant.humanId,
         participant.name,
         participant.email,
         createdAt,
         createdAt,
+        sessionId,
       ],
     });
   }
@@ -293,17 +321,20 @@ function buildSessionStatements({
 }
 
 function buildHumanStatement(
-  participant: (typeof PARTICIPANTS)[number],
+  participant: SeedParticipant,
+  workspaceId: string,
   ownerUserId: string,
   now: string,
 ): SqlStatement {
   return {
     sql: `
       INSERT INTO humans (
-        id, owner_user_id, name, email, job_title, created_at, updated_at,
-        deleted_at
+        id, workspace_id, owner_user_id, name, email, job_title, created_at,
+        updated_at, deleted_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, NULL)
+      VALUES (
+        ?, ?, ?, ?, ?, ?, ?, ?, NULL
+      )
       ON CONFLICT(id) DO UPDATE SET
         owner_user_id = excluded.owner_user_id,
         name = excluded.name,
@@ -314,6 +345,7 @@ function buildHumanStatement(
     `,
     params: [
       participant.humanId,
+      workspaceId,
       ownerUserId,
       participant.name,
       participant.email,
@@ -344,10 +376,13 @@ function buildDocumentStatement({
   return {
     sql: `
       INSERT INTO session_documents (
-        id, session_id, kind, title, body_format, body, sort_order,
-        created_by, updated_by, created_at, updated_at, deleted_at
+        id, workspace_id, session_id, kind, title, body_format, body,
+        sort_order, created_by, updated_by, created_at, updated_at, deleted_at
       )
-      VALUES (?, ?, ?, ?, 'markdown', ?, 0, ?, ?, ?, ?, NULL)
+      SELECT ?, session.workspace_id, session.id, ?, ?, 'markdown', ?, 0, ?,
+        ?, ?, ?, NULL
+      FROM sessions AS session
+      WHERE session.id = ? AND session.deleted_at IS NULL
       ON CONFLICT(id) DO UPDATE SET
         session_id = excluded.session_id,
         kind = excluded.kind,
@@ -361,7 +396,6 @@ function buildDocumentStatement({
     `,
     params: [
       id,
-      sessionId,
       kind,
       title,
       body,
@@ -369,6 +403,7 @@ function buildDocumentStatement({
       ownerUserId,
       createdAt,
       createdAt,
+      sessionId,
     ],
   };
 }
@@ -389,8 +424,35 @@ function buildSessionEvent(startedAt: Date): SessionEvent {
   };
 }
 
-function normalizeUserId(userId: string | null | undefined): string {
-  return userId?.trim() || DEFAULT_USER_ID;
+async function loadCloudsyncWorkspaceId(): Promise<string> {
+  const [binding] = await liveQueryClient.execute<{
+    workspace_id: string | null;
+  }>(
+    `
+      SELECT NULLIF(json_extract(value_json, '$.workspace_id'), '') AS workspace_id
+      FROM app_settings
+      WHERE id = 'cloudsync_workspace_binding'
+      LIMIT 1
+    `,
+  );
+  if (!binding?.workspace_id) {
+    throw new Error("CloudSync workspace binding is missing");
+  }
+  return binding.workspace_id;
+}
+
+function normalizeUserId(
+  userId: string | null | undefined,
+  workspaceId: string,
+): string {
+  const normalized = userId?.trim();
+  return normalized && normalized !== DEFAULT_USER_ID
+    ? normalized
+    : workspaceId;
+}
+
+function namespacedId(workspaceId: string, value: string): string {
+  return `${workspaceId}:${value}`;
 }
 
 function toDateId(date: Date): string {

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { buildPastSessionNotes, type PastSessionNotesData } from "./past-notes";
+import {
+  buildPastSessionNotes,
+  buildSessionKeyFactsStatements,
+  type PastSessionNotesData,
+} from "./past-notes";
 
 describe("buildPastSessionNotes", () => {
   it("builds descending past notes from recurring and same-title sessions", () => {
@@ -204,6 +208,26 @@ describe("buildPastSessionNotes", () => {
 
     expect(result.notes).toEqual([]);
     expect(result.missing).toEqual([]);
+  });
+});
+
+describe("buildSessionKeyFactsStatements", () => {
+  it("copies workspace ownership from the parent session", () => {
+    const statements = buildSessionKeyFactsStatements(
+      [
+        {
+          sessionId: "session-1",
+          userId: "user-1",
+          content: "One fact",
+          sourceHash: "hash-1",
+        },
+      ],
+      "2026-07-13T00:00:00.000Z",
+    );
+
+    expect(statements[1]?.sql).toContain("session.workspace_id");
+    expect(statements[1]?.sql).toContain("FROM sessions AS session");
+    expect(statements[1]?.params).toContain("session-1");
   });
 });
 

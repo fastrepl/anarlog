@@ -8,6 +8,8 @@ import {
   type TaskStorageDependencies,
 } from "./task-storage";
 
+import { DEFAULT_USER_ID } from "~/shared/utils";
+
 const sessionSource: TaskSource = { type: "session", id: "session-1" };
 const task: TaskRecord = {
   taskId: "task-1",
@@ -129,11 +131,39 @@ describe("SQLite task storage", () => {
     const statements = harness.executeTransaction.mock.calls[0][0];
     expect(statements).toHaveLength(2);
     expect(statements[0].sql).toContain("SET deleted_at = ?");
+    expect(statements[0].sql).toContain("$.account_user_id");
     expect(statements[0].sql).toContain("json_each(?)");
     expect(statements[1].sql).toContain("INSERT INTO action_items");
+    expect(statements[1].sql).toContain("SELECT NULLIF(workspace_id");
+    expect(statements[1].sql).toContain("cloudsync_workspace_binding");
+    expect(statements[1].sql).toContain("$.account_user_id");
+    expect(statements[1].sql).toContain("NULLIF(workspace_id, '')");
+    expect(statements[1].sql).not.toContain("\n          ''\n");
     expect(statements[1].sql).toContain("deleted_at = NULL");
     expect(statements[1].params).toContain("task-1");
     expect(statements[1].params).toContain("Follow up");
+  });
+
+  it("resolves legacy default task ownership from the workspace binding", async () => {
+    const harness = createHarness();
+    const storage = createSqliteTaskStorage(
+      DEFAULT_USER_ID,
+      harness.dependencies,
+    );
+
+    storage.upsertTasksForSource(sessionSource, [task]);
+
+    await vi.waitFor(() =>
+      expect(harness.executeTransaction).toHaveBeenCalledOnce(),
+    );
+    const statements = harness.executeTransaction.mock.calls[0][0];
+    expect(statements[0].sql).toContain("$.account_user_id");
+    expect(statements[1].sql).toContain("$.account_user_id");
+    expect(
+      statements.flatMap(
+        (statement: { params: unknown[] }) => statement.params,
+      ),
+    ).toContain(DEFAULT_USER_ID);
   });
 
   it("skips writes when the committed source snapshot is unchanged", () => {
@@ -180,6 +210,7 @@ describe("SQLite task storage", () => {
       4,
       "2026-07-10T10:00:00.000Z",
       "user-1",
+      DEFAULT_USER_ID,
       "task-1",
     ]);
     expect(moves[1].params[3]).toBe(5);

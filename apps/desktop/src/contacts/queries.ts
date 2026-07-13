@@ -274,7 +274,21 @@ export function createHuman({
             id, workspace_id, owner_user_id, organization_id, name, email,
             phone, job_title, linkedin_username, memo, pinned, pin_order,
             metadata_json, created_at, updated_at, deleted_at
-          ) VALUES (?, '', ?, '', ?, ?, '', '', '', '', 0, NULL, '{}', ?, ?, NULL)
+          ) VALUES (
+            ?, NULLIF((
+              SELECT json_extract(value_json, '$.workspace_id')
+              FROM app_settings
+              WHERE id = 'cloudsync_workspace_binding'
+            ), ''), COALESCE(
+              NULLIF(NULLIF(?, ''), '${DEFAULT_USER_ID}'),
+              NULLIF((
+                SELECT json_extract(value_json, '$.workspace_id')
+                FROM app_settings
+                WHERE id = 'cloudsync_workspace_binding'
+              ), ''),
+              '${DEFAULT_USER_ID}'
+            ), '', ?, ?, '', '', '', '', 0, NULL, '{}', ?, ?, NULL
+          )
         `,
         params: [humanId, ownerUserId, name, email, now, now],
       },
@@ -300,7 +314,21 @@ export function createOrganization({
           INSERT INTO organizations (
             id, workspace_id, owner_user_id, name, memo, pinned, pin_order,
             metadata_json, created_at, updated_at, deleted_at
-          ) VALUES (?, '', ?, ?, '', 0, NULL, '{}', ?, ?, NULL)
+          ) VALUES (
+            ?, NULLIF((
+              SELECT json_extract(value_json, '$.workspace_id')
+              FROM app_settings
+              WHERE id = 'cloudsync_workspace_binding'
+            ), ''), COALESCE(
+              NULLIF(NULLIF(?, ''), '${DEFAULT_USER_ID}'),
+              NULLIF((
+                SELECT json_extract(value_json, '$.workspace_id')
+                FROM app_settings
+                WHERE id = 'cloudsync_workspace_binding'
+              ), ''),
+              '${DEFAULT_USER_ID}'
+            ), ?, '', 0, NULL, '{}', ?, ?, NULL
+          )
         `,
         params: [organizationId, ownerUserId, name, now, now],
       },
@@ -451,10 +479,6 @@ export function mergeHumans(
   duplicateHumanId: string,
 ): Promise<void> {
   return enqueueDatabaseWrite("contacts:merge", async () => {
-    const primaryId =
-      duplicateHumanId === DEFAULT_USER_ID ? duplicateHumanId : selectedHumanId;
-    const duplicateId =
-      duplicateHumanId === DEFAULT_USER_ID ? selectedHumanId : duplicateHumanId;
     const rows = await liveQueryClient.execute<HumanSqlRow>(
       `
         SELECT
@@ -463,8 +487,17 @@ export function mergeHumans(
         FROM humans
         WHERE id IN (?, ?) AND deleted_at IS NULL
       `,
-      [primaryId, duplicateId],
+      [selectedHumanId, duplicateHumanId],
     );
+    const selfHumanId =
+      rows.find((row) => row.id === row.owner_user_id)?.id ??
+      (duplicateHumanId === DEFAULT_USER_ID
+        ? duplicateHumanId
+        : selectedHumanId);
+    const primaryId =
+      selfHumanId === duplicateHumanId ? duplicateHumanId : selectedHumanId;
+    const duplicateId =
+      primaryId === selectedHumanId ? duplicateHumanId : selectedHumanId;
     const primary = rows.find((row) => row.id === primaryId);
     const duplicate = rows.find((row) => row.id === duplicateId);
     if (!primary || !duplicate) {
@@ -552,7 +585,11 @@ export function applyContactEnhancement({
             id, workspace_id, owner_user_id, name, memo, pinned, pin_order,
             metadata_json, created_at, updated_at, deleted_at
           )
-          SELECT ?, '', ?, ?, '', 0, NULL, '{}', ?, ?, NULL
+          SELECT ?, NULLIF((
+            SELECT json_extract(value_json, '$.workspace_id')
+            FROM app_settings
+            WHERE id = 'cloudsync_workspace_binding'
+          ), ''), ?, ?, '', 0, NULL, '{}', ?, ?, NULL
           WHERE NOT EXISTS (
             SELECT 1
             FROM organizations

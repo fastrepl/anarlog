@@ -547,6 +547,7 @@ dependencies = [
  "api-research",
  "api-subscription",
  "api-support",
+ "api-sync",
  "api-ticket",
  "axum 0.8.9",
  "dotenvy",
@@ -854,17 +855,20 @@ dependencies = [
 name = "api-sync"
 version = "0.1.0"
 dependencies = [
+ "api-auth",
  "api-error",
  "axum 0.8.9",
+ "chrono",
  "reqwest 0.13.2",
  "sentry",
  "serde",
  "serde_json",
- "supabase-auth",
  "thiserror 2.0.18",
  "tokio",
+ "tower 0.5.3",
  "tracing",
  "utoipa",
+ "wiremock",
 ]
 
 [[package]]
@@ -4488,8 +4492,10 @@ dependencies = [
  "db-core",
  "db-migrate",
  "serde",
+ "serde_json",
  "sqlx",
  "tokio",
+ "uuid",
 ]
 
 [[package]]

@@ -585,6 +585,7 @@ export async function applyConnectionSync({
       sql: `
         INSERT INTO humans (
           id,
+          workspace_id,
           owner_user_id,
           name,
           email,
@@ -592,7 +593,27 @@ export async function applyConnectionSync({
           updated_at,
           deleted_at
         )
-        SELECT ?, ?, ?, ?, ?, ?, NULL
+        SELECT
+          ?,
+          NULLIF((
+            SELECT json_extract(value_json, '$.workspace_id')
+            FROM app_settings
+            WHERE id = 'cloudsync_workspace_binding'
+          ), ''),
+          COALESCE(
+            NULLIF(NULLIF(?, ''), '${DEFAULT_USER_ID}'),
+            NULLIF((
+              SELECT json_extract(value_json, '$.workspace_id')
+              FROM app_settings
+              WHERE id = 'cloudsync_workspace_binding'
+            ), ''),
+            '${DEFAULT_USER_ID}'
+          ),
+          ?,
+          ?,
+          ?,
+          ?,
+          NULL
         WHERE NOT EXISTS (
           SELECT 1
           FROM humans
@@ -601,7 +622,7 @@ export async function applyConnectionSync({
       `,
       params: [
         human.id,
-        human.ownerUserId || DEFAULT_USER_ID,
+        human.ownerUserId,
         human.name,
         human.email,
         now,

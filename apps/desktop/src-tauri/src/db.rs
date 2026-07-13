@@ -26,6 +26,15 @@ pub fn cloudsync_runtime_config_from_env()
 fn cloudsync_runtime_config(
     get: impl Fn(&str) -> Option<String>,
 ) -> Result<Option<hypr_db_core::CloudsyncRuntimeConfig>, String> {
+    let allow_static_auth = get("ANARLOG_CLOUDSYNC_ALLOW_STATIC_AUTH")
+        .and_then(nonempty)
+        .map(parse_env_flag)
+        .transpose()?
+        .unwrap_or(false);
+    if !allow_static_auth {
+        return Ok(None);
+    }
+
     let database_id = get("ANARLOG_CLOUDSYNC_DATABASE_ID").and_then(nonempty);
     let api_key = get("ANARLOG_CLOUDSYNC_API_KEY").and_then(nonempty);
     let token = get("ANARLOG_CLOUDSYNC_TOKEN").and_then(nonempty);
@@ -81,6 +90,14 @@ fn nonempty(value: String) -> Option<String> {
     (!value.is_empty()).then(|| value.to_string())
 }
 
+fn parse_env_flag(value: String) -> Result<bool, String> {
+    match value.to_ascii_lowercase().as_str() {
+        "1" | "true" => Ok(true),
+        "0" | "false" => Ok(false),
+        _ => Err("ANARLOG_CLOUDSYNC_ALLOW_STATIC_AUTH must be true, false, 1, or 0".to_string()),
+    }
+}
+
 fn desktop_db_dir(identifier: &str) -> Option<std::path::PathBuf> {
     let data_dir = dirs::data_dir().expect("data_dir must be available");
     let default_dir =
@@ -116,6 +133,7 @@ mod tests {
     #[test]
     fn cloudsync_environment_config_enables_only_core_tables() {
         let values = HashMap::from([
+            ("ANARLOG_CLOUDSYNC_ALLOW_STATIC_AUTH", "true".to_string()),
             (
                 "ANARLOG_CLOUDSYNC_DATABASE_ID",
                 "managed-database-id".to_string(),
@@ -148,6 +166,7 @@ mod tests {
     #[test]
     fn cloudsync_environment_rejects_multiple_credentials() {
         let values = HashMap::from([
+            ("ANARLOG_CLOUDSYNC_ALLOW_STATIC_AUTH", "true".to_string()),
             (
                 "ANARLOG_CLOUDSYNC_DATABASE_ID",
                 "managed-database-id".to_string(),
@@ -159,5 +178,20 @@ mod tests {
         let error = cloudsync_runtime_config(|key| values.get(key).cloned()).unwrap_err();
 
         assert!(error.contains("only one"));
+    }
+
+    #[test]
+    fn cloudsync_static_auth_requires_explicit_opt_in() {
+        let values = HashMap::from([
+            (
+                "ANARLOG_CLOUDSYNC_DATABASE_ID",
+                "managed-database-id".to_string(),
+            ),
+            ("ANARLOG_CLOUDSYNC_API_KEY", "api-key".to_string()),
+        ]);
+
+        let config = cloudsync_runtime_config(|key| values.get(key).cloned()).unwrap();
+
+        assert!(config.is_none());
     }
 }

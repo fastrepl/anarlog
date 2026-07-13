@@ -16,8 +16,11 @@ Default permissions for the plugin
 - `allow-subscribe`
 - `allow-unsubscribe`
 - `allow-configure-cloudsync`
+- `allow-claim-cloudsync-account`
+- `allow-configure-cloudsync-token`
 - `allow-start-cloudsync`
 - `allow-stop-cloudsync`
+- `allow-suspend-cloudsync`
 - `allow-get-cloudsync-status`
 - `allow-sync-cloudsync-now`
 - `allow-logout-cloudsync`
@@ -30,6 +33,32 @@ Default permissions for the plugin
 <th>Description</th>
 </tr>
 
+
+<tr>
+<td>
+
+`db:allow-claim-cloudsync-account`
+
+</td>
+<td>
+
+Enables the claim_cloudsync_account command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:deny-claim-cloudsync-account`
+
+</td>
+<td>
+
+Denies the claim_cloudsync_account command without any pre-configured scope.
+
+</td>
+</tr>
 
 <tr>
 <td>
@@ -79,6 +108,32 @@ Enables the configure_cloudsync command without any pre-configured scope.
 <td>
 
 Denies the configure_cloudsync command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:allow-configure-cloudsync-token`
+
+</td>
+<td>
+
+Enables the configure_cloudsync_token command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:deny-configure-cloudsync-token`
+
+</td>
+<td>
+
+Denies the configure_cloudsync_token command without any pre-configured scope.
 
 </td>
 </tr>
@@ -469,6 +524,32 @@ Enables the subscribe command without any pre-configured scope.
 <td>
 
 Denies the subscribe command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:allow-suspend-cloudsync`
+
+</td>
+<td>
+
+Enables the suspend_cloudsync command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:deny-suspend-cloudsync`
+
+</td>
+<td>
+
+Denies the suspend_cloudsync command without any pre-configured scope.
 
 </td>
 </tr>
