@@ -5,11 +5,6 @@ import { showTransientToast } from "~/sidebar/toast/transient";
 import { persistMeetingChatRecords } from "~/stt/meeting-chat-records";
 
 const MEETING_CHAT_CAPTURE_INTERVAL_MS = 5_000;
-const SUPPORTED_MEETING_CHAT_BUNDLE_IDS = new Set([
-  "us.zoom.xos",
-  "com.tinyspeck.slackmacgap",
-  "com.slack.Slack",
-]);
 
 export function startMeetingChatCapture({
   sessionId,
@@ -53,23 +48,14 @@ export function startMeetingChatCapture({
       }
 
       const bundleIds = [
-        ...new Set(
-          applications.data
-            .map((app) => app.id)
-            .filter((bundleId) =>
-              SUPPORTED_MEETING_CHAT_BUNDLE_IDS.has(bundleId),
-            ),
-        ),
+        ...new Set(applications.data.map((app) => app.id).filter(Boolean)),
       ];
-      if (bundleIds.length !== 1) {
+      if (bundleIds.length === 0) {
         baselineContext = null;
         return;
       }
 
-      const bundleId = bundleIds[0];
-      const result = await detectCommands.captureMeetingChatMessages([
-        bundleId,
-      ]);
+      const result = await detectCommands.captureMeetingChatMessages(bundleIds);
       if (stopped || !isEnabled()) {
         baselineContext = null;
         return;
@@ -84,7 +70,8 @@ export function startMeetingChatCapture({
       lastWarning = result.data.warnings.join("\n");
 
       const contextId = result.data.contextId?.trim();
-      if (result.data.app?.id !== bundleId || !contextId) {
+      const bundleId = result.data.app?.id;
+      if (!bundleId || !bundleIds.includes(bundleId) || !contextId) {
         baselineContext = null;
         return;
       }

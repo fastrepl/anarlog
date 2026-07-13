@@ -233,8 +233,8 @@ msgid "Automatically detect when a meeting starts based on microphone activity."
 msgstr "Automatically detect when a meeting starts based on microphone activity."
 
 #: src/settings/general/app-settings.tsx
-msgid "Automatically post a disclosure in the active Slack Huddle after recording starts. Recording continues if posting fails."
-msgstr "Automatically post a disclosure in the active Slack Huddle after recording starts. Recording continues if posting fails."
+msgid "Automatically post a disclosure after listening starts when the active meeting chat supports safe posting. Posting failure does not stop listening. A disclosure does not confirm participant consent."
+msgstr "Automatically post a disclosure after listening starts when the active meeting chat supports safe posting. Posting failure does not stop listening. A disclosure does not confirm participant consent."
 
 #: src/settings/general/app-settings.tsx
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
@@ -1225,8 +1225,8 @@ msgid "Plans"
 msgstr "Plans"
 
 #: src/settings/general/app-settings.tsx
-msgid "Post recording disclosure to Slack Huddles"
-msgstr "Post recording disclosure to Slack Huddles"
+msgid "Post recording disclosure in meeting chat"
+msgstr "Post recording disclosure in meeting chat"
 
 #: src/session/components/outer-header/overflow/export-modal.tsx
 msgid "Preparing transcript..."
@@ -1879,8 +1879,8 @@ msgid "Where your notes and recordings are stored"
 msgstr "Where your notes and recordings are stored"
 
 #: src/settings/general/app-settings.tsx
-msgid "While listening, use Accessibility access to copy visible Zoom or Slack meeting chat into the active note."
-msgstr "While listening, use Accessibility access to copy visible Zoom or Slack meeting chat into the active note."
+msgid "While listening, use Accessibility access to copy visible chat from supported meeting apps and browser meetings into the active note."
+msgstr "While listening, use Accessibility access to copy visible chat from supported meeting apps and browser meetings into the active note."
 
 #: src/task/tab-content.tsx
 msgid "Work on this task"

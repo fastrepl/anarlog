@@ -15,6 +15,16 @@ export type MeetingChatRecord = MeetingCapturedChatMessage & {
 
 const EMPTY_MEETING_CHAT_RECORDS: MeetingChatRecord[] = [];
 
+const MEETING_PLATFORM_LABELS = {
+  zoom: "Zoom",
+  googleMeet: "Google Meet",
+  microsoftTeams: "Microsoft Teams",
+  slack: "Slack",
+  discord: "Discord",
+  webex: "Webex",
+  unknown: "Meeting app",
+} satisfies Record<MeetingCapturedChatMessage["platform"], string>;
+
 export function useMeetingChatRecords(sessionId: string): MeetingChatRecord[] {
   const { data = EMPTY_MEETING_CHAT_RECORDS } = useLiveQuery<
     MeetingChatDocumentRow,
@@ -147,13 +157,16 @@ function parseMeetingChatDocument(
 function isMeetingPlatform(
   value: unknown,
 ): value is MeetingCapturedChatMessage["platform"] {
-  return value === "zoom" || value === "slack";
+  return (
+    typeof value === "string" &&
+    Object.prototype.hasOwnProperty.call(MEETING_PLATFORM_LABELS, value)
+  );
 }
 
 function isMeetingSurface(
   value: unknown,
 ): value is MeetingCapturedChatMessage["surface"] {
-  return value === "native" || value === "web";
+  return value === "native" || value === "web" || value === "unknown";
 }
 
 function isMeetingChatDirection(
@@ -162,10 +175,10 @@ function isMeetingChatDirection(
   return value === "incoming" || value === "outgoing";
 }
 
-function formatMeetingPlatform(
+export function formatMeetingPlatform(
   platform: MeetingCapturedChatMessage["platform"],
 ) {
-  return platform === "zoom" ? "Zoom" : "Slack";
+  return MEETING_PLATFORM_LABELS[platform];
 }
 
 function createSourceHash(value: string): string {

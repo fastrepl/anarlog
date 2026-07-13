@@ -757,7 +757,7 @@ describe("useStartListening", () => {
     expect(showTransientToastMock).toHaveBeenCalledWith({
       id: "meeting-disclosure-send-failed",
       description:
-        "Recording started, but Anarlog could not post the Slack Huddle disclosure.",
+        "Recording started, but Anarlog could not post the meeting chat disclosure.",
       variant: "warning",
     });
     warn.mockRestore();
@@ -790,7 +790,7 @@ describe("useStartListening", () => {
     expect(showTransientToastMock).toHaveBeenCalledWith({
       id: "meeting-disclosure-send-failed",
       description:
-        "Recording started, but Anarlog could not post the Slack Huddle disclosure.",
+        "Recording started, but Anarlog could not post the meeting chat disclosure.",
       variant: "warning",
     });
     warn.mockRestore();
@@ -813,7 +813,7 @@ describe("useStartListening", () => {
     expect(showTransientToastMock).toHaveBeenCalledWith({
       id: "meeting-disclosure-send-failed",
       description:
-        "Recording started, but Anarlog could not post the Slack Huddle disclosure.",
+        "Recording started, but Anarlog could not post the meeting chat disclosure.",
       variant: "warning",
     });
     warn.mockRestore();

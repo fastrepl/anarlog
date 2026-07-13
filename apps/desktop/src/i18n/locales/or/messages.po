@@ -233,7 +233,7 @@ msgid "Automatically detect when a meeting starts based on microphone activity."
 msgstr ""
 
 #: src/settings/general/app-settings.tsx
-msgid "Automatically post a disclosure in the active Slack Huddle after recording starts. Recording continues if posting fails."
+msgid "Automatically post a disclosure after listening starts when the active meeting chat supports safe posting. Posting failure does not stop listening. A disclosure does not confirm participant consent."
 msgstr ""
 
 #: src/settings/general/app-settings.tsx
@@ -1225,7 +1225,7 @@ msgid "Plans"
 msgstr ""
 
 #: src/settings/general/app-settings.tsx
-msgid "Post recording disclosure to Slack Huddles"
+msgid "Post recording disclosure in meeting chat"
 msgstr ""
 
 #: src/session/components/outer-header/overflow/export-modal.tsx
@@ -1879,7 +1879,7 @@ msgid "Where your notes and recordings are stored"
 msgstr ""
 
 #: src/settings/general/app-settings.tsx
-msgid "While listening, use Accessibility access to copy visible Zoom or Slack meeting chat into the active note."
+msgid "While listening, use Accessibility access to copy visible chat from supported meeting apps and browser meetings into the active note."
 msgstr ""
 
 #: src/task/tab-content.tsx

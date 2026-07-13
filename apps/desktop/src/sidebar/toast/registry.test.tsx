@@ -120,7 +120,7 @@ describe("sidebar toast registry", () => {
 
     expect(toast?.id).toBe(MEETING_DISCLOSURE_AUTO_POST_TOAST_ID);
     expect(toast?.description).toBe(
-      "Auto-post a recording disclosure in Slack Huddles?",
+      "Auto-post a recording disclosure when the active meeting chat supports safe posting? This does not confirm consent.",
     );
     expect(toast?.actions?.map((action) => action.label)).toEqual([
       "Enable",

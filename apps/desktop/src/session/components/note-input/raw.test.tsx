@@ -103,6 +103,16 @@ function RawEditor({
 }
 
 vi.mock("~/stt/meeting-chat-records", () => ({
+  formatMeetingPlatform: (platform: string) =>
+    ({
+      zoom: "Zoom",
+      googleMeet: "Google Meet",
+      microsoftTeams: "Microsoft Teams",
+      slack: "Slack",
+      discord: "Discord",
+      webex: "Webex",
+      unknown: "Meeting app",
+    })[platform] ?? "Meeting app",
   useMeetingChatRecords: () => hoisted.meetingChatRecords,
 }));
 

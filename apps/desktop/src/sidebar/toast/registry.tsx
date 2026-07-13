@@ -142,7 +142,8 @@ export function createToastRegistry({
     {
       toast: {
         id: MEETING_DISCLOSURE_AUTO_POST_TOAST_ID,
-        description: "Auto-post a recording disclosure in Slack Huddles?",
+        description:
+          "Auto-post a recording disclosure when the active meeting chat supports safe posting? This does not confirm consent.",
         actions: [
           {
             label: "Enable",

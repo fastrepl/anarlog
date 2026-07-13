@@ -1,6 +1,7 @@
 import { commands as openerCommands } from "@hypr/plugin-opener2";
 
 import {
+  formatMeetingPlatform,
   type MeetingChatRecord,
   useMeetingChatRecords,
 } from "~/stt/meeting-chat-records";
@@ -31,7 +32,7 @@ export function MeetingChatHighlights({ sessionId }: { sessionId: string }) {
 }
 
 function MeetingChatRow({ record }: { record: MeetingChatRecord }) {
-  const platform = record.platform === "zoom" ? "Zoom" : "Slack";
+  const platform = formatMeetingPlatform(record.platform);
   const direction =
     record.direction === "outgoing"
       ? "sent"

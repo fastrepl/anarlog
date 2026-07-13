@@ -191,20 +191,23 @@ mod tests {
     }
 
     #[test]
-    fn meeting_ax_scope_intersects_requested_and_current_mic_apps() {
+    fn meeting_ax_scope_uses_every_requested_current_mic_app_once() {
         let requested = vec![
-            "com.tinyspeck.slackmacgap".to_string(),
+            "com.microsoft.teams2".to_string(),
             "us.zoom.xos".to_string(),
+            "com.google.Chrome".to_string(),
         ];
         let current = vec![
             app("us.zoom.xos"),
             app("com.microsoft.teams2"),
+            app("com.google.Chrome"),
             app("us.zoom.xos"),
+            app("com.tinyspeck.slackmacgap"),
         ];
 
         assert_eq!(
             intersect_mic_active_bundle_ids(&requested, &current),
-            vec!["us.zoom.xos"]
+            vec!["com.google.Chrome", "com.microsoft.teams2", "us.zoom.xos"]
         );
     }
 
@@ -214,5 +217,16 @@ mod tests {
         let current = vec![app("us.zoom.xos")];
 
         assert!(intersect_mic_active_bundle_ids(&requested, &current).is_empty());
+    }
+
+    #[test]
+    fn meeting_ax_scope_drops_empty_bundle_ids() {
+        let requested = vec!["".to_string(), "  ".to_string(), "us.zoom.xos".to_string()];
+        let current = vec![app(""), app("  "), app("us.zoom.xos")];
+
+        assert_eq!(
+            intersect_mic_active_bundle_ids(&requested, &current),
+            vec!["us.zoom.xos"]
+        );
     }
 }

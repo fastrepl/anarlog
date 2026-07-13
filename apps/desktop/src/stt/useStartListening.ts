@@ -52,7 +52,7 @@ function meetingDisclosureFailure(reason: unknown): MeetingDisclosureOutcome {
   showTransientToast({
     id: "meeting-disclosure-send-failed",
     description:
-      "Recording started, but Anarlog could not post the Slack Huddle disclosure.",
+      "Recording started, but Anarlog could not post the meeting chat disclosure.",
     variant: "warning",
   });
   return { status: "notSent", reason: detail };

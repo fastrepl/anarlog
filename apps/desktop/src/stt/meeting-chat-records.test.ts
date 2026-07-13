@@ -32,6 +32,16 @@ const message = {
   links: ["https://example.com/spec"],
 };
 
+const platformLabels = [
+  ["zoom", "Zoom"],
+  ["googleMeet", "Google Meet"],
+  ["microsoftTeams", "Microsoft Teams"],
+  ["slack", "Slack"],
+  ["discord", "Discord"],
+  ["webex", "Webex"],
+  ["unknown", "Meeting app"],
+] as const;
+
 describe("meeting chat records", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -70,6 +80,24 @@ describe("meeting chat records", () => {
     });
   });
 
+  test.each(platformLabels)(
+    "persists %s records with the %s label",
+    async (platform, label) => {
+      await persistMeetingChatRecords({
+        sessionId: "session-1",
+        entries: [
+          {
+            message: { ...message, platform },
+            sourceSignature: `${platform}\nnative\nax-chat-1`,
+          },
+        ],
+      });
+
+      const statement = executeTransactionMock.mock.calls[0]?.[0][0];
+      expect(statement.params[1]).toBe(`${label} chat`);
+    },
+  );
+
   test("reads ordered valid records and ignores malformed rows", () => {
     useLiveQueryMock.mockImplementation(
       ({ mapRows }: { mapRows: (rows: unknown[]) => unknown }) => ({
@@ -107,5 +135,36 @@ describe("meeting chat records", () => {
         enabled: true,
       }),
     );
+  });
+
+  test("reads records from every meeting platform without relabeling them", () => {
+    useLiveQueryMock.mockImplementation(
+      ({ mapRows }: { mapRows: (rows: unknown[]) => unknown }) => ({
+        data: mapRows([
+          ...platformLabels.map(([platform], index) => ({
+            id: `document-${index}`,
+            body: JSON.stringify({
+              ...message,
+              id: `message-${index}`,
+              platform,
+              surface: platform === "unknown" ? "unknown" : "web",
+            }),
+            created_at: "2026-07-13T10:00:00.000Z",
+          })),
+          {
+            id: "unsupported-platform",
+            body: JSON.stringify({ ...message, platform: "other" }),
+            created_at: "2026-07-13T10:00:00.000Z",
+          },
+        ]),
+      }),
+    );
+
+    const { result } = renderHook(() => useMeetingChatRecords("session-1"));
+
+    expect(result.current.map(({ platform }) => platform)).toEqual(
+      platformLabels.map(([platform]) => platform),
+    );
+    expect(result.current[platformLabels.length - 1]?.surface).toBe("unknown");
   });
 });

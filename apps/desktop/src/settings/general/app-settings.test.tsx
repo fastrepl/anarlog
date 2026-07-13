@@ -57,7 +57,7 @@ describe("AppSettingsView", () => {
 
     fireEvent.click(
       screen.getByRole("switch", {
-        name: "Post recording disclosure to Slack Huddles",
+        name: "Post recording disclosure in meeting chat",
       }),
     );
 
@@ -68,6 +68,19 @@ describe("AppSettingsView", () => {
     renderAppSettings();
 
     expect(screen.getByText("Capture meeting chat in Memos")).toBeTruthy();
-    expect(screen.getByText(/use Accessibility access/)).toBeTruthy();
+    expect(
+      screen.getByText(/supported meeting apps and browser meetings/),
+    ).toBeTruthy();
+  });
+
+  it("clarifies that a recording disclosure does not confirm consent", () => {
+    renderAppSettings();
+
+    expect(
+      screen.getByText(/active meeting chat supports safe posting/),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(/A disclosure does not confirm participant consent/),
+    ).toBeTruthy();
   });
 });

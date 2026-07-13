@@ -100,11 +100,13 @@ export function AppSettingsView({
             onChange={autoStopMeetings.onChange}
           />
           <SettingRow
-            title={<Trans>Post recording disclosure to Slack Huddles</Trans>}
+            title={<Trans>Post recording disclosure in meeting chat</Trans>}
             description={
               <Trans>
-                Automatically post a disclosure in the active Slack Huddle after
-                recording starts. Recording continues if posting fails.
+                Automatically post a disclosure after listening starts when the
+                active meeting chat supports safe posting. Posting failure does
+                not stop listening. A disclosure does not confirm participant
+                consent.
               </Trans>
             }
             checked={meetingDisclosureAutoPost.value}
@@ -114,8 +116,9 @@ export function AppSettingsView({
             title={<Trans>Capture meeting chat in Memos</Trans>}
             description={
               <Trans>
-                While listening, use Accessibility access to copy visible Zoom
-                or Slack meeting chat into the active note.
+                While listening, use Accessibility access to copy visible chat
+                from supported meeting apps and browser meetings into the active
+                note.
               </Trans>
             }
             checked={captureMeetingChat.value}
