@@ -23,6 +23,8 @@ type QueuedChatMessage = {
   contextRefs: ContextRef[];
 };
 
+const EMPTY_QUEUED_MESSAGES: readonly QueuedChatMessage[] = Object.freeze([]);
+
 export function ChatContent({
   layout = "floating",
   sessionId,
@@ -83,7 +85,9 @@ export function ChatContent({
   }>(() => ({ sessionId, messages: [] }));
   const dequeueInFlightRef = useRef(false);
   const queuedMessages =
-    queueState.sessionId === sessionId ? queueState.messages : [];
+    queueState.sessionId === sessionId
+      ? queueState.messages
+      : EMPTY_QUEUED_MESSAGES;
   const mergeContextRefs = useCallback(
     (contextRefs?: ContextRef[]) =>
       contextRefs ? dedupeByKey([pendingRefs, contextRefs]) : pendingRefs,
@@ -256,7 +260,7 @@ function ChatQueue({
   messages,
   onRemoveMessage,
 }: {
-  messages: QueuedChatMessage[];
+  messages: readonly QueuedChatMessage[];
   onRemoveMessage: (messageId: string) => void;
 }) {
   if (messages.length === 0) {

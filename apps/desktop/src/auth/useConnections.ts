@@ -11,6 +11,7 @@ export function useConnections(enabled = true) {
   const auth = useAuth();
   const userId = auth?.session?.user.id;
 
+  // eslint-disable-next-line @tanstack/query/exhaustive-deps -- Auth supplies request headers; the user ID is the connection-list identity.
   return useQuery({
     queryKey: ["integration-status", userId],
     queryFn: async () => {

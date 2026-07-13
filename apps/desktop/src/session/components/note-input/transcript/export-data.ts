@@ -40,6 +40,7 @@ export function useTranscriptExportSegments(sessionId: string): {
     [request],
   );
 
+  // eslint-disable-next-line @tanstack/query/exhaustive-deps -- requestKey is the canonical hash of the complete render request.
   const { data = [], isLoading } = useQuery({
     queryKey: ["transcript-export-segments", sessionId, requestKey],
     queryFn: async () => {

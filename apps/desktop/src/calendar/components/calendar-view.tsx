@@ -364,6 +364,7 @@ function useVisibleRangeSync(
   const from = range?.from.toISOString();
   const to = range?.to.toISOString();
 
+  // eslint-disable-next-line @tanstack/query/exhaustive-deps -- ISO bounds and the enabled-calendar key fully identify the range; syncRange only executes it.
   useQuery({
     queryKey: [VISIBLE_RANGE_SYNC_QUERY_KEY, from, to, enabledCalendarKey],
     queryFn: async ({ signal }) => {

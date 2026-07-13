@@ -136,7 +136,11 @@ export function usePastSessionNotes(
     keyFacts,
   ]);
 
-  const mutation = useMutation({
+  const {
+    mutate: generateNotes,
+    isPending: mutationPending,
+    variables: pendingRequests,
+  } = useMutation({
     mutationKey,
     mutationFn: async (requests: PastSessionNoteRequest[]) => {
       if (!model || requests.length === 0) {
@@ -160,12 +164,12 @@ export function usePastSessionNotes(
 
   const generatingIds = useMemo(
     () =>
-      mutation.isPending && mutation.variables
-        ? new Set(mutation.variables.map((request) => request.sessionId))
+      mutationPending && pendingRequests
+        ? new Set(pendingRequests.map((request) => request.sessionId))
         : new Set<string>(),
-    [mutation.isPending, mutation.variables],
+    [mutationPending, pendingRequests],
   );
-  const isGenerating = mutation.isPending || activeMutationCount > 0;
+  const isGenerating = mutationPending || activeMutationCount > 0;
 
   const notes = useMemo(
     () =>
@@ -190,9 +194,9 @@ export function usePastSessionNotes(
         return;
       }
 
-      mutation.mutate([request]);
+      generateNotes([request]);
     },
-    [built.requests, enabled, isGenerating, model, mutation],
+    [built.requests, enabled, generateNotes, isGenerating, model],
   );
 
   const regenerateAll = useCallback(() => {
@@ -200,8 +204,8 @@ export function usePastSessionNotes(
       return;
     }
 
-    mutation.mutate(built.requests);
-  }, [built.requests, enabled, isGenerating, model, mutation]);
+    generateNotes(built.requests);
+  }, [built.requests, enabled, generateNotes, isGenerating, model]);
 
   return {
     notes,

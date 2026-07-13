@@ -28,6 +28,7 @@ export function useRenderedTranscriptData(transcriptId: string): {
     [request],
   );
 
+  // eslint-disable-next-line @tanstack/query/exhaustive-deps -- requestKey is the canonical hash of the complete render request.
   const { data = [] } = useQuery({
     queryKey: ["rendered-transcript-segments", transcriptId, requestKey],
     queryFn: async () => {

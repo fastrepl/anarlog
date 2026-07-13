@@ -1,6 +1,10 @@
 import { describe, expect, test } from "vitest";
 
-import { getDefaultSttModel, getPreferredProviderModel } from "./selection";
+import {
+  getDefaultSttModel,
+  getPreferredProviderModel,
+  resolveLiveLanguageSupportMode,
+} from "./selection";
 
 describe("getDefaultSttModel", () => {
   test("repairs external providers with their first supported model", () => {
@@ -112,5 +116,37 @@ describe("getPreferredProviderModel", () => {
         allowSavedModelWithoutChoices: true,
       }),
     ).toBe("whisper-large-v3");
+  });
+});
+
+describe("resolveLiveLanguageSupportMode", () => {
+  test("uses provider live support for hosted models", () => {
+    expect(
+      resolveLiveLanguageSupportMode({
+        isOnDeviceModel: false,
+        useLiveOnDeviceModel: false,
+        liveSupported: true,
+      }),
+    ).toBe(true);
+  });
+
+  test("keeps batch-only on-device models in batch mode", () => {
+    expect(
+      resolveLiveLanguageSupportMode({
+        isOnDeviceModel: true,
+        useLiveOnDeviceModel: false,
+        liveSupported: true,
+      }),
+    ).toBe(false);
+  });
+
+  test("requires provider live support for realtime on-device models", () => {
+    expect(
+      resolveLiveLanguageSupportMode({
+        isOnDeviceModel: true,
+        useLiveOnDeviceModel: true,
+        liveSupported: false,
+      }),
+    ).toBe(false);
   });
 });

@@ -94,6 +94,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
   const billing = deriveBillingInfo(claimsQuery.data ?? null);
   const isReady = !claimsQuery.isPending && !claimsQuery.isError;
 
+  // eslint-disable-next-line @tanstack/query/exhaustive-deps -- Auth supplies request headers; the user ID is the eligibility identity.
   const canTrialQuery = useQuery({
     enabled: !!auth?.session && !billing.isPaid,
     queryKey: [auth?.session?.user.id ?? "", "canStartTrial"],

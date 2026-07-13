@@ -25,7 +25,13 @@ export function useTrialFlow(onContinue: () => void) {
   const billing = useBillingAccess();
   const hasTriggeredRef = useRef(false);
 
-  const mutation = useMutation({
+  const {
+    mutate: triggerTrial,
+    data: trialResult,
+    isError,
+    isPending,
+    isSuccess,
+  } = useMutation({
     mutationFn: async () => {
       const headers = auth.getHeaders();
       if (!headers) throw new Error("no headers");
@@ -81,8 +87,8 @@ export function useTrialFlow(onContinue: () => void) {
     }
 
     hasTriggeredRef.current = true;
-    mutation.mutate();
-  }, [auth, billing, mutation, onContinue]);
+    triggerTrial();
+  }, [auth, billing, onContinue, triggerTrial]);
 
   if (!auth?.session) return null;
   if (!billing.isReady) return "checking" as const;
@@ -90,17 +96,17 @@ export function useTrialFlow(onContinue: () => void) {
   if (billing.isPaid && !billing.isTrialing) return "already-paid" as const;
   if (billing.isTrialing) return "already-trialing" as const;
 
-  if (mutation.isPending) return "starting" as const;
+  if (isPending) return "starting" as const;
 
-  if (mutation.isSuccess) {
-    const reason = mutation.data?.reason;
+  if (isSuccess) {
+    const reason = trialResult?.reason;
     if (reason === "started" || reason === "not_eligible") {
       return { done: reason };
     }
     return { done: "error" as const };
   }
 
-  if (mutation.isError) {
+  if (isError) {
     return { done: "error" as const };
   }
 

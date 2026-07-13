@@ -34,7 +34,7 @@ vi.mock("~/db/write-queue", () => ({
 }));
 
 import {
-  loadAiProviderApiKeys,
+  loadSecureAiProviderApiKeys,
   migratePlaintextAiProviderApiKeys,
   parseAiProviders,
   setAiProvider,
@@ -184,21 +184,19 @@ describe("SQLite AI providers", () => {
     );
   });
 
-  it("hydrates plaintext API keys until startup migration runs", async () => {
-    const rows = [
-      {
-        id: "ai_provider:stt:deepgram",
-        value_json: JSON.stringify({
-          type: "stt",
-          base_url: "https://api.deepgram.com/v1",
-          api_key: "deepgram-key",
-        }),
-      },
-    ];
+  it("loads secure API keys by provider ID", async () => {
+    mocks.getSecret.mockResolvedValueOnce({
+      status: "ok",
+      data: "deepgram-key",
+    });
 
-    const providers = await loadAiProviderApiKeys(rows, "stt");
+    const apiKeys = await loadSecureAiProviderApiKeys(["stt:deepgram"], "stt");
 
-    expect(providers["stt:deepgram"]?.api_key).toBe("deepgram-key");
+    expect(apiKeys).toEqual({ "stt:deepgram": "deepgram-key" });
+    expect(mocks.getSecret).toHaveBeenCalledWith(
+      "ai-provider-api-keys",
+      "stt:deepgram",
+    );
     expect(mocks.setSecret).not.toHaveBeenCalled();
     expect(mocks.executeTransaction).not.toHaveBeenCalled();
   });

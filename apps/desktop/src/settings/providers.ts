@@ -18,7 +18,7 @@ type AppSettingRow = { id: string; value_json: string };
 
 const LEGACY_SETTINGS_ID = "legacy_settings_document";
 const PROVIDER_SECRET_SCOPE = "ai-provider-api-keys";
-const EMPTY_PROVIDERS: Record<string, AiProviderConfig> = {};
+const EMPTY_PROVIDER_API_KEYS: Record<string, string> = {};
 const EMPTY_ROWS: AppSettingRow[] = [];
 
 export function useAiProviders(
@@ -33,9 +33,9 @@ export function useAiProviders(
   });
   const providers = parseAiProviders(rows, type);
   const providerIds = Object.keys(providers).sort();
-  const { data: secureApiKeys = EMPTY_PROVIDERS } = useQuery({
+  const { data: secureApiKeys = EMPTY_PROVIDER_API_KEYS } = useQuery({
     queryKey: ["ai-provider-api-keys", type, providerIds],
-    queryFn: () => loadAiProviderApiKeys(rows, type),
+    queryFn: () => loadSecureAiProviderApiKeys(providerIds, type),
     enabled: !isLoading,
     staleTime: Infinity,
   });
@@ -45,7 +45,7 @@ export function useAiProviders(
       rowId,
       {
         ...provider,
-        api_key: secureApiKeys[rowId]?.api_key ?? provider.api_key,
+        api_key: secureApiKeys[rowId] ?? provider.api_key,
       },
     ]),
   );
@@ -172,24 +172,21 @@ export function useSetAiProvider(type: AiProviderType, providerId: string) {
   );
 }
 
-export async function loadAiProviderApiKeys(
-  rows: AppSettingRow[],
+export async function loadSecureAiProviderApiKeys(
+  providerRowIds: string[],
   type: AiProviderType,
-): Promise<Record<string, AiProviderConfig>> {
-  const providers = parseAiProviders(rows, type);
-  const hydrated: Record<string, AiProviderConfig> = {};
+): Promise<Record<string, string>> {
+  const apiKeys: Record<string, string> = {};
 
-  for (const [rowId, provider] of Object.entries(providers)) {
+  for (const rowId of providerRowIds) {
     const providerId = rowId.slice(`${type}:`.length);
-    const apiKey = provider.api_key.trim();
-
-    hydrated[rowId] = {
-      ...provider,
-      api_key: apiKey || (await getProviderApiKey(type, providerId)) || "",
-    };
+    const apiKey = await getProviderApiKey(type, providerId);
+    if (apiKey) {
+      apiKeys[rowId] = apiKey;
+    }
   }
 
-  return hydrated;
+  return apiKeys;
 }
 
 export async function migratePlaintextAiProviderApiKeys(): Promise<void> {

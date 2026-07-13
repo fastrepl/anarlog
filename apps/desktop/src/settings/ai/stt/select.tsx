@@ -34,6 +34,7 @@ import { cn } from "@hypr/utils";
 import { useSttSettings } from "./context";
 import { HealthStatusIndicator, useConnectionHealth } from "./health";
 import { LocalModelBackendBadge, LocalModelLabel } from "./model-icon";
+import { resolveLiveLanguageSupportMode } from "./selection";
 import {
   displayModelLabel,
   displayModelTitle,
@@ -378,21 +379,22 @@ function useTranscriptionLanguageWarningKey() {
       isLiveTranscriptionSupported(current_stt_provider, selectedSttModel),
     enabled: isConfigured,
   });
+  const useLiveMode = resolveLiveLanguageSupportMode({
+    isOnDeviceModel,
+    useLiveOnDeviceModel,
+    liveSupported: liveSupport.data,
+  });
 
   const languageSupport = useQuery({
     queryKey: [
       "stt-language-support",
       current_stt_provider,
       selectedSttModel,
-      useLiveOnDeviceModel,
-      liveSupport.data,
+      useLiveMode,
       spoken_languages,
     ],
-    queryFn: async () => {
-      const useLiveMode = isOnDeviceModel
-        ? useLiveOnDeviceModel && liveSupport.data
-        : liveSupport.data;
-      return useLiveMode
+    queryFn: async () =>
+      useLiveMode
         ? await isSupportedLanguagesLive(
             current_stt_provider!,
             selectedSttModel ?? null,
@@ -402,8 +404,7 @@ function useTranscriptionLanguageWarningKey() {
             current_stt_provider!,
             selectedSttModel ?? null,
             spoken_languages ?? [],
-          );
-    },
+          ),
     enabled:
       isConfigured &&
       liveSupport.data !== undefined &&

@@ -164,6 +164,7 @@ export function useDesktopUpdateControl(): DesktopUpdateControl {
     };
   });
 
+  // eslint-disable-next-line @tanstack/query/exhaustive-deps -- The state setter reconciles updater events and is not part of the update-check identity.
   const updateCheck = useQuery({
     queryKey: UPDATE_CHECK_QUERY_KEY,
     queryFn: async (): Promise<UpdateCheckState> => {
