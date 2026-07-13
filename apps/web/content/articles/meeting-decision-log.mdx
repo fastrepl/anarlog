@@ -1,0 +1,320 @@
+---
+meta_title: "Meeting Decision Log: Template and Practical Guide"
+display_title: "How to Build a Meeting Decision Log That People Actually Use"
+meta_description: "Use this meeting decision log template to capture what was decided, why, who owns it, and when to revisit it—without rewriting full meeting minutes."
+author:
+  - "John Jeong"
+featured: false
+category: "Guides"
+date: "2026-07-13"
+---
+
+Three weeks after a meeting, nobody asks for a complete replay of the conversation.
+
+They ask:
+
+- What did we decide?
+- Why did we choose it?
+- Who approved it?
+- What did we reject?
+- Is the decision still valid?
+
+A transcript can tell you what everyone said. Meeting notes can summarize the discussion. Neither automatically gives you a reliable record of what the team committed to.
+
+That is the job of a meeting decision log.
+
+A good decision log is deliberately smaller than your meeting archive. It preserves the few conclusions that should survive after everyone has forgotten the conversation around them.
+
+![A meeting transcript becoming a summary and durable decision record](/blog/meeting-decision-log/meeting-to-decision.webp)
+
+## What is a meeting decision log?
+
+A meeting decision log is a running record of consequential decisions made across meetings, calls, written discussions, and reviews.
+
+Each entry should answer six questions:
+
+1. What was decided?
+2. What problem or constraint prompted the decision?
+3. Why was this option chosen?
+4. Which alternatives were considered?
+5. Who owns the decision?
+6. What would cause the team to reconsider it?
+
+This is different from traditional [meeting minutes](/blog/meeting-minutes-software).
+
+Meeting minutes document an event: attendees, agenda items, discussion, motions, and follow-up. A decision log documents an outcome and connects it to the context needed to understand it later.
+
+A useful mental model is:
+
+- **Transcript:** the evidence
+- **Meeting summary:** the compression
+- **Decision log:** the commitment
+
+Software teams have used a similar system for years through architecture decision records. [AWS recommends](https://docs.aws.amazon.com/prescriptive-guidance/latest/architectural-decision-records/adr-process.html) recording the context, decision, and consequences of significant choices. [Microsoft's guidance](https://learn.microsoft.com/en-us/azure/well-architected/architect-role/architecture-decision-record) adds options considered, tradeoffs, status, and a clear rationale. Both recommend preserving old decisions and creating a superseding record when the team changes direction.
+
+The same pattern works beyond software architecture. Product strategy, hiring plans, pricing changes, customer commitments, operational policies, and founder decisions all benefit from durable context.
+
+![The context, alternatives, consequences, and review trigger around a decision record](/blog/meeting-decision-log/decision-record-anatomy.webp)
+
+## Which decisions should you log?
+
+Do not record every choice the team makes.
+
+If the log fills up with wording tweaks, routine approvals, and temporary scheduling decisions, people will stop reading it. Log a decision when at least one of these is true:
+
+- Reversing it would be expensive.
+- It affects more than one person or team.
+- It creates an external commitment.
+- It changes product scope, budget, policy, or ownership.
+- The rejected alternatives are likely to come up again.
+- Someone joining the project later would reasonably ask, "Why did we do this?"
+- The team made the decision with incomplete information and expects to revisit it.
+
+"Move Tuesday's review to Thursday" does not need an entry.
+
+"Delay the public launch until the reliability target is met" probably does.
+
+A useful test is to imagine a new teammate encountering the result six months later. If the decision would look arbitrary without the original reasoning, record it.
+
+## A lightweight meeting decision log template
+
+Copy this into a Markdown file, project document, wiki, or recurring meeting template:
+
+```md
+## DEC-001: [Short decision title]
+
+- **Date:** YYYY-MM-DD
+- **Status:** Proposed | Accepted | Superseded | Rejected
+- **Decision owner:** [One accountable person]
+- **Source:** [Meeting note, transcript, issue, or document link]
+
+### Decision
+
+[State the decision in one or two unambiguous sentences.]
+
+### Context
+
+[What problem, constraint, or opportunity required a decision?]
+
+### Rationale
+
+[Why was this option chosen? Include the most important evidence or tradeoff.]
+
+### Alternatives considered
+
+- [Alternative]: [Why it was not chosen]
+- [Alternative]: [Why it was not chosen]
+
+### Consequences
+
+- [What changes because of this decision?]
+- [What cost, limitation, or risk is being accepted?]
+
+### Follow-up
+
+- [Owner]: [Action and due date]
+
+### Revisit when
+
+[Evidence, date, threshold, or event that should reopen the decision.]
+```
+
+The "revisit when" field is especially valuable. It turns disagreement from "I never liked this decision" into a testable question.
+
+For example:
+
+```md
+## DEC-014: Keep onboarding inside the desktop app
+
+- **Date:** 2026-07-13
+- **Status:** Accepted
+- **Decision owner:** Maya
+- **Source:** Weekly product review, July 13
+
+### Decision
+
+We will improve the desktop onboarding flow instead of building a separate
+browser-based onboarding experience this quarter.
+
+### Context
+
+New users need help choosing transcription and AI settings. The team considered
+moving setup to the web to simplify the first desktop launch.
+
+### Rationale
+
+Keeping setup in the app avoids a second authentication handoff and lets users
+test their selected configuration immediately.
+
+### Alternatives considered
+
+- Web onboarding: rejected because it adds another surface to maintain.
+- Concierge onboarding: useful for enterprise pilots, but not scalable as the
+  default workflow.
+
+### Consequences
+
+- The desktop team owns the onboarding improvements.
+- Web onboarding remains out of scope this quarter.
+- Enterprise pilots may still receive guided setup.
+
+### Follow-up
+
+- Maya: ship the revised provider-selection step by August 2.
+- Daniel: review activation data two weeks after release.
+
+### Revisit when
+
+Reconsider if more than 20% of new users still abandon setup after the revised
+flow ships.
+```
+
+The entry is short, but it preserves the context that a task tracker would lose.
+
+## How to capture decisions without creating another administrative chore
+
+### 1. Mark decisions while the meeting is happening
+
+Do not try to write the complete record during the discussion. Add a short marker to your notes:
+
+```md
+Decision candidate: Keep onboarding in the desktop app this quarter.
+```
+
+Calling it a candidate matters. Teams often sound aligned before the decision owner has actually committed.
+
+When a discussion ends ambiguously, ask directly: "Did we make a decision here, or is this still open?"
+
+That question is more valuable than another page of notes.
+
+### 2. Extract candidates immediately after the meeting
+
+Review the markers, summary, or transcript and produce a short list:
+
+- Decisions clearly made
+- Decisions still awaiting approval
+- Decisions that were implied but not stated clearly
+- Rejected options worth preserving
+
+AI can help locate phrases that signal a decision, but generated output should remain a draft. "We could do X" and "We will do X" are not interchangeable.
+
+### 3. Verify each candidate against the source
+
+Check the relevant transcript passage and your own notes.
+
+Confirm:
+
+- the final wording,
+- the decision owner,
+- material conditions or exceptions,
+- and whether the group actually accepted the decision.
+
+If the participants would disagree about what the entry says, it is not ready for the log.
+
+### 4. Promote the decision into the shared log
+
+Move only the accepted decisions into the durable project or company log. Link back to the meeting note or transcript instead of copying the full discussion.
+
+This gives you two useful layers:
+
+- the decision log for fast retrieval,
+- the source meeting for detailed evidence.
+
+Assign one person to maintain the entry. Everyone can contribute, but "everyone owns the log" usually means nobody does.
+
+### 5. Supersede decisions instead of silently rewriting them
+
+When circumstances change, keep the original decision and add a new entry:
+
+```md
+- **Status:** Superseded by DEC-021
+```
+
+Then explain in the new record what changed.
+
+This preserves the difference between a bad decision and a reasonable decision made under old constraints. That history is useful during retrospectives, handoffs, and future planning.
+
+## How AI should help with decision logs
+
+AI is good at reducing the cost of producing a decision record. It can:
+
+- find decision-like statements in a transcript,
+- group repeated discussion around one choice,
+- draft a concise rationale,
+- identify alternatives that were explicitly discussed,
+- extract follow-up tasks,
+- and flag decisions that lack a named owner.
+
+AI should not be the final authority on what the team decided.
+
+A fluent summary can hide uncertainty. It may turn a suggestion into a commitment, merge two incompatible statements, or omit the qualification that made the decision acceptable.
+
+The safest workflow is:
+
+1. AI proposes decision candidates.
+2. A participant verifies them against the transcript and notes.
+3. The accountable owner accepts or corrects the record.
+4. Only then does the entry become part of the decision log.
+
+The goal is not to automate accountability. It is to make accountable documentation cheap enough that the team consistently does it.
+
+## Common decision-log mistakes
+
+### Recording discussion instead of decisions
+
+A decision entry should stand on its own. Link to supporting discussion rather than recreating the meeting.
+
+### Using vague language
+
+"The team discussed improving onboarding" is not a decision.
+
+"We will keep onboarding inside the desktop app this quarter" is.
+
+Use direct verbs: adopt, delay, remove, approve, reject, standardize, hire, pause, or launch.
+
+### Naming a group as the owner
+
+"Product" and "leadership" cannot answer a follow-up question. Give each decision one accountable owner, even when many people contributed.
+
+### Leaving out rejected alternatives
+
+Without alternatives, future readers cannot tell whether the team evaluated the obvious options. One sentence per serious alternative is usually enough.
+
+### Treating the log as immutable truth
+
+The historical record should be preserved, but decisions should be allowed to change. A status and superseding link distinguish healthy revision from forgotten context.
+
+### Separating the record from its evidence
+
+Always link the decision back to the meeting, transcript, customer research, experiment, or document that informed it. The short record is for recall; the source is for verification.
+
+## A practical decision-log workflow in Anarlog
+
+Anarlog is designed around the idea that you should remain the note-taker while AI handles the mechanical work around you.
+
+For recurring product, leadership, or founder meetings:
+
+1. Add a **Decision candidates** section to the meeting template.
+2. Jot one-line markers when a conclusion appears to land.
+3. Let Anarlog transcribe the conversation while you stay engaged.
+4. After the meeting, ask Chat to list decisions, alternatives, owners, and unresolved questions.
+5. Verify the candidates against the transcript and your manual notes.
+6. Copy accepted decisions into the project's durable decision log.
+
+The final log might live in a repository, shared project document, wiki, or knowledge base. That is fine. Your meeting tool should help turn a conversation into a reliable record without forcing the record to remain trapped inside the meeting tool.
+
+If you need a better capture layer for that workflow, [Anarlog](https://anarlog.so) provides bot-free meeting transcription, editable summaries, templates, chat, and on-device or bring-your-own-key AI.
+
+## Start with the next consequential meeting
+
+Do not begin by reconstructing every decision your company has ever made.
+
+Create one file. Add the template. Use it after the next meeting where the team changes scope, accepts a tradeoff, spends meaningful money, or commits to a direction.
+
+A decision log becomes valuable one entry at a time.
+
+The test is simple: six months from now, can someone understand not only what you chose, but why it made sense at the time?
+
+If the answer is yes, your meeting notes have become organizational memory.
+
+Ready to build a meeting record you can verify and keep? [Download Anarlog](/download).
