@@ -7,7 +7,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { EnhancedEditor } from "./editor";
+import { EnhancedEditor as SessionEnhancedEditor } from "./editor";
 
 const hoisted = vi.hoisted(() => ({
   content: JSON.stringify({ type: "doc", content: [] }),
@@ -81,9 +81,19 @@ vi.mock("~/stt/useUploadFile", () => ({
 
 vi.mock("~/session/queries", () => ({
   useEnhancedNote: () => ({ content: hoisted.content }),
-  useSession: () => ({ title: hoisted.sessionTitle }),
   useUpdateEnhancedNoteContent: () => hoisted.persistContent,
 }));
+
+function EnhancedEditor(
+  props: Omit<
+    React.ComponentProps<typeof SessionEnhancedEditor>,
+    "sessionTitle"
+  >,
+) {
+  return (
+    <SessionEnhancedEditor {...props} sessionTitle={hoisted.sessionTitle} />
+  );
+}
 
 describe("EnhancedEditor", () => {
   afterEach(() => {

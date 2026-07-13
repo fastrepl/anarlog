@@ -6,7 +6,6 @@ import { cn } from "@hypr/utils";
 import { streamdownComponents } from "../../streamdown";
 
 import { useAITaskTask } from "~/ai/hooks";
-import { useSession } from "~/session/queries";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 import { getPersistableGeneratedTitle } from "~/store/zustand/ai-task/task-configs/title-success";
 
@@ -34,16 +33,18 @@ function SummaryTitleSpace({ title }: { title: string }) {
 
 export function StreamingView({
   sessionId,
+  sessionTitle,
   enhancedNoteId,
 }: {
   sessionId: string;
+  sessionTitle: string;
   enhancedNoteId: string;
 }) {
   const taskId = createTaskId(enhancedNoteId, "enhance");
   const { streamedText, isGenerating } = useAITaskTask(taskId, "enhance");
   const titleTaskId = createTaskId(sessionId, "title");
   const { streamedText: streamedTitle } = useAITaskTask(titleTaskId, "title");
-  const title = useSession(sessionId)?.title.trim() ?? "";
+  const title = sessionTitle.trim();
   const generatedTitle = getPersistableGeneratedTitle(streamedTitle);
   const visibleTitle = title || generatedTitle;
 

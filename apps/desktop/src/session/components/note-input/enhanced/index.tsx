@@ -18,6 +18,7 @@ export const Enhanced = forwardRef<
   NoteEditorRef,
   {
     sessionId: string;
+    sessionTitle: string;
     enhancedNoteId: string;
     onNavigateToTitle?: (pixelWidth?: number) => void;
     onViewReady?: (view: EditorView) => void;
@@ -27,6 +28,7 @@ export const Enhanced = forwardRef<
   (
     {
       sessionId,
+      sessionTitle,
       enhancedNoteId,
       onNavigateToTitle,
       onViewReady,
@@ -54,7 +56,11 @@ export const Enhanced = forwardRef<
 
     if (status === "generating") {
       return (
-        <StreamingView sessionId={sessionId} enhancedNoteId={enhancedNoteId} />
+        <StreamingView
+          sessionId={sessionId}
+          sessionTitle={sessionTitle}
+          enhancedNoteId={enhancedNoteId}
+        />
       );
     }
 
@@ -72,6 +78,7 @@ export const Enhanced = forwardRef<
       <EnhancedEditor
         ref={ref}
         sessionId={sessionId}
+        sessionTitle={sessionTitle}
         enhancedNoteId={enhancedNoteId}
         content={enhancedNote.content}
         onNavigateToTitle={onNavigateToTitle}

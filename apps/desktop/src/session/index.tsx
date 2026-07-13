@@ -153,7 +153,8 @@ function TabContentNoteInner({
     sessionMode,
   });
   const enhancedNoteIds = useEnhancedNotes(sessionId);
-  const contentHydrated = useHydrateSessionContent(sessionId);
+  const session = useSession(sessionId);
+  const contentHydrated = session !== null;
   useEnsureDefaultSummaryFromState({
     batchError: Boolean(batchError),
     enabled: contentHydrated,
@@ -240,10 +241,12 @@ function TabContentNoteInner({
             </div>
           ) : null}
           <div className="min-h-0 flex-1">
-            {contentHydrated ? (
+            {session ? (
               <NoteInput
                 ref={noteInputRef}
                 tab={tab}
+                rawMd={session.raw_md}
+                sessionTitle={session.title}
                 editorTabs={editorTabs}
                 currentTab={currentView}
                 handleTabChange={handleTabChange}
@@ -258,10 +261,6 @@ function TabContentNoteInner({
       </SessionSurface>
     </>
   );
-}
-
-function useHydrateSessionContent(sessionId: string): boolean {
-  return useSession(sessionId) !== null;
 }
 
 function SessionContentLoading() {

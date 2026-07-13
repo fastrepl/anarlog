@@ -17,7 +17,7 @@ import { openEditorLink } from "~/editor-bridge/open-editor-link";
 import { sessionMentionDropConfig } from "~/editor-bridge/session-mention-drop";
 import { SessionNodeView } from "~/editor-bridge/session-view";
 import { hasStoredNoteContent } from "~/session/components/shared";
-import { useSession, useUpdateEnhancedNoteContent } from "~/session/queries";
+import { useUpdateEnhancedNoteContent } from "~/session/queries";
 import {
   ensureFirstLineTitle,
   extractFirstLineTitle,
@@ -29,6 +29,7 @@ export const EnhancedEditor = forwardRef<
   NoteEditorRef,
   {
     sessionId: string;
+    sessionTitle: string;
     enhancedNoteId: string;
     content: string;
     contentOverride?: JSONContent;
@@ -40,6 +41,7 @@ export const EnhancedEditor = forwardRef<
   (
     {
       sessionId,
+      sessionTitle,
       enhancedNoteId,
       content,
       contentOverride,
@@ -51,7 +53,6 @@ export const EnhancedEditor = forwardRef<
   ) => {
     const { audioDropTargetProps, fileHandlerConfig, isAudioDragActive } =
       useNoteFileHandlerConfig(sessionId);
-    const sessionTitle = useSession(sessionId)?.title;
     const updateContent = useUpdateEnhancedNoteContent(
       enhancedNoteId,
       sessionId,

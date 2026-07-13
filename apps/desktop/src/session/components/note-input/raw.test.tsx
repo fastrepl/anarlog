@@ -8,7 +8,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { RawEditor } from "./raw";
+import { RawEditor as SessionRawEditor } from "./raw";
 
 const hoisted = vi.hoisted(() => ({
   rawMd: JSON.stringify({ type: "doc", content: [] }),
@@ -77,12 +77,25 @@ vi.mock("~/session/components/shared", () => ({
 }));
 
 vi.mock("~/session/queries", () => ({
-  useSession: () => ({
-    raw_md: hoisted.rawMd,
-    title: hoisted.sessionTitle,
-  }),
   useUpdateSession: () => hoisted.persistChange,
 }));
+
+function RawEditor({
+  sessionId,
+  className,
+}: {
+  sessionId: string;
+  className?: string;
+}) {
+  return (
+    <SessionRawEditor
+      sessionId={sessionId}
+      rawMd={hoisted.rawMd}
+      sessionTitle={hoisted.sessionTitle}
+      className={className}
+    />
+  );
+}
 
 vi.mock("~/shared/hooks/useFileUpload", () => ({
   useFileUpload: () => hoisted.fileUpload,

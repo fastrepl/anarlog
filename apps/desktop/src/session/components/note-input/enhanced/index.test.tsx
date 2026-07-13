@@ -1,7 +1,7 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Enhanced } from "./index";
+import { Enhanced as SessionEnhanced } from "./index";
 
 import type { LLMConnectionStatus } from "~/ai/hooks";
 
@@ -61,7 +61,6 @@ vi.mock("~/ai/hooks", () => ({
 vi.mock("~/session/queries", () => ({
   useEnhancedNote: () =>
     hoisted.noteExists ? { content: hoisted.content } : null,
-  useSession: () => ({ title: hoisted.sessionTitle }),
 }));
 
 vi.mock("./config-error", () => ({
@@ -105,6 +104,22 @@ vi.mock("./editor", () => ({
 vi.mock("./enhance-error", () => ({
   EnhanceError: () => <div>Enhance error</div>,
 }));
+
+function Enhanced({
+  sessionId,
+  enhancedNoteId,
+}: {
+  sessionId: string;
+  enhancedNoteId: string;
+}) {
+  return (
+    <SessionEnhanced
+      sessionId={sessionId}
+      sessionTitle={hoisted.sessionTitle}
+      enhancedNoteId={enhancedNoteId}
+    />
+  );
+}
 
 describe("Enhanced", () => {
   afterEach(() => {

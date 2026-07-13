@@ -39,6 +39,8 @@ export interface NoteInputHandle {
 
 type NoteInputProps = {
   tab: Extract<Tab, { type: "sessions" }>;
+  rawMd: string;
+  sessionTitle: string;
   onNavigateToTitle?: (pixelWidth?: number) => void;
   onScroll?: UIEventHandler<HTMLDivElement>;
   editorTabs?: TabEditorView[];
@@ -131,6 +133,8 @@ const NoteInputContent = forwardRef<
   (
     {
       tab,
+      rawMd,
+      sessionTitle,
       onNavigateToTitle,
       onScroll,
       editorTabs,
@@ -324,6 +328,7 @@ const NoteInputContent = forwardRef<
               <Enhanced
                 ref={internalEditorRef}
                 sessionId={sessionId}
+                sessionTitle={sessionTitle}
                 enhancedNoteId={renderedCurrentTab.id}
                 onNavigateToTitle={onNavigateToTitle}
                 onViewReady={handleViewReady}
@@ -334,6 +339,8 @@ const NoteInputContent = forwardRef<
               <RawEditor
                 ref={internalEditorRef}
                 sessionId={sessionId}
+                rawMd={rawMd}
+                sessionTitle={sessionTitle}
                 onNavigateToTitle={onNavigateToTitle}
                 onViewReady={handleViewReady}
                 onViewDisposed={handleViewDisposed}

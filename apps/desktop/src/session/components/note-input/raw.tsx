@@ -19,7 +19,7 @@ import { openEditorLink } from "~/editor-bridge/open-editor-link";
 import { sessionMentionDropConfig } from "~/editor-bridge/session-mention-drop";
 import { SessionNodeView } from "~/editor-bridge/session-view";
 import { hasStoredNoteContent } from "~/session/components/shared";
-import { useSession, useUpdateSession } from "~/session/queries";
+import { useUpdateSession } from "~/session/queries";
 import {
   ensureFirstLineTitle,
   extractFirstLineTitle,
@@ -31,6 +31,8 @@ export const RawEditor = forwardRef<
   NoteEditorRef,
   {
     sessionId: string;
+    rawMd: string;
+    sessionTitle: string;
     className?: string;
     onNavigateToTitle?: (pixelWidth?: number) => void;
     syncTasks?: boolean;
@@ -42,6 +44,8 @@ export const RawEditor = forwardRef<
   (
     {
       sessionId,
+      rawMd,
+      sessionTitle,
       className,
       onNavigateToTitle,
       syncTasks = true,
@@ -51,9 +55,6 @@ export const RawEditor = forwardRef<
     },
     ref,
   ) => {
-    const session = useSession(sessionId);
-    const rawMd = session?.raw_md ?? "";
-    const sessionTitle = session?.title;
     const updateSession = useUpdateSession(sessionId);
     const { audioDropTargetProps, fileHandlerConfig, isAudioDragActive } =
       useNoteFileHandlerConfig(sessionId);

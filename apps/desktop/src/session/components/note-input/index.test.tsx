@@ -8,13 +8,18 @@ import type { EditorView } from "~/store/zustand/tabs/schema";
 const hoisted = vi.hoisted(() => ({
   editorTabs: [{ type: "raw" }, { type: "transcript" }] as EditorView[],
   hotkeys: [] as Array<{ keys: string; callback: () => void }>,
+  enhancedEditorProps: [] as Record<string, unknown>[],
   onBeforeTabChange: vi.fn(),
+  rawEditorProps: [] as Record<string, unknown>[],
   sessionMode: "inactive",
   updateSessionTabState: vi.fn(),
 }));
 
 vi.mock("./enhanced", () => ({
-  Enhanced: () => <div data-testid="enhanced-editor" />,
+  Enhanced: (props: Record<string, unknown>) => {
+    hoisted.enhancedEditorProps.push(props);
+    return <div data-testid="enhanced-editor" />;
+  },
 }));
 
 vi.mock("./header", () => ({
@@ -47,7 +52,10 @@ vi.mock("./header", () => ({
 }));
 
 vi.mock("./raw", () => ({
-  RawEditor: () => <div data-testid="raw-editor" />,
+  RawEditor: (props: Record<string, unknown>) => {
+    hoisted.rawEditorProps.push(props);
+    return <div data-testid="raw-editor" />;
+  },
 }));
 
 vi.mock("./search/bar", () => ({
@@ -125,6 +133,8 @@ function renderNoteInput({
           state: { autoStart: null, view: currentTab },
           type: "sessions",
         }}
+        rawMd="stored memo"
+        sessionTitle="Stored title"
         editorTabs={hoisted.editorTabs}
         currentTab={currentTab}
         handleTabChange={handleTabChange}
@@ -141,7 +151,9 @@ describe("NoteInput tab selection", () => {
   beforeEach(() => {
     hoisted.editorTabs = [{ type: "raw" }, { type: "transcript" }];
     hoisted.hotkeys = [];
+    hoisted.enhancedEditorProps = [];
     hoisted.onBeforeTabChange.mockClear();
+    hoisted.rawEditorProps = [];
     hoisted.sessionMode = "inactive";
     hoisted.updateSessionTabState.mockClear();
   });
@@ -204,6 +216,8 @@ describe("NoteInput tab selection", () => {
           state: { autoStart: null, view: currentTab },
           type: "sessions",
         }}
+        rawMd="stored memo"
+        sessionTitle="Stored title"
         editorTabs={hoisted.editorTabs}
         currentTab={currentTab}
         handleTabChange={handleTabChange}
@@ -235,5 +249,33 @@ describe("NoteInput tab selection", () => {
     renderNoteInput();
 
     expect(screen.getByTestId("is-transcribing").textContent).toBe("true");
+  });
+
+  it("passes hydrated session content to the memo editor", () => {
+    renderNoteInput();
+
+    expect(
+      hoisted.rawEditorProps[hoisted.rawEditorProps.length - 1],
+    ).toMatchObject({
+      rawMd: "stored memo",
+      sessionTitle: "Stored title",
+    });
+  });
+
+  it("passes the hydrated session title to the summary editor", () => {
+    hoisted.editorTabs = [
+      { type: "enhanced", id: "summary-1" },
+      { type: "raw" },
+    ];
+
+    renderNoteInput({
+      currentTab: { type: "enhanced", id: "summary-1" },
+    });
+
+    expect(
+      hoisted.enhancedEditorProps[hoisted.enhancedEditorProps.length - 1],
+    ).toMatchObject({
+      sessionTitle: "Stored title",
+    });
   });
 });
