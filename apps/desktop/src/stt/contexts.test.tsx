@@ -6,6 +6,7 @@ import { parseAutoStopEndedNotificationKey } from "./auto-stop-notification";
 import {
   AUTO_STOP_CALENDAR_EARLY_END_THRESHOLD_MS,
   AUTO_STOP_CONFIRM_DELAY_MS,
+  AUTO_STOP_EVENT_END_GRACE_MS,
   ListenerProvider,
 } from "./contexts";
 
@@ -218,6 +219,10 @@ describe("ListenerProvider detect events", () => {
     loadSessionEventMock.mockImplementation(readConfiguredSessionEvent);
     listenMock.mockResolvedValue(() => {});
     listMicUsingApplicationsMock.mockResolvedValue({ status: "ok", data: [] });
+    Object.defineProperty(window.navigator, "onLine", {
+      configurable: true,
+      value: true,
+    });
     vi.useRealTimers();
   });
 
@@ -331,6 +336,264 @@ describe("ListenerProvider detect events", () => {
 
     expect(listMicUsingApplicationsMock).toHaveBeenCalledTimes(1);
     expect(stopSpy).not.toHaveBeenCalled();
+  });
+
+  test("holds a network-interrupted meeting until its event end grace expires", async () => {
+    const store = createListenerStore();
+    const stopSpy = vi.fn();
+    const now = new Date("2026-05-19T10:05:00.000Z");
+    const endedAtMs = new Date("2026-05-19T10:30:00.000Z").getTime();
+    const deadlineMs = endedAtMs + AUTO_STOP_EVENT_END_GRACE_MS;
+
+    store.setState({ stop: stopSpy });
+    store.getState().setTriggerAppIds(["us.zoom.xos"]);
+    setStoreActive(store);
+    (useStoreMock as any).mockReturnValue(
+      mockSessionEventStore({
+        started_at: "2026-05-19T10:00:00.000Z",
+        ended_at: "2026-05-19T10:30:00.000Z",
+      }),
+    );
+
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+    const handler = listenMock.mock.calls[0]?.[0];
+
+    window.dispatchEvent(new Event("offline"));
+    handler({
+      payload: {
+        type: "micStopped",
+        apps: [{ id: "us.zoom.xos", name: "Zoom" }],
+      },
+    });
+    window.dispatchEvent(new Event("online"));
+
+    await vi.advanceTimersByTimeAsync(AUTO_STOP_CONFIRM_DELAY_MS);
+
+    expect(stopSpy).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(deadlineMs - Date.now() - 1);
+    expect(stopSpy).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(stopSpy).toHaveBeenCalledTimes(1);
+  });
+
+  test("cancels a network interruption hold when the meeting resumes during event grace", async () => {
+    const store = createListenerStore();
+    const stopSpy = vi.fn();
+    const now = new Date("2026-05-19T10:05:00.000Z");
+    const endedAtMs = new Date("2026-05-19T10:30:00.000Z").getTime();
+    const deadlineMs = endedAtMs + AUTO_STOP_EVENT_END_GRACE_MS;
+
+    store.setState({ stop: stopSpy });
+    store.getState().setTriggerAppIds(["us.zoom.xos"]);
+    setStoreActive(store);
+    (useStoreMock as any).mockReturnValue(
+      mockSessionEventStore({
+        started_at: "2026-05-19T10:00:00.000Z",
+        ended_at: "2026-05-19T10:30:00.000Z",
+      }),
+    );
+
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+    const handler = listenMock.mock.calls[0]?.[0];
+
+    window.dispatchEvent(new Event("offline"));
+    handler({
+      payload: {
+        type: "micStopped",
+        apps: [{ id: "us.zoom.xos", name: "Zoom" }],
+      },
+    });
+
+    await vi.advanceTimersByTimeAsync(AUTO_STOP_CONFIRM_DELAY_MS);
+    await vi.advanceTimersByTimeAsync(
+      endedAtMs + AUTO_STOP_EVENT_END_GRACE_MS / 2 - Date.now(),
+    );
+
+    window.dispatchEvent(new Event("online"));
+    handler({
+      payload: {
+        type: "micDetected",
+        key: "mic-resumed",
+        apps: [{ id: "us.zoom.xos", name: "Zoom" }],
+        duration_secs: 15,
+      },
+    });
+
+    await vi.advanceTimersByTimeAsync(deadlineMs - Date.now());
+    expect(stopSpy).not.toHaveBeenCalled();
+  });
+
+  test("upgrades a pending auto-stop when the network drops during confirmation", async () => {
+    const store = createListenerStore();
+    const stopSpy = vi.fn();
+    const now = new Date("2026-05-19T10:05:00.000Z");
+
+    store.setState({ stop: stopSpy });
+    store.getState().setTriggerAppIds(["us.zoom.xos"]);
+    setStoreActive(store);
+    (useStoreMock as any).mockReturnValue(
+      mockSessionEventStore({
+        started_at: "2026-05-19T10:00:00.000Z",
+        ended_at: "2026-05-19T10:30:00.000Z",
+      }),
+    );
+
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+    const handler = listenMock.mock.calls[0]?.[0];
+
+    handler({
+      payload: {
+        type: "micStopped",
+        apps: [{ id: "us.zoom.xos", name: "Zoom" }],
+      },
+    });
+    await vi.advanceTimersByTimeAsync(AUTO_STOP_CONFIRM_DELAY_MS - 1);
+    window.dispatchEvent(new Event("offline"));
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(stopSpy).not.toHaveBeenCalled();
+  });
+
+  test("keeps standard auto-stop behavior for offline ad-hoc meetings", async () => {
+    const store = createListenerStore();
+    const stopSpy = vi.fn();
+
+    store.setState({ stop: stopSpy });
+    store.getState().setTriggerAppIds(["us.zoom.xos"]);
+    setStoreActive(store);
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+    const handler = listenMock.mock.calls[0]?.[0];
+
+    vi.useFakeTimers();
+    window.dispatchEvent(new Event("offline"));
+    handler({
+      payload: {
+        type: "micStopped",
+        apps: [{ id: "us.zoom.xos", name: "Zoom" }],
+      },
+    });
+
+    await vi.advanceTimersByTimeAsync(AUTO_STOP_CONFIRM_DELAY_MS);
+    expect(stopSpy).toHaveBeenCalledTimes(1);
+  });
+
+  test("does not let an interrupted meeting timer stop a replacement session", async () => {
+    const store = createListenerStore();
+    const stopSpy = vi.fn();
+    const now = new Date("2026-05-19T10:05:00.000Z");
+    const deadlineMs =
+      new Date("2026-05-19T10:30:00.000Z").getTime() +
+      AUTO_STOP_EVENT_END_GRACE_MS;
+
+    store.setState({ stop: stopSpy });
+    store.getState().setTriggerAppIds(["us.zoom.xos"]);
+    setStoreActive(store);
+    (useStoreMock as any).mockReturnValue(
+      mockSessionEventStore({
+        started_at: "2026-05-19T10:00:00.000Z",
+        ended_at: "2026-05-19T10:30:00.000Z",
+      }),
+    );
+
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+    const handler = listenMock.mock.calls[0]?.[0];
+
+    window.dispatchEvent(new Event("offline"));
+    handler({
+      payload: {
+        type: "micStopped",
+        apps: [{ id: "us.zoom.xos", name: "Zoom" }],
+      },
+    });
+    await vi.advanceTimersByTimeAsync(AUTO_STOP_CONFIRM_DELAY_MS);
+
+    setStoreActive(store, "session-2");
+    await vi.advanceTimersByTimeAsync(deadlineMs - Date.now());
+
+    expect(stopSpy).not.toHaveBeenCalled();
+  });
+
+  test("does not hold for a future linked event outside the early-start buffer", async () => {
+    const store = createListenerStore();
+    const stopSpy = vi.fn();
+
+    store.setState({ stop: stopSpy });
+    store.getState().setTriggerAppIds(["us.zoom.xos"]);
+    setStoreActive(store);
+    (useStoreMock as any).mockReturnValue(
+      mockSessionEventStore({
+        started_at: "2026-05-19T11:00:00.000Z",
+        ended_at: "2026-05-19T11:30:00.000Z",
+      }),
+    );
+
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-19T10:00:00.000Z"));
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+    const handler = listenMock.mock.calls[0]?.[0];
+
+    window.dispatchEvent(new Event("offline"));
+    handler({
+      payload: {
+        type: "micStopped",
+        apps: [{ id: "us.zoom.xos", name: "Zoom" }],
+      },
+    });
+
+    await vi.advanceTimersByTimeAsync(AUTO_STOP_CONFIRM_DELAY_MS);
+    expect(stopSpy).toHaveBeenCalledTimes(1);
   });
 
   test("does not stop on MicStopped when auto-stop is disabled", async () => {

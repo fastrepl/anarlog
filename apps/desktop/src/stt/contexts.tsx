@@ -1,5 +1,5 @@
 import { resolveResource } from "@tauri-apps/api/path";
-import React, { createContext, useContext, useEffect, useRef } from "react";
+import React, { createContext, useContext, useRef } from "react";
 import { useStore } from "zustand";
 import { useShallow } from "zustand/shallow";
 
@@ -23,6 +23,7 @@ import {
 } from "~/calendar/queries";
 import { loadSessionEvent } from "~/session/queries";
 import { useConfigValue } from "~/shared/config";
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import {
   createListenerStore,
   type ListenerStore,
@@ -32,6 +33,9 @@ const ListenerContext = createContext<ListenerStore | null>(null);
 export const AUTO_STOP_CONFIRM_DELAY_MS = 5_000;
 export const AUTO_STOP_CALENDAR_EARLY_END_THRESHOLD_MS = 3 * 60_000;
 export const AUTO_STOP_CALENDAR_EARLY_START_BUFFER_MS = 5 * 60_000;
+export const AUTO_STOP_EVENT_END_GRACE_MS = 10 * 60_000;
+
+const MAX_TIMEOUT_DELAY_MS = 2_147_483_647;
 
 const BROWSER_AUTO_STOP_APP_IDS = new Set([
   "at.studio.AsideBrowser",
@@ -72,6 +76,12 @@ const UNRELIABLE_AUTO_STOP_APP_IDS = new Set(["com.kakao.KakaoTalkMac"]);
 
 type MicApp = { id: string; name: string };
 type NearbyEvent = NearbyCalendarEvent;
+type PendingAutoStop = {
+  timeout?: ReturnType<typeof setTimeout>;
+  requireMicSnapshot: boolean;
+  sessionId: string | null;
+  networkInterrupted: boolean;
+};
 type MeetingPlatform = {
   displayName: string;
   iconResource: NotificationIconResource;
@@ -717,6 +727,36 @@ async function shouldPromptBeforeAutoStopping({
   return nowMs < endMs - AUTO_STOP_CALENDAR_EARLY_END_THRESHOLD_MS;
 }
 
+async function getNetworkInterruptionDeadlineMs({
+  sessionId,
+  nowMs,
+}: {
+  sessionId: string | null;
+  nowMs: number;
+}): Promise<number | null> {
+  if (!sessionId) {
+    return null;
+  }
+
+  const event = await loadSessionEvent(sessionId);
+  if (!event || event.is_all_day) {
+    return null;
+  }
+
+  const endMs = parseEventTimeMs(event.ended_at);
+  if (!endMs) {
+    return null;
+  }
+
+  const startMs = parseEventTimeMs(event.started_at);
+  if (startMs && nowMs < startMs - AUTO_STOP_CALENDAR_EARLY_START_BUFFER_MS) {
+    return null;
+  }
+
+  const deadlineMs = endMs + AUTO_STOP_EVENT_END_GRACE_MS;
+  return deadlineMs > nowMs ? deadlineMs : null;
+}
+
 function getPrimaryStoppedApp(
   stoppedTriggerAppIds: string[],
   stoppedApps: { id: string; name: string }[],
@@ -841,18 +881,19 @@ const useHandleDetectEvents = (store: ListenerStore) => {
 
   const autoStopMeetingsRef = useRef(autoStopMeetings);
   autoStopMeetingsRef.current = autoStopMeetings;
-  const pendingAutoStopRef = useRef<{
-    timeout: ReturnType<typeof setTimeout>;
-    requireMicSnapshot: boolean;
-  } | null>(null);
+  const isOnlineRef = useRef(true);
+  const pendingAutoStopRef = useRef<PendingAutoStop | null>(null);
   const pendingMicDetectedPromptRef = useRef(false);
 
-  useEffect(() => {
-    let unlisten: (() => void) | undefined;
+  useMountEffect(() => {
+    let unlistenDetect: (() => void) | undefined;
     let cancelled = false;
+    isOnlineRef.current = navigator.onLine;
     const clearPendingAutoStop = () => {
       if (pendingAutoStopRef.current) {
-        clearTimeout(pendingAutoStopRef.current.timeout);
+        if (pendingAutoStopRef.current.timeout) {
+          clearTimeout(pendingAutoStopRef.current.timeout);
+        }
         pendingAutoStopRef.current = null;
       }
     };
@@ -877,13 +918,47 @@ const useHandleDetectEvents = (store: ListenerStore) => {
         .setTriggerAppIds([...new Set([...currentTrigger, ...appIds])]);
     };
 
-    const confirmAutoStop = async (
+    function scheduleAutoStop(
+      delayMs: number,
       candidateAppIds: string[],
       stoppedApps: { id: string; name: string }[],
-      requireMicSnapshot = false,
-    ) => {
+      requireMicSnapshot: boolean,
+      sessionId: string | null,
+      networkInterrupted: boolean,
+    ) {
+      clearPendingAutoStop();
+
+      const pending: PendingAutoStop = {
+        requireMicSnapshot,
+        sessionId,
+        networkInterrupted,
+      };
+      pending.timeout = setTimeout(
+        () => {
+          void confirmAutoStop(candidateAppIds, stoppedApps, pending).finally(
+            () => {
+              if (pendingAutoStopRef.current === pending) {
+                pendingAutoStopRef.current = null;
+              }
+            },
+          );
+        },
+        Math.min(Math.max(delayMs, 0), MAX_TIMEOUT_DELAY_MS),
+      );
+      pendingAutoStopRef.current = pending;
+    }
+
+    async function confirmAutoStop(
+      candidateAppIds: string[],
+      stoppedApps: { id: string; name: string }[],
+      pending: PendingAutoStop,
+    ) {
       const live = store.getState().live;
-      if (live.status !== "active") {
+      if (
+        pendingAutoStopRef.current !== pending ||
+        live.status !== "active" ||
+        live.sessionId !== pending.sessionId
+      ) {
         return;
       }
 
@@ -908,21 +983,47 @@ const useHandleDetectEvents = (store: ListenerStore) => {
         if (activeCheckAppIds.some((id) => activeAppIds.has(id))) {
           return;
         }
-      } else if (requireMicSnapshot || hasUnreliableActiveCheckApp) {
+      } else if (pending.requireMicSnapshot || hasUnreliableActiveCheckApp) {
         return;
       }
 
-      const sessionId = store.getState().live.sessionId;
-      if (
-        await shouldPromptBeforeAutoStopping({
-          appIds: candidateAppIds,
-          sessionId,
+      if (pendingAutoStopRef.current !== pending) {
+        return;
+      }
+
+      if (pending.networkInterrupted || !isOnlineRef.current) {
+        const deadlineMs = await getNetworkInterruptionDeadlineMs({
+          sessionId: pending.sessionId,
           nowMs: Date.now(),
-        })
-      ) {
-        if (sessionId) {
+        });
+        if (pendingAutoStopRef.current !== pending) {
+          return;
+        }
+        if (deadlineMs) {
+          scheduleAutoStop(
+            deadlineMs - Date.now(),
+            candidateAppIds,
+            stoppedApps,
+            pending.requireMicSnapshot,
+            pending.sessionId,
+            true,
+          );
+          return;
+        }
+      }
+
+      const shouldPrompt = await shouldPromptBeforeAutoStopping({
+        appIds: candidateAppIds,
+        sessionId: pending.sessionId,
+        nowMs: Date.now(),
+      });
+      if (pendingAutoStopRef.current !== pending) {
+        return;
+      }
+      if (shouldPrompt) {
+        if (pending.sessionId) {
           await showMeetingEndedPrompt({
-            sessionId,
+            sessionId: pending.sessionId,
             stoppedTriggerAppIds: candidateAppIds,
             stoppedApps,
           });
@@ -930,8 +1031,29 @@ const useHandleDetectEvents = (store: ListenerStore) => {
         return;
       }
 
+      const currentLive = store.getState().live;
+      if (
+        pendingAutoStopRef.current !== pending ||
+        currentLive.status !== "active" ||
+        currentLive.sessionId !== pending.sessionId
+      ) {
+        return;
+      }
+
       stop();
+    }
+
+    const handleOffline = () => {
+      isOnlineRef.current = false;
+      if (pendingAutoStopRef.current) {
+        pendingAutoStopRef.current.networkInterrupted = true;
+      }
     };
+    const handleOnline = () => {
+      isOnlineRef.current = true;
+    };
+    window.addEventListener("offline", handleOffline);
+    window.addEventListener("online", handleOnline);
 
     detectEvents.detectEvent
       .listen(({ payload }) => {
@@ -1044,19 +1166,14 @@ const useHandleDetectEvents = (store: ListenerStore) => {
               return;
             }
 
-            clearPendingAutoStop();
-
-            pendingAutoStopRef.current = {
-              timeout: setTimeout(() => {
-                pendingAutoStopRef.current = null;
-                void confirmAutoStop(
-                  candidateAppIds,
-                  payload.apps,
-                  requireMicSnapshot,
-                );
-              }, AUTO_STOP_CONFIRM_DELAY_MS),
+            scheduleAutoStop(
+              AUTO_STOP_CONFIRM_DELAY_MS,
+              candidateAppIds,
+              payload.apps,
               requireMicSnapshot,
-            };
+              store.getState().live.sessionId,
+              !isOnlineRef.current,
+            );
           }
         } else if (payload.type === "sleepStateChanged") {
           if (payload.value) {
@@ -1071,7 +1188,7 @@ const useHandleDetectEvents = (store: ListenerStore) => {
         if (cancelled) {
           fn();
         } else {
-          unlisten = fn;
+          unlistenDetect = fn;
         }
       })
       .catch((err) => {
@@ -1081,7 +1198,9 @@ const useHandleDetectEvents = (store: ListenerStore) => {
     return () => {
       cancelled = true;
       clearPendingAutoStop();
-      unlisten?.();
+      window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("online", handleOnline);
+      unlistenDetect?.();
     };
-  }, [stop, setMuted, store]);
+  });
 };
