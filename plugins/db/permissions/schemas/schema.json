@@ -307,6 +307,18 @@
           "markdownDescription": "Denies the cleanup_legacy_files command without any pre-configured scope."
         },
         {
+          "description": "Enables the configure_cloudsync command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-configure-cloudsync",
+          "markdownDescription": "Enables the configure_cloudsync command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the configure_cloudsync command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-configure-cloudsync",
+          "markdownDescription": "Denies the configure_cloudsync command without any pre-configured scope."
+        },
+        {
           "description": "Enables the execute command without any pre-configured scope.",
           "type": "string",
           "const": "allow-execute",
@@ -341,6 +353,18 @@
           "type": "string",
           "const": "deny-execute-transaction",
           "markdownDescription": "Denies the execute_transaction command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_cloudsync_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-cloudsync-status",
+          "markdownDescription": "Enables the get_cloudsync_status command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_cloudsync_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-cloudsync-status",
+          "markdownDescription": "Denies the get_cloudsync_status command without any pre-configured scope."
         },
         {
           "description": "Enables the get_legacy_cleanup_status command without any pre-configured scope.",
@@ -415,6 +439,18 @@
           "markdownDescription": "Denies the list_meetings command without any pre-configured scope."
         },
         {
+          "description": "Enables the logout_cloudsync command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-logout-cloudsync",
+          "markdownDescription": "Enables the logout_cloudsync command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the logout_cloudsync command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-logout-cloudsync",
+          "markdownDescription": "Denies the logout_cloudsync command without any pre-configured scope."
+        },
+        {
           "description": "Enables the run_legacy_import command without any pre-configured scope.",
           "type": "string",
           "const": "allow-run-legacy-import",
@@ -425,6 +461,30 @@
           "type": "string",
           "const": "deny-run-legacy-import",
           "markdownDescription": "Denies the run_legacy_import command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the start_cloudsync command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-start-cloudsync",
+          "markdownDescription": "Enables the start_cloudsync command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the start_cloudsync command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-start-cloudsync",
+          "markdownDescription": "Denies the start_cloudsync command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the stop_cloudsync command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-stop-cloudsync",
+          "markdownDescription": "Enables the stop_cloudsync command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the stop_cloudsync command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-stop-cloudsync",
+          "markdownDescription": "Denies the stop_cloudsync command without any pre-configured scope."
         },
         {
           "description": "Enables the subscribe command without any pre-configured scope.",
@@ -439,6 +499,18 @@
           "markdownDescription": "Denies the subscribe command without any pre-configured scope."
         },
         {
+          "description": "Enables the sync_cloudsync_now command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-sync-cloudsync-now",
+          "markdownDescription": "Enables the sync_cloudsync_now command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the sync_cloudsync_now command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-sync-cloudsync-now",
+          "markdownDescription": "Denies the sync_cloudsync_now command without any pre-configured scope."
+        },
+        {
           "description": "Enables the unsubscribe command without any pre-configured scope.",
           "type": "string",
           "const": "allow-unsubscribe",
@@ -451,10 +523,10 @@
           "markdownDescription": "Denies the unsubscribe command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-execute`\n- `allow-execute-proxy`\n- `allow-execute-transaction`\n- `allow-list-meetings`\n- `allow-get-meeting`\n- `allow-get-meeting-transcript`\n- `allow-get-recurring-meeting-history`\n- `allow-get-legacy-cleanup-status`\n- `allow-cleanup-legacy-files`\n- `allow-subscribe`\n- `allow-unsubscribe`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-execute`\n- `allow-execute-proxy`\n- `allow-execute-transaction`\n- `allow-list-meetings`\n- `allow-get-meeting`\n- `allow-get-meeting-transcript`\n- `allow-get-recurring-meeting-history`\n- `allow-get-legacy-cleanup-status`\n- `allow-cleanup-legacy-files`\n- `allow-subscribe`\n- `allow-unsubscribe`\n- `allow-configure-cloudsync`\n- `allow-start-cloudsync`\n- `allow-stop-cloudsync`\n- `allow-get-cloudsync-status`\n- `allow-sync-cloudsync-now`\n- `allow-logout-cloudsync`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-execute`\n- `allow-execute-proxy`\n- `allow-execute-transaction`\n- `allow-list-meetings`\n- `allow-get-meeting`\n- `allow-get-meeting-transcript`\n- `allow-get-recurring-meeting-history`\n- `allow-get-legacy-cleanup-status`\n- `allow-cleanup-legacy-files`\n- `allow-subscribe`\n- `allow-unsubscribe`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-execute`\n- `allow-execute-proxy`\n- `allow-execute-transaction`\n- `allow-list-meetings`\n- `allow-get-meeting`\n- `allow-get-meeting-transcript`\n- `allow-get-recurring-meeting-history`\n- `allow-get-legacy-cleanup-status`\n- `allow-cleanup-legacy-files`\n- `allow-subscribe`\n- `allow-unsubscribe`\n- `allow-configure-cloudsync`\n- `allow-start-cloudsync`\n- `allow-stop-cloudsync`\n- `allow-get-cloudsync-status`\n- `allow-sync-cloudsync-now`\n- `allow-logout-cloudsync`"
         }
       ]
     }

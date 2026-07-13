@@ -15,6 +15,12 @@ Default permissions for the plugin
 - `allow-cleanup-legacy-files`
 - `allow-subscribe`
 - `allow-unsubscribe`
+- `allow-configure-cloudsync`
+- `allow-start-cloudsync`
+- `allow-stop-cloudsync`
+- `allow-get-cloudsync-status`
+- `allow-sync-cloudsync-now`
+- `allow-logout-cloudsync`
 
 ## Permission Table
 
@@ -47,6 +53,32 @@ Enables the cleanup_legacy_files command without any pre-configured scope.
 <td>
 
 Denies the cleanup_legacy_files command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:allow-configure-cloudsync`
+
+</td>
+<td>
+
+Enables the configure_cloudsync command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:deny-configure-cloudsync`
+
+</td>
+<td>
+
+Denies the configure_cloudsync command without any pre-configured scope.
 
 </td>
 </tr>
@@ -125,6 +157,32 @@ Enables the execute_transaction command without any pre-configured scope.
 <td>
 
 Denies the execute_transaction command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:allow-get-cloudsync-status`
+
+</td>
+<td>
+
+Enables the get_cloudsync_status command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:deny-get-cloudsync-status`
+
+</td>
+<td>
+
+Denies the get_cloudsync_status command without any pre-configured scope.
 
 </td>
 </tr>
@@ -288,6 +346,32 @@ Denies the list_meetings command without any pre-configured scope.
 <tr>
 <td>
 
+`db:allow-logout-cloudsync`
+
+</td>
+<td>
+
+Enables the logout_cloudsync command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:deny-logout-cloudsync`
+
+</td>
+<td>
+
+Denies the logout_cloudsync command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `db:allow-run-legacy-import`
 
 </td>
@@ -314,6 +398,58 @@ Denies the run_legacy_import command without any pre-configured scope.
 <tr>
 <td>
 
+`db:allow-start-cloudsync`
+
+</td>
+<td>
+
+Enables the start_cloudsync command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:deny-start-cloudsync`
+
+</td>
+<td>
+
+Denies the start_cloudsync command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:allow-stop-cloudsync`
+
+</td>
+<td>
+
+Enables the stop_cloudsync command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:deny-stop-cloudsync`
+
+</td>
+<td>
+
+Denies the stop_cloudsync command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `db:allow-subscribe`
 
 </td>
@@ -333,6 +469,32 @@ Enables the subscribe command without any pre-configured scope.
 <td>
 
 Denies the subscribe command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:allow-sync-cloudsync-now`
+
+</td>
+<td>
+
+Enables the sync_cloudsync_now command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:deny-sync-cloudsync-now`
+
+</td>
+<td>
+
+Denies the sync_cloudsync_now command without any pre-configured scope.
 
 </td>
 </tr>
