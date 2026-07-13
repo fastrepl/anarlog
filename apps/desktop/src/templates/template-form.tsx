@@ -1,7 +1,7 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { useForm } from "@tanstack/react-form";
 import { HeartIcon, MoreHorizontalIcon, Plus, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
 import { Badge } from "@hypr/ui/components/ui/badge";
 import { Button } from "@hypr/ui/components/ui/button";
@@ -156,7 +156,6 @@ export function TemplateForm({
   const saveTemplate = useSaveTemplate();
   const toggleTemplateFavorite = useToggleTemplateFavorite();
   const [actionsOpen, setActionsOpen] = useState(false);
-  const didInitializeForm = useRef(false);
 
   const selectedTemplateId = useConfigValue("selected_template_id");
   const isDefault = selectedTemplateId === id;
@@ -193,25 +192,6 @@ export function TemplateForm({
       });
     },
   });
-
-  useEffect(() => {
-    didInitializeForm.current = false;
-  }, [id]);
-
-  useEffect(() => {
-    if (didInitializeForm.current) {
-      return;
-    }
-
-    form.reset({
-      title: template.title ?? "",
-      description: template.description ?? "",
-      icon: template.icon,
-      targets: template.targets ?? [],
-      sections: template.sections ?? [],
-    });
-    didInitializeForm.current = true;
-  }, [form, template]);
 
   return (
     <div className="flex h-full flex-1 flex-col">
