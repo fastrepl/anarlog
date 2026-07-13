@@ -10,8 +10,8 @@ use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 
 use crate::cloudsync::CloudsyncRuntimeState;
 pub use crate::cloudsync::{
-    CloudsyncAuth, CloudsyncRuntimeConfig, CloudsyncRuntimeError, CloudsyncStatus,
-    CloudsyncTableSpec, cloudsync_begin_alter_on, cloudsync_commit_alter_on,
+    CloudsyncAuth, CloudsyncNetworkResult, CloudsyncRuntimeConfig, CloudsyncRuntimeError,
+    CloudsyncStatus, CloudsyncTableSpec, cloudsync_begin_alter_on, cloudsync_commit_alter_on,
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -269,7 +269,7 @@ mod tests {
             tables: vec![CloudsyncTableSpec {
                 table_name: "test_sync".to_string(),
                 crdt_algo: None,
-                force_init: None,
+                init_flags: None,
                 enabled: true,
             }],
             sync_interval_ms: 30_000,

@@ -1,8 +1,11 @@
 use std::fs;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::CLOUDSYNC_VERSION;
 use crate::error::Error;
+
+static TEMP_FILE_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 macro_rules! configure_cloudsync_target {
     ($target:literal, $file_name:literal, $path:literal) => {
@@ -138,8 +141,11 @@ pub fn bundled_extension_path() -> Result<PathBuf, Error> {
         };
 
         if needs_write {
-            let tmp_path =
-                base_dir.join(format!("{CLOUDSYNC_FILE_NAME}.{}.tmp", std::process::id()));
+            let sequence = TEMP_FILE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+            let tmp_path = base_dir.join(format!(
+                "{CLOUDSYNC_FILE_NAME}.{}.{sequence}.tmp",
+                std::process::id()
+            ));
             fs::write(&tmp_path, BUNDLED_CLOUDSYNC_BYTES)?;
 
             #[cfg(unix)]

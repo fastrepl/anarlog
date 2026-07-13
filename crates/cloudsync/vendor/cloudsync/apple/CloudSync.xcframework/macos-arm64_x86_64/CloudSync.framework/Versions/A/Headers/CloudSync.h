@@ -18,7 +18,7 @@
 extern "C" {
 #endif
 
-#define CLOUDSYNC_VERSION                       "1.0.12"
+#define CLOUDSYNC_VERSION                       "1.0.20"
 #define CLOUDSYNC_MAX_TABLENAME_LEN             512
 
 #define CLOUDSYNC_VALUE_NOTSET                  -1
@@ -64,6 +64,7 @@ int64_t cloudsync_dbversion (cloudsync_context *data);
 void cloudsync_update_schema_hash (cloudsync_context *data);
 int cloudsync_dbversion_check_uptodate (cloudsync_context *data);
 bool cloudsync_config_exists (cloudsync_context *data);
+bool cloudsync_context_is_initialized (cloudsync_context *data);
 dbvm_t *cloudsync_colvalue_stmt (cloudsync_context *data, const char *tbl_name, bool *persistent);
 
 // CloudSync alter table

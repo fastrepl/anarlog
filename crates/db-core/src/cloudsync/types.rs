@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+pub use hypr_cloudsync::NetworkResult as CloudsyncNetworkResult;
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum CloudsyncAuth {
@@ -12,7 +14,7 @@ pub enum CloudsyncAuth {
 pub struct CloudsyncTableSpec {
     pub table_name: String,
     pub crdt_algo: Option<String>,
-    pub force_init: Option<bool>,
+    pub init_flags: Option<i64>,
     pub enabled: bool,
 }
 
@@ -41,7 +43,7 @@ pub struct CloudsyncStatus {
     pub configured: bool,
     pub running: bool,
     pub network_initialized: bool,
-    pub last_sync_downloaded_count: Option<i64>,
+    pub last_sync: Option<CloudsyncNetworkResult>,
     pub last_sync_at_ms: Option<u64>,
     pub has_unsent_changes: Option<bool>,
     pub last_error: Option<String>,

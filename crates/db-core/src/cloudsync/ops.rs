@@ -24,9 +24,9 @@ impl Db {
         &self,
         table_name: &str,
         crdt_algo: Option<&str>,
-        force: Option<bool>,
+        init_flags: Option<i64>,
     ) -> Result<(), hypr_cloudsync::Error> {
-        hypr_cloudsync::init(&self.pool, table_name, crdt_algo, force).await
+        hypr_cloudsync::init(&self.pool, table_name, crdt_algo, init_flags).await
     }
 
     pub async fn cloudsync_network_init(
@@ -86,7 +86,9 @@ impl Db {
         &self,
         wait_ms: Option<i64>,
         max_retries: Option<i64>,
-    ) -> Result<i64, hypr_cloudsync::Error> {
+    ) -> Result<hypr_cloudsync::NetworkResult, hypr_cloudsync::Error> {
+        let sync_lock = self.cloudsync_runtime.lock().unwrap().sync_lock.clone();
+        let _guard = sync_lock.lock().await;
         hypr_cloudsync::network_send_changes(&self.pool, wait_ms, max_retries).await
     }
 
@@ -94,7 +96,9 @@ impl Db {
         &self,
         wait_ms: Option<i64>,
         max_retries: Option<i64>,
-    ) -> Result<i64, hypr_cloudsync::Error> {
+    ) -> Result<hypr_cloudsync::NetworkResult, hypr_cloudsync::Error> {
+        let sync_lock = self.cloudsync_runtime.lock().unwrap().sync_lock.clone();
+        let _guard = sync_lock.lock().await;
         hypr_cloudsync::network_check_changes(&self.pool, wait_ms, max_retries).await
     }
 
@@ -110,7 +114,9 @@ impl Db {
         &self,
         wait_ms: Option<i64>,
         max_retries: Option<i64>,
-    ) -> Result<i64, hypr_cloudsync::Error> {
+    ) -> Result<hypr_cloudsync::NetworkResult, hypr_cloudsync::Error> {
+        let sync_lock = self.cloudsync_runtime.lock().unwrap().sync_lock.clone();
+        let _guard = sync_lock.lock().await;
         hypr_cloudsync::network_sync(&self.pool, wait_ms, max_retries).await
     }
 
@@ -144,4 +150,37 @@ where
     E: Executor<'e, Database = Sqlite>,
 {
     hypr_cloudsync::commit_alter(executor, table_name).await
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+    use std::time::Duration;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn network_sync_waits_for_single_flight_lock() {
+        let db = Arc::new(Db::connect_memory_plain().await.unwrap());
+        let sync_lock = db.cloudsync_runtime.lock().unwrap().sync_lock.clone();
+        let guard = sync_lock.lock().await;
+        let task_db = Arc::clone(&db);
+        let mut task =
+            tokio::spawn(async move { task_db.cloudsync_network_sync(None, None).await });
+
+        assert!(
+            tokio::time::timeout(Duration::from_millis(25), &mut task)
+                .await
+                .is_err()
+        );
+
+        drop(guard);
+        assert!(
+            tokio::time::timeout(Duration::from_secs(1), task)
+                .await
+                .unwrap()
+                .unwrap()
+                .is_err()
+        );
+    }
 }

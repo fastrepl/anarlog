@@ -26,7 +26,7 @@ static CLOUDSYNC_TABLE_REGISTRY: LazyLock<Vec<CloudsyncTableSpec>> = LazyLock::n
     .map(|table_name| CloudsyncTableSpec {
         table_name: table_name.to_string(),
         crdt_algo: None,
-        force_init: None,
+        init_flags: None,
         enabled: false,
     })
     .collect()

@@ -7,7 +7,8 @@ use tokio::sync::oneshot;
 
 use super::state::{CloudsyncBackgroundTask, CloudsyncRuntimeState};
 use super::types::{
-    CloudsyncErrorKind, CloudsyncRuntimeConfig, CloudsyncRuntimeError, CloudsyncStatus,
+    CloudsyncErrorKind, CloudsyncNetworkResult, CloudsyncRuntimeConfig, CloudsyncRuntimeError,
+    CloudsyncStatus,
 };
 use crate::Db;
 
@@ -68,7 +69,7 @@ impl Db {
             self.cloudsync_init(
                 &table.table_name,
                 table.crdt_algo.as_deref(),
-                table.force_init,
+                table.init_flags,
             )
             .await?;
         }
@@ -80,6 +81,7 @@ impl Db {
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
         let pool = self.pool.clone();
         let runtime_state = Arc::clone(&self.cloudsync_runtime);
+        let sync_lock = self.cloudsync_runtime.lock().unwrap().sync_lock.clone();
         let wait_ms = config.wait_ms;
         let max_retries = config.max_retries;
         let sync_interval_ms = config.sync_interval_ms;
@@ -87,6 +89,7 @@ impl Db {
             cloudsync_background_loop(
                 pool,
                 runtime_state,
+                sync_lock,
                 sync_interval_ms,
                 wait_ms,
                 max_retries,
@@ -110,10 +113,12 @@ impl Db {
     }
 
     pub async fn cloudsync_stop(&self) -> Result<(), CloudsyncRuntimeError> {
-        let task = {
+        let (task, should_cleanup) = {
             let mut runtime = self.cloudsync_runtime.lock().unwrap();
             runtime.running = false;
-            runtime.task.take()
+            let should_cleanup = runtime.network_initialized;
+            runtime.network_initialized = false;
+            (runtime.task.take(), should_cleanup)
         };
 
         if let Some(mut task) = task {
@@ -130,7 +135,8 @@ impl Db {
             return Ok(());
         }
 
-        let should_cleanup = self.cloudsync_runtime.lock().unwrap().network_initialized;
+        let sync_lock = self.cloudsync_runtime.lock().unwrap().sync_lock.clone();
+        let _sync_guard = sync_lock.lock().await;
         if should_cleanup {
             self.cloudsync_network_cleanup().await?;
         }
@@ -150,7 +156,7 @@ impl Db {
             config,
             running,
             network_initialized,
-            last_sync_downloaded_count,
+            last_sync,
             last_sync_at_ms,
             last_error,
             last_error_kind,
@@ -161,7 +167,7 @@ impl Db {
                 runtime.config.clone(),
                 runtime.running,
                 runtime.network_initialized,
-                runtime.last_sync_downloaded_count,
+                runtime.last_sync.clone(),
                 runtime.last_sync_at_ms,
                 runtime.last_error.clone(),
                 runtime.last_error_kind.map(CloudsyncErrorKind::from),
@@ -181,7 +187,7 @@ impl Db {
             configured: config.is_some(),
             running,
             network_initialized,
-            last_sync_downloaded_count,
+            last_sync,
             last_sync_at_ms,
             has_unsent_changes,
             last_error,
@@ -190,38 +196,39 @@ impl Db {
         })
     }
 
-    pub async fn cloudsync_trigger_sync(&self) -> Result<i64, CloudsyncRuntimeError> {
+    pub async fn cloudsync_trigger_sync(
+        &self,
+    ) -> Result<CloudsyncNetworkResult, CloudsyncRuntimeError> {
         if !self.cloudsync_enabled {
             let mut runtime = self.cloudsync_runtime.lock().unwrap();
             runtime.last_error = None;
-            return Ok(0);
+            return Ok(CloudsyncNetworkResult::default());
         }
 
-        let (wait_ms, max_retries, network_initialized) = {
+        let (wait_ms, max_retries) = {
             let runtime = self.cloudsync_runtime.lock().unwrap();
             let config = runtime
                 .config
                 .as_ref()
                 .ok_or(CloudsyncRuntimeError::NotConfigured)?;
-            (
-                config.wait_ms,
-                config.max_retries,
-                runtime.network_initialized,
-            )
+            (config.wait_ms, config.max_retries)
         };
-        if !network_initialized {
+
+        let sync_lock = self.cloudsync_runtime.lock().unwrap().sync_lock.clone();
+        let _sync_guard = sync_lock.lock().await;
+        if !self.cloudsync_runtime.lock().unwrap().network_initialized {
             return Err(CloudsyncRuntimeError::NotStarted);
         }
 
-        let downloaded_count = self.cloudsync_network_sync(wait_ms, max_retries).await?;
-        record_sync_result(&self.cloudsync_runtime, downloaded_count);
-        Ok(downloaded_count)
+        let result = hypr_cloudsync::network_sync(&self.pool, wait_ms, max_retries).await?;
+        record_sync_result(&self.cloudsync_runtime, result.clone());
+        Ok(result)
     }
 }
 
-fn record_sync_result(runtime: &Mutex<CloudsyncRuntimeState>, downloaded_count: i64) {
+fn record_sync_result(runtime: &Mutex<CloudsyncRuntimeState>, result: CloudsyncNetworkResult) {
     let mut runtime = runtime.lock().unwrap();
-    runtime.last_sync_downloaded_count = Some(downloaded_count);
+    runtime.last_sync = Some(result);
     runtime.last_sync_at_ms = Some(now_ms());
     runtime.last_error = None;
     runtime.last_error_kind = None;
@@ -233,6 +240,7 @@ const MAX_BACKOFF_SECS: u64 = 300;
 async fn cloudsync_background_loop(
     pool: SqlitePool,
     runtime_state: Arc<Mutex<CloudsyncRuntimeState>>,
+    sync_lock: Arc<tokio::sync::Mutex<()>>,
     sync_interval_ms: u64,
     wait_ms: Option<i64>,
     max_retries: Option<i64>,
@@ -246,8 +254,13 @@ async fn cloudsync_background_loop(
             _ = tokio::time::sleep(base_interval) => {
                 let state = Arc::clone(&runtime_state);
 
-                let result = (|| async {
-                    hypr_cloudsync::network_sync(&pool, wait_ms, max_retries).await
+                let result = (|| {
+                    let pool = pool.clone();
+                    let sync_lock = Arc::clone(&sync_lock);
+                    async move {
+                        let _guard = sync_lock.lock().await;
+                        hypr_cloudsync::network_sync(&pool, wait_ms, max_retries).await
+                    }
                 })
                     .retry(
                         ExponentialBuilder::default()
@@ -271,8 +284,8 @@ async fn cloudsync_background_loop(
                     .await;
 
                 match result {
-                    Ok(downloaded_count) => {
-                        record_sync_result(&runtime_state, downloaded_count);
+                    Ok(result) => {
+                        record_sync_result(&runtime_state, result);
                     }
                     Err(error) => {
                         let kind = error.kind();

@@ -172,7 +172,7 @@ impl MobileDbBridge {
         &self,
         table_name: String,
         crdt_algo: Option<String>,
-        force: Option<bool>,
+        init_flags: Option<i64>,
     ) -> Result<(), BridgeError> {
         let (runtime, live_query_runtime) = self.with_state(|state| {
             Ok((
@@ -185,7 +185,7 @@ impl MobileDbBridge {
             .block_on(live_query_runtime.db().cloudsync_init(
                 &table_name,
                 crdt_algo.as_deref(),
-                force,
+                init_flags,
             ))
             .map_err(cloudsync_error)
     }
@@ -241,21 +241,22 @@ impl MobileDbBridge {
         &self,
         wait_ms: Option<i64>,
         max_retries: Option<i64>,
-    ) -> Result<i64, BridgeError> {
+    ) -> Result<String, BridgeError> {
         let (runtime, live_query_runtime) = self.with_state(|state| {
             Ok((
                 Arc::clone(&state.runtime),
                 Arc::clone(&state.live_query_runtime),
             ))
         })?;
-        runtime
+        let result = runtime
             .handle()
             .block_on(
                 live_query_runtime
                     .db()
                     .cloudsync_network_sync(wait_ms, max_retries),
             )
-            .map_err(cloudsync_error)
+            .map_err(cloudsync_error)?;
+        serde_json::to_string(&result).map_err(serialization_error)
     }
 
     pub fn configure_cloudsync(&self, config_json: String) -> Result<(), BridgeError> {
@@ -311,17 +312,18 @@ impl MobileDbBridge {
         serde_json::to_string(&status).map_err(serialization_error)
     }
 
-    pub fn cloudsync_sync_now(&self) -> Result<i64, BridgeError> {
+    pub fn cloudsync_sync_now(&self) -> Result<String, BridgeError> {
         let (runtime, live_query_runtime) = self.with_state(|state| {
             Ok((
                 Arc::clone(&state.runtime),
                 Arc::clone(&state.live_query_runtime),
             ))
         })?;
-        runtime
+        let result = runtime
             .handle()
             .block_on(live_query_runtime.db().cloudsync_trigger_sync())
-            .map_err(cloudsync_runtime_error)
+            .map_err(cloudsync_runtime_error)?;
+        serde_json::to_string(&result).map_err(serialization_error)
     }
 
     pub fn close(&self) -> Result<(), BridgeError> {
@@ -465,7 +467,7 @@ mod tests {
         r#"{
             "connection_string":"sqlitecloud://demo.invalid/app.db?apikey=demo",
             "auth":{"type":"none"},
-            "tables":[{"table_name":"templates","crdt_algo":null,"force_init":null,"enabled":false}],
+            "tables":[{"table_name":"templates","crdt_algo":null,"init_flags":null,"enabled":false}],
             "sync_interval_ms":30000,
             "wait_ms":1000,
             "max_retries":1
@@ -679,7 +681,7 @@ mod tests {
         assert_eq!(status["running"], false);
         assert_eq!(status["network_initialized"], false);
 
-        assert_eq!(bridge.cloudsync_sync_now().unwrap(), 0);
+        assert_eq!(bridge.cloudsync_sync_now().unwrap(), "{}");
         bridge.stop_cloudsync().unwrap();
     }
 

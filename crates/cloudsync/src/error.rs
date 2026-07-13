@@ -22,6 +22,8 @@ pub enum Error {
     Sqlx(#[from] sqlx::Error),
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
+    #[error("invalid cloudsync network response: {0}")]
+    InvalidNetworkResponse(#[from] serde_json::Error),
     #[error("no cache directory is available for the bundled cloudsync extension")]
     MissingCacheDir,
     #[error(
