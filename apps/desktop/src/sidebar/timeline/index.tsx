@@ -270,12 +270,6 @@ export const TimelineView = memo(function TimelineView({
     upcomingMeetingStatus?.itemKey,
   ]);
 
-  const scrollFadeMask = useMemo(() => {
-    return getTimelineScrollFadeMask({
-      showBottomFade: !isScrolledToBottom,
-    });
-  }, [isScrolledToBottom]);
-
   const todayBucketLength = useMemo(() => {
     const b = buckets.find((bucket) => bucket.label === "Today");
     return b?.items.length ?? 0;
@@ -434,10 +428,6 @@ export const TimelineView = memo(function TimelineView({
           "scrollbar-hide flex h-full flex-col overflow-y-auto",
           "rounded-xl",
         ])}
-        style={{
-          WebkitMaskImage: scrollFadeMask,
-          maskImage: scrollFadeMask,
-        }}
       >
         {(topChromeInset || hasMoreFutureItems) && (
           <div
@@ -476,7 +466,7 @@ export const TimelineView = memo(function TimelineView({
                 className={cn([
                   "sticky z-20",
                   bucketHeaderTopClassName,
-                  "bg-background/95 pt-0 pr-1 pb-1 pl-3 backdrop-blur",
+                  "bg-background pt-0 pr-1 pb-1 pl-3",
                 ])}
               >
                 <div className="text-foreground text-base font-bold">
@@ -551,6 +541,14 @@ export const TimelineView = memo(function TimelineView({
           ))}
       </div>
 
+      {!isScrolledToBottom && (
+        <div
+          aria-hidden
+          data-sidebar-timeline-bottom-fade
+          className="from-background/0 to-background pointer-events-none absolute inset-x-0 bottom-0 z-30 h-7 bg-linear-to-b"
+        />
+      )}
+
       {topChromeInset && (
         <div
           aria-hidden
@@ -595,7 +593,7 @@ export const TimelineView = memo(function TimelineView({
           direction="down"
           className={cn([
             "absolute bottom-2 left-1/2 -translate-x-1/2 transform",
-            "z-20",
+            "z-40",
           ])}
         />
       )}
@@ -644,7 +642,7 @@ function TimelineTopChip({
   onClick?: () => void;
 }) {
   const className = cn([
-    "border-border bg-card/95 text-muted-foreground flex h-6 items-center gap-1 rounded-full border px-2.5 text-xs font-medium shadow-xs backdrop-blur",
+    "border-border bg-card text-muted-foreground flex h-6 items-center gap-1 rounded-full border px-2.5 text-xs font-medium shadow-xs",
     onClick && "hover:bg-accent hover:text-foreground transition-colors",
     "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-hidden",
     props.className,
@@ -782,7 +780,7 @@ function TimelineNowChip({
       type="button"
       aria-label={t`Go back to now`}
       className={cn([
-        "border-border bg-card/95 text-foreground flex h-6 items-center gap-1 rounded-full border px-2.5 text-xs font-semibold shadow-md backdrop-blur",
+        "border-border bg-card text-foreground flex h-6 items-center gap-1 rounded-full border px-2.5 text-xs font-semibold shadow-md",
         "hover:border-border hover:bg-accent hover:text-foreground transition-colors",
         "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-hidden",
         className,
@@ -1116,16 +1114,4 @@ function useTimelineData({
       ),
     };
   }, [windowData, currentTimeMs, timezone]);
-}
-
-function getTimelineScrollFadeMask({
-  showBottomFade,
-}: {
-  showBottomFade: boolean;
-}): string {
-  if (showBottomFade) {
-    return "linear-gradient(to bottom, #000 0, #000 calc(100% - 28px), transparent 100%)";
-  }
-
-  return "none";
 }

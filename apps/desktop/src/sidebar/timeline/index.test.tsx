@@ -417,6 +417,9 @@ describe("TimelineView", () => {
 
     expect(header?.className).toContain("top-12");
     expect(header?.className).toContain("z-20");
+    expect(header?.className).toContain("bg-background");
+    expect(header?.className).not.toContain("backdrop-blur");
+    expect(container.querySelector("[class*='backdrop-blur']")).toBeNull();
     expect(queryTopOccluder(container)?.className).toContain("z-10");
   });
 
@@ -599,9 +602,8 @@ describe("TimelineView", () => {
     scroller!.scrollTop = 120;
     fireEvent.scroll(scroller!);
 
-    expect(scroller!.style.maskImage).toBe(
-      "linear-gradient(to bottom, #000 0, #000 calc(100% - 28px), transparent 100%)",
-    );
+    expect(scroller!.style.maskImage).toBe("");
+    expect(queryBottomFade(container)).toBeTruthy();
   });
 
   it("does not show a top scroll fade when future notes are hidden above a sticky header", () => {
@@ -639,9 +641,8 @@ describe("TimelineView", () => {
     expect(screen.getByText("Today")).toBeTruthy();
     expect(queryTopFade(container)).toBeNull();
     expect(queryTopOccluder(container)?.className).toContain("h-12");
-    expect(scroller!.style.maskImage).toBe(
-      "linear-gradient(to bottom, #000 0, #000 calc(100% - 28px), transparent 100%)",
-    );
+    expect(scroller!.style.maskImage).toBe("");
+    expect(queryBottomFade(container)).toBeTruthy();
   });
 
   it("drops the bottom scroll fade at the bottom edge", () => {
@@ -676,7 +677,40 @@ describe("TimelineView", () => {
     scroller!.scrollTop = 1000;
     fireEvent.scroll(scroller!);
 
-    expect(scroller!.style.maskImage).toBe("none");
+    expect(scroller!.style.maskImage).toBe("");
+    expect(queryBottomFade(container)).toBeNull();
+  });
+
+  it("keeps the bottom now chip above the scroll fade", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
+    mocks.isAnchorVisible = false;
+    mocks.isScrolledPastAnchor = false;
+    mocks.timelineSessionsTable = {
+      later: {
+        title: "Design sync",
+        created_at: "2024-01-16T11:00:00.000Z",
+      },
+    };
+
+    const { container } = render(<TimelineView />);
+    const scroller = container.querySelector(
+      "[data-sidebar-timeline-scroll]",
+    ) as HTMLDivElement;
+    Object.defineProperty(scroller, "clientHeight", {
+      configurable: true,
+      value: 200,
+    });
+    Object.defineProperty(scroller, "scrollHeight", {
+      configurable: true,
+      value: 1200,
+    });
+    scroller.scrollTop = 120;
+    fireEvent.scroll(scroller);
+    const nowChip = screen.getByRole("button", { name: "Go back to now" });
+
+    expect(queryBottomFade(container)?.className).toContain("z-30");
+    expect(nowChip.className).toContain("z-40");
   });
 
   it("shows an imminent meeting chip over the sidebar timeline", () => {
@@ -904,7 +938,9 @@ describe("TimelineView", () => {
 
     expect(scroller).toBeInstanceOf(HTMLDivElement);
 
-    expect(screen.getByRole("button", { name: "Go back to now" })).toBeTruthy();
+    const nowButton = screen.getByRole("button", { name: "Go back to now" });
+    expect(nowButton.className).toContain("bg-card");
+    expect(nowButton.className).not.toContain("backdrop-blur");
     expect(
       container.querySelector("[data-sidebar-timeline-top-chip-stack]")
         ?.className,
@@ -1149,6 +1185,10 @@ function queryTopFade(container: HTMLElement) {
 
 function queryTopOccluder(container: HTMLElement) {
   return container.querySelector("[data-sidebar-timeline-top-occluder]");
+}
+
+function queryBottomFade(container: HTMLElement) {
+  return container.querySelector("[data-sidebar-timeline-bottom-fade]");
 }
 
 function isBefore(first: Element, second: Element) {
