@@ -113,20 +113,7 @@ impl Db {
     }
 
     pub async fn cloudsync_stop(&self) -> Result<(), CloudsyncRuntimeError> {
-        let (task, should_cleanup) = {
-            let mut runtime = self.cloudsync_runtime.lock().unwrap();
-            runtime.running = false;
-            let should_cleanup = runtime.network_initialized;
-            runtime.network_initialized = false;
-            (runtime.task.take(), should_cleanup)
-        };
-
-        if let Some(mut task) = task {
-            if let Some(shutdown_tx) = task.shutdown_tx.take() {
-                let _ = shutdown_tx.send(());
-            }
-            let _ = task.join_handle.await;
-        }
+        let should_cleanup = self.stop_cloudsync_task().await;
 
         if !self.cloudsync_enabled {
             let mut runtime = self.cloudsync_runtime.lock().unwrap();
@@ -148,6 +135,42 @@ impl Db {
         let mut runtime = self.cloudsync_runtime.lock().unwrap();
         runtime.network_initialized = false;
         runtime.last_error = None;
+        Ok(())
+    }
+
+    pub async fn cloudsync_logout(
+        &self,
+        discard_unsent_changes: bool,
+    ) -> Result<(), CloudsyncRuntimeError> {
+        let network_initialized = self.cloudsync_runtime.lock().unwrap().network_initialized;
+
+        if !self.cloudsync_enabled || !network_initialized {
+            self.cloudsync_runtime.lock().unwrap().config = None;
+            return Ok(());
+        }
+
+        let sync_lock = self.cloudsync_runtime.lock().unwrap().sync_lock.clone();
+        let _sync_guard = sync_lock.lock().await;
+        let has_unsent_changes = self.cloudsync_network_has_unsent_changes().await?;
+        if has_unsent_changes && !discard_unsent_changes {
+            return Err(CloudsyncRuntimeError::UnsentChanges);
+        }
+
+        self.stop_cloudsync_task().await;
+        self.cloudsync_network_logout().await?;
+        self.cloudsync_network_cleanup().await?;
+        if self.has_cloudsync() {
+            self.cloudsync_terminate().await?;
+        }
+
+        let mut runtime = self.cloudsync_runtime.lock().unwrap();
+        runtime.config = None;
+        runtime.network_initialized = false;
+        runtime.last_sync = None;
+        runtime.last_sync_at_ms = None;
+        runtime.last_error = None;
+        runtime.last_error_kind = None;
+        runtime.consecutive_failures = 0;
         Ok(())
     }
 
@@ -220,9 +243,33 @@ impl Db {
             return Err(CloudsyncRuntimeError::NotStarted);
         }
 
-        let result = hypr_cloudsync::network_sync(&self.pool, wait_ms, max_retries).await?;
-        record_sync_result(&self.cloudsync_runtime, result.clone());
-        Ok(result)
+        match hypr_cloudsync::network_sync(&self.pool, wait_ms, max_retries).await {
+            Ok(result) => {
+                record_sync_result(&self.cloudsync_runtime, result.clone());
+                Ok(result)
+            }
+            Err(error) => {
+                record_sync_error(&self.cloudsync_runtime, &error);
+                Err(error.into())
+            }
+        }
+    }
+
+    async fn stop_cloudsync_task(&self) -> bool {
+        let (task, network_initialized) = {
+            let mut runtime = self.cloudsync_runtime.lock().unwrap();
+            runtime.running = false;
+            (runtime.task.take(), runtime.network_initialized)
+        };
+
+        if let Some(mut task) = task {
+            if let Some(shutdown_tx) = task.shutdown_tx.take() {
+                let _ = shutdown_tx.send(());
+            }
+            let _ = task.join_handle.await;
+        }
+
+        network_initialized
     }
 }
 
@@ -233,6 +280,13 @@ fn record_sync_result(runtime: &Mutex<CloudsyncRuntimeState>, result: CloudsyncN
     runtime.last_error = None;
     runtime.last_error_kind = None;
     runtime.consecutive_failures = 0;
+}
+
+fn record_sync_error(runtime: &Mutex<CloudsyncRuntimeState>, error: &hypr_cloudsync::Error) {
+    let mut runtime = runtime.lock().unwrap();
+    runtime.consecutive_failures = runtime.consecutive_failures.saturating_add(1);
+    runtime.last_error = Some(error.to_string());
+    runtime.last_error_kind = Some(error.kind());
 }
 
 const MAX_BACKOFF_SECS: u64 = 300;

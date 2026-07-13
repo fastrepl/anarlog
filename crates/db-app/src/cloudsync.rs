@@ -4,30 +4,30 @@ use hypr_db_core::CloudsyncTableSpec;
 
 static CLOUDSYNC_TABLE_REGISTRY: LazyLock<Vec<CloudsyncTableSpec>> = LazyLock::new(|| {
     [
-        "action_items",
-        "calendars",
-        "chat_groups",
-        "chat_messages",
-        "daily_notes",
-        "entity_mentions",
-        "events",
-        "humans",
-        "organizations",
-        "session_attachments",
-        "session_documents",
-        "session_participants",
-        "session_tags",
-        "sessions",
-        "tags",
-        "templates",
-        "transcripts",
+        ("action_items", true),
+        ("calendars", false),
+        ("chat_groups", false),
+        ("chat_messages", false),
+        ("daily_notes", false),
+        ("entity_mentions", false),
+        ("events", false),
+        ("humans", true),
+        ("organizations", true),
+        ("session_attachments", true),
+        ("session_documents", true),
+        ("session_participants", true),
+        ("session_tags", false),
+        ("sessions", true),
+        ("tags", false),
+        ("templates", false),
+        ("transcripts", true),
     ]
     .into_iter()
-    .map(|table_name| CloudsyncTableSpec {
+    .map(|(table_name, enabled)| CloudsyncTableSpec {
         table_name: table_name.to_string(),
         crdt_algo: None,
         init_flags: None,
-        enabled: false,
+        enabled,
     })
     .collect()
 });

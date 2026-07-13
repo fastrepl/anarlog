@@ -61,6 +61,8 @@ pub enum CloudsyncRuntimeError {
     RestartRequired,
     #[error("cloudsync sync interval must be greater than 0")]
     InvalidSyncInterval,
+    #[error("cloudsync has unsent local changes; sync first or explicitly discard them")]
+    UnsentChanges,
     #[error(transparent)]
     Cloudsync(#[from] hypr_cloudsync::Error),
 }

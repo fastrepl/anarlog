@@ -389,6 +389,8 @@ mod tests {
         assert!(!status.network_initialized);
         assert!(!status.cloudsync_enabled);
 
+        db.cloudsync_logout(false).await.unwrap();
+        assert!(!db.cloudsync_status().await.unwrap().configured);
         db.cloudsync_stop().await.unwrap();
     }
 
