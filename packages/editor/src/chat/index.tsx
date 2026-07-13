@@ -230,8 +230,8 @@ export const ChatEditor = forwardRef<ChatEditorHandle, ChatEditorProps>(
 
       return [
         reactKeys(),
-        docChangeListenerPlugin((view) => {
-          onUpdateRef.current?.(view.state.doc.toJSON() as JSONContent);
+        docChangeListenerPlugin((doc) => {
+          onUpdateRef.current?.(doc.toJSON() as JSONContent);
         }),
         keymap({
           "Mod-z": undo,

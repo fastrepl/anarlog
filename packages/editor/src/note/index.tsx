@@ -613,7 +613,8 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
     );
 
     const flushChange = useCallback(
-      (content: JSONContent) => {
+      (doc: PMNode) => {
+        const content = doc.toJSON() as JSONContent;
         syncTasks(content);
         if (!handleChange) {
           return;
@@ -639,9 +640,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
       () => [
         reactKeys(),
         createCompositionStatePlugin(setCompositionActive),
-        docChangeListenerPlugin((view) =>
-          onUpdateRef.current(view.state.doc.toJSON() as JSONContent),
-        ),
+        docChangeListenerPlugin((doc) => onUpdateRef.current(doc)),
         buildInputRules(),
         ...(enforceTitleHeading ? [titleHeadingPlugin()] : []),
         taskIdentityPlugin(),

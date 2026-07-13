@@ -33,11 +33,10 @@ describe("docChangeListenerPlugin", () => {
     expect(onDocChanged).not.toHaveBeenCalled();
 
     const changedState = previousState.apply(previousState.tr.insertText("x"));
-    const changedView = { state: changedState } as EditorView;
-    pluginView?.update(changedView, previousState);
+    pluginView?.update({ state: changedState } as EditorView, previousState);
 
     expect(onDocChanged).toHaveBeenCalledOnce();
-    expect(onDocChanged).toHaveBeenCalledWith(changedView);
+    expect(onDocChanged).toHaveBeenCalledWith(changedState.doc);
   });
 
   it("ignores document replacement from controlled prop sync", () => {

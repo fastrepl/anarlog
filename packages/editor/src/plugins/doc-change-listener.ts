@@ -1,13 +1,11 @@
+import type { Node as PMNode } from "prosemirror-model";
 import { Plugin, PluginKey } from "prosemirror-state";
-import type { EditorView } from "prosemirror-view";
 
 const docChangedByTransactionKey = new PluginKey<boolean>(
   "docChangedByTransaction",
 );
 
-export function docChangeListenerPlugin(
-  onDocChanged: (view: EditorView) => void,
-) {
+export function docChangeListenerPlugin(onDocChanged: (doc: PMNode) => void) {
   return new Plugin({
     key: docChangedByTransactionKey,
     state: {
@@ -25,7 +23,7 @@ export function docChangeListenerPlugin(
             return;
           }
 
-          onDocChanged(view);
+          onDocChanged(view.state.doc);
         },
       };
     },
