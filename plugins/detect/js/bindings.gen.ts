@@ -218,6 +218,7 @@ export type MeetingChatCaptureResult = {
   app: MeetingApp | null;
   platform: MeetingPlatform;
   surface: MeetingSurface;
+  contextId: string | null;
   messages: MeetingCapturedChatMessage[];
   warnings: string[];
 };

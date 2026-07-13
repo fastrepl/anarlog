@@ -173,6 +173,7 @@ pub struct MeetingChatCaptureResult {
     pub app: Option<MeetingApp>,
     pub platform: MeetingPlatform,
     pub surface: MeetingSurface,
+    pub context_id: Option<String>,
     pub messages: Vec<MeetingCapturedChatMessage>,
     pub warnings: Vec<String>,
 }
@@ -181,6 +182,7 @@ pub struct MeetingChatCaptureResult {
 #[derive(Debug, Clone)]
 struct AxNode {
     index: usize,
+    element_hash: Option<usize>,
     role: Option<String>,
     identifier: Option<String>,
     title: Option<String>,
@@ -477,21 +479,133 @@ fn select_active_bundle_ids(
 }
 
 #[cfg(target_os = "macos")]
+fn stable_capture_context_id(kind: &str, parts: &[String]) -> String {
+    const FNV_OFFSET_BASIS: u64 = 0xcbf29ce484222325;
+    const FNV_PRIME: u64 = 0x100000001b3;
+
+    let mut hash = FNV_OFFSET_BASIS;
+    for part in std::iter::once(kind).chain(parts.iter().map(String::as_str)) {
+        for byte in part.as_bytes().iter().copied().chain(std::iter::once(0xff)) {
+            hash ^= u64::from(byte);
+            hash = hash.wrapping_mul(FNV_PRIME);
+        }
+    }
+
+    format!("{kind}:{hash:016x}")
+}
+
+#[cfg(target_os = "macos")]
+fn normalized_context_part(value: &str) -> String {
+    value.trim().to_lowercase()
+}
+
+#[cfg(target_os = "macos")]
+fn slack_capture_context_id(
+    channel: &str,
+    huddle_label: &str,
+    window_hash: usize,
+    composer_hash: usize,
+) -> String {
+    stable_capture_context_id(
+        "slack",
+        &[
+            normalized_context_part(channel),
+            normalized_context_part(huddle_label),
+            format!("window:{window_hash:x}"),
+            format!("composer:{composer_hash:x}"),
+        ],
+    )
+}
+
+#[cfg(target_os = "macos")]
+fn zoom_context_id_from_parts(
+    window_title: &str,
+    window_hash: usize,
+    chat_anchor_hash: usize,
+    participant_names: &[String],
+) -> String {
+    let mut participants = participant_names
+        .iter()
+        .map(|name| normalized_context_part(name))
+        .filter(|name| !name.is_empty())
+        .collect::<Vec<_>>();
+    participants.sort();
+    participants.dedup();
+
+    let mut parts = vec![
+        normalized_context_part(window_title),
+        format!("window:{window_hash:x}"),
+        format!("chat:{chat_anchor_hash:x}"),
+    ];
+    parts.extend(
+        participants
+            .into_iter()
+            .map(|participant| format!("participant:{participant}")),
+    );
+    stable_capture_context_id("zoom", &parts)
+}
+
+#[cfg(target_os = "macos")]
+fn zoom_capture_context_id(root: &NativeMeetingRoot) -> Option<String> {
+    let window_hash = root
+        .nodes
+        .iter()
+        .find(|node| node.role.as_deref() == Some("AXWindow"))?
+        .element_hash?;
+    let chat_anchor_hash = root
+        .nodes
+        .iter()
+        .find(|node| {
+            node.within_zoom_meeting_scope
+                && node.role.as_deref() == Some("AXTable")
+                && is_zoom_chat_scope_node(node)
+        })
+        .and_then(|node| node.element_hash)
+        .or_else(|| {
+            root.nodes
+                .iter()
+                .find(|node| node.within_zoom_meeting_scope && is_explicit_chat_input(node))
+                .and_then(|node| node.element_hash)
+        })?;
+    let participant_names = root
+        .nodes
+        .iter()
+        .filter_map(zoom_participant_evidence_label)
+        .filter_map(|label| participant_name_from_evidence(&MeetingPlatform::Zoom, label))
+        .collect::<Vec<_>>();
+
+    Some(zoom_context_id_from_parts(
+        root.window_title.as_deref().unwrap_or_default(),
+        window_hash,
+        chat_anchor_hash,
+        &participant_names,
+    ))
+}
+
+#[cfg(target_os = "macos")]
 fn zoom_chat_surface_is_visible(nodes: &[AxNode]) -> bool {
     meeting_chat_surface_is_visible(&MeetingPlatform::Zoom, nodes)
 }
 
 #[cfg(target_os = "macos")]
-fn slack_huddle_thread_capture_nodes(root: &SlackHuddleRoot) -> Option<Vec<AxNode>> {
+fn slack_huddle_thread_capture_nodes(root: &SlackHuddleRoot) -> Option<(Vec<AxNode>, String)> {
     let chat_elements = collect_sorted_chat_elements(&root.element);
-    if !matches!(
-        unique_matching_chat_element_index(&chat_elements, |element| {
-            is_slack_huddle_composer_in_thread(&element.node, &element.ancestors, &root.channel)
-        }),
-        UniqueMatch::One(_)
-    ) {
-        return None;
-    }
+    let composer_index = match unique_matching_chat_element_index(&chat_elements, |element| {
+        is_slack_huddle_composer_in_thread(&element.node, &element.ancestors, &root.channel)
+    }) {
+        UniqueMatch::One(index) => index,
+        UniqueMatch::Missing | UniqueMatch::Ambiguous => return None,
+    };
+    let composer_hash = chat_elements[composer_index]
+        .node
+        .element_hash
+        .unwrap_or_else(|| chat_elements[composer_index].element.hash());
+    let context_id = slack_capture_context_id(
+        &root.channel,
+        &root.label,
+        root.element.hash(),
+        composer_hash,
+    );
 
     let mut scoped_nodes = Vec::new();
     let mut ancestors = Vec::new();
@@ -521,7 +635,7 @@ fn slack_huddle_thread_capture_nodes(root: &SlackHuddleRoot) -> Option<Vec<AxNod
                 Some(node)
             }),
     );
-    Some(nodes)
+    Some((nodes, context_id))
 }
 
 #[cfg(target_os = "macos")]
@@ -564,6 +678,7 @@ pub fn capture_meeting_chat_messages(bundle_ids: Vec<String>) -> MeetingChatCapt
             app: None,
             platform: MeetingPlatform::Unknown,
             surface: MeetingSurface::Unknown,
+            context_id: None,
             messages: Vec::new(),
             warnings: vec![format!(
                 "meeting chat capture requires exactly one active supported meeting app; received {}",
@@ -577,6 +692,7 @@ pub fn capture_meeting_chat_messages(bundle_ids: Vec<String>) -> MeetingChatCapt
             app: None,
             platform: MeetingPlatform::Unknown,
             surface: MeetingSurface::Unknown,
+            context_id: None,
             messages: Vec::new(),
             warnings: vec!["macOS accessibility permission is not trusted".to_string()],
         };
@@ -597,15 +713,17 @@ pub fn capture_meeting_chat_messages(bundle_ids: Vec<String>) -> MeetingChatCapt
                 for root in
                     collect_native_meeting_roots(&ax_app, &MeetingPlatform::Zoom, &mut warnings)
                 {
-                    if zoom_chat_surface_is_visible(&root.nodes) {
-                        candidates.push((app.clone(), root.nodes));
+                    if zoom_chat_surface_is_visible(&root.nodes)
+                        && let Some(context_id) = zoom_capture_context_id(&root)
+                    {
+                        candidates.push((app.clone(), context_id, root.nodes));
                     }
                 }
             }
             MeetingPlatform::Slack => {
                 for root in collect_slack_huddle_roots(&ax_app, &mut warnings) {
-                    if let Some(nodes) = slack_huddle_thread_capture_nodes(&root) {
-                        candidates.push((app.clone(), nodes));
+                    if let Some((nodes, context_id)) = slack_huddle_thread_capture_nodes(&root) {
+                        candidates.push((app.clone(), context_id, nodes));
                     }
                 }
             }
@@ -622,17 +740,19 @@ pub fn capture_meeting_chat_messages(bundle_ids: Vec<String>) -> MeetingChatCapt
             app: None,
             platform,
             surface,
+            context_id: None,
             messages: Vec::new(),
             warnings,
         };
     }
 
-    let (app, nodes) = candidates.pop().unwrap();
+    let (app, context_id, nodes) = candidates.pop().unwrap();
     let messages = extract_chat_messages(&platform, &surface, &nodes);
     MeetingChatCaptureResult {
         app: Some(app),
         platform,
         surface,
+        context_id: Some(context_id),
         messages,
         warnings,
     }
@@ -644,6 +764,7 @@ pub fn capture_meeting_chat_messages(_bundle_ids: Vec<String>) -> MeetingChatCap
         app: None,
         platform: MeetingPlatform::Unknown,
         surface: MeetingSurface::Unknown,
+        context_id: None,
         messages: Vec::new(),
         warnings: vec!["meeting chat AX capture is only available on macOS".to_string()],
     }
@@ -1451,6 +1572,7 @@ fn collect_nodes_with_scope(
 
 #[cfg(target_os = "macos")]
 fn snapshot_node(element: &ax::UiElement, index: usize) -> AxNode {
+    let element_hash = Some(element.hash());
     let role = element.role().ok().map(|role| role.to_string());
     let identifier = string_attr(element, ax::attr::id());
     let title = string_attr(element, ax::attr::title());
@@ -1476,6 +1598,7 @@ fn snapshot_node(element: &ax::UiElement, index: usize) -> AxNode {
 
     AxNode {
         index,
+        element_hash,
         role,
         identifier,
         title,
@@ -2274,11 +2397,16 @@ fn extract_chat_messages(
             parsed.timestamp.as_deref().unwrap_or_default(),
             parsed.text
         );
-        let occurrence = signature_counts.entry(signature.clone()).or_default();
-        *occurrence += 1;
+        let source_identity = if let Some(element_hash) = node.element_hash {
+            format!("cfhash={element_hash:x}")
+        } else {
+            let occurrence = signature_counts.entry(signature.clone()).or_default();
+            *occurrence += 1;
+            format!("occurrence={occurrence}")
+        };
 
         messages.push(MeetingCapturedChatMessage {
-            id: format!("ax-chat-{signature}|occurrence={occurrence}"),
+            id: format!("ax-chat-{signature}|{source_identity}"),
             platform: platform.clone(),
             surface: surface.clone(),
             direction: meeting_chat_direction(platform, parsed.sender.as_deref()),
@@ -2662,6 +2790,7 @@ mod tests {
     fn node(index: usize, role: &str, title: &str, bounds: Option<AxRect>) -> AxNode {
         AxNode {
             index,
+            element_hash: None,
             role: Some(role.to_string()),
             identifier: None,
             title: Some(title.to_string()),
@@ -3511,6 +3640,71 @@ mod tests {
     }
 
     #[test]
+    fn test_slack_capture_context_identity_tracks_validated_surface() {
+        let context = slack_capture_context_id("test", "Huddle in test", 0x101, 0x202);
+
+        assert_eq!(
+            context,
+            slack_capture_context_id("test", "Huddle in test", 0x101, 0x202)
+        );
+        assert_ne!(
+            context,
+            slack_capture_context_id("another", "Huddle in another", 0x101, 0x202)
+        );
+        assert_ne!(
+            context,
+            slack_capture_context_id("test", "Huddle in test", 0x303, 0x202)
+        );
+        assert_ne!(
+            context,
+            slack_capture_context_id("test", "Huddle in test", 0x101, 0x404)
+        );
+    }
+
+    #[test]
+    fn test_zoom_capture_context_rebaselines_on_participant_change() {
+        let root = |chat_hash, participant_names: &[&str]| {
+            let mut window = node(0, "AXWindow", "Zoom Meeting", None);
+            window.element_hash = Some(0x101);
+            window.within_zoom_meeting_scope = true;
+
+            let mut chat = node(1, "AXTable", "Chat list", None);
+            chat.element_hash = Some(chat_hash);
+            chat.within_zoom_meeting_scope = true;
+            chat.within_zoom_chat_scope = true;
+
+            let participants = participant_names.iter().enumerate().map(|(index, name)| {
+                let mut participant = node(
+                    index + 2,
+                    "AXGroup",
+                    &format!("Video render {name}, Computer audio unmuted"),
+                    None,
+                );
+                participant.element_hash = Some(0x300 + index);
+                participant.within_zoom_meeting_scope = true;
+                participant
+            });
+
+            NativeMeetingRoot {
+                window_title: Some("Zoom Meeting".to_string()),
+                nodes: std::iter::once(window)
+                    .chain(std::iter::once(chat))
+                    .chain(participants)
+                    .collect(),
+            }
+        };
+
+        let first = zoom_capture_context_id(&root(0x202, &["Ada", "Grace"])).unwrap();
+        let reordered = zoom_capture_context_id(&root(0x202, &["Grace", "Ada"])).unwrap();
+        let switched = zoom_capture_context_id(&root(0x202, &["Ada", "Linus"])).unwrap();
+        let new_chat_surface = zoom_capture_context_id(&root(0x404, &["Ada", "Grace"])).unwrap();
+
+        assert_eq!(first, reordered);
+        assert_ne!(first, switched);
+        assert_ne!(first, new_chat_surface);
+    }
+
+    #[test]
     fn test_extract_chat_messages_keeps_repeated_source_rows_distinct() {
         let message = "From Ada Lovelace to Everyone\n10:42 AM\nDecision: keep the launch date";
         let nodes = vec![
@@ -3525,6 +3719,38 @@ mod tests {
         assert_eq!(messages[0].sender, Some("Ada Lovelace".to_string()));
         assert_eq!(messages[0].text, "Decision: keep the launch date");
         assert_ne!(messages[0].id, messages[1].id);
+        assert!(messages[0].id.ends_with("occurrence=1"));
+        assert!(messages[1].id.ends_with("occurrence=2"));
+    }
+
+    #[test]
+    fn test_element_hash_stabilizes_identical_rows_across_snapshot_shifts() {
+        let message = "From Ada Lovelace to Everyone\n10:42 AM\nDecision: keep the launch date";
+        let hashed_node = |index, element_hash| {
+            let mut node = zoom_message_node(index, message);
+            node.element_hash = Some(element_hash);
+            node
+        };
+
+        let first = extract_chat_messages(
+            &MeetingPlatform::Zoom,
+            &MeetingSurface::Native,
+            &[hashed_node(0, 0x101), hashed_node(1, 0x202)],
+        );
+        let shifted = extract_chat_messages(
+            &MeetingPlatform::Zoom,
+            &MeetingSurface::Native,
+            &[
+                hashed_node(0, 0x303),
+                hashed_node(1, 0x101),
+                hashed_node(2, 0x202),
+            ],
+        );
+
+        assert_eq!(first[0].id, shifted[1].id);
+        assert_eq!(first[1].id, shifted[2].id);
+        assert!(first[0].id.contains("cfhash=101"));
+        assert!(first[0].id.contains("Decision: keep the launch date"));
     }
 
     #[test]

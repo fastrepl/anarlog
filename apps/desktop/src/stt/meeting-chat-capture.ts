@@ -8,6 +8,7 @@ const MEETING_CHAT_CAPTURE_INTERVAL_MS = 5_000;
 const SUPPORTED_MEETING_CHAT_BUNDLE_IDS = new Set([
   "us.zoom.xos",
   "com.tinyspeck.slackmacgap",
+  "com.slack.Slack",
 ]);
 
 export function startMeetingChatCapture({
@@ -21,7 +22,7 @@ export function startMeetingChatCapture({
 }) {
   const excludedMessages = new Set(excludedTexts.map(normalizeMessageText));
   const seenSignatures = new Set<string>();
-  let baselineBundleId: string | null = null;
+  let baselineContext: { bundleId: string; contextId: string } | null = null;
   let stopped = false;
   let inFlight = false;
   let lastWarning = "";
@@ -31,7 +32,7 @@ export function startMeetingChatCapture({
       return;
     }
     if (!isEnabled()) {
-      baselineBundleId = null;
+      baselineContext = null;
       return;
     }
 
@@ -39,11 +40,11 @@ export function startMeetingChatCapture({
     try {
       const applications = await detectCommands.listMicUsingApplications();
       if (stopped || !isEnabled()) {
-        baselineBundleId = null;
+        baselineContext = null;
         return;
       }
       if (applications.status === "error") {
-        baselineBundleId = null;
+        baselineContext = null;
         console.warn(
           "[listener] failed to identify active meeting app",
           applications.error,
@@ -61,7 +62,7 @@ export function startMeetingChatCapture({
         ),
       ];
       if (bundleIds.length !== 1) {
-        baselineBundleId = null;
+        baselineContext = null;
         return;
       }
 
@@ -70,11 +71,11 @@ export function startMeetingChatCapture({
         bundleId,
       ]);
       if (stopped || !isEnabled()) {
-        baselineBundleId = null;
+        baselineContext = null;
         return;
       }
       if (result.status === "error") {
-        baselineBundleId = null;
+        baselineContext = null;
         console.warn("[listener] failed to capture meeting chat", result.error);
         return;
       }
@@ -82,25 +83,35 @@ export function startMeetingChatCapture({
       showCaptureWarning(result.data.warnings, lastWarning);
       lastWarning = result.data.warnings.join("\n");
 
-      if (result.data.app?.id !== bundleId) {
-        baselineBundleId = null;
+      const contextId = result.data.contextId?.trim();
+      if (result.data.app?.id !== bundleId || !contextId) {
+        baselineContext = null;
         return;
       }
 
       const messages = result.data.messages.filter(
         (message) => !excludedMessages.has(normalizeMessageText(message.text)),
       );
-      if (baselineBundleId !== bundleId) {
-        baselineBundleId = bundleId;
+      if (
+        !baselineContext ||
+        baselineContext.bundleId !== bundleId ||
+        baselineContext.contextId !== contextId
+      ) {
+        baselineContext = { bundleId, contextId };
         for (const message of messages) {
-          seenSignatures.add(getCapturedMeetingChatSignature(message));
+          seenSignatures.add(
+            getCapturedMeetingChatSignature(contextId, message),
+          );
         }
         return;
       }
 
       const pendingSignatures = new Set<string>();
       const entries = messages.flatMap((message) => {
-        const sourceSignature = getCapturedMeetingChatSignature(message);
+        const sourceSignature = getCapturedMeetingChatSignature(
+          contextId,
+          message,
+        );
         if (
           seenSignatures.has(sourceSignature) ||
           pendingSignatures.has(sourceSignature)
@@ -132,7 +143,7 @@ export function startMeetingChatCapture({
         seenSignatures.add(signature);
       }
     } catch (error) {
-      baselineBundleId = null;
+      baselineContext = null;
       console.warn("[listener] failed to capture meeting chat", error);
     } finally {
       inFlight = false;
@@ -171,10 +182,14 @@ function showCaptureWarning(warnings: string[], previousWarning: string) {
   }
 }
 
-function getCapturedMeetingChatSignature(message: MeetingCapturedChatMessage) {
+function getCapturedMeetingChatSignature(
+  contextId: string,
+  message: MeetingCapturedChatMessage,
+) {
   return message.id
-    ? [message.platform, message.surface, message.id].join("\n")
+    ? [contextId, message.platform, message.surface, message.id].join("\n")
     : [
+        contextId,
         message.platform,
         message.surface,
         message.sender ?? "",

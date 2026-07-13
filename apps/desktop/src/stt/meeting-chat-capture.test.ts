@@ -63,7 +63,7 @@ describe("startMeetingChatCapture", () => {
     vi.useRealTimers();
   });
 
-  test("baselines visible history and persists only later messages", async () => {
+  test("persists an appended message while the meeting context stays the same", async () => {
     const stop = startMeetingChatCapture({
       sessionId: "session-1",
       isEnabled: () => true,
@@ -89,10 +89,79 @@ describe("startMeetingChatCapture", () => {
       entries: [
         {
           message: laterMessage,
-          sourceSignature: "zoom\nnative\nmsg-2",
+          sourceSignature: "zoom:meeting-1\nzoom\nnative\nmsg-2",
         },
       ],
     });
+  });
+
+  test("re-baselines history and scopes reused AX ids when the meeting context changes", async () => {
+    const stop = startMeetingChatCapture({
+      sessionId: "session-1",
+      isEnabled: () => true,
+    });
+    await vi.advanceTimersByTimeAsync(0);
+
+    const nextMeetingHistory = {
+      ...capturedMessage,
+      id: "next-meeting-history",
+      text: "This belongs to another meeting",
+      links: [],
+    };
+    captureMeetingChatMessagesMock.mockResolvedValue(
+      captureResult([nextMeetingHistory], "zoom:meeting-2"),
+    );
+    await vi.advanceTimersByTimeAsync(5_000);
+
+    expect(persistMeetingChatRecordsMock).not.toHaveBeenCalled();
+
+    const nextMeetingMessage = {
+      ...capturedMessage,
+      id: "msg-1",
+      text: "This was sent after switching",
+      links: [],
+    };
+    captureMeetingChatMessagesMock.mockResolvedValue(
+      captureResult([nextMeetingHistory, nextMeetingMessage], "zoom:meeting-2"),
+    );
+    await vi.advanceTimersByTimeAsync(5_000);
+    stop();
+
+    expect(persistMeetingChatRecordsMock).toHaveBeenCalledOnce();
+    expect(persistMeetingChatRecordsMock).toHaveBeenCalledWith({
+      sessionId: "session-1",
+      entries: [
+        {
+          message: nextMeetingMessage,
+          sourceSignature: "zoom:meeting-2\nzoom\nnative\nmsg-1",
+        },
+      ],
+    });
+  });
+
+  test("fails closed and re-baselines after a missing meeting context", async () => {
+    const stop = startMeetingChatCapture({
+      sessionId: "session-1",
+      isEnabled: () => true,
+    });
+    await vi.advanceTimersByTimeAsync(0);
+
+    const messageWithoutContext = {
+      ...capturedMessage,
+      id: "missing-context",
+    };
+    captureMeetingChatMessagesMock.mockResolvedValue(
+      captureResult([capturedMessage, messageWithoutContext], null),
+    );
+    await vi.advanceTimersByTimeAsync(5_000);
+
+    captureMeetingChatMessagesMock.mockResolvedValue(
+      captureResult([capturedMessage, messageWithoutContext]),
+    );
+    await vi.advanceTimersByTimeAsync(5_000);
+    stop();
+
+    expect(persistMeetingChatRecordsMock).not.toHaveBeenCalled();
   });
 
   test("captures the first message after a visible empty-chat baseline", async () => {
@@ -123,6 +192,7 @@ describe("startMeetingChatCapture", () => {
       status: "ok",
       data: {
         app: null,
+        contextId: null,
         platform: "unknown",
         surface: "unknown",
         messages: [],
@@ -153,7 +223,7 @@ describe("startMeetingChatCapture", () => {
       entries: [
         {
           message: laterMessage,
-          sourceSignature: "zoom\nnative\nafter-rebaseline",
+          sourceSignature: "zoom:meeting-1\nzoom\nnative\nafter-rebaseline",
         },
       ],
     });
@@ -189,7 +259,7 @@ describe("startMeetingChatCapture", () => {
       entries: [
         {
           message: capturedMessage,
-          sourceSignature: "zoom\nnative\nmsg-1",
+          sourceSignature: "zoom:meeting-1\nzoom\nnative\nmsg-1",
         },
       ],
     });
@@ -286,6 +356,34 @@ describe("startMeetingChatCapture", () => {
     expect(persistMeetingChatRecordsMock).not.toHaveBeenCalled();
   });
 
+  test("recognizes the alternate Slack bundle id", async () => {
+    listMicUsingApplicationsMock.mockResolvedValue({
+      status: "ok",
+      data: [{ id: "com.slack.Slack", name: "Slack" }],
+    });
+    captureMeetingChatMessagesMock.mockResolvedValue({
+      status: "ok",
+      data: {
+        app: { id: "com.slack.Slack", name: "Slack" },
+        contextId: "slack:test",
+        platform: "slack",
+        surface: "native",
+        messages: [],
+        warnings: [],
+      },
+    });
+    const stop = startMeetingChatCapture({
+      sessionId: "session-1",
+      isEnabled: () => true,
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    stop();
+
+    expect(captureMeetingChatMessagesMock).toHaveBeenCalledWith([
+      "com.slack.Slack",
+    ]);
+  });
+
   test("does not inspect unrelated mic-active apps", async () => {
     listMicUsingApplicationsMock.mockResolvedValue({
       status: "ok",
@@ -306,6 +404,7 @@ describe("startMeetingChatCapture", () => {
       status: "ok",
       data: {
         app: null,
+        contextId: null,
         platform: "unknown",
         surface: "unknown",
         messages: [],
@@ -331,11 +430,15 @@ describe("startMeetingChatCapture", () => {
   });
 });
 
-function captureResult(messages: MeetingCapturedChatMessage[]) {
+function captureResult(
+  messages: MeetingCapturedChatMessage[],
+  contextId: string | null = "zoom:meeting-1",
+) {
   return {
     status: "ok" as const,
     data: {
       app: { id: "us.zoom.xos", name: "Zoom" },
+      contextId,
       platform: "zoom" as const,
       surface: "native" as const,
       messages,

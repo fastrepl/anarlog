@@ -77,10 +77,18 @@ pub(crate) async fn send_meeting_chat_message<R: tauri::Runtime>(
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn capture_meeting_chat_messages<R: tauri::Runtime>(
-    _app: tauri::AppHandle<R>,
+    app: tauri::AppHandle<R>,
     bundle_ids: Vec<String>,
 ) -> Result<hypr_detect::MeetingChatCaptureResult, String> {
-    Ok(hypr_detect::capture_meeting_chat_messages(bundle_ids))
+    let current_mic_apps = app
+        .detect()
+        .list_mic_using_applications()
+        .map_err(|error| error.to_string())?;
+    let verified_bundle_ids = intersect_mic_active_bundle_ids(&bundle_ids, &current_mic_apps);
+
+    Ok(hypr_detect::capture_meeting_chat_messages(
+        verified_bundle_ids,
+    ))
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -183,7 +191,7 @@ mod tests {
     }
 
     #[test]
-    fn disclosure_scope_intersects_requested_and_current_mic_apps() {
+    fn meeting_ax_scope_intersects_requested_and_current_mic_apps() {
         let requested = vec![
             "com.tinyspeck.slackmacgap".to_string(),
             "us.zoom.xos".to_string(),
@@ -201,7 +209,7 @@ mod tests {
     }
 
     #[test]
-    fn disclosure_scope_rejects_stale_or_forged_bundle_ids() {
+    fn meeting_ax_scope_rejects_stale_or_forged_bundle_ids() {
         let requested = vec!["com.tinyspeck.slackmacgap".to_string()];
         let current = vec![app("us.zoom.xos")];
 
