@@ -1,10 +1,10 @@
 import { useLingui } from "@lingui/react/macro";
 import { platform } from "@tauri-apps/plugin-os";
 import {
-  AccessibilityIcon,
   ArrowRightIcon,
   CheckIcon,
   MicIcon,
+  MousePointer2Icon,
   type LucideIcon,
   Volume2Icon,
 } from "lucide-react";
@@ -27,7 +27,6 @@ function PermissionBlock({
   isPending,
   onAction,
   opensSettingsWhenDenied = true,
-  showActionIndicator = true,
 }: {
   enabledLabel: string;
   enableLabel: string;
@@ -39,7 +38,6 @@ function PermissionBlock({
   isPending: boolean;
   onAction: () => void;
   opensSettingsWhenDenied?: boolean;
-  showActionIndicator?: boolean;
 }) {
   const { t } = useLingui();
   const isAuthorized = status === "authorized";
@@ -47,19 +45,15 @@ function PermissionBlock({
     isAuthorized || (opensSettingsWhenDenied && status === "denied");
   const title = isAuthorized ? enabledLabel : enableLabel;
   const body = isAuthorized ? enabledBody : enableBody;
-  const ctaLabel = isAuthorized
-    ? t`Manage`
-    : opensSettings
-      ? t`Open settings`
-      : t`Allow access`;
 
   return (
     <button
       type="button"
       onClick={onAction}
       disabled={isPending || isAuthorized}
+      title={body}
       className={cn([
-        "group flex min-w-0 flex-1 basis-0 items-center gap-3 rounded-xl px-3 py-3 text-left transition-all",
+        "group flex w-full min-w-0 items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all",
         isAuthorized
           ? "border-border bg-card border"
           : "border-primary bg-primary text-primary-foreground hover:bg-primary/90 border shadow-[0_4px_14px_rgba(87,83,78,0.18)] active:scale-[0.98]",
@@ -86,31 +80,16 @@ function PermissionBlock({
           <Icon className="size-3.5" />
         )}
       </div>
-      <div className="min-w-0 flex-1">
-        <span
-          className={cn([
-            "text-sm font-medium",
-            isAuthorized ? "text-foreground" : "text-primary-foreground",
-          ])}
-        >
-          {title}
-        </span>
-        <p
-          className={cn([
-            "truncate text-xs @[480px]:block",
-            isAuthorized
-              ? "text-muted-foreground"
-              : "text-primary-foreground/70",
-          ])}
-        >
-          {body}
-        </p>
-      </div>
-      {!isAuthorized && showActionIndicator && (
-        <div className="text-primary-foreground/80 inline-flex shrink-0 items-center gap-1 text-xs font-medium">
-          <span className="hidden @[480px]:inline">{ctaLabel}</span>
-          <ArrowRightIcon className="size-3.5 transition-transform group-hover:translate-x-0.5" />
-        </div>
+      <span
+        className={cn([
+          "min-w-0 flex-1 truncate text-sm font-medium",
+          isAuthorized ? "text-foreground" : "text-primary-foreground",
+        ])}
+      >
+        {title}
+      </span>
+      {!isAuthorized && (
+        <ArrowRightIcon className="text-primary-foreground/70 size-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
       )}
     </button>
   );
@@ -158,7 +137,7 @@ function PermissionsSectionContent({
   };
 
   return (
-    <div className="@container">
+    <div>
       {isComplete && (
         <ContinueWhenComplete
           onContinue={onContinue}
@@ -166,13 +145,7 @@ function PermissionsSectionContent({
         />
       )}
 
-      <div
-        className={cn([
-          "grid grid-cols-1 items-stretch gap-3",
-          "@[480px]:grid-cols-2",
-          accessibility && "@[720px]:grid-cols-3",
-        ])}
-      >
+      <div className="flex flex-col gap-2">
         <PermissionBlock
           enabledLabel={t`Anarlog can hear your voice`}
           enableLabel={t`Allow microphone access`}
@@ -183,7 +156,6 @@ function PermissionsSectionContent({
           status={mic.status}
           isPending={mic.isPending}
           onAction={() => handleAction(mic)}
-          showActionIndicator={!accessibility}
         />
 
         <PermissionBlock
@@ -196,7 +168,6 @@ function PermissionsSectionContent({
           status={systemAudio.status}
           isPending={systemAudio.isPending}
           onAction={() => handleAction(systemAudio)}
-          showActionIndicator={!accessibility}
         />
 
         {accessibility && (
@@ -205,13 +176,12 @@ function PermissionsSectionContent({
             enableLabel={t`Allow Accessibility access`}
             enabledBody={t`Meeting details access turned on`}
             enableBody={t`Read meeting controls, visible chat, and participant status`}
-            Icon={AccessibilityIcon}
+            Icon={MousePointer2Icon}
             permissionName={t`Accessibility`}
             status={accessibility.status}
             isPending={accessibility.isPending}
             onAction={accessibility.request}
             opensSettingsWhenDenied={false}
-            showActionIndicator={false}
           />
         )}
       </div>

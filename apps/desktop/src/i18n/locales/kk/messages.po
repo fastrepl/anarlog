@@ -143,10 +143,6 @@ msgid "All Notes"
 msgstr ""
 
 #: src/onboarding/permissions.tsx
-msgid "Allow access"
-msgstr ""
-
-#: src/onboarding/permissions.tsx
 msgid "Allow Accessibility access"
 msgstr ""
 
@@ -886,10 +882,6 @@ msgstr ""
 msgid "Main language"
 msgstr "Негізгі тіл"
 
-#: src/onboarding/permissions.tsx
-msgid "Manage"
-msgstr ""
-
 #: src/settings/general/account.tsx
 msgid "Manage billing"
 msgstr ""
@@ -1169,10 +1161,6 @@ msgstr ""
 
 #: src/settings/todo/github.tsx
 msgid "Open repository on GitHub"
-msgstr ""
-
-#: src/onboarding/permissions.tsx
-msgid "Open settings"
 msgstr ""
 
 #: src/calendar/components/apple/permission.tsx

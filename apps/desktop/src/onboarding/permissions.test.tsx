@@ -59,18 +59,17 @@ describe("PermissionsSection", () => {
   });
 
   it("collects Accessibility permission on macOS", () => {
-    render(<PermissionsSection />);
+    const { container } = render(<PermissionsSection />);
 
     expect(screen.getByText("Allow microphone access")).toBeTruthy();
     expect(screen.getByText("Allow system audio access")).toBeTruthy();
     expect(screen.getByText("Allow Accessibility access")).toBeTruthy();
     expect(
-      screen.getByText(
-        "Read meeting controls, visible chat, and participant status",
-      ),
-    ).toBeTruthy();
-    expect(screen.queryByText("Open settings")).toBeNull();
-    expect(screen.queryByText("Allow access")).toBeNull();
+      screen
+        .getByRole("button", { name: "Enable accessibility" })
+        .getAttribute("title"),
+    ).toBe("Read meeting controls, visible chat, and participant status");
+    expect(container.querySelectorAll(".lucide-arrow-right")).toHaveLength(3);
   });
 
   it("waits for all three macOS permissions before continuing", () => {
