@@ -122,6 +122,38 @@ impl PluginDbRuntime {
     pub async fn unsubscribe(&self, subscription_id: &str) -> hypr_db_reactive::Result<()> {
         self.live_query_runtime.unsubscribe(subscription_id).await
     }
+
+    pub fn configure_cloudsync(&self, config_json: String) -> Result<()> {
+        let config = serde_json::from_str(&config_json)?;
+        self.db.cloudsync_configure(config)?;
+        Ok(())
+    }
+
+    pub async fn start_cloudsync(&self) -> Result<()> {
+        self.ensure_app_schema().await?;
+        self.db.cloudsync_start().await?;
+        Ok(())
+    }
+
+    pub async fn stop_cloudsync(&self) -> Result<()> {
+        self.db.cloudsync_stop().await?;
+        Ok(())
+    }
+
+    pub async fn cloudsync_status(&self) -> Result<serde_json::Value> {
+        Ok(serde_json::to_value(self.db.cloudsync_status().await?)?)
+    }
+
+    pub async fn sync_cloudsync_now(&self) -> Result<serde_json::Value> {
+        Ok(serde_json::to_value(
+            self.db.cloudsync_trigger_sync().await?,
+        )?)
+    }
+
+    pub async fn logout_cloudsync(&self, discard_unsent_changes: bool) -> Result<()> {
+        self.db.cloudsync_logout(discard_unsent_changes).await?;
+        Ok(())
+    }
 }
 
 fn bind_params<'q>(
@@ -155,7 +187,7 @@ pub async fn open_app_db(db_path: Option<&Path>) -> Result<Db> {
 
     let db = Db::open(DbOpenOptions {
         storage,
-        cloudsync_enabled: false,
+        cloudsync_enabled: true,
         journal_mode_wal: true,
         foreign_keys: true,
         max_connections: Some(4),

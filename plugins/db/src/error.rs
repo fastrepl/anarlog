@@ -18,6 +18,10 @@ pub enum Error {
     Execute(#[from] hypr_db_execute::Error),
     #[error(transparent)]
     Reactive(#[from] hypr_db_reactive::Error),
+    #[error(transparent)]
+    Cloudsync(#[from] hypr_db_core::CloudsyncRuntimeError),
+    #[error(transparent)]
+    Json(#[from] serde_json::Error),
     #[error("transaction statement {statement_index} affected {actual} rows; expected {expected}")]
     UnexpectedRowsAffected {
         statement_index: usize,
