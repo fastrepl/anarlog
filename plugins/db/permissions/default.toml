@@ -12,4 +12,10 @@ permissions = [
   "allow-cleanup-legacy-files",
   "allow-subscribe",
   "allow-unsubscribe",
+  "allow-configure-cloudsync",
+  "allow-start-cloudsync",
+  "allow-stop-cloudsync",
+  "allow-get-cloudsync-status",
+  "allow-sync-cloudsync-now",
+  "allow-logout-cloudsync",
 ]
