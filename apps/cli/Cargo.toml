@@ -22,6 +22,8 @@ tokio = { workspace = true, features = ["io-std", "macros", "rt-multi-thread"] }
 url = { workspace = true }
 
 [dev-dependencies]
+cli-docs = { path = "../../crates/cli-docs" }
+insta = { workspace = true, features = ["json"] }
 rmcp = { workspace = true, features = ["client"] }
 sqlx = { workspace = true, features = ["runtime-tokio", "sqlite"] }
 tempfile = { workspace = true }

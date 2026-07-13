@@ -13,7 +13,7 @@ pub async fn open(args: &Args) -> Result<hypr_db_core::Db> {
         .map_err(|error| Error::operation("open database", error.to_string()))
 }
 
-fn resolve_path(args: &Args) -> Result<PathBuf> {
+pub(crate) fn resolve_path(args: &Args) -> Result<PathBuf> {
     if let Some(path) = &args.db_path {
         return Ok(path.clone());
     }

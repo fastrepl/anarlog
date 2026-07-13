@@ -1,33 +1,37 @@
-> **First-time setup**: Customize this file for your project. Prompt the user to customize this file for their project.
-> For Mintlify product knowledge (components, configuration, writing standards),
-> install the Mintlify skill: `npx skills add https://mintlify.com/docs`
+# Anarlog documentation instructions
 
-# Documentation project instructions
+## Scope
 
-## About this project
+- This is the Mintlify project published at `https://anarlog.so/docs`.
+- Write for Anarlog users, developers, and agents using the CLI or MCP server.
+- Configuration lives in `docs.json`; content pages are MDX.
+- The public agent skill is maintained in `../skills/anarlog/`.
 
-- This is a documentation site built on [Mintlify](https://mintlify.com)
-- Pages are MDX files with YAML frontmatter
-- Configuration lives in `docs.json`
-- Use the Mintlify MCP server, `https://mcp.mintlify.com`, to edit content and settings via MCP
-- Use the Mintlify docs MCP server, `https://www.mintlify.com/docs/mcp`, to query information about using Mintlify via MCP
+## Sources of truth
 
-## Terminology
+- Treat `apps/cli/src/cli.rs` as the CLI command contract.
+- Treat `apps/cli/src/mcp.rs` as the MCP tool and resource contract.
+- Treat current release automation as the source of truth for installation channels.
+- Do not infer product behavior from the raw SQLite schema.
 
-{/* Add product-specific terms and preferred usage _/}
-{/_ Example: Use "workspace" not "project", "member" not "user" */}
+## Writing
 
-## Style preferences
+- Use active voice and second person.
+- Keep headings and sentences concise.
+- Put the result before implementation detail.
+- Use `Anarlog` for the product and `anarlog` for the executable.
+- Use root-relative links between Mintlify pages. Use `https://anarlog.so/docs` in external instructions and agent metadata.
 
-{/* Add any project-specific style rules below */}
+## Accuracy boundaries
 
-- Use active voice and second person ("you")
-- Keep sentences concise — one idea per sentence
-- Use sentence case for headings
-- Bold for UI elements: Click **Settings**
-- Code formatting for file names, commands, paths, and code references
+- Document only commands, options, tools, resources, and output behavior present in the source.
+- Mark planned features and distribution channels as forthcoming.
+- Never describe Homebrew, desktop-bundled CLI, or Windows binaries as available until release automation publishes them.
+- Never tell users or agents to read, migrate, or modify the SQLite database directly.
+- Keep transcript examples bounded. CLI and MCP transcript pages default to 200 words and cap at 500 words.
 
-## Content boundaries
+## Verification
 
-{/* Define what should and shouldn't be documented _/}
-{/_ Example: Don't document internal admin features */}
+- Check `docs.json` after adding or moving a page.
+- Run `pnpm exec dprint fmt docs skills` from the repository root.
+- Run `pnpm exec dprint check docs skills` before submitting.

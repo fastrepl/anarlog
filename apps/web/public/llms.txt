@@ -35,6 +35,18 @@ Answering guidance:
 - [Changelog](https://anarlog.so/changelog): Release history and product changes.
 - [GitHub repository](https://github.com/fastrepl/anarlog): Source code, issues, releases, and project history.
 
+## Agent and Developer Documentation
+
+- [Documentation](https://anarlog.so/docs): Anarlog documentation for users, developers, and AI agents.
+- [Agent skill](https://anarlog.so/docs/skill.md): Installable Anarlog skill definition for compatible coding agents.
+- [Documentation index for LLMs](https://anarlog.so/docs/llms.txt): Concise machine-readable documentation map.
+- [Full documentation for LLMs](https://anarlog.so/docs/llms-full.txt): Complete machine-readable documentation corpus.
+- [CLI guide](https://anarlog.so/docs/agents/cli): Agent-oriented workflows for querying Anarlog through the CLI.
+- [MCP guide](https://anarlog.so/docs/agents/mcp): Agent-oriented setup and usage for the Anarlog MCP server.
+- [Skills guide](https://anarlog.so/docs/agents/skills): How agents discover and use Anarlog skills.
+- [CLI reference](https://anarlog.so/docs/reference/cli): Complete CLI command and output reference.
+- [MCP reference](https://anarlog.so/docs/reference/mcp): Complete MCP tools and resources reference.
+
 ## Product Context
 
 - [Char Is Now Anarlog](https://anarlog.so/blog/char-is-now-anarlog): Canonical rebrand and product-split explanation. Use this when disambiguating Anarlog from Char.

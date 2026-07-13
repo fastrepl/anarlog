@@ -1,0 +1,42 @@
+---
+title: "Installation"
+description: "Install the current Anarlog CLI and point it at local meeting data."
+---
+
+## Current availability
+
+The CLI is currently available as a source build from the Anarlog repository. It includes the `anarlog mcp` server in the same executable.
+
+<Warning>
+  Homebrew, desktop-bundled CLI, standalone release binaries, and Windows package-manager distribution are forthcoming. Do not rely on those channels yet.
+</Warning>
+
+## Build from source
+
+```bash
+git clone https://github.com/fastrepl/anarlog.git
+cd anarlog
+cargo install --locked --path apps/cli
+anarlog --version
+```
+
+`cargo` installs the executable into its configured binary directory, normally `~/.cargo/bin`. Add that directory to `PATH` if your shell cannot find `anarlog`.
+
+## Connect to local data
+
+By default, the CLI looks for `anarlog/app.db` in your operating system's application-data directory. It also recognizes legacy Anarlog locations.
+
+Open the desktop app once before using the CLI. For a custom database location, pass a global option or environment variable:
+
+```bash
+anarlog --db-path /path/to/app.db --json meetings list
+ANARLOG_DB_PATH=/path/to/app.db anarlog --json meetings list
+```
+
+If you have an Anarlog data directory containing `app.db`, use:
+
+```bash
+anarlog --base /path/to/anarlog-data --json meetings list
+```
+
+The CLI opens the database in read-only query mode. It does not create a database or run migrations.

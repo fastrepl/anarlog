@@ -1,6 +1,8 @@
 ---
 name: migrate-to-sqlite
 description: Migrate a TinyBase table to SQLite. Use when asked to move a data domain (e.g. templates, vocabs) from the TinyBase store to the app SQLite database.
+metadata:
+  internal: true
 ---
 
 ## Status

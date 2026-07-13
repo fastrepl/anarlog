@@ -18,6 +18,61 @@ remote_images = [
   "https://ijoptyyjrfqwaqhyxkxj\\.supabase\\.co/.*",
 ]
 
+# Anarlog documentation and agent discovery
+[[redirects]]
+from = "/skill"
+to = "/skill.md"
+status = 301
+force = true
+
+[[redirects]]
+from = "/skill.md"
+to = "https://anarlog.mintlify.site/docs/skill.md"
+status = 200
+force = true
+headers = { Origin = "anarlog.mintlify.site" }
+
+[[redirects]]
+from = "/skills"
+to = "/docs/agents/skills"
+status = 301
+force = true
+
+[[redirects]]
+from = "/.well-known/skills/*"
+to = "https://anarlog.mintlify.site/docs/.well-known/skills/:splat"
+status = 200
+force = true
+headers = { Origin = "anarlog.mintlify.site" }
+
+[[redirects]]
+from = "/.well-known/agent-skills/*"
+to = "https://anarlog.mintlify.site/docs/.well-known/agent-skills/:splat"
+status = 200
+force = true
+headers = { Origin = "anarlog.mintlify.site" }
+
+[[redirects]]
+from = "/.well-known/vercel/*"
+to = "https://anarlog.mintlify.site/.well-known/vercel/:splat"
+status = 200
+force = true
+headers = { Origin = "anarlog.mintlify.site" }
+
+[[redirects]]
+from = "/docs"
+to = "https://anarlog.mintlify.site/docs"
+status = 200
+force = true
+headers = { Origin = "anarlog.mintlify.site" }
+
+[[redirects]]
+from = "/docs/*"
+to = "https://anarlog.mintlify.site/docs/:splat"
+status = 200
+force = true
+headers = { Origin = "anarlog.mintlify.site" }
+
 # Domain migration: hyprnote.com -> char.com (301 for SEO)
 # Exclude /admin, /app, /api, /webhook from redirects.
 # Auth paths MUST redirect so PKCE cookies stay on one domain.

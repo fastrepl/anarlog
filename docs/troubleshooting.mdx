@@ -1,0 +1,61 @@
+---
+title: "Troubleshooting"
+description: "Resolve common CLI and MCP setup problems."
+---
+
+## Command not found
+
+Confirm the Cargo binary directory is on `PATH`:
+
+```bash
+cargo install --locked --path apps/cli
+anarlog --version
+```
+
+The default Cargo binary directory is normally `~/.cargo/bin`.
+
+## Database not found
+
+Inspect the resolved path and schema status:
+
+```bash
+anarlog --json doctor
+```
+
+Open the Anarlog desktop app once if the database does not exist, then retry:
+
+```bash
+anarlog --json meetings list --limit 5
+```
+
+If your database is stored elsewhere, pass its path explicitly:
+
+```bash
+anarlog --db-path /path/to/app.db --json meetings list
+```
+
+The CLI does not create or migrate databases.
+
+## No meetings found
+
+Remove the search filter and list recent meetings. Confirm you opened the same Anarlog data directory as the desktop app.
+
+## Meeting or note not found
+
+Run `meetings list` again and use an exact returned ID. A meeting can exist without a canonical note or generated summary.
+
+## MCP server disconnects
+
+First verify database access outside the MCP client:
+
+```bash
+anarlog --json meetings list --limit 1
+```
+
+Then confirm the client launches `anarlog` with `mcp` as an argument. Use an absolute command path if the client's environment does not inherit your shell `PATH`.
+
+## CLI and desktop disagree
+
+Rebuild the CLI from the same repository revision as the desktop app. Do not run migrations manually. Published lockstep desktop and CLI artifacts are planned but not available yet.
+
+For further help, email [hello@anarlog.so](mailto:hello@anarlog.so) or open an issue on [GitHub](https://github.com/fastrepl/anarlog/issues).

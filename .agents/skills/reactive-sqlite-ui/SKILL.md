@@ -1,6 +1,8 @@
 ---
 name: reactive-sqlite-ui
 description: Build SQLite-backed reactive UI in `apps/desktop` using stable patterns for reads, selection, forms, writes, and loading states. Use when implementing or reviewing screens built on `useDrizzleLiveQuery` and SQLite mutations.
+metadata:
+  internal: true
 ---
 
 ## Goal

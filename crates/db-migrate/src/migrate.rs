@@ -256,14 +256,14 @@ impl Migrate for DbMigrateConnection<'_> {
                         .await
                         .map_err(cloudsync_error)?;
 
-                    execute_migration(&mut *self.conn, migration).await?;
+                    execute_migration(&mut self.conn, migration).await?;
 
                     hypr_db_core::cloudsync_commit_alter_on(&mut *self.conn, cs_table)
                         .await
                         .map_err(cloudsync_error)?;
 
                     let elapsed = start.elapsed();
-                    update_execution_time(&mut *self.conn, migration.version, elapsed).await?;
+                    update_execution_time(&mut self.conn, migration.version, elapsed).await?;
 
                     Ok(elapsed)
                 }

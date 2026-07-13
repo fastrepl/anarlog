@@ -1,6 +1,8 @@
 ---
 name: axum-test-transport
 description: Choose between in-process `tower::ServiceExt::oneshot` tests and real `tokio::net::TcpListener` server tests for Axum services in this repository.
+metadata:
+  internal: true
 ---
 
 Use this skill when working on Axum tests that currently start a server or could be simplified.

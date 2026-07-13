@@ -3,6 +3,40 @@ use serde_json::Value;
 
 use crate::{Error, Result};
 
+pub const DEFAULT_LIST_LIMIT: u32 = 20;
+pub const MAX_LIST_LIMIT: u32 = 200;
+pub const DEFAULT_TRANSCRIPT_LIMIT: u32 = 200;
+pub const MAX_TRANSCRIPT_LIMIT: u32 = 500;
+
+#[derive(Debug, Serialize)]
+pub struct Pagination {
+    pub offset: u32,
+    pub limit: u32,
+    pub returned: usize,
+    pub total: Option<usize>,
+    pub next_offset: Option<u32>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct MeetingPage {
+    pub meetings: Vec<hypr_db_app::SessionListItem>,
+    pub pagination: Pagination,
+}
+
+#[derive(Debug, Serialize)]
+pub struct TranscriptPage {
+    #[serde(flatten)]
+    pub content: TranscriptPageContent,
+    pub pagination: Pagination,
+}
+
+#[derive(Debug, Serialize)]
+pub struct TranscriptPageContent {
+    pub meeting_id: String,
+    pub text: String,
+    pub words: Vec<Value>,
+}
+
 #[derive(Debug, Serialize)]
 pub struct Meeting {
     #[serde(flatten)]
@@ -206,6 +240,105 @@ pub async fn load_transcripts(db: &hypr_db_core::Db, id: &str) -> Result<Vec<Tra
         .map_err(|error| Error::operation("load transcript", error.to_string()))
 }
 
+pub async fn list_meetings_page(
+    db: &hypr_db_core::Db,
+    query: Option<&str>,
+    series_id: Option<&str>,
+    limit: u32,
+    offset: u32,
+) -> Result<MeetingPage> {
+    let limit = limit.clamp(1, MAX_LIST_LIMIT);
+    let mut meetings = hypr_db_app::list_sessions(
+        db.pool(),
+        hypr_db_app::ListSessions {
+            query,
+            series_id,
+            limit: limit + 1,
+            offset,
+        },
+    )
+    .await
+    .map_err(|error| Error::operation("list meetings", error.to_string()))?;
+    let has_more = meetings.len() > limit as usize;
+    meetings.truncate(limit as usize);
+    let pagination = pagination(offset, limit, meetings.len(), None, has_more);
+
+    Ok(MeetingPage {
+        meetings,
+        pagination,
+    })
+}
+
+pub async fn recurring_meetings_page(
+    db: &hypr_db_core::Db,
+    meeting_id: &str,
+    limit: u32,
+    offset: u32,
+) -> Result<MeetingPage> {
+    let meeting = hypr_db_app::get_session(db.pool(), meeting_id)
+        .await
+        .map_err(|error| Error::operation("load meeting", error.to_string()))?
+        .ok_or_else(|| Error::NotFound(format!("meeting '{meeting_id}'")))?;
+    let series_id = meeting.series_id.trim();
+    if series_id.is_empty() {
+        let limit = limit.clamp(1, MAX_LIST_LIMIT);
+        return Ok(MeetingPage {
+            meetings: Vec::new(),
+            pagination: pagination(offset, limit, 0, Some(0), false),
+        });
+    }
+
+    list_meetings_page(db, None, Some(series_id), limit, offset).await
+}
+
+pub fn transcript_page(
+    meeting_id: &str,
+    transcripts: &[Transcript],
+    offset: u32,
+    limit: u32,
+) -> TranscriptPage {
+    let mut words = Vec::new();
+    for transcript in transcripts {
+        for word in &transcript.words {
+            let mut word = word.clone();
+            if let Some(object) = word.as_object_mut() {
+                object.insert(
+                    "transcript_id".to_string(),
+                    Value::String(transcript.id.clone()),
+                );
+            }
+            words.push(word);
+        }
+    }
+
+    let total_words = words.len();
+    let offset_usize = offset as usize;
+    let limit = limit.clamp(1, MAX_TRANSCRIPT_LIMIT);
+    let words = words
+        .into_iter()
+        .skip(offset_usize)
+        .take(limit as usize)
+        .collect::<Vec<_>>();
+    let text = words
+        .iter()
+        .filter_map(|word| word.get("text").and_then(Value::as_str))
+        .map(str::trim)
+        .filter(|text| !text.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ");
+    let has_more = offset_usize.saturating_add(words.len()) < total_words;
+    let pagination = pagination(offset, limit, words.len(), Some(total_words), has_more);
+
+    TranscriptPage {
+        content: TranscriptPageContent {
+            meeting_id: meeting_id.to_string(),
+            text,
+            words,
+        },
+        pagination,
+    }
+}
+
 pub fn render_transcripts(transcripts: &[Transcript]) -> String {
     transcripts
         .iter()
@@ -243,6 +376,22 @@ fn transcript_text(words: &[Value]) -> String {
 fn push_section(sections: &mut Vec<String>, title: &str, body: &str) {
     if !body.trim().is_empty() {
         sections.push(format!("## {title}\n\n{}", body.trim()));
+    }
+}
+
+fn pagination(
+    offset: u32,
+    limit: u32,
+    returned: usize,
+    total: Option<usize>,
+    has_more: bool,
+) -> Pagination {
+    Pagination {
+        offset,
+        limit,
+        returned,
+        total,
+        next_offset: has_more.then(|| offset.saturating_add(returned as u32)),
     }
 }
 
@@ -298,5 +447,33 @@ mod tests {
 
         assert_eq!(transcript.text, "spoken words");
         assert_eq!(transcript.memo, "private meeting note");
+    }
+
+    #[test]
+    fn transcript_page_is_bounded_and_has_pagination() {
+        let transcript = Transcript {
+            id: "transcript-1".to_string(),
+            source: String::new(),
+            provider: String::new(),
+            model: String::new(),
+            language: "en".to_string(),
+            started_at_ms: 0,
+            ended_at_ms: None,
+            memo: String::new(),
+            text: String::new(),
+            words: vec![
+                serde_json::json!({"text": "one"}),
+                serde_json::json!({"text": "two"}),
+                serde_json::json!({"text": "three"}),
+            ],
+            speaker_hints: Vec::new(),
+        };
+
+        let page = transcript_page("meeting-1", &[transcript], 1, 1);
+
+        assert_eq!(page.content.text, "two");
+        assert_eq!(page.pagination.total, Some(3));
+        assert_eq!(page.pagination.next_offset, Some(2));
+        assert_eq!(page.content.words[0]["transcript_id"], "transcript-1");
     }
 }

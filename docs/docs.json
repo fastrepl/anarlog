@@ -1,34 +1,56 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "Mintlify Starter Kit",
+  "name": "Anarlog",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#74540F",
+    "light": "#946F25",
+    "dark": "#5D430D"
   },
   "favicon": "/favicon.svg",
   "navigation": {
     "pages": [
       {
-        "group": "Getting Started",
+        "group": "Getting started",
+        "pages": ["index", "quickstart", "installation"]
+      },
+      {
+        "group": "Use with agents",
         "pages": [
-          "index",
-          "quickstart"
+          "agents/overview",
+          "agents/cli",
+          "agents/mcp",
+          "agents/skills"
         ]
+      },
+      {
+        "group": "Recipes",
+        "pages": ["recipes/meeting-prep"]
+      },
+      {
+        "group": "Reference",
+        "pages": [
+          "reference/cli",
+          "reference/mcp",
+          "reference/errors"
+        ]
+      },
+      {
+        "group": "Help",
+        "pages": ["troubleshooting"]
       }
     ],
     "global": {
       "anchors": [
         {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
+          "anchor": "Anarlog",
+          "href": "https://anarlog.so",
+          "icon": "house"
         },
         {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
+          "anchor": "GitHub",
+          "href": "https://github.com/fastrepl/anarlog",
+          "icon": "github"
         }
       ]
     }
@@ -41,13 +63,13 @@
     "links": [
       {
         "label": "Support",
-        "href": "mailto:hi@mintlify.com"
+        "href": "mailto:hello@anarlog.so"
       }
     ],
     "primary": {
       "type": "button",
-      "label": "Dashboard",
-      "href": "https://app.mintlify.com"
+      "label": "Download Anarlog",
+      "href": "https://anarlog.so/download"
     }
   },
   "contextual": {
@@ -64,9 +86,7 @@
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
+      "github": "https://github.com/fastrepl/anarlog"
     }
   }
 }

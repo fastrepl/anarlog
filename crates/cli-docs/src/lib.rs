@@ -29,6 +29,8 @@ pub struct OptionDoc {
     pub help: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub possible_values: Vec<String>,
     pub required: bool,
     pub is_flag: bool,
 }
@@ -125,12 +127,19 @@ fn build_option_doc(arg: &clap::Arg) -> OptionDoc {
         .map(|h| h.to_string());
 
     let default = get_default(arg);
+    let possible_values = arg
+        .get_possible_values()
+        .into_iter()
+        .filter(|value| !value.is_hide_set())
+        .map(|value| value.get_name().to_string())
+        .collect();
 
     OptionDoc {
         flags: flags.join(", "),
         value_name,
         help,
         default,
+        possible_values,
         required: arg.is_required_set(),
         is_flag: is_flag(arg),
     }

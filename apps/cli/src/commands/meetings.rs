@@ -1,5 +1,8 @@
 use crate::cli::{DocumentKind, ExportFormat, MeetingCommand};
-use crate::context::{Meeting, MeetingExport, load_transcripts, render_transcripts};
+use crate::context::{
+    Meeting, MeetingExport, list_meetings_page, load_transcripts, recurring_meetings_page,
+    transcript_page,
+};
 use crate::{Error, Result, output};
 
 pub async fn run(db: &hypr_db_core::Db, command: MeetingCommand, json: bool) -> Result<()> {
@@ -10,21 +13,13 @@ pub async fn run(db: &hypr_db_core::Db, command: MeetingCommand, json: bool) -> 
             limit,
             offset,
         } => {
-            let meetings = hypr_db_app::list_sessions(
-                db.pool(),
-                hypr_db_app::ListSessions {
-                    query: query.as_deref(),
-                    series_id: series_id.as_deref(),
-                    limit,
-                    offset,
-                },
-            )
-            .await
-            .map_err(|error| Error::operation("list meetings", error.to_string()))?;
+            let page =
+                list_meetings_page(db, query.as_deref(), series_id.as_deref(), limit, offset)
+                    .await?;
             let rendered = if json {
-                output::json(&meetings)?
+                output::json("meetings.list", &page.meetings, Some(&page.pagination))?
             } else {
-                render_list(&meetings)
+                render_list(&page.meetings)
             };
             output::emit(&rendered);
             Ok(())
@@ -32,7 +27,7 @@ pub async fn run(db: &hypr_db_core::Db, command: MeetingCommand, json: bool) -> 
         MeetingCommand::Get { id } => {
             let meeting = Meeting::load(db, &id).await?;
             let rendered = if json {
-                output::json(&meeting)?
+                output::json("meetings.get", &meeting, None)?
             } else {
                 meeting.to_markdown()
             };
@@ -43,12 +38,20 @@ pub async fn run(db: &hypr_db_core::Db, command: MeetingCommand, json: bool) -> 
             let meeting = Meeting::load(db, &id).await?;
             if json {
                 match kind {
-                    DocumentKind::Note => output::emit(&output::json(&meeting.note)?),
-                    DocumentKind::Summary => output::emit(&output::json(&meeting.summaries)?),
-                    DocumentKind::All => output::emit(&output::json(&serde_json::json!({
-                        "note": meeting.note,
-                        "summaries": meeting.summaries,
-                    }))?),
+                    DocumentKind::Note => {
+                        output::emit(&output::json("meetings.note", &meeting.note, None)?)
+                    }
+                    DocumentKind::Summary => {
+                        output::emit(&output::json("meetings.note", &meeting.summaries, None)?)
+                    }
+                    DocumentKind::All => output::emit(&output::json(
+                        "meetings.note",
+                        &serde_json::json!({
+                            "note": meeting.note,
+                            "summaries": meeting.summaries,
+                        }),
+                        None,
+                    )?),
                 }
                 return Ok(());
             }
@@ -68,26 +71,24 @@ pub async fn run(db: &hypr_db_core::Db, command: MeetingCommand, json: bool) -> 
             output::emit(&text);
             Ok(())
         }
-        MeetingCommand::Transcript { id } => {
+        MeetingCommand::Transcript { id, limit, offset } => {
             ensure_session_exists(db, &id).await?;
             let transcripts = load_transcripts(db, &id).await?;
+            let page = transcript_page(&id, &transcripts, offset, limit);
             let rendered = if json {
-                output::json(&transcripts)?
+                output::json("meetings.transcript", &page.content, Some(&page.pagination))?
             } else {
-                render_transcripts(&transcripts)
+                page.content.text
             };
             output::emit(&rendered);
             Ok(())
         }
-        MeetingCommand::History { id, limit } => {
-            ensure_session_exists(db, &id).await?;
-            let meetings = hypr_db_app::list_recurring_sessions(db.pool(), &id, limit)
-                .await
-                .map_err(|error| Error::operation("load recurring history", error.to_string()))?;
+        MeetingCommand::History { id, limit, offset } => {
+            let page = recurring_meetings_page(db, &id, limit, offset).await?;
             let rendered = if json {
-                output::json(&meetings)?
+                output::json("meetings.history", &page.meetings, Some(&page.pagination))?
             } else {
-                render_list(&meetings)
+                render_list(&page.meetings)
             };
             output::emit(&rendered);
             Ok(())
@@ -96,13 +97,23 @@ pub async fn run(db: &hypr_db_core::Db, command: MeetingCommand, json: bool) -> 
             id,
             format,
             output: path,
+            force,
         } => {
             let meeting = MeetingExport::load(db, &id).await?;
-            let content = match format {
-                ExportFormat::Markdown => meeting.to_markdown(),
-                ExportFormat::Json => output::json(&meeting)?,
+            let content = match (format, json) {
+                (ExportFormat::Markdown, false) => meeting.to_markdown(),
+                (ExportFormat::Json, false) => output::raw_json(&meeting)?,
+                (ExportFormat::Markdown, true) => output::json(
+                    "meetings.export",
+                    &serde_json::json!({
+                        "format": "markdown",
+                        "content": meeting.to_markdown(),
+                    }),
+                    None,
+                )?,
+                (ExportFormat::Json, true) => output::json("meetings.export", &meeting, None)?,
             };
-            output::write_or_emit(&content, path.as_deref())
+            output::write_or_emit(&content, path.as_deref(), force)
         }
     }
 }

@@ -10,11 +10,10 @@ use rmcp::{
 use serde::{Deserialize, Serialize};
 
 use crate::Error;
-use crate::context::{Meeting, Transcript, load_transcripts};
-
-const DEFAULT_LIST_LIMIT: u32 = 20;
-const DEFAULT_TRANSCRIPT_LIMIT: u32 = 200;
-const MAX_TRANSCRIPT_LIMIT: u32 = 500;
+use crate::context::{
+    DEFAULT_LIST_LIMIT, DEFAULT_TRANSCRIPT_LIMIT, MAX_LIST_LIMIT, MAX_TRANSCRIPT_LIMIT, Meeting,
+    list_meetings_page, load_transcripts, recurring_meetings_page, transcript_page,
+};
 
 #[derive(Clone)]
 struct AnarlogMcpServer {
@@ -28,6 +27,7 @@ struct ListMeetingsParams {
     #[schemars(description = "Exact recurring series id")]
     series_id: Option<String>,
     #[schemars(description = "Maximum results; defaults to 20 and is capped at 200")]
+    #[schemars(range(min = 1, max = 200))]
     limit: Option<u32>,
     #[schemars(description = "Number of results to skip; defaults to 0")]
     offset: Option<u32>,
@@ -46,6 +46,7 @@ struct TranscriptParams {
     #[schemars(description = "Word offset; defaults to 0")]
     offset: Option<u32>,
     #[schemars(description = "Maximum words; defaults to 200 and is capped at 500")]
+    #[schemars(range(min = 1, max = 500))]
     limit: Option<u32>,
 }
 
@@ -54,18 +55,10 @@ struct HistoryParams {
     #[schemars(description = "A meeting id used to resolve its recurring series")]
     meeting_id: String,
     #[schemars(description = "Maximum meetings; defaults to 20 and is capped at 200")]
+    #[schemars(range(min = 1, max = 200))]
     limit: Option<u32>,
-}
-
-#[derive(Debug, Serialize)]
-struct TranscriptPage {
-    meeting_id: String,
-    offset: u32,
-    limit: u32,
-    total_words: usize,
-    next_offset: Option<u32>,
-    text: String,
-    words: Vec<serde_json::Value>,
+    #[schemars(description = "Number of meetings to skip; defaults to 0")]
+    offset: Option<u32>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -92,7 +85,7 @@ impl AnarlogMcpServer {
 #[tool_router]
 impl AnarlogMcpServer {
     #[tool(
-        description = "List recent Anarlog meetings. Use query to narrow by title or meeting id.",
+        description = "List recent Anarlog meetings with pagination metadata. Use query to narrow by title or meeting id, then pass next_offset as offset to continue.",
         annotations(
             read_only_hint = true,
             destructive_hint = false,
@@ -104,18 +97,19 @@ impl AnarlogMcpServer {
         &self,
         Parameters(params): Parameters<ListMeetingsParams>,
     ) -> std::result::Result<CallToolResult, McpError> {
-        let meetings = hypr_db_app::list_sessions(
-            self.db.pool(),
-            hypr_db_app::ListSessions {
-                query: params.query.as_deref(),
-                series_id: params.series_id.as_deref(),
-                limit: params.limit.unwrap_or(DEFAULT_LIST_LIMIT).clamp(1, 200),
-                offset: params.offset.unwrap_or(0),
-            },
+        let page = list_meetings_page(
+            self.db.as_ref(),
+            params.query.as_deref(),
+            params.series_id.as_deref(),
+            params
+                .limit
+                .unwrap_or(DEFAULT_LIST_LIMIT)
+                .clamp(1, MAX_LIST_LIMIT),
+            params.offset.unwrap_or(0),
         )
         .await
-        .map_err(internal_error)?;
-        structured(&meetings)
+        .map_err(command_error)?;
+        structured(&page)
     }
 
     #[tool(
@@ -138,7 +132,7 @@ impl AnarlogMcpServer {
     }
 
     #[tool(
-        description = "Get a bounded page of transcript words and readable text for an Anarlog meeting.",
+        description = "Get a bounded page of transcript words and readable text for an Anarlog meeting. Pass pagination.next_offset as offset to continue.",
         annotations(
             read_only_hint = true,
             destructive_hint = false,
@@ -167,7 +161,7 @@ impl AnarlogMcpServer {
     }
 
     #[tool(
-        description = "List meetings in the same recurring series as the supplied meeting, newest first.",
+        description = "List meetings in the same recurring series as the supplied meeting, newest first, with pagination metadata.",
         annotations(
             read_only_hint = true,
             destructive_hint = false,
@@ -179,15 +173,18 @@ impl AnarlogMcpServer {
         &self,
         Parameters(params): Parameters<HistoryParams>,
     ) -> std::result::Result<CallToolResult, McpError> {
-        ensure_meeting(self.db.as_ref(), &params.meeting_id).await?;
-        let meetings = hypr_db_app::list_recurring_sessions(
-            self.db.pool(),
+        let page = recurring_meetings_page(
+            self.db.as_ref(),
             &params.meeting_id,
-            params.limit.unwrap_or(DEFAULT_LIST_LIMIT).clamp(1, 200),
+            params
+                .limit
+                .unwrap_or(DEFAULT_LIST_LIMIT)
+                .clamp(1, MAX_LIST_LIMIT),
+            params.offset.unwrap_or(0),
         )
         .await
-        .map_err(internal_error)?;
-        structured(&meetings)
+        .map_err(command_error)?;
+        structured(&page)
     }
 }
 
@@ -206,7 +203,7 @@ impl ServerHandler for AnarlogMcpServer {
             env!("CARGO_PKG_VERSION"),
         ))
         .with_instructions(
-            "Read-only access to local Anarlog meetings, notes, summaries, transcripts, participants, action items, and recurring meeting history.",
+            "Read-only, local access to Anarlog meeting data. Start with list_meetings to resolve a meeting_id, then call get_meeting for notes, summaries, participants, and action items. Request transcript pages with get_meeting_transcript and continue with pagination.next_offset; each page is capped at 500 words. Use get_recurring_meeting_history for series context. Never invent meeting ids, access SQLite directly, or claim a write occurred: every tool is idempotent and performs no writes. Documentation: https://anarlog.so/docs",
         )
     }
 
@@ -311,7 +308,7 @@ impl ServerHandler for AnarlogMcpServer {
                     .await
                     .map_err(command_error)?;
                 let page = transcript_page(&meeting_id, &transcripts, offset, limit);
-                ResourceContents::text(page.text, params.uri).with_mime_type("text/plain")
+                ResourceContents::text(page.content.text, params.uri).with_mime_type("text/plain")
             }
             ResourceRequest::Series { series_id } => {
                 let meetings = hypr_db_app::list_sessions(
@@ -377,62 +374,6 @@ async fn ensure_meeting(
             format!("meeting '{meeting_id}' not found"),
             None,
         ))
-    }
-}
-
-fn transcript_page(
-    meeting_id: &str,
-    transcripts: &[Transcript],
-    offset: u32,
-    limit: u32,
-) -> TranscriptPage {
-    let mut words = Vec::new();
-    for transcript in transcripts {
-        for word in &transcript.words {
-            let mut word = word.clone();
-            if let Some(object) = word.as_object_mut() {
-                object.insert(
-                    "transcript_id".to_string(),
-                    serde_json::Value::String(transcript.id.clone()),
-                );
-            }
-            words.push(word);
-        }
-    }
-
-    let total_words = words.len();
-    let offset_usize = offset as usize;
-    let limit = limit.clamp(1, MAX_TRANSCRIPT_LIMIT);
-    let page = words
-        .into_iter()
-        .skip(offset_usize)
-        .take(limit as usize)
-        .collect::<Vec<_>>();
-    let text = if page.is_empty() && offset == 0 {
-        transcripts
-            .iter()
-            .map(|transcript| transcript.text.trim())
-            .filter(|text| !text.is_empty())
-            .collect::<Vec<_>>()
-            .join("\n\n")
-    } else {
-        page.iter()
-            .filter_map(|word| word.get("text").and_then(serde_json::Value::as_str))
-            .map(str::trim)
-            .filter(|text| !text.is_empty())
-            .collect::<Vec<_>>()
-            .join(" ")
-    };
-    let consumed = offset_usize.saturating_add(page.len());
-
-    TranscriptPage {
-        meeting_id: meeting_id.to_string(),
-        offset,
-        limit,
-        total_words,
-        next_offset: (consumed < total_words).then_some(consumed as u32),
-        text,
-        words: page,
     }
 }
 
@@ -515,6 +456,7 @@ fn command_error(error: Error) -> McpError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::Value;
 
     #[test]
     fn parses_supported_resource_uris_and_bounds_transcript_limit() {
@@ -536,38 +478,16 @@ mod tests {
         assert!(parse_resource_uri("file:///tmp/meeting").is_err());
     }
 
-    #[test]
-    fn transcript_page_is_bounded_and_has_next_offset() {
-        let transcript = Transcript {
-            id: "transcript-1".to_string(),
-            source: String::new(),
-            provider: String::new(),
-            model: String::new(),
-            language: "en".to_string(),
-            started_at_ms: 0,
-            ended_at_ms: None,
-            memo: String::new(),
-            text: String::new(),
-            words: vec![
-                serde_json::json!({"text": "one"}),
-                serde_json::json!({"text": "two"}),
-                serde_json::json!({"text": "three"}),
-            ],
-            speaker_hints: Vec::new(),
-        };
-        let page = transcript_page("meeting-1", &[transcript], 1, 1);
-        assert_eq!(page.text, "two");
-        assert_eq!(page.total_words, 3);
-        assert_eq!(page.next_offset, Some(2));
-        assert_eq!(page.words[0]["transcript_id"], "transcript-1");
-    }
-
     #[tokio::test]
     async fn server_advertises_tools_and_resources() {
         let db = Arc::new(hypr_db_core::Db::connect_memory_plain().await.unwrap());
         let info = AnarlogMcpServer::new(db).get_info();
         assert!(info.capabilities.tools.is_some());
         assert!(info.capabilities.resources.is_some());
+        let instructions = info.instructions.unwrap();
+        assert!(instructions.contains("Start with list_meetings"));
+        assert!(instructions.contains("https://anarlog.so/docs"));
+        assert!(instructions.contains("performs no writes"));
     }
 
     #[tokio::test]
@@ -593,25 +513,125 @@ mod tests {
             .unwrap();
 
         let meetings = result.structured_content.unwrap();
-        assert_eq!(meetings[0]["id"], "meeting-1");
-        assert_eq!(meetings[0]["title"], "Planning");
+        assert_eq!(meetings["meetings"][0]["id"], "meeting-1");
+        assert_eq!(meetings["meetings"][0]["title"], "Planning");
+        assert_eq!(meetings["pagination"]["returned"], 1);
+        assert!(meetings["pagination"]["next_offset"].is_null());
     }
 
     #[tokio::test]
     async fn client_server_handshake_lists_tools_and_resources() {
         let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
         hypr_db_app::prepare_schema(&db).await.unwrap();
+        sqlx::query(
+            "INSERT INTO sessions (id, title, started_at) VALUES ('meeting-1', 'Planning', '2026-07-13')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
         let (server_transport, client_transport) = tokio::io::duplex(64 * 1024);
         let server = AnarlogMcpServer::new(Arc::new(db));
+        let info = server.get_info();
         let server_handle = tokio::spawn(async move { server.serve(server_transport).await });
 
         let client = ().serve(client_transport).await.unwrap();
         let tools = client.list_all_tools().await.unwrap();
         let templates = client.list_all_resource_templates().await.unwrap();
+        let resources = client.list_all_resources().await.unwrap();
+        insta::assert_json_snapshot!(
+            "mcp_contract",
+            serde_json::json!({
+                "protocol_version": info.protocol_version,
+                "instructions": info.instructions,
+                "tools": tools,
+                "resource_templates": templates,
+            })
+        );
 
-        assert_eq!(tools.len(), 4);
-        assert!(tools.iter().any(|tool| tool.name == "list_meetings"));
-        assert_eq!(templates.len(), 3);
+        let mut tool_names = tools
+            .iter()
+            .map(|tool| tool.name.to_string())
+            .collect::<Vec<_>>();
+        tool_names.sort();
+        assert_eq!(
+            tool_names,
+            [
+                "get_meeting",
+                "get_meeting_transcript",
+                "get_recurring_meeting_history",
+                "list_meetings",
+            ]
+        );
+        let mcp_docs = include_str!("../../../docs/reference/mcp.mdx");
+        let mcp_skill = include_str!("../../../skills/anarlog/references/mcp.md");
+        for tool_name in &tool_names {
+            assert!(
+                mcp_docs.contains(tool_name),
+                "MCP docs are missing `{tool_name}`"
+            );
+            assert!(
+                mcp_skill.contains(tool_name),
+                "Anarlog skill is missing `{tool_name}`"
+            );
+        }
+        for tool in tools {
+            let properties = tool
+                .input_schema
+                .get("properties")
+                .and_then(Value::as_object)
+                .expect("tool input properties");
+            for parameter in properties.keys() {
+                assert!(
+                    mcp_docs.contains(&format!("`{parameter}`")),
+                    "MCP docs are missing `{parameter}`"
+                );
+            }
+            let annotations = tool.annotations.expect("tool annotations");
+            assert_eq!(annotations.read_only_hint, Some(true));
+            assert_eq!(annotations.destructive_hint, Some(false));
+            assert_eq!(annotations.idempotent_hint, Some(true));
+            assert_eq!(annotations.open_world_hint, Some(false));
+        }
+
+        let mut template_contract = templates
+            .iter()
+            .map(|template| {
+                (
+                    template.raw.name.clone(),
+                    template.raw.uri_template.clone(),
+                    template.annotations.clone(),
+                )
+            })
+            .collect::<Vec<_>>();
+        template_contract.sort_by(|left, right| left.1.cmp(&right.1));
+        assert_eq!(
+            template_contract,
+            [
+                (
+                    "Anarlog meeting".to_string(),
+                    "anarlog://meetings/{meeting_id}".to_string(),
+                    None,
+                ),
+                (
+                    "Anarlog meeting transcript".to_string(),
+                    "anarlog://meetings/{meeting_id}/transcript{?offset,limit}".to_string(),
+                    None,
+                ),
+                (
+                    "Anarlog meeting series".to_string(),
+                    "anarlog://series/{series_id}".to_string(),
+                    None,
+                ),
+            ]
+        );
+        for (_, uri, _) in &template_contract {
+            assert!(mcp_docs.contains(uri), "MCP docs are missing `{uri}`");
+            assert!(mcp_skill.contains(uri), "Anarlog skill is missing `{uri}`");
+        }
+        assert_eq!(resources.len(), 1);
+        assert_eq!(resources[0].raw.name, "Planning");
+        assert_eq!(resources[0].raw.uri, "anarlog://meetings/meeting-1");
+        assert!(resources[0].annotations.is_none());
 
         client.cancel().await.unwrap();
         let server = server_handle.await.unwrap().unwrap();

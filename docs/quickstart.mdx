@@ -1,47 +1,41 @@
 ---
 title: "Quickstart"
-description: "Begin with a guide on the fastest path to a successful outcome"
+description: "Query your first Anarlog meeting from a terminal or agent."
 ---
 
-Describe how someone begins using your product. What is the first thing they need to do? Are there any prerequisites?
-
-A quickstart should take someone from zero to using your product. They'll get a quick win and a sense of what they can accomplish.
+This quickstart installs the current CLI from source and reads a meeting from the local Anarlog database.
 
 ## Prerequisites
 
-Before you begin, you must have:
-
-- Requirement one (for example, Node.js 18+, a free account, an API key)
-- Requirement two (for example, a compatible device, a compatible browser, a compatible operating system)
-
-## Get started
+- [Anarlog desktop](https://anarlog.so/download), opened at least once
+- A recent Rust toolchain with `cargo`
+- Git
 
 <Steps>
-  <Step title="Install">
-    Describe how to install your product or sign up.
-
+  <Step title="Install from source">
     ```bash
-    npm install your-package
+    git clone https://github.com/fastrepl/anarlog.git
+    cd anarlog
+    cargo install --locked --path apps/cli
     ```
   </Step>
-  <Step title="Configure">
-    Describe any setup or configuration needed before first use.
-
+  <Step title="List recent meetings">
     ```bash
-    your-cli init
+    anarlog --json meetings list --limit 5
     ```
+
+    Copy the `id` of the meeting you want to inspect.
   </Step>
-  <Step title="Run it">
-    Show the first thing a user does to see it working.
-
+  <Step title="Read one meeting">
     ```bash
-    your-cli start
+    anarlog --json meetings get MEETING_ID
     ```
+
+    The result contains meeting metadata, the canonical note, generated summaries, participants, and action items.
+  </Step>
+  <Step title="Connect an agent">
+    Configure an MCP client to launch `anarlog mcp`, or give the agent the [Anarlog skill](/agents/skills) so it can fall back to CLI JSON.
   </Step>
 </Steps>
 
-<Tip>
-  Give people a way to get help. This could be a link to a support page, a chat with a customer support agent, or a forum for your product.
-
-  Example: Need help? Reach out to us at [support@yourcompany.com](mailto:support@yourcompany.com).
-</Tip>
+If the CLI cannot locate your database, open Anarlog once or follow [database troubleshooting](/troubleshooting#database-not-found).
