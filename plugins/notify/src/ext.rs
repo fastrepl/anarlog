@@ -1,4 +1,5 @@
-use std::time::Duration;
+use std::collections::{HashMap, HashSet};
+use std::time::{Duration, Instant};
 
 use notify::RecursiveMode;
 use notify_debouncer_full::{DebouncedEvent, new_debouncer};
@@ -10,6 +11,13 @@ use crate::{FileChanged, WatcherState};
 
 const DEBOUNCE_DELAY_MS: u64 = 900;
 const OWN_WRITES_TTL_MS: u128 = (DEBOUNCE_DELAY_MS as u128) * 2 + 200;
+
+fn is_external_path(path: &str, own_writes: &mut HashMap<String, Instant>, now: Instant) -> bool {
+    own_writes.retain(|_, timestamp| {
+        now.saturating_duration_since(*timestamp).as_millis() < OWN_WRITES_TTL_MS
+    });
+    !own_writes.contains_key(path)
+}
 
 pub struct Notify<'a, R: tauri::Runtime, M: tauri::Manager<R>> {
     manager: &'a M,
@@ -40,8 +48,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Notify<'a, R, M> {
             None,
             move |events: Result<Vec<DebouncedEvent>, Vec<notify::Error>>| {
                 if let Ok(events) = events {
-                    let mut changed_paths: std::collections::HashSet<String> =
-                        std::collections::HashSet::new();
+                    let mut changed_paths = HashSet::new();
 
                     for event in events {
                         let should_emit = match &event.kind {
@@ -75,20 +82,15 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Notify<'a, R, M> {
                         }
                     }
 
-                    {
-                        let mut own = own_writes.lock().unwrap();
-                        let now = std::time::Instant::now();
-                        own.retain(|_, ts| now.duration_since(*ts).as_millis() < OWN_WRITES_TTL_MS);
-                    }
-
                     for path in changed_paths {
-                        let skip = {
-                            let own = own_writes.lock().unwrap();
-                            own.contains_key(&path)
+                        let should_emit = {
+                            let mut own = own_writes.lock().unwrap();
+                            is_external_path(&path, &mut own, Instant::now())
                         };
-                        if skip {
+                        if !should_emit {
                             continue;
                         }
+
                         tracing::info!("file_changed: {:?}", path);
                         let _ = FileChanged { path }.emit(&app_handle);
                     }
@@ -140,174 +142,34 @@ impl<R: tauri::Runtime, T: tauri::Manager<R>> NotifyPluginExt<R> for T {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
-    use std::sync::{Arc, Mutex};
-    use std::time::Instant;
 
     #[test]
-    fn test_debounce_constants() {
-        assert_eq!(DEBOUNCE_DELAY_MS, 900);
-        assert_eq!(OWN_WRITES_TTL_MS, 2000);
+    fn detects_recent_own_writes_and_prunes_expired_entries() {
+        let now = Instant::now();
+        let mut own_writes = HashMap::from([
+            (
+                "recent.txt".to_string(),
+                now - Duration::from_millis(OWN_WRITES_TTL_MS as u64 - 1),
+            ),
+            (
+                "expired.txt".to_string(),
+                now - Duration::from_millis(OWN_WRITES_TTL_MS as u64),
+            ),
+        ]);
+
+        assert!(!is_external_path("recent.txt", &mut own_writes, now));
+        assert_eq!(own_writes.len(), 1);
+        assert!(own_writes.contains_key("recent.txt"));
+        assert!(is_external_path("expired.txt", &mut own_writes, now));
+        assert!(is_external_path("external.txt", &mut own_writes, now));
     }
 
     #[test]
-    fn test_own_writes_ttl_formula() {
-        let expected = (DEBOUNCE_DELAY_MS as u128) * 2 + 200;
-        assert_eq!(OWN_WRITES_TTL_MS, expected);
-    }
-
-    #[test]
-    fn test_mark_own_writes_single_path() {
-        let own_writes: Arc<Mutex<HashMap<String, Instant>>> = Arc::new(Mutex::new(HashMap::new()));
-
-        let paths = vec!["test/path.txt".to_string()];
-        {
-            let mut guard = own_writes.lock().unwrap();
-            let now = Instant::now();
-            for path in &paths {
-                guard.insert(path.clone(), now);
-            }
-        }
-
-        let guard = own_writes.lock().unwrap();
-        assert!(guard.contains_key("test/path.txt"));
-        assert_eq!(guard.len(), 1);
-    }
-
-    #[test]
-    fn test_mark_own_writes_multiple_paths() {
-        let own_writes: Arc<Mutex<HashMap<String, Instant>>> = Arc::new(Mutex::new(HashMap::new()));
-
-        let paths = vec![
-            "path/one.txt".to_string(),
-            "path/two.txt".to_string(),
-            "path/three.txt".to_string(),
-        ];
-        {
-            let mut guard = own_writes.lock().unwrap();
-            let now = Instant::now();
-            for path in &paths {
-                guard.insert(path.clone(), now);
-            }
-        }
-
-        let guard = own_writes.lock().unwrap();
-        assert!(guard.contains_key("path/one.txt"));
-        assert!(guard.contains_key("path/two.txt"));
-        assert!(guard.contains_key("path/three.txt"));
-        assert_eq!(guard.len(), 3);
-    }
-
-    #[test]
-    fn test_mark_own_writes_updates_timestamp() {
-        let own_writes: Arc<Mutex<HashMap<String, Instant>>> = Arc::new(Mutex::new(HashMap::new()));
-
-        let path = "test/path.txt".to_string();
-
-        let first_ts = {
-            let mut guard = own_writes.lock().unwrap();
-            let now = Instant::now();
-            guard.insert(path.clone(), now);
-            now
-        };
-
-        std::thread::sleep(std::time::Duration::from_millis(10));
-
-        let second_ts = {
-            let mut guard = own_writes.lock().unwrap();
-            let now = Instant::now();
-            guard.insert(path.clone(), now);
-            now
-        };
-
-        let guard = own_writes.lock().unwrap();
-        let stored_ts = guard.get(&path).unwrap();
-        assert!(*stored_ts > first_ts);
-        assert_eq!(*stored_ts, second_ts);
-    }
-
-    #[test]
-    fn test_own_writes_ttl_cleanup_retains_recent() {
-        let own_writes: Arc<Mutex<HashMap<String, Instant>>> = Arc::new(Mutex::new(HashMap::new()));
-
-        {
-            let mut guard = own_writes.lock().unwrap();
-            let now = Instant::now();
-            guard.insert("recent.txt".to_string(), now);
-        }
-
-        {
-            let mut guard = own_writes.lock().unwrap();
-            let now = Instant::now();
-            guard.retain(|_, ts| now.duration_since(*ts).as_millis() < OWN_WRITES_TTL_MS);
-        }
-
-        let guard = own_writes.lock().unwrap();
-        assert!(guard.contains_key("recent.txt"));
-    }
-
-    #[test]
-    fn test_own_writes_skip_logic() {
-        let own_writes: Arc<Mutex<HashMap<String, Instant>>> = Arc::new(Mutex::new(HashMap::new()));
-
-        {
-            let mut guard = own_writes.lock().unwrap();
-            guard.insert("marked.txt".to_string(), Instant::now());
-        }
-
-        let changed_paths = vec!["marked.txt".to_string(), "not_marked.txt".to_string()];
-        let mut emitted_paths = Vec::new();
-
-        for path in changed_paths {
-            let skip = {
-                let own = own_writes.lock().unwrap();
-                own.contains_key(&path)
-            };
-            if !skip {
-                emitted_paths.push(path);
-            }
-        }
-
-        assert_eq!(emitted_paths.len(), 1);
-        assert_eq!(emitted_paths[0], "not_marked.txt");
-    }
-
-    #[test]
-    fn test_own_writes_empty_paths() {
-        let own_writes: Arc<Mutex<HashMap<String, Instant>>> = Arc::new(Mutex::new(HashMap::new()));
-
-        let paths: Vec<String> = vec![];
-        {
-            let mut guard = own_writes.lock().unwrap();
-            let now = Instant::now();
-            for path in &paths {
-                guard.insert(path.clone(), now);
-            }
-        }
-
-        let guard = own_writes.lock().unwrap();
-        assert!(guard.is_empty());
-    }
-
-    #[test]
-    fn test_own_writes_concurrent_access() {
-        let own_writes: Arc<Mutex<HashMap<String, Instant>>> = Arc::new(Mutex::new(HashMap::new()));
-
-        let own_writes_clone = own_writes.clone();
-        let handle = std::thread::spawn(move || {
-            let mut guard = own_writes_clone.lock().unwrap();
-            guard.insert("thread1.txt".to_string(), Instant::now());
-        });
-
-        {
-            let mut guard = own_writes.lock().unwrap();
-            guard.insert("main.txt".to_string(), Instant::now());
-        }
-
-        handle.join().unwrap();
-
-        let guard = own_writes.lock().unwrap();
-        assert!(guard.contains_key("main.txt"));
-        assert!(guard.contains_key("thread1.txt"));
+    fn recognizes_unmarked_paths() {
+        assert!(is_external_path(
+            "external.txt",
+            &mut HashMap::new(),
+            Instant::now()
+        ));
     }
 }

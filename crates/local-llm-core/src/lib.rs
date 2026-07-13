@@ -56,7 +56,8 @@ pub fn list_downloaded_models(models_dir: &Path) -> Result<Vec<SupportedModel>, 
 pub fn list_custom_models() -> Result<Vec<CustomModelInfo>, Error> {
     #[cfg(target_os = "macos")]
     {
-        let app_data_dir = dirs::data_dir().unwrap();
+        let app_data_dir = dirs::data_dir()
+            .ok_or_else(|| Error::Other("application data directory is unavailable".to_string()))?;
         let gguf_files = hypr_lmstudio::list_models(app_data_dir)?;
 
         let mut custom_models = Vec::new();

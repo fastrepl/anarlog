@@ -54,7 +54,9 @@ impl Provider for OpenRouterProvider {
         stream: bool,
     ) -> Result<serde_json::Value, ProviderError> {
         let mut body = serde_json::to_value(request)?;
-        let obj = body.as_object_mut().unwrap();
+        let obj = body.as_object_mut().ok_or_else(|| {
+            ProviderError::InvalidRequest("chat completion request must be an object".to_string())
+        })?;
 
         let provider_prefs = ProviderPreferences {
             sort: Some(ProviderSortUnion::Simple(ProviderSort::Latency)),
@@ -173,5 +175,45 @@ impl Provider for OpenRouterProvider {
                 }
             }
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::{ChatMessage, Role};
+
+    #[test]
+    fn build_request_replaces_model_with_openrouter_models() {
+        let request = ChatCompletionRequest {
+            model: Some("original-model".to_string()),
+            messages: vec![ChatMessage {
+                role: Role::User,
+                content: Some(serde_json::Value::String("hello".to_string())),
+                extra: serde_json::Map::new(),
+            }],
+            tools: None,
+            tool_choice: None,
+            stream: None,
+            temperature: None,
+            max_tokens: None,
+            extra: serde_json::Map::new(),
+        };
+
+        let body = OpenRouterProvider::default()
+            .build_request(
+                &request,
+                vec!["first-model".to_string(), "second-model".to_string()],
+                true,
+            )
+            .unwrap();
+
+        assert!(body.get("model").is_none());
+        assert_eq!(
+            body.get("models"),
+            Some(&serde_json::json!(["first-model", "second-model"]))
+        );
+        assert_eq!(body.get("stream"), Some(&serde_json::Value::Bool(true)));
+        assert!(body.get("provider").is_some());
     }
 }
