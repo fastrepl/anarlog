@@ -38,13 +38,46 @@ import {
 } from "~/stt/queries";
 
 const CONSENT_CHAT_MESSAGE =
-  "Anarlog is recording and transcribing this meeting. Please reply here if you do not consent.";
+  "I'm using Anarlog, a private meeting notepad, to record and transcribe this meeting. Learn more at https://anarlog.so. Please reply here if you do not consent.";
 
 export async function sendConsentRequestToMeetingChat() {
+  let micAppsResult: Awaited<
+    ReturnType<typeof detectCommands.listMicUsingApplications>
+  >;
+
+  try {
+    micAppsResult = await detectCommands.listMicUsingApplications();
+  } catch (error) {
+    console.warn("[listener] failed to find the mic-active meeting app", error);
+    return;
+  }
+
+  if (micAppsResult.status === "error") {
+    console.warn(
+      "[listener] failed to find the mic-active meeting app",
+      micAppsResult.error,
+    );
+    return;
+  }
+
+  const micActiveBundleIds = [
+    ...new Set(micAppsResult.data.map((app) => app.id.trim()).filter(Boolean)),
+  ];
+  if (micActiveBundleIds.length === 0) {
+    console.warn(
+      "[listener] consent message was not sent",
+      "no mic-active app was found",
+    );
+    return;
+  }
+
   let result: Awaited<ReturnType<typeof detectCommands.sendMeetingChatMessage>>;
 
   try {
-    result = await detectCommands.sendMeetingChatMessage(CONSENT_CHAT_MESSAGE);
+    result = await detectCommands.sendMeetingChatMessage(
+      CONSENT_CHAT_MESSAGE,
+      micActiveBundleIds,
+    );
   } catch (error) {
     console.warn("[listener] failed to send consent message", error);
     return;

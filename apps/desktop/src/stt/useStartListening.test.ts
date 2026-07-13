@@ -27,6 +27,7 @@ const {
   leftSidebarExpanded,
   setLeftSidebarExpandedMock,
   deleteProcessedAudioForRetentionMock,
+  listMicUsingApplicationsMock,
   sendMeetingChatMessageMock,
 } = vi.hoisted(() => ({
   queueAutoEnhanceMock: vi.fn(),
@@ -47,6 +48,7 @@ const {
   leftSidebarExpanded: { value: true },
   setLeftSidebarExpandedMock: vi.fn(),
   deleteProcessedAudioForRetentionMock: vi.fn(),
+  listMicUsingApplicationsMock: vi.fn(),
   sendMeetingChatMessageMock: vi.fn(),
 }));
 
@@ -62,6 +64,7 @@ vi.mock("./contexts", () => ({
 
 vi.mock("@hypr/plugin-detect", () => ({
   commands: {
+    listMicUsingApplications: listMicUsingApplicationsMock,
     sendMeetingChatMessage: sendMeetingChatMessageMock,
   },
 }));
@@ -224,6 +227,10 @@ describe("useStartListening", () => {
       status: "ok",
       data: true,
     });
+    listMicUsingApplicationsMock.mockResolvedValue({
+      status: "ok",
+      data: [{ id: "com.tinyspeck.slackmacgap", name: "Slack" }],
+    });
     sendMeetingChatMessageMock.mockResolvedValue({
       status: "ok",
       data: {
@@ -273,6 +280,7 @@ describe("useStartListening", () => {
 
     expect(setLeftSidebarExpandedMock).not.toHaveBeenCalled();
     expect(sendMeetingChatMessageMock).not.toHaveBeenCalled();
+    expect(listMicUsingApplicationsMock).not.toHaveBeenCalled();
   });
 
   test("reads keywords from the same pre-start snapshot as the transcript memo", async () => {
@@ -597,9 +605,137 @@ describe("useStartListening", () => {
 
     await waitFor(() => {
       expect(sendMeetingChatMessageMock).toHaveBeenCalledWith(
-        "Anarlog is recording and transcribing this meeting. Please reply here if you do not consent.",
+        "I'm using Anarlog, a private meeting notepad, to record and transcribe this meeting. Learn more at https://anarlog.so. Please reply here if you do not consent.",
+        ["com.tinyspeck.slackmacgap"],
       );
     });
+  });
+
+  test("scopes a manual Zoom start without targeting an unrelated Slack Huddle", async () => {
+    useConfigValueMock.mockImplementation((key: string) =>
+      key === "ai_language"
+        ? "en"
+        : key === "consent_auto_send_chat"
+          ? true
+          : [],
+    );
+    listMicUsingApplicationsMock.mockResolvedValue({
+      status: "ok",
+      data: [{ id: "us.zoom.xos", name: "zoom.us" }],
+    });
+
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    await waitFor(() => {
+      expect(sendMeetingChatMessageMock).toHaveBeenCalledWith(
+        expect.stringContaining("https://anarlog.so"),
+        ["us.zoom.xos"],
+      );
+    });
+  });
+
+  test("keeps the Slack scope when Anarlog also appears in the mic-active apps", async () => {
+    useConfigValueMock.mockImplementation((key: string) =>
+      key === "ai_language"
+        ? "en"
+        : key === "consent_auto_send_chat"
+          ? true
+          : [],
+    );
+    listMicUsingApplicationsMock.mockResolvedValue({
+      status: "ok",
+      data: [
+        { id: "com.hyprnote.dev", name: "Anarlog Dev" },
+        { id: "com.tinyspeck.slackmacgap", name: "Slack" },
+      ],
+    });
+
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    await waitFor(() => {
+      expect(sendMeetingChatMessageMock).toHaveBeenCalledWith(
+        expect.stringContaining("https://anarlog.so"),
+        ["com.hyprnote.dev", "com.tinyspeck.slackmacgap"],
+      );
+    });
+  });
+
+  test("passes an ambiguous meeting scope for Rust to reject before AX mutation", async () => {
+    useConfigValueMock.mockImplementation((key: string) =>
+      key === "ai_language"
+        ? "en"
+        : key === "consent_auto_send_chat"
+          ? true
+          : [],
+    );
+    listMicUsingApplicationsMock.mockResolvedValue({
+      status: "ok",
+      data: [
+        { id: "us.zoom.xos", name: "zoom.us" },
+        { id: "com.tinyspeck.slackmacgap", name: "Slack" },
+      ],
+    });
+    sendMeetingChatMessageMock.mockResolvedValue({
+      status: "ok",
+      data: {
+        sent: false,
+        warnings: ["expected exactly one recognized meeting app bundle"],
+      },
+    });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    await waitFor(() => {
+      expect(sendMeetingChatMessageMock).toHaveBeenCalledWith(
+        expect.stringContaining("https://anarlog.so"),
+        ["us.zoom.xos", "com.tinyspeck.slackmacgap"],
+      );
+    });
+    expect(warn).toHaveBeenCalledWith(
+      "[listener] consent message was not sent",
+      ["expected exactly one recognized meeting app bundle"],
+    );
+    warn.mockRestore();
+  });
+
+  test("does not invoke chat mutation when mic-active app lookup fails", async () => {
+    useConfigValueMock.mockImplementation((key: string) =>
+      key === "ai_language"
+        ? "en"
+        : key === "consent_auto_send_chat"
+          ? true
+          : [],
+    );
+    listMicUsingApplicationsMock.mockResolvedValue({
+      status: "error",
+      error: "audio process query failed",
+    });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    await waitFor(() => {
+      expect(listMicUsingApplicationsMock).toHaveBeenCalledTimes(1);
+    });
+    expect(sendMeetingChatMessageMock).not.toHaveBeenCalled();
+    warn.mockRestore();
   });
 
   test("handles a rejected consent chat command", async () => {

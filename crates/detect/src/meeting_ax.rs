@@ -217,7 +217,10 @@ fn validate_meeting_chat_message(message: &str) -> Result<(), &'static str> {
 }
 
 #[cfg(target_os = "macos")]
-pub fn send_meeting_chat_message(message: String) -> MeetingChatSendResult {
+pub fn send_meeting_chat_message(
+    message: String,
+    mic_active_bundle_ids: Vec<String>,
+) -> MeetingChatSendResult {
     if let Err(warning) = validate_meeting_chat_message(&message) {
         return MeetingChatSendResult {
             sent: false,
@@ -227,6 +230,36 @@ pub fn send_meeting_chat_message(message: String) -> MeetingChatSendResult {
             input_label: None,
             send_action: None,
             warnings: vec![warning.to_string()],
+        };
+    }
+
+    let scoped_bundle_id = match unique_recognized_meeting_bundle(&mic_active_bundle_ids) {
+        Ok(bundle_id) => bundle_id,
+        Err(warning) => {
+            return MeetingChatSendResult {
+                sent: false,
+                app: None,
+                platform: MeetingPlatform::Unknown,
+                surface: MeetingSurface::Unknown,
+                input_label: None,
+                send_action: None,
+                warnings: vec![warning],
+            };
+        }
+    };
+    let scoped_platform = classify_bundle(scoped_bundle_id);
+    let scoped_surface = classify_surface(scoped_bundle_id, &scoped_platform);
+    if !supports_meeting_chat_mutation(scoped_bundle_id) {
+        return MeetingChatSendResult {
+            sent: false,
+            app: None,
+            platform: scoped_platform,
+            surface: scoped_surface,
+            input_label: None,
+            send_action: None,
+            warnings: vec![format!(
+                "AX chat mutation is disabled for the mic-active meeting app {scoped_bundle_id}"
+            )],
         };
     }
 
@@ -245,10 +278,7 @@ pub fn send_meeting_chat_message(message: String) -> MeetingChatSendResult {
 
     let mut validated_apps = Vec::new();
     let mut warnings = Vec::new();
-    for (app, pid) in running_meeting_apps()
-        .into_iter()
-        .filter(|(app, _)| supports_meeting_chat_mutation(&app.id))
-    {
+    for (app, pid) in running_apps_for_bundle(scoped_bundle_id) {
         let ax_app = ax::UiElement::with_app_pid(pid);
         let _ = ax_app.set_messaging_timeout_secs(0.6);
         let mut roots = collect_slack_huddle_roots(&ax_app, &mut warnings);
@@ -304,7 +334,10 @@ pub fn send_meeting_chat_message(message: String) -> MeetingChatSendResult {
 }
 
 #[cfg(not(target_os = "macos"))]
-pub fn send_meeting_chat_message(_message: String) -> MeetingChatSendResult {
+pub fn send_meeting_chat_message(
+    _message: String,
+    _mic_active_bundle_ids: Vec<String>,
+) -> MeetingChatSendResult {
     MeetingChatSendResult {
         sent: false,
         app: None,
@@ -317,34 +350,55 @@ pub fn send_meeting_chat_message(_message: String) -> MeetingChatSendResult {
 }
 
 #[cfg(target_os = "macos")]
-fn running_meeting_apps() -> Vec<(MeetingApp, i32)> {
-    let mut seen = HashSet::new();
+fn unique_recognized_meeting_bundle(mic_active_bundle_ids: &[String]) -> Result<&str, String> {
+    let recognized = mic_active_bundle_ids
+        .iter()
+        .map(String::as_str)
+        .filter(|bundle_id| MEETING_APP_BUNDLES.contains(bundle_id))
+        .collect::<HashSet<_>>();
+
+    if recognized.len() != 1 {
+        return Err(format!(
+            "refusing to send because the mic-active apps contain {} recognized meeting app bundles; expected exactly one",
+            recognized.len()
+        ));
+    }
+
+    Ok(recognized.into_iter().next().unwrap())
+}
+
+#[cfg(target_os = "macos")]
+fn running_apps_for_bundle(bundle_id: &str) -> Vec<(MeetingApp, i32)> {
     let mut apps = Vec::new();
+    let bundle = ns::String::with_str(bundle_id);
+    let running = ns::RunningApp::with_bundle_id(&bundle);
 
-    for bundle_id in MEETING_APP_BUNDLES {
-        let bundle = ns::String::with_str(bundle_id);
-        let running = ns::RunningApp::with_bundle_id(&bundle);
+    for app in running.iter() {
+        let pid = app.pid();
+        let name = app
+            .localized_name()
+            .map(|name| name.to_string())
+            .unwrap_or_else(|| bundle_id.to_string());
+        let id = app
+            .bundle_id()
+            .map(|id| id.to_string())
+            .unwrap_or_else(|| bundle_id.to_string());
 
-        for app in running.iter() {
-            let pid = app.pid();
-            if !seen.insert(pid) {
-                continue;
-            }
-
-            let name = app
-                .localized_name()
-                .map(|name| name.to_string())
-                .unwrap_or_else(|| bundle_id.to_string());
-            let id = app
-                .bundle_id()
-                .map(|id| id.to_string())
-                .unwrap_or_else(|| bundle_id.to_string());
-
-            apps.push((MeetingApp { id, name }, pid));
-        }
+        apps.push((MeetingApp { id, name }, pid));
     }
 
     apps
+}
+
+#[cfg(target_os = "macos")]
+fn running_meeting_apps() -> Vec<(MeetingApp, i32)> {
+    let mut seen = HashSet::new();
+
+    MEETING_APP_BUNDLES
+        .iter()
+        .flat_map(|bundle_id| running_apps_for_bundle(bundle_id))
+        .filter(|(_, pid)| seen.insert(*pid))
+        .collect()
 }
 
 #[cfg(target_os = "macos")]
@@ -2323,6 +2377,41 @@ mod tests {
         ] {
             assert!(!supports_meeting_chat_mutation(bundle_id));
         }
+    }
+
+    #[test]
+    fn test_chat_mutation_scope_deduplicates_one_recognized_meeting_app() {
+        let bundle_ids = vec![
+            "com.tinyspeck.slackmacgap".to_string(),
+            "com.tinyspeck.slackmacgap".to_string(),
+            "com.hyprnote.dev".to_string(),
+        ];
+
+        assert_eq!(
+            unique_recognized_meeting_bundle(&bundle_ids),
+            Ok("com.tinyspeck.slackmacgap")
+        );
+    }
+
+    #[test]
+    fn test_chat_mutation_scope_rejects_zero_or_multiple_meeting_apps() {
+        assert!(unique_recognized_meeting_bundle(&[]).is_err());
+        assert!(
+            unique_recognized_meeting_bundle(&[
+                "us.zoom.xos".to_string(),
+                "com.tinyspeck.slackmacgap".to_string(),
+            ])
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn test_zoom_scope_does_not_fall_back_to_an_unrelated_slack_huddle() {
+        let bundle_ids = ["us.zoom.xos".to_string()];
+        let scoped_bundle = unique_recognized_meeting_bundle(&bundle_ids).unwrap();
+
+        assert_eq!(scoped_bundle, "us.zoom.xos");
+        assert!(!supports_meeting_chat_mutation(scoped_bundle));
     }
 
     #[test]

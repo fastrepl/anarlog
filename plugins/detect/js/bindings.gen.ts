@@ -62,9 +62,9 @@ async inspectMeetingAccessibility() : Promise<Result<MeetingAccessibilityInspect
     else return { status: "error", error: e  as any };
 }
 },
-async sendMeetingChatMessage(message: string) : Promise<Result<MeetingChatSendResult, string>> {
+async sendMeetingChatMessage(message: string, micActiveBundleIds: string[]) : Promise<Result<MeetingChatSendResult, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("plugin:detect|send_meeting_chat_message", { message }) };
+    return { status: "ok", data: await TAURI_INVOKE("plugin:detect|send_meeting_chat_message", { message, micActiveBundleIds }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };

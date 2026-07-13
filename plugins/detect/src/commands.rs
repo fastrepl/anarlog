@@ -38,8 +38,12 @@ pub(crate) async fn inspect_meeting_accessibility<R: tauri::Runtime>(
 pub(crate) async fn send_meeting_chat_message<R: tauri::Runtime>(
     _app: tauri::AppHandle<R>,
     message: String,
+    mic_active_bundle_ids: Vec<String>,
 ) -> Result<hypr_detect::MeetingChatSendResult, String> {
-    Ok(hypr_detect::send_meeting_chat_message(message))
+    Ok(hypr_detect::send_meeting_chat_message(
+        message,
+        mic_active_bundle_ids,
+    ))
 }
 
 #[cfg(not(target_os = "macos"))]
