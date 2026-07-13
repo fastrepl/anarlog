@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - .github/workflows/desktop_ci.yaml
+      - apps/cli/**
       - apps/desktop/**
       - plugins/**
       - crates/**
@@ -14,6 +15,7 @@ on:
   pull_request:
     paths:
       - .github/workflows/desktop_ci.yaml
+      - apps/cli/**
       - apps/desktop/**
       - plugins/**
       - crates/**

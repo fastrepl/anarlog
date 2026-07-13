@@ -7,6 +7,7 @@ edition = "2024"
 hypr-db-core = { workspace = true }
 hypr-db-migrate = { workspace = true }
 
+serde = { workspace = true, features = ["derive"] }
 sqlx = { workspace = true, features = ["runtime-tokio", "sqlite", "sqlite-unbundled", "macros"] }
 
 [features]

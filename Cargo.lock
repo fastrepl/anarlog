@@ -359,6 +359,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "anarlog-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "db-app",
+ "db-core",
+ "dirs 6.0.0",
+ "rmcp",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tiptap",
+ "tokio",
+ "url",
+]
+
+[[package]]
 name = "android_system_properties"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4435,6 +4454,7 @@ version = "0.1.0"
 dependencies = [
  "db-core",
  "db-migrate",
+ "serde",
  "sqlx",
  "tokio",
 ]

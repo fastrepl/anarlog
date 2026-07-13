@@ -11,6 +11,7 @@ debug = false
 resolver = "2"
 members = [
   "apps/api",
+  "apps/cli",
   "apps/desktop/src-tauri",
   "crates/*",
   "legacy/*",

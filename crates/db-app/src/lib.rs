@@ -6,6 +6,8 @@ mod cloudsync;
 mod event_ops;
 mod event_types;
 mod legacy_import;
+mod session_ops;
+mod session_types;
 mod template_ops;
 mod template_types;
 
@@ -15,6 +17,8 @@ pub use cloudsync::*;
 pub use event_ops::*;
 pub use event_types::*;
 pub use legacy_import::*;
+pub use session_ops::*;
+pub use session_types::*;
 pub use template_ops::*;
 pub use template_types::*;
 

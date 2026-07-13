@@ -153,6 +153,24 @@ impl Db {
         })
     }
 
+    pub async fn connect_local_read_only(path: impl AsRef<Path>) -> Result<Self, sqlx::Error> {
+        let options = apply_internal_connect_policy(SqliteConnectOptions::new())
+            .filename(path)
+            .read_only(true)
+            .pragma("foreign_keys", "ON")
+            .pragma("query_only", "ON");
+        let (change_notifier, pool_options) = hypr_db_change::ChangeNotifier::new();
+        let pool = pool_options.connect_with(options).await?;
+
+        Ok(Self {
+            cloudsync_enabled: false,
+            cloudsync_path: None,
+            cloudsync_runtime: Arc::new(Mutex::new(CloudsyncRuntimeState::default())),
+            pool,
+            change_notifier,
+        })
+    }
+
     pub async fn connect_memory_plain() -> Result<Self, sqlx::Error> {
         let options =
             apply_internal_connect_policy(SqliteConnectOptions::from_str("sqlite::memory:")?)
@@ -267,6 +285,50 @@ mod tests {
         let db = Db::connect_local_plain(&db_path).await.unwrap();
         assert!(db_path.exists());
         drop(db);
+    }
+
+    #[tokio::test]
+    async fn connect_local_read_only_does_not_create_missing_database() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db_path = tmp.path().join("missing.db");
+
+        let result = Db::connect_local_read_only(&db_path).await;
+
+        assert!(result.is_err());
+        assert!(!db_path.exists());
+    }
+
+    #[tokio::test]
+    async fn connect_local_read_only_rejects_writes() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db_path = tmp.path().join("app.db");
+        let writable = Db::connect_local_plain(&db_path).await.unwrap();
+        sqlx::query("CREATE TABLE records (id TEXT PRIMARY KEY NOT NULL)")
+            .execute(writable.pool())
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO records (id) VALUES ('existing')")
+            .execute(writable.pool())
+            .await
+            .unwrap();
+        writable.pool().close().await;
+
+        let read_only = Db::connect_local_read_only(&db_path).await.unwrap();
+        let rows: Vec<String> = sqlx::query_scalar("SELECT id FROM records ORDER BY id")
+            .fetch_all(read_only.pool())
+            .await
+            .unwrap();
+        let query_only: i64 = sqlx::query_scalar("PRAGMA query_only")
+            .fetch_one(read_only.pool())
+            .await
+            .unwrap();
+        let write_result = sqlx::query("INSERT INTO records (id) VALUES ('rejected')")
+            .execute(read_only.pool())
+            .await;
+
+        assert_eq!(rows, vec!["existing"]);
+        assert_eq!(query_only, 1);
+        assert!(write_result.is_err());
     }
 
     #[tokio::test]
