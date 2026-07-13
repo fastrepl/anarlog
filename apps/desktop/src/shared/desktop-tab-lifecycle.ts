@@ -17,6 +17,7 @@ type InitializeDesktopTabsOptions = {
   restoreRecentlyOpenedSessionIds: (
     set: (ids: string[]) => void,
   ) => Promise<void>;
+  onInitialized?: (() => void) | null;
   onZeroTabs?: (() => void) | null;
   isTauriEnv?: boolean;
 };
@@ -33,6 +34,7 @@ export async function initializeDesktopTabs({
   setRecentlyOpenedSessionIds,
   restorePinnedTabs,
   restoreRecentlyOpenedSessionIds,
+  onInitialized,
   onZeroTabs,
   isTauriEnv = isTauri(),
 }: InitializeDesktopTabsOptions) {
@@ -43,6 +45,7 @@ export async function initializeDesktopTabs({
 
   await restorePinnedTabs();
   await restoreRecentlyOpenedSessionIds(setRecentlyOpenedSessionIds);
+  onInitialized?.();
 
   if (getTabs().length > 0) {
     return;
@@ -86,9 +89,11 @@ export function createSessionTabCloseHandler({
 
 export function useDesktopTabLifecycle({
   onEmpty,
+  onInitialized,
   onZeroTabs,
 }: {
   onEmpty?: (() => void) | null;
+  onInitialized?: (() => void) | null;
   onZeroTabs?: (() => void) | null;
 }) {
   const { registerOnEmpty, registerCanClose, registerOnClose, openNew, pin } =
@@ -110,9 +115,10 @@ export function useDesktopTabLifecycle({
       restorePinnedTabs: () =>
         restorePinnedTabsToStore(openNew, pin, () => useTabs.getState().tabs),
       restoreRecentlyOpenedSessionIds: restoreRecentlyOpenedToStore,
+      onInitialized,
       onZeroTabs,
     });
-  }, [openNew, pin, onZeroTabs]);
+  }, [onInitialized, openNew, pin, onZeroTabs]);
 
   useEffect(() => {
     registerOnEmpty(onEmpty ?? null);

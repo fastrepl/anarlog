@@ -75,6 +75,25 @@ describe("desktop tab lifecycle", () => {
       expect(openNew).not.toHaveBeenCalled();
       expect(onZeroTabs).toHaveBeenCalledTimes(1);
     });
+
+    it("runs startup work even when pinned tabs were restored", async () => {
+      const tabs = [createSessionTab({ id: "restored-session" })];
+      const onInitialized = vi.fn();
+      const onZeroTabs = vi.fn();
+
+      await initializeDesktopTabs({
+        getTabs: () => tabs,
+        setRecentlyOpenedSessionIds: vi.fn(),
+        restorePinnedTabs: vi.fn().mockResolvedValue(undefined),
+        restoreRecentlyOpenedSessionIds: vi.fn().mockResolvedValue(undefined),
+        onInitialized,
+        onZeroTabs,
+        isTauriEnv: true,
+      });
+
+      expect(onInitialized).toHaveBeenCalledTimes(1);
+      expect(onZeroTabs).not.toHaveBeenCalled();
+    });
   });
 
   describe("createSessionTabCloseHandler", () => {

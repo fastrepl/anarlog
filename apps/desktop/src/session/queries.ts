@@ -588,6 +588,7 @@ export function updateSession(
 export async function createSession(
   title = "",
   userId = DEFAULT_USER_ID,
+  initial?: Pick<SessionChanges, "event_json" | "raw_md">,
 ): Promise<string> {
   const sessionId = id();
   const participantId = id();
@@ -597,12 +598,19 @@ export async function createSession(
     {
       sql: `
         INSERT INTO sessions (
-          id, owner_user_id, title, created_at, updated_at, deleted_at
-        ) VALUES (?, ?, ?, ?, ?, NULL)
+          id, owner_user_id, title, event_json, created_at, updated_at,
+          deleted_at
+        ) VALUES (?, ?, ?, ?, ?, ?, NULL)
       `,
-      params: [sessionId, userId, title, now, now],
+      params: [sessionId, userId, title, initial?.event_json ?? "", now, now],
     },
-    createEmptyNoteStatement(sessionId, userId, now),
+    createEmptyNoteStatement(
+      sessionId,
+      userId,
+      now,
+      false,
+      initial?.raw_md ?? "",
+    ),
     {
       sql: `
         INSERT INTO humans (id, owner_user_id, updated_at, deleted_at)
@@ -943,6 +951,7 @@ function createEmptyNoteStatement(
   userId: string,
   now: string,
   onlyIfSessionExists = false,
+  body = "",
 ) {
   return {
     sql: `
@@ -950,12 +959,12 @@ function createEmptyNoteStatement(
         id, session_id, kind, body_format, body, created_by, updated_by,
         created_at, updated_at, deleted_at
       )
-      ${onlyIfSessionExists ? "SELECT ?, ?, 'note', 'prosemirror_json', '', ?, ?, ?, ?, NULL" : "VALUES (?, ?, 'note', 'prosemirror_json', '', ?, ?, ?, ?, NULL)"}
+      ${onlyIfSessionExists ? "SELECT ?, ?, 'note', 'prosemirror_json', ?, ?, ?, ?, ?, NULL" : "VALUES (?, ?, 'note', 'prosemirror_json', ?, ?, ?, ?, ?, NULL)"}
       ${onlyIfSessionExists ? "WHERE EXISTS (SELECT 1 FROM sessions WHERE id = ? AND deleted_at IS NULL)" : ""}
     `,
     params: onlyIfSessionExists
-      ? [sessionId, sessionId, userId, userId, now, now, sessionId]
-      : [sessionId, sessionId, userId, userId, now, now],
+      ? [sessionId, sessionId, body, userId, userId, now, now, sessionId]
+      : [sessionId, sessionId, body, userId, userId, now, now],
   };
 }
 

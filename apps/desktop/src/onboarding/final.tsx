@@ -6,6 +6,10 @@ import { commands as openerCommands } from "@hypr/plugin-opener2";
 import { commands as sfxCommands } from "@hypr/plugin-sfx";
 
 import { OnboardingButton } from "./shared";
+import {
+  getOrCreateWelcomeSession,
+  setPendingWelcomeSession,
+} from "./welcome-note";
 
 import { flushAutomaticRelaunch } from "~/shared/relaunch";
 import { commands } from "~/types/tauri.gen";
@@ -57,7 +61,11 @@ export function FinalDescription() {
   );
 }
 
-export function FinalSection({ onContinue }: { onContinue: () => void }) {
+export function FinalSection({
+  onContinue,
+}: {
+  onContinue: (sessionId: string) => void;
+}) {
   return (
     <OnboardingButton
       className="px-6 py-2 text-sm"
@@ -68,14 +76,19 @@ export function FinalSection({ onContinue }: { onContinue: () => void }) {
   );
 }
 
-export async function finishOnboarding(onContinue?: () => void) {
+export async function finishOnboarding(
+  onContinue?: (sessionId: string) => void,
+) {
   await sfxCommands.stop("BGM").catch(console.error);
+  const welcomeSessionId = await getOrCreateWelcomeSession();
   await new Promise((resolve) => setTimeout(resolve, 100));
   await commands.setOnboardingNeeded(false).catch(console.error);
   await new Promise((resolve) => setTimeout(resolve, 100));
   await analyticsCommands.event({ event: "onboarding_completed" });
+  setPendingWelcomeSession(welcomeSessionId);
   if (await flushAutomaticRelaunch()) {
     return;
   }
-  onContinue?.();
+  setPendingWelcomeSession(null);
+  onContinue?.(welcomeSessionId);
 }

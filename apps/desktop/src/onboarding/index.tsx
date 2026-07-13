@@ -31,19 +31,23 @@ export function TabContentOnboarding({
 }: {
   tab: Extract<Tab, { type: "onboarding" }>;
 }) {
-  const close = useTabs((state) => state.close);
-  const currentTab = useTabs((state) => state.currentTab);
+  const openCurrent = useTabs((state) => state.openCurrent);
 
-  const handleFinish = useCallback(() => {
-    if (currentTab) {
-      close(currentTab);
-    }
-  }, [close, currentTab]);
+  const handleFinish = useCallback(
+    (sessionId: string) => {
+      openCurrent({ type: "sessions", id: sessionId });
+    },
+    [openCurrent],
+  );
 
   return <OnboardingScreen onFinish={handleFinish} />;
 }
 
-function OnboardingScreen({ onFinish }: { onFinish: () => void }) {
+function OnboardingScreen({
+  onFinish,
+}: {
+  onFinish: (sessionId: string) => void;
+}) {
   return (
     <OnboardingScreenContent
       onFinish={onFinish}
@@ -56,7 +60,7 @@ function OnboardingScreen({ onFinish }: { onFinish: () => void }) {
 export function StandaloneOnboardingScreen({
   onFinish,
 }: {
-  onFinish: () => void;
+  onFinish: (sessionId: string) => void;
 }) {
   return (
     <StandaloneWindowShell>
@@ -74,7 +78,7 @@ function OnboardingScreenContent({
   headerClassName,
   headerDragRegion = false,
 }: {
-  onFinish: () => void;
+  onFinish: (sessionId: string) => void;
   headerClassName: string;
   headerDragRegion?: boolean;
 }) {
@@ -129,10 +133,13 @@ function OnboardingScreenContent({
     }
   }, []);
 
-  const handleFinish = useCallback(() => {
-    void queryClient.invalidateQueries({ queryKey: ["onboarding-needed"] });
-    onFinish();
-  }, [onFinish, queryClient]);
+  const handleFinish = useCallback(
+    (sessionId: string) => {
+      void queryClient.invalidateQueries({ queryKey: ["onboarding-needed"] });
+      onFinish(sessionId);
+    },
+    [onFinish, queryClient],
+  );
 
   return (
     <div className="bg-card relative flex h-full min-h-0 flex-col overflow-hidden">

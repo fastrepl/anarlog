@@ -29,6 +29,7 @@ vi.mock("~/db", () => ({
 import {
   addSessionParticipant,
   buildSessionTombstoneStatements,
+  createSession,
   deleteEnhancedNote,
   getOrCreateSessionForEventId,
   isSessionEmpty,
@@ -109,6 +110,22 @@ describe("session SQLite operations", () => {
     expect(statements).toHaveLength(2);
     expect(statements[0].sql).toContain("UPDATE sessions");
     expect(statements[0].params).toContain("Updated title");
+    expect(statements[1].sql).toContain("session_documents");
+    expect(statements[1].params).toContain('{"type":"doc"}');
+  });
+
+  it("creates a session with its initial event and note content atomically", async () => {
+    await createSession("Welcome", "user-1", {
+      event_json: '{"tracking_id":"welcome"}',
+      raw_md: '{"type":"doc"}',
+    });
+
+    const statements = mocks.executeTransaction.mock.calls[0][0] as Array<{
+      sql: string;
+      params: unknown[];
+    }>;
+    expect(statements[0].sql).toContain("event_json");
+    expect(statements[0].params).toContain('{"tracking_id":"welcome"}');
     expect(statements[1].sql).toContain("session_documents");
     expect(statements[1].params).toContain('{"type":"doc"}');
   });
