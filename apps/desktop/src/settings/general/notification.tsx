@@ -238,8 +238,8 @@ export function NotificationSettingsView() {
                           <SelectItem value="10">10 sec</SelectItem>
                           <SelectItem value="15">15 sec</SelectItem>
                           <SelectItem value="30">30 sec</SelectItem>
-                          <SelectItem value="60">60 sec</SelectItem>
-                          <SelectItem value="120">120 sec</SelectItem>
+                          <SelectItem value="60">1 min</SelectItem>
+                          <SelectItem value="120">2 min</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
