@@ -1,22 +1,60 @@
-import type { ReactNode } from "react";
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
+import {
+  showTransientToast,
+  useTransientToast,
+} from "~/sidebar/toast/transient";
 
-import { cn } from "@hypr/utils";
-
-export function SettingsAlert({
-  children,
-  className,
+export function SettingsAlertToast({
+  id,
+  description,
+  variant = "default",
 }: {
-  children: ReactNode;
-  className?: string;
+  id: string;
+  description?: string;
+  variant?: "default" | "error" | "warning";
 }) {
+  if (!description) {
+    return null;
+  }
+
   return (
-    <div
-      className={cn([
-        "bg-alert text-alert-foreground border-alert-border rounded-lg border px-4 py-3 text-sm",
-        className,
-      ])}
-    >
-      {children}
-    </div>
+    <SettingsAlertToastLifecycle
+      key={`${id}:${description}`}
+      id={id}
+      description={description}
+      variant={variant}
+    />
   );
+}
+
+function SettingsAlertToastLifecycle({
+  id,
+  description,
+  variant,
+}: {
+  id: string;
+  description: string;
+  variant: "default" | "error" | "warning";
+}) {
+  useMountEffect(() => {
+    showTransientToast(
+      {
+        id,
+        description,
+        anchor: "main-content-panel",
+        dismissible: true,
+        variant,
+      },
+      { durationMs: null },
+    );
+
+    return () => {
+      const { toast, clearToast } = useTransientToast.getState();
+      if (toast?.id === id) {
+        clearToast(toast.key);
+      }
+    };
+  });
+
+  return null;
 }

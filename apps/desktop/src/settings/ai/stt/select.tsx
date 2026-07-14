@@ -55,7 +55,7 @@ import { useAiProviders } from "~/settings/providers";
 import { useSetSettingValue } from "~/settings/queries";
 import { useConfigValues } from "~/shared/config";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
-import { SettingsAlert } from "~/shared/ui/settings-alert";
+import { SettingsAlertToast } from "~/shared/ui/settings-alert";
 import {
   showTransientToast,
   useTransientToast,
@@ -93,6 +93,11 @@ export function SelectProviderAndModel() {
     : undefined;
   const isConfigured = !!(current_stt_provider && selectedSttModel);
   const hasError = isConfigured && health.status === "error";
+  const alertDescription = !isConfigured
+    ? t`Transcription model is needed to make Anarlog listen to your conversations.`
+    : hasError
+      ? health.message
+      : undefined;
   const selectedProvider = current_stt_provider as ProviderId | undefined;
   const selectedModels = selectedProvider
     ? (configuredProviders[selectedProvider]?.models ?? [])
@@ -152,18 +157,12 @@ export function SelectProviderAndModel() {
   };
   return (
     <div className="flex flex-col gap-4">
-      {!isConfigured && (
-        <SettingsAlert>
-          <Trans>
-            <strong className="font-medium">Transcription model</strong> is
-            needed to make Anarlog listen to your conversations.
-          </Trans>
-        </SettingsAlert>
-      )}
-
-      {hasError && health.message && (
-        <SettingsAlert>{health.message}</SettingsAlert>
-      )}
+      <SettingsAlertToast
+        id="stt-settings-alert"
+        description={alertDescription}
+        variant={hasError ? "error" : "default"}
+      />
+      {!alertDescription && <TranscriptionLanguageWarningToast />}
 
       <h3 className="text-md font-sans font-semibold">
         <Trans>Model being used</Trans>
@@ -291,7 +290,7 @@ const TRANSCRIPTION_LANGUAGE_WARNING_TOAST_ID =
   "transcription-language-warning";
 const dismissedTranscriptionLanguageWarningKeys = new Set<string>();
 
-export function TranscriptionLanguageWarningToast() {
+function TranscriptionLanguageWarningToast() {
   const warningKey = useTranscriptionLanguageWarningKey();
 
   if (

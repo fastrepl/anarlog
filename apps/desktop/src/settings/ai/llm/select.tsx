@@ -44,7 +44,7 @@ import { ModelCombobox } from "~/settings/ai/shared/model-combobox";
 import { useAiProviders } from "~/settings/providers";
 import { useSetSettingValue } from "~/settings/queries";
 import { useConfigValues } from "~/shared/config";
-import { SettingsAlert } from "~/shared/ui/settings-alert";
+import { SettingsAlertToast } from "~/shared/ui/settings-alert";
 
 export function SelectProviderAndModel() {
   const { t } = useLingui();
@@ -68,6 +68,11 @@ export function SelectProviderAndModel() {
     selectedProviderConfigured
   );
   const hasError = isConfigured && health.status === "error";
+  const alertDescription = !isConfigured
+    ? t`Language model is needed to make Anarlog summarize and chat about your conversations.`
+    : hasError
+      ? health.message
+      : undefined;
 
   const handleSelectProvider = useSetSettingValue("current_llm_provider");
   const handleSelectModel = useSetSettingValue("current_llm_model");
@@ -171,18 +176,11 @@ export function SelectProviderAndModel() {
 
   return (
     <div className="flex flex-col gap-4">
-      {!isConfigured && (
-        <SettingsAlert>
-          <Trans>
-            <strong className="font-medium">Language model</strong> is needed to
-            make Anarlog summarize and chat about your conversations.
-          </Trans>
-        </SettingsAlert>
-      )}
-
-      {hasError && health.message && (
-        <SettingsAlert>{health.message}</SettingsAlert>
-      )}
+      <SettingsAlertToast
+        id="llm-settings-alert"
+        description={alertDescription}
+        variant={hasError ? "error" : "default"}
+      />
 
       <h3 className="text-md font-sans font-semibold">
         <Trans>Model being used</Trans>
