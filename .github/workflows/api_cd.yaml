@@ -71,6 +71,7 @@ jobs:
           )
 
           secrets_by_key = {}
+          cloudsync_keys = set()
           for source_path, allowed_keys in sources:
               with open(source_path) as source:
                   for secret in json.load(source):
@@ -78,9 +79,17 @@ jobs:
                       if allowed_keys is not None and key not in allowed_keys:
                           continue
                       value = secret.get("value", "")
+                      if allowed_keys is cloudsync_runtime_keys and value:
+                          cloudsync_keys.add(key)
                       if key in secrets_by_key and secrets_by_key[key] != value:
                           raise ValueError(f"Conflicting Infisical secret: {key}")
                       secrets_by_key[key] = value
+
+          missing_cloudsync_keys = sorted(cloudsync_runtime_keys - cloudsync_keys)
+          if missing_cloudsync_keys:
+              raise ValueError(
+                  "Missing required CloudSync secrets: " + ", ".join(missing_cloudsync_keys)
+              )
 
           with open(sys.argv[-1], "w") as target:
               for key, value in secrets_by_key.items():
