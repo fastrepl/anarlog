@@ -93,6 +93,10 @@ msgstr "Add \"{0}\""
 msgid "Add {0} account"
 msgstr "Add {0} account"
 
+#: src/session/components/note-input/enhanced/config-error.tsx
+msgid "Add API key"
+msgstr "Add API key"
+
 #: src/settings/general/spoken-languages.tsx
 msgid "Add language"
 msgstr "Add language"
@@ -394,7 +398,6 @@ msgid "Complete your purchase"
 msgstr "Complete your purchase"
 
 #: src/session/components/floating/options-menu.tsx
-#: src/session/components/note-input/enhanced/config-error.tsx
 msgid "Configure"
 msgstr "Configure"
 
@@ -718,6 +721,10 @@ msgstr "Generating title..."
 #: src/settings/general/notification.tsx
 msgid "Get notified 5 minutes before calendar events start"
 msgstr "Get notified 5 minutes before calendar events start"
+
+#: src/session/components/note-input/enhanced/config-error.tsx
+msgid "Get Pro"
+msgstr "Get Pro"
 
 #: src/settings/general/account.tsx
 msgid "Get started"
@@ -1504,6 +1511,10 @@ msgstr "Session title"
 msgid "Set as default"
 msgstr "Set as default"
 
+#: src/session/components/note-input/enhanced/config-error.tsx
+msgid "Set up AI summaries"
+msgstr "Set up AI summaries"
+
 #: src/main/empty.tsx
 #: src/sidebar/settings.tsx
 msgid "Settings"
@@ -1632,6 +1643,10 @@ msgstr "Sort options"
 #: src/settings/general/storage/legacy-cleanup.tsx
 msgid "SQLite migration verification is incomplete"
 msgstr "SQLite migration verification is incomplete"
+
+#: src/session/components/note-input/enhanced/config-error.tsx
+msgid "Start a Pro trial or add your own LLM API key to generate a summary from this transcript."
+msgstr "Start a Pro trial or add your own LLM API key to generate a summary from this transcript."
 
 #: src/settings/general/app-settings.tsx
 msgid "Start Anarlog at login"
@@ -1889,30 +1904,6 @@ msgstr "You can"
 msgid "You have an active plan"
 msgstr "You have an active plan"
 
-#: src/session/components/note-input/enhanced/config-error.tsx
-msgid "You need to configure a language model to summarize this meeting"
-msgstr "You need to configure a language model to summarize this meeting"
-
-#: src/session/components/note-input/enhanced/config-error.tsx
-msgid "You need to configure the API key and base URL for your language model provider"
-msgstr "You need to configure the API key and base URL for your language model provider"
-
-#: src/session/components/note-input/enhanced/config-error.tsx
-msgid "You need to configure the API key for your language model provider"
-msgstr "You need to configure the API key for your language model provider"
-
-#: src/session/components/note-input/enhanced/config-error.tsx
-msgid "You need to configure the base URL for your language model provider"
-msgstr "You need to configure the base URL for your language model provider"
-
-#: src/session/components/note-input/enhanced/config-error.tsx
-msgid "You need to select a model to summarize this meeting"
-msgstr "You need to select a model to summarize this meeting"
-
-#: src/session/components/note-input/enhanced/config-error.tsx
-msgid "You need to sign in to use Anarlog's language model"
-msgstr "You need to sign in to use Anarlog's language model"
-
 #: src/onboarding/account/after-login.tsx
 msgid "You're on a Pro trial"
 msgstr "You're on a Pro trial"
@@ -1924,10 +1915,6 @@ msgstr "You're on the <0>{planLabel}</0> plan"
 #: src/settings/general/account.tsx
 msgid "Your Account"
 msgstr "Your Account"
-
-#: src/session/components/note-input/enhanced/config-error.tsx
-msgid "Your Anarlog plan has expired. Configure another language model or renew your plan"
-msgstr "Your Anarlog plan has expired. Configure another language model or renew your plan"
 
 #: src/templates/template-sidebar.tsx
 msgid "Z to A"
