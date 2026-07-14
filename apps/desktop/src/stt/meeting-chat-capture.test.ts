@@ -10,11 +10,13 @@ const {
   persistMeetingChatRecordsMock,
   sonnerToastWarningMock,
   captureSettingState,
+  captureSettingState,
 } = vi.hoisted(() => ({
   captureMeetingChatMessagesMock: vi.fn(),
   listMicUsingApplicationsMock: vi.fn(),
   persistMeetingChatRecordsMock: vi.fn(),
   sonnerToastWarningMock: vi.fn(),
+  captureSettingState: { value: true },
   captureSettingState: { value: true },
 }));
 
@@ -31,6 +33,13 @@ vi.mock("~/stt/meeting-chat-records", () => ({
 
 vi.mock("@hypr/ui/components/ui/toast", () => ({
   sonnerToast: { warning: sonnerToastWarningMock },
+}));
+
+vi.mock("~/settings/queries", () => ({
+  getStoredSettingValues: vi.fn(async () => ({
+    values: { capture_meeting_chat: captureSettingState.value },
+    hasValues: new Set(["capture_meeting_chat"]),
+  })),
 }));
 
 vi.mock("~/settings/queries", () => ({
