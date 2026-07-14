@@ -1,1 +1,1 @@
-https://char.com/docs/developers
+https://docs.anarlog.so

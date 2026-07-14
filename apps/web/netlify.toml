@@ -95,7 +95,7 @@ force = true
 
 [[redirects]]
 from = "https://hyprnote.com/docs/*"
-to = "https://char.com/docs/:splat"
+to = "https://docs.anarlog.so"
 status = 301
 force = true
 

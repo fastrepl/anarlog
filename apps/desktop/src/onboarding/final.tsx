@@ -18,7 +18,7 @@ const SOCIALS = [
   {
     label: "Discord",
     icon: "simple-icons:discord",
-    url: "https://discord.gg/CX8gTH2tj9",
+    url: "https://anarlog.so/discord",
   },
   {
     label: "GitHub",

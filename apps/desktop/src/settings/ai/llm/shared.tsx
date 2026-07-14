@@ -56,8 +56,8 @@ const _PROVIDERS = [
       },
       models: { label: "Available models", url: "https://lmstudio.ai/models" },
       setup: {
-        label: "Setup guide",
-        url: "https://char.com/docs/faq/local-llm-setup/#lm-studio-setup",
+        label: "Anarlog docs",
+        url: "https://docs.anarlog.so",
       },
     },
   },
@@ -75,8 +75,8 @@ const _PROVIDERS = [
       },
       models: { label: "Available models", url: "https://ollama.com/library" },
       setup: {
-        label: "Setup guide",
-        url: "https://char.com/docs/faq/local-llm-setup/#ollama-setup",
+        label: "Anarlog docs",
+        url: "https://docs.anarlog.so",
       },
     },
   },

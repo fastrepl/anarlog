@@ -28,7 +28,7 @@ const _PROVIDERS = [
       />
     ),
     platform: "macos",
-    docsPath: "https://char.com/docs/calendar/apple",
+    docsPath: "https://docs.anarlog.so",
     nangoIntegrationId: undefined,
   },
   {
@@ -38,7 +38,7 @@ const _PROVIDERS = [
     badge: "",
     icon: <Icon icon="logos:google-calendar" width={16} height={16} />,
     platform: "all",
-    docsPath: "https://char.com/docs/calendar/gcal",
+    docsPath: "https://docs.anarlog.so",
     nangoIntegrationId: "google-calendar",
   },
   {
@@ -48,7 +48,7 @@ const _PROVIDERS = [
     badge: "",
     icon: <OutlookIcon size={16} />,
     platform: "all",
-    docsPath: "https://char.com/docs/calendar/outlook",
+    docsPath: "https://docs.anarlog.so",
     nangoIntegrationId: "outlook",
   },
 ] as const satisfies readonly CalendarProvider[];
