@@ -2,6 +2,33 @@ use crate::Store2PluginExt;
 
 const SECURE_STORE_SUFFIX: &str = "secure-store";
 
+fn secure_store_service(identifier: &str) -> String {
+    let identifier = match identifier {
+        "com.hyprnote.dev" => "com.anarlog.dev",
+        "com.hyprnote.staging" => "com.anarlog.staging",
+        "com.hyprnote.stable" | "com.hyprnote.Hyprnote" => "com.anarlog.stable",
+        identifier => identifier,
+    };
+
+    format!("{identifier}.{SECURE_STORE_SUFFIX}")
+}
+
+fn legacy_secret_entry<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    scope: &str,
+    key: &str,
+) -> Result<Option<keyring::Entry>, String> {
+    let legacy_service = format!("{}.{}", app.config().identifier, SECURE_STORE_SUFFIX);
+    if legacy_service == secure_store_service(&app.config().identifier) {
+        return Ok(None);
+    }
+
+    let account = format!("{scope}:{key}");
+    keyring::Entry::new(&legacy_service, &account)
+        .map(Some)
+        .map_err(|error| error.to_string())
+}
+
 fn secret_entry<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     scope: &str,
@@ -11,7 +38,7 @@ fn secret_entry<R: tauri::Runtime>(
         return Err("secure-store scope and key must not be empty".to_string());
     }
 
-    let service = format!("{}.{}", app.config().identifier, SECURE_STORE_SUFFIX);
+    let service = secure_store_service(&app.config().identifier);
     let account = format!("{scope}:{key}");
     keyring::Entry::new(&service, &account).map_err(|error| error.to_string())
 }
@@ -130,7 +157,21 @@ pub(crate) async fn get_secret<R: tauri::Runtime>(
         let entry = secret_entry(&app, &scope, &key)?;
         match entry.get_password() {
             Ok(secret) => Ok(Some(secret)),
-            Err(keyring::Error::NoEntry) => Ok(None),
+            Err(keyring::Error::NoEntry) => {
+                let Some(legacy_entry) = legacy_secret_entry(&app, &scope, &key)? else {
+                    return Ok(None);
+                };
+                match legacy_entry.get_password() {
+                    Ok(secret) => {
+                        if entry.set_password(&secret).is_ok() {
+                            let _ = legacy_entry.delete_credential();
+                        }
+                        Ok(Some(secret))
+                    }
+                    Err(keyring::Error::NoEntry) => Ok(None),
+                    Err(error) => Err(error.to_string()),
+                }
+            }
             Err(error) => Err(error.to_string()),
         }
     })
@@ -150,7 +191,11 @@ pub(crate) async fn set_secret<R: tauri::Runtime>(
         let entry = secret_entry(&app, &scope, &key)?;
         entry
             .set_password(&value)
-            .map_err(|error| error.to_string())
+            .map_err(|error| error.to_string())?;
+        if let Some(legacy_entry) = legacy_secret_entry(&app, &scope, &key)? {
+            let _ = legacy_entry.delete_credential();
+        }
+        Ok(())
     })
     .await
     .map_err(|error| error.to_string())?
@@ -164,12 +209,52 @@ pub(crate) async fn delete_secret<R: tauri::Runtime>(
     key: String,
 ) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
+        if let Some(legacy_entry) = legacy_secret_entry(&app, &scope, &key)? {
+            match legacy_entry.delete_credential() {
+                Ok(()) | Err(keyring::Error::NoEntry) => {}
+                Err(error) => return Err(error.to_string()),
+            }
+        }
         let entry = secret_entry(&app, &scope, &key)?;
         match entry.delete_credential() {
-            Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
-            Err(error) => Err(error.to_string()),
+            Ok(()) | Err(keyring::Error::NoEntry) => {}
+            Err(error) => return Err(error.to_string()),
         }
+        Ok(())
     })
     .await
     .map_err(|error| error.to_string())?
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn uses_anarlog_service_names_for_legacy_bundle_identifiers() {
+        assert_eq!(
+            secure_store_service("com.hyprnote.dev"),
+            "com.anarlog.dev.secure-store"
+        );
+        assert_eq!(
+            secure_store_service("com.hyprnote.staging"),
+            "com.anarlog.staging.secure-store"
+        );
+        assert_eq!(
+            secure_store_service("com.hyprnote.stable"),
+            "com.anarlog.stable.secure-store"
+        );
+        assert_eq!(
+            secure_store_service("com.hyprnote.Hyprnote"),
+            "com.anarlog.stable.secure-store"
+        );
+    }
+
+    #[test]
+    fn preserves_unknown_service_identifiers() {
+        assert_eq!(
+            secure_store_service("com.example.app"),
+            "com.example.app.secure-store"
+        );
+    }
 }
