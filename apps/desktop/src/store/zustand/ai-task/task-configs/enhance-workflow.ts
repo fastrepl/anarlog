@@ -20,6 +20,11 @@ import type { EnhanceImageContext } from "./enhance-images";
 import { createEnhanceValidator } from "./enhance-validator";
 
 import { deterministicGenerationSettings } from "~/ai/model-settings";
+import {
+  hasSummaryTemplateToken,
+  isDefaultSummaryPrompt,
+  renderSummaryPrompt,
+} from "~/shared/summary-prompt";
 import { normalizeBulletPoints } from "~/store/zustand/ai-task/shared/transform_impl";
 import { withEarlyValidationRetry } from "~/store/zustand/ai-task/shared/validate";
 import { assertCanonicalTemplateSections } from "~/templates/codec";
@@ -49,15 +54,25 @@ async function* executeWorkflow(params: {
 }) {
   const { model, args, onProgress, signal } = params;
 
-  const sections = await generateTemplateIfNeeded({
-    model,
-    args,
-    onProgress,
-    signal,
-  });
+  const usesTemplate = hasSummaryTemplateToken(args.customInstructions);
+  const sections = usesTemplate
+    ? await generateTemplateIfNeeded({
+        model,
+        args,
+        onProgress,
+        signal,
+      })
+    : null;
   const argsWithTemplate: TaskArgsMapTransformed["enhance"] = {
     ...args,
-    template: sections ? { title: "", description: null, sections } : null,
+    template:
+      usesTemplate && sections
+        ? {
+            title: args.template?.title ?? "",
+            description: args.template?.description ?? null,
+            sections,
+          }
+        : null,
   };
 
   const system = await getSystemPrompt(argsWithTemplate);
@@ -80,7 +95,10 @@ async function getSystemPrompt(args: TaskArgsMapTransformed["enhance"]) {
   const result = await templateCommands.render({
     enhanceSystem: {
       language: args.language,
-      customInstructions: args.customInstructions,
+      customInstructions: renderSummaryPrompt(
+        args.customInstructions,
+        args.template,
+      ),
     },
   });
 
@@ -250,7 +268,9 @@ async function* generateSummary(params: {
   onProgress({ type: "generating" });
 
   const validator = createEnhanceValidator(args.template, {
-    overrideTemplateFormatting: args.customInstructions.trim().length > 0,
+    overrideTemplateFormatting: !isDefaultSummaryPrompt(
+      args.customInstructions,
+    ),
   });
 
   yield* withEarlyValidationRetry(

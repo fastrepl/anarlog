@@ -8,7 +8,7 @@ import {
   CalendarIcon,
   CogIcon,
   LockIcon,
-  SlidersHorizontalIcon,
+  SmileIcon,
   SparklesIcon,
   type LucideIcon,
   UserIcon,
@@ -101,7 +101,7 @@ export function SettingsNav() {
         {
           id: "personalization",
           label: t`Personalization`,
-          icon: SlidersHorizontalIcon,
+          icon: SmileIcon,
         },
       ],
     },

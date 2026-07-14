@@ -16,6 +16,7 @@ import {
 } from "~/session/content-queries";
 import { modelSupportsImageInput } from "~/settings/ai/shared/model-capabilities";
 import type { SettingValues } from "~/settings/schema";
+import { getTokenAwareSummaryPrompt } from "~/shared/summary-prompt";
 import {
   buildRenderTranscriptRequestFromRows,
   collectAssignedHumanIdsFromTranscriptRows,
@@ -140,7 +141,10 @@ function getLanguage(settingsValues: SettingValues): string | null {
 
 function getCustomInstructions(settingsValues: SettingValues): string {
   const value = settingsValues.custom_summary_instructions;
-  return typeof value === "string" ? value.trim() : "";
+  return getTokenAwareSummaryPrompt(
+    typeof value === "string" ? value : "",
+    settingsValues.custom_summary_instructions_token_aware === true,
+  );
 }
 
 function getOptionalSettingsValue(

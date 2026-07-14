@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { enhanceTransform } from "./enhance-transform";
 
+import { DEFAULT_SUMMARY_PROMPT } from "~/shared/summary-prompt";
+
 const mocks = vi.hoisted(() => ({
   collectEnhanceImageContext: vi.fn(),
   getTemplateById: vi.fn(),
@@ -111,7 +113,7 @@ describe("enhanceTransform.transformArgs", () => {
     ]);
   });
 
-  it("includes custom summary instructions from personalization settings", async () => {
+  it("keeps templates in legacy custom summary instructions", async () => {
     const result = await enhanceTransform.transformArgs(
       { sessionId: "session-1", enhancedNoteId: "note-1" },
       {
@@ -120,7 +122,31 @@ describe("enhanceTransform.transformArgs", () => {
       },
     );
 
+    expect(result.customInstructions).toBe(
+      "Start with decisions.\n\n{{ template }}",
+    );
+  });
+
+  it("allows token-aware custom instructions to ignore templates", async () => {
+    const result = await enhanceTransform.transformArgs(
+      { sessionId: "session-1", enhancedNoteId: "note-1" },
+      {
+        ...settingsValues,
+        custom_summary_instructions: "Start with decisions.",
+        custom_summary_instructions_token_aware: true,
+      },
+    );
+
     expect(result.customInstructions).toBe("Start with decisions.");
+  });
+
+  it("uses the built-in summary prompt when no override is saved", async () => {
+    const result = await enhanceTransform.transformArgs(
+      { sessionId: "session-1", enhancedNoteId: "note-1" },
+      settingsValues,
+    );
+
+    expect(result.customInstructions).toBe(DEFAULT_SUMMARY_PROMPT);
   });
 
   it("falls back to generic enhancement when template loading fails", async () => {

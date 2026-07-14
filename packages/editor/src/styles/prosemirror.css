@@ -16,6 +16,30 @@
 @import "./prosemirror/dark.css";
 @import "./prosemirror/mention.css";
 
+.ProseMirror.prompt-editor {
+  padding-bottom: 0;
+}
+
+.ProseMirror .prompt-token {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid hsl(var(--border));
+  border-radius: 9999px;
+  background: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+  padding: 0.05rem 0.45rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.25rem;
+  vertical-align: baseline;
+  white-space: nowrap;
+}
+
+.ProseMirror .prompt-token.ProseMirror-selectednode {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 1px;
+}
+
 .ProseMirror .is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   float: left;

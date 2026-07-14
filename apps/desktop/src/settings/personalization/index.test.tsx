@@ -8,6 +8,11 @@ import {
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const settingsMocks = vi.hoisted(() => ({
+  setValue: vi.fn(),
+  setValues: vi.fn(),
+}));
+
 vi.mock("@lingui/react/macro", () => ({
   Trans: ({
     children,
@@ -40,24 +45,100 @@ vi.mock("@lingui/react/macro", () => ({
   }),
 }));
 
-import { DictionarySettings, SummaryInstructionsSettings } from "./index";
+vi.mock("@hypr/editor/prompt", async () => {
+  const React = await import("react");
+
+  return {
+    PromptEditor: React.forwardRef(function PromptEditorMock(
+      {
+        ariaLabel,
+        initialValue,
+        onBlur,
+        onChange,
+      }: {
+        ariaLabel: string;
+        initialValue: string;
+        onBlur?: () => void;
+        onChange: (value: string) => void;
+      },
+      ref: React.ForwardedRef<{
+        insertToken: (name: "template") => void;
+        setValue: (value: string) => void;
+      }>,
+    ) {
+      React.useImperativeHandle(ref, () => ({
+        insertToken: () => onChange(`${initialValue}{{ template }}`),
+        setValue: onChange,
+      }));
+
+      return (
+        <textarea
+          aria-label={ariaLabel}
+          value={initialValue}
+          onBlur={onBlur}
+          onChange={(event) => onChange(event.target.value)}
+        />
+      );
+    }),
+  };
+});
+
+vi.mock("~/settings/queries", () => ({
+  useSetSettingValue: () => settingsMocks.setValue,
+  useSetSettingValues: () => settingsMocks.setValues,
+}));
+
+vi.mock("~/shared/config", () => ({
+  useConfigValue: (key: string) =>
+    key === "personalization_dictionary_terms"
+      ? []
+      : key === "custom_summary_instructions_token_aware"
+        ? false
+        : "",
+}));
+
+import {
+  DictionarySettings,
+  SettingsPersonalization,
+  SummaryInstructionsSettings,
+} from "./index";
+
+import { DEFAULT_SUMMARY_PROMPT } from "~/shared/summary-prompt";
+
+describe("SettingsPersonalization", () => {
+  afterEach(() => {
+    cleanup();
+    vi.clearAllMocks();
+  });
+
+  it("shows the dictionary before the summary instructions", () => {
+    render(<SettingsPersonalization />);
+
+    expect(
+      screen
+        .getAllByRole("heading", { level: 2 })
+        .map((heading) => heading.textContent)
+        .slice(-2),
+    ).toEqual(["Dictionary", "Summary instructions"]);
+  });
+});
 
 describe("SummaryInstructionsSettings", () => {
   afterEach(() => {
     cleanup();
   });
 
-  it("explains that instructions take priority over conflicting templates", () => {
+  it("explains how the template chip controls selected templates", () => {
     render(
       <SummaryInstructionsSettings
-        instructions="Keep it brief"
+        instructions={"Keep it brief\n\n{{ template }}"}
         onSave={vi.fn()}
       />,
     );
 
     expect(
       screen.getByText(
-        /These instructions take priority over the selected template when they conflict/,
+        /The Template chip inserts the selected template. Remove it to ignore templates/,
       ),
     ).toBeTruthy();
     expect(
@@ -66,7 +147,24 @@ describe("SummaryInstructionsSettings", () => {
           name: "Summary instructions",
         }) as HTMLTextAreaElement
       ).value,
-    ).toBe("Keep it brief");
+    ).toBe("Keep it brief\n\n{{ template }}");
+  });
+
+  it("disables reset when the built-in prompt is already active", () => {
+    render(
+      <SummaryInstructionsSettings
+        instructions={DEFAULT_SUMMARY_PROMPT}
+        onSave={vi.fn()}
+      />,
+    );
+
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Reset to default",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
   });
 
   it("saves trimmed instructions explicitly", async () => {
@@ -107,7 +205,50 @@ describe("SummaryInstructionsSettings", () => {
           name: "Summary instructions",
         }) as HTMLTextAreaElement
       ).value,
-    ).toBe("");
+    ).toBe(DEFAULT_SUMMARY_PROMPT);
+  });
+
+  it("warns when the template token is removed", () => {
+    render(
+      <SummaryInstructionsSettings
+        instructions="Use headings\n\n{{ template }}"
+        onSave={vi.fn()}
+      />,
+    );
+
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Summary instructions" }),
+      { target: { value: "Do not use headings." } },
+    );
+
+    expect(screen.getByText(/Selected templates will be ignored/)).toBeTruthy();
+    expect(
+      screen.queryByText(/take priority over the selected template/),
+    ).toBeNull();
+    expect(
+      (screen.getByRole("button", { name: "Template" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(false);
+  });
+
+  it("can insert the template token back into the prompt", () => {
+    render(
+      <SummaryInstructionsSettings
+        instructions="Use a short summary. "
+        onSave={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Template" }));
+
+    expect(
+      (
+        screen.getByRole("textbox", {
+          name: "Summary instructions",
+        }) as HTMLTextAreaElement
+      ).value,
+    ).toContain("{{ template }}");
+    expect(screen.queryByText(/Selected templates will be ignored/)).toBeNull();
   });
 });
 

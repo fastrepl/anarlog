@@ -1,6 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   currentTab: { type: "settings", state: { tab: "app" } } as {
@@ -74,6 +74,8 @@ vi.mock("~/store/zustand/tabs", () => ({
 import { SettingsNav } from "./settings";
 
 describe("SettingsNav", () => {
+  afterEach(cleanup);
+
   beforeEach(() => {
     mocks.currentTab = { type: "settings", state: { tab: "app" } };
     mocks.openNew.mockClear();
@@ -100,5 +102,12 @@ describe("SettingsNav", () => {
     ].forEach((label) => {
       expect(screen.getByText(label)).toBeTruthy();
     });
+  });
+
+  it("uses a smile icon for personalization", () => {
+    render(<SettingsNav />);
+
+    const button = screen.getByText("Personalization").closest("button");
+    expect(button?.querySelector(".lucide-smile")).toBeTruthy();
   });
 });

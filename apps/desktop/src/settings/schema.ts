@@ -114,6 +114,11 @@ export const SETTING_DEFINITIONS = {
     path: ["personalization", "custom_summary_instructions"],
     default: "" as string,
   },
+  custom_summary_instructions_token_aware: {
+    type: "boolean",
+    path: ["personalization", "custom_summary_instructions_token_aware"],
+    default: false as boolean,
+  },
   ignored_platforms: {
     type: "string",
     path: ["notification", "ignored_platforms"],

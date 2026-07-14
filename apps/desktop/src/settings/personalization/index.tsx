@@ -1,7 +1,9 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { useForm } from "@tanstack/react-form";
-import { CircleMinusIcon, PlusIcon } from "lucide-react";
+import { BracesIcon, CircleMinusIcon, PlusIcon } from "lucide-react";
+import { useRef } from "react";
 
+import { PromptEditor, type PromptEditorHandle } from "@hypr/editor/prompt";
 import { Button } from "@hypr/ui/components/ui/button";
 import {
   InputGroup,
@@ -9,31 +11,46 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@hypr/ui/components/ui/input-group";
-import { Textarea } from "@hypr/ui/components/ui/textarea";
 import { cn } from "@hypr/utils";
 
 import { SettingsPageTitle } from "~/settings/page-title";
-import { useSetSettingValue } from "~/settings/queries";
+import { useSetSettingValue, useSetSettingValues } from "~/settings/queries";
 import { useConfigValue } from "~/shared/config";
+import {
+  DEFAULT_SUMMARY_PROMPT,
+  getTokenAwareSummaryPrompt,
+  hasSummaryTemplateToken,
+  isDefaultSummaryPrompt,
+} from "~/shared/summary-prompt";
 import { normalizeKeywordList, parseDictionaryTermsText } from "~/stt/keywords";
 
 export function SettingsPersonalization() {
   const terms = useConfigValue("personalization_dictionary_terms");
   const setTerms = useSetSettingValue("personalization_dictionary_terms");
   const summaryInstructions = useConfigValue("custom_summary_instructions");
-  const setSummaryInstructions = useSetSettingValue(
-    "custom_summary_instructions",
+  const summaryInstructionsTokenAware = useConfigValue(
+    "custom_summary_instructions_token_aware",
+  );
+  const setSummarySettings = useSetSettingValues();
+  const editableSummaryInstructions = getTokenAwareSummaryPrompt(
+    summaryInstructions,
+    summaryInstructionsTokenAware,
   );
 
   return (
     <div className="flex flex-col gap-8">
       <SettingsPageTitle title={<Trans>Personalization</Trans>} />
-      <SummaryInstructionsSettings
-        key={summaryInstructions}
-        instructions={summaryInstructions}
-        onSave={setSummaryInstructions}
-      />
       <DictionarySettings terms={terms} onSave={setTerms} />
+      <SummaryInstructionsSettings
+        key={editableSummaryInstructions}
+        instructions={editableSummaryInstructions}
+        onSave={(value) =>
+          setSummarySettings({
+            custom_summary_instructions: value,
+            custom_summary_instructions_token_aware: true,
+          })
+        }
+      />
     </div>
   );
 }
@@ -46,18 +63,23 @@ export function SummaryInstructionsSettings({
   onSave: (value: string) => void;
 }) {
   const { t } = useLingui();
+  const editorRef = useRef<PromptEditorHandle>(null);
+  const savedInstructions = instructions.trim() || DEFAULT_SUMMARY_PROMPT;
   const form = useForm({
-    defaultValues: { instructions },
+    defaultValues: { instructions: savedInstructions },
     onSubmit: ({ value }) => {
-      const nextInstructions = value.instructions.trim();
-      onSave(nextInstructions);
+      const nextInstructions =
+        value.instructions.trim() || DEFAULT_SUMMARY_PROMPT;
+      onSave(isDefaultSummaryPrompt(nextInstructions) ? "" : nextInstructions);
       form.reset({ instructions: nextInstructions });
+      editorRef.current?.setValue(nextInstructions);
     },
   });
 
   const resetToDefault = () => {
     onSave("");
-    form.reset({ instructions: "" });
+    form.reset({ instructions: DEFAULT_SUMMARY_PROMPT });
+    editorRef.current?.setValue(DEFAULT_SUMMARY_PROMPT);
   };
 
   return (
@@ -81,25 +103,67 @@ export function SummaryInstructionsSettings({
       </div>
 
       <form.Field name="instructions">
-        {(field) => (
-          <Textarea
-            aria-label={t`Summary instructions`}
-            className="bg-card min-h-40 resize-y rounded-2xl px-4 py-3 text-sm"
-            maxLength={4000}
-            placeholder={t`Example: Start with a two-sentence overview, then list decisions and action items with owners. Do not use headings.`}
-            value={field.state.value}
-            onChange={(event) => field.handleChange(event.target.value)}
-            onBlur={field.handleBlur}
-          />
-        )}
-      </form.Field>
+        {(field) => {
+          const includesTemplate = hasSummaryTemplateToken(field.state.value);
 
-      <p className="text-muted-foreground text-sm">
-        <Trans>
-          These instructions take priority over the selected template when they
-          conflict. Clear them to use templates as written.
-        </Trans>
-      </p>
+          return (
+            <div className="flex flex-col gap-3">
+              <div className="border-border bg-card overflow-hidden rounded-2xl border">
+                <div className="border-border bg-muted/40 flex items-center justify-between gap-3 border-b px-3 py-2">
+                  <span className="text-muted-foreground text-xs font-medium">
+                    Variables
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 rounded-full px-2.5 text-xs"
+                    disabled={includesTemplate}
+                    onClick={() => editorRef.current?.insertToken("template")}
+                  >
+                    <BracesIcon className="size-3.5" />
+                    Template
+                  </Button>
+                </div>
+                <PromptEditor
+                  ref={editorRef}
+                  ariaLabel={t`Summary instructions`}
+                  className="min-h-40 px-4 py-3 text-sm leading-5"
+                  initialValue={field.state.value}
+                  maxLength={4000}
+                  placeholder={t`Example: Start with a two-sentence overview, then list decisions and action items with owners. Do not use headings.`}
+                  onChange={field.handleChange}
+                  onBlur={field.handleBlur}
+                />
+              </div>
+
+              <p className="text-muted-foreground text-sm">
+                The Template chip inserts the selected template. Remove it to
+                ignore templates and use only these instructions.
+              </p>
+
+              {includesTemplate ? (
+                <p className="text-muted-foreground text-sm">
+                  <Trans>
+                    These instructions take priority over the selected template
+                    when they conflict. Clear them to use templates as written.
+                  </Trans>
+                </p>
+              ) : null}
+
+              {!includesTemplate && field.state.value.trim() ? (
+                <p
+                  role="status"
+                  className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200"
+                >
+                  Template is not included. Selected templates will be ignored
+                  when summaries are generated.
+                </p>
+              ) : null}
+            </div>
+          );
+        }}
+      </form.Field>
 
       <div className="flex items-center justify-end gap-2">
         <form.Subscribe selector={(state) => state.values.instructions}>
@@ -107,7 +171,10 @@ export function SummaryInstructionsSettings({
             <Button
               type="button"
               variant="ghost"
-              disabled={value.length === 0 && instructions.length === 0}
+              disabled={
+                isDefaultSummaryPrompt(value) &&
+                isDefaultSummaryPrompt(instructions)
+              }
               onClick={resetToDefault}
             >
               <Trans>Reset to default</Trans>

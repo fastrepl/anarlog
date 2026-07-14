@@ -11,6 +11,7 @@
     "./node-views": "./src/node-views/index.ts",
     "./note": "./src/note/index.tsx",
     "./plugins": "./src/plugins/index.ts",
+    "./prompt": "./src/prompt/index.tsx",
     "./task-storage": "./src/task-storage.tsx",
     "./tasks": "./src/tasks.ts",
     "./widgets": "./src/widgets/index.ts"
