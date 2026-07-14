@@ -42,7 +42,7 @@ function SettingsAlertToastLifecycle({
         id,
         description,
         anchor: "main-content-panel",
-        dismissible: true,
+        dismissible: false,
         variant,
       },
       { durationMs: null },

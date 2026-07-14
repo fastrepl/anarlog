@@ -28,7 +28,7 @@ describe("SettingsAlertToast", () => {
       id: "settings-alert",
       description: "Provider not configured.",
       anchor: "main-content-panel",
-      dismissible: true,
+      dismissible: false,
       variant: "error",
     });
   });
