@@ -8080,10 +8080,6 @@
     {
       "name": "chatwoot",
       "description": "Chatwoot conversation persistence"
-    },
-    {
-      "name": "sync",
-      "description": "Sync management"
     }
   ]
 }

@@ -370,6 +370,45 @@ describe("AuthProvider", () => {
     );
   });
 
+  it("clears fatal initial storage after the auth subscription initializes", async () => {
+    const fatalError = new Error("invalid refresh token");
+    const initialSession = deferred<{
+      data: { session: null };
+      error: Error;
+    }>();
+    mocks.getSession.mockReturnValue(initialSession.promise);
+    mocks.isFatalSessionError.mockImplementation(
+      (error: unknown) => error === fatalError,
+    );
+
+    renderAuthProvider();
+
+    await waitFor(() => {
+      expect(mocks.authCallback).not.toBeNull();
+    });
+
+    act(() => {
+      mocks.authCallback?.("INITIAL_SESSION", null);
+    });
+
+    await act(async () => {
+      initialSession.resolve({
+        data: { session: null },
+        error: fatalError,
+      });
+      await initialSession.promise;
+    });
+
+    await waitFor(() => {
+      expect(mocks.clearAuthStorage).toHaveBeenCalledTimes(1);
+    });
+
+    expect(mocks.handleCloudsyncAuthChange).toHaveBeenCalledWith(
+      "SIGNED_OUT",
+      null,
+    );
+  });
+
   it("does not run delayed explicit sign-out cleanup after a newer token refresh", async () => {
     const oldSession = makeSession("bound-account");
     const refreshedSession = makeSession("bound-account");

@@ -3543,10 +3543,6 @@
     {
       "description": "Chatwoot conversation persistence",
       "name": "chatwoot"
-    },
-    {
-      "description": "Sync management",
-      "name": "sync"
     }
   ]
 }

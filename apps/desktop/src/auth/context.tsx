@@ -189,6 +189,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Prevents double initSession in React StrictMode, which can cause refresh token races
   const initStartedRef = useRef(false);
   const authTransitionRef = useRef(0);
+  const nonInitialAuthTransitionRef = useRef(0);
   const authTransitionQueueRef = useRef(Promise.resolve());
   const authStorageRevisionRef = useRef(0);
 
@@ -378,13 +379,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!initStartedRef.current) {
       initStartedRef.current = true;
       const initialTransition = authTransitionRef.current;
+      const initialNonInitialTransition = nonInitialAuthTransitionRef.current;
       void loadInitialSession(supabase).then((initial) => {
+        if (initial.clearStorage) {
+          if (
+            initialNonInitialTransition === nonInitialAuthTransitionRef.current
+          ) {
+            void enqueueAuthChange("INITIAL_SESSION", null, true);
+          }
+          return;
+        }
+
         if (initialTransition === authTransitionRef.current) {
-          void enqueueAuthChange(
-            "INITIAL_SESSION",
-            initial.session,
-            initial.clearStorage,
-          );
+          void enqueueAuthChange("INITIAL_SESSION", initial.session);
         }
       });
     }
@@ -392,6 +399,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event !== "INITIAL_SESSION") {
+        nonInitialAuthTransitionRef.current += 1;
+      }
       console.log(
         `[auth] onAuthStateChange: ${event}`,
         session ? `expires_at=${session.expires_at}` : "no session",

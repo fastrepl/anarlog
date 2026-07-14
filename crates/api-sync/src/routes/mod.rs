@@ -40,13 +40,7 @@ struct CreateTokenResponse {
 }
 
 #[derive(OpenApi)]
-#[openapi(
-    paths(create_credentials),
-    components(schemas(CloudsyncCredentials)),
-    tags(
-        (name = "sync", description = "Sync management")
-    )
-)]
+#[openapi(paths(create_credentials), components(schemas(CloudsyncCredentials)))]
 pub struct ApiDoc;
 
 pub fn openapi() -> utoipa::openapi::OpenApi {
