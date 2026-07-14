@@ -118,7 +118,7 @@ async configureCloudsync(configJson: string) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async claimCloudsyncAccount(accountUserId: string) : Promise<Result<null, string>> {
+async claimCloudsyncAccount(accountUserId: string) : Promise<Result<boolean, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:db|claim_cloudsync_account", { accountUserId }) };
 } catch (e) {
@@ -126,7 +126,7 @@ async claimCloudsyncAccount(accountUserId: string) : Promise<Result<null, string
     else return { status: "error", error: e  as any };
 }
 },
-async configureCloudsyncToken(databaseId: string, token: string, workspaceId: string) : Promise<Result<null, string>> {
+async configureCloudsyncToken(databaseId: string, token: string, workspaceId: string) : Promise<Result<boolean, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:db|configure_cloudsync_token", { databaseId, token, workspaceId }) };
 } catch (e) {

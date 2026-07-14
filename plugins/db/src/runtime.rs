@@ -136,10 +136,10 @@ impl PluginDbRuntime {
         database_id: String,
         token: String,
         workspace_id: String,
-    ) -> Result<()> {
-        self.ensure_app_schema().await?;
-        self.db.cloudsync_suspend().await?;
-        hypr_db_app::claim_cloudsync_workspace(self.db.pool(), &workspace_id).await?;
+    ) -> Result<bool> {
+        if !self.claim_cloudsync_account(workspace_id).await? {
+            return Ok(false);
+        }
 
         self.apply_cloudsync_config_fail_closed(hypr_db_core::CloudsyncRuntimeConfig {
             connection_string: database_id,
@@ -149,14 +149,18 @@ impl PluginDbRuntime {
             wait_ms: Some(5_000),
             max_retries: Some(3),
         })
-        .await
+        .await?;
+        Ok(true)
     }
 
-    pub async fn claim_cloudsync_account(&self, account_user_id: String) -> Result<()> {
+    pub async fn claim_cloudsync_account(&self, account_user_id: String) -> Result<bool> {
         self.ensure_app_schema().await?;
         self.db.cloudsync_suspend().await?;
-        hypr_db_app::claim_cloudsync_workspace(self.db.pool(), &account_user_id).await?;
-        Ok(())
+        match hypr_db_app::claim_cloudsync_workspace(self.db.pool(), &account_user_id).await {
+            Ok(()) => Ok(true),
+            Err(hypr_db_app::CloudsyncWorkspaceError::AccountMismatch) => Ok(false),
+            Err(error) => Err(error.into()),
+        }
     }
 
     async fn apply_cloudsync_config_fail_closed(

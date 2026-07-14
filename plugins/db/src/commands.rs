@@ -179,7 +179,7 @@ pub(crate) async fn configure_cloudsync_token(
     database_id: String,
     token: String,
     workspace_id: String,
-) -> Result<(), String> {
+) -> Result<bool, String> {
     state
         .configure_cloudsync_token(database_id, token, workspace_id)
         .await
@@ -191,7 +191,7 @@ pub(crate) async fn configure_cloudsync_token(
 pub(crate) async fn claim_cloudsync_account(
     state: tauri::State<'_, ManagedState>,
     account_user_id: String,
-) -> Result<(), String> {
+) -> Result<bool, String> {
     state
         .claim_cloudsync_account(account_user_id)
         .await

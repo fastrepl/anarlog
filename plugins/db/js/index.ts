@@ -169,7 +169,7 @@ export async function configureCloudsyncToken(
   databaseId: string,
   token: string,
   workspaceId: string,
-): Promise<void> {
+): Promise<boolean> {
   return invoke("plugin:db|configure_cloudsync_token", {
     databaseId,
     token,
@@ -179,7 +179,7 @@ export async function configureCloudsyncToken(
 
 export async function claimCloudsyncAccount(
   accountUserId: string,
-): Promise<void> {
+): Promise<boolean> {
   return invoke("plugin:db|claim_cloudsync_account", { accountUserId });
 }
 

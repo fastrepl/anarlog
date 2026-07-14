@@ -538,14 +538,16 @@ mod test {
         .await
         .unwrap();
 
-        runtime
-            .configure_cloudsync_token(
-                "managed-database-id".to_string(),
-                "token".to_string(),
-                "user-a".to_string(),
-            )
-            .await
-            .unwrap();
+        assert!(
+            runtime
+                .configure_cloudsync_token(
+                    "managed-database-id".to_string(),
+                    "token".to_string(),
+                    "user-a".to_string(),
+                )
+                .await
+                .unwrap()
+        );
 
         let workspace_id: String =
             sqlx::query_scalar("SELECT workspace_id FROM sessions WHERE id = 'session'")
@@ -579,10 +581,12 @@ mod test {
         .await
         .unwrap();
 
-        runtime
-            .claim_cloudsync_account("user-a".to_string())
-            .await
-            .unwrap();
+        assert!(
+            runtime
+                .claim_cloudsync_account("user-a".to_string())
+                .await
+                .unwrap()
+        );
 
         let binding: (String, String) = sqlx::query_as(
             "SELECT json_extract(value_json, '$.workspace_id'),
@@ -600,45 +604,59 @@ mod test {
 
         assert_eq!(binding, ("user-a".to_string(), "user-a".to_string()));
         assert_eq!(workspace_id, "user-a");
-        runtime
-            .claim_cloudsync_account("user-a".to_string())
-            .await
-            .unwrap();
         assert!(
             runtime
+                .claim_cloudsync_account("user-a".to_string())
+                .await
+                .unwrap()
+        );
+        assert!(
+            !runtime
                 .claim_cloudsync_account("user-b".to_string())
                 .await
-                .unwrap_err()
-                .to_string()
-                .contains("different account")
+                .unwrap()
         );
     }
 
     #[tokio::test]
-    async fn account_switch_leaves_cloudsync_suspended() {
+    async fn account_switch_is_rejected_and_leaves_cloudsync_suspended() {
         let (_dir, runtime) = setup_runtime().await;
-        runtime
-            .configure_cloudsync_token(
-                "managed-database-id".to_string(),
-                "token-a".to_string(),
-                "user-a".to_string(),
-            )
-            .await
-            .unwrap();
+        assert!(
+            runtime
+                .configure_cloudsync_token(
+                    "managed-database-id".to_string(),
+                    "token-a".to_string(),
+                    "user-a".to_string(),
+                )
+                .await
+                .unwrap()
+        );
 
-        let error = runtime
+        let configured = runtime
             .configure_cloudsync_token(
                 "managed-database-id".to_string(),
                 "token-b".to_string(),
                 "user-b".to_string(),
             )
             .await
-            .unwrap_err();
+            .unwrap();
 
-        assert!(error.to_string().contains("different account"));
+        assert!(!configured);
         assert_eq!(
             runtime.cloudsync_status().await.unwrap()["configured"],
             false
+        );
+    }
+
+    #[tokio::test]
+    async fn invalid_account_claim_remains_an_error() {
+        let (_dir, runtime) = setup_runtime().await;
+
+        assert!(
+            runtime
+                .claim_cloudsync_account(" ".to_string())
+                .await
+                .is_err()
         );
     }
 

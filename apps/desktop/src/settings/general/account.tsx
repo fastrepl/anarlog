@@ -20,6 +20,7 @@ import {
   type TierAction,
 } from "@hypr/pricing";
 import { Button } from "@hypr/ui/components/ui/button";
+import { sonnerToast } from "@hypr/ui/components/ui/toast";
 import { cn } from "@hypr/utils";
 
 import { useAuth } from "~/auth";
@@ -52,6 +53,9 @@ export function SettingsAccount() {
 
   const signOutMutation = useMutation({
     mutationFn: async () => {
+      await auth?.signOut();
+    },
+    onSuccess: () => {
       void analyticsCommands.event({
         event: "user_signed_out",
       });
@@ -60,8 +64,12 @@ export function SettingsAccount() {
           is_signed_up: false,
         },
       });
-
-      await auth?.signOut();
+    },
+    onError: (error) => {
+      const message = String(error).includes("unsent local changes")
+        ? t`Sync your changes before signing out.`
+        : t`Anarlog couldn't sign you out. Try again.`;
+      sonnerToast.error(message);
     },
   });
 

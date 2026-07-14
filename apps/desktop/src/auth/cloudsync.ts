@@ -1,8 +1,8 @@
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 
 import {
-  claimCloudsyncAccount,
   configureCloudsyncToken,
+  logoutCloudsync,
   suspendCloudsync,
 } from "@hypr/plugin-db";
 
@@ -11,8 +11,6 @@ import { env } from "~/env";
 const REFRESH_LEAD_MS = 2 * 60 * 1000;
 const RETRY_DELAY_MS = 60 * 1000;
 const MIN_REFRESH_DELAY_MS = 1000;
-const ACCOUNT_MISMATCH_ERROR =
-  "this local database is already bound to a different account";
 
 export type CloudsyncAuthChangeResult = "ok" | "account_mismatch";
 
@@ -41,9 +39,12 @@ function beginTransition() {
   return generation;
 }
 
-function enqueuePluginOperation(operation: () => Promise<void>) {
+function enqueuePluginOperation<T>(operation: () => Promise<T>) {
   const next = pluginOperation.then(operation, operation);
-  pluginOperation = next.catch(() => {});
+  pluginOperation = next.then(
+    () => {},
+    () => {},
+  );
   return next;
 }
 
@@ -103,23 +104,6 @@ function scheduleExchange(
 
     void activateCloudsync(session);
   }, delayMs);
-}
-
-function isAccountMismatchError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error);
-  return message.includes(ACCOUNT_MISMATCH_ERROR);
-}
-
-export async function canAdmitCloudsyncAccount(
-  accountUserId: string,
-): Promise<boolean> {
-  try {
-    await claimCloudsyncAccount(accountUserId);
-    return true;
-  } catch {
-    console.warn("[cloudsync] local workspace binding could not be claimed");
-    return false;
-  }
 }
 
 async function activateCloudsync(
@@ -228,21 +212,34 @@ async function activateCloudsync(
   }
 
   try {
-    await enqueuePluginOperation(async () => {
+    const configured = await enqueuePluginOperation(async () => {
       if (activeGeneration !== generation) {
-        return;
+        return true;
       }
 
-      await configureCloudsyncToken(
+      const didConfigure = await configureCloudsyncToken(
         credentials.databaseId,
         credentials.token,
         credentials.workspaceId,
       );
 
       if (activeGeneration !== generation) {
-        await suspendCloudsync();
+        if (didConfigure) {
+          await suspendCloudsync();
+        }
       }
+
+      return didConfigure;
     });
+
+    if (activeGeneration !== generation) {
+      return "ok";
+    }
+
+    if (!configured) {
+      console.warn("[cloudsync] local database belongs to another account");
+      return "account_mismatch";
+    }
   } catch (error) {
     if (activeGeneration !== generation) {
       return "ok";
@@ -252,11 +249,6 @@ async function activateCloudsync(
       await enqueuePluginOperation(suspendCloudsync);
     } catch {
       console.warn("[cloudsync] local sync suspension failed");
-    }
-
-    if (isAccountMismatchError(error)) {
-      console.warn("[cloudsync] local database belongs to another account");
-      return "account_mismatch";
     }
 
     console.warn("[cloudsync] local sync configuration failed; retrying");
@@ -287,6 +279,17 @@ async function suspendCloudsyncSession(): Promise<void> {
   }
 }
 
+export async function prepareCloudsyncSignOut(session: Session): Promise<void> {
+  const activeGeneration = beginTransition();
+
+  try {
+    await enqueuePluginOperation(() => logoutCloudsync(false));
+  } catch (error) {
+    scheduleExchange(session, activeGeneration, MIN_REFRESH_DELAY_MS);
+    throw error;
+  }
+}
+
 export async function handleCloudsyncAuthChange(
   event: AuthChangeEvent,
   session: Session | null,
@@ -299,7 +302,8 @@ export async function handleCloudsyncAuthChange(
   if (
     event === "SIGNED_IN" ||
     event === "INITIAL_SESSION" ||
-    event === "TOKEN_REFRESHED"
+    event === "TOKEN_REFRESHED" ||
+    event === "USER_UPDATED"
   ) {
     return activateCloudsync(session);
   }

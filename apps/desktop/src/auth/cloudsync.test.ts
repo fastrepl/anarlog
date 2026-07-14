@@ -2,14 +2,14 @@ import type { Session } from "@supabase/supabase-js";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import {
-  claimCloudsyncAccount,
   configureCloudsyncToken,
+  logoutCloudsync,
   suspendCloudsync,
 } from "@hypr/plugin-db";
 
 import {
-  canAdmitCloudsyncAccount,
   handleCloudsyncAuthChange,
+  prepareCloudsyncSignOut,
 } from "./cloudsync";
 
 vi.mock("~/env", () => ({
@@ -48,7 +48,8 @@ describe("CloudSync auth lifecycle", () => {
     vi.setSystemTime(NOW);
     await handleCloudsyncAuthChange("SIGNED_OUT", null);
     vi.clearAllMocks();
-    vi.mocked(claimCloudsyncAccount).mockResolvedValue(undefined);
+    vi.mocked(configureCloudsyncToken).mockResolvedValue(true);
+    vi.mocked(logoutCloudsync).mockResolvedValue(undefined);
   });
 
   afterEach(async () => {
@@ -189,36 +190,13 @@ describe("CloudSync auth lifecycle", () => {
     );
     vi.spyOn(console, "warn").mockImplementation(() => {});
 
-    await handleCloudsyncAuthChange("SIGNED_IN", session());
+    await expect(
+      handleCloudsyncAuthChange("SIGNED_IN", session()),
+    ).resolves.toBe("ok");
+    await vi.advanceTimersByTimeAsync(60 * 1000);
 
-    expect(suspendCloudsync).toHaveBeenCalledTimes(2);
-  });
-
-  test("rejects the account when the local database is bound elsewhere", async () => {
-    vi.mocked(claimCloudsyncAccount).mockRejectedValueOnce(
-      new Error("this local database is already bound to a different account"),
-    );
-
-    await expect(canAdmitCloudsyncAccount("different-user")).resolves.toBe(
-      false,
-    );
-
-    expect(claimCloudsyncAccount).toHaveBeenCalledWith("different-user");
-  });
-
-  test("claims and admits the account without requiring the network", async () => {
-    await expect(canAdmitCloudsyncAccount("user-id")).resolves.toBe(true);
-
-    expect(claimCloudsyncAccount).toHaveBeenCalledWith("user-id");
-  });
-
-  test("fails closed when the local workspace binding cannot be claimed", async () => {
-    vi.mocked(claimCloudsyncAccount).mockRejectedValueOnce(
-      new Error("database unavailable"),
-    );
-    vi.spyOn(console, "warn").mockImplementation(() => {});
-
-    await expect(canAdmitCloudsyncAccount("user-id")).resolves.toBe(false);
+    expect(configureCloudsyncToken).toHaveBeenCalledTimes(2);
+    expect(suspendCloudsync).toHaveBeenCalledTimes(3);
   });
 
   test("reports the durable account mismatch without retrying", async () => {
@@ -226,9 +204,7 @@ describe("CloudSync auth lifecycle", () => {
       "fetch",
       vi.fn(() => Promise.resolve(credentialsResponse())),
     );
-    vi.mocked(configureCloudsyncToken).mockRejectedValueOnce(
-      new Error("this local database is already bound to a different account"),
-    );
+    vi.mocked(configureCloudsyncToken).mockResolvedValueOnce(false);
     vi.spyOn(console, "warn").mockImplementation(() => {});
 
     await expect(
@@ -237,7 +213,51 @@ describe("CloudSync auth lifecycle", () => {
     await vi.advanceTimersByTimeAsync(60 * 1000);
 
     expect(configureCloudsyncToken).toHaveBeenCalledTimes(1);
-    expect(suspendCloudsync).toHaveBeenCalledTimes(2);
+    expect(suspendCloudsync).toHaveBeenCalledTimes(1);
+  });
+
+  test("restarts sync after the authenticated user is updated", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(credentialsResponse())),
+    );
+
+    await handleCloudsyncAuthChange("USER_UPDATED", session());
+
+    expect(configureCloudsyncToken).toHaveBeenCalledWith(
+      "database-id",
+      "sqlite-token",
+      "user-id",
+    );
+    expect(suspendCloudsync).toHaveBeenCalledTimes(1);
+  });
+
+  test("checks for unsent changes before signing out", async () => {
+    const fetchMock = vi.fn(() => Promise.resolve(credentialsResponse()));
+    vi.stubGlobal("fetch", fetchMock);
+    await handleCloudsyncAuthChange("SIGNED_IN", session());
+
+    await prepareCloudsyncSignOut(session());
+    await vi.advanceTimersByTimeAsync(15 * 60 * 1000);
+
+    expect(logoutCloudsync).toHaveBeenCalledWith(false);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  test("resumes token refresh when guarded sign-out is rejected", async () => {
+    const fetchMock = vi.fn(() => Promise.resolve(credentialsResponse()));
+    vi.stubGlobal("fetch", fetchMock);
+    vi.mocked(logoutCloudsync).mockRejectedValueOnce(
+      new Error("cloudsync has unsent local changes"),
+    );
+
+    await expect(prepareCloudsyncSignOut(session())).rejects.toThrow(
+      "unsent local changes",
+    );
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(configureCloudsyncToken).toHaveBeenCalledTimes(1);
   });
 
   test("retries a transient exchange failure without rejecting auth", async () => {
