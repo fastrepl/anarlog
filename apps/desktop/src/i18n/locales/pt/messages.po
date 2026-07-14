@@ -177,6 +177,10 @@ msgstr ""
 msgid "Anarlog could not verify the migration status"
 msgstr ""
 
+#: src/settings/general/account.tsx
+msgid "Anarlog couldn't sign you out. Try again."
+msgstr ""
+
 #: src/onboarding/index.tsx
 msgid "Anarlog needs access to your microphone and system audio to record and transcribe your meetings"
 msgstr ""
@@ -1721,6 +1725,10 @@ msgstr ""
 
 #: src/templates/template-icon-picker.tsx
 msgid "Symbols"
+msgstr ""
+
+#: src/settings/general/account.tsx
+msgid "Sync your changes before signing out."
 msgstr ""
 
 #: src/settings/general/theme.tsx

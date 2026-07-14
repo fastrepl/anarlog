@@ -4,7 +4,9 @@ use db_app::{
     claim_cloudsync_workspace, cloudsync_table_registry, ensure_cloudsync_workspace_binding,
     prepare_schema,
 };
-use hypr_db_core::{CloudsyncAuth, CloudsyncRuntimeConfig, Db, DbOpenOptions, DbStorage};
+use hypr_db_core::{
+    CloudsyncAuth, CloudsyncRuntimeConfig, CloudsyncRuntimeError, Db, DbOpenOptions, DbStorage,
+};
 use sqlx::{AssertSqlSafe, SqlitePool};
 
 const SYNC_TIMEOUT: Duration = Duration::from_secs(90);
@@ -27,7 +29,7 @@ fn cloudsync_config(auth: CloudsyncAuth, wait_ms: i64, max_retries: i64) -> Clou
             .expect("ANARLOG_CLOUDSYNC_DATABASE_ID must be set"),
         auth,
         tables: cloudsync_table_registry().to_vec(),
-        sync_interval_ms: 300_000,
+        sync_interval_ms: 86_400_000,
         wait_ms: Some(wait_ms),
         max_retries: Some(max_retries),
     }
@@ -289,6 +291,16 @@ async fn row_count(pool: &SqlitePool, table: &str, id: &str, workspace_id: &str)
     )))
     .bind(id)
     .bind(workspace_id)
+    .fetch_one(pool)
+    .await
+    .unwrap()
+}
+
+async fn row_count_by_id(pool: &SqlitePool, table: &str, id: &str) -> i64 {
+    sqlx::query_scalar(AssertSqlSafe(format!(
+        "SELECT COUNT(*) FROM {table} WHERE id = ?"
+    )))
+    .bind(id)
     .fetch_one(pool)
     .await
     .unwrap()
@@ -758,6 +770,274 @@ async fn core_session_syncs_between_two_clients() {
         .await
         .expect("second client stop timed out")
         .unwrap();
+}
+
+#[tokio::test]
+#[ignore = "external smoke test only; creates four dev devices and requires two short-lived access tokens"]
+async fn access_tokens_sync_two_clients_and_isolate_workspace() {
+    let workspace_a = std::env::var("ANARLOG_CLOUDSYNC_WORKSPACE_A")
+        .expect("ANARLOG_CLOUDSYNC_WORKSPACE_A must be set");
+    let workspace_b = std::env::var("ANARLOG_CLOUDSYNC_WORKSPACE_B")
+        .expect("ANARLOG_CLOUDSYNC_WORKSPACE_B must be set");
+    assert_ne!(workspace_a, workspace_b);
+
+    let token_a =
+        std::env::var("ANARLOG_CLOUDSYNC_TOKEN_A").expect("ANARLOG_CLOUDSYNC_TOKEN_A must be set");
+    let token_b =
+        std::env::var("ANARLOG_CLOUDSYNC_TOKEN_B").expect("ANARLOG_CLOUDSYNC_TOKEN_B must be set");
+    let auth_a = || CloudsyncAuth::Token {
+        token: token_a.clone(),
+    };
+    let db_a1 = setup_db(auth_a(), Some(&workspace_a)).await;
+    let db_a2 = setup_db(auth_a(), Some(&workspace_a)).await;
+    let db_b = setup_db(
+        CloudsyncAuth::Token {
+            token: token_b.clone(),
+        },
+        Some(&workspace_b),
+    )
+    .await;
+
+    let marker = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let session_a: String = sqlx::query_scalar("SELECT cloudsync_uuid()")
+        .fetch_one(db_a1.pool())
+        .await
+        .unwrap();
+    let title_a = format!("anarlog-smoke-a-{marker}");
+    sqlx::query(
+        "INSERT INTO sessions (id, workspace_id, owner_user_id, title) VALUES (?, ?, ?, ?)",
+    )
+    .bind(&session_a)
+    .bind(&workspace_a)
+    .bind(&workspace_a)
+    .bind(&title_a)
+    .execute(db_a1.pool())
+    .await
+    .unwrap();
+    sync_ok(&db_a1, "workspace A client 1 upload").await;
+    sync_ok(&db_a2, "workspace A client 2 download").await;
+    sync_ok(&db_a2, "workspace A client 2 download retry").await;
+    let a1_uploaded = sqlx::query_scalar::<_, String>("SELECT title FROM sessions WHERE id = ?")
+        .bind(&session_a)
+        .fetch_optional(db_a2.pool())
+        .await
+        .unwrap()
+        .as_deref()
+        == Some(title_a.as_str());
+
+    let updated_title_a = format!("anarlog-smoke-a-updated-{marker}");
+    sqlx::query("UPDATE sessions SET title = ? WHERE id = ?")
+        .bind(&updated_title_a)
+        .bind(&session_a)
+        .execute(db_a2.pool())
+        .await
+        .unwrap();
+    sync_ok(&db_a2, "workspace A client 2 update").await;
+    sync_ok(&db_a1, "workspace A client 1 update download").await;
+    sync_ok(&db_a1, "workspace A client 1 update download retry").await;
+    let a2_uploaded = sqlx::query_scalar::<_, String>("SELECT title FROM sessions WHERE id = ?")
+        .bind(&session_a)
+        .fetch_optional(db_a1.pool())
+        .await
+        .unwrap()
+        .as_deref()
+        == Some(updated_title_a.as_str());
+
+    let session_b: String = sqlx::query_scalar("SELECT cloudsync_uuid()")
+        .fetch_one(db_b.pool())
+        .await
+        .unwrap();
+    let title_b = format!("anarlog-smoke-b-{marker}");
+    sqlx::query(
+        "INSERT INTO sessions (id, workspace_id, owner_user_id, title) VALUES (?, ?, ?, ?)",
+    )
+    .bind(&session_b)
+    .bind(&workspace_b)
+    .bind(&workspace_b)
+    .bind(&title_b)
+    .execute(db_b.pool())
+    .await
+    .unwrap();
+    sync_ok(&db_b, "workspace B upload").await;
+
+    let db_b_verifier = setup_db(
+        CloudsyncAuth::Token {
+            token: token_b.clone(),
+        },
+        Some(&workspace_b),
+    )
+    .await;
+    sync_ok(&db_b_verifier, "workspace B verifier download").await;
+    sync_ok(&db_b_verifier, "workspace B verifier download retry").await;
+    let b_uploaded = sqlx::query_scalar::<_, String>("SELECT title FROM sessions WHERE id = ?")
+        .bind(&session_b)
+        .fetch_optional(db_b_verifier.pool())
+        .await
+        .unwrap()
+        .as_deref()
+        == Some(title_b.as_str());
+
+    db_a2
+        .cloudsync_network_reset_sync_version()
+        .await
+        .expect("workspace A isolation sync reset failed");
+    sync_ok(&db_a2, "workspace A isolation download").await;
+    sync_ok(&db_a2, "workspace A isolation download retry").await;
+    let b_hidden_from_a = row_count_by_id(db_a2.pool(), "sessions", &session_b).await == 0;
+
+    let pending_session: String = sqlx::query_scalar("SELECT cloudsync_uuid()")
+        .fetch_one(db_a1.pool())
+        .await
+        .unwrap();
+    sqlx::query(
+        "INSERT INTO sessions (id, workspace_id, owner_user_id, title) VALUES (?, ?, ?, ?)",
+    )
+    .bind(&pending_session)
+    .bind(&workspace_a)
+    .bind(&workspace_a)
+    .bind(format!("anarlog-smoke-pending-{marker}"))
+    .execute(db_a1.pool())
+    .await
+    .unwrap();
+    let unsent_logout_rejected = matches!(
+        db_a1.cloudsync_logout(false).await,
+        Err(CloudsyncRuntimeError::UnsentChanges)
+    );
+    sync_ok(&db_a1, "workspace A pending upload").await;
+    sqlx::query("DELETE FROM sessions WHERE id = ? OR id = ?")
+        .bind(&session_a)
+        .bind(&pending_session)
+        .execute(db_a1.pool())
+        .await
+        .unwrap();
+    sync_ok(&db_a1, "workspace A cleanup").await;
+    db_a2
+        .cloudsync_network_reset_sync_version()
+        .await
+        .expect("workspace A cleanup sync reset failed");
+    sync_ok(&db_a2, "workspace A cleanup verification").await;
+    sync_ok(&db_a2, "workspace A cleanup verification retry").await;
+    let a_cleanup_counts = (
+        row_count_by_id(db_a2.pool(), "sessions", &session_a).await,
+        row_count_by_id(db_a2.pool(), "sessions", &pending_session).await,
+    );
+    let a1_logout =
+        match tokio::time::timeout(Duration::from_secs(15), db_a1.cloudsync_logout(false)).await {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(error)) => Err(error.to_string()),
+            Err(_) => Err("timed out".to_string()),
+        };
+    if a1_logout.is_err() {
+        let _ = tokio::time::timeout(Duration::from_secs(15), db_a1.cloudsync_logout(true)).await;
+    }
+
+    let foreign_session: String = sqlx::query_scalar("SELECT cloudsync_uuid()")
+        .fetch_one(db_a2.pool())
+        .await
+        .unwrap();
+    sqlx::query(
+        "INSERT INTO sessions (id, workspace_id, owner_user_id, title) VALUES (?, ?, ?, ?)",
+    )
+    .bind(&foreign_session)
+    .bind(&workspace_b)
+    .bind(&workspace_b)
+    .bind(format!("anarlog-smoke-foreign-{marker}"))
+    .execute(db_a2.pool())
+    .await
+    .unwrap();
+    let foreign_sync = expect_policy_sync_completed_or_denied(&db_a2, "sessions").await;
+    db_b_verifier
+        .cloudsync_network_reset_sync_version()
+        .await
+        .expect("workspace B foreign-write sync reset failed");
+    sync_ok(&db_b_verifier, "workspace B foreign-write check").await;
+    sync_ok(&db_b_verifier, "workspace B foreign-write check retry").await;
+    let foreign_write_blocked =
+        row_count_by_id(db_b_verifier.pool(), "sessions", &foreign_session).await == 0;
+
+    sqlx::query("DELETE FROM sessions WHERE id = ? OR id = ?")
+        .bind(&session_b)
+        .bind(&foreign_session)
+        .execute(db_b_verifier.pool())
+        .await
+        .unwrap();
+    sync_ok(&db_b_verifier, "workspace B cleanup").await;
+    db_b.cloudsync_network_reset_sync_version()
+        .await
+        .expect("workspace B cleanup sync reset failed");
+    sync_ok(&db_b, "workspace B cleanup verification").await;
+    sync_ok(&db_b, "workspace B cleanup verification retry").await;
+    let b_cleanup_counts = (
+        row_count_by_id(db_b.pool(), "sessions", &session_b).await,
+        row_count_by_id(db_b.pool(), "sessions", &foreign_session).await,
+    );
+
+    let b_logout =
+        match tokio::time::timeout(Duration::from_secs(15), db_b.cloudsync_logout(false)).await {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(error)) => Err(error.to_string()),
+            Err(_) => Err("timed out".to_string()),
+        };
+    let b_verifier_logout = match tokio::time::timeout(
+        Duration::from_secs(15),
+        db_b_verifier.cloudsync_logout(false),
+    )
+    .await
+    {
+        Ok(Ok(())) => Ok(()),
+        Ok(Err(error)) => Err(error.to_string()),
+        Err(_) => Err("timed out".to_string()),
+    };
+    let a2_logout =
+        match tokio::time::timeout(Duration::from_secs(15), db_a2.cloudsync_logout(true)).await {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(error)) => Err(error.to_string()),
+            Err(_) => Err("timed out".to_string()),
+        };
+
+    assert!(a1_uploaded, "workspace A client 1 upload was not visible");
+    assert!(a2_uploaded, "workspace A client 2 update was not visible");
+    assert!(b_uploaded, "workspace B upload was not visible remotely");
+    assert!(b_hidden_from_a, "workspace A downloaded workspace B data");
+    assert!(
+        unsent_logout_rejected,
+        "logout did not reject workspace A's unsent change"
+    );
+    assert_eq!(
+        a_cleanup_counts,
+        (0, 0),
+        "workspace A cleanup was not visible"
+    );
+    assert!(
+        foreign_sync.is_ok(),
+        "workspace A foreign write had an unexpected sync result: {:?}",
+        foreign_sync.err()
+    );
+    assert!(foreign_write_blocked, "workspace A wrote into workspace B");
+    assert_eq!(
+        b_cleanup_counts,
+        (0, 0),
+        "workspace B cleanup was not visible"
+    );
+    assert!(
+        a1_logout.is_ok(),
+        "workspace A client 1 logout failed: {a1_logout:?}"
+    );
+    assert!(
+        a2_logout.is_ok(),
+        "workspace A client 2 logout failed: {a2_logout:?}"
+    );
+    assert!(
+        b_logout.is_ok(),
+        "workspace B client logout failed: {b_logout:?}"
+    );
+    assert!(
+        b_verifier_logout.is_ok(),
+        "workspace B verifier logout failed: {b_verifier_logout:?}"
+    );
 }
 
 #[tokio::test]
