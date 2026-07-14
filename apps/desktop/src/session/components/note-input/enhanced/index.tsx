@@ -10,6 +10,7 @@ import { StreamingView } from "./streaming";
 
 import { useAITaskTask } from "~/ai/hooks";
 import { useLLMConnectionStatus } from "~/ai/hooks";
+import { hasStoredNoteContent } from "~/session/components/shared";
 import { shouldShowEmptySummaryConfigError } from "~/session/enhance-config";
 import { useEnhancedNote } from "~/session/queries";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
@@ -38,11 +39,14 @@ export const Enhanced = forwardRef<
   ) => {
     const taskId = createTaskId(enhancedNoteId, "enhance");
     const llmStatus = useLLMConnectionStatus();
-    const { status, error } = useAITaskTask(taskId, "enhance");
+    const { status, error, streamedText } = useAITaskTask(taskId, "enhance");
     const enhancedNote = useEnhancedNote(enhancedNoteId);
     const content = enhancedNote?.content;
 
-    const hasContent = typeof content === "string" && content.trim().length > 0;
+    const hasContent = hasStoredNoteContent(content);
+    const isAwaitingPersistedContent =
+      status === "success" && streamedText.trim().length > 0 && !hasContent;
+    const showStreaming = status === "generating" || isAwaitingPersistedContent;
 
     if (status === "error") {
       return (
@@ -54,18 +58,14 @@ export const Enhanced = forwardRef<
       );
     }
 
-    if (status === "generating") {
-      return (
+    if (!enhancedNote) {
+      return showStreaming ? (
         <StreamingView
           sessionId={sessionId}
           sessionTitle={sessionTitle}
           enhancedNoteId={enhancedNoteId}
         />
-      );
-    }
-
-    if (!enhancedNote) {
-      return null;
+      ) : null;
     }
 
     const isConfigError = shouldShowEmptySummaryConfigError(llmStatus);
@@ -75,16 +75,28 @@ export const Enhanced = forwardRef<
     }
 
     return (
-      <EnhancedEditor
-        ref={ref}
-        sessionId={sessionId}
-        sessionTitle={sessionTitle}
-        enhancedNoteId={enhancedNoteId}
-        content={enhancedNote.content}
-        onNavigateToTitle={onNavigateToTitle}
-        onViewReady={onViewReady}
-        onViewDisposed={onViewDisposed}
-      />
+      <>
+        {showStreaming ? (
+          <StreamingView
+            key="streaming"
+            sessionId={sessionId}
+            sessionTitle={sessionTitle}
+            enhancedNoteId={enhancedNoteId}
+          />
+        ) : null}
+        <EnhancedEditor
+          key="editor"
+          ref={showStreaming ? null : ref}
+          sessionId={sessionId}
+          sessionTitle={sessionTitle}
+          enhancedNoteId={enhancedNoteId}
+          content={enhancedNote.content}
+          isHidden={showStreaming}
+          onNavigateToTitle={onNavigateToTitle}
+          onViewReady={onViewReady}
+          onViewDisposed={onViewDisposed}
+        />
+      </>
     );
   },
 );

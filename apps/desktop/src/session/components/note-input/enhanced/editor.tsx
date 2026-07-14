@@ -1,5 +1,5 @@
 import type { EditorView } from "prosemirror-view";
-import { forwardRef, useCallback, useMemo } from "react";
+import { forwardRef, memo, useCallback, useMemo } from "react";
 
 import { parseJsonContent } from "@hypr/editor/markdown";
 import {
@@ -7,6 +7,7 @@ import {
   type JSONContent,
   type NoteEditorRef,
 } from "@hypr/editor/note";
+import { cn } from "@hypr/utils";
 
 import { AudioDropTarget } from "../audio-drop-target";
 import { useNoteFileHandlerConfig } from "../file-handler";
@@ -25,7 +26,7 @@ import {
 
 const extraNodeViews = { appLink: AppLinkView, session: SessionNodeView };
 
-export const EnhancedEditor = forwardRef<
+const EnhancedEditorInner = forwardRef<
   NoteEditorRef,
   {
     sessionId: string;
@@ -33,6 +34,7 @@ export const EnhancedEditor = forwardRef<
     enhancedNoteId: string;
     content: string;
     contentOverride?: JSONContent;
+    isHidden?: boolean;
     onNavigateToTitle?: (pixelWidth?: number) => void;
     onViewReady?: (view: EditorView) => void;
     onViewDisposed?: (view: EditorView) => void;
@@ -45,6 +47,7 @@ export const EnhancedEditor = forwardRef<
       enhancedNoteId,
       content,
       contentOverride,
+      isHidden = false,
       onNavigateToTitle,
       onViewReady,
       onViewDisposed,
@@ -89,7 +92,7 @@ export const EnhancedEditor = forwardRef<
 
     return (
       <AudioDropTarget
-        className="h-full"
+        className={cn(["h-full", isHidden && "hidden"])}
         targetProps={audioDropTargetProps}
         isActive={isAudioDragActive}
       >
@@ -118,3 +121,5 @@ export const EnhancedEditor = forwardRef<
     );
   },
 );
+
+export const EnhancedEditor = memo(EnhancedEditorInner);

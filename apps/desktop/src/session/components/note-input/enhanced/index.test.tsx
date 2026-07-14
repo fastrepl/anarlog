@@ -1,4 +1,5 @@
 import { cleanup, render, screen } from "@testing-library/react";
+import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Enhanced as SessionEnhanced } from "./index";
@@ -32,6 +33,7 @@ const hoisted = vi.hoisted(() => ({
   content: "",
   noteExists: true,
   sessionTitle: "",
+  enhancedEditorMountCount: 0,
 }));
 
 vi.mock("@hypr/ui/components/ui/spinner", () => ({
@@ -71,10 +73,16 @@ vi.mock("./editor", () => ({
   EnhancedEditor: ({
     content,
     contentOverride,
+    isHidden = false,
   }: {
     content: string;
     contentOverride?: { content?: unknown[] };
+    isHidden?: boolean;
   }) => {
+    const [mountId] = useState(() => {
+      hoisted.enhancedEditorMountCount += 1;
+      return hoisted.enhancedEditorMountCount;
+    });
     const collectText = (value: unknown): string => {
       if (!value || typeof value !== "object") {
         return "";
@@ -92,7 +100,11 @@ vi.mock("./editor", () => ({
     };
 
     return (
-      <div>
+      <div
+        data-testid="enhanced-editor"
+        data-mount-id={mountId}
+        hidden={isHidden}
+      >
         <span>Enhanced editor</span>
         <span>{content}</span>
         {contentOverride ? <span>{collectText(contentOverride)}</span> : null}
@@ -137,6 +149,7 @@ describe("Enhanced", () => {
     hoisted.content = "";
     hoisted.noteExists = true;
     hoisted.sessionTitle = "";
+    hoisted.enhancedEditorMountCount = 0;
   });
 
   it("renders an empty editor before the auto-enhance task is visible", () => {
@@ -159,7 +172,7 @@ describe("Enhanced", () => {
 
     render(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
 
-    expect(screen.queryByText("Enhanced editor")).toBeNull();
+    expect(screen.getByTestId("enhanced-editor").hidden).toBe(true);
     expect(screen.getByRole("status")).not.toBeNull();
     expect(screen.getByText("Analyzing structure...")).not.toBeNull();
     expect(
@@ -178,11 +191,90 @@ describe("Enhanced", () => {
 
     render(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
 
-    expect(screen.queryByText("Enhanced editor")).toBeNull();
+    expect(screen.getByTestId("enhanced-editor").hidden).toBe(true);
     expect(screen.getByText("Streaming summary")).not.toBeNull();
     expect(screen.getByTestId("summary-title-space")).not.toBeNull();
     expect(screen.getByText("Generating title...")).not.toBeNull();
     expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("keeps the completed stream visible until SQLite content arrives", () => {
+    hoisted.enhanceTask = {
+      status: "success",
+      error: undefined,
+      streamedText: "Generated summary",
+      currentStep: undefined,
+      isGenerating: false,
+    };
+
+    const view = render(
+      <Enhanced sessionId="session-1" enhancedNoteId="note-1" />,
+    );
+
+    const editor = screen.getByTestId("enhanced-editor");
+    expect(editor.hidden).toBe(true);
+    expect(screen.getByText("Generated summary")).not.toBeNull();
+
+    hoisted.content = "Stored summary";
+    view.rerender(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
+
+    expect(screen.getByTestId("enhanced-editor")).toBe(editor);
+    expect(editor.hidden).toBe(false);
+    expect(screen.getByText("Stored summary")).not.toBeNull();
+    expect(hoisted.enhancedEditorMountCount).toBe(1);
+  });
+
+  it("preserves the editor instance across the streaming handoff", () => {
+    hoisted.content = "Stored summary";
+    const view = render(
+      <Enhanced sessionId="session-1" enhancedNoteId="note-1" />,
+    );
+    const editor = screen.getByTestId("enhanced-editor");
+
+    hoisted.enhanceTask = {
+      status: "generating",
+      error: undefined,
+      streamedText: "Streaming summary",
+      currentStep: undefined,
+      isGenerating: true,
+    };
+    view.rerender(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
+
+    expect(screen.getByTestId("enhanced-editor")).toBe(editor);
+    expect(editor.hidden).toBe(true);
+
+    hoisted.content = "Updated summary";
+    hoisted.enhanceTask = {
+      status: "success",
+      error: undefined,
+      streamedText: "Streaming summary",
+      currentStep: undefined,
+      isGenerating: false,
+    };
+    view.rerender(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
+
+    expect(screen.getByTestId("enhanced-editor")).toBe(editor);
+    expect(editor.hidden).toBe(false);
+    expect(hoisted.enhancedEditorMountCount).toBe(1);
+  });
+
+  it("keeps the completed stream visible over an empty stored document", () => {
+    hoisted.content = JSON.stringify({
+      type: "doc",
+      content: [{ type: "paragraph" }],
+    });
+    hoisted.enhanceTask = {
+      status: "success",
+      error: undefined,
+      streamedText: "Generated summary",
+      currentStep: undefined,
+      isGenerating: false,
+    };
+
+    render(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
+
+    expect(screen.getByTestId("enhanced-editor").hidden).toBe(true);
+    expect(screen.getByText("Generated summary")).not.toBeNull();
   });
 
   it("keeps the title row while streaming for an already titled session", () => {

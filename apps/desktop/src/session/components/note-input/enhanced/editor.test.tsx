@@ -159,6 +159,41 @@ describe("EnhancedEditor", () => {
     });
   });
 
+  it("keeps the editor mounted outside layout while hidden", () => {
+    render(
+      <EnhancedEditor
+        sessionId="session-1"
+        enhancedNoteId="note-1"
+        content={hoisted.content}
+        isHidden
+      />,
+    );
+
+    const dropTarget = screen.getByText("Note editor").parentElement;
+
+    expect(dropTarget?.classList.contains("hidden")).toBe(true);
+  });
+
+  it("does not rerender the editor when its props are unchanged", () => {
+    const view = render(
+      <EnhancedEditor
+        sessionId="session-1"
+        enhancedNoteId="note-1"
+        content={hoisted.content}
+      />,
+    );
+
+    view.rerender(
+      <EnhancedEditor
+        sessionId="session-1"
+        enhancedNoteId="note-1"
+        content={hoisted.content}
+      />,
+    );
+
+    expect(hoisted.noteEditorProps).toHaveLength(1);
+  });
+
   it("persists content and updates the session title from the first line", () => {
     render(
       <EnhancedEditor
