@@ -117,6 +117,28 @@ pub async fn ensure_cloudsync_workspace_binding(
     Ok(binding.workspace_id)
 }
 
+pub async fn cloudsync_workspace_is_claimed_by(
+    pool: &SqlitePool,
+    account_user_id: &str,
+) -> Result<bool, CloudsyncWorkspaceError> {
+    let account_user_id = account_user_id.trim();
+    if account_user_id.is_empty() || account_user_id == LEGACY_DEFAULT_USER_ID {
+        return Err(CloudsyncWorkspaceError::InvalidWorkspaceId);
+    }
+
+    let Some(value_json) =
+        sqlx::query_scalar::<_, String>("SELECT value_json FROM app_settings WHERE id = ?")
+            .bind(CLOUDSYNC_WORKSPACE_BINDING_ID)
+            .fetch_optional(pool)
+            .await?
+    else {
+        return Ok(false);
+    };
+    let binding = parse_binding(&value_json)?;
+
+    Ok(binding.account_user_id.as_deref() == Some(account_user_id))
+}
+
 pub async fn claim_cloudsync_workspace(
     pool: &SqlitePool,
     account_user_id: &str,
@@ -300,12 +322,7 @@ async fn load_or_create_binding(
             .fetch_optional(&mut **transaction)
             .await?
     {
-        let binding: CloudsyncWorkspaceBinding = serde_json::from_str(&value_json)
-            .map_err(|_| CloudsyncWorkspaceError::InvalidBinding)?;
-        if binding.workspace_id.trim().is_empty() {
-            return Err(CloudsyncWorkspaceError::InvalidBinding);
-        }
-        return Ok(binding);
+        return parse_binding(&value_json);
     }
 
     let binding = CloudsyncWorkspaceBinding {
@@ -319,6 +336,15 @@ async fn load_or_create_binding(
         .bind(value_json)
         .execute(&mut **transaction)
         .await?;
+    Ok(binding)
+}
+
+fn parse_binding(value_json: &str) -> Result<CloudsyncWorkspaceBinding, CloudsyncWorkspaceError> {
+    let binding: CloudsyncWorkspaceBinding =
+        serde_json::from_str(value_json).map_err(|_| CloudsyncWorkspaceError::InvalidBinding)?;
+    if binding.workspace_id.trim().is_empty() {
+        return Err(CloudsyncWorkspaceError::InvalidBinding);
+    }
     Ok(binding)
 }
 
@@ -436,6 +462,31 @@ mod tests {
                 .unwrap();
             assert_eq!(count, 0, "{} was not claimed", table.table_name);
         }
+    }
+
+    #[tokio::test]
+    async fn detects_an_existing_account_claim() {
+        let db = test_db().await;
+
+        assert!(
+            !cloudsync_workspace_is_claimed_by(db.pool(), "user-a")
+                .await
+                .unwrap()
+        );
+        claim_cloudsync_workspace(db.pool(), "user-a")
+            .await
+            .unwrap();
+
+        assert!(
+            cloudsync_workspace_is_claimed_by(db.pool(), "user-a")
+                .await
+                .unwrap()
+        );
+        assert!(
+            !cloudsync_workspace_is_claimed_by(db.pool(), "user-b")
+                .await
+                .unwrap()
+        );
     }
 
     #[tokio::test]

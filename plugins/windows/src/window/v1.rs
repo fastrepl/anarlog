@@ -74,6 +74,12 @@ impl AppWindow {
 
         #[cfg(target_os = "macos")]
         {
+            if matches!(self, Self::Main) {
+                builder = builder.background_throttling(
+                    tauri::utils::config::BackgroundThrottlingPolicy::Disabled,
+                );
+            }
+
             let traffic_light_y = {
                 use tauri_plugin_os::{Version, version};
                 let major = match version() {

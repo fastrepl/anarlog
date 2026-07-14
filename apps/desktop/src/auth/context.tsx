@@ -7,6 +7,7 @@ import {
 } from "@supabase/supabase-js";
 import { useMutation } from "@tanstack/react-query";
 import { getVersion } from "@tauri-apps/api/app";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { version as osVersion, platform } from "@tauri-apps/plugin-os";
 import {
@@ -31,6 +32,7 @@ import {
   claimCloudsyncAccountForAuth,
   handleCloudsyncAuthChange,
   prepareCloudsyncSignOut,
+  refreshCloudsyncForSession,
 } from "./cloudsync";
 import { clearAuthStorage, isFatalSessionError } from "./errors";
 
@@ -187,6 +189,7 @@ async function trackAuthEvent(
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [fingerprint, setFingerprint] = useState<string | null>(null);
+  const managesCloudsync = getCurrentWebviewWindow().label === "main";
   // Prevents double initSession in React StrictMode, which can cause refresh token races
   const initStartedRef = useRef(false);
   const authTransitionRef = useRef(0);
@@ -277,12 +280,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       trackedIdentifySignature = null;
       trackedSignedInUserId = null;
-      await handleCloudsyncAuthChange("SIGNED_OUT", null);
+      if (managesCloudsync) {
+        await handleCloudsyncAuthChange("SIGNED_OUT", null);
+      }
       if (transition === authTransitionRef.current) {
         setSession(null);
       }
     },
-    [],
+    [managesCloudsync],
   );
 
   const applyAuthChange = useCallback(
@@ -359,6 +364,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(nextSession);
       void trackAuthEvent(event, nextSession);
 
+      if (!managesCloudsync) {
+        return;
+      }
+
       const result = await handleCloudsyncAuthChange(event, nextSession);
       if (
         result !== "account_mismatch" ||
@@ -369,7 +378,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       await rejectAuthChange(transition, true);
     },
-    [rejectAuthChange],
+    [managesCloudsync, rejectAuthChange],
   );
 
   const enqueueAuthChange = useCallback(
@@ -469,6 +478,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // check, recovering stale sessions after sleep/hibernate.
           console.log("[auth] startAutoRefresh: window regained focus");
           void client.auth.startAutoRefresh();
+          if (managesCloudsync) {
+            void client.auth
+              .getSession()
+              .then(({ data, error }) => {
+                if (!cancelled && !error && data.session) {
+                  void refreshCloudsyncForSession(data.session);
+                }
+              })
+              .catch(() => {
+                console.warn("[cloudsync] session recovery failed");
+              });
+          }
         }
       })
       .then((fn) => {
@@ -485,7 +506,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       unlisten?.();
       void client.auth.stopAutoRefresh();
     };
-  }, []);
+  }, [managesCloudsync]);
 
   const signIn = useCallback(async () => {
     const url = await buildWebAppUrl("/auth");
@@ -500,7 +521,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     const currentSession = session;
-    if (currentSession) {
+    if (currentSession && managesCloudsync) {
       await prepareCloudsyncSignOut(currentSession);
     }
 
@@ -542,7 +563,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (signOutError) {
-      if (currentSession) {
+      if (currentSession && managesCloudsync) {
         await handleCloudsyncAuthChange("TOKEN_REFRESHED", currentSession);
       }
       throw signOutError;
@@ -553,7 +574,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     await enqueueAuthChange("SIGNED_OUT", null);
-  }, [enqueueAuthChange, session]);
+  }, [enqueueAuthChange, managesCloudsync, session]);
 
   const refreshSessionMutation = useMutation({
     mutationFn: async (): Promise<Session | null> => {

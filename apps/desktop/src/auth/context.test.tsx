@@ -18,11 +18,14 @@ const mocks = vi.hoisted(() => ({
     | null,
   claimCloudsyncAccountForAuth: vi.fn(),
   clearAuthStorage: vi.fn(),
+  currentWebviewWindowLabel: "main",
+  focusCallback: null as ((event: { payload: boolean }) => void) | null,
   getSession: vi.fn(),
   handleCloudsyncAuthChange: vi.fn(),
   isFatalSessionError: vi.fn(),
   persistAuthSession: vi.fn(),
   prepareCloudsyncSignOut: vi.fn(),
+  refreshCloudsyncForSession: vi.fn(),
   refreshSession: vi.fn(),
   signOut: vi.fn(),
   startAutoRefresh: vi.fn(),
@@ -61,6 +64,7 @@ vi.mock("./cloudsync", () => ({
   claimCloudsyncAccountForAuth: mocks.claimCloudsyncAccountForAuth,
   handleCloudsyncAuthChange: mocks.handleCloudsyncAuthChange,
   prepareCloudsyncSignOut: mocks.prepareCloudsyncSignOut,
+  refreshCloudsyncForSession: mocks.refreshCloudsyncForSession,
 }));
 
 vi.mock("./errors", () => ({
@@ -107,9 +111,18 @@ vi.mock("@tauri-apps/api/app", () => ({
   getVersion: vi.fn().mockResolvedValue("1.0.0"),
 }));
 
+vi.mock("@tauri-apps/api/webviewWindow", () => ({
+  getCurrentWebviewWindow: vi.fn(() => ({
+    label: mocks.currentWebviewWindowLabel,
+  })),
+}));
+
 vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: vi.fn(() => ({
-    onFocusChanged: vi.fn().mockResolvedValue(vi.fn()),
+    onFocusChanged: vi.fn((callback: (event: { payload: boolean }) => void) => {
+      mocks.focusCallback = callback;
+      return Promise.resolve(vi.fn());
+    }),
   })),
 }));
 
@@ -186,11 +199,14 @@ describe("AuthProvider", () => {
     mocks.authCallback = null;
     mocks.claimCloudsyncAccountForAuth.mockReset();
     mocks.clearAuthStorage.mockReset();
+    mocks.currentWebviewWindowLabel = "main";
+    mocks.focusCallback = null;
     mocks.getSession.mockReset();
     mocks.handleCloudsyncAuthChange.mockReset();
     mocks.isFatalSessionError.mockReset();
     mocks.persistAuthSession.mockReset();
     mocks.prepareCloudsyncSignOut.mockReset();
+    mocks.refreshCloudsyncForSession.mockReset();
     mocks.refreshSession.mockReset();
     mocks.signOut.mockReset();
     mocks.startAutoRefresh.mockReset();
@@ -202,6 +218,7 @@ describe("AuthProvider", () => {
     mocks.isFatalSessionError.mockReturnValue(false);
     mocks.persistAuthSession.mockResolvedValue(undefined);
     mocks.prepareCloudsyncSignOut.mockResolvedValue(undefined);
+    mocks.refreshCloudsyncForSession.mockResolvedValue("ok");
     mocks.refreshSession.mockResolvedValue({
       data: { session: null },
       error: null,
@@ -213,6 +230,60 @@ describe("AuthProvider", () => {
 
   afterEach(() => {
     cleanup();
+  });
+
+  it("refreshes cloudsync when the main window regains focus", async () => {
+    const currentSession = makeSession("bound-account");
+
+    renderAuthProvider();
+
+    await waitFor(() => {
+      expect(mocks.focusCallback).not.toBeNull();
+    });
+
+    mocks.getSession.mockResolvedValueOnce({
+      data: { session: currentSession },
+      error: null,
+    });
+
+    act(() => {
+      mocks.focusCallback?.({ payload: true });
+    });
+
+    await waitFor(() => {
+      expect(mocks.refreshCloudsyncForSession).toHaveBeenCalledWith(
+        currentSession,
+      );
+    });
+  });
+
+  it("only runs cloudsync from the main window", async () => {
+    const currentSession = makeSession("bound-account");
+    mocks.currentWebviewWindowLabel = "note-session-id";
+
+    renderAuthProvider();
+
+    await waitFor(() => {
+      expect(mocks.authCallback).not.toBeNull();
+      expect(mocks.focusCallback).not.toBeNull();
+    });
+
+    act(() => {
+      mocks.authCallback?.("SIGNED_IN", currentSession);
+      mocks.focusCallback?.({ payload: true });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("session").textContent).toBe(
+        currentSession.user.id,
+      );
+    });
+
+    expect(mocks.claimCloudsyncAccountForAuth).toHaveBeenCalledWith(
+      currentSession.user.id,
+    );
+    expect(mocks.handleCloudsyncAuthChange).not.toHaveBeenCalled();
+    expect(mocks.refreshCloudsyncForSession).not.toHaveBeenCalled();
   });
 
   it("keeps a session hidden until its local account claim succeeds", async () => {

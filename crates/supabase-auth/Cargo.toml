@@ -22,7 +22,7 @@ thiserror = { workspace = true }
 backon = { workspace = true, optional = true }
 jsonwebtoken = { workspace = true, optional = true }
 reqwest = { workspace = true, features = ["json"], optional = true }
-tokio = { workspace = true, features = ["sync"], optional = true }
+tokio = { workspace = true, features = ["sync", "time"], optional = true }
 
 # client feature
 hypr-storage = { workspace = true, optional = true }

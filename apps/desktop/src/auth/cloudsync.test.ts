@@ -96,6 +96,7 @@ describe("CloudSync auth lifecycle", () => {
 
     await vi.advanceTimersByTimeAsync(1);
     expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(suspendCloudsync).toHaveBeenCalledTimes(1);
   });
 
   test("suspends sync and ignores an exchange completed after sign-out", async () => {
@@ -166,6 +167,54 @@ describe("CloudSync auth lifecycle", () => {
     );
   });
 
+  test("suspends active sync when the account loses Pro", async () => {
+    const fetchMock = vi
+      .fn<() => Promise<Response>>()
+      .mockResolvedValueOnce(credentialsResponse())
+      .mockResolvedValueOnce(new Response(null, { status: 403 }));
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await handleCloudsyncAuthChange("INITIAL_SESSION", session());
+    await vi.advanceTimersByTimeAsync(13 * 60 * 1000);
+    await vi.advanceTimersByTimeAsync(60 * 1000);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(configureCloudsyncToken).toHaveBeenCalledTimes(1);
+    expect(suspendCloudsync).toHaveBeenCalledTimes(2);
+  });
+
+  test("suspends active sync when the session is rejected", async () => {
+    const fetchMock = vi
+      .fn<() => Promise<Response>>()
+      .mockResolvedValueOnce(credentialsResponse())
+      .mockResolvedValueOnce(new Response(null, { status: 401 }));
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await handleCloudsyncAuthChange("INITIAL_SESSION", session());
+    await vi.advanceTimersByTimeAsync(13 * 60 * 1000);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(suspendCloudsync).toHaveBeenCalledTimes(2);
+  });
+
+  test("suspends active sync when renewed credentials change workspace", async () => {
+    const fetchMock = vi
+      .fn<() => Promise<Response>>()
+      .mockResolvedValueOnce(credentialsResponse())
+      .mockResolvedValueOnce(credentialsResponse("different-user"));
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await handleCloudsyncAuthChange("INITIAL_SESSION", session());
+    await vi.advanceTimersByTimeAsync(13 * 60 * 1000);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(configureCloudsyncToken).toHaveBeenCalledTimes(1);
+    expect(suspendCloudsync).toHaveBeenCalledTimes(2);
+  });
+
   test("suspends existing sync when the initial session is empty", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
@@ -206,7 +255,7 @@ describe("CloudSync auth lifecycle", () => {
     await vi.advanceTimersByTimeAsync(60 * 1000);
 
     expect(configureCloudsyncToken).toHaveBeenCalledTimes(2);
-    expect(suspendCloudsync).toHaveBeenCalledTimes(3);
+    expect(suspendCloudsync).toHaveBeenCalledTimes(2);
   });
 
   test("reports the durable account mismatch without retrying", async () => {
@@ -289,6 +338,53 @@ describe("CloudSync auth lifecycle", () => {
     expect(configureCloudsyncToken).toHaveBeenCalledTimes(1);
   });
 
+  test("bounds a stalled exchange and retries", async () => {
+    const fetchMock = vi.fn(
+      (_input: RequestInfo | URL, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => {
+            reject(new Error("aborted"));
+          });
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const activation = handleCloudsyncAuthChange("TOKEN_REFRESHED", session());
+    await vi.advanceTimersByTimeAsync(10 * 1000);
+
+    await expect(activation).resolves.toBe("ok");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(60 * 1000);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  test("bounds a stalled exchange response body and retries", async () => {
+    const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) =>
+      Promise.resolve({
+        ok: true,
+        json: () =>
+          new Promise((_resolve, reject) => {
+            init?.signal?.addEventListener("abort", () => {
+              reject(new Error("aborted"));
+            });
+          }),
+      } as Response),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const activation = handleCloudsyncAuthChange("TOKEN_REFRESHED", session());
+    await vi.advanceTimersByTimeAsync(10 * 1000);
+
+    await expect(activation).resolves.toBe("ok");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(60 * 1000);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   test("retries a transient exchange failure without rejecting auth", async () => {
     const fetchMock = vi
       .fn<() => Promise<Response>>()
@@ -308,6 +404,6 @@ describe("CloudSync auth lifecycle", () => {
       "sqlite-token",
       "user-id",
     );
-    expect(suspendCloudsync).toHaveBeenCalledTimes(2);
+    expect(suspendCloudsync).toHaveBeenCalledTimes(1);
   });
 });

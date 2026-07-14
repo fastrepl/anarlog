@@ -619,6 +619,33 @@ mod test {
     }
 
     #[tokio::test]
+    async fn same_account_reclaim_preserves_cloudsync_configuration() {
+        let (_dir, runtime) = setup_runtime().await;
+        assert!(
+            runtime
+                .configure_cloudsync_token(
+                    "managed-database-id".to_string(),
+                    "token".to_string(),
+                    "user-a".to_string(),
+                )
+                .await
+                .unwrap()
+        );
+
+        assert!(
+            runtime
+                .claim_cloudsync_account("user-a".to_string())
+                .await
+                .unwrap()
+        );
+
+        assert_eq!(
+            runtime.cloudsync_status().await.unwrap()["configured"],
+            true
+        );
+    }
+
+    #[tokio::test]
     async fn account_switch_is_rejected_and_leaves_cloudsync_suspended() {
         let (_dir, runtime) = setup_runtime().await;
         assert!(
@@ -651,12 +678,26 @@ mod test {
     #[tokio::test]
     async fn invalid_account_claim_remains_an_error() {
         let (_dir, runtime) = setup_runtime().await;
+        assert!(
+            runtime
+                .configure_cloudsync_token(
+                    "managed-database-id".to_string(),
+                    "token".to_string(),
+                    "user-a".to_string(),
+                )
+                .await
+                .unwrap()
+        );
 
         assert!(
             runtime
                 .claim_cloudsync_account(" ".to_string())
                 .await
                 .is_err()
+        );
+        assert_eq!(
+            runtime.cloudsync_status().await.unwrap()["configured"],
+            false
         );
     }
 

@@ -28,11 +28,6 @@ use crate::env::Env;
 
 const PAID_ENTITLEMENTS: &[&str] = &["hyprnote_pro", "hyprnote_lite"];
 
-fn paid_auth_state(supabase_url: &str) -> AuthState {
-    AuthState::new(supabase_url)
-        .with_required_entitlements(PAID_ENTITLEMENTS.iter().map(|e| e.to_string()).collect())
-}
-
 pub const DEVICE_FINGERPRINT_HEADER: &str = "x-device-fingerprint";
 pub const REQUEST_ID_HEADER: &str = "x-request-id";
 
@@ -129,9 +124,15 @@ async fn app() -> Router {
         )
         .build();
 
-    let auth_state_paid = paid_auth_state(&env.supabase.supabase_url);
-    let auth_state_basic = AuthState::new(&env.supabase.supabase_url);
-    let auth_state_support = AuthState::new(&env.supabase.supabase_url);
+    let auth_state = AuthState::new(&env.supabase.supabase_url);
+    let auth_state_paid = auth_state.clone().with_required_entitlements(
+        PAID_ENTITLEMENTS
+            .iter()
+            .map(|entitlement| (*entitlement).to_string())
+            .collect(),
+    );
+    let auth_state_basic = auth_state.clone();
+    let auth_state_support = auth_state.clone();
 
     let nango_config = hypr_api_nango::NangoConfig::new(
         &env.nango,
@@ -177,7 +178,7 @@ async fn app() -> Router {
             hypr_transcribe_proxy::callback_router(stt_config.clone()),
         );
 
-    let auth_state_integration = paid_auth_state(&env.supabase.supabase_url);
+    let auth_state_integration = auth_state_paid.clone();
 
     let paid_routes = Router::new()
         .merge(hypr_api_research::router(research_config))
@@ -196,8 +197,7 @@ async fn app() -> Router {
             ))
             .route_layer(middleware::from_fn(auth::sentry_and_analytics))
             .route_layer(middleware::from_fn_with_state(
-                AuthState::new(&env.supabase.supabase_url)
-                    .with_required_entitlement("hyprnote_pro"),
+                auth_state.clone().with_required_entitlement("hyprnote_pro"),
                 auth::require_auth,
             )),
         None => Router::new(),

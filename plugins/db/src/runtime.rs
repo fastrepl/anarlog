@@ -155,6 +155,16 @@ impl PluginDbRuntime {
 
     pub async fn claim_cloudsync_account(&self, account_user_id: String) -> Result<bool> {
         self.ensure_app_schema().await?;
+        match hypr_db_app::cloudsync_workspace_is_claimed_by(self.db.pool(), &account_user_id).await
+        {
+            Ok(true) => return Ok(true),
+            Ok(false) => {}
+            Err(error) => {
+                let _ = self.db.cloudsync_suspend().await;
+                return Err(error.into());
+            }
+        }
+
         self.db.cloudsync_suspend().await?;
         match hypr_db_app::claim_cloudsync_workspace(self.db.pool(), &account_user_id).await {
             Ok(()) => Ok(true),
