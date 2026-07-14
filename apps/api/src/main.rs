@@ -196,7 +196,8 @@ async fn app() -> Router {
             ))
             .route_layer(middleware::from_fn(auth::sentry_and_analytics))
             .route_layer(middleware::from_fn_with_state(
-                AuthState::new(&env.supabase.supabase_url),
+                AuthState::new(&env.supabase.supabase_url)
+                    .with_required_entitlement("hyprnote_pro"),
                 auth::require_auth,
             )),
         None => Router::new(),

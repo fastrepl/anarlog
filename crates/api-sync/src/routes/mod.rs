@@ -65,6 +65,8 @@ pub fn router(state: AppState) -> Router {
     tag = "sync",
     responses(
         (status = 200, description = "Short-lived CloudSync credentials", body = CloudsyncCredentials),
+        (status = 401, description = "Authentication required"),
+        (status = 403, description = "Anarlog Pro subscription required"),
         (status = 502, description = "Credential issuer unavailable")
     )
 )]
@@ -75,6 +77,10 @@ async fn create_credentials(
     [(header::HeaderName, HeaderValue); 1],
     Json<CloudsyncCredentials>,
 )> {
+    if !auth.claims.is_pro() {
+        return Err(SyncError::ProPlanRequired);
+    }
+
     let ttl = i64::try_from(state.config.token_ttl_seconds)
         .map_err(|_| SyncError::Internal("CloudSync token TTL is too large".to_string()))?;
     let ttl = TimeDelta::try_seconds(ttl)
@@ -135,7 +141,7 @@ mod tests {
     use super::*;
     use crate::SyncConfig;
 
-    fn test_router(server: &MockServer, api_key: &str) -> Router {
+    fn test_router(server: &MockServer, api_key: &str, entitlements: &[&str]) -> Router {
         router(AppState::new(SyncConfig {
             project_url: server.uri(),
             token_issuer_api_key: api_key.to_string(),
@@ -147,7 +153,10 @@ mod tests {
             claims: Claims {
                 sub: "user-123".to_string(),
                 email: None,
-                entitlements: vec![],
+                entitlements: entitlements
+                    .iter()
+                    .map(|entitlement| (*entitlement).to_string())
+                    .collect(),
                 subscription_status: None,
                 trial_end: None,
                 has_payment_method: None,
@@ -176,7 +185,7 @@ mod tests {
             .mount(&server)
             .await;
 
-        let response = test_router(&server, "issuer-key")
+        let response = test_router(&server, "issuer-key", &["hyprnote_pro"])
             .oneshot(Request::post("/token").body(Body::empty()).unwrap())
             .await
             .unwrap();
@@ -190,6 +199,24 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn rejects_users_without_pro_entitlement() {
+        let cases: &[&[&str]] = &[&[], &["hyprnote_lite"]];
+
+        for entitlements in cases {
+            let server = MockServer::start().await;
+            let response = test_router(&server, "issuer-key", entitlements)
+                .oneshot(Request::post("/token").body(Body::empty()).unwrap())
+                .await
+                .unwrap();
+
+            assert_eq!(response.status(), StatusCode::FORBIDDEN);
+            let body = response_json(response).await;
+            assert_eq!(body["error"]["code"], "subscription_required");
+            assert!(server.received_requests().await.unwrap().is_empty());
+        }
+    }
+
+    #[tokio::test]
     async fn upstream_failure_is_redacted() {
         let server = MockServer::start().await;
         Mock::given(method("POST"))
@@ -198,7 +225,7 @@ mod tests {
             .mount(&server)
             .await;
 
-        let response = test_router(&server, "issuer-secret")
+        let response = test_router(&server, "issuer-secret", &["hyprnote_pro"])
             .oneshot(Request::post("/token").body(Body::empty()).unwrap())
             .await
             .unwrap();

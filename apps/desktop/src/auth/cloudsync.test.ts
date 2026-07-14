@@ -127,6 +127,34 @@ describe("CloudSync auth lifecycle", () => {
     expect(suspendCloudsync).toHaveBeenCalledTimes(1);
   });
 
+  test("keeps sync disabled when the account does not have Pro", async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            error: {
+              code: "subscription_required",
+              message: "Anarlog Pro is required for CloudSync",
+            },
+          }),
+          { status: 403, headers: { "Content-Type": "application/json" } },
+        ),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await handleCloudsyncAuthChange("INITIAL_SESSION", session());
+    await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(configureCloudsyncToken).not.toHaveBeenCalled();
+    expect(suspendCloudsync).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(
+      "[cloudsync] Anarlog Pro is required; sync remains disabled",
+    );
+  });
+
   test("suspends existing sync when the initial session is empty", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);

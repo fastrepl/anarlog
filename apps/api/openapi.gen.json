@@ -1427,6 +1427,40 @@
         }
       }
     },
+    "/sync/token": {
+      "post": {
+        "tags": [
+          "sync"
+        ],
+        "operationId": "create_credentials",
+        "responses": {
+          "200": {
+            "description": "Short-lived CloudSync credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloudsyncCredentials"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Anarlog Pro subscription required"
+          },
+          "502": {
+            "description": "Credential issuer unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
     "/ticket/github/list-repos": {
       "post": {
         "tags": [
@@ -2290,6 +2324,29 @@
           "doNotDisturb",
           "unknown"
         ]
+      },
+      "CloudsyncCredentials": {
+        "type": "object",
+        "required": [
+          "databaseId",
+          "token",
+          "expiresAt",
+          "workspaceId"
+        ],
+        "properties": {
+          "databaseId": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          },
+          "workspaceId": {
+            "type": "string"
+          }
+        }
       },
       "CollectionPage": {
         "type": "object",
@@ -8001,6 +8058,10 @@
       "description": "Integration management via Nango"
     },
     {
+      "name": "sync",
+      "description": "CloudSync credential management"
+    },
+    {
       "name": "subscription",
       "description": "Subscription and trial management"
     },
@@ -8019,6 +8080,10 @@
     {
       "name": "chatwoot",
       "description": "Chatwoot conversation persistence"
+    },
+    {
+      "name": "sync",
+      "description": "Sync management"
     }
   ]
 }

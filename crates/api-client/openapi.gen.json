@@ -3521,6 +3521,10 @@
       "name": "nango"
     },
     {
+      "description": "CloudSync credential management",
+      "name": "sync"
+    },
+    {
       "description": "Subscription and trial management",
       "name": "subscription"
     },
@@ -3539,6 +3543,10 @@
     {
       "description": "Chatwoot conversation persistence",
       "name": "chatwoot"
+    },
+    {
+      "description": "Sync management",
+      "name": "sync"
     }
   ]
 }

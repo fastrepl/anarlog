@@ -169,7 +169,14 @@ async function activateCloudsync(
       return "ok";
     }
 
-    if (response.status === 401 || response.status === 403) {
+    if (response.status === 403) {
+      console.warn(
+        "[cloudsync] Anarlog Pro is required; sync remains disabled",
+      );
+      return "ok";
+    }
+
+    if (response.status === 401) {
       console.warn("[cloudsync] credential exchange requires a fresh session");
       return "ok";
     }
