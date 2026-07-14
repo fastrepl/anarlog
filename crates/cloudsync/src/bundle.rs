@@ -1,4 +1,6 @@
 use std::fs;
+#[cfg(target_os = "macos")]
+use std::path::Path;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -125,6 +127,11 @@ pub fn bundled_extension_path() -> Result<PathBuf, Error> {
         all(target_os = "windows", target_arch = "x86_64"),
     ))]
     {
+        #[cfg(target_os = "macos")]
+        if let Some(path) = bundled_macos_extension_path() {
+            return Ok(path);
+        }
+
         let base_dir = dirs::cache_dir()
             .ok_or(Error::MissingCacheDir)?
             .join("char")
@@ -170,6 +177,38 @@ pub fn bundled_extension_path() -> Result<PathBuf, Error> {
         }
 
         Ok(extension_path)
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn bundled_macos_extension_path() -> Option<PathBuf> {
+    let executable = std::env::current_exe().ok()?;
+    macos_extension_path(&executable)
+}
+
+#[cfg(target_os = "macos")]
+fn macos_extension_path(executable: &Path) -> Option<PathBuf> {
+    let frameworks = executable.parent()?.parent()?.join("Frameworks");
+    let extension = frameworks.join(CLOUDSYNC_FILE_NAME);
+    extension.is_file().then_some(extension)
+}
+
+#[cfg(all(test, target_os = "macos"))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn packaged_macos_extension_comes_from_frameworks() {
+        let dir = tempfile::tempdir().unwrap();
+        let executable = dir.path().join("Example.app/Contents/MacOS/example");
+        let extension = dir
+            .path()
+            .join("Example.app/Contents/Frameworks")
+            .join(CLOUDSYNC_FILE_NAME);
+        fs::create_dir_all(extension.parent().unwrap()).unwrap();
+        fs::write(&extension, BUNDLED_CLOUDSYNC_BYTES).unwrap();
+
+        assert_eq!(macos_extension_path(&executable), Some(extension));
     }
 }
 

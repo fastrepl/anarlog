@@ -44,7 +44,9 @@
     },
     "macOS": {
       "minimumSystemVersion": "14.2",
-      "frameworks": [],
+      "frameworks": [
+        "../../../crates/cloudsync/vendor/cloudsync/macos/aarch64/cloudsync.dylib"
+      ],
       "entitlements": "./Entitlements.plist",
       "dmg": {
         "background": "assets/dmg-background-stable.png",

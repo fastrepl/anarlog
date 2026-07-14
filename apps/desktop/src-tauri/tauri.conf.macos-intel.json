@@ -1,6 +1,9 @@
 {
   "bundle": {
     "macOS": {
+      "frameworks": [
+        "../../../crates/cloudsync/vendor/cloudsync/macos/x86_64/cloudsync.dylib"
+      ],
       "files": {
         "Resources/mlx-swift_Cmlx.bundle/default.metallib": null
       }
