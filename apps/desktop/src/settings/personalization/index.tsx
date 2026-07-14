@@ -237,11 +237,11 @@ export function DictionarySettings({
         <Trans>Dictionary</Trans>
       </h2>
 
-      <InputGroup className="border-border bg-card has-[[data-slot=input-group-control]:focus-visible]:border-border min-h-12 rounded-full shadow-none has-[[data-slot=input-group-control]:focus-visible]:ring-0">
+      <InputGroup className="border-border bg-card has-[[data-slot=input-group-control]:focus-visible]:border-border rounded-full shadow-none has-[[data-slot=input-group-control]:focus-visible]:ring-0">
         <form.Field name="term">
           {(field) => (
             <InputGroupInput
-              className="h-12 py-3 pr-6 pl-4"
+              className="pr-4 pl-4"
               placeholder={t`Add names, jargon, or product terms to prefer`}
               value={field.state.value}
               onChange={(event) => field.handleChange(event.target.value)}
@@ -249,7 +249,7 @@ export function DictionarySettings({
             />
           )}
         </form.Field>
-        <InputGroupAddon align="inline-end" className="pr-2.5">
+        <InputGroupAddon align="inline-end" className="pr-1.5">
           <form.Subscribe selector={(state) => state.values.term}>
             {(value) => {
               const hasInput = parseDictionaryTermsText(value).length > 0;
@@ -263,7 +263,7 @@ export function DictionarySettings({
                   variant="ghost"
                   size="sm"
                   className={cn([
-                    "h-10 rounded-full px-5",
+                    "rounded-full px-3",
                     hasInput
                       ? "bg-black text-white hover:bg-black/90 hover:text-white dark:bg-white dark:text-black dark:hover:bg-white/90 dark:hover:text-black"
                       : null,
