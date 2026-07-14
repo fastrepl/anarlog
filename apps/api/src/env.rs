@@ -94,3 +94,25 @@ fn field_name_to_env_var(field: &str) -> String {
         .flat_map(|ch| ch.to_uppercase())
         .collect::<String>()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(Deserialize)]
+    struct SyncOnlyEnv {
+        #[serde(flatten)]
+        sync: hypr_api_sync::SyncEnv,
+    }
+
+    #[test]
+    fn deserializes_cloudsync_ttl_from_environment_string() {
+        let env: SyncOnlyEnv = envy::from_iter([(
+            "ANARLOG_CLOUDSYNC_TOKEN_TTL_SECONDS".to_string(),
+            "300".to_string(),
+        )])
+        .unwrap();
+
+        assert_eq!(env.sync.anarlog_cloudsync_token_ttl_seconds, Some(300));
+    }
+}

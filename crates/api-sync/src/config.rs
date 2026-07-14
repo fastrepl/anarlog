@@ -12,8 +12,17 @@ pub struct SyncEnv {
     pub sqlitecloud_token_issuer_api_key: Option<String>,
     #[serde(default)]
     pub anarlog_cloudsync_database_id: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_optional_u64")]
     pub anarlog_cloudsync_token_ttl_seconds: Option<u64>,
+}
+
+fn deserialize_optional_u64<'de, D>(deserializer: D) -> Result<Option<u64>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Option::<String>::deserialize(deserializer)?
+        .map(|value| value.parse().map_err(serde::de::Error::custom))
+        .transpose()
 }
 
 #[derive(Clone)]
