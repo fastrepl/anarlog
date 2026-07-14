@@ -7,6 +7,8 @@ import { DEFAULT_SUMMARY_PROMPT } from "~/shared/summary-prompt";
 const mocks = vi.hoisted(() => ({
   collectEnhanceImageContext: vi.fn(),
   getTemplateById: vi.fn(),
+  formatMeetingChatContext: vi.fn(),
+  loadMeetingChatRecords: vi.fn(),
   loadSessionContentSnapshot: vi.fn(),
   loadHumansByIds: vi.fn(),
   buildRenderTranscriptRequestFromRows: vi.fn(),
@@ -24,6 +26,11 @@ vi.mock("~/templates/queries", () => ({
 
 vi.mock("~/session/content-queries", () => ({
   loadSessionContentSnapshot: mocks.loadSessionContentSnapshot,
+}));
+
+vi.mock("~/stt/meeting-chat-records", () => ({
+  formatMeetingChatContext: mocks.formatMeetingChatContext,
+  loadMeetingChatRecords: mocks.loadMeetingChatRecords,
 }));
 
 vi.mock("~/contacts/queries", () => ({
@@ -75,6 +82,8 @@ describe("enhanceTransform.transformArgs", () => {
     vi.clearAllMocks();
     mocks.collectEnhanceImageContext.mockResolvedValue([]);
     mocks.getTemplateById.mockResolvedValue(null);
+    mocks.formatMeetingChatContext.mockReturnValue("");
+    mocks.loadMeetingChatRecords.mockResolvedValue([]);
     mocks.loadSessionContentSnapshot.mockResolvedValue(createSnapshot());
     mocks.loadHumansByIds.mockResolvedValue([{ id: "human-1", name: "Alice" }]);
     mocks.collectAssignedHumanIdsFromTranscriptRows.mockReturnValue([]);
@@ -210,6 +219,24 @@ describe("enhanceTransform.transformArgs", () => {
         humans: [{ human_id: "human-1", name: "Alice" }],
       },
       ["human-1"],
+    );
+  });
+
+  it("includes captured meeting chat in the post-meeting memo", async () => {
+    mocks.loadMeetingChatRecords.mockResolvedValue([
+      { text: "Review the rollout plan" },
+    ]);
+    mocks.formatMeetingChatContext.mockReturnValue(
+      "## Meeting chat\n- Slack · Ada\n  Review the rollout plan",
+    );
+
+    const result = await enhanceTransform.transformArgs(
+      { sessionId: "session-1", enhancedNoteId: "note-1" },
+      settingsValues,
+    );
+
+    expect(result.postMeetingMemo).toBe(
+      "![post](asset://localhost/post.png)\n\n## Meeting chat\n- Slack · Ada\n  Review the rollout plan",
     );
   });
 

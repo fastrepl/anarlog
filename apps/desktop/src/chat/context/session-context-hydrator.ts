@@ -6,6 +6,10 @@ import {
   type SessionContentSnapshot,
 } from "~/session/content-queries";
 import {
+  formatMeetingChatRecordsAsMarkdown,
+  loadMeetingChatRecords,
+} from "~/stt/meeting-chat-records";
+import {
   buildRenderTranscriptRequestFromRows,
   collectAssignedHumanIdsFromTranscriptRows,
   renderTranscriptSegments,
@@ -109,12 +113,16 @@ export async function hydrateSessionContext(
     selfHumanId,
   );
   const eventName = extractEventName(snapshot.event);
+  const meetingChat = formatMeetingChatRecordsAsMarkdown(
+    await loadMeetingChatRecords(sessionId),
+  );
 
   return {
     title: snapshot.title || null,
     date: snapshot.createdAt || null,
     rawContent: snapshot.rawMarkdown || null,
     enhancedContent: enhancedContent || null,
+    meetingChat: meetingChat || null,
     transcript,
     participants,
     event: eventName ? { name: eventName } : null,

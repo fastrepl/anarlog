@@ -1,9 +1,9 @@
 import type { MeetingCapturedChatMessage } from "@hypr/plugin-detect";
 
-import { executeTransaction, useLiveQuery } from "~/db";
+import { executeTransaction, liveQueryClient, useLiveQuery } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
 
-type MeetingChatDocumentRow = {
+export type MeetingChatDocumentRow = {
   id: string;
   body: string;
   created_at: string;
@@ -14,6 +14,15 @@ export type MeetingChatRecord = MeetingCapturedChatMessage & {
 };
 
 const EMPTY_MEETING_CHAT_RECORDS: MeetingChatRecord[] = [];
+
+const MEETING_CHAT_RECORDS_SQL = `
+  SELECT id, body, created_at
+  FROM session_documents
+  WHERE session_id = ?
+    AND kind = 'meeting_chat'
+    AND deleted_at IS NULL
+  ORDER BY sort_order, created_at, id
+`;
 
 const MEETING_PLATFORM_LABELS = {
   zoom: "Zoom",
@@ -30,20 +39,27 @@ export function useMeetingChatRecords(sessionId: string): MeetingChatRecord[] {
     MeetingChatDocumentRow,
     MeetingChatRecord[]
   >({
-    sql: `
-      SELECT id, body, created_at
-      FROM session_documents
-      WHERE session_id = ?
-        AND kind = 'meeting_chat'
-        AND deleted_at IS NULL
-      ORDER BY sort_order, created_at, id
-    `,
+    sql: MEETING_CHAT_RECORDS_SQL,
     params: [sessionId],
     enabled: Boolean(sessionId),
     mapRows: (rows) => rows.flatMap(parseMeetingChatDocument),
   });
 
   return sessionId ? data : EMPTY_MEETING_CHAT_RECORDS;
+}
+
+export async function loadMeetingChatRecords(
+  sessionId: string,
+): Promise<MeetingChatRecord[]> {
+  if (!sessionId) {
+    return [];
+  }
+
+  const rows = await liveQueryClient.execute<MeetingChatDocumentRow>(
+    MEETING_CHAT_RECORDS_SQL,
+    [sessionId],
+  );
+  return rows.flatMap(parseMeetingChatDocument);
 }
 
 export function persistMeetingChatRecords({
@@ -113,7 +129,7 @@ export function persistMeetingChatRecords({
   });
 }
 
-function parseMeetingChatDocument(
+export function parseMeetingChatDocument(
   row: MeetingChatDocumentRow,
 ): MeetingChatRecord[] {
   try {
@@ -179,6 +195,36 @@ export function formatMeetingPlatform(
   platform: MeetingCapturedChatMessage["platform"],
 ) {
   return MEETING_PLATFORM_LABELS[platform];
+}
+
+export function formatMeetingChatRecordsAsMarkdown(
+  records: MeetingChatRecord[],
+) {
+  return records
+    .map((record) => {
+      const direction =
+        record.direction === "outgoing"
+          ? "sent"
+          : record.direction === "incoming"
+            ? "received"
+            : null;
+      const metadata = [
+        formatMeetingPlatform(record.platform),
+        record.timestamp,
+        record.sender,
+        direction,
+      ]
+        .filter((value): value is string => Boolean(value))
+        .join(" · ");
+      const text = record.text.replace(/\n/g, "\n  ");
+      return `- ${metadata}\n  ${text}`;
+    })
+    .join("\n");
+}
+
+export function formatMeetingChatContext(records: MeetingChatRecord[]) {
+  const markdown = formatMeetingChatRecordsAsMarkdown(records);
+  return markdown ? `## Meeting chat\n${markdown}` : "";
 }
 
 function createSourceHash(value: string): string {

@@ -9,6 +9,10 @@ import {
   loadSessionContentSnapshot,
   type SessionContentSnapshot,
 } from "~/session/content-queries";
+import {
+  formatMeetingChatRecordsAsMarkdown,
+  loadMeetingChatRecords,
+} from "~/stt/meeting-chat-records";
 
 const DEFAULT_READ_MAX_CHARS = 16_000;
 const MAX_READ_CHARS = 30_000;
@@ -98,13 +102,23 @@ function extractTranscriptText(
   return chunks.length > 0 ? chunks.join("\n\n") : null;
 }
 
-function buildNoteSections(snapshot: SessionContentSnapshot): NoteSection[] {
+function buildNoteSections(
+  snapshot: SessionContentSnapshot,
+  meetingChatMarkdown = "",
+): NoteSection[] {
   const sections: NoteSection[] = [];
 
   if (snapshot.rawMarkdown.trim()) {
     sections.push({
       title: "Raw note",
       text: snapshot.rawMarkdown.trim(),
+    });
+  }
+
+  if (meetingChatMarkdown.trim()) {
+    sections.push({
+      title: "Meeting chat",
+      text: meetingChatMarkdown.trim(),
     });
   }
 
@@ -166,6 +180,9 @@ function limitText(
 async function loadNoteFile(sessionId: string): Promise<LoadedNoteFile | null> {
   const snapshot = await loadSessionContentSnapshot(sessionId);
   if (!snapshot) return null;
+  const meetingChatMarkdown = formatMeetingChatRecordsAsMarkdown(
+    await loadMeetingChatRecords(sessionId),
+  );
 
   const participantIds = snapshot.participants.map(
     (participant) => participant.humanId,
@@ -190,7 +207,7 @@ async function loadNoteFile(sessionId: string): Promise<LoadedNoteFile | null> {
     participantIds,
     participants,
     participantNamesById,
-    sections: buildNoteSections(snapshot),
+    sections: buildNoteSections(snapshot, meetingChatMarkdown),
   };
 }
 

@@ -1,8 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  formatMeetingChatRecordsAsMarkdown: vi.fn(),
   loadActiveSessionIds: vi.fn(),
+  loadMeetingChatRecords: vi.fn(),
   loadSessionContentSnapshot: vi.fn(),
+}));
+
+vi.mock("~/stt/meeting-chat-records", () => ({
+  formatMeetingChatRecordsAsMarkdown: mocks.formatMeetingChatRecordsAsMarkdown,
+  loadMeetingChatRecords: mocks.loadMeetingChatRecords,
 }));
 
 vi.mock("~/session/content-queries", () => ({
@@ -34,47 +41,75 @@ describe("note file chat tools", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.loadActiveSessionIds.mockResolvedValue(["session-1"]);
+    mocks.formatMeetingChatRecordsAsMarkdown.mockReturnValue("");
+    mocks.loadMeetingChatRecords.mockResolvedValue([]);
     mocks.loadSessionContentSnapshot.mockResolvedValue(snapshot);
   });
 
   it("extracts raw, enhanced, and transcript sections from session files", () => {
-    const sections = noteFileTestInternals.buildNoteSections({
-      rawMarkdown: "Raw memo",
-      enhancedNotes: [
-        {
-          id: "summary-1",
-          title: "Summary",
-          markdown: "Enhanced note",
-          position: 1,
-        },
-      ],
-      transcripts: [
-        {
-          id: "transcript-1",
-          memo: "",
-          words: [
-            {
-              text: "Hello",
-              start_ms: 0,
-              end_ms: 100,
-              channel: 0,
-            },
-            {
-              text: "world",
-              start_ms: 100,
-              end_ms: 200,
-              channel: 0,
-            },
-          ],
-        },
-      ],
-    } as any);
+    const sections = noteFileTestInternals.buildNoteSections(
+      {
+        rawMarkdown: "Raw memo",
+        enhancedNotes: [
+          {
+            id: "summary-1",
+            title: "Summary",
+            markdown: "Enhanced note",
+            position: 1,
+          },
+        ],
+        transcripts: [
+          {
+            id: "transcript-1",
+            memo: "",
+            words: [
+              {
+                text: "Hello",
+                start_ms: 0,
+                end_ms: 100,
+                channel: 0,
+              },
+              {
+                text: "world",
+                start_ms: 100,
+                end_ms: 200,
+                channel: 0,
+              },
+            ],
+          },
+        ],
+      } as any,
+      "- Slack · Ada\n  Review the rollout plan",
+    );
 
     expect(sections).toEqual([
       { title: "Raw note", text: "Raw memo" },
+      {
+        title: "Meeting chat",
+        text: "- Slack · Ada\n  Review the rollout plan",
+      },
       { title: "Summary", text: "Enhanced note" },
       { title: "Transcript", text: "Hello world" },
     ]);
+  });
+
+  it("searches content that appears only in captured meeting chat", async () => {
+    mocks.loadMeetingChatRecords.mockResolvedValue([
+      { text: "Use the canary rollout phrase" },
+    ]);
+    mocks.formatMeetingChatRecordsAsMarkdown.mockReturnValue(
+      "- Slack · Ada\n  Use the canary rollout phrase",
+    );
+
+    const tool = buildSearchMeetingContentTool({} as any);
+    const result = await (tool as any).execute({ query: "canary rollout" });
+
+    expect(result.results[0]?.meeting_id).toBe("session-1");
+    expect(
+      result.results[0]?.snippets.some(
+        (snippet: { section: string }) => snippet.section === "Meeting chat",
+      ),
+    ).toBe(true);
   });
 
   it("matches lexical note content and returns snippets", () => {

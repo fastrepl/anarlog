@@ -152,6 +152,11 @@ Enhanced Meeting Summary:
 User written note:
 {{ raw_content }}
 {%- endif -%}
+{%- if let Some(meeting_chat) = ctx.meeting_chat %}
+
+Meeting Chat:
+{{ meeting_chat }}
+{%- endif -%}
 {%- if let Some(transcript) = ctx.transcript %}
 
 Full Meeting Transcript:

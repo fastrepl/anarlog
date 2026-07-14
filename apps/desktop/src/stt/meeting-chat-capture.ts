@@ -1,6 +1,8 @@
 import { commands as detectCommands } from "@hypr/plugin-detect";
 import type { MeetingCapturedChatMessage } from "@hypr/plugin-detect";
 
+import { getStoredSettingValues } from "~/settings/queries";
+import { resolveConfigValue } from "~/shared/config";
 import { showTransientToast } from "~/sidebar/toast/transient";
 import { persistMeetingChatRecords } from "~/stt/meeting-chat-records";
 
@@ -12,7 +14,7 @@ export function startMeetingChatCapture({
   excludedTexts = [],
 }: {
   sessionId: string;
-  isEnabled: () => boolean;
+  isEnabled?: () => boolean | Promise<boolean>;
   excludedTexts?: string[];
 }) {
   const excludedMessages = new Set(excludedTexts.map(normalizeMessageText));
@@ -21,25 +23,31 @@ export function startMeetingChatCapture({
   let stopped = false;
   let inFlight = false;
   let lastWarning = "";
+  const captureIsEnabled =
+    isEnabled ??
+    (async () =>
+      resolveConfigValue(
+        "capture_meeting_chat",
+        await getStoredSettingValues(),
+      ));
 
   const capture = async () => {
     if (stopped || inFlight) {
       return;
     }
-    if (!isEnabled()) {
-      baselineContext = null;
-      return;
-    }
-
     inFlight = true;
     try {
+      if (!(await captureIsEnabled())) {
+        baselineContext = null;
+        return;
+      }
+
       const applications = await detectCommands.listMicUsingApplications();
-      if (stopped || !isEnabled()) {
+      if (stopped || !(await captureIsEnabled())) {
         baselineContext = null;
         return;
       }
       if (applications.status === "error") {
-        baselineContext = null;
         console.warn(
           "[listener] failed to identify active meeting app",
           applications.error,
@@ -51,17 +59,15 @@ export function startMeetingChatCapture({
         ...new Set(applications.data.map((app) => app.id).filter(Boolean)),
       ];
       if (bundleIds.length === 0) {
-        baselineContext = null;
         return;
       }
 
       const result = await detectCommands.captureMeetingChatMessages(bundleIds);
-      if (stopped || !isEnabled()) {
+      if (stopped || !(await captureIsEnabled())) {
         baselineContext = null;
         return;
       }
       if (result.status === "error") {
-        baselineContext = null;
         console.warn("[listener] failed to capture meeting chat", result.error);
         return;
       }
@@ -72,7 +78,6 @@ export function startMeetingChatCapture({
       const contextId = result.data.contextId?.trim();
       const bundleId = result.data.app?.id;
       if (!bundleId || !bundleIds.includes(bundleId) || !contextId) {
-        baselineContext = null;
         return;
       }
 
@@ -123,14 +128,17 @@ export function startMeetingChatCapture({
         console.warn("[listener] failed to persist meeting chat", error);
         return;
       }
-      if (stopped || !isEnabled()) {
+      if (stopped) {
+        return;
+      }
+      if (!(await captureIsEnabled())) {
+        baselineContext = null;
         return;
       }
       for (const signature of persistedSignatures) {
         seenSignatures.add(signature);
       }
     } catch (error) {
-      baselineContext = null;
       console.warn("[listener] failed to capture meeting chat", error);
     } finally {
       inFlight = false;

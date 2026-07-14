@@ -2,17 +2,23 @@ import { renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import {
+  formatMeetingChatContext,
+  loadMeetingChatRecords,
   persistMeetingChatRecords,
   useMeetingChatRecords,
 } from "./meeting-chat-records";
 
-const { executeTransactionMock, useLiveQueryMock } = vi.hoisted(() => ({
-  executeTransactionMock: vi.fn(),
-  useLiveQueryMock: vi.fn(),
-}));
+const { executeMock, executeTransactionMock, useLiveQueryMock } = vi.hoisted(
+  () => ({
+    executeMock: vi.fn(),
+    executeTransactionMock: vi.fn(),
+    useLiveQueryMock: vi.fn(),
+  }),
+);
 
 vi.mock("~/db", () => ({
   executeTransaction: executeTransactionMock,
+  liveQueryClient: { execute: executeMock },
   useLiveQuery: useLiveQueryMock,
 }));
 
@@ -166,5 +172,45 @@ describe("meeting chat records", () => {
       platformLabels.map(([platform]) => platform),
     );
     expect(result.current[platformLabels.length - 1]?.surface).toBe("unknown");
+  });
+
+  test("loads ordered records imperatively and ignores malformed rows", async () => {
+    executeMock.mockResolvedValue([
+      {
+        id: "document-1",
+        body: JSON.stringify(message),
+        created_at: "2026-07-13T10:00:00.000Z",
+      },
+      {
+        id: "broken",
+        body: "not json",
+        created_at: "2026-07-13T10:00:01.000Z",
+      },
+    ]);
+
+    await expect(loadMeetingChatRecords("session-1")).resolves.toEqual([
+      {
+        ...message,
+        capturedAt: "2026-07-13T10:00:00.000Z",
+      },
+    ]);
+    expect(executeMock).toHaveBeenCalledWith(
+      expect.stringContaining("ORDER BY sort_order, created_at, id"),
+      ["session-1"],
+    );
+  });
+
+  test("formats a labeled meeting-chat context block", () => {
+    expect(
+      formatMeetingChatContext([
+        {
+          ...message,
+          capturedAt: "2026-07-13T10:00:00.000Z",
+        },
+      ]),
+    ).toBe(
+      "## Meeting chat\n- Zoom · 10:42 AM · Ada · received\n  Review https://example.com/spec",
+    );
+    expect(formatMeetingChatContext([])).toBe("");
   });
 });

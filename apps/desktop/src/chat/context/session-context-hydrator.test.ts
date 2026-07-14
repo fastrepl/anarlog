@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  formatMeetingChatRecordsAsMarkdown: vi.fn(),
+  loadMeetingChatRecords: vi.fn(),
   loadSessionContentSnapshot: vi.fn(),
   loadHumansByIds: vi.fn(),
   buildRenderTranscriptRequestFromRows: vi.fn(),
@@ -14,6 +16,11 @@ vi.mock("~/contacts/queries", () => ({
 
 vi.mock("~/session/content-queries", () => ({
   loadSessionContentSnapshot: mocks.loadSessionContentSnapshot,
+}));
+
+vi.mock("~/stt/meeting-chat-records", () => ({
+  formatMeetingChatRecordsAsMarkdown: mocks.formatMeetingChatRecordsAsMarkdown,
+  loadMeetingChatRecords: mocks.loadMeetingChatRecords,
 }));
 
 vi.mock("~/stt/render-transcript", () => ({
@@ -46,6 +53,12 @@ describe("session chat context hydration", () => {
     mocks.renderTranscriptSegments.mockResolvedValue([
       { speaker_label: "SQLite Person", text: "Transcript text" },
     ]);
+    mocks.loadMeetingChatRecords.mockResolvedValue([
+      { text: "Review the rollout plan" },
+    ]);
+    mocks.formatMeetingChatRecordsAsMarkdown.mockReturnValue(
+      "- Slack · 10:42 AM · Ada · received\n  Review the rollout plan",
+    );
     mocks.loadSessionContentSnapshot.mockResolvedValue({
       sessionId: "session-1",
       title: "Planning",
@@ -101,6 +114,8 @@ describe("session chat context hydration", () => {
         date: "2026-07-10T09:00:00.000Z",
         rawContent: "Raw note",
         enhancedContent: "First\n\n---\n\nSecond",
+        meetingChat:
+          "- Slack · 10:42 AM · Ada · received\n  Review the rollout plan",
         transcript: {
           segments: [{ speaker: "SQLite Person", text: "Transcript text" }],
           startedAt: 100,
