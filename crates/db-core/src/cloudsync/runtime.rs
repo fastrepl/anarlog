@@ -48,6 +48,14 @@ impl Db {
 
     pub async fn cloudsync_start(&self) -> Result<(), CloudsyncRuntimeError> {
         let _lifecycle = self.cloudsync_lifecycle.lock().await;
+        let needs_cleanup = {
+            let runtime = self.cloudsync_runtime.lock().unwrap();
+            !runtime.running && (runtime.network_initialized || runtime.task.is_some())
+        };
+        if needs_cleanup {
+            self.cloudsync_stop_locked().await?;
+        }
+
         if !self.cloudsync_enabled {
             let mut runtime = self.cloudsync_runtime.lock().unwrap();
             runtime.running = false;
@@ -125,6 +133,10 @@ impl Db {
 
     pub async fn cloudsync_stop(&self) -> Result<(), CloudsyncRuntimeError> {
         let _lifecycle = self.cloudsync_lifecycle.lock().await;
+        self.cloudsync_stop_locked().await
+    }
+
+    async fn cloudsync_stop_locked(&self) -> Result<(), CloudsyncRuntimeError> {
         let should_cleanup = self.stop_cloudsync_task().await;
 
         if !self.cloudsync_enabled {
@@ -453,6 +465,81 @@ mod tests {
 
         assert!(db.cloudsync_connection.lock().await.is_none());
         assert!(db.cloudsync_runtime.lock().unwrap().config.is_none());
+    }
+
+    #[tokio::test]
+    async fn restart_after_fatal_exit_cleans_native_state() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db_path = tmp.path().join("app.db");
+        let db = Db::open(crate::DbOpenOptions {
+            storage: crate::DbStorage::Local(&db_path),
+            cloudsync_enabled: true,
+            journal_mode_wal: true,
+            foreign_keys: true,
+            max_connections: Some(2),
+        })
+        .await
+        .unwrap();
+        db.cloudsync_configure(CloudsyncRuntimeConfig {
+            connection_string: "managed-database-id".to_string(),
+            auth: super::super::CloudsyncAuth::None,
+            tables: Vec::new(),
+            sync_interval_ms: 30_000,
+            wait_ms: Some(5_000),
+            max_retries: Some(3),
+        })
+        .unwrap();
+        db.cloudsync_start().await.unwrap();
+        {
+            let mut connection = db.cloudsync_connection.lock().await;
+            sqlx::query("CREATE TEMP TABLE stale_cloudsync_connection (id INTEGER)")
+                .execute(&mut **connection.as_mut().unwrap())
+                .await
+                .unwrap();
+        }
+
+        let mut running_task = db.cloudsync_runtime.lock().unwrap().task.take().unwrap();
+        let _ = running_task.shutdown_tx.take().unwrap().send(());
+        let _ = running_task.join_handle.await;
+
+        let (stale_shutdown_tx, stale_shutdown_rx) = oneshot::channel::<()>();
+        let (finished_tx, finished_rx) = oneshot::channel();
+        let join_handle = tokio::spawn(async move {
+            drop(stale_shutdown_rx);
+            let _ = finished_tx.send(());
+        });
+        finished_rx.await.unwrap();
+        {
+            let mut runtime = db.cloudsync_runtime.lock().unwrap();
+            runtime.running = false;
+            runtime.last_error = Some("fatal sync failure".to_string());
+            runtime.last_error_kind = Some(hypr_cloudsync::ErrorKind::Fatal);
+            runtime.task = Some(CloudsyncBackgroundTask {
+                shutdown_tx: Some(stale_shutdown_tx),
+                join_handle,
+            });
+        }
+
+        db.cloudsync_start().await.unwrap();
+
+        {
+            let runtime = db.cloudsync_runtime.lock().unwrap();
+            assert!(runtime.running);
+            assert!(runtime.network_initialized);
+            assert!(runtime.task.is_some());
+            assert!(runtime.last_error.is_none());
+        }
+        let marker_count: i64 = {
+            let mut connection = db.cloudsync_connection.lock().await;
+            sqlx::query_scalar(
+                "SELECT COUNT(*) FROM sqlite_temp_master WHERE name = 'stale_cloudsync_connection'",
+            )
+            .fetch_one(&mut **connection.as_mut().unwrap())
+            .await
+            .unwrap()
+        };
+        assert_eq!(marker_count, 0);
+        db.cloudsync_stop().await.unwrap();
     }
 }
 
