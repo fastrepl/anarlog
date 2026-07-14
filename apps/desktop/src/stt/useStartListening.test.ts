@@ -583,7 +583,7 @@ describe("useStartListening", () => {
           : [],
     );
 
-    const { result, rerender } = renderHook(() =>
+    const { result } = renderHook(() =>
       useStartListening("session-1"),
     );
 
