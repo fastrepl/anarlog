@@ -49,13 +49,14 @@ function PermissionRow({
         <p className="text-muted-foreground text-xs">{description}</p>
       </div>
       <Button
-        variant={isAuthorized ? "outline" : "default"}
+        variant={isAuthorized ? "ghost" : "default"}
         size="icon"
         onClick={handleButtonClick}
         disabled={isPending}
         className={cn([
           "size-8",
-          isAuthorized && "bg-muted text-foreground hover:bg-accent",
+          isAuthorized &&
+            "text-green-600 hover:bg-transparent hover:text-green-600",
         ])}
         aria-label={
           isAuthorized
