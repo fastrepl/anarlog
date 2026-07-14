@@ -77,7 +77,7 @@ export function LegacyMigrationCleanupRow() {
       return {
         state: "success" as const,
         label: t`Migration complete`,
-        description: t`${status.fileCount} verified legacy files can be removed`,
+        description: null,
       };
     }
 
@@ -102,12 +102,16 @@ export function LegacyMigrationCleanupRow() {
             <TriangleAlertIcon className="size-4 shrink-0 text-yellow-600" />
           )}
           <span className="shrink-0 font-medium">{statusCopy.label}</span>
-          <span className="text-muted-foreground" aria-hidden="true">
-            ·
-          </span>
-          <span className="text-muted-foreground truncate">
-            {statusCopy.description}
-          </span>
+          {statusCopy.description && (
+            <>
+              <span className="text-muted-foreground" aria-hidden="true">
+                ·
+              </span>
+              <span className="text-muted-foreground truncate">
+                {statusCopy.description}
+              </span>
+            </>
+          )}
         </div>
         {status?.migrationVerified && status.available && (
           <Button

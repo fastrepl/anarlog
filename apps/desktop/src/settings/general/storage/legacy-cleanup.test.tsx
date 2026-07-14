@@ -75,8 +75,8 @@ describe("LegacyMigrationCleanupRow", () => {
       expect(screen.getByText("Migration complete")).toBeTruthy(),
     );
     expect(
-      screen.getByText("12 verified legacy files can be removed"),
-    ).toBeTruthy();
+      screen.queryByText("12 verified legacy files can be removed"),
+    ).toBeNull();
     expect(screen.getByRole("button", { name: "Clean Up" })).toBeTruthy();
   });
 
