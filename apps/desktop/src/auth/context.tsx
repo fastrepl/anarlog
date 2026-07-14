@@ -28,6 +28,7 @@ import { deriveBillingInfo } from "@hypr/supabase";
 
 import { persistAuthSession, supabase } from "./client";
 import {
+  claimCloudsyncAccountForAuth,
   handleCloudsyncAuthChange,
   prepareCloudsyncSignOut,
 } from "./cloudsync";
@@ -308,6 +309,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      if (nextSession) {
+        try {
+          const claimed = await claimCloudsyncAccountForAuth(
+            nextSession.user.id,
+          );
+          if (transition !== authTransitionRef.current) {
+            return;
+          }
+          if (!claimed) {
+            console.warn("[auth] local database belongs to another account");
+            await rejectAuthChange(transition, true);
+            return;
+          }
+        } catch {
+          if (transition !== authTransitionRef.current) {
+            return;
+          }
+          console.warn("[auth] local database account verification failed");
+          await rejectAuthChange(transition, true);
+          return;
+        }
+      }
+
       if (nextSession && storageRevision !== authStorageRevisionRef.current) {
         try {
           await persistAuthSession(nextSession);
@@ -541,11 +565,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error) {
         return null;
       }
-      if (data.session) {
-        setSession(data.session);
-        return data.session;
-      }
-      return null;
+      return data.session;
     },
   });
 

@@ -1,6 +1,7 @@
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 
 import {
+  claimCloudsyncAccount,
   configureCloudsyncToken,
   logoutCloudsync,
   suspendCloudsync,
@@ -46,6 +47,12 @@ function enqueuePluginOperation<T>(operation: () => Promise<T>) {
     () => {},
   );
   return next;
+}
+
+export async function claimCloudsyncAccountForAuth(
+  accountUserId: string,
+): Promise<boolean> {
+  return enqueuePluginOperation(() => claimCloudsyncAccount(accountUserId));
 }
 
 async function suspendCloudsyncForGeneration(activeGeneration: number) {
@@ -291,7 +298,7 @@ export async function prepareCloudsyncSignOut(session: Session): Promise<void> {
 }
 
 export async function handleCloudsyncAuthChange(
-  event: AuthChangeEvent,
+  _event: AuthChangeEvent,
   session: Session | null,
 ): Promise<CloudsyncAuthChangeResult> {
   if (!session) {
@@ -299,14 +306,5 @@ export async function handleCloudsyncAuthChange(
     return "ok";
   }
 
-  if (
-    event === "SIGNED_IN" ||
-    event === "INITIAL_SESSION" ||
-    event === "TOKEN_REFRESHED" ||
-    event === "USER_UPDATED"
-  ) {
-    return activateCloudsync(session);
-  }
-
-  return "ok";
+  return activateCloudsync(session);
 }

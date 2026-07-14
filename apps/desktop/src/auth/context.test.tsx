@@ -16,12 +16,14 @@ const mocks = vi.hoisted(() => ({
   authCallback: null as
     | ((event: AuthChangeEvent, session: Session | null) => void)
     | null,
+  claimCloudsyncAccountForAuth: vi.fn(),
   clearAuthStorage: vi.fn(),
   getSession: vi.fn(),
   handleCloudsyncAuthChange: vi.fn(),
   isFatalSessionError: vi.fn(),
   persistAuthSession: vi.fn(),
   prepareCloudsyncSignOut: vi.fn(),
+  refreshSession: vi.fn(),
   signOut: vi.fn(),
   startAutoRefresh: vi.fn(),
   stopAutoRefresh: vi.fn(),
@@ -46,7 +48,7 @@ vi.mock("./client", () => ({
           };
         },
       ),
-      refreshSession: vi.fn(),
+      refreshSession: mocks.refreshSession,
       setSession: vi.fn(),
       signOut: mocks.signOut,
       startAutoRefresh: mocks.startAutoRefresh,
@@ -56,6 +58,7 @@ vi.mock("./client", () => ({
 }));
 
 vi.mock("./cloudsync", () => ({
+  claimCloudsyncAccountForAuth: mocks.claimCloudsyncAccountForAuth,
   handleCloudsyncAuthChange: mocks.handleCloudsyncAuthChange,
   prepareCloudsyncSignOut: mocks.prepareCloudsyncSignOut,
 }));
@@ -148,10 +151,14 @@ function makeSession(userId: string): Session {
 }
 
 function SessionProbe() {
-  const { session, signOut } = useAuth();
+  const { refreshSession, session, signOut } = useAuth();
   return (
     <>
       <div data-testid="session">{session?.user.id ?? "none"}</div>
+      <div data-testid="access-token">{session?.access_token ?? "none"}</div>
+      <button onClick={() => void refreshSession().catch(() => {})}>
+        Refresh
+      </button>
       <button onClick={() => void signOut().catch(() => {})}>Sign out</button>
     </>
   );
@@ -177,21 +184,28 @@ function renderAuthProvider() {
 describe("AuthProvider", () => {
   beforeEach(() => {
     mocks.authCallback = null;
+    mocks.claimCloudsyncAccountForAuth.mockReset();
     mocks.clearAuthStorage.mockReset();
     mocks.getSession.mockReset();
     mocks.handleCloudsyncAuthChange.mockReset();
     mocks.isFatalSessionError.mockReset();
     mocks.persistAuthSession.mockReset();
     mocks.prepareCloudsyncSignOut.mockReset();
+    mocks.refreshSession.mockReset();
     mocks.signOut.mockReset();
     mocks.startAutoRefresh.mockReset();
     mocks.stopAutoRefresh.mockReset();
     mocks.clearAuthStorage.mockResolvedValue(undefined);
+    mocks.claimCloudsyncAccountForAuth.mockResolvedValue(true);
     mocks.getSession.mockImplementation(() => new Promise(() => {}));
     mocks.handleCloudsyncAuthChange.mockResolvedValue("ok");
     mocks.isFatalSessionError.mockReturnValue(false);
     mocks.persistAuthSession.mockResolvedValue(undefined);
     mocks.prepareCloudsyncSignOut.mockResolvedValue(undefined);
+    mocks.refreshSession.mockResolvedValue({
+      data: { session: null },
+      error: null,
+    });
     mocks.signOut.mockResolvedValue({ error: null });
     mocks.startAutoRefresh.mockResolvedValue(undefined);
     mocks.stopAutoRefresh.mockResolvedValue(undefined);
@@ -199,6 +213,148 @@ describe("AuthProvider", () => {
 
   afterEach(() => {
     cleanup();
+  });
+
+  it("keeps a session hidden until its local account claim succeeds", async () => {
+    const nextSession = makeSession("bound-account");
+    const claim = deferred<boolean>();
+    mocks.claimCloudsyncAccountForAuth.mockReturnValue(claim.promise);
+
+    renderAuthProvider();
+
+    await waitFor(() => {
+      expect(mocks.authCallback).not.toBeNull();
+    });
+
+    act(() => {
+      mocks.authCallback?.("SIGNED_IN", nextSession);
+    });
+
+    await waitFor(() => {
+      expect(mocks.claimCloudsyncAccountForAuth).toHaveBeenCalledWith(
+        nextSession.user.id,
+      );
+    });
+    expect(screen.getByTestId("session").textContent).toBe("none");
+    expect(mocks.persistAuthSession).not.toHaveBeenCalled();
+    expect(mocks.handleCloudsyncAuthChange).not.toHaveBeenCalledWith(
+      "SIGNED_IN",
+      nextSession,
+    );
+
+    await act(async () => {
+      claim.resolve(true);
+      await claim.promise;
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("session").textContent).toBe(
+        nextSession.user.id,
+      );
+    });
+  });
+
+  it("keeps a refreshed session hidden until admission succeeds", async () => {
+    const currentSession = makeSession("bound-account");
+    const refreshedSession = {
+      ...currentSession,
+      access_token: "refreshed-access-token",
+    };
+
+    renderAuthProvider();
+
+    await waitFor(() => {
+      expect(mocks.authCallback).not.toBeNull();
+    });
+
+    act(() => {
+      mocks.authCallback?.("SIGNED_IN", currentSession);
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("access-token").textContent).toBe(
+        currentSession.access_token,
+      );
+    });
+
+    const claim = deferred<boolean>();
+    mocks.claimCloudsyncAccountForAuth.mockReturnValueOnce(claim.promise);
+    mocks.refreshSession.mockImplementationOnce(async () => {
+      mocks.authCallback?.("TOKEN_REFRESHED", refreshedSession);
+      return { data: { session: refreshedSession }, error: null };
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+
+    await waitFor(() => {
+      expect(mocks.claimCloudsyncAccountForAuth).toHaveBeenCalledTimes(2);
+    });
+    expect(screen.getByTestId("access-token").textContent).toBe(
+      currentSession.access_token,
+    );
+
+    await act(async () => {
+      claim.resolve(true);
+      await claim.promise;
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("access-token").textContent).toBe(
+        refreshedSession.access_token,
+      );
+    });
+  });
+
+  it("rejects a different local database account before admission", async () => {
+    const foreignSession = makeSession("foreign-account");
+    mocks.claimCloudsyncAccountForAuth.mockResolvedValue(false);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    renderAuthProvider();
+
+    await waitFor(() => {
+      expect(mocks.authCallback).not.toBeNull();
+    });
+
+    act(() => {
+      mocks.authCallback?.("SIGNED_IN", foreignSession);
+    });
+
+    await waitFor(() => {
+      expect(mocks.clearAuthStorage).toHaveBeenCalledTimes(1);
+    });
+    expect(screen.getByTestId("session").textContent).toBe("none");
+    expect(mocks.persistAuthSession).not.toHaveBeenCalled();
+    expect(mocks.handleCloudsyncAuthChange).not.toHaveBeenCalledWith(
+      "SIGNED_IN",
+      foreignSession,
+    );
+  });
+
+  it("fails closed when the local database account cannot be verified", async () => {
+    const nextSession = makeSession("unverified-account");
+    mocks.claimCloudsyncAccountForAuth.mockRejectedValue(
+      new Error("database unavailable"),
+    );
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    renderAuthProvider();
+
+    await waitFor(() => {
+      expect(mocks.authCallback).not.toBeNull();
+    });
+
+    act(() => {
+      mocks.authCallback?.("SIGNED_IN", nextSession);
+    });
+
+    await waitFor(() => {
+      expect(mocks.clearAuthStorage).toHaveBeenCalledTimes(1);
+    });
+    expect(screen.getByTestId("session").textContent).toBe("none");
+    expect(mocks.persistAuthSession).not.toHaveBeenCalled();
+    expect(mocks.handleCloudsyncAuthChange).not.toHaveBeenCalledWith(
+      "SIGNED_IN",
+      nextSession,
+    );
   });
 
   it("restores a newer accepted session when stale mismatch cleanup was already running", async () => {

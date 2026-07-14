@@ -1,13 +1,15 @@
-import type { Session } from "@supabase/supabase-js";
+import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import {
+  claimCloudsyncAccount,
   configureCloudsyncToken,
   logoutCloudsync,
   suspendCloudsync,
 } from "@hypr/plugin-db";
 
 import {
+  claimCloudsyncAccountForAuth,
   handleCloudsyncAuthChange,
   prepareCloudsyncSignOut,
 } from "./cloudsync";
@@ -48,6 +50,7 @@ describe("CloudSync auth lifecycle", () => {
     vi.setSystemTime(NOW);
     await handleCloudsyncAuthChange("SIGNED_OUT", null);
     vi.clearAllMocks();
+    vi.mocked(claimCloudsyncAccount).mockResolvedValue(true);
     vi.mocked(configureCloudsyncToken).mockResolvedValue(true);
     vi.mocked(logoutCloudsync).mockResolvedValue(undefined);
   });
@@ -57,6 +60,13 @@ describe("CloudSync auth lifecycle", () => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
     vi.useRealTimers();
+  });
+
+  test("claims the local account without a token exchange", async () => {
+    await expect(claimCloudsyncAccountForAuth("user-id")).resolves.toBe(true);
+
+    expect(claimCloudsyncAccount).toHaveBeenCalledWith("user-id");
+    expect(configureCloudsyncToken).not.toHaveBeenCalled();
   });
 
   test("exchanges the Supabase token and refreshes before expiry", async () => {
@@ -231,6 +241,25 @@ describe("CloudSync auth lifecycle", () => {
     );
     expect(suspendCloudsync).toHaveBeenCalledTimes(1);
   });
+
+  test.each<AuthChangeEvent>(["PASSWORD_RECOVERY", "MFA_CHALLENGE_VERIFIED"])(
+    "restarts sync after %s",
+    async (event) => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(() => Promise.resolve(credentialsResponse())),
+      );
+
+      await handleCloudsyncAuthChange(event, session());
+
+      expect(configureCloudsyncToken).toHaveBeenCalledWith(
+        "database-id",
+        "sqlite-token",
+        "user-id",
+      );
+      expect(suspendCloudsync).toHaveBeenCalledTimes(1);
+    },
+  );
 
   test("checks for unsent changes before signing out", async () => {
     const fetchMock = vi.fn(() => Promise.resolve(credentialsResponse()));
