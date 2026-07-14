@@ -109,7 +109,17 @@ export function SummaryInstructionsSettings({
           return (
             <div className="flex flex-col gap-3">
               <div className="border-border bg-card overflow-hidden rounded-2xl border">
-                <div className="border-border bg-muted/40 flex items-center justify-between gap-3 border-b px-3 py-2">
+                <PromptEditor
+                  ref={editorRef}
+                  ariaLabel={t`Summary instructions`}
+                  className="min-h-40 px-4 py-3 text-sm leading-5"
+                  initialValue={field.state.value}
+                  maxLength={4000}
+                  placeholder={t`Example: Start with a two-sentence overview, then list decisions and action items with owners. Do not use headings.`}
+                  onChange={field.handleChange}
+                  onBlur={field.handleBlur}
+                />
+                <div className="border-border bg-muted/40 flex items-center justify-between gap-3 border-t px-3 py-2">
                   <span className="text-muted-foreground text-xs font-medium">
                     Variables
                   </span>
@@ -125,16 +135,6 @@ export function SummaryInstructionsSettings({
                     Template
                   </Button>
                 </div>
-                <PromptEditor
-                  ref={editorRef}
-                  ariaLabel={t`Summary instructions`}
-                  className="min-h-40 px-4 py-3 text-sm leading-5"
-                  initialValue={field.state.value}
-                  maxLength={4000}
-                  placeholder={t`Example: Start with a two-sentence overview, then list decisions and action items with owners. Do not use headings.`}
-                  onChange={field.handleChange}
-                  onBlur={field.handleBlur}
-                />
               </div>
 
               <p className="text-muted-foreground text-sm">

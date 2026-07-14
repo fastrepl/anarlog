@@ -150,6 +150,20 @@ describe("SummaryInstructionsSettings", () => {
     ).toBe("Keep it brief\n\n{{ template }}");
   });
 
+  it("shows variables below the editor", () => {
+    render(<SummaryInstructionsSettings instructions="" onSave={vi.fn()} />);
+
+    const editor = screen.getByRole("textbox", {
+      name: "Summary instructions",
+    });
+    const variables = screen.getByText("Variables");
+
+    expect(
+      editor.compareDocumentPosition(variables) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it("disables reset when the built-in prompt is already active", () => {
     render(
       <SummaryInstructionsSettings
